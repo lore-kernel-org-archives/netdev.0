@@ -1,73 +1,61 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] ARM: at91/dt: sama5d3 xplained: add phy address for macb1
-Date: Fri, 3 Apr 2015 10:43:40 +0200
-Message-ID: <551E52BC.3040702@atmel.com>
-References: <1427792170-13162-1-git-send-email-nicolas.ferre@atmel.com>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: Re: [PATCH RFC 06/10] dpaa_eth: add ethtool functionality
+Date: Fri, 3 Apr 2015 08:54:36 +0000
+Message-ID: <BL2PR03MB54597F6E69800CDAE4D31D0E6F10@BL2PR03MB545.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Johan Hovold <johan@kernel.org>, <stable@vger.kernel.org>
-To: <linux-arm-kernel@lists.infradead.org>,
-	Arnd Bergmann <arnd@arndb.de>, Olof Johansson <olof@lixom.net>,
-	Kevin Hilman <khilman@kernel.org>,
-	"ARM Maintainers" <arm@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427792170-13162-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0126.outbound.protection.outlook.com ([65.55.169.126]:7982
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752353AbbDCIyj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 04:54:39 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 31/03/2015 10:56, Nicolas Ferre a =E9crit :
-> After 57a38effa598 (net: phy: micrel: disable broadcast for KSZ8081/K=
-SZ8091)
-> the macb1 interface refuses to work properly because it tries
-> to cling to address 0 which isn't able to communicate in broadcast wi=
-th
-> the mac anymore. The micrel phy on the board is actually configured
-> to show up at address 1.
-> Adding the phy node and its real address fixes the issue.
->=20
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: Johan Hovold <johan@kernel.org>
-> Cc: <stable@vger.kernel.org> #3.19
-> ---
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+> On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
+> > Add support for basic ethtool operations.
+> 
+> > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+> b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+> []
+> > +static int __cold dpa_get_settings(struct net_device *net_dev,
+> > +				   struct ethtool_cmd *et_cmd)
+> > +{
+> > +	int			 _errno;
+> 
+> Using a variable name of _errno is misleading at best,
+> (btw: the only return value for phy_ethtool_gset is 0)
 
-Arnd, Olof, Kevin,
+I'll rename all miss-used occurrences of _errno.
+ 
+> > +static void __cold dpa_get_drvinfo(struct net_device *net_dev,
+> > +				   struct ethtool_drvinfo *drvinfo)
+> > +{
+> > +	int		 _errno;
+> > +
+> > +	strncpy(drvinfo->driver, KBUILD_MODNAME,
+> > +		sizeof(drvinfo->driver) - 1)[sizeof(drvinfo->driver) - 1] = 0;
+> 
+> That's a really odd and unusual construct
+> more commonly written as strlcpy
 
-It seems late but, is it possible to queue this patch as a 4.0 fixes?
+I will change this.
 
-Without it, the 10/100 Ethernet on sama5d3 doesn't work if it's not use=
-d
-by u-boot previously.
+> > +	_errno = snprintf(drvinfo->version, sizeof(drvinfo->version),
+> 
+> Using errno here is especially misleading as that's
+> not the return value of an snprintf
 
-Bye,
+I will take care of this one too.
 
->  arch/arm/boot/dts/at91-sama5d3_xplained.dts | 6 ++++++
->  1 file changed, 6 insertions(+)
->=20
-> diff --git a/arch/arm/boot/dts/at91-sama5d3_xplained.dts b/arch/arm/b=
-oot/dts/at91-sama5d3_xplained.dts
-> index fec1fca2ad66..6c4bc53cbf4e 100644
-> --- a/arch/arm/boot/dts/at91-sama5d3_xplained.dts
-> +++ b/arch/arm/boot/dts/at91-sama5d3_xplained.dts
-> @@ -167,7 +167,13 @@
-> =20
->  			macb1: ethernet@f802c000 {
->  				phy-mode =3D "rmii";
-> +				#address-cells =3D <1>;
-> +				#size-cells =3D <0>;
->  				status =3D "okay";
-> +
-> +				ethernet-phy@1 {
-> +					reg =3D <0x1>;
-> +				};
->  			};
-> =20
->  			dbgu: serial@ffffee00 {
->=20
-
-
---=20
-Nicolas Ferre
+Thank you,
+Madalin
