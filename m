@@ -1,43 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] jhash: Update jhash_[321]words functions to
- use correct initval
-Date: Fri, 03 Apr 2015 12:52:54 -0400 (EDT)
-Message-ID: <20150403.125254.1535588221416703623.davem@davemloft.net>
-References: <20150331211826.1133.19645.stgit@ahduyck-vm-fedora22>
+From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Subject: RE: [PATCH RFC 10/10] dpaa_eth: add trace points
+Date: Fri, 3 Apr 2015 17:29:49 +0000
+Message-ID: <BL2PR03MB545935082A02251893B5070E6F10@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-8-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-9-git-send-email-madalin.bucur@freescale.com>
+ <1428079621.13180.10.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48942 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215AbbDCQw4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 12:52:56 -0400
-In-Reply-To: <20150331211826.1133.19645.stgit@ahduyck-vm-fedora22>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ruxandra.radulescu@freescale.com" <ruxandra.radulescu@freescale.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1428079621.13180.10.camel@perches.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Tue, 31 Mar 2015 14:19:10 -0700
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+>
+> On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
+> > Add trace points on the hot processing path.
+> 
+> more trivia:
+> 
+> > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+> []
+> > +#define fd_format_name(format)	{ qm_fd_##format, #format }
+> > +#define fd_format_list	\
+> > +	fd_format_name(contig),	\
+> > +	fd_format_name(sg)
+> 
+> Are these used anywhere?
 
-> Looking over the implementation for jhash2 and comparing it to jhash_3words
-> I realized that the two hashes were in fact very different.  Doing a bit of
-> digging led me to "The new jhash implementation" in which lookup2 was
-> supposed to have been replaced with lookup3.
-> 
-> In reviewing the patch I noticed that jhash2 had originally initialized a
-> and b to JHASH_GOLDENRATIO and c to initval, but after the patch a, b, and
-> c were initialized to initval + (length << 2) + JHASH_INITVAL.  However the
-> changes in jhash_3words simply replaced the initialization of a and b with
-> JHASH_INITVAL.
-> 
-> This change corrects what I believe was an oversight so that a, b, and c in
-> jhash_3words all have the same value added consisting of initval + (length
-> << 2) + JHASH_INITVAL so that jhash2 and jhash_3words will now produce the
-> same hash result given the same inputs.
-> 
-> Fixes: 60d509c823cca ("The new jhash implementation")
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Yes, by the Frame Descriptor print:
 
-This looks correct to me, applied, thanks!
+        /* This is what gets printed when the trace event is triggered */
+        TP_printk(TR_FMT,
+                  __get_str(name), __entry->fqid, __entry->fd_addr,
+                  __print_symbolic(__entry->fd_format, fd_format_list), 		// <-- here
+                  __entry->fd_offset, __entry->fd_length, __entry->fd_status)
+
+
+> > +#define TR_FMT "[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u,
+> len=%u," \
+> > +	" status=0x%08x"
+> 
+> It's nicer to coalesce string fragments.
+> 
+> Unless this is intended to be used more than once,
+> perhaps it's better to remove it and use the string
+> directly instead.
+> 
+> > +	/* This is what gets printed when the trace event is triggered */
+> > +	TP_printk(TR_FMT,
+> > +		  __get_str(name), __entry->fqid, __entry->fd_addr,
+> > +		  __print_symbolic(__entry->fd_format, fd_format_list),
+> > +		  __entry->fd_offset, __entry->fd_length, __entry-
+> >fd_status)
+> 
+
+Checkpatch seems to be less forgiving if the long string is not in a printk:
+
+WARNING: line over 80 characters
+#22: FILE: drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h:47:
++#define TR_FMT "[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u, len=%u, status=0x%08x"
+
+Madalin
