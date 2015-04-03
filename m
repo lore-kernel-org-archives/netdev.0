@@ -1,55 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 25/26] switchdev: convert swdev_fib_ipv4_add/del
- over to swdev_port_obj_add/del
-Date: Fri, 03 Apr 2015 11:00:56 -0700
-Message-ID: <551ED558.3020303@gmail.com>
-References: <1427882882-2533-1-git-send-email-sfeldma@gmail.com> <1427882882-2533-26-git-send-email-sfeldma@gmail.com> <551C094D.7000707@cumulusnetworks.com> <20150401160522.GE2025@nanopsycho.orion>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [RFC PATCH 3/5] Rename support library for geneve
+Date: Fri, 3 Apr 2015 14:25:47 -0400
+Message-ID: <20150403182545.GA22162@tuxdriver.com>
+References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
+ <1428002227-11636-4-git-send-email-linville@tuxdriver.com>
+ <CAHA+R7Op9inHY=CvyyqgK4v7=xxntAPmZBzBYg27hxcKFF7H6A@mail.gmail.com>
+ <20150403144032.GB31348@tuxdriver.com>
+ <551EB79A.4070707@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, linux@roeck-us.net,
-	sridhar.samudrala@intel.com, ronen.arad@intel.com
-To: Jiri Pirko <jiri@resnulli.us>, roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33026 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752428AbbDCSBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 14:01:50 -0400
-Received: by paboj16 with SMTP id oj16so41678297pab.0
-        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 11:01:49 -0700 (PDT)
-In-Reply-To: <20150401160522.GE2025@nanopsycho.orion>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34898 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753153AbbDCSaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 14:30:17 -0400
+Content-Disposition: inline
+In-Reply-To: <551EB79A.4070707@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/04/15 09:05, Jiri Pirko wrote:
->> This looks nice. However, my only concern is we have now ended up adding a
->> whole layer of abstraction to all objects. The api abstraction seemed fine.
->> But, carrying it to objects and duplicating every object in the swdev layer
->> seems too much duplication. Maybe its just me.
->> we will end up adding this for bond attributes...vxlan...fdb and nftables
-> 
-> +1
+On Fri, Apr 03, 2015 at 05:54:02PM +0200, Nicolas Dichtel wrote:
+> Le 03/04/2015 16:40, John W. Linville a =E9crit :
+> [snip]
+> >Honestly, this name change seems like the simplest and least awkward
+> >choice to me.  But, I am open to suggestions...
+> There is already some files named '_core.c' under net/ipv4 and net/ip=
+v6.
+> What about geneve_core.c ?
 
-+1.
+Works for me...
 
-> 
->> etc.
->>
->> The advantage of switchdev in the kernel was to have access the existing
->> kernel api and objects directly from switchdev layer.
->> In which case, to me, it would be better to skip this extra layer of objects.
->> And keep the way you had it originally.
-
-Same here, I am not exactly sure how much good the abstract object is
-giving us here since we are already in the kernel, and we cannot/do not
-necessarily want to eliminate a large number of swdev_ops, as these are
-precisely the API we want to define.
-
-NB: if we were to do that for swdev_ops, the next step would be doing
-the same thing for netdev_ops to reduce their number, would not we?
-
-Maybe for now solving the stacked device problem and
-prepare/commit/rollback is good enough to keep you busy that adding the
-object layer is a completely secondary problem to solve ;)?
--- 
-Florian
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
