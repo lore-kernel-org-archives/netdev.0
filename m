@@ -1,67 +1,51 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] tc: cls_bpf: make ingress and egress qdiscs consistent
-Date: Fri,  3 Apr 2015 14:16:24 -0700
-Message-ID: <1428095784-7091-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34292 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056AbbDCVQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 17:16:32 -0400
-Received: by pactp5 with SMTP id tp5so126930224pac.1
-        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 14:16:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stas Sergeev <stsp@list.ru>
+Subject: Re: [PATCH 1/2] add fixed_phy_update_state() - update state of fixed_phy
+Date: Sat, 04 Apr 2015 00:25:27 +0300
+Message-ID: <551F0547.8000202@list.ru>
+References: <551C2AB9.8020508@list.ru> <551C2B37.6000100@list.ru> <551EE936.4010700@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Stas Sergeev <stsp@users.sourceforge.net>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <551EE936.4010700@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-BPF programs attached to ingress and egress qdiscs see inconsistent skb->data.
-For ingress L2 header is already pulled, whereas for egress it's present.
-That makes writing programs more difficult.
-Make them consistent by pushing L2 before running the programs and pulling
-it back afterwards.
-Similar approach is taken by skb_defer_rx_timestamp() which does push/pull
-before calling ptp_classify_raw()->BPF_PROG_RUN().
+03.04.2015 22:25, Florian Fainelli =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On 01/04/15 10:30, Stas Sergeev wrote:
+>> - The callback needs to be registered before of_phy_connect() to
+>> avoid running with outdated state, but of_phy_connect() returns the
+>> phy_device pointer, which is needed to register the callback. Regist=
+ering
+>> it before of_phy_connect() will therefore require a hack to get the
+>> pointer earlier.
+In fact, this can't even be done: registering it before of_phy_connect(=
+)
+is an asking for troubles with NULL deref.
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
+>> Overall, this addition makes the subsequent patch that implements
+>> SGMII link status for mvneta, much cleaner.
+> Agreed, now that we have that, we should probably just remove the
+> ability to have a fixed link update callback since it suffers from al=
+l
+> the deficiencies you outlined above, and is creating some overhead by
+> polling the hardware.
+In fact, there is still a bit of a problem.
+You certainly want to set the initial state, so that on of_phy_connect(=
+)
+time it is already valid. For this I still use of_phy_find_device()...
+This, however, differs from registering the callback:
+- initial state is set only once; callback should be registered before
+_every_ of_phy_connect() (but it can't be registered before because
+of the NULL, so only after)
+- initial state can be set anywhere anytime, not necessary any near
+of_phy_connect().
 
-Looks like noone has tried bpf with ingress qdisc before, otherwise this
-problem would have been found sooner.
-This patch is probably not needed for 'net', since tc+bpf infra only starting
-to come alive.
-
- net/sched/cls_bpf.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 5c4171c5d2bd..b1cefd2037c9 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -66,6 +66,12 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	struct cls_bpf_prog *prog;
- 	int ret = -1;
- 
-+	if (tp->q->flags & TCQ_F_INGRESS) {
-+		if (skb_headroom(skb) < ETH_HLEN)
-+			return -1;
-+		__skb_push(skb, ETH_HLEN);
-+	}
-+
- 	/* Needed here for accessing maps. */
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(prog, &head->plist, link) {
-@@ -86,6 +92,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	}
- 	rcu_read_unlock();
- 
-+	if (tp->q->flags & TCQ_F_INGRESS)
-+		__skb_pull(skb, ETH_HLEN);
-+
- 	return ret;
- }
- 
--- 
-1.7.9.5
+So the problem is mostly solved, but of_phy_find_device() is still
+there. To get rid of this, I guess some addition to of_mdio may be
+needed as well. Maybe optionally passing the status directly to
+of_phy_connect()? Not sure.
