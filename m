@@ -1,74 +1,73 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: [PATCH RFC 02/10] dpaa_eth: add support for DPAA Ethernet
-Date: Fri, 3 Apr 2015 08:58:12 +0000
-Message-ID: <BL2PR03MB545A59DD0E2700AF630C468E6F10@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
- <1427971444.10518.40.camel@x220>
+From: <yanjiang.jin@windriver.com>
+Subject: [PATCH] ethernet: e1000e: define lat_ns as u64 instead of s64
+Date: Fri, 3 Apr 2015 17:17:53 +0800
+Message-ID: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1427971444.10518.40.camel@x220>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
+	<carolyn.wyborny@intel.com>, <donald.c.skidmore@intel.com>,
+	<gregory.v.rose@intel.com>, <matthew.vick@intel.com>,
+	<john.ronciak@intel.com>, <mitch.a.williams@intel.com>,
+	<e1000-devel@lists.sourceforge.net>, <linux.nics@intel.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<jinyanjiang@gmail.com>
+To: <bruce.w.allan@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:52469 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751338AbbDCJSJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 05:18:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBQYXVsIEJvbGxlIFttYWlsdG86
-cGVib2xsZUB0aXNjYWxpLm5sXQ0KPiANCj4gSnVzdCBhIGZldyBuaXRzLg0KPiANCj4gVGhpcyBz
-ZXJpZXMgaXMgcG9zdGVkIGFzIGFuIFJGQywgc28gdGhpcyBtaWdodCBub3QgYmUgd2hhdCB5b3Un
-cmUNCj4gZXhwZWN0aW5nIHJpZ2h0IG5vdy4gQnV0IGFzIHRoZXNlIG1lc3NhZ2VzIGdvdCB0YW5n
-bGVkIHVwIGluIG15IG1haWwNCj4gZmlsdGVyIGFueWhvdywgSSB0aG91Z2h0IEkgbWlnaHQgYXMg
-d2VsbCBib3RoZXIgeW91IHdpdGggdGhlc2Ugbml0cyBub3cuDQo+IA0KPiBPbiBXZWQsIDIwMTUt
-MDQtMDEgYXQgMTk6MTkgKzAzMDAsIE1hZGFsaW4gQnVjdXIgd3JvdGU6DQo+ID4gLS0tIC9kZXYv
-bnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL0tjb25m
-aWcNCj4gPiBAQCAtMCwwICsxLDQ5IEBADQo+ID4gK21lbnVjb25maWcgRlNMX0RQQUFfRVRIDQo+
-ID4gKwl0cmlzdGF0ZSAiRFBBQSBFdGhlcm5ldCINCj4gPiArCWRlcGVuZHMgb24gRlNMX1NPQyAm
-JiBGU0xfQk1BTiAmJiBGU0xfUU1BTiAmJiBGU0xfRk1BTg0KPiA+ICsJc2VsZWN0IFBIWUxJQg0K
-PiA+ICsJc2VsZWN0IEZTTF9GTUFOX01BQw0KPiA+ICsJLS0taGVscC0tLQ0KPiA+ICsJICBEYXRh
-IFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSBFdGhlcm5ldCBkcml2ZXIsDQo+ID4gKwkg
-IHN1cHBvcnRpbmcgdGhlIEZyZWVzY2FsZSBRb3JJUSBjaGlwcy4NCj4gPiArCSAgRGVwZW5kcyBv
-biBGcmVlc2NhbGUgQnVmZmVyIE1hbmFnZXIgYW5kIFF1ZXVlIE1hbmFnZXINCj4gPiArCSAgZHJp
-dmVyIGFuZCBGcmFtZSBNYW5hZ2VyIERyaXZlci4NCj4gPiArDQo+ID4gK2lmIEZTTF9EUEFBX0VU
-SA0KPiA+ICsNCj4gPiArY29uZmlnIEZTTF9EUEFBX0NTX1RIUkVTSE9MRF8xRw0KPiA+ICsJaGV4
-ICJFZ3Jlc3MgY29uZ2VzdGlvbiB0aHJlc2hvbGQgb24gMUcgcG9ydHMiDQo+ID4gKwlkZXBlbmRz
-IG9uIEZTTF9EUEFBX0VUSA0KPiANCj4gVGhpcyBlbnRyeSBpcyBpbnNpZGUgdGhlICJpZiBGU0xf
-RFBBQV9FVEgiIGJsb2NrLiBTbyB0aGlzIGxpbmUgc2hvdWxkIGJlDQo+IHN1cGVyZmx1b3VzLg0K
-DQpXaWxsIGFkZHJlc3MgdGhpcyBhbmQgdGhlIG90aGVyIG9jY3VycmVuY2VzLg0KDQo+ID4gKwly
-YW5nZSAweDEwMDAgMHgxMDAwMDAwMA0KPiA+ICsJZGVmYXVsdCAiMHgwNjAwMDAwMCINCj4gPiAr
-CS0tLWhlbHAtLS0NCj4gPiArCSAgVGhlIHNpemUgaW4gYnl0ZXMgb2YgdGhlIGVncmVzcyBDb25n
-ZXN0aW9uIFN0YXRlIG5vdGlmaWNhdGlvbg0KPiB0aHJlc2hvbGQgb24gMUcgcG9ydHMuDQo+ID4g
-KwkgIFRoZSAxRyBkVFNFQ3MgY2FuIHF1aXRlIGVhc2lseSBiZSBmbG9vZGVkIGJ5IGNvcmVzIGRv
-aW5nIFR4IGluIGENCj4gdGlnaHQgbG9vcA0KPiA+ICsJICAoZS5nLiBieSBzZW5kaW5nIFVEUCBk
-YXRhZ3JhbXMgYXQgIndoaWxlKDEpIHNwZWVkIiksDQo+ID4gKwkgIGFuZCB0aGUgbGFyZ2VyIHRo
-ZSBmcmFtZSBzaXplLCB0aGUgbW9yZSBhY3V0ZSB0aGUgcHJvYmxlbS4NCj4gPiArCSAgU28gd2Ug
-aGF2ZSB0byBmaW5kIGEgYmFsYW5jZSBiZXR3ZWVuIHRoZXNlIGZhY3RvcnM6DQo+ID4gKwkgICAg
-ICAgLSBhdm9pZGluZyB0aGUgZGV2aWNlIHN0YXlpbmcgY29uZ2VzdGVkIGZvciBhIHByb2xvbmdl
-ZCB0aW1lDQo+IChyaXNraW5nDQo+ID4gKyAgICAgICAgICAgICAgICAgdGhlIG5ldGRldiB3YXRj
-aGRvZyB0byBmaXJlIC0gc2VlIGFsc28gdGhlIHR4X3RpbWVvdXQgbW9kdWxlDQo+IHBhcmFtKTsN
-Cj4gPiArICAgICAgICAgICAgICAgLSBhZmZlY3RpbmcgcGVyZm9ybWFuY2Ugb2YgcHJvdG9jb2xz
-IHN1Y2ggYXMgVENQLCB3aGljaCBvdGhlcndpc2UNCj4gPiArCSAgICAgICAgIGJlaGF2ZSB3ZWxs
-IHVuZGVyIHRoZSBjb25nZXN0aW9uIG5vdGlmaWNhdGlvbiBtZWNoYW5pc207DQo+ID4gKwkgICAg
-ICAgLSBwcmV2ZW50aW5nIHRoZSBUeCBjb3JlcyBmcm9tIHRpZ2h0bHktbG9vcGluZyAoYXMgaWYg
-dGhlDQo+IGNvbmdlc3Rpb24NCj4gPiArCSAgICAgICAgIHRocmVzaG9sZCB3YXMgdG9vIGxvdyB0
-byBiZSBlZmZlY3RpdmUpOw0KPiA+ICsJICAgICAgIC0gcnVubmluZyBvdXQgb2YgbWVtb3J5IGlm
-IHRoZSBDUyB0aHJlc2hvbGQgaXMgc2V0IHRvbyBoaWdoLg0KPiA+ICsNCj4gPiArY29uZmlnIEZT
-TF9EUEFBX0NTX1RIUkVTSE9MRF8xMEcNCj4gPiArCWhleCAiRWdyZXNzIGNvbmdlc3Rpb24gdGhy
-ZXNob2xkIG9uIDEwRyBwb3J0cyINCj4gPiArCWRlcGVuZHMgb24gRlNMX0RQQUFfRVRIDQo+IA0K
-PiBEaXR0by4NCj4gDQo+ID4gKwlyYW5nZSAweDEwMDAgMHgyMDAwMDAwMA0KPiA+ICsJZGVmYXVs
-dCAiMHgxMDAwMDAwMCINCj4gPiArCS0tLWhlbHAgLS0tDQo+ID4gKwkgIFRoZSBzaXplIGluIGJ5
-dGVzIG9mIHRoZSBlZ3Jlc3MgQ29uZ2VzdGlvbiBTdGF0ZSBub3RpZmljYXRpb24NCj4gdGhyZXNo
-b2xkIG9uIDEwRyBwb3J0cy4NCj4gPiArDQo+ID4gK2NvbmZpZyBGU0xfRFBBQV9JTkdSRVNTX0NT
-X1RIUkVTSE9MRA0KPiA+ICsJaGV4ICJJbmdyZXNzIGNvbmdlc3Rpb24gdGhyZXNob2xkIG9uIEZN
-YW4gcG9ydHMiDQo+ID4gKwlkZXBlbmRzIG9uIEZTTF9EUEFBX0VUSA0KPiANCj4gRGl0dG8uDQo+
-IA0KPiA+ICsJZGVmYXVsdCAiMHgxMDAwMDAwMCINCj4gPiArCS0tLWhlbHAtLS0NCj4gPiArCSAg
-VGhlIHNpemUgaW4gYnl0ZXMgb2YgdGhlIGluZ3Jlc3MgdGFpbC1kcm9wIHRocmVzaG9sZCBvbiBG
-TWFuIHBvcnRzLg0KPiA+ICsJICBUcmFmZmljIHBpbGluZyB1cCBhYm92ZSB0aGlzIHZhbHVlIHdp
-bGwgYmUgcmVqZWN0ZWQgYnkgUU1hbiBhbmQNCj4gZGlzY2FyZGVkIGJ5IEZNYW4uDQo+ID4gKw0K
-PiA+ICtlbmRpZiAjIEZTTF9EUEFBX0VUSA0KPiANCj4gQSBzaW1pbGFyIGNvbW1lbnQgY2FuIGJl
-IG1hZGUgZm9yIHRoZSBlbnRyaWVzIGFkZGVkIGluIDAzLzEwLCAwNS8xMCwgYW5kDQo+IDA5LzEw
-Lg0KPiANCj4gVGhhbmtzLA0KPiANCj4gDQo+IFBhdWwgQm9sbGUNCg0KVGhhbmsgeW91LA0KTWFk
-YWxpbg0K
+From: Yanjiang Jin <yanjiang.jin@windriver.com>
+
+do_div() expects the type of "n" to be uint64_t, define "lat_ns" as u64 to
+avoid the below warning, also update its correlative operations and data.
+
+In file included from ./arch/powerpc/include/asm/div64.h:1:0,
+                 from include/linux/kernel.h:124,
+                 from include/linux/list.h:8,
+                 from include/linux/timer.h:4,
+                 from drivers/net/ethernet/intel/e1000e/e1000.h:29,
+                 from drivers/net/ethernet/intel/e1000e/ich8lan.c:59:
+drivers/net/ethernet/intel/e1000e/ich8lan.c: In function 'e1000_platform_pm_pch_lpt':
+include/asm-generic/div64.h:43:28: warning: comparison of distinct pointer types lacks a cast [enabled by default]
+  (void)(((typeof((n)) *)0) == ((uint64_t *)0)); \
+                            ^
+drivers/net/ethernet/intel/e1000e/ich8lan.c:1016:4: note: in expansion of macro 'do_div'
+    do_div(lat_ns, speed);
+
+Signed-off-by: Yanjiang Jin <yanjiang.jin@windriver.com>
+---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 48b74a5..baab58b 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -982,8 +982,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
+ 		u16 speed, duplex, scale = 0;
+ 		u16 max_snoop, max_nosnoop;
+ 		u16 max_ltr_enc;	/* max LTR latency encoded */
+-		s64 lat_ns;	/* latency (ns) */
+-		s64 value;
++		u64 lat_ns;	/* latency (ns) */
++		u64 value;
+ 		u32 rxa;
+ 
+ 		if (!hw->adapter->max_frame_size) {
+@@ -1008,8 +1008,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
+ 		 * 2^25*(2^10-1) ns.  The scale is encoded as 0=2^0ns,
+ 		 * 1=2^5ns, 2=2^10ns,...5=2^25ns.
+ 		 */
+-		lat_ns = ((s64)rxa * 1024 -
+-			  (2 * (s64)hw->adapter->max_frame_size)) * 8 * 1000;
++		lat_ns = ((u64)rxa * 1024 -
++			  (2 * (u64)hw->adapter->max_frame_size)) * 8 * 1000;
+ 		if (lat_ns < 0)
+ 			lat_ns = 0;
+ 		else
+-- 
+1.9.1
