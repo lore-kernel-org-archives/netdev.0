@@ -1,62 +1,60 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC PATCH 1/5] geneve: remove MODULE_ALIAS_RTNL_LINK from
- net/ipv4/geneve.c
-Date: Fri, 3 Apr 2015 10:27:05 -0400
-Message-ID: <20150403142704.GA31348@tuxdriver.com>
+Subject: Re: [RFC PATCH 3/5] Rename support library for geneve
+Date: Fri, 3 Apr 2015 10:40:32 -0400
+Message-ID: <20150403144032.GB31348@tuxdriver.com>
 References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
- <1428002227-11636-2-git-send-email-linville@tuxdriver.com>
- <20150402163919.7b07039a@urahara>
- <20150403121755.GC16847@nanopsycho.orion>
+ <1428002227-11636-4-git-send-email-linville@tuxdriver.com>
+ <CAHA+R7Op9inHY=CvyyqgK4v7=xxntAPmZBzBYg27hxcKFF7H6A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59620 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59770 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752666AbbDCOaY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 10:30:24 -0400
+	with ESMTP id S1752698AbbDCOpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 10:45:18 -0400
 Content-Disposition: inline
-In-Reply-To: <20150403121755.GC16847@nanopsycho.orion>
+In-Reply-To: <CAHA+R7Op9inHY=CvyyqgK4v7=xxntAPmZBzBYg27hxcKFF7H6A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 03, 2015 at 02:17:55PM +0200, Jiri Pirko wrote:
-> Fri, Apr 03, 2015 at 01:39:19AM CEST, stephen@networkplumber.org wrote:
-> >On Thu,  2 Apr 2015 15:17:02 -0400
-> >"John W. Linville" <linville@tuxdriver.com> wrote:
+On Thu, Apr 02, 2015 at 05:05:26PM -0700, Cong Wang wrote:
+> On Thu, Apr 2, 2015 at 12:17 PM, John W. Linville
+> <linville@tuxdriver.com> wrote:
+> > net/ipv4/geneve.c -> net/ipv4/libgeneve.c
 > >
-> >> This file is essentially a library for implementing the geneve
-> >> encapsulation protocol.  The file does not register any rtnl_link_ops,
-> >> so the MODULE_ALIAS_RTNL_LINK macro is inappropriate here.
-> >> 
-> >> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> >> ---
-> >>  net/ipv4/geneve.c | 1 -
-> >>  1 file changed, 1 deletion(-)
-> >> 
-> >> diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-> >> index 5a4828ba05ad..ba5283adbee8 100644
-> >> --- a/net/ipv4/geneve.c
-> >> +++ b/net/ipv4/geneve.c
-> >> @@ -450,4 +450,3 @@ module_exit(geneve_cleanup_module);
-> >>  MODULE_LICENSE("GPL");
-> >>  MODULE_AUTHOR("Jesse Gross <jesse@nicira.com>");
-> >>  MODULE_DESCRIPTION("Driver for GENEVE encapsulated traffic");
-> >> -MODULE_ALIAS_RTNL_LINK("geneve");
-> >
-> >ok but then how does it get autoloaded?
+> > This name better reflects the purpose of the module.
 > 
-> There is no "struct rtnl_link_ops" defined for this. Therefore this does
-> not have any sense. User might use rtnl to load the module, but why?
-> That is clearly a bug which John is fixing.
+> There are several files under net/ipv4/ used as a library,
+> there is no reason to just highlight this single one. So
+> this change is not necessary at all.
 
-Yes, exactly.  This module gets loaded via the depmod/modprobe magic
-that handles loading modules to resolve external references during
-the loadtime linking.
+If you really want to bikeshed this, than the necessity of the name
+change depends upon your perspective...  The thing is that I want
+the netdev module to be named "geneve.ko".  This mirrors the naming
+convention used by the vxlan module, and it just makes sense to me.
+
+Having two modules with the same name seems to confuse modprobe
+and company such that module autoloading stops working correctly.
+The details escape me, but feel free to apply this series without this
+one patch and try it for yourself.  The net effect is that either this
+name has to change, or I need a different name (geneve-netdev.ko?) for
+the netdev module.  A third option might be to combine this module
+with the netdev code, but I kinda like the structure of keeping this
+shared code in its own module.
+
+Do you object to the name itself?  Or to having a file with a name like
+that under the net/ipv4 directory?  Would you find genevelib.c any
+less objectionable than libgeneve.c?  Can you suggest a better place
+to keep the shared geneve code?  Or a name change that you like better?
+
+Honestly, this name change seems like the simplest and least awkward
+choice to me.  But, I am open to suggestions...
 
 John
 -- 
