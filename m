@@ -1,42 +1,75 @@
-From: <masaru.nagai.vx@renesas.com>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Fri, 3 Apr 2015 15:27:46 +0900
-Message-ID: <551E32E2.3020102@renesas.com>
-References: <20150331064349.GB4605@localhost.localdomain>	<20150331.113832.2042398685489897677.davem@davemloft.net>	<551ADC12.5050603@cogentembedded.com> <20150331.134842.499356389024178984.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <richardcochran@gmail.com>, <robh+dt@kernel.org>,
-	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <devicetree@vger.kernel.org>,
-	<galak@codeaurora.org>, <netdev@vger.kernel.org>,
-	<linux-sh@vger.kernel.org>, <mitsuhiro.kimura.kc@renesas.com>
-To: <davem@davemloft.net>, <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20150331.134842.499356389024178984.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ian Morris <ipm@chirality.org.uk>
+Subject: [PATCH net-next 0/2] ipv4: coding style - comparisons with NULL
+Date: Fri,  3 Apr 2015 09:17:25 +0100
+Message-ID: <1428049047-14783-1-git-send-email-ipm@chirality.org.uk>
+Cc: Ian Morris <ipm@chirality.org.uk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inet-gw.chirality.org.uk ([88.97.209.22]:48372 "EHLO
+	yew.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752107AbbDCIRi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 04:17:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Richard, David, Sergei
+Per the suggestion of Joe Perches, attached is a patch which aligns the
+coding style in ipv4 for comparisons with NULL.
 
-On 2015=E5=B9=B404=E6=9C=8801=E6=97=A5 02:48, David Miller wrote:
-> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Date: Tue, 31 Mar 2015 20:40:34 +0300
-=2E..
-> Is there a serious problem getting the original authors to signoff on
-> this driver submission?  If so, why?  This should be very
-> straightforward, and if for some reason these authors are unwilling t=
-o
-> then I have every reason to be concerned about this.
+The code uses multiple different styles when comparing with NULL (I.e. 
+x == NULL and !x as well as x != NULL and x). Generally the latter form
+is preferred in netdev and so this changes aligns the code to this style.
 
-We are already agree on the work by sergei.
-So, this patch does not have problem.
+Ian Morris (2):
+  ipv4: coding style: comparison for equality with NULL
+  ipv4: coding style: comparison for inequality with NULL
 
-Sergei, please append SOB of us to this patch.
+ net/ipv4/af_inet.c              |  8 +++----
+ net/ipv4/arp.c                  | 28 +++++++++++------------
+ net/ipv4/cipso_ipv4.c           | 42 +++++++++++++++++-----------------
+ net/ipv4/devinet.c              | 42 +++++++++++++++++-----------------
+ net/ipv4/esp4.c                 |  2 +-
+ net/ipv4/fib_frontend.c         | 26 ++++++++++-----------
+ net/ipv4/fib_rules.c            |  4 ++--
+ net/ipv4/fib_semantics.c        | 24 ++++++++++----------
+ net/ipv4/fib_trie.c             | 12 +++++-----
+ net/ipv4/geneve.c               |  4 ++--
+ net/ipv4/gre_offload.c          |  4 ++--
+ net/ipv4/icmp.c                 |  6 ++---
+ net/ipv4/igmp.c                 | 20 ++++++++---------
+ net/ipv4/inet_connection_sock.c |  8 +++----
+ net/ipv4/inet_fragment.c        |  4 ++--
+ net/ipv4/inet_hashtables.c      |  2 +-
+ net/ipv4/inet_timewait_sock.c   |  2 +-
+ net/ipv4/ip_fragment.c          | 14 +++++++-----
+ net/ipv4/ip_gre.c               |  4 ++--
+ net/ipv4/ip_input.c             |  7 +++---
+ net/ipv4/ip_options.c           |  2 +-
+ net/ipv4/ip_output.c            | 29 +++++++++++++-----------
+ net/ipv4/ip_sockglue.c          |  6 ++---
+ net/ipv4/ip_tunnel.c            | 10 ++++-----
+ net/ipv4/ip_vti.c               |  2 +-
+ net/ipv4/ipcomp.c               |  2 +-
+ net/ipv4/ipconfig.c             |  6 +++--
+ net/ipv4/ipip.c                 |  2 +-
+ net/ipv4/ipmr.c                 | 50 ++++++++++++++++++++---------------------
+ net/ipv4/ping.c                 |  4 ++--
+ net/ipv4/raw.c                  |  6 ++---
+ net/ipv4/route.c                | 22 +++++++++---------
+ net/ipv4/sysctl_net_ipv4.c      |  6 ++---
+ net/ipv4/tcp.c                  | 14 ++++++------
+ net/ipv4/tcp_diag.c             |  2 +-
+ net/ipv4/tcp_fastopen.c         |  6 ++---
+ net/ipv4/tcp_input.c            | 28 +++++++++++------------
+ net/ipv4/tcp_ipv4.c             | 10 ++++-----
+ net/ipv4/tcp_metrics.c          |  2 +-
+ net/ipv4/tcp_minisocks.c        |  8 +++----
+ net/ipv4/tcp_output.c           | 35 +++++++++++++++--------------
+ net/ipv4/udp.c                  | 10 ++++-----
+ net/ipv4/udp_diag.c             |  2 +-
+ net/ipv4/udp_offload.c          |  4 ++--
+ net/ipv4/xfrm4_input.c          |  2 +-
+ net/ipv4/xfrm4_policy.c         |  2 +-
+ 46 files changed, 272 insertions(+), 263 deletions(-)
 
-Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
-
-Best Regards,
-Masaru Nagai
+-- 
+1.9.1
