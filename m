@@ -1,39 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/2] mvneta: SGMII-based in-band link state signaling
-Date: Fri, 03 Apr 2015 15:08:37 -0400 (EDT)
-Message-ID: <20150403.150837.1808334906292015688.davem@davemloft.net>
-References: <551C2AB9.8020508@list.ru>
+Subject: Re: [rhashtable] [ INFO: suspicious RCU usage. ]
+Date: Fri, 03 Apr 2015 15:09:51 -0400 (EDT)
+Message-ID: <20150403.150951.1949065951005722940.davem@davemloft.net>
+References: <20150402041135.GA22514@wfg-t540p.sh.intel.com>
+	<20150402042950.GA5643@gondor.apana.org.au>
+	<20150402073356.GC19425@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stsp@users.sourceforge.net
-To: stsp@list.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <551C2AB9.8020508@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, fengguang.wu@intel.com, lkp@01.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tgraf@suug.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50055 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752507AbbDCTJx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 15:09:53 -0400
+In-Reply-To: <20150402073356.GC19425@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stas Sergeev <stsp@list.ru>
-Date: Wed, 01 Apr 2015 20:28:25 +0300
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 2 Apr 2015 08:33:56 +0100
 
-> Currently the fixed-link DT binding is pre-configured and
-> cannot be changed in run-time. This means the cable unplug
-> events are not being detected, and the link parameters can't
-> be negotiated.
+> On 04/02/15 at 12:29pm, Herbert Xu wrote:
+>> On Thu, Apr 02, 2015 at 12:11:35PM +0800, Fengguang Wu wrote:
+>> > 
+>> > Yes it is contained in next-20150401 which is bad:
+>> > 
+>> > # extra tests on tree/branch next/master
+>> > git bisect  bad e954104e2b634b42811dad8d502cbf240f206df2  # 21:22      0-     60  Add linux-next specific files for 20150401
+>> > 
+>> > The dmesg there is
+>> > 
+>> > [    1.149409] test_firmware: interface ready
+>> > [    1.150293] Running resizable hashtable tests...
+>> > [    1.151209]   Adding 2048 keys
+>> > [    1.152069] ------------[ cut here ]------------
+>> > [    1.152978] WARNING: CPU: 0 PID: 1 at lib/rhashtable.c:409 rhashtable_insert_rehash+0x9d/0x1d0()
+>> 
+>> I see.  This is actually a completely different problem.
+>> 
+>> ---8<---
+>> test_rhashtable: Remove bogus max_size setting
+>> 
+>> Now that resizing is completely automatic, we need to remove
+>> the max_size setting or the test will fail.
+>> 
+>> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+>> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
-> The following patches are needed when mvneta is used
-> in fixed-link mode (without MDIO).
-> They add an API to fixed_phy that allows to update
-> status, and use that API in the mvneta driver when parsing
-> the SGMII in-band status.
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 > 
-> There is also another implementation that doesn't add any API
-> and does everything in mvneta driver locally:
-> https://lkml.org/lkml/2015/3/31/327
-> I'll let people decide which approach is better.
-> No strong opinion on my side.
-> 
-> Signed-off-by: Stas Sergeev <stsp@users.sourceforge.net>
+> Had the same fix queued up in an upcoming series ;-)
 
-Series applied, thanks.
+Applied to net-next, thanks everyone.
