@@ -1,50 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e: stop flow director on shutdown
-Date: Fri,  3 Apr 2015 05:04:54 -0700
-Message-ID: <1428062698-16180-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: Don't register/de-register apps on NIC partitions in MFP mode
+Date: Fri,  3 Apr 2015 05:04:52 -0700
+Message-ID: <1428062698-16180-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:40006 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:10571 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752559AbbDCMFh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Apr 2015 08:05:37 -0400
+	id S1752524AbbDCMFf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Apr 2015 08:05:35 -0400
 In-Reply-To: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-In some cases, the hardware would continue to try to access the FDIR
-ring after entering D3Hot state, which would cause either PCIe errors or
-NMIs, depending upon system configuration.
+Do not register or try to de-register DCB applications with the DCBNL
+layer in case of NIC partitions when adapter is in MFP mode.
 
-Explicitly stop FDIR in our shutdown routine to eliminate this
-possibility.
-
-Change-ID: Ib98060d6352ec595ab9a78bfe252675a9fa5d8bc
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: I603d042a61983a6562be471c6a2b181572504118
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 15cee4d..5e79054 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -10210,6 +10210,8 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 	set_bit(__I40E_DOWN, &pf->state);
- 	del_timer_sync(&pf->service_timer);
- 	cancel_work_sync(&pf->service_task);
-+	i40e_fdir_teardown(pf);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c b/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
+index 400fb28..bd5079d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c
+@@ -178,6 +178,10 @@ void i40e_dcbnl_set_all(struct i40e_vsi *vsi)
+ 	if (!(pf->flags & I40E_FLAG_DCB_ENABLED))
+ 		return;
+ 
++	/* MFP mode but not an iSCSI PF so return */
++	if ((pf->flags & I40E_FLAG_MFP_ENABLED) && !(pf->hw.func_caps.iscsi))
++		return;
 +
- 	rtnl_lock();
- 	i40e_prep_for_reset(pf);
- 	rtnl_unlock();
+ 	dcbxcfg = &hw->local_dcbx_config;
+ 
+ 	/* Set up all the App TLVs if DCBx is negotiated */
+@@ -282,6 +286,10 @@ void i40e_dcbnl_flush_apps(struct i40e_pf *pf,
+ 	struct i40e_dcb_app_priority_table app;
+ 	int i;
+ 
++	/* MFP mode but not an iSCSI PF so return */
++	if ((pf->flags & I40E_FLAG_MFP_ENABLED) && !(pf->hw.func_caps.iscsi))
++		return;
++
+ 	for (i = 0; i < old_cfg->numapps; i++) {
+ 		app = old_cfg->app[i];
+ 		/* The APP is not available anymore delete it */
 -- 
 1.9.3
