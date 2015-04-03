@@ -1,76 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH RFC 10/10] dpaa_eth: add trace points
-Date: Fri, 03 Apr 2015 10:53:59 -0700
-Message-ID: <1428083639.13180.44.camel@perches.com>
-References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-8-git-send-email-madalin.bucur@freescale.com>
-	 <1427905196-27778-9-git-send-email-madalin.bucur@freescale.com>
-	 <1428079621.13180.10.camel@perches.com>
-	 <BL2PR03MB545935082A02251893B5070E6F10@BL2PR03MB545.namprd03.prod.outlook.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 25/26] switchdev: convert swdev_fib_ipv4_add/del
+ over to swdev_port_obj_add/del
+Date: Fri, 03 Apr 2015 11:00:56 -0700
+Message-ID: <551ED558.3020303@gmail.com>
+References: <1427882882-2533-1-git-send-email-sfeldma@gmail.com> <1427882882-2533-26-git-send-email-sfeldma@gmail.com> <551C094D.7000707@cumulusnetworks.com> <20150401160522.GE2025@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ruxandra.radulescu@freescale.com" <ruxandra.radulescu@freescale.com>
-To: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BL2PR03MB545935082A02251893B5070E6F10@BL2PR03MB545.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org, linux@roeck-us.net,
+	sridhar.samudrala@intel.com, ronen.arad@intel.com
+To: Jiri Pirko <jiri@resnulli.us>, roopa <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33026 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752428AbbDCSBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 14:01:50 -0400
+Received: by paboj16 with SMTP id oj16so41678297pab.0
+        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 11:01:49 -0700 (PDT)
+In-Reply-To: <20150401160522.GE2025@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-04-03 at 17:29 +0000, Madalin-Cristian Bucur wrote:
-> > -----Original Message-----
-> > From: Joe Perches [mailto:joe@perches.com]
-> >
-> > On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
-> > > Add trace points on the hot processing path.
-> > 
-> > more trivia:
-> > 
-> > > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
-> > b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
-> > []
-> > > +#define fd_format_name(format)	{ qm_fd_##format, #format }
-> > > +#define fd_format_list	\
-> > > +	fd_format_name(contig),	\
-> > > +	fd_format_name(sg)
-> > 
-> > Are these used anywhere?
-> Yes, by the Frame Descriptor print:
+On 01/04/15 09:05, Jiri Pirko wrote:
+>> This looks nice. However, my only concern is we have now ended up adding a
+>> whole layer of abstraction to all objects. The api abstraction seemed fine.
+>> But, carrying it to objects and duplicating every object in the swdev layer
+>> seems too much duplication. Maybe its just me.
+>> we will end up adding this for bond attributes...vxlan...fdb and nftables
 > 
->         /* This is what gets printed when the trace event is triggered */
->         TP_printk(TR_FMT,
->                   __get_str(name), __entry->fqid, __entry->fd_addr,
->                   __print_symbolic(__entry->fd_format, fd_format_list), 		// <-- here
->                   __entry->fd_offset, __entry->fd_length, __entry->fd_status)
+> +1
 
-Thanks.
++1.
 
-I think it's nicer when format and argument match
-and aren't indirected by macros.
+> 
+>> etc.
+>>
+>> The advantage of switchdev in the kernel was to have access the existing
+>> kernel api and objects directly from switchdev layer.
+>> In which case, to me, it would be better to skip this extra layer of objects.
+>> And keep the way you had it originally.
 
-Perhaps this would be better as:
+Same here, I am not exactly sure how much good the abstract object is
+giving us here since we are already in the kernel, and we cannot/do not
+necessarily want to eliminate a large number of swdev_ops, as these are
+precisely the API we want to define.
 
-	TP_printk("[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u, len=%u, status=0x%08x"
-		  __get_str(name), __entry->fqid, __entry->fd_addr,
-		  __print_symbolic(__entry->fd_format, fd_format_list),
-		  __entry->fd_offset, __entry->fd_length, __entry->fd_status)
+NB: if we were to do that for swdev_ops, the next step would be doing
+the same thing for netdev_ops to reduce their number, would not we?
 
-
-> Checkpatch seems to be less forgiving if the long string is not in a printk:
-
-checkpatch is brainless, people aren't.
-
-> WARNING: line over 80 characters
-> #22: FILE: drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h:47:
-> +#define TR_FMT "[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u, len=%u, status=0x%08x"
-
-That's a checkpatch defect.  Thanks.  I'll see about fixing it.
+Maybe for now solving the stacked device problem and
+prepare/commit/rollback is good enough to keep you busy that adding the
+object layer is a completely secondary problem to solve ;)?
+-- 
+Florian
