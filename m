@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mvneta: implement SGMII-based in-band link state
- signaling
-Date: Thu, 02 Apr 2015 20:51:31 -0400 (EDT)
-Message-ID: <20150402.205131.1699226515102250937.davem@davemloft.net>
-References: <551AA02B.2050104@list.ru>
+Subject: Re: [PATCH RESEND net] ipv4: take rtnl_lock and mark mrt table as
+ freed on namespace cleanup
+Date: Thu, 02 Apr 2015 20:53:17 -0400 (EDT)
+Message-ID: <20150402.205317.1230672883848850811.davem@davemloft.net>
+References: <1427824907-13331-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	thomas.petazzoni@free-electrons.com, f.fainelli@gmail.com
-To: stsp@list.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <551AA02B.2050104@list.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42816 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753021AbbDCAxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 20:53:19 -0400
+In-Reply-To: <1427824907-13331-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stas Sergeev <stsp@list.ru>
-Date: Tue, 31 Mar 2015 16:24:59 +0300
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 31 Mar 2015 11:01:45 -0700
 
-> @@ -2590,6 +2651,7 @@ static int mvneta_mdio_probe(struct mvneta_port *pp)
+> This is the IPv4 part for commit 905a6f96a1b1
+> (ipv6: take rtnl_lock and mark mrt6 table as freed on namespace cleanup).
 > 
->  static void mvneta_mdio_remove(struct mvneta_port *pp)
->  {
-> +	fixed_phy_set_link_update(pp->phy_dev, NULL);
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-I do not see any other driver doing this on shutdown.
-Please show me why it is necessary.
-
-And if it is, all other drivers registering a fixed phy link update
-function need to be adjusted to do the same thing.
+Applied.
