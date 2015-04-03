@@ -1,60 +1,92 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC PATCH 3/5] Rename support library for geneve
-Date: Fri, 3 Apr 2015 10:40:32 -0400
-Message-ID: <20150403144032.GB31348@tuxdriver.com>
+Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE
+ tunnels
+Date: Fri, 3 Apr 2015 10:41:57 -0400
+Message-ID: <20150403144157.GC31348@tuxdriver.com>
 References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
- <1428002227-11636-4-git-send-email-linville@tuxdriver.com>
- <CAHA+R7Op9inHY=CvyyqgK4v7=xxntAPmZBzBYg27hxcKFF7H6A@mail.gmail.com>
+ <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
+ <20150403055500.GA3336@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Cong Wang <cwang@twopensource.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59770 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59771 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752698AbbDCOpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 10:45:18 -0400
+	with ESMTP id S1752536AbbDCOpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 10:45:19 -0400
 Content-Disposition: inline
-In-Reply-To: <CAHA+R7Op9inHY=CvyyqgK4v7=xxntAPmZBzBYg27hxcKFF7H6A@mail.gmail.com>
+In-Reply-To: <20150403055500.GA3336@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 02, 2015 at 05:05:26PM -0700, Cong Wang wrote:
-> On Thu, Apr 2, 2015 at 12:17 PM, John W. Linville
-> <linville@tuxdriver.com> wrote:
-> > net/ipv4/geneve.c -> net/ipv4/libgeneve.c
-> >
-> > This name better reflects the purpose of the module.
+On Fri, Apr 03, 2015 at 02:55:02PM +0900, Simon Horman wrote:
+> Hi John,
 > 
-> There are several files under net/ipv4/ used as a library,
-> there is no reason to just highlight this single one. So
-> this change is not necessary at all.
+> On Thu, Apr 02, 2015 at 03:17:06PM -0400, John W. Linville wrote:
+> > This is an initial implementation of a netdev driver for GENEVE
+> > tunnels.  This implementation uses a fixed UDP port, and only supports
+> > a single tunnel (and therefore only a single VNI) per net namespace.
+> > Only IPv4 links are supported at this time.
+> > 
+> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> 
+> Thanks for working on this. I'm very happy to see a Geneve driver hit netdev.
+> 
+> I have a question below.
+> 
+> [snip]
+> 
+> > +/* Scheduled at device creation to bind to a socket */
+> > +static void geneve_sock_work(struct work_struct *work)
+> > +{
+> > +	struct geneve_dev *geneve = container_of(work, struct geneve_dev, sock_work);
+> > +	struct net *net = geneve->net;
+> > +	struct geneve_sock *gs;
+> > +
+> > +	gs = geneve_sock_add(net, htons(GENEVE_UDP_PORT), geneve_rx, geneve,
+> > +	                     true, false);
+> > +	if (!IS_ERR(gs))
+> > +		geneve->sock = gs;
+> > +
+> > +	dev_put(geneve->dev);
+> > +}
+> > +
+> > +/* Setup stats when device is created */
+> > +static int geneve_init(struct net_device *dev)
+> > +{
+> > +	struct geneve_dev *geneve = netdev_priv(dev);
+> > +
+> > +	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+> > +	if (!dev->tstats)
+> > +		return -ENOMEM;
+> > +
+> > +	/* make new socket outside of RTNL */
+> > +	dev_hold(dev);
+> > +	queue_work(geneve_wq, &geneve->sock_work);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static void geneve_uninit(struct net_device *dev)
+> > +{
+> > +	struct geneve_dev *geneve = netdev_priv(dev);
+> > +	struct geneve_sock *gs = geneve->sock;
+> > +
+> > +	if (gs)
+> > +		geneve_sock_release(gs);
+> > +	free_percpu(dev->tstats);
+> > +}
+> 
+> I am wondering if there a possibility that geneve_sock_work() could run
+> after the check for gs in geneve_uninit() thus leaking gs?
+> 
+> [snip]
 
-If you really want to bikeshed this, than the necessity of the name
-change depends upon your perspective...  The thing is that I want
-the netdev module to be named "geneve.ko".  This mirrors the naming
-convention used by the vxlan module, and it just makes sense to me.
-
-Having two modules with the same name seems to confuse modprobe
-and company such that module autoloading stops working correctly.
-The details escape me, but feel free to apply this series without this
-one patch and try it for yourself.  The net effect is that either this
-name has to change, or I need a different name (geneve-netdev.ko?) for
-the netdev module.  A third option might be to combine this module
-with the netdev code, but I kinda like the structure of keeping this
-shared code in its own module.
-
-Do you object to the name itself?  Or to having a file with a name like
-that under the net/ipv4 directory?  Would you find genevelib.c any
-less objectionable than libgeneve.c?  Can you suggest a better place
-to keep the shared geneve code?  Or a name change that you like better?
-
-Honestly, this name change seems like the simplest and least awkward
-choice to me.  But, I am open to suggestions...
+Hey, good catch!  I should add some locking around that...
 
 John
 -- 
