@@ -1,69 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e/i40evf: fix bug when skb allocation fails
-Date: Fri,  3 Apr 2015 05:04:48 -0700
-Message-ID: <1428062698-16180-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC PATCH 1/5] geneve: remove MODULE_ALIAS_RTNL_LINK from
+ net/ipv4/geneve.c
+Date: Fri, 3 Apr 2015 14:17:55 +0200
+Message-ID: <20150403121755.GC16847@nanopsycho.orion>
+References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
+ <1428002227-11636-2-git-send-email-linville@tuxdriver.com>
+ <20150402163919.7b07039a@urahara>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:18470 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752412AbbDCMFd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Apr 2015 08:05:33 -0400
-In-Reply-To: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:33033 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751435AbbDCMR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 08:17:58 -0400
+Received: by wgin8 with SMTP id n8so20367690wgi.0
+        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 05:17:57 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150402163919.7b07039a@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Fri, Apr 03, 2015 at 01:39:19AM CEST, stephen@networkplumber.org wrote:
+>On Thu,  2 Apr 2015 15:17:02 -0400
+>"John W. Linville" <linville@tuxdriver.com> wrote:
+>
+>> This file is essentially a library for implementing the geneve
+>> encapsulation protocol.  The file does not register any rtnl_link_ops,
+>> so the MODULE_ALIAS_RTNL_LINK macro is inappropriate here.
+>> 
+>> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+>> ---
+>>  net/ipv4/geneve.c | 1 -
+>>  1 file changed, 1 deletion(-)
+>> 
+>> diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+>> index 5a4828ba05ad..ba5283adbee8 100644
+>> --- a/net/ipv4/geneve.c
+>> +++ b/net/ipv4/geneve.c
+>> @@ -450,4 +450,3 @@ module_exit(geneve_cleanup_module);
+>>  MODULE_LICENSE("GPL");
+>>  MODULE_AUTHOR("Jesse Gross <jesse@nicira.com>");
+>>  MODULE_DESCRIPTION("Driver for GENEVE encapsulated traffic");
+>> -MODULE_ALIAS_RTNL_LINK("geneve");
+>
+>ok but then how does it get autoloaded?
 
-If the skb allocation fails we should not continue using the skb
-pointer.  Breaking out at the point of failure means that at the next
-RX interrupt the driver will try the allocation again.
-
-Change-ID: Iefaad69856ced7418bfd92afe55322676341f82e
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 5 ++++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 5 ++++-
- 2 files changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 9b11f2e..5a1a677 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1565,8 +1565,11 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
- 		if (likely(!skb)) {
- 			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
- 							rx_ring->rx_hdr_len);
--			if (!skb)
-+			if (!skb) {
- 				rx_ring->rx_stats.alloc_buff_failed++;
-+				break;
-+			}
-+
- 			/* initialize queue mapping */
- 			skb_record_rx_queue(skb, rx_ring->queue_index);
- 			/* we are reusing so sync this buffer for CPU use */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 1b5ee46..2be50a8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1040,8 +1040,11 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
- 		if (likely(!skb)) {
- 			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
- 							rx_ring->rx_hdr_len);
--			if (!skb)
-+			if (!skb) {
- 				rx_ring->rx_stats.alloc_buff_failed++;
-+				break;
-+			}
-+
- 			/* initialize queue mapping */
- 			skb_record_rx_queue(skb, rx_ring->queue_index);
- 			/* we are reusing so sync this buffer for CPU use */
--- 
-1.9.3
+There is no "struct rtnl_link_ops" defined for this. Therefore this does
+not have any sense. User might use rtnl to load the module, but why?
+That is clearly a bug which John is fixing.
