@@ -1,94 +1,190 @@
 From: "John W. Linville" <linville@tuxdriver.com>
 Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE
  tunnels
-Date: Fri, 3 Apr 2015 10:41:57 -0400
-Message-ID: <20150403144157.GC31348@tuxdriver.com>
+Date: Fri, 3 Apr 2015 10:57:12 -0400
+Message-ID: <20150403145711.GD31348@tuxdriver.com>
 References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
  <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
- <20150403055500.GA3336@vergenet.net>
+ <20150402202002.GG2613@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Simon Horman <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59771 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59914 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752536AbbDCOpT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 10:45:19 -0400
+	with ESMTP id S1752036AbbDCPAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 11:00:16 -0400
 Content-Disposition: inline
-In-Reply-To: <20150403055500.GA3336@vergenet.net>
+In-Reply-To: <20150402202002.GG2613@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 03, 2015 at 02:55:02PM +0900, Simon Horman wrote:
-> Hi John,
+On Thu, Apr 02, 2015 at 10:20:02PM +0200, Jiri Pirko wrote:
+> Thu, Apr 02, 2015 at 09:17:06PM CEST, linville@tuxdriver.com wrote:
+> >This is an initial implementation of a netdev driver for GENEVE
+> >tunnels.  This implementation uses a fixed UDP port, and only supports
+> >a single tunnel (and therefore only a single VNI) per net namespace.
+> >Only IPv4 links are supported at this time.
 > 
-> On Thu, Apr 02, 2015 at 03:17:06PM -0400, John W. Linville wrote:
-> > This is an initial implementation of a netdev driver for GENEVE
-> > tunnels.  This implementation uses a fixed UDP port, and only supports
-> > a single tunnel (and therefore only a single VNI) per net namespace.
-> > Only IPv4 links are supported at this time.
-> > 
-> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
 > 
-> Thanks for working on this. I'm very happy to see a Geneve driver hit netdev.
+> Thanks for doing this John!
 > 
-> I have a question below.
 > 
-> [snip]
+> >
+> >Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> >---
+> > drivers/net/Kconfig          |  14 ++
+> > drivers/net/Makefile         |   1 +
+> > drivers/net/geneve.c         | 451 +++++++++++++++++++++++++++++++++++++++++++
+> > include/uapi/linux/if_link.h |   9 +
+> > 4 files changed, 475 insertions(+)
+> > create mode 100644 drivers/net/geneve.c
+> >
 > 
-> > +/* Scheduled at device creation to bind to a socket */
-> > +static void geneve_sock_work(struct work_struct *work)
-> > +{
-> > +	struct geneve_dev *geneve = container_of(work, struct geneve_dev, sock_work);
-> > +	struct net *net = geneve->net;
-> > +	struct geneve_sock *gs;
-> > +
-> > +	gs = geneve_sock_add(net, htons(GENEVE_UDP_PORT), geneve_rx, geneve,
-> > +	                     true, false);
-> > +	if (!IS_ERR(gs))
-> > +		geneve->sock = gs;
-> > +
-> > +	dev_put(geneve->dev);
-> > +}
-> > +
-> > +/* Setup stats when device is created */
-> > +static int geneve_init(struct net_device *dev)
-> > +{
-> > +	struct geneve_dev *geneve = netdev_priv(dev);
-> > +
-> > +	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-> > +	if (!dev->tstats)
-> > +		return -ENOMEM;
-> > +
-> > +	/* make new socket outside of RTNL */
-> > +	dev_hold(dev);
-> > +	queue_work(geneve_wq, &geneve->sock_work);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +static void geneve_uninit(struct net_device *dev)
-> > +{
-> > +	struct geneve_dev *geneve = netdev_priv(dev);
-> > +	struct geneve_sock *gs = geneve->sock;
-> > +
-> > +	if (gs)
-> > +		geneve_sock_release(gs);
-> > +	free_percpu(dev->tstats);
-> > +}
+> ...
 > 
-> I am wondering if there a possibility that geneve_sock_work() could run
-> after the check for gs in geneve_uninit() thus leaking gs?
+> >+/* Initialize the device structure. */
+> >+static void geneve_setup(struct net_device *dev)
+> >+{
+> >+	struct geneve_dev *geneve = netdev_priv(dev);
+> >+
+> >+	ether_setup(dev);
+> >+
+> >+	dev->netdev_ops = &geneve_netdev_ops;
+> >+	dev->destructor = free_netdev;
+> >+	SET_NETDEV_DEVTYPE(dev, &geneve_type);
+> >+
+> >+	INIT_WORK(&geneve->sock_work, geneve_sock_work);
 > 
-> [snip]
+> I would push work initialization into geneve_newlink. Seems odd to have
+> it here in setup.
 
-Hey, good catch!  I should add some locking around that...
+Yes, that will probably work a lot better for multiple tunnels on a
+host... :-)
+
+> >+
+> >+	dev->tx_queue_len = 0;
+> >+	dev->features = 0;
+> >+
+> >+	dev->vlan_features = dev->features;
+> >+	dev->hw_features = 0;
+> >+
+> >+	geneve->dev = dev;
+> >+}
+> >+
+> >+static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
+> >+	[IFLA_GENEVE_ID]		= { .type = NLA_U32 },
+> >+	[IFLA_GENEVE_REMOTE]		= { .len = FIELD_SIZEOF(struct iphdr, daddr) },
+> >+};
+> >+
+> >+static int geneve_validate(struct nlattr *tb[], struct nlattr *data[])
+> >+{
+> >+	if (tb[IFLA_ADDRESS]) {
+> >+		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
+> >+			return -EINVAL;
+> >+
+> >+		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
+> >+			return -EADDRNOTAVAIL;
+> >+	}
+> >+
+> >+	if (!data)
+> >+		return -EINVAL;
+> >+
+> >+	if (data[IFLA_GENEVE_ID]) {
+> >+		__u32 vni =  nla_get_u32(data[IFLA_GENEVE_ID]);
+> 
+> missing newline
+
+Sure.
+
+> >+		if (vni >= GENEVE_VID_MASK)
+> >+			return -ERANGE;
+> >+	}
+> >+
+> >+	return 0;
+> >+}
+> >+
+> >+static void geneve_get_drvinfo(struct net_device *dev,
+> >+			       struct ethtool_drvinfo *drvinfo)
+> >+{
+> >+	strlcpy(drvinfo->version, GENEVE_NETDEV_VER, sizeof(drvinfo->version));
+> >+	strlcpy(drvinfo->driver, "geneve", sizeof(drvinfo->driver));
+> >+}
+> >+
+> >+static const struct ethtool_ops geneve_ethtool_ops = {
+> >+	.get_drvinfo	= geneve_get_drvinfo,
+> >+	.get_link	= ethtool_op_get_link,
+> >+};
+> >+
+> >+static int geneve_newlink(struct net *net, struct net_device *dev,
+> >+			 struct nlattr *tb[], struct nlattr *data[])
+> >+{
+> >+	struct geneve_net *gn = net_generic(net, geneve_net_id);
+> >+	struct geneve_dev *geneve = netdev_priv(dev);
+> >+	__u32 vni;
+> 
+> why not "u32" ?
+
+I think I copied that from vxlan.c.  In fact, I'm not really sure I
+understand why both exist?
+ 
+> >+	int err;
+> >+
+> >+	/* TODO: need to support multiple tunnels in a namespace */
+> >+	if (!list_empty(&gn->geneve_list))
+> >+		return -EBUSY;
+> 
+> Interesting limitation :)
+
+That should disappear, of course. :-)
+
+> ...
+> 
+> >+static void __net_exit geneve_exit_net(struct net *net)
+> >+{
+> >+	struct geneve_net *gn = net_generic(net, geneve_net_id);
+> >+	struct geneve_dev *geneve, *next;
+> >+	struct net_device *dev, *aux;
+> >+	LIST_HEAD(list);
+> >+
+> >+	rtnl_lock();
+> >+	for_each_netdev_safe(net, dev, aux)
+> >+		if (dev->rtnl_link_ops == &geneve_link_ops)
+> >+			unregister_netdevice_queue(dev, &list);
+> >+
+> >+	list_for_each_entry_safe(geneve, next, &gn->geneve_list, next) {
+> >+		/* If geneve->dev is in the same netns, it was already added
+> >+		 * to the list by the previous loop.
+> >+		 */
+> >+		if (!net_eq(dev_net(geneve->dev), net))
+> >+			unregister_netdevice_queue(dev, &list);
+> >+	}
+> 
+> I know this is c&p of vxlan, but I do not understand why the first loop
+> is there. The second loop will take care of all since all devs are
+> listed in ->geneve_list, right?
+> 
+> Also you do not need _safe variant since you traverse through
+> ->geneve_list, which is not modified.
+
+Yes, it is boilerplate from vxlan.  Maybe Stephen can explain it?
+
+Maybe it relates to the the ordering of the unregister queue?
+I'll try to figure it out...
+
+> >+
+> >+	unregister_netdevice_many(&list);
+> >+	rtnl_unlock();
+> >+}
+
+Thanks for the review and suggestions!
 
 John
+
 -- 
 John W. Linville		Someday the world will need a hero, and you
 linville@tuxdriver.com			might be all we have.  Be ready.
