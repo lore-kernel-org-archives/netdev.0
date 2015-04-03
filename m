@@ -1,35 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] l2tp: unregister l2tp_net_ops on failure path
-Date: Fri,  3 Apr 2015 13:46:09 -0700
-Message-ID: <1428093969-4224-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: fib_trie: commit 95f60ea3e99a missing else?
+Date: Fri, 03 Apr 2015 13:53:02 -0700
+Message-ID: <1428094382.29510.8.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:34400 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752889AbbDCUqT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 16:46:19 -0400
-Received: by pdbni2 with SMTP id ni2so132021745pdb.1
-        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 13:46:19 -0700 (PDT)
+Received: from smtprelay0096.hostedemail.com ([216.40.44.96]:33194 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752473AbbDCUxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 16:53:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/l2tp/l2tp_core.c | 1 +
- 1 file changed, 1 insertion(+)
+Hello Alexander.
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 895348e..a29a504 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1871,6 +1871,7 @@ static int __init l2tp_init(void)
- 	l2tp_wq = alloc_workqueue("l2tp", WQ_UNBOUND, 0);
- 	if (!l2tp_wq) {
- 		pr_err("alloc_workqueue failed\n");
-+		unregister_pernet_device(&l2tp_net_ops);
- 		rc = -ENOMEM;
- 		goto out;
- 	}
--- 
-1.8.3.1
+commit 95f60ea3e99a ("fib_trie: Add collapse() and should_collapse() to resize")
+changed this block from:
+
+	if (a && !b)
+		...
+	else if (!a && b)
+		...
+
+to:
+
+	if (a && !b)
+		...
+	if (!a && b)
+		... 
+
+Was there a reason for the "else" removal?
+
+I notice that object code size increases a bit (x86-64)
+if the else is put back.
+
+net/ipv4/fib_trie.c
+[]
+@@ -375,11 +388,11 @@ static void put_child(struct tnode *tn, unsigned long i, s
+ 
+        BUG_ON(i >= tnode_child_length(tn));
+ 
+-       /* update emptyChildren */
++       /* update emptyChildren, overflow into fullChildren */
+        if (n == NULL && chi != NULL)
+-               tn->empty_children++;
+-       else if (n != NULL && chi == NULL)
+-               tn->empty_children--;
++               empty_child_inc(tn);
++       if (n != NULL && chi == NULL)
++               empty_child_dec(tn);
+ 
