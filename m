@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] ipv4: coding style - comparisons with NULL
-Date: Fri, 03 Apr 2015 12:11:38 -0400 (EDT)
-Message-ID: <20150403.121138.1140806036726597601.davem@davemloft.net>
-References: <1428049047-14783-1-git-send-email-ipm@chirality.org.uk>
+Subject: Re: 3.10-stable commits missing in 3.12-stable
+Date: Fri, 03 Apr 2015 12:22:21 -0400 (EDT)
+Message-ID: <20150403.122221.1151334897354117399.davem@davemloft.net>
+References: <551E69CA.4040603@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ipm@chirality.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48626 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491AbbDCQLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 12:11:43 -0400
-In-Reply-To: <1428049047-14783-1-git-send-email-ipm@chirality.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org
+To: jslaby@suse.cz
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <551E69CA.4040603@suse.cz>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ian Morris <ipm@chirality.org.uk>
-Date: Fri,  3 Apr 2015 09:17:25 +0100
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Fri, 03 Apr 2015 12:22:02 +0200
 
-> Per the suggestion of Joe Perches, attached is a patch which aligns the
-> coding style in ipv4 for comparisons with NULL.
-> 
-> The code uses multiple different styles when comparing with NULL (I.e. 
-> x == NULL and !x as well as x != NULL and x). Generally the latter form
-> is preferred in netdev and so this changes aligns the code to this style.
+> I am crawling through commits which are in 3.10-stable but are not in
+> 3.12-stable. Could you either ACK them so that I can pick them or
+> include them in the next stable NETWORKING patches, please?
 
-Series applied, thanks.
+Sorry, I am not going through arbitrary non-trivial sets of commits.
+
+I'm willing to look at individual -stable backport candidates
+on a case by case basis with a well worded and well thought
+out justification for each candidate from the person interested
+in seeing the -stable submission because it effects something
+they care about.
+
+But wholesale collections like this, I'm not going to invest the time
+into.  It's not reasonable at all.
