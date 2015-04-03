@@ -1,88 +1,79 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2015-04-03
-Date: Fri,  3 Apr 2015 05:04:43 -0700
-Message-ID: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 01/15] i40evf: Fix Outer UDP RX checksum code
+Date: Fri,  3 Apr 2015 05:04:44 -0700
+Message-ID: <1428062698-16180-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:10571 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751005AbbDCMFb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Apr 2015 08:05:31 -0400
+	id S1752085AbbDCMFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Apr 2015 08:05:32 -0400
+In-Reply-To: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Anjali provides a fix for verifying outer UDP receive checksum.  Also
-adds helpful information to display when figuring out the cause of
-HMC errors.
+Inner protocol being UDP should not stop us from verifying Outer UDP
+checksum correctness.
 
-Mitch provides a fix to prevent a malicious or buggy VF driver from
-sending an invalid index into the VSI array which could panic the host.
-Cleans up the code where a function was moved, but the message did
-not follow.  Adds protection to the VLAN filter list, same as the
-MAC filter list, to protect from corruption if the watchdog happens
-to run at the same time as a VLAN filter is being added/deleted.
+If the Outer protocol is not UDP (NVGRE) we should not be doing a UDP
+checksum check. If the packet has zero checksum, skip checksum check.
 
-Jesse changes several memcpy() statements to struct assignments which
-are type safe and preferable.  Fixed a bug when skb allocation fails,
-where we should not continue using the skb pointer.  Also fixed a void
-function in FCoE which should not be returning anything.
+Change-ID: Ie7f153feb276a59f66a54a0938901b2c0a8100fa
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Jim Young <james.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
 
-Greg fixes both i40e and i40evf to set the Ethernet protocol correctly
-when transmit VLAN offloads are disabled.
-
-Shannon fixes up VLAN messages when ports are added or removed, which
-were giving bogus index info.  Also aligned the message text style
-with other messages in the driver.
-
-The following are changes since commit 11a9c7821c583aa22b35f37fba20539def9e8f14:
-  Merge branch 'mlx5-next'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue master
-
-Anjali Singhai Jain (4):
-  i40evf: Fix Outer UDP RX checksum code
-  i40e: Print some more info to help figure out the cause of HMC error
-  i40e: Communicate VSI id in place of VSI index to the VFs
-  i40evf: Refactor VF RSS code
-
-Catherine Sullivan (1):
-  i40e: Bump to version 1.3.1
-
-Greg Rose (1):
-  i40e/i40evf: Set Ethernet protocol correctly when Tx VLAN offloads are
-    disabled
-
-Jesse Brandeburg (3):
-  i40e: Change some memcpys to struct assignments
-  i40e/i40evf: fix bug when skb allocation fails
-  i40e: fix invalid void return in FCoE code
-
-Mitch Williams (4):
-  i40e: validate VSI param from VFs
-  i40e: warn at the right time
-  i40e: stop flow director on shutdown
-  i40evf: protect VLAN filter list
-
-Neerav Parikh (1):
-  i40e: Don't register/de-register apps on NIC partitions in MFP mode
-
-Shannon Nelson (1):
-  i40e: fix up VXLAN messages
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
- drivers/net/ethernet/intel/i40e/i40e_dcb_nl.c      |   8 ++
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  82 +++++++++------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  18 +++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 113 +++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   2 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  43 +++++---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  67 ++++++------
- 9 files changed, 202 insertions(+), 135 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index f41da5d..1b5ee46 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -915,9 +915,7 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 	 * so the total length of IPv4 header is IHL*4 bytes
+ 	 * The UDP_0 bit *may* bet set if the *inner* header is UDP
+ 	 */
+-	if (ipv4_tunnel &&
+-	    (decoded.inner_prot != I40E_RX_PTYPE_INNER_PROT_UDP) &&
+-	    !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
++	if (ipv4_tunnel) {
+ 		skb->transport_header = skb->mac_header +
+ 					sizeof(struct ethhdr) +
+ 					(ip_hdr(skb)->ihl * 4);
+@@ -927,15 +925,19 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
+ 					  skb->protocol == htons(ETH_P_8021AD))
+ 					  ? VLAN_HLEN : 0;
+ 
+-		rx_udp_csum = udp_csum(skb);
+-		iph = ip_hdr(skb);
+-		csum = csum_tcpudp_magic(
+-				iph->saddr, iph->daddr,
+-				(skb->len - skb_transport_offset(skb)),
+-				IPPROTO_UDP, rx_udp_csum);
++		if ((ip_hdr(skb)->protocol == IPPROTO_UDP) &&
++		    (udp_hdr(skb)->check != 0)) {
++			rx_udp_csum = udp_csum(skb);
++			iph = ip_hdr(skb);
++			csum = csum_tcpudp_magic(iph->saddr, iph->daddr,
++						 (skb->len -
++						  skb_transport_offset(skb)),
++						 IPPROTO_UDP, rx_udp_csum);
+ 
+-		if (udp_hdr(skb)->check != csum)
+-			goto checksum_fail;
++			if (udp_hdr(skb)->check != csum)
++				goto checksum_fail;
++
++		} /* else its GRE and so no outer UDP header */
+ 	}
+ 
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 -- 
 1.9.3
