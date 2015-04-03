@@ -1,61 +1,74 @@
 From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: Re: [PATCH RFC 06/10] dpaa_eth: add ethtool functionality
-Date: Fri, 3 Apr 2015 08:54:36 +0000
-Message-ID: <BL2PR03MB54597F6E69800CDAE4D31D0E6F10@BL2PR03MB545.namprd03.prod.outlook.com>
+Subject: RE: [PATCH RFC 02/10] dpaa_eth: add support for DPAA Ethernet
+Date: Fri, 3 Apr 2015 08:58:12 +0000
+Message-ID: <BL2PR03MB545A59DD0E2700AF630C468E6F10@BL2PR03MB545.namprd03.prod.outlook.com>
+References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
+ <1427971444.10518.40.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0126.outbound.protection.outlook.com ([65.55.169.126]:7982
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752353AbbDCIyj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 04:54:39 -0400
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1427971444.10518.40.camel@x220>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Joe Perches [mailto:joe@perches.com]
-> On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
-> > Add support for basic ethtool operations.
-> 
-> > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-> b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-> []
-> > +static int __cold dpa_get_settings(struct net_device *net_dev,
-> > +				   struct ethtool_cmd *et_cmd)
-> > +{
-> > +	int			 _errno;
-> 
-> Using a variable name of _errno is misleading at best,
-> (btw: the only return value for phy_ethtool_gset is 0)
-
-I'll rename all miss-used occurrences of _errno.
- 
-> > +static void __cold dpa_get_drvinfo(struct net_device *net_dev,
-> > +				   struct ethtool_drvinfo *drvinfo)
-> > +{
-> > +	int		 _errno;
-> > +
-> > +	strncpy(drvinfo->driver, KBUILD_MODNAME,
-> > +		sizeof(drvinfo->driver) - 1)[sizeof(drvinfo->driver) - 1] = 0;
-> 
-> That's a really odd and unusual construct
-> more commonly written as strlcpy
-
-I will change this.
-
-> > +	_errno = snprintf(drvinfo->version, sizeof(drvinfo->version),
-> 
-> Using errno here is especially misleading as that's
-> not the return value of an snprintf
-
-I will take care of this one too.
-
-Thank you,
-Madalin
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBQYXVsIEJvbGxlIFttYWlsdG86
+cGVib2xsZUB0aXNjYWxpLm5sXQ0KPiANCj4gSnVzdCBhIGZldyBuaXRzLg0KPiANCj4gVGhpcyBz
+ZXJpZXMgaXMgcG9zdGVkIGFzIGFuIFJGQywgc28gdGhpcyBtaWdodCBub3QgYmUgd2hhdCB5b3Un
+cmUNCj4gZXhwZWN0aW5nIHJpZ2h0IG5vdy4gQnV0IGFzIHRoZXNlIG1lc3NhZ2VzIGdvdCB0YW5n
+bGVkIHVwIGluIG15IG1haWwNCj4gZmlsdGVyIGFueWhvdywgSSB0aG91Z2h0IEkgbWlnaHQgYXMg
+d2VsbCBib3RoZXIgeW91IHdpdGggdGhlc2Ugbml0cyBub3cuDQo+IA0KPiBPbiBXZWQsIDIwMTUt
+MDQtMDEgYXQgMTk6MTkgKzAzMDAsIE1hZGFsaW4gQnVjdXIgd3JvdGU6DQo+ID4gLS0tIC9kZXYv
+bnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9kcGFhL0tjb25m
+aWcNCj4gPiBAQCAtMCwwICsxLDQ5IEBADQo+ID4gK21lbnVjb25maWcgRlNMX0RQQUFfRVRIDQo+
+ID4gKwl0cmlzdGF0ZSAiRFBBQSBFdGhlcm5ldCINCj4gPiArCWRlcGVuZHMgb24gRlNMX1NPQyAm
+JiBGU0xfQk1BTiAmJiBGU0xfUU1BTiAmJiBGU0xfRk1BTg0KPiA+ICsJc2VsZWN0IFBIWUxJQg0K
+PiA+ICsJc2VsZWN0IEZTTF9GTUFOX01BQw0KPiA+ICsJLS0taGVscC0tLQ0KPiA+ICsJICBEYXRh
+IFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSBFdGhlcm5ldCBkcml2ZXIsDQo+ID4gKwkg
+IHN1cHBvcnRpbmcgdGhlIEZyZWVzY2FsZSBRb3JJUSBjaGlwcy4NCj4gPiArCSAgRGVwZW5kcyBv
+biBGcmVlc2NhbGUgQnVmZmVyIE1hbmFnZXIgYW5kIFF1ZXVlIE1hbmFnZXINCj4gPiArCSAgZHJp
+dmVyIGFuZCBGcmFtZSBNYW5hZ2VyIERyaXZlci4NCj4gPiArDQo+ID4gK2lmIEZTTF9EUEFBX0VU
+SA0KPiA+ICsNCj4gPiArY29uZmlnIEZTTF9EUEFBX0NTX1RIUkVTSE9MRF8xRw0KPiA+ICsJaGV4
+ICJFZ3Jlc3MgY29uZ2VzdGlvbiB0aHJlc2hvbGQgb24gMUcgcG9ydHMiDQo+ID4gKwlkZXBlbmRz
+IG9uIEZTTF9EUEFBX0VUSA0KPiANCj4gVGhpcyBlbnRyeSBpcyBpbnNpZGUgdGhlICJpZiBGU0xf
+RFBBQV9FVEgiIGJsb2NrLiBTbyB0aGlzIGxpbmUgc2hvdWxkIGJlDQo+IHN1cGVyZmx1b3VzLg0K
+DQpXaWxsIGFkZHJlc3MgdGhpcyBhbmQgdGhlIG90aGVyIG9jY3VycmVuY2VzLg0KDQo+ID4gKwly
+YW5nZSAweDEwMDAgMHgxMDAwMDAwMA0KPiA+ICsJZGVmYXVsdCAiMHgwNjAwMDAwMCINCj4gPiAr
+CS0tLWhlbHAtLS0NCj4gPiArCSAgVGhlIHNpemUgaW4gYnl0ZXMgb2YgdGhlIGVncmVzcyBDb25n
+ZXN0aW9uIFN0YXRlIG5vdGlmaWNhdGlvbg0KPiB0aHJlc2hvbGQgb24gMUcgcG9ydHMuDQo+ID4g
+KwkgIFRoZSAxRyBkVFNFQ3MgY2FuIHF1aXRlIGVhc2lseSBiZSBmbG9vZGVkIGJ5IGNvcmVzIGRv
+aW5nIFR4IGluIGENCj4gdGlnaHQgbG9vcA0KPiA+ICsJICAoZS5nLiBieSBzZW5kaW5nIFVEUCBk
+YXRhZ3JhbXMgYXQgIndoaWxlKDEpIHNwZWVkIiksDQo+ID4gKwkgIGFuZCB0aGUgbGFyZ2VyIHRo
+ZSBmcmFtZSBzaXplLCB0aGUgbW9yZSBhY3V0ZSB0aGUgcHJvYmxlbS4NCj4gPiArCSAgU28gd2Ug
+aGF2ZSB0byBmaW5kIGEgYmFsYW5jZSBiZXR3ZWVuIHRoZXNlIGZhY3RvcnM6DQo+ID4gKwkgICAg
+ICAgLSBhdm9pZGluZyB0aGUgZGV2aWNlIHN0YXlpbmcgY29uZ2VzdGVkIGZvciBhIHByb2xvbmdl
+ZCB0aW1lDQo+IChyaXNraW5nDQo+ID4gKyAgICAgICAgICAgICAgICAgdGhlIG5ldGRldiB3YXRj
+aGRvZyB0byBmaXJlIC0gc2VlIGFsc28gdGhlIHR4X3RpbWVvdXQgbW9kdWxlDQo+IHBhcmFtKTsN
+Cj4gPiArICAgICAgICAgICAgICAgLSBhZmZlY3RpbmcgcGVyZm9ybWFuY2Ugb2YgcHJvdG9jb2xz
+IHN1Y2ggYXMgVENQLCB3aGljaCBvdGhlcndpc2UNCj4gPiArCSAgICAgICAgIGJlaGF2ZSB3ZWxs
+IHVuZGVyIHRoZSBjb25nZXN0aW9uIG5vdGlmaWNhdGlvbiBtZWNoYW5pc207DQo+ID4gKwkgICAg
+ICAgLSBwcmV2ZW50aW5nIHRoZSBUeCBjb3JlcyBmcm9tIHRpZ2h0bHktbG9vcGluZyAoYXMgaWYg
+dGhlDQo+IGNvbmdlc3Rpb24NCj4gPiArCSAgICAgICAgIHRocmVzaG9sZCB3YXMgdG9vIGxvdyB0
+byBiZSBlZmZlY3RpdmUpOw0KPiA+ICsJICAgICAgIC0gcnVubmluZyBvdXQgb2YgbWVtb3J5IGlm
+IHRoZSBDUyB0aHJlc2hvbGQgaXMgc2V0IHRvbyBoaWdoLg0KPiA+ICsNCj4gPiArY29uZmlnIEZT
+TF9EUEFBX0NTX1RIUkVTSE9MRF8xMEcNCj4gPiArCWhleCAiRWdyZXNzIGNvbmdlc3Rpb24gdGhy
+ZXNob2xkIG9uIDEwRyBwb3J0cyINCj4gPiArCWRlcGVuZHMgb24gRlNMX0RQQUFfRVRIDQo+IA0K
+PiBEaXR0by4NCj4gDQo+ID4gKwlyYW5nZSAweDEwMDAgMHgyMDAwMDAwMA0KPiA+ICsJZGVmYXVs
+dCAiMHgxMDAwMDAwMCINCj4gPiArCS0tLWhlbHAgLS0tDQo+ID4gKwkgIFRoZSBzaXplIGluIGJ5
+dGVzIG9mIHRoZSBlZ3Jlc3MgQ29uZ2VzdGlvbiBTdGF0ZSBub3RpZmljYXRpb24NCj4gdGhyZXNo
+b2xkIG9uIDEwRyBwb3J0cy4NCj4gPiArDQo+ID4gK2NvbmZpZyBGU0xfRFBBQV9JTkdSRVNTX0NT
+X1RIUkVTSE9MRA0KPiA+ICsJaGV4ICJJbmdyZXNzIGNvbmdlc3Rpb24gdGhyZXNob2xkIG9uIEZN
+YW4gcG9ydHMiDQo+ID4gKwlkZXBlbmRzIG9uIEZTTF9EUEFBX0VUSA0KPiANCj4gRGl0dG8uDQo+
+IA0KPiA+ICsJZGVmYXVsdCAiMHgxMDAwMDAwMCINCj4gPiArCS0tLWhlbHAtLS0NCj4gPiArCSAg
+VGhlIHNpemUgaW4gYnl0ZXMgb2YgdGhlIGluZ3Jlc3MgdGFpbC1kcm9wIHRocmVzaG9sZCBvbiBG
+TWFuIHBvcnRzLg0KPiA+ICsJICBUcmFmZmljIHBpbGluZyB1cCBhYm92ZSB0aGlzIHZhbHVlIHdp
+bGwgYmUgcmVqZWN0ZWQgYnkgUU1hbiBhbmQNCj4gZGlzY2FyZGVkIGJ5IEZNYW4uDQo+ID4gKw0K
+PiA+ICtlbmRpZiAjIEZTTF9EUEFBX0VUSA0KPiANCj4gQSBzaW1pbGFyIGNvbW1lbnQgY2FuIGJl
+IG1hZGUgZm9yIHRoZSBlbnRyaWVzIGFkZGVkIGluIDAzLzEwLCAwNS8xMCwgYW5kDQo+IDA5LzEw
+Lg0KPiANCj4gVGhhbmtzLA0KPiANCj4gDQo+IFBhdWwgQm9sbGUNCg0KVGhhbmsgeW91LA0KTWFk
+YWxpbg0K
