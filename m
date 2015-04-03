@@ -1,27 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
- 2015-04-03
-Date: Fri, 03 Apr 2015 12:44:23 -0400 (EDT)
-Message-ID: <20150403.124423.1766074696583511079.davem@davemloft.net>
-References: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH RFC 10/10] dpaa_eth: add trace points
+Date: Fri, 03 Apr 2015 09:47:01 -0700
+Message-ID: <1428079621.13180.10.camel@perches.com>
+References: <1427905196-27778-1-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-2-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-3-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-4-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-5-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-6-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-7-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-8-git-send-email-madalin.bucur@freescale.com>
+	 <1427905196-27778-9-git-send-email-madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org,
+	Ruxandra Ioana Radulescu <ruxandra.radulescu@freescale.com>
+To: madalin.bucur@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48862 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752851AbbDCQoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 12:44:25 -0400
-In-Reply-To: <1428062698-16180-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay0073.hostedemail.com ([216.40.44.73]:48051 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751534AbbDCQrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 12:47:05 -0400
+In-Reply-To: <1427905196-27778-9-git-send-email-madalin.bucur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri,  3 Apr 2015 05:04:43 -0700
+On Wed, 2015-04-01 at 19:19 +0300, Madalin Bucur wrote:
+> Add trace points on the hot processing path.
 
-> This series contains updates to i40e and i40evf only.
+more trivia:
 
-Pulled, thanks a lot Jeff.
+> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+[]
+> +#define fd_format_name(format)	{ qm_fd_##format, #format }
+> +#define fd_format_list	\
+> +	fd_format_name(contig),	\
+> +	fd_format_name(sg)
+
+Are these used anywhere?
+
+> +#define TR_FMT "[%s] fqid=%d, fd: addr=0x%llx, format=%s, off=%u, len=%u," \
+> +	" status=0x%08x"
+
+It's nicer to coalesce string fragments.
+
+Unless this is intended to be used more than once,
+perhaps it's better to remove it and use the string
+directly instead.
+
+> +	/* This is what gets printed when the trace event is triggered */
+> +	TP_printk(TR_FMT,
+> +		  __get_str(name), __entry->fqid, __entry->fd_addr,
+> +		  __print_symbolic(__entry->fd_format, fd_format_list),
+> +		  __entry->fd_offset, __entry->fd_length, __entry->fd_status)
