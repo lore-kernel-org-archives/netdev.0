@@ -1,59 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: neigh use-after-free
-Date: Fri, 03 Apr 2015 16:34:13 -0700
-Message-ID: <1428104053.25985.192.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150403202753.GF32724@Sligo.logfs.org>
-	 <35adab927f1bade6afd57e62a8720205@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] tc: cls_bpf: make ingress and egress qdiscs
+ consistent
+Date: Sat, 04 Apr 2015 01:48:14 +0200
+Message-ID: <551F26BE.1010607@iogearbox.net>
+References: <1428095784-7091-1-git-send-email-ast@plumgrid.com> <551F0A1B.3000100@iogearbox.net> <551F0B96.2090403@plumgrid.com> <551F0FE2.8000502@iogearbox.net> <551F1177.7090902@plumgrid.com> <551F1A14.7080205@iogearbox.net> <551F1C9B.6070908@plumgrid.com> <551F1E13.8050508@plumgrid.com> <551F21A0.1030503@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Joern Engel <joern@purestorage.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexei Potashnik <alexei@purestorage.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33415 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbbDCXeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 19:34:18 -0400
-Received: by paboj16 with SMTP id oj16so48953359pab.0
-        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 16:34:17 -0700 (PDT)
-In-Reply-To: <35adab927f1bade6afd57e62a8720205@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:38858 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751617AbbDCXsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 19:48:25 -0400
+In-Reply-To: <551F21A0.1030503@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-04-03 at 13:52 -0700, Alexei Potashnik wrote:
-> Would this be an appropriate solution:
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index b49e8ba..38265f2 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -168,7 +168,8 @@ static int neigh_forced_gc(struct neigh_table *tbl)
-> 
->  static void neigh_add_timer(struct neighbour *n, unsigned long when)
->  {
-> -       neigh_hold(n);
-> +       if (!atomic_inc_not_zero(&n->refcnt))
-> +               return;
->         if (unlikely(mod_timer(&n->timer, when))) {
->                 printk("NEIGH: BUG, double timer add, state is %x\n",
->                        n->nud_state);
+On 04/04/2015 01:26 AM, Daniel Borkmann wrote:
+> On 04/04/2015 01:11 AM, Alexei Starovoitov wrote:
+...
+>> nope. will take it back.
+>> that doesn't work, since this check cannot be done in ingress_enqueue(),
+>> because it sees the pointer to first filter only, so both TCQ_F_INGRESS
+>> flag and CLS_REQUIRES_L2 flag need to be checked inside
+>
+> So on a quick glance, we're calling into cls_bpf_classify() in tp->classify()
+> (net/sched/cls_api.c +265), so all remaining filters in that list we're
+> traversing in cls_bpf_classify() are all BPF filters, no?
 
-This is a very ugly hack. Please find root cause.
+I see, you mean the classifier chain, not the chain of filters within
+the cls_bpf classifier, ok.
 
-The correct way to implement refcount on a timer is :
-
-if (!mod_timer(&n->timer, when))
-	neigh_hold(&n->refcnt);
-
-And current code seems to do that (It dumps a printk() and stack trace
-otherwise)
-
-
-Look at sk_reset_timer() for a good example.
-
-Caller of this function must own a reference.
-(Or the socket lock in case of sk_reset_timer())
-
-If refcnt is 0 at this point, it means there is another bug, and we
-should fix it instead of trying to work around it.
+> Have to grab some sleep for now, will be on travel tomorrow. Anyway, worst
+> case it could still be refactored later.
