@@ -1,44 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net: move fib_rules_unregister() under rtnl lock
-Date: Thu, 02 Apr 2015 20:53:44 -0400 (EDT)
-Message-ID: <20150402.205344.2010884938148163682.davem@davemloft.net>
-References: <1427824907-13331-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1427824907-13331-2-git-send-email-xiyou.wangcong@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] mvneta: implement SGMII-based in-band link state signaling
+Date: Thu, 02 Apr 2015 18:03:53 -0700
+Message-ID: <551DE6F9.9020903@gmail.com>
+References: <551AA02B.2050104@list.ru> <20150402.205131.1699226515102250937.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexander.h.duyck@redhat.com, tgraf@suug.ch
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42824 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753047AbbDCAxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Apr 2015 20:53:46 -0400
-In-Reply-To: <1427824907-13331-2-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	thomas.petazzoni@free-electrons.com
+To: David Miller <davem@davemloft.net>, stsp@list.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150402.205131.1699226515102250937.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 31 Mar 2015 11:01:46 -0700
+On 02/04/15 17:51, David Miller wrote:
+> From: Stas Sergeev <stsp@list.ru>
+> Date: Tue, 31 Mar 2015 16:24:59 +0300
+> 
+>> @@ -2590,6 +2651,7 @@ static int mvneta_mdio_probe(struct mvneta_port *pp)
+>>
+>>  static void mvneta_mdio_remove(struct mvneta_port *pp)
+>>  {
+>> +	fixed_phy_set_link_update(pp->phy_dev, NULL);
+> 
+> I do not see any other driver doing this on shutdown.
+> Please show me why it is necessary.
 
-> We have to hold rtnl lock for fib_rules_unregister()
-> otherwise the following race could happen:
-> 
-> fib_rules_unregister():	fib_nl_delrule():
-> ...				...
-> ...				ops = lookup_rules_ops();
-> list_del_rcu(&ops->list);
-> 				list_for_each_entry(ops->rules) {
-> fib_rules_cleanup_ops(ops);	  ...
->   list_del_rcu();		  list_del_rcu();
-> 				}
-> 
-> Note, net->rules_mod_lock is actually not needed at all,
-> either upper layer netns code or rtnl lock guarantees
-> we are safe.
-> 
-> Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+The primary reason is that if you do not do that, past the point where
+you call phy_disconnect(), we stop the PHY state machine, detach from
+the net_device, such that it won't invoke the adjust_link callback
+anymore. The fixed PHY driver, though will still keep calling the
+fixed_link_update callback asking the driver whether the link parameters
+need to be updated, and that will just cause a NULL pointer de-reference
+phydev->attached_dev, since we are now in detached state.
 
-Applied.
+I guess another way to fix that is to look for the PHY state in
+fixed_mdio_read() and do nothing if it is PHY_HALTED.
+
+> 
+> And if it is, all other drivers registering a fixed phy link update
+> function need to be adjusted to do the same thing.
+> 
+
+I think the bcmgenet driver is now doing this as a result of Petri's
+latest changes, and I meant to comment on that before the patch got in.
+drivers/net/dsa/bcm_sf2.c has a similar construct but does not invoke
+phy_disconnect() nor can be rmmod'd, so a lesser issue.
+-- 
+Florian
