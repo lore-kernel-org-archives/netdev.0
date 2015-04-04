@@ -1,56 +1,280 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 0/9] netfilter: Compress hook function signatures.
-Date: Fri, 03 Apr 2015 22:07:34 -0400 (EDT)
-Message-ID: <20150403.220734.1272465850706339981.davem@davemloft.net>
+Subject: [PATCH 1/9] netfilter: Create and use nf_hook_state.
+Date: Fri, 03 Apr 2015 22:07:43 -0400 (EDT)
+Message-ID: <20150403.220743.1982329121589716666.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netfilter-devel@vger.kernel.org, pablo@netfilter.org,
 	hannes@stressinduktion.org, jiri@resnulli.us
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52680 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752514AbbDDCHj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 22:07:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-Currently netfilter hooks have a function signature that is huge and
-has many arguments.  This propagates from the hook entry points down
-into the individual hook implementations themselves.
+Instead of passing a large number of arguments down into the nf_hook()
+entry points, create a structure which carries this state down through
+the hook processing layers.
 
-This means that if, for example, we want to change the type of one of
-these arguments then we have to touch hundreds of locations.
-
-The main initial motivation behind this is that we'd like to change
-the signature of "okfn" so that a socket pointer can be passed in (and
-reference counted properly) for the sake of using the proper socket
-context in the case of tunnels whilst not releasing the top level user
-socket from skb->sk (and thus releasing it's socket memory quota
-usage) in order to accomodate this.
-
-This also makes it clear who actually uses 'okfn', nf_queue().  It is
-absolutely critical to make this obvious because any user of 'okfn'
-down in these hook chains have the be strictly audited for
-escapability.  Specifically, escapability of references to objects
-outside of the packet processing path.  And that's exactly what
-nf_queue() does via it's packet reinjection framework.
-
-In fact this points out a bug in Jiri's original attempt to push the
-socket pointer down through netfilter's okfn.  It didn't grab and drop
-a reference to the socket in net/netfilter/nf_queue.c as needed.
-
-Furthermore, so many code paths are simplified, and should in fact be
-more efficient because we aren't passing in arguments that often are
-simply not used by the netfilter hook at all.
-
-Further simplifications are probably possible, but this series takes
-care of the main cases.
-
-Unfortunately I couldn't convert ebt_do_table() because ebtables is
-complete and utter crap and uses ebt_do_table() outside of the hook
-call chains.  But that should not be news to anyone.
+This makes is so that if we want to change the types or signatures of
+any of these pieces of state, there are less places that need to be
+changed.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/netfilter.h    | 28 +++++++++++++++++++++++-----
+ net/netfilter/core.c         | 32 +++++++++++++-------------------
+ net/netfilter/nf_internals.h | 11 +++--------
+ net/netfilter/nf_queue.c     | 38 ++++++++++++++++++++------------------
+ 4 files changed, 59 insertions(+), 50 deletions(-)
+
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 2517ece..aee7ef1 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -44,6 +44,16 @@ int netfilter_init(void);
+ struct sk_buff;
+ 
+ struct nf_hook_ops;
++
++struct nf_hook_state {
++	unsigned int hook;
++	int thresh;
++	u_int8_t pf;
++	struct net_device *in;
++	struct net_device *out;
++	int (*okfn)(struct sk_buff *);
++};
++
+ typedef unsigned int nf_hookfn(const struct nf_hook_ops *ops,
+ 			       struct sk_buff *skb,
+ 			       const struct net_device *in,
+@@ -118,9 +128,7 @@ static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
+ }
+ #endif
+ 
+-int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
+-		 struct net_device *indev, struct net_device *outdev,
+-		 int (*okfn)(struct sk_buff *), int thresh);
++int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state);
+ 
+ /**
+  *	nf_hook_thresh - call a netfilter hook
+@@ -135,8 +143,18 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
+ 				 struct net_device *outdev,
+ 				 int (*okfn)(struct sk_buff *), int thresh)
+ {
+-	if (nf_hooks_active(pf, hook))
+-		return nf_hook_slow(pf, hook, skb, indev, outdev, okfn, thresh);
++	if (nf_hooks_active(pf, hook)) {
++		struct nf_hook_state state = {
++			.hook = hook,
++			.thresh = thresh,
++			.pf = pf,
++			.in = indev,
++			.out = outdev,
++			.okfn = okfn
++		};
++
++		return nf_hook_slow(skb, &state);
++	}
+ 	return 1;
+ }
+ 
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index fea9ef5..11d04eb 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -120,12 +120,8 @@ EXPORT_SYMBOL(nf_unregister_hooks);
+ 
+ unsigned int nf_iterate(struct list_head *head,
+ 			struct sk_buff *skb,
+-			unsigned int hook,
+-			const struct net_device *indev,
+-			const struct net_device *outdev,
+-			struct nf_hook_ops **elemp,
+-			int (*okfn)(struct sk_buff *),
+-			int hook_thresh)
++			struct nf_hook_state *state,
++			struct nf_hook_ops **elemp)
+ {
+ 	unsigned int verdict;
+ 
+@@ -134,19 +130,20 @@ unsigned int nf_iterate(struct list_head *head,
+ 	 * function because of risk of continuing from deleted element.
+ 	 */
+ 	list_for_each_entry_continue_rcu((*elemp), head, list) {
+-		if (hook_thresh > (*elemp)->priority)
++		if (state->thresh > (*elemp)->priority)
+ 			continue;
+ 
+ 		/* Optimization: we don't need to hold module
+ 		   reference here, since function can't sleep. --RR */
+ repeat:
+-		verdict = (*elemp)->hook(*elemp, skb, indev, outdev, okfn);
++		verdict = (*elemp)->hook(*elemp, skb, state->in, state->out,
++					 state->okfn);
+ 		if (verdict != NF_ACCEPT) {
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 			if (unlikely((verdict & NF_VERDICT_MASK)
+ 							> NF_MAX_VERDICT)) {
+ 				NFDEBUG("Evil return from %p(%u).\n",
+-					(*elemp)->hook, hook);
++					(*elemp)->hook, state->hook);
+ 				continue;
+ 			}
+ #endif
+@@ -161,11 +158,7 @@ repeat:
+ 
+ /* Returns 1 if okfn() needs to be executed by the caller,
+  * -EPERM for NF_DROP, 0 otherwise. */
+-int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
+-		 struct net_device *indev,
+-		 struct net_device *outdev,
+-		 int (*okfn)(struct sk_buff *),
+-		 int hook_thresh)
++int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state)
+ {
+ 	struct nf_hook_ops *elem;
+ 	unsigned int verdict;
+@@ -174,10 +167,11 @@ int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
+ 	/* We may already have this, but read-locks nest anyway */
+ 	rcu_read_lock();
+ 
+-	elem = list_entry_rcu(&nf_hooks[pf][hook], struct nf_hook_ops, list);
++	elem = list_entry_rcu(&nf_hooks[state->pf][state->hook],
++			      struct nf_hook_ops, list);
+ next_hook:
+-	verdict = nf_iterate(&nf_hooks[pf][hook], skb, hook, indev,
+-			     outdev, &elem, okfn, hook_thresh);
++	verdict = nf_iterate(&nf_hooks[state->pf][state->hook], skb, state,
++			     &elem);
+ 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
+ 		ret = 1;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_DROP) {
+@@ -186,8 +180,8 @@ next_hook:
+ 		if (ret == 0)
+ 			ret = -EPERM;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
+-		int err = nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+-						verdict >> NF_VERDICT_QBITS);
++		int err = nf_queue(skb, elem, state,
++				   verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+ 			if (err == -ECANCELED)
+ 				goto next_hook;
+diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
+index 61a3c92..ea7f367 100644
+--- a/net/netfilter/nf_internals.h
++++ b/net/netfilter/nf_internals.h
+@@ -14,16 +14,11 @@
+ 
+ /* core.c */
+ unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
+-			unsigned int hook, const struct net_device *indev,
+-			const struct net_device *outdev,
+-			struct nf_hook_ops **elemp,
+-			int (*okfn)(struct sk_buff *), int hook_thresh);
++			struct nf_hook_state *state, struct nf_hook_ops **elemp);
+ 
+ /* nf_queue.c */
+-int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem, u_int8_t pf,
+-	     unsigned int hook, struct net_device *indev,
+-	     struct net_device *outdev, int (*okfn)(struct sk_buff *),
+-	     unsigned int queuenum);
++int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem,
++	     struct nf_hook_state *state, unsigned int queuenum);
+ int __init netfilter_queue_init(void);
+ 
+ /* nf_log.c */
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 4c8b68e..6f8e948 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -100,12 +100,9 @@ EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
+  * through nf_reinject().
+  */
+ int nf_queue(struct sk_buff *skb,
+-		      struct nf_hook_ops *elem,
+-		      u_int8_t pf, unsigned int hook,
+-		      struct net_device *indev,
+-		      struct net_device *outdev,
+-		      int (*okfn)(struct sk_buff *),
+-		      unsigned int queuenum)
++	     struct nf_hook_ops *elem,
++	     struct nf_hook_state *state,
++	     unsigned int queuenum)
+ {
+ 	int status = -ENOENT;
+ 	struct nf_queue_entry *entry = NULL;
+@@ -121,7 +118,7 @@ int nf_queue(struct sk_buff *skb,
+ 		goto err_unlock;
+ 	}
+ 
+-	afinfo = nf_get_afinfo(pf);
++	afinfo = nf_get_afinfo(state->pf);
+ 	if (!afinfo)
+ 		goto err_unlock;
+ 
+@@ -134,11 +131,11 @@ int nf_queue(struct sk_buff *skb,
+ 	*entry = (struct nf_queue_entry) {
+ 		.skb	= skb,
+ 		.elem	= elem,
+-		.pf	= pf,
+-		.hook	= hook,
+-		.indev	= indev,
+-		.outdev	= outdev,
+-		.okfn	= okfn,
++		.pf	= state->pf,
++		.hook	= state->hook,
++		.indev	= state->in,
++		.outdev	= state->out,
++		.okfn	= state->okfn,
+ 		.size	= sizeof(*entry) + afinfo->route_key_size,
+ 	};
+ 
+@@ -171,6 +168,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 	struct sk_buff *skb = entry->skb;
+ 	struct nf_hook_ops *elem = entry->elem;
+ 	const struct nf_afinfo *afinfo;
++	struct nf_hook_state state;
+ 	int err;
+ 
+ 	rcu_read_lock();
+@@ -189,12 +187,17 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 			verdict = NF_DROP;
+ 	}
+ 
++	state.hook = entry->hook;
++	state.thresh = INT_MIN;
++	state.pf = entry->pf;
++	state.in = entry->indev;
++	state.out = entry->outdev;
++	state.okfn = entry->okfn;
++
+ 	if (verdict == NF_ACCEPT) {
+ 	next_hook:
+ 		verdict = nf_iterate(&nf_hooks[entry->pf][entry->hook],
+-				     skb, entry->hook,
+-				     entry->indev, entry->outdev, &elem,
+-				     entry->okfn, INT_MIN);
++				     skb, &state, &elem);
+ 	}
+ 
+ 	switch (verdict & NF_VERDICT_MASK) {
+@@ -205,9 +208,8 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 		local_bh_enable();
+ 		break;
+ 	case NF_QUEUE:
+-		err = nf_queue(skb, elem, entry->pf, entry->hook,
+-				entry->indev, entry->outdev, entry->okfn,
+-				verdict >> NF_VERDICT_QBITS);
++		err = nf_queue(skb, elem, &state,
++			       verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+ 			if (err == -ECANCELED)
+ 				goto next_hook;
+-- 
+2.1.0
+
