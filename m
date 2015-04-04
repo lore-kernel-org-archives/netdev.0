@@ -1,241 +1,139 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 8/9] netfilter: Pass nf_hook_state through
- nft_set_pktinfo*().
-Date: Fri, 03 Apr 2015 22:08:18 -0400 (EDT)
-Message-ID: <20150403.220818.2170078705464459092.davem@davemloft.net>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: pull request: bluetooth-next 2015-04-04
+Date: Sat, 4 Apr 2015 09:24:06 +0300
+Message-ID: <20150404062406.GA29882@t440s.P-661HNU-F1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, pablo@netfilter.org,
-	hannes@stressinduktion.org, jiri@resnulli.us
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="opJtzjQTFsWo+cga"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Dave,
+
+Here's what's probably the last bluetooth-next pull request for 4.1:
+
+ - Fixes for LE advertising data & advertising parameters
+ - Fix for race condition with HCI_RESET flag
+ - New BNEPGETSUPPFEAT ioctl, needed for certification
+ - New HCI request callback type to get the resulting skb
+ - Cleanups to use BIT() macro wherever possible
+ - Consolidate Broadcom device entries in the btusb HCI driver
+ - Check for valid flags in CMTP, HIDP & BNEP
+ - Disallow local privacy & OOB data combo to prevent a potential race
+ - Expose SMP & ECDH selftest results through debugfs
+ - Expose current Device ID info through debugfs
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
 ---
- include/net/netfilter/nf_tables.h         |  7 +++----
- include/net/netfilter/nf_tables_ipv4.h    |  5 ++---
- include/net/netfilter/nf_tables_ipv6.h    |  5 ++---
- net/bridge/netfilter/nf_tables_bridge.c   | 24 +++++++++++-------------
- net/ipv4/netfilter/nf_tables_arp.c        |  2 +-
- net/ipv4/netfilter/nf_tables_ipv4.c       |  2 +-
- net/ipv4/netfilter/nft_chain_nat_ipv4.c   |  2 +-
- net/ipv4/netfilter/nft_chain_route_ipv4.c |  2 +-
- net/ipv6/netfilter/nf_tables_ipv6.c       |  2 +-
- net/ipv6/netfilter/nft_chain_nat_ipv6.c   |  2 +-
- net/ipv6/netfilter/nft_chain_route_ipv6.c |  2 +-
- 11 files changed, 25 insertions(+), 30 deletions(-)
+The following changes since commit a7a484bfca218f9671a3e3bc98851eab6b628310:
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index b8cd60d..8049819 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -26,12 +26,11 @@ struct nft_pktinfo {
- static inline void nft_set_pktinfo(struct nft_pktinfo *pkt,
- 				   const struct nf_hook_ops *ops,
- 				   struct sk_buff *skb,
--				   const struct net_device *in,
--				   const struct net_device *out)
-+				   const struct nf_hook_state *state)
- {
- 	pkt->skb = skb;
--	pkt->in = pkt->xt.in = in;
--	pkt->out = pkt->xt.out = out;
-+	pkt->in = pkt->xt.in = state->in;
-+	pkt->out = pkt->xt.out = state->out;
- 	pkt->ops = ops;
- 	pkt->xt.hooknum = ops->hooknum;
- 	pkt->xt.family = ops->pf;
-diff --git a/include/net/netfilter/nf_tables_ipv4.h b/include/net/netfilter/nf_tables_ipv4.h
-index cba143f..2df7f96 100644
---- a/include/net/netfilter/nf_tables_ipv4.h
-+++ b/include/net/netfilter/nf_tables_ipv4.h
-@@ -8,12 +8,11 @@ static inline void
- nft_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
- 		     const struct nf_hook_ops *ops,
- 		     struct sk_buff *skb,
--		     const struct net_device *in,
--		     const struct net_device *out)
-+		     const struct nf_hook_state *state)
- {
- 	struct iphdr *ip;
- 
--	nft_set_pktinfo(pkt, ops, skb, in, out);
-+	nft_set_pktinfo(pkt, ops, skb, state);
- 
- 	ip = ip_hdr(pkt->skb);
- 	pkt->tprot = ip->protocol;
-diff --git a/include/net/netfilter/nf_tables_ipv6.h b/include/net/netfilter/nf_tables_ipv6.h
-index 74d9761..97db2e3 100644
---- a/include/net/netfilter/nf_tables_ipv6.h
-+++ b/include/net/netfilter/nf_tables_ipv6.h
-@@ -8,13 +8,12 @@ static inline int
- nft_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
- 		     const struct nf_hook_ops *ops,
- 		     struct sk_buff *skb,
--		     const struct net_device *in,
--		     const struct net_device *out)
-+		     const struct nf_hook_state *state)
- {
- 	int protohdr, thoff = 0;
- 	unsigned short frag_off;
- 
--	nft_set_pktinfo(pkt, ops, skb, in, out);
-+	nft_set_pktinfo(pkt, ops, skb, state);
- 
- 	protohdr = ipv6_find_hdr(pkt->skb, &thoff, -1, &frag_off, NULL);
- 	/* If malformed, drop it */
-diff --git a/net/bridge/netfilter/nf_tables_bridge.c b/net/bridge/netfilter/nf_tables_bridge.c
-index 2c46a47..a343e62 100644
---- a/net/bridge/netfilter/nf_tables_bridge.c
-+++ b/net/bridge/netfilter/nf_tables_bridge.c
-@@ -67,27 +67,25 @@ EXPORT_SYMBOL_GPL(nft_bridge_ip6hdr_validate);
- static inline void nft_bridge_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
- 					       const struct nf_hook_ops *ops,
- 					       struct sk_buff *skb,
--					       const struct net_device *in,
--					       const struct net_device *out)
-+					       const struct nf_hook_state *state)
- {
- 	if (nft_bridge_iphdr_validate(skb))
--		nft_set_pktinfo_ipv4(pkt, ops, skb, in, out);
-+		nft_set_pktinfo_ipv4(pkt, ops, skb, state);
- 	else
--		nft_set_pktinfo(pkt, ops, skb, in, out);
-+		nft_set_pktinfo(pkt, ops, skb, state);
- }
- 
- static inline void nft_bridge_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
--					      const struct nf_hook_ops *ops,
--					      struct sk_buff *skb,
--					      const struct net_device *in,
--					      const struct net_device *out)
-+					       const struct nf_hook_ops *ops,
-+					       struct sk_buff *skb,
-+					       const struct nf_hook_state *state)
- {
- #if IS_ENABLED(CONFIG_IPV6)
- 	if (nft_bridge_ip6hdr_validate(skb) &&
--	    nft_set_pktinfo_ipv6(pkt, ops, skb, in, out) == 0)
-+	    nft_set_pktinfo_ipv6(pkt, ops, skb, state) == 0)
- 		return;
- #endif
--	nft_set_pktinfo(pkt, ops, skb, in, out);
-+	nft_set_pktinfo(pkt, ops, skb, state);
- }
- 
- static unsigned int
-@@ -99,13 +97,13 @@ nft_do_chain_bridge(const struct nf_hook_ops *ops,
- 
- 	switch (eth_hdr(skb)->h_proto) {
- 	case htons(ETH_P_IP):
--		nft_bridge_set_pktinfo_ipv4(&pkt, ops, skb, state->in, state->out);
-+		nft_bridge_set_pktinfo_ipv4(&pkt, ops, skb, state);
- 		break;
- 	case htons(ETH_P_IPV6):
--		nft_bridge_set_pktinfo_ipv6(&pkt, ops, skb, state->in, state->out);
-+		nft_bridge_set_pktinfo_ipv6(&pkt, ops, skb, state);
- 		break;
- 	default:
--		nft_set_pktinfo(&pkt, ops, skb, state->in, state->out);
-+		nft_set_pktinfo(&pkt, ops, skb, state);
- 		break;
- 	}
- 
-diff --git a/net/ipv4/netfilter/nf_tables_arp.c b/net/ipv4/netfilter/nf_tables_arp.c
-index fceb50e..8412268 100644
---- a/net/ipv4/netfilter/nf_tables_arp.c
-+++ b/net/ipv4/netfilter/nf_tables_arp.c
-@@ -21,7 +21,7 @@ nft_do_chain_arp(const struct nf_hook_ops *ops,
- {
- 	struct nft_pktinfo pkt;
- 
--	nft_set_pktinfo(&pkt, ops, skb, state->in, state->out);
-+	nft_set_pktinfo(&pkt, ops, skb, state);
- 
- 	return nft_do_chain(&pkt, ops);
- }
-diff --git a/net/ipv4/netfilter/nf_tables_ipv4.c b/net/ipv4/netfilter/nf_tables_ipv4.c
-index 708e388..aa180d3 100644
---- a/net/ipv4/netfilter/nf_tables_ipv4.c
-+++ b/net/ipv4/netfilter/nf_tables_ipv4.c
-@@ -24,7 +24,7 @@ static unsigned int nft_do_chain_ipv4(const struct nf_hook_ops *ops,
- {
- 	struct nft_pktinfo pkt;
- 
--	nft_set_pktinfo_ipv4(&pkt, ops, skb, state->in, state->out);
-+	nft_set_pktinfo_ipv4(&pkt, ops, skb, state);
- 
- 	return nft_do_chain(&pkt, ops);
- }
-diff --git a/net/ipv4/netfilter/nft_chain_nat_ipv4.c b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-index f56bbb1..bf5c30a 100644
---- a/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-+++ b/net/ipv4/netfilter/nft_chain_nat_ipv4.c
-@@ -33,7 +33,7 @@ static unsigned int nft_nat_do_chain(const struct nf_hook_ops *ops,
- {
- 	struct nft_pktinfo pkt;
- 
--	nft_set_pktinfo_ipv4(&pkt, ops, skb, state->in, state->out);
-+	nft_set_pktinfo_ipv4(&pkt, ops, skb, state);
- 
- 	return nft_do_chain(&pkt, ops);
- }
-diff --git a/net/ipv4/netfilter/nft_chain_route_ipv4.c b/net/ipv4/netfilter/nft_chain_route_ipv4.c
-index 073d077..e335b0a 100644
---- a/net/ipv4/netfilter/nft_chain_route_ipv4.c
-+++ b/net/ipv4/netfilter/nft_chain_route_ipv4.c
-@@ -37,7 +37,7 @@ static unsigned int nf_route_table_hook(const struct nf_hook_ops *ops,
- 	    ip_hdrlen(skb) < sizeof(struct iphdr))
- 		return NF_ACCEPT;
- 
--	nft_set_pktinfo_ipv4(&pkt, ops, skb, state->in, state->out);
-+	nft_set_pktinfo_ipv4(&pkt, ops, skb, state);
- 
- 	mark = skb->mark;
- 	iph = ip_hdr(skb);
-diff --git a/net/ipv6/netfilter/nf_tables_ipv6.c b/net/ipv6/netfilter/nf_tables_ipv6.c
-index 224bc89..c8148ba 100644
---- a/net/ipv6/netfilter/nf_tables_ipv6.c
-+++ b/net/ipv6/netfilter/nf_tables_ipv6.c
-@@ -23,7 +23,7 @@ static unsigned int nft_do_chain_ipv6(const struct nf_hook_ops *ops,
- 	struct nft_pktinfo pkt;
- 
- 	/* malformed packet, drop it */
--	if (nft_set_pktinfo_ipv6(&pkt, ops, skb, state->in, state->out) < 0)
-+	if (nft_set_pktinfo_ipv6(&pkt, ops, skb, state) < 0)
- 		return NF_DROP;
- 
- 	return nft_do_chain(&pkt, ops);
-diff --git a/net/ipv6/netfilter/nft_chain_nat_ipv6.c b/net/ipv6/netfilter/nft_chain_nat_ipv6.c
-index 11c6f75..951bb45 100644
---- a/net/ipv6/netfilter/nft_chain_nat_ipv6.c
-+++ b/net/ipv6/netfilter/nft_chain_nat_ipv6.c
-@@ -31,7 +31,7 @@ static unsigned int nft_nat_do_chain(const struct nf_hook_ops *ops,
- {
- 	struct nft_pktinfo pkt;
- 
--	nft_set_pktinfo_ipv6(&pkt, ops, skb, state->in, state->out);
-+	nft_set_pktinfo_ipv6(&pkt, ops, skb, state);
- 
- 	return nft_do_chain(&pkt, ops);
- }
-diff --git a/net/ipv6/netfilter/nft_chain_route_ipv6.c b/net/ipv6/netfilter/nft_chain_route_ipv6.c
-index c826c3c..0dafdaa 100644
---- a/net/ipv6/netfilter/nft_chain_route_ipv6.c
-+++ b/net/ipv6/netfilter/nft_chain_route_ipv6.c
-@@ -33,7 +33,7 @@ static unsigned int nf_route_table_hook(const struct nf_hook_ops *ops,
- 	u32 mark, flowlabel;
- 
- 	/* malformed packet, drop it */
--	if (nft_set_pktinfo_ipv6(&pkt, ops, skb, state->in, state->out) < 0)
-+	if (nft_set_pktinfo_ipv6(&pkt, ops, skb, state) < 0)
- 		return NF_DROP;
- 
- 	/* save source/dest address, mark, hoplimit, flowlabel, priority */
--- 
-2.1.0
+  at86rf230: fix is_tx while error handling (2015-03-27 19:18:51 +0100)
 
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
+
+for you to fetch changes up to 38c8af60046edab4c9db5f26e79746b1bd52c837:
+
+  Bluetooth: Fix location of TX power field in LE advertising data (2015-04-04 08:50:20 +0300)
+
+----------------------------------------------------------------
+Arman Uguray (3):
+      Bluetooth: Fix using global connectable settings for adv
+      Bluetooth: Use ADV_SCAN_IND for adv. instances
+      Bluetooth: Update adv. parameters when conn. setting changes
+
+Grzegorz Kolodziejczyk (4):
+      Bluetooth: bnep: Return err value while sending cmd is not understood
+      Bluetooth: bnep: Add support for get bnep features via ioctl
+      Bluetooth: bnep: Add support to extended headers of control frames
+      Bluetooth: bnep: Handle BNEP connection setup request
+
+Johan Hedberg (10):
+      Bluetooth: Fix race condition with HCI_RESET flag
+      Bluetooth: Refactor L2CAP variables into l2cap_ctrl
+      Bluetooth: Refactor HCI request variables into own struct
+      Bluetooth: Add clarifying comment to command status handling
+      Bluetooth: Add second hci_request callback option for full skb
+      Bluetooth: Convert hci_req_sync family of function to new request API
+      Bluetooth: Remove unneeded recv_event variable
+      Bluetooth: Remove unused hci_req_pending() function
+      Bluetooth: Move hci_get_cmd_complete() to hci_event.c
+      Bluetooth: Convert local OOB data reading to use HCI request
+
+Marcel Holtmann (15):
+      Bluetooth: btusb: Consolidate Broadcom based device entries
+      Bluetooth: Move memory location outside of hci_dev lock
+      Bluetooth: Fix error returns for Read Local OOB Extended Data commands
+      Bluetooth: Remove superfluous extra empty line between functions
+      Bluetooth: Expose current Device ID information via debugfs
+      Bluetooth: Remove unneeded extra ( ) in valid flags check
+      Bluetooth: Restrict CMTP flags to only valid ones
+      Bluetooth: Restrict HIDP flags to only valid ones
+      Bluetooth: Restrict BNEP flags to only valid ones
+      Bluetooth: Export ECDH selftest result in debugfs
+      Bluetooth: Export SMP selftest result in debugfs
+      Bluetooth: Disallow LE local out-of-band data when LE privacy is used
+      Bluetooth: cmtp: Use BIT(x) instead of (1 << x)
+      Bluetooth: hidp: Use BIT(x) instead of (1 << x)
+      Bluetooth: Fix location of TX power field in LE advertising data
+
+ drivers/bluetooth/btusb.c         |  12 +-
+ drivers/bluetooth/hci_ldisc.c     |   2 +-
+ fs/compat_ioctl.c                 |   2 +
+ include/net/bluetooth/bluetooth.h |  23 +++-
+ include/net/bluetooth/hci_core.h  |   7 +-
+ net/bluetooth/bnep/bnep.h         |   4 +
+ net/bluetooth/bnep/core.c         |  70 ++++++++--
+ net/bluetooth/bnep/sock.c         |   7 +
+ net/bluetooth/cmtp/capi.c         |   2 +-
+ net/bluetooth/cmtp/core.c         |  15 ++-
+ net/bluetooth/hci_core.c          | 120 +++++------------
+ net/bluetooth/hci_debugfs.c       |  26 ++++
+ net/bluetooth/hci_event.c         | 175 ++++++++++++++++--------
+ net/bluetooth/hci_request.c       |  20 ++-
+ net/bluetooth/hci_request.h       |   5 +-
+ net/bluetooth/hci_sock.c          |   2 +-
+ net/bluetooth/hidp/core.c         |  15 ++-
+ net/bluetooth/l2cap_core.c        |  48 +++----
+ net/bluetooth/l2cap_sock.c        |   6 +-
+ net/bluetooth/mgmt.c              | 267 +++++++++++++++++++++++--------------
+ net/bluetooth/selftest.c          |  35 ++++-
+ net/bluetooth/smp.c               |  45 +++++--
+ 22 files changed, 570 insertions(+), 338 deletions(-)
+
+
+--opJtzjQTFsWo+cga
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVH4OGAAoJECQj9vv5qNQSm6AP/jsWbz7brrAy4jXqdXgae+n9
+eglRXnjD5y3Rz25zuPhbEkj1wU807FG0FYe+13IRZTG5ouf0g3WjTLVS7dp/KZ0A
+Xt6Mn/HiNqGbTU6Xodb/px/xvK9blyyVOeHEhXW2pBPLTtEYFSq1T1fAKlWN/sCz
+1DoLegh5uDq0DretBLqIhGGfYye7WhaMiDsFUvsN8WwQJNBC3Hca8VRN8d16pKYy
+LL+L3pe9OxVtnkGeAj+RS19GoyK4RLwm4pktUcmxBsCVEhwhOtmb3fzPHGLqtFgm
+jMmOLLccnw+ZRWYxcnQq7hQZw4ThSJgZijeV5db9LEwife23LZqtAHywRQAY4z/m
+EMQkvZFggByoQarZLWnGPTa3LE1U32nXNfpBgVl5SiVCuAYN3fYih0QNqQAue9Ty
+y2QJ5hQbHMV9votHCsb0RMfH9mwTKz8RPmyhqcXhrRNeciB634VfjJajNZhhoiZy
+Sj/0bac5AEeTL7MnBzjfowwhpyRzGwJIoKReD1sG/jj4Ji3pr9ZM5CJ63JufZdgp
+xOC9IViYdcnQA5lMqJ/gf/Z2mfBleEuOqcNFUq3UCVaridjfv1QcKQ7ILGierGlr
+7U51ohiHFjS5Qfpp2ORbU9oidFBHlJn/h6s5u0XJsQyd/vSNRhcrto7suXmFenAh
+MaE74xuMtZ/8BJkHv1zj
+=LMlT
+-----END PGP SIGNATURE-----
+
+--opJtzjQTFsWo+cga--
