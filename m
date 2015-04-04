@@ -1,57 +1,79 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man ip-link: Add missing link types - vti,ipvlan,nlmon
-Date: Sat,  4 Apr 2015 19:00:55 +0300
-Message-ID: <1428163255-1509-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:32863 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752244AbbDDQM6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2015 12:12:58 -0400
-Received: by wiax7 with SMTP id x7so409499wia.0
-        for <netdev@vger.kernel.org>; Sat, 04 Apr 2015 09:12:57 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: dsa: fix filling rtable from OF description
+Date: Sat, 4 Apr 2015 18:38:14 +0200
+Message-ID: <20150404163814.GA19428@lunn.ch>
+References: <1941340.ZSOIoOXLWB@pavel.skitlab.int>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org
+To: Pavel Nakonechny <pavel.nakonechny@skitlab.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1941340.ZSOIoOXLWB@pavel.skitlab.int>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+Hi Pavel
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- man/man8/ip-link.8.in | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+There is the code after applying your patch:
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 0e3bb5e..642cdb2 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -72,7 +72,10 @@ ip-link \- network device configuration
- .BR gre " |"
- .BR gretap " |"
- .BR ip6gre " |"
--.BR ip6gretap " ]"
-+.BR ip6gretap " |"
-+.BR vti " |"
-+.BR nlmon " |"
-+.BR ipvlan " ]"
- 
- .ti -8
- .BI "ip link delete " DEVICE
-@@ -228,6 +231,15 @@ Link types:
- .sp
- .BR ip6gretap
- - Virtual L2 tunnel interface GRE over IPv6
-+.sp
-+.BR vti
-+- Virtual tunnel interface
-+.sp
-+.BR nlmon
-+- Netlink monitoring device
-+.sp
-+.BR ipvlan
-+- Interface for L3 (IPv6/IPv4) based VLANs
- .in -8
- 
- .TP
--- 
-2.3.1
+static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
+                                        struct dsa_chip_data *cd,
+                                        int chip_index, int port_index,
+                                        struct device_node *link)
+{
+        const __be32 *reg;
+        int link_sw_addr;
+        struct device_node *parent_sw;
+        int len;
+
+        parent_sw = of_get_parent(link);
+        if (!parent_sw)
+                return -EINVAL;
+
+link is the phandle to the port in other switch. parent_sw is then the
+switch property.
+
+
+        reg = of_get_property(parent_sw, "reg", &len);
+        if (!reg || (len != sizeof(*reg) * 2))
+                return -EINVAL;
+
+So now you get the reg property. This is documented as:
+
+- reg                   : Describes the switch address on the MII bus
+
+
+        link_sw_addr = be32_to_cpup(reg + 1);
+
+        if (link_sw_addr >= pd->nr_chips)
+                return -EINVAL;
+
+This is now not making much sense.
+
+Looking up the MII bus address seems wrong. You want the chip number,
+not its address.
+
+    Andrew
+
+        /* First time routing table allocation */
+        if (!cd->rtable) {
+                cd->rtable = kmalloc_array(pd->nr_chips, sizeof(s8),
+                                           GFP_KERNEL);
+                if (!cd->rtable)
+                        return -ENOMEM;
+
+                /* default to no valid uplink/downlink */
+                memset(cd->rtable, -1, pd->nr_chips * sizeof(s8));
+        }
+
+        cd->rtable[link_sw_addr] = port_index;
+
+        return 0;
+}
