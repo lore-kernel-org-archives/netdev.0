@@ -1,110 +1,71 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: af_packet / TX_RING not fully non-blocking (w/ MSG_DONTWAIT)
-Date: Sat, 04 Apr 2015 12:19:27 +0200
-Message-ID: <551FBAAF.50103@hartkopp.net>
-References: <551D1F86.8050200@fokus.fraunhofer.de> <551F1296.6090003@iogearbox.net> <551FA2A7.30208@fokus.fraunhofer.de>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 0/9] netfilter: Compress hook function signatures.
+Date: Sat, 4 Apr 2015 13:49:28 +0200
+Message-ID: <20150404114928.GA3829@salvia>
+References: <20150403.220734.1272465850706339981.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com
-To: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	hannes@stressinduktion.org, jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.162]:50768 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026AbbDDKTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2015 06:19:46 -0400
-In-Reply-To: <551FA2A7.30208@fokus.fraunhofer.de>
+Received: from mail.us.es ([193.147.175.20]:32777 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752134AbbDDLpt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Apr 2015 07:45:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20150403.220734.1272465850706339981.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Mathias,
+On Fri, Apr 03, 2015 at 10:07:34PM -0400, David Miller wrote:
+> 
+> Currently netfilter hooks have a function signature that is huge and
+> has many arguments.  This propagates from the hook entry points down
+> into the individual hook implementations themselves.
+> 
+> This means that if, for example, we want to change the type of one of
+> these arguments then we have to touch hundreds of locations.
+> 
+> The main initial motivation behind this is that we'd like to change
+> the signature of "okfn" so that a socket pointer can be passed in (and
+> reference counted properly) for the sake of using the proper socket
+> context in the case of tunnels whilst not releasing the top level user
+> socket from skb->sk (and thus releasing it's socket memory quota
+> usage) in order to accomodate this.
+> 
+> This also makes it clear who actually uses 'okfn', nf_queue().  It is
+> absolutely critical to make this obvious because any user of 'okfn'
+> down in these hook chains have the be strictly audited for
+> escapability.  Specifically, escapability of references to objects
+> outside of the packet processing path.  And that's exactly what
+> nf_queue() does via it's packet reinjection framework.
+> 
+> In fact this points out a bug in Jiri's original attempt to push the
+> socket pointer down through netfilter's okfn.  It didn't grab and drop
+> a reference to the socket in net/netfilter/nf_queue.c as needed.
+>
+> Furthermore, so many code paths are simplified, and should in fact be
+> more efficient because we aren't passing in arguments that often are
+> simply not used by the netfilter hook at all.
+> 
+> Further simplifications are probably possible, but this series takes
+> care of the main cases.
+> 
+> Unfortunately I couldn't convert ebt_do_table() because ebtables is
+> complete and utter crap and uses ebt_do_table() outside of the hook
+> call chains.  But that should not be news to anyone.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-On 04.04.2015 10:36, Mathias Kretschmer wrote:
-> Hi Daniel,
->
-> you are right, EAGAIN seems more appropriate.
->
-> I thought packet_snd() would return this - it rather seems that I need glasses :)
->
-> Anyway, new patch attached. (Hopefully without spaces this time).
+Nice series. If you route them through net-next, please add:
 
-please send patches inline so that they can be reviewed.
-With proper topic, what is the problem and what's the fix.
-And with a proper Signed-off-by: ... line
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-See at:
-https://www.kernel.org/doc/Documentation/SubmittingPatches
+or I can place them in nf-next, your call.
 
-You can see examples e.g. at the Linux Netdev mailing list:
-http://marc.info/?l=linux-netdev
+Regarding Jiri's okfn() signature changes, please let me know on those
+patches, they will simplify a patchset I'll submit soon. And count on
+me to help on that change too, of course.
 
-Regards,
-Oliver
-
-ps. setting up git send-email is the best you can do - when you think about 
-posting more than one patch :-)
-pps. You may also omit the telephone number blabla at the end. E-mail address 
-is sufficient.
-
->
-> Cheers,
->
-> Mathias
->
-> On 04/04/2015 12:22 AM, Daniel Borkmann wrote:
->> Hi Mathias,
->>
->> On 04/02/2015 12:52 PM, Mathias Kretschmer wrote:
->>> Dear all,
->>>
->>> we have encountered a problem where the send(MSG_DONTWAIT) call on a
->>> TX_RING is not fully non-blocking in cases where the device's sndBuf is
->>> full (i.e. we are trying to write faster than the device can handle).
->>>
->>> This is on a WLAN radio (so it's not that hard to achieve :).
->>>
->>> Comparing the TX_RING send() handler to the regular send() handler, the
->>> difference seems to be in the sock_alloc_send_skb() call where, the regular
->>> handler passes a (flags & MSG_DONTWAIT), while the TX_RING handler always
->>> passes a 0 (block).
->>>
->>> The attached patch changes this behavior by
->>>
->>> a) also passing (flags & MSG_DONTWAIT)
->>> b) adjusting the return code so that -ENOBUFS is returned if no frame could
->>> be sent or to return the number of bytes sent, if frame(s) could be sent
->>> within this call.
->>>
->>> The proposed modification works fine for us and has been tested extensively
->>> with WLAN and Ethernet device.
->>>
->>> Feel free to apply this patch if you agree with this solution.
->>> Of course, we're also open to other solutions / proposals / ideas.
->>
->> Please send a proper patch with SOB, and no white space corruption
->> (there are spaces instead of tabs).
->>
->> +        if (skb == NULL) {
->> +                    /* we assume the socket was initially writeable ... */
->> +                        if (likely(len_sum > 0))
->> +                            err = len_sum;
->> +                    else
->> +                            err = -ENOBUFS;
->>              goto out_status;
->>
->> What I'm a bit worried about is, if existing applications would be
->> able to handle -ENOBUFS? Any reason you don't let -EAGAIN from the
->> sock_alloc_send_skb() not pass through?
->>
->> Well, man 2 sendmsg clearly describes the -EAGAIN possibility as
->> "the socket is marked nonblocking and the requested operation would
->> block". So far it was apparently not returned since here we'd just
->> have blocked, but strictly speaking non-blocking applications would
->> need to be aware and should handle -EAGAIN, that awareness might be
->> more likely than -ENOBUFS, imho. What do you think?
->>
->> Cheers,
->> Daniel
->
->
+Thanks a lot David!
