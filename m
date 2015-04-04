@@ -1,71 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 0/9] netfilter: Compress hook function signatures.
-Date: Sat, 4 Apr 2015 13:49:28 +0200
-Message-ID: <20150404114928.GA3829@salvia>
-References: <20150403.220734.1272465850706339981.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hannes@stressinduktion.org, jiri@resnulli.us
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:32777 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752134AbbDDLpt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Apr 2015 07:45:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20150403.220734.1272465850706339981.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v3 0/3] RDS: RDS-core fixes
+Date: Sat,  4 Apr 2015 08:45:43 -0400
+Message-ID: <cover.1428150441.git.sowmini.varadhan@oracle.com>
+Cc: chien.yen@oracle.com, davem@davemloft.net,
+	rds-devel@oss.oracle.com, agrover@redhat.com, clm@fb.com,
+	zab@zabbo.net, ajaykumar.hotchandani@oracle.com,
+	sergei.shtylyov@cogentembedded.com,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 03, 2015 at 10:07:34PM -0400, David Miller wrote:
-> 
-> Currently netfilter hooks have a function signature that is huge and
-> has many arguments.  This propagates from the hook entry points down
-> into the individual hook implementations themselves.
-> 
-> This means that if, for example, we want to change the type of one of
-> these arguments then we have to touch hundreds of locations.
-> 
-> The main initial motivation behind this is that we'd like to change
-> the signature of "okfn" so that a socket pointer can be passed in (and
-> reference counted properly) for the sake of using the proper socket
-> context in the case of tunnels whilst not releasing the top level user
-> socket from skb->sk (and thus releasing it's socket memory quota
-> usage) in order to accomodate this.
-> 
-> This also makes it clear who actually uses 'okfn', nf_queue().  It is
-> absolutely critical to make this obvious because any user of 'okfn'
-> down in these hook chains have the be strictly audited for
-> escapability.  Specifically, escapability of references to objects
-> outside of the packet processing path.  And that's exactly what
-> nf_queue() does via it's packet reinjection framework.
-> 
-> In fact this points out a bug in Jiri's original attempt to push the
-> socket pointer down through netfilter's okfn.  It didn't grab and drop
-> a reference to the socket in net/netfilter/nf_queue.c as needed.
->
-> Furthermore, so many code paths are simplified, and should in fact be
-> more efficient because we aren't passing in arguments that often are
-> simply not used by the netfilter hook at all.
-> 
-> Further simplifications are probably possible, but this series takes
-> care of the main cases.
-> 
-> Unfortunately I couldn't convert ebt_do_table() because ebtables is
-> complete and utter crap and uses ebt_do_table() outside of the hook
-> call chains.  But that should not be news to anyone.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Nice series. If you route them through net-next, please add:
+This patch-series updates the RDS core and rds-tcp modules with
+some bug fixes that were originally authored by  Andy Grover,
+Zach Brown, and Chris Mason.
 
-Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+v2: Code review comment by Sergei Shtylov
+V3: DaveM comments:
+- dropped patches 3, 5 for "heuristic" changes in rds_send_xmit(). 
+  Investigation into the root-cause of these IB-triggered changes 
+  produced the feedback: "I don't remember seeing "RDS: Stuck RM"
+  message in last 1-1.5 years and checking with other folks. It may very
+  well be some old workaround for stale connection for which long term
+  fix is already made and this part of code not exercised anymore."
 
-or I can place them in nf-next, your call.
+  Any such fixes, *if* they are needed, can/should be done in the
+  IB specific RDS transport modules.
 
-Regarding Jiri's okfn() signature changes, please let me know on those
-patches, they will simplify a patchset I'll submit soon. And count on
-me to help on that change too, of course.
+- similarly dropped the LL_SEND_FULL patch (patch 6 in v2 set)
 
-Thanks a lot David!
+Sowmini Varadhan (3):
+  RDS: Re-add pf/sol access via sysctl
+  RDS: only use passive connections when addresses match
+  RDS: make sure not to loop forever inside rds_send_xmit
+
+ net/rds/connection.c |    3 ++-
+ net/rds/rds.h        |    1 +
+ net/rds/send.c       |   33 +++++++++++++++++++++++++++++++--
+ net/rds/sysctl.c     |   20 ++++++++++++++++++++
+ 4 files changed, 54 insertions(+), 3 deletions(-)
