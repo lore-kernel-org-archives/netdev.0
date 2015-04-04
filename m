@@ -1,129 +1,57 @@
-From: Alexei Potashnik <alexei@purestorage.com>
-Subject: RE: neigh use-after-free
-Date: Fri, 3 Apr 2015 17:57:24 -0700
-Message-ID: <520964f8c9b65ad9a49545a30ecf6065@mail.gmail.com>
-References: <20150403202753.GF32724@Sligo.logfs.org>	 <35adab927f1bade6afd57e62a8720205@mail.gmail.com>
-	 <1428104053.25985.192.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5f0a512c725fbaf8f38dbc1bdd9d1b47@mail.gmail.com> <1428108249.25985.197.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE
+ tunnels
+Date: Sat, 4 Apr 2015 03:01:42 +0200
+Message-ID: <20150404010142.GA1063@electric-eye.fr.zoreil.com>
+References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
+ <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
+ <CAEP_g=9PbDO4qK-GaGosBAq1S5C5uWNR4-JN8=i158oYJUN4Bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joern Engel <joern@purestorage.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Zhou <azhou@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog102.obsmtp.com ([74.125.245.72]:37531 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751335AbbDDA50 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 20:57:26 -0400
-Received: by wgra20 with SMTP id a20so121731232wgr.3
-        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 17:57:25 -0700 (PDT)
-In-Reply-To: <1428108249.25985.197.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:47709 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752056AbbDDBCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 21:02:30 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=9PbDO4qK-GaGosBAq1S5C5uWNR4-JN8=i158oYJUN4Bw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> Sent: Friday, April 03, 2015 5:44 PM
-> To: Alexei Potashnik
-> Cc: Joern Engel; David S. Miller; netdev@vger.kernel.org
-> Subject: Re: neigh use-after-free
->
-> On Fri, 2015-04-03 at 17:27 -0700, Alexei Potashnik wrote:
-> > > -----Original Message-----
-> > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > >
-> > > On Fri, 2015-04-03 at 13:52 -0700, Alexei Potashnik wrote:
-> > > > Would this be an appropriate solution:
-> > > >
-> > > > diff --git a/net/core/neighbour.c b/net/core/neighbour.c index
-> > > > b49e8ba..38265f2 100644
-> > > > --- a/net/core/neighbour.c
-> > > > +++ b/net/core/neighbour.c
-> > > > @@ -168,7 +168,8 @@ static int neigh_forced_gc(struct neigh_tab=
-le
-> > > > *tbl)
-> > > >
-> > > >  static void neigh_add_timer(struct neighbour *n, unsigned long
-> > > > when) {
-> > > > -       neigh_hold(n);
-> > > > +       if (!atomic_inc_not_zero(&n->refcnt))
-> > > > +               return;
-> > > >         if (unlikely(mod_timer(&n->timer, when))) {
-> > > >                 printk("NEIGH: BUG, double timer add, state is
-> > > > %x\n",
-> > > >                        n->nud_state);
-> > >
-> > > This is a very ugly hack. Please find root cause.
-> > >
-> > > The correct way to implement refcount on a timer is :
-> > >
-> > > if (!mod_timer(&n->timer, when))
-> > > 	neigh_hold(&n->refcnt);
-> > >
-> > > And current code seems to do that (It dumps a printk() and stack
-> > > trace
-> > > otherwise)
-> >
-> > The printk() and stack trace don't get printed because this is a
-> > different case -- it=E2=80=99s not double timer add, but rather add=
- of the
-> > timer after neighbor object is deleted.
-> >
-> > > If refcnt is 0 at this point, it means there is another bug, and =
-we
-> > > should fix it instead of trying to work around it.
-> >
-> > I agree. And it seems to be clear what code does it:
-> >
-> > ip_finish_output2
-> > +-> __ipv4_neigh_lookup_noref
-> >
-> > Lookup name is clearly indicating that noref is intentional. What's
-> > not clear is why.
-> > The change seems to have originated in
-> >
-> > commit a263b3093641fb1ec377582c90986a7fd0625184
-> > Author: David S. Miller <davem@davemloft.net>
-> > Date:   Mon Jul 2 02:02:15 2012
-> >
-> >     ipv4: Make neigh lookups directly in output packet path.
-> >
-> >     Do not use the dst cached neigh, we'll be getting rid of that.
-> >
-> >     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >
-> > Before that neigh object came from dst_get_neighbour_noref(), which
-> > used to return dst->_neighbour. Now, if dst->_neighbour used own a
-> > reference, than the above commit has introduced the bug. Otherwise,
-> > the issue has always been there and, perhaps, David Miller can expl=
-ain
-> > why it was deemed safe to operate on neigh object here without extr=
-a
-> > ref.
-> >
-> > Alexei
->
-> Your debugging code might be wrong.
->
-> At entry of neigh_add_timer(), n->refcnt can be 0 if caller holds the
-> correct
-> lock, preventing the timer handler to proceed and decrement refcnt.
->
-> neigh_timer_handler() does :
->
-> write_lock(&neigh->lock);
-> ...
-> write_unlock(&neigh->lock);
-> neigh_release(neigh);
->
+Jesse Gross <jesse@nicira.com> :
+[...]
+> > diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+> > new file mode 100644
+> > index 000000000000..fe8895487fc2
+> > --- /dev/null
+> > +++ b/drivers/net/geneve.c
+> > +/* geneve receive/decap routine */
+> > +static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
+> > +{
+> > +       struct genevehdr *gnvh = geneve_hdr(skb);
+> > +       struct geneve_dev *geneve;
+> > +       struct pcpu_sw_netstats *stats;
+> > +
+> > +       geneve = gs->rcv_data;
+> > +
+> > +       /* Does the VNI match the device? */
+> > +       if (memcmp(gnvh->vni, geneve->vni, sizeof(geneve->vni)))
+> > +               goto drop;
+> 
+> Since Geneve packets can carry options and this doesn't currently
+> support any, I think we need to at least check the 'C' bit in the
+> header and drop packets if it is set to ensure that we don't
+> accidentally ignore critical options.
 
-My understanding of the state when issue occurs is:
- - neigh_destroy() has finished executing
- - no timer for this neigh entry is pending or running
-    (which makes neigh_timer_handler behavior irrelevant)
- - but kfree_rcu callback for the neigh entry has not executed yet
- - at this point IP code finds the entry with __ipv4_neigh_lookup_noref
-    and starts operating on it.
+Speaking of it, it's imho a bit too easy to confuse GENEVE_CRIT_OPT_TYPE
+with the relevant 'C' bit mask.
 
-Alexei
+-- 
+Ueimor
