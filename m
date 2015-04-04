@@ -1,108 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: dsa: fix filling rtable from OF description
-Date: Sat, 4 Apr 2015 23:02:09 +0200
-Message-ID: <20150404210209.GC19428@lunn.ch>
-References: <1941340.ZSOIoOXLWB@pavel.skitlab.int>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: 3.19+: (and quite probably earlier) VIA Rhine hanging under high network load, yet again: redux
+Date: Sat, 04 Apr 2015 22:26:39 +0100
+Message-ID: <87k2xr60vk.fsf@spindle.srvr.nix>
+References: <874mov7otu.fsf@spindle.srvr.nix>
+	<20150404210518.GA7698@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Fabian Frederick <fabf@skynet.be>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org
-To: Pavel Nakonechny <pavel.nakonechny@skitlab.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1941340.ZSOIoOXLWB@pavel.skitlab.int>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux-Netdev <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from icebox.esperi.org.uk ([81.187.191.129]:46407 "EHLO
+	mail.esperi.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656AbbDDV0q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2015 17:26:46 -0400
+In-Reply-To: <20150404210518.GA7698@electric-eye.fr.zoreil.com> (Francois
+	Romieu's message of "Sat, 4 Apr 2015 23:05:18 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 04, 2015 at 04:48:48PM +0300, Pavel Nakonechny wrote:
-> According to description in 'include/net/dsa.h', in cascade switches
-> configurations where there are more than one interconnected devices,
-> 'rtable' array in 'dsa_chip_data' structure is used to indicate which
-> port on this switch should be used to send packets to that are destined
-> for corresponding switch.
-> 
-> However, dsa_of_setup_routing_table() fills 'rtable' with port numbers
-> of the _target_ switch, but not current one.
-> 
-> This commit removes redundant devicetree parsing and adds needed port
-> number as a function argument. So dsa_of_setup_routing_table() now just
-> looks for target switch number by parsing parent of 'link' device node.
-> 
-> This was tested on custom board with two Marvell 88E6095 switches with
-> following corresponding rtables: { -1, 10 } and { 8, -1 }.
-> 
-> Signed-off-by: Pavel Nakonechny <pavel.nakonechny@skitlab.ru>
+On 4 Apr 2015, Francois Romieu told this:
 
-Hi Pavel
+> Nix <nix@esperi.org.uk> :
+> [...]
+>
+> This driver leaves holes in its receive ring under memory pressure.
+> It may not help.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+... OK so that is something I really should have spotted. I wasn't
+looking at the driver's response to memory-shortage conditions because
+this machine, though swapless, has wads of memory free under normal
+conditions:
 
-As i said in my other email, it would be nice to add a comment about
-the switch number being the second value in reg.
+nix@fold 2 /home/nix% cat /proc/meminfo
+MemTotal:         515720 kB
+MemFree:          376552 kB
+MemAvailable:     417120 kB
 
-    Andrew
+But of course this is networking, so we need skb_allocable memory, which
+might be in much shorter supply than merely reclaimable/available memory
+(though, again, 376552kB should be enough, you'd think).
 
-> ---
->  net/dsa/dsa.c | 19 +++----------------
->  1 file changed, 3 insertions(+), 16 deletions(-)
-> 
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 947f550..5593a0d 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -375,12 +375,10 @@ static struct net_device *dev_to_net_device(struct device *dev)
->  #ifdef CONFIG_OF
->  static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
->  					struct dsa_chip_data *cd,
-> -					int chip_index,
-> +					int chip_index, int port_index,
->  					struct device_node *link)
->  {
-> -	int ret;
->  	const __be32 *reg;
-> -	int link_port_addr;
->  	int link_sw_addr;
->  	struct device_node *parent_sw;
->  	int len;
-> @@ -409,20 +407,9 @@ static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
->  		memset(cd->rtable, -1, pd->nr_chips * sizeof(s8));
->  	}
->  
-> -	reg = of_get_property(link, "reg", NULL);
-> -	if (!reg) {
-> -		ret = -EINVAL;
-> -		goto out;
-> -	}
-> -
-> -	link_port_addr = be32_to_cpup(reg);
-> -
-> -	cd->rtable[link_sw_addr] = link_port_addr;
-> +	cd->rtable[link_sw_addr] = port_index;
->  
->  	return 0;
-> -out:
-> -	kfree(cd->rtable);
-> -	return ret;
->  }
->  
->  static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
-> @@ -528,7 +515,7 @@ static int dsa_of_probe(struct platform_device *pdev)
->  			if (!strcmp(port_name, "dsa") && link &&
->  					pd->nr_chips > 1) {
->  				ret = dsa_of_setup_routing_table(pd, cd,
-> -						chip_index, link);
-> +						chip_index, port_index, link);
->  				if (ret)
->  					goto out_free_chip;
->  			}
-> -- 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> You can try the gross patch below against v3.19. It compiles. I have to go.
+
+All I can say is "good grief, a response at Eastertime?! Valour beyond
+the call of duty!"
+
+I'll give it a try tomorrow :) but whether it works or not, I owe you a
+drink next time you're in the UK south-east for spending any time at all
+on this at Easter!
+
+-- 
+NULL && (void)
