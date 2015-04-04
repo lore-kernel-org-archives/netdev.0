@@ -1,57 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE
- tunnels
-Date: Sat, 4 Apr 2015 03:01:42 +0200
-Message-ID: <20150404010142.GA1063@electric-eye.fr.zoreil.com>
-References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
- <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
- <CAEP_g=9PbDO4qK-GaGosBAq1S5C5uWNR4-JN8=i158oYJUN4Bw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: neigh use-after-free
+Date: Fri, 03 Apr 2015 18:10:44 -0700
+Message-ID: <1428109844.25985.202.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150403202753.GF32724@Sligo.logfs.org>
+	 <35adab927f1bade6afd57e62a8720205@mail.gmail.com>
+	 <1428104053.25985.192.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5f0a512c725fbaf8f38dbc1bdd9d1b47@mail.gmail.com>
+	 <1428108249.25985.197.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <520964f8c9b65ad9a49545a30ecf6065@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Zhou <azhou@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Joern Engel <joern@purestorage.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alexei Potashnik <alexei@purestorage.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47709 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752056AbbDDBCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 21:02:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=9PbDO4qK-GaGosBAq1S5C5uWNR4-JN8=i158oYJUN4Bw@mail.gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34580 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751491AbbDDBKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Apr 2015 21:10:53 -0400
+Received: by pactp5 with SMTP id tp5so131739974pac.1
+        for <netdev@vger.kernel.org>; Fri, 03 Apr 2015 18:10:52 -0700 (PDT)
+In-Reply-To: <520964f8c9b65ad9a49545a30ecf6065@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesse Gross <jesse@nicira.com> :
-[...]
-> > diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> > new file mode 100644
-> > index 000000000000..fe8895487fc2
-> > --- /dev/null
-> > +++ b/drivers/net/geneve.c
-> > +/* geneve receive/decap routine */
-> > +static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
-> > +{
-> > +       struct genevehdr *gnvh = geneve_hdr(skb);
-> > +       struct geneve_dev *geneve;
-> > +       struct pcpu_sw_netstats *stats;
-> > +
-> > +       geneve = gs->rcv_data;
-> > +
-> > +       /* Does the VNI match the device? */
-> > +       if (memcmp(gnvh->vni, geneve->vni, sizeof(geneve->vni)))
-> > +               goto drop;
+On Fri, 2015-04-03 at 17:57 -0700, Alexei Potashnik wrote:
+
 > 
-> Since Geneve packets can carry options and this doesn't currently
-> support any, I think we need to at least check the 'C' bit in the
-> header and drop packets if it is set to ensure that we don't
-> accidentally ignore critical options.
+> My understanding of the state when issue occurs is:
+>  - neigh_destroy() has finished executing
+>  - no timer for this neigh entry is pending or running
+>     (which makes neigh_timer_handler behavior irrelevant)
+>  - but kfree_rcu callback for the neigh entry has not executed yet
+>  - at this point IP code finds the entry with __ipv4_neigh_lookup_noref
+>     and starts operating on it.
+> 
 
-Speaking of it, it's imho a bit too easy to confuse GENEVE_CRIT_OPT_TYPE
-with the relevant 'C' bit mask.
+Right. So far no rule here seems to be violated.
 
--- 
-Ueimor
+As long as IP code finds a neighbor, it is allowed to use it.
+
+Freeing of the neighbor should not happen before rcu grace period.
+
+Problem is __neigh_event_send() is ignoring n->dead
