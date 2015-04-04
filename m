@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/9] netfilter: Create and use nf_hook_state.
-Date: Fri, 03 Apr 2015 22:07:43 -0400 (EDT)
-Message-ID: <20150403.220743.1982329121589716666.davem@davemloft.net>
+Subject: [PATCH 2/9] netfilter: Use nf_hook_state in nf_queue_entry.
+Date: Fri, 03 Apr 2015 22:07:48 -0400 (EDT)
+Message-ID: <20150403.220748.881599362397267871.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,268 +13,278 @@ Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Instead of passing a large number of arguments down into the nf_hook()
-entry points, create a structure which carries this state down through
-the hook processing layers.
 
-This makes is so that if we want to change the types or signatures of
-any of these pieces of state, there are less places that need to be
-changed.
+That way we don't have to reinstantiate another nf_hook_state
+on the stack of the nf_reinject() path.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/netfilter.h    | 28 +++++++++++++++++++++++-----
- net/netfilter/core.c         | 32 +++++++++++++-------------------
- net/netfilter/nf_internals.h | 11 +++--------
- net/netfilter/nf_queue.c     | 38 ++++++++++++++++++++------------------
- 4 files changed, 59 insertions(+), 50 deletions(-)
+ include/net/netfilter/nf_queue.h     |  6 +----
+ net/ipv4/netfilter.c                 |  4 ++--
+ net/ipv6/netfilter.c                 |  4 ++--
+ net/netfilter/nf_queue.c             | 44 ++++++++++++++++--------------------
+ net/netfilter/nfnetlink_queue_core.c | 30 ++++++++++++------------
+ 5 files changed, 39 insertions(+), 49 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 2517ece..aee7ef1 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -44,6 +44,16 @@ int netfilter_init(void);
- struct sk_buff;
+diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
+index 84a53d7..d81d584 100644
+--- a/include/net/netfilter/nf_queue.h
++++ b/include/net/netfilter/nf_queue.h
+@@ -12,12 +12,8 @@ struct nf_queue_entry {
+ 	unsigned int		id;
  
- struct nf_hook_ops;
-+
-+struct nf_hook_state {
-+	unsigned int hook;
-+	int thresh;
-+	u_int8_t pf;
-+	struct net_device *in;
-+	struct net_device *out;
-+	int (*okfn)(struct sk_buff *);
-+};
-+
- typedef unsigned int nf_hookfn(const struct nf_hook_ops *ops,
- 			       struct sk_buff *skb,
- 			       const struct net_device *in,
-@@ -118,9 +128,7 @@ static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
- }
- #endif
+ 	struct nf_hook_ops	*elem;
+-	u_int8_t		pf;
++	struct nf_hook_state	state;
+ 	u16			size; /* sizeof(entry) + saved route keys */
+-	unsigned int		hook;
+-	struct net_device	*indev;
+-	struct net_device	*outdev;
+-	int			(*okfn)(struct sk_buff *);
  
--int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
--		 struct net_device *indev, struct net_device *outdev,
--		 int (*okfn)(struct sk_buff *), int thresh);
-+int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state);
- 
- /**
-  *	nf_hook_thresh - call a netfilter hook
-@@ -135,8 +143,18 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
- 				 struct net_device *outdev,
- 				 int (*okfn)(struct sk_buff *), int thresh)
+ 	/* extra space to store route keys */
+ };
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index 7ebd6e3..65de068 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -94,7 +94,7 @@ static void nf_ip_saveroute(const struct sk_buff *skb,
  {
--	if (nf_hooks_active(pf, hook))
--		return nf_hook_slow(pf, hook, skb, indev, outdev, okfn, thresh);
-+	if (nf_hooks_active(pf, hook)) {
-+		struct nf_hook_state state = {
-+			.hook = hook,
-+			.thresh = thresh,
-+			.pf = pf,
-+			.in = indev,
-+			.out = outdev,
-+			.okfn = okfn
-+		};
-+
-+		return nf_hook_slow(skb, &state);
-+	}
- 	return 1;
- }
+ 	struct ip_rt_info *rt_info = nf_queue_entry_reroute(entry);
  
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index fea9ef5..11d04eb 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -120,12 +120,8 @@ EXPORT_SYMBOL(nf_unregister_hooks);
+-	if (entry->hook == NF_INET_LOCAL_OUT) {
++	if (entry->state.hook == NF_INET_LOCAL_OUT) {
+ 		const struct iphdr *iph = ip_hdr(skb);
  
- unsigned int nf_iterate(struct list_head *head,
- 			struct sk_buff *skb,
--			unsigned int hook,
--			const struct net_device *indev,
--			const struct net_device *outdev,
--			struct nf_hook_ops **elemp,
--			int (*okfn)(struct sk_buff *),
--			int hook_thresh)
-+			struct nf_hook_state *state,
-+			struct nf_hook_ops **elemp)
+ 		rt_info->tos = iph->tos;
+@@ -109,7 +109,7 @@ static int nf_ip_reroute(struct sk_buff *skb,
  {
- 	unsigned int verdict;
+ 	const struct ip_rt_info *rt_info = nf_queue_entry_reroute(entry);
  
-@@ -134,19 +130,20 @@ unsigned int nf_iterate(struct list_head *head,
- 	 * function because of risk of continuing from deleted element.
- 	 */
- 	list_for_each_entry_continue_rcu((*elemp), head, list) {
--		if (hook_thresh > (*elemp)->priority)
-+		if (state->thresh > (*elemp)->priority)
- 			continue;
+-	if (entry->hook == NF_INET_LOCAL_OUT) {
++	if (entry->state.hook == NF_INET_LOCAL_OUT) {
+ 		const struct iphdr *iph = ip_hdr(skb);
  
- 		/* Optimization: we don't need to hold module
- 		   reference here, since function can't sleep. --RR */
- repeat:
--		verdict = (*elemp)->hook(*elemp, skb, indev, outdev, okfn);
-+		verdict = (*elemp)->hook(*elemp, skb, state->in, state->out,
-+					 state->okfn);
- 		if (verdict != NF_ACCEPT) {
- #ifdef CONFIG_NETFILTER_DEBUG
- 			if (unlikely((verdict & NF_VERDICT_MASK)
- 							> NF_MAX_VERDICT)) {
- 				NFDEBUG("Evil return from %p(%u).\n",
--					(*elemp)->hook, hook);
-+					(*elemp)->hook, state->hook);
- 				continue;
- 			}
- #endif
-@@ -161,11 +158,7 @@ repeat:
- 
- /* Returns 1 if okfn() needs to be executed by the caller,
-  * -EPERM for NF_DROP, 0 otherwise. */
--int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
--		 struct net_device *indev,
--		 struct net_device *outdev,
--		 int (*okfn)(struct sk_buff *),
--		 int hook_thresh)
-+int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state)
+ 		if (!(iph->tos == rt_info->tos &&
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index 398377a..d958718 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -84,7 +84,7 @@ static void nf_ip6_saveroute(const struct sk_buff *skb,
  {
- 	struct nf_hook_ops *elem;
- 	unsigned int verdict;
-@@ -174,10 +167,11 @@ int nf_hook_slow(u_int8_t pf, unsigned int hook, struct sk_buff *skb,
- 	/* We may already have this, but read-locks nest anyway */
- 	rcu_read_lock();
+ 	struct ip6_rt_info *rt_info = nf_queue_entry_reroute(entry);
  
--	elem = list_entry_rcu(&nf_hooks[pf][hook], struct nf_hook_ops, list);
-+	elem = list_entry_rcu(&nf_hooks[state->pf][state->hook],
-+			      struct nf_hook_ops, list);
- next_hook:
--	verdict = nf_iterate(&nf_hooks[pf][hook], skb, hook, indev,
--			     outdev, &elem, okfn, hook_thresh);
-+	verdict = nf_iterate(&nf_hooks[state->pf][state->hook], skb, state,
-+			     &elem);
- 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
- 		ret = 1;
- 	} else if ((verdict & NF_VERDICT_MASK) == NF_DROP) {
-@@ -186,8 +180,8 @@ next_hook:
- 		if (ret == 0)
- 			ret = -EPERM;
- 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
--		int err = nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
--						verdict >> NF_VERDICT_QBITS);
-+		int err = nf_queue(skb, elem, state,
-+				   verdict >> NF_VERDICT_QBITS);
- 		if (err < 0) {
- 			if (err == -ECANCELED)
- 				goto next_hook;
-diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
-index 61a3c92..ea7f367 100644
---- a/net/netfilter/nf_internals.h
-+++ b/net/netfilter/nf_internals.h
-@@ -14,16 +14,11 @@
+-	if (entry->hook == NF_INET_LOCAL_OUT) {
++	if (entry->state.hook == NF_INET_LOCAL_OUT) {
+ 		const struct ipv6hdr *iph = ipv6_hdr(skb);
  
- /* core.c */
- unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
--			unsigned int hook, const struct net_device *indev,
--			const struct net_device *outdev,
--			struct nf_hook_ops **elemp,
--			int (*okfn)(struct sk_buff *), int hook_thresh);
-+			struct nf_hook_state *state, struct nf_hook_ops **elemp);
+ 		rt_info->daddr = iph->daddr;
+@@ -98,7 +98,7 @@ static int nf_ip6_reroute(struct sk_buff *skb,
+ {
+ 	struct ip6_rt_info *rt_info = nf_queue_entry_reroute(entry);
  
- /* nf_queue.c */
--int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem, u_int8_t pf,
--	     unsigned int hook, struct net_device *indev,
--	     struct net_device *outdev, int (*okfn)(struct sk_buff *),
--	     unsigned int queuenum);
-+int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem,
-+	     struct nf_hook_state *state, unsigned int queuenum);
- int __init netfilter_queue_init(void);
- 
- /* nf_log.c */
+-	if (entry->hook == NF_INET_LOCAL_OUT) {
++	if (entry->state.hook == NF_INET_LOCAL_OUT) {
+ 		const struct ipv6hdr *iph = ipv6_hdr(skb);
+ 		if (!ipv6_addr_equal(&iph->daddr, &rt_info->daddr) ||
+ 		    !ipv6_addr_equal(&iph->saddr, &rt_info->saddr) ||
 diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index 4c8b68e..6f8e948 100644
+index 6f8e948..d3cd37e 100644
 --- a/net/netfilter/nf_queue.c
 +++ b/net/netfilter/nf_queue.c
-@@ -100,12 +100,9 @@ EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
-  * through nf_reinject().
-  */
- int nf_queue(struct sk_buff *skb,
--		      struct nf_hook_ops *elem,
--		      u_int8_t pf, unsigned int hook,
--		      struct net_device *indev,
--		      struct net_device *outdev,
--		      int (*okfn)(struct sk_buff *),
--		      unsigned int queuenum)
-+	     struct nf_hook_ops *elem,
-+	     struct nf_hook_state *state,
-+	     unsigned int queuenum)
+@@ -47,11 +47,13 @@ EXPORT_SYMBOL(nf_unregister_queue_handler);
+ 
+ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
  {
- 	int status = -ENOENT;
- 	struct nf_queue_entry *entry = NULL;
-@@ -121,7 +118,7 @@ int nf_queue(struct sk_buff *skb,
- 		goto err_unlock;
- 	}
++	struct nf_hook_state *state = &entry->state;
++
+ 	/* Release those devices we held, or Alexey will kill me. */
+-	if (entry->indev)
+-		dev_put(entry->indev);
+-	if (entry->outdev)
+-		dev_put(entry->outdev);
++	if (state->in)
++		dev_put(state->in);
++	if (state->out)
++		dev_put(state->out);
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ 	if (entry->skb->nf_bridge) {
+ 		struct nf_bridge_info *nf_bridge = entry->skb->nf_bridge;
+@@ -70,13 +72,15 @@ EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
+ /* Bump dev refs so they don't vanish while packet is out */
+ bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+ {
++	struct nf_hook_state *state = &entry->state;
++
+ 	if (!try_module_get(entry->elem->owner))
+ 		return false;
  
--	afinfo = nf_get_afinfo(pf);
-+	afinfo = nf_get_afinfo(state->pf);
- 	if (!afinfo)
- 		goto err_unlock;
- 
-@@ -134,11 +131,11 @@ int nf_queue(struct sk_buff *skb,
+-	if (entry->indev)
+-		dev_hold(entry->indev);
+-	if (entry->outdev)
+-		dev_hold(entry->outdev);
++	if (state->in)
++		dev_hold(state->in);
++	if (state->out)
++		dev_hold(state->out);
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ 	if (entry->skb->nf_bridge) {
+ 		struct nf_bridge_info *nf_bridge = entry->skb->nf_bridge;
+@@ -131,11 +135,7 @@ int nf_queue(struct sk_buff *skb,
  	*entry = (struct nf_queue_entry) {
  		.skb	= skb,
  		.elem	= elem,
--		.pf	= pf,
--		.hook	= hook,
--		.indev	= indev,
--		.outdev	= outdev,
--		.okfn	= okfn,
-+		.pf	= state->pf,
-+		.hook	= state->hook,
-+		.indev	= state->in,
-+		.outdev	= state->out,
-+		.okfn	= state->okfn,
+-		.pf	= state->pf,
+-		.hook	= state->hook,
+-		.indev	= state->in,
+-		.outdev	= state->out,
+-		.okfn	= state->okfn,
++		.state	= *state,
  		.size	= sizeof(*entry) + afinfo->route_key_size,
  	};
  
-@@ -171,6 +168,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+@@ -168,7 +168,6 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  	struct sk_buff *skb = entry->skb;
  	struct nf_hook_ops *elem = entry->elem;
  	const struct nf_afinfo *afinfo;
-+	struct nf_hook_state state;
+-	struct nf_hook_state state;
  	int err;
  
  	rcu_read_lock();
-@@ -189,12 +187,17 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+@@ -182,33 +181,28 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 	}
+ 
+ 	if (verdict == NF_ACCEPT) {
+-		afinfo = nf_get_afinfo(entry->pf);
++		afinfo = nf_get_afinfo(entry->state.pf);
+ 		if (!afinfo || afinfo->reroute(skb, entry) < 0)
  			verdict = NF_DROP;
  	}
  
-+	state.hook = entry->hook;
-+	state.thresh = INT_MIN;
-+	state.pf = entry->pf;
-+	state.in = entry->indev;
-+	state.out = entry->outdev;
-+	state.okfn = entry->okfn;
-+
+-	state.hook = entry->hook;
+-	state.thresh = INT_MIN;
+-	state.pf = entry->pf;
+-	state.in = entry->indev;
+-	state.out = entry->outdev;
+-	state.okfn = entry->okfn;
++	entry->state.thresh = INT_MIN;
+ 
  	if (verdict == NF_ACCEPT) {
  	next_hook:
- 		verdict = nf_iterate(&nf_hooks[entry->pf][entry->hook],
--				     skb, entry->hook,
--				     entry->indev, entry->outdev, &elem,
--				     entry->okfn, INT_MIN);
-+				     skb, &state, &elem);
+-		verdict = nf_iterate(&nf_hooks[entry->pf][entry->hook],
+-				     skb, &state, &elem);
++		verdict = nf_iterate(&nf_hooks[entry->state.pf][entry->state.hook],
++				     skb, &entry->state, &elem);
  	}
  
  	switch (verdict & NF_VERDICT_MASK) {
-@@ -205,9 +208,8 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 	case NF_ACCEPT:
+ 	case NF_STOP:
+ 		local_bh_disable();
+-		entry->okfn(skb);
++		entry->state.okfn(skb);
  		local_bh_enable();
  		break;
  	case NF_QUEUE:
--		err = nf_queue(skb, elem, entry->pf, entry->hook,
--				entry->indev, entry->outdev, entry->okfn,
--				verdict >> NF_VERDICT_QBITS);
-+		err = nf_queue(skb, elem, &state,
-+			       verdict >> NF_VERDICT_QBITS);
+-		err = nf_queue(skb, elem, &state,
++		err = nf_queue(skb, elem, &entry->state,
+ 			       verdict >> NF_VERDICT_QBITS);
  		if (err < 0) {
  			if (err == -ECANCELED)
- 				goto next_hook;
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 86ee8b0..6e74655 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -314,13 +314,13 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 	if (entskb->tstamp.tv64)
+ 		size += nla_total_size(sizeof(struct nfqnl_msg_packet_timestamp));
+ 
+-	if (entry->hook <= NF_INET_FORWARD ||
+-	   (entry->hook == NF_INET_POST_ROUTING && entskb->sk == NULL))
++	if (entry->state.hook <= NF_INET_FORWARD ||
++	   (entry->state.hook == NF_INET_POST_ROUTING && entskb->sk == NULL))
+ 		csum_verify = !skb_csum_unnecessary(entskb);
+ 	else
+ 		csum_verify = false;
+ 
+-	outdev = entry->outdev;
++	outdev = entry->state.out;
+ 
+ 	switch ((enum nfqnl_config_mode)ACCESS_ONCE(queue->copy_mode)) {
+ 	case NFQNL_COPY_META:
+@@ -368,23 +368,23 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 		return NULL;
+ 	}
+ 	nfmsg = nlmsg_data(nlh);
+-	nfmsg->nfgen_family = entry->pf;
++	nfmsg->nfgen_family = entry->state.pf;
+ 	nfmsg->version = NFNETLINK_V0;
+ 	nfmsg->res_id = htons(queue->queue_num);
+ 
+ 	nla = __nla_reserve(skb, NFQA_PACKET_HDR, sizeof(*pmsg));
+ 	pmsg = nla_data(nla);
+ 	pmsg->hw_protocol	= entskb->protocol;
+-	pmsg->hook		= entry->hook;
++	pmsg->hook		= entry->state.hook;
+ 	*packet_id_ptr		= &pmsg->packet_id;
+ 
+-	indev = entry->indev;
++	indev = entry->state.in;
+ 	if (indev) {
+ #if !IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ 		if (nla_put_be32(skb, NFQA_IFINDEX_INDEV, htonl(indev->ifindex)))
+ 			goto nla_put_failure;
+ #else
+-		if (entry->pf == PF_BRIDGE) {
++		if (entry->state.pf == PF_BRIDGE) {
+ 			/* Case 1: indev is physical input device, we need to
+ 			 * look for bridge group (when called from
+ 			 * netfilter_bridge) */
+@@ -414,7 +414,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 		if (nla_put_be32(skb, NFQA_IFINDEX_OUTDEV, htonl(outdev->ifindex)))
+ 			goto nla_put_failure;
+ #else
+-		if (entry->pf == PF_BRIDGE) {
++		if (entry->state.pf == PF_BRIDGE) {
+ 			/* Case 1: outdev is physical output device, we need to
+ 			 * look for bridge group (when called from
+ 			 * netfilter_bridge) */
+@@ -633,8 +633,8 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 	struct nfqnl_instance *queue;
+ 	struct sk_buff *skb, *segs;
+ 	int err = -ENOBUFS;
+-	struct net *net = dev_net(entry->indev ?
+-				  entry->indev : entry->outdev);
++	struct net *net = dev_net(entry->state.in ?
++				  entry->state.in : entry->state.out);
+ 	struct nfnl_queue_net *q = nfnl_queue_pernet(net);
+ 
+ 	/* rcu_read_lock()ed by nf_hook_slow() */
+@@ -647,7 +647,7 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 
+ 	skb = entry->skb;
+ 
+-	switch (entry->pf) {
++	switch (entry->state.pf) {
+ 	case NFPROTO_IPV4:
+ 		skb->protocol = htons(ETH_P_IP);
+ 		break;
+@@ -757,11 +757,11 @@ nfqnl_set_mode(struct nfqnl_instance *queue,
+ static int
+ dev_cmp(struct nf_queue_entry *entry, unsigned long ifindex)
+ {
+-	if (entry->indev)
+-		if (entry->indev->ifindex == ifindex)
++	if (entry->state.in)
++		if (entry->state.in->ifindex == ifindex)
+ 			return 1;
+-	if (entry->outdev)
+-		if (entry->outdev->ifindex == ifindex)
++	if (entry->state.out)
++		if (entry->state.out->ifindex == ifindex)
+ 			return 1;
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ 	if (entry->skb->nf_bridge) {
 -- 
 2.1.0
 
