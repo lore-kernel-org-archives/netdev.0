@@ -1,96 +1,97 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Configuring synchronous ethernet with ethtool?
-Date: Sat, 04 Apr 2015 23:55:24 +0100
-Message-ID: <1428188124.11260.105.camel@decadent.org.uk>
-References: <20150317161128.GA8793@localhost.localdomain>
-	 <1428155950.11260.66.camel@decadent.org.uk>
-	 <20150404200344.GA4271@localhost.localdomain>
+Subject: Re: [PATCH ethtool 1/5] ethtool-copy.h: sync with net
+Date: Sun, 05 Apr 2015 02:00:13 +0100
+Message-ID: <1428195613.11260.111.camel@decadent.org.uk>
+References: <1422193883-30504-1-git-send-email-amirv@mellanox.com>
+	 <1422193883-30504-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ljovnRsVvUiSTxoSA+QI"
-Cc: netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+	protocol="application/pgp-signature"; boundary="=-DVQ9JmfZMd3v5ccFaOEm"
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Eyal Grossman <eyalgr@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58486 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58642 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752322AbbDDWzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2015 18:55:38 -0400
-In-Reply-To: <20150404200344.GA4271@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1752530AbbDEBAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2015 21:00:42 -0400
+In-Reply-To: <1422193883-30504-2-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-ljovnRsVvUiSTxoSA+QI
+--=-DVQ9JmfZMd3v5ccFaOEm
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2015-04-04 at 22:03 +0200, Richard Cochran wrote:
-> On Sat, Apr 04, 2015 at 02:59:10PM +0100, Ben Hutchings wrote:
-> > The 'manual' setting matches terminology in IEEE 802.3 (section 40.5.2)=
-.
-> > There's no mention of 'preferred' there but perhaps this switch will
-> > claim to be a single-port if you say it should prefer slave mode.
+On Sun, 2015-01-25 at 15:51 +0200, Amir Vadai wrote:
+> From: Eyal Grossman <eyalgr@mellanox.com>
 >=20
-> Thanks for the reference.  The switch I was talking about has control
-> register 9 implemented exactly as described in 802.3, but the TRM
-> description of bit 9.10 adds the word "prefer".
+> This covers kernel changes up to:
 >=20
-> > So, I like the idea but it should not be tied to SyncE only.
+> commit 892311f66f2411b813ca631009356891a0c2b0a1
+> Author: Eyal Perry <eyalpe@mellanox.com>
+> Date:   Tue Dec 2 18:12:10 2014 +0200
 >=20
-> Something like this?
+> 	ethtool: Support for configurable RSS hash function
 >=20
->    | ethtool property        | effect             |
->    |-------------------------+--------------------|
->    | synce-mode =3D none       | 9.12 =3D 0           |
+> Signed-off-by: Eyal Grossman <eyalgr@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
+>  ethtool-copy.h | 67 +++++++++++++++++++++++++++++++++++++++++++++++++++-=
+------
+>  1 file changed, 59 insertions(+), 8 deletions(-)
+>=20
+> diff --git a/ethtool-copy.h b/ethtool-copy.h
+> index 61b78fc..5f66d9c 100644
+> --- a/ethtool-copy.h
+> +++ b/ethtool-copy.h
+> @@ -10,8 +10,8 @@
+>   * Portions Copyright (C) Sun Microsystems 2008
+>   */
+> =20
+> -#ifndef _LINUX_ETHTOOL_H
+> -#define _LINUX_ETHTOOL_H
+> +#ifndef _UAPI_LINUX_ETHTOOL_H
+> +#define _UAPI_LINUX_ETHTOOL_H
+[...]
 
-That's not 'none', it's just not forced.  This would be used for both
-asynchronous operation and for synchronous operation with negotiated
-clock mode.
-
->    | synce-mode =3D master     | 9.12 =3D 1, 9.11 =3D 1 |
->    | synce-mode =3D slave      | 9.12 =3D 1, 9.11 =3D 0 |
-
-So there are four different modes that should be selectable through
-ethtool:
-
-- Asynchronous [100BASE-T only]
-- Synchronous, automatic
-- Synchronous, master
-- Synchronous, slave
-
->    | port-type =3D multiport   | 9.10 =3D 1           |
->    | port-type =3D single-port | 9.10 =3D 0           |
-
-For backward compatibility ethtool would also need to be able to report
-'unknown' when the kernel or driver doesn't support this.
+You've copied from include/uapi/linux/ethtool.h, which is not quite
+right.  The include/uapi directory contains definitions shared with
+userland, but the headers still need some processing (like removing the
+_UAPI prefix from header guards).  You should use 'make headers_install'
+to generate the userland version in usr/include/linux/ethtool.h.
+Anyway, I've done that myself based on today's net tree.
 
 Ben.
 
 --=20
 Ben Hutchings
-The most exhausting thing in life is being insincere. - Anne Morrow Lindber=
-g
+Quantity is no substitute for quality, but it's the only one we've got.
 
---=-ljovnRsVvUiSTxoSA+QI
+--=-DVQ9JmfZMd3v5ccFaOEm
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVSBr4ee/yOyVhhEJAQrTqQ//d4ljfmLKqaZPDLRhMZjBL8OKTQDfj2nX
-JwAC2ekjFrfkG43SZ/cTR0lBMrcXjC+dh25kLdWd2Ct3aJHCxCsrCBbjYGor5lWy
-GWoa53fE/+DmsUldfXo+HNblrXgvkA8reaNke9iUt0ieoMhdXuxnjAlK1qgF8rqb
-qSSmqYEHBss1xTxTKVPTiniMNdQW9eR/+KzFn4JJ2CsENnUUpmWCiSV54WkRKKPt
-yBIqi4e5mBbyPb++CfXshntmEfBYf0oj54enlckTbYR1nIpmw1QY78mzmIXwnuZg
-eBzUqdVoJRk9LPyT3xHHSOQoqS2rCoCJGnV1aFvgiUJukQQ+Yk9O5kh05Kw3kyVB
-Ce2A4VR1Hrq002u9XEn2Ltj1el9XsDf/hJ4YOeu5VSu1lpUnVg3Ij2vwKkXZmc/t
-QCQzDeE5FbFBiihWpj14WCy5ANdNbdP9x98sRwbKlqMREwWCh8QKuCH7pD62xiP3
-lx5m2DnCa0sdmjH/8b6bcqKrVHrWzTfS1TwNs66ATdgWm8UQNkvYovtjmjG/bTLh
-xEQreio+VLH9au1QLdSwBUplbWzVB8CLHpkB6GSM/YA4IJOMNsXl/9/Ft2on21rq
-aUR4OpbHtiFC/2s6/6DmFWWgRtalJxy1IPfpm1r9+LP6NjhdzZkMCc7n5ffYgZ0V
-95zyCmV0Jps=
-=XXR8
+iQIVAwUAVSCJMue/yOyVhhEJAQq/MBAAyJ62KY0jKrpCDrK+9yRzClTJEVtyvDhw
+CtTCGosF4qaCrG9wDIZ53pq8bhBUAb4SCdHr4ELnR2//dnNz8hPSQA1wL0hV3aSN
+swS0ZNVR28GM+Uy1PDqMqnXS4xXNbsPpMlnsmsOLzfCwo5qMVfy9Qzd1l9gMANIi
+64lvA6EaMO/xttq6XZGRvtbrlF1VTM5NmxCq3uBoHLNZG1TB1Q66VX7OqDsbDq7Q
+xH3fC1fHvr/aZbejtZ+/io5wu1CwS9Um4ERU63apNPOFN1dcG5GX7MPXsxu0XafM
+nFBkafezDt1fBHUsPrzFtNgjiyUgLxcxPlfpuo+t7urQYRRASaeD1CNv3Qs6RbXX
+vTtVCRQ473nsxcqaJky6vCBGiKF4v9/lXIMcgtW5L1dfYsLfz7Ww0MtQoLto+WNU
+eHgUFDm9nh5C6M8AaZVBM2npsqadTYE+/j5jfCBiWSkw2FgVBe/HQJtAJYLOtME3
+Mv0NWGxiWsD/63H06bxBvFV4hrbldqUwyNvKF31en6elz4Ou7J+dnQPDMZR6MBTY
+GhPCCw1cT0m2uM99GmzCgpuWoXVCIwfmwD1WBOEvjFLi8hTZ2yLbWfjlDiYwZiUn
+Ps4MLm/SwF6YTzgUop8Crw6sND9dXoBda6b5yycFI8M+Z+9Fn8rA11DujluVGAx9
+Vp5df7Sj3E8=
+=Sx3l
 -----END PGP SIGNATURE-----
 
---=-ljovnRsVvUiSTxoSA+QI--
+--=-DVQ9JmfZMd3v5ccFaOEm--
