@@ -1,80 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/4] mac80211-hwsim: notify user-space about channel change.
-Date: Sun, 05 Apr 2015 17:16:14 +0300
-Message-ID: <552143AE.5060109@cogentembedded.com>
-References: <1428095523-374-1-git-send-email-greearb@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net
-To: greearb@candelatech.com, netdev@vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net] net/mlx4_core: Fix error message deprecation for ConnectX-2 cards
+Date: Sun,  5 Apr 2015 17:50:48 +0300
+Message-ID: <1428245448-24191-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:34258 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbbDEOQQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2015 10:16:16 -0400
-Received: by lboc7 with SMTP id c7so6546391lbo.1
-        for <netdev@vger.kernel.org>; Sun, 05 Apr 2015 07:16:15 -0700 (PDT)
-In-Reply-To: <1428095523-374-1-git-send-email-greearb@candelatech.com>
+Received: from ns1327.ztomy.com ([193.47.165.129]:38020 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751923AbbDEOvY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Apr 2015 10:51:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-On 4/4/2015 12:12 AM, greearb@candelatech.com wrote:
+Commit 1daa4303b4ca ("net/mlx4_core: Deprecate error message at
+ConnectX-2 cards startup to debug") did the deprecation only for port 1
+of the card. Need to deprecate for port 2 as well.
 
-> From: Ben Greear <greearb@candelatech.com>
+Fixes: 1daa4303b4ca ("net/mlx4_core: Deprecate error message at ConnectX-2 cards startup to debug")
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+Hi Dave,
 
-> The goal is to allow the user-space application to properly
-> filter packets before sending them down to the kernel.  This
-> should more closely mimic what a real piece of hardware would
-> do.
+This patch fixes a bug that introduced in kernel 3.18 (see Fixes tag). Please
+push it into -stable
 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
-> ---
->   drivers/net/wireless/mac80211_hwsim.c | 48 +++++++++++++++++++++++++++++++++++
->   drivers/net/wireless/mac80211_hwsim.h |  6 +++++
->   2 files changed, 54 insertions(+)
+Thanks,
+Amir
 
-> diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-> index 8908be6..d0e88b2 100644
-> --- a/drivers/net/wireless/mac80211_hwsim.c
-> +++ b/drivers/net/wireless/mac80211_hwsim.c
-> @@ -871,6 +871,52 @@ static bool hwsim_ps_rx_ok(struct mac80211_hwsim_data *data,
->   	return true;
->   }
->
-> +static void mac80211_hwsim_check_nl_notify(struct mac80211_hwsim_data *data)
-> +{
-> +	struct sk_buff *skb;
-> +	u32 center_freq = 0;
-> +	u32 _portid;
-> +	void *msg_head;
-> +
-> +	/* wmediumd mode check */
-> +	_portid = ACCESS_ONCE(wmediumd_portid);
-> +
 
-    I don't think empty line is needed here...
+ drivers/net/ethernet/mellanox/mlx4/cmd.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> +	if (!_portid)
-> +		return;
-> +
-> +	skb = genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_ATOMIC);
-> +	if (skb == NULL)
-
-    Hm, have you run this thru scripts/checkpatch.pl? It should have 
-recommended using '!skb' instead (which would have been only consistent with 
-your previous code).
-
-> +		goto err_print;
-> +
-> +	msg_head = genlmsg_put(skb, 0, 0, &hwsim_genl_family, 0,
-> +			       HWSIM_CMD_NOTIFY);
-> +	if (msg_head == NULL) {
-
-    Same here.
-
-[...]
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 3350721..546ca42 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -724,7 +724,8 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 		 * on the host, we deprecate the error message for this
+ 		 * specific command/input_mod/opcode_mod/fw-status to be debug.
+ 		 */
+-		if (op == MLX4_CMD_SET_PORT && in_modifier == 1 &&
++		if (op == MLX4_CMD_SET_PORT &&
++		    (in_modifier == 1 || in_modifier == 2) &&
+ 		    op_modifier == 0 && context->fw_status == CMD_STAT_BAD_SIZE)
+ 			mlx4_dbg(dev, "command 0x%x failed: fw status = 0x%x\n",
+ 				 op, context->fw_status);
+-- 
+1.9.3
