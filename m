@@ -1,28 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] netns: don't allocate an id for dead netns
-Date: Sun, 05 Apr 2015 16:34:41 -0400 (EDT)
-Message-ID: <20150405.163441.155537210057848679.davem@davemloft.net>
-References: <1428055357-15289-2-git-send-email-nicolas.dichtel@6wind.com>
-	<20150403.123650.1819000124764491725.davem@davemloft.net>
-	<5520F4D9.5030103@6wind.com>
+From: "Bill William And Andrea Groner" <nga@johnrichardvn.com>
+Subject: Charity Project
+Date: Mon, 06 Apr 2015 04:28:36 +0800
+Message-ID: <20150405202942.0B883E24C8__6136.77574224329$1428266422$gmane$org@mail.johnrichardvn.com>
+Reply-To: b.a.groner@foxmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <nga@johnrichardvn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39822 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752010AbbDEUer (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2015 16:34:47 -0400
-In-Reply-To: <5520F4D9.5030103@6wind.com>
+Received: from ns1432.ztomy.com ([61.28.225.61]:44988 "EHLO
+	mail.johnrichardvn.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752384AbbDEUj6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2015 16:39:58 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Sun, 05 Apr 2015 10:39:53 +0200
+I saw your email address during the course of my  research today. My name is Bill William Groner my wife and I won a Jackpot Lottery of $50 Million Dollars in December 2013, we are donating the sum of $1 million Dollars to 6 lucky individual all over the world as part of our charity project. Do get back to us for further details on how to get the donation.
 
-> I don't see these patches in your tree, maybe you forget to push
-> them on kernel.org?
+http://www.huffingtonpost.ca/2014/07/22/50-million-edmonton-lotto_n_5610890.html
 
-Indeed, I did, pushed out now.  Sorry about that.
+Good luck,
+Bill William And Andrean Groner
