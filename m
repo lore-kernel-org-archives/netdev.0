@@ -1,56 +1,80 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/16] wan: lmc: fix error return code
-Date: Sun,  5 Apr 2015 14:06:21 +0200
-Message-ID: <1428235596-4757-2-git-send-email-Julia.Lawall@lip6.fr>
-References: <1428235596-4757-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1428235596-4757-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/4] mac80211-hwsim: notify user-space about channel change.
+Date: Sun, 05 Apr 2015 17:16:14 +0300
+Message-ID: <552143AE.5060109@cogentembedded.com>
+References: <1428095523-374-1-git-send-email-greearb@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net
+To: greearb@candelatech.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:34258 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbbDEOQQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Apr 2015 10:16:16 -0400
+Received: by lboc7 with SMTP id c7so6546391lbo.1
+        for <netdev@vger.kernel.org>; Sun, 05 Apr 2015 07:16:15 -0700 (PDT)
+In-Reply-To: <1428095523-374-1-git-send-email-greearb@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Return a negative error code on failure.
+Hello.
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+On 4/4/2015 12:12 AM, greearb@candelatech.com wrote:
 
-// <smpl>
-@@
-identifier ret; expression e1,e2;
-@@
-(
-if (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
-// </smpl>
+> From: Ben Greear <greearb@candelatech.com>
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> The goal is to allow the user-space application to properly
+> filter packets before sending them down to the kernel.  This
+> should more closely mimic what a real piece of hardware would
+> do.
 
----
- drivers/net/wan/lmc/lmc_main.c |    1 +
- 1 file changed, 1 insertion(+)
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
+> ---
+>   drivers/net/wireless/mac80211_hwsim.c | 48 +++++++++++++++++++++++++++++++++++
+>   drivers/net/wireless/mac80211_hwsim.h |  6 +++++
+>   2 files changed, 54 insertions(+)
 
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index bea0f31..317bc79 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -850,6 +850,7 @@ static int lmc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev = alloc_hdlcdev(sc);
- 	if (!dev) {
- 		printk(KERN_ERR "lmc:alloc_netdev for device failed\n");
-+		err = -ENOMEM;
- 		goto err_hdlcdev;
- 	}
- 
+> diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+> index 8908be6..d0e88b2 100644
+> --- a/drivers/net/wireless/mac80211_hwsim.c
+> +++ b/drivers/net/wireless/mac80211_hwsim.c
+> @@ -871,6 +871,52 @@ static bool hwsim_ps_rx_ok(struct mac80211_hwsim_data *data,
+>   	return true;
+>   }
+>
+> +static void mac80211_hwsim_check_nl_notify(struct mac80211_hwsim_data *data)
+> +{
+> +	struct sk_buff *skb;
+> +	u32 center_freq = 0;
+> +	u32 _portid;
+> +	void *msg_head;
+> +
+> +	/* wmediumd mode check */
+> +	_portid = ACCESS_ONCE(wmediumd_portid);
+> +
 
+    I don't think empty line is needed here...
+
+> +	if (!_portid)
+> +		return;
+> +
+> +	skb = genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+> +	if (skb == NULL)
+
+    Hm, have you run this thru scripts/checkpatch.pl? It should have 
+recommended using '!skb' instead (which would have been only consistent with 
+your previous code).
+
+> +		goto err_print;
+> +
+> +	msg_head = genlmsg_put(skb, 0, 0, &hwsim_genl_family, 0,
+> +			       HWSIM_CMD_NOTIFY);
+> +	if (msg_head == NULL) {
+
+    Same here.
+
+[...]
+
+WBR, Sergei
