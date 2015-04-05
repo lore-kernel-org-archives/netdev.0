@@ -1,38 +1,48 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ethtool: return non-zero from do_sset() when any of
- ETHTOOL_{G,S}* fails
-Date: Sun, 05 Apr 2015 02:55:48 +0100
-Message-ID: <1428198948.11260.133.camel@decadent.org.uk>
-References: <1423236283-32446-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [PATCH ethtool 4/5] ethtool: Prettify RX flow hash indirection
+ table print
+Date: Sun, 05 Apr 2015 03:00:59 +0100
+Message-ID: <1428199259.11260.137.camel@decadent.org.uk>
+References: <1422193883-30504-1-git-send-email-amirv@mellanox.com>
+	 <1422193883-30504-5-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-o4Hc57NEIWhAIRSObBaG"
-Cc: netdev@vger.kernel.org
-To: Ivan Vecera <ivecera@redhat.com>
+	protocol="application/pgp-signature"; boundary="=-6FKDBecIumafBdVdMgYQ"
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58717 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58726 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751384AbbDEB4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2015 21:56:00 -0400
-In-Reply-To: <1423236283-32446-1-git-send-email-ivecera@redhat.com>
+	by vger.kernel.org with ESMTP id S1750762AbbDECBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Apr 2015 22:01:11 -0400
+In-Reply-To: <1422193883-30504-5-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-o4Hc57NEIWhAIRSObBaG
+--=-6FKDBecIumafBdVdMgYQ
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2015-02-06 at 16:24 +0100, Ivan Vecera wrote:
-> Function do_sset returns unconditionally zero error code without regard
-> to return value of ETHTOOL_{G,S}* ioctls.
-[...]
+On Sun, 2015-01-25 at 15:51 +0200, Amir Vadai wrote:
+> From: Eyal Perry <eyalpe@mellanox.com>
+>=20
+> When indirection table size is not a multiple of 8, a new line is
+> missing at the last row of the table.
 
-This behaviour is stupid, but it's what ethtool has always done and what
-some scripts will depend on now.  If you can think of a simple way for
-scripts to opt-in to sensible exit codes, please submit that.
+Yes, good point.
 
-Also, negative exit codes aren't sensible; please just use 0 and 1.
+> In addition, make a distinction between the attribute name and its value
+> by adding an indentation on the beginning of each line which contains
+> values.
+
+We've never consistently indented like that, so I don't see the point in
+changing the output of just this one sub-command.
+
+I'll just fix the first thing.
 
 Ben.
 
@@ -40,26 +50,26 @@ Ben.
 Ben Hutchings
 Quantity is no substitute for quality, but it's the only one we've got.
 
---=-o4Hc57NEIWhAIRSObBaG
+--=-6FKDBecIumafBdVdMgYQ
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAVSCWKee/yOyVhhEJAQr7JRAArW1M0ePDh+tbjccSPy1P0VWlD+hpfZIi
-FvPybmSf+XLT9XAGUZino1hW5nx+wi/o6sQyfmBFzEiz1+6CBPMNkvilEZiUY23e
-LpxZIG8UPImMbBnGQdHwmaREK7FrqpAT79PhrmNXu5zYik7LOsBxt1OlIzF8AzOf
-Uanqaq/E9aEBoW/1H9TZnd3V6OCcLHfwbd6FKTEDgmFhsCBGaMIG8LKEfGe/+54V
-d4jDvGa6Sp/GyEjFpfCz1k7zi4t02gd1YUMEo+jXO8to851L8Eq/o4hbyx5/2F0c
-v8fv1kbsejTWF3NtkwzJ1bWjhz0r0ovOqA0vK0+8doc8wiVkQ6830YB4JJJXkElm
-nevRjpKXzxB9cWNElGaqCA8pzp8d7nTgyF95bkMNPWraHBUEFxyGZ2dpG8i0enVI
-fdZrAUtZETCv/gta0t4E2Hfz9326UzyQ10kA94g2a4+GhaTIY2KhThBr7YDbPqgT
-oW0rNRu3gd4y763E8woUy/8eufmUwxQm1Kcs+yBtdsLo8IDPoWLN4beT5SZQOjk/
-yOj0EFu4ptbooCzhm1qXFpy3vm5PEvVmlmz0HXRiDVlhtP6WPviT7rmj7TZ9aqO/
-E4laRFOQT/n9dR5yb3kALfh0z+KrBTsrRu954FP3b/Ce0aWHD7HKuoIHVBmgZXVy
-STBtw2xNJx4=
-=FIch
+iQIVAwUAVSCXYOe/yOyVhhEJAQqnbw/+M+wc6aZxuk21rJbEDtDjUGh91dD+zFHt
+3YKDw1SXSNcf/PYZQcNHixlxRFl+Td2ZsnmWcd08QuIW/cIpK4dECdot+ZkBcfQl
+qCkA32E6OrFq11qSWvw6DfYqAedbwzzUH9xJwDdBNkvYAtDJ7IT5nntiOtQujo+4
+gfxJfF7DLbfGsXEy1aPHfvtXSlAFLHk5zTmU6MVwTtdLlq+YRa6/EpricvwQViLs
+wHr5x4jddFW7wUq4ECyb9hBD9nbVMFEMzB6gNH+2T9JwPXxZc302bUoB300aWRDW
+Sn+LaUI81i+wlD8kIZSJdyA2W7Bl2OCfeCJoQeWqsKI99OaLFRsli9bXPCA94Hpi
+5y7jFEYXceH9qMPzwab+j1aKv0gZ8hZ7WKv32DPwoS7EXKEyitsX4dSE1O2Xvft4
+OZzkBLpftfr8PI9TSjp4EQvf+B/upCdUmAYbdd+FE6HVzM3/y7RfJtBb3bgkcTy+
+FUdvN7wAfkbrw9GlJKtUggoN2CfumrSO++WaV9PzbhrRIu7yytLFi+YT6RYWrXu7
+mOpdG/wWvNR6ysyMILGmEYaw9ZMFU0K6/bkoT3fQ104mj6iq8uu+B+F7L5m9V/G8
+r2MpLfBiNvOYW0ckuEBqupJkKWwKPlrqRJLjLWr13J18fckGTb4LmcqjtGKbFX3x
+xoG1ueS/UrA=
+=rYj6
 -----END PGP SIGNATURE-----
 
---=-o4Hc57NEIWhAIRSObBaG--
+--=-6FKDBecIumafBdVdMgYQ--
