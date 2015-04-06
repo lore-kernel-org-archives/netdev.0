@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tc: bpf: add checksum helpers
-Date: Mon, 06 Apr 2015 16:42:57 -0400 (EDT)
-Message-ID: <20150406.164257.2290989583284445419.davem@davemloft.net>
-References: <1427933533-14394-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH net-next] virtio: document queue state logic
+Date: Mon, 06 Apr 2015 16:44:49 -0400 (EDT)
+Message-ID: <20150406.164449.1091214597663452067.davem@davemloft.net>
+References: <20150402125743-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, jiri@resnulli.us, jhs@mojatatu.com,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: rusty@rustcorp.com.au, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, stephen@networkplumber.org
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48311 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48326 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753062AbbDFUm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 16:42:59 -0400
-In-Reply-To: <1427933533-14394-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S1753062AbbDFUov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 16:44:51 -0400
+In-Reply-To: <20150402125743-mutt-send-email-mst@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Wed,  1 Apr 2015 17:12:13 -0700
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 2 Apr 2015 13:05:47 +0200
 
-> Commit 608cd71a9c7c ("tc: bpf: generalize pedit action") has added the
-> possibility to mangle packet data to BPF programs in the tc pipeline.
-> This patch adds two helpers bpf_l3_csum_replace() and bpf_l4_csum_replace()
-> for fixing up the protocol checksums after the packet mangling.
+> commit d631b94e7a15277858ec5f88d674d93080506999
+>     virtio: change comment in transmit
 > 
-> It also adds 'flags' argument to bpf_skb_store_bytes() helper to avoid
-> unnecessary checksum recomputations when BPF programs adjusting l3/l4
-> checksums and documents all three helpers in uapi header.
+> started clarifying the logic behind queue state management,
+> but introduced an inaccuracy: TX_BUSY does not cause
+> a BUG message.
 > 
-> Moreover, a sample program is added to show how BPF programs can make use
-> of the mangle and csum helpers.
+> Clean this up some more, explaining the tradeoffs in detail.
 > 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Applied, thanks.
+Applied, thanks Michael.
