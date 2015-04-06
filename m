@@ -1,59 +1,91 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE tunnels
-Date: Mon, 6 Apr 2015 11:06:02 -0700
-Message-ID: <CAEP_g=-qyy6PNEqKQWVaw5Wf9MvcUk-Hx5Mrk7jaTEihK3Tqzg@mail.gmail.com>
-References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
- <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
- <CAEP_g=9PbDO4qK-GaGosBAq1S5C5uWNR4-JN8=i158oYJUN4Bw@mail.gmail.com> <20150404010142.GA1063@electric-eye.fr.zoreil.com>
+From: "Beshay, Joseph" <jdb109120@utdallas.edu>
+Subject: [PATCH] netem: Fixes byte backlog accounting for the first of two
+ chained netem instances
+Date: Mon, 6 Apr 2015 18:00:56 +0000
+Message-ID: <DM2PR01MB511D67AC72AB91C5651A9E5D1FE0@DM2PR01MB511.prod.exchangelabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Zhou <azhou@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Hagen Paul Pfeifer <hagen@jauu.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"netem@lists.linux-foundation.org" <netem@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:47520 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753103AbbDFSGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 14:06:24 -0400
-Received: by mail-lb0-f173.google.com with SMTP id qq2so16513768lbb.3
-        for <netdev@vger.kernel.org>; Mon, 06 Apr 2015 11:06:22 -0700 (PDT)
-In-Reply-To: <20150404010142.GA1063@electric-eye.fr.zoreil.com>
+Received: from ip-relay-051.utdallas.edu ([129.110.182.14]:48602 "EHLO
+	ip-relay-051.utdallas.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677AbbDFSKm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 14:10:42 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 3, 2015 at 6:01 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Jesse Gross <jesse@nicira.com> :
-> [...]
->> > diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
->> > new file mode 100644
->> > index 000000000000..fe8895487fc2
->> > --- /dev/null
->> > +++ b/drivers/net/geneve.c
->> > +/* geneve receive/decap routine */
->> > +static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
->> > +{
->> > +       struct genevehdr *gnvh = geneve_hdr(skb);
->> > +       struct geneve_dev *geneve;
->> > +       struct pcpu_sw_netstats *stats;
->> > +
->> > +       geneve = gs->rcv_data;
->> > +
->> > +       /* Does the VNI match the device? */
->> > +       if (memcmp(gnvh->vni, geneve->vni, sizeof(geneve->vni)))
->> > +               goto drop;
->>
->> Since Geneve packets can carry options and this doesn't currently
->> support any, I think we need to at least check the 'C' bit in the
->> header and drop packets if it is set to ensure that we don't
->> accidentally ignore critical options.
->
-> Speaking of it, it's imho a bit too easy to confuse GENEVE_CRIT_OPT_TYPE
-> with the relevant 'C' bit mask.
+Fixes byte backlog accounting for the first of two chained netem instances.
+Bytes backlog reported now corresponds to the number of queued packets.
 
-Which 'C' bit mask? You mean the bitfield in the header? I guess but
-I'm not sure what would make it clearer and since they are different
-types it seems somewhat difficult to actually misuse them in practice.
+When two netem instances are chained, for instance to apply rate and queue
+limitation followed by packet delay, the number of backlogged bytes reported
+by the first netem instance is wrong. It reports the sum of bytes in the queues
+of the first and second netem. The first netem reports the correct number of
+backlogged packets but not bytes. This is shown in the example below.
+
+Consider a chain of two netem schedulers created using the following commands:
+
+$ tc -s qdisc replace dev veth2 root handle 1:0 netem rate 10000kbit limit 100
+$ tc -s qdisc add dev veth2 parent 1:0 handle 2: netem delay 50ms
+
+Start an iperf session to send packets out on the specified interface and
+monitor the backlog using tc:
+
+$ tc -s qdisc show dev veth2
+
+Output using unpatched netem:
+	qdisc netem 1: root refcnt 2 limit 100 rate 10000Kbit
+	 Sent 98422639 bytes 65434 pkt (dropped 123, overlimits 0 requeues 0)
+	 backlog 172694b 73p requeues 0
+	qdisc netem 2: parent 1: limit 1000 delay 50.0ms
+	 Sent 98422639 bytes 65434 pkt (dropped 0, overlimits 0 requeues 0)
+	 backlog 63588b 42p requeues 0
+	 
+The interface used to produce this output has an MTU of 1500. The output for
+backlogged bytes behind netem 1 is 172694b. This value is not correct. Consider
+the total number of sent bytes and packets. By dividing the number of sent
+bytes by the number of sent packets, we get an average packet size of ~=1504.
+If we divide the number of backlogged bytes by packets, we get ~=2365. This is
+due to the first netem incorrectly counting the 63588b which are in netem 2's
+queue as being in its own queue. To verify this is the case, we subtract them
+from the reported value and divide by the number of packets as follows: 
+	172694 - 63588 = 109106 bytes actualled backlogged in netem 1
+	109106 / 73 packets ~= 1494 bytes (which matches our MTU)
+	
+The root cause is that the byte accounting is not done at the
+same time with packet accounting. The solution is to update the backlog value
+every time the packet queue is updated.
+
+Signed-off-by: Joseph D Beshay <joseph.beshay@utdallas.edu>
+Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 179f1c8..956ead2 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -560,8 +560,8 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+ tfifo_dequeue:
+ 	skb = __skb_dequeue(&sch->q);
+ 	if (skb) {
+-deliver:
+ 		qdisc_qstats_backlog_dec(sch, skb);
++deliver:
+ 		qdisc_unthrottled(sch);
+ 		qdisc_bstats_update(sch, skb);
+ 		return skb;
+@@ -578,6 +578,7 @@ deliver:
+ 			rb_erase(p, &q->t_root);
+ 
+ 			sch->q.qlen--;
++			qdisc_qstats_backlog_dec(sch, skb);
+ 			skb->next = NULL;
+ 			skb->prev = NULL;
+ 			skb->tstamp = netem_skb_cb(skb)->tstamp_save;
+
+Signed-off-by: Joseph D Beshay <joseph.beshay@utdallas.edu>
+Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
