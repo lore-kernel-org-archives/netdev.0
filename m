@@ -1,163 +1,511 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: TSO on veth device slows transmission to a crawl
-Date: Tue, 7 Apr 2015 00:45:43 +0200 (CEST)
-Message-ID: <alpine.LSU.2.20.1504070014250.21650@nerf40.vanv.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-To: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares41.inai.de ([46.4.122.207]:52866 "EHLO ares41.inai.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752834AbbDFWw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Apr 2015 18:52:58 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by ares41.inai.de (Postfix) with ESMTP id 4D21180C5449
-	for <netdev@vger.kernel.org>; Tue,  7 Apr 2015 00:45:43 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: [PATCH RFC] net/mlx4: Remove improper usage of dma_alloc_coherent().
+Date: Mon,  6 Apr 2015 16:00:29 -0700
+Message-ID: <1428361229-31542-1-git-send-email-ddaney.cavm@gmail.com>
+Cc: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Moni Shoua <monis@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Yuval Atias <yuvala@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	David Daney <david.daney@cavium.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: David Daney <david.daney@cavium.com>
 
-I have here a Linux 3.19(.0) system where activated TSO on a veth slave 
-device makes IPv4-TCP transfers going into that veth-connected container 
-progress slowly.
+The dma_alloc_coherent() function returns a virtual address which can
+be used for coherent access to the underlying memory.  On some
+architectures, like arm64, undefined behavior results if this memory is
+also accessed via virtual mappings that are not coherent.  Because of
+their undefined nature, operations like virt_to_page() return garbage
+when passed virtual addresses obtained from dma_alloc_coherent().  Any
+subsequent mappings via vmap() of the garbage page values are unusable
+and result in bad things like bus errors (synchronous aborts in ARM64
+speak).
 
+The MLX4 driver contains code that does the equivalent of:
 
-Host side (hv03):
-hv03# ip l
-2: ge0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast 
-state UP mode DEFAULT group default qlen 1000 [Intel 82579LM]
-7: ve-build01: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc 
-pfifo_fast state UP mode DEFAULT group default qlen 1000 [veth]
-hv03# ethtool -k ve-build01
-Features for ve-build01:
-rx-checksumming: on
-tx-checksumming: on
-        tx-checksum-ipv4: off [fixed]
-        tx-checksum-ip-generic: on
-        tx-checksum-ipv6: off [fixed]
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: off [fixed]
-scatter-gather: on
-        tx-scatter-gather: on
-        tx-scatter-gather-fraglist: on
-tcp-segmentation-offload: on
-        tx-tcp-segmentation: on
-        tx-tcp-ecn-segmentation: on
-        tx-tcp6-segmentation: on
-udp-fragmentation-offload: on
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: off [fixed]
-receive-hashing: off [fixed]
-highdma: on
-rx-vlan-filter: off [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: on [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: on
-tx-ipip-segmentation: on
-tx-sit-segmentation: on
-tx-udp_tnl-segmentation: on
-fcoe-mtu: off [fixed]
-tx-nocache-copy: off
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off [fixed]
-tx-vlan-stag-hw-insert: on
-rx-vlan-stag-hw-parse: on
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
-busy-poll: off [fixed]
+  vmap(virt_to_page(dma_alloc_coherent))
 
+This results in an OOPs when the device is opened.
 
-Guest side (build01):
-build01# ip l
-2: host0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast 
-state UP mode DEFAULT group default qlen 1000
-build01# ethtool -k host0
-Features for host0:
-rx-checksumming: on
-tx-checksumming: on
-        tx-checksum-ipv4: off [fixed]
-        tx-checksum-ip-generic: on
-        tx-checksum-ipv6: off [fixed]
-        tx-checksum-fcoe-crc: off [fixed]
-        tx-checksum-sctp: off [fixed]
-scatter-gather: on
-        tx-scatter-gather: on
-        tx-scatter-gather-fraglist: on
-tcp-segmentation-offload: on
-        tx-tcp-segmentation: on
-        tx-tcp-ecn-segmentation: on
-        tx-tcp6-segmentation: on
-udp-fragmentation-offload: on
-generic-segmentation-offload: on
-generic-receive-offload: on
-large-receive-offload: off [fixed]
-rx-vlan-offload: on
-tx-vlan-offload: on
-ntuple-filters: off [fixed]
-receive-hashing: off [fixed]
-highdma: on
-rx-vlan-filter: off [fixed]
-vlan-challenged: off [fixed]
-tx-lockless: on [fixed]
-netns-local: off [fixed]
-tx-gso-robust: off [fixed]
-tx-fcoe-segmentation: off [fixed]
-tx-gre-segmentation: on
-tx-ipip-segmentation: on
-tx-sit-segmentation: on
-tx-udp_tnl-segmentation: on
-fcoe-mtu: off [fixed]
-tx-nocache-copy: off
-loopback: off [fixed]
-rx-fcs: off [fixed]
-rx-all: off [fixed]
-tx-vlan-stag-hw-insert: on
-rx-vlan-stag-hw-parse: on
-rx-vlan-stag-filter: off [fixed]
-l2-fwd-offload: off [fixed]
-busy-poll: off [fixed]
+To fix this...
 
+Always use result of dma_alloc_coherent() directly.
 
-Using an independent machine, I query a xinetd-chargen sample service
-to send a sufficient number of bytes through the pipe.
+Remove 'max_direct' parameter to mlx4_buf_alloc(), as it is unused,
+and adjust all callers.
 
-ares40# traceroute build01
-traceroute to build01 (x), 30 hops max, 60 byte packets
- 1  hv03 ()  0.713 ms  0.663 ms  0.636 ms
- 2  build01 ()  0.905 ms  0.882 ms  0.858 ms
+Remove mlx4_en_map_buffer() and mlx4_en_unmap_buffer() as they now do
+nothing, and adjust all callers.
 
-ares40$ socat tcp4-connect:build01:19 - | pv >/dev/null
- 480KiB 0:00:05 [91.5KiB/s] [    <=>             ]
-1.01MiB 0:00:11 [91.1KiB/s] [          <=>       ]
-1.64MiB 0:00:18 [ 110KiB/s] [                <=> ]
+Remove 'page_list' element from struct mlx4_buf as it is unused.
 
-(PV is the Pipe Viewer, showing throughput.)
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/infiniband/hw/mlx4/cq.c                   |   2 +-
+ drivers/infiniband/hw/mlx4/qp.c                   |   2 +-
+ drivers/infiniband/hw/mlx4/srq.c                  |   3 +-
+ drivers/net/ethernet/mellanox/mlx4/alloc.c        | 104 +++++-----------------
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c        |   9 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c |  32 -------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c        |  11 +--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c        |  14 +--
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   2 -
+ drivers/net/ethernet/mellanox/mlx4/mr.c           |   5 +-
+ include/linux/mlx4/device.h                       |  11 +--
+ 12 files changed, 33 insertions(+), 164 deletions(-)
 
-It hovers between 80 and 110 kilobytes/sec, which is 600-fold lower
-than what I would normally see. Once TSO is turned off on the
-container-side interface:
-
-build01# ethtool -K host0 tso off
-(must be host0 // doing it on ve-build01 has no effect)
-
-I observe restoration of expected throughput:
-
-ares40$ socat tcp4-connect:build01:19 - | pv >/dev/null
- 182MiB 0:02:05 [66.1MiB/s] [                       <=> ]
-
-
-This problem does not manifest when using IPv6.
-The problem also does not manifest if the TCP4 connection is kernel-local,
-e.g. hv03->build01.
-The problem also does not manifest if the TCP4 connection is outgoing, 
-e.g. build01->ares40.
-IOW, the tcp4 listening socket needs to be inside a veth-connected 
-container.
+diff --git a/drivers/infiniband/hw/mlx4/cq.c b/drivers/infiniband/hw/mlx4/cq.c
+index 0176caa..ab8d6ac 100644
+--- a/drivers/infiniband/hw/mlx4/cq.c
++++ b/drivers/infiniband/hw/mlx4/cq.c
+@@ -102,7 +102,7 @@ static int mlx4_ib_alloc_cq_buf(struct mlx4_ib_dev *dev, struct mlx4_ib_cq_buf *
+ 	int err;
+ 
+ 	err = mlx4_buf_alloc(dev->dev, nent * dev->dev->caps.cqe_size,
+-			     PAGE_SIZE * 2, &buf->buf, GFP_KERNEL);
++			     &buf->buf, GFP_KERNEL);
+ 
+ 	if (err)
+ 		goto out;
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index ed2bd67..e095082 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -768,7 +768,7 @@ static int create_qp_common(struct mlx4_ib_dev *dev, struct ib_pd *pd,
+ 			*qp->db.db = 0;
+ 		}
+ 
+-		if (mlx4_buf_alloc(dev->dev, qp->buf_size, PAGE_SIZE * 2, &qp->buf, gfp)) {
++		if (mlx4_buf_alloc(dev->dev, qp->buf_size, &qp->buf, gfp)) {
+ 			err = -ENOMEM;
+ 			goto err_db;
+ 		}
+diff --git a/drivers/infiniband/hw/mlx4/srq.c b/drivers/infiniband/hw/mlx4/srq.c
+index dce5dfe..121730b 100644
+--- a/drivers/infiniband/hw/mlx4/srq.c
++++ b/drivers/infiniband/hw/mlx4/srq.c
+@@ -140,8 +140,7 @@ struct ib_srq *mlx4_ib_create_srq(struct ib_pd *pd,
+ 
+ 		*srq->db.db = 0;
+ 
+-		if (mlx4_buf_alloc(dev->dev, buf_size, PAGE_SIZE * 2, &srq->buf,
+-				   GFP_KERNEL)) {
++		if (mlx4_buf_alloc(dev->dev, buf_size, &srq->buf, GFP_KERNEL)) {
+ 			err = -ENOMEM;
+ 			goto err_db;
+ 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+index 0c51c69..db6ba3e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
+@@ -576,103 +576,41 @@ out:
+ 
+ 	return res;
+ }
+-/*
+- * Handling for queue buffers -- we allocate a bunch of memory and
+- * register it in a memory region at HCA virtual address 0.  If the
+- * requested size is > max_direct, we split the allocation into
+- * multiple pages, so we don't require too much contiguous memory.
++
++/* Handling for queue buffers -- we allocate a bunch of memory and
++ * register it in a memory region at HCA virtual address 0.
+  */
+ 
+-int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
++int mlx4_buf_alloc(struct mlx4_dev *dev, int size,
+ 		   struct mlx4_buf *buf, gfp_t gfp)
+ {
+ 	dma_addr_t t;
+ 
+-	if (size <= max_direct) {
+-		buf->nbufs        = 1;
+-		buf->npages       = 1;
+-		buf->page_shift   = get_order(size) + PAGE_SHIFT;
+-		buf->direct.buf   = dma_alloc_coherent(&dev->persist->pdev->dev,
+-						       size, &t, gfp);
+-		if (!buf->direct.buf)
+-			return -ENOMEM;
+-
+-		buf->direct.map = t;
+-
+-		while (t & ((1 << buf->page_shift) - 1)) {
+-			--buf->page_shift;
+-			buf->npages *= 2;
+-		}
++	buf->nbufs        = 1;
++	buf->npages       = 1;
++	buf->page_shift   = get_order(size) + PAGE_SHIFT;
++	buf->direct.buf   = dma_alloc_coherent(&dev->persist->pdev->dev,
++					       size, &t, gfp);
++	if (!buf->direct.buf)
++		return -ENOMEM;
+ 
+-		memset(buf->direct.buf, 0, size);
+-	} else {
+-		int i;
+-
+-		buf->direct.buf  = NULL;
+-		buf->nbufs       = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+-		buf->npages      = buf->nbufs;
+-		buf->page_shift  = PAGE_SHIFT;
+-		buf->page_list   = kcalloc(buf->nbufs, sizeof(*buf->page_list),
+-					   gfp);
+-		if (!buf->page_list)
+-			return -ENOMEM;
+-
+-		for (i = 0; i < buf->nbufs; ++i) {
+-			buf->page_list[i].buf =
+-				dma_alloc_coherent(&dev->persist->pdev->dev,
+-						   PAGE_SIZE,
+-						   &t, gfp);
+-			if (!buf->page_list[i].buf)
+-				goto err_free;
+-
+-			buf->page_list[i].map = t;
+-
+-			memset(buf->page_list[i].buf, 0, PAGE_SIZE);
+-		}
++	buf->direct.map = t;
+ 
+-		if (BITS_PER_LONG == 64) {
+-			struct page **pages;
+-			pages = kmalloc(sizeof *pages * buf->nbufs, gfp);
+-			if (!pages)
+-				goto err_free;
+-			for (i = 0; i < buf->nbufs; ++i)
+-				pages[i] = virt_to_page(buf->page_list[i].buf);
+-			buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP, PAGE_KERNEL);
+-			kfree(pages);
+-			if (!buf->direct.buf)
+-				goto err_free;
+-		}
++	while (t & ((1 << buf->page_shift) - 1)) {
++		--buf->page_shift;
++		buf->npages *= 2;
+ 	}
+ 
+-	return 0;
+-
+-err_free:
+-	mlx4_buf_free(dev, size, buf);
++	memset(buf->direct.buf, 0, size);
+ 
+-	return -ENOMEM;
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mlx4_buf_alloc);
+ 
+ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf)
+ {
+-	int i;
+-
+-	if (buf->nbufs == 1)
+-		dma_free_coherent(&dev->persist->pdev->dev, size,
+-				  buf->direct.buf,
+-				  buf->direct.map);
+-	else {
+-		if (BITS_PER_LONG == 64)
+-			vunmap(buf->direct.buf);
+-
+-		for (i = 0; i < buf->nbufs; ++i)
+-			if (buf->page_list[i].buf)
+-				dma_free_coherent(&dev->persist->pdev->dev,
+-						  PAGE_SIZE,
+-						  buf->page_list[i].buf,
+-						  buf->page_list[i].map);
+-		kfree(buf->page_list);
+-	}
++	dma_free_coherent(&dev->persist->pdev->dev, size,
++			  buf->direct.buf, buf->direct.map);
+ }
+ EXPORT_SYMBOL_GPL(mlx4_buf_free);
+ 
+@@ -789,7 +727,7 @@ void mlx4_db_free(struct mlx4_dev *dev, struct mlx4_db *db)
+ EXPORT_SYMBOL_GPL(mlx4_db_free);
+ 
+ int mlx4_alloc_hwq_res(struct mlx4_dev *dev, struct mlx4_hwq_resources *wqres,
+-		       int size, int max_direct)
++		       int size)
+ {
+ 	int err;
+ 
+@@ -799,7 +737,7 @@ int mlx4_alloc_hwq_res(struct mlx4_dev *dev, struct mlx4_hwq_resources *wqres,
+ 
+ 	*wqres->db.db = 0;
+ 
+-	err = mlx4_buf_alloc(dev, size, max_direct, &wqres->buf, GFP_KERNEL);
++	err = mlx4_buf_alloc(dev, size, &wqres->buf, GFP_KERNEL);
+ 	if (err)
+ 		goto err_db;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 22da4d0..c541fe4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -72,22 +72,16 @@ int mlx4_en_create_cq(struct mlx4_en_priv *priv,
+ 	 */
+ 	set_dev_node(&mdev->dev->persist->pdev->dev, node);
+ 	err = mlx4_alloc_hwq_res(mdev->dev, &cq->wqres,
+-				cq->buf_size, 2 * PAGE_SIZE);
++				cq->buf_size);
+ 	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
+ 	if (err)
+ 		goto err_cq;
+ 
+-	err = mlx4_en_map_buffer(&cq->wqres.buf);
+-	if (err)
+-		goto err_res;
+-
+ 	cq->buf = (struct mlx4_cqe *)cq->wqres.buf.direct.buf;
+ 	*pcq = cq;
+ 
+ 	return 0;
+ 
+-err_res:
+-	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
+ err_cq:
+ 	kfree(cq);
+ 	*pcq = NULL;
+@@ -189,7 +183,6 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_cq *cq = *pcq;
+ 
+-	mlx4_en_unmap_buffer(&cq->wqres.buf);
+ 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
+ 	if (priv->mdev->dev->caps.comp_pool && cq->vector) {
+ 		mlx4_release_eq(priv->mdev->dev, cq->vector);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 3485acf..715265e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2744,7 +2744,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 
+ 	/* Allocate page for receive rings */
+ 	err = mlx4_alloc_hwq_res(mdev->dev, &priv->res,
+-				MLX4_EN_PAGE_SIZE, MLX4_EN_PAGE_SIZE);
++				MLX4_EN_PAGE_SIZE);
+ 	if (err) {
+ 		en_err(priv, "Failed to allocate page for rx qps\n");
+ 		goto out;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+index 34f2fdf..c632d51 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
+@@ -80,38 +80,6 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 	}
+ }
+ 
+-
+-int mlx4_en_map_buffer(struct mlx4_buf *buf)
+-{
+-	struct page **pages;
+-	int i;
+-
+-	if (BITS_PER_LONG == 64 || buf->nbufs == 1)
+-		return 0;
+-
+-	pages = kmalloc(sizeof *pages * buf->nbufs, GFP_KERNEL);
+-	if (!pages)
+-		return -ENOMEM;
+-
+-	for (i = 0; i < buf->nbufs; ++i)
+-		pages[i] = virt_to_page(buf->page_list[i].buf);
+-
+-	buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP, PAGE_KERNEL);
+-	kfree(pages);
+-	if (!buf->direct.buf)
+-		return -ENOMEM;
+-
+-	return 0;
+-}
+-
+-void mlx4_en_unmap_buffer(struct mlx4_buf *buf)
+-{
+-	if (BITS_PER_LONG == 64 || buf->nbufs == 1)
+-		return;
+-
+-	vunmap(buf->direct.buf);
+-}
+-
+ void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event)
+ {
+     return;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 698d60d..ac70393 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -392,17 +392,11 @@ int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
+ 
+ 	/* Allocate HW buffers on provided NUMA node */
+ 	set_dev_node(&mdev->dev->persist->pdev->dev, node);
+-	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres,
+-				 ring->buf_size, 2 * PAGE_SIZE);
++	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
+ 	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
+ 	if (err)
+ 		goto err_info;
+ 
+-	err = mlx4_en_map_buffer(&ring->wqres.buf);
+-	if (err) {
+-		en_err(priv, "Failed to map RX buffer\n");
+-		goto err_hwq;
+-	}
+ 	ring->buf = ring->wqres.buf.direct.buf;
+ 
+ 	ring->hwtstamp_rx_filter = priv->hwtstamp_config.rx_filter;
+@@ -410,8 +404,6 @@ int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
+ 	*pring = ring;
+ 	return 0;
+ 
+-err_hwq:
+-	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
+ err_info:
+ 	vfree(ring->rx_info);
+ 	ring->rx_info = NULL;
+@@ -498,7 +490,6 @@ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_rx_ring *ring = *pring;
+ 
+-	mlx4_en_unmap_buffer(&ring->wqres.buf);
+ 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
+ 	vfree(ring->rx_info);
+ 	ring->rx_info = NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 55f9f5c..de61140 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -92,20 +92,13 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 
+ 	/* Allocate HW buffers on provided NUMA node */
+ 	set_dev_node(&mdev->dev->persist->pdev->dev, node);
+-	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size,
+-				 2 * PAGE_SIZE);
++	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
+ 	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
+ 	if (err) {
+ 		en_err(priv, "Failed allocating hwq resources\n");
+ 		goto err_bounce;
+ 	}
+ 
+-	err = mlx4_en_map_buffer(&ring->wqres.buf);
+-	if (err) {
+-		en_err(priv, "Failed to map TX buffer\n");
+-		goto err_hwq_res;
+-	}
+-
+ 	ring->buf = ring->wqres.buf.direct.buf;
+ 
+ 	en_dbg(DRV, priv, "Allocated TX ring (addr:%p) - buf:%p size:%d buf_size:%d dma:%llx\n",
+@@ -116,7 +109,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 				    MLX4_RESERVE_ETH_BF_QP);
+ 	if (err) {
+ 		en_err(priv, "failed reserving qp for TX ring\n");
+-		goto err_map;
++		goto err_hwq_res;
+ 	}
+ 
+ 	err = mlx4_qp_alloc(mdev->dev, ring->qpn, &ring->qp, GFP_KERNEL);
+@@ -151,8 +144,6 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 
+ err_reserve:
+ 	mlx4_qp_release_range(mdev->dev, ring->qpn, 1);
+-err_map:
+-	mlx4_en_unmap_buffer(&ring->wqres.buf);
+ err_hwq_res:
+ 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
+ err_bounce:
+@@ -178,7 +169,6 @@ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
+ 		mlx4_bf_free(mdev->dev, &ring->bf);
+ 	mlx4_qp_remove(mdev->dev, &ring->qp);
+ 	mlx4_qp_free(mdev->dev, &ring->qp);
+-	mlx4_en_unmap_buffer(&ring->wqres.buf);
+ 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
+ 	kfree(ring->bounce_buf);
+ 	ring->bounce_buf = NULL;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index ebbe244..45e2f19 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -808,8 +808,6 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
+ 		int is_tx, int rss, int qpn, int cqn, int user_prio,
+ 		struct mlx4_qp_context *context);
+ void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event);
+-int mlx4_en_map_buffer(struct mlx4_buf *buf);
+-void mlx4_en_unmap_buffer(struct mlx4_buf *buf);
+ 
+ void mlx4_en_calc_rx_buf(struct net_device *dev);
+ int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
+index 78f51e1..095f3ca 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mr.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
+@@ -802,10 +802,7 @@ int mlx4_buf_write_mtt(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
+ 		return -ENOMEM;
+ 
+ 	for (i = 0; i < buf->npages; ++i)
+-		if (buf->nbufs == 1)
+-			page_list[i] = buf->direct.map + (i << buf->page_shift);
+-		else
+-			page_list[i] = buf->page_list[i].map;
++		page_list[i] = buf->direct.map + (i << buf->page_shift);
+ 
+ 	err = mlx4_write_mtt(dev, mtt, 0, buf->npages, page_list);
+ 
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index e4ebff7..476bfc2 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -573,7 +573,6 @@ struct mlx4_buf_list {
+ 
+ struct mlx4_buf {
+ 	struct mlx4_buf_list	direct;
+-	struct mlx4_buf_list   *page_list;
+ 	int			nbufs;
+ 	int			npages;
+ 	int			page_shift;
+@@ -982,16 +981,12 @@ static inline int mlx4_is_slave(struct mlx4_dev *dev)
+ 	return dev->flags & MLX4_FLAG_SLAVE;
+ }
+ 
+-int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
++int mlx4_buf_alloc(struct mlx4_dev *dev, int size,
+ 		   struct mlx4_buf *buf, gfp_t gfp);
+ void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf);
+ static inline void *mlx4_buf_offset(struct mlx4_buf *buf, int offset)
+ {
+-	if (BITS_PER_LONG == 64 || buf->nbufs == 1)
+-		return buf->direct.buf + offset;
+-	else
+-		return buf->page_list[offset >> PAGE_SHIFT].buf +
+-			(offset & (PAGE_SIZE - 1));
++	return buf->direct.buf + offset;
+ }
+ 
+ int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn);
+@@ -1027,7 +1022,7 @@ int mlx4_db_alloc(struct mlx4_dev *dev, struct mlx4_db *db, int order,
+ void mlx4_db_free(struct mlx4_dev *dev, struct mlx4_db *db);
+ 
+ int mlx4_alloc_hwq_res(struct mlx4_dev *dev, struct mlx4_hwq_resources *wqres,
+-		       int size, int max_direct);
++		       int size);
+ void mlx4_free_hwq_res(struct mlx4_dev *mdev, struct mlx4_hwq_resources *wqres,
+ 		       int size);
+ 
+-- 
+1.7.11.7
