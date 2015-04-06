@@ -1,34 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth-next 2015-04-04
-Date: Mon, 06 Apr 2015 17:15:38 -0400 (EDT)
-Message-ID: <20150406.171538.1861592247290486681.davem@davemloft.net>
-References: <20150404062406.GA29882@t440s.P-661HNU-F1>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: dsa: fix filling routing table from OF
+ description
+Date: Mon, 06 Apr 2015 17:31:59 -0400 (EDT)
+Message-ID: <20150406.173159.204611711817722389.davem@davemloft.net>
+References: <1516684.D2TdrA1BPT@kuro.zhome>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150404062406.GA29882-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, joe@perches.com, grant.likely@linaro.org,
+	robh+dt@kernel.org, f.fainelli@gmail.com, fabf@skynet.be,
+	linux-kernel@vger.kernel.org
+To: pavel.nakonechny@skitlab.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1516684.D2TdrA1BPT@kuro.zhome>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Sat, 4 Apr 2015 09:24:06 +0300
+From: Pavel Nakonechny <pavel.nakonechny@skitlab.ru>
+Date: Sun, 05 Apr 2015 00:46:21 +0300
 
-> Here's what's probably the last bluetooth-next pull request for 4.1:
+> According to description in 'include/net/dsa.h', in cascade switches
+> configurations where there are more than one interconnected devices,
+> 'rtable' array in 'dsa_chip_data' structure is used to indicate which
+> port on this switch should be used to send packets to that are destined
+> for corresponding switch.
 > 
->  - Fixes for LE advertising data & advertising parameters
->  - Fix for race condition with HCI_RESET flag
->  - New BNEPGETSUPPFEAT ioctl, needed for certification
->  - New HCI request callback type to get the resulting skb
->  - Cleanups to use BIT() macro wherever possible
->  - Consolidate Broadcom device entries in the btusb HCI driver
->  - Check for valid flags in CMTP, HIDP & BNEP
->  - Disallow local privacy & OOB data combo to prevent a potential race
->  - Expose SMP & ECDH selftest results through debugfs
->  - Expose current Device ID info through debugfs
+> However, dsa_of_setup_routing_table() fills 'rtable' with port numbers
+> of the _target_ switch, but not current one.
 > 
-> Please let me know if there are any issues pulling. Thanks.
+> This commit removes redundant devicetree parsing and adds needed port
+> number as a function argument. So dsa_of_setup_routing_table() now just
+> looks for target switch number by parsing parent of 'link' device node.
+> 
+> To remove possible misunderstandings with the way of determining target
+> switch number, a corresponding comment was added to the source code and
+> to the DSA device tree bindings documentation file.
+> 
+> This was tested on a custom board with two Marvell 88E6095 switches with
+> following corresponding routing tables: { -1, 10 } and { 8, -1 }.
+> 
+> Signed-off-by: Pavel Nakonechny <pavel.nakonechny@skitlab.ru>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Pulled, thanks Johan.
+Applied, thanks.
