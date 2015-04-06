@@ -1,69 +1,37 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE
- tunnels
-Date: Mon, 6 Apr 2015 14:44:09 -0400
-Message-ID: <20150406184409.GC2866@tuxdriver.com>
-References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
- <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
- <CAEP_g=9PbDO4qK-GaGosBAq1S5C5uWNR4-JN8=i158oYJUN4Bw@mail.gmail.com>
- <20150404010142.GA1063@electric-eye.fr.zoreil.com>
- <CAEP_g=-qyy6PNEqKQWVaw5Wf9MvcUk-Hx5Mrk7jaTEihK3Tqzg@mail.gmail.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: VxLAN system wedge in 4.0.0-rc5+ from davem net-next?
+Date: Mon, 6 Apr 2015 16:07:43 -0300
+Message-ID: <20150406190743.GA3969@localhost.localdomain>
+References: <551F2C20.1060908@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Zhou <azhou@nicira.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Jesse Gross <jesse@nicira.com>
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53866 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683AbbDFSpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 14:45:20 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:52233 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753060AbbDFTHq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2015 15:07:46 -0400
 Content-Disposition: inline
-In-Reply-To: <CAEP_g=-qyy6PNEqKQWVaw5Wf9MvcUk-Hx5Mrk7jaTEihK3Tqzg@mail.gmail.com>
+In-Reply-To: <551F2C20.1060908@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 06, 2015 at 11:06:02AM -0700, Jesse Gross wrote:
-> On Fri, Apr 3, 2015 at 6:01 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> > Jesse Gross <jesse@nicira.com> :
-> > [...]
-> >> > diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-> >> > new file mode 100644
-> >> > index 000000000000..fe8895487fc2
-> >> > --- /dev/null
-> >> > +++ b/drivers/net/geneve.c
-> >> > +/* geneve receive/decap routine */
-> >> > +static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
-> >> > +{
-> >> > +       struct genevehdr *gnvh = geneve_hdr(skb);
-> >> > +       struct geneve_dev *geneve;
-> >> > +       struct pcpu_sw_netstats *stats;
-> >> > +
-> >> > +       geneve = gs->rcv_data;
-> >> > +
-> >> > +       /* Does the VNI match the device? */
-> >> > +       if (memcmp(gnvh->vni, geneve->vni, sizeof(geneve->vni)))
-> >> > +               goto drop;
-> >>
-> >> Since Geneve packets can carry options and this doesn't currently
-> >> support any, I think we need to at least check the 'C' bit in the
-> >> header and drop packets if it is set to ensure that we don't
-> >> accidentally ignore critical options.
-> >
-> > Speaking of it, it's imho a bit too easy to confuse GENEVE_CRIT_OPT_TYPE
-> > with the relevant 'C' bit mask.
+Hi,
+
+On Fri, Apr 03, 2015 at 05:11:12PM -0700, Rick Jones wrote:
+> Hi -
 > 
-> Which 'C' bit mask? You mean the bitfield in the header? I guess but
-> I'm not sure what would make it clearer and since they are different
-> types it seems somewhat difficult to actually misuse them in practice.
+> I've been messing about with VxLAN with a pair of two socket systems with
+> ixgbe-driven NICs (HP 560FLRs for the curious) and have noticed that with a
+> kernel from a davem net-next tree I refreshed a couple days ago I can create
+> the vlxan link, and ifconfig it, but once I start trying to push packets
+> through it the system appears to hang and I have to reset it.
+> 
+> I went back to checkout v3.19 and tried that kernel and all was happiness
+> and joy.  So, I started down the bisect path, but after the first iteration
+> I ran into:
 
-What would you suggest, Francois?  A GENEVE_CRIT_OPT_PRESENT() macro?
+That means you could send/receive some packets on it before the hang, right?
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+  Marcelo
