@@ -1,37 +1,32 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: VxLAN system wedge in 4.0.0-rc5+ from davem net-next?
-Date: Mon, 6 Apr 2015 16:07:43 -0300
-Message-ID: <20150406190743.GA3969@localhost.localdomain>
-References: <551F2C20.1060908@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Prevent UDP tunnels from operating on garbage
+ socket
+Date: Mon, 06 Apr 2015 15:38:57 -0400 (EDT)
+Message-ID: <20150406.153857.2087257516868035001.davem@davemloft.net>
+References: <20150406.124114.924455461962119301.davem@davemloft.net>
+	<20150406.131700.185460014498109286.davem@davemloft.net>
+	<CALx6S34CvOZN3dZjXr6_1afCbUDu2718cCGPk2Sm1Nkq8wCGKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, jiri@resnulli.us, pablo@netfilter.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52233 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753060AbbDFTHq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Apr 2015 15:07:46 -0400
-Content-Disposition: inline
-In-Reply-To: <551F2C20.1060908@hp.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47921 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726AbbDFTjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 15:39:01 -0400
+In-Reply-To: <CALx6S34CvOZN3dZjXr6_1afCbUDu2718cCGPk2Sm1Nkq8wCGKA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 6 Apr 2015 10:27:31 -0700
 
-On Fri, Apr 03, 2015 at 05:11:12PM -0700, Rick Jones wrote:
-> Hi -
-> 
-> I've been messing about with VxLAN with a pair of two socket systems with
-> ixgbe-driven NICs (HP 560FLRs for the curious) and have noticed that with a
-> kernel from a davem net-next tree I refreshed a couple days ago I can create
-> the vlxan link, and ifconfig it, but once I start trying to push packets
-> through it the system appears to hang and I have to reset it.
-> 
-> I went back to checkout v3.19 and tried that kernel and all was happiness
-> and joy.  So, I started down the bisect path, but after the first iteration
-> I ran into:
+> Seems like this is creating inconsistencies with other tunneling. We don't
+> have socket for GRE, IPIP, or and there's no concept of a udp socket for
+> GUE.
 
-That means you could send/receive some packets on it before the hang, right?
-
-  Marcelo
+In those cases, we'll pass a NULL socket down and routines like sk_mc_loop()
+can accommodate that.
