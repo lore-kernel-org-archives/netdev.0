@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 1/4] netfilter: Add nf_hook_state initializer function.
-Date: Sun, 05 Apr 2015 22:18:54 -0400 (EDT)
-Message-ID: <20150405.221854.118353659007886815.davem@davemloft.net>
+Subject: [PATCH 2/4] netfilter: Add socket pointer to nf_hook_state.
+Date: Sun, 05 Apr 2015 22:19:00 -0400 (EDT)
+Message-ID: <20150405.221900.509352617772097714.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,62 +13,83 @@ Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This way we can consolidate where we setup new nf_hook_state objects,
-to make sure the entire thing is initialized.
-
-The only other place an nf_hook_object is instantiated is nf_queue,
-wherein a structure copy is used.
+It is currently always set to NULL, but nf_queue is adjusted to be
+prepared for it being set to a real socket by taking and releasing a
+reference to that socket when necessary.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/linux/netfilter.h | 26 ++++++++++++++++++--------
- 1 file changed, 18 insertions(+), 8 deletions(-)
+ include/linux/netfilter.h | 7 ++++++-
+ net/netfilter/nf_queue.c  | 4 ++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index c480c43..b8c88f3 100644
+index b8c88f3..f8f58fa 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
-@@ -54,6 +54,21 @@ struct nf_hook_state {
+@@ -45,12 +45,15 @@ struct sk_buff;
+ 
+ struct nf_hook_ops;
+ 
++struct sock;
++
+ struct nf_hook_state {
+ 	unsigned int hook;
+ 	int thresh;
+ 	u_int8_t pf;
+ 	struct net_device *in;
+ 	struct net_device *out;
++	struct sock *sk;
  	int (*okfn)(struct sk_buff *);
  };
  
-+static inline void nf_hook_state_init(struct nf_hook_state *p,
-+				      unsigned int hook,
-+				      int thresh, u_int8_t pf,
-+				      struct net_device *indev,
-+				      struct net_device *outdev,
-+				      int (*okfn)(struct sk_buff *))
-+{
-+	p->hook = hook;
-+	p->thresh = thresh;
-+	p->pf = pf;
-+	p->in = indev;
-+	p->out = outdev;
-+	p->okfn = okfn;
-+}
-+
- typedef unsigned int nf_hookfn(const struct nf_hook_ops *ops,
- 			       struct sk_buff *skb,
- 			       const struct nf_hook_state *state);
-@@ -142,15 +157,10 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
- 				 int (*okfn)(struct sk_buff *), int thresh)
+@@ -59,6 +62,7 @@ static inline void nf_hook_state_init(struct nf_hook_state *p,
+ 				      int thresh, u_int8_t pf,
+ 				      struct net_device *indev,
+ 				      struct net_device *outdev,
++				      struct sock *sk,
+ 				      int (*okfn)(struct sk_buff *))
  {
- 	if (nf_hooks_active(pf, hook)) {
--		struct nf_hook_state state = {
--			.hook = hook,
--			.thresh = thresh,
--			.pf = pf,
--			.in = indev,
--			.out = outdev,
--			.okfn = okfn
--		};
-+		struct nf_hook_state state;
+ 	p->hook = hook;
+@@ -66,6 +70,7 @@ static inline void nf_hook_state_init(struct nf_hook_state *p,
+ 	p->pf = pf;
+ 	p->in = indev;
+ 	p->out = outdev;
++	p->sk = sk;
+ 	p->okfn = okfn;
+ }
  
-+		nf_hook_state_init(&state, hook, thresh, pf,
-+				   indev, outdev, okfn);
+@@ -160,7 +165,7 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
+ 		struct nf_hook_state state;
+ 
+ 		nf_hook_state_init(&state, hook, thresh, pf,
+-				   indev, outdev, okfn);
++				   indev, outdev, NULL, okfn);
  		return nf_hook_slow(skb, &state);
  	}
  	return 1;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index d3cd37e..c4a7066 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -54,6 +54,8 @@ void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
+ 		dev_put(state->in);
+ 	if (state->out)
+ 		dev_put(state->out);
++	if (state->sk)
++		sock_put(state->sk);
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ 	if (entry->skb->nf_bridge) {
+ 		struct nf_bridge_info *nf_bridge = entry->skb->nf_bridge;
+@@ -81,6 +83,8 @@ bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+ 		dev_hold(state->in);
+ 	if (state->out)
+ 		dev_hold(state->out);
++	if (state->sk)
++		sock_hold(state->sk);
+ #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+ 	if (entry->skb->nf_bridge) {
+ 		struct nf_bridge_info *nf_bridge = entry->skb->nf_bridge;
 -- 
 2.1.0
 
