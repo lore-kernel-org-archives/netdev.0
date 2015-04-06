@@ -1,511 +1,305 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH RFC] net/mlx4: Remove improper usage of dma_alloc_coherent().
-Date: Mon,  6 Apr 2015 16:00:29 -0700
-Message-ID: <1428361229-31542-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Moni Shoua <monis@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Yuval Atias <yuvala@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	David Daney <david.daney@cavium.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 6/8] iproute2: Add support for the RTA_VIA attribute
+Date: Mon, 06 Apr 2015 16:04:06 -0700
+Message-ID: <552310E6.5060503@cumulusnetworks.com>
+References: <87bnjwspek.fsf@x220.int.ebiederm.org> <c3ad7d77783046d38e5b23b5e1fe0f71@BRMWP-EXMB11.corp.brocade.com> <20150315123337.2694183a@urahara> <87lhiyoxnw.fsf@x220.int.ebiederm.org> <87bnjuoxe8.fsf_-_@x220.int.ebiederm.org> <87d24animx.fsf_-_@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemming@brocade.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vivek Venkatraman <vivek@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	rshearma@brocade.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35913 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756AbbDFXEJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 19:04:09 -0400
+Received: by pabsx10 with SMTP id sx10so58178056pab.3
+        for <netdev@vger.kernel.org>; Mon, 06 Apr 2015 16:04:09 -0700 (PDT)
+In-Reply-To: <87d24animx.fsf_-_@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+On 3/15/15, 12:52 PM, Eric W. Biederman wrote:
+> Add support for the RTA_VIA attribute that specifies an address family
+> as well as an address for the next hop gateway.
+>
+> To make it easy to pass this reorder inet_prefix so that it's tail
+> is a proper RTA_VIA attribute.
+>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>   include/linux/rtnetlink.h |  7 +++++
+>   include/utils.h           |  7 +++--
+>   ip/iproute.c              | 76 +++++++++++++++++++++++++++++++++++++++++------
+>   man/man8/ip-route.8.in    | 18 +++++++----
+>   4 files changed, 90 insertions(+), 18 deletions(-)
+>
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index 3eb78105399b..03e4c8df8e60 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+> @@ -303,6 +303,7 @@ enum rtattr_type_t {
+>   	RTA_TABLE,
+>   	RTA_MARK,
+>   	RTA_MFC_STATS,
+> +	RTA_VIA,
 
-The dma_alloc_coherent() function returns a virtual address which can
-be used for coherent access to the underlying memory.  On some
-architectures, like arm64, undefined behavior results if this memory is
-also accessed via virtual mappings that are not coherent.  Because of
-their undefined nature, operations like virt_to_page() return garbage
-when passed virtual addresses obtained from dma_alloc_coherent().  Any
-subsequent mappings via vmap() of the garbage page values are unusable
-and result in bad things like bus errors (synchronous aborts in ARM64
-speak).
+eric, if its not too late, what do you think about renaming RTA_VIA 
+attribute to
+RTA_NEWGATEWAY (similar to your new RTA_NEWDST attribute to specify a 
+label dst) ?. RTA_VIA is fine too.
+This is indeed a new way to specify a gateway (and can/will be used by 
+RFC 5549 in the future).
 
-The MLX4 driver contains code that does the equivalent of:
+If there is interest in renaming it to RTA_NEWGATEWAY (or any other 
+name, cant think of anything better right now),
+I will be happy to submit a follow-on patch.
 
-  vmap(virt_to_page(dma_alloc_coherent))
+Thanks!.
 
-This results in an OOPs when the device is opened.
-
-To fix this...
-
-Always use result of dma_alloc_coherent() directly.
-
-Remove 'max_direct' parameter to mlx4_buf_alloc(), as it is unused,
-and adjust all callers.
-
-Remove mlx4_en_map_buffer() and mlx4_en_unmap_buffer() as they now do
-nothing, and adjust all callers.
-
-Remove 'page_list' element from struct mlx4_buf as it is unused.
-
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/infiniband/hw/mlx4/cq.c                   |   2 +-
- drivers/infiniband/hw/mlx4/qp.c                   |   2 +-
- drivers/infiniband/hw/mlx4/srq.c                  |   3 +-
- drivers/net/ethernet/mellanox/mlx4/alloc.c        | 104 +++++-----------------
- drivers/net/ethernet/mellanox/mlx4/en_cq.c        |   9 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c    |   2 +-
- drivers/net/ethernet/mellanox/mlx4/en_resources.c |  32 -------
- drivers/net/ethernet/mellanox/mlx4/en_rx.c        |  11 +--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c        |  14 +--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h      |   2 -
- drivers/net/ethernet/mellanox/mlx4/mr.c           |   5 +-
- include/linux/mlx4/device.h                       |  11 +--
- 12 files changed, 33 insertions(+), 164 deletions(-)
-
-diff --git a/drivers/infiniband/hw/mlx4/cq.c b/drivers/infiniband/hw/mlx4/cq.c
-index 0176caa..ab8d6ac 100644
---- a/drivers/infiniband/hw/mlx4/cq.c
-+++ b/drivers/infiniband/hw/mlx4/cq.c
-@@ -102,7 +102,7 @@ static int mlx4_ib_alloc_cq_buf(struct mlx4_ib_dev *dev, struct mlx4_ib_cq_buf *
- 	int err;
- 
- 	err = mlx4_buf_alloc(dev->dev, nent * dev->dev->caps.cqe_size,
--			     PAGE_SIZE * 2, &buf->buf, GFP_KERNEL);
-+			     &buf->buf, GFP_KERNEL);
- 
- 	if (err)
- 		goto out;
-diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
-index ed2bd67..e095082 100644
---- a/drivers/infiniband/hw/mlx4/qp.c
-+++ b/drivers/infiniband/hw/mlx4/qp.c
-@@ -768,7 +768,7 @@ static int create_qp_common(struct mlx4_ib_dev *dev, struct ib_pd *pd,
- 			*qp->db.db = 0;
- 		}
- 
--		if (mlx4_buf_alloc(dev->dev, qp->buf_size, PAGE_SIZE * 2, &qp->buf, gfp)) {
-+		if (mlx4_buf_alloc(dev->dev, qp->buf_size, &qp->buf, gfp)) {
- 			err = -ENOMEM;
- 			goto err_db;
- 		}
-diff --git a/drivers/infiniband/hw/mlx4/srq.c b/drivers/infiniband/hw/mlx4/srq.c
-index dce5dfe..121730b 100644
---- a/drivers/infiniband/hw/mlx4/srq.c
-+++ b/drivers/infiniband/hw/mlx4/srq.c
-@@ -140,8 +140,7 @@ struct ib_srq *mlx4_ib_create_srq(struct ib_pd *pd,
- 
- 		*srq->db.db = 0;
- 
--		if (mlx4_buf_alloc(dev->dev, buf_size, PAGE_SIZE * 2, &srq->buf,
--				   GFP_KERNEL)) {
-+		if (mlx4_buf_alloc(dev->dev, buf_size, &srq->buf, GFP_KERNEL)) {
- 			err = -ENOMEM;
- 			goto err_db;
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/alloc.c b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-index 0c51c69..db6ba3e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/alloc.c
-@@ -576,103 +576,41 @@ out:
- 
- 	return res;
- }
--/*
-- * Handling for queue buffers -- we allocate a bunch of memory and
-- * register it in a memory region at HCA virtual address 0.  If the
-- * requested size is > max_direct, we split the allocation into
-- * multiple pages, so we don't require too much contiguous memory.
-+
-+/* Handling for queue buffers -- we allocate a bunch of memory and
-+ * register it in a memory region at HCA virtual address 0.
-  */
- 
--int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
-+int mlx4_buf_alloc(struct mlx4_dev *dev, int size,
- 		   struct mlx4_buf *buf, gfp_t gfp)
- {
- 	dma_addr_t t;
- 
--	if (size <= max_direct) {
--		buf->nbufs        = 1;
--		buf->npages       = 1;
--		buf->page_shift   = get_order(size) + PAGE_SHIFT;
--		buf->direct.buf   = dma_alloc_coherent(&dev->persist->pdev->dev,
--						       size, &t, gfp);
--		if (!buf->direct.buf)
--			return -ENOMEM;
--
--		buf->direct.map = t;
--
--		while (t & ((1 << buf->page_shift) - 1)) {
--			--buf->page_shift;
--			buf->npages *= 2;
--		}
-+	buf->nbufs        = 1;
-+	buf->npages       = 1;
-+	buf->page_shift   = get_order(size) + PAGE_SHIFT;
-+	buf->direct.buf   = dma_alloc_coherent(&dev->persist->pdev->dev,
-+					       size, &t, gfp);
-+	if (!buf->direct.buf)
-+		return -ENOMEM;
- 
--		memset(buf->direct.buf, 0, size);
--	} else {
--		int i;
--
--		buf->direct.buf  = NULL;
--		buf->nbufs       = (size + PAGE_SIZE - 1) / PAGE_SIZE;
--		buf->npages      = buf->nbufs;
--		buf->page_shift  = PAGE_SHIFT;
--		buf->page_list   = kcalloc(buf->nbufs, sizeof(*buf->page_list),
--					   gfp);
--		if (!buf->page_list)
--			return -ENOMEM;
--
--		for (i = 0; i < buf->nbufs; ++i) {
--			buf->page_list[i].buf =
--				dma_alloc_coherent(&dev->persist->pdev->dev,
--						   PAGE_SIZE,
--						   &t, gfp);
--			if (!buf->page_list[i].buf)
--				goto err_free;
--
--			buf->page_list[i].map = t;
--
--			memset(buf->page_list[i].buf, 0, PAGE_SIZE);
--		}
-+	buf->direct.map = t;
- 
--		if (BITS_PER_LONG == 64) {
--			struct page **pages;
--			pages = kmalloc(sizeof *pages * buf->nbufs, gfp);
--			if (!pages)
--				goto err_free;
--			for (i = 0; i < buf->nbufs; ++i)
--				pages[i] = virt_to_page(buf->page_list[i].buf);
--			buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP, PAGE_KERNEL);
--			kfree(pages);
--			if (!buf->direct.buf)
--				goto err_free;
--		}
-+	while (t & ((1 << buf->page_shift) - 1)) {
-+		--buf->page_shift;
-+		buf->npages *= 2;
- 	}
- 
--	return 0;
--
--err_free:
--	mlx4_buf_free(dev, size, buf);
-+	memset(buf->direct.buf, 0, size);
- 
--	return -ENOMEM;
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_buf_alloc);
- 
- void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf)
- {
--	int i;
--
--	if (buf->nbufs == 1)
--		dma_free_coherent(&dev->persist->pdev->dev, size,
--				  buf->direct.buf,
--				  buf->direct.map);
--	else {
--		if (BITS_PER_LONG == 64)
--			vunmap(buf->direct.buf);
--
--		for (i = 0; i < buf->nbufs; ++i)
--			if (buf->page_list[i].buf)
--				dma_free_coherent(&dev->persist->pdev->dev,
--						  PAGE_SIZE,
--						  buf->page_list[i].buf,
--						  buf->page_list[i].map);
--		kfree(buf->page_list);
--	}
-+	dma_free_coherent(&dev->persist->pdev->dev, size,
-+			  buf->direct.buf, buf->direct.map);
- }
- EXPORT_SYMBOL_GPL(mlx4_buf_free);
- 
-@@ -789,7 +727,7 @@ void mlx4_db_free(struct mlx4_dev *dev, struct mlx4_db *db)
- EXPORT_SYMBOL_GPL(mlx4_db_free);
- 
- int mlx4_alloc_hwq_res(struct mlx4_dev *dev, struct mlx4_hwq_resources *wqres,
--		       int size, int max_direct)
-+		       int size)
- {
- 	int err;
- 
-@@ -799,7 +737,7 @@ int mlx4_alloc_hwq_res(struct mlx4_dev *dev, struct mlx4_hwq_resources *wqres,
- 
- 	*wqres->db.db = 0;
- 
--	err = mlx4_buf_alloc(dev, size, max_direct, &wqres->buf, GFP_KERNEL);
-+	err = mlx4_buf_alloc(dev, size, &wqres->buf, GFP_KERNEL);
- 	if (err)
- 		goto err_db;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index 22da4d0..c541fe4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -72,22 +72,16 @@ int mlx4_en_create_cq(struct mlx4_en_priv *priv,
- 	 */
- 	set_dev_node(&mdev->dev->persist->pdev->dev, node);
- 	err = mlx4_alloc_hwq_res(mdev->dev, &cq->wqres,
--				cq->buf_size, 2 * PAGE_SIZE);
-+				cq->buf_size);
- 	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
- 	if (err)
- 		goto err_cq;
- 
--	err = mlx4_en_map_buffer(&cq->wqres.buf);
--	if (err)
--		goto err_res;
--
- 	cq->buf = (struct mlx4_cqe *)cq->wqres.buf.direct.buf;
- 	*pcq = cq;
- 
- 	return 0;
- 
--err_res:
--	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
- err_cq:
- 	kfree(cq);
- 	*pcq = NULL;
-@@ -189,7 +183,6 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_cq *cq = *pcq;
- 
--	mlx4_en_unmap_buffer(&cq->wqres.buf);
- 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
- 	if (priv->mdev->dev->caps.comp_pool && cq->vector) {
- 		mlx4_release_eq(priv->mdev->dev, cq->vector);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 3485acf..715265e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2744,7 +2744,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 
- 	/* Allocate page for receive rings */
- 	err = mlx4_alloc_hwq_res(mdev->dev, &priv->res,
--				MLX4_EN_PAGE_SIZE, MLX4_EN_PAGE_SIZE);
-+				MLX4_EN_PAGE_SIZE);
- 	if (err) {
- 		en_err(priv, "Failed to allocate page for rx qps\n");
- 		goto out;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-index 34f2fdf..c632d51 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-@@ -80,38 +80,6 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 	}
- }
- 
--
--int mlx4_en_map_buffer(struct mlx4_buf *buf)
--{
--	struct page **pages;
--	int i;
--
--	if (BITS_PER_LONG == 64 || buf->nbufs == 1)
--		return 0;
--
--	pages = kmalloc(sizeof *pages * buf->nbufs, GFP_KERNEL);
--	if (!pages)
--		return -ENOMEM;
--
--	for (i = 0; i < buf->nbufs; ++i)
--		pages[i] = virt_to_page(buf->page_list[i].buf);
--
--	buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP, PAGE_KERNEL);
--	kfree(pages);
--	if (!buf->direct.buf)
--		return -ENOMEM;
--
--	return 0;
--}
--
--void mlx4_en_unmap_buffer(struct mlx4_buf *buf)
--{
--	if (BITS_PER_LONG == 64 || buf->nbufs == 1)
--		return;
--
--	vunmap(buf->direct.buf);
--}
--
- void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event)
- {
-     return;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 698d60d..ac70393 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -392,17 +392,11 @@ int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
- 
- 	/* Allocate HW buffers on provided NUMA node */
- 	set_dev_node(&mdev->dev->persist->pdev->dev, node);
--	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres,
--				 ring->buf_size, 2 * PAGE_SIZE);
-+	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
- 	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
- 	if (err)
- 		goto err_info;
- 
--	err = mlx4_en_map_buffer(&ring->wqres.buf);
--	if (err) {
--		en_err(priv, "Failed to map RX buffer\n");
--		goto err_hwq;
--	}
- 	ring->buf = ring->wqres.buf.direct.buf;
- 
- 	ring->hwtstamp_rx_filter = priv->hwtstamp_config.rx_filter;
-@@ -410,8 +404,6 @@ int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
- 	*pring = ring;
- 	return 0;
- 
--err_hwq:
--	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
- err_info:
- 	vfree(ring->rx_info);
- 	ring->rx_info = NULL;
-@@ -498,7 +490,6 @@ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_rx_ring *ring = *pring;
- 
--	mlx4_en_unmap_buffer(&ring->wqres.buf);
- 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
- 	vfree(ring->rx_info);
- 	ring->rx_info = NULL;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 55f9f5c..de61140 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -92,20 +92,13 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 
- 	/* Allocate HW buffers on provided NUMA node */
- 	set_dev_node(&mdev->dev->persist->pdev->dev, node);
--	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size,
--				 2 * PAGE_SIZE);
-+	err = mlx4_alloc_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
- 	set_dev_node(&mdev->dev->persist->pdev->dev, mdev->dev->numa_node);
- 	if (err) {
- 		en_err(priv, "Failed allocating hwq resources\n");
- 		goto err_bounce;
- 	}
- 
--	err = mlx4_en_map_buffer(&ring->wqres.buf);
--	if (err) {
--		en_err(priv, "Failed to map TX buffer\n");
--		goto err_hwq_res;
--	}
--
- 	ring->buf = ring->wqres.buf.direct.buf;
- 
- 	en_dbg(DRV, priv, "Allocated TX ring (addr:%p) - buf:%p size:%d buf_size:%d dma:%llx\n",
-@@ -116,7 +109,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 				    MLX4_RESERVE_ETH_BF_QP);
- 	if (err) {
- 		en_err(priv, "failed reserving qp for TX ring\n");
--		goto err_map;
-+		goto err_hwq_res;
- 	}
- 
- 	err = mlx4_qp_alloc(mdev->dev, ring->qpn, &ring->qp, GFP_KERNEL);
-@@ -151,8 +144,6 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 
- err_reserve:
- 	mlx4_qp_release_range(mdev->dev, ring->qpn, 1);
--err_map:
--	mlx4_en_unmap_buffer(&ring->wqres.buf);
- err_hwq_res:
- 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
- err_bounce:
-@@ -178,7 +169,6 @@ void mlx4_en_destroy_tx_ring(struct mlx4_en_priv *priv,
- 		mlx4_bf_free(mdev->dev, &ring->bf);
- 	mlx4_qp_remove(mdev->dev, &ring->qp);
- 	mlx4_qp_free(mdev->dev, &ring->qp);
--	mlx4_en_unmap_buffer(&ring->wqres.buf);
- 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, ring->buf_size);
- 	kfree(ring->bounce_buf);
- 	ring->bounce_buf = NULL;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index ebbe244..45e2f19 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -808,8 +808,6 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 		int is_tx, int rss, int qpn, int cqn, int user_prio,
- 		struct mlx4_qp_context *context);
- void mlx4_en_sqp_event(struct mlx4_qp *qp, enum mlx4_event event);
--int mlx4_en_map_buffer(struct mlx4_buf *buf);
--void mlx4_en_unmap_buffer(struct mlx4_buf *buf);
- 
- void mlx4_en_calc_rx_buf(struct net_device *dev);
- int mlx4_en_config_rss_steer(struct mlx4_en_priv *priv);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index 78f51e1..095f3ca 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -802,10 +802,7 @@ int mlx4_buf_write_mtt(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		return -ENOMEM;
- 
- 	for (i = 0; i < buf->npages; ++i)
--		if (buf->nbufs == 1)
--			page_list[i] = buf->direct.map + (i << buf->page_shift);
--		else
--			page_list[i] = buf->page_list[i].map;
-+		page_list[i] = buf->direct.map + (i << buf->page_shift);
- 
- 	err = mlx4_write_mtt(dev, mtt, 0, buf->npages, page_list);
- 
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index e4ebff7..476bfc2 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -573,7 +573,6 @@ struct mlx4_buf_list {
- 
- struct mlx4_buf {
- 	struct mlx4_buf_list	direct;
--	struct mlx4_buf_list   *page_list;
- 	int			nbufs;
- 	int			npages;
- 	int			page_shift;
-@@ -982,16 +981,12 @@ static inline int mlx4_is_slave(struct mlx4_dev *dev)
- 	return dev->flags & MLX4_FLAG_SLAVE;
- }
- 
--int mlx4_buf_alloc(struct mlx4_dev *dev, int size, int max_direct,
-+int mlx4_buf_alloc(struct mlx4_dev *dev, int size,
- 		   struct mlx4_buf *buf, gfp_t gfp);
- void mlx4_buf_free(struct mlx4_dev *dev, int size, struct mlx4_buf *buf);
- static inline void *mlx4_buf_offset(struct mlx4_buf *buf, int offset)
- {
--	if (BITS_PER_LONG == 64 || buf->nbufs == 1)
--		return buf->direct.buf + offset;
--	else
--		return buf->page_list[offset >> PAGE_SHIFT].buf +
--			(offset & (PAGE_SIZE - 1));
-+	return buf->direct.buf + offset;
- }
- 
- int mlx4_pd_alloc(struct mlx4_dev *dev, u32 *pdn);
-@@ -1027,7 +1022,7 @@ int mlx4_db_alloc(struct mlx4_dev *dev, struct mlx4_db *db, int order,
- void mlx4_db_free(struct mlx4_dev *dev, struct mlx4_db *db);
- 
- int mlx4_alloc_hwq_res(struct mlx4_dev *dev, struct mlx4_hwq_resources *wqres,
--		       int size, int max_direct);
-+		       int size);
- void mlx4_free_hwq_res(struct mlx4_dev *mdev, struct mlx4_hwq_resources *wqres,
- 		       int size);
- 
--- 
-1.7.11.7
+>   	__RTA_MAX
+>   };
+>   
+> @@ -344,6 +345,12 @@ struct rtnexthop {
+>   #define RTNH_SPACE(len)	RTNH_ALIGN(RTNH_LENGTH(len))
+>   #define RTNH_DATA(rtnh)   ((struct rtattr*)(((char*)(rtnh)) + RTNH_LENGTH(0)))
+>   
+> +/* RTA_VIA */
+> +struct rtvia {
+> +	__kernel_sa_family_t	rtvia_family;
+> +	__u8			rtvia_addr[0];
+> +};
+> +
+>   /* RTM_CACHEINFO */
+>   
+>   struct rta_cacheinfo {
+> diff --git a/include/utils.h b/include/utils.h
+> index 99dde4c5a667..6bbcc10756d3 100644
+> --- a/include/utils.h
+> +++ b/include/utils.h
+> @@ -50,10 +50,11 @@ extern void incomplete_command(void) __attribute__((noreturn));
+>   
+>   typedef struct
+>   {
+> -	__u8 family;
+> -	__u8 bytelen;
+> +	__u16 flags;
+> +	__u16 bytelen;
+>   	__s16 bitlen;
+> -	__u32 flags;
+> +	/* These next two fields match rtvia */
+> +	__u16 family;
+>   	__u32 data[8];
+>   } inet_prefix;
+>   
+> diff --git a/ip/iproute.c b/ip/iproute.c
+> index 79d0760a34f6..c6ee411fdd56 100644
+> --- a/ip/iproute.c
+> +++ b/ip/iproute.c
+> @@ -75,7 +75,8 @@ static void usage(void)
+>   	fprintf(stderr, "             [ table TABLE_ID ] [ proto RTPROTO ]\n");
+>   	fprintf(stderr, "             [ scope SCOPE ] [ metric METRIC ]\n");
+>   	fprintf(stderr, "INFO_SPEC := NH OPTIONS FLAGS [ nexthop NH ]...\n");
+> -	fprintf(stderr, "NH := [ via ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
+> +	fprintf(stderr, "NH := [ via [ FAMILY ] ADDRESS ] [ dev STRING ] [ weight NUMBER ] NHFLAGS\n");
+> +	fprintf(stderr, "FAMILY := [ inet | inet6 | ipx | dnet | bridge | link ]");
+>   	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
+>   	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ] [ reordering NUMBER ]\n");
+>   	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+> @@ -185,8 +186,15 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
+>   	    (r->rtm_family != filter.msrc.family ||
+>   	     (filter.msrc.bitlen >= 0 && filter.msrc.bitlen < r->rtm_src_len)))
+>   		return 0;
+> -	if (filter.rvia.family && r->rtm_family != filter.rvia.family)
+> -		return 0;
+> +	if (filter.rvia.family) {
+> +		int family = r->rtm_family;
+> +		if (tb[RTA_VIA]) {
+> +			struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
+> +			family = via->rtvia_family;
+> +		}
+> +		if (family != filter.rvia.family)
+> +			return 0;
+> +	}
+>   	if (filter.rprefsrc.family && r->rtm_family != filter.rprefsrc.family)
+>   		return 0;
+>   
+> @@ -205,6 +213,12 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
+>   		via.family = r->rtm_family;
+>   		if (tb[RTA_GATEWAY])
+>   			memcpy(&via.data, RTA_DATA(tb[RTA_GATEWAY]), host_len/8);
+> +		if (tb[RTA_VIA]) {
+> +			size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
+> +			struct rtvia *rtvia = RTA_DATA(tb[RTA_VIA]);
+> +			via.family = rtvia->rtvia_family;
+> +			memcpy(&via.data, rtvia->rtvia_addr, len);
+> +		}
+>   	}
+>   	if (filter.rprefsrc.bitlen>0) {
+>   		memset(&prefsrc, 0, sizeof(prefsrc));
+> @@ -386,6 +400,14 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>   				    RTA_DATA(tb[RTA_GATEWAY]),
+>   				    abuf, sizeof(abuf)));
+>   	}
+> +	if (tb[RTA_VIA]) {
+> +		size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
+> +		struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
+> +		fprintf(fp, "via %s %s ",
+> +			family_name(via->rtvia_family),
+> +			format_host(via->rtvia_family, len, via->rtvia_addr,
+> +				    abuf, sizeof(abuf)));
+> +	}
+>   	if (tb[RTA_OIF] && filter.oifmask != -1)
+>   		fprintf(fp, "dev %s ", ll_index_to_name(*(int*)RTA_DATA(tb[RTA_OIF])));
+>   
+> @@ -601,6 +623,14 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>   							    RTA_DATA(tb[RTA_GATEWAY]),
+>   							    abuf, sizeof(abuf)));
+>   				}
+> +				if (tb[RTA_VIA]) {
+> +					size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
+> +					struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
+> +					fprintf(fp, "via %s %s ",
+> +						family_name(via->rtvia_family),
+> +						format_host(via->rtvia_family, len, via->rtvia_addr,
+> +							    abuf, sizeof(abuf)));
+> +				}
+>   				if (tb[RTA_FLOW]) {
+>   					__u32 to = rta_getattr_u32(tb[RTA_FLOW]);
+>   					__u32 from = to>>16;
+> @@ -648,12 +678,23 @@ static int parse_one_nh(struct rtmsg *r, struct rtattr *rta,
+>   	while (++argv, --argc > 0) {
+>   		if (strcmp(*argv, "via") == 0) {
+>   			inet_prefix addr;
+> +			int family;
+>   			NEXT_ARG();
+> -			get_addr(&addr, *argv, r->rtm_family);
+> +			family = read_family(*argv);
+> +			if (family == AF_UNSPEC)
+> +				family = r->rtm_family;
+> +			else
+> +				NEXT_ARG();
+> +			get_addr(&addr, *argv, family);
+>   			if (r->rtm_family == AF_UNSPEC)
+>   				r->rtm_family = addr.family;
+> -			rta_addattr_l(rta, 4096, RTA_GATEWAY, &addr.data, addr.bytelen);
+> -			rtnh->rtnh_len += sizeof(struct rtattr) + addr.bytelen;
+> +			if (addr.family == r->rtm_family) {
+> +				rta_addattr_l(rta, 4096, RTA_GATEWAY, &addr.data, addr.bytelen);
+> +				rtnh->rtnh_len += sizeof(struct rtattr) + addr.bytelen;
+> +			} else {
+> +				rta_addattr_l(rta, 4096, RTA_VIA, &addr.family, addr.bytelen+2);
+> +				rtnh->rtnh_len += sizeof(struct rtattr) + addr.bytelen+2;
+> +			}
+>   		} else if (strcmp(*argv, "dev") == 0) {
+>   			NEXT_ARG();
+>   			if ((rtnh->rtnh_ifindex = ll_name_to_index(*argv)) == 0) {
+> @@ -761,12 +802,21 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+>   			addattr_l(&req.n, sizeof(req), RTA_PREFSRC, &addr.data, addr.bytelen);
+>   		} else if (strcmp(*argv, "via") == 0) {
+>   			inet_prefix addr;
+> +			int family;
+>   			gw_ok = 1;
+>   			NEXT_ARG();
+> -			get_addr(&addr, *argv, req.r.rtm_family);
+> +			family = read_family(*argv);
+> +			if (family == AF_UNSPEC)
+> +				family = req.r.rtm_family;
+> +			else
+> +				NEXT_ARG();
+> +			get_addr(&addr, *argv, family);
+>   			if (req.r.rtm_family == AF_UNSPEC)
+>   				req.r.rtm_family = addr.family;
+> -			addattr_l(&req.n, sizeof(req), RTA_GATEWAY, &addr.data, addr.bytelen);
+> +			if (addr.family == req.r.rtm_family)
+> +				addattr_l(&req.n, sizeof(req), RTA_GATEWAY, &addr.data, addr.bytelen);
+> +			else
+> +				addattr_l(&req.n, sizeof(req), RTA_VIA, &addr.family, addr.bytelen+2);
+>   		} else if (strcmp(*argv, "from") == 0) {
+>   			inet_prefix addr;
+>   			NEXT_ARG();
+> @@ -1251,8 +1301,14 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
+>   			get_unsigned(&mark, *argv, 0);
+>   			filter.markmask = -1;
+>   		} else if (strcmp(*argv, "via") == 0) {
+> +			int family;
+>   			NEXT_ARG();
+> -			get_prefix(&filter.rvia, *argv, do_ipv6);
+> +			family = read_family(*argv);
+> +			if (family == AF_UNSPEC)
+> +				family = do_ipv6;
+> +			else
+> +				NEXT_ARG();
+> +			get_prefix(&filter.rvia, *argv, family);
+>   		} else if (strcmp(*argv, "src") == 0) {
+>   			NEXT_ARG();
+>   			get_prefix(&filter.rprefsrc, *argv, do_ipv6);
+> @@ -1554,6 +1610,8 @@ static int iproute_get(int argc, char **argv)
+>   			tb[RTA_OIF]->rta_type = 0;
+>   		if (tb[RTA_GATEWAY])
+>   			tb[RTA_GATEWAY]->rta_type = 0;
+> +		if (tb[RTA_VIA])
+> +			tb[RTA_VIA]->rta_type = 0;
+>   		if (!idev && tb[RTA_IIF])
+>   			tb[RTA_IIF]->rta_type = 0;
+>   		req.n.nlmsg_flags = NLM_F_REQUEST;
+> diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+> index 2b1583d5a30c..906cfea0cd6b 100644
+> --- a/man/man8/ip-route.8.in
+> +++ b/man/man8/ip-route.8.in
+> @@ -81,13 +81,18 @@ replace " } "
+>   .ti -8
+>   .IR NH " := [ "
+>   .B  via
+> -.IR ADDRESS " ] [ "
+> +[
+> +.IR FAMILY " ] " ADDRESS " ] [ "
+>   .B  dev
+>   .IR STRING " ] [ "
+>   .B  weight
+>   .IR NUMBER " ] " NHFLAGS
+>   
+>   .ti -8
+> +.IR FAMILY " := [ "
+> +.BR inet " | " inet6 " | " ipx " | " dnet " | " bridge " | " link " ]"
+> +
+> +.ti -8
+>   .IR OPTIONS " := " FLAGS " [ "
+>   .B  mtu
+>   .IR NUMBER " ] [ "
+> @@ -333,9 +338,10 @@ table by default.
+>   the output device name.
+>   
+>   .TP
+> -.BI via " ADDRESS"
+> -the address of the nexthop router.  Actually, the sense of this field
+> -depends on the route type.  For normal
+> +.BI via " [ FAMILY ] ADDRESS"
+> +the address of the nexthop router, in the address family FAMILY.
+> +Actually, the sense of this field depends on the route type.  For
+> +normal
+>   .B unicast
+>   routes it is either the true next hop router or, if it is a direct
+>   route installed in BSD compatibility mode, it can be a local address
+> @@ -472,7 +478,7 @@ is a complex value with its own syntax similar to the top level
+>   argument lists:
+>   
+>   .in +8
+> -.BI via " ADDRESS"
+> +.BI via " [ FAMILY ] ADDRESS"
+>   - is the nexthop router.
+>   .sp
+>   
+> @@ -669,7 +675,7 @@ only list routes of this type.
+>   only list routes going via this device.
+>   
+>   .TP
+> -.BI via " PREFIX"
+> +.BI via " [ FAMILY ] PREFIX"
+>   only list routes going via the nexthop routers selected by
+>   .IR PREFIX "."
+>   
