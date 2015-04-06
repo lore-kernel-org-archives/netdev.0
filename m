@@ -1,139 +1,72 @@
-From: Andrew Bresticker <abrestic@chromium.org>
-Subject: [PATCH V2 2/2] stmmac: Add IMG Pistachio platform glue layer
-Date: Mon,  6 Apr 2015 14:42:38 -0700
-Message-ID: <1428356558-18367-2-git-send-email-abrestic@chromium.org>
-References: <1428356558-18367-1-git-send-email-abrestic@chromium.org>
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Bresticker <abrestic@chromium.org>,
-	Govindraj Raja <govindraj.raja@imgtec.com>,
-	James Hartley <james.hartley@imgtec.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1428356558-18367-1-git-send-email-abrestic@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Cronenworth <mike@cchtml.com>
+Subject: Re: e1000e max frame calculation
+Date: Mon, 06 Apr 2015 16:45:40 -0500
+Message-ID: <5522FE84.6030104@cchtml.com>
+References: <5522B685.2030104@cchtml.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta11.charter.net ([216.33.127.80]:43415 "EHLO
+	mta11.charter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726AbbDFVpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 17:45:44 -0400
+Received: from imp11 ([10.20.200.11]) by mta11.charter.net
+          (InterMail vM.8.01.05.09 201-2260-151-124-20120717) with ESMTP
+          id <20150406214543.KWAM5815.mta11.charter.net@imp11>
+          for <netdev@vger.kernel.org>; Mon, 6 Apr 2015 17:45:43 -0400
+Received: from impout006 ([68.114.189.21])
+          by mtaout005.msg.strl.va.charter.net
+          (InterMail vM.9.00.015.01 201-2473-143-101) with ESMTP
+          id <20150406214543.SINS1172.mtaout005.msg.strl.va.charter.net@impout006>
+          for <netdev@vger.kernel.org>; Mon, 6 Apr 2015 16:45:43 -0500
+Received: from mcronenworth.nhsrx.com (unknown [63.237.119.62])
+	by cchtml.com (Postfix) with ESMTPSA id 45AAC1540144
+	for <netdev@vger.kernel.org>; Mon,  6 Apr 2015 16:45:42 -0500 (CDT)
+In-Reply-To: <5522B685.2030104@cchtml.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-At the moment, the only additional setup required for the DWMAC
-on the IMG Pistachio SoC is to request and enable a separate gate
-clock for the register interface.
+Preface: I am not here to start a discussion about header sizes or hardware limits. 
+This is solely about the calculation used to limit a user when they pass a MTU to a 
+driver.
 
-Signed-off-by: Andrew Bresticker <abrestic@chromium.org>
-Signed-off-by: Govindraj Raja <govindraj.raja@imgtec.com>
-Cc: James Hartley <james.hartley@imgtec.com>
----
-Changes from v1:
- - Do not potentially assign an error pointer to pdata->sys_clk
----
- drivers/net/ethernet/stmicro/stmmac/Makefile       |  3 +-
- .../net/ethernet/stmicro/stmmac/dwmac-pistachio.c  | 59 ++++++++++++++++++++++
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  1 +
- .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |  1 +
- 4 files changed, 63 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-pistachio.c
+On 04/06/2015 11:38 AM, Michael Cronenworth wrote:
+> Other drivers appear to be using the "old" maximum frame calculation and can
+> continue to use 9000.
+>
+> Can a standard be decided upon that all drivers use or is it acceptable that one
+> driver "does its own thing?"
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index 73c2715..8efb622 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -6,7 +6,8 @@ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
- 
- obj-$(CONFIG_STMMAC_PLATFORM) += stmmac-platform.o
- stmmac-platform-objs:= stmmac_platform.o dwmac-meson.o dwmac-sunxi.o	\
--		       dwmac-sti.o dwmac-socfpga.o dwmac-rk.o
-+		       dwmac-sti.o dwmac-socfpga.o dwmac-rk.o		\
-+		       dwmac-pistachio.o
- 
- obj-$(CONFIG_STMMAC_PCI) += stmmac-pci.o
- stmmac-pci-objs:= stmmac_pci.o
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-pistachio.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-pistachio.c
-new file mode 100644
-index 0000000..5e0b958
---- /dev/null
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-pistachio.c
-@@ -0,0 +1,59 @@
-+/*
-+ * IMG Pistachio DWMAC glue layer
-+ *
-+ * Copyright (C) 2015 Google, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+#include <linux/clk.h>
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
-+#include <linux/stmmac.h>
-+
-+struct pistachio_dwmac_priv_data {
-+	struct clk *sys_clk;
-+};
-+
-+static void *pistachio_dwmac_setup(struct platform_device *pdev)
-+{
-+	struct pistachio_dwmac_priv_data *pdata;
-+	struct clk *clk;
-+
-+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
-+	if (!pdata)
-+		return ERR_PTR(-ENOMEM);
-+
-+	clk = devm_clk_get(&pdev->dev, "sys");
-+	if (IS_ERR(clk)) {
-+		dev_err(&pdev->dev, "Failed to get sys clock: %ld\n",
-+			PTR_ERR(clk));
-+		return clk;
-+	}
-+	pdata->sys_clk = clk;
-+
-+	return pdata;
-+}
-+
-+static int pistachio_dwmac_init(struct platform_device *pdev, void *priv)
-+{
-+	struct pistachio_dwmac_priv_data *pdata = priv;
-+
-+	return clk_prepare_enable(pdata->sys_clk);
-+}
-+
-+static void pistachio_dwmac_exit(struct platform_device *pdev, void *priv)
-+{
-+	struct pistachio_dwmac_priv_data *pdata = priv;
-+
-+	clk_disable_unprepare(pdata->sys_clk);
-+}
-+
-+const struct stmmac_of_data pistachio_dwmac_data = {
-+	.setup = pistachio_dwmac_setup,
-+	.init = pistachio_dwmac_init,
-+	.exit = pistachio_dwmac_exit,
-+	.has_gmac = true,
-+};
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index f9b42f1..d5de361 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -34,6 +34,7 @@
- static const struct of_device_id stmmac_dt_ids[] = {
- 	/* SoC specific glue layers should come before generic bindings */
- 	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_gmac_data},
-+	{ .compatible = "img,pistachio-dwmac", .data = &pistachio_dwmac_data},
- 	{ .compatible = "amlogic,meson6-dwmac", .data = &meson6_dwmac_data},
- 	{ .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
- 	{ .compatible = "st,stih415-dwmac", .data = &stih4xx_dwmac_data},
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-index 093eb99..101e635 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-@@ -25,5 +25,6 @@ extern const struct stmmac_of_data stih4xx_dwmac_data;
- extern const struct stmmac_of_data stid127_dwmac_data;
- extern const struct stmmac_of_data socfpga_gmac_data;
- extern const struct stmmac_of_data rk3288_gmac_data;
-+extern const struct stmmac_of_data pistachio_dwmac_data;
- 
- #endif /* __STMMAC_PLATFORM_H__ */
--- 
-2.2.0.rc0.207.ga3a616c
+To be specific here are some examples of maximum MTU calculation and their tests:
+
+sky2: user_mtu > ETH_JUMBO_MTU
+
+r8169: user_mtu < ETH_ZLEN || user_mtu > (ETH_DATA_LEN||x*1024 - ETH_HLEN - 2)
+
+igb:   user_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN > MAX_JUMBO_FRAME_SIZE
+
+e1000e <3.15:  user_mtu + ETH_HLEN + ETH_FCS_LEN > adapter->max_hw_frame_size;
+
+e1000e >=3.15: user_mtu + VLAN_HLEN + ETH_HLEN + ETH_FCS_LEN >
+                   adapter->max_hw_frame_size;
+
+Let's say the hardware has a limit of 4096 bytes. The user wishes to set an MTU of 
+4078 bytes.
+
+sky2: false, mtu is set
+
+r8169: false, mtu is set
+
+igb: true, mtu is not set
+
+e1000e <3.15: false, mtu is set
+
+e1000e <3.15: true, mtu is not set
+
+So some drivers work with the 4078 MTU and some do not. They all had the same 
+hardware limit, but their driver's software calculated limit was different. Am I crazy?
+
+Thanks,
+Michael
