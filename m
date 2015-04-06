@@ -1,7 +1,8 @@
 From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next,2/3] hv_netvsc: Define a macro RNDIS_AND_PPI_SIZE
-Date: Mon,  6 Apr 2015 15:22:53 -0700
-Message-ID: <1428358974-7958-2-git-send-email-haiyangz@microsoft.com>
+Subject: [PATCH net-next,
+ 3/3] hv_netvsc: Fix the packet free when it is in skb headroom
+Date: Mon,  6 Apr 2015 15:22:54 -0700
+Message-ID: <1428358974-7958-3-git-send-email-haiyangz@microsoft.com>
 References: <1428358974-7958-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,79 +24,65 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-The sum of RNDIS msg and PPI struct sizes is used in multiple places, so we define
-a macro for them.
+In the two places changed, we now use netvsc_xmit_completion() which properly
+frees hv_netvsc_packet in or not in skb headroom.
 
 Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |    6 ++++++
- drivers/net/hyperv/netvsc_drv.c |   15 +++------------
- 2 files changed, 9 insertions(+), 12 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |    1 +
+ drivers/net/hyperv/netvsc.c     |    6 ++++--
+ drivers/net/hyperv/netvsc_drv.c |    2 +-
+ 3 files changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 95a25e4..80bc52e 100644
+index 80bc52e..f0b8b3e 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -958,6 +958,10 @@ struct ndis_tcp_lso_info {
- #define NDIS_HASH_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
- 		sizeof(u32))
+@@ -188,6 +188,7 @@ int netvsc_send(struct hv_device *device,
+ 		struct hv_netvsc_packet *packet);
+ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 				struct rndis_message *resp);
++void netvsc_xmit_completion(void *context);
+ int netvsc_recv_callback(struct hv_device *device_obj,
+ 			struct hv_netvsc_packet *packet,
+ 			struct ndis_tcp_ip_checksum_info *csum_info);
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 7e83c6a..4d4d497 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -878,7 +878,9 @@ int netvsc_send(struct hv_device *device,
+ 		packet->send_buf_index = section_index;
+ 		packet->total_data_buflen += msd_len;
  
-+/* Total size of all PPI data */
-+#define NDIS_ALL_PPI_SIZE (NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE + \
-+			   NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE)
+-		kfree(msdp->pkt);
++		if (msdp->pkt)
++			netvsc_xmit_completion(msdp->pkt);
 +
- /* Format of Information buffer passed in a SetRequest for the OID */
- /* OID_GEN_RNDIS_CONFIG_PARAMETER. */
- struct rndis_config_parameter_info {
-@@ -1170,6 +1174,8 @@ struct rndis_message {
- #define RNDIS_HEADER_SIZE	(sizeof(struct rndis_message) - \
- 				 sizeof(union rndis_message_container))
- 
-+#define RNDIS_AND_PPI_SIZE (sizeof(struct rndis_message) + NDIS_ALL_PPI_SIZE)
-+
- #define NDIS_PACKET_TYPE_DIRECTED	0x00000001
- #define NDIS_PACKET_TYPE_MULTICAST	0x00000002
- #define NDIS_PACKET_TYPE_ALL_MULTICAST	0x00000004
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f9db6bc..73f8fba 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -401,10 +401,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 		return NETDEV_TX_OK;
+ 		if (packet->xmit_more) {
+ 			msdp->pkt = packet;
+ 			msdp->count++;
+@@ -902,7 +904,7 @@ int netvsc_send(struct hv_device *device,
+ 		if (m_ret != 0) {
+ 			netvsc_free_send_slot(net_device,
+ 					      msd_send->send_buf_index);
+-			kfree(msd_send);
++			netvsc_xmit_completion(msd_send);
+ 		}
  	}
  
--	pkt_sz = sizeof(struct hv_netvsc_packet) +
--			sizeof(struct rndis_message) +
--			NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE +
--			NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE;
-+	pkt_sz = sizeof(struct hv_netvsc_packet) + RNDIS_AND_PPI_SIZE;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 73f8fba..e5fa094 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -229,7 +229,7 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 	return q_idx;
+ }
  
- 	if (head_room < pkt_sz) {
- 		packet = kmalloc(pkt_sz, GFP_ATOMIC);
-@@ -436,11 +433,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	packet->rndis_msg = (struct rndis_message *)((unsigned long)packet +
- 				sizeof(struct hv_netvsc_packet));
- 
--	memset(packet->rndis_msg, 0, sizeof(struct rndis_message) +
--					NDIS_VLAN_PPI_SIZE +
--					NDIS_CSUM_PPI_SIZE +
--					NDIS_LSO_PPI_SIZE +
--					NDIS_HASH_PPI_SIZE);
-+	memset(packet->rndis_msg, 0, RNDIS_AND_PPI_SIZE);
- 
- 	/* Set the completion routine */
- 	packet->send_completion = netvsc_xmit_completion;
-@@ -872,9 +865,7 @@ static int netvsc_probe(struct hv_device *dev,
- 		return -ENOMEM;
- 
- 	max_needed_headroom = sizeof(struct hv_netvsc_packet) +
--				sizeof(struct rndis_message) +
--				NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE +
--				NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE;
-+			      RNDIS_AND_PPI_SIZE;
- 
- 	netif_carrier_off(net);
- 
+-static void netvsc_xmit_completion(void *context)
++void netvsc_xmit_completion(void *context)
+ {
+ 	struct hv_netvsc_packet *packet = (struct hv_netvsc_packet *)context;
+ 	struct sk_buff *skb = (struct sk_buff *)
 -- 
 1.7.4.1
