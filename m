@@ -1,86 +1,120 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v2 25/26] switchdev: convert swdev_fib_ipv4_add/del
- over to swdev_port_obj_add/del
-Date: Mon, 6 Apr 2015 14:56:45 -0700
-Message-ID: <CAE4R7bCAx8X49LDXDN+uT66ped=M_C+zWc-b1wX6H3wijyD2Hg@mail.gmail.com>
-References: <1427882882-2533-1-git-send-email-sfeldma@gmail.com>
-	<1427882882-2533-26-git-send-email-sfeldma@gmail.com>
-	<551C094D.7000707@cumulusnetworks.com>
-	<20150401160522.GE2025@nanopsycho.orion>
-	<551ED558.3020303@gmail.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH net-next v3 19/26] switchdev: add new
+ swdev_port_bridge_getlink
+Date: Mon, 6 Apr 2015 21:58:28 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35067FEC4C@ORSMSX101.amr.corp.intel.com>
+References: <1427962212-18411-1-git-send-email-sfeldma@gmail.com>
+	<1427962212-18411-20-git-send-email-sfeldma@gmail.com>
+	<E4CD12F19ABA0C4D8729E087A761DC35067FE348@ORSMSX101.amr.corp.intel.com>
+ <CAE4R7bAP2bbc=90G_VqDHUMOOhYs7MtnYrXEQ2Oz633HoD34Uw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, roopa <roopa@cumulusnetworks.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"linux@roeck-us.net" <linux@roeck-us.net>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+To: Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:34490 "EHLO
-	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752745AbbDFV4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 17:56:46 -0400
-Received: by qkgx75 with SMTP id x75so33137846qkg.1
-        for <netdev@vger.kernel.org>; Mon, 06 Apr 2015 14:56:45 -0700 (PDT)
-In-Reply-To: <551ED558.3020303@gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:29785 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752884AbbDFV6a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2015 17:58:30 -0400
+In-Reply-To: <CAE4R7bAP2bbc=90G_VqDHUMOOhYs7MtnYrXEQ2Oz633HoD34Uw@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 3, 2015 at 11:00 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 01/04/15 09:05, Jiri Pirko wrote:
->>> This looks nice. However, my only concern is we have now ended up adding a
->>> whole layer of abstraction to all objects. The api abstraction seemed fine.
->>> But, carrying it to objects and duplicating every object in the swdev layer
->>> seems too much duplication. Maybe its just me.
->>> we will end up adding this for bond attributes...vxlan...fdb and nftables
->>
->> +1
->
-> +1.
->
->>
->>> etc.
->>>
->>> The advantage of switchdev in the kernel was to have access the existing
->>> kernel api and objects directly from switchdev layer.
->>> In which case, to me, it would be better to skip this extra layer of objects.
->>> And keep the way you had it originally.
->
-> Same here, I am not exactly sure how much good the abstract object is
-> giving us here since we are already in the kernel, and we cannot/do not
-> necessarily want to eliminate a large number of swdev_ops, as these are
-> precisely the API we want to define.
->
-> NB: if we were to do that for swdev_ops, the next step would be doing
-> the same thing for netdev_ops to reduce their number, would not we?
->
-> Maybe for now solving the stacked device problem and
-> prepare/commit/rollback is good enough to keep you busy that adding the
-> object layer is a completely secondary problem to solve ;)?
-
-To solve the stacked device problem and support
-prepare/commit/rollback, for both attrs and objs, but using a
-parameter list call structure for each attr/obj type will result in a
-lot of duplicated code.  You'll end up replicating the basic
-lower-dev-walk recursion algo for each, and also replicating the
-prepare/commit/rollback logic.  It's the typed parameter list unique
-for each obj or attr that messes things up.  Going to the attr/obj
-model let's us write the algos once.
-
-We're also eliminating the swdev ops which pass netlink args.  There
-are cases where we want to originate the swdev ops call within the
-kernel, outside of a netlink message context.  For example, flushing
-FDB entries from the device.  Today, to flush FDB entries from the
-device, we'd need to call ndo_fdb_del() and pass in netlink arguments
-that are made-up.  We create a fake struct ndmsg *ndm and a fake
-struct nlattr *tb[] and pass those in to ndo_fdb_del() and hope no-one
-expects anything useful in those fake structures.  Moving to the
-attr/obj model, we can make the direct in-kernel call to flush the FDB
-entries from the device without having to fake a netlink call inside
-the kernel.
-
-FDB entry obj would be the next obj to add.  The stacked support and
-transaction support come for free.
-
--scott
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IFNjb3R0IEZlbGRtYW4gW21h
+aWx0bzpzZmVsZG1hQGdtYWlsLmNvbV0NCj5TZW50OiBNb25kYXksIEFwcmlsIDA2LCAyMDE1IDI6
+MTMgUE0NCj5UbzogQXJhZCwgUm9uZW4NCj5DYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgamly
+aUByZXNudWxsaS51czsgcm9vcGFAY3VtdWx1c25ldHdvcmtzLmNvbTsNCj5saW51eEByb2Vjay11
+cy5uZXQ7IGYuZmFpbmVsbGlAZ21haWwuY29tOyBTYW11ZHJhbGEsIFNyaWRoYXINCj5TdWJqZWN0
+OiBSZTogW1BBVENIIG5ldC1uZXh0IHYzIDE5LzI2XSBzd2l0Y2hkZXY6IGFkZCBuZXcNCj5zd2Rl
+dl9wb3J0X2JyaWRnZV9nZXRsaW5rDQo+DQo+T24gU2F0LCBBcHIgNCwgMjAxNSBhdCA5OjU2IEFN
+LCBBcmFkLCBSb25lbiA8cm9uZW4uYXJhZEBpbnRlbC5jb20+IHdyb3RlOg0KPj4NCj4+DQo+Pj4t
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPj4+RnJvbTogc2ZlbGRtYUBnbWFpbC5jb20gW21h
+aWx0bzpzZmVsZG1hQGdtYWlsLmNvbV0NCj4+PlNlbnQ6IFRodXJzZGF5LCBBcHJpbCAwMiwgMjAx
+NSAxOjEwIEFNDQo+Pj5UbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPj4+Q2M6IGppcmlAcmVz
+bnVsbGkudXM7IHJvb3BhQGN1bXVsdXNuZXR3b3Jrcy5jb207IGxpbnV4QHJvZWNrLXVzLm5ldDsN
+Cj4+PmYuZmFpbmVsbGlAZ21haWwuY29tOyBTYW11ZHJhbGEsIFNyaWRoYXI7IEFyYWQsIFJvbmVu
+DQo+Pj5TdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHQgdjMgMTkvMjZdIHN3aXRjaGRldjogYWRkIG5l
+dw0KPj4+c3dkZXZfcG9ydF9icmlkZ2VfZ2V0bGluaw0KPj4+DQo+Pj5Gcm9tOiBTY290dCBGZWxk
+bWFuIDxzZmVsZG1hQGdtYWlsLmNvbT4NCj4+Pg0KPj4+TGlrZSBicmlkZ2Vfc2V0bGluaywgYWRk
+IHN3ZGV2IHdyYXBwZXIgdG8gaGFuZGxlIGJyaWRnZV9nZXRsaW5rIGFuZCBjYWxsDQo+aW50bw0K
+Pj4+cG9ydCBkcml2ZXIgdG8gZ2V0IHBvcnQgYXR0cnMuICBGb3Igbm93LCBvbmx5IEJSX0xFQVJO
+SU5HIGFuZA0KPkJSX0xFQVJOSU5HX1NZTkMNCj4+PmFyZSByZXR1cm5lZC4gIFRvIGFkZCBtb3Jl
+LCB3ZSdsbCBwcm9iYWJseSB3YW50IHRvIGJyZWFrIGF3YXkgZnJvbQ0KPj4+bmRvX2RmbHRfYnJp
+ZGdlX2dldGxpbmsoKSBhbmQgYnVpbGQgdGhlIG5ldGxpbmsgc2tiIGRpcmVjdGx5IGluIHRoZSBz
+d2Rldg0KPj4+Y29kZS4NCj4NCj5bY3V0XQ0KPg0KPj4NCj4+IHN3ZGV2X3BvcnRfYnJpZGdlX2dl
+dGxpbmsgYW5kIHRoZSBmdW5jdGlvbiBpdCB3cmFwcw0KPj4gbmRvX2RmbHRfYnJpZGdlX2dldGxp
+bmsgYXJlIG9ubHkgdXNlZnVsIHdoZW4gYWxsIHlvdSBuZWVkIGlzIHRvIHJldHVybg0KPj4gYSBz
+ZXQgb2YgYnJwb3J0IGF0dHJpYnV0ZXMuDQo+PiBXaGVuIGEgc3dpdGNoZGV2IGRyaXZlciBzdXBw
+b3J0cyBWTEFOIGZpbHRlcmluZyB3aXRob3V0IGJlaW5nIGVuc2xhdmVkDQo+PiB0byBhIGJyaWRn
+ZSB0aGlzIG5vIGxvbmdlciB3b3Jrcy4gbmRvX2RmbHRfYnJpZGdlX2dldGxpbmsgd2lsbCBlbmQg
+dXAgaW4NCj4+IGEgbmV0bGluayBSVE1fTkVXTElOSyBtZXNzYWdlIHdpdGhvdXQgdGhlIFZMQU4g
+ZmlsdGVyaW5nIGluZm8gd2hpY2ggaXMNCj4+IG1haW50YWluZWQgaW50ZXJuYWxseSBieSB0aGUg
+c3dpdGNoZGV2IGRyaXZlci4NCj4+IFRoZSBkcml2ZXIgd2lsbCBoYXZlIHRvIGR1cGxpY2F0ZSB0
+aGUgY29kZSBpbiBuZG9fZGZsdF9icmlkZ2VfZ2V0bGluayBpbg0KPj4gb3JkZXIgdG8gcmV0dXJu
+IGEgc2luZ2xlIFJUTV9ORVdMSU5LIG1lc3NhZ2UgcGVyIHBvcnQuDQo+PiBDYW4gd2UgYnJlYWsg
+bmRvX2RmbHRfYnJpZGdlX2dldGxpbmsgdG8gY29tcG9uZW50cyB0aGF0IGNvdWxkIGJlIHVzZWQN
+Cj4+IGJ5IHN1Y2ggZHJpdmVyPw0KPj4gSXQgd291bGQgYmUgdXNlZnVsIHRvIGhhdmUgb25lIGZ1
+bmN0aW9uIHRoYXQgY291bGQgZmlsbCB0aGUNCj4+IElGTEFfUFJPVElORk8gYW5kIGFub3RoZXIg
+b25lIGZvciB0aGUgSUZMQV9BRl9TUEVDLg0KPg0KPkkgY291bGRuJ3QgZmluZCBhIGNvbnN1bWVy
+IG9mIHRoZSBSVE1fTkVXTElOSyBtc2cgcmV0dXJuZWQgZnJvbQ0KPlJUTV9HRVRMSU5LIHRoYXQg
+d2FudHMgdGhlIFZMQU4gcGFydCBvZiBhZnNwZWMuICBEaWQgSSBtaXNzIG9uZT8NCg0KSXQgaXMg
+aW4gbXkgZHJpdmVyIHdoaWNoIGlzIG5vdCB1cC1zdHJlYW1lZCB5ZXQuDQpJIGRvbid0IGtub3cg
+aWYgd2UgcmVhbGx5IG5lZWQgdG8gbWFrZSBhbnkgY2hhbmdlcyBpbiB0aGUga2VybmVsLg0KSXQg
+Y291bGQgYmUgYXBwcm9wcmlhdGUgdG8gZ2VuZXJhdGUgdHdvIHNlcGFyYXRlIG5ldGxpbmsgbWVz
+c2FnZXMgZnJvbQ0KdGhlIGRyaXZlciBmb3IgYSBzaW5nbGUgcG9ydDoNCjEpIFdoYXQgbmRvX2Rm
+bHRfYnJpZGdlX2dldGxpbmsgcmV0dXJucy4gVGhpcyBjb25zaXN0cyBvZiBJRkxBX0FGX1NQRUMN
+CiAgV2l0aCBicmlkZ2UgbW9kZSBhbmQgc2VsZiBmbGFnIGFuZCBJRkxBX1BST1RJTkZPIHdpdGgg
+YnJpZGdlIGZsYWdzLg0KMikgQSBzZWNvbmQgbWVzc2FnZSB3aXRoIFZMQU4gdGFibGUgaW4gSUZM
+QV9BRl9TUEVDLiBUaGlzIGlzIHdoYXQgdGhlDQogIGJyaWRnZSBtb2R1bGUgd291bGQgaGF2ZSBy
+ZXR1cm5lZCBoYWQgdGhlIHBvcnQgYmVlbiBlbnNsYXZlZCB0byBhIA0KICBicmlkZ2UuDQpJdCBz
+ZWVtcyB0aGF0ICJicmlkZ2UgdmxhbiIgY29tbWFuZCBoYWQgdG8gY29wZSB3aXRoIHRoYXQgYW55
+d2F5Lg0KSSBtYWRlIGEgY2hhbmdlIHRvIGlwcm91dGUyIGJyaWRnZSBjb21tYW5kIHN1Y2ggdGhh
+dCBpcyBkZWZlcnMgDQpwcmludGluZyB0aGUgaW50ZXJmYWNlIG5hbWUgdW50aWwgaXQgZW5jb3Vu
+dGVycyB0aGUgZmlyc3QgSUZMQV9BRl9TUEVDDQp3aGljaCBpbmNsdWRlcyBhbiBJRkxBX0JSSURH
+RV9WTEFOX0lORk8gYXR0cmlidXRlIGluc3RlYWQgb2YgZG9pbmcgaXQNCnVuY29uZGl0aW9uYWxs
+eSBmb3IgZXZlcnkgSUZMQV9BRl9TUEVDLg0KDQpIZXJlIGlzIG15IHN1Z2dlc3RlZCBpcHJvdXRl
+MiBwYXRjaC4gSSBjYW4gcG9zdCBpdCBpZiB0aGUgc3VnZ2VzdGVkIGhhbmRsaW5nIG9mIEFGX0JS
+SURHRSBnZXRsaW5rIChhcyBJIGRlc2NyaWJlZCBhYm92ZSkgaXMgYWNjZXB0YWJsZS8NCmRlc2ly
+YWJsZS4gIA0KDQpkaWZmIC0tZ2l0IGEvYnJpZGdlL3ZsYW4uYyBiL2JyaWRnZS92bGFuLmMNCmlu
+ZGV4IDJhZTczOWMuLmRlNDIzYjkgMTAwNjQ0DQotLS0gYS9icmlkZ2Uvdmxhbi5jDQorKysgYi9i
+cmlkZ2Uvdmxhbi5jDQpAQCAtMTQ1LDYgKzE0NSw3IEBAIHN0YXRpYyBpbnQgcHJpbnRfdmxhbihj
+b25zdCBzdHJ1Y3Qgc29ja2FkZHJfbmwgKndobywNCiAgICAgICAgc3RydWN0IGlmaW5mb21zZyAq
+aWZtID0gTkxNU0dfREFUQShuKTsNCiAgICAgICAgaW50IGxlbiA9IG4tPm5sbXNnX2xlbjsNCiAg
+ICAgICAgc3RydWN0IHJ0YXR0ciAqIHRiW0lGTEFfTUFYKzFdOw0KKyAgICAgICBib29sIHZsYW5f
+dGFibGVfZm91bmQgPSBmYWxzZTsNCiANCiAgICAgICAgaWYgKG4tPm5sbXNnX3R5cGUgIT0gUlRN
+X05FV0xJTkspIHsNCiAgICAgICAgICAgICAgICBmcHJpbnRmKHN0ZGVyciwgIk5vdCBSVE1fTkVX
+TElOSzogJTA4eCAlMDh4ICUwOHhcbiIsDQpAQCAtMTc0LDEzICsxNzUsMjIgQEAgc3RhdGljIGlu
+dCBwcmludF92bGFuKGNvbnN0IHN0cnVjdCBzb2NrYWRkcl9ubCAqd2hvLA0KICAgICAgICAgICAg
+ICAgIHN0cnVjdCBydGF0dHIgKmksICpsaXN0ID0gdGJbSUZMQV9BRl9TUEVDXTsNCiAgICAgICAg
+ICAgICAgICBpbnQgcmVtID0gUlRBX1BBWUxPQUQobGlzdCk7DQogDQotICAgICAgICAgICAgICAg
+ZnByaW50ZihmcCwgIiVzIiwgbGxfaW5kZXhfdG9fbmFtZShpZm0tPmlmaV9pbmRleCkpOw0KICAg
+ICAgICAgICAgICAgIGZvciAoaSA9IFJUQV9EQVRBKGxpc3QpOyBSVEFfT0soaSwgcmVtKTsgaSA9
+IFJUQV9ORVhUKGksIHJlbSkpIHsgICAgICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgYnJpZGdl
+X3ZsYW5faW5mbyAqdmluZm87DQogDQogICAgICAgICAgICAgICAgICAgICAgICBpZiAoaS0+cnRh
+X3R5cGUgIT0gSUZMQV9CUklER0VfVkxBTl9JTkZPKQ0KICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICBjb250aW51ZTsNCiANCjogDQorICAgICAgICAgICAgICAgICAgICAgICAvKiBQcmlu
+dGluZyBpbnRlcmZhY2UgbmFtZSBpcyBkZWZlcnJlZCB1bnRpbCBmaXJzdA0KKyAgICAgICAgICAg
+ICAgICAgICAgICAgICogSUZMQV9CUklER0VfVkxBTl9JTkZPIGlzIHNlZW4gc2luY2UgdGhlcmUg
+Y291bGQgYmUNCisgICAgICAgICAgICAgICAgICAgICAgICAqIElGTEFfQUZfU1BFQyB3aXRoIG9u
+bHkgSUZMQV9CUklER0VfTU9ERSBvci9hbmQNCisgICAgICAgICAgICAgICAgICAgICAgICAqIElG
+TEFfQlJJREdFX0ZMQUdTDQorICAgICAgICAgICAgICAgICAgICAgICAgKi8NCisgICAgICAgICAg
+ICAgICAgICAgICAgIGlmICghdmxhbl90YWJsZV9mb3VuZCkgew0KKyAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICB2bGFuX3RhYmxlX2ZvdW5kID0gdHJ1ZTsNCisgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgZnByaW50ZihmcCwgIiVzIiwgbGxfaW5kZXhfdG9fbmFtZShpZm0tPmlm
+aV9pbmRlKyAgICAgICAgICAgICAgICAgICAgICAgfQ0KKw0KICAgICAgICAgICAgICAgICAgICAg
+ICAgdmluZm8gPSBSVEFfREFUQShpKTsNCiAgICAgICAgICAgICAgICAgICAgICAgIGlmICh2aW5m
+by0+ZmxhZ3MgJiBCUklER0VfVkxBTl9JTkZPX1JBTkdFX0VORCkNCiAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgZnByaW50ZihmcCwgIi0laHUiLCB2aW5mby0+dmlkKTsNCkBAIC0xOTUs
+NyArMjA1LDggQEAgc3RhdGljIGludCBwcmludF92bGFuKGNvbnN0IHN0cnVjdCBzb2NrYWRkcl9u
+bCAqd2hvLA0KICAgICAgICAgICAgICAgICAgICAgICAgZnByaW50ZihmcCwgIlxuIik7DQogICAg
+ICAgICAgICAgICAgfQ0KICAgICAgICB9DQotICAgICAgIGZwcmludGYoZnAsICJcbiIpOw0KKyAg
+ICAgICBpZiAodmxhbl90YWJsZV9mb3VuZCkNCisgICAgICAgICAgICAgICBmcHJpbnRmKGZwLCAi
+XG4iKTsNCiAgICAgICAgZmZsdXNoKGZwKTsNCiAgICAgICAgcmV0dXJuIDA7DQogfQ0KDQo+DQo+
+LXNjb3R0DQo=
