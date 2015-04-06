@@ -1,35 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] virtio: document queue state logic
-Date: Mon, 06 Apr 2015 16:44:49 -0400 (EDT)
-Message-ID: <20150406.164449.1091214597663452067.davem@davemloft.net>
-References: <20150402125743-mutt-send-email-mst@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC PATCH 5/5] geneve: add initial netdev driver for GENEVE
+ tunnels
+Date: Mon, 6 Apr 2015 22:44:06 +0200
+Message-ID: <20150406204406.GA27153@electric-eye.fr.zoreil.com>
+References: <1428002227-11636-1-git-send-email-linville@tuxdriver.com>
+ <1428002227-11636-6-git-send-email-linville@tuxdriver.com>
+ <CAEP_g=9PbDO4qK-GaGosBAq1S5C5uWNR4-JN8=i158oYJUN4Bw@mail.gmail.com>
+ <20150404010142.GA1063@electric-eye.fr.zoreil.com>
+ <CAEP_g=-qyy6PNEqKQWVaw5Wf9MvcUk-Hx5Mrk7jaTEihK3Tqzg@mail.gmail.com>
+ <20150406184409.GC2866@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, stephen@networkplumber.org
-To: mst@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Zhou <azhou@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48326 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753062AbbDFUov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 16:44:51 -0400
-In-Reply-To: <20150402125743-mutt-send-email-mst@redhat.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50617 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753254AbbDFUoz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 16:44:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20150406184409.GC2866@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 2 Apr 2015 13:05:47 +0200
+John W. Linville <linville@tuxdriver.com> :
+[...]
+> What would you suggest, Francois?  A GENEVE_CRIT_OPT_PRESENT() macro?
 
-> commit d631b94e7a15277858ec5f88d674d93080506999
->     virtio: change comment in transmit
-> 
-> started clarifying the logic behind queue state management,
-> but introduced an inaccuracy: TX_BUSY does not cause
-> a BUG message.
-> 
-> Clean this up some more, explaining the tradeoffs in detail.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Either that or a typed 'bool geneve_crit_opt_present(struct geneve_opt *opt)'
+to hide the content of struct geneve_opt and move any relevant bitmask in
+the only .c file where it is actually used.
 
-Applied, thanks Michael.
+-- 
+Ueimor
