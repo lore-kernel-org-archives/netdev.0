@@ -1,91 +1,60 @@
-From: "Beshay, Joseph" <jdb109120@utdallas.edu>
-Subject: [PATCH] netem: Fixes byte backlog accounting for the first of two
- chained netem instances
-Date: Mon, 6 Apr 2015 18:00:56 +0000
-Message-ID: <DM2PR01MB511D67AC72AB91C5651A9E5D1FE0@DM2PR01MB511.prod.exchangelabs.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: e1000e max frame calculation
+Date: Mon, 06 Apr 2015 11:38:47 -0700
+Message-ID: <5522D2B7.2050502@redhat.com>
+References: <5522B685.2030104@cchtml.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Hagen Paul Pfeifer <hagen@jauu.net>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"netem@lists.linux-foundation.org" <netem@lists.linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan@lists.osuosl.org
+To: Michael Cronenworth <mike@cchtml.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ip-relay-051.utdallas.edu ([129.110.182.14]:48602 "EHLO
-	ip-relay-051.utdallas.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752677AbbDFSKm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 14:10:42 -0400
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:51508 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751292AbbDFSix (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2015 14:38:53 -0400
+In-Reply-To: <5522B685.2030104@cchtml.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes byte backlog accounting for the first of two chained netem instances.
-Bytes backlog reported now corresponds to the number of queued packets.
 
-When two netem instances are chained, for instance to apply rate and queue
-limitation followed by packet delay, the number of backlogged bytes reported
-by the first netem instance is wrong. It reports the sum of bytes in the queues
-of the first and second netem. The first netem reports the correct number of
-backlogged packets but not bytes. This is shown in the example below.
+On 04/06/2015 09:38 AM, Michael Cronenworth wrote:
+> Hello,
+>
+> I have attempted to discuss this with upstream directly[1], but they 
+> will not respond to me. I will now attempt here.
+>
+> The e1000e driver uses a different maximum frame calculation after a 
+> commit[2] in kernel 3.15. This caused everyone's setups that were 
+> using 9000 for MTU to break after they rebooted on their kernel 
+> update. The addition of the VLAN bytes force users to use 8996.
+>
+> Other drivers appear to be using the "old" maximum frame calculation 
+> and can continue to use 9000.
+>
+> Can a standard be decided upon that all drivers use or is it 
+> acceptable that one driver "does its own thing?"
+>
+> Thanks,
+> Michael
 
-Consider a chain of two netem schedulers created using the following commands:
+What do you mean by "does its own thing"?  The problem here (I'm 
+assuming, please correct me if I am wrong) is that the e1000e hardware 
+is configured with a maximum frame size of 9018 based on the 
+max_hw_frame_size value reported in the e1000_info struct for your 
+part.  As a result you are limited to 8996 since it is forced to 
+guarantee there is enough room for 1 VLAN header (4 bytes), the Ethernet 
+header (14 bytes), and a CRC (4 bytes).  What you would need to 
+determine is the reason why the hardware is limited to 9018, and not 
+something like 9216 (9K) which is the more common value since it is 
+rounded of to the nearest 1K.
 
-$ tc -s qdisc replace dev veth2 root handle 1:0 netem rate 10000kbit limit 100
-$ tc -s qdisc add dev veth2 parent 1:0 handle 2: netem delay 50ms
+Every piece of hardware will do things differently.  Within just the 
+e1000e driver there are some parts that don't support jumbo frames, and 
+some that only support 4K jumbo frames.  What would need to be 
+determined is if 9018 is the actual limit on the hardware due to some 
+limitation in the part, or if it was just an arbitrary value that was 
+added by a developer so that it would come out at 9000 for a limit when 
+changing the MTU.
 
-Start an iperf session to send packets out on the specified interface and
-monitor the backlog using tc:
-
-$ tc -s qdisc show dev veth2
-
-Output using unpatched netem:
-	qdisc netem 1: root refcnt 2 limit 100 rate 10000Kbit
-	 Sent 98422639 bytes 65434 pkt (dropped 123, overlimits 0 requeues 0)
-	 backlog 172694b 73p requeues 0
-	qdisc netem 2: parent 1: limit 1000 delay 50.0ms
-	 Sent 98422639 bytes 65434 pkt (dropped 0, overlimits 0 requeues 0)
-	 backlog 63588b 42p requeues 0
-	 
-The interface used to produce this output has an MTU of 1500. The output for
-backlogged bytes behind netem 1 is 172694b. This value is not correct. Consider
-the total number of sent bytes and packets. By dividing the number of sent
-bytes by the number of sent packets, we get an average packet size of ~=1504.
-If we divide the number of backlogged bytes by packets, we get ~=2365. This is
-due to the first netem incorrectly counting the 63588b which are in netem 2's
-queue as being in its own queue. To verify this is the case, we subtract them
-from the reported value and divide by the number of packets as follows: 
-	172694 - 63588 = 109106 bytes actualled backlogged in netem 1
-	109106 / 73 packets ~= 1494 bytes (which matches our MTU)
-	
-The root cause is that the byte accounting is not done at the
-same time with packet accounting. The solution is to update the backlog value
-every time the packet queue is updated.
-
-Signed-off-by: Joseph D Beshay <joseph.beshay@utdallas.edu>
-Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
----
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 179f1c8..956ead2 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -560,8 +560,8 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- tfifo_dequeue:
- 	skb = __skb_dequeue(&sch->q);
- 	if (skb) {
--deliver:
- 		qdisc_qstats_backlog_dec(sch, skb);
-+deliver:
- 		qdisc_unthrottled(sch);
- 		qdisc_bstats_update(sch, skb);
- 		return skb;
-@@ -578,6 +578,7 @@ deliver:
- 			rb_erase(p, &q->t_root);
- 
- 			sch->q.qlen--;
-+			qdisc_qstats_backlog_dec(sch, skb);
- 			skb->next = NULL;
- 			skb->prev = NULL;
- 			skb->tstamp = netem_skb_cb(skb)->tstamp_save;
-
-Signed-off-by: Joseph D Beshay <joseph.beshay@utdallas.edu>
-Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+- Alex
