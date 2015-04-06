@@ -1,132 +1,239 @@
-From: chas williams <3chas3@gmail.com>
-Subject: [RFC] net: ipv6: hold locks around mrt->mfc6_cache_array[]
-Date: Mon, 06 Apr 2015 19:18:50 -0400
-Message-ID: <1428362330.1872.9.camel@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-7"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Subject: [RFC PATCH net-next] switchdev: fdb add/del via swdev obj.
+Date: Mon,  6 Apr 2015 16:25:10 -0700
+Message-ID: <1428362710-20815-1-git-send-email-sridhar.samudrala@intel.com>
+To: sfeldman@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:33354 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752673AbbDFXSx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 19:18:53 -0400
-Received: by qkx62 with SMTP id 62so34629785qkx.0
-        for <netdev@vger.kernel.org>; Mon, 06 Apr 2015 16:18:52 -0700 (PDT)
-Received: from foobar (pool-71-163-182-203.washdc.fios.verizon.net. [71.163.182.203])
-        by mx.google.com with ESMTPSA id m68sm4257653qge.15.2015.04.06.16.18.51
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 06 Apr 2015 16:18:51 -0700 (PDT)
+Received: from mga01.intel.com ([192.55.52.88]:38597 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751130AbbDFXYA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Apr 2015 19:24:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It appears to me that the locking of the mfc6+AF8-cache+AF8-array is a little
-bit broken.  The list heads in this array appear be mainly protected
-by the rtnl in most cases but there are a few were this isn't the case.
-Regardless, based on the comments at the head of the code, that probably
-wasn't the author's intent:
+This is a patch on top of Scott's v3 version of switchdev spring
+cleanup patches.
 
-	/+ACo We return to original Alan's scheme. Hash table of resolved
-	   entries is changed only in process context and protected
-	   with weak lock mrt+AF8-lock. Queue of unresolved entries is protected
-	   with strong spinlock mfc+AF8-unres+AF8-lock.
+Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+---
+ drivers/net/ethernet/rocker/rocker.c | 26 +++++++++-------
+ drivers/net/team/team.c              |  2 ++
+ include/net/switchdev.h              | 27 +++++++++++++++++
+ net/switchdev/switchdev.c            | 58 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 103 insertions(+), 10 deletions(-)
 
-	   In this case data path is free of exclusive locks at all.
-	 +ACo-/
-
-setsocketopt() -+AD4 ip6mr+AF8-mfc+AF8-add() -+AD4 ip6mr+AF8-cache+AF8-resolved() -+AD4 ip6+AF8-mr+AF8-foward()
-needs some lock since it is going to read the cache array.
-
-ipm4+AF8-mfc+AF8-add() probably should hold the write lock to prevent races when
-adding entries.
-
-mroute+AF8-clean+AF8-tables() should also probably hold the write lock across
-the entire iteration, otherwise readers have a small chance to get a
-reference while the entry is being removed.
-
-Comments?
-
-
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index f9a3fd3..1210f5c 100644
---- a/net/ipv6/ip6mr.c
-+-+-+- b/net/ipv6/ip6mr.c
-+AEAAQA -1306,12 +-1306,12 +AEAAQA static int ip6mr+AF8-mfc+AF8-delete(struct mr6+AF8-table +ACo-mrt, struct mf6cctl +ACo-mfc,
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 0990286..70d1494 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4031,12 +4031,9 @@ static int rocker_port_vlan_rx_kill_vid(struct net_device *dev,
+ 	return rocker_port_vlan(rocker_port, ROCKER_OP_FLAG_REMOVE, vid);
+ }
  
- 	line +AD0 MFC6+AF8-HASH(+ACY-mfc-+AD4-mf6cc+AF8-mcastgrp.sin6+AF8-addr, +ACY-mfc-+AD4-mf6cc+AF8-origin.sin6+AF8-addr)+ADs
+-static int rocker_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+-			       struct net_device *dev,
+-			       const unsigned char *addr, u16 vid,
+-			       u16 nlm_flags)
++static int rocker_port_fdb_add(struct rocker_port *rocker_port,
++			       const unsigned char *addr, u16 vid)
+ {
+-	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, vid, NULL);
+ 	int flags = 0;
  
-+-	write+AF8-lock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 	list+AF8-for+AF8-each+AF8-entry+AF8-safe(c, next, +ACY-mrt-+AD4-mfc6+AF8-cache+AF8-array+AFs-line+AF0, list) +AHs
- 		if (ipv6+AF8-addr+AF8-equal(+ACY-c-+AD4-mf6c+AF8-origin, +ACY-mfc-+AD4-mf6cc+AF8-origin.sin6+AF8-addr) +ACYAJg
- 		    ipv6+AF8-addr+AF8-equal(+ACY-c-+AD4-mf6c+AF8-mcastgrp,
- 				    +ACY-mfc-+AD4-mf6cc+AF8-mcastgrp.sin6+AF8-addr) +ACYAJg
- 		    (parent +AD0APQ -1 +AHwAfA parent +AD0APQ c-+AD4-mf6c+AF8-parent)) +AHs
--			write+AF8-lock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 			list+AF8-del(+ACY-c-+AD4-list)+ADs
- 			write+AF8-unlock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
+@@ -4046,11 +4043,9 @@ static int rocker_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	return rocker_port_fdb(rocker_port, addr, vlan_id, flags);
+ }
  
-+AEAAQA -1320,6 +-1320,7 +AEAAQA static int ip6mr+AF8-mfc+AF8-delete(struct mr6+AF8-table +ACo-mrt, struct mf6cctl +ACo-mfc,
- 			return 0+ADs
- 		+AH0
- 	+AH0
-+-	write+AF8-unlock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 	return -ENOENT+ADs
- +AH0
+-static int rocker_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+-			       struct net_device *dev,
++static int rocker_port_fdb_del(struct rocker_port *rocker_port,
+ 			       const unsigned char *addr, u16 vid)
+ {
+-	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	__be16 vlan_id = rocker_port_vid_to_vlan(rocker_port, vid, NULL);
+ 	int flags = ROCKER_OP_FLAG_REMOVE;
  
-+AEAAQA -1465,6 +-1466,7 +AEAAQA static int ip6mr+AF8-mfc+AF8-add(struct net +ACo-net, struct mr6+AF8-table +ACo-mrt,
+@@ -4155,8 +4150,8 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_set_mac_address		= rocker_port_set_mac_address,
+ 	.ndo_vlan_rx_add_vid		= rocker_port_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid		= rocker_port_vlan_rx_kill_vid,
+-	.ndo_fdb_add			= rocker_port_fdb_add,
+-	.ndo_fdb_del			= rocker_port_fdb_del,
++	.ndo_fdb_add			= swdev_port_fdb_add,
++	.ndo_fdb_del			= swdev_port_fdb_del,
+ 	.ndo_fdb_dump			= rocker_port_fdb_dump,
+ 	.ndo_bridge_setlink		= swdev_port_bridge_setlink,
+ 	.ndo_bridge_getlink		= swdev_port_bridge_getlink,
+@@ -4248,6 +4243,7 @@ static int rocker_port_obj_add(struct net_device *dev, struct swdev_obj *obj)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	struct swdev_obj_ipv4_fib *fib4;
++	struct swdev_obj_fdb *fdb;
+ 	int err = 0;
  
- 	line +AD0 MFC6+AF8-HASH(+ACY-mfc-+AD4-mf6cc+AF8-mcastgrp.sin6+AF8-addr, +ACY-mfc-+AD4-mf6cc+AF8-origin.sin6+AF8-addr)+ADs
+ 	if (obj->flags & SWDEV_F_TRANS_PREPARE)
+@@ -4263,6 +4259,11 @@ static int rocker_port_obj_add(struct net_device *dev, struct swdev_obj *obj)
+ 					   fib4->dst_len, fib4->fi,
+ 					   fib4->tb_id, 0);
+ 		break;
++	case SWDEV_OBJ_FDB:
++		fdb = &obj->fdb;
++		err = rocker_port_fdb_add(rocker_port, fdb->mac,
++					  fdb->vid);
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+@@ -4316,6 +4317,11 @@ static int rocker_port_obj_del(struct net_device *dev, struct swdev_obj *obj)
+ 					   fib4->tb_id,
+ 					   ROCKER_OP_FLAG_REMOVE);
+ 		break;
++	case SWDEV_OBJ_FDB:
++		fdb = &obj->fdb;
++		err = rocker_port_fdb_del(rocker_port, fdb->mac,
++					  fdb->vid);
++		break;
+ 	default:
+ 		err = -EOPNOTSUPP;
+ 		break;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 6500fd7..e77bc70 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1981,6 +1981,8 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_bridge_getlink	= swdev_port_bridge_getlink,
+ 	.ndo_bridge_dellink	= swdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
++	.ndo_fdb_add		= swdev_port_fdb_add,
++	.ndo_fdb_del		= swdev_port_fdb_del,
+ };
  
-+-	write+AF8-lock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 	list+AF8-for+AF8-each+AF8-entry(c, +ACY-mrt-+AD4-mfc6+AF8-cache+AF8-array+AFs-line+AF0, list) +AHs
- 		if (ipv6+AF8-addr+AF8-equal(+ACY-c-+AD4-mf6c+AF8-origin, +ACY-mfc-+AD4-mf6cc+AF8-origin.sin6+AF8-addr) +ACYAJg
- 		    ipv6+AF8-addr+AF8-equal(+ACY-c-+AD4-mf6c+AF8-mcastgrp,
-+AEAAQA -1476,7 +-1478,6 +AEAAQA static int ip6mr+AF8-mfc+AF8-add(struct net +ACo-net, struct mr6+AF8-table +ACo-mrt,
- 	+AH0
+ /***********************
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index c3b1dfd..d8502ff 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -42,6 +42,7 @@ enum swdev_obj_id {
+ 	SWDEV_OBJ_UNDEFINED,
+ 	SWDEV_OBJ_PORT_VLAN,
+ 	SWDEV_OBJ_IPV4_FIB,
++	SWDEV_OBJ_FDB,
+ };
  
- 	if (found) +AHs
--		write+AF8-lock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 		c-+AD4-mf6c+AF8-parent +AD0 mfc-+AD4-mf6cc+AF8-parent+ADs
- 		ip6mr+AF8-update+AF8-thresholds(mrt, c, ttls)+ADs
- 		if (+ACE-mrtsock)
-+AEAAQA -1501,7 +-1502,6 +AEAAQA static int ip6mr+AF8-mfc+AF8-add(struct net +ACo-net, struct mr6+AF8-table +ACo-mrt,
- 	if (+ACE-mrtsock)
- 		c-+AD4-mfc+AF8-flags +AHwAPQ MFC+AF8-STATIC+ADs
+ struct swdev_obj {
+@@ -62,6 +63,10 @@ struct swdev_obj {
+ 			u32 nlflags;
+ 			u32 tb_id;
+ 		} ipv4_fib;
++		struct swdev_obj_fdb {
++			const u8 *mac;
++			u16 vid;
++		} fdb;
+ 	};
+ };
  
--	write+AF8-lock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 	list+AF8-add(+ACY-c-+AD4-list, +ACY-mrt-+AD4-mfc6+AF8-cache+AF8-array+AFs-line+AF0)+ADs
- 	write+AF8-unlock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
+@@ -130,6 +135,13 @@ int swdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 		       u8 tos, u8 type, u32 tb_id);
+ void swdev_fib_ipv4_abort(struct fib_info *fi);
  
-+AEAAQA -1525,8 +-1525,10 +AEAAQA static int ip6mr+AF8-mfc+AF8-add(struct net +ACo-net, struct mr6+AF8-table +ACo-mrt,
- 	spin+AF8-unlock+AF8-bh(+ACY-mfc+AF8-unres+AF8-lock)+ADs
++int swdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
++		       struct net_device *dev, const unsigned char *addr,
++		       u16 vid, u16 flags);
++int swdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
++		       struct net_device *dev, const unsigned char *addr,
++		       u16 vid);
++
+ #else
  
- 	if (found) +AHs
-+-		read+AF8-lock(+ACY-mrt+AF8-lock)+ADs
- 		ip6mr+AF8-cache+AF8-resolve(net, mrt, uc, c)+ADs
- 		ip6mr+AF8-cache+AF8-free(uc)+ADs
-+-		read+AF8-unlock(+ACY-mrt+AF8-lock)+ADs
- 	+AH0
- 	mr6+AF8-netlink+AF8-event(mrt, c, RTM+AF8-NEWROUTE)+ADs
- 	return 0+ADs
-+AEAAQA -1554,18 +-1556,18 +AEAAQA static void mroute+AF8-clean+AF8-tables(struct mr6+AF8-table +ACo-mrt)
- 	/+ACo
- 	 +ACo	Wipe the cache
- 	 +ACo-/
-+-	write+AF8-lock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 	for (i +AD0 0+ADs i +ADw MFC6+AF8-LINES+ADs i+-+-) +AHs
- 		list+AF8-for+AF8-each+AF8-entry+AF8-safe(c, next, +ACY-mrt-+AD4-mfc6+AF8-cache+AF8-array+AFs-i+AF0, list) +AHs
- 			if (c-+AD4-mfc+AF8-flags +ACY MFC+AF8-STATIC)
- 				continue+ADs
--			write+AF8-lock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
- 			list+AF8-del(+ACY-c-+AD4-list)+ADs
--			write+AF8-unlock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
+ static inline int swdev_port_attr_get(struct net_device *dev,
+@@ -208,6 +220,21 @@ static inline void swdev_fib_ipv4_abort(struct fib_info *fi)
+ {
+ }
  
- 			mr6+AF8-netlink+AF8-event(mrt, c, RTM+AF8-DELROUTE)+ADs
- 			ip6mr+AF8-cache+AF8-free(c)+ADs
- 		+AH0
- 	+AH0
-+-	write+AF8-unlock+AF8-bh(+ACY-mrt+AF8-lock)+ADs
++static inline int swdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
++				     struct net_device *dev,
++				     const unsigned char *addr, u16 vid,
++				     u16 flags);
++{
++	return 0;
++}
++
++static inline int swdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
++				     struct net_device *dev,
++				     const unsigned char *addr, u16 vid);
++{
++	return 0;
++}
++
+ #endif
  
- 	if (atomic+AF8-read(+ACY-mrt-+AD4-cache+AF8-resolve+AF8-queue+AF8-len) +ACEAPQ 0) +AHs
- 		spin+AF8-lock+AF8-bh(+ACY-mfc+AF8-unres+AF8-lock)+ADs
+ #endif /* _LINUX_SWITCHDEV_H_ */
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 04e8efd..b515153 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -697,3 +697,61 @@ void swdev_fib_ipv4_abort(struct fib_info *fi)
+ 	fi->fib_net->ipv4.fib_offload_disabled = true;
+ }
+ EXPORT_SYMBOL_GPL(swdev_fib_ipv4_abort);
++
++/**
++ *	swdev_port_fdb_add -  Add fdb entry to switch device port
++ *
++ *	@ndm: struct ndmsg
++ *	@tb: pointer to array of nlattr
++ *	@dev: switch device port netdev
++ *	@addr: MAC address entry to be added
++ *	@vid: VLAN id
++ *	@flags: flags for fdb addition
++ *
++ *	Add fdb entry to switch device port.
++ */
++int swdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
++			struct net_device *dev,
++			const unsigned char *addr, u16 vid,
++			u16 flags)
++{
++	struct swdev_obj fdb_obj = {
++		.id = SWDEV_OBJ_FDB,
++		.fdb = {
++			.mac = addr,
++			.vid = vid,
++		},
++	};
++
++	return swdev_port_obj_add(dev, &fdb_obj);
++
++}
++EXPORT_SYMBOL_GPL(swdev_port_fdb_add);
++
++/**
++ *	swdev_port_fdb_del -  Delete fdb entry from switch device port
++ *
++ *	@ndm: struct ndmsg
++ *	@tb: pointer to array of nlattr
++ *	@dev: switch device port netdev
++ *	@addr: MAC address entry to be added
++ *	@vid: VLAN id
++ *
++ *	Delete fdb entry to switch device port.
++ */
++int swdev_port_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
++			struct net_device *dev,
++			const unsigned char *addr, u16 vid)
++{
++	struct swdev_obj fdb_obj = {
++		.id = SWDEV_OBJ_FDB,
++		.fdb = {
++			.mac = addr,
++			.vid = vid,
++		},
++	};
++
++	return swdev_port_obj_del(dev, &fdb_obj);
++
++}
++EXPORT_SYMBOL_GPL(swdev_port_fdb_del);
+-- 
+1.8.4.2
