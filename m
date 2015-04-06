@@ -1,16 +1,16 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 2/4] via-rhine: add allocation helpers.
-Date: Mon,  6 Apr 2015 20:01:50 +0200
-Message-ID: <79e5566c17384367c4cf5c2e7d056267ccfa4b5c.1428340371.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next 3/4] via-rhine: gotoize rhine_open error path.
+Date: Mon,  6 Apr 2015 20:01:51 +0200
+Message-ID: <f376fac9f517494f08e024d28110d42135f41773.1428340371.git.romieu@fr.zoreil.com>
 References: <cover.1428340371.git.romieu@fr.zoreil.com>
 Cc: "Nix" <nix@esperi.org.uk>, "David S. Miller" <davem@davemloft.net>,
 	rl@hellgate.ch, "Bjarke Istrup Pedersen" <gurligebis@gentoo.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50038 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50041 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688AbbDFSCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 14:02:14 -0400
+	with ESMTP id S1750891AbbDFSCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 14:02:15 -0400
 In-Reply-To: <cover.1428340371.git.romieu@fr.zoreil.com>
 In-Reply-To: <cover.1428340371.git.romieu@fr.zoreil.com>
 References: <cover.1428340371.git.romieu@fr.zoreil.com>
@@ -19,89 +19,46 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/via/via-rhine.c | 57 +++++++++++++++++++++++++++---------
- 1 file changed, 43 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 00fea3d..cf8dfcd 100644
+index cf8dfcd..ae1ab6b 100644
 --- a/drivers/net/ethernet/via/via-rhine.c
 +++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -1211,12 +1211,47 @@ static void free_ring(struct net_device* dev)
+@@ -1684,15 +1684,14 @@ static int rhine_open(struct net_device *dev)
  
+ 	rc = request_irq(rp->irq, rhine_interrupt, IRQF_SHARED, dev->name, dev);
+ 	if (rc)
+-		return rc;
++		goto out;
+ 
+ 	netif_dbg(rp, ifup, dev, "%s() irq %d\n", __func__, rp->irq);
+ 
+ 	rc = alloc_ring(dev);
+-	if (rc) {
+-		free_irq(rp->irq, dev);
+-		return rc;
+-	}
++	if (rc < 0)
++		goto out_free_irq;
++
+ 	alloc_rbufs(dev);
+ 	alloc_tbufs(dev);
+ 	rhine_chip_reset(dev);
+@@ -1705,7 +1704,12 @@ static int rhine_open(struct net_device *dev)
+ 
+ 	netif_start_queue(dev);
+ 
+-	return 0;
++out:
++	return rc;
++
++out_free_irq:
++	free_irq(rp->irq, dev);
++	goto out;
  }
  
--static void alloc_rbufs(struct net_device *dev)
-+struct rhine_skb_dma {
-+	struct sk_buff *skb;
-+	dma_addr_t dma;
-+};
-+
-+static inline int rhine_skb_dma_init(struct net_device *dev,
-+				     struct rhine_skb_dma *sd)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
- 	struct device *hwdev = dev->dev.parent;
-+	const int size = rp->rx_buf_sz;
-+
-+	sd->skb = netdev_alloc_skb(dev, size);
-+	if (!sd->skb)
-+		return -ENOMEM;
-+
-+	sd->dma = dma_map_single(hwdev, sd->skb->data, size, DMA_FROM_DEVICE);
-+	if (unlikely(dma_mapping_error(hwdev, sd->dma))) {
-+		netif_err(rp, drv, dev, "Rx DMA mapping failure\n");
-+		dev_kfree_skb_any(sd->skb);
-+		return -EIO;
-+	}
-+
-+	return 0;
-+}
-+
-+static inline void rhine_skb_dma_nic_store(struct rhine_private *rp,
-+					   struct rhine_skb_dma *sd, int entry)
-+{
-+	rp->rx_skbuff_dma[entry] = sd->dma;
-+	rp->rx_skbuff[entry] = sd->skb;
-+
-+	rp->rx_ring[entry].addr = cpu_to_le32(sd->dma);
-+	wmb();
-+}
-+
-+static void alloc_rbufs(struct net_device *dev)
-+{
-+	struct rhine_private *rp = netdev_priv(dev);
- 	dma_addr_t next;
--	int i;
-+	int rc, i;
- 
- 	rp->dirty_rx = rp->cur_rx = 0;
- 
-@@ -1237,20 +1272,14 @@ static void alloc_rbufs(struct net_device *dev)
- 
- 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
- 	for (i = 0; i < RX_RING_SIZE; i++) {
--		struct sk_buff *skb = netdev_alloc_skb(dev, rp->rx_buf_sz);
--		rp->rx_skbuff[i] = skb;
--		if (skb == NULL)
--			break;
-+		struct rhine_skb_dma sd;
- 
--		rp->rx_skbuff_dma[i] =
--			dma_map_single(hwdev, skb->data, rp->rx_buf_sz,
--				       DMA_FROM_DEVICE);
--		if (dma_mapping_error(hwdev, rp->rx_skbuff_dma[i])) {
--			rp->rx_skbuff_dma[i] = 0;
--			dev_kfree_skb(skb);
-+		rc = rhine_skb_dma_init(dev, &sd);
-+		if (rc < 0)
- 			break;
--		}
--		rp->rx_ring[i].addr = cpu_to_le32(rp->rx_skbuff_dma[i]);
-+
-+		rhine_skb_dma_nic_store(rp, &sd, i);
-+
- 		rp->rx_ring[i].rx_status = cpu_to_le32(DescOwn);
- 	}
- 	rp->dirty_rx = (unsigned int)(i - RX_RING_SIZE);
+ static void rhine_reset_task(struct work_struct *work)
 -- 
 2.1.0
