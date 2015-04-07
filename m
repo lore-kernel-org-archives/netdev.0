@@ -1,44 +1,46 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen
-Date: Tue, 7 Apr 2015 16:22:56 -0700
-Message-ID: <1428448976.4720.15.camel@prashant>
-References: <21795.62414.465476.464027@mariner.uk.xensource.com>
-	 <1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <21796.6843.983774.271495@mariner.uk.xensource.com>
-	 <21796.7755.270785.292996@mariner.uk.xensource.com>
-	 <1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH 0/3] Replace wmb()/rmb() with dma_wmb()/dma_rmb()
+ where appropriate
+Date: Tue, 07 Apr 2015 16:55:08 -0700
+Message-ID: <20150407235324.1574.63255.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>,
-	Ian Jackson <Ian.Jackson@eu.citrix.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:57466 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbbDGXqX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 19:46:23 -0400
-In-Reply-To: <1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51064 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752871AbbDGXzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Apr 2015 19:55:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-07 at 16:21 -0700, Michael Chan wrote:
-> On Tue, 2015-04-07 at 19:13 +0100, Ian Jackson wrote:
-> > root@bedbug:~# ethtool -S xenbr0 | grep -v ': 0$'
-> > no stats available
-> > root@bedbug:~# 
-> 
-> Please provide ethtool -S on the tg3 device.
+This is a start of a side project cleaning up the drivers that can make use
+of the dma_wmb and dma_rmb calls.  The general idea is to start removing
+the unnecessary wmb/rmb calls from a number of drivers and to make use of
+the lighter weight dma_wmb/dma_rmb calls as this should allow for an
+overall improvement in performance as each barrier can cost a significant
+number of cycles and on architectures such as x86 this is unnecessary.
 
-Ian, in your previous mail you indicated there are no drops or errors
-reported on eth0 (assuming this is the tg3 port), which is added to the
-bridge xenbr0 is this correct ? If so the rx drops on xenbr0 does not
-match with eth0.
+These changes are what I would consider low hanging fruit.  The likelihood
+of the changes introducing an error should be low since the use of the
+barriers in these cases are fairly obvious.
 
-please also provide "brctl show", "ethtool -i eth0"
+---
+
+Alexander Duyck (3):
+      sungem, sunhme, sunvnet: Update drivers to use dma_wmb/rmb
+      s2io: Update driver to use dma_wmb
+      e1000, e1000e: Use dma_rmb instead of rmb for descriptor read ordering
+
+
+ drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++---
+ drivers/net/ethernet/intel/e1000e/netdev.c    |    8 ++++----
+ drivers/net/ethernet/neterion/s2io.c          |    8 ++++----
+ drivers/net/ethernet/sun/sungem.c             |   14 +++++++-------
+ drivers/net/ethernet/sun/sunhme.c             |   16 ++++++++--------
+ drivers/net/ethernet/sun/sunvnet.c            |    6 +++---
+ 6 files changed, 29 insertions(+), 29 deletions(-)
+
+--
