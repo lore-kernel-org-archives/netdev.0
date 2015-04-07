@@ -1,72 +1,55 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: [PATCH RFCv3 4/4] batman-adv: Increase BATADV_TVLV_MCAST version
- number to 2
-Date: Tue,  7 Apr 2015 21:57:32 +0200
-Message-ID: <1428436652-4676-5-git-send-email-linus.luessing@c0d3.blue>
-References: <1428436652-4676-1-git-send-email-linus.luessing@c0d3.blue>
-Cc: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.passe0815.de ([188.40.49.9]:40870 "EHLO mail.passe0815.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753683AbbDGT5t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2015 15:57:49 -0400
-Received: from mail.passe0815.de (localhost [127.0.0.1])
-	by mail.passe0815.de (Postfix) with ESMTP id 5416E586340
-	for <netdev@vger.kernel.org>; Tue,  7 Apr 2015 21:57:46 +0200 (CEST)
-In-Reply-To: <1428436652-4676-1-git-send-email-linus.luessing@c0d3.blue>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v2 10/17] IB/Verbs: Adopt management helpers for IB
+ helpers
+Date: Tue, 7 Apr 2015 14:12:59 -0600
+Message-ID: <20150407201259.GA17147@obsidianresearch.com>
+References: <5523CCD5.6030401@profitbricks.com>
+ <5523CF0A.5090206@profitbricks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Er
+To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5523CF0A.5090206-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The multicast optimizations bridge integration will require the just
-implemented IGMP/MLD report handling later. Therefore bumping the
-version number.
----
- net/batman-adv/multicast.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+On Tue, Apr 07, 2015 at 02:35:22PM +0200, Michael Wang wrote:
+> index f704254..4e61104 100644
+> +++ b/drivers/infiniband/core/sa_query.c
+> @@ -540,7 +540,7 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
+>  	ah_attr->port_num = port_num;
+>  	ah_attr->static_rate = rec->rate;
+>  
+> -	force_grh = rdma_port_get_link_layer(device, port_num) == IB_LINK_LAYER_ETHERNET;
+> +	force_grh = !rdma_transport_ib(device, port_num);
 
-diff --git a/net/batman-adv/multicast.c b/net/batman-adv/multicast.c
-index a6eff07..ff5d866 100644
---- a/net/batman-adv/multicast.c
-+++ b/net/batman-adv/multicast.c
-@@ -200,7 +200,7 @@ static bool batadv_mcast_mla_tvlv_update(struct batadv_priv *bat_priv)
- 	if (batadv_mcast_has_bridge(bat_priv)) {
- 		if (bat_priv->mcast.enabled) {
- 			batadv_tvlv_container_unregister(bat_priv,
--							 BATADV_TVLV_MCAST, 1);
-+							 BATADV_TVLV_MCAST, 2);
- 			bat_priv->mcast.enabled = false;
- 		}
- 
-@@ -209,7 +209,7 @@ static bool batadv_mcast_mla_tvlv_update(struct batadv_priv *bat_priv)
- 
- 	if (!bat_priv->mcast.enabled ||
- 	    mcast_data.flags != bat_priv->mcast.flags) {
--		batadv_tvlv_container_register(bat_priv, BATADV_TVLV_MCAST, 1,
-+		batadv_tvlv_container_register(bat_priv, BATADV_TVLV_MCAST, 2,
- 					       &mcast_data, sizeof(mcast_data));
- 		bat_priv->mcast.flags = mcast_data.flags;
- 		bat_priv->mcast.enabled = true;
-@@ -960,7 +960,7 @@ static void batadv_mcast_tvlv_ogm_handler_v1(struct batadv_priv *bat_priv,
- void batadv_mcast_init(struct batadv_priv *bat_priv)
- {
- 	batadv_tvlv_handler_register(bat_priv, batadv_mcast_tvlv_ogm_handler_v1,
--				     NULL, BATADV_TVLV_MCAST, 1,
-+				     NULL, BATADV_TVLV_MCAST, 2,
- 				     BATADV_TVLV_HANDLER_OGM_CIFNOTFND);
- }
- 
-@@ -970,8 +970,8 @@ void batadv_mcast_init(struct batadv_priv *bat_priv)
-  */
- void batadv_mcast_free(struct batadv_priv *bat_priv)
- {
--	batadv_tvlv_container_unregister(bat_priv, BATADV_TVLV_MCAST, 1);
--	batadv_tvlv_handler_unregister(bat_priv, BATADV_TVLV_MCAST, 1);
-+	batadv_tvlv_container_unregister(bat_priv, BATADV_TVLV_MCAST, 2);
-+	batadv_tvlv_handler_unregister(bat_priv, BATADV_TVLV_MCAST, 2);
- 
- 	batadv_mcast_mla_tt_retract(bat_priv, NULL);
- }
--- 
-1.7.10.4
+Maybe these tests should be called cap_mandatory_grh - but I'm not
+really sure how iWarp uses the GRH fields in the AH...
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
