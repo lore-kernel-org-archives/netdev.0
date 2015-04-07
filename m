@@ -1,42 +1,44 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 2/4] xfrm: simplify xfrm_address_t use
-Date: Tue, 7 Apr 2015 18:35:21 +0200
-Message-ID: <20150407183521.3a169d84@griffin>
-References: <cover.1427639592.git.jbenc@redhat.com>
-	<e70181767cd48da03733b6817466085c4629ff9a.1427639592.git.jbenc@redhat.com>
-	<20150407090133.0cb6cf4b@urahara>
-	<20150407182958.51a7b13f@griffin>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 1/4] netfilter: Add nf_hook_state initializer function.
+Date: Tue, 7 Apr 2015 09:45:35 -0700
+Message-ID: <20150407164530.GA6008@Alexeis-MBP.westell.com>
+References: <20150405.221854.118353659007886815.davem@davemloft.net>
+ <1428414081.3965860.250247565.2F639A0C@webmail.messagingengine.com>
+ <20150407.115821.441881623894604515.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Chapman <jchapman@katalix.com>,
-	Paul Moore <paul@paul-moore.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35816 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753089AbbDGQf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2015 12:35:27 -0400
-In-Reply-To: <20150407182958.51a7b13f@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
+	jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150407.115821.441881623894604515.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Apr 2015 18:29:58 +0200, Jiri Benc wrote:
-> What could be done that should work with earlier glibc versions is
-> including "utils.h" before <linux/xfrm.h> in xfrm_monitor.c. Could you
-> try that? Would it be an acceptable workaround?
+On Tue, Apr 07, 2015 at 11:58:21AM -0400, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Tue, 07 Apr 2015 15:41:21 +0200
+> 
+> > Minor suggestion:
+> > 
+> > I think we can return the structure as a whole:
+> > 
+> > static inline struct nf_hook_state nf_hook_state_init(unsigned int hook,
+> > ...).
+> > 
+> > Being static inline it should not make any difference.
+> 
+> If by some insane possibility this does not get inlined, this structure
+> gets copied to and from the kernel stack on some cpu ABIs in order to
+> return it.
+> 
+> Never return structures from functions, ever.
 
-Or, better, include <netinet/in.h> before <linux/xfrm.h> in
-xfrm_monitor.c to keep the order of inclusion of local and system
-headers.
++1
 
- Jiri
+I bet Dave alluding to insane sparc psABI requirements in that area.
+Some horror stories there.
+Never return structures. Ever!
 
--- 
-Jiri Benc
