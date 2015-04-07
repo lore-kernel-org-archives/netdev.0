@@ -1,75 +1,80 @@
-From: "Hefty, Sean" <sean.hefty@intel.com>
-Subject: RE: [PATCH v2 10/17] IB/Verbs: Adopt management helpers for IB
- helpers
-Date: Tue, 7 Apr 2015 18:40:14 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FBE2A5@ORSMSX109.amr.corp.intel.com>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v2 11/17] IB/Verbs: Reform link_layer_show() and
+ ib_uverbs_query_port()
+Date: Tue, 7 Apr 2015 18:49:52 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FBE2FA@ORSMSX109.amr.corp.intel.com>
 References: <5523CCD5.6030401@profitbricks.com>
- <5523CF0A.5090206@profitbricks.com>
+ <5523CF30.7000608@profitbricks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	infinipath <infinipath@intel.com>, Eli Cohen <eli@mellanox.com>,
-	"Latif, Faisal" <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	"Trond Myklebust" <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Weiny, Ira" <ira.weiny@intel.com>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	"Nikolova, Tatyana E" <tatyana.e.nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	"Haggai Eran" <haggaie@mellanox.com>,
-	Ilya Nelkenbaum <ilyan@mellanox.com>,
-	"Yann Droneaud" <ydroneaud@opteya.com>,
-	Bart Van Assche <bvanassche@acm.org>,
-	Shachar Raindel <raindel@me
-To: Michael Wang <yun.wang@profitbricks.com>,
-	Roland Dreier <roland@kernel.org>,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5523CF0A.5090206@profitbricks.com>
+Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	infinipath <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"Latif, Faisal" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	"Trond Myklebust" <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	"Nikolova, Tatyana E" <tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Shachar Raindel <raindel@mellan
+To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5523CF30.7000608-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvc2FfcXVlcnkuYw0KPiBiL2Ry
-aXZlcnMvaW5maW5pYmFuZC9jb3JlL3NhX3F1ZXJ5LmMNCj4gaW5kZXggZjcwNDI1NC4uNGU2MTEw
-NCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvc2FfcXVlcnkuYw0KPiAr
-KysgYi9kcml2ZXJzL2luZmluaWJhbmQvY29yZS9zYV9xdWVyeS5jDQo+IEBAIC01NDAsNyArNTQw
-LDcgQEAgaW50IGliX2luaXRfYWhfZnJvbV9wYXRoKHN0cnVjdCBpYl9kZXZpY2UgKmRldmljZSwg
-dTgNCj4gcG9ydF9udW0sDQo+ICAJYWhfYXR0ci0+cG9ydF9udW0gPSBwb3J0X251bTsNCj4gIAlh
-aF9hdHRyLT5zdGF0aWNfcmF0ZSA9IHJlYy0+cmF0ZTsNCj4gDQo+IC0JZm9yY2VfZ3JoID0gcmRt
-YV9wb3J0X2dldF9saW5rX2xheWVyKGRldmljZSwgcG9ydF9udW0pID09DQo+IElCX0xJTktfTEFZ
-RVJfRVRIRVJORVQ7DQo+ICsJZm9yY2VfZ3JoID0gIXJkbWFfdHJhbnNwb3J0X2liKGRldmljZSwg
-cG9ydF9udW0pOw0KPiANCj4gIAlpZiAocmVjLT5ob3BfbGltaXQgPiAxIHx8IGZvcmNlX2dyaCkg
-ew0KPiAgCQlhaF9hdHRyLT5haF9mbGFncyA9IElCX0FIX0dSSDsNCj4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvaW5maW5pYmFuZC9jb3JlL3ZlcmJzLmMNCj4gYi9kcml2ZXJzL2luZmluaWJhbmQvY29y
-ZS92ZXJicy5jDQo+IGluZGV4IDgzMzcwZGUuLmNhMDZmNzYgMTAwNjQ0DQo+IC0tLSBhL2RyaXZl
-cnMvaW5maW5pYmFuZC9jb3JlL3ZlcmJzLmMNCj4gKysrIGIvZHJpdmVycy9pbmZpbmliYW5kL2Nv
-cmUvdmVyYnMuYw0KPiBAQCAtMjAwLDExICsyMDAsOSBAQCBpbnQgaWJfaW5pdF9haF9mcm9tX3dj
-KHN0cnVjdCBpYl9kZXZpY2UgKmRldmljZSwgdTgNCj4gcG9ydF9udW0sIHN0cnVjdCBpYl93YyAq
-d2MsDQo+ICAJdTMyIGZsb3dfY2xhc3M7DQo+ICAJdTE2IGdpZF9pbmRleDsNCj4gIAlpbnQgcmV0
-Ow0KPiAtCWludCBpc19ldGggPSAocmRtYV9wb3J0X2dldF9saW5rX2xheWVyKGRldmljZSwgcG9y
-dF9udW0pID09DQo+IC0JCQlJQl9MSU5LX0xBWUVSX0VUSEVSTkVUKTsNCj4gDQo+ICAJbWVtc2V0
-KGFoX2F0dHIsIDAsIHNpemVvZiAqYWhfYXR0cik7DQo+IC0JaWYgKGlzX2V0aCkgew0KPiArCWlm
-ICghcmRtYV90cmFuc3BvcnRfaWIoZGV2aWNlLCBwb3J0X251bSkpIHsNCj4gIAkJaWYgKCEod2Mt
-PndjX2ZsYWdzICYgSUJfV0NfR1JIKSkNCj4gIAkJCXJldHVybiAtRVBST1RPVFlQRTsNCj4gDQo+
-IEBAIC04NzMsNyArODcxLDcgQEAgaW50IGliX3Jlc29sdmVfZXRoX2wyX2F0dHJzKHN0cnVjdCBp
-Yl9xcCAqcXAsDQo+ICAJdW5pb24gaWJfZ2lkICBzZ2lkOw0KPiANCj4gIAlpZiAoKCpxcF9hdHRy
-X21hc2sgJiBJQl9RUF9BVikgICYmDQo+IC0JICAgIChyZG1hX3BvcnRfZ2V0X2xpbmtfbGF5ZXIo
-cXAtPmRldmljZSwgcXBfYXR0ci0+YWhfYXR0ci5wb3J0X251bSkNCj4gPT0gSUJfTElOS19MQVlF
-Ul9FVEhFUk5FVCkpIHsNCj4gKwkgICAgKCFyZG1hX3RyYW5zcG9ydF9pYihxcC0+ZGV2aWNlLCBx
-cF9hdHRyLT5haF9hdHRyLnBvcnRfbnVtKSkpIHsNCj4gIAkJcmV0ID0gaWJfcXVlcnlfZ2lkKHFw
-LT5kZXZpY2UsIHFwX2F0dHItPmFoX2F0dHIucG9ydF9udW0sDQo+ICAJCQkJICAgcXBfYXR0ci0+
-YWhfYXR0ci5ncmguc2dpZF9pbmRleCwgJnNnaWQpOw0KPiAgCQlpZiAocmV0KQ0KDQpUaGUgYWJv
-dmUgY2hlY2tzIHdvdWxkIGJlIGJldHRlciBhczoNCg0KCWZvcmNlX2dyaCA9IHJkbWFfdHJhbnNw
-b3J0X2lib2UoLi4uKQ0KDQpUaGV5IGFyZSBSb0NFL0lCb0Ugc3BlY2lmaWMgY2hlY2tzLg0K
+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvc3lzZnMuYw0KPiBiL2RyaXZl
+cnMvaW5maW5pYmFuZC9jb3JlL3N5c2ZzLmMNCj4gaW5kZXggY2JkMDM4My4uYWE1M2U0MCAxMDA2
+NDQNCj4gLS0tIGEvZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvc3lzZnMuYw0KPiArKysgYi9kcml2
+ZXJzL2luZmluaWJhbmQvY29yZS9zeXNmcy5jDQo+IEBAIC0yNDgsMTQgKzI0OCwxMCBAQCBzdGF0
+aWMgc3NpemVfdCBwaHlzX3N0YXRlX3Nob3coc3RydWN0IGliX3BvcnQgKnAsDQo+IHN0cnVjdCBw
+b3J0X2F0dHJpYnV0ZSAqdW51c2VkLA0KPiAgc3RhdGljIHNzaXplX3QgbGlua19sYXllcl9zaG93
+KHN0cnVjdCBpYl9wb3J0ICpwLCBzdHJ1Y3QgcG9ydF9hdHRyaWJ1dGUNCj4gKnVudXNlZCwNCj4g
+IAkJCSAgICAgICBjaGFyICpidWYpDQo+ICB7DQo+IC0Jc3dpdGNoIChyZG1hX3BvcnRfZ2V0X2xp
+bmtfbGF5ZXIocC0+aWJkZXYsIHAtPnBvcnRfbnVtKSkgew0KPiAtCWNhc2UgSUJfTElOS19MQVlF
+Ul9JTkZJTklCQU5EOg0KPiArCWlmIChyZG1hX3RyYW5zcG9ydF9pYihwLT5pYmRldiwgcC0+cG9y
+dF9udW0pKQ0KPiAgCQlyZXR1cm4gc3ByaW50ZihidWYsICIlc1xuIiwgIkluZmluaUJhbmQiKTsN
+Cj4gLQljYXNlIElCX0xJTktfTEFZRVJfRVRIRVJORVQ6DQo+ICsJZWxzZQ0KPiAgCQlyZXR1cm4g
+c3ByaW50ZihidWYsICIlc1xuIiwgIkV0aGVybmV0Iik7DQo+IC0JZGVmYXVsdDoNCj4gLQkJcmV0
+dXJuIHNwcmludGYoYnVmLCAiJXNcbiIsICJVbmtub3duIik7DQo+IC0JfQ0KPiAgfQ0KPiANCj4g
+IHN0YXRpYyBQT1JUX0FUVFJfUk8oc3RhdGUpOw0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9pbmZp
+bmliYW5kL2NvcmUvdXZlcmJzX2NtZC5jDQo+IGIvZHJpdmVycy9pbmZpbmliYW5kL2NvcmUvdXZl
+cmJzX2NtZC5jDQo+IGluZGV4IGE5ZjA0ODkuLjNlYjZlYjUgMTAwNjQ0DQo+IC0tLSBhL2RyaXZl
+cnMvaW5maW5pYmFuZC9jb3JlL3V2ZXJic19jbWQuYw0KPiArKysgYi9kcml2ZXJzL2luZmluaWJh
+bmQvY29yZS91dmVyYnNfY21kLmMNCj4gQEAgLTUxNSw4ICs1MTUsMTAgQEAgc3NpemVfdCBpYl91
+dmVyYnNfcXVlcnlfcG9ydChzdHJ1Y3QgaWJfdXZlcmJzX2ZpbGUNCj4gKmZpbGUsDQo+ICAJcmVz
+cC5hY3RpdmVfd2lkdGggICAgPSBhdHRyLmFjdGl2ZV93aWR0aDsNCj4gIAlyZXNwLmFjdGl2ZV9z
+cGVlZCAgICA9IGF0dHIuYWN0aXZlX3NwZWVkOw0KPiAgCXJlc3AucGh5c19zdGF0ZSAgICAgID0g
+YXR0ci5waHlzX3N0YXRlOw0KPiAtCXJlc3AubGlua19sYXllciAgICAgID0gcmRtYV9wb3J0X2dl
+dF9saW5rX2xheWVyKGZpbGUtPmRldmljZS0NCj4gPmliX2RldiwNCj4gLQkJCQkJCQljbWQucG9y
+dF9udW0pOw0KPiArCXJlc3AubGlua19sYXllciAgICAgID0gcmRtYV90cmFuc3BvcnRfaWIoZmls
+ZS0+ZGV2aWNlLT5pYl9kZXYsDQo+ICsJCQkJCQkJY21kLnBvcnRfbnVtKSA/DQo+ICsJCQkgICAg
+ICAgSUJfTElOS19MQVlFUl9JTkZJTklCQU5EIDoNCj4gKwkJCSAgICAgICBJQl9MSU5LX0xBWUVS
+X0VUSEVSTkVUOw0KPiANCj4gIAlpZiAoY29weV90b191c2VyKCh2b2lkIF9fdXNlciAqKSAodW5z
+aWduZWQgbG9uZykgY21kLnJlc3BvbnNlLA0KPiAgCQkJICZyZXNwLCBzaXplb2YgcmVzcCkpDQoN
+CkJvdGggb2YgdGhlIGFib3ZlIGNoZWNrIHRoZSB0cmFuc3BvcnQgaW4gb3JkZXIgdG8gZGV0ZXJt
+aW5lIHRoZSBsaW5rIGxheWVyLg0KDQpUaGVzZSB2YWx1ZXMgYXJlIGV4cG9zZWQgdG8gdXNlciBz
+cGFjZS4gIERvZXMgYW55b25lIGtub3cgd2hhdCBsaW5rIGxheWVyIGlXYXJwIHJldHVybnMgdG8g
+dXNlciBzcGFjZT8gDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
