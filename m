@@ -1,80 +1,258 @@
-From: Ian Jackson <Ian.Jackson@eu.citrix.com>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen
-Date: Tue, 7 Apr 2015 18:58:19 +0100
-Message-ID: <21796.6843.983774.271495@mariner.uk.xensource.com>
-References: <21795.62414.465476.464027@mariner.uk.xensource.com>
-	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH 4/4] udp_tunnel: Pass UDP socket down through udp_tunnel{,6}_xmit_skb().
+Date: Tue, 7 Apr 2015 11:56:14 -0700
+Message-ID: <CALx6S37vo+9mDJKnkOhJXjArDLDju7hw4N5_Ggoir_U-OqmdAw@mail.gmail.com>
+References: <20150405.221909.1825232827861250716.davem@davemloft.net>
+	<CALx6S35rK35GFZAcqygjGNRUhC=vJx60TYLFDUeUd2bAim7Vzg@mail.gmail.com>
+	<1428421534.2928.3.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ian Jackson <Ian.Jackson@eu.citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	"David Vrabel" <david.vrabel@citrix.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:64267 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472AbbDGSxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 14:53:13 -0400
-In-Reply-To: <1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1428421534.2928.3.camel@stressinduktion.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
-> On Tue, 2015-04-07 at 16:12 +0100, Ian Jackson wrote:
-> > The symptom is a very high level of packet loss: around 25-30% (as
-> > seen in `ping').  There don't seem to be any untoward-looking kernel
-> > messages.  The lost packets get added to the `errors' counter shown in
-> > ifconfig. 
-> 
-> Please provide the output of "ethtool -S" which has a better breakdown
-> of the error counters.  Thanks.
+On Tue, Apr 7, 2015 at 8:45 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On Mo, 2015-04-06 at 23:02 -0700, Tom Herbert wrote:
+>> On Sun, Apr 5, 2015 at 7:19 PM, David Miller <davem@davemloft.net> wrote:
+>> >
+>> > That was we can make sure the output path of ipv4/ipv6 operate on
+>> > the UDP socket rather than whatever random thing happens to be in
+>> > skb->sk.
+>> >
+>> > Based upon a patch by Jiri Pirko.
+>> >
+>> > Signed-off-by: David S. Miller <davem@davemloft.net>
+>> > ---
+>> >  drivers/net/vxlan.c           | 14 ++++++++------
+>> >  include/net/ip6_tunnel.h      |  5 +++--
+>> >  include/net/ipv6.h            |  1 +
+>> >  include/net/udp_tunnel.h      |  5 +++--
+>> >  include/net/vxlan.h           |  2 +-
+>> >  net/ipv4/geneve.c             |  2 +-
+>> >  net/ipv4/udp_tunnel.c         |  4 ++--
+>> >  net/ipv6/ip6_gre.c            |  2 +-
+>> >  net/ipv6/ip6_tunnel.c         |  2 +-
+>> >  net/ipv6/ip6_udp_tunnel.c     |  5 +++--
+>> >  net/ipv6/output_core.c        | 21 ++++++++++++++++-----
+>> >  net/openvswitch/vport-vxlan.c |  5 +++--
+>> >  net/tipc/udp_media.c          |  6 ++++--
+>> >  13 files changed, 47 insertions(+), 27 deletions(-)
+>> >
+>> > diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+>> > index b5fecb4..51baac7 100644
+>> > --- a/drivers/net/vxlan.c
+>> > +++ b/drivers/net/vxlan.c
+>> > @@ -1672,7 +1672,8 @@ static void vxlan_build_gbp_hdr(struct vxlanhdr *vxh, u32 vxflags,
+>> >  }
+>> >
+>> >  #if IS_ENABLED(CONFIG_IPV6)
+>> > -static int vxlan6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
+>> > +static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
+>> > +                          struct sk_buff *skb,
+>> >                            struct net_device *dev, struct in6_addr *saddr,
+>> >                            struct in6_addr *daddr, __u8 prio, __u8 ttl,
+>> >                            __be16 src_port, __be16 dst_port,
+>> > @@ -1748,7 +1749,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
+>> >
+>> >         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>> >
+>> > -       udp_tunnel6_xmit_skb(dst, skb, dev, saddr, daddr, prio,
+>> > +       udp_tunnel6_xmit_skb(dst, sk, skb, dev, saddr, daddr, prio,
+>> >                              ttl, src_port, dst_port,
+>> >                              !!(vxflags & VXLAN_F_UDP_ZERO_CSUM6_TX));
+>> >         return 0;
+>> > @@ -1758,7 +1759,7 @@ err:
+>> >  }
+>> >  #endif
+>> >
+>> > -int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> > +int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+>> >                    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
+>> >                    __be16 src_port, __be16 dst_port,
+>> >                    struct vxlan_metadata *md, bool xnet, u32 vxflags)
+>> > @@ -1827,7 +1828,7 @@ int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> >
+>> >         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>> >
+>> > -       return udp_tunnel_xmit_skb(rt, skb, src, dst, tos,
+>> > +       return udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos,
+>> >                                    ttl, df, src_port, dst_port, xnet,
+>> >                                    !(vxflags & VXLAN_F_UDP_CSUM));
+>> >  }
+>> > @@ -1882,6 +1883,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>> >                            struct vxlan_rdst *rdst, bool did_rsc)
+>> >  {
+>> >         struct vxlan_dev *vxlan = netdev_priv(dev);
+>> > +       struct sock *sk = vxlan->vn_sock->sock->sk;
+>> >         struct rtable *rt = NULL;
+>> >         const struct iphdr *old_iph;
+>> >         struct flowi4 fl4;
+>> > @@ -1961,7 +1963,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>> >                 md.vni = htonl(vni << 8);
+>> >                 md.gbp = skb->mark;
+>> >
+>> > -               err = vxlan_xmit_skb(rt, skb, fl4.saddr,
+>> > +               err = vxlan_xmit_skb(rt, sk, skb, fl4.saddr,
+>> >                                      dst->sin.sin_addr.s_addr, tos, ttl, df,
+>> >                                      src_port, dst_port, &md,
+>> >                                      !net_eq(vxlan->net, dev_net(vxlan->dev)),
+>> > @@ -2021,7 +2023,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+>> >                 md.vni = htonl(vni << 8);
+>> >                 md.gbp = skb->mark;
+>> >
+>> > -               err = vxlan6_xmit_skb(ndst, skb, dev, &fl6.saddr, &fl6.daddr,
+>> > +               err = vxlan6_xmit_skb(ndst, sk, skb, dev, &fl6.saddr, &fl6.daddr,
+>> >                                       0, ttl, src_port, dst_port, &md,
+>> >                                       !net_eq(vxlan->net, dev_net(vxlan->dev)),
+>> >                                       vxlan->flags);
+>> > diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+>> > index 1668be5..b8529aa 100644
+>> > --- a/include/net/ip6_tunnel.h
+>> > +++ b/include/net/ip6_tunnel.h
+>> > @@ -73,13 +73,14 @@ __u32 ip6_tnl_get_cap(struct ip6_tnl *t, const struct in6_addr *laddr,
+>> >  struct net *ip6_tnl_get_link_net(const struct net_device *dev);
+>> >  int ip6_tnl_get_iflink(const struct net_device *dev);
+>> >
+>> > -static inline void ip6tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+>> > +static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
+>> > +                                 struct net_device *dev)
+>> >  {
+>> >         struct net_device_stats *stats = &dev->stats;
+>> >         int pkt_len, err;
+>> >
+>> >         pkt_len = skb->len;
+>> > -       err = ip6_local_out(skb);
+>> > +       err = ip6_local_out_sk(sk, skb);
+>> >
+>> >         if (net_xmit_eval(err) == 0) {
+>> >                 struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+>> > diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+>> > index b6ae959..27470cd 100644
+>> > --- a/include/net/ipv6.h
+>> > +++ b/include/net/ipv6.h
+>> > @@ -827,6 +827,7 @@ int ip6_input(struct sk_buff *skb);
+>> >  int ip6_mc_input(struct sk_buff *skb);
+>> >
+>> >  int __ip6_local_out(struct sk_buff *skb);
+>> > +int ip6_local_out_sk(struct sock *sk, struct sk_buff *skb);
+>> >  int ip6_local_out(struct sk_buff *skb);
+>> >
+>> >  /*
+>> > diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+>> > index 1a20d33..c491c12 100644
+>> > --- a/include/net/udp_tunnel.h
+>> > +++ b/include/net/udp_tunnel.h
+>> > @@ -77,13 +77,14 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+>> >                            struct udp_tunnel_sock_cfg *sock_cfg);
+>> >
+>> >  /* Transmit the skb using UDP encapsulation. */
+>> > -int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> > +int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+>> >                         __be32 src, __be32 dst, __u8 tos, __u8 ttl,
+>> >                         __be16 df, __be16 src_port, __be16 dst_port,
+>> >                         bool xnet, bool nocheck);
+>> >
+>> >  #if IS_ENABLED(CONFIG_IPV6)
+>> > -int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
+>> > +int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
+>> > +                        struct sk_buff *skb,
+>> >                          struct net_device *dev, struct in6_addr *saddr,
+>> >                          struct in6_addr *daddr,
+>> >                          __u8 prio, __u8 ttl, __be16 src_port,
+>> > diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+>> > index 756e463..0082b5d 100644
+>> > --- a/include/net/vxlan.h
+>> > +++ b/include/net/vxlan.h
+>> > @@ -145,7 +145,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
+>> >
+>> >  void vxlan_sock_release(struct vxlan_sock *vs);
+>> >
+>> > -int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> > +int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+>> >                    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
+>> >                    __be16 src_port, __be16 dst_port, struct vxlan_metadata *md,
+>> >                    bool xnet, u32 vxflags);
+>> > diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+>> > index e64f8e9..b77f5e8 100644
+>> > --- a/net/ipv4/geneve.c
+>> > +++ b/net/ipv4/geneve.c
+>> > @@ -136,7 +136,7 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
+>> >
+>> >         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
+>> >
+>> > -       return udp_tunnel_xmit_skb(rt, skb, src, dst,
+>> > +       return udp_tunnel_xmit_skb(rt, gs->sock->sk, skb, src, dst,
+>> >                                    tos, ttl, df, src_port, dst_port, xnet,
+>> >                                    !csum);
+>> >  }
+>> > diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+>> > index c83b354..6bb98cc 100644
+>> > --- a/net/ipv4/udp_tunnel.c
+>> > +++ b/net/ipv4/udp_tunnel.c
+>> > @@ -75,7 +75,7 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+>> >  }
+>> >  EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
+>> >
+>> > -int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> > +int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
+>> >                         __be32 src, __be32 dst, __u8 tos, __u8 ttl,
+>> >                         __be16 df, __be16 src_port, __be16 dst_port,
+>> >                         bool xnet, bool nocheck)
+>> > @@ -92,7 +92,7 @@ int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
+>> >
+>> >         udp_set_csum(nocheck, skb, src, dst, skb->len);
+>> >
+>> > -       return iptunnel_xmit(skb->sk, rt, skb, src, dst, IPPROTO_UDP,
+>> > +       return iptunnel_xmit(sk, rt, skb, src, dst, IPPROTO_UDP,
+>> >                              tos, ttl, df, xnet);
+>> >  }
+>> >  EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
+>> > diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+>> > index f724329..b5e6cc1 100644
+>> > --- a/net/ipv6/ip6_gre.c
+>> > +++ b/net/ipv6/ip6_gre.c
+>> > @@ -760,7 +760,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+>> >
+>> >         skb_set_inner_protocol(skb, protocol);
+>> >
+>> > -       ip6tunnel_xmit(skb, dev);
+>> > +       ip6tunnel_xmit(NULL, skb, dev);
+>> >         if (ndst)
+>> >                 ip6_tnl_dst_store(tunnel, ndst);
+>> >         return 0;
+>> > diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+>> > index b6a211a..5cafd92 100644
+>> > --- a/net/ipv6/ip6_tunnel.c
+>> > +++ b/net/ipv6/ip6_tunnel.c
+>> > @@ -1100,7 +1100,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+>> >         ipv6h->nexthdr = proto;
+>> >         ipv6h->saddr = fl6->saddr;
+>> >         ipv6h->daddr = fl6->daddr;
+>> > -       ip6tunnel_xmit(skb, dev);
+>> > +       ip6tunnel_xmit(NULL, skb, dev);
+>>
+>> By same should logic iptunnel_xmit call in ip_tunnel_xmit should take
+>> NULL arg for socket?
+>
+> Sure!
+>
+Actually, for consistency amongst all the IP encapsulation protocols
+and given Dave's comments on how this is supposed to work, maybe for
+the v4 and v6 tunnels we could have a raw AF_INET{6} socket opened for
+all the tunnels to use when ip_tunnel_xmit is called. If it makes a
+difference for UDP encapsulation, a UDP socket could also be opened.
 
-root@bedbug:~# ethtool -S eth0 | grep -v ': 0$'
-NIC statistics:
-     rx_octets: 793954
-     rx_ucast_packets: 342
-     rx_mcast_packets: 197
-     rx_bcast_packets: 11049
-     tx_octets: 59093
-     tx_ucast_packets: 396
-     tx_mcast_packets: 8
-     tx_bcast_packets: 4
-root@bedbug:~# ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:16012 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:459 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:1090543 (1.0 MiB)  TX bytes:64575 (63.0 KiB)
-          Interrupt:17 
+Tom
 
-root@bedbug:~# 
-
-And:
-
---- bedbug.cam.xci-test.com ping statistics ---
-120 packets transmitted, 90 received, 25% packet loss, time 119354ms
-rtt min/avg/max/mdev = 0.294/0.459/0.844/0.073 ms
-
-
-Evidently on this particular kernel, the error counters are _not_
-increasing, contrary to what I said before.  I confess that I didn't
-keep a record of on which particular machine and kernel I observed the
-error count increasing.
-
-If it would help I could try to check various other machines and/or
-other kernels to see if I can get one of them to display the error
-counter behaviour.
-
-
-I'm about to try the experiment suggested by Konrad.
-
-Thanks,
-Ian.
+> Thanks, otherwise the patches look good!
+>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>
+>
+>
