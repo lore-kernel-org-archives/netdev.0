@@ -1,54 +1,43 @@
-From: Wolfgang Rosner <wrosner@tirnet.de>
-Subject: teql and vlan not compatible?
-Date: Tue, 7 Apr 2015 20:50:37 +0100
-Message-ID: <201504072150.40209.wrosner@tirnet.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/4] via-rhine: commit receive buffer address
+ before descriptor status update.
+Date: Tue, 07 Apr 2015 15:52:09 -0400 (EDT)
+Message-ID: <20150407.155209.47396464487922345.davem@davemloft.net>
+References: <cover.1428340371.git.romieu@fr.zoreil.com>
+	<cover.1428340371.git.romieu@fr.zoreil.com>
+	<87c90b27962c818239073d3a65341054922bd563.1428340371.git.romieu@fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, nix@esperi.org.uk, rl@hellgate.ch,
+	gurligebis@gentoo.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tirnet.de ([217.7.138.221]:17798 "EHLO mail.tirnet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753049AbbDGTut (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2015 15:50:49 -0400
-Received: from wjrws2 (p54BECF13.dip0.t-ipconnect.de [84.190.207.19])
-	by mail.tirnet.de (mailserver tirnet.de) with ESMTP id 293F72C1BE
-	for <netdev@vger.kernel.org>; Tue,  7 Apr 2015 21:52:14 +0200 (CEST)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:59089 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbbDGTwM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:52:12 -0400
+In-Reply-To: <87c90b27962c818239073d3a65341054922bd563.1428340371.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Mon,  6 Apr 2015 20:01:49 +0200
 
-are teql and vlan mutually exclusive?
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> ---
+>  drivers/net/ethernet/via/via-rhine.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+> index a191afc..00fea3d 100644
+> --- a/drivers/net/ethernet/via/via-rhine.c
+> +++ b/drivers/net/ethernet/via/via-rhine.c
+> @@ -2063,6 +2063,7 @@ static int rhine_rx(struct net_device *dev, int limit)
+>  				break;
+>  			}
+>  			rp->rx_ring[entry].addr = cpu_to_le32(rp->rx_skbuff_dma[entry]);
+> +			wmb();
 
-I've done some tests the last days that drove me crazy, until I found an an 
-old (2003) message on the linux.drivers.vlan list :
-
-"vlan + teql qdisc problem"
-
-http://osdir.com/ml/linux.drivers.vlan/2003-02/msg00050.html
-
-<quote>
-tc qdisc add dev vlan0003 root teql0
-then i can no longer ping 10.0.0.2 from 10.0.0.1.
-The moment I add qdisc it stop working.
-When I remove qdisc - I can ping again.
-</quote>
-
-
-While my setup is more complicated, the problem is the same.
-I cannot even see any arp requests on the wireshark after I have a teql'd 
-interface on a vlan like this
-"tc qdisc replace dev eth9.42 root teql0"
-
-Is this a fundamental impossibility or is there simply some secret magic I 
-just haven't found documented?
-Above thread is the only google hit for "teql & vlan"
-
-Thanks for any hint!
-
-
-
-Wolfgang Rosner
+dma_wmb() perhaps?  I think this is exactly the situation that interface was
+added for.
