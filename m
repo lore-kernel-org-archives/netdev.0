@@ -1,32 +1,34 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 7 Apr 2015 09:54:29 -0700
-Message-ID: <CAM_iQpVoxnL2idEOQutt=ARNWdQxipCkqqiQzW8gVFt777dgew@mail.gmail.com>
-References: <20150407132136.23da9e91@canb.auug.org.au>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen
+Date: Tue, 7 Apr 2015 09:55:40 -0700
+Message-ID: <1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <21795.62414.465476.464027@mariner.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150407132136.23da9e91@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
+To: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:6262 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753636AbbDGQzo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 12:55:44 -0400
+In-Reply-To: <21795.62414.465476.464027@mariner.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 6, 2015 at 8:21 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got a conflict in
-> net/core/fib_rules.c between commit 419df12fb5fa ("net: move
-> fib_rules_unregister() under rtnl lock") from the net tree and commit
-> efd7ef1c1929 ("net: Kill hold_net release_net") from the net-next tree.
->
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
->
+On Tue, 2015-04-07 at 16:12 +0100, Ian Jackson wrote:
+> The symptom is a very high level of packet loss: around 25-30% (as
+> seen in `ping').  There don't seem to be any untoward-looking kernel
+> messages.  The lost packets get added to the `errors' counter shown in
+> ifconfig. 
 
-Looks correct to me.
-
-Thanks!
+Please provide the output of "ethtool -S" which has a better breakdown
+of the error counters.  Thanks.
