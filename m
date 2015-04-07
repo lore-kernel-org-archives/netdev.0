@@ -1,165 +1,41 @@
-From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Subject: Re: [PATCH v2 09/17] IB/Verbs: Use helper cap_read_multi_sge() and
- reform svc_rdma_accept()
-Date: Tue, 07 Apr 2015 18:05:18 +0200
-Message-ID: <5524003E.8060500@profitbricks.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523CEE4.5060901@profitbricks.com> <5523FBF1.80304@talpey.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
+Date: Tue, 07 Apr 2015 09:10:49 -0700
+Message-ID: <55240189.4020406@plumgrid.com>
+References: <20150407171148.7a41ee90@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: Tom Talpey <tom-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5523FBF1.80304-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150407171148.7a41ee90@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Tom
+On 4/7/15 12:11 AM, Stephen Rothwell wrote:
+> Hi all,
+>
+> Today's linux-next merge of the tip tree got a conflict in
+> include/uapi/linux/bpf.h between commit 96be4325f443 ("ebpf: add
+> sched_cls_type and map it to sk_filter's verifier ops"), 03e69b508b6f
+> ("ebpf: add prandom helper for packet sampling"), c04167ce2ca0 ("ebpf:
+> add helper for obtaining current processor id"), 94caee8c312d ("ebpf:
+> add sched_act_type and map it to sk_filter's verifier ops"),
+> 608cd71a9c7c ("tc: bpf: generalize pedit action") and 91bc4822c3d6
+> ("tc: bpf: add checksum helpers") from the net-next tree and commit
+> 2541517c32be ("tracing, perf: Implement BPF programs attached to
+> kprobes"), d9847d310ab4 ("tracing: Allow BPF programs to call
+> bpf_ktime_get_ns()") and 9c959c863f82 ("tracing: Allow BPF programs to
+> call bpf_trace_printk()") from the tip tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
+>
 
-Thanks for the comments :-)
-
-On 04/07/2015 05:46 PM, Tom Talpey wrote:
-> On 4/7/2015 8:34 AM, Michael Wang wrote:
->>   /**
->> + * cap_read_multi_sge - Check if the port of device has the capability
->> + * RDMA Read Multiple Scatter-Gather Entries.
->> + *
->> + * @device: Device to be checked
->> + * @port_num: Port number of the device
->> + *
->> + * Return 0 when port of the device don't support
->> + * RDMA Read Multiple Scatter-Gather Entries.
->> + */
->> +static inline int cap_read_multi_sge(struct ib_device *device, u8 port_num)
->> +{
->> +    return !rdma_transport_iwarp(device, port_num);
->> +}
-> 
-> This just papers over the issue we discussed earlier. How *many*
-> entries does the device support? If a device supports one, or two,
-> is that enough? How does the upper layer know the limit?
-> 
-> This needs an explicit device attribute, to be fixed properly.
-
-This is the prototype to expose the problem we have in here, I
-would prefer some one good at this part to extending the API in
-future, basing on the right logical.
-
-Currently this just inherit from the legacy, it implemented
-in order to be compatible with the current code.
-
-> 
->> +
->> +/**
->>    * cap_ipoib - Check if the port of device has the capability
->>    * IP over Infiniband.
->>    *
->> diff --git a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
->> index e011027..604d035 100644
->> --- a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
->> +++ b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
->> @@ -118,8 +118,8 @@ static void rdma_build_arg_xdr(struct svc_rqst *rqstp,
->>
->>   static int rdma_read_max_sge(struct svcxprt_rdma *xprt, int sge_count)
->>   {
->> -    if (rdma_node_get_transport(xprt->sc_cm_id->device->node_type) ==
->> -         RDMA_TRANSPORT_IWARP)
->> +    if (!cap_read_multi_sge(xprt->sc_cm_id->device,
->> +                xprt->sc_cm_id->port_num))
->>           return 1;
->>       else
->>           return min_t(int, sge_count, xprt->sc_max_sge);
-> 
-> This is incorrect. The RDMA Read max is not at all the same as the
-> max_sge. It is a different operation, with a different set of work
-> request parameters.
-> 
-> In other words, the above same comment applies.
-
-Any idea on how to improve this part?
-
-Again, all these helpers just inherit the old logical, if
-it's wrong, let's correct it ;-)
-
-And if we don't know how to correct, we can leave this as a
-signpost and waiting for someone good at this particular part
-to fix it.
-
-> 
-> 
->> diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
->> index 4e61880..e75175d 100644
->> --- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
->> +++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
->> @@ -979,8 +979,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
->>       /*
->>        * Determine if a DMA MR is required and if so, what privs are required
->>        */
->> -    switch (rdma_node_get_transport(newxprt->sc_cm_id->device->node_type)) {
->> -    case RDMA_TRANSPORT_IWARP:
->> +    if (rdma_transport_iwarp(newxprt->sc_cm_id->device,
->> +                 newxprt->sc_cm_id->port_num)) {
->>           newxprt->sc_dev_caps |= SVCRDMA_DEVCAP_READ_W_INV;
-> 
-> Do I read this correctly that it is forcing the "read with invalidate"
-> capability to "on" for all iWARP devices? I don't think that is correct,
-> for the legacy devices you're also supporting.
-
-Hmm.. but that's exactly same as the old logical, correct?
-Or do you mean the old logical is wrong?
-
-> 
-> 
->> @@ -992,8 +992,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
->>               dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
->>           } else
->>               need_dma_mr = 0;
->> -        break;
->> -    case RDMA_TRANSPORT_IB:
->> +    } else if (rdma_ib_mgmt(newxprt->sc_cm_id->device,
->> +                newxprt->sc_cm_id->port_num)) {
->>           if (!(newxprt->sc_dev_caps & SVCRDMA_DEVCAP_FAST_REG)) {
->>               need_dma_mr = 1;
->>               dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
-> 
-> Now I'm even more confused. How is the presence of IB management
-> related to needing a privileged lmr?
-
-I think you actually mean we need some more wrapper here
-with the right name, correct?
-
-I'm not good at this part, any suggestions?
-
-Regards,
-Michael Wang
-
-> 
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good. Thanks!
