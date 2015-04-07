@@ -1,61 +1,50 @@
-From: Ian Jackson <Ian.Jackson@eu.citrix.com>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen
-Date: Tue, 7 Apr 2015 19:13:31 +0100
-Message-ID: <21796.7755.270785.292996@mariner.uk.xensource.com>
-References: <21795.62414.465476.464027@mariner.uk.xensource.com>
-	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<21796.6843.983774.271495@mariner.uk.xensource.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 4/4] udp_tunnel: Pass UDP socket down through
+ udp_tunnel{,6}_xmit_skb().
+Date: Tue, 07 Apr 2015 21:14:20 +0200
+Message-ID: <1428434060.1373881.250400989.21CC8071@webmail.messagingengine.com>
+References: <20150405.221909.1825232827861250716.davem@davemloft.net>
+ <CALx6S35rK35GFZAcqygjGNRUhC=vJx60TYLFDUeUd2bAim7Vzg@mail.gmail.com>
+ <1428421534.2928.3.camel@stressinduktion.org>
+ <CALx6S37vo+9mDJKnkOhJXjArDLDju7hw4N5_Ggoir_U-OqmdAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: Michael Chan <mchan@broadcom.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	"David Vrabel" <david.vrabel@citrix.com>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:59035 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752720AbbDGTFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:05:19 -0400
-In-Reply-To: <21796.6843.983774.271495@mariner.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
+	=?UTF-8?Q?Ji=C5=99=C3=AD=20P=C3=ADrko?= <jiri@resnulli.us>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CALx6S37vo+9mDJKnkOhJXjArDLDju7hw4N5_Ggoir_U-OqmdAw@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ian Jackson writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
-> Evidently on this particular kernel, the error counters are _not_
-> increasing, contrary to what I said before.  I confess that I didn't
-> keep a record of on which particular machine and kernel I observed the
-> error count increasing.
-> 
-> If it would help I could try to check various other machines and/or
-> other kernels to see if I can get one of them to display the error
-> counter behaviour.
+On Tue, Apr 7, 2015, at 20:56, Tom Herbert wrote:
+> On Tue, Apr 7, 2015 at 8:45 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> >> > --- a/net/ipv6/ip6_tunnel.c
+> >> > +++ b/net/ipv6/ip6_tunnel.c
+> >> > @@ -1100,7 +1100,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+> >> >         ipv6h->nexthdr = proto;
+> >> >         ipv6h->saddr = fl6->saddr;
+> >> >         ipv6h->daddr = fl6->daddr;
+> >> > -       ip6tunnel_xmit(skb, dev);
+> >> > +       ip6tunnel_xmit(NULL, skb, dev);
+> >>
+> >> By same should logic iptunnel_xmit call in ip_tunnel_xmit should take
+> >> NULL arg for socket?
+> >
+> > Sure!
+> >
+> Actually, for consistency amongst all the IP encapsulation protocols
+> and given Dave's comments on how this is supposed to work, maybe for
+> the v4 and v6 tunnels we could have a raw AF_INET{6} socket opened for
+> all the tunnels to use when ip_tunnel_xmit is called. If it makes a
+> difference for UDP encapsulation, a UDP socket could also be opened.
 
-I just realised that I didn't check xenbr0 as well as eth0:
+Yes, agreed.
 
-root@bedbug:~# ifconfig xenbr0
-xenbr0    Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
-          inet addr:10.80.249.102  Bcast:10.80.251.255
-          Mask:255.255.252.0
-          inet6 addr: fe80::213:72ff:fe14:c051/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:12296 errors:0 dropped:793 overruns:0 frame:0
-          TX packets:437 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:618757 (604.2 KiB)  TX bytes:49084 (47.9 KiB)
-
-root@bedbug:~# ethtool -S xenbr0 | grep -v ': 0$'
-no stats available
-root@bedbug:~#
-
-The value for "dropped" increases steadily.  This particular box is on
-a network with a lot of other stuff, so it will be constantly
-receiving broadcasts of various kinds even when I am not trying to
-address it directly.
-
-Ian.
+Currently the semantics seem fine to me. vxlan needs this because it is
+communicating via multicast addresses and thus we depend on correct
+mc_loop behaviour. Which other tunnel protocols could be affected by
+this, too?
