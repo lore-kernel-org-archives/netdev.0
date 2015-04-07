@@ -1,64 +1,40 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 3/6] via-rhine: gotoize rhine_open error path.
-Date: Wed,  8 Apr 2015 00:40:50 +0200
-Message-ID: <23f0ab809fa79e19779b469b0f64b13a021af256.1428445141.git.romieu@fr.zoreil.com>
-References: <cover.1428445141.git.romieu@fr.zoreil.com>
+Subject: [PATCH RFT net-next #2 0/6] via-rhine receive buffers rework
+Date: Wed,  8 Apr 2015 00:40:47 +0200
+Message-ID: <cover.1428445141.git.romieu@fr.zoreil.com>
 Cc: "Nix" <nix@esperi.org.uk>, "David S. Miller" <davem@davemloft.net>,
 	rl@hellgate.ch, "Bjarke Istrup Pedersen" <gurligebis@gentoo.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:54405 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54410 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753213AbbDGWlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 18:41:04 -0400
-In-Reply-To: <cover.1428445141.git.romieu@fr.zoreil.com>
-In-Reply-To: <cover.1428445141.git.romieu@fr.zoreil.com>
-References: <cover.1428445141.git.romieu@fr.zoreil.com>
+	with ESMTP id S1753277AbbDGWlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 18:41:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/via/via-rhine.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+The series applies without error against v3.19 and davem-next as of
+812034f11628aaaab0e2d7af1d3bc50a49eb396b ("cxgb4: Move ethtool related
+code to a separate file").
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index aa398ea..91661e0 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -1688,15 +1688,14 @@ static int rhine_open(struct net_device *dev)
- 
- 	rc = request_irq(rp->irq, rhine_interrupt, IRQF_SHARED, dev->name, dev);
- 	if (rc)
--		return rc;
-+		goto out;
- 
- 	netif_dbg(rp, ifup, dev, "%s() irq %d\n", __func__, rp->irq);
- 
- 	rc = alloc_ring(dev);
--	if (rc) {
--		free_irq(rp->irq, dev);
--		return rc;
--	}
-+	if (rc < 0)
-+		goto out_free_irq;
-+
- 	alloc_rbufs(dev);
- 	alloc_tbufs(dev);
- 	rhine_chip_reset(dev);
-@@ -1709,7 +1708,12 @@ static int rhine_open(struct net_device *dev)
- 
- 	netif_start_queue(dev);
- 
--	return 0;
-+out:
-+	return rc;
-+
-+out_free_irq:
-+	free_irq(rp->irq, dev);
-+	goto out;
- }
- 
- static void rhine_reset_task(struct work_struct *work)
+. Changes since #1:
+  - turned wmb() into dma_wmb() as suggested by davem and Alexander Duyck
+    in patch 1 of 6.
+  - forgot to reset rx_head_desc in rhine_reset_rbufs in patch 4 of 6.
+  - removed rx_head_desc altogether in (*new*) patch 5 of 6
+  - remoed some vlan receive uglyness in (*new*) patch 6 of 6.
+
+Francois Romieu (6):
+  via-rhine: commit receive buffer address before descriptor status
+    update.
+  via-rhine: add allocation helpers.
+  via-rhine: gotoize rhine_open error path.
+  via-rhine: forbid holes in the receive descriptor ring.
+  via-rhine: kiss rx_head_desc goodbye.
+  via-rhine: beautify vlan receive code.
+
+ drivers/net/ethernet/via/via-rhine.c | 195 +++++++++++++++++++++--------------
+ 1 file changed, 115 insertions(+), 80 deletions(-)
+
 -- 
-2.1.0
+Ueimor
