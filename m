@@ -1,71 +1,63 @@
-From: yjin <yanjiang.jin@windriver.com>
-Subject: Re: [PATCH] ethernet: e1000e: define lat_ns as u64 instead of s64
-Date: Tue, 7 Apr 2015 10:35:05 +0800
-Message-ID: <55234259.7030306@windriver.com>
-References: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com> <1428054159.2662.82.camel@jtkirshe-mobl>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH 0/4] Prevent UDP tunnels from operating on garbage socket
+Date: Mon, 6 Apr 2015 19:43:11 -0700
+Message-ID: <CALx6S35bZ6t9d+cpHRXYS94N6rGuHhACMAt9Bj6UzCwBuomBSA@mail.gmail.com>
+References: <20150405.221847.2119086885797169021.davem@davemloft.net>
+	<CALx6S348YyYxrT+3fcXEFz=w6BYFGZwcQ6iD1PjzVePotioJKw@mail.gmail.com>
+	<20150406.124114.924455461962119301.davem@davemloft.net>
+	<20150406.131700.185460014498109286.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <bruce.w.allan@intel.com>, <john.ronciak@intel.com>,
-	<netdev@vger.kernel.org>, <jinyanjiang@gmail.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	pablo@netfilter.org, hannes@stressinduktion.org,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:45582 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752884AbbDGCe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 22:34:59 -0400
-In-Reply-To: <1428054159.2662.82.camel@jtkirshe-mobl>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:33891 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752984AbbDGCnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Apr 2015 22:43:12 -0400
+Received: by iedfl3 with SMTP id fl3so41068440ied.1
+        for <netdev@vger.kernel.org>; Mon, 06 Apr 2015 19:43:11 -0700 (PDT)
+In-Reply-To: <20150406.131700.185460014498109286.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jeff,
-
-Thanks for your reminder. I used linux/scripts/get_maintainer.pl to get=
-=20
-the maintainer list before, next time I will do as you said.
-
-Regards!
-Yanjiang
-
-On 2015=E5=B9=B404=E6=9C=8803=E6=97=A5 17:42, Jeff Kirsher wrote:
-> On Fri, 2015-04-03 at 17:17 +0800, yanjiang.jin@windriver.com wrote:
->> From: Yanjiang Jin <yanjiang.jin@windriver.com>
->>
->> do_div() expects the type of "n" to be uint64_t, define "lat_ns" as
->> u64 to
->> avoid the below warning, also update its correlative operations and
->> data.
->>
->> In file included from ./arch/powerpc/include/asm/div64.h:1:0,
->>                   from include/linux/kernel.h:124,
->>                   from include/linux/list.h:8,
->>                   from include/linux/timer.h:4,
->>                   from drivers/net/ethernet/intel/e1000e/e1000.h:29,
->>                   from drivers/net/ethernet/intel/e1000e/ich8lan.c:5=
-9:
->> drivers/net/ethernet/intel/e1000e/ich8lan.c: In function
->> 'e1000_platform_pm_pch_lpt':
->> include/asm-generic/div64.h:43:28: warning: comparison of distinct
->> pointer types lacks a cast [enabled by default]
->>    (void)(((typeof((n)) *)0) =3D=3D ((uint64_t *)0)); \
->>                              ^
->> drivers/net/ethernet/intel/e1000e/ich8lan.c:1016:4: note: in expansi=
-on
->> of macro 'do_div'
->>      do_div(lat_ns, speed);
->>
->> Signed-off-by: Yanjiang Jin <yanjiang.jin@windriver.com>
->> ---
->>   drivers/net/ethernet/intel/e1000e/ich8lan.c | 8 ++++----
->>   1 file changed, 4 insertions(+), 4 deletions(-)
-> Added intel-wired-lan mailing list (used for patches like this)
-> Removed LKML ... (wrong mailing list to be mailing for patches like
-> this)
-> Removed e1000-devel ... (no longer used for kernel patches)
-> Removed linux.nics ... (no longer used for kernel patches)
+On Mon, Apr 6, 2015 at 10:17 AM, David Miller <davem@davemloft.net> wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 06 Apr 2015 12:41:14 -0400 (EDT)
 >
-> Also removed Intel developers with no interest in e1000e patches ...
+>> Tom if you are saying that skb->sk should be reset to the tunnel
+>> socket, that doesn't work and is completely broken.
 >
-> Thanks Yanjiang, I will add your patch to my queue.
+> Thinking some more, I think what you are missing is that deeper in the
+> ipv4/ipv6 transmit call chain we do things like sk_mc_loop() etc. on
+> the socket and we cannot just do it on skb->sk.
 >
+> To make that work correctly we must pass the tunnel socket down
+> through the ipv4/ipv6 packet output paths, via netfilter hooks
+> if necessary.
+>
+> I am also really disappointed with the call signature of the udp
+> tunnel send paths.  You have to be honest with yourself and agree
+> that something with 11 arguments is not a well designed interface.
+>
+> Now that hopefully you can see that the socket is actually required,
+> can possibly use that to trim the function signature down for
+> udp_tunnel{,6}_xmit_skb()?
+>
+To be honest, requiring an additional socket to transmit UDP
+encapsulation seems really convoluted to me, especially considering
+that this is just trying trying to solve AF_PACKET in nf which seems
+like a narrow use case.  Is there no way to test for AF_PACKET sockets
+and take action at a lower function?  Does every type encapsulation
+need its own UDP socket, or can you just have one which set from the
+udp_tunnel when family of skb->sk is AF_PACKET?
+
+Thanks,
+Tom
+
+> Worst case, make a "struct udp_tunnel_state" just like I made a "struct
+> nf_hook_state" for the netfilter hooks.
+>
+> Thanks.
