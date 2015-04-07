@@ -1,147 +1,123 @@
-From: Vivek Venkatraman <vivek@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 6/8] iproute2: Add support for the RTA_VIA attribute
-Date: Tue, 7 Apr 2015 09:58:45 -0700
-Message-ID: <CAMs_D182V7LW1Onxzz5ENbqF2TQQFm0Ly0wiXfntZP91zeT5xA@mail.gmail.com>
-References: <87bnjwspek.fsf@x220.int.ebiederm.org>
-	<c3ad7d77783046d38e5b23b5e1fe0f71@BRMWP-EXMB11.corp.brocade.com>
-	<20150315123337.2694183a@urahara>
-	<87lhiyoxnw.fsf@x220.int.ebiederm.org>
-	<87bnjuoxe8.fsf_-_@x220.int.ebiederm.org>
-	<87d24animx.fsf_-_@x220.int.ebiederm.org>
-	<552310E6.5060503@cumulusnetworks.com>
-	<20150406232713.GR1051@gospo>
-	<5523EFEB.1030205@cumulusnetworks.com>
-	<87pp7for7v.fsf@x220.int.ebiederm.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v3 2/4] mpls: Differentiate implicit-null and unlabeled neighbours
+Date: Tue, 07 Apr 2015 11:56:15 -0500
+Message-ID: <87pp7fkhcg.fsf@x220.int.ebiederm.org>
+References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
+	<1427739356-28113-1-git-send-email-rshearma@brocade.com>
+	<1427739356-28113-3-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: roopa <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Robert Shearman <rshearma@brocade.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:36543 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751921AbbDGQ6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 12:58:47 -0400
-Received: by wizk4 with SMTP id k4so25105064wiz.1
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 09:58:46 -0700 (PDT)
-In-Reply-To: <87pp7for7v.fsf@x220.int.ebiederm.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:40557 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751068AbbDGRAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 13:00:19 -0400
+In-Reply-To: <1427739356-28113-3-git-send-email-rshearma@brocade.com> (Robert
+	Shearman's message of "Mon, 30 Mar 2015 19:15:54 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 7, 2015 at 9:09 AM, Eric W. Biederman <ebiederm@xmission.com> wrote:
-> roopa <roopa@cumulusnetworks.com> writes:
+Robert Shearman <rshearma@brocade.com> writes:
+
+> The control plane can advertise labels for neighbours that don't have
+> an outgoing label. RFC 3031 s3.22 states that either the remaining
+> labels should be popped (if the control plane can determine that it's
+> safe to do so, which in light of MPLS-VPN, RFC 4364, is never the case
+> now) or that the packet should be discarded.
 >
->> On 4/6/15, 4:27 PM, Andy Gospodarek wrote:
->>> On Mon, Apr 06, 2015 at 04:04:06PM -0700, roopa wrote:
->>>> On 3/15/15, 12:52 PM, Eric W. Biederman wrote:
->>>>> Add support for the RTA_VIA attribute that specifies an address family
->>>>> as well as an address for the next hop gateway.
->>>>>
->>>>> To make it easy to pass this reorder inet_prefix so that it's tail
->>>>> is a proper RTA_VIA attribute.
->>>>>
->>>>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->>>>> ---
->>>>>   include/linux/rtnetlink.h |  7 +++++
->>>>>   include/utils.h           |  7 +++--
->>>>>   ip/iproute.c              | 76 +++++++++++++++++++++++++++++++++++++++++------
->>>>>   man/man8/ip-route.8.in    | 18 +++++++----
->>>>>   4 files changed, 90 insertions(+), 18 deletions(-)
->>>>>
->>>>> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
->>>>> index 3eb78105399b..03e4c8df8e60 100644
->>>>> --- a/include/linux/rtnetlink.h
->>>>> +++ b/include/linux/rtnetlink.h
->>>>> @@ -303,6 +303,7 @@ enum rtattr_type_t {
->>>>>    RTA_TABLE,
->>>>>    RTA_MARK,
->>>>>    RTA_MFC_STATS,
->>>>> +  RTA_VIA,
->>>> eric, if its not too late, what do you think about renaming RTA_VIA
->>>> attribute to
->>>> RTA_NEWGATEWAY (similar to your new RTA_NEWDST attribute to specify a label
->>>> dst) ?. RTA_VIA is fine too.
->>>> This is indeed a new way to specify a gateway (and can/will be used by RFC
->>>> 5549 in the future).
->>>>
->>>> If there is interest in renaming it to RTA_NEWGATEWAY (or any other name,
->>>> cant think of anything better right now),
->>>> I will be happy to submit a follow-on patch.
->>> FWIW, I actually do not mind the name RTA_VIA.  I was planning to
->>> replace use of RTA_GATEWAY in iproute2 and just usa RTA_VIA for all
->>> nexthops regardless of the address family of the dest route or nexthop
->>> and would allow easy creation of the infrastructure needed to support
->>> RFC5549 -- obviously while keeping backwards compatibility in the
->>> kernel.
->> ok, good to know.
->
-> To answer the original question.  The new in RTA_NEWDST is not new as in
-> a new attribute it is new as in replace the destination address with a
-> new destination address.  NAT in other words.  Which is how mpls routing
-> works.  Each hop NATs the address before sending the packet on.
->
+> Therefore, if the peer is unlabeled and the last label wasn't popped
+> then drop the packet. The peer being unlabeled is signalled by an
+> empty label stack. However, penultimate hop popping still needs to be
+> supported (RFC 3031 s4.1.5) where the incoming label is popped and no
+> labels are put on and the packet can still go out labeled with the
+> remainder of the stack. This is achieved by the control plane
+> specifying a label stack consisting of the single special
+> implicit-null value.
 
-At the edge, when doing IPoMPLS, we'll be imposing a set of labels on
-top of the packet rather than replacing, but the same semantics can be
-applied because the destination address is now different and becomes a
-label stack.
+I disagree with this approach to limiting what can be in an mpls tunnel.
+I agree that it would be nice to limit what is an mpls tunnel.
 
-One thing to note is that the destination address replaced/imposed
-could change based on the path selected, when there is ECMP. So, I
-propose that the iproute2 syntax of "as [to]" be reconsidered for
-MPLS, otherwise we'll end up with something like the following when
-this is extended to setup IPoMPLS direct forwarding with ECMP:
+However I want the code and semantics as clean as we can make them.
 
-ip route add 147.1.1.0/24 nexthop as to 400/2230 via inet 192.168.1.1
-dev eth0 nexthop as to 600/2400 via inet 192.168.2.1 dev eth1
+So what I suggest is to add something like
 
-Instead, if we use the specifier "label", we'll get:
+RTA_PSEUDOWIRE
 
-ip route add 147.1.1.0/24 nexthop via inet 192.168.1.1 dev eth0 label
-400/2230 nexthop via inet 192.168.2.1 dev eth1 label 600/2400
+That has a integer for a type with values like:
 
-The transit case (label swapping) would look like:
+PW_FRAME_RELAY_DLCI	0x0001
+PW_ATM_AAL5_SDU		0x0002
+PW_ATM_TRANSPARENT_CELL 0x0003
+PW_ETHERNET_TAGGED	0x0004
+PW_ETHERNET		0x0005
+PW_HDLC			0x0006
+PW_PPP			0x0007
+PW_IP			0x000B
 
-ip -f mpls route add 400 via inet 192.168.1.10 dev eth0 label 500
+Roughly the values from the psedo wire registry
+http://www.iana.org/assignments/pwe3-parameters/pwe3-parameters.xhtml
 
-The syntax can then be better extended to specify a label operation
-such as "pop" which would be needed when performing ultimate hop pop
-(UHP) and then lookup/forward based on underlying label stack or IP
-header.
+That won't quite work because psedo wires are a subset of what
+can be transported over an MPLS network, and a superset of what
+we implement in the kernel.  So we need a different identifier.
 
-A new application besides MPLS that needs to modify the destination
-address would use its own keyword but encode using the RTA_NEWDST
-attribute.
+In passing I will note that the current implementation defaults to
+pseudo wire type 0x000B IP layer2 transport.  Which can carry both ipv4
+and ipv6 traffic, as well as a generic associated channel.  So unlike
+being a weird except to rules what I have actually implemented is
+well enough specified that you can signal it.
 
->>> This was what my orignal set did (not submitted to netdev, but discussed
->>> with others at netconf) and it was much cleaner code-wise (but not ideal
->>> as I overloaded the use of RTA_GATEWAY and that was not pleasing to me
->>> or others).
->> ok, yeah i remember you had RTA_GATEWAY6 or something like that.
->>
->> just to clarify, i was not suggesting overloading.
->> eric introduced cleaner abstracted attributes for RTA_DST and RTA_GATEWAY.
->> One is called RTA_NEWDST and I was thinking if changing RTA_GATEWAY to
->> RTA_NEWGATEWAY
->> would be less confusing (because, the rest of the structures
->> (ipv4/ipv6) where you will put the
->> RTA_VIA information is still called gw).
->>
->> No worries, RTA_VIA can stay if more people prefer that.
->
-> As long as the number and the semantics don't change I don't much care.
->
-> However I think via is probably what we should have called the concept
-> and the field in the first place, and certainly there are corner cases
-> where the machine where we are going via is not actually a gateway but
-> the final destination, when you are talking about multiple protocols.
->
-> Regardless the name RTA_VIA is my best attempt in that direction.
->
-> All of my added support in iproute2 should work for RFC5549.  As well as
-> for mpls.
->
-> Eric
+So for sake of argument let's call it.
+
+RTA_MPLS_PAYLOAD_TYPE
+
+And have values, something like.
+
+#define MPLS_PL_IPV4		0x4
+#define MPLS_PL_IPV6		0x6
+#define MPLS_PL_MPLS		0x10
+#define MPLS_PL_ETHERNET_TAGGED	0x14
+#define MPLS_PL_ETHERNET	0x15
+#define MPLS_PL_IP		0x1B
+
+
+And have the semantics be that if you have foreced the payload type with
+the attribute and the packet does not match the specified payload we
+drop the packet.  Not having the BOS set for anything except for
+MPLS_PL_MPLS would be such an error that would cause the packet to
+be dropped, and having BOS set for MPLS_PL_MPLS would be an error.
+
+Where I am defining MPLS_PL_MPLS to be the payload type of a label
+that transports mpls traffic and is not expected to end at this node.
+
+Although I am not certain that you care about the case I am describing
+being handled by MPLS_PL_MPLS.
+
+We should also refuse to accept labels with the implicit NULL set in the 
+RTA_NEWDST attribute.
+
+I have read through a bunch of RFCs and I have not seen your distinction
+between implict NULL and unlabled show up anywhere quite the way you are
+making it.   Regardless what you are trying to do seems to be a
+transference from a signalling protocol to the rtnetlink attributes that
+mixes semantics.
+
+The current rtnetlink attribute semantics are clean simple and easy to
+understand.  When you see the label RTA_DST you remove it and you apply
+the label RTA_NEWDST. 
+
+I find playing games with implicit NULL as opposed to using an
+RTA_MPLS_PAYLOAD_TYPE type to be mixing of unconnected things and likely
+to lead to maintenance problems in the future.
+
+Your reference to RFC3031 section 3.22 also does not work to justify
+this behavior as RFC3031 is about receiving a packet that whose top most
+label is not in the label table.
+
+In short I think the packet handling semantics you are after are quite
+reasonable but your approach is unnecessarily complicated, and
+confusing.
+
+Eric
