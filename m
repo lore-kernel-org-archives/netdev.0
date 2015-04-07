@@ -1,64 +1,103 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 3/4] netfilter: Pass socket pointer down through okfn().
-Date: Tue, 07 Apr 2015 20:56:40 +0200
-Message-ID: <1428433000.1370458.250399053.27D6D503@webmail.messagingengine.com>
-References: <20150405.221904.606225054570296194.davem@davemloft.net>
- <1428417869.2928.1.camel@stressinduktion.org>
- <20150407153533.GA3979@salvia>
- <20150407.120122.1683603489877737371.davem@davemloft.net>
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCH v2 11/17] IB/Verbs: Reform link_layer_show() and ib_uverbs_query_port()
+Date: Tue, 7 Apr 2015 13:56:47 -0500
+Message-ID: <005e01d07164$9954e390$cbfeaab0$@opengridcomputing.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523CF30.7000608@profitbricks.com> <1828884A29C6694DAF28B7E6B8A82373A8FBE2FA@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	jiri@resnulli.us
-To: David Miller <davem@davemloft.net>, pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150407.120122.1683603489877737371.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: "'Hal Rosenstock'" <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"'Tom Tucker'" <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	"'Hoang-Nam Nguyen'" <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	"'Christoph Raisch'" <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	"'infinipath'" <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"'Eli Cohen'" <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"'Latif, Faisal'" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"'Upinder Malhi'" <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	"'Trond Myklebust'" <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"'J. Bruce Fields'" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"'David S. Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"'Weiny, Ira'" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"'PJ Waskiewicz'" <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	"'Nikolova, Tatyana E'" <tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"'Or Gerlitz'" <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"'Jack Morgenstein'" <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	"'Haggai Eran'" <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"'Ilya Nelkenbaum'" <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"'Yann Droneaud'" <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	"'Bart Van Assche'" <bvanassche-HInyCGIudOg@public.gmane.org>,
+	"'Sha
+To: "'Hefty, Sean'" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"'Michael Wang'" <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	"'Roland Dreier'" <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FBE2FA-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Content-Language: en-us
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 7, 2015, at 18:01, David Miller wrote:
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date: Tue, 7 Apr 2015 17:35:33 +0200
 > 
-> > On Tue, Apr 07, 2015 at 04:44:29PM +0200, Hannes Frederic Sowa wrote:
-> >> On So, 2015-04-05 at 22:19 -0400, David Miller wrote:
-> >> > --- a/include/linux/netfilter.h
-> >> > +++ b/include/linux/netfilter.h
-> >> > @@ -54,7 +54,7 @@ struct nf_hook_state {
-> >> >  	struct net_device *in;
-> >> >  	struct net_device *out;
-> >> >  	struct sock *sk;
-> >> > -	int (*okfn)(struct sk_buff *);
-> >> > +	int (*okfn)(struct sock *, struct sk_buff *);
-> >> >  };
-> >> 
-> >> If we give okfn the signature int (*okfn)(struct nf_hook_state *); then
-> >> we would not need to touch anything else to enhance this.
-> >> 
-> >> What do you think?
-> > 
-> > I guess you mean something like:
-> > 
-> >         int (*okfn)(struct sk_buff *, struct nf_hook_state *);
-> > 
-
-Yes, correct of course.
-
-> > I agree that would save us from more changes on the okfn() signature.
-> > I think it's OK if that change is introduced once we have some client
-> > code that needs it, I mean in a follow up patch.
+> > diff --git a/drivers/infiniband/core/sysfs.c
+> > b/drivers/infiniband/core/sysfs.c
+> > index cbd0383..aa53e40 100644
+> > --- a/drivers/infiniband/core/sysfs.c
+> > +++ b/drivers/infiniband/core/sysfs.c
+> > @@ -248,14 +248,10 @@ static ssize_t phys_state_show(struct ib_port *p,
+> > struct port_attribute *unused,
+> >  static ssize_t link_layer_show(struct ib_port *p, struct port_attribute
+> > *unused,
+> >  			       char *buf)
+> >  {
+> > -	switch (rdma_port_get_link_layer(p->ibdev, p->port_num)) {
+> > -	case IB_LINK_LAYER_INFINIBAND:
+> > +	if (rdma_transport_ib(p->ibdev, p->port_num))
+> >  		return sprintf(buf, "%s\n", "InfiniBand");
+> > -	case IB_LINK_LAYER_ETHERNET:
+> > +	else
+> >  		return sprintf(buf, "%s\n", "Ethernet");
+> > -	default:
+> > -		return sprintf(buf, "%s\n", "Unknown");
+> > -	}
+> >  }
+> >
+> >  static PORT_ATTR_RO(state);
+> > diff --git a/drivers/infiniband/core/uverbs_cmd.c
+> > b/drivers/infiniband/core/uverbs_cmd.c
+> > index a9f0489..3eb6eb5 100644
+> > --- a/drivers/infiniband/core/uverbs_cmd.c
+> > +++ b/drivers/infiniband/core/uverbs_cmd.c
+> > @@ -515,8 +515,10 @@ ssize_t ib_uverbs_query_port(struct ib_uverbs_file
+> > *file,
+> >  	resp.active_width    = attr.active_width;
+> >  	resp.active_speed    = attr.active_speed;
+> >  	resp.phys_state      = attr.phys_state;
+> > -	resp.link_layer      = rdma_port_get_link_layer(file->device-
+> > >ib_dev,
+> > -							cmd.port_num);
+> > +	resp.link_layer      = rdma_transport_ib(file->device->ib_dev,
+> > +							cmd.port_num) ?
+> > +			       IB_LINK_LAYER_INFINIBAND :
+> > +			       IB_LINK_LAYER_ETHERNET;
+> >
+> >  	if (copy_to_user((void __user *) (unsigned long) cmd.response,
+> >  			 &resp, sizeof resp))
 > 
-> No, becuase this means things like ip_finish_output(), and even
-> generic functions like dst_output(), dev_loopback_xmit(), and friends
-> will have netfilter specific arguments, and that is not acceptable.
+> Both of the above check the transport in order to determine the link layer.
 > 
-> Please do not suggest this.
+> These values are exposed to user space.  Does anyone know what link layer iWarp returns to user space?
 
-This idea would imply to e.g. rename nf_hook_state into something not
-associated with netfilter. Otherwise I don't see any dependencies on
-netfilter.
+Ethernet:
 
-I like the patches as-is and if not necessary we don't need to do this.
+t4:~ # ibv_devinfo -d cxgb4_0|grep link_layer
+                        link_layer:             Ethernet
+                        link_layer:             Ethernet
 
-Thanks!
+Steve.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
