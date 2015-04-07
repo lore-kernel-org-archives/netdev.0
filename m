@@ -1,55 +1,61 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
+From: Romain Francoise <romain@orebokech.com>
 Subject: Re: [PATCH] xfrm: fix xfrm_input/xfrm_tunnel_check oops
-Date: Tue, 7 Apr 2015 14:43:41 +0300
-Message-ID: <20150407114341.GA4492@p183.telecom.by>
+Date: Tue, 07 Apr 2015 14:14:43 +0200
+Message-ID: <877ftoi18s.fsf@orebokech.com>
 References: <20150402075824.GA2079@p183.telecom.by>
- <20150407085731.GH20559@secunet.com>
+	<20150407085731.GH20559@secunet.com>
+	<20150407114341.GA4492@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, mike@normi.net, netdev@vger.kernel.org,
+Content-Type: text/plain
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	davem@davemloft.net, mike@normi.net, netdev@vger.kernel.org,
 	herbert@gondor.apana.org.au
-To: Steffen Klassert <steffen.klassert@secunet.com>
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:36312 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752686AbbDGLnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 07:43:46 -0400
-Received: by wgsk9 with SMTP id k9so30475363wgs.3
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 04:43:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150407085731.GH20559@secunet.com>
+Received: from stringer.orebokech.com ([212.83.175.182]:34567 "EHLO
+	stringer.orebokech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbbDGMWT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 08:22:19 -0400
+In-Reply-To: <20150407114341.GA4492@p183.telecom.by> (Alexey Dobriyan's
+	message of "Tue, 7 Apr 2015 14:43:41 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 07, 2015 at 10:57:32AM +0200, Steffen Klassert wrote:
-> On Thu, Apr 02, 2015 at 10:58:24AM +0300, Alexey Dobriyan wrote:
-> > https://bugzilla.kernel.org/show_bug.cgi?id=95211
-> > 
-> > Commit 70be6c91c86596ad2b60c73587880b47df170a41
-> > ("xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer") added check
-> > which dereferences ->outer_mode too early but larval SAs don't have
-> > this pointer set (yet). So check for tunnel stuff later.
-> > 
-> > Mike Noordermeer reported this bug and patiently applied all the debugging.
-> > 
-> > Technically this is remote-oops-in-interrupt-context type of thing.
-> > 
-> > BUG: unable to handle kernel NULL pointer dereference at 0000000000000034
-> > IP: [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
-> > 	...
-> > [<ffffffff81500fc6>] ? xfrm4_esp_rcv+0x36/0x70
-> > [<ffffffff814acc9a>] ? ip_local_deliver_finish+0x9a/0x200
-> > [<ffffffff81471b83>] ? __netif_receive_skb_core+0x6f3/0x8f0
-> > 	...
-> > 
-> > RIP  [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
-> > Kernel panic - not syncing: Fatal exception in interrupt
-> > 
-> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> 
-> Good catch!
-> 
-> Applied to the ipsec tree, thanks everyone!
+On Tue, Apr 07, 2015 at 02:43:41PM +0300, Alexey Dobriyan wrote:
+> On Tue, Apr 07, 2015 at 10:57:32AM +0200, Steffen Klassert wrote:
+>> On Thu, Apr 02, 2015 at 10:58:24AM +0300, Alexey Dobriyan wrote:
+>> > https://bugzilla.kernel.org/show_bug.cgi?id=95211
+>> > 
+>> > Commit 70be6c91c86596ad2b60c73587880b47df170a41
+>> > ("xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer") added check
+>> > which dereferences ->outer_mode too early but larval SAs don't have
+>> > this pointer set (yet). So check for tunnel stuff later.
+>> > 
+>> > Mike Noordermeer reported this bug and patiently applied all the debugging.
+>> > 
+>> > Technically this is remote-oops-in-interrupt-context type of thing.
+>> > 
+>> > BUG: unable to handle kernel NULL pointer dereference at 0000000000000034
+>> > IP: [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+>> > 	...
+>> > [<ffffffff81500fc6>] ? xfrm4_esp_rcv+0x36/0x70
+>> > [<ffffffff814acc9a>] ? ip_local_deliver_finish+0x9a/0x200
+>> > [<ffffffff81471b83>] ? __netif_receive_skb_core+0x6f3/0x8f0
+>> > 	...
+>> > 
+>> > RIP  [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+>> > Kernel panic - not syncing: Fatal exception in interrupt
+>> > 
+>> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+>> 
+>> Good catch!
+>> 
+>> Applied to the ipsec tree, thanks everyone!
 
-For the record Mike confirmed that the patch works:
-https://bugzilla.kernel.org/show_bug.cgi?id=95211#c20
+> For the record Mike confirmed that the patch works:
+> https://bugzilla.kernel.org/show_bug.cgi?id=95211#c20
+
+Does this only affect configurations that use VTI? It's not clear from
+the description.
+
+Thanks.
