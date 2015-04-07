@@ -1,67 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v3] net: sysctl for RA default route MTU
-Date: Tue, 07 Apr 2015 17:58:30 +0200
-Message-ID: <1428422310.2928.8.camel@stressinduktion.org>
-References: <1427834148.979686.247747037.29964C1B@webmail.messagingengine.com>
-	 <20150331.164923.229749666073516444.davem@davemloft.net>
-	 <68621427882330@webcorp01g.yandex-team.ru>
-	 <20150401.135532.1368728758929086692.davem@davemloft.net>
-	 <1427916447.1816412.248215129.072B6ABF@webmail.messagingengine.com>
-	 <36791427998117@webcorp02f.yandex-team.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/4] netfilter: Pass socket pointer down through okfn().
+Date: Tue, 07 Apr 2015 11:59:34 -0400 (EDT)
+Message-ID: <20150407.115934.1965685795824815835.davem@davemloft.net>
+References: <20150405.221904.606225054570296194.davem@davemloft.net>
+	<1428417869.2928.1.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Roman Gushchin <klamm@yandex-team.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <36791427998117@webcorp02f.yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	pablo@netfilter.org, jiri@resnulli.us
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55913 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754107AbbDGP7g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 11:59:36 -0400
+In-Reply-To: <1428417869.2928.1.camel@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Do, 2015-04-02 at 21:08 +0300, Roman Gushchin wrote:
-> >>  The next question I have is about the behavior of the new setting
-> >>  in the presence of an RA MTU option.  It seems like the sysctl
-> >>  doesn't override that RA MTU option, but rather just clamps it.
-> >>
-> >>  And then if it's in range, this controls only whether the default
-> >>  route has it's MTU adjusted.
-> >>
-> >>  That doesn't make any sense to me if we then go and do the
-> >>  rt6_mtu_change() call unconditionally.  The route metric update
-> >>  and the rt6_mtu_change() go hand in hand.
-> >
-> > Agreed but that gets interesting:
-> >
-> > I guess during testing the cnf.mtu6 value was equal to the newly
-> > announced mtu value, so the rt6_mtu_change call does not happen. We
-> > update cnf.mtu6 so a second RA packet would actually bring the system
-> > into the desired state but we have a moment where the default route
-> > carries a too big MTU. That's not good.
-> 
-> Agreed.
-> 
-> > Easiest solution is to reorder those calls but that also leaves us with
-> > a time frame where we carry the incorrect MTU on the default route.
-> > Otherwise we must conditionally filter out the default routes.
-> > Roman, any ideas?
-> 
-> I think, such approach will work on practise, but looks not very beatiful.
-> 
-> May be, a better idea is to serarate per-route and per-device MTU,
-> so an updating of per-device MTU will not affect per-route MTU.
-> Actual MTU can always been calculated as min(route_mtu, device_mtu),
-> but we wouldn't need to update mtu on each route on receiving RA MTU option, 
-> for instance.
-> 
-> Do you see any problems with such approach?
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Tue, 07 Apr 2015 16:44:29 +0200
 
-If I understood you correct this actually seems to be quite an intrusive
-change? :/ Can you show me some code how to do this?
+> On So, 2015-04-05 at 22:19 -0400, David Miller wrote:
+>> --- a/include/linux/netfilter.h
+>> +++ b/include/linux/netfilter.h
+>> @@ -54,7 +54,7 @@ struct nf_hook_state {
+>>  	struct net_device *in;
+>>  	struct net_device *out;
+>>  	struct sock *sk;
+>> -	int (*okfn)(struct sk_buff *);
+>> +	int (*okfn)(struct sock *, struct sk_buff *);
+>>  };
+> 
+> If we give okfn the signature int (*okfn)(struct nf_hook_state *); then
+> we would not need to touch anything else to enhance this.
+> 
+> What do you think?
 
-I would also dislike adding a filtering capability to the route mtu
-updates. Currently I don't have a god idea, sorry.
+We do not want nf_hook_state being an argument for non-netfilter output
+functions in the various protocols.
 
-Bye,
-Hannes
+So this is a terrible idea.
