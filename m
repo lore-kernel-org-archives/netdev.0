@@ -1,93 +1,165 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 2/4] xfrm: simplify xfrm_address_t use
-Date: Tue, 7 Apr 2015 09:01:33 -0700
-Message-ID: <20150407090133.0cb6cf4b@urahara>
-References: <cover.1427639592.git.jbenc@redhat.com>
-	<e70181767cd48da03733b6817466085c4629ff9a.1427639592.git.jbenc@redhat.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH v2 09/17] IB/Verbs: Use helper cap_read_multi_sge() and
+ reform svc_rdma_accept()
+Date: Tue, 07 Apr 2015 18:05:18 +0200
+Message-ID: <5524003E.8060500@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523CEE4.5060901@profitbricks.com> <5523FBF1.80304@talpey.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Chapman <jchapman@katalix.com>,
-	Paul Moore <paul@paul-moore.com>,
-	Pravin Shelar <pshelar@nicira.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:35491 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754100AbbDGQBa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 12:01:30 -0400
-Received: by pddn5 with SMTP id n5so83257206pdd.2
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 09:01:29 -0700 (PDT)
-In-Reply-To: <e70181767cd48da03733b6817466085c4629ff9a.1427639592.git.jbenc@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: Tom Talpey <tom-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5523FBF1.80304-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 29 Mar 2015 16:59:24 +0200
-Jiri Benc <jbenc@redhat.com> wrote:
+Hi, Tom
 
-> In many places, the a6 field is typecasted to struct in6_addr. As the
-> fields are in union anyway, just add in6_addr type to the union and
-> get rid of the typecasting.
->=20
-> Modifying the uapi header is okay, the union has still the same size.
->=20
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+Thanks for the comments :-)
 
-This change to the uapi header ends up breaking the iproute2 build
-when the headers are used.
+On 04/07/2015 05:46 PM, Tom Talpey wrote:
+> On 4/7/2015 8:34 AM, Michael Wang wrote:
+>>   /**
+>> + * cap_read_multi_sge - Check if the port of device has the capability
+>> + * RDMA Read Multiple Scatter-Gather Entries.
+>> + *
+>> + * @device: Device to be checked
+>> + * @port_num: Port number of the device
+>> + *
+>> + * Return 0 when port of the device don't support
+>> + * RDMA Read Multiple Scatter-Gather Entries.
+>> + */
+>> +static inline int cap_read_multi_sge(struct ib_device *device, u8 port_num)
+>> +{
+>> +    return !rdma_transport_iwarp(device, port_num);
+>> +}
+> 
+> This just papers over the issue we discussed earlier. How *many*
+> entries does the device support? If a device supports one, or two,
+> is that enough? How does the upper layer know the limit?
+> 
+> This needs an explicit device attribute, to be fixed properly.
 
-gcc -Wall -Wstrict-prototypes  -Wmissing-prototypes -Wmissing-declarati=
-ons -Wold-style-definition -Wformat=3D2 -O2 -I../include -DRESOLVE_HOST=
-NAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iproute2\" -D_GNU_SOUR=
-CE -DHAVE_SETNS   -c -o xfrm_monitor.o xfrm_monitor.c
-In file included from ../include/linux/xfrm.h:4:0,
-                 from xfrm_monitor.c:30:
-=2E./include/linux/in6.h:131:26: error: expected identifier before nume=
-ric constant
- #define IPPROTO_HOPOPTS  0 /* IPv6 hop-by-hop options */
-                          ^
-In file included from /usr/include/resolv.h:57:0,
-                 from ../include/utils.h:6,
-                 from xfrm_monitor.c:31:
-/usr/include/netinet/in.h:209:8: error: redefinition of =E2=80=98struct=
- in6_addr=E2=80=99
- struct in6_addr
-        ^
-In file included from ../include/linux/xfrm.h:4:0,
-                 from xfrm_monitor.c:30:
-=2E./include/linux/in6.h:32:8: note: originally defined here
- struct in6_addr {
-        ^
-In file included from /usr/include/resolv.h:57:0,
-                 from ../include/utils.h:6,
-                 from xfrm_monitor.c:31:
-/usr/include/netinet/in.h:252:8: error: redefinition of =E2=80=98struct=
- sockaddr_in6=E2=80=99
- struct sockaddr_in6
-        ^
-In file included from ../include/linux/xfrm.h:4:0,
-                 from xfrm_monitor.c:30:
-=2E./include/linux/in6.h:49:8: note: originally defined here
- struct sockaddr_in6 {
-        ^
-In file included from /usr/include/resolv.h:57:0,
-                 from ../include/utils.h:6,
-                 from xfrm_monitor.c:31:
-/usr/include/netinet/in.h:288:8: error: redefinition of =E2=80=98struct=
- ipv6_mreq=E2=80=99
- struct ipv6_mreq
-        ^
-In file included from ../include/linux/xfrm.h:4:0,
-                 from xfrm_monitor.c:30:
-=2E./include/linux/in6.h:59:8: note: originally defined here
- struct ipv6_mreq {
-        ^
-<builtin>: recipe for target 'xfrm_monitor.o' failed
-make[1]: *** [xfrm_monitor.o] Error 1
-make[1]: Leaving directory '/var/src/iproute2/ip'
-Makefile:48: recipe for target 'all' failed
+This is the prototype to expose the problem we have in here, I
+would prefer some one good at this part to extending the API in
+future, basing on the right logical.
+
+Currently this just inherit from the legacy, it implemented
+in order to be compatible with the current code.
+
+> 
+>> +
+>> +/**
+>>    * cap_ipoib - Check if the port of device has the capability
+>>    * IP over Infiniband.
+>>    *
+>> diff --git a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+>> index e011027..604d035 100644
+>> --- a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+>> +++ b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+>> @@ -118,8 +118,8 @@ static void rdma_build_arg_xdr(struct svc_rqst *rqstp,
+>>
+>>   static int rdma_read_max_sge(struct svcxprt_rdma *xprt, int sge_count)
+>>   {
+>> -    if (rdma_node_get_transport(xprt->sc_cm_id->device->node_type) ==
+>> -         RDMA_TRANSPORT_IWARP)
+>> +    if (!cap_read_multi_sge(xprt->sc_cm_id->device,
+>> +                xprt->sc_cm_id->port_num))
+>>           return 1;
+>>       else
+>>           return min_t(int, sge_count, xprt->sc_max_sge);
+> 
+> This is incorrect. The RDMA Read max is not at all the same as the
+> max_sge. It is a different operation, with a different set of work
+> request parameters.
+> 
+> In other words, the above same comment applies.
+
+Any idea on how to improve this part?
+
+Again, all these helpers just inherit the old logical, if
+it's wrong, let's correct it ;-)
+
+And if we don't know how to correct, we can leave this as a
+signpost and waiting for someone good at this particular part
+to fix it.
+
+> 
+> 
+>> diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+>> index 4e61880..e75175d 100644
+>> --- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
+>> +++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+>> @@ -979,8 +979,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
+>>       /*
+>>        * Determine if a DMA MR is required and if so, what privs are required
+>>        */
+>> -    switch (rdma_node_get_transport(newxprt->sc_cm_id->device->node_type)) {
+>> -    case RDMA_TRANSPORT_IWARP:
+>> +    if (rdma_transport_iwarp(newxprt->sc_cm_id->device,
+>> +                 newxprt->sc_cm_id->port_num)) {
+>>           newxprt->sc_dev_caps |= SVCRDMA_DEVCAP_READ_W_INV;
+> 
+> Do I read this correctly that it is forcing the "read with invalidate"
+> capability to "on" for all iWARP devices? I don't think that is correct,
+> for the legacy devices you're also supporting.
+
+Hmm.. but that's exactly same as the old logical, correct?
+Or do you mean the old logical is wrong?
+
+> 
+> 
+>> @@ -992,8 +992,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
+>>               dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
+>>           } else
+>>               need_dma_mr = 0;
+>> -        break;
+>> -    case RDMA_TRANSPORT_IB:
+>> +    } else if (rdma_ib_mgmt(newxprt->sc_cm_id->device,
+>> +                newxprt->sc_cm_id->port_num)) {
+>>           if (!(newxprt->sc_dev_caps & SVCRDMA_DEVCAP_FAST_REG)) {
+>>               need_dma_mr = 1;
+>>               dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
+> 
+> Now I'm even more confused. How is the presence of IB management
+> related to needing a privileged lmr?
+
+I think you actually mean we need some more wrapper here
+with the right name, correct?
+
+I'm not good at this part, any suggestions?
+
+Regards,
+Michael Wang
+
+> 
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
