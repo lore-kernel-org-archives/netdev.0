@@ -1,62 +1,63 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v4 3/3] RDS: make sure not to loop forever inside
- rds_send_xmit
-Date: Tue, 7 Apr 2015 17:56:05 -0400
-Message-ID: <20150407215605.GN29504@oracle.com>
-References: <cover.1428437150.git.sowmini.varadhan@oracle.com>
- <cover.1428437150.git.sowmini.varadhan@oracle.com>
- <a757317ae49acd938022254b5b0d899262d56008.1428437150.git.sowmini.varadhan@oracle.com>
- <20150407.172607.869971800253661690.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 3/5] fou: fix byte order of udp_config.local_udp_port
+Date: Tue, 7 Apr 2015 14:57:19 -0700
+Message-ID: <CAM_iQpUSDVe+8JVztLXefu06RmAv9e-upAgx71d9Lqiy98=fOw@mail.gmail.com>
+References: <1428363690-16288-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1428363690-16288-4-git-send-email-xiyou.wangcong@gmail.com>
+	<CALx6S350kJnG=Qv9MGBK9O9AciCU-y6s+moxm2oxCJ86SC1Eeg@mail.gmail.com>
+	<CAM_iQpX0ZzVH-OOo=bP7Mm9_0BzJ+aVwK30CiUok24hrTcYzAA@mail.gmail.com>
+	<CALx6S36moS-A225eLYt5VtGpVKEoNmitXSN-YjSMBDGne58fbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chien.yen@oracle.com, rds-devel@oss.oracle.com, zab@zabbo.net,
-	ajaykumar.hotchandani@oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150407.172607.869971800253661690.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:35722 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751879AbbDGV5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 17:57:20 -0400
+Received: by pddn5 with SMTP id n5so92380310pdd.2
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 14:57:19 -0700 (PDT)
+In-Reply-To: <CALx6S36moS-A225eLYt5VtGpVKEoNmitXSN-YjSMBDGne58fbw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On (04/07/15 17:26), David Miller wrote:
-> >  	/*
-> > +	 * we record the send generation after doing the xmit acquire.
-> > +	 * if someone else manages to jump in and do some work, we'll use
-> > +	 * this to avoid a goto restart farther down.
-> > +	 *
-> > +	 * we don't need a lock because the counter is only incremented
-> > +	 * while we have the in_xmit bit held.
-> > +	 */
-> > +	conn->c_send_gen++;
-> > +	send_gen = conn->c_send_gen;
-> 
-> This increment does need to either be changed to be an atomic_t
-> or covered by a lock.
-> 
-> Otherwise two concurrent callers can both try to increment it at
-> the same time, and it only effectively increments once.  That's
-> corrupted state and will break all of the new logic added here.
-I'm afraid I dont follow what race condiiton you are seeing? Prior
-to this line, the "acquire_in_xmit" check would have only allowed
-one thread to successfully increment c_send_gen, right? What did I
-miss?
+On Tue, Apr 7, 2015 at 2:47 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Tue, Apr 7, 2015 at 2:11 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Mon, Apr 6, 2015 at 11:09 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Mon, Apr 6, 2015 at 4:41 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>> diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+>>>> index ad0ee82..cf606fc 100644
+>>>> --- a/net/ipv4/fou.c
+>>>> +++ b/net/ipv4/fou.c
+>>>> @@ -468,7 +468,7 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+>>>>         sk = sock->sk;
+>>>>
+>>>>         fou->flags = cfg->flags;
+>>>> -       fou->port = cfg->udp_config.local_udp_port;
+>>>> +       fou->port = ntohs(cfg->udp_config.local_udp_port);
+>>>>
+>>> Cong, I don't think this is right. Port should always be nbo, probably
+>>> should be using __b16 instead of u16 for defines. Did you test these
+>>> changes?
+>>>
+>>
+>> Yeah, fou->port is u16 which should be host order, however
+>> we only save and compare it with be16, so the original code
+>> is not mis-behaving (otherwise should go to -net), just reads odd.
+>>
+>> I tested it together with the whole patchset. And I agree we can
+>> change fou->port to be16 too.
+>
+> Hmm,I don't understand how this could have worked with the ntohs() added.
+>
 
+I must miss something here.
 
-> Still very unhappy with this patch series submission, as I still find
-> new problems every time I look at these changes.  Are you evaluating
-> them and double checking all of the claims in the commit log message
-> and comments, and logic in these, or are you just passing them off
-> upstream after testing and leaving the checking to people like me?
+Why converting be16 to u16 with ntohs() doesn't work? After this
+patch, all u16 ports have host order, all be16 ports have network order
+and we don't mix them.
 
-I am sorry about the aggravation this is causing. But I'm trying to do
-the right thing here, and fix someone else's lapse in failing to
-properly commit things that were recognized as upstream issues.
-
-Thus all I'm left with is visual inspection, and to run whatever
-regression tests we have for these commits. 
-
---Sowmini
-
-[I had to truncate recipient list, because it does not make it past
-rds-devel moderator otherwise]
+fou->port is used as a key to lookup all fou's in fou_list and fou_list
+is not exposed.
