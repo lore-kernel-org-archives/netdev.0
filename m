@@ -1,33 +1,41 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 2/2] netns: don't allocate an id for dead netns
-Date: Tue, 07 Apr 2015 11:36:25 +0200
-Message-ID: <5523A519.4010907@6wind.com>
-References: <1428055357-15289-2-git-send-email-nicolas.dichtel@6wind.com>	<20150403.123650.1819000124764491725.davem@davemloft.net>	<5520F4D9.5030103@6wind.com> <20150405.163441.155537210057848679.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next v2 1/3] netns: minor cleanup in rtnl_net_getid()
+Date: Tue,  7 Apr 2015 11:51:52 +0200
+Message-ID: <1428400314-4472-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1428400314-4472-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:33007 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752816AbbDGJgb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 05:36:31 -0400
-Received: by wgin8 with SMTP id n8so49821726wgi.0
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 02:36:30 -0700 (PDT)
-In-Reply-To: <20150405.163441.155537210057848679.davem@davemloft.net>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:59895 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752906AbbDGJv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 05:51:56 -0400
+In-Reply-To: <1428400314-4472-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/04/2015 22:34, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Sun, 05 Apr 2015 10:39:53 +0200
->
->> I don't see these patches in your tree, maybe you forget to push
->> them on kernel.org?
->
-> Indeed, I did, pushed out now.  Sorry about that.
->
-No problem, thank you.
+No need to initialize err, it will be overridden by the value of nlmsg_parse().
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/core/net_namespace.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index e7345d9031df..be28afccfbbb 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -565,8 +565,8 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct net *net = sock_net(skb->sk);
+ 	struct nlattr *tb[NETNSA_MAX + 1];
+ 	struct sk_buff *msg;
+-	int err = -ENOBUFS;
+ 	struct net *peer;
++	int err;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, NETNSA_MAX,
+ 			  rtnl_net_policy);
+-- 
+2.2.2
