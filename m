@@ -1,57 +1,47 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH v2 10/17] IB/Verbs: Adopt management helpers for IB
- helpers
-Date: Tue, 7 Apr 2015 20:18:00 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FBE3B0@ORSMSX109.amr.corp.intel.com>
-References: <5523CCD5.6030401@profitbricks.com>
- <5523CF0A.5090206@profitbricks.com>
- <20150407201259.GA17147@obsidianresearch.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Tom Tucker" <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	infinipath <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"Latif, Faisal" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	"Trond Myklebust" <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	"Nikolova, Tatyana E" <tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150407201259.GA17147-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v4 0/3] RDS: RDS-core fixes
+Date: Tue,  7 Apr 2015 16:38:01 -0400
+Message-ID: <cover.1428437150.git.sowmini.varadhan@oracle.com>
+Cc: chien.yen@oracle.com, davem@davemloft.net,
+	rds-devel@oss.oracle.com, agrover@redhat.com, clm@fb.com,
+	zab@zabbo.net, ajaykumar.hotchandani@oracle.com,
+	sergei.shtylyov@cogentembedded.com,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > index f704254..4e61104 100644
-> > +++ b/drivers/infiniband/core/sa_query.c
-> > @@ -540,7 +540,7 @@ int ib_init_ah_from_path(struct ib_device *device,
-> u8 port_num,
-> >  	ah_attr->port_num = port_num;
-> >  	ah_attr->static_rate = rec->rate;
-> >
-> > -	force_grh = rdma_port_get_link_layer(device, port_num) ==
-> IB_LINK_LAYER_ETHERNET;
-> > +	force_grh = !rdma_transport_ib(device, port_num);
-> 
-> Maybe these tests should be called cap_mandatory_grh - but I'm not
-> really sure how iWarp uses the GRH fields in the AH...
+This patch-series updates the RDS core and rds-tcp modules with
+some bug fixes that were originally authored by  Andy Grover,
+Zach Brown, and Chris Mason.
 
-AH are used with unconnected endpoints, which iWarp doesn't currently support.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+v2: Code review comment by Sergei Shtylov
+V3: DaveM comments:
+- dropped patches 3, 5 for "heuristic" changes in rds_send_xmit(). 
+  Investigation into the root-cause of these IB-triggered changes 
+  produced the feedback: "I don't remember seeing "RDS: Stuck RM"
+  message in last 1-1.5 years and checking with other folks. It may very
+  well be some old workaround for stale connection for which long term
+  fix is already made and this part of code not exercised anymore."
+
+  Any such fixes, *if* they are needed, can/should be done in the
+  IB specific RDS transport modules.
+
+- similarly dropped the LL_SEND_FULL patch (patch 6 in v2 set)
+
+v4: Documentation/networking/rds.txt contains incorrect references 
+    to "missing sysctl values for pf_rds and sol_rds in mainline". 
+    The sysctl values were never needed in mainline, thus fix the
+    documentation.
+
+Sowmini Varadhan (3):
+  Document AF_RDS, PF_RDS and SOL_RDS correctly.
+  RDS: only use passive connections when addresses match
+  RDS: make sure not to loop forever inside rds_send_xmit
+
+ Documentation/networking/rds.txt |    9 ++++-----
+ net/rds/connection.c             |    3 ++-
+ net/rds/rds.h                    |    1 +
+ net/rds/send.c                   |   33 +++++++++++++++++++++++++++++++--
+ 4 files changed, 38 insertions(+), 8 deletions(-)
