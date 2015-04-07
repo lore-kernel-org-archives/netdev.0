@@ -1,52 +1,35 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH net-next 1/4] via-rhine: commit receive buffer address
- before descriptor status update.
-Date: Tue, 07 Apr 2015 16:20:49 -0700
-Message-ID: <55246651.3000007@redhat.com>
-References: <87c90b27962c818239073d3a65341054922bd563.1428340371.git.romieu@fr.zoreil.com>	 <20150407.155209.47396464487922345.davem@davemloft.net>	 <20150407210248.GC24631@electric-eye.fr.zoreil.com>	 <20150407.172748.700634713750750146.davem@davemloft.net>	 <1428443685.25985.212.camel@edumazet-glaptop2.roam.corp.google.com>	 <5524564C.9090809@redhat.com> <1428445367.25985.214.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen
+Date: Tue, 7 Apr 2015 16:21:09 -0700
+Message-ID: <1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <21795.62414.465476.464027@mariner.uk.xensource.com>
+	 <1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <21796.6843.983774.271495@mariner.uk.xensource.com>
+	 <21796.7755.270785.292996@mariner.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org, nix@esperi.org.uk, rl@hellgate.ch,
-	gurligebis@gentoo.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
+To: Ian Jackson <Ian.Jackson@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53721 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932164AbbDGXVE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2015 19:21:04 -0400
-In-Reply-To: <1428445367.25985.214.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:10490 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755195AbbDGXVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 19:21:37 -0400
+In-Reply-To: <21796.7755.270785.292996@mariner.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2015-04-07 at 19:13 +0100, Ian Jackson wrote:
+> root@bedbug:~# ethtool -S xenbr0 | grep -v ': 0$'
+> no stats available
+> root@bedbug:~# 
 
-On 04/07/2015 03:22 PM, Eric Dumazet wrote:
-> On Tue, 2015-04-07 at 15:12 -0700, Alexander Duyck wrote:
->> On 04/07/2015 02:54 PM, Eric Dumazet wrote:
->>> To be fair, only 2 drivers currently use dma_wmb()
->> Hey, I got at least 4..  :-)  I only got around to patching 3 Intel
->> drivers and one RealTek since that is what I had to test with.  I was
->> honestly hoping there would be more interest from other developers to
->> pick this up and update their drivers to avoid unnecessary barriers but
->> it doesn't look like I have had much luck on that front.
-> Strange I see only 2 drivers here, and no Intel ones :
->
-> # git grep -l dma_wmb drivers/net
-> drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-> drivers/net/ethernet/realtek/r8169.c
->
-> I probably missed something ;)
-
-Yeah, I was thinking of the dma_rmb more than the dma_wmb, they are 
-essentially just two sides to the same coin.
-
-dma_rmb - read descriptor status for ownership, then dma_rmb, then if we 
-own it process rest of descriptor
-dma_wmb - write descriptor fields, then dma_wmb, then update status bit 
-to release ownership
-
-A wmb is still needed if a PIO doorbell must be used to notify the 
-device of additional descriptors.
-
-- Alex
+Please provide ethtool -S on the tg3 device.
