@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] netns: enhance netlink interface for
- nsid
-Date: Tue, 07 Apr 2015 17:30:10 -0400 (EDT)
-Message-ID: <20150407.173010.509729473608323973.davem@davemloft.net>
-References: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1428400314-4472-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] netdevice.h: remove iflink description
+Date: Tue, 07 Apr 2015 17:31:00 -0400 (EDT)
+Message-ID: <20150407.173100.1424862282323275485.davem@davemloft.net>
+References: <1428401416-27626-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+Cc: netdev@vger.kernel.org
 To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59811 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59828 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752871AbbDGVaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 17:30:11 -0400
-In-Reply-To: <1428400314-4472-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1753713AbbDGVbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 17:31:01 -0400
+In-Reply-To: <1428401416-27626-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue,  7 Apr 2015 11:51:51 +0200
+Date: Tue,  7 Apr 2015 12:10:16 +0200
 
-> The first patch is a small cleanup. The second patch implements notifications
-> for netns id events. And the last one allows to dump existing netns id from
-> userland.
+> Also move 'group' description to match the order of the net_device structure.
 > 
-> iproute2 patches are available, I can send them on demand.
-> 
-> v2: drop the first patch (the fix is now in net-next)
+> Fixes: 7a66bbc96ce9 ("net: remove iflink field from struct net_device")
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Series applied, thanks.
+Applied to net-next, thanks.
