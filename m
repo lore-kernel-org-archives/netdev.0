@@ -1,33 +1,33 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec] vti6: fix uninit when using x-netns
-Date: Tue, 7 Apr 2015 10:59:16 +0200
-Message-ID: <20150407085916.GI20559@secunet.com>
-References: <1427988677-11478-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 2/2] netns: don't allocate an id for dead netns
+Date: Tue, 07 Apr 2015 11:36:25 +0200
+Message-ID: <5523A519.4010907@6wind.com>
+References: <1428055357-15289-2-git-send-email-nicolas.dichtel@6wind.com>	<20150403.123650.1819000124764491725.davem@davemloft.net>	<5520F4D9.5030103@6wind.com> <20150405.163441.155537210057848679.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, Yao Xiwei <xiwei.yao@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:60787 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752748AbbDGI7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2015 04:59:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1427988677-11478-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:33007 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752816AbbDGJgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 05:36:31 -0400
+Received: by wgin8 with SMTP id n8so49821726wgi.0
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 02:36:30 -0700 (PDT)
+In-Reply-To: <20150405.163441.155537210057848679.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 02, 2015 at 05:31:17PM +0200, Nicolas Dichtel wrote:
-> From: Yao Xiwei <xiwei.yao@6wind.com>
-> 
-> When the kernel deleted a vti6 interface, this interface was not removed from
-> the tunnels list. Thus, when the ip6_vti module was removed, this old interface
-> was found and the kernel tried to delete it again. This was leading to a kernel
-> panic.
-> 
-> Fixes: 61220ab34948 ("vti6: Enable namespace changing")
-> Signed-off-by: Yao Xiwei <xiwei.yao@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-
-Patch applied to the ipsec tree, thanks a lot!
+Le 05/04/2015 22:34, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Sun, 05 Apr 2015 10:39:53 +0200
+>
+>> I don't see these patches in your tree, maybe you forget to push
+>> them on kernel.org?
+>
+> Indeed, I did, pushed out now.  Sorry about that.
+>
+No problem, thank you.
