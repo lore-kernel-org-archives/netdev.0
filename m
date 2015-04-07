@@ -1,37 +1,129 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: linux-next: manual merge of the tip tree with the net-next tree
-Date: Tue, 07 Apr 2015 09:30:45 +0200
-Message-ID: <552387A5.5040007@iogearbox.net>
-References: <20150407170056.2d89261e@canb.auug.org.au>
+From: Michael Wang <yun.wang@profitbricks.com>
+Subject: Re: [RFC PATCH 00/11] IB/Verbs: IB Management Helpers
+Date: Tue, 07 Apr 2015 09:31:13 +0200
+Message-ID: <552387C1.50105@profitbricks.com>
+References: <551579CA.4030901@profitbricks.com> <20150406202255.GA31445@phlsvsds.ph.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Moni Shoua <monis@mellanox.com>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Bart Van Assche <bvanassche@acm.org>,
+	Yann Droneaud <ydroneaud@opteya.com>,
+	Colin Ian King <colin.king@canonical.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Matan Barak <matanb@mellanox.com>,
+	Alex Estrin <alex.estrin@intel.com>,
+	Doug Ledford <dledford@
+To: "ira.weiny" <ira.weiny@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60643 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752543AbbDGHbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 03:31:33 -0400
-In-Reply-To: <20150407170056.2d89261e@canb.auug.org.au>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:34102 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929AbbDGHbR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 03:31:17 -0400
+Received: by widjs5 with SMTP id js5so4278664wid.1
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 00:31:16 -0700 (PDT)
+In-Reply-To: <20150406202255.GA31445@phlsvsds.ph.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/07/2015 09:00 AM, Stephen Rothwell wrote:
-...
-> Today's linux-next merge of the tip tree got a conflict in
-> include/linux/bpf.h between commit 0fc174dea545 ("ebpf: make internal
-> bpf API independent of CONFIG_BPF_SYSCALL ifdefs") from the net-next
-> tree and commit 4e537f7fbdce ("bpf: Make internal bpf API independent
-> of CONFIG_BPF_SYSCALL #ifdefs") from the tip tree.
+On 04/06/2015 10:22 PM, ira.weiny wrote:
+> On Fri, Mar 27, 2015 at 04:39:54PM +0100, Michael Wang wrote:
+>> There are plenty of lengthy code to check the transport type of IB device,
+>> or the link layer type of it's port, but actually we are just speculating
+>> whether a particular management is supported by the device/port.
+> Michael,
 >
-> I fixed it up (they are the same patch and there are other changes in
-> the net-next tree, so I just used that version) and can carry the fix
-> as necessary (no action is required).
+> There was a lot of input on this patch series which I believe indicates we
+> would like to move forward.  Were you working through another version of the
+> series with the suggested changes?
+Thanks for the remind, Ira :-)
 
-Thanks, Stephen! That is correct.
+I'm working on next version these days, I've add a new callback
+query_transport() and implement it for all the HW driver, there are
+some issue during reform the cma stuff previously, but now I've
+finished most of the part.
+
+I'll separate the work to small patch so review could be easier, and
+give some description as well as I can, it will be send out in this week ;-)
+
+Regards,
+Michael Wang
+
+
+>
+> Thanks,
+> Ira
+>
+>
+>> Thus instead of inferring, we should have our own mechanism for
+>> IB management capability/protocol checking, several proposals below.
+>>
+>> This patch set is the pioneer which try to collecting all the cases where
+>> a management helper applicable, and put all the speculating logical together,
+>> in order to be easily integrated to the new querying mechanism in future.
+>>
+>> TODO:
+>>     The helper in patch 10 and 11 are still to be classified, that is
+>>     cap_ib() and cap_eth().
+>>
+>>     The name/description of each helper may not correct enough, those folks
+>>     who are familiar with these particular parts, your suggestion would be
+>>     invaluable ;-)
+>>
+>> Proposals:
+>>     Sean:
+>>     https://www.mail-archive.com/linux-rdma@vger.kernel.org/msg23339.html
+>>     Doug:
+>>     https://www.mail-archive.com/linux-rdma@vger.kernel.org/msg23418.html
+>>     Jason:
+>>     https://www.mail-archive.com/linux-rdma@vger.kernel.org/msg23425.html
+>>
+>> Michael Wang (11):
+>>     [PATCH 01/11] IB/Verbs: Use helpers to check transport and link layer
+>>     [RFC PATCH 02/11] IB/Verbs: Use management helper tech_iboe() for iboe-check
+>>     [RFC PATCH 03/11] IB/Verbs: Use management helper has_mad() for mad-check
+>>     [RFC PATCH 04/11] IB/Verbs: Use management helper cap_smi() for smi-check
+>>     [RFC PATCH 05/11] IB/Verbs: Use management helper has_cm() for cm-check
+>>     [RFC PATCH 06/11] IB/Verbs: Use management helper has_sa() and cap_sa() for sa-check
+>>     [RFC PATCH 07/11] IB/Verbs: Use management helper has_mcast() and cap_mcast() for mcast-check
+>>     [RFC PATCH 08/11] IB/Verbs: Use management helper has_iwarp() for iwarp-check
+>>     [RFC PATCH 09/11] IB/Verbs: Use management helper has_ipoib() and cap_ipoib() for ipoib-check
+>>     [RFC PATCH 10/11] IB/Verbs: Use management helper cap_ib() for ib-check
+>>     [RFC PATCH 11/11] IB/Verbs: Use management helper cap_eth() for eth-check
+>>
+>> ---
+>>  drivers/infiniband/core/agent.c           |    6
+>>  drivers/infiniband/core/cm.c              |    6
+>>  drivers/infiniband/core/cma.c             |   79 ++++------
+>>  drivers/infiniband/core/mad.c             |   18 +-
+>>  drivers/infiniband/core/multicast.c       |   30 +---
+>>  drivers/infiniband/core/sa_query.c        |   42 ++---
+>>  drivers/infiniband/core/ucm.c             |    8 -
+>>  drivers/infiniband/core/user_mad.c        |    6
+>>  drivers/infiniband/core/verbs.c           |   14 -
+>>  drivers/infiniband/hw/mlx4/ah.c           |    6
+>>  drivers/infiniband/hw/mlx4/cq.c           |   10 -
+>>  drivers/infiniband/hw/mlx4/mad.c          |   36 +---
+>>  drivers/infiniband/hw/mlx4/main.c         |   23 +--
+>>  drivers/infiniband/hw/mlx4/mlx4_ib.h      |    6
+>>  drivers/infiniband/hw/mlx4/qp.c           |   57 ++-----
+>>  drivers/infiniband/hw/mlx4/sysfs.c        |   16 --
+>>  drivers/infiniband/ulp/ipoib/ipoib_main.c |   18 +-
+>>  include/rdma/ib_verbs.h                   |  218 ++++++++++++++++++++++++++++++
+>>  net/sunrpc/xprtrdma/svc_rdma_recvfrom.c   |    8 -
+>>  19 files changed, 381 insertions(+), 226 deletions(-)
+>>
