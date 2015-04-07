@@ -1,110 +1,85 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 6/8] iproute2: Add support for the RTA_VIA attribute
-Date: Tue, 07 Apr 2015 14:38:09 -0500
-Message-ID: <87mw2jg25a.fsf@x220.int.ebiederm.org>
-References: <87bnjwspek.fsf@x220.int.ebiederm.org>
-	<c3ad7d77783046d38e5b23b5e1fe0f71@BRMWP-EXMB11.corp.brocade.com>
-	<20150315123337.2694183a@urahara>
-	<87lhiyoxnw.fsf@x220.int.ebiederm.org>
-	<87bnjuoxe8.fsf_-_@x220.int.ebiederm.org>
-	<87d24animx.fsf_-_@x220.int.ebiederm.org>
-	<552310E6.5060503@cumulusnetworks.com> <20150406232713.GR1051@gospo>
-	<5523EFEB.1030205@cumulusnetworks.com>
-	<87pp7for7v.fsf@x220.int.ebiederm.org>
-	<CAMs_D182V7LW1Onxzz5ENbqF2TQQFm0Ly0wiXfntZP91zeT5xA@mail.gmail.com>
+From: Ido Shamay <idos@dev.mellanox.co.il>
+Subject: Re: [PATCH RFC] net/mlx4: Remove improper usage of dma_alloc_coherent().
+Date: Tue, 07 Apr 2015 22:43:30 +0300
+Message-ID: <55243362.5040207@dev.mellanox.co.il>
+References: <1428361229-31542-1-git-send-email-ddaney.cavm@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: roopa <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	Robert Shearman <rshearma@brocade.com>
-To: Vivek Venkatraman <vivek@cumulusnetworks.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Moni Shoua <monis@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.co.il>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Yuval Atias <yuvala@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	David Daney <david.daney@cavium.com>, liranl@mellanox.com,
+	gdror@mellanox.com
+To: David Daney <ddaney.cavm@gmail.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:41067 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753833AbbDGTmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:42:14 -0400
-In-Reply-To: <CAMs_D182V7LW1Onxzz5ENbqF2TQQFm0Ly0wiXfntZP91zeT5xA@mail.gmail.com>
-	(Vivek Venkatraman's message of "Tue, 7 Apr 2015 09:58:45 -0700")
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:37489 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752720AbbDGTnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:43:35 -0400
+Received: by wiaa2 with SMTP id a2so32002166wia.0
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 12:43:34 -0700 (PDT)
+In-Reply-To: <1428361229-31542-1-git-send-email-ddaney.cavm@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vivek Venkatraman <vivek@cumulusnetworks.com> writes:
-
-> At the edge, when doing IPoMPLS, we'll be imposing a set of labels on
-> top of the packet rather than replacing, but the same semantics can be
-> applied because the destination address is now different and becomes a
-> label stack.
-
-Exactly how this will happen is an open question.  The hard part is we
-need something light weight enough that we can scale to 1 million
-routes, aka a full routing table. 
-
-Network devices consume much too much memory to contemplate having a
-different network device for each of 1 million different routes.
-
-The transform infrastructure (xfrm) that is used for ipsec looks
-attractive for imposing tunnels but it is clumsy, and does not map well
-to the kinds of tunnels IPoMPLS traffic needs.
-
-Having something in the ipv4 and ipv6 fib entry say a pointer or a 32bit
-key that refers to a struct mpls_route to impose looks like what we want
-int he abstract.  What the userspace interface for that implemenation is
-something that I do not see clearly.  Ideally we build a userspace
-interface that works not only for MPLS but also for other tunnel types
-like IPIP, GRE, etc.   This would allow not only MPLS tunnels but other
-tunnel types to be supported up to the full routing table size.
-
-Perhaps a new attribute RTA_ENCAP that encodes a structure with
-a tunnel type and enough information to encode the tunnel header.
-I would have to make a survey of the existing tunnel types to see
-if there is enough of a pattern an option that works for multiple
-protocols could actually be achieved.
-
-Using a tunnel that is not a network device and as such does not need
-to keep packet counters looks like it will scale much better than our
-other options, even with the best memory usage simplications I can
-imagine for network devices.  Maintenance of per cpu counters (which are
-necessary for performance) requires a non-trivial amount of memory and
-as such are much harder to scale.
-
-> One thing to note is that the destination address replaced/imposed
-> could change based on the path selected, when there is ECMP. So, I
-> propose that the iproute2 syntax of "as [to]" be reconsidered for
-> MPLS, otherwise we'll end up with something like the following when
-> this is extended to setup IPoMPLS direct forwarding with ECMP:
+On 4/7/2015 2:00 AM, David Daney wrote:
+> From: David Daney <david.daney@cavium.com>
 >
-> ip route add 147.1.1.0/24 nexthop as to 400/2230 via inet 192.168.1.1
-> dev eth0 nexthop as to 600/2400 via inet 192.168.2.1 dev eth1
-
-That does not work with the semantics of the RTA_NEWDST message require
-the new address to be in the same address family as the old address.
-So it is useful for NATing IPv4 or IPv6 with routes (if you are
-so inclined) but it is not useful for imposing an mpls header.
-
-> Instead, if we use the specifier "label", we'll get:
+> The dma_alloc_coherent() function returns a virtual address which can
+> be used for coherent access to the underlying memory.  On some
+> architectures, like arm64, undefined behavior results if this memory is
+> also accessed via virtual mappings that are not coherent.  Because of
+> their undefined nature, operations like virt_to_page() return garbage
+> when passed virtual addresses obtained from dma_alloc_coherent().  Any
+> subsequent mappings via vmap() of the garbage page values are unusable
+> and result in bad things like bus errors (synchronous aborts in ARM64
+> speak).
 >
-> ip route add 147.1.1.0/24 nexthop via inet 192.168.1.1 dev eth0 label
-> 400/2230 nexthop via inet 192.168.2.1 dev eth1 label 600/2400
+> The MLX4 driver contains code that does the equivalent of:
 >
-> The transit case (label swapping) would look like:
+>    vmap(virt_to_page(dma_alloc_coherent))
 >
-> ip -f mpls route add 400 via inet 192.168.1.10 dev eth0 label 500
+> This results in an OOPs when the device is opened.
 >
-> The syntax can then be better extended to specify a label operation
-> such as "pop" which would be needed when performing ultimate hop pop
-> (UHP) and then lookup/forward based on underlying label stack or IP
-> header.
+> To fix this...
+>
+> Always use result of dma_alloc_coherent() directly.
+Hi David,
 
-Pop is the case where where the RTA_NEWDST attribute is empty (or
-unspecified).
+I'm not sure this solution is good enough for the common case(s).
+Typical allocation size will be around 64KB (with default 1K ring size).
+We can't rely on the system to always provide us with that amount of 
+contiguous memory.
 
->From an mpls perspective the RTA_DST label is always popped (if it
-matches) and the RTA_NEWDST label stack is always pushed.
+Current code allocation scheme is more robust, max_direct is typically 2 
+* PAGE_SIZE,
+so pages from order 1 are far more available then higher order.
 
-> A new application besides MPLS that needs to modify the destination
-> address would use its own keyword but encode using the RTA_NEWDST
-> attribute.
+I need to check why the code is written as it is today,  and not as in 
+this RFC (which is much more trivial).
+I'll continue to investigate tomorrow, will get back with some answers.
 
-Eric
+Ido
+> Remove 'max_direct' parameter to mlx4_buf_alloc(), as it is unused,
+> and adjust all callers.
+>
+> Remove mlx4_en_map_buffer() and mlx4_en_unmap_buffer() as they now do
+> nothing, and adjust all callers.
+>
+> Remove 'page_list' element from struct mlx4_buf as it is unused.
+>
+> Signed-off-by: David Daney <david.daney@cavium.com>
