@@ -1,50 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] udp_tunnel: Pass UDP socket down through
- udp_tunnel{,6}_xmit_skb().
-Date: Tue, 07 Apr 2015 15:30:44 -0400 (EDT)
-Message-ID: <20150407.153044.772260953305341361.davem@davemloft.net>
-References: <20150405.221909.1825232827861250716.davem@davemloft.net>
-	<CALx6S35rK35GFZAcqygjGNRUhC=vJx60TYLFDUeUd2bAim7Vzg@mail.gmail.com>
-	<1428421534.2928.3.camel@stressinduktion.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH RFT net-next 0/4] via-rhine receive buffers rework
+Date: Tue, 7 Apr 2015 21:31:10 +0200
+Message-ID: <20150407193110.GB24631@electric-eye.fr.zoreil.com>
+References: <cover.1428340371.git.romieu@fr.zoreil.com>
+ <87wq1plyjz.fsf@spindle.srvr.nix>
+ <87sicci5c1.fsf@spindle.srvr.nix>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
-	jiri@resnulli.us
-To: hannes@stressinduktion.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+To: Nix <nix@esperi.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58874 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752720AbbDGTar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:30:47 -0400
-In-Reply-To: <1428421534.2928.3.camel@stressinduktion.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:53973 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752720AbbDGTbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:31:24 -0400
+Content-Disposition: inline
+In-Reply-To: <87sicci5c1.fsf@spindle.srvr.nix>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 07 Apr 2015 17:45:34 +0200
+Nix <nix@esperi.org.uk> :
+[...]
+> No crashes in several hours of running: looks good!
 
-> On Mo, 2015-04-06 at 23:02 -0700, Tom Herbert wrote:
->> On Sun, Apr 5, 2015 at 7:19 PM, David Miller <davem@davemloft.net> wrote:
->> > diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
->> > index b6a211a..5cafd92 100644
->> > --- a/net/ipv6/ip6_tunnel.c
->> > +++ b/net/ipv6/ip6_tunnel.c
->> > @@ -1100,7 +1100,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
->> >         ipv6h->nexthdr = proto;
->> >         ipv6h->saddr = fl6->saddr;
->> >         ipv6h->daddr = fl6->daddr;
->> > -       ip6tunnel_xmit(skb, dev);
->> > +       ip6tunnel_xmit(NULL, skb, dev);
->> 
->> By same should logic iptunnel_xmit call in ip_tunnel_xmit should take
->> NULL arg for socket?
-> 
-> Sure!
-> 
-> Thanks, otherwise the patches look good!
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Mildly. :o/
 
-Ok I've made this adjustment and will push the series out, thanks everyone.
+You may never notice if you don't resume and the reset work queue doesn't
+run but patch #4 lacks the bits below.
+
+(rx_head_desc should go away)
+
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index a54a9f4..7f31c3a 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1244,6 +1244,7 @@ static void rhine_reset_rbufs(struct rhine_private *rp)
+ 	int i;
+ 
+ 	rp->cur_rx = 0;
++	rp->rx_head_desc = rp->rx_ring;
+ 
+ 	for (i = 0; i < RX_RING_SIZE; i++)
+ 		rp->rx_ring[i].rx_status = cpu_to_le32(DescOwn);
+@@ -1268,7 +1269,6 @@ static int alloc_rbufs(struct net_device *dev)
+ 	int rc, i;
+ 
+ 	rp->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
+-	rp->rx_head_desc = &rp->rx_ring[0];
+ 	next = rp->rx_ring_dma;
+ 
+ 	/* Init the ring entries */
