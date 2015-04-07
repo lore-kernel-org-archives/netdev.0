@@ -1,95 +1,33 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2 3/3] netns: allow to dump netns ids
-Date: Tue,  7 Apr 2015 11:51:54 +0200
-Message-ID: <1428400314-4472-4-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 0/3] netns: enhance netlink interface for nsid
+Date: Tue,  7 Apr 2015 11:51:51 +0200
+Message-ID: <1428400314-4472-1-git-send-email-nicolas.dichtel@6wind.com>
 References: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
- <1428400314-4472-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:59901 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:59894 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753196AbbDGJv4 (ORCPT
+	with ESMTP id S1753104AbbDGJv4 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 05:51:56 -0400
-In-Reply-To: <1428400314-4472-1-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <1427892589-4266-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Which this patch, it's possible to dump the list of ids allocated for peer
-netns.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/core/net_namespace.c | 49 +++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 48 insertions(+), 1 deletion(-)
+The first patch is a small cleanup. The second patch implements notifications
+for netns id events. And the last one allows to dump existing netns id from
+userland.
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index b3b5f22f0e90..a3abb719221f 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -616,6 +616,52 @@ out:
- 	return err;
- }
- 
-+struct rtnl_net_dump_cb {
-+	struct net *net;
-+	struct sk_buff *skb;
-+	struct netlink_callback *cb;
-+	int idx;
-+	int s_idx;
-+};
-+
-+static int rtnl_net_dumpid_one(int id, void *peer, void *data)
-+{
-+	struct rtnl_net_dump_cb *net_cb = (struct rtnl_net_dump_cb *)data;
-+	int ret;
-+
-+	if (net_cb->idx < net_cb->s_idx)
-+		goto cont;
-+
-+	ret = rtnl_net_fill(net_cb->skb, NETLINK_CB(net_cb->cb->skb).portid,
-+			    net_cb->cb->nlh->nlmsg_seq, NLM_F_MULTI,
-+			    RTM_NEWNSID, net_cb->net, peer, id);
-+	if (ret < 0)
-+		return ret;
-+
-+cont:
-+	net_cb->idx++;
-+	return 0;
-+}
-+
-+static int rtnl_net_dumpid(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct rtnl_net_dump_cb net_cb = {
-+		.net = net,
-+		.skb = skb,
-+		.cb = cb,
-+		.idx = 0,
-+		.s_idx = cb->args[0],
-+	};
-+
-+	ASSERT_RTNL();
-+
-+	idr_for_each(&net->netns_ids, rtnl_net_dumpid_one, &net_cb);
-+
-+	cb->args[0] = net_cb.idx;
-+	return skb->len;
-+}
-+
- static void rtnl_net_notifyid(struct net *net, struct net *peer, int cmd,
- 			      int id)
- {
-@@ -673,7 +719,8 @@ static int __init net_ns_init(void)
- 	register_pernet_subsys(&net_ns_ops);
- 
- 	rtnl_register(PF_UNSPEC, RTM_NEWNSID, rtnl_net_newid, NULL, NULL);
--	rtnl_register(PF_UNSPEC, RTM_GETNSID, rtnl_net_getid, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETNSID, rtnl_net_getid, rtnl_net_dumpid,
-+		      NULL);
- 
- 	return 0;
- }
--- 
-2.2.2
+iproute2 patches are available, I can send them on demand.
+
+v2: drop the first patch (the fix is now in net-next)
+
+ include/uapi/linux/rtnetlink.h |   4 ++
+ net/core/net_namespace.c       | 103 +++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 97 insertions(+), 10 deletions(-)
+
+Comments are welcome.
+
+Regards,
+Nicolas
