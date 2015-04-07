@@ -1,55 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TSO on veth device slows transmission to a crawl
-Date: Tue, 07 Apr 2015 12:49:49 -0700
-Message-ID: <1428436189.25985.211.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.LSU.2.20.1504070014250.21650@nerf40.vanv.qr>
-	 <1428374918.25985.206.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.20.1504071149280.31930@nerf40.vanv.qr>
+From: Wolfgang Rosner <wrosner@tirnet.de>
+Subject: teql and vlan not compatible?
+Date: Tue, 7 Apr 2015 20:50:37 +0100
+Message-ID: <201504072150.40209.wrosner@tirnet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@inai.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:32994 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752774AbbDGTtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:49:51 -0400
-Received: by ignm3 with SMTP id m3so16063493ign.0
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 12:49:51 -0700 (PDT)
-In-Reply-To: <alpine.LSU.2.20.1504071149280.31930@nerf40.vanv.qr>
+Received: from mail.tirnet.de ([217.7.138.221]:17798 "EHLO mail.tirnet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753049AbbDGTut (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Apr 2015 15:50:49 -0400
+Received: from wjrws2 (p54BECF13.dip0.t-ipconnect.de [84.190.207.19])
+	by mail.tirnet.de (mailserver tirnet.de) with ESMTP id 293F72C1BE
+	for <netdev@vger.kernel.org>; Tue,  7 Apr 2015 21:52:14 +0200 (CEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-07 at 11:54 +0200, Jan Engelhardt wrote:
-> On Tuesday 2015-04-07 04:48, Eric Dumazet wrote:
-> >On Tue, 2015-04-07 at 00:45 +0200, Jan Engelhardt wrote:
-> >> I have here a Linux 3.19(.0) system where activated TSO on a veth slave 
-> >> device makes IPv4-TCP transfers going into that veth-connected container 
-> >> progress slowly.
-> >
-> >Nothing comes to mind. It would help if you could provide a script to
-> >reproduce the issue.
-> 
-> It seems IPsec is *also* a requirement in the mix.
-> Anyhow, script time!
+Hello,
 
-I tried your scripts, but the sender does not use veth ?
+are teql and vlan mutually exclusive?
 
-Where is the part you disable TSO ?
-If its on the receiver, I fail to understand how it matters.
+I've done some tests the last days that drove me crazy, until I found an an 
+old (2003) message on the linux.drivers.vlan list :
 
-+ DUMP_TCP_INFO=1 ./netperf -H 10.10.23.23 -l 10
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-10.10.23.23 () port 0 AF_INET
-tcpi_rto 217000 tcpi_ato 0 tcpi_pmtu 1438 tcpi_rcv_ssthresh 29200
-tcpi_rtt 16715 tcpi_rttvar 7 tcpi_snd_ssthresh 702 tpci_snd_cwnd 831
-tcpi_reordering 3 tcpi_total_retrans 24
-Recv   Send    Send                          
-Socket Socket  Message  Elapsed              
-Size   Size    Size     Time     Throughput  
-bytes  bytes   bytes    secs.    10^6bits/sec  
+"vlan + teql qdisc problem"
 
- 87380  16384  16384    10.03     577.53   
+http://osdir.com/ml/linux.drivers.vlan/2003-02/msg00050.html
 
-Seems OK to me ?
+<quote>
+tc qdisc add dev vlan0003 root teql0
+then i can no longer ping 10.0.0.2 from 10.0.0.1.
+The moment I add qdisc it stop working.
+When I remove qdisc - I can ping again.
+</quote>
+
+
+While my setup is more complicated, the problem is the same.
+I cannot even see any arp requests on the wireshark after I have a teql'd 
+interface on a vlan like this
+"tc qdisc replace dev eth9.42 root teql0"
+
+Is this a fundamental impossibility or is there simply some secret magic I 
+just haven't found documented?
+Above thread is the only google hit for "teql & vlan"
+
+Thanks for any hint!
+
+
+
+Wolfgang Rosner
