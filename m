@@ -1,75 +1,48 @@
-From: Wilco Baan Hofman <wilco@baanhofman.nl>
-Subject: Re: [PATCH 0/4] Prevent UDP tunnels from operating on garbage socket
-Date: Tue, 07 Apr 2015 10:20:58 +0200
-Message-ID: <5523936A.9010609@baanhofman.nl>
-References: <20150406.124114.924455461962119301.davem@davemloft.net>	 <20150406.131700.185460014498109286.davem@davemloft.net>	 <CALx6S35bZ6t9d+cpHRXYS94N6rGuHhACMAt9Bj6UzCwBuomBSA@mail.gmail.com>	 <20150406.235118.65925113152002205.davem@davemloft.net>	 <CALx6S36f8SQQoNvzPyCNk4=0LbH4Od6ZtdDn0DCA2sZGZHMx2g@mail.gmail.com> <1428383028.25985.209.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: fix xfrm_input/xfrm_tunnel_check oops
+Date: Tue, 7 Apr 2015 10:57:32 +0200
+Message-ID: <20150407085731.GH20559@secunet.com>
+References: <20150402075824.GA2079@p183.telecom.by>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="hUqGsQvqsuuAsV0AUI5OPrp2oT7pe78dN"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
-	hannes@stressinduktion.org,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <mike@normi.net>, <netdev@vger.kernel.org>,
+	<herbert@gondor.apana.org.au>
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps.baanhofman.nl ([92.222.219.102]:34446 "EHLO
-	vps.baanhofman.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753209AbbDGIVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 04:21:04 -0400
-In-Reply-To: <1428383028.25985.209.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:60756 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753322AbbDGI5g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Apr 2015 04:57:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20150402075824.GA2079@p183.telecom.by>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---hUqGsQvqsuuAsV0AUI5OPrp2oT7pe78dN
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Thu, Apr 02, 2015 at 10:58:24AM +0300, Alexey Dobriyan wrote:
+> https://bugzilla.kernel.org/show_bug.cgi?id=95211
+> 
+> Commit 70be6c91c86596ad2b60c73587880b47df170a41
+> ("xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer") added check
+> which dereferences ->outer_mode too early but larval SAs don't have
+> this pointer set (yet). So check for tunnel stuff later.
+> 
+> Mike Noordermeer reported this bug and patiently applied all the debugging.
+> 
+> Technically this is remote-oops-in-interrupt-context type of thing.
+> 
+> BUG: unable to handle kernel NULL pointer dereference at 0000000000000034
+> IP: [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+> 	...
+> [<ffffffff81500fc6>] ? xfrm4_esp_rcv+0x36/0x70
+> [<ffffffff814acc9a>] ? ip_local_deliver_finish+0x9a/0x200
+> [<ffffffff81471b83>] ? __netif_receive_skb_core+0x6f3/0x8f0
+> 	...
+> 
+> RIP  [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+> Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-On 07/04/15 07:03, Eric Dumazet wrote:
-> On Mon, 2015-04-06 at 21:45 -0700, Tom Herbert wrote:
->> On Mon, Apr 6, 2015 at 8:51 PM, David Miller <davem@davemloft.net> wro=
-te:
->>> I don't see what is convoluted about using the correct socket for
->>> sending L3 protocol frames.  That's in fact how it's _supposed_ to
->>> work.  And consistently having a proper matching socket available
->>> makes it so that, long-term, we'll never have to deal with this issue=
+Good catch!
 
->>> ever again.
->> I guess this is where I'm confused. We can send just about anything
->> over GRE also, but have never needed a transmit socket for that. Is
->> UDP encapsulation so different, or is GRE equally broken also? Also,
->> will we need to add the socket to FOU and GUE then?
-> GRE encap is very low level (not L3), and no socket simply sends GRE
-> packets as is.
-FWIW, GRE encap is also broken for IPv6, it's layer 2, but only 8 bytes
-can be used of the IPv6 address, because it uses sll_addr.
-
--- Wilco
-
-
---hUqGsQvqsuuAsV0AUI5OPrp2oT7pe78dN
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCgAGBQJVI5NqAAoJENNgJ82k1pS9KEcP/3cXE09CExwlTrFwdPKdP3Hi
-4Nsk7r8SxYyUG0QA8pFFQw5du+vSmhg7avJbwC6LZ20bVAGkI68uhrldu/KpAc3/
-oTnurap9JHdwdgn9H1JfmVxVZl4jPUp1I0fLnxiTSsuPIqRB6HAIkL1YyDq4LPPo
-h84EJi4hqXuw2t65Pm0aHJ4agl4vZ7b0jboMXv970aZFdksYfzQEOg+ZCyCoxAFl
-mqbNH/xWcoU7ScWg/boqsspIcuMA3+5G4VwYBq4ep35vh04ai6gLiRUKUo5zlgow
-wlmE2GFRYJtFSlpq/cP+4isOG1L071hwc47s5H4cON0RPCfLdfWTKCq9w0/gwgz6
-bxYQh6UT7X3YCTGJnGxXmAC+yUdpwKpQgVoUWCbG5rAufEGo9YxK6sXT4oWX1STH
-Q5xk/NvW6Yk2j0U4Hbl1DXDxc+ZUj4cI8EaaCvlA+eCEYmIdJbkzGdKv1VPwWfsF
-qQXvxTT5boN9QydJgeoo+6tcPM9KHPA8XIS0Bvt/S/a4YaHR9uxLiq0HUwekCXOt
-mY3qKUPUe3QVu3z8c4Az9iIiquOmGJxj3sIHcSNbRPgLvZGoVrxZEuNyDli7FCs6
-A8RTnR4IEQD8FC7xqeX0nbYrjPoHtdOkbxX8/ZAva0XCwgPrUkLne+hSm+CizIkk
-n94Ym27Q2sDhoWeZjv+K
-=ll4m
------END PGP SIGNATURE-----
-
---hUqGsQvqsuuAsV0AUI5OPrp2oT7pe78dN--
+Applied to the ipsec tree, thanks everyone!
