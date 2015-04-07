@@ -1,253 +1,130 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 4/4] udp_tunnel: Pass UDP socket down through
- udp_tunnel{,6}_xmit_skb().
-Date: Tue, 07 Apr 2015 17:45:34 +0200
-Message-ID: <1428421534.2928.3.camel@stressinduktion.org>
-References: <20150405.221909.1825232827861250716.davem@davemloft.net>
-	 <CALx6S35rK35GFZAcqygjGNRUhC=vJx60TYLFDUeUd2bAim7Vzg@mail.gmail.com>
+From: Tom Talpey <tom-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 09/17] IB/Verbs: Use helper cap_read_multi_sge() and
+ reform svc_rdma_accept()
+Date: Tue, 07 Apr 2015 11:46:57 -0400
+Message-ID: <5523FBF1.80304@talpey.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523CEE4.5060901@profitbricks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
-	=?UTF-8?Q?Ji=C5=99=C3=AD_P=C3=ADrko?= <jiri@resnulli.us>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:58826 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755896AbbDGPpi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 11:45:38 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0BC7A20B71
-	for <netdev@vger.kernel.org>; Tue,  7 Apr 2015 11:45:34 -0400 (EDT)
-In-Reply-To: <CALx6S35rK35GFZAcqygjGNRUhC=vJx60TYLFDUeUd2bAim7Vzg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5523CEE4.5060901-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mo, 2015-04-06 at 23:02 -0700, Tom Herbert wrote:
-> On Sun, Apr 5, 2015 at 7:19 PM, David Miller <davem@davemloft.net> wrote:
-> >
-> > That was we can make sure the output path of ipv4/ipv6 operate on
-> > the UDP socket rather than whatever random thing happens to be in
-> > skb->sk.
-> >
-> > Based upon a patch by Jiri Pirko.
-> >
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
-> > ---
-> >  drivers/net/vxlan.c           | 14 ++++++++------
-> >  include/net/ip6_tunnel.h      |  5 +++--
-> >  include/net/ipv6.h            |  1 +
-> >  include/net/udp_tunnel.h      |  5 +++--
-> >  include/net/vxlan.h           |  2 +-
-> >  net/ipv4/geneve.c             |  2 +-
-> >  net/ipv4/udp_tunnel.c         |  4 ++--
-> >  net/ipv6/ip6_gre.c            |  2 +-
-> >  net/ipv6/ip6_tunnel.c         |  2 +-
-> >  net/ipv6/ip6_udp_tunnel.c     |  5 +++--
-> >  net/ipv6/output_core.c        | 21 ++++++++++++++++-----
-> >  net/openvswitch/vport-vxlan.c |  5 +++--
-> >  net/tipc/udp_media.c          |  6 ++++--
-> >  13 files changed, 47 insertions(+), 27 deletions(-)
-> >
-> > diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> > index b5fecb4..51baac7 100644
-> > --- a/drivers/net/vxlan.c
-> > +++ b/drivers/net/vxlan.c
-> > @@ -1672,7 +1672,8 @@ static void vxlan_build_gbp_hdr(struct vxlanhdr *vxh, u32 vxflags,
-> >  }
-> >
-> >  #if IS_ENABLED(CONFIG_IPV6)
-> > -static int vxlan6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
-> > +static int vxlan6_xmit_skb(struct dst_entry *dst, struct sock *sk,
-> > +                          struct sk_buff *skb,
-> >                            struct net_device *dev, struct in6_addr *saddr,
-> >                            struct in6_addr *daddr, __u8 prio, __u8 ttl,
-> >                            __be16 src_port, __be16 dst_port,
-> > @@ -1748,7 +1749,7 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
-> >
-> >         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
-> >
-> > -       udp_tunnel6_xmit_skb(dst, skb, dev, saddr, daddr, prio,
-> > +       udp_tunnel6_xmit_skb(dst, sk, skb, dev, saddr, daddr, prio,
-> >                              ttl, src_port, dst_port,
-> >                              !!(vxflags & VXLAN_F_UDP_ZERO_CSUM6_TX));
-> >         return 0;
-> > @@ -1758,7 +1759,7 @@ err:
-> >  }
-> >  #endif
-> >
-> > -int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
-> > +int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
-> >                    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
-> >                    __be16 src_port, __be16 dst_port,
-> >                    struct vxlan_metadata *md, bool xnet, u32 vxflags)
-> > @@ -1827,7 +1828,7 @@ int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
-> >
-> >         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
-> >
-> > -       return udp_tunnel_xmit_skb(rt, skb, src, dst, tos,
-> > +       return udp_tunnel_xmit_skb(rt, sk, skb, src, dst, tos,
-> >                                    ttl, df, src_port, dst_port, xnet,
-> >                                    !(vxflags & VXLAN_F_UDP_CSUM));
-> >  }
-> > @@ -1882,6 +1883,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
-> >                            struct vxlan_rdst *rdst, bool did_rsc)
-> >  {
-> >         struct vxlan_dev *vxlan = netdev_priv(dev);
-> > +       struct sock *sk = vxlan->vn_sock->sock->sk;
-> >         struct rtable *rt = NULL;
-> >         const struct iphdr *old_iph;
-> >         struct flowi4 fl4;
-> > @@ -1961,7 +1963,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
-> >                 md.vni = htonl(vni << 8);
-> >                 md.gbp = skb->mark;
-> >
-> > -               err = vxlan_xmit_skb(rt, skb, fl4.saddr,
-> > +               err = vxlan_xmit_skb(rt, sk, skb, fl4.saddr,
-> >                                      dst->sin.sin_addr.s_addr, tos, ttl, df,
-> >                                      src_port, dst_port, &md,
-> >                                      !net_eq(vxlan->net, dev_net(vxlan->dev)),
-> > @@ -2021,7 +2023,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
-> >                 md.vni = htonl(vni << 8);
-> >                 md.gbp = skb->mark;
-> >
-> > -               err = vxlan6_xmit_skb(ndst, skb, dev, &fl6.saddr, &fl6.daddr,
-> > +               err = vxlan6_xmit_skb(ndst, sk, skb, dev, &fl6.saddr, &fl6.daddr,
-> >                                       0, ttl, src_port, dst_port, &md,
-> >                                       !net_eq(vxlan->net, dev_net(vxlan->dev)),
-> >                                       vxlan->flags);
-> > diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-> > index 1668be5..b8529aa 100644
-> > --- a/include/net/ip6_tunnel.h
-> > +++ b/include/net/ip6_tunnel.h
-> > @@ -73,13 +73,14 @@ __u32 ip6_tnl_get_cap(struct ip6_tnl *t, const struct in6_addr *laddr,
-> >  struct net *ip6_tnl_get_link_net(const struct net_device *dev);
-> >  int ip6_tnl_get_iflink(const struct net_device *dev);
-> >
-> > -static inline void ip6tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-> > +static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
-> > +                                 struct net_device *dev)
-> >  {
-> >         struct net_device_stats *stats = &dev->stats;
-> >         int pkt_len, err;
-> >
-> >         pkt_len = skb->len;
-> > -       err = ip6_local_out(skb);
-> > +       err = ip6_local_out_sk(sk, skb);
-> >
-> >         if (net_xmit_eval(err) == 0) {
-> >                 struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
-> > diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> > index b6ae959..27470cd 100644
-> > --- a/include/net/ipv6.h
-> > +++ b/include/net/ipv6.h
-> > @@ -827,6 +827,7 @@ int ip6_input(struct sk_buff *skb);
-> >  int ip6_mc_input(struct sk_buff *skb);
-> >
-> >  int __ip6_local_out(struct sk_buff *skb);
-> > +int ip6_local_out_sk(struct sock *sk, struct sk_buff *skb);
-> >  int ip6_local_out(struct sk_buff *skb);
-> >
-> >  /*
-> > diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-> > index 1a20d33..c491c12 100644
-> > --- a/include/net/udp_tunnel.h
-> > +++ b/include/net/udp_tunnel.h
-> > @@ -77,13 +77,14 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
-> >                            struct udp_tunnel_sock_cfg *sock_cfg);
-> >
-> >  /* Transmit the skb using UDP encapsulation. */
-> > -int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
-> > +int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
-> >                         __be32 src, __be32 dst, __u8 tos, __u8 ttl,
-> >                         __be16 df, __be16 src_port, __be16 dst_port,
-> >                         bool xnet, bool nocheck);
-> >
-> >  #if IS_ENABLED(CONFIG_IPV6)
-> > -int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
-> > +int udp_tunnel6_xmit_skb(struct dst_entry *dst, struct sock *sk,
-> > +                        struct sk_buff *skb,
-> >                          struct net_device *dev, struct in6_addr *saddr,
-> >                          struct in6_addr *daddr,
-> >                          __u8 prio, __u8 ttl, __be16 src_port,
-> > diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-> > index 756e463..0082b5d 100644
-> > --- a/include/net/vxlan.h
-> > +++ b/include/net/vxlan.h
-> > @@ -145,7 +145,7 @@ struct vxlan_sock *vxlan_sock_add(struct net *net, __be16 port,
-> >
-> >  void vxlan_sock_release(struct vxlan_sock *vs);
-> >
-> > -int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
-> > +int vxlan_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
-> >                    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
-> >                    __be16 src_port, __be16 dst_port, struct vxlan_metadata *md,
-> >                    bool xnet, u32 vxflags);
-> > diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-> > index e64f8e9..b77f5e8 100644
-> > --- a/net/ipv4/geneve.c
-> > +++ b/net/ipv4/geneve.c
-> > @@ -136,7 +136,7 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
-> >
-> >         skb_set_inner_protocol(skb, htons(ETH_P_TEB));
-> >
-> > -       return udp_tunnel_xmit_skb(rt, skb, src, dst,
-> > +       return udp_tunnel_xmit_skb(rt, gs->sock->sk, skb, src, dst,
-> >                                    tos, ttl, df, src_port, dst_port, xnet,
-> >                                    !csum);
-> >  }
-> > diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
-> > index c83b354..6bb98cc 100644
-> > --- a/net/ipv4/udp_tunnel.c
-> > +++ b/net/ipv4/udp_tunnel.c
-> > @@ -75,7 +75,7 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
-> >  }
-> >  EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
-> >
-> > -int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
-> > +int udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
-> >                         __be32 src, __be32 dst, __u8 tos, __u8 ttl,
-> >                         __be16 df, __be16 src_port, __be16 dst_port,
-> >                         bool xnet, bool nocheck)
-> > @@ -92,7 +92,7 @@ int udp_tunnel_xmit_skb(struct rtable *rt, struct sk_buff *skb,
-> >
-> >         udp_set_csum(nocheck, skb, src, dst, skb->len);
-> >
-> > -       return iptunnel_xmit(skb->sk, rt, skb, src, dst, IPPROTO_UDP,
-> > +       return iptunnel_xmit(sk, rt, skb, src, dst, IPPROTO_UDP,
-> >                              tos, ttl, df, xnet);
-> >  }
-> >  EXPORT_SYMBOL_GPL(udp_tunnel_xmit_skb);
-> > diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-> > index f724329..b5e6cc1 100644
-> > --- a/net/ipv6/ip6_gre.c
-> > +++ b/net/ipv6/ip6_gre.c
-> > @@ -760,7 +760,7 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
-> >
-> >         skb_set_inner_protocol(skb, protocol);
-> >
-> > -       ip6tunnel_xmit(skb, dev);
-> > +       ip6tunnel_xmit(NULL, skb, dev);
-> >         if (ndst)
-> >                 ip6_tnl_dst_store(tunnel, ndst);
-> >         return 0;
-> > diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-> > index b6a211a..5cafd92 100644
-> > --- a/net/ipv6/ip6_tunnel.c
-> > +++ b/net/ipv6/ip6_tunnel.c
-> > @@ -1100,7 +1100,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
-> >         ipv6h->nexthdr = proto;
-> >         ipv6h->saddr = fl6->saddr;
-> >         ipv6h->daddr = fl6->daddr;
-> > -       ip6tunnel_xmit(skb, dev);
-> > +       ip6tunnel_xmit(NULL, skb, dev);
-> 
-> By same should logic iptunnel_xmit call in ip_tunnel_xmit should take
-> NULL arg for socket?
+On 4/7/2015 8:34 AM, Michael Wang wrote:
+>   /**
+> + * cap_read_multi_sge - Check if the port of device has the capability
+> + * RDMA Read Multiple Scatter-Gather Entries.
+> + *
+> + * @device: Device to be checked
+> + * @port_num: Port number of the device
+> + *
+> + * Return 0 when port of the device don't support
+> + * RDMA Read Multiple Scatter-Gather Entries.
+> + */
+> +static inline int cap_read_multi_sge(struct ib_device *device, u8 port_num)
+> +{
+> +	return !rdma_transport_iwarp(device, port_num);
+> +}
 
-Sure!
+This just papers over the issue we discussed earlier. How *many*
+entries does the device support? If a device supports one, or two,
+is that enough? How does the upper layer know the limit?
 
-Thanks, otherwise the patches look good!
+This needs an explicit device attribute, to be fixed properly.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> +
+> +/**
+>    * cap_ipoib - Check if the port of device has the capability
+>    * IP over Infiniband.
+>    *
+> diff --git a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+> index e011027..604d035 100644
+> --- a/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+> +++ b/net/sunrpc/xprtrdma/svc_rdma_recvfrom.c
+> @@ -118,8 +118,8 @@ static void rdma_build_arg_xdr(struct svc_rqst *rqstp,
+>
+>   static int rdma_read_max_sge(struct svcxprt_rdma *xprt, int sge_count)
+>   {
+> -	if (rdma_node_get_transport(xprt->sc_cm_id->device->node_type) ==
+> -	     RDMA_TRANSPORT_IWARP)
+> +	if (!cap_read_multi_sge(xprt->sc_cm_id->device,
+> +				xprt->sc_cm_id->port_num))
+>   		return 1;
+>   	else
+>   		return min_t(int, sge_count, xprt->sc_max_sge);
+
+This is incorrect. The RDMA Read max is not at all the same as the
+max_sge. It is a different operation, with a different set of work
+request parameters.
+
+In other words, the above same comment applies.
+
+
+> diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+> index 4e61880..e75175d 100644
+> --- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
+> +++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+> @@ -979,8 +979,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
+>   	/*
+>   	 * Determine if a DMA MR is required and if so, what privs are required
+>   	 */
+> -	switch (rdma_node_get_transport(newxprt->sc_cm_id->device->node_type)) {
+> -	case RDMA_TRANSPORT_IWARP:
+> +	if (rdma_transport_iwarp(newxprt->sc_cm_id->device,
+> +				 newxprt->sc_cm_id->port_num)) {
+>   		newxprt->sc_dev_caps |= SVCRDMA_DEVCAP_READ_W_INV;
+
+Do I read this correctly that it is forcing the "read with invalidate"
+capability to "on" for all iWARP devices? I don't think that is correct,
+for the legacy devices you're also supporting.
+
+
+> @@ -992,8 +992,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
+>   			dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
+>   		} else
+>   			need_dma_mr = 0;
+> -		break;
+> -	case RDMA_TRANSPORT_IB:
+> +	} else if (rdma_ib_mgmt(newxprt->sc_cm_id->device,
+> +				newxprt->sc_cm_id->port_num)) {
+>   		if (!(newxprt->sc_dev_caps & SVCRDMA_DEVCAP_FAST_REG)) {
+>   			need_dma_mr = 1;
+>   			dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
+
+Now I'm even more confused. How is the presence of IB management
+related to needing a privileged lmr?
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
