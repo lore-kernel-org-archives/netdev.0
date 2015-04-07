@@ -1,40 +1,59 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [net-next] wireless: Use bool function returns of true/false
- insteadof 1/0
-Date: Tue,  7 Apr 2015 17:11:21 +0000 (UTC)
-Message-ID: <20150407171121.2DA00140D3F@smtp.codeaurora.org>
-References: <1427678982.2715.55.camel@perches.com>
+From: James Hartley <James.Hartley-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH V2 2/2] stmmac: Add IMG Pistachio platform glue layer
+Date: Tue, 7 Apr 2015 17:16:55 +0000
+Message-ID: <72BC0C8BD7BB6F45988A99382E5FBAE544490C96@hhmail02.hh.imgtec.org>
+References: <1428356558-18367-1-git-send-email-abrestic@chromium.org>
+	<1428356558-18367-2-git-send-email-abrestic@chromium.org>
+	<2916148.ZqFzHAuDtr@wuerfel>
+ <CAL1qeaFwt-VB6rUywHZ47gOx4fhd6LZLfvwqkydOtqWLkYbO8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	brcm80211-dev-list <brcm80211-dev-list@broadcom.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33104 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752721AbbDGRLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 13:11:22 -0400
-In-Reply-To: <1427678982.2715.55.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Govindraj Raja <Govindraj.Raja-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>,
+	Damien Horsley <Damien.Horsley-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+To: Andrew Bresticker <abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1qeaFwt-VB6rUywHZ47gOx4fhd6LZLfvwqkydOtqWLkYbO8A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-> Use bool constants as the return values instead of 1 and 0.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-
-Thanks, applied to wireless-drivers-next.git.
-
-Kalle Valo
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogYWJyZXN0aWNAZ29vZ2xl
+LmNvbSBbbWFpbHRvOmFicmVzdGljQGdvb2dsZS5jb21dIE9uIEJlaGFsZiBPZg0KPiBBbmRyZXcg
+QnJlc3RpY2tlcg0KPiBTZW50OiAwNiBBcHJpbCAyMDE1IDIzOjI4DQo+IFRvOiBBcm5kIEJlcmdt
+YW5uOyBKYW1lcyBIYXJ0bGV5DQo+IENjOiBEYXZpZCBTLiBNaWxsZXI7IEdpdXNlcHBlIENhdmFs
+bGFybzsgZGV2aWNldHJlZUB2Z2VyLmtlcm5lbC5vcmc7DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IEdvdmluZHJhaiBSYWphDQo+IFN1Ympl
+Y3Q6IFJlOiBbUEFUQ0ggVjIgMi8yXSBzdG1tYWM6IEFkZCBJTUcgUGlzdGFjaGlvIHBsYXRmb3Jt
+IGdsdWUgbGF5ZXINCj4gDQo+IE9uIE1vbiwgQXByIDYsIDIwMTUgYXQgMzoxMCBQTSwgQXJuZCBC
+ZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4gd3JvdGU6DQo+ID4gT24gTW9uZGF5IDA2IEFwcmlsIDIw
+MTUgMTQ6NDI6MzggQW5kcmV3IEJyZXN0aWNrZXIgd3JvdGU6DQo+ID4+IEF0IHRoZSBtb21lbnQs
+IHRoZSBvbmx5IGFkZGl0aW9uYWwgc2V0dXAgcmVxdWlyZWQgZm9yIHRoZSBEV01BQyBvbg0KPiA+
+PiB0aGUgSU1HIFBpc3RhY2hpbyBTb0MgaXMgdG8gcmVxdWVzdCBhbmQgZW5hYmxlIGEgc2VwYXJh
+dGUgZ2F0ZSBjbG9jaw0KPiA+PiBmb3IgdGhlIHJlZ2lzdGVyIGludGVyZmFjZS4NCj4gPj4NCj4g
+Pj4gU2lnbmVkLW9mZi1ieTogQW5kcmV3IEJyZXN0aWNrZXIgPGFicmVzdGljQGNocm9taXVtLm9y
+Zz4NCj4gPj4gU2lnbmVkLW9mZi1ieTogR292aW5kcmFqIFJhamEgPGdvdmluZHJhai5yYWphQGlt
+Z3RlYy5jb20+DQo+ID4+IENjOiBKYW1lcyBIYXJ0bGV5IDxqYW1lcy5oYXJ0bGV5QGltZ3RlYy5j
+b20+DQo+ID4NCj4gPiBXaHkgZG8geW91IG5lZWQgYSBzcGVjaWFsIGdsdWUgZHJpdmVyIGZvciB0
+aGF0Pw0KPiA+DQo+ID4gU2luY2UgeW91IGRvbid0IGRvIGFueXRoaW5nIHNwZWNpYWwsIEknZCBz
+YXkgaXQgc2hvdWxkIGJlIHBvc3NpYmxlIHRvDQo+ID4gaGFuZGxlIHRoaXMgd2l0aCBqdXN0IHRo
+ZSBkZWZhdWx0IGRyaXZlci4NCj4gDQo+IFJpZ2h0LCBhdCB0aGUgbW9tZW50IHdlIG9ubHkgbmVl
+ZCB0byByZXF1ZXN0IGFuZCBlbmFibGUgYSBzZWNvbmQgY2xvY2ssDQo+IHdoaWNoIGNvdWxkIGJl
+IGFkZGVkIHRvIHRoZSBjb3JlIGRyaXZlci4gIElmIHdlIGRvbid0IGV4cGVjdCB0byBoYXZlIHRv
+DQo+IGV4dGVuZCB0aGlzIGRyaXZlciB0byBkZWFsIHdpdGggb3RoZXIgY29uZmlndXJhdGlvbnMg
+KHdoaWNoIElJUkMgdGhlcmUgd2VyZQ0KPiBzb21lIGNvbmNlcm5zIGFib3V0IHdoZW4gSSB3cm90
+ZSB0aGlzKSwgdGhlbiBJJ20gZmluZSB3aXRoIGZvbGRpbmcgdGhpcyBjaGFuZ2UNCj4gaW50byB0
+aGUgY29yZSBkcml2ZXIgLSBKYW1lcz8NCg0KV2VyZW4ndCB0aGUgY29uY2VybnMgYWJvdXQgVVNC
+IG5vdCBFdGhlcm5ldD8gIEkgZG9uJ3QgcmVtZW1iZXIgYW55dGhpbmcgdGhhdCB3b3VsZCBzdG9w
+IHVzIGV4dGVuZGluZyB0aGUgZHJpdmVyIGZvciBldGguDQoNCj4gDQo+IFRoYW5rcywNCj4gQW5k
+cmV3DQoNCkphbWVzLg0K
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
