@@ -1,70 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netem: Fixes byte backlog accounting for the first of
- two chained netem instances
-Date: Tue, 07 Apr 2015 18:34:42 -0400 (EDT)
-Message-ID: <20150407.183442.1733318471114947035.davem@davemloft.net>
-References: <DM2PR01MB511D67AC72AB91C5651A9E5D1FE0@DM2PR01MB511.prod.exchangelabs.com>
+Subject: Re: [PATCH net-next 1/2] tcp: RFC7413 option support for Fast Open
+ server
+Date: Tue, 07 Apr 2015 18:39:57 -0400 (EDT)
+Message-ID: <20150407.183957.203585611362799938.davem@davemloft.net>
+References: <1428356247-10262-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, stephen@networkplumber.org,
-	netem@lists.linux-foundation.org, netdev@vger.kernel.org
-To: jdb109120@utdallas.edu
+Cc: netdev@vger.kernel.org, Longinus00@gmail.com, ncardwell@google.com
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60203 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60250 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753139AbbDGWeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 18:34:44 -0400
-In-Reply-To: <DM2PR01MB511D67AC72AB91C5651A9E5D1FE0@DM2PR01MB511.prod.exchangelabs.com>
+	with ESMTP id S1752128AbbDGWj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 18:39:59 -0400
+In-Reply-To: <1428356247-10262-1-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Beshay, Joseph" <jdb109120@utdallas.edu>
-Date: Mon, 6 Apr 2015 18:00:56 +0000
+From: Yuchung Cheng <ycheng@google.com>
+Date: Mon,  6 Apr 2015 14:37:26 -0700
 
-> Fixes byte backlog accounting for the first of two chained netem instances.
-> Bytes backlog reported now corresponds to the number of queued packets.
+> From: Daniel Lee <Longinus00@gmail.com>
 > 
-> When two netem instances are chained, for instance to apply rate and queue
-> limitation followed by packet delay, the number of backlogged bytes reported
-> by the first netem instance is wrong. It reports the sum of bytes in the queues
-> of the first and second netem. The first netem reports the correct number of
-> backlogged packets but not bytes. This is shown in the example below.
+> Fast Open has been using the experimental option with a magic number
+> (RFC6994) to request and grant Fast Open cookies. This patch enables
+> the server to support the official IANA option 34 in RFC7413 in
+> addition.
 > 
-> Consider a chain of two netem schedulers created using the following commands:
+> The change has passed all existing Fast Open tests with both
+> old and new options at Google.
 > 
-> $ tc -s qdisc replace dev veth2 root handle 1:0 netem rate 10000kbit limit 100
-> $ tc -s qdisc add dev veth2 parent 1:0 handle 2: netem delay 50ms
-> 
-> Start an iperf session to send packets out on the specified interface and
-> monitor the backlog using tc:
-> 
-> $ tc -s qdisc show dev veth2
-> 
-> Output using unpatched netem:
-> 	qdisc netem 1: root refcnt 2 limit 100 rate 10000Kbit
-> 	 Sent 98422639 bytes 65434 pkt (dropped 123, overlimits 0 requeues 0)
-> 	 backlog 172694b 73p requeues 0
-> 	qdisc netem 2: parent 1: limit 1000 delay 50.0ms
-> 	 Sent 98422639 bytes 65434 pkt (dropped 0, overlimits 0 requeues 0)
-> 	 backlog 63588b 42p requeues 0
-> 	 
-> The interface used to produce this output has an MTU of 1500. The output for
-> backlogged bytes behind netem 1 is 172694b. This value is not correct. Consider
-> the total number of sent bytes and packets. By dividing the number of sent
-> bytes by the number of sent packets, we get an average packet size of ~=1504.
-> If we divide the number of backlogged bytes by packets, we get ~=2365. This is
-> due to the first netem incorrectly counting the 63588b which are in netem 2's
-> queue as being in its own queue. To verify this is the case, we subtract them
-> from the reported value and divide by the number of packets as follows: 
-> 	172694 - 63588 = 109106 bytes actualled backlogged in netem 1
-> 	109106 / 73 packets ~= 1494 bytes (which matches our MTU)
-> 	
-> The root cause is that the byte accounting is not done at the
-> same time with packet accounting. The solution is to update the backlog value
-> every time the packet queue is updated.
-> 
-> Signed-off-by: Joseph D Beshay <joseph.beshay@utdallas.edu>
-> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> Signed-off-by: Daniel Lee <Longinus00@gmail.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-Looks good, applied, thanks.
+Applied.
