@@ -1,86 +1,92 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 6/8] iproute2: Add support for the RTA_VIA attribute
-Date: Tue, 07 Apr 2015 07:55:39 -0700
-Message-ID: <5523EFEB.1030205@cumulusnetworks.com>
-References: <87bnjwspek.fsf@x220.int.ebiederm.org> <c3ad7d77783046d38e5b23b5e1fe0f71@BRMWP-EXMB11.corp.brocade.com> <20150315123337.2694183a@urahara> <87lhiyoxnw.fsf@x220.int.ebiederm.org> <87bnjuoxe8.fsf_-_@x220.int.ebiederm.org> <87d24animx.fsf_-_@x220.int.ebiederm.org> <552310E6.5060503@cumulusnetworks.com> <20150406232713.GR1051@gospo>
+From: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Subject: tg3 NIC driver bug in 3.14.x under Xen
+Date: Tue, 7 Apr 2015 16:12:14 +0100
+Message-ID: <21795.62414.465476.464027@mariner.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vivek Venkatraman <vivek@cumulusnetworks.com>,
-	rshearma@brocade.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: <xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
+To: Linux Xen maintainers:
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>, ;
+	Recently touched tg3:
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, ;
+	"Linux tg3 maintainers": Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, ;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34789 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752710AbbDGOzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 10:55:41 -0400
-Received: by pacyx8 with SMTP id yx8so80950165pac.1
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 07:55:40 -0700 (PDT)
-In-Reply-To: <20150406232713.GR1051@gospo>
+Received: from smtp02.citrix.com ([66.165.176.63]:55286 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754652AbbDGPN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 11:13:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/6/15, 4:27 PM, Andy Gospodarek wrote:
-> On Mon, Apr 06, 2015 at 04:04:06PM -0700, roopa wrote:
->> On 3/15/15, 12:52 PM, Eric W. Biederman wrote:
->>> Add support for the RTA_VIA attribute that specifies an address family
->>> as well as an address for the next hop gateway.
->>>
->>> To make it easy to pass this reorder inet_prefix so that it's tail
->>> is a proper RTA_VIA attribute.
->>>
->>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->>> ---
->>>   include/linux/rtnetlink.h |  7 +++++
->>>   include/utils.h           |  7 +++--
->>>   ip/iproute.c              | 76 +++++++++++++++++++++++++++++++++++++++++------
->>>   man/man8/ip-route.8.in    | 18 +++++++----
->>>   4 files changed, 90 insertions(+), 18 deletions(-)
->>>
->>> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
->>> index 3eb78105399b..03e4c8df8e60 100644
->>> --- a/include/linux/rtnetlink.h
->>> +++ b/include/linux/rtnetlink.h
->>> @@ -303,6 +303,7 @@ enum rtattr_type_t {
->>>   	RTA_TABLE,
->>>   	RTA_MARK,
->>>   	RTA_MFC_STATS,
->>> +	RTA_VIA,
->> eric, if its not too late, what do you think about renaming RTA_VIA
->> attribute to
->> RTA_NEWGATEWAY (similar to your new RTA_NEWDST attribute to specify a label
->> dst) ?. RTA_VIA is fine too.
->> This is indeed a new way to specify a gateway (and can/will be used by RFC
->> 5549 in the future).
->>
->> If there is interest in renaming it to RTA_NEWGATEWAY (or any other name,
->> cant think of anything better right now),
->> I will be happy to submit a follow-on patch.
-> FWIW, I actually do not mind the name RTA_VIA.  I was planning to
-> replace use of RTA_GATEWAY in iproute2 and just usa RTA_VIA for all
-> nexthops regardless of the address family of the dest route or nexthop
-> and would allow easy creation of the infrastructure needed to support
-> RFC5549 -- obviously while keeping backwards compatibility in the
-> kernel.
-ok, good to know.
->
-> This was what my orignal set did (not submitted to netdev, but discussed
-> with others at netconf) and it was much cleaner code-wise (but not ideal
-> as I overloaded the use of RTA_GATEWAY and that was not pleasing to me
-> or others).
-ok, yeah i remember you had RTA_GATEWAY6 or something like that.
+I am experiencing what appears to be a bug involving the tg3 NIC
+driver in (various stable branches of) Linux.
 
-just to clarify, i was not suggesting overloading.
-eric introduced cleaner abstracted attributes for RTA_DST and RTA_GATEWAY.
-One is called RTA_NEWDST and I was thinking if changing RTA_GATEWAY to 
-RTA_NEWGATEWAY
-would be less confusing (because, the rest of the structures (ipv4/ipv6) 
-where you will put the
-RTA_VIA information is still called gw).
+The symptom is a very high level of packet loss: around 25-30% (as
+seen in `ping').  There don't seem to be any untoward-looking kernel
+messages.  The lost packets get added to the `errors' counter shown in
+ifconfig.  I don't know whether the problem is with the transmit path,
+or receive path, or both.
 
-No worries, RTA_VIA can stay if more people prefer that.
+All connections and data transfers seem to complete correctly
+eventually, but they can be very slow indeed.
 
-Thanks!.
+The bug occurs only when Linux is running under Xen.  I have
+reproduced the bug with Linux running as dom0, both as a 32-bit PAE PV
+guest and as a 64-bit PV guest.  I have reproduced the bug with Linux
+3.14.21, 3.14.34 and 3.18.0, but the bug seems absent from Debian's
+Linux 3.2.0-4-686-pae.
+
+
+An example of the failure can be seen in the logs from this automated
+test:
+  http://logs.test-lab.xenproject.org/osstest/logs/50216/test-amd64-i386-xl/info.html
+
+The host's serial console output is here:
+  http://logs.test-lab.xenproject.org/osstest/logs/50216/test-amd64-i386-xl/serial-elbling0.log
+(Up to 01:23:01, at which time the automated tester started log
+capture including invoking Xen debug keys.)
+  
+As you can see from those logs, the test simply times out (in an
+operation which involves a lot of data transfer from a cache host on
+the local network).
+
+In that particular test, we used:
+  Linux             413cb08cebe9fd8107f556eee48b2d40773cacde
+  linux-firmware    c530a75c1e6a472b0eb9558310b518f0dfcd8860
+  Xen               3a28f760508fb35c430edac17a9efde5aff6d1d5
+
+The host OS is Debian wheezy i386 (32-bit x86).  The kernel was built
+for x86 32-bit PAE on Debian wheezy i386.  Xen was built for 64-bit
+x86 on Debian wheezy amd64 (64-bit x86).  In each case we used the
+default GCC supplied with Debian.
+
+The full information about the kernel build including build
+log, kernel config, build outputs, and test harness control variables
+etc., are here:
+  http://logs.test-lab.xenproject.org/osstest/logs/50216/build-amd64-pvops/build/
+  http://logs.test-lab.xenproject.org/osstest/logs/50216/build-amd64-pvops/info.html
+
+
+I have a number of machines which are affected by this bug[1].  All
+have a tg3 as onboard NIC.
+
+The bug is easy for me to reproduce.  I'd appreciate opinions on what
+this might be and how to go about debugging and fixing it, and more
+generally any help or advice.
+
+I can test proposed kernel patches, or debugging patches, easily.
+(But if you provide patches please say what they are based on.)
+
+Thanks,
+Ian.
+
+[1] For my and Xen community reference:
+  - elbling{0,1} in the new osstest test lab
+  - merlot{0,1} in the new osstest test lab
+  - bedbug, test box under my desk
