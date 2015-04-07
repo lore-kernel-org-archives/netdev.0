@@ -1,64 +1,130 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: fix xfrm_input/xfrm_tunnel_check oops
-Date: Tue, 7 Apr 2015 14:32:57 +0200
-Message-ID: <20150407123256.GA8928@secunet.com>
-References: <20150402075824.GA2079@p183.telecom.by>
- <20150407085731.GH20559@secunet.com>
- <20150407114341.GA4492@p183.telecom.by>
- <877ftoi18s.fsf@orebokech.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: [PATCH v2 07/17] IB/Verbs: Use management helper cap_ib_mcast() for
+ mcast-check
+Date: Tue, 07 Apr 2015 14:33:23 +0200
+Message-ID: <5523CE93.8080809@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, <davem@davemloft.net>,
-	<mike@normi.net>, <netdev@vger.kernel.org>,
-	<herbert@gondor.apana.org.au>
-To: Romain Francoise <romain@orebokech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:37772 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751528AbbDGMdI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2015 08:33:08 -0400
-Content-Disposition: inline
-In-Reply-To: <877ftoi18s.fsf@orebokech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5523CCD5.6030401-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 07, 2015 at 02:14:43PM +0200, Romain Francoise wrote:
-> On Tue, Apr 07, 2015 at 02:43:41PM +0300, Alexey Dobriyan wrote:
-> > On Tue, Apr 07, 2015 at 10:57:32AM +0200, Steffen Klassert wrote:
-> >> On Thu, Apr 02, 2015 at 10:58:24AM +0300, Alexey Dobriyan wrote:
-> >> > https://bugzilla.kernel.org/show_bug.cgi?id=95211
-> >> > 
-> >> > Commit 70be6c91c86596ad2b60c73587880b47df170a41
-> >> > ("xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer") added check
-> >> > which dereferences ->outer_mode too early but larval SAs don't have
-> >> > this pointer set (yet). So check for tunnel stuff later.
-> >> > 
-> >> > Mike Noordermeer reported this bug and patiently applied all the debugging.
-> >> > 
-> >> > Technically this is remote-oops-in-interrupt-context type of thing.
-> >> > 
-> >> > BUG: unable to handle kernel NULL pointer dereference at 0000000000000034
-> >> > IP: [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
-> >> > 	...
-> >> > [<ffffffff81500fc6>] ? xfrm4_esp_rcv+0x36/0x70
-> >> > [<ffffffff814acc9a>] ? ip_local_deliver_finish+0x9a/0x200
-> >> > [<ffffffff81471b83>] ? __netif_receive_skb_core+0x6f3/0x8f0
-> >> > 	...
-> >> > 
-> >> > RIP  [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
-> >> > Kernel panic - not syncing: Fatal exception in interrupt
-> >> > 
-> >> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-> >> 
-> >> Good catch!
-> >> 
-> >> Applied to the ipsec tree, thanks everyone!
-> 
-> > For the record Mike confirmed that the patch works:
-> > https://bugzilla.kernel.org/show_bug.cgi?id=95211#c20
-> 
-> Does this only affect configurations that use VTI? It's not clear from
-> the description.
 
-xfrm_tunnel_check() dereferences outer_mode only if it finds a tunnel
-pointer, so it affects only vti SAs.
+Introduce helper cap_ib_mcast() to help us check if the port of an
+IB device support Infiniband Multicast.
+
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+---
+ drivers/infiniband/core/multicast.c | 12 +++---------
+ include/rdma/ib_verbs.h             | 15 +++++++++++++++
+ 2 files changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/infiniband/core/multicast.c b/drivers/infiniband/core/multicast.c
+index fa17b55..bdc1880 100644
+--- a/drivers/infiniband/core/multicast.c
++++ b/drivers/infiniband/core/multicast.c
+@@ -780,8 +780,7 @@ static void mcast_event_handler(struct ib_event_handler *handler,
+ 	int index;
+ 
+ 	dev = container_of(handler, struct mcast_device, event_handler);
+-	if (rdma_port_get_link_layer(dev->device, event->element.port_num) !=
+-	    IB_LINK_LAYER_INFINIBAND)
++	if (WARN_ON(!cap_ib_mcast(dev->device, event->element.port_num)))
+ 		return;
+ 
+ 	index = event->element.port_num - dev->start_port;
+@@ -808,9 +807,6 @@ static void mcast_add_one(struct ib_device *device)
+ 	int i;
+ 	int count = 0;
+ 
+-	if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
+-		return;
+-
+ 	dev = kmalloc(sizeof *dev + device->phys_port_cnt * sizeof *port,
+ 		      GFP_KERNEL);
+ 	if (!dev)
+@@ -824,8 +820,7 @@ static void mcast_add_one(struct ib_device *device)
+ 	}
+ 
+ 	for (i = 0; i <= dev->end_port - dev->start_port; i++) {
+-		if (rdma_port_get_link_layer(device, dev->start_port + i) !=
+-		    IB_LINK_LAYER_INFINIBAND)
++		if (!cap_ib_mcast(device, dev->start_port + i))
+ 			continue;
+ 		port = &dev->port[i];
+ 		port->dev = dev;
+@@ -863,8 +858,7 @@ static void mcast_remove_one(struct ib_device *device)
+ 	flush_workqueue(mcast_wq);
+ 
+ 	for (i = 0; i <= dev->end_port - dev->start_port; i++) {
+-		if (rdma_port_get_link_layer(device, dev->start_port + i) ==
+-		    IB_LINK_LAYER_INFINIBAND) {
++		if (cap_ib_mcast(device, dev->start_port + i)) {
+ 			port = &dev->port[i];
+ 			deref_port(port);
+ 			wait_for_completion(&port->comp);
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index c405e45..5a5f6d5 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -1833,6 +1833,21 @@ static inline int cap_ib_sa(struct ib_device *device, u8 port_num)
+ 	return rdma_transport_ib(device, port_num);
+ }
+ 
++/**
++ * cap_ib_mcast - Check if the port of device has the capability Infiniband
++ * Multicast.
++ *
++ * @device: Device to be checked
++ * @port_num: Port number of the device
++ *
++ * Return 0 when port of the device don't support Infiniband
++ * Multicast.
++ */
++static inline int cap_ib_mcast(struct ib_device *device, u8 port_num)
++{
++	return cap_ib_sa(device, port_num);
++}
++
+ int ib_query_gid(struct ib_device *device,
+ 		 u8 port_num, int index, union ib_gid *gid);
+ 
+-- 
+2.1.0
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
