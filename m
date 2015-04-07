@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,1/3] hv_netvsc: Clean up two unused variables
-Date: Tue, 07 Apr 2015 18:45:42 -0400 (EDT)
-Message-ID: <20150407.184542.37502514035016941.davem@davemloft.net>
+Subject: Re: [PATCH net-next,2/3] hv_netvsc: Define a macro RNDIS_AND_PPI_SIZE
+Date: Tue, 07 Apr 2015 18:45:47 -0400 (EDT)
+Message-ID: <20150407.184547.1677851172397688600.davem@davemloft.net>
 References: <1428358974-7958-1-git-send-email-haiyangz@microsoft.com>
+ <1428358974-7958-2-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	driverdev-devel@linuxdriverproject.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
 To: haiyangz@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60313 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752792AbbDGWpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 18:45:44 -0400
-In-Reply-To: <1428358974-7958-1-git-send-email-haiyangz@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1428358974-7958-2-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
 From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon,  6 Apr 2015 15:22:52 -0700
+Date: Mon,  6 Apr 2015 15:22:53 -0700
 
+> The sum of RNDIS msg and PPI struct sizes is used in multiple places, so we define
+> a macro for them.
+> 
 > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
