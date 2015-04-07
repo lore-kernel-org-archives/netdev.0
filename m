@@ -1,48 +1,63 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH net-next 1/4] via-rhine: commit receive buffer address
- before descriptor status update.
-Date: Tue, 07 Apr 2015 14:19:03 -0700
-Message-ID: <552449C7.9080804@redhat.com>
-References: <cover.1428340371.git.romieu@fr.zoreil.com> <cover.1428340371.git.romieu@fr.zoreil.com> <87c90b27962c818239073d3a65341054922bd563.1428340371.git.romieu@fr.zoreil.com> <20150407.155209.47396464487922345.davem@davemloft.net> <20150407210248.GC24631@electric-eye.fr.zoreil.com>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v2 02/17] IB/Verbs: Implement raw management helpers
+Date: Tue, 7 Apr 2015 21:25:02 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FBE403@ORSMSX109.amr.corp.intel.com>
+References: <5523CCD5.6030401@profitbricks.com>
+ <5523CDA7.8090902@profitbricks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nix@esperi.org.uk, rl@hellgate.ch,
-	gurligebis@gentoo.org
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33271 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751548AbbDGVTN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Apr 2015 17:19:13 -0400
-In-Reply-To: <20150407210248.GC24631@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	infinipath <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"Latif, Faisal" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	"Trond Myklebust" <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	"Nikolova, Tatyana E" <tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Shachar Raindel <raindel@mellan
+To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5523CDA7.8090902-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-On 04/07/2015 02:02 PM, Francois Romieu wrote:
-> David Miller <davem@davemloft.net> :
->> From: Francois Romieu <romieu@fr.zoreil.com>
-> [...]
->>> @@ -2063,6 +2063,7 @@ static int rhine_rx(struct net_device *dev, int limit)
->>>   				break;
->>>   			}
->>>   			rp->rx_ring[entry].addr = cpu_to_le32(rp->rx_skbuff_dma[entry]);
->>> +			wmb();
->> dma_wmb() perhaps?  I think this is exactly the situation that interface was
->> added for.
-> I need the buffer address to be written in the receive descriptor before
-> the descriptor status is. The cpu does W1, W2 and the nic mustn't see W2, W1.
-
-That is the point of the dma_wmb().  If you are writing both W1 and W2 
-to system memory then dma_wmb should be enough, if W1 is system memory 
-and W2 is device memory (MMIO) then you need wmb().
-
-You can think of dma_wmb as being something similar to smp_wmb w/o the 
-SMP processor requirement.  On architectures that are strong ordered 
-such as most x86 the wmb() translates to a barrier.  On other 
-architectures it is something usually a little lighter than a full wmb() 
-so for example on PowerPC wmb is sync() while dma_wmb() is lwsync().
-
-- Alex
+PiArc3RhdGljIGlubGluZSBpbnQgcmRtYV90cmFuc3BvcnRfaWIoc3RydWN0IGliX2RldmljZSAq
+ZGV2aWNlLCB1OA0KPiBwb3J0X251bSkNCj4gK3sNCj4gKwlyZXR1cm4gZGV2aWNlLT5xdWVyeV90
+cmFuc3BvcnQoZGV2aWNlLCBwb3J0X251bSkNCj4gKwkJCT09IFJETUFfVFJBTlNQT1JUX0lCOw0K
+PiArfQ0KPiArDQo+ICtzdGF0aWMgaW5saW5lIGludCByZG1hX3RyYW5zcG9ydF9pYm9lKHN0cnVj
+dCBpYl9kZXZpY2UgKmRldmljZSwgdTgNCj4gcG9ydF9udW0pDQo+ICt7DQo+ICsJcmV0dXJuIGRl
+dmljZS0+cXVlcnlfdHJhbnNwb3J0KGRldmljZSwgcG9ydF9udW0pDQo+ICsJCQk9PSBSRE1BX1RS
+QU5TUE9SVF9JQk9FOw0KPiArfQ0KDQpXZSBuZWVkIHRvIGRvIHNvbWV0aGluZyB3aXRoIHRoZSBm
+dW5jdGlvbiBuYW1lcyB0byBtYWtlIHRoZWlyIHVzZSBtb3JlIG9idmlvdXMuICBCb3RoIElCIGFu
+ZCBJQm9FIGhhdmUgdHJhbnNwb3J0IElCLiAgSSB0aGluayBKYXNvbiBzdWdnZXN0ZWQgcmRtYV90
+ZWNoX2liIC8gcmRtYV90ZWNoX2lib2UuDQoNClJlZ2FyZGluZyB0cmFuc3BvcnQgdHlwZXMsIEkg
+YmVsaWV2ZSB0aGF0IHVzbmljIHN1cHBvcnRzIDIgZGlmZmVyZW50IHRyYW5zcG9ydHMuICBBbHRo
+b3VnaCB1c25pYyBpc24ndCB1c2VkIGJ5IGFueXRoaW5nIGVsc2UgaW4gdGhlIGNvcmUgbGF5ZXIs
+IHdlIHNob3VsZCBwcm9iYWJseSBiZSBhYmxlIHRvIGhhbmRsZSBhIGRldmljZSB0aGF0IHN1cHBv
+cnRzIG11bHRpcGxlIHByb3RvY29scy4gIEknbSBub3Qgc3VyZSB3aGF0IHRoZSAndHJhbnNwb3J0
+JyBzaG91bGQgYmUgZm9yIGlXYXJwLCBzaW5jZSBpV2FycCBpcyBsYXllcmVkIG92ZXIgVENQLiAg
+QnV0IHRoYXQgbWF5IGp1c3QgbWVhbiB0aGF0IHRoZSB0ZXJtIHRyYW5zcG9ydCBpc24ndCBncmVh
+dC4NCg0KLSBTZWFuDQo=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
