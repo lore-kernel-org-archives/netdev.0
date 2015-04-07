@@ -1,167 +1,64 @@
-From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Subject: [PATCH v2 06/17] IB/Verbs: Use management helper cap_ib_sa() for
- sa-check
-Date: Tue, 07 Apr 2015 14:32:47 +0200
-Message-ID: <5523CE6F.4020206@profitbricks.com>
-References: <5523CCD5.6030401@profitbricks.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: fix xfrm_input/xfrm_tunnel_check oops
+Date: Tue, 7 Apr 2015 14:32:57 +0200
+Message-ID: <20150407123256.GA8928@secunet.com>
+References: <20150402075824.GA2079@p183.telecom.by>
+ <20150407085731.GH20559@secunet.com>
+ <20150407114341.GA4492@p183.telecom.by>
+ <877ftoi18s.fsf@orebokech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5523CCD5.6030401-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, <davem@davemloft.net>,
+	<mike@normi.net>, <netdev@vger.kernel.org>,
+	<herbert@gondor.apana.org.au>
+To: Romain Francoise <romain@orebokech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:37772 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751528AbbDGMdI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Apr 2015 08:33:08 -0400
+Content-Disposition: inline
+In-Reply-To: <877ftoi18s.fsf@orebokech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 07, 2015 at 02:14:43PM +0200, Romain Francoise wrote:
+> On Tue, Apr 07, 2015 at 02:43:41PM +0300, Alexey Dobriyan wrote:
+> > On Tue, Apr 07, 2015 at 10:57:32AM +0200, Steffen Klassert wrote:
+> >> On Thu, Apr 02, 2015 at 10:58:24AM +0300, Alexey Dobriyan wrote:
+> >> > https://bugzilla.kernel.org/show_bug.cgi?id=95211
+> >> > 
+> >> > Commit 70be6c91c86596ad2b60c73587880b47df170a41
+> >> > ("xfrm: Add xfrm_tunnel_skb_cb to the skb common buffer") added check
+> >> > which dereferences ->outer_mode too early but larval SAs don't have
+> >> > this pointer set (yet). So check for tunnel stuff later.
+> >> > 
+> >> > Mike Noordermeer reported this bug and patiently applied all the debugging.
+> >> > 
+> >> > Technically this is remote-oops-in-interrupt-context type of thing.
+> >> > 
+> >> > BUG: unable to handle kernel NULL pointer dereference at 0000000000000034
+> >> > IP: [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+> >> > 	...
+> >> > [<ffffffff81500fc6>] ? xfrm4_esp_rcv+0x36/0x70
+> >> > [<ffffffff814acc9a>] ? ip_local_deliver_finish+0x9a/0x200
+> >> > [<ffffffff81471b83>] ? __netif_receive_skb_core+0x6f3/0x8f0
+> >> > 	...
+> >> > 
+> >> > RIP  [<ffffffff8150dca2>] xfrm_input+0x3c2/0x5a0
+> >> > Kernel panic - not syncing: Fatal exception in interrupt
+> >> > 
+> >> > Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> >> 
+> >> Good catch!
+> >> 
+> >> Applied to the ipsec tree, thanks everyone!
+> 
+> > For the record Mike confirmed that the patch works:
+> > https://bugzilla.kernel.org/show_bug.cgi?id=95211#c20
+> 
+> Does this only affect configurations that use VTI? It's not clear from
+> the description.
 
-Introduce helper cap_ib_sa() to help us check if the port of an
-IB device support Infiniband Subnet Administrator.
-
-Reform ib_sa_add_one() to fit per-port-check method better.
-
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
----
- drivers/infiniband/core/sa_query.c | 27 +++++++++++++++++----------
- include/rdma/ib_verbs.h            | 15 +++++++++++++++
- 2 files changed, 32 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/infiniband/core/sa_query.c b/drivers/infiniband/core/sa_query.c
-index c38f030..f704254 100644
---- a/drivers/infiniband/core/sa_query.c
-+++ b/drivers/infiniband/core/sa_query.c
-@@ -450,7 +450,7 @@ static void ib_sa_event(struct ib_event_handler *handler, struct ib_event *event
- 		struct ib_sa_port *port =
- 			&sa_dev->port[event->element.port_num - sa_dev->start_port];
- 
--		if (rdma_port_get_link_layer(handler->device, port->port_num) != IB_LINK_LAYER_INFINIBAND)
-+		if (WARN_ON(!cap_ib_sa(handler->device, port->port_num)))
- 			return;
- 
- 		spin_lock_irqsave(&port->ah_lock, flags);
-@@ -1153,9 +1153,7 @@ static void ib_sa_add_one(struct ib_device *device)
- {
- 	struct ib_sa_device *sa_dev;
- 	int s, e, i;
--
--	if (rdma_node_get_transport(device->node_type) != RDMA_TRANSPORT_IB)
--		return;
-+	int count = 0;
- 
- 	if (device->node_type == RDMA_NODE_IB_SWITCH)
- 		s = e = 0;
-@@ -1175,7 +1173,7 @@ static void ib_sa_add_one(struct ib_device *device)
- 
- 	for (i = 0; i <= e - s; ++i) {
- 		spin_lock_init(&sa_dev->port[i].ah_lock);
--		if (rdma_port_get_link_layer(device, i + 1) != IB_LINK_LAYER_INFINIBAND)
-+		if (!cap_ib_sa(device, i + 1))
- 			continue;
- 
- 		sa_dev->port[i].sm_ah    = NULL;
-@@ -1189,6 +1187,13 @@ static void ib_sa_add_one(struct ib_device *device)
- 			goto err;
- 
- 		INIT_WORK(&sa_dev->port[i].update_task, update_sm_ah);
-+
-+		count++;
-+	}
-+
-+	if (!count) {
-+		kfree(sa_dev);
-+		return;
- 	}
- 
- 	ib_set_client_data(device, &sa_client, sa_dev);
-@@ -1204,16 +1209,18 @@ static void ib_sa_add_one(struct ib_device *device)
- 	if (ib_register_event_handler(&sa_dev->event_handler))
- 		goto err;
- 
--	for (i = 0; i <= e - s; ++i)
--		if (rdma_port_get_link_layer(device, i + 1) == IB_LINK_LAYER_INFINIBAND)
-+	for (i = 0; i <= e - s; ++i) {
-+		if (cap_ib_sa(device, i + 1))
- 			update_sm_ah(&sa_dev->port[i].update_task);
-+	}
- 
- 	return;
- 
- err:
--	while (--i >= 0)
--		if (rdma_port_get_link_layer(device, i + 1) == IB_LINK_LAYER_INFINIBAND)
-+	while (--i >= 0) {
-+		if (cap_ib_sa(device, i + 1))
- 			ib_unregister_mad_agent(sa_dev->port[i].agent);
-+	}
- 
- 	kfree(sa_dev);
- 
-@@ -1233,7 +1240,7 @@ static void ib_sa_remove_one(struct ib_device *device)
- 	flush_workqueue(ib_wq);
- 
- 	for (i = 0; i <= sa_dev->end_port - sa_dev->start_port; ++i) {
--		if (rdma_port_get_link_layer(device, i + 1) == IB_LINK_LAYER_INFINIBAND) {
-+		if (cap_ib_sa(device, i + 1)) {
- 			ib_unregister_mad_agent(sa_dev->port[i].agent);
- 			if (sa_dev->port[i].sm_ah)
- 				kref_put(&sa_dev->port[i].sm_ah->ref, free_sm_ah);
-diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
-index 3ba963f..c405e45 100644
---- a/include/rdma/ib_verbs.h
-+++ b/include/rdma/ib_verbs.h
-@@ -1818,6 +1818,21 @@ static inline int cap_ib_cm(struct ib_device *device, u8 port_num)
- 	return rdma_ib_mgmt(device, port_num);
- }
- 
-+/**
-+ * cap_ib_sa - Check if the port of device has the capability Infiniband
-+ * Subnet Administrator.
-+ *
-+ * @device: Device to be checked
-+ * @port_num: Port number of the device
-+ *
-+ * Return 0 when port of the device don't support Infiniband
-+ * Subnet Administrator.
-+ */
-+static inline int cap_ib_sa(struct ib_device *device, u8 port_num)
-+{
-+	return rdma_transport_ib(device, port_num);
-+}
-+
- int ib_query_gid(struct ib_device *device,
- 		 u8 port_num, int index, union ib_gid *gid);
- 
--- 
-2.1.0
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+xfrm_tunnel_check() dereferences outer_mode only if it finds a tunnel
+pointer, so it affects only vti SAs.
