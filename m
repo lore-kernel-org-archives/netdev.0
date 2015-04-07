@@ -1,157 +1,67 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v2 09/17] IB/Verbs: Use helper cap_read_multi_sge() and
- reform svc_rdma_accept()
-Date: Tue, 7 Apr 2015 11:42:23 -0600
-Message-ID: <20150407174223.GB15704@obsidianresearch.com>
-References: <5523CCD5.6030401@profitbricks.com>
- <5523CEE4.5060901@profitbricks.com>
- <5523FBF1.80304@talpey.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH net-next v1] bonding: cosmetic/readability changes for
+ admin, oper-key ops
+Date: Tue, 7 Apr 2015 11:08:07 -0700
+Message-ID: <CAF2d9jgJQ-xKNBQmt-3LVt=Yg_taLpLnTrvFBkjUhz_HgUh0sg@mail.gmail.com>
+References: <1428094440-9241-1-git-send-email-maheshb@google.com> <20150406.170106.811076629093466625.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wang <yun.wang@profitbricks.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Mike Marciniszyn <infinipath@intel.com>,
-	Eli Cohen <eli@mellanox.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ira Weiny <ira.weiny@intel.com>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgens
-To: Tom Talpey <tom@talpey.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5523FBF1.80304@talpey.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+	nikolay@redhat.com,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:36141 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752847AbbDGSIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 14:08:35 -0400
+Received: by obbeb7 with SMTP id eb7so28149102obb.3
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 11:08:34 -0700 (PDT)
+In-Reply-To: <20150406.170106.811076629093466625.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 07, 2015 at 11:46:57AM -0400, Tom Talpey wrote:
-> On 4/7/2015 8:34 AM, Michael Wang wrote:
-> >  /**
-> >+ * cap_read_multi_sge - Check if the port of device has the capability
-> >+ * RDMA Read Multiple Scatter-Gather Entries.
-> >+ *
-> >+ * @device: Device to be checked
-> >+ * @port_num: Port number of the device
-> >+ *
-> >+ * Return 0 when port of the device don't support
-> >+ * RDMA Read Multiple Scatter-Gather Entries.
-> >+ */
-> >+static inline int cap_read_multi_sge(struct ib_device *device, u8 port_num)
-> >+{
-> >+	return !rdma_transport_iwarp(device, port_num);
-> >+}
-> 
-> This just papers over the issue we discussed earlier. How *many*
-> entries does the device support? If a device supports one, or two,
-> is that enough? How does the upper layer know the limit?
+On Mon, Apr 6, 2015 at 2:01 PM, David Miller <davem@davemloft.net> wrote:
+> From: Mahesh Bandewar <maheshb@google.com>
+> Date: Fri,  3 Apr 2015 13:54:00 -0700
+>
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+>
+> This is a very low quality patch submission.
+>
+> You aren't explaining what you are really doing, or why.
+>
+> Furthermore:
+>
+>> @@ -1756,8 +1758,6 @@ static void ad_initialize_port(struct port *port, int lacp_fast)
+>>               port->actor_system_priority = 0xffff;
+>>               port->actor_port_aggregator_identifier = 0;
+>>               port->ntt = false;
+>> -             port->actor_admin_port_key = 1;
+>> -             port->actor_oper_port_key  = 1;
+>>               port->actor_admin_port_state = AD_STATE_AGGREGATION |
+>>                                              AD_STATE_LACP_ACTIVITY;
+>>               port->actor_oper_port_state  = AD_STATE_AGGREGATION |
+>
+> This is not just a readability or cosmetic change, it is changing behavior.
+>
+> You need to describe why removing these initializers is valid, and also
+> this change is outside of the scope of a cosmetic/readability change so
+> would need to be split into another patch.
+>
+> It is almost never correct to have an empty commit log message, espcially
+> when real changes are being made to the code as is happening here in this
+> code block.
 
-I think Michael is fine to just make this one mechanical change.
+These are bogus initializers but I agree that this piece deserves a
+separate patch with an explanation. Rest of the patch is nothing but
+code-re-factoring (breaking rich assignment to simpler, multiple
+assignments, removing duplicate code etc.) to make it readable. I
+though it wont be necessary to add that into the commit log since it's
+very obvious hence I kept it empty.  Will break it into two patches
+and send it again.
 
-The kernel only supports two kinds of devices today, ones with 1 read
-SGE and ones where READ SGE == WRITE SGE == SEND SGE.
-
-If someone makes another variation then it is up to them to propose a
-better fix.
-
-
-> >  static int rdma_read_max_sge(struct svcxprt_rdma *xprt, int sge_count)
-> >  {
-> >-	if (rdma_node_get_transport(xprt->sc_cm_id->device->node_type) ==
-> >-	     RDMA_TRANSPORT_IWARP)
-> >+	if (!cap_read_multi_sge(xprt->sc_cm_id->device,
-> >+				xprt->sc_cm_id->port_num))
-> >  		return 1;
-> >  	else
-> >  		return min_t(int, sge_count, xprt->sc_max_sge);
-> 
-> This is incorrect. The RDMA Read max is not at all the same as the
-> max_sge. It is a different operation, with a different set of work
-> request parameters.
-
-The algorithm looks OK to me,
-
-        newxprt->sc_max_sge = min((size_t)devattr.max_sge,
-                                  (size_t)RPCSVC_MAXPAGES);
-
-So it returns 1 or the number of sge entries per WR, and max_sge is
-for READ/WRITE/SEND in every case except when cap_read_multi_sge == 1
-
-> >  	/*
-> >  	 * Determine if a DMA MR is required and if so, what privs are required
-> >  	 */
-> >-	switch (rdma_node_get_transport(newxprt->sc_cm_id->device->node_type)) {
-> >-	case RDMA_TRANSPORT_IWARP:
-> >+	if (rdma_transport_iwarp(newxprt->sc_cm_id->device,
-> >+				 newxprt->sc_cm_id->port_num)) {
-> >  		newxprt->sc_dev_caps |= SVCRDMA_DEVCAP_READ_W_INV;
-> 
-> Do I read this correctly that it is forcing the "read with invalidate"
-> capability to "on" for all iWARP devices? I don't think that is correct,
-> for the legacy devices you're also supporting.
-
-No idea here, this logic was added in:
-
-commit 3a5c63803d0552a3ad93b85c262f12cd86471443
-Author: Tom Tucker <tom@opengridcomputing.com>
-Date:   Tue Sep 30 13:46:13 2008 -0500
-
-    svcrdma: Query device for Fast Reg support during connection setup
-    
-    Query the device capabilities in the svc_rdma_accept function to determine
-    what advanced memory management capabilities are supported by the device.
-    Based on the query, select the most secure model available given the
-    requirements of the transport and capabilities of the adapter.
-    
-    Signed-off-by: Tom Tucker <tom@opengridcomputing.com>
-
-> >@@ -992,8 +992,8 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
-> >  			dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
-> >  		} else
-> >  			need_dma_mr = 0;
-> >-		break;
-> >-	case RDMA_TRANSPORT_IB:
-> >+	} else if (rdma_ib_mgmt(newxprt->sc_cm_id->device,
-> >+				newxprt->sc_cm_id->port_num)) {
-> >  		if (!(newxprt->sc_dev_caps & SVCRDMA_DEVCAP_FAST_REG)) {
-> >  			need_dma_mr = 1;
-> >  			dma_mr_acc = IB_ACCESS_LOCAL_WRITE;
-> 
-> Now I'm even more confused. How is the presence of IB management
-> related to needing a privileged lmr?
-
-Agree, this needs to be someone else. 
-
-I think the test is probably based on this comment:
-
-        * NB:  iWARP requires remote write access for the data sink
-        *      of an RDMA_READ. IB does not.
-
-So the if should be:
-
-          if (cap_rdma_read_needs_write(..) && 
-	  !(newxprt->sc_dev_caps & SVCRDMA_DEVCAP_FAST_REG)) {
-                       need_dma_mr = 1;
-                       dma_mr_acc =
-                               (IB_ACCESS_LOCAL_WRITE |
-                                IB_ACCESS_REMOTE_WRITE);
-
-And the identical if blocks merged.
-
-Plus the
-	if (rdma_transport_iwarp(newxprt->sc_cm_id->device,
-				 newxprt->sc_cm_id->port_num))
-  		newxprt->sc_dev_caps |= SVCRDMA_DEVCAP_READ_W_INV
-
-Jason
+Thanks,
+--mahesh..
