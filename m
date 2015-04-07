@@ -1,48 +1,38 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: VxLAN system wedge in 4.0.0-rc5+ from davem net-next?
-Date: Tue, 07 Apr 2015 12:14:53 +0200
-Message-ID: <1428401693.3914618.250169009.7869259D@webmail.messagingengine.com>
-References: <551F2C20.1060908@hp.com> <20150406190743.GA3969@localhost.localdomain>
- <5522E5F5.7050605@hp.com> <55230E02.2060204@hp.com>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: [PATCH RFT net-next 0/4] via-rhine receive buffers rework
+Date: Tue, 07 Apr 2015 11:46:22 +0100
+Message-ID: <87sicci5c1.fsf@spindle.srvr.nix>
+References: <cover.1428340371.git.romieu@fr.zoreil.com>
+	<87wq1plyjz.fsf@spindle.srvr.nix>
 Mime-Version: 1.0
 Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	rl@hellgate.ch, "Bjarke Istrup Pedersen" <gurligebis@gentoo.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:35088 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750994AbbDGKOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 06:14:55 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id B80E320929
-	for <netdev@vger.kernel.org>; Tue,  7 Apr 2015 06:14:50 -0400 (EDT)
-In-Reply-To: <55230E02.2060204@hp.com>
+Received: from icebox.esperi.org.uk ([81.187.191.129]:50730 "EHLO
+	mail.esperi.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752129AbbDGKqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 06:46:31 -0400
+In-Reply-To: <87wq1plyjz.fsf@spindle.srvr.nix> (nix@esperi.org.uk's message of
+	"Mon, 06 Apr 2015 22:46:56 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 7, 2015, at 00:51, Rick Jones wrote:
-> On 04/06/2015 01:00 PM, Rick Jones wrote:
-> > On 04/06/2015 12:07 PM, Marcelo Ricardo Leitner wrote:
-> >> That means you could send/receive some packets on it before the hang,
-> >> right?
-> >
-> > On v3.19 I could send and receive lots of packets without a hang.  I
-> > could even run netperf through the vxlan tunnel :)
-> >
-> > Now that I've addressed my build issue I'm in the midst of a bisect, but
-> > if someone has faster git-fu I'll not be disappointed if they are able
-> > to bisect before me.
-> 
-> The git bisect has implicated:
-> 
-> b6a7719aedd7e5c0f2df7641aa47386111682df4 is the first bad commit
-> commit b6a7719aedd7e5c0f2df7641aa47386111682df4
-> Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date:   Wed Mar 25 17:07:44 2015 +0100
+On 6 Apr 2015, nix@esperi.org.uk verbalised:
 
-Thanks for the report, I try to reproduce this right now!
+> On 6 Apr 2015, Francois Romieu outgrape:
+>
+>> This is an hopefully readable rework of my patch from two days ago.
+>> It's different enough that it imho requires someone's Tested-by.
+>
+> I'll give it a torturing tomorrow.
 
-Bye,
-Hannes
+Tormented by routing a simultaneous iperf and make-over-nfs through it
+(with the make using ccache, and the ccache cache directory *also*
+accessed via nfs, to hit it really hard :) ).
+
+No crashes in several hours of running: looks good!
+
+-- 
+NULL && (void)
