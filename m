@@ -1,44 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/4] Prevent UDP tunnels from operating on garbage socket
-Date: Mon, 06 Apr 2015 22:03:48 -0700
-Message-ID: <1428383028.25985.209.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150406.124114.924455461962119301.davem@davemloft.net>
-	 <20150406.131700.185460014498109286.davem@davemloft.net>
-	 <CALx6S35bZ6t9d+cpHRXYS94N6rGuHhACMAt9Bj6UzCwBuomBSA@mail.gmail.com>
-	 <20150406.235118.65925113152002205.davem@davemloft.net>
-	 <CALx6S36f8SQQoNvzPyCNk4=0LbH4Od6ZtdDn0DCA2sZGZHMx2g@mail.gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next] switchdev: fdb add/del via swdev obj.
+Date: Mon, 6 Apr 2015 22:16:49 -0700
+Message-ID: <CAE4R7bBjPNs40cQfYGEueHVnP-_gT7gX41i=NjZmFt7R_XhLSg@mail.gmail.com>
+References: <1428362710-20815-1-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
-	hannes@stressinduktion.org,
-	=?UTF-8?Q?Ji=C5=99=C3=AD_P=C3=ADrko?= <jiri@resnulli.us>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CALx6S36f8SQQoNvzPyCNk4=0LbH4Od6ZtdDn0DCA2sZGZHMx2g@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Scott Feldman <sfeldman@gmail.com>, Netdev <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:35040 "EHLO
+	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750912AbbDGFQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 01:16:50 -0400
+Received: by qkhg7 with SMTP id g7so41312619qkh.2
+        for <netdev@vger.kernel.org>; Mon, 06 Apr 2015 22:16:49 -0700 (PDT)
+In-Reply-To: <1428362710-20815-1-git-send-email-sridhar.samudrala@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-04-06 at 21:45 -0700, Tom Herbert wrote:
-> On Mon, Apr 6, 2015 at 8:51 PM, David Miller <davem@davemloft.net> wrote:
+On Mon, Apr 6, 2015 at 4:25 PM, Sridhar Samudrala
+<sridhar.samudrala@intel.com> wrote:
+> This is a patch on top of Scott's v3 version of switchdev spring
+> cleanup patches.
+>
+> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 
-> > I don't see what is convoluted about using the correct socket for
-> > sending L3 protocol frames.  That's in fact how it's _supposed_ to
-> > work.  And consistently having a proper matching socket available
-> > makes it so that, long-term, we'll never have to deal with this issue
-> > ever again.
-> 
-> I guess this is where I'm confused. We can send just about anything
-> over GRE also, but have never needed a transmit socket for that. Is
-> UDP encapsulation so different, or is GRE equally broken also? Also,
-> will we need to add the socket to FOU and GUE then?
+Sridhar,
 
-GRE encap is very low level (not L3), and no socket simply sends GRE
-packets as is.
+You patch is spot-on.  We can't apply it yet until my stuff gets
+in...I'm working on it.  I extended your patch for fdb dump as well,
+which I'll send tomorrow.  For dump, I've added swdev_port_obj_dump()
+op and moved all the netlink skb building code to code swdev code.
+The driver implements very little and is unaware of the netlink msg
+being built.
 
-For example, when GSO support was extended, it was first extended to
-GRE, and only later to other tunnels with more thinking about allowing
-more sophisticated encap levels.
+With your patch, we can finally do the fdb flushes and fdb ageing on
+the port without having to synthesis netlink msgs inside the kernel.
+I'm not sure if that's what you're working on, but it's the next
+logical piece to plumb.  (Hopefully you are working on that :).
 
+(btw, you have my email addr wrong).
 
+Acked-in-spirit-by: Scott Feldman <sfeldma@gmail.com>
+
+-scott
