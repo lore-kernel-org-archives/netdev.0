@@ -1,36 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/9] netfilter: Create and use nf_hook_state.
-Date: Tue, 7 Apr 2015 14:27:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB15A10@AcuExch.aculab.com>
-References: <20150403.220743.1982329121589716666.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 3/4] netfilter: Pass socket pointer down through okfn().
+Date: Tue, 07 Apr 2015 16:44:29 +0200
+Message-ID: <1428417869.2928.1.camel@stressinduktion.org>
+References: <20150405.221904.606225054570296194.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"pablo@netfilter.org" <pablo@netfilter.org>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	"jiri@resnulli.us" <jiri@resnulli.us>
-To: 'David Miller' <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	pablo@netfilter.org, jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:63535 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754023AbbDGO2w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 10:28:52 -0400
-In-Reply-To: <20150403.220743.1982329121589716666.davem@davemloft.net>
-Content-Language: en-US
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:58588 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752902AbbDGOoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 10:44:32 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id EDEEE20AE4
+	for <netdev@vger.kernel.org>; Tue,  7 Apr 2015 10:44:27 -0400 (EDT)
+In-Reply-To: <20150405.221904.606225054570296194.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Instead of passing a large number of arguments down into the nf_hook()
-> entry points, create a structure which carries this state down through
-> the hook processing layers.
-> 
-> This makes is so that if we want to change the types or signatures of
-> any of these pieces of state, there are less places that need to be
-> changed.
+On So, 2015-04-05 at 22:19 -0400, David Miller wrote:
+> --- a/include/linux/netfilter.h
+> +++ b/include/linux/netfilter.h
+> @@ -54,7 +54,7 @@ struct nf_hook_state {
+>  	struct net_device *in;
+>  	struct net_device *out;
+>  	struct sock *sk;
+> -	int (*okfn)(struct sk_buff *);
+> +	int (*okfn)(struct sock *, struct sk_buff *);
+>  };
 
-Should the structure be passed as a 'const foo *' ?
-Or is that always too restrictive?
+If we give okfn the signature int (*okfn)(struct nf_hook_state *); then
+we would not need to touch anything else to enhance this.
 
-	David
+What do you think?
+
+Thanks,
+Hannes
