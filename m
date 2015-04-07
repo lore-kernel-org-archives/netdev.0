@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: move inline functions to the header file
-Date: Tue, 07 Apr 2015 15:22:49 -0400 (EDT)
-Message-ID: <20150407.152249.360575010614186977.davem@davemloft.net>
-References: <4254119.qJUdUQCUqs@wasted.cogentembedded.com>
+Subject: Re: [PATCH 1/16] wan: lmc: fix error return code
+Date: Tue, 07 Apr 2015 15:26:11 -0400 (EDT)
+Message-ID: <20150407.152611.338150667973619545.davem@davemloft.net>
+References: <1428235596-4757-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1428235596-4757-2-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752311AbbDGTWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 15:22:51 -0400
-In-Reply-To: <4254119.qJUdUQCUqs@wasted.cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1428235596-4757-2-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Mon, 06 Apr 2015 00:13:46 +0300
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Sun,  5 Apr 2015 14:06:21 +0200
 
-> The explicitly inline functions belong to the header files, so move
-> cpu_to_edmac() and edmac_to_cpu() into the driver header.
+> Return a negative error code on failure.
 > 
-> While at it, make these functions return 'u32' instead of '__u32'.
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Then... ummm... remove the inline keyword?
-
-If it's not used anywhere else, that's the thing to do.
+Applied.
