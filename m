@@ -1,41 +1,74 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next 1/2] ipv4: ip_tunnel: use net namespace from
- rtable not socket
-Date: Wed, 08 Apr 2015 10:31:06 -0700
-Message-ID: <552565DA.5010606@hp.com>
-References: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org> <20150408.120958.1217271670558706137.davem@davemloft.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next 03/11] net/mlx5_core: Virtually extend
+ work/completion queue buffers by one page
+Date: Wed, 8 Apr 2015 20:44:10 +0300
+Message-ID: <CAPcc5PgqS18h4zG+KrkXy3o3DSsppJKDkprUU4zCALXzEvimoA@mail.gmail.com>
+References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
+	<1428504685-8945-4-git-send-email-amirv@mellanox.com>
+	<20150408.122520.1452310225826617365.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, hannes@stressinduktion.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>, netdev <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, achiad@mellanox.com,
+	Ido Shamay <idos@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hp.com ([15.201.208.55]:33179 "EHLO
-	g4t3427.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754180AbbDHRbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 13:31:08 -0400
-In-Reply-To: <20150408.120958.1217271670558706137.davem@davemloft.net>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:35493 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753994AbbDHRoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 13:44:12 -0400
+Received: by lbbuc2 with SMTP id uc2so69327106lbb.2
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 10:44:10 -0700 (PDT)
+In-Reply-To: <20150408.122520.1452310225826617365.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2015 09:09 AM, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed,  8 Apr 2015 17:01:22 +0200
+On Wed, Apr 8, 2015 at 7:25 PM, David Miller <davem@davemloft.net> wrote:
+> From: Amir Vadai <amirv@mellanox.com>
+> Date: Wed,  8 Apr 2015 17:51:17 +0300
 >
->> The socket parameter might legally be NULL, thus sock_net is sometimes
->> causing a NULL pointer dereference. Using net_device pointer in dst_entry
->> is more reliable.
->>
->> Fixes: b6a7719aedd7e5c ("ipv4: hash net ptr into fragmentation bucket selection")
->> Reported-by: Rick Jones <rick.jones2@hp.com>
->> Cc: Rick Jones <rick.jones2@hp.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> +     for (i = 0; i < buf->nbufs; i++) {
+>> +             buf->page_list[i].buf =
+>> +                     dma_zalloc_coherent(&dev->pdev->dev, PAGE_SIZE,
+>> +                                         &t, GFP_KERNEL);
+>> +             if (!buf->page_list[i].buf)
+>> +                     goto err_free;
+>> +
+>> +             buf->page_list[i].map = t;
+>> +     }
+>> +
+>> +     if (BITS_PER_LONG == 64) {
+>> +             struct page **pages;
+>> +             int npages = buf->nbufs + (virtual_extension ? 1 : 0);
+>> +
+>> +             pages = kcalloc(npages, sizeof(*pages), GFP_KERNEL);
+>> +             if (!pages)
+>> +                     goto err_free;
+>> +
+>> +             for (i = 0; i < buf->nbufs; i++)
+>> +                     pages[i] = virt_to_page(buf->page_list[i].buf);
+>> +
+>> +             if (virtual_extension)
+>> +                     pages[buf->nbufs] = pages[0];
+>> +
+>> +             buf->direct.buf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
 >
-> Applied.
+> I'm sorry but I'm going to require that you fix this mis-use of the DMA
+> API first.
+>
+> You absolutely cannot vmap() pages backing coherent DMA memory, the
+> memory is mapped in a particular way by dma_*_coherent() and you must
+> therefore only use the virtual address provided to you by that
+> function to access the memory.
 
-Horses, barn doors, crossed i's and dotted t's but I can report that 
-with that in place the problem I reported in "VxLAN system wedge in 
-4.0.0-rc5+ from davem net-next?" no longer happens.
+Right - will be fixed in V1
 
-rick
+Thanks,
+Amir
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
