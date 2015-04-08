@@ -1,40 +1,70 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [bnx2x] Re: Kernel 3.18.11 hangs when inserting netconsle
- module on a DELL M620 VRTX Blade
-Date: Wed, 8 Apr 2015 14:42:08 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63C26537@avmb3.qlogic.org>
-References: <5524E669.5050903@enas.net> <55250808.6000606@hurleysoftware.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v3 3/4] mpls: Per-device enabling of packet input
+Date: Wed, 08 Apr 2015 09:44:31 -0500
+Message-ID: <877ftmel2o.fsf@x220.int.ebiederm.org>
+References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
+	<1427739356-28113-1-git-send-email-rshearma@brocade.com>
+	<1427739356-28113-4-git-send-email-rshearma@brocade.com>
+	<877ftnkh1u.fsf@x220.int.ebiederm.org> <55253B61.3000809@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-To: Peter Hurley <peter@hurleysoftware.com>,
-	Urban Loesch <bind@enas.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55250808.6000606@hurleysoftware.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "davem\@davemloft.net" <davem@davemloft.net>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:55096 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754148AbbDHOsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 10:48:36 -0400
+In-Reply-To: <55253B61.3000809@brocade.com> (Robert Shearman's message of
+	"Wed, 8 Apr 2015 15:29:53 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiA+IEknaGF2ZSBpbnN0YWxsZWQgYSBuZXcgREVMTCBWUlRYIE02MjAgQmxhZGUgd2l0aCBrZXJu
-ZWwgMy4xOC4xMS4NCj4gPiBBZnRlciBzeXN0ZW0gc3RhcnR1cCBJIHRyaWVkIHRvIGFjdGl2YXRl
-IHRoZSBrZXJuZWwgbmV0Y29uc29sZSB3aXRoIHJlbW90ZQ0KPiBsb2dnaW5nIGVuYWJsZWQuDQo+
-ID4NCj4gPiBJIGV4ZWN1dGVkIHRoZSBmb2xsb3dpbmcgY29tbWFuZCBhbmQgdGhlIHNoZWxsIEkg
-aXNzdWVkIGl0IGJlY29tZXMNCj4gdW5yZXNwb25zaXZlIGFuZCBoYW5ncy4NCj4gPg0KPiA+ICMg
-IG1vZHByb2JlIG5ldGNvbnNvbGUNCj4gbmV0Y29uc29sZT0iQC9ldGgwLDUxNEAxMC4xLjEwLjE5
-Ny8wMDoxMDpkYjpmYzo2MDowYyINCj4gPg0KPiA+IFRoZSBzeXN0ZW0gbG9hZCBpbmNyZWFzZXMg
-c2xvd2x5IGFuZCB0aGUgQ1BVICMxMSB1c2VzIDEwMCUgb2Ygc29mdA0KPiA+IGlycS4gT25seSBh
-IHNvZnQgcmVzZXQgd2l0b2h1dCBsb2FkaW5nIHRoZSBuZXRjb25zb2xlIG1vZHVsZSBhZnRlciBz
-dGFydHVwDQo+IHNvbHZlcyB0aGUgaXNzdWUuDQoNCkkgc3VzcGVjdCB0aGlzIGlzIGEgcmVncmVz
-c2lvbiBpbnRyb2R1Y2VkIGJ5IDlhMjYyMGM4Nzc0NQ0KImJueDJ4OiBwcmV2ZW50IFdBUk4gZHVy
-aW5nIGRyaXZlciB1bmxvYWQiLg0KDQpibngyeCBsb2NrcyAmIHVubG9ja3Mgc3Bpbl9sb2NrX2Jo
-KCkgZHVyaW5nIHRoZSBuYXBpIHBvbGwsIHdoaWNoIHNob3VsZG4ndA0KYmUgZG9uZSB3aGlsZSBp
-bnRlcnJ1cHRzIGFyZSBkaXNhYmxlZC4gVGhpcyBicmVhayBpbnRlcm9wZXJhYmlsaXR5IHdpdGgg
-bmV0cG9sbCwNCmFzIGl0IGRpc2FibGVzIGlycXMgcHJpb3IgdG8gc2VuZGluZyB0aGUgc2tiIG9u
-IHRoZSBibngyeCdzIGludGVyZmFjZS4NCg0KQ2FuIHlvdSBwbGVhc2UgdHJ5IGNvbXBpbGluZyB5
-b3VyIGtlcm5lbCB3aXRob3V0IENPTkZJR19ORVRfUlhfQlVTWV9QT0xMPw0KSSBzdXNwZWN0IHRo
-YXQgbWlnaHQgc29sdmUgeW91ciBpc3N1ZS4NCg0KUmVnYXJkbGVzcywgd2UnbGwgaW52ZXN0aWdh
-dGUgdGhpcyBmdXJ0aGVyIGFuZCBob3BlZnVsbHkgY29tZSB1cCB3aXRoIGEgZml4IHNvb24uDQoN
-ClRoYW5rcywNCll1dmFsDQo=
+Robert Shearman <rshearma@brocade.com> writes:
+
+> On 07/04/15 18:02, Eric W. Biederman wrote:
+>> Robert Shearman <rshearma@brocade.com> writes:
+>>
+>>> An MPLS network is a single trust domain where the edges must be in
+>>> control of what labels make their way into the core. The simplest way
+>>> of ensuring for the edge device to always impose the labels, and not
+>>> allow forward labeled traffic from untrusted neighbours. This is
+>>> achieved by allowing a per-device configuration of whether MPLS
+>>> traffic input from that interface should be processed or not.
+>>>
+>>> To be secure by default, MPLS is now intially disabled on all
+>>> interfaces (except the loopback) until explicitly enabled and no
+>>> global option is provided to change the default. Whilst this differs
+>>> from other protocols (e.g. IPv6), network operators are used to
+>>> explicitly enabling MPLS forwarding on interfaces, and with the number
+>>> of links to the MPLS core typically fairly low this doesn't present
+>>> too much of a burden on operators.
+>>
+>> This really could use breaking up into two patches.
+>>
+>> 1 patch that implements mpls_add_dev,
+>> and a second patch that uses the struct mpls_dev to implement
+>> the input bit.
+>
+> Sure, I'll do that.
+>
+>> As it stands we are currently allowing mpls attributes on devices that
+>> we do not support the transport of mpls over.  And simply not being able
+>> to find an mpls_dev would be a faster was to discard packets on those
+>> devices.
+>
+> Note that this will change the semantics, since currently we allow MPLS packets
+> to be input on device types other than ethernet and loopback, whereas with this
+> change they won't by default and won't be able to enable it. If that's what you
+> intended and it's desirable then I'll proceed with that.
+
+Yes.  For device types where we haven't figured out how to support MPLS
+yet we should just have reception of MPLS packets disabled.
+
+>> Naming the attribute input clears up all of the semantic issues that I
+>> had with the previous version of this patch.
+>
+> Thanks for confirming that.
+
+Eric
