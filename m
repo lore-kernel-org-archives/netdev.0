@@ -1,87 +1,59 @@
-From: Nix <nix@esperi.org.uk>
-Subject: Re: [PATCH RFT net-next #2 0/6] via-rhine receive buffers rework
-Date: Wed, 08 Apr 2015 23:43:55 +0100
-Message-ID: <87mw2iw89g.fsf@spindle.srvr.nix>
-References: <cover.1428445141.git.romieu@fr.zoreil.com>
-	<87vbh6364u.fsf@spindle.srvr.nix>
-	<20150408215051.GA25326@electric-eye.fr.zoreil.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] e1000e: Cleanup handling of VLAN_HLEN as a part of max
+ frame size
+Date: Wed, 08 Apr 2015 15:58:54 -0700
+Message-ID: <5525B2AE.80301@gmail.com>
+References: <alpine.NEB.2.11.1504081019220.3388@chris.i8u.org> <20150408204630.4643.37880.stgit@ahduyck-vm-fedora22> <alpine.NEB.2.11.1504081413510.3388@chris.i8u.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, mike@cchtml.com
+To: Hisashi T Fujinaka <htodd@twofifty.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from icebox.esperi.org.uk ([81.187.191.129]:41952 "EHLO
-	mail.esperi.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288AbbDHWoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 18:44:03 -0400
-In-Reply-To: <20150408215051.GA25326@electric-eye.fr.zoreil.com> (Francois
-	Romieu's message of "Wed, 8 Apr 2015 23:50:51 +0200")
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:34335 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753681AbbDHW65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 18:58:57 -0400
+Received: by pdbqa5 with SMTP id qa5so73604377pdb.1
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 15:58:57 -0700 (PDT)
+In-Reply-To: <alpine.NEB.2.11.1504081413510.3388@chris.i8u.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8 Apr 2015, Francois Romieu stated:
-
-> Nix <nix@esperi.org.uk> :
-> [...]
->> I am sorry to report that I just had a watchdog-triggered autoreboot
->> during testing of this patch series :( with no log messages of any kind.
->> looks like the underlying bug is still there, or another bug with the
->> same symptoms (i.e. some way to crash inside the rx handler). I qwish I
->> could get some debugging output when this happens!
+On 04/08/2015 02:15 PM, Hisashi T Fujinaka wrote:
+> On Wed, 8 Apr 2015, Alexander Duyck wrote:
 >
-> You may add the patch below on top of the current stack. I don't expect
-> much difference. Increasing RX_RING_SIZE could be a different story.
-
-Will try it tomorrow.
-
-> Did you keep netconsole disabled and did you increse via-rhine verbosity
-> level ?
-
-netconsole is active. The verbosity level is default because I didn't
-notice the driver had one to set! I'll push it up and see what happens.
-I don't expect too much: this is, after all, a uniprocessor, and if
-you're stuck in an interrupt handler there's not much it can do...
-
-> No shared IRQ ?
-
-None relevant that I can see:
-
-           CPU0
-  0:     692019    XT-PIC  timer
-  2:          0    XT-PIC  cascade
-  4:        314    XT-PIC  serial
-  5:     114062    XT-PIC  adsl
-  7:     329914    XT-PIC  cs5535-clockevt
-  9:     137080    XT-PIC  bdsl
- 10:       2006    XT-PIC  voip
- 11:    1546540    XT-PIC  gordianet
- 12:     724187    XT-PIC  wireless
- 14:      12313    XT-PIC  pata_cs5536
- 15:     219702    XT-PIC  ehci_hcd:usb1, ohci_hcd:usb2
-
-The only shared interrupt is usb2, and since that's an
-internal-to-the-case thing that's not plugged in to anything, in effect
-there are none shared at all. (The unplugged interfaces *are* shared --
-the last four of the eight interfaces on the box run 10, 7, 10, 7 -- but
-since only one of those has anything plugged into it, the net effect is
-no sharing.)
-
-My load tests are being performed between the gordianet and wireless
-interfaces, IRQs 11 and 12, which are entirely unshared.
-
->> However, to give some good news, CPU usage is much lower than before the
->> patch: si ~10%, rather than ~80% with spikes of full CPU usage:
->> ksoftirqd's CPU usage is steady at about 3% rather than 40--60% with
->> spikes to 100%, and some of that will be USB interrupts from the
->> continuous USB traffic from my entropy key.
+>> Fixes: c751a3d58cf2d ("e1000e: Correctly include VLAN_HLEN when
+>> changing interface MTU")
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+>> ---
+>>
+>> I have only build tested this though I am 99% sure the fixes here are
+>> correct.  This patch should fix issues on 82573 and ich8 w/ setting
+>> an MTU
+>> of 1500, and for the PCH series w/ setting an MTU of 9000.
 >
-> Huuuuh ? Which entropy key ?
+> Since the original fix was something submitted by Red Hat, can you check
+> that you're not re-breaking whatever it was that Red Hat thought they
+> were fixing?
 
-It's a USB device that gives you about 4KiB/s over USB:
-<http://www.entropykey.co.uk/>. No longer manufactured, alas :(
-but as it provides entropy continuously it is a continuous source of
-interrupts. (But from the USB port, obviously.)
+The original issue is referenced in the patch that this fixes.  The
+problem was that the VLAN header wasn't being considered when computing
+the Rx buffer size, so you could change the MTU to 1504 and the if
+statement at the end of e1000_change_mtu was still using a 1522 Rx
+buffer size and max frame even though we had technically just configured
+things for 1526.
 
--- 
-NULL && (void)
+The updated logic is correctly taking the VLAN header into account so if
+you bump the MTU 1504 it will switch over to jumbo frames mode w/ 2K
+buffers.
+
+The bit I am fixing is that there were several spots including the
+backend value for max_hw_frame_size that didn't take VLAN header length
+into account.  There were cases where 1500 MTU was being treated as a
+jumbo frame, or we were coming up 4 bytes shy as in the pch2, ich8, and
+82573 e1000_info structures.
+
+- Alex
