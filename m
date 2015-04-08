@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 09/14] pps: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:35 +0530
-Message-ID: <1428492040-5581-10-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 11/14] net: plip: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:37 +0530
+Message-ID: <1428492040-5581-12-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -32,50 +32,78 @@ List-Id: netdev.vger.kernel.org
 
 now that we are monitoring the return value from attach, make the
 required changes to return proper value from its attach function.
+also return the proper error code in module_init.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/pps/generators/pps_gen_parport.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/plip/plip.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/pps/generators/pps_gen_parport.c b/drivers/pps/generators/pps_gen_parport.c
-index dcd39fb..499f410 100644
---- a/drivers/pps/generators/pps_gen_parport.c
-+++ b/drivers/pps/generators/pps_gen_parport.c
-@@ -190,18 +190,18 @@ static inline ktime_t next_intr_time(struct pps_generator_pp *dev)
- 			dev->port_write_time + 3 * SAFETY_INTERVAL));
- }
+diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
+index 040b897..6706bc3 100644
+--- a/drivers/net/plip/plip.c
++++ b/drivers/net/plip/plip.c
+@@ -1243,7 +1243,7 @@ plip_searchfor(int list[], int a)
  
--static void parport_attach(struct parport *port)
-+static int parport_attach(struct parport *port)
+ /* plip_attach() is called (by the parport code) when a port is
+  * available to use. */
+-static void plip_attach (struct parport *port)
++static int plip_attach(struct parport *port)
  {
- 	if (attached) {
- 		/* we already have a port */
--		return;
-+		return -EALREADY;
+ 	static int unit;
+ 	struct net_device *dev;
+@@ -1254,13 +1254,13 @@ static void plip_attach (struct parport *port)
+ 	    plip_searchfor(parport, port->number)) {
+ 		if (unit == PLIP_MAX) {
+ 			printk(KERN_ERR "plip: too many devices\n");
+-			return;
++			return -EINVAL;
+ 		}
+ 
+ 		sprintf(name, "plip%d", unit);
+ 		dev = alloc_etherdev(sizeof(struct net_local));
+ 		if (!dev)
+-			return;
++			return -ENOMEM;
+ 
+ 		strcpy(dev->name, name);
+ 
+@@ -1300,12 +1300,13 @@ static void plip_attach (struct parport *port)
+ 					 dev->name, dev->base_addr);
+ 		dev_plip[unit++] = dev;
  	}
- 
- 	device.pardev = parport_register_device(port, KBUILD_MODNAME,
- 			NULL, NULL, NULL, PARPORT_FLAG_EXCL, &device);
- 	if (!device.pardev) {
- 		pr_err("couldn't register with %s\n", port->name);
--		return;
-+		return -ENODEV;
- 	}
- 
- 	if (parport_claim_or_block(device.pardev) < 0) {
-@@ -218,10 +218,11 @@ static void parport_attach(struct parport *port)
- 	device.timer.function = hrtimer_event;
- 	hrtimer_start(&device.timer, next_intr_time(&device), HRTIMER_MODE_ABS);
- 
 -	return;
 +	return 0;
  
- err_unregister_dev:
- 	parport_unregister_device(device.pardev);
+ err_parport_unregister:
+ 	parport_unregister_device(nl->pardev);
+ err_free_dev:
+ 	free_netdev(dev);
 +	return -ENODEV;
  }
  
- static void parport_detach(struct parport *port)
+ /* plip_detach() is called (by the parport code) when a port is
+@@ -1379,6 +1380,8 @@ __setup("plip=", plip_setup);
+ 
+ static int __init plip_init (void)
+ {
++	int err;
++
+ 	if (parport[0] == -2)
+ 		return 0;
+ 
+@@ -1387,9 +1390,10 @@ static int __init plip_init (void)
+ 		timid = 0;
+ 	}
+ 
+-	if (parport_register_driver (&plip_driver)) {
++	err = parport_register_driver(&plip_driver);
++	if (err) {
+ 		printk (KERN_WARNING "plip: couldn't register driver\n");
+-		return 1;
++		return err;
+ 	}
+ 
+ 	return 0;
 -- 
 1.8.1.2
