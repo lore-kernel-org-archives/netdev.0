@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 03/14] ALSA: mts64: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:29 +0530
-Message-ID: <1428492040-5581-4-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 04/14] staging: panel: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:30 +0530
+Message-ID: <1428492040-5581-5-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,53 +35,57 @@ required changes to return proper value from its attach function.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- sound/drivers/mts64.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/staging/panel/panel.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/sound/drivers/mts64.c b/sound/drivers/mts64.c
-index 2a008a9..fb6223e 100644
---- a/sound/drivers/mts64.c
-+++ b/sound/drivers/mts64.c
-@@ -874,32 +874,35 @@ static int snd_mts64_probe_port(struct parport *p)
- 	return res;
- }
+diff --git a/drivers/staging/panel/panel.c b/drivers/staging/panel/panel.c
+index ea54fb4..61f6961 100644
+--- a/drivers/staging/panel/panel.c
++++ b/drivers/staging/panel/panel.c
+@@ -2188,15 +2188,15 @@ static struct notifier_block panel_notifier = {
+ 	0
+ };
  
--static void snd_mts64_attach(struct parport *p)
-+static int snd_mts64_attach(struct parport *p)
+-static void panel_attach(struct parport *port)
++static int panel_attach(struct parport *port)
  {
- 	struct platform_device *device;
-+	int ret;
- 
- 	device = platform_device_alloc(PLATFORM_DRIVER, device_count);
- 	if (!device)
+ 	if (port->number != parport)
 -		return;
-+		return -ENOMEM;
++		return -ENODEV;
  
- 	/* Temporary assignment to forward the parport */
- 	platform_set_drvdata(device, p);
- 
--	if (platform_device_add(device) < 0) {
-+	ret = platform_device_add(device);
-+	if (ret < 0) {
- 		platform_device_put(device);
+ 	if (pprt) {
+ 		pr_err("%s: port->number=%d parport=%d, already registered!\n",
+ 		       __func__, port->number, parport);
 -		return;
-+		return ret;
++		return -EALREADY;
  	}
  
- 	/* Since we dont get the return value of probe
- 	 * We need to check if device probing succeeded or not */
- 	if (!platform_get_drvdata(device)) {
- 		platform_device_unregister(device);
+ 	pprt = parport_register_device(port, "panel", NULL, NULL,  /* pf, kf */
+@@ -2206,7 +2206,7 @@ static void panel_attach(struct parport *port)
+ 	if (pprt == NULL) {
+ 		pr_err("%s: port->number=%d parport=%d, parport_register_device() failed\n",
+ 		       __func__, port->number, parport);
 -		return;
 +		return -ENODEV;
  	}
  
- 	/* register device in global table */
- 	platform_devices[device_count] = device;
- 	device_count++;
+ 	if (parport_claim(pprt)) {
+@@ -2230,7 +2230,7 @@ static void panel_attach(struct parport *port)
+ 			goto err_lcd_unreg;
+ 	}
+ 	register_reboot_notifier(&panel_notifier);
+-	return;
 +	return 0;
+ 
+ err_lcd_unreg:
+ 	if (lcd.enabled)
+@@ -2238,6 +2238,7 @@ err_lcd_unreg:
+ err_unreg_device:
+ 	parport_unregister_device(pprt);
+ 	pprt = NULL;
++	return -ENODEV;
  }
  
- static void snd_mts64_detach(struct parport *p)
+ static void panel_detach(struct parport *port)
 -- 
 1.8.1.2
