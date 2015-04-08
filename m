@@ -1,58 +1,91 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v2 00/17] IB/Verbs: IB Management Helpers
-Date: Wed, 8 Apr 2015 09:51:45 -0600
-Message-ID: <20150408155145.GA25178@obsidianresearch.com>
-References: <5523CCD5.6030401@profitbricks.com>
- <5525132F.1020004@talpey.com>
- <552521EE.5060206@profitbricks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Talpey <tom-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm@de
-To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <552521EE.5060206-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH 0/2] hv_netvsc: linearize SKBs bigger than MAX_PAGE_BUFFER_COUNT-2 pages
+Date: Wed,  8 Apr 2015 17:54:04 +0200
+Message-ID: <1428508446-18423-1-git-send-email-vkuznets@redhat.com>
+Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+	Jason Wang <jasowang@redhat.com>
+To: "K. Y. Srinivasan" <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 08, 2015 at 02:41:18PM +0200, Michael Wang wrote:
- 
-> I think no one can have the access to all these hardware, so we can
-> only depends on those who accidentally have one to help the testing,
-> but it's still far from that stage..
+This patch series fixes the same issue which was fixed in Xen with commit
+97a6d1bb2b658ac85ed88205ccd1ab809899884d ("xen-netfront: Fix handling packets on
+compound pages with skb_linearize").
 
-I have seen other patches in this style use the compiler to do the
-check, if the patch doesn't change the compiled output then it is
-obviously OK.
+It is relatively easy to create a packet which is small in size but occupies
+more than 30 (MAX_PAGE_BUFFER_COUNT-2) pages. Here is a kernel-mode reproducer
+which tries sending a packet with only 34 bytes of payload (but on 34 pages)
+and fails:
 
-Some careful use of macros might make that possible, but it is a fair
-amount of work.
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/net.h>
+#include <linux/in.h>
+#include <net/sock.h>
 
-However, that may be the only way to get something this invasive
-applied, especially since we've already seen mistakes in the manual
-transforms :|
+static int __init sendfb_init(void)
+{
+	struct socket *sock;
+	int i, ret;
+	struct sockaddr_in in4_addr = { 0 };
+	struct page *pages[17];
+	unsigned long flags;
 
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
+	if (ret) {
+		pr_err("failed to create socket: %d!\n", ret);
+		return ret;
+	}
+
+	in4_addr.sin_family = AF_INET;
+	/* www.google.com, 74.125.133.99 */
+	in4_addr.sin_addr.s_addr = cpu_to_be32(0x4a7d8563);
+	in4_addr.sin_port = cpu_to_be16(80);
+
+	ret = sock->ops->connect(sock, (struct sockaddr *)&in4_addr, sizeof(in4_addr), 0);
+	if (ret) {
+		pr_err("failed to connect: %d!\n", ret);
+		return ret;
+	}
+
+	/* We can send up to 17 frags */
+	flags = MSG_MORE;
+	for (i = 0; i < 17; i++) {
+		if (i == 16)
+			flags = MSG_EOR;
+		pages[i] = alloc_pages(GFP_KERNEL | __GFP_COMP, 1);
+		if (!pages[i]) {
+			pr_err("out of memory!");
+			goto free_pages;
+		}
+		sock->ops->sendpage(sock, pages[i], PAGE_SIZE -1, 2, flags);
+	}
+
+free_pages:
+	for (; i > 0; i--)
+		__free_pages(pages[i - 1], 1);
+
+	printk("sendfb_init: test done\n");
+        return -1;
+}
+
+module_init(sendfb_init);
+
+MODULE_LICENSE("GPL");
+
+A try to load such module results in multiple
+'kernel: hv_netvsc vmbus_15 eth0: Packet too big: 100' messages as all retries
+fail as well. It should also be possible to trigger the issue from userspace, I
+expect e.g. NFS under heavy load to get stuck sometimes.
+
+Vitaly Kuznetsov (2):
+  hv_netvsc: use single existing drop path in netvsc_start_xmit
+  hv_netvsc: try linearizing big SKBs before dropping them
+
+ drivers/net/hyperv/netvsc_drv.c | 39 ++++++++++++++++++++++++++-------------
+ 1 file changed, 26 insertions(+), 13 deletions(-)
+
+-- 
+1.9.3
