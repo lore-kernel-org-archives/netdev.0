@@ -1,26 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 0/3] RDS: RDS-core fixes
-Date: Wed, 08 Apr 2015 15:18:08 -0400 (EDT)
-Message-ID: <20150408.151808.1147673747678485096.davem@davemloft.net>
-References: <cover.1428500006.git.sowmini.varadhan@oracle.com>
+From: Adrian Chadd <adrian-h+KGxgPPiopAfugRpC6u6w@public.gmane.org>
+Subject: Re: [ath9k-devel] ath9k channel switch
+Date: Wed, 8 Apr 2015 12:19:22 -0700
+Message-ID: <CAJ-VmokVe0dO1kHh8u0ok3G6V70cj-i8qeKHyMRpnWeDEK4w9Q@mail.gmail.com>
+References: <CAGrUaU24vCH6+GpAtBCNiGwdT4_-FNNLDq=_s5zhSPBOp8bbmg@mail.gmail.com>
+	<21764.61660.411242.223378@gargle.gargle.HOWL>
+	<CAGrUaU1D_tO9+HrH_mEa0U13xTCuOijyvcn2_mi8cUgkkPeOuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chien.yen@oracle.com, rds-devel@oss.oracle.com, agrover@redhat.com,
-	clm@fb.com, zab@zabbo.net, ajaykumar.hotchandani@oracle.com,
-	sergei.shtylyov@cogentembedded.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1428500006.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Sujith Manoharan <sujith-TPRpbcbO+rZAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ath9k-devel <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	ath9k-devel <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: Saurabh Pal <saurabh6321-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGrUaU1D_tO9+HrH_mEa0U13xTCuOijyvcn2_mi8cUgkkPeOuw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Wed,  8 Apr 2015 12:33:44 -0400
+Hi,
 
-> This patch-series updates the RDS core and rds-tcp modules with
-> some bug fixes that were originally authored by  Andy Grover,
-> Zach Brown, and Chris Mason.
+You can do a fast channel switch under very specific conditions. It
+includes but isn't limited to being on the same band (ie, no fast cc
+between 2/5ghz.)
 
-Series applied, thanks.
+
+-adrian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
