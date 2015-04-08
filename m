@@ -1,35 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] sfc: Nic specific sriov functions,
- netdev_ops and sriov_configure
-Date: Wed, 08 Apr 2015 12:22:20 -0400 (EDT)
-Message-ID: <20150408.122220.746628120642749000.davem@davemloft.net>
-References: <552539BA.6070707@solarflare.com>
+Subject: Re: [PATCH net-next 03/11] net/mlx5_core: Virtually extend
+ work/completion queue buffers by one page
+Date: Wed, 08 Apr 2015 12:25:20 -0400 (EDT)
+Message-ID: <20150408.122520.1452310225826617365.davem@davemloft.net>
+References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
+	<1428504685-8945-4-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com, saeedm@mellanox.com,
+	ogerlitz@mellanox.com, achiad@mellanox.com, idos@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39085 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39123 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753251AbbDHQWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 12:22:22 -0400
-In-Reply-To: <552539BA.6070707@solarflare.com>
+	with ESMTP id S1753364AbbDHQZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 12:25:22 -0400
+In-Reply-To: <1428504685-8945-4-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Wed, 8 Apr 2015 15:22:50 +0100
+From: Amir Vadai <amirv@mellanox.com>
+Date: Wed,  8 Apr 2015 17:51:17 +0300
 
-> First two patches among the series of patches to support SRIOV on EF10.
-> 
-> First patch declares nic specific sriov functions in nic specific headers,
-> creates only one instance of the netdev_ops, removes sriov functionality
-> from Falcon code.
-> 
-> Second patch adds support for sriov_configure.
-> 
-> The Virtual Functions can be enabled but they do not bind to the SFC
-> driver just yet.
+> +	for (i = 0; i < buf->nbufs; i++) {
+> +		buf->page_list[i].buf =
+> +			dma_zalloc_coherent(&dev->pdev->dev, PAGE_SIZE,
+> +					    &t, GFP_KERNEL);
+> +		if (!buf->page_list[i].buf)
+> +			goto err_free;
+> +
+> +		buf->page_list[i].map = t;
+> +	}
+> +
+> +	if (BITS_PER_LONG == 64) {
+> +		struct page **pages;
+> +		int npages = buf->nbufs + (virtual_extension ? 1 : 0);
+> +
+> +		pages = kcalloc(npages, sizeof(*pages), GFP_KERNEL);
+> +		if (!pages)
+> +			goto err_free;
+> +
+> +		for (i = 0; i < buf->nbufs; i++)
+> +			pages[i] = virt_to_page(buf->page_list[i].buf);
+> +
+> +		if (virtual_extension)
+> +			pages[buf->nbufs] = pages[0];
+> +
+> +		buf->direct.buf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
 
-Series applied, thanks.
+I'm sorry but I'm going to require that you fix this mis-use of the DMA
+API first.
+
+You absolutely cannot vmap() pages backing coherent DMA memory, the
+memory is mapped in a particular way by dma_*_coherent() and you must
+therefore only use the virtual address provided to you by that
+function to access the memory.
