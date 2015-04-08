@@ -1,47 +1,45 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 1/2] ipv4: ip_tunnel: use net namespace from rtable not socket
-Date: Wed,  8 Apr 2015 17:01:22 +0200
-Message-ID: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org>
-Cc: Rick Jones <rick.jones2@hp.com>,
-	"David S. Miller" <davem@davemloft.net>
+Subject: [PATCH net-next 2/2] ipv6: call iptunnel_xmit with NULL sock pointer if no tunnel sock is available
+Date: Wed,  8 Apr 2015 17:01:23 +0200
+Message-ID: <8994d7096bfee43cc0313b1776478536f785793e.1428505261.git.hannes@stressinduktion.org>
+References: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:41157 "EHLO
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:54335 "EHLO
 	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754109AbbDHPBa (ORCPT
+	by vger.kernel.org with ESMTP id S1754116AbbDHPBa (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 11:01:30 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id C601020842
-	for <netdev@vger.kernel.org>; Wed,  8 Apr 2015 11:01:25 -0400 (EDT)
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by mailout.nyi.internal (Postfix) with ESMTP id 57E722051F
+	for <netdev@vger.kernel.org>; Wed,  8 Apr 2015 11:01:26 -0400 (EDT)
+Received: from stressinduktion.org (unknown [217.192.177.51])
+	by mail.messagingengine.com (Postfix) with ESMTPA id CACA46800A8
+	for <netdev@vger.kernel.org>; Wed,  8 Apr 2015 11:01:29 -0400 (EDT)
+In-Reply-To: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org>
+In-Reply-To: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org>
+References: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The socket parameter might legally be NULL, thus sock_net is sometimes
-causing a NULL pointer dereference. Using net_device pointer in dst_entry
-is more reliable.
-
-Fixes: b6a7719aedd7e5c ("ipv4: hash net ptr into fragmentation bucket selection")
-Reported-by: Rick Jones <rick.jones2@hp.com>
-Cc: Rick Jones <rick.jones2@hp.com>
-Cc: David S. Miller <davem@davemloft.net>
+Fixes: 79b16aadea32cce ("udp_tunnel: Pass UDP socket down through udp_tunnel{, 6}_xmit_skb().")
+Reported-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv4/ip_tunnel_core.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv6/sit.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 8c4dcc4..ce63ab2 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -74,7 +74,8 @@ int iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	iph->daddr	=	dst;
- 	iph->saddr	=	src;
- 	iph->ttl	=	ttl;
--	__ip_select_ident(sock_net(sk), iph, skb_shinfo(skb)->gso_segs ?: 1);
-+	__ip_select_ident(dev_net(rt->dst.dev), iph,
-+			  skb_shinfo(skb)->gso_segs ?: 1);
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 6cf2026..ac35a28 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -983,7 +983,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
  
- 	err = ip_local_out_sk(sk, skb);
- 	if (unlikely(net_xmit_eval(err)))
+ 	skb_set_inner_ipproto(skb, IPPROTO_IPV6);
+ 
+-	err = iptunnel_xmit(skb->sk, rt, skb, fl4.saddr, fl4.daddr,
++	err = iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr,
+ 			    protocol, tos, ttl, df,
+ 			    !net_eq(tunnel->net, dev_net(dev)));
+ 	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
 -- 
 2.1.0
