@@ -1,92 +1,82 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] ethernet: e1000e: define lat_ns as u64 instead of s64
-Date: Wed, 8 Apr 2015 09:40:49 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB166B0@AcuExch.aculab.com>
-References: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	"carolyn.wyborny@intel.com" <carolyn.wyborny@intel.com>,
-	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
-	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
-	"matthew.vick@intel.com" <matthew.vick@intel.com>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"mitch.a.williams@intel.com" <mitch.a.williams@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"linux.nics@intel.com" <linux.nics@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"jinyanjiang@gmail.com" <jinyanjiang@gmail.com>
-To: "'yanjiang.jin@windriver.com'" <yanjiang.jin@windriver.com>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:61540 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164AbbDHJmW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 05:42:22 -0400
-In-Reply-To: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alessio Igor Bogani <alessio.bogani@elettra.eu>
+Subject: [PATCH] net: phy: broadcom: Add BCM54616S phy entry
+Date: Wed,  8 Apr 2015 12:15:18 +0200
+Message-ID: <1428488118-14953-1-git-send-email-alessio.bogani@elettra.eu>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alessio Igor Bogani <alessio.bogani@elettra.eu>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: yanjiang.jin@windriver.com
-> Sent: 03 April 2015 10:18
-> From: Yanjiang Jin <yanjiang.jin@windriver.com>
-> 
-> do_div() expects the type of "n" to be uint64_t, define "lat_ns" as u64 to
-> avoid the below warning, also update its correlative operations and data.
-> 
-> In file included from ./arch/powerpc/include/asm/div64.h:1:0,
->                  from include/linux/kernel.h:124,
->                  from include/linux/list.h:8,
->                  from include/linux/timer.h:4,
->                  from drivers/net/ethernet/intel/e1000e/e1000.h:29,
->                  from drivers/net/ethernet/intel/e1000e/ich8lan.c:59:
-> drivers/net/ethernet/intel/e1000e/ich8lan.c: In function 'e1000_platform_pm_pch_lpt':
-> include/asm-generic/div64.h:43:28: warning: comparison of distinct pointer types lacks a cast [enabled
-> by default]
->   (void)(((typeof((n)) *)0) == ((uint64_t *)0)); \
->                             ^
-> drivers/net/ethernet/intel/e1000e/ich8lan.c:1016:4: note: in expansion of macro 'do_div'
->     do_div(lat_ns, speed);
-> 
-> Signed-off-by: Yanjiang Jin <yanjiang.jin@windriver.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/ich8lan.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> index 48b74a5..baab58b 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> @@ -982,8 +982,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
->  		u16 speed, duplex, scale = 0;
->  		u16 max_snoop, max_nosnoop;
->  		u16 max_ltr_enc;	/* max LTR latency encoded */
-> -		s64 lat_ns;	/* latency (ns) */
-> -		s64 value;
-> +		u64 lat_ns;	/* latency (ns) */
-> +		u64 value;
->  		u32 rxa;
-> 
->  		if (!hw->adapter->max_frame_size) {
-> @@ -1008,8 +1008,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
->  		 * 2^25*(2^10-1) ns.  The scale is encoded as 0=2^0ns,
->  		 * 1=2^5ns, 2=2^10ns,...5=2^25ns.
->  		 */
-> -		lat_ns = ((s64)rxa * 1024 -
-> -			  (2 * (s64)hw->adapter->max_frame_size)) * 8 * 1000;
-> +		lat_ns = ((u64)rxa * 1024 -
-> +			  (2 * (u64)hw->adapter->max_frame_size)) * 8 * 1000;
->  		if (lat_ns < 0)
->  			lat_ns = 0;
+Signed-off-by: Alessio Igor Bogani <alessio.bogani@elettra.eu>
+---
+This phy is used in the MVME2500 powerpc system
+(arch/powerpc/boot/dts/mvme2500.dts)
 
-The above change cannot be correct.
-You should be getting another error for testing an unsigned value be less than 0.
+ drivers/net/phy/Kconfig    |  4 ++--
+ drivers/net/phy/broadcom.c | 14 ++++++++++++++
+ include/linux/brcmphy.h    |  1 +
+ 3 files changed, 17 insertions(+), 2 deletions(-)
 
-So I presume this wasn't even tested.
-
-	David
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 16adbc4..8fadaa1 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -68,8 +68,8 @@ config SMSC_PHY
+ config BROADCOM_PHY
+ 	tristate "Drivers for Broadcom PHYs"
+ 	---help---
+-	  Currently supports the BCM5411, BCM5421, BCM5461, BCM5464, BCM5481
+-	  and BCM5482 PHYs.
++	  Currently supports the BCM5411, BCM5421, BCM5461, BCM54616S, BCM5464,
++	  BCM5481 and BCM5482 PHYs.
+ 
+ config BCM63XX_PHY
+ 	tristate "Drivers for Broadcom 63xx SOCs internal PHY"
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index a52afb2..9c71295 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -549,6 +549,19 @@ static struct phy_driver broadcom_drivers[] = {
+ 	.config_intr	= bcm54xx_config_intr,
+ 	.driver		= { .owner = THIS_MODULE },
+ }, {
++	.phy_id		= PHY_ID_BCM54616S,
++	.phy_id_mask	= 0xfffffff0,
++	.name		= "Broadcom BCM54616S",
++	.features	= PHY_GBIT_FEATURES |
++			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
++	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
++	.config_init	= bcm54xx_config_init,
++	.config_aneg	= genphy_config_aneg,
++	.read_status	= genphy_read_status,
++	.ack_interrupt	= bcm54xx_ack_interrupt,
++	.config_intr	= bcm54xx_config_intr,
++	.driver		= { .owner = THIS_MODULE },
++}, {
+ 	.phy_id		= PHY_ID_BCM5464,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5464",
+@@ -660,6 +673,7 @@ static struct mdio_device_id __maybe_unused broadcom_tbl[] = {
+ 	{ PHY_ID_BCM5411, 0xfffffff0 },
+ 	{ PHY_ID_BCM5421, 0xfffffff0 },
+ 	{ PHY_ID_BCM5461, 0xfffffff0 },
++	{ PHY_ID_BCM54616S, 0xfffffff0 },
+ 	{ PHY_ID_BCM5464, 0xfffffff0 },
+ 	{ PHY_ID_BCM5482, 0xfffffff0 },
+ 	{ PHY_ID_BCM5482, 0xfffffff0 },
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 7ccd928..1c9920b 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -11,6 +11,7 @@
+ #define PHY_ID_BCM5421			0x002060e0
+ #define PHY_ID_BCM5464			0x002060b0
+ #define PHY_ID_BCM5461			0x002060c0
++#define PHY_ID_BCM54616S		0x03625d10
+ #define PHY_ID_BCM57780			0x03625d90
+ 
+ #define PHY_ID_BCM7250			0xae025280
+-- 
+2.3.5
