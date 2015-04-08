@@ -1,64 +1,92 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
-Date: Wed, 8 Apr 2015 09:37:18 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1668E@AcuExch.aculab.com>
-References: <1427409698.18540.11.camel@redhat.com>
-	 <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
-	 <1427749308.1913.28.camel@redhat.com>
-	 <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
-	 <1427771158.1913.35.camel@redhat.com> <1427775770.30696.3.camel@redhat.com>
-	 <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com>
-	 <1427921700.6874.8.camel@redhat.com>
-	 <CAF2d9jgqJBfWVnX1mye5xMfYznA_NFte3dEEKG5CyogXTM73Rw@mail.gmail.com>
-	 <1427985636.5282.9.camel@redhat.com>
-	 <CAF2d9jjBtSptfmFY2BDF7ULNxAz=WtUVpNz0iExyd-h+v+4GSQ@mail.gmail.com>
- <1428340638.16890.15.camel@redhat.com>
+Subject: RE: [PATCH] ethernet: e1000e: define lat_ns as u64 instead of s64
+Date: Wed, 8 Apr 2015 09:40:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB166B0@AcuExch.aculab.com>
+References: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	"jbenc@redhat.com" <jbenc@redhat.com>
-To: 'Dan Williams' <dcbw@redhat.com>,
-	Mahesh Bandewar <maheshb@google.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	"carolyn.wyborny@intel.com" <carolyn.wyborny@intel.com>,
+	"donald.c.skidmore@intel.com" <donald.c.skidmore@intel.com>,
+	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
+	"matthew.vick@intel.com" <matthew.vick@intel.com>,
+	"john.ronciak@intel.com" <john.ronciak@intel.com>,
+	"mitch.a.williams@intel.com" <mitch.a.williams@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"linux.nics@intel.com" <linux.nics@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jinyanjiang@gmail.com" <jinyanjiang@gmail.com>
+To: "'yanjiang.jin@windriver.com'" <yanjiang.jin@windriver.com>,
+	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:63638 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753343AbbDHJis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 05:38:48 -0400
-In-Reply-To: <1428340638.16890.15.camel@redhat.com>
+Received: from smtp-out4.electric.net ([192.162.216.183]:61540 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751164AbbDHJmW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 05:42:22 -0400
+In-Reply-To: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGFuIFdpbGxpYW1zDQouLi4NCj4gPiBQcm9iYWJseSBzb21ldGhpbmcgc2ltaWxhciB3
-aGVyZSB0dXJuIG9uIHRoZSBicm9hZGNhc3QgYml0IGFuZCB3YWl0DQo+ID4gZm9yIHRoZSBpbnRl
-cmZhY2UgdG8gZ2V0IGNvbmZpZ3VyZWQgKDIgbWluIHRpbWVyKSBhbmQgYXQgdGhlIGV4cGlyeQ0K
-PiA+IGRlY2lkZSB3aGF0IGlzIHRvIGJlIGRvbmUgYWJvdXQgYnJhb2RjYXN0IGJpdC4gSWYgdGhl
-IGFkZHJlc3Nlcw0KPiA+IGNvbmZpZ3VyZWQgYXJlIGFsbCBJUHY2LCB0aGVuIGVsaW1pbmF0ZSBp
-dCBhbmQgaWYgYW55IG9mIHRoZW0gYXJlIElQdjQNCj4gPiB0aGVuIGRvbid0IGNoYW5nZSBpdC4g
-SW4gdGhpcyBjYXNlIG5vIHNwZWNpYWwgY2FzaW5nIG5vciBzbm9vcGluZyBpcw0KPiA+IHJlcXVp
-cmVkIGFuZCB0aGlzIHNob3VsZCB3b3JrIGZvciBkdWFsLXN0YWNrIHNjZW5hcmlvIGFzIHdlbGwu
-DQo+IA0KPiBUaGlzIGRvZXMgbm90IHdvcmsgZm9yIHRoZSBjYXNlIHdoZXJlLCBhZnRlciBjb25m
-aWd1cmluZywgdGhlIERIQ1B2NA0KPiBhZGRyZXNzIGxlYXNlIGV4cGlyZXMgYW5kIHRoZSBJUHY0
-IGFkZHJlc3MgaXMgcmVtb3ZlZCwgYW5kIHRoZW4gREhDUHY0DQo+IGlzIHN0YXJ0ZWQgYWdhaW4u
-ICBQb3NzaWJseSBiZWNhdXNlIHRoZSBESENQIHNlcnZlciB3YXMgZ29uZSBmb3IgYSBzaG9ydA0K
-PiB0aW1lLiAgVGhlIG9ubHkgd2F5IHRvIGhhbmRsZSB0aGF0IGlzIHRvIHNub29wIGFnYWluLg0K
-PiANCj4gUmVhY2hpbmcgZm9yIG1heGltdW0gcGVyZm9ybWFuY2UgaXMgZ3JlYXQsIGJ1dCBpZiB0
-aGF0IGlzIGRvbmUgYnkNCj4gaWdub3JpbmcvYnJlYWtpbmcgYSB3aG9sZSBjbGFzcyBvZiBub3Jt
-YWwgdXNlLWNhc2VzLCBJIGRvbid0IHRoaW5rDQo+IHRoYXQncyByZWFzb25hYmxlLiAgSXQncyBs
-aWtlIHNheWluZyAiZ2VlLCBJJ2QgbG92ZSBVRFAgdG8gYmUgZmFzdGVyLCBzbw0KPiBJJ2xsIHJl
-bW92ZSBhbnl0aGluZyBUQ1AtcmVsYXRlZCBpbiB0aGUga2VybmVsIi4NCj4gDQo+IEFsc28sIEkg
-ZG9uJ3QgdGhpbmsgdGhlIHNub29waW5nIGlzIGFzIGJhZCBmb3IgcGVyZm9ybWFuY2UgYXMgeW91
-IG1heQ0KPiB0aGluay4gIFRoZSBvbmx5IHJlbGV2YW50IGlzc3VlIGhlcmUgaXMgTDIgKyBJUHY2
-LW9ubHksIGFuZCBpbiB0aGF0IGNhc2UNCj4gaXQncyA0IGV4dHJhIGNvbXBhcmVzIChkaGNwNF9z
-ZWVuLCBpcHY0Y250LCBseXIzaCwgYW5kIGFkZHJfdHlwZSkgZm9yDQo+IHRoZSBleHRlcm5hbCBj
-YXNlLiAgSG93IG11Y2ggaXMgdGhhdCByZWFsbHkgZ29pbmcgdG8gc2xvdyB0aGluZ3MgZG93biwN
-Cj4gdmVyc3VzIGJyZWFraW5nIGEgaHVnZSBwYXJ0IG9mIElQdjQgYWRkcmVzcyBjb25maWd1cmF0
-aW9uPw0KDQpIb3cgbXVjaCBwZXJmb3JtYW5jZSBkbyB5b3UgcmVhbGx5IGdhaW4gZnJvbSBkaXNh
-YmxpbmcgYnJvYWRjYXN0cyBpbiBoYXJkd2FyZT8NCihVbmxlc3MgeW91ciBuZXR3b3JrIGhhcyBt
-YXNzaXZlIGJyb2FkY2FzdCBzdG9ybXMgLSB3aGljaCBhcmUgYSBkaWZmZXJlbnQgcHJvYmxlbSku
-DQpJIGNhbiBpbWFnaW5lIGl0IGhlbHBpbmcgYSBsb3cgcG93ZXIgZGV2aWNlIHN0YXkgaWRsZS4N
-Cg0KRm9yIERIQ1AgeW91IGhhdmUgYmlnZ2VyIGlzc3Vlcy4NCkFsbCB0aGUgdmVyc2lvbnMgb2Yg
-dGhlIGRoY3AgY2xpZW50IEkndmUgc2VlbiB1c2UgdGhlIGJwZiBpbnRlcmZhY2UgZm9yDQpyZWNl
-aXZlIHRyYWZmaWMgKGV2ZW4gb25jZSBzdGFydGVkKSBzbyB5b3UgZ2V0IHRoZSBjb3N0IG9mIGEg
-Y2xvbmUNCm9mIGV2ZXJ5IHJlY2VpdmVkIHBhY2tldC4NCg0KCURhdmlkDQoNCg==
+From: yanjiang.jin@windriver.com
+> Sent: 03 April 2015 10:18
+> From: Yanjiang Jin <yanjiang.jin@windriver.com>
+> 
+> do_div() expects the type of "n" to be uint64_t, define "lat_ns" as u64 to
+> avoid the below warning, also update its correlative operations and data.
+> 
+> In file included from ./arch/powerpc/include/asm/div64.h:1:0,
+>                  from include/linux/kernel.h:124,
+>                  from include/linux/list.h:8,
+>                  from include/linux/timer.h:4,
+>                  from drivers/net/ethernet/intel/e1000e/e1000.h:29,
+>                  from drivers/net/ethernet/intel/e1000e/ich8lan.c:59:
+> drivers/net/ethernet/intel/e1000e/ich8lan.c: In function 'e1000_platform_pm_pch_lpt':
+> include/asm-generic/div64.h:43:28: warning: comparison of distinct pointer types lacks a cast [enabled
+> by default]
+>   (void)(((typeof((n)) *)0) == ((uint64_t *)0)); \
+>                             ^
+> drivers/net/ethernet/intel/e1000e/ich8lan.c:1016:4: note: in expansion of macro 'do_div'
+>     do_div(lat_ns, speed);
+> 
+> Signed-off-by: Yanjiang Jin <yanjiang.jin@windriver.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/ich8lan.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> index 48b74a5..baab58b 100644
+> --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> @@ -982,8 +982,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
+>  		u16 speed, duplex, scale = 0;
+>  		u16 max_snoop, max_nosnoop;
+>  		u16 max_ltr_enc;	/* max LTR latency encoded */
+> -		s64 lat_ns;	/* latency (ns) */
+> -		s64 value;
+> +		u64 lat_ns;	/* latency (ns) */
+> +		u64 value;
+>  		u32 rxa;
+> 
+>  		if (!hw->adapter->max_frame_size) {
+> @@ -1008,8 +1008,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_hw *hw, bool link)
+>  		 * 2^25*(2^10-1) ns.  The scale is encoded as 0=2^0ns,
+>  		 * 1=2^5ns, 2=2^10ns,...5=2^25ns.
+>  		 */
+> -		lat_ns = ((s64)rxa * 1024 -
+> -			  (2 * (s64)hw->adapter->max_frame_size)) * 8 * 1000;
+> +		lat_ns = ((u64)rxa * 1024 -
+> +			  (2 * (u64)hw->adapter->max_frame_size)) * 8 * 1000;
+>  		if (lat_ns < 0)
+>  			lat_ns = 0;
+
+The above change cannot be correct.
+You should be getting another error for testing an unsigned value be less than 0.
+
+So I presume this wasn't even tested.
+
+	David
