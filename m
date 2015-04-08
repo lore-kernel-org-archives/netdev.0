@@ -1,76 +1,70 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs consistent
-Date: Wed, 08 Apr 2015 07:47:34 -0400
-Message-ID: <55251556.4040900@mojatatu.com>
-References: <1428455025-5945-1-git-send-email-ast@plumgrid.com> <1428455025-5945-2-git-send-email-ast@plumgrid.com> <20150407.223549.335906307265617841.davem@davemloft.net> <55249EFA.5040405@plumgrid.com> <5524B339.1070403@plumgrid.com> <5524E878.7070803@iogearbox.net> <20150408090520.GA2057@nanopsycho.orion> <552508E8.5050203@iogearbox.net> <55250D92.6030702@iogearbox.net>
+From: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 01/14] parport: return value of attach and
+ parport_register_driver
+Date: Wed, 8 Apr 2015 17:20:10 +0530
+Message-ID: <20150408115010.GA11153@sudip-PC>
+References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <1428492040-5581-2-git-send-email-sudipm.mukherjee@gmail.com>
+ <20150408113832.GH10964@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	tgraf@suug.ch
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:33740 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753559AbbDHLrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 07:47:37 -0400
-Received: by ignm3 with SMTP id m3so27602475ign.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 04:47:36 -0700 (PDT)
-In-Reply-To: <55250D92.6030702@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Jean Delvare <jdelvare-l3A5Bk7waGM@public.gmane.org>,
+	Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>,
+	Rodolfo Giometti <giometti-AVVDYK/kqiJWk0Htik3J/w@public.gmane.org>,
+	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Willy Tarreau <willy-859RlTSWH48dnm+yROfE0A@public.gmane.org>,
+	Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>, Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20150408113832.GH10964@mwanda>
+Sender: linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Should have read my emails backward. Refer to my other email
-So why are you not able to use the indicators of where in the stack
-you are in both actions and classifiers?
-bpf needs to adjust.
+On Wed, Apr 08, 2015 at 02:38:32PM +0300, Dan Carpenter wrote:
+> 1) We can't apply this patch on its own so this way of breaking up the
+> patches doesn't work.
+yes, if the first patch is reverted for any reason all the others need
+to be reverted also. so then everything in one single patch?
+> 
+> 2) I was thinking that all the ->attach() calls would have to succeed or
+> we would bail.  Having some of them succeed and some fail doesn't seem
+> like it will simplify the driver code very much.  But I can also see
+> your point.  Hm...
+to clarify my point more here: any system might have more than one
+parallel port but the module might decide to use just one. so in that
+case attach will return 0 for the port that it wishes to use, for others
+it will be a error code. So in parport_register_driver if we get error
+codes in all the attach calls then we know that attach has definitely
+failed, but atleast one 0 means one attach call has succeeded, which
+will happen in case of staging/panel, net/plip...
 
-cheers,
-jamal
+> 
+> Minor comment:  No need to preserve the error code if there are lots
+> which we miss.  We may as well hard code an error code.  But that's a
+> minor thing.  Does this actually simplify the driver code?  That's the
+> more important thing.
 
-On 04/08/15 07:14, Daniel Borkmann wrote:
-> On 04/08/2015 12:54 PM, Daniel Borkmann wrote:
->> On 04/08/2015 11:05 AM, Jiri Pirko wrote:
->
-> Generically adjusting egress towards ingress would not work. I
-> think it's reasonable to assume that the majority of people use
-> classifier and actions only from egress side, and they rely on
-> having l2 context present. Stripping that away would also be an
-> artificial limitation we'd impose.
->
-> You could use the ingress qdisc to redirect traffic to an ifb
-> device and attach the same egress classifier and action there
-> as skb_pull(skb, skb->dev->hard_header_len) is being done, but
-> I'd presume that extra detour is pretty slow. To make this useful,
-> we'd need a very lightweight solution.
->
->>> having more ingres queue disk. Would be just confusing.
->>
->> I'm all for it, that's what I've mentioned earlier in this thread
->> already. ;) The above would be one possibility, but of course I'm
->> open for other, better suggestions?
->>
->> I totally agree with Dave that skb_share_check() should be avoided
->> at all costs. At least on my laptop (maybe not a perfect example),
->> I've got these as packet socket users present in the background,
->> so there are packet users running all the time where we would hit
->> skb_share_check() then:
->>
->> # ss -0lnp
->> Netid  State      Recv-Q Send-Q      Local Address:Port    Peer
->> Address:Port
->> p_raw  UNCONN     0      0                *:wlp2s0b1       *
->> users:(("dhclient",1290,5))
->> p_dgr  UNCONN     0      0          [34958]:wlp2s0b1       *
->> users:(("wpa_supplicant",805,13))
->> p_dgr  UNCONN     0      0              [0]:*              *
->> users:(("wpa_supplicant",805,12))
->>
->> I do not yet see a generic way to push an offset down into various
->> classifiers and actions that otherwise don't really work with ingress,
->> it's not just limited to BPF only as Alexei already mentioned. Hm.
->>
->> Cheers,
->> Daniel
+i don't think this will simplify the driver code, but atleast now
+parport_register_driver() will not report success when we have actually
+failed. And as a result module_init will also fail which is supposed to
+be the actual behviour.
+
+regards
+sudip
+
+> 
+> regards,
+> dan carpenter
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-spi" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
