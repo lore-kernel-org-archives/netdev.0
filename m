@@ -1,8 +1,8 @@
 From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH v3 2/3] if_link: Add VF multicast promiscuous
-	control
-Date: Wed, 8 Apr 2015 05:37:53 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E7CD61@BPXM14GP.gisp.nec.co.jp>
+Subject: [PATCH v3 3/3] ixgbe: Add new ndo to allow VF
+ multicast promiscuous mode
+Date: Wed, 8 Apr 2015 05:38:28 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E7CDA0@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -30,147 +30,143 @@ List-Id: netdev.vger.kernel.org
 
 From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
 
-Add netlink directives and ndo entry to allow VF multicast promiscuous mode.
+Implements the new netdev op to allow VF multicast promiscuous mode.
 
-This controls the permission to enter VF multicast promiscuous mode.
-The administrator will dedicatedly allow multicast promiscuous per VF.
+The multicast promiscuous mode is not allowed for all VFs by default.
 
-When the VF is under multicast promiscuous mode, all multicast packets are
-sent to the VF.
+The administrator can allow to VF multicast promiscuous mode for only
+trusted VM. After allowing multicast promiscuous mode from the host,
+we can use over 30 IPv6 addresses on VM.
+ # ip link set dev eth0 vf 1 mc_promisc on
 
-Don't allow VF multicast promiscuous if the VM isn't fully trusted.
+When disallowing multicast promiscuous mode, ixgbevf can only handle 30
+IPv6 addresses at most.
+ # ip link set dev eth0 vf 1 mc_promisc off
 
 Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
 Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
 CC: Choi, Sy Jong <sy.jong.choi@intel.com>
 ---
- include/linux/if_link.h      |  1 +
- include/linux/netdevice.h    |  3 +++
- include/uapi/linux/if_link.h |  6 ++++++
- net/core/rtnetlink.c         | 19 +++++++++++++++++--
- 4 files changed, 27 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  7 ++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 32 ++++++++++++++++++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
+ 4 files changed, 40 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index da49299..df212f4 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -15,5 +15,6 @@ struct ifla_vf_info {
- 	__u32 min_tx_rate;
- 	__u32 max_tx_rate;
- 	__u32 rss_query_en;
-+	__u32 mc_promisc;
- };
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fc4da22..a444e1d 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -873,6 +873,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  * int (*ndo_set_vf_rate)(struct net_device *dev, int vf, int min_tx_rate,
-  *			  int max_tx_rate);
-  * int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
-+ * int (*ndo_set_vf_mc_promisc)(struct net_device *dev, int vf, bool setting);
-  * int (*ndo_get_vf_config)(struct net_device *dev,
-  *			    int vf, struct ifla_vf_info *ivf);
-  * int (*ndo_set_vf_link_state)(struct net_device *dev, int vf, int link_state);
-@@ -1094,6 +1095,8 @@ struct net_device_ops {
- 						   int max_tx_rate);
- 	int			(*ndo_set_vf_spoofchk)(struct net_device *dev,
- 						       int vf, bool setting);
-+	int			(*ndo_set_vf_mc_promisc)(struct net_device *dev,
-+							 int vf, bool setting);
- 	int			(*ndo_get_vf_config)(struct net_device *dev,
- 						     int vf,
- 						     struct ifla_vf_info *ivf);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index d9cd192..44c3bbe 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -468,6 +468,7 @@ enum {
- 	IFLA_VF_RSS_QUERY_EN,	/* RSS Redirection Table and Hash Key query
- 				 * on/off switch
- 				 */
-+	IFLA_VF_MC_PROMISC,	/* Multicast Promiscuous allow/disallow */
- 	__IFLA_VF_MAX,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 08e65b6..4a9f74d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -153,6 +153,7 @@ struct vf_data_storage {
+ 	u16 vlan_count;
+ 	u8 spoofchk_enabled;
+ 	bool rss_query_enabled;
++	u8 mc_promisc_allowed;
+ 	unsigned int vf_api;
  };
  
-@@ -517,6 +518,11 @@ struct ifla_vf_rss_query_en {
- 	__u32 setting;
- };
- 
-+struct ifla_vf_mc_promisc {
-+	__u32 vf;
-+	__u32 setting;
-+};
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 2f41403..c0e07c5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3663,6 +3663,12 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+ 		ixgbe_ndo_set_vf_rss_query_en(adapter->netdev, i,
+ 					      adapter->vfinfo[i].rss_query_enabled);
+ 	}
 +
- /* VF ports management section
-  *
-  *	Nested layout of set/get msg is:
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 74431d6..f247bf2 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -819,7 +819,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
- 			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
- 			 nla_total_size(sizeof(struct ifla_vf_rate)) +
- 			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
--			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)));
-+			 nla_total_size(sizeof(struct ifla_vf_rss_query_en)) +
-+			 nla_total_size(sizeof(struct ifla_vf_mc_promisc)));
- 		return size;
- 	} else
- 		return 0;
-@@ -1134,6 +1135,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			struct ifla_vf_spoofchk vf_spoofchk;
- 			struct ifla_vf_link_state vf_linkstate;
- 			struct ifla_vf_rss_query_en vf_rss_query_en;
-+			struct ifla_vf_mc_promisc vf_mc_promisc;
++	/* Reconfigure multicast promiscuous mode */
++	for (i = 0; i < adapter->num_vfs; i++) {
++		ixgbe_ndo_set_vf_mc_promisc(adapter->netdev, i,
++					adapter->vfinfo[i].mc_promisc_allowed);
++	}
+ }
  
- 			/*
- 			 * Not all SR-IOV capable drivers support the
-@@ -1143,6 +1145,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+@@ -8165,6 +8171,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_set_vf_rate	= ixgbe_ndo_set_vf_bw,
+ 	.ndo_set_vf_spoofchk	= ixgbe_ndo_set_vf_spoofchk,
+ 	.ndo_set_vf_rss_query_en = ixgbe_ndo_set_vf_rss_query_en,
++	.ndo_set_vf_mc_promisc	= ixgbe_ndo_set_vf_mc_promisc,
+ 	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
+ 	.ndo_get_stats64	= ixgbe_get_stats64,
+ #ifdef CONFIG_IXGBE_DCB
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 615f651..42b24a0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -117,8 +117,11 @@ static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
  			 */
- 			ivi.spoofchk = -1;
- 			ivi.rss_query_en = -1;
-+			ivi.mc_promisc = -1;
- 			memset(ivi.mac, 0, sizeof(ivi.mac));
- 			/* The default value for VF link state is "auto"
- 			 * IFLA_VF_LINK_STATE_AUTO which equals zero
-@@ -1156,7 +1159,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 				vf_tx_rate.vf =
- 				vf_spoofchk.vf =
- 				vf_linkstate.vf =
--				vf_rss_query_en.vf = ivi.vf;
-+				vf_rss_query_en.vf =
-+				vf_mc_promisc.vf = ivi.vf;
+ 			adapter->vfinfo[i].rss_query_enabled = 0;
  
- 			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
- 			vf_vlan.vlan = ivi.vlan;
-@@ -1167,6 +1171,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			vf_spoofchk.setting = ivi.spoofchk;
- 			vf_linkstate.link_state = ivi.linkstate;
- 			vf_rss_query_en.setting = ivi.rss_query_en;
-+			vf_mc_promisc.setting = ivi.mc_promisc;
- 			vf = nla_nest_start(skb, IFLA_VF_INFO);
- 			if (!vf) {
- 				nla_nest_cancel(skb, vfinfo);
-@@ -1520,6 +1525,16 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
- 							    ivrssq_en->setting);
- 			break;
+-			/* Turn multicast promiscuous mode off for all VFs */
++			/* Disallow VF multicast promiscuous capability
++			 * and turn it off for all VFs
++			 */
+ 			adapter->vfinfo[i].mc_promisc = false;
++			adapter->vfinfo[i].mc_promisc_allowed = false;
  		}
-+		case IFLA_VF_MC_PROMISC: {
-+			struct ifla_vf_mc_promisc *ivm;
+ 
+ 		return 0;
+@@ -1068,7 +1071,7 @@ static int ixgbe_set_vf_mc_promisc(struct ixgbe_adapter *adapter,
+ 
+ 	adapter->vfinfo[vf].mc_promisc = enable;
+ 
+-	if (enable)
++	if (enable && adapter->vfinfo[vf].mc_promisc_allowed)
+ 		return ixgbe_enable_vf_mc_promisc(adapter, vf);
+ 	else
+ 		return ixgbe_disable_vf_mc_promisc(adapter, vf);
+@@ -1492,6 +1495,30 @@ int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
+ 	return 0;
+ }
+ 
++int ixgbe_ndo_set_vf_mc_promisc(struct net_device *netdev, int vf, bool setting)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
 +
-+			ivm = nla_data(vf);
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_mc_promisc)
-+				err = ops->ndo_set_vf_mc_promisc(dev, ivm->vf,
-+								 ivm->setting);
-+			break;
-+		}
- 		default:
- 			err = -EINVAL;
- 			break;
++	if (vf >= adapter->num_vfs)
++		return -EINVAL;
++
++	/* nothing to do */
++	if (adapter->vfinfo[vf].mc_promisc_allowed == setting)
++		return 0;
++
++	adapter->vfinfo[vf].mc_promisc_allowed = setting;
++
++	/* if VF requests multicast promiscuous */
++	if (adapter->vfinfo[vf].mc_promisc) {
++		if (setting)
++			ixgbe_enable_vf_mc_promisc(adapter, vf);
++		else
++			ixgbe_disable_vf_mc_promisc(adapter, vf);
++	}
++
++	return 0;
++}
++
+ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf, struct ifla_vf_info *ivi)
+ {
+@@ -1506,5 +1533,6 @@ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 	ivi->qos = adapter->vfinfo[vf].pf_qos;
+ 	ivi->spoofchk = adapter->vfinfo[vf].spoofchk_enabled;
+ 	ivi->rss_query_en = adapter->vfinfo[vf].rss_query_enabled;
++	ivi->mc_promisc = adapter->vfinfo[vf].mc_promisc_allowed;
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index 2c197e6..bf5b8f1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -49,6 +49,8 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+ int ixgbe_ndo_set_vf_spoofchk(struct net_device *netdev, int vf, bool setting);
+ int ixgbe_ndo_set_vf_rss_query_en(struct net_device *netdev, int vf,
+ 				  bool setting);
++int ixgbe_ndo_set_vf_mc_promisc(struct net_device *netdev,
++				int vf, bool setting);
+ int ixgbe_ndo_get_vf_config(struct net_device *netdev,
+ 			    int vf, struct ifla_vf_info *ivi);
+ void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter);
 -- 
 2.1.0
 
