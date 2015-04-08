@@ -1,44 +1,64 @@
-From: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 Subject: Re: [PATCH 01/14] parport: return value of attach and
  parport_register_driver
-Date: Wed, 8 Apr 2015 17:44:42 +0530
-Message-ID: <20150408121442.GA11388@sudip-PC>
+Date: Wed, 8 Apr 2015 15:27:37 +0300
+Message-ID: <20150408122737.GK10964@mwanda>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
  <1428492040-5581-2-git-send-email-sudipm.mukherjee@gmail.com>
- <20150408113832.GH10964@mwanda>
- <20150408114437.GI10964@mwanda>
+ <20150408113832.GH10964@mwanda> <20150408115010.GA11153@sudip-PC>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	Rodolfo Giometti <giometti-AVVDYK/kqiJWk0Htik3J/w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>, Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org,
-	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>,
-	Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Willy Tarreau <willy-859RlTSWH48dnm+yROfE0A@public.gmane.org>, linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jean Delvare <jdelvare-l3A5Bk7waGM@public.gmane.org>
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Rodolfo Giometti <giometti@enneenne.com>,
+ linux-scsi@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+ Wolfram Sang <wsa@the-dreams.de>, Takashi Iwai <tiwai@suse.de>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-spi@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ "James E.J. Bottomley" <JBottomley@parallels.com>,
+ Jaroslav Kysela <perex@perex.cz>, Mark Brown <broonie@kernel.org>,
+ linux-i2c@vger.kernel.org, Willy Tarreau <willy@meta-x.org>,
+ alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+ Jean Delvare <jdelvare@suse.de>
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 Content-Disposition: inline
-In-Reply-To: <20150408114437.GI10964@mwanda>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20150408115010.GA11153@sudip-PC>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 08, 2015 at 02:44:37PM +0300, Dan Carpenter wrote:
+On Wed, Apr 08, 2015 at 05:20:10PM +0530, Sudip Mukherjee wrote:
 > On Wed, Apr 08, 2015 at 02:38:32PM +0300, Dan Carpenter wrote:
-> 
-> Then we convert one driver to use the new function pointer and see if
-> it simplifies the code.  If so we can transition the others as well.  If
-> not then we give up.
-i am sending a v2 and also a patch to change one driver.
+> > 1) We can't apply this patch on its own so this way of breaking up the
+> > patches doesn't work.
+> yes, if the first patch is reverted for any reason all the others need
+> to be reverted also. so then everything in one single patch?
 
-regards
-sudip
-> 
-> regards,
-> dan carpenter
-> 
+The problem is that patch 1/1 breaks the build.  The rule is that we
+should be able to apply part of a patch series and nothing breaks.  If
+we apply the patch series out of order than things break that's our
+problem, yes.  But if we apply only 1/1 and it breaks, that's a problem
+with the series.
+
+> > 
+> > 2) I was thinking that all the ->attach() calls would have to succeed or
+> > we would bail.  Having some of them succeed and some fail doesn't seem
+> > like it will simplify the driver code very much.  But I can also see
+> > your point.  Hm...
+
+My other issue with this patch series which is related to #2 is that
+it's not clear that anyone is checking the return value and doing
+correct things with it.
+
+Hopefully, when we use the attach_ret() approach then it will be more
+clear if/how the return value is useful.
+
+regards,
+dan carpenter
