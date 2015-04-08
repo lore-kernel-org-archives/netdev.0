@@ -1,42 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] udp_tunnel: Pass UDP socket down through
- udp_tunnel{,6}_xmit_skb().
-Date: Tue, 07 Apr 2015 22:13:28 -0400 (EDT)
-Message-ID: <20150407.221328.1961195097281515709.davem@davemloft.net>
-References: <1428421534.2928.3.camel@stressinduktion.org>
-	<20150407.153044.772260953305341361.davem@davemloft.net>
-	<1428449099.869458.250499317.11121567@webmail.messagingengine.com>
+Subject: Re: [RFC PATCH 2/2] net: remove extra newlines
+Date: Tue, 07 Apr 2015 22:24:48 -0400 (EDT)
+Message-ID: <20150407.222448.1849148579625673700.davem@davemloft.net>
+References: <1428456378-122783-1-git-send-email-shengyong1@huawei.com>
+	<1428456378-122783-2-git-send-email-shengyong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, tom@herbertland.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
-	jiri@resnulli.us
-To: hannes@stressinduktion.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1428449099.869458.250499317.11121567@webmail.messagingengine.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: shengyong1@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33308 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753027AbbDHCYv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 22:24:51 -0400
+In-Reply-To: <1428456378-122783-2-git-send-email-shengyong1@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 08 Apr 2015 01:24:59 +0200
+From: Sheng Yong <shengyong1@huawei.com>
+Date: Wed, 8 Apr 2015 01:26:18 +0000
 
-> There is one small problem which already was present before this patch
-> because of my change b6a7719aedd7e5 ("ipv4: hash net ptr into
-> fragmentation bucket selection"). It uses sock_net in iptunnel_xmit,
-> which causes a NULL ptr panic. This patchset did make it more visible
-> because of the explicit NULL passing but the bug was introduced by my
-> patch.
-> 
-> Just wanted to let you know if reports are coming in - I fix it up
-> tomorrow. I will also explore the possibility to give each tunnel at
-> least a raw socket, what Tom proposed.
-> 
-> Rick Jones identified this, thanks!
+> Signed-off-by: Sheng Yong <shengyong1@huawei.com>
 
-Looking into this I also notice that ipip6_tunnel_xmit() passes
-in skb->sk, that needs to be NULL too.
-
-Want to take care of that along with your sock_net() fix?
-
-Thanks!
+This is fine, applied, thanks.
