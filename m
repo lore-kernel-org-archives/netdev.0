@@ -1,93 +1,88 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] vxlan: do not exit on error in vxlan_stop()
-Date: Wed,  8 Apr 2015 14:48:30 -0700
-Message-ID: <1428529710-19798-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH RFT net-next #2 0/6] via-rhine receive buffers rework
+Date: Wed, 8 Apr 2015 23:50:51 +0200
+Message-ID: <20150408215051.GA25326@electric-eye.fr.zoreil.com>
+References: <cover.1428445141.git.romieu@fr.zoreil.com>
+ <87vbh6364u.fsf@spindle.srvr.nix>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+To: Nix <nix@esperi.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33268 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753363AbbDHVsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 17:48:45 -0400
-Received: by paboj16 with SMTP id oj16so127536516pab.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 14:48:45 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57867 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754073AbbDHVvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 17:51:05 -0400
+Content-Disposition: inline
+In-Reply-To: <87vbh6364u.fsf@spindle.srvr.nix>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to clean up vxlan despite vxlan_igmp_leave() fails.
+Nix <nix@esperi.org.uk> :
+[...]
+> I am sorry to report that I just had a watchdog-triggered autoreboot
+> during testing of this patch series :( with no log messages of any kind.
+> looks like the underlying bug is still there, or another bug with the
+> same symptoms (i.e. some way to crash inside the rx handler). I qwish I
+> could get some debugging output when this happens!
 
-This fixes the following kernel warning:
+You may add the patch below on top of the current stack. I don't expect
+much difference. Increasing RX_RING_SIZE could be a different story.
 
- WARNING: CPU: 0 PID: 6 at lib/debugobjects.c:263 debug_print_object+0x7c/0x8d()
- ODEBUG: free active (active state 0) object type: timer_list hint: vxlan_cleanup+0x0/0xd0
- CPU: 0 PID: 6 Comm: kworker/u8:0 Not tainted 4.0.0-rc7+ #953
- Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
- Workqueue: netns cleanup_net
-  0000000000000009 ffff88011955f948 ffffffff81a25f5a 00000000253f253e
-  ffff88011955f998 ffff88011955f988 ffffffff8107608e 0000000000000000
-  ffffffff814deba2 ffff8800d4e94000 ffffffff82254c30 ffffffff81fbe455
- Call Trace:
-  [<ffffffff81a25f5a>] dump_stack+0x4c/0x65
-  [<ffffffff8107608e>] warn_slowpath_common+0x9c/0xb6
-  [<ffffffff814deba2>] ? debug_print_object+0x7c/0x8d
-  [<ffffffff81076116>] warn_slowpath_fmt+0x46/0x48
-  [<ffffffff814deba2>] debug_print_object+0x7c/0x8d
-  [<ffffffff81666bf1>] ? vxlan_fdb_destroy+0x5b/0x5b
-  [<ffffffff814dee02>] __debug_check_no_obj_freed+0xc3/0x15f
-  [<ffffffff814df728>] debug_check_no_obj_freed+0x12/0x16
-  [<ffffffff8117ae4e>] slab_free_hook+0x64/0x6c
-  [<ffffffff8114deaa>] ? kvfree+0x31/0x33
-  [<ffffffff8117dc66>] kfree+0x101/0x1ac
-  [<ffffffff8114deaa>] kvfree+0x31/0x33
-  [<ffffffff817d4137>] netdev_freemem+0x18/0x1a
-  [<ffffffff817e8b52>] netdev_release+0x2e/0x32
-  [<ffffffff815b4163>] device_release+0x5a/0x92
-  [<ffffffff814bd4dd>] kobject_cleanup+0x49/0x5e
-  [<ffffffff814bd3ff>] kobject_put+0x45/0x49
-  [<ffffffff817d3fc1>] netdev_run_todo+0x26f/0x283
-  [<ffffffff817d4873>] ? rollback_registered_many+0x20f/0x23b
-  [<ffffffff817e0c80>] rtnl_unlock+0xe/0x10
-  [<ffffffff817d4af0>] default_device_exit_batch+0x12a/0x139
-  [<ffffffff810aadfa>] ? wait_woken+0x8f/0x8f
-  [<ffffffff817c8e14>] ops_exit_list+0x2b/0x57
-  [<ffffffff817c9b21>] cleanup_net+0x154/0x1e7
-  [<ffffffff8108b05d>] process_one_work+0x255/0x4ad
-  [<ffffffff8108af69>] ? process_one_work+0x161/0x4ad
-  [<ffffffff8108b4b1>] worker_thread+0x1cd/0x2ab
-  [<ffffffff8108b2e4>] ? process_scheduled_works+0x2f/0x2f
-  [<ffffffff81090686>] kthread+0xd4/0xdc
-  [<ffffffff8109eca3>] ? local_clock+0x19/0x22
-  [<ffffffff810905b2>] ? __kthread_parkme+0x83/0x83
-  [<ffffffff81a31c48>] ret_from_fork+0x58/0x90
-  [<ffffffff810905b2>] ? __kthread_parkme+0x83/0x83
+Did you keep netconsole disabled and did you increse via-rhine verbosity
+level ?
 
-For the long-term, we should handle NETDEV_{UP,DOWN} event
-from the lower device of a tunnel device.
+No shared IRQ ?
 
-Fixes: 56ef9c909b40 ("vxlan: Move socket initialization to within rtnl scope")
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- drivers/net/vxlan.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> However, to give some good news, CPU usage is much lower than before the
+> patch: si ~10%, rather than ~80% with spikes of full CPU usage:
+> ksoftirqd's CPU usage is steady at about 3% rather than 40--60% with
+> spikes to 100%, and some of that will be USB interrupts from the
+> continuous USB traffic from my entropy key.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 682838b..577c9b0 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2256,11 +2256,8 @@ static int vxlan_stop(struct net_device *dev)
- 	int ret = 0;
+Huuuuh ? Which entropy key ?
+
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 3e6fdbb..d441d8c 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1849,7 +1849,7 @@ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
  
- 	if (vxlan_addr_multicast(&vxlan->default_dst.remote_ip) &&
--	    !vxlan_group_used(vn, vxlan)) {
-+	    !vxlan_group_used(vn, vxlan))
- 		ret = vxlan_igmp_leave(vxlan);
--		if (ret)
--			return ret;
--	}
+ 	netdev_sent_queue(dev, skb->len);
+ 	/* lock eth irq */
+-	wmb();
++	dma_wmb();
+ 	rp->tx_ring[entry].tx_status |= cpu_to_le32(DescOwn);
+ 	wmb();
  
- 	del_timer_sync(&vxlan->age_timer);
+@@ -1996,6 +1996,7 @@ static inline u16 rhine_get_vlan_tci(struct sk_buff *skb, int data_size)
+ static inline void rhine_rx_vlan_tag(struct sk_buff *skb, struct rx_desc *desc,
+ 				     int data_size)
+ {
++	dma_rmb();
+ 	if (unlikely(desc->desc_length & cpu_to_le32(DescTag))) {
+ 		u16 vlan_tci;
  
--- 
-1.8.3.1
+@@ -2161,6 +2162,7 @@ static void rhine_slow_event_task(struct work_struct *work)
+ 		container_of(work, struct rhine_private, slow_event_task);
+ 	struct net_device *dev = rp->dev;
+ 	u32 intr_status;
++	u16 enable_mask;
+ 
+ 	mutex_lock(&rp->task_lock);
+ 
+@@ -2176,7 +2178,12 @@ static void rhine_slow_event_task(struct work_struct *work)
+ 	if (intr_status & IntrPCIErr)
+ 		netif_warn(rp, hw, dev, "PCI error\n");
+ 
+-	iowrite16(RHINE_EVENT & 0xffff, rp->base + IntrEnable);
++	napi_disable(&rp->napi);
++
++	enable_mask = ioread16(rp->base + IntrEnable) | RHINE_EVENT_SLOW;
++	iowrite16(enable_mask, rp->base + IntrEnable);
++
++	napi_enable(&rp->napi);
+ 
+ out_unlock:
+ 	mutex_unlock(&rp->task_lock);
