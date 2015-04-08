@@ -1,100 +1,58 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man tc: Add description about class name option
-Date: Wed,  8 Apr 2015 18:27:43 +0300
-Message-ID: <1428506863-8208-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:33394 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753311AbbDHPjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 11:39:52 -0400
-Received: by layy10 with SMTP id y10so69039933lay.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 08:39:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v2 00/17] IB/Verbs: IB Management Helpers
+Date: Wed, 8 Apr 2015 09:51:45 -0600
+Message-ID: <20150408155145.GA25178@obsidianresearch.com>
+References: <5523CCD5.6030401@profitbricks.com>
+ <5525132F.1020004@talpey.com>
+ <552521EE.5060206@profitbricks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Talpey <tom-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm@de
+To: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <552521EE.5060206-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+On Wed, Apr 08, 2015 at 02:41:18PM +0200, Michael Wang wrote:
+ 
+> I think no one can have the access to all these hardware, so we can
+> only depends on those who accidentally have one to help the testing,
+> but it's still far from that stage..
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- man/man8/tc.8 | 50 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 49 insertions(+), 1 deletion(-)
+I have seen other patches in this style use the compiler to do the
+check, if the patch doesn't change the compiled output then it is
+obviously OK.
 
-diff --git a/man/man8/tc.8 b/man/man8/tc.8
-index ea4d445..434fe6c 100644
---- a/man/man8/tc.8
-+++ b/man/man8/tc.8
-@@ -62,7 +62,9 @@ DEV
- .ti 8
- .IR OPTIONS " := {"
- \fB[ -force ] -b\fR[\fIatch\fR] \fB[ filename ] \fR|
--\fB[ \fB-n\fR[\fIetns\fR] name \fB] \fR}
-+\fB[ \fB-n\fR[\fIetns\fR] name \fB] \fR|
-+\fB[ \fB-nm \fR| \fB-nam\fR[\fIes\fR] \fB] \fR|
-+\fB[ \fR{ \fB-cf \fR| \fB-c\fR[\fIonf\fR] \fR} \fB[ filename ] \fB] \fR}
- 
- .ti 8
- .IR FORMAT " := {"
-@@ -463,6 +465,11 @@ to
- .RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
- .BR help " }"
- 
-+.TP
-+.BR "\-cf" , " \-conf " <FILENAME>
-+specifies path to the config file. This option is used in conjuction with other options (e.g.
-+.BR -nm ")."
-+
- .SH FORMAT
- The show command has additional formatting options:
- 
-@@ -494,6 +501,47 @@ option was specified. Classes can be filtered only by
- .BR "dev"
- option.
- 
-+.TP
-+.BR "\-nm" , " \-name"
-+resolve class name from
-+.B /etc/iproute2/tc_cls
-+file or from file specified by
-+.B -cf
-+option. This file is just a mapping of
-+.B classid
-+to class name:
-+
-+.RS 10
-+# Here is comment
-+.RE
-+.RS 10
-+1:40   voip # Here is another comment
-+.RE
-+.RS 10
-+1:50   web
-+.RE
-+.RS 10
-+1:60   ftp
-+.RE
-+.RS 10
-+1:2    home
-+.RE
-+
-+.RS
-+.B tc
-+will not fail if
-+.B -nm
-+was specified without
-+.B -cf
-+option but
-+.B /etc/iproute2/tc_cls
-+file does not exist, which makes it possible to pass
-+.B -nm
-+option for creating
-+.B tc
-+alias.
-+.RE
-+
- .SH "EXAMPLES"
- .PP
- tc -g class show dev eth0
--- 
-2.3.1
+Some careful use of macros might make that possible, but it is a fair
+amount of work.
+
+However, that may be the only way to get something this invasive
+applied, especially since we've already seen mistakes in the manual
+transforms :|
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
