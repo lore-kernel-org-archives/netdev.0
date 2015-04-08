@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: broadcom: Add BCM54616S phy entry
-Date: Wed, 08 Apr 2015 15:28:39 -0400 (EDT)
-Message-ID: <20150408.152839.182878614256411955.davem@davemloft.net>
-References: <1428488118-14953-1-git-send-email-alessio.bogani@elettra.eu>
-	<55256497.3040405@gmail.com>
+Subject: Re: [PATCH] fou: Don't use const __read_mostly
+Date: Wed, 08 Apr 2015 15:29:21 -0400 (EDT)
+Message-ID: <20150408.152921.1694166124541049677.davem@davemloft.net>
+References: <1428498271-6345-1-git-send-email-andi@firstfloor.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alessio.bogani@elettra.eu, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55256497.3040405@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, therbert@google.com, ak@linux.intel.com
+To: andi@firstfloor.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40693 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754648AbbDHT3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 15:29:22 -0400
+In-Reply-To: <1428498271-6345-1-git-send-email-andi@firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 08 Apr 2015 10:25:43 -0700
+From: Andi Kleen <andi@firstfloor.org>
+Date: Wed,  8 Apr 2015 06:04:31 -0700
 
-> On 08/04/15 03:15, Alessio Igor Bogani wrote:
->> Signed-off-by: Alessio Igor Bogani <alessio.bogani@elettra.eu>
+> From: Andi Kleen <ak@linux.intel.com>
 > 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> const __read_mostly is a senseless combination. If something
+> is already const it cannot be __read_mostly. Remove the bogus
+> __read_mostly in the fou driver.
 > 
-> This is indeed the correct PHY ID for this chip, technically, this is a
-> variant of the 54616 (non-S version), but it does not really matter.
+> This fixes section conflicts with LTO.
+> 
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
 
-Applied, thanks everyone.
+Applied, thank you.
