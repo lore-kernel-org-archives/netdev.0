@@ -1,64 +1,36 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next 1/2] net: introduce skb_postpush_rcsum() helper
-Date: Tue,  7 Apr 2015 18:03:44 -0700
-Message-ID: <1428455025-5945-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH 3/3] e1000, e1000e: Use dma_rmb instead of rmb
+ for descriptor read ordering
+Date: Tue, 7 Apr 2015 18:06:20 -0700
+Message-ID: <CAL3LdT7vKH+_6rn+p7fgZgLzq8wKTWBN6QRxKwpjMVOpXD=euw@mail.gmail.com>
+References: <20150407235324.1574.63255.stgit@ahduyck-vm-fedora22>
+	<20150407235527.1574.69801.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:34532 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752909AbbDHBDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 21:03:55 -0400
-Received: by pdbqa5 with SMTP id qa5so39648740pdb.1
-        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 18:03:55 -0700 (PDT)
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:33496 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753622AbbDHBGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 21:06:21 -0400
+Received: by oblw8 with SMTP id w8so66855978obl.0
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 18:06:20 -0700 (PDT)
+In-Reply-To: <20150407235527.1574.69801.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-similar to skb_postpull_rcsum() introduce skb_postpush_rcsum() helper
+On Tue, Apr 7, 2015 at 4:55 PM, Alexander Duyck
+<alexander.h.duyck@redhat.com> wrote:
+> This change replaces calls to rmb with dma_rmb in the case where we want to
+> order all follow-on descriptor reads after the check for the descriptor
+> status bit.
+>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-skb_postpush_rcsum() is also used in the next patch.
-
- include/linux/skbuff.h |    7 +++++++
- net/core/filter.c      |    4 ++--
- 2 files changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 36f3f43c0117..3c5b191869bb 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2586,6 +2586,13 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
- 		skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
- }
- 
-+static inline void skb_postpush_rcsum(struct sk_buff *skb,
-+				      const void *start, unsigned int len)
-+{
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
-+}
-+
- unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
- 
- /**
-diff --git a/net/core/filter.c b/net/core/filter.c
-index b669e75d2b36..e5872704c28b 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1213,8 +1213,8 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
- 		/* skb_store_bits cannot return -EFAULT here */
- 		skb_store_bits(skb, offset, ptr, len);
- 
--	if (BPF_RECOMPUTE_CSUM(flags) && skb->ip_summed == CHECKSUM_COMPLETE)
--		skb->csum = csum_add(skb->csum, csum_partial(ptr, len, 0));
-+	if (BPF_RECOMPUTE_CSUM(flags))
-+		skb_postpush_rcsum(skb, ptr, len);
- 	return 0;
- }
- 
--- 
-1.7.9.5
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_main.c |    6 +++---
+>  drivers/net/ethernet/intel/e1000e/netdev.c    |    8 ++++----
+>  2 files changed, 7 insertions(+), 7 deletions(-)
