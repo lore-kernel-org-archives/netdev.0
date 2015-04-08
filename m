@@ -1,38 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs
- consistent
-Date: Wed, 08 Apr 2015 12:32:08 -0400 (EDT)
-Message-ID: <20150408.123208.890310178000649038.davem@davemloft.net>
-References: <55252FEF.40201@iogearbox.net>
-	<55253289.8020306@mojatatu.com>
-	<552556BC.8020108@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, daniel@iogearbox.net, jiri@resnulli.us,
-	tgraf@suug.ch, netdev@vger.kernel.org
-To: ast@plumgrid.com
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 3/5] selinux/nlmsg: add XFRM_MSG_NEWSPDINFO
+Date: Wed,  8 Apr 2015 18:36:40 +0200
+Message-ID: <1428511002-22329-4-git-send-email-nicolas.dichtel@6wind.com>
+References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39171 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754140AbbDHQcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 12:32:10 -0400
-In-Reply-To: <552556BC.8020108@plumgrid.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34491 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415AbbDHQgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 12:36:45 -0400
+In-Reply-To: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Wed, 08 Apr 2015 09:26:36 -0700
+This new command is missing.
 
-> My preference is to add 'needs_l2' flag to ingress qdisc.
+Fixes: 880a6fab8f6b ("xfrm: configure policy hash table thresholds by netlink")
+Reported-by: Christophe Gouault <christophe.gouault@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ security/selinux/nlmsgtab.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-The problem is that needs_l2 is not property of individual qdisc,
-but conditionally 1 or more things sitting behind it.
-
-You can mix u32 and bpf classifiers.  One wants need_L2 another
-does not, and you therefore cannot handle this problem in this
-manner.
-
-Face it, we're stuck with what we have.  And I think you will
-have to adjust generated bpf program based upon whether it is
-being attacked to ingress or egress qdisc.
+diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
+index c8cee0766b60..4bc90c2aaea2 100644
+--- a/security/selinux/nlmsgtab.c
++++ b/security/selinux/nlmsgtab.c
+@@ -103,6 +103,7 @@ static struct nlmsg_perm nlmsg_xfrm_perms[] =
+ 	{ XFRM_MSG_FLUSHPOLICY,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+ 	{ XFRM_MSG_NEWAE,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+ 	{ XFRM_MSG_GETAE,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
++	{ XFRM_MSG_NEWSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+ };
+ 
+ static struct nlmsg_perm nlmsg_audit_perms[] =
+-- 
+2.2.2
