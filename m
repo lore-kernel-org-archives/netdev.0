@@ -1,69 +1,34 @@
-From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Subject: Re: [PATCH v2 00/17] IB/Verbs: IB Management Helpers
-Date: Wed, 08 Apr 2015 18:05:43 +0200
-Message-ID: <552551D7.80308@profitbricks.com>
-References: <5523CCD5.6030401@profitbricks.com> <5525132F.1020004@talpey.com> <552521EE.5060206@profitbricks.com> <20150408155145.GA25178@obsidianresearch.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] ipv4: ip_tunnel: use net namespace from
+ rtable not socket
+Date: Wed, 08 Apr 2015 12:09:58 -0400 (EDT)
+Message-ID: <20150408.120958.1217271670558706137.davem@davemloft.net>
+References: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tom Talpey <tom-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm@de
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150408155145.GA25178-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rick.jones2@hp.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38972 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754102AbbDHQJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 12:09:59 -0400
+In-Reply-To: <46878d19779a655995b36701de854cb23a3bf4b5.1428505261.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2015 05:51 PM, Jason Gunthorpe wrote:
-> On Wed, Apr 08, 2015 at 02:41:18PM +0200, Michael Wang wrote:
->  
->> I think no one can have the access to all these hardware, so we can
->> only depends on those who accidentally have one to help the testing,
->> but it's still far from that stage..
-> 
-> I have seen other patches in this style use the compiler to do the
-> check, if the patch doesn't change the compiled output then it is
-> obviously OK.
-> 
-> Some careful use of macros might make that possible, but it is a fair
-> amount of work.
-> 
-> However, that may be the only way to get something this invasive
-> applied, especially since we've already seen mistakes in the manual
-> transforms :|
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed,  8 Apr 2015 17:01:22 +0200
 
-Make sense, I may be able to testing with mlx4 in our lab, but IMHO
-review carefully may be more reliable then incomplete testing in
-this case, if we have some tree or branch for next staging, that
-could be a good place for public testing, but it's haven't reached
-that stage yet ;-)
-
-Regards,
-Michael Wang
-
-
+> The socket parameter might legally be NULL, thus sock_net is sometimes
+> causing a NULL pointer dereference. Using net_device pointer in dst_entry
+> is more reliable.
 > 
-> Jason
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Fixes: b6a7719aedd7e5c ("ipv4: hash net ptr into fragmentation bucket selection")
+> Reported-by: Rick Jones <rick.jones2@hp.com>
+> Cc: Rick Jones <rick.jones2@hp.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Applied.
