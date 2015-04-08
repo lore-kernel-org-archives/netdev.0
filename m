@@ -1,58 +1,125 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH 01/14] parport: return value of attach and
- parport_register_driver
-Date: Wed, 8 Apr 2015 19:56:00 +0200
-Message-ID: <20150408175600.GI18177@1wt.eu>
-References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
- <1428492040-5581-2-git-send-email-sudipm.mukherjee@gmail.com>
- <20150408113832.GH10964@mwanda> <20150408115010.GA11153@sudip-PC>
- <20150408122737.GK10964@mwanda>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] ethernet: e1000e: define lat_ns as u64 instead of s64
+Date: Wed, 08 Apr 2015 11:13:02 -0700
+Message-ID: <1428516782.2579.2.camel@jtkirshe-mobl>
+References: <1428052673-16412-1-git-send-email-yanjiang.jin@windriver.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB166B0@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-4dLaWvVnUg81OubZRAc+"
+Cc: "'yanjiang.jin@windriver.com'" <yanjiang.jin@windriver.com>,
+	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"jinyanjiang@gmail.com" <jinyanjiang@gmail.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:51133 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932136AbbDHSNE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Apr 2015 14:13:04 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB166B0@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-4dLaWvVnUg81OubZRAc+
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2015-04-08 at 09:40 +0000, David Laight wrote:
+> From: yanjiang.jin@windriver.com
+> > Sent: 03 April 2015 10:18
+> > From: Yanjiang Jin <yanjiang.jin@windriver.com>
+> >=20
+> > do_div() expects the type of "n" to be uint64_t, define "lat_ns" as u64=
+ to
+> > avoid the below warning, also update its correlative operations and dat=
+a.
+> >=20
+> > In file included from ./arch/powerpc/include/asm/div64.h:1:0,
+> >                  from include/linux/kernel.h:124,
+> >                  from include/linux/list.h:8,
+> >                  from include/linux/timer.h:4,
+> >                  from drivers/net/ethernet/intel/e1000e/e1000.h:29,
+> >                  from drivers/net/ethernet/intel/e1000e/ich8lan.c:59:
+> > drivers/net/ethernet/intel/e1000e/ich8lan.c: In function 'e1000_platfor=
+m_pm_pch_lpt':
+> > include/asm-generic/div64.h:43:28: warning: comparison of distinct poin=
+ter types lacks a cast [enabled
+> > by default]
+> >   (void)(((typeof((n)) *)0) =3D=3D ((uint64_t *)0)); \
+> >                             ^
+> > drivers/net/ethernet/intel/e1000e/ich8lan.c:1016:4: note: in expansion =
+of macro 'do_div'
+> >     do_div(lat_ns, speed);
+> >=20
+> > Signed-off-by: Yanjiang Jin <yanjiang.jin@windriver.com>
+> > ---
+> >  drivers/net/ethernet/intel/e1000e/ich8lan.c | 8 ++++----
+> >  1 file changed, 4 insertions(+), 4 deletions(-)
+> >=20
+> > diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/=
+ethernet/intel/e1000e/ich8lan.c
+> > index 48b74a5..baab58b 100644
+> > --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> > +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+> > @@ -982,8 +982,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000_h=
+w *hw, bool link)
+> >  		u16 speed, duplex, scale =3D 0;
+> >  		u16 max_snoop, max_nosnoop;
+> >  		u16 max_ltr_enc;	/* max LTR latency encoded */
+> > -		s64 lat_ns;	/* latency (ns) */
+> > -		s64 value;
+> > +		u64 lat_ns;	/* latency (ns) */
+> > +		u64 value;
+> >  		u32 rxa;
+> >=20
+> >  		if (!hw->adapter->max_frame_size) {
+> > @@ -1008,8 +1008,8 @@ static s32 e1000_platform_pm_pch_lpt(struct e1000=
+_hw *hw, bool link)
+> >  		 * 2^25*(2^10-1) ns.  The scale is encoded as 0=3D2^0ns,
+> >  		 * 1=3D2^5ns, 2=3D2^10ns,...5=3D2^25ns.
+> >  		 */
+> > -		lat_ns =3D ((s64)rxa * 1024 -
+> > -			  (2 * (s64)hw->adapter->max_frame_size)) * 8 * 1000;
+> > +		lat_ns =3D ((u64)rxa * 1024 -
+> > +			  (2 * (u64)hw->adapter->max_frame_size)) * 8 * 1000;
+> >  		if (lat_ns < 0)
+> >  			lat_ns =3D 0;
+>=20
+> The above change cannot be correct.
+> You should be getting another error for testing an unsigned value be less=
+ than 0.
+>=20
+> So I presume this wasn't even tested.
+>=20
+
+I found the same issue and I am putting together another patch to
+resolve the issue that Yanjiang saw.
+
+--=-4dLaWvVnUg81OubZRAc+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Rodolfo Giometti <giometti@enneenne.com>,
- linux-scsi@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
- Wolfram Sang <wsa@the-dreams.de>, Takashi Iwai <tiwai@suse.de>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-spi@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- "James E.J. Bottomley" <JBottomley@parallels.com>,
- Jaroslav Kysela <perex@perex.cz>, Mark Brown <broonie@kernel.org>,
- linux-i2c@vger.kernel.org, netdev@vger.kernel.org, alsa-devel@alsa-project.org,
- Sudip Mukherjee <sudipm.mukherjee@gmail.com>, Jean Delvare <jdelvare@suse.de>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20150408122737.GK10964@mwanda>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 08, 2015 at 03:27:37PM +0300, Dan Carpenter wrote:
-> On Wed, Apr 08, 2015 at 05:20:10PM +0530, Sudip Mukherjee wrote:
-> > On Wed, Apr 08, 2015 at 02:38:32PM +0300, Dan Carpenter wrote:
-> > > 1) We can't apply this patch on its own so this way of breaking up the
-> > > patches doesn't work.
-> > yes, if the first patch is reverted for any reason all the others need
-> > to be reverted also. so then everything in one single patch?
-> 
-> The problem is that patch 1/1 breaks the build.  The rule is that we
-> should be able to apply part of a patch series and nothing breaks.  If
-> we apply the patch series out of order than things break that's our
-> problem, yes.  But if we apply only 1/1 and it breaks, that's a problem
-> with the series.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Yep, keep in mind that "git bisect" will randomly land in the middle of
-any set of patches during a debugging session and it could very well land
-on this one. If it breaks, that's a real pain for the people trying to
-bisect their bug because suddenly they have to deal with a second bug
-totally different from theirs.
+iQIcBAABCgAGBQJVJW+uAAoJEOVv75VaS+3OmOgP/2scKSMjfv74L6rj1W46jv8d
+qrNMj1Vtey4wU4UWncm3xsMi7DlIKlVLhl2RT1k+uZaICK5IqXrjPsYz6siJ512D
+6nGR5eAejr5rSfyd/nW0WQGxkmSJmUh+pidM0Y+8WLjtlKmlY/P/WipkpwEfMPv2
+Exp2qGIThRJwO1oYaoFR2Vjwva/yq9DH1/Nh9rZCRI0PX6+IaV3SCKbwBBq/wxhx
+eoOQ3W3lW2YQri/eAb4WK2CgKqm2Ha2jjui62tJZqTK64l6LhGKOC0BuLpSsfud1
+3LFUNvp+1o3t5BB6rCvVz4Lh9XX1pz2e5ZwtEjI2o71RStQytug9w1JUYUF+k1QN
+DiPdcxMwrwKcam9cIGY7qHFV24IckgOrRGIEXT6zC74If8hZRLYVkeu7IvF15+ie
+mJS7snY/DtEPwkPniLFheJbEMXboGc0RxLtIAef1Obkjx7GPsusWbdR7o8LgzPd2
+l7h816Ws/1Iwz5eVFG7Tw+zdb8hxtPy60we6j+qoaKtOJzr/WsUw4x/VPrw7G6kF
+jDFAc89rTuDiI2+vNAYWNAAAq9vRk6aEfRL5prEGfG8UxC2bUpBe3896bmdLfDLQ
+s6P39Wb2jehECH3Ve+spNBXupc5y938iuHFS8MSsdbQHR0G85dZEsjMIcqBBnXdq
+M/lb15UfNOoBYPnD/oHk
+=LAAi
+-----END PGP SIGNATURE-----
 
-Regards,
-Willy
+--=-4dLaWvVnUg81OubZRAc+--
