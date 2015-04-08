@@ -1,45 +1,83 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs
- consistent
-Date: Wed, 8 Apr 2015 14:47:38 +0100
-Message-ID: <20150408134738.GB28656@casper.infradead.org>
-References: <20150408090520.GA2057@nanopsycho.orion>
- <552508E8.5050203@iogearbox.net>
- <55250D92.6030702@iogearbox.net>
- <55251556.4040900@mojatatu.com>
- <55251F9F.2050508@iogearbox.net>
- <55252611.3040109@mojatatu.com>
- <20150408131417.GA28656@casper.infradead.org>
- <55252CDD.8020503@iogearbox.net>
- <20150408133415.GD2057@nanopsycho.orion>
- <55252FEF.40201@iogearbox.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs consistent
+Date: Wed, 08 Apr 2015 09:52:09 -0400
+Message-ID: <55253289.8020306@mojatatu.com>
+References: <5524B339.1070403@plumgrid.com> <5524E878.7070803@iogearbox.net> <20150408090520.GA2057@nanopsycho.orion> <552508E8.5050203@iogearbox.net> <55250D92.6030702@iogearbox.net> <55251556.4040900@mojatatu.com> <55251F9F.2050508@iogearbox.net> <55252611.3040109@mojatatu.com> <20150408131417.GA28656@casper.infradead.org> <55252CDD.8020503@iogearbox.net> <20150408133415.GD2057@nanopsycho.orion> <55252FEF.40201@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, Alexei Starovoitov <ast@plumgrid.com>,
 	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:47306 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754300AbbDHNrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 09:47:40 -0400
-Content-Disposition: inline
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:33215 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754346AbbDHNwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 09:52:11 -0400
+Received: by iebmp1 with SMTP id mp1so74243756ieb.0
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 06:52:11 -0700 (PDT)
 In-Reply-To: <55252FEF.40201@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/15 at 03:41pm, Daniel Borkmann wrote:
+On 04/08/15 09:41, Daniel Borkmann wrote:
 > On 04/08/2015 03:34 PM, Jiri Pirko wrote:
-> >That is certainly doable. But is that what we want? I don't think so. I
-> >would like to have the same for in/eg.
-> 
+>> Wed, Apr 08, 2015 at 03:27:57PM CEST, daniel@iogearbox.net wrote:
+>>> On 04/08/2015 03:14 PM, Thomas Graf wrote:
+>>>> On 04/08/15 at 08:58am, Jamal Hadi Salim wrote:
+>>>>> On 04/08/15 08:31, Daniel Borkmann wrote:
+>>>>>> That means the tc's cls_u32
+>>>>>> sample selectors a la ip, ip6, udp, tcp, icmp don't work on ingress
+>>>>>> either,so in u32 speak you would need to do that by hand, but that
+>>>>>> doesn't work as you don't have the Ethernet type context available.
+>>>>>> Am I missing something? :)
+>>>>>
+>>>>> u32 works fine. I am sure i have tests which run these on both
+>>>>> in/egress.
+>>>>
+>>>> His point is that an u32 filter written for egress won't work at
+>>>> ingress because the offsets are different. This has always been the
+>>>> case and we can't break this behaviour either. I'm sure you have
+>>>> these weird negative offset u32 egress filters in your repertoire
+>>>> as well ;-)
+>>>
+>>> Okay, you can use negative offsets in cls_u32 to accomodate for
+>>> that; so yeah, you'd need to implement your filter differently
+>>> on ingress. That should also work on cls_bpf et al.
+>>
+>> That is certainly doable. But is that what we want? I don't think so. I
+>> would like to have the same for in/eg.
+>
 > I mean it's certainly a non-obvious hack, where user space has to
 > fix up something that the kernel should have gotten right in the
 > first place. :/
 
-We should be careful to not break existing scripts. I realize
-it's horribly broken but this stuff is being used.
+Try something like:
+on ingress
+filter add dev eth0 parent ffff: protocol ip prio 6 u32 match ip src \
+10.0.0.21/32 flowid 1:16 action ok
+and egress
+filter add dev eth0 parent 1: protocol ip prio 6 u32 match ip src \
+10.0.0.21/32 flowid 1:16 action ok
 
-We need the user to signal that he is aware that offsets changed
-and subtract the ll header from offsets of unaware users.
+and see if you need negative offsets for anything.
+
+If you really must adjust in the kernel then use the indicators which
+tell you where you are at.
+
+Negative offsets are used if you must go beyond the network header. This
+has been the expectation so far (whether it is actions or classifiers),
+example, here is something that mucks around with ethernet
+headers:
+
+tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
+match ip src 192.168.1.10/32 flowid 1:2 \
+action pedit munge offset -14 u16 set 0x0000 \
+munge offset -12 u32 set 0x00010100 \
+munge offset -8 u32 set 0x0aaf0100 \
+munge offset -4 u32 set 0x0008ec06 pipe \
+action mirred egress redirect dev eth1
+
+cheers,
+jamal
