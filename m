@@ -1,141 +1,199 @@
-From: Ian Jackson <Ian.Jackson@eu.citrix.com>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
-Date: Wed, 8 Apr 2015 14:59:00 +0100
-Message-ID: <21797.13348.524963.29127@mariner.uk.xensource.com>
-References: <21795.62414.465476.464027@mariner.uk.xensource.com>
-	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<21796.6843.983774.271495@mariner.uk.xensource.com>
-	<21796.7755.270785.292996@mariner.uk.xensource.com>
-	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<1428448976.4720.15.camel@prashant>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: Re: [PATCH net-next v3 4/4] mpls: Allow payload type to be associated
+ with label routes
+Date: Wed, 8 Apr 2015 15:03:29 +0100
+Message-ID: <55253531.2020600@brocade.com>
+References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>	<1427739356-28113-1-git-send-email-rshearma@brocade.com>	<1427739356-28113-5-git-send-email-rshearma@brocade.com> <87y4m3j1ol.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"Thadeu Lima de Souza Cascardo" <cascardo@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
-To: Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:13305 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752824AbbDHN7F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2015 09:59:05 -0400
-In-Reply-To: <21796.6843.983774.271495@mariner.uk.xensource.com>,
-	<21796.7755.270785.292996@mariner.uk.xensource.com>,
-	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>,
-	<1428448976.4720.15.camel@prashant>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:53024 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751577AbbDHODf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 10:03:35 -0400
+In-Reply-To: <87y4m3j1ol.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks to Konrad, Michael and Prashant for your attention.
+On 07/04/15 18:19, Eric W. Biederman wrote:
+> Robert Shearman <rshearma@brocade.com> writes:
+>
+>> RFC 4182 s2 states that if an IPv4 Explicit NULL label is the only
+>> label on the stack, then after popping the resulting packet must be
+>> treated as a IPv4 packet and forwarded based on the IPv4 header. The
+>> same is true for IPv6 Explicit NULL with an IPv6 packet following.
+>>
+>> Therefore, when installing the IPv4/IPv6 Explicit NULL label routes,
+>> add an attribute that specifies the expected payload type for use at
+>> forwarding time for determining the type of the encapsulated packet
+>> instead of inspecting the first nibble of the packet.
+>
+> This looks pretty reasonable.
+>
+> I suspect the multiple returns instead of using a single variable
+> might generate slightly worse machine but whatever.
 
+That's a good point - the way the changes are structured now means that 
+the removal of the local variable doesn't add anything, so if it's OK 
+with you I'll change that.
 
-Prashant Sreedharan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
-> Ian, in your previous mail you indicated there are no drops or errors
-> reported on eth0 (assuming this is the tg3 port), which is added to the
-> bridge xenbr0 is this correct ?
+>
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Yes, that is correct.
+Thanks for the review Eric.
 
-> If so the rx drops on xenbr0 does not match with eth0.  please also
-> provide "brctl show", "ethtool -i eth0"
+Rob
 
-root@bedbug:~# brctl show
-bridge name     bridge id               STP enabled     interfaces
-xenbr0          8000.00137214c051       no              eth0
-root@bedbug:~# ethtool -i eth0
-driver: tg3
-version: 3.136
-firmware-version: 5751-v3.44a
-bus-info: 0000:03:00.0
-supports-statistics: yes
-supports-test: yes
-supports-eeprom-access: yes
-supports-register-dump: yes
-supports-priv-flags: no
-root@bedbug:~#
-
-
-Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
-> On Tue, 2015-04-07 at 19:13 +0100, Ian Jackson wrote:
-> > root@bedbug:~# ethtool -S xenbr0 | grep -v ': 0$'
-> > no stats available
-> > root@bedbug:~# 
-> 
-> Please provide ethtool -S on the tg3 device.
-
-I did that in my previous email.  Let me recap:
-
-Ian Jackson writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
-> Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
-> > Please provide the output of "ethtool -S" which has a better breakdown
-> > of the error counters.  Thanks.
-> 
-> root@bedbug:~# ethtool -S eth0 | grep -v ': 0$'
-> NIC statistics:
->      rx_octets: 793954
->      rx_ucast_packets: 342
->      rx_mcast_packets: 197
->      rx_bcast_packets: 11049
->      tx_octets: 59093
->      tx_ucast_packets: 396
->      tx_mcast_packets: 8
->      tx_bcast_packets: 4
-> root@bedbug:~# ifconfig eth0
-> eth0      Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:16012 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:459 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000 
->           RX bytes:1090543 (1.0 MiB)  TX bytes:64575 (63.0 KiB)
->           Interrupt:17 
-> 
-> root@bedbug:~# 
-> 
-> And:
-> 
-> --- bedbug.cam.xci-test.com ping statistics ---
-> 120 packets transmitted, 90 received, 25% packet loss, time 119354ms
-> rtt min/avg/max/mdev = 0.294/0.459/0.844/0.073 ms
-> 
-> 
-> Evidently on this particular kernel, the error counters are _not_
-> increasing, contrary to what I said before.  I confess that I didn't
-> keep a record of on which particular machine and kernel I observed the
-> error count increasing.
-> 
-> If it would help I could try to check various other machines and/or
-> other kernels to see if I can get one of them to display the error
-> counter behaviour.
-
-
-Ian Jackson writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
-> I just realised that I didn't check xenbr0 as well as eth0:
-> 
-> root@bedbug:~# ifconfig xenbr0
-> xenbr0    Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
->           inet addr:10.80.249.102  Bcast:10.80.251.255
->           Mask:255.255.252.0
->           inet6 addr: fe80::213:72ff:fe14:c051/64 Scope:Link
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:12296 errors:0 dropped:793 overruns:0 frame:0
->           TX packets:437 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:0 
->           RX bytes:618757 (604.2 KiB)  TX bytes:49084 (47.9 KiB)
-> 
-> root@bedbug:~# ethtool -S xenbr0 | grep -v ': 0$'
-> no stats available
-> root@bedbug:~#
-> 
-> The value for "dropped" increases steadily.  This particular box is on
-> a network with a lot of other stuff, so it will be constantly
-> receiving broadcasts of various kinds even when I am not trying to
-> address it directly.
-
-
-Ian.
+>
+>
+>> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+>> Signed-off-by: Robert Shearman <rshearma@brocade.com>
+>> ---
+>>   net/mpls/af_mpls.c | 72 ++++++++++++++++++++++++++++++++----------------------
+>>   1 file changed, 43 insertions(+), 29 deletions(-)
+>>
+>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+>> index 0b0420bf110d..e9ce5799449d 100644
+>> --- a/net/mpls/af_mpls.c
+>> +++ b/net/mpls/af_mpls.c
+>> @@ -23,13 +23,25 @@
+>>   /* This maximum ha length copied from the definition of struct neighbour */
+>>   #define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
+>>
+>> +enum mpls_payload_type {
+>> +	MPT_UNSPEC, /* IPv4 or IPv6 */
+>> +	MPT_IPV4 = 4,
+>> +	MPT_IPV6 = 6,
+>> +
+>> +	/* Other types not implemented:
+>> +	 *  - Pseudo-wire with or without control word (RFC4385)
+>> +	 *  - GAL (RFC5586)
+>> +	 */
+>> +};
+>> +
+>>   struct mpls_route { /* next hop label forwarding entry */
+>>   	struct net_device __rcu *rt_dev;
+>>   	struct rcu_head		rt_rcu;
+>>   	u32			rt_label[MAX_NEW_LABELS];
+>>   	u8			rt_protocol; /* routing protocol that set this entry */
+>>   	u8                      rt_unlabeled : 1;
+>> -	u8			rt_labels : 7;
+>> +	u8                      rt_payload_type : 3;
+>> +	u8			rt_labels : 4;
+>>   	u8			rt_via_alen;
+>>   	u8			rt_via_table;
+>>   	u8			rt_via[0];
+>> @@ -90,16 +102,7 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+>>   static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+>>   			struct mpls_entry_decoded dec)
+>>   {
+>> -	/* RFC4385 and RFC5586 encode other packets in mpls such that
+>> -	 * they don't conflict with the ip version number, making
+>> -	 * decoding by examining the ip version correct in everything
+>> -	 * except for the strangest cases.
+>> -	 *
+>> -	 * The strange cases if we choose to support them will require
+>> -	 * manual configuration.
+>> -	 */
+>> -	struct iphdr *hdr4;
+>> -	bool success = true;
+>> +	enum mpls_payload_type payload_type;
+>>
+>>   	/* The IPv4 code below accesses through the IPv4 header
+>>   	 * checksum, which is 12 bytes into the packet.
+>> @@ -114,24 +117,31 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+>>   	if (!pskb_may_pull(skb, 12))
+>>   		return false;
+>>
+>> -	/* Use ip_hdr to find the ip protocol version */
+>> -	hdr4 = ip_hdr(skb);
+>> -	if (hdr4->version == 4) {
+>> +	payload_type = rt->rt_payload_type;
+>> +	if (payload_type == MPT_UNSPEC)
+>> +		payload_type = ip_hdr(skb)->version;
+>> +
+>> +	switch (payload_type) {
+>> +	case MPT_IPV4: {
+>> +		struct iphdr *hdr4 = ip_hdr(skb);
+>>   		skb->protocol = htons(ETH_P_IP);
+>>   		csum_replace2(&hdr4->check,
+>>   			      htons(hdr4->ttl << 8),
+>>   			      htons(dec.ttl << 8));
+>>   		hdr4->ttl = dec.ttl;
+>> +		return true;
+>>   	}
+>> -	else if (hdr4->version == 6) {
+>> +	case MPT_IPV6: {
+>>   		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+>>   		skb->protocol = htons(ETH_P_IPV6);
+>>   		hdr6->hop_limit = dec.ttl;
+>> +		return true;
+>> +	}
+>> +	case MPT_UNSPEC:
+>> +		break;
+>>   	}
+>> -	else
+>> -		/* version 0 and version 1 are used by pseudo wires */
+>> -		success = false;
+>> -	return success;
+>> +
+>> +	return false;
+>>   }
+>>
+>>   static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+>> @@ -254,16 +264,17 @@ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
+>>   };
+>>
+>>   struct mpls_route_config {
+>> -	u32		rc_protocol;
+>> -	u32		rc_ifindex;
+>> -	u16		rc_via_table;
+>> -	u16		rc_via_alen;
+>> -	u8		rc_via[MAX_VIA_ALEN];
+>> -	u32		rc_label;
+>> -	u32		rc_output_labels;
+>> -	u32		rc_output_label[MAX_NEW_LABELS];
+>> -	u32		rc_nlflags;
+>> -	struct nl_info	rc_nlinfo;
+>> +	u32			rc_protocol;
+>> +	u32			rc_ifindex;
+>> +	u16			rc_via_table;
+>> +	u16			rc_via_alen;
+>> +	u8			rc_via[MAX_VIA_ALEN];
+>> +	u32			rc_label;
+>> +	u32			rc_output_labels;
+>> +	u32			rc_output_label[MAX_NEW_LABELS];
+>> +	u32			rc_nlflags;
+>> +	enum mpls_payload_type	rc_payload_type;
+>> +	struct nl_info		rc_nlinfo;
+>>   };
+>>
+>>   static struct mpls_route *mpls_rt_alloc(size_t alen)
+>> @@ -414,6 +425,7 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+>>   	}
+>>   	rt->rt_protocol = cfg->rc_protocol;
+>>   	RCU_INIT_POINTER(rt->rt_dev, dev);
+>> +	rt->rt_payload_type = cfg->rc_payload_type;
+>>   	rt->rt_via_table = cfg->rc_via_table;
+>>   	memcpy(rt->rt_via, cfg->rc_via, cfg->rc_via_alen);
+>>
+>> @@ -949,6 +961,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+>>   			goto nort0;
+>>   		RCU_INIT_POINTER(rt0->rt_dev, lo);
+>>   		rt0->rt_protocol = RTPROT_KERNEL;
+>> +		rt0->rt_payload_type = MPT_IPV4;
+>>   		rt0->rt_via_table = NEIGH_LINK_TABLE;
+>>   		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
+>>   	}
+>> @@ -959,6 +972,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+>>   			goto nort2;
+>>   		RCU_INIT_POINTER(rt2->rt_dev, lo);
+>>   		rt2->rt_protocol = RTPROT_KERNEL;
+>> +		rt2->rt_payload_type = MPT_IPV6;
+>>   		rt2->rt_via_table = NEIGH_LINK_TABLE;
+>>   		memcpy(rt2->rt_via, lo->dev_addr, lo->addr_len);
+>>   	}
