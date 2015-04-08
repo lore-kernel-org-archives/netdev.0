@@ -1,303 +1,40 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net-next v3 3/4] mpls: Per-device enabling of packet input
-Date: Wed, 8 Apr 2015 15:29:53 +0100
-Message-ID: <55253B61.3000809@brocade.com>
-References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>	<1427739356-28113-1-git-send-email-rshearma@brocade.com>	<1427739356-28113-4-git-send-email-rshearma@brocade.com> <877ftnkh1u.fsf@x220.int.ebiederm.org>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [bnx2x] Re: Kernel 3.18.11 hangs when inserting netconsle
+ module on a DELL M620 VRTX Blade
+Date: Wed, 8 Apr 2015 14:42:08 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63C26537@avmb3.qlogic.org>
+References: <5524E669.5050903@enas.net> <55250808.6000606@hurleysoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:50221 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753401AbbDHOaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 10:30:05 -0400
-In-Reply-To: <877ftnkh1u.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Peter Hurley <peter@hurleysoftware.com>,
+	Urban Loesch <bind@enas.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55250808.6000606@hurleysoftware.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/04/15 18:02, Eric W. Biederman wrote:
-> Robert Shearman <rshearma@brocade.com> writes:
->
->> An MPLS network is a single trust domain where the edges must be in
->> control of what labels make their way into the core. The simplest way
->> of ensuring for the edge device to always impose the labels, and not
->> allow forward labeled traffic from untrusted neighbours. This is
->> achieved by allowing a per-device configuration of whether MPLS
->> traffic input from that interface should be processed or not.
->>
->> To be secure by default, MPLS is now intially disabled on all
->> interfaces (except the loopback) until explicitly enabled and no
->> global option is provided to change the default. Whilst this differs
->> from other protocols (e.g. IPv6), network operators are used to
->> explicitly enabling MPLS forwarding on interfaces, and with the number
->> of links to the MPLS core typically fairly low this doesn't present
->> too much of a burden on operators.
->
-> This really could use breaking up into two patches.
->
-> 1 patch that implements mpls_add_dev,
-> and a second patch that uses the struct mpls_dev to implement
-> the input bit.
-
-Sure, I'll do that.
-
-> As it stands we are currently allowing mpls attributes on devices that
-> we do not support the transport of mpls over.  And simply not being able
-> to find an mpls_dev would be a faster was to discard packets on those
-> devices.
-
-Note that this will change the semantics, since currently we allow MPLS 
-packets to be input on device types other than ethernet and loopback, 
-whereas with this change they won't by default and won't be able to 
-enable it. If that's what you intended and it's desirable then I'll 
-proceed with that.
-
-> Naming the attribute input clears up all of the semantic issues that I
-> had with the previous version of this patch.
-
-Thanks for confirming that.
-
-Rob
-
->
->> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
->> Signed-off-by: Robert Shearman <rshearma@brocade.com>
->> ---
->>   Documentation/networking/mpls-sysctl.txt |   9 +++
->>   include/linux/netdevice.h                |   4 ++
->>   net/mpls/af_mpls.c                       | 115 ++++++++++++++++++++++++++++++-
->>   net/mpls/internal.h                      |   6 ++
->>   4 files changed, 133 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/networking/mpls-sysctl.txt b/Documentation/networking/mpls-sysctl.txt
->> index 639ddf0ece9b..9ed15f86c17c 100644
->> --- a/Documentation/networking/mpls-sysctl.txt
->> +++ b/Documentation/networking/mpls-sysctl.txt
->> @@ -18,3 +18,12 @@ platform_labels - INTEGER
->>
->>   	Possible values: 0 - 1048575
->>   	Default: 0
->> +
->> +conf/<interface>/input - BOOL
->> +	Control whether packets can be input on this interface.
->> +
->> +	If disabled, packets will be discarded without further
->> +	processing.
->> +
->> +	0 - disabled (default)
->> +	not 0 - enabled
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 76951c5fbedf..ee4ca06375c8 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -60,6 +60,7 @@ struct phy_device;
->>   struct wireless_dev;
->>   /* 802.15.4 specific */
->>   struct wpan_dev;
->> +struct mpls_dev;
->>
->>   void netdev_set_default_ethtool_ops(struct net_device *dev,
->>   				    const struct ethtool_ops *ops);
->> @@ -1615,6 +1616,9 @@ struct net_device {
->>   	void			*ax25_ptr;
->>   	struct wireless_dev	*ieee80211_ptr;
->>   	struct wpan_dev		*ieee802154_ptr;
->> +#if IS_ENABLED(CONFIG_MPLS_ROUTING)
->> +	struct mpls_dev __rcu	*mpls_ptr;
->> +#endif
->>
->>   /*
->>    * Cache lines mostly used on receive path (including eth_type_trans())
->> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
->> index 7f5f30d29f73..0b0420bf110d 100644
->> --- a/net/mpls/af_mpls.c
->> +++ b/net/mpls/af_mpls.c
->> @@ -54,6 +54,11 @@ static struct mpls_route *mpls_route_input_rcu(struct net *net, unsigned index)
->>   	return rt;
->>   }
->>
->> +static inline struct mpls_dev *mpls_dev_get(const struct net_device *dev)
->> +{
->> +	return rcu_dereference_rtnl(dev->mpls_ptr);
->> +}
->> +
->>   static bool mpls_output_possible(const struct net_device *dev)
->>   {
->>   	return dev && (dev->flags & IFF_UP) && netif_carrier_ok(dev);
->> @@ -137,6 +142,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->>   	struct mpls_route *rt;
->>   	struct mpls_entry_decoded dec;
->>   	struct net_device *out_dev;
->> +	struct mpls_dev *mdev;
->>   	unsigned int hh_len;
->>   	unsigned int new_header_size;
->>   	unsigned int mtu;
->> @@ -144,6 +150,10 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
->>
->>   	/* Careful this entire function runs inside of an rcu critical section */
->>
->> +	mdev = mpls_dev_get(dev);
->> +	if (!mdev || !mdev->input_enabled)
->> +		goto drop;
->> +
->>   	if (skb->pkt_type != PACKET_HOST)
->>   		goto drop;
->>
->> @@ -441,10 +451,96 @@ errout:
->>   	return err;
->>   }
->>
->> +#define MPLS_PERDEV_SYSCTL_OFFSET(field)	\
->> +	(&((struct mpls_dev *)0)->field)
->> +
->> +static const struct ctl_table mpls_dev_table[] = {
->> +	{
->> +		.procname	= "input",
->> +		.maxlen		= sizeof(int),
->> +		.mode		= 0644,
->> +		.proc_handler	= proc_dointvec,
->> +		.data		= MPLS_PERDEV_SYSCTL_OFFSET(input_enabled),
->> +	},
->> +	{ }
->> +};
->> +
->> +static int mpls_dev_sysctl_register(struct net_device *dev,
->> +				    struct mpls_dev *mdev)
->> +{
->> +	char path[sizeof("net/mpls/conf/") + IFNAMSIZ];
->> +	struct ctl_table *table;
->> +	int i;
->> +
->> +	table = kmemdup(&mpls_dev_table, sizeof(mpls_dev_table), GFP_KERNEL);
->> +	if (!table)
->> +		goto out;
->> +
->> +	/* Table data contains only offsets relative to the base of
->> +	 * the mdev at this point, so make them absolute.
->> +	 */
->> +	for (i = 0; i < ARRAY_SIZE(mpls_dev_table); i++)
->> +		table[i].data = (char *)mdev + (uintptr_t)table[i].data;
->> +
->> +	snprintf(path, sizeof(path), "net/mpls/conf/%s", dev->name);
->> +
->> +	mdev->sysctl = register_net_sysctl(dev_net(dev), path, table);
->> +	if (!mdev->sysctl)
->> +		goto free;
->> +
->> +	return 0;
->> +
->> +free:
->> +	kfree(table);
->> +out:
->> +	return -ENOBUFS;
->> +}
->> +
->> +static void mpls_dev_sysctl_unregister(struct mpls_dev *mdev)
->> +{
->> +	struct ctl_table *table;
->> +
->> +	table = mdev->sysctl->ctl_table_arg;
->> +	unregister_net_sysctl_table(mdev->sysctl);
->> +	kfree(table);
->> +}
->> +
->> +static struct mpls_dev *mpls_add_dev(struct net_device *dev)
->> +{
->> +	struct mpls_dev *mdev;
->> +	int err = -ENOMEM;
->> +
->> +	ASSERT_RTNL();
->> +
->> +	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
->> +	if (!mdev)
->> +		return ERR_PTR(err);
->> +
->> +	/* Enable MPLS by default on loopback devices, since this
->> +	 * doesn't represent a security boundary and is required for the
->> +	 * lookup of inner labels for LSPs terminating on this router.
->> +	 */
->> +	if (dev->flags & IFF_LOOPBACK)
->> +		mdev->input_enabled = 1;
->> +
->> +	err = mpls_dev_sysctl_register(dev, mdev);
->> +	if (err)
->> +		goto free;
->> +
->> +	rcu_assign_pointer(dev->mpls_ptr, mdev);
->> +
->> +	return mdev;
->> +
->> +free:
->> +	kfree(mdev);
->> +	return ERR_PTR(err);
->> +}
->> +
->>   static void mpls_ifdown(struct net_device *dev)
->>   {
->>   	struct mpls_route __rcu **platform_label;
->>   	struct net *net = dev_net(dev);
->> +	struct mpls_dev *mdev;
->>   	unsigned index;
->>
->>   	platform_label = rtnl_dereference(net->mpls.platform_label);
->> @@ -456,14 +552,31 @@ static void mpls_ifdown(struct net_device *dev)
->>   			continue;
->>   		rt->rt_dev = NULL;
->>   	}
->> +
->> +	mdev = mpls_dev_get(dev);
->> +	if (!mdev)
->> +		return;
->> +
->> +	mpls_dev_sysctl_unregister(mdev);
->> +
->> +	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
->> +
->> +	kfree(mdev);
->>   }
->>
->>   static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
->>   			   void *ptr)
->>   {
->>   	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
->> +	struct mpls_dev *mdev;
->>
->>   	switch(event) {
->> +	case NETDEV_REGISTER:
->> +		mdev = mpls_add_dev(dev);
->> +		if (IS_ERR(mdev))
->> +			return notifier_from_errno(PTR_ERR(mdev));
->> +		break;
->> +
->>   	case NETDEV_UNREGISTER:
->>   		mpls_ifdown(dev);
->>   		break;
->> @@ -925,7 +1038,7 @@ static int mpls_platform_labels(struct ctl_table *table, int write,
->>   	return ret;
->>   }
->>
->> -static struct ctl_table mpls_table[] = {
->> +static const struct ctl_table mpls_table[] = {
->>   	{
->>   		.procname	= "platform_labels",
->>   		.data		= NULL,
->> diff --git a/net/mpls/internal.h b/net/mpls/internal.h
->> index 5732283ee1b9..d0aad5e9a2c9 100644
->> --- a/net/mpls/internal.h
->> +++ b/net/mpls/internal.h
->> @@ -23,6 +23,12 @@ struct mpls_entry_decoded {
->>   	u8 bos;
->>   };
->>
->> +struct mpls_dev {
->> +	int			input_enabled;
->> +
->> +	struct ctl_table_header *sysctl;
->> +};
->> +
->>   struct sk_buff;
->>
->>   static inline struct mpls_shim_hdr *mpls_hdr(const struct sk_buff *skb)
+PiA+IEknaGF2ZSBpbnN0YWxsZWQgYSBuZXcgREVMTCBWUlRYIE02MjAgQmxhZGUgd2l0aCBrZXJu
+ZWwgMy4xOC4xMS4NCj4gPiBBZnRlciBzeXN0ZW0gc3RhcnR1cCBJIHRyaWVkIHRvIGFjdGl2YXRl
+IHRoZSBrZXJuZWwgbmV0Y29uc29sZSB3aXRoIHJlbW90ZQ0KPiBsb2dnaW5nIGVuYWJsZWQuDQo+
+ID4NCj4gPiBJIGV4ZWN1dGVkIHRoZSBmb2xsb3dpbmcgY29tbWFuZCBhbmQgdGhlIHNoZWxsIEkg
+aXNzdWVkIGl0IGJlY29tZXMNCj4gdW5yZXNwb25zaXZlIGFuZCBoYW5ncy4NCj4gPg0KPiA+ICMg
+IG1vZHByb2JlIG5ldGNvbnNvbGUNCj4gbmV0Y29uc29sZT0iQC9ldGgwLDUxNEAxMC4xLjEwLjE5
+Ny8wMDoxMDpkYjpmYzo2MDowYyINCj4gPg0KPiA+IFRoZSBzeXN0ZW0gbG9hZCBpbmNyZWFzZXMg
+c2xvd2x5IGFuZCB0aGUgQ1BVICMxMSB1c2VzIDEwMCUgb2Ygc29mdA0KPiA+IGlycS4gT25seSBh
+IHNvZnQgcmVzZXQgd2l0b2h1dCBsb2FkaW5nIHRoZSBuZXRjb25zb2xlIG1vZHVsZSBhZnRlciBz
+dGFydHVwDQo+IHNvbHZlcyB0aGUgaXNzdWUuDQoNCkkgc3VzcGVjdCB0aGlzIGlzIGEgcmVncmVz
+c2lvbiBpbnRyb2R1Y2VkIGJ5IDlhMjYyMGM4Nzc0NQ0KImJueDJ4OiBwcmV2ZW50IFdBUk4gZHVy
+aW5nIGRyaXZlciB1bmxvYWQiLg0KDQpibngyeCBsb2NrcyAmIHVubG9ja3Mgc3Bpbl9sb2NrX2Jo
+KCkgZHVyaW5nIHRoZSBuYXBpIHBvbGwsIHdoaWNoIHNob3VsZG4ndA0KYmUgZG9uZSB3aGlsZSBp
+bnRlcnJ1cHRzIGFyZSBkaXNhYmxlZC4gVGhpcyBicmVhayBpbnRlcm9wZXJhYmlsaXR5IHdpdGgg
+bmV0cG9sbCwNCmFzIGl0IGRpc2FibGVzIGlycXMgcHJpb3IgdG8gc2VuZGluZyB0aGUgc2tiIG9u
+IHRoZSBibngyeCdzIGludGVyZmFjZS4NCg0KQ2FuIHlvdSBwbGVhc2UgdHJ5IGNvbXBpbGluZyB5
+b3VyIGtlcm5lbCB3aXRob3V0IENPTkZJR19ORVRfUlhfQlVTWV9QT0xMPw0KSSBzdXNwZWN0IHRo
+YXQgbWlnaHQgc29sdmUgeW91ciBpc3N1ZS4NCg0KUmVnYXJkbGVzcywgd2UnbGwgaW52ZXN0aWdh
+dGUgdGhpcyBmdXJ0aGVyIGFuZCBob3BlZnVsbHkgY29tZSB1cCB3aXRoIGEgZml4IHNvb24uDQoN
+ClRoYW5rcywNCll1dmFsDQo=
