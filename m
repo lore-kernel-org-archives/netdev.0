@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 10/14] pps: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:36 +0530
-Message-ID: <1428492040-5581-11-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 09/14] pps: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:35 +0530
+Message-ID: <1428492040-5581-10-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,44 +35,44 @@ required changes to return proper value from its attach function.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/pps/clients/pps_parport.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/pps/generators/pps_gen_parport.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/pps/clients/pps_parport.c b/drivers/pps/clients/pps_parport.c
-index 38a8bbe..a411621 100644
---- a/drivers/pps/clients/pps_parport.c
-+++ b/drivers/pps/clients/pps_parport.c
-@@ -134,7 +134,7 @@ out_both:
- 	return;
+diff --git a/drivers/pps/generators/pps_gen_parport.c b/drivers/pps/generators/pps_gen_parport.c
+index dcd39fb..499f410 100644
+--- a/drivers/pps/generators/pps_gen_parport.c
++++ b/drivers/pps/generators/pps_gen_parport.c
+@@ -190,18 +190,18 @@ static inline ktime_t next_intr_time(struct pps_generator_pp *dev)
+ 			dev->port_write_time + 3 * SAFETY_INTERVAL));
  }
  
 -static void parport_attach(struct parport *port)
 +static int parport_attach(struct parport *port)
  {
- 	struct pps_client_pp *device;
- 	struct pps_source_info info = {
-@@ -151,7 +151,7 @@ static void parport_attach(struct parport *port)
- 	device = kzalloc(sizeof(struct pps_client_pp), GFP_KERNEL);
- 	if (!device) {
- 		pr_err("memory allocation failed, not attaching\n");
+ 	if (attached) {
+ 		/* we already have a port */
 -		return;
-+		return -ENOMEM;
++		return -EALREADY;
  	}
  
- 	device->pardev = parport_register_device(port, KBUILD_MODNAME,
-@@ -179,7 +179,7 @@ static void parport_attach(struct parport *port)
+ 	device.pardev = parport_register_device(port, KBUILD_MODNAME,
+ 			NULL, NULL, NULL, PARPORT_FLAG_EXCL, &device);
+ 	if (!device.pardev) {
+ 		pr_err("couldn't register with %s\n", port->name);
+-		return;
++		return -ENODEV;
+ 	}
  
- 	pr_info("attached to %s\n", port->name);
+ 	if (parport_claim_or_block(device.pardev) < 0) {
+@@ -218,10 +218,11 @@ static void parport_attach(struct parport *port)
+ 	device.timer.function = hrtimer_event;
+ 	hrtimer_start(&device.timer, next_intr_time(&device), HRTIMER_MODE_ABS);
  
 -	return;
 +	return 0;
  
- err_release_dev:
- 	parport_release(device->pardev);
-@@ -187,6 +187,7 @@ err_unregister_dev:
- 	parport_unregister_device(device->pardev);
- err_free:
- 	kfree(device);
+ err_unregister_dev:
+ 	parport_unregister_device(device.pardev);
 +	return -ENODEV;
  }
  
