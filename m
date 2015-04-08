@@ -1,47 +1,72 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH] iputils ping: add (non-raw) ICMP socket support
-Date: Wed, 08 Apr 2015 17:56:47 +0900
-Message-ID: <5524ED4F.9070907@miraclelinux.com>
-References: <2142872.6QHf5ZAfZz@msg-id>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs
+ consistent
+Date: Wed, 8 Apr 2015 11:05:20 +0200
+Message-ID: <20150408090520.GA2057@nanopsycho.orion>
+References: <1428455025-5945-1-git-send-email-ast@plumgrid.com>
+ <1428455025-5945-2-git-send-email-ast@plumgrid.com>
+ <20150407.223549.335906307265617841.davem@davemloft.net>
+ <55249EFA.5040405@plumgrid.com>
+ <5524B339.1070403@plumgrid.com>
+ <5524E878.7070803@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com,
-	Vasiliy Kulikov <segooon@gmail.com>,
-	Tyler Hicks <tyhicks@canonical.com>
-To: Salvatore Mesoraca <s.mesoraca16@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>, jhs@mojatatu.com,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og127.obsmtp.com ([64.18.2.210]:48086 "HELO
-	exprod7og127.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751229AbbDHI4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 04:56:54 -0400
-Received: by mail-pd0-f170.google.com with SMTP id nk13so108515681pdb.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 01:56:53 -0700 (PDT)
-In-Reply-To: <2142872.6QHf5ZAfZz@msg-id>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:35534 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751577AbbDHJFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 05:05:24 -0400
+Received: by wgyo15 with SMTP id o15so70329322wgy.2
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 02:05:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5524E878.7070803@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Wed, Apr 08, 2015 at 10:36:08AM CEST, daniel@iogearbox.net wrote:
+>On 04/08/2015 06:48 AM, Alexei Starovoitov wrote:
+>>On 4/7/15 8:22 PM, Alexei Starovoitov wrote:
+>>>but it seems no one cares about using them with ingress, so I'll go back
+>>>to cls_bpf specific skb_share_check and push.
+>>
+>>that didn't work either :(
+>>we cannot replace skb via skb_share_check() inside cls/act. We cannot do
+>>it inside ingress_enqueue() either. It can only be done at handle_ing()
+>>level. And it's quite ugly to change the signatures of the whole
+>>qdisc->enqueue() call chain just for cls_bpf. May be introducing
+>>bpf-only ingress qdisc to decouple the logic is not such a bad idea?
+>
+>So it seems ingress qdisc is quite broken for various classifier
+>and actions. :/ I wouldn't go that far to have a bpf-only ingress
+>qdisc, but what about introducing l2/l3 ingress qdisc (or, name
+>it "early ingress" and "ingress" qdisc), so at an early point in
+>netif_receive_skb_internal(), we would have an l2_ingress hook,
+>wrapped via static keys to have minimal impact if unused, and could
+>do the push/pull similarly as in the PTP classifier w/o worry that
+>it is referenced by other entities. There, we could at least still
+>benefit from hw flow steering.
 
-Salvatore Mesoraca wrote:
-> From: Vasiliy Kulikov <segooon@gmail.com>
-> 
-> This patch adds non-raw IPPROTO_ICMP socket kind support that was added
-> to the Linux 3.0.  The patch is backward-compatible: if ICMP socket kind
-> is not enabled in the kernel (either in case of an old kernel or
-> explicitly disabled via /proc/sys/net/ipv4/ping_group_range), ping uses
-> old privileged raw sockets as a fallback.
-:
-> This patch is going to be included in Ubuntu 15.10 and it is already
-> included in Gentoo stable tree (at the moment of the writing ping has
-> CAP_NET_RAW still enabled by default) it is also included in OpenWall
-> since 2011.
-> This patch also tries to sneak in a fix for a missing colon in a printf.
-> I've tested it on Linux 3.17.7 and it worked without issues.
+How about to just adjust ingress qdisc to do the right thing (of adjust
+egress qdisc so they both behave the same). I don't like the idea of
+having more ingres queue disk. Would be just confusing.
 
-Please do not mix changes in a single commit.
-Thanks.
+>
+>The current ingress qdisc, we'd rename l3_ingress to make it clear
+>what to expect (can also be aliased in iproute2). Maybe classifiers,
+>actions could be flagged as l2/l3 capable and checked at config
+>time where to apply, at least in the case of {cls,act}_bpf?
+>
+>The other thing I had in mind is that we could expose skb_iif to
+>detect that we're actually coming from ingress qdisc from inside
+>the ebpf prog, but that is very limited and you nevertheless miss
+>out on l2 context.
 
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+As you said, this needs to be resolved for others as well.
+
+>
+>Thanks,
+>Daniel
