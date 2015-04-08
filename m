@@ -1,154 +1,1059 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: Problem with patch "make nlmsg_end() and genlmsg_end() void"
-Date: Wed, 08 Apr 2015 15:12:29 +0100
-Message-ID: <1428502349.9010.22.camel@infradead.org>
-References: <E586D25A-9DAF-4535-A282-120F0C6EAE19@holtmann.org>
-	 <CAE4R7bCWSM+SyDR830N1GmukyaMYE_DT0fd4L_x6Py5PEqMe_A@mail.gmail.com>
-	 <01A82AB9-6ABD-4AD0-9CBC-628091569DB0@holtmann.org>
-	 <20150118.233722.226468667930444145.davem@davemloft.net>
-	 <1428494602.9010.11.camel@infradead.org>
-	 <1428498482.2809.10.camel@sipsolutions.net>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next 1/2] sfc: Own header for nic-specific sriov functions,
+ single instance of netdev_ops and sriov removed from Falcon code
+Date: Wed, 8 Apr 2015 15:24:45 +0100
+Message-ID: <55253A2D.8090901@solarflare.com>
+References: <552539BA.6070707@solarflare.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-ycy2+wtN4v65sqqnrEGY"
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	marcel@holtmann.org, sfeldma@gmail.com, netdev@vger.kernel.org,
-	teg@jklm.no
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:47474 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488AbbDHOMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 10:12:34 -0400
-In-Reply-To: <1428498482.2809.10.camel@sipsolutions.net>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:18408 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932211AbbDHOYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 10:24:52 -0400
+In-Reply-To: <552539BA.6070707@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+By putting all the efx_{siena,ef10}_sriov_* declarations in
+{siena,ef10}_sriov.h, ensure they cannot be called from nic-generic code.
+Also fixes up an instance of this, where mcdi.c was calling
+efx_siena_sriov_flr.
 
---=-ycy2+wtN4v65sqqnrEGY
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The single instance of netdev_ops should call general high level
+functions that can then call something adapter specific in efx_nic_type.
+We should only do adapter specialisation via efx_nic_type.
 
-On Wed, 2015-04-08 at 15:08 +0200, Johannes Berg wrote:
-> Additionally, the failure mode of this was the process running out of
-> memory due to receiving the same results over and over again - does that
-> happen for you? It seems it was stuck in recvmsg(), but that may just be
-> a side effect of happening to interrupt at that point?
+Removal of sriov functionality from the Falcon code means that tests
+are needed for the presence of some callbacks.
 
-No, strace shows it's just sitting in recvmsg().
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
+---
+ drivers/net/ethernet/sfc/Makefile      |   2 +-
+ drivers/net/ethernet/sfc/ef10.c        |   6 ++
+ drivers/net/ethernet/sfc/ef10_sriov.h  |  56 +++++++++++++++++
+ drivers/net/ethernet/sfc/efx.c         |  95 ++++++++++++----------------
+ drivers/net/ethernet/sfc/efx.h         |   7 +++
+ drivers/net/ethernet/sfc/falcon.c      |  10 ---
+ drivers/net/ethernet/sfc/farch.c       |  48 +++++++-------
+ drivers/net/ethernet/sfc/mcdi.c        |   4 +-
+ drivers/net/ethernet/sfc/net_driver.h  |   8 +++
+ drivers/net/ethernet/sfc/nic.h         | 111 ---------------------------------
+ drivers/net/ethernet/sfc/siena.c       |   6 ++
+ drivers/net/ethernet/sfc/siena_sriov.c |  53 +++++++++++++---
+ drivers/net/ethernet/sfc/siena_sriov.h |  78 +++++++++++++++++++++++
+ drivers/net/ethernet/sfc/sriov.c       |  64 +++++++++++++++++++
+ drivers/net/ethernet/sfc/sriov.h       |  27 ++++++++
+ 15 files changed, 368 insertions(+), 207 deletions(-)
+ create mode 100644 drivers/net/ethernet/sfc/ef10_sriov.h
+ create mode 100644 drivers/net/ethernet/sfc/siena_sriov.h
+ create mode 100644 drivers/net/ethernet/sfc/sriov.c
+ create mode 100644 drivers/net/ethernet/sfc/sriov.h
 
-As I said, I'm not *sure* it's caused by the same commit; bisecting is
-distinctly non-trivial. It just seemed likely.
-
---=20
-dwmw2
-
---=-ycy2+wtN4v65sqqnrEGY
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISxDCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIGQjCCBSqg
-AwIBAgIDCdkyMA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTQwNTA0MTczMDIyWhcNMTUwNTA0MjM0MTAxWjBdMRkwFwYDVQQNExAzODNCMTVkSHFQSUR0cDZO
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7K+t+REIdZGFUfgR8Io
-QrJ/VLZil9I00JcwqTo8BiGy1dqSIB2y923siya5SDKMh1YurtCPsX96cNzwPmmN2cs0MKeVPQWz
-iQhHk3uKcB6LvvS7pzTahRWMRmTyW3CH+RphRM9plvyClY23GEeEnpBnGz4GaJJiPcJjGgzyZ/tI
-q473pOlSrDPZnZk43vt/5CJN46nIZOZ2I+PzlgINI+EbiwsXVn3VohHB7nVTwGaRLk5oywGt8ZT7
-tDdxn3BQ3inO1sr5MtkV1o2cHlenIC8mlU8nL/mrqqVve7Vib1YQUycW+Pj4CBYm4FTeuctAvNzK
-U/daeBclOZ8ofgQe2wIDAQABo4IC2TCCAtUwCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBRAjCSCV70BpLBeXge5DXi+mPhHTTAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIIBTAYDVR0gBIIBQzCCAT8wggE7BgsrBgEEAYG1NwECAzCCASowLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0
-YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdh
-cyBpc3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRz
-IG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRl
-ZCBwdXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMu
-MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmww
-gY4GCCsGAQUFBwEBBIGBMH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9z
-dWIvY2xhc3MxL2NsaWVudC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20v
-Y2VydHMvc3ViLmNsYXNzMS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3Rh
-cnRzc2wuY29tLzANBgkqhkiG9w0BAQUFAAOCAQEAWS2KNN7O3vZVtNHXVqgbmijeptKwt+8b6yiF
-wT3kJoywInPl5U+OeKRZfQKTHghM4Ohof6lF244ZMxhir/xp7l/zkZ/BUbxLwp6kIL27Gi5pgP4D
-KLnTZheQL9N5Yi/vMONxMWcpcW+ZNv5hnDCfEsfVcLXC8sNLPjx2ezfMIhSSPwBuJpmOun70te4E
-P0YBqjSalPfvc5fC5KgaYtqTDFwo9Mw25X5HHDC0r6BK5aNrF1nD/xYTX7cdvZZWl7cUApr4PCrn
-uI2DEn7OWQ/rY407ytV1c5pjvmuv/IT/ZUb/kXV6Q47UvrJp2Ifi2VhsBcnHHasKavjtRCmpDsGM
-rTCCBkIwggUqoAMCAQICAwnZMjANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNV
-BAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNp
-Z25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xp
-ZW50IENBMB4XDTE0MDUwNDE3MzAyMloXDTE1MDUwNDIzNDEwMVowXTEZMBcGA1UEDRMQMzgzQjE1
-ZEhxUElEdHA2TjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYT
-ZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMuyvrfk
-RCHWRhVH4EfCKEKyf1S2YpfSNNCXMKk6PAYhstXakiAdsvdt7IsmuUgyjIdWLq7Qj7F/enDc8D5p
-jdnLNDCnlT0Fs4kIR5N7inAei770u6c02oUVjEZk8ltwh/kaYUTPaZb8gpWNtxhHhJ6QZxs+BmiS
-Yj3CYxoM8mf7SKuO96TpUqwz2Z2ZON77f+QiTeOpyGTmdiPj85YCDSPhG4sLF1Z91aIRwe51U8Bm
-kS5OaMsBrfGU+7Q3cZ9wUN4pztbK+TLZFdaNnB5XpyAvJpVPJy/5q6qlb3u1Ym9WEFMnFvj4+AgW
-JuBU3rnLQLzcylP3WngXJTmfKH4EHtsCAwEAAaOCAtkwggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQD
-AgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUQIwkgle9AaSwXl4H
-uQ14vpj4R00wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdt
-dzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4G
-CCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMIH3BggrBgEFBQcC
-AjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0
-aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJl
-cXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0
-aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9i
-bGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1
-MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFy
-dHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3Rh
-cnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEFBQADggEBAFktijTezt72VbTR11aoG5oo
-3qbSsLfvG+sohcE95CaMsCJz5eVPjnikWX0Ckx4ITODoaH+pRduOGTMYYq/8ae5f85GfwVG8S8Ke
-pCC9uxouaYD+Ayi502YXkC/TeWIv7zDjcTFnKXFvmTb+YZwwnxLH1XC1wvLDSz48dns3zCIUkj8A
-biaZjrp+9LXuBD9GAao0mpT373OXwuSoGmLakwxcKPTMNuV+RxwwtK+gSuWjaxdZw/8WE1+3Hb2W
-Vpe3FAKa+Dwq57iNgxJ+zlkP62ONO8rVdXOaY75rr/yE/2VG/5F1ekOO1L6yadiH4tlYbAXJxx2r
-Cmr47UQpqQ7BjK0xggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2
-BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ
-2TIwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUx
-DxcNMTUwNDA4MTQxMjI5WjAjBgkqhkiG9w0BCQQxFgQUxILjerDcO4uiwr6TIqoJoVyVwzgwgaUG
-CSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4x
-KzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
-YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ2TIwgacGCyqG
-SIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEr
-MCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3Rh
-cnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAwnZMjANBgkqhkiG
-9w0BAQEFAASCAQAYsFcjGPM5/qaGlEgZoJwqF9N+RVBR4gyQy9CApt6mxmcJPff82gtcoIw/FnuN
-CCoV5YPP78rZ3k5r+ekwC3/PkYQ5XKUpSxIG+R4YVVAEKH2UN1qNNnUhrX9GzUrbnrswAUnMg1Ik
-RdWliw4Yp9tdeNjLizGXnBz259lKy705aQOgpSB1QnIaJCRCd695ldffDSPnVMUfn7qzwhVdEkTt
-INcZBaaKcuwTdEgQDO57MZ+9QU8tLs/rpZzIYGpCt90u4m/TuQ9JZnaRpNiYuXwg/sUP7hO0M78J
-DMxURFfc801+KpiwjWqLDPVcK6meABLwiY1MhiW06UvY1rQZ23yUAAAAAAAA
-
-
---=-ycy2+wtN4v65sqqnrEGY--
+diff --git a/drivers/net/ethernet/sfc/Makefile b/drivers/net/ethernet/sfc/Makefile
+index 3a83c0d..a08a789 100644
+--- a/drivers/net/ethernet/sfc/Makefile
++++ b/drivers/net/ethernet/sfc/Makefile
+@@ -3,6 +3,6 @@ sfc-y			+= efx.o nic.o farch.o falcon.o siena.o ef10.o tx.o \
+ 			   tenxpress.o txc43128_phy.o falcon_boards.o \
+ 			   mcdi.o mcdi_port.o mcdi_mon.o ptp.o
+ sfc-$(CONFIG_SFC_MTD)	+= mtd.o
+-sfc-$(CONFIG_SFC_SRIOV)	+= siena_sriov.o
++sfc-$(CONFIG_SFC_SRIOV)	+= sriov.o siena_sriov.o
+ 
+ obj-$(CONFIG_SFC)	+= sfc.o
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index fbb6cfa..4dab1b9 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -15,6 +15,7 @@
+ #include "nic.h"
+ #include "workarounds.h"
+ #include "selftest.h"
++#include "ef10_sriov.h"
+ #include <linux/in.h>
+ #include <linux/jhash.h>
+ #include <linux/wait.h>
+@@ -3694,6 +3695,11 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
+ 	.sriov_mac_address_changed = efx_ef10_sriov_mac_address_changed,
+ 	.sriov_wanted = efx_ef10_sriov_wanted,
+ 	.sriov_reset = efx_ef10_sriov_reset,
++	.sriov_flr = efx_ef10_sriov_flr,
++	.sriov_set_vf_mac = efx_ef10_sriov_set_vf_mac,
++	.sriov_set_vf_vlan = efx_ef10_sriov_set_vf_vlan,
++	.sriov_set_vf_spoofchk = efx_ef10_sriov_set_vf_spoofchk,
++	.sriov_get_vf_config = efx_ef10_sriov_get_vf_config,
+ 
+ 	.revision = EFX_REV_HUNT_A0,
+ 	.max_dma_mask = DMA_BIT_MASK(ESF_DZ_TX_KER_BUF_ADDR_WIDTH),
+diff --git a/drivers/net/ethernet/sfc/ef10_sriov.h b/drivers/net/ethernet/sfc/ef10_sriov.h
+new file mode 100644
+index 0000000..030bca4
+--- /dev/null
++++ b/drivers/net/ethernet/sfc/ef10_sriov.h
+@@ -0,0 +1,56 @@
++/****************************************************************************
++ * Driver for Solarflare network controllers and boards
++ * Copyright 2015 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EF10_SRIOV_H
++#define EF10_SRIOV_H
++
++#include "net_driver.h"
++
++static inline bool efx_ef10_sriov_wanted(struct efx_nic *efx)
++{
++	return false;
++}
++
++static inline int efx_ef10_sriov_init(struct efx_nic *efx)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void efx_ef10_sriov_mac_address_changed(struct efx_nic *efx) {}
++static inline void efx_ef10_sriov_reset(struct efx_nic *efx) {}
++static inline void efx_ef10_sriov_fini(struct efx_nic *efx) {}
++static inline void efx_ef10_sriov_flr(struct efx_nic *efx, unsigned vf_i) {}
++
++#ifdef CONFIG_SFC_SRIOV
++static inline int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf,
++					    u8 *mac)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf,
++					     u16 vlan, u8 qos)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int efx_ef10_sriov_set_vf_spoofchk(struct efx_nic *efx, int vf,
++						 bool spoofchk)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf,
++					       struct ifla_vf_info *ivf)
++{
++	return -EOPNOTSUPP;
++}
++#endif /* CONFIG_SFC_SRIOV */
++
++#endif /* EF10_SRIOV_H */
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 33d2f9a..232c766 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -26,6 +26,7 @@
+ #include "efx.h"
+ #include "nic.h"
+ #include "selftest.h"
++#include "sriov.h"
+ 
+ #include "mcdi.h"
+ #include "workarounds.h"
+@@ -1314,15 +1315,19 @@ static unsigned int efx_wanted_parallelism(struct efx_nic *efx)
+ 	/* If RSS is requested for the PF *and* VFs then we can't write RSS
+ 	 * table entries that are inaccessible to VFs
+ 	 */
+-	if (efx->type->sriov_wanted(efx) && efx_vf_size(efx) > 1 &&
+-	    count > efx_vf_size(efx)) {
+-		netif_warn(efx, probe, efx->net_dev,
+-			   "Reducing number of RSS channels from %u to %u for "
+-			   "VF support. Increase vf-msix-limit to use more "
+-			   "channels on the PF.\n",
+-			   count, efx_vf_size(efx));
+-		count = efx_vf_size(efx);
++#ifdef CONFIG_SFC_SRIOV
++	if (efx->type->sriov_wanted) {
++		if (efx->type->sriov_wanted(efx) && efx_vf_size(efx) > 1 &&
++		    count > efx_vf_size(efx)) {
++			netif_warn(efx, probe, efx->net_dev,
++				   "Reducing number of RSS channels from %u to %u for "
++				   "VF support. Increase vf-msix-limit to use more "
++				   "channels on the PF.\n",
++				   count, efx_vf_size(efx));
++			count = efx_vf_size(efx);
++		}
+ 	}
++#endif
+ 
+ 	return count;
+ }
+@@ -1426,10 +1431,13 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+ 	}
+ 
+ 	/* RSS might be usable on VFs even if it is disabled on the PF */
+-
+-	efx->rss_spread = ((efx->n_rx_channels > 1 ||
+-			    !efx->type->sriov_wanted(efx)) ?
+-			   efx->n_rx_channels : efx_vf_size(efx));
++#ifdef CONFIG_SFC_SRIOV
++	if (efx->type->sriov_wanted) {
++		efx->rss_spread = ((efx->n_rx_channels > 1 ||
++				    !efx->type->sriov_wanted(efx)) ?
++				   efx->n_rx_channels : efx_vf_size(efx));
++	}
++#endif
+ 
+ 	return 0;
+ }
+@@ -2168,7 +2176,8 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
+ 	}
+ 
+ 	ether_addr_copy(net_dev->dev_addr, new_addr);
+-	efx->type->sriov_mac_address_changed(efx);
++	if (efx->type->sriov_mac_address_changed)
++		efx->type->sriov_mac_address_changed(efx);
+ 
+ 	/* Reconfigure the MAC */
+ 	mutex_lock(&efx->mac_lock);
+@@ -2199,7 +2208,7 @@ static int efx_set_features(struct net_device *net_dev, netdev_features_t data)
+ 	return 0;
+ }
+ 
+-static const struct net_device_ops efx_farch_netdev_ops = {
++static const struct net_device_ops efx_netdev_ops = {
+ 	.ndo_open		= efx_net_open,
+ 	.ndo_stop		= efx_net_stop,
+ 	.ndo_get_stats64	= efx_net_stats,
+@@ -2212,10 +2221,10 @@ static const struct net_device_ops efx_farch_netdev_ops = {
+ 	.ndo_set_rx_mode	= efx_set_rx_mode,
+ 	.ndo_set_features	= efx_set_features,
+ #ifdef CONFIG_SFC_SRIOV
+-	.ndo_set_vf_mac		= efx_siena_sriov_set_vf_mac,
+-	.ndo_set_vf_vlan	= efx_siena_sriov_set_vf_vlan,
+-	.ndo_set_vf_spoofchk	= efx_siena_sriov_set_vf_spoofchk,
+-	.ndo_get_vf_config	= efx_siena_sriov_get_vf_config,
++	.ndo_set_vf_mac		= efx_sriov_set_vf_mac,
++	.ndo_set_vf_vlan	= efx_sriov_set_vf_vlan,
++	.ndo_set_vf_spoofchk	= efx_sriov_set_vf_spoofchk,
++	.ndo_get_vf_config	= efx_sriov_get_vf_config,
+ #endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = efx_netpoll,
+@@ -2229,29 +2238,6 @@ static const struct net_device_ops efx_farch_netdev_ops = {
+ #endif
+ };
+ 
+-static const struct net_device_ops efx_ef10_netdev_ops = {
+-	.ndo_open		= efx_net_open,
+-	.ndo_stop		= efx_net_stop,
+-	.ndo_get_stats64	= efx_net_stats,
+-	.ndo_tx_timeout		= efx_watchdog,
+-	.ndo_start_xmit		= efx_hard_start_xmit,
+-	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_do_ioctl		= efx_ioctl,
+-	.ndo_change_mtu		= efx_change_mtu,
+-	.ndo_set_mac_address	= efx_set_mac_address,
+-	.ndo_set_rx_mode	= efx_set_rx_mode,
+-	.ndo_set_features	= efx_set_features,
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	.ndo_poll_controller	= efx_netpoll,
+-#endif
+-#ifdef CONFIG_NET_RX_BUSY_POLL
+-	.ndo_busy_poll		= efx_busy_poll,
+-#endif
+-#ifdef CONFIG_RFS_ACCEL
+-	.ndo_rx_flow_steer	= efx_filter_rfs,
+-#endif
+-};
+-
+ static void efx_update_name(struct efx_nic *efx)
+ {
+ 	strcpy(efx->name, efx->net_dev->name);
+@@ -2264,8 +2250,7 @@ static int efx_netdev_event(struct notifier_block *this,
+ {
+ 	struct net_device *net_dev = netdev_notifier_info_to_dev(ptr);
+ 
+-	if ((net_dev->netdev_ops == &efx_farch_netdev_ops ||
+-	     net_dev->netdev_ops == &efx_ef10_netdev_ops) &&
++	if ((net_dev->netdev_ops == &efx_netdev_ops) &&
+ 	    event == NETDEV_CHANGENAME)
+ 		efx_update_name(netdev_priv(net_dev));
+ 
+@@ -2292,12 +2277,9 @@ static int efx_register_netdev(struct efx_nic *efx)
+ 
+ 	net_dev->watchdog_timeo = 5 * HZ;
+ 	net_dev->irq = efx->pci_dev->irq;
+-	if (efx_nic_rev(efx) >= EFX_REV_HUNT_A0) {
+-		net_dev->netdev_ops = &efx_ef10_netdev_ops;
++	net_dev->netdev_ops = &efx_netdev_ops;
++	if (efx_nic_rev(efx) >= EFX_REV_HUNT_A0)
+ 		net_dev->priv_flags |= IFF_UNICAST_FLT;
+-	} else {
+-		net_dev->netdev_ops = &efx_farch_netdev_ops;
+-	}
+ 	net_dev->ethtool_ops = &efx_ethtool_ops;
+ 	net_dev->gso_max_segs = EFX_TSO_MAX_SEGS;
+ 
+@@ -2435,7 +2417,8 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
+ 	if (rc)
+ 		goto fail;
+ 	efx_restore_filters(efx);
+-	efx->type->sriov_reset(efx);
++	if (efx->type->sriov_reset)
++		efx->type->sriov_reset(efx);
+ 
+ 	mutex_unlock(&efx->mac_lock);
+ 
+@@ -2828,7 +2811,9 @@ static void efx_pci_remove(struct pci_dev *pci_dev)
+ 	efx_disable_interrupts(efx);
+ 	rtnl_unlock();
+ 
+-	efx->type->sriov_fini(efx);
++	if (efx->type->sriov_fini)
++		efx->type->sriov_fini(efx);
++
+ 	efx_unregister_netdev(efx);
+ 
+ 	efx_mtd_remove(efx);
+@@ -3025,10 +3010,12 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+ 	if (rc)
+ 		goto fail4;
+ 
+-	rc = efx->type->sriov_init(efx);
+-	if (rc)
+-		netif_err(efx, probe, efx->net_dev,
+-			  "SR-IOV can't be enabled rc %d\n", rc);
++	if (efx->type->sriov_init) {
++		rc = efx->type->sriov_init(efx);
++		if (rc)
++			netif_err(efx, probe, efx->net_dev,
++				  "SR-IOV can't be enabled rc %d\n", rc);
++	}
+ 
+ 	netif_dbg(efx, probe, efx->net_dev, "initialisation successful\n");
+ 
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index 2587c58..bc4e4b3 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -220,6 +220,13 @@ static inline void efx_mtd_rename(struct efx_nic *efx) {}
+ static inline void efx_mtd_remove(struct efx_nic *efx) {}
+ #endif
+ 
++#ifdef CONFIG_SFC_SRIOV
++static inline unsigned int efx_vf_size(struct efx_nic *efx)
++{
++	return 1 << efx->vi_scale;
++}
++#endif
++
+ static inline void efx_schedule_channel(struct efx_channel *channel)
+ {
+ 	netif_vdbg(channel->efx, intr, channel->efx->net_dev,
+diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
+index f166c8e..1570375 100644
+--- a/drivers/net/ethernet/sfc/falcon.c
++++ b/drivers/net/ethernet/sfc/falcon.c
+@@ -2766,11 +2766,6 @@ const struct efx_nic_type falcon_a1_nic_type = {
+ 	.mtd_write = falcon_mtd_write,
+ 	.mtd_sync = falcon_mtd_sync,
+ #endif
+-	.sriov_init = efx_falcon_sriov_init,
+-	.sriov_fini = efx_falcon_sriov_fini,
+-	.sriov_mac_address_changed = efx_falcon_sriov_mac_address_changed,
+-	.sriov_wanted = efx_falcon_sriov_wanted,
+-	.sriov_reset = efx_falcon_sriov_reset,
+ 
+ 	.revision = EFX_REV_FALCON_A1,
+ 	.txd_ptr_tbl_base = FR_AA_TX_DESC_PTR_TBL_KER,
+@@ -2867,11 +2862,6 @@ const struct efx_nic_type falcon_b0_nic_type = {
+ 	.mtd_write = falcon_mtd_write,
+ 	.mtd_sync = falcon_mtd_sync,
+ #endif
+-	.sriov_init = efx_falcon_sriov_init,
+-	.sriov_fini = efx_falcon_sriov_fini,
+-	.sriov_mac_address_changed = efx_falcon_sriov_mac_address_changed,
+-	.sriov_wanted = efx_falcon_sriov_wanted,
+-	.sriov_reset = efx_falcon_sriov_reset,
+ 
+ 	.revision = EFX_REV_FALCON_B0,
+ 	.txd_ptr_tbl_base = FR_BZ_TX_DESC_PTR_TBL,
+diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+index bb89e96..c3a032e 100644
+--- a/drivers/net/ethernet/sfc/farch.c
++++ b/drivers/net/ethernet/sfc/farch.c
+@@ -20,6 +20,8 @@
+ #include "efx.h"
+ #include "nic.h"
+ #include "farch_regs.h"
++#include "sriov.h"
++#include "siena_sriov.h"
+ #include "io.h"
+ #include "workarounds.h"
+ 
+@@ -1685,28 +1687,32 @@ void efx_farch_dimension_resources(struct efx_nic *efx, unsigned sram_lim_qw)
+ 	vi_count = max(efx->n_channels, efx->n_tx_channels * EFX_TXQ_TYPES);
+ 
+ #ifdef CONFIG_SFC_SRIOV
+-	if (efx->type->sriov_wanted(efx)) {
+-		unsigned vi_dc_entries, buftbl_free, entries_per_vf, vf_limit;
+-
+-		nic_data->vf_buftbl_base = buftbl_min;
+-
+-		vi_dc_entries = RX_DC_ENTRIES + TX_DC_ENTRIES;
+-		vi_count = max(vi_count, EFX_VI_BASE);
+-		buftbl_free = (sram_lim_qw - buftbl_min -
+-			       vi_count * vi_dc_entries);
+-
+-		entries_per_vf = ((vi_dc_entries + EFX_VF_BUFTBL_PER_VI) *
+-				  efx_vf_size(efx));
+-		vf_limit = min(buftbl_free / entries_per_vf,
+-			       (1024U - EFX_VI_BASE) >> efx->vi_scale);
+-
+-		if (efx->vf_count > vf_limit) {
+-			netif_err(efx, probe, efx->net_dev,
+-				  "Reducing VF count from from %d to %d\n",
+-				  efx->vf_count, vf_limit);
+-			efx->vf_count = vf_limit;
++	if (efx->type->sriov_wanted) {
++		if (efx->type->sriov_wanted(efx)) {
++			unsigned vi_dc_entries, buftbl_free;
++			unsigned entries_per_vf, vf_limit;
++
++			nic_data->vf_buftbl_base = buftbl_min;
++
++			vi_dc_entries = RX_DC_ENTRIES + TX_DC_ENTRIES;
++			vi_count = max(vi_count, EFX_VI_BASE);
++			buftbl_free = (sram_lim_qw - buftbl_min -
++				       vi_count * vi_dc_entries);
++
++			entries_per_vf = ((vi_dc_entries +
++					   EFX_VF_BUFTBL_PER_VI) *
++					  efx_vf_size(efx));
++			vf_limit = min(buftbl_free / entries_per_vf,
++				       (1024U - EFX_VI_BASE) >> efx->vi_scale);
++
++			if (efx->vf_count > vf_limit) {
++				netif_err(efx, probe, efx->net_dev,
++					  "Reducing VF count from from %d to %d\n",
++					  efx->vf_count, vf_limit);
++				efx->vf_count = vf_limit;
++			}
++			vi_count += efx->vf_count * efx_vf_size(efx);
+ 		}
+-		vi_count += efx->vf_count * efx_vf_size(efx);
+ 	}
+ #endif
+ 
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index d37928f..6502ada 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -1035,7 +1035,9 @@ void efx_mcdi_process_event(struct efx_channel *channel,
+ 		/* MAC stats are gather lazily.  We can ignore this. */
+ 		break;
+ 	case MCDI_EVENT_CODE_FLR:
+-		efx_siena_sriov_flr(efx, MCDI_EVENT_FIELD(*event, FLR_VF));
++		if (efx->type->sriov_flr)
++			efx->type->sriov_flr(efx,
++					     MCDI_EVENT_FIELD(*event, FLR_VF));
+ 		break;
+ 	case MCDI_EVENT_CODE_PTP_RX:
+ 	case MCDI_EVENT_CODE_PTP_FAULT:
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 325dd94..ae0d145 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -1335,6 +1335,14 @@ struct efx_nic_type {
+ 	void (*sriov_mac_address_changed)(struct efx_nic *efx);
+ 	bool (*sriov_wanted)(struct efx_nic *efx);
+ 	void (*sriov_reset)(struct efx_nic *efx);
++	void (*sriov_flr)(struct efx_nic *efx, unsigned vf_i);
++	int (*sriov_set_vf_mac)(struct efx_nic *efx, int vf_i, u8 *mac);
++	int (*sriov_set_vf_vlan)(struct efx_nic *efx, int vf_i, u16 vlan,
++				 u8 qos);
++	int (*sriov_set_vf_spoofchk)(struct efx_nic *efx, int vf_i,
++				     bool spoofchk);
++	int (*sriov_get_vf_config)(struct efx_nic *efx, int vf_i,
++				   struct ifla_vf_info *ivi);
+ 
+ 	int revision;
+ 	unsigned int txd_ptr_tbl_base;
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 93d10cbb..ea4ca18 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -509,120 +509,9 @@ struct efx_ef10_nic_data {
+ 	u32 datapath_caps;
+ };
+ 
+-/*
+- * On the SFC9000 family each port is associated with 1 PCI physical
+- * function (PF) handled by sfc and a configurable number of virtual
+- * functions (VFs) that may be handled by some other driver, often in
+- * a VM guest.  The queue pointer registers are mapped in both PF and
+- * VF BARs such that an 8K region provides access to a single RX, TX
+- * and event queue (collectively a Virtual Interface, VI or VNIC).
+- *
+- * The PF has access to all 1024 VIs while VFs are mapped to VIs
+- * according to VI_BASE and VI_SCALE: VF i has access to VIs numbered
+- * in range [VI_BASE + i << VI_SCALE, VI_BASE + i + 1 << VI_SCALE).
+- * The number of VIs and the VI_SCALE value are configurable but must
+- * be established at boot time by firmware.
+- */
+-
+-/* Maximum VI_SCALE parameter supported by Siena */
+-#define EFX_VI_SCALE_MAX 6
+-/* Base VI to use for SR-IOV. Must be aligned to (1 << EFX_VI_SCALE_MAX),
+- * so this is the smallest allowed value. */
+-#define EFX_VI_BASE 128U
+-/* Maximum number of VFs allowed */
+-#define EFX_VF_COUNT_MAX 127
+-/* Limit EVQs on VFs to be only 8k to reduce buffer table reservation */
+-#define EFX_MAX_VF_EVQ_SIZE 8192UL
+-/* The number of buffer table entries reserved for each VI on a VF */
+-#define EFX_VF_BUFTBL_PER_VI					\
+-	((EFX_MAX_VF_EVQ_SIZE + 2 * EFX_MAX_DMAQ_SIZE) *	\
+-	 sizeof(efx_qword_t) / EFX_BUF_SIZE)
+-
+-#ifdef CONFIG_SFC_SRIOV
+-
+-/* SIENA */
+-static inline bool efx_siena_sriov_wanted(struct efx_nic *efx)
+-{
+-	return efx->vf_count != 0;
+-}
+-
+-static inline bool efx_siena_sriov_enabled(struct efx_nic *efx)
+-{
+-	return efx->vf_init_count != 0;
+-}
+-
+-static inline unsigned int efx_vf_size(struct efx_nic *efx)
+-{
+-	return 1 << efx->vi_scale;
+-}
+-
+ int efx_init_sriov(void);
+-void efx_siena_sriov_probe(struct efx_nic *efx);
+-int efx_siena_sriov_init(struct efx_nic *efx);
+-void efx_siena_sriov_mac_address_changed(struct efx_nic *efx);
+-void efx_siena_sriov_tx_flush_done(struct efx_nic *efx, efx_qword_t *event);
+-void efx_siena_sriov_rx_flush_done(struct efx_nic *efx, efx_qword_t *event);
+-void efx_siena_sriov_event(struct efx_channel *channel, efx_qword_t *event);
+-void efx_siena_sriov_desc_fetch_err(struct efx_nic *efx, unsigned dmaq);
+-void efx_siena_sriov_flr(struct efx_nic *efx, unsigned flr);
+-void efx_siena_sriov_reset(struct efx_nic *efx);
+-void efx_siena_sriov_fini(struct efx_nic *efx);
+ void efx_fini_sriov(void);
+ 
+-/* EF10 */
+-static inline bool efx_ef10_sriov_wanted(struct efx_nic *efx) { return false; }
+-static inline int efx_ef10_sriov_init(struct efx_nic *efx) { return -EOPNOTSUPP; }
+-static inline void efx_ef10_sriov_mac_address_changed(struct efx_nic *efx) {}
+-static inline void efx_ef10_sriov_reset(struct efx_nic *efx) {}
+-static inline void efx_ef10_sriov_fini(struct efx_nic *efx) {}
+-
+-#else
+-
+-/* SIENA */
+-static inline bool efx_siena_sriov_wanted(struct efx_nic *efx) { return false; }
+-static inline bool efx_siena_sriov_enabled(struct efx_nic *efx) { return false; }
+-static inline unsigned int efx_vf_size(struct efx_nic *efx) { return 0; }
+-static inline int efx_init_sriov(void) { return 0; }
+-static inline void efx_siena_sriov_probe(struct efx_nic *efx) {}
+-static inline int efx_siena_sriov_init(struct efx_nic *efx) { return -EOPNOTSUPP; }
+-static inline void efx_siena_sriov_mac_address_changed(struct efx_nic *efx) {}
+-static inline void efx_siena_sriov_tx_flush_done(struct efx_nic *efx,
+-						 efx_qword_t *event) {}
+-static inline void efx_siena_sriov_rx_flush_done(struct efx_nic *efx,
+-						 efx_qword_t *event) {}
+-static inline void efx_siena_sriov_event(struct efx_channel *channel,
+-					 efx_qword_t *event) {}
+-static inline void efx_siena_sriov_desc_fetch_err(struct efx_nic *efx,
+-						  unsigned dmaq) {}
+-static inline void efx_siena_sriov_flr(struct efx_nic *efx, unsigned flr) {}
+-static inline void efx_siena_sriov_reset(struct efx_nic *efx) {}
+-static inline void efx_siena_sriov_fini(struct efx_nic *efx) {}
+-static inline void efx_fini_sriov(void) {}
+-
+-/* EF10 */
+-static inline bool efx_ef10_sriov_wanted(struct efx_nic *efx) { return false; }
+-static inline int efx_ef10_sriov_init(struct efx_nic *efx) { return -EOPNOTSUPP; }
+-static inline void efx_ef10_sriov_mac_address_changed(struct efx_nic *efx) {}
+-static inline void efx_ef10_sriov_reset(struct efx_nic *efx) {}
+-static inline void efx_ef10_sriov_fini(struct efx_nic *efx) {}
+-
+-#endif
+-
+-/* FALCON */
+-static inline bool efx_falcon_sriov_wanted(struct efx_nic *efx) { return false; }
+-static inline int efx_falcon_sriov_init(struct efx_nic *efx) { return -EOPNOTSUPP; }
+-static inline void efx_falcon_sriov_mac_address_changed(struct efx_nic *efx) {}
+-static inline void efx_falcon_sriov_reset(struct efx_nic *efx) {}
+-static inline void efx_falcon_sriov_fini(struct efx_nic *efx) {}
+-
+-int efx_siena_sriov_set_vf_mac(struct net_device *dev, int vf, u8 *mac);
+-int efx_siena_sriov_set_vf_vlan(struct net_device *dev, int vf,
+-				u16 vlan, u8 qos);
+-int efx_siena_sriov_get_vf_config(struct net_device *dev, int vf,
+-				  struct ifla_vf_info *ivf);
+-int efx_siena_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf,
+-				    bool spoofchk);
+-
+ struct ethtool_ts_info;
+ int efx_ptp_probe(struct efx_nic *efx, struct efx_channel *channel);
+ void efx_ptp_defer_probe_with_channel(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index 3583f02..3671e1d 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -25,6 +25,7 @@
+ #include "mcdi.h"
+ #include "mcdi_pcol.h"
+ #include "selftest.h"
++#include "siena_sriov.h"
+ 
+ /* Hardware control for SFC9000 family including SFL9021 (aka Siena). */
+ 
+@@ -1002,6 +1003,11 @@ const struct efx_nic_type siena_a0_nic_type = {
+ 	.sriov_mac_address_changed = efx_siena_sriov_mac_address_changed,
+ 	.sriov_wanted = efx_siena_sriov_wanted,
+ 	.sriov_reset = efx_siena_sriov_reset,
++	.sriov_flr = efx_siena_sriov_flr,
++	.sriov_set_vf_mac = efx_siena_sriov_set_vf_mac,
++	.sriov_set_vf_vlan = efx_siena_sriov_set_vf_vlan,
++	.sriov_set_vf_spoofchk = efx_siena_sriov_set_vf_spoofchk,
++	.sriov_get_vf_config = efx_siena_sriov_get_vf_config,
+ 
+ 	.revision = EFX_REV_SIENA_A0,
+ 	.txd_ptr_tbl_base = FR_BZ_TX_DESC_PTR_TBL,
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
+index fe83430..ccadd46 100644
+--- a/drivers/net/ethernet/sfc/siena_sriov.c
++++ b/drivers/net/ethernet/sfc/siena_sriov.c
+@@ -16,6 +16,7 @@
+ #include "filter.h"
+ #include "mcdi_pcol.h"
+ #include "farch_regs.h"
++#include "siena_sriov.h"
+ #include "vfdi.h"
+ 
+ /* Number of longs required to track all the VIs in a VF */
+@@ -1050,6 +1051,7 @@ static const struct efx_channel_type efx_siena_sriov_channel_type = {
+ 
+ void efx_siena_sriov_probe(struct efx_nic *efx)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	unsigned count;
+ 
+ 	if (!max_vfs)
+@@ -1064,8 +1066,10 @@ void efx_siena_sriov_probe(struct efx_nic *efx)
+ 	efx->vf_count = count;
+ 
+ 	efx->extra_channel_type[EFX_EXTRA_CHANNEL_IOV] = &efx_siena_sriov_channel_type;
++#endif
+ }
+ 
++#ifdef CONFIG_SFC_SRIOV
+ /* Copy the list of individual addresses into the vfdi_status.peers
+  * array and auxiliary pages, protected by %local_lock. Drop that lock
+  * and then broadcast the address list to every VF.
+@@ -1276,9 +1280,11 @@ fail:
+ 	efx_siena_sriov_vfs_fini(efx);
+ 	return rc;
+ }
++#endif
+ 
+ int efx_siena_sriov_init(struct efx_nic *efx)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct net_device *net_dev = efx->net_dev;
+ 	struct siena_nic_data *nic_data = efx->nic_data;
+ 	struct vfdi_status *vfdi_status;
+@@ -1357,10 +1363,14 @@ fail_status:
+ 	efx_siena_sriov_cmd(efx, false, NULL, NULL);
+ fail_cmd:
+ 	return rc;
++#else /* CONFIG_SFC_SRIOV */
++	return -EOPNOTSUPP;
++#endif
+ }
+ 
+ void efx_siena_sriov_fini(struct efx_nic *efx)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct efx_vf *vf;
+ 	unsigned int pos;
+ 	struct siena_nic_data *nic_data = efx->nic_data;
+@@ -1391,10 +1401,12 @@ void efx_siena_sriov_fini(struct efx_nic *efx)
+ 	kfree(efx->vf);
+ 	efx_nic_free_buffer(efx, &nic_data->vfdi_status);
+ 	efx_siena_sriov_cmd(efx, false, NULL, NULL);
++#endif /* CONFIG_SFC_SRIOV*/
+ }
+ 
+ void efx_siena_sriov_event(struct efx_channel *channel, efx_qword_t *event)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct efx_nic *efx = channel->efx;
+ 	struct efx_vf *vf;
+ 	unsigned qid, seq, type, data;
+@@ -1448,10 +1460,12 @@ error:
+ 	/* Reset the request and sequence number */
+ 	vf->req_type = VFDI_EV_TYPE_REQ_WORD0;
+ 	vf->req_seqno = seq + 1;
++#endif /* CONFIG_SFC_SRIOV */
+ }
+ 
+ void efx_siena_sriov_flr(struct efx_nic *efx, unsigned vf_i)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct efx_vf *vf;
+ 
+ 	if (vf_i > efx->vf_init_count)
+@@ -1465,10 +1479,12 @@ void efx_siena_sriov_flr(struct efx_nic *efx, unsigned vf_i)
+ 	efx_vfdi_flush_clear(vf);
+ 
+ 	vf->evq0_count = 0;
++#endif /* CONFIG_SFC_SRIOV */
+ }
+ 
+ void efx_siena_sriov_mac_address_changed(struct efx_nic *efx)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct siena_nic_data *nic_data = efx->nic_data;
+ 	struct vfdi_status *vfdi_status = nic_data->vfdi_status.addr;
+ 
+@@ -1477,10 +1493,12 @@ void efx_siena_sriov_mac_address_changed(struct efx_nic *efx)
+ 	ether_addr_copy(vfdi_status->peers[0].mac_addr,
+ 			efx->net_dev->dev_addr);
+ 	queue_work(vfdi_workqueue, &nic_data->peer_work);
++#endif /* CONFIG_SFC_SRIOV */
+ }
+ 
+ void efx_siena_sriov_tx_flush_done(struct efx_nic *efx, efx_qword_t *event)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct efx_vf *vf;
+ 	unsigned queue, qid;
+ 
+@@ -1496,10 +1514,12 @@ void efx_siena_sriov_tx_flush_done(struct efx_nic *efx, efx_qword_t *event)
+ 
+ 	if (efx_vfdi_flush_wake(vf))
+ 		wake_up(&vf->flush_waitq);
++#endif /* CONFIG_SFC_SRIOV */
+ }
+ 
+ void efx_siena_sriov_rx_flush_done(struct efx_nic *efx, efx_qword_t *event)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct efx_vf *vf;
+ 	unsigned ev_failed, queue, qid;
+ 
+@@ -1520,11 +1540,13 @@ void efx_siena_sriov_rx_flush_done(struct efx_nic *efx, efx_qword_t *event)
+ 	}
+ 	if (efx_vfdi_flush_wake(vf))
+ 		wake_up(&vf->flush_waitq);
++#endif /* CONFIG_SFC_SRIOV */
+ }
+ 
+ /* Called from napi. Schedule the reset work item */
+ void efx_siena_sriov_desc_fetch_err(struct efx_nic *efx, unsigned dmaq)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	struct efx_vf *vf;
+ 	unsigned int rel;
+ 
+@@ -1536,11 +1558,13 @@ void efx_siena_sriov_desc_fetch_err(struct efx_nic *efx, unsigned dmaq)
+ 			  "VF %d DMA Q %d reports descriptor fetch error.\n",
+ 			  vf->index, rel);
+ 	queue_work(vfdi_workqueue, &vf->reset_work);
++#endif /* CONFIG_SFC_SRIOV */
+ }
+ 
+ /* Reset all VFs */
+ void efx_siena_sriov_reset(struct efx_nic *efx)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	unsigned int vf_i;
+ 	struct efx_buffer buf;
+ 	struct efx_vf *vf;
+@@ -1562,10 +1586,12 @@ void efx_siena_sriov_reset(struct efx_nic *efx)
+ 	}
+ 
+ 	efx_nic_free_buffer(efx, &buf);
++#endif /* CONFIG_SFC_SRIOV */
+ }
+ 
+ int efx_init_sriov(void)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	/* A single threaded workqueue is sufficient. efx_siena_sriov_vfdi() and
+ 	 * efx_siena_sriov_peer_work() spend almost all their time sleeping for
+ 	 * MCDI to complete anyway
+@@ -1573,18 +1599,20 @@ int efx_init_sriov(void)
+ 	vfdi_workqueue = create_singlethread_workqueue("sfc_vfdi");
+ 	if (!vfdi_workqueue)
+ 		return -ENOMEM;
+-
++#endif
+ 	return 0;
+ }
+ 
+ void efx_fini_sriov(void)
+ {
++#ifdef CONFIG_SFC_SRIOV
+ 	destroy_workqueue(vfdi_workqueue);
++#endif
+ }
+ 
+-int efx_siena_sriov_set_vf_mac(struct net_device *net_dev, int vf_i, u8 *mac)
++#ifdef CONFIG_SFC_SRIOV
++int efx_siena_sriov_set_vf_mac(struct efx_nic *efx, int vf_i, u8 *mac)
+ {
+-	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_vf *vf;
+ 
+ 	if (vf_i >= efx->vf_init_count)
+@@ -1599,10 +1627,9 @@ int efx_siena_sriov_set_vf_mac(struct net_device *net_dev, int vf_i, u8 *mac)
+ 	return 0;
+ }
+ 
+-int efx_siena_sriov_set_vf_vlan(struct net_device *net_dev, int vf_i,
++int efx_siena_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i,
+ 				u16 vlan, u8 qos)
+ {
+-	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_vf *vf;
+ 	u16 tci;
+ 
+@@ -1619,10 +1646,9 @@ int efx_siena_sriov_set_vf_vlan(struct net_device *net_dev, int vf_i,
+ 	return 0;
+ }
+ 
+-int efx_siena_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf_i,
++int efx_siena_sriov_set_vf_spoofchk(struct efx_nic *efx, int vf_i,
+ 				    bool spoofchk)
+ {
+-	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_vf *vf;
+ 	int rc;
+ 
+@@ -1643,10 +1669,9 @@ int efx_siena_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf_i,
+ 	return rc;
+ }
+ 
+-int efx_siena_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
++int efx_siena_sriov_get_vf_config(struct efx_nic *efx, int vf_i,
+ 				  struct ifla_vf_info *ivi)
+ {
+-	struct efx_nic *efx = netdev_priv(net_dev);
+ 	struct efx_vf *vf;
+ 	u16 tci;
+ 
+@@ -1666,3 +1691,13 @@ int efx_siena_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
+ 	return 0;
+ }
+ 
++#endif /* CONFIG_SFC_SRIOV */
++
++bool efx_siena_sriov_wanted(struct efx_nic *efx)
++{
++#ifdef CONFIG_SFC_SRIOV
++	return efx->vf_count != 0;
++#else
++	return false;
++#endif
++}
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.h b/drivers/net/ethernet/sfc/siena_sriov.h
+new file mode 100644
+index 0000000..5014ae4
+--- /dev/null
++++ b/drivers/net/ethernet/sfc/siena_sriov.h
+@@ -0,0 +1,78 @@
++/****************************************************************************
++ * Driver for Solarflare network controllers and boards
++ * Copyright 2015 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef SIENA_SRIOV_H
++#define SIENA_SRIOV_H
++
++#include "net_driver.h"
++
++/* On the SFC9000 family each port is associated with 1 PCI physical
++ * function (PF) handled by sfc and a configurable number of virtual
++ * functions (VFs) that may be handled by some other driver, often in
++ * a VM guest.  The queue pointer registers are mapped in both PF and
++ * VF BARs such that an 8K region provides access to a single RX, TX
++ * and event queue (collectively a Virtual Interface, VI or VNIC).
++ *
++ * The PF has access to all 1024 VIs while VFs are mapped to VIs
++ * according to VI_BASE and VI_SCALE: VF i has access to VIs numbered
++ * in range [VI_BASE + i << VI_SCALE, VI_BASE + i + 1 << VI_SCALE).
++ * The number of VIs and the VI_SCALE value are configurable but must
++ * be established at boot time by firmware.
++ */
++
++/* Maximum VI_SCALE parameter supported by Siena */
++#define EFX_VI_SCALE_MAX 6
++/* Base VI to use for SR-IOV. Must be aligned to (1 << EFX_VI_SCALE_MAX),
++ * so this is the smallest allowed value.
++ */
++#define EFX_VI_BASE 128U
++/* Maximum number of VFs allowed */
++#define EFX_VF_COUNT_MAX 127
++/* Limit EVQs on VFs to be only 8k to reduce buffer table reservation */
++#define EFX_MAX_VF_EVQ_SIZE 8192UL
++/* The number of buffer table entries reserved for each VI on a VF */
++#define EFX_VF_BUFTBL_PER_VI					\
++	((EFX_MAX_VF_EVQ_SIZE + 2 * EFX_MAX_DMAQ_SIZE) *	\
++	 sizeof(efx_qword_t) / EFX_BUF_SIZE)
++
++int efx_siena_sriov_init(struct efx_nic *efx);
++void efx_siena_sriov_fini(struct efx_nic *efx);
++void efx_siena_sriov_mac_address_changed(struct efx_nic *efx);
++bool efx_siena_sriov_wanted(struct efx_nic *efx);
++void efx_siena_sriov_reset(struct efx_nic *efx);
++void efx_siena_sriov_flr(struct efx_nic *efx, unsigned flr);
++
++#ifdef CONFIG_SFC_SRIOV
++
++int efx_siena_sriov_set_vf_mac(struct efx_nic *efx, int vf, u8 *mac);
++int efx_siena_sriov_set_vf_vlan(struct efx_nic *efx, int vf,
++				u16 vlan, u8 qos);
++int efx_siena_sriov_set_vf_spoofchk(struct efx_nic *efx, int vf,
++				    bool spoofchk);
++int efx_siena_sriov_get_vf_config(struct efx_nic *efx, int vf,
++				  struct ifla_vf_info *ivf);
++
++static inline bool efx_siena_sriov_enabled(struct efx_nic *efx)
++{
++	return efx->vf_init_count != 0;
++}
++#else /* !CONFIG_SFC_SRIOV */
++static inline bool efx_siena_sriov_enabled(struct efx_nic *efx)
++{
++	return false;
++}
++#endif /* CONFIG_SFC_SRIOV */
++
++void efx_siena_sriov_probe(struct efx_nic *efx);
++void efx_siena_sriov_tx_flush_done(struct efx_nic *efx, efx_qword_t *event);
++void efx_siena_sriov_rx_flush_done(struct efx_nic *efx, efx_qword_t *event);
++void efx_siena_sriov_event(struct efx_channel *channel, efx_qword_t *event);
++void efx_siena_sriov_desc_fetch_err(struct efx_nic *efx, unsigned dmaq);
++
++#endif /* SIENA_SRIOV_H */
+diff --git a/drivers/net/ethernet/sfc/sriov.c b/drivers/net/ethernet/sfc/sriov.c
+new file mode 100644
+index 0000000..ea0b6e7
+--- /dev/null
++++ b/drivers/net/ethernet/sfc/sriov.c
+@@ -0,0 +1,64 @@
++/****************************************************************************
++ * Driver for Solarflare network controllers and boards
++ * Copyright 2014-2015 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++#include <linux/module.h>
++#include "net_driver.h"
++#include "nic.h"
++#include "sriov.h"
++
++#ifdef CONFIG_SFC_SRIOV
++
++int efx_sriov_set_vf_mac(struct net_device *net_dev, int vf_i, u8 *mac)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++
++	if (efx->type->sriov_set_vf_mac)
++		return efx->type->sriov_set_vf_mac(efx, vf_i, mac);
++	else
++		return -EOPNOTSUPP;
++}
++
++int efx_sriov_set_vf_vlan(struct net_device *net_dev, int vf_i, u16 vlan,
++			  u8 qos)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++
++	if (efx->type->sriov_set_vf_vlan) {
++		if ((vlan & ~VLAN_VID_MASK) ||
++		    (qos & ~(VLAN_PRIO_MASK >> VLAN_PRIO_SHIFT)))
++			return -EINVAL;
++
++		return efx->type->sriov_set_vf_vlan(efx, vf_i, vlan, qos);
++	} else {
++		return -EOPNOTSUPP;
++	}
++}
++
++int efx_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf_i,
++			      bool spoofchk)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++
++	if (efx->type->sriov_set_vf_spoofchk)
++		return efx->type->sriov_set_vf_spoofchk(efx, vf_i, spoofchk);
++	else
++		return -EOPNOTSUPP;
++}
++
++int efx_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
++			    struct ifla_vf_info *ivi)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++
++	if (efx->type->sriov_get_vf_config)
++		return efx->type->sriov_get_vf_config(efx, vf_i, ivi);
++	else
++		return -EOPNOTSUPP;
++}
++
++#endif
+diff --git a/drivers/net/ethernet/sfc/sriov.h b/drivers/net/ethernet/sfc/sriov.h
+new file mode 100644
+index 0000000..0b9f0f6
+--- /dev/null
++++ b/drivers/net/ethernet/sfc/sriov.h
+@@ -0,0 +1,27 @@
++/****************************************************************************
++ * Driver for Solarflare network controllers and boards
++ * Copyright 2014-2015 Solarflare Communications Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 as published
++ * by the Free Software Foundation, incorporated herein by reference.
++ */
++
++#ifndef EFX_SRIOV_H
++#define EFX_SRIOV_H
++
++#include "net_driver.h"
++
++#ifdef CONFIG_SFC_SRIOV
++
++int efx_sriov_set_vf_mac(struct net_device *net_dev, int vf_i, u8 *mac);
++int efx_sriov_set_vf_vlan(struct net_device *net_dev, int vf_i, u16 vlan,
++			  u8 qos);
++int efx_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf_i,
++			      bool spoofchk);
++int efx_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
++			    struct ifla_vf_info *ivi);
++
++#endif /* CONFIG_SFC_SRIOV */
++
++#endif /* EFX_SRIOV_H */
