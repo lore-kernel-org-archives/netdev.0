@@ -1,83 +1,141 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs consistent
-Date: Wed, 08 Apr 2015 09:52:09 -0400
-Message-ID: <55253289.8020306@mojatatu.com>
-References: <5524B339.1070403@plumgrid.com> <5524E878.7070803@iogearbox.net> <20150408090520.GA2057@nanopsycho.orion> <552508E8.5050203@iogearbox.net> <55250D92.6030702@iogearbox.net> <55251556.4040900@mojatatu.com> <55251F9F.2050508@iogearbox.net> <55252611.3040109@mojatatu.com> <20150408131417.GA28656@casper.infradead.org> <55252CDD.8020503@iogearbox.net> <20150408133415.GD2057@nanopsycho.orion> <55252FEF.40201@iogearbox.net>
+From: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Wed, 8 Apr 2015 14:59:00 +0100
+Message-ID: <21797.13348.524963.29127@mariner.uk.xensource.com>
+References: <21795.62414.465476.464027@mariner.uk.xensource.com>
+	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<21796.6843.983774.271495@mariner.uk.xensource.com>
+	<21796.7755.270785.292996@mariner.uk.xensource.com>
+	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<1428448976.4720.15.camel@prashant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Jiri Pirko <jiri@resnulli.us>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"Thadeu Lima de Souza Cascardo" <cascardo@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
+To: Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:33215 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754346AbbDHNwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 09:52:11 -0400
-Received: by iebmp1 with SMTP id mp1so74243756ieb.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 06:52:11 -0700 (PDT)
-In-Reply-To: <55252FEF.40201@iogearbox.net>
+Received: from smtp.citrix.com ([66.165.176.89]:13305 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752824AbbDHN7F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Apr 2015 09:59:05 -0400
+In-Reply-To: <21796.6843.983774.271495@mariner.uk.xensource.com>,
+	<21796.7755.270785.292996@mariner.uk.xensource.com>,
+	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>,
+	<1428448976.4720.15.camel@prashant>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/15 09:41, Daniel Borkmann wrote:
-> On 04/08/2015 03:34 PM, Jiri Pirko wrote:
->> Wed, Apr 08, 2015 at 03:27:57PM CEST, daniel@iogearbox.net wrote:
->>> On 04/08/2015 03:14 PM, Thomas Graf wrote:
->>>> On 04/08/15 at 08:58am, Jamal Hadi Salim wrote:
->>>>> On 04/08/15 08:31, Daniel Borkmann wrote:
->>>>>> That means the tc's cls_u32
->>>>>> sample selectors a la ip, ip6, udp, tcp, icmp don't work on ingress
->>>>>> either,so in u32 speak you would need to do that by hand, but that
->>>>>> doesn't work as you don't have the Ethernet type context available.
->>>>>> Am I missing something? :)
->>>>>
->>>>> u32 works fine. I am sure i have tests which run these on both
->>>>> in/egress.
->>>>
->>>> His point is that an u32 filter written for egress won't work at
->>>> ingress because the offsets are different. This has always been the
->>>> case and we can't break this behaviour either. I'm sure you have
->>>> these weird negative offset u32 egress filters in your repertoire
->>>> as well ;-)
->>>
->>> Okay, you can use negative offsets in cls_u32 to accomodate for
->>> that; so yeah, you'd need to implement your filter differently
->>> on ingress. That should also work on cls_bpf et al.
->>
->> That is certainly doable. But is that what we want? I don't think so. I
->> would like to have the same for in/eg.
->
-> I mean it's certainly a non-obvious hack, where user space has to
-> fix up something that the kernel should have gotten right in the
-> first place. :/
+Thanks to Konrad, Michael and Prashant for your attention.
 
-Try something like:
-on ingress
-filter add dev eth0 parent ffff: protocol ip prio 6 u32 match ip src \
-10.0.0.21/32 flowid 1:16 action ok
-and egress
-filter add dev eth0 parent 1: protocol ip prio 6 u32 match ip src \
-10.0.0.21/32 flowid 1:16 action ok
 
-and see if you need negative offsets for anything.
+Prashant Sreedharan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
+> Ian, in your previous mail you indicated there are no drops or errors
+> reported on eth0 (assuming this is the tg3 port), which is added to the
+> bridge xenbr0 is this correct ?
 
-If you really must adjust in the kernel then use the indicators which
-tell you where you are at.
+Yes, that is correct.
 
-Negative offsets are used if you must go beyond the network header. This
-has been the expectation so far (whether it is actions or classifiers),
-example, here is something that mucks around with ethernet
-headers:
+> If so the rx drops on xenbr0 does not match with eth0.  please also
+> provide "brctl show", "ethtool -i eth0"
 
-tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
-match ip src 192.168.1.10/32 flowid 1:2 \
-action pedit munge offset -14 u16 set 0x0000 \
-munge offset -12 u32 set 0x00010100 \
-munge offset -8 u32 set 0x0aaf0100 \
-munge offset -4 u32 set 0x0008ec06 pipe \
-action mirred egress redirect dev eth1
+root@bedbug:~# brctl show
+bridge name     bridge id               STP enabled     interfaces
+xenbr0          8000.00137214c051       no              eth0
+root@bedbug:~# ethtool -i eth0
+driver: tg3
+version: 3.136
+firmware-version: 5751-v3.44a
+bus-info: 0000:03:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: yes
+supports-register-dump: yes
+supports-priv-flags: no
+root@bedbug:~#
 
-cheers,
-jamal
+
+Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
+> On Tue, 2015-04-07 at 19:13 +0100, Ian Jackson wrote:
+> > root@bedbug:~# ethtool -S xenbr0 | grep -v ': 0$'
+> > no stats available
+> > root@bedbug:~# 
+> 
+> Please provide ethtool -S on the tg3 device.
+
+I did that in my previous email.  Let me recap:
+
+Ian Jackson writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
+> Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
+> > Please provide the output of "ethtool -S" which has a better breakdown
+> > of the error counters.  Thanks.
+> 
+> root@bedbug:~# ethtool -S eth0 | grep -v ': 0$'
+> NIC statistics:
+>      rx_octets: 793954
+>      rx_ucast_packets: 342
+>      rx_mcast_packets: 197
+>      rx_bcast_packets: 11049
+>      tx_octets: 59093
+>      tx_ucast_packets: 396
+>      tx_mcast_packets: 8
+>      tx_bcast_packets: 4
+> root@bedbug:~# ifconfig eth0
+> eth0      Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:16012 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:459 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000 
+>           RX bytes:1090543 (1.0 MiB)  TX bytes:64575 (63.0 KiB)
+>           Interrupt:17 
+> 
+> root@bedbug:~# 
+> 
+> And:
+> 
+> --- bedbug.cam.xci-test.com ping statistics ---
+> 120 packets transmitted, 90 received, 25% packet loss, time 119354ms
+> rtt min/avg/max/mdev = 0.294/0.459/0.844/0.073 ms
+> 
+> 
+> Evidently on this particular kernel, the error counters are _not_
+> increasing, contrary to what I said before.  I confess that I didn't
+> keep a record of on which particular machine and kernel I observed the
+> error count increasing.
+> 
+> If it would help I could try to check various other machines and/or
+> other kernels to see if I can get one of them to display the error
+> counter behaviour.
+
+
+Ian Jackson writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
+> I just realised that I didn't check xenbr0 as well as eth0:
+> 
+> root@bedbug:~# ifconfig xenbr0
+> xenbr0    Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
+>           inet addr:10.80.249.102  Bcast:10.80.251.255
+>           Mask:255.255.252.0
+>           inet6 addr: fe80::213:72ff:fe14:c051/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:12296 errors:0 dropped:793 overruns:0 frame:0
+>           TX packets:437 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:0 
+>           RX bytes:618757 (604.2 KiB)  TX bytes:49084 (47.9 KiB)
+> 
+> root@bedbug:~# ethtool -S xenbr0 | grep -v ': 0$'
+> no stats available
+> root@bedbug:~#
+> 
+> The value for "dropped" increases steadily.  This particular box is on
+> a network with a lot of other stuff, so it will be constantly
+> receiving broadcasts of various kinds even when I am not trying to
+> address it directly.
+
+
+Ian.
