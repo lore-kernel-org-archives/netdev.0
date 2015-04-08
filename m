@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 11/14] net: plip: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:37 +0530
-Message-ID: <1428492040-5581-12-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 12/14] i2c-parport: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:38 +0530
+Message-ID: <1428492040-5581-13-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -32,78 +32,48 @@ List-Id: netdev.vger.kernel.org
 
 now that we are monitoring the return value from attach, make the
 required changes to return proper value from its attach function.
-also return the proper error code in module_init.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/net/plip/plip.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+ drivers/i2c/busses/i2c-parport.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/plip/plip.c b/drivers/net/plip/plip.c
-index 040b897..6706bc3 100644
---- a/drivers/net/plip/plip.c
-+++ b/drivers/net/plip/plip.c
-@@ -1243,7 +1243,7 @@ plip_searchfor(int list[], int a)
+diff --git a/drivers/i2c/busses/i2c-parport.c b/drivers/i2c/busses/i2c-parport.c
+index a1fac5a..761a775 100644
+--- a/drivers/i2c/busses/i2c-parport.c
++++ b/drivers/i2c/busses/i2c-parport.c
+@@ -160,14 +160,14 @@ static void i2c_parport_irq(void *data)
+ 			"SMBus alert received but no ARA client!\n");
+ }
  
- /* plip_attach() is called (by the parport code) when a port is
-  * available to use. */
--static void plip_attach (struct parport *port)
-+static int plip_attach(struct parport *port)
+-static void i2c_parport_attach(struct parport *port)
++static int i2c_parport_attach(struct parport *port)
  {
- 	static int unit;
- 	struct net_device *dev;
-@@ -1254,13 +1254,13 @@ static void plip_attach (struct parport *port)
- 	    plip_searchfor(parport, port->number)) {
- 		if (unit == PLIP_MAX) {
- 			printk(KERN_ERR "plip: too many devices\n");
--			return;
-+			return -EINVAL;
- 		}
+ 	struct i2c_par *adapter;
  
- 		sprintf(name, "plip%d", unit);
- 		dev = alloc_etherdev(sizeof(struct net_local));
- 		if (!dev)
--			return;
-+			return -ENOMEM;
- 
- 		strcpy(dev->name, name);
- 
-@@ -1300,12 +1300,13 @@ static void plip_attach (struct parport *port)
- 					 dev->name, dev->base_addr);
- 		dev_plip[unit++] = dev;
+ 	adapter = kzalloc(sizeof(struct i2c_par), GFP_KERNEL);
+ 	if (adapter == NULL) {
+ 		printk(KERN_ERR "i2c-parport: Failed to kzalloc\n");
+-		return;
++		return -ENOMEM;
  	}
+ 
+ 	pr_debug("i2c-parport: attaching to %s\n", port->name);
+@@ -230,13 +230,14 @@ static void i2c_parport_attach(struct parport *port)
+ 	mutex_lock(&adapter_list_lock);
+ 	list_add_tail(&adapter->node, &adapter_list);
+ 	mutex_unlock(&adapter_list_lock);
 -	return;
 +	return 0;
  
- err_parport_unregister:
- 	parport_unregister_device(nl->pardev);
- err_free_dev:
- 	free_netdev(dev);
+  err_unregister:
+ 	parport_release(adapter->pdev);
+ 	parport_unregister_device(adapter->pdev);
+  err_free:
+ 	kfree(adapter);
 +	return -ENODEV;
  }
  
- /* plip_detach() is called (by the parport code) when a port is
-@@ -1379,6 +1380,8 @@ __setup("plip=", plip_setup);
- 
- static int __init plip_init (void)
- {
-+	int err;
-+
- 	if (parport[0] == -2)
- 		return 0;
- 
-@@ -1387,9 +1390,10 @@ static int __init plip_init (void)
- 		timid = 0;
- 	}
- 
--	if (parport_register_driver (&plip_driver)) {
-+	err = parport_register_driver(&plip_driver);
-+	if (err) {
- 		printk (KERN_WARNING "plip: couldn't register driver\n");
--		return 1;
-+		return err;
- 	}
- 
- 	return 0;
+ static void i2c_parport_detach(struct parport *port)
 -- 
 1.8.1.2
