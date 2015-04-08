@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 07/14] [SCSI] ppa: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:33 +0530
-Message-ID: <1428492040-5581-8-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 10/14] pps: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:36 +0530
+Message-ID: <1428492040-5581-11-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,24 +35,47 @@ required changes to return proper value from its attach function.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/scsi/ppa.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/pps/clients/pps_parport.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/scsi/ppa.c b/drivers/scsi/ppa.c
-index 1db8b26..48898ec 100644
---- a/drivers/scsi/ppa.c
-+++ b/drivers/scsi/ppa.c
-@@ -1090,9 +1090,9 @@ out:
- 	return err;
+diff --git a/drivers/pps/clients/pps_parport.c b/drivers/pps/clients/pps_parport.c
+index 38a8bbe..a411621 100644
+--- a/drivers/pps/clients/pps_parport.c
++++ b/drivers/pps/clients/pps_parport.c
+@@ -134,7 +134,7 @@ out_both:
+ 	return;
  }
  
--static void ppa_attach(struct parport *pb)
-+static int ppa_attach(struct parport *pb)
+-static void parport_attach(struct parport *port)
++static int parport_attach(struct parport *port)
  {
--	__ppa_attach(pb);
-+	return __ppa_attach(pb);
+ 	struct pps_client_pp *device;
+ 	struct pps_source_info info = {
+@@ -151,7 +151,7 @@ static void parport_attach(struct parport *port)
+ 	device = kzalloc(sizeof(struct pps_client_pp), GFP_KERNEL);
+ 	if (!device) {
+ 		pr_err("memory allocation failed, not attaching\n");
+-		return;
++		return -ENOMEM;
+ 	}
+ 
+ 	device->pardev = parport_register_device(port, KBUILD_MODNAME,
+@@ -179,7 +179,7 @@ static void parport_attach(struct parport *port)
+ 
+ 	pr_info("attached to %s\n", port->name);
+ 
+-	return;
++	return 0;
+ 
+ err_release_dev:
+ 	parport_release(device->pardev);
+@@ -187,6 +187,7 @@ err_unregister_dev:
+ 	parport_unregister_device(device->pardev);
+ err_free:
+ 	kfree(device);
++	return -ENODEV;
  }
  
- static void ppa_detach(struct parport *pb)
+ static void parport_detach(struct parport *port)
 -- 
 1.8.1.2
