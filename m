@@ -1,44 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 11/11] net/mlx5: Ethernet driver
-Date: Wed, 08 Apr 2015 08:57:31 -0700
-Message-ID: <1428508651.25985.221.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
-	 <1428504685-8945-12-git-send-email-amirv@mellanox.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH v2 00/17] IB/Verbs: IB Management Helpers
+Date: Wed, 08 Apr 2015 18:05:43 +0200
+Message-ID: <552551D7.80308@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com> <5525132F.1020004@talpey.com> <552521EE.5060206@profitbricks.com> <20150408155145.GA25178@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:35356 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753560AbbDHP5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 11:57:34 -0400
-Received: by iggg4 with SMTP id g4so43502665igg.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 08:57:33 -0700 (PDT)
-In-Reply-To: <1428504685-8945-12-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Talpey <tom-CLs1Zie5N5HQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm@de
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150408155145.GA25178-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-04-08 at 17:51 +0300, Amir Vadai wrote:
+On 04/08/2015 05:51 PM, Jason Gunthorpe wrote:
+> On Wed, Apr 08, 2015 at 02:41:18PM +0200, Michael Wang wrote:
+>  
+>> I think no one can have the access to all these hardware, so we can
+>> only depends on those who accidentally have one to help the testing,
+>> but it's still far from that stage..
+> 
+> I have seen other patches in this style use the compiler to do the
+> check, if the patch doesn't change the compiled output then it is
+> obviously OK.
+> 
+> Some careful use of macros might make that possible, but it is a fair
+> amount of work.
+> 
+> However, that may be the only way to get something this invasive
+> applied, especially since we've already seen mistakes in the manual
+> transforms :|
 
-> +
-> +static u32 ptys2ethtool_supported_link(u32 eth_proto_cap)
-> +{
-> +	int i;
-> +	u32 supoprted_modes = 0;
-> +
-> +	for (i = 0; i < MLX5E_LINK_MODES_NUMBER; ++i) {
-> +		if (eth_proto_cap & MLX5E_PROT_MASK(i))
-> +			supoprted_modes |= ptys2ethtool_table[i].supported;
-> +	}
-> +	return supoprted_modes;
-> +}
+Make sense, I may be able to testing with mlx4 in our lab, but IMHO
+review carefully may be more reliable then incomplete testing in
+this case, if we have some tree or branch for next staging, that
+could be a good place for public testing, but it's haven't reached
+that stage yet ;-)
 
-Small nit 
-typo :  -> supported_modes 
+Regards,
+Michael Wang
+
+
+> 
+> Jason
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
