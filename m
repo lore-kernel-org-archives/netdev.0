@@ -1,72 +1,47 @@
-From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
-Subject: Re: [PATCH v2 02/17] IB/Verbs: Implement raw management helpers
-Date: Wed, 08 Apr 2015 10:41:28 +0200
-Message-ID: <5524E9B8.3000709@profitbricks.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523CDA7.8090902@profitbricks.com> <1828884A29C6694DAF28B7E6B8A82373A8FBE403@ORSMSX109.amr.corp.intel.com>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH] iputils ping: add (non-raw) ICMP socket support
+Date: Wed, 08 Apr 2015 17:56:47 +0900
+Message-ID: <5524ED4F.9070907@miraclelinux.com>
+References: <2142872.6QHf5ZAfZz@msg-id>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	infinipath <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"Latif, Faisal" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	"Nikolova, Tatyana E" <tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
-	Shachar Raindel <raindel@mellanox
-To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FBE403-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Vasiliy Kulikov <segooon@gmail.com>,
+	Tyler Hicks <tyhicks@canonical.com>
+To: Salvatore Mesoraca <s.mesoraca16@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og127.obsmtp.com ([64.18.2.210]:48086 "HELO
+	exprod7og127.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751229AbbDHI4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 04:56:54 -0400
+Received: by mail-pd0-f170.google.com with SMTP id nk13so108515681pdb.0
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 01:56:53 -0700 (PDT)
+In-Reply-To: <2142872.6QHf5ZAfZz@msg-id>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-On 04/07/2015 11:25 PM, Hefty, Sean wrote:
->> +static inline int rdma_transport_ib(struct ib_device *device, u8
->> port_num)
->> +{
->> +	return device->query_transport(device, port_num)
->> +			== RDMA_TRANSPORT_IB;
->> +}
->> +
->> +static inline int rdma_transport_iboe(struct ib_device *device, u8
->> port_num)
->> +{
->> +	return device->query_transport(device, port_num)
->> +			== RDMA_TRANSPORT_IBOE;
->> +}
+Salvatore Mesoraca wrote:
+> From: Vasiliy Kulikov <segooon@gmail.com>
 > 
-> We need to do something with the function names to make their use more obvious.  Both IB and IBoE have transport IB.  I think Jason suggested rdma_tech_ib / rdma_tech_iboe.
-> 
-> Regarding transport types, I believe that usnic supports 2 different transports.  Although usnic isn't used by anything else in the core layer, we should probably be able to handle a device that supports multiple protocols.  I'm not sure what the 'transport' should be for iWarp, since iWarp is layered over TCP.  But that may just mean that the term transport isn't great.
+> This patch adds non-raw IPPROTO_ICMP socket kind support that was added
+> to the Linux 3.0.  The patch is backward-compatible: if ICMP socket kind
+> is not enabled in the kernel (either in case of an old kernel or
+> explicitly disabled via /proc/sys/net/ipv4/ping_group_range), ping uses
+> old privileged raw sockets as a fallback.
+:
+> This patch is going to be included in Ubuntu 15.10 and it is already
+> included in Gentoo stable tree (at the moment of the writing ping has
+> CAP_NET_RAW still enabled by default) it is also included in OpenWall
+> since 2011.
+> This patch also tries to sneak in a fix for a missing colon in a printf.
+> I've tested it on Linux 3.17.7 and it worked without issues.
 
-Agree, it do confusing folks, I will use tech instead in next version :-)
+Please do not mix changes in a single commit.
+Thanks.
 
-Regards,
-Michael Wang
-
-> 
-> - Sean
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
