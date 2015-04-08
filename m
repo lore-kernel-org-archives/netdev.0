@@ -1,36 +1,38 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs consistent
-Date: Wed, 08 Apr 2015 14:31:27 +0200
-Message-ID: <55251F9F.2050508@iogearbox.net>
-References: <1428455025-5945-1-git-send-email-ast@plumgrid.com> <1428455025-5945-2-git-send-email-ast@plumgrid.com> <20150407.223549.335906307265617841.davem@davemloft.net> <55249EFA.5040405@plumgrid.com> <5524B339.1070403@plumgrid.com> <5524E878.7070803@iogearbox.net> <20150408090520.GA2057@nanopsycho.orion> <552508E8.5050203@iogearbox.net> <55250D92.6030702@iogearbox.net> <55251556.4040900@mojatatu.com>
+Subject: Re: [PATCH iproute2 -next v2] tc, bpf: finalize eBPF support for
+ cls and act front-end
+Date: Wed, 08 Apr 2015 14:33:22 +0200
+Message-ID: <55252012.70901@iogearbox.net>
+References: <e253218a3cd6e0885a3884ec6dbbaabafd1bfe43.1427903335.git.daniel@iogearbox.net> <20150402062232.GA2613@nanopsycho.orion> <55251838.7050207@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	tgraf@suug.ch
+Cc: stephen@networkplumber.org, ast@plumgrid.com, tgraf@suug.ch,
+	netdev@vger.kernel.org
 To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60078 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:60290 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbbDHMbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 08:31:35 -0400
-In-Reply-To: <55251556.4040900@mojatatu.com>
+	with ESMTP id S1751364AbbDHMd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 08:33:29 -0400
+In-Reply-To: <55251838.7050207@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2015 01:47 PM, Jamal Hadi Salim wrote:
-> Should have read my emails backward. Refer to my other email
+On 04/08/2015 01:59 PM, Jamal Hadi Salim wrote:
+> On 04/02/15 02:22, Jiri Pirko wrote:
+>> Wed, Apr 01, 2015 at 05:57:44PM CEST, daniel@iogearbox.net wrote:
+>
+>>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>>> Cc: Alexei Starovoitov <ast@plumgrid.com>
+>>> Cc: Jiri Pirko <jiri@resnulli.us>
+>>> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>> Acked-by: Jiri Pirko <jiri@resnulli.us>
+>
+> Is it too late?
 
-Ok, sure.
+Nope, still lingering in patchwork. ;)
 
-> So why are you not able to use the indicators of where in the stack
-> you are in both actions and classifiers?
-> bpf needs to adjust.
-
-So aside from the ifb dev, the only guys caring about AT_INGRESS
-and AT_EGRESS is netem and act_mirred. That means the tc's cls_u32
-sample selectors a la ip, ip6, udp, tcp, icmp don't work on ingress
-either, so in u32 speak you would need to do that by hand, but that
-doesn't work as you don't have the Ethernet type context available.
-Am I missing something? :)
+Thanks a lot,
+Daniel
