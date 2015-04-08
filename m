@@ -1,54 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs
- consistent
-Date: Tue, 07 Apr 2015 22:35:49 -0400 (EDT)
-Message-ID: <20150407.223549.335906307265617841.davem@davemloft.net>
-References: <1428455025-5945-1-git-send-email-ast@plumgrid.com>
-	<1428455025-5945-2-git-send-email-ast@plumgrid.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [RFC net-next 1/2] net: allow user to set IPv6 nexthop for IPv4
+ route
+Date: Tue, 7 Apr 2015 22:52:16 -0400
+Message-ID: <20150408025215.GU1051@gospo>
+References: <1427403928-1342-1-git-send-email-gospo@cumulusnetworks.com>
+ <1427403928-1342-2-git-send-email-gospo@cumulusnetworks.com>
+ <5515449D.4080408@brocade.com>
+ <20150327141057.GG1051@gospo>
+ <CAJO99TkSaJjmvTjWOpnMLwNaf7A-q9_DvkppT+M77rSV0Syh0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, jiri@resnulli.us, jhs@mojatatu.com,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sowmini Varadhan <sowmini05@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Robert Shearman <rshearma@brocade.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: =?iso-8859-1?Q?Bj=F8rnar?= Ness <bjornar.ness@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33390 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751548AbbDHCfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 22:35:51 -0400
-In-Reply-To: <1428455025-5945-2-git-send-email-ast@plumgrid.com>
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:32782 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753055AbbDHCwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Apr 2015 22:52:19 -0400
+Received: by qkx62 with SMTP id 62so69388799qkx.0
+        for <netdev@vger.kernel.org>; Tue, 07 Apr 2015 19:52:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJO99TkSaJjmvTjWOpnMLwNaf7A-q9_DvkppT+M77rSV0Syh0w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue,  7 Apr 2015 18:03:45 -0700
+On Tue, Apr 07, 2015 at 11:14:22PM +0200, Bj=F8rnar Ness wrote:
+> Hello, Andy.
+>=20
+> Are you working on the next version of this patchset with the suggest=
+ed
+> modifications?
 
-> +
-> +	/* don't recompute skb->csum back and forth while pushing/pulling L2 */
-> +	__skb_push(skb, hard_header_len);
->  	result = tc_classify(skb, fl, &res);
-> +	__skb_pull(skb, hard_header_len);
+Yes, I am.
 
-This is not legal.
-
-This SKB can be referenced by other entities, such as AF_PACKET
-sockets and other network taps on input.  You absolutely do not
-have private access to this SKB object, and any modification you
-make to it will be seen by others.
-
-Therefore you cannot push and pull the headers, because that
-modification will be seen by the other entities referencing this SKB.
-
-This is why every network protocol's input path must do something
-like:
-
-	skb = skb_share_check(skb, GFP_ATOMIC);
-
-before pulling headers.
-
-And you do not want to add this expensive operation here.
-
-That would be really stupid overhead just to accomodate BPF things.
-
-Instead just propagate some offset into the locations that care about
-the skb data location.
+I was planning to finish them tomorrow and test them before submitting
+the next version.  Are you asking as you wanted to provide some testing
+feedback?
