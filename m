@@ -1,56 +1,47 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: TSO on veth device slows transmission to a crawl
-Date: Wed, 8 Apr 2015 19:09:26 +0200 (CEST)
-Message-ID: <alpine.LSU.2.20.1504081844390.6502@nerf40.vanv.qr>
-References: <alpine.LSU.2.20.1504070014250.21650@nerf40.vanv.qr>  <1428374918.25985.206.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.LSU.2.20.1504071149280.31930@nerf40.vanv.qr> <1428436189.25985.211.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: e1000e max frame calculation
+Date: Wed, 08 Apr 2015 10:17:27 -0700
+Message-ID: <552562A7.8090307@gmail.com>
+References: <5522B685.2030104@cchtml.com> <5522FE84.6030104@cchtml.com> <55231425.4010405@redhat.com> <alpine.NEB.2.11.1504062043320.2726@chris.i8u.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Michael Cronenworth <mike@cchtml.com>, netdev@vger.kernel.org
+To: Hisashi T Fujinaka <htodd@twofifty.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares41.inai.de ([46.4.122.207]:55494 "EHLO ares41.inai.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753727AbbDHRJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2015 13:09:27 -0400
-In-Reply-To: <1428436189.25985.211.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:36176 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752954AbbDHRR3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 13:17:29 -0400
+Received: by pabsx10 with SMTP id sx10so120754989pab.3
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 10:17:29 -0700 (PDT)
+In-Reply-To: <alpine.NEB.2.11.1504062043320.2726@chris.i8u.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Tuesday 2015-04-07 21:49, Eric Dumazet wrote:
->> On Tuesday 2015-04-07 04:48, Eric Dumazet wrote:
->> >On Tue, 2015-04-07 at 00:45 +0200, Jan Engelhardt wrote:
->> >> I have here a Linux 3.19(.0) system where activated TSO on a veth slave 
-[and now also 3.19.3]
->> >> device makes IPv4-TCP transfers going into that veth-connected container 
->> >> progress slowly.
->> >
->> >Nothing comes to mind. It would help if you could provide a script to
->> >reproduce the issue.
->> 
->> It seems IPsec is *also* a requirement in the mix.
->> Anyhow, script time!
+On 04/06/2015 08:47 PM, Hisashi T Fujinaka wrote:
+> On Mon, 6 Apr 2015, Alexander Duyck wrote:
 >
->I tried your scripts, but the sender does not use veth ?
+>> The e1000e pch parts seem very limited in terms of their jumbo frames
+>> support.  It looks like the first pch part only supported 4K, and in
+>> the case of the later generations I only see support for a 9018 jumbo
+>> frame listed in the datasheet.  I suspect this is why that is set as
+>> the limit in the driver. The question at this point is if 9018 is the
+>> limit, why is it the limit and is there any wiggle room to it.
+>
+> It's a limit that was told to us by the HW group for the 82579.
 
-I was finally able to reproduce it reliably, and with just one 
-machine/kernel instance (and a number of containers of course).
+The question I have is if the limit of 9018 includes the VLAN header or
+not.  The reason why I ask is that prior to 3.15 you could configure an
+MTU of 9000, and then still enable VLANs which would push the upper size
+to a theoretical limit of 9022.
 
-I have uploaded the script mix to
-	http://inai.de/files/tso-1.tar.xz
-There is a demo screencast at
-	http://inai.de/files/tso-1.mkv
+For example, what is the upper limit on the Windows driver for this
+part?  Does it not support a jumbo frame size of 9014 (Excluding the CRC
+and VLAN header)?  If so we could probably increase the value to 9022 in
+these drivers, not suffer any ill effects, and resolve the issue that
+Michael has been having after the change to include the VLAN_HLEN on the
+max frame size calculation.
 
->From the script collection, one can run t-all-init to setup the
-network, then t-chargen-server (stays in foreground), and on another
-terminal then t-chargen-client. Alternatively, the combination
-t-zero-{server,client}. It appears that it has to a simple
-single-threaded, single-connection, single-everything transfer.
-
-The problem won't manifest with netperf even if run for extended
-period (60 seconds). netperf is probably too smart, exploiting some
-form of parallelism.
-
-Oh, and if the transfer rate is absolutely *zero* (esp. for 
-xinetd-chargen), that just means that it attempts DNS name resolution. 
-Just wait a few seconds in that case for the transfer to start.
+- Alex
