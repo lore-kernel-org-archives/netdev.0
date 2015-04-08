@@ -1,64 +1,71 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 01/14] parport: return value of attach and
- parport_register_driver
-Date: Wed, 8 Apr 2015 15:27:37 +0300
-Message-ID: <20150408122737.GK10964@mwanda>
-References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
- <1428492040-5581-2-git-send-email-sudipm.mukherjee@gmail.com>
- <20150408113832.GH10964@mwanda> <20150408115010.GA11153@sudip-PC>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Tuning TCP send on ethernet
+Date: Wed, 08 Apr 2015 05:29:30 -0700
+Message-ID: <1428496170.25985.218.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CALJd4cZpffegZ7RQ_QkRbbeQDUpUwK1peYe14PxpgZkbwsfUCw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Rodolfo Giometti <giometti@enneenne.com>,
- linux-scsi@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
- Wolfram Sang <wsa@the-dreams.de>, Takashi Iwai <tiwai@suse.de>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-spi@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- "James E.J. Bottomley" <JBottomley@parallels.com>,
- Jaroslav Kysela <perex@perex.cz>, Mark Brown <broonie@kernel.org>,
- linux-i2c@vger.kernel.org, Willy Tarreau <willy@meta-x.org>,
- alsa-devel@alsa-project.org, netdev@vger.kernel.org,
- Jean Delvare <jdelvare@suse.de>
-To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <20150408115010.GA11153@sudip-PC>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Ashoka K <ashok.vinu@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:35331 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbbDHM3c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 08:29:32 -0400
+Received: by iggg4 with SMTP id g4so37667225igg.0
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 05:29:32 -0700 (PDT)
+In-Reply-To: <CALJd4cZpffegZ7RQ_QkRbbeQDUpUwK1peYe14PxpgZkbwsfUCw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 08, 2015 at 05:20:10PM +0530, Sudip Mukherjee wrote:
-> On Wed, Apr 08, 2015 at 02:38:32PM +0300, Dan Carpenter wrote:
-> > 1) We can't apply this patch on its own so this way of breaking up the
-> > patches doesn't work.
-> yes, if the first patch is reverted for any reason all the others need
-> to be reverted also. so then everything in one single patch?
+On Wed, 2015-04-08 at 16:51 +0530, Ashoka K wrote:
+> Hi ,
+> 
+> I have a question regarding TCP send queue on ethernet 100Mbps line.
+> If you could answer it would be of great help.
+> 
+> We have a Linux based ARM system. Basically it capture image and
+> transfer images on request to a windows client. During image transfer
+> the softirq are seen in high number. These softirq are from network
+> device which transfer image data. Due to this we see that other
+> processes got hit in performance. For us the priority for sending the
+> image data is low and we expect that this send should not block or
+> slow down other running processes in system.
+> 
+> The image data is sent on particular TCP port say 2000. Only this
+> transfer of image traffic has to be slowed/or whatever so that this
+> does not affect other processes running on device. The maximum size of
+> image is only 1.4 MB.
+> 
+> There is other less TCP traffic on other ports. These traffic include
+> the commands sent to the device and command responses. This must not
+> be affected severely.
+> 
+>  How to tune this? Device uses Linux 2.6.33 cross compiled for ARM,
+> and it has 1 ethernet interface of speed 100Mbps, has 1GHz CPU.
+> 
+> I tried to modify ethernet "txqueuelen" from default 1000  to  a min
+> of 1 to a max of 8000. But i didn't see improvement in behavior.
+> 
+> DO I have to modify  /kernel/softirq.c:
+> 
+>    #define     MAX_SOFTIRQ_RESTART  10
+> 
+> to smaller value ? What effects it may have? Or any other better solutions?
 
-The problem is that patch 1/1 breaks the build.  The rule is that we
-should be able to apply part of a patch series and nothing breaks.  If
-we apply the patch series out of order than things break that's our
-problem, yes.  But if we apply only 1/1 and it breaks, that's a problem
-with the series.
+I guess you could either :
 
-> > 
-> > 2) I was thinking that all the ->attach() calls would have to succeed or
-> > we would bail.  Having some of them succeed and some fail doesn't seem
-> > like it will simplify the driver code very much.  But I can also see
-> > your point.  Hm...
+1) Set/force a low SO_SNDBUF value on the tcp socket used to transfer
+the image if you have access to code source.
 
-My other issue with this patch series which is related to #2 is that
-it's not clear that anyone is checking the return value and doing
-correct things with it.
+  int val = 8192;
+  setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
 
-Hopefully, when we use the attach_ret() approach then it will be more
-clear if/how the return value is useful.
+2) lower /proc/sys/net/ipv4/tcp_wmem to enforce low buffers for all tcp
+sockets.
 
-regards,
-dan carpenter
+ (Lower last column to say 90000 )
+
+
+This wont help if the client is very close and rtt is small.
