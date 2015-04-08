@@ -1,62 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: do not rearm rsk_timer on FastOpen requests
-Date: Wed, 08 Apr 2015 15:34:04 -0700
-Message-ID: <1428532444.25985.231.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: [PATCH RFT net-next #2 0/6] via-rhine receive buffers rework
+Date: Wed, 08 Apr 2015 23:43:55 +0100
+Message-ID: <87mw2iw89g.fsf@spindle.srvr.nix>
+References: <cover.1428445141.git.romieu@fr.zoreil.com>
+	<87vbh6364u.fsf@spindle.srvr.nix>
+	<20150408215051.GA25326@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:35233 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754722AbbDHWeG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 18:34:06 -0400
-Received: by iggg4 with SMTP id g4so52624402igg.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 15:34:06 -0700 (PDT)
+Received: from icebox.esperi.org.uk ([81.187.191.129]:41952 "EHLO
+	mail.esperi.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753288AbbDHWoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 18:44:03 -0400
+In-Reply-To: <20150408215051.GA25326@electric-eye.fr.zoreil.com> (Francois
+	Romieu's message of "Wed, 8 Apr 2015 23:50:51 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 8 Apr 2015, Francois Romieu stated:
 
-FastOpen requests are not like other regular request sockets.
+> Nix <nix@esperi.org.uk> :
+> [...]
+>> I am sorry to report that I just had a watchdog-triggered autoreboot
+>> during testing of this patch series :( with no log messages of any kind.
+>> looks like the underlying bug is still there, or another bug with the
+>> same symptoms (i.e. some way to crash inside the rx handler). I qwish I
+>> could get some debugging output when this happens!
+>
+> You may add the patch below on top of the current stack. I don't expect
+> much difference. Increasing RX_RING_SIZE could be a different story.
 
-They do not yet use rsk_timer : tcp_fastopen_queue_check()
-simply manually removes one expired request from fastopenq->rskq_rst
-list.
+Will try it tomorrow.
 
-Therefore, tcp_check_req() must not call mod_timer_pending(),
-otherwise we crash because rsk_timer was not initialized.
+> Did you keep netconsole disabled and did you increse via-rhine verbosity
+> level ?
 
-Fixes: fa76ce7328b ("inet: get rid of central tcp/dccp listener timer")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_minisocks.c |   14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+netconsole is active. The verbosity level is default because I didn't
+notice the driver had one to set! I'll push it up and see what happens.
+I don't expect too much: this is, after all, a uniprocessor, and if
+you're stuck in an interrupt handler there's not much it can do...
 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index d7003911c894075c209756a0ce26950a6a31aba4..2088fdcca14140f23aa01f60a1675c116f734a57 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -628,10 +628,16 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 					  LINUX_MIB_TCPACKSKIPPEDSYNRECV,
- 					  &tcp_rsk(req)->last_oow_ack_time) &&
- 
--		    !inet_rtx_syn_ack(sk, req))
--			mod_timer_pending(&req->rsk_timer, jiffies +
--				min(TCP_TIMEOUT_INIT << req->num_timeout,
--				    TCP_RTO_MAX));
-+		    !inet_rtx_syn_ack(sk, req)) {
-+			unsigned long expires = jiffies;
-+
-+			expires += min(TCP_TIMEOUT_INIT << req->num_timeout,
-+				       TCP_RTO_MAX);
-+			if (!fastopen)
-+				mod_timer_pending(&req->rsk_timer, expires);
-+			else
-+				req->rsk_timer.expires = expires;
-+		}
- 		return NULL;
- 	}
- 
+> No shared IRQ ?
+
+None relevant that I can see:
+
+           CPU0
+  0:     692019    XT-PIC  timer
+  2:          0    XT-PIC  cascade
+  4:        314    XT-PIC  serial
+  5:     114062    XT-PIC  adsl
+  7:     329914    XT-PIC  cs5535-clockevt
+  9:     137080    XT-PIC  bdsl
+ 10:       2006    XT-PIC  voip
+ 11:    1546540    XT-PIC  gordianet
+ 12:     724187    XT-PIC  wireless
+ 14:      12313    XT-PIC  pata_cs5536
+ 15:     219702    XT-PIC  ehci_hcd:usb1, ohci_hcd:usb2
+
+The only shared interrupt is usb2, and since that's an
+internal-to-the-case thing that's not plugged in to anything, in effect
+there are none shared at all. (The unplugged interfaces *are* shared --
+the last four of the eight interfaces on the box run 10, 7, 10, 7 -- but
+since only one of those has anything plugged into it, the net effect is
+no sharing.)
+
+My load tests are being performed between the gordianet and wireless
+interfaces, IRQs 11 and 12, which are entirely unshared.
+
+>> However, to give some good news, CPU usage is much lower than before the
+>> patch: si ~10%, rather than ~80% with spikes of full CPU usage:
+>> ksoftirqd's CPU usage is steady at about 3% rather than 40--60% with
+>> spikes to 100%, and some of that will be USB interrupts from the
+>> continuous USB traffic from my entropy key.
+>
+> Huuuuh ? Which entropy key ?
+
+It's a USB device that gives you about 4KiB/s over USB:
+<http://www.entropykey.co.uk/>. No longer manufactured, alas :(
+but as it provides entropy continuously it is a continuous source of
+interrupts. (But from the USB port, obviously.)
+
+-- 
+NULL && (void)
