@@ -1,70 +1,199 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v3 3/4] mpls: Per-device enabling of packet input
-Date: Wed, 08 Apr 2015 09:44:31 -0500
-Message-ID: <877ftmel2o.fsf@x220.int.ebiederm.org>
-References: <1426866170-28739-1-git-send-email-rshearma@brocade.com>
-	<1427739356-28113-1-git-send-email-rshearma@brocade.com>
-	<1427739356-28113-4-git-send-email-rshearma@brocade.com>
-	<877ftnkh1u.fsf@x220.int.ebiederm.org> <55253B61.3000809@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "davem\@davemloft.net" <davem@davemloft.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 03/11] net/mlx5_core: Virtually extend work/completion queue buffers by one page
+Date: Wed,  8 Apr 2015 17:51:17 +0300
+Message-ID: <1428504685-8945-4-git-send-email-amirv@mellanox.com>
+References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:55096 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754148AbbDHOsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 10:48:36 -0400
-In-Reply-To: <55253B61.3000809@brocade.com> (Robert Shearman's message of
-	"Wed, 8 Apr 2015 15:29:53 +0100")
+Received: from ns1327.ztomy.com ([193.47.165.129]:36574 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754076AbbDHOv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Apr 2015 10:51:57 -0400
+In-Reply-To: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+From: Achiad Shochat <achiad@mellanox.com>
 
-> On 07/04/15 18:02, Eric W. Biederman wrote:
->> Robert Shearman <rshearma@brocade.com> writes:
->>
->>> An MPLS network is a single trust domain where the edges must be in
->>> control of what labels make their way into the core. The simplest way
->>> of ensuring for the edge device to always impose the labels, and not
->>> allow forward labeled traffic from untrusted neighbours. This is
->>> achieved by allowing a per-device configuration of whether MPLS
->>> traffic input from that interface should be processed or not.
->>>
->>> To be secure by default, MPLS is now intially disabled on all
->>> interfaces (except the loopback) until explicitly enabled and no
->>> global option is provided to change the default. Whilst this differs
->>> from other protocols (e.g. IPv6), network operators are used to
->>> explicitly enabling MPLS forwarding on interfaces, and with the number
->>> of links to the MPLS core typically fairly low this doesn't present
->>> too much of a burden on operators.
->>
->> This really could use breaking up into two patches.
->>
->> 1 patch that implements mpls_add_dev,
->> and a second patch that uses the struct mpls_dev to implement
->> the input bit.
->
-> Sure, I'll do that.
->
->> As it stands we are currently allowing mpls attributes on devices that
->> we do not support the transport of mpls over.  And simply not being able
->> to find an mpls_dev would be a faster was to discard packets on those
->> devices.
->
-> Note that this will change the semantics, since currently we allow MPLS packets
-> to be input on device types other than ethernet and loopback, whereas with this
-> change they won't by default and won't be able to enable it. If that's what you
-> intended and it's desirable then I'll proceed with that.
+- Direct buf allocation will be allocated via mlx5_buf_alloc_direct.
+- Add and export mlx5_buf_alloc_pages to be used by mlx5_buf_alloc as before.
+- Add virtual_extension parameter to be used to request to virtually extended
+  buffer pages for cyclic usage, to avoid handling wqe wrap around the buffer.
 
-Yes.  For device types where we haven't figured out how to support MPLS
-yet we should just have reception of MPLS packets disabled.
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c | 126 ++++++++++++++----------
+ include/linux/mlx5/driver.h                     |   2 +
+ 2 files changed, 76 insertions(+), 52 deletions(-)
 
->> Naming the attribute input clears up all of the semantic issues that I
->> had with the previous version of this patch.
->
-> Thanks for confirming that.
-
-Eric
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+index ac0f7bf..ffda222 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
+@@ -47,70 +47,92 @@
+  * multiple pages, so we don't require too much contiguous memory.
+  */
+ 
+-int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
+-		   struct mlx5_buf *buf)
++static int mlx5_buf_alloc_direct(struct mlx5_core_dev *dev, int size,
++				 struct mlx5_buf *buf)
+ {
+ 	dma_addr_t t;
+ 
+-	buf->size = size;
+-	if (size <= max_direct) {
+-		buf->nbufs        = 1;
+-		buf->npages       = 1;
+-		buf->page_shift   = (u8)get_order(size) + PAGE_SHIFT;
+-		buf->direct.buf   = dma_zalloc_coherent(&dev->pdev->dev,
+-							size, &t, GFP_KERNEL);
+-		if (!buf->direct.buf)
+-			return -ENOMEM;
+-
+-		buf->direct.map = t;
+-
+-		while (t & ((1 << buf->page_shift) - 1)) {
+-			--buf->page_shift;
+-			buf->npages *= 2;
+-		}
+-	} else {
+-		int i;
+-
+-		buf->direct.buf  = NULL;
+-		buf->nbufs       = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+-		buf->npages      = buf->nbufs;
+-		buf->page_shift  = PAGE_SHIFT;
+-		buf->page_list   = kcalloc(buf->nbufs, sizeof(*buf->page_list),
+-					   GFP_KERNEL);
+-		if (!buf->page_list)
+-			return -ENOMEM;
+-
+-		for (i = 0; i < buf->nbufs; i++) {
+-			buf->page_list[i].buf =
+-				dma_zalloc_coherent(&dev->pdev->dev, PAGE_SIZE,
+-						    &t, GFP_KERNEL);
+-			if (!buf->page_list[i].buf)
+-				goto err_free;
+-
+-			buf->page_list[i].map = t;
+-		}
+-
+-		if (BITS_PER_LONG == 64) {
+-			struct page **pages;
+-			pages = kmalloc(sizeof(*pages) * buf->nbufs, GFP_KERNEL);
+-			if (!pages)
+-				goto err_free;
+-			for (i = 0; i < buf->nbufs; i++)
+-				pages[i] = virt_to_page(buf->page_list[i].buf);
+-			buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP, PAGE_KERNEL);
+-			kfree(pages);
+-			if (!buf->direct.buf)
+-				goto err_free;
+-		}
++	buf->size         = size;
++	buf->nbufs        = 1;
++	buf->npages       = 1;
++	buf->page_shift   = (u8)get_order(size) + PAGE_SHIFT;
++	buf->direct.buf   = dma_zalloc_coherent(&dev->pdev->dev,
++						size, &t, GFP_KERNEL);
++	if (!buf->direct.buf)
++		return -ENOMEM;
++
++	buf->direct.map = t;
++
++	while (t & ((1 << buf->page_shift) - 1)) {
++		--buf->page_shift;
++		buf->npages *= 2;
+ 	}
+ 
+ 	return 0;
++}
++
++int mlx5_buf_alloc_pages(struct mlx5_core_dev *dev, int size,
++			 int virtual_extension, struct mlx5_buf *buf)
++{
++	dma_addr_t t;
++	int i;
++
++	buf->size        = size;
++	buf->direct.buf  = NULL;
++	buf->nbufs       = (size + PAGE_SIZE - 1) / PAGE_SIZE;
++	buf->npages      = buf->nbufs;
++	buf->page_shift  = PAGE_SHIFT;
++	buf->page_list   = kcalloc(buf->nbufs, sizeof(*buf->page_list),
++				   GFP_KERNEL);
++	if (!buf->page_list)
++		return -ENOMEM;
++
++	for (i = 0; i < buf->nbufs; i++) {
++		buf->page_list[i].buf =
++			dma_zalloc_coherent(&dev->pdev->dev, PAGE_SIZE,
++					    &t, GFP_KERNEL);
++		if (!buf->page_list[i].buf)
++			goto err_free;
++
++		buf->page_list[i].map = t;
++	}
++
++	if (BITS_PER_LONG == 64) {
++		struct page **pages;
++		int npages = buf->nbufs + (virtual_extension ? 1 : 0);
++
++		pages = kcalloc(npages, sizeof(*pages), GFP_KERNEL);
++		if (!pages)
++			goto err_free;
++
++		for (i = 0; i < buf->nbufs; i++)
++			pages[i] = virt_to_page(buf->page_list[i].buf);
++
++		if (virtual_extension)
++			pages[buf->nbufs] = pages[0];
++
++		buf->direct.buf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
++		kfree(pages);
++		if (!buf->direct.buf)
++			goto err_free;
++	}
++	return 0;
+ 
+ err_free:
+ 	mlx5_buf_free(dev, buf);
+ 
+ 	return -ENOMEM;
+ }
++EXPORT_SYMBOL_GPL(mlx5_buf_alloc_pages);
++
++int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
++		   struct mlx5_buf *buf)
++{
++	if (size <= max_direct)
++		return mlx5_buf_alloc_direct(dev, size, buf);
++
++	return mlx5_buf_alloc_pages(dev, size, 0, buf);
++}
+ EXPORT_SYMBOL_GPL(mlx5_buf_alloc);
+ 
+ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf)
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index fc45233..0c93745 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -676,6 +676,8 @@ void mlx5_start_health_poll(struct mlx5_core_dev *dev);
+ void mlx5_stop_health_poll(struct mlx5_core_dev *dev);
+ int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
+ 		   struct mlx5_buf *buf);
++int mlx5_buf_alloc_pages(struct mlx5_core_dev *dev, int size,
++			 int virtual_extension, struct mlx5_buf *buf);
+ void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf);
+ struct mlx5_cmd_mailbox *mlx5_alloc_cmd_mailbox_chain(struct mlx5_core_dev *dev,
+ 						      gfp_t flags, int npages);
+-- 
+1.9.3
