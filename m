@@ -1,74 +1,58 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 03/11] net/mlx5_core: Virtually extend
- work/completion queue buffers by one page
-Date: Wed, 8 Apr 2015 20:44:10 +0300
-Message-ID: <CAPcc5PgqS18h4zG+KrkXy3o3DSsppJKDkprUU4zCALXzEvimoA@mail.gmail.com>
-References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
-	<1428504685-8945-4-git-send-email-amirv@mellanox.com>
-	<20150408.122520.1452310225826617365.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 01/14] parport: return value of attach and
+ parport_register_driver
+Date: Wed, 8 Apr 2015 19:56:00 +0200
+Message-ID: <20150408175600.GI18177@1wt.eu>
+References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <1428492040-5581-2-git-send-email-sudipm.mukherjee@gmail.com>
+ <20150408113832.GH10964@mwanda> <20150408115010.GA11153@sudip-PC>
+ <20150408122737.GK10964@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>, netdev <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, achiad@mellanox.com,
-	Ido Shamay <idos@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:35493 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753994AbbDHRoM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 13:44:12 -0400
-Received: by lbbuc2 with SMTP id uc2so69327106lbb.2
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 10:44:10 -0700 (PDT)
-In-Reply-To: <20150408.122520.1452310225826617365.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Rodolfo Giometti <giometti@enneenne.com>,
+ linux-scsi@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+ Wolfram Sang <wsa@the-dreams.de>, Takashi Iwai <tiwai@suse.de>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-spi@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ "James E.J. Bottomley" <JBottomley@parallels.com>,
+ Jaroslav Kysela <perex@perex.cz>, Mark Brown <broonie@kernel.org>,
+ linux-i2c@vger.kernel.org, netdev@vger.kernel.org, alsa-devel@alsa-project.org,
+ Sudip Mukherjee <sudipm.mukherjee@gmail.com>, Jean Delvare <jdelvare@suse.de>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <20150408122737.GK10964@mwanda>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 8, 2015 at 7:25 PM, David Miller <davem@davemloft.net> wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Wed,  8 Apr 2015 17:51:17 +0300
->
->> +     for (i = 0; i < buf->nbufs; i++) {
->> +             buf->page_list[i].buf =
->> +                     dma_zalloc_coherent(&dev->pdev->dev, PAGE_SIZE,
->> +                                         &t, GFP_KERNEL);
->> +             if (!buf->page_list[i].buf)
->> +                     goto err_free;
->> +
->> +             buf->page_list[i].map = t;
->> +     }
->> +
->> +     if (BITS_PER_LONG == 64) {
->> +             struct page **pages;
->> +             int npages = buf->nbufs + (virtual_extension ? 1 : 0);
->> +
->> +             pages = kcalloc(npages, sizeof(*pages), GFP_KERNEL);
->> +             if (!pages)
->> +                     goto err_free;
->> +
->> +             for (i = 0; i < buf->nbufs; i++)
->> +                     pages[i] = virt_to_page(buf->page_list[i].buf);
->> +
->> +             if (virtual_extension)
->> +                     pages[buf->nbufs] = pages[0];
->> +
->> +             buf->direct.buf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
->
-> I'm sorry but I'm going to require that you fix this mis-use of the DMA
-> API first.
->
-> You absolutely cannot vmap() pages backing coherent DMA memory, the
-> memory is mapped in a particular way by dma_*_coherent() and you must
-> therefore only use the virtual address provided to you by that
-> function to access the memory.
+On Wed, Apr 08, 2015 at 03:27:37PM +0300, Dan Carpenter wrote:
+> On Wed, Apr 08, 2015 at 05:20:10PM +0530, Sudip Mukherjee wrote:
+> > On Wed, Apr 08, 2015 at 02:38:32PM +0300, Dan Carpenter wrote:
+> > > 1) We can't apply this patch on its own so this way of breaking up the
+> > > patches doesn't work.
+> > yes, if the first patch is reverted for any reason all the others need
+> > to be reverted also. so then everything in one single patch?
+> 
+> The problem is that patch 1/1 breaks the build.  The rule is that we
+> should be able to apply part of a patch series and nothing breaks.  If
+> we apply the patch series out of order than things break that's our
+> problem, yes.  But if we apply only 1/1 and it breaks, that's a problem
+> with the series.
 
-Right - will be fixed in V1
+Yep, keep in mind that "git bisect" will randomly land in the middle of
+any set of patches during a debugging session and it could very well land
+on this one. If it breaks, that's a real pain for the people trying to
+bisect their bug because suddenly they have to deal with a second bug
+totally different from theirs.
 
-Thanks,
-Amir
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Willy
