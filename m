@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 05/14] spi: lm70llp: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:31 +0530
-Message-ID: <1428492040-5581-6-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 06/14] spi: butterfly: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:32 +0530
+Message-ID: <1428492040-5581-7-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,47 +35,47 @@ required changes to return proper value from its attach function.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/spi/spi-lm70llp.c | 7 ++++---
+ drivers/spi/spi-butterfly.c | 7 ++++---
  1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/spi/spi-lm70llp.c b/drivers/spi/spi-lm70llp.c
-index ba72347..9b0fde1 100644
---- a/drivers/spi/spi-lm70llp.c
-+++ b/drivers/spi/spi-lm70llp.c
-@@ -190,7 +190,7 @@ static u32 lm70_txrx(struct spi_device *spi, unsigned nsecs, u32 word, u8 bits)
- 	return bitbang_txrx_be_cpha0(spi, nsecs, 0, 0, word, bits);
- }
+diff --git a/drivers/spi/spi-butterfly.c b/drivers/spi/spi-butterfly.c
+index 9a95862..7df16c8 100644
+--- a/drivers/spi/spi-butterfly.c
++++ b/drivers/spi/spi-butterfly.c
+@@ -190,7 +190,7 @@ static struct flash_platform_data flash = {
+ /* REVISIT remove this ugly global and its "only one" limitation */
+ static struct butterfly *butterfly;
  
--static void spi_lm70llp_attach(struct parport *p)
-+static int spi_lm70llp_attach(struct parport *p)
+-static void butterfly_attach(struct parport *p)
++static int butterfly_attach(struct parport *p)
  {
  	struct pardevice	*pd;
- 	struct spi_lm70llp	*pp;
-@@ -201,7 +201,7 @@ static void spi_lm70llp_attach(struct parport *p)
- 		printk(KERN_WARNING
- 			"%s: spi_lm70llp instance already loaded. Aborting.\n",
- 			DRVNAME);
+ 	int			status;
+@@ -199,7 +199,7 @@ static void butterfly_attach(struct parport *p)
+ 	struct device		*dev = p->physport->dev;
+ 
+ 	if (butterfly || !dev)
 -		return;
-+		return -EALREADY;
- 	}
++		return -ENODEV;
  
- 	/* TODO:  this just _assumes_ a lm70 is there ... no probe;
-@@ -281,7 +281,7 @@ static void spi_lm70llp_attach(struct parport *p)
- 	pp->spidev_lm70->bits_per_word = 8;
+ 	/* REVISIT:  this just _assumes_ a butterfly is there ... no probe,
+ 	 * and no way to be selective about what it binds to.
+@@ -287,7 +287,7 @@ static void butterfly_attach(struct parport *p)
  
- 	lm70llp = pp;
+ 	pr_info("%s: AVR Butterfly\n", p->name);
+ 	butterfly = pp;
 -	return;
 +	return 0;
  
- out_bitbang_stop:
- 	spi_bitbang_stop(&pp->bitbang);
-@@ -296,6 +296,7 @@ out_free_master:
- 	(void) spi_master_put(master);
- out_fail:
- 	pr_info("%s: spi_lm70llp probe fail, status %d\n", DRVNAME, status);
+ clean2:
+ 	/* turn off VCC */
+@@ -300,6 +300,7 @@ clean0:
+ 	(void) spi_master_put(pp->bitbang.master);
+ done:
+ 	pr_debug("%s: butterfly probe, fail %d\n", p->name, status);
 +	return status;
  }
  
- static void spi_lm70llp_detach(struct parport *p)
+ static void butterfly_detach(struct parport *p)
 -- 
 1.8.1.2
