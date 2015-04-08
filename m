@@ -1,191 +1,124 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: Problem with patch "make nlmsg_end() and genlmsg_end() void"
-Date: Wed, 08 Apr 2015 13:03:22 +0100
-Message-ID: <1428494602.9010.11.camel@infradead.org>
-References: <E586D25A-9DAF-4535-A282-120F0C6EAE19@holtmann.org>
-	 <CAE4R7bCWSM+SyDR830N1GmukyaMYE_DT0fd4L_x6Py5PEqMe_A@mail.gmail.com>
-	 <01A82AB9-6ABD-4AD0-9CBC-628091569DB0@holtmann.org>
-	 <20150118.233722.226468667930444145.davem@davemloft.net>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH] iputils ping: add (non-raw) ICMP socket support
+Date: Wed, 08 Apr 2015 21:05:34 +0900
+Message-ID: <5525198E.7030509@miraclelinux.com>
+References: <2142872.6QHf5ZAfZz@msg-id> <1749676.NUxJ1eyH1x@msg-id> <5524F2EB.4000908@miraclelinux.com> <5093199.DdecKAOFEl@msg-id>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha-1"; protocol="application/x-pkcs7-signature";
-	boundary="=-SIcyPAEcezkA6FJRMkzg"
-Cc: marcel@holtmann.org, sfeldma@gmail.com, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, teg@jklm.no
-To: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Vasiliy Kulikov <segooon@gmail.com>,
+	Tyler Hicks <tyhicks@canonical.com>
+To: Salvatore Mesoraca <s.mesoraca16@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46640 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265AbbDHMD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 08:03:27 -0400
-In-Reply-To: <20150118.233722.226468667930444145.davem@davemloft.net>
+Received: from exprod7og115.obsmtp.com ([64.18.2.217]:35041 "HELO
+	exprod7og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751344AbbDHMFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 08:05:40 -0400
+Received: by paboj16 with SMTP id oj16so112972202pab.0
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 05:05:38 -0700 (PDT)
+In-Reply-To: <5093199.DdecKAOFEl@msg-id>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-SIcyPAEcezkA6FJRMkzg
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2015-01-18 at 23:37 -0500, David Miller wrote:
-> From: Marcel Holtmann <marcel@holtmann.org>
-> Date: Sun, 18 Jan 2015 18:10:46 -0800
+Salvatore Mesoraca wrote:
+> In data mercoled=EC 8 aprile 2015 18:20:43, YOSHIFUJI Hideaki ha scri=
+tto:
+>> Salvatore Mesoraca wrote:
+>>> YOSHIFUJI Hideaki wrote:
+>>>> Hi,
+>>>
+>>> Hi,
+>>> thank you for thaking to the time to answer
+>>>
+>>>> Salvatore Mesoraca wrote:
+>>>>> From: Vasiliy Kulikov <segooon@gmail.com>
+>>>>>
+>>>>> This patch adds non-raw IPPROTO_ICMP socket kind support that was=
+ added
+>>>>> to the Linux 3.0.  The patch is backward-compatible: if ICMP sock=
+et kind
+>>>>> is not enabled in the kernel (either in case of an old kernel or
+>>>>> explicitly disabled via /proc/sys/net/ipv4/ping_group_range), pin=
+g uses
+>>>>> old privileged raw sockets as a fallback.
+>>>>>
+>>>>> This patch is going to be included in Ubuntu 15.10 and it is alre=
+ady
+>>>>> included in Gentoo stable tree (at the moment of the writing ping=
+ has
+>>>>> CAP_NET_RAW still enabled by default) it is also included in Open=
+Wall
+>>>>> since 2011.
+>>>>> This patch also tries to sneak in a fix for a missing colon in a =
+printf.
+>>>>> I've tested it on Linux 3.17.7 and it worked without issues.
+>>>>
+>>>> Please do not mix changes in a single commit.
+>>>> Thanks.
+>>>
+>>> I had some doubt about that additional change (it is so small that =
+I don't
+>>> think that anyone will ever make a separate patch for it), but it w=
+as
+>>> present in the original patch and I decided to add it anyway and wa=
+it for
+>>> feedback. I'll delete it.
+>>> Thank you again for you comment.
+>>
+>> What I meant was changes not for supporting non-raw icmp socket
+>> should be formed separately.  It seems that the patch try to
+>> change other things as well, in receive_error_msg() for example.
+>>
+>> --yoshfuji
 >=20
-> > Hi Scott,
-> >=20
-> >> This patch needs to be reverted ASAP.  git bisect landed me here also;
-> >> my processes are getting the OOM msgs.  What testing was done?
-> >>=20
-> >> Seems someone does care that nlmsg_end() returns skb->len.
-> >=20
-> > I still wonder how this affects userspace. I have not figured that
-> > out. Something goes wrong pretty badly somewhere.
-> >=20
-> > Have you tried the small diff with the two locations that were
-> > problematic for me?
+> Thank you for the clarification.
+> If I understood correctly you were referring to these lines:
+>> @@ -652,9 +687,18 @@ int receive_error_msg()
+>>             goto out;
+>>         }
+>>
+>> -       acknowledge(ntohs(icmph.un.echo.sequence));
+>> +       error_pkt =3D (e->ee_type !=3D ICMP_REDIRECT &&
+>> +                e->ee_type !=3D ICMP_SOURCE_QUENCH);
+>> +       if (error_pkt) {
+>> +           acknowledge(ntohs(icmph.un.echo.sequence));
+>> +           net_errors++;
+>> +           nerrors++;
+>> +       }
+>> +       else {
+>> +           saved_errno =3D 0;
+>> +       }
 >=20
-> There were a lot more cases not converted properly, I hope the
-> patch below gets them all.
 >=20
-> Johannes, this was either not tested or tested very poorly, please
-> don't submit changes like this.  Even neighbour entry and route
-> dumping were hosed.
->=20
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> [PATCH] netlink: Fix bugs in nlmsg_end() conversions.
->=20
-> Commit 053c095a82cf ("netlink: make nlmsg_end() and genlmsg_end()
-> void") didn't catch all of the cases where callers were breaking out
-> on the return value being equal to zero, which they no longer should
-> when zero means success.
->=20
-> Fix all such cases.
+> In my understanding these changes are required to support non-raw ICM=
+P sockets=20
+> because they cannot use setsockopt(icmp_sock, SOL_RAW, ICMP_FILTER...=
+) and=20
+> they need to get rid of ICMP_REDIRECT and ICMP_SOURCE_QUENCH in a dif=
+ferent=20
+> way. IMHO this change alone does not make much sense.
 
-I'm not sure if this is entirely fixed. In Fedora 22 (4.0.0-rc5-git4)
-I'm occasionally seeing glibc deadlock in __check_pf() on a netlink
-recvmsg(), here:
-https://sourceware.org/git/?p=3Dglibc.git;a=3Dblob;f=3Dsysdeps/unix/sysv/li=
-nux/check_pf.c;h=3D162606d7;hb=3Dglibc-2.21#l166
+OK, I understand.
 
-As I understand it, this shouldn't happen. Even if messages are
-dropped (which surely shouldn't happen as often as I'm seeing this),
-glibc should get ENOBUFS from the recvmsg() call.
 
-https://bugzilla.redhat.com/show_bug.cgi?id=3D1209433
+> Anyway if you think that this and other changes should be in differen=
+t commits=20
+> I'll post a split PATCHv2.
 
-I haven't bisected and proved that it *was* this commit which
-introduced the problem, as it only happens after a day or two of
-running Evolution and I haven't managed to trigger it more reliably.
+No, please just exclude this from first patch:
+-			printf("From %s icmp_seq=3D%u ", pr_addr(sin->sin_addr.s_addr), nto=
+hs(icmph.un.echo.sequence));
++			printf("From %s: icmp_seq=3D%u ", pr_addr(sin->sin_addr.s_addr), nt=
+ohs(icmph.un.echo.sequence));
+
+
+And, would you provide patch for ping6 as well?
+
+Thank you.
 
 --=20
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
-
---=-SIcyPAEcezkA6FJRMkzg
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIISxDCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIGQjCCBSqg
-AwIBAgIDCdkyMA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTQwNTA0MTczMDIyWhcNMTUwNTA0MjM0MTAxWjBdMRkwFwYDVQQNExAzODNCMTVkSHFQSUR0cDZO
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy7K+t+REIdZGFUfgR8Io
-QrJ/VLZil9I00JcwqTo8BiGy1dqSIB2y923siya5SDKMh1YurtCPsX96cNzwPmmN2cs0MKeVPQWz
-iQhHk3uKcB6LvvS7pzTahRWMRmTyW3CH+RphRM9plvyClY23GEeEnpBnGz4GaJJiPcJjGgzyZ/tI
-q473pOlSrDPZnZk43vt/5CJN46nIZOZ2I+PzlgINI+EbiwsXVn3VohHB7nVTwGaRLk5oywGt8ZT7
-tDdxn3BQ3inO1sr5MtkV1o2cHlenIC8mlU8nL/mrqqVve7Vib1YQUycW+Pj4CBYm4FTeuctAvNzK
-U/daeBclOZ8ofgQe2wIDAQABo4IC2TCCAtUwCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBRAjCSCV70BpLBeXge5DXi+mPhHTTAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIIBTAYDVR0gBIIBQzCCAT8wggE7BgsrBgEEAYG1NwECAzCCASowLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0
-YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdh
-cyBpc3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRz
-IG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRl
-ZCBwdXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMu
-MDYGA1UdHwQvMC0wK6ApoCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmww
-gY4GCCsGAQUFBwEBBIGBMH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9z
-dWIvY2xhc3MxL2NsaWVudC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20v
-Y2VydHMvc3ViLmNsYXNzMS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3Rh
-cnRzc2wuY29tLzANBgkqhkiG9w0BAQUFAAOCAQEAWS2KNN7O3vZVtNHXVqgbmijeptKwt+8b6yiF
-wT3kJoywInPl5U+OeKRZfQKTHghM4Ohof6lF244ZMxhir/xp7l/zkZ/BUbxLwp6kIL27Gi5pgP4D
-KLnTZheQL9N5Yi/vMONxMWcpcW+ZNv5hnDCfEsfVcLXC8sNLPjx2ezfMIhSSPwBuJpmOun70te4E
-P0YBqjSalPfvc5fC5KgaYtqTDFwo9Mw25X5HHDC0r6BK5aNrF1nD/xYTX7cdvZZWl7cUApr4PCrn
-uI2DEn7OWQ/rY407ytV1c5pjvmuv/IT/ZUb/kXV6Q47UvrJp2Ifi2VhsBcnHHasKavjtRCmpDsGM
-rTCCBkIwggUqoAMCAQICAwnZMjANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNV
-BAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNp
-Z25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xp
-ZW50IENBMB4XDTE0MDUwNDE3MzAyMloXDTE1MDUwNDIzNDEwMVowXTEZMBcGA1UEDRMQMzgzQjE1
-ZEhxUElEdHA2TjEcMBoGA1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYT
-ZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMuyvrfk
-RCHWRhVH4EfCKEKyf1S2YpfSNNCXMKk6PAYhstXakiAdsvdt7IsmuUgyjIdWLq7Qj7F/enDc8D5p
-jdnLNDCnlT0Fs4kIR5N7inAei770u6c02oUVjEZk8ltwh/kaYUTPaZb8gpWNtxhHhJ6QZxs+BmiS
-Yj3CYxoM8mf7SKuO96TpUqwz2Z2ZON77f+QiTeOpyGTmdiPj85YCDSPhG4sLF1Z91aIRwe51U8Bm
-kS5OaMsBrfGU+7Q3cZ9wUN4pztbK+TLZFdaNnB5XpyAvJpVPJy/5q6qlb3u1Ym9WEFMnFvj4+AgW
-JuBU3rnLQLzcylP3WngXJTmfKH4EHtsCAwEAAaOCAtkwggLVMAkGA1UdEwQCMAAwCwYDVR0PBAQD
-AgSwMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQUQIwkgle9AaSwXl4H
-uQ14vpj4R00wHwYDVR0jBBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdt
-dzJAaW5mcmFkZWFkLm9yZzCCAUwGA1UdIASCAUMwggE/MIIBOwYLKwYBBAGBtTcBAgMwggEqMC4G
-CCsGAQUFBwIBFiJodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMIH3BggrBgEFBQcC
-AjCB6jAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0
-aWZpY2F0ZSB3YXMgaXNzdWVkIGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJl
-cXVpcmVtZW50cyBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0
-aGUgaW50ZW5kZWQgcHVycG9zZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9i
-bGlnYXRpb25zLjA2BgNVHR8ELzAtMCugKaAnhiVodHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1
-MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkGCCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFy
-dHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2EwQgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3Rh
-cnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xpZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcNAQEFBQADggEBAFktijTezt72VbTR11aoG5oo
-3qbSsLfvG+sohcE95CaMsCJz5eVPjnikWX0Ckx4ITODoaH+pRduOGTMYYq/8ae5f85GfwVG8S8Ke
-pCC9uxouaYD+Ayi502YXkC/TeWIv7zDjcTFnKXFvmTb+YZwwnxLH1XC1wvLDSz48dns3zCIUkj8A
-biaZjrp+9LXuBD9GAao0mpT373OXwuSoGmLakwxcKPTMNuV+RxwwtK+gSuWjaxdZw/8WE1+3Hb2W
-Vpe3FAKa+Dwq57iNgxJ+zlkP62ONO8rVdXOaY75rr/yE/2VG/5F1ekOO1L6yadiH4tlYbAXJxx2r
-Cmr47UQpqQ7BjK0xggNvMIIDawIBATCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2
-BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ
-2TIwCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUx
-DxcNMTUwNDA4MTIwMzIyWjAjBgkqhkiG9w0BCQQxFgQUdtSf0ySr41hjKwVQcVfg+D0kEpcwgaUG
-CSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4x
-KzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0
-YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMJ2TIwgacGCyqG
-SIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjEr
-MCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3Rh
-cnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0ECAwnZMjANBgkqhkiG
-9w0BAQEFAASCAQDIAXhPT+xL3RyoC+7EWGlhMQK9stQebisbOMzkwS3pyvEaFj5EyeXIZprwTsBR
-Ea9CKzqklh8EbSV34hUrPIElcxqcEZpRZ+J11vw59hw5wdAnix/wgKjAy17FC+op6w0Jy6LCLzye
-QaL/nh8f4H7MtA8OSO8EMuIzs2LjfNmnXevTA6EvBc3mz33Uu1zpX7v3MVqM8J2DSvmCyMKYrE5z
-CvYdvOMSzrxCj9sHqjAo2saUMToRbCa3N2gOR0OmtDlEDIO9oBX4zSSa82OfXRiZSyr/nnDfvPwS
-r/vzfMEyRjcrCX6T5ghnpcm2v9OJGJ+VdD+SI0A/DkdoTMGEeL/9AAAAAAAA
-
-
---=-SIcyPAEcezkA6FJRMkzg--
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
