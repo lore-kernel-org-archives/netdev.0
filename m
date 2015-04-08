@@ -1,45 +1,32 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: udp_tunnel: Pass UDP socket down through udp_tunnel{,
- 6}_xmit_skb().
-Date: Wed, 8 Apr 2015 21:48:05 +0300
-Message-ID: <20150408184805.GA12952@mwanda>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] stmmac: Add an optional register interface clock
+Date: Wed, 08 Apr 2015 14:58:38 -0400 (EDT)
+Message-ID: <20150408.145838.1115385506972524636.davem@davemloft.net>
+References: <1428439125-26023-1-git-send-email-abrestic@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:24754 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753192AbbDHSsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 14:48:24 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	james.hartley-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org
+To: abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1428439125-26023-1-git-send-email-abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello David Miller,
+From: Andrew Bresticker <abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Date: Tue,  7 Apr 2015 13:38:45 -0700
 
-The patch 79b16aadea32: "udp_tunnel: Pass UDP socket down through
-udp_tunnel{, 6}_xmit_skb()." from Apr 5, 2015, leads to the following
-static checker warning:
+> The DWMAC block on certain SoCs (such as IMG Pistachio) have a second
+> clock which must be enabled in order to access the peripheral's
+> register interface, so add support for requesting and enabling an
+> optional "pclk".
+> 
+> Signed-off-by: Andrew Bresticker <abrestic-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 
-	net/ipv4/ip_tunnel.c:785 ip_tunnel_xmit()
-	error: NULL dereference inside function.
-
-net/ipv4/ip_tunnel.c
-   781                  kfree_skb(skb);
-   782                  return;
-   783          }
-   784  
-   785          err = iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, protocol,
-                                    ^^^^
-This doesn't work.  It will Oops in iptunnel_xmit() when it does
-sock_net(sk).
-
-   786                              tos, ttl, df, !net_eq(tunnel->net, dev_net(dev)));
-   787          iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-   788  
-   789          return;
-
-regards,
-dan carpenter
+Looks good, applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
