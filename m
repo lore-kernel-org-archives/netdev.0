@@ -1,58 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs
- consistent
-Date: Wed, 8 Apr 2015 15:34:15 +0200
-Message-ID: <20150408133415.GD2057@nanopsycho.orion>
-References: <5524B339.1070403@plumgrid.com>
- <5524E878.7070803@iogearbox.net>
- <20150408090520.GA2057@nanopsycho.orion>
- <552508E8.5050203@iogearbox.net>
- <55250D92.6030702@iogearbox.net>
- <55251556.4040900@mojatatu.com>
- <55251F9F.2050508@iogearbox.net>
- <55252611.3040109@mojatatu.com>
- <20150408131417.GA28656@casper.infradead.org>
- <55252CDD.8020503@iogearbox.net>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: Re: [PATCH 02/14] ALSA: portman2x4: return proper error values from
+ attach
+Date: Wed, 8 Apr 2015 19:10:25 +0530
+Message-ID: <20150408134025.GA12139@sudip-PC>
+References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <1428492040-5581-3-git-send-email-sudipm.mukherjee@gmail.com>
+ <55252E09.2060600@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:38555 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753562AbbDHNeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 09:34:18 -0400
-Received: by wiun10 with SMTP id n10so58611122wiu.1
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 06:34:17 -0700 (PDT)
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jean Delvare <jdelvare@suse.de>,
+	Wolfram Sang <wsa@the-dreams.de>,
+	Rodolfo Giometti <giometti@enneenne.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Mark Brown <broonie@kernel.org>,
+	Willy Tarreau <willy@meta-x.org>,
+	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>,
+	linux-kernel@vger.kernel.org, linux-i2c@vger.kernel.org,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-spi@vger.kernel.org, devel@driverdev.osuosl.org,
+	alsa-devel@alsa-project.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <55252CDD.8020503@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <55252E09.2060600@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Apr 08, 2015 at 03:27:57PM CEST, daniel@iogearbox.net wrote:
->On 04/08/2015 03:14 PM, Thomas Graf wrote:
->>On 04/08/15 at 08:58am, Jamal Hadi Salim wrote:
->>>On 04/08/15 08:31, Daniel Borkmann wrote:
->>>>That means the tc's cls_u32
->>>>sample selectors a la ip, ip6, udp, tcp, icmp don't work on ingress
->>>>either,so in u32 speak you would need to do that by hand, but that
->>>>doesn't work as you don't have the Ethernet type context available.
->>>>Am I missing something? :)
->>>
->>>u32 works fine. I am sure i have tests which run these on both
->>>in/egress.
->>
->>His point is that an u32 filter written for egress won't work at
->>ingress because the offsets are different. This has always been the
->>case and we can't break this behaviour either. I'm sure you have
->>these weird negative offset u32 egress filters in your repertoire
->>as well ;-)
->
->Okay, you can use negative offsets in cls_u32 to accomodate for
->that; so yeah, you'd need to implement your filter differently
->on ingress. That should also work on cls_bpf et al.
+On Wed, Apr 08, 2015 at 04:32:57PM +0300, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 4/8/2015 2:20 PM, Sudip Mukherjee wrote:
+> 
+> >now that we are monitoring the return value from attach, make the
+> 
+>    So you've first changed the method prototype and follow up with
+> the changes to the actual implementations? That's backward. I'm
+> afraid such changes can't be done piecemeal.
+Dan Carpenter has exlained me the problem with this aproach. I have
+already sent a v2 which doesnot break anything and if everyone approves
+that way then we can change one driver at a time and nothing will
+break.
 
-That is certainly doable. But is that what we want? I don't think so. I
-would like to have the same for in/eg.
+regards
+sudip
+
+> 
