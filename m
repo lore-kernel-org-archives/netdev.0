@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 08/14] [SCSI] imm: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:34 +0530
-Message-ID: <1428492040-5581-9-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 07/14] [SCSI] ppa: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:33 +0530
+Message-ID: <1428492040-5581-8-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,24 +35,24 @@ required changes to return proper value from its attach function.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/scsi/imm.c | 4 ++--
+ drivers/scsi/ppa.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/scsi/imm.c b/drivers/scsi/imm.c
-index 89a8266..e26330a 100644
---- a/drivers/scsi/imm.c
-+++ b/drivers/scsi/imm.c
-@@ -1225,9 +1225,9 @@ out:
+diff --git a/drivers/scsi/ppa.c b/drivers/scsi/ppa.c
+index 1db8b26..48898ec 100644
+--- a/drivers/scsi/ppa.c
++++ b/drivers/scsi/ppa.c
+@@ -1090,9 +1090,9 @@ out:
  	return err;
  }
  
--static void imm_attach(struct parport *pb)
-+static int imm_attach(struct parport *pb)
+-static void ppa_attach(struct parport *pb)
++static int ppa_attach(struct parport *pb)
  {
--	__imm_attach(pb);
-+	return __imm_attach(pb);
+-	__ppa_attach(pb);
++	return __ppa_attach(pb);
  }
  
- static void imm_detach(struct parport *pb)
+ static void ppa_detach(struct parport *pb)
 -- 
 1.8.1.2
