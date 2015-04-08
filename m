@@ -1,87 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 02/14] ALSA: portman2x4: return proper error values from
- attach
-Date: Wed, 08 Apr 2015 16:32:57 +0300
-Message-ID: <55252E09.2060600@cogentembedded.com>
-References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com> <1428492040-5581-3-git-send-email-sudipm.mukherjee@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs
+ consistent
+Date: Wed, 8 Apr 2015 15:34:15 +0200
+Message-ID: <20150408133415.GD2057@nanopsycho.orion>
+References: <5524B339.1070403@plumgrid.com>
+ <5524E878.7070803@iogearbox.net>
+ <20150408090520.GA2057@nanopsycho.orion>
+ <552508E8.5050203@iogearbox.net>
+ <55250D92.6030702@iogearbox.net>
+ <55251556.4040900@mojatatu.com>
+ <55251F9F.2050508@iogearbox.net>
+ <55252611.3040109@mojatatu.com>
+ <20150408131417.GA28656@casper.infradead.org>
+ <55252CDD.8020503@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
-To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Jean Delvare <jdelvare-l3A5Bk7waGM@public.gmane.org>,
-	Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>,
-	Rodolfo Giometti <giometti-AVVDYK/kqiJWk0Htik3J/w@public.gmane.org>,
-	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Willy Tarreau <willy-859RlTSWH48dnm+yROfE0A@public.gmane.org>,
-	Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>, Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1428492040-5581-3-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:38555 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753562AbbDHNeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 09:34:18 -0400
+Received: by wiun10 with SMTP id n10so58611122wiu.1
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 06:34:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <55252CDD.8020503@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 4/8/2015 2:20 PM, Sudip Mukherjee wrote:
-
-> now that we are monitoring the return value from attach, make the
-
-    So you've first changed the method prototype and follow up with the 
-changes to the actual implementations? That's backward. I'm afraid such 
-changes can't be done piecemeal.
-
-> required changes to return proper value from its attach function.
-
-> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
-> ---
->   sound/drivers/portman2x4.c | 15 ++++++++++-----
->   1 file changed, 10 insertions(+), 5 deletions(-)
-
-> diff --git a/sound/drivers/portman2x4.c b/sound/drivers/portman2x4.c
-> index 464385a..866adbb 100644
-> --- a/sound/drivers/portman2x4.c
-> +++ b/sound/drivers/portman2x4.c
-> @@ -672,32 +672,37 @@ static int snd_portman_probe_port(struct parport *p)
->   	return res ? -EIO : 0;
->   }
+Wed, Apr 08, 2015 at 03:27:57PM CEST, daniel@iogearbox.net wrote:
+>On 04/08/2015 03:14 PM, Thomas Graf wrote:
+>>On 04/08/15 at 08:58am, Jamal Hadi Salim wrote:
+>>>On 04/08/15 08:31, Daniel Borkmann wrote:
+>>>>That means the tc's cls_u32
+>>>>sample selectors a la ip, ip6, udp, tcp, icmp don't work on ingress
+>>>>either,so in u32 speak you would need to do that by hand, but that
+>>>>doesn't work as you don't have the Ethernet type context available.
+>>>>Am I missing something? :)
+>>>
+>>>u32 works fine. I am sure i have tests which run these on both
+>>>in/egress.
+>>
+>>His point is that an u32 filter written for egress won't work at
+>>ingress because the offsets are different. This has always been the
+>>case and we can't break this behaviour either. I'm sure you have
+>>these weird negative offset u32 egress filters in your repertoire
+>>as well ;-)
 >
-> -static void snd_portman_attach(struct parport *p)
-> +static int snd_portman_attach(struct parport *p)
->   {
->   	struct platform_device *device;
-> +	int ret;
->
->   	device = platform_device_alloc(PLATFORM_DRIVER, device_count);
->   	if (!device)
-> -		return;
-> +		return -ENOMEM;
->
->   	/* Temporary assignment to forward the parport */
->   	platform_set_drvdata(device, p);
->
-> -	if (platform_device_add(device) < 0) {
-> +	ret = platform_device_add(device);
-> +
+>Okay, you can use negative offsets in cls_u32 to accomodate for
+>that; so yeah, you'd need to implement your filter differently
+>on ingress. That should also work on cls_bpf et al.
 
-    I don't think empty line is needed here.
-
-> +	if (ret < 0) {
->   		platform_device_put(device);
-> -		return;
-> +		return ret;
->   	}
->
-[...]
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-spi" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That is certainly doable. But is that what we want? I don't think so. I
+would like to have the same for in/eg.
