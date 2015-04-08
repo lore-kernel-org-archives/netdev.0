@@ -1,31 +1,25 @@
-From: Adrian Chadd <adrian-h+KGxgPPiopAfugRpC6u6w@public.gmane.org>
-Subject: Re: [ath9k-devel] ath9k channel switch
-Date: Wed, 8 Apr 2015 12:19:22 -0700
-Message-ID: <CAJ-VmokVe0dO1kHh8u0ok3G6V70cj-i8qeKHyMRpnWeDEK4w9Q@mail.gmail.com>
-References: <CAGrUaU24vCH6+GpAtBCNiGwdT4_-FNNLDq=_s5zhSPBOp8bbmg@mail.gmail.com>
-	<21764.61660.411242.223378@gargle.gargle.HOWL>
-	<CAGrUaU1D_tO9+HrH_mEa0U13xTCuOijyvcn2_mi8cUgkkPeOuw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] selinux: add some missing nlmsg commands
+Date: Wed, 08 Apr 2015 15:19:39 -0400 (EDT)
+Message-ID: <20150408.151939.1247487755630687749.davem@davemloft.net>
+References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sujith Manoharan <sujith-TPRpbcbO+rZAfugRpC6u6w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ath9k-devel <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	ath9k-devel <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-To: Saurabh Pal <saurabh6321-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGrUaU1D_tO9+HrH_mEa0U13xTCuOijyvcn2_mi8cUgkkPeOuw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed,  8 Apr 2015 18:36:37 +0200
 
-You can do a fast channel switch under very specific conditions. It
-includes but isn't limited to being on the same band (ie, no fast cc
-between 2/5ghz.)
+> It's not a critical issue, thus the patches are based on net-next.
+> 
+> Patches are splitted because the 'Fixes' tag is not the same for all
+> commands.
 
-
--adrian
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks Nicolas.
