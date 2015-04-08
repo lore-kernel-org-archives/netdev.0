@@ -1,7 +1,8 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH 2/2] hv_netvsc: try linearizing big SKBs before dropping them
-Date: Wed,  8 Apr 2015 17:54:06 +0200
-Message-ID: <1428508446-18423-3-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH 1/2] hv_netvsc: use single existing drop path in
+ netvsc_start_xmit
+Date: Wed,  8 Apr 2015 17:54:05 +0200
+Message-ID: <1428508446-18423-2-git-send-email-vkuznets@redhat.com>
 References: <1428508446-18423-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,70 +24,62 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-In netvsc_start_xmit() we can handle packets which are scattered around not
-more than MAX_PAGE_BUFFER_COUNT-2 pages. It is, however, easy to create a
-packet which is not big in size but occupies more pages (e.g. if it uses frags
-on compound pages boundaries). When we drop such packet it cases sender to try
-resending it but in most cases it will try resending the same packet which will
-also get dropped, this will cause the particular connection to stick. To solve
-the issue we can try linearizing skb.
+... which validly uses dev_kfree_skb_any() instead of dev_kfree_skb().
+
+Setting ret to -EFAULT and -ENOMEM have no real meaning here (we need to set
+it to anything but -EAGAIN) as we drop the packet and return NETDEV_TX_OK
+anyway.
 
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 25 ++++++++++++++++++++-----
- 1 file changed, 20 insertions(+), 5 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 9e4230d..4487167 100644
+index e5fa094..9e4230d 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -377,27 +377,42 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	struct rndis_packet *rndis_pkt;
- 	u32 rndis_msg_size;
- 	bool isvlan;
-+	bool linear = false;
- 	struct rndis_per_packet_info *ppi;
- 	struct ndis_tcp_ip_checksum_info *csum_info;
- 	struct ndis_tcp_lso_info *lso_info;
- 	int  hdr_offset;
- 	u32 net_trans_info;
- 	u32 hash;
--	u32 skb_length = skb->len;
--	u32 head_room = skb_headroom(skb);
-+	u32 skb_length;
-+	u32 head_room;
- 	u32 pkt_sz;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 
- 
- 	/* We will atmost need two pages to describe the rndis
- 	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
--	 * of pages in a single packet.
-+	 * of pages in a single packet. If skb is scattered around
-+	 * more pages we try linearizing it.
- 	 */
-+
-+check_size:
-+	skb_length = skb->len;
-+	head_room = skb_headroom(skb);
+@@ -370,7 +370,7 @@ not_ip:
+ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ {
+ 	struct net_device_context *net_device_ctx = netdev_priv(net);
+-	struct hv_netvsc_packet *packet;
++	struct hv_netvsc_packet *packet = NULL;
+ 	int ret;
+ 	unsigned int num_data_pgs;
+ 	struct rndis_message *rndis_msg;
+@@ -396,9 +396,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
  	num_data_pgs = netvsc_get_slots(skb) + 2;
--	if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
--		netdev_err(net, "Packet too big: %u\n", skb->len);
-+	if (num_data_pgs > MAX_PAGE_BUFFER_COUNT && linear) {
-+		net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
-+				      num_data_pgs, skb->len);
- 		ret = -EFAULT;
- 		goto drop;
-+	} else if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
-+		if (skb_linearize(skb)) {
-+			net_alert_ratelimited("failed to linearize skb\n");
-+			ret = -ENOMEM;
-+			goto drop;
-+		}
-+		linear = true;
-+		goto check_size;
+ 	if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
+ 		netdev_err(net, "Packet too big: %u\n", skb->len);
+-		dev_kfree_skb(skb);
+-		net->stats.tx_dropped++;
+-		return NETDEV_TX_OK;
++		ret = -EFAULT;
++		goto drop;
  	}
  
  	pkt_sz = sizeof(struct hv_netvsc_packet) + RNDIS_AND_PPI_SIZE;
+@@ -408,9 +407,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 		if (!packet) {
+ 			/* out of memory, drop packet */
+ 			netdev_err(net, "unable to alloc hv_netvsc_packet\n");
+-			dev_kfree_skb(skb);
+-			net->stats.tx_dropped++;
+-			return NETDEV_TX_OK;
++			ret = -ENOMEM;
++			goto drop;
+ 		}
+ 		packet->part_of_skb = false;
+ 	} else {
+@@ -574,7 +572,7 @@ drop:
+ 		net->stats.tx_bytes += skb_length;
+ 		net->stats.tx_packets++;
+ 	} else {
+-		if (!packet->part_of_skb)
++		if (packet && !packet->part_of_skb)
+ 			kfree(packet);
+ 		if (ret != -EAGAIN) {
+ 			dev_kfree_skb_any(skb);
 -- 
 1.9.3
