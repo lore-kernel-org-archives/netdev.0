@@ -1,54 +1,90 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net] be2net: Fix a bug in Rx buffer posting
-Date: Wed, 8 Apr 2015 16:59:48 -0500
-Message-ID: <20150408215948.GA8248@OptiPlex>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [E1000-devel] [PATCH v3 3/3] ixgbe: Add new ndo to allow VF multicast
+ promiscuous mode
+Date: Wed, 08 Apr 2015 15:15:18 -0700
+Message-ID: <5525A876.2000407@gmail.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05E7CDA0@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:46332 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288AbbDHWAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 18:00:44 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Laight <David.Laight@aculab.com>,
+	Hayato Momma <h-momma@ce.jp.nec.com>,
+	Edward Cree <ecree@solarflare.com>,
+	=?windows-1252?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E7CDA0@BPXM14GP.gisp.nec.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The numPosted field in the ERX Doorbell register is 8-bits wide.
-So the max buffers that we can post at a time is 255 and not 256
-which we are doing currently.
+On 04/07/2015 10:38 PM, Hiroshi Shimamoto wrote:
+> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>
+> Implements the new netdev op to allow VF multicast promiscuous mode.
+>
+> The multicast promiscuous mode is not allowed for all VFs by default.
+>
+> The administrator can allow to VF multicast promiscuous mode for only
+> trusted VM. After allowing multicast promiscuous mode from the host,
+> we can use over 30 IPv6 addresses on VM.
+>  # ip link set dev eth0 vf 1 mc_promisc on
+>
+> When disallowing multicast promiscuous mode, ixgbevf can only handle 30
+> IPv6 addresses at most.
+>  # ip link set dev eth0 vf 1 mc_promisc off
+>
+> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> Reviewed-by: Hayato Momma <h-momma@ce.jp.nec.com>
+> CC: Choi, Sy Jong <sy.jong.choi@intel.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  |  7 ++++++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 32 ++++++++++++++++++++++++--
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
+>  4 files changed, 40 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> index 08e65b6..4a9f74d 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+> @@ -153,6 +153,7 @@ struct vf_data_storage {
+>  	u16 vlan_count;
+>  	u8 spoofchk_enabled;
+>  	bool rss_query_enabled;
+> +	u8 mc_promisc_allowed;
+>  	unsigned int vf_api;
+>  };
+>  
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 2f41403..c0e07c5 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -3663,6 +3663,12 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
+>  		ixgbe_ndo_set_vf_rss_query_en(adapter->netdev, i,
+>  					      adapter->vfinfo[i].rss_query_enabled);
+>  	}
+> +
+> +	/* Reconfigure multicast promiscuous mode */
+> +	for (i = 0; i < adapter->num_vfs; i++) {
+> +		ixgbe_ndo_set_vf_mc_promisc(adapter->netdev, i,
+> +					adapter->vfinfo[i].mc_promisc_allowed);
+> +	}
+>  }
+>  
+>  static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      | 1 +
- drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
- 2 files changed, 2 insertions(+), 1 deletion(-)
+This doesn't need to be a separate loop.  You can push it up into the
+block above since it is already looping through all VFs.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 27b9fe9..204ec43 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -97,6 +97,7 @@
- #define BE_NAPI_WEIGHT		64
- #define MAX_RX_POST		BE_NAPI_WEIGHT /* Frags posted at a time */
- #define RX_FRAGS_REFILL_WM	(RX_Q_LEN - MAX_RX_POST)
-+#define MAX_NUM_POST_ERX_DB	255u
- 
- #define MAX_VFS			30 /* Max VFs supported by BE3 FW */
- #define FW_VER_LEN		32
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index e6b790f..ad2b509 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2032,7 +2032,7 @@ static void be_post_rx_frags(struct be_rx_obj *rxo, gfp_t gfp, u32 frags_needed)
- 		if (rxo->rx_post_starved)
- 			rxo->rx_post_starved = false;
- 		do {
--			notify = min(256u, posted);
-+			notify = min(MAX_NUM_POST_ERX_DB, posted);
- 			be_rxq_notify(adapter, rxq->id, notify);
- 			posted -= notify;
- 		} while (posted);
--- 
-2.1.0
+Once that is fixed the rest of this patch and the other two looked fine
+to me.
+
+- Alex
