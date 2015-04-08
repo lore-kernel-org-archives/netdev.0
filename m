@@ -1,155 +1,126 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 06/11] net/mlx5_core: Implement get and set functions of ptys register fields
-Date: Wed,  8 Apr 2015 17:51:20 +0300
-Message-ID: <1428504685-8945-7-git-send-email-amirv@mellanox.com>
-References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 00/11] net/mlx5: ConnectX-4 100G Ethernet driver
+Date: Wed,  8 Apr 2015 17:51:14 +0300
+Message-ID: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
+	Ido Shamay <idos@mellanox.com>, Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:36581 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:36596 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754178AbbDHOv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2015 10:51:58 -0400
-In-Reply-To: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
+	id S932176AbbDHOwC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Apr 2015 10:52:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+Hi Dave,
 
-Preparation for ethernet driver:
-	- PTYS register will be used in ethernet ethtool set/get settings
+This patchset introduces support in Mellanox ConnectX-4 100G Ethernet NIC.
+Unlike the ConnectX-3 driver, this driver is built of a single module (there is
+no mlx5_en). It is the Ethernet driver and also the low level driver for the
+infiniband driver - mlx5_ib.
 
-Signed-off-by: Rana Shahout <ranas@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/port.c | 77 ++++++++++++++++++++++++++
- include/linux/mlx5/driver.h                    | 14 +++++
- 2 files changed, 91 insertions(+)
+Many features are still missing from the driver, but all the basic
+functionalities are there already.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 49e90f2..6e2d99c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -102,3 +102,80 @@ int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps)
- 	return err;
- }
- EXPORT_SYMBOL_GPL(mlx5_set_port_caps);
-+
-+int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
-+			 int ptys_size, int proto_mask)
-+{
-+	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(ptys_reg, in, local_port, 1);
-+	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
-+
-+	err = mlx5_core_access_reg(dev, in, sizeof(in), ptys,
-+				   ptys_size, MLX5_REG_PTYS, 0, 0);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_ptys);
-+
-+int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
-+			      u32 *proto_cap, int proto_mask)
-+{
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask);
-+	if (err)
-+		return err;
-+
-+	if (proto_mask == MLX5_PTYS_EN)
-+		*proto_cap = MLX5_GET(ptys_reg, out, eth_proto_capability);
-+	else
-+		*proto_cap = MLX5_GET(ptys_reg, out, ib_proto_capability);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_proto_cap);
-+
-+int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
-+				u32 *proto_admin, int proto_mask)
-+{
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask);
-+	if (err)
-+		return err;
-+
-+	if (proto_mask == MLX5_PTYS_EN)
-+		*proto_admin = MLX5_GET(ptys_reg, out, eth_proto_admin);
-+	else
-+		*proto_admin = MLX5_GET(ptys_reg, out, ib_proto_admin);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_proto_admin);
-+
-+int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
-+			int proto_mask)
-+{
-+	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(ptys_reg, in, local_port, 1);
-+	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
-+	if (proto_mask == MLX5_PTYS_EN)
-+		MLX5_SET(ptys_reg, in, eth_proto_admin, proto_admin);
-+	else
-+		MLX5_SET(ptys_reg, in, ib_proto_admin, proto_admin);
-+
-+	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
-+				   sizeof(out), MLX5_REG_PTYS, 0, 1);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 48cd0a2..6cd8896 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -506,6 +506,11 @@ enum {
- 	MLX5_COMP_EQ_SIZE = 1024,
- };
- 
-+enum {
-+	MLX5_PTYS_IB = 1 << 0,
-+	MLX5_PTYS_EN = 1 << 2,
-+};
-+
- struct mlx5_db_pgdir {
- 	struct list_head	list;
- 	DECLARE_BITMAP(bitmap, MLX5_DB_PER_PAGE);
-@@ -695,7 +700,16 @@ void mlx5_qp_debugfs_cleanup(struct mlx5_core_dev *dev);
- int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
- 			 int size_in, void *data_out, int size_out,
- 			 u16 reg_num, int arg, int write);
-+
- int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
-+int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
-+			 int ptys_size, int proto_mask);
-+int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
-+			      u32 *proto_cap, int proto_mask);
-+int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
-+				u32 *proto_admin, int proto_mask);
-+int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
-+			int proto_mask);
- 
- int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+
+Notes:
+1. There are some minor checkpatch warnings that will be fixed for V1
+2. In Patch 1/11 ("net/mlx5_core: Set irq affinity hints") there is a misuse of cpumask_var_t
+   will be fixed for V1
+3. Patch 4/11 ("net/mlx5_core: HW data structs/types definitions preparation
+   for mlx5 ehternet driver") is too big for the mail server. It is hard to split
+   it, since it is a generated code. I'm sending it as is, so you get it
+   as part of the patches.  I also place it on a public git [1], to enable
+   reviewing it from the mailing list.
+
+Patchset was applied on top of ee90b81 ("hv_netvsc: Fix the packet free when it
+is in skb headroom")
+
+[1] - http://git.openfabrics.org/?p=~amirv/linux.git;a=shortlog;h=refs/heads/mlx5e   
+
+Thanks to Achiad, Saeed, Yevheny, Or and the whole team for making this happen,
+Amir
+
+Achiad Shochat (1):
+  net/mlx5_core: Virtually extend work/completion queue buffers by one
+    page
+
+Amir Vadai (3):
+  net/mlx5: Ethernet Datapath files
+  net/mlx5: Ethernet resources handling
+  net/mlx5: Ethernet driver
+
+Rana Shahout (2):
+  net/mlx5_core: Implement get/set port status
+  net/mlx5_core: Modify CQ moderation parameters
+
+Saeed Mahameed (5):
+  net/mlx5_core: Set irq affinity hints
+  net/mlx5_core: Add EQ renaming mechanism
+  net/mlx5_core: HW data structs/types definitions preparation for mlx5
+    ehternet driver
+  net/mlx5_core/ib: New device capabilities handling.
+  net/mlx5_core: Implement get and set functions of ptys register fields
+
+ drivers/infiniband/hw/mlx5/cq.c                    |    8 +-
+ drivers/infiniband/hw/mlx5/mad.c                   |    2 +-
+ drivers/infiniband/hw/mlx5/main.c                  |  113 +-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |    6 +-
+ drivers/infiniband/hw/mlx5/mr.c                    |    3 +-
+ drivers/infiniband/hw/mlx5/odp.c                   |   47 +-
+ drivers/infiniband/hw/mlx5/qp.c                    |   84 +-
+ drivers/infiniband/hw/mlx5/srq.c                   |    7 +-
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |  126 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   17 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cq.c       |   18 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  518 ++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  680 ++
+ .../ethernet/mellanox/mlx5/core/en_flow_table.c    |  858 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 1879 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  249 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  350 ++
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  107 +
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   20 +-
+ .../net/ethernet/mellanox/mlx5/core/flow_table.c   |  420 ++
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   90 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  280 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mcg.c      |    2 +-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   20 +-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  111 +
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c |  169 +
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.h |   47 +
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   44 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  110 +
+ drivers/net/ethernet/mellanox/mlx5/core/vport.h    |   41 +
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c       |  189 +
+ drivers/net/ethernet/mellanox/mlx5/core/wq.h       |  171 +
+ include/linux/mlx5/cq.h                            |    3 +
+ include/linux/mlx5/device.h                        |  179 +-
+ include/linux/mlx5/driver.h                        |   97 +-
+ include/linux/mlx5/flow_table.h                    |   54 +
+ include/linux/mlx5/mlx5_ifc.h                      | 6627 +++++++++++++++++++-
+ include/linux/mlx5/qp.h                            |   25 +
+ 39 files changed, 13245 insertions(+), 529 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.h
+ create mode 100644 include/linux/mlx5/flow_table.h
+
 -- 
 1.9.3
