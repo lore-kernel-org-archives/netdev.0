@@ -1,68 +1,45 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v5 2/3] RDS: only use passive connections when addresses match
-Date: Wed,  8 Apr 2015 09:46:10 -0400
-Message-ID: <1e9168717345d0bcecef10fce8aef45aa225b218.1428500006.git.sowmini.varadhan@oracle.com>
-References: <cover.1428500006.git.sowmini.varadhan@oracle.com>
-Cc: chien.yen@oracle.com, davem@davemloft.net,
-	rds-devel@oss.oracle.com, agrover@redhat.com, clm@fb.com,
-	zab@zabbo.net, ajaykumar.hotchandani@oracle.com,
-	sergei.shtylyov@cogentembedded.com,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1428500006.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1428500006.git.sowmini.varadhan@oracle.com>
-References: <cover.1428500006.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs
+ consistent
+Date: Wed, 8 Apr 2015 14:47:38 +0100
+Message-ID: <20150408134738.GB28656@casper.infradead.org>
+References: <20150408090520.GA2057@nanopsycho.orion>
+ <552508E8.5050203@iogearbox.net>
+ <55250D92.6030702@iogearbox.net>
+ <55251556.4040900@mojatatu.com>
+ <55251F9F.2050508@iogearbox.net>
+ <55252611.3040109@mojatatu.com>
+ <20150408131417.GA28656@casper.infradead.org>
+ <55252CDD.8020503@iogearbox.net>
+ <20150408133415.GD2057@nanopsycho.orion>
+ <55252FEF.40201@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:47306 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754300AbbDHNrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 09:47:40 -0400
+Content-Disposition: inline
+In-Reply-To: <55252FEF.40201@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Passive connections were added for the case where one loopback IB
-connection between identical addresses needs another connection to store
-the second QP.  Unfortunately, they were also created in the case where
-the addesses differ and we already have both QPs.
+On 04/08/15 at 03:41pm, Daniel Borkmann wrote:
+> On 04/08/2015 03:34 PM, Jiri Pirko wrote:
+> >That is certainly doable. But is that what we want? I don't think so. I
+> >would like to have the same for in/eg.
+> 
+> I mean it's certainly a non-obvious hack, where user space has to
+> fix up something that the kernel should have gotten right in the
+> first place. :/
 
-This lead to a message reordering bug.
+We should be careful to not break existing scripts. I realize
+it's horribly broken but this stuff is being used.
 
-- two different IB interfaces and addresses on a machine: A B
-- traffic is sent from A to B
-- connection from A-B is created, connect request sent
-- listening accepts connect request, B-A is created
-- traffic flows, next_rx is incremented
-- unacked messages exist on the retrans list
-- connection A-B is shut down, new connect request sent
-- listen sees existing loopback B-A, creates new passive B-A
-- retrans messages are sent and delivered because of 0 next_rx
-
-The problem is that the second connection request saw the previously
-existing parent connection.  Instead of using it, and using the existing
-next_rx_seq state for the traffic between those IPs, it mistakenly
-thought that it had to create a passive connection.
-
-We fix this by only using passive connections in the special case where
-laddr and faddr match.  In this case we'll only ever have one parent
-sending connection requests and one passive connection created as the
-listening path sees the existing parent connection which initiated the
-request.
-
-Original patch by Zach Brown
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/rds/connection.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 378c3a6..7952a5b 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -130,7 +130,7 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
- 	rcu_read_lock();
- 	conn = rds_conn_lookup(head, laddr, faddr, trans);
- 	if (conn && conn->c_loopback && conn->c_trans != &rds_loop_transport &&
--	    !is_outgoing) {
-+	    laddr == faddr && !is_outgoing) {
- 		/* This is a looped back IB connection, and we're
- 		 * called by the code handling the incoming connect.
- 		 * We need a second connection object into which we
--- 
-1.7.1
+We need the user to signal that he is aware that offsets changed
+and subtract the ll header from offsets of unaware users.
