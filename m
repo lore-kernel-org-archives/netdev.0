@@ -1,38 +1,50 @@
-From: Xin Huang <huangxin811@gmail.com>
-Subject: Multiple default router probe in Linux 3.14
-Date: Thu, 9 Apr 2015 00:54:02 +0800
-Message-ID: <CAGgZr_3w4wb-LGJ61iTj2ishtnno=m7jOs0o8PqwmZNwt9Bjmg@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs consistent
+Date: Wed, 08 Apr 2015 18:54:32 +0200
+Message-ID: <55255D48.7040408@iogearbox.net>
+References: <55252FEF.40201@iogearbox.net>	<55253289.8020306@mojatatu.com>	<552556BC.8020108@plumgrid.com> <20150408.123208.890310178000649038.davem@davemloft.net> <55255AE0.2060606@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, jhs@mojatatu.com,
+	jiri@resnulli.us, tgraf@suug.ch, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:36728 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754070AbbDHQyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 12:54:03 -0400
-Received: by iebrs15 with SMTP id rs15so79538646ieb.3
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 09:54:02 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:54912 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754348AbbDHQyn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 12:54:43 -0400
+In-Reply-To: <55255AE0.2060606@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, guys,
+On 04/08/2015 06:44 PM, Alexei Starovoitov wrote:
+> On 4/8/15 9:32 AM, David Miller wrote:
+>> From: Alexei Starovoitov <ast@plumgrid.com>
+>> Date: Wed, 08 Apr 2015 09:26:36 -0700
+>>
+>>> My preference is to add 'needs_l2' flag to ingress qdisc.
+>>
+>> The problem is that needs_l2 is not property of individual qdisc,
+>> but conditionally 1 or more things sitting behind it.
+>>
+>> You can mix u32 and bpf classifiers.  One wants need_L2 another
+>> does not, and you therefore cannot handle this problem in this
+>> manner.
+>
+> that is still ok.
+> I'm proposing multiple flags. One for ingress qdisc and another
+> flag for all cls/acts whether they care about l2 or not.
+> Then when cls is attached to ingress_with_l2 we will check whether
+> this cls is ready or not.
+> so cls_bpf will have flag L2_ONLY
+> whereas cls_u32 will be L2 | L3
+> and 50% of other cls/acts will be L2 | L3
+> some cls/acts will be L3 only until they're fixed.
+>
+> The users will create ingress qdisc with 'needs_l2' flag only
+> when they need to attach cls_bpf to it. All existing users
+> won't notice the change.
 
-I'm trying to pass IPv6 ready logo test for my project and have
-question on Linux multiple default router probe implementation.
-Router may have multiple default router in its list if multiple RA
-received, all have same priority set.
-When router send NS to 1st router but do not get NA response, it
-should send NS to 2nd router to check if it's reachable. This feature
-seems covered by implementation of option CONFIG_IPV6_ROUTER_PREF, but
-only effect when net->ipv6.devconf_all->forwarding is disabled(that
-means host mode).
-But in the case that router's life time is still valid but it's
-reachable expired, the default router is not removed from router table
-and we are still in router mode, we should also probe second router if
-first router do not respond NS, I need probe logic taking effect in
-this mode(net->ipv6.devconf_all->forwarding is 1). It seems conflict
-with current Linux implementation.
-Can we remove 'net->ipv6.devconf_all->forwarding' check when call
-rt6_check_neigh()? Or any other suggestion?
-
-Thanks.
+I think that could work, it would also allow for keeping compat
+with the existing users.
