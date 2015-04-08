@@ -1,7 +1,7 @@
 From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH 04/14] staging: panel: return proper error values from attach
-Date: Wed,  8 Apr 2015 16:50:30 +0530
-Message-ID: <1428492040-5581-5-git-send-email-sudipm.mukherjee@gmail.com>
+Subject: [PATCH 05/14] spi: lm70llp: return proper error values from attach
+Date: Wed,  8 Apr 2015 16:50:31 +0530
+Message-ID: <1428492040-5581-6-git-send-email-sudipm.mukherjee@gmail.com>
 References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -35,57 +35,47 @@ required changes to return proper value from its attach function.
 
 Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 ---
- drivers/staging/panel/panel.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ drivers/spi/spi-lm70llp.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/staging/panel/panel.c b/drivers/staging/panel/panel.c
-index ea54fb4..61f6961 100644
---- a/drivers/staging/panel/panel.c
-+++ b/drivers/staging/panel/panel.c
-@@ -2188,15 +2188,15 @@ static struct notifier_block panel_notifier = {
- 	0
- };
+diff --git a/drivers/spi/spi-lm70llp.c b/drivers/spi/spi-lm70llp.c
+index ba72347..9b0fde1 100644
+--- a/drivers/spi/spi-lm70llp.c
++++ b/drivers/spi/spi-lm70llp.c
+@@ -190,7 +190,7 @@ static u32 lm70_txrx(struct spi_device *spi, unsigned nsecs, u32 word, u8 bits)
+ 	return bitbang_txrx_be_cpha0(spi, nsecs, 0, 0, word, bits);
+ }
  
--static void panel_attach(struct parport *port)
-+static int panel_attach(struct parport *port)
+-static void spi_lm70llp_attach(struct parport *p)
++static int spi_lm70llp_attach(struct parport *p)
  {
- 	if (port->number != parport)
--		return;
-+		return -ENODEV;
- 
- 	if (pprt) {
- 		pr_err("%s: port->number=%d parport=%d, already registered!\n",
- 		       __func__, port->number, parport);
+ 	struct pardevice	*pd;
+ 	struct spi_lm70llp	*pp;
+@@ -201,7 +201,7 @@ static void spi_lm70llp_attach(struct parport *p)
+ 		printk(KERN_WARNING
+ 			"%s: spi_lm70llp instance already loaded. Aborting.\n",
+ 			DRVNAME);
 -		return;
 +		return -EALREADY;
  	}
  
- 	pprt = parport_register_device(port, "panel", NULL, NULL,  /* pf, kf */
-@@ -2206,7 +2206,7 @@ static void panel_attach(struct parport *port)
- 	if (pprt == NULL) {
- 		pr_err("%s: port->number=%d parport=%d, parport_register_device() failed\n",
- 		       __func__, port->number, parport);
--		return;
-+		return -ENODEV;
- 	}
+ 	/* TODO:  this just _assumes_ a lm70 is there ... no probe;
+@@ -281,7 +281,7 @@ static void spi_lm70llp_attach(struct parport *p)
+ 	pp->spidev_lm70->bits_per_word = 8;
  
- 	if (parport_claim(pprt)) {
-@@ -2230,7 +2230,7 @@ static void panel_attach(struct parport *port)
- 			goto err_lcd_unreg;
- 	}
- 	register_reboot_notifier(&panel_notifier);
+ 	lm70llp = pp;
 -	return;
 +	return 0;
  
- err_lcd_unreg:
- 	if (lcd.enabled)
-@@ -2238,6 +2238,7 @@ err_lcd_unreg:
- err_unreg_device:
- 	parport_unregister_device(pprt);
- 	pprt = NULL;
-+	return -ENODEV;
+ out_bitbang_stop:
+ 	spi_bitbang_stop(&pp->bitbang);
+@@ -296,6 +296,7 @@ out_free_master:
+ 	(void) spi_master_put(master);
+ out_fail:
+ 	pr_info("%s: spi_lm70llp probe fail, status %d\n", DRVNAME, status);
++	return status;
  }
  
- static void panel_detach(struct parport *port)
+ static void spi_lm70llp_detach(struct parport *p)
 -- 
 1.8.1.2
