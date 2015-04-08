@@ -1,105 +1,85 @@
-From: Salvatore Mesoraca <s.mesoraca16@gmail.com>
-Subject: Re: [PATCH] iputils ping: add (non-raw) ICMP socket support
-Date: Wed, 08 Apr 2015 13:05:27 +0200
-Message-ID: <5093199.DdecKAOFEl@msg-id>
-References: <2142872.6QHf5ZAfZz@msg-id> <1749676.NUxJ1eyH1x@msg-id> <5524F2EB.4000908@miraclelinux.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next 2/2] tc: make ingress and egress qdiscs consistent
+Date: Wed, 08 Apr 2015 13:14:26 +0200
+Message-ID: <55250D92.6030702@iogearbox.net>
+References: <1428455025-5945-1-git-send-email-ast@plumgrid.com> <1428455025-5945-2-git-send-email-ast@plumgrid.com> <20150407.223549.335906307265617841.davem@davemloft.net> <55249EFA.5040405@plumgrid.com> <5524B339.1070403@plumgrid.com> <5524E878.7070803@iogearbox.net> <20150408090520.GA2057@nanopsycho.orion> <552508E8.5050203@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vasiliy Kulikov <segooon@gmail.com>,
-	Tyler Hicks <tyhicks@canonical.com>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>, jhs@mojatatu.com,
+	netdev@vger.kernel.org, tgraf@suug.ch
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:38488 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729AbbDHLFf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 07:05:35 -0400
-Received: by wiun10 with SMTP id n10so53597759wiu.1
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 04:05:34 -0700 (PDT)
-In-Reply-To: <5524F2EB.4000908@miraclelinux.com>
+Received: from www62.your-server.de ([213.133.104.62]:51628 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385AbbDHLOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 07:14:33 -0400
+In-Reply-To: <552508E8.5050203@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In data mercoled=EC 8 aprile 2015 18:20:43, YOSHIFUJI Hideaki ha scritt=
-o:
-> Salvatore Mesoraca wrote:
-> > YOSHIFUJI Hideaki wrote:
-> >> Hi,
-> >=20
-> > Hi,
-> > thank you for thaking to the time to answer
-> >=20
-> >> Salvatore Mesoraca wrote:
-> >>> From: Vasiliy Kulikov <segooon@gmail.com>
-> >>>=20
-> >>> This patch adds non-raw IPPROTO_ICMP socket kind support that was=
- added
-> >>> to the Linux 3.0.  The patch is backward-compatible: if ICMP sock=
-et kind
-> >>> is not enabled in the kernel (either in case of an old kernel or
-> >>> explicitly disabled via /proc/sys/net/ipv4/ping_group_range), pin=
-g uses
-> >>> old privileged raw sockets as a fallback.
-> >>>=20
-> >>> This patch is going to be included in Ubuntu 15.10 and it is alre=
-ady
-> >>> included in Gentoo stable tree (at the moment of the writing ping=
- has
-> >>> CAP_NET_RAW still enabled by default) it is also included in Open=
-Wall
-> >>> since 2011.
-> >>> This patch also tries to sneak in a fix for a missing colon in a =
-printf.
-> >>> I've tested it on Linux 3.17.7 and it worked without issues.
-> >>=20
-> >> Please do not mix changes in a single commit.
-> >> Thanks.
-> >=20
-> > I had some doubt about that additional change (it is so small that =
-I don't
-> > think that anyone will ever make a separate patch for it), but it w=
-as
-> > present in the original patch and I decided to add it anyway and wa=
-it for
-> > feedback. I'll delete it.
-> > Thank you again for you comment.
->=20
-> What I meant was changes not for supporting non-raw icmp socket
-> should be formed separately.  It seems that the patch try to
-> change other things as well, in receive_error_msg() for example.
->=20
-> --yoshfuji
+On 04/08/2015 12:54 PM, Daniel Borkmann wrote:
+> On 04/08/2015 11:05 AM, Jiri Pirko wrote:
+>> Wed, Apr 08, 2015 at 10:36:08AM CEST, daniel@iogearbox.net wrote:
+>>> On 04/08/2015 06:48 AM, Alexei Starovoitov wrote:
+>>>> On 4/7/15 8:22 PM, Alexei Starovoitov wrote:
+>>>>> but it seems no one cares about using them with ingress, so I'll go back
+>>>>> to cls_bpf specific skb_share_check and push.
+>>>>
+>>>> that didn't work either :(
+>>>> we cannot replace skb via skb_share_check() inside cls/act. We cannot do
+>>>> it inside ingress_enqueue() either. It can only be done at handle_ing()
+>>>> level. And it's quite ugly to change the signatures of the whole
+>>>> qdisc->enqueue() call chain just for cls_bpf. May be introducing
+>>>> bpf-only ingress qdisc to decouple the logic is not such a bad idea?
+>>>
+>>> So it seems ingress qdisc is quite broken for various classifier
+>>> and actions. :/ I wouldn't go that far to have a bpf-only ingress
+>>> qdisc, but what about introducing l2/l3 ingress qdisc (or, name
+>>> it "early ingress" and "ingress" qdisc), so at an early point in
+>>> netif_receive_skb_internal(), we would have an l2_ingress hook,
+>>> wrapped via static keys to have minimal impact if unused, and could
+>>> do the push/pull similarly as in the PTP classifier w/o worry that
+>>> it is referenced by other entities. There, we could at least still
+>>> benefit from hw flow steering.
+>>
+>> How about to just adjust ingress qdisc to do the right thing (of adjust
+>> egress qdisc so they both behave the same). I don't like the idea of
 
-Thank you for the clarification.
-If I understood correctly you were referring to these lines:
-> @@ -652,9 +687,18 @@ int receive_error_msg()
->             goto out;
->         }
->=20
-> -       acknowledge(ntohs(icmph.un.echo.sequence));
-> +       error_pkt =3D (e->ee_type !=3D ICMP_REDIRECT &&
-> +                e->ee_type !=3D ICMP_SOURCE_QUENCH);
-> +       if (error_pkt) {
-> +           acknowledge(ntohs(icmph.un.echo.sequence));
-> +           net_errors++;
-> +           nerrors++;
-> +       }
-> +       else {
-> +           saved_errno =3D 0;
-> +       }
+Generically adjusting egress towards ingress would not work. I
+think it's reasonable to assume that the majority of people use
+classifier and actions only from egress side, and they rely on
+having l2 context present. Stripping that away would also be an
+artificial limitation we'd impose.
 
+You could use the ingress qdisc to redirect traffic to an ifb
+device and attach the same egress classifier and action there
+as skb_pull(skb, skb->dev->hard_header_len) is being done, but
+I'd presume that extra detour is pretty slow. To make this useful,
+we'd need a very lightweight solution.
 
-In my understanding these changes are required to support non-raw ICMP =
-sockets=20
-because they cannot use setsockopt(icmp_sock, SOL_RAW, ICMP_FILTER...) =
-and=20
-they need to get rid of ICMP_REDIRECT and ICMP_SOURCE_QUENCH in a diffe=
-rent=20
-way. IMHO this change alone does not make much sense.
-Anyway if you think that this and other changes should be in different =
-commits=20
-I'll post a split PATCHv2.
-Thank you again for your time.
-
-Salvatore Mesoraca
+>> having more ingres queue disk. Would be just confusing.
+>
+> I'm all for it, that's what I've mentioned earlier in this thread
+> already. ;) The above would be one possibility, but of course I'm
+> open for other, better suggestions?
+>
+> I totally agree with Dave that skb_share_check() should be avoided
+> at all costs. At least on my laptop (maybe not a perfect example),
+> I've got these as packet socket users present in the background,
+> so there are packet users running all the time where we would hit
+> skb_share_check() then:
+>
+> # ss -0lnp
+> Netid  State      Recv-Q Send-Q      Local Address:Port    Peer Address:Port
+> p_raw  UNCONN     0      0                *:wlp2s0b1       *      users:(("dhclient",1290,5))
+> p_dgr  UNCONN     0      0          [34958]:wlp2s0b1       *      users:(("wpa_supplicant",805,13))
+> p_dgr  UNCONN     0      0              [0]:*              *      users:(("wpa_supplicant",805,12))
+>
+> I do not yet see a generic way to push an offset down into various
+> classifiers and actions that otherwise don't really work with ingress,
+> it's not just limited to BPF only as Alexei already mentioned. Hm.
+>
+> Cheers,
+> Daniel
