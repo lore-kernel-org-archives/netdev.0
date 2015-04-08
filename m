@@ -1,50 +1,100 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 4/4] udp_tunnel: Pass UDP socket down through
- udp_tunnel{,6}_xmit_skb().
-Date: Wed, 08 Apr 2015 17:03:02 +0200
-Message-ID: <1428505382.873082.250792005.6B704B17@webmail.messagingengine.com>
-References: <1428421534.2928.3.camel@stressinduktion.org>
- <20150407.153044.772260953305341361.davem@davemloft.net>
- <1428449099.869458.250499317.11121567@webmail.messagingengine.com>
- <20150407.221328.1961195097281515709.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, tom@herbertland.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, pablo@netfilter.org,
-	jiri@resnulli.us
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150407.221328.1961195097281515709.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] man tc: Add description about class name option
+Date: Wed,  8 Apr 2015 18:27:43 +0300
+Message-ID: <1428506863-8208-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:33394 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753311AbbDHPjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 11:39:52 -0400
+Received: by layy10 with SMTP id y10so69039933lay.0
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 08:39:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 8, 2015, at 04:13, David Miller wrote:
-> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Date: Wed, 08 Apr 2015 01:24:59 +0200
-> 
-> > There is one small problem which already was present before this patch
-> > because of my change b6a7719aedd7e5 ("ipv4: hash net ptr into
-> > fragmentation bucket selection"). It uses sock_net in iptunnel_xmit,
-> > which causes a NULL ptr panic. This patchset did make it more visible
-> > because of the explicit NULL passing but the bug was introduced by my
-> > patch.
-> > 
-> > Just wanted to let you know if reports are coming in - I fix it up
-> > tomorrow. I will also explore the possibility to give each tunnel at
-> > least a raw socket, what Tom proposed.
-> > 
-> > Rick Jones identified this, thanks!
-> 
-> Looking into this I also notice that ipip6_tunnel_xmit() passes
-> in skb->sk, that needs to be NULL too.
-> 
-> Want to take care of that along with your sock_net() fix?
+From: Vadim Kochan <vadim4j@gmail.com>
 
-Yep, did so and used the simple solution for now.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ man/man8/tc.8 | 50 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 49 insertions(+), 1 deletion(-)
 
-I am currently trying to check if it makes sense to remove ignore_df and
-always use the socket context.
-
-Bye,
-Hannes
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index ea4d445..434fe6c 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -62,7 +62,9 @@ DEV
+ .ti 8
+ .IR OPTIONS " := {"
+ \fB[ -force ] -b\fR[\fIatch\fR] \fB[ filename ] \fR|
+-\fB[ \fB-n\fR[\fIetns\fR] name \fB] \fR}
++\fB[ \fB-n\fR[\fIetns\fR] name \fB] \fR|
++\fB[ \fB-nm \fR| \fB-nam\fR[\fIes\fR] \fB] \fR|
++\fB[ \fR{ \fB-cf \fR| \fB-c\fR[\fIonf\fR] \fR} \fB[ filename ] \fB] \fR}
+ 
+ .ti 8
+ .IR FORMAT " := {"
+@@ -463,6 +465,11 @@ to
+ .RI "-n[etns] " NETNS " [ " OPTIONS " ] " OBJECT " { " COMMAND " | "
+ .BR help " }"
+ 
++.TP
++.BR "\-cf" , " \-conf " <FILENAME>
++specifies path to the config file. This option is used in conjuction with other options (e.g.
++.BR -nm ")."
++
+ .SH FORMAT
+ The show command has additional formatting options:
+ 
+@@ -494,6 +501,47 @@ option was specified. Classes can be filtered only by
+ .BR "dev"
+ option.
+ 
++.TP
++.BR "\-nm" , " \-name"
++resolve class name from
++.B /etc/iproute2/tc_cls
++file or from file specified by
++.B -cf
++option. This file is just a mapping of
++.B classid
++to class name:
++
++.RS 10
++# Here is comment
++.RE
++.RS 10
++1:40   voip # Here is another comment
++.RE
++.RS 10
++1:50   web
++.RE
++.RS 10
++1:60   ftp
++.RE
++.RS 10
++1:2    home
++.RE
++
++.RS
++.B tc
++will not fail if
++.B -nm
++was specified without
++.B -cf
++option but
++.B /etc/iproute2/tc_cls
++file does not exist, which makes it possible to pass
++.B -nm
++option for creating
++.B tc
++alias.
++.RE
++
+ .SH "EXAMPLES"
+ .PP
+ tc -g class show dev eth0
+-- 
+2.3.1
