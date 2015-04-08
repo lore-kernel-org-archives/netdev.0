@@ -1,71 +1,74 @@
-From: Michael Wang <yun.wang@profitbricks.com>
-Subject: Re: [PATCH v2 10/17] IB/Verbs: Adopt management helpers for IB helpers
-Date: Wed, 08 Apr 2015 10:28:10 +0200
-Message-ID: <5524E69A.6050400@profitbricks.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523CF0A.5090206@profitbricks.com> <20150407201259.GA17147@obsidianresearch.com> <008401d0716f$bc41c5c0$34c55140$@opengridcomputing.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH v2 11/17] IB/Verbs: Reform link_layer_show() and ib_uverbs_query_port()
+Date: Wed, 08 Apr 2015 10:29:57 +0200
+Message-ID: <5524E705.6040106@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523CF30.7000608@profitbricks.com> <1828884A29C6694DAF28B7E6B8A82373A8FBE2FA@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: 'Roland Dreier' <roland@kernel.org>,
-	'Sean Hefty' <sean.hefty@intel.com>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	'Hal Rosenstock' <hal.rosenstock@gmail.com>,
-	'Tom Tucker' <tom@opengridcomputing.com>,
-	'Hoang-Nam Nguyen' <hnguyen@de.ibm.com>,
-	'Christoph Raisch' <raisch@de.ibm.com>,
-	'Mike Marciniszyn' <infinipath@intel.com>,
-	'Eli Cohen' <eli@mellanox.com>,
-	'Faisal Latif' <faisal.latif@intel.com>,
-	'Upinder Malhi' <umalhi@cisco.com>,
-	'Trond Myklebust' <trond.myklebust@primarydata.com>,
-	"'J. Bruce Fields'" <bfields@fieldses.org>,
-	"'David S. Miller'" <davem@davemloft.net>,
-	'Ira Weiny' <ira.weiny@intel.com>,
-	'PJ Waskiewicz' <pj.waskiewicz@solidfire.com>,
-	'Tatyana Nikolova' <Tatyana.E.Nikolova@intel.com>,
-	'Or Gerlitz' <ogerlitz@mellanox.com>,
-	'Jack Morgenstein' <jackm@dev.mellanox.co.il>,
-	'Haggai Eran' <
-To: Steve Wise <swise@opengridcomputing.com>,
-	'Jason Gunthorpe' <jgunthorpe@obsidianresearch.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:36913 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751361AbbDHI2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 04:28:15 -0400
-Received: by wiaa2 with SMTP id a2so48927292wia.0
-        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 01:28:14 -0700 (PDT)
-In-Reply-To: <008401d0716f$bc41c5c0$34c55140$@opengridcomputing.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	infinipath <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"Latif, Faisal" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Weiny, Ira" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	"Nikolova, Tatyana E" <tatyana.e.nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Ilya Nelkenbaum <ilyan-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
+	Bart Van Assche <bvanassche-HInyCGIudOg@public.gmane.org>,
+	Shachar Raindel <raindel@mellanox
+To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FBE2FA-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Steve
 
-Thanks for the comment :-)
 
-On 04/07/2015 10:16 PM, Steve Wise wrote:
+On 04/07/2015 08:49 PM, Hefty, Sean wrote:
 [snip]
->>>
->>> -	force_grh = rdma_port_get_link_layer(device, port_num) == IB_LINK_LAYER_ETHERNET;
->>> +	force_grh = !rdma_transport_ib(device, port_num);
+>> @@ -515,8 +515,10 @@ ssize_t ib_uverbs_query_port(struct ib_uverbs_file
+>> *file,
+>>  	resp.active_width    = attr.active_width;
+>>  	resp.active_speed    = attr.active_speed;
+>>  	resp.phys_state      = attr.phys_state;
+>> -	resp.link_layer      = rdma_port_get_link_layer(file->device-
+>>> ib_dev,
+>> -							cmd.port_num);
+>> +	resp.link_layer      = rdma_transport_ib(file->device->ib_dev,
+>> +							cmd.port_num) ?
+>> +			       IB_LINK_LAYER_INFINIBAND :
+>> +			       IB_LINK_LAYER_ETHERNET;
 >>
->> Maybe these tests should be called cap_mandatory_grh - but I'm not
->> really sure how iWarp uses the GRH fields in the AH...
->>
+>>  	if (copy_to_user((void __user *) (unsigned long) cmd.response,
+>>  			 &resp, sizeof resp))
 > 
-> iWARP runs on top of TCP...this SA code is all IB-specific.  The reason it was checking for ETHERNET, I think, is for RoCE.    So
-> this change is totally incorrect,  I think,  because RoCE is an IB transport, but it runs on ETHERNET.
+> Both of the above check the transport in order to determine the link layer.
+> 
+> These values are exposed to user space.  Does anyone know what link layer iWarp returns to user space? 
 
-I guess it's the name 'transport' which confusing folks... actually (!rdma_transport_ib)
-including RoCE/IBoE, but yes, here it's for IBoE only, so let's change it to
-rdma_transport_iboe ;-)
+It should be ETH for IWARP according to the old logical :-)
 
 Regards,
 Michael Wang
 
 > 
-> Steve.
-> 
-> 
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
