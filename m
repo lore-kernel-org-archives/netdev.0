@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/20] Netfilter updates for net-next
-Date: Thu, 09 Apr 2015 14:46:42 -0400 (EDT)
-Message-ID: <20150409.144642.985584789592030631.davem@davemloft.net>
-References: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
+ commented out
+Date: Thu, 09 Apr 2015 20:52:55 +0200
+Message-ID: <5526CA87.2070204@free.fr>
+References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <5526B608.2080504@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Mack <daniel@zonque.org>, Mugunthan <mugunthanvnm@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:43881 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932841AbbDISxH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 14:53:07 -0400
+In-Reply-To: <5526B608.2080504@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu,  9 Apr 2015 13:34:44 +0200
+Florian Fainelli wrote:
 
-> The following patchset contains Netfilter updates for your net-next tree.
-> They are:
+> Mason wrote:
+>
+>> Is speed auto-negotiation supposed to be complete when phy_init_hw exits?
 > 
-> * nf_tables set timeout infrastructure from Patrick Mchardy.
- ...
-> * More nf_tables set enhancement from Patrick:
- ...
-> BTW, I have also pulled net-next into nf-next to anticipate the conflict
-> resolution between your okfn() signature changes and Florian's br_netfilter
-> updates.
-> 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+> There is no such guarantee, and the PHY state machine is started later,
+> which will take care of auto-neg and other things.
 
-Ok, pulled, thanks Pablo!
+That's what I thought.
+
+So it's expected that many status bits will only change later.
+
+You didn't comment on my patch. What's your take on it?
+
+Regards.
