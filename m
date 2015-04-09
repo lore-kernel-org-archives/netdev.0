@@ -1,61 +1,43 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
- commented out
-Date: Thu, 09 Apr 2015 17:58:52 +0200
-Message-ID: <5526A1BC.5060609@free.fr>
-References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <55269BAB.5020201@zonque.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipvlan: fix up broadcast MAC filtering for ARP and DHCP
+Date: Thu, 09 Apr 2015 09:01:00 -0700
+Message-ID: <1428595260.25985.259.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1427409698.18540.11.camel@redhat.com>
+	 <CAF2d9jjF20puZvoAD502rAzYAaraRtpZZRK-=vcZGu-Uv4wZMA@mail.gmail.com>
+	 <1427749308.1913.28.camel@redhat.com>
+	 <CAF2d9jipTV4f4NOgGRY-kGOyRBe5HAH6T-mj4G9FYnc7oyc+NA@mail.gmail.com>
+	 <1427771158.1913.35.camel@redhat.com> <1427775770.30696.3.camel@redhat.com>
+	 <CAF2d9jikrJU0k3sS=awZQN+SD46qnN4r0bubjXZiY7K9vQieEQ@mail.gmail.com>
+	 <1427921700.6874.8.camel@redhat.com>
+	 <CAF2d9jgqJBfWVnX1mye5xMfYznA_NFte3dEEKG5CyogXTM73Rw@mail.gmail.com>
+	 <1427985636.5282.9.camel@redhat.com>
+	 <CAF2d9jjBtSptfmFY2BDF7ULNxAz=WtUVpNz0iExyd-h+v+4GSQ@mail.gmail.com>
+	 <1428340638.16890.15.camel@redhat.com>
+	 <CAF2d9jgx6R5w_PoVzkstVgr0tATxTQv9S81QC9_YiX32vpRQVA@mail.gmail.com>
+	 <1428435900.6449.25.camel@redhat.com> <1428594679.15316.0.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Mugunthan <mugunthanvnm@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Daniel Mack <daniel@zonque.org>, netdev@vger.kernel.org
+Cc: Mahesh Bandewar <maheshb@google.com>,
+	linux-netdev <netdev@vger.kernel.org>, jbenc@redhat.com
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:64548 "EHLO smtp2-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755698AbbDIP7B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 11:59:01 -0400
-In-Reply-To: <55269BAB.5020201@zonque.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:35970 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756024AbbDIQBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 12:01:03 -0400
+Received: by iebrs15 with SMTP id rs15so104575271ieb.3
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 09:01:02 -0700 (PDT)
+In-Reply-To: <1428594679.15316.0.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/04/2015 17:32, Daniel Mack wrote:
+On Thu, 2015-04-09 at 10:51 -0500, Dan Williams wrote:
 
-> What about the debug registers, such as the one that configures the
-> RGMII TX/RX clock delay (4.2.25, 4.2.26). These are indirectly
-> addressed, see at803x_config_init().
+> Any thoughts on this Mahesh?  Is this non-DHCP approach more to your
+> liking?  If so I'll generate an actual patch and do some testing.
 
-My dump code:
+Pleas guys trim messages when replying. Otherwise people are bored and
+do not even try to read them anymore.
 
-void mydump(struct phy_device *phydev, int *foo, int *bar)
-{
-	int i;
-	for (i = 0; i < 32; ++i) foo[i] = phy_read(phydev, i);
-	for (i = 0; i < 20; ++i) {
-		phy_write(phydev, 0x1d, i);
-		mdelay(1);
-		bar[i] = phy_read(phydev, 0x1e);
-	}
-}
-
-[    0.738528] IDX=0x01 796d != 7949
-[    0.741860] IDX=0x05 c1e1 != 0000
-[    0.745191] IDX=0x06 000f != 0004
-[    0.748521] IDX=0x0a 3800 != 0000
-[    0.751851] IDX=0x11 bc10 != 0012
-[    0.755182] IDX=0x13 7400 != 0000
-[    0.758513] IDX=0x1b 060e != 0600
-[    0.761842] DEBUG REGS
-[    0.764211] IDX=0x01 ffd0 != 0032
-[    0.767542] IDX=0x02 3f0f != 3110
-[    0.770872] IDX=0x03 3fff != 3f00
-[    0.774203] IDX=0x0c 0800 != 1801
-[    0.777533] IDX=0x0d 0100 != 0000
-[    0.780863] IDX=0x0e 0023 != 0040
-
-Differences in debug registers only occur in undocumented registers.
-(Only 0x00, 0x05, 0x10, 0x11, 0x12 are documented.)
-
-Regards.
+Thanks.
