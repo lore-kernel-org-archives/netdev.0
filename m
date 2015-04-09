@@ -1,29 +1,58 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 3/5] selinux/nlmsg: add XFRM_MSG_NEWSPDINFO
-Date: Thu, 09 Apr 2015 15:11:08 +0200
-Message-ID: <55267A6C.3090400@6wind.com>
-References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com> <1428511002-22329-4-git-send-email-nicolas.dichtel@6wind.com> <55267162.7050304@tycho.nsa.gov>
-Reply-To: nicolas.dichtel@6wind.com
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Thu, 09 Apr 2015 15:11:58 +0200
+Message-ID: <873849cuox.fsf@nemi.mork.no>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
+	<20150328082853.GA4255@localhost.localdomain>
+	<5519D380.6070200@cogentembedded.com>
+	<20150331064349.GB4605@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Paul Moore <paul@paul-moore.com>
-To: Stephen Smalley <sds@tycho.nsa.gov>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55267162.7050304@tycho.nsa.gov>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	masaru.nagai.vx@renesas.com, David Miller <davem@davemloft.net>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:44234 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755226AbbDINNl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 09:13:41 -0400
+In-Reply-To: <20150331064349.GB4605@localhost.localdomain> (Richard Cochran's
+	message of "Tue, 31 Mar 2015 08:43:49 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 09/04/2015 14:32, Stephen Smalley a =E9crit :
-[snip]
-> Seem to be missing a number of the other commands defined in
-> include/uapi/linux/xfrm.h as well, e.g. XFRM_MSG_REPORT,
-> XFRM_MSG_MIGRATE, XFRM_MSG_NEWSADINFO, XFRM_MSG_GETSADINFO,
-> XFRM_MSG_GETSPDINFO, XFRM_MSG_MAPPING.
-Right, I will provide a patch.
+Richard Cochran <richardcochran@gmail.com> writes:
+
+> The reason for the author's SOB is to make sure that he or she is
+> really authorized (like from the employer) to contribute the driver.
+
+I believe it is wise to stick to the definition of "Developer's
+Certificate of Origin 1.1" from SubmittingPatches. Which most definitel=
+y
+allow you to sign off on any GPL licensed code, whether the original
+author(s) included a SOB tag or not:
+
+=2E.
+        (b) The contribution is based upon previous work that, to the b=
+est
+            of my knowledge, is covered under an appropriate open sourc=
+e
+            license and I have the right under that license to submit t=
+hat
+            work with modifications, whether created in whole or in par=
+t
+            by me, under the same open source license (unless I am
+            permitted to submit under a different license), as indicate=
+d
+            in the file; or
+=2E.
 
 
-Thank you,
-Nicolas
+
+Bj=C3=B8rn
