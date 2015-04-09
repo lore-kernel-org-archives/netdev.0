@@ -1,42 +1,102 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
-Date: Thu, 09 Apr 2015 10:20:48 -0700
-Message-ID: <5526B4F0.5050300@plumgrid.com>
-References: <1428535575-7736-2-git-send-email-ast@plumgrid.com>		<20150408.224404.1913719826015357860.davem@davemloft.net>		<5525EC69.1080606@plumgrid.com>	 <20150408.231456.1063648455572594170.davem@davemloft.net>	 <5525F48F.5030108@plumgrid.com> <55260C2F.608@plumgrid.com>	 <55269788.4070206@iogearbox.net> <1428593798.25985.256.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Thu, 9 Apr 2015 18:25:18 +0100
+Message-ID: <21798.46590.928152.666550@mariner.uk.xensource.com>
+References: <21795.62414.465476.464027@mariner.uk.xensource.com>
+	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<21796.6843.983774.271495@mariner.uk.xensource.com>
+	<21796.7755.270785.292996@mariner.uk.xensource.com>
+	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<1428448976.4720.15.camel@prashant>
+	<21797.13348.524963.29127@mariner.uk.xensource.com>
+	<1428543798.4720.20.camel@prashant>
+	<21798.24161.922394.539733@mariner.uk.xensource.com>
+	<1428595851.4720.22.camel@prashant>
+	<21798.44949.156680.399387@mariner.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
-	jiri@resnulli.us, jhs@mojatatu.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+To: Prashant Sreedharan <prashant@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37298 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753722AbbDIRUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 13:20:51 -0400
-Received: by igblo3 with SMTP id lo3so70553300igb.0
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 10:20:50 -0700 (PDT)
-In-Reply-To: <1428593798.25985.256.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:2718 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753799AbbDIRZY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 13:25:24 -0400
+In-Reply-To: <21798.44949.156680.399387@mariner.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/9/15 8:36 AM, Eric Dumazet wrote:
->
-> Maybe we'll finally have a fast packet capture, instead of simply
-> focusing on the filter part, which is tiny.
+Ian Jackson writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
+> Prashant Sreedharan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
+> > yes please do
+> 
+> I will do so.
 
-My plan for that was to use early_ingress_l2() hook before taps.
-which will push L2 and call into the program _without_ skb_share_check.
-We'll use it on the main interface where all traffic is seen.
-The program will parse the packet the way it likes and redirect
-the interesting packets to either different physical interface or
-another tap/veth where user space will capture it. Then for 99%
-of traffic on the main interface we don't pay any extra cost and if
-external physical device is used for capturing then it's even cheaper.
-On tracing side we were planing to use existing perf ring buffer infra
-to pass some data to user space. The same helpers can be used to pass
-info about the packet when user space doesn't need to see the whole
-packet. In such case the bpf program will extract interesting headers
-from the packet, store them into ring buffer and copy to user space
-which is extremely fast.
+I did this test:
+ - Linux 3.14.21
+ - baremetal
+ - `iommu=soft swiotlb=force' as suggested by Konrad
+ - no bridge
+ - manually added arp entries on both ends
+   between target box and a server on same network
+
+The results are:
+
+On the test box, `ping 10.80.248.135' and `ping -s 500 10.80.248.135'
+generate apparently-good ICMP echo requests which the server replies
+to, but they don't seem to be received.
+
+I ran
+  tcpdump -pvvs500 -lnieth0 \! ether dst cc:cc:cc:cc:cc:cc and \! \
+  ether dst 00:00:00:00:00:00 and \! ether dst 00:00:cc:cc:cc:cc and \
+  \! ether dst 00:00:00:00:cc:cc and \! ether dst cc:cc:00:00:00:00
+on the test box while pinging it from the server (-s500 and the
+default).  No relevant packets matched the tcpdump filter.
+
+However, as time goes by more and more packets with apparently random
+data in their address fields start turning up so I have to keep adding
+more mac addresses to be filtered out.
+
+root@bedbug:~# ethtool -S eth0 | grep -v ': 0$'
+NIC statistics:
+     rx_octets: 8196868
+     rx_ucast_packets: 633
+     rx_mcast_packets: 1
+     rx_bcast_packets: 123789
+     tx_octets: 42854
+     tx_ucast_packets: 9
+     tx_mcast_packets: 8
+     tx_bcast_packets: 603
+root@bedbug:~# ifconfig eth0
+eth0      Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
+          inet addr:10.80.249.102  Bcast:10.80.251.255
+          Mask:255.255.252.0
+          inet6 addr: fe80::213:72ff:fe14:c051/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:124774 errors:0 dropped:88921 overruns:0 frame:0
+          TX packets:620 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:8222158 (7.8 MiB)  TX bytes:42854 (41.8 KiB)
+          Interrupt:17 
+
+root@bedbug:~#
+
+It appears therefore that packets are being corrupted on the receive
+path, and the kernel then drops them (as misaddressed).
+
+I also tried under Xen (rather than with baremetal and Konrad's
+iommu/swiotlb kernel options), but that seems to be a less effective
+repro.  Under Xen, without the bridge, I got ~6-8% packet loss,
+compared to ~25-30% with the bridge.  I didn't investigate that
+configuration in detail.
+
+Thanks,
+Ian.
