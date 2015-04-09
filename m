@@ -1,72 +1,42 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 3/3] amd-xgbe: Add support for the netdev Tx
- watchdog
-Date: Thu, 9 Apr 2015 12:12:03 -0500
-Message-ID: <20150409171203.22188.36729.stgit@tlendack-t1.amdoffice.net>
-References: <20150409171145.22188.37025.stgit@tlendack-t1.amdoffice.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
+Date: Thu, 09 Apr 2015 10:20:48 -0700
+Message-ID: <5526B4F0.5050300@plumgrid.com>
+References: <1428535575-7736-2-git-send-email-ast@plumgrid.com>		<20150408.224404.1913719826015357860.davem@davemloft.net>		<5525EC69.1080606@plumgrid.com>	 <20150408.231456.1063648455572594170.davem@davemloft.net>	 <5525F48F.5030108@plumgrid.com> <55260C2F.608@plumgrid.com>	 <55269788.4070206@iogearbox.net> <1428593798.25985.256.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	jiri@resnulli.us, jhs@mojatatu.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0133.outbound.protection.outlook.com ([157.56.111.133]:13537
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756006AbbDIRMI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 13:12:08 -0400
-In-Reply-To: <20150409171145.22188.37025.stgit@tlendack-t1.amdoffice.net>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37298 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753722AbbDIRUv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 13:20:51 -0400
+Received: by igblo3 with SMTP id lo3so70553300igb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 10:20:50 -0700 (PDT)
+In-Reply-To: <1428593798.25985.256.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to be able to detect a hung Tx task by adding the netdev
-ndo_tx_timeout function callback. Do not set the watchdog_timeo value
-so as to use the system default time (currently 5 seconds).
+On 4/9/15 8:36 AM, Eric Dumazet wrote:
+>
+> Maybe we'll finally have a fast packet capture, instead of simply
+> focusing on the filter part, which is tiny.
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c  |    9 +++++++++
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |    3 +++
- 2 files changed, 12 insertions(+)
-
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index e10abc7..db84ddc 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -1600,6 +1600,14 @@ static int xgbe_change_mtu(struct net_device *netdev, int mtu)
- 	return 0;
- }
- 
-+static void xgbe_tx_timeout(struct net_device *netdev)
-+{
-+	struct xgbe_prv_data *pdata = netdev_priv(netdev);
-+
-+	netdev_warn(netdev, "tx timeout, device restarting\n");
-+	schedule_work(&pdata->restart_work);
-+}
-+
- static struct rtnl_link_stats64 *xgbe_get_stats64(struct net_device *netdev,
- 						  struct rtnl_link_stats64 *s)
- {
-@@ -1764,6 +1772,7 @@ static const struct net_device_ops xgbe_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_do_ioctl		= xgbe_ioctl,
- 	.ndo_change_mtu		= xgbe_change_mtu,
-+	.ndo_tx_timeout		= xgbe_tx_timeout,
- 	.ndo_get_stats64	= xgbe_get_stats64,
- 	.ndo_vlan_rx_add_vid	= xgbe_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= xgbe_vlan_rx_kill_vid,
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 2e4c22d..7149053 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -491,6 +491,9 @@ static int xgbe_probe(struct platform_device *pdev)
- 
- 	netdev->priv_flags |= IFF_UNICAST_FLT;
- 
-+	/* Use default watchdog timeout */
-+	netdev->watchdog_timeo = 0;
-+
- 	xgbe_init_rx_coalesce(pdata);
- 	xgbe_init_tx_coalesce(pdata);
- 
+My plan for that was to use early_ingress_l2() hook before taps.
+which will push L2 and call into the program _without_ skb_share_check.
+We'll use it on the main interface where all traffic is seen.
+The program will parse the packet the way it likes and redirect
+the interesting packets to either different physical interface or
+another tap/veth where user space will capture it. Then for 99%
+of traffic on the main interface we don't pay any extra cost and if
+external physical device is used for capturing then it's even cheaper.
+On tracing side we were planing to use existing perf ring buffer infra
+to pass some data to user space. The same helpers can be used to pass
+info about the packet when user space doesn't need to see the whole
+packet. In such case the bpf program will extract interesting headers
+from the packet, store them into ring buffer and copy to user space
+which is extremely fast.
