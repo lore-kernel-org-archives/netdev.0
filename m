@@ -1,173 +1,151 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 1/4] cxgb3/4/4vf: Update drivers to use dma_rmb/wmb
- where appropriate
-Date: Wed, 08 Apr 2015 18:49:29 -0700
-Message-ID: <20150409014929.4434.56993.stgit@ahduyck-vm-fedora22>
+Subject: [net-next PATCH 2/4] mlx4/mlx5: Use dma_wmb/rmb where appropriate
+Date: Wed, 08 Apr 2015 18:49:36 -0700
+Message-ID: <20150409014936.4434.49605.stgit@ahduyck-vm-fedora22>
 References: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Santosh Raspatur <santosh@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>, davem@davemloft.net
+Cc: davem@davemloft.net, Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Eli Cohen <eli@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41765 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44167 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753811AbbDIBtf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2015 21:49:35 -0400
+	id S1753811AbbDIBtm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Apr 2015 21:49:42 -0400
 In-Reply-To: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update the Chelsio Ethernet drivers to use the dma_rmb/wmb calls instead of
-the full barriers in order to improve performance.
+This patch should help to improve the performance of the mlx4 and mlx5 on a
+number of architectures.  For example, on x86 the dma_wmb/rmb equates out
+to a barrer() call as the architecture is already strong ordered, and on
+PowerPC the call works out to a lwsync which is significantly less expensive
+than the sync call that was being used for wmb.
 
-Cc: Santosh Raspatur <santosh@chelsio.com>
-Cc: Hariprasad S <hariprasad@chelsio.com>
-Cc: Casey Leedom <leedom@chelsio.com>
+I placed the new barriers between any spots that seemed to be trying to
+order memory/memory reads or writes, if there are any spots that involved
+MMIO I left the existing wmb in place as the new barriers cannot order
+transactions between coherent and non-coherent memories.
+
+v2: Reduced the replacments to just the spots where I could clearly
+    identify the usage pattern.
+
+Cc: Amir Vadai <amirv@mellanox.com>
+Cc: Ido Shamay <idos@mellanox.com>
+Cc: Eli Cohen <eli@mellanox.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb3/sge.c   |   20 ++++++++++----------
- drivers/net/ethernet/chelsio/cxgb4/sge.c   |    4 ++--
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c |    4 ++--
- 3 files changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c   |   12 ++++++------
+ drivers/net/ethernet/mellanox/mlx4/eq.c      |    4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c |    2 +-
+ 4 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-index d6aa602f168d..e4b5b057f417 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-@@ -422,7 +422,7 @@ static inline int add_one_rx_buf(void *va, unsigned int len,
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 79b1501e7951..4fdd3c37e47b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -771,7 +771,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		/*
+ 		 * make sure we read the CQE after we read the ownership bit
+ 		 */
+-		rmb();
++		dma_rmb();
  
- 	d->addr_lo = cpu_to_be32(mapping);
- 	d->addr_hi = cpu_to_be32((u64) mapping >> 32);
--	wmb();
-+	dma_wmb();
- 	d->len_gen = cpu_to_be32(V_FLD_GEN1(gen));
- 	d->gen2 = cpu_to_be32(V_FLD_GEN2(gen));
- 	return 0;
-@@ -433,7 +433,7 @@ static inline int add_one_rx_chunk(dma_addr_t mapping, struct rx_desc *d,
- {
- 	d->addr_lo = cpu_to_be32(mapping);
- 	d->addr_hi = cpu_to_be32((u64) mapping >> 32);
--	wmb();
-+	dma_wmb();
- 	d->len_gen = cpu_to_be32(V_FLD_GEN1(gen));
- 	d->gen2 = cpu_to_be32(V_FLD_GEN2(gen));
- 	return 0;
-@@ -579,7 +579,7 @@ static void recycle_rx_buf(struct adapter *adap, struct sge_fl *q,
- 	q->sdesc[q->pidx] = q->sdesc[idx];
- 	to->addr_lo = from->addr_lo;	/* already big endian */
- 	to->addr_hi = from->addr_hi;	/* likewise */
--	wmb();
-+	dma_wmb();
- 	to->len_gen = cpu_to_be32(V_FLD_GEN1(q->gen));
- 	to->gen2 = cpu_to_be32(V_FLD_GEN2(q->gen));
+ 		/* Drop packet on bad receive or bad checksum */
+ 		if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 55f9f5c5344e..1783705273d8 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -416,7 +416,7 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
+ 		 * make sure we read the CQE after we read the
+ 		 * ownership bit
+ 		 */
+-		rmb();
++		dma_rmb();
  
-@@ -1068,7 +1068,7 @@ static void write_wr_hdr_sgl(unsigned int ndesc, struct sk_buff *skb,
- 		sd->eop = 1;
- 		wrp->wr_hi = htonl(F_WR_SOP | F_WR_EOP | V_WR_DATATYPE(1) |
- 				   V_WR_SGLSFLT(flits)) | wr_hi;
--		wmb();
-+		dma_wmb();
- 		wrp->wr_lo = htonl(V_WR_LEN(flits + sgl_flits) |
- 				   V_WR_GEN(gen)) | wr_lo;
- 		wr_gen2(d, gen);
-@@ -1114,7 +1114,7 @@ static void write_wr_hdr_sgl(unsigned int ndesc, struct sk_buff *skb,
+ 		if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
+ 			     MLX4_CQE_OPCODE_ERROR)) {
+@@ -667,7 +667,7 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ 				       skb_frag_size(&shinfo->frags[0]));
  		}
- 		sd->eop = 1;
- 		wrp->wr_hi |= htonl(F_WR_EOP);
+ 
 -		wmb();
 +		dma_wmb();
- 		wp->wr_lo = htonl(V_WR_LEN(WR_FLITS) | V_WR_GEN(ogen)) | wr_lo;
- 		wr_gen2((struct tx_desc *)wp, ogen);
- 		WARN_ON(ndesc != 0);
-@@ -1184,7 +1184,7 @@ static void write_tx_pkt_wr(struct adapter *adap, struct sk_buff *skb,
- 			cpl->wr.wr_hi = htonl(V_WR_BCNTLFLT(skb->len & 7) |
- 					      V_WR_OP(FW_WROPCODE_TUNNEL_TX_PKT)
- 					      | F_WR_SOP | F_WR_EOP | compl);
+ 		inl->byte_count = cpu_to_be32(1 << 31 | (skb->len - spc));
+ 	}
+ }
+@@ -804,7 +804,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 			data->addr = cpu_to_be64(dma);
+ 			data->lkey = ring->mr_key;
 -			wmb();
 +			dma_wmb();
- 			cpl->wr.wr_lo = htonl(V_WR_LEN(flits) | V_WR_GEN(gen) |
- 					      V_WR_TID(q->token));
- 			wr_gen2(d, gen);
-@@ -1342,7 +1342,7 @@ static inline void write_imm(struct tx_desc *d, struct sk_buff *skb,
+ 			data->byte_count = cpu_to_be32(byte_count);
+ 			--data;
+ 		}
+@@ -821,7 +821,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 	to->wr_hi = from->wr_hi | htonl(F_WR_SOP | F_WR_EOP |
- 					V_WR_BCNTLFLT(len & 7));
+ 			data->addr = cpu_to_be64(dma);
+ 			data->lkey = ring->mr_key;
+-			wmb();
++			dma_wmb();
+ 			data->byte_count = cpu_to_be32(byte_count);
+ 		}
+ 		/* tx completion can avoid cache line miss for common cases */
+@@ -938,7 +938,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Ensure new descriptor hits memory
+ 		 * before setting ownership of this descriptor to HW
+ 		 */
+-		wmb();
++		dma_wmb();
+ 		tx_desc->ctrl.owner_opcode = op_own;
+ 
+ 		wmb();
+@@ -958,7 +958,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* Ensure new descriptor hits memory
+ 		 * before setting ownership of this descriptor to HW
+ 		 */
+-		wmb();
++		dma_wmb();
+ 		tx_desc->ctrl.owner_opcode = op_own;
+ 		if (send_doorbell) {
+ 			wmb();
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index 6e70ffee8e87..190fd624bdfe 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -188,7 +188,7 @@ static void slave_event(struct mlx4_dev *dev, u8 slave, struct mlx4_eqe *eqe)
+ 	memcpy(s_eqe, eqe, dev->caps.eqe_size - 1);
+ 	s_eqe->slave_id = slave;
+ 	/* ensure all information is written before setting the ownersip bit */
 -	wmb();
 +	dma_wmb();
- 	to->wr_lo = from->wr_lo | htonl(V_WR_GEN(gen) |
- 					V_WR_LEN((len + 7) / 8));
- 	wr_gen2(d, gen);
-@@ -2271,7 +2271,7 @@ static int process_responses(struct adapter *adap, struct sge_qset *qs,
- 		u32 len, flags;
- 		__be32 rss_hi, rss_lo;
+ 	s_eqe->owner = !!(slave_eq->prod & SLAVE_EVENT_EQ_SIZE) ? 0x0 : 0x80;
+ 	++slave_eq->prod;
  
--		rmb();
-+		dma_rmb();
- 		eth = r->rss_hdr.opcode == CPL_RX_PKT;
- 		rss_hi = *(const __be32 *)r;
- 		rss_lo = r->rss_hdr.rss_hash_val;
-@@ -2488,7 +2488,7 @@ static int process_pure_responses(struct adapter *adap, struct sge_qset *qs,
- 		}
- 		if (!is_new_response(r, q))
- 			break;
--		rmb();
-+		dma_rmb();
- 	} while (is_pure_response(r));
- 
- 	if (sleeping)
-@@ -2523,7 +2523,7 @@ static inline int handle_responses(struct adapter *adap, struct sge_rspq *q)
- 
- 	if (!is_new_response(r, q))
- 		return -1;
--	rmb();
-+	dma_rmb();
- 	if (is_pure_response(r) && process_pure_responses(adap, qs, r) == 0) {
- 		t3_write_reg(adap, A_SG_GTS, V_RSPQ(q->cntxt_id) |
- 			     V_NEWTIMER(q->holdoff_tmr) | V_NEWINDEX(q->cidx));
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index c438f3895c40..e622214e2eca 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -1968,7 +1968,7 @@ static int process_responses(struct sge_rspq *q, int budget)
- 		if (!is_new_response(rc, q))
- 			break;
- 
--		rmb();
-+		dma_rmb();
- 		rsp_type = RSPD_TYPE(rc->type_gen);
- 		if (likely(rsp_type == RSP_TYPE_FLBUF)) {
- 			struct page_frag *fp;
-@@ -2160,7 +2160,7 @@ static unsigned int process_intrq(struct adapter *adap)
- 		if (!is_new_response(rc, q))
- 			break;
- 
--		rmb();
-+		dma_rmb();
- 		if (RSPD_TYPE(rc->type_gen) == RSP_TYPE_INTR) {
- 			unsigned int qid = ntohl(rc->pldbuflen_qid);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 7715982230e5..482f6de6817d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1751,7 +1751,7 @@ static int process_responses(struct sge_rspq *rspq, int budget)
- 		 * Figure out what kind of response we've received from the
- 		 * SGE.
+@@ -473,7 +473,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 		 * Make sure we read EQ entry contents after we've
+ 		 * checked the ownership bit.
  		 */
 -		rmb();
 +		dma_rmb();
- 		rsp_type = RSPD_TYPE(rc->type_gen);
- 		if (likely(rsp_type == RSP_TYPE_FLBUF)) {
- 			struct page_frag *fp;
-@@ -1935,7 +1935,7 @@ static unsigned int process_intrq(struct adapter *adapter)
- 		 * error and go on to the next response message.  This should
- 		 * never happen ...
+ 
+ 		switch (eqe->type) {
+ 		case MLX4_EVENT_TYPE_COMP:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index dbf190d9b9ad..58800e4f3958 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -208,7 +208,7 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
+ 		 * Make sure we read EQ entry contents after we've
+ 		 * checked the ownership bit.
  		 */
 -		rmb();
 +		dma_rmb();
- 		if (unlikely(RSPD_TYPE(rc->type_gen) != RSP_TYPE_INTR)) {
- 			dev_err(adapter->pdev_dev,
- 				"Unexpected INTRQ response type %d\n",
+ 
+ 		mlx5_core_dbg(eq->dev, "eqn %d, eqe type %s\n",
+ 			      eq->eqn, eqe_type_str(eqe->type));
