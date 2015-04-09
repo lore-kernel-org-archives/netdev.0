@@ -1,137 +1,150 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 15/20] netfilter: bridge: make BRNF_PKT_TYPE flag a bool
-Date: Thu,  9 Apr 2015 13:34:59 +0200
-Message-ID: <1428579304-5520-16-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/20] netfilter: nf_tables: prepare set element accounting for async updates
+Date: Thu,  9 Apr 2015 13:35:01 +0200
+Message-ID: <1428579304-5520-18-git-send-email-pablo@netfilter.org>
 References: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33131 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:33180 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933035AbbDILbS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 07:31:18 -0400
+	id S933092AbbDILb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 07:31:26 -0400
 In-Reply-To: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Patrick McHardy <kaber@trash.net>
 
-nf_bridge_info->mask is used for several things, for example to
-remember if skb->pkt_type was set to OTHER_HOST.
+Use atomic operations for the element count to avoid races with async
+updates.
 
-For a bridge, OTHER_HOST is expected case. For ip forward its a non-starter
-though -- routing expects PACKET_HOST.
+To properly handle the transactional semantics during netlink updates,
+deleted but not yet committed elements are accounted for seperately and
+are treated as being already removed. This means for the duration of
+a netlink transaction, the limit might be exceeded by the amount of
+elements deleted. Set implementations must be prepared to handle this.
 
-Bridge netfilter thus changes OTHER_HOST to PACKET_HOST before hook
-invocation and then un-does it after hook traversal.
-
-This information is irrelevant outside of br_netfilter.
-
-After this change, ->mask now only contains flags that need to be
-known outside of br_netfilter in fast-path.
-
-Future patch changes mask into a 2bit state field in sk_buff, so that
-we can remove skb->nf_bridge pointer for good and consider all remaining
-places that access nf_bridge info content a not-so fastpath.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter_bridge.h |    1 -
- include/linux/skbuff.h           |    1 +
- net/bridge/br_netfilter.c        |   18 +++++++++---------
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ include/net/netfilter/nf_tables.h |    4 +++-
+ net/netfilter/nf_tables_api.c     |   21 ++++++++++++---------
+ net/netfilter/nft_hash.c          |    3 ++-
+ 3 files changed, 17 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index d47a32d..8912e8c 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -17,7 +17,6 @@ enum nf_br_hook_priorities {
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index a785699..7464233 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -258,6 +258,7 @@ void nft_unregister_set(struct nft_set_ops *ops);
+  * 	@dtype: data type (verdict or numeric type defined by userspace)
+  * 	@size: maximum set size
+  * 	@nelems: number of elements
++ * 	@ndeact: number of deactivated elements queued for removal
+  * 	@timeout: default timeout value in msecs
+  * 	@gc_int: garbage collection interval in msecs
+  *	@policy: set parameterization (see enum nft_set_policies)
+@@ -275,7 +276,8 @@ struct nft_set {
+ 	u32				ktype;
+ 	u32				dtype;
+ 	u32				size;
+-	u32				nelems;
++	atomic_t			nelems;
++	u32				ndeact;
+ 	u64				timeout;
+ 	u32				gc_int;
+ 	u16				policy;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 0dab872..27d1bf5 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3238,9 +3238,6 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 	u32 flags;
+ 	int err;
  
- #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+-	if (set->size && set->nelems == set->size)
+-		return -ENFILE;
+-
+ 	err = nla_parse_nested(nla, NFTA_SET_ELEM_MAX, attr,
+ 			       nft_set_elem_policy);
+ 	if (err < 0)
+@@ -3391,11 +3388,15 @@ static int nf_tables_newsetelem(struct sock *nlsk, struct sk_buff *skb,
+ 		return -EBUSY;
  
--#define BRNF_PKT_TYPE			0x01
- #define BRNF_BRIDGED_DNAT		0x02
- #define BRNF_NF_BRIDGE_PREROUTING	0x08
- 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6f75fb5..0991259 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -171,6 +171,7 @@ struct nf_bridge_info {
- 		BRNF_PROTO_8021Q,
- 		BRNF_PROTO_PPPOE
- 	} orig_proto;
-+	bool			pkt_otherhost;
- 	unsigned int		mask;
- 	struct net_device	*physindev;
- 	struct net_device	*physoutdev;
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index ab1e988..e8ac743 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -282,9 +282,9 @@ static int br_nf_pre_routing_finish_ipv6(struct sk_buff *skb)
- 	struct nf_bridge_info *nf_bridge = nf_bridge_info_get(skb);
- 	struct rtable *rt;
- 
--	if (nf_bridge->mask & BRNF_PKT_TYPE) {
-+	if (nf_bridge->pkt_otherhost) {
- 		skb->pkt_type = PACKET_OTHERHOST;
--		nf_bridge->mask ^= BRNF_PKT_TYPE;
-+		nf_bridge->pkt_otherhost = false;
+ 	nla_for_each_nested(attr, nla[NFTA_SET_ELEM_LIST_ELEMENTS], rem) {
++		if (set->size &&
++		    !atomic_add_unless(&set->nelems, 1, set->size + set->ndeact))
++			return -ENFILE;
++
+ 		err = nft_add_set_elem(&ctx, set, attr);
+-		if (err < 0)
++		if (err < 0) {
++			atomic_dec(&set->nelems);
+ 			break;
+-
+-		set->nelems++;
++		}
  	}
- 	nf_bridge->mask ^= BRNF_NF_BRIDGE_PREROUTING;
+ 	return err;
+ }
+@@ -3477,7 +3478,7 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
+ 		if (err < 0)
+ 			break;
  
-@@ -415,9 +415,9 @@ static int br_nf_pre_routing_finish(struct sk_buff *skb)
- 	frag_max_size = IPCB(skb)->frag_max_size;
- 	BR_INPUT_SKB_CB(skb)->frag_max_size = frag_max_size;
- 
--	if (nf_bridge->mask & BRNF_PKT_TYPE) {
-+	if (nf_bridge->pkt_otherhost) {
- 		skb->pkt_type = PACKET_OTHERHOST;
--		nf_bridge->mask ^= BRNF_PKT_TYPE;
-+		nf_bridge->pkt_otherhost = false;
+-		set->nelems--;
++		set->ndeact++;
  	}
- 	nf_bridge->mask ^= BRNF_NF_BRIDGE_PREROUTING;
- 	if (dnat_took_place(skb)) {
-@@ -503,7 +503,7 @@ static struct net_device *setup_pre_routing(struct sk_buff *skb)
- 
- 	if (skb->pkt_type == PACKET_OTHERHOST) {
- 		skb->pkt_type = PACKET_HOST;
--		nf_bridge->mask |= BRNF_PKT_TYPE;
-+		nf_bridge->pkt_otherhost = true;
- 	}
- 
- 	nf_bridge->mask |= BRNF_NF_BRIDGE_PREROUTING;
-@@ -711,9 +711,9 @@ static int br_nf_forward_finish(struct sk_buff *skb)
+ 	return err;
+ }
+@@ -3810,6 +3811,8 @@ static int nf_tables_commit(struct sk_buff *skb)
+ 						 &te->elem,
+ 						 NFT_MSG_DELSETELEM, 0);
+ 			te->set->ops->remove(te->set, &te->elem);
++			atomic_dec(&te->set->nelems);
++			te->set->ndeact--;
+ 			break;
  		}
- 
- 		in = nf_bridge->physindev;
--		if (nf_bridge->mask & BRNF_PKT_TYPE) {
-+		if (nf_bridge->pkt_otherhost) {
- 			skb->pkt_type = PACKET_OTHERHOST;
--			nf_bridge->mask ^= BRNF_PKT_TYPE;
-+			nf_bridge->pkt_otherhost = false;
- 		}
- 		nf_bridge_update_protocol(skb);
- 	} else {
-@@ -769,7 +769,7 @@ static unsigned int br_nf_forward_ip(const struct nf_hook_ops *ops,
- 
- 	if (skb->pkt_type == PACKET_OTHERHOST) {
- 		skb->pkt_type = PACKET_HOST;
--		nf_bridge->mask |= BRNF_PKT_TYPE;
-+		nf_bridge->pkt_otherhost = true;
  	}
+@@ -3913,16 +3916,16 @@ static int nf_tables_abort(struct sk_buff *skb)
+ 			nft_trans_destroy(trans);
+ 			break;
+ 		case NFT_MSG_NEWSETELEM:
+-			nft_trans_elem_set(trans)->nelems--;
+ 			te = (struct nft_trans_elem *)trans->data;
  
- 	if (pf == NFPROTO_IPV4) {
-@@ -927,7 +927,7 @@ static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
- 	 * about the value of skb->pkt_type. */
- 	if (skb->pkt_type == PACKET_OTHERHOST) {
- 		skb->pkt_type = PACKET_HOST;
--		nf_bridge->mask |= BRNF_PKT_TYPE;
-+		nf_bridge->pkt_otherhost = true;
+ 			te->set->ops->remove(te->set, &te->elem);
++			atomic_dec(&te->set->nelems);
+ 			break;
+ 		case NFT_MSG_DELSETELEM:
+ 			te = (struct nft_trans_elem *)trans->data;
+ 
+-			nft_trans_elem_set(trans)->nelems++;
+ 			te->set->ops->activate(te->set, &te->elem);
++			te->set->ndeact--;
+ 
+ 			nft_trans_destroy(trans);
+ 			break;
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index 5923ec5..c74e2bf 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -203,7 +203,7 @@ out:
+ 
+ static void nft_hash_gc(struct work_struct *work)
+ {
+-	const struct nft_set *set;
++	struct nft_set *set;
+ 	struct nft_hash_elem *he;
+ 	struct nft_hash *priv;
+ 	struct nft_set_gc_batch *gcb = NULL;
+@@ -237,6 +237,7 @@ static void nft_hash_gc(struct work_struct *work)
+ 		if (gcb == NULL)
+ 			goto out;
+ 		rhashtable_remove_fast(&priv->ht, &he->node, nft_hash_params);
++		atomic_dec(&set->nelems);
+ 		nft_set_gc_batch_add(gcb, he);
  	}
- 
- 	nf_bridge_pull_encap_header(skb);
+ out:
 -- 
 1.7.10.4
