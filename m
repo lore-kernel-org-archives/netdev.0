@@ -1,95 +1,111 @@
-From: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 10/17] IB/Verbs: Adopt management helpers for IB helpers
-Date: Thu, 9 Apr 2015 01:36:51 -0400
-Message-ID: <20150409053651.GB28926@phlsvsds.ph.intel.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523CF0A.5090206@profitbricks.com> <20150407201259.GA17147@obsidianresearch.com> <008401d0716f$bc41c5c0$34c55140$@opengridcomputing.com>
+From: "Templeman, Chaim" <chaim.templeman@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] e1000e: Cleanup handling of VLAN_HLEN
+ as a part of max frame size
+Date: Thu, 9 Apr 2015 06:17:47 +0000
+Message-ID: <BD4006F19E8FC247A4760EC0EE12CCDF468ACD40@HASMSX110.ger.corp.intel.com>
+References: <alpine.NEB.2.11.1504081019220.3388@chris.i8u.org>
+ <20150408204630.4643.37880.stgit@ahduyck-vm-fedora22>
+ <alpine.NEB.2.11.1504081413510.3388@chris.i8u.org>
+ <5525B2AE.80301@gmail.com>
+ <alpine.NEB.2.11.1504081602260.3388@chris.i8u.org>
+ <5525B62A.1050601@gmail.com>
+ <alpine.NEB.2.11.1504081705350.3388@chris.i8u.org>
+ <alpine.NEB.2.11.1504081714400.3388@chris.i8u.org>
+ <5525D389.3010700@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Jason Gunthorpe'" <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	"'Michael Wang'" <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
-	"'Roland Dreier'" <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"'Sean Hefty'" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"'Hal Rosenstock'" <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"'Tom Tucker'" <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	"'Hoang-Nam Nguyen'" <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	"'Christoph Raisch'" <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	"'Mike Marciniszyn'" <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"'Eli Cohen'" <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"'Faisal Latif'" <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"'Upinder Malhi'" <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
-	"'Trond Myklebust'" <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	"'J. Bruce Fields'" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"'David S. Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"'PJ Waskiewicz'" <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
-	"'Tatyana Nikolova'" <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"'Or Gerl
-To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <008401d0716f$bc41c5c0$34c55140$@opengridcomputing.com>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"mike@cchtml.com" <mike@cchtml.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Ertman, David M" <david.m.ertman@intel.com>,
+	"Lubetkin, YanirX" <yanirx.lubetkin@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	Hisashi T Fujinaka <htodd@twofifty.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:1973 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750785AbbDIGRv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 02:17:51 -0400
+In-Reply-To: <5525D389.3010700@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 07, 2015 at 03:16:30PM -0500, Steve Wise wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Jason Gunthorpe [mailto:jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org]
-> > Sent: Tuesday, April 07, 2015 3:13 PM
-> > To: Michael Wang
-> > Cc: Roland Dreier; Sean Hefty; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> > netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Hal Rosenstock; Tom Tucker; Steve Wise; Hoang-Nam Nguyen; Christoph Raisch; Mike Marciniszyn; Eli Cohen;
-> > Faisal Latif; Upinder Malhi; Trond Myklebust; J. Bruce Fields; David S. Miller; Ira Weiny; PJ Waskiewicz; Tatyana Nikolova; Or
-> Gerlitz; Jack
-> > Morgenstein; Haggai Eran; Ilya Nelkenbaum; Yann Droneaud; Bart Van Assche; Shachar Raindel; Sagi Grimberg; Devesh Sharma; Matan
-> > Barak; Moni Shoua; Jiri Kosina; Selvin Xavier; Mitesh Ahuja; Li RongQing; Rasmus Villemoes; Alex Estrin; Doug Ledford; Eric
-> Dumazet; Erez
-> > Shitrit; Tom Gundersen; Chuck Lever
-> > Subject: Re: [PATCH v2 10/17] IB/Verbs: Adopt management helpers for IB helpers
-> > 
-> > On Tue, Apr 07, 2015 at 02:35:22PM +0200, Michael Wang wrote:
-> > > index f704254..4e61104 100644
-> > > +++ b/drivers/infiniband/core/sa_query.c
-> > > @@ -540,7 +540,7 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
-> > >  	ah_attr->port_num = port_num;
-> > >  	ah_attr->static_rate = rec->rate;
-> > >
-> > > -	force_grh = rdma_port_get_link_layer(device, port_num) == IB_LINK_LAYER_ETHERNET;
-> > > +	force_grh = !rdma_transport_ib(device, port_num);
-> > 
-> > Maybe these tests should be called cap_mandatory_grh - but I'm not
-> > really sure how iWarp uses the GRH fields in the AH...
-> > 
-> 
-> iWARP runs on top of TCP...this SA code is all IB-specific.  The reason it was checking for ETHERNET, I think, is for RoCE.    So
-> this change is totally incorrect,  I think,  because RoCE is an IB transport, but it runs on ETHERNET.
+We will look into this with the HW architect and get back to you on what the HW limitations actually are on this issue.
 
-But RoCE does not have an SA?
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alexander Duyck
+Sent: Thursday, April 09, 2015 04:19
+To: Hisashi T Fujinaka
+Cc: netdev@vger.kernel.org; mike@cchtml.com; intel-wired-lan@lists.osuosl.org; Ertman, David M
+Subject: Re: [Intel-wired-lan] [PATCH] e1000e: Cleanup handling of VLAN_HLEN as a part of max frame size
 
-Looks like ib_init_ah_from_path was overloaded to handle non-standard "path
-records".
+On 04/08/2015 05:26 PM, Hisashi T Fujinaka wrote:
+> On Wed, 8 Apr 2015, Hisashi T Fujinaka wrote:
+>
+>> On Wed, 8 Apr 2015, Alexander Duyck wrote:
+>>>
+>>> It is but it isn't.  If you look in e1000_change_mtu you will find the
+>>> node about "Jumbo frame workaround on 82579 and newer requires CRC be
+>>> stripped".  With that being the case I'm wondering if the 9018 doesn't
+>>> include CRC but instead includes VLAN header.  So as a result the
+>>> actual
+>>> hardware is processing frames that are 9022 in size, but the buffer
+>>> only
+>>> ever receives at most 9018 since the CRC is stripped.
+>>>
+>>> I suspect that is why the Windows driver has had no issues reporting
+>>> support for a size of 9014 (excluding VLAN and CRC) on these parts and
+>>> hasn't had any issues.
+>>
+>> I can only tell you what was told to me by Dave Ertman, which is that
+>> there is a hard hardware limit of 9018 bytes. I wouldn't know if we do
+>> have Windows issues because it's a completely different division and
+>> there's no reason for any of those issues to be routed to us.
+>>
+>> In fact, the problem with different max MTU across the drivers in Linux
+>> has only ever been reported by one user.
+>>
+>> I'm still looking for the HW documentation and would like Jeff to hold
+>> off until we find it.
+>
+> OK. So the data sheet states:
+>
+> LPE controls whether long packet reception is permitted. Hardware
+> discards long packets if LPE is 0. A long packet is one longer than 1522
+> bytes. If LPE is 1, the maximum packet size that the device can receive
+> is 9018 bytes.
 
-It seems like the correct functionality would be to use ib_init_ah_from_path()
-for true SA PathRecords and have another call iboe_init_ah() wrap
-ib_init_ah_from_path() when RoCE address information is needed in the AH.
+Yeah, that is mostly clear except it doesn't indicate if that includes
+or excludes the CRC and/or VLAN header.  All the documentation I can
+find seems to indicate it is likely skipping one or the other since it
+recommends setting any switches to support 9022 in order to account for
+both.
 
-For Michaels patches I think 
+> So if you're pre-stripping the CRC, then it will be less than 9018.
 
-	force_grh = rdma_device_is_iboe(...)
+Right so the argument is probably moot since you cannot enable jumbo
+frames unless CRC stripping is enabled.  Ugh, but it looks like nothing
+prevents disabling CRC stripping once jumbo frames has been enabled. 
+I'll patch that shortly.
 
-is the logic we need here.
+> I guess I'd like to hear what Dave thinks.
 
-Ira
+The problem is this pre-dates when Dave Ertman started working on
+e1000e.  All of this went into effect back during the introduction of
+82579 and i217/i218 and the two patches from Bruce that reduced the size
+down to 9018 didn't specify where the number came from.  I suspect it is
+the same data sheet we have been looking at which is a bit vague about
+what is included in that size.
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+---------------------------------------------------------------------
+Intel Israel (74) Limited
 
-
-> 
-> Steve.
-> 
-> 
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
