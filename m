@@ -1,86 +1,215 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 1/4] sh_eth: Ensure proper ordering of descriptor
- active bit write/read
-Date: Fri, 10 Apr 2015 01:21:14 +0300
-Message-ID: <5526FB5A.8090005@cogentembedded.com>
-References: <1425343868.4288.8.camel@xylophone.i.decadent.org.uk> <1425343920.4288.9.camel@xylophone.i.decadent.org.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is commented
+ out
+Date: Thu, 09 Apr 2015 15:30:47 -0700
+Message-ID: <5526FD97.6080509@gmail.com>
+References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <5526B608.2080504@gmail.com> <5526CA87.2070204@free.fr> <5526CC5A.1080504@gmail.com> <5526D359.1050202@free.fr> <5526E058.2080408@gmail.com> <5526F8EE.1010108@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>,
-	netdev@vger.kernel.org
+Cc: Daniel Mack <daniel@zonque.org>, Mugunthan <mugunthanvnm@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Mason <slash.tmp@free.fr>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:34894 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753762AbbDIWVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 18:21:19 -0400
-Received: by lbbuc2 with SMTP id uc2so857724lbb.2
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 15:21:17 -0700 (PDT)
-In-Reply-To: <1425343920.4288.9.camel@xylophone.i.decadent.org.uk>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:34754 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755121AbbDIWbo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 18:31:44 -0400
+Received: by pdbqa5 with SMTP id qa5so1683919pdb.1
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 15:31:44 -0700 (PDT)
+In-Reply-To: <5526F8EE.1010108@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 09/04/15 15:10, Mason wrote:
+> Florian Fainelli wrote:
+>> Mason wrote:
+>>> Florian Fainelli wrote:
+>>>> Quoting IEEE 802.3 section 2, paragraph 22.2.4.1:
+>>>>
+>>>> "Resetting a PHY is accomplished by setting bit 0.15 to a logic one.
+>>>> This action shall set the status and control registers to their 
+>>>> default states. As a consequence this action may change the internal 
+>>>> state of the PHY and the state of the physical link associated with 
+>>>> the PHY. This bit is self-clearing, and a PHY shall return a value
+>>>> of one in bit 0.15 until the reset process is completed. A PHY is
+>>>> not required to accept a write transaction to the control register 
+>>>> until the reset process is completed, and writes to bits of the 
+>>>> control register other than 0.15 may have no effect until the reset 
+>>>> process is completed. The reset process shall be completed within
+>>>> 0.5 s from the setting of bit 0.15"
+>>>>
+>>>> So even though this is not extremely specific about whether or not doing
+>>>> a RMW instead of W is accepted, considering that this resets the PHY
+>>>> internal state, and the fact that there is a lack of clarify on whether
+>>>> setting any bits other than 15 is going to fall under the "A PHY is not
+>>>> required to accept a write transaction to the control register until the
+>>>> reset process is completed" statement, setting only this bit at least
+>>>> guarantees that you are back into your reset defaults.
+>>>>
+>>>> As Daniel suggested, I would be looking for undocumented/proprietary
+>>>> registers for reasons as to why your PHY is not working, in particular
+>>>> (RG)MII tuning.
+>>>
+>>> Am I the only having problems with the AR8035? :-(
+>>>
+>>> The standard driver works for everyone but me? 
+>>>
+>>> Did you take a look at the data sheet? Do you understand the
+>>> difference between "Hardware Reset" and "Software Reset"?
+>>
+>> I did not.
+> 
+> If I understand your quote from the standard correctly,
+> then the behavior documented in the data sheet looks
+> very non-compliant to my untrained eye.
+> 
+>>> Also, why do you say the PHY is not working? When I apply the
+>>> patch I proposed, it doesn't malfunction.
+>>
+>> There are no BMCR registers that would affect directly the passing of
+>> unicast or broadcast traffic with distinction, which is how you
+>> originally reported the problem, or maybe that was a bad description of
+>> the issue?
+> 
+> I didn't say anything about unicast vs broadcast.
+> 
+> When I run the unpatched code, it looks like the PHY negotiates
+> only 10 Mbps Half-duplex, then DHCP appears to succeed (IIUC
+> only the very first packets are broadcast), and then the system
+> hangs trying to mount the root filesystem over NFS.
 
-On 03/03/2015 03:52 AM, Ben Hutchings wrote:
+So maybe you can make sure that your driver properly advertises all the
+supported modes by your PHY, for instance, drivers/net/phy/bcm7xxx.c
+calls genphy_config_aneg() to make sure that all modes are advertised
+(the PHY does not advertise half-duplex modes by default).
 
-> When submitting a DMA descriptor, the active bit must be written last.
-> When reading a completed DMA descriptor, the active bit must be read
-> first.
+> 
+> I actually left it running over lunch break, and according
+> to the kernel's time stamps, the system seems to have managed
+> to mount the root file system after 2000+ seconds.
 
-> Add memory barriers to ensure that this ordering is maintained.
+Ah, so it's doing something after all.
 
-    Looks like those should have been lighter dma_rmb() and dma_wmb() instead.
-Correct, Alexander?
+> 
+>> Have you checked the Ethernet MAC MIB counters to see if there are any
+>> errors reported differently from the working case to the non-working
+>> case? What about your link partner, what does it looks like on its end
+>> when it does not work?
+> 
+> Should I use ethtool for this?
 
-> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 654b48d1e61a..5c212a833bcf 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -1410,6 +1410,8 @@ static int sh_eth_txfree(struct net_device *ndev)
->   		txdesc = &mdp->tx_ring[entry];
->   		if (txdesc->status & cpu_to_edmac(mdp, TD_TACT))
->   			break;
-> +		/* TACT bit must be checked before all the following reads */
-> +		rmb();
->   		/* Free the original skb. */
->   		if (mdp->tx_skbuff[entry]) {
->   			dma_unmap_single(&ndev->dev, txdesc->addr,
-> @@ -1447,6 +1449,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
->   	limit = boguscnt;
->   	rxdesc = &mdp->rx_ring[entry];
->   	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
-> +		/* RACT bit must be checked before all the following reads */
-> +		rmb();
->   		desc_status = edmac_to_cpu(mdp, rxdesc->status);
->   		pkt_len = rxdesc->frame_length;
->
-> @@ -1526,6 +1530,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
->   			skb_checksum_none_assert(skb);
->   			rxdesc->addr = dma_addr;
->   		}
-> +		wmb(); /* RACT bit must be set after all the above writes */
->   		if (entry >= mdp->num_rx_ring - 1)
->   			rxdesc->status |=
->   				cpu_to_edmac(mdp, RD_RACT | RD_RFP | RD_RDEL);
-> @@ -2195,6 +2200,7 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->   	}
->   	txdesc->buffer_length = skb->len;
->
-> +	wmb(); /* TACT bit must be set after all the above writes */
->   	if (entry >= mdp->num_tx_ring - 1)
->   		txdesc->status |= cpu_to_edmac(mdp, TD_TACT | TD_TDLE);
->   	else
+Yes. Which might be difficult since you depend on networking to mount
+your rootfs, you should probably use an initramfs so you need NFS root
+to work.
 
-WBR, Sergei
+> 
+> Or do it directly with kernel code? (If so which API?)
+> 
+> The catch is that I need the network to get a running system.
+> No network, no root file system.
+> 
+> Maybe I need to write the kernel to non-volatile storage.
+> 
+> 
+> Going on a wild goose hunt...
+> 
+> Somewhat related discussion
+> https://community.freescale.com/thread/289362
+> 
+> Let me check how u-boot handles the AR8035.
+> http://git.denx.de/?p=u-boot.git;a=blob;f=drivers/net/phy/atheros.c
+> 
+> static int ar8035_config(struct phy_device *phydev)
+> {
+> 	int regval;
+> 
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xd, 0x0007);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xe, 0x8016);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xd, 0x4007);
+> 	regval = phy_read(phydev, MDIO_DEVAD_NONE, 0xe);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xe, (regval|0x0018));
+> 
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x05);
+> 	regval = phy_read(phydev, MDIO_DEVAD_NONE, 0x1e);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, (regval|0x0100));
+> 
+> 	phydev->supported = phydev->drv->features;
+> 
+> 	return 0;
+> }
+> 
+> Data sheet states:
+> Register 0xd = "MMD Access Control". 
+> Register 0xe = "MMD Access Control Data".
+> 
+> MMD register access:
+> See detail in register description
+> example: Write 0x8000 to Register 0 of MMD3
+> 1. Write 0x3 to register 0xD: 
+> 0xD=0x0003;(function= address; set the device address)
+> 2. Write 0x0 to register 0xE: 0xE=0x0; (set the register offset address)
+> 3. Write 0x4003 to register 
+> 0xD:0xD=0x4003;(function=data; keep the device address)
+> 4. Read register 0xE:0xE==(data from register 0x0 of MMD3)
+> 5. Write 0x8000 to register 0xE 
+> :0xE=0x8000(write 0x8000 to register 0x0 of MMD3)
+> Please Note:Read operation please refers to process 1 ~ 4
+> 
+> Important note:
+> CLK_25M default outputs 25MHz, can be configured to
+> 50MHz, 62.5MHz, or 125MHz by register MMD7 8016[4:3].
+> 
+> Ah yes, there it is on page 58:
+> Device address = 7, address offset = 0x8016 (Hex)
+> 4:3 Select_clk125m
+> CLK_25M output clock select
+> 00=25M
+> 01=50M
+> 10=62.5M
+> 11=125M
+> 
+> 
+> So...
+> 
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xd, 0x0007);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xe, 0x8016);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xd, 0x4007);
+> 	regval = phy_read(phydev, MDIO_DEVAD_NONE, 0xe);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0xe, (regval|0x0018));
+> 
+> R[0xd] = 0x0007  ; select MMD7
+> R[0xe] = 0x8016  ; offset 0x8016, so 
+> R[0xd] = 0x4007  ; select "data, no post increment" for MMD7
+> then we read the current value of MMD7/offset=0x8016
+> and set bits 3 and 4 on top of that => 125 MHz clock
+> 
+> HW reset val = 0
+> SW reset val = retain previous value
+> so the reset in Linux shouldn't affect this...
+> 
+> 
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x05);
+> 	regval = phy_read(phydev, MDIO_DEVAD_NONE, 0x1e);
+> 	phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, (regval|0x0100));
+> 
+> set debug port offset to 5 (DR5)
+> read current value
+> set bit 8 (rgmii_tx_clk_dly)
+> 
+> Rgmii tx clock delay control bit:
+> 1 = rgmii tx clock delay enable
+> 0 = rgmii tx clock delay disable.
+> 
+> AFAICT, the Linux code doesn't RMW, it just blindly writes
+> AT803X_DEBUG_RGMII_TX_CLK_DLY. Dunno if it makes any difference...
+> 
+> Meh, I'm still grasping at straws...
+> 
+> Regards.
+> 
+
+
+-- 
+Florian
