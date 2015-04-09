@@ -1,54 +1,99 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/20] netfilter: x_tables: fix cgroup matching on non-full sks
-Date: Thu,  9 Apr 2015 13:34:50 +0200
-Message-ID: <1428579304-5520-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 12/20] netfilter: physdev: use helpers
+Date: Thu,  9 Apr 2015 13:34:56 +0200
+Message-ID: <1428579304-5520-13-git-send-email-pablo@netfilter.org>
 References: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33159 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933044AbbDILbV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 07:31:21 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
+From: Florian Westphal <fw@strlen.de>
 
-While originally only being intended for outgoing traffic, commit
-a00e76349f35 ("netfilter: x_tables: allow to use cgroup match for
-LOCAL_IN nf hooks") enabled xt_cgroups for the NF_INET_LOCAL_IN hook
-as well, in order to allow for nfacct accounting.
+Avoid skb->nf_bridge accesses where possible.
 
-Besides being currently limited to early demuxes only, commit
-a00e76349f35 forgot to add a check if we deal with full sockets,
-i.e. in this case not with time wait sockets. TCP time wait sockets
-do not have the same memory layout as full sockets, a lower memory
-footprint and consequently also don't have a sk_classid member;
-probing for sk_classid member there could potentially lead to a
-crash.
-
-Fixes: a00e76349f35 ("netfilter: x_tables: allow to use cgroup match for LOCAL_IN nf hooks")
-Cc: Alexey Perevalov <a.perevalov@samsung.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_cgroup.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/xt_physdev.c |   34 ++++++++++++++++++++++------------
+ 1 file changed, 22 insertions(+), 12 deletions(-)
 
-diff --git a/net/netfilter/xt_cgroup.c b/net/netfilter/xt_cgroup.c
-index 7198d66..a1d126f 100644
---- a/net/netfilter/xt_cgroup.c
-+++ b/net/netfilter/xt_cgroup.c
-@@ -39,7 +39,7 @@ cgroup_mt(const struct sk_buff *skb, struct xt_action_param *par)
+diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
+index 50a5204..1caaccb 100644
+--- a/net/netfilter/xt_physdev.c
++++ b/net/netfilter/xt_physdev.c
+@@ -25,16 +25,15 @@ MODULE_ALIAS("ip6t_physdev");
+ static bool
+ physdev_mt(const struct sk_buff *skb, struct xt_action_param *par)
  {
- 	const struct xt_cgroup_info *info = par->matchinfo;
+-	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
+ 	const struct xt_physdev_info *info = par->matchinfo;
++	const struct net_device *physdev;
+ 	unsigned long ret;
+ 	const char *indev, *outdev;
+-	const struct nf_bridge_info *nf_bridge;
  
--	if (skb->sk == NULL)
-+	if (skb->sk == NULL || !sk_fullsock(skb->sk))
+ 	/* Not a bridged IP packet or no info available yet:
+ 	 * LOCAL_OUT/mangle and LOCAL_OUT/nat don't know if
+ 	 * the destination device will be a bridge. */
+-	if (!(nf_bridge = skb->nf_bridge)) {
++	if (!skb->nf_bridge) {
+ 		/* Return MATCH if the invert flags of the used options are on */
+ 		if ((info->bitmask & XT_PHYSDEV_OP_BRIDGED) &&
+ 		    !(info->invert & XT_PHYSDEV_OP_BRIDGED))
+@@ -54,30 +53,41 @@ physdev_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 		return true;
+ 	}
+ 
++	physdev = nf_bridge_get_physoutdev(skb);
++	outdev = physdev ? physdev->name : NULL;
++
+ 	/* This only makes sense in the FORWARD and POSTROUTING chains */
+ 	if ((info->bitmask & XT_PHYSDEV_OP_BRIDGED) &&
+-	    (!!nf_bridge->physoutdev ^ !(info->invert & XT_PHYSDEV_OP_BRIDGED)))
++	    (!!outdev ^ !(info->invert & XT_PHYSDEV_OP_BRIDGED)))
  		return false;
  
- 	return (info->id == skb->sk->sk_classid) ^ info->invert;
++	physdev = nf_bridge_get_physindev(skb);
++	indev = physdev ? physdev->name : NULL;
++
+ 	if ((info->bitmask & XT_PHYSDEV_OP_ISIN &&
+-	    (!nf_bridge->physindev ^ !!(info->invert & XT_PHYSDEV_OP_ISIN))) ||
++	    (!indev ^ !!(info->invert & XT_PHYSDEV_OP_ISIN))) ||
+ 	    (info->bitmask & XT_PHYSDEV_OP_ISOUT &&
+-	    (!nf_bridge->physoutdev ^ !!(info->invert & XT_PHYSDEV_OP_ISOUT))))
++	    (!outdev ^ !!(info->invert & XT_PHYSDEV_OP_ISOUT))))
+ 		return false;
+ 
+ 	if (!(info->bitmask & XT_PHYSDEV_OP_IN))
+ 		goto match_outdev;
+-	indev = nf_bridge->physindev ? nf_bridge->physindev->name : nulldevname;
+-	ret = ifname_compare_aligned(indev, info->physindev, info->in_mask);
+ 
+-	if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
+-		return false;
++	if (indev) {
++		ret = ifname_compare_aligned(indev, info->physindev,
++					     info->in_mask);
++
++		if (!ret ^ !(info->invert & XT_PHYSDEV_OP_IN))
++			return false;
++	}
+ 
+ match_outdev:
+ 	if (!(info->bitmask & XT_PHYSDEV_OP_OUT))
+ 		return true;
+-	outdev = nf_bridge->physoutdev ?
+-		 nf_bridge->physoutdev->name : nulldevname;
++
++	if (!outdev)
++		return false;
++
+ 	ret = ifname_compare_aligned(outdev, info->physoutdev, info->out_mask);
+ 
+ 	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
 -- 
 1.7.10.4
+
