@@ -1,70 +1,73 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is commented
- out
-Date: Thu, 09 Apr 2015 12:00:42 -0700
-Message-ID: <5526CC5A.1080504@gmail.com>
-References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <5526B608.2080504@gmail.com> <5526CA87.2070204@free.fr>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
+ commented out
+Date: Thu, 09 Apr 2015 21:05:40 +0200
+Message-ID: <5526CD84.9090402@free.fr>
+References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Mack <daniel@zonque.org>, Mugunthan <mugunthanvnm@ti.com>,
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Mugunthan <mugunthanvnm@ti.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Mason <slash.tmp@free.fr>, netdev@vger.kernel.org
+To: Daniel Mack <daniel@zonque.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:34124 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753006AbbDITBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 15:01:38 -0400
-Received: by pdbqa5 with SMTP id qa5so105120968pdb.1
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 12:01:38 -0700 (PDT)
-In-Reply-To: <5526CA87.2070204@free.fr>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:25290 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753006AbbDITFx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 15:05:53 -0400
+In-Reply-To: <5526806E.5020309@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/04/15 11:52, Mason wrote:
-> Florian Fainelli wrote:
+Daniel Mack wrote:
+
+> Mason wrote:
 > 
->> Mason wrote:
+>> Here is the data sheet for the AR8035:
+>> http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
 >>
->>> Is speed auto-negotiation supposed to be complete when phy_init_hw exits?
+>> It seems the problem comes from the fact that the PHY treats
+>> HW reset and SW reset differently:
 >>
->> There is no such guarantee, and the PHY state machine is started later,
->> which will take care of auto-neg and other things.
+>>      HW reset: registers are set to specific values
+>>      SW reset: some bits are retained across reset
+>>
+>> Case in point: the control register (BMCR)
+>> HW reset: BMCR = 0x3100
+>> SW reset: retain bits[6,8,12,13] / other bits = 0
+>>
+>> (0x3100 means bit_6=0, bit_8=bit_12=bit_13=1)
+>>
+>> When we execute this line from genphy_soft_reset()
+>>
+>>      phy_write(phydev, MII_BMCR, BMCR_RESET);
+>>
+>> we reset the bits in BMCR, and SW reset does not restore them.
+>>
+>> It seems to me (please tell me if I am wrong) that it should
+>> be safe for all PHYs to write old_val | BMCR_RESET, instead of
+>> just BMCR_RESET. Thus...
+>>
+>> On chips that REALLY reset, the old_val bits will be discarded;
+>> while on chips that retain some bits, we do want to keep them.
+>>
+>> So the patch would go something like below. What do you think?
 > 
-> That's what I thought.
-> 
-> So it's expected that many status bits will only change later.
-> 
-> You didn't comment on my patch. What's your take on it?
+> I don't think that'll work, because writing a 1 into the RESET bit of
+> the register causes the PHY to enter its software reset routine
+> immediately. The other bits should hence be reset to their defaults,
+> regardless of what you set them to at the same time.
 
-Quoting IEEE 802.3 section 2, paragprah 22.2.4.1:
+I forgot to ask:
 
-"Resetting a PHY is accomplished by setting bit 0.15 to a logic one.
-This action shall set the status and con-trol registers to their default
-states. As a consequence this action may change the internal state of
-the PHY
-and the state of the physical link associated with the PHY. This bit is
-self-clearing, and a PHY shall return a
-value of one in bit 0.15 until the reset process is completed. A PHY is
-not required to accept a write transac-
-tion to the control register until the reset process is completed, and
-writes to bits of the control register other
-than 0.15 may have no effect until the reset process is completed. The
-reset process shall be completed
-within 0.5 s from the setting of bit 0.15.
-"
+(I presume you have a system with an AR8035.)
 
-So even though this is not extremely specific about whether or not doing
-a RMW instead of W is accepted, considering that this resets the PHY
-internal state, and the fact that there is a lack of clarify on whether
-setting any bits other than 15 is going to fall under the "A PHY is not
-required to accept a write transaction to the control register until the
-reset process is completed" statement, setting only this bit at least
-guarantees that you are back into your reset defaults.
+When the PHY is reset, you don't see the odd behavior I get?
 
-As Daniel suggested, I would be looking for undocumented/proprietary
-registers for reasons as to why your PHY is not working, in particular
-(RG)MII tuning.
--- 
-Florian
+Can you print the value of BMCR, before and after
+
+    phy_write(phydev, MII_BMCR, BMCR_RESET);
+
+Regards.
