@@ -1,63 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TSO on veth device slows transmission to a crawl
-Date: Thu, 09 Apr 2015 02:24:31 -0700
-Message-ID: <1428571471.25985.246.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.LSU.2.20.1504070014250.21650@nerf40.vanv.qr>
-	 <1428374918.25985.206.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.20.1504071149280.31930@nerf40.vanv.qr>
-	 <1428436189.25985.211.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.20.1504081844390.6502@nerf40.vanv.qr>
+From: Sebastian Poehn <sebastian.poehn@gmail.com>
+Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+Date: Thu, 09 Apr 2015 11:24:28 +0200
+Message-ID: <1428571468.6875.17.camel@googlemail.com>
+References: <1428566941.6875.7.camel@googlemail.com>
+	 <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@inai.de>
+Cc: Sebastian Poehn <sebastian.poehn@gmail.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:35863 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933931AbbDIJYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:24:33 -0400
-Received: by iebrs15 with SMTP id rs15so95875492ieb.3
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 02:24:33 -0700 (PDT)
-In-Reply-To: <alpine.LSU.2.20.1504081844390.6502@nerf40.vanv.qr>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:32920 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932859AbbDIJYb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:24:31 -0400
+Received: by wiax7 with SMTP id x7so50889067wia.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 02:24:29 -0700 (PDT)
+In-Reply-To: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-08 at 19:09 +0200, Jan Engelhardt wrote:
-> On Tuesday 2015-04-07 21:49, Eric Dumazet wrote:
-> >> On Tuesday 2015-04-07 04:48, Eric Dumazet wrote:
-> >> >On Tue, 2015-04-07 at 00:45 +0200, Jan Engelhardt wrote:
-> >> >> I have here a Linux 3.19(.0) system where activated TSO on a veth slave 
-> [and now also 3.19.3]
-> >> >> device makes IPv4-TCP transfers going into that veth-connected container 
-> >> >> progress slowly.
-> >> >
-> >> >Nothing comes to mind. It would help if you could provide a script to
-> >> >reproduce the issue.
-> >> 
-> >> It seems IPsec is *also* a requirement in the mix.
-> >> Anyhow, script time!
-> >
-> >I tried your scripts, but the sender does not use veth ?
+On Thu, 2015-04-09 at 02:07 -0700, Eric Dumazet wrote:
+> On Thu, 2015-04-09 at 10:09 +0200, Sebastian Poehn wrote:
+> > We are running a couple of thousand machines with 3.8 and 3.12. On very few systems
+> > (something below 10) we encounter panics in xfrm code. The main characteristic seams
+> > to be the usage of TPROXY.
+> > 
+> > Attached patch is only a workaround, as problems may also happen in other code portions
+> > (actually on even fewer systems this happens).
+> > 
+> > For timewait sockets the memory region of sk_policy does not belong
+> > to us anymore. So there may be someone else using it and we may panic
+> > because of corrupted pointers.
+> > 
+> > xfrm_sk_policy_lookup+0x38/0x66
+> > xfrm_lookup+0x93/0x48f
+> > nf_nat_packet+0x92/0xa4 [nf_nat]
+> > _decode_session4+0xd9/0x294
+> > nf_xfrm_me_harder+0x50/0xc5 [nf_nat]
+> > nf_nat_ipv4_out+0xad/0xc4 [iptable_nat]
+> > nf_iterate+0x42/0x7d
+> > ip_finish_output2+0x2b1/0x2b1
+> > nf_hook_slow+0x22f/0x2c9
+> > ip_finish_output2+0x2b1/0x2b1
+> > ip_finish_output2+0x2b1/0x2b1
+> > __xfrm_route_forward+0x7a/0x97
+> > ip_finish_output2+0x2b1/0x2b1
+> > NF_HOOK_COND+0x3f/0x54
+> > ip_output+0x5a/0x5e
+> > __netif_receive_skb+0x4b2/0x514
+> > process_backlog+0xee/0x1c5
+> > net_rx_action+0xa7/0x1fe
+> > 
+> > Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
+> > ---
+> >  net/xfrm/xfrm_policy.c | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> > index 9c6b1ab..e9a74fa 100644
+> > --- a/net/xfrm/xfrm_policy.c
+> > +++ b/net/xfrm/xfrm_policy.c
+> > @@ -2072,7 +2072,7 @@ restart:
+> >  	xdst = NULL;
+> >  	route = NULL;
+> >  
+> > -	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
+> > +	if (sk && sk->sk_state != TCP_TIME_WAIT && sk->sk_policy[XFRM_POLICY_OUT]) {
+> >  		num_pols = 1;
+> >  		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
+> >  		err = xfrm_expand_policies(fl, family, pols,
+> > @@ -2349,7 +2349,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+> >  	}
+> >  
+> >  	pol = NULL;
+> > -	if (sk && sk->sk_policy[dir]) {
+> > +	if (sk && sk->sk_state != TCP_TIME_WAIT && sk->sk_policy[dir]) {
+> >  		pol = xfrm_sk_policy_lookup(sk, dir, &fl);
+> >  		if (IS_ERR(pol)) {
+> >  			XFRM_INC_STATS(net, LINUX_MIB_XFRMINPOLERROR);
 > 
-> I was finally able to reproduce it reliably, and with just one 
-> machine/kernel instance (and a number of containers of course).
+> Hmm.. interesting.
 > 
-> I have uploaded the script mix to
-> 	http://inai.de/files/tso-1.tar.xz
-> There is a demo screencast at
-> 	http://inai.de/files/tso-1.mkv
+> TCP stack never sends packets attached to a socket in timewait state.
+> 
+> On IPv4, the ACK packets sent on behalf of TIME_WAIT follow this path :
+> 
+> tcp_v4_timewait_ack()
+>  tcp_v4_send_ack()
+>   ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk))
+> 
+> The per cpu socket used to attach these skb are not in TCP_TIME_WAIT
+> state.
+> 
+> TPROXY can handle a socket in TCP_TIME_WAIT state only in input path.
+> 
+> So I am a bit confused. Could you elaborate ?
 
-Thanks for providing these scripts, but they do not work on my host
-running latest net-next
+The setup is a usual transparent proxy one. So TPROXY intercepts the
+first connection packet and later on we use socket match to direct to
+the local IP_TRANSPARENT socket. So sorry for the confusion - xt_socket
+was meant.
 
-Basic IP routing seems not properly enabled, as even ping does not work
-to reach 10.10.23.23
+The strange thing I noticed is that tw_transparent was 0 (we don't use
+xt_socket --transparent). But then I wonder how the tuple can match.
 
-ip netns exec vclient /bin/bash
-ping 10.10.23.23
-<no frame is sent>
+I will collect some more information and post them.
+> 
+> In any case, you probably should use sk_fullsock() new helper, as I
+> presume you'll have a similar issue with TCP_NEW_SYN_RECV pseudo sockets
+> when I am done with tcp listener refactoring.
 
-Have you tried net-next as well ?
-
-Thanks
+I already saw and like sk_fullsock.
+> 
+> Thanks.
+> 
+> 
