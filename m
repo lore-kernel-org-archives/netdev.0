@@ -1,80 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is commented
- out
-Date: Thu, 09 Apr 2015 10:25:28 -0700
-Message-ID: <5526B608.2080504@gmail.com>
-References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr>
+From: Karl Beldan <karl.beldan@gmail.com>
+Subject: Re: [PATCH 3.4 140/176] lib/checksum.c: fix carry in
+ csum_tcpudp_nofold
+Date: Thu, 9 Apr 2015 19:44:08 +0200
+Message-ID: <20150409174407.GA8601@magnum.frso.rivierawaves.com>
+References: <1428569028-23762-1-git-send-email-lizf@kernel.org>
+ <1428569224-23820-140-git-send-email-lizf@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Mugunthan <mugunthanvnm@ti.com>,
+Cc: stable@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Karl Beldan <karl.beldan@rivierawaves.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Mike Frysinger <vapier@gentoo.org>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Mason <slash.tmp@free.fr>, Daniel Mack <daniel@zonque.org>,
-	netdev@vger.kernel.org
+	Zefan Li <lizefan@huawei.com>
+To: lizf@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:35487 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753904AbbDIR0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 13:26:25 -0400
-Received: by pabtp1 with SMTP id tp1so50472129pab.2
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 10:26:25 -0700 (PDT)
-In-Reply-To: <5526993F.1010304@free.fr>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:33916 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932753AbbDIRnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 13:43:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1428569224-23820-140-git-send-email-lizf@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/04/15 08:22, Mason wrote:
-> Mason wrote:
+On Thu, Apr 09, 2015 at 04:46:28PM +0800, lizf@kernel.org wrote:
+> From: karl beldan <karl.beldan@gmail.com>
 > 
->> Daniel Mack wrote:
->>
->>> My suggestion is to dump the entire register set when
->>> at803x_config_init() is entered and again when it's left. Then try to
->>> find the differences and see if you can bring the PHY into the needed
->>> mode through the existing configuration hooks in the kernel.
->>
->> [    0.685330] IDX= 1 796d != 7949
->> [    0.688490] IDX= 5 c1e1 != 0000
->> [    0.691647] IDX= 6 000f != 0004
->> [    0.694803] IDX=10 3800 != 0000
->> [    0.697960] IDX=17 bc10 != 0012
->> [    0.701115] IDX=19 7400 != 0000
->> [    0.704271] IDX=27 060e != 0600
->>
->> Hmmm, didn't expect so many differences. I'll have to take a closer look.
+> 3.4.107-rc1 review patch.  If anyone has any objections, please let me know.
 > 
-> For the record, I dumped the PHY registers
-> A) upon entering phy_init_hw
-> B) before leaving phy_init_hw (thus right after at803x_config_init)
+> ------------------
 > 
-> IDX 1: b2 LINK STATUS, b5 AUTO-NEGOTIATION COMPLETE
-> => Difference in status bits, seems reasonable
 > 
-> IDX 5: Link partner ability (base page)
-> => seems reasonable (no partner yet?)
+> commit 150ae0e94634714b23919f0c333fee28a5b199d5 upstream.
 > 
-> IDX 6: Auto-Negotiation Expansion
-> => seems reasonable (no partner yet?)
-> 
-> IDX 10: 1000 BASE-T Status (HW reset = SW reset = 0)
-> (ALSO: Contents of this register clear after a read operation has
-> occurred.)
-> => Looks like my own read cleared it
-> 
-> IDX 17: PHY-Specific Status
-> b1 = "POLARITY (real time)"?
-> => Difference in status bits, seems reasonable? (
-> 
-> IDX 19: Interrupt Status
-> => Looks like some interrupt requests might have been discarded?
-> 
-> IDX 27: This register is undocumented
-> 
-> Nothing looks suspicious, except maybe the Interrupt Status?
-> 
-> Is speed auto-negotiation supposed to be complete when phy_init_hw exits?
 
-There is no such guarantee, and the PHY state machine is started later,
-which will take care of auto-neg and other things.
--- 
-Florian
+Hi Zefan,
+
+The above patch introduced a build error for some archs, please consider
+applying 9ce357795ef208faa0d59894d9d119a7434e37f3 
+"lib/checksum.c: fix build for generic csum_tcpudp_nofold" as well.
+ 
+Karl
