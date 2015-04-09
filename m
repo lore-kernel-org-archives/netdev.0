@@ -1,131 +1,139 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback
- query_transport() for each HW
-Date: Thu, 09 Apr 2015 10:34:30 -0400
-Message-ID: <1428590070.2980.190.camel@redhat.com>
-References: <5523CCD5.6030401@profitbricks.com>
-	 <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com>
-	 <20150408201015.GB28666@obsidianresearch.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
+ commented out
+Date: Thu, 09 Apr 2015 16:38:43 +0200
+Message-ID: <55268EF3.7050301@free.fr>
+References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-yD3TmG85+KLgjTU68du8"
-Cc: Michael Wang <yun.wang@profitbricks.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Mike Marciniszyn <infinipath@intel.com>,
-	Eli Cohen <eli@mellanox.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ira Weiny <ira.weiny@intel.com>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgens
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150408201015.GB28666@obsidianresearch.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-yD3TmG85+KLgjTU68du8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-04-08 at 14:10 -0600, Jason Gunthorpe wrote:
-> On Wed, Apr 08, 2015 at 02:29:46PM -0400, Doug Ledford wrote:
->=20
-> > To straighten all this out, lets break management out into the two
-> > distinct types:
-> >=20
-> > rdma_port_ib_fabric_mgmt() <- fabric specific management tasks: MAD, SM=
-,
-> > multicast.  The proper test for this with my bitmap above is a simple
-> > transport & RDMA_MGMT_IB test.  If will be true for IB and OPA fabrics.
->=20
-> > rdma_port_conn_mgmt() <- connection management, which we currently
-> > support everything except USNIC (correct Sean?), so a test would be
-> > something like !(transport & RDMA_TRANSPORT_USNIC).  This is then split
-> > out into two subgroups, IB style and iWARP stype connection management
-> > (aka, rdma_port_iw_conn_mgmt() and rdma_port_ib_conn_mgmt()).  In my
-> > above bitmap, since I didn't give IBOE its own transport type, these
-> > subgroups still boil down to the simple tests transport & iWARP and
-> > transport & IB like they do today.
->=20
-> There is a lot more variation here than just these two tests, and those
-> two tests won't scale to include OPA.
->=20
->         IB ROCEE OPA
-> SMI     Y  N     Y    (though the OPA smi looked a bit different)
-> IB SMP  Y  N     N
-> OPA SMP N  N     Y
-> GMP     Y  Y     Y
-> SA      Y  N     Y
-> PM      Y  Y     Y    (? guessing for OPA)
-> CM      Y  Y     Y
-> GMP needs GRH N Y N
->=20
-
-You can still break this down to a manageable bitmap.
-
-SMI, SMP, and SA are all essentially the same and can be combined to one
-bitmap that is
-
-IB_SM  0x1
-OPA_SM 0x2
-
-and the defines are such that IB devices define IB_SM, and OPA devices
-define IB_SM and OPA_SM.  Any minor differences between OPA and IB can
-be handled by testing just the OPA_SM bit.  This will exclude all IBOE
-devices and iWARP devices.
-
-GMP, PM, and CM are all the same, and are all identical to transport =3D=3D
-INFINIBAND.
-
-GMP needs GRH happens to be precisely the same as ib_dev_is_iboe.
-
-These are exactly the tests I proposed Jason.  I'm not sure I see your
-point here.  I guess my point is that although the scenario of all the
-different items seems complex, it really does boil down to needing only
-exactly what I proposed earlier to fulfill the entire test matrix.
-
-
---=20
-Doug Ledford <dledford@redhat.com>
-              GPG KeyID: 0E572FDD
-
-
-
---=-yD3TmG85+KLgjTU68du8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Mugunthan <mugunthanvnm@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Daniel Mack <daniel@zonque.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:24602 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754150AbbDIOiu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 10:38:50 -0400
+In-Reply-To: <5526806E.5020309@zonque.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Hello,
 
-iQIcBAABAgAGBQJVJo32AAoJELgmozMOVy/dlukQALS6YyqoYPml5Wu0bEWQpztE
-96KW4ri0NTAzw75KmUGgPZ8dPbG70+xTtfXAPqaZm+MbjNUttiXCAWBrObFlhA7B
-blWaei82NS43rAlljUcjj8ECt6XbvrFKS+GOcXt3VH14P+LMPnayJkSHE3ToGzcM
-cULMP5x0ilc+nHLdp1dGS2HXr4d/Cbfh/LqWRY6IM7W+30o3pVWKIdR/QptXTdM4
-/G+s4rpmS23Ee+ijd4ukZK2Qg4EdOZuy8psspZJjlYPRKl07fRsAa6wxiaamqQ8u
-iAbQ0XKsXnkFH917wsI0U3RuXPk8dEif46yzsSnjKdmPa6cFSIITzsI0LjHljDQ7
-kRTRLrISebNt1+xxj2erii67T06MDO5AFdNOI5cz/ZJ9qmOpZDNDgMjAYkueZN2Z
-jOLDvka9OH0N4oCRxNOChrKvKbDr83KikPbqlj5tUPv5sqti/TS6sJjceEXRlQ0w
-MFN10CpKc1oJRaCGJoIcod79ofaXNRG18k4oFkrnZyjnsz3WswZFCaHUoO+kamAJ
-tnEo3O5880bafXGx2sF8clik7CW0lcYoRetxjsw4Q1MFbveDZCRKHjcawzVgPMhJ
-OXtMrALKjKBmQwoBrm2QSWNFFsqj1Yge/74x0uAdC0C6HQwf9uGh/GuhkS9eJhYa
-vfqRItlePICJjQMfMnqm
-=uL/g
------END PGP SIGNATURE-----
+On 09/04/2015 15:36, Daniel Mack wrote:
+> On 04/09/2015 01:44 PM, Mason wrote:
+>> Florian Fainelli wrote:
+>>> So one possibility could be that the bootloader initializes the PHY in a
+>>> certain way, typically by applying workarounds, and your config_init()
+>>> callback is not restoring any of theses, which is why, after
+>>> phy_init_hw(), which does a software reset of the PHY, all of these
+>>> workarounds are wiped out, and your PHY behaves funky.
+>>>
+>>> The reason why config_init() needs to put the PHY back into a fully
+>>> functional state is because the PHY library should be able to software
+>>> reset the PHY when it needs to, but also be able to deal with deep sleep
+>>> modes etc.. where the PHY could loose its settings, yet the kernel
+>>> should be able to bring you back in a good state.
+>>>
+>>> An easy way to bypass that is to provide a soft_reset callback which does
+>>> nothing, and see if calling either at803x_config_init(), or
+>>> genphy_config_init() is sufficient to preserve the PHY settings.
+>>> Although the real solution is to look at what the bootloader does on
+>>> that front and replicate it in the config_init() callback.
+>>
+>> Here is the data sheet for the AR8035:
+>> http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
+>>
+>> It seems the problem comes from the fact that the PHY treats
+>> HW reset and SW reset differently:
+>>
+>>       HW reset: registers are set to specific values
+>>       SW reset: some bits are retained across reset
+>>
+>> Case in point: the control register (BMCR)
+>> HW reset: BMCR = 0x3100
+>> SW reset: retain bits[6,8,12,13] / other bits = 0
+>>
+>> (0x3100 means bit_6=0, bit_8=bit_12=bit_13=1)
+>>
+>> When we execute this line from genphy_soft_reset()
+>>
+>>       phy_write(phydev, MII_BMCR, BMCR_RESET);
+>>
+>> we reset the bits in BMCR, and SW reset does not restore them.
+>>
+>> It seems to me (please tell me if I am wrong) that it should
+>> be safe for all PHYs to write old_val | BMCR_RESET, instead of
+>> just BMCR_RESET. Thus...
+>>
+>> On chips that REALLY reset, the old_val bits will be discarded;
+>> while on chips that retain some bits, we do want to keep them.
+>>
+>> So the patch would go something like below. What do you think?
+>
+> I don't think that'll work, because writing a 1 into the RESET bit of
+> the register causes the PHY to enter its software reset routine
+> immediately. The other bits should hence be reset to their defaults,
+> regardless of what you set them to at the same time.
 
---=-yD3TmG85+KLgjTU68du8--
+I'm confused by your answer, because it seems to be ignoring the
+whole "some bits retain their value across SW reset" issue?
+
+This can be settled quickly by an execution trace.
+(Note, I'm using kernel 3.14)
+
+I have instrumented phy_init_hw thus:
+(I've also added a printk after phy_poll_reset)
+
+	printk("BMCR = 0x%x\n", (unsigned)phy_read (phydev, MII_BMCR));
+#if 0
+	val = phy_read (phydev, MII_BMCR);
+	ret = phy_write(phydev, MII_BMCR, val | BMCR_RESET);
+#else
+	ret = phy_write(phydev, MII_BMCR, BMCR_RESET);
+#endif
+	printk("BMCR = 0x%x\n", (unsigned)phy_read (phydev, MII_BMCR));
+
+
+Running the #else branch outputs:
+[    0.623188] BMCR = 0x3100
+[    0.625957] BMCR = 0x0
+[    0.686817] BMCR = 0x0
+
+Running the #if branch outputs:
+[    0.623151] BMCR = 0x3100
+[    0.625979] BMCR = 0x3100
+[    0.686817] BMCR = 0x3100
+
+As you can see, writing val | BMCR_RESET is required on this PHY.
+
+> My suggestion is to dump the entire register set when
+> at803x_config_init() is entered and again when it's left. Then try to
+> find the differences and see if you can bring the PHY into the needed
+> mode through the existing configuration hooks in the kernel.
+
+Good idea.
+
+[    0.685330] IDX= 1 796d != 7949
+[    0.688490] IDX= 5 c1e1 != 0000
+[    0.691647] IDX= 6 000f != 0004
+[    0.694803] IDX=10 3800 != 0000
+[    0.697960] IDX=17 bc10 != 0012
+[    0.701115] IDX=19 7400 != 0000
+[    0.704271] IDX=27 060e != 0600
+
+Hmmm, didn't expect so many differences. I'll have to take a closer look.
+
+> Note that it really should be possible for the kernel to bring the PHY
+> into the mode needed for your board. Relying on the bootloader to do the
+> magic is fragile, and as Florian said, this will break once a suspend
+> mode switches off the power domain that feeds the PHY.
+
+Uboot dev boards, uboot runs (and uboot speaks Ethernet). I don't know if
+uboot tweaks the PHY. But on production boards, there is no uboot, and the
+early bootloaders don't touch the PHY.
+
+Regards.
