@@ -1,118 +1,93 @@
-From: Sebastian Poehn <sebastian.poehn@gmail.com>
-Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
-Date: Thu, 09 Apr 2015 11:24:28 +0200
-Message-ID: <1428571468.6875.17.camel@googlemail.com>
-References: <1428566941.6875.7.camel@googlemail.com>
-	 <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: [PATCH 12/14] i2c-parport: return proper error values from
+ attach
+Date: Thu, 9 Apr 2015 11:33:42 +0200
+Message-ID: <20150409113342.5621af83@endymion.delvare>
+References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
+	<1428492040-5581-13-git-send-email-sudipm.mukherjee@gmail.com>
+	<20150409071307.GA1166@katana>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Sebastian Poehn <sebastian.poehn@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:32920 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932859AbbDIJYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:24:31 -0400
-Received: by wiax7 with SMTP id x7so50889067wia.0
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 02:24:29 -0700 (PDT)
-In-Reply-To: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Rodolfo Giometti <giometti@enneenne.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Mark Brown <broonie@kernel.org>,
+	Willy Tarreau <willy@meta-x.org>,
+	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>,
+	linux-kernel@vger.kernel.org, linux-i2c@vger.kernel.org,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-spi@vger.kernel.org, devel@driverdev.osuosl.org,
+	alsa-devel@alsa-project.org
+To: Wolfram Sang <wsa@the-dreams.de>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20150409071307.GA1166@katana>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-04-09 at 02:07 -0700, Eric Dumazet wrote:
-> On Thu, 2015-04-09 at 10:09 +0200, Sebastian Poehn wrote:
-> > We are running a couple of thousand machines with 3.8 and 3.12. On very few systems
-> > (something below 10) we encounter panics in xfrm code. The main characteristic seams
-> > to be the usage of TPROXY.
+On Thu, 9 Apr 2015 09:13:07 +0200, Wolfram Sang wrote:
+> On Wed, Apr 08, 2015 at 04:50:38PM +0530, Sudip Mukherjee wrote:
+> > now that we are monitoring the return value from attach, make the
+> > required changes to return proper value from its attach function.
 > > 
-> > Attached patch is only a workaround, as problems may also happen in other code portions
-> > (actually on even fewer systems this happens).
-> > 
-> > For timewait sockets the memory region of sk_policy does not belong
-> > to us anymore. So there may be someone else using it and we may panic
-> > because of corrupted pointers.
-> > 
-> > xfrm_sk_policy_lookup+0x38/0x66
-> > xfrm_lookup+0x93/0x48f
-> > nf_nat_packet+0x92/0xa4 [nf_nat]
-> > _decode_session4+0xd9/0x294
-> > nf_xfrm_me_harder+0x50/0xc5 [nf_nat]
-> > nf_nat_ipv4_out+0xad/0xc4 [iptable_nat]
-> > nf_iterate+0x42/0x7d
-> > ip_finish_output2+0x2b1/0x2b1
-> > nf_hook_slow+0x22f/0x2c9
-> > ip_finish_output2+0x2b1/0x2b1
-> > ip_finish_output2+0x2b1/0x2b1
-> > __xfrm_route_forward+0x7a/0x97
-> > ip_finish_output2+0x2b1/0x2b1
-> > NF_HOOK_COND+0x3f/0x54
-> > ip_output+0x5a/0x5e
-> > __netif_receive_skb+0x4b2/0x514
-> > process_backlog+0xee/0x1c5
-> > net_rx_action+0xa7/0x1fe
-> > 
-> > Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
+> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
 > > ---
-> >  net/xfrm/xfrm_policy.c | 4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> >  drivers/i2c/busses/i2c-parport.c | 7 ++++---
+> >  1 file changed, 4 insertions(+), 3 deletions(-)
 > > 
-> > diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> > index 9c6b1ab..e9a74fa 100644
-> > --- a/net/xfrm/xfrm_policy.c
-> > +++ b/net/xfrm/xfrm_policy.c
-> > @@ -2072,7 +2072,7 @@ restart:
-> >  	xdst = NULL;
-> >  	route = NULL;
+> > diff --git a/drivers/i2c/busses/i2c-parport.c b/drivers/i2c/busses/i2c-parport.c
+> > index a1fac5a..761a775 100644
+> > --- a/drivers/i2c/busses/i2c-parport.c
+> > +++ b/drivers/i2c/busses/i2c-parport.c
+> > @@ -160,14 +160,14 @@ static void i2c_parport_irq(void *data)
+> >  			"SMBus alert received but no ARA client!\n");
+> >  }
 > >  
-> > -	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
-> > +	if (sk && sk->sk_state != TCP_TIME_WAIT && sk->sk_policy[XFRM_POLICY_OUT]) {
-> >  		num_pols = 1;
-> >  		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
-> >  		err = xfrm_expand_policies(fl, family, pols,
-> > @@ -2349,7 +2349,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
-> >  	}
+> > -static void i2c_parport_attach(struct parport *port)
+> > +static int i2c_parport_attach(struct parport *port)
+> >  {
+> >  	struct i2c_par *adapter;
 > >  
-> >  	pol = NULL;
-> > -	if (sk && sk->sk_policy[dir]) {
-> > +	if (sk && sk->sk_state != TCP_TIME_WAIT && sk->sk_policy[dir]) {
-> >  		pol = xfrm_sk_policy_lookup(sk, dir, &fl);
-> >  		if (IS_ERR(pol)) {
-> >  			XFRM_INC_STATS(net, LINUX_MIB_XFRMINPOLERROR);
+> >  	adapter = kzalloc(sizeof(struct i2c_par), GFP_KERNEL);
+> >  	if (adapter == NULL) {
+> >  		printk(KERN_ERR "i2c-parport: Failed to kzalloc\n");
+> > -		return;
+> > +		return -ENOMEM;
 > 
-> Hmm.. interesting.
+> ENOMEM does not need printout. Please remove printk while we are here.
 > 
-> TCP stack never sends packets attached to a socket in timewait state.
+> >  
+> >  	pr_debug("i2c-parport: attaching to %s\n", port->name);
+> > @@ -230,13 +230,14 @@ static void i2c_parport_attach(struct parport *port)
+> >  	mutex_lock(&adapter_list_lock);
+> >  	list_add_tail(&adapter->node, &adapter_list);
+> >  	mutex_unlock(&adapter_list_lock);
+> > -	return;
+> > +	return 0;
+> >  
+> >   err_unregister:
+> >  	parport_release(adapter->pdev);
+> >  	parport_unregister_device(adapter->pdev);
+> >   err_free:
+> >  	kfree(adapter);
+> > +	return -ENODEV;
 > 
-> On IPv4, the ACK packets sent on behalf of TIME_WAIT follow this path :
-> 
-> tcp_v4_timewait_ack()
->  tcp_v4_send_ack()
->   ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk))
-> 
-> The per cpu socket used to attach these skb are not in TCP_TIME_WAIT
-> state.
-> 
-> TPROXY can handle a socket in TCP_TIME_WAIT state only in input path.
-> 
-> So I am a bit confused. Could you elaborate ?
+> Ideally, we would return different -Esomething for each failing case. We
+> can leave that for someone who is acutally using the driver. However, I
+> wonder if ENODEV is a proper catch-all case because the driver core will
+> not report failures.
 
-The setup is a usual transparent proxy one. So TPROXY intercepts the
-first connection packet and later on we use socket match to direct to
-the local IP_TRANSPARENT socket. So sorry for the confusion - xt_socket
-was meant.
+It doesn't really matter that the error codes are different, it matters
+that they are meaningful. As much as possible you should pass error
+codes from the lower layers. parport_claim_or_block() and
+i2c_bit_add_bus() return proper error codes so you should record and
+transmit them. Only parport_register_device() does not, so you have to
+craft one and -ENODEV seems appropriate to me.
 
-The strange thing I noticed is that tw_transparent was 0 (we don't use
-xt_socket --transparent). But then I wonder how the tuple can match.
+Note: I can test this driver.
 
-I will collect some more information and post them.
-> 
-> In any case, you probably should use sk_fullsock() new helper, as I
-> presume you'll have a similar issue with TCP_NEW_SYN_RECV pseudo sockets
-> when I am done with tcp listener refactoring.
-
-I already saw and like sk_fullsock.
-> 
-> Thanks.
-> 
-> 
+-- 
+Jean Delvare
+SUSE L3 Support
