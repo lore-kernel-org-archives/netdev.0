@@ -1,135 +1,99 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/20] netfilter: nf_tables: add set garbage collection helpers
-Date: Thu,  9 Apr 2015 13:34:47 +0200
-Message-ID: <1428579304-5520-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/20] netfilter: nf_tables: add GC synchronization helpers
+Date: Thu,  9 Apr 2015 13:34:48 +0200
+Message-ID: <1428579304-5520-5-git-send-email-pablo@netfilter.org>
 References: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33088 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:33039 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932936AbbDILbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 07:31:12 -0400
+	id S932892AbbDILbG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 07:31:06 -0400
 In-Reply-To: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-Add helpers for GC batch destruction: since element destruction needs
-a RCU grace period for all set implementations, add some helper functions
-for asynchronous batch destruction. Elements are collected in a batch
-structure, which is asynchronously released using RCU once its full.
+GC is expected to happen asynchrously to the netlink interface. In the
+netlink path, both insertion and removal of elements consist of two
+steps, insertion followed by activation or deactivation followed by
+removal, during which the element must not be freed by GC.
+
+The synchronization helpers use an unused bit in the genmask field to
+atomically mark an element as "busy", meaning it is either currently
+being handled through the netlink API or by GC.
+
+Elements being processed by GC will never survive, netlink will simply
+ignore them. Elements being currently processed through netlink will be
+skipped by GC and reprocessed during the next run.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |   56 +++++++++++++++++++++++++++++++++++++
- net/netfilter/nf_tables_api.c     |   25 +++++++++++++++++
- 2 files changed, 81 insertions(+)
+ include/net/netfilter/nf_tables.h |   35 +++++++++++++++++++++++++++++++++++
+ net/netfilter/nf_tables_api.c     |    2 +-
+ 2 files changed, 36 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index f2726c5..6fd4495 100644
+index 6fd4495..1ea13fc 100644
 --- a/include/net/netfilter/nf_tables.h
 +++ b/include/net/netfilter/nf_tables.h
-@@ -460,6 +460,62 @@ static inline struct nft_set_ext *nft_set_elem_ext(const struct nft_set *set,
- void nft_set_elem_destroy(const struct nft_set *set, void *elem);
- 
- /**
-+ *	struct nft_set_gc_batch_head - nf_tables set garbage collection batch
-+ *
-+ *	@rcu: rcu head
-+ *	@set: set the elements belong to
-+ *	@cnt: count of elements
-+ */
-+struct nft_set_gc_batch_head {
-+	struct rcu_head			rcu;
-+	const struct nft_set		*set;
-+	unsigned int			cnt;
-+};
-+
-+#define NFT_SET_GC_BATCH_SIZE	((PAGE_SIZE -				  \
-+				  sizeof(struct nft_set_gc_batch_head)) / \
-+				 sizeof(void *))
-+
-+/**
-+ *	struct nft_set_gc_batch - nf_tables set garbage collection batch
-+ *
-+ * 	@head: GC batch head
-+ * 	@elems: garbage collection elements
-+ */
-+struct nft_set_gc_batch {
-+	struct nft_set_gc_batch_head	head;
-+	void				*elems[NFT_SET_GC_BATCH_SIZE];
-+};
-+
-+struct nft_set_gc_batch *nft_set_gc_batch_alloc(const struct nft_set *set,
-+						gfp_t gfp);
-+void nft_set_gc_batch_release(struct rcu_head *rcu);
-+
-+static inline void nft_set_gc_batch_complete(struct nft_set_gc_batch *gcb)
-+{
-+	if (gcb != NULL)
-+		call_rcu(&gcb->head.rcu, nft_set_gc_batch_release);
-+}
-+
-+static inline struct nft_set_gc_batch *
-+nft_set_gc_batch_check(const struct nft_set *set, struct nft_set_gc_batch *gcb,
-+		       gfp_t gfp)
-+{
-+	if (gcb != NULL) {
-+		if (gcb->head.cnt + 1 < ARRAY_SIZE(gcb->elems))
-+			return gcb;
-+		nft_set_gc_batch_complete(gcb);
-+	}
-+	return nft_set_gc_batch_alloc(set, gfp);
-+}
-+
-+static inline void nft_set_gc_batch_add(struct nft_set_gc_batch *gcb,
-+					void *elem)
-+{
-+	gcb->elems[gcb->head.cnt++] = elem;
-+}
-+
-+/**
-  *	struct nft_expr_type - nf_tables expression type
-  *
-  *	@select_ops: function to select nft_expr_ops
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 9e032db..138e47f 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -3482,6 +3482,31 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
- 	return err;
+@@ -852,6 +852,41 @@ static inline void nft_set_elem_change_active(const struct nft_set *set,
+ 	ext->genmask ^= nft_genmask_next(read_pnet(&set->pnet));
  }
  
-+void nft_set_gc_batch_release(struct rcu_head *rcu)
++/*
++ * We use a free bit in the genmask field to indicate the element
++ * is busy, meaning it is currently being processed either by
++ * the netlink API or GC.
++ *
++ * Even though the genmask is only a single byte wide, this works
++ * because the extension structure if fully constant once initialized,
++ * so there are no non-atomic write accesses unless it is already
++ * marked busy.
++ */
++#define NFT_SET_ELEM_BUSY_MASK	(1 << 2)
++
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++#define NFT_SET_ELEM_BUSY_BIT	2
++#elif defined(__BIG_ENDIAN_BITFIELD)
++#define NFT_SET_ELEM_BUSY_BIT	(BITS_PER_LONG - BITS_PER_BYTE + 2)
++#else
++#error
++#endif
++
++static inline int nft_set_elem_mark_busy(struct nft_set_ext *ext)
 +{
-+	struct nft_set_gc_batch *gcb;
-+	unsigned int i;
++	unsigned long *word = (unsigned long *)ext;
 +
-+	gcb = container_of(rcu, struct nft_set_gc_batch, head.rcu);
-+	for (i = 0; i < gcb->head.cnt; i++)
-+		nft_set_elem_destroy(gcb->head.set, gcb->elems[i]);
-+	kfree(gcb);
++	BUILD_BUG_ON(offsetof(struct nft_set_ext, genmask) != 0);
++	return test_and_set_bit(NFT_SET_ELEM_BUSY_BIT, word);
 +}
-+EXPORT_SYMBOL_GPL(nft_set_gc_batch_release);
 +
-+struct nft_set_gc_batch *nft_set_gc_batch_alloc(const struct nft_set *set,
-+						gfp_t gfp)
++static inline void nft_set_elem_clear_busy(struct nft_set_ext *ext)
 +{
-+	struct nft_set_gc_batch *gcb;
++	unsigned long *word = (unsigned long *)ext;
 +
-+	gcb = kzalloc(sizeof(*gcb), gfp);
-+	if (gcb == NULL)
-+		return gcb;
-+	gcb->head.set = set;
-+	return gcb;
++	clear_bit(NFT_SET_ELEM_BUSY_BIT, word);
 +}
-+EXPORT_SYMBOL_GPL(nft_set_gc_batch_alloc);
 +
- static int nf_tables_fill_gen_info(struct sk_buff *skb, struct net *net,
- 				   u32 portid, u32 seq)
- {
+ /**
+  *	struct nft_trans - nf_tables object update in transaction
+  *
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 138e47f..3aa92b3 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3338,7 +3338,7 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 	if (trans == NULL)
+ 		goto err4;
+ 
+-	ext->genmask = nft_genmask_cur(ctx->net);
++	ext->genmask = nft_genmask_cur(ctx->net) | NFT_SET_ELEM_BUSY_MASK;
+ 	err = set->ops->insert(set, &elem);
+ 	if (err < 0)
+ 		goto err5;
 -- 
 1.7.10.4
