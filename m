@@ -1,64 +1,61 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback
- query_transport() for each HW
-Date: Thu, 9 Apr 2015 10:01:23 -0600
-Message-ID: <20150409160123.GA31353@obsidianresearch.com>
-References: <5523CCD5.6030401@profitbricks.com>
- <5523D098.3020007@profitbricks.com>
- <1428517786.2980.180.camel@redhat.com>
- <20150408201015.GB28666@obsidianresearch.com>
- <1428590070.2980.190.camel@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: "tcp: refine TSO autosizing" causes performance regression on
+ Xen
+Date: Thu, 09 Apr 2015 09:16:58 -0700
+Message-ID: <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wang <yun.wang@profitbricks.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Mike Marciniszyn <infinipath@intel.com>,
-	Eli Cohen <eli@mellanox.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ira Weiny <ira.weiny@intel.com>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgens
-To: Doug Ledford <dledford@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xensource.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	christoffer.dall@linaro.org,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>, edumazet@google.com,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	netdev <netdev@vger.kernel.org>
+To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1428590070.2980.190.camel@redhat.com>
+In-Reply-To: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 09, 2015 at 10:34:30AM -0400, Doug Ledford wrote:
+On Thu, 2015-04-09 at 16:46 +0100, Stefano Stabellini wrote:
+> Hi all,
+> 
+> I found a performance regression when running netperf -t TCP_MAERTS from
+> an external host to a Xen VM on ARM64: v3.19 and v4.0-rc4 running in the
+> virtual machine are 30% slower than v3.18.
+> 
+> Through bisection I found that the perf regression is caused by the
+> prensence of the following commit in the guest kernel:
+> 
+> 
+> commit 605ad7f184b60cfaacbc038aa6c55ee68dee3c89
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Sun Dec 7 12:22:18 2014 -0800
+> 
+>     tcp: refine TSO autosizing
+> 
+> 
+> A simple revert would fix the issue.
+> 
+> Does anybody have any ideas on what could be the cause of the problem?
+> Suggestions on what to do to fix it?
 
-> These are exactly the tests I proposed Jason.  I'm not sure I see your
-> point here.  I guess my point is that although the scenario of all the
-> different items seems complex, it really does boil down to needing only
-> exactly what I proposed earlier to fulfill the entire test matrix.
+You sent this to lkml while networking discussions are on netdev.
 
-I have no problem with minimizing a bitmap, but I want the accessors
-to make sense first.
+This topic had been discussed on netdev multiple times.
 
-My specific problem with your suggestion was combining cap_ib_mad,
-cap_ib_sa, and cap_ib_smi into rdma_port_ib_fabric_mgmt.
+This commit restored original TCP Small Queue behavior, which is the
+first step to fight bufferbloat.
 
-Not only do the three cap things not return the same value for all
-situations, the documentary knowledge is lost by the reduction.
+Some network drivers are known to be problematic because of a delayed TX
+completion.
 
-I'd prefer we look at this from a 'what do the call sites need' view,
-not a 'how do we minimize' view.
+So far this commit did not impact max single flow throughput on 40Gb
+mlx4 NIC. (ie : line rate is possible)
 
-I've written this before: The mess here is that it is too hard to know
-what the call sites are actually checking for when it is some baroque
-conditional.
-
-Jason
+Try to tweak /proc/sys/net/ipv4/tcp_limit_output_bytes to see if it
+makes a difference ?
