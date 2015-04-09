@@ -1,72 +1,68 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: Re: [PATCH net-next 1/2] sfc: Own header for nic-specific sriov functions,
- single instance of netdev_ops and sriov removed from Falcon code
-Date: Thu, 9 Apr 2015 10:54:01 +0100
-Message-ID: <55264C39.4090503@solarflare.com>
-References: <55253A2D.8090901@solarflare.com>	<1428522763.25985.222.camel@edumazet-glaptop2.roam.corp.google.com>	<1428523025.25985.224.camel@edumazet-glaptop2.roam.corp.google.com> <20150408.162842.1573769781306113806.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TSO on veth device slows transmission to a crawl
+Date: Thu, 09 Apr 2015 03:01:32 -0700
+Message-ID: <1428573692.25985.248.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.LSU.2.20.1504070014250.21650@nerf40.vanv.qr>
+	 <1428374918.25985.206.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LSU.2.20.1504071149280.31930@nerf40.vanv.qr>
+	 <1428436189.25985.211.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LSU.2.20.1504081844390.6502@nerf40.vanv.qr>
+	 <1428571471.25985.246.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>
+Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:21229 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754976AbbDIJyL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:54:11 -0400
-In-Reply-To: <20150408.162842.1573769781306113806.davem@davemloft.net>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:32911 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932657AbbDIKBf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 06:01:35 -0400
+Received: by iebmp1 with SMTP id mp1so96471120ieb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 03:01:34 -0700 (PDT)
+In-Reply-To: <1428571471.25985.246.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 08/04/15 21:28, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 08 Apr 2015 12:57:05 -0700
-> 
->> On Wed, 2015-04-08 at 12:52 -0700, Eric Dumazet wrote:
->>> On Wed, 2015-04-08 at 15:24 +0100, Shradha Shah wrote:
->>>   CC [M]  drivers/net/ethernet/sfc/qt202x_phy.o
->>> drivers/net/ethernet/sfc/siena.c:1008:22: error: 'efx_siena_sriov_set_vf_mac' undeclared here (not in a function)
->>> drivers/net/ethernet/sfc/siena.c:1009:23: error: 'efx_siena_sriov_set_vf_vlan' undeclared here (not in a function)
->>> drivers/net/ethernet/sfc/siena.c:1010:27: error: 'efx_siena_sriov_set_vf_spoofchk' undeclared here (not in a function)
->>> drivers/net/ethernet/sfc/siena.c:1011:25: error: 'efx_siena_sriov_get_vf_config' undeclared here (not in a function)
->>>   CC [M]  drivers/net/ethernet/sfc/mdio_10g.o
->>> make[5]: *** [drivers/net/ethernet/sfc/siena.o] Error 1
->>> make[5]: *** Waiting for unfinished jobs....
->>> drivers/net/ethernet/sfc/ef10.c:3700:22: error: 'efx_ef10_sriov_set_vf_mac' undeclared here (not in a function)
->>> drivers/net/ethernet/sfc/ef10.c:3701:23: error: 'efx_ef10_sriov_set_vf_vlan' undeclared here (not in a function)
->>> drivers/net/ethernet/sfc/ef10.c:3702:27: error: 'efx_ef10_sriov_set_vf_spoofchk' undeclared here (not in a function)
->>> drivers/net/ethernet/sfc/ef10.c:3703:25: error: 'efx_ef10_sriov_get_vf_config' undeclared here (not in a function)
->>> make[5]: *** [drivers/net/ethernet/sfc/ef10.o] Error 1
->>>
->>
->> Please test your driver with :
->>
->> $ grep PCI_IOV .config
->> # CONFIG_PCI_IOV is not set
->> $ grep SFC_SRIOV .config
->> $ 
-> 
-> This is really terrible.
-
-I apologize. I will correct this in net_driver.h
-> 
-> siena_sriov.c is only build when CONFIG_SFC_SRIOV is enabled, but it has
-> CONFIG_SFC_SRIOV CPP checks all over the file.  I don't know what better
-> can define a low quality patch submission...
-
-siena_sriov.c is not a new file. I think a cleanup patch for cleaning up all
-the CONFIG_SFC_SRIOV CPP checks is required before I post any new patches.
-
-Will correct and send out a v2.
+On Thu, 2015-04-09 at 02:24 -0700, Eric Dumazet wrote:
 
 > 
-> I tried to fix this up, but it's way too broken for a quick cure,
-> therefore I'm reverting everything.
+> Thanks for providing these scripts, but they do not work on my host
+> running latest net-next
+> 
+> Basic IP routing seems not properly enabled, as even ping does not work
+> to reach 10.10.23.23
+> 
+> ip netns exec vclient /bin/bash
+> ping 10.10.23.23
+> <no frame is sent>
 > 
 
--- 
-Many Thanks,
-Regards,
-Shradha Shah
+Same problem if I run pristine 3.19
+
+lpaa23:~/t# ip netns exec vclient /bin/bash
+lpaa23:~/t# ip ro get 10.10.23.23
+10.10.23.23 via 10.10.40.129 dev veth0  src 10.10.40.1 
+    cache 
+lpaa23:~/t# nstat
+#kernel
+lpaa23:~/t# ping 10.10.23.23
+PING 10.10.23.23 (10.10.23.23) 56(84) bytes of data.
+^C
+--- 10.10.23.23 ping statistics ---
+2 packets transmitted, 0 received, 100% packet loss, time 999ms
+
+lpaa23:~/t# nstat
+#kernel
+IcmpOutErrors                   2                  0.0
+IcmpOutEchoReps                 2                  0.0
+IcmpMsgOutType8                 2                  0.0
+
+lpaa23:~/t# grep . `find /proc/sys/net/ipv4 -name forwarding`
+/proc/sys/net/ipv4/conf/all/forwarding:1
+/proc/sys/net/ipv4/conf/default/forwarding:1
+/proc/sys/net/ipv4/conf/gre0/forwarding:1
+/proc/sys/net/ipv4/conf/gretap0/forwarding:1
+/proc/sys/net/ipv4/conf/lo/forwarding:1
+/proc/sys/net/ipv4/conf/sit0/forwarding:1
+/proc/sys/net/ipv4/conf/veth0/forwarding:1
