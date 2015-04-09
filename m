@@ -1,111 +1,71 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net] udptunnels: Call handle_offloads after inserting vlan tag.
-Date: Thu,  9 Apr 2015 11:19:14 -0700
-Message-ID: <1428603554-62449-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Thu, 9 Apr 2015 11:26:55 -0700
+Message-ID: <1428604015.5004.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <21795.62414.465476.464027@mariner.uk.xensource.com>
+	 <1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <21796.6843.983774.271495@mariner.uk.xensource.com>
+	 <21796.7755.270785.292996@mariner.uk.xensource.com>
+	 <1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <1428448976.4720.15.camel@prashant>
+	 <21797.13348.524963.29127@mariner.uk.xensource.com>
+	 <1428543798.4720.20.camel@prashant>
+	 <21798.24161.922394.539733@mariner.uk.xensource.com>
+	 <1428595851.4720.22.camel@prashant>
+	 <21798.44949.156680.399387@mariner.uk.xensource.com>
+	 <21798.46590.928152.666550@mariner.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: Prashant Sreedharan <prashant@broadcom.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
+To: Ian Jackson <Ian.Jackson@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:60419 "HELO
-	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932940AbbDISY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 14:24:59 -0400
-Received: by mail-pd0-f176.google.com with SMTP id qa5so104118467pdb.1
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 11:24:58 -0700 (PDT)
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:3583 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932841AbbDIS10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 14:27:26 -0400
+In-Reply-To: <21798.46590.928152.666550@mariner.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-handle_offloads() calls skb_reset_inner_headers() to store
-the layer pointers to the encapsulated packet. However, we
-currently push the vlag tag (if there is one) onto the packet
-afterwards. This changes the MAC header for the encapsulated
-packet but it is not reflected in skb->inner_mac_header, which
-breaks GSO and drivers which attempt to use this for encapsulation
-offloads.
+On Thu, 2015-04-09 at 18:25 +0100, Ian Jackson wrote:
+> root@bedbug:~# ethtool -S eth0 | grep -v ': 0$'
+> NIC statistics:
+>      rx_octets: 8196868
+>      rx_ucast_packets: 633
+>      rx_mcast_packets: 1
+>      rx_bcast_packets: 123789
+>      tx_octets: 42854
+>      tx_ucast_packets: 9
+>      tx_mcast_packets: 8
+>      tx_bcast_packets: 603
+> root@bedbug:~# ifconfig eth0
+> eth0      Link encap:Ethernet  HWaddr 00:13:72:14:c0:51  
+>           inet addr:10.80.249.102  Bcast:10.80.251.255
+>           Mask:255.255.252.0
+>           inet6 addr: fe80::213:72ff:fe14:c051/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:124774 errors:0 dropped:88921 overruns:0 frame:0
+>           TX packets:620 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000 
+>           RX bytes:8222158 (7.8 MiB)  TX bytes:42854 (41.8 KiB)
+>           Interrupt:17 
 
-Fixes: 1eaa8178 ("vxlan: Add tx-vlan offload support.")
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
- drivers/net/vxlan.c | 20 ++++++++++----------
- net/ipv4/geneve.c   |  8 ++++----
- 2 files changed, 14 insertions(+), 14 deletions(-)
+The dropped counter reported by ifconfig is 2 counters combined:
+rx_dropped + rx_missed_errors.  Since ethtool -S is not reporting any
+rx_discards, all the drops should be caused by tg3_rx().  We can drop
+because the descriptor shows error or we cannot allocate SKB.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index f8528a4..fceb637 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1713,12 +1713,6 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
- 		}
- 	}
- 
--	skb = iptunnel_handle_offloads(skb, udp_sum, type);
--	if (IS_ERR(skb)) {
--		err = -EINVAL;
--		goto err;
--	}
--
- 	skb_scrub_packet(skb, xnet);
- 
- 	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len
-@@ -1738,6 +1732,12 @@ static int vxlan6_xmit_skb(struct dst_entry *dst, struct sk_buff *skb,
- 		goto err;
- 	}
- 
-+	skb = iptunnel_handle_offloads(skb, udp_sum, type);
-+	if (IS_ERR(skb)) {
-+		err = -EINVAL;
-+		goto err;
-+	}
-+
- 	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
- 	vxh->vx_flags = htonl(VXLAN_HF_VNI);
- 	vxh->vx_vni = md->vni;
-@@ -1798,10 +1798,6 @@ int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
- 		}
- 	}
- 
--	skb = iptunnel_handle_offloads(skb, udp_sum, type);
--	if (IS_ERR(skb))
--		return PTR_ERR(skb);
--
- 	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
- 			+ VXLAN_HLEN + sizeof(struct iphdr)
- 			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
-@@ -1817,6 +1813,10 @@ int vxlan_xmit_skb(struct rtable *rt, struct sk_buff *skb,
- 	if (WARN_ON(!skb))
- 		return -ENOMEM;
- 
-+	skb = iptunnel_handle_offloads(skb, udp_sum, type);
-+	if (IS_ERR(skb))
-+		return PTR_ERR(skb);
-+
- 	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
- 	vxh->vx_flags = htonl(VXLAN_HF_VNI);
- 	vxh->vx_vni = md->vni;
-diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-index 5a4828b..a566a2e 100644
---- a/net/ipv4/geneve.c
-+++ b/net/ipv4/geneve.c
-@@ -113,10 +113,6 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
- 	int min_headroom;
- 	int err;
- 
--	skb = udp_tunnel_handle_offloads(skb, csum);
--	if (IS_ERR(skb))
--		return PTR_ERR(skb);
--
- 	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
- 			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct iphdr)
- 			+ (skb_vlan_tag_present(skb) ? VLAN_HLEN : 0);
-@@ -131,6 +127,10 @@ int geneve_xmit_skb(struct geneve_sock *gs, struct rtable *rt,
- 	if (unlikely(!skb))
- 		return -ENOMEM;
- 
-+	skb = udp_tunnel_handle_offloads(skb, csum);
-+	if (IS_ERR(skb))
-+		return PTR_ERR(skb);
-+
- 	gnvh = (struct genevehdr *)__skb_push(skb, sizeof(*gnvh) + opt_len);
- 	geneve_build_header(gnvh, tun_flags, vni, opt_len, opt);
- 
--- 
-1.9.1
+Can you check to see if your kernel source has this tg3 patch applied?
+
+tg3: Don't check undefined error bits in RXBD
+d7b95315cc7f441418845a165ee56df723941487
+> 
+> 
