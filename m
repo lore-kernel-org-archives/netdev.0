@@ -1,35 +1,200 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH 00/11] an introduction of library operating system
- for Linux (LibOS)
-Date: Thu, 09 Apr 2015 10:36:23 +0200
-Message-ID: <55263A07.6040508@nod.at>
-References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp>	<551164ED.5000907@nod.at>	<m2twxacw13.wl@sfc.wide.ad.jp>	<55117565.6080002@nod.at>	<m2sicuctb2.wl@sfc.wide.ad.jp>	<55118277.5070909@nod.at>	<m2bnjhcevt.wl@sfc.wide.ad.jp>	<55133BAF.30301@nod.at>	<m2h9t7bubh.wl@wide.ad.jp>	<5514560A.7040707@nod.at>	<m28uejaqyn.wl@wide.ad.jp>	<55152137.20405@nod.at>	<m2sicnalnh.wl@sfc.wide.ad.jp>	<5518F030.4040003@nod.at> <m2y4md7gmb.wl@wide.ad.jp>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2-next 2/2] netns: allow to dump and monitor nsid
+Date: Thu, 9 Apr 2015 11:36:01 +0300
+Message-ID: <20150409083601.GA1085@angus-think.wlc.globallogic.com>
+References: <1428568214-8673-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1428568214-8673-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
-	cl@linux.com, penberg@kernel.org, rientjes@google.com,
-	iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
-	rusty@rustcorp.com.au, mathieu.lacage@gmail.com
-To: Hajime Tazaki <tazaki@wide.ad.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m2y4md7gmb.wl@wide.ad.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:33523 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751884AbbDIIsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 04:48:10 -0400
+Received: by layy10 with SMTP id y10so84397816lay.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 01:48:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1428568214-8673-2-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 31.03.2015 um 09:47 schrieb Hajime Tazaki:
-> right now arch/lib/Makefile isn't fully on the Kbuild
-> system: build file dependency is not tracked at all.
-> 
-> while I should learn more about Kbuild, I'd be happy if you
-> would suggest how the Makefile should be.
+On Thu, Apr 09, 2015 at 10:30:14AM +0200, Nicolas Dichtel wrote:
 
-You definitely have to use Kbuild.
-Please bite the bullet and dig into it. Maybe we
-need also new functions in Kbuild to support a library mode.
-Who knows? ;)
+Hi,
 
-Thanks,
-//richard
+> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+> index 45e234a4d98c..7806335733cf 100644
+> --- a/ip/ipnetns.c
+> +++ b/ip/ipnetns.c
+> @@ -14,10 +14,12 @@
+>  #include <errno.h>
+>  #include <unistd.h>
+>  #include <ctype.h>
+> +#include <linux/limits.h>
+>  
+>  #include <linux/net_namespace.h>
+>  
+>  #include "utils.h"
+> +#include "hlist.h"
+>  #include "ip_common.h"
+>  #include "namespace.h"
+>  
+> @@ -31,9 +33,13 @@ static int usage(void)
+>  	fprintf(stderr, "       ip netns pids NAME\n");
+>  	fprintf(stderr, "       ip [-all] netns exec [NAME] cmd ...\n");
+>  	fprintf(stderr, "       ip netns monitor\n");
+> +	fprintf(stderr, "       ip netns list-id\n");
+>  	exit(-1);
+>  }
+>  
+> +/* This socket is used to get nsid */
+> +static struct rtnl_handle rtnsh = { .fd = -1 };
+> +
+>  #ifdef HAVE_NETNSID
+>  static int get_netnsid_from_name(const char *name)
+>  {
+> @@ -57,7 +63,7 @@ static int get_netnsid_from_name(const char *name)
+>  		return fd;
+>  
+>  	addattr32(&req.n, 1024, NETNSA_FD, fd);
+> -	if (rtnl_talk(&rth, &req.n, 0, 0, &answer.n) < 0) {
+> +	if (rtnl_talk(&rtnsh, &req.n, 0, 0, &answer.n) < 0) {
+>  		close(fd);
+>  		return -2;
+>  	}
+> @@ -86,6 +92,194 @@ static int get_netnsid_from_name(const char *name)
+>  }
+>  #endif /* HAVE_NETNSID */
+>  
+> +struct nsid_cache {
+> +	struct hlist_node	nsid_hash;
+> +	struct hlist_node	name_hash;
+> +	int			nsid;
+> +	char			name[NAME_MAX];
+> +};
+> +
+> +#define NSIDMAP_SIZE		128
+> +#define NSID_HASH_NSID(nsid)	(nsid & (NSIDMAP_SIZE - 1))
+> +#define NSID_HASH_NAME(name)	(namehash(name) & (NSIDMAP_SIZE - 1))
+> +
+> +static struct hlist_head	nsid_head[NSIDMAP_SIZE];
+> +static struct hlist_head	name_head[NSIDMAP_SIZE];
+> +
+> +static struct nsid_cache *netns_map_get_by_nsid(int nsid)
+> +{
+> +	uint32_t h = NSID_HASH_NSID(nsid);
+> +	struct hlist_node *n;
+> +
+> +	hlist_for_each(n, &nsid_head[h]) {
+> +		struct nsid_cache *c = container_of(n, struct nsid_cache,
+> +						    nsid_hash);
+> +		if (c->nsid == nsid)
+> +			return c;
+> +	}
+> +
+> +	return NULL;
+> +}
+> +
+> +static int netns_map_add(int nsid, char *name)
+> +{
+> +	struct nsid_cache *c;
+> +	uint32_t h;
+> +
+> +	if (netns_map_get_by_nsid(nsid) != NULL)
+> +		return -EEXIST;
+> +
+> +	c = malloc(sizeof(*c));
+> +	if (c == NULL) {
+> +		perror("malloc");
+> +		return -ENOMEM;
+> +	}
+> +	c->nsid = nsid;
+> +	strcpy(c->name, name);
+> +
+> +	h = NSID_HASH_NSID(nsid);
+> +	hlist_add_head(&c->nsid_hash, &nsid_head[h]);
+> +
+> +	h = NSID_HASH_NAME(name);
+> +	hlist_add_head(&c->name_hash, &name_head[h]);
+> +
+> +	return 0;
+> +}
+> +
+> +static void netns_map_del(struct nsid_cache *c)
+> +{
+> +	hlist_del(&c->name_hash);
+> +	hlist_del(&c->nsid_hash);
+> +	free(c);
+> +}
+> +
+> +void netns_map_init(void)
+> +{
+> +	static int initialized;
+> +	struct dirent *entry;
+> +	DIR *dir;
+> +	int nsid;
+> +
+> +	if (initialized)
+> +		return;
+> +
+> +	if (rtnl_open(&rtnsh, 0) < 0) {
+> +		fprintf(stderr, "Cannot open rtnetlink\n");
+> +		exit(1);
+> +	}
+> +
+> +	dir = opendir(NETNS_RUN_DIR);
+> +	if (!dir)
+> +		return;
+> +
+> +	while ((entry = readdir(dir)) != NULL) {
+> +		if (strcmp(entry->d_name, ".") == 0)
+> +			continue;
+> +		if (strcmp(entry->d_name, "..") == 0)
+> +			continue;
+> +		nsid = get_netnsid_from_name(entry->d_name);
+> +
+> +		if (nsid >= 0)
+> +			netns_map_add(nsid, entry->d_name);
+> +	}
+
+May be lib/namespace.c -> netns_foreach will be useful here  ?
+
+> +	closedir(dir);
+> +	initialized = 1;
+> +}
+> +
+> +static int netns_get_name(int nsid, char *name)
+> +{
+> +	struct dirent *entry;
+> +	DIR *dir;
+> +	int id;
+> +
+> +	dir = opendir(NETNS_RUN_DIR);
+> +	if (!dir)
+> +		return -ENOENT;
+> +
+> +	while ((entry = readdir(dir)) != NULL) {
+> +		if (strcmp(entry->d_name, ".") == 0)
+> +			continue;
+> +		if (strcmp(entry->d_name, "..") == 0)
+> +			continue;
+> +		id = get_netnsid_from_name(entry->d_name);
+> +
+> +		if (nsid == id) {
+> +			strcpy(name, entry->d_name);
+> +			closedir(dir);
+> +			return 0;
+> +		}
+> +	}
+
+And may be here too ?
+
+> +	closedir(dir);
+> +	return -ENOENT;
+> +}
+> +
+
+Regards,
+Vadim Kochan
