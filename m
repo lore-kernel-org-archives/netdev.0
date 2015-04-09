@@ -1,150 +1,199 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 17/20] netfilter: nf_tables: prepare set element accounting for async updates
-Date: Thu,  9 Apr 2015 13:35:01 +0200
-Message-ID: <1428579304-5520-18-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/20] netfilter: bridge: don't use nf_bridge_info data to store mac header
+Date: Thu,  9 Apr 2015 13:34:54 +0200
+Message-ID: <1428579304-5520-11-git-send-email-pablo@netfilter.org>
 References: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33180 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:33122 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933092AbbDILb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 07:31:26 -0400
+	id S932861AbbDILbR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 07:31:17 -0400
 In-Reply-To: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+From: Florian Westphal <fw@strlen.de>
 
-Use atomic operations for the element count to avoid races with async
-updates.
+br_netfilter maintains an extra state, nf_bridge_info, which is attached
+to skb via skb->nf_bridge pointer.
 
-To properly handle the transactional semantics during netlink updates,
-deleted but not yet committed elements are accounted for seperately and
-are treated as being already removed. This means for the duration of
-a netlink transaction, the limit might be exceeded by the amount of
-elements deleted. Set implementations must be prepared to handle this.
+Amongst other things we use skb->nf_bridge->data to store the original
+mac header for every processed skb.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+This is required for ip refragmentation when using conntrack
+on top of bridge, because ip_fragment doesn't copy it from original skb.
+
+However there is no need anymore to do this unconditionally.
+
+Move this to the one place where its needed -- when br_netfilter calls
+ip_fragment().
+
+Also switch to percpu storage for this so we can handle fragmenting
+without accessing nf_bridge meta data.
+
+Only user left is neigh resolution when DNAT is detected, to hold
+the original source mac address (neigh resolution builds new mac header
+using bridge mac), so rename ->data and reduce its size to whats needed.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |    4 +++-
- net/netfilter/nf_tables_api.c     |   21 ++++++++++++---------
- net/netfilter/nft_hash.c          |    3 ++-
- 3 files changed, 17 insertions(+), 11 deletions(-)
+ include/linux/skbuff.h    |    2 +-
+ net/bridge/br_netfilter.c |   70 ++++++++++++++++++++++++++-------------------
+ 2 files changed, 42 insertions(+), 30 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index a785699..7464233 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -258,6 +258,7 @@ void nft_unregister_set(struct nft_set_ops *ops);
-  * 	@dtype: data type (verdict or numeric type defined by userspace)
-  * 	@size: maximum set size
-  * 	@nelems: number of elements
-+ * 	@ndeact: number of deactivated elements queued for removal
-  * 	@timeout: default timeout value in msecs
-  * 	@gc_int: garbage collection interval in msecs
-  *	@policy: set parameterization (see enum nft_set_policies)
-@@ -275,7 +276,8 @@ struct nft_set {
- 	u32				ktype;
- 	u32				dtype;
- 	u32				size;
--	u32				nelems;
-+	atomic_t			nelems;
-+	u32				ndeact;
- 	u64				timeout;
- 	u32				gc_int;
- 	u16				policy;
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 0dab872..27d1bf5 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -3238,9 +3238,6 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
- 	u32 flags;
- 	int err;
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 36f3f43..f66a089 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -169,7 +169,7 @@ struct nf_bridge_info {
+ 	unsigned int		mask;
+ 	struct net_device	*physindev;
+ 	struct net_device	*physoutdev;
+-	unsigned long		data[32 / sizeof(unsigned long)];
++	char			neigh_header[8];
+ };
+ #endif
  
--	if (set->size && set->nelems == set->size)
--		return -ENFILE;
--
- 	err = nla_parse_nested(nla, NFTA_SET_ELEM_MAX, attr,
- 			       nft_set_elem_policy);
- 	if (err < 0)
-@@ -3391,11 +3388,15 @@ static int nf_tables_newsetelem(struct sock *nlsk, struct sk_buff *skb,
- 		return -EBUSY;
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 282ed76..ca1cb67 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -111,6 +111,19 @@ static inline __be16 pppoe_proto(const struct sk_buff *skb)
+ 	 pppoe_proto(skb) == htons(PPP_IPV6) && \
+ 	 brnf_filter_pppoe_tagged)
  
- 	nla_for_each_nested(attr, nla[NFTA_SET_ELEM_LIST_ELEMENTS], rem) {
-+		if (set->size &&
-+		    !atomic_add_unless(&set->nelems, 1, set->size + set->ndeact))
-+			return -ENFILE;
++/* largest possible L2 header, see br_nf_dev_queue_xmit() */
++#define NF_BRIDGE_MAX_MAC_HEADER_LENGTH (PPPOE_SES_HLEN + ETH_HLEN)
 +
- 		err = nft_add_set_elem(&ctx, set, attr);
--		if (err < 0)
-+		if (err < 0) {
-+			atomic_dec(&set->nelems);
- 			break;
--
--		set->nelems++;
-+		}
- 	}
- 	return err;
- }
-@@ -3477,7 +3478,7 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
- 		if (err < 0)
- 			break;
- 
--		set->nelems--;
-+		set->ndeact++;
- 	}
- 	return err;
- }
-@@ -3810,6 +3811,8 @@ static int nf_tables_commit(struct sk_buff *skb)
- 						 &te->elem,
- 						 NFT_MSG_DELSETELEM, 0);
- 			te->set->ops->remove(te->set, &te->elem);
-+			atomic_dec(&te->set->nelems);
-+			te->set->ndeact--;
- 			break;
- 		}
- 	}
-@@ -3913,16 +3916,16 @@ static int nf_tables_abort(struct sk_buff *skb)
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_NEWSETELEM:
--			nft_trans_elem_set(trans)->nelems--;
- 			te = (struct nft_trans_elem *)trans->data;
- 
- 			te->set->ops->remove(te->set, &te->elem);
-+			atomic_dec(&te->set->nelems);
- 			break;
- 		case NFT_MSG_DELSETELEM:
- 			te = (struct nft_trans_elem *)trans->data;
- 
--			nft_trans_elem_set(trans)->nelems++;
- 			te->set->ops->activate(te->set, &te->elem);
-+			te->set->ndeact--;
- 
- 			nft_trans_destroy(trans);
- 			break;
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 5923ec5..c74e2bf 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -203,7 +203,7 @@ out:
- 
- static void nft_hash_gc(struct work_struct *work)
++#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
++struct brnf_frag_data {
++	char mac[NF_BRIDGE_MAX_MAC_HEADER_LENGTH];
++	u8 encap_size;
++	u8 size;
++};
++
++static DEFINE_PER_CPU(struct brnf_frag_data, brnf_frag_data_storage);
++#endif
++
+ static inline struct rtable *bridge_parent_rtable(const struct net_device *dev)
  {
--	const struct nft_set *set;
-+	struct nft_set *set;
- 	struct nft_hash_elem *he;
- 	struct nft_hash *priv;
- 	struct nft_set_gc_batch *gcb = NULL;
-@@ -237,6 +237,7 @@ static void nft_hash_gc(struct work_struct *work)
- 		if (gcb == NULL)
- 			goto out;
- 		rhashtable_remove_fast(&priv->ht, &he->node, nft_hash_params);
-+		atomic_dec(&set->nelems);
- 		nft_set_gc_batch_add(gcb, he);
+ 	struct net_bridge_port *port;
+@@ -189,14 +202,6 @@ static inline void nf_bridge_pull_encap_header_rcsum(struct sk_buff *skb)
+ 	skb->network_header += len;
+ }
+ 
+-static inline void nf_bridge_save_header(struct sk_buff *skb)
+-{
+-	int header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
+-
+-	skb_copy_from_linear_data_offset(skb, -header_size,
+-					 skb->nf_bridge->data, header_size);
+-}
+-
+ /* When handing a packet over to the IP layer
+  * check whether we have a skb that is in the
+  * expected format
+@@ -318,7 +323,7 @@ static int br_nf_pre_routing_finish_bridge(struct sk_buff *skb)
+ 			 */
+ 			skb_copy_from_linear_data_offset(skb,
+ 							 -(ETH_HLEN-ETH_ALEN),
+-							 skb->nf_bridge->data,
++							 nf_bridge->neigh_header,
+ 							 ETH_HLEN-ETH_ALEN);
+ 			/* tell br_dev_xmit to continue with forwarding */
+ 			nf_bridge->mask |= BRNF_BRIDGED_DNAT;
+@@ -810,30 +815,22 @@ static unsigned int br_nf_forward_arp(const struct nf_hook_ops *ops,
+ }
+ 
+ #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
+-static bool nf_bridge_copy_header(struct sk_buff *skb)
++static int br_nf_push_frag_xmit(struct sk_buff *skb)
+ {
++	struct brnf_frag_data *data;
+ 	int err;
+-	unsigned int header_size;
+ 
+-	nf_bridge_update_protocol(skb);
+-	header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
+-	err = skb_cow_head(skb, header_size);
+-	if (err)
+-		return false;
++	data = this_cpu_ptr(&brnf_frag_data_storage);
++	err = skb_cow_head(skb, data->size);
+ 
+-	skb_copy_to_linear_data_offset(skb, -header_size,
+-				       skb->nf_bridge->data, header_size);
+-	__skb_push(skb, nf_bridge_encap_header_len(skb));
+-	return true;
+-}
+-
+-static int br_nf_push_frag_xmit(struct sk_buff *skb)
+-{
+-	if (!nf_bridge_copy_header(skb)) {
++	if (err) {
+ 		kfree_skb(skb);
+ 		return 0;
  	}
- out:
+ 
++	skb_copy_to_linear_data_offset(skb, -data->size, data->mac, data->size);
++	__skb_push(skb, data->encap_size);
++
+ 	return br_dev_queue_push_xmit(skb);
+ }
+ 
+@@ -851,14 +848,27 @@ static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+ 	 * boundaries by preserving frag_list rather than refragmenting.
+ 	 */
+ 	if (skb->len + mtu_reserved > skb->dev->mtu) {
++		struct brnf_frag_data *data;
++
+ 		frag_max_size = BR_INPUT_SKB_CB(skb)->frag_max_size;
+ 		if (br_parse_ip_options(skb))
+ 			/* Drop invalid packet */
+ 			return NF_DROP;
+ 		IPCB(skb)->frag_max_size = frag_max_size;
++
++		nf_bridge_update_protocol(skb);
++
++		data = this_cpu_ptr(&brnf_frag_data_storage);
++		data->encap_size = nf_bridge_encap_header_len(skb);
++		data->size = ETH_HLEN + data->encap_size;
++
++		skb_copy_from_linear_data_offset(skb, -data->size, data->mac,
++						 data->size);
++
+ 		ret = ip_fragment(skb, br_nf_push_frag_xmit);
+-	} else
++	} else {
+ 		ret = br_dev_queue_push_xmit(skb);
++	}
+ 
+ 	return ret;
+ }
+@@ -906,7 +916,6 @@ static unsigned int br_nf_post_routing(const struct nf_hook_ops *ops,
+ 	}
+ 
+ 	nf_bridge_pull_encap_header(skb);
+-	nf_bridge_save_header(skb);
+ 	if (pf == NFPROTO_IPV4)
+ 		skb->protocol = htons(ETH_P_IP);
+ 	else
+@@ -951,8 +960,11 @@ static void br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
+ 	skb_pull(skb, ETH_HLEN);
+ 	nf_bridge->mask &= ~BRNF_BRIDGED_DNAT;
+ 
+-	skb_copy_to_linear_data_offset(skb, -(ETH_HLEN-ETH_ALEN),
+-				       skb->nf_bridge->data, ETH_HLEN-ETH_ALEN);
++	BUILD_BUG_ON(sizeof(nf_bridge->neigh_header) != (ETH_HLEN - ETH_ALEN));
++
++	skb_copy_to_linear_data_offset(skb, -(ETH_HLEN - ETH_ALEN),
++				       nf_bridge->neigh_header,
++				       ETH_HLEN - ETH_ALEN);
+ 	skb->dev = nf_bridge->physindev;
+ 	br_handle_frame_finish(skb);
+ }
 -- 
 1.7.10.4
