@@ -1,36 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/4] Replace wmb()/rmb() with
- dma_wmb()/dma_rmb() where appropriate, round 2
-Date: Thu, 09 Apr 2015 14:32:47 -0400 (EDT)
-Message-ID: <20150409.143247.7034121003688003.davem@davemloft.net>
-References: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
+Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+Date: Thu, 09 Apr 2015 14:37:27 -0400 (EDT)
+Message-ID: <20150409.143727.1391401196320839634.davem@davemloft.net>
+References: <1428566941.6875.7.camel@googlemail.com>
+	<1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
+Cc: sebastian.poehn@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49702 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49737 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932851AbbDISct (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 14:32:49 -0400
-In-Reply-To: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
+	with ESMTP id S1753969AbbDISh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 14:37:29 -0400
+In-Reply-To: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Wed, 08 Apr 2015 18:49:23 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 09 Apr 2015 02:07:41 -0700
 
-> More cleanup of drivers in order to start making use of dma_rmb and dma_wmb
-> calls.  This is another pass of what I would consider to be low hanging
-> fruit.  There may be other opportunities to make use of the barriers in the
-> Mellanox and Chelsio drivers but I didn't want to risk meddling with code I
-> was not completely familiar with so I am leaving that for future work.
-> 
-> I have revisited the Mellanox driver changes.  This time around I went only
-> for the sections with a clearly defined pattern.  For dma_wmb I used it
-> between accesses of the descriptor bits followed by owner or size.  For
-> dma_wmb I used it to replace rmb following a read of the ownership bit in
-> the descriptor.
+> TCP stack never sends packets attached to a socket in timewait state.
 
-Series applied with fixed commit message.
+TPROXY assigns timewait sockets to skb->sk, that's the bug.
+
+In net/netfilter/xt_TPROXY.c:
+
+	tproxy_tg4()
+ ...
+		sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
+				   iph->saddr, iph->daddr,
+				   hp->source, hp->dest,
+				   skb->dev, NFT_LOOKUP_ESTABLISHED);
+	/* NOTE: assign_sock consumes our sk reference */
+	if (sk && tproxy_sk_is_transparent(sk)) {
+		/* This should be in a separate target, but we don't do multiple
+		   targets on the same rule yet */
+		skb->mark = (skb->mark & ~mark_mask) ^ mark_value;
+
+		pr_debug("redirecting: proto %hhu %pI4:%hu -> %pI4:%hu, mark: %x\n",
+			 iph->protocol, &iph->daddr, ntohs(hp->dest),
+			 &laddr, ntohs(lport), skb->mark);
+
+		nf_tproxy_assign_sock(skb, sk);
+ ...
+ /* assign a socket to the skb -- consumes sk */
+static void
+nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk)
+{
+	skb_orphan(skb);
+	skb->sk = sk;
+	skb->destructor = sock_edemux;
+}
