@@ -1,45 +1,103 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
-Date: Thu, 09 Apr 2015 17:07:20 -0400 (EDT)
-Message-ID: <20150409.170720.1374561715105253435.davem@davemloft.net>
-References: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150409.143727.1391401196320839634.davem@davemloft.net>
-	<20150409191441.GE20653@breakpoint.cc>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback
+ query_transport() for each HW
+Date: Thu, 09 Apr 2015 17:19:08 -0400
+Message-ID: <1428614348.2980.287.camel@redhat.com>
+References: <5523CCD5.6030401@profitbricks.com>
+	 <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com>
+	 <20150408201015.GB28666@obsidianresearch.com>
+	 <1428590070.2980.190.camel@redhat.com>
+	 <20150409160123.GA31353@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-F54YLA5QHQfaO4OMd8BL"
+Cc: Michael Wang <yun.wang@profitbricks.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Tom Tucker <tom@opengridcomputing.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Mike Marciniszyn <infinipath@intel.com>,
+	Eli Cohen <eli@mellanox.com>,
+	Faisal Latif <faisal.latif@intel.com>,
+	Upinder Malhi <umalhi@cisco.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ira Weiny <ira.weiny@intel.com>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgens
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150409160123.GA31353@obsidianresearch.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-F54YLA5QHQfaO4OMd8BL
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2015-04-09 at 10:01 -0600, Jason Gunthorpe wrote:
+> On Thu, Apr 09, 2015 at 10:34:30AM -0400, Doug Ledford wrote:
+>=20
+> > These are exactly the tests I proposed Jason.  I'm not sure I see your
+> > point here.  I guess my point is that although the scenario of all the
+> > different items seems complex, it really does boil down to needing only
+> > exactly what I proposed earlier to fulfill the entire test matrix.
+>=20
+> I have no problem with minimizing a bitmap, but I want the accessors
+> to make sense first.
+>=20
+> My specific problem with your suggestion was combining cap_ib_mad,
+> cap_ib_sa, and cap_ib_smi into rdma_port_ib_fabric_mgmt.
+>=20
+> Not only do the three cap things not return the same value for all
+> situations, the documentary knowledge is lost by the reduction.
+>=20
+> I'd prefer we look at this from a 'what do the call sites need' view,
+> not a 'how do we minimize' view.
+>=20
+> I've written this before: The mess here is that it is too hard to know
+> what the call sites are actually checking for when it is some baroque
+> conditional.
+
+The two goals: being specific about what the test is returning and
+minimizing the bitmap footprint; are not necessarily opposed.  One can
+do both at the same time.
+
+--=20
+Doug Ledford <dledford@redhat.com>
+              GPG KeyID: 0E572FDD
+
+
+
+--=-F54YLA5QHQfaO4OMd8BL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, sebastian.poehn@gmail.com,
-	netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50912 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754151AbbDIVHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 17:07:23 -0400
-In-Reply-To: <20150409191441.GE20653@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 9 Apr 2015 21:14:41 +0200
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-> I re-introduced this in fd158d79d33d3c under the assumption
-> that the input path handles skb->sk timewait sockets correctly
-> after all the early demux changes, afaics tcp edemux can also
-> assign skb->sk timewait sockets.
-> 
-> Also, reporter mentions 3.8 as affected which should not assign
-> tw sockets to skb->sk.
-> 
-> Even more strange, the reporters backtrace seems to indicate
-> crash at end of forward path.
-> 
-> Sebastian, can you disable tw assignment via TPROXY in 3.12 just
-> to see if it makes a difference?
-> 
-> [ not doing the assignment is safe provided you still set tproxy mark
->   on the skb; policy routing will ensure local delivery ].
+iQIcBAABAgAGBQJVJuzMAAoJELgmozMOVy/dnrwQAL/QOAmf0x/HpGD4S7csBX7p
+enjQRlFAedSrAXXEme14kP4gqJ44QGsdlzQCRwxGszc5hx+g/H8/LeAXTA0FokL1
+Cm3Zi80oN8Ru/Cctdz4+MSUQfTHKul59rZG1iwfvEXrY5wmM1CQsCCV6yixbu0lN
+jwonILGfwb+S6JFcFVchw92rYKItmCplKKw0CjQzqDyvHlP6iBbLXOz77jy2gIc+
+OWqaAw3hp4lmgcu1PEMQ9iRx6fICBagj98LiY7UmgvHXU2QWCTGjt3Zqww2U0ZSz
+Vxzlso6KnRZiwKZzxzYWR0HhdliBaV2tPGkt8DBmqb79czHEmkV/q3O/uzA8B53w
+ouKViWbv0QsIGUsu7ROcAcTO7ix4a2/YRCJAJNVOsX+i5g5Dg/KPjoReV7mD3LU3
+sMO6Tuk0tXp8RWQdF4DWrH1oqHN3XboZI0L3pyHJGn/XWFmiZGQQerec3+Z9gyGH
+iPW8Fs6BtPrSizPE63YtKRPmTHhXTmP/5TKkRzM23azUK6dpSw2+LKSrI4I6Z3bF
+1VRRffP6Rm89RRnmbs3S5/ca0yr13OQzoCe38k5dqh/tulkPPbk1+xmZ69YJluVs
+l4d+DHJ/UyAbdV1g3IzPCKDG7GdkwctrUbw1MVD7U9dFS4sGK8Yz9chk5oUKYnEF
+W7b512XsPvioVNfR0EBl
+=l7rL
+-----END PGP SIGNATURE-----
 
-My assumption in my analysis is that TPROXY writes the socket to
-skb->sk, and it is also being forwarded.  And yes this is based
-upon his backtrace.
+--=-F54YLA5QHQfaO4OMd8BL--
