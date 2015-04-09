@@ -1,61 +1,57 @@
-From: Urban Loesch <bind@enas.net>
-Subject: Re: [bnx2x] Re: Kernel 3.18.11 hangs when inserting netconsle module
- on a DELL M620 VRTX Blade
-Date: Thu, 09 Apr 2015 14:34:22 +0200
-Message-ID: <552671CE.3050506@enas.net>
-References: <5524E669.5050903@enas.net> <55250808.6000606@hurleysoftware.com> <B5657A6538887040AD3A81F1008BEC63C26537@avmb3.qlogic.org>
+From: Michael Wang <yun.wang@profitbricks.com>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport()
+ for each HW
+Date: Thu, 09 Apr 2015 14:42:24 +0200
+Message-ID: <552673B0.7040500@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150408201015.GB28666@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Peter Hurley <peter@hurleysoftware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63C26537@avmb3.qlogic.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Tom Tucker <tom@opengridcomputing.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Mike Marciniszyn <infinipath@intel.com>,
+	Eli Cohen <eli@mellanox.com>,
+	Faisal Latif <faisal.latif@intel.com>,
+	Upinder Malhi <umalhi@cisco.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ira Weiny <ira.weiny@intel.com>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Haggai Er
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:34911 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751613AbbDIMm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 08:42:29 -0400
+Received: by wgyo15 with SMTP id o15so108057944wgy.2
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 05:42:28 -0700 (PDT)
+In-Reply-To: <20150408201015.GB28666@obsidianresearch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-thanks for your help.
-
-Am 08.04.2015 um 16:42 schrieb Yuval Mintz:
->>> I'have installed a new DELL VRTX M620 Blade with kernel 3.18.11.
->>> After system startup I tried to activate the kernel netconsole with remote
->> logging enabled.
->>>
->>> I executed the following command and the shell I issued it becomes
->> unresponsive and hangs.
->>>
->>> #  modprobe netconsole
->> netconsole="@/eth0,514@10.1.10.197/00:10:db:fc:60:0c"
->>>
->>> The system load increases slowly and the CPU #11 uses 100% of soft
->>> irq. Only a soft reset witohut loading the netconsole module after startup
->> solves the issue.
+On 04/08/2015 10:10 PM, Jason Gunthorpe wrote:
+[snip]
 > 
-> I suspect this is a regression introduced by 9a2620c87745
-> "bnx2x: prevent WARN during driver unload".
+> Some of the other checks in this file revolve around pkey, I'm not
+> sure what rocee does there? cap_pkey_supported ?
+
+I'm not sure if this count in capability... how shall we describe it?
+
+Regards,
+Michael Wang
+
 > 
-> bnx2x locks & unlocks spin_lock_bh() during the napi poll, which shouldn't
-> be done while interrupts are disabled. This break interoperability with netpoll,
-> as it disables irqs prior to sending the skb on the bnx2x's interface.
+> Jason
 > 
-> Can you please try compiling your kernel without CONFIG_NET_RX_BUSY_POLL?
-> I suspect that might solve your issue.
-
-I compiled my kernel without CONFIG_NET_RX_BUSY_POLL.
-...
-# CONFIG_NET_RX_BUSY_POLL is not set
-...
-
-I tried multiple times to insert an remove the netconsole module.
-There was no error anymore.
-
-Compiling the kernel without CONFIG_NET_RX_BUSY_POLL solves the issue.
-At least for me.
-
-Thanks
-Urban
