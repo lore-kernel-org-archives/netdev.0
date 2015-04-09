@@ -1,52 +1,42 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
-Date: Thu, 9 Apr 2015 23:21:44 +0200
-Message-ID: <20150409212144.GH20653@breakpoint.cc>
-References: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150409.143727.1391401196320839634.davem@davemloft.net>
- <20150409191441.GE20653@breakpoint.cc>
- <20150409.170720.1374561715105253435.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: tcp_make_synack() should clear skb->tstamp
+Date: Thu, 09 Apr 2015 17:29:32 -0400 (EDT)
+Message-ID: <20150409.172932.729604382252399749.davem@davemloft.net>
+References: <1428611516.25985.275.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, eric.dumazet@gmail.com, sebastian.poehn@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56596 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750785AbbDIVVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 17:21:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20150409.170720.1374561715105253435.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51053 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752818AbbDIV3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 17:29:33 -0400
+In-Reply-To: <1428611516.25985.275.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Florian Westphal <fw@strlen.de>
-> Date: Thu, 9 Apr 2015 21:14:41 +0200
-> 
-> > I re-introduced this in fd158d79d33d3c under the assumption
-> > that the input path handles skb->sk timewait sockets correctly
-> > after all the early demux changes, afaics tcp edemux can also
-> > assign skb->sk timewait sockets.
-> > 
-> > Also, reporter mentions 3.8 as affected which should not assign
-> > tw sockets to skb->sk.
-> > 
-> > Even more strange, the reporters backtrace seems to indicate
-> > crash at end of forward path.
-> > 
-> > Sebastian, can you disable tw assignment via TPROXY in 3.12 just
-> > to see if it makes a difference?
-> > 
-> > [ not doing the assignment is safe provided you still set tproxy mark
-> >   on the skb; policy routing will ensure local delivery ].
-> 
-> My assumption in my analysis is that TPROXY writes the socket to
-> skb->sk, and it is also being forwarded.  And yes this is based
-> upon his backtrace.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 09 Apr 2015 13:31:56 -0700
 
-Right.  However, I think we might have to make more changes than just tproxy.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> I noticed tcpdump was giving funky timestamps for locally
+> generated SYNACK messages on loopback interface.
+> 
+> 11:42:46.938990 IP 127.0.0.1.48245 > 127.0.0.2.23850: S
+> 945476042:945476042(0) win 43690 <mss 65495,nop,nop,sackOK,nop,wscale 7>
+> 
+> 20:28:58.502209 IP 127.0.0.2.23850 > 127.0.0.1.48245: S
+> 3160535375:3160535375(0) ack 945476043 win 43690 <mss
+> 65495,nop,nop,sackOK,nop,wscale 7>
+> 
+> This is because we need to clear skb->tstamp before
+> entering lower stack, otherwise net_timestamp_check()
+> does not set skb->tstamp.
+> 
+> Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-If we have sockets bound to non-local addresses then why would tcp edemux
-not cause same issue?
+Applied and queued up for -stable.
