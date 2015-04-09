@@ -1,54 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: tcp_make_synack() should clear skb->tstamp
-Date: Thu, 09 Apr 2015 13:31:56 -0700
-Message-ID: <1428611516.25985.275.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH net-next 2/5] selinux/nlmsg: add RTM_GETNSID
+Date: Thu, 9 Apr 2015 16:47:54 -0400
+Message-ID: <CAHC9VhQ2w-13aN9ghe8mJTe=Gekzx-q-A_5+DCjmiprNoPOuAQ@mail.gmail.com>
+References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1428511002-22329-3-git-send-email-nicolas.dichtel@6wind.com>
+	<CAHC9VhSp_0v+Qd3epkT4rVrP3iqS7A+vhq1TWPN6b76jk1Wpdw@mail.gmail.com>
+	<55267A2F.5050609@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:33951 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753378AbbDIUb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 16:31:58 -0400
-Received: by iget9 with SMTP id t9so2346227ige.1
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 13:31:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, linux-kernel@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <55267A2F.5050609@6wind.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, Apr 9, 2015 at 9:10 AM, Nicolas Dichtel
+<nicolas.dichtel@6wind.com> wrote:
+> Le 09/04/2015 13:10, Paul Moore a =C3=A9crit :
+> [snip]
+>>>
+>>> --- a/security/selinux/nlmsgtab.c
+>>> +++ b/security/selinux/nlmsgtab.c
+>>> @@ -74,6 +74,7 @@ static struct nlmsg_perm nlmsg_route_perms[] =3D
+>>>          { RTM_DELMDB,           NETLINK_ROUTE_SOCKET__NLMSG_WRITE =
+ },
+>>>          { RTM_GETMDB,           NETLINK_ROUTE_SOCKET__NLMSG_READ  =
+},
+>>>          { RTM_NEWNSID,          NETLINK_ROUTE_SOCKET__NLMSG_WRITE =
+},
+>>> +       { RTM_DELNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  }=
+,
+>>>          { RTM_GETNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  =
+},
+>>>   };
+>>
+>>
+>> Can you elaborate a bit on the RTM_DELNSID type?  Based only on the
+>> name I wonder if it should be treated as a "write" and not a "read"
+>> operation.
+>
+> The user is not allowed to delete a nsid (no method is implemented). =
+This
+> RTM_DELNSID is only used for notifications.
 
-I noticed tcpdump was giving funky timestamps for locally
-generated SYNACK messages on loopback interface.
+Okay, thanks for clearing that up.
 
-11:42:46.938990 IP 127.0.0.1.48245 > 127.0.0.2.23850: S
-945476042:945476042(0) win 43690 <mss 65495,nop,nop,sackOK,nop,wscale 7>
-
-20:28:58.502209 IP 127.0.0.2.23850 > 127.0.0.1.48245: S
-3160535375:3160535375(0) ack 945476043 win 43690 <mss
-65495,nop,nop,sackOK,nop,wscale 7>
-
-This is because we need to clear skb->tstamp before
-entering lower stack, otherwise net_timestamp_check()
-does not set skb->tstamp.
-
-Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_output.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 1db253e36045..d520492ba698 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2929,6 +2929,8 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 	}
- #endif
- 
-+	/* Do not fool tcpdump (if any), clean our debris */
-+	skb->tstamp.tv64 = 0;
- 	return skb;
- }
- EXPORT_SYMBOL(tcp_make_synack);
+--=20
+paul moore
+www.paul-moore.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
