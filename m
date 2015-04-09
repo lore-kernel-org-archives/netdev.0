@@ -1,73 +1,46 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
- commented out
-Date: Thu, 09 Apr 2015 21:05:40 +0200
-Message-ID: <5526CD84.9090402@free.fr>
-References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+Date: Thu, 9 Apr 2015 21:14:41 +0200
+Message-ID: <20150409191441.GE20653@breakpoint.cc>
+References: <1428566941.6875.7.camel@googlemail.com>
+ <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150409.143727.1391401196320839634.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Mugunthan <mugunthanvnm@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Daniel Mack <daniel@zonque.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, sebastian.poehn@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:25290 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753006AbbDITFx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 15:05:53 -0400
-In-Reply-To: <5526806E.5020309@zonque.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56370 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755753AbbDITOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 15:14:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20150409.143727.1391401196320839634.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Mack wrote:
-
-> Mason wrote:
+David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 09 Apr 2015 02:07:41 -0700
 > 
->> Here is the data sheet for the AR8035:
->> http://www.redeszone.net/app/uploads/2014/04/AR8035.pdf
->>
->> It seems the problem comes from the fact that the PHY treats
->> HW reset and SW reset differently:
->>
->>      HW reset: registers are set to specific values
->>      SW reset: some bits are retained across reset
->>
->> Case in point: the control register (BMCR)
->> HW reset: BMCR = 0x3100
->> SW reset: retain bits[6,8,12,13] / other bits = 0
->>
->> (0x3100 means bit_6=0, bit_8=bit_12=bit_13=1)
->>
->> When we execute this line from genphy_soft_reset()
->>
->>      phy_write(phydev, MII_BMCR, BMCR_RESET);
->>
->> we reset the bits in BMCR, and SW reset does not restore them.
->>
->> It seems to me (please tell me if I am wrong) that it should
->> be safe for all PHYs to write old_val | BMCR_RESET, instead of
->> just BMCR_RESET. Thus...
->>
->> On chips that REALLY reset, the old_val bits will be discarded;
->> while on chips that retain some bits, we do want to keep them.
->>
->> So the patch would go something like below. What do you think?
+> > TCP stack never sends packets attached to a socket in timewait state.
 > 
-> I don't think that'll work, because writing a 1 into the RESET bit of
-> the register causes the PHY to enter its software reset routine
-> immediately. The other bits should hence be reset to their defaults,
-> regardless of what you set them to at the same time.
+> TPROXY assigns timewait sockets to skb->sk, that's the bug.
 
-I forgot to ask:
+I re-introduced this in fd158d79d33d3c under the assumption
+that the input path handles skb->sk timewait sockets correctly
+after all the early demux changes, afaics tcp edemux can also
+assign skb->sk timewait sockets.
 
-(I presume you have a system with an AR8035.)
+Also, reporter mentions 3.8 as affected which should not assign
+tw sockets to skb->sk.
 
-When the PHY is reset, you don't see the odd behavior I get?
+Even more strange, the reporters backtrace seems to indicate
+crash at end of forward path.
 
-Can you print the value of BMCR, before and after
+Sebastian, can you disable tw assignment via TPROXY in 3.12 just
+to see if it makes a difference?
 
-    phy_write(phydev, MII_BMCR, BMCR_RESET);
-
-Regards.
+[ not doing the assignment is safe provided you still set tproxy mark
+  on the skb; policy routing will ensure local delivery ].
