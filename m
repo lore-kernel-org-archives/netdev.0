@@ -1,49 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TSO on veth device slows transmission to a crawl
-Date: Thu, 09 Apr 2015 08:55:22 -0700
-Message-ID: <1428594922.25985.258.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.LSU.2.20.1504070014250.21650@nerf40.vanv.qr>
-	 <1428374918.25985.206.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.20.1504071149280.31930@nerf40.vanv.qr>
-	 <1428436189.25985.211.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.20.1504081844390.6502@nerf40.vanv.qr>
-	 <1428571471.25985.246.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.20.1504091127310.24030@nerf40.vanv.qr>
-	 <1428592109.25985.249.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.LSU.2.20.1504091731410.14110@nerf40.vanv.qr>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
+ commented out
+Date: Thu, 09 Apr 2015 17:58:52 +0200
+Message-ID: <5526A1BC.5060609@free.fr>
+References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <55269BAB.5020201@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@inai.de>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Mugunthan <mugunthanvnm@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Daniel Mack <daniel@zonque.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:34233 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755871AbbDIPzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 11:55:25 -0400
-Received: by iget9 with SMTP id t9so51496356ige.1
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 08:55:24 -0700 (PDT)
-In-Reply-To: <alpine.LSU.2.20.1504091731410.14110@nerf40.vanv.qr>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:64548 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755698AbbDIP7B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 11:59:01 -0400
+In-Reply-To: <55269BAB.5020201@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-09 at 17:35 +0200, Jan Engelhardt wrote:
-> On Thursday 2015-04-09 17:08, Eric Dumazet wrote:
-> >> >
-> >> >Basic IP routing seems not properly enabled, as even ping does not work
-> >> >to reach 10.10.23.23
-> >> 
-> >> Since I have net.ipv4.conf.all.forwarding,net.ipv4.ip_forward=1
-> >> this probably got inherited into the containers, so I did not
-> >> write it down into the scripts.
-> >> Enable it :)
-> >
-> >The thing is : It is enabled.
-> 
-> If forwarding is on, and the config is reasonably correct (which
-> I think it is), and it still won't ping, then would that not mean
-> there is another bug in the kernel?
+On 09/04/2015 17:32, Daniel Mack wrote:
 
-No idea. I tried 3.19 it was not working.
+> What about the debug registers, such as the one that configures the
+> RGMII TX/RX clock delay (4.2.25, 4.2.26). These are indirectly
+> addressed, see at803x_config_init().
 
-Note that your prior scripts (using 2 hosts) were OK.
+My dump code:
+
+void mydump(struct phy_device *phydev, int *foo, int *bar)
+{
+	int i;
+	for (i = 0; i < 32; ++i) foo[i] = phy_read(phydev, i);
+	for (i = 0; i < 20; ++i) {
+		phy_write(phydev, 0x1d, i);
+		mdelay(1);
+		bar[i] = phy_read(phydev, 0x1e);
+	}
+}
+
+[    0.738528] IDX=0x01 796d != 7949
+[    0.741860] IDX=0x05 c1e1 != 0000
+[    0.745191] IDX=0x06 000f != 0004
+[    0.748521] IDX=0x0a 3800 != 0000
+[    0.751851] IDX=0x11 bc10 != 0012
+[    0.755182] IDX=0x13 7400 != 0000
+[    0.758513] IDX=0x1b 060e != 0600
+[    0.761842] DEBUG REGS
+[    0.764211] IDX=0x01 ffd0 != 0032
+[    0.767542] IDX=0x02 3f0f != 3110
+[    0.770872] IDX=0x03 3fff != 3f00
+[    0.774203] IDX=0x0c 0800 != 1801
+[    0.777533] IDX=0x0d 0100 != 0000
+[    0.780863] IDX=0x0e 0023 != 0040
+
+Differences in debug registers only occur in undocumented registers.
+(Only 0x00, 0x05, 0x10, 0x11, 0x12 are documented.)
+
+Regards.
