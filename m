@@ -1,111 +1,110 @@
-From: "Templeman, Chaim" <chaim.templeman@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] e1000e: Cleanup handling of VLAN_HLEN
- as a part of max frame size
-Date: Thu, 9 Apr 2015 06:17:47 +0000
-Message-ID: <BD4006F19E8FC247A4760EC0EE12CCDF468ACD40@HASMSX110.ger.corp.intel.com>
-References: <alpine.NEB.2.11.1504081019220.3388@chris.i8u.org>
- <20150408204630.4643.37880.stgit@ahduyck-vm-fedora22>
- <alpine.NEB.2.11.1504081413510.3388@chris.i8u.org>
- <5525B2AE.80301@gmail.com>
- <alpine.NEB.2.11.1504081602260.3388@chris.i8u.org>
- <5525B62A.1050601@gmail.com>
- <alpine.NEB.2.11.1504081705350.3388@chris.i8u.org>
- <alpine.NEB.2.11.1504081714400.3388@chris.i8u.org>
- <5525D389.3010700@gmail.com>
+From: Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>
+Subject: Re: [PATCH 12/14] i2c-parport: return proper error values from attach
+Date: Thu, 9 Apr 2015 09:13:07 +0200
+Message-ID: <20150409071307.GA1166@katana>
+References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
+ <1428492040-5581-13-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mike@cchtml.com" <mike@cchtml.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Ertman, David M" <david.m.ertman@intel.com>,
-	"Lubetkin, YanirX" <yanirx.lubetkin@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	Hisashi T Fujinaka <htodd@twofifty.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:1973 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750785AbbDIGRv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 02:17:51 -0400
-In-Reply-To: <5525D389.3010700@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Nq2Wo0NMKNjxTN9z"
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Jean Delvare <jdelvare-l3A5Bk7waGM@public.gmane.org>,
+	Rodolfo Giometti <giometti-AVVDYK/kqiJWk0Htik3J/w@public.gmane.org>,
+	"James E.J. Bottomley" <JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Willy Tarreau <willy-859RlTSWH48dnm+yROfE0A@public.gmane.org>,
+	Jaroslav Kysela <perex-/Fr2/VpizcU@public.gmane.org>, Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
+To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1428492040-5581-13-git-send-email-sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We will look into this with the HW architect and get back to you on what the HW limitations actually are on this issue.
 
------Original Message-----
-From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Alexander Duyck
-Sent: Thursday, April 09, 2015 04:19
-To: Hisashi T Fujinaka
-Cc: netdev@vger.kernel.org; mike@cchtml.com; intel-wired-lan@lists.osuosl.org; Ertman, David M
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: Cleanup handling of VLAN_HLEN as a part of max frame size
+--Nq2Wo0NMKNjxTN9z
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 04/08/2015 05:26 PM, Hisashi T Fujinaka wrote:
-> On Wed, 8 Apr 2015, Hisashi T Fujinaka wrote:
->
->> On Wed, 8 Apr 2015, Alexander Duyck wrote:
->>>
->>> It is but it isn't.  If you look in e1000_change_mtu you will find the
->>> node about "Jumbo frame workaround on 82579 and newer requires CRC be
->>> stripped".  With that being the case I'm wondering if the 9018 doesn't
->>> include CRC but instead includes VLAN header.  So as a result the
->>> actual
->>> hardware is processing frames that are 9022 in size, but the buffer
->>> only
->>> ever receives at most 9018 since the CRC is stripped.
->>>
->>> I suspect that is why the Windows driver has had no issues reporting
->>> support for a size of 9014 (excluding VLAN and CRC) on these parts and
->>> hasn't had any issues.
->>
->> I can only tell you what was told to me by Dave Ertman, which is that
->> there is a hard hardware limit of 9018 bytes. I wouldn't know if we do
->> have Windows issues because it's a completely different division and
->> there's no reason for any of those issues to be routed to us.
->>
->> In fact, the problem with different max MTU across the drivers in Linux
->> has only ever been reported by one user.
->>
->> I'm still looking for the HW documentation and would like Jeff to hold
->> off until we find it.
->
-> OK. So the data sheet states:
->
-> LPE controls whether long packet reception is permitted. Hardware
-> discards long packets if LPE is 0. A long packet is one longer than 1522
-> bytes. If LPE is 1, the maximum packet size that the device can receive
-> is 9018 bytes.
+On Wed, Apr 08, 2015 at 04:50:38PM +0530, Sudip Mukherjee wrote:
+> now that we are monitoring the return value from attach, make the
+> required changes to return proper value from its attach function.
+>=20
+> Signed-off-by: Sudip Mukherjee <sudip-ofJRbWXBVFamYgehrs7/Lw@public.gmane.org>
+> ---
+>  drivers/i2c/busses/i2c-parport.c | 7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/i2c/busses/i2c-parport.c b/drivers/i2c/busses/i2c-pa=
+rport.c
+> index a1fac5a..761a775 100644
+> --- a/drivers/i2c/busses/i2c-parport.c
+> +++ b/drivers/i2c/busses/i2c-parport.c
+> @@ -160,14 +160,14 @@ static void i2c_parport_irq(void *data)
+>  			"SMBus alert received but no ARA client!\n");
+>  }
+> =20
+> -static void i2c_parport_attach(struct parport *port)
+> +static int i2c_parport_attach(struct parport *port)
+>  {
+>  	struct i2c_par *adapter;
+> =20
+>  	adapter =3D kzalloc(sizeof(struct i2c_par), GFP_KERNEL);
+>  	if (adapter =3D=3D NULL) {
+>  		printk(KERN_ERR "i2c-parport: Failed to kzalloc\n");
+> -		return;
+> +		return -ENOMEM;
 
-Yeah, that is mostly clear except it doesn't indicate if that includes
-or excludes the CRC and/or VLAN header.  All the documentation I can
-find seems to indicate it is likely skipping one or the other since it
-recommends setting any switches to support 9022 in order to account for
-both.
+ENOMEM does not need printout. Please remove printk while we are here.
 
-> So if you're pre-stripping the CRC, then it will be less than 9018.
+> =20
+>  	pr_debug("i2c-parport: attaching to %s\n", port->name);
+> @@ -230,13 +230,14 @@ static void i2c_parport_attach(struct parport *port)
+>  	mutex_lock(&adapter_list_lock);
+>  	list_add_tail(&adapter->node, &adapter_list);
+>  	mutex_unlock(&adapter_list_lock);
+> -	return;
+> +	return 0;
+> =20
+>   err_unregister:
+>  	parport_release(adapter->pdev);
+>  	parport_unregister_device(adapter->pdev);
+>   err_free:
+>  	kfree(adapter);
+> +	return -ENODEV;
 
-Right so the argument is probably moot since you cannot enable jumbo
-frames unless CRC stripping is enabled.  Ugh, but it looks like nothing
-prevents disabling CRC stripping once jumbo frames has been enabled. 
-I'll patch that shortly.
+Ideally, we would return different -Esomething for each failing case. We
+can leave that for someone who is acutally using the driver. However, I
+wonder if ENODEV is a proper catch-all case because the driver core will
+not report failures.
 
-> I guess I'd like to hear what Dave thinks.
 
-The problem is this pre-dates when Dave Ertman started working on
-e1000e.  All of this went into effect back during the introduction of
-82579 and i217/i218 and the two patches from Bruce that reduced the size
-down to 9018 didn't specify where the number came from.  I suspect it is
-the same data sheet we have been looking at which is a bit vague about
-what is included in that size.
-_______________________________________________
-Intel-wired-lan mailing list
-Intel-wired-lan@lists.osuosl.org
-http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
----------------------------------------------------------------------
-Intel Israel (74) Limited
+--Nq2Wo0NMKNjxTN9z
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVJiaDAAoJEBQN5MwUoCm2iRwP/ijI5Z76EKO0xyEKIMZmx0kU
+Q/gdzLbAVd+ifa+aJub2Lv9xyEa4MssHm0yn4982Dmt1jTxT0QTkPoSAhmxUmkpP
+5DGvJH3Yp+DCawSy6+RPCsujtmoQPz8xNLjaHMCx7V8kBz2BTIKiUeDeQu574zr/
+Nv7R9q77W9ZUHFP+1ui8RwZylYnX/frwI1Xgli71dY3xuo7eh/6UntTRCVeRIw+h
+rsIurGoC78AfxW3FSzxSPVxSuK/upAmwgB5ECRo7l5itaKmATW4KFLBdp0wl1Myt
+jhL1HjQRH4BcFpiFDxAlemcmWQXeIpnimVsMRk9alLIEJlnfivVPTR2sh38cHYTV
+Bm0kasy34LwJZsTnGImdCYACKbzv4mKDSXt+Kzc+iHxgsmf8PzZ2yTXJxAJd8+l8
+AMVMXMRVoW7oXGzAkLTZaRZvFlfPhUgfVCo8/P33PHcyJ6BRzKeXK+XXs9UgUkt/
+/u5N3pk4Wy47/JZSQlB8EZVW+x5ODBUVXFkMh7rPmgm19p5CwXqizC2wXXgdPQlv
+A/QtciA8ZAwGdkO5qa+mVcPGhoH77WGN5CQIZxITvCyy7phRLUK9zWv2vLpTpv3h
+7MTzn5Oldf5OATEeO9ygiUXgnb6/szYNI94W/rKC2oGaGfSN6XKltyGVkciSTllI
+y4uJB1rGeX8LLg+hAzjd
+=2iEF
+-----END PGP SIGNATURE-----
+
+--Nq2Wo0NMKNjxTN9z--
