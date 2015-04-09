@@ -1,56 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: "tcp: refine TSO autosizing" causes performance regression on
- Xen
-Date: Thu, 09 Apr 2015 10:07:05 -0700
-Message-ID: <1428599225.25985.267.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
-	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v1 0/3] amd-xgbe: AMD XGBE driver updates 2015-04-09
+Date: Thu, 9 Apr 2015 12:11:45 -0500
+Message-ID: <20150409171145.22188.37025.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	christoffer.dall@linaro.org,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>, edumazet@google.com,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2on0134.outbound.protection.outlook.com ([65.55.169.134]:30810
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755919AbbDIRLu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 13:11:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-09 at 17:36 +0100, Stefano Stabellini wrote:
+The following series of patches includes functional updates and changes
+to the driver.
 
-> A very big difference:
-> 
-> echo 262144 > /proc/sys/net/ipv4/tcp_limit_output_bytes
-> brings us much closer to the original performance, the slowdown is just
-> 8%
+- Allow ethtool rx-frames coalescing to be changed while the device is up
+- Consolidate initialization routine into the init function
+- Add support for the TX watchdog timeout
 
-Cool.
+This patch series is based on net-next.
 
-> 
-> echo 1048576 > /proc/sys/net/ipv4/tcp_limit_output_bytes
-> fills the gap entirely, same performance as before "refine TSO
-> autosizing"
+---
+
+Tom Lendacky (3):
+      amd-xgbe: Allow rx-frames coalescing to be changed anytime
+      amd-xgbe: Move Rx mode configuration into init
+      amd-xgbe: Add support for the netdev Tx watchdog
 
 
-Sure, this basically disables TCP Small Queue and select the opposite :
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   53 ++++++++++++++++++--------
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |   23 +++++------
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   10 -----
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c    |    3 +
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    9 +---
+ 5 files changed, 53 insertions(+), 45 deletions(-)
 
-Favor single flow throughput and huge latencies (bufferbloat)
-
-
-> 
-> 
-> What would be the next step for here?  Should I just document this as an
-> important performance tweaking step for Xen, or is there something else
-> we can do?
-
-I guess this is a reasonable choice.
-
-Note that /proc/sys/net/ipv4/tcp_limit_output_bytes is already
-documented.
+-- 
+Tom Lendacky
