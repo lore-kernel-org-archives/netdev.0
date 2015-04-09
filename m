@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: tcp_make_synack() should clear skb->tstamp
-Date: Thu, 09 Apr 2015 17:29:32 -0400 (EDT)
-Message-ID: <20150409.172932.729604382252399749.davem@davemloft.net>
-References: <1428611516.25985.275.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: Pass VLAN ID to rtnl_fdb_notify.
+Date: Thu, 09 Apr 2015 17:31:19 -0400 (EDT)
+Message-ID: <20150409.173119.2113737976874415284.davem@davemloft.net>
+References: <C039B2B452EFF24BA495644ED97341911BD52B94@IRSMSX107.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, marco.varlese@intel.com
+To: hubert.sokolowski@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51053 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51068 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752818AbbDIV3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 17:29:33 -0400
-In-Reply-To: <1428611516.25985.275.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750876AbbDIVbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 17:31:21 -0400
+In-Reply-To: <C039B2B452EFF24BA495644ED97341911BD52B94@IRSMSX107.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 Apr 2015 13:31:56 -0700
+From: "Sokolowski, Hubert" <hubert.sokolowski@intel.com>
+Date: Thu, 9 Apr 2015 12:16:17 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> When an FDB entry is added or deleted the information about VLAN
+> is not passed to listening applications like 'bridge monitor fdb'.
+> With this patch VLAN ID is passed if it was set in the original
+> netlink message.
 > 
-> I noticed tcpdump was giving funky timestamps for locally
-> generated SYNACK messages on loopback interface.
+> Also remove an unused bdev variable.
 > 
-> 11:42:46.938990 IP 127.0.0.1.48245 > 127.0.0.2.23850: S
-> 945476042:945476042(0) win 43690 <mss 65495,nop,nop,sackOK,nop,wscale 7>
-> 
-> 20:28:58.502209 IP 127.0.0.2.23850 > 127.0.0.1.48245: S
-> 3160535375:3160535375(0) ack 945476043 win 43690 <mss
-> 65495,nop,nop,sackOK,nop,wscale 7>
-> 
-> This is because we need to clear skb->tstamp before
-> entering lower stack, otherwise net_timestamp_check()
-> does not set skb->tstamp.
-> 
-> Fixes: 7faee5c0d514 ("tcp: remove TCP_SKB_CB(skb)->when")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hubert Sokolowski <hubert.sokolowski@intel.com>
 
-Applied and queued up for -stable.
+Ok, applied, thanks.
