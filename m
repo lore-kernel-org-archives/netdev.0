@@ -1,65 +1,77 @@
-From: Michael Cronenworth <mike@cchtml.com>
-Subject: Re: [PATCH] e1000e: Cleanup handling of VLAN_HLEN as a part of max
- frame size
-Date: Wed, 08 Apr 2015 23:48:51 -0500
-Message-ID: <552604B3.9070204@cchtml.com>
-References: <alpine.NEB.2.11.1504081019220.3388@chris.i8u.org> <20150408204630.4643.37880.stgit@ahduyck-vm-fedora22>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
+Date: Wed, 08 Apr 2015 22:20:47 -0700
+Message-ID: <55260C2F.608@plumgrid.com>
+References: <1428535575-7736-2-git-send-email-ast@plumgrid.com>	<20150408.224404.1913719826015357860.davem@davemloft.net>	<5525EC69.1080606@plumgrid.com> <20150408.231456.1063648455572594170.davem@davemloft.net> <5525F48F.5030108@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, htodd@twofifty.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Cc: daniel@iogearbox.net, tgraf@suug.ch, jiri@resnulli.us,
+	jhs@mojatatu.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta11.charter.net ([216.33.127.80]:43432 "EHLO
-	mta11.charter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794AbbDIEs6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 00:48:58 -0400
-Received: from imp09 ([10.20.200.9]) by mta11.charter.net
-          (InterMail vM.8.01.05.09 201-2260-151-124-20120717) with ESMTP
-          id <20150409044857.ZGH5815.mta11.charter.net@imp09>
-          for <netdev@vger.kernel.org>; Thu, 9 Apr 2015 00:48:57 -0400
-Received: from impout002 ([68.114.189.17])
-          by mtaout001.msg.strl.va.charter.net
-          (InterMail vM.9.00.015.01 201-2473-143-101) with ESMTP
-          id <20150409044857.WKCM21632.mtaout001.msg.strl.va.charter.net@impout002>
-          for <netdev@vger.kernel.org>; Wed, 8 Apr 2015 23:48:57 -0500
-In-Reply-To: <20150408204630.4643.37880.stgit@ahduyck-vm-fedora22>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:36322 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751607AbbDIFUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 01:20:50 -0400
+Received: by iebrs15 with SMTP id rs15so92385663ieb.3
+        for <netdev@vger.kernel.org>; Wed, 08 Apr 2015 22:20:49 -0700 (PDT)
+In-Reply-To: <5525F48F.5030108@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2015 04:02 PM, Alexander Duyck wrote:
-> When the VLAN_HLEN was added to the calculation for the maximum frame size
-> there seems to have been a number of issues added to the driver.
+On 4/8/15 8:39 PM, Alexei Starovoitov wrote:
+> On 4/8/15 8:14 PM, David Miller wrote:
+>> From: Alexei Starovoitov <ast@plumgrid.com>
+>> Date: Wed, 08 Apr 2015 20:05:13 -0700
+>>
+>>> I'm sure there is a way to propagate the offset into the programs.
+>>> It's not about efficiency of programs, but about consistency.
+>>> Programs should know nothing about kernel. Sending network offset
+>>> into them is exposing this very specific kernel behavior.
+>>
+>> It can be performed by the data access helpers the JIT'd programs
+>> have to invoke anyways.
 >
-> The first issue is that in some cases the maximum frame size for a device
-> never really reached the actual maximum frame size as the VLAN header
-> length was not included the calculation for that value.  As a result some
-> parts only supported a maximum frame size of either 1496 in the case of
-> parts that didn't support jumbo frames, and 8996 in the case of the parts
-> that do.
+> hmm, not sure what you mean.
+> Let's take specific line from sockex1_kern.c:
+> int index = load_byte(skb, ETH_HLEN + offsetof(struct iphdr, protocol));
+> this C code is compiled into
+> R0 = LD_ABS_B 23
+> (instruction with fixed offset)
+> which is being interpreted as:
+> skb_header_pointer(skb, 23, 1, buffer);
+> and similar by JITs which are using doing
+> r0 = *(char *)(skb->data + 23)
+> in this case.
 >
-> The second issue is the fact that there were several checks that weren't
-> updated so as a result setting an MTU of 1500 was treated as enabling jumbo
-> frames as the calculated value was 1522 instead of 1518.  I have addressed
-> those by replacing ETH_FRAME_LEN with VLAN_ETH_FRAME_LEN where appropriate.
->
-> The final issue was the fact that lowering the MTU below 1500 would cause
-> the driver to allocate 2K buffers for the rings.  This is an old issue that
-> was fixed several years ago in igb/ixgbe and I am addressing now by just
-> replacing == with a <= so that we always just round up to 1522 for anything
-> that isn't a jumbo frame.
+> Are you proposing to change semantics of LD_ABS instruction to use
+> skb->head + skb->mac_header instead of skb->data in interpreter
+> and in all JITs?
+> Performance wise it will be ok, since JITs can cache that pointer.
+> But that will be huge and very risky change.
+> I'm not sure yet whether all programs will keep working afterwards.
+> Is it really worth taking so much risk vs push/pull of L2?
+> If you say, let's take the risk, sure, I can try hacking all the bits
+> and see what the cost.
 
-Alex,
+have to correct myself.
+we cannot change the meaning of ld_abs, since for dgram sockets
+offset is actually not pointing to L2.
+af_packet is doing:
+  if (sk->sk_type != SOCK_DGRAM)
+       skb_push(skb, skb->data - skb_mac_header(skb));
+  res = run_filter(skb, sk, snaplen);
+so not everything assumes L2. raw socket taps, ppp, team, cls_bpf
+certainly want to see L2.
+I still hate to see ingress and egress cls/act programs to be different.
+af_packet also does:
+skb = skb_share_check(skb, GFP_ATOMIC);
 
-Thanks taking the time to work on a patch.
-
-I have tested this patch in 4.0 on i218-v hardware and it is working. I see 9000 in 
-tcpdump (tso/gso off) and my switch blocks packets if I set the max frame size to 
-9017 down from 9018.
-
-I also played with a VLAN real quick, and did not encounter any problems, but I 
-don't normally use VLANs so it may need further testing.
-
-Thanks,
-Michael
+so Dave, would you consider early_ingress_l2() hook that doesn't need
+to do skb_share_check ?
+If not, the only option I have is to introduce a set of helpers
+that can read from packet where offset is always starts at L2.
+Then we can say that cls/act_bpf should never use ld_abs/ld_ind
+instructions if they want to run on both ingress and egress and
+should use these new read helpers instead.
