@@ -1,45 +1,29 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 2/5] selinux/nlmsg: add RTM_GETNSID
-Date: Thu, 09 Apr 2015 15:10:07 +0200
-Message-ID: <55267A2F.5050609@6wind.com>
-References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>	<1428511002-22329-3-git-send-email-nicolas.dichtel@6wind.com> <CAHC9VhSp_0v+Qd3epkT4rVrP3iqS7A+vhq1TWPN6b76jk1Wpdw@mail.gmail.com>
+Subject: Re: [PATCH net-next 3/5] selinux/nlmsg: add XFRM_MSG_NEWSPDINFO
+Date: Thu, 09 Apr 2015 15:11:08 +0200
+Message-ID: <55267A6C.3090400@6wind.com>
+References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com> <1428511002-22329-4-git-send-email-nicolas.dichtel@6wind.com> <55267162.7050304@tycho.nsa.gov>
 Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
+Content-Type: text/plain; charset=windows-1252;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <CAHC9VhSp_0v+Qd3epkT4rVrP3iqS7A+vhq1TWPN6b76jk1Wpdw@mail.gmail.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Paul Moore <paul@paul-moore.com>
+To: Stephen Smalley <sds@tycho.nsa.gov>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55267162.7050304@tycho.nsa.gov>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 09/04/2015 13:10, Paul Moore a =C3=A9crit :
+Le 09/04/2015 14:32, Stephen Smalley a =E9crit :
 [snip]
->> --- a/security/selinux/nlmsgtab.c
->> +++ b/security/selinux/nlmsgtab.c
->> @@ -74,6 +74,7 @@ static struct nlmsg_perm nlmsg_route_perms[] =3D
->>          { RTM_DELMDB,           NETLINK_ROUTE_SOCKET__NLMSG_WRITE  =
-},
->>          { RTM_GETMDB,           NETLINK_ROUTE_SOCKET__NLMSG_READ  }=
-,
->>          { RTM_NEWNSID,          NETLINK_ROUTE_SOCKET__NLMSG_WRITE }=
-,
->> +       { RTM_DELNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  },
->>          { RTM_GETNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  }=
-,
->>   };
->
-> Can you elaborate a bit on the RTM_DELNSID type?  Based only on the
-> name I wonder if it should be treated as a "write" and not a "read"
-> operation.
-The user is not allowed to delete a nsid (no method is implemented). Th=
-is
-RTM_DELNSID is only used for notifications.
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Seem to be missing a number of the other commands defined in
+> include/uapi/linux/xfrm.h as well, e.g. XFRM_MSG_REPORT,
+> XFRM_MSG_MIGRATE, XFRM_MSG_NEWSADINFO, XFRM_MSG_GETSADINFO,
+> XFRM_MSG_GETSPDINFO, XFRM_MSG_MAPPING.
+Right, I will provide a patch.
+
+
+Thank you,
+Nicolas
