@@ -1,7 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH 3/4] i40e/i40evf: Use dma_rmb where appropriate
-Date: Wed, 08 Apr 2015 18:49:43 -0700
-Message-ID: <20150409014943.4434.58640.stgit@ahduyck-vm-fedora22>
+Subject: [net-next PATCH 4/4] e100: Use dma_rmb/wmb where appropriate
+Date: Wed, 08 Apr 2015 18:49:49 -0700
+Message-ID: <20150409014949.4434.29969.stgit@ahduyck-vm-fedora22>
 References: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,65 +9,51 @@ Content-Transfer-Encoding: 7bit
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46245 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46256 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753811AbbDIBto (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2015 21:49:44 -0400
+	id S1753702AbbDIBtv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Apr 2015 21:49:51 -0400
 In-Reply-To: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update i40e and i40evf to use dma_rmb.  This should improve performance by
-decreasing the barrier overhead on strong ordered architectures.
+Reduce the CPU overhead for transmit and receive by using lightweight dma_
+barriers instead of full barriers where they are applicable.
 
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   |    4 ++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/e100.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index d8989f9d1798..4bd3a80aba82 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1554,7 +1554,7 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
- 		 * any other fields out of the rx_desc until we know the
- 		 * DD bit is set.
- 		 */
--		rmb();
-+		dma_rmb();
- 		if (i40e_rx_is_programming_status(qword)) {
- 			i40e_clean_programming_status(rx_ring, rx_desc);
- 			I40E_RX_INCREMENT(rx_ring, i);
-@@ -1745,7 +1745,7 @@ static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
- 		 * any other fields out of the rx_desc until we know the
- 		 * DD bit is set.
- 		 */
--		rmb();
-+		dma_rmb();
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 05f88394f9a5..1a450f4b6b12 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -899,7 +899,7 @@ static int e100_exec_cb(struct nic *nic, struct sk_buff *skb,
+ 	/* Order is important otherwise we'll be in a race with h/w:
+ 	 * set S-bit in current first, then clear S-bit in previous. */
+ 	cb->command |= cpu_to_le16(cb_s);
+-	wmb();
++	dma_wmb();
+ 	cb->prev->command &= cpu_to_le16(~cb_s);
  
- 		if (i40e_rx_is_programming_status(qword)) {
- 			i40e_clean_programming_status(rx_ring, rx_desc);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index e2ddb30e96f5..b077e02a0cc7 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1034,7 +1034,7 @@ static int i40e_clean_rx_irq_ps(struct i40e_ring *rx_ring, int budget)
- 		 * any other fields out of the rx_desc until we know the
- 		 * DD bit is set.
- 		 */
--		rmb();
-+		dma_rmb();
- 		rx_bi = &rx_ring->rx_bi[i];
- 		skb = rx_bi->skb;
- 		if (likely(!skb)) {
-@@ -1213,7 +1213,7 @@ static int i40e_clean_rx_irq_1buf(struct i40e_ring *rx_ring, int budget)
- 		 * any other fields out of the rx_desc until we know the
- 		 * DD bit is set.
- 		 */
--		rmb();
-+		dma_rmb();
+ 	while (nic->cb_to_send != nic->cb_to_use) {
+@@ -1843,7 +1843,7 @@ static int e100_tx_clean(struct nic *nic)
+ 	for (cb = nic->cb_to_clean;
+ 	    cb->status & cpu_to_le16(cb_complete);
+ 	    cb = nic->cb_to_clean = cb->next) {
+-		rmb(); /* read skb after status */
++		dma_rmb(); /* read skb after status */
+ 		netif_printk(nic, tx_done, KERN_DEBUG, nic->netdev,
+ 			     "cb[%d]->status = 0x%04X\n",
+ 			     (int)(((void*)cb - (void*)nic->cbs)/sizeof(struct cb)),
+@@ -1993,7 +1993,7 @@ static int e100_rx_indicate(struct nic *nic, struct rx *rx,
  
- 		rx_bi = &rx_ring->rx_bi[i];
- 		skb = rx_bi->skb;
+ 	netif_printk(nic, rx_status, KERN_DEBUG, nic->netdev,
+ 		     "status=0x%04X\n", rfd_status);
+-	rmb(); /* read size after status bit */
++	dma_rmb(); /* read size after status bit */
+ 
+ 	/* If data isn't ready, nothing to indicate */
+ 	if (unlikely(!(rfd_status & cb_complete))) {
