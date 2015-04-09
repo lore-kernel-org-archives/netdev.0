@@ -1,62 +1,48 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/3 net-next] net_device: Add minimal padding to allow for net_device pointer alignment
-Date: Fri, 10 Apr 2015 01:43:28 +0200
-Message-ID: <1676328eb3e9d02a4432783494d0c5a13f0d4656.1428622095.git.tgraf@suug.ch>
-References: <cover.1428622095.git.tgraf@suug.ch>
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, eric.dumazet@gmail.com
+Subject: [PATCH net-next] rtnetlink: Mark name argument of rtnl_create_link() const
+Date: Fri, 10 Apr 2015 01:45:53 +0200
+Message-ID: <0026a8339671614050a06eed45835946a3c74386.1428623089.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:56816 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754256AbbDIXnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 19:43:41 -0400
-In-Reply-To: <cover.1428622095.git.tgraf@suug.ch>
-In-Reply-To: <cover.1428622095.git.tgraf@suug.ch>
-References: <cover.1428622095.git.tgraf@suug.ch>
+Received: from casper.infradead.org ([85.118.1.10]:58246 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753730AbbDIXpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 19:45:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Makes use of the __alignof__ GCC builtin to determine the minimal
-amount of padding required to align the pointer afterwards.
-
-Due to use of ____cacheline_aligned_in_smp inside net_device,
-struct net_device is actually always a multiple of SMP_CACHE_BYTES
-so typically no padding is needed but this logic is kept in place
-in case that is no longer the case.
-
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/linux/kernel.h | 2 ++
- net/core/dev.c         | 3 +--
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ include/net/rtnetlink.h | 2 +-
+ net/core/rtnetlink.c    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index d6d630d..4ec018f 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -50,6 +50,8 @@
- #define __ALIGN_MASK(x, mask)	__ALIGN_KERNEL_MASK((x), (mask))
- #define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
- #define IS_ALIGNED(x, a)		(((x) & ((typeof(x))(a) - 1)) == 0)
-+#define PTR_ALIGN_PAD(type, a) \
-+	({ (__alignof__(type) < (a)) ? (a) - __alignof__(type) : 0; })
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 6c6d539..343d922 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -137,7 +137,7 @@ void rtnl_af_register(struct rtnl_af_ops *ops);
+ void rtnl_af_unregister(struct rtnl_af_ops *ops);
  
- #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[]);
+-struct net_device *rtnl_create_link(struct net *net, char *ifname,
++struct net_device *rtnl_create_link(struct net *net, const char *ifname,
+ 				    unsigned char name_assign_type,
+ 				    const struct rtnl_link_ops *ops,
+ 				    struct nlattr *tb[]);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index c3bf190..7a83615 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1932,7 +1932,7 @@ int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm)
+ EXPORT_SYMBOL(rtnl_configure_link);
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b2775f0..2b43aba 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6794,8 +6794,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 		alloc_size = ALIGN(alloc_size, NETDEV_ALIGN);
- 		alloc_size += sizeof_priv;
- 	}
--	/* ensure 32-byte alignment of whole construct */
--	alloc_size += NETDEV_ALIGN - 1;
-+	alloc_size += PTR_ALIGN_PAD(struct net_device, NETDEV_ALIGN);
- 
- 	p = kzalloc(alloc_size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
- 	if (!p)
+ struct net_device *rtnl_create_link(struct net *net,
+-	char *ifname, unsigned char name_assign_type,
++	const char *ifname, unsigned char name_assign_type,
+ 	const struct rtnl_link_ops *ops, struct nlattr *tb[])
+ {
+ 	int err;
 -- 
 1.9.3
