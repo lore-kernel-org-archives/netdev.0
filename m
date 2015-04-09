@@ -1,93 +1,61 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: Re: [PATCH 12/14] i2c-parport: return proper error values from
- attach
-Date: Thu, 9 Apr 2015 11:33:42 +0200
-Message-ID: <20150409113342.5621af83@endymion.delvare>
-References: <1428492040-5581-1-git-send-email-sudipm.mukherjee@gmail.com>
-	<1428492040-5581-13-git-send-email-sudipm.mukherjee@gmail.com>
-	<20150409071307.GA1166@katana>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport()
+ for each HW
+Date: Thu, 09 Apr 2015 11:45:15 +0200
+Message-ID: <55264A2B.5030504@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150408201015.GB28666@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Rodolfo Giometti <giometti@enneenne.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Mark Brown <broonie@kernel.org>,
-	Willy Tarreau <willy@meta-x.org>,
-	Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.de>,
-	linux-kernel@vger.kernel.org, linux-i2c@vger.kernel.org,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-spi@vger.kernel.org, devel@driverdev.osuosl.org,
-	alsa-devel@alsa-project.org
-To: Wolfram Sang <wsa@the-dreams.de>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20150409071307.GA1166@katana>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Er
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150408201015.GB28666-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Apr 2015 09:13:07 +0200, Wolfram Sang wrote:
-> On Wed, Apr 08, 2015 at 04:50:38PM +0530, Sudip Mukherjee wrote:
-> > now that we are monitoring the return value from attach, make the
-> > required changes to return proper value from its attach function.
-> > 
-> > Signed-off-by: Sudip Mukherjee <sudip@vectorindia.org>
-> > ---
-> >  drivers/i2c/busses/i2c-parport.c | 7 ++++---
-> >  1 file changed, 4 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/drivers/i2c/busses/i2c-parport.c b/drivers/i2c/busses/i2c-parport.c
-> > index a1fac5a..761a775 100644
-> > --- a/drivers/i2c/busses/i2c-parport.c
-> > +++ b/drivers/i2c/busses/i2c-parport.c
-> > @@ -160,14 +160,14 @@ static void i2c_parport_irq(void *data)
-> >  			"SMBus alert received but no ARA client!\n");
-> >  }
-> >  
-> > -static void i2c_parport_attach(struct parport *port)
-> > +static int i2c_parport_attach(struct parport *port)
-> >  {
-> >  	struct i2c_par *adapter;
-> >  
-> >  	adapter = kzalloc(sizeof(struct i2c_par), GFP_KERNEL);
-> >  	if (adapter == NULL) {
-> >  		printk(KERN_ERR "i2c-parport: Failed to kzalloc\n");
-> > -		return;
-> > +		return -ENOMEM;
+On 04/08/2015 10:10 PM, Jason Gunthorpe wrote:
+[snip]
 > 
-> ENOMEM does not need printout. Please remove printk while we are here.
+>> As Sean pointed out, force_grh should be rdma_dev_is_iboe().  The cm
 > 
-> >  
-> >  	pr_debug("i2c-parport: attaching to %s\n", port->name);
-> > @@ -230,13 +230,14 @@ static void i2c_parport_attach(struct parport *port)
-> >  	mutex_lock(&adapter_list_lock);
-> >  	list_add_tail(&adapter->node, &adapter_list);
-> >  	mutex_unlock(&adapter_list_lock);
-> > -	return;
-> > +	return 0;
-> >  
-> >   err_unregister:
-> >  	parport_release(adapter->pdev);
-> >  	parport_unregister_device(adapter->pdev);
-> >   err_free:
-> >  	kfree(adapter);
-> > +	return -ENODEV;
+> I actually really prefer cap_mandatory_grh - that is what is going on
+> here. ie based on that name (as a reviewer) I'd expect to see the mad
+> layer check that the mandatory GRH is always present, or blow up.
+
+Sounds good, will be in next version :-)
+
+Regards,
+Michael Wang
+
 > 
-> Ideally, we would return different -Esomething for each failing case. We
-> can leave that for someone who is acutally using the driver. However, I
-> wonder if ENODEV is a proper catch-all case because the driver core will
-> not report failures.
-
-It doesn't really matter that the error codes are different, it matters
-that they are meaningful. As much as possible you should pass error
-codes from the lower layers. parport_claim_or_block() and
-i2c_bit_add_bus() return proper error codes so you should record and
-transmit them. Only parport_register_device() does not, so you have to
-craft one and -ENODEV seems appropriate to me.
-
-Note: I can test this driver.
-
--- 
-Jean Delvare
-SUSE L3 Support
+> Some of the other checks in this file revolve around pkey, I'm not
+> sure what rocee does there? cap_pkey_supported ?
+> 
+> Jason
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
