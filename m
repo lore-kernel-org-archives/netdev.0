@@ -1,55 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH] xfrm: Do not parse 32bits compiled xfrm netlink msg on 64bits host
-Date: Thu, 9 Apr 2015 12:33:08 +0200
-Message-ID: <1428575588-24962-2-git-send-email-steffen.klassert@secunet.com>
-References: <1428575588-24962-1-git-send-email-steffen.klassert@secunet.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
+Date: Thu, 09 Apr 2015 06:49:34 -0400
+Message-ID: <5526593E.4040608@mojatatu.com>
+References: <1428535575-7736-1-git-send-email-ast@plumgrid.com>	<1428535575-7736-2-git-send-email-ast@plumgrid.com> <20150408.224404.1913719826015357860.davem@davemloft.net> <5525EC69.1080606@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, tgraf@suug.ch, jiri@resnulli.us,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:43799 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755075AbbDIKdU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 06:33:20 -0400
-In-Reply-To: <1428575588-24962-1-git-send-email-steffen.klassert@secunet.com>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:33401 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932671AbbDIKtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 06:49:42 -0400
+Received: by iebmp1 with SMTP id mp1so97224355ieb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 03:49:42 -0700 (PDT)
+In-Reply-To: <5525EC69.1080606@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@intel.com>
+On 04/08/15 23:05, Alexei Starovoitov wrote:
+[..]
+> As I said I'd rather disable them attaching to ingress than force
+> all program authors to always use network_offset.
+> Offset 0 points to L2 was always fundamental assumption of BPF.
 
-structure like xfrm_usersa_info or xfrm_userpolicy_info
-has different sizeof when compiled as 32bits and 64bits
-due to not appending pack attribute in their definition.
-This will result in broken SA and SP information when user
-trying to configure them through netlink interface.
+The issue is not really the ingress qdisc here - rather the ingress
+qdisc tries to cope with _how things work_.
+The challenge is *some netdevs* (not all) strip off the link
+layer _before_ the ingres qdisc sees them. You have to recognize
+those devices and only speacial case with them. Your assumptions of
+blindly pushing/pulling will break  in some cases (take a look at
+mirred).
 
-Inform user land about this situation instead of keeping
-silent, the upper test scripts would behave accordingly.
+Having said that:
+why could you not use the AT bits to identify whether you are
+being invoked at ingress in the ebpf cls/ac wrapper? IOW:
+have bpf cls/act be responsible for that knowledge.
+Your changes penalize everyone else because of this assumption
+bpf makes. We have always tried to be sensitive to perfomance.
+People like Eric D. complain about a single if statement in this
+code path and you are adding a bunch more unconditionally.
+If all i wanted to do was police or account (a good number of use
+cases) suddenly this gets more costly.
 
-Signed-off-by: Fan Du <fan.du@intel.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_user.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 7de2ed9..2091664 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2423,6 +2423,11 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	const struct xfrm_link *link;
- 	int type, err;
- 
-+#ifdef CONFIG_COMPAT
-+	if (is_compat_task())
-+		return -ENOTSUPP;
-+#endif
-+
- 	type = nlh->nlmsg_type;
- 	if (type > XFRM_MSG_MAX)
- 		return -EINVAL;
--- 
-1.9.1
+cheers,
+jamal
