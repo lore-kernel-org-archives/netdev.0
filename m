@@ -1,80 +1,64 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2-next 2/2] netns: allow to dump and monitor nsid
-Date: Thu, 9 Apr 2015 11:48:05 +0300
-Message-ID: <20150409084805.GA2492@angus-think.wlc.globallogic.com>
-References: <1428568214-8673-1-git-send-email-nicolas.dichtel@6wind.com>
- <1428568214-8673-2-git-send-email-nicolas.dichtel@6wind.com>
+From: Salvatore Mesoraca <s.mesoraca16@gmail.com>
+Subject: Re: [PATCH] iputils ping: add (non-raw) ICMP socket support
+Date: Thu, 09 Apr 2015 11:07:11 +0200
+Message-ID: <2761020.mMbmnV3vx2@msg-id>
+References: <2142872.6QHf5ZAfZz@msg-id> <5635504.5jEhSFiGfj@msg-id> <CAKD1Yr2sFyx59FH2wCH_okAadv7dJxGQZtqAa56p6kYXDW-VBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	Vasiliy Kulikov <segooon@gmail.com>,
+	Tyler Hicks <tyhicks@canonical.com>
+To: Lorenzo Colitti <lorenzo@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:35222 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753505AbbDIJAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:00:13 -0400
-Received: by labbd9 with SMTP id bd9so73187144lab.2
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 02:00:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1428568214-8673-2-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:35410 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933881AbbDIJHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:07:35 -0400
+Received: by wgyo15 with SMTP id o15so102480143wgy.2
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 02:07:34 -0700 (PDT)
+In-Reply-To: <CAKD1Yr2sFyx59FH2wCH_okAadv7dJxGQZtqAa56p6kYXDW-VBw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 09, 2015 at 10:30:14AM +0200, Nicolas Dichtel wrote:
-> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-> index 45e234a4d98c..7806335733cf 100644
-> --- a/ip/ipnetns.c
-> +++ b/ip/ipnetns.c
-> @@ -14,10 +14,12 @@
->  #include <errno.h>
->  #include <unistd.h>
->  #include <ctype.h>
-> +#include <linux/limits.h>
->  
->  #include <linux/net_namespace.h>
->  
->  #include "utils.h"
-> +#include "hlist.h"
->  #include "ip_common.h"
->  #include "namespace.h"
->  
-> @@ -31,9 +33,13 @@ static int usage(void)
->  	fprintf(stderr, "       ip netns pids NAME\n");
->  	fprintf(stderr, "       ip [-all] netns exec [NAME] cmd ...\n");
->  	fprintf(stderr, "       ip netns monitor\n");
-> +	fprintf(stderr, "       ip netns list-id\n");
->  	exit(-1);
->  }
->  
-> +/* This socket is used to get nsid */
-> +static struct rtnl_handle rtnsh = { .fd = -1 };
-> +
->  #ifdef HAVE_NETNSID
->  static int get_netnsid_from_name(const char *name)
->  {
-> @@ -57,7 +63,7 @@ static int get_netnsid_from_name(const char *name)
->  		return fd;
->  
->  	addattr32(&req.n, 1024, NETNSA_FD, fd);
-> -	if (rtnl_talk(&rth, &req.n, 0, 0, &answer.n) < 0) {
-> +	if (rtnl_talk(&rtnsh, &req.n, 0, 0, &answer.n) < 0) {
->  		close(fd);
->  		return -2;
->  	}
-> @@ -86,6 +92,194 @@ static int get_netnsid_from_name(const char *name)
->  }
->  #endif /* HAVE_NETNSID */
->  
-> +struct nsid_cache {
-> +	struct hlist_node	nsid_hash;
-> +	struct hlist_node	name_hash;
-> +	int			nsid;
-> +	char			name[NAME_MAX];
-> +};
+Lorenzo Colitti wrote:
+> On Wed, Apr 8, 2015 at 10:05 PM, Salvatore Mesoraca <s.mesoraca16@gmail.com>
+> wrote:
+> > > And, would you provide patch for ping6 as well?
+> > 
+> > I was planning to work on ping6 as well If this patch get accepted.
+> 
+> Yoshifuji-san,
+> 
+> I sent you a patch that works for both IPv4 and IPv6 a couple of years ago:
+> 
+> http://marc.info/?l=linux-netdev&m=137026384215378
+> http://marc.info/?l=linux-netdev&m=137026384815379
+> 
+> This code has been running on Android since then:
+> 
+> https://android-review.googlesource.com/#/c/61948/
+> 
+> Perhaps we can start from that patchset?
+> 
+> Cheers,
+> Lorenzo
 
-I am not sure but may be lib/names.c can be used here for caching
-netns (name,id) entries here ?
-I tried to make it generic when added mapping class id -> name for tc util.
+Hi Lorenzo,
+Thank you for bringing this up,
+it seems that you have a better understanding than mine on the original patch.
 
-Regards,
-Vadim Kochan
+Anyway I'm wondering why you didn't include this change:
+
+> -             if (!working_recverr) {
+> +             if (!using_ping_socket && !working_recverr) {
+
+inside receive_error_msg()
+The code in the if block try to execute a setsockopt(icmp_sock, SOL_RAW, 
+ICMP_FILTER, ...) which is only possible on a raw socket.
+What am I missing?
+Thank you for your patience,
+I hope this time your patch get accepted,
+
+Salvatore Mesoraca
