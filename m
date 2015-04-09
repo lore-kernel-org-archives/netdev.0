@@ -1,45 +1,48 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH net-next 2/5] selinux/nlmsg: add RTM_GETNSID
-Date: Thu, 9 Apr 2015 07:10:59 -0400
-Message-ID: <CAHC9VhSp_0v+Qd3epkT4rVrP3iqS7A+vhq1TWPN6b76jk1Wpdw@mail.gmail.com>
-References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1428511002-22329-3-git-send-email-nicolas.dichtel@6wind.com>
+From: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Thu, 9 Apr 2015 12:11:29 +0100
+Message-ID: <21798.24161.922394.539733@mariner.uk.xensource.com>
+References: <21795.62414.465476.464027@mariner.uk.xensource.com>
+	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<21796.6843.983774.271495@mariner.uk.xensource.com>
+	<21796.7755.270785.292996@mariner.uk.xensource.com>
+	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<1428448976.4720.15.camel@prashant>
+	<21797.13348.524963.29127@mariner.uk.xensource.com>
+	<1428543798.4720.20.camel@prashant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1428511002-22329-3-git-send-email-nicolas.dichtel@6wind.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	"David Vrabel" <david.vrabel@citrix.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
+To: Prashant Sreedharan <prashant@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:26390 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932765AbbDILYb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Apr 2015 07:24:31 -0400
+In-Reply-To: <1428543798.4720.20.camel@prashant>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 8, 2015 at 12:36 PM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> This new command is missing.
->
-> Fixes: 9a9634545c70 ("netns: notify netns id events")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  security/selinux/nlmsgtab.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-> index 91228a730801..c8cee0766b60 100644
-> --- a/security/selinux/nlmsgtab.c
-> +++ b/security/selinux/nlmsgtab.c
-> @@ -74,6 +74,7 @@ static struct nlmsg_perm nlmsg_route_perms[] =
->         { RTM_DELMDB,           NETLINK_ROUTE_SOCKET__NLMSG_WRITE  },
->         { RTM_GETMDB,           NETLINK_ROUTE_SOCKET__NLMSG_READ  },
->         { RTM_NEWNSID,          NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-> +       { RTM_DELNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  },
->         { RTM_GETNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  },
->  };
+Prashant Sreedharan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
+> On Wed, 2015-04-08 at 14:59 +0100, Ian Jackson wrote:
+> > Ian Jackson writes ("Re: tg3 NIC driver bug in 3.14.x under Xen"):
+> > > The value for "dropped" increases steadily.  This particular box is on
+> > > a network with a lot of other stuff, so it will be constantly
+> > > receiving broadcasts of various kinds even when I am not trying to
+> > > address it directly.
+> > 
+> Based on the stats, the issue seems to be with the bridge than tg3. Do
+> you have any filters enabled on xenbr0 ?
 
-Can you elaborate a bit on the RTM_DELNSID type?  Based only on the
-name I wonder if it should be treated as a "write" and not a "read"
-operation.
+No.  I can try to repro the problem without the bridge, if it would
+help.
 
--- 
-paul moore
-www.paul-moore.com
+Ian.
