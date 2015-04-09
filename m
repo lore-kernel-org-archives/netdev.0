@@ -1,58 +1,45 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH net-next 2/5] selinux/nlmsg: add RTM_GETNSID
-Date: Thu, 9 Apr 2015 16:47:54 -0400
-Message-ID: <CAHC9VhQ2w-13aN9ghe8mJTe=Gekzx-q-A_5+DCjmiprNoPOuAQ@mail.gmail.com>
-References: <1428511002-22329-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1428511002-22329-3-git-send-email-nicolas.dichtel@6wind.com>
-	<CAHC9VhSp_0v+Qd3epkT4rVrP3iqS7A+vhq1TWPN6b76jk1Wpdw@mail.gmail.com>
-	<55267A2F.5050609@6wind.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+Date: Thu, 09 Apr 2015 17:07:20 -0400 (EDT)
+Message-ID: <20150409.170720.1374561715105253435.davem@davemloft.net>
+References: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150409.143727.1391401196320839634.davem@davemloft.net>
+	<20150409191441.GE20653@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-kernel@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <55267A2F.5050609@6wind.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, sebastian.poehn@gmail.com,
+	netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50912 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754151AbbDIVHX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 17:07:23 -0400
+In-Reply-To: <20150409191441.GE20653@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 9, 2015 at 9:10 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> Le 09/04/2015 13:10, Paul Moore a =C3=A9crit :
-> [snip]
->>>
->>> --- a/security/selinux/nlmsgtab.c
->>> +++ b/security/selinux/nlmsgtab.c
->>> @@ -74,6 +74,7 @@ static struct nlmsg_perm nlmsg_route_perms[] =3D
->>>          { RTM_DELMDB,           NETLINK_ROUTE_SOCKET__NLMSG_WRITE =
- },
->>>          { RTM_GETMDB,           NETLINK_ROUTE_SOCKET__NLMSG_READ  =
-},
->>>          { RTM_NEWNSID,          NETLINK_ROUTE_SOCKET__NLMSG_WRITE =
-},
->>> +       { RTM_DELNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  }=
-,
->>>          { RTM_GETNSID,          NETLINK_ROUTE_SOCKET__NLMSG_READ  =
-},
->>>   };
->>
->>
->> Can you elaborate a bit on the RTM_DELNSID type?  Based only on the
->> name I wonder if it should be treated as a "write" and not a "read"
->> operation.
->
-> The user is not allowed to delete a nsid (no method is implemented). =
-This
-> RTM_DELNSID is only used for notifications.
+From: Florian Westphal <fw@strlen.de>
+Date: Thu, 9 Apr 2015 21:14:41 +0200
 
-Okay, thanks for clearing that up.
+> I re-introduced this in fd158d79d33d3c under the assumption
+> that the input path handles skb->sk timewait sockets correctly
+> after all the early demux changes, afaics tcp edemux can also
+> assign skb->sk timewait sockets.
+> 
+> Also, reporter mentions 3.8 as affected which should not assign
+> tw sockets to skb->sk.
+> 
+> Even more strange, the reporters backtrace seems to indicate
+> crash at end of forward path.
+> 
+> Sebastian, can you disable tw assignment via TPROXY in 3.12 just
+> to see if it makes a difference?
+> 
+> [ not doing the assignment is safe provided you still set tproxy mark
+>   on the skb; policy routing will ensure local delivery ].
 
---=20
-paul moore
-www.paul-moore.com
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+My assumption in my analysis is that TPROXY writes the socket to
+skb->sk, and it is also being forwarded.  And yes this is based
+upon his backtrace.
