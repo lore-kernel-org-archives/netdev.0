@@ -1,37 +1,49 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: Cleanup handling of VLAN_HLEN
- as a part of max frame size
-Date: Thu, 09 Apr 2015 08:51:18 -0700
-Message-ID: <55269FF6.4090003@gmail.com>
-References: <alpine.NEB.2.11.1504081019220.3388@chris.i8u.org> <20150408204630.4643.37880.stgit@ahduyck-vm-fedora22> <alpine.NEB.2.11.1504081413510.3388@chris.i8u.org> <5525B2AE.80301@gmail.com> <alpine.NEB.2.11.1504081602260.3388@chris.i8u.org> <5525B62A.1050601@gmail.com> <alpine.NEB.2.11.1504081705350.3388@chris.i8u.org> <alpine.NEB.2.11.1504081714400.3388@chris.i8u.org> <5525D389.3010700@gmail.com> <BD4006F19E8FC247A4760EC0EE12CCDF468ACD40@HASMSX110.ger.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TSO on veth device slows transmission to a crawl
+Date: Thu, 09 Apr 2015 08:55:22 -0700
+Message-ID: <1428594922.25985.258.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.LSU.2.20.1504070014250.21650@nerf40.vanv.qr>
+	 <1428374918.25985.206.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LSU.2.20.1504071149280.31930@nerf40.vanv.qr>
+	 <1428436189.25985.211.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LSU.2.20.1504081844390.6502@nerf40.vanv.qr>
+	 <1428571471.25985.246.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LSU.2.20.1504091127310.24030@nerf40.vanv.qr>
+	 <1428592109.25985.249.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.LSU.2.20.1504091731410.14110@nerf40.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"mike@cchtml.com" <mike@cchtml.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Ertman, David M" <david.m.ertman@intel.com>,
-	"Lubetkin, YanirX" <yanirx.lubetkin@intel.com>
-To: "Templeman, Chaim" <chaim.templeman@intel.com>,
-	Hisashi T Fujinaka <htodd@twofifty.com>
+Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:34172 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755599AbbDIPvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 11:51:20 -0400
-Received: by pdbqa5 with SMTP id qa5so99922183pdb.1
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 08:51:20 -0700 (PDT)
-In-Reply-To: <BD4006F19E8FC247A4760EC0EE12CCDF468ACD40@HASMSX110.ger.corp.intel.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34233 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755871AbbDIPzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 11:55:25 -0400
+Received: by iget9 with SMTP id t9so51496356ige.1
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 08:55:24 -0700 (PDT)
+In-Reply-To: <alpine.LSU.2.20.1504091731410.14110@nerf40.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2015 11:17 PM, Templeman, Chaim wrote:
-> We will look into this with the HW architect and get back to you on what the HW limitations actually are on this issue.
+On Thu, 2015-04-09 at 17:35 +0200, Jan Engelhardt wrote:
+> On Thursday 2015-04-09 17:08, Eric Dumazet wrote:
+> >> >
+> >> >Basic IP routing seems not properly enabled, as even ping does not work
+> >> >to reach 10.10.23.23
+> >> 
+> >> Since I have net.ipv4.conf.all.forwarding,net.ipv4.ip_forward=1
+> >> this probably got inherited into the containers, so I did not
+> >> write it down into the scripts.
+> >> Enable it :)
+> >
+> >The thing is : It is enabled.
+> 
+> If forwarding is on, and the config is reasonably correct (which
+> I think it is), and it still won't ping, then would that not mean
+> there is another bug in the kernel?
 
-Chaim, thanks for looking into this.  The key piece that would be useful
-to know is if the 9018 should really be 9022 if you account for both
-VLAN header and CRC.  Based on the documentation for the Windows driver
-that seems to be the case as they support an MTU of 9014 excluding the 8
-bytes for CRC and VLAN header.
+No idea. I tried 3.19 it was not working.
 
-- Alex
+Note that your prior scripts (using 2 hosts) were OK.
