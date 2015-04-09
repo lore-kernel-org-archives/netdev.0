@@ -1,64 +1,63 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH] e1000: Avoid that e1000_netpoll() triggers a kernel
- warning
-Date: Thu, 9 Apr 2015 21:18:45 +0200
-Message-ID: <20150409191845.GA1712@kria>
-References: <55266885.6010905@sandisk.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+Date: Thu, 09 Apr 2015 12:21:24 -0700
+Message-ID: <1428607284.25985.269.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1428566941.6875.7.camel@googlemail.com>
+	 <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150409.143727.1391401196320839634.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org
-To: Bart Van Assche <bart.vanassche@sandisk.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sebastian.poehn@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g21.free.fr ([212.27.42.3]:49357 "EHLO smtp3-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933058AbbDITSz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Apr 2015 15:18:55 -0400
-Content-Disposition: inline
-In-Reply-To: <55266885.6010905@sandisk.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:33769 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754095AbbDITV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 15:21:26 -0400
+Received: by iebmp1 with SMTP id mp1so412346ieb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 12:21:25 -0700 (PDT)
+In-Reply-To: <20150409.143727.1391401196320839634.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-04-09, 13:54:45 +0200, Bart Van Assche wrote:
-> console_cont_flush(), which is called by console_unlock(), calls
-> call_console_drivers() and hence also the netconsole function
-> write_msg() with local interrupts disabled. This means that it is
-> not allowed to call disable_irq() from inside a netpoll callback
-> function. Hence eliminate the disable_irq() / enable_irq() pair
-> from the e1000 netpoll function. This patch avoids that the e1000
-> networking driver triggers the following complaint:
+On Thu, 2015-04-09 at 14:37 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 09 Apr 2015 02:07:41 -0700
 > 
-> BUG: sleeping function called from invalid context at kernel/irq/manage.c:104
+> > TCP stack never sends packets attached to a socket in timewait state.
 > 
-> Call Trace:
->  [<ffffffff814d1ec5>] dump_stack+0x4c/0x65
->  [<ffffffff8107bcc5>] ___might_sleep+0x175/0x230
->  [<ffffffff8107bdba>] __might_sleep+0x3a/0xa0
->  [<ffffffff810a78c8>] synchronize_irq+0x38/0xa0
->  [<ffffffff810a7a20>] disable_irq+0x20/0x30
->  [<ffffffffa04b4442>] e1000_netpoll+0x102/0x130 [e1000e]
->  [<ffffffff813ffff2>] netpoll_poll_dev+0x72/0x350
->  [<ffffffff81400489>] netpoll_send_skb_on_dev+0x1b9/0x2b0
->  [<ffffffff81400842>] netpoll_send_udp+0x2c2/0x430
->  [<ffffffffa058187f>] write_msg+0xcf/0x120 [netconsole]
->  [<ffffffff810a4682>] call_console_drivers.constprop.25+0xc2/0x250
->  [<ffffffff810a5588>] console_unlock+0x328/0x4c0
->  [<ffffffff810a59f0>] vprintk_emit+0x2d0/0x570
->  [<ffffffff810a5def>] vprintk_default+0x1f/0x30
->  [<ffffffff814cf680>] printk+0x46/0x48
+> TPROXY assigns timewait sockets to skb->sk, that's the bug.
 > 
-> See also "[RFC PATCH net-next 00/11] net: remove disable_irq() from
-> ->ndo_poll_controller" (http://thread.gmane.org/gmane.linux.network/342096).
+> In net/netfilter/xt_TPROXY.c:
+> 
+> 	tproxy_tg4()
+>  ...
+> 		sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
+> 				   iph->saddr, iph->daddr,
+> 				   hp->source, hp->dest,
+> 				   skb->dev, NFT_LOOKUP_ESTABLISHED);
+> 	/* NOTE: assign_sock consumes our sk reference */
+> 	if (sk && tproxy_sk_is_transparent(sk)) {
+> 		/* This should be in a separate target, but we don't do multiple
+> 		   targets on the same rule yet */
+> 		skb->mark = (skb->mark & ~mark_mask) ^ mark_value;
+> 
+> 		pr_debug("redirecting: proto %hhu %pI4:%hu -> %pI4:%hu, mark: %x\n",
+> 			 iph->protocol, &iph->daddr, ntohs(hp->dest),
+> 			 &laddr, ntohs(lport), skb->mark);
+> 
+> 		nf_tproxy_assign_sock(skb, sk);
+>  ...
+>  /* assign a socket to the skb -- consumes sk */
+> static void
+> nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk)
+> {
+> 	skb_orphan(skb);
+> 	skb->sk = sk;
+> 	skb->destructor = sock_edemux;
+> }
 
-That approach was NACKed by David Miller is this exact thread.
 
-Peter Zijlstra added disable_hardirq in commit 02cea3958664
-("genirq: Provide disable_hardirq()")
-and I have prepared patches that use this function in drivers/net, but
-this commit is not in David Miller's trees yet.
-
-Or use Alex's suggestion.
-
--- 
-Sabrina
+Right, but stack trace shown by Sebastian seems to be an input frame,
+and we transmit a frame. This is the part I do not understand, yet.
