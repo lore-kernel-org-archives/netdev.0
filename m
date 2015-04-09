@@ -1,37 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/4] Replace wmb()/rmb() with
- dma_wmb()/dma_rmb() where appropriate, round 2
-Date: Wed, 08 Apr 2015 22:36:26 -0400 (EDT)
-Message-ID: <20150408.223626.1930342094004430660.davem@davemloft.net>
-References: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
+Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress
+ qdisc
+Date: Wed, 08 Apr 2015 22:44:04 -0400 (EDT)
+Message-ID: <20150408.224404.1913719826015357860.davem@davemloft.net>
+References: <1428535575-7736-1-git-send-email-ast@plumgrid.com>
+	<1428535575-7736-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@redhat.com
+Cc: daniel@iogearbox.net, tgraf@suug.ch, jiri@resnulli.us,
+	jhs@mojatatu.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43305 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43342 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753520AbbDICg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 22:36:29 -0400
-In-Reply-To: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
+	with ESMTP id S932104AbbDICoG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 22:44:06 -0400
+In-Reply-To: <1428535575-7736-2-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Wed, 08 Apr 2015 18:49:23 -0700
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Wed,  8 Apr 2015 16:26:15 -0700
 
-> More cleanup of drivers in order to start making use of dma_rmb and dma_wmb
-> calls.  This is another pass of what I would consider to be low hanging
-> fruit.  There may be other opportunities to make use of the barriers in the
-> Mellanox and Chelsio drivers but I didn't want to risk meddling with code I
-> was not completely familiar with so I am leaving that for future work.
-> 
-> I have revisited the Mellanox driver changes.  This time around I went only
-> for the sections with a clearly defined pattern.  For dma_wmb I used it
-> between accesses of the descriptor bits followed by owner or size.  For
-> dma_wmb I used it to replace rmb following a read of the ownership bit in
-> the descriptor.
+> index 4cd5cf1aedf8..887033fbdfa6 100644
+> --- a/net/sched/act_csum.c
+> +++ b/net/sched/act_csum.c
+> @@ -565,6 +565,8 @@ static struct tc_action_ops act_csum_ops = {
+>  	.act		= tcf_csum,
+>  	.dump		= tcf_csum_dump,
+>  	.init		= tcf_csum_init,
+> +	/* todo: fix pskb_may_pull in tcf_csum to not assume L2 */
+> +	.flags		= TCA_NEEDS_L2,
+>  };
+>  
+>  MODULE_DESCRIPTION("Checksum updating actions");
 
-That last sentence should be talking about "dma_rmb" instead of "dma_wmb"
-right?
+
+All this module really cares about is where skb_network_header() is
+for data accesses.  And a simple offset would allow it to calculate
+the pskb_may_pull() length argument correctly.
+
+And it would therefore work without all of these expensive SKB share
+check calls etc.
+
+I really don't like your approach, and I'd rather you propagate the
+offset into the BPF programs you generate.  I bet you can do it in
+an efficient way, and just haven't put in the effort to discover
+how.
