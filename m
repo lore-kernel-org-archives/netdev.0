@@ -1,64 +1,102 @@
-From: Salvatore Mesoraca <s.mesoraca16@gmail.com>
-Subject: Re: [PATCH] iputils ping: add (non-raw) ICMP socket support
-Date: Thu, 09 Apr 2015 11:07:11 +0200
-Message-ID: <2761020.mMbmnV3vx2@msg-id>
-References: <2142872.6QHf5ZAfZz@msg-id> <5635504.5jEhSFiGfj@msg-id> <CAKD1Yr2sFyx59FH2wCH_okAadv7dJxGQZtqAa56p6kYXDW-VBw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+Date: Thu, 09 Apr 2015 02:07:41 -0700
+Message-ID: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1428566941.6875.7.camel@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	Vasiliy Kulikov <segooon@gmail.com>,
-	Tyler Hicks <tyhicks@canonical.com>
-To: Lorenzo Colitti <lorenzo@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Sebastian Poehn <sebastian.poehn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:35410 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933881AbbDIJHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:07:35 -0400
-Received: by wgyo15 with SMTP id o15so102480143wgy.2
-        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 02:07:34 -0700 (PDT)
-In-Reply-To: <CAKD1Yr2sFyx59FH2wCH_okAadv7dJxGQZtqAa56p6kYXDW-VBw@mail.gmail.com>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:36189 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933881AbbDIJHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 05:07:43 -0400
+Received: by igblo3 with SMTP id lo3so61344149igb.1
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 02:07:42 -0700 (PDT)
+In-Reply-To: <1428566941.6875.7.camel@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lorenzo Colitti wrote:
-> On Wed, Apr 8, 2015 at 10:05 PM, Salvatore Mesoraca <s.mesoraca16@gmail.com>
-> wrote:
-> > > And, would you provide patch for ping6 as well?
-> > 
-> > I was planning to work on ping6 as well If this patch get accepted.
+On Thu, 2015-04-09 at 10:09 +0200, Sebastian Poehn wrote:
+> We are running a couple of thousand machines with 3.8 and 3.12. On very few systems
+> (something below 10) we encounter panics in xfrm code. The main characteristic seams
+> to be the usage of TPROXY.
 > 
-> Yoshifuji-san,
+> Attached patch is only a workaround, as problems may also happen in other code portions
+> (actually on even fewer systems this happens).
 > 
-> I sent you a patch that works for both IPv4 and IPv6 a couple of years ago:
+> For timewait sockets the memory region of sk_policy does not belong
+> to us anymore. So there may be someone else using it and we may panic
+> because of corrupted pointers.
 > 
-> http://marc.info/?l=linux-netdev&m=137026384215378
-> http://marc.info/?l=linux-netdev&m=137026384815379
+> xfrm_sk_policy_lookup+0x38/0x66
+> xfrm_lookup+0x93/0x48f
+> nf_nat_packet+0x92/0xa4 [nf_nat]
+> _decode_session4+0xd9/0x294
+> nf_xfrm_me_harder+0x50/0xc5 [nf_nat]
+> nf_nat_ipv4_out+0xad/0xc4 [iptable_nat]
+> nf_iterate+0x42/0x7d
+> ip_finish_output2+0x2b1/0x2b1
+> nf_hook_slow+0x22f/0x2c9
+> ip_finish_output2+0x2b1/0x2b1
+> ip_finish_output2+0x2b1/0x2b1
+> __xfrm_route_forward+0x7a/0x97
+> ip_finish_output2+0x2b1/0x2b1
+> NF_HOOK_COND+0x3f/0x54
+> ip_output+0x5a/0x5e
+> __netif_receive_skb+0x4b2/0x514
+> process_backlog+0xee/0x1c5
+> net_rx_action+0xa7/0x1fe
 > 
-> This code has been running on Android since then:
+> Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
+> ---
+>  net/xfrm/xfrm_policy.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> https://android-review.googlesource.com/#/c/61948/
-> 
-> Perhaps we can start from that patchset?
-> 
-> Cheers,
-> Lorenzo
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index 9c6b1ab..e9a74fa 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -2072,7 +2072,7 @@ restart:
+>  	xdst = NULL;
+>  	route = NULL;
+>  
+> -	if (sk && sk->sk_policy[XFRM_POLICY_OUT]) {
+> +	if (sk && sk->sk_state != TCP_TIME_WAIT && sk->sk_policy[XFRM_POLICY_OUT]) {
+>  		num_pols = 1;
+>  		pols[0] = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
+>  		err = xfrm_expand_policies(fl, family, pols,
+> @@ -2349,7 +2349,7 @@ int __xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb,
+>  	}
+>  
+>  	pol = NULL;
+> -	if (sk && sk->sk_policy[dir]) {
+> +	if (sk && sk->sk_state != TCP_TIME_WAIT && sk->sk_policy[dir]) {
+>  		pol = xfrm_sk_policy_lookup(sk, dir, &fl);
+>  		if (IS_ERR(pol)) {
+>  			XFRM_INC_STATS(net, LINUX_MIB_XFRMINPOLERROR);
 
-Hi Lorenzo,
-Thank you for bringing this up,
-it seems that you have a better understanding than mine on the original patch.
+Hmm.. interesting.
 
-Anyway I'm wondering why you didn't include this change:
+TCP stack never sends packets attached to a socket in timewait state.
 
-> -             if (!working_recverr) {
-> +             if (!using_ping_socket && !working_recverr) {
+On IPv4, the ACK packets sent on behalf of TIME_WAIT follow this path :
 
-inside receive_error_msg()
-The code in the if block try to execute a setsockopt(icmp_sock, SOL_RAW, 
-ICMP_FILTER, ...) which is only possible on a raw socket.
-What am I missing?
-Thank you for your patience,
-I hope this time your patch get accepted,
+tcp_v4_timewait_ack()
+ tcp_v4_send_ack()
+  ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk))
 
-Salvatore Mesoraca
+The per cpu socket used to attach these skb are not in TCP_TIME_WAIT
+state.
+
+TPROXY can handle a socket in TCP_TIME_WAIT state only in input path.
+
+So I am a bit confused. Could you elaborate ?
+
+In any case, you probably should use sk_fullsock() new helper, as I
+presume you'll have a similar issue with TCP_NEW_SYN_RECV pseudo sockets
+when I am done with tcp listener refactoring.
+
+Thanks.
