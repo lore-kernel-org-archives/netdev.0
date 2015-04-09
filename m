@@ -1,67 +1,37 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH net-next 11/11] net/mlx5: Ethernet driver
-Date: Wed, 08 Apr 2015 19:07:39 -0700
-Message-ID: <5525DEEB.7020102@redhat.com>
-References: <1428504685-8945-1-git-send-email-amirv@mellanox.com> <1428504685-8945-12-git-send-email-amirv@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/4] Replace wmb()/rmb() with
+ dma_wmb()/dma_rmb() where appropriate, round 2
+Date: Wed, 08 Apr 2015 22:36:26 -0400 (EDT)
+Message-ID: <20150408.223626.1930342094004430660.davem@davemloft.net>
+References: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54201 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753000AbbDICHl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Apr 2015 22:07:41 -0400
-In-Reply-To: <1428504685-8945-12-git-send-email-amirv@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43305 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753520AbbDICg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Apr 2015 22:36:29 -0400
+In-Reply-To: <20150409014001.4434.85280.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/08/2015 07:51 AM, Amir Vadai wrote:
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Wed, 08 Apr 2015 18:49:23 -0700
 
-> --- /dev/null
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-> @@ -0,0 +1,518 @@
+> More cleanup of drivers in order to start making use of dma_rmb and dma_wmb
+> calls.  This is another pass of what I would consider to be low hanging
+> fruit.  There may be other opportunities to make use of the barriers in the
+> Mellanox and Chelsio drivers but I didn't want to risk meddling with code I
+> was not completely familiar with so I am leaving that for future work.
+> 
+> I have revisited the Mellanox driver changes.  This time around I went only
+> for the sections with a clearly defined pattern.  For dma_wmb I used it
+> between accesses of the descriptor bits followed by owner or size.  For
+> dma_wmb I used it to replace rmb following a read of the ownership bit in
+> the descriptor.
 
-<snip>
-
-> +			     struct mlx5e_params *new_params);
-> +
-> +static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
-> +				      struct mlx5e_tx_wqe *wqe)
-> +{
-> +	/* ensure wqe is visible to device before updating doorbell record */
-> +	wmb();
-> +
-
-Could this be replaced with a dma_wmb() since it seems like you are just 
-doing two memory writes here between the wqe and *sq->wq.db.
-
-> +	*sq->wq.db = cpu_to_be32(sq->pc);
-> +
-> +	/* ensure doorbell record is visible to device before ringing the
-> +	 * doorbell */
-> +	wmb();
-> +
-> +	mlx5_write64((__be32 *)&wqe->ctrl,
-> +		     sq->uar_map + MLX5_BF_OFFSET + sq->bf_offset,
-> +		     NULL);
-> +
-> +	sq->bf_offset ^= sq->bf_buf_size;
-> +}
-> +
-> +static inline void mlx5e_cq_arm(struct mlx5e_cq *cq)
-> +{
-> +	struct mlx5_core_cq *mcq;
-> +
-> +	mcq = &cq->mcq;
-> +	mlx5_cq_arm(mcq, MLX5_CQ_DB_REQ_NOT, mcq->uar->map, NULL, cq->wq.cc);
-> +}
-> +
-> +extern const struct ethtool_ops mlx5e_ethtool_ops;
+That last sentence should be talking about "dma_rmb" instead of "dma_wmb"
+right?
