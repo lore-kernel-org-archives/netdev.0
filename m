@@ -1,81 +1,54 @@
-From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Subject: Re: "tcp: refine TSO autosizing" causes performance regression on
- Xen
-Date: Thu, 9 Apr 2015 17:36:47 +0100
-Message-ID: <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
-References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
- <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
+Date: Thu, 09 Apr 2015 10:03:28 -0700
+Message-ID: <5526B0E0.7060000@plumgrid.com>
+References: <1428535575-7736-1-git-send-email-ast@plumgrid.com>	<1428535575-7736-2-git-send-email-ast@plumgrid.com> <20150408.224404.1913719826015357860.davem@davemloft.net> <5525EC69.1080606@plumgrid.com> <5526593E.4040608@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	<xen-devel@lists.xensource.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <christoffer.dall@linaro.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>, <edumazet@google.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, tgraf@suug.ch, jiri@resnulli.us,
+	netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:34872 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753455AbbDIRDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 13:03:31 -0400
+Received: by iggg4 with SMTP id g4so72191931igg.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 10:03:30 -0700 (PDT)
+In-Reply-To: <5526593E.4040608@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 9 Apr 2015, Eric Dumazet wrote:
-> On Thu, 2015-04-09 at 16:46 +0100, Stefano Stabellini wrote:
-> > Hi all,
-> > 
-> > I found a performance regression when running netperf -t TCP_MAERTS from
-> > an external host to a Xen VM on ARM64: v3.19 and v4.0-rc4 running in the
-> > virtual machine are 30% slower than v3.18.
-> > 
-> > Through bisection I found that the perf regression is caused by the
-> > prensence of the following commit in the guest kernel:
-> > 
-> > 
-> > commit 605ad7f184b60cfaacbc038aa6c55ee68dee3c89
-> > Author: Eric Dumazet <edumazet@google.com>
-> > Date:   Sun Dec 7 12:22:18 2014 -0800
-> > 
-> >     tcp: refine TSO autosizing
-> > 
-> > 
-> > A simple revert would fix the issue.
-> > 
-> > Does anybody have any ideas on what could be the cause of the problem?
-> > Suggestions on what to do to fix it?
-> 
-> You sent this to lkml while networking discussions are on netdev.
-> 
-> This topic had been discussed on netdev multiple times.
+On 4/9/15 3:49 AM, Jamal Hadi Salim wrote:
+> those devices and only speacial case with them. Your assumptions of
+> blindly pushing/pulling will break  in some cases (take a look at
+> mirred).
 
-Sorry, and many thanks for the quick reply!
+you underestimated how much time I've spent studying mirred ;)
+In particular my v2 patch fixes two bugs in it:
+- it was forwarding packets with L2 present to tunnel devices if used
+   with egress qdisc
+- it wasn't updating skb->csum with ingress qdisc
 
+In v3 since 'needs_l2' is an optional flag, I didn't touch mirred
+and left its bugs for the future patches.
 
-> This commit restored original TCP Small Queue behavior, which is the
-> first step to fight bufferbloat.
-> 
-> Some network drivers are known to be problematic because of a delayed TX
-> completion.
-> 
-> So far this commit did not impact max single flow throughput on 40Gb
-> mlx4 NIC. (ie : line rate is possible)
-> 
-> Try to tweak /proc/sys/net/ipv4/tcp_limit_output_bytes to see if it
-> makes a difference ?
+> Your changes penalize everyone else because of this assumption
+> bpf makes. We have always tried to be sensitive to perfomance.
 
-A very big difference:
+hmm. penalize everyone? it's an optional flag.
+If ingress_l2 is used with cls_bpf plus some other classifier,
+sure, the other classifier is paying potential cost skb_share_check
+if taps are active. The chances of having more than a couple classifiers
+on a single device are very slim, since they're called sequentially
+and killing performance regardless.
+In most of the use cases I'm after, cls_bpf will be the only classifier
+attached. In some cases there may be few others, but cls_bpf will be
+the first and the heaviest one. So it makes sense to optimize for it.
 
-echo 262144 > /proc/sys/net/ipv4/tcp_limit_output_bytes
-brings us much closer to the original performance, the slowdown is just
-8%
+> code path and you are adding a bunch more unconditionally.
 
-echo 1048576 > /proc/sys/net/ipv4/tcp_limit_output_bytes
-fills the gap entirely, same performance as before "refine TSO
-autosizing"
-
-
-What would be the next step for here?  Should I just document this as an
-important performance tweaking step for Xen, or is there something else
-we can do?
+not true at all. Looks like you misread the v3 patch completely.
+It's an optional flag.
