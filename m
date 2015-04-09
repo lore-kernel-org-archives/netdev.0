@@ -1,54 +1,56 @@
-From: Ian Jackson <Ian.Jackson@eu.citrix.com>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
-Date: Thu, 9 Apr 2015 17:57:57 +0100
-Message-ID: <21798.44949.156680.399387@mariner.uk.xensource.com>
-References: <21795.62414.465476.464027@mariner.uk.xensource.com>
-	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<21796.6843.983774.271495@mariner.uk.xensource.com>
-	<21796.7755.270785.292996@mariner.uk.xensource.com>
-	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<1428448976.4720.15.camel@prashant>
-	<21797.13348.524963.29127@mariner.uk.xensource.com>
-	<1428543798.4720.20.camel@prashant>
-	<21798.24161.922394.539733@mariner.uk.xensource.com>
-	<1428595851.4720.22.camel@prashant>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: "tcp: refine TSO autosizing" causes performance regression on
+ Xen
+Date: Thu, 09 Apr 2015 10:07:05 -0700
+Message-ID: <1428599225.25985.267.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
+	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>,
+Cc: xen-devel@lists.xensource.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	christoffer.dall@linaro.org,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>, edumazet@google.com,
 	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	"David Vrabel" <david.vrabel@citrix.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>
-To: Prashant Sreedharan <prashant@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:25050 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753689AbbDIRFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 13:05:08 -0400
-In-Reply-To: <1428595851.4720.22.camel@prashant>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	netdev <netdev@vger.kernel.org>
+To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Prashant Sreedharan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
-> On Thu, 2015-04-09 at 12:11 +0100, Ian Jackson wrote:
-> > No.  I can try to repro the problem without the bridge, if it would
-> > help.
-> yes please do
+On Thu, 2015-04-09 at 17:36 +0100, Stefano Stabellini wrote:
 
-I will do so.
+> A very big difference:
+> 
+> echo 262144 > /proc/sys/net/ipv4/tcp_limit_output_bytes
+> brings us much closer to the original performance, the slowdown is just
+> 8%
 
-FYI, when I came back to this test box just now (after leaving it
-since yesterday) and now it is completely broken:
+Cool.
 
-[89210.340696] DMA: Out of SW-IOMMU space for 1600 bytes at device 0000:03:00.0
-[89210.449936] tg3 0000:03:00.0: swiotlb buffer is full (sz: 1600 bytes)
+> 
+> echo 1048576 > /proc/sys/net/ipv4/tcp_limit_output_bytes
+> fills the gap entirely, same performance as before "refine TSO
+> autosizing"
 
-The root fs block device is also unuseable and gives lots of EIO.
 
-This is with 3.14.21, baremetal, with `iommu=soft swiotlb=force'.
+Sure, this basically disables TCP Small Queue and select the opposite :
 
-Ian.
+Favor single flow throughput and huge latencies (bufferbloat)
+
+
+> 
+> 
+> What would be the next step for here?  Should I just document this as an
+> important performance tweaking step for Xen, or is there something else
+> we can do?
+
+I guess this is a reasonable choice.
+
+Note that /proc/sys/net/ipv4/tcp_limit_output_bytes is already
+documented.
