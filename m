@@ -1,83 +1,63 @@
-From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [net-next PATCH 3/3] net: macb: Add change_mtu callback with jumbo support
-Date: Fri, 10 Apr 2015 14:47:21 +0530
-Message-ID: <9376b508-694b-4582-8f2c-4e85e2bab2b5@BY2FFO11FD054.protection.gbl>
-References: <1428657441-27710-1-git-send-email-harinik@xilinx.com>
+From: Sebastian Poehn <sebastian.poehn@gmail.com>
+Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+Date: Fri, 10 Apr 2015 13:14:14 +0200
+Message-ID: <1428664454.10242.19.camel@googlemail.com>
+References: <1428570461.25985.240.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150409.143727.1391401196320839634.davem@davemloft.net>
+	 <20150409191441.GE20653@breakpoint.cc>
+	 <20150409.170720.1374561715105253435.davem@davemloft.net>
+	 <20150409212144.GH20653@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
-	<punnaia@xilinx.com>, <michals@xilinx.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<boris.brezillon@free-electrons.com>,
-	<alexandre.belloni@free-electrons.com>,
-	<harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1428657441-27710-1-git-send-email-harinik@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	sebastian.poehn@gmail.com, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:33107 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751030AbbDJLOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 07:14:17 -0400
+Received: by wiax7 with SMTP id x7so13833454wia.0
+        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 04:14:15 -0700 (PDT)
+In-Reply-To: <20150409212144.GH20653@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add macb_change_mtu callback; if jumbo frame support is present allow
-mtu size changes upto (jumbo max length allowed - headers).
+On Thu, 2015-04-09 at 23:21 +0200, Florian Westphal wrote:
+> David Miller <davem@davemloft.net> wrote:
+> > From: Florian Westphal <fw@strlen.de>
+> > Date: Thu, 9 Apr 2015 21:14:41 +0200
+> > 
+> > > I re-introduced this in fd158d79d33d3c under the assumption
+> > > that the input path handles skb->sk timewait sockets correctly
+> > > after all the early demux changes, afaics tcp edemux can also
+> > > assign skb->sk timewait sockets.
+> > > 
+> > > Also, reporter mentions 3.8 as affected which should not assign
+> > > tw sockets to skb->sk.
+> > > 
+> > > Even more strange, the reporters backtrace seems to indicate
+> > > crash at end of forward path.
+> > > 
+> > > Sebastian, can you disable tw assignment via TPROXY in 3.12 just
+> > > to see if it makes a difference?
+> > > 
+> > > [ not doing the assignment is safe provided you still set tproxy mark
+> > >   on the skb; policy routing will ensure local delivery ].
+> > 
+> > My assumption in my analysis is that TPROXY writes the socket to
+> > skb->sk, and it is also being forwarded.  And yes this is based
+> > upon his backtrace.
+> 
+> Right.  However, I think we might have to make more changes than just tproxy.
+> 
+> If we have sockets bound to non-local addresses then why would tcp edemux
+> not cause same issue?
 
-Signed-off-by: Harini Katakam <harinik@xilinx.com>
-Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c |   26 +++++++++++++++++++++++++-
- 1 file changed, 25 insertions(+), 1 deletion(-)
+Thanks for all the helpful inputs. I will try to provide some more information
+and try a bit around with TPROXY not assigning tw sockets.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 85de91d..33f3283 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -54,6 +54,10 @@
- #define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1))
- #define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1))
- 
-+#define GEM_MTU_MIN_SIZE	68
-+
-+#define GEM_ZYNQMP_JUMBO_MAX	10240
-+
- /*
-  * Graceful stop timeouts in us. We should allow up to
-  * 1 frame time (10 Mbits/s, full-duplex, ignoring collisions)
-@@ -1852,6 +1856,26 @@ static int macb_close(struct net_device *dev)
- 	return 0;
- }
- 
-+static int macb_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct macb *bp = netdev_priv(dev);
-+	u32 max_mtu;
-+
-+	if (netif_running(dev))
-+		return -EBUSY;
-+
-+	max_mtu = ETH_DATA_LEN;
-+	if (bp->isjumbo)
-+		max_mtu = gem_readl(bp, JML) - ETH_HLEN - ETH_FCS_LEN;
-+
-+	if ((new_mtu > max_mtu) || (new_mtu < GEM_MTU_MIN_SIZE))
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+
-+	return 0;
-+}
-+
- static void gem_update_stats(struct macb *bp)
- {
- 	int i;
-@@ -2128,7 +2152,7 @@ static const struct net_device_ops macb_netdev_ops = {
- 	.ndo_get_stats		= macb_get_stats,
- 	.ndo_do_ioctl		= macb_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_change_mtu		= macb_change_mtu,
- 	.ndo_set_mac_address	= eth_mac_addr,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= macb_poll_controller,
--- 
-1.7.9.5
+I will provide you with an update the next days.
+
+Unfortunately this is a very rare event and (yet) impossible to reproduce in-house.
