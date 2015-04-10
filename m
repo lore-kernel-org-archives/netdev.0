@@ -1,50 +1,53 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/3 net-next] net_device: Add minimal padding to allow
- for net_device pointer alignment
-Date: Fri, 10 Apr 2015 09:48:16 +0100
-Message-ID: <20150410084816.GB23070@casper.infradead.org>
+Subject: Re: [Intel-wired-lan] [PATCH 1/3 net-next] e1000: Allocate
+ pm_qos_req as needed
+Date: Fri, 10 Apr 2015 09:48:56 +0100
+Message-ID: <20150410084856.GC23070@casper.infradead.org>
 References: <cover.1428622095.git.tgraf@suug.ch>
- <1676328eb3e9d02a4432783494d0c5a13f0d4656.1428622095.git.tgraf@suug.ch>
- <1428626095.25985.282.camel@edumazet-glaptop2.roam.corp.google.com>
+ <99ad8b242a65a60e2a76e952b4c91de2b54a0013.1428622095.git.tgraf@suug.ch>
+ <1428624503.2729.55.camel@jtkirshe-mobl>
+ <1428640539.2729.67.camel@jtkirshe-mobl>
+ <55278377.8030505@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, davem@davemloft.net,
+	eric.dumazet@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:60568 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:60576 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754177AbbDJIsS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 04:48:18 -0400
+	with ESMTP id S1754506AbbDJIs6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 04:48:58 -0400
 Content-Disposition: inline
-In-Reply-To: <1428626095.25985.282.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <55278377.8030505@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/09/15 at 05:34pm, Eric Dumazet wrote:
-> On Fri, 2015-04-10 at 01:43 +0200, Thomas Graf wrote:
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index b2775f0..2b43aba 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -6794,8 +6794,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
-> >  		alloc_size = ALIGN(alloc_size, NETDEV_ALIGN);
-> >  		alloc_size += sizeof_priv;
-> >  	}
-> > -	/* ensure 32-byte alignment of whole construct */
-> > -	alloc_size += NETDEV_ALIGN - 1;
-> > +	alloc_size += PTR_ALIGN_PAD(struct net_device, NETDEV_ALIGN);
-> >  
-> >  	p = kzalloc(alloc_size, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-> >  	if (!p)
+On 04/10/15 at 10:01am, Daniel Borkmann wrote:
+> On 04/10/2015 06:35 AM, Jeff Kirsher wrote:
+> >On Thu, 2015-04-09 at 17:08 -0700, Jeff Kirsher wrote:
+> >>On Fri, 2015-04-10 at 01:43 +0200, Thomas Graf wrote:
+> >>>e1000 is the only driver requiring pm_qos_req, instead of causing
+> >>>every device to waste up to 240 bytes. Allocate it for the specific
+> >>>driver.
+> >>>
+> >>>Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> >>>---
+> >>>  drivers/net/ethernet/intel/e1000e/netdev.c | 15 +++++++++++----
+> >>>  include/linux/netdevice.h                  |  2 +-
+> >>>  2 files changed, 12 insertions(+), 5 deletions(-)
+> >>
+> >>Small nitpick, it is e1000e not e1000 that you are modifying.
+> >
+> >So other than the patch title and description referencing e1000 instead
+> >of e1000e, patch looks fine.
+> >
+> >Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > 
+> Thanks for working towards reducing struct net_device, that's awesome!
 > 
-> I believe code intent was to get an alignment even if kmalloc() returns
-> say 0xxxxx0008.
-> 
-> AFAIK, SLAB in debug mode was able to do this.
+> Wrt this patch, I'm wondering if that couldn't be pushed down into
+> struct e1000_adapter entirely?
 
-I assumed kmalloc would guarantee alignment of the return pointer as
-indicated by __alignof__ but I now realize that this can't possibly be the
-case. kmalloc only knows about the size. We'll have to drop patch 3.
-Fortunately it's still below 2K.
+Sure, since I need to respin this anyway. Jeff are you OK with that?
