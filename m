@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 7/7] netfilter: nf_tables: add netdev table to filter from ingress
-Date: Fri, 10 Apr 2015 14:15:42 +0200
-Message-ID: <1428668142-4006-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/7] net: add netfilter ingress hook
+Date: Fri, 10 Apr 2015 14:15:40 +0200
+Message-ID: <1428668142-4006-6-git-send-email-pablo@netfilter.org>
 References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
 Cc: kaber@trash.net, netdev@vger.kernel.org, davem@davemloft.net
 To: netfilter-devel@vger.kernel.org
@@ -10,247 +10,277 @@ In-Reply-To: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This allows us to create netdev tables that contain ingress chains.
-Use skb_header_pointer() as we may see shared sk_buffs at this stage.
+This patch adds a new NFPROTO_NETDEV family that allows you to register hooks
+from the ingress path.
+
+This patch adds a hook list per device, so this introduces a new net_device
+structure pointer to nf_hook_ops that needs to be set before hook registration.
+The caller is responsible for holding/putting the reference on the net_device
+that is attached to nf_hook_ops.
+
+As in other netfilter hooks, we have a static key to enable the netfilter path
+if we at least have one registered hook. So the code follows the usual path for
+people that don't need this.
+
+To keep the context around, the skb->cb area is used to save and restore the
+relevant information since we're in full control of this area as it happens in
+handle_ing().
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netns/nftables.h     |    1 +
- net/netfilter/Kconfig            |    6 ++
- net/netfilter/Makefile           |    1 +
- net/netfilter/nf_tables_netdev.c |  182 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 190 insertions(+)
- create mode 100644 net/netfilter/nf_tables_netdev.c
+ include/linux/netdevice.h         |    4 +-
+ include/linux/netfilter.h         |    1 +
+ include/linux/netfilter_ingress.h |   80 +++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/netfilter.h    |    6 +++
+ net/core/dev.c                    |   34 ++++++++++++++++
+ net/netfilter/core.c              |   22 +++++++++-
+ 6 files changed, 145 insertions(+), 2 deletions(-)
+ create mode 100644 include/linux/netfilter_ingress.h
 
-diff --git a/include/net/netns/nftables.h b/include/net/netns/nftables.h
-index eee608b..c807811 100644
---- a/include/net/netns/nftables.h
-+++ b/include/net/netns/nftables.h
-@@ -13,6 +13,7 @@ struct netns_nftables {
- 	struct nft_af_info	*inet;
- 	struct nft_af_info	*arp;
- 	struct nft_af_info	*bridge;
-+	struct nft_af_info	*netdev;
- 	unsigned int		base_seq;
- 	u8			gencursor;
- };
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index f70e34a..e5e8fdf 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -448,6 +448,12 @@ config NF_TABLES_INET
- 	help
- 	  This option enables support for a mixed IPv4/IPv6 "inet" table.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index bf6d9df..26f7c65 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1645,7 +1645,9 @@ struct net_device {
  
-+config NF_TABLES_NETDEV
-+	tristate "Netfilter nf_tables netdev tables support"
-+	help
-+	  This option enables support for the netdev table and the ingress
-+          filter chain.
-+
- config NFT_EXTHDR
- 	tristate "Netfilter nf_tables IPv6 exthdr module"
- 	help
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index a87d8b8..70d026d 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -75,6 +75,7 @@ nf_tables-objs += nft_bitwise.o nft_byteorder.o nft_payload.o
- 
- obj-$(CONFIG_NF_TABLES)		+= nf_tables.o
- obj-$(CONFIG_NF_TABLES_INET)	+= nf_tables_inet.o
-+obj-$(CONFIG_NF_TABLES_NETDEV)	+= nf_tables_netdev.o
- obj-$(CONFIG_NFT_COMPAT)	+= nft_compat.o
- obj-$(CONFIG_NFT_EXTHDR)	+= nft_exthdr.o
- obj-$(CONFIG_NFT_META)		+= nft_meta.o
-diff --git a/net/netfilter/nf_tables_netdev.c b/net/netfilter/nf_tables_netdev.c
-new file mode 100644
-index 0000000..bf66250
---- /dev/null
-+++ b/net/netfilter/nf_tables_netdev.c
-@@ -0,0 +1,182 @@
-+/*
-+ * Copyright (c) 2015 Pablo Neira Ayuso <pablo@netfilter.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <net/netfilter/nf_tables.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <net/netfilter/nf_tables_ipv4.h>
-+#include <net/netfilter/nf_tables_ipv6.h>
-+
-+static inline void
-+nft_netdev_set_pktinfo_ipv4(struct nft_pktinfo *pkt,
-+			    const struct nf_hook_ops *ops, struct sk_buff *skb,
-+			    const struct nf_hook_state *state)
-+{
-+	struct iphdr *iph, _iph;
-+	u32 len, thoff;
-+
-+	nft_set_pktinfo(pkt, ops, skb, state);
-+
-+	iph = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*iph),
-+				 &_iph);
-+	if (!iph)
-+		return;
-+
-+	iph = ip_hdr(skb);
-+	if (iph->ihl < 5 || iph->version != 4)
-+		return;
-+
-+	len = ntohs(iph->tot_len);
-+	thoff = iph->ihl * 4;
-+	if (skb->len < len)
-+		return;
-+	else if (len < thoff)
-+		return;
-+
-+	pkt->tprot = iph->protocol;
-+	pkt->xt.thoff = thoff;
-+	pkt->xt.fragoff = ntohs(iph->frag_off) & IP_OFFSET;
-+}
-+
-+static inline void
-+__nft_netdev_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
-+			      const struct nf_hook_ops *ops,
-+			      struct sk_buff *skb,
-+			      const struct nf_hook_state *state)
-+{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct ipv6hdr *ip6h, _ip6h;
-+	int protohdr, thoff = 0;
-+	unsigned short frag_off;
-+	u32 pkt_len;
-+
-+	ip6h = skb_header_pointer(skb, skb_network_offset(skb), sizeof(*ip6h),
-+				  &_ip6h);
-+	if (!ip6h)
-+		return;
-+
-+	if (ip6h->version != 6)
-+		return;
-+
-+	pkt_len = ntohs(ip6h->payload_len);
-+	if (pkt_len + sizeof(*ip6h) > skb->len)
-+		return;
-+
-+	protohdr = ipv6_find_hdr(pkt->skb, &thoff, -1, &frag_off, NULL);
-+	if (protohdr < 0)
-+                return;
-+
-+	pkt->tprot = protohdr;
-+	pkt->xt.thoff = thoff;
-+	pkt->xt.fragoff = frag_off;
+ 	struct netdev_queue __rcu *ingress_queue;
+ 	unsigned char		broadcast[MAX_ADDR_LEN];
+-
++#ifdef CONFIG_NETFILTER
++	struct list_head	nf_hooks_ingress;
 +#endif
-+}
+ 
+ /*
+  * Cache lines mostly used on transmit path
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 49d0063..1138cea 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -90,6 +90,7 @@ struct nf_hook_ops {
+ 	void			*priv;
+ 	u_int8_t		pf;
+ 	unsigned int		hooknum;
++	struct net_device	*dev;
+ 	/* Hooks are ordered in ascending priority. */
+ 	int			priority;
+ };
+diff --git a/include/linux/netfilter_ingress.h b/include/linux/netfilter_ingress.h
+new file mode 100644
+index 0000000..95c4537
+--- /dev/null
++++ b/include/linux/netfilter_ingress.h
+@@ -0,0 +1,80 @@
++#ifndef _NETFILTER_INGRESS_H_
++#define _NETFILTER_INGRESS_H_
 +
-+static inline void nft_netdev_set_pktinfo_ipv6(struct nft_pktinfo *pkt,
-+					       const struct nf_hook_ops *ops,
-+					       struct sk_buff *skb,
-+					       const struct nf_hook_state *state)
-+{
-+	nft_set_pktinfo(pkt, ops, skb, state);
-+	__nft_netdev_set_pktinfo_ipv6(pkt, ops, skb, state);
-+}
++#include <linux/netfilter.h>
++#include <linux/netdevice.h>
 +
-+static unsigned int
-+nft_do_chain_netdev(const struct nf_hook_ops *ops, struct sk_buff *skb,
-+		    const struct nf_hook_state *state)
-+{
-+	struct nft_pktinfo pkt;
-+
-+	switch (eth_hdr(skb)->h_proto) {
-+	case htons(ETH_P_IP):
-+		nft_netdev_set_pktinfo_ipv4(&pkt, ops, skb, state);
-+		break;
-+	case htons(ETH_P_IPV6):
-+		nft_netdev_set_pktinfo_ipv6(&pkt, ops, skb, state);
-+		break;
-+	default:
-+		nft_set_pktinfo(&pkt, ops, skb, state);
-+		break;
-+	}
-+
-+	return nft_do_chain(&pkt, ops);
-+}
-+
-+static struct nft_af_info nft_af_netdev __read_mostly = {
-+	.family		= NFPROTO_NETDEV,
-+	.nhooks		= NF_NETDEV_NUMHOOKS,
-+	.owner		= THIS_MODULE,
-+	.flags		= NFT_AF_DEV,
-+	.nops		= 1,
-+	.hooks		= {
-+		[NF_NETDEV_INGRESS]	= nft_do_chain_netdev,
-+	},
++#ifdef CONFIG_NETFILTER
++struct nf_ingress_skb_cb {
++	struct packet_type	*pt_prev;
++	struct net_device	*orig_dev;
++	bool			pfmemalloc;
 +};
 +
-+static int nf_tables_netdev_init_net(struct net *net)
++static inline struct nf_ingress_skb_cb *nf_ingress_skb_cb(struct sk_buff *skb)
 +{
-+	net->nft.netdev = kmalloc(sizeof(struct nft_af_info), GFP_KERNEL);
-+	if (net->nft.netdev == NULL)
-+		return -ENOMEM;
-+
-+	memcpy(net->nft.netdev, &nft_af_netdev, sizeof(nft_af_netdev));
-+
-+	if (nft_register_afinfo(net, net->nft.netdev) < 0)
-+		goto err;
-+
-+	return 0;
-+err:
-+	kfree(net->nft.netdev);
-+	return -ENOMEM;
++	return (struct nf_ingress_skb_cb *)skb->cb;
 +}
 +
-+static void nf_tables_netdev_exit_net(struct net *net)
++static inline void nf_ingress_ctx_save(struct sk_buff *skb,
++				       struct packet_type *pt_prev,
++				       struct net_device *orig_dev,
++				       bool pfmemalloc)
 +{
-+	nft_unregister_afinfo(net->nft.netdev);
-+	kfree(net->nft.netdev);
++	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct nf_ingress_skb_cb));
++
++	nf_ingress_skb_cb(skb)->orig_dev = orig_dev;
++	nf_ingress_skb_cb(skb)->pt_prev = pt_prev;
++	nf_ingress_skb_cb(skb)->pfmemalloc = pfmemalloc;
 +}
 +
-+static struct pernet_operations nf_tables_netdev_net_ops = {
-+	.init	= nf_tables_netdev_init_net,
-+	.exit	= nf_tables_netdev_exit_net,
-+};
-+
-+static const struct nf_chain_type nft_filter_chain_netdev = {
-+	.name		= "filter",
-+	.type		= NFT_CHAIN_T_DEFAULT,
-+	.family		= NFPROTO_NETDEV,
-+	.owner		= THIS_MODULE,
-+	.hook_mask	= (1 << NF_NETDEV_INGRESS),
-+};
-+
-+static int __init nf_tables_netdev_init(void)
++static inline void nf_ingress_ctx_restore(struct sk_buff *skb,
++					  struct packet_type **pt_prev,
++					  struct net_device **orig_dev,
++					  bool *pfmemalloc)
 +{
++	*orig_dev = nf_ingress_skb_cb(skb)->orig_dev;
++	*pt_prev = nf_ingress_skb_cb(skb)->pt_prev;
++	*pfmemalloc = nf_ingress_skb_cb(skb)->pfmemalloc;
++}
++
++static inline int nf_hook_ingress_active(struct sk_buff *skb)
++{
++	return nf_hook_list_active(&skb->dev->nf_hooks_ingress,
++				   NFPROTO_NETDEV, NF_NETDEV_INGRESS);
++}
++
++static inline int
++__nf_hook_ingress(struct sk_buff *skb,
++		  int (*okfn)(struct sock *sk, struct sk_buff *skb))
++{
++	struct nf_hook_state state;
 +	int ret;
 +
-+	nft_register_chain_type(&nft_filter_chain_netdev);
-+	ret = register_pernet_subsys(&nf_tables_netdev_net_ops);
++	nf_hook_state_init(&state, &skb->dev->nf_hooks_ingress,
++			   NF_NETDEV_INGRESS, INT_MIN, NFPROTO_NETDEV, NULL,
++			   skb->dev, NULL, okfn);
++
++	ret = nf_hook_slow(skb, &state);
 +	if (ret < 0)
-+		nft_unregister_chain_type(&nft_filter_chain_netdev);
++		return NET_RX_DROP;
++	else if (ret == 1)
++		ret = okfn(NULL, skb);
 +
 +	return ret;
 +}
-+
-+static void __exit nf_tables_netdev_exit(void)
++#else
++static inline int nf_hook_ingress_active(struct sk_buff *skb)
 +{
-+	unregister_pernet_subsys(&nf_tables_netdev_net_ops);
-+	nft_unregister_chain_type(&nft_filter_chain_netdev);
++	return 0;
 +}
 +
-+module_init(nf_tables_netdev_init);
-+module_exit(nf_tables_netdev_exit);
++static inline int nf_hook_ingress(struct sk_buff *skb,
++				  struct packet_type *pt_prev,
++				  struct net_device *orig_dev,
++				  bool pfmemalloc)
++{
++	BUG("nf_hook_ingress() called with CONFIG_NETFILTER disabled\n");
++}
++#endif /* CONFIG_NETFILTER */
++#endif /* _NETFILTER_INGRESS_H_ */
+diff --git a/include/uapi/linux/netfilter.h b/include/uapi/linux/netfilter.h
+index ef1b1f8..177027c 100644
+--- a/include/uapi/linux/netfilter.h
++++ b/include/uapi/linux/netfilter.h
+@@ -51,11 +51,17 @@ enum nf_inet_hooks {
+ 	NF_INET_NUMHOOKS
+ };
+ 
++enum nf_dev_hooks {
++	NF_NETDEV_INGRESS,
++	NF_NETDEV_NUMHOOKS
++};
 +
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
-+MODULE_ALIAS_NFT_FAMILY(5);
+ enum {
+ 	NFPROTO_UNSPEC =  0,
+ 	NFPROTO_INET   =  1,
+ 	NFPROTO_IPV4   =  2,
+ 	NFPROTO_ARP    =  3,
++	NFPROTO_NETDEV =  5,
+ 	NFPROTO_BRIDGE =  7,
+ 	NFPROTO_IPV6   = 10,
+ 	NFPROTO_DECNET = 12,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0e19e4f..9ba8f27 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -135,6 +135,7 @@
+ #include <linux/if_macvlan.h>
+ #include <linux/errqueue.h>
+ #include <linux/hrtimer.h>
++#include <linux/netfilter_ingress.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -3727,6 +3728,33 @@ drop:
+ 	return ret;
+ }
+ 
++#ifdef CONFIG_NETFILTER
++static int nf_hook_ingress_finish(struct sock *sk, struct sk_buff *skb)
++{
++	struct net_device *orig_dev;
++	struct packet_type *pt_prev;
++	bool pfmemalloc;
++
++	nf_ingress_ctx_restore(skb, &pt_prev, &orig_dev, &pfmemalloc);
++
++	return __netif_receive_skb_finish(skb, pfmemalloc, pt_prev, orig_dev);
++}
++
++static int nf_hook_ingress(struct sk_buff *skb, struct packet_type *pt_prev,
++			   struct net_device *orig_dev, bool pfmemalloc)
++{
++	int ret;
++
++	if (pt_prev) {
++		ret = deliver_skb(skb, pt_prev, orig_dev);
++		pt_prev = NULL;
++	}
++	nf_ingress_ctx_save(skb, pt_prev, orig_dev, pfmemalloc);
++
++	return __nf_hook_ingress(skb, nf_hook_ingress_finish);
++}
++#endif
++
+ static int __netif_receive_skb_ingress(struct sk_buff *skb, bool pfmemalloc,
+ 				       struct net_device *orig_dev)
+ {
+@@ -3772,6 +3800,8 @@ skip_taps:
+ 	if (!skb)
+ 		return NET_RX_DROP;
+ #endif
++	if (nf_hook_ingress_active(skb))
++		return nf_hook_ingress(skb, pt_prev, orig_dev, pfmemalloc);
+ 
+ 	return __netif_receive_skb_finish(skb, pfmemalloc, pt_prev, orig_dev);
+ }
+@@ -6862,6 +6892,10 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	if (netif_alloc_netdev_queues(dev))
+ 		goto free_all;
+ 
++#ifdef CONFIG_NETFILTER
++	INIT_LIST_HEAD(&dev->nf_hooks_ingress);
++#endif
++
+ #ifdef CONFIG_SYSFS
+ 	dev->num_rx_queues = rxqs;
+ 	dev->real_num_rx_queues = rxqs;
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e418cfd..aa817d5 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -64,10 +64,23 @@ static DEFINE_MUTEX(nf_hook_mutex);
+ 
+ int nf_register_hook(struct nf_hook_ops *reg)
+ {
++	struct list_head *nf_hook_list;
+ 	struct nf_hook_ops *elem;
+ 
+ 	mutex_lock(&nf_hook_mutex);
+-	list_for_each_entry(elem, &nf_hooks[reg->pf][reg->hooknum], list) {
++	switch (reg->pf) {
++	case NFPROTO_NETDEV:
++		if (reg->hooknum == NF_NETDEV_INGRESS) {
++			BUG_ON(reg->dev == NULL);
++			nf_hook_list = &reg->dev->nf_hooks_ingress;
++			break;
++		}
++		/* Fall through. */
++	default:
++		nf_hook_list = &nf_hooks[reg->pf][reg->hooknum];
++		break;
++	}
++	list_for_each_entry(elem, nf_hook_list, list) {
+ 		if (reg->priority < elem->priority)
+ 			break;
+ 	}
+@@ -84,6 +97,13 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+ {
+ 	mutex_lock(&nf_hook_mutex);
+ 	list_del_rcu(&reg->list);
++	switch (reg->pf) {
++	case NFPROTO_NETDEV:
++		WARN_ON(reg->dev == NULL);
++		break;
++	default:
++		break;
++	}
+ 	mutex_unlock(&nf_hook_mutex);
+ #ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
 -- 
 1.7.10.4
 
