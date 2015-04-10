@@ -1,7 +1,7 @@
 From: <gregkh@linuxfoundation.org>
-Subject: Patch "net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}" has been added to the 3.10-stable tree
-Date: Fri, 10 Apr 2015 15:12:20 +0200
-Message-ID: <14286715402597@kroah.com>
+Subject: Patch "net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}" has been added to the 3.14-stable tree
+Date: Fri, 10 Apr 2015 15:12:28 +0200
+Message-ID: <142867154884230@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
@@ -9,25 +9,21 @@ Cc: <stable@vger.kernel.org>, <stable-commits@vger.kernel.org>
 To: markos.chandras@imgtec.com, davem@davemloft.net,
 	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, pcnet32@frontier.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:35746 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932324AbbDJNMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 09:12:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 This is a note to let you know that I've just added the patch titled
 
     net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
 
-to the 3.10-stable tree which can be found at:
+to the 3.14-stable tree which can be found at:
     http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
 
 The filename of the patch is:
      net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
-and it can be found in the queue-3.10 subdirectory.
+and it can be found in the queue-3.14 subdirectory.
 
 If you, or anyone else, feels it should not be added to the stable tree,
 please let <stable@vger.kernel.org> know about it.
@@ -133,4 +129,4 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
 Patches currently in stable-queue which might be from markos.chandras@imgtec.com are
 
-queue-3.10/net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
+queue-3.14/net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
