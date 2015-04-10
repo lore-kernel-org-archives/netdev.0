@@ -1,7 +1,7 @@
 From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [net-next PATCH 2/3] net: macb: Add support for jumbo frames
-Date: Fri, 10 Apr 2015 14:47:20 +0530
-Message-ID: <6680752c-a0a0-4199-af32-ba225812603c@BL2FFO11FD007.protection.gbl>
+Subject: [net-next PATCH 3/3] net: macb: Add change_mtu callback with jumbo support
+Date: Fri, 10 Apr 2015 14:47:21 +0530
+Message-ID: <9376b508-694b-4582-8f2c-4e85e2bab2b5@BY2FFO11FD054.protection.gbl>
 References: <1428657441-27710-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,110 +19,65 @@ In-Reply-To: <1428657441-27710-1-git-send-email-harinik@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Check for "cdns,zynqmp-gem" compatible string and enable jumbo frame support
-in NWCFG register, update descriptor length masks and registers accordingly.
-Jumbo max length register should be set according to support in SoC; it is
-set to 10240 for Zynq Ultrascale ZynqMPSoC.
+Add macb_change_mtu callback; if jumbo frame support is present allow
+mtu size changes upto (jumbo max length allowed - headers).
 
 Signed-off-by: Harini Katakam <harinik@xilinx.com>
 Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
 ---
- drivers/net/ethernet/cadence/macb.c |   19 ++++++++++++++++---
- drivers/net/ethernet/cadence/macb.h |    8 ++++++++
- 2 files changed, 24 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/cadence/macb.c |   26 +++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 448a323..85de91d 100644
+index 85de91d..33f3283 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -779,7 +779,7 @@ static int gem_rx(struct macb *bp, int budget)
- 		}
- 		/* now everything is ready for receiving packet */
- 		bp->rx_skbuff[entry] = NULL;
--		len = MACB_BFEXT(RX_FRMLEN, ctrl);
-+		len = ctrl & bp->rx_frm_len_mask;
+@@ -54,6 +54,10 @@
+ #define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1))
+ #define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1))
  
- 		netdev_vdbg(bp->dev, "gem_rx %u (len %u)\n", entry, len);
++#define GEM_MTU_MIN_SIZE	68
++
++#define GEM_ZYNQMP_JUMBO_MAX	10240
++
+ /*
+  * Graceful stop timeouts in us. We should allow up to
+  * 1 frame time (10 Mbits/s, full-duplex, ignoring collisions)
+@@ -1852,6 +1856,26 @@ static int macb_close(struct net_device *dev)
+ 	return 0;
+ }
  
-@@ -825,7 +825,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	struct macb_dma_desc *desc;
- 
- 	desc = macb_rx_desc(bp, last_frag);
--	len = MACB_BFEXT(RX_FRMLEN, desc->ctrl);
-+	len = desc->ctrl & bp->rx_frm_len_mask;
- 
- 	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
- 		macb_rx_ring_wrap(first_frag),
-@@ -1630,7 +1630,10 @@ static void macb_init_hw(struct macb *bp)
- 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
- 	config |= MACB_BIT(PAE);		/* PAuse Enable */
- 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
--	config |= MACB_BIT(BIG);		/* Receive oversized frames */
++static int macb_change_mtu(struct net_device *dev, int new_mtu)
++{
++	struct macb *bp = netdev_priv(dev);
++	u32 max_mtu;
++
++	if (netif_running(dev))
++		return -EBUSY;
++
++	max_mtu = ETH_DATA_LEN;
 +	if (bp->isjumbo)
-+		config |= MACB_BIT(JFRAME);	/* Enable jumbo frames */
-+	else
-+		config |= MACB_BIT(BIG);	/* Receive oversized frames */
- 	if (bp->dev->flags & IFF_PROMISC)
- 		config |= MACB_BIT(CAF);	/* Copy All Frames */
- 	else if (macb_is_gem(bp) && bp->dev->features & NETIF_F_RXCSUM)
-@@ -1639,8 +1642,13 @@ static void macb_init_hw(struct macb *bp)
- 		config |= MACB_BIT(NBC);	/* No BroadCast */
- 	config |= macb_dbw(bp);
- 	macb_writel(bp, NCFGR, config);
-+	if (bp->isjumbo && bp->jumbo_max_len)
-+		gem_writel(bp, JML, bp->jumbo_max_len);
- 	bp->speed = SPEED_10;
- 	bp->duplex = DUPLEX_HALF;
-+	bp->rx_frm_len_mask = MACB_RX_FRMLEN_MASK;
-+	if (bp->isjumbo)
-+		bp->rx_frm_len_mask = MACB_RX_JFRMLEN_MASK;
- 
- 	macb_configure_dma(bp);
- 
-@@ -2759,6 +2767,11 @@ static int macb_probe(struct platform_device *pdev)
- 	bp->pclk = pclk;
- 	bp->hclk = hclk;
- 	bp->tx_clk = tx_clk;
-+	if (of_device_is_compatible(pdev->dev.of_node, "cdns,zynqmp-gem")) {
-+		bp->isjumbo = 1;
-+		bp->jumbo_max_len = GEM_ZYNQMP_JUMBO_MAX;
-+	}
++		max_mtu = gem_readl(bp, JML) - ETH_HLEN - ETH_FCS_LEN;
 +
- 	spin_lock_init(&bp->lock);
- 
- 	/* setup capabilities */
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index eb7d76f..e25f77e 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -71,6 +71,7 @@
- #define GEM_NCFGR		0x0004 /* Network Config */
- #define GEM_USRIO		0x000c /* User IO */
- #define GEM_DMACFG		0x0010 /* DMA Configuration */
-+#define GEM_JML			0x0048 /* Jumbo Max Length */
- #define GEM_HRB			0x0080 /* Hash Bottom */
- #define GEM_HRT			0x0084 /* Hash Top */
- #define GEM_SA1B		0x0088 /* Specific1 Bottom */
-@@ -514,6 +515,9 @@ struct macb_dma_desc {
- #define MACB_RX_BROADCAST_OFFSET		31
- #define MACB_RX_BROADCAST_SIZE			1
- 
-+#define MACB_RX_FRMLEN_MASK			0xFFF
-+#define MACB_RX_JFRMLEN_MASK			0x3FFF
++	if ((new_mtu > max_mtu) || (new_mtu < GEM_MTU_MIN_SIZE))
++		return -EINVAL;
 +
- /* RX checksum offload disabled: bit 24 clear in NCFGR */
- #define GEM_RX_TYPEID_MATCH_OFFSET		22
- #define GEM_RX_TYPEID_MATCH_SIZE		2
-@@ -826,6 +830,10 @@ struct macb {
- 	unsigned int		max_tx_length;
- 
- 	u64			ethtool_stats[GEM_STATS_LEN];
++	dev->mtu = new_mtu;
 +
-+	unsigned int		rx_frm_len_mask;
-+	unsigned int		jumbo_max_len;
-+	bool			isjumbo;
- };
- 
- static inline bool macb_is_gem(struct macb *bp)
++	return 0;
++}
++
+ static void gem_update_stats(struct macb *bp)
+ {
+ 	int i;
+@@ -2128,7 +2152,7 @@ static const struct net_device_ops macb_netdev_ops = {
+ 	.ndo_get_stats		= macb_get_stats,
+ 	.ndo_do_ioctl		= macb_ioctl,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_change_mtu		= macb_change_mtu,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= macb_poll_controller,
 -- 
 1.7.9.5
