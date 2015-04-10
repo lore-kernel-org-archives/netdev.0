@@ -1,52 +1,71 @@
-From: "Schmitt, Phillip J" <phillip.j.schmitt@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH net-next v10 1/7] if_link: Add an
- additional parameter to ifla_vf_info for RSS querying
-Date: Fri, 10 Apr 2015 23:12:51 +0000
-Message-ID: <305E19FFAC908240AB6DEBD1E2D8C1E17F813045@ORSMSX108.amr.corp.intel.com>
-References: <1427740529-9605-1-git-send-email-vladz@cloudius-systems.com>
- <1427740529-9605-2-git-send-email-vladz@cloudius-systems.com>
- <1427787296.2497.109.camel@jtkirshe-mobl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"avi@cloudius-systems.com" <avi@cloudius-systems.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"gleb@cloudius-systems.com" <gleb@cloudius-systems.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v4 net-next 1/2] net: introduce skb_postpush_rcsum() helper
+Date: Fri, 10 Apr 2015 16:33:11 -0700
+Message-ID: <1428708792-5872-1-git-send-email-ast@plumgrid.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10097 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756592AbbDJXMy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Apr 2015 19:12:54 -0400
-In-Reply-To: <1427787296.2497.109.camel@jtkirshe-mobl>
-Content-Language: en-US
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:36188 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932164AbbDJXd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 19:33:26 -0400
+Received: by pdea3 with SMTP id a3so37209960pde.3
+        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 16:33:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSW50ZWwtd2lyZWQtbGFu
-IFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24NCj4g
-QmVoYWxmIE9mIEplZmYgS2lyc2hlcg0KPiBTZW50OiBUdWVzZGF5LCBNYXJjaCAzMSwgMjAxNSAx
-MjozNSBBTQ0KPiBUbzogVmxhZCBab2xvdGFyb3YNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmc7IGF2aUBjbG91ZGl1cy1zeXN0ZW1zLmNvbTsgaW50ZWwtd2lyZWQtDQo+IGxhbkBsaXN0cy5v
-c3Vvc2wub3JnOyBnbGViQGNsb3VkaXVzLXN5c3RlbXMuY29tDQo+IFN1YmplY3Q6IFJlOiBbSW50
-ZWwtd2lyZWQtbGFuXSBbUEFUQ0ggbmV0LW5leHQgdjEwIDEvN10gaWZfbGluazogQWRkIGFuIGFk
-ZGl0aW9uYWwNCj4gcGFyYW1ldGVyIHRvIGlmbGFfdmZfaW5mbyBmb3IgUlNTIHF1ZXJ5aW5nDQo+
-IA0KPiBPbiBNb24sIDIwMTUtMDMtMzAgYXQgMjE6MzUgKzAzMDAsIFZsYWQgWm9sb3Rhcm92IHdy
-b3RlOg0KPiA+IEFkZCBjb25maWd1cmF0aW9uIHNldHRpbmcgZm9yIGRyaXZlcnMgdG8gYWxsb3cv
-YmxvY2sgYW4gUlNTDQo+ID4gUmVkaXJlY3Rpb24gVGFibGUgYW5kIGEgSGFzaCBLZXkgcXVlcnlp
-bmcgZm9yIGRpc2NyZXRlIFZGcy4NCj4gPg0KPiA+IE9uIHNvbWUgZGV2aWNlcyBWRiBzaGFyZSB0
-aGUgbWVudGlvbmVkIGFib3ZlIGluZm9ybWF0aW9uIHdpdGggUEYgYW5kDQo+ID4gcXVlcnlpbmcg
-aXQgbWF5IGFkZHVjZSBhIHRoZW9yZXRpY2FsIHNlY3VyaXR5IHJpc2suIFdlIHdhbnQgdG8gbGV0
-IGENCj4gPiBzeXN0ZW0gYWRtaW5pc3RyYXRvciB0byBkZWNpZGUgaWYgaGUvc2hlIHdhbnRzIHRv
-IHRha2UgdGhpcyByaXNrIG9yDQo+ID4gbm90Lg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogVmxh
-ZCBab2xvdGFyb3YgPHZsYWR6QGNsb3VkaXVzLXN5c3RlbXMuY29tPg0KPiA+IC0tLQ0KPiA+ICBp
-bmNsdWRlL2xpbnV4L2lmX2xpbmsuaCAgICAgIHwgIDEgKw0KPiA+ICBpbmNsdWRlL2xpbnV4L25l
-dGRldmljZS5oICAgIHwgIDggKysrKysrKysNCj4gPiAgaW5jbHVkZS91YXBpL2xpbnV4L2lmX2xp
-bmsuaCB8ICA4ICsrKysrKysrDQo+ID4gIG5ldC9jb3JlL3J0bmV0bGluay5jICAgICAgICAgfCAz
-MiArKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLQ0KPiA+ICA0IGZpbGVzIGNoYW5nZWQs
-IDQzIGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pDQo+IA0KPiBUaGFua3MgVmxhZCwgYXBw
-bGllZCB0byBteSBxdWV1ZS4NCj4gLS0NCj4gZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9s
-aW51eC9rZXJuZWwvZ2l0L2praXJzaGVyL25leHQtcXVldWUuZ2l0DQo+IGRldi1xdWV1ZQ0KDQpU
-ZXN0ZWQtYnk6IFBoaWwgU2NobWl0dCA8cGhpbGxpcC5qLnNjaG1pdHRAaW50ZWwuY29tPg0K
+similar to skb_postpull_rcsum() introduce skb_postpush_rcsum() helper
+
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+
+next patch is also using skb_postpush_rcsum()
+
+ include/linux/skbuff.h |   13 +++++++++++++
+ net/core/filter.c      |    4 ++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0991259643d6..049c2db872e0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2592,6 +2592,19 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
+ 		skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
+ }
+ 
++/**
++ *	skb_postpush_rcsum - update checksum for skb after push
++ *	@skb: buffer to update
++ *	@start: start of data after push
++ *	@len: length of data pushed
++ */
++static inline void skb_postpush_rcsum(struct sk_buff *skb,
++				      const void *start, unsigned int len)
++{
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
++}
++
+ unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
+ 
+ /**
+diff --git a/net/core/filter.c b/net/core/filter.c
+index b669e75d2b36..e5872704c28b 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1213,8 +1213,8 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ 		/* skb_store_bits cannot return -EFAULT here */
+ 		skb_store_bits(skb, offset, ptr, len);
+ 
+-	if (BPF_RECOMPUTE_CSUM(flags) && skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_add(skb->csum, csum_partial(ptr, len, 0));
++	if (BPF_RECOMPUTE_CSUM(flags))
++		skb_postpush_rcsum(skb, ptr, len);
+ 	return 0;
+ }
+ 
+-- 
+1.7.9.5
