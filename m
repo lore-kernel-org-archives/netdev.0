@@ -1,65 +1,63 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v3] tc: introduce OpenFlow classifier
-Date: Fri, 10 Apr 2015 11:03:17 +0100
-Message-ID: <20150410100317.GD23070@casper.infradead.org>
-References: <1428584287-8197-1-git-send-email-jiri@resnulli.us>
- <20150409.173423.2258417584616634411.davem@davemloft.net>
- <20150410091203.GA2021@nanopsycho.orion>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is commented
+ out
+Date: Fri, 10 Apr 2015 12:21:58 +0200
+Message-ID: <5527A446.8030202@zonque.org>
+References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <5526B608.2080504@gmail.com> <5526CA87.2070204@free.fr> <5526CC5A.1080504@gmail.com> <5526D359.1050202@free.fr> <552798CD.70608@zonque.org> <55279F65.9090202@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jhs@mojatatu.com, jesse@nicira.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Mugunthan <mugunthanvnm@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Mason <slash.tmp@free.fr>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:32818 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932161AbbDJKDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 06:03:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20150410091203.GA2021@nanopsycho.orion>
+Received: from svenfoo.org ([82.94.215.22]:49665 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933049AbbDJKWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Apr 2015 06:22:02 -0400
+In-Reply-To: <55279F65.9090202@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/10/15 at 11:12am, Jiri Pirko wrote:
-> Thu, Apr 09, 2015 at 11:34:23PM CEST, davem@davemloft.net wrote:
-> >I'm not so sure what my opinion is about whether we should
-> >even have an openflow classifier or not (I find major aspects
-> >of OpenFLOW extremely distasteful, it's basically pushing the
-> >SDK agenda of several major chip vendors).
+On 04/10/2015 12:01 PM, Mason wrote:
+> Daniel Mack wrote:
+
+>> A company I used to work with ships various hardware models in
+>> quantities which features this chip, and they're using the unpatched
+>> mainline kernel version of the driver.
+
+Meh. I just double-checked the references again and figured the final
+verions of the hardware design featured a 8030 model, not 8035. Sorry
+for that.
+
+So there might be a difference, and maybe the 8035 needs special
+treatment. Then again, Fabio said he has a 8035 working.
+
+>>> Maybe on my PHY, writing BMCR_RESET to BMCR triggers a SW reset,
+>>> while it triggers a HW reset on other boards?
+>>
+>> AFAIK, the chip does not do this, no. But even if it did,
 > 
-> Yep, I don't like OpenFlow as well. But anyway, we already have
-> OpenFlow-based classifier in kernel - in OVS code.
+> Did you forget to finish that sentence? :-)
 
-Can we stop referring to OpenFlow? There is really no relation ;-)
-In fact, there are several open source projects which utilize the
-OVS kernel datapath *without* caring about OpenFlow at all. A good
-example of this is Midonet.
+Even if it did, the kernel driver should still be able to set up the
+device just fine.
 
-> The thing is, why don't have it in tc? It does not cost anything. And
-> having it, people used to use ovs kernel DP will be able to migrate
-> easily to tc.
+>> I'd still go and check if there's anything in one of the chained
+>> bootloaders that does some magic. One other thing that might give you a
+>> hint is to manually pull the RESET line low for a short time right when
+>> the kernel decompressor is started. That way, the kernel has to deal
+>> with a device that has just seen a hardware reset. Just see if that
+>> makes any difference.
+> 
+> I'd force a HW reset by jiggling the appropriate GPIO pin?
+> Like you did in the at803x.c driver?
 
-That part I agree with. We should have a single common flow dissector
-which is used for all purposes. After all, it's just parsing and
-wildcard matching through hash tables. If that flow dissector is not
-rich enough for someone, eBPF offers a more programmable approach and
-we already see that work progressing nicely. We should also
-consolidate as much of the actions as possible.
+Yes. But that's just to gain more ideas where to look for, and possibly
+find a pattern.
 
-As I stated in a private email to a couple of days ago. I've started
-working on ripping out most of the OVS vport logic and make all OVS
-bridge ports be regular net_devices (most of them already were). This
-will get rid of most of the OVS specific tunnel handling logic and
-should allow to implement flow based tunnels with iproute2 as well.
-The OVS datapath structure will just become net_device private data
-and all ports will be regular slaves.
 
-Adding slaves to an OVS bridge will be possible through iproute2
-and we can even expose OVS bridges as regular Linux bridges ithrough
-AF_BRIDGE *if* we want. Although I'm not sure how feasiable that is
-given that most Linux bridge knobs including all the STP config
-does not apply to OVS bridges.
 
-I think everybody agrees that we should melt as much as possible and
-stop reimplementing everything from scratch in isolated silos for
-every bridge flavour that pops up.
+Daniel
