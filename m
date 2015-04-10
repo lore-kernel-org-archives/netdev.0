@@ -1,54 +1,136 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 3/4] ipv4: add option to drop gratuitous ARP packets
-Date: Fri, 10 Apr 2015 15:11:19 +0200
-Message-ID: <1428671479.1890.23.camel@sipsolutions.net>
-References: <1428652454-1224-1-git-send-email-johannes@sipsolutions.net>
-	 <1428652454-1224-3-git-send-email-johannes@sipsolutions.net>
-	 <5527C877.6040700@cogentembedded.com>
-	 (sfid-20150410_145653_908330_C14391BB)
+From: <gregkh@linuxfoundation.org>
+Subject: Patch "net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}" has been added to the 3.10-stable tree
+Date: Fri, 10 Apr 2015 15:12:20 +0200
+Message-ID: <14286715402597@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	matti.gottlieb@intel.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: 8bit
+Cc: <stable@vger.kernel.org>, <stable-commits@vger.kernel.org>
+To: markos.chandras@imgtec.com, davem@davemloft.net,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, pcnet32@frontier.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:59293 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932174AbbDJNLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Apr 2015 09:11:22 -0400
-In-Reply-To: <5527C877.6040700@cogentembedded.com> (sfid-20150410_145653_908330_C14391BB)
+Received: from mail.linuxfoundation.org ([140.211.169.12]:35746 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932324AbbDJNMY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 09:12:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-04-10 at 15:56 +0300, Sergei Shtylyov wrote:
 
-> > diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> > index 5f5c674e130a..5487d5e5191e 100644
-> > --- a/net/ipv4/arp.c
-> > +++ b/net/ipv4/arp.c
-> > @@ -715,6 +715,14 @@ static int arp_process(struct sk_buff *skb)
-> >   	    (!IN_DEV_ROUTE_LOCALNET(in_dev) && ipv4_is_loopback(tip)))
-> >   		goto out;
-> >
-> > + /*
-> > +  *	For some 802.11 wireless deployments (and possibly other networks),
-> > +  *	there will be an ARP proxy and gratuitous ARP frames are attacks
-> > +  *	and thus should not be accepted.
-> > +  */
-> 
->     Hm, why this strange indentation?
-> 
-> > +	if (IN_DEV_CONF_GET(in_dev, DROP_GRATUITOUS_ARP) && sip == tip)
-> > +		goto out;
-> > +
-> >   /*
-> >    *     Special case: We must set Frame Relay source Q.922 address
-> >    */
-> [...]
+This is a note to let you know that I've just added the patch titled
 
-Well, because of the context. All the comments in this file are that
-way, so it seemed nicer to keep it like that rather than add one
-"modern" one to it...
+    net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
 
-johannes
+to the 3.10-stable tree which can be found at:
+    http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
+
+The filename of the patch is:
+     net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
+and it can be found in the queue-3.10 subdirectory.
+
+If you, or anyone else, feels it should not be added to the stable tree,
+please let <stable@vger.kernel.org> know about it.
+
+
+>From 87f966d97b89774162df04d2106c6350c8fe4cb3 Mon Sep 17 00:00:00 2001
+From: Markos Chandras <markos.chandras@imgtec.com>
+Date: Thu, 19 Mar 2015 10:28:14 +0000
+Subject: net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
+
+From: Markos Chandras <markos.chandras@imgtec.com>
+
+commit 87f966d97b89774162df04d2106c6350c8fe4cb3 upstream.
+
+On a MIPS Malta board, tons of fifo underflow errors have been observed
+when using u-boot as bootloader instead of YAMON. The reason for that
+is that YAMON used to set the pcnet device to SRAM mode but u-boot does
+not. As a result, the default Tx threshold (64 bytes) is now too small to
+keep the fifo relatively used and it can result to Tx fifo underflow errors.
+As a result of which, it's best to setup the SRAM on supported controllers
+so we can always use the NOUFLO bit.
+
+Cc: <netdev@vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>
+Cc: Don Fry <pcnet32@frontier.com>
+Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
+---
+ drivers/net/ethernet/amd/pcnet32.c |   31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1516,7 +1516,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ {
+ 	struct pcnet32_private *lp;
+ 	int i, media;
+-	int fdx, mii, fset, dxsuflo;
++	int fdx, mii, fset, dxsuflo, sram;
+ 	int chip_version;
+ 	char *chipname;
+ 	struct net_device *dev;
+@@ -1553,7 +1553,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 	}
+ 
+ 	/* initialize variables */
+-	fdx = mii = fset = dxsuflo = 0;
++	fdx = mii = fset = dxsuflo = sram = 0;
+ 	chip_version = (chip_version >> 12) & 0xffff;
+ 
+ 	switch (chip_version) {
+@@ -1586,6 +1586,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 		chipname = "PCnet/FAST III 79C973";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2626:
+ 		chipname = "PCnet/Home 79C978";	/* PCI */
+@@ -1609,6 +1610,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 		chipname = "PCnet/FAST III 79C975";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2628:
+ 		chipname = "PCnet/PRO 79C976";
+@@ -1637,6 +1639,31 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 		dxsuflo = 1;
+ 	}
+ 
++	/*
++	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
++	 * which we can use for the Tx/Rx buffers but most importantly,
++	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
++	 * Tx fifo underflows.
++	 */
++	if (sram) {
++		/*
++		 * The SRAM is being configured in two steps. First we
++		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
++		 * to the datasheet, each bit corresponds to a 512-byte
++		 * page so we can have at most 24 pages. The SRAM_SIZE
++		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
++		 * The low 8-bits start at 0x00 and end at 0xff. So the
++		 * address range is from 0x0000 up to 0x17ff. Therefore,
++		 * the SRAM_SIZE is set to 0x17. The next step is to set
++		 * the BCR26:SRAM_BND midway through so the Tx and Rx
++		 * buffers can share the SRAM equally.
++		 */
++		a->write_bcr(ioaddr, 25, 0x17);
++		a->write_bcr(ioaddr, 26, 0xc);
++		/* And finally enable the NOUFLO bit */
++		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
++	}
++
+ 	dev = alloc_etherdev(sizeof(*lp));
+ 	if (!dev) {
+ 		ret = -ENOMEM;
+
+
+Patches currently in stable-queue which might be from markos.chandras@imgtec.com are
+
+queue-3.10/net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
