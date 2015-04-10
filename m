@@ -1,42 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3 net-next] net_device: Add minimal padding to allow
- for net_device pointer alignment
-Date: Fri, 10 Apr 2015 02:03:06 -0700
-Message-ID: <1428656586.25985.290.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1428622095.git.tgraf@suug.ch>
-	 <1676328eb3e9d02a4432783494d0c5a13f0d4656.1428622095.git.tgraf@suug.ch>
-	 <1428626095.25985.282.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150410084816.GB23070@casper.infradead.org>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH v2 net-next 0/2] sfc: Nic specific sriov functions, netdev_ops
+ and sriov_configure
+Date: Fri, 10 Apr 2015 10:05:50 +0100
+Message-ID: <5527926E.7030903@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:37535 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755555AbbDJJDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 05:03:09 -0400
-Received: by igblo3 with SMTP id lo3so12459362igb.0
-        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 02:03:09 -0700 (PDT)
-In-Reply-To: <20150410084816.GB23070@casper.infradead.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:51612 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754161AbbDJJF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 05:05:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-04-10 at 09:48 +0100, Thomas Graf wrote:
+First two patches among the series of patches to support SRIOV on EF10.
 
-> 
-> I assumed kmalloc would guarantee alignment of the return pointer as
-> indicated by __alignof__ but I now realize that this can't possibly be the
-> case. kmalloc only knows about the size. We'll have to drop patch 3.
-> Fortunately it's still below 2K.
+First patch declares nic specific sriov functions in nic specific headers,
+creates only one instance of the netdev_ops, removes sriov functionality
+from Falcon code.
 
+Second patch adds support for sriov_configure.
 
-If you really care for this, take a look at qdisc_alloc()
-and commit d276055c4e90a7278cd5167ba9755c9b214bcff7
-("net_sched: reduce fifo qdisc size")
+The Virtual Functions can be enabled but they do not bind to the SFC
+driver just yet.
 
-(Note that some setups require ~3 network devices but 3000+ qdisc)
+Shradha Shah (2):
+  sfc: Own header for nic-specific sriov functions, single instance of
+    netdev_ops and sriov removed from Falcon code
+  sfc: Enable VF's via a write to the sysfs file sriov_numvfs
 
-I guess it might be nice to define a common helper and reuse it.
+ drivers/net/ethernet/sfc/Makefile      |   2 +-
+ drivers/net/ethernet/sfc/ef10.c        |   7 ++
+ drivers/net/ethernet/sfc/ef10_sriov.c  |  46 +++++++++++++
+ drivers/net/ethernet/sfc/ef10_sriov.h  |  56 ++++++++++++++++
+ drivers/net/ethernet/sfc/efx.c         | 118 ++++++++++++++++++---------------
+ drivers/net/ethernet/sfc/efx.h         |   7 ++
+ drivers/net/ethernet/sfc/falcon.c      |  10 ---
+ drivers/net/ethernet/sfc/farch.c       |  48 ++++++++------
+ drivers/net/ethernet/sfc/mcdi.c        |   4 +-
+ drivers/net/ethernet/sfc/net_driver.h  |   9 +++
+ drivers/net/ethernet/sfc/nic.h         | 111 -------------------------------
+ drivers/net/ethernet/sfc/siena.c       |   7 ++
+ drivers/net/ethernet/sfc/siena_sriov.c |  23 ++++---
+ drivers/net/ethernet/sfc/siena_sriov.h |  79 ++++++++++++++++++++++
+ drivers/net/ethernet/sfc/sriov.c       |  60 +++++++++++++++++
+ drivers/net/ethernet/sfc/sriov.h       |  27 ++++++++
+ 16 files changed, 407 insertions(+), 207 deletions(-)
+ create mode 100644 drivers/net/ethernet/sfc/ef10_sriov.c
+ create mode 100644 drivers/net/ethernet/sfc/ef10_sriov.h
+ create mode 100644 drivers/net/ethernet/sfc/siena_sriov.h
+ create mode 100644 drivers/net/ethernet/sfc/sriov.c
+ create mode 100644 drivers/net/ethernet/sfc/sriov.h
