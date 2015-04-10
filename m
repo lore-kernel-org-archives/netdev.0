@@ -1,48 +1,33 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] rtnetlink: Mark name argument of rtnl_create_link() const
-Date: Fri, 10 Apr 2015 01:45:53 +0200
-Message-ID: <0026a8339671614050a06eed45835946a3c74386.1428623089.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 0/3 net-next] Bring sizeof(net_device) down to < 2K bytes
+Date: Thu, 9 Apr 2015 17:01:52 -0700
+Message-ID: <20150410000151.GA1728@Alexeis-MBP.westell.com>
+References: <cover.1428622095.git.tgraf@suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:58246 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753730AbbDIXpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 19:45:55 -0400
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:37694 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753831AbbDJAB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Apr 2015 20:01:56 -0400
+Received: by igblo3 with SMTP id lo3so5424411igb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Apr 2015 17:01:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <cover.1428622095.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- include/net/rtnetlink.h | 2 +-
- net/core/rtnetlink.c    | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+On Fri, Apr 10, 2015 at 01:43:25AM +0200, Thomas Graf wrote:
+> The size of struct net_device crossed the 2K boundary a while ago which
+> is a waste in combination with many net namespaces. This series brings
+> the size of struct net_device down to well below 2K in total size with
+> a typical configuration. Some reserves a several holes leave room for
+> further expansion.
 
-diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 6c6d539..343d922 100644
---- a/include/net/rtnetlink.h
-+++ b/include/net/rtnetlink.h
-@@ -137,7 +137,7 @@ void rtnl_af_register(struct rtnl_af_ops *ops);
- void rtnl_af_unregister(struct rtnl_af_ops *ops);
- 
- struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[]);
--struct net_device *rtnl_create_link(struct net *net, char *ifname,
-+struct net_device *rtnl_create_link(struct net *net, const char *ifname,
- 				    unsigned char name_assign_type,
- 				    const struct rtnl_link_ops *ops,
- 				    struct nlattr *tb[]);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index c3bf190..7a83615 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1932,7 +1932,7 @@ int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm)
- EXPORT_SYMBOL(rtnl_configure_link);
- 
- struct net_device *rtnl_create_link(struct net *net,
--	char *ifname, unsigned char name_assign_type,
-+	const char *ifname, unsigned char name_assign_type,
- 	const struct rtnl_link_ops *ops, struct nlattr *tb[])
- {
- 	int err;
--- 
-1.9.3
+Great stuff!
+Can you share what was the sizeof(struct net_device) with typical
+x86 config before and after?
