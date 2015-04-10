@@ -1,59 +1,50 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next 0/3] net: cap size to original frag size when refragmenting
-Date: Sat, 11 Apr 2015 00:16:26 +0200
-Message-ID: <1428704189-31247-1-git-send-email-fw@strlen.de>
-Cc: kaber@trash.net
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59126 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751911AbbDJWQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 18:16:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net/wireless: CFG80211_WEXT_EXPORT requires wireless extensions
+Date: Sat, 11 Apr 2015 00:29:14 +0200
+Message-ID: <2303996.H1mYPouv05@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series alters ipv4 and ipv6 fragmentation to ensure that we do not
-increase the size of the original fragments when refragmenting.
+The CFG80211_WEXT_EXPORT symbol is selected by two drivers that
+make direct use of compat handlers for the wireless ioctls.
+However, this has no effect when the wireless extensions themselves
+are disabled, and results in a link error:
 
-For IPv4, we only do this when DF bit was set on original fragments since
-path mtu discovery doesn't happen otherwise.
+ERROR: "cfg80211_wext_giwrts" [drivers/net/wireless/orinoco/orinoco.ko] undefined!
+ERROR: "cfg80211_wext_siwfrag" [drivers/net/wireless/orinoco/orinoco.ko] undefined!
+ERROR: "cfg80211_wext_giwname" [drivers/net/wireless/ipw2x00/ipw2200.ko] undefined!
 
-tested via:
-#!/usr/bin/python
-from scapy.all import *
-dip="10.23.42.2"
-payload="A"*1400
-packet=IP(dst=dip,id=12345,flags='DF')/UDP(sport=42,dport=42)/payload
-frags=fragment(packet,fragsize=1200)
-for fragment in frags:
-    send(fragment)
+This changes the Kconfig logic so that CFG80211_WEXT can not
+be disabled when CFG80211_WEXT_EXPORT is set.
 
-Without this patch, we generate fragments without df bit set based
-on the outgoing device mtu when fragmenting after forwarding, ie.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 2afe38d15cee01 ("cfg80211-wext: export symbols only when needed")
 
-IP (ttl 64, id 12345, offset 0, flags [+, DF], proto UDP (17), length 1204)
-    192.168.7.1.42 > 10.23.42.2.42: UDP, length 1400
-IP (ttl 64, id 12345, offset 1184, flags [DF], proto UDP (17), length 244)
-    192.168.7.1 > 10.23.42.2: ip-proto-17
-
-on ingress will turn into
-
-IP (ttl 63, id 12345, offset 0, flags [+], proto UDP (17), length 1396)
-    192.168.7.1.42 > 10.23.42.2.42: UDP, length 1400
-IP (ttl 63, id 12345, offset 1376, flags [none], proto UDP (17), length 52)
-
-(mtu is 1400, we strip df and send larger fragment), or
-
-IP (ttl 63, id 12345, offset 0, flags [DF], proto UDP (17), length 1428)
-    192.168.7.1.42 > 10.23.42.2.42: [udp sum ok] UDP, length 1400
-
-if mtu is 1500.
-
-The latter is worse since we keep DF, so anything in the path that has smaller
-mtu will send icmp error; but original sender never sent packets larger
-than 1204 byte.
-
-With patch, we keep the intent of such fragments and will emit DF-fragments that
-won't exceed 1204 byte in size.
-
-IPv6 has similar issue so respect the maximum seen fragment size there as well.
+diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
+index b13dfb4ff001..cb5eef396d5c 100644
+--- a/net/wireless/Kconfig
++++ b/net/wireless/Kconfig
+@@ -178,7 +178,6 @@ config CFG80211_WEXT
+ 	bool "cfg80211 wireless extensions compatibility"
+ 	depends on CFG80211
+ 	select WEXT_CORE
+-	default y if CFG80211_WEXT_EXPORT
+ 	help
+ 	  Enable this option if you need old userspace for wireless
+ 	  extensions with cfg80211-based drivers.
+@@ -186,6 +185,7 @@ config CFG80211_WEXT
+ config CFG80211_WEXT_EXPORT
+ 	bool
+ 	depends on CFG80211
++	select CFG80211_WEXT
+ 	help
+ 	  Drivers should select this option if they require cfg80211's
+ 	  wext compatibility symbols to be exported.
