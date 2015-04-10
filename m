@@ -1,163 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] net: use jump label patching for ingress qdisc in __netif_receive_skb_core
-Date: Fri, 10 Apr 2015 23:07:54 +0200
-Message-ID: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net>
-Cc: jhs@mojatatu.com, ast@plumgrid.com, edumazet@google.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44760 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756463AbbDJVH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 17:07:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 5/7] net: add netfilter ingress hook
+Date: Fri, 10 Apr 2015 22:33:12 +0100
+Message-ID: <20150410213312.GA23727@acer.localdomain>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <1428668142-4006-6-git-send-email-pablo@netfilter.org>
+ <20150410132120.GE23070@casper.infradead.org>
+ <20150410133610.GA19454@acer.localdomain>
+ <20150410201719.GC5968@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150410201719.GC5968@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Even if we make use of classifier and actions from the egress
-path, we're going into handle_ing() executing additional code
-on a per-packet cost for ingress qdisc, just to realize that
-nothing is attached on ingress.
+On 10.04, Pablo Neira Ayuso wrote:
+> On Fri, Apr 10, 2015 at 02:36:11PM +0100, Patrick McHardy wrote:
+> > 
+> > I'm wondering if the hook is the right abstraction at all. Netfilter hooks
+> > require async resumption (okfn) support, which is why all the refactoring is
+> > needed. Is that something that we need for NF_PROTO_NETDEV? For ingress
+> > userspace queueing *might* actually work if the missing pieces are added,
+> > but for offloaded rules it obviously can not work.
+> 
+> For userspace queueing from ingress we still have to call
+> skb_share_check() and hold a reference to orig_dev from the escape
+> path. But this support is still missing in nf_tables (actually, we
+> only support NFPROTO_IPV4 and NFPROTO_IPV6 at this moment, see patch
+> attached). Regarding offload, this path will not see any packet.
 
-Instead, this can just be blinded out as a no-op entirely with
-the use of a static key. On input fast-path, we already make
-use of static keys in various places, e.g. skb time stamping,
-in RPS, etc. It makes sense to not waste time when we're assured
-that no ingress qdisc is attached anywhere.
+We do support all families using the regular NF_QUEUE verdict of course.
+But yes, nf_queue.c will simply drop packets that don't have a netfilter
+AF registered.
 
-Enabling/disabling of that code path is being done via two
-helpers, namely net_{inc,dec}_ingress_queue(), that are being
-invoked under RTNL mutex when a ingress qdisc is being either
-initialized or destructed.
+But my question is whether queueing is something that is even worth
+considering for the NFPROTO_NETDEV family. As I said, it will at best
+work for ingress anyways and that will actually be more tricky than just
+calling skb_share_check(), we need to take care of keeping valid
+references to all the data you currently store in the CB, including the
+packet_type, the device, things attached to the skb at this point to
+the stack etc.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/linux/rtnetlink.h | 15 ++++++++++++++-
- net/core/dev.c            | 31 ++++++++++++++++++++++++-------
- net/sched/sch_ingress.c   |  9 +++++++++
- 3 files changed, 47 insertions(+), 8 deletions(-)
+If we decide not to support queueing for this family we don't have to
+use netfilter hooks for this and all the refactoring for async resume
+becomes unnecessary. 
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 5db76a3..2da5d10 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -77,7 +77,20 @@ static inline struct netdev_queue *dev_ingress_queue(struct net_device *dev)
- 	return rtnl_dereference(dev->ingress_queue);
- }
- 
--extern struct netdev_queue *dev_ingress_queue_create(struct net_device *dev);
-+struct netdev_queue *dev_ingress_queue_create(struct net_device *dev);
-+
-+#ifdef CONFIG_NET_CLS_ACT
-+void net_inc_ingress_queue(void);
-+void net_dec_ingress_queue(void);
-+#else
-+static inline void net_inc_ingress_queue(void)
-+{
-+}
-+
-+static inline void net_dec_ingress_queue(void)
-+{
-+}
-+#endif
- 
- extern void rtnetlink_init(void);
- extern void __rtnl_unlock(void);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 3b39652..aa958ea 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1630,6 +1630,22 @@ int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
- }
- EXPORT_SYMBOL(call_netdevice_notifiers);
- 
-+#ifdef CONFIG_NET_CLS_ACT
-+static struct static_key ingress_needed __read_mostly;
-+
-+void net_inc_ingress_queue(void)
-+{
-+	static_key_slow_inc(&ingress_needed);
-+}
-+EXPORT_SYMBOL_GPL(net_inc_ingress_queue);
-+
-+void net_dec_ingress_queue(void)
-+{
-+	static_key_slow_dec(&ingress_needed);
-+}
-+EXPORT_SYMBOL_GPL(net_dec_ingress_queue);
-+#endif
-+
- static struct static_key netstamp_needed __read_mostly;
- #ifdef HAVE_JUMP_LABEL
- /* We are not allowed to call static_key_slow_dec() from irq context
-@@ -3547,7 +3563,7 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
- 	struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
- 
- 	if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
--		goto out;
-+		return skb;
- 
- 	if (*pt_prev) {
- 		*ret = deliver_skb(skb, *pt_prev, orig_dev);
-@@ -3561,8 +3577,6 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
- 		return NULL;
- 	}
- 
--out:
--	skb->tc_verd = 0;
- 	return skb;
- }
- #endif
-@@ -3698,12 +3712,15 @@ another_round:
- 
- skip_taps:
- #ifdef CONFIG_NET_CLS_ACT
--	skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
--	if (!skb)
--		goto unlock;
-+	if (static_key_false(&ingress_needed)) {
-+		skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
-+		if (!skb)
-+			goto unlock;
-+	}
-+
-+	skb->tc_verd = 0;
- ncls:
- #endif
--
- 	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
- 		goto drop;
- 
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index eb5b844..4cdbfb8 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -88,11 +88,19 @@ static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- /* ------------------------------------------------------------- */
- 
-+static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	net_inc_ingress_queue();
-+
-+	return 0;
-+}
-+
- static void ingress_destroy(struct Qdisc *sch)
- {
- 	struct ingress_qdisc_data *p = qdisc_priv(sch);
- 
- 	tcf_destroy_chain(&p->filter_list);
-+	net_dec_ingress_queue();
- }
- 
- static int ingress_dump(struct Qdisc *sch, struct sk_buff *skb)
-@@ -124,6 +132,7 @@ static struct Qdisc_ops ingress_qdisc_ops __read_mostly = {
- 	.id		=	"ingress",
- 	.priv_size	=	sizeof(struct ingress_qdisc_data),
- 	.enqueue	=	ingress_enqueue,
-+	.init		=	ingress_init,
- 	.destroy	=	ingress_destroy,
- 	.dump		=	ingress_dump,
- 	.owner		=	THIS_MODULE,
--- 
-1.9.3
+> >From db2fba74dea98b69ee7615fca86b9847bc42887f Mon Sep 17 00:00:00 2001
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date: Fri, 10 Apr 2015 21:40:58 +0200
+> Subject: [PATCH] netfilter: nf_tables: restrict nft_queue to AF_INET and
+>  AF_INET6
+> 
+> Other families need the corresponding struct nf_afinfo in place to work.
+> Restrict it to NFPROTO_IPV4 and NFPROTO_IPV6 until the necessary code is in
+> place.
