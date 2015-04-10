@@ -1,118 +1,58 @@
-From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
-Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Fri, 10 Apr 2015 10:26:21 +0200
-Message-ID: <5527892D.4020608@ericsson.com>
-References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net>
+From: Ido Shamay <idos@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 01/11] net/mlx5_core: Set irq affinity hints
+Date: Fri, 10 Apr 2015 11:27:26 +0300
+Message-ID: <5527896E.4040604@dev.mellanox.co.il>
+References: <1428504685-8945-1-git-send-email-amirv@mellanox.com> <1428504685-8945-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <netdev@emagii.com>
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:43262 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754450AbbDJI00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 04:26:26 -0400
-In-Reply-To: <20150312.142621.1128728353472907283.davem@davemloft.net>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:33539 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754270AbbDJI1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 04:27:30 -0400
+Received: by wiax7 with SMTP id x7so10969874wia.0
+        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 01:27:29 -0700 (PDT)
+In-Reply-To: <1428504685-8945-2-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 03/12/2015 07:26 PM, David Miller wrote:
-> I hate changes like this.
+On 4/8/2015 5:51 PM, Amir Vadai wrote:
+> From: Saeed Mahameed <saeedm@mellanox.com>
 >
-> By making this a Kconfig options it cannot be dynamic, and every
-> distribution is going to have to scratch their head and decide
-> what to set this to.
->
-> That's seriously suboptimal.
->
-> If you want to change behavior based upon whether userspace is
-> managing the damn table, make it so the user doing so has to
-> ask for the new behavior at _RUN TIME_ via the netlink interface
-> or similar.
->
-> Picking the guard time itself at compile time is also undesirable.
->
-> And you don't even want a damn timer, what you want is for the
-> state of the entry to be frozen and for the user to "release"
-> it by either adjusting the state to something else or marking
-> in some other way to allow it to be unfrozen and released again.
->
-> Why put it to chance with some timeout?  Make things explicit.
+> +	int numa_node           =
+> +#if IS_ENABLED(CONFIG_NUMA)
+> +		mdev->pdev->dev.numa_node;
+> +#else
+> +		-1;
+> +#endif
+Would be nicer to use dev_to_node helper here, which already checks for 
+CONFIG_NUMA
 
-The desired functionality is that if communication stops,
-you want to send out ARP probes, before the entry is deleted.
-
-The current (pseudo) code of the neigh timer is:
-
-     if (state & NUD_REACHABLE) {
-         if (now <= "confirmed + "reachable_time")) {
-                     ... /* We are OK */
-         } else if (now < "used" + DELAY_PROBE_TIME) {    /* Never 
-happens */
-                     state = NUD_DELAY;
-         } else {
-             state = NUD_STALE;
-             notify = 1;
-         }
-
-We never see the state beeing changed from REACHABLE to DELAY,
-so the probes are not beeing sent out, instead you always go
-from REACHABLE to STALE.
-
-DELAY_PROBE_TIME is set to (5 x HZ) and "used"
-seems to be only set by the periodic_work routine
-when the neigh entry is in STALE state, and then it is too late.
-It is also set by "arp_find" which is used by "broken" devices.
-
-In practice, the second condition: "(now < "used" + DELAY_PROBE_TIME)" 
-is never used.
-What is the intention of this test?
-
-By adding a new test + parameter, we would get the desired functionality,
-and no need to listen for notifications or doing ARP state updates from 
-applications.
-
-         if (now <= "confirmed + "reachable_time")) {
-                     ... /* We are OK */
-+        else if (now <= "confirmed + "reprobe_time")) {
-+                   state <= NUD_DELAY;
-         } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
-happens */
-                     state <= NUD_DELAY;
-         } else {
-             state = NUD_STALE;
-             notify = 1;
-         }
-
-This way the entry would remain in REACHABLE while normal communication 
-occurs,
-then it would enter DELAY state to probe, and if that fails, it goes to 
-STALE state.
-
-Alternatively, we just change the second test:
-         if (now <= "confirmed + "reachable_time")) {
-                     ... /* We are OK */
--        } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
-happens */
-+       } else if (now < "confirmed" + DELAY_PROBE_TIME))) {
-                     state <= NUD_DELAY;
-         } else {
-             state = NUD_STALE;
-             notify = 1;
-         }
-
-
-The  DELAY_PROBE_TIME, should preferrably be a kernel Kconfig parameter.
-
-Best Regards,
-Ulf Samuelsson
-
-
-> I'm not applying this patch.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+include/linux/device.h:
+#ifdef CONFIG_NUMA
+static inline int dev_to_node(struct device *dev)
+{
+         return dev->numa_node;
+}
+static inline void set_dev_node(struct device *dev, int node)
+{
+         dev->numa_node = node;
+}
+#else
+static inline int dev_to_node(struct device *dev)
+{
+         return -1;
+}
+static inline void set_dev_node(struct device *dev, int node)
+{
+}
+#endif
