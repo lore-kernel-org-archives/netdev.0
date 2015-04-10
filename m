@@ -1,104 +1,87 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [net-next PATCH 2/3] net: macb: Add support for jumbo frames
-Date: Fri, 10 Apr 2015 11:50:58 +0200
-Message-ID: <392788e2-6d6b-44c7-83eb-151d1fde0b49@BN1BFFO11FD052.protection.gbl>
-References: <1428657441-27710-1-git-send-email-harinik@xilinx.com>
- <1428657441-27710-2-git-send-email-harinik@xilinx.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
+ commented out
+Date: Fri, 10 Apr 2015 12:01:09 +0200
+Message-ID: <55279F65.9090202@free.fr>
+References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <5526B608.2080504@gmail.com> <5526CA87.2070204@free.fr> <5526CC5A.1080504@gmail.com> <5526D359.1050202@free.fr> <552798CD.70608@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
-	<punnaia@xilinx.com>
-To: Harini Katakam <harini.katakam@xilinx.com>,
-	<nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<boris.brezillon@free-electrons.com>,
-	<alexandre.belloni@free-electrons.com>,
-	<harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1428657441-27710-2-git-send-email-harinik@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Mugunthan <mugunthanvnm@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Daniel Mack <daniel@zonque.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:57601 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753722AbbDJKBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Apr 2015 06:01:19 -0400
+In-Reply-To: <552798CD.70608@zonque.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/10/2015 11:17 AM, Harini Katakam wrote:
-> Check for "cdns,zynqmp-gem" compatible string and enable jumbo frame support
-> in NWCFG register, update descriptor length masks and registers accordingly.
-> Jumbo max length register should be set according to support in SoC; it is
-> set to 10240 for Zynq Ultrascale ZynqMPSoC.
-> 
-> Signed-off-by: Harini Katakam <harinik@xilinx.com>
-> Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
-> ---
->  drivers/net/ethernet/cadence/macb.c |   19 ++++++++++++++++---
->  drivers/net/ethernet/cadence/macb.h |    8 ++++++++
->  2 files changed, 24 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 448a323..85de91d 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -779,7 +779,7 @@ static int gem_rx(struct macb *bp, int budget)
->  		}
->  		/* now everything is ready for receiving packet */
->  		bp->rx_skbuff[entry] = NULL;
-> -		len = MACB_BFEXT(RX_FRMLEN, ctrl);
-> +		len = ctrl & bp->rx_frm_len_mask;
->  
->  		netdev_vdbg(bp->dev, "gem_rx %u (len %u)\n", entry, len);
->  
-> @@ -825,7 +825,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
->  	struct macb_dma_desc *desc;
->  
->  	desc = macb_rx_desc(bp, last_frag);
-> -	len = MACB_BFEXT(RX_FRMLEN, desc->ctrl);
-> +	len = desc->ctrl & bp->rx_frm_len_mask;
->  
->  	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
->  		macb_rx_ring_wrap(first_frag),
-> @@ -1630,7 +1630,10 @@ static void macb_init_hw(struct macb *bp)
->  	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
->  	config |= MACB_BIT(PAE);		/* PAuse Enable */
->  	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
-> -	config |= MACB_BIT(BIG);		/* Receive oversized frames */
-> +	if (bp->isjumbo)
-> +		config |= MACB_BIT(JFRAME);	/* Enable jumbo frames */
-> +	else
-> +		config |= MACB_BIT(BIG);	/* Receive oversized frames */
->  	if (bp->dev->flags & IFF_PROMISC)
->  		config |= MACB_BIT(CAF);	/* Copy All Frames */
->  	else if (macb_is_gem(bp) && bp->dev->features & NETIF_F_RXCSUM)
-> @@ -1639,8 +1642,13 @@ static void macb_init_hw(struct macb *bp)
->  		config |= MACB_BIT(NBC);	/* No BroadCast */
->  	config |= macb_dbw(bp);
->  	macb_writel(bp, NCFGR, config);
-> +	if (bp->isjumbo && bp->jumbo_max_len)
-> +		gem_writel(bp, JML, bp->jumbo_max_len);
->  	bp->speed = SPEED_10;
->  	bp->duplex = DUPLEX_HALF;
-> +	bp->rx_frm_len_mask = MACB_RX_FRMLEN_MASK;
-> +	if (bp->isjumbo)
-> +		bp->rx_frm_len_mask = MACB_RX_JFRMLEN_MASK;
->  
->  	macb_configure_dma(bp);
->  
-> @@ -2759,6 +2767,11 @@ static int macb_probe(struct platform_device *pdev)
->  	bp->pclk = pclk;
->  	bp->hclk = hclk;
->  	bp->tx_clk = tx_clk;
-> +	if (of_device_is_compatible(pdev->dev.of_node, "cdns,zynqmp-gem")) {
-> +		bp->isjumbo = 1;
-> +		bp->jumbo_max_len = GEM_ZYNQMP_JUMBO_MAX;
-> +	}
+Daniel Mack wrote:
 
-Not like this.
+> Mason wrote:
+>
+>> Am I the only having problems with the AR8035? :-(
+>> The standard driver works for everyone but me?
+>
+> A company I used to work with ships various hardware models in
+> quantities which features this chip, and they're using the unpatched
+> mainline kernel version of the driver.
 
-Nicolas will look at the rest but I think you should extend "struct
-macb_config" and add that setup there instead of checking compatible
-string here.
-Maybe isjumbo can be hadled via caps bit already present in this
-structure but please wait for others.
+It seems something was done differently on my SoC.
+I'll keep looking.
 
-Thanks,
-Michal
+>> Did you take a look at the data sheet? Do you understand the
+>> difference between "Hardware Reset" and "Software Reset"?
+>
+> I did, most notably because I was desperately trying to find a sane way
+> to conduct a full reset of the PHY to work around a confirmed bug in the
+> DIE of the chip which causes the internal state machine to lock up on
+> link loss under certain conditions.
+>
+> Unfortunately, I failed to find a way to really put the chip into
+> complete reset state through the registers. Instead, I added a
+> possibility to let the driver pull the hardware reset (see 13a56b4493).
+>
+> Other than that, however, I didn't encounter any problems.
+
+I wonder what value the CONTROL register was set to on your SoC
+after a SW reset. Maybe the "retain value" jiggery-pokery is just
+a red herring.
+
+>> Maybe on my PHY, writing BMCR_RESET to BMCR triggers a SW reset,
+>> while it triggers a HW reset on other boards?
+>
+> AFAIK, the chip does not do this, no. But even if it did,
+
+Did you forget to finish that sentence? :-)
+
+
+>> Also, why do you say the PHY is not working? When I apply the
+>> patch I proposed, it doesn't malfunction.
+>
+> You're referring to the one that removes the phy init routine?
+
+No, the RMW of the CONTROL register for when triggering reset.
+
+> I'd still go and check if there's anything in one of the chained
+> bootloaders that does some magic. One other thing that might give you a
+> hint is to manually pull the RESET line low for a short time right when
+> the kernel decompressor is started. That way, the kernel has to deal
+> with a device that has just seen a hardware reset. Just see if that
+> makes any difference.
+
+I'd force a HW reset by jiggling the appropriate GPIO pin?
+Like you did in the at803x.c driver?
+
+> Also, some delays in between the register writes during initialization
+> might also be worth a try. But that's all just random guessing right
+> now, sorry.
+
+Thanks for your help, by the way (and Fabio too).
+
+Regards.
