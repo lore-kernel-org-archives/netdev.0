@@ -1,55 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [patch net-next v3] tc: introduce OpenFlow classifier
-Date: Fri, 10 Apr 2015 11:30:06 +0200
-Message-ID: <5527981E.2040505@iogearbox.net>
-References: <1428584287-8197-1-git-send-email-jiri@resnulli.us> <20150409.173423.2258417584616634411.davem@davemloft.net> <20150410091203.GA2021@nanopsycho.orion>
+From: Harini Katakam <harini.katakam@xilinx.com>
+Subject: [net-next PATCH 1/3] devicetree: Add compatible string for Zynq Ultrascale MPSoC
+Date: Fri, 10 Apr 2015 14:47:19 +0530
+Message-ID: <ab4bdff5-a868-4dc0-820e-c338d149f7a8@BN1AFFO11FD053.protection.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, tgraf@suug.ch,
-	jesse@nicira.com
-To: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45592 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754593AbbDJJaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 05:30:13 -0400
-In-Reply-To: <20150410091203.GA2021@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
+	<punnaia@xilinx.com>, <michals@xilinx.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/10/2015 11:12 AM, Jiri Pirko wrote:
-...
->> However I am sure that I majorly object to having yet another flow
->> parsing engine.  Therefore, at least adjust this code to use our flow
->> dissector and datastructures.  Adjust the flow dissector to fit your
->> needs, if necessary.
->
-> Yep, Thomas already suggested the merge. The thing is, cls_flow uses
-> linked list for doing lookups. That is not scalable. in cls_openflow I
-> use rhashtable. Using rhashtable in cls_flow would break the existing
-> assumption that first inrested filter would be first hit.
->
-> So that would lead into major dual code in cls_flow. So I believe that
-> it is better to do it in separate cls_openflow (do one thing and do it
-> right).
+Add "cdns,zynqmp-gem" to be used for Zynq Ultrascal MPSoc.
 
-Would it be possible to 1) reuse the majority of the existing internal
-cls_flow code as much as possible, integrate the remaining openflow
-parts into it, and then 2) just register a 2nd classifier kind, a la ...
+Signed-off-by: Harini Katakam <harinik@xilinx.com>
+Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+---
+ Documentation/devicetree/bindings/net/macb.txt |    1 +
+ 1 file changed, 1 insertion(+)
 
-static struct tcf_proto_ops cls_flow_ht_ops __read_mostly = {
-	.kind		= "flow-ht",
-	.classify	= flow_classify_ht,
-	.init		= flow_init,
-	.destroy	= flow_destroy,
-	.change		= flow_change,
-	.delete		= flow_delete,
-	.get		= flow_get,
-	.dump		= flow_dump,
-	.walk		= flow_walk,
-	.owner		= THIS_MODULE,
-};
-
-... so you could do the non-linear rhashtable matching from there, but
-without much duplication?
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index ba19d67..a112add 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -9,6 +9,7 @@ Required properties:
+   the Cadence GEM, or the generic form: "cdns,gem".
+   Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
+   Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
++  Use "cdns,zynqmp-gem" for Zynq Ultrascale MPSoC.
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain macb interrupt
+ - phy-mode: See ethernet.txt file in the same directory.
+-- 
+1.7.9.5
