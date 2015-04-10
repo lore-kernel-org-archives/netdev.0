@@ -1,99 +1,135 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: [PATCH iproute2] [PATCH iproute2 v2] iproute2: unify naming for entries offloaded to hardware
-Date: Fri, 10 Apr 2015 16:50:40 -0400
-Message-ID: <1428699040-2071-1-git-send-email-gospo@cumulusnetworks.com>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:32815 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753252AbbDJUvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 16:51:14 -0400
-Received: by qkx62 with SMTP id 62so45439744qkx.0
-        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 13:51:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport() for each HW
+Date: Fri, 10 Apr 2015 17:06:40 -0400
+Message-ID: <20150410210639.GB19907@phlsvsds.ph.intel.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150408201015.GB28666@obsidianresearch.com> <20150410061610.GA26288@phlsvsds.ph.intel.com> <20150410161551.GA26419@obsidianresearch.com> <20150410173836.GE10675@phlsvsds.ph.intel.com> <20150410180455.GA1277@obsidianresearch.com> <1428690266.2980.381.camel@redhat.com> <20150410191723.GC1277@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morg
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20150410191723.GC1277-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The kernel now has the capability to offload FDB and FIB entries to hardware.
-It is important to let users know if table entries are also offloaded to
-hardware.  Currently offloaded FDB entries are indicated by the existence of
-the flag 'external' on the entry as of the following commit:
+On Fri, Apr 10, 2015 at 01:17:23PM -0600, Jason Gunthorpe wrote:
+> On Fri, Apr 10, 2015 at 02:24:26PM -0400, Doug Ledford wrote:
+> 
+> > IPoIB is more than just an ULP.  It's a spec.  And it's very IB
+> > specific.  It will only work with OPA because OPA is imitating IB.
+> > To run it on another fabric, you would need more than just to make
+> > it work.  If the new fabric doesn't have a broadcast group, or has
+> > multicast registration like IB does, you need the equivalent of
+> > IBTA, whatever that may be for this new fabric, buy in on the
+> > pre-defined multicast groups and you might need firmware support in
+> > the switches.
+> 
+> It feels like the 'cap_ib_addressing' or whatever we call it captures
+> this very well. The IPoIB RFC is very much concerned with GID's and
+> MGID's and broadly requires the IBA addressing
+> scheme. cap_ib_addressing asserts the port uses that scheme. 
+> 
+> We wouldn't accept patches to IPoIB to add a new addressing scheme
+> without seeing proper diligence to the standards work.
+> 
+> Looking away from the stadards, using cap_XX seems very sane: We are
+> building a well defined system of invarients, You can't call into the
+> sa functions if cap_sa is not set, you can't call into the mcast
+> functions if cap_mcast is not set, you can't form a AH from IB
+> GIDs/MGID/LID without cap_ib_addressing.
 
-commit 28467b7f3facd6114b2fbe0c9fecf57adbd52e12
-Author: Scott Feldman <sfeldma@gmail.com>
-Date:   Thu Dec 4 09:57:15 2014 +0100
+Yep.
 
-    bridge/fdb: add flag/indication for FDB entry synced from offload device
+> 
+> I makes so much sense for the ULP to directly require the needed cap's
+> for the kernel APIs it intends to call, or not use the RDMA port at
+> all.
 
-When the patch to add support for indicating that FIB entries were also
-offloaded as posted to netdev by Scott Feldman it became clear that 'external'
-would not be an ideal name for routes.  There could definitely be confusion
-about what this might mean since many routes are to external networks -- a
-collision/confusion that did not happen with FDB.
+Yes.
 
-Scott Feldman asked me to check with others and build concensus around a name.
-After speaking with several people about this I am proposing we refer to both
-FDB and FIB entries that are currently backed by hardware (based on the work
-done in rocker) with the flag 'offload' appended to the end ofthe entry.
+So trying to sum up.
 
-Some people liked the string 'external,' others liked 'hardware,' but the point
-is to communicate that these routes are available to something that will will
-offload the forwarding normally done by the kernel.  Since the term 'offload'
-is used so frequently it seems appropriate to use the same language in
-ip/bridge output.
+Have we settled on the following "capabilities"?  Helper function names aside.
 
-The term 'offload' also seems to resonate with many of the people who have
-responded on Scott's original thread or to those who I reached out to directly
-and did respond to my query, so it seems we have reached consensus that it
-should be the term used going forward.
+/* legacy to communicate to userspace */
+RDMA_LINK_LAYER_IB       = 0x0000000000000001,
+RDMA_LINK_LAYER_ETH      = 0x0000000000000002,
+RDMA_LINK_LAYER_MASK     = 0x000000000000000f, /* more bits? */
+	/* I'm hoping we don't need more bits here */
 
-v2: rebased against net-next branch
 
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-CC: Jamal Hadi Salim <jhs@mojatatu.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-CC: Jiri Pirko <jiri@resnulli.us>
-CC: John W. Linville <linville@tuxdriver.com>
-CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-CC: Scott Feldman <sfeldma@gmail.com>
-CC: Stephen Hemminger <stephen@networkplumber.org>
----
- bridge/fdb.c | 2 +-
- ip/iproute.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+/* legacy to communicate to userspace */
+RDMA_TRANSPORT_IB        = 0x0000000000000010,
+RDMA_TRANSPORT_IWARP     = 0x0000000000000020,
+RDMA_TRANSPORT_USNIC     = 0x0000000000000040,
+RDMA_TRANSPORT_USNIC_UDP = 0x0000000000000080,
+RDMA_TRANSPORT_MASK      = 0x00000000000000f0, /* more bits? */
+	/* I'm hoping we don't need more bits here */
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index 3c33e22..e34933b 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -159,7 +159,7 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	if (r->ndm_flags & NTF_ROUTER)
- 		fprintf(fp, "router ");
- 	if (r->ndm_flags & NTF_EXT_LEARNED)
--		fprintf(fp, "external ");
-+		fprintf(fp, "offload ");
- 
- 	fprintf(fp, "%s\n", state_n2a(r->ndm_state));
- 	return 0;
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 132a83a..e0a6159 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -448,7 +448,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	if (r->rtm_flags & RTNH_F_PERVASIVE)
- 		fprintf(fp, "pervasive ");
- 	if (r->rtm_flags & RTNH_F_EXTERNAL)
--		fprintf(fp, "external ");
-+		fprintf(fp, "offload ");
- 	if (r->rtm_flags & RTM_F_NOTIFY)
- 		fprintf(fp, "notify ");
- 	if (tb[RTA_MARK]) {
--- 
-1.9.3
+
+/* New flags */
+
+RDMA_MGMT_IB_MAD         = 0x0000000000000100, /* ib_mad module support */
+RDMA_MGMT_QP0            = 0x0000000000000200, /* ib_mad QP0 support */
+RDMA_MGMT_IB_SA          = 0x0000000000000400, /* ib_sa module support */
+					       /* NOTE includes IB Mcast */
+RDMA_MGMT_IB_CM          = 0x0000000000000800, /* ib_cm module support */
+RDMA_MGMT_OPA_MAD        = 0x0000000000001000, /* ib_mad OPA MAD support */
+RDMA_MGMT_MASK           = 0x00000000000fff00,
+
+RDMA_ADDR_IB             = 0x0000000000100000, /* Port does IB AH, PR, Pkey */
+RDMA_ADDR_IBoE           = 0x0000000000200000, /* Port does IBoE AH, PR, Pkey */
+/* Do we need iWarp (TCP) here? */
+RDMA_ADDR_IB_MASK        = 0x000000000ff00000,
+
+
+RDMA_SEPARATE_READ_SGE   = 0x0000000010000000,
+RDMA_QUIRKS_MASK         = 0x000000fff0000000
+
+
+> 
+> > > We can see how this might work in future, lets say OPAv2 *requires* the
+> > > 32 bit LID, for that case cap_ib_address = 0 cap_opa_address = 1. If
+> > > we don't update IPoIB and it uses the tests from above then it
+> > > immediately, and correctly, stops running on those OPAv2 devices.
+> > > 
+> > > Once patched to support cap_op_address then it will begin working
+> > > again. That seems very sane..
+> > 
+> > It is very sane from an implementation standpoint, but from the larger
+> > interoperability standpoint, you need that spec to be extended to the
+> > new fabric simultaneously.
+> 
+> I liked the OPAv2 hypothetical because it doesn't actually touch the
+> IPoIB spec. IPoIB spec has little to say about LIDs or LRHs it works
+> entirely at the GID/MGID/GRH level.
+
+Agreed.
+
+Ira
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
