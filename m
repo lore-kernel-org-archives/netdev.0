@@ -1,117 +1,55 @@
-From: "ira.weiny" <ira.weiny@intel.com>
-Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport() for each HW
-Date: Fri, 10 Apr 2015 16:38:03 -0400
-Message-ID: <20150410203803.GA19907@phlsvsds.ph.intel.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150408201015.GB28666@obsidianresearch.com> <20150410061610.GA26288@phlsvsds.ph.intel.com> <20150410161551.GA26419@obsidianresearch.com> <20150410173836.GE10675@phlsvsds.ph.intel.com> <20150410180455.GA1277@obsidianresearch.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [Patch net-next v2 0/5] fou: some fixes and updates
+Date: Fri, 10 Apr 2015 13:38:36 -0700
+Message-ID: <CALx6S37WGT7p=ZMLc+ZOiXmvjQxaxG+k6yR2m2h9SEn5Av5xjg@mail.gmail.com>
+References: <1428692430-14465-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>,
-	Michael Wang <yun.wang@profitbricks.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Mike Marciniszyn <infinipath@intel.com>,
-	Eli Cohen <eli@mellanox.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morg
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150410180455.GA1277@obsidianresearch.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:37469 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756220AbbDJUih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 16:38:37 -0400
+Received: by igblo3 with SMTP id lo3so7442622igb.0
+        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 13:38:36 -0700 (PDT)
+In-Reply-To: <1428692430-14465-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 10, 2015 at 12:04:55PM -0600, Jason Gunthorpe wrote:
-> On Fri, Apr 10, 2015 at 01:38:38PM -0400, ira.weiny wrote:
->  
-> > 
-> > I don't think that is appropriate.  You have been advocating that the checks
-> > be clear as to what support we need. 
-> 
-> Right, but this is narrow, and we are not hiding meaning.
-> 
-> Look at the IPoIB ULP, and look at the hard requiments of the code,
-> then translate those back to our new cap scheme. We see today's IPoIB
-> will not run without:
->  - UD support
->  - IB addressing
->  - IB multicast
->  - IB SA
->  - CM (optional)
-> 
-> It seems perfectly correct for a ULP to say at the very start, I need
-> all these caps, or I will not run (how could it run?). This is true of
-> any ULP that has a hard need to use those APIs.
+On Fri, Apr 10, 2015 at 12:00 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Patch 1~3 fix some minor bugs in net/ipv4/fou.c, the only
+> thing I am not sure is if it's too late to change the
+> byte order of FOU_ATTR_PORT, if so we have to fix iproute2
+> instead of kernel.
+>
+Is this a relic from previous patch set, or is there a reason you want
+to make this hbo?
 
-Having IPoIB check for all of these and fail to start if not supported is good.
-But the suggestion before was to have "cap_ipoib".  I don't think we want that.
+> Patch 4~5 add some new features to make it complete.
+>
+> v2: make fou->port be16 too
+>
+> Cong Wang (5):
+>   fou: avoid calling udp_del_offload() twice
+>   fou: exit early when parsing config fails
+>   fou: always use be16 for port
+>   fou: add network namespace support
+>   fou: implement FOU_CMD_GET
+>
 
-> 
-> That would seem to be the very essance of the cap scheme. Declare what
-> you need, not what standard you think you need.
+I assume you didn't see any adverse performance impact with these patches?
 
-Right.
+Acked-by: Tom Herbert <tom@herbertland.com>
 
-> 
-> Hiding meaning is to say 'only run on IB or OPA': WHY are we limited
-> to those two?
+Thanks!
+Tom
 
-Because only those 2 support the list of capabilities above.
-
-> 
-> > While currently the IPoIB layer does (for IB and OPA) require an SA
-> > I think those checks are only appropriate when it is attempting an
-> > SA query.
-> 
-> That doesn't make any sense unless someone also adds support for
-> handling the !SA case.
-
-Fair enough but IPoIB does need to check for SA support now as well as IB
-addressing which is currently IB Link Layer (although as Doug said the Port and
-Address format go hand in hand.  So I'm happy calling it whatever.)
-
-> 
-> > > It appears we have at least rocee, rocee v2 (udp?), tcp, ib and opa
-> > > address and AH formats?
-> > 
-> > Seems that way.  But has the rocee v2 been accepted?
-> 
-> Don't know much about it yet, patches exist, it seems to have a
-> slightly different addressing format.
-> 
-> > > opa would support ib addresses too I guess.
-> > 
-> > Yes opa address == ib addresses.  So there is no need to distinguish them.
-> 
-> The patches you sent showed a different LRH format for OPA (eg 32 bit
-> LID), so someday we will need to know that the full 32 bit LID is
-> available.
-> 
-> We can see how this might work in future, lets say OPAv2 *requires* the
-> 32 bit LID, for that case cap_ib_address = 0 cap_opa_address = 1. If
-> we don't update IPoIB and it uses the tests from above then it
-> immediately, and correctly, stops running on those OPAv2 devices.
-
-For your hypothetical case, agreed.  But I want to make it clear for those who
-may be casually reading this thread that OPA addresses are IB addresses right
-now.
-
-> 
-> Once patched to support cap_op_address then it will begin working
-> again. That seems very sane..
-
-Agreed.
-
-Ira
+>  include/uapi/linux/fou.h |   1 +
+>  net/ipv4/fou.c           | 230 +++++++++++++++++++++++++++++++++++++----------
+>  2 files changed, 186 insertions(+), 45 deletions(-)
+>
+> --
+> 1.8.3.1
+>
