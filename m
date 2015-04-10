@@ -1,50 +1,48 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2] configure: add missing INCLUDE to netnsid detection
-Date: Fri, 10 Apr 2015 18:17:20 +0200
-Message-ID: <5527F790.4080301@6wind.com>
-References: <42d42073b18a4cc0aebbc912fcc14788693c0c75.1428522001.git.jbenc@redhat.com> <20150408194006.GA17685@angus-think.lan>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Vadim Kochan <vadim4j@gmail.com>, Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:36824 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756075AbbDJQRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 12:17:23 -0400
-Received: by wgsk9 with SMTP id k9so22586712wgs.3
-        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 09:17:22 -0700 (PDT)
-In-Reply-To: <20150408194006.GA17685@angus-think.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: [PATCH] mlx4: Fix tx ring affinity_mask creation
+Date: Fri, 10 Apr 2015 09:27:20 -0700
+Message-ID: <1428683240-22879-1-git-send-email-bpoirier@suse.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 08/04/2015 21:40, Vadim Kochan a =E9crit :
-> On Wed, Apr 08, 2015 at 09:42:00PM +0200, Jiri Benc wrote:
->> Fixes: d116ff34145b0 ("ip netns: Fix rtnl error while print netns li=
-st")
->> Signed-off-by: Jiri Benc <jbenc@redhat.com>
->> ---
->> The whole check added by d116ff34145b0 is dubious, though. This shou=
-ld be
->> a run time check, not a compile time one.
-[snip]
->
-> On 3.18 I get same RTNL error with this fix, I agree that runtime che=
-cking
-> would be better than compile time checking, but how to do it, suppres=
-s
-> RTNL errors ?
-I also hit this issue.
-This whole check is done only to bypass some fprintf(stderr) messages f=
-rom
-rtnl_talk().
-I think adding a mechanism like iplink_have_newlink() should be enough.
+By default, the number of tx queues is limited by the number of online cpus in
+mlx4_en_get_profile(). However, this limit no longer holds after the ethtool
+.set_channels method has been called. In that situation, the driver may access
+invalid bits of certain cpumask variables when queue_index > nr_cpu_ids.
 
-If nobody wants to do it, I will look at this on Monday.
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-Regards,
-Nicolas
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 55f9f5c..8c234ec 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -143,8 +143,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
+ 	ring->queue_index = queue_index;
+ 
+-	if (queue_index < priv->num_tx_rings_p_up && cpu_online(queue_index))
+-		cpumask_set_cpu(queue_index, &ring->affinity_mask);
++	if (queue_index < priv->num_tx_rings_p_up)
++		cpumask_set_cpu_local_first(queue_index,
++					    priv->mdev->dev->numa_node,
++					    &ring->affinity_mask);
+ 
+ 	*pring = ring;
+ 	return 0;
+@@ -213,7 +215,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 
+ 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
+ 			       &ring->qp, &ring->qp_state);
+-	if (!user_prio && cpu_online(ring->queue_index))
++	if (!cpumask_empty(&ring->affinity_mask))
+ 		netif_set_xps_queue(priv->dev, &ring->affinity_mask,
+ 				    ring->queue_index);
+ 
+-- 
+2.3.3
