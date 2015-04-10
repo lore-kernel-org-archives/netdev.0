@@ -1,30 +1,91 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 0/7 RFC] Netfilter/nf_tables ingress support
-Date: Fri, 10 Apr 2015 22:09:01 +0200
-Message-ID: <20150410200901.GB5968@salvia>
-References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
- <20150410132205.GF23070@casper.infradead.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 96381] New: TUN/TAP user API regression in 3.19,
+ non-bloking read returns 0 when no data is available rather than EAGAIN
+Date: Fri, 10 Apr 2015 13:10:59 -0700
+Message-ID: <20150410131059.304d579c@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, kaber@trash.net,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150410132205.GF23070@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36607 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752002AbbDJUKy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 16:10:54 -0400
+Received: by pabsx10 with SMTP id sx10so31371725pab.3
+        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 13:10:54 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by mx.google.com with ESMTPSA id gm3sm3089191pbb.83.2015.04.10.13.10.53
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 10 Apr 2015 13:10:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 10, 2015 at 02:22:05PM +0100, Thomas Graf wrote:
-> On 04/10/15 at 02:15pm, Pablo Neira Ayuso wrote:
-> > This patchset adds the Netfilter hook at the ingress path, in a per-device
-> > fashion. This also comes with the new nf_tables 'netdev' family support to
-> > provide access to users to the existing nf_tables features. This includes the
-> > transactional netlink API and the enhanced set infrastructure.  Several patches
-> > come in first place to prepare this support, including the refactoring of
-> > __netif_receive_skb_core() to accomodate the new hook.
-> 
-> Is the goal to eventually replace ebtables with this?
 
-No, nftables comes with a bridge family that will eventually replace
-ebtables.
+
+Begin forwarded message:
+
+Date: Thu, 9 Apr 2015 09:25:41 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 96381] New: TUN/TAP user API regression in 3.19, non-bloking read returns 0 when no data is available rather than EAGAIN
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=96381
+
+            Bug ID: 96381
+           Summary: TUN/TAP user API regression in 3.19, non-bloking read
+                    returns 0 when no data is available rather than EAGAIN
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.19.3
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: ambrop7@gmail.com
+        Regression: No
+
+With kernel 3.19, a read() from a TUN/TAP file descriptor in non-blocking mode
+will return 0 when no data is available, rather than fail with EAGAIN. This
+breaks certain applications which will interpret the 0 return value as a
+zero-length packet and happily go on reading more packets.
+
+Here's relevant parts of my application showing the change of behavior and how
+the application locks up with kernel 3.19.
+
+-- strace with 3.18 --
+open("/dev/net/tun", O_RDWR)            = 5
+ioctl(5, TUNSETIFF, 0x7ffe24f1e620)     = 0
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 6
+ioctl(6, SIOCGIFMTU, {ifr_name="tun4", ifr_mtu=1500}) = 0
+close(6)                                = 0
+fcntl(5, F_SETFL, O_RDONLY|O_NONBLOCK)  = 0
+epoll_ctl(3, EPOLL_CTL_ADD, 5, {0, {u32=6509592, u64=6509592}}) = 0
+read(5, 0xac8010, 1500)                 = -1 EAGAIN (Resource temporarily
+unavailable)
+epoll_ctl(3, EPOLL_CTL_MOD, 5, {EPOLLIN, {u32=6509592, u64=6509592}}) = 0
+
+-- strace with 3.19 --
+open("/dev/net/tun", O_RDWR)            = 5
+ioctl(5, TUNSETIFF, 0x7ffea2f4d970)     = 0
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 6
+ioctl(6, SIOCGIFMTU, {ifr_name="tun4", ifr_mtu=1500}) = 0
+close(6)                                = 0
+fcntl(5, F_SETFL, O_RDONLY|O_NONBLOCK)  = 0
+epoll_ctl(3, EPOLL_CTL_ADD, 5, {0, {u32=6509592, u64=6509592}}) = 0
+read(5, "", 1500)                       = 0
+read(5, "", 1500)                       = 0
+read(5, "", 1500)                       = 0
+read(5, "", 1500)                       = 0
+read(5, "", 1500)                       = 0
+...
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
