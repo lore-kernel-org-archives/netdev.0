@@ -1,873 +1,121 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: [PATCH 2/2] net: Export IGMP/MLD message validation code
-Date: Fri, 10 Apr 2015 19:46:39 +0200
-Message-ID: <1428687999-18428-2-git-send-email-linus.luessing@c0d3.blue>
-References: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback
+ query_transport() for each HW
+Date: Fri, 10 Apr 2015 13:49:32 -0400
+Message-ID: <1428688172.2980.372.camel@redhat.com>
+References: <5523CCD5.6030401@profitbricks.com>
+	 <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com>
+	 <20150408201015.GB28666@obsidianresearch.com>
+	 <20150410061610.GA26288@phlsvsds.ph.intel.com>
+	 <20150410161551.GA26419@obsidianresearch.com>
+	 <20150410173836.GE10675@phlsvsds.ph.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.passe0815.de ([188.40.49.9]:60823 "EHLO mail.passe0815.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933120AbbDJRqt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Apr 2015 13:46:49 -0400
-In-Reply-To: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-FligigEY4GhT/2s4xGUs"
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz@mellanox.c
+To: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150410173836.GE10675-W4f6Xiosr+yv7QzWx2u06xL4W9x8LtSr@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-With this patch, the IGMP and MLD message validation functions are move=
-d
-from the bridge code to IPv4/IPv6 multicast files. Some small
-refactoring was done to enhance readibility and to iron out some
-differences in behaviour between the IGMP and MLD parsing code (e.g. th=
-e
-skb-cloning of MLD messages is now only done if necessary, just like th=
-e
-IGMP part always did).
 
-=46inally, these IGMP and MLD message validation functions are exported=
- so
-that not only the bridge can use it but batman-adv later, too.
+--=-FligigEY4GhT/2s4xGUs
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
----
- include/linux/igmp.h      |    1 +
- include/linux/skbuff.h    |    3 +
- include/net/addrconf.h    |    1 +
- net/bridge/br_multicast.c |  218 +++++++------------------------------=
---------
- net/core/skbuff.c         |   38 ++++++++
- net/ipv4/igmp.c           |  152 +++++++++++++++++++++++++++++++
- net/ipv6/Makefile         |    1 +
- net/ipv6/mcast_snoop.c    |  198 +++++++++++++++++++++++++++++++++++++=
-+++
- 8 files changed, 424 insertions(+), 188 deletions(-)
- create mode 100644 net/ipv6/mcast_snoop.c
+On Fri, 2015-04-10 at 13:38 -0400, ira.weiny wrote:
 
-diff --git a/include/linux/igmp.h b/include/linux/igmp.h
-index 2c677af..193ad48 100644
---- a/include/linux/igmp.h
-+++ b/include/linux/igmp.h
-@@ -130,5 +130,6 @@ extern void ip_mc_unmap(struct in_device *);
- extern void ip_mc_remap(struct in_device *);
- extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
- extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
-+int ip_mc_check_igmp(struct sk_buff *skb, struct sk_buff **skb_trimmed=
-);
-=20
- #endif
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0991259..79d8e8b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3404,6 +3404,9 @@ static inline void skb_checksum_none_assert(const=
- struct sk_buff *skb)
- bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
-=20
- int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
-+int skb_checksum_trimmed(struct sk_buff *skb, unsigned int transport_l=
-en,
-+			 __sum16(*skb_check_func)(struct sk_buff *skb),
-+			 struct sk_buff **skb_trimmed);
-=20
- u32 skb_get_poff(const struct sk_buff *skb);
- u32 __skb_get_poff(const struct sk_buff *skb, void *data,
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 80456f7..def59d3 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -142,6 +142,7 @@ void ipv6_mc_unmap(struct inet6_dev *idev);
- void ipv6_mc_remap(struct inet6_dev *idev);
- void ipv6_mc_init_dev(struct inet6_dev *idev);
- void ipv6_mc_destroy_dev(struct inet6_dev *idev);
-+int ipv6_mc_check_mld(struct sk_buff *skb, struct sk_buff **skb_trimme=
-d);
- void addrconf_dad_failure(struct inet6_ifaddr *ifp);
-=20
- bool ipv6_chk_mcast_addr(struct net_device *dev, const struct in6_addr=
- *group,
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index b52f4cb..c2115b1 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -975,9 +975,6 @@ static int br_ip4_multicast_igmp3_report(struct net=
-_bridge *br,
- 	int err =3D 0;
- 	__be32 group;
-=20
--	if (!pskb_may_pull(skb, sizeof(*ih)))
--		return -EINVAL;
--
- 	ih =3D igmpv3_report_hdr(skb);
- 	num =3D ntohs(ih->ngrec);
- 	len =3D sizeof(*ih);
-@@ -1248,25 +1245,14 @@ static int br_ip4_multicast_query(struct net_br=
-idge *br,
- 			max_delay =3D 10 * HZ;
- 			group =3D 0;
- 		}
--	} else {
--		if (!pskb_may_pull(skb, sizeof(struct igmpv3_query))) {
--			err =3D -EINVAL;
--			goto out;
--		}
--
-+	} else if (skb->len >=3D sizeof(*ih3)) {
- 		ih3 =3D igmpv3_query_hdr(skb);
- 		if (ih3->nsrcs)
- 			goto out;
-=20
- 		max_delay =3D ih3->code ?
- 			    IGMPV3_MRC(ih3->code) * (HZ / IGMP_TIMER_SCALE) : 1;
--	}
--
--	/* RFC2236+RFC3376 (IGMPv2+IGMPv3) require the multicast link layer
--	 * all-systems destination addresses (224.0.0.1) for general queries
--	 */
--	if (!group && iph->daddr !=3D htonl(INADDR_ALLHOSTS_GROUP)) {
--		err =3D -EINVAL;
-+	} else {
- 		goto out;
- 	}
-=20
-@@ -1329,12 +1315,6 @@ static int br_ip6_multicast_query(struct net_bri=
-dge *br,
- 	    (port && port->state =3D=3D BR_STATE_DISABLED))
- 		goto out;
-=20
--	/* RFC2710+RFC3810 (MLDv1+MLDv2) require link-local source addresses =
-*/
--	if (!(ipv6_addr_type(&ip6h->saddr) & IPV6_ADDR_LINKLOCAL)) {
--		err =3D -EINVAL;
--		goto out;
--	}
--
- 	if (skb->len =3D=3D sizeof(*mld)) {
- 		if (!pskb_may_pull(skb, sizeof(*mld))) {
- 			err =3D -EINVAL;
-@@ -1358,14 +1338,6 @@ static int br_ip6_multicast_query(struct net_bri=
-dge *br,
-=20
- 	is_general_query =3D group && ipv6_addr_any(group);
-=20
--	/* RFC2710+RFC3810 (MLDv1+MLDv2) require the multicast link layer
--	 * all-nodes destination address (ff02::1) for general queries
--	 */
--	if (is_general_query && !ipv6_addr_is_ll_all_nodes(&ip6h->daddr)) {
--		err =3D -EINVAL;
--		goto out;
--	}
--
- 	if (is_general_query) {
- 		saddr.proto =3D htons(ETH_P_IPV6);
- 		saddr.u.ip6 =3D ip6h->saddr;
-@@ -1557,66 +1529,22 @@ static int br_multicast_ipv4_rcv(struct net_bri=
-dge *br,
- 				 struct sk_buff *skb,
- 				 u16 vid)
- {
--	struct sk_buff *skb2 =3D skb;
--	const struct iphdr *iph;
-+	struct sk_buff *skb_trimmed =3D NULL;
- 	struct igmphdr *ih;
--	unsigned int len;
--	unsigned int offset;
- 	int err;
-=20
--	/* We treat OOM as packet loss for now. */
--	if (!pskb_may_pull(skb, sizeof(*iph)))
--		return -EINVAL;
--
--	iph =3D ip_hdr(skb);
--
--	if (iph->ihl < 5 || iph->version !=3D 4)
--		return -EINVAL;
--
--	if (!pskb_may_pull(skb, ip_hdrlen(skb)))
--		return -EINVAL;
--
--	iph =3D ip_hdr(skb);
-+	err =3D ip_mc_check_igmp(skb, &skb_trimmed);
-=20
--	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
--		return -EINVAL;
--
--	if (iph->protocol !=3D IPPROTO_IGMP) {
--		if (!ipv4_is_local_multicast(iph->daddr))
-+	if (err =3D=3D -ENOMSG) {
-+		if (!ipv4_is_local_multicast(ip_hdr(skb)->daddr))
- 			BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
- 		return 0;
-+	} else if (err < 0) {
-+		return err;
- 	}
-=20
--	len =3D ntohs(iph->tot_len);
--	if (skb->len < len || len < ip_hdrlen(skb))
--		return -EINVAL;
--
--	if (skb->len > len) {
--		skb2 =3D skb_clone(skb, GFP_ATOMIC);
--		if (!skb2)
--			return -ENOMEM;
--
--		err =3D pskb_trim_rcsum(skb2, len);
--		if (err)
--			goto err_out;
--	}
--
--	len -=3D ip_hdrlen(skb2);
--	offset =3D skb_network_offset(skb2) + ip_hdrlen(skb2);
--	__skb_pull(skb2, offset);
--	skb_reset_transport_header(skb2);
--
--	err =3D -EINVAL;
--	if (!pskb_may_pull(skb2, sizeof(*ih)))
--		goto out;
--
--	if (skb_checksum_simple_validate(skb2))
--		goto out;
--
--	err =3D 0;
--
- 	BR_INPUT_SKB_CB(skb)->igmp =3D 1;
--	ih =3D igmp_hdr(skb2);
-+	ih =3D igmp_hdr(skb);
-=20
- 	switch (ih->type) {
- 	case IGMP_HOST_MEMBERSHIP_REPORT:
-@@ -1625,21 +1553,19 @@ static int br_multicast_ipv4_rcv(struct net_bri=
-dge *br,
- 		err =3D br_ip4_multicast_add_group(br, port, ih->group, vid);
- 		break;
- 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
--		err =3D br_ip4_multicast_igmp3_report(br, port, skb2, vid);
-+		err =3D br_ip4_multicast_igmp3_report(br, port, skb_trimmed, vid);
- 		break;
- 	case IGMP_HOST_MEMBERSHIP_QUERY:
--		err =3D br_ip4_multicast_query(br, port, skb2, vid);
-+		err =3D br_ip4_multicast_query(br, port, skb_trimmed, vid);
- 		break;
- 	case IGMP_HOST_LEAVE_MESSAGE:
- 		br_ip4_multicast_leave_group(br, port, ih->group, vid);
- 		break;
- 	}
-=20
--out:
--	__skb_push(skb2, offset);
--err_out:
--	if (skb2 !=3D skb)
--		kfree_skb(skb2);
-+	if (skb_trimmed && skb_trimmed !=3D skb)
-+		kfree_skb(skb_trimmed);
-+
- 	return err;
- }
-=20
-@@ -1649,126 +1575,42 @@ static int br_multicast_ipv6_rcv(struct net_br=
-idge *br,
- 				 struct sk_buff *skb,
- 				 u16 vid)
- {
--	struct sk_buff *skb2;
--	const struct ipv6hdr *ip6h;
--	u8 icmp6_type;
--	u8 nexthdr;
--	__be16 frag_off;
--	unsigned int len;
--	int offset;
-+	struct sk_buff *skb_trimmed =3D NULL;
-+	struct mld_msg *mld;
- 	int err;
-=20
--	if (!pskb_may_pull(skb, sizeof(*ip6h)))
--		return -EINVAL;
-+	err =3D ipv6_mc_check_mld(skb, &skb_trimmed);
-=20
--	ip6h =3D ipv6_hdr(skb);
--
--	/*
--	 * We're interested in MLD messages only.
--	 *  - Version is 6
--	 *  - MLD has always Router Alert hop-by-hop option
--	 *  - But we do not support jumbrograms.
--	 */
--	if (ip6h->version !=3D 6)
--		return 0;
--
--	/* Prevent flooding this packet if there is no listener present */
--	if (!ipv6_addr_is_ll_all_nodes(&ip6h->daddr))
--		BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
--
--	if (ip6h->nexthdr !=3D IPPROTO_HOPOPTS ||
--	    ip6h->payload_len =3D=3D 0)
--		return 0;
--
--	len =3D ntohs(ip6h->payload_len) + sizeof(*ip6h);
--	if (skb->len < len)
--		return -EINVAL;
--
--	nexthdr =3D ip6h->nexthdr;
--	offset =3D ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr, &frag_off);
--
--	if (offset < 0 || nexthdr !=3D IPPROTO_ICMPV6)
-+	if (err =3D=3D -ENOMSG) {
-+		if (!ipv6_addr_is_ll_all_nodes(&ipv6_hdr(skb)->daddr))
-+			BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
- 		return 0;
--
--	/* Okay, we found ICMPv6 header */
--	skb2 =3D skb_clone(skb, GFP_ATOMIC);
--	if (!skb2)
--		return -ENOMEM;
--
--	err =3D -EINVAL;
--	if (!pskb_may_pull(skb2, offset + sizeof(struct icmp6hdr)))
--		goto out;
--
--	len -=3D offset - skb_network_offset(skb2);
--
--	__skb_pull(skb2, offset);
--	skb_reset_transport_header(skb2);
--	skb_postpull_rcsum(skb2, skb_network_header(skb2),
--			   skb_network_header_len(skb2));
--
--	icmp6_type =3D icmp6_hdr(skb2)->icmp6_type;
--
--	switch (icmp6_type) {
--	case ICMPV6_MGM_QUERY:
--	case ICMPV6_MGM_REPORT:
--	case ICMPV6_MGM_REDUCTION:
--	case ICMPV6_MLD2_REPORT:
--		break;
--	default:
--		err =3D 0;
--		goto out;
--	}
--
--	/* Okay, we found MLD message. Check further. */
--	if (skb2->len > len) {
--		err =3D pskb_trim_rcsum(skb2, len);
--		if (err)
--			goto out;
--		err =3D -EINVAL;
-+	} else if (err < 0) {
-+		return err;
- 	}
-=20
--	ip6h =3D ipv6_hdr(skb2);
--
--	if (skb_checksum_validate(skb2, IPPROTO_ICMPV6, ip6_compute_pseudo))
--		goto out;
--
--	err =3D 0;
--
- 	BR_INPUT_SKB_CB(skb)->igmp =3D 1;
-+	mld =3D (struct mld_msg *)skb_transport_header(skb);
-=20
--	switch (icmp6_type) {
-+	switch (mld->mld_type) {
- 	case ICMPV6_MGM_REPORT:
--	    {
--		struct mld_msg *mld;
--		if (!pskb_may_pull(skb2, sizeof(*mld))) {
--			err =3D -EINVAL;
--			goto out;
--		}
--		mld =3D (struct mld_msg *)skb_transport_header(skb2);
- 		BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
- 		err =3D br_ip6_multicast_add_group(br, port, &mld->mld_mca, vid);
- 		break;
--	    }
- 	case ICMPV6_MLD2_REPORT:
--		err =3D br_ip6_multicast_mld2_report(br, port, skb2, vid);
-+		err =3D br_ip6_multicast_mld2_report(br, port, skb_trimmed, vid);
- 		break;
- 	case ICMPV6_MGM_QUERY:
--		err =3D br_ip6_multicast_query(br, port, skb2, vid);
-+		err =3D br_ip6_multicast_query(br, port, skb_trimmed, vid);
- 		break;
- 	case ICMPV6_MGM_REDUCTION:
--	    {
--		struct mld_msg *mld;
--		if (!pskb_may_pull(skb2, sizeof(*mld))) {
--			err =3D -EINVAL;
--			goto out;
--		}
--		mld =3D (struct mld_msg *)skb_transport_header(skb2);
- 		br_ip6_multicast_leave_group(br, port, &mld->mld_mca, vid);
--	    }
-+		break;
- 	}
-=20
--out:
--	kfree_skb(skb2);
-+	if (skb_trimmed && skb_trimmed !=3D skb)
-+		kfree_skb(skb_trimmed);
-+
- 	return err;
- }
- #endif
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3b6e583..2961e6b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4012,6 +4012,44 @@ int skb_checksum_setup(struct sk_buff *skb, bool=
- recalculate)
- }
- EXPORT_SYMBOL(skb_checksum_setup);
-=20
-+int skb_checksum_trimmed(struct sk_buff *skb, unsigned int transport_l=
-en,
-+			 __sum16(*skb_check_func)(struct sk_buff *skb),
-+			 struct sk_buff **skb_trimmed)
-+{
-+	struct sk_buff *skb_chk =3D skb;
-+	unsigned int offset =3D skb_transport_offset(skb);
-+	int ret =3D 0;
-+
-+	__skb_pull(skb, offset);
-+
-+	/* if there's data beyond the IP packet:
-+	 * avoid it in checksum validation by using a trimmed clone
-+	 */
-+	if (skb->len > transport_len) {
-+		skb_chk =3D skb_clone(skb, GFP_ATOMIC);
-+		if (!skb_chk) {
-+			ret =3D -ENOMEM;
-+			goto out;
-+		}
-+
-+		ret =3D pskb_trim_rcsum(skb_chk, transport_len);
-+		if (ret)
-+			goto out;
-+	}
-+
-+	ret =3D skb_check_func(skb_chk);
-+	if (ret)
-+		goto out;
-+
-+	if (skb_trimmed)
-+		*skb_trimmed =3D skb_chk;
-+
-+out:
-+	__skb_push(skb, offset);
-+	return ret;
-+}
-+EXPORT_SYMBOL(skb_checksum_trimmed);
-+
- void __skb_warn_lro_forwarding(const struct sk_buff *skb)
- {
- 	net_warn_ratelimited("%s: received packets cannot be forwarded while =
-LRO is enabled\n",
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index a3a697f..3410e56 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1339,6 +1339,158 @@ out:
- }
- EXPORT_SYMBOL(ip_mc_inc_group);
-=20
-+static int ip_mc_check_iphdr(struct sk_buff *skb)
-+{
-+	const struct iphdr *iph;
-+	unsigned int len;
-+	unsigned int offset =3D skb_network_offset(skb) + sizeof(*iph);
-+
-+	if (!pskb_may_pull(skb, offset))
-+		return -EINVAL;
-+
-+	iph =3D ip_hdr(skb);
-+
-+	if (iph->version !=3D 4 || ip_hdrlen(skb) < sizeof(*iph))
-+		return -EINVAL;
-+
-+	offset +=3D ip_hdrlen(skb) - sizeof(*iph);
-+
-+	if (!pskb_may_pull(skb, offset))
-+		return -EINVAL;
-+
-+	iph =3D ip_hdr(skb);
-+
-+	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
-+		return -EINVAL;
-+
-+	len =3D skb_network_offset(skb) + ntohs(iph->tot_len);
-+	if (skb->len < len || len < offset)
-+		return -EINVAL;
-+
-+	skb_set_transport_header(skb, offset);
-+
-+	return 0;
-+}
-+
-+static int ip_mc_check_igmp_reportv3(struct sk_buff *skb)
-+{
-+	unsigned int len =3D skb_transport_offset(skb);
-+
-+	len +=3D sizeof(struct igmpv3_report);
-+
-+	return pskb_may_pull(skb, len) ? 0 : -EINVAL;
-+}
-+
-+static int ip_mc_check_igmp_query(struct sk_buff *skb)
-+{
-+	unsigned int len =3D skb_transport_offset(skb);
-+
-+	len +=3D sizeof(struct igmphdr);
-+	if (skb->len < len)
-+		return -EINVAL;
-+
-+	/* IGMPv{1,2}? */
-+	if (skb->len !=3D len) {
-+		/* or IGMPv3? */
-+		len +=3D sizeof(struct igmpv3_query) - sizeof(struct igmphdr);
-+		if (skb->len < len || !pskb_may_pull(skb, len))
-+			return -EINVAL;
-+	}
-+
-+	/* RFC2236+RFC3376 (IGMPv2+IGMPv3) require the multicast link layer
-+	 * all-systems destination addresses (224.0.0.1) for general queries
-+	 */
-+	if (!igmp_hdr(skb)->group &&
-+	    ip_hdr(skb)->daddr !=3D htonl(INADDR_ALLHOSTS_GROUP))
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+static int ip_mc_check_igmp_msg(struct sk_buff *skb)
-+{
-+	switch (igmp_hdr(skb)->type) {
-+	case IGMP_HOST_LEAVE_MESSAGE:
-+	case IGMP_HOST_MEMBERSHIP_REPORT:
-+	case IGMPV2_HOST_MEMBERSHIP_REPORT:
-+		/* fall through */
-+		return 0;
-+	case IGMPV3_HOST_MEMBERSHIP_REPORT:
-+		return ip_mc_check_igmp_reportv3(skb);
-+	case IGMP_HOST_MEMBERSHIP_QUERY:
-+		return ip_mc_check_igmp_query(skb);
-+	default:
-+		return -ENOMSG;
-+	}
-+}
-+
-+static inline __sum16 ip_mc_validate_checksum(struct sk_buff *skb)
-+{
-+	return skb_checksum_simple_validate(skb);
-+}
-+
-+static int __ip_mc_check_igmp(struct sk_buff *skb, struct sk_buff **sk=
-b_trimmed)
-+
-+{
-+	struct sk_buff *skb_chk =3D NULL;
-+	unsigned int transport_len;
-+	unsigned int len =3D skb_transport_offset(skb) + sizeof(struct igmphd=
-r);
-+	int ret;
-+
-+	if (!pskb_may_pull(skb, len))
-+		return -EINVAL;
-+
-+	transport_len =3D ntohs(ip_hdr(skb)->tot_len) - ip_hdrlen(skb);
-+
-+	if (skb_checksum_trimmed(skb, transport_len,
-+				 ip_mc_validate_checksum, &skb_chk))
-+		return -EINVAL;
-+
-+	ret =3D ip_mc_check_igmp_msg(skb_chk);
-+
-+	if (!ret && skb_trimmed)
-+		*skb_trimmed =3D skb_chk;
-+	else if (skb_chk && skb_chk !=3D skb)
-+		kfree_skb(skb_chk);
-+
-+	return ret;
-+}
-+
-+/**
-+ * ip_mc_check_igmp - checks whether this is a sane IGMP packet
-+ * @skb: the skb to validate
-+ * @skb_trimmed: to store an skb pointer trimmed to IPv4 packet tail (=
-optional)
-+ *
-+ * Checks whether an IPv4 packet is a valid IGMP packet. If so sets
-+ * skb network and transport headers accordingly and returns zero.
-+ *
-+ * -EINVAL: A broken packet was detected, i.e. it violates some intern=
-et
-+ *  standard
-+ * -ENOMSG: IP header validation succeeded but it is not an IGMP packe=
-t.
-+ * -ENOMEM: A memory allocation failure happened.
-+ *
-+ * Optionally, an skb pointer might be provided via skb_trimmed (or se=
-t it
-+ * to NULL): After parsing an IGMP packet successfully it will point t=
-o
-+ * an skb which has its tail aligned to the IP packet end. This might
-+ * either be the originally provided skb or a trimmed, cloned version =
-if
-+ * the skb frame was padded beyond the IP header. A cloned skb allows =
-us
-+ * to leave the original skb and its full frame unchanged (which might=
- be
-+ * desirable for layer 2 frame jugglers).
-+ */
-+int ip_mc_check_igmp(struct sk_buff *skb, struct sk_buff **skb_trimmed=
-)
-+{
-+	int ret =3D ip_mc_check_iphdr(skb);
-+
-+	if (ret < 0)
-+		return ret;
-+
-+	if (ip_hdr(skb)->protocol !=3D IPPROTO_IGMP)
-+		return -ENOMSG;
-+
-+	return __ip_mc_check_igmp(skb, skb_trimmed);
-+}
-+EXPORT_SYMBOL(ip_mc_check_igmp);
-+
- /*
-  *	Resend IGMP JOIN report; used by netdev notifier.
-  */
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 2e8c061..0f3f199 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -48,4 +48,5 @@ obj-$(subst m,y,$(CONFIG_IPV6)) +=3D inet6_hashtables=
-=2Eo
-=20
- ifneq ($(CONFIG_IPV6),)
- obj-$(CONFIG_NET_UDP_TUNNEL) +=3D ip6_udp_tunnel.o
-+obj-y +=3D mcast_snoop.o
- endif
-diff --git a/net/ipv6/mcast_snoop.c b/net/ipv6/mcast_snoop.c
-new file mode 100644
-index 0000000..95b34c0
---- /dev/null
-+++ b/net/ipv6/mcast_snoop.c
-@@ -0,0 +1,198 @@
-+/* Copyright (C) 2015: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, see <http://www.gnu.org/licenses/>=
-=2E
-+ */
-+
-+#include <linux/skbuff.h>
-+#include <net/ipv6.h>
-+#include <net/mld.h>
-+#include <net/addrconf.h>
-+#include <net/ip6_checksum.h>
-+
-+static int ipv6_mc_check_ip6hdr(struct sk_buff *skb)
-+{
-+	const struct ipv6hdr *ip6h;
-+	unsigned int len;
-+	unsigned int offset =3D skb_network_offset(skb) + sizeof(*ip6h);
-+
-+	if (!pskb_may_pull(skb, offset))
-+		return -EINVAL;
-+
-+	ip6h =3D ipv6_hdr(skb);
-+
-+	if (ip6h->version !=3D 6)
-+		return -EINVAL;
-+
-+	len =3D offset + ntohs(ip6h->payload_len);
-+	if (skb->len < len || len <=3D offset)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+static int ipv6_mc_check_exthdrs(struct sk_buff *skb)
-+{
-+	const struct ipv6hdr *ip6h;
-+	unsigned int offset;
-+	u8 nexthdr;
-+	__be16 frag_off;
-+
-+	ip6h =3D ipv6_hdr(skb);
-+
-+	if (ip6h->nexthdr !=3D IPPROTO_HOPOPTS)
-+		return -ENOMSG;
-+
-+	nexthdr =3D ip6h->nexthdr;
-+	offset =3D skb_network_offset(skb) + sizeof(*ip6h);
-+	offset =3D ipv6_skip_exthdr(skb, offset, &nexthdr, &frag_off);
-+
-+	if (offset < 0)
-+		return -EINVAL;
-+
-+	if (nexthdr !=3D IPPROTO_ICMPV6)
-+		return -ENOMSG;
-+
-+	skb_set_transport_header(skb, offset);
-+
-+	return 0;
-+}
-+
-+static int ipv6_mc_check_mld_reportv2(struct sk_buff *skb)
-+{
-+	unsigned int len =3D skb_transport_offset(skb);
-+
-+	len +=3D sizeof(struct mld2_report);
-+
-+	return pskb_may_pull(skb, len) ? 0 : -EINVAL;
-+}
-+
-+static int ipv6_mc_check_mld_query(struct sk_buff *skb)
-+{
-+	struct mld_msg *mld;
-+	unsigned int len =3D skb_transport_offset(skb);
-+
-+	/* RFC2710+RFC3810 (MLDv1+MLDv2) require link-local source addresses =
-*/
-+	if (!(ipv6_addr_type(&ipv6_hdr(skb)->saddr) & IPV6_ADDR_LINKLOCAL))
-+		return -EINVAL;
-+
-+	len +=3D sizeof(struct mld_msg);
-+	if (skb->len < len)
-+		return -EINVAL;
-+
-+	/* MLDv1? */
-+	if (skb->len !=3D len) {
-+		/* or MLDv2? */
-+		len +=3D sizeof(struct mld2_query) - sizeof(struct mld_msg);
-+		if (skb->len < len || !pskb_may_pull(skb, len))
-+			return -EINVAL;
-+	}
-+
-+	mld =3D (struct mld_msg *)skb_transport_header(skb);
-+
-+	/* RFC2710+RFC3810 (MLDv1+MLDv2) require the multicast link layer
-+	 * all-nodes destination address (ff02::1) for general queries
-+	 */
-+	if (ipv6_addr_any(&mld->mld_mca) &&
-+	    !ipv6_addr_is_ll_all_nodes(&ipv6_hdr(skb)->daddr))
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+static int ipv6_mc_check_mld_msg(struct sk_buff *skb)
-+{
-+	struct mld_msg *mld =3D (struct mld_msg *)skb_transport_header(skb);
-+
-+	switch (mld->mld_type) {
-+	case ICMPV6_MGM_REDUCTION:
-+	case ICMPV6_MGM_REPORT:
-+		/* fall through */
-+		return 0;
-+	case ICMPV6_MLD2_REPORT:
-+		return ipv6_mc_check_mld_reportv2(skb);
-+	case ICMPV6_MGM_QUERY:
-+		return ipv6_mc_check_mld_query(skb);
-+	default:
-+		return -ENOMSG;
-+	}
-+}
-+
-+static inline __sum16 ipv6_mc_validate_checksum(struct sk_buff *skb)
-+{
-+	return skb_checksum_validate(skb, IPPROTO_ICMPV6, ip6_compute_pseudo)=
-;
-+}
-+
-+static int __ipv6_mc_check_mld(struct sk_buff *skb,
-+			       struct sk_buff **skb_trimmed)
-+
-+{
-+	struct sk_buff *skb_chk =3D NULL;
-+	unsigned int transport_len;
-+	unsigned int len =3D skb_transport_offset(skb) + sizeof(struct mld_ms=
-g);
-+	int ret;
-+
-+	if (!pskb_may_pull(skb, len))
-+		return -EINVAL;
-+
-+	transport_len =3D ipv6_hdr(skb)->payload_len;
-+
-+	if (skb_checksum_trimmed(skb, transport_len,
-+				 ipv6_mc_validate_checksum, &skb_chk))
-+		return -EINVAL;
-+
-+	ret =3D ipv6_mc_check_mld_msg(skb_chk);
-+
-+	if (!ret && skb_trimmed)
-+		*skb_trimmed =3D skb_chk;
-+	else if (skb_chk && skb_chk !=3D skb)
-+		kfree_skb(skb_chk);
-+
-+	return ret;
-+}
-+
-+/**
-+ * ipv6_mc_check_mld - checks whether this is a sane MLD packet
-+ * @skb: the skb to validate
-+ * @skb_trimmed: to store an skb pointer trimmed to IPv6 packet tail (=
-optional)
-+ *
-+ * Checks whether an IPv6 packet is a valid MLD packet. If so sets
-+ * skb network and transport headers accordingly and returns zero.
-+ *
-+ * -EINVAL: A broken packet was detected, i.e. it violates some intern=
-et
-+ *  standard
-+ * -ENOMSG: IP header validation succeeded but it is not an IGMP packe=
-t.
-+ * -ENOMEM: A memory allocation failure happened.
-+ *
-+ * Optionally, an skb pointer might be provided via skb_trimmed (or se=
-t it
-+ * to NULL): After parsing an MLD packet successfully it will point to
-+ * an skb which has its tail aligned to the IP packet end. This might
-+ * either be the originally provided skb or a trimmed, cloned version =
-if
-+ * the skb frame was padded beyond the IP header. A cloned skb allows =
-us
-+ * to leave the original skb and its full frame unchanged (which might=
- be
-+ * desirable for layer 2 frame jugglers).
-+ */
-+int ipv6_mc_check_mld(struct sk_buff *skb, struct sk_buff **skb_trimme=
-d)
-+{
-+	int ret;
-+
-+	ret =3D ipv6_mc_check_ip6hdr(skb);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret =3D ipv6_mc_check_exthdrs(skb);
-+	if (ret < 0)
-+		return ret;
-+
-+	return __ipv6_mc_check_mld(skb, skb_trimmed);
-+}
-+EXPORT_SYMBOL(ipv6_mc_check_mld);
+> Isn't ocrdma an iWarp device?
+
+No, it's roce.  It and mlx4 roce devices currently interoperate.
+
+> > I think if we look closely we'll find that IPoIB today has a hard
+> > requirement on cap_sa being true, so lets use that?
+>=20
+> I don't think that is appropriate.  You have been advocating that the che=
+cks
+> be clear as to what support we need.  While currently the IPoIB layer doe=
+s (for
+> IB and OPA) require an SA I think those checks are only appropriate when =
+it is
+> attempting an SA query.
+>=20
+> The choice to run IPoIB at all is a different matter.
+
+Appropriately named or not, Jason's choice of words "has a hard
+requirement" is correct ;-)  For IPoIB, the broadcast group of the fake
+Ethernet fabric is a very specific IB multicast group per the IPoIB
+spec.
+
+> >=20
+> > In fact any ULP that unconditionally uses the SA can use that.
+>=20
+> They _can_ use that but the point of this exercise (and additional checks=
+ going
+> forward) is that we don't "hide" meaning like this.
+>=20
+> IPoIB should restrict itself to running on IB link layers.  Should additi=
+onal
+> link layers be added which IPoIB works on then we add that check.
+
+I think your right that checking the link layer is the right thing, and
+for now, there is no need to check cap_sa because the link layer check
+enforces it.  In the future, if there is a new link layer we want to use
+this on, and it doesn't have an sa, then we have to enable sa checks and
+alternate methods at that time.
+
 --=20
-1.7.10.4
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+              GPG KeyID: 0E572FDD
+
+
+
+--=-FligigEY4GhT/2s4xGUs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABAgAGBQJVKA0sAAoJELgmozMOVy/dV1oQAJ+0Js2sblg3omRqPYWJjhfp
+8b0J50Jzf0+RdzEf9D79+cGhqu0WPPMi61sjh4RU0NjVQVO2/04gwqr3nq/TZnqd
+e/a/OOSARM9efLoHCRFAtZYCzqBFEQ6GribT2vJkQioK1D6pTt+qY+y3Zmt+K52S
+E5OGGHHwPcUcGvEc0rc/1oUN9qjXK9Zbff4c9Ek6OSPljfyFbJ511N64hzWSQDcD
+WgQo1N+aMD3/tGqHsHG/JV6StXQMpOSgt8Pl9TGT862dBQQWYgIDE+JjGnzDIFba
+Ag6EOzdSL6We4MaB3ExRVtv/ZKkyMKRyLcy/y9IQuN05Gt4ytEB2t8iGCxIBBTOK
+vmKB5nVBXqTHWn1AI49oOGIdhs2RL/MdQ1wWpyK6dOmr+mlziQesBAMgalBjn1sA
+J8lqkWYyeYVTr1g1JoWsHBFwMBv6yd/jIu0accMBe5+PP1sjFm6c6EpdRDsW+h5O
+JZS0WRKIwrWYU2oCcnFrbhVxIp0MrsNUqhzNVPsuMooLFox3e0J15ntAB2rxHnkR
+bo/422I9IzSOjORkCn4b5RZ8JMMiXODKmWh5PkZxTxxqE4/Ha+2qa9jWAxm1O4yd
+EKWgSwhZ6hH5Wjb71Tvi3/dyldRmr40a/0uyx912otSOHYdhHp1+BdD6PGBojMcE
+syZAMgVl3SMDtzCgV0wP
+=Pwp5
+-----END PGP SIGNATURE-----
+
+--=-FligigEY4GhT/2s4xGUs--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
