@@ -1,92 +1,118 @@
-From: Michael Wang <yun.wang@profitbricks.com>
-Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport()
- for each HW
-Date: Fri, 10 Apr 2015 10:25:21 +0200
-Message-ID: <552788F1.4070301@profitbricks.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150408201015.GB28666@obsidianresearch.com> <20150410061610.GA26288@phlsvsds.ph.intel.com>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
+Date: Fri, 10 Apr 2015 10:26:21 +0200
+Message-ID: <5527892D.4020608@ericsson.com>
+References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford@redhat.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Mike Marciniszyn <infinipath@intel.com>,
-	Eli Cohen <eli@mellanox.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Haggai
-To: "ira.weiny" <ira.weiny@intel.com>,
-	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150410061610.GA26288@phlsvsds.ph.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: <netdev@emagii.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:43262 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754450AbbDJI00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 04:26:26 -0400
+In-Reply-To: <20150312.142621.1128728353472907283.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/10/2015 08:16 AM, ira.weiny wrote:
-> First off there are 2 separate issues here:
-> 
-> 1) We need to communicate if a port supports or requires various management
->    support from the ib_mad, ib_cm, and/or ib_sa modules.
-> 
-> 2) We need to communicate how a addresses are formated and resolved for a
->    particular port
-> 
-> 
-> In general I don't think we need to remove all uses of the Transport
-> or Link Layer.
-> 
-> Although we may be able to remove most of the transport uses.
-> 
-> On Wed, Apr 08, 2015 at 02:10:15PM -0600, Jason Gunthorpe wrote:
-[snip]
-> 
->>
->> Some of the other checks in this file revolve around pkey, I'm not
->> sure what rocee does there? cap_pkey_supported ?
-> 
-> It seems IBoE just hardcodes the pkey to 0xffff.  I don't see it used anywhere.
-> 
-> Function where port requires "real" PKey
-> 
-> 	-- cma.c: cma_ib_init_qp_attr
-> 
-> Check rdma_port_req_pkey()?
 
-What about cap_eth_ah() for all the cases need eth addressing handling?
+On 03/12/2015 07:26 PM, David Miller wrote:
+> I hate changes like this.
+>
+> By making this a Kconfig options it cannot be dynamic, and every
+> distribution is going to have to scratch their head and decide
+> what to set this to.
+>
+> That's seriously suboptimal.
+>
+> If you want to change behavior based upon whether userspace is
+> managing the damn table, make it so the user doing so has to
+> ask for the new behavior at _RUN TIME_ via the netlink interface
+> or similar.
+>
+> Picking the guard time itself at compile time is also undesirable.
+>
+> And you don't even want a damn timer, what you want is for the
+> state of the entry to be frozen and for the user to "release"
+> it by either adjusting the state to something else or marking
+> in some other way to allow it to be unfrozen and released again.
+>
+> Why put it to chance with some timeout?  Make things explicit.
 
-> 
-> 
-> Over all for the addressing choices:
-> 
-> The "Transport" (or protocol, or whatever) is Verbs.  The Layer below Verbs
-> (OPA/IB/Eth/TCP) defines how addressing, route, and connection information is
-> generated, communicated, and used.
-> 
-> As Jason and Doug have been saying sometimes we want to know when that requires
-> SA interaction or the use of the CM protocol (or neither).  Other times we just
-> need to know what the Address format or Link Layer is.
+The desired functionality is that if communication stops,
+you want to send out ARP probes, before the entry is deleted.
 
-Till now it seems like we could be able to eliminate the link layer helper in core
-layer, but I'll reserve that helper in next version, if later we do not need it anymore,
-let's erase it then ;-)
+The current (pseudo) code of the neigh timer is:
 
-Regards,
-Michael Wang
+     if (state & NUD_REACHABLE) {
+         if (now <= "confirmed + "reachable_time")) {
+                     ... /* We are OK */
+         } else if (now < "used" + DELAY_PROBE_TIME) {    /* Never 
+happens */
+                     state = NUD_DELAY;
+         } else {
+             state = NUD_STALE;
+             notify = 1;
+         }
 
-> 
-> 
-> Ira
-> 
+We never see the state beeing changed from REACHABLE to DELAY,
+so the probes are not beeing sent out, instead you always go
+from REACHABLE to STALE.
+
+DELAY_PROBE_TIME is set to (5 x HZ) and "used"
+seems to be only set by the periodic_work routine
+when the neigh entry is in STALE state, and then it is too late.
+It is also set by "arp_find" which is used by "broken" devices.
+
+In practice, the second condition: "(now < "used" + DELAY_PROBE_TIME)" 
+is never used.
+What is the intention of this test?
+
+By adding a new test + parameter, we would get the desired functionality,
+and no need to listen for notifications or doing ARP state updates from 
+applications.
+
+         if (now <= "confirmed + "reachable_time")) {
+                     ... /* We are OK */
++        else if (now <= "confirmed + "reprobe_time")) {
++                   state <= NUD_DELAY;
+         } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
+happens */
+                     state <= NUD_DELAY;
+         } else {
+             state = NUD_STALE;
+             notify = 1;
+         }
+
+This way the entry would remain in REACHABLE while normal communication 
+occurs,
+then it would enter DELAY state to probe, and if that fails, it goes to 
+STALE state.
+
+Alternatively, we just change the second test:
+         if (now <= "confirmed + "reachable_time")) {
+                     ... /* We are OK */
+-        } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
+happens */
++       } else if (now < "confirmed" + DELAY_PROBE_TIME))) {
+                     state <= NUD_DELAY;
+         } else {
+             state = NUD_STALE;
+             notify = 1;
+         }
+
+
+The  DELAY_PROBE_TIME, should preferrably be a kernel Kconfig parameter.
+
+Best Regards,
+Ulf Samuelsson
+
+
+> I'm not applying this patch.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
