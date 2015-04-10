@@ -1,74 +1,59 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2-next 2/2] netns: allow to dump and monitor nsid
-Date: Fri, 10 Apr 2015 16:03:35 +0200
-Message-ID: <5527D837.9030506@6wind.com>
-References: <1428568214-8673-1-git-send-email-nicolas.dichtel@6wind.com> <1428568214-8673-2-git-send-email-nicolas.dichtel@6wind.com> <20150409083601.GA1085@angus-think.wlc.globallogic.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH net-next] net/macb: sqe_test_errors are TX errors, not
+ RX errors
+Date: Fri, 10 Apr 2015 16:12:10 +0200
+Message-ID: <5527DA3A.6030105@atmel.com>
+References: <1428658976-28050-1-git-send-email-wsteinwender@pcs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
+To: Wolfgang Steinwender <wsteinwender@pcs.com>,
+	<netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:33597 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933075AbbDJODi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 10:03:38 -0400
-Received: by wiax7 with SMTP id x7so16942638wia.0
-        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 07:03:37 -0700 (PDT)
-In-Reply-To: <20150409083601.GA1085@angus-think.wlc.globallogic.com>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:25794 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932412AbbDJONF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 10:13:05 -0400
+In-Reply-To: <1428658976-28050-1-git-send-email-wsteinwender@pcs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 09/04/2015 10:36, Vadim Kochan a =E9crit :
-> On Thu, Apr 09, 2015 at 10:30:14AM +0200, Nicolas Dichtel wrote:
-[snip]
->> +	dir =3D opendir(NETNS_RUN_DIR);
->> +	if (!dir)
->> +		return;
->> +
->> +	while ((entry =3D readdir(dir)) !=3D NULL) {
->> +		if (strcmp(entry->d_name, ".") =3D=3D 0)
->> +			continue;
->> +		if (strcmp(entry->d_name, "..") =3D=3D 0)
->> +			continue;
->> +		nsid =3D get_netnsid_from_name(entry->d_name);
->> +
->> +		if (nsid >=3D 0)
->> +			netns_map_add(nsid, entry->d_name);
->> +	}
->
-> May be lib/namespace.c -> netns_foreach will be useful here  ?
-I'm not fully convinced, because to use netns_foreach I need to have
-another intermediate function.
+Le 10/04/2015 11:42, Wolfgang Steinwender a =E9crit :
+> The statistics are grouped by TX and RX errors.
+> The SQE Test Errors Register indicates problems with TX.
+>=20
+> Signed-off-by: Wolfgang Steinwender <wsteinwender@pcs.com>
 
-[snip]
->> +	dir =3D opendir(NETNS_RUN_DIR);
->> +	if (!dir)
->> +		return -ENOENT;
->> +
->> +	while ((entry =3D readdir(dir)) !=3D NULL) {
->> +		if (strcmp(entry->d_name, ".") =3D=3D 0)
->> +			continue;
->> +		if (strcmp(entry->d_name, "..") =3D=3D 0)
->> +			continue;
->> +		id =3D get_netnsid_from_name(entry->d_name);
->> +
->> +		if (nsid =3D=3D id) {
->> +			strcpy(name, entry->d_name);
->> +			closedir(dir);
->> +			return 0;
->> +		}
->> +	}
->
-> And may be here too ?
-Same here. And this implies to also define a new structure to pass 'nam=
-e' and
-'nsid' to this new intermediate function. This will make the code more =
-complex
-to read.
+seems okay:
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+> ---
+>  drivers/net/ethernet/cadence/macb.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index 448a323..9f53872 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -1956,12 +1956,12 @@ static struct net_device_stats *macb_get_stat=
+s(struct net_device *dev)
+>  			    hwstat->rx_oversize_pkts +
+>  			    hwstat->rx_jabbers +
+>  			    hwstat->rx_undersize_pkts +
+> -			    hwstat->sqe_test_errors +
+>  			    hwstat->rx_length_mismatch);
+>  	nstat->tx_errors =3D (hwstat->tx_late_cols +
+>  			    hwstat->tx_excessive_cols +
+>  			    hwstat->tx_underruns +
+> -			    hwstat->tx_carrier_errors);
+> +			    hwstat->tx_carrier_errors +
+> +			    hwstat->sqe_test_errors);
+>  	nstat->collisions =3D (hwstat->tx_single_cols +
+>  			     hwstat->tx_multiple_cols +
+>  			     hwstat->tx_excessive_cols);
+>=20
 
 
-Regards,
-Nicolas
+--=20
+Nicolas Ferre
