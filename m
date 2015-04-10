@@ -1,59 +1,97 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: [PATCH v2] tipc: don't reject messages if reversal fails
-Date: Fri, 10 Apr 2015 14:15:59 +0200
-Message-ID: <20150410121559.GA28575@haze>
-References: <1428667098-9504-1-git-send-email-erik.hugne@ericsson.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 1/4] ipv4: add option to drop unicast encapsulated in L2
+ multicast
+Date: Fri, 10 Apr 2015 15:19:54 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1504101445330.1538@ja.home.ssi.bg>
+References: <1428652454-1224-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <tipc-discussion@lists.sourceforge.net>
-To: <richard.alpe@ericsson.com>, <jon.maloy@ericsson.com>,
-	<ying.xue@windriver.com>, <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	matti.gottlieb@intel.com, Johannes Berg <johannes.berg@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:50837 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756150AbbDJMU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 08:20:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1428667098-9504-1-git-send-email-erik.hugne@ericsson.com>
+Received: from ja.ssi.bg ([178.16.129.10]:54213 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754830AbbDJMVy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Apr 2015 08:21:54 -0400
+In-Reply-To: <1428652454-1224-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please ignore this, i meant to send it only to tipc-discussion for review first..
 
-//E
+	Hello,
 
-On Fri, Apr 10, 2015 at 01:58:18PM +0200, erik.hugne@ericsson.com wrote:
-> From: Erik Hugne <erik.hugne@ericsson.com>
+On Fri, 10 Apr 2015, Johannes Berg wrote:
+
+> From: Johannes Berg <johannes.berg@intel.com>
 > 
-> When we fail to deliver a message to a socket, it is subject to
-> message reversal. If the call to tipc_msg_reverse fails, we are
-> passing dnode uninitialized to tipc_link_xmit_skb which causes the
-> packet to either be dropped, or sent out to a random link. In the
-> worst case this leads to a link reset.
-> We fix this by only transmitting the message if reversal succeded.
-> Also, the redundant check for 'err' is removed, because if the message
-> was not consumed, it will always be set.
+> In order to solve a problem with 802.11, the so-called hole-196 attack,
+> add an option (sysctl) called "drop_unicast_in_l2_multicast" which, if
+> enabled, causes the stack to drop IPv4 unicast packets encapsulated in
+> link-layer multi- or broadcast frames. Such frames can (as an attack)
+> be created by any member of the same wireless network and transmitted
+> as valid encrypted frames since the symmetric key for broadcast frames
+> is shared between all stations.
 > 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> ---
-> v2: err check fix according to comments from Billie Alsup
+> Additionally, enabling this option provides compliance with a SHOULD
+> clause of RFC 1122.
 > 
->  net/tipc/socket.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> index ee90d74..d215f73 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -1701,7 +1701,7 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb)
->  			atomic_add(truesize, dcnt);
->  		return 0;
->  	}
-> -	if (!err || tipc_msg_reverse(tsk_own_node(tsk), skb, &dnode, -err))
-> +	if (tipc_msg_reverse(tsk_own_node(tsk), skb, &dnode, -err))
->  		tipc_link_xmit_skb(net, skb, dnode, tsk->portid);
->  	return 0;
->  }
-> -- 
-> 2.1.4
-> 
+
+> +++ b/net/ipv4/route.c
+> @@ -1727,6 +1727,26 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+>  	if (res.type == RTN_BROADCAST)
+>  		goto brd_input;
+>  
+> +	/* RFC 1122 3.3.6:
+> +	 *
+> +	 *   When a host sends a datagram to a link-layer broadcast address,
+> +	 *   the IP destination address MUST be a legal IP broadcast or IP
+> +	 *   multicast address.
+> +	 *
+> +	 *   A host SHOULD silently discard a datagram that is received via
+> +	 *   a link-layer broadcast (see Section 2.4) but does not specify
+> +	 *   an IP multicast or broadcast destination address.
+> +	 *
+> +	 * This doesn't explicitly say L2 *broadcast*, but broadcast is in a
+> +	 * way a form of multicast and the most common use case for this is
+> +	 * 802.11 protecting against cross-station spoofing (the so-called
+> +	 * "hole-196" attack) so do it for both.
+> +	 */
+> +	if (IN_DEV_CONF_GET(in_dev, DROP_UNICAST_IN_L2_MULTICAST) &&
+
+	For this flag IN_DEV_ORCONF can be used, by this way
+all/drop_unicast_in_l2_multicast=1 can enable it for all
+interfaces.
+
+> +	    (skb->pkt_type == PACKET_BROADCAST ||
+> +	     skb->pkt_type == PACKET_MULTICAST))
+> +		goto e_inval;
+> +
+
+	So, this is the same patch as the 2014-Aug version
+but this time with flag? But how the previous problems were
+addressed? May be something is changed in kernel afterwards?
+
+	So, if your are back at step 1 can you check again
+the problems with this implementation?:
+
+http://marc.info/?l=linux-netdev&m=140865079120355&w=2
+
+Thread:
+http://marc.info/?t=140864197300004&r=1&w=2
+
+	In short:
+
+- no way to select correct skb->pkt_type in inet_rtm_getroute
+before ip_route_input, this is a chiken-egg problem, of course,
+skb->pkt_type = PACKET_HOST can work for now
+
+- ip_route_input is called also for ARP, so incoming ARP
+broadcasts are not replied anymore
+
+- CLUSTERIP
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
