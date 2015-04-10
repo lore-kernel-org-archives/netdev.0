@@ -1,44 +1,102 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 3/3] selinux/nlmsg: add XFRM_MSG_MAPPING
-Date: Fri, 10 Apr 2015 16:24:28 +0200
-Message-ID: <1428675868-11790-4-git-send-email-nicolas.dichtel@6wind.com>
-References: <55267162.7050304@tycho.nsa.gov>
- <1428675868-11790-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	linux-kernel@vger.kernel.org, paul@paul-moore.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Martin Willi <martin@strongswan.org>
-To: davem@davemloft.net, sds@tycho.nsa.gov
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38465 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934123AbbDJOZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 10:25:38 -0400
-In-Reply-To: <1428675868-11790-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "ira.weiny" <ira.weiny@intel.com>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport() for each HW
+Date: Fri, 10 Apr 2015 10:56:52 -0400
+Message-ID: <20150410145651.GA10675@phlsvsds.ph.intel.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150408201015.GB28666@obsidianresearch.com> <20150410061610.GA26288@phlsvsds.ph.intel.com> <552788F1.4070301@profitbricks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Tom Tucker <tom@opengridcomputing.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Mike Marciniszyn <infinipath@intel.com>,
+	Eli Cohen <eli@mellanox.com>,
+	Faisal Latif <faisal.latif@intel.com>,
+	Upinder Malhi <umalhi@cisco.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+To: Michael Wang <yun.wang@profitbricks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <552788F1.4070301@profitbricks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This command is missing.
+On Fri, Apr 10, 2015 at 10:25:21AM +0200, Michael Wang wrote:
+> On 04/10/2015 08:16 AM, ira.weiny wrote:
+> > First off there are 2 separate issues here:
+> > 
+> > 1) We need to communicate if a port supports or requires various management
+> >    support from the ib_mad, ib_cm, and/or ib_sa modules.
+> > 
+> > 2) We need to communicate how a addresses are formated and resolved for a
+> >    particular port
+> > 
+> > 
+> > In general I don't think we need to remove all uses of the Transport
+> > or Link Layer.
+> > 
+> > Although we may be able to remove most of the transport uses.
+> > 
+> > On Wed, Apr 08, 2015 at 02:10:15PM -0600, Jason Gunthorpe wrote:
+> [snip]
+> > 
+> >>
+> >> Some of the other checks in this file revolve around pkey, I'm not
+> >> sure what rocee does there? cap_pkey_supported ?
+> > 
+> > It seems IBoE just hardcodes the pkey to 0xffff.  I don't see it used anywhere.
+> > 
+> > Function where port requires "real" PKey
+> > 
+> > 	-- cma.c: cma_ib_init_qp_attr
+> > 
+> > Check rdma_port_req_pkey()?
+> 
+> What about cap_eth_ah() for all the cases need eth addressing handling?
 
-Fixes: 3a2dfbe8acb1 ("xfrm: Notify changes in UDP encapsulation via netlink")
-CC: Martin Willi <martin@strongswan.org>
-Reported-by: Stephen Smalley <sds@tycho.nsa.gov>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- security/selinux/nlmsgtab.c | 1 +
- 1 file changed, 1 insertion(+)
+That works.
 
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index 9bd7f93109a1..30594bfa5fb1 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -109,6 +109,7 @@ static struct nlmsg_perm nlmsg_xfrm_perms[] =
- 	{ XFRM_MSG_GETSADINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
- 	{ XFRM_MSG_NEWSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
- 	{ XFRM_MSG_GETSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
-+	{ XFRM_MSG_MAPPING,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
- };
+> 
+> > 
+> > 
+> > Over all for the addressing choices:
+> > 
+> > The "Transport" (or protocol, or whatever) is Verbs.  The Layer below Verbs
+> > (OPA/IB/Eth/TCP) defines how addressing, route, and connection information is
+> > generated, communicated, and used.
+> > 
+> > As Jason and Doug have been saying sometimes we want to know when that requires
+> > SA interaction or the use of the CM protocol (or neither).  Other times we just
+> > need to know what the Address format or Link Layer is.
+> 
+> Till now it seems like we could be able to eliminate the link layer helper in core
+> layer, but I'll reserve that helper in next version, if later we do not need it anymore,
+> let's erase it then ;-)
  
- static struct nlmsg_perm nlmsg_audit_perms[] =
--- 
-2.2.2
+Eliminating Link Layer is fine if we can do it, but I still think that
+something like IPoIB should check the link layer.
+
+After sleeping on it the driver exporting cap_ipoib() does not seem _so_ bad
+but I still see a distinction between ULPs like IPoIB and the other modules we
+have been discussing.
+
+Ira
+
+> Regards,
+> Michael Wang
+> 
+> > 
+> > 
+> > Ira
+> > 
