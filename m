@@ -1,113 +1,46 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 3.19 74/75] net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
-Date: Fri, 10 Apr 2015 15:19:40 +0200
-Message-ID: <20150410131711.279012319@linuxfoundation.org>
-References: <20150410131707.794709951@linuxfoundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 5/7] net: add netfilter ingress hook
+Date: Fri, 10 Apr 2015 14:36:11 +0100
+Message-ID: <20150410133610.GA19454@acer.localdomain>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <1428668142-4006-6-git-send-email-pablo@netfilter.org>
+ <20150410132120.GE23070@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, netdev@vger.kernel.org,
-	Don Fry <pcnet32@frontier.com>,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150410131707.794709951@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150410132120.GE23070@casper.infradead.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.19-stable review patch.  If anyone has any objections, please let me know.
+On 10.04, Thomas Graf wrote:
+> On 04/10/15 at 02:15pm, Pablo Neira Ayuso wrote:
+> >  static int __netif_receive_skb_ingress(struct sk_buff *skb, bool pfmemalloc,
+> >  				       struct net_device *orig_dev)
+> >  {
+> > @@ -3772,6 +3800,8 @@ skip_taps:
+> >  	if (!skb)
+> >  		return NET_RX_DROP;
+> >  #endif
+> > +	if (nf_hook_ingress_active(skb))
+> > +		return nf_hook_ingress(skb, pt_prev, orig_dev, pfmemalloc);
+> >  
+> >  	return __netif_receive_skb_finish(skb, pfmemalloc, pt_prev, orig_dev);
+> >  }
+> 
+> I would favour if we avoid for every subsystem to manage its ingress
+> filter pointers in net_device. From a net_device perspective, all it
+> takes is a single pointer which points to a single linked list of
+> filters which need to be run through. These entries could represent
+> an ingress qdisc or a netfilter chain or something else (L2 ingress
+> qdisc?).
 
-------------------
-
-From: Markos Chandras <markos.chandras@imgtec.com>
-
-commit 87f966d97b89774162df04d2106c6350c8fe4cb3 upstream.
-
-On a MIPS Malta board, tons of fifo underflow errors have been observed
-when using u-boot as bootloader instead of YAMON. The reason for that
-is that YAMON used to set the pcnet device to SRAM mode but u-boot does
-not. As a result, the default Tx threshold (64 bytes) is now too small to
-keep the fifo relatively used and it can result to Tx fifo underflow errors.
-As a result of which, it's best to setup the SRAM on supported controllers
-so we can always use the NOUFLO bit.
-
-Cc: <netdev@vger.kernel.org>
-Cc: <linux-kernel@vger.kernel.org>
-Cc: Don Fry <pcnet32@frontier.com>
-Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
----
- drivers/net/ethernet/amd/pcnet32.c |   31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
-
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -1543,7 +1543,7 @@ pcnet32_probe1(unsigned long ioaddr, int
- {
- 	struct pcnet32_private *lp;
- 	int i, media;
--	int fdx, mii, fset, dxsuflo;
-+	int fdx, mii, fset, dxsuflo, sram;
- 	int chip_version;
- 	char *chipname;
- 	struct net_device *dev;
-@@ -1580,7 +1580,7 @@ pcnet32_probe1(unsigned long ioaddr, int
- 	}
- 
- 	/* initialize variables */
--	fdx = mii = fset = dxsuflo = 0;
-+	fdx = mii = fset = dxsuflo = sram = 0;
- 	chip_version = (chip_version >> 12) & 0xffff;
- 
- 	switch (chip_version) {
-@@ -1613,6 +1613,7 @@ pcnet32_probe1(unsigned long ioaddr, int
- 		chipname = "PCnet/FAST III 79C973";	/* PCI */
- 		fdx = 1;
- 		mii = 1;
-+		sram = 1;
- 		break;
- 	case 0x2626:
- 		chipname = "PCnet/Home 79C978";	/* PCI */
-@@ -1636,6 +1637,7 @@ pcnet32_probe1(unsigned long ioaddr, int
- 		chipname = "PCnet/FAST III 79C975";	/* PCI */
- 		fdx = 1;
- 		mii = 1;
-+		sram = 1;
- 		break;
- 	case 0x2628:
- 		chipname = "PCnet/PRO 79C976";
-@@ -1664,6 +1666,31 @@ pcnet32_probe1(unsigned long ioaddr, int
- 		dxsuflo = 1;
- 	}
- 
-+	/*
-+	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
-+	 * which we can use for the Tx/Rx buffers but most importantly,
-+	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
-+	 * Tx fifo underflows.
-+	 */
-+	if (sram) {
-+		/*
-+		 * The SRAM is being configured in two steps. First we
-+		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
-+		 * to the datasheet, each bit corresponds to a 512-byte
-+		 * page so we can have at most 24 pages. The SRAM_SIZE
-+		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
-+		 * The low 8-bits start at 0x00 and end at 0xff. So the
-+		 * address range is from 0x0000 up to 0x17ff. Therefore,
-+		 * the SRAM_SIZE is set to 0x17. The next step is to set
-+		 * the BCR26:SRAM_BND midway through so the Tx and Rx
-+		 * buffers can share the SRAM equally.
-+		 */
-+		a->write_bcr(ioaddr, 25, 0x17);
-+		a->write_bcr(ioaddr, 26, 0xc);
-+		/* And finally enable the NOUFLO bit */
-+		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
-+	}
-+
- 	dev = alloc_etherdev(sizeof(*lp));
- 	if (!dev) {
- 		ret = -ENOMEM;
+I'm wondering if the hook is the right abstraction at all. Netfilter hooks
+require async resumption (okfn) support, which is why all the refactoring is
+needed. Is that something that we need for NF_PROTO_NETDEV? For ingress
+userspace queueing *might* actually work if the missing pieces are added,
+but for offloaded rules it obviously can not work.
