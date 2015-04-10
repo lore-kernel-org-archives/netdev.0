@@ -1,102 +1,68 @@
-From: "ira.weiny" <ira.weiny@intel.com>
-Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport() for each HW
-Date: Fri, 10 Apr 2015 10:56:52 -0400
-Message-ID: <20150410145651.GA10675@phlsvsds.ph.intel.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150408201015.GB28666@obsidianresearch.com> <20150410061610.GA26288@phlsvsds.ph.intel.com> <552788F1.4070301@profitbricks.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
+ commented out
+Date: Fri, 10 Apr 2015 17:04:31 +0200
+Message-ID: <5527E67F.7010107@free.fr>
+References: <5525571D.7060909@free.fr>	<5525658D.7000709@gmail.com>	<5526662C.8010509@free.fr>	<5526806E.5020309@zonque.org>	<55268EF3.7050301@free.fr>	<5526993F.1010304@free.fr>	<5526B608.2080504@gmail.com>	<5526CA87.2070204@free.fr>	<5526CC5A.1080504@gmail.com>	<5526D359.1050202@free.fr>	<CAOMZO5DhQnOtSN_bmh7JsCf=GsFats3pqpH4w+p1XWtAF=4LmQ@mail.gmail.com> <CAOMZO5BoYo_wvmxS0EN0M6CaLWk-rvCw6hpmmwvGNwAG=1vkMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Mike Marciniszyn <infinipath@intel.com>,
-	Eli Cohen <eli@mellanox.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Daniel Mack <daniel@zonque.org>,
+	Mugunthan <mugunthanvnm@ti.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-To: Michael Wang <yun.wang@profitbricks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <552788F1.4070301@profitbricks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:12470 "EHLO smtp2-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933480AbbDJPEj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Apr 2015 11:04:39 -0400
+In-Reply-To: <CAOMZO5BoYo_wvmxS0EN0M6CaLWk-rvCw6hpmmwvGNwAG=1vkMQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 10, 2015 at 10:25:21AM +0200, Michael Wang wrote:
-> On 04/10/2015 08:16 AM, ira.weiny wrote:
-> > First off there are 2 separate issues here:
-> > 
-> > 1) We need to communicate if a port supports or requires various management
-> >    support from the ib_mad, ib_cm, and/or ib_sa modules.
-> > 
-> > 2) We need to communicate how a addresses are formated and resolved for a
-> >    particular port
-> > 
-> > 
-> > In general I don't think we need to remove all uses of the Transport
-> > or Link Layer.
-> > 
-> > Although we may be able to remove most of the transport uses.
-> > 
-> > On Wed, Apr 08, 2015 at 02:10:15PM -0600, Jason Gunthorpe wrote:
-> [snip]
-> > 
-> >>
-> >> Some of the other checks in this file revolve around pkey, I'm not
-> >> sure what rocee does there? cap_pkey_supported ?
-> > 
-> > It seems IBoE just hardcodes the pkey to 0xffff.  I don't see it used anywhere.
-> > 
-> > Function where port requires "real" PKey
-> > 
-> > 	-- cma.c: cma_ib_init_qp_attr
-> > 
-> > Check rdma_port_req_pkey()?
-> 
-> What about cap_eth_ah() for all the cases need eth addressing handling?
+Fabio Estevam wrote:
+> Fabio Estevam wrote:
+>> Mason wrote:
+>>
+>>> Am I the only having problems with the AR8035? :-(
+>>>
+>>> The standard driver works for everyone but me?
+>>
+>> Works well on a imx6q-hummingboard:
+>>
+>> fec 2188000.ethernet eth0: Freescale FEC PHY driver [Atheros 8035
+>> ethernet] (mii_bus:phy_addr=2188000.ethernet:00, irq=-1)
 
-That works.
+Could you tell me the value of BMCR on entry and exit of phy_init_hw?
 
-> 
-> > 
-> > 
-> > Over all for the addressing choices:
-> > 
-> > The "Transport" (or protocol, or whatever) is Verbs.  The Layer below Verbs
-> > (OPA/IB/Eth/TCP) defines how addressing, route, and connection information is
-> > generated, communicated, and used.
-> > 
-> > As Jason and Doug have been saying sometimes we want to know when that requires
-> > SA interaction or the use of the CM protocol (or neither).  Other times we just
-> > need to know what the Address format or Link Layer is.
-> 
-> Till now it seems like we could be able to eliminate the link layer helper in core
-> layer, but I'll reserve that helper in next version, if later we do not need it anymore,
-> let's erase it then ;-)
- 
-Eliminating Link Layer is fine if we can do it, but I still think that
-something like IPoIB should check the link layer.
+> Forgot to point out that we also have a 8035 fixup in
+> arch/arm/mach-imx/mach-imx6q.c. Search for ar8035_phy_fixup().
 
-After sleeping on it the driver exporting cap_ipoib() does not seem _so_ bad
-but I still see a distinction between ULPs like IPoIB and the other modules we
-have been discussing.
+Thanks for the pointer.
 
-Ira
+Freescale's ar8031_phy_fixup() is almost the same as U-boot's ar8035_config()
+The only difference is one extra sanitizing instruction: val &= 0xffe3;
 
-> Regards,
-> Michael Wang
-> 
-> > 
-> > 
-> > Ira
-> > 
+What's the point of masking bits 3 and 4, when they are set by the
+next instruction:
+
+   val &= 0xffe3;
+   val |= 0x18;
+
+The result of these two operations is
+bit2=0 bit3=1 bit4=1 other=unchanged
+
+Bit 2 is undocumented, why does Freescale set it to 0?
+
+The tx clock delay is already done in the generic driver.
+Do you know why it is necessary? Why not rx clock delay also?
+
+I'll give the "disable SmartEEE" fixup a try.
+
+Not sure why they reset the POWER_DOWN bit? It's cleared by both
+HW and SW resets.
+
+Regards.
