@@ -1,68 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 3/4] ipv4: add option to drop gratuitous ARP packets
-Date: Fri, 10 Apr 2015 15:56:23 +0300
-Message-ID: <5527C877.6040700@cogentembedded.com>
-References: <1428652454-1224-1-git-send-email-johannes@sipsolutions.net> <1428652454-1224-3-git-send-email-johannes@sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: do not cache align timewait sockets
+Date: Fri, 10 Apr 2015 06:07:18 -0700
+Message-ID: <1428671238.25985.306.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: matti.gottlieb-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1428652454-1224-3-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:37537 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932511AbbDJNHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 09:07:21 -0400
+Received: by igblo3 with SMTP id lo3so16770619igb.0
+        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 06:07:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Eric Dumazet <edumazet@google.com>
 
-On 4/10/2015 10:54 AM, Johannes Berg wrote:
+With recent adoption of skc_cookie in struct sock_common,
+struct tcp_timewait_sock size increased from 192 to 200 bytes
+on 64bit arches. SLAB rounds then to 256 bytes.
 
-> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+It is time to drop SLAB_HWCACHE_ALIGN constraint for twsk_slab.
 
-> In certain 802.11 wireless deployments, there will be ARP proxies
-> that use knowledge of the network to correctly answer requests.
-> To prevent gratuitous ARP frames on the shared medium from being
-> a problem, on such deployments wireless needs to drop them.
+This saves about 12 MB of memory on typical configuration reaching
+262144 timewait sockets, and has no noticeable impact on performance.
 
-> Enable this by providing an option called "drop_gratuitous_arp".
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/sock.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
->   Documentation/networking/ip-sysctl.txt | 6 ++++++
->   include/uapi/linux/ip.h                | 1 +
->   net/ipv4/arp.c                         | 8 ++++++++
->   net/ipv4/devinet.c                     | 2 ++
->   4 files changed, 17 insertions(+)
-
-[...]
-> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> index 5f5c674e130a..5487d5e5191e 100644
-> --- a/net/ipv4/arp.c
-> +++ b/net/ipv4/arp.c
-> @@ -715,6 +715,14 @@ static int arp_process(struct sk_buff *skb)
->   	    (!IN_DEV_ROUTE_LOCALNET(in_dev) && ipv4_is_loopback(tip)))
->   		goto out;
->
-> + /*
-> +  *	For some 802.11 wireless deployments (and possibly other networks),
-> +  *	there will be an ARP proxy and gratuitous ARP frames are attacks
-> +  *	and thus should not be accepted.
-> +  */
-
-    Hm, why this strange indentation?
-
-> +	if (IN_DEV_CONF_GET(in_dev, DROP_GRATUITOUS_ARP) && sip == tip)
-> +		goto out;
-> +
->   /*
->    *     Special case: We must set Frame Relay source Q.922 address
->    */
-[...]
-
-WBR, Sergei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 654e38a9975948f981f35716e7b9eac8569f0f93..e891bcf325ca759c9b7498f29ec76aa946198d5e 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2799,8 +2799,7 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 				kmem_cache_create(prot->twsk_prot->twsk_slab_name,
+ 						  prot->twsk_prot->twsk_obj_size,
+ 						  0,
+-						  SLAB_HWCACHE_ALIGN |
+-							prot->slab_flags,
++						  prot->slab_flags,
+ 						  NULL);
+ 			if (prot->twsk_prot->twsk_slab == NULL)
+ 				goto out_free_timewait_sock_slab_name;
