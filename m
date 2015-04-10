@@ -1,302 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/9] ixgbe: adds x550 specific FCoE offloads
-Date: Fri, 10 Apr 2015 00:53:16 -0700
-Message-ID: <1428652398-10147-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/9] ixgbe: Remove NETIF_F_HW_VLAN_CTAG_FILTER from hw_features
+Date: Fri, 10 Apr 2015 00:53:17 -0700
+Message-ID: <1428652398-10147-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1428652398-10147-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:55251 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:33743 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755034AbbDJHxX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Apr 2015 03:53:23 -0400
+	id S1755097AbbDJHxW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Apr 2015 03:53:22 -0400
 In-Reply-To: <1428652398-10147-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasu Dev <vasu.dev@intel.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-Adds x550 specific FCoE offloads for DDP context programming and
-increased DDP exchanges.
+This change makes it so that the HW_VLAN_CTAG_FILTER bit is not falsely
+advertised as being a feature that can be toggled on ixgbe parts.  The
+driver was setting the bit in features and letting it be inherited by
+hw_features, however the driver was actually ignoring the value of the bit
+and just assuming it was always set.  As a result VLAN filtering was always
+enabled which is a requirement for SR-IOV, VMDq, DCB, FCoE, and possibly
+other features within the adapters.
 
-Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c | 122 ++++++++++++++++++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   9 ++
- 3 files changed, 107 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-index 2ad91cb..631c603 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
-@@ -71,6 +71,7 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
- 	struct ixgbe_fcoe *fcoe;
- 	struct ixgbe_adapter *adapter;
- 	struct ixgbe_fcoe_ddp *ddp;
-+	struct ixgbe_hw *hw;
- 	u32 fcbuff;
- 
- 	if (!netdev)
-@@ -85,25 +86,51 @@ int ixgbe_fcoe_ddp_put(struct net_device *netdev, u16 xid)
- 	if (!ddp->udl)
- 		return 0;
- 
-+	hw = &adapter->hw;
- 	len = ddp->len;
--	/* if there an error, force to invalidate ddp context */
--	if (ddp->err) {
-+	/* if no error then skip ddp context invalidation */
-+	if (!ddp->err)
-+		goto skip_ddpinv;
-+
-+	if (hw->mac.type == ixgbe_mac_X550) {
-+		/* X550 does not require DDP FCoE lock */
-+
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDFC(0, xid), 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDFC(3, xid),
-+				(xid | IXGBE_FCFLTRW_WE));
-+
-+		/* program FCBUFF */
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDDC(2, xid), 0);
-+
-+		/* program FCDMARW */
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDDC(3, xid),
-+				(xid | IXGBE_FCDMARW_WE));
-+
-+		/* read FCBUFF to check context invalidated */
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDDC(3, xid),
-+				(xid | IXGBE_FCDMARW_RE));
-+		fcbuff = IXGBE_READ_REG(hw, IXGBE_FCDDC(2, xid));
-+	} else {
-+		/* other hardware requires DDP FCoE lock */
- 		spin_lock_bh(&fcoe->lock);
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCFLT, 0);
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCFLTRW,
-+		IXGBE_WRITE_REG(hw, IXGBE_FCFLT, 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCFLTRW,
- 				(xid | IXGBE_FCFLTRW_WE));
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCBUFF, 0);
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCDMARW,
-+		IXGBE_WRITE_REG(hw, IXGBE_FCBUFF, 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDMARW,
- 				(xid | IXGBE_FCDMARW_WE));
- 
- 		/* guaranteed to be invalidated after 100us */
--		IXGBE_WRITE_REG(&adapter->hw, IXGBE_FCDMARW,
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDMARW,
- 				(xid | IXGBE_FCDMARW_RE));
--		fcbuff = IXGBE_READ_REG(&adapter->hw, IXGBE_FCBUFF);
-+		fcbuff = IXGBE_READ_REG(hw, IXGBE_FCBUFF);
- 		spin_unlock_bh(&fcoe->lock);
--		if (fcbuff & IXGBE_FCBUFF_VALID)
--			udelay(100);
--	}
-+		}
-+
-+	if (fcbuff & IXGBE_FCBUFF_VALID)
-+		usleep_range(100, 150);
-+
-+skip_ddpinv:
- 	if (ddp->sgl)
- 		dma_unmap_sg(&adapter->pdev->dev, ddp->sgl, ddp->sgc,
- 			     DMA_FROM_DEVICE);
-@@ -272,7 +299,6 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 
- 	/* program DMA context */
- 	hw = &adapter->hw;
--	spin_lock_bh(&fcoe->lock);
- 
- 	/* turn on last frame indication for target mode as FCP_RSPtarget is
- 	 * supposed to send FCP_RSP when it is done. */
-@@ -283,16 +309,33 @@ static int ixgbe_fcoe_ddp_setup(struct net_device *netdev, u16 xid,
- 		IXGBE_WRITE_REG(hw, IXGBE_FCRXCTRL, fcrxctl);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index c696ad72..0b38be8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8455,7 +8455,6 @@ skip_sriov:
+ 			   NETIF_F_IPV6_CSUM |
+ 			   NETIF_F_HW_VLAN_CTAG_TX |
+ 			   NETIF_F_HW_VLAN_CTAG_RX |
+-			   NETIF_F_HW_VLAN_CTAG_FILTER |
+ 			   NETIF_F_TSO |
+ 			   NETIF_F_TSO6 |
+ 			   NETIF_F_RXHASH |
+@@ -8477,6 +8476,7 @@ skip_sriov:
  	}
  
--	IXGBE_WRITE_REG(hw, IXGBE_FCPTRL, ddp->udp & DMA_BIT_MASK(32));
--	IXGBE_WRITE_REG(hw, IXGBE_FCPTRH, (u64)ddp->udp >> 32);
--	IXGBE_WRITE_REG(hw, IXGBE_FCBUFF, fcbuff);
--	IXGBE_WRITE_REG(hw, IXGBE_FCDMARW, fcdmarw);
--	/* program filter context */
--	IXGBE_WRITE_REG(hw, IXGBE_FCPARAM, 0);
--	IXGBE_WRITE_REG(hw, IXGBE_FCFLT, IXGBE_FCFLT_VALID);
--	IXGBE_WRITE_REG(hw, IXGBE_FCFLTRW, fcfltrw);
-+	if (hw->mac.type == ixgbe_mac_X550) {
-+		/* X550 does not require DDP lock */
-+
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDDC(0, xid),
-+				ddp->udp & DMA_BIT_MASK(32));
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDDC(1, xid), (u64)ddp->udp >> 32);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDDC(2, xid), fcbuff);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDDC(3, xid), fcdmarw);
-+		/* program filter context */
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDFC(0, xid), IXGBE_FCFLT_VALID);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDFC(1, xid), 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDFC(3, xid), fcfltrw);
-+	} else {
-+		/* DDP lock for indirect DDP context access */
-+		spin_lock_bh(&fcoe->lock);
-+
-+		IXGBE_WRITE_REG(hw, IXGBE_FCPTRL, ddp->udp & DMA_BIT_MASK(32));
-+		IXGBE_WRITE_REG(hw, IXGBE_FCPTRH, (u64)ddp->udp >> 32);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCBUFF, fcbuff);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCDMARW, fcdmarw);
-+		/* program filter context */
-+		IXGBE_WRITE_REG(hw, IXGBE_FCPARAM, 0);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCFLT, IXGBE_FCFLT_VALID);
-+		IXGBE_WRITE_REG(hw, IXGBE_FCFLTRW, fcfltrw);
+ 	netdev->hw_features |= NETIF_F_RXALL;
++	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
  
--	spin_unlock_bh(&fcoe->lock);
-+		spin_unlock_bh(&fcoe->lock);
-+	}
- 
- 	return 1;
- 
-@@ -371,6 +414,7 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
- 	struct fcoe_crc_eof *crc;
- 	__le32 fcerr = ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_ERR_FCERR);
- 	__le32 ddp_err;
-+	int ddp_max;
- 	u32 fctl;
- 	u16 xid;
- 
-@@ -392,7 +436,11 @@ int ixgbe_fcoe_ddp(struct ixgbe_adapter *adapter,
- 	else
- 		xid =  be16_to_cpu(fh->fh_rx_id);
- 
--	if (xid >= IXGBE_FCOE_DDP_MAX)
-+	ddp_max = IXGBE_FCOE_DDP_MAX;
-+	/* X550 has different DDP Max limit */
-+	if (adapter->hw.mac.type == ixgbe_mac_X550)
-+		ddp_max = IXGBE_FCOE_DDP_MAX_X550;
-+	if (xid >= ddp_max)
- 		return -EINVAL;
- 
- 	fcoe = &adapter->fcoe;
-@@ -612,7 +660,8 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_ring_feature *fcoe = &adapter->ring_feature[RING_F_FCOE];
- 	struct ixgbe_hw *hw = &adapter->hw;
--	int i, fcoe_q, fcoe_i;
-+	int i, fcoe_q, fcoe_i, fcoe_q_h = 0;
-+	int fcreta_size;
- 	u32 etqf;
- 
- 	/* Minimal functionality for FCoE requires at least CRC offloads */
-@@ -633,10 +682,23 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- 		return;
- 
- 	/* Use one or more Rx queues for FCoE by redirection table */
--	for (i = 0; i < IXGBE_FCRETA_SIZE; i++) {
-+	fcreta_size = IXGBE_FCRETA_SIZE;
-+	if (adapter->hw.mac.type == ixgbe_mac_X550)
-+		fcreta_size = IXGBE_FCRETA_SIZE_X550;
-+
-+	for (i = 0; i < fcreta_size; i++) {
-+		if (adapter->hw.mac.type == ixgbe_mac_X550) {
-+			int fcoe_i_h = fcoe->offset + ((i + fcreta_size) %
-+							fcoe->indices);
-+			fcoe_q_h = adapter->rx_ring[fcoe_i_h]->reg_idx;
-+			fcoe_q_h = (fcoe_q_h << IXGBE_FCRETA_ENTRY_HIGH_SHIFT) &
-+				   IXGBE_FCRETA_ENTRY_HIGH_MASK;
-+		}
-+
- 		fcoe_i = fcoe->offset + (i % fcoe->indices);
- 		fcoe_i &= IXGBE_FCRETA_ENTRY_MASK;
- 		fcoe_q = adapter->rx_ring[fcoe_i]->reg_idx;
-+		fcoe_q |= fcoe_q_h;
- 		IXGBE_WRITE_REG(hw, IXGBE_FCRETA(i), fcoe_q);
- 	}
- 	IXGBE_WRITE_REG(hw, IXGBE_FCRECTL, IXGBE_FCRECTL_ENA);
-@@ -672,13 +734,18 @@ void ixgbe_configure_fcoe(struct ixgbe_adapter *adapter)
- void ixgbe_free_fcoe_ddp_resources(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_fcoe *fcoe = &adapter->fcoe;
--	int cpu, i;
-+	int cpu, i, ddp_max;
- 
- 	/* do nothing if no DDP pools were allocated */
- 	if (!fcoe->ddp_pool)
- 		return;
- 
--	for (i = 0; i < IXGBE_FCOE_DDP_MAX; i++)
-+	ddp_max = IXGBE_FCOE_DDP_MAX;
-+	/* X550 has different DDP Max limit */
-+	if (adapter->hw.mac.type == ixgbe_mac_X550)
-+		ddp_max = IXGBE_FCOE_DDP_MAX_X550;
-+
-+	for (i = 0; i < ddp_max; i++)
- 		ixgbe_fcoe_ddp_put(adapter->netdev, i);
- 
- 	for_each_possible_cpu(cpu)
-@@ -758,6 +825,9 @@ static int ixgbe_fcoe_ddp_enable(struct ixgbe_adapter *adapter)
- 	}
- 
- 	adapter->netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX - 1;
-+	/* X550 has different DDP Max limit */
-+	if (adapter->hw.mac.type == ixgbe_mac_X550)
-+		adapter->netdev->fcoe_ddp_xid = IXGBE_FCOE_DDP_MAX_X550 - 1;
- 
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-index 0772b77..3838587 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h
-@@ -46,6 +46,7 @@
- #define IXGBE_FCBUFF_MAX	65536	/* 64KB max */
- #define IXGBE_FCBUFF_MIN	4096	/* 4KB min */
- #define IXGBE_FCOE_DDP_MAX	512	/* 9 bits xid */
-+#define IXGBE_FCOE_DDP_MAX_X550	2048	/* 11 bits xid */
- 
- /* Default traffic class to use for FCoE */
- #define IXGBE_FCOE_DEFTC	3
-@@ -77,7 +78,7 @@ struct ixgbe_fcoe {
- 	struct ixgbe_fcoe_ddp_pool __percpu *ddp_pool;
- 	atomic_t refcnt;
- 	spinlock_t lock;
--	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX];
-+	struct ixgbe_fcoe_ddp ddp[IXGBE_FCOE_DDP_MAX_X550];
- 	void *extra_ddp_buffer;
- 	dma_addr_t extra_ddp_buffer_dma;
- 	unsigned long mode;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 8e39309..dd6ba59 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -610,6 +610,8 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_RTTBCNRM    0x04980
- #define IXGBE_RTTQCNRM    0x04980
- 
-+/* FCoE Direct DMA Context */
-+#define IXGBE_FCDDC(_i, _j)	(0x20000 + ((_i) * 0x4) + ((_j) * 0x10))
- /* FCoE DMA Context Registers */
- #define IXGBE_FCPTRL    0x02410 /* FC User Desc. PTR Low */
- #define IXGBE_FCPTRH    0x02414 /* FC USer Desc. PTR High */
-@@ -636,6 +638,9 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_TSOFF     0x04A98 /* Tx FC SOF */
- #define IXGBE_REOFF     0x05158 /* Rx FC EOF */
- #define IXGBE_RSOFF     0x051F8 /* Rx FC SOF */
-+/* FCoE Direct Filter Context */
-+#define IXGBE_FCDFC(_i, _j)	(0x28000 + ((_i) * 0x4) + ((_j) * 0x10))
-+#define IXGBE_FCDFCD(_i)	(0x30000 + ((_i) * 0x4))
- /* FCoE Filter Context Registers */
- #define IXGBE_FCFLT     0x05108 /* FC FLT Context */
- #define IXGBE_FCFLTRW   0x05110 /* FC Filter RW Control */
-@@ -666,6 +671,10 @@ struct ixgbe_thermal_sensor_data {
- #define IXGBE_FCRECTL_ENA       0x1        /* FCoE Redir Table Enable */
- #define IXGBE_FCRETA_SIZE       8          /* Max entries in FCRETA */
- #define IXGBE_FCRETA_ENTRY_MASK 0x0000007f /* 7 bits for the queue index */
-+#define IXGBE_FCRETA_SIZE_X550	32 /* Max entries in FCRETA */
-+/* Higher 7 bits for the queue index */
-+#define IXGBE_FCRETA_ENTRY_HIGH_MASK	0x007F0000
-+#define IXGBE_FCRETA_ENTRY_HIGH_SHIFT	16
- 
- /* Stats registers */
- #define IXGBE_CRCERRS   0x04000
+ 	netdev->vlan_features |= NETIF_F_TSO;
+ 	netdev->vlan_features |= NETIF_F_TSO6;
 -- 
 1.9.3
