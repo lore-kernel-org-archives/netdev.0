@@ -1,7 +1,7 @@
 From: <gregkh@linuxfoundation.org>
-Subject: Patch "net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}" has been added to the 3.14-stable tree
-Date: Fri, 10 Apr 2015 15:12:28 +0200
-Message-ID: <142867154884230@kroah.com>
+Subject: Patch "net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}" has been added to the 3.19-stable tree
+Date: Fri, 10 Apr 2015 15:12:37 +0200
+Message-ID: <142867155718924@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
@@ -18,12 +18,12 @@ This is a note to let you know that I've just added the patch titled
 
     net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
 
-to the 3.14-stable tree which can be found at:
+to the 3.19-stable tree which can be found at:
     http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
 
 The filename of the patch is:
      net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
-and it can be found in the queue-3.14 subdirectory.
+and it can be found in the queue-3.19 subdirectory.
 
 If you, or anyone else, feels it should not be added to the stable tree,
 please let <stable@vger.kernel.org> know about it.
@@ -59,7 +59,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
 --- a/drivers/net/ethernet/amd/pcnet32.c
 +++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -1516,7 +1516,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+@@ -1543,7 +1543,7 @@ pcnet32_probe1(unsigned long ioaddr, int
  {
  	struct pcnet32_private *lp;
  	int i, media;
@@ -68,7 +68,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  	int chip_version;
  	char *chipname;
  	struct net_device *dev;
-@@ -1553,7 +1553,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+@@ -1580,7 +1580,7 @@ pcnet32_probe1(unsigned long ioaddr, int
  	}
  
  	/* initialize variables */
@@ -77,7 +77,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  	chip_version = (chip_version >> 12) & 0xffff;
  
  	switch (chip_version) {
-@@ -1586,6 +1586,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+@@ -1613,6 +1613,7 @@ pcnet32_probe1(unsigned long ioaddr, int
  		chipname = "PCnet/FAST III 79C973";	/* PCI */
  		fdx = 1;
  		mii = 1;
@@ -85,7 +85,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  		break;
  	case 0x2626:
  		chipname = "PCnet/Home 79C978";	/* PCI */
-@@ -1609,6 +1610,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+@@ -1636,6 +1637,7 @@ pcnet32_probe1(unsigned long ioaddr, int
  		chipname = "PCnet/FAST III 79C975";	/* PCI */
  		fdx = 1;
  		mii = 1;
@@ -93,7 +93,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
  		break;
  	case 0x2628:
  		chipname = "PCnet/PRO 79C976";
-@@ -1637,6 +1639,31 @@ pcnet32_probe1(unsigned long ioaddr, int
+@@ -1664,6 +1666,31 @@ pcnet32_probe1(unsigned long ioaddr, int
  		dxsuflo = 1;
  	}
  
@@ -129,4 +129,4 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
 Patches currently in stable-queue which might be from markos.chandras@imgtec.com are
 
-queue-3.14/net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
+queue-3.19/net-ethernet-pcnet32-setup-the-sram-and-nouflo-on-am79c97-3-5.patch
