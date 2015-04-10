@@ -1,87 +1,65 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Atheros 8035 PHY only works when at803x_config_init() is
- commented out
-Date: Fri, 10 Apr 2015 12:01:09 +0200
-Message-ID: <55279F65.9090202@free.fr>
-References: <5525571D.7060909@free.fr> <5525658D.7000709@gmail.com> <5526662C.8010509@free.fr> <5526806E.5020309@zonque.org> <55268EF3.7050301@free.fr> <5526993F.1010304@free.fr> <5526B608.2080504@gmail.com> <5526CA87.2070204@free.fr> <5526CC5A.1080504@gmail.com> <5526D359.1050202@free.fr> <552798CD.70608@zonque.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [patch net-next v3] tc: introduce OpenFlow classifier
+Date: Fri, 10 Apr 2015 11:03:17 +0100
+Message-ID: <20150410100317.GD23070@casper.infradead.org>
+References: <1428584287-8197-1-git-send-email-jiri@resnulli.us>
+ <20150409.173423.2258417584616634411.davem@davemloft.net>
+ <20150410091203.GA2021@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Mugunthan <mugunthanvnm@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Daniel Mack <daniel@zonque.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jhs@mojatatu.com, jesse@nicira.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:57601 "EHLO smtp2-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753722AbbDJKBT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Apr 2015 06:01:19 -0400
-In-Reply-To: <552798CD.70608@zonque.org>
+Received: from casper.infradead.org ([85.118.1.10]:32818 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932161AbbDJKDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 06:03:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20150410091203.GA2021@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Mack wrote:
+On 04/10/15 at 11:12am, Jiri Pirko wrote:
+> Thu, Apr 09, 2015 at 11:34:23PM CEST, davem@davemloft.net wrote:
+> >I'm not so sure what my opinion is about whether we should
+> >even have an openflow classifier or not (I find major aspects
+> >of OpenFLOW extremely distasteful, it's basically pushing the
+> >SDK agenda of several major chip vendors).
+> 
+> Yep, I don't like OpenFlow as well. But anyway, we already have
+> OpenFlow-based classifier in kernel - in OVS code.
 
-> Mason wrote:
->
->> Am I the only having problems with the AR8035? :-(
->> The standard driver works for everyone but me?
->
-> A company I used to work with ships various hardware models in
-> quantities which features this chip, and they're using the unpatched
-> mainline kernel version of the driver.
+Can we stop referring to OpenFlow? There is really no relation ;-)
+In fact, there are several open source projects which utilize the
+OVS kernel datapath *without* caring about OpenFlow at all. A good
+example of this is Midonet.
 
-It seems something was done differently on my SoC.
-I'll keep looking.
+> The thing is, why don't have it in tc? It does not cost anything. And
+> having it, people used to use ovs kernel DP will be able to migrate
+> easily to tc.
 
->> Did you take a look at the data sheet? Do you understand the
->> difference between "Hardware Reset" and "Software Reset"?
->
-> I did, most notably because I was desperately trying to find a sane way
-> to conduct a full reset of the PHY to work around a confirmed bug in the
-> DIE of the chip which causes the internal state machine to lock up on
-> link loss under certain conditions.
->
-> Unfortunately, I failed to find a way to really put the chip into
-> complete reset state through the registers. Instead, I added a
-> possibility to let the driver pull the hardware reset (see 13a56b4493).
->
-> Other than that, however, I didn't encounter any problems.
+That part I agree with. We should have a single common flow dissector
+which is used for all purposes. After all, it's just parsing and
+wildcard matching through hash tables. If that flow dissector is not
+rich enough for someone, eBPF offers a more programmable approach and
+we already see that work progressing nicely. We should also
+consolidate as much of the actions as possible.
 
-I wonder what value the CONTROL register was set to on your SoC
-after a SW reset. Maybe the "retain value" jiggery-pokery is just
-a red herring.
+As I stated in a private email to a couple of days ago. I've started
+working on ripping out most of the OVS vport logic and make all OVS
+bridge ports be regular net_devices (most of them already were). This
+will get rid of most of the OVS specific tunnel handling logic and
+should allow to implement flow based tunnels with iproute2 as well.
+The OVS datapath structure will just become net_device private data
+and all ports will be regular slaves.
 
->> Maybe on my PHY, writing BMCR_RESET to BMCR triggers a SW reset,
->> while it triggers a HW reset on other boards?
->
-> AFAIK, the chip does not do this, no. But even if it did,
+Adding slaves to an OVS bridge will be possible through iproute2
+and we can even expose OVS bridges as regular Linux bridges ithrough
+AF_BRIDGE *if* we want. Although I'm not sure how feasiable that is
+given that most Linux bridge knobs including all the STP config
+does not apply to OVS bridges.
 
-Did you forget to finish that sentence? :-)
-
-
->> Also, why do you say the PHY is not working? When I apply the
->> patch I proposed, it doesn't malfunction.
->
-> You're referring to the one that removes the phy init routine?
-
-No, the RMW of the CONTROL register for when triggering reset.
-
-> I'd still go and check if there's anything in one of the chained
-> bootloaders that does some magic. One other thing that might give you a
-> hint is to manually pull the RESET line low for a short time right when
-> the kernel decompressor is started. That way, the kernel has to deal
-> with a device that has just seen a hardware reset. Just see if that
-> makes any difference.
-
-I'd force a HW reset by jiggling the appropriate GPIO pin?
-Like you did in the at803x.c driver?
-
-> Also, some delays in between the register writes during initialization
-> might also be worth a try. But that's all just random guessing right
-> now, sorry.
-
-Thanks for your help, by the way (and Fabio too).
-
-Regards.
+I think everybody agrees that we should melt as much as possible and
+stop reimplementing everything from scratch in isolated silos for
+every bridge flavour that pops up.
