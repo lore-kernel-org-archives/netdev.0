@@ -1,41 +1,61 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 5/5 v2] netfilter: Fix format string of nfnetlink_log
- proc file
-Date: Fri, 10 Apr 2015 09:31:19 +0200
-Message-ID: <55277C47.4080201@nod.at>
-References: <1428616637-21690-1-git-send-email-richard@nod.at>	 <1428616637-21690-5-git-send-email-richard@nod.at> <1428619177.5413.15.camel@perches.com>
+From: Michael Wang <yun.wang-EIkl63zCoXaH+58JC4qpiA@public.gmane.org>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport()
+ for each HW
+Date: Fri, 10 Apr 2015 09:46:48 +0200
+Message-ID: <55277FE8.50107@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com>	 <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com>	 <20150408201015.GB28666@obsidianresearch.com>	 <1428590070.2980.190.camel@redhat.com>	 <20150409160123.GA31353@obsidianresearch.com> <1428614348.2980.287.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sameo@linux.intel.com,
-	aloisio.almeida@openbossa.org, lauro.venancio@openbossa.org,
-	davem@davemloft.net, kadlec@blackhole.kfki.hu, kaber@trash.net,
-	pablo@netfilter.org
-To: Joe Perches <joe@perches.com>, Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1428619177.5413.15.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Tom Tucker <tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
+	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+	Mike Marciniszyn <infinipath-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Faisal Latif <faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Upinder Malhi <umalhi-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>,
+	Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	PJ Waskiewicz <pj.waskiewicz-PrFOU5CTvK1l57MIdRCFDg@public.gmane.org>,
+	Tatyana Nikolova <Tatyana.E.Nikolova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Haggai Er
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1428614348.2980.287.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Am 10.04.2015 um 00:39 schrieb Joe Perches:
-> On Thu, 2015-04-09 at 23:57 +0200, Richard Weinberger wrote:
->> The printed values are all of type unsigned integer, therefore use
->> %u instead of %d. Otherwise an user can face negative values.
+On 04/09/2015 11:19 PM, Doug Ledford wrote:
+[snip]
+>>
+>> I've written this before: The mess here is that it is too hard to know
+>> what the call sites are actually checking for when it is some baroque
+>> conditional.
 > 
-> Hey Richard.
-> 
-> Just to clarify, this patch is for net and not for net-next
-> as net-next has removed the seq_printf return uses.
-> 
-> Are you going to submit an equivalent patch for net-next?
+> The two goals: being specific about what the test is returning and
+> minimizing the bitmap footprint; are not necessarily opposed.  One can
+> do both at the same time.
 
-Hmm, you are right. It took me a few minutes to figure out what happened
-because I did rebase my patches to net-next and fixed up 5/5 already.
-Reading yesterday's bash history shows that I've used
-git format-patch in a wrong way such that the comments from the old
-branch were taken.
+This could be internal reforming after the cap_XX() stuff works for core
+layer, at that time we don't need to touch core layer anymore, just
+introducing this bitmap stuff in verb layer, replacing the implementation
+of these helpers with the bitmap check, and following the semantic (description).
 
-Thanks,
-//richard
+Regards,
+Michael Wang
+
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
