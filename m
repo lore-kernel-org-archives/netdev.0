@@ -1,55 +1,51 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [net-next PATCH 3/3] net: macb: Add change_mtu callback with
- jumbo support
-Date: Fri, 10 Apr 2015 15:05:28 +0530
-Message-ID: <CAFcVECLONoSV8riBHpkhJXrx39wtDLP2X7zx=C6jdXGuqw_vAg@mail.gmail.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [net-next PATCH 1/3] devicetree: Add compatible string for Zynq
+ Ultrascale MPSoC
+Date: Fri, 10 Apr 2015 11:41:48 +0200
+Message-ID: <d9d4238d-c8f7-4b15-8ba5-22d77be05a45@BN1AFFO11FD041.protection.gbl>
 References: <1428657441-27710-1-git-send-email-harinik@xilinx.com>
-	<9376b508-694b-4582-8f2c-4e85e2bab2b5@BY2FFO11FD054.protection.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: nicolas.ferre@atmel.com, davem@davemloft.net,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	boris.brezillon@free-electrons.com,
-	alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	"michals@xilinx.com" <michals@xilinx.com>
-To: Harini Katakam <harini.katakam@xilinx.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
+	<punnaia@xilinx.com>
+To: Harini Katakam <harini.katakam@xilinx.com>,
+	<nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<harinikatakamlinux@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9376b508-694b-4582-8f2c-4e85e2bab2b5@BY2FFO11FD054.protection.gbl>
+In-Reply-To: <1428657441-27710-1-git-send-email-harinik@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 10, 2015 at 2:47 PM, Harini Katakam
-<harini.katakam@xilinx.com> wrote:
-> Add macb_change_mtu callback; if jumbo frame support is present allow
-> mtu size changes upto (jumbo max length allowed - headers).
->
+On 04/10/2015 11:17 AM, Harini Katakam wrote:
+> Add "cdns,zynqmp-gem" to be used for Zynq Ultrascal MPSoc.
+
+type here. And look below.
+
+> 
 > Signed-off-by: Harini Katakam <harinik@xilinx.com>
 > Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
 > ---
->  drivers/net/ethernet/cadence/macb.c |   26 +++++++++++++++++++++++++-
->  1 file changed, 25 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 85de91d..33f3283 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -54,6 +54,10 @@
->  #define MACB_MAX_TX_LEN                ((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1))
->  #define GEM_MAX_TX_LEN         ((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1))
->
-> +#define GEM_MTU_MIN_SIZE       68
-> +
-> +#define GEM_ZYNQMP_JUMBO_MAX   10240
+>  Documentation/devicetree/bindings/net/macb.txt |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+> index ba19d67..a112add 100644
+> --- a/Documentation/devicetree/bindings/net/macb.txt
+> +++ b/Documentation/devicetree/bindings/net/macb.txt
+> @@ -9,6 +9,7 @@ Required properties:
+>    the Cadence GEM, or the generic form: "cdns,gem".
+>    Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
+>    Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
+> +  Use "cdns,zynqmp-gem" for Zynq Ultrascale MPSoC.
 
-I'm sorry - this definition is in the wrong patch. I'll correct it and
-send a v2.
+Please use official name
+Zynq UltraScale+ MPSoC
 
-Regards,
-Harini
+Thanks,
+Michal
