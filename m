@@ -1,106 +1,68 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
-Date: Fri, 10 Apr 2015 08:48:46 -0400
-Message-ID: <5527C6AE.6010301@mojatatu.com>
-References: <1428535575-7736-1-git-send-email-ast@plumgrid.com>	<1428535575-7736-2-git-send-email-ast@plumgrid.com> <20150408.224404.1913719826015357860.davem@davemloft.net> <5525EC69.1080606@plumgrid.com> <5526593E.4040608@mojatatu.com> <5526B0E0.7060000@plumgrid.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 3/4] ipv4: add option to drop gratuitous ARP packets
+Date: Fri, 10 Apr 2015 15:56:23 +0300
+Message-ID: <5527C877.6040700@cogentembedded.com>
+References: <1428652454-1224-1-git-send-email-johannes@sipsolutions.net> <1428652454-1224-3-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, tgraf@suug.ch, jiri@resnulli.us,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:33972 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932446AbbDJMsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 08:48:53 -0400
-Received: by iedfl3 with SMTP id fl3so18350908ied.1
-        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 05:48:53 -0700 (PDT)
-In-Reply-To: <5526B0E0.7060000@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: matti.gottlieb-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1428652454-1224-3-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/09/15 13:03, Alexei Starovoitov wrote:
-> On 4/9/15 3:49 AM, Jamal Hadi Salim wrote:
->> those devices and only speacial case with them. Your assumptions of
->> blindly pushing/pulling will break  in some cases (take a look at
->> mirred).
+Hello.
+
+On 4/10/2015 10:54 AM, Johannes Berg wrote:
+
+> From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+
+> In certain 802.11 wireless deployments, there will be ARP proxies
+> that use knowledge of the network to correctly answer requests.
+> To prevent gratuitous ARP frames on the shared medium from being
+> a problem, on such deployments wireless needs to drop them.
+
+> Enable this by providing an option called "drop_gratuitous_arp".
+
+> Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> ---
+>   Documentation/networking/ip-sysctl.txt | 6 ++++++
+>   include/uapi/linux/ip.h                | 1 +
+>   net/ipv4/arp.c                         | 8 ++++++++
+>   net/ipv4/devinet.c                     | 2 ++
+>   4 files changed, 17 insertions(+)
+
+[...]
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index 5f5c674e130a..5487d5e5191e 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -715,6 +715,14 @@ static int arp_process(struct sk_buff *skb)
+>   	    (!IN_DEV_ROUTE_LOCALNET(in_dev) && ipv4_is_loopback(tip)))
+>   		goto out;
 >
-> you underestimated how much time I've spent studying mirred ;)
-> In particular my v2 patch fixes two bugs in it:
-> - it was forwarding packets with L2 present to tunnel devices if used
->    with egress qdisc
-> - it wasn't updating skb->csum with ingress qdisc
->
-> In v3 since 'needs_l2' is an optional flag, I didn't touch mirred
-> and left its bugs for the future patches.
->
+> + /*
+> +  *	For some 802.11 wireless deployments (and possibly other networks),
+> +  *	there will be an ARP proxy and gratuitous ARP frames are attacks
+> +  *	and thus should not be accepted.
+> +  */
 
-Alexei,  when you do stuff like based on some policy as you suggest:
-+	skb_push(skb, hard_header_len);
-+	skb_postpush_rcsum(skb, skb->data, hard_header_len);
+    Hm, why this strange indentation?
 
-That doesnt give you L2 at offset 0 for _some devices_ which is what you
-say you need. In some devices it adds a second L2 header.
-This is why i keep pointing you to mirred. That is just how
-the system works today.
+> +	if (IN_DEV_CONF_GET(in_dev, DROP_GRATUITOUS_ARP) && sip == tip)
+> +		goto out;
+> +
+>   /*
+>    *     Special case: We must set Frame Relay source Q.922 address
+>    */
+[...]
 
-To your "bugs" comments:
-- It is reasonable but borderline grey area intepretation of policy
-intent to refer additional L2 header a "bug". It is clearly
-undesirable to send additional L2 headers (depending on the tunnel
-device) and up  to now i havent thought of it as a "bug". But I would
-concede that point. In my testing I thought that was a feature. This
-is different from the ingress  side where it simply wont work if
-you have a missing L2 header.
-- updating csum; earlier i said i was conflicted it being a
-useful "feature".
-You are repeating again that it is a bug. It is not.
-This action is intended to  mirror or redirect packets, period.
-Unix philosophy do small things and do them well.
-Adding checksum recomputation maybe useful if some preceding action
-required it. But calling lack of checksum recomputation a bug is a
-big stretch.
+WBR, Sergei
 
-
->
-> hmm. penalize everyone? it's an optional flag.
-
-You added at minimal two if conditions that execute on a per-packet
-level. Eric D. has been hounding me for just having one.
-
-> If ingress_l2 is used with cls_bpf plus some other classifier,
-> sure, the other classifier is paying potential cost skb_share_check
-> if taps are active. The chances of having more than a couple classifiers
-> on a single device are very slim, since they're called sequentially
-> and killing performance regardless.
-
-In my world it is not uncommon.
-
-> In most of the use cases I'm after, cls_bpf will be the only classifier
-> attached.
-
-And i am pointing there are other use cases.
-
->In some cases there may be few others, but cls_bpf will be
-> the first and the heaviest one. So it makes sense to optimize for it.
->
-
-I am sorry - but i remain unconvinced.
-
->> code path and you are adding a bunch more unconditionally.
->
-> not true at all. Looks like you misread the v3 patch completely.
-> It's an optional flag.
-
-+		needs_l2 = q->flags & TCQ_F_INGRESS_L2;
-+		if (needs_l2) {
-..
-....
-+		if (needs_l2)
-
-That is executed for _every_ packet going after ingress qdisc.
-
-cheers,
-jamal
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
