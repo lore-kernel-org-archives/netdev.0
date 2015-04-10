@@ -1,60 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 5/7] net: add netfilter ingress hook
-Date: Fri, 10 Apr 2015 22:33:12 +0100
-Message-ID: <20150410213312.GA23727@acer.localdomain>
-References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
- <1428668142-4006-6-git-send-email-pablo@netfilter.org>
- <20150410132120.GE23070@casper.infradead.org>
- <20150410133610.GA19454@acer.localdomain>
- <20150410201719.GC5968@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150410201719.GC5968@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next 1/3] ipv4: reject too-big defragmented DF-skb when forwarding
+Date: Sat, 11 Apr 2015 00:16:27 +0200
+Message-ID: <1428704189-31247-2-git-send-email-fw@strlen.de>
+References: <1428704189-31247-1-git-send-email-fw@strlen.de>
+Cc: kaber@trash.net, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:59131 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932277AbbDJWQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 18:16:48 -0400
+In-Reply-To: <1428704189-31247-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10.04, Pablo Neira Ayuso wrote:
-> On Fri, Apr 10, 2015 at 02:36:11PM +0100, Patrick McHardy wrote:
-> > 
-> > I'm wondering if the hook is the right abstraction at all. Netfilter hooks
-> > require async resumption (okfn) support, which is why all the refactoring is
-> > needed. Is that something that we need for NF_PROTO_NETDEV? For ingress
-> > userspace queueing *might* actually work if the missing pieces are added,
-> > but for offloaded rules it obviously can not work.
-> 
-> For userspace queueing from ingress we still have to call
-> skb_share_check() and hold a reference to orig_dev from the escape
-> path. But this support is still missing in nf_tables (actually, we
-> only support NFPROTO_IPV4 and NFPROTO_IPV6 at this moment, see patch
-> attached). Regarding offload, this path will not see any packet.
+Send icmp pmtu error if we find that the largest fragment of df-skb
+exceeded the output path mtu.
 
-We do support all families using the regular NF_QUEUE verdict of course.
-But yes, nf_queue.c will simply drop packets that don't have a netfilter
-AF registered.
+The ip output path will still catch this later on but we can avoid the
+forward/postrouting hook traversal by rejecting right away.
 
-But my question is whether queueing is something that is even worth
-considering for the NFPROTO_NETDEV family. As I said, it will at best
-work for ingress anyways and that will actually be more tricky than just
-calling skb_share_check(), we need to take care of keeping valid
-references to all the data you currently store in the CB, including the
-packet_type, the device, things attached to the skb at this point to
-the stack etc.
+This is what ipv6 already does.
 
-If we decide not to support queueing for this family we don't have to
-use netfilter hooks for this and all the refactoring for async resume
-becomes unnecessary. 
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv4/ip_forward.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
-> >From db2fba74dea98b69ee7615fca86b9847bc42887f Mon Sep 17 00:00:00 2001
-> From: Pablo Neira Ayuso <pablo@netfilter.org>
-> Date: Fri, 10 Apr 2015 21:40:58 +0200
-> Subject: [PATCH] netfilter: nf_tables: restrict nft_queue to AF_INET and
->  AF_INET6
-> 
-> Other families need the corresponding struct nf_afinfo in place to work.
-> Restrict it to NFPROTO_IPV4 and NFPROTO_IPV6 until the necessary code is in
-> place.
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 939992c..494f62b 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -39,17 +39,22 @@
+ #include <net/route.h>
+ #include <net/xfrm.h>
+ 
+-static bool ip_may_fragment(const struct sk_buff *skb)
+-{
+-	return unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) == 0) ||
+-		skb->ignore_df;
+-}
+-
+ static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
+ {
++	if (unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) == 0))
++		return false;
++
+ 	if (skb->len <= mtu)
+ 		return false;
+ 
++	/* original fragment had DF set */
++	if (unlikely(IPCB(skb)->frag_max_size) &&
++	    IPCB(skb)->frag_max_size > mtu)
++		return true;
++
++	if (skb->ignore_df)
++		return false;
++
+ 	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
+ 		return false;
+ 
+@@ -111,7 +116,7 @@ int ip_forward(struct sk_buff *skb)
+ 
+ 	IPCB(skb)->flags |= IPSKB_FORWARDED;
+ 	mtu = ip_dst_mtu_maybe_forward(&rt->dst, true);
+-	if (!ip_may_fragment(skb) && ip_exceeds_mtu(skb, mtu)) {
++	if (ip_exceeds_mtu(skb, mtu)) {
+ 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
+ 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+ 			  htonl(mtu));
+-- 
+2.0.5
