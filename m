@@ -1,144 +1,137 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/9] ixgbe: Add a RETA query command to VF-PF channel API
-Date: Sat, 11 Apr 2015 12:07:52 -0700
-Message-ID: <1428779276-22523-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 8/9] ixgbevf: Add RSS Key query code
+Date: Sat, 11 Apr 2015 12:07:55 -0700
+Message-ID: <1428779276-22523-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1428779276-22523-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Vlad Zolotarov <vladz@cloudius-systems.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32506 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:18952 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755428AbbDKTIB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Apr 2015 15:08:01 -0400
+	id S1755404AbbDKTIE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Apr 2015 15:08:04 -0400
 In-Reply-To: <1428779276-22523-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
 
-Add this new command for 82599 and x540 devices only. Support for other
-devices will be added later.
+Add the ixgbevf_get_rss_key() function that queries the PF for an RSS
+Random Key using a new VF-PF channel IXGBE_VF_GET_RSS_KEY command.
 
-82599 and x540 VFs and PF share the same RSS redirection table (RETA).
-Therefore we just return it for all VFs.
-
-For 82599 and x540 RETA table is an array of 32 registers (128 bytes) and
-the maximum number of registers that may be delivered in a single VF-PF
-channel command is 15. On the other hand VFs of these devices can be
-configured to have up to 4 RSS queues. Therefore we will "compress" the
-RETA by transferring only 2 bits per entry and thereby it will take only 8
-registers (DWORDS) to transfer the whole VF RETA.
-
-Thus this patch does the following:
-
-  - Adds a new API version (to specify a new commands set).
-  - Adds the IXGBE_VF_GET_RETA command to the VF-PF commands set.
+This patch adds the support for 82599 and x540 devices only. Support for
+other devices will be added later.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  4 +++
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 35 ++++++++++++++++++++++++++
- 2 files changed, 39 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h |  1 +
+ drivers/net/ethernet/intel/ixgbevf/mbx.h     |  1 +
+ drivers/net/ethernet/intel/ixgbevf/vf.c      | 54 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h      |  1 +
+ 4 files changed, 57 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-index a5cb755..3522f53 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
-@@ -73,6 +73,7 @@ enum ixgbe_pfvf_api_rev {
- 	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
- 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
- 	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
-+	ixgbe_mbox_api_12,	/* API version 1.2, linux/freebsd VF driver */
- 	/* This value should always be last */
- 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
- };
-@@ -97,6 +98,9 @@ enum ixgbe_pfvf_api_rev {
- #define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
- #define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 0cea5e9..775d089 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -146,6 +146,7 @@ struct ixgbevf_ring {
+ #define MAX_TX_QUEUES IXGBE_VF_MAX_TX_QUEUES
+ #define IXGBEVF_MAX_RSS_QUEUES	2
+ #define IXGBEVF_82599_RETA_SIZE	128
++#define IXGBEVF_RSS_HASH_KEY_SIZE	40
  
-+/* mailbox API, version 1.2 VF requests */
-+#define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
-+
+ #define IXGBEVF_DEFAULT_TXD	1024
+ #define IXGBEVF_DEFAULT_RXD	512
+diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+index 66e138b..82f44e0 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
++++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+@@ -110,6 +110,7 @@ enum ixgbe_pfvf_api_rev {
+ 
+ /* mailbox API, version 1.2 VF requests */
+ #define IXGBE_VF_GET_RETA	0x0a	/* VF request for RETA */
++#define IXGBE_VF_GET_RSS_KEY	0x0b	/* get RSS hash key */
+ 
  /* length of permanent address message returned from PF */
- #define IXGBE_VF_PERMADDR_MSG_LEN 4
- /* word in permanent address message with the current multicast type */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 94fc43a..58566a1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -434,6 +434,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
- #endif /* CONFIG_FCOE */
- 		switch (adapter->vfinfo[vf].vf_api) {
- 		case ixgbe_mbox_api_11:
-+		case ixgbe_mbox_api_12:
- 			/*
- 			 * Version 1.1 supports jumbo frames on VFs if PF has
- 			 * jumbo frames enabled which means legacy VFs are
-@@ -901,6 +902,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
- 	switch (api) {
- 	case ixgbe_mbox_api_10:
- 	case ixgbe_mbox_api_11:
-+	case ixgbe_mbox_api_12:
- 		adapter->vfinfo[vf].vf_api = api;
- 		return 0;
- 	default:
-@@ -924,6 +926,7 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
- 	switch (adapter->vfinfo[vf].vf_api) {
- 	case ixgbe_mbox_api_20:
- 	case ixgbe_mbox_api_11:
-+	case ixgbe_mbox_api_12:
- 		break;
- 	default:
- 		return -1;
-@@ -951,6 +954,35 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
- 	return 0;
+ #define IXGBE_VF_PERMADDR_MSG_LEN	4
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index 7e43f88..d1339b0 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -326,6 +326,60 @@ int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *reta, int num_rx_queues)
  }
  
-+static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ /**
++ * ixgbevf_get_rss_key_locked - get the RSS Random Key
++ * @hw: pointer to the HW structure
++ * @rss_key: buffer to fill with RSS Hash Key contents.
++ *
++ * The "rss_key" buffer should be big enough to contain 10 registers.
++ *
++ * Returns: 0 on success.
++ *          if API doesn't support this operation - (-EOPNOTSUPP).
++ */
++int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
 +{
-+	u32 i, j;
-+	u32 *out_buf = &msgbuf[1];
-+	const u8 *reta = adapter->rss_indir_tbl;
-+	u32 reta_size = ixgbe_rss_indir_tbl_entries(adapter);
++	int err;
++	u32 msgbuf[IXGBE_VFMAILBOX_SIZE];
 +
-+	/* Check if operation is permitted */
-+	if (!adapter->vfinfo[vf].rss_query_enabled)
-+		return -EPERM;
-+
-+	/* verify the PF is supporting the correct API */
-+	if (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12)
++	/* We currently support the RSS Random Key retrieval for 82599 and x540
++	 * devices only.
++	 *
++	 * Thus return an error if API doesn't support RSS Random Key retrieval
++	 * or if the operation is not supported for this device type.
++	 */
++	if (hw->api_version != ixgbe_mbox_api_12 ||
++	    hw->mac.type >= ixgbe_mac_X550_vf)
 +		return -EOPNOTSUPP;
 +
-+	/* This mailbox command is supported (required) only for 82599 and x540
-+	 * VFs which support up to 4 RSS queues. Therefore we will compress the
-+	 * RETA by saving only 2 bits from each entry. This way we will be able
-+	 * to transfer the whole RETA in a single mailbox operation.
++	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
++	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
++
++	if (err)
++		return err;
++
++	err = hw->mbx.ops.read_posted(hw, msgbuf, 11);
++
++	if (err)
++		return err;
++
++	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
++
++	/* If the operation has been refused by a PF return -EPERM */
++	if (msgbuf[0] == (IXGBE_VF_GET_RETA | IXGBE_VT_MSGTYPE_NACK))
++		return -EPERM;
++
++	/* If we didn't get an ACK there must have been
++	 * some sort of mailbox error so we should treat it
++	 * as such.
 +	 */
-+	for (i = 0; i < reta_size / 16; i++) {
-+		out_buf[i] = 0;
-+		for (j = 0; j < 16; j++)
-+			out_buf[i] |= (u32)(reta[16 * i + j] & 0x3) << (2 * j);
-+	}
++	if (msgbuf[0] != (IXGBE_VF_GET_RSS_KEY | IXGBE_VT_MSGTYPE_ACK))
++		return IXGBE_ERR_MBX;
++
++	memcpy(rss_key, msgbuf + 1, IXGBEVF_RSS_HASH_KEY_SIZE);
 +
 +	return 0;
 +}
 +
- static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- {
- 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
-@@ -1007,6 +1039,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_GET_QUEUES:
- 		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
- 		break;
-+	case IXGBE_VF_GET_RETA:
-+		retval = ixgbe_get_vf_reta(adapter, msgbuf, vf);
-+		break;
- 	default:
- 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
- 		retval = IXGBE_ERR_MBX;
++/**
+  *  ixgbevf_set_rar_vf - set device MAC address
+  *  @hw: pointer to hardware structure
+  *  @index: Receive address register to write
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index e17f9eb..d40f036 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -211,4 +211,5 @@ int ixgbevf_negotiate_api_version(struct ixgbe_hw *hw, int api);
+ int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+ 		       unsigned int *default_tc);
+ int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *reta, int num_rx_queues);
++int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key);
+ #endif /* __IXGBE_VF_H__ */
 -- 
 1.9.3
