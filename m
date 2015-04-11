@@ -1,63 +1,177 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH] net/wireless: CFG80211_WEXT_EXPORT requires wireless extensions
-Date: Sat, 11 Apr 2015 22:41:37 +0200
-Message-ID: <4904912.VjuX4Pm71s@wuerfel>
-References: <2303996.H1mYPouv05@wuerfel> <1428733011.2139.1.camel@sipsolutions.net>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [call for review] netdev-related stuff in vfs.git
+Date: Sat, 11 Apr 2015 22:17:42 +0100
+Message-ID: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1428733011.2139.1.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37854 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755871AbbDKVRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:17:43 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 11 April 2015 08:16:51 Johannes Berg wrote:
-> On Sat, 2015-04-11 at 00:29 +0200, Arnd Bergmann wrote:
-> > The CFG80211_WEXT_EXPORT symbol is selected by two drivers that
-> > make direct use of compat handlers for the wireless ioctls.
-> > However, this has no effect when the wireless extensions themselves
-> > are disabled, and results in a link error:
-> > 
-> > ERROR: "cfg80211_wext_giwrts" [drivers/net/wireless/orinoco/orinoco.ko] undefined!
-> > ERROR: "cfg80211_wext_siwfrag" [drivers/net/wireless/orinoco/orinoco.ko] undefined!
-> > ERROR: "cfg80211_wext_giwname" [drivers/net/wireless/ipw2x00/ipw2200.ko] undefined!
-> > 
-> > This changes the Kconfig logic so that CFG80211_WEXT can not
-> > be disabled when CFG80211_WEXT_EXPORT is set.
-> 
-> > +++ b/net/wireless/Kconfig
-> > @@ -178,7 +178,6 @@ config CFG80211_WEXT
-> >       bool "cfg80211 wireless extensions compatibility"
-> 
-> (I added "if !CFG80211_WEXT_EXPORT" to this line)
+There are several commits sitting in vfs.git that probably ought to go in
+via net-next.git.  First of all, there's merge with vfs.git#iocb - that's
+Christoph's aio rework, which has triggered conflicts with the ->sendmsg()
+and ->recvmsg() patches a while ago.  It's not so much Christoph's stuff
+that ought to be in net-next, as (pretty simple) conflict resolution on merge.
+The next chunk is switch to {compat_,}import_iovec/import_single_range - new
+safer primitives for initializing iov_iter.  The primitives themselves come
+from vfs/git#iov_iter (and they are used quite a lot in vfs part of queue),
+conversion of net/socket.c syscalls belongs in net-next, IMO.  Next there's
+afs and rxrpc stuff from dhowells.  And then there's sanitizing kernel_sendmsg
+et.al.  + missing inlined helper for "how much data is left in msg->msg_iter" -
+this stuff is used in e.g.  cifs stuff, but it belongs in net-next.
 
-Right, that works just as well, thanks!
+That pile is pullable from
+git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem
 
-> >       depends on CFG80211
-> >       select WEXT_CORE
-> > -     default y if CFG80211_WEXT_EXPORT
-> >       help
-> >         Enable this option if you need old userspace for wireless
-> >         extensions with cfg80211-based drivers.
-> > @@ -186,6 +185,7 @@ config CFG80211_WEXT
-> >  config CFG80211_WEXT_EXPORT
-> >       bool
-> >       depends on CFG80211
-> > +     select CFG80211_WEXT
-> 
-> This doesn't work afaict because select won't go through if this is
-> selected. I've already sent a fix for this in my latest pull request
-> that has the above.
+I'll post the individual patches in there in followups; could you take a look
+and tell if everything in there is OK with you?
 
-As Paul commented, it does work, and I have of course checked that my
-patch fixes the problem without introducing other build failures.
+Shortlog:
+Al Viro (9):
+      saner iov_iter initialization primitives
+      Merge branch 'iocb' into for-davem
+      Merge branch 'iov_iter' into for-davem
+      net: switch sendto() and recvfrom() to import_single_range()
+      net: switch importing msghdr from userland to {compat_,}import_iovec()
+      switch kernel_sendmsg() and kernel_recvmsg() to iov_iter_kvec()
+      get rid of the size argument of sock_sendmsg()
+      Merge remote-tracking branch 'dh/afs' into for-davem
+      new helper: msg_data_left()
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Christoph Hellwig (5):
+      fs: remove ki_nbytes
+      fuse: handle synchronous iocbs internally
+      fs: don't allow to complete sync iocbs through aio_complete
+      fs: split generic and aio kiocb
+      fs: move struct kiocb to fs.h
+
+David Howells (5):
+      RxRPC: Fix the conversion to iov_iter
+      RxRPC: Don't call skb_add_data() if there's no data to copy
+      RxRPC: Use iov_iter_count() in rxrpc_send_data() instead of the len argument
+      AFS: afs_send_empty_reply() doesn't require an iovec array
+      RxRPC: Handle VERSION Rx protocol packets
+
+Nathaniel Wesley Filardo (1):
+      kafs: Add more "unified AFS" error codes
+
+Diffstat without #iocb part:
+ crypto/algif_hash.c     |  4 +-
+ crypto/algif_skcipher.c |  4 +-
+ drivers/vhost/net.c     |  4 +-
+ fs/afs/misc.c           | 16 +++++++-
+ fs/afs/rxrpc.c          |  5 +--
+ include/linux/net.h     |  2 +-
+ include/linux/socket.h  |  5 +++
+ include/linux/uio.h     | 14 +++++++
+ include/net/compat.h    |  2 +-
+ include/rxrpc/packet.h  |  3 +-
+ lib/iov_iter.c          | 57 ++++++++++++++++++++++++++++
+ net/compat.c            | 18 ++++-----
+ net/core/datagram.c     |  2 +-
+ net/ipv4/tcp.c          |  8 ++--
+ net/rxrpc/ar-input.c    | 23 +++++++++++-
+ net/rxrpc/ar-internal.h |  2 +
+ net/rxrpc/ar-local.c    | 98 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/rxrpc/ar-output.c   | 53 +++++++++++++-------------
+ net/socket.c            | 96 +++++++++++++++++-------------------------------
+ net/sunrpc/svcsock.c    |  2 +-
+ 20 files changed, 296 insertions(+), 122 deletions(-)
+
+Full diffstat:
+ arch/s390/hypfs/inode.c                      |   2 +-
+ crypto/algif_hash.c                          |   4 +-
+ crypto/algif_skcipher.c                      |   6 +-
+ drivers/char/mem.c                           |   2 +-
+ drivers/char/tile-srom.c                     |   1 -
+ drivers/infiniband/hw/ipath/ipath_file_ops.c |   1 -
+ drivers/infiniband/hw/qib/qib_file_ops.c     |   1 -
+ drivers/misc/mei/amthif.c                    |   1 -
+ drivers/misc/mei/main.c                      |   1 -
+ drivers/misc/mei/pci-me.c                    |   1 -
+ drivers/scsi/sg.c                            |   2 +-
+ drivers/staging/unisys/include/timskmod.h    |   1 -
+ drivers/usb/gadget/function/f_fs.c           |   6 +-
+ drivers/usb/gadget/legacy/inode.c            |   6 +-
+ drivers/vhost/net.c                          |   4 +-
+ fs/9p/vfs_addr.c                             |   2 +-
+ fs/affs/file.c                               |   2 +-
+ fs/afs/misc.c                                |  16 ++-
+ fs/afs/rxrpc.c                               |   5 +-
+ fs/afs/write.c                               |   1 -
+ fs/aio.c                                     | 150 +++++++++++++++------------
+ fs/bfs/inode.c                               |   1 +
+ fs/block_dev.c                               |   1 -
+ fs/btrfs/file.c                              |   2 +-
+ fs/btrfs/inode.c                             |   2 +-
+ fs/ceph/file.c                               |   3 +-
+ fs/direct-io.c                               |   5 +-
+ fs/ecryptfs/file.c                           |   7 --
+ fs/ext2/inode.c                              |   2 +-
+ fs/ext3/inode.c                              |   2 +-
+ fs/ext4/file.c                               |   2 +-
+ fs/ext4/indirect.c                           |   2 +-
+ fs/ext4/inode.c                              |   1 -
+ fs/ext4/page-io.c                            |   1 -
+ fs/f2fs/data.c                               |   2 +-
+ fs/fat/inode.c                               |   1 -
+ fs/fuse/cuse.c                               |   2 +-
+ fs/fuse/dev.c                                |   1 -
+ fs/fuse/file.c                               |  55 ++++++----
+ fs/fuse/fuse_i.h                             |   1 +
+ fs/gfs2/aops.c                               |   2 +-
+ fs/gfs2/file.c                               |   1 -
+ fs/hfs/inode.c                               |   2 +-
+ fs/hfsplus/inode.c                           |   2 +-
+ fs/jfs/inode.c                               |   2 +-
+ fs/nfs/direct.c                              |   4 +-
+ fs/nfs/file.c                                |   1 -
+ fs/nilfs2/inode.c                            |   2 +-
+ fs/ntfs/file.c                               |   1 -
+ fs/ntfs/inode.c                              |   1 -
+ fs/ocfs2/aops.c                              |   1 +
+ fs/ocfs2/aops.h                              |   2 +-
+ fs/ocfs2/file.c                              |   8 +-
+ fs/pipe.c                                    |   1 -
+ fs/read_write.c                              |  35 ++-----
+ fs/reiserfs/inode.c                          |   2 +-
+ fs/splice.c                                  |   1 -
+ fs/ubifs/file.c                              |   1 -
+ fs/udf/file.c                                |   4 +-
+ fs/udf/inode.c                               |   2 +-
+ fs/xfs/xfs_aops.c                            |   1 -
+ fs/xfs/xfs_file.c                            |   1 -
+ include/linux/aio.h                          |  70 +------------
+ include/linux/fs.h                           |  22 ++++
+ include/linux/net.h                          |   2 +-
+ include/linux/socket.h                       |   5 +
+ include/linux/uio.h                          |  14 +++
+ include/net/compat.h                         |   2 +-
+ include/net/sock.h                           |   1 -
+ include/rxrpc/packet.h                       |   3 +-
+ kernel/printk/printk.c                       |   4 +-
+ kernel/sysctl.c                              |   1 +
+ lib/iov_iter.c                               |  57 ++++++++++
+ mm/filemap.c                                 |   1 -
+ mm/page_io.c                                 |   3 +-
+ mm/shmem.c                                   |   2 +-
+ net/compat.c                                 |  18 ++--
+ net/core/datagram.c                          |   2 +-
+ net/ipv4/raw.c                               |   1 -
+ net/ipv4/tcp.c                               |   8 +-
+ net/rxrpc/ar-input.c                         |  23 +++-
+ net/rxrpc/ar-internal.h                      |   2 +
+ net/rxrpc/ar-local.c                         |  98 +++++++++++++++++
+ net/rxrpc/ar-output.c                        |  53 +++++-----
+ net/socket.c                                 | 100 +++++++-----------
+ net/sunrpc/svcsock.c                         |   2 +-
+ sound/core/pcm_native.c                      |   2 +-
+ 87 files changed, 494 insertions(+), 387 deletions(-)
