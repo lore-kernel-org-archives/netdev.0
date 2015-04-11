@@ -1,116 +1,79 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH net-next 03/10] ipv6: Combine rt6_alloc_cow and rt6_alloc_clone
-Date: Fri, 10 Apr 2015 18:59:29 -0700
-Message-ID: <1428717576-1040383-4-git-send-email-kafai@fb.com>
-References: <1428717576-1040383-1-git-send-email-kafai@fb.com>
+Subject: [RFC PATCH net-next 00/10] ipv6: Only create RTF_CACHE route after encountering pmtu exception
+Date: Fri, 10 Apr 2015 18:59:26 -0700
+Message-ID: <1428717576-1040383-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	<kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:15028 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753233AbbDKB7t (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:23162 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753508AbbDKB7t (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 21:59:49 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3B1sFKL011762
+Received: from pps.filterd (m0004003 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3B1xGHI008207
 	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:59:48 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1tpt9t80gc-2
+	by mx0b-00082601.pphosted.com with ESMTP id 1tpqk1gcgc-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:59:48 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
  mx-out.facebook.com (10.212.232.59) with ESMTP	id
- 6d401880dfee11e497ab0002c991e86a-e97cf2c0 for <netdev@vger.kernel.org>;	Fri,
+ 6d1ed68edfee11e4b27b0002c991e86a-ed7d72c0 for <netdev@vger.kernel.org>;	Fri,
  10 Apr 2015 18:59:45 -0700
-In-Reply-To: <1428717576-1040383-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A prep work for creating RTF_CACHE on exception only.  After this
-patch, the same condition (rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY))
-is checked twice. This redundancy will be removed in the later patch.
+[Just a re-sent of the last one with the net-next tag]
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/route.c | 40 +++++++++++++++-------------------------
- 1 file changed, 15 insertions(+), 25 deletions(-)
+Hi,
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 0ccb8ec..f753a67 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -872,9 +872,9 @@ int ip6_ins_rt(struct rt6_info *rt)
- 	return __ip6_ins_rt(rt, &info, &mxc);
- }
- 
--static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
--				      const struct in6_addr *daddr,
--				      const struct in6_addr *saddr)
-+static struct rt6_info *ip6_pmtu_rt_cache_alloc(struct rt6_info *ort,
-+						const struct in6_addr *daddr,
-+						const struct in6_addr *saddr)
- {
- 	struct rt6_info *rt;
- 
-@@ -885,33 +885,24 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
- 	rt = ip6_rt_copy(ort, daddr);
- 
- 	if (rt) {
--		if (ort->rt6i_dst.plen != 128 &&
--		    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
--			rt->rt6i_flags |= RTF_ANYCAST;
--
- 		rt->rt6i_flags |= RTF_CACHE;
- 
-+		if (!(ort->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY))) {
-+			if (ort->rt6i_dst.plen != 128 &&
-+			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
-+				rt->rt6i_flags |= RTF_ANYCAST;
- #ifdef CONFIG_IPV6_SUBTREES
--		if (rt->rt6i_src.plen && saddr) {
--			rt->rt6i_src.addr = *saddr;
--			rt->rt6i_src.plen = 128;
--		}
-+			if (rt->rt6i_src.plen && saddr) {
-+				rt->rt6i_src.addr = *saddr;
-+				rt->rt6i_src.plen = 128;
-+			}
- #endif
-+		}
- 	}
- 
- 	return rt;
- }
- 
--static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
--					const struct in6_addr *daddr)
--{
--	struct rt6_info *rt = ip6_rt_copy(ort, daddr);
--
--	if (rt)
--		rt->rt6i_flags |= RTF_CACHE;
--	return rt;
--}
--
- static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
- 				      struct flowi6 *fl6, int flags)
- {
-@@ -957,10 +948,9 @@ redo_rt6_select:
- 	if (rt->rt6i_flags & RTF_CACHE)
- 		goto out2;
- 
--	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
--		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
--	else if (!(rt->dst.flags & DST_HOST))
--		nrt = rt6_alloc_clone(rt, &fl6->daddr);
-+	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)) ||
-+	    !(rt->dst.flags & DST_HOST))
-+		nrt = ip6_pmtu_rt_cache_alloc(rt, &fl6->daddr, &fl6->saddr);
- 	else
- 		goto out2;
- 
--- 
-1.8.1
+This series is to avoid creating a RTF_CACHE route whenever we are consulting
+the fib6 tree with a new destination.  Instead, only create RTF_CACHE route
+when we see a pmtu exception.
+
+Out of all ipv6 RTF_CACHE routes that are created, the percentage that has a
+different mtu is very small. In one of our end-user facing proxy server,
+only 1k out of 80k RTF_CACHE routes have a smaller MTU.  For our DC
+traffic, there is no mtu exception.
+
+A large fib6 tree has problems like, 'ip -6 r show' takes a long time.
+gc may kick in too often.  Also, when a service has restarted and a lot
+of new TCP conn requests come in, it creates pressure on the tree by inserting
+a lot of RTF_CACHE in a short time and it currently requires a write lock
+to do that.
+
+The first few patches are prep works to remove assumption that the
+returned rt is always RTF_CACHE.
+
+The patch 'ipv6: Only create RTF_CACHE routes after encountering pmtu exception'
+do the lazy RTF_CACHE route creation.
+
+The next few patches fix the /128 via gateway route issue.  One of them
+is by "Steffen Klassert <steffen.klassert@secunet.com>" which I pulled off
+from netdev.
+
+The last two patches added percpu rt to compensate the performance loss after
+doing the RTF_CACHE lazy creation.
+
+Here is some numbers of the udpflood test.  The udpflood has been
+slightly modified to have a time limit instead of count limit.
+
+A /64 via gateway route is used for the test. Each udpflood uses 10000 dst
+addresses.  The dst addresses of different udpflood processes do not overlap
+with each other.
+
+# of udpflood        # of trans (patched)        # of trans (upstream)
+
+1                    16M                          15M
+10                   61M                          61M
+20                   65M                          62M
+40                   88M                          83M
+
+
+Many thanks to "Hannes Frederic Sowa <hannes@stressinduktion.org>" on
+reviewing the patches and giving advice.
+
+--Martin
