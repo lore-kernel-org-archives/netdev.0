@@ -1,47 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 05/20] netfilter: nft_hash: add support for timeouts
-Date: Sat, 11 Apr 2015 14:45:58 +0100
-Message-ID: <20150411134558.GC15268@acer.localdomain>
-References: <1428579304-5520-1-git-send-email-pablo@netfilter.org>
- <1428579304-5520-6-git-send-email-pablo@netfilter.org>
- <063D6719AE5E284EB5DD2968C1650D6D1CB17C7C@AcuExch.aculab.com>
- <20150411134055.GA9116@salvia>
+From: DR RAHA OUSMAN <ousmandrraha@gmail.com>
+Subject: REPLY URGENTLY
+Date: Sat, 11 Apr 2015 16:33:26 +0200
+Message-ID: <CAP11bhB8cLOo7JsvBT8UPBe8ZsSeG1xc0h4v5SkCH4DFwiJJnQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150411134055.GA9116@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f195.google.com ([209.85.223.195]:35727 "EHLO
+	mail-ie0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391AbbDKOd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 10:33:27 -0400
+Received: by iery20 with SMTP id y20so2252916ier.2
+        for <netdev@vger.kernel.org>; Sat, 11 Apr 2015 07:33:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11.04, Pablo Neira Ayuso wrote:
-> On Thu, Apr 09, 2015 at 01:39:18PM +0000, David Laight wrote:
-> > From: Pablo Neira Ayuso
-> > > Sent: 09 April 2015 12:35
-> > ...
-> > > Add support for element timeouts to nft_hash. The lookup and walking
-> > > functions are changed to ignore timed out elements, a periodic garbage
-> > > collection task cleans out expired entries.
-> > 
-> > You probably want to delete timed out entries during insert.
-> > If you do that you don't really need a garbage collector.
-> 
-> Exploring a synchronous solution from the Netlink API sounds like an
-> interesting idea to me.
+REPLY URGENTLY
 
-Its an optimization, but it can not replace GC. There's no guarantee
-further inserts will happen.
+Dear Friend,
 
-For dynamic updates, where this is mostly needed, it won't work at all
-since those happen in the wrong context. Doesn't really seem worth it.
+I'm happy to inform you about my success in getting the fund
+transferred under the cooperation of a new partner from London.
+Presently I'm in London for investment projects with my own share of
+the total sum. Meanwhile, I didn't forget your past efforts and
+attempts to assist me in transferring those funds despite that it
+failed us some how.
 
-> > I'd also worry about re-adding a timed out entry.
-> 
-> It seems we re-add it as a new entry.
+Now contact my secretary, his name isMr devid jemas and his Email Address
+secretary email:( mrdevidjemas@yahoo.com )ask him to send you the
+total $7,000.000.00 which i kept for your compensation for all the
+past efforts and attempts to assist me in this matter. I appreciated
+your efforts at that time very much. so feel free and get in touched
+with my secretary Mr devid jemas and instruct him where to send the
+amount to you.
 
-Sure, everything except the key might be different.
+Please do let me know immediately you receive it so that we can share
+the joy after all the sufferness at that time. In the moment, i am
+very busy here because of the investment projects which me and the new
+partner are having at hand, finally, remember that I had forwarded
+instruction to the secretary on your behalf to receive that money, so
+feel free to get in touch with Mr devid jemas and he will send the
+amount to you without any delay.
+
+with best regards
+DR OUSMAN RAHA
