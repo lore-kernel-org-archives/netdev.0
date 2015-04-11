@@ -1,177 +1,144 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [call for review] netdev-related stuff in vfs.git
-Date: Sat, 11 Apr 2015 22:17:42 +0100
-Message-ID: <20150411211742.GJ889@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 02/17] fuse: handle synchronous iocbs internally
+Date: Sat, 11 Apr 2015 22:18:13 +0100
+Message-ID: <1428787108-13650-2-git-send-email-viro@ZenIV.linux.org.uk>
+References: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37854 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37860 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755871AbbDKVRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:17:43 -0400
-Content-Disposition: inline
+	with ESMTP id S932343AbbDKVS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:18:29 -0400
+In-Reply-To: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are several commits sitting in vfs.git that probably ought to go in
-via net-next.git.  First of all, there's merge with vfs.git#iocb - that's
-Christoph's aio rework, which has triggered conflicts with the ->sendmsg()
-and ->recvmsg() patches a while ago.  It's not so much Christoph's stuff
-that ought to be in net-next, as (pretty simple) conflict resolution on merge.
-The next chunk is switch to {compat_,}import_iovec/import_single_range - new
-safer primitives for initializing iov_iter.  The primitives themselves come
-from vfs/git#iov_iter (and they are used quite a lot in vfs part of queue),
-conversion of net/socket.c syscalls belongs in net-next, IMO.  Next there's
-afs and rxrpc stuff from dhowells.  And then there's sanitizing kernel_sendmsg
-et.al.  + missing inlined helper for "how much data is left in msg->msg_iter" -
-this stuff is used in e.g.  cifs stuff, but it belongs in net-next.
+From: Christoph Hellwig <hch@lst.de>
 
-That pile is pullable from
-git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git for-davem
+Based on a patch from Maxim Patlasov <MPatlasov@parallels.com>.
 
-I'll post the individual patches in there in followups; could you take a look
-and tell if everything in there is OK with you?
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+ fs/fuse/file.c   | 51 +++++++++++++++++++++++++++++++--------------------
+ fs/fuse/fuse_i.h |  1 +
+ 2 files changed, 32 insertions(+), 20 deletions(-)
 
-Shortlog:
-Al Viro (9):
-      saner iov_iter initialization primitives
-      Merge branch 'iocb' into for-davem
-      Merge branch 'iov_iter' into for-davem
-      net: switch sendto() and recvfrom() to import_single_range()
-      net: switch importing msghdr from userland to {compat_,}import_iovec()
-      switch kernel_sendmsg() and kernel_recvmsg() to iov_iter_kvec()
-      get rid of the size argument of sock_sendmsg()
-      Merge remote-tracking branch 'dh/afs' into for-davem
-      new helper: msg_data_left()
-
-Christoph Hellwig (5):
-      fs: remove ki_nbytes
-      fuse: handle synchronous iocbs internally
-      fs: don't allow to complete sync iocbs through aio_complete
-      fs: split generic and aio kiocb
-      fs: move struct kiocb to fs.h
-
-David Howells (5):
-      RxRPC: Fix the conversion to iov_iter
-      RxRPC: Don't call skb_add_data() if there's no data to copy
-      RxRPC: Use iov_iter_count() in rxrpc_send_data() instead of the len argument
-      AFS: afs_send_empty_reply() doesn't require an iovec array
-      RxRPC: Handle VERSION Rx protocol packets
-
-Nathaniel Wesley Filardo (1):
-      kafs: Add more "unified AFS" error codes
-
-Diffstat without #iocb part:
- crypto/algif_hash.c     |  4 +-
- crypto/algif_skcipher.c |  4 +-
- drivers/vhost/net.c     |  4 +-
- fs/afs/misc.c           | 16 +++++++-
- fs/afs/rxrpc.c          |  5 +--
- include/linux/net.h     |  2 +-
- include/linux/socket.h  |  5 +++
- include/linux/uio.h     | 14 +++++++
- include/net/compat.h    |  2 +-
- include/rxrpc/packet.h  |  3 +-
- lib/iov_iter.c          | 57 ++++++++++++++++++++++++++++
- net/compat.c            | 18 ++++-----
- net/core/datagram.c     |  2 +-
- net/ipv4/tcp.c          |  8 ++--
- net/rxrpc/ar-input.c    | 23 +++++++++++-
- net/rxrpc/ar-internal.h |  2 +
- net/rxrpc/ar-local.c    | 98 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/rxrpc/ar-output.c   | 53 +++++++++++++-------------
- net/socket.c            | 96 +++++++++++++++++-------------------------------
- net/sunrpc/svcsock.c    |  2 +-
- 20 files changed, 296 insertions(+), 122 deletions(-)
-
-Full diffstat:
- arch/s390/hypfs/inode.c                      |   2 +-
- crypto/algif_hash.c                          |   4 +-
- crypto/algif_skcipher.c                      |   6 +-
- drivers/char/mem.c                           |   2 +-
- drivers/char/tile-srom.c                     |   1 -
- drivers/infiniband/hw/ipath/ipath_file_ops.c |   1 -
- drivers/infiniband/hw/qib/qib_file_ops.c     |   1 -
- drivers/misc/mei/amthif.c                    |   1 -
- drivers/misc/mei/main.c                      |   1 -
- drivers/misc/mei/pci-me.c                    |   1 -
- drivers/scsi/sg.c                            |   2 +-
- drivers/staging/unisys/include/timskmod.h    |   1 -
- drivers/usb/gadget/function/f_fs.c           |   6 +-
- drivers/usb/gadget/legacy/inode.c            |   6 +-
- drivers/vhost/net.c                          |   4 +-
- fs/9p/vfs_addr.c                             |   2 +-
- fs/affs/file.c                               |   2 +-
- fs/afs/misc.c                                |  16 ++-
- fs/afs/rxrpc.c                               |   5 +-
- fs/afs/write.c                               |   1 -
- fs/aio.c                                     | 150 +++++++++++++++------------
- fs/bfs/inode.c                               |   1 +
- fs/block_dev.c                               |   1 -
- fs/btrfs/file.c                              |   2 +-
- fs/btrfs/inode.c                             |   2 +-
- fs/ceph/file.c                               |   3 +-
- fs/direct-io.c                               |   5 +-
- fs/ecryptfs/file.c                           |   7 --
- fs/ext2/inode.c                              |   2 +-
- fs/ext3/inode.c                              |   2 +-
- fs/ext4/file.c                               |   2 +-
- fs/ext4/indirect.c                           |   2 +-
- fs/ext4/inode.c                              |   1 -
- fs/ext4/page-io.c                            |   1 -
- fs/f2fs/data.c                               |   2 +-
- fs/fat/inode.c                               |   1 -
- fs/fuse/cuse.c                               |   2 +-
- fs/fuse/dev.c                                |   1 -
- fs/fuse/file.c                               |  55 ++++++----
- fs/fuse/fuse_i.h                             |   1 +
- fs/gfs2/aops.c                               |   2 +-
- fs/gfs2/file.c                               |   1 -
- fs/hfs/inode.c                               |   2 +-
- fs/hfsplus/inode.c                           |   2 +-
- fs/jfs/inode.c                               |   2 +-
- fs/nfs/direct.c                              |   4 +-
- fs/nfs/file.c                                |   1 -
- fs/nilfs2/inode.c                            |   2 +-
- fs/ntfs/file.c                               |   1 -
- fs/ntfs/inode.c                              |   1 -
- fs/ocfs2/aops.c                              |   1 +
- fs/ocfs2/aops.h                              |   2 +-
- fs/ocfs2/file.c                              |   8 +-
- fs/pipe.c                                    |   1 -
- fs/read_write.c                              |  35 ++-----
- fs/reiserfs/inode.c                          |   2 +-
- fs/splice.c                                  |   1 -
- fs/ubifs/file.c                              |   1 -
- fs/udf/file.c                                |   4 +-
- fs/udf/inode.c                               |   2 +-
- fs/xfs/xfs_aops.c                            |   1 -
- fs/xfs/xfs_file.c                            |   1 -
- include/linux/aio.h                          |  70 +------------
- include/linux/fs.h                           |  22 ++++
- include/linux/net.h                          |   2 +-
- include/linux/socket.h                       |   5 +
- include/linux/uio.h                          |  14 +++
- include/net/compat.h                         |   2 +-
- include/net/sock.h                           |   1 -
- include/rxrpc/packet.h                       |   3 +-
- kernel/printk/printk.c                       |   4 +-
- kernel/sysctl.c                              |   1 +
- lib/iov_iter.c                               |  57 ++++++++++
- mm/filemap.c                                 |   1 -
- mm/page_io.c                                 |   3 +-
- mm/shmem.c                                   |   2 +-
- net/compat.c                                 |  18 ++--
- net/core/datagram.c                          |   2 +-
- net/ipv4/raw.c                               |   1 -
- net/ipv4/tcp.c                               |   8 +-
- net/rxrpc/ar-input.c                         |  23 +++-
- net/rxrpc/ar-internal.h                      |   2 +
- net/rxrpc/ar-local.c                         |  98 +++++++++++++++++
- net/rxrpc/ar-output.c                        |  53 +++++-----
- net/socket.c                                 | 100 +++++++-----------
- net/sunrpc/svcsock.c                         |   2 +-
- sound/core/pcm_native.c                      |   2 +-
- 87 files changed, 494 insertions(+), 387 deletions(-)
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+index c01ec3b..f81d83e 100644
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -528,6 +528,17 @@ static void fuse_release_user_pages(struct fuse_req *req, int write)
+ 	}
+ }
+ 
++static ssize_t fuse_get_res_by_io(struct fuse_io_priv *io)
++{
++	if (io->err)
++		return io->err;
++
++	if (io->bytes >= 0 && io->write)
++		return -EIO;
++
++	return io->bytes < 0 ? io->size : io->bytes;
++}
++
+ /**
+  * In case of short read, the caller sets 'pos' to the position of
+  * actual end of fuse request in IO request. Otherwise, if bytes_requested
+@@ -546,6 +557,7 @@ static void fuse_release_user_pages(struct fuse_req *req, int write)
+  */
+ static void fuse_aio_complete(struct fuse_io_priv *io, int err, ssize_t pos)
+ {
++	bool is_sync = is_sync_kiocb(io->iocb);
+ 	int left;
+ 
+ 	spin_lock(&io->lock);
+@@ -555,27 +567,21 @@ static void fuse_aio_complete(struct fuse_io_priv *io, int err, ssize_t pos)
+ 		io->bytes = pos;
+ 
+ 	left = --io->reqs;
++	if (!left && is_sync)
++		complete(io->done);
+ 	spin_unlock(&io->lock);
+ 
+-	if (!left) {
+-		long res;
++	if (!left && !is_sync) {
++		ssize_t res = fuse_get_res_by_io(io);
+ 
+-		if (io->err)
+-			res = io->err;
+-		else if (io->bytes >= 0 && io->write)
+-			res = -EIO;
+-		else {
+-			res = io->bytes < 0 ? io->size : io->bytes;
++		if (res >= 0) {
++			struct inode *inode = file_inode(io->iocb->ki_filp);
++			struct fuse_conn *fc = get_fuse_conn(inode);
++			struct fuse_inode *fi = get_fuse_inode(inode);
+ 
+-			if (!is_sync_kiocb(io->iocb)) {
+-				struct inode *inode = file_inode(io->iocb->ki_filp);
+-				struct fuse_conn *fc = get_fuse_conn(inode);
+-				struct fuse_inode *fi = get_fuse_inode(inode);
+-
+-				spin_lock(&fc->lock);
+-				fi->attr_version = ++fc->attr_version;
+-				spin_unlock(&fc->lock);
+-			}
++			spin_lock(&fc->lock);
++			fi->attr_version = ++fc->attr_version;
++			spin_unlock(&fc->lock);
+ 		}
+ 
+ 		aio_complete(io->iocb, res, 0);
+@@ -2801,6 +2807,7 @@ static ssize_t
+ fuse_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
+ 			loff_t offset)
+ {
++	DECLARE_COMPLETION_ONSTACK(wait);
+ 	ssize_t ret = 0;
+ 	struct file *file = iocb->ki_filp;
+ 	struct fuse_file *ff = file->private_data;
+@@ -2852,6 +2859,9 @@ fuse_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
+ 	if (!is_sync_kiocb(iocb) && (offset + count > i_size) && rw == WRITE)
+ 		io->async = false;
+ 
++	if (io->async && is_sync_kiocb(iocb))
++		io->done = &wait;
++
+ 	if (rw == WRITE)
+ 		ret = __fuse_direct_write(io, iter, &pos);
+ 	else
+@@ -2864,11 +2874,12 @@ fuse_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter,
+ 		if (!is_sync_kiocb(iocb))
+ 			return -EIOCBQUEUED;
+ 
+-		ret = wait_on_sync_kiocb(iocb);
+-	} else {
+-		kfree(io);
++		wait_for_completion(&wait);
++		ret = fuse_get_res_by_io(io);
+ 	}
+ 
++	kfree(io);
++
+ 	if (rw == WRITE) {
+ 		if (ret > 0)
+ 			fuse_write_update_size(inode, pos);
+diff --git a/fs/fuse/fuse_i.h b/fs/fuse/fuse_i.h
+index 1cdfb07..7354dc1 100644
+--- a/fs/fuse/fuse_i.h
++++ b/fs/fuse/fuse_i.h
+@@ -263,6 +263,7 @@ struct fuse_io_priv {
+ 	int err;
+ 	struct kiocb *iocb;
+ 	struct file *file;
++	struct completion *done;
+ };
+ 
+ /**
+-- 
+2.1.4
