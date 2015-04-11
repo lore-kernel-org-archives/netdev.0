@@ -1,43 +1,40 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] net: use jump label patching for ingress qdisc
- in __netif_receive_skb_core
-Date: Sat, 11 Apr 2015 08:40:57 -0700
-Message-ID: <55294089.6030202@plumgrid.com>
-References: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch net-next v3] tc: introduce OpenFlow classifier
+Date: Sat, 11 Apr 2015 09:12:25 -0700
+Message-ID: <20150411161223.GA802@Alexeis-MBP.westell.com>
+References: <1428584287-8197-1-git-send-email-jiri@resnulli.us>
+ <20150409.173423.2258417584616634411.davem@davemloft.net>
+ <20150410091203.GA2021@nanopsycho.orion>
+ <20150410.082359.964457460073432676.davem@davemloft.net>
+ <20150410124517.GC2021@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, edumazet@google.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jhs@mojatatu.com, tgraf@suug.ch, jesse@nicira.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:34299 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755258AbbDKPk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 11:40:58 -0400
-Received: by iedfl3 with SMTP id fl3so43009822ied.1
-        for <netdev@vger.kernel.org>; Sat, 11 Apr 2015 08:40:57 -0700 (PDT)
-In-Reply-To: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:36754 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754231AbbDKQM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 12:12:27 -0400
+Received: by iebrs15 with SMTP id rs15so38095258ieb.3
+        for <netdev@vger.kernel.org>; Sat, 11 Apr 2015 09:12:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150410124517.GC2021@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/10/15 2:07 PM, Daniel Borkmann wrote:
-> Even if we make use of classifier and actions from the egress
-> path, we're going into handle_ing() executing additional code
-> on a per-packet cost for ingress qdisc, just to realize that
-> nothing is attached on ingress.
->
-> Instead, this can just be blinded out as a no-op entirely with
-> the use of a static key. On input fast-path, we already make
-> use of static keys in various places, e.g. skb time stamping,
-> in RPS, etc. It makes sense to not waste time when we're assured
-> that no ingress qdisc is attached anywhere.
->
-> Enabling/disabling of that code path is being done via two
-> helpers, namely net_{inc,dec}_ingress_queue(), that are being
-> invoked under RTNL mutex when a ingress qdisc is being either
-> initialized or destructed.
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+On Fri, Apr 10, 2015 at 02:45:17PM +0200, Jiri Pirko wrote:
+> Okay. That was misunderstanding. I was thinking about using existing
+> flow_dissect. There are couple things which I'm scared of:
+> - there are eventually many fields to be added to dissection function and to
+>   the structure as well. Not sure how acceptable that would be for
+>   performance reasons when flow_dissect is used by different users...
 
-tested this patch standalone and with ingress_l2 on top.
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+I share the same concern. I think flow_dissect is too performance
+critical to reuse by expanding 'struct flow_keys'.
+I think it would be better to generalize ovs's key_extract() into
+common piece of code that TC classifier and ovs datapath can use.
+It uses kernel internal 'struct sw_flow_key' which we can tweak to
+accommodate more users. It's already gigantic at 392 bytes, so
+split and a bit of diet would help too.
