@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH 06/10] ipv6: Avoid deleting RTF_CACHE route from ip6_route_del()
-Date: Fri, 10 Apr 2015 18:54:09 -0700
-Message-ID: <1428717253-1006248-7-git-send-email-kafai@fb.com>
+Subject: [RFC PATCH 03/10] ipv6: Combine rt6_alloc_cow and rt6_alloc_clone
+Date: Fri, 10 Apr 2015 18:54:06 -0700
+Message-ID: <1428717253-1006248-4-git-send-email-kafai@fb.com>
 References: <1428717253-1006248-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,61 +9,108 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	<kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37773 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753841AbbDKByc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 21:54:32 -0400
-Received: from pps.filterd (m0004348 [127.0.0.1])
-	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t3B1ra79009407
-	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:54:31 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:27566 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754290AbbDKByd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 21:54:33 -0400
+Received: from pps.filterd (m0004060 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3B1sEVZ012623
+	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:54:32 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004348.ppops.net with ESMTP id 1tpry9032j-2
+	by mx0b-00082601.pphosted.com with ESMTP id 1tpqvkrc82-3
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:54:31 -0700
+	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:54:32 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- b1573798dfed11e4aeea0002c9521c9e-f31d32c0 for <netdev@vger.kernel.org>;	Fri,
- 10 Apr 2015 18:54:30 -0700
+ mx-out.facebook.com (10.212.232.59) with ESMTP	id
+ b1021c2cdfed11e4b8c00002c991e86a-eb7d32c0 for <netdev@vger.kernel.org>;	Fri,
+ 10 Apr 2015 18:54:29 -0700
 In-Reply-To: <1428717253-1006248-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before patch 'Allow pmtu update on /128 via gateway route',
-RTF_CACHE route was not created for DST_HOST.  It also requires changes on both
-delete code path and rt6_select() code patch.
-
-This patch fixes the delete code path to avoid deleting the RTF_CACHE
-route by 'ip -6 r del...'
+A prep work for creating RTF_CACHE on exception only.  After this
+patch, the same condition (rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY))
+is checked twice. This redundancy will be removed in the later patch.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/ipv6/route.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/ipv6/route.c | 40 +++++++++++++++-------------------------
+ 1 file changed, 15 insertions(+), 25 deletions(-)
 
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 75f3b5d..5d0fd6c 100644
+index 0ccb8ec..f753a67 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -1780,6 +1780,9 @@ static int ip6_route_del(struct fib6_config *cfg)
+@@ -872,9 +872,9 @@ int ip6_ins_rt(struct rt6_info *rt)
+ 	return __ip6_ins_rt(rt, &info, &mxc);
+ }
  
- 	if (fn) {
- 		for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
-+			if ((rt->rt6i_flags & RTF_CACHE) &&
-+			    !(cfg->fc_flags & RTF_CACHE))
-+				continue;
- 			if (cfg->fc_ifindex &&
- 			    (!rt->dst.dev ||
- 			     rt->dst.dev->ifindex != cfg->fc_ifindex))
-@@ -2424,6 +2427,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (rtm->rtm_type == RTN_LOCAL)
- 		cfg->fc_flags |= RTF_LOCAL;
+-static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
+-				      const struct in6_addr *daddr,
+-				      const struct in6_addr *saddr)
++static struct rt6_info *ip6_pmtu_rt_cache_alloc(struct rt6_info *ort,
++						const struct in6_addr *daddr,
++						const struct in6_addr *saddr)
+ {
+ 	struct rt6_info *rt;
  
-+	if (rtm->rtm_flags & RTM_F_CLONED)
-+		cfg->fc_flags |= RTF_CACHE;
-+
- 	cfg->fc_nlinfo.portid = NETLINK_CB(skb).portid;
- 	cfg->fc_nlinfo.nlh = nlh;
- 	cfg->fc_nlinfo.nl_net = sock_net(skb->sk);
+@@ -885,33 +885,24 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
+ 	rt = ip6_rt_copy(ort, daddr);
+ 
+ 	if (rt) {
+-		if (ort->rt6i_dst.plen != 128 &&
+-		    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
+-			rt->rt6i_flags |= RTF_ANYCAST;
+-
+ 		rt->rt6i_flags |= RTF_CACHE;
+ 
++		if (!(ort->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY))) {
++			if (ort->rt6i_dst.plen != 128 &&
++			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
++				rt->rt6i_flags |= RTF_ANYCAST;
+ #ifdef CONFIG_IPV6_SUBTREES
+-		if (rt->rt6i_src.plen && saddr) {
+-			rt->rt6i_src.addr = *saddr;
+-			rt->rt6i_src.plen = 128;
+-		}
++			if (rt->rt6i_src.plen && saddr) {
++				rt->rt6i_src.addr = *saddr;
++				rt->rt6i_src.plen = 128;
++			}
+ #endif
++		}
+ 	}
+ 
+ 	return rt;
+ }
+ 
+-static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
+-					const struct in6_addr *daddr)
+-{
+-	struct rt6_info *rt = ip6_rt_copy(ort, daddr);
+-
+-	if (rt)
+-		rt->rt6i_flags |= RTF_CACHE;
+-	return rt;
+-}
+-
+ static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
+ 				      struct flowi6 *fl6, int flags)
+ {
+@@ -957,10 +948,9 @@ redo_rt6_select:
+ 	if (rt->rt6i_flags & RTF_CACHE)
+ 		goto out2;
+ 
+-	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
+-		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+-	else if (!(rt->dst.flags & DST_HOST))
+-		nrt = rt6_alloc_clone(rt, &fl6->daddr);
++	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)) ||
++	    !(rt->dst.flags & DST_HOST))
++		nrt = ip6_pmtu_rt_cache_alloc(rt, &fl6->daddr, &fl6->saddr);
+ 	else
+ 		goto out2;
+ 
 -- 
 1.8.1
