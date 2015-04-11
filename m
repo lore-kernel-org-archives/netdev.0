@@ -1,39 +1,70 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH] net/wireless: CFG80211_WEXT_EXPORT requires wireless
- extensions
-Date: Sat, 11 Apr 2015 14:47:16 +0200
-Message-ID: <1428756436.17822.105.camel@x220>
-References: <2303996.H1mYPouv05@wuerfel>
-	 <1428733011.2139.1.camel@sipsolutions.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 5/7] net: add netfilter ingress hook
+Date: Sat, 11 Apr 2015 14:55:02 +0200
+Message-ID: <20150411125502.GA3810@salvia>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <1428668142-4006-6-git-send-email-pablo@netfilter.org>
+ <20150410132120.GE23070@casper.infradead.org>
+ <20150410133610.GA19454@acer.localdomain>
+ <20150410201719.GC5968@salvia>
+ <20150410213312.GA23727@acer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb3-smtp-cloud6.xs4all.net ([194.109.24.31]:34676 "EHLO
-	lb3-smtp-cloud6.xs4all.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752534AbbDKMrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 08:47:20 -0400
-In-Reply-To: <1428733011.2139.1.camel@sipsolutions.net>
+Received: from mail.us.es ([193.147.175.20]:48744 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755190AbbDKMuu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Apr 2015 08:50:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20150410213312.GA23727@acer.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-04-11 at 08:16 +0200, Johannes Berg wrote:
-> On Sat, 2015-04-11 at 00:29 +0200, Arnd Bergmann wrote:
-> >  config CFG80211_WEXT_EXPORT
-> >  	bool
-> >  	depends on CFG80211
-> > +	select CFG80211_WEXT
+On Fri, Apr 10, 2015 at 10:33:12PM +0100, Patrick McHardy wrote:
+> On 10.04, Pablo Neira Ayuso wrote:
+> > On Fri, Apr 10, 2015 at 02:36:11PM +0100, Patrick McHardy wrote:
+> > > 
+> > > I'm wondering if the hook is the right abstraction at all. Netfilter hooks
+> > > require async resumption (okfn) support, which is why all the refactoring is
+> > > needed. Is that something that we need for NF_PROTO_NETDEV? For ingress
+> > > userspace queueing *might* actually work if the missing pieces are added,
+> > > but for offloaded rules it obviously can not work.
+> > 
+> > For userspace queueing from ingress we still have to call
+> > skb_share_check() and hold a reference to orig_dev from the escape
+> > path. But this support is still missing in nf_tables (actually, we
+> > only support NFPROTO_IPV4 and NFPROTO_IPV6 at this moment, see patch
+> > attached). Regarding offload, this path will not see any packet.
 > 
-> This doesn't work afaict because select won't go through if this is
-> selected.
+> We do support all families using the regular NF_QUEUE verdict of course.
+> But yes, nf_queue.c will simply drop packets that don't have a netfilter
+> AF registered.
+> 
+> But my question is whether queueing is something that is even worth
+> considering for the NFPROTO_NETDEV family. As I said, it will at best
+> work for ingress anyways and that will actually be more tricky than just
+> calling skb_share_check(), we need to take care of keeping valid
+> references to all the data you currently store in the CB, including the
+> packet_type, the device, things attached to the skb at this point to
+> the stack etc.
 
-It does work: a select of a Kconfig symbol will trigger the select
-statements of that Kconfig symbol.
+I think we only need to hold the reference on orig_dev. The pt_prev
+pointer in skb CB can actually be removed. Other things attached to
+the skb we already handle this from nf_queue to make sure they don't
+vanish.
 
+> If we decide not to support queueing for this family we don't have to
+> use netfilter hooks for this and all the refactoring for async resume
+> becomes unnecessary.
 
-Paul Bolle
+I think the refactoring is worth. Have a look at the current state of
+this function. It has grown with features along time and it got many
+gotos that force you travel back and forth when reading this code.
+
+Regarding the nf_queue support at ingress, I don't see any major
+technical obstacule at this moment to support this and I think that
+existing programs that inspect traffic from userspace can benefit from
+this feature (eg. IPS).
