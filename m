@@ -1,78 +1,50 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 12/17] kafs: Add more "unified AFS" error codes
-Date: Sat, 11 Apr 2015 22:18:23 +0100
-Message-ID: <1428787108-13650-12-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 10/17] AFS: afs_send_empty_reply() doesn't require an iovec array
+Date: Sat, 11 Apr 2015 22:18:21 +0100
+Message-ID: <1428787108-13650-10-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37879 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37875 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932576AbbDKVSa (ORCPT
+	with ESMTP id S932519AbbDKVSa (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:18:30 -0400
 In-Reply-To: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nathaniel Wesley Filardo <nwf@cs.jhu.edu>
+From: David Howells <dhowells@redhat.com>
 
-This should cover the set emitted by viced and the volume server.
+afs_send_empty_reply() doesn't require an iovec array with which to initialise
+the msghdr, but can pass NULL instead.
 
-Signed-off-by: Nathaniel Wesley Filardo <nwf@cs.jhu.edu>
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- fs/afs/misc.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ fs/afs/rxrpc.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/fs/afs/misc.c b/fs/afs/misc.c
-index 0dd4daf..91ea1aa 100644
---- a/fs/afs/misc.c
-+++ b/fs/afs/misc.c
-@@ -22,9 +22,12 @@
- int afs_abort_to_error(u32 abort_code)
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index dbc732e..3a57a1b 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -770,15 +770,12 @@ static int afs_deliver_cm_op_id(struct afs_call *call, struct sk_buff *skb,
+ void afs_send_empty_reply(struct afs_call *call)
  {
- 	switch (abort_code) {
-+	/* low errno codes inserted into abort namespace */
- 	case 13:		return -EACCES;
- 	case 27:		return -EFBIG;
- 	case 30:		return -EROFS;
-+
-+	/* VICE "special error" codes; 101 - 111 */
- 	case VSALVAGE:		return -EIO;
- 	case VNOVNODE:		return -ENOENT;
- 	case VNOVOL:		return -ENOMEDIUM;
-@@ -36,11 +39,18 @@ int afs_abort_to_error(u32 abort_code)
- 	case VOVERQUOTA:	return -EDQUOT;
- 	case VBUSY:		return -EBUSY;
- 	case VMOVED:		return -ENXIO;
--	case 0x2f6df0a:		return -EWOULDBLOCK;
-+
-+	/* Unified AFS error table; ET "uae" == 0x2f6df00 */
-+	case 0x2f6df00:		return -EPERM;
-+	case 0x2f6df01:		return -ENOENT;
-+	case 0x2f6df04:		return -EIO;
-+	case 0x2f6df0a:		return -EAGAIN;
-+	case 0x2f6df0b:		return -ENOMEM;
- 	case 0x2f6df0c:		return -EACCES;
- 	case 0x2f6df0f:		return -EBUSY;
- 	case 0x2f6df10:		return -EEXIST;
- 	case 0x2f6df11:		return -EXDEV;
-+	case 0x2f6df12:		return -ENODEV;
- 	case 0x2f6df13:		return -ENOTDIR;
- 	case 0x2f6df14:		return -EISDIR;
- 	case 0x2f6df15:		return -EINVAL;
-@@ -54,8 +64,12 @@ int afs_abort_to_error(u32 abort_code)
- 	case 0x2f6df23:		return -ENAMETOOLONG;
- 	case 0x2f6df24:		return -ENOLCK;
- 	case 0x2f6df26:		return -ENOTEMPTY;
-+	case 0x2f6df28:		return -EWOULDBLOCK;
-+	case 0x2f6df69:		return -ENOTCONN;
-+	case 0x2f6df6c:		return -ETIMEDOUT;
- 	case 0x2f6df78:		return -EDQUOT;
+ 	struct msghdr msg;
+-	struct kvec iov[1];
  
-+	/* RXKAD abort codes; from include/rxrpc/packet.h.  ET "RXK" == 0x1260B00 */
- 	case RXKADINCONSISTENCY: return -EPROTO;
- 	case RXKADPACKETSHORT:	return -EPROTO;
- 	case RXKADLEVELFAIL:	return -EKEYREJECTED;
+ 	_enter("");
+ 
+-	iov[0].iov_base		= NULL;
+-	iov[0].iov_len		= 0;
+ 	msg.msg_name		= NULL;
+ 	msg.msg_namelen		= 0;
+-	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, iov, 0, 0);	/* WTF? */
++	iov_iter_kvec(&msg.msg_iter, WRITE | ITER_KVEC, NULL, 0, 0);
+ 	msg.msg_control		= NULL;
+ 	msg.msg_controllen	= 0;
+ 	msg.msg_flags		= 0;
 -- 
 2.1.4
