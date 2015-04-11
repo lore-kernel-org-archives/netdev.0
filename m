@@ -1,77 +1,63 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: tcp: picking a less conservative SACK RTT for congestion control
-Date: Sat, 11 Apr 2015 21:50:15 +0200
-Message-ID: <CA++eYdt8YT+xp88N7KFX3OMoHO3sVS6yfnuPDHLrWpM2w3NzRw@mail.gmail.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH] net/wireless: CFG80211_WEXT_EXPORT requires wireless extensions
+Date: Sat, 11 Apr 2015 22:41:37 +0200
+Message-ID: <4904912.VjuX4Pm71s@wuerfel>
+References: <2303996.H1mYPouv05@wuerfel> <1428733011.2139.1.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	=?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:34686 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755458AbbDKTuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 15:50:17 -0400
-Received: by wgso17 with SMTP id o17so46122878wgs.1
-        for <netdev@vger.kernel.org>; Sat, 11 Apr 2015 12:50:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1428733011.2139.1.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-tcp_sacktag_one() currently picks the earliest sequence sacked for RTT. This
-makes sense when data is sacked due to reordering as described in commit
-832d11c5 ("Try to restore large SKBs while SACK processing"). But it might
-not make sense for CC in cases where:
+On Saturday 11 April 2015 08:16:51 Johannes Berg wrote:
+> On Sat, 2015-04-11 at 00:29 +0200, Arnd Bergmann wrote:
+> > The CFG80211_WEXT_EXPORT symbol is selected by two drivers that
+> > make direct use of compat handlers for the wireless ioctls.
+> > However, this has no effect when the wireless extensions themselves
+> > are disabled, and results in a link error:
+> > 
+> > ERROR: "cfg80211_wext_giwrts" [drivers/net/wireless/orinoco/orinoco.ko] undefined!
+> > ERROR: "cfg80211_wext_siwfrag" [drivers/net/wireless/orinoco/orinoco.ko] undefined!
+> > ERROR: "cfg80211_wext_giwname" [drivers/net/wireless/ipw2x00/ipw2200.ko] undefined!
+> > 
+> > This changes the Kconfig logic so that CFG80211_WEXT can not
+> > be disabled when CFG80211_WEXT_EXPORT is set.
+> 
+> > +++ b/net/wireless/Kconfig
+> > @@ -178,7 +178,6 @@ config CFG80211_WEXT
+> >       bool "cfg80211 wireless extensions compatibility"
+> 
+> (I added "if !CFG80211_WEXT_EXPORT" to this line)
 
- 1. ACKs are lost, i.e. a SACK subsequent to a lost SACK covers both a new
-    and an old segment at the receiver. A concrete example follows below.
- 2. The receiver disregards the rfc5681 recommendation to immediately ack
-    out-of-order segments, perhaps due to a hardware offload mechanism.
+Right, that works just as well, thanks!
 
-We have an implementation of the experimental congestion controller CDG [1]
-which can perform slightly better in environments with random loss. Unlike
-e.g. Vegas which resets all internal state when loss is detected, CDG is
-quite sensitive to recent RTT changes even during loss recovery.
+> >       depends on CFG80211
+> >       select WEXT_CORE
+> > -     default y if CFG80211_WEXT_EXPORT
+> >       help
+> >         Enable this option if you need old userspace for wireless
+> >         extensions with cfg80211-based drivers.
+> > @@ -186,6 +185,7 @@ config CFG80211_WEXT
+> >  config CFG80211_WEXT_EXPORT
+> >       bool
+> >       depends on CFG80211
+> > +     select CFG80211_WEXT
+> 
+> This doesn't work afaict because select won't go through if this is
+> selected. I've already sent a fix for this in my latest pull request
+> that has the above.
 
-What would be the feasible approach to track the last segment sacked? I was
-thinking of keeping first/last skb_mstamp's in struct tcp_sacktag_state akin
-to the way it is done in tcp_clean_rtx_queue(). This would require passing
-eight more bytes around on 64 bit. An alternative that is slightly obscure
-is to store the delta between the first and last sack in a 4 byte value.
-Since struct tcp_sacktag_state currently has 4 bytes padding, this does not
-require passing more data around -- just changing "long sack_rtt_us" to
-a pointer. It can have some microscale cache locality impacts though. I
-envision that both approaches saves the call to skb_mstamp_get() in
-tcp_sacktag_one().
+As Paul commented, it does work, and I have of course checked that my
+patch fixes the problem without introducing other build failures.
 
-1. http://caia.swin.edu.au/cv/dahayes/content/networking2011-cdg-preprint.pdf
-
-PS: The pkts_acked CC hook is not currently called unless new data is acked
-sequentially. I have a simple patch that calls it for new SACK RTTs, but I
-am holding it off until my recent patch is reviewed (fix bogus RTT for CC).
-
----
-
-Concrete example. Path has 1% uniform loss, no reordering. Prints show delta
-timestamped packets separately captured at sender and receiver.
-
-Receiver sends two acks:
-00:00:00.005018 IP 10.0.1.2.5001 > 10.0.0.2.48089: Flags [.], ack
-3824632751, win 32746, options [nop,nop,TS val 1820536519 ecr
-2169294,nop,nop,sack 1 {3824634199:3824651575}], length 0
-00:00:00.004871 IP 10.0.1.2.5001 > 10.0.0.2.48089: Flags [.], ack
-3824632751, win 32746, options [nop,nop,TS val 1820536524 ecr
-2169294,nop,nop,sack 1 {3824634199:3824653023}], length 0
-
-One reaches the sender:
-00:00:00.009842 IP 10.0.1.2.5001 > 10.0.0.2.48089: Flags [.], ack
-3824632751, win 32746, options [nop,nop,TS val 1820536524 ecr
-2169294,nop,nop,sack 1 {3824634199:3824653023}], length 0
-
-Trace output at sender:
-8968.105153: tcp_sacktag_one: first sacked range 3824648679 -
-3824651575 rtt 75129
-8968.105157: tcp_sacktag_one: later sacked range 3824651575 -
-3824653023 rtt 70224 (rtt not used)
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
