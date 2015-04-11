@@ -1,479 +1,348 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 04/17] fs: split generic and aio kiocb
-Date: Sat, 11 Apr 2015 22:18:15 +0100
-Message-ID: <1428787108-13650-4-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 01/17] fs: remove ki_nbytes
+Date: Sat, 11 Apr 2015 22:18:12 +0100
+Message-ID: <1428787108-13650-1-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37863 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37857 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932361AbbDKVSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:18:30 -0400
+	with ESMTP id S932153AbbDKVS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:18:29 -0400
 In-Reply-To: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Christoph Hellwig <hch@lst.de>
 
-Most callers in the kernel want to perform synchronous file I/O, but
-still have to bloat the stack with a full struct kiocb.  Split out
-the parts needed in filesystem code from those in the aio code, and
-only allocate those needed to pass down argument on the stack.  The
-aio code embedds the generic iocb in the one it allocates and can
-easily get back to it by using container_of.
-
-Also add a ->ki_complete method to struct kiocb, this is used to call
-into the aio code and thus removes the dependency on aio for filesystems
-impementing asynchronous operations.  It will also allow other callers
-to substitute their own completion callback.
-
-We also add a new ->ki_flags field to work around the nasty layering
-violation recently introduced in commit 5e33f6 ("usb: gadget: ffs: add
-eventfd notification about ffs events").
+There is no need to pass the total request length in the kiocb, as
+we already get passed in through the iov_iter argument.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- drivers/usb/gadget/function/f_fs.c |  5 +-
- drivers/usb/gadget/legacy/inode.c  |  5 +-
- fs/aio.c                           | 94 ++++++++++++++++++++++++++------------
- fs/direct-io.c                     |  4 +-
- fs/fuse/file.c                     |  2 +-
- fs/nfs/direct.c                    |  2 +-
- include/linux/aio.h                | 46 +++----------------
- 7 files changed, 81 insertions(+), 77 deletions(-)
+ fs/aio.c               | 34 ++++++++++++++++++----------------
+ fs/ceph/file.c         |  2 +-
+ fs/nfs/direct.c        |  2 +-
+ fs/ocfs2/file.c        |  8 +++-----
+ fs/read_write.c        |  8 --------
+ fs/udf/file.c          |  2 +-
+ include/linux/aio.h    |  1 -
+ kernel/printk/printk.c |  2 +-
+ mm/page_io.c           |  1 -
+ net/socket.c           |  6 +++---
+ 10 files changed, 28 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/usb/gadget/function/f_fs.c b/drivers/usb/gadget/function/f_fs.c
-index 175c995..b64538b 100644
---- a/drivers/usb/gadget/function/f_fs.c
-+++ b/drivers/usb/gadget/function/f_fs.c
-@@ -655,9 +655,10 @@ static void ffs_user_copy_worker(struct work_struct *work)
- 		unuse_mm(io_data->mm);
- 	}
- 
--	aio_complete(io_data->kiocb, ret, ret);
-+	io_data->kiocb->ki_complete(io_data->kiocb, ret, ret);
- 
--	if (io_data->ffs->ffs_eventfd && !io_data->kiocb->ki_eventfd)
-+	if (io_data->ffs->ffs_eventfd &&
-+	    !(io_data->kiocb->ki_flags & IOCB_EVENTFD))
- 		eventfd_signal(io_data->ffs->ffs_eventfd, 1);
- 
- 	usb_ep_free_request(io_data->ep, io_data->req);
-diff --git a/drivers/usb/gadget/legacy/inode.c b/drivers/usb/gadget/legacy/inode.c
-index 200f9a5..a4a8069 100644
---- a/drivers/usb/gadget/legacy/inode.c
-+++ b/drivers/usb/gadget/legacy/inode.c
-@@ -469,7 +469,7 @@ static void ep_user_copy_worker(struct work_struct *work)
- 		ret = -EFAULT;
- 
- 	/* completing the iocb can drop the ctx and mm, don't touch mm after */
--	aio_complete(iocb, ret, ret);
-+	iocb->ki_complete(iocb, ret, ret);
- 
- 	kfree(priv->buf);
- 	kfree(priv->to_free);
-@@ -497,7 +497,8 @@ static void ep_aio_complete(struct usb_ep *ep, struct usb_request *req)
- 		kfree(priv);
- 		iocb->private = NULL;
- 		/* aio_complete() reports bytes-transferred _and_ faults */
--		aio_complete(iocb, req->actual ? req->actual : req->status,
-+
-+		iocb->ki_complete(iocb, req->actual ? req->actual : req->status,
- 				req->status);
- 	} else {
- 		/* ep_copy_to_user() won't report both; we hide some faults */
 diff --git a/fs/aio.c b/fs/aio.c
-index 8ca8df1..9582865 100644
+index 118a2e0..667054c 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
-@@ -151,6 +151,38 @@ struct kioctx {
- 	unsigned		id;
- };
- 
-+/*
-+ * We use ki_cancel == KIOCB_CANCELLED to indicate that a kiocb has been either
-+ * cancelled or completed (this makes a certain amount of sense because
-+ * successful cancellation - io_cancel() - does deliver the completion to
-+ * userspace).
-+ *
-+ * And since most things don't implement kiocb cancellation and we'd really like
-+ * kiocb completion to be lockless when possible, we use ki_cancel to
-+ * synchronize cancellation and completion - we only set it to KIOCB_CANCELLED
-+ * with xchg() or cmpxchg(), see batch_complete_aio() and kiocb_cancel().
-+ */
-+#define KIOCB_CANCELLED		((void *) (~0ULL))
-+
-+struct aio_kiocb {
-+	struct kiocb		common;
-+
-+	struct kioctx		*ki_ctx;
-+	kiocb_cancel_fn		*ki_cancel;
-+
-+	struct iocb __user	*ki_user_iocb;	/* user's aiocb */
-+	__u64			ki_user_data;	/* user's data for completion */
-+
-+	struct list_head	ki_list;	/* the aio core uses this
-+						 * for cancellation */
-+
-+	/*
-+	 * If the aio_resfd field of the userspace iocb is not zero,
-+	 * this is the underlying eventfd context to deliver events to.
-+	 */
-+	struct eventfd_ctx	*ki_eventfd;
-+};
-+
- /*------ sysctl variables----*/
- static DEFINE_SPINLOCK(aio_nr_lock);
- unsigned long aio_nr;		/* current system wide number of aio requests */
-@@ -220,7 +252,7 @@ static int __init aio_setup(void)
- 	if (IS_ERR(aio_mnt))
- 		panic("Failed to create aio fs mount.");
- 
--	kiocb_cachep = KMEM_CACHE(kiocb, SLAB_HWCACHE_ALIGN|SLAB_PANIC);
-+	kiocb_cachep = KMEM_CACHE(aio_kiocb, SLAB_HWCACHE_ALIGN|SLAB_PANIC);
- 	kioctx_cachep = KMEM_CACHE(kioctx,SLAB_HWCACHE_ALIGN|SLAB_PANIC);
- 
- 	pr_debug("sizeof(struct page) = %zu\n", sizeof(struct page));
-@@ -480,8 +512,9 @@ static int aio_setup_ring(struct kioctx *ctx)
- #define AIO_EVENTS_FIRST_PAGE	((PAGE_SIZE - sizeof(struct aio_ring)) / sizeof(struct io_event))
- #define AIO_EVENTS_OFFSET	(AIO_EVENTS_PER_PAGE - AIO_EVENTS_FIRST_PAGE)
- 
--void kiocb_set_cancel_fn(struct kiocb *req, kiocb_cancel_fn *cancel)
-+void kiocb_set_cancel_fn(struct kiocb *iocb, kiocb_cancel_fn *cancel)
+@@ -1344,12 +1344,13 @@ typedef ssize_t (rw_iter_op)(struct kiocb *, struct iov_iter *);
+ static ssize_t aio_setup_vectored_rw(struct kiocb *kiocb,
+ 				     int rw, char __user *buf,
+ 				     unsigned long *nr_segs,
++				     size_t *len,
+ 				     struct iovec **iovec,
+ 				     bool compat)
  {
-+	struct aio_kiocb *req = container_of(iocb, struct aio_kiocb, common);
- 	struct kioctx *ctx = req->ki_ctx;
- 	unsigned long flags;
- 
-@@ -496,7 +529,7 @@ void kiocb_set_cancel_fn(struct kiocb *req, kiocb_cancel_fn *cancel)
- }
- EXPORT_SYMBOL(kiocb_set_cancel_fn);
- 
--static int kiocb_cancel(struct kiocb *kiocb)
-+static int kiocb_cancel(struct aio_kiocb *kiocb)
- {
- 	kiocb_cancel_fn *old, *cancel;
- 
-@@ -514,7 +547,7 @@ static int kiocb_cancel(struct kiocb *kiocb)
- 		cancel = cmpxchg(&kiocb->ki_cancel, old, KIOCB_CANCELLED);
- 	} while (cancel != old);
- 
--	return cancel(kiocb);
-+	return cancel(&kiocb->common);
- }
- 
- static void free_ioctx(struct work_struct *work)
-@@ -550,13 +583,13 @@ static void free_ioctx_reqs(struct percpu_ref *ref)
- static void free_ioctx_users(struct percpu_ref *ref)
- {
- 	struct kioctx *ctx = container_of(ref, struct kioctx, users);
--	struct kiocb *req;
-+	struct aio_kiocb *req;
- 
- 	spin_lock_irq(&ctx->ctx_lock);
- 
- 	while (!list_empty(&ctx->active_reqs)) {
- 		req = list_first_entry(&ctx->active_reqs,
--				       struct kiocb, ki_list);
-+				       struct aio_kiocb, ki_list);
- 
- 		list_del_init(&req->ki_list);
- 		kiocb_cancel(req);
-@@ -932,9 +965,9 @@ static void user_refill_reqs_available(struct kioctx *ctx)
-  *	Allocate a slot for an aio request.
-  * Returns NULL if no requests are free.
-  */
--static inline struct kiocb *aio_get_req(struct kioctx *ctx)
-+static inline struct aio_kiocb *aio_get_req(struct kioctx *ctx)
- {
--	struct kiocb *req;
-+	struct aio_kiocb *req;
- 
- 	if (!get_reqs_available(ctx)) {
- 		user_refill_reqs_available(ctx);
-@@ -955,10 +988,10 @@ out_put:
- 	return NULL;
- }
- 
--static void kiocb_free(struct kiocb *req)
-+static void kiocb_free(struct aio_kiocb *req)
- {
--	if (req->ki_filp)
--		fput(req->ki_filp);
-+	if (req->common.ki_filp)
-+		fput(req->common.ki_filp);
- 	if (req->ki_eventfd != NULL)
- 		eventfd_ctx_put(req->ki_eventfd);
- 	kmem_cache_free(kiocb_cachep, req);
-@@ -994,8 +1027,9 @@ out:
- /* aio_complete
-  *	Called when the io request on the given iocb is complete.
-  */
--void aio_complete(struct kiocb *iocb, long res, long res2)
-+static void aio_complete(struct kiocb *kiocb, long res, long res2)
- {
-+	struct aio_kiocb *iocb = container_of(kiocb, struct aio_kiocb, common);
- 	struct kioctx	*ctx = iocb->ki_ctx;
- 	struct aio_ring	*ring;
- 	struct io_event	*ev_page, *event;
-@@ -1009,7 +1043,7 @@ void aio_complete(struct kiocb *iocb, long res, long res2)
- 	 *    ref, no other paths have a way to get another ref
- 	 *  - the sync task helpfully left a reference to itself in the iocb
- 	 */
--	BUG_ON(is_sync_kiocb(iocb));
-+	BUG_ON(is_sync_kiocb(kiocb));
- 
- 	if (iocb->ki_list.next) {
- 		unsigned long flags;
-@@ -1035,7 +1069,7 @@ void aio_complete(struct kiocb *iocb, long res, long res2)
- 	ev_page = kmap_atomic(ctx->ring_pages[pos / AIO_EVENTS_PER_PAGE]);
- 	event = ev_page + pos % AIO_EVENTS_PER_PAGE;
- 
--	event->obj = (u64)(unsigned long)iocb->ki_obj.user;
-+	event->obj = (u64)(unsigned long)iocb->ki_user_iocb;
- 	event->data = iocb->ki_user_data;
- 	event->res = res;
- 	event->res2 = res2;
-@@ -1044,7 +1078,7 @@ void aio_complete(struct kiocb *iocb, long res, long res2)
- 	flush_dcache_page(ctx->ring_pages[pos / AIO_EVENTS_PER_PAGE]);
- 
- 	pr_debug("%p[%u]: %p: %p %Lx %lx %lx\n",
--		 ctx, tail, iocb, iocb->ki_obj.user, iocb->ki_user_data,
-+		 ctx, tail, iocb, iocb->ki_user_iocb, iocb->ki_user_data,
- 		 res, res2);
- 
- 	/* after flagging the request as done, we
-@@ -1091,7 +1125,6 @@ void aio_complete(struct kiocb *iocb, long res, long res2)
- 
- 	percpu_ref_put(&ctx->reqs);
- }
--EXPORT_SYMBOL(aio_complete);
- 
- /* aio_read_events_ring
-  *	Pull an event off of the ioctx's event ring.  Returns the number of
-@@ -1480,7 +1513,7 @@ rw_common:
- static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
- 			 struct iocb *iocb, bool compat)
- {
--	struct kiocb *req;
-+	struct aio_kiocb *req;
  	ssize_t ret;
  
- 	/* enforce forwards compatibility on users */
-@@ -1503,11 +1536,14 @@ static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
- 	if (unlikely(!req))
- 		return -EAGAIN;
+-	*nr_segs = kiocb->ki_nbytes;
++	*nr_segs = *len;
  
--	req->ki_filp = fget(iocb->aio_fildes);
--	if (unlikely(!req->ki_filp)) {
-+	req->common.ki_filp = fget(iocb->aio_fildes);
-+	if (unlikely(!req->common.ki_filp)) {
- 		ret = -EBADF;
- 		goto out_put_req;
- 	}
-+	req->common.ki_pos = iocb->aio_offset;
-+	req->common.ki_complete = aio_complete;
-+	req->common.ki_flags = 0;
+ #ifdef CONFIG_COMPAT
+ 	if (compat)
+@@ -1364,21 +1365,22 @@ static ssize_t aio_setup_vectored_rw(struct kiocb *kiocb,
+ 	if (ret < 0)
+ 		return ret;
  
- 	if (iocb->aio_flags & IOCB_FLAG_RESFD) {
- 		/*
-@@ -1522,6 +1558,8 @@ static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
- 			req->ki_eventfd = NULL;
- 			goto out_put_req;
- 		}
-+
-+		req->common.ki_flags |= IOCB_EVENTFD;
- 	}
- 
- 	ret = put_user(KIOCB_KEY, &user_iocb->aio_key);
-@@ -1530,11 +1568,10 @@ static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
- 		goto out_put_req;
- 	}
- 
--	req->ki_obj.user = user_iocb;
-+	req->ki_user_iocb = user_iocb;
- 	req->ki_user_data = iocb->aio_data;
--	req->ki_pos = iocb->aio_offset;
- 
--	ret = aio_run_iocb(req, iocb->aio_lio_opcode,
-+	ret = aio_run_iocb(&req->common, iocb->aio_lio_opcode,
- 			   (char __user *)(unsigned long)iocb->aio_buf,
- 			   iocb->aio_nbytes,
- 			   compat);
-@@ -1623,10 +1660,10 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
- /* lookup_kiocb
-  *	Finds a given iocb for cancellation.
-  */
--static struct kiocb *lookup_kiocb(struct kioctx *ctx, struct iocb __user *iocb,
--				  u32 key)
-+static struct aio_kiocb *
-+lookup_kiocb(struct kioctx *ctx, struct iocb __user *iocb, u32 key)
- {
--	struct list_head *pos;
-+	struct aio_kiocb *kiocb;
- 
- 	assert_spin_locked(&ctx->ctx_lock);
- 
-@@ -1634,9 +1671,8 @@ static struct kiocb *lookup_kiocb(struct kioctx *ctx, struct iocb __user *iocb,
- 		return NULL;
- 
- 	/* TODO: use a hash or array, this sucks. */
--	list_for_each(pos, &ctx->active_reqs) {
--		struct kiocb *kiocb = list_kiocb(pos);
--		if (kiocb->ki_obj.user == iocb)
-+	list_for_each_entry(kiocb, &ctx->active_reqs, ki_list) {
-+		if (kiocb->ki_user_iocb == iocb)
- 			return kiocb;
- 	}
- 	return NULL;
-@@ -1656,7 +1692,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
- 		struct io_event __user *, result)
- {
- 	struct kioctx *ctx;
--	struct kiocb *kiocb;
-+	struct aio_kiocb *kiocb;
- 	u32 key;
- 	int ret;
- 
-diff --git a/fs/direct-io.c b/fs/direct-io.c
-index e181b6b..c38b460 100644
---- a/fs/direct-io.c
-+++ b/fs/direct-io.c
-@@ -265,7 +265,7 @@ static ssize_t dio_complete(struct dio *dio, loff_t offset, ssize_t ret,
- 				ret = err;
- 		}
- 
--		aio_complete(dio->iocb, ret, 0);
-+		dio->iocb->ki_complete(dio->iocb, ret, 0);
- 	}
- 
- 	kmem_cache_free(dio_cache, dio);
-@@ -1056,7 +1056,7 @@ static inline int drop_refcount(struct dio *dio)
- 	 * operation.  AIO can if it was a broken operation described above or
- 	 * in fact if all the bios race to complete before we get here.  In
- 	 * that case dio_complete() translates the EIOCBQUEUED into the proper
--	 * return code that the caller will hand to aio_complete().
-+	 * return code that the caller will hand to ->complete().
- 	 *
- 	 * This is managed by the bio_lock instead of being an atomic_t so that
- 	 * completion paths can drop their ref and use the remaining count to
-diff --git a/fs/fuse/file.c b/fs/fuse/file.c
-index f81d83e..a5c5e38 100644
---- a/fs/fuse/file.c
-+++ b/fs/fuse/file.c
-@@ -584,7 +584,7 @@ static void fuse_aio_complete(struct fuse_io_priv *io, int err, ssize_t pos)
- 			spin_unlock(&fc->lock);
- 		}
- 
--		aio_complete(io->iocb, res, 0);
-+		io->iocb->ki_complete(io->iocb, res, 0);
- 		kfree(io);
- 	}
+-	/* ki_nbytes now reflect bytes instead of segs */
+-	kiocb->ki_nbytes = ret;
++	/* len now reflect bytes instead of segs */
++	*len = ret;
+ 	return 0;
  }
+ 
+ static ssize_t aio_setup_single_vector(struct kiocb *kiocb,
+ 				       int rw, char __user *buf,
+ 				       unsigned long *nr_segs,
++				       size_t len,
+ 				       struct iovec *iovec)
+ {
+-	if (unlikely(!access_ok(!rw, buf, kiocb->ki_nbytes)))
++	if (unlikely(!access_ok(!rw, buf, len)))
+ 		return -EFAULT;
+ 
+ 	iovec->iov_base = buf;
+-	iovec->iov_len = kiocb->ki_nbytes;
++	iovec->iov_len = len;
+ 	*nr_segs = 1;
+ 	return 0;
+ }
+@@ -1388,7 +1390,7 @@ static ssize_t aio_setup_single_vector(struct kiocb *kiocb,
+  *	Performs the initial checks and io submission.
+  */
+ static ssize_t aio_run_iocb(struct kiocb *req, unsigned opcode,
+-			    char __user *buf, bool compat)
++			    char __user *buf, size_t len, bool compat)
+ {
+ 	struct file *file = req->ki_filp;
+ 	ssize_t ret;
+@@ -1423,21 +1425,21 @@ rw_common:
+ 		if (!rw_op && !iter_op)
+ 			return -EINVAL;
+ 
+-		ret = (opcode == IOCB_CMD_PREADV ||
+-		       opcode == IOCB_CMD_PWRITEV)
+-			? aio_setup_vectored_rw(req, rw, buf, &nr_segs,
+-						&iovec, compat)
+-			: aio_setup_single_vector(req, rw, buf, &nr_segs,
+-						  iovec);
++		if (opcode == IOCB_CMD_PREADV || opcode == IOCB_CMD_PWRITEV)
++			ret = aio_setup_vectored_rw(req, rw, buf, &nr_segs,
++						&len, &iovec, compat);
++		else
++			ret = aio_setup_single_vector(req, rw, buf, &nr_segs,
++						  len, iovec);
+ 		if (!ret)
+-			ret = rw_verify_area(rw, file, &req->ki_pos, req->ki_nbytes);
++			ret = rw_verify_area(rw, file, &req->ki_pos, len);
+ 		if (ret < 0) {
+ 			if (iovec != inline_vecs)
+ 				kfree(iovec);
+ 			return ret;
+ 		}
+ 
+-		req->ki_nbytes = ret;
++		len = ret;
+ 
+ 		/* XXX: move/kill - rw_verify_area()? */
+ 		/* This matches the pread()/pwrite() logic */
+@@ -1450,7 +1452,7 @@ rw_common:
+ 			file_start_write(file);
+ 
+ 		if (iter_op) {
+-			iov_iter_init(&iter, rw, iovec, nr_segs, req->ki_nbytes);
++			iov_iter_init(&iter, rw, iovec, nr_segs, len);
+ 			ret = iter_op(req, &iter);
+ 		} else {
+ 			ret = rw_op(req, iovec, nr_segs, req->ki_pos);
+@@ -1553,10 +1555,10 @@ static int io_submit_one(struct kioctx *ctx, struct iocb __user *user_iocb,
+ 	req->ki_obj.user = user_iocb;
+ 	req->ki_user_data = iocb->aio_data;
+ 	req->ki_pos = iocb->aio_offset;
+-	req->ki_nbytes = iocb->aio_nbytes;
+ 
+ 	ret = aio_run_iocb(req, iocb->aio_lio_opcode,
+ 			   (char __user *)(unsigned long)iocb->aio_buf,
++			   iocb->aio_nbytes,
+ 			   compat);
+ 	if (ret)
+ 		goto out_put_req;
+diff --git a/fs/ceph/file.c b/fs/ceph/file.c
+index 905986d..081c4e3 100644
+--- a/fs/ceph/file.c
++++ b/fs/ceph/file.c
+@@ -807,7 +807,7 @@ static ssize_t ceph_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ {
+ 	struct file *filp = iocb->ki_filp;
+ 	struct ceph_file_info *fi = filp->private_data;
+-	size_t len = iocb->ki_nbytes;
++	size_t len = iov_iter_count(to);
+ 	struct inode *inode = file_inode(filp);
+ 	struct ceph_inode_info *ci = ceph_inode(inode);
+ 	struct page *pinned_page = NULL;
 diff --git a/fs/nfs/direct.c b/fs/nfs/direct.c
-index 27cebf1..5db3385 100644
+index 7077521..27cebf1 100644
 --- a/fs/nfs/direct.c
 +++ b/fs/nfs/direct.c
-@@ -393,7 +393,7 @@ static void nfs_direct_complete(struct nfs_direct_req *dreq, bool write)
- 		long res = (long) dreq->error;
- 		if (!res)
- 			res = (long) dreq->count;
--		aio_complete(dreq->iocb, res, 0);
-+		dreq->iocb->ki_complete(dreq->iocb, res, 0);
+@@ -265,7 +265,7 @@ ssize_t nfs_direct_IO(int rw, struct kiocb *iocb, struct iov_iter *iter, loff_t
+ 
+ 	return -EINVAL;
+ #else
+-	VM_BUG_ON(iocb->ki_nbytes != PAGE_SIZE);
++	VM_BUG_ON(iov_iter_count(iter) != PAGE_SIZE);
+ 
+ 	if (rw == READ)
+ 		return nfs_file_direct_read(iocb, iter, pos);
+diff --git a/fs/ocfs2/file.c b/fs/ocfs2/file.c
+index 46e0d4e..266845d 100644
+--- a/fs/ocfs2/file.c
++++ b/fs/ocfs2/file.c
+@@ -2280,7 +2280,7 @@ static ssize_t ocfs2_file_write_iter(struct kiocb *iocb,
+ 		file->f_path.dentry->d_name.name,
+ 		(unsigned int)from->nr_segs);	/* GRRRRR */
+ 
+-	if (iocb->ki_nbytes == 0)
++	if (count == 0)
+ 		return 0;
+ 
+ 	appending = file->f_flags & O_APPEND ? 1 : 0;
+@@ -2330,8 +2330,7 @@ relock:
  	}
  
- 	complete_all(&dreq->completion);
+ 	can_do_direct = direct_io;
+-	ret = ocfs2_prepare_inode_for_write(file, ppos,
+-					    iocb->ki_nbytes, appending,
++	ret = ocfs2_prepare_inode_for_write(file, ppos, count, appending,
+ 					    &can_do_direct, &has_refcount);
+ 	if (ret < 0) {
+ 		mlog_errno(ret);
+@@ -2339,8 +2338,7 @@ relock:
+ 	}
+ 
+ 	if (direct_io && !is_sync_kiocb(iocb))
+-		unaligned_dio = ocfs2_is_io_unaligned(inode, iocb->ki_nbytes,
+-						      *ppos);
++		unaligned_dio = ocfs2_is_io_unaligned(inode, count, *ppos);
+ 
+ 	/*
+ 	 * We can't complete the direct I/O as requested, fall back to
+diff --git a/fs/read_write.c b/fs/read_write.c
+index 8e1b687..f8b8fc1 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -343,7 +343,6 @@ ssize_t vfs_iter_read(struct file *file, struct iov_iter *iter, loff_t *ppos)
+ 
+ 	init_sync_kiocb(&kiocb, file);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = iov_iter_count(iter);
+ 
+ 	iter->type |= READ;
+ 	ret = file->f_op->read_iter(&kiocb, iter);
+@@ -366,7 +365,6 @@ ssize_t vfs_iter_write(struct file *file, struct iov_iter *iter, loff_t *ppos)
+ 
+ 	init_sync_kiocb(&kiocb, file);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = iov_iter_count(iter);
+ 
+ 	iter->type |= WRITE;
+ 	ret = file->f_op->write_iter(&kiocb, iter);
+@@ -426,7 +424,6 @@ ssize_t do_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *pp
+ 
+ 	init_sync_kiocb(&kiocb, filp);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = len;
+ 
+ 	ret = filp->f_op->aio_read(&kiocb, &iov, 1, kiocb.ki_pos);
+ 	if (-EIOCBQUEUED == ret)
+@@ -446,7 +443,6 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
+ 
+ 	init_sync_kiocb(&kiocb, filp);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = len;
+ 	iov_iter_init(&iter, READ, &iov, 1, len);
+ 
+ 	ret = filp->f_op->read_iter(&kiocb, &iter);
+@@ -510,7 +506,6 @@ ssize_t do_sync_write(struct file *filp, const char __user *buf, size_t len, lof
+ 
+ 	init_sync_kiocb(&kiocb, filp);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = len;
+ 
+ 	ret = filp->f_op->aio_write(&kiocb, &iov, 1, kiocb.ki_pos);
+ 	if (-EIOCBQUEUED == ret)
+@@ -530,7 +525,6 @@ ssize_t new_sync_write(struct file *filp, const char __user *buf, size_t len, lo
+ 
+ 	init_sync_kiocb(&kiocb, filp);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = len;
+ 	iov_iter_init(&iter, WRITE, &iov, 1, len);
+ 
+ 	ret = filp->f_op->write_iter(&kiocb, &iter);
+@@ -719,7 +713,6 @@ static ssize_t do_iter_readv_writev(struct file *filp, int rw, const struct iove
+ 
+ 	init_sync_kiocb(&kiocb, filp);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = len;
+ 
+ 	iov_iter_init(&iter, rw, iov, nr_segs, len);
+ 	ret = fn(&kiocb, &iter);
+@@ -737,7 +730,6 @@ static ssize_t do_sync_readv_writev(struct file *filp, const struct iovec *iov,
+ 
+ 	init_sync_kiocb(&kiocb, filp);
+ 	kiocb.ki_pos = *ppos;
+-	kiocb.ki_nbytes = len;
+ 
+ 	ret = fn(&kiocb, iov, nr_segs, kiocb.ki_pos);
+ 	if (ret == -EIOCBQUEUED)
+diff --git a/fs/udf/file.c b/fs/udf/file.c
+index 08f3555..9c0b6da 100644
+--- a/fs/udf/file.c
++++ b/fs/udf/file.c
+@@ -122,7 +122,7 @@ static ssize_t udf_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
+ 	struct file *file = iocb->ki_filp;
+ 	struct inode *inode = file_inode(file);
+ 	int err, pos;
+-	size_t count = iocb->ki_nbytes;
++	size_t count = iov_iter_count(from);
+ 	struct udf_inode_info *iinfo = UDF_I(inode);
+ 
+ 	mutex_lock(&inode->i_mutex);
 diff --git a/include/linux/aio.h b/include/linux/aio.h
-index f851643..5c40b61 100644
+index d9c92da..132d1ec 100644
 --- a/include/linux/aio.h
 +++ b/include/linux/aio.h
-@@ -14,67 +14,38 @@ struct kiocb;
+@@ -42,7 +42,6 @@ struct kiocb {
  
- #define KIOCB_KEY		0
- 
--/*
-- * We use ki_cancel == KIOCB_CANCELLED to indicate that a kiocb has been either
-- * cancelled or completed (this makes a certain amount of sense because
-- * successful cancellation - io_cancel() - does deliver the completion to
-- * userspace).
-- *
-- * And since most things don't implement kiocb cancellation and we'd really like
-- * kiocb completion to be lockless when possible, we use ki_cancel to
-- * synchronize cancellation and completion - we only set it to KIOCB_CANCELLED
-- * with xchg() or cmpxchg(), see batch_complete_aio() and kiocb_cancel().
-- */
--#define KIOCB_CANCELLED		((void *) (~0ULL))
--
- typedef int (kiocb_cancel_fn)(struct kiocb *);
- 
-+#define IOCB_EVENTFD		(1 << 0)
-+
- struct kiocb {
- 	struct file		*ki_filp;
--	struct kioctx		*ki_ctx;	/* NULL for sync ops */
--	kiocb_cancel_fn		*ki_cancel;
--	void			*private;
--
--	union {
--		void __user		*user;
--	} ki_obj;
--
--	__u64			ki_user_data;	/* user's data for completion */
+ 	__u64			ki_user_data;	/* user's data for completion */
  	loff_t			ki_pos;
--
--	struct list_head	ki_list;	/* the aio core uses this
--						 * for cancellation */
--
--	/*
--	 * If the aio_resfd field of the userspace iocb is not zero,
--	 * this is the underlying eventfd context to deliver events to.
--	 */
--	struct eventfd_ctx	*ki_eventfd;
-+	void (*ki_complete)(struct kiocb *iocb, long ret, long ret2);
-+	void			*private;
-+	int			ki_flags;
- };
+-	size_t			ki_nbytes;	/* copy of iocb->aio_nbytes */
  
- static inline bool is_sync_kiocb(struct kiocb *kiocb)
- {
--	return kiocb->ki_ctx == NULL;
-+	return kiocb->ki_complete == NULL;
+ 	struct list_head	ki_list;	/* the aio core uses this
+ 						 * for cancellation */
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index c06df7d..60b2aa2 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -521,7 +521,7 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
+ 	int i;
+ 	int level = default_message_loglevel;
+ 	int facility = 1;	/* LOG_USER */
+-	size_t len = iocb->ki_nbytes;
++	size_t len = iov_iter_count(from);
+ 	ssize_t ret = len;
+ 
+ 	if (len > LOG_LINE_MAX)
+diff --git a/mm/page_io.c b/mm/page_io.c
+index e604580..7ef2157 100644
+--- a/mm/page_io.c
++++ b/mm/page_io.c
+@@ -274,7 +274,6 @@ int __swap_writepage(struct page *page, struct writeback_control *wbc,
+ 		iov_iter_bvec(&from, ITER_BVEC | WRITE, &bv, 1, PAGE_SIZE);
+ 		init_sync_kiocb(&kiocb, swap_file);
+ 		kiocb.ki_pos = page_file_offset(page);
+-		kiocb.ki_nbytes = PAGE_SIZE;
+ 
+ 		set_page_writeback(page);
+ 		unlock_page(page);
+diff --git a/net/socket.c b/net/socket.c
+index bbedbfc..f921455 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -858,11 +858,11 @@ static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
+ 	if (iocb->ki_pos != 0)
+ 		return -ESPIPE;
+ 
+-	if (iocb->ki_nbytes == 0)	/* Match SYS5 behaviour */
++	if (!iov_iter_count(to))	/* Match SYS5 behaviour */
+ 		return 0;
+ 
+ 	res = __sock_recvmsg(iocb, sock, &msg,
+-			     iocb->ki_nbytes, msg.msg_flags);
++			     iov_iter_count(to), msg.msg_flags);
+ 	*to = msg.msg_iter;
+ 	return res;
  }
+@@ -883,7 +883,7 @@ static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from)
+ 	if (sock->type == SOCK_SEQPACKET)
+ 		msg.msg_flags |= MSG_EOR;
  
- static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
- {
- 	*kiocb = (struct kiocb) {
--			.ki_ctx = NULL,
- 			.ki_filp = filp,
- 		};
+-	res = __sock_sendmsg(iocb, sock, &msg, iocb->ki_nbytes);
++	res = __sock_sendmsg(iocb, sock, &msg, iov_iter_count(from));
+ 	*from = msg.msg_iter;
+ 	return res;
  }
- 
- /* prototypes */
- #ifdef CONFIG_AIO
--extern void aio_complete(struct kiocb *iocb, long res, long res2);
- struct mm_struct;
- extern void exit_aio(struct mm_struct *mm);
- extern long do_io_submit(aio_context_t ctx_id, long nr,
- 			 struct iocb __user *__user *iocbpp, bool compat);
- void kiocb_set_cancel_fn(struct kiocb *req, kiocb_cancel_fn *cancel);
- #else
--static inline void aio_complete(struct kiocb *iocb, long res, long res2) { }
- struct mm_struct;
- static inline void exit_aio(struct mm_struct *mm) { }
- static inline long do_io_submit(aio_context_t ctx_id, long nr,
-@@ -84,11 +55,6 @@ static inline void kiocb_set_cancel_fn(struct kiocb *req,
- 				       kiocb_cancel_fn *cancel) { }
- #endif /* CONFIG_AIO */
- 
--static inline struct kiocb *list_kiocb(struct list_head *h)
--{
--	return list_entry(h, struct kiocb, ki_list);
--}
--
- /* for sysctl: */
- extern unsigned long aio_nr;
- extern unsigned long aio_max_nr;
 -- 
 2.1.4
