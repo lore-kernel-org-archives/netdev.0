@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 9/9] ixgbevf: Add the appropriate ethtool ops to query RSS indirection table and key
-Date: Sat, 11 Apr 2015 12:07:56 -0700
-Message-ID: <1428779276-22523-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/9] ixgbe: Refactor the RSS configuration code
+Date: Sat, 11 Apr 2015 12:07:48 -0700
+Message-ID: <1428779276-22523-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1428779276-22523-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Vlad Zolotarov <vladz@cloudius-systems.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -10,116 +10,270 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:15376 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755482AbbDKTIE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Apr 2015 15:08:04 -0400
+	id S1755375AbbDKTH7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Apr 2015 15:07:59 -0400
 In-Reply-To: <1428779276-22523-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vlad Zolotarov <vladz@cloudius-systems.com>
 
-Added get_rxfh_indir_size, get_rxfh_key_size and get_rxfh ethtool_ops
-callbacks implementations.
+This patch is a preparation for enablement of ethtool RSS indirection
+table and hash key querying. We don't want to read registers every time
+the RSS info is queried. Therefore we will store its current content in the
+arrays in the adapter struct and will read it from there (instead of from
+registers) when requested.
 
-This enables the ethtool's "-x" and "--show-rxfh[-indir]" options for VF
-devices.
-
-This patch adds the support for 82599 and x540 devices only. Support for
-other devices will be added later.
+Will change the code that writes the indirection table and hash key into
+the HW registers to take its content from these arrays. This will also
+simplify the indirection table updating ethtool callback implementation
+in the future.
 
 Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ethtool.c | 69 ++++++++++++++++++++++++++++
- 1 file changed, 69 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   9 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 147 ++++++++++++++++++--------
+ 2 files changed, 112 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index e83c85b..b2f5b16 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -794,6 +794,71 @@ static int ixgbevf_set_coalesce(struct net_device *netdev,
- 	return 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index ae5b8b2..d13ab87 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -766,6 +766,15 @@ struct ixgbe_adapter {
+ 
+ 	u8 default_up;
+ 	unsigned long fwd_bitmask; /* Bitmask indicating in use pools */
++
++/* maximum number of RETA entries among all devices supported by ixgbe
++ * driver: currently it's x550 device in non-SRIOV mode
++ */
++#define IXGBE_MAX_RETA_ENTRIES 512
++	u8 rss_indir_tbl[IXGBE_MAX_RETA_ENTRIES];
++
++#define IXGBE_RSS_KEY_SIZE     40  /* size of RSS Hash Key in bytes */
++	u32 rss_key[IXGBE_RSS_KEY_SIZE / sizeof(u32)];
+ };
+ 
+ static inline u8 ixgbe_max_rss_indices(struct ixgbe_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index a7acb2d..57a3ec4 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3228,89 +3228,148 @@ static void ixgbe_configure_srrctl(struct ixgbe_adapter *adapter,
+ 	IXGBE_WRITE_REG(hw, IXGBE_SRRCTL(reg_idx), srrctl);
  }
  
-+static int ixgbevf_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
-+			     u32 *rules __always_unused)
+-static void ixgbe_setup_reta(struct ixgbe_adapter *adapter, const u32 *seed)
++/**
++ * Return a number of entries in the RSS indirection table
++ *
++ * @adapter: device handle
++ *
++ *  - 82598/82599/X540:     128
++ *  - X550(non-SRIOV mode): 512
++ *  - X550(SRIOV mode):     64
++ */
++static u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
 +{
-+	struct ixgbevf_adapter *adapter = netdev_priv(dev);
++	if (adapter->hw.mac.type < ixgbe_mac_X550)
++		return 128;
++	else if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		return 64;
++	else
++		return 512;
++}
 +
-+	switch (info->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		info->data = adapter->num_rx_queues;
-+		return 0;
-+	default:
-+		hw_dbg(&adapter->hw, "Command parameters not supported\n");
-+		return -EOPNOTSUPP;
++/**
++ * Write the RETA table to HW
++ *
++ * @adapter: device handle
++ *
++ * Write the RSS redirection table stored in adapter.rss_indir_tbl[] to HW.
++ */
++static void ixgbe_store_reta(struct ixgbe_adapter *adapter)
+ {
++	u32 i, reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 reta = 0;
+-	int i, j;
+-	int reta_entries = 128;
+-	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
+-	int indices_multi;
+-
+-	/*
+-	 * Program table for at least 2 queues w/ SR-IOV so that VFs can
+-	 * make full use of any rings they may have.  We will use the
+-	 * PSRTYPE register to control how many rings we use within the PF.
+-	 */
+-	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) && (rss_i < 2))
+-		rss_i = 2;
+-
+-	/* Fill out hash function seeds */
+-	for (i = 0; i < 10; i++)
+-		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), seed[i]);
++	u32 indices_multi;
++	u8 *indir_tbl = adapter->rss_indir_tbl;
+ 
+ 	/* Fill out the redirection table as follows:
+-	 * 82598: 128 (8 bit wide) entries containing pair of 4 bit RSS indices
+-	 * 82599/X540: 128 (8 bit wide) entries containing 4 bit RSS index
+-	 * X550: 512 (8 bit wide) entries containing 6 bit RSS index
++	 *  - 82598:      8 bit wide entries containing pair of 4 bit RSS
++	 *    indices.
++	 *  - 82599/X540: 8 bit wide entries containing 4 bit RSS index
++	 *  - X550:       8 bit wide entries containing 6 bit RSS index
+ 	 */
+ 	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
+ 		indices_multi = 0x11;
+ 	else
+ 		indices_multi = 0x1;
+ 
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_X550:
+-	case ixgbe_mac_X550EM_x:
+-		if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+-			reta_entries = 512;
+-	default:
+-		break;
+-	}
+-
+-	/* Fill out redirection table */
+-	for (i = 0, j = 0; i < reta_entries; i++, j++) {
+-		if (j == rss_i)
+-			j = 0;
+-		reta = (reta << 8) | (j * indices_multi);
++	/* Write redirection table to HW */
++	for (i = 0; i < reta_entries; i++) {
++		reta |= indices_multi * indir_tbl[i] << (i & 0x3) * 8;
+ 		if ((i & 3) == 3) {
+ 			if (i < 128)
+ 				IXGBE_WRITE_REG(hw, IXGBE_RETA(i >> 2), reta);
+ 			else
+ 				IXGBE_WRITE_REG(hw, IXGBE_ERETA((i >> 2) - 32),
+ 						reta);
++			reta = 0;
+ 		}
+ 	}
+ }
+ 
+-static void ixgbe_setup_vfreta(struct ixgbe_adapter *adapter, const u32 *seed)
++/**
++ * Write the RETA table to HW (for x550 devices in SRIOV mode)
++ *
++ * @adapter: device handle
++ *
++ * Write the RSS redirection table stored in adapter.rss_indir_tbl[] to HW.
++ */
++static void ixgbe_store_vfreta(struct ixgbe_adapter *adapter)
+ {
++	u32 i, reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 vfreta = 0;
++	unsigned int pf_pool = adapter->num_vfs;
++
++	/* Write redirection table to HW */
++	for (i = 0; i < reta_entries; i++) {
++		vfreta |= (u32)adapter->rss_indir_tbl[i] << (i & 0x3) * 8;
++		if ((i & 3) == 3) {
++			IXGBE_WRITE_REG(hw, IXGBE_PFVFRETA(i >> 2, pf_pool),
++					vfreta);
++			vfreta = 0;
++		}
 +	}
 +}
 +
-+static u32 ixgbevf_get_rxfh_indir_size(struct net_device *netdev)
++static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
 +{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 i, j;
++	u32 reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
++	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
 +
-+	/* We support this operation only for 82599 and x540 at the moment */
-+	if (adapter->hw.mac.type < ixgbe_mac_X550_vf)
-+		return IXGBEVF_82599_RETA_SIZE;
-+
-+	return 0;
-+}
-+
-+static u32 ixgbevf_get_rxfh_key_size(struct net_device *netdev)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+
-+	/* We support this operation only for 82599 and x540 at the moment */
-+	if (adapter->hw.mac.type < ixgbe_mac_X550_vf)
-+		return IXGBEVF_RSS_HASH_KEY_SIZE;
-+
-+	return 0;
-+}
-+
-+static int ixgbevf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-+			    u8 *hfunc)
-+{
-+	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
-+	int err = 0;
-+
-+	if (hfunc)
-+		*hfunc = ETH_RSS_HASH_TOP;
-+
-+	/* If neither indirection table nor hash key was requested - just
-+	 * return a success avoiding taking any locks.
++	/* Program table for at least 2 queues w/ SR-IOV so that VFs can
++	 * make full use of any rings they may have.  We will use the
++	 * PSRTYPE register to control how many rings we use within the PF.
 +	 */
-+	if (!indir && !key)
-+		return 0;
++	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) && (rss_i < 2))
++		rss_i = 2;
 +
-+	spin_lock_bh(&adapter->mbx_lock);
-+	if (indir)
-+		err = ixgbevf_get_reta_locked(&adapter->hw, indir,
-+					      adapter->num_rx_queues);
++	/* Fill out hash function seeds */
++	for (i = 0; i < 10; i++)
++		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), adapter->rss_key[i]);
 +
-+	if (!err && key)
-+		err = ixgbevf_get_rss_key_locked(&adapter->hw, key);
++	/* Fill out redirection table */
++	memset(adapter->rss_indir_tbl, 0, sizeof(adapter->rss_indir_tbl));
 +
-+	spin_unlock_bh(&adapter->mbx_lock);
++	for (i = 0, j = 0; i < reta_entries; i++, j++) {
++		if (j == rss_i)
++			j = 0;
 +
-+	return err;
++		adapter->rss_indir_tbl[i] = j;
++	}
++
++	ixgbe_store_reta(adapter);
 +}
 +
- static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_settings		= ixgbevf_get_settings,
- 	.get_drvinfo		= ixgbevf_get_drvinfo,
-@@ -811,6 +876,10 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 	.get_ethtool_stats	= ixgbevf_get_ethtool_stats,
- 	.get_coalesce		= ixgbevf_get_coalesce,
- 	.set_coalesce		= ixgbevf_set_coalesce,
-+	.get_rxnfc		= ixgbevf_get_rxnfc,
-+	.get_rxfh_indir_size	= ixgbevf_get_rxfh_indir_size,
-+	.get_rxfh_key_size	= ixgbevf_get_rxfh_key_size,
-+	.get_rxfh		= ixgbevf_get_rxfh,
- };
++static void ixgbe_setup_vfreta(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
+ 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
+ 	unsigned int pf_pool = adapter->num_vfs;
+ 	int i, j;
  
- void ixgbevf_set_ethtool_ops(struct net_device *netdev)
+ 	/* Fill out hash function seeds */
+ 	for (i = 0; i < 10; i++)
+-		IXGBE_WRITE_REG(hw, IXGBE_PFVFRSSRK(i, pf_pool), seed[i]);
++		IXGBE_WRITE_REG(hw, IXGBE_PFVFRSSRK(i, pf_pool),
++				adapter->rss_key[i]);
+ 
+ 	/* Fill out the redirection table */
+ 	for (i = 0, j = 0; i < 64; i++, j++) {
+ 		if (j == rss_i)
+ 			j = 0;
+-		vfreta = (vfreta << 8) | j;
+-		if ((i & 3) == 3)
+-			IXGBE_WRITE_REG(hw, IXGBE_PFVFRETA(i >> 2, pf_pool),
+-					vfreta);
++
++		adapter->rss_indir_tbl[i] = j;
+ 	}
++
++	ixgbe_store_vfreta(adapter);
+ }
+ 
+ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 mrqc = 0, rss_field = 0, vfmrqc = 0;
+-	u32 rss_key[10];
+ 	u32 rxcsum;
+ 
+ 	/* Disable indicating checksum in descriptor, enables RSS hash */
+@@ -3354,7 +3413,7 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ 	if (adapter->flags2 & IXGBE_FLAG2_RSS_FIELD_IPV6_UDP)
+ 		rss_field |= IXGBE_MRQC_RSS_FIELD_IPV6_UDP;
+ 
+-	netdev_rss_key_fill(rss_key, sizeof(rss_key));
++	netdev_rss_key_fill(adapter->rss_key, sizeof(adapter->rss_key));
+ 	if ((hw->mac.type >= ixgbe_mac_X550) &&
+ 	    (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)) {
+ 		unsigned int pf_pool = adapter->num_vfs;
+@@ -3364,12 +3423,12 @@ static void ixgbe_setup_mrqc(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
+ 
+ 		/* Setup RSS through the VF registers */
+-		ixgbe_setup_vfreta(adapter, rss_key);
++		ixgbe_setup_vfreta(adapter);
+ 		vfmrqc = IXGBE_MRQC_RSSEN;
+ 		vfmrqc |= rss_field;
+ 		IXGBE_WRITE_REG(hw, IXGBE_PFVFMRQC(pf_pool), vfmrqc);
+ 	} else {
+-		ixgbe_setup_reta(adapter, rss_key);
++		ixgbe_setup_reta(adapter);
+ 		mrqc |= rss_field;
+ 		IXGBE_WRITE_REG(hw, IXGBE_MRQC, mrqc);
+ 	}
 -- 
 1.9.3
