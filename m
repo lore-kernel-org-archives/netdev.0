@@ -1,79 +1,86 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [RFC PATCH net-next 00/10] ipv6: Only create RTF_CACHE route after encountering pmtu exception
-Date: Fri, 10 Apr 2015 18:59:26 -0700
-Message-ID: <1428717576-1040383-1-git-send-email-kafai@fb.com>
+Subject: [RFC PATCH net-next 08/10] ipv6: Do not use inetpeer when creating RTF_CACHE route for /128 via gateway entry
+Date: Fri, 10 Apr 2015 18:59:34 -0700
+Message-ID: <1428717576-1040383-9-git-send-email-kafai@fb.com>
+References: <1428717576-1040383-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	<kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:23162 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753508AbbDKB7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 21:59:49 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3B1xGHI008207
-	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:59:48 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:22645 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754439AbbDKB7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 21:59:51 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3B1sh8L011860
+	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:59:50 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1tpqk1gcgc-1
+	by mx0b-00082601.pphosted.com with ESMTP id 1tpt9t80gd-7
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:59:48 -0700
+	for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:59:50 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- 6d1ed68edfee11e4b27b0002c991e86a-ed7d72c0 for <netdev@vger.kernel.org>;	Fri,
- 10 Apr 2015 18:59:45 -0700
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 6dc9984edfee11e480c30002c9521c9e-376dc2c0 for <netdev@vger.kernel.org>;	Fri,
+ 10 Apr 2015 18:59:46 -0700
+In-Reply-To: <1428717576-1040383-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Just a re-sent of the last one with the net-next tag]
+When there is a pmtu exception on /128 via gateway route, we need to
+create a separate metrics copy for the newly created RTF_CACHE route instead
+of reusing the inetpeer cache.  Otherwise, the original mtu will be
+over-written and the mtu update will stay after the expiration.
 
-Hi,
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/route.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
-This series is to avoid creating a RTF_CACHE route whenever we are consulting
-the fib6 tree with a new destination.  Instead, only create RTF_CACHE route
-when we see a pmtu exception.
-
-Out of all ipv6 RTF_CACHE routes that are created, the percentage that has a
-different mtu is very small. In one of our end-user facing proxy server,
-only 1k out of 80k RTF_CACHE routes have a smaller MTU.  For our DC
-traffic, there is no mtu exception.
-
-A large fib6 tree has problems like, 'ip -6 r show' takes a long time.
-gc may kick in too often.  Also, when a service has restarted and a lot
-of new TCP conn requests come in, it creates pressure on the tree by inserting
-a lot of RTF_CACHE in a short time and it currently requires a write lock
-to do that.
-
-The first few patches are prep works to remove assumption that the
-returned rt is always RTF_CACHE.
-
-The patch 'ipv6: Only create RTF_CACHE routes after encountering pmtu exception'
-do the lazy RTF_CACHE route creation.
-
-The next few patches fix the /128 via gateway route issue.  One of them
-is by "Steffen Klassert <steffen.klassert@secunet.com>" which I pulled off
-from netdev.
-
-The last two patches added percpu rt to compensate the performance loss after
-doing the RTF_CACHE lazy creation.
-
-Here is some numbers of the udpflood test.  The udpflood has been
-slightly modified to have a time limit instead of count limit.
-
-A /64 via gateway route is used for the test. Each udpflood uses 10000 dst
-addresses.  The dst addresses of different udpflood processes do not overlap
-with each other.
-
-# of udpflood        # of trans (patched)        # of trans (upstream)
-
-1                    16M                          15M
-10                   61M                          61M
-20                   65M                          62M
-40                   88M                          83M
-
-
-Many thanks to "Hannes Frederic Sowa <hannes@stressinduktion.org>" on
-reviewing the patches and giving advice.
-
---Martin
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 91c80bc..61ce45e 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -322,8 +322,16 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 	struct rt6_info *rt = (struct rt6_info *)dst;
+ 	struct inet6_dev *idev = rt->rt6i_idev;
+ 	struct dst_entry *from = dst->from;
++	unsigned long peer_metrics = 0;
+ 
+-	if (!(rt->dst.flags & DST_HOST))
++	if (rt6_has_peer(rt)) {
++		struct inet_peer *peer = rt6_peer_ptr(rt);
++
++		peer_metrics = (unsigned long)peer->metrics;
++		inet_putpeer(peer);
++	}
++
++	if (peer_metrics != dst->_metrics)
+ 		dst_destroy_metrics_generic(dst);
+ 
+ 	if (idev) {
+@@ -333,11 +341,6 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 
+ 	dst->from = NULL;
+ 	dst_release(from);
+-
+-	if (rt6_has_peer(rt)) {
+-		struct inet_peer *peer = rt6_peer_ptr(rt);
+-		inet_putpeer(peer);
+-	}
+ }
+ 
+ static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+@@ -1956,6 +1959,8 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+ 
+ 		rt->rt6i_dst.addr = *dest;
+ 		rt->rt6i_dst.plen = 128;
++		if (ort->dst.flags & DST_HOST)
++			dst_cow_metrics_generic(&rt->dst, rt->dst._metrics);
+ 		dst_copy_metrics(&rt->dst, &ort->dst);
+ 		rt->dst.error = ort->dst.error;
+ 		rt->rt6i_idev = ort->rt6i_idev;
+-- 
+1.8.1
