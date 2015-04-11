@@ -1,37 +1,42 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] net: use jump label patching for ingress qdisc
- in __netif_receive_skb_core
-Date: Fri, 10 Apr 2015 18:41:17 -0700
-Message-ID: <55287BBD.2030006@plumgrid.com>
-References: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net> <CAHA+R7PXy_kOn3pUOdGvU4L3n-EgH8cXNCmGQfaDQTUNaP2S4w@mail.gmail.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [B.A.T.M.A.N.] [PATCH 2/2] net: Export IGMP/MLD
+ message validation code
+Date: Sat, 11 Apr 2015 03:46:45 +0200
+Message-ID: <20150411014645.GA20155@odroid>
+References: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue>
+	<1428687999-18428-2-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33853 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753841AbbDKBlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Apr 2015 21:41:19 -0400
-Received: by pdbqa5 with SMTP id qa5so39793522pdb.1
-        for <netdev@vger.kernel.org>; Fri, 10 Apr 2015 18:41:19 -0700 (PDT)
-In-Reply-To: <CAHA+R7PXy_kOn3pUOdGvU4L3n-EgH8cXNCmGQfaDQTUNaP2S4w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <therbert@google.com>, "David S. Miller" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1428687999-18428-2-git-send-email-linus.luessing@c0d3.blue>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 4/10/15 6:14 PM, Cong Wang wrote:
-> So the following code is slow enough to deserve a static key
-> optimization?
->
-> struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
->
-> if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
->      goto out;
+On Fri, Apr 10, 2015 at 07:46:39PM +0200, Linus L=C3=BCssing wrote:
+> diff --git a/net/ipv6/mcast_snoop.c b/net/ipv6/mcast_snoop.c
+> new file mode 100644
+> index 0000000..95b34c0
+> --- /dev/null
+> +++ b/net/ipv6/mcast_snoop.c
+> @@ -0,0 +1,198 @@
+> +/* Copyright (C) 2015: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 
-It helps a little bit here and helps even more to my ingress_l2 patch
-that is based on top of this one. Every cycle counts.
+PS: I'm a little uncertain how this is usually done. If I should
+add someone (maybe Hideaki YOSHIFUJI, the original author of the
+bridge IPv6/MLD support?), then please let me know.
