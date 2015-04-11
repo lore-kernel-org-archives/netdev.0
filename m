@@ -1,142 +1,109 @@
 From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH 16/17] get rid of the size argument of sock_sendmsg()
-Date: Sat, 11 Apr 2015 22:18:27 +0100
-Message-ID: <1428787108-13650-16-git-send-email-viro@ZenIV.linux.org.uk>
+Subject: [PATCH 09/17] RxRPC: Use iov_iter_count() in rxrpc_send_data() instead of the len argument
+Date: Sat, 11 Apr 2015 22:18:20 +0100
+Message-ID: <1428787108-13650-9-git-send-email-viro@ZenIV.linux.org.uk>
 References: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:37887 "EHLO
+Received: from zeniv.linux.org.uk ([195.92.253.2]:37873 "EHLO
 	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932702AbbDKVSb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:18:31 -0400
+	with ESMTP id S932500AbbDKVSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Apr 2015 17:18:30 -0400
 In-Reply-To: <20150411211742.GJ889@ZenIV.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Al Viro <viro@zeniv.linux.org.uk>
+From: David Howells <dhowells@redhat.com>
 
-it's equal to iov_iter_count(&msg->msg_iter) in all cases
+Use iov_iter_count() in rxrpc_send_data() to get the remaining data length
+instead of using the len argument as the len argument is now redundant.
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- include/linux/net.h  |  2 +-
- net/socket.c         | 27 ++++++++++++++-------------
- net/sunrpc/svcsock.c |  2 +-
- 3 files changed, 16 insertions(+), 15 deletions(-)
+ net/rxrpc/ar-output.c | 24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index e74114b..738ea48 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -211,7 +211,7 @@ int sock_create(int family, int type, int proto, struct socket **res);
- int sock_create_kern(int family, int type, int proto, struct socket **res);
- int sock_create_lite(int family, int type, int proto, struct socket **res);
- void sock_release(struct socket *sock);
--int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len);
-+int sock_sendmsg(struct socket *sock, struct msghdr *msg);
- int sock_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
- 		 int flags);
- struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname);
-diff --git a/net/socket.c b/net/socket.c
-index b6ceeda..21676e4 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -610,17 +610,19 @@ void __sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags)
- }
- EXPORT_SYMBOL(__sock_tx_timestamp);
+diff --git a/net/rxrpc/ar-output.c b/net/rxrpc/ar-output.c
+index f48dc1a..de8d2f1 100644
+--- a/net/rxrpc/ar-output.c
++++ b/net/rxrpc/ar-output.c
+@@ -546,8 +546,6 @@ static int rxrpc_send_data(struct kiocb *iocb,
+ 	call->tx_pending = NULL;
  
--static inline int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg,
--				     size_t size)
-+static inline int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg)
- {
--	return sock->ops->sendmsg(sock, msg, size);
-+	int ret = sock->ops->sendmsg(sock, msg, iov_iter_count(&msg->msg_iter));
-+	BUG_ON(ret == -EIOCBQUEUED);
-+	return ret;
- }
+ 	copied = 0;
+-	if (len > iov_iter_count(&msg->msg_iter))
+-		len = iov_iter_count(&msg->msg_iter);
+ 	do {
+ 		if (!skb) {
+ 			size_t size, chunk, max, space;
+@@ -570,8 +568,8 @@ static int rxrpc_send_data(struct kiocb *iocb,
+ 			max &= ~(call->conn->size_align - 1UL);
  
--int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
-+int sock_sendmsg(struct socket *sock, struct msghdr *msg)
- {
--	int err = security_socket_sendmsg(sock, msg, size);
-+	int err = security_socket_sendmsg(sock, msg,
-+					  iov_iter_count(&msg->msg_iter));
+ 			chunk = max;
+-			if (chunk > len && !more)
+-				chunk = len;
++			if (chunk > iov_iter_count(&msg->msg_iter) && !more)
++				chunk = iov_iter_count(&msg->msg_iter);
  
--	return err ?: sock_sendmsg_nosec(sock, msg, size);
-+	return err ?: sock_sendmsg_nosec(sock, msg);
- }
- EXPORT_SYMBOL(sock_sendmsg);
+ 			space = chunk + call->conn->size_align;
+ 			space &= ~(call->conn->size_align - 1UL);
+@@ -614,11 +612,11 @@ static int rxrpc_send_data(struct kiocb *iocb,
+ 		sp = rxrpc_skb(skb);
  
-@@ -628,7 +630,7 @@ int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
- 		   struct kvec *vec, size_t num, size_t size)
- {
- 	iov_iter_kvec(&msg->msg_iter, WRITE | ITER_KVEC, vec, num, size);
--	return sock_sendmsg(sock, msg, size);
-+	return sock_sendmsg(sock, msg);
- }
- EXPORT_SYMBOL(kernel_sendmsg);
+ 		/* append next segment of data to the current buffer */
+-		if (len > 0) {
++		if (iov_iter_count(&msg->msg_iter) > 0) {
+ 			int copy = skb_tailroom(skb);
+ 			ASSERTCMP(copy, >, 0);
+-			if (copy > len)
+-				copy = len;
++			if (copy > iov_iter_count(&msg->msg_iter))
++				copy = iov_iter_count(&msg->msg_iter);
+ 			if (copy > sp->remain)
+ 				copy = sp->remain;
  
-@@ -819,7 +821,7 @@ static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from)
- 	if (sock->type == SOCK_SEQPACKET)
- 		msg.msg_flags |= MSG_EOR;
+@@ -630,8 +628,6 @@ static int rxrpc_send_data(struct kiocb *iocb,
+ 			sp->remain -= copy;
+ 			skb->mark += copy;
+ 			copied += copy;
+-
+-			len -= copy;
+ 		}
  
--	res = sock_sendmsg(sock, &msg, iov_iter_count(from));
-+	res = sock_sendmsg(sock, &msg);
- 	*from = msg.msg_iter;
- 	return res;
- }
-@@ -1657,7 +1659,7 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
- 	if (sock->file->f_flags & O_NONBLOCK)
- 		flags |= MSG_DONTWAIT;
- 	msg.msg_flags = flags;
--	err = sock_sendmsg(sock, &msg, iov_iter_count(&msg.msg_iter));
-+	err = sock_sendmsg(sock, &msg);
+ 		/* check for the far side aborting the call or a network error
+@@ -640,7 +636,8 @@ static int rxrpc_send_data(struct kiocb *iocb,
+ 			goto call_aborted;
  
- out_put:
- 	fput_light(sock->file, fput_needed);
-@@ -1892,7 +1894,7 @@ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
- 	    __attribute__ ((aligned(sizeof(__kernel_size_t))));
- 	/* 20 is size of ipv6_pktinfo */
- 	unsigned char *ctl_buf = ctl;
--	int ctl_len, total_len;
-+	int ctl_len;
- 	ssize_t err;
+ 		/* add the packet to the send queue if it's now full */
+-		if (sp->remain <= 0 || (!len && !more)) {
++		if (sp->remain <= 0 ||
++		    (iov_iter_count(&msg->msg_iter) == 0 && !more)) {
+ 			struct rxrpc_connection *conn = call->conn;
+ 			uint32_t seq;
+ 			size_t pad;
+@@ -670,7 +667,7 @@ static int rxrpc_send_data(struct kiocb *iocb,
+ 			sp->hdr.serviceId = conn->service_id;
  
- 	msg_sys->msg_name = &address;
-@@ -1903,7 +1905,6 @@ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
- 		err = copy_msghdr_from_user(msg_sys, msg, NULL, &iov);
- 	if (err < 0)
- 		return err;
--	total_len = iov_iter_count(&msg_sys->msg_iter);
+ 			sp->hdr.flags = conn->out_clientflag;
+-			if (len == 0 && !more)
++			if (iov_iter_count(&msg->msg_iter) == 0 && !more)
+ 				sp->hdr.flags |= RXRPC_LAST_PACKET;
+ 			else if (CIRC_SPACE(call->acks_head, call->acks_tail,
+ 					    call->acks_winsz) > 1)
+@@ -686,10 +683,11 @@ static int rxrpc_send_data(struct kiocb *iocb,
  
- 	err = -ENOBUFS;
+ 			memcpy(skb->head, &sp->hdr,
+ 			       sizeof(struct rxrpc_header));
+-			rxrpc_queue_packet(call, skb, !iov_iter_count(&msg->msg_iter) && !more);
++			rxrpc_queue_packet(call, skb,
++					   iov_iter_count(&msg->msg_iter) == 0 && !more);
+ 			skb = NULL;
+ 		}
+-	} while (len > 0);
++	} while (iov_iter_count(&msg->msg_iter) > 0);
  
-@@ -1950,10 +1951,10 @@ static int ___sys_sendmsg(struct socket *sock, struct user_msghdr __user *msg,
- 	    used_address->name_len == msg_sys->msg_namelen &&
- 	    !memcmp(&used_address->name, msg_sys->msg_name,
- 		    used_address->name_len)) {
--		err = sock_sendmsg_nosec(sock, msg_sys, total_len);
-+		err = sock_sendmsg_nosec(sock, msg_sys);
- 		goto out_freectl;
- 	}
--	err = sock_sendmsg(sock, msg_sys, total_len);
-+	err = sock_sendmsg(sock, msg_sys);
- 	/*
- 	 * If this is sendmmsg() and sending to current destination address was
- 	 * successful, remember it.
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index cc331b6..0c81202 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -257,7 +257,7 @@ static int svc_sendto(struct svc_rqst *rqstp, struct xdr_buf *xdr)
- 
- 		svc_set_cmsg_data(rqstp, cmh);
- 
--		if (sock_sendmsg(sock, &msg, 0) < 0)
-+		if (sock_sendmsg(sock, &msg) < 0)
- 			goto out;
- 	}
- 
+ success:
+ 	ret = copied;
 -- 
 2.1.4
