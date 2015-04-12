@@ -1,33 +1,41 @@
-From: "WEB" <silab@bvconline.com.ar>
-Subject: =?utf-8?b?VsOhxb5lbsO9IHBvdcW+w612YXRlbA==?=
-Date: Sun, 12 Apr 2015 14:28:53 +0100
-Message-ID: <EMAILSRVaz7EjQxzmWe00002686@mail.pueridomus.sebsa.com.br>
-Reply-To: weblinkss@qq.com
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: fix bogus RTT for CC when retransmissions
+ are acked
+Date: Sun, 12 Apr 2015 10:13:33 -0400
+Message-ID: <CADVnQyk7ZmB6OnCjpZqPy+7_OtUBLT0z_DszowEpu_UpMYpooA@mail.gmail.com>
+References: <1428711469-5328-1-git-send-email-kennetkl@ifi.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pueridomus.sebsa.com.br ([201.16.209.197]:30491 "EHLO
-	mail.pueridomus.sebsa.com.br" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750995AbbDLNll convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Apr 2015 09:41:41 -0400
-Content-Description: Mail message body
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:32865 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751074AbbDLONe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 10:13:34 -0400
+Received: by qkx62 with SMTP id 62so128296385qkx.0
+        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 07:13:34 -0700 (PDT)
+In-Reply-To: <1428711469-5328-1-git-send-email-kennetkl@ifi.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V=C3=A1=C5=BEen=C3=BD pou=C5=BE=C3=ADvatel
-V s=C3=BAcasnej dobe be=C5=BE=C3=AD na=C5=A1a upgradu serverov / overen=
-ia ,
-zv=C3=BD=C5=A1it efektivitu a mazat =C3=BActy , ktor=C3=A9 s=C3=BA u=C5=
-=BE nie je akt=C3=ADvny . Pros=C3=ADm , zadajte svoje =C3=BAdaje ni=C5=BE=
-=C5=A1ie overit a aktualizovat svoj ??=C3=BAcet :
+On Fri, Apr 10, 2015 at 8:17 PM, Kenneth Klette Jonassen
+<kennetkl@ifi.uio.no> wrote:
+> Since retransmitted segments are not used for RTT estimation, previously
+> SACKed segments present in the rtx queue are used. This estimation can be
+> several times larger than the actual RTT. When a cumulative ack covers both
+> previously SACKed and retransmitted segments, CC may thus get a bogus RTT.
+>
+> Such segments previously had an RTT estimation in tcp_sacktag_one(), so it
+> seems reasonable to not reuse them in tcp_clean_rtx_queue() at all.
+>
+> Afaik, this has had no effect on SRTT/RTO because of Karn's check.
+>
+> Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 
-( 1 ) E - mail :
-( 2 ) N=C3=A1zov :
-( 3 ) Heslo :
-( 4 ) Alternat=C3=ADvne email :
+Acked-by: Neal Cardwell <ncardwell@google.com>
+Tested-by: Neal Cardwell <ncardwell@google.com>
 
-dakujem
-Spr=C3=A1vcu syst=C3=A9mu=20
+neal
