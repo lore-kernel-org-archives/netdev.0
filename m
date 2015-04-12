@@ -1,142 +1,66 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v2 1/4] bgmac: simplify tx ring index handling
-Date: Sun, 12 Apr 2015 16:22:42 +0200
-Message-ID: <1428848565-94187-1-git-send-email-nbd@openwrt.org>
-Cc: zajec5@gmail.com, hauke@hauke-m.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:47433
-	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751310AbbDLOWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 10:22:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cheolhyun Park <pch851130-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] rtlwifi: misspelled code and comments corrected.
+Date: Sun, 12 Apr 2015 14:50:06 +0000
+Message-ID: <1428850206-1303-1-git-send-email-pch851130@gmail.com>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org,
+	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, pch851130-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Julia.Lawall-L2FTfq7BK8M@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Keep incrementing ring->start and ring->end instead of pointing it to
-the actual ring slot entry. This simplifies the calculation of the
-number of free slots.
-
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+Signed-off-by: Cheolhyun Park <pch851130-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 44 ++++++++++++++---------------------
- drivers/net/ethernet/broadcom/bgmac.h |  6 ++---
- 2 files changed, 20 insertions(+), 30 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 2 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/dm.c       | 2 +-
+ drivers/net/wireless/rtlwifi/rtl8821ae/dm.c       | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index fa8f9e1..73374b4 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -142,11 +142,10 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
- {
- 	struct device *dma_dev = bgmac->core->dma_dev;
- 	struct net_device *net_dev = bgmac->net_dev;
--	struct bgmac_slot_info *slot = &ring->slots[ring->end];
--	int free_slots;
-+	int index = ring->end % BGMAC_TX_RING_SLOTS;
-+	struct bgmac_slot_info *slot = &ring->slots[index];
- 	int nr_frags;
- 	u32 flags;
--	int index = ring->end;
- 	int i;
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
+index f5ee67c..1273997 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
+@@ -312,7 +312,7 @@ static void rtl92c_dm_ctrl_initgain_by_rssi(struct ieee80211_hw *hw)
+ 	struct dig_t *digtable = &rtlpriv->dm_digtable;
+ 	u32 isbt;
  
- 	if (skb->len > BGMAC_DESC_CTL1_LEN) {
-@@ -158,13 +157,7 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
- 		skb_checksum_help(skb);
+-	/* modify DIG lower bound, deal with abnorally large false alarm */
++	/* modify DIG lower bound, deal with abnormally arge false alarm */
+ 	if (rtlpriv->falsealm_cnt.cnt_all > 10000) {
+ 		digtable->large_fa_hit++;
+ 		if (digtable->forbidden_igi < digtable->cur_igvalue) {
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/dm.c b/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
+index a1be5a6..f209cda 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
+@@ -420,7 +420,7 @@ static void rtl92d_dm_dig(struct ieee80211_hw *hw)
+ 		 "dm_DIG() Before: Recover_cnt=%d, rx_gain_min=%x\n",
+ 		 de_digtable->recover_cnt, de_digtable->rx_gain_min);
  
- 	nr_frags = skb_shinfo(skb)->nr_frags;
--
--	if (ring->start <= ring->end)
--		free_slots = ring->start - ring->end + BGMAC_TX_RING_SLOTS;
--	else
--		free_slots = ring->start - ring->end;
--
--	if (free_slots <= nr_frags + 1) {
-+	if (ring->end - ring->start + nr_frags + 1 >= BGMAC_TX_RING_SLOTS) {
- 		bgmac_err(bgmac, "TX ring is full, queue should be stopped!\n");
- 		netif_stop_queue(net_dev);
- 		return NETDEV_TX_BUSY;
-@@ -200,7 +193,7 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
- 	}
+-	/* deal with abnorally large false alarm */
++	/* deal with abnormally large false alarm */
+ 	if (falsealm_cnt->cnt_all > 10000) {
+ 		RT_TRACE(rtlpriv, COMP_DIG, DBG_LOUD,
+ 			 "dm_DIG(): Abnormally false alarm case\n");
+diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
+index 0b2082d..342678d 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
++++ b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
+@@ -873,7 +873,7 @@ static void rtl8821ae_dm_dig(struct ieee80211_hw *hw)
  
- 	slot->skb = skb;
--
-+	ring->end += nr_frags + 1;
- 	netdev_sent_queue(net_dev, skb->len);
+ 	if (rtlpriv->falsealm_cnt.cnt_all > 10000) {
+ 		RT_TRACE(rtlpriv, COMP_DIG, DBG_LOUD,
+-			 "Abnornally false alarm case.\n");
++			 "Abnormally false alarm case.\n");
  
- 	wmb();
-@@ -208,13 +201,12 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
- 	/* Increase ring->end to point empty slot. We tell hardware the first
- 	 * slot it should *not* read.
- 	 */
--	ring->end = (index + 1) % BGMAC_TX_RING_SLOTS;
- 	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_TX_INDEX,
- 		    ring->index_base +
--		    ring->end * sizeof(struct bgmac_dma_desc));
-+		    (ring->end % BGMAC_TX_RING_SLOTS) *
-+		    sizeof(struct bgmac_dma_desc));
- 
--	free_slots -= nr_frags + 1;
--	if (free_slots < 8)
-+	if (ring->end - ring->start >= BGMAC_TX_RING_SLOTS - 8)
- 		netif_stop_queue(net_dev);
- 
- 	return NETDEV_TX_OK;
-@@ -256,17 +248,17 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
- 	empty_slot &= BGMAC_DMA_TX_STATDPTR;
- 	empty_slot /= sizeof(struct bgmac_dma_desc);
- 
--	while (ring->start != empty_slot) {
--		struct bgmac_slot_info *slot = &ring->slots[ring->start];
--		u32 ctl1 = le32_to_cpu(ring->cpu_base[ring->start].ctl1);
--		int len = ctl1 & BGMAC_DESC_CTL1_LEN;
-+	while (ring->start != ring->end) {
-+		int slot_idx = ring->start % BGMAC_TX_RING_SLOTS;
-+		struct bgmac_slot_info *slot = &ring->slots[slot_idx];
-+		u32 ctl1;
-+		int len;
- 
--		if (!slot->dma_addr) {
--			bgmac_err(bgmac, "Hardware reported transmission for empty TX ring slot %d! End of ring: %d\n",
--				  ring->start, ring->end);
--			goto next;
--		}
-+		if (slot_idx == empty_slot)
-+			break;
- 
-+		ctl1 = le32_to_cpu(ring->cpu_base[slot_idx].ctl1);
-+		len = ctl1 & BGMAC_DESC_CTL1_LEN;
- 		if (ctl1 & BGMAC_DESC_CTL0_SOF)
- 			/* Unmap no longer used buffer */
- 			dma_unmap_single(dma_dev, slot->dma_addr, len,
-@@ -284,10 +276,8 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
- 			slot->skb = NULL;
- 		}
- 
--next:
- 		slot->dma_addr = 0;
--		if (++ring->start >= BGMAC_TX_RING_SLOTS)
--			ring->start = 0;
-+		ring->start++;
- 		freed = true;
- 	}
- 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index 3ad965f..5a198d5 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -414,10 +414,10 @@ enum bgmac_dma_ring_type {
-  * empty.
-  */
- struct bgmac_dma_ring {
--	u16 num_slots;
--	u16 start;
--	u16 end;
-+	u32 start;
-+	u32 end;
- 
-+	u16 num_slots;
- 	u16 mmio_base;
- 	struct bgmac_dma_desc *cpu_base;
- 	dma_addr_t dma_base;
+ 		if (dm_digtable->large_fa_hit != 3)
+ 			dm_digtable->large_fa_hit++;
 -- 
-2.2.2
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
