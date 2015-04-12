@@ -1,107 +1,87 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH 2/4] bgmac: leave interrupts disabled as long as there is work to do
-Date: Sun, 12 Apr 2015 12:08:10 +0200
-Message-ID: <1428833292-15356-2-git-send-email-nbd@openwrt.org>
+Subject: [PATCH 3/4] bgmac: set received skb headroom to NET_SKB_PAD
+Date: Sun, 12 Apr 2015 12:08:11 +0200
+Message-ID: <1428833292-15356-3-git-send-email-nbd@openwrt.org>
 References: <1428833292-15356-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:46729
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:46728
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751098AbbDLKIR (ORCPT
+	with ESMTP id S1751237AbbDLKIR (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 06:08:17 -0400
 In-Reply-To: <1428833292-15356-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Always poll rx and tx during NAPI poll instead of relying on the status
-of the first interrupt. This prevents bgmac_poll from leaving unfinished
-work around until the next IRQ.
-In my tests this makes bridging/routing throughput under heavy load more
-stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
-the entire budget.
+A packet buffer offset of 30 bytes is inefficient, because the first 2
+bytes end up in a different cacheline.
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 31 ++++++++++---------------------
- drivers/net/ethernet/broadcom/bgmac.h |  1 -
- 2 files changed, 10 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c | 14 ++++++++------
+ drivers/net/ethernet/broadcom/bgmac.h |  4 +++-
+ 2 files changed, 11 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 73374b4..66876c5 100644
+index 66876c5..e332de8 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1105,8 +1105,6 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	bgmac_phy_init(bgmac);
+@@ -342,13 +342,13 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
+ 		return -ENOMEM;
  
- 	netdev_reset_queue(bgmac->net_dev);
--
--	bgmac->int_status = 0;
- }
+ 	/* Poison - if everything goes fine, hardware will overwrite it */
+-	rx = buf;
++	rx = buf + BGMAC_RX_BUF_OFFSET;
+ 	rx->len = cpu_to_le16(0xdead);
+ 	rx->flags = cpu_to_le16(0xbeef);
  
- static void bgmac_chip_intrs_on(struct bgmac *bgmac)
-@@ -1221,14 +1219,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
- 	if (!int_status)
- 		return IRQ_NONE;
+ 	/* Map skb for the DMA */
+-	dma_addr = dma_map_single(dma_dev, buf, BGMAC_RX_BUF_SIZE,
+-				  DMA_FROM_DEVICE);
++	dma_addr = dma_map_single(dma_dev, buf + BGMAC_RX_BUF_OFFSET,
++				  BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+ 	if (dma_mapping_error(dma_dev, dma_addr)) {
+ 		bgmac_err(bgmac, "DMA mapping error\n");
+ 		put_page(virt_to_head_page(buf));
+@@ -399,7 +399,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 	while (ring->start != ring->end) {
+ 		struct device *dma_dev = bgmac->core->dma_dev;
+ 		struct bgmac_slot_info *slot = &ring->slots[ring->start];
+-		struct bgmac_rx_header *rx = slot->buf;
++		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
+ 		struct sk_buff *skb;
+ 		void *buf = slot->buf;
+ 		u16 len, flags;
+@@ -450,8 +450,10 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
  
--	/* Ack */
--	bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
-+	int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
-+	if (int_status)
-+		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
+ 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
+-			skb_put(skb, BGMAC_RX_FRAME_OFFSET + len);
+-			skb_pull(skb, BGMAC_RX_FRAME_OFFSET);
++			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
++				BGMAC_RX_BUF_OFFSET + len);
++			skb_pull(skb, BGMAC_RX_FRAME_OFFSET +
++				 BGMAC_RX_BUF_OFFSET);
  
- 	/* Disable new interrupts until handling existing ones */
- 	bgmac_chip_intrs_off(bgmac);
- 
--	bgmac->int_status = int_status;
--
- 	napi_schedule(&bgmac->napi);
- 
- 	return IRQ_HANDLED;
-@@ -1237,25 +1234,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
- static int bgmac_poll(struct napi_struct *napi, int weight)
- {
- 	struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
--	struct bgmac_dma_ring *ring;
- 	int handled = 0;
- 
--	if (bgmac->int_status & BGMAC_IS_TX0) {
--		ring = &bgmac->tx_ring[0];
--		bgmac_dma_tx_free(bgmac, ring);
--		bgmac->int_status &= ~BGMAC_IS_TX0;
--	}
-+	/* Ack */
-+	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
- 
--	if (bgmac->int_status & BGMAC_IS_RX) {
--		ring = &bgmac->rx_ring[0];
--		handled += bgmac_dma_rx_read(bgmac, ring, weight);
--		bgmac->int_status &= ~BGMAC_IS_RX;
--	}
-+	bgmac_dma_tx_free(bgmac, &bgmac->tx_ring[0]);
-+	handled += bgmac_dma_rx_read(bgmac, &bgmac->rx_ring[0], weight);
- 
--	if (bgmac->int_status) {
--		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", bgmac->int_status);
--		bgmac->int_status = 0;
--	}
-+	/* poll again if more events arrived in the mean time */
-+	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
-+		return handled;
- 
- 	if (handled < weight) {
- 		napi_complete(napi);
+ 			skb_checksum_none_assert(skb);
+ 			skb->protocol = eth_type_trans(skb, bgmac->net_dev);
 diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index 5a198d5..abd50d1 100644
+index abd50d1..3db0d52 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.h
 +++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -452,7 +452,6 @@ struct bgmac {
+@@ -360,9 +360,11 @@
  
- 	/* Int */
- 	u32 int_mask;
--	u32 int_status;
+ #define BGMAC_RX_HEADER_LEN			28		/* Last 24 bytes are unused. Well... */
+ #define BGMAC_RX_FRAME_OFFSET			30		/* There are 2 unused bytes between header and real data */
++#define BGMAC_RX_BUF_OFFSET			(NET_SKB_PAD + NET_IP_ALIGN - \
++						 BGMAC_RX_FRAME_OFFSET)
+ #define BGMAC_RX_MAX_FRAME_SIZE			1536		/* Copied from b44/tg3 */
+ #define BGMAC_RX_BUF_SIZE			(BGMAC_RX_FRAME_OFFSET + BGMAC_RX_MAX_FRAME_SIZE)
+-#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE) + \
++#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE + BGMAC_RX_BUF_OFFSET) + \
+ 						 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
  
- 	/* Current MAC state */
- 	int mac_speed;
+ #define BGMAC_BFL_ENETROBO			0x0010		/* has ephy roboswitch spi */
 -- 
 2.2.2
