@@ -1,139 +1,89 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 04/11] net/mlx5_core: HW data structs/types
- definitions preparation for mlx5 ehternet driver
-Date: Sun, 12 Apr 2015 18:54:37 +0300
-Message-ID: <CAPcc5PjsucECHPOvB49rQ6joY7Wtgs3oX6DdPwQP=RPzvkKcBg@mail.gmail.com>
-References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
-	<1428504685-8945-5-git-send-email-amirv@mellanox.com>
-	<1428511587.22406.15.camel@perches.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: tcp: picking a less conservative SACK RTT for congestion control
+Date: Sun, 12 Apr 2015 08:59:45 -0700
+Message-ID: <CAK6E8=e0N40JZ8iHM55=s5Ddxjez8eJv2LoVRuiajKuCer7XJg@mail.gmail.com>
+References: <CA++eYdt8YT+xp88N7KFX3OMoHO3sVS6yfnuPDHLrWpM2w3NzRw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, dotanb@mellanox.com
-To: Joe Perches <joe@perches.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	=?UTF-8?Q?Ilpo_J=C3=A4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:34492 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751639AbbDLPyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 11:54:39 -0400
-Received: by lbcga7 with SMTP id ga7so42992434lbc.1
-        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 08:54:37 -0700 (PDT)
-In-Reply-To: <1428511587.22406.15.camel@perches.com>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:35230 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751573AbbDLQA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 12:00:27 -0400
+Received: by iejt8 with SMTP id t8so48783158iej.2
+        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 09:00:26 -0700 (PDT)
+In-Reply-To: <CA++eYdt8YT+xp88N7KFX3OMoHO3sVS6yfnuPDHLrWpM2w3NzRw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 8, 2015 at 7:46 PM, Joe Perches <joe@perches.com> wrote:
-> On Wed, 2015-04-08 at 17:51 +0300, Amir Vadai wrote:
-Hi,
+On Sat, Apr 11, 2015 at 12:50 PM, Kenneth Klette Jonassen
+<kennetkl@ifi.uio.no> wrote:
+> tcp_sacktag_one() currently picks the earliest sequence sacked for RTT. This
+> makes sense when data is sacked due to reordering as described in commit
+> 832d11c5 ("Try to restore large SKBs while SACK processing"). But it might
+> not make sense for CC in cases where:
+>
+>  1. ACKs are lost, i.e. a SACK subsequent to a lost SACK covers both a new
+>     and an old segment at the receiver. A concrete example follows below.
+>  2. The receiver disregards the rfc5681 recommendation to immediately ack
+>     out-of-order segments, perhaps due to a hardware offload mechanism.
+>
+> We have an implementation of the experimental congestion controller CDG [1]
+> which can perform slightly better in environments with random loss. Unlike
+> e.g. Vegas which resets all internal state when loss is detected, CDG is
+> quite sensitive to recent RTT changes even during loss recovery.
+>
+> What would be the feasible approach to track the last segment sacked? I was
+> thinking of keeping first/last skb_mstamp's in struct tcp_sacktag_state akin
+> to the way it is done in tcp_clean_rtx_queue(). This would require passing
+or use last sacked skb mstamp instead of first for sack_rtt? IMO it
+won't matter that much for RTTM.
 
-This file is based on the PRM: Programmer Reference Manual (aka
-firmware spec), which describes the interface between the device and
-the driver.
+or a new ca_sack_rtt in tcp_sacktag_state and pass the state to
+tcp_clean_rtx_queue as well. the latter is more generic and extendable?
 
-> []
->> - Update mlx5_ifc.h to include latest HW structs aligned to PRM rev 0.25
->
-> trivia
-Yes, But since PRM keeps evolving we want to keep track the PRM
-version that this file was based on.
+> eight more bytes around on 64 bit. An alternative that is slightly obscure
+> is to store the delta between the first and last sack in a 4 byte value.
+> Since struct tcp_sacktag_state currently has 4 bytes padding, this does not
+> require passing more data around -- just changing "long sack_rtt_us" to
+> a pointer. It can have some microscale cache locality impacts though. I
+seems too complicated
 
+> envision that both approaches saves the call to skb_mstamp_get() in
+> tcp_sacktag_one().
 >
->> diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-> []
->> +   Autogenerated file.
->> +   Date: 2015-03-09 14:03
->> +   Source Document Name: Mellanox <Doc Name>
->> +   Source Document Version: 0.24
->> +   Generated by adb_to_c.py (EAT.ME Version: 1.0.70)
->> +*/
+> 1. http://caia.swin.edu.au/cv/dahayes/content/networking2011-cdg-preprint.pdf
 >
-> That's a nice little detail to add.
-Will remove it in V1
-
+> PS: The pkts_acked CC hook is not currently called unless new data is acked
+> sequentially. I have a simple patch that calls it for new SACK RTTs, but I
+> am holding it off until my recent patch is reviewed (fix bogus RTT for CC).
 >
->>  #ifndef MLX5_IFC_H
->>  #define MLX5_IFC_H
->>
->>  enum {
->> +     MLX5_EVENT_TYPE_CODING_COMPLETION_EVENTS                   = 0x0,
->> +     MLX5_EVENT_TYPE_CODING_PATH_MIGRATED_SUCCEEDED             = 0x1,
->> +     MLX5_EVENT_TYPE_CODING_COMMUNICATION_ESTABLISHED           = 0x2,
->> +     MLX5_EVENT_TYPE_CODING_SEND_QUEUE_DRAINED                  = 0x3,
->> +     MLX5_EVENT_TYPE_CODING_LAST_WQE_REACHED                    = 0x13,
->> +     MLX5_EVENT_TYPE_CODING_SRQ_LIMIT                           = 0x14,
->> +     MLX5_EVENT_TYPE_CODING_DCT_ALL_CONNECTIONS_CLOSED          = 0x1c,
->> +     MLX5_EVENT_TYPE_CODING_DCT_ACCESS_KEY_VIOLATION            = 0x1d,
->> +     MLX5_EVENT_TYPE_CODING_CQ_ERROR                            = 0x4,
->> +     MLX5_EVENT_TYPE_CODING_LOCAL_WQ_CATASTROPHIC_ERROR         = 0x5,
->> +     MLX5_EVENT_TYPE_CODING_PATH_MIGRATION_FAILED               = 0x7,
->> +     MLX5_EVENT_TYPE_CODING_PAGE_FAULT_EVENT                    = 0xc,
->> +     MLX5_EVENT_TYPE_CODING_INVALID_REQUEST_LOCAL_WQ_ERROR      = 0x10,
->> +     MLX5_EVENT_TYPE_CODING_LOCAL_ACCESS_VIOLATION_WQ_ERROR     = 0x11,
->> +     MLX5_EVENT_TYPE_CODING_LOCAL_SRQ_CATASTROPHIC_ERROR        = 0x12,
->> +     MLX5_EVENT_TYPE_CODING_INTERNAL_ERROR                      = 0x8,
->> +     MLX5_EVENT_TYPE_CODING_PORT_STATE_CHANGE                   = 0x9,
->> +     MLX5_EVENT_TYPE_CODING_GPIO_EVENT                          = 0x15,
->> +     MLX5_EVENT_TYPE_CODING_REMOTE_CONFIGURATION_PROTOCOL_EVENT = 0x19,
->> +     MLX5_EVENT_TYPE_CODING_DOORBELL_BLUEFLAME_CONGESTION_EVENT = 0x1a,
->> +     MLX5_EVENT_TYPE_CODING_STALL_VL_EVENT                      = 0x1b,
->> +     MLX5_EVENT_TYPE_CODING_DROPPED_PACKET_LOGGED_EVENT         = 0x1f,
->> +     MLX5_EVENT_TYPE_CODING_COMMAND_INTERFACE_COMPLETION        = 0xa,
->> +     MLX5_EVENT_TYPE_CODING_PAGE_REQUEST                        = 0xb
->> +};
+> ---
 >
-> Curious ordering and numbering.
-> There's no 0xd or 0xe, 0x16, 0x17, 0x18, 0x1e
-> Are those reserved?
+> Concrete example. Path has 1% uniform loss, no reordering. Prints show delta
+> timestamped packets separately captured at sender and receiver.
 >
-Yes. Unused values are reserved. And the ordering is the same like we
-have in the PRM
-
-
->> +struct mlx5_ifc_flow_table_fields_supported_bits {
->> +     u8         outer_dmac[0x1];
+> Receiver sends two acks:
+> 00:00:00.005018 IP 10.0.1.2.5001 > 10.0.0.2.48089: Flags [.], ack
+> 3824632751, win 32746, options [nop,nop,TS val 1820536519 ecr
+> 2169294,nop,nop,sack 1 {3824634199:3824651575}], length 0
+> 00:00:00.004871 IP 10.0.1.2.5001 > 10.0.0.2.48089: Flags [.], ack
+> 3824632751, win 32746, options [nop,nop,TS val 1820536524 ecr
+> 2169294,nop,nop,sack 1 {3824634199:3824653023}], length 0
 >
-> This structure has one use, but so far that seems
-> unused.  Will this be used later?
-Yes. Those structures are being used through the macros MLX5_[GS]ET*
-
+> One reaches the sender:
+> 00:00:00.009842 IP 10.0.1.2.5001 > 10.0.0.2.48089: Flags [.], ack
+> 3824632751, win 32746, options [nop,nop,TS val 1820536524 ecr
+> 2169294,nop,nop,sack 1 {3824634199:3824653023}], length 0
 >
-> Decimal is generally easier to read than hex.
-We decided to use hex values, since the PRM is written with hex values.
-
-> The code is generally easier too if instead of an
-> array definition of size 1 it's a simple type.
-This entry actually describes one bit.
-
->
-> If these are autogenerated, and length/position are important,
-> it could be nice to do something like:
->
-> struct <foo> {
->         type    array1[decimal_size];   /* Hex offset */
->         ...
-> }
->
-> []
->
->> +struct mlx5_ifc_phys_layer_cntrs_bits {
->> +     u8         time_since_last_clear_high[0x20];
->> +
->
-> Why all the blank lines?
-Our tables are accessed as dwords. We add blank line between every
-dword in the PRM.
-
->
-> If this is autogenerated from a document with comments,
-> maybe the autogenerator could elide the blank lines too
-> when in a structure.
-The autogenerator completely ignores comments.
-
-Thanks,
-Amir
+> Trace output at sender:
+> 8968.105153: tcp_sacktag_one: first sacked range 3824648679 -
+> 3824651575 rtt 75129
+> 8968.105157: tcp_sacktag_one: later sacked range 3824651575 -
+> 3824653023 rtt 70224 (rtt not used)
