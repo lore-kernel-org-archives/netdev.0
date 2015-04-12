@@ -1,86 +1,69 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v3 4/9] bgmac: simplify rx DMA error handling
-Date: Sun, 12 Apr 2015 23:38:26 +0200
-Message-ID: <1428874711-23950-4-git-send-email-nbd@openwrt.org>
-References: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
-Cc: zajec5@gmail.com, hauke@hauke-m.de, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH v2 4/4] bgmac: fix DMA rx corruption
+Date: Sun, 12 Apr 2015 23:38:40 +0200
+Message-ID: <552AE5E0.6040702@openwrt.org>
+References: <1428848565-94187-1-git-send-email-nbd@openwrt.org>	 <1428848565-94187-4-git-send-email-nbd@openwrt.org>	 <1428862182.25985.354.camel@edumazet-glaptop2.roam.corp.google.com>	 <552ABD6E.10000@openwrt.org> <1428865466.25985.366.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, zajec5@gmail.com, hauke@hauke-m.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:48620
-	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752628AbbDLVih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 17:38:37 -0400
-In-Reply-To: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
+Received: from arrakis.dune.hu ([78.24.191.176]:41662 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753045AbbDLVis (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Apr 2015 17:38:48 -0400
+In-Reply-To: <1428865466.25985.366.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unmap the DMA buffer before checking it. If it is poisoned, map it again
-and pass it back to the hardware.
+On 2015-04-12 21:04, Eric Dumazet wrote:
+> On Sun, 2015-04-12 at 20:46 +0200, Felix Fietkau wrote:
+>> On 2015-04-12 20:09, Eric Dumazet wrote:
+> 
+>> > 
+>> > Given the fact that previous driver kind of worked, have you tried not
+>> > doing the modulo at all here ?
+>> The previous driver was causing reproducible DMA corruption issues under
+>> load. My patch fixes this, and I've verified this with hours of stress
+>> testing (previously I could reproduce the issue in minutes).
+>> 
+>> > ring->end = desc_idx + 1;
+>> > 
+>> > It looks like the hardware accepted setting BGMAC_DMA_RX_INDEX to
+>> > ring->index_base + ring->num_slots * sizeof(struct bgmac_dma_desc)
+>> The hardware accepts it, but with that value, it considers all rx slot
+>> entries filled, there's no CPU ownership bit in the descriptor.
+>> According to documentation, that register indicates the first *invalid*
+>> rx descriptor (i.e. one where the CPU hasn't posted a valid buffer yet).
+>> 
+>> > So apparently the presence of BGMAC_DESC_CTL0_EOT in last rx desc was
+>> > enough to avoid any problem with this.
+>> EOT serves a completely different purpose. It simply indicates the end
+>> of the ring, telling the hardware to go back to the beginning for the
+>> next descriptor.
+> 
+> Right, but after your patch, we program the hardware with end == start
+> == 0
+> 
+> So I do not really understand how the hardware can still deliver first
+> frame.
+> 
+> If it was really taking care of 'end' value, then it should not even
+> deliver one frame.
+> 
+> The dma corruption happened because hardware was simply reusing frames,
+> that driver already took to upper stack, since as you said, there is no
+> ownership bit.
+> 
+> You might try your patch with BGMAC_RX_RING_SLOTS = 3 and check if it is
+> still working properly.
+> 
+> I find BGMAC_RX_RING_SLOTS==511 very suspect, and a comment of why this
+> magic value is not 512 would be nice.
+I completely reworked the code and simplified handling
+BGMAC_DMA_RX_INDEX by setting it to the last filled rx slot (keeping the
+entire ring filled). I now get better performance and it stays reliable
+even with smaller rings. Sending v3 now.
 
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
----
- drivers/net/ethernet/broadcom/bgmac.c | 21 ++++-----------------
- 1 file changed, 4 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index e332de8..e004588 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -405,25 +405,20 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 		u16 len, flags;
- 
- 		/* Unmap buffer to make it accessible to the CPU */
--		dma_sync_single_for_cpu(dma_dev, slot->dma_addr,
--					BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
-+		dma_unmap_single(dma_dev, slot->dma_addr,
-+				 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
- 
- 		/* Get info from the header */
- 		len = le16_to_cpu(rx->len);
- 		flags = le16_to_cpu(rx->flags);
- 
- 		do {
--			dma_addr_t old_dma_addr = slot->dma_addr;
- 			int err;
- 
- 			/* Check for poison and drop or pass the packet */
- 			if (len == 0xdead && flags == 0xbeef) {
- 				bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
- 					  ring->start);
--				dma_sync_single_for_device(dma_dev,
--							   slot->dma_addr,
--							   BGMAC_RX_BUF_SIZE,
--							   DMA_FROM_DEVICE);
- 				break;
- 			}
- 
-@@ -436,18 +431,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 				/* Poison the old skb */
- 				rx->len = cpu_to_le16(0xdead);
- 				rx->flags = cpu_to_le16(0xbeef);
--
--				dma_sync_single_for_device(dma_dev,
--							   slot->dma_addr,
--							   BGMAC_RX_BUF_SIZE,
--							   DMA_FROM_DEVICE);
- 				break;
- 			}
--			bgmac_dma_rx_setup_desc(bgmac, ring, ring->start);
--
--			/* Unmap old skb, we'll pass it to the netfif */
--			dma_unmap_single(dma_dev, old_dma_addr,
--					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
- 
- 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
- 			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
-@@ -461,6 +446,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 			handled++;
- 		} while (0);
- 
-+		bgmac_dma_rx_setup_desc(bgmac, ring, ring->start);
-+
- 		if (++ring->start >= BGMAC_RX_RING_SLOTS)
- 			ring->start = 0;
- 
--- 
-2.2.2
+- Felix
