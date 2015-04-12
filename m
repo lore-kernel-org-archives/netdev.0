@@ -1,61 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 4/4] bgmac: fix DMA rx corruption
-Date: Sun, 12 Apr 2015 14:11:44 +0300
-Message-ID: <552A52F0.4080803@cogentembedded.com>
-References: <1428833292-15356-1-git-send-email-nbd@openwrt.org> <1428833292-15356-4-git-send-email-nbd@openwrt.org>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 01/11] net/mlx5_core: Set irq affinity hints
+Date: Sun, 12 Apr 2015 14:15:06 +0300
+Message-ID: <CALzJLG-+zcGtvghqRcKXoCOMhDO7iwzm77CRP4ZnTxOpib6U9A@mail.gmail.com>
+References: <1428504685-8945-1-git-send-email-amirv@mellanox.com>
+	<1428504685-8945-2-git-send-email-amirv@mellanox.com>
+	<5527896E.4040604@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, hauke@hauke-m.de
-To: Felix Fietkau <nbd@openwrt.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>
+To: Ido Shamay <idos@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:34715 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751376AbbDLLLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 07:11:47 -0400
-Received: by laat2 with SMTP id t2so39532438laa.1
-        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 04:11:46 -0700 (PDT)
-In-Reply-To: <1428833292-15356-4-git-send-email-nbd@openwrt.org>
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:36140 "EHLO
+	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337AbbDLLPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 07:15:07 -0400
+Received: by qku63 with SMTP id 63so121676358qku.3
+        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 04:15:06 -0700 (PDT)
+In-Reply-To: <5527896E.4040604@dev.mellanox.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 4/12/2015 1:08 PM, Felix Fietkau wrote:
-
-> The driver needs to inform the hardware about the first invalid (not yet
-> filled) rx slot, by writing its DMA descriptor pointer offset to the
-> BGMAC_DMA_RX_INDEX register.
-
-> This register was set to a value exceeding the rx ring size, effectively
-> allowing the hardware constant access to the full ring, regardless of
-> which slots are initialized.
-
-> Fix this by updating the register in bgmac_dma_rx_setup_desc.
-
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> ---
->   drivers/net/ethernet/broadcom/bgmac.c | 14 +++++++-------
->   1 file changed, 7 insertions(+), 7 deletions(-)
-
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-> index e332de8..856ceee 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -380,6 +380,12 @@ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
->   	dma_desc->addr_high = cpu_to_le32(upper_32_bits(ring->slots[desc_idx].dma_addr));
->   	dma_desc->ctl0 = cpu_to_le32(ctl0);
->   	dma_desc->ctl1 = cpu_to_le32(ctl1);
-> +
-> +	desc_idx = (desc_idx + 1) % BGMAC_RX_RING_SLOTS;
-> +
-> +	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
-> +			ring->index_base +
-> +			desc_idx * sizeof(struct bgmac_dma_desc));
-
-    The continuation lines should start on the next column after ( on the 
-first line.
-
-[...]
-
-WBR, Sergei
+On Fri, Apr 10, 2015 at 11:27 AM, Ido Shamay <idos@dev.mellanox.co.il> wrote:
+> On 4/8/2015 5:51 PM, Amir Vadai wrote:
+>>
+>> From: Saeed Mahameed <saeedm@mellanox.com>
+>>
+>> +       int numa_node           =
+>> +#if IS_ENABLED(CONFIG_NUMA)
+>> +               mdev->pdev->dev.numa_node;
+>> +#else
+>> +               -1;
+>> +#endif
+>
+> Would be nicer to use dev_to_node helper here, which already checks for
+> CONFIG_NUMA
+>
+> include/linux/device.h:
+> #ifdef CONFIG_NUMA
+> static inline int dev_to_node(struct device *dev)
+> {
+>         return dev->numa_node;
+> }
+> static inline void set_dev_node(struct device *dev, int node)
+> {
+>         dev->numa_node = node;
+> }
+> #else
+> static inline int dev_to_node(struct device *dev)
+> {
+>         return -1;
+> }
+> static inline void set_dev_node(struct device *dev, int node)
+> {
+> }
+> #endif
+Right, will fix in V1
