@@ -1,58 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v3 7/9] bgmac: simplify dma init/cleanup
-Date: Mon, 13 Apr 2015 00:53:16 +0200
-Message-ID: <20150412225316.GA5195@electric-eye.fr.zoreil.com>
-References: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
- <1428874711-23950-7-git-send-email-nbd@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, zajec5@gmail.com, hauke@hauke-m.de,
-	eric.dumazet@gmail.com
-To: Felix Fietkau <nbd@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:38883 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752921AbbDLWxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 18:53:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1428874711-23950-7-git-send-email-nbd@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH 5/5 v4] netfilter: Fix format string of nfnetlink_log proc file
+Date: Mon, 13 Apr 2015 00:52:39 +0200
+Message-ID: <1428879159-19237-5-git-send-email-richard@nod.at>
+References: <1428879159-19237-1-git-send-email-richard@nod.at>
+Cc: linux-wireless@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sameo@linux.intel.com, aloisio.almeida@openbossa.org,
+	lauro.venancio@openbossa.org, davem@davemloft.net,
+	kadlec@blackhole.kfki.hu, kaber@trash.net, pablo@netfilter.org,
+	Richard Weinberger <richard@nod.at>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1428879159-19237-1-git-send-email-richard@nod.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Felix Fietkau <nbd@openwrt.org> :
-[...]
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-> index 3ac8d9a..417415c 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-[...]
-> @@ -1261,8 +1253,15 @@ static int bgmac_open(struct net_device *net_dev)
->  	int err = 0;
->  
->  	bgmac_chip_reset(bgmac);
-> +
-> +	err = bgmac_dma_init(bgmac);
-> +	if (err) {
-> +		bgmac_dma_cleanup(bgmac);
-> +		return err;
-> +	}
-> +
->  	/* Specs say about reclaiming rings here, but we do that in DMA init */
-> -	bgmac_chip_init(bgmac, true);
-> +	bgmac_chip_init(bgmac);
->  
->  	err = request_irq(bgmac->core->irq, bgmac_interrupt, IRQF_SHARED,
->  			  KBUILD_MODNAME, net_dev);
-> @@ -1293,6 +1292,7 @@ static int bgmac_stop(struct net_device *net_dev)
->  	free_irq(bgmac->core->irq, net_dev);
->  
->  	bgmac_chip_reset(bgmac);
-> +	bgmac_dma_cleanup(bgmac);
->  
->  	return 0;
->  }
+The printed values are all of type unsigned integer, therefore use
+%u instead of %d. Otherwise an user can face negative values.
 
-Looks like missing bgmac_dma_cleanup if request_irq fails.
+Signed-off-by: Richard Weinberger <richard@nod.at>
+---
+ net/netfilter/nfnetlink_log.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 5c79735..3ad9126 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -1007,7 +1007,7 @@ static int seq_show(struct seq_file *s, void *v)
+ {
+ 	const struct nfulnl_instance *inst = v;
+ 
+-	seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
++	seq_printf(s, "%5u %6u %5u %1u %5u %6u %2u\n",
+ 		   inst->group_num,
+ 		   inst->peer_portid, inst->qlen,
+ 		   inst->copy_mode, inst->copy_range,
 -- 
-Ueimor
+1.8.4.5
