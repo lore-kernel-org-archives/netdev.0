@@ -1,46 +1,87 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v3 5/9] bgmac: add check for oversized packets
-Date: Sun, 12 Apr 2015 23:38:27 +0200
-Message-ID: <1428874711-23950-5-git-send-email-nbd@openwrt.org>
+Subject: [PATCH v3 3/9] bgmac: set received skb headroom to NET_SKB_PAD
+Date: Sun, 12 Apr 2015 23:38:25 +0200
+Message-ID: <1428874711-23950-3-git-send-email-nbd@openwrt.org>
 References: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:48619
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:48610
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752553AbbDLVig (ORCPT
+	with ESMTP id S1752502AbbDLVig (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 17:38:36 -0400
 In-Reply-To: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In very rare cases, the MAC can catch an internal buffer that is bigger
-than it's supposed to be. Instead of crashing the kernel, simply pass
-the buffer back to the hardware
+A packet buffer offset of 30 bytes is inefficient, because the first 2
+bytes end up in a different cacheline.
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/broadcom/bgmac.c | 14 ++++++++------
+ drivers/net/ethernet/broadcom/bgmac.h |  4 +++-
+ 2 files changed, 11 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index e004588..3ac8d9a 100644
+index 66876c5..e332de8 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -422,6 +422,14 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 				break;
- 			}
+@@ -342,13 +342,13 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
+ 		return -ENOMEM;
  
-+			if (len > BGMAC_RX_ALLOC_SIZE) {
-+				bgmac_err(bgmac, "Found oversized packet at slot %d, DMA issue!\n",
-+					  ring->start);
-+				rx->len = cpu_to_le16(0xdead);
-+				rx->flags = cpu_to_le16(0xbeef);
-+				break;
-+			}
-+
- 			/* Omit CRC. */
- 			len -= ETH_FCS_LEN;
+ 	/* Poison - if everything goes fine, hardware will overwrite it */
+-	rx = buf;
++	rx = buf + BGMAC_RX_BUF_OFFSET;
+ 	rx->len = cpu_to_le16(0xdead);
+ 	rx->flags = cpu_to_le16(0xbeef);
  
+ 	/* Map skb for the DMA */
+-	dma_addr = dma_map_single(dma_dev, buf, BGMAC_RX_BUF_SIZE,
+-				  DMA_FROM_DEVICE);
++	dma_addr = dma_map_single(dma_dev, buf + BGMAC_RX_BUF_OFFSET,
++				  BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+ 	if (dma_mapping_error(dma_dev, dma_addr)) {
+ 		bgmac_err(bgmac, "DMA mapping error\n");
+ 		put_page(virt_to_head_page(buf));
+@@ -399,7 +399,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 	while (ring->start != ring->end) {
+ 		struct device *dma_dev = bgmac->core->dma_dev;
+ 		struct bgmac_slot_info *slot = &ring->slots[ring->start];
+-		struct bgmac_rx_header *rx = slot->buf;
++		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
+ 		struct sk_buff *skb;
+ 		void *buf = slot->buf;
+ 		u16 len, flags;
+@@ -450,8 +450,10 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+ 
+ 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
+-			skb_put(skb, BGMAC_RX_FRAME_OFFSET + len);
+-			skb_pull(skb, BGMAC_RX_FRAME_OFFSET);
++			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
++				BGMAC_RX_BUF_OFFSET + len);
++			skb_pull(skb, BGMAC_RX_FRAME_OFFSET +
++				 BGMAC_RX_BUF_OFFSET);
+ 
+ 			skb_checksum_none_assert(skb);
+ 			skb->protocol = eth_type_trans(skb, bgmac->net_dev);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index abd50d1..3db0d52 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -360,9 +360,11 @@
+ 
+ #define BGMAC_RX_HEADER_LEN			28		/* Last 24 bytes are unused. Well... */
+ #define BGMAC_RX_FRAME_OFFSET			30		/* There are 2 unused bytes between header and real data */
++#define BGMAC_RX_BUF_OFFSET			(NET_SKB_PAD + NET_IP_ALIGN - \
++						 BGMAC_RX_FRAME_OFFSET)
+ #define BGMAC_RX_MAX_FRAME_SIZE			1536		/* Copied from b44/tg3 */
+ #define BGMAC_RX_BUF_SIZE			(BGMAC_RX_FRAME_OFFSET + BGMAC_RX_MAX_FRAME_SIZE)
+-#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE) + \
++#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE + BGMAC_RX_BUF_OFFSET) + \
+ 						 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ 
+ #define BGMAC_BFL_ENETROBO			0x0010		/* has ephy roboswitch spi */
 -- 
 2.2.2
