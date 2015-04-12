@@ -1,61 +1,40 @@
-From: Cheolhyun Park <pch851130@gmail.com>
-Subject: [PATCH V2] rtlwifi: misspelled code and comments corrected.
-Date: Sun, 12 Apr 2015 16:59:48 +0000
-Message-ID: <1428857988-17932-1-git-send-email-pch851130@gmail.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	kvalo@codeaurora.org, pch851130@gmail.com, linville@tuxdriver.com,
-	Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/4] bgmac: fix DMA rx corruption
+Date: Sun, 12 Apr 2015 10:24:48 -0700
+Message-ID: <1428859488.25985.347.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1428833292-15356-1-git-send-email-nbd@openwrt.org>
+	 <1428833292-15356-4-git-send-email-nbd@openwrt.org>
+	 <1428834675.25985.344.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <552A4C6C.7020802@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, zajec5@gmail.com, hauke@hauke-m.de
+To: Felix Fietkau <nbd@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:37034 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678AbbDLRYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 13:24:50 -0400
+Received: by igblo3 with SMTP id lo3so29228502igb.0
+        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 10:24:50 -0700 (PDT)
+In-Reply-To: <552A4C6C.7020802@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Cheolhyun Park <pch851130@gmail.com>
----
- drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 2 +-
- drivers/net/wireless/rtlwifi/rtl8192de/dm.c       | 2 +-
- drivers/net/wireless/rtlwifi/rtl8821ae/dm.c       | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+On Sun, 2015-04-12 at 12:43 +0200, Felix Fietkau wrote:
+> On 2015-04-12 12:31, Eric Dumazet wrote:
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
-index f5ee67c..1273997 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
-@@ -312,7 +312,7 @@ static void rtl92c_dm_ctrl_initgain_by_rssi(struct ieee80211_hw *hw)
- 	struct dig_t *digtable = &rtlpriv->dm_digtable;
- 	u32 isbt;
- 
--	/* modify DIG lower bound, deal with abnorally large false alarm */
-+	/* modify DIG lower bound, deal with abnormally large false alarm */
- 	if (rtlpriv->falsealm_cnt.cnt_all > 10000) {
- 		digtable->large_fa_hit++;
- 		if (digtable->forbidden_igi < digtable->cur_igvalue) {
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/dm.c b/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
-index a1be5a6..f209cda 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/dm.c
-@@ -420,7 +420,7 @@ static void rtl92d_dm_dig(struct ieee80211_hw *hw)
- 		 "dm_DIG() Before: Recover_cnt=%d, rx_gain_min=%x\n",
- 		 de_digtable->recover_cnt, de_digtable->rx_gain_min);
- 
--	/* deal with abnorally large false alarm */
-+	/* deal with abnormally large false alarm */
- 	if (falsealm_cnt->cnt_all > 10000) {
- 		RT_TRACE(rtlpriv, COMP_DIG, DBG_LOUD,
- 			 "dm_DIG(): Abnormally false alarm case\n");
-diff --git a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
-index 0b2082d..342678d 100644
---- a/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8821ae/dm.c
-@@ -873,7 +873,7 @@ static void rtl8821ae_dm_dig(struct ieee80211_hw *hw)
- 
- 	if (rtlpriv->falsealm_cnt.cnt_all > 10000) {
- 		RT_TRACE(rtlpriv, COMP_DIG, DBG_LOUD,
--			 "Abnornally false alarm case.\n");
-+			 "Abnormally false alarm case.\n");
- 
- 		if (dm_digtable->large_fa_hit != 3)
- 			dm_digtable->large_fa_hit++;
--- 
-1.9.1
+> > This might be better for performance to perform one single bgmac_write()
+> > at the end of bgmac_dma_rx_read(), and leave this one in place as well,
+> > not for performance since this is slow path, but correctness.
+> I intentionally made it write this field for every slot update, because
+> it might potentially allow the hardware to push frames faster when under
+> pressure. The CPU isn't fast enough to handle gigabit speeds anyway.
+
+If CPU is not fast enough, then it makes sense to optimize this part,
+and save cpu cycles for actual processing.
+
+You know, even a fast cpu is not able to keep up at 40Gbits.
+
+You have a clear opportunity to have batching right there, take it.
