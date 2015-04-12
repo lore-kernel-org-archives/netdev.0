@@ -1,106 +1,48 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v3 8/9] bgmac: fix DMA rx corruption
-Date: Sun, 12 Apr 2015 23:38:30 +0200
-Message-ID: <1428874711-23950-8-git-send-email-nbd@openwrt.org>
-References: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
-Cc: zajec5@gmail.com, hauke@hauke-m.de, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:48608
-	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752499AbbDLVig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 17:38:36 -0400
-In-Reply-To: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Mon, 13 Apr 2015 01:03:16 +0300
+Message-ID: <552AEBA4.405@cogentembedded.com>
+References: <20150331064349.GB4605@localhost.localdomain>	<20150331.113832.2042398685489897677.davem@davemloft.net>	<551ADC12.5050603@cogentembedded.com> <20150331.134842.499356389024178984.davem@davemloft.net> <551E32E2.3020102@renesas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: richardcochran@gmail.com, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	devicetree@vger.kernel.org, galak@codeaurora.org,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	mitsuhiro.kimura.kc@renesas.com
+To: masaru.nagai.vx@renesas.com, davem@davemloft.net
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <551E32E2.3020102@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The driver needs to inform the hardware about the first invalid (not yet
-filled) rx slot, by writing its DMA descriptor pointer offset to the
-BGMAC_DMA_RX_INDEX register.
+Hello.
 
-This register was set to a value exceeding the rx ring size, effectively
-allowing the hardware constant access to the full ring, regardless of
-which slots are initialized.
+On 04/03/2015 09:27 AM, masaru.nagai.vx@renesas.com wrote:
 
-To fix this issue, always mark the last filled rx slot as invalid.
+>> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>> Date: Tue, 31 Mar 2015 20:40:34 +0300
+> ...
+>> Is there a serious problem getting the original authors to signoff on
+>> this driver submission?  If so, why?  This should be very
+>> straightforward, and if for some reason these authors are unwilling to
+>> then I have every reason to be concerned about this.
 
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
----
- drivers/net/ethernet/broadcom/bgmac.c | 27 ++++++++++++++++++---------
- 1 file changed, 18 insertions(+), 9 deletions(-)
+> We are already agree on the work by sergei.
+> So, this patch does not have problem.
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 417415c..9818e69 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -362,6 +362,16 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
- 	return 0;
- }
- 
-+static void bgmac_dma_rx_update_index(struct bgmac *bgmac,
-+				      struct bgmac_dma_ring *ring)
-+{
-+	wmb();
-+
-+	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
-+		    ring->index_base +
-+		    ring->end * sizeof(struct bgmac_dma_desc));
-+}
-+
- static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
- 				    struct bgmac_dma_ring *ring, int desc_idx)
- {
-@@ -380,6 +390,8 @@ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
- 	dma_desc->addr_high = cpu_to_le32(upper_32_bits(ring->slots[desc_idx].dma_addr));
- 	dma_desc->ctl0 = cpu_to_le32(ctl0);
- 	dma_desc->ctl1 = cpu_to_le32(ctl1);
-+
-+	ring->end = desc_idx;
- }
- 
- static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
-@@ -394,9 +406,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 	end_slot &= BGMAC_DMA_RX_STATDPTR;
- 	end_slot /= sizeof(struct bgmac_dma_desc);
- 
--	ring->end = end_slot;
--
--	while (ring->start != ring->end) {
-+	while (ring->start != end_slot) {
- 		struct device *dma_dev = bgmac->core->dma_dev;
- 		struct bgmac_slot_info *slot = &ring->slots[ring->start];
- 		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
-@@ -463,6 +473,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 			break;
- 	}
- 
-+	bgmac_dma_rx_update_index(bgmac, ring);
-+
- 	return handled;
- }
- 
-@@ -682,6 +694,8 @@ static int bgmac_dma_init(struct bgmac *bgmac)
- 		if (ring->unaligned)
- 			bgmac_dma_rx_enable(bgmac, ring);
- 
-+		ring->start = 0;
-+		ring->end = 0;
- 		for (j = 0; j < ring->num_slots; j++) {
- 			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
- 			if (err)
-@@ -690,12 +704,7 @@ static int bgmac_dma_init(struct bgmac *bgmac)
- 			bgmac_dma_rx_setup_desc(bgmac, ring, j);
- 		}
- 
--		bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
--			    ring->index_base +
--			    ring->num_slots * sizeof(struct bgmac_dma_desc));
--
--		ring->start = 0;
--		ring->end = 0;
-+		bgmac_dma_rx_update_index(bgmac, ring);
- 	}
- 
- 	return 0;
--- 
-2.2.2
+    Actually, it does, and not even a single one. :-)
+
+> Sergei, please append SOB of us to this patch.
+
+    Thank you, will add to the new version.
+
+> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+
+> Best Regards,
+> Masaru Nagai
+
+WBR, Sergei
+
