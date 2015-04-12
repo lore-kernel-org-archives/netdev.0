@@ -1,7 +1,7 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH 5/5 v4] netfilter: Fix format string of nfnetlink_log proc file
-Date: Mon, 13 Apr 2015 00:52:39 +0200
-Message-ID: <1428879159-19237-5-git-send-email-richard@nod.at>
+Subject: [PATCH 4/5 v4] netfilter: Fix format string of nfnetlink_queue proc file
+Date: Mon, 13 Apr 2015 00:52:38 +0200
+Message-ID: <1428879159-19237-4-git-send-email-richard@nod.at>
 References: <1428879159-19237-1-git-send-email-richard@nod.at>
 Cc: linux-wireless@vger.kernel.org, coreteam@netfilter.org,
 	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -18,23 +18,29 @@ List-Id: netdev.vger.kernel.org
 The printed values are all of type unsigned integer, therefore use
 %u instead of %d. Otherwise an user can face negative values.
 
+Fixes:
+$ cat /proc/net/netfilter/nfnetlink_queue
+    0  29508   278 2 65531     0 2004213241 -2129885586  1
+    1 -27747     0 2 65531     0     0        0  1
+    2 -27748     0 2 65531     0     0        0  1
+
 Signed-off-by: Richard Weinberger <richard@nod.at>
 ---
- net/netfilter/nfnetlink_log.c | 2 +-
+ net/netfilter/nfnetlink_queue_core.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 5c79735..3ad9126 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -1007,7 +1007,7 @@ static int seq_show(struct seq_file *s, void *v)
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 49267f8..0b98c74 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -1251,7 +1251,7 @@ static int seq_show(struct seq_file *s, void *v)
  {
- 	const struct nfulnl_instance *inst = v;
+ 	const struct nfqnl_instance *inst = v;
  
--	seq_printf(s, "%5d %6d %5d %1d %5d %6d %2d\n",
-+	seq_printf(s, "%5u %6u %5u %1u %5u %6u %2u\n",
- 		   inst->group_num,
- 		   inst->peer_portid, inst->qlen,
+-	seq_printf(s, "%5d %6d %5d %1d %5d %5d %5d %8d %2d\n",
++	seq_printf(s, "%5u %6u %5u %1u %5u %5u %5u %8u %2d\n",
+ 		   inst->queue_num,
+ 		   inst->peer_portid, inst->queue_total,
  		   inst->copy_mode, inst->copy_range,
 -- 
 1.8.4.5
