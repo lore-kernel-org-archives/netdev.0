@@ -1,84 +1,107 @@
-From: Ido Shamay <idos@dev.mellanox.co.il>
-Subject: Re: [PATCH RFC] net/mlx4: Remove improper usage of dma_alloc_coherent().
-Date: Mon, 13 Apr 2015 00:33:24 +0300
-Message-ID: <552AE4A4.30005@dev.mellanox.co.il>
-References: <1428361229-31542-1-git-send-email-ddaney.cavm@gmail.com> <55243362.5040207@dev.mellanox.co.il>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Moni Shoua <monis@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Yuval Atias <yuvala@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	David Daney <david.daney@cavium.com>, liranl@mellanox.com,
-	gdror@mellanox.com
-To: David Daney <ddaney.cavm@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55243362.5040207@dev.mellanox.co.il>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [PATCH v3 2/9] bgmac: leave interrupts disabled as long as there is work to do
+Date: Sun, 12 Apr 2015 23:38:24 +0200
+Message-ID: <1428874711-23950-2-git-send-email-nbd@openwrt.org>
+References: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
+Cc: zajec5@gmail.com, hauke@hauke-m.de, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:48611
+	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752517AbbDLVig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 17:38:36 -0400
+In-Reply-To: <1428874711-23950-1-git-send-email-nbd@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/7/2015 10:43 PM, Ido Shamay wrote:
-> On 4/7/2015 2:00 AM, David Daney wrote:
->> From: David Daney <david.daney@cavium.com>
->>
->> The dma_alloc_coherent() function returns a virtual address which can
->> be used for coherent access to the underlying memory.  On some
->> architectures, like arm64, undefined behavior results if this memory is
->> also accessed via virtual mappings that are not coherent. Because of
->> their undefined nature, operations like virt_to_page() return garbage
->> when passed virtual addresses obtained from dma_alloc_coherent().  Any
->> subsequent mappings via vmap() of the garbage page values are unusable
->> and result in bad things like bus errors (synchronous aborts in ARM64
->> speak).
->>
->> The MLX4 driver contains code that does the equivalent of:
->>
->>    vmap(virt_to_page(dma_alloc_coherent))
->>
->> This results in an OOPs when the device is opened.
->>
->> To fix this...
->>
->> Always use result of dma_alloc_coherent() directly.
-> Hi David,
->
-> I'm not sure this solution is good enough for the common case(s).
-> Typical allocation size will be around 64KB (with default 1K ring size).
-> We can't rely on the system to always provide us with that amount of 
-> contiguous memory.
->
-> Current code allocation scheme is more robust, max_direct is typically 
-> 2 * PAGE_SIZE,
-> so pages from order 1 are far more available then higher order.
->
-> I need to check why the code is written as it is today,  and not as in 
-> this RFC (which is much more trivial).
-> I'll continue to investigate tomorrow, will get back with some answers.
->
-> Ido
+Always poll rx and tx during NAPI poll instead of relying on the status
+of the first interrupt. This prevents bgmac_poll from leaving unfinished
+work around until the next IRQ.
+In my tests this makes bridging/routing throughput under heavy load more
+stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
+the entire budget.
 
-Acked-by: Ido Shamay <idos@mellanox.com>
-Thanks David, this is good for us
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 31 ++++++++++---------------------
+ drivers/net/ethernet/broadcom/bgmac.h |  1 -
+ 2 files changed, 10 insertions(+), 22 deletions(-)
 
->> Remove 'max_direct' parameter to mlx4_buf_alloc(), as it is unused,
->> and adjust all callers.
->>
->> Remove mlx4_en_map_buffer() and mlx4_en_unmap_buffer() as they now do
->> nothing, and adjust all callers.
->>
->> Remove 'page_list' element from struct mlx4_buf as it is unused.
->>
->> Signed-off-by: David Daney <david.daney@cavium.com>
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 73374b4..66876c5 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1105,8 +1105,6 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	bgmac_phy_init(bgmac);
+ 
+ 	netdev_reset_queue(bgmac->net_dev);
+-
+-	bgmac->int_status = 0;
+ }
+ 
+ static void bgmac_chip_intrs_on(struct bgmac *bgmac)
+@@ -1221,14 +1219,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ 	if (!int_status)
+ 		return IRQ_NONE;
+ 
+-	/* Ack */
+-	bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
++	int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
++	if (int_status)
++		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
+ 
+ 	/* Disable new interrupts until handling existing ones */
+ 	bgmac_chip_intrs_off(bgmac);
+ 
+-	bgmac->int_status = int_status;
+-
+ 	napi_schedule(&bgmac->napi);
+ 
+ 	return IRQ_HANDLED;
+@@ -1237,25 +1234,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ static int bgmac_poll(struct napi_struct *napi, int weight)
+ {
+ 	struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
+-	struct bgmac_dma_ring *ring;
+ 	int handled = 0;
+ 
+-	if (bgmac->int_status & BGMAC_IS_TX0) {
+-		ring = &bgmac->tx_ring[0];
+-		bgmac_dma_tx_free(bgmac, ring);
+-		bgmac->int_status &= ~BGMAC_IS_TX0;
+-	}
++	/* Ack */
++	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
+ 
+-	if (bgmac->int_status & BGMAC_IS_RX) {
+-		ring = &bgmac->rx_ring[0];
+-		handled += bgmac_dma_rx_read(bgmac, ring, weight);
+-		bgmac->int_status &= ~BGMAC_IS_RX;
+-	}
++	bgmac_dma_tx_free(bgmac, &bgmac->tx_ring[0]);
++	handled += bgmac_dma_rx_read(bgmac, &bgmac->rx_ring[0], weight);
+ 
+-	if (bgmac->int_status) {
+-		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", bgmac->int_status);
+-		bgmac->int_status = 0;
+-	}
++	/* poll again if more events arrived in the mean time */
++	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
++		return handled;
+ 
+ 	if (handled < weight) {
+ 		napi_complete(napi);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index 5a198d5..abd50d1 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -452,7 +452,6 @@ struct bgmac {
+ 
+ 	/* Int */
+ 	u32 int_mask;
+-	u32 int_status;
+ 
+ 	/* Current MAC state */
+ 	int mac_speed;
+-- 
+2.2.2
