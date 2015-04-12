@@ -1,80 +1,61 @@
-From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [linux-next PATCH] mlx5: wrong page mask if CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
-Date: Sun, 12 Apr 2015 19:05:51 +0800
-Message-ID: <1428836751-23037-1-git-send-email-honli@redhat.com>
-Cc: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 4/4] bgmac: fix DMA rx corruption
+Date: Sun, 12 Apr 2015 14:11:44 +0300
+Message-ID: <552A52F0.4080803@cogentembedded.com>
+References: <1428833292-15356-1-git-send-email-nbd@openwrt.org> <1428833292-15356-4-git-send-email-nbd@openwrt.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: zajec5@gmail.com, hauke@hauke-m.de
+To: Felix Fietkau <nbd@openwrt.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:34715 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751376AbbDLLLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 07:11:47 -0400
+Received: by laat2 with SMTP id t2so39532438laa.1
+        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 04:11:46 -0700 (PDT)
+In-Reply-To: <1428833292-15356-4-git-send-email-nbd@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for x86 systems and physical
-memory is more than 4GB, dma_map_page may return a valid memory
-address which greater than 0xffffffff. As a result, the mlx5 device page
-allocator RB tree will be initialized with valid addresses greater than
-0xfffffff.
+Hello.
 
-However, (addr & PAGE_MASK) set the high four bytes to zeros. So, it's
-impossible for the function, free_4k, to release the pages whose
-addresses greater than 4GB. Memory leaks. And mlx5_ib module can't
-release the pages when user try to remove the module, as a result,
-system hang.
+On 4/12/2015 1:08 PM, Felix Fietkau wrote:
 
-[root@rdma05 root]# dmesg  | grep addr | head
-addr             = 3fe384000
-addr & PAGE_MASK =  fe384000
-[root@rdma05 root]# rmmod mlx5_ib   <---- hang on
+> The driver needs to inform the hardware about the first invalid (not yet
+> filled) rx slot, by writing its DMA descriptor pointer offset to the
+> BGMAC_DMA_RX_INDEX register.
 
----------------------- cosnole log -----------------
-mlx5_ib 0000:04:00.0: irq 138 for MSI/MSI-X
-  alloc irq_desc for 139 on node -1
-  alloc kstat_irqs on node -1
-mlx5_ib 0000:04:00.0: irq 139 for MSI/MSI-X
-0000:04:00.0:free_4k:221:(pid 1519): page not found
-0000:04:00.0:free_4k:221:(pid 1519): page not found
-0000:04:00.0:free_4k:221:(pid 1519): page not found
-0000:04:00.0:free_4k:221:(pid 1519): page not found
----------------------- cosnole log -----------------
+> This register was set to a value exceeding the rx ring size, effectively
+> allowing the hardware constant access to the full ring, regardless of
+> which slots are initialized.
 
-Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+> Fix this by updating the register in bgmac_dma_rx_setup_desc.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index df22383..27c72da 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -211,12 +211,14 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
- 	return 0;
- }
- 
-+#define MLX5_U64_4K_PAGE_MASK ((~(u64)0U) << PAGE_SHIFT)
-+
- static void free_4k(struct mlx5_core_dev *dev, u64 addr)
- {
- 	struct fw_page *fwp;
- 	int n;
- 
--	fwp = find_fw_page(dev, addr & PAGE_MASK);
-+	fwp = find_fw_page(dev, addr & MLX5_U64_4K_PAGE_MASK);
- 	if (!fwp) {
- 		mlx5_core_warn(dev, "page not found\n");
- 		return;
-@@ -241,7 +243,7 @@ static void free_4k(struct mlx5_core_dev *dev, u64 addr)
- static int alloc_system_page(struct mlx5_core_dev *dev, u16 func_id)
- {
- 	struct page *page;
--	u64 addr;
-+	u64 addr = 0;
- 	int err;
- 	int nid = dev_to_node(&dev->pdev->dev);
- 
--- 
-1.8.3.1
+> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+> ---
+>   drivers/net/ethernet/broadcom/bgmac.c | 14 +++++++-------
+>   1 file changed, 7 insertions(+), 7 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index e332de8..856ceee 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -380,6 +380,12 @@ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
+>   	dma_desc->addr_high = cpu_to_le32(upper_32_bits(ring->slots[desc_idx].dma_addr));
+>   	dma_desc->ctl0 = cpu_to_le32(ctl0);
+>   	dma_desc->ctl1 = cpu_to_le32(ctl1);
+> +
+> +	desc_idx = (desc_idx + 1) % BGMAC_RX_RING_SLOTS;
+> +
+> +	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
+> +			ring->index_base +
+> +			desc_idx * sizeof(struct bgmac_dma_desc));
+
+    The continuation lines should start on the next column after ( on the 
+first line.
+
+[...]
+
+WBR, Sergei
