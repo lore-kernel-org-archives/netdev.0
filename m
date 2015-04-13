@@ -1,57 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Export IGMP/MLD message validation
-	code
-Date: Mon, 13 Apr 2015 13:32:28 -0400 (EDT)
-Message-ID: <20150413.133228.1185934929215664377.davem@davemloft.net>
-References: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue>
-	<1428687999-18428-2-git-send-email-linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net-next] net: use jump label patching for ingress
+ qdisc in __netif_receive_skb_core
+Date: Mon, 13 Apr 2015 13:35:05 -0400 (EDT)
+Message-ID: <20150413.133505.56878477510338170.davem@davemloft.net>
+References: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: bridge@lists.linux-foundation.org, herbert@gondor.apana.org.au,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	b.a.t.m.a.n@lists.open-mesh.org, linux-kernel@vger.kernel.org,
-	therbert@google.com
-To: linus.luessing@c0d3.blue
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1428687999-18428-2-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, ast@plumgrid.com, edumazet@google.com,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53154 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751996AbbDMRfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:35:07 -0400
+In-Reply-To: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@c0d3.blue>
-Date: Fri, 10 Apr 2015 19:46:39 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 10 Apr 2015 23:07:54 +0200
 
-> With this patch, the IGMP and MLD message validation functions are mo=
-ved
-> from the bridge code to IPv4/IPv6 multicast files. Some small
-> refactoring was done to enhance readibility and to iron out some
-> differences in behaviour between the IGMP and MLD parsing code (e.g. =
-the
-> skb-cloning of MLD messages is now only done if necessary, just like =
-the
-> IGMP part always did).
-> =
+> Even if we make use of classifier and actions from the egress
+> path, we're going into handle_ing() executing additional code
+> on a per-packet cost for ingress qdisc, just to realize that
+> nothing is attached on ingress.
+> 
+> Instead, this can just be blinded out as a no-op entirely with
+> the use of a static key. On input fast-path, we already make
+> use of static keys in various places, e.g. skb time stamping,
+> in RPS, etc. It makes sense to not waste time when we're assured
+> that no ingress qdisc is attached anywhere.
+> 
+> Enabling/disabling of that code path is being done via two
+> helpers, namely net_{inc,dec}_ingress_queue(), that are being
+> invoked under RTNL mutex when a ingress qdisc is being either
+> initialized or destructed.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-> Finally, these IGMP and MLD message validation functions are exported=
- so
-> that not only the bridge can use it but batman-adv later, too.
-> =
+This seems reasonable.  If it is shown to slow things down or
+whatever, we can revert it.
 
-> Signed-off-by: Linus L=FCssing <linus.luessing@c0d3.blue>
-
-Please update the copyrights as per your discussion with YOSHIFUJI
-Hideaki.
-
-Also, please provide a cover "[PATCH 0/2] " posting with a top-level
-summary of what this series is doing so I can use that text in the
-message of the merge commit I'll create when applying your series.
-
-Thanks.
+Applied, thanks Daniel.
