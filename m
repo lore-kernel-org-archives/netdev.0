@@ -1,44 +1,79 @@
-From: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
-	<hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH 2/2] net: Export IGMP/MLD message validation code
-Date: Mon, 13 Apr 2015 16:18:00 +0900
-Message-ID: <552B6DA8.10500@miraclelinux.com>
-References: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue> <1428687999-18428-2-git-send-email-linus.luessing@c0d3.blue> <20150411014645.GA20155@odroid>
+From: Michael Wang <yun.wang@profitbricks.com>
+Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport()
+ for each HW
+Date: Mon, 13 Apr 2015 09:40:15 +0200
+Message-ID: <552B72DF.2080600@profitbricks.com>
+References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150410074805.GA11855@phlsvsds.ph.intel.com> <1428685843.2980.353.camel@redhat.com> <20150410173650.GB26419@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hideaki.yoshifuji@miraclelinux.com
-To: =?UTF-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@c0d3.blue>,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <therbert@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "ira.weiny" <ira.weiny@intel.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Tom Tucker <tom@opengridcomputing.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Mike Marciniszyn <infinipath@intel.com>,
+	Eli Cohen <eli@mellanox.com>,
+	Faisal Latif <faisal.latif@intel.com>,
+	Upinder Malhi <umalhi@cisco.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
+	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Haggai
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	Doug Ledford <dledford@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150411014645.GA20155@odroid>
+In-Reply-To: <20150410173650.GB26419@obsidianresearch.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus L=C3=BCssing wrote:
-> On Fri, Apr 10, 2015 at 07:46:39PM +0200, Linus L=C3=BCssing wrote:
->> diff --git a/net/ipv6/mcast_snoop.c b/net/ipv6/mcast_snoop.c
->> new file mode 100644
->> index 0000000..95b34c0
->> --- /dev/null
->> +++ b/net/ipv6/mcast_snoop.c
->> @@ -0,0 +1,198 @@
->> +/* Copyright (C) 2015: Linus L=C3=BCssing <linus.luessing@c0d3.blue=
->
->=20
-> PS: I'm a little uncertain how this is usually done. If I should
-> add someone (maybe Hideaki YOSHIFUJI, the original author of the
-> bridge IPv6/MLD support?), then please let me know.
+On 04/10/2015 07:36 PM, Jason Gunthorpe wrote:
+> On Fri, Apr 10, 2015 at 01:10:43PM -0400, Doug Ledford wrote:
+> 
+>> documented.  I get why you link the address variant, because it pops out
+>> all the things that are special about IBoE addressing and calls out that
+>> the issues need to be handled.  However, saying requires_iboe_addr(),
+>> while foreshadowing the work that needs done, doesn't actually document
+>> the work that needs done.  Whether we call is dev_is_iboe() or
+>> requires_iboe_addr(), it would be good if the documentation spelled out
+>> those specific requirements for reference sake.
+> 
+> My deep hope for this, was that the test 'requires_iboe_addr' or
+> whatever we call it would have a *really good* kdoc.
+> 
+> List all the ways iboe_addr's work, how they differ from IB addresses,
+> refer to the specs people should read to understand it, etc.
+> 
+> The patches don't do this, and maybe Michael is the wrong person to
+> fill that in, but we can get it done..
 
-If you want to claim copyright, add myself (2010,
-yoshfuji@linux-ipv6.org).  You may have Authors: lines for both.
-Also, you could have description like "Based on MLD support by
-=2E..".
+That's exactly what I'm thinking ;-)
 
---yoshfuji
+At first I'm just trying to save us some code but now it's becoming
+a topic far above that purpose, I'd like to help commit whatever we already
+settled and pass the internal reforming works to experts like you guys
+, implement the bitmask stuff ;-)
+
+And I can still help on review and may be testing with mlx4 if later I
+got the access.
+
+> 
+> Jason
+> 
+> BTW: Michael, next time you post the series, please trim the CC
+> list...
+
+Thanks for the remind, I'll do trim in v3 :-)
+
+Regards,
+Michael Wang
+
+> 
