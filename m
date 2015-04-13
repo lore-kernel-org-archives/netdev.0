@@ -1,42 +1,41 @@
-From: =?UTF-8?q?Pavel=20=C5=A0imerda?= <pavlix@pavlix.net>
-Subject: [PATCH 5/7] ip-route: don't hide routes with RTM_F_CLONED by default
-Date: Mon, 13 Apr 2015 16:00:59 +0200
-Message-ID: <1428933661-8193-5-git-send-email-pavlix@pavlix.net>
-References: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: stephen@networkplumber.org, psimerda@redhat.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/2] switchdev: unify naming prefix
+Date: Mon, 13 Apr 2015 16:14:33 +0200
+Message-ID: <1428934475-15349-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfeldma@gmail.com, roopa@cumulusnetworks.com,
+	f.fainelli@gmail.com, gospo@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fox.pavlix.net ([84.246.161.104]:47551 "EHLO fox.pavlix.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754155AbbDMOKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 10:10:03 -0400
-In-Reply-To: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:34149 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932268AbbDMOOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:14:39 -0400
+Received: by wgso17 with SMTP id o17so82529236wgs.1
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 07:14:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Pavel =C5=A0imerda <psimerda@redhat.com>
+Turned out that "switchdev" sticks. So just unify all releated terms to
+use this prefix.
 
-Signed-off-by: Pavel =C5=A0imerda <psimerda@redhat.com>
----
- ip/iproute.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Jiri Pirko (2):
+  switchdev: s/netdev_switch_/switchdev_/
+  switchdev: s/swdev_/switchdev_/
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 024d401..46c24bb 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -144,7 +144,7 @@ static int filter_nlmsg(struct nlmsghdr *n, struct =
-rtattr **tb, int host_len)
- 	if (r->rtm_family =3D=3D AF_INET6 && table !=3D RT_TABLE_MAIN)
- 		ip6_multiple_tables =3D 1;
-=20
--	if (filter.cloned =3D=3D !(r->rtm_flags&RTM_F_CLONED))
-+	if (filter.cloned && !(r->rtm_flags&RTM_F_CLONED))
- 		return 0;
-=20
- 	if (r->rtm_family =3D=3D AF_INET6 && !ip6_multiple_tables) {
---=20
-2.3.5
+ drivers/net/bonding/bond_main.c      |   4 +-
+ drivers/net/ethernet/rocker/rocker.c |  47 +++++-----
+ drivers/net/team/team.c              |   4 +-
+ include/linux/netdevice.h            |   2 +-
+ include/net/switchdev.h              | 136 +++++++++++++--------------
+ net/bridge/br.c                      |  18 ++--
+ net/bridge/br_netlink.c              |   6 +-
+ net/bridge/br_stp.c                  |   2 +-
+ net/core/net-sysfs.c                 |   2 +-
+ net/core/rtnetlink.c                 |   2 +-
+ net/dsa/slave.c                      |   8 +-
+ net/ipv4/fib_trie.c                  |  40 ++++----
+ net/switchdev/switchdev.c            | 174 +++++++++++++++++------------------
+ 13 files changed, 220 insertions(+), 225 deletions(-)
+
+-- 
+1.9.3
