@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Pavel=20=C5=A0imerda?= <pavlix@pavlix.net>
-Subject: [PATCH 3/7] ip-xfrm: support 'proto any' with 'sport' and 'dport'
-Date: Mon, 13 Apr 2015 16:00:57 +0200
-Message-ID: <1428933661-8193-3-git-send-email-pavlix@pavlix.net>
+Subject: [PATCH 6/7] lnstat: dump to stdout, not stderr
+Date: Mon, 13 Apr 2015 16:01:00 +0200
+Message-ID: <1428933661-8193-6-git-send-email-pavlix@pavlix.net>
 References: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,49 +9,37 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: stephen@networkplumber.org, psimerda@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fox.pavlix.net ([84.246.161.104]:47547 "EHLO fox.pavlix.net"
+Received: from fox.pavlix.net ([84.246.161.104]:47552 "EHLO fox.pavlix.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753919AbbDMOKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 10:10:03 -0400
+	id S1754205AbbDMOKF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2015 10:10:05 -0400
 In-Reply-To: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Pavel =C5=A0imerda <psimerda@redhat.com>
 
-When creating an IPsec SA that sets 'proto any' (IPPROTO_IP) and
-specifies 'sport' and 'dport' at the same time in selector, the
-following error is issued:
-
-"sport" and "dport" are invalid with proto=3Dip
-
-However using IPPROTO_IP with ports is completely legal and necessary
-when one wants to share the SA on both TCP and UDP. One of the
-applications requiring sharing SAs is 3GPP IMS AKA authentication.
-
 See also:
 
- * https://bugzilla.redhat.com/show_bug.cgi?id=3D497355
+ * https://bugzilla.redhat.com/show_bug.cgi?id=3D736332
 
-Reported-by: Ji=C5=99=C3=AD Klime=C5=A1 <jklimes@redhat.com>
 Signed-off-by: Pavel =C5=A0imerda <psimerda@redhat.com>
 ---
- ip/ipxfrm.c | 1 +
- 1 file changed, 1 insertion(+)
+ misc/lnstat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 95f91a5..e685571 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -1339,6 +1339,7 @@ static int xfrm_selector_upspec_parse(struct xfrm=
-_selector *sel,
- 		case IPPROTO_UDP:
- 		case IPPROTO_SCTP:
- 		case IPPROTO_DCCP:
-+		case IPPROTO_IP: /* to allow shared SA for different protocols */
- 			break;
- 		default:
- 			fprintf(stderr, "\"sport\" and \"dport\" are invalid with PROTO val=
-ue \"%s\"\n", strxf_proto(sel->proto));
+diff --git a/misc/lnstat.c b/misc/lnstat.c
+index 32b5cbe..e105b70 100644
+--- a/misc/lnstat.c
++++ b/misc/lnstat.c
+@@ -347,7 +347,7 @@ int main(int argc, char **argv)
+=20
+ 	switch (mode) {
+ 	case MODE_DUMP:
+-		lnstat_dump(stderr, lnstat_files);
++		lnstat_dump(stdout, lnstat_files);
+ 		break;
+=20
+ 	case MODE_NORMAL:
 --=20
 2.3.5
