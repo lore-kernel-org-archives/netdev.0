@@ -1,71 +1,28 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: kernel WARNING on skb_complete_tx_timestamp
-Date: Mon, 13 Apr 2015 16:41:05 +0000
-Message-ID: <1428943265.28752.18.camel@intel.com>
-References: <02874ECE860811409154E81DA85FBB5857511D7A@ORSMSX115.amr.corp.intel.com>
-	 <1428724826.25985.337.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1428942671.28752.14.camel@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] selinux/nlmsg: add a build time check for
+ rtnl/xfrm cmds
+Date: Mon, 13 Apr 2015 13:10:01 -0400 (EDT)
+Message-ID: <20150413.131001.36872142001320075.davem@davemloft.net>
+References: <1428931237-22679-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"richardcochran@gmail.com" <richardcochran@gmail.com>
-To: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:58817 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932119AbbDMQlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 12:41:07 -0400
-In-Reply-To: <1428942671.28752.14.camel@intel.com>
-Content-Language: en-US
-Content-ID: <83236D6AB0E0554CA55DC9DE92CE98FD@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1428931237-22679-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGksDQoNCk9uIE1vbiwgMjAxNS0wNC0xMyBhdCAxNjozMSArMDAwMCwgS2VsbGVyLCBKYWNvYiBF
-IHdyb3RlOg0KPiBIaSBFcmljLA0KDQo+ID4gPiBUaGlzIG9jY3VycyBiZWNhdXNlIG9mIHRoZSBX
-QVJOX09OIGluIGtmcmVlX3NrYiB3aGljaCByZXN1bHRzIGZyb20gc29ja19ob2xkKHNrKSBhbmQg
-c29ja19wdXQoc2spDQo+ID4gPiANCj4gPiA+IEkgaGF2ZSBhIGRyaXZlciAoZm0xMGspIHdoaWNo
-IHJlY2VpdmVzIGEgbm90aWZpY2F0aW9uIG9mIFR4IHRpbWVzdGFtcCB2aWEgYW4gSVJRLCBhbmQg
-dGhlbiB3aGVuIEkgY2FsbCBza2JfY29tcGxldGVfdHhfdGltZXN0YW1wIEkgZ2V0IHRoaXMgd2Fy
-bmluZy4gSSBiZWxpZXZlIHRoaXMgaXMgYSByZXN1bHQgb2YgY2FsbGluZyBza19mcmVlLCB3aGlj
-aCB0aGUgZGVzY3JpcHRpb24gKnNheXMqIGlzIG9rIHRvIGNhbGwgaW4gYW55IGNvbnRleHQuLiBi
-dXQgdGhlbiB3ZSBnZXQgdGhpcyB3YXJuaW5nLg0KPiA+ID4gDQo+ID4gPiBJJ20gcmVhbGx5IG5v
-dCBzdXJlIGV4YWN0bHkgaG93IHRoaXMgc2l0dWF0aW9uIG9jY3VycmVkLiBFdmVudHVhbGx5IHdl
-IGNhbGwga2ZyZWVfc2tiKCkgd2hpbGUgd2UgYXJlIGluIGlycSBjb250ZXh0IHdoaWNoIHJlc3Vs
-dHMgaW4gdGhlIHdhcm5pbmcuDQo+ID4gDQo+ID4gQXQgZmlyc3QgbG9vaywgdGhlcmUgYXJlIHNv
-bWUgaXNzdWVzIHdpdGggdGhpcyBkcml2ZXIuDQo+ID4gDQo+IA0KPiBJIHNob3VsZCBjbGFyaWZ5
-IGhlcmUuIEkgYW0gd29ya2luZyBvbiBmaXhpbmcgdGhlIGlzc3VlcyB3aXRoIDE1ODggaW4NCj4g
-dGhpcyBkcml2ZXIuIFRoZSBhY3R1YWwgcGFuaWMgSSBnb3Qgd2Fzbid0IG9uIHRoZSBzYW1lIGNv
-ZGUgYXMgY3VycmVudGx5DQo+IGluIHVwc3RyZWFtLiBUaGVyZSBhcmUgYSBsb3Qgb2YgaXNzdWVz
-IHdlJ3JlIGFjdGl2ZWx5IGRlYnVnZ2luZyBub3cuDQo+IEhvd2V2ZXIsIHlvdXIgc3VnZ2VzdGlv
-biBiZWxvdyBkb2VzIHNlZW0gbGlrZSBpdCBzdGlsbCBhcHBsaWVzLg0KPiBIb3BlZnVsbHkgdGhl
-IHRvdGFsIHNldCBvZiBmaXhlcyB3aWxsIGJlIHJlYWR5IHRvIHBvc3Qgc29vbi4NCj4gDQo+ID4g
-Zm0xMGtfdHNfdHhfZW5xdWV1ZSgpIGlzIHJhY3kgYW5kIHNlZW1zIGFsc28gYnVnZ3ksIGZyZWVp
-bmcgd3Jvbmcgc2tiLg0KPiA+IA0KPiA+IENvdWxkIHlvdSB0cnkgOg0KPiA+IA0KPiA+IGRpZmYg
-LS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19wdHAuYw0KPiA+
-IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRwLmMNCj4gPiBpbmRl
-eA0KPiA+IDAyMDA4ZTk3NmQxODZmNzU0NDcwMzQwMDg5ZjM0NGU3ODFlOWJiMDQuLjA3MGQ0ZjBi
-M2MwM2JiMGUzMWUyMTZlYjgyZDAwZjRmZGNiNGVhOWYgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRwLmMNCj4gPiArKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19wdHAuYw0KPiA+IEBAIC03MCwxNiArNzAs
-MTUgQEAgdm9pZCBmbTEwa190c190eF9lbnF1ZXVlKHN0cnVjdCBmbTEwa19pbnRmYw0KPiA+ICpp
-bnRlcmZhY2UsIHN0cnVjdCBza19idWZmICpza2IpDQo+ID4gIAkgKiBpZiBub25lIGFyZSBwcmVz
-ZW50IHRoZW4gaW5zZXJ0IHNrYiBpbiB0YWlsIG9mIGxpc3QNCj4gPiAgCSAqLw0KPiA+ICAJc2ti
-ID0gZm0xMGtfdHNfdHhfc2tiKGludGVyZmFjZSwgRk0xMEtfQ0IoY2xvbmUpLT5maS53LmRnbG9y
-dCk7DQo+ID4gLQlpZiAoIXNrYikNCj4gPiArCWlmICghc2tiKSB7DQo+ID4gKwkJc2tiX3NoaW5m
-byhjbG9uZSktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiA+ICAJCV9fc2tiX3F1
-ZXVlX3RhaWwobGlzdCwgY2xvbmUpOw0KPiA+IC0NCj4gPiArCX0NCj4gPiAgCXNwaW5fdW5sb2Nr
-X2lycXJlc3RvcmUoJmxpc3QtPmxvY2ssIGZsYWdzKTsNCj4gPiAgDQo+ID4gIAkvKiBpZiBsaXN0
-IGlzIGFscmVhZHkgaGFzIG9uZSB0aGVuIHdlIGp1c3QgZnJlZSB0aGUgY2xvbmUgKi8NCj4gPiAg
-CWlmIChza2IpDQo+ID4gLQkJa2ZyZWVfc2tiKHNrYik7DQo+ID4gLQllbHNlDQo+ID4gLQkJc2ti
-X3NoaW5mbyhjbG9uZSktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiA+ICsJCWtm
-cmVlX3NrYihjbG9uZSk7DQo+IA0KPiBTbyBmcmVlIHRoZSBjbG9uZSBpbnN0ZWFkIG9mIHRoZSBv
-cmlnaW5hbD8gSSdtIG5vdCBlbnRpcmVseSBzdXJlIGhvdw0KPiB0aGlzIGNoYW5nZXMgdGhlIGZs
-b3csIGJ1dCBJIHdpbGwgZ2l2ZSB0aGlzIGEgc2hvdC4NCj4gDQo+IFJlZ2FyZHMsDQo+IEpha2UN
-Cj4gDQo+ID4gIH0NCj4gPiAgDQo+ID4gIHZvaWQgZm0xMGtfdHNfdHhfaHd0c3RhbXAoc3RydWN0
-IGZtMTBrX2ludGZjICppbnRlcmZhY2UsIF9fbGUxNiBkZ2xvcnQsDQo+ID4gDQo+ID4gDQo+ID4g
-DQoNClR1cm5zIG91dCB0aGlzIHdhcyBhbHJlYWR5IGFwcGxpZWQgb24gbXkgdGVzdCBvdXQtb2Yt
-dHJlZSBkcml2ZXIgSSBmb3VuZA0KdGhlIHN0YWNrIGR1bXAgb24uIFRoaXMgZG9lcyBuZWVkIHRv
-IGdldCBwb3N0ZWQgdG8gdGhlIGxpc3QsIGJ1dCBpdA0KaXNuJ3QgdGhlIGNhdXNlIG9mIHRoZSBw
-cm9ibGVtLg0KDQpSZWdhcmRzLA0KSmFrZQ0K
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Mon, 13 Apr 2015 15:20:37 +0200
+
+> When a new rtnl or xfrm command is added, this part of the code is frequently
+> missing. Let's help the developer with a build time test.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+Yeah, I like stuff like this.
+
+Applied, thanks!
