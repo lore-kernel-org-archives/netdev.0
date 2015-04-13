@@ -1,58 +1,92 @@
 From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Mon, 13 Apr 2015 23:31:08 +0100
-Message-ID: <1428964268.8341.46.camel@xylophone.i.decadent.org.uk>
-References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
-	 <1427982999.18722.35.camel@xylophone.i.decadent.org.uk>
-	 <552C2849.2080503@cogentembedded.com> <552C3F9C.5070200@gmx.de>
+Subject: Re: [PATCH net 1/4] sh_eth: Ensure proper ordering of descriptor
+ active bit write/read
+Date: Mon, 13 Apr 2015 23:32:02 +0100
+Message-ID: <1428964322.8341.47.camel@xylophone.i.decadent.org.uk>
+References: <1425343868.4288.8.camel@xylophone.i.decadent.org.uk>
+	 <1425343920.4288.9.camel@xylophone.i.decadent.org.uk>
+	 <5526FB5A.8090005@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Cc: netdev@vger.kernel.org, linux-kernel@lists.codethink.co.uk,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:49383 "EHLO
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:49426 "EHLO
 	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751020AbbDMWbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 18:31:20 -0400
-In-Reply-To: <552C3F9C.5070200@gmx.de>
+	with ESMTP id S1751509AbbDMWcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 18:32:08 -0400
+In-Reply-To: <5526FB5A.8090005@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-14 at 00:13 +0200, Lino Sanfilippo wrote:
-> Hi,
+On Fri, 2015-04-10 at 01:21 +0300, Sergei Shtylyov wrote:
+> Hello.
 > 
-> On 13.04.2015 22:34, Sergei Shtylyov wrote:
-> > Hello.
-> > 
-> > On 04/02/2015 04:56 PM, Ben Hutchings wrote:
-> > 
-> >> This driver looks somewhat similar to sh-eth, but lacks some of the
-> >> recent bug fixes made to that.  At least commit 283e38db65e7 ("sh_eth:
-> >> Fix serialisation of interrupt disable with interrupt & NAPI handler")
-> >> appears to be applicable, but there are probably others.
-> > 
-> >     I suspect this issue applies to many drivers...
-> >     I couldn't reproduce the bug that patch was fixing, so left this fix out 
-> > for the time being. Others cases were fixed (if applicable).
+> On 03/03/2015 03:52 AM, Ben Hutchings wrote:
 > 
-> Maybe its just harder to trigger but it indeed looks similar to what Ben
-> has fixed for sh-eth. I wonder if that shutdown flag in the fix is
-> really needed though. IMHO it should be save if we simply call
-> napi_disable first, then disable irqs on hardware and finally
-> synchronize_irq...
+> > When submitting a DMA descriptor, the active bit must be written last.
+> > When reading a completed DMA descriptor, the active bit must be read
+> > first.
+> 
+> > Add memory barriers to ensure that this ordering is maintained.
+> 
+>     Looks like those should have been lighter dma_rmb() and dma_wmb() instead.
 
-In sh_eth: if we call napi_disable() first, EESR_RX_CHECK can still be
-set and nothing will clear it.  If only one CPU is online this can hard
-hang the system.  Please trust that I did consider and rule out the
-simpler approaches first.
-
-I don't have the full documentation for the EtherAVB block, so I don't
-know how its programming model differs from the other Ethernet DMA
-engines.  It's possible that a simpler approach will work in ravb.
+Yes, I think so.  I missed those additions to the DMA API.
 
 Ben.
+
+> Correct, Alexander?
+> 
+> > Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+> > ---
+> >   drivers/net/ethernet/renesas/sh_eth.c |    6 ++++++
+> >   1 file changed, 6 insertions(+)
+> >
+> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> > index 654b48d1e61a..5c212a833bcf 100644
+> > --- a/drivers/net/ethernet/renesas/sh_eth.c
+> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> > @@ -1410,6 +1410,8 @@ static int sh_eth_txfree(struct net_device *ndev)
+> >   		txdesc = &mdp->tx_ring[entry];
+> >   		if (txdesc->status & cpu_to_edmac(mdp, TD_TACT))
+> >   			break;
+> > +		/* TACT bit must be checked before all the following reads */
+> > +		rmb();
+> >   		/* Free the original skb. */
+> >   		if (mdp->tx_skbuff[entry]) {
+> >   			dma_unmap_single(&ndev->dev, txdesc->addr,
+> > @@ -1447,6 +1449,8 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+> >   	limit = boguscnt;
+> >   	rxdesc = &mdp->rx_ring[entry];
+> >   	while (!(rxdesc->status & cpu_to_edmac(mdp, RD_RACT))) {
+> > +		/* RACT bit must be checked before all the following reads */
+> > +		rmb();
+> >   		desc_status = edmac_to_cpu(mdp, rxdesc->status);
+> >   		pkt_len = rxdesc->frame_length;
+> >
+> > @@ -1526,6 +1530,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+> >   			skb_checksum_none_assert(skb);
+> >   			rxdesc->addr = dma_addr;
+> >   		}
+> > +		wmb(); /* RACT bit must be set after all the above writes */
+> >   		if (entry >= mdp->num_rx_ring - 1)
+> >   			rxdesc->status |=
+> >   				cpu_to_edmac(mdp, RD_RACT | RD_RFP | RD_RDEL);
+> > @@ -2195,6 +2200,7 @@ static int sh_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+> >   	}
+> >   	txdesc->buffer_length = skb->len;
+> >
+> > +	wmb(); /* TACT bit must be set after all the above writes */
+> >   	if (entry >= mdp->num_tx_ring - 1)
+> >   		txdesc->status |= cpu_to_edmac(mdp, TD_TACT | TD_TDLE);
+> >   	else
+> 
+> WBR, Sergei
+> 
