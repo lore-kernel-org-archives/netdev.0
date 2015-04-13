@@ -1,48 +1,49 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH v4 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
-Date: Mon, 13 Apr 2015 15:44:49 -0700
-Message-ID: <CAHA+R7N1oPoZBgtF0WOa=aXveT4T=26yfL73Temdp+qWxkxfug@mail.gmail.com>
-References: <CAHA+R7PqC=cfb+WTrBrQjNkio9-bWXX9mX43xcRism4qTNiGog@mail.gmail.com>
-	<5528C4FC.5020207@iogearbox.net>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Tue, 14 Apr 2015 00:53:43 +0200
+Message-ID: <552C48F7.5030901@gmx.de>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>	 <1427982999.18722.35.camel@xylophone.i.decadent.org.uk>	 <552C2849.2080503@cogentembedded.com> <552C3F9C.5070200@gmx.de> <1428964268.8341.46.camel@xylophone.i.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:36324 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751431AbbDMWou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 18:44:50 -0400
-Received: by wizk4 with SMTP id k4so91514858wiz.1
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 15:44:49 -0700 (PDT)
-In-Reply-To: <5528C4FC.5020207@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1428964268.8341.46.camel@xylophone.i.decadent.org.uk>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 10, 2015 at 11:53 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 04/11/2015 02:45 AM, Cong Wang wrote:
-> ...
->>
->> The problem you try to solve is kernel's implementation problem,
->> users should not care, so we should make some effort to make ingress
->> align with egress, rather than making more differences.
->
->
-> I guess you've followed the previous discussion up to this point,
-> and are aware that we cannot break some users f.e. such as u32.
+On 14.04.2015 00:31, Ben Hutchings wrote:
 
-This is not hard to fix, e.g. pull it back in u32 for egress.
+>> >> This driver looks somewhat similar to sh-eth, but lacks some of the
+>> >> recent bug fixes made to that.  At least commit 283e38db65e7 ("sh_eth:
+>> >> Fix serialisation of interrupt disable with interrupt & NAPI handler")
+>> >> appears to be applicable, but there are probably others.
+>> > 
+>> >     I suspect this issue applies to many drivers...
+>> >     I couldn't reproduce the bug that patch was fixing, so left this fix out 
+>> > for the time being. Others cases were fixed (if applicable).
+>> 
+>> Maybe its just harder to trigger but it indeed looks similar to what Ben
+>> has fixed for sh-eth. I wonder if that shutdown flag in the fix is
+>> really needed though. IMHO it should be save if we simply call
+>> napi_disable first, then disable irqs on hardware and finally
+>> synchronize_irq...
+> 
+> In sh_eth: if we call napi_disable() first, EESR_RX_CHECK can still be
+> set and nothing will clear it.  If only one CPU is online this can hard
+> hang the system.  Please trust that I did consider and rule out the
+> simpler approaches first.
+> 
 
-> There has been thought put into this and we went back and forth,
-> if you have a better suggestion on how to get it resolved properly
-> and generically, I'm all for it.
+The idea was to check the return value from napi_schedule_prep() and in
+case it returns "false" use this as an indication for a shutdown. In
+case of sh_eth this would be sh_eth_write(ndev, 0, EESIPR) for example.
 
-My suggestion is fairly simple: move skb_pull() out of eth_type_trans()
-and move it to netif_receive_skb(), it apparently needs much more work
-but it worth the effort. This would eliminate the skb_push() in mirred
-and in ifb too, dev_forward_skb() would benefit too.
+Lino
+
+
