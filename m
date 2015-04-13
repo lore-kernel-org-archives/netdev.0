@@ -1,52 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp/dccp: do not block bh too long in
- inet_twdr_twkill_work()
-Date: Sun, 12 Apr 2015 23:01:29 -0400 (EDT)
-Message-ID: <20150412.230129.1277998183742216856.davem@davemloft.net>
-References: <1428664747.25985.298.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150412.210456.227234180754411318.davem@davemloft.net>
-	<1428889957.25985.377.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48621 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752415AbbDMDBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 23:01:33 -0400
-In-Reply-To: <1428889957.25985.377.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [added to the 3.18 stable tree] net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
+Date: Sun, 12 Apr 2015 23:50:13 -0400
+Message-ID: <1428897014-20652-8-git-send-email-sasha.levin@oracle.com>
+References: <1428897014-20652-1-git-send-email-sasha.levin@oracle.com>
+Cc: Markos Chandras <markos.chandras@imgtec.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Don Fry <pcnet32@frontier.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sasha Levin <sasha.levin@oracle.com>
+To: stable@vger.kernel.org, stable-commits@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1428897014-20652-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 12 Apr 2015 18:52:37 -0700
+From: Markos Chandras <markos.chandras@imgtec.com>
 
-> On Sun, 2015-04-12 at 21:04 -0400, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Fri, 10 Apr 2015 04:19:07 -0700
->> 
->> > From: Eric Dumazet <edumazet@google.com>
->> > 
->> > I have seen inet_twdr_twkill_work() blocking softirq for
->> > periods up to 1.5 seconds, depending on number of timewait sockets.
->> > 
->> > This is an unacceptable source of latency.
->> > 
->> > Note that inet_twdr_do_twkill_work() releases death_lock spinlock
->> > for every tw handled, but does not take care of bh enabling.
->> > 
->> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->> 
->> I think it makes sense to use local_softirq_pending() here rather
->> than flip the lock unconditionally.
-> 
-> I thought about that, but this meant having to test 2 conditions.
-> 
-> Not sure we need this patch anyway, if we merge the 'tcp/dccp: get rid
-> of central timewait timer' in 4.1 
-> 
-> Its not like it is a new bug ...
+This patch has been added to the 3.18 stable tree. If you have any
+objections, please let us know.
 
-Yeah, since 4.0 is out already, probably just pass on this patch.
+===============
+
+[ Upstream commit 87f966d97b89774162df04d2106c6350c8fe4cb3 ]
+
+On a MIPS Malta board, tons of fifo underflow errors have been observed
+when using u-boot as bootloader instead of YAMON. The reason for that
+is that YAMON used to set the pcnet device to SRAM mode but u-boot does
+not. As a result, the default Tx threshold (64 bytes) is now too small to
+keep the fifo relatively used and it can result to Tx fifo underflow errors.
+As a result of which, it's best to setup the SRAM on supported controllers
+so we can always use the NOUFLO bit.
+
+Cc: <netdev@vger.kernel.org>
+Cc: <stable@vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>
+Cc: Don Fry <pcnet32@frontier.com>
+Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ drivers/net/ethernet/amd/pcnet32.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index e2e3aaf..30f088b 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1543,7 +1543,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ {
+ 	struct pcnet32_private *lp;
+ 	int i, media;
+-	int fdx, mii, fset, dxsuflo;
++	int fdx, mii, fset, dxsuflo, sram;
+ 	int chip_version;
+ 	char *chipname;
+ 	struct net_device *dev;
+@@ -1580,7 +1580,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 	}
+ 
+ 	/* initialize variables */
+-	fdx = mii = fset = dxsuflo = 0;
++	fdx = mii = fset = dxsuflo = sram = 0;
+ 	chip_version = (chip_version >> 12) & 0xffff;
+ 
+ 	switch (chip_version) {
+@@ -1613,6 +1613,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		chipname = "PCnet/FAST III 79C973";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2626:
+ 		chipname = "PCnet/Home 79C978";	/* PCI */
+@@ -1636,6 +1637,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		chipname = "PCnet/FAST III 79C975";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2628:
+ 		chipname = "PCnet/PRO 79C976";
+@@ -1664,6 +1666,31 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		dxsuflo = 1;
+ 	}
+ 
++	/*
++	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
++	 * which we can use for the Tx/Rx buffers but most importantly,
++	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
++	 * Tx fifo underflows.
++	 */
++	if (sram) {
++		/*
++		 * The SRAM is being configured in two steps. First we
++		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
++		 * to the datasheet, each bit corresponds to a 512-byte
++		 * page so we can have at most 24 pages. The SRAM_SIZE
++		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
++		 * The low 8-bits start at 0x00 and end at 0xff. So the
++		 * address range is from 0x0000 up to 0x17ff. Therefore,
++		 * the SRAM_SIZE is set to 0x17. The next step is to set
++		 * the BCR26:SRAM_BND midway through so the Tx and Rx
++		 * buffers can share the SRAM equally.
++		 */
++		a->write_bcr(ioaddr, 25, 0x17);
++		a->write_bcr(ioaddr, 26, 0xc);
++		/* And finally enable the NOUFLO bit */
++		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
++	}
++
+ 	dev = alloc_etherdev(sizeof(*lp));
+ 	if (!dev) {
+ 		ret = -ENOMEM;
+-- 
+2.1.0
