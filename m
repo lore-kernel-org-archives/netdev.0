@@ -1,82 +1,87 @@
-From: NeilBrown <neilb@suse.de>
-Subject: [PATCH] hso: fix refcnt leak in recent patch.
-Date: Tue, 14 Apr 2015 09:36:34 +1000
-Message-ID: <20150414093634.4fe24ba3@notabene.brown>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- boundary="Sig_/PYbU3c00gd2=sKDuYNj6pgy"; protocol="application/pgp-signature"
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	GTA04 owners <gta04-owner@goldelico.com>
-To: Olivier Sobrie <olivier@sobrie.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jan Dumon <j.dumon@option.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [PATCH v6 3/9] bgmac: set received skb headroom to NET_SKB_PAD
+Date: Tue, 14 Apr 2015 01:42:11 +0200
+Message-ID: <1428968537-6181-3-git-send-email-nbd@openwrt.org>
+References: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
+Cc: zajec5@gmail.com, hauke@hauke-m.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:53109
+	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752021AbbDMXmV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 19:42:21 -0400
+In-Reply-To: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/PYbU3c00gd2=sKDuYNj6pgy
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+A packet buffer offset of 30 bytes is inefficient, because the first 2
+bytes end up in a different cacheline.
 
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 14 ++++++++------
+ drivers/net/ethernet/broadcom/bgmac.h |  4 +++-
+ 2 files changed, 11 insertions(+), 7 deletions(-)
 
-
-Prior to
-commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-    hso: fix crash when device disappears while serial port is open
-
-hso_serial_open would always kref_get(&serial->parent->ref) before
-returning zero.
-Since that commit, it only calls kref_get when returning 0 if
-serial->port.count was zero.
-
-This results in calls to
-       kref_put(&serial->parent->ref, hso_serial_ref_free);
-
-after hso_serial_ref_free has been called, which dereferences a freed
-pointer.
-
-This patch adds the missing kref_get().
-
-Fixes: commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-Cc: stable@vger.kernel.org (v4.0)
-Cc: Olivier Sobrie <olivier@sobrie.be>
-Signed-off-by: NeilBrown <neilb@suse.de>
-
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 75befc1bd816..6848fc903340 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -1299,6 +1299,7 @@ static int hso_serial_open(struct tty_struct *tty, st=
-ruct file *filp)
- 		}
- 	} else {
- 		D1("Port was already open");
-+		kref_get(&serial->parent->ref);
- 	}
-=20
- 	usb_autopm_put_interface(serial->parent->interface);
-
---Sig_/PYbU3c00gd2=sKDuYNj6pgy
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUBVSxTAjnsnt1WYoG5AQIEOA/+MvJxANmt5k8pIpodsslXNQoiixv43X/E
-yJoZYLice2S+TADLCfT4wO1O/eMHtWMRUQUARI2grLWx2ZUQV5Bka7d2JgxeXv6M
-OTj++3PpquMNmB0TQOD9axPu2f41gvgCz1dex/RaZWjJYstIBimDIE25Vc3keFMO
-w1pEC6CxFRd2NJysOCNz6YtptHoBOuieAem1/jkeT9FgeB/DeStoKWMJ6O+eM+b9
-tYaUcVVoXbL+++G/y4iv5N8zjonC374oz7gfp5ltShX2IRyd5YXZTPGzd7MW5IAF
-PfbECn4qF2qKSLgo8NNbeu5ZWXgj+3AZF9GsZHSbWoV1YqxbQsFxe1S/qI/ZbNvp
-qqBfQPMurUi9xHthckpqRZKpl3y3xwmbMyAiiCNis7hxk8EsPnj/Qzum9WZ4phP5
-/w3MSXa0Q/buDdyI4UxCDOJIbO3aics8H0r5HKk5WyyZGFymbUp+KEy8POlcgTcr
-CyfprrOei4QwTDuk4FdMy2Bk2fTRo0ul6e+vLytF6FpISKQsTjPJsf0wimQQDKWA
-jpufLiHkx9p0OWzC1WcamrLNdx5mg6NmjayA9IMGtKOYgiUUIgwXN8/IPdTe85hZ
-djY24luLKzaRjIsw4HaGl2O74wZi6Gi5mXwYt4FNsF2z13WbAFkDXxKc4l98gla9
-HY4lbiGEhCc=
-=bji5
------END PGP SIGNATURE-----
-
---Sig_/PYbU3c00gd2=sKDuYNj6pgy--
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 30464d0..9a6742e 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -342,13 +342,13 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
+ 		return -ENOMEM;
+ 
+ 	/* Poison - if everything goes fine, hardware will overwrite it */
+-	rx = buf;
++	rx = buf + BGMAC_RX_BUF_OFFSET;
+ 	rx->len = cpu_to_le16(0xdead);
+ 	rx->flags = cpu_to_le16(0xbeef);
+ 
+ 	/* Map skb for the DMA */
+-	dma_addr = dma_map_single(dma_dev, buf, BGMAC_RX_BUF_SIZE,
+-				  DMA_FROM_DEVICE);
++	dma_addr = dma_map_single(dma_dev, buf + BGMAC_RX_BUF_OFFSET,
++				  BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+ 	if (dma_mapping_error(dma_dev, dma_addr)) {
+ 		bgmac_err(bgmac, "DMA mapping error\n");
+ 		put_page(virt_to_head_page(buf));
+@@ -399,7 +399,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 	while (ring->start != ring->end) {
+ 		struct device *dma_dev = bgmac->core->dma_dev;
+ 		struct bgmac_slot_info *slot = &ring->slots[ring->start];
+-		struct bgmac_rx_header *rx = slot->buf;
++		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
+ 		struct sk_buff *skb;
+ 		void *buf = slot->buf;
+ 		u16 len, flags;
+@@ -450,8 +450,10 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+ 
+ 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
+-			skb_put(skb, BGMAC_RX_FRAME_OFFSET + len);
+-			skb_pull(skb, BGMAC_RX_FRAME_OFFSET);
++			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
++				BGMAC_RX_BUF_OFFSET + len);
++			skb_pull(skb, BGMAC_RX_FRAME_OFFSET +
++				 BGMAC_RX_BUF_OFFSET);
+ 
+ 			skb_checksum_none_assert(skb);
+ 			skb->protocol = eth_type_trans(skb, bgmac->net_dev);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index abd50d1..3db0d52 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -360,9 +360,11 @@
+ 
+ #define BGMAC_RX_HEADER_LEN			28		/* Last 24 bytes are unused. Well... */
+ #define BGMAC_RX_FRAME_OFFSET			30		/* There are 2 unused bytes between header and real data */
++#define BGMAC_RX_BUF_OFFSET			(NET_SKB_PAD + NET_IP_ALIGN - \
++						 BGMAC_RX_FRAME_OFFSET)
+ #define BGMAC_RX_MAX_FRAME_SIZE			1536		/* Copied from b44/tg3 */
+ #define BGMAC_RX_BUF_SIZE			(BGMAC_RX_FRAME_OFFSET + BGMAC_RX_MAX_FRAME_SIZE)
+-#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE) + \
++#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE + BGMAC_RX_BUF_OFFSET) + \
+ 						 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ 
+ #define BGMAC_BFL_ENETROBO			0x0010		/* has ephy roboswitch spi */
+-- 
+2.2.2
