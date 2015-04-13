@@ -1,48 +1,32 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: [PATCH net-next v2 0/4] cxgb4: add FCoE DDP and RSS
-Date: Mon, 13 Apr 2015 19:34:22 +0530
-Message-ID: <cover.1428930614.git.varun@chelsio.com>
-Cc: davem@davemloft.net, JBottomley@parallels.com,
-	roland@purestorage.com, leedom@chelsio.com, anish@chelsio.com,
-	hariprasad@chelsio.com, swise@opengridcomputing.com,
-	kxie@chelsio.com, praveenm@chelsio.com, kumaras@chelsio.com,
-	varun@chelsio.com
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-rdma@vger.kernel.org
+From: Pavel Simerda <psimerda@redhat.com>
+Subject: Re: [PATCH 1/7] docs: improve manual pages and help
+Date: Mon, 13 Apr 2015 10:05:03 -0400 (EDT)
+Message-ID: <1262573367.6639782.1428933903615.JavaMail.zimbra@redhat.com>
+References: <1428933570-8137-1-git-send-email-pavlix@pavlix.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: Pavel =?utf-8?Q?=C5=A0imerda?= <pavlix@pavlix.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21515 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754138AbbDMOEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:04:55 -0400
+Received: from mx6-phx2.redhat.com ([209.132.183.39]:57499 "EHLO
+	mx6-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754086AbbDMOFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:05:11 -0400
+In-Reply-To: <1428933570-8137-1-git-send-email-pavlix@pavlix.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series enables RSS for FCoE frames and adds
-DDP support for FCoE target.
+----- Original Message -----
+> Subject: [PATCH 1/7] docs: improve manual pages and help
 
-v2: add patch 1/4 to fix build error "redefinition of 
-    struct ulptx_idata".
+Just started using git-send-email. I see I will still need to learn
+how to persuade it to change the subject line so that it clear that
+the patch is for iproute.
 
-Varun Prakash (4):
-  cxgb4/iw_cxgb4/cxgb4i: remove duplicate definitions
-  cxgb4: add structure and macro definitions for FCoE DDP
-  cxgb4: add DDP support for FCoE target
-  cxgb4: enable RSS for FCoE frames
+All seven patches are fall iproute and they should generally be
+independent of each other.
 
- drivers/infiniband/hw/cxgb4/t4fw_ri_api.h       |    9 -
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.c |  600 +++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_fcoe.h |   54 ++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   47 ++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    7 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |  328 ++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h      |   29 ++
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   64 +++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    8 +
- drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h     |   90 ++++
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h  |    3 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    9 +
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.h              |    5 -
- 15 files changed, 1234 insertions(+), 21 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
+Cheers,
+
+Pavel
