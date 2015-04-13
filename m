@@ -1,63 +1,60 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/4] ipv4: add option to drop unicast encapsulated in L2
- multicast
-Date: Mon, 13 Apr 2015 12:57:16 +0200
-Message-ID: <1428922636.2355.7.camel@sipsolutions.net>
-References: <1428652454-1224-1-git-send-email-johannes@sipsolutions.net>
-	  <alpine.LFD.2.11.1504101445330.1538@ja.home.ssi.bg>
-	 <1428671435.1890.22.camel@sipsolutions.net>
-	 <alpine.LFD.2.11.1504111305440.2449@ja.home.ssi.bg>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH net-next 10/10] ipv6: Create percpu rt6_info
+Date: Mon, 13 Apr 2015 12:59:44 +0200
+Message-ID: <20150413105944.GE8928@secunet.com>
+References: <1428717576-1040383-1-git-send-email-kafai@fb.com>
+ <1428717576-1040383-11-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	matti.gottlieb@intel.com
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	<kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:48852 "EHLO sipsolutions.net"
+Received: from a.mx.secunet.com ([195.81.216.161]:56915 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932246AbbDMK5b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 06:57:31 -0400
-In-Reply-To: <alpine.LFD.2.11.1504111305440.2449@ja.home.ssi.bg>
+	id S1753666AbbDMK7w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2015 06:59:52 -0400
+Content-Disposition: inline
+In-Reply-To: <1428717576-1040383-11-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Julian,
+On Fri, Apr 10, 2015 at 06:59:36PM -0700, Martin KaFai Lau wrote:
 
-> > Hm. I didn't see this in my testing so far, but I only enable this
-> > temporarily, so perhaps by that time it was already done.
-> 
-> 	I didn't tested it myself, may be you can try:
-> 
-> other_host_on_LAN# arp -d patched_box
-> other_host_on_LAN# arping -c 1 -I eth0 patched_box
-> 
-> 	There must be reply for broadcast requests.
+> diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
+> index 2be7bd1..f6598d1 100644
+> --- a/include/uapi/linux/ipv6_route.h
+> +++ b/include/uapi/linux/ipv6_route.h
+> @@ -34,6 +34,7 @@
+>  #define RTF_PREF(pref)	((pref) << 27)
+>  #define RTF_PREF_MASK	0x18000000
+>  
+> +#define RTF_PCPU	0x40000000
 
-Sure; I would have expected this to have broken my network but as I
-said, it was only enabled temporarily.
+This percpu flag is something internal, should IMO not be added
+to the uapi.
 
-> > On the other hand, there's not all that much reason not to put this into
-> > ip_rcv_finish(), we already touch the rt->rt_type there for MIB
-> > counters. I'll look into that.
-> 
-> 	May be in ip_local_deliver_finish because:
-> 
-> - ip_forward() already has PACKET_HOST check.
-> 
-> - for broadcast/multicast dests we do not care
-> 
-> - CLUSTERIP works in LOCAL_IN (after ip_rcv_finish), LOCAL_IN
-> is here: ip_rcv_finish->dst_input->ip_local_deliver->
-> ip_local_deliver_finish
+> @@ -1978,8 +2100,13 @@ static void ip6_rt_copy_init(struct rt6_info *rt,
+>  static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
+>  					   const struct in6_addr *dest)
+>  {
+> -	struct rt6_info *rt = ip6_dst_alloc(dev_net(ort->dst.dev), ort->dst.dev,
+> -					    0, ort->rt6i_table);
+> +	struct rt6_info *rt;
+> +
+> +	if (ort->rt6i_flags & RTF_PCPU)
+> +		ort = (struct rt6_info *)ort->dst.from;
+> +
+> +	rt = __ip6_dst_alloc(dev_net(ort->dst.dev), ort->dst.dev,
+> +			     0, ort->rt6i_table);
 
-It's just that the later this is, the more nervous I get about it being
-really effective. :)
+Why don't you allocate the percpu resources for cached routes?
+I think using ip6_dst_alloc() would be better here, cached routes
+could benefit from this too. And in particular rt6_release() tries
+to free the percpu resources unconditionally when the route is removed
+from the fib tree. This crashes if the percpu resources are not allocated.
 
-I'm willing to discount the CLUSTERIP case, it seems insane to want to
-run CLUSTERIP over wifi on a network that explicitly limits multicast.
+The rest of the patchset looks good.
 
-Other than that, do you see any reason for not putting it in
-ip_rcv_finish()?
-
-johannes
+Thanks!
