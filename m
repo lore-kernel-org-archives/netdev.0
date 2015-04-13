@@ -1,129 +1,71 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ANNOUNCE] iproute2 4.0.0
-Date: Mon, 13 Apr 2015 09:38:58 -0700
-Message-ID: <20150413093858.5dc048e7@urahara>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: kernel WARNING on skb_complete_tx_timestamp
+Date: Mon, 13 Apr 2015 16:41:05 +0000
+Message-ID: <1428943265.28752.18.camel@intel.com>
+References: <02874ECE860811409154E81DA85FBB5857511D7A@ORSMSX115.amr.corp.intel.com>
+	 <1428724826.25985.337.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1428942671.28752.14.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>
+To: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:58817 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932119AbbDMQlH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2015 12:41:07 -0400
+In-Reply-To: <1428942671.28752.14.camel@intel.com>
+Content-Language: en-US
+Content-ID: <83236D6AB0E0554CA55DC9DE92CE98FD@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-4.0 kernel is now released and this is the corresponding iproute2. Ther=
-e are the
-usual array of manual and small bugfixes. A log of the changes have bee=
-n
-around better support of network namespaces, BPF and the ss command.
-
-Source:
-  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.0.0.tar=
-=2Egz
-
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
-
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing=
- list.
-
----
-Alex Pilon (1):
-      Allow specifying bridge port STP state by name rather than number=
-=2E
-
-Andy Gospodarek (1):
-      bridge: drop reference to unused option embedded from manpage
-
-Bryton Lee (1):
-      prevent the read ahead of /proc/slabinfo in ss
-
-Daniel Borkmann (3):
-      ip: route: add congestion control metric
-      m_bpf: remove unrelevant help lines
-      tc: m_bpf: fix next arg selection after tc opcode
-
-Ebben Aries (1):
-      iproute: ip-gue/ip-fou manpages
-
-Eric Dumazet (1):
-      ss: better 32bit support
-
-Hagen Paul Pfeifer (1):
-      ss: group DCTCP socket statistics
-
-Jiri Benc (1):
-      configure: add missing INCLUDE to netnsid detection
-
-Jiri Pirko (2):
-      tc: push bpf common code into separate file
-      tc: add support for BPF based actions
-
-Lennart Sorensen (1):
-      Fix misspelling of defrag in ip-l2tp.8
-
-Mark Einon (1):
-      ip: Make uniform the use of synonyms list, show and lst
-
-Nicolas Dichtel (7):
-      ipnetns: allow to get and set netns ids
-      iplink: add support of IFLA_LINK_NETNSID attribute
-      bridge/fdb: display link netns id
-      ip-monitor: allow to monitor ip rules
-      Revert "configure: add missing INCLUDE to netnsid detection"
-      Revert "ip netns: Fix rtnl error while print netns list"
-      ipnetns: add a runtime check for RTM_GETNSID support
-
-Pavel =C5=A0imerda (1):
-      docs: make spacing consistent
-
-Roopa Prabhu (5):
-      iproute2: bridge: support vlan range adds
-      iproute2: bridge vlan show new option to print ranges
-      bridge link: add support to specify master
-      fix ip -force -batch to continue on errors
-      lib utils: fix family during af_bit_len calculation
-
-Stephen Hemminger (4):
-      update kernel headers to 3.19 net-next
-      update kernel headers based on net-next 3.21
-      update headers to 3.20-rc1
-      v4.0.0
-
-Thomas Graf (1):
-      vxlan: Group policy extension
-
-Vadim Kochan (29):
-      ss: Show stats from specified network namespace
-      ss: Fix filter expression parser
-      ss: Split tcpstap struct to sockstat & tcpstat
-      ss: Replace pktstat struct by new sockstat struct
-      ss: Replace unixstat struct by new sockstat struct
-      ss: Unify state socket output:netid, state, rq, wq
-      ss: Unify details info output:ino,uid,sk
-      ss: Unify socket address output by one generic func
-      ss: Fixed wrong tcp ato value from netlink
-      ip xfrm: Allow to specify "all" option for monitor
-      ip xfrm mon: Add objects list to the usage output
-      ss: Add filter before printing unix stats from Netlink
-      ss: Skip filtered netlink sockets before detailed info
-      man ip-link: Add short info about 'dynamic' flag
-      man ip-link: Add notice about local netns devices
-      man ip-link: Add short description about 'group'
-      man tc: Highlight minor & major, notice they are hex
-      man ip-netns: Notice about loose device when do 'del'
-      ss: Allow to specify sport/dport without ':'
-      lib utils: Use helpers to get AF bit/byte len
-      ip netns: Fix rtnl error while print netns list
-      tc class: Show class names from file
-      man ip-link: Add ip-netns(8) in 'SEE ALSO'
-      man ip-netns: Fix syntax in default ns process, indent's
-      tc class: Ignore if default class name file does not exist
-      man ip-netns: Fix shifted layout at bottom of 'ip netns del'
-      ip-link: Align usage at [link-netns ID] line
-      man ip-link: Add missing link types - vti,ipvlan,nlmon
-      man tc: Add description about class name option
-
-philipp@redfish-solutions.com (1):
-      xfrm: Fix -o (oneline) being broken in xfrm and correct mark radi=
-x
+SGksDQoNCk9uIE1vbiwgMjAxNS0wNC0xMyBhdCAxNjozMSArMDAwMCwgS2VsbGVyLCBKYWNvYiBF
+IHdyb3RlOg0KPiBIaSBFcmljLA0KDQo+ID4gPiBUaGlzIG9jY3VycyBiZWNhdXNlIG9mIHRoZSBX
+QVJOX09OIGluIGtmcmVlX3NrYiB3aGljaCByZXN1bHRzIGZyb20gc29ja19ob2xkKHNrKSBhbmQg
+c29ja19wdXQoc2spDQo+ID4gPiANCj4gPiA+IEkgaGF2ZSBhIGRyaXZlciAoZm0xMGspIHdoaWNo
+IHJlY2VpdmVzIGEgbm90aWZpY2F0aW9uIG9mIFR4IHRpbWVzdGFtcCB2aWEgYW4gSVJRLCBhbmQg
+dGhlbiB3aGVuIEkgY2FsbCBza2JfY29tcGxldGVfdHhfdGltZXN0YW1wIEkgZ2V0IHRoaXMgd2Fy
+bmluZy4gSSBiZWxpZXZlIHRoaXMgaXMgYSByZXN1bHQgb2YgY2FsbGluZyBza19mcmVlLCB3aGlj
+aCB0aGUgZGVzY3JpcHRpb24gKnNheXMqIGlzIG9rIHRvIGNhbGwgaW4gYW55IGNvbnRleHQuLiBi
+dXQgdGhlbiB3ZSBnZXQgdGhpcyB3YXJuaW5nLg0KPiA+ID4gDQo+ID4gPiBJJ20gcmVhbGx5IG5v
+dCBzdXJlIGV4YWN0bHkgaG93IHRoaXMgc2l0dWF0aW9uIG9jY3VycmVkLiBFdmVudHVhbGx5IHdl
+IGNhbGwga2ZyZWVfc2tiKCkgd2hpbGUgd2UgYXJlIGluIGlycSBjb250ZXh0IHdoaWNoIHJlc3Vs
+dHMgaW4gdGhlIHdhcm5pbmcuDQo+ID4gDQo+ID4gQXQgZmlyc3QgbG9vaywgdGhlcmUgYXJlIHNv
+bWUgaXNzdWVzIHdpdGggdGhpcyBkcml2ZXIuDQo+ID4gDQo+IA0KPiBJIHNob3VsZCBjbGFyaWZ5
+IGhlcmUuIEkgYW0gd29ya2luZyBvbiBmaXhpbmcgdGhlIGlzc3VlcyB3aXRoIDE1ODggaW4NCj4g
+dGhpcyBkcml2ZXIuIFRoZSBhY3R1YWwgcGFuaWMgSSBnb3Qgd2Fzbid0IG9uIHRoZSBzYW1lIGNv
+ZGUgYXMgY3VycmVudGx5DQo+IGluIHVwc3RyZWFtLiBUaGVyZSBhcmUgYSBsb3Qgb2YgaXNzdWVz
+IHdlJ3JlIGFjdGl2ZWx5IGRlYnVnZ2luZyBub3cuDQo+IEhvd2V2ZXIsIHlvdXIgc3VnZ2VzdGlv
+biBiZWxvdyBkb2VzIHNlZW0gbGlrZSBpdCBzdGlsbCBhcHBsaWVzLg0KPiBIb3BlZnVsbHkgdGhl
+IHRvdGFsIHNldCBvZiBmaXhlcyB3aWxsIGJlIHJlYWR5IHRvIHBvc3Qgc29vbi4NCj4gDQo+ID4g
+Zm0xMGtfdHNfdHhfZW5xdWV1ZSgpIGlzIHJhY3kgYW5kIHNlZW1zIGFsc28gYnVnZ3ksIGZyZWVp
+bmcgd3Jvbmcgc2tiLg0KPiA+IA0KPiA+IENvdWxkIHlvdSB0cnkgOg0KPiA+IA0KPiA+IGRpZmYg
+LS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19wdHAuYw0KPiA+
+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRwLmMNCj4gPiBpbmRl
+eA0KPiA+IDAyMDA4ZTk3NmQxODZmNzU0NDcwMzQwMDg5ZjM0NGU3ODFlOWJiMDQuLjA3MGQ0ZjBi
+M2MwM2JiMGUzMWUyMTZlYjgyZDAwZjRmZGNiNGVhOWYgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRwLmMNCj4gPiArKysgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9pbnRlbC9mbTEway9mbTEwa19wdHAuYw0KPiA+IEBAIC03MCwxNiArNzAs
+MTUgQEAgdm9pZCBmbTEwa190c190eF9lbnF1ZXVlKHN0cnVjdCBmbTEwa19pbnRmYw0KPiA+ICpp
+bnRlcmZhY2UsIHN0cnVjdCBza19idWZmICpza2IpDQo+ID4gIAkgKiBpZiBub25lIGFyZSBwcmVz
+ZW50IHRoZW4gaW5zZXJ0IHNrYiBpbiB0YWlsIG9mIGxpc3QNCj4gPiAgCSAqLw0KPiA+ICAJc2ti
+ID0gZm0xMGtfdHNfdHhfc2tiKGludGVyZmFjZSwgRk0xMEtfQ0IoY2xvbmUpLT5maS53LmRnbG9y
+dCk7DQo+ID4gLQlpZiAoIXNrYikNCj4gPiArCWlmICghc2tiKSB7DQo+ID4gKwkJc2tiX3NoaW5m
+byhjbG9uZSktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiA+ICAJCV9fc2tiX3F1
+ZXVlX3RhaWwobGlzdCwgY2xvbmUpOw0KPiA+IC0NCj4gPiArCX0NCj4gPiAgCXNwaW5fdW5sb2Nr
+X2lycXJlc3RvcmUoJmxpc3QtPmxvY2ssIGZsYWdzKTsNCj4gPiAgDQo+ID4gIAkvKiBpZiBsaXN0
+IGlzIGFscmVhZHkgaGFzIG9uZSB0aGVuIHdlIGp1c3QgZnJlZSB0aGUgY2xvbmUgKi8NCj4gPiAg
+CWlmIChza2IpDQo+ID4gLQkJa2ZyZWVfc2tiKHNrYik7DQo+ID4gLQllbHNlDQo+ID4gLQkJc2ti
+X3NoaW5mbyhjbG9uZSktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiA+ICsJCWtm
+cmVlX3NrYihjbG9uZSk7DQo+IA0KPiBTbyBmcmVlIHRoZSBjbG9uZSBpbnN0ZWFkIG9mIHRoZSBv
+cmlnaW5hbD8gSSdtIG5vdCBlbnRpcmVseSBzdXJlIGhvdw0KPiB0aGlzIGNoYW5nZXMgdGhlIGZs
+b3csIGJ1dCBJIHdpbGwgZ2l2ZSB0aGlzIGEgc2hvdC4NCj4gDQo+IFJlZ2FyZHMsDQo+IEpha2UN
+Cj4gDQo+ID4gIH0NCj4gPiAgDQo+ID4gIHZvaWQgZm0xMGtfdHNfdHhfaHd0c3RhbXAoc3RydWN0
+IGZtMTBrX2ludGZjICppbnRlcmZhY2UsIF9fbGUxNiBkZ2xvcnQsDQo+ID4gDQo+ID4gDQo+ID4g
+DQoNClR1cm5zIG91dCB0aGlzIHdhcyBhbHJlYWR5IGFwcGxpZWQgb24gbXkgdGVzdCBvdXQtb2Yt
+dHJlZSBkcml2ZXIgSSBmb3VuZA0KdGhlIHN0YWNrIGR1bXAgb24uIFRoaXMgZG9lcyBuZWVkIHRv
+IGdldCBwb3N0ZWQgdG8gdGhlIGxpc3QsIGJ1dCBpdA0KaXNuJ3QgdGhlIGNhdXNlIG9mIHRoZSBw
+cm9ibGVtLg0KDQpSZWdhcmRzLA0KSmFrZQ0K
