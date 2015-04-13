@@ -1,58 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] tcp/dccp: get rid of central timewait timer
-Date: Mon, 13 Apr 2015 16:40:50 -0400 (EDT)
-Message-ID: <20150413.164050.281703475037013729.davem@davemloft.net>
-References: <1428693574.25985.326.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1428889869.25985.375.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] Renesas Ethernet AVB driver
+Date: Mon, 13 Apr 2015 23:49:40 +0300
+Message-ID: <552C2BE4.7010804@cogentembedded.com>
+References: <1453213.DoV6WFn45r@wasted.cogentembedded.com> <20150413.163259.2190743529898270341.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54458 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbbDMUkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 16:40:51 -0400
-In-Reply-To: <1428889869.25985.375.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-7;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	richardcochran@gmail.com, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20150413.163259.2190743529898270341.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 12 Apr 2015 18:51:09 -0700
+Hello.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Using a timer wheel for timewait sockets was nice ~15 years ago when
-> memory was expensive and machines had a single processor.
-> 
-> This does not scale, code is ugly and source of huge latencies
-> (Typically 30 ms have been seen, cpus spinning on death_lock spinlock.)
-> 
-> We can afford to use an extra 64 bytes per timewait sock and spread
-> timewait load to all cpus to have better behavior.
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  v2: removed last inet_twsk_schedule() argument
->      restored original SNMP counters : TW / TWKill
->      fixed a compilation error reported by David
->      Removed the problematic --- markers from ping in changelog
+On 04/13/2015 11:32 PM, David Miller wrote:
 
-Applied, but:
+>> Ethernet AVB includes an Gigabit Ethernet controller (E-MAC) that is=
+ basically
+>> compatible with SuperH Gigabit Ethernet E-MAC). Ethernet AVB  has a =
+dedicated
+>> direct memory access controller (AVB-DMAC) that is a new design comp=
+ared to the
+>> SuperH E-DMAC. The AVB-DMAC is compliant with 3 standards formulated=
+ for IEEE
+>> 802.1BA: IEEE 802.1AS timing and synchronization protocol, IEEE 802.=
+1Qav real-
+>> time transfer, and the IEEE 802.1Qat stream reservation protocol.
 
-> @@ -367,115 +269,15 @@ void inet_twsk_schedule(struct inet_timewait_sock *tw,
->  	 * is greater than TS tick!) and detect old duplicates with help
->  	 * of PAWS.
->  	 */
-> -	slot = (timeo + (1 << INET_TWDR_RECYCLE_TICK) - 1) >> INET_TWDR_RECYCLE_TICK;
->  
-> -	spin_lock(&twdr->death_lock);
-> -
-> -	/* Unlink it, if it was scheduled */
-> -	if (inet_twsk_del_dead_node(tw))
-> -		twdr->tw_count--;
-> -	else
-> +	tw->tw_kill = timeo <= 4*HZ;	
+>> Not only the Ethernet driver is enclosed, there is also the PTP driv=
+er in
+>> the same file.  These drivers only support device tree probing, so t=
+he binding
+>> document is included in this patch.
 
-That last line has trailing whitespace which I removed.
+>> Based on the original patches by Mitsuhiro Kimura (Ethernet driver) =
+and Masaru
+>> Nagai (PTP driver).
+
+>> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
+>> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> Doesn't build properly on x86-64:
+
+>    CC [M]  drivers/net/ethernet/renesas/ravb.o
+> drivers/net/ethernet/renesas/ravb.c: In function =A1ravb_set_buffer_a=
+lign=A2:
+> drivers/net/ethernet/renesas/ravb.c:955:16: warning: cast from pointe=
+r to integer of different size [-Wpointer-to-int-cast]
+>    u32 reserve =3D (u32)skb->data & (RAVB_ALIGN - 1);
+>                  ^
+> drivers/net/ethernet/renesas/ravb.c: At top level:
+> drivers/net/ethernet/renesas/ravb.c:2771:2: error: unknown field =A1g=
+ettime=A2 specified in initializer
+>    .gettime =3D ravb_ptp_gettime,
+>    ^
+> drivers/net/ethernet/renesas/ravb.c:2772:2: error: unknown field =A1s=
+ettime=A2 specified in initializer
+>    .settime =3D ravb_ptp_settime,
+>    ^
+
+    So, timespec64 patches have been merged to net-next... In my haste =
+I just=20
+forgot to compile-test the driver in net-next, sorry about that. :-<
+
+> It is not acceptable to fix this by removing COMPILE_TEST from the Kc=
+onfig
+> dependencies or something like that.
+
+    It's also impossible as the errors themselves don't depend on ARCH.=
+ :-)
+
+> Thanks.
+
+WBR, Sergei
+
