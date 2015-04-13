@@ -1,112 +1,65 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/21] netfilter: nf_tables: kill nft_data_cmp()
-Date: Mon, 13 Apr 2015 21:29:48 +0200
-Message-ID: <1428953401-4838-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/21] uapi: ebtables: don't include linux/if.h
+Date: Mon, 13 Apr 2015 21:29:54 +0200
+Message-ID: <1428953401-4838-16-git-send-email-pablo@netfilter.org>
 References: <1428953401-4838-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39681 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754403AbbDMTZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 15:25:57 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1428953401-4838-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+linux/if.h creates conflicts in userspace with net/if.h
 
-Only needlessly complicates things due to requiring specific argument
-types. Use memcmp directly.
+By using it here we force userspace to use linux/if.h while
+net/if.h may be needed.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Note that:
+
+include/linux/netfilter_ipv4/ip_tables.h and
+include/linux/netfilter_ipv6/ip6_tables.h
+
+don't include linux/if.h and they also refer to IFNAMSIZ, so they are
+expecting userspace to include use net/if.h from the client program.
+
+Signed-off-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |    7 -------
- net/netfilter/nft_cmp.c           |    2 +-
- net/netfilter/nft_hash.c          |    2 +-
- net/netfilter/nft_rbtree.c        |   11 +++++------
- 4 files changed, 7 insertions(+), 15 deletions(-)
+ include/linux/netfilter_bridge/ebtables.h      |    3 ++-
+ include/uapi/linux/netfilter_bridge/ebtables.h |    2 --
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 81cd816..fca0b5d 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -69,13 +69,6 @@ struct nft_regs {
- 	};
- };
+diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
+index 34e7a2b..f1bd396 100644
+--- a/include/linux/netfilter_bridge/ebtables.h
++++ b/include/linux/netfilter_bridge/ebtables.h
+@@ -12,9 +12,10 @@
+ #ifndef __LINUX_BRIDGE_EFF_H
+ #define __LINUX_BRIDGE_EFF_H
  
--static inline int nft_data_cmp(const struct nft_data *d1,
--			       const struct nft_data *d2,
--			       unsigned int len)
--{
--	return memcmp(d1->data, d2->data, len);
--}
++#include <linux/if.h>
++#include <linux/if_ether.h>
+ #include <uapi/linux/netfilter_bridge/ebtables.h>
+ 
 -
- static inline void nft_data_copy(struct nft_data *dst,
- 				 const struct nft_data *src)
- {
-diff --git a/net/netfilter/nft_cmp.c b/net/netfilter/nft_cmp.c
-index 59391e6..b7e1c58 100644
---- a/net/netfilter/nft_cmp.c
-+++ b/net/netfilter/nft_cmp.c
-@@ -31,7 +31,7 @@ static void nft_cmp_eval(const struct nft_expr *expr,
- 	const struct nft_cmp_expr *priv = nft_expr_priv(expr);
- 	int d;
+ /* return values for match() functions */
+ #define EBT_MATCH 0
+ #define EBT_NOMATCH 1
+diff --git a/include/uapi/linux/netfilter_bridge/ebtables.h b/include/uapi/linux/netfilter_bridge/ebtables.h
+index ba99336..773dfe8 100644
+--- a/include/uapi/linux/netfilter_bridge/ebtables.h
++++ b/include/uapi/linux/netfilter_bridge/ebtables.h
+@@ -12,9 +12,7 @@
  
--	d = nft_data_cmp(&regs->data[priv->sreg], &priv->data, priv->len);
-+	d = memcmp(&regs->data[priv->sreg], &priv->data, priv->len);
- 	switch (priv->op) {
- 	case NFT_CMP_EQ:
- 		if (d != 0)
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index b1101f7..26ba4e1 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -62,7 +62,7 @@ static inline int nft_hash_cmp(struct rhashtable_compare_arg *arg,
- 	const struct nft_hash_cmp_arg *x = arg->key;
- 	const struct nft_hash_elem *he = ptr;
+ #ifndef _UAPI__LINUX_BRIDGE_EFF_H
+ #define _UAPI__LINUX_BRIDGE_EFF_H
+-#include <linux/if.h>
+ #include <linux/netfilter_bridge.h>
+-#include <linux/if_ether.h>
  
--	if (nft_data_cmp(nft_set_ext_key(&he->ext), x->key, x->set->klen))
-+	if (memcmp(nft_set_ext_key(&he->ext), x->key, x->set->klen))
- 		return 1;
- 	if (nft_set_elem_expired(&he->ext))
- 		return 1;
-diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
-index 42d0ca4..b398f1a 100644
---- a/net/netfilter/nft_rbtree.c
-+++ b/net/netfilter/nft_rbtree.c
-@@ -45,7 +45,7 @@ static bool nft_rbtree_lookup(const struct nft_set *set,
- 	while (parent != NULL) {
- 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
- 
--		d = nft_data_cmp(nft_set_ext_key(&rbe->ext), key, set->klen);
-+		d = memcmp(nft_set_ext_key(&rbe->ext), key, set->klen);
- 		if (d < 0) {
- 			parent = parent->rb_left;
- 			interval = rbe;
-@@ -91,9 +91,9 @@ static int __nft_rbtree_insert(const struct nft_set *set,
- 	while (*p != NULL) {
- 		parent = *p;
- 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
--		d = nft_data_cmp(nft_set_ext_key(&rbe->ext),
--				 nft_set_ext_key(&new->ext),
--				 set->klen);
-+		d = memcmp(nft_set_ext_key(&rbe->ext),
-+			   nft_set_ext_key(&new->ext),
-+			   set->klen);
- 		if (d < 0)
- 			p = &parent->rb_left;
- 		else if (d > 0)
-@@ -153,8 +153,7 @@ static void *nft_rbtree_deactivate(const struct nft_set *set,
- 	while (parent != NULL) {
- 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
- 
--		d = nft_data_cmp(nft_set_ext_key(&rbe->ext), &elem->key,
--				 set->klen);
-+		d = memcmp(nft_set_ext_key(&rbe->ext), &elem->key, set->klen);
- 		if (d < 0)
- 			parent = parent->rb_left;
- 		else if (d > 0)
+ #define EBT_TABLE_MAXNAMELEN 32
+ #define EBT_CHAIN_MAXNAMELEN EBT_TABLE_MAXNAMELEN
 -- 
 1.7.10.4
+
