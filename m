@@ -1,153 +1,107 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v4 9/9] bgmac: drop ring->num_slots
-Date: Mon, 13 Apr 2015 15:52:42 +0200
-Message-ID: <1428933162-26763-9-git-send-email-nbd@openwrt.org>
+Subject: [PATCH v4 2/9] bgmac: leave interrupts disabled as long as there is work to do
+Date: Mon, 13 Apr 2015 15:52:35 +0200
+Message-ID: <1428933162-26763-2-git-send-email-nbd@openwrt.org>
 References: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51322
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51314
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753652AbbDMNwr (ORCPT
+	with ESMTP id S1753591AbbDMNwr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 09:52:47 -0400
 In-Reply-To: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ring size is always known at compile time, so make the code a bit
-more efficient
+Always poll rx and tx during NAPI poll instead of relying on the status
+of the first interrupt. This prevents bgmac_poll from leaving unfinished
+work around until the next IRQ.
+In my tests this makes bridging/routing throughput under heavy load more
+stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
+the entire budget.
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 27 ++++++++++++++-------------
- drivers/net/ethernet/broadcom/bgmac.h |  3 +--
- 2 files changed, 15 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c | 31 ++++++++++---------------------
+ drivers/net/ethernet/broadcom/bgmac.h |  1 -
+ 2 files changed, 10 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index baedbb9..f5cc61d 100644
+index 73374b4..66876c5 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -123,7 +123,7 @@ bgmac_dma_tx_add_buf(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 	struct bgmac_dma_desc *dma_desc;
- 	u32 ctl1;
+@@ -1105,8 +1105,6 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	bgmac_phy_init(bgmac);
  
--	if (i == ring->num_slots - 1)
-+	if (i == BGMAC_TX_RING_SLOTS - 1)
- 		ctl0 |= BGMAC_DESC_CTL0_EOT;
- 
- 	ctl1 = len & BGMAC_DESC_CTL1_LEN;
-@@ -378,7 +378,7 @@ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
- 	struct bgmac_dma_desc *dma_desc = ring->cpu_base + desc_idx;
- 	u32 ctl0 = 0, ctl1 = 0;
- 
--	if (desc_idx == ring->num_slots - 1)
-+	if (desc_idx == BGMAC_RX_RING_SLOTS - 1)
- 		ctl0 |= BGMAC_DESC_CTL0_EOT;
- 	ctl1 |= BGMAC_RX_BUF_SIZE & BGMAC_DESC_CTL1_LEN;
- 	/* Is there any BGMAC device that requires extension? */
-@@ -508,7 +508,7 @@ static void bgmac_dma_tx_ring_free(struct bgmac *bgmac,
- 	struct bgmac_slot_info *slot;
- 	int i;
- 
--	for (i = 0; i < ring->num_slots; i++) {
-+	for (i = 0; i < BGMAC_TX_RING_SLOTS; i++) {
- 		int len = dma_desc[i].ctl1 & BGMAC_DESC_CTL1_LEN;
- 
- 		slot = &ring->slots[i];
-@@ -533,7 +533,7 @@ static void bgmac_dma_rx_ring_free(struct bgmac *bgmac,
- 	struct bgmac_slot_info *slot;
- 	int i;
- 
--	for (i = 0; i < ring->num_slots; i++) {
-+	for (i = 0; i < BGMAC_RX_RING_SLOTS; i++) {
- 		slot = &ring->slots[i];
- 		if (!slot->buf)
- 			continue;
-@@ -547,7 +547,8 @@ static void bgmac_dma_rx_ring_free(struct bgmac *bgmac,
+ 	netdev_reset_queue(bgmac->net_dev);
+-
+-	bgmac->int_status = 0;
  }
  
- static void bgmac_dma_ring_desc_free(struct bgmac *bgmac,
--				     struct bgmac_dma_ring *ring)
-+				     struct bgmac_dma_ring *ring,
-+				     int num_slots)
+ static void bgmac_chip_intrs_on(struct bgmac *bgmac)
+@@ -1221,14 +1219,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ 	if (!int_status)
+ 		return IRQ_NONE;
+ 
+-	/* Ack */
+-	bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
++	int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
++	if (int_status)
++		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
+ 
+ 	/* Disable new interrupts until handling existing ones */
+ 	bgmac_chip_intrs_off(bgmac);
+ 
+-	bgmac->int_status = int_status;
+-
+ 	napi_schedule(&bgmac->napi);
+ 
+ 	return IRQ_HANDLED;
+@@ -1237,25 +1234,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ static int bgmac_poll(struct napi_struct *napi, int weight)
  {
- 	struct device *dma_dev = bgmac->core->dma_dev;
- 	int size;
-@@ -556,7 +557,7 @@ static void bgmac_dma_ring_desc_free(struct bgmac *bgmac,
- 	    return;
+ 	struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
+-	struct bgmac_dma_ring *ring;
+ 	int handled = 0;
  
- 	/* Free ring of descriptors */
--	size = ring->num_slots * sizeof(struct bgmac_dma_desc);
-+	size = num_slots * sizeof(struct bgmac_dma_desc);
- 	dma_free_coherent(dma_dev, size, ring->cpu_base,
- 			  ring->dma_base);
- }
-@@ -577,10 +578,12 @@ static void bgmac_dma_free(struct bgmac *bgmac)
- 	int i;
+-	if (bgmac->int_status & BGMAC_IS_TX0) {
+-		ring = &bgmac->tx_ring[0];
+-		bgmac_dma_tx_free(bgmac, ring);
+-		bgmac->int_status &= ~BGMAC_IS_TX0;
+-	}
++	/* Ack */
++	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
  
- 	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
--		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
-+		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i],
-+					 BGMAC_TX_RING_SLOTS);
+-	if (bgmac->int_status & BGMAC_IS_RX) {
+-		ring = &bgmac->rx_ring[0];
+-		handled += bgmac_dma_rx_read(bgmac, ring, weight);
+-		bgmac->int_status &= ~BGMAC_IS_RX;
+-	}
++	bgmac_dma_tx_free(bgmac, &bgmac->tx_ring[0]);
++	handled += bgmac_dma_rx_read(bgmac, &bgmac->rx_ring[0], weight);
  
- 	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
--		bgmac_dma_ring_desc_free(bgmac, &bgmac->rx_ring[i]);
-+		bgmac_dma_ring_desc_free(bgmac, &bgmac->rx_ring[i],
-+					 BGMAC_RX_RING_SLOTS);
- }
+-	if (bgmac->int_status) {
+-		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", bgmac->int_status);
+-		bgmac->int_status = 0;
+-	}
++	/* poll again if more events arrived in the mean time */
++	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
++		return handled;
  
- static int bgmac_dma_alloc(struct bgmac *bgmac)
-@@ -603,11 +606,10 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
- 
- 	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
- 		ring = &bgmac->tx_ring[i];
--		ring->num_slots = BGMAC_TX_RING_SLOTS;
- 		ring->mmio_base = ring_base[i];
- 
- 		/* Alloc ring of descriptors */
--		size = ring->num_slots * sizeof(struct bgmac_dma_desc);
-+		size = BGMAC_TX_RING_SLOTS * sizeof(struct bgmac_dma_desc);
- 		ring->cpu_base = dma_zalloc_coherent(dma_dev, size,
- 						     &ring->dma_base,
- 						     GFP_KERNEL);
-@@ -629,11 +631,10 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
- 
- 	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
- 		ring = &bgmac->rx_ring[i];
--		ring->num_slots = BGMAC_RX_RING_SLOTS;
- 		ring->mmio_base = ring_base[i];
- 
- 		/* Alloc ring of descriptors */
--		size = ring->num_slots * sizeof(struct bgmac_dma_desc);
-+		size = BGMAC_RX_RING_SLOTS * sizeof(struct bgmac_dma_desc);
- 		ring->cpu_base = dma_zalloc_coherent(dma_dev, size,
- 						     &ring->dma_base,
- 						     GFP_KERNEL);
-@@ -696,7 +697,7 @@ static int bgmac_dma_init(struct bgmac *bgmac)
- 
- 		ring->start = 0;
- 		ring->end = 0;
--		for (j = 0; j < ring->num_slots; j++) {
-+		for (j = 0; j < BGMAC_RX_RING_SLOTS; j++) {
- 			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
- 			if (err)
- 				return err;
+ 	if (handled < weight) {
+ 		napi_complete(napi);
 diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index e45e303..db27feb 100644
+index 5a198d5..abd50d1 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.h
 +++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -419,11 +419,10 @@ struct bgmac_dma_ring {
- 	u32 start;
- 	u32 end;
+@@ -452,7 +452,6 @@ struct bgmac {
  
--	u16 num_slots;
--	u16 mmio_base;
- 	struct bgmac_dma_desc *cpu_base;
- 	dma_addr_t dma_base;
- 	u32 index_base; /* Used for unaligned rings only, otherwise 0 */
-+	u16 mmio_base;
- 	bool unaligned;
+ 	/* Int */
+ 	u32 int_mask;
+-	u32 int_status;
  
- 	struct bgmac_slot_info slots[BGMAC_RX_RING_SLOTS];
+ 	/* Current MAC state */
+ 	int mac_speed;
 -- 
 2.2.2
