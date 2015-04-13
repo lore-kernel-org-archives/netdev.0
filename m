@@ -1,112 +1,78 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/21] netfilter: nf_tables: convert sets to u32 data pointers
-Date: Mon, 13 Apr 2015 21:29:49 +0200
-Message-ID: <1428953401-4838-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/21] netfilter: nft_lookup: use nft_validate_register_store() to validate types
+Date: Mon, 13 Apr 2015 21:29:42 +0200
+Message-ID: <1428953401-4838-4-git-send-email-pablo@netfilter.org>
 References: <1428953401-4838-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39689 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:39655 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754577AbbDMTZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 15:25:58 -0400
+	id S1751618AbbDMTZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2015 15:25:52 -0400
 In-Reply-To: <1428953401-4838-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-Simple conversion to use u32 pointers to the beginning of the data
-area to keep follow up patches smaller.
+In preparation of validating the length of a register store, use
+nft_validate_register_store() in nft_lookup instead of open coding the
+validation.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h |    4 ++--
- net/netfilter/nft_hash.c          |   11 +++++------
- net/netfilter/nft_rbtree.c        |    3 +--
- 3 files changed, 8 insertions(+), 10 deletions(-)
+ net/netfilter/nf_tables_api.c |    7 ++++---
+ net/netfilter/nft_lookup.c    |    9 ++++-----
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index fca0b5d..efcf46d 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -231,10 +231,10 @@ struct nft_expr;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index a1e4a92..c96070e 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -4169,7 +4169,7 @@ EXPORT_SYMBOL_GPL(nft_validate_output_register);
+  * 	Validate that a data load uses the appropriate data type for
+  * 	the destination register and the length is within the bounds.
+  * 	A value of NULL for the data means that its runtime gathered
+- * 	data, which is always of type NFT_DATA_VALUE.
++ * 	data.
   */
- struct nft_set_ops {
- 	bool				(*lookup)(const struct nft_set *set,
--						  const struct nft_data *key,
-+						  const u32 *key,
- 						  const struct nft_set_ext **ext);
- 	bool				(*update)(struct nft_set *set,
--						  const struct nft_data *key,
-+						  const u32 *key,
- 						  void *(*new)(struct nft_set *,
- 							       const struct nft_expr *,
- 							       struct nft_regs *),
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 26ba4e1..767df41 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -36,7 +36,7 @@ struct nft_hash_elem {
+ int nft_validate_register_store(const struct nft_ctx *ctx,
+ 				enum nft_registers reg,
+@@ -4180,10 +4180,11 @@ int nft_validate_register_store(const struct nft_ctx *ctx,
  
- struct nft_hash_cmp_arg {
- 	const struct nft_set		*set;
--	const struct nft_data		*key;
-+	const u32			*key;
- 	u8				genmask;
- };
+ 	switch (reg) {
+ 	case NFT_REG_VERDICT:
+-		if (data == NULL || type != NFT_DATA_VERDICT)
++		if (type != NFT_DATA_VERDICT)
+ 			return -EINVAL;
  
-@@ -71,8 +71,7 @@ static inline int nft_hash_cmp(struct rhashtable_compare_arg *arg,
- 	return 0;
- }
+-		if (data->verdict == NFT_GOTO || data->verdict == NFT_JUMP) {
++		if (data != NULL &&
++		    (data->verdict == NFT_GOTO || data->verdict == NFT_JUMP)) {
+ 			err = nf_tables_check_loops(ctx, data->chain);
+ 			if (err < 0)
+ 				return err;
+diff --git a/net/netfilter/nft_lookup.c b/net/netfilter/nft_lookup.c
+index d8cf86f..3e4d8ef 100644
+--- a/net/netfilter/nft_lookup.c
++++ b/net/netfilter/nft_lookup.c
+@@ -84,11 +84,10 @@ static int nft_lookup_init(const struct nft_ctx *ctx,
+ 		if (err < 0)
+ 			return err;
  
--static bool nft_hash_lookup(const struct nft_set *set,
--			    const struct nft_data *key,
-+static bool nft_hash_lookup(const struct nft_set *set, const u32 *key,
- 			    const struct nft_set_ext **ext)
- {
- 	struct nft_hash *priv = nft_set_priv(set);
-@@ -90,7 +89,7 @@ static bool nft_hash_lookup(const struct nft_set *set,
- 	return !!he;
- }
+-		if (priv->dreg == NFT_REG_VERDICT) {
+-			if (set->dtype != NFT_DATA_VERDICT)
+-				return -EINVAL;
+-		} else if (set->dtype == NFT_DATA_VERDICT)
+-			return -EINVAL;
++		err = nft_validate_register_store(ctx, priv->dreg, NULL,
++						  set->dtype, set->dlen);
++		if (err < 0)
++			return err;
+ 	} else if (set->flags & NFT_SET_MAP)
+ 		return -EINVAL;
  
--static bool nft_hash_update(struct nft_set *set, const struct nft_data *key,
-+static bool nft_hash_update(struct nft_set *set, const u32 *key,
- 			    void *(*new)(struct nft_set *,
- 					 const struct nft_expr *,
- 					 struct nft_regs *regs),
-@@ -134,7 +133,7 @@ static int nft_hash_insert(const struct nft_set *set,
- 	struct nft_hash_cmp_arg arg = {
- 		.genmask = nft_genmask_next(read_pnet(&set->pnet)),
- 		.set	 = set,
--		.key	 = &elem->key,
-+		.key	 = elem->key.data,
- 	};
- 
- 	return rhashtable_lookup_insert_key(&priv->ht, &arg, &he->node,
-@@ -158,7 +157,7 @@ static void *nft_hash_deactivate(const struct nft_set *set,
- 	struct nft_hash_cmp_arg arg = {
- 		.genmask = nft_genmask_next(read_pnet(&set->pnet)),
- 		.set	 = set,
--		.key	 = &elem->key,
-+		.key	 = elem->key.data,
- 	};
- 
- 	rcu_read_lock();
-diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
-index b398f1a..b888e0c 100644
---- a/net/netfilter/nft_rbtree.c
-+++ b/net/netfilter/nft_rbtree.c
-@@ -30,8 +30,7 @@ struct nft_rbtree_elem {
- };
- 
- 
--static bool nft_rbtree_lookup(const struct nft_set *set,
--			      const struct nft_data *key,
-+static bool nft_rbtree_lookup(const struct nft_set *set, const u32 *key,
- 			      const struct nft_set_ext **ext)
- {
- 	const struct nft_rbtree *priv = nft_set_priv(set);
 -- 
 1.7.10.4
