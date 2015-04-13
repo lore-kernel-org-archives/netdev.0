@@ -1,35 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211-next 2015-04-10
-Date: Sun, 12 Apr 2015 20:44:15 -0400 (EDT)
-Message-ID: <20150412.204415.314629315160918556.davem@davemloft.net>
-References: <1428664738.1890.12.camel@sipsolutions.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch net-next v3] tc: introduce OpenFlow classifier
+Date: Sun, 12 Apr 2015 18:03:43 -0700
+Message-ID: <20150413010342.GA1672@Alexeis-MBP.westell.com>
+References: <20150412075351.GA2112@nanopsycho.orion>
+ <20150412.194443.1571071793033525091.davem@davemloft.net>
+ <20150413001212.GA1656@Alexeis-MBP.westell.com>
+ <20150412.203618.86474109049619893.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset=us-ascii
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, jhs@mojatatu.com,
+	tgraf@suug.ch, jesse@nicira.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48083 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbbDMAoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 20:44:17 -0400
-In-Reply-To: <1428664738.1890.12.camel@sipsolutions.net>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:34169 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752748AbbDMBDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 21:03:48 -0400
+Received: by pdbqa5 with SMTP id qa5so89139597pdb.1
+        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 18:03:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150412.203618.86474109049619893.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 10 Apr 2015 13:18:58 +0200
-
-> I realize it's late, but what I've got right now has so many fixes that
-> I'd be sending even after the merge window, so it felt like there was
-> little point in holding it up until after then. The new "intermediate
-> queue" feature is unused right now so seems safe enough also, and having
-> it in will help modify drivers to use it.
-> There's also some rate control refactoring that, as far as I can tell,
-> is uncontroversial and over the last couple of weeks has been has been
-> reviewed and tested by people who use it, so I'm including it.
+On Sun, Apr 12, 2015 at 08:36:18PM -0400, David Miller wrote:
 > 
-> Let me know if you want me to change anything here or if there are any
-> other problems.
+> It's easy to parameterize what flow dissector does and share code.
 
-Pulled, thanks Johannes.
+yes. Though I wouldn't pessimize ixgbe rx path even by single
+cycle to accommodate openflow spec. As far as I understand the
+skb_flow_dissect() job from driver point of view is to figure
+out header length for copybreak, which includes parsing encaps,
+whereas openflow stops at outer header. Even with this difference,
+it surely can be parameterized. Would be great to share if it
+doesn't cost rx anything.
