@@ -1,33 +1,188 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [FYI] xfrm: Don't lookup sk_policy for timewait sockets
-Date: Mon, 13 Apr 2015 13:25:28 -0400 (EDT)
-Message-ID: <20150413.132528.1354503140185630054.davem@davemloft.net>
-References: <1428912255.6534.5.camel@googlemail.com>
-	<1428937760.6534.23.camel@googlemail.com>
-	<1428939544.3834.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sebastian.poehn@gmail.com, netdev@vger.kernel.org, fw@strlen.de
-To: eric.dumazet@gmail.com
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [PATCH v5 7/9] bgmac: simplify dma init/cleanup
+Date: Mon, 13 Apr 2015 19:27:45 +0200
+Message-ID: <1428946067-75650-7-git-send-email-nbd@openwrt.org>
+References: <1428946067-75650-1-git-send-email-nbd@openwrt.org>
+Cc: zajec5@gmail.com, hauke@hauke-m.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53013 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932348AbbDMRZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:25:30 -0400
-In-Reply-To: <1428939544.3834.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51993
+	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754240AbbDMR1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:27:51 -0400
+In-Reply-To: <1428946067-75650-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 13 Apr 2015 08:39:04 -0700
+Instead of allocating buffers at device init time and initializing
+descriptors at device open, do both at the same time (during open).
+Free all buffers when closing the device.
 
-> On Mon, 2015-04-13 at 17:09 +0200, Sebastian Poehn wrote:
-> 
->> Principally the problem is that TPROXY cannot ensure that policy routing is
->> working correctly. Florian suggested me to clean skb->sk in ip_forward. I even think
->> dropping the frame is fine. Not sure if this is suited for mainline.
-> 
-> No objections from me, this looks very reasonable.
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 69 +++++++++++++++++------------------
+ 1 file changed, 34 insertions(+), 35 deletions(-)
 
-Someone please submit this to me formally.
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index eca063d..457eac8 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -545,18 +545,26 @@ static void bgmac_dma_ring_desc_free(struct bgmac *bgmac,
+ 			  ring->dma_base);
+ }
+ 
+-static void bgmac_dma_free(struct bgmac *bgmac)
++static void bgmac_dma_cleanup(struct bgmac *bgmac)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
++	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
+ 		bgmac_dma_tx_ring_free(bgmac, &bgmac->tx_ring[i]);
+-		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
+-	}
+-	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
++
++	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
+ 		bgmac_dma_rx_ring_free(bgmac, &bgmac->rx_ring[i]);
++}
++
++static void bgmac_dma_free(struct bgmac *bgmac)
++{
++	int i;
++
++	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
++		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
++
++	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
+ 		bgmac_dma_ring_desc_free(bgmac, &bgmac->rx_ring[i]);
+-	}
+ }
+ 
+ static int bgmac_dma_alloc(struct bgmac *bgmac)
+@@ -604,8 +612,6 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
+ 	}
+ 
+ 	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
+-		int j;
+-
+ 		ring = &bgmac->rx_ring[i];
+ 		ring->num_slots = BGMAC_RX_RING_SLOTS;
+ 		ring->mmio_base = ring_base[i];
+@@ -628,15 +634,6 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
+ 			ring->index_base = lower_32_bits(ring->dma_base);
+ 		else
+ 			ring->index_base = 0;
+-
+-		/* Alloc RX slots */
+-		for (j = 0; j < ring->num_slots; j++) {
+-			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
+-			if (err) {
+-				bgmac_err(bgmac, "Can't allocate skb for slot in RX ring\n");
+-				goto err_dma_free;
+-			}
+-		}
+ 	}
+ 
+ 	return 0;
+@@ -646,10 +643,10 @@ err_dma_free:
+ 	return -ENOMEM;
+ }
+ 
+-static void bgmac_dma_init(struct bgmac *bgmac)
++static int bgmac_dma_init(struct bgmac *bgmac)
+ {
+ 	struct bgmac_dma_ring *ring;
+-	int i;
++	int i, err;
+ 
+ 	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
+ 		ring = &bgmac->tx_ring[i];
+@@ -681,8 +678,13 @@ static void bgmac_dma_init(struct bgmac *bgmac)
+ 		if (ring->unaligned)
+ 			bgmac_dma_rx_enable(bgmac, ring);
+ 
+-		for (j = 0; j < ring->num_slots; j++)
++		for (j = 0; j < ring->num_slots; j++) {
++			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
++			if (err)
++				return err;
++
+ 			bgmac_dma_rx_setup_desc(bgmac, ring, j);
++		}
+ 
+ 		bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
+ 			    ring->index_base +
+@@ -691,6 +693,8 @@ static void bgmac_dma_init(struct bgmac *bgmac)
+ 		ring->start = 0;
+ 		ring->end = 0;
+ 	}
++
++	return 0;
+ }
+ 
+ /**************************************************
+@@ -1166,11 +1170,8 @@ static void bgmac_enable(struct bgmac *bgmac)
+ }
+ 
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
+-static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
++static void bgmac_chip_init(struct bgmac *bgmac)
+ {
+-	struct bgmac_dma_ring *ring;
+-	int i;
+-
+ 	/* 1 interrupt per received frame */
+ 	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
+ 
+@@ -1188,16 +1189,7 @@ static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
+ 
+ 	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + ETHER_MAX_LEN);
+ 
+-	if (full_init) {
+-		bgmac_dma_init(bgmac);
+-		if (1) /* FIXME: is there any case we don't want IRQs? */
+-			bgmac_chip_intrs_on(bgmac);
+-	} else {
+-		for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
+-			ring = &bgmac->rx_ring[i];
+-			bgmac_dma_rx_enable(bgmac, ring);
+-		}
+-	}
++	bgmac_chip_intrs_on(bgmac);
+ 
+ 	bgmac_enable(bgmac);
+ }
+@@ -1257,8 +1249,13 @@ static int bgmac_open(struct net_device *net_dev)
+ 	int err = 0;
+ 
+ 	bgmac_chip_reset(bgmac);
++
++	err = bgmac_dma_init(bgmac);
++	if (err)
++		goto err_out;
++
+ 	/* Specs say about reclaiming rings here, but we do that in DMA init */
+-	bgmac_chip_init(bgmac, true);
++	bgmac_chip_init(bgmac);
+ 
+ 	err = request_irq(bgmac->core->irq, bgmac_interrupt, IRQF_SHARED,
+ 			  KBUILD_MODNAME, net_dev);
+@@ -1273,6 +1270,7 @@ static int bgmac_open(struct net_device *net_dev)
+ 	netif_carrier_on(net_dev);
+ 
+ err_out:
++	bgmac_dma_cleanup(bgmac);
+ 	return err;
+ }
+ 
+@@ -1289,6 +1287,7 @@ static int bgmac_stop(struct net_device *net_dev)
+ 	free_irq(bgmac->core->irq, net_dev);
+ 
+ 	bgmac_chip_reset(bgmac);
++	bgmac_dma_cleanup(bgmac);
+ 
+ 	return 0;
+ }
+-- 
+2.2.2
