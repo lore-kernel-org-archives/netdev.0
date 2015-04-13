@@ -1,49 +1,45 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [patch 4/5] net: hip04: Make tx coalesce timer actually work
-Date: Tue, 14 Apr 2015 00:08:23 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1504140007570.3845@nanos>
-References: <20150413210009.682000343@linutronix.de> <9614284.QjZ4xls6zV@wuerfel> <alpine.DEB.2.11.1504132338080.3845@nanos> <3040901.Bp3bfgc1te@wuerfel>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Tue, 14 Apr 2015 00:13:48 +0200
+Message-ID: <552C3F9C.5070200@gmx.de>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com> <1427982999.18722.35.camel@xylophone.i.decadent.org.uk> <552C2849.2080503@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3040901.Bp3bfgc1te@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Ben Hutchings <ben.hutchings@codethink.co.uk>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <552C2849.2080503@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Apr 2015, Arnd Bergmann wrote:
-> On Monday 13 April 2015 23:42:03 Thomas Gleixner wrote:
-> > > 
-> > > Question: this looks to me like it sets both the minimum and maximum
-> > > time to priv->tx_coalesce_usecs/2, when the intention was to set
-> > > the minimum to priv->tx_coalesce_usecs/2 and the maximum to
-> > > priv->tx_coalesce_usecs. Am I missing something subtle here, or did
-> > > you just misread my original intention from the botched code?
-> > 
-> > Yes, I missed that. Simple fix for this is:
-> > 
-> >   unsigned long t_ns = priv->tx_coalesce_usecs * NSEC_PER_USEC / 2;
-> >   
-> >   hrtimer_start_range_ns(&priv->tx_coalesce_timer, ns_to_ktime(t_ns),
-> >                          t_ns, HRTIMER_MODE_REL);
+Hi,
+
+On 13.04.2015 22:34, Sergei Shtylyov wrote:
+> Hello.
 > 
-> Ah, good. I have to admit that I'd probably make the same mistake
-> again if I was to do this for another driver and you hadn't sent
-> the fix. The hrtimer_set_expires_range() function just looked like
-> it had been designed for the use case I was interested in ;-).
+> On 04/02/2015 04:56 PM, Ben Hutchings wrote:
 > 
-> Any idea how to prevent the next person from making the same mistake?
+>> This driver looks somewhat similar to sh-eth, but lacks some of the
+>> recent bug fixes made to that.  At least commit 283e38db65e7 ("sh_eth:
+>> Fix serialisation of interrupt disable with interrupt & NAPI handler")
+>> appears to be applicable, but there are probably others.
+> 
+>     I suspect this issue applies to many drivers...
+>     I couldn't reproduce the bug that patch was fixing, so left this fix out 
+> for the time being. Others cases were fixed (if applicable).
 
-Yes. Documentation :)
+Maybe its just harder to trigger but it indeed looks similar to what Ben
+has fixed for sh-eth. I wonder if that shutdown flag in the fix is
+really needed though. IMHO it should be save if we simply call
+napi_disable first, then disable irqs on hardware and finally
+synchronize_irq...
 
-Thanks,
+Lino
 
-	tglx
+
+
