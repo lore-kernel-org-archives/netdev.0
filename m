@@ -1,58 +1,25 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: Looking for extensible kernel database format
-Date: Mon, 13 Apr 2015 11:09:21 -0700
-Message-ID: <CAB=NE6Uf9dtFKexFq=k+RYFZWqSCdKT68bpdAEbHsaUofjpSJQ@mail.gmail.com>
-References: <CAB=NE6W4Q2ngB6CF8pG=OV6=q+9CTcwA6UGhdgS+OCT++N2GJA@mail.gmail.com>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: [PATCH net-next v2 1/4] cxgb4/iw_cxgb4/cxgb4i: remove duplicate
+ definitions
+Date: Mon, 13 Apr 2015 13:13:57 -0500
+Message-ID: <552C0765.8080705@opengridcomputing.com>
+References: <cover.1428930614.git.varun@chelsio.com> <6358f849b5a1a3727879f4f2f5c855e3a5b95ab4.1428930614.git.varun@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	Matthew Garrett <mjg59@srcf.ucam.org>,
-	Kees Cook <kees@outflux.net>,
-	Ming Lei <ming.lei@canonical.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	"Luis R. Rodriguez" <mcgrof@suse.com>,
-	netfilter-devel@vger.kernel.org
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6W4Q2ngB6CF8pG=OV6=q+9CTcwA6UGhdgS+OCT++N2GJA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, praveenm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <6358f849b5a1a3727879f4f2f5c855e3a5b95ab4.1428930614.git.varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 9, 2015 at 5:57 PM, Luis R. Rodriguez
-<mcgrof@do-not-panic.com> wrote:
-> Hey folks,
->
-> next week I'd like to address replacing the need for CRDA [0] as a
-> udev helper with in-kernel functionality  There's a few motivations
-> for this but a good one is that the kernel already has now
-> cryptographic support to verify the integrity of the regulatory
-> database, just as it has support for verifying the integrity of
-> modules / firmware. We'd use something like:
->
-> request_file(file_reqs)
->
-> Where the file_reqs provides the requirements, including cryptographic
-> requirements, and I suspect we'd use LSM to vet for the cryptographic
-> needs of the file.
->
-> Now other than this step CRDA currently *reads* a database and today
-> we have our own format. If we want to extend this though we will have
-> to issue a new regdb format and old kernels might not be compatible
-> with the new format. This is a typical database problem and I'm hoping
-> we are not the first to deal with this. What *extensible* kernel
-> database format are there already, are they generic already? I'd
-> prefer something already using netlink.
->
-> Any recommendations?
->
-> [0] https://wireless.wiki.kernel.org/en/developers/regulatory/crda
-
-OK I haven't heard back so will just work towards a very simple
-extensible db and proceed as planned to reuse the existing
-request_firmware_direct() API but with cryptographic requirements and
-vetting through LSM.
-
- Luis
+Acked-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
