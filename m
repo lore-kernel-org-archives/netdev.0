@@ -1,52 +1,44 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next 0/2] switchdev: unify naming prefix
-Date: Mon, 13 Apr 2015 13:50:05 -0400
-Message-ID: <20150413175000.GA26741@gospo.home.greyhouse.net>
-References: <1428934475-15349-1-git-send-email-jiri@resnulli.us>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [RFC PATCH net-next 08/10] ipv6: Do not use inetpeer when
+ creating RTF_CACHE route for /128 via gateway entry
+Date: Mon, 13 Apr 2015 10:51:43 -0700
+Message-ID: <20150413175142.GA925334@devbig242.prn2.facebook.com>
+References: <1428717576-1040383-1-git-send-email-kafai@fb.com>
+ <1428717576-1040383-9-git-send-email-kafai@fb.com>
+ <20150413110632.GF8928@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com,
-	roopa@cumulusnetworks.com, f.fainelli@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	<kernel-team@fb.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:35071 "EHLO
-	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754449AbbDMRuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:50:16 -0400
-Received: by qkhg7 with SMTP id g7so191661439qkh.2
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 10:50:16 -0700 (PDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:7115 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751153AbbDMRv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:51:59 -0400
 Content-Disposition: inline
-In-Reply-To: <1428934475-15349-1-git-send-email-jiri@resnulli.us>
+In-Reply-To: <20150413110632.GF8928@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 04:14:33PM +0200, Jiri Pirko wrote:
-> Turned out that "switchdev" sticks. So just unify all releated terms to
-> use this prefix.
-> 
+On Mon, Apr 13, 2015 at 01:06:32PM +0200, Steffen Klassert wrote:
+> On Fri, Apr 10, 2015 at 06:59:34PM -0700, Martin KaFai Lau wrote:
+> > When there is a pmtu exception on /128 via gateway route, we need to
+> > create a separate metrics copy for the newly created RTF_CACHE route instead
+> > of reusing the inetpeer cache.
+>
+> Maybe we should remove the caching of the metrics on the inetpeer
+> completely. After your patchset only static hostroutes using this,
+The RTF_CACHE copied from "plen <128 via gateway" route will also use
+the inetpeer.
 
-Regardless of how the ordering of this patch falls out, I think this is
-nice.  Good idea, Jiri.
+> and this is exactly the case where it is buggy. If a second route
+> to the same host is added, the metrics of the first will be
+> overwritten.
+I agree.  The current upstream also has similar bug.
+I had thought about changes as you suggested but decided to
+use a separate patch instead.  I will try to consider it in v2.
 
-> Jiri Pirko (2):
->   switchdev: s/netdev_switch_/switchdev_/
->   switchdev: s/swdev_/switchdev_/
-> 
->  drivers/net/bonding/bond_main.c      |   4 +-
->  drivers/net/ethernet/rocker/rocker.c |  47 +++++-----
->  drivers/net/team/team.c              |   4 +-
->  include/linux/netdevice.h            |   2 +-
->  include/net/switchdev.h              | 136 +++++++++++++--------------
->  net/bridge/br.c                      |  18 ++--
->  net/bridge/br_netlink.c              |   6 +-
->  net/bridge/br_stp.c                  |   2 +-
->  net/core/net-sysfs.c                 |   2 +-
->  net/core/rtnetlink.c                 |   2 +-
->  net/dsa/slave.c                      |   8 +-
->  net/ipv4/fib_trie.c                  |  40 ++++----
->  net/switchdev/switchdev.c            | 174 +++++++++++++++++------------------
->  13 files changed, 220 insertions(+), 225 deletions(-)
-> 
-> -- 
-> 1.9.3
-> 
+Thanks,
+--Martin
