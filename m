@@ -1,106 +1,46 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v4 8/9] bgmac: fix DMA rx corruption
-Date: Mon, 13 Apr 2015 15:52:41 +0200
-Message-ID: <1428933162-26763-8-git-send-email-nbd@openwrt.org>
+Subject: [PATCH v4 5/9] bgmac: add check for oversized packets
+Date: Mon, 13 Apr 2015 15:52:38 +0200
+Message-ID: <1428933162-26763-5-git-send-email-nbd@openwrt.org>
 References: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51320
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51324
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753572AbbDMNwr (ORCPT
+	with ESMTP id S1753063AbbDMNwr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 09:52:47 -0400
 In-Reply-To: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver needs to inform the hardware about the first invalid (not yet
-filled) rx slot, by writing its DMA descriptor pointer offset to the
-BGMAC_DMA_RX_INDEX register.
-
-This register was set to a value exceeding the rx ring size, effectively
-allowing the hardware constant access to the full ring, regardless of
-which slots are initialized.
-
-To fix this issue, always mark the last filled rx slot as invalid.
+In very rare cases, the MAC can catch an internal buffer that is bigger
+than it's supposed to be. Instead of crashing the kernel, simply pass
+the buffer back to the hardware
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 27 ++++++++++++++++++---------
- 1 file changed, 18 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index ef9765c..baedbb9 100644
+index e004588..3ac8d9a 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -362,6 +362,16 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
- 	return 0;
- }
+@@ -422,6 +422,14 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 				break;
+ 			}
  
-+static void bgmac_dma_rx_update_index(struct bgmac *bgmac,
-+				      struct bgmac_dma_ring *ring)
-+{
-+	wmb();
++			if (len > BGMAC_RX_ALLOC_SIZE) {
++				bgmac_err(bgmac, "Found oversized packet at slot %d, DMA issue!\n",
++					  ring->start);
++				rx->len = cpu_to_le16(0xdead);
++				rx->flags = cpu_to_le16(0xbeef);
++				break;
++			}
 +
-+	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
-+		    ring->index_base +
-+		    ring->end * sizeof(struct bgmac_dma_desc));
-+}
-+
- static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
- 				    struct bgmac_dma_ring *ring, int desc_idx)
- {
-@@ -380,6 +390,8 @@ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
- 	dma_desc->addr_high = cpu_to_le32(upper_32_bits(ring->slots[desc_idx].dma_addr));
- 	dma_desc->ctl0 = cpu_to_le32(ctl0);
- 	dma_desc->ctl1 = cpu_to_le32(ctl1);
-+
-+	ring->end = desc_idx;
- }
+ 			/* Omit CRC. */
+ 			len -= ETH_FCS_LEN;
  
- static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
-@@ -394,9 +406,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 	end_slot &= BGMAC_DMA_RX_STATDPTR;
- 	end_slot /= sizeof(struct bgmac_dma_desc);
- 
--	ring->end = end_slot;
--
--	while (ring->start != ring->end) {
-+	while (ring->start != end_slot) {
- 		struct device *dma_dev = bgmac->core->dma_dev;
- 		struct bgmac_slot_info *slot = &ring->slots[ring->start];
- 		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
-@@ -463,6 +473,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 			break;
- 	}
- 
-+	bgmac_dma_rx_update_index(bgmac, ring);
-+
- 	return handled;
- }
- 
-@@ -682,6 +694,8 @@ static int bgmac_dma_init(struct bgmac *bgmac)
- 		if (ring->unaligned)
- 			bgmac_dma_rx_enable(bgmac, ring);
- 
-+		ring->start = 0;
-+		ring->end = 0;
- 		for (j = 0; j < ring->num_slots; j++) {
- 			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
- 			if (err)
-@@ -690,12 +704,7 @@ static int bgmac_dma_init(struct bgmac *bgmac)
- 			bgmac_dma_rx_setup_desc(bgmac, ring, j);
- 		}
- 
--		bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
--			    ring->index_base +
--			    ring->num_slots * sizeof(struct bgmac_dma_desc));
--
--		ring->start = 0;
--		ring->end = 0;
-+		bgmac_dma_rx_update_index(bgmac, ring);
- 	}
- 
- 	return 0;
 -- 
 2.2.2
