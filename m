@@ -1,46 +1,188 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v4 5/9] bgmac: add check for oversized packets
-Date: Mon, 13 Apr 2015 15:52:38 +0200
-Message-ID: <1428933162-26763-5-git-send-email-nbd@openwrt.org>
+Subject: [PATCH v4 7/9] bgmac: simplify dma init/cleanup
+Date: Mon, 13 Apr 2015 15:52:40 +0200
+Message-ID: <1428933162-26763-7-git-send-email-nbd@openwrt.org>
 References: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51324
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51323
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753063AbbDMNwr (ORCPT
+	with ESMTP id S1751708AbbDMNwr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 09:52:47 -0400
 In-Reply-To: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In very rare cases, the MAC can catch an internal buffer that is bigger
-than it's supposed to be. Instead of crashing the kernel, simply pass
-the buffer back to the hardware
+Instead of allocating buffers at device init time and initializing
+descriptors at device open, do both at the same time (during open).
+Free all buffers when closing the device.
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/broadcom/bgmac.c | 69 +++++++++++++++++------------------
+ 1 file changed, 34 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index e004588..3ac8d9a 100644
+index 3ac8d9a..ef9765c 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -422,6 +422,14 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 				break;
- 			}
+@@ -549,18 +549,26 @@ static void bgmac_dma_ring_desc_free(struct bgmac *bgmac,
+ 			  ring->dma_base);
+ }
  
-+			if (len > BGMAC_RX_ALLOC_SIZE) {
-+				bgmac_err(bgmac, "Found oversized packet at slot %d, DMA issue!\n",
-+					  ring->start);
-+				rx->len = cpu_to_le16(0xdead);
-+				rx->flags = cpu_to_le16(0xbeef);
-+				break;
-+			}
+-static void bgmac_dma_free(struct bgmac *bgmac)
++static void bgmac_dma_cleanup(struct bgmac *bgmac)
+ {
+ 	int i;
+ 
+-	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
++	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
+ 		bgmac_dma_tx_ring_free(bgmac, &bgmac->tx_ring[i]);
+-		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
+-	}
+-	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
 +
- 			/* Omit CRC. */
- 			len -= ETH_FCS_LEN;
++	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
+ 		bgmac_dma_rx_ring_free(bgmac, &bgmac->rx_ring[i]);
++}
++
++static void bgmac_dma_free(struct bgmac *bgmac)
++{
++	int i;
++
++	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
++		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
++
++	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
+ 		bgmac_dma_ring_desc_free(bgmac, &bgmac->rx_ring[i]);
+-	}
+ }
  
+ static int bgmac_dma_alloc(struct bgmac *bgmac)
+@@ -608,8 +616,6 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
+ 	}
+ 
+ 	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
+-		int j;
+-
+ 		ring = &bgmac->rx_ring[i];
+ 		ring->num_slots = BGMAC_RX_RING_SLOTS;
+ 		ring->mmio_base = ring_base[i];
+@@ -632,15 +638,6 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
+ 			ring->index_base = lower_32_bits(ring->dma_base);
+ 		else
+ 			ring->index_base = 0;
+-
+-		/* Alloc RX slots */
+-		for (j = 0; j < ring->num_slots; j++) {
+-			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
+-			if (err) {
+-				bgmac_err(bgmac, "Can't allocate skb for slot in RX ring\n");
+-				goto err_dma_free;
+-			}
+-		}
+ 	}
+ 
+ 	return 0;
+@@ -650,10 +647,10 @@ err_dma_free:
+ 	return -ENOMEM;
+ }
+ 
+-static void bgmac_dma_init(struct bgmac *bgmac)
++static int bgmac_dma_init(struct bgmac *bgmac)
+ {
+ 	struct bgmac_dma_ring *ring;
+-	int i;
++	int i, err;
+ 
+ 	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
+ 		ring = &bgmac->tx_ring[i];
+@@ -685,8 +682,13 @@ static void bgmac_dma_init(struct bgmac *bgmac)
+ 		if (ring->unaligned)
+ 			bgmac_dma_rx_enable(bgmac, ring);
+ 
+-		for (j = 0; j < ring->num_slots; j++)
++		for (j = 0; j < ring->num_slots; j++) {
++			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
++			if (err)
++				return err;
++
+ 			bgmac_dma_rx_setup_desc(bgmac, ring, j);
++		}
+ 
+ 		bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
+ 			    ring->index_base +
+@@ -695,6 +697,8 @@ static void bgmac_dma_init(struct bgmac *bgmac)
+ 		ring->start = 0;
+ 		ring->end = 0;
+ 	}
++
++	return 0;
+ }
+ 
+ /**************************************************
+@@ -1170,11 +1174,8 @@ static void bgmac_enable(struct bgmac *bgmac)
+ }
+ 
+ /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
+-static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
++static void bgmac_chip_init(struct bgmac *bgmac)
+ {
+-	struct bgmac_dma_ring *ring;
+-	int i;
+-
+ 	/* 1 interrupt per received frame */
+ 	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
+ 
+@@ -1192,16 +1193,7 @@ static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
+ 
+ 	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + ETHER_MAX_LEN);
+ 
+-	if (full_init) {
+-		bgmac_dma_init(bgmac);
+-		if (1) /* FIXME: is there any case we don't want IRQs? */
+-			bgmac_chip_intrs_on(bgmac);
+-	} else {
+-		for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
+-			ring = &bgmac->rx_ring[i];
+-			bgmac_dma_rx_enable(bgmac, ring);
+-		}
+-	}
++	bgmac_chip_intrs_on(bgmac);
+ 
+ 	bgmac_enable(bgmac);
+ }
+@@ -1261,8 +1253,13 @@ static int bgmac_open(struct net_device *net_dev)
+ 	int err = 0;
+ 
+ 	bgmac_chip_reset(bgmac);
++
++	err = bgmac_dma_init(bgmac);
++	if (err)
++		goto err_out;
++
+ 	/* Specs say about reclaiming rings here, but we do that in DMA init */
+-	bgmac_chip_init(bgmac, true);
++	bgmac_chip_init(bgmac);
+ 
+ 	err = request_irq(bgmac->core->irq, bgmac_interrupt, IRQF_SHARED,
+ 			  KBUILD_MODNAME, net_dev);
+@@ -1277,6 +1274,7 @@ static int bgmac_open(struct net_device *net_dev)
+ 	netif_carrier_on(net_dev);
+ 
+ err_out:
++	bgmac_dma_cleanup(bgmac);
+ 	return err;
+ }
+ 
+@@ -1293,6 +1291,7 @@ static int bgmac_stop(struct net_device *net_dev)
+ 	free_irq(bgmac->core->irq, net_dev);
+ 
+ 	bgmac_chip_reset(bgmac);
++	bgmac_dma_cleanup(bgmac);
+ 
+ 	return 0;
+ }
 -- 
 2.2.2
