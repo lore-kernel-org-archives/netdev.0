@@ -1,30 +1,42 @@
-From: Bryan O'Donoghue <pure.logic@nexus-software.ie>
-Subject: Re: [PATCH 0/1] stmmac: rmmod oops after ifconfig on interface
-Date: Mon, 13 Apr 2015 13:29:09 +0100
-Message-ID: <552BB695.9090508@nexus-software.ie>
-References: <1428923713-2419-1-git-send-email-pure.logic@nexus-software.ie> <CAHp75VfunOA4=x9y_XV2J7rLB=+fmkHJc+bm+fnGZWv7-ncLeQ@mail.gmail.com>
+From: Nix <nix@esperi.org.uk>
+Subject: Re: [PATCH RFT net-next #2 0/6] via-rhine receive buffers rework
+Date: Mon, 13 Apr 2015 14:16:11 +0100
+Message-ID: <87pp78dv8k.fsf@spindle.srvr.nix>
+References: <cover.1428445141.git.romieu@fr.zoreil.com>
+	<87vbh6364u.fsf@spindle.srvr.nix>
+	<20150408215051.GA25326@electric-eye.fr.zoreil.com>
+	<87r3rtjhtn.fsf@spindle.srvr.nix>
+	<20150409224141.GA17832@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
-	dan.odonovan@emutex.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VfunOA4=x9y_XV2J7rLB=+fmkHJc+bm+fnGZWv7-ncLeQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	rl@hellgate.ch, Bjarke Istrup Pedersen <gurligebis@gentoo.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from icebox.esperi.org.uk ([81.187.191.129]:42194 "EHLO
+	mail.esperi.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754192AbbDMNQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 09:16:21 -0400
+In-Reply-To: <20150409224141.GA17832@electric-eye.fr.zoreil.com> (Francois
+	Romieu's message of "Fri, 10 Apr 2015 00:41:41 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/04/15 12:34, Andy Shevchenko wrote:
-> On Mon, Apr 13, 2015 at 2:15 PM, Bryan O'Donoghue
-> <pure.logic@nexus-software.ie> wrote:
->> We have an oops with stmmac on Quark X1000/Galileo, triggered by rmmod after
->> ifconfig. Patch included in the follow-on email to address.
+On 9 Apr 2015, Francois Romieu told this:
+
+> Nix <nix@esperi.org.uk> :
+> [...]
+>> Of course now I've done this it's not crashing! Maybe it's netconsole-
+>> related on top of everything else, or I'm just being unlucky... I'll
+>> keep trying.
 >
-> Can we switch to devm_mdiobus_alloc() in a separate patch ?
+> Please no netconsole yet.
 
-Sure np.
+Still trying. It hasn't crashed since I turned netconsole off despite a
+couple of days of loading, so it's quite possible that this crash is
+netconsole-related. (Without the receive buffers rework, the crash is
+much faster and happens even without netconsole, so the rework is
+clearly necessary and definitely improves things dramatically.)
+
+-- 
+NULL && (void)
