@@ -1,76 +1,66 @@
 From: =?UTF-8?q?Pavel=20=C5=A0imerda?= <pavlix@pavlix.net>
-Subject: [PATCH 2/7] turn Makefile more distribution friendly
-Date: Mon, 13 Apr 2015 16:00:56 +0200
-Message-ID: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
+Subject: [PATCH 7/7] lnstat: run indefinitely by default
+Date: Mon, 13 Apr 2015 16:01:01 +0200
+Message-ID: <1428933661-8193-7-git-send-email-pavlix@pavlix.net>
+References: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: stephen@networkplumber.org, psimerda@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fox.pavlix.net ([84.246.161.104]:47550 "EHLO fox.pavlix.net"
+Received: from fox.pavlix.net ([84.246.161.104]:47548 "EHLO fox.pavlix.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753708AbbDMOKD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753845AbbDMOKD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 13 Apr 2015 10:10:03 -0400
+In-Reply-To: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 =46rom: Pavel =C5=A0imerda <psimerda@redhat.com>
 
-Changes:
+See also:
 
- * Accept directory settings from environment.
- * Remove redundant ROOTDIR variable.
- * Set KERNEL_INCLUDE default to '/usr/include'.
- * Use CFLAGS from environemnt.
-
-Note: In the long term it might be better to improve the configure
-script to generate those parts of the Makefile in a manner similar
-to autoconf. It might be even practical to autotoolize the package.
+ * https://bugzilla.redhat.com/show_bug.cgi?id=3D977845
 
 Signed-off-by: Pavel =C5=A0imerda <psimerda@redhat.com>
 ---
- Makefile | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ misc/lnstat.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/Makefile b/Makefile
-index 9dbb29f..18faee4 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1,15 +1,15 @@
--ROOTDIR=3D$(DESTDIR)
--PREFIX=3D/usr
--LIBDIR=3D$(PREFIX)/lib
--SBINDIR=3D/sbin
--CONFDIR=3D/etc/iproute2
--DATADIR=3D$(PREFIX)/share
--DOCDIR=3D$(DATADIR)/doc/iproute2
--MANDIR=3D$(DATADIR)/man
--ARPDDIR=3D/var/lib/arpd
-+PREFIX?=3D/usr
-+LIBDIR?=3D$(PREFIX)/lib
-+SBINDIR?=3D/sbin
-+CONFDIR?=3D/etc/iproute2
-+DATADIR?=3D$(PREFIX)/share
-+DOCDIR?=3D$(DATADIR)/doc/iproute2
-+MANDIR?=3D$(DATADIR)/man
-+ARPDDIR?=3D/var/lib/arpd
-+KERNEL_INCLUDE?=3D/usr/include
+diff --git a/misc/lnstat.c b/misc/lnstat.c
+index e105b70..0385cbb 100644
+--- a/misc/lnstat.c
++++ b/misc/lnstat.c
+@@ -249,7 +249,7 @@ int main(int argc, char **argv)
+ 		MODE_JSON,
+ 		MODE_NORMAL,
+ 	} mode =3D MODE_NORMAL;
+-	unsigned long count =3D 1;
++	unsigned long count =3D 0;
+ 	struct table_hdr *header;
+ 	static struct field_params fp;
+ 	int num_req_files =3D 0;
+@@ -362,7 +362,7 @@ int main(int argc, char **argv)
+ 		if (interval < 1 )
+ 			interval =3D 1;
 =20
- # Path to db_185.h include
--DBM_INCLUDE:=3D$(ROOTDIR)/usr/include
-+DBM_INCLUDE:=3D$(DESTDIR)/usr/include
-=20
- SHARED_LIBS =3D y
-=20
-@@ -33,7 +33,7 @@ CCOPTS =3D -O2
- WFLAGS :=3D -Wall -Wstrict-prototypes  -Wmissing-prototypes
- WFLAGS +=3D -Wmissing-declarations -Wold-style-definition -Wformat=3D2
-=20
--CFLAGS =3D $(WFLAGS) $(CCOPTS) -I../include $(DEFINES)
-+CFLAGS :=3D $(WFLAGS) $(CCOPTS) -I../include $(DEFINES) $(CFLAGS)
- YACCFLAGS =3D -d -t -v
-=20
- SUBDIRS=3Dlib ip tc bridge misc netem genl man
+-		for (i =3D 0; i < count; i++) {
++		for (i =3D 0; i < count || !count; ) {
+ 			lnstat_update(lnstat_files);
+ 			if (mode =3D=3D MODE_JSON)
+ 				print_json(stdout, lnstat_files, &fp);
+@@ -373,8 +373,10 @@ int main(int argc, char **argv)
+ 				print_line(stdout, lnstat_files, &fp);
+ 			}
+ 			fflush(stdout);
+-			if (i < count - 1)
++			if (i < count - 1 || !count)
+ 				sleep(interval);
++			if (count)
++				++i;
+ 		}
+ 		break;
+ 	}
 --=20
 2.3.5
