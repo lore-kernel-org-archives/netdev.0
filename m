@@ -1,46 +1,115 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [patch net-next v3] tc: introduce OpenFlow classifier
-Date: Mon, 13 Apr 2015 09:26:00 +0100
-Message-ID: <20150413082600.GA16323@casper.infradead.org>
-References: <20150412075351.GA2112@nanopsycho.orion>
- <20150412.194443.1571071793033525091.davem@davemloft.net>
- <20150413001212.GA1656@Alexeis-MBP.westell.com>
- <20150412.203618.86474109049619893.davem@davemloft.net>
- <20150413010342.GA1672@Alexeis-MBP.westell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jiri@resnulli.us,
-	netdev@vger.kernel.org, jhs@mojatatu.com, jesse@nicira.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH v2 iproute2 2/3] Revert "ip netns: Fix rtnl error while print netns list"
+Date: Mon, 13 Apr 2015 10:34:25 +0200
+Message-ID: <1428914066-5106-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <1428913385-4331-3-git-send-email-nicolas.dichtel@6wind.com>
+ <1428914066-5106-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, vadim4j@gmail.com, jbenc@redhat.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:48120 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753236AbbDMI0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 04:26:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20150413010342.GA1672@Alexeis-MBP.westell.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40964 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338AbbDMIec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 04:34:32 -0400
+In-Reply-To: <1428914066-5106-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/12/15 at 06:03pm, Alexei Starovoitov wrote:
-> On Sun, Apr 12, 2015 at 08:36:18PM -0400, David Miller wrote:
-> > 
-> > It's easy to parameterize what flow dissector does and share code.
-> 
-> yes. Though I wouldn't pessimize ixgbe rx path even by single
-> cycle to accommodate openflow spec. As far as I understand the
-> skb_flow_dissect() job from driver point of view is to figure
-> out header length for copybreak, which includes parsing encaps,
-> whereas openflow stops at outer header. Even with this difference,
-> it surely can be parameterized. Would be great to share if it
-> doesn't cost rx anything.
+This reverts commit d116ff34145b00db54a37e2a6282dccd8bc08225.
 
-A flow dissector that only extracts what's needed would benefit
-everyone. I guess static keys could help here as the flow field
-selection is definitely a slow path operation.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ configure    | 21 +--------------------
+ ip/Makefile  |  4 ----
+ ip/ipnetns.c |  7 -------
+ 3 files changed, 1 insertion(+), 31 deletions(-)
 
-Even OVS could benefit from this eventually, it would just need
-to do a full extract before the key is sent to user space.
-
-Also, the logic to generate the wildcard mask and match on it
-should be generalized as well.
+diff --git a/configure b/configure
+index 631938e97206..c3dacdba14ff 100755
+--- a/configure
++++ b/configure
+@@ -201,7 +201,7 @@ check_setns()
+ {
+     cat >$TMPDIR/setnstest.c <<EOF
+ #include <sched.h>
+-int main(int argc, char **argv)
++int main(int argc, char **argv) 
+ {
+ 	(void)setns(0,0);
+ 	return 0;
+@@ -218,23 +218,6 @@ EOF
+     rm -f $TMPDIR/setnstest.c $TMPDIR/setnstest
+ }
+ 
+-check_netnsid()
+-{
+-    cat >$TMPDIR/netnsid.c <<EOF
+-#include <linux/rtnetlink.h>
+-int test_def = RTM_GETNSID;
+-EOF
+-    $CC -c $TMPDIR/netnsid.c >/dev/null 2>&1
+-    if [ $? -eq 0 ]
+-    then
+-	echo "IP_CONFIG_NETNSID:=y" >> Config
+-	echo "yes"
+-    else
+-	echo "no"
+-    fi
+-    rm -f $TMPDIR/netnsid.c $TMPDIR/netnsid.o
+-}
+-
+ check_ipset()
+ {
+     cat >$TMPDIR/ipsettest.c <<EOF
+@@ -300,8 +283,6 @@ check_ipt_lib_dir
+ 
+ echo -n "libc has setns: "
+ check_setns
+-echo -n "netns has peer id suport: "
+-check_netnsid
+ 
+ echo -n "SELinux support: "
+ check_selinux
+diff --git a/ip/Makefile b/ip/Makefile
+index 5637bcfebde0..2c742f305fef 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -16,10 +16,6 @@ ifeq ($(IP_CONFIG_SETNS),y)
+ 	CFLAGS += -DHAVE_SETNS
+ endif
+ 
+-ifeq ($(IP_CONFIG_NETNSID),y)
+-	CFLAGS += -DHAVE_NETNSID
+-endif
+-
+ ALLOBJ=$(IPOBJ) $(RTMONOBJ)
+ SCRIPTS=ifcfg rtpr routel routef
+ TARGETS=ip rtmon
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index 45e234a4d98c..5a213dcf46cd 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -34,7 +34,6 @@ static int usage(void)
+ 	exit(-1);
+ }
+ 
+-#ifdef HAVE_NETNSID
+ static int get_netnsid_from_name(const char *name)
+ {
+ 	struct {
+@@ -79,12 +78,6 @@ static int get_netnsid_from_name(const char *name)
+ 
+ 	return -1;
+ }
+-#else
+-static int get_netnsid_from_name(const char *name)
+-{
+-	return -1;
+-}
+-#endif /* HAVE_NETNSID */
+ 
+ static int netns_list(int argc, char **argv)
+ {
+-- 
+2.2.2
