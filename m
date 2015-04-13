@@ -1,135 +1,62 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: kernel WARNING on skb_complete_tx_timestamp
-Date: Mon, 13 Apr 2015 16:31:11 +0000
-Message-ID: <1428942671.28752.14.camel@intel.com>
-References: <02874ECE860811409154E81DA85FBB5857511D7A@ORSMSX115.amr.corp.intel.com>
-	 <1428724826.25985.337.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: ipv4: add hash-based multipath routing
+Date: Mon, 13 Apr 2015 09:34:46 -0700
+Message-ID: <20150413093446.438bca5e@urahara>
+References: <20150412205430.6d7fcd30@tyr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"richardcochran@gmail.com" <richardcochran@gmail.com>
-To: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Peter =?UTF-8?B?TsO4cmx1bmQ=?= <pch@ordbogen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8954 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753252AbbDMQbN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 12:31:13 -0400
-In-Reply-To: <1428724826.25985.337.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Content-ID: <F947529C44ED4D4BA2687ABB4F41EEE2@intel.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:32816 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932150AbbDMQen convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 12:34:43 -0400
+Received: by paboj16 with SMTP id oj16so107458835pab.0
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 09:34:43 -0700 (PDT)
+In-Reply-To: <20150412205430.6d7fcd30@tyr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgRXJpYywNCg0KT24gRnJpLCAyMDE1LTA0LTEwIGF0IDIxOjAwIC0wNzAwLCBFcmljIER1bWF6
-ZXQgd3JvdGU6DQo+IE9uIFNhdCwgMjAxNS0wNC0xMSBhdCAwMTozNCArMDAwMCwgS2VsbGVyLCBK
-YWNvYiBFIHdyb3RlOg0KPiA+IEhpIFJpY2hhcmQsDQo+ID4gDQo+ID4gSSBkb24ndCBrbm93IGlm
-IHlvdSdkIGtub3cgdGhpcyBidXQgSSBiZWxpZXZlIHlvdSdyZSB0aGUgYmVzdCBwZXJzb24gdG8g
-YXNrLiBJZiBhbnlvbmUgZWxzZSBoYXMgYW4gYW5zd2VyIHBsZWFzZSBmZWVsIGZyZWUgdG8gY2hp
-bWUgaW4uDQo+ID4gDQo+ID4gWyAyNzQ0LjU1MjgyM10gTW9kdWxlcyBsaW5rZWQgaW46IGZtMTBr
-KE9FKSB2eGxhbiBpcDZfdWRwX3R1bm5lbCB1ZHBfdHVubmVsIHVpbyBmdXNlIHh0X0NIRUNLU1VN
-IGlwdGFibGVfbWFuZ2xlIGlwdF9NQVNRVUVSQURFIG5mX25hdF9tYXNxdWVyYWRlX2lwdjQgaXB0
-YWJsZV9uYXQgbmZfbmF0X2lwdjQgbmZfbmF0IG5mX2Nvbm50cmFja19pcHY0IG5mX2RlZnJhZ19p
-cHY0IHh0X2Nvbm50cmFjayBuZl9jb25udHJhY2sgdHVuIGJyaWRnZSBzdHAgbGxjIG9wZW52c3dp
-dGNoIGxpYmNyYzMyYyBqb3lkZXYgeDg2X3BrZ190ZW1wX3RoZXJtYWwgY29yZXRlbXAga3ZtX2lu
-dGVsIGt2bSBtZWlfbWUgY3JjdDEwZGlmX3BjbG11bCBjcmMzMl9wY2xtdWwgd21pIGNyYzMyY19p
-bnRlbCBtZWkgaXBtaV9zc2lmIGlUQ09fd2R0IGlUQ09fdmVuZG9yX3N1cHBvcnQgaXBtaV9kZXZp
-bnRmIGdoYXNoX2NsbXVsbmlfaW50ZWwgbHBjX2ljaCBpcG1pX3NpIHRwbV90aXMgbWZkX2NvcmUg
-dHBtIGlwbWlfbXNnaGFuZGxlciBpb2F0ZG1hIHNiX2VkYWMgc2hwY2hwIGVkYWNfY29yZSBpMmNf
-aTgwMSBtZ2FnMjAwIGRybV9rbXNfaGVscGVyIHR0bSBkcm0gaXNjaSBpZ2IgZmlyZXdpcmVfb2hj
-aSBmaXJld2lyZV9jb3JlIGxpYnNhcyBwdHAgY3JjX2l0dV90IGRjYSBzY3NpX3RyYW5zcG9ydF9z
-YXMgcHBzX2NvcmUgaTJjX2FsZ29fYml0IFtsYXN0IHVubG9hZGVkOiBmbTEwa10NCj4gPiBbIDI3
-NDQuNTUyODk2XSBDUFU6IDAgUElEOiAwIENvbW06IHN3YXBwZXIvMCBUYWludGVkOiBHICAgICAg
-ICBXICBPRSAgMy4xOS4zLTIwMC5mYzIxLng4Nl82NCAjMQ0KPiA+IFsgMjc0NC41NTI4OTldIEhh
-cmR3YXJlIG5hbWU6IEludGVsIENvcnBvcmF0aW9uIFMyNjAwQ08vUzI2MDBDTywgQklPUyBTRTVD
-NjAwLjg2Qi4wMi4wMy44eDIzLjA2MDUyMDE0MDgyNSAwNi8wNS8yMDE0DQo+ID4gWyAyNzQ0LjU1
-MjkwMV0gIDAwMDAwMDAwMDAwMDAwMDAgMmY0YzhiMTBlYTNmOTg0OCBmZmZmODgwODFlZTAzYTM4
-IGZmZmZmZmZmODE3NmUyMTUNCj4gPiBbIDI3NDQuNTUyOTA2XSAgMDAwMDAwMDAwMDAwMDAwMCAw
-MDAwMDAwMDAwMDAwMDAwIGZmZmY4ODA4MWVlMDNhNzggZmZmZmZmZmY4MTA5YmMxYQ0KPiA+IFsg
-Mjc0NC41NTI5MTBdICBmZmZmODgwODFlZTAzYzUwIGZmZmY4ODA4MGU1NWZjMDAgZmZmZjg4MDgw
-ZTU1ZmMwMCBmZmZmZmZmZjgxNjQ3YzUwDQo+ID4gWyAyNzQ0LjU1MjkxNF0gQ2FsbCBUcmFjZToN
-Cj4gPiBbIDI3NDQuNTUyOTE3XSAgPElSUT4gIFs8ZmZmZmZmZmY4MTc2ZTIxNT5dIGR1bXBfc3Rh
-Y2srMHg0NS8weDU3DQo+ID4gWyAyNzQ0LjU1MjkzMV0gIFs8ZmZmZmZmZmY4MTA5YmMxYT5dIHdh
-cm5fc2xvd3BhdGhfY29tbW9uKzB4OGEvMHhjMA0KPiA+IFsgMjc0NC41NTI5MzZdICBbPGZmZmZm
-ZmZmODE2NDdjNTA+XSA/IHNrYl9xdWV1ZV9wdXJnZSsweDIwLzB4NDANCj4gPiBbIDI3NDQuNTUy
-OTQxXSAgWzxmZmZmZmZmZjgxMDliZDRhPl0gd2Fybl9zbG93cGF0aF9udWxsKzB4MWEvMHgyMA0K
-PiA+IFsgMjc0NC41NTI5NDZdICBbPGZmZmZmZmZmODE2NDY5MTE+XSBza2JfcmVsZWFzZV9oZWFk
-X3N0YXRlKzB4ZTEvMHhmMA0KPiA+IFsgMjc0NC41NTI5NTBdICBbPGZmZmZmZmZmODE2NDdiMjY+
-XSBza2JfcmVsZWFzZV9hbGwrMHgxNi8weDMwDQo+ID4gWyAyNzQ0LjU1Mjk1NF0gIFs8ZmZmZmZm
-ZmY4MTY0N2JhNj5dIGtmcmVlX3NrYisweDM2LzB4OTANCj4gPiBbIDI3NDQuNTUyOTU4XSAgWzxm
-ZmZmZmZmZjgxNjQ3YzUwPl0gc2tiX3F1ZXVlX3B1cmdlKzB4MjAvMHg0MA0KPiA+IFsgMjc0NC41
-NTI5NjRdICBbPGZmZmZmZmZmODE3NTFmOGQ+XSBwYWNrZXRfc29ja19kZXN0cnVjdCsweDFkLzB4
-OTANCj4gPiBbIDI3NDQuNTUyOTY4XSAgWzxmZmZmZmZmZjgxNjQyMDUzPl0gX19za19mcmVlKzB4
-MjMvMHgxNDANCj4gPiBbIDI3NDQuNTUyOTczXSAgWzxmZmZmZmZmZjgxNjQyMTg5Pl0gc2tfZnJl
-ZSsweDE5LzB4MjANCj4gPiBbIDI3NDQuNTUyOTc3XSAgWzxmZmZmZmZmZjgxNjQ3ZDYwPl0gc2ti
-X2NvbXBsZXRlX3R4X3RpbWVzdGFtcCsweDUwLzB4NjANCj4gPiBbIDI3NDQuNTUyOTg4XSAgWzxm
-ZmZmZmZmZmEwMmVlZTQwPl0gZm0xMGtfdHNfdHhfaHd0c3RhbXArMHhkMC8weDEwMCBbZm0xMGtd
-DQo+ID4gWyAyNzQ0LjU1Mjk5NF0gIFs8ZmZmZmZmZmZhMDJlMDU0ZT5dIGZtMTBrXzE1ODhfbXNn
-X3BmKzB4MTJlLzB4MTQwIFtmbTEwa10NCj4gPiBbIDI3NDQuNTUzMDAyXSAgWzxmZmZmZmZmZmEw
-MmVkZjFkPl0gZm0xMGtfdGx2X21zZ19wYXJzZSsweDhkLzB4YzAgW2ZtMTBrXQ0KPiA+IFsgMjc0
-NC41NTMwMTBdICBbPGZmZmZmZmZmYTAyZWIyZDA+XSBmbTEwa19tYnhfZGVxdWV1ZV9yeCsweDYw
-LzB4YjAgW2ZtMTBrXQ0KPiA+IFsgMjc0NC41NTMwMTZdICBbPGZmZmZmZmZmYTAyZWJmOTg+XSBm
-bTEwa19zbV9tYnhfcHJvY2VzcysweDE3OC8weDNjMCBbZm0xMGtdDQo+ID4gWyAyNzQ0LjU1MzAy
-Ml0gIFs8ZmZmZmZmZmZhMDJlMDljYT5dIGZtMTBrX21zaXhfbWJ4X3BmKzB4ZmEvMHgzNjAgW2Zt
-MTBrXQ0KPiA+IFsgMjc0NC41NTMwMzBdICBbPGZmZmZmZmZmODExMDMwYTc+XSA/IGdldF9uZXh0
-X3RpbWVyX2ludGVycnVwdCsweDFmNy8weDI3MA0KPiA+IFsgMjc0NC41NTMwMzZdICBbPGZmZmZm
-ZmZmODEwZjJhNDc+XSBoYW5kbGVfaXJxX2V2ZW50X3BlcmNwdSsweDc3LzB4MWEwDQo+ID4gWyAy
-NzQ0LjU1MzA0MV0gIFs8ZmZmZmZmZmY4MTBmMmJhYj5dIGhhbmRsZV9pcnFfZXZlbnQrMHgzYi8w
-eDYwDQo+ID4gWyAyNzQ0LjU1MzA0NV0gIFs8ZmZmZmZmZmY4MTBmNWQ2ZT5dIGhhbmRsZV9lZGdl
-X2lycSsweDZlLzB4MTIwDQo+ID4gWyAyNzQ0LjU1MzA1NF0gIFs8ZmZmZmZmZmY4MTAxNzQxND5d
-IGhhbmRsZV9pcnErMHg3NC8weDE0MA0KPiA+IFsgMjc0NC41NTMwNjFdICBbPGZmZmZmZmZmODEw
-YmI1NGE+XSA/IGF0b21pY19ub3RpZmllcl9jYWxsX2NoYWluKzB4MWEvMHgyMA0KPiA+IFsgMjc0
-NC41NTMwNjZdICBbPGZmZmZmZmZmODE3Nzc3N2Y+XSBkb19JUlErMHg0Zi8weGYwDQo+ID4gWyAy
-NzQ0LjU1MzA3Ml0gIFs8ZmZmZmZmZmY4MTc3NTU2ZD5dIGNvbW1vbl9pbnRlcnJ1cHQrMHg2ZC8w
-eDZkDQo+ID4gWyAyNzQ0LjU1MzA3NF0gIDxFT0k+ICBbPGZmZmZmZmZmODE2MDliMTY+XSA/IGNw
-dWlkbGVfZW50ZXJfc3RhdGUrMHg2Ni8weDE2MA0KPiA+IFsgMjc0NC41NTMwODRdICBbPGZmZmZm
-ZmZmODE2MDliMDE+XSA/IGNwdWlkbGVfZW50ZXJfc3RhdGUrMHg1MS8weDE2MA0KPiA+IFsgMjc0
-NC41NTMwODddICBbPGZmZmZmZmZmODE2MDljZjc+XSBjcHVpZGxlX2VudGVyKzB4MTcvMHgyMA0K
-PiA+IFsgMjc0NC41NTMwOTJdICBbPGZmZmZmZmZmODEwZGUxMDE+XSBjcHVfc3RhcnR1cF9lbnRy
-eSsweDMyMS8weDNjMA0KPiA+IFsgMjc0NC41NTMwOThdICBbPGZmZmZmZmZmODE3NjQ0OTc+XSBy
-ZXN0X2luaXQrMHg3Ny8weDgwDQo+ID4gWyAyNzQ0LjU1MzEwM10gIFs8ZmZmZmZmZmY4MWQ0ZjAy
-Yz5dIHN0YXJ0X2tlcm5lbCsweDRhNC8weDRjNQ0KPiA+IFsgMjc0NC41NTMxMDddICBbPGZmZmZm
-ZmZmODFkNGUxMjA+XSA/IGVhcmx5X2lkdF9oYW5kbGVycysweDEyMC8weDEyMA0KPiA+IFsgMjc0
-NC41NTMxMTBdICBbPGZmZmZmZmZmODFkNGU0ZDc+XSB4ODZfNjRfc3RhcnRfcmVzZXJ2YXRpb25z
-KzB4MmEvMHgyYw0KPiA+IFsgMjc0NC41NTMxMTRdICBbPGZmZmZmZmZmODFkNGU2MmI+XSB4ODZf
-NjRfc3RhcnRfa2VybmVsKzB4MTUyLzB4MTc1DQo+ID4gDQo+ID4gVGhpcyBvY2N1cnMgYmVjYXVz
-ZSBvZiB0aGUgV0FSTl9PTiBpbiBrZnJlZV9za2Igd2hpY2ggcmVzdWx0cyBmcm9tIHNvY2tfaG9s
-ZChzaykgYW5kIHNvY2tfcHV0KHNrKQ0KPiA+IA0KPiA+IEkgaGF2ZSBhIGRyaXZlciAoZm0xMGsp
-IHdoaWNoIHJlY2VpdmVzIGEgbm90aWZpY2F0aW9uIG9mIFR4IHRpbWVzdGFtcCB2aWEgYW4gSVJR
-LCBhbmQgdGhlbiB3aGVuIEkgY2FsbCBza2JfY29tcGxldGVfdHhfdGltZXN0YW1wIEkgZ2V0IHRo
-aXMgd2FybmluZy4gSSBiZWxpZXZlIHRoaXMgaXMgYSByZXN1bHQgb2YgY2FsbGluZyBza19mcmVl
-LCB3aGljaCB0aGUgZGVzY3JpcHRpb24gKnNheXMqIGlzIG9rIHRvIGNhbGwgaW4gYW55IGNvbnRl
-eHQuLiBidXQgdGhlbiB3ZSBnZXQgdGhpcyB3YXJuaW5nLg0KPiA+IA0KPiA+IEknbSByZWFsbHkg
-bm90IHN1cmUgZXhhY3RseSBob3cgdGhpcyBzaXR1YXRpb24gb2NjdXJyZWQuIEV2ZW50dWFsbHkg
-d2UgY2FsbCBrZnJlZV9za2IoKSB3aGlsZSB3ZSBhcmUgaW4gaXJxIGNvbnRleHQgd2hpY2ggcmVz
-dWx0cyBpbiB0aGUgd2FybmluZy4NCj4gDQo+IEF0IGZpcnN0IGxvb2ssIHRoZXJlIGFyZSBzb21l
-IGlzc3VlcyB3aXRoIHRoaXMgZHJpdmVyLg0KPiANCg0KSSBzaG91bGQgY2xhcmlmeSBoZXJlLiBJ
-IGFtIHdvcmtpbmcgb24gZml4aW5nIHRoZSBpc3N1ZXMgd2l0aCAxNTg4IGluDQp0aGlzIGRyaXZl
-ci4gVGhlIGFjdHVhbCBwYW5pYyBJIGdvdCB3YXNuJ3Qgb24gdGhlIHNhbWUgY29kZSBhcyBjdXJy
-ZW50bHkNCmluIHVwc3RyZWFtLiBUaGVyZSBhcmUgYSBsb3Qgb2YgaXNzdWVzIHdlJ3JlIGFjdGl2
-ZWx5IGRlYnVnZ2luZyBub3cuDQpIb3dldmVyLCB5b3VyIHN1Z2dlc3Rpb24gYmVsb3cgZG9lcyBz
-ZWVtIGxpa2UgaXQgc3RpbGwgYXBwbGllcy4NCkhvcGVmdWxseSB0aGUgdG90YWwgc2V0IG9mIGZp
-eGVzIHdpbGwgYmUgcmVhZHkgdG8gcG9zdCBzb29uLg0KDQo+IGZtMTBrX3RzX3R4X2VucXVldWUo
-KSBpcyByYWN5IGFuZCBzZWVtcyBhbHNvIGJ1Z2d5LCBmcmVlaW5nIHdyb25nIHNrYi4NCj4gDQo+
-IENvdWxkIHlvdSB0cnkgOg0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2ludGVsL2ZtMTBrL2ZtMTBrX3B0cC5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-Zm0xMGsvZm0xMGtfcHRwLmMNCj4gaW5kZXgNCj4gMDIwMDhlOTc2ZDE4NmY3NTQ0NzAzNDAwODlm
-MzQ0ZTc4MWU5YmIwNC4uMDcwZDRmMGIzYzAzYmIwZTMxZTIxNmViODJkMDBmNGZkY2I0ZWE5ZiAx
-MDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRw
-LmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRwLmMN
-Cj4gQEAgLTcwLDE2ICs3MCwxNSBAQCB2b2lkIGZtMTBrX3RzX3R4X2VucXVldWUoc3RydWN0IGZt
-MTBrX2ludGZjDQo+ICppbnRlcmZhY2UsIHN0cnVjdCBza19idWZmICpza2IpDQo+ICAJICogaWYg
-bm9uZSBhcmUgcHJlc2VudCB0aGVuIGluc2VydCBza2IgaW4gdGFpbCBvZiBsaXN0DQo+ICAJICov
-DQo+ICAJc2tiID0gZm0xMGtfdHNfdHhfc2tiKGludGVyZmFjZSwgRk0xMEtfQ0IoY2xvbmUpLT5m
-aS53LmRnbG9ydCk7DQo+IC0JaWYgKCFza2IpDQo+ICsJaWYgKCFza2IpIHsNCj4gKwkJc2tiX3No
-aW5mbyhjbG9uZSktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiAgCQlfX3NrYl9x
-dWV1ZV90YWlsKGxpc3QsIGNsb25lKTsNCj4gLQ0KPiArCX0NCj4gIAlzcGluX3VubG9ja19pcnFy
-ZXN0b3JlKCZsaXN0LT5sb2NrLCBmbGFncyk7DQo+ICANCj4gIAkvKiBpZiBsaXN0IGlzIGFscmVh
-ZHkgaGFzIG9uZSB0aGVuIHdlIGp1c3QgZnJlZSB0aGUgY2xvbmUgKi8NCj4gIAlpZiAoc2tiKQ0K
-PiAtCQlrZnJlZV9za2Ioc2tiKTsNCj4gLQllbHNlDQo+IC0JCXNrYl9zaGluZm8oY2xvbmUpLT50
-eF9mbGFncyB8PSBTS0JUWF9JTl9QUk9HUkVTUzsNCj4gKwkJa2ZyZWVfc2tiKGNsb25lKTsNCg0K
-U28gZnJlZSB0aGUgY2xvbmUgaW5zdGVhZCBvZiB0aGUgb3JpZ2luYWw/IEknbSBub3QgZW50aXJl
-bHkgc3VyZSBob3cNCnRoaXMgY2hhbmdlcyB0aGUgZmxvdywgYnV0IEkgd2lsbCBnaXZlIHRoaXMg
-YSBzaG90Lg0KDQpSZWdhcmRzLA0KSmFrZQ0KDQo+ICB9DQo+ICANCj4gIHZvaWQgZm0xMGtfdHNf
-dHhfaHd0c3RhbXAoc3RydWN0IGZtMTBrX2ludGZjICppbnRlcmZhY2UsIF9fbGUxNiBkZ2xvcnQs
-DQo+IA0KPiANCj4gDQoNCg==
+On Sun, 12 Apr 2015 20:54:30 +0200
+Peter N=C3=B8rlund <pch@ordbogen.com> wrote:
+
+> Hi all,
+>=20
+> I'm working on adding L3/L4 hash-based IPv4 multipath to the kernel,
+> but I wonder what the best approach for the mainline kernel is.
+>=20
+> When the IPv6 multipath code was added, choosing the routing algorith=
+m
+> by means of compile-time config or sysctl was rejected, so I assume
+> that we want to revive the RTA_MP_ALGO or a new attribute?
+>=20
+> The IPv6 multipath uses L4 balancing - which is fine for IPv6 where
+> fragmentation does not happend - but in my opinion the safest default
+> for IPv4 is L3, especially when multipath is used together with anyca=
+st.
+>=20
+> My main problem is the existing multipath code which is really old
+> (linux 2.1.66). From the looks of it, it attempts to be somewhat rand=
+om,
+> but in reality it is more or less weighted round-robin, and as far as=
+ I
+> can tell it even has an off-by-one error in its handling of the rando=
+m
+> value. I think it is wise to support L3, L4, and per-packet
+> load-balancing, just like the hardware vendors, but must the per-pack=
+et
+> load-balancing be default, or is it okay to change the default
+> behavior? Also, would a weighted round-robin with a single per-cpu
+> counter suffice? This would get rid of the spinlock and avoid causing
+> cache invalidations of the route info with each packet. But it would =
+not
+> be true round-robin, which would require a per-route-info counter. If
+> we are promising round-robin it is bad, but if we are simply promisin=
+g
+> weighted per-packet load-balancing, it's a different matter.
+
+We (Brocade) did some work on this, but it never was done enough to
+submit upstream. The ideal is to allow configuring choice of algorithm
+per-route.
