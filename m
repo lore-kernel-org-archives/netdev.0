@@ -1,188 +1,107 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v5 7/9] bgmac: simplify dma init/cleanup
-Date: Mon, 13 Apr 2015 19:27:45 +0200
-Message-ID: <1428946067-75650-7-git-send-email-nbd@openwrt.org>
+Subject: [PATCH v5 2/9] bgmac: leave interrupts disabled as long as there is work to do
+Date: Mon, 13 Apr 2015 19:27:40 +0200
+Message-ID: <1428946067-75650-2-git-send-email-nbd@openwrt.org>
 References: <1428946067-75650-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51993
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51996
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754240AbbDMR1v (ORCPT
+	with ESMTP id S1754294AbbDMR1v (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:27:51 -0400
 In-Reply-To: <1428946067-75650-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of allocating buffers at device init time and initializing
-descriptors at device open, do both at the same time (during open).
-Free all buffers when closing the device.
+Always poll rx and tx during NAPI poll instead of relying on the status
+of the first interrupt. This prevents bgmac_poll from leaving unfinished
+work around until the next IRQ.
+In my tests this makes bridging/routing throughput under heavy load more
+stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
+the entire budget.
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 69 +++++++++++++++++------------------
- 1 file changed, 34 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c | 31 ++++++++++---------------------
+ drivers/net/ethernet/broadcom/bgmac.h |  1 -
+ 2 files changed, 10 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index eca063d..457eac8 100644
+index 73374b4..30464d0 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -545,18 +545,26 @@ static void bgmac_dma_ring_desc_free(struct bgmac *bgmac,
- 			  ring->dma_base);
- }
+@@ -1105,8 +1105,6 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	bgmac_phy_init(bgmac);
  
--static void bgmac_dma_free(struct bgmac *bgmac)
-+static void bgmac_dma_cleanup(struct bgmac *bgmac)
- {
- 	int i;
- 
--	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
-+	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
- 		bgmac_dma_tx_ring_free(bgmac, &bgmac->tx_ring[i]);
--		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
--	}
--	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
-+
-+	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
- 		bgmac_dma_rx_ring_free(bgmac, &bgmac->rx_ring[i]);
-+}
-+
-+static void bgmac_dma_free(struct bgmac *bgmac)
-+{
-+	int i;
-+
-+	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
-+		bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
-+
-+	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
- 		bgmac_dma_ring_desc_free(bgmac, &bgmac->rx_ring[i]);
--	}
- }
- 
- static int bgmac_dma_alloc(struct bgmac *bgmac)
-@@ -604,8 +612,6 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
- 	}
- 
- 	for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
--		int j;
+ 	netdev_reset_queue(bgmac->net_dev);
 -
- 		ring = &bgmac->rx_ring[i];
- 		ring->num_slots = BGMAC_RX_RING_SLOTS;
- 		ring->mmio_base = ring_base[i];
-@@ -628,15 +634,6 @@ static int bgmac_dma_alloc(struct bgmac *bgmac)
- 			ring->index_base = lower_32_bits(ring->dma_base);
- 		else
- 			ring->index_base = 0;
+-	bgmac->int_status = 0;
+ }
+ 
+ static void bgmac_chip_intrs_on(struct bgmac *bgmac)
+@@ -1221,14 +1219,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ 	if (!int_status)
+ 		return IRQ_NONE;
+ 
+-	/* Ack */
+-	bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
++	int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
++	if (int_status)
++		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
+ 
+ 	/* Disable new interrupts until handling existing ones */
+ 	bgmac_chip_intrs_off(bgmac);
+ 
+-	bgmac->int_status = int_status;
 -
--		/* Alloc RX slots */
--		for (j = 0; j < ring->num_slots; j++) {
--			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
--			if (err) {
--				bgmac_err(bgmac, "Can't allocate skb for slot in RX ring\n");
--				goto err_dma_free;
--			}
--		}
- 	}
+ 	napi_schedule(&bgmac->napi);
  
- 	return 0;
-@@ -646,10 +643,10 @@ err_dma_free:
- 	return -ENOMEM;
- }
- 
--static void bgmac_dma_init(struct bgmac *bgmac)
-+static int bgmac_dma_init(struct bgmac *bgmac)
+ 	return IRQ_HANDLED;
+@@ -1237,25 +1234,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ static int bgmac_poll(struct napi_struct *napi, int weight)
  {
- 	struct bgmac_dma_ring *ring;
--	int i;
-+	int i, err;
- 
- 	for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
- 		ring = &bgmac->tx_ring[i];
-@@ -681,8 +678,13 @@ static void bgmac_dma_init(struct bgmac *bgmac)
- 		if (ring->unaligned)
- 			bgmac_dma_rx_enable(bgmac, ring);
- 
--		for (j = 0; j < ring->num_slots; j++)
-+		for (j = 0; j < ring->num_slots; j++) {
-+			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
-+			if (err)
-+				return err;
-+
- 			bgmac_dma_rx_setup_desc(bgmac, ring, j);
-+		}
- 
- 		bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
- 			    ring->index_base +
-@@ -691,6 +693,8 @@ static void bgmac_dma_init(struct bgmac *bgmac)
- 		ring->start = 0;
- 		ring->end = 0;
- 	}
-+
-+	return 0;
- }
- 
- /**************************************************
-@@ -1166,11 +1170,8 @@ static void bgmac_enable(struct bgmac *bgmac)
- }
- 
- /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipinit */
--static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
-+static void bgmac_chip_init(struct bgmac *bgmac)
- {
+ 	struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
 -	struct bgmac_dma_ring *ring;
--	int i;
--
- 	/* 1 interrupt per received frame */
- 	bgmac_write(bgmac, BGMAC_INT_RECV_LAZY, 1 << BGMAC_IRL_FC_SHIFT);
+ 	int handled = 0;
  
-@@ -1188,16 +1189,7 @@ static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
- 
- 	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + ETHER_MAX_LEN);
- 
--	if (full_init) {
--		bgmac_dma_init(bgmac);
--		if (1) /* FIXME: is there any case we don't want IRQs? */
--			bgmac_chip_intrs_on(bgmac);
--	} else {
--		for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
--			ring = &bgmac->rx_ring[i];
--			bgmac_dma_rx_enable(bgmac, ring);
--		}
+-	if (bgmac->int_status & BGMAC_IS_TX0) {
+-		ring = &bgmac->tx_ring[0];
+-		bgmac_dma_tx_free(bgmac, ring);
+-		bgmac->int_status &= ~BGMAC_IS_TX0;
 -	}
-+	bgmac_chip_intrs_on(bgmac);
++	/* Ack */
++	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
  
- 	bgmac_enable(bgmac);
- }
-@@ -1257,8 +1249,13 @@ static int bgmac_open(struct net_device *net_dev)
- 	int err = 0;
+-	if (bgmac->int_status & BGMAC_IS_RX) {
+-		ring = &bgmac->rx_ring[0];
+-		handled += bgmac_dma_rx_read(bgmac, ring, weight);
+-		bgmac->int_status &= ~BGMAC_IS_RX;
+-	}
++	bgmac_dma_tx_free(bgmac, &bgmac->tx_ring[0]);
++	handled += bgmac_dma_rx_read(bgmac, &bgmac->rx_ring[0], weight);
  
- 	bgmac_chip_reset(bgmac);
-+
-+	err = bgmac_dma_init(bgmac);
-+	if (err)
-+		goto err_out;
-+
- 	/* Specs say about reclaiming rings here, but we do that in DMA init */
--	bgmac_chip_init(bgmac, true);
-+	bgmac_chip_init(bgmac);
+-	if (bgmac->int_status) {
+-		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", bgmac->int_status);
+-		bgmac->int_status = 0;
+-	}
++	/* Poll again if more events arrived in the meantime */
++	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
++		return handled;
  
- 	err = request_irq(bgmac->core->irq, bgmac_interrupt, IRQF_SHARED,
- 			  KBUILD_MODNAME, net_dev);
-@@ -1273,6 +1270,7 @@ static int bgmac_open(struct net_device *net_dev)
- 	netif_carrier_on(net_dev);
+ 	if (handled < weight) {
+ 		napi_complete(napi);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index 5a198d5..abd50d1 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -452,7 +452,6 @@ struct bgmac {
  
- err_out:
-+	bgmac_dma_cleanup(bgmac);
- 	return err;
- }
+ 	/* Int */
+ 	u32 int_mask;
+-	u32 int_status;
  
-@@ -1289,6 +1287,7 @@ static int bgmac_stop(struct net_device *net_dev)
- 	free_irq(bgmac->core->irq, net_dev);
- 
- 	bgmac_chip_reset(bgmac);
-+	bgmac_dma_cleanup(bgmac);
- 
- 	return 0;
- }
+ 	/* Current MAC state */
+ 	int mac_speed;
 -- 
 2.2.2
