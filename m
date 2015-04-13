@@ -1,220 +1,135 @@
-From: Rudresh NB <rudrii@gmail.com>
-Subject: Re: [B.A.T.M.A.N.] [PATCH 1/2] bridge: multicast: call
- skb_checksum_{simple_, }validate
-Date: Sun, 12 Apr 2015 19:08:02 +0530
-Message-ID: <CAJNZDZaRzXhjqTDKAj5v5jCf1kmgOwLwpGf30MBgY23CmzQiTg@mail.gmail.com>
-References: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: kernel WARNING on skb_complete_tx_timestamp
+Date: Mon, 13 Apr 2015 16:31:11 +0000
+Message-ID: <1428942671.28752.14.camel@intel.com>
+References: <02874ECE860811409154E81DA85FBB5857511D7A@ORSMSX115.amr.corp.intel.com>
+	 <1428724826.25985.337.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=001a113495004856360513871bf9
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>
-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n@lists.open-mesh.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>
+To: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:8954 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753252AbbDMQbN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2015 12:31:13 -0400
+In-Reply-To: <1428724826.25985.337.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Content-ID: <F947529C44ED4D4BA2687ABB4F41EEE2@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---001a113495004856360513871bf9
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-Hi All,
-            I am getting following message if i post to b.a.t.m.a.n@
-lists.open-mesh.org. So I am mailing to this group.
-
-Our wifi does not support adhoc mode. I am trying batman-adv setup on
-managed mode.
-
-Can anybody tell me the settings fro batman-adv in managed mode/STA mode?
-
-Regards,
-Rudresh
-
-On 10 April 2015 at 23:16, Linus L=C3=BCssing <linus.luessing@c0d3.blue> wr=
-ote:
-
-> Let's use these new, neat helpers.
->
-> Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
-> ---
->  net/bridge/br_multicast.c |   28 ++++------------------------
->  1 file changed, 4 insertions(+), 24 deletions(-)
->
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 4b6722f..b52f4cb 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1610,16 +1610,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge
-> *br,
->         if (!pskb_may_pull(skb2, sizeof(*ih)))
->                 goto out;
->
-> -       switch (skb2->ip_summed) {
-> -       case CHECKSUM_COMPLETE:
-> -               if (!csum_fold(skb2->csum))
-> -                       break;
-> -               /* fall through */
-> -       case CHECKSUM_NONE:
-> -               skb2->csum =3D 0;
-> -               if (skb_checksum_complete(skb2))
-> -                       goto out;
-> -       }
-> +       if (skb_checksum_simple_validate(skb2))
-> +               goto out;
->
->         err =3D 0;
->
-> @@ -1737,20 +1729,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge
-> *br,
->
->         ip6h =3D ipv6_hdr(skb2);
->
-> -       switch (skb2->ip_summed) {
-> -       case CHECKSUM_COMPLETE:
-> -               if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr, skb2->le=
-n,
-> -                                       IPPROTO_ICMPV6, skb2->csum))
-> -                       break;
-> -               /*FALLTHROUGH*/
-> -       case CHECKSUM_NONE:
-> -               skb2->csum =3D ~csum_unfold(csum_ipv6_magic(&ip6h->saddr,
-> -                                                       &ip6h->daddr,
-> -                                                       skb2->len,
-> -                                                       IPPROTO_ICMPV6,
-> 0));
-> -               if (__skb_checksum_complete(skb2))
-> -                       goto out;
-> -       }
-> +       if (skb_checksum_validate(skb2, IPPROTO_ICMPV6,
-> ip6_compute_pseudo))
-> +               goto out;
->
->         err =3D 0;
->
-> --
-> 1.7.10.4
->
->
-
---001a113495004856360513871bf9
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr">Hi All,<div>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 I am=
- getting following message if i post to=C2=A0<span style=3D"color:rgb(119,1=
-19,119);font-family:&#39;normal arial&#39;,sans-serif;font-size:12px">b.a.t=
-.m.a.n</span><span style=3D"color:rgb(119,119,119);font-family:&#39;normal =
-arial&#39;,sans-serif;font-size:12px">@<a href=3D"http://lists.open-mesh.or=
-g">lists.open-mesh.org</a>. So I am mailing to this group.</span></div><div=
-><span style=3D"color:rgb(119,119,119);font-family:&#39;normal arial&#39;,s=
-ans-serif;font-size:12px"><br></span></div><div><font color=3D"#777777" fac=
-e=3D"normal arial, sans-serif"><span style=3D"font-size:12px">Our wifi does=
- not support adhoc mode. I am trying batman-adv setup on managed mode.</spa=
-n></font></div><div><font color=3D"#777777" face=3D"normal arial, sans-seri=
-f"><span style=3D"font-size:12px"><br></span></font></div><div><font color=
-=3D"#777777" face=3D"normal arial, sans-serif"><span style=3D"font-size:12p=
-x">Can anybody tell me the settings fro batman-adv in managed mode/STA mode=
-?</span></font></div><div><font color=3D"#777777" face=3D"normal arial, san=
-s-serif"><span style=3D"font-size:12px"><br></span></font></div><div><font =
-color=3D"#777777" face=3D"normal arial, sans-serif"><span style=3D"font-siz=
-e:12px">Regards,</span></font></div><div><font color=3D"#777777" face=3D"no=
-rmal arial, sans-serif"><span style=3D"font-size:12px">Rudresh</span></font=
-></div></div><div class=3D"gmail_extra"><br><div class=3D"gmail_quote">On 1=
-0 April 2015 at 23:16, Linus L=C3=BCssing <span dir=3D"ltr">&lt;<a href=3D"=
-mailto:linus.luessing@c0d3.blue" target=3D"_blank">linus.luessing@c0d3.blue=
-</a>&gt;</span> wrote:<br><blockquote class=3D"gmail_quote" style=3D"margin=
-:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">Let&#39;s use thes=
-e new, neat helpers.<br>
-<br>
-Signed-off-by: Linus L=C3=BCssing &lt;linus.luessing@c0d3.blue&gt;<br>
----<br>
-=C2=A0net/bridge/br_multicast.c |=C2=A0 =C2=A028 ++++----------------------=
---<br>
-=C2=A01 file changed, 4 insertions(+), 24 deletions(-)<br>
-<br>
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c<br>
-index 4b6722f..b52f4cb 100644<br>
---- a/net/bridge/br_multicast.c<br>
-+++ b/net/bridge/br_multicast.c<br>
-@@ -1610,16 +1610,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge *=
-br,<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!pskb_may_pull(skb2, sizeof(*ih)))<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto out;<br>
-<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0switch (skb2-&gt;ip_summed) {<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0case CHECKSUM_COMPLETE:<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!csum_fold(skb2=
--&gt;csum))<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0break;<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* fall through */<=
-br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0case CHECKSUM_NONE:<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb2-&gt;csum =3D 0=
-;<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb_checksum_co=
-mplete(skb2))<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0goto out;<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0}<br>
-+=C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb_checksum_simple_validate(skb2))<br>
-+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out;<br>
-<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D 0;<br>
-<br>
-@@ -1737,20 +1729,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *=
-br,<br>
-<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 ip6h =3D ipv6_hdr(skb2);<br>
-<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0switch (skb2-&gt;ip_summed) {<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0case CHECKSUM_COMPLETE:<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (!csum_ipv6_magi=
-c(&amp;ip6h-&gt;saddr, &amp;ip6h-&gt;daddr, skb2-&gt;len,<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0IPPROTO_I=
-CMPV6, skb2-&gt;csum))<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0break;<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/*FALLTHROUGH*/<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0case CHECKSUM_NONE:<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb2-&gt;csum =3D ~=
-csum_unfold(csum_ipv6_magic(&amp;ip6h-&gt;saddr,<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0&amp;ip6h-&gt;daddr,<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb2-&gt;len,<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0IPPROTO_ICMPV6, 0));<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (__skb_checksum_=
-complete(skb2))<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0goto out;<br>
--=C2=A0 =C2=A0 =C2=A0 =C2=A0}<br>
-+=C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb_checksum_validate(skb2, IPPROTO_ICMPV6,=
- ip6_compute_pseudo))<br>
-+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto out;<br>
-<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 err =3D 0;<br>
-<span class=3D"HOEnZb"><font color=3D"#888888"><br>
---<br>
-1.7.10.4<br>
-<br>
-</font></span></blockquote></div><br></div>
-
---001a113495004856360513871bf9--
+SGkgRXJpYywNCg0KT24gRnJpLCAyMDE1LTA0LTEwIGF0IDIxOjAwIC0wNzAwLCBFcmljIER1bWF6
+ZXQgd3JvdGU6DQo+IE9uIFNhdCwgMjAxNS0wNC0xMSBhdCAwMTozNCArMDAwMCwgS2VsbGVyLCBK
+YWNvYiBFIHdyb3RlOg0KPiA+IEhpIFJpY2hhcmQsDQo+ID4gDQo+ID4gSSBkb24ndCBrbm93IGlm
+IHlvdSdkIGtub3cgdGhpcyBidXQgSSBiZWxpZXZlIHlvdSdyZSB0aGUgYmVzdCBwZXJzb24gdG8g
+YXNrLiBJZiBhbnlvbmUgZWxzZSBoYXMgYW4gYW5zd2VyIHBsZWFzZSBmZWVsIGZyZWUgdG8gY2hp
+bWUgaW4uDQo+ID4gDQo+ID4gWyAyNzQ0LjU1MjgyM10gTW9kdWxlcyBsaW5rZWQgaW46IGZtMTBr
+KE9FKSB2eGxhbiBpcDZfdWRwX3R1bm5lbCB1ZHBfdHVubmVsIHVpbyBmdXNlIHh0X0NIRUNLU1VN
+IGlwdGFibGVfbWFuZ2xlIGlwdF9NQVNRVUVSQURFIG5mX25hdF9tYXNxdWVyYWRlX2lwdjQgaXB0
+YWJsZV9uYXQgbmZfbmF0X2lwdjQgbmZfbmF0IG5mX2Nvbm50cmFja19pcHY0IG5mX2RlZnJhZ19p
+cHY0IHh0X2Nvbm50cmFjayBuZl9jb25udHJhY2sgdHVuIGJyaWRnZSBzdHAgbGxjIG9wZW52c3dp
+dGNoIGxpYmNyYzMyYyBqb3lkZXYgeDg2X3BrZ190ZW1wX3RoZXJtYWwgY29yZXRlbXAga3ZtX2lu
+dGVsIGt2bSBtZWlfbWUgY3JjdDEwZGlmX3BjbG11bCBjcmMzMl9wY2xtdWwgd21pIGNyYzMyY19p
+bnRlbCBtZWkgaXBtaV9zc2lmIGlUQ09fd2R0IGlUQ09fdmVuZG9yX3N1cHBvcnQgaXBtaV9kZXZp
+bnRmIGdoYXNoX2NsbXVsbmlfaW50ZWwgbHBjX2ljaCBpcG1pX3NpIHRwbV90aXMgbWZkX2NvcmUg
+dHBtIGlwbWlfbXNnaGFuZGxlciBpb2F0ZG1hIHNiX2VkYWMgc2hwY2hwIGVkYWNfY29yZSBpMmNf
+aTgwMSBtZ2FnMjAwIGRybV9rbXNfaGVscGVyIHR0bSBkcm0gaXNjaSBpZ2IgZmlyZXdpcmVfb2hj
+aSBmaXJld2lyZV9jb3JlIGxpYnNhcyBwdHAgY3JjX2l0dV90IGRjYSBzY3NpX3RyYW5zcG9ydF9z
+YXMgcHBzX2NvcmUgaTJjX2FsZ29fYml0IFtsYXN0IHVubG9hZGVkOiBmbTEwa10NCj4gPiBbIDI3
+NDQuNTUyODk2XSBDUFU6IDAgUElEOiAwIENvbW06IHN3YXBwZXIvMCBUYWludGVkOiBHICAgICAg
+ICBXICBPRSAgMy4xOS4zLTIwMC5mYzIxLng4Nl82NCAjMQ0KPiA+IFsgMjc0NC41NTI4OTldIEhh
+cmR3YXJlIG5hbWU6IEludGVsIENvcnBvcmF0aW9uIFMyNjAwQ08vUzI2MDBDTywgQklPUyBTRTVD
+NjAwLjg2Qi4wMi4wMy44eDIzLjA2MDUyMDE0MDgyNSAwNi8wNS8yMDE0DQo+ID4gWyAyNzQ0LjU1
+MjkwMV0gIDAwMDAwMDAwMDAwMDAwMDAgMmY0YzhiMTBlYTNmOTg0OCBmZmZmODgwODFlZTAzYTM4
+IGZmZmZmZmZmODE3NmUyMTUNCj4gPiBbIDI3NDQuNTUyOTA2XSAgMDAwMDAwMDAwMDAwMDAwMCAw
+MDAwMDAwMDAwMDAwMDAwIGZmZmY4ODA4MWVlMDNhNzggZmZmZmZmZmY4MTA5YmMxYQ0KPiA+IFsg
+Mjc0NC41NTI5MTBdICBmZmZmODgwODFlZTAzYzUwIGZmZmY4ODA4MGU1NWZjMDAgZmZmZjg4MDgw
+ZTU1ZmMwMCBmZmZmZmZmZjgxNjQ3YzUwDQo+ID4gWyAyNzQ0LjU1MjkxNF0gQ2FsbCBUcmFjZToN
+Cj4gPiBbIDI3NDQuNTUyOTE3XSAgPElSUT4gIFs8ZmZmZmZmZmY4MTc2ZTIxNT5dIGR1bXBfc3Rh
+Y2srMHg0NS8weDU3DQo+ID4gWyAyNzQ0LjU1MjkzMV0gIFs8ZmZmZmZmZmY4MTA5YmMxYT5dIHdh
+cm5fc2xvd3BhdGhfY29tbW9uKzB4OGEvMHhjMA0KPiA+IFsgMjc0NC41NTI5MzZdICBbPGZmZmZm
+ZmZmODE2NDdjNTA+XSA/IHNrYl9xdWV1ZV9wdXJnZSsweDIwLzB4NDANCj4gPiBbIDI3NDQuNTUy
+OTQxXSAgWzxmZmZmZmZmZjgxMDliZDRhPl0gd2Fybl9zbG93cGF0aF9udWxsKzB4MWEvMHgyMA0K
+PiA+IFsgMjc0NC41NTI5NDZdICBbPGZmZmZmZmZmODE2NDY5MTE+XSBza2JfcmVsZWFzZV9oZWFk
+X3N0YXRlKzB4ZTEvMHhmMA0KPiA+IFsgMjc0NC41NTI5NTBdICBbPGZmZmZmZmZmODE2NDdiMjY+
+XSBza2JfcmVsZWFzZV9hbGwrMHgxNi8weDMwDQo+ID4gWyAyNzQ0LjU1Mjk1NF0gIFs8ZmZmZmZm
+ZmY4MTY0N2JhNj5dIGtmcmVlX3NrYisweDM2LzB4OTANCj4gPiBbIDI3NDQuNTUyOTU4XSAgWzxm
+ZmZmZmZmZjgxNjQ3YzUwPl0gc2tiX3F1ZXVlX3B1cmdlKzB4MjAvMHg0MA0KPiA+IFsgMjc0NC41
+NTI5NjRdICBbPGZmZmZmZmZmODE3NTFmOGQ+XSBwYWNrZXRfc29ja19kZXN0cnVjdCsweDFkLzB4
+OTANCj4gPiBbIDI3NDQuNTUyOTY4XSAgWzxmZmZmZmZmZjgxNjQyMDUzPl0gX19za19mcmVlKzB4
+MjMvMHgxNDANCj4gPiBbIDI3NDQuNTUyOTczXSAgWzxmZmZmZmZmZjgxNjQyMTg5Pl0gc2tfZnJl
+ZSsweDE5LzB4MjANCj4gPiBbIDI3NDQuNTUyOTc3XSAgWzxmZmZmZmZmZjgxNjQ3ZDYwPl0gc2ti
+X2NvbXBsZXRlX3R4X3RpbWVzdGFtcCsweDUwLzB4NjANCj4gPiBbIDI3NDQuNTUyOTg4XSAgWzxm
+ZmZmZmZmZmEwMmVlZTQwPl0gZm0xMGtfdHNfdHhfaHd0c3RhbXArMHhkMC8weDEwMCBbZm0xMGtd
+DQo+ID4gWyAyNzQ0LjU1Mjk5NF0gIFs8ZmZmZmZmZmZhMDJlMDU0ZT5dIGZtMTBrXzE1ODhfbXNn
+X3BmKzB4MTJlLzB4MTQwIFtmbTEwa10NCj4gPiBbIDI3NDQuNTUzMDAyXSAgWzxmZmZmZmZmZmEw
+MmVkZjFkPl0gZm0xMGtfdGx2X21zZ19wYXJzZSsweDhkLzB4YzAgW2ZtMTBrXQ0KPiA+IFsgMjc0
+NC41NTMwMTBdICBbPGZmZmZmZmZmYTAyZWIyZDA+XSBmbTEwa19tYnhfZGVxdWV1ZV9yeCsweDYw
+LzB4YjAgW2ZtMTBrXQ0KPiA+IFsgMjc0NC41NTMwMTZdICBbPGZmZmZmZmZmYTAyZWJmOTg+XSBm
+bTEwa19zbV9tYnhfcHJvY2VzcysweDE3OC8weDNjMCBbZm0xMGtdDQo+ID4gWyAyNzQ0LjU1MzAy
+Ml0gIFs8ZmZmZmZmZmZhMDJlMDljYT5dIGZtMTBrX21zaXhfbWJ4X3BmKzB4ZmEvMHgzNjAgW2Zt
+MTBrXQ0KPiA+IFsgMjc0NC41NTMwMzBdICBbPGZmZmZmZmZmODExMDMwYTc+XSA/IGdldF9uZXh0
+X3RpbWVyX2ludGVycnVwdCsweDFmNy8weDI3MA0KPiA+IFsgMjc0NC41NTMwMzZdICBbPGZmZmZm
+ZmZmODEwZjJhNDc+XSBoYW5kbGVfaXJxX2V2ZW50X3BlcmNwdSsweDc3LzB4MWEwDQo+ID4gWyAy
+NzQ0LjU1MzA0MV0gIFs8ZmZmZmZmZmY4MTBmMmJhYj5dIGhhbmRsZV9pcnFfZXZlbnQrMHgzYi8w
+eDYwDQo+ID4gWyAyNzQ0LjU1MzA0NV0gIFs8ZmZmZmZmZmY4MTBmNWQ2ZT5dIGhhbmRsZV9lZGdl
+X2lycSsweDZlLzB4MTIwDQo+ID4gWyAyNzQ0LjU1MzA1NF0gIFs8ZmZmZmZmZmY4MTAxNzQxND5d
+IGhhbmRsZV9pcnErMHg3NC8weDE0MA0KPiA+IFsgMjc0NC41NTMwNjFdICBbPGZmZmZmZmZmODEw
+YmI1NGE+XSA/IGF0b21pY19ub3RpZmllcl9jYWxsX2NoYWluKzB4MWEvMHgyMA0KPiA+IFsgMjc0
+NC41NTMwNjZdICBbPGZmZmZmZmZmODE3Nzc3N2Y+XSBkb19JUlErMHg0Zi8weGYwDQo+ID4gWyAy
+NzQ0LjU1MzA3Ml0gIFs8ZmZmZmZmZmY4MTc3NTU2ZD5dIGNvbW1vbl9pbnRlcnJ1cHQrMHg2ZC8w
+eDZkDQo+ID4gWyAyNzQ0LjU1MzA3NF0gIDxFT0k+ICBbPGZmZmZmZmZmODE2MDliMTY+XSA/IGNw
+dWlkbGVfZW50ZXJfc3RhdGUrMHg2Ni8weDE2MA0KPiA+IFsgMjc0NC41NTMwODRdICBbPGZmZmZm
+ZmZmODE2MDliMDE+XSA/IGNwdWlkbGVfZW50ZXJfc3RhdGUrMHg1MS8weDE2MA0KPiA+IFsgMjc0
+NC41NTMwODddICBbPGZmZmZmZmZmODE2MDljZjc+XSBjcHVpZGxlX2VudGVyKzB4MTcvMHgyMA0K
+PiA+IFsgMjc0NC41NTMwOTJdICBbPGZmZmZmZmZmODEwZGUxMDE+XSBjcHVfc3RhcnR1cF9lbnRy
+eSsweDMyMS8weDNjMA0KPiA+IFsgMjc0NC41NTMwOThdICBbPGZmZmZmZmZmODE3NjQ0OTc+XSBy
+ZXN0X2luaXQrMHg3Ny8weDgwDQo+ID4gWyAyNzQ0LjU1MzEwM10gIFs8ZmZmZmZmZmY4MWQ0ZjAy
+Yz5dIHN0YXJ0X2tlcm5lbCsweDRhNC8weDRjNQ0KPiA+IFsgMjc0NC41NTMxMDddICBbPGZmZmZm
+ZmZmODFkNGUxMjA+XSA/IGVhcmx5X2lkdF9oYW5kbGVycysweDEyMC8weDEyMA0KPiA+IFsgMjc0
+NC41NTMxMTBdICBbPGZmZmZmZmZmODFkNGU0ZDc+XSB4ODZfNjRfc3RhcnRfcmVzZXJ2YXRpb25z
+KzB4MmEvMHgyYw0KPiA+IFsgMjc0NC41NTMxMTRdICBbPGZmZmZmZmZmODFkNGU2MmI+XSB4ODZf
+NjRfc3RhcnRfa2VybmVsKzB4MTUyLzB4MTc1DQo+ID4gDQo+ID4gVGhpcyBvY2N1cnMgYmVjYXVz
+ZSBvZiB0aGUgV0FSTl9PTiBpbiBrZnJlZV9za2Igd2hpY2ggcmVzdWx0cyBmcm9tIHNvY2tfaG9s
+ZChzaykgYW5kIHNvY2tfcHV0KHNrKQ0KPiA+IA0KPiA+IEkgaGF2ZSBhIGRyaXZlciAoZm0xMGsp
+IHdoaWNoIHJlY2VpdmVzIGEgbm90aWZpY2F0aW9uIG9mIFR4IHRpbWVzdGFtcCB2aWEgYW4gSVJR
+LCBhbmQgdGhlbiB3aGVuIEkgY2FsbCBza2JfY29tcGxldGVfdHhfdGltZXN0YW1wIEkgZ2V0IHRo
+aXMgd2FybmluZy4gSSBiZWxpZXZlIHRoaXMgaXMgYSByZXN1bHQgb2YgY2FsbGluZyBza19mcmVl
+LCB3aGljaCB0aGUgZGVzY3JpcHRpb24gKnNheXMqIGlzIG9rIHRvIGNhbGwgaW4gYW55IGNvbnRl
+eHQuLiBidXQgdGhlbiB3ZSBnZXQgdGhpcyB3YXJuaW5nLg0KPiA+IA0KPiA+IEknbSByZWFsbHkg
+bm90IHN1cmUgZXhhY3RseSBob3cgdGhpcyBzaXR1YXRpb24gb2NjdXJyZWQuIEV2ZW50dWFsbHkg
+d2UgY2FsbCBrZnJlZV9za2IoKSB3aGlsZSB3ZSBhcmUgaW4gaXJxIGNvbnRleHQgd2hpY2ggcmVz
+dWx0cyBpbiB0aGUgd2FybmluZy4NCj4gDQo+IEF0IGZpcnN0IGxvb2ssIHRoZXJlIGFyZSBzb21l
+IGlzc3VlcyB3aXRoIHRoaXMgZHJpdmVyLg0KPiANCg0KSSBzaG91bGQgY2xhcmlmeSBoZXJlLiBJ
+IGFtIHdvcmtpbmcgb24gZml4aW5nIHRoZSBpc3N1ZXMgd2l0aCAxNTg4IGluDQp0aGlzIGRyaXZl
+ci4gVGhlIGFjdHVhbCBwYW5pYyBJIGdvdCB3YXNuJ3Qgb24gdGhlIHNhbWUgY29kZSBhcyBjdXJy
+ZW50bHkNCmluIHVwc3RyZWFtLiBUaGVyZSBhcmUgYSBsb3Qgb2YgaXNzdWVzIHdlJ3JlIGFjdGl2
+ZWx5IGRlYnVnZ2luZyBub3cuDQpIb3dldmVyLCB5b3VyIHN1Z2dlc3Rpb24gYmVsb3cgZG9lcyBz
+ZWVtIGxpa2UgaXQgc3RpbGwgYXBwbGllcy4NCkhvcGVmdWxseSB0aGUgdG90YWwgc2V0IG9mIGZp
+eGVzIHdpbGwgYmUgcmVhZHkgdG8gcG9zdCBzb29uLg0KDQo+IGZtMTBrX3RzX3R4X2VucXVldWUo
+KSBpcyByYWN5IGFuZCBzZWVtcyBhbHNvIGJ1Z2d5LCBmcmVlaW5nIHdyb25nIHNrYi4NCj4gDQo+
+IENvdWxkIHlvdSB0cnkgOg0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0
+L2ludGVsL2ZtMTBrL2ZtMTBrX3B0cC5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+Zm0xMGsvZm0xMGtfcHRwLmMNCj4gaW5kZXgNCj4gMDIwMDhlOTc2ZDE4NmY3NTQ0NzAzNDAwODlm
+MzQ0ZTc4MWU5YmIwNC4uMDcwZDRmMGIzYzAzYmIwZTMxZTIxNmViODJkMDBmNGZkY2I0ZWE5ZiAx
+MDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRw
+LmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcHRwLmMN
+Cj4gQEAgLTcwLDE2ICs3MCwxNSBAQCB2b2lkIGZtMTBrX3RzX3R4X2VucXVldWUoc3RydWN0IGZt
+MTBrX2ludGZjDQo+ICppbnRlcmZhY2UsIHN0cnVjdCBza19idWZmICpza2IpDQo+ICAJICogaWYg
+bm9uZSBhcmUgcHJlc2VudCB0aGVuIGluc2VydCBza2IgaW4gdGFpbCBvZiBsaXN0DQo+ICAJICov
+DQo+ICAJc2tiID0gZm0xMGtfdHNfdHhfc2tiKGludGVyZmFjZSwgRk0xMEtfQ0IoY2xvbmUpLT5m
+aS53LmRnbG9ydCk7DQo+IC0JaWYgKCFza2IpDQo+ICsJaWYgKCFza2IpIHsNCj4gKwkJc2tiX3No
+aW5mbyhjbG9uZSktPnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KPiAgCQlfX3NrYl9x
+dWV1ZV90YWlsKGxpc3QsIGNsb25lKTsNCj4gLQ0KPiArCX0NCj4gIAlzcGluX3VubG9ja19pcnFy
+ZXN0b3JlKCZsaXN0LT5sb2NrLCBmbGFncyk7DQo+ICANCj4gIAkvKiBpZiBsaXN0IGlzIGFscmVh
+ZHkgaGFzIG9uZSB0aGVuIHdlIGp1c3QgZnJlZSB0aGUgY2xvbmUgKi8NCj4gIAlpZiAoc2tiKQ0K
+PiAtCQlrZnJlZV9za2Ioc2tiKTsNCj4gLQllbHNlDQo+IC0JCXNrYl9zaGluZm8oY2xvbmUpLT50
+eF9mbGFncyB8PSBTS0JUWF9JTl9QUk9HUkVTUzsNCj4gKwkJa2ZyZWVfc2tiKGNsb25lKTsNCg0K
+U28gZnJlZSB0aGUgY2xvbmUgaW5zdGVhZCBvZiB0aGUgb3JpZ2luYWw/IEknbSBub3QgZW50aXJl
+bHkgc3VyZSBob3cNCnRoaXMgY2hhbmdlcyB0aGUgZmxvdywgYnV0IEkgd2lsbCBnaXZlIHRoaXMg
+YSBzaG90Lg0KDQpSZWdhcmRzLA0KSmFrZQ0KDQo+ICB9DQo+ICANCj4gIHZvaWQgZm0xMGtfdHNf
+dHhfaHd0c3RhbXAoc3RydWN0IGZtMTBrX2ludGZjICppbnRlcmZhY2UsIF9fbGUxNiBkZ2xvcnQs
+DQo+IA0KPiANCj4gDQoNCg==
