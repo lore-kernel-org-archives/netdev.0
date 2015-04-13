@@ -1,83 +1,100 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] Renesas Ethernet AVB driver
-Date: Mon, 13 Apr 2015 23:49:40 +0300
-Message-ID: <552C2BE4.7010804@cogentembedded.com>
-References: <1453213.DoV6WFn45r@wasted.cogentembedded.com> <20150413.163259.2190743529898270341.davem@davemloft.net>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: [patch 4/5] net: hip04: Make tx coalesce timer actually work
+Date: Mon, 13 Apr 2015 21:02:23 -0000
+Message-ID: <20150413210035.274411419@linutronix.de>
+References: <20150413210009.682000343@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-7;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	richardcochran@gmail.com, linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20150413.163259.2190743529898270341.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	dingtianhong <dingtianhong@huawei.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline; filename=net-hip04-fix-hrtimer-wreckage.patch
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+The code sets the expiry value of the timer to a relative value and
+starts it with hrtimer_start_expires. That's fine, but that only works
+once. The timer is started in relative mode, so the expiry value gets
+overwritten with the absolut expiry time (now + expiry).
 
-On 04/13/2015 11:32 PM, David Miller wrote:
+So once the timer expired, a new call to hrtimer_start_expires results
+in an immidiately expired timer, because the expiry value is
+already in the past.
 
->> Ethernet AVB includes an Gigabit Ethernet controller (E-MAC) that is=
- basically
->> compatible with SuperH Gigabit Ethernet E-MAC). Ethernet AVB  has a =
-dedicated
->> direct memory access controller (AVB-DMAC) that is a new design comp=
-ared to the
->> SuperH E-DMAC. The AVB-DMAC is compliant with 3 standards formulated=
- for IEEE
->> 802.1BA: IEEE 802.1AS timing and synchronization protocol, IEEE 802.=
-1Qav real-
->> time transfer, and the IEEE 802.1Qat stream reservation protocol.
+Use the proper mechanisms to (re)start the timer in the intended way.
 
->> Not only the Ethernet driver is enclosed, there is also the PTP driv=
-er in
->> the same file.  These drivers only support device tree probing, so t=
-he binding
->> document is included in this patch.
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: dingtianhong <dingtianhong@huawei.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Zhangfei Gao <zhangfei.gao@linaro.org>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/hisilicon/hip04_eth.c |   18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
 
->> Based on the original patches by Mitsuhiro Kimura (Ethernet driver) =
-and Masaru
->> Nagai (PTP driver).
-
->> Signed-off-by: Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
->> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-> Doesn't build properly on x86-64:
-
->    CC [M]  drivers/net/ethernet/renesas/ravb.o
-> drivers/net/ethernet/renesas/ravb.c: In function =A1ravb_set_buffer_a=
-lign=A2:
-> drivers/net/ethernet/renesas/ravb.c:955:16: warning: cast from pointe=
-r to integer of different size [-Wpointer-to-int-cast]
->    u32 reserve =3D (u32)skb->data & (RAVB_ALIGN - 1);
->                  ^
-> drivers/net/ethernet/renesas/ravb.c: At top level:
-> drivers/net/ethernet/renesas/ravb.c:2771:2: error: unknown field =A1g=
-ettime=A2 specified in initializer
->    .gettime =3D ravb_ptp_gettime,
->    ^
-> drivers/net/ethernet/renesas/ravb.c:2772:2: error: unknown field =A1s=
-ettime=A2 specified in initializer
->    .settime =3D ravb_ptp_settime,
->    ^
-
-    So, timespec64 patches have been merged to net-next... In my haste =
-I just=20
-forgot to compile-test the driver in net-next, sorry about that. :-<
-
-> It is not acceptable to fix this by removing COMPILE_TEST from the Kc=
-onfig
-> dependencies or something like that.
-
-    It's also impossible as the errors themselves don't depend on ARCH.=
- :-)
-
-> Thanks.
-
-WBR, Sergei
-
+Index: linux/drivers/net/ethernet/hisilicon/hip04_eth.c
+===================================================================
+--- linux.orig/drivers/net/ethernet/hisilicon/hip04_eth.c
++++ linux/drivers/net/ethernet/hisilicon/hip04_eth.c
+@@ -413,6 +413,15 @@ out:
+ 	return count;
+ }
+ 
++static void hip04_start_tx_timer(struct hip04_priv *priv)
++{
++	ktime_t t;
++
++	/* allow timer to fire after half the time at the earliest */
++	t = ktime_set(0, priv->tx_coalesce_usecs * NSEC_PER_USEC / 2);
++	hrtimer_start(&priv->tx_coalesce_timer, t, HRTIMER_MODE_REL);
++}
++
+ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	struct hip04_priv *priv = netdev_priv(ndev);
+@@ -466,8 +475,7 @@ static int hip04_mac_start_xmit(struct s
+ 		}
+ 	} else if (!hrtimer_is_queued(&priv->tx_coalesce_timer)) {
+ 		/* cleanup not pending yet, start a new timer */
+-		hrtimer_start_expires(&priv->tx_coalesce_timer,
+-				      HRTIMER_MODE_REL);
++		hip04_start_tx_timer(priv);
+ 	}
+ 
+ 	return NETDEV_TX_OK;
+@@ -549,7 +557,7 @@ done:
+ 	/* clean up tx descriptors and start a new timer if necessary */
+ 	tx_remaining = hip04_tx_reclaim(ndev, false);
+ 	if (rx < budget && tx_remaining)
+-		hrtimer_start_expires(&priv->tx_coalesce_timer, HRTIMER_MODE_REL);
++		hip04_start_tx_timer(priv);
+ 
+ 	return rx;
+ }
+@@ -809,7 +817,6 @@ static int hip04_mac_probe(struct platfo
+ 	struct hip04_priv *priv;
+ 	struct resource *res;
+ 	unsigned int irq;
+-	ktime_t txtime;
+ 	int ret;
+ 
+ 	ndev = alloc_etherdev(sizeof(struct hip04_priv));
+@@ -846,9 +853,6 @@ static int hip04_mac_probe(struct platfo
+ 	 */
+ 	priv->tx_coalesce_frames = TX_DESC_NUM * 3 / 4;
+ 	priv->tx_coalesce_usecs = 200;
+-	/* allow timer to fire after half the time at the earliest */
+-	txtime = ktime_set(0, priv->tx_coalesce_usecs * NSEC_PER_USEC / 2);
+-	hrtimer_set_expires_range(&priv->tx_coalesce_timer, txtime, txtime);
+ 	priv->tx_coalesce_timer.function = tx_done;
+ 
+ 	priv->map = syscon_node_to_regmap(arg.np);
