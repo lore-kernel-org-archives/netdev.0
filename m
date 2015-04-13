@@ -1,63 +1,44 @@
-From: "Shengzhou.Liu@freescale.com" <Shengzhou.Liu@freescale.com>
-Subject: RE: [PATCH] net/phy: tune get_phy_c45_ids to support more c45 phy
-Date: Mon, 13 Apr 2015 06:59:52 +0000
-Message-ID: <DM2PR03MB398164CA6A138741831BAE2F8E70@DM2PR03MB398.namprd03.prod.outlook.com>
-References: <1428657020-11191-1-git-send-email-Shengzhou.Liu@freescale.com>
- <20150412.204201.2242904202939074517.davem@davemloft.net>
+From: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
+	<hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH 2/2] net: Export IGMP/MLD message validation code
+Date: Mon, 13 Apr 2015 16:18:00 +0900
+Message-ID: <552B6DA8.10500@miraclelinux.com>
+References: <1428687999-18428-1-git-send-email-linus.luessing@c0d3.blue> <1428687999-18428-2-git-send-email-linus.luessing@c0d3.blue> <20150411014645.GA20155@odroid>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0143.outbound.protection.outlook.com ([65.55.169.143]:22432
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751455AbbDMHOV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 03:14:21 -0400
-In-Reply-To: <20150412.204201.2242904202939074517.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hideaki.yoshifuji@miraclelinux.com
+To: =?UTF-8?B?TGludXMgTMO8c3Npbmc=?= <linus.luessing@c0d3.blue>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150411014645.GA20155@odroid>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Linus L=C3=BCssing wrote:
+> On Fri, Apr 10, 2015 at 07:46:39PM +0200, Linus L=C3=BCssing wrote:
+>> diff --git a/net/ipv6/mcast_snoop.c b/net/ipv6/mcast_snoop.c
+>> new file mode 100644
+>> index 0000000..95b34c0
+>> --- /dev/null
+>> +++ b/net/ipv6/mcast_snoop.c
+>> @@ -0,0 +1,198 @@
+>> +/* Copyright (C) 2015: Linus L=C3=BCssing <linus.luessing@c0d3.blue=
+>
+>=20
+> PS: I'm a little uncertain how this is usually done. If I should
+> add someone (maybe Hideaki YOSHIFUJI, the original author of the
+> bridge IPv6/MLD support?), then please let me know.
 
+If you want to claim copyright, add myself (2010,
+yoshfuji@linux-ipv6.org).  You may have Authors: lines for both.
+Also, you could have description like "Based on MLD support by
+=2E..".
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, April 13, 2015 8:42 AM
-> To: Liu Shengzhou-B36685
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> f.fainelli@gmail.com
-> Subject: Re: [PATCH] net/phy: tune get_phy_c45_ids to support more c45 phy
-> 
-> From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-> Date: Fri, 10 Apr 2015 17:10:20 +0800
-> 
-> >  		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
-> > -			*phy_id = 0xffffffff;
-> > -			return 0;
-> > +			reg_addr = MII_ADDR_C45 | 0 << 16 | 6;
-> > +			phy_reg = mdiobus_read(bus, addr, reg_addr);
-> > +			if (phy_reg < 0)
-> > +				return -EIO;
-> 
-> Why are you reading this same register again, and why are you doing it with
-> the magic constant "6".  That's not '6', it's 'MDIO_DEVS2'.
-> 
-> The first loop executed here should have read from this address, and placed
-> the value into the ->devices_in_package.
-> 
-> This looks really like a hack.  You're reading again the same registers, by
-> hand, that the loop should already be reading properly.
-> 
-> Why not restructure the loop to actually probe naturally for the presence
-> bits in a way that works on the chip you are trying to make work?
- 
-Some PHYs(e.g. Cortina CS4315/CS4340) have zero Devices In package,
-If we first probe zero Devices In package by loop for(i = 0; i < num_ids && c45_ids->devices_in_package == 0; i++),
-it will cause the probe fail on those C45 PHYs with non-zero Devices In package.
-So we must first probe non-zero Devices In package in the loop, if the return value
-of c45_ids->devices_in_package is 0x1fffffff, then try to probe zero Devices In package.
-Yes, will use MDIO_DEVS1 and MDIO_DEVS2 instead of constant '6', '5' in next version.
+--yoshfuji
