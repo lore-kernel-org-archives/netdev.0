@@ -1,51 +1,80 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v3 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
-Date: Mon, 13 Apr 2015 10:28:56 -0400
-Message-ID: <552BD2A8.10105@mojatatu.com>
-References: <1428535575-7736-1-git-send-email-ast@plumgrid.com>	<1428535575-7736-2-git-send-email-ast@plumgrid.com> <20150408.224404.1913719826015357860.davem@davemloft.net> <5525EC69.1080606@plumgrid.com> <5526593E.4040608@mojatatu.com> <5526B0E0.7060000@plumgrid.com> <5527C6AE.6010301@mojatatu.com> <55285038.3060806@plumgrid.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH v4 2/9] bgmac: leave interrupts disabled as long as there
+ is work to do
+Date: Mon, 13 Apr 2015 16:34:21 +0200
+Message-ID: <CACna6rxgjUPdMsnhgvoRQLaOZ+T1epyvj3cDbZnYRtOeG0irtA@mail.gmail.com>
+References: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
+	<1428933162-26763-2-git-send-email-nbd@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, tgraf@suug.ch, jiri@resnulli.us,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:36168 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753974AbbDMO26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:28:58 -0400
-Received: by igblo3 with SMTP id lo3so46993316igb.1
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 07:28:57 -0700 (PDT)
-In-Reply-To: <55285038.3060806@plumgrid.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:33826 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753423AbbDMOeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:34:22 -0400
+Received: by iedfl3 with SMTP id fl3so75357293ied.1
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 07:34:22 -0700 (PDT)
+In-Reply-To: <1428933162-26763-2-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/10/15 18:35, Alexei Starovoitov wrote:
+On 13 April 2015 at 15:52, Felix Fietkau <nbd@openwrt.org> wrote:
+> Always poll rx and tx during NAPI poll instead of relying on the status
+> of the first interrupt. This prevents bgmac_poll from leaving unfinished
+> work around until the next IRQ.
+> In my tests this makes bridging/routing throughput under heavy load more
+> stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
+> the entire budget.
 
->> To your "bugs" comments:
->> - updating csum; earlier i said i was conflicted it being a
->> useful "feature".
->> You are repeating again that it is a bug. It is not.
->> This action is intended to  mirror or redirect packets, period.
+What do you think about keeping u32 int_status; and just updating it
+at the end of bgmac_poll? In case you decide to implement multiple TX
+queues, it may be cheaper to just check a single bit in memory instead
+reading DMA ring status.
+
+
+> @@ -1221,14 +1219,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+>         if (!int_status)
+>                 return IRQ_NONE;
 >
-> without updating skb->csum act_mirred is breaking csum for
-> checksum_complete devices.
+> -       /* Ack */
+> -       bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
+> +       int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
+> +       if (int_status)
+> +               bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
+>
+>         /* Disable new interrupts until handling existing ones */
+>         bgmac_chip_intrs_off(bgmac);
+>
+> -       bgmac->int_status = int_status;
+> -
+>         napi_schedule(&bgmac->napi);
+>
+>         return IRQ_HANDLED;
+> @@ -1237,25 +1234,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+>  static int bgmac_poll(struct napi_struct *napi, int weight)
+>  {
+>         struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
+> -       struct bgmac_dma_ring *ring;
+>         int handled = 0;
+>
+> -       if (bgmac->int_status & BGMAC_IS_TX0) {
+> -               ring = &bgmac->tx_ring[0];
+> -               bgmac_dma_tx_free(bgmac, ring);
+> -               bgmac->int_status &= ~BGMAC_IS_TX0;
+> -       }
+> +       /* Ack */
+> +       bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
 
-Ok, could this then be checked for in dev features flags and
-only then recomputed?
+Is this OK to ack every IRQ, even un handled ones?
 
 
-> True. The program authors may want to know whether the packet is seen
-> on ingress or egress and take different actions inside the program,
-> but forcing them to _always_ parse the packet differently because of
-> it is not acceptable.
+> +       /* poll again if more events arrived in the mean time */
+> +       if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
+> +               return handled;
 
-
-Yes, I see your point here as reasonable dilema. But you could add an
-API call the user always make that resets and unsets the header?
-It would be a single branch failure for egress/stack source.
-
-
-cheers,
-jamal
+s/mean time/meantime/ (or meanwhile)
+And if you care to keep one type of comments:
+s/poll/Poll/
