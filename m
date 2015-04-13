@@ -1,52 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] switchdev: s/netdev_switch_/switchdev_/
-Date: Mon, 13 Apr 2015 17:19:32 +0200
-Message-ID: <20150413151932.GH2090@nanopsycho.lan>
-References: <1428934475-15349-1-git-send-email-jiri@resnulli.us>
- <1428934475-15349-2-git-send-email-jiri@resnulli.us>
- <CAE4R7bBndOxs6Gt6ZV8WxNfmW8_GU=-vE4Wp=bCHsAq_rSa1JA@mail.gmail.com>
- <20150413150120.GF2090@nanopsycho.lan>
- <CAE4R7bDLseNH6U1J8pf5ZmNy2W7kfugNwYAM2P5obKgu-o39pg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp/dccp: get rid of central timewait timer
+Date: Mon, 13 Apr 2015 08:23:58 -0700
+Message-ID: <1428938638.3834.9.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1428693574.25985.326.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1428889869.25985.375.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:35702 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753847AbbDMPTf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 11:19:35 -0400
-Received: by wgyo15 with SMTP id o15so85244086wgy.2
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 08:19:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bDLseNH6U1J8pf5ZmNy2W7kfugNwYAM2P5obKgu-o39pg@mail.gmail.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:37621 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753652AbbDMPYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 11:24:01 -0400
+Received: by igblo3 with SMTP id lo3so46956538igb.0
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 08:24:00 -0700 (PDT)
+In-Reply-To: <1428889869.25985.375.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Apr 13, 2015 at 05:06:04PM CEST, sfeldma@gmail.com wrote:
->On Mon, Apr 13, 2015 at 8:01 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Mon, Apr 13, 2015 at 04:48:51PM CEST, sfeldma@gmail.com wrote:
->>>On Mon, Apr 13, 2015 at 7:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Turned out that "switchdev" sticks. So just unify all releated terms to
->>>> use this prefix.
->>>>
->>>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>>
->>>NACK.  I'm right in the middle of a large patchset which touches all
->>>of these files in all of those places and a rename before mine will
->>>create a git merge nightmare.  Please wait to post any rename patches
->>>until after my set goes in.
->>
->> Makes sense to me to rename first so you can add new functions with
->> "switchdev_" prefix on top of that.
->
->I am renaming, to swdev_ and all new stuff gets swdev_ prefix.  You're
->welcome to change the prefix after my patch set goes in but don't try
->to slip it under as it totally messes up my patch stack.
+On Sun, 2015-04-12 at 18:51 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 
-Scott, at least please use "switchdev_" prefix for your new stuff so it
-does not have to be renamed right after.
+> -void inet_twsk_schedule(struct inet_timewait_sock *tw,
+> -		       struct inet_timewait_death_row *twdr,
+> -		       const int timeo, const int timewait_len)
+> +void inet_twsk_schedule(struct inet_timewait_sock *tw, const int timeo)
+>  {
+> -	struct hlist_head *list;
+> -	int slot;
+> -
+>  	/* timeout := RTO * 3.5
+>  	 *
+>  	 * 3.5 = 1+2+0.5 to wait for two retransmits.
+> @@ -367,115 +269,15 @@ void inet_twsk_schedule(struct inet_timewait_sock *tw,
+>  	 * is greater than TS tick!) and detect old duplicates with help
+>  	 * of PAWS.
+>  	 */
+> -	slot = (timeo + (1 << INET_TWDR_RECYCLE_TICK) - 1) >> INET_TWDR_RECYCLE_TICK;
+>  
+> -	spin_lock(&twdr->death_lock);
+> -
+> -	/* Unlink it, if it was scheduled */
+> -	if (inet_twsk_del_dead_node(tw))
+> -		twdr->tw_count--;
+> -	else
+> +	tw->tw_kill = timeo <= 4*HZ;	
+
+I noticed extra spaces at the end of this line, I can either resend a v3
+or let you remove this, thanks !
