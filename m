@@ -1,46 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: use jump label patching for ingress
- qdisc in __netif_receive_skb_core
-Date: Mon, 13 Apr 2015 13:35:05 -0400 (EDT)
-Message-ID: <20150413.133505.56878477510338170.davem@davemloft.net>
-References: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v4 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
+Date: Mon, 13 Apr 2015 10:37:37 -0700
+Message-ID: <552BFEE1.2070600@plumgrid.com>
+References: <1428708792-5872-1-git-send-email-ast@plumgrid.com> <1428708792-5872-2-git-send-email-ast@plumgrid.com> <552BCFA1.7020502@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, ast@plumgrid.com, edumazet@google.com,
+Cc: Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
 	netdev@vger.kernel.org
-To: daniel@iogearbox.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53154 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751996AbbDMRfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:35:07 -0400
-In-Reply-To: <66b2c2faaa0f629dd9a8c0981bf51f6484bc4ee9.1428699635.git.daniel@iogearbox.net>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37404 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754170AbbDMRhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:37:40 -0400
+Received: by igblo3 with SMTP id lo3so50428187igb.0
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 10:37:40 -0700 (PDT)
+In-Reply-To: <552BCFA1.7020502@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 10 Apr 2015 23:07:54 +0200
+On 4/13/15 7:16 AM, Jamal Hadi Salim wrote:
+>
+> To repeat what i said earlier:
+> The only known user at this point is bpf. cls_bpf and cls_act could both
+> look at the AT field, find where they are being invoked from and react
+> accordingly. This is not very hard for a coder to do and the user
+> injecting the policy doesnt need to know about it.
 
-> Even if we make use of classifier and actions from the egress
-> path, we're going into handle_ing() executing additional code
-> on a per-packet cost for ingress qdisc, just to realize that
-> nothing is attached on ingress.
-> 
-> Instead, this can just be blinded out as a no-op entirely with
-> the use of a static key. On input fast-path, we already make
-> use of static keys in various places, e.g. skb time stamping,
-> in RPS, etc. It makes sense to not waste time when we're assured
-> that no ingress qdisc is attached anywhere.
-> 
-> Enabling/disabling of that code path is being done via two
-> helpers, namely net_{inc,dec}_ingress_queue(), that are being
-> invoked under RTNL mutex when a ingress qdisc is being either
-> initialized or destructed.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+It is hard. That's my experience coding in bpf clearly tells me.
+Burdening users will have long term consequences.
+If Dave doesn't like ingress_l2 approach, my only choice left is to
+abandon ld_abs/ld_ind instructions for tc+bpf programs (since ld_abs
+must use skb->data) and introduce new helpers that always use
+skb->mac_header. That is the ugly choice and the deeper you look the
+uglier it becomes. Like I cannot reject programs with ld_abs in
+verifier, since ld_abs with skf_ll_off negative offset is still usable,
+but slower than new helpers, but regular ld_abs shouldn't be used and
+user will be finding bugs the hard way. I cannot recode ld_abs
+offsets on the fly either, since the same program can be attached to
+both ingress and egress. I cannot pass l3-l2 delta into the program,
+since negative offsets in ld_abs have different meaning, so ld_abs -14
+cannot work. I cannot push/pull/skb_share_check when program is already
+running. Etc, etc.
+ingress_l2 cleanly solves it and it also makes ingress and egress
+_consistent_ for all existing and future classifiers and actions.
+I don't see it as being bpf specific. imo it should have been this way
+from the beginning. That's why I tried to do it unconditionally in v2
+patch, but ingress was this way for too long, so we have to add a flag.
 
-This seems reasonable.  If it is shown to slow things down or
-whatever, we can revert it.
+> If you do that then i think you need to also inform users downstream
+> from bpf that they should expect to see the packet at the Link header
+> and not the network header.
 
-Applied, thanks Daniel.
+I've analyzed all classifiers and actions. Few assume starting at l2
+and I marked them as such in v3. In this v4 patch I dropped the marking,
+since my reading of Dave's recommendation was to fix them to work
+with/without l2. That's my plan. So nothing will be affected by this
+ingress_l2. imo it's a good generic feature. I can see future non-bpf
+actions that would also want to use TCA_NEEDS_L2 to avoid dealing with
+ingress/egress differences.
