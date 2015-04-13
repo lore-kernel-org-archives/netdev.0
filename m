@@ -1,150 +1,342 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 00/11] net/mlx5: ConnectX-4 100G Ethernet driver
-Date: Mon, 13 Apr 2015 14:44:50 +0300
-Message-ID: <1428925501-2373-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 01/11] net/mlx5_core: Set irq affinity hints
+Date: Mon, 13 Apr 2015 14:44:51 +0300
+Message-ID: <1428925501-2373-2-git-send-email-amirv@mellanox.com>
+References: <1428925501-2373-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
 	Ido Shamay <idos@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:60694 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:60682 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753902AbbDMLpl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752553AbbDMLpl (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 13 Apr 2015 07:45:41 -0400
+In-Reply-To: <1428925501-2373-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Saeed Mahameed <saeedm@mellanox.com>
 
-Changes from V0:
-- Removed V0 Patch 1/11 ("net/mlx5_core: Virtually extend work/completion queue
-  buffers by one page") due to misuse of DMA API. Thanks Dave.
-- Patch 1/11 ("net/mlx5_core: Set irq affinity hints"):
-  - Use kcalloc instead of kzalloc
-  - Fix build error when CONFIG_CPUMASK_OFFSTACK=n. Driver loading will fail
-    now if cpumask allocation is failing.
-  - Using dev_to_node helper. Thanks, Ido.  
-- Patch 3/11 ("net/mlx5_core: HW data structs/types definitions preparation for
-  mlx5 ehternet driver")
-  - Removed Mellanox internal comment at the head of the file. Thanks Joe
-- Patch 6/11 ("net/mlx5_core: Implement get/set port status")
-  - Use direct return of function's result. Thanks Sergei.
-- Added Patch 8/11 ("net/mlx5_core: Set/Query port MTU commands")
-- Patch 9/11 ("net/mlx5: Ethernet Datapath files") 
-  - Use rq->wqe_sz instead of skb_end_offset. Thanks Ido.
-  - Use dma_wmb() when possible instead of wmb(). Thanks Alex.
-  - Fix checkpatch issues
-- Patch 10/11 ("net/mlx5: ethernet resources handling")
-  - checkpatch issues
-  - Added missing include
-- Patch 11/11 ("net/mlx5: Ethernet driver") 
-  - checkpatch issues
-  - fixed typo
-  - Modified use of affinity hint
-  - Using dev_to_node helper. Thanks, Ido.  
-  - Use new hardware commands from Patch 8/11 ("net/mlx5_core: Set/Query port
-    MTU commands") to get/set port MTU in hardware.
-  - Removed NETIF_F_SG since hardware ring wraparound is not supported
-  - Use dma_wmb() when possible instead of wmb(). Thanks Alex.
+Preparation for upcoming ethernet driver.
+- Move msix array from eq_table struct to priv since its not related to eq_table
+- Intorduce irq_info struct to hold all irq information
+- Move name from mlx5_eq to irq_info struct since it is irq property.
+- Set IRQ affinity hints
 
-This patchset introduces support in Mellanox ConnectX-4 100G Ethernet NIC.
-Unlike the ConnectX-3 driver, this driver is built of a single module (there is
-no mlx5_en). It is the Ethernet driver and also the low level driver for the
-infiniband driver - mlx5_ib.
+Signed-off-by: Achiad Shochat <achiad@mellanox.com>
+Signed-off-by: Rana Shahout <ranas@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c   |  16 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/main.c | 111 ++++++++++++++++++++++---
+ include/linux/mlx5/driver.h                    |  11 ++-
+ 3 files changed, 117 insertions(+), 21 deletions(-)
 
-Many features are still missing from the driver, but all the basic
-functionalities are there already.
-
-Notes:
--  Patch 3/11 ("net/mlx5_core: HW data structs/types definitions preparation
-   for mlx5 ehternet driver") is too big for the mail server. It is hard to split
-   it, since it is a generated code. I'm sending it as is, so you get it
-   as part of the patches.  I also place it on a public git [1], to enable
-   reviewing it from the mailing list.
-
-Patchset was applied on top of e60a9de ("Merge branch 'master' of
-git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue")
-
-[1] - http://git.openfabrics.org/?p=~amirv/linux.git;a=shortlog;h=refs/heads/mlx5e_v1  
-
-Thanks to Achiad, Saeed, Yevheny, Or and the whole team for making this happen,
-Amir
-
-Amir Vadai (3):
-  net/mlx5: Ethernet Datapath files
-  net/mlx5: ethernet resources handling
-  net/mlx5: Ethernet driver
-
-Rana Shahout (2):
-  net/mlx5_core: Implement get/set port status
-  net/mlx5_core: Modify CQ moderation parameters
-
-Saeed Mahameed (6):
-  net/mlx5_core: Set irq affinity hints
-  net/mlx5_core: Add EQ renaming mechanism
-  net/mlx5_core: HW data structs/types definitions preparation for mlx5
-    ehternet driver
-  net/mlx5_core/ib: New device capabilities handling.
-  net/mlx5_core: Implement get and set functions of ptys register fields
-  net/mlx5_core: Set/Query port MTU commands
-
- drivers/infiniband/hw/mlx5/cq.c                    |    8 +-
- drivers/infiniband/hw/mlx5/mad.c                   |    2 +-
- drivers/infiniband/hw/mlx5/main.c                  |  113 +-
- drivers/infiniband/hw/mlx5/mlx5_ib.h               |    6 +-
- drivers/infiniband/hw/mlx5/mr.c                    |    3 +-
- drivers/infiniband/hw/mlx5/odp.c                   |   47 +-
- drivers/infiniband/hw/mlx5/qp.c                    |   84 +-
- drivers/infiniband/hw/mlx5/srq.c                   |    7 +-
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    3 +-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   17 +-
- drivers/net/ethernet/mellanox/mlx5/core/cq.c       |   18 +
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  520 ++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  679 ++
- .../ethernet/mellanox/mlx5/core/en_flow_table.c    |  858 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 1920 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  249 +
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  344 +
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  107 +
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   20 +-
- .../net/ethernet/mellanox/mlx5/core/flow_table.c   |  422 ++
- drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   90 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  294 +-
- drivers/net/ethernet/mellanox/mlx5/core/mcg.c      |    2 +-
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   20 +-
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |  165 +
- drivers/net/ethernet/mellanox/mlx5/core/transobj.c |  169 +
- drivers/net/ethernet/mellanox/mlx5/core/transobj.h |   47 +
- drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   44 +-
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  111 +
- drivers/net/ethernet/mellanox/mlx5/core/vport.h    |   41 +
- drivers/net/ethernet/mellanox/mlx5/core/wq.c       |  189 +
- drivers/net/ethernet/mellanox/mlx5/core/wq.h       |  171 +
- include/linux/mlx5/cq.h                            |    3 +
- include/linux/mlx5/device.h                        |  179 +-
- include/linux/mlx5/driver.h                        |   99 +-
- include/linux/mlx5/flow_table.h                    |   54 +
- include/linux/mlx5/mlx5_ifc.h                      | 6623 +++++++++++++++++++-
- include/linux/mlx5/qp.h                            |   25 +
- 38 files changed, 13275 insertions(+), 478 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_main.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.h
- create mode 100644 include/linux/mlx5/flow_table.h
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+index 58800e4..1f71ab9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
+@@ -339,7 +339,7 @@ static void init_eq_buf(struct mlx5_eq *eq)
+ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
+ 		       int nent, u64 mask, const char *name, struct mlx5_uar *uar)
+ {
+-	struct mlx5_eq_table *table = &dev->priv.eq_table;
++	struct mlx5_priv *priv = &dev->priv;
+ 	struct mlx5_create_eq_mbox_in *in;
+ 	struct mlx5_create_eq_mbox_out out;
+ 	int err;
+@@ -378,14 +378,15 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
+ 		goto err_in;
+ 	}
+ 
+-	snprintf(eq->name, MLX5_MAX_EQ_NAME, "%s@pci:%s",
++	snprintf(priv->irq_info[vecidx].name, MLX5_MAX_IRQ_NAME, "%s@pci:%s",
+ 		 name, pci_name(dev->pdev));
++
+ 	eq->eqn = out.eq_number;
+ 	eq->irqn = vecidx;
+ 	eq->dev = dev;
+ 	eq->doorbell = uar->map + MLX5_EQ_DOORBEL_OFFSET;
+-	err = request_irq(table->msix_arr[vecidx].vector, mlx5_msix_handler, 0,
+-			  eq->name, eq);
++	err = request_irq(priv->msix_arr[vecidx].vector, mlx5_msix_handler, 0,
++			  priv->irq_info[vecidx].name, eq);
+ 	if (err)
+ 		goto err_eq;
+ 
+@@ -401,7 +402,7 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
+ 	return 0;
+ 
+ err_irq:
+-	free_irq(table->msix_arr[vecidx].vector, eq);
++	free_irq(priv->msix_arr[vecidx].vector, eq);
+ 
+ err_eq:
+ 	mlx5_cmd_destroy_eq(dev, eq->eqn);
+@@ -417,16 +418,15 @@ EXPORT_SYMBOL_GPL(mlx5_create_map_eq);
+ 
+ int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
+ {
+-	struct mlx5_eq_table *table = &dev->priv.eq_table;
+ 	int err;
+ 
+ 	mlx5_debug_eq_remove(dev, eq);
+-	free_irq(table->msix_arr[eq->irqn].vector, eq);
++	free_irq(dev->priv.msix_arr[eq->irqn].vector, eq);
+ 	err = mlx5_cmd_destroy_eq(dev, eq->eqn);
+ 	if (err)
+ 		mlx5_core_warn(dev, "failed to destroy a previously created eq: eqn %d\n",
+ 			       eq->eqn);
+-	synchronize_irq(table->msix_arr[eq->irqn].vector);
++	synchronize_irq(dev->priv.msix_arr[eq->irqn].vector);
+ 	mlx5_buf_free(dev, &eq->buf);
+ 
+ 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 28425e5..55085b0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -38,6 +38,7 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/slab.h>
+ #include <linux/io-mapping.h>
++#include <linux/interrupt.h>
+ #include <linux/mlx5/driver.h>
+ #include <linux/mlx5/cq.h>
+ #include <linux/mlx5/qp.h>
+@@ -208,7 +209,8 @@ static void release_bar(struct pci_dev *pdev)
+ 
+ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+ {
+-	struct mlx5_eq_table *table = &dev->priv.eq_table;
++	struct mlx5_priv *priv = &dev->priv;
++	struct mlx5_eq_table *table = &priv->eq_table;
+ 	int num_eqs = 1 << dev->caps.gen.log_max_eq;
+ 	int nvec;
+ 	int i;
+@@ -218,14 +220,16 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+ 	if (nvec <= MLX5_EQ_VEC_COMP_BASE)
+ 		return -ENOMEM;
+ 
+-	table->msix_arr = kzalloc(nvec * sizeof(*table->msix_arr), GFP_KERNEL);
+-	if (!table->msix_arr)
+-		return -ENOMEM;
++	priv->msix_arr = kcalloc(nvec, sizeof(*priv->msix_arr), GFP_KERNEL);
++
++	priv->irq_info = kcalloc(nvec, sizeof(*priv->irq_info), GFP_KERNEL);
++	if (!priv->msix_arr || !priv->irq_info)
++		goto err_free_msix;
+ 
+ 	for (i = 0; i < nvec; i++)
+-		table->msix_arr[i].entry = i;
++		priv->msix_arr[i].entry = i;
+ 
+-	nvec = pci_enable_msix_range(dev->pdev, table->msix_arr,
++	nvec = pci_enable_msix_range(dev->pdev, priv->msix_arr,
+ 				     MLX5_EQ_VEC_COMP_BASE + 1, nvec);
+ 	if (nvec < 0)
+ 		return nvec;
+@@ -233,14 +237,20 @@ static int mlx5_enable_msix(struct mlx5_core_dev *dev)
+ 	table->num_comp_vectors = nvec - MLX5_EQ_VEC_COMP_BASE;
+ 
+ 	return 0;
++
++err_free_msix:
++	kfree(priv->irq_info);
++	kfree(priv->msix_arr);
++	return -ENOMEM;
+ }
+ 
+ static void mlx5_disable_msix(struct mlx5_core_dev *dev)
+ {
+-	struct mlx5_eq_table *table = &dev->priv.eq_table;
++	struct mlx5_priv *priv = &dev->priv;
+ 
+ 	pci_disable_msix(dev->pdev);
+-	kfree(table->msix_arr);
++	kfree(priv->irq_info);
++	kfree(priv->msix_arr);
+ }
+ 
+ struct mlx5_reg_host_endianess {
+@@ -507,6 +517,77 @@ static int mlx5_core_disable_hca(struct mlx5_core_dev *dev)
+ 	return 0;
+ }
+ 
++static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
++{
++	struct mlx5_priv *priv  = &mdev->priv;
++	struct msix_entry *msix = priv->msix_arr;
++	int irq                 = msix[i + MLX5_EQ_VEC_COMP_BASE].vector;
++	int numa_node           = dev_to_node(&mdev->pdev->dev);
++	int err;
++
++	if (!zalloc_cpumask_var(&priv->irq_info[i].mask, GFP_KERNEL)) {
++		mlx5_core_warn(mdev, "zalloc_cpumask_var failed");
++		return -ENOMEM;
++	}
++
++	err = cpumask_set_cpu_local_first(i, numa_node, priv->irq_info[i].mask);
++	if (err) {
++		mlx5_core_warn(mdev, "cpumask_set_cpu_local_first failed");
++		goto err_clear_mask;
++	}
++
++	err = irq_set_affinity_hint(irq, priv->irq_info[i].mask);
++	if (err) {
++		mlx5_core_warn(mdev, "irq_set_affinity_hint failed,irq 0x%.4x",
++			       irq);
++		goto err_clear_mask;
++	}
++
++	return 0;
++
++err_clear_mask:
++	free_cpumask_var(priv->irq_info[i].mask);
++	return err;
++}
++
++static void mlx5_irq_clear_affinity_hint(struct mlx5_core_dev *mdev, int i)
++{
++	struct mlx5_priv *priv  = &mdev->priv;
++	struct msix_entry *msix = priv->msix_arr;
++	int irq                 = msix[i + MLX5_EQ_VEC_COMP_BASE].vector;
++
++	irq_set_affinity_hint(irq, NULL);
++	free_cpumask_var(priv->irq_info[i].mask);
++}
++
++static int mlx5_irq_set_affinity_hints(struct mlx5_core_dev *mdev)
++{
++	int err;
++	int i;
++
++	for (i = 0; i < mdev->priv.eq_table.num_comp_vectors; i++) {
++		err = mlx5_irq_set_affinity_hint(mdev, i);
++		if (err)
++			goto err_out;
++	}
++
++	return 0;
++
++err_out:
++	for (i--; i >= 0; i--)
++		mlx5_irq_clear_affinity_hint(mdev, i);
++
++	return err;
++}
++
++static void mlx5_irq_clear_affinity_hints(struct mlx5_core_dev *mdev)
++{
++	int i;
++
++	for (i = 0; i < mdev->priv.eq_table.num_comp_vectors; i++)
++		mlx5_irq_clear_affinity_hint(mdev, i);
++}
++
+ int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn, int *irqn)
+ {
+ 	struct mlx5_eq_table *table = &dev->priv.eq_table;
+@@ -549,7 +630,7 @@ static void free_comp_eqs(struct mlx5_core_dev *dev)
+ static int alloc_comp_eqs(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_eq_table *table = &dev->priv.eq_table;
+-	char name[MLX5_MAX_EQ_NAME];
++	char name[MLX5_MAX_IRQ_NAME];
+ 	struct mlx5_eq *eq;
+ 	int ncomp_vec;
+ 	int nent;
+@@ -566,7 +647,7 @@ static int alloc_comp_eqs(struct mlx5_core_dev *dev)
+ 			goto clean;
+ 		}
+ 
+-		snprintf(name, MLX5_MAX_EQ_NAME, "mlx5_comp%d", i);
++		snprintf(name, MLX5_MAX_IRQ_NAME, "mlx5_comp%d", i);
+ 		err = mlx5_create_map_eq(dev, eq,
+ 					 i + MLX5_EQ_VEC_COMP_BASE, nent, 0,
+ 					 name, &dev->priv.uuari.uars[0]);
+@@ -730,6 +811,12 @@ static int mlx5_dev_init(struct mlx5_core_dev *dev, struct pci_dev *pdev)
+ 		goto err_stop_eqs;
+ 	}
+ 
++	err = mlx5_irq_set_affinity_hints(dev);
++	if (err) {
++		dev_err(&pdev->dev, "Failed to alloc affinity hint cpumask\n");
++		goto err_free_comp_eqs;
++	}
++
+ 	MLX5_INIT_DOORBELL_LOCK(&priv->cq_uar_lock);
+ 
+ 	mlx5_init_cq_table(dev);
+@@ -739,6 +826,9 @@ static int mlx5_dev_init(struct mlx5_core_dev *dev, struct pci_dev *pdev)
+ 
+ 	return 0;
+ 
++err_free_comp_eqs:
++	free_comp_eqs(dev);
++
+ err_stop_eqs:
+ 	mlx5_stop_eqs(dev);
+ 
+@@ -793,6 +883,7 @@ static void mlx5_dev_cleanup(struct mlx5_core_dev *dev)
+ 	mlx5_cleanup_srq_table(dev);
+ 	mlx5_cleanup_qp_table(dev);
+ 	mlx5_cleanup_cq_table(dev);
++	mlx5_irq_clear_affinity_hints(dev);
+ 	free_comp_eqs(dev);
+ 	mlx5_stop_eqs(dev);
+ 	mlx5_free_uuars(dev, &priv->uuari);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 9a90e75..fc45233 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -85,7 +85,7 @@ enum {
+ };
+ 
+ enum {
+-	MLX5_MAX_EQ_NAME	= 32
++	MLX5_MAX_IRQ_NAME	= 32
+ };
+ 
+ enum {
+@@ -351,7 +351,6 @@ struct mlx5_eq {
+ 	u8			eqn;
+ 	int			nent;
+ 	u64			mask;
+-	char			name[MLX5_MAX_EQ_NAME];
+ 	struct list_head	list;
+ 	int			index;
+ 	struct mlx5_rsc_debug	*dbg;
+@@ -414,7 +413,6 @@ struct mlx5_eq_table {
+ 	struct mlx5_eq		pages_eq;
+ 	struct mlx5_eq		async_eq;
+ 	struct mlx5_eq		cmd_eq;
+-	struct msix_entry	*msix_arr;
+ 	int			num_comp_vectors;
+ 	/* protect EQs list
+ 	 */
+@@ -467,9 +465,16 @@ struct mlx5_mr_table {
+ 	struct radix_tree_root	tree;
+ };
+ 
++struct mlx5_irq_info {
++	cpumask_var_t mask;
++	char name[MLX5_MAX_IRQ_NAME];
++};
++
+ struct mlx5_priv {
+ 	char			name[MLX5_MAX_NAME_LEN];
+ 	struct mlx5_eq_table	eq_table;
++	struct msix_entry	*msix_arr;
++	struct mlx5_irq_info	*irq_info;
+ 	struct mlx5_uuar_info	uuari;
+ 	MLX5_DECLARE_DOORBELL_LOCK(cq_uar_lock);
+ 
 -- 
 1.9.3
