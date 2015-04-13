@@ -1,45 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
- regression on Xen
-Date: Mon, 13 Apr 2015 06:49:30 -0700
-Message-ID: <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
-	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
-	 <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	edumazet@google.com, linux-arm-kernel@lists.infradead.org,
-	Christoffer Dall <christoffer.dall@linaro.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>,
-	Felipe Franciosi <felipe.franciosi@citrix.com>,
-	Paul Durrant <paul.durrant@citrix.com>
-To: George Dunlap <George.Dunlap@eu.citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [PATCH v4 4/9] bgmac: simplify rx DMA error handling
+Date: Mon, 13 Apr 2015 15:52:37 +0200
+Message-ID: <1428933162-26763-4-git-send-email-nbd@openwrt.org>
+References: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
+Cc: zajec5@gmail.com, hauke@hauke-m.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:51317
+	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750999AbbDMNwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 09:52:46 -0400
+In-Reply-To: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-04-13 at 11:56 +0100, George Dunlap wrote:
+Unmap the DMA buffer before checking it. If it is poisoned, map it again
+and pass it back to the hardware.
 
-> Is the problem perhaps that netback/netfront delays TX completion?
-> Would it be better to see if that can be addressed properly, so that
-> the original purpose of the patch (fighting bufferbloat) can be
-> achieved while not degrading performance for Xen?  Or at least, so
-> that people get decent perfomance out of the box without having to
-> tweak TCP parameters?
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 21 ++++-----------------
+ 1 file changed, 4 insertions(+), 17 deletions(-)
 
-Sure, please provide a patch, that does not break back pressure.
-
-But just in case, if Xen performance relied on bufferbloat, it might be
-very difficult to reach a stable equilibrium : Any small change in stack
-or scheduling might introduce a significant difference in 'raw
-performance'.
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index e332de8..e004588 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -405,25 +405,20 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 		u16 len, flags;
+ 
+ 		/* Unmap buffer to make it accessible to the CPU */
+-		dma_sync_single_for_cpu(dma_dev, slot->dma_addr,
+-					BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
++		dma_unmap_single(dma_dev, slot->dma_addr,
++				 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+ 
+ 		/* Get info from the header */
+ 		len = le16_to_cpu(rx->len);
+ 		flags = le16_to_cpu(rx->flags);
+ 
+ 		do {
+-			dma_addr_t old_dma_addr = slot->dma_addr;
+ 			int err;
+ 
+ 			/* Check for poison and drop or pass the packet */
+ 			if (len == 0xdead && flags == 0xbeef) {
+ 				bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+ 					  ring->start);
+-				dma_sync_single_for_device(dma_dev,
+-							   slot->dma_addr,
+-							   BGMAC_RX_BUF_SIZE,
+-							   DMA_FROM_DEVICE);
+ 				break;
+ 			}
+ 
+@@ -436,18 +431,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 				/* Poison the old skb */
+ 				rx->len = cpu_to_le16(0xdead);
+ 				rx->flags = cpu_to_le16(0xbeef);
+-
+-				dma_sync_single_for_device(dma_dev,
+-							   slot->dma_addr,
+-							   BGMAC_RX_BUF_SIZE,
+-							   DMA_FROM_DEVICE);
+ 				break;
+ 			}
+-			bgmac_dma_rx_setup_desc(bgmac, ring, ring->start);
+-
+-			/* Unmap old skb, we'll pass it to the netfif */
+-			dma_unmap_single(dma_dev, old_dma_addr,
+-					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+ 
+ 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
+ 			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
+@@ -461,6 +446,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			handled++;
+ 		} while (0);
+ 
++		bgmac_dma_rx_setup_desc(bgmac, ring, ring->start);
++
+ 		if (++ring->start >= BGMAC_RX_RING_SLOTS)
+ 			ring->start = 0;
+ 
+-- 
+2.2.2
