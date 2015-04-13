@@ -1,46 +1,41 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH/RFC net-next 0/4] Allow use of rocker ports without bridging
-Date: Mon, 13 Apr 2015 07:59:21 -0700
-Message-ID: <CAE4R7bA3hsRBOY9+YZXQ8b-7T_DwgzcrAM=wzYj+cyyWVkbRHQ@mail.gmail.com>
-References: <1428907677-27204-1-git-send-email-simon.horman@netronome.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/2] switchdev: s/netdev_switch_/switchdev_/
+Date: Mon, 13 Apr 2015 17:01:20 +0200
+Message-ID: <20150413150120.GF2090@nanopsycho.lan>
+References: <1428934475-15349-1-git-send-email-jiri@resnulli.us>
+ <1428934475-15349-2-git-send-email-jiri@resnulli.us>
+ <CAE4R7bBndOxs6Gt6ZV8WxNfmW8_GU=-vE4Wp=bCHsAq_rSa1JA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f43.google.com ([209.85.192.43]:33151 "EHLO
-	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752268AbbDMO7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:59:22 -0400
-Received: by qgdy78 with SMTP id y78so1922156qgd.0
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 07:59:21 -0700 (PDT)
-In-Reply-To: <1428907677-27204-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38025 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754156AbbDMPB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 11:01:26 -0400
+Received: by wiun10 with SMTP id n10so70235528wiu.1
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 08:01:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bBndOxs6Gt6ZV8WxNfmW8_GU=-vE4Wp=bCHsAq_rSa1JA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 12, 2015 at 11:47 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> Hi,
+Mon, Apr 13, 2015 at 04:48:51PM CEST, sfeldma@gmail.com wrote:
+>On Mon, Apr 13, 2015 at 7:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Turned out that "switchdev" sticks. So just unify all releated terms to
+>> use this prefix.
+>>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 >
-> this short series attempts to allow rocker ports to be used when they
-> are not attached to a bridge. It attempts to make use of flow entries
-> in a rocker switch where appropriate and otherwise forwards packets up
-> to the kernel for processing.
+>NACK.  I'm right in the middle of a large patchset which touches all
+>of these files in all of those places and a rename before mine will
+>create a git merge nightmare.  Please wait to post any rename patches
+>until after my set goes in.
 
-Hi Simon,
-
-Unbridged ports should be working now with current driver/device.  I
-wonder if you have an older qemu rocker device?  Use master branch of
-https://github.com/scottfeldman/qemu-rocker.git.
-
-My test setup is to IPv4 ping two hosts from two different ports.
-Something like:
-
-sw1:sw1p1:11.0.0.1/24 <----------------> h1:eth1:11.0.0.2/24
-sw1:sw1p2:12.0.0.1/24 <----------------> h2:eth1:12.0.0.2/24
-
-ARP and ping work fine.  What is your test setup?  I haven't spent a
-lot of time on unbridged port testing, since major focus has been on
-offloading bridge L2 and L3.
-
--scott
+Makes sense to me to rename first so you can add new functions with
+"switchdev_" prefix on top of that.
