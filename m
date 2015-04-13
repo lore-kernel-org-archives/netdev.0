@@ -1,73 +1,62 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH/RFC net-next 0/4] Allow use of rocker ports without bridging
-Date: Mon, 13 Apr 2015 08:43:16 -0700
-Message-ID: <CAE4R7bANSqhUWeYarFmdOLsCbWtRFVW9jwvQufgNEb8OURJdPA@mail.gmail.com>
-References: <1428907677-27204-1-git-send-email-simon.horman@netronome.com>
-	<CAE4R7bA3hsRBOY9+YZXQ8b-7T_DwgzcrAM=wzYj+cyyWVkbRHQ@mail.gmail.com>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: Re: [PATCH v4 2/9] bgmac: leave interrupts disabled as long as there
+ is work to do
+Date: Mon, 13 Apr 2015 17:44:04 +0200
+Message-ID: <552BE444.8040906@openwrt.org>
+References: <1428933162-26763-1-git-send-email-nbd@openwrt.org>	<1428933162-26763-2-git-send-email-nbd@openwrt.org>	<CACna6rxgjUPdMsnhgvoRQLaOZ+T1epyvj3cDbZnYRtOeG0irtA@mail.gmail.com>	<552BDACD.1050306@openwrt.org> <CACna6rzASVB-j8TxDzybC5FC+BhJFA-3e9LGTXqfP8FgSnH0bA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:33135 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932824AbbDMPnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 11:43:17 -0400
-Received: by qgdy78 with SMTP id y78so2015090qgd.0
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 08:43:16 -0700 (PDT)
-In-Reply-To: <CAE4R7bA3hsRBOY9+YZXQ8b-7T_DwgzcrAM=wzYj+cyyWVkbRHQ@mail.gmail.com>
+Received: from arrakis.dune.hu ([78.24.191.176]:47649 "EHLO arrakis.dune.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932615AbbDMPoL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2015 11:44:11 -0400
+In-Reply-To: <CACna6rzASVB-j8TxDzybC5FC+BhJFA-3e9LGTXqfP8FgSnH0bA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 7:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
-> On Sun, Apr 12, 2015 at 11:47 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
->> Hi,
->>
->> this short series attempts to allow rocker ports to be used when they
->> are not attached to a bridge. It attempts to make use of flow entries
->> in a rocker switch where appropriate and otherwise forwards packets up
->> to the kernel for processing.
->
-> Hi Simon,
->
-> Unbridged ports should be working now with current driver/device.  I
-> wonder if you have an older qemu rocker device?  Use master branch of
-> https://github.com/scottfeldman/qemu-rocker.git.
->
-> My test setup is to IPv4 ping two hosts from two different ports.
-> Something like:
->
-> sw1:sw1p1:11.0.0.1/24 <----------------> h1:eth1:11.0.0.2/24
-> sw1:sw1p2:12.0.0.1/24 <----------------> h2:eth1:12.0.0.2/24
->
-> ARP and ping work fine.  What is your test setup?  I haven't spent a
-> lot of time on unbridged port testing, since major focus has been on
-> offloading bridge L2 and L3.
+On 2015-04-13 17:06, Rafa=C5=82 Mi=C5=82ecki wrote:
+> On 13 April 2015 at 17:03, Felix Fietkau <nbd@openwrt.org> wrote:
+>> On 2015-04-13 16:34, Rafa=C5=82 Mi=C5=82ecki wrote:
+>>> On 13 April 2015 at 15:52, Felix Fietkau <nbd@openwrt.org> wrote:
+>>>> Always poll rx and tx during NAPI poll instead of relying on the s=
+tatus
+>>>> of the first interrupt. This prevents bgmac_poll from leaving unfi=
+nished
+>>>> work around until the next IRQ.
+>>>> In my tests this makes bridging/routing throughput under heavy loa=
+d more
+>>>> stable and ensures that no new IRQs arrive as long as bgmac_poll u=
+ses up
+>>>> the entire budget.
+>>>
+>>> What do you think about keeping u32 int_status; and just updating i=
+t
+>>> at the end of bgmac_poll? In case you decide to implement multiple =
+TX
+>>> queues, it may be cheaper to just check a single bit in memory inst=
+ead
+>>> reading DMA ring status.
+>> Events might arrive in the mean time. I ran some tests, and not chec=
+king
+>> the irq status for processing rx/tx gave me fewer total IRQs under l=
+oad.
+>=20
+> But you do check the status, I mean the following line:
+> if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX=
+))
+>=20
+> Would it make sense to do
+> bgmac->int_status =3D bgmac_read(bgmac, BGMAC_INT_STATUS);
+I don't really see the point in storing the status from the initial IRQ=
+=2E
 
-Ah, I think I know why it's not working for you.  You don't have the
-VLAN 8021.q module loaded, do you?  I'm getting these:
+The check there is only to decide whether the poll function should run
+at all. By the time bgmac_poll is called, more events may have arrived
+already, making the initial status useless.
 
-[    2.871619] 8021q: 802.1Q VLAN Support v1.8
-[    2.871629] 8021q: adding VLAN 0 to HW filter on device sw1p1
-[    2.872097] 8021q: adding VLAN 0 to HW filter on device sw1p2
-
-Which calls into the driver ndo_vlan ops and sets up untagged access.
-
-But, dependence on VLAN 802.1q module is wrong I think, and we'll need
-your patch (I haven't reviewed it yet, but I'm assuming it's doing
-basically what loading what VLAN 802.1q driver forces).
-
-The Spring Cleanup patchset has better setlink/dellink support so
-driver can manage VLANs from bridge driver and moves away from
-ndo_vlan ops used with 802.1q VLAN driver.  Ronan (Cc:d) has a VLAN
-patch that builds on top of my Spring Cleanup patchset  I think the
-order of changes will be to get my Spring Cleanup patchset in and then
-get yours/Ronan's patches in.  And rocker can get away from using
-ndo_vlan ops.
-
-Would you verify that without your patch, and with VLAN 802.1q driver
-loaded, unbridged ports are working?
-
--scott
+- Felix
