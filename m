@@ -1,46 +1,69 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next] tcp/dccp: get rid of central timewait timer
-Date: Sun, 12 Apr 2015 21:33:33 -0400 (EDT)
-Message-ID: <20150412.213333.176696352108729674.davem@davemloft.net>
+Date: Sun, 12 Apr 2015 18:41:13 -0700
+Message-ID: <1428889273.25985.369.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1428693574.25985.326.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150412.213333.176696352108729674.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48285 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752454AbbDMBdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 21:33:35 -0400
-In-Reply-To: <1428693574.25985.326.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:32880 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752143AbbDMBlP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Apr 2015 21:41:15 -0400
+Received: by iebmp1 with SMTP id mp1so54088119ieb.0
+        for <netdev@vger.kernel.org>; Sun, 12 Apr 2015 18:41:15 -0700 (PDT)
+In-Reply-To: <20150412.213333.176696352108729674.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogRnJpLCAx
-MCBBcHIgMjAxNSAxMjoxOTozNCAtMDcwMA0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6
-ZXRAZ29vZ2xlLmNvbT4NCj4gDQo+IFVzaW5nIGEgdGltZXIgd2hlZWwgZm9yIHRpbWV3YWl0IHNv
-Y2tldHMgd2FzIG5pY2UgfjE1IHllYXJzIGFnbyB3aGVuDQo+IG1lbW9yeSB3YXMgZXhwZW5zaXZl
-IGFuZCBtYWNoaW5lcyBoYWQgYSBzaW5nbGUgcHJvY2Vzc29yLg0KPiANCj4gVGhpcyBkb2VzIG5v
-dCBzY2FsZSwgY29kZSBpcyB1Z2x5IGFuZCBzb3VyY2Ugb2YgaHVnZSBsYXRlbmNpZXMNCj4gKFR5
-cGljYWxseSAzMCBtcyBoYXZlIGJlZW4gc2VlbiwgY3B1cyBzcGlubmluZyBvbiBkZWF0aF9sb2Nr
-IHNwaW5sb2NrLikNCj4gDQo+IFdlIGNhbiBhZmZvcmQgdG8gdXNlIGFuIGV4dHJhIDY0IGJ5dGVz
-IHBlciB0aW1ld2FpdCBzb2NrIGFuZCBzcHJlYWQNCj4gdGltZXdhaXQgbG9hZCB0byBhbGwgY3B1
-cyB0byBoYXZlIGJldHRlciBiZWhhdmlvci4NCj4gDQo+IFRlc3RlZDoNCiAuLi4NCj4gU2lnbmVk
-LW9mZi1ieTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KDQpGaXJzdCBvZiBh
-bGwsIEkgaGFkIHRvIG11bmdlIHlvdXIgY29tbWl0IG1lc3NhZ2UgYnkgaGFuZC4gIEFsbCBvZg0K
-dGhvc2UgcGluZyBvdXRwdXQgbGluZXMgdGhhdCBzdGFydCB3aXRoICctLS0nIHRlbGwgJ2dpdCBh
-bScgImNvbW1pdA0KbWVzc2FnZSBlbmRzIGhlcmUiIHNvIG1vc3Qgb2YgeW91ciB0ZXN0IHJlc3Vs
-dHMgZ290IHJlbW92ZWQuICBJIGFkZGVkDQp0aGVtIGJhY2sgYnkgaGFuZC4NCg0KU2Vjb25kIG9m
-IGFsbCwgdGhpcyBkb2Vzbid0IGNvbXBpbGU6DQoNCm5ldC9pcHY0L3RjcF9taW5pc29ja3MuYzog
-SW4gZnVuY3Rpb24goXRjcF90aW1lX3dhaXSiOg0KbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jOjI4
-MzoyNzogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAyIG9mIKFpbmV0X3R3c2tfYWxsb2OiIGZy
-b20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZQ0KICB0dyA9IGluZXRfdHdza19hbGxvYyhzaywg
-JnRjcF9kZWF0aF9yb3cudHdfY291bnQsIHN0YXRlKTsNCiAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIF4NCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBpbmNsdWRlL2xpbnV4L3RjcC5oOjI0OjAsDQog
-ICAgICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9uZXQvdGNwLmg6MjQsDQogICAgICAgICAgICAg
-ICAgIGZyb20gbmV0L2lwdjQvdGNwX21pbmlzb2Nrcy5jOjI2Og0KaW5jbHVkZS9uZXQvaW5ldF90
-aW1ld2FpdF9zb2NrLmg6MTA4OjI4OiBub3RlOiBleHBlY3RlZCChc3RydWN0IGluZXRfdGltZXdh
-aXRfZGVhdGhfcm93ICqiIGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIKFzdHJ1Y3QgYXRvbWljX3Qg
-KqINCiBzdHJ1Y3QgaW5ldF90aW1ld2FpdF9zb2NrICppbmV0X3R3c2tfYWxsb2MoY29uc3Qgc3Ry
-dWN0IHNvY2sgKnNrLA0KICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCg==
+On Sun, 2015-04-12 at 21:33 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 10 Apr 2015 12:19:34 -0700
+>=20
+> > From: Eric Dumazet <edumazet@google.com>
+> >=20
+> > Using a timer wheel for timewait sockets was nice ~15 years ago whe=
+n
+> > memory was expensive and machines had a single processor.
+> >=20
+> > This does not scale, code is ugly and source of huge latencies
+> > (Typically 30 ms have been seen, cpus spinning on death_lock spinlo=
+ck.)
+> >=20
+> > We can afford to use an extra 64 bytes per timewait sock and spread
+> > timewait load to all cpus to have better behavior.
+> >=20
+> > Tested:
+>  ...
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+>=20
+> First of all, I had to munge your commit message by hand.  All of
+> those ping output lines that start with '---' tell 'git am' "commit
+> message ends here" so most of your test results got removed.  I added
+> them back by hand.
+>=20
+> Second of all, this doesn't compile:
+>=20
+> net/ipv4/tcp_minisocks.c: In function =E2=80=98tcp_time_wait=E2=80=99=
+:
+> net/ipv4/tcp_minisocks.c:283:27: warning: passing argument 2 of =E2=80=
+=98inet_twsk_alloc=E2=80=99 from incompatible pointer type
+>   tw =3D inet_twsk_alloc(sk, &tcp_death_row.tw_count, state);
+>                            ^
+> In file included from include/linux/tcp.h:24:0,
+>                  from include/net/tcp.h:24,
+>                  from net/ipv4/tcp_minisocks.c:26:
+> include/net/inet_timewait_sock.h:108:28: note: expected =E2=80=98stru=
+ct inet_timewait_death_row *=E2=80=99 but argument is of type =E2=80=98=
+struct atomic_t *=E2=80=99
+>  struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
+
+Arf, I am sorry, I missed this warning, and resulting kernel was correc=
+t
+as tw_count was the first field of this structure.
+
+Will send a v2.
