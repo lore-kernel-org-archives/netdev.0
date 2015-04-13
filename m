@@ -1,115 +1,162 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 2/3] Revert "ip netns: Fix rtnl error while print netns list"
-Date: Mon, 13 Apr 2015 10:23:04 +0200
-Message-ID: <1428913385-4331-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <5527F790.4080301@6wind.com>
- <1428913385-4331-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, vadim4j@gmail.com, jbenc@redhat.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v4 00/24] switchdev: spring cleanup
+Date: Mon, 13 Apr 2015 10:24:44 +0200
+Message-ID: <20150413082444.GB2162@nanopsycho.orion>
+References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	linux@roeck-us.net, f.fainelli@gmail.com,
+	sridhar.samudrala@intel.com, ronen.arad@intel.com, andrew@lunn.ch
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40919 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752542AbbDMIXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 04:23:13 -0400
-In-Reply-To: <1428913385-4331-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:36821 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956AbbDMIYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 04:24:48 -0400
+Received: by wizk4 with SMTP id k4so62584071wiz.1
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 01:24:46 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit d116ff34145b00db54a37e2a6282dccd8bc08225.
+Mon, Apr 13, 2015 at 08:16:54AM CEST, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
+>
+>v4:
+>
+>Well, it was a lot of work, but now prepare-commit transaction model is how
+>davem advises: if prepare fails, abort the transaction.  The driver must do
+>resource reservations up front in prepare phase and return those resources if
+>aborting.  Commit phase would use reserved resources.  The good news is the
+>driver code (for rocker) now handles resource allocation failures better by not
+>leaving partially device or driver states.  This is a side-effect of the
+>prepare phase where state isn't modified; only validation of inputs and
+>resource reservations happen in the prepare phase.  Since we're supporting
+>setting attrs and add objs across lower devs in the stacked case, we need to
+>hold rtnl_lock (or ensure rtnl_lock is held) so lower devs don't move on us
+>during the prepare-commit transaction.  DSA driver code skips the prepare phase
+>and goes straight for the commit phase since no up-front allocations are done
+>and no device failures (that could be detected in the prepare phase) can
+>happen.
+>
+>Remove NETIF_F_HW_SWITCH_OFFLOAD from rocker and the swdev_attr_set/get
+>wrappers.  DSA doesn't set NETIF_F_HW_SWITCH_OFFLOAD, so it can't be in
+>swdev_attr_set/get.  rocker doesn't need it; or rather can't support
+>NETIF_F_HW_SWITCH_OFFLOAD being set/cleared at run-time after the device
+>port is already up and offloading L2/L3.  NETIF_F_HW_SWITCH_OFFLOAD is still
+>left as a feature flag for drivers that can use it.
+>
+>Drop the renaming patch for netdev_switch_notifier.  Other renames are a
+>result of moving to the attr get/set or obj add/del model.  Everything
+>but the netdev_switch_notifier is still prefixed with "swdev_".
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- configure    | 21 +--------------------
- ip/Makefile  |  4 ----
- ip/ipnetns.c |  7 -------
- 3 files changed, 1 insertion(+), 31 deletions(-)
 
-diff --git a/configure b/configure
-index 631938e97206..c3dacdba14ff 100755
---- a/configure
-+++ b/configure
-@@ -201,7 +201,7 @@ check_setns()
- {
-     cat >$TMPDIR/setnstest.c <<EOF
- #include <sched.h>
--int main(int argc, char **argv)
-+int main(int argc, char **argv) 
- {
- 	(void)setns(0,0);
- 	return 0;
-@@ -218,23 +218,6 @@ EOF
-     rm -f $TMPDIR/setnstest.c $TMPDIR/setnstest
- }
- 
--check_netnsid()
--{
--    cat >$TMPDIR/netnsid.c <<EOF
--#include <linux/rtnetlink.h>
--int test_def = RTM_GETNSID;
--EOF
--    $CC -c $TMPDIR/netnsid.c >/dev/null 2>&1
--    if [ $? -eq 0 ]
--    then
--	echo "IP_CONFIG_NETNSID:=y" >> Config
--	echo "yes"
--    else
--	echo "no"
--    fi
--    rm -f $TMPDIR/netnsid.c $TMPDIR/netnsid.o
--}
--
- check_ipset()
- {
-     cat >$TMPDIR/ipsettest.c <<EOF
-@@ -300,8 +283,6 @@ check_ipt_lib_dir
- 
- echo -n "libc has setns: "
- check_setns
--echo -n "netns has peer id suport: "
--check_netnsid
- 
- echo -n "SELinux support: "
- check_selinux
-diff --git a/ip/Makefile b/ip/Makefile
-index 5637bcfebde0..2c742f305fef 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -16,10 +16,6 @@ ifeq ($(IP_CONFIG_SETNS),y)
- 	CFLAGS += -DHAVE_SETNS
- endif
- 
--ifeq ($(IP_CONFIG_NETNSID),y)
--	CFLAGS += -DHAVE_NETNSID
--endif
--
- ALLOBJ=$(IPOBJ) $(RTMONOBJ)
- SCRIPTS=ifcfg rtpr routel routef
- TARGETS=ip rtmon
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 45e234a4d98c..5a213dcf46cd 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -34,7 +34,6 @@ static int usage(void)
- 	exit(-1);
- }
- 
--#ifdef HAVE_NETNSID
- static int get_netnsid_from_name(const char *name)
- {
- 	struct {
-@@ -79,12 +78,6 @@ static int get_netnsid_from_name(const char *name)
- 
- 	return -1;
- }
--#else
--static int get_netnsid_from_name(const char *name)
--{
--	return -1;
--}
--#endif /* HAVE_NETNSID */
- 
- static int netns_list(int argc, char **argv)
- {
--- 
-2.2.2
+I plan to review this patchset deeper today. But as I mentioned in the
+v2 thread, "swdev_" is frowned upon by people. We should figure this out
+now. How about to use full "switchdev"? Thanks.
+
+
+>
+>v3:
+>
+>Move to two-phase prepare-commit transaction model for attr set and obj add.
+>Driver gets a change in prepare phase to NACK transaction if lack of resources
+>or support in device.
+>
+>v2:
+>
+>Address review comments:
+>
+> - [Jiri] squash a few related patches
+> - [Roopa] don't remove NETIF_F_HW_SWITCH_OFFLOAD
+> - [Roopa] address VLAN setlink/dellink
+> - [Ronen] print warning is attr set revert fails
+>
+>Not address:
+>
+> - Using something other than "swdev_" prefix
+> - Vendor extentions
+>
+>The patch set grew a bit to not only support port attr get/set but also add
+>support for port obj add/del.  Example of port objs are VLAN, FDB entries, and
+>FIB entries.  The VLAN support now allows the swdev driver to get VLAN ranges
+>and flags like PVID and "untagged".  Sridhar will be adding FDB obj support
+>in follow-on patch.
+>
+>
+>v1:
+>
+>The main theme of this patch set is to cleanup swdev in preparation for
+>new features or fixes to be added soon.  We have a pretty good idea now how
+>to handle stacked drivers in swdev, but there where some loose ends.  For
+>example, if a set failed in the middle of walking the lower devs, we would
+>leave the system in an undefined state...there was no way to recover back to
+>the previous state.  Speaking of sets, also recognize a pattern that most
+>swdev API accesses are gets or sets of port attributes, so go ahead and make
+>port attr get/set the central swdev API, and convert everything that is
+>set-ish/get-ish to this new API.
+>
+>Features/fixes that should follow from this cleanup:
+>
+> - solve the duplicate pkt forwarding issue
+> - get/set bridge attrs, like ageing_time, from/to device
+> - get/set more bridge port attrs from/to device
+>
+>There are some rename cleanups tagging along at the end, to give swdev
+>consistent naming.
+>
+>And finally, some much needed updates to the switchdev.txt documentation to
+>hopefully capture the state-of-the-art of swdev.  Hopefully, we can do a better
+>job keeping this document up-to-date.
+>
+>Tested with rocker, of course, to make sure nothing functional broke.  There
+>are a couple minor tweaks to DSA code for getting switch ID and setting STP
+>updates to use new API, but not expecting amy breakage there.
+>
+>
+>
+>Scott Feldman (24):
+>  switchdev: introduce get/set attrs ops
+>  switchdev: convert parent_id_get to swdev attr get
+>  switchdev: convert STP update to swdev attr set
+>  switchdev: add bridge port flags attr
+>  rocker: use swdev get/set attr for bridge port flags
+>  switchdev: introduce swdev add/del obj ops
+>  switchdev: add port vlan obj
+>  rocker: use swdev add/del obj for bridge port vlans
+>  switchdev: add new swdev bridge setlink
+>  rocker: cut over to new swdev_port_bridge_setlink
+>  bonding: cut over to new swdev_port_bridge_setlink
+>  team: cut over to new swdev_port_bridge_setlink
+>  switchdev: remove old netdev_switch_port_bridge_setlink
+>  switchdev: add new swdev_port_bridge_dellink
+>  rocker: cut over to new swdev_port_bridge_dellink
+>  bonding: cut over to new swdev_port_bridge_dellink
+>  team: cut over to new swdev_port_bridge_dellink
+>  switchdev: remove unused netdev_switch_port_bridge_dellink
+>  switchdev: add new swdev_port_bridge_getlink
+>  rocker: cut over to new swdev_port_bridge_getlink
+>  bonding: cut over to new swdev_port_bridge_getlink
+>  team: cut over to new swdev_port_bridge_getlink
+>  switchdev: convert fib_ipv4_add/del over to swdev_port_obj_add/del
+>  switchdev: bring documentation up-to-date
+>
+> Documentation/networking/switchdev.txt |  414 ++++++++++++++++++---
+> drivers/net/bonding/bond_main.c        |    5 +-
+> drivers/net/ethernet/rocker/rocker.c   |  497 ++++++++++++++++++-------
+> drivers/net/team/team.c                |    5 +-
+> include/net/switchdev.h                |  177 +++++----
+> net/bridge/br_netlink.c                |   24 +-
+> net/bridge/br_stp.c                    |    6 +-
+> net/core/net-sysfs.c                   |   10 +-
+> net/core/rtnetlink.c                   |    9 +-
+> net/dsa/slave.c                        |   36 +-
+> net/ipv4/fib_trie.c                    |   38 +-
+> net/switchdev/switchdev.c              |  623 +++++++++++++++++++++++++-------
+> 12 files changed, 1386 insertions(+), 458 deletions(-)
+>
+>-- 
+>1.7.10.4
+>
