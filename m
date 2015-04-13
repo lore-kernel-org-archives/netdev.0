@@ -1,54 +1,84 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 05/24] rocker: use swdev get/set attr for
- bridge port flags
-Date: Mon, 13 Apr 2015 12:48:00 +0200
-Message-ID: <20150413104800.GB2090@nanopsycho.lan>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
- <1428905838-14920-6-git-send-email-sfeldma@gmail.com>
+From: George Dunlap <George.Dunlap@eu.citrix.com>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
+ regression on Xen
+Date: Mon, 13 Apr 2015 11:56:29 +0100
+Message-ID: <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
+	<1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	linux@roeck-us.net, f.fainelli@gmail.com,
-	sridhar.samudrala@intel.com, ronen.arad@intel.com, andrew@lunn.ch
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:36536 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753575AbbDMKsD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 06:48:03 -0400
-Received: by wizk4 with SMTP id k4so67011847wiz.1
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 03:48:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1428905838-14920-6-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	edumazet@google.com, linux-arm-kernel@lists.infradead.org,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Jonathan Davies <Jonathan.Davies@citrix.com>,
+	Felipe Franciosi <felipe.franciosi@citrix.com>,
+	Paul Durrant <paul.durrant@citrix.com>
+To: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Apr 13, 2015 at 08:16:59AM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
+On Thu, Apr 9, 2015 at 5:36 PM, Stefano Stabellini
+<stefano.stabellini@eu.citrix.com> wrote:
+> On Thu, 9 Apr 2015, Eric Dumazet wrote:
+>> On Thu, 2015-04-09 at 16:46 +0100, Stefano Stabellini wrote:
+>> > Hi all,
+>> >
+>> > I found a performance regression when running netperf -t TCP_MAERTS from
+>> > an external host to a Xen VM on ARM64: v3.19 and v4.0-rc4 running in the
+>> > virtual machine are 30% slower than v3.18.
+>> >
+>> > Through bisection I found that the perf regression is caused by the
+>> > prensence of the following commit in the guest kernel:
+>> >
+>> >
+>> > commit 605ad7f184b60cfaacbc038aa6c55ee68dee3c89
+>> > Author: Eric Dumazet <edumazet@google.com>
+>> > Date:   Sun Dec 7 12:22:18 2014 -0800
+>> >
+>> >     tcp: refine TSO autosizing
+
+[snip]
+
+>> This commit restored original TCP Small Queue behavior, which is the
+>> first step to fight bufferbloat.
+>>
+>> Some network drivers are known to be problematic because of a delayed TX
+>> completion.
+
+[snip]
+
+>> Try to tweak /proc/sys/net/ipv4/tcp_limit_output_bytes to see if it
+>> makes a difference ?
 >
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->---
-> drivers/net/ethernet/rocker/rocker.c |   31 +++++++++++++++++++++++++++++--
-> 1 file changed, 29 insertions(+), 2 deletions(-)
+> A very big difference:
 >
->diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->index 80c7f6f..9bd4fc6 100644
->--- a/drivers/net/ethernet/rocker/rocker.c
->+++ b/drivers/net/ethernet/rocker/rocker.c
->@@ -359,6 +359,8 @@ static void *__rocker_port_alloc(struct rocker_port *rocker_port,
-> 		if (elem)
-> 			INIT_LIST_HEAD(elem);
-> 		break;
->+	default:
->+		break;
-> 	}
-> 
-> 	return elem ? elem + 1 : NULL;
->@@ -4332,6 +4334,9 @@ static int rocker_port_attr_get(struct net_device *dev, struct swdev_attr *attr)
-> 		attr->ppid.id_len = sizeof(rocker->hw.id);
-> 		memcpy(&attr->ppid.id, &rocker->hw.id, attr->ppid.id_len);
-> 		break;
->+	case SWDEV_ATTR_PORT_BRIDGE_FLAGS:
+> echo 262144 > /proc/sys/net/ipv4/tcp_limit_output_bytes
+> brings us much closer to the original performance, the slowdown is just
+> 8%
+>
+> echo 1048576 > /proc/sys/net/ipv4/tcp_limit_output_bytes
+> fills the gap entirely, same performance as before "refine TSO
+> autosizing"
+>
+>
+> What would be the next step for here?  Should I just document this as an
+> important performance tweaking step for Xen, or is there something else
+> we can do?
 
+Is the problem perhaps that netback/netfront delays TX completion?
+Would it be better to see if that can be addressed properly, so that
+the original purpose of the patch (fighting bufferbloat) can be
+achieved while not degrading performance for Xen?  Or at least, so
+that people get decent perfomance out of the box without having to
+tweak TCP parameters?
 
-This patch should be squashed with the previous one (04)
+ -George
