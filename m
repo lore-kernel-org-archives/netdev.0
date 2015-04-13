@@ -1,73 +1,100 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v4 net-next 2/2] tc: add 'needs_l2' flag to ingress qdisc
-Date: Mon, 13 Apr 2015 10:16:01 -0400
-Message-ID: <552BCFA1.7020502@mojatatu.com>
-References: <1428708792-5872-1-git-send-email-ast@plumgrid.com> <1428708792-5872-2-git-send-email-ast@plumgrid.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH v4 1/9] bgmac: simplify tx ring index handling
+Date: Mon, 13 Apr 2015 16:21:48 +0200
+Message-ID: <CACna6rxeBNuSq8OJTBH1Yr75o79q9CDqc2JTW4=kEk+HQt5JRg@mail.gmail.com>
+References: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>, Jiri Pirko <jiri@resnulli.us>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38172 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932262AbbDMOQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:16:10 -0400
-Received: by igbqf9 with SMTP id qf9so44854230igb.1
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 07:16:09 -0700 (PDT)
-In-Reply-To: <1428708792-5872-2-git-send-email-ast@plumgrid.com>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:33457 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754322AbbDMOVs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 10:21:48 -0400
+Received: by igbpi8 with SMTP id pi8so27935928igb.0
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 07:21:48 -0700 (PDT)
+In-Reply-To: <1428933162-26763-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/10/15 19:33, Alexei Starovoitov wrote:
-> TC classifers and actions attached to ingress and egress qdiscs see
-> inconsistent skb->data. For ingress L2 header is already pulled, whereas
-> for egress it's present. Introduce an optional flag for ingress qdisc
-> which if set will cause ingress to push L2 header before calling
-> into classifiers/actions and pull L2 back afterwards.
->
-> The cls_bpf/act_bpf are now marked as 'needs_l2'. The users can use them
-> on ingress qdisc created with 'needs_l2' flag and on any egress qdisc.
-> The use of them with vanilla ingress is disallowed.
->
-> The ingress_l2 qdisc can only be attached to devices that provide headers_ops.
->
-> When ingress is not enabled static_key avoids *(skb->dev->ingress_queue)
->
-> When ingress is enabled the difference old vs new to reach qdisc spinlock:
-> old:
-> *(skb->dev->ingress_queue), if, *(rxq->qdisc), if, *(rxq->qdisc), if
-> new:
-> *(skb->dev->ingress_queue), if, *(rxq->qdisc), if, if
->
-> This patch provides a foundation to use ingress_l2+cls_bpf to filter
-> interesting traffic and mirror small part of it to a different netdev for
-> capturing. This approach is significantly faster than traditional af_packet,
-> since skb_clone is called after filtering. dhclient and other tap-based tools
-> may consider switching to this style.
->
+On 13 April 2015 at 15:52, Felix Fietkau <nbd@openwrt.org> wrote:
+> Keep incrementing ring->start and ring->end instead of pointing it to
+> the actual ring slot entry. This simplifies the calculation of the
+> number of free slots.
 
-Alexei,
-I want to support this work but i am having difficulties. I see your
-point as i hope you see mine. In my opinion, it is a stalemate.
-We need Dave to make the call.
-
-To repeat what i said earlier:
-The only known user at this point is bpf. cls_bpf and cls_act could both
-look at the AT field, find where they are being invoked from and react
-accordingly. This is not very hard for a coder to do and the user
-injecting the policy doesnt need to know about it.
-If you do that then i think you need to also inform users downstream
-from bpf that they should expect to see the packet at the Link header
-and not the network header.
+You're much more experienced in network stuff, so it's likely me not
+understanding some stuff & needing help.
 
 
-cheers,
-jamal
+> @@ -158,13 +157,7 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac=
+ *bgmac,
+>                 skb_checksum_help(skb);
+>
+>         nr_frags =3D skb_shinfo(skb)->nr_frags;
+> -
+> -       if (ring->start <=3D ring->end)
+> -               free_slots =3D ring->start - ring->end + BGMAC_TX_RIN=
+G_SLOTS;
+> -       else
+> -               free_slots =3D ring->start - ring->end;
+> -
+> -       if (free_slots <=3D nr_frags + 1) {
+> +       if (ring->end - ring->start + nr_frags + 1 >=3D BGMAC_TX_RING=
+_SLOTS) {
+>                 bgmac_err(bgmac, "TX ring is full, queue should be st=
+opped!\n");
+>                 netif_stop_queue(net_dev);
+>                 return NETDEV_TX_BUSY;
 
-PS:- note that __netif_receive_skb_core() at the beginning is what sets 
-all these headers.
+How is this going to work with ring->end lower than ring->start? Let's
+say you have 2 empty slots at the end of ring and 2 empty slots at the
+beginning. In total 4 free slots. Doing ring->end - ring->start will
+give you some big negative number (depending on the ring size), won't
+it?
+
+
+> @@ -284,10 +276,8 @@ static void bgmac_dma_tx_free(struct bgmac *bgma=
+c, struct bgmac_dma_ring *ring)
+>                         slot->skb =3D NULL;
+>                 }
+>
+> -next:
+>                 slot->dma_addr =3D 0;
+> -               if (++ring->start >=3D BGMAC_TX_RING_SLOTS)
+> -                       ring->start =3D 0;
+> +               ring->start++;
+>                 freed =3D true;
+>         }
+>
+
+Do I understand correctly you're using u32 overflow here? Is this
+OK/allowed in kernel to knowingly use overflows?
+
+
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethe=
+rnet/broadcom/bgmac.h
+> index 3ad965f..5a198d5 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.h
+> +++ b/drivers/net/ethernet/broadcom/bgmac.h
+> @@ -414,10 +414,10 @@ enum bgmac_dma_ring_type {
+>   * empty.
+>   */
+>  struct bgmac_dma_ring {
+> -       u16 num_slots;
+> -       u16 start;
+> -       u16 end;
+> +       u32 start;
+> +       u32 end;
+>
+> +       u16 num_slots;
+>         u16 mmio_base;
+>         struct bgmac_dma_desc *cpu_base;
+>         dma_addr_t dma_base;
+
+Any reason for u32 instead of u16?
+
+--=20
+Rafa=C5=82
