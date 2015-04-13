@@ -1,82 +1,150 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH 1/1] stmmac: bugfix oops on rmmod after ifconfig
-Date: Mon, 13 Apr 2015 14:35:05 +0300
-Message-ID: <CAHp75VeCHe+m4aqtasH4qdnyMBZ9mEUd4znOQhi07kY+E3wqqw@mail.gmail.com>
-References: <1428923713-2419-1-git-send-email-pure.logic@nexus-software.ie>
-	<1428923713-2419-2-git-send-email-pure.logic@nexus-software.ie>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: peppe.cavallaro@st.com, netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	Kweh Hock Leong <hock.leong.kweh@intel.com>,
-	"Ong, Boon Leong" <boon.leong.ong@intel.com>,
-	dan.odonovan@emutex.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Bryan O'Donoghue" <pure.logic@nexus-software.ie>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1428923713-2419-2-git-send-email-pure.logic@nexus-software.ie>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V1 00/11] net/mlx5: ConnectX-4 100G Ethernet driver
+Date: Mon, 13 Apr 2015 14:44:50 +0300
+Message-ID: <1428925501-2373-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1327.ztomy.com ([193.47.165.129]:60694 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753902AbbDMLpl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Apr 2015 07:45:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 2:15 PM, Bryan O'Donoghue
-<pure.logic@nexus-software.ie> wrote:
-> An oops exists in the flow of stmmac_release().
-> phy_ethtool_get_wol() depends on phydev->drv which will be null in
-> stmmac_dvr_remove after stmmac_mdio_unreg() completes.
->
-> Steps to reproduce on Quark X1000:
->
-> 1. ifconfig eth0 192.168.0.1
-> 2. rmmod stmmac_pci
->
-> This patch re-orders the calling of the unreg() functions so that
-> stmmac_unreg_mdio() happens later in the release() routine thus avoiding the
-> null pointer dereference.
->
-> Signed-off-by: Bryan O'Donoghue <pure.logic@nexus-software.ie>
-> Reported-by: Dan O'Donovan <dan.odonovan@emutex.com>
+Hi Dave,
 
-Shouldn't Fixes: tag be present here?
+Changes from V0:
+- Removed V0 Patch 1/11 ("net/mlx5_core: Virtually extend work/completion queue
+  buffers by one page") due to misuse of DMA API. Thanks Dave.
+- Patch 1/11 ("net/mlx5_core: Set irq affinity hints"):
+  - Use kcalloc instead of kzalloc
+  - Fix build error when CONFIG_CPUMASK_OFFSTACK=n. Driver loading will fail
+    now if cpumask allocation is failing.
+  - Using dev_to_node helper. Thanks, Ido.  
+- Patch 3/11 ("net/mlx5_core: HW data structs/types definitions preparation for
+  mlx5 ehternet driver")
+  - Removed Mellanox internal comment at the head of the file. Thanks Joe
+- Patch 6/11 ("net/mlx5_core: Implement get/set port status")
+  - Use direct return of function's result. Thanks Sergei.
+- Added Patch 8/11 ("net/mlx5_core: Set/Query port MTU commands")
+- Patch 9/11 ("net/mlx5: Ethernet Datapath files") 
+  - Use rq->wqe_sz instead of skb_end_offset. Thanks Ido.
+  - Use dma_wmb() when possible instead of wmb(). Thanks Alex.
+  - Fix checkpatch issues
+- Patch 10/11 ("net/mlx5: ethernet resources handling")
+  - checkpatch issues
+  - Added missing include
+- Patch 11/11 ("net/mlx5: Ethernet driver") 
+  - checkpatch issues
+  - fixed typo
+  - Modified use of affinity hint
+  - Using dev_to_node helper. Thanks, Ido.  
+  - Use new hardware commands from Patch 8/11 ("net/mlx5_core: Set/Query port
+    MTU commands") to get/set port MTU in hardware.
+  - Removed NETIF_F_SG since hardware ring wraparound is not supported
+  - Use dma_wmb() when possible instead of wmb(). Thanks Alex.
 
->
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index a0ea84f..3ab3e4a8 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2958,14 +2958,14 @@ int stmmac_dvr_remove(struct net_device *ndev)
->         priv->hw->dma->stop_tx(priv->ioaddr);
->
->         stmmac_set_mac(priv->ioaddr, false);
-> -       if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-> -           priv->pcs != STMMAC_PCS_RTBI)
-> -               stmmac_mdio_unregister(ndev);
->         netif_carrier_off(ndev);
->         unregister_netdev(ndev);
->         if (priv->stmmac_rst)
->                 reset_control_assert(priv->stmmac_rst);
->         clk_disable_unprepare(priv->stmmac_clk);
-> +       if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-> +           priv->pcs != STMMAC_PCS_RTBI)
-> +               stmmac_mdio_unregister(ndev);
->         free_netdev(ndev);
->
->         return 0;
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+This patchset introduces support in Mellanox ConnectX-4 100G Ethernet NIC.
+Unlike the ConnectX-3 driver, this driver is built of a single module (there is
+no mlx5_en). It is the Ethernet driver and also the low level driver for the
+infiniband driver - mlx5_ib.
 
+Many features are still missing from the driver, but all the basic
+functionalities are there already.
 
+Notes:
+-  Patch 3/11 ("net/mlx5_core: HW data structs/types definitions preparation
+   for mlx5 ehternet driver") is too big for the mail server. It is hard to split
+   it, since it is a generated code. I'm sending it as is, so you get it
+   as part of the patches.  I also place it on a public git [1], to enable
+   reviewing it from the mailing list.
+
+Patchset was applied on top of e60a9de ("Merge branch 'master' of
+git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue")
+
+[1] - http://git.openfabrics.org/?p=~amirv/linux.git;a=shortlog;h=refs/heads/mlx5e_v1  
+
+Thanks to Achiad, Saeed, Yevheny, Or and the whole team for making this happen,
+Amir
+
+Amir Vadai (3):
+  net/mlx5: Ethernet Datapath files
+  net/mlx5: ethernet resources handling
+  net/mlx5: Ethernet driver
+
+Rana Shahout (2):
+  net/mlx5_core: Implement get/set port status
+  net/mlx5_core: Modify CQ moderation parameters
+
+Saeed Mahameed (6):
+  net/mlx5_core: Set irq affinity hints
+  net/mlx5_core: Add EQ renaming mechanism
+  net/mlx5_core: HW data structs/types definitions preparation for mlx5
+    ehternet driver
+  net/mlx5_core/ib: New device capabilities handling.
+  net/mlx5_core: Implement get and set functions of ptys register fields
+  net/mlx5_core: Set/Query port MTU commands
+
+ drivers/infiniband/hw/mlx5/cq.c                    |    8 +-
+ drivers/infiniband/hw/mlx5/mad.c                   |    2 +-
+ drivers/infiniband/hw/mlx5/main.c                  |  113 +-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |    6 +-
+ drivers/infiniband/hw/mlx5/mr.c                    |    3 +-
+ drivers/infiniband/hw/mlx5/odp.c                   |   47 +-
+ drivers/infiniband/hw/mlx5/qp.c                    |   84 +-
+ drivers/infiniband/hw/mlx5/srq.c                   |    7 +-
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   17 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cq.c       |   18 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  520 ++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  679 ++
+ .../ethernet/mellanox/mlx5/core/en_flow_table.c    |  858 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 1920 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  249 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  344 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  107 +
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   20 +-
+ .../net/ethernet/mellanox/mlx5/core/flow_table.c   |  422 ++
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   90 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  294 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mcg.c      |    2 +-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   20 +-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  165 +
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c |  169 +
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.h |   47 +
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   44 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  111 +
+ drivers/net/ethernet/mellanox/mlx5/core/vport.h    |   41 +
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c       |  189 +
+ drivers/net/ethernet/mellanox/mlx5/core/wq.h       |  171 +
+ include/linux/mlx5/cq.h                            |    3 +
+ include/linux/mlx5/device.h                        |  179 +-
+ include/linux/mlx5/driver.h                        |   99 +-
+ include/linux/mlx5/flow_table.h                    |   54 +
+ include/linux/mlx5/mlx5_ifc.h                      | 6623 +++++++++++++++++++-
+ include/linux/mlx5/qp.h                            |   25 +
+ 38 files changed, 13275 insertions(+), 478 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.h
+ create mode 100644 include/linux/mlx5/flow_table.h
 
 -- 
-With Best Regards,
-Andy Shevchenko
+1.9.3
