@@ -1,79 +1,126 @@
-From: Michael Wang <yun.wang@profitbricks.com>
-Subject: Re: [PATCH v2 01/17] IB/Verbs: Implement new callback query_transport()
- for each HW
-Date: Mon, 13 Apr 2015 09:40:15 +0200
-Message-ID: <552B72DF.2080600@profitbricks.com>
-References: <5523CCD5.6030401@profitbricks.com> <5523D098.3020007@profitbricks.com> <1428517786.2980.180.camel@redhat.com> <20150410074805.GA11855@phlsvsds.ph.intel.com> <1428685843.2980.353.camel@redhat.com> <20150410173650.GB26419@obsidianresearch.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the ftrace tree with the net-next tree
+Date: Mon, 13 Apr 2015 17:52:24 +1000
+Message-ID: <20150413175224.73a9baff@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "ira.weiny" <ira.weiny@intel.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Tom Tucker <tom@opengridcomputing.com>,
-	Steve Wise <swise@opengridcomputing.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Mike Marciniszyn <infinipath@intel.com>,
-	Eli Cohen <eli@mellanox.com>,
-	Faisal Latif <faisal.latif@intel.com>,
-	Upinder Malhi <umalhi@cisco.com>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	PJ Waskiewicz <pj.waskiewicz@solidfire.com>,
-	Tatyana Nikolova <Tatyana.E.Nikolova@intel.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Haggai
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	Doug Ledford <dledford@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150410173650.GB26419@obsidianresearch.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/lg1+9uPQq9RrnrzOTsT_xUc"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+To: Steven Rostedt <rostedt@goodmis.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/10/2015 07:36 PM, Jason Gunthorpe wrote:
-> On Fri, Apr 10, 2015 at 01:10:43PM -0400, Doug Ledford wrote:
-> 
->> documented.  I get why you link the address variant, because it pops out
->> all the things that are special about IBoE addressing and calls out that
->> the issues need to be handled.  However, saying requires_iboe_addr(),
->> while foreshadowing the work that needs done, doesn't actually document
->> the work that needs done.  Whether we call is dev_is_iboe() or
->> requires_iboe_addr(), it would be good if the documentation spelled out
->> those specific requirements for reference sake.
-> 
-> My deep hope for this, was that the test 'requires_iboe_addr' or
-> whatever we call it would have a *really good* kdoc.
-> 
-> List all the ways iboe_addr's work, how they differ from IB addresses,
-> refer to the specs people should read to understand it, etc.
-> 
-> The patches don't do this, and maybe Michael is the wrong person to
-> fill that in, but we can get it done..
+--Sig_/lg1+9uPQq9RrnrzOTsT_xUc
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-That's exactly what I'm thinking ;-)
+Hi Steven,
 
-At first I'm just trying to save us some code but now it's becoming
-a topic far above that purpose, I'd like to help commit whatever we already
-settled and pass the internal reforming works to experts like you guys
-, implement the bitmask stuff ;-)
+Today's linux-next merge of the ftrace tree got a conflict in
+drivers/net/wireless/iwlwifi/iwl-devtrace.h between commit 7e1223b50089
+("iwlwifi: mvm: new Alive / error table API") from the net-next tree
+and commit c5ef935d01a2 ("iwlwifi: Move each system tracepoints to
+their own header") from the ftrace tree.
 
-And I can still help on review and may be testing with mlx4 if later I
-got the access.
+I fixed it up (see patch below, since this code was moved to a new file)
+and can carry the fix as necessary (no action is required).
 
-> 
-> Jason
-> 
-> BTW: Michael, next time you post the series, please trim the CC
-> list...
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Mon, 13 Apr 2015 17:21:30 +1000
+Subject: [PATCH] iwlwifi: mvm: fix up for tracing split
 
-Thanks for the remind, I'll do trim in v3 :-)
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-Regards,
-Michael Wang
+diff --git a/drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h b/drivers/=
+net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h
+index 6cb66a988271..223b8752f924 100644
+--- a/drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h
++++ b/drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h
+@@ -116,11 +116,11 @@ TRACE_EVENT(iwlwifi_dev_ucode_error,
+ 	TP_PROTO(const struct device *dev, u32 desc, u32 tsf_low,
+ 		 u32 data1, u32 data2, u32 line, u32 blink1,
+ 		 u32 blink2, u32 ilink1, u32 ilink2, u32 bcon_time,
+-		 u32 gp1, u32 gp2, u32 gp3, u32 ucode_ver, u32 hw_ver,
++		 u32 gp1, u32 gp2, u32 gp3, u32 major, u32 minor, u32 hw_ver,
+ 		 u32 brd_ver),
+ 	TP_ARGS(dev, desc, tsf_low, data1, data2, line,
+ 		blink1, blink2, ilink1, ilink2, bcon_time, gp1, gp2,
+-		gp3, ucode_ver, hw_ver, brd_ver),
++		gp3, major, minor, hw_ver, brd_ver),
+ 	TP_STRUCT__entry(
+ 		DEV_ENTRY
+ 		__field(u32, desc)
+@@ -136,7 +136,8 @@ TRACE_EVENT(iwlwifi_dev_ucode_error,
+ 		__field(u32, gp1)
+ 		__field(u32, gp2)
+ 		__field(u32, gp3)
+-		__field(u32, ucode_ver)
++		__field(u32, major)
++		__field(u32, minor)
+ 		__field(u32, hw_ver)
+ 		__field(u32, brd_ver)
+ 	),
+@@ -155,21 +156,22 @@ TRACE_EVENT(iwlwifi_dev_ucode_error,
+ 		__entry->gp1 =3D gp1;
+ 		__entry->gp2 =3D gp2;
+ 		__entry->gp3 =3D gp3;
+-		__entry->ucode_ver =3D ucode_ver;
++		__entry->major =3D major;
++		__entry->minor =3D minor;
+ 		__entry->hw_ver =3D hw_ver;
+ 		__entry->brd_ver =3D brd_ver;
+ 	),
+ 	TP_printk("[%s] #%02d %010u data 0x%08X 0x%08X line %u, "
+ 		  "blink 0x%05X 0x%05X ilink 0x%05X 0x%05X "
+-		  "bcon_tm %010u gp 0x%08X 0x%08X 0x%08X uCode 0x%08X "
+-		  "hw 0x%08X brd 0x%08X",
++		  "bcon_tm %010u gp 0x%08X 0x%08X 0x%08X major 0x%08X "
++		  "minor 0x%08X hw 0x%08X brd 0x%08X",
+ 		  __get_str(dev), __entry->desc, __entry->tsf_low,
+ 		  __entry->data1,
+ 		  __entry->data2, __entry->line, __entry->blink1,
+ 		  __entry->blink2, __entry->ilink1, __entry->ilink2,
+ 		  __entry->bcon_time, __entry->gp1, __entry->gp2,
+-		  __entry->gp3, __entry->ucode_ver, __entry->hw_ver,
+-		  __entry->brd_ver)
++		  __entry->gp3, __entry->major, __entry->minor,
++		  __entry->hw_ver, __entry->brd_ver)
+ );
+=20
+ TRACE_EVENT(iwlwifi_dev_ucode_event,
+--=20
+2.1.4
 
-> 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/lg1+9uPQq9RrnrzOTsT_xUc
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJVK3W9AAoJEMDTa8Ir7ZwVtdgQAJITUEfs5CmgR2dIf5BwxDGn
+OKOGaDpymtdRrO8qy0NeIyYUQHMPtbGYgs2pBx6kXSs0e9VzgIKaRdrrvznNCYV/
+BjoQKS1rBtEK5P4rg4x3OF2cKY2rcStV6IU3k0R6QqxULDER3gWeEohpnLNlTkDu
+sT2OIH3T1tN/f9J/2IdbqARUsNMPec5E1mGrLYANcdkf7K9hTarlhZTJFOmGYh+F
+s97UHBysCUFI5bOIhPdY3pZQ9wt/wDtZyPZEhajaR+HqqB5hRErwLVImmlEoM6uj
+7tk8mguHE5etyQKdFKNOcoL+hkik2ooNsh1wYK2r0AYqISaxRjZB/yzlB70ipL0T
+ONrT2DpXPXkz6nZ02o89jZhUOFEfZxyQPLS0St+j31G3By5gZkCVBjnZtMcUt0f2
+3l37gKhaax72Ke1GJPpMZbiywP9j5KTqRxXVRVgEb59k6KrWpUcy6m/kztqP8kk5
+zo6JnLomYspmnbaDhegwFDnLKbK0b8HyS2ABy1tSLfcNSUeWerwbnIw6L5jguC0o
+B2Lc2SdQt5Pz21SREDEbzX8SLYO7P05qENwYa+FR49GOavyWDhLXDYDfGy0ycxN6
+A+Isbg3dPldl5RSesfnTdMDMD39r4rKU3yANGypkHO96VKYhdixH4bXVkljgaZ2K
+6RWVQSk4AzYhL0NFlYDi
+=c3pl
+-----END PGP SIGNATURE-----
+
+--Sig_/lg1+9uPQq9RrnrzOTsT_xUc--
