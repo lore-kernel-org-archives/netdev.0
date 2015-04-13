@@ -1,208 +1,449 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 14/21] netfilter: nf_tables: variable sized set element keys / data
-Date: Mon, 13 Apr 2015 21:29:53 +0200
-Message-ID: <1428953401-4838-15-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/21] netfilter: nf_tables: convert expressions to u32 register pointers
+Date: Mon, 13 Apr 2015 21:29:47 +0200
+Message-ID: <1428953401-4838-9-git-send-email-pablo@netfilter.org>
 References: <1428953401-4838-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39709 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754572AbbDMT0B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Apr 2015 15:26:01 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1428953401-4838-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Patrick McHardy <kaber@trash.net>
 
-This patch changes sets to support variable sized set element keys / data
-up to 64 bytes each by using variable sized set extensions. This allows
-to use concatenations with bigger data items suchs as IPv6 addresses.
-
-As a side effect, small keys/data now don't require the full 16 bytes
-of struct nft_data anymore but just the space they need.
+Simple conversion to use u32 pointers to the beginning of the registers
+to keep follow up patches smaller.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h        |    5 ++++-
- include/uapi/linux/netfilter/nf_tables.h |    3 +++
- net/netfilter/nf_tables_api.c            |   27 ++++++++++++---------------
- net/netfilter/nft_hash.c                 |    4 ++--
- net/netfilter/nft_rbtree.c               |    3 ++-
- 5 files changed, 23 insertions(+), 19 deletions(-)
+ net/bridge/netfilter/nft_meta_bridge.c |    4 +--
+ net/netfilter/nf_tables_core.c         |    8 ++---
+ net/netfilter/nft_bitwise.c            |   10 +++---
+ net/netfilter/nft_byteorder.c          |    8 ++---
+ net/netfilter/nft_ct.c                 |   38 +++++++++++-----------
+ net/netfilter/nft_exthdr.c             |    4 +--
+ net/netfilter/nft_meta.c               |   54 +++++++++++++++-----------------
+ net/netfilter/nft_payload.c            |    4 +--
+ 8 files changed, 63 insertions(+), 67 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index 160577b..cb42da1 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -158,7 +158,10 @@ struct nft_userdata {
-  *	@priv: element private data and extensions
-  */
- struct nft_set_elem {
--	struct nft_data		key;
-+	union {
-+		u32		buf[NFT_DATA_VALUE_MAXLEN / sizeof(u32)];
-+		struct nft_data	val;
-+	} key;
- 	void			*priv;
- };
+diff --git a/net/bridge/netfilter/nft_meta_bridge.c b/net/bridge/netfilter/nft_meta_bridge.c
+index f0dfa38..6184b15 100644
+--- a/net/bridge/netfilter/nft_meta_bridge.c
++++ b/net/bridge/netfilter/nft_meta_bridge.c
+@@ -24,7 +24,7 @@ static void nft_meta_bridge_get_eval(const struct nft_expr *expr,
+ {
+ 	const struct nft_meta *priv = nft_expr_priv(expr);
+ 	const struct net_device *in = pkt->in, *out = pkt->out;
+-	struct nft_data *dest = &regs->data[priv->dreg];
++	u32 *dest = &regs->data[priv->dreg].data[0];
+ 	const struct net_bridge_port *p;
  
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 4221a6c..be8584c 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -388,6 +388,9 @@ enum nft_data_attributes {
- };
- #define NFTA_DATA_MAX		(__NFTA_DATA_MAX - 1)
- 
-+/* Maximum length of a value */
-+#define NFT_DATA_VALUE_MAXLEN	64
-+
- /**
-  * enum nft_verdict_attributes - nf_tables verdict netlink attributes
-  *
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 2b3f88f..ed0e70e 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -2608,7 +2608,7 @@ static int nf_tables_newset(struct sock *nlsk, struct sk_buff *skb,
+ 	switch (priv->key) {
+@@ -40,7 +40,7 @@ static void nft_meta_bridge_get_eval(const struct nft_expr *expr,
+ 		goto out;
  	}
  
- 	desc.klen = ntohl(nla_get_be32(nla[NFTA_SET_KEY_LEN]));
--	if (desc.klen == 0 || desc.klen > FIELD_SIZEOF(struct nft_data, data))
-+	if (desc.klen == 0 || desc.klen > NFT_DATA_VALUE_MAXLEN)
- 		return -EINVAL;
+-	strncpy((char *)dest->data, p->br->dev->name, sizeof(dest->data));
++	strncpy((char *)dest, p->br->dev->name, IFNAMSIZ);
+ 	return;
+ out:
+ 	return nft_meta_get_eval(expr, regs, pkt);
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index 667cdf0..5ef07d1 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -81,7 +81,7 @@ static bool nft_payload_fast_eval(const struct nft_expr *expr,
+ {
+ 	const struct nft_payload *priv = nft_expr_priv(expr);
+ 	const struct sk_buff *skb = pkt->skb;
+-	struct nft_data *dest = &regs->data[priv->dreg];
++	u32 *dest = &regs->data[priv->dreg].data[0];
+ 	unsigned char *ptr;
  
- 	flags = 0;
-@@ -2634,11 +2634,10 @@ static int nf_tables_newset(struct sock *nlsk, struct sk_buff *skb,
- 			if (nla[NFTA_SET_DATA_LEN] == NULL)
- 				return -EINVAL;
- 			desc.dlen = ntohl(nla_get_be32(nla[NFTA_SET_DATA_LEN]));
--			if (desc.dlen == 0 ||
--			    desc.dlen > FIELD_SIZEOF(struct nft_data, data))
-+			if (desc.dlen == 0 || desc.dlen > NFT_DATA_VALUE_MAXLEN)
- 				return -EINVAL;
- 		} else
--			desc.dlen = sizeof(struct nft_data);
-+			desc.dlen = sizeof(struct nft_verdict);
- 	} else if (flags & NFT_SET_MAP)
- 		return -EINVAL;
+ 	if (priv->base == NFT_PAYLOAD_NETWORK_HEADER)
+@@ -95,11 +95,11 @@ static bool nft_payload_fast_eval(const struct nft_expr *expr,
+ 		return false;
  
-@@ -2854,12 +2853,10 @@ void nf_tables_unbind_set(const struct nft_ctx *ctx, struct nft_set *set,
+ 	if (priv->len == 2)
+-		*(u16 *)dest->data = *(u16 *)ptr;
++		*(u16 *)dest = *(u16 *)ptr;
+ 	else if (priv->len == 4)
+-		*(u32 *)dest->data = *(u32 *)ptr;
++		*(u32 *)dest = *(u32 *)ptr;
+ 	else
+-		*(u8 *)dest->data = *(u8 *)ptr;
++		*(u8 *)dest = *(u8 *)ptr;
+ 	return true;
+ }
  
- const struct nft_set_ext_type nft_set_ext_types[] = {
- 	[NFT_SET_EXT_KEY]		= {
--		.len	= sizeof(struct nft_data),
--		.align	= __alignof__(struct nft_data),
-+		.align	= __alignof__(u32),
- 	},
- 	[NFT_SET_EXT_DATA]		= {
--		.len	= sizeof(struct nft_data),
--		.align	= __alignof__(struct nft_data),
-+		.align	= __alignof__(u32),
- 	},
- 	[NFT_SET_EXT_FLAGS]		= {
- 		.len	= sizeof(u8),
-@@ -3299,7 +3296,7 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
- 		timeout = set->timeout;
- 	}
+diff --git a/net/netfilter/nft_bitwise.c b/net/netfilter/nft_bitwise.c
+index 2b8f518..d55b545 100644
+--- a/net/netfilter/nft_bitwise.c
++++ b/net/netfilter/nft_bitwise.c
+@@ -30,14 +30,12 @@ static void nft_bitwise_eval(const struct nft_expr *expr,
+ 			     const struct nft_pktinfo *pkt)
+ {
+ 	const struct nft_bitwise *priv = nft_expr_priv(expr);
+-	const struct nft_data *src = &regs->data[priv->sreg];
+-	struct nft_data *dst = &regs->data[priv->dreg];
++	const u32  *src = &regs->data[priv->sreg].data[0];
++	u32 *dst = &regs->data[priv->dreg].data[0];
+ 	unsigned int i;
  
--	err = nft_data_init(ctx, &elem.key, sizeof(elem.key), &d1,
-+	err = nft_data_init(ctx, &elem.key.val, sizeof(elem.key), &d1,
- 			    nla[NFTA_SET_ELEM_KEY]);
- 	if (err < 0)
- 		goto err1;
-@@ -3307,7 +3304,7 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
- 	if (d1.type != NFT_DATA_VALUE || d1.len != set->klen)
- 		goto err2;
+-	for (i = 0; i < DIV_ROUND_UP(priv->len, 4); i++) {
+-		dst->data[i] = (src->data[i] & priv->mask.data[i]) ^
+-			       priv->xor.data[i];
+-	}
++	for (i = 0; i < DIV_ROUND_UP(priv->len, 4); i++)
++		dst[i] = (src[i] & priv->mask.data[i]) ^ priv->xor.data[i];
+ }
  
--	nft_set_ext_add(&tmpl, NFT_SET_EXT_KEY);
-+	nft_set_ext_add_length(&tmpl, NFT_SET_EXT_KEY, d1.len);
- 	if (timeout > 0) {
- 		nft_set_ext_add(&tmpl, NFT_SET_EXT_EXPIRATION);
- 		if (timeout != set->timeout)
-@@ -3342,7 +3339,7 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
- 				goto err3;
+ static const struct nla_policy nft_bitwise_policy[NFTA_BITWISE_MAX + 1] = {
+diff --git a/net/netfilter/nft_byteorder.c b/net/netfilter/nft_byteorder.c
+index 48fbfa3..d6290db 100644
+--- a/net/netfilter/nft_byteorder.c
++++ b/net/netfilter/nft_byteorder.c
+@@ -30,13 +30,13 @@ static void nft_byteorder_eval(const struct nft_expr *expr,
+ 			       const struct nft_pktinfo *pkt)
+ {
+ 	const struct nft_byteorder *priv = nft_expr_priv(expr);
+-	struct nft_data *src = &regs->data[priv->sreg];
+-	struct nft_data *dst = &regs->data[priv->dreg];
++	u32 *src = &regs->data[priv->sreg].data[0];
++	u32 *dst = &regs->data[priv->dreg].data[0];
+ 	union { u32 u32; u16 u16; } *s, *d;
+ 	unsigned int i;
+ 
+-	s = (void *)src->data;
+-	d = (void *)dst->data;
++	s = (void *)src;
++	d = (void *)dst;
+ 
+ 	switch (priv->size) {
+ 	case 4:
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 077e06b..0166f28c 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -35,7 +35,7 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 			    const struct nft_pktinfo *pkt)
+ {
+ 	const struct nft_ct *priv = nft_expr_priv(expr);
+-	struct nft_data *dest = &regs->data[priv->dreg];
++	u32 *dest = &regs->data[priv->dreg].data[0];
+ 	enum ip_conntrack_info ctinfo;
+ 	const struct nf_conn *ct;
+ 	const struct nf_conn_help *help;
+@@ -54,7 +54,7 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 			state = NF_CT_STATE_UNTRACKED_BIT;
+ 		else
+ 			state = NF_CT_STATE_BIT(ctinfo);
+-		dest->data[0] = state;
++		*dest = state;
+ 		return;
+ 	default:
+ 		break;
+@@ -65,26 +65,26 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 
+ 	switch (priv->key) {
+ 	case NFT_CT_DIRECTION:
+-		dest->data[0] = CTINFO2DIR(ctinfo);
++		*dest = CTINFO2DIR(ctinfo);
+ 		return;
+ 	case NFT_CT_STATUS:
+-		dest->data[0] = ct->status;
++		*dest = ct->status;
+ 		return;
+ #ifdef CONFIG_NF_CONNTRACK_MARK
+ 	case NFT_CT_MARK:
+-		dest->data[0] = ct->mark;
++		*dest = ct->mark;
+ 		return;
+ #endif
+ #ifdef CONFIG_NF_CONNTRACK_SECMARK
+ 	case NFT_CT_SECMARK:
+-		dest->data[0] = ct->secmark;
++		*dest = ct->secmark;
+ 		return;
+ #endif
+ 	case NFT_CT_EXPIRATION:
+ 		diff = (long)jiffies - (long)ct->timeout.expires;
+ 		if (diff < 0)
+ 			diff = 0;
+-		dest->data[0] = jiffies_to_msecs(diff);
++		*dest = jiffies_to_msecs(diff);
+ 		return;
+ 	case NFT_CT_HELPER:
+ 		if (ct->master == NULL)
+@@ -95,7 +95,7 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 		helper = rcu_dereference(help->helper);
+ 		if (helper == NULL)
+ 			goto err;
+-		strncpy((char *)dest->data, helper->name, sizeof(dest->data));
++		strncpy((char *)dest, helper->name, NF_CT_HELPER_NAME_LEN);
+ 		return;
+ #ifdef CONFIG_NF_CONNTRACK_LABELS
+ 	case NFT_CT_LABELS: {
+@@ -103,15 +103,15 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 		unsigned int size;
+ 
+ 		if (!labels) {
+-			memset(dest->data, 0, sizeof(dest->data));
++			memset(dest, 0, NF_CT_LABELS_MAX_SIZE);
+ 			return;
  		}
  
--		nft_set_ext_add(&tmpl, NFT_SET_EXT_DATA);
-+		nft_set_ext_add_length(&tmpl, NFT_SET_EXT_DATA, d2.len);
+ 		size = labels->words * sizeof(long);
+-		memcpy(dest->data, labels->bits, size);
+-		if (size < sizeof(dest->data))
+-			memset(((char *) dest->data) + size, 0,
+-			       sizeof(dest->data) - size);
++		memcpy(dest, labels->bits, size);
++		if (size < NF_CT_LABELS_MAX_SIZE)
++			memset(((char *) dest) + size, 0,
++			       NF_CT_LABELS_MAX_SIZE - size);
+ 		return;
  	}
+ #endif
+@@ -122,24 +122,24 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 	tuple = &ct->tuplehash[priv->dir].tuple;
+ 	switch (priv->key) {
+ 	case NFT_CT_L3PROTOCOL:
+-		dest->data[0] = nf_ct_l3num(ct);
++		*dest = nf_ct_l3num(ct);
+ 		return;
+ 	case NFT_CT_SRC:
+-		memcpy(dest->data, tuple->src.u3.all,
++		memcpy(dest, tuple->src.u3.all,
+ 		       nf_ct_l3num(ct) == NFPROTO_IPV4 ? 4 : 16);
+ 		return;
+ 	case NFT_CT_DST:
+-		memcpy(dest->data, tuple->dst.u3.all,
++		memcpy(dest, tuple->dst.u3.all,
+ 		       nf_ct_l3num(ct) == NFPROTO_IPV4 ? 4 : 16);
+ 		return;
+ 	case NFT_CT_PROTOCOL:
+-		dest->data[0] = nf_ct_protonum(ct);
++		*dest = nf_ct_protonum(ct);
+ 		return;
+ 	case NFT_CT_PROTO_SRC:
+-		dest->data[0] = (__force __u16)tuple->src.u.all;
++		*dest = (__force __u16)tuple->src.u.all;
+ 		return;
+ 	case NFT_CT_PROTO_DST:
+-		dest->data[0] = (__force __u16)tuple->dst.u.all;
++		*dest = (__force __u16)tuple->dst.u.all;
+ 		return;
+ 	default:
+ 		break;
+diff --git a/net/netfilter/nft_exthdr.c b/net/netfilter/nft_exthdr.c
+index 2480af7..a85db75 100644
+--- a/net/netfilter/nft_exthdr.c
++++ b/net/netfilter/nft_exthdr.c
+@@ -30,7 +30,7 @@ static void nft_exthdr_eval(const struct nft_expr *expr,
+ 			    const struct nft_pktinfo *pkt)
+ {
+ 	struct nft_exthdr *priv = nft_expr_priv(expr);
+-	struct nft_data *dest = &regs->data[priv->dreg];
++	u32 *dest = &regs->data[priv->dreg].data[0];
+ 	unsigned int offset = 0;
+ 	int err;
  
- 	/* The full maximum length of userdata can exceed the maximum
-@@ -3358,7 +3355,7 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+@@ -39,7 +39,7 @@ static void nft_exthdr_eval(const struct nft_expr *expr,
+ 		goto err;
+ 	offset += priv->offset;
+ 
+-	if (skb_copy_bits(pkt->skb, offset, dest->data, priv->len) < 0)
++	if (skb_copy_bits(pkt->skb, offset, dest, priv->len) < 0)
+ 		goto err;
+ 	return;
+ err:
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index 3f11c0b..a6da806 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -31,56 +31,56 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 	const struct nft_meta *priv = nft_expr_priv(expr);
+ 	const struct sk_buff *skb = pkt->skb;
+ 	const struct net_device *in = pkt->in, *out = pkt->out;
+-	struct nft_data *dest = &regs->data[priv->dreg];
++	u32 *dest = &regs->data[priv->dreg].data[0];
+ 
+ 	switch (priv->key) {
+ 	case NFT_META_LEN:
+-		dest->data[0] = skb->len;
++		*dest = skb->len;
+ 		break;
+ 	case NFT_META_PROTOCOL:
+-		*(__be16 *)dest->data = skb->protocol;
++		*(__be16 *)dest = skb->protocol;
+ 		break;
+ 	case NFT_META_NFPROTO:
+-		dest->data[0] = pkt->ops->pf;
++		*dest = pkt->ops->pf;
+ 		break;
+ 	case NFT_META_L4PROTO:
+-		dest->data[0] = pkt->tprot;
++		*dest = pkt->tprot;
+ 		break;
+ 	case NFT_META_PRIORITY:
+-		dest->data[0] = skb->priority;
++		*dest = skb->priority;
+ 		break;
+ 	case NFT_META_MARK:
+-		dest->data[0] = skb->mark;
++		*dest = skb->mark;
+ 		break;
+ 	case NFT_META_IIF:
+ 		if (in == NULL)
+ 			goto err;
+-		dest->data[0] = in->ifindex;
++		*dest = in->ifindex;
+ 		break;
+ 	case NFT_META_OIF:
+ 		if (out == NULL)
+ 			goto err;
+-		dest->data[0] = out->ifindex;
++		*dest = out->ifindex;
+ 		break;
+ 	case NFT_META_IIFNAME:
+ 		if (in == NULL)
+ 			goto err;
+-		strncpy((char *)dest->data, in->name, sizeof(dest->data));
++		strncpy((char *)dest, in->name, IFNAMSIZ);
+ 		break;
+ 	case NFT_META_OIFNAME:
+ 		if (out == NULL)
+ 			goto err;
+-		strncpy((char *)dest->data, out->name, sizeof(dest->data));
++		strncpy((char *)dest, out->name, IFNAMSIZ);
+ 		break;
+ 	case NFT_META_IIFTYPE:
+ 		if (in == NULL)
+ 			goto err;
+-		*(u16 *)dest->data = in->type;
++		*(u16 *)dest = in->type;
+ 		break;
+ 	case NFT_META_OIFTYPE:
+ 		if (out == NULL)
+ 			goto err;
+-		*(u16 *)dest->data = out->type;
++		*(u16 *)dest = out->type;
+ 		break;
+ 	case NFT_META_SKUID:
+ 		if (skb->sk == NULL || !sk_fullsock(skb->sk))
+@@ -93,8 +93,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 			goto err;
+ 		}
+ 
+-		dest->data[0] =
+-			from_kuid_munged(&init_user_ns,
++		*dest =	from_kuid_munged(&init_user_ns,
+ 				skb->sk->sk_socket->file->f_cred->fsuid);
+ 		read_unlock_bh(&skb->sk->sk_callback_lock);
+ 		break;
+@@ -108,8 +107,7 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 			read_unlock_bh(&skb->sk->sk_callback_lock);
+ 			goto err;
+ 		}
+-		dest->data[0] =
+-			from_kgid_munged(&init_user_ns,
++		*dest =	from_kgid_munged(&init_user_ns,
+ 				 skb->sk->sk_socket->file->f_cred->fsgid);
+ 		read_unlock_bh(&skb->sk->sk_callback_lock);
+ 		break;
+@@ -119,33 +117,33 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 
+ 		if (dst == NULL)
+ 			goto err;
+-		dest->data[0] = dst->tclassid;
++		*dest = dst->tclassid;
+ 		break;
  	}
+ #endif
+ #ifdef CONFIG_NETWORK_SECMARK
+ 	case NFT_META_SECMARK:
+-		dest->data[0] = skb->secmark;
++		*dest = skb->secmark;
+ 		break;
+ #endif
+ 	case NFT_META_PKTTYPE:
+ 		if (skb->pkt_type != PACKET_LOOPBACK) {
+-			dest->data[0] = skb->pkt_type;
++			*dest = skb->pkt_type;
+ 			break;
+ 		}
  
- 	err = -ENOMEM;
--	elem.priv = nft_set_elem_init(set, &tmpl, elem.key.data, data.data,
-+	elem.priv = nft_set_elem_init(set, &tmpl, elem.key.val.data, data.data,
- 				      timeout, GFP_KERNEL);
- 	if (elem.priv == NULL)
- 		goto err3;
-@@ -3393,7 +3390,7 @@ err3:
- 	if (nla[NFTA_SET_ELEM_DATA] != NULL)
- 		nft_data_uninit(&data, d2.type);
- err2:
--	nft_data_uninit(&elem.key, d1.type);
-+	nft_data_uninit(&elem.key.val, d1.type);
- err1:
- 	return err;
- }
-@@ -3460,7 +3457,7 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
- 	if (nla[NFTA_SET_ELEM_KEY] == NULL)
- 		goto err1;
+ 		switch (pkt->ops->pf) {
+ 		case NFPROTO_IPV4:
+ 			if (ipv4_is_multicast(ip_hdr(skb)->daddr))
+-				dest->data[0] = PACKET_MULTICAST;
++				*dest = PACKET_MULTICAST;
+ 			else
+-				dest->data[0] = PACKET_BROADCAST;
++				*dest = PACKET_BROADCAST;
+ 			break;
+ 		case NFPROTO_IPV6:
+ 			if (ipv6_hdr(skb)->daddr.s6_addr[0] == 0xFF)
+-				dest->data[0] = PACKET_MULTICAST;
++				*dest = PACKET_MULTICAST;
+ 			else
+-				dest->data[0] = PACKET_BROADCAST;
++				*dest = PACKET_BROADCAST;
+ 			break;
+ 		default:
+ 			WARN_ON(1);
+@@ -153,22 +151,22 @@ void nft_meta_get_eval(const struct nft_expr *expr,
+ 		}
+ 		break;
+ 	case NFT_META_CPU:
+-		dest->data[0] = raw_smp_processor_id();
++		*dest = raw_smp_processor_id();
+ 		break;
+ 	case NFT_META_IIFGROUP:
+ 		if (in == NULL)
+ 			goto err;
+-		dest->data[0] = in->group;
++		*dest = in->group;
+ 		break;
+ 	case NFT_META_OIFGROUP:
+ 		if (out == NULL)
+ 			goto err;
+-		dest->data[0] = out->group;
++		*dest = out->group;
+ 		break;
+ 	case NFT_META_CGROUP:
+ 		if (skb->sk == NULL || !sk_fullsock(skb->sk))
+ 			goto err;
+-		dest->data[0] = skb->sk->sk_classid;
++		*dest = skb->sk->sk_classid;
+ 		break;
+ 	default:
+ 		WARN_ON(1);
+diff --git a/net/netfilter/nft_payload.c b/net/netfilter/nft_payload.c
+index 14247c5..6bb0592 100644
+--- a/net/netfilter/nft_payload.c
++++ b/net/netfilter/nft_payload.c
+@@ -23,7 +23,7 @@ static void nft_payload_eval(const struct nft_expr *expr,
+ {
+ 	const struct nft_payload *priv = nft_expr_priv(expr);
+ 	const struct sk_buff *skb = pkt->skb;
+-	struct nft_data *dest = &regs->data[priv->dreg];
++	u32 *dest = &regs->data[priv->dreg].data[0];
+ 	int offset;
  
--	err = nft_data_init(ctx, &elem.key, sizeof(elem.key), &desc,
-+	err = nft_data_init(ctx, &elem.key.val, sizeof(elem.key), &desc,
- 			    nla[NFTA_SET_ELEM_KEY]);
- 	if (err < 0)
- 		goto err1;
-@@ -3488,7 +3485,7 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
- err3:
- 	kfree(trans);
- err2:
--	nft_data_uninit(&elem.key, desc.type);
-+	nft_data_uninit(&elem.key.val, desc.type);
- err1:
- 	return err;
- }
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 767df41..3f9d45d 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -133,7 +133,7 @@ static int nft_hash_insert(const struct nft_set *set,
- 	struct nft_hash_cmp_arg arg = {
- 		.genmask = nft_genmask_next(read_pnet(&set->pnet)),
- 		.set	 = set,
--		.key	 = elem->key.data,
-+		.key	 = elem->key.val.data,
- 	};
+ 	switch (priv->base) {
+@@ -43,7 +43,7 @@ static void nft_payload_eval(const struct nft_expr *expr,
+ 	}
+ 	offset += priv->offset;
  
- 	return rhashtable_lookup_insert_key(&priv->ht, &arg, &he->node,
-@@ -157,7 +157,7 @@ static void *nft_hash_deactivate(const struct nft_set *set,
- 	struct nft_hash_cmp_arg arg = {
- 		.genmask = nft_genmask_next(read_pnet(&set->pnet)),
- 		.set	 = set,
--		.key	 = elem->key.data,
-+		.key	 = elem->key.val.data,
- 	};
- 
- 	rcu_read_lock();
-diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
-index b888e0c..1c30f41 100644
---- a/net/netfilter/nft_rbtree.c
-+++ b/net/netfilter/nft_rbtree.c
-@@ -152,7 +152,8 @@ static void *nft_rbtree_deactivate(const struct nft_set *set,
- 	while (parent != NULL) {
- 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
- 
--		d = memcmp(nft_set_ext_key(&rbe->ext), &elem->key, set->klen);
-+		d = memcmp(nft_set_ext_key(&rbe->ext), &elem->key.val,
-+					   set->klen);
- 		if (d < 0)
- 			parent = parent->rb_left;
- 		else if (d > 0)
+-	if (skb_copy_bits(skb, offset, dest->data, priv->len) < 0)
++	if (skb_copy_bits(skb, offset, dest, priv->len) < 0)
+ 		goto err;
+ 	return;
+ err:
 -- 
 1.7.10.4
+
