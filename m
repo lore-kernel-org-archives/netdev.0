@@ -1,44 +1,51 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [RFC PATCH net-next 08/10] ipv6: Do not use inetpeer when
- creating RTF_CACHE route for /128 via gateway entry
-Date: Mon, 13 Apr 2015 10:51:43 -0700
-Message-ID: <20150413175142.GA925334@devbig242.prn2.facebook.com>
-References: <1428717576-1040383-1-git-send-email-kafai@fb.com>
- <1428717576-1040383-9-git-send-email-kafai@fb.com>
- <20150413110632.GF8928@secunet.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next 0/3] net: cap size to original frag size when
+ refragmenting
+Date: Mon, 13 Apr 2015 13:53:48 -0400 (EDT)
+Message-ID: <20150413.135348.461869719021663434.davem@davemloft.net>
+References: <1428704189-31247-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	<kernel-team@fb.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:7115 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751153AbbDMRv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:51:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20150413110632.GF8928@secunet.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53312 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbbDMRxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 13:53:49 -0400
+In-Reply-To: <1428704189-31247-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 01:06:32PM +0200, Steffen Klassert wrote:
-> On Fri, Apr 10, 2015 at 06:59:34PM -0700, Martin KaFai Lau wrote:
-> > When there is a pmtu exception on /128 via gateway route, we need to
-> > create a separate metrics copy for the newly created RTF_CACHE route instead
-> > of reusing the inetpeer cache.
->
-> Maybe we should remove the caching of the metrics on the inetpeer
-> completely. After your patchset only static hostroutes using this,
-The RTF_CACHE copied from "plen <128 via gateway" route will also use
-the inetpeer.
+From: Florian Westphal <fw@strlen.de>
+Date: Sat, 11 Apr 2015 00:16:26 +0200
 
-> and this is exactly the case where it is buggy. If a second route
-> to the same host is added, the metrics of the first will be
-> overwritten.
-I agree.  The current upstream also has similar bug.
-I had thought about changes as you suggested but decided to
-use a separate patch instead.  I will try to consider it in v2.
+> This series alters ipv4 and ipv6 fragmentation to ensure that we do not
+> increase the size of the original fragments when refragmenting.
+> 
+> For IPv4, we only do this when DF bit was set on original fragments since
+> path mtu discovery doesn't happen otherwise.
 
-Thanks,
---Martin
+What really saddens me is that in my opinion the code was doing the
+right thing prior to commit 6aafeef03b9d ("netfilter: push reasm skb
+through instead of original frag skbs").
+
+I would rather we investigate making the previous scheme work
+properly.
+
+Because then there is no ambiguity at all, you preserve on output
+exactly what you had on input.  The same geometry, the same
+everything.  No special checks, no max frag len, none of this crap.
+Those are all hacks trying to work around the _fundamental_ issue
+which is that we potentially change the thing when we refrag.
+
+The commit in question claims that the "problem" is that if some of
+the sub-frags don't match the same we have problems.  Well that is so
+easy to test for, and if such a test triggers take a slow path.
+
+Netfilter should not ever change the geometry of a fragmented frame.
+And the only way to do that is to maintain the fraglist of the
+individual fragments through the netfilter stack.
+
+The end result should be much faster than what we have now too.
