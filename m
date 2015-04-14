@@ -1,73 +1,47 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4 00/24] switchdev: spring cleanup
-Date: Mon, 13 Apr 2015 22:47:56 -0700
-Message-ID: <552CAA0C.3030009@cumulusnetworks.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
+From: Sebastian Poehn <sebastian.poehn@gmail.com>
+Subject: [PATCH] ip_forward: Drop frames with attached skb->sk
+Date: Tue, 14 Apr 2015 07:52:04 +0200
+Message-ID: <1428990724.6812.8.camel@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
-	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
-	ronen.arad@intel.com, andrew@lunn.ch
-To: sfeldma@gmail.com
+Cc: netdev@vger.kernel.org, fw@strlen.de, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:35021 "EHLO
-	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbbDNFr6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:47:58 -0400
-Received: by qkhg7 with SMTP id g7so222445571qkh.2
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:47:58 -0700 (PDT)
-In-Reply-To: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:33592 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbbDNFwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:52:06 -0400
+Received: by wgin8 with SMTP id n8so102812427wgi.0
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:52:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/12/15, 11:16 PM, sfeldma@gmail.com wrote:
-> From: Scott Feldman <sfeldma@gmail.com>
->
-> v4:
->
-> Well, it was a lot of work, but now prepare-commit transaction model is how
-> davem advises: if prepare fails, abort the transaction.  The driver must do
-> resource reservations up front in prepare phase and return those resources if
-> aborting.  Commit phase would use reserved resources.  The good news is the
-> driver code (for rocker) now handles resource allocation failures better by not
-> leaving partially device or driver states.  This is a side-effect of the
-> prepare phase where state isn't modified; only validation of inputs and
-> resource reservations happen in the prepare phase.  Since we're supporting
-> setting attrs and add objs across lower devs in the stacked case, we need to
-> hold rtnl_lock (or ensure rtnl_lock is held) so lower devs don't move on us
-> during the prepare-commit transaction.  DSA driver code skips the prepare phase
-> and goes straight for the commit phase since no up-front allocations are done
-> and no device failures (that could be detected in the prepare phase) can
-> happen.
+Initial discussion was:
+[FYI] xfrm: Don't lookup sk_policy for timewait sockets
 
-thanks for the series. It definitely does look cleaner and less 
-confusing now!.
-I do love the abstraction but i was one of the people voting against 
-duplicating the
-kernel objects into swdev objs which this patches does (which i am still 
-not convinced
-we should have).
+Forwarded frames should not have a socket attached. Especially
+tw sockets will lead to panics later-on in the stack.
 
->
-> Remove NETIF_F_HW_SWITCH_OFFLOAD from rocker and the swdev_attr_set/get
-> wrappers.  DSA doesn't set NETIF_F_HW_SWITCH_OFFLOAD, so it can't be in
-> swdev_attr_set/get.  rocker doesn't need it; or rather can't support
-> NETIF_F_HW_SWITCH_OFFLOAD being set/cleared at run-time after the device
-> port is already up and offloading L2/L3.  NETIF_F_HW_SWITCH_OFFLOAD is still
-> left as a feature flag for drivers that can use it.
+This was observed with TPROXY assigning a tw socket and broken
+policy routing (misconfigured). As a result frame enters
+forwarding path instead of input. We cannot solve this in
+TPROXY as it cannot know that policy routing is broken.
 
-I see that this series removes all uses of it in the switchdev api 
-later. I had summarized
-the need for the flag in reply to one of your questions a few weeks 
-back. Since you have moved all
-ndo ops to swdev ops (including ndo_bridge_setlink/dellink), I don't 
-want to hold on to the
-  feature flag if no one is using it. yes, my userspace driver uses it 
-today.
-I will come back with stronger justification to keep it or
-will submit a patch to remove it and add it back at a later point if needed.
-
-
-Thanks,
-Roopa
+Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
+---
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 939992c..2fc3b3e 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -82,6 +82,10 @@ int ip_forward(struct sk_buff *skb)
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		goto drop;
+ 
++	/* this should happen neither */
++	if (unlikely(skb->sk))
++		goto drop;
++
+ 	if (skb_warn_if_lro(skb))
+ 		goto drop;
+--
