@@ -1,66 +1,98 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next V1 00/11] net/mlx5: ConnectX-4 100G Ethernet driver
-Date: Tue, 14 Apr 2015 10:05:59 +0300
-Message-ID: <CAPcc5PiXo0yiiM_Y3Cwr8z8LXojZ77m5yMa5Gde9-SifMCF0CQ@mail.gmail.com>
-References: <1428925501-2373-1-git-send-email-amirv@mellanox.com>
-	<20150413.221522.162480193486167425.davem@davemloft.net>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC net-next 0/4] Allow use of rocker ports without
+ bridging
+Date: Tue, 14 Apr 2015 16:11:49 +0900
+Message-ID: <20150414071146.GA28577@vergenet.net>
+References: <1428907677-27204-1-git-send-email-simon.horman@netronome.com>
+ <CAE4R7bA3hsRBOY9+YZXQ8b-7T_DwgzcrAM=wzYj+cyyWVkbRHQ@mail.gmail.com>
+ <CAE4R7bANSqhUWeYarFmdOLsCbWtRFVW9jwvQufgNEb8OURJdPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>, netdev <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>, talal@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"Arad, Ronen" <ronen.arad@intel.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:36316 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751492AbbDNHGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:06:00 -0400
-Received: by lbbqq2 with SMTP id qq2so761063lbb.3
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:05:59 -0700 (PDT)
-In-Reply-To: <20150413.221522.162480193486167425.davem@davemloft.net>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35575 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbbDNHL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:11:59 -0400
+Received: by pabtp1 with SMTP id tp1so1507334pab.2
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:11:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bANSqhUWeYarFmdOLsCbWtRFVW9jwvQufgNEb8OURJdPA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2015 at 5:15 AM, David Miller <davem@davemloft.net> wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Mon, 13 Apr 2015 14:44:50 +0300
->
->> - Removed V0 Patch 1/11 ("net/mlx5_core: Virtually extend work/completion queue
->>   buffers by one page") due to misuse of DMA API. Thanks Dave.
->
-> I don't know how stupid you think I am....
-Hi,
+Hi Scott,
 
-It is our interest to fix this bug here and in the existing code. We
-don't like either, that our driver is mis-using the DMA API and that
-it is broken on some arch's.
+On Mon, Apr 13, 2015 at 08:43:16AM -0700, Scott Feldman wrote:
+> On Mon, Apr 13, 2015 at 7:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+> > On Sun, Apr 12, 2015 at 11:47 PM, Simon Horman
+> > <simon.horman@netronome.com> wrote:
+> >> Hi,
+> >>
+> >> this short series attempts to allow rocker ports to be used when they
+> >> are not attached to a bridge. It attempts to make use of flow entries
+> >> in a rocker switch where appropriate and otherwise forwards packets up
+> >> to the kernel for processing.
+> >
+> > Hi Simon,
+> >
+> > Unbridged ports should be working now with current driver/device.  I
+> > wonder if you have an older qemu rocker device?  Use master branch of
+> > https://github.com/scottfeldman/qemu-rocker.git.
 
->
-> You may have removed the patch that did the refactoring, but the
-> completely broken code misusing the DMA API is still there in this
-> driver.
->
-> I said I want you to fix this fundamental problem with your driver
-> before making major changes like this series to it.
->
-> And I really meant it.
->
-> Don't try to side step the issue in the way that you did here.
-It is just a misunderstanding of your sentence: "I'm sorry but I'm
-going to require that you fix this mis-use of the DMA API first.". I
-thought that it should be fixed in this patchset first....
+For the record, that is what I am using.
 
-We were working on a fix to the existing code that is based on vmap,
-and I planned to send it in a separate patch later on.
-I will soon send V2 with a patch to remove the vmap()  from current
-code. It might be problematic to some Infiniband users of mlx5_core,
-that will now need to allocate big continuous buffers, I will send the
-fix to that in a separate patch in few weeks.
+> > My test setup is to IPv4 ping two hosts from two different ports.
+> > Something like:
+> >
+> > sw1:sw1p1:11.0.0.1/24 <----------------> h1:eth1:11.0.0.2/24
+> > sw1:sw1p2:12.0.0.1/24 <----------------> h2:eth1:12.0.0.2/24
+> >
+> > ARP and ping work fine.  What is your test setup?  I haven't spent a
+> > lot of time on unbridged port testing, since major focus has been on
+> > offloading bridge L2 and L3.
 
-Thanks,
-Amir
->
-> Thanks.
+My setup is similar if not the same. I used it to test both bridging
+and routing.
+
+> Ah, I think I know why it's not working for you.  You don't have the
+> VLAN 8021.q module loaded, do you?  I'm getting these:
+> 
+> [    2.871619] 8021q: 802.1Q VLAN Support v1.8
+> [    2.871629] 8021q: adding VLAN 0 to HW filter on device sw1p1
+> [    2.872097] 8021q: adding VLAN 0 to HW filter on device sw1p2
+> 
+> Which calls into the driver ndo_vlan ops and sets up untagged access.
+
+Thanks! There is now one less mystery in my life.
+
+I had not considered the ndo_vlan ops and with the 802.1q driver present
+things seem to work.
+
+> But, dependence on VLAN 802.1q module is wrong I think, and we'll need
+> your patch (I haven't reviewed it yet, but I'm assuming it's doing
+> basically what loading what VLAN 802.1q driver forces).
+
+Yes, I think that is more or less the case.
+
+One thing that my patches did which does not seem to occur without
+them is to cause, or at least try to cause, all packets to
+be forwarded to the CPU if the interface is in promiscuous mode.
+This seems logical to me.
+
+> The Spring Cleanup patchset has better setlink/dellink support so
+> driver can manage VLANs from bridge driver and moves away from
+> ndo_vlan ops used with 802.1q VLAN driver.  Ronan (Cc:d) has a VLAN
+> patch that builds on top of my Spring Cleanup patchset  I think the
+> order of changes will be to get my Spring Cleanup patchset in and then
+> get yours/Ronan's patches in.  And rocker can get away from using
+> ndo_vlan ops.
+
+Sure, that ordering is entirely fine by me.
+
+> Would you verify that without your patch, and with VLAN 802.1q driver
+> loaded, unbridged ports are working?
+
+As noted above, I have verified that scenario works.
