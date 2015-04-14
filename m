@@ -1,85 +1,67 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH linux-next 1/4] infiniband/ipoib: fix possible NULL
- pointer dereference in ipoib_get_iflink
-Date: Tue, 14 Apr 2015 09:14:11 -0700
-Message-ID: <1429028051.7346.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429024817-21561-1-git-send-email-honli@redhat.com>
-	 <1429024817-21561-2-git-send-email-honli@redhat.com>
-	 <1429025673.7346.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150414154422.GB21856@honli.nay.redhat.com> <552D3723.9050706@6wind.com>
-	 <20150414155307.GD21856@honli.nay.redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 15/17] switch kernel_sendmsg() and kernel_recvmsg() to
+ iov_iter_kvec()
+Date: Tue, 14 Apr 2015 16:21:02 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1DD9D@AcuExch.aculab.com>
+References: <20150411211742.GJ889@ZenIV.linux.org.uk>
+ <1428787108-13650-15-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150414155307.GD21856-9l7K0WC0B0wP68cbUhXDDlaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Al Viro' <viro@ZenIV.linux.org.uk>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.181]:54947 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755786AbbDNQW5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:22:57 -0400
+In-Reply-To: <1428787108-13650-15-git-send-email-viro@ZenIV.linux.org.uk>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-14 at 23:53 +0800, Honggang LI wrote:
-> On Tue, Apr 14, 2015 at 05:49:55PM +0200, Nicolas Dichtel wrote:
-> > Le 14/04/2015 17:44, Honggang LI a =C3=A9crit :
-> > >On Tue, Apr 14, 2015 at 08:34:33AM -0700, Eric Dumazet wrote:
-> > >>On Tue, 2015-04-14 at 23:20 +0800, Honggang Li wrote:
-> > >>>Starting monitoring for VG vg_rdma01:   3 logical volume(s) in v=
-olume
-> > >>>group "vg_rdma01" monitored
-> > >>>[  OK  ]
-> > >>
-> > >>
-> > >>>CR2: 0000000000000120
-> > >>>---[ end trace a8610f6e9640eb85 ]---
-> > >>>
-> > >>>Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > >>
-> > >>When was this bug added ?
-> > >>
-> > >
-> > >Sorry, I do not know. I ran into this bug today when I'm tracing a=
- race
-> > >condition issue related qib. In order to check upstream linux-next=
- fix
-> > >the race condition or not, I build linux-next-20150414 on two mach=
-ines. Both
-> > >machines panic at modprobe ib_ipoib. Do you means I need to report=
- a
-> > >bug? But I do not know report to who or where.
-> >=20
-> > Here is the tag:
-> > Fixes: 5aa7add8f14b ("infiniband/ipoib: implement ndo_get_iflink")
-> >
->=20
-> thank you.=20
+From: Al Viro
+> Sent: 11 April 2015 22:18
+> From: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> For kernel_sendmsg() that eliminates the need to play with setfs();
+> for kernel_recvmsg() it does *not* - a couple of callers are using
+> it with non-NULL ->msg_control, which would be treated as userland
+> address on recvmsg side of things.
+> 
+> In all cases we are really setting a kvec-backed iov_iter, though.
+> 
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> ---
+>  net/socket.c | 20 +++-----------------
+>  1 file changed, 3 insertions(+), 17 deletions(-)
+> 
+> diff --git a/net/socket.c b/net/socket.c
+> index e5669ce..b6ceeda 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -627,18 +627,8 @@ EXPORT_SYMBOL(sock_sendmsg);
+>  int kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+>  		   struct kvec *vec, size_t num, size_t size)
+>  {
+> -	mm_segment_t oldfs = get_fs();
+> -	int result;
+> -
+> -	set_fs(KERNEL_DS);
+> -	/*
+> -	 * the following is safe, since for compiler definitions of kvec and
+> -	 * iovec are identical, yielding the same in-core layout and alignment
+> -	 */
+> -	iov_iter_init(&msg->msg_iter, WRITE, (struct iovec *)vec, num, size);
+> -	result = sock_sendmsg(sock, msg, size);
+> -	set_fs(oldfs);
+> -	return result;
+> +	iov_iter_kvec(&msg->msg_iter, WRITE | ITER_KVEC, vec, num, size);
+> +	return sock_sendmsg(sock, msg, size);
 
-By adding a proper tag you :
+Massive NAK.
+This breaks any code that is using msg_control to set SCTP parameters
+when sending data.
 
-1) Assert you did a research in git history/blame to find original
-commit.
-
-2) You looked at other similar bugs added by this commit
-
-3) Add meta information in git history to ease backports
-
-4) CC original author to let him/her know he made a mistake and increas=
-e
-his/her knowledge.
-
-5) Help maintainers
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	David
