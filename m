@@ -1,45 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 21/25] fm10k: renamed mbx_tx_dropped to mbx_tx_oversized
-Date: Tue, 14 Apr 2015 16:51:07 -0700
-Message-ID: <1429055471-401-22-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 20/25] fm10k: update xcast mode before synchronizing multicast addresses
+Date: Tue, 14 Apr 2015 16:51:06 -0700
+Message-ID: <1429055471-401-21-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1429055471-401-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jacob Keller <jacob.e.keller@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:62596 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20409 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754971AbbDNXv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754960AbbDNXv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 14 Apr 2015 19:51:26 -0400
 In-Reply-To: <1429055471-401-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The use of dropped doesn't really mean dropped mailbox messages, but
-rather specifically messages which were too large to fit in the remote
-Rx FIFO. Rename the stat to more clearly indicate what it means.
+When the PF receives a request to update a multicast address for the VF,
+it checks the enabled multicast mode first. Fix a bug where the VF tried
+to set a multicast address before requesting the required xcast mode.
+This ensures the multicast addresses are honored as long as the xcast
+mode was allowed.
 
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Acked-by: Matthew Vick <matthew.vick@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-index 45e504f..4b9d9f8 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_ethtool.c
-@@ -77,7 +77,7 @@ static const struct fm10k_stats fm10k_gstrings_global_stats[] = {
- 	FM10K_STAT("mac_rules_avail", hw.swapi.mac.avail),
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 6981964..2f4f41b 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -970,14 +970,7 @@ static void fm10k_set_rx_mode(struct net_device *dev)
  
- 	FM10K_STAT("mbx_tx_busy", hw.mbx.tx_busy),
--	FM10K_STAT("mbx_tx_dropped", hw.mbx.tx_dropped),
-+	FM10K_STAT("mbx_tx_oversized", hw.mbx.tx_dropped),
- 	FM10K_STAT("mbx_tx_messages", hw.mbx.tx_messages),
- 	FM10K_STAT("mbx_tx_dwords", hw.mbx.tx_dwords),
- 	FM10K_STAT("mbx_rx_messages", hw.mbx.rx_messages),
+ 	fm10k_mbx_lock(interface);
+ 
+-	/* synchronize all of the addresses */
+-	if (xcast_mode != FM10K_XCAST_MODE_PROMISC) {
+-		__dev_uc_sync(dev, fm10k_uc_sync, fm10k_uc_unsync);
+-		if (xcast_mode != FM10K_XCAST_MODE_ALLMULTI)
+-			__dev_mc_sync(dev, fm10k_mc_sync, fm10k_mc_unsync);
+-	}
+-
+-	/* if we aren't changing modes there is nothing to do */
++	/* update xcast mode first, but only if it changed */
+ 	if (interface->xcast_mode != xcast_mode) {
+ 		/* update VLAN table */
+ 		if (xcast_mode == FM10K_XCAST_MODE_PROMISC)
+@@ -992,6 +985,13 @@ static void fm10k_set_rx_mode(struct net_device *dev)
+ 		interface->xcast_mode = xcast_mode;
+ 	}
+ 
++	/* synchronize all of the addresses */
++	if (xcast_mode != FM10K_XCAST_MODE_PROMISC) {
++		__dev_uc_sync(dev, fm10k_uc_sync, fm10k_uc_unsync);
++		if (xcast_mode != FM10K_XCAST_MODE_ALLMULTI)
++			__dev_mc_sync(dev, fm10k_mc_sync, fm10k_mc_unsync);
++	}
++
+ 	fm10k_mbx_unlock(interface);
+ }
+ 
+@@ -1051,6 +1051,9 @@ void fm10k_restore_rx_state(struct fm10k_intfc *interface)
+ 					   vid, true, 0);
+ 	}
+ 
++	/* update xcast mode before syncronizing addresses */
++	hw->mac.ops.update_xcast_mode(hw, glort, xcast_mode);
++
+ 	/* synchronize all of the addresses */
+ 	if (xcast_mode != FM10K_XCAST_MODE_PROMISC) {
+ 		__dev_uc_sync(netdev, fm10k_uc_sync, fm10k_uc_unsync);
+@@ -1058,9 +1061,6 @@ void fm10k_restore_rx_state(struct fm10k_intfc *interface)
+ 			__dev_mc_sync(netdev, fm10k_mc_sync, fm10k_mc_unsync);
+ 	}
+ 
+-	/* update xcast mode */
+-	hw->mac.ops.update_xcast_mode(hw, glort, xcast_mode);
+-
+ 	fm10k_mbx_unlock(interface);
+ 
+ 	/* record updated xcast mode state */
 -- 
 1.9.3
