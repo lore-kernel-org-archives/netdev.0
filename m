@@ -1,47 +1,49 @@
-From: Sebastian Poehn <sebastian.poehn@gmail.com>
-Subject: [PATCH] ip_forward: Drop frames with attached skb->sk
-Date: Tue, 14 Apr 2015 07:52:04 +0200
-Message-ID: <1428990724.6812.8.camel@googlemail.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 0/2] switchdev: unify naming prefix
+Date: Mon, 13 Apr 2015 22:52:50 -0700
+Message-ID: <552CAB32.20001@cumulusnetworks.com>
+References: <1428960304-11497-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com,
+	f.fainelli@gmail.com, gospo@cumulusnetworks.com,
+	sridhar.samudrala@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:33592 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbbDNFwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:52:06 -0400
-Received: by wgin8 with SMTP id n8so102812427wgi.0
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:52:05 -0700 (PDT)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:32805 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbbDNFww (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:52:52 -0400
+Received: by qkx62 with SMTP id 62so221632011qkx.0
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:52:52 -0700 (PDT)
+In-Reply-To: <1428960304-11497-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Initial discussion was:
-[FYI] xfrm: Don't lookup sk_policy for timewait sockets
+On 4/13/15, 2:25 PM, Jiri Pirko wrote:
+> Turned out that "switchdev" sticks. So just unify all releated terms to
+> use this prefix.
 
-Forwarded frames should not have a socket attached. Especially
-tw sockets will lead to panics later-on in the stack.
-
-This was observed with TPROXY assigning a tw socket and broken
-policy routing (misconfigured). As a result frame enters
-forwarding path instead of input. We cannot solve this in
-TPROXY as it cannot know that policy routing is broken.
-
-Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
----
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 939992c..2fc3b3e 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -82,6 +82,10 @@ int ip_forward(struct sk_buff *skb)
- 	if (skb->pkt_type != PACKET_HOST)
- 		goto drop;
- 
-+	/* this should happen neither */
-+	if (unlikely(skb->sk))
-+		goto drop;
-+
- 	if (skb_warn_if_lro(skb))
- 		goto drop;
---
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> Jiri Pirko (2):
+>    switchdev: s/netdev_switch_/switchdev_/ and
+>      s/NETDEV_SWITCH_/SWITCHDEV_/
+>    switchdev: s/swdev_/switchdev_/
+>
+>   drivers/net/bonding/bond_main.c      |   4 +-
+>   drivers/net/ethernet/rocker/rocker.c |  47 +++++-----
+>   drivers/net/team/team.c              |   4 +-
+>   include/linux/netdevice.h            |   2 +-
+>   include/net/switchdev.h              | 140 ++++++++++++++--------------
+>   net/bridge/br.c                      |  22 ++---
+>   net/bridge/br_netlink.c              |   6 +-
+>   net/bridge/br_stp.c                  |   2 +-
+>   net/core/net-sysfs.c                 |   2 +-
+>   net/core/rtnetlink.c                 |   2 +-
+>   net/dsa/slave.c                      |   8 +-
+>   net/ipv4/fib_trie.c                  |  40 ++++----
+>   net/switchdev/switchdev.c            | 174 +++++++++++++++++------------------
+>   13 files changed, 224 insertions(+), 229 deletions(-)
+>
