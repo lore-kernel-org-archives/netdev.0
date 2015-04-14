@@ -1,35 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4vf: Implement mailbox access locking and list
- management
-Date: Tue, 14 Apr 2015 14:29:16 -0400 (EDT)
-Message-ID: <20150414.142916.969366711752555436.davem@davemloft.net>
-References: <1429014645-20361-1-git-send-email-hariprasad@chelsio.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Tue, 14 Apr 2015 20:30:01 +0200
+Message-ID: <20150414183000.GA5327@localhost.localdomain>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
+ <20150328082853.GA4255@localhost.localdomain>
+ <5519D380.6070200@cogentembedded.com>
+ <552C25BE.3070606@cogentembedded.com>
+ <20150414052729.GA5179@netboy>
+ <552CE890.3040103@cogentembedded.com>
+ <20150414163002.GB4309@localhost.localdomain>
+ <552D472A.6080309@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36672 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932728AbbDNS3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:29:20 -0400
-In-Reply-To: <1429014645-20361-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	masaru.nagai.vx@renesas.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <552D472A.6080309@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue, 14 Apr 2015 18:00:45 +0530
+On Tue, Apr 14, 2015 at 07:58:18PM +0300, Sergei Shtylyov wrote:
+> 
+>    I tried to explain to you that I can't. We enter the device
+> configuration mode (from the operation mode) when e.g. the
+> *Ethernet* device is closed.
 
-> +	for (i = 0; ; i += ms) {
-> +		/* If we've waited too long, return a busy indication.  This
-> +		 * really ought to be based on our initial position in the
-> +		 * mailbox access list but this is a start.  We very rarely
-> +		 * contend on access to the mailbox ...
-> +		 */
-> +		if (i > 4 * FW_CMD_MAX_TIMEOUT) {
+Is this a hardware restriction?
 
-So you're going to sit here potentially polling for 40000 ms in a non-preemptable
-context?
+Logically speaking, the clock has nothing to do with the state of the
+Ethernet interface.  If the clock keeps ticking and you can access
+it, then there is no reason to return EBUSY just because the interface
+is down.
 
-I don't think so...
+Thanks,
+Richard
