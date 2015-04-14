@@ -1,8 +1,8 @@
 From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4 09/24] switchdev: add new swdev bridge setlink
-Date: Mon, 13 Apr 2015 22:46:46 -0700
-Message-ID: <552CA9C6.8090906@cumulusnetworks.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com> <1428905838-14920-10-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v4 19/24] switchdev: add new swdev_port_bridge_getlink
+Date: Mon, 13 Apr 2015 22:47:11 -0700
+Message-ID: <552CA9DF.8060808@cumulusnetworks.com>
+References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com> <1428905838-14920-20-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,237 +11,93 @@ Cc: netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
 	ronen.arad@intel.com, andrew@lunn.ch
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:35043 "EHLO
-	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567AbbDNFqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:46:49 -0400
-Received: by qkhg7 with SMTP id g7so222397784qkh.2
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:46:48 -0700 (PDT)
-In-Reply-To: <1428905838-14920-10-git-send-email-sfeldma@gmail.com>
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:33136 "EHLO
+	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751567AbbDNFrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:47:14 -0400
+Received: by qkx62 with SMTP id 62so221400711qkx.0
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:47:13 -0700 (PDT)
+In-Reply-To: <1428905838-14920-20-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 4/12/15, 11:17 PM, sfeldma@gmail.com wrote:
 > From: Scott Feldman <sfeldma@gmail.com>
 >
-> Add new swdev_port_bridge_setlink that can be used by drivers implementing
-> .ndo_bridge_setlink to set swdev bridge attributes.  Basically turn the raw
-> rtnl_bridge_setlink netlink into swdev attr sets.  Proper netlink attr policy
-> checking is done on the protinfo part of the netlink msg.
->
-> Currently, for protinfo, only bridge port attrs BR_LEARNING and
-> BR_LEARNING_SYNC are parsed and passed to port driver.
->
-> For afspec, VLAN objs are passed so swdev driver can set VLANs assigned to
-> SELF.  To illustrate with iproute2 cmd, we have:
->
-> 	bridge vlan add vid 10 dev sw1p1 self master
->
-> To add VLAN 10 to port sw1p1 for both the bridge (master) and the device
-> (self).
-
-This results in vlan sets/dels/notification code duplicated in both 
-bridge and switchdev layer.
+> Like bridge_setlink, add swdev wrapper to handle bridge_getlink and call into
+> port driver to get port attrs.  For now, only BR_LEARNING and BR_LEARNING_SYNC
+> are returned.  To add more, we'll probably want to break away from
+> ndo_dflt_bridge_getlink() and build the netlink skb directly in the swdev code.
 >
 > Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 > ---
->   include/net/switchdev.h   |    8 +++
->   net/switchdev/switchdev.c |  152 +++++++++++++++++++++++++++++++++++++++++++++
->   2 files changed, 160 insertions(+)
+>   include/net/switchdev.h   |    9 +++++++++
+>   net/switchdev/switchdev.c |   27 +++++++++++++++++++++++++++
+>   2 files changed, 36 insertions(+)
 >
 > diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index d3cc8eb..cff53ae 100644
+> index 8c9814f..d04322e 100644
 > --- a/include/net/switchdev.h
 > +++ b/include/net/switchdev.h
 > @@ -121,6 +121,8 @@ int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr);
 >   int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr);
 >   int swdev_port_obj_add(struct net_device *dev, struct swdev_obj *obj);
 >   int swdev_port_obj_del(struct net_device *dev, struct swdev_obj *obj);
-> +int swdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
-> +			      u16 flags);
->   int register_netdev_switch_notifier(struct notifier_block *nb);
->   int unregister_netdev_switch_notifier(struct notifier_block *nb);
->   int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
-> @@ -165,6 +167,12 @@ static inline int swdev_port_obj_del(struct net_device *dev,
+> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+> +			      struct net_device *dev, u32 filter_mask);
+>   int swdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
+>   			      u16 flags);
+>   int swdev_port_bridge_dellink(struct net_device *dev, struct nlmsghdr *nlh,
+> @@ -161,6 +163,13 @@ static inline int swdev_port_obj_del(struct net_device *dev,
 >   	return -EOPNOTSUPP;
 >   }
 >   
-> +static inline int swdev_port_bridge_setlink(struct net_device *dev,
-> +					    struct nlmsghdr *nlh, u16 flags)
+> +static inline int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
+> +					    u32 seq, struct net_device *dev,
+> +					    u32 filter_mask)
 > +{
 > +	return -EOPNOTSUPP;
 > +}
 > +
->   static inline int register_netdev_switch_notifier(struct notifier_block *nb)
+>   static inline int swdev_port_bridge_setlink(struct net_device *dev,
+>   					    struct nlmsghdr *nlh, u16 flags)
 >   {
->   	return 0;
 > diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index 05fded9..31d55e7 100644
+> index ae0ed06..6866e0c 100644
 > --- a/net/switchdev/switchdev.c
 > +++ b/net/switchdev/switchdev.c
-> @@ -15,6 +15,7 @@
->   #include <linux/mutex.h>
->   #include <linux/notifier.h>
->   #include <linux/netdevice.h>
-> +#include <linux/if_bridge.h>
->   #include <net/ip_fib.h>
->   #include <net/switchdev.h>
->   
-> @@ -395,6 +396,157 @@ int netdev_switch_port_bridge_setlink(struct net_device *dev,
+> @@ -371,6 +371,33 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
 >   }
->   EXPORT_SYMBOL_GPL(netdev_switch_port_bridge_setlink);
+>   EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
 >   
-> +static int swdev_port_br_setflag(struct net_device *dev, struct nlattr *nlattr,
-> +				 unsigned long brport_flag)
+> +/**
+> + *	swdev_port_bridge_getlink - Get bridge port attributes
+> + *
+> + *	@dev: port device
+> + *
+> + *	Called for SELF on rtnl_bridge_getlink to get bridge port
+> + *	attributes.
+> + */
+> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+> +			      struct net_device *dev, u32 filter_mask)
 > +{
 > +	struct swdev_attr attr = {
 > +		.id = SWDEV_ATTR_PORT_BRIDGE_FLAGS,
 > +	};
-> +	u8 flag = nla_get_u8(nlattr);
+> +	u16 mode = BRIDGE_MODE_UNDEF;
+> +	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
 > +	int err;
 > +
 > +	err = swdev_port_attr_get(dev, &attr);
 > +	if (err)
 > +		return err;
 > +
-> +	if (flag)
-> +		attr.brport_flags |= brport_flag;
-> +	else
-> +		attr.brport_flags &= ~brport_flag;
-> +
-> +	return swdev_port_attr_set(dev, &attr);
+> +	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
+> +				       attr.brport_flags, mask);
 > +}
-> +
-> +static const struct nla_policy swdev_port_bridge_policy[IFLA_BRPORT_MAX + 1] = {
-> +	[IFLA_BRPORT_STATE]		= { .type = NLA_U8 },
-> +	[IFLA_BRPORT_COST]		= { .type = NLA_U32 },
-> +	[IFLA_BRPORT_PRIORITY]		= { .type = NLA_U16 },
-> +	[IFLA_BRPORT_MODE]		= { .type = NLA_U8 },
-> +	[IFLA_BRPORT_GUARD]		= { .type = NLA_U8 },
-> +	[IFLA_BRPORT_PROTECT]		= { .type = NLA_U8 },
-> +	[IFLA_BRPORT_FAST_LEAVE]	= { .type = NLA_U8 },
-> +	[IFLA_BRPORT_LEARNING]		= { .type = NLA_U8 },
-> +	[IFLA_BRPORT_LEARNING_SYNC]	= { .type = NLA_U8 },
-> +	[IFLA_BRPORT_UNICAST_FLOOD]	= { .type = NLA_U8 },
-> +};
-> +
-> +static int swdev_port_br_setlink_protinfo(struct net_device *dev,
-> +					  struct nlattr *protinfo)
-> +{
-> +	struct nlattr *attr;
-> +	int rem;
-> +	int err;
-> +
-> +	err = nla_validate_nested(protinfo, IFLA_BRPORT_MAX,
-> +				  swdev_port_bridge_policy);
-> +	if (err)
-> +		return err;
-> +
-> +	nla_for_each_nested(attr, protinfo, rem) {
-> +		switch (nla_type(attr)) {
-> +		case IFLA_BRPORT_LEARNING:
-> +			err = swdev_port_br_setflag(dev, attr,
-> +						    BR_LEARNING);
-> +			break;
-> +		case IFLA_BRPORT_LEARNING_SYNC:
-> +			err = swdev_port_br_setflag(dev, attr,
-> +						    BR_LEARNING_SYNC);
-> +			break;
-> +		default:
-> +			err = -EOPNOTSUPP;
-> +			break;
-> +		}
-> +		if (err)
-> +			return err;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int swdev_port_br_afspec(struct net_device *dev,
-> +				struct nlattr *afspec,
-> +				int (*f)(struct net_device *dev,
-> +					 struct swdev_obj *obj))
-> +{
-> +	struct nlattr *attr;
-> +	struct bridge_vlan_info *vinfo;
-> +	struct swdev_obj obj = {
-> +		.id = SWDEV_OBJ_PORT_VLAN,
-> +	};
-> +	int rem;
-> +	int err;
-> +
-> +	nla_for_each_nested(attr, afspec, rem) {
-> +		if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO)
-> +			continue;
-> +		if (nla_len(attr) != sizeof(struct bridge_vlan_info))
-> +			return -EINVAL;
-> +		vinfo = nla_data(attr);
-> +		obj.vlan.flags = vinfo->flags;
-> +		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
-> +			if (obj.vlan.vid_start)
-> +				return -EINVAL;
-> +			obj.vlan.vid_start = vinfo->vid;
-> +		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
-> +			if (!obj.vlan.vid_start)
-> +				return -EINVAL;
-> +			obj.vlan.vid_end = vinfo->vid;
-> +			if (obj.vlan.vid_end <= obj.vlan.vid_start)
-> +				return -EINVAL;
-> +			err = f(dev, &obj);
-> +			if (err)
-> +				return err;
-> +			memset(&obj.vlan, 0, sizeof(obj.vlan));
-> +		} else {
-> +			if (obj.vlan.vid_start)
-> +				return -EINVAL;
-> +			obj.vlan.vid_start = vinfo->vid;
-> +			obj.vlan.vid_end = vinfo->vid;
-> +			err = f(dev, &obj);
-> +			if (err)
-> +				return err;
-> +			memset(&obj.vlan, 0, sizeof(obj.vlan));
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +/**
-> + *	swdev_port_bridge_setlink - Set bridge port attributes
-> + *
-> + *	@dev: port device
-> + *	@nlh: netlink header
-> + *	@flags: netlink flags
-> + *
-> + *	Called for SELF on rtnl_bridge_setlink to set bridge port
-> + *	attributes.
-> + */
-> +int swdev_port_bridge_setlink(struct net_device *dev,
-> +			      struct nlmsghdr *nlh, u16 flags)
-> +{
-> +	struct nlattr *protinfo;
-> +	struct nlattr *afspec;
-> +	int err = 0;
-> +
-> +	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
-> +				   IFLA_PROTINFO);
-> +	if (protinfo) {
-> +		err = swdev_port_br_setlink_protinfo(dev, protinfo);
-> +		if (err)
-> +			return err;
-> +	}
-> +
-> +	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
-> +				 IFLA_AF_SPEC);
-> +	if (afspec)
-> +		err = swdev_port_br_afspec(dev, afspec,
-> +					   swdev_port_obj_add);
-> +
-> +	return err;
-> +}
-> +EXPORT_SYMBOL_GPL(swdev_port_bridge_setlink);
-> +
->   /**
->    *	netdev_switch_port_bridge_dellink - Notify switch device port of bridge
->    *	port attribute delete
+> +EXPORT_SYMBOL_GPL(swdev_port_bridge_getlink);
+
+This should ideally get vlans as well because setlink/dellink supports 
+add/del vlans.
+This can however be an incremental patch. I think this was the point 
+arad was making as well some time back.
