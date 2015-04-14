@@ -1,41 +1,44 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Tue, 14 Apr 2015 18:30:03 +0200
-Message-ID: <20150414163002.GB4309@localhost.localdomain>
-References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
- <20150328082853.GA4255@localhost.localdomain>
- <5519D380.6070200@cogentembedded.com>
- <552C25BE.3070606@cogentembedded.com>
- <20150414052729.GA5179@netboy>
- <552CE890.3040103@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	masaru.nagai.vx@renesas.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] fou: avoid missing unlock in failure path
+Date: Tue, 14 Apr 2015 09:32:30 -0700
+Message-ID: <1429029150-31710-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f53.google.com ([74.125.82.53]:33648 "EHLO
-	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932797AbbDNQaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:30:10 -0400
-Content-Disposition: inline
-In-Reply-To: <552CE890.3040103@cogentembedded.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34804 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753852AbbDNQco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:32:44 -0400
+Received: by pacyx8 with SMTP id yx8so17307966pac.1
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 09:32:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2015 at 01:14:40PM +0300, Sergei Shtylyov wrote:
-> >It is surely avoidable.  The driver knows (or should know) whether or
-> >not the hardware has been configured or not.
-> 
->    So you only want to avoid the register read here?
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv4/fou.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-No, that is not what I mean.  The two callers are gettime and adjtime.
-Can't you make sure the hardware is ready before you register the
-clock in the first place?  If not, what is purpose of returning EBUSY?
-
-Thanks,
-Richard
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 2637102..1df3399 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -711,11 +711,10 @@ static int fou_nl_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 				    cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 				    skb, FOU_CMD_GET);
+ 		if (ret)
+-			goto done;
++			break;
+ 	}
+ 	mutex_unlock(&fn->fou_lock);
+ 
+-done:
+ 	cb->args[0] = idx;
+ 	return skb->len;
+ }
+-- 
+1.8.3.1
