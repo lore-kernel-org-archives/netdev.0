@@ -1,37 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: deinline net_generic()
-Date: Tue, 14 Apr 2015 14:37:47 -0400 (EDT)
-Message-ID: <20150414.143747.1155055158701231768.davem@davemloft.net>
-References: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>
+From: Tadeusz Struk <tadeusz.struk@intel.com>
+Subject: Re: [PATCH 03/17] fs: don't allow to complete sync iocbs through
+ aio_complete
+Date: Tue, 14 Apr 2015 11:37:01 -0700
+Message-ID: <552D5E4D.8000909@intel.com>
+References: <20150411211742.GJ889@ZenIV.linux.org.uk> <1428787108-13650-3-git-send-email-viro@ZenIV.linux.org.uk> <552D55D1.2000908@intel.com> <20150414182633.GD889@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, jengelh@medozas.de, jpirko@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dvlasenk@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36756 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751646AbbDNShu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:37:50 -0400
-In-Reply-To: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150414182633.GD889@ZenIV.linux.org.uk>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Date: Tue, 14 Apr 2015 14:25:11 +0200
-
-> On x86 allyesconfig build:
-> The function compiles to 130 bytes of machine code.
-> It has 493 callsites.
-> Total reduction of vmlinux size: 27906 bytes.
+On 04/14/2015 11:26 AM, Al Viro wrote:
+>>> @@ -766,8 +765,7 @@ int sock_recvmsg(struct socket *sock, struct msghdr *msg,
+>>> > >  
+>>> > >  	init_sync_kiocb(&iocb, NULL);
+>>> > >  	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
+>>> > > -	if (-EIOCBQUEUED == ret)
+>>> > > -		ret = wait_on_sync_kiocb(&iocb);
+>>> > > +	BUG_ON(ret == -EIOCBQUEUED);
+>> > 
+>> > NACK - PF_ALG type sockets support async operations and return -EIOCBQUEUED
+>> > See skcipher_recvmsg_async() in crypto/algif_skcipher.c in net-next
+> Its only caller is
 > 
->    text	     data      bss       dec     hex filename
-> 82447071 22255384 20627456 125329911 77861f7 vmlinux4
-> 82419165 22255384 20627456 125302005 777f4f5 vmlinux5
+> static int skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
+>                             size_t ignored, int flags)
+> {
+>         return (msg->msg_iocb && !is_sync_kiocb(msg->msg_iocb)) ?
+>                 skcipher_recvmsg_async(sock, msg, flags) :
+>                 skcipher_recvmsg_sync(sock, msg, flags);
+> }
 > 
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> Note that !is_sync_kiocb() in there.  Compare with init_sync_kiocb() in
+> sock_recvmsg()...
 
-That BUG_ON() was added 7 years ago, and I don't remember it ever
-triggering or helping us diagnose something, so just remove it and
-keep the function inlined.
+The only problem is it calls init_sync_kiocb(&iocb, NULL) on a different iocb.
+The one that isn't even passed to skcipher_recvmsg()
+skcipher_recvmsg() checks is_sync_kiocb(msg->msg_iocb).
+I just want to make sure that after the merging window is closed I can still
+trigger aio_read on PF_ALG socket.
+thanks
