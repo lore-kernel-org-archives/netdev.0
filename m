@@ -1,107 +1,147 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v7 2/9] bgmac: leave interrupts disabled as long as there is work to do
-Date: Tue, 14 Apr 2015 12:07:55 +0200
-Message-ID: <1429006082-23489-2-git-send-email-nbd@openwrt.org>
+Subject: [PATCH v7 4/9] bgmac: simplify/optimize rx DMA error handling
+Date: Tue, 14 Apr 2015 12:07:57 +0200
+Message-ID: <1429006082-23489-4-git-send-email-nbd@openwrt.org>
 References: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:54945
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:54956
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753805AbbDNKIH (ORCPT
+	with ESMTP id S1754276AbbDNKIH (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 06:08:07 -0400
 In-Reply-To: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Always poll rx and tx during NAPI poll instead of relying on the status
-of the first interrupt. This prevents bgmac_poll from leaving unfinished
-work around until the next IRQ.
-In my tests this makes bridging/routing throughput under heavy load more
-stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
-the entire budget.
+Allocate a new buffer before processing the completed one. If allocation
+fails, reuse the old buffer.
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 31 ++++++++++---------------------
- drivers/net/ethernet/broadcom/bgmac.h |  1 -
- 2 files changed, 10 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/broadcom/bgmac.c | 71 +++++++++++++++++------------------
+ 1 file changed, 34 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index b9e02e4..9c3b2ff 100644
+index 424a68c..60b5c3c 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1109,8 +1109,6 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	bgmac_phy_init(bgmac);
- 
- 	netdev_reset_queue(bgmac->net_dev);
--
--	bgmac->int_status = 0;
+@@ -386,6 +386,19 @@ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
+ 	dma_desc->ctl1 = cpu_to_le32(ctl1);
  }
  
- static void bgmac_chip_intrs_on(struct bgmac *bgmac)
-@@ -1225,14 +1223,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
- 	if (!int_status)
- 		return IRQ_NONE;
- 
--	/* Ack */
--	bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
-+	int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
-+	if (int_status)
-+		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
- 
- 	/* Disable new interrupts until handling existing ones */
- 	bgmac_chip_intrs_off(bgmac);
- 
--	bgmac->int_status = int_status;
--
- 	napi_schedule(&bgmac->napi);
- 
- 	return IRQ_HANDLED;
-@@ -1241,25 +1238,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
- static int bgmac_poll(struct napi_struct *napi, int weight)
++static void bgmac_dma_rx_poison_buf(struct device *dma_dev,
++				    struct bgmac_slot_info *slot)
++{
++	struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
++
++	dma_sync_single_for_cpu(dma_dev, slot->dma_addr, BGMAC_RX_BUF_SIZE,
++				DMA_FROM_DEVICE);
++	rx->len = cpu_to_le16(0xdead);
++	rx->flags = cpu_to_le16(0xbeef);
++	dma_sync_single_for_device(dma_dev, slot->dma_addr, BGMAC_RX_BUF_SIZE,
++				   DMA_FROM_DEVICE);
++}
++
+ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			     int weight)
  {
- 	struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
--	struct bgmac_dma_ring *ring;
- 	int handled = 0;
+@@ -406,53 +419,35 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
+ 		struct sk_buff *skb;
+ 		void *buf = slot->buf;
++		dma_addr_t dma_addr = slot->dma_addr;
+ 		u16 len, flags;
  
--	if (bgmac->int_status & BGMAC_IS_TX0) {
--		ring = &bgmac->tx_ring[0];
--		bgmac_dma_tx_free(bgmac, ring);
--		bgmac->int_status &= ~BGMAC_IS_TX0;
--	}
-+	/* Ack */
-+	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
+-		/* Unmap buffer to make it accessible to the CPU */
+-		dma_sync_single_for_cpu(dma_dev, slot->dma_addr,
+-					BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
++		do {
++			/* Prepare new skb as replacement */
++			if (bgmac_dma_rx_skb_for_slot(bgmac, slot)) {
++				bgmac_dma_rx_poison_buf(dma_dev, slot);
++				break;
++			}
  
--	if (bgmac->int_status & BGMAC_IS_RX) {
--		ring = &bgmac->rx_ring[0];
--		handled += bgmac_dma_rx_read(bgmac, ring, weight);
--		bgmac->int_status &= ~BGMAC_IS_RX;
--	}
-+	bgmac_dma_tx_free(bgmac, &bgmac->tx_ring[0]);
-+	handled += bgmac_dma_rx_read(bgmac, &bgmac->rx_ring[0], weight);
+-		/* Get info from the header */
+-		len = le16_to_cpu(rx->len);
+-		flags = le16_to_cpu(rx->flags);
++			/* Unmap buffer to make it accessible to the CPU */
++			dma_unmap_single(dma_dev, dma_addr,
++					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
  
--	if (bgmac->int_status) {
--		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", bgmac->int_status);
--		bgmac->int_status = 0;
--	}
-+	/* Poll again if more events arrived in the meantime */
-+	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
-+		return handled;
+-		do {
+-			dma_addr_t old_dma_addr = slot->dma_addr;
+-			int err;
++			/* Get info from the header */
++			len = le16_to_cpu(rx->len);
++			flags = le16_to_cpu(rx->flags);
  
- 	if (handled < weight) {
- 		napi_complete(napi);
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index 5a198d5..abd50d1 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -452,7 +452,6 @@ struct bgmac {
+ 			/* Check for poison and drop or pass the packet */
+ 			if (len == 0xdead && flags == 0xbeef) {
+ 				bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+ 					  ring->start);
+-				dma_sync_single_for_device(dma_dev,
+-							   slot->dma_addr,
+-							   BGMAC_RX_BUF_SIZE,
+-							   DMA_FROM_DEVICE);
++				put_page(virt_to_head_page(buf));
+ 				break;
+ 			}
  
- 	/* Int */
- 	u32 int_mask;
--	u32 int_status;
+ 			/* Omit CRC. */
+ 			len -= ETH_FCS_LEN;
  
- 	/* Current MAC state */
- 	int mac_speed;
+-			/* Prepare new skb as replacement */
+-			err = bgmac_dma_rx_skb_for_slot(bgmac, slot);
+-			if (err) {
+-				/* Poison the old skb */
+-				rx->len = cpu_to_le16(0xdead);
+-				rx->flags = cpu_to_le16(0xbeef);
+-
+-				dma_sync_single_for_device(dma_dev,
+-							   slot->dma_addr,
+-							   BGMAC_RX_BUF_SIZE,
+-							   DMA_FROM_DEVICE);
+-				break;
+-			}
+-			bgmac_dma_rx_setup_desc(bgmac, ring, ring->start);
+-
+-			/* Unmap old skb, we'll pass it to the netfif */
+-			dma_unmap_single(dma_dev, old_dma_addr,
+-					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
+-
+ 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
+ 			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
+ 				BGMAC_RX_BUF_OFFSET + len);
+@@ -465,6 +460,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			handled++;
+ 		} while (0);
+ 
++		bgmac_dma_rx_setup_desc(bgmac, ring, ring->start);
++
+ 		if (++ring->start >= BGMAC_RX_RING_SLOTS)
+ 			ring->start = 0;
+ 
+@@ -532,14 +529,14 @@ static void bgmac_dma_rx_ring_free(struct bgmac *bgmac,
+ 
+ 	for (i = 0; i < ring->num_slots; i++) {
+ 		slot = &ring->slots[i];
+-		if (!slot->buf)
++		if (!slot->dma_addr)
+ 			continue;
+ 
+-		if (slot->dma_addr)
+-			dma_unmap_single(dma_dev, slot->dma_addr,
+-					 BGMAC_RX_BUF_SIZE,
+-					 DMA_FROM_DEVICE);
++		dma_unmap_single(dma_dev, slot->dma_addr,
++				 BGMAC_RX_BUF_SIZE,
++				 DMA_FROM_DEVICE);
+ 		put_page(virt_to_head_page(slot->buf));
++		slot->dma_addr = 0;
+ 	}
+ }
+ 
 -- 
 2.2.2
