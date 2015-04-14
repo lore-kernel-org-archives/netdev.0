@@ -1,41 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH linux-next 3/4] macvlan: fix possible NULL pointer
- dereference in macvlan_dev_get_iflink
-Date: Tue, 14 Apr 2015 16:35:14 +0100
-Message-ID: <20150414153514.GK7874@acer.localdomain>
-References: <1429024817-21561-1-git-send-email-honli@redhat.com>
- <1429024817-21561-4-git-send-email-honli@redhat.com>
- <20150414152626.GJ7874@acer.localdomain>
- <20150414153239.GA21856@honli.nay.redhat.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 0/7 RFC] Netfilter/nf_tables ingress support
+Date: Tue, 14 Apr 2015 08:36:15 -0700
+Message-ID: <20150414153613.GA2781@Alexeis-MBP.westell.com>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <20150410132205.GF23070@casper.infradead.org>
+ <20150410200901.GB5968@salvia>
+ <20150412.211421.1771298417488412635.davem@davemloft.net>
+ <20150413201913.GD20275@acer.localdomain>
+ <552D07C4.1020509@mojatatu.com>
+ <552D2E52.8020303@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	davem@davemloft.net, alex.estrin@intel.com, dledford@redhat.com,
-	edumazet@google.com, erezsh@mellanox.com,
-	nicolas.dichtel@6wind.com, maheshb@google.com, jbenc@redhat.com,
-	ebiederm@xmission.com, elfring@users.sourceforge.net,
-	f.fainelli@gmail.com, linux@roeck-us.net, andrew@lunn.ch,
-	sfeldma@gmail.com, alexander.h.duyck@intel.com,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, pablo@netfilter.org,
+	tgraf@suug.ch, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Honggang LI <honli@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150414153239.GA21856@honli.nay.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <552D2E52.8020303@intel.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 14.04, Honggang LI wrote:
-> On Tue, Apr 14, 2015 at 04:26:27PM +0100, Patrick McHardy wrote:
-> > 
-> > That is completely useless. vlan (=netdev_priv) can not be NULL as
-> > netdev_priv() never returns NULL and vlan->lowerdev is always valid
-> > because a macvlan wouldn't make much sense otherwise.
-> 
-> OK, please drop this patch.
+On Tue, Apr 14, 2015 at 08:12:18AM -0700, John Fastabend wrote:
+>
+> I was hoping to push the skb lists onto something like rte_ring
+> used by the DPDK folks or possibly some of the lockless ring work Jesper
+> created. This is needed for many qdisc's to drop the qlock but not the
+> ingress qdisc. Been busy working on switch bits lately but might be
+> able to pick this up next merge window.
 
-Well, the fact that netdev_priv never return NULL implies all your
-patches need to be redone.
+I've spent quite a bit of time reanalyzying your work ;) It seems
+only trivial stuff left to drop ingress spinlock. Can you send me
+your TC test scripts ? I'm only starting building mine and they're
+not covering everything. Roughly I'm creating namespaces and running
+traffic between them while varying csum/gso/gro offload settings.
 
-And I suggest you check whether this condition can actually happen.
-Just because it can in one driver says nothing at all about others.
