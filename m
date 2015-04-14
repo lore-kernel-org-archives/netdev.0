@@ -1,63 +1,192 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next v4 0/6] mpls: Behaviour-changing improvements
-Date: Tue, 14 Apr 2015 23:44:57 +0100
-Message-ID: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net-next v4 3/6] mpls: Per-device enabling of packet input
+Date: Tue, 14 Apr 2015 23:45:00 +0100
+Message-ID: <1429051503-31287-4-git-send-email-rshearma@brocade.com>
 References: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
+ <1429051503-31287-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>
 To: <davem@davemloft.net>, <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54587 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:57213 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932122AbbDNWqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 18:46:35 -0400
-In-Reply-To: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
+	by vger.kernel.org with ESMTP id S932286AbbDNWrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 18:47:10 -0400
+In-Reply-To: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V4:
-  - Split out per-device enabling of packet input into two
-    patches. The first for creating the struct mpls_dev state per
-    interface and the second actually implementing the enable config.
-  - Reworked unlabeled patch to use new rtnetlink attribute,
-    RTA_MPLS_PAYLOAD_TYPE instead of a special label value.
-  - In payload type association patch, use success local variable
-    instead of multiple return statements.
-  - New patch to disallow the use of imp-null as an outgoing label.
-V3:
-  - Dropped PHP comment patch to avoid holding up the rest of the
-    changes due to quibbling on nomenclature.
-  - Corrected reference to RFC 3031 in commit message of patch
-    2. Added reference to RFC 3031 s4.1.5 for PHP behaviour.
-  - s/forwarding/input/ in patch 3.
-  - Made MPT_IPV4 and MPT_IPV6 equal to 4 and 6 respectively in patch
-    4, eliminating a switch on the version number as suggested by
-    review comments. Added back references to RFCs, but moved them to
-    mpls_payload_type enum declaration.
-V2:
-  - Updated to reference the correct RFC in the first patch.
+An MPLS network is a single trust domain where the edges must be in
+control of what labels make their way into the core. The simplest way
+of ensuring this is for the edge device to always impose the labels,
+and not allow forward labeled traffic from untrusted neighbours. This
+is achieved by allowing a per-device configuration of whether MPLS
+traffic input from that interface should be processed or not.
 
-This series consists of several small changes to make it easier to
-understand the code, along with security and RFC-compliance
-changes. These are important to consider before userspace begins
-relying on the previous behaviour.
+To be secure by default, the default state is changed to MPLS being
+disabled on all interfaces (except the loopback) unless explicitly
+enabled and no global option is provided to change the default. Whilst
+this differs from other protocols (e.g. IPv6), network operators are
+used to explicitly enabling MPLS forwarding on interfaces, and with
+the number of links to the MPLS core typically fairly low this doesn't
+present too much of a burden on operators.
 
-Robert Shearman (6):
-  mpls: Use definition for reserved label checks
-  mpls: Per-device MPLS state
-  mpls: Per-device enabling of packet input
-  mpls: Allow payload type to be associated with label routes
-  mpls: Differentiate implicit-null and unlabeled neighbours
-  mpls: Prevent use of implicit NULL label as outgoing label
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ Documentation/networking/mpls-sysctl.txt |  9 ++++
+ net/mpls/af_mpls.c                       | 75 +++++++++++++++++++++++++++++++-
+ net/mpls/internal.h                      |  3 ++
+ 3 files changed, 85 insertions(+), 2 deletions(-)
 
- Documentation/networking/mpls-sysctl.txt |   9 ++
- include/linux/netdevice.h                |   4 +
- include/uapi/linux/mpls.h                |  16 ++
- include/uapi/linux/rtnetlink.h           |   1 +
- net/mpls/af_mpls.c                       | 242 ++++++++++++++++++++++++++-----
- net/mpls/internal.h                      |   7 +
- 6 files changed, 239 insertions(+), 40 deletions(-)
-
+diff --git a/Documentation/networking/mpls-sysctl.txt b/Documentation/networking/mpls-sysctl.txt
+index 639ddf0ece9b..9ed15f86c17c 100644
+--- a/Documentation/networking/mpls-sysctl.txt
++++ b/Documentation/networking/mpls-sysctl.txt
+@@ -18,3 +18,12 @@ platform_labels - INTEGER
+ 
+ 	Possible values: 0 - 1048575
+ 	Default: 0
++
++conf/<interface>/input - BOOL
++	Control whether packets can be input on this interface.
++
++	If disabled, packets will be discarded without further
++	processing.
++
++	0 - disabled (default)
++	not 0 - enabled
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 6e7a91ec1ae1..1fd303a87df4 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -150,7 +150,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 	/* Careful this entire function runs inside of an rcu critical section */
+ 
+ 	mdev = mpls_dev_get(dev);
+-	if (!mdev)
++	if (!mdev || !mdev->input_enabled)
+ 		goto drop;
+ 
+ 	if (skb->pkt_type != PACKET_HOST)
+@@ -438,6 +438,60 @@ errout:
+ 	return err;
+ }
+ 
++#define MPLS_PERDEV_SYSCTL_OFFSET(field)	\
++	(&((struct mpls_dev *)0)->field)
++
++static const struct ctl_table mpls_dev_table[] = {
++	{
++		.procname	= "input",
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++		.data		= MPLS_PERDEV_SYSCTL_OFFSET(input_enabled),
++	},
++	{ }
++};
++
++static int mpls_dev_sysctl_register(struct net_device *dev,
++				    struct mpls_dev *mdev)
++{
++	char path[sizeof("net/mpls/conf/") + IFNAMSIZ];
++	struct ctl_table *table;
++	int i;
++
++	table = kmemdup(&mpls_dev_table, sizeof(mpls_dev_table), GFP_KERNEL);
++	if (!table)
++		goto out;
++
++	/* Table data contains only offsets relative to the base of
++	 * the mdev at this point, so make them absolute.
++	 */
++	for (i = 0; i < ARRAY_SIZE(mpls_dev_table); i++)
++		table[i].data = (char *)mdev + (uintptr_t)table[i].data;
++
++	snprintf(path, sizeof(path), "net/mpls/conf/%s", dev->name);
++
++	mdev->sysctl = register_net_sysctl(dev_net(dev), path, table);
++	if (!mdev->sysctl)
++		goto free;
++
++	return 0;
++
++free:
++	kfree(table);
++out:
++	return -ENOBUFS;
++}
++
++static void mpls_dev_sysctl_unregister(struct mpls_dev *mdev)
++{
++	struct ctl_table *table;
++
++	table = mdev->sysctl->ctl_table_arg;
++	unregister_net_sysctl_table(mdev->sysctl);
++	kfree(table);
++}
++
+ static struct mpls_dev *mpls_add_dev(struct net_device *dev)
+ {
+ 	struct mpls_dev *mdev;
+@@ -449,9 +503,24 @@ static struct mpls_dev *mpls_add_dev(struct net_device *dev)
+ 	if (!mdev)
+ 		return ERR_PTR(err);
+ 
++	/* Enable MPLS by default on loopback devices, since this
++	 * doesn't represent a security boundary and is required for the
++	 * lookup of inner labels for LSPs terminating on this router.
++	 */
++	if (dev->flags & IFF_LOOPBACK)
++		mdev->input_enabled = 1;
++
++	err = mpls_dev_sysctl_register(dev, mdev);
++	if (err)
++		goto free;
++
+ 	rcu_assign_pointer(dev->mpls_ptr, mdev);
+ 
+ 	return mdev;
++
++free:
++	kfree(mdev);
++	return ERR_PTR(err);
+ }
+ 
+ static void mpls_ifdown(struct net_device *dev)
+@@ -475,6 +544,8 @@ static void mpls_ifdown(struct net_device *dev)
+ 	if (!mdev)
+ 		return;
+ 
++	mpls_dev_sysctl_unregister(mdev);
++
+ 	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
+ 
+ 	kfree(mdev);
+@@ -958,7 +1029,7 @@ static int mpls_platform_labels(struct ctl_table *table, int write,
+ 	return ret;
+ }
+ 
+-static struct ctl_table mpls_table[] = {
++static const struct ctl_table mpls_table[] = {
+ 	{
+ 		.procname	= "platform_labels",
+ 		.data		= NULL,
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index 7de7e7850d1a..d0aad5e9a2c9 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -24,6 +24,9 @@ struct mpls_entry_decoded {
+ };
+ 
+ struct mpls_dev {
++	int			input_enabled;
++
++	struct ctl_table_header *sysctl;
+ };
+ 
+ struct sk_buff;
 -- 
 2.1.4
