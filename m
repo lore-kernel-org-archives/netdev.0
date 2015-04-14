@@ -1,49 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next] fou: avoid missing unlock in failure path
-Date: Tue, 14 Apr 2015 10:01:09 -0700
-Message-ID: <1429030869.7346.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429029150-31710-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net/phy: tune get_phy_c45_ids to support more c45
+ phy
+Date: Tue, 14 Apr 2015 10:45:05 -0700
+Message-ID: <552D5221.1030703@gmail.com>
+References: <1429006192-21403-1-git-send-email-Shengzhou.Liu@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:34359 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932176AbbDNRBM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 13:01:12 -0400
-Received: by iedfl3 with SMTP id fl3so22723187ied.1
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 10:01:11 -0700 (PDT)
-In-Reply-To: <1429029150-31710-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
+To: Shengzhou Liu <Shengzhou.Liu@freescale.com>,
+	netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1429006192-21403-1-git-send-email-Shengzhou.Liu@freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-04-14 at 09:32 -0700, Cong Wang wrote:
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Cc: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/ipv4/fou.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
+On 14/04/15 03:09, Shengzhou Liu wrote:
+> As some C45 10G PHYs(e.g. Cortina CS4315/CS4340 PHY) have
+> zero Devices In package, current driver can't get correct
+> devices_in_package value by non-zero Devices In package.
+> so let's probe more with zero Devices In package to support
+> more C45 PHYs.
+
+I cannot remember exactly how many times this patch has been posted, but
+it still is not clear to me what you are doing here is helping with
+these Cortina PHYs.
+
+Could you post a dump of the mdiobus_read() arguments and values for the
+old code and the new code you are proposing? That way it might be
+clearer what is the goal here?
+
 > 
-> diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-> index 2637102..1df3399 100644
-> --- a/net/ipv4/fou.c
-> +++ b/net/ipv4/fou.c
-> @@ -711,11 +711,10 @@ static int fou_nl_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  				    cb->nlh->nlmsg_seq, NLM_F_MULTI,
->  				    skb, FOU_CMD_GET);
->  		if (ret)
-> -			goto done;
-> +			break;
->  	}
->  	mutex_unlock(&fn->fou_lock);
+> Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+> ---
+> v2: use MDIO_DEVS1 and MDIO_DEVS2 instead of constant '6', '5'
+> 
+>  drivers/net/phy/phy_device.c | 25 +++++++++++++++++++++----
+>  1 file changed, 21 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index bdfe51f..c4f836f 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -242,12 +242,29 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
+>  			return -EIO;
+>  		c45_ids->devices_in_package |= (phy_reg & 0xffff);
 >  
-> -done:
->  	cb->args[0] = idx;
->  	return skb->len;
->  }
+> -		/* If mostly Fs, there is no device there,
+> -		 * let's get out of here.
+> +		/* If mostly Fs, let's continue to probe more
+> +		 * as some c45 PHYs have zero Devices In package,
+> +		 * e.g. Cortina CS4315/CS4340 PHY.
+>  		 */
+>  		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
+> -			*phy_id = 0xffffffff;
+> -			return 0;
+> +			reg_addr = MII_ADDR_C45 | 0 << 16 | MDIO_DEVS2;
+> +			phy_reg = mdiobus_read(bus, addr, reg_addr);
+> +			if (phy_reg < 0)
+> +				return -EIO;
+> +			c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
+> +			reg_addr = MII_ADDR_C45 | 0 << 16 | MDIO_DEVS1;
+> +			phy_reg = mdiobus_read(bus, addr, reg_addr);
+> +			if (phy_reg < 0)
+> +				return -EIO;
+> +			c45_ids->devices_in_package |= (phy_reg & 0xffff);
+> +			/* If mostly Fs, there is no device there,
+> +			 * let's get out of here.
+> +			 */
+> +			if ((c45_ids->devices_in_package & 0x1fffffff) ==
+> +							0x1fffffff) {
+> +				*phy_id = 0xffffffff;
+> +				return 0;
+> +			}
 
-When was this bug added ?
+Could not we somehow be a bit more clever and utilize the loop, with an
+adjusted i = 0 during this condition? Some something like this (untested):
+
+
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index bdfe51fc3a65..4bb3d3084db1 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -230,6 +230,7 @@ static int get_phy_c45_ids(struct mii_bus *bus, int
+addr, u32 *phy_id,
+        for (i = 1;
+             i < num_ids && c45_ids->devices_in_package == 0;
+             i++) {
++again:
+                reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
+                phy_reg = mdiobus_read(bus, addr, reg_addr);
+                if (phy_reg < 0)
+@@ -246,6 +247,11 @@ static int get_phy_c45_ids(struct mii_bus *bus, int
+addr, u32 *phy_id,
+                 * let's get out of here.
+                 */
+                if ((c45_ids->devices_in_package & 0x1fffffff) ==
+0x1fffffff) {
++                       if (i == num_ids) {
++                               i = 0;
++                               goto again;
++                       }
++
+                        *phy_id = 0xffffffff;
+                        return 0;
+                }
+-- 
+Florian
