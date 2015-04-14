@@ -1,44 +1,57 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 03/17] fs: don't allow to complete sync iocbs through
- aio_complete
-Date: Tue, 14 Apr 2015 19:26:33 +0100
-Message-ID: <20150414182633.GD889@ZenIV.linux.org.uk>
-References: <20150411211742.GJ889@ZenIV.linux.org.uk>
- <1428787108-13650-3-git-send-email-viro@ZenIV.linux.org.uk>
- <552D55D1.2000908@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 2/2] net: Export IGMP/MLD message
+ validation code
+Date: Tue, 14 Apr 2015 14:27:07 -0400 (EDT)
+Message-ID: <20150414.142707.472821254273583286.davem@davemloft.net>
+References: <1428993462-6079-1-git-send-email-linus.luessing@c0d3.blue>
+	<1428993462-6079-3-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org
-To: Tadeusz Struk <tadeusz.struk@intel.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <552D55D1.2000908@intel.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: bridge@lists.linux-foundation.org, herbert@gondor.apana.org.au,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org, linux-kernel@vger.kernel.org,
+	therbert@google.com
+To: linus.luessing@c0d3.blue
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1428993462-6079-3-git-send-email-linus.luessing@c0d3.blue>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 14, 2015 at 11:00:49AM -0700, Tadeusz Struk wrote:
-> On 04/11/2015 02:18 PM, Al Viro wrote:
-> > @@ -766,8 +765,7 @@ int sock_recvmsg(struct socket *sock, struct msghdr *msg,
-> >  
-> >  	init_sync_kiocb(&iocb, NULL);
-> >  	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
-> > -	if (-EIOCBQUEUED == ret)
-> > -		ret = wait_on_sync_kiocb(&iocb);
-> > +	BUG_ON(ret == -EIOCBQUEUED);
-> 
-> NACK - PF_ALG type sockets support async operations and return -EIOCBQUEUED
-> See skcipher_recvmsg_async() in crypto/algif_skcipher.c in net-next
+From: Linus L=FCssing <linus.luessing@c0d3.blue>
+Date: Tue, 14 Apr 2015 08:37:42 +0200
 
-Its only caller is
+> +int skb_checksum_trimmed(struct sk_buff *skb, unsigned int transport=
+_len,
+> +			 __sum16(*skb_check_func)(struct sk_buff *skb),
+> +			 struct sk_buff **skb_trimmed)
+> +{
 
-static int skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
-                            size_t ignored, int flags)
-{
-        return (msg->msg_iocb && !is_sync_kiocb(msg->msg_iocb)) ?
-                skcipher_recvmsg_async(sock, msg, flags) :
-                skcipher_recvmsg_sync(sock, msg, flags);
-}
+This is a really terrible interface.
 
-Note that !is_sync_kiocb() in there.  Compare with init_sync_kiocb() in
-sock_recvmsg()...
+It is designed in such a way that it is completely ambiguous who is
+resonsible for managing the lifetimes of 'skb' and 'skb_trimmed'.
+
+I would suggest changing this such that:
+
+1) If you clone successfully, 'skb' is released.
+
+2) whatever SKB ends up being used is returned as an error pointer.
+
+3) The caller is responsible for freeing or grabbing a reference
+   to the skb returned.
+
+Also, this is taking too long to finalize and we are past the openning
+of the merge window so you will have to submit a fixed up version when
+the net-next tree opens up for submissions as it is very strongly
+closed right now.
+
+Thanks.
