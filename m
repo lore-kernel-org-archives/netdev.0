@@ -1,45 +1,49 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: Enable Wake-On-LAN in current Fedora
-Date: Tue, 14 Apr 2015 23:05:09 +0200
-Message-ID: <552D8105.4030308@gmail.com>
-References: <CACta-KaHwB5xYxErwiy5TDdqdzrU_GfLotGf7j8bUFMzvME+KA@mail.gmail.com> <20150414160625.GB23974@cmadams.net>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: [patch 31/39] net: core: pktgen: Remove bogus hrtimer_active() check
+Date: Tue, 14 Apr 2015 21:09:16 -0000
+Message-ID: <20150414203503.165258315@linutronix.de>
+References: <20150414203303.702062272@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Chris Adams <linux@cmadams.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sergio Pascual <sergio.pasra@gmail.com>
-To: devel@lists.fedoraproject.org
+Content-Type: text/plain; charset=ISO-8859-15
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Preeti U Murthy <preeti@linux.vnet.ibm.com>,
+	Viresh Kumar <viresh.kumar@linaro.org>,
+	Marcelo Tosatti <mtosatt@redhat.com>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:36162 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932173AbbDNVFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 17:05:13 -0400
-Received: by wizk4 with SMTP id k4so129973080wiz.1
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 14:05:12 -0700 (PDT)
-In-Reply-To: <20150414160625.GB23974@cmadams.net>
+Received: from www.linutronix.de ([62.245.132.108]:38192 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932246AbbDNVJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 17:09:04 -0400
+Content-Disposition: inline;
+ filename=net-core-pktgen-remove-bogus-hrtimer-is-active-check.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14.04.2015 18:06, Chris Adams wrote:
-> Once upon a time, Sergio Pascual <sergio.pasra@gmail.com> said:
->> I was wondering what is the "correct" way of enabling WOL on a network card.
-> 
-> I think it is enabled by default.  At least, I didn't do anything to
-> enable it on a couple of computers at home and it "just works".
-> 
+The check for hrtimer_active() after starting the timer is
+pointless. If the timer is inactive it has expired already and
+therefor the task pointer is already NULL.
 
-# ethtool -i enp0s10 | grep driver
-driver: forcedeth
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+ net/core/pktgen.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-# ethtool enp0s10 | grep Wake
-	Supports Wake-on: g
-	Wake-on: d
-
-For some reason, at least some of
-ethernet controllers as part of media and communications processors
-e.g. NVIDIA Corporation MCP79 Ethernet
-driven by "Reverse Engineered nForce ethernet driver" i.e. forcedeth.ko
-still need WOL enablement routine:
-/etc/udev/rules.d/100-wol.rules
-ACTION=="add", SUBSYSTEM=="net", RUN+="/sbin/ethtool -s enp0s10 wol g"
+Index: tip/net/core/pktgen.c
+===================================================================
+--- tip.orig/net/core/pktgen.c
++++ tip/net/core/pktgen.c
+@@ -2212,8 +2212,6 @@ static void spin(struct pktgen_dev *pkt_
+ 		do {
+ 			set_current_state(TASK_INTERRUPTIBLE);
+ 			hrtimer_start_expires(&t.timer, HRTIMER_MODE_ABS);
+-			if (!hrtimer_active(&t.timer))
+-				t.task = NULL;
+ 
+ 			if (likely(t.task))
+ 				schedule();
