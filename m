@@ -1,69 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/5] ibmveth: Add support for Large Receive Offload
-Date: Tue, 14 Apr 2015 15:00:22 -0700
-Message-ID: <1429048822.7346.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429043704-22552-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-	 <1429043704-22552-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net-next v4 1/6] mpls: Use definition for reserved label checks
+Date: Tue, 14 Apr 2015 23:44:58 +0100
+Message-ID: <1429051503-31287-2-git-send-email-rshearma@brocade.com>
+References: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
+ <1429051503-31287-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	Brian King <brking@linux.vnet.ibm.com>
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>
+To: <davem@davemloft.net>, <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:33234 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753787AbbDNWAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 18:00:24 -0400
-Received: by igbpi8 with SMTP id pi8so55805991igb.0
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 15:00:23 -0700 (PDT)
-In-Reply-To: <1429043704-22552-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:23911 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932232AbbDNWqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 18:46:38 -0400
+In-Reply-To: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-14 at 15:35 -0500, Thomas Falcon wrote:
-> Enables receiving large packets from other LPARs. These packets
-> have a -1 IP header checksum, so we must recalculate to have
-> a valid checksum.
-> 
-> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/ibm/ibmveth.c | 15 ++++++++++++++-
->  1 file changed, 14 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-> index 08970c7..05eaca6a 100644
-> --- a/drivers/net/ethernet/ibm/ibmveth.c
-> +++ b/drivers/net/ethernet/ibm/ibmveth.c
-> @@ -1092,6 +1092,7 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
->  	struct net_device *netdev = adapter->netdev;
->  	int frames_processed = 0;
->  	unsigned long lpar_rc;
-> +	struct iphdr *iph;
->  
->  restart_poll:
->  	while (frames_processed < budget) {
-> @@ -1134,8 +1135,20 @@ restart_poll:
->  			skb_put(skb, length);
->  			skb->protocol = eth_type_trans(skb, netdev);
->  
-> -			if (csum_good)
-> +			if (csum_good) {
->  				skb->ip_summed = CHECKSUM_UNNECESSARY;
-> +				if (be16_to_cpu(skb->protocol) == ETH_P_IP) {
-> +					skb_set_network_header(skb, 0);
-> +					skb_set_transport_header(skb, sizeof(struct iphdr));
-> +					iph = ip_hdr(skb);
-> +
-> +					/* If the IP checksum is not offloaded and if the packet
-> +					 *  is large send, the checksum must be rebuilt.
-> +					 */
-> +					if (iph->check == 0xffff)
-> +						iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
+In multiple locations there are checks for whether the label in hand
+is a reserved label or not using the arbritray value of 16. Factor
+this out into a #define for better maintainability and for
+documentation.
 
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/mpls/af_mpls.c  | 20 ++++++++++----------
+ net/mpls/internal.h |  1 +
+ 2 files changed, 11 insertions(+), 10 deletions(-)
 
-How can this possibly work ?
-
-Normally you would have to set iph->check to 0 before calling
-ip_fast_csum(), as done in ip_send_check()
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index db8a2ea6d4de..0d6763a895d6 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -276,7 +276,7 @@ static void mpls_notify_route(struct net *net, unsigned index,
+ 	struct mpls_route *rt = new ? new : old;
+ 	unsigned nlm_flags = (old && new) ? NLM_F_REPLACE : 0;
+ 	/* Ignore reserved labels for now */
+-	if (rt && (index >= 16))
++	if (rt && (index >= LABEL_FIRST_UNRESERVED))
+ 		rtmsg_lfib(event, index, rt, nlh, net, portid, nlm_flags);
+ }
+ 
+@@ -310,7 +310,7 @@ static unsigned find_free_label(struct net *net)
+ 
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+ 	platform_labels = net->mpls.platform_labels;
+-	for (index = 16; index < platform_labels; index++) {
++	for (index = LABEL_FIRST_UNRESERVED; index < platform_labels; index++) {
+ 		if (!rtnl_dereference(platform_label[index]))
+ 			return index;
+ 	}
+@@ -335,8 +335,8 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 		index = find_free_label(net);
+ 	}
+ 
+-	/* The first 16 labels are reserved, and may not be set */
+-	if (index < 16)
++	/* Reserved labels may not be set */
++	if (index < LABEL_FIRST_UNRESERVED)
+ 		goto errout;
+ 
+ 	/* The full 20 bit range may not be supported. */
+@@ -413,8 +413,8 @@ static int mpls_route_del(struct mpls_route_config *cfg)
+ 
+ 	index = cfg->rc_label;
+ 
+-	/* The first 16 labels are reserved, and may not be removed */
+-	if (index < 16)
++	/* Reserved labels may not be removed */
++	if (index < LABEL_FIRST_UNRESERVED)
+ 		goto errout;
+ 
+ 	/* The full 20 bit range may not be supported */
+@@ -610,8 +610,8 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 					   &cfg->rc_label))
+ 				goto errout;
+ 
+-			/* The first 16 labels are reserved, and may not be set */
+-			if (cfg->rc_label < 16)
++			/* Reserved labels may not be set */
++			if (cfg->rc_label < LABEL_FIRST_UNRESERVED)
+ 				goto errout;
+ 
+ 			break;
+@@ -736,8 +736,8 @@ static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
+ 	ASSERT_RTNL();
+ 
+ 	index = cb->args[0];
+-	if (index < 16)
+-		index = 16;
++	if (index < LABEL_FIRST_UNRESERVED)
++		index = LABEL_FIRST_UNRESERVED;
+ 
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+ 	platform_labels = net->mpls.platform_labels;
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index fb6de92052c4..5732283ee1b9 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -9,6 +9,7 @@
+ #define LABEL_GAL			13 /* RFC5586 */
+ #define LABEL_OAM_ALERT			14 /* RFC3429 */
+ #define LABEL_EXTENSION			15 /* RFC7274 */
++#define LABEL_FIRST_UNRESERVED		16 /* RFC3032 */
+ 
+ 
+ struct mpls_shim_hdr {
+-- 
+2.1.4
