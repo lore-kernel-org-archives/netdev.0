@@ -1,59 +1,67 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: [patch 03/39] net: sched: Use hrtimer_resolution instead of
- hrtimer_get_res()
-Date: Tue, 14 Apr 2015 21:08:28 -0000
-Message-ID: <20150414203500.720623028@linutronix.de>
-References: <20150414203303.702062272@linutronix.de>
+From: Bandan Das <bsd@redhat.com>
+Subject: [PATCH] vhost: use kthread_run macro
+Date: Tue, 14 Apr 2015 17:32:34 -0400
+Message-ID: <jpgiocywg3x.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Preeti U Murthy <preeti@linux.vnet.ibm.com>,
-	Viresh Kumar <viresh.kumar@linaro.org>,
-	Marcelo Tosatti <mtosatt@redhat.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:37928 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755196AbbDNVIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 17:08:19 -0400
-Content-Disposition: inline; filename=net-sched-use-hrtimer-resolution.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No point in converting a timespec now that the value is directly
-accessible.
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
+Code Cleanup, kthread_run is a convenient wrapper
+around kthread_create() that even wakes up the process
+for us. Use it and remove no longer needed temp
+task_struct variable.
+
+Signed-off-by: Bandan Das <bsd@redhat.com>
 ---
+ drivers/vhost/vhost.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-@David: Depends on a previous patch in this series
-
- net/sched/sch_api.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-Index: tip/net/sched/sch_api.c
-===================================================================
---- tip.orig/net/sched/sch_api.c
-+++ tip/net/sched/sch_api.c
-@@ -1879,13 +1879,10 @@ EXPORT_SYMBOL(tcf_destroy_chain);
- #ifdef CONFIG_PROC_FS
- static int psched_show(struct seq_file *seq, void *v)
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 2ee2826..9ac66f7 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -366,7 +366,6 @@ EXPORT_SYMBOL_GPL(vhost_dev_has_owner);
+ /* Caller should have device mutex */
+ long vhost_dev_set_owner(struct vhost_dev *dev)
  {
--	struct timespec ts;
+-	struct task_struct *worker;
+ 	int err;
+ 
+ 	/* Is there an owner already? */
+@@ -377,15 +376,12 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
+ 
+ 	/* No owner, become one */
+ 	dev->mm = get_task_mm(current);
+-	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
+-	if (IS_ERR(worker)) {
+-		err = PTR_ERR(worker);
++	dev->worker = kthread_run(vhost_worker, dev, "vhost-%d", current->pid);
++	if (IS_ERR(dev->worker)) {
++		err = PTR_ERR(dev->worker);
+ 		goto err_worker;
+ 	}
+ 
+-	dev->worker = worker;
+-	wake_up_process(worker);	/* avoid contributing to loadavg */
 -
--	hrtimer_get_res(CLOCK_MONOTONIC, &ts);
- 	seq_printf(seq, "%08x %08x %08x %08x\n",
- 		   (u32)NSEC_PER_USEC, (u32)PSCHED_TICKS2NS(1),
- 		   1000000,
--		   (u32)NSEC_PER_SEC/(u32)ktime_to_ns(timespec_to_ktime(ts)));
-+		   (u32)NSEC_PER_SEC / hrtimer_resolution);
+ 	err = vhost_attach_cgroups(dev);
+ 	if (err)
+ 		goto err_cgroup;
+@@ -396,7 +392,7 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
  
  	return 0;
- }
+ err_cgroup:
+-	kthread_stop(worker);
++	kthread_stop(dev->worker);
+ 	dev->worker = NULL;
+ err_worker:
+ 	if (dev->mm)
+-- 
+2.1.0
+
