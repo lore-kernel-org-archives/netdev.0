@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 11/12] net/mlx5: Ethernet resources handling
-Date: Tue, 14 Apr 2015 11:20:34 +0300
-Message-ID: <1428999635-15025-12-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 10/12] net/mlx5: Ethernet Datapath files
+Date: Tue, 14 Apr 2015 11:20:33 +0300
+Message-ID: <1428999635-15025-11-git-send-email-amirv@mellanox.com>
 References: <1428999635-15025-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
@@ -11,42 +11,30 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:41972 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:41962 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752444AbbDNIV0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2015 04:21:26 -0400
+	id S1752294AbbDNIVX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2015 04:21:23 -0400
 In-Reply-To: <1428999635-15025-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- .../ethernet/mellanox/mlx5/core/en_flow_table.c    | 858 +++++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/flow_table.c   | 422 ++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/transobj.c | 169 ++++
- drivers/net/ethernet/mellanox/mlx5/core/transobj.h |  47 ++
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    | 111 +++
- drivers/net/ethernet/mellanox/mlx5/core/vport.h    |  41 +
- drivers/net/ethernet/mellanox/mlx5/core/wq.c       | 186 +++++
- drivers/net/ethernet/mellanox/mlx5/core/wq.h       | 171 ++++
- include/linux/mlx5/flow_table.h                    |  54 ++
- 9 files changed, 2059 insertions(+)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.h
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.h
- create mode 100644 include/linux/mlx5/flow_table.h
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 249 ++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 344 ++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 107 +++++++
+ 3 files changed, 700 insertions(+)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 new file mode 100644
-index 0000000..6feebda
+index 0000000..ce1317c
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
-@@ -0,0 +1,858 @@
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -0,0 +1,249 @@
 +/*
 + * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
 + *
@@ -79,840 +67,231 @@ index 0000000..6feebda
 + * SOFTWARE.
 + */
 +
-+#include <linux/list.h>
 +#include <linux/ip.h>
 +#include <linux/ipv6.h>
 +#include <linux/tcp.h>
-+#include <linux/mlx5/flow_table.h>
 +#include "en.h"
 +
-+enum {
-+	MLX5E_FULLMATCH = 0,
-+	MLX5E_ALLMULTI  = 1,
-+	MLX5E_PROMISC   = 2,
-+};
-+
-+enum {
-+	MLX5E_UC        = 0,
-+	MLX5E_MC_IPV4   = 1,
-+	MLX5E_MC_IPV6   = 2,
-+	MLX5E_MC_OTHER  = 3,
-+};
-+
-+enum {
-+	MLX5E_ACTION_NONE = 0,
-+	MLX5E_ACTION_ADD  = 1,
-+	MLX5E_ACTION_DEL  = 2,
-+};
-+
-+struct mlx5e_eth_addr_hash_node {
-+	struct hlist_node          hlist;
-+	u8                         action;
-+	struct mlx5e_eth_addr_info ai;
-+};
-+
-+static inline int mlx5e_hash_eth_addr(u8 *addr)
++static inline int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq,
++				     struct mlx5e_rx_wqe *wqe, u16 ix)
 +{
-+	return addr[5];
-+}
-+
-+static void mlx5e_add_eth_addr_to_hash(struct hlist_head *hash, u8 *addr)
-+{
-+	struct mlx5e_eth_addr_hash_node *hn;
-+	int ix = mlx5e_hash_eth_addr(addr);
-+	int found = 0;
-+
-+	hlist_for_each_entry(hn, &hash[ix], hlist)
-+		if (ether_addr_equal_64bits(hn->ai.addr, addr)) {
-+			found = 1;
-+			break;
-+		}
-+
-+	if (found) {
-+		hn->action = MLX5E_ACTION_NONE;
-+		return;
-+	}
-+
-+	hn = kzalloc(sizeof(*hn), GFP_ATOMIC);
-+	if (!hn)
-+		return;
-+
-+	ether_addr_copy(hn->ai.addr, addr);
-+	hn->action = MLX5E_ACTION_ADD;
-+
-+	hlist_add_head(&hn->hlist, &hash[ix]);
-+}
-+
-+static void mlx5e_del_eth_addr_from_hash(struct mlx5e_eth_addr_hash_node *hn)
-+{
-+	hlist_del(&hn->hlist);
-+	kfree(hn);
-+}
-+
-+static void mlx5e_del_eth_addr_from_flow_table(struct mlx5e_priv *priv,
-+					       struct mlx5e_eth_addr_info *ai)
-+{
-+	void *ft = priv->ft.main;
-+
-+	if (ai->tt_vec & (1 << MLX5E_TT_IPV6_TCP))
-+		mlx5_del_flow_table_entry(ft, ai->ft_ix[MLX5E_TT_IPV6_TCP]);
-+
-+	if (ai->tt_vec & (1 << MLX5E_TT_IPV4_TCP))
-+		mlx5_del_flow_table_entry(ft, ai->ft_ix[MLX5E_TT_IPV4_TCP]);
-+
-+	if (ai->tt_vec & (1 << MLX5E_TT_IPV6_UDP))
-+		mlx5_del_flow_table_entry(ft, ai->ft_ix[MLX5E_TT_IPV6_UDP]);
-+
-+	if (ai->tt_vec & (1 << MLX5E_TT_IPV4_UDP))
-+		mlx5_del_flow_table_entry(ft, ai->ft_ix[MLX5E_TT_IPV4_UDP]);
-+
-+	if (ai->tt_vec & (1 << MLX5E_TT_IPV6))
-+		mlx5_del_flow_table_entry(ft, ai->ft_ix[MLX5E_TT_IPV6]);
-+
-+	if (ai->tt_vec & (1 << MLX5E_TT_IPV4))
-+		mlx5_del_flow_table_entry(ft, ai->ft_ix[MLX5E_TT_IPV4]);
-+
-+	if (ai->tt_vec & (1 << MLX5E_TT_ANY))
-+		mlx5_del_flow_table_entry(ft, ai->ft_ix[MLX5E_TT_ANY]);
-+}
-+
-+static int mlx5e_get_eth_addr_type(u8 *addr)
-+{
-+	if (is_unicast_ether_addr(addr))
-+		return MLX5E_UC;
-+
-+	if ((addr[0] == 0x01) &&
-+	    (addr[1] == 0x00) &&
-+	    (addr[2] == 0x5e) &&
-+	   !(addr[3] &  0x80))
-+		return MLX5E_MC_IPV4;
-+
-+	if ((addr[0] == 0x33) &&
-+	    (addr[1] == 0x33))
-+		return MLX5E_MC_IPV6;
-+
-+	return MLX5E_MC_OTHER;
-+}
-+
-+static u32 mlx5e_get_tt_vec(struct mlx5e_eth_addr_info *ai, int type)
-+{
-+	int eth_addr_type;
-+	u32 ret;
-+
-+	switch (type) {
-+	case MLX5E_FULLMATCH:
-+		eth_addr_type = mlx5e_get_eth_addr_type(ai->addr);
-+		switch (eth_addr_type) {
-+		case MLX5E_UC:
-+			ret =
-+				(1 << MLX5E_TT_IPV4_TCP) |
-+				(1 << MLX5E_TT_IPV6_TCP) |
-+				(1 << MLX5E_TT_IPV4_UDP) |
-+				(1 << MLX5E_TT_IPV6_UDP) |
-+				(1 << MLX5E_TT_IPV4)     |
-+				(1 << MLX5E_TT_IPV6)     |
-+				(1 << MLX5E_TT_ANY)      |
-+				0;
-+			break;
-+
-+		case MLX5E_MC_IPV4:
-+			ret =
-+				(1 << MLX5E_TT_IPV4_UDP) |
-+				(1 << MLX5E_TT_IPV4)     |
-+				0;
-+			break;
-+
-+		case MLX5E_MC_IPV6:
-+			ret =
-+				(1 << MLX5E_TT_IPV6_UDP) |
-+				(1 << MLX5E_TT_IPV6)     |
-+				0;
-+			break;
-+
-+		case MLX5E_MC_OTHER:
-+			ret =
-+				(1 << MLX5E_TT_ANY)      |
-+				0;
-+			break;
-+		}
-+
-+		break;
-+
-+	case MLX5E_ALLMULTI:
-+		ret =
-+			(1 << MLX5E_TT_IPV4_UDP) |
-+			(1 << MLX5E_TT_IPV6_UDP) |
-+			(1 << MLX5E_TT_IPV4)     |
-+			(1 << MLX5E_TT_IPV6)     |
-+			(1 << MLX5E_TT_ANY)      |
-+			0;
-+		break;
-+
-+	default: /* MLX5E_PROMISC */
-+		ret =
-+			(1 << MLX5E_TT_IPV4_TCP) |
-+			(1 << MLX5E_TT_IPV6_TCP) |
-+			(1 << MLX5E_TT_IPV4_UDP) |
-+			(1 << MLX5E_TT_IPV6_UDP) |
-+			(1 << MLX5E_TT_IPV4)     |
-+			(1 << MLX5E_TT_IPV6)     |
-+			(1 << MLX5E_TT_ANY)      |
-+			0;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static int __mlx5e_add_eth_addr_rule(struct mlx5e_priv *priv,
-+				     struct mlx5e_eth_addr_info *ai, int type,
-+				     void *flow_context, void *match_criteria)
-+{
-+	u8 match_criteria_enable = 0;
-+	void *match_value;
-+	void *dest;
-+	u8   *dmac;
-+	u8   *match_criteria_dmac;
-+	void *ft   = priv->ft.main;
-+	u32  *tirn = priv->tirn;
-+	u32  tt_vec;
-+	int  err;
-+
-+	match_value = MLX5_ADDR_OF(flow_context, flow_context, match_value);
-+	dmac = MLX5_ADDR_OF(fte_match_param, match_value,
-+			    outer_headers.dmac_47_16);
-+	match_criteria_dmac = MLX5_ADDR_OF(fte_match_param, match_criteria,
-+					   outer_headers.dmac_47_16);
-+	dest = MLX5_ADDR_OF(flow_context, flow_context, destination);
-+
-+	MLX5_SET(flow_context, flow_context, action,
-+		 MLX5_FLOW_CONTEXT_ACTION_FWD_DEST);
-+	MLX5_SET(flow_context, flow_context, destination_list_size, 1);
-+	MLX5_SET(dest_format_struct, dest, destination_type,
-+		 MLX5_FLOW_CONTEXT_DEST_TYPE_TIR);
-+
-+	switch (type) {
-+	case MLX5E_FULLMATCH:
-+		match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+		memset(match_criteria_dmac, 0xff, ETH_ALEN);
-+		ether_addr_copy(dmac, ai->addr);
-+		break;
-+
-+	case MLX5E_ALLMULTI:
-+		match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+		match_criteria_dmac[0] = 0x01;
-+		dmac[0] = 0x01;
-+		break;
-+
-+	case MLX5E_PROMISC:
-+		break;
-+	}
-+
-+	tt_vec = mlx5e_get_tt_vec(ai, type);
-+
-+	if (tt_vec & (1 << MLX5E_TT_ANY)) {
-+		MLX5_SET(dest_format_struct, dest, destination_id,
-+			 tirn[MLX5E_TT_ANY]);
-+		err = mlx5_add_flow_table_entry(ft, match_criteria_enable,
-+						match_criteria, flow_context,
-+						&ai->ft_ix[MLX5E_TT_ANY]);
-+		if (err) {
-+			mlx5e_del_eth_addr_from_flow_table(priv, ai);
-+			return err;
-+		}
-+		ai->tt_vec |= (1 << MLX5E_TT_ANY);
-+	}
-+
-+	match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	MLX5_SET_TO_ONES(fte_match_param, match_criteria,
-+			 outer_headers.ethertype);
-+
-+	if (tt_vec & (1 << MLX5E_TT_IPV4)) {
-+		MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
-+			 ETH_P_IP);
-+		MLX5_SET(dest_format_struct, dest, destination_id,
-+			 tirn[MLX5E_TT_IPV4]);
-+		err = mlx5_add_flow_table_entry(ft, match_criteria_enable,
-+						match_criteria, flow_context,
-+						&ai->ft_ix[MLX5E_TT_IPV4]);
-+		if (err) {
-+			mlx5e_del_eth_addr_from_flow_table(priv, ai);
-+			return err;
-+		}
-+		ai->tt_vec |= (1 << MLX5E_TT_IPV4);
-+	}
-+
-+	if (tt_vec & (1 << MLX5E_TT_IPV6)) {
-+		MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
-+			 ETH_P_IPV6);
-+		MLX5_SET(dest_format_struct, dest, destination_id,
-+			 tirn[MLX5E_TT_IPV6]);
-+		err = mlx5_add_flow_table_entry(ft, match_criteria_enable,
-+						match_criteria, flow_context,
-+						&ai->ft_ix[MLX5E_TT_IPV6]);
-+		if (err) {
-+			mlx5e_del_eth_addr_from_flow_table(priv, ai);
-+			return err;
-+		}
-+		ai->tt_vec |= (1 << MLX5E_TT_IPV6);
-+	}
-+
-+	MLX5_SET_TO_ONES(fte_match_param, match_criteria,
-+			 outer_headers.ip_protocol);
-+	MLX5_SET(fte_match_param, match_value, outer_headers.ip_protocol,
-+		 IPPROTO_UDP);
-+
-+	if (tt_vec & (1 << MLX5E_TT_IPV4_UDP)) {
-+		MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
-+			 ETH_P_IP);
-+		MLX5_SET(dest_format_struct, dest, destination_id,
-+			 tirn[MLX5E_TT_IPV4_UDP]);
-+		err = mlx5_add_flow_table_entry(ft, match_criteria_enable,
-+						match_criteria, flow_context,
-+						&ai->ft_ix[MLX5E_TT_IPV4_UDP]);
-+		if (err) {
-+			mlx5e_del_eth_addr_from_flow_table(priv, ai);
-+			return err;
-+		}
-+		ai->tt_vec |= (1 << MLX5E_TT_IPV4_UDP);
-+	}
-+
-+	if (tt_vec & (1 << MLX5E_TT_IPV6_UDP)) {
-+		MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
-+			 ETH_P_IPV6);
-+		MLX5_SET(dest_format_struct, dest, destination_id,
-+			 tirn[MLX5E_TT_IPV6_UDP]);
-+		err = mlx5_add_flow_table_entry(ft, match_criteria_enable,
-+						match_criteria, flow_context,
-+						&ai->ft_ix[MLX5E_TT_IPV6_UDP]);
-+		if (err) {
-+			mlx5e_del_eth_addr_from_flow_table(priv, ai);
-+			return err;
-+		}
-+		ai->tt_vec |= (1 << MLX5E_TT_IPV6_UDP);
-+	}
-+
-+	MLX5_SET(fte_match_param, match_value, outer_headers.ip_protocol,
-+		 IPPROTO_TCP);
-+
-+	if (tt_vec & (1 << MLX5E_TT_IPV4_TCP)) {
-+		MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
-+			 ETH_P_IP);
-+		MLX5_SET(dest_format_struct, dest, destination_id,
-+			 tirn[MLX5E_TT_IPV4_TCP]);
-+		err = mlx5_add_flow_table_entry(ft, match_criteria_enable,
-+						match_criteria, flow_context,
-+						&ai->ft_ix[MLX5E_TT_IPV4_TCP]);
-+		if (err) {
-+			mlx5e_del_eth_addr_from_flow_table(priv, ai);
-+			return err;
-+		}
-+		ai->tt_vec |= (1 << MLX5E_TT_IPV4_TCP);
-+	}
-+
-+	if (tt_vec & (1 << MLX5E_TT_IPV6_TCP)) {
-+		MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
-+			 ETH_P_IPV6);
-+		MLX5_SET(dest_format_struct, dest, destination_id,
-+			 tirn[MLX5E_TT_IPV6_TCP]);
-+		err = mlx5_add_flow_table_entry(ft, match_criteria_enable,
-+						match_criteria, flow_context,
-+						&ai->ft_ix[MLX5E_TT_IPV6_TCP]);
-+		if (err) {
-+			mlx5e_del_eth_addr_from_flow_table(priv, ai);
-+			return err;
-+		}
-+		ai->tt_vec |= (1 << MLX5E_TT_IPV6_TCP);
-+	}
-+
-+	return 0;
-+}
-+
-+static int mlx5e_add_eth_addr_rule(struct mlx5e_priv *priv,
-+				   struct mlx5e_eth_addr_info *ai, int type)
-+{
-+	u32 *flow_context;
-+	u32 *match_criteria;
-+	int err;
-+
-+	flow_context   = mlx5_vzalloc(MLX5_ST_SZ_BYTES(flow_context) +
-+				      MLX5_ST_SZ_BYTES(dest_format_struct));
-+	match_criteria = mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
-+	if (!flow_context || !match_criteria) {
-+		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
-+		err = -ENOMEM;
-+		goto add_eth_addr_rule_out;
-+	}
-+
-+	err = __mlx5e_add_eth_addr_rule(priv, ai, type, flow_context,
-+					match_criteria);
-+	if (err)
-+		netdev_err(priv->netdev, "%s: failed\n", __func__);
-+
-+add_eth_addr_rule_out:
-+	kvfree(match_criteria);
-+	kvfree(flow_context);
-+	return err;
-+}
-+
-+enum mlx5e_vlan_rule_type {
-+	MLX5E_VLAN_RULE_TYPE_UNTAGGED,
-+	MLX5E_VLAN_RULE_TYPE_ANY_VID,
-+	MLX5E_VLAN_RULE_TYPE_MATCH_VID,
-+};
-+
-+static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
-+			       enum mlx5e_vlan_rule_type rule_type, u16 vid)
-+{
-+	u8 match_criteria_enable = 0;
-+	u32 *flow_context;
-+	void *match_value;
-+	void *dest;
-+	u32 *match_criteria;
-+	u32 *ft_ix;
-+	int err;
-+
-+	flow_context   = mlx5_vzalloc(MLX5_ST_SZ_BYTES(flow_context) +
-+				      MLX5_ST_SZ_BYTES(dest_format_struct));
-+	match_criteria = mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
-+	if (!flow_context || !match_criteria) {
-+		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
-+		err = -ENOMEM;
-+		goto add_vlan_rule_out;
-+	}
-+	match_value = MLX5_ADDR_OF(flow_context, flow_context, match_value);
-+	dest = MLX5_ADDR_OF(flow_context, flow_context, destination);
-+
-+	MLX5_SET(flow_context, flow_context, action,
-+		 MLX5_FLOW_CONTEXT_ACTION_FWD_DEST);
-+	MLX5_SET(flow_context, flow_context, destination_list_size, 1);
-+	MLX5_SET(dest_format_struct, dest, destination_type,
-+		 MLX5_FLOW_CONTEXT_DEST_TYPE_FLOW_TABLE);
-+	MLX5_SET(dest_format_struct, dest, destination_id,
-+		 mlx5_get_flow_table_id(priv->ft.main));
-+
-+	match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	MLX5_SET_TO_ONES(fte_match_param, match_criteria,
-+			 outer_headers.vlan_tag);
-+
-+	switch (rule_type) {
-+	case MLX5E_VLAN_RULE_TYPE_UNTAGGED:
-+		ft_ix = &priv->vlan.untagged_rule_ft_ix;
-+		break;
-+	case MLX5E_VLAN_RULE_TYPE_ANY_VID:
-+		ft_ix = &priv->vlan.any_vlan_rule_ft_ix;
-+		MLX5_SET(fte_match_param, match_value, outer_headers.vlan_tag,
-+			 1);
-+		break;
-+	default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
-+		ft_ix = &priv->vlan.active_vlans_ft_ix[vid];
-+		MLX5_SET(fte_match_param, match_value, outer_headers.vlan_tag,
-+			 1);
-+		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
-+				 outer_headers.first_vid);
-+		MLX5_SET(fte_match_param, match_value, outer_headers.first_vid,
-+			 vid);
-+		break;
-+	}
-+
-+	err = mlx5_add_flow_table_entry(priv->ft.vlan, match_criteria_enable,
-+					match_criteria, flow_context, ft_ix);
-+	if (err)
-+		netdev_err(priv->netdev, "%s: failed\n", __func__);
-+
-+add_vlan_rule_out:
-+	kvfree(match_criteria);
-+	kvfree(flow_context);
-+	return err;
-+}
-+
-+static void mlx5e_del_vlan_rule(struct mlx5e_priv *priv,
-+				enum mlx5e_vlan_rule_type rule_type, u16 vid)
-+{
-+	switch (rule_type) {
-+	case MLX5E_VLAN_RULE_TYPE_UNTAGGED:
-+		mlx5_del_flow_table_entry(priv->ft.vlan,
-+					  priv->vlan.untagged_rule_ft_ix);
-+		break;
-+	case MLX5E_VLAN_RULE_TYPE_ANY_VID:
-+		mlx5_del_flow_table_entry(priv->ft.vlan,
-+					  priv->vlan.any_vlan_rule_ft_ix);
-+		break;
-+	case MLX5E_VLAN_RULE_TYPE_MATCH_VID:
-+		mlx5_del_flow_table_entry(priv->ft.vlan,
-+					  priv->vlan.active_vlans_ft_ix[vid]);
-+		break;
-+	}
-+}
-+
-+void mlx5e_enable_vlan_filter(struct mlx5e_priv *priv)
-+{
-+	WARN_ON(!mutex_is_locked(&priv->state_lock));
-+
-+	if (priv->vlan.filter_disabled) {
-+		priv->vlan.filter_disabled = false;
-+		if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+			mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_VID,
-+					    0);
-+	}
-+}
-+
-+void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv)
-+{
-+	WARN_ON(!mutex_is_locked(&priv->state_lock));
-+
-+	if (!priv->vlan.filter_disabled) {
-+		priv->vlan.filter_disabled = true;
-+		if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+			mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_VID,
-+					    0);
-+	}
-+}
-+
-+int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
-+			  u16 vid)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	int err = 0;
-+
-+	mutex_lock(&priv->state_lock);
-+
-+	set_bit(vid, priv->vlan.active_vlans);
-+	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		err = mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID,
-+					  vid);
-+
-+	mutex_unlock(&priv->state_lock);
-+
-+	return err;
-+}
-+
-+int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
-+			   u16 vid)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+
-+	mutex_lock(&priv->state_lock);
-+
-+	clear_bit(vid, priv->vlan.active_vlans);
-+	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
-+
-+	mutex_unlock(&priv->state_lock);
-+
-+	return 0;
-+}
-+
-+int mlx5e_add_all_vlan_rules(struct mlx5e_priv *priv)
-+{
-+	u16 vid;
-+	int err;
-+
-+	for_each_set_bit(vid, priv->vlan.active_vlans, VLAN_N_VID) {
-+		err = mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID,
-+					  vid);
-+		if (err)
-+			return err;
-+	}
-+
-+	err = mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_UNTAGGED, 0);
-+	if (err)
-+		return err;
-+
-+	if (priv->vlan.filter_disabled) {
-+		err = mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_VID,
-+					  0);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+void mlx5e_del_all_vlan_rules(struct mlx5e_priv *priv)
-+{
-+	u16 vid;
-+
-+	if (priv->vlan.filter_disabled)
-+		mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_VID, 0);
-+
-+	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_UNTAGGED, 0);
-+
-+	for_each_set_bit(vid, priv->vlan.active_vlans, VLAN_N_VID)
-+		mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_MATCH_VID, vid);
-+}
-+
-+#define mlx5e_for_each_hash_node(hn, tmp, hash, i) \
-+	for (i = 0; i < MLX5E_ETH_ADDR_HASH_SIZE; i++) \
-+		hlist_for_each_entry_safe(hn, tmp, &hash[i], hlist)
-+
-+static void mlx5e_execute_action(struct mlx5e_priv *priv,
-+				 struct mlx5e_eth_addr_hash_node *hn)
-+{
-+	switch (hn->action) {
-+	case MLX5E_ACTION_ADD:
-+		mlx5e_add_eth_addr_rule(priv, &hn->ai, MLX5E_FULLMATCH);
-+		hn->action = MLX5E_ACTION_NONE;
-+		break;
-+
-+	case MLX5E_ACTION_DEL:
-+		mlx5e_del_eth_addr_from_flow_table(priv, &hn->ai);
-+		mlx5e_del_eth_addr_from_hash(hn);
-+		break;
-+	}
-+}
-+
-+static void mlx5e_sync_netdev_addr(struct mlx5e_priv *priv)
-+{
-+	struct net_device *netdev = priv->netdev;
-+	struct netdev_hw_addr *ha;
-+
-+	netif_addr_lock_bh(netdev);
-+
-+	mlx5e_add_eth_addr_to_hash(priv->eth_addr.netdev_uc,
-+				   priv->netdev->dev_addr);
-+
-+	netdev_for_each_uc_addr(ha, netdev)
-+		mlx5e_add_eth_addr_to_hash(priv->eth_addr.netdev_uc, ha->addr);
-+
-+	netdev_for_each_mc_addr(ha, netdev)
-+		mlx5e_add_eth_addr_to_hash(priv->eth_addr.netdev_mc, ha->addr);
-+
-+	netif_addr_unlock_bh(netdev);
-+}
-+
-+static void mlx5e_apply_netdev_addr(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_eth_addr_hash_node *hn;
-+	struct hlist_node *tmp;
-+	int i;
-+
-+	mlx5e_for_each_hash_node(hn, tmp, priv->eth_addr.netdev_uc, i)
-+		mlx5e_execute_action(priv, hn);
-+
-+	mlx5e_for_each_hash_node(hn, tmp, priv->eth_addr.netdev_mc, i)
-+		mlx5e_execute_action(priv, hn);
-+}
-+
-+static void mlx5e_handle_netdev_addr(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_eth_addr_hash_node *hn;
-+	struct hlist_node *tmp;
-+	int i;
-+
-+	mlx5e_for_each_hash_node(hn, tmp, priv->eth_addr.netdev_uc, i)
-+		hn->action = MLX5E_ACTION_DEL;
-+	mlx5e_for_each_hash_node(hn, tmp, priv->eth_addr.netdev_mc, i)
-+		hn->action = MLX5E_ACTION_DEL;
-+
-+	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		mlx5e_sync_netdev_addr(priv);
-+
-+	mlx5e_apply_netdev_addr(priv);
-+}
-+
-+void mlx5e_set_rx_mode_core(struct mlx5e_priv *priv)
-+{
-+	struct mlx5e_eth_addr_db *ea = &priv->eth_addr;
-+	struct net_device *ndev = priv->netdev;
-+
-+	bool rx_mode_enable   = test_bit(MLX5E_STATE_OPENED, &priv->state);
-+	bool promisc_enabled   = rx_mode_enable && (ndev->flags & IFF_PROMISC);
-+	bool allmulti_enabled  = rx_mode_enable && (ndev->flags & IFF_ALLMULTI);
-+	bool broadcast_enabled = rx_mode_enable;
-+
-+	bool enable_promisc    = !ea->promisc_enabled   &&  promisc_enabled;
-+	bool disable_promisc   =  ea->promisc_enabled   && !promisc_enabled;
-+	bool enable_allmulti   = !ea->allmulti_enabled  &&  allmulti_enabled;
-+	bool disable_allmulti  =  ea->allmulti_enabled  && !allmulti_enabled;
-+	bool enable_broadcast  = !ea->broadcast_enabled &&  broadcast_enabled;
-+	bool disable_broadcast =  ea->broadcast_enabled && !broadcast_enabled;
-+
-+	if (enable_promisc)
-+		mlx5e_add_eth_addr_rule(priv, &ea->promisc, MLX5E_PROMISC);
-+	if (enable_allmulti)
-+		mlx5e_add_eth_addr_rule(priv, &ea->allmulti, MLX5E_ALLMULTI);
-+	if (enable_broadcast)
-+		mlx5e_add_eth_addr_rule(priv, &ea->broadcast, MLX5E_FULLMATCH);
-+
-+	mlx5e_handle_netdev_addr(priv);
-+
-+	if (disable_broadcast)
-+		mlx5e_del_eth_addr_from_flow_table(priv, &ea->broadcast);
-+	if (disable_allmulti)
-+		mlx5e_del_eth_addr_from_flow_table(priv, &ea->allmulti);
-+	if (disable_promisc)
-+		mlx5e_del_eth_addr_from_flow_table(priv, &ea->promisc);
-+
-+	ea->promisc_enabled   = promisc_enabled;
-+	ea->allmulti_enabled  = allmulti_enabled;
-+	ea->broadcast_enabled = broadcast_enabled;
-+}
-+
-+void mlx5e_set_rx_mode_work(struct work_struct *work)
-+{
-+	struct mlx5e_priv *priv = container_of(work, struct mlx5e_priv,
-+					       set_rx_mode_work);
-+
-+	mutex_lock(&priv->state_lock);
-+	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		mlx5e_set_rx_mode_core(priv);
-+	mutex_unlock(&priv->state_lock);
-+}
-+
-+void mlx5e_init_eth_addr(struct mlx5e_priv *priv)
-+{
-+	ether_addr_copy(priv->eth_addr.broadcast.addr, priv->netdev->broadcast);
-+}
-+
-+static int mlx5e_create_main_flow_table(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_flow_table_group *g;
-+	u8 *dmac;
-+
-+	g = kcalloc(9, sizeof(*g), GFP_KERNEL);
-+
-+	g[0].log_sz = 2;
-+	g[0].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	MLX5_SET_TO_ONES(fte_match_param, g[0].match_criteria,
-+			 outer_headers.ethertype);
-+	MLX5_SET_TO_ONES(fte_match_param, g[0].match_criteria,
-+			 outer_headers.ip_protocol);
-+
-+	g[1].log_sz = 1;
-+	g[1].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	MLX5_SET_TO_ONES(fte_match_param, g[1].match_criteria,
-+			 outer_headers.ethertype);
-+
-+	g[2].log_sz = 0;
-+
-+	g[3].log_sz = 14;
-+	g[3].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	dmac = MLX5_ADDR_OF(fte_match_param, g[3].match_criteria,
-+			    outer_headers.dmac_47_16);
-+	memset(dmac, 0xff, ETH_ALEN);
-+	MLX5_SET_TO_ONES(fte_match_param, g[3].match_criteria,
-+			 outer_headers.ethertype);
-+	MLX5_SET_TO_ONES(fte_match_param, g[3].match_criteria,
-+			 outer_headers.ip_protocol);
-+
-+	g[4].log_sz = 13;
-+	g[4].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	dmac = MLX5_ADDR_OF(fte_match_param, g[4].match_criteria,
-+			    outer_headers.dmac_47_16);
-+	memset(dmac, 0xff, ETH_ALEN);
-+	MLX5_SET_TO_ONES(fte_match_param, g[4].match_criteria,
-+			 outer_headers.ethertype);
-+
-+	g[5].log_sz = 11;
-+	g[5].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	dmac = MLX5_ADDR_OF(fte_match_param, g[5].match_criteria,
-+			    outer_headers.dmac_47_16);
-+	memset(dmac, 0xff, ETH_ALEN);
-+
-+	g[6].log_sz = 2;
-+	g[6].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	dmac = MLX5_ADDR_OF(fte_match_param, g[6].match_criteria,
-+			    outer_headers.dmac_47_16);
-+	dmac[0] = 0x01;
-+	MLX5_SET_TO_ONES(fte_match_param, g[6].match_criteria,
-+			 outer_headers.ethertype);
-+	MLX5_SET_TO_ONES(fte_match_param, g[6].match_criteria,
-+			 outer_headers.ip_protocol);
-+
-+	g[7].log_sz = 1;
-+	g[7].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	dmac = MLX5_ADDR_OF(fte_match_param, g[7].match_criteria,
-+			    outer_headers.dmac_47_16);
-+	dmac[0] = 0x01;
-+	MLX5_SET_TO_ONES(fte_match_param, g[7].match_criteria,
-+			 outer_headers.ethertype);
-+
-+	g[8].log_sz = 0;
-+	g[8].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	dmac = MLX5_ADDR_OF(fte_match_param, g[8].match_criteria,
-+			    outer_headers.dmac_47_16);
-+	dmac[0] = 0x01;
-+	priv->ft.main = mlx5_create_flow_table(priv->mdev, 1,
-+					       MLX5_FLOW_TABLE_TYPE_NIC_RCV,
-+					       9, g);
-+	kfree(g);
-+
-+	return priv->ft.main ? 0 : -ENOMEM;
-+}
-+
-+static void mlx5e_destroy_main_flow_table(struct mlx5e_priv *priv)
-+{
-+	mlx5_destroy_flow_table(priv->ft.main);
-+}
-+
-+static int mlx5e_create_vlan_flow_table(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_flow_table_group *g;
-+
-+	g = kcalloc(2, sizeof(*g), GFP_KERNEL);
-+	if (!g)
++	struct sk_buff *skb;
++	dma_addr_t dma_addr;
++
++	skb = netdev_alloc_skb(rq->netdev, rq->wqe_sz);
++	if (unlikely(!skb))
 +		return -ENOMEM;
 +
-+	g[0].log_sz = 12;
-+	g[0].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	MLX5_SET_TO_ONES(fte_match_param, g[0].match_criteria,
-+			 outer_headers.vlan_tag);
-+	MLX5_SET_TO_ONES(fte_match_param, g[0].match_criteria,
-+			 outer_headers.first_vid);
++	skb_reserve(skb, MLX5E_NET_IP_ALIGN);
 +
-+	/* untagged + any vlan id */
-+	g[1].log_sz = 1;
-+	g[1].match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
-+	MLX5_SET_TO_ONES(fte_match_param, g[1].match_criteria,
-+			 outer_headers.vlan_tag);
++	dma_addr = dma_map_single(rq->pdev,
++				  /* hw start padding */
++				  skb->data - MLX5E_NET_IP_ALIGN,
++				  /* hw   end padding */
++				  rq->wqe_sz,
++				  DMA_FROM_DEVICE);
 +
-+	priv->ft.vlan = mlx5_create_flow_table(priv->mdev, 0,
-+					       MLX5_FLOW_TABLE_TYPE_NIC_RCV,
-+					       2, g);
++	if (unlikely(dma_mapping_error(rq->pdev, dma_addr)))
++		goto err_free_skb;
 +
-+	kfree(g);
-+	return priv->ft.vlan ? 0 : -ENOMEM;
-+}
++	*((dma_addr_t *)skb->cb) = dma_addr;
++	wqe->data.addr = cpu_to_be64(dma_addr + MLX5E_NET_IP_ALIGN);
 +
-+static void mlx5e_destroy_vlan_flow_table(struct mlx5e_priv *priv)
-+{
-+	mlx5_destroy_flow_table(priv->ft.vlan);
-+}
-+
-+int mlx5e_open_flow_table(struct mlx5e_priv *priv)
-+{
-+	int err;
-+
-+	err = mlx5e_create_main_flow_table(priv);
-+	if (err)
-+		return err;
-+
-+	err = mlx5e_create_vlan_flow_table(priv);
-+	if (err)
-+		goto err_destroy_main_flow_table;
++	rq->skb[ix] = skb;
 +
 +	return 0;
 +
-+err_destroy_main_flow_table:
-+	mlx5e_destroy_main_flow_table(priv);
++err_free_skb:
++	dev_kfree_skb(skb);
 +
-+	return err;
++	return -ENOMEM;
 +}
 +
-+void mlx5e_close_flow_table(struct mlx5e_priv *priv)
++bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
 +{
-+	mlx5e_destroy_vlan_flow_table(priv);
-+	mlx5e_destroy_main_flow_table(priv);
++	struct mlx5_wq_ll *wq = &rq->wq;
++
++	if (unlikely(!test_bit(MLX5E_RQ_STATE_POST_WQES_ENABLE, &rq->state)))
++		return false;
++
++	while (!mlx5_wq_ll_is_full(wq)) {
++		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
++
++		if (unlikely(mlx5e_alloc_rx_wqe(rq, wqe, wq->head)))
++			break;
++
++		mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
++	}
++
++	/* ensure wqes are visible to device before updating doorbell record */
++	dma_wmb();
++
++	mlx5_wq_ll_update_db_record(wq);
++
++	return !mlx5_wq_ll_is_full(wq);
 +}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/flow_table.c b/drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
++
++static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe)
++{
++	struct ethhdr	*eth	= (struct ethhdr *)(skb->data);
++	struct iphdr	*ipv4	= (struct iphdr *)(skb->data + ETH_HLEN);
++	struct ipv6hdr	*ipv6	= (struct ipv6hdr *)(skb->data + ETH_HLEN);
++	struct tcphdr	*tcp;
++
++	u8 l4_hdr_type = get_cqe_l4_hdr_type(cqe);
++	int tcp_ack = ((CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA  == l4_hdr_type) ||
++		       (CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA == l4_hdr_type));
++
++	u16 tot_len = be32_to_cpu(cqe->byte_cnt) - ETH_HLEN;
++
++	if (eth->h_proto == htons(ETH_P_IP)) {
++		tcp = (struct tcphdr *)(skb->data + ETH_HLEN +
++					sizeof(struct iphdr));
++		ipv6 = NULL;
++	} else {
++		tcp = (struct tcphdr *)(skb->data + ETH_HLEN +
++					sizeof(struct ipv6hdr));
++		ipv4 = NULL;
++	}
++
++	if (get_cqe_lro_tcppsh(cqe))
++		tcp->psh                = 1;
++
++	if (tcp_ack) {
++		tcp->ack                = 1;
++		tcp->ack_seq            = cqe->lro_ack_seq_num;
++		tcp->window             = cqe->lro_tcp_win;
++	}
++
++	if (ipv4) {
++		ipv4->ttl               = cqe->lro_min_ttl;
++		ipv4->tot_len           = cpu_to_be16(tot_len);
++		ipv4->check             = 0;
++		ipv4->check             = ip_fast_csum((unsigned char *)ipv4,
++						       ipv4->ihl);
++	} else {
++		ipv6->hop_limit         = cqe->lro_min_ttl;
++		ipv6->payload_len       = cpu_to_be16(tot_len -
++						      sizeof(struct ipv6hdr));
++	}
++}
++
++static inline void mlx5e_skb_set_hash(struct mlx5_cqe64 *cqe,
++				      struct sk_buff *skb)
++{
++	u8 cht = cqe->rss_hash_type;
++	int ht = (cht & CQE_RSS_HTYPE_L4) ? PKT_HASH_TYPE_L4 :
++		 (cht & CQE_RSS_HTYPE_IP) ? PKT_HASH_TYPE_L3 :
++					    PKT_HASH_TYPE_NONE;
++	skb_set_hash(skb, be32_to_cpu(cqe->rss_hash_result), ht);
++}
++
++static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
++				      struct mlx5e_rq *rq,
++				      struct sk_buff *skb)
++{
++	struct net_device *netdev = rq->netdev;
++	u32 cqe_bcnt = be32_to_cpu(cqe->byte_cnt);
++	int lro_num_seg;
++
++	skb_put(skb, cqe_bcnt);
++
++	lro_num_seg = be32_to_cpu(cqe->srqn) >> 24;
++	if (lro_num_seg > 1) {
++		mlx5e_lro_update_hdr(skb, cqe);
++		skb_shinfo(skb)->gso_size = MLX5E_PARAMS_DEFAULT_LRO_WQE_SZ;
++		rq->stats.lro_packets++;
++		rq->stats.lro_bytes += cqe_bcnt;
++	}
++
++	if (likely(netdev->features & NETIF_F_RXCSUM) &&
++	    (cqe->hds_ip_ext & CQE_L2_OK) &&
++	    (cqe->hds_ip_ext & CQE_L3_OK) &&
++	    (cqe->hds_ip_ext & CQE_L4_OK)) {
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++	} else {
++		skb->ip_summed = CHECKSUM_NONE;
++		rq->stats.csum_none++;
++	}
++
++	skb->protocol = eth_type_trans(skb, netdev);
++
++	skb_record_rx_queue(skb, rq->ix);
++
++	if (likely(netdev->features & NETIF_F_RXHASH))
++		mlx5e_skb_set_hash(cqe, skb);
++
++	if (cqe_has_vlan(cqe))
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
++				       be16_to_cpu(cqe->vlan_info));
++}
++
++bool mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
++{
++	struct mlx5e_rq *rq = cq->sqrq;
++	int i;
++
++	/* avoid accessing cq (dma coherent memory) if not needed */
++	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
++		return false;
++
++	for (i = 0; i < budget; i++) {
++		struct mlx5e_rx_wqe *wqe;
++		struct mlx5_cqe64 *cqe;
++		struct sk_buff *skb;
++		__be16 wqe_counter_be;
++		u16 wqe_counter;
++
++		cqe = mlx5e_get_cqe(cq);
++		if (!cqe)
++			break;
++
++		wqe_counter_be = cqe->wqe_counter;
++		wqe_counter    = be16_to_cpu(wqe_counter_be);
++		wqe            = mlx5_wq_ll_get_wqe(&rq->wq, wqe_counter);
++		skb            = rq->skb[wqe_counter];
++		rq->skb[wqe_counter] = NULL;
++
++		dma_unmap_single(rq->pdev,
++				 *((dma_addr_t *)skb->cb),
++				 skb_end_offset(skb),
++				 DMA_FROM_DEVICE);
++
++		if (unlikely((cqe->op_own >> 4) != MLX5_CQE_RESP_SEND)) {
++			rq->stats.wqe_err++;
++			dev_kfree_skb(skb);
++			goto wq_ll_pop;
++		}
++
++		mlx5e_build_rx_skb(cqe, rq, skb);
++		rq->stats.packets++;
++		napi_gro_receive(cq->napi, skb);
++
++wq_ll_pop:
++		mlx5_wq_ll_pop(&rq->wq, wqe_counter_be,
++			       &wqe->next.next_wqe_index);
++	}
++
++	mlx5_cqwq_update_db_record(&cq->wq);
++
++	/* ensure cq space is freed before enabling more cqes */
++	wmb();
++
++	if (i == budget) {
++		set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
++		return true;
++	}
++
++	return false;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
 new file mode 100644
-index 0000000..ca90b9b
+index 0000000..8020986
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
-@@ -0,0 +1,422 @@
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+@@ -0,0 +1,344 @@
 +/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
++ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
 + *
 + * This software is available to you under a choice of one of two
 + * licenses.  You may choose to be licensed under the terms of the GNU
@@ -943,1216 +322,430 @@ index 0000000..ca90b9b
 + * SOFTWARE.
 + */
 +
-+#include <linux/export.h>
-+#include <linux/mlx5/driver.h>
-+#include <linux/mlx5/flow_table.h>
-+#include "mlx5_core.h"
++#include <linux/tcp.h>
++#include <linux/if_vlan.h>
++#include "en.h"
 +
-+struct mlx5_ftg {
-+	struct mlx5_flow_table_group    g;
-+	u32				id;
-+	u32				start_ix;
-+};
-+
-+struct mlx5_flow_table {
-+	struct mlx5_core_dev	*dev;
-+	u8			level;
-+	u8			type;
-+	u32			id;
-+	struct mutex		mutex; /* sync bitmap alloc */
-+	u16			num_groups;
-+	struct mlx5_ftg		*group;
-+	unsigned long		*bitmap;
-+	u32			size;
-+};
-+
-+static int mlx5_set_flow_entry_cmd(struct mlx5_flow_table *ft, u32 group_ix,
-+				   u32 flow_index, void *flow_context)
++static void mlx5e_dma_pop_last_pushed(struct mlx5e_sq *sq, dma_addr_t *addr,
++				      u32 *size)
 +{
-+	u32 out[MLX5_ST_SZ_DW(set_fte_out)];
-+	u32 *in;
-+	void *in_flow_context;
-+	int fcdls =
-+		MLX5_GET(flow_context, flow_context, destination_list_size) *
-+		MLX5_ST_SZ_BYTES(dest_format_struct);
-+	int inlen = MLX5_ST_SZ_BYTES(set_fte_in) + fcdls;
-+	int err;
-+
-+	in = mlx5_vzalloc(inlen);
-+	if (!in) {
-+		mlx5_core_warn(ft->dev, "failed to allocate inbox\n");
-+		return -ENOMEM;
-+	}
-+
-+	MLX5_SET(set_fte_in, in, table_type, ft->type);
-+	MLX5_SET(set_fte_in, in, table_id,   ft->id);
-+	MLX5_SET(set_fte_in, in, flow_index, flow_index);
-+	MLX5_SET(set_fte_in, in, opcode, MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY);
-+
-+	in_flow_context = MLX5_ADDR_OF(set_fte_in, in, flow_context);
-+	memcpy(in_flow_context, flow_context,
-+	       MLX5_ST_SZ_BYTES(flow_context) + fcdls);
-+
-+	MLX5_SET(flow_context, in_flow_context, group_id,
-+		 ft->group[group_ix].id);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(ft->dev, in, inlen, out,
-+					 sizeof(out));
-+	kvfree(in);
-+
-+	return err;
++	sq->dma_fifo_pc--;
++	*addr = sq->dma_fifo[sq->dma_fifo_pc & sq->dma_fifo_mask].addr;
++	*size = sq->dma_fifo[sq->dma_fifo_pc & sq->dma_fifo_mask].size;
 +}
 +
-+static void mlx5_del_flow_entry_cmd(struct mlx5_flow_table *ft, u32 flow_index)
++static void mlx5e_dma_unmap_wqe_err(struct mlx5e_sq *sq, struct sk_buff *skb)
 +{
-+	u32 in[MLX5_ST_SZ_DW(delete_fte_in)];
-+	u32 out[MLX5_ST_SZ_DW(delete_fte_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+#define MLX5_SET_DFTEI(p, x, v) MLX5_SET(delete_fte_in, p, x, v)
-+	MLX5_SET_DFTEI(in, table_type, ft->type);
-+	MLX5_SET_DFTEI(in, table_id,   ft->id);
-+	MLX5_SET_DFTEI(in, flow_index, flow_index);
-+	MLX5_SET_DFTEI(in, opcode,     MLX5_CMD_OP_DELETE_FLOW_TABLE_ENTRY);
-+
-+	mlx5_cmd_exec_check_status(ft->dev, in, sizeof(in), out, sizeof(out));
-+}
-+
-+static void mlx5_destroy_flow_group_cmd(struct mlx5_flow_table *ft, int i)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_flow_group_in)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_flow_group_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+#define MLX5_SET_DFGI(p, x, v) MLX5_SET(destroy_flow_group_in, p, x, v)
-+	MLX5_SET_DFGI(in, table_type, ft->type);
-+	MLX5_SET_DFGI(in, table_id,   ft->id);
-+	MLX5_SET_DFGI(in, opcode, MLX5_CMD_OP_DESTROY_FLOW_GROUP);
-+	MLX5_SET_DFGI(in, group_id, ft->group[i].id);
-+	mlx5_cmd_exec_check_status(ft->dev, in, sizeof(in), out, sizeof(out));
-+}
-+
-+static int mlx5_create_flow_group_cmd(struct mlx5_flow_table *ft, int i)
-+{
-+	u32 out[MLX5_ST_SZ_DW(create_flow_group_out)];
-+	u32 *in;
-+	void *in_match_criteria;
-+	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
-+	struct mlx5_flow_table_group *g = &ft->group[i].g;
-+	u32 start_ix = ft->group[i].start_ix;
-+	u32 end_ix = start_ix + (1 << g->log_sz) - 1;
-+	int err;
-+
-+	in = mlx5_vzalloc(inlen);
-+	if (!in) {
-+		mlx5_core_warn(ft->dev, "failed to allocate inbox\n");
-+		return -ENOMEM;
-+	}
-+	in_match_criteria = MLX5_ADDR_OF(create_flow_group_in, in,
-+					 match_criteria);
-+
-+	memset(out, 0, sizeof(out));
-+
-+#define MLX5_SET_CFGI(p, x, v) MLX5_SET(create_flow_group_in, p, x, v)
-+	MLX5_SET_CFGI(in, table_type,            ft->type);
-+	MLX5_SET_CFGI(in, table_id,              ft->id);
-+	MLX5_SET_CFGI(in, opcode,                MLX5_CMD_OP_CREATE_FLOW_GROUP);
-+	MLX5_SET_CFGI(in, start_flow_index,      start_ix);
-+	MLX5_SET_CFGI(in, end_flow_index,        end_ix);
-+	MLX5_SET_CFGI(in, match_criteria_enable, g->match_criteria_enable);
-+
-+	memcpy(in_match_criteria, g->match_criteria,
-+	       MLX5_ST_SZ_BYTES(fte_match_param));
-+
-+	err = mlx5_cmd_exec_check_status(ft->dev, in, inlen, out,
-+					 sizeof(out));
-+	if (!err)
-+		ft->group[i].id = MLX5_GET(create_flow_group_out, out,
-+					   group_id);
-+
-+	kvfree(in);
-+
-+	return err;
-+}
-+
-+static void mlx5_destroy_flow_table_groups(struct mlx5_flow_table *ft)
-+{
++	dma_addr_t addr;
++	u32 size;
 +	int i;
 +
-+	for (i = 0; i < ft->num_groups; i++)
-+		mlx5_destroy_flow_group_cmd(ft, i);
++	for (i = 0; i < MLX5E_TX_SKB_CB(skb)->num_dma; i++) {
++		mlx5e_dma_pop_last_pushed(sq, &addr, &size);
++		dma_unmap_single(sq->pdev, addr, size, DMA_TO_DEVICE);
++	}
 +}
 +
-+static int mlx5_create_flow_table_groups(struct mlx5_flow_table *ft)
++static inline void mlx5e_dma_push(struct mlx5e_sq *sq, dma_addr_t addr,
++				  u32 size)
 +{
-+	int err;
++	sq->dma_fifo[sq->dma_fifo_pc & sq->dma_fifo_mask].addr = addr;
++	sq->dma_fifo[sq->dma_fifo_pc & sq->dma_fifo_mask].size = size;
++	sq->dma_fifo_pc++;
++}
++
++static inline void mlx5e_dma_get(struct mlx5e_sq *sq, u32 i, dma_addr_t *addr,
++				 u32 *size)
++{
++	*addr = sq->dma_fifo[i & sq->dma_fifo_mask].addr;
++	*size = sq->dma_fifo[i & sq->dma_fifo_mask].size;
++}
++
++u16 mlx5e_select_queue(struct net_device *dev, struct sk_buff *skb,
++		       void *accel_priv, select_queue_fallback_t fallback)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	int channel_ix = fallback(dev, skb);
++	int up = skb_vlan_tag_present(skb)        ?
++		 skb->vlan_tci >> VLAN_PRIO_SHIFT :
++		 priv->default_vlan_prio;
++	int tc = netdev_get_prio_tc_map(dev, up);
++
++	return (tc << priv->order_base_2_num_channels) | channel_ix;
++}
++
++static inline u16 mlx5e_get_inline_hdr_size(struct mlx5e_sq *sq,
++					    struct sk_buff *skb)
++{
++#define MLX5E_MIN_INLINE 16 /* eth header with vlan (w/o next ethertype) */
++	return MLX5E_MIN_INLINE;
++}
++
++static inline void mlx5e_insert_vlan(void *start, struct sk_buff *skb, u16 ihs)
++{
++	struct vlan_ethhdr *vhdr = (struct vlan_ethhdr *)start;
++	int cpy1_sz = 2 * ETH_ALEN;
++	int cpy2_sz = ihs - cpy1_sz - VLAN_HLEN;
++
++	skb_copy_from_linear_data(skb, vhdr, cpy1_sz);
++	skb_pull_inline(skb, cpy1_sz);
++	vhdr->h_vlan_proto = skb->vlan_proto;
++	vhdr->h_vlan_TCI = cpu_to_be16(skb_vlan_tag_get(skb));
++	skb_copy_from_linear_data(skb, &vhdr->h_vlan_encapsulated_proto,
++				  cpy2_sz);
++	skb_pull_inline(skb, cpy2_sz);
++}
++
++static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
++{
++	struct mlx5_wq_cyc       *wq   = &sq->wq;
++
++	u16 pi = sq->pc & wq->sz_m1;
++	struct mlx5e_tx_wqe      *wqe  = mlx5_wq_cyc_get_wqe(wq, pi);
++
++	struct mlx5_wqe_ctrl_seg *cseg = &wqe->ctrl;
++	struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
++	struct mlx5_wqe_data_seg *dseg;
++
++	u8  opcode = MLX5_OPCODE_SEND;
++	dma_addr_t dma_addr = 0;
++	u16 headlen;
++	u16 ds_cnt;
++	u16 ihs;
 +	int i;
 +
-+	for (i = 0; i < ft->num_groups; i++) {
-+		err = mlx5_create_flow_group_cmd(ft, i);
-+		if (err)
-+			goto err_destroy_flow_table_groups;
++	memset(wqe, 0, sizeof(*wqe));
++
++	if (likely(skb->ip_summed == CHECKSUM_PARTIAL))
++		eseg->cs_flags	= MLX5_ETH_WQE_L3_CSUM | MLX5_ETH_WQE_L4_CSUM;
++	else
++		sq->stats.csum_offload_none++;
++
++	if (skb_is_gso(skb)) {
++		u32 payload_len;
++		int num_pkts;
++
++		eseg->mss    = cpu_to_be16(skb_shinfo(skb)->gso_size);
++		opcode       = MLX5_OPCODE_LSO;
++		ihs          = skb_transport_offset(skb) + tcp_hdrlen(skb);
++		payload_len  = skb->len - ihs;
++		num_pkts     =    (payload_len / skb_shinfo(skb)->gso_size) +
++				!!(payload_len % skb_shinfo(skb)->gso_size);
++		MLX5E_TX_SKB_CB(skb)->num_bytes = skb->len +
++						  (num_pkts - 1) * ihs;
++		sq->stats.tso_packets++;
++		sq->stats.tso_bytes += payload_len;
++	} else {
++		ihs             = mlx5e_get_inline_hdr_size(sq, skb);
++		MLX5E_TX_SKB_CB(skb)->num_bytes = max_t(unsigned int, skb->len,
++							ETH_ZLEN);
 +	}
 +
-+	return 0;
++	if (skb_vlan_tag_present(skb)) {
++		mlx5e_insert_vlan(eseg->inline_hdr_start, skb, ihs);
++	} else {
++		skb_copy_from_linear_data(skb, eseg->inline_hdr_start, ihs);
++		skb_pull_inline(skb, ihs);
++	}
 +
-+err_destroy_flow_table_groups:
-+	for (i--; i >= 0; i--)
-+		mlx5_destroy_flow_group_cmd(ft, i);
++	eseg->inline_hdr_sz	= cpu_to_be16(ihs);
 +
-+	return err;
++	ds_cnt  = sizeof(*wqe) / MLX5_SEND_WQE_DS;
++	ds_cnt += DIV_ROUND_UP(ihs - sizeof(eseg->inline_hdr_start),
++			       MLX5_SEND_WQE_DS);
++	dseg    = (struct mlx5_wqe_data_seg *)cseg + ds_cnt;
++
++	MLX5E_TX_SKB_CB(skb)->num_dma = 0;
++
++	headlen = skb_headlen(skb);
++	if (headlen) {
++		dma_addr = dma_map_single(sq->pdev, skb->data, headlen,
++					  DMA_TO_DEVICE);
++		if (unlikely(dma_mapping_error(sq->pdev, dma_addr)))
++			goto dma_unmap_wqe_err;
++
++		dseg->addr       = cpu_to_be64(dma_addr);
++		dseg->lkey       = sq->mkey_be;
++		dseg->byte_count = cpu_to_be32(headlen);
++
++		mlx5e_dma_push(sq, dma_addr, headlen);
++		MLX5E_TX_SKB_CB(skb)->num_dma++;
++
++		dseg++;
++	}
++
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
++		int fsz = skb_frag_size(frag);
++
++		dma_addr = skb_frag_dma_map(sq->pdev, frag, 0, fsz,
++					    DMA_TO_DEVICE);
++		if (unlikely(dma_mapping_error(sq->pdev, dma_addr)))
++			goto dma_unmap_wqe_err;
++
++		dseg->addr       = cpu_to_be64(dma_addr);
++		dseg->lkey       = sq->mkey_be;
++		dseg->byte_count = cpu_to_be32(fsz);
++
++		mlx5e_dma_push(sq, dma_addr, fsz);
++		MLX5E_TX_SKB_CB(skb)->num_dma++;
++
++		dseg++;
++	}
++
++	ds_cnt += MLX5E_TX_SKB_CB(skb)->num_dma;
++
++	cseg->opmod_idx_opcode	= cpu_to_be32((sq->pc << 8) | opcode);
++	cseg->qpn_ds		= cpu_to_be32((sq->sqn << 8) | ds_cnt);
++	cseg->fm_ce_se		= MLX5_WQE_CTRL_CQ_UPDATE;
++
++	sq->skb[pi] = skb;
++
++	MLX5E_TX_SKB_CB(skb)->num_wqebbs = DIV_ROUND_UP(ds_cnt,
++							MLX5_SEND_WQEBB_NUM_DS);
++	sq->pc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
++
++	netdev_tx_sent_queue(sq->txq, MLX5E_TX_SKB_CB(skb)->num_bytes);
++
++	if (unlikely(!mlx5e_sq_has_room_for(sq, MLX5_SEND_WQE_MAX_WQEBBS))) {
++		netif_tx_stop_queue(sq->txq);
++		sq->stats.stopped++;
++	}
++
++	if (!skb->xmit_more || netif_xmit_stopped(sq->txq))
++		mlx5e_tx_notify_hw(sq, wqe);
++
++	sq->stats.packets++;
++	return NETDEV_TX_OK;
++
++dma_unmap_wqe_err:
++	sq->stats.dropped++;
++	mlx5e_dma_unmap_wqe_err(sq, skb);
++
++	dev_kfree_skb_any(skb);
++
++	return NETDEV_TX_OK;
 +}
 +
-+static int mlx5_create_flow_table_cmd(struct mlx5_flow_table *ft)
++netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
 +{
-+	u32 in[MLX5_ST_SZ_DW(create_flow_table_in)];
-+	u32 out[MLX5_ST_SZ_DW(create_flow_table_out)];
-+	int err;
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	int ix = skb->queue_mapping;
++	int tc = 0;
++	struct mlx5e_channel *c = priv->channel[ix];
++	struct mlx5e_sq *sq = &c->sq[tc];
 +
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(create_flow_table_in, in, table_type, ft->type);
-+	MLX5_SET(create_flow_table_in, in, level,      ft->level);
-+	MLX5_SET(create_flow_table_in, in, log_size,   order_base_2(ft->size));
-+
-+	MLX5_SET(create_flow_table_in, in, opcode,
-+		 MLX5_CMD_OP_CREATE_FLOW_TABLE);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(ft->dev, in, sizeof(in), out,
-+					 sizeof(out));
-+	if (err)
-+		return err;
-+
-+	ft->id = MLX5_GET(create_flow_table_out, out, table_id);
-+
-+	return 0;
++	return mlx5e_sq_xmit(sq, skb);
 +}
 +
-+static void mlx5_destroy_flow_table_cmd(struct mlx5_flow_table *ft)
++netdev_tx_t mlx5e_xmit_multi_tc(struct sk_buff *skb, struct net_device *dev)
 +{
-+	u32 in[MLX5_ST_SZ_DW(destroy_flow_table_in)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_flow_table_out)];
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	int ix = skb->queue_mapping & priv->queue_mapping_channel_mask;
++	int tc = skb->queue_mapping >> priv->order_base_2_num_channels;
++	struct mlx5e_channel *c = priv->channel[ix];
++	struct mlx5e_sq *sq = &c->sq[tc];
 +
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+#define MLX5_SET_DFTI(p, x, v) MLX5_SET(destroy_flow_table_in, p, x, v)
-+	MLX5_SET_DFTI(in, table_type, ft->type);
-+	MLX5_SET_DFTI(in, table_id,   ft->id);
-+	MLX5_SET_DFTI(in, opcode, MLX5_CMD_OP_DESTROY_FLOW_TABLE);
-+
-+	mlx5_cmd_exec_check_status(ft->dev, in, sizeof(in), out, sizeof(out));
++	return mlx5e_sq_xmit(sq, skb);
 +}
 +
-+static int mlx5_find_group(struct mlx5_flow_table *ft, u8 match_criteria_enable,
-+			   u32 *match_criteria, int *group_ix)
++bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq)
 +{
-+	void *mc_outer = MLX5_ADDR_OF(fte_match_param, match_criteria,
-+				      outer_headers);
-+	void *mc_misc  = MLX5_ADDR_OF(fte_match_param, match_criteria,
-+				      misc_parameters);
-+	void *mc_inner = MLX5_ADDR_OF(fte_match_param, match_criteria,
-+				      inner_headers);
-+	int mc_outer_sz = MLX5_ST_SZ_BYTES(fte_match_set_lyr_2_4);
-+	int mc_misc_sz  = MLX5_ST_SZ_BYTES(fte_match_set_misc);
-+	int mc_inner_sz = MLX5_ST_SZ_BYTES(fte_match_set_lyr_2_4);
++	struct mlx5e_sq *sq;
++	u32 dma_fifo_cc;
++	u32 nbytes;
++	u16 npkts;
++	u16 sqcc;
 +	int i;
 +
-+	for (i = 0; i < ft->num_groups; i++) {
-+		struct mlx5_flow_table_group *g = &ft->group[i].g;
-+		void *gmc_outer = MLX5_ADDR_OF(fte_match_param,
-+					       g->match_criteria,
-+					       outer_headers);
-+		void *gmc_misc  = MLX5_ADDR_OF(fte_match_param,
-+					       g->match_criteria,
-+					       misc_parameters);
-+		void *gmc_inner = MLX5_ADDR_OF(fte_match_param,
-+					       g->match_criteria,
-+					       inner_headers);
++	/* avoid accessing cq (dma coherent memory) if not needed */
++	if (!test_and_clear_bit(MLX5E_CQ_HAS_CQES, &cq->flags))
++		return false;
 +
-+		if (g->match_criteria_enable != match_criteria_enable)
-+			continue;
++	sq = cq->sqrq;
 +
-+		if (match_criteria_enable & MLX5_MATCH_OUTER_HEADERS)
-+			if (memcmp(mc_outer, gmc_outer, mc_outer_sz))
-+				continue;
++	npkts = 0;
++	nbytes = 0;
 +
-+		if (match_criteria_enable & MLX5_MATCH_MISC_PARAMETERS)
-+			if (memcmp(mc_misc, gmc_misc, mc_misc_sz))
-+				continue;
++	/* sq->cc must be updated only after mlx5_cqwq_update_db_record(),
++	 * otherwise a cq overrun may occur
++	 */
++	sqcc = sq->cc;
 +
-+		if (match_criteria_enable & MLX5_MATCH_INNER_HEADERS)
-+			if (memcmp(mc_inner, gmc_inner, mc_inner_sz))
-+				continue;
++	/* avoid dirtying sq cache line every cqe */
++	dma_fifo_cc = sq->dma_fifo_cc;
 +
-+		*group_ix = i;
++	for (i = 0; i < MLX5E_TX_CQ_POLL_BUDGET; i++) {
++		struct mlx5_cqe64 *cqe;
++		struct sk_buff *skb;
++		u16 ci;
++		int j;
++
++		cqe = mlx5e_get_cqe(cq);
++		if (!cqe)
++			break;
++
++		ci = sqcc & sq->wq.sz_m1;
++		skb = sq->skb[ci];
++
++		if (unlikely(!skb)) { /* nop */
++			sq->stats.nop++;
++			sqcc++;
++			goto free_skb;
++		}
++
++		for (j = 0; j < MLX5E_TX_SKB_CB(skb)->num_dma; j++) {
++			dma_addr_t addr;
++			u32 size;
++
++			mlx5e_dma_get(sq, dma_fifo_cc, &addr, &size);
++			dma_fifo_cc++;
++			dma_unmap_single(sq->pdev, addr, size, DMA_TO_DEVICE);
++		}
++
++		npkts++;
++		nbytes += MLX5E_TX_SKB_CB(skb)->num_bytes;
++		sqcc += MLX5E_TX_SKB_CB(skb)->num_wqebbs;
++
++free_skb:
++		dev_kfree_skb(skb);
++	}
++
++	mlx5_cqwq_update_db_record(&cq->wq);
++
++	/* ensure cq space is freed before enabling more cqes */
++	wmb();
++
++	sq->dma_fifo_cc = dma_fifo_cc;
++	sq->cc = sqcc;
++
++	netdev_tx_completed_queue(sq->txq, npkts, nbytes);
++
++	if (netif_tx_queue_stopped(sq->txq) &&
++	    mlx5e_sq_has_room_for(sq, MLX5_SEND_WQE_MAX_WQEBBS) &&
++	    likely(test_bit(MLX5E_SQ_STATE_WAKE_TXQ_ENABLE, &sq->state))) {
++				netif_tx_wake_queue(sq->txq);
++				sq->stats.wake++;
++	}
++	if (i == MLX5E_TX_CQ_POLL_BUDGET) {
++		set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
++		return true;
++	}
++
++	return false;
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+new file mode 100644
+index 0000000..088bc42
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -0,0 +1,107 @@
++/*
++ * Copyright (c) 2015, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include "en.h"
++
++struct mlx5_cqe64 *mlx5e_get_cqe(struct mlx5e_cq *cq)
++{
++	struct mlx5_cqwq *wq = &cq->wq;
++	u32 ci = mlx5_cqwq_get_ci(wq);
++	struct mlx5_cqe64 *cqe = mlx5_cqwq_get_wqe(wq, ci);
++	int cqe_ownership_bit = cqe->op_own & MLX5_CQE_OWNER_MASK;
++	int sw_ownership_val = mlx5_cqwq_get_wrap_cnt(wq) & 1;
++
++	if (cqe_ownership_bit != sw_ownership_val)
++		return NULL;
++
++	mlx5_cqwq_pop(wq);
++
++	/* ensure cqe content is read after cqe ownership bit */
++	rmb();
++
++	return cqe;
++}
++
++int mlx5e_napi_poll(struct napi_struct *napi, int budget)
++{
++	struct mlx5e_channel *c = container_of(napi, struct mlx5e_channel,
++					       napi);
++	bool busy = false;
++	int i;
++
++	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
++
++	for (i = 0; i < c->num_tc; i++)
++		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq);
++
++	busy |= mlx5e_poll_rx_cq(&c->rq.cq, budget);
++
++	busy |= mlx5e_post_rx_wqes(c->rq.cq.sqrq);
++
++	if (busy)
++		return budget;
++
++	napi_complete(napi);
++
++	/* avoid losing completion event during/after polling cqs */
++	if (test_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags)) {
++		napi_schedule(napi);
 +		return 0;
 +	}
 +
-+	return -EINVAL;
-+}
-+
-+static int alloc_flow_index(struct mlx5_flow_table *ft, int group_ix, u32 *ix)
-+{
-+	struct mlx5_ftg *g = &ft->group[group_ix];
-+	int err = 0;
-+
-+	mutex_lock(&ft->mutex);
-+
-+	*ix = find_next_zero_bit(ft->bitmap, ft->size, g->start_ix);
-+	if (*ix >= (g->start_ix + (1 << g->g.log_sz)))
-+		err = -ENOSPC;
-+	else
-+		__set_bit(*ix, ft->bitmap);
-+
-+	mutex_unlock(&ft->mutex);
-+
-+	return err;
-+}
-+
-+static void mlx5_free_flow_index(struct mlx5_flow_table *ft, u32 ix)
-+{
-+	__clear_bit(ix, ft->bitmap);
-+}
-+
-+int mlx5_add_flow_table_entry(void *flow_table, u8 match_criteria_enable,
-+			      void *match_criteria, void *flow_context,
-+			      u32 *flow_index)
-+{
-+	struct mlx5_flow_table *ft = flow_table;
-+	int group_ix;
-+	int err;
-+
-+	err = mlx5_find_group(ft, match_criteria_enable, match_criteria,
-+			      &group_ix);
-+	if (err) {
-+		mlx5_core_warn(ft->dev, "mlx5_find_group failed\n");
-+		return err;
-+	}
-+
-+	err = alloc_flow_index(ft, group_ix, flow_index);
-+	if (err) {
-+		mlx5_core_warn(ft->dev, "alloc_flow_index failed\n");
-+		return err;
-+	}
-+
-+	return mlx5_set_flow_entry_cmd(ft, group_ix, *flow_index, flow_context);
-+}
-+EXPORT_SYMBOL(mlx5_add_flow_table_entry);
-+
-+void mlx5_del_flow_table_entry(void *flow_table, u32 flow_index)
-+{
-+	struct mlx5_flow_table *ft = flow_table;
-+
-+	mlx5_del_flow_entry_cmd(ft, flow_index);
-+	mlx5_free_flow_index(ft, flow_index);
-+}
-+EXPORT_SYMBOL(mlx5_del_flow_table_entry);
-+
-+void *mlx5_create_flow_table(struct mlx5_core_dev *dev, u8 level, u8 table_type,
-+			     u16 num_groups,
-+			     struct mlx5_flow_table_group *group)
-+{
-+	struct mlx5_flow_table *ft;
-+	u32 start_ix = 0;
-+	u32 ft_size = 0;
-+	void *gr;
-+	void *bm;
-+	int err;
-+	int i;
-+
-+	for (i = 0; i < num_groups; i++)
-+		ft_size += (1 << group[i].log_sz);
-+
-+	ft = kzalloc(sizeof(*ft), GFP_KERNEL);
-+	gr = kcalloc(num_groups, sizeof(struct mlx5_ftg), GFP_KERNEL);
-+	bm = kcalloc(BITS_TO_LONGS(ft_size), sizeof(uintptr_t), GFP_KERNEL);
-+	if (!ft || !gr || !bm)
-+		goto err_free_ft;
-+
-+	ft->group	= gr;
-+	ft->bitmap	= bm;
-+	ft->num_groups	= num_groups;
-+	ft->level	= level;
-+	ft->type	= table_type;
-+	ft->size	= ft_size;
-+	ft->dev		= dev;
-+	mutex_init(&ft->mutex);
-+
-+	for (i = 0; i < ft->num_groups; i++) {
-+		memcpy(&ft->group[i].g, &group[i], sizeof(*group));
-+		ft->group[i].start_ix = start_ix;
-+		start_ix += 1 << group[i].log_sz;
-+	}
-+
-+	err = mlx5_create_flow_table_cmd(ft);
-+	if (err)
-+		goto err_free_ft;
-+
-+	err = mlx5_create_flow_table_groups(ft);
-+	if (err)
-+		goto err_destroy_flow_table_cmd;
-+
-+	return ft;
-+
-+err_destroy_flow_table_cmd:
-+	mlx5_destroy_flow_table_cmd(ft);
-+
-+err_free_ft:
-+	mlx5_core_warn(dev, "failed to alloc flow table\n");
-+	kfree(bm);
-+	kfree(gr);
-+	kfree(ft);
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(mlx5_create_flow_table);
-+
-+void mlx5_destroy_flow_table(void *flow_table)
-+{
-+	struct mlx5_flow_table *ft = flow_table;
-+
-+	mlx5_destroy_flow_table_groups(ft);
-+	mlx5_destroy_flow_table_cmd(ft);
-+	kfree(ft->bitmap);
-+	kfree(ft->group);
-+	kfree(ft);
-+}
-+EXPORT_SYMBOL(mlx5_destroy_flow_table);
-+
-+u32 mlx5_get_flow_table_id(void *flow_table)
-+{
-+	struct mlx5_flow_table *ft = flow_table;
-+
-+	return ft->id;
-+}
-+EXPORT_SYMBOL(mlx5_get_flow_table_id);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.c b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-new file mode 100644
-index 0000000..3c555d7
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.c
-@@ -0,0 +1,169 @@
-+/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/mlx5/driver.h>
-+#include "mlx5_core.h"
-+#include "transobj.h"
-+
-+int mlx5_create_rq(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *rqn)
-+{
-+	u32 out[MLX5_ST_SZ_DW(create_rq_out)];
-+	int err;
-+
-+	MLX5_SET(create_rq_in, in, opcode, MLX5_CMD_OP_CREATE_RQ);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+	if (!err)
-+		*rqn = MLX5_GET(create_rq_out, out, rqn);
-+
-+	return err;
-+}
-+
-+int mlx5_modify_rq(struct mlx5_core_dev *dev, u32 rqn, u32 *in, int inlen)
-+{
-+	u32 out[MLX5_ST_SZ_DW(modify_rq_out)];
-+
-+	MLX5_SET(modify_rq_in, in, rqn, rqn);
-+	MLX5_SET(modify_rq_in, in, opcode, MLX5_CMD_OP_MODIFY_RQ);
-+
-+	memset(out, 0, sizeof(out));
-+	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+}
-+
-+void mlx5_destroy_rq(struct mlx5_core_dev *dev, u32 rqn)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_rq_in)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_rq_out)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(destroy_rq_in, in, opcode, MLX5_CMD_OP_DESTROY_RQ);
-+	MLX5_SET(destroy_rq_in, in, rqn, rqn);
-+
-+	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
-+}
-+
-+int mlx5_create_sq(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *sqn)
-+{
-+	u32 out[MLX5_ST_SZ_DW(create_sq_out)];
-+	int err;
-+
-+	MLX5_SET(create_sq_in, in, opcode, MLX5_CMD_OP_CREATE_SQ);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+	if (!err)
-+		*sqn = MLX5_GET(create_sq_out, out, sqn);
-+
-+	return err;
-+}
-+
-+int mlx5_modify_sq(struct mlx5_core_dev *dev, u32 sqn, u32 *in, int inlen)
-+{
-+	u32 out[MLX5_ST_SZ_DW(modify_sq_out)];
-+
-+	MLX5_SET(modify_sq_in, in, sqn, sqn);
-+	MLX5_SET(modify_sq_in, in, opcode, MLX5_CMD_OP_MODIFY_SQ);
-+
-+	memset(out, 0, sizeof(out));
-+	return mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+}
-+
-+void mlx5_destroy_sq(struct mlx5_core_dev *dev, u32 sqn)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_sq_in)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_sq_out)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(destroy_sq_in, in, opcode, MLX5_CMD_OP_DESTROY_SQ);
-+	MLX5_SET(destroy_sq_in, in, sqn, sqn);
-+
-+	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
-+}
-+
-+int mlx5_create_tir(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *tirn)
-+{
-+	u32 out[MLX5_ST_SZ_DW(create_tir_out)];
-+	int err;
-+
-+	MLX5_SET(create_tir_in, in, opcode, MLX5_CMD_OP_CREATE_TIR);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+	if (!err)
-+		*tirn = MLX5_GET(create_tir_out, out, tirn);
-+
-+	return err;
-+}
-+
-+void mlx5_destroy_tir(struct mlx5_core_dev *dev, u32 tirn)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_tir_out)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_tir_out)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(destroy_tir_in, in, opcode, MLX5_CMD_OP_DESTROY_TIR);
-+	MLX5_SET(destroy_tir_in, in, tirn, tirn);
-+
-+	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
-+}
-+
-+int mlx5_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *tisn)
-+{
-+	u32 out[MLX5_ST_SZ_DW(create_tis_out)];
-+	int err;
-+
-+	MLX5_SET(create_tis_in, in, opcode, MLX5_CMD_OP_CREATE_TIS);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(dev, in, inlen, out, sizeof(out));
-+	if (!err)
-+		*tisn = MLX5_GET(create_tis_out, out, tisn);
-+
-+	return err;
-+}
-+
-+void mlx5_destroy_tis(struct mlx5_core_dev *dev, u32 tisn)
-+{
-+	u32 in[MLX5_ST_SZ_DW(destroy_tis_out)];
-+	u32 out[MLX5_ST_SZ_DW(destroy_tis_out)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(destroy_tis_in, in, opcode, MLX5_CMD_OP_DESTROY_TIS);
-+	MLX5_SET(destroy_tis_in, in, tisn, tisn);
-+
-+	mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/transobj.h b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-new file mode 100644
-index 0000000..1bc898c
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/transobj.h
-@@ -0,0 +1,47 @@
-+/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef __TRANSOBJ_H__
-+#define __TRANSOBJ_H__
-+
-+int mlx5_create_rq(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *rqn);
-+int mlx5_modify_rq(struct mlx5_core_dev *dev, u32 rqn, u32 *in, int inlen);
-+void mlx5_destroy_rq(struct mlx5_core_dev *dev, u32 rqn);
-+int mlx5_create_sq(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *sqn);
-+int mlx5_modify_sq(struct mlx5_core_dev *dev, u32 sqn, u32 *in, int inlen);
-+void mlx5_destroy_sq(struct mlx5_core_dev *dev, u32 sqn);
-+int mlx5_create_tir(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *tirn);
-+void mlx5_destroy_tir(struct mlx5_core_dev *dev, u32 tirn);
-+int mlx5_create_tis(struct mlx5_core_dev *dev, u32 *in, int inlen, u32 *tisn);
-+void mlx5_destroy_tis(struct mlx5_core_dev *dev, u32 tisn);
-+
-+#endif /* __TRANSOBJ_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-new file mode 100644
-index 0000000..3d1a55d
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -0,0 +1,111 @@
-+/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/export.h>
-+#include <linux/etherdevice.h>
-+#include <linux/mlx5/driver.h>
-+#include "vport.h"
-+#include "mlx5_core.h"
-+
-+u8 mlx5_query_vport_state(struct mlx5_core_dev *mdev, u8 opmod)
-+{
-+	u32 in[MLX5_ST_SZ_DW(query_vport_state_in)];
-+	u32 out[MLX5_ST_SZ_DW(query_vport_state_out)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(query_vport_state_in, in, opcode,
-+		 MLX5_CMD_OP_QUERY_VPORT_STATE);
-+	MLX5_SET(query_vport_state_in, in, op_mod, opmod);
-+
-+	err = mlx5_cmd_exec_check_status(mdev, in, sizeof(in), out,
-+					 sizeof(out));
-+	if (err)
-+		mlx5_core_warn(mdev, "MLX5_CMD_OP_QUERY_VPORT_STATE failed\n");
-+
-+	return MLX5_GET(query_vport_state_out, out, state);
-+}
-+
-+void mlx5_query_vport_mac_address(struct mlx5_core_dev *mdev, u8 *addr)
-+{
-+	u32  in[MLX5_ST_SZ_DW(query_nic_vport_context_in)];
-+	u32 *out;
-+	int outlen = MLX5_ST_SZ_BYTES(query_nic_vport_context_out);
-+	u8 *out_addr;
-+
-+	out = mlx5_vzalloc(outlen);
-+	if (!out)
-+		return;
-+
-+	out_addr = MLX5_ADDR_OF(query_nic_vport_context_out, out,
-+				nic_vport_context.permanent_address);
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(query_nic_vport_context_in, in, opcode,
-+		 MLX5_CMD_OP_QUERY_NIC_VPORT_CONTEXT);
-+
-+	memset(out, 0, outlen);
-+	mlx5_cmd_exec_check_status(mdev, in, sizeof(in), out, outlen);
-+
-+	ether_addr_copy(addr, &out_addr[2]);
-+
-+	kvfree(out);
-+}
-+
-+int mlx5_vport_enable_roce(struct mlx5_core_dev *mdev)
-+{
-+	u32 out[MLX5_ST_SZ_DW(modify_nic_vport_context_out)];
-+	void *in;
-+	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
-+	int err;
-+
-+	in = mlx5_vzalloc(inlen);
-+	if (!in) {
-+		mlx5_core_warn(mdev, "failed to allocate inbox\n");
-+		return -ENOMEM;
-+	}
-+
-+	MLX5_SET(modify_nic_vport_context_in, in, field_select.roce_en, 1);
-+	MLX5_SET(modify_nic_vport_context_in, in, nic_vport_context.roce_en, 1);
-+	MLX5_SET(modify_nic_vport_context_in, in, opcode,
-+		 MLX5_CMD_OP_MODIFY_NIC_VPORT_CONTEXT);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec_check_status(mdev, in, inlen, out, sizeof(out));
-+
-+	kvfree(in);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_vport_enable_roce);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.h b/drivers/net/ethernet/mellanox/mlx5/core/vport.h
-new file mode 100644
-index 0000000..c05ca2c
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.h
-@@ -0,0 +1,41 @@
-+/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef __MLX5_VPORT_H__
-+#define __MLX5_VPORT_H__
-+
-+#include <linux/mlx5/driver.h>
-+
-+u8 mlx5_query_vport_state(struct mlx5_core_dev *mdev, u8 opmod);
-+void mlx5_query_vport_mac_address(struct mlx5_core_dev *mdev, u8 *addr);
-+
-+#endif /* __MLX5_VPORT_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.c b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-new file mode 100644
-index 0000000..6c68c0d
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-@@ -0,0 +1,186 @@
-+/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/mlx5/driver.h>
-+#include "wq.h"
-+#include "mlx5_core.h"
-+
-+u32 mlx5_wq_cyc_get_size(struct mlx5_wq_cyc *wq)
-+{
-+	return (u32)wq->sz_m1 + 1;
-+}
-+
-+u32 mlx5_cqwq_get_size(struct mlx5_cqwq *wq)
-+{
-+	return wq->sz_m1 + 1;
-+}
-+
-+u32 mlx5_wq_ll_get_size(struct mlx5_wq_ll *wq)
-+{
-+	return (u32)wq->sz_m1 + 1;
-+}
-+
-+static u32 mlx5_wq_cyc_get_byte_size(struct mlx5_wq_cyc *wq)
-+{
-+	return mlx5_wq_cyc_get_size(wq) << wq->log_stride;
-+}
-+
-+static u32 mlx5_cqwq_get_byte_size(struct mlx5_cqwq *wq)
-+{
-+	return mlx5_cqwq_get_size(wq) << wq->log_stride;
-+}
-+
-+static u32 mlx5_wq_ll_get_byte_size(struct mlx5_wq_ll *wq)
-+{
-+	return mlx5_wq_ll_get_size(wq) << wq->log_stride;
-+}
-+
-+int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		       void *wqc, struct mlx5_wq_cyc *wq,
-+		       struct mlx5_wq_ctrl *wq_ctrl)
-+{
-+	int err;
-+
-+	wq->log_stride = MLX5_GET(wq, wqc, log_wq_stride);
-+	wq->sz_m1 = (1 << MLX5_GET(wq, wqc, log_wq_sz)) - 1;
-+
-+	err = mlx5_db_alloc(mdev, &wq_ctrl->db);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		return err;
-+	}
-+
-+	err = mlx5_buf_alloc(mdev, mlx5_wq_cyc_get_byte_size(wq),
-+			     &wq_ctrl->buf);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		goto err_db_free;
-+	}
-+
-+	wq->buf = wq_ctrl->buf.direct.buf;
-+	wq->db  = wq_ctrl->db.db;
-+
-+	wq_ctrl->mdev = mdev;
++	for (i = 0; i < c->num_tc; i++)
++		mlx5e_cq_arm(&c->sq[i].cq);
++	mlx5e_cq_arm(&c->rq.cq);
 +
 +	return 0;
-+
-+err_db_free:
-+	mlx5_db_free(mdev, &wq_ctrl->db);
-+
-+	return err;
 +}
 +
-+int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		     void *cqc, struct mlx5_cqwq *wq,
-+		     struct mlx5_wq_ctrl *wq_ctrl)
++void mlx5e_completion_event(struct mlx5_core_cq *mcq)
 +{
-+	int err;
++	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
 +
-+	wq->log_stride = 6 + MLX5_GET(cqc, cqc, cqe_sz);
-+	wq->log_sz = MLX5_GET(cqc, cqc, log_cq_size);
-+	wq->sz_m1 = (1 << wq->log_sz) - 1;
-+
-+	err = mlx5_db_alloc(mdev, &wq_ctrl->db);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		return err;
-+	}
-+
-+	err = mlx5_buf_alloc(mdev, mlx5_cqwq_get_byte_size(wq),
-+			     &wq_ctrl->buf);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		goto err_db_free;
-+	}
-+
-+	wq->buf = wq_ctrl->buf.direct.buf;
-+	wq->db  = wq_ctrl->db.db;
-+
-+	wq_ctrl->mdev = mdev;
-+
-+	return 0;
-+
-+err_db_free:
-+	mlx5_db_free(mdev, &wq_ctrl->db);
-+
-+	return err;
++	set_bit(MLX5E_CQ_HAS_CQES, &cq->flags);
++	set_bit(MLX5E_CHANNEL_NAPI_SCHED, &cq->channel->flags);
++	barrier();
++	napi_schedule(cq->napi);
 +}
 +
-+int mlx5_wq_ll_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		      void *wqc, struct mlx5_wq_ll *wq,
-+		      struct mlx5_wq_ctrl *wq_ctrl)
++void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event)
 +{
-+	struct mlx5_wqe_srq_next_seg *next_seg;
-+	int err;
-+	int i;
++	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
++	struct mlx5e_channel *c = cq->channel;
++	struct mlx5e_priv *priv = c->priv;
++	struct net_device *netdev = priv->netdev;
 +
-+	wq->log_stride = MLX5_GET(wq, wqc, log_wq_stride);
-+	wq->sz_m1 = (1 << MLX5_GET(wq, wqc, log_wq_sz)) - 1;
-+
-+	err = mlx5_db_alloc(mdev, &wq_ctrl->db);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		return err;
-+	}
-+
-+	err = mlx5_buf_alloc(mdev, mlx5_wq_ll_get_byte_size(wq),
-+			     &wq_ctrl->buf);
-+	if (err) {
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		goto err_db_free;
-+	}
-+
-+	wq->buf = wq_ctrl->buf.direct.buf;
-+	wq->db  = wq_ctrl->db.db;
-+
-+	for (i = 0; i < wq->sz_m1; i++) {
-+		next_seg = mlx5_wq_ll_get_wqe(wq, i);
-+		next_seg->next_wqe_index = cpu_to_be16(i + 1);
-+	}
-+	next_seg = mlx5_wq_ll_get_wqe(wq, i);
-+	wq->tail_next = &next_seg->next_wqe_index;
-+
-+	wq_ctrl->mdev = mdev;
-+
-+	return 0;
-+
-+err_db_free:
-+	mlx5_db_free(mdev, &wq_ctrl->db);
-+
-+	return err;
++	netdev_err(netdev, "%s: cqn=0x%.6x event=0x%.2x\n",
++		   __func__, mcq->cqn, event);
 +}
-+
-+void mlx5_wq_destroy(struct mlx5_wq_ctrl *wq_ctrl)
-+{
-+	mlx5_buf_free(wq_ctrl->mdev, &wq_ctrl->buf);
-+	mlx5_db_free(wq_ctrl->mdev, &wq_ctrl->db);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.h b/drivers/net/ethernet/mellanox/mlx5/core/wq.h
-new file mode 100644
-index 0000000..e0ddd69
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.h
-@@ -0,0 +1,171 @@
-+/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef __MLX5_WQ_H__
-+#define __MLX5_WQ_H__
-+
-+#include <linux/mlx5/mlx5_ifc.h>
-+
-+struct mlx5_wq_param {
-+	int		linear;
-+	int		numa;
-+};
-+
-+struct mlx5_wq_ctrl {
-+	struct mlx5_core_dev	*mdev;
-+	struct mlx5_buf		buf;
-+	struct mlx5_db		db;
-+};
-+
-+struct mlx5_wq_cyc {
-+	void			*buf;
-+	__be32			*db;
-+	u16			sz_m1;
-+	u8			log_stride;
-+};
-+
-+struct mlx5_cqwq {
-+	void			*buf;
-+	__be32			*db;
-+	u32			sz_m1;
-+	u32			cc; /* consumer counter */
-+	u8			log_sz;
-+	u8			log_stride;
-+};
-+
-+struct mlx5_wq_ll {
-+	void			*buf;
-+	__be32			*db;
-+	__be16			*tail_next;
-+	u16			sz_m1;
-+	u16			head;
-+	u16			wqe_ctr;
-+	u16			cur_sz;
-+	u8			log_stride;
-+};
-+
-+int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		       void *wqc, struct mlx5_wq_cyc *wq,
-+		       struct mlx5_wq_ctrl *wq_ctrl);
-+u32 mlx5_wq_cyc_get_size(struct mlx5_wq_cyc *wq);
-+
-+int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		     void *cqc, struct mlx5_cqwq *wq,
-+		     struct mlx5_wq_ctrl *wq_ctrl);
-+u32 mlx5_cqwq_get_size(struct mlx5_cqwq *wq);
-+
-+int mlx5_wq_ll_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
-+		      void *wqc, struct mlx5_wq_ll *wq,
-+		      struct mlx5_wq_ctrl *wq_ctrl);
-+u32 mlx5_wq_ll_get_size(struct mlx5_wq_ll *wq);
-+
-+void mlx5_wq_destroy(struct mlx5_wq_ctrl *wq_ctrl);
-+
-+static inline u16 mlx5_wq_cyc_ctr2ix(struct mlx5_wq_cyc *wq, u16 ctr)
-+{
-+	return ctr & wq->sz_m1;
-+}
-+
-+static inline void *mlx5_wq_cyc_get_wqe(struct mlx5_wq_cyc *wq, u16 ix)
-+{
-+	return wq->buf + (ix << wq->log_stride);
-+}
-+
-+static inline int mlx5_wq_cyc_cc_bigger(u16 cc1, u16 cc2)
-+{
-+	int equal   = (cc1 == cc2);
-+	int smaller = 0x8000 & (cc1 - cc2);
-+
-+	return !equal && !smaller;
-+}
-+
-+static inline u32 mlx5_cqwq_get_ci(struct mlx5_cqwq *wq)
-+{
-+	return wq->cc & wq->sz_m1;
-+}
-+
-+static inline void *mlx5_cqwq_get_wqe(struct mlx5_cqwq *wq, u32 ix)
-+{
-+	return wq->buf + (ix << wq->log_stride);
-+}
-+
-+static inline u32 mlx5_cqwq_get_wrap_cnt(struct mlx5_cqwq *wq)
-+{
-+	return wq->cc >> wq->log_sz;
-+}
-+
-+static inline void mlx5_cqwq_pop(struct mlx5_cqwq *wq)
-+{
-+	wq->cc++;
-+}
-+
-+static inline void mlx5_cqwq_update_db_record(struct mlx5_cqwq *wq)
-+{
-+	*wq->db = cpu_to_be32(wq->cc & 0xffffff);
-+}
-+
-+static inline int mlx5_wq_ll_is_full(struct mlx5_wq_ll *wq)
-+{
-+	return wq->cur_sz == wq->sz_m1;
-+}
-+
-+static inline int mlx5_wq_ll_is_empty(struct mlx5_wq_ll *wq)
-+{
-+	return !wq->cur_sz;
-+}
-+
-+static inline void *mlx5_wq_ll_get_wqe(struct mlx5_wq_ll *wq, u16 ix)
-+{
-+	return wq->buf + (ix << wq->log_stride);
-+}
-+
-+static inline void mlx5_wq_ll_push(struct mlx5_wq_ll *wq, u16 head_next)
-+{
-+	wq->head = head_next;
-+	wq->wqe_ctr++;
-+	wq->cur_sz++;
-+}
-+
-+static inline void mlx5_wq_ll_pop(struct mlx5_wq_ll *wq, __be16 ix,
-+				  __be16 *next_tail_next)
-+{
-+	*wq->tail_next = ix;
-+	wq->tail_next = next_tail_next;
-+	wq->cur_sz--;
-+}
-+
-+static inline void mlx5_wq_ll_update_db_record(struct mlx5_wq_ll *wq)
-+{
-+	*wq->db = cpu_to_be32(wq->wqe_ctr);
-+}
-+
-+#endif /* __MLX5_WQ_H__ */
-diff --git a/include/linux/mlx5/flow_table.h b/include/linux/mlx5/flow_table.h
-new file mode 100644
-index 0000000..5f922c6
---- /dev/null
-+++ b/include/linux/mlx5/flow_table.h
-@@ -0,0 +1,54 @@
-+/*
-+ * Copyright (c) 2013-2015, Mellanox Technologies, Ltd.  All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef MLX5_FLOW_TABLE_H
-+#define MLX5_FLOW_TABLE_H
-+
-+#include <linux/mlx5/driver.h>
-+
-+struct mlx5_flow_table_group {
-+	u8	log_sz;
-+	u8	match_criteria_enable;
-+	u32	match_criteria[MLX5_ST_SZ_DW(fte_match_param)];
-+};
-+
-+void *mlx5_create_flow_table(struct mlx5_core_dev *dev, u8 level, u8 table_type,
-+			     u16 num_groups,
-+			     struct mlx5_flow_table_group *group);
-+void mlx5_destroy_flow_table(void *flow_table);
-+int mlx5_add_flow_table_entry(void *flow_table, u8 match_criteria_enable,
-+			      void *match_criteria, void *flow_context,
-+			      u32 *flow_index);
-+void mlx5_del_flow_table_entry(void *flow_table, u32 flow_index);
-+u32 mlx5_get_flow_table_id(void *flow_table);
-+
-+#endif /* MLX5_FLOW_TABLE_H */
 -- 
 1.9.3
