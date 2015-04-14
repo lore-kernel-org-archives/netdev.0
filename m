@@ -1,64 +1,190 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v4 07/24] switchdev: add port vlan obj
-Date: Tue, 14 Apr 2015 00:28:40 -0700
-Message-ID: <CAE4R7bBqJnKT+0Z_E8BLqsAX=g9WRtsZSgQAW2aVqcLcz4jZzg@mail.gmail.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
-	<1428905838-14920-8-git-send-email-sfeldma@gmail.com>
-	<552C0190.8080606@gmail.com>
+From: NeilBrown <neilb@suse.de>
+Subject: Re: [PATCH] hso: fix refcnt leak in recent patch.
+Date: Tue, 14 Apr 2015 17:35:27 +1000
+Message-ID: <20150414173527.2e85be0e@notabene.brown>
+References: <20150414093634.4fe24ba3@notabene.brown>
+	<20150414110303.66edcfee@notabene.brown>
+	<20150414065001.GA23791@thinkoso.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ boundary="Sig_/Z/uiD.wEuJTlQbnRKM=mXsF"; protocol="application/pgp-signature"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	GTA04 owners <gta04-owner@goldelico.com>
+To: Olivier Sobrie <olivier@sobrie.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:35918 "EHLO
-	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751650AbbDNH2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:28:41 -0400
-Received: by qku63 with SMTP id 63so3185699qku.3
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:28:40 -0700 (PDT)
-In-Reply-To: <552C0190.8080606@gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:34661 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751912AbbDNHfi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2015 03:35:38 -0400
+In-Reply-To: <20150414065001.GA23791@thinkoso.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 10:49 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 12/04/15 23:17, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> VLAN obj has flags (PVID and untagged) as well as start and end vid ranges.
->> The swdev driver can optimize programing the device using the ranges.
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> ---
->>  include/net/switchdev.h |    8 ++++++++
->>  1 file changed, 8 insertions(+)
->>
->> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->> index f5f7733..d3cc8eb 100644
->> --- a/include/net/switchdev.h
->> +++ b/include/net/switchdev.h
->> @@ -45,12 +45,20 @@ struct fib_info;
->>
->>  enum swdev_obj_id {
->>       SWDEV_OBJ_UNDEFINED,
->> +     SWDEV_OBJ_PORT_VLAN,
->>  };
->>
->>  struct swdev_obj {
->>       enum swdev_obj_id id;
->>       enum swdev_trans trans;
->>       u32 flags;
->> +     union {
->> +             struct swdev_obj_vlan {                 /* PORT_VLAN */
->> +                     u16 flags;
->
-> Should not we enforce some sort of definition of how we plan on using
-> the "flags" member here?, if not, we might just as well remove it from
-> this patch set until we actually use it?
+--Sig_/Z/uiD.wEuJTlQbnRKM=mXsF
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-removed in v5
+On Tue, 14 Apr 2015 08:50:01 +0200 Olivier Sobrie <olivier@sobrie.be> wrote:
+
+> Hello Neil,
+>=20
+> On Tue, Apr 14, 2015 at 11:03:03AM +1000, NeilBrown wrote:
+> > On Tue, 14 Apr 2015 09:36:34 +1000 NeilBrown <neilb@suse.de> wrote:
+> >=20
+> > >=20
+> > >=20
+> > > Prior to
+> > > commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
+> > >     hso: fix crash when device disappears while serial port is open
+> > >=20
+> > > hso_serial_open would always kref_get(&serial->parent->ref) before
+> > > returning zero.
+> > > Since that commit, it only calls kref_get when returning 0 if
+> > > serial->port.count was zero.
+> > >=20
+> > > This results in calls to
+> > >        kref_put(&serial->parent->ref, hso_serial_ref_free);
+> > >=20
+> > > after hso_serial_ref_free has been called, which dereferences a freed
+> > > pointer.
+> > >=20
+> > > This patch adds the missing kref_get().
+> > >=20
+> > > Fixes: commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
+> > > Cc: stable@vger.kernel.org (v4.0)
+> > > Cc: Olivier Sobrie <olivier@sobrie.be>
+> > > Signed-off-by: NeilBrown <neilb@suse.de>
+> > >=20
+> > > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> > > index 75befc1bd816..6848fc903340 100644
+> > > --- a/drivers/net/usb/hso.c
+> > > +++ b/drivers/net/usb/hso.c
+> > > @@ -1299,6 +1299,7 @@ static int hso_serial_open(struct tty_struct *t=
+ty, struct file *filp)
+> > >  		}
+> > >  	} else {
+> > >  		D1("Port was already open");
+> > > +		kref_get(&serial->parent->ref);
+> > >  	}
+> > > =20
+> > >  	usb_autopm_put_interface(serial->parent->interface);
+> >=20
+> >=20
+> > Sorry - that was wrong.
+> > I'm getting crashes which strongly suggest the kref_put is being called=
+ extra
+> > times, but I misunderstood the code and was hasty.
+> >=20
+> > Maybe this instead?
+>=20
+> Indeed, if I undestand correctly the code in tty_io.c, cleanup() method
+> is also called when the open fails while kref_get is only done if the
+> open succeeds. Sorry for that mess.
+> I assume you get that crash when hso_start_serial_device() returns
+> an error?
+
+Yes, that's correct.
+
+>=20
+> At first sight, the patch below looks good to me.
+> I'll test it in the next days.
+
+Thanks.
+
+NeilBrown
+
+>=20
+> Thank you,
+>=20
+> Olivier
+>=20
+> >=20
+> > Thanks,
+> > NeilBrown
+> >=20
+> > From: NeilBrown <neil@brown.name>
+> > Date: Tue, 14 Apr 2015 09:33:03 +1000
+> > Subject: [PATCH] hso: fix refcnt leak in recent patch.
+> >=20
+> > Prior to
+> > commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
+> >     hso: fix crash when device disappears while serial port is open
+> >=20
+> > a kref_get on serial->parent->ref would be taken on each open,
+> > and it would be kref_put on each close.
+> >=20
+> > Now the kref_put happens when the tty_struct is finally put (via
+> > the 'cleanup') providing tty->driver_data has been set.
+> > So the kref_get must be called exact once when tty->driver_data is
+> > set.
+> >=20
+> > With the current code, if the first open fails the kref_get() is never
+> > called, but the kref_put() is called, leaving to a crash.
+> >=20
+> > So change the kref_get call to happen exactly when ->driver_data is
+> > changed from NULL to non-NULL.
+> >=20
+> > Fixes: commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
+> > Cc: stable@vger.kernel.org (v4.0)
+> > Cc: Olivier Sobrie <olivier@sobrie.be>
+> > Signed-off-by: NeilBrown <neil@brown.name>
+> >=20
+> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> > index 75befc1bd816..17fd3820263a 100644
+> > --- a/drivers/net/usb/hso.c
+> > +++ b/drivers/net/usb/hso.c
+> > @@ -1278,6 +1278,8 @@ static int hso_serial_open(struct tty_struct *tty=
+, struct file *filp)
+> >  	D1("Opening %d", serial->minor);
+> > =20
+> >  	/* setup */
+> > +	if (tty->driver_data =3D=3D NULL)
+> > +		kref_get(&serial->parent->ref);
+> >  	tty->driver_data =3D serial;
+> >  	tty_port_tty_set(&serial->port, tty);
+> > =20
+> > @@ -1294,8 +1296,6 @@ static int hso_serial_open(struct tty_struct *tty=
+, struct file *filp)
+> >  		if (result) {
+> >  			hso_stop_serial_device(serial->parent);
+> >  			serial->port.count--;
+> > -		} else {
+> > -			kref_get(&serial->parent->ref);
+> >  		}
+> >  	} else {
+> >  		D1("Port was already open");
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+
+--Sig_/Z/uiD.wEuJTlQbnRKM=mXsF
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUBVSzDPznsnt1WYoG5AQLcSA//dFN7CKQ/FmIMy8p3xrNQ6fDVmMvDIq2n
+pnEHRiPW31xbIWifKBHKfel96FIB0X8hehzfNTOmma16Ygz+MgAYLfdZLV2hXKj0
+8K9XsFspl5gFoGGL2p0l80+Z3IZak/02cT9kJ4mzaWSSgVQFRDneX9e1hPofJQZa
+7r1I2peWpAQqqBZYa4q0tn6kUrReRq7rs5YGu3LXIU83YzAj1eGoWJSHEleiLsg5
+OrGEXom+RvQ/a7CBpwCZACK9bG6cuXvoPSrJwOjN9FOX/ln9I5Db1Y5JJvUFnz3T
+nG2wRbokDwsHMBNSD4rx7zHzlLwHauJxRqi9JjrXKsTYqXYIu/uLFPAnbX76mRFb
+5c/HE7Xxw6eGI7oWRfrSY7BL0gUMBeuLGPi3D7l2hFOnA80cfHCDVw5KRoXx1Loz
+tgHtotmV639iV9wXDNXEAyqbKBsT19XLn2moaYD7BRRVXeN4x5vmwl9mSJioPJG/
+Si0RMtwFxxKwJDDxcV3FXL7DiRjeLuAhQkF/Pfj6i/kv+W3+alYU51uVsrTHAE1m
+qKg6X9V9j2ru0eEQVxYBaNQ+OzFsgCKR8Z1E3yIR2LaQe2Ei5ZdOFAdZ3jM+mqcF
+YTdCaZKwo7TBJUosW3PKW/6Sc9ezZv4ypAac3G/3msv55JJIlPq/U4SteQizXpKw
+wXkoRF6eryg=
+=b4zS
+-----END PGP SIGNATURE-----
+
+--Sig_/Z/uiD.wEuJTlQbnRKM=mXsF--
