@@ -1,73 +1,106 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH v6 4/9] bgmac: simplify/optimize rx DMA error handling
-Date: Tue, 14 Apr 2015 11:37:54 +0200
-Message-ID: <CACna6rx_6NRnA4s_b8WspTAm3SichxqQAN5VzK9MgcaKfXVD-w@mail.gmail.com>
-References: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
-	<1428968537-6181-4-git-send-email-nbd@openwrt.org>
-	<CACna6ry7yD4jb2ph1EOvOrmdWiqOU8+yFQKvH0OCS=haH4dUqA@mail.gmail.com>
-	<552CDA4D.6080702@openwrt.org>
-	<CACna6rz-b2TXMPpPdRCiyS45mfZ2pgLRNiCyPpd4XLVDfwfbEA@mail.gmail.com>
-	<552CDD58.5030904@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: Felix Fietkau <nbd@openwrt.org>
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [PATCH v7 8/9] bgmac: fix DMA rx corruption
+Date: Tue, 14 Apr 2015 12:08:01 +0200
+Message-ID: <1429006082-23489-8-git-send-email-nbd@openwrt.org>
+References: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
+Cc: zajec5@gmail.com, hauke@hauke-m.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:36827 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795AbbDNJhy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 05:37:54 -0400
-Received: by igblo3 with SMTP id lo3so68999085igb.1
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 02:37:54 -0700 (PDT)
-In-Reply-To: <552CDD58.5030904@openwrt.org>
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:54948
+	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753290AbbDNKIG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 06:08:06 -0400
+In-Reply-To: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14 April 2015 at 11:26, Felix Fietkau <nbd@openwrt.org> wrote:
-> On 2015-04-14 11:19, Rafa=C5=82 Mi=C5=82ecki wrote:
->> On 14 April 2015 at 11:13, Felix Fietkau <nbd@openwrt.org> wrote:
->>> On 2015-04-14 07:55, Rafa=C5=82 Mi=C5=82ecki wrote:
->>>> On 14 April 2015 at 01:42, Felix Fietkau <nbd@openwrt.org> wrote:
->>>>> @@ -528,14 +524,14 @@ static void bgmac_dma_rx_ring_free(struct b=
-gmac *bgmac,
->>>>>
->>>>>         for (i =3D 0; i < ring->num_slots; i++) {
->>>>>                 slot =3D &ring->slots[i];
->>>>> -               if (!slot->buf)
->>>>> +               if (!slot->dma_addr)
->>>>>                         continue;
->>>>
->>>> I think it breaks error path of bgmac_dma_alloc. It may happen tha=
-t
->>>> during DMA alloc we alloc skb and then we fail to map it. In such =
-case
->>>> buf should be freed. Please trace how bgmac_dma_free is used in
->>>> bgmac_dma_alloc.
->>> I don't think so: bgmac_dma_rx_skb_for_slot handles both buffer
->>> allocation and dma mapping. If dma mapping fails, the buffer is fre=
-ed
->>> before any part of the slot is overwritten.
->>
->> Oops, I think I just spotted a memory leak then.
->>
->> If bgmac_dma_rx_skb_for_slot fails to do DMA mapping it returns an
->> error without freeing a skb.
-> It neither allocates, nor frees an skb - I should probably rename tha=
-t
-> function in a later patch round.
->
-> Allocation does:
->         buf =3D netdev_alloc_frag(BGMAC_RX_ALLOC_SIZE);
->
-> When handling a DMA mapping error, it does this:
->         put_page(virt_to_head_page(buf));
->
-> Where's the memory leak?
+The driver needs to inform the hardware about the first invalid (not yet
+filled) rx slot, by writing its DMA descriptor pointer offset to the
+BGMAC_DMA_RX_INDEX register.
 
-Oooh, sorry. I didn't understand put_page. I just expected direct
-kfree here. It's alright then, sorry.
+This register was set to a value exceeding the rx ring size, effectively
+allowing the hardware constant access to the full ring, regardless of
+which slots are initialized.
 
---=20
-Rafa=C5=82
+To fix this issue, always mark the last filled rx slot as invalid.
+
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 79216d6..29af9e6 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -366,6 +366,16 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
+ 	return 0;
+ }
+ 
++static void bgmac_dma_rx_update_index(struct bgmac *bgmac,
++				      struct bgmac_dma_ring *ring)
++{
++	dma_wmb();
++
++	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
++		    ring->index_base +
++		    ring->end * sizeof(struct bgmac_dma_desc));
++}
++
+ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
+ 				    struct bgmac_dma_ring *ring, int desc_idx)
+ {
+@@ -384,6 +394,8 @@ static void bgmac_dma_rx_setup_desc(struct bgmac *bgmac,
+ 	dma_desc->addr_high = cpu_to_le32(upper_32_bits(ring->slots[desc_idx].dma_addr));
+ 	dma_desc->ctl0 = cpu_to_le32(ctl0);
+ 	dma_desc->ctl1 = cpu_to_le32(ctl1);
++
++	ring->end = desc_idx;
+ }
+ 
+ static void bgmac_dma_rx_poison_buf(struct device *dma_dev,
+@@ -411,9 +423,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 	end_slot &= BGMAC_DMA_RX_STATDPTR;
+ 	end_slot /= sizeof(struct bgmac_dma_desc);
+ 
+-	ring->end = end_slot;
+-
+-	while (ring->start != ring->end) {
++	while (ring->start != end_slot) {
+ 		struct device *dma_dev = bgmac->core->dma_dev;
+ 		struct bgmac_slot_info *slot = &ring->slots[ring->start];
+ 		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
+@@ -476,6 +486,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			break;
+ 	}
+ 
++	bgmac_dma_rx_update_index(bgmac, ring);
++
+ 	return handled;
+ }
+ 
+@@ -695,6 +707,8 @@ static int bgmac_dma_init(struct bgmac *bgmac)
+ 		if (ring->unaligned)
+ 			bgmac_dma_rx_enable(bgmac, ring);
+ 
++		ring->start = 0;
++		ring->end = 0;
+ 		for (j = 0; j < ring->num_slots; j++) {
+ 			err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
+ 			if (err)
+@@ -703,12 +717,7 @@ static int bgmac_dma_init(struct bgmac *bgmac)
+ 			bgmac_dma_rx_setup_desc(bgmac, ring, j);
+ 		}
+ 
+-		bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_RX_INDEX,
+-			    ring->index_base +
+-			    ring->num_slots * sizeof(struct bgmac_dma_desc));
+-
+-		ring->start = 0;
+-		ring->end = 0;
++		bgmac_dma_rx_update_index(bgmac, ring);
+ 	}
+ 
+ 	return 0;
+-- 
+2.2.2
