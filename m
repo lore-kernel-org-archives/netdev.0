@@ -1,42 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Tue, 14 Apr 2015 07:27:29 +0200
-Message-ID: <20150414052729.GA5179@netboy>
-References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
- <20150328082853.GA4255@localhost.localdomain>
- <5519D380.6070200@cogentembedded.com>
- <552C25BE.3070606@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	masaru.nagai.vx@renesas.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <552C25BE.3070606@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+From: Daniel Axtens <dja@axtens.net>
+Subject: [PATCH v2 1/3] toshiba: Remove celleb from Kconfig options
+Date: Tue, 14 Apr 2015 15:28:44 +1000
+Message-ID: <1428989326-7637-1-git-send-email-dja@axtens.net>
+Cc: Daniel Axtens <dja@axtens.net>, netdev@vger.kernel.org,
+	Valentin Rothberg <valentinrothberg@gmail.com>,
+	mpe@ellerman.id.au, linuxppc-dev@lists.ozlabs.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 13, 2015 at 11:23:26PM +0300, Sergei Shtylyov wrote:
-> >>This is a bit hacky.  Can't your driver make sure that the HW is ready?
-> 
-> >    Will look into this. Perhaps it's a remainder from when the PTP driver was
-> >separate...
-> 
->    No, we enter this mode upon closing the Ethernet device and when
-> the ring DMA sizes are changed. Seems unavoidable...
-> 
-> >>>+    if (ravb_read(priv->ndev, CSR) & CSR_OPS_CONFIG)
-> >>>+        return true;
-> >>>+    else
-> >>>+        return false;
+The toshiba drivers had celleb as an optional dependency.
+celleb has been dropped [1], so clean that out of Kconfig.
 
-It is surely avoidable.  The driver knows (or should know) whether or
-not the hardware has been configured or not.
+[1] http://patchwork.ozlabs.org/patch/451730/
 
-Thanks,
-Richard
+CC: netdev@vger.kernel.org
+CC: Valentin Rothberg <valentinrothberg@gmail.com>
+CC: mpe@ellerman.id.au
+CC: linuxppc-dev@lists.ozlabs.org
+Signed-off-by: Daniel Axtens <dja@axtens.net>
+
+---
+v2: get name of ozlab*s*.org right. Sorry all.
+---
+ drivers/net/ethernet/toshiba/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/toshiba/Kconfig b/drivers/net/ethernet/toshiba/Kconfig
+index 74acb5c..5d244b6 100644
+--- a/drivers/net/ethernet/toshiba/Kconfig
++++ b/drivers/net/ethernet/toshiba/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_TOSHIBA
+ 	bool "Toshiba devices"
+ 	default y
+-	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB || MIPS) || PPC_PS3
++	depends on PCI && (PPC_IBM_CELL_BLADE || MIPS) || PPC_PS3
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -42,7 +42,7 @@ config GELIC_WIRELESS
+ 
+ config SPIDER_NET
+ 	tristate "Spider Gigabit Ethernet driver"
+-	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB)
++	depends on PCI && PPC_IBM_CELL_BLADE
+ 	select FW_LOADER
+ 	select SUNGEM_PHY
+ 	---help---
+-- 
+2.1.4
