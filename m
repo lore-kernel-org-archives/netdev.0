@@ -1,53 +1,92 @@
-From: Andreas Oetken <ennoerlangen@googlemail.com>
-Subject: [PATCH 1/1] altera tse: Fix network-delays and -retransmissions after high throughput.
-Date: Tue, 14 Apr 2015 22:25:26 +0200
-Message-ID: <1429043126-10829-1-git-send-email-ennoerlangen@gmail.com>
-Cc: Andreas Oetken <ennoerlangen@gmail.com>,
-	Andreas Oetken <andreas@oetken.name>
-To: Vince Bridgers <vbridger@opensource.altera.com>,
-	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH 2/5] ibmveth: Add support for TSO
+Date: Tue, 14 Apr 2015 15:35:01 -0500
+Message-ID: <1429043704-22552-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
+References: <1429043704-22552-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: linuxppc-dev@lists.ozlabs.org,
+	Brian King <brking@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:34139 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754198AbbDNUZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 16:25:56 -0400
-Received: by wgso17 with SMTP id o17so25079206wgs.1
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 13:25:55 -0700 (PDT)
+Received: from e38.co.us.ibm.com ([32.97.110.159]:42017 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754570AbbDNUfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 16:35:09 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Tue, 14 Apr 2015 14:35:08 -0600
+Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id B1E171FF0025
+	for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 14:26:17 -0600 (MDT)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by b03cxnp07029.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t3EKZ60948300040
+	for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 13:35:06 -0700
+Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t3EKZ6FE014461
+	for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 14:35:06 -0600
+In-Reply-To: <1429043704-22552-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Oetken <andreas@oetken.name>
+Add support for TSO.  TSO is turned off by default and
+must be enabled and configured by the user.  The driver
+version number is increased so that users can be sure
+that they are using ibmveth with TSO support.
 
-Fix bug which occurs when more than <limit> packets are available during napi-poll,
-leading to "delays" and retransmissions on the network.
-
-Check for (count < limit) before checking the get_rx_status in tse_rx-function. get_rx_status is reading from the response-fifo.
-If there is currently a response in the fifo, reading the last byte of the response pops the value from the fifo.
-If the limit is check as second condition and the limit is reached the fifo is popped but the packet is not processed.
-
-Signed-off-by: Andreas Oetken <ennoerlangen@gmail.com>
+Cc: Brian King <brking@linux.vnet.ibm.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/altera/altera_tse_main.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ibm/ibmveth.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
-index 6725dc0..b927b8b 100644
---- a/drivers/net/ethernet/altera/altera_tse_main.c
-+++ b/drivers/net/ethernet/altera/altera_tse_main.c
-@@ -376,8 +376,12 @@ static int tse_rx(struct altera_tse_private *priv, int limit)
- 	u16 pktlength;
- 	u16 pktstatus;
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 0210622..2911a57 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -58,7 +58,7 @@ static struct kobj_type ktype_veth_pool;
  
--	while (((rxstatus = priv->dmaops->get_rx_status(priv)) != 0) &&
--	       (count < limit))  {
-+	/* Check for limit first. get_rx_status is reading the from the
-+	* response-fifo. If there is a currently a response in the fifo,
-+	* reading the last byte of the response pops the value from the fifo.
-+	*/
-+	while ((count < limit) &&
-+		((rxstatus = priv->dmaops->get_rx_status(priv)) != 0)) {
- 		pktstatus = rxstatus >> 16;
- 		pktlength = rxstatus & 0xffff;
+ static const char ibmveth_driver_name[] = "ibmveth";
+ static const char ibmveth_driver_string[] = "IBM Power Virtual Ethernet Driver";
+-#define ibmveth_driver_version "1.04"
++#define ibmveth_driver_version "1.05"
  
+ MODULE_AUTHOR("Santiago Leon <santil@linux.vnet.ibm.com>");
+ MODULE_DESCRIPTION("IBM Power Virtual Ethernet Driver");
+@@ -852,6 +852,10 @@ static int ibmveth_set_features(struct net_device *dev,
+ 	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	int rx_csum = !!(features & NETIF_F_RXCSUM);
+ 	int rc;
++	netdev_features_t changed = features ^ dev->features;
++
++	if (features & NETIF_F_TSO & changed)
++		netdev_info(dev, "TSO feature requires all partitions to have updated driver");
+ 
+ 	if (rx_csum == adapter->rx_csum)
+ 		return 0;
+@@ -1035,6 +1039,14 @@ retry_bounce:
+ 		descs[i+1].fields.address = dma_addr;
+ 	}
+ 
++	if (skb_is_gso(skb) && !skb_is_gso_v6(skb)) {
++		/* Put -1 in the IP checksum to tell phyp it
++		 *  is a largesend packet and put the mss in the TCP checksum.
++		 */
++		ip_hdr(skb)->check = 0xffff;
++		tcp_hdr(skb)->check = cpu_to_be16(skb_shinfo(skb)->gso_size);
++	}
++
+ 	if (ibmveth_send(adapter, descs)) {
+ 		adapter->tx_send_failed++;
+ 		netdev->stats.tx_dropped++;
+@@ -1422,6 +1434,9 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	netdev->features |= netdev->hw_features;
+ 
++	/* TSO is disabled by default */
++	netdev->hw_features |= NETIF_F_TSO;
++
+ 	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
+ 
+ 	if (firmware_has_feature(FW_FEATURE_CMO))
 -- 
-2.1.4
+1.8.3.1
