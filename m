@@ -1,124 +1,120 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v4 19/24] switchdev: add new swdev_port_bridge_getlink
-Date: Tue, 14 Apr 2015 00:59:32 -0700
-Message-ID: <CAE4R7bDBasLS3s7Q8ehgFzfV-mZYCoOgbCm-qpFgkVhoAMe=UA@mail.gmail.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
-	<1428905838-14920-20-git-send-email-sfeldma@gmail.com>
-	<552CA9DF.8060808@cumulusnetworks.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH/RFC net-next 0/4] Allow use of rocker ports without
+ bridging
+Date: Tue, 14 Apr 2015 17:02:15 +0900
+Message-ID: <20150414080212.GA2504@vergenet.net>
+References: <1428907677-27204-1-git-send-email-simon.horman@netronome.com>
+ <CAE4R7bA3hsRBOY9+YZXQ8b-7T_DwgzcrAM=wzYj+cyyWVkbRHQ@mail.gmail.com>
+ <CAE4R7bANSqhUWeYarFmdOLsCbWtRFVW9jwvQufgNEb8OURJdPA@mail.gmail.com>
+ <20150414071146.GA28577@vergenet.net>
+ <CAE4R7bBmhiSCSNu=KhDh+kY7EduLZoeT=yopBUxGaPRQ7sL_qQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
+	"Arad, Ronen" <ronen.arad@intel.com>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:36114 "EHLO
-	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbbDNH7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:59:32 -0400
-Received: by qku63 with SMTP id 63so4426957qku.3
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:59:32 -0700 (PDT)
-In-Reply-To: <552CA9DF.8060808@cumulusnetworks.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34173 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752447AbbDNIC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 04:02:26 -0400
+Received: by pacyx8 with SMTP id yx8so2803317pac.1
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 01:02:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bBmhiSCSNu=KhDh+kY7EduLZoeT=yopBUxGaPRQ7sL_qQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 10:47 PM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 4/12/15, 11:17 PM, sfeldma@gmail.com wrote:
->>
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Like bridge_setlink, add swdev wrapper to handle bridge_getlink and call
->> into
->> port driver to get port attrs.  For now, only BR_LEARNING and
->> BR_LEARNING_SYNC
->> are returned.  To add more, we'll probably want to break away from
->> ndo_dflt_bridge_getlink() and build the netlink skb directly in the swdev
->> code.
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> ---
->>   include/net/switchdev.h   |    9 +++++++++
->>   net/switchdev/switchdev.c |   27 +++++++++++++++++++++++++++
->>   2 files changed, 36 insertions(+)
->>
->> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
->> index 8c9814f..d04322e 100644
->> --- a/include/net/switchdev.h
->> +++ b/include/net/switchdev.h
->> @@ -121,6 +121,8 @@ int swdev_port_attr_get(struct net_device *dev, struct
->> swdev_attr *attr);
->>   int swdev_port_attr_set(struct net_device *dev, struct swdev_attr
->> *attr);
->>   int swdev_port_obj_add(struct net_device *dev, struct swdev_obj *obj);
->>   int swdev_port_obj_del(struct net_device *dev, struct swdev_obj *obj);
->> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->> +                             struct net_device *dev, u32 filter_mask);
->>   int swdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr
->> *nlh,
->>                               u16 flags);
->>   int swdev_port_bridge_dellink(struct net_device *dev, struct nlmsghdr
->> *nlh,
->> @@ -161,6 +163,13 @@ static inline int swdev_port_obj_del(struct
->> net_device *dev,
->>         return -EOPNOTSUPP;
->>   }
->>   +static inline int swdev_port_bridge_getlink(struct sk_buff *skb, u32
->> pid,
->> +                                           u32 seq, struct net_device
->> *dev,
->> +                                           u32 filter_mask)
->> +{
->> +       return -EOPNOTSUPP;
->> +}
->> +
->>   static inline int swdev_port_bridge_setlink(struct net_device *dev,
->>                                             struct nlmsghdr *nlh, u16
->> flags)
->>   {
->> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
->> index ae0ed06..6866e0c 100644
->> --- a/net/switchdev/switchdev.c
->> +++ b/net/switchdev/switchdev.c
->> @@ -371,6 +371,33 @@ int call_netdev_switch_notifiers(unsigned long val,
->> struct net_device *dev,
->>   }
->>   EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
->>   +/**
->> + *     swdev_port_bridge_getlink - Get bridge port attributes
->> + *
->> + *     @dev: port device
->> + *
->> + *     Called for SELF on rtnl_bridge_getlink to get bridge port
->> + *     attributes.
->> + */
->> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->> +                             struct net_device *dev, u32 filter_mask)
->> +{
->> +       struct swdev_attr attr = {
->> +               .id = SWDEV_ATTR_PORT_BRIDGE_FLAGS,
->> +       };
->> +       u16 mode = BRIDGE_MODE_UNDEF;
->> +       u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
->> +       int err;
->> +
->> +       err = swdev_port_attr_get(dev, &attr);
->> +       if (err)
->> +               return err;
->> +
->> +       return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
->> +                                      attr.brport_flags, mask);
->> +}
->> +EXPORT_SYMBOL_GPL(swdev_port_bridge_getlink);
->
->
-> This should ideally get vlans as well because setlink/dellink supports
-> add/del vlans.
-> This can however be an incremental patch. I think this was the point arad
-> was making as well some time back.
+On Tue, Apr 14, 2015 at 12:23:41AM -0700, Scott Feldman wrote:
+> On Tue, Apr 14, 2015 at 12:11 AM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > Hi Scott,
+> >
+> > On Mon, Apr 13, 2015 at 08:43:16AM -0700, Scott Feldman wrote:
+> >> On Mon, Apr 13, 2015 at 7:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
+> >> > On Sun, Apr 12, 2015 at 11:47 PM, Simon Horman
+> >> > <simon.horman@netronome.com> wrote:
+> >> >> Hi,
+> >> >>
+> >> >> this short series attempts to allow rocker ports to be used when they
+> >> >> are not attached to a bridge. It attempts to make use of flow entries
+> >> >> in a rocker switch where appropriate and otherwise forwards packets up
+> >> >> to the kernel for processing.
+> >> >
+> >> > Hi Simon,
+> >> >
+> >> > Unbridged ports should be working now with current driver/device.  I
+> >> > wonder if you have an older qemu rocker device?  Use master branch of
+> >> > https://github.com/scottfeldman/qemu-rocker.git.
+> >
+> > For the record, that is what I am using.
+> >
+> >> > My test setup is to IPv4 ping two hosts from two different ports.
+> >> > Something like:
+> >> >
+> >> > sw1:sw1p1:11.0.0.1/24 <----------------> h1:eth1:11.0.0.2/24
+> >> > sw1:sw1p2:12.0.0.1/24 <----------------> h2:eth1:12.0.0.2/24
+> >> >
+> >> > ARP and ping work fine.  What is your test setup?  I haven't spent a
+> >> > lot of time on unbridged port testing, since major focus has been on
+> >> > offloading bridge L2 and L3.
+> >
+> > My setup is similar if not the same. I used it to test both bridging
+> > and routing.
+> >
+> >> Ah, I think I know why it's not working for you.  You don't have the
+> >> VLAN 8021.q module loaded, do you?  I'm getting these:
+> >>
+> >> [    2.871619] 8021q: 802.1Q VLAN Support v1.8
+> >> [    2.871629] 8021q: adding VLAN 0 to HW filter on device sw1p1
+> >> [    2.872097] 8021q: adding VLAN 0 to HW filter on device sw1p2
+> >>
+> >> Which calls into the driver ndo_vlan ops and sets up untagged access.
+> >
+> > Thanks! There is now one less mystery in my life.
+> >
+> > I had not considered the ndo_vlan ops and with the 802.1q driver present
+> > things seem to work.
+> 
+> Good.  Sorry about the wasted time.  I'm trying to get the
+> Documentation/network/switchdev.txt file updated with notes about
+> setup, so at least we all go the same path, right or wrong.
 
-Ronan (Arad) has this patch ready but he's waiting on my patchset to
-go in before he submits it.
+It wasn't really a waste; I learnt a lot about rocker :)
+
+> >> But, dependence on VLAN 802.1q module is wrong I think, and we'll need
+> >> your patch (I haven't reviewed it yet, but I'm assuming it's doing
+> >> basically what loading what VLAN 802.1q driver forces).
+> >
+> > Yes, I think that is more or less the case.
+> >
+> > One thing that my patches did which does not seem to occur without
+> > them is to cause, or at least try to cause, all packets to
+> > be forwarded to the CPU if the interface is in promiscuous mode.
+> > This seems logical to me.
+> 
+> rocker needs help here for rx filters, for things like IGMP snooping
+> and so on.  promisc is ignored now as you found out.  Maybe after this
+> vlan stuff gets sorted out with mine and Ronan's patchsets, you can
+> look at the rx filters again?  I think we'll need to be more selective
+> with some of the default setups, like the bridge or bond putting port
+> in promisc by default.  Promisc seems dangerous thing to enable on a
+> live switch port.  Firehose in mouth kind of thing.
+
+I agree that it would make sense to try treading carefully in this area
+once your and Ronan's patchsets have landed.
+
+> >> The Spring Cleanup patchset has better setlink/dellink support so
+> >> driver can manage VLANs from bridge driver and moves away from
+> >> ndo_vlan ops used with 802.1q VLAN driver.  Ronan (Cc:d) has a VLAN
+> >> patch that builds on top of my Spring Cleanup patchset  I think the
+> >> order of changes will be to get my Spring Cleanup patchset in and then
+> >> get yours/Ronan's patches in.  And rocker can get away from using
+> >> ndo_vlan ops.
+> >
+> > Sure, that ordering is entirely fine by me.
+> >
+> >> Would you verify that without your patch, and with VLAN 802.1q driver
+> >> loaded, unbridged ports are working?
+> >
+> > As noted above, I have verified that scenario works.
