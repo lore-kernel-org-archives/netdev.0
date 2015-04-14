@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 06/12] net/mlx5_core: Implement get and set functions of ptys register fields
-Date: Tue, 14 Apr 2015 11:20:29 +0300
-Message-ID: <1428999635-15025-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 08/12] net/mlx5_core: Modify CQ moderation parameters
+Date: Tue, 14 Apr 2015 11:20:31 +0300
+Message-ID: <1428999635-15025-9-git-send-email-amirv@mellanox.com>
 References: <1428999635-15025-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
@@ -12,144 +12,66 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:42008 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:41991 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752663AbbDNIVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2015 04:21:32 -0400
+	id S1751664AbbDNIVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2015 04:21:30 -0400
 In-Reply-To: <1428999635-15025-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-
-Preparation for ethernet driver:
-	- PTYS register will be used in ethernet ethtool set/get settings
+From: Rana Shahout <ranas@mellanox.com>
 
 Signed-off-by: Rana Shahout <ranas@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/port.c | 77 ++++++++++++++++++++++++++
- include/linux/mlx5/driver.h                    | 14 +++++
- 2 files changed, 91 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/cq.c | 18 ++++++++++++++++++
+ include/linux/mlx5/cq.h                      |  3 +++
+ 2 files changed, 21 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 49e90f2..6e2d99c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -102,3 +102,80 @@ int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps)
- 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cq.c b/drivers/net/ethernet/mellanox/mlx5/core/cq.c
+index eb0cf81..04ab7e4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cq.c
+@@ -219,6 +219,24 @@ int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
  }
- EXPORT_SYMBOL_GPL(mlx5_set_port_caps);
-+
-+int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
-+			 int ptys_size, int proto_mask)
-+{
-+	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(ptys_reg, in, local_port, 1);
-+	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
-+
-+	err = mlx5_core_access_reg(dev, in, sizeof(in), ptys,
-+				   ptys_size, MLX5_REG_PTYS, 0, 0);
-+
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_ptys);
-+
-+int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
-+			      u32 *proto_cap, int proto_mask)
-+{
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask);
-+	if (err)
-+		return err;
-+
-+	if (proto_mask == MLX5_PTYS_EN)
-+		*proto_cap = MLX5_GET(ptys_reg, out, eth_proto_capability);
-+	else
-+		*proto_cap = MLX5_GET(ptys_reg, out, ib_proto_capability);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_proto_cap);
-+
-+int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
-+				u32 *proto_admin, int proto_mask)
-+{
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask);
-+	if (err)
-+		return err;
-+
-+	if (proto_mask == MLX5_PTYS_EN)
-+		*proto_admin = MLX5_GET(ptys_reg, out, eth_proto_admin);
-+	else
-+		*proto_admin = MLX5_GET(ptys_reg, out, ib_proto_admin);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_proto_admin);
-+
-+int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
-+			int proto_mask)
-+{
-+	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(ptys_reg, in, local_port, 1);
-+	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
-+	if (proto_mask == MLX5_PTYS_EN)
-+		MLX5_SET(ptys_reg, in, eth_proto_admin, proto_admin);
-+	else
-+		MLX5_SET(ptys_reg, in, ib_proto_admin, proto_admin);
-+
-+	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
-+				   sizeof(out), MLX5_REG_PTYS, 0, 1);
-+	return err;
-+}
-+EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 6b91991..266d549 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -504,6 +504,11 @@ enum {
- 	MLX5_COMP_EQ_SIZE = 1024,
- };
+ EXPORT_SYMBOL(mlx5_core_modify_cq);
  
-+enum {
-+	MLX5_PTYS_IB = 1 << 0,
-+	MLX5_PTYS_EN = 1 << 2,
-+};
++int mlx5_core_modify_cq_moderation(struct mlx5_core_dev *dev,
++				   struct mlx5_core_cq *cq,
++				   u16 cq_period,
++				   u16 cq_max_count)
++{
++	struct mlx5_modify_cq_mbox_in in;
 +
- struct mlx5_db_pgdir {
- 	struct list_head	list;
- 	DECLARE_BITMAP(bitmap, MLX5_DB_PER_PAGE);
-@@ -686,7 +691,16 @@ void mlx5_qp_debugfs_cleanup(struct mlx5_core_dev *dev);
- int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
- 			 int size_in, void *data_out, int size_out,
- 			 u16 reg_num, int arg, int write);
++	memset(&in, 0, sizeof(in));
 +
- int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
-+int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
-+			 int ptys_size, int proto_mask);
-+int mlx5_query_port_proto_cap(struct mlx5_core_dev *dev,
-+			      u32 *proto_cap, int proto_mask);
-+int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
-+				u32 *proto_admin, int proto_mask);
-+int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
-+			int proto_mask);
++	in.cqn              = cpu_to_be32(cq->cqn);
++	in.ctx.cq_period    = cpu_to_be16(cq_period);
++	in.ctx.cq_max_count = cpu_to_be16(cq_max_count);
++	in.field_select     = cpu_to_be32(MLX5_CQ_MODIFY_PERIOD |
++					  MLX5_CQ_MODIFY_COUNT);
++
++	return mlx5_core_modify_cq(dev, cq, &in, sizeof(in));
++}
++
+ int mlx5_init_cq_table(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_cq_table *table = &dev->priv.cq_table;
+diff --git a/include/linux/mlx5/cq.h b/include/linux/mlx5/cq.h
+index 2695ced..abc4767 100644
+--- a/include/linux/mlx5/cq.h
++++ b/include/linux/mlx5/cq.h
+@@ -169,6 +169,9 @@ int mlx5_core_query_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
+ 		       struct mlx5_query_cq_mbox_out *out);
+ int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
+ 			struct mlx5_modify_cq_mbox_in *in, int in_sz);
++int mlx5_core_modify_cq_moderation(struct mlx5_core_dev *dev,
++				   struct mlx5_core_cq *cq, u16 cq_period,
++				   u16 cq_max_count);
+ int mlx5_debug_cq_add(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
+ void mlx5_debug_cq_remove(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
  
- int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
 -- 
 1.9.3
