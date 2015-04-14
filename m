@@ -1,142 +1,200 @@
-From: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] hso: fix refcnt leak in recent patch.
-Date: Tue, 14 Apr 2015 08:50:01 +0200
-Message-ID: <20150414065001.GA23791@thinkoso.home>
-References: <20150414093634.4fe24ba3@notabene.brown>
- <20150414110303.66edcfee@notabene.brown>
-Reply-To: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v4 01/24] switchdev: introduce get/set attrs ops
+Date: Tue, 14 Apr 2015 00:02:12 -0700
+Message-ID: <CAE4R7bAJWKxpTTwN+A1fwQgtiVdcKsYvh6e=5TZxLXg=weiv-Q@mail.gmail.com>
+References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
+	<1428905838-14920-2-git-send-email-sfeldma@gmail.com>
+	<20150413104324.GA2090@nanopsycho.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	GTA04 owners <gta04-owner-xXXSsgcRVICgSpxsJD1C4w@public.gmane.org>
-To: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150414110303.66edcfee-wvvUuzkyo1EYVZTmpyfIwg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:34888 "EHLO
+	mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751692AbbDNHCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:02:13 -0400
+Received: by qkhg7 with SMTP id g7so2103904qkh.2
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:02:12 -0700 (PDT)
+In-Reply-To: <20150413104324.GA2090@nanopsycho.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Neil,
+On Mon, Apr 13, 2015 at 3:43 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Mon, Apr 13, 2015 at 08:16:55AM CEST, sfeldma@gmail.com wrote:
+>>From: Scott Feldman <sfeldma@gmail.com>
+>>
+>>Add two new swdev ops for get/set switch port attributes.  Most swdev
+>>interactions on a port are gets or sets on port attributes, so rather than
+>>adding ops for each attribute, let's define clean get/set ops for all
+>>attributes, and then we can have clear, consistent rules on how attributes
+>>propagate on stacked devs.
+>>
+>>Add the basic algorithms for get/set attr ops.  Use the same recusive algo to
+>>walk lower devs we've used for STP updates, for example.  For get, compare attr
+>>value for each lower dev and only return success if attr values match across
+>>all lower devs.  For sets, set the same attr value for all lower devs.  We'll
+>>use a two-phase prepare-commit transaction model for sets.  In the first phase,
+>>the driver(s) are asked if attr set is OK.  If all OK, the commit attr set in
+>>second phase.  A driver would NACK the prepare phase if it can't set the attr
+>>due to lack of resources or support, within it's control.  RTNL lock must be
+>>held across both phases because we'll recurse all lower devs first in prepare
+>>phase, and then recurse all lower devs again in commit phase.  If any lower dev
+>>fails the prepare phase, we need to abort the transaction for all lower devs.
+>>
+>>If lower dev recusion isn't desired, allow a flag SWDEV_F_NO_RECURSE to
+>>indicate get/set only work on port (lowest) device.
+>>
+>>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>
+> ...
+>
+>>+
+>>+struct swdev_attr_set_defer {
+>
+> how about
+> PREFIX_port_attr_set_work ?
+>
+>>+      struct work_struct work;
+>>+      struct net *net;
+>>+      int ifindex;
+>>+      struct swdev_attr attr;
+>>+};
+>>+
+>>+static void swdev_port_attr_set_defer_work(struct work_struct *work)
+>
+> PREFIX_port_attr_set_work ?
 
-On Tue, Apr 14, 2015 at 11:03:03AM +1000, NeilBrown wrote:
-> On Tue, 14 Apr 2015 09:36:34 +1000 NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org> wrote:
-> 
-> > 
-> > 
-> > Prior to
-> > commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-> >     hso: fix crash when device disappears while serial port is open
-> > 
-> > hso_serial_open would always kref_get(&serial->parent->ref) before
-> > returning zero.
-> > Since that commit, it only calls kref_get when returning 0 if
-> > serial->port.count was zero.
-> > 
-> > This results in calls to
-> >        kref_put(&serial->parent->ref, hso_serial_ref_free);
-> > 
-> > after hso_serial_ref_free has been called, which dereferences a freed
-> > pointer.
-> > 
-> > This patch adds the missing kref_get().
-> > 
-> > Fixes: commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-> > Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (v4.0)
-> > Cc: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-> > Signed-off-by: NeilBrown <neilb-l3A5Bk7waGM@public.gmane.org>
-> > 
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index 75befc1bd816..6848fc903340 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -1299,6 +1299,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
-> >  		}
-> >  	} else {
-> >  		D1("Port was already open");
-> > +		kref_get(&serial->parent->ref);
-> >  	}
-> >  
-> >  	usb_autopm_put_interface(serial->parent->interface);
-> 
-> 
-> Sorry - that was wrong.
-> I'm getting crashes which strongly suggest the kref_put is being called extra
-> times, but I misunderstood the code and was hasty.
-> 
-> Maybe this instead?
+done in v5
 
-Indeed, if I undestand correctly the code in tty_io.c, cleanup() method
-is also called when the open fails while kref_get is only done if the
-open succeeds. Sorry for that mess.
-I assume you get that crash when hso_start_serial_device() returns
-an error?
+>>+{
+>>+      struct swdev_attr_set_defer *aw =
+>>+              container_of(work, struct swdev_attr_set_defer, work);
+>>+      struct net_device *dev;
+>>+      int err;
+>>+
+>>+      rtnl_lock();
+>>+      dev = __dev_get_by_index(aw->net, aw->ifindex);
+>>+      if (dev) {
+>>+              err = swdev_port_attr_set(dev, &aw->attr);
+>>+              WARN(err, "%s: Deferred set of attr (id=%d) failed.\n",
+>>+                   dev->name, aw->attr.id);
+>>+      }
+>>+      rtnl_unlock();
+>>+
+>>+      kfree(work);
+>>+}
+>>+
+>>+static int swdev_port_attr_set_defer(struct net_device *dev,
+>>+                                   struct swdev_attr *attr)
+>>+{
+>>+      struct swdev_attr_set_defer *aw;
+>
+> swdev_attr_set_defer and "aw"? How about rather:
+> PREFIX_port_attr_set_work and "asw"?
 
-At first sight, the patch below looks good to me.
-I'll test it in the next days.
+done in v5
 
-Thank you,
+>>+
+>>+      aw = kmalloc(sizeof(*aw), GFP_ATOMIC);
+>>+      if (!aw)
+>>+              return -ENOMEM;
+>>+
+>>+      INIT_WORK(&aw->work, swdev_port_attr_set_defer_work);
+>>+
+>>+      aw->net = dev_net(dev);
+>>+      aw->ifindex = dev->ifindex;
+>>+      memcpy(&aw->attr, attr, sizeof(aw->attr));
+>>+
+>>+      schedule_work(&aw->work);
+>>+
+>>+      return 0;
+>>+}
+>>+
+>>+/**
+>>+ *    swdev_port_attr_set - Set port attribute
+>>+ *
+>>+ *    @dev: port device
+>>+ *    @attr: attribute to set
+>>+ *
+>>+ *    Use a 2-phase prepare-commit transaction model to ensure
+>>+ *    system is not left in a partially updated state due to
+>>+ *    failure from driver/device.
+>>+ *
+>>+ *    rtnl_lock must be held.
+>
+> Not true.
 
-Olivier
-
-> 
-> Thanks,
-> NeilBrown
-> 
-> From: NeilBrown <neil-+NVA1uvv1dVBDLzU/O5InQ@public.gmane.org>
-> Date: Tue, 14 Apr 2015 09:33:03 +1000
-> Subject: [PATCH] hso: fix refcnt leak in recent patch.
-> 
-> Prior to
-> commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
->     hso: fix crash when device disappears while serial port is open
-> 
-> a kref_get on serial->parent->ref would be taken on each open,
-> and it would be kref_put on each close.
-> 
-> Now the kref_put happens when the tty_struct is finally put (via
-> the 'cleanup') providing tty->driver_data has been set.
-> So the kref_get must be called exact once when tty->driver_data is
-> set.
-> 
-> With the current code, if the first open fails the kref_get() is never
-> called, but the kref_put() is called, leaving to a crash.
-> 
-> So change the kref_get call to happen exactly when ->driver_data is
-> changed from NULL to non-NULL.
-> 
-> Fixes: commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (v4.0)
-> Cc: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-> Signed-off-by: NeilBrown <neil-+NVA1uvv1dVBDLzU/O5InQ@public.gmane.org>
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index 75befc1bd816..17fd3820263a 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -1278,6 +1278,8 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
->  	D1("Opening %d", serial->minor);
->  
->  	/* setup */
-> +	if (tty->driver_data == NULL)
-> +		kref_get(&serial->parent->ref);
->  	tty->driver_data = serial;
->  	tty_port_tty_set(&serial->port, tty);
->  
-> @@ -1294,8 +1296,6 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
->  		if (result) {
->  			hso_stop_serial_device(serial->parent);
->  			serial->port.count--;
-> -		} else {
-> -			kref_get(&serial->parent->ref);
->  		}
->  	} else {
->  		D1("Port was already open");
-
+updated comment in v5.
 
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>+ */
+>>+int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr)
+>>+{
+>>+      int err;
+>>+
+>>+      if (!rtnl_is_locked()) {
+>>+              /* Running prepare-commit transaction across stacked
+>>+               * devices requires nothing moves, so if rtnl_lock is
+>>+               * not held, schedule a worker thread to hold rtnl_lock
+>>+               * while setting attr.
+>>+               */
+>>+
+>>+              return swdev_port_attr_set_defer(dev, attr);
+>>+      }
+>>+
+>>+      /* Phase I: prepare for attr set. Driver/device should fail
+>>+       * here if there are going to be issues in the commit phase,
+>>+       * such as lack of resources or support.  The driver/device
+>>+       * should reserve resources needed for the commit phase here,
+>>+       * but should not commit the attr.
+>>+       */
+>>+
+>>+      attr->trans = SWDEV_TRANS_PREPARE;
+>>+      err = __swdev_port_attr_set(dev, attr);
+>
+>
+> Hmm. This looks odd having the type of action as a field in struct. I
+> understand that it remover the code duplication. But how about to make
+> it a param of __swdev_port_attr_set and there, use different ndo for
+> different action? The "switch-case" has to be somewhere, so why don't
+> have it in common code instead of every driver.
+
+You'll end up with duplicate code in driver if using a ndo op for each
+action because prepare and commit actions typically want the same code
+path in the driver.
+
+>
+>
+>
+>>+      if (err) {
+>>+              /* Prepare phase failed: abort the transaction.  Any
+>>+               * resources reserved in the prepare phase are
+>>+               * released.
+>>+               */
+>>+
+>>+              attr->trans = SWDEV_TRANS_ABORT;
+>>+              __swdev_port_attr_set(dev, attr);
+>>+
+>>+              return err;
+>>+      }
+>>+
+>>+      /* Phase II: commit attr set.  This cannot fail as a fault
+>>+       * of driver/device.  If it does, it's a bug in the driver/device
+>>+       * because the driver said everythings was OK in phase I.
+>>+       */
+>>+
+>>+      attr->trans = SWDEV_TRANS_COMMIT;
+>>+      err = __swdev_port_attr_set(dev, attr);
+>>+      WARN(err, "%s: Commit of attr (id=%d) failed.\n", dev->name, attr->id);
+>
+> I would not be afraid to BUG it here...
+
+Do we take down the system when we detect a driver/device bug?  I'll
+change it to BUG_ON(err)
