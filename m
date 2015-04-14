@@ -1,36 +1,78 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] toshiba: Remove celleb from Kconfig options
-Date: Tue, 14 Apr 2015 14:21:47 -0400 (EDT)
-Message-ID: <20150414.142147.460840469991351107.davem@davemloft.net>
-References: <1428989006-5929-1-git-send-email-dja@axtens.net>
+Subject: Re: [PATCH] ip_forward: Drop frames with attached skb->sk
+Date: Tue, 14 Apr 2015 14:23:00 -0400 (EDT)
+Message-ID: <20150414.142300.2298282114892493676.davem@davemloft.net>
+References: <552CB4BC.9000207@windriver.com>
+	<1428993608.6812.24.camel@googlemail.com>
+	<1429012487.7346.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	valentinrothberg@gmail.com, mpe@ellerman.id.au,
-	linuxppc-dev@lists.ozlab.org
-To: dja@axtens.net
+Cc: sebastian.poehn@gmail.com, Yanjun.Zhu@windriver.com,
+	netdev@vger.kernel.org, fw@strlen.de
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36604 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36622 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755121AbbDNSVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:21:50 -0400
-In-Reply-To: <1428989006-5929-1-git-send-email-dja@axtens.net>
+	with ESMTP id S933109AbbDNSXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:23:03 -0400
+In-Reply-To: <1429012487.7346.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Axtens <dja@axtens.net>
-Date: Tue, 14 Apr 2015 15:23:24 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 14 Apr 2015 04:54:47 -0700
 
-> The toshiba drivers had celleb as an optional dependency.
-> celleb has been dropped [1], so clean that out of Kconfig.
+> On Tue, 2015-04-14 at 08:40 +0200, Sebastian Poehn wrote:
+>> On Tue, 2015-04-14 at 14:33 +0800, yzhu1 wrote:
+>> > On 04/14/2015 01:52 PM, Sebastian Poehn wrote:
+>> > > Initial discussion was:
+>> > > [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+>> > >
+>> > > Forwarded frames should not have a socket attached. Especially
+>> > > tw sockets will lead to panics later-on in the stack.
+>> > >
+>> > > This was observed with TPROXY assigning a tw socket and broken
+>> > > policy routing (misconfigured). As a result frame enters
+>> > > forwarding path instead of input. We cannot solve this in
+>> > > TPROXY as it cannot know that policy routing is broken.
+>> > >
+>> > > Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
+>> > > ---
+>> > > diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+>> > > index 939992c..2fc3b3e 100644
+>> > > --- a/net/ipv4/ip_forward.c
+>> > > +++ b/net/ipv4/ip_forward.c
+>> > > @@ -82,6 +82,10 @@ int ip_forward(struct sk_buff *skb)
+>> > >   	if (skb->pkt_type != PACKET_HOST)
+>> > >   		goto drop;
+>> > >   
+>> > > +	/* this should happen neither */
+>> > Sorry. "neither" should be "either"?
+>> 
+>>         /* that should never happen */
+>>         if (skb->pkt_type != PACKET_HOST)
+>>                 goto drop;
+>> 
+>>         /* this should happen neither */
+>>         if (unlikely(skb->sk))
+>>                 goto drop;
+>> 
+>> Both of them should never happen.
 > 
-> [1] http://patchwork.ozlabs.org/patch/451730/
+> I do not feel the comment is useful in this form.
 > 
-> CC: netdev@vger.kernel.org
-> CC: Valentin Rothberg <valentinrothberg@gmail.com>
-> CC: mpe@ellerman.id.au
-> CC: linuxppc-dev@lists.ozlab.org
-> Signed-off-by: Daniel Axtens <dja@axtens.net>
+> I would prefer explicit TPROXY reference, maybe using this :
+> 
+> #if IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY)
+> 	if (skb->sk)
+> 		goto drop;
+> #endif
+> 
+> changelog will precisely describes the problem for the curious readers.
 
-Applied, thanks.
+I suspect we really want this test unconditionally, because we are not able
+to safely operate past this point if skb->sk is NULL regardless of what made
+it that way.
+
+At least, I'll sleep more soundly at night :)
