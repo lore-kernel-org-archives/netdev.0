@@ -1,78 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_forward: Drop frames with attached skb->sk
-Date: Tue, 14 Apr 2015 14:23:00 -0400 (EDT)
-Message-ID: <20150414.142300.2298282114892493676.davem@davemloft.net>
-References: <552CB4BC.9000207@windriver.com>
-	<1428993608.6812.24.camel@googlemail.com>
-	<1429012487.7346.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] bnx2x: Fix netpoll interoperability
+Date: Tue, 14 Apr 2015 11:24:57 -0700
+Message-ID: <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>
+	 ,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>
+	 ,<1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sebastian.poehn@gmail.com, Yanjun.Zhu@windriver.com,
-	netdev@vger.kernel.org, fw@strlen.de
-To: eric.dumazet@gmail.com
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
+	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36622 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933109AbbDNSXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:23:03 -0400
-In-Reply-To: <1429012487.7346.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:36754 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753356AbbDNSY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:24:59 -0400
+Received: by igblo3 with SMTP id lo3so81977096igb.1
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 11:24:58 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 14 Apr 2015 04:54:47 -0700
+On Tue, 2015-04-14 at 18:11 +0000, Yuval Mintz wrote:
+> > I believe the original busypoll yield concern was forgotten or reversed.
+> 
+> > If you have many busypoll users, they might get the 'lock', and the poor
+> > cpu that received the hardware interrupt and raised RX softirq for this
+> > RX queue will spin forever [1]
+> 
+> > busypoll users should backoff and not attempt to grab a lock (especially
+> > if this lock is not a ticket lock anymore) if the softirq handler is
+> > desperately trying to make progress.
+> 
+> > [1]
+> > sofirq handler
+> 
+> >   while (1) {
+> >       if (!bnx2x_fp_lock_napi())
+> >                continue;
+> 
+> bnx2x returns the budget, it doesn't loop in the poll function.
 
-> On Tue, 2015-04-14 at 08:40 +0200, Sebastian Poehn wrote:
->> On Tue, 2015-04-14 at 14:33 +0800, yzhu1 wrote:
->> > On 04/14/2015 01:52 PM, Sebastian Poehn wrote:
->> > > Initial discussion was:
->> > > [FYI] xfrm: Don't lookup sk_policy for timewait sockets
->> > >
->> > > Forwarded frames should not have a socket attached. Especially
->> > > tw sockets will lead to panics later-on in the stack.
->> > >
->> > > This was observed with TPROXY assigning a tw socket and broken
->> > > policy routing (misconfigured). As a result frame enters
->> > > forwarding path instead of input. We cannot solve this in
->> > > TPROXY as it cannot know that policy routing is broken.
->> > >
->> > > Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
->> > > ---
->> > > diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
->> > > index 939992c..2fc3b3e 100644
->> > > --- a/net/ipv4/ip_forward.c
->> > > +++ b/net/ipv4/ip_forward.c
->> > > @@ -82,6 +82,10 @@ int ip_forward(struct sk_buff *skb)
->> > >   	if (skb->pkt_type != PACKET_HOST)
->> > >   		goto drop;
->> > >   
->> > > +	/* this should happen neither */
->> > Sorry. "neither" should be "either"?
->> 
->>         /* that should never happen */
->>         if (skb->pkt_type != PACKET_HOST)
->>                 goto drop;
->> 
->>         /* this should happen neither */
->>         if (unlikely(skb->sk))
->>                 goto drop;
->> 
->> Both of them should never happen.
-> 
-> I do not feel the comment is useful in this form.
-> 
-> I would prefer explicit TPROXY reference, maybe using this :
-> 
-> #if IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY)
-> 	if (skb->sk)
-> 		goto drop;
-> #endif
-> 
-> changelog will precisely describes the problem for the curious readers.
+returning budget literally asks to call again asap.
 
-I suspect we really want this test unconditionally, because we are not able
-to safely operate past this point if skb->sk is NULL regardless of what made
-it that way.
+> [I don't have the napi_poll logic in mind, but I do hope it doesn't iterate
+> repeatedly but rather only on next re-schedule]
 
-At least, I'll sleep more soundly at night :)
+
+I can tell you it loops. Look again at the code.
+
+To break the loop, you have to call napi_complete()
+
+
+
+> >        }
+> >   }
+> 
+> > I can provide an alternative patch if you like.
+> 
+> If you're willing to make the effort, sure.
+
+Yes, will do that shortly.
