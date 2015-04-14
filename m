@@ -1,41 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_forward: Drop frames with attached skb->sk
-Date: Tue, 14 Apr 2015 12:50:45 -0400 (EDT)
-Message-ID: <20150414.125045.1736152567665368862.davem@davemloft.net>
-References: <1428990724.6812.8.camel@googlemail.com>
-	<20150413230714.2cf40794@urahara>
-	<1428992320.6812.20.camel@googlemail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Tue, 14 Apr 2015 19:58:18 +0300
+Message-ID: <552D472A.6080309@cogentembedded.com>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com> <20150328082853.GA4255@localhost.localdomain> <5519D380.6070200@cogentembedded.com> <552C25BE.3070606@cogentembedded.com> <20150414052729.GA5179@netboy> <552CE890.3040103@cogentembedded.com> <20150414163002.GB4309@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org, fw@strlen.de,
-	eric.dumazet@gmail.com
-To: sebastian.poehn@gmail.com
+Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	masaru.nagai.vx@renesas.com
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35795 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932967AbbDNQuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:50:50 -0400
-In-Reply-To: <1428992320.6812.20.camel@googlemail.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:35701 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933002AbbDNQ6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:58:23 -0400
+Received: by labbd9 with SMTP id bd9so13139287lab.2
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 09:58:21 -0700 (PDT)
+In-Reply-To: <20150414163002.GB4309@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Poehn <sebastian.poehn@gmail.com>
-Date: Tue, 14 Apr 2015 08:18:40 +0200
+Hello.
 
-> On Mon, 2015-04-13 at 23:07 -0700, Stephen Hemminger wrote:
->> On Tue, 14 Apr 2015 07:52:04 +0200
->> Sebastian Poehn <sebastian.poehn@gmail.com> wrote:
->> 
->> >  
->> > +	/* this should happen neither */
->> > +	if (unlikely(skb->sk))
->> > +		goto drop;
->> > +
->> 
->> With gcc, all goto's are already treated as unlikely().
-> 
-> Thanks for that recommendation. But before I re-cook: What about Clang
-> and ICC?
+On 04/14/2015 07:30 PM, Richard Cochran wrote:
 
-I think even if this is the case with gcc, it's good documentation.
+>>> It is surely avoidable.  The driver knows (or should know) whether or
+>>> not the hardware has been configured or not.
+
+>>     So you only want to avoid the register read here?
+
+> No, that is not what I mean.  The two callers are gettime and adjtime.
+> Can't you make sure the hardware is ready before you register the
+
+    I tried to explain to you that I can't. We enter the device configuration 
+mode (from the operation mode) when e.g. the *Ethernet* device is closed.
+
+> clock in the first place?  If not, what is purpose of returning EBUSY?
+
+    I'm not sure (remember, I'm not the primary author), perhaps this is to 
+prevent bad time values when the AVB-DMAC in not operational... Nagai-san, 
+could you explain this please?
+
+> Thanks,
+> Richard
+
+WBR, Sergei
