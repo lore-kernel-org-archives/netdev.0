@@ -1,109 +1,41 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net/phy: tune get_phy_c45_ids to support more c45
- phy
-Date: Tue, 14 Apr 2015 10:45:05 -0700
-Message-ID: <552D5221.1030703@gmail.com>
-References: <1429006192-21403-1-git-send-email-Shengzhou.Liu@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH linux-next 3/4] macvlan: fix possible NULL pointer
+ dereference in macvlan_dev_get_iflink
+Date: Tue, 14 Apr 2015 13:47:10 -0400 (EDT)
+Message-ID: <20150414.134710.294383659780001841.davem@davemloft.net>
+References: <1429024817-21561-4-git-send-email-honli@redhat.com>
+	<20150414152626.GJ7874@acer.localdomain>
+	<20150414153239.GA21856@honli.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Shengzhou Liu <Shengzhou.Liu@freescale.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
+Cc: kaber@trash.net, roland@kernel.org, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, alex.estrin@intel.com,
+	dledford@redhat.com, edumazet@google.com, erezsh@mellanox.com,
+	nicolas.dichtel@6wind.com, maheshb@google.com, jbenc@redhat.com,
+	ebiederm@xmission.com, elfring@users.sourceforge.net,
+	f.fainelli@gmail.com, linux@roeck-us.net, andrew@lunn.ch,
+	sfeldma@gmail.com, alexander.h.duyck@intel.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: honli@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429006192-21403-1-git-send-email-Shengzhou.Liu@freescale.com>
+In-Reply-To: <20150414153239.GA21856@honli.nay.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 14/04/15 03:09, Shengzhou Liu wrote:
-> As some C45 10G PHYs(e.g. Cortina CS4315/CS4340 PHY) have
-> zero Devices In package, current driver can't get correct
-> devices_in_package value by non-zero Devices In package.
-> so let's probe more with zero Devices In package to support
-> more C45 PHYs.
+From: Honggang LI <honli@redhat.com>
+Date: Tue, 14 Apr 2015 23:32:39 +0800
 
-I cannot remember exactly how many times this patch has been posted, but
-it still is not clear to me what you are doing here is helping with
-these Cortina PHYs.
-
-Could you post a dump of the mdiobus_read() arguments and values for the
-old code and the new code you are proposing? That way it might be
-clearer what is the goal here?
-
+> On Tue, Apr 14, 2015 at 04:26:27PM +0100, Patrick McHardy wrote:
+>> 
+>> That is completely useless. vlan (=netdev_priv) can not be NULL as
+>> netdev_priv() never returns NULL and vlan->lowerdev is always valid
+>> because a macvlan wouldn't make much sense otherwise.
 > 
-> Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-> ---
-> v2: use MDIO_DEVS1 and MDIO_DEVS2 instead of constant '6', '5'
-> 
->  drivers/net/phy/phy_device.c | 25 +++++++++++++++++++++----
->  1 file changed, 21 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index bdfe51f..c4f836f 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -242,12 +242,29 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
->  			return -EIO;
->  		c45_ids->devices_in_package |= (phy_reg & 0xffff);
->  
-> -		/* If mostly Fs, there is no device there,
-> -		 * let's get out of here.
-> +		/* If mostly Fs, let's continue to probe more
-> +		 * as some c45 PHYs have zero Devices In package,
-> +		 * e.g. Cortina CS4315/CS4340 PHY.
->  		 */
->  		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
-> -			*phy_id = 0xffffffff;
-> -			return 0;
-> +			reg_addr = MII_ADDR_C45 | 0 << 16 | MDIO_DEVS2;
-> +			phy_reg = mdiobus_read(bus, addr, reg_addr);
-> +			if (phy_reg < 0)
-> +				return -EIO;
-> +			c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
-> +			reg_addr = MII_ADDR_C45 | 0 << 16 | MDIO_DEVS1;
-> +			phy_reg = mdiobus_read(bus, addr, reg_addr);
-> +			if (phy_reg < 0)
-> +				return -EIO;
-> +			c45_ids->devices_in_package |= (phy_reg & 0xffff);
-> +			/* If mostly Fs, there is no device there,
-> +			 * let's get out of here.
-> +			 */
-> +			if ((c45_ids->devices_in_package & 0x1fffffff) ==
-> +							0x1fffffff) {
-> +				*phy_id = 0xffffffff;
-> +				return 0;
-> +			}
+> OK, please drop this patch.
 
-Could not we somehow be a bit more clever and utilize the loop, with an
-adjusted i = 0 during this condition? Some something like this (untested):
+That's not how this works.
 
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index bdfe51fc3a65..4bb3d3084db1 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -230,6 +230,7 @@ static int get_phy_c45_ids(struct mii_bus *bus, int
-addr, u32 *phy_id,
-        for (i = 1;
-             i < num_ids && c45_ids->devices_in_package == 0;
-             i++) {
-+again:
-                reg_addr = MII_ADDR_C45 | i << 16 | MDIO_DEVS2;
-                phy_reg = mdiobus_read(bus, addr, reg_addr);
-                if (phy_reg < 0)
-@@ -246,6 +247,11 @@ static int get_phy_c45_ids(struct mii_bus *bus, int
-addr, u32 *phy_id,
-                 * let's get out of here.
-                 */
-                if ((c45_ids->devices_in_package & 0x1fffffff) ==
-0x1fffffff) {
-+                       if (i == num_ids) {
-+                               i = 0;
-+                               goto again;
-+                       }
-+
-                        *phy_id = 0xffffffff;
-                        return 0;
-                }
--- 
-Florian
+When a patch series needs any chnages, you must make a fresh, new
+complete submission of the entire patch series.
