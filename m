@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 22/25] fm10k: reset head instead of calling update_max_size
-Date: Tue, 14 Apr 2015 16:51:08 -0700
-Message-ID: <1429055471-401-23-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 19/25] fm10k: start service timer on probe
+Date: Tue, 14 Apr 2015 16:51:05 -0700
+Message-ID: <1429055471-401-20-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1429055471-401-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,63 +10,65 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:51346 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755079AbbDNXv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2015 19:51:29 -0400
+	id S1751200AbbDNXv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2015 19:51:26 -0400
 In-Reply-To: <1429055471-401-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we forcefully shutdown the mailbox, we then go about resetting max
-size to 0, and clearing all messages in the FIFO. Instead, we should
-just reset the head pointer so that the FIFO becomes empty, rather than
-changing the max size to 0. This helps prevent increment in tx_dropped
-counter during mailbox negotiation, which is confusing to viewers of
-Linux ethtool statistics output.
+Since the service task handles varying work that doesn't all require the
+interface to be up, launch the service timer immediately. This ensures
+that we continually check the mailbox, as well as handle other tasks
+while the device is down.
 
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Acked-by: Matthew Vick <matthew.vick@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_mbx.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-index e9ecfb4..27f8279 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_mbx.c
-@@ -126,6 +126,18 @@ static u16 fm10k_fifo_head_drop(struct fm10k_mbx_fifo *fifo)
- }
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 32e99eb..df9fda3 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -1511,7 +1511,7 @@ void fm10k_up(struct fm10k_intfc *interface)
+ 	/* enable transmits */
+ 	netif_tx_start_all_queues(interface->netdev);
  
- /**
-+ *  fm10k_fifo_drop_all - Drop all messages in FIFO
-+ *  @fifo: pointer to FIFO
-+ *
-+ *  This function resets the head pointer to drop all messages in the FIFO,
-+ *  and ensure the FIFO is empty.
-+ **/
-+static void fm10k_fifo_drop_all(struct fm10k_mbx_fifo *fifo)
-+{
-+	fifo->head = fifo->tail;
-+}
+-	/* kick off the service timer */
++	/* kick off the service timer now */
+ 	hw->mac.get_host_state = 1;
+ 	mod_timer(&interface->service_timer, jiffies);
+ }
+@@ -1551,8 +1551,6 @@ void fm10k_down(struct fm10k_intfc *interface)
+ 	/* disable polling routines */
+ 	fm10k_napi_disable_all(interface);
+ 
+-	del_timer_sync(&interface->service_timer);
+-
+ 	/* capture stats one last time before stopping interface */
+ 	fm10k_update_stats(interface);
+ 
+@@ -1678,6 +1676,9 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 		    (unsigned long)interface);
+ 	INIT_WORK(&interface->service_task, fm10k_service_task);
+ 
++	/* kick off service timer now, even when interface is down */
++	mod_timer(&interface->service_timer, (HZ * 2) + jiffies);
 +
-+/**
-  *  fm10k_mbx_index_len - Convert a head/tail index into a length value
-  *  @mbx: pointer to mailbox
-  *  @head: head index
-@@ -1370,9 +1382,11 @@ static void fm10k_mbx_disconnect(struct fm10k_hw *hw,
- 		timeout -= FM10K_MBX_POLL_DELAY;
- 	} while ((timeout > 0) && (mbx->state != FM10K_STATE_CLOSED));
+ 	/* Intitialize timestamp data */
+ 	fm10k_ts_init(interface);
  
--	/* in case we didn't close just force the mailbox into shutdown */
-+	/* in case we didn't close, just force the mailbox into shutdown and
-+	 * drop all left over messages in the FIFO.
-+	 */
- 	fm10k_mbx_connect_reset(mbx);
--	fm10k_mbx_update_max_size(mbx, 0);
-+	fm10k_fifo_drop_all(&mbx->tx);
+@@ -1894,6 +1895,8 @@ static void fm10k_remove(struct pci_dev *pdev)
+ 	struct fm10k_intfc *interface = pci_get_drvdata(pdev);
+ 	struct net_device *netdev = interface->netdev;
  
- 	fm10k_write_reg(hw, mbx->mbmem_reg, 0);
- }
++	del_timer_sync(&interface->service_timer);
++
+ 	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
+ 	cancel_work_sync(&interface->service_task);
+ 
 -- 
 1.9.3
