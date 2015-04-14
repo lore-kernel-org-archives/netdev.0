@@ -1,41 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 15/17] switch kernel_sendmsg() and kernel_recvmsg() to
- iov_iter_kvec()
-Date: Tue, 14 Apr 2015 16:36:36 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1DE00@AcuExch.aculab.com>
-References: <20150411211742.GJ889@ZenIV.linux.org.uk>
- <1428787108-13650-15-git-send-email-viro@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CB1DD9D@AcuExch.aculab.com>
- <20150414163403.GY889@ZenIV.linux.org.uk>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH linux-next 1/4] infiniband/ipoib: fix possible NULL pointer
+ dereference in ipoib_get_iflink
+Date: Tue, 14 Apr 2015 18:44:11 +0200
+Message-ID: <552D43DB.5070403@6wind.com>
+References: <1429024817-21561-1-git-send-email-honli@redhat.com>	 <1429024817-21561-2-git-send-email-honli@redhat.com>	 <1429025673.7346.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <20150414154422.GB21856@honli.nay.redhat.com> <552D3723.9050706@6wind.com> <1429027293.4333.5.camel@opteya.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Al Viro' <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:56024 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754423AbbDNQic convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:38:32 -0400
-In-Reply-To: <20150414163403.GY889@ZenIV.linux.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1429027293.4333.5.camel-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Al Viro 
-> Sent: 14 April 2015 17:34
-> On Tue, Apr 14, 2015 at 04:21:02PM +0000, David Laight wrote:
-> 
-> > Massive NAK.
-> > This breaks any code that is using msg_control to set SCTP parameters
-> > when sending data.
-> 
-> 	Huh?  ->sendmsg() expects ->msg_control already in kernel space;
-> it's ->recvmsg() that plays silly buggers with userland pointers there.
-
-I read your commit message as implying that you hadn't found any
-users of kernel_sendmsg() that used msg_control.
-Not that the data was always read from kernel space.
-
-	David
+Le 14/04/2015 18:01, Yann Droneaud a =C3=A9crit :
+[snip]
+>> Here is the tag:
+>> Fixes: 5aa7add8f14b ("infiniband/ipoib: implement ndo_get_iflink")
+>>
+>
+> Pardon me, but this patch was never submitted to
+> linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org for review !?
+Sorry for that, I missed it. Only Roland Dreier was CCed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
