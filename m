@@ -1,50 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [stable regression] tcp: make connect() mem charging friendly
-Date: Tue, 14 Apr 2015 05:19:56 -0700
-Message-ID: <1429013996.7346.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1428996723.3211.34.camel@decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, stable <stable@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, 782515@bugs.debian.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1428996723.3211.34.camel@decadent.org.uk>
-Sender: stable-owner@vger.kernel.org
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: [PATCH] netns: deinline net_generic()
+Date: Tue, 14 Apr 2015 14:25:11 +0200
+Message-ID: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>
+Cc: Denys Vlasenko <dvlasenk@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-04-14 at 08:32 +0100, Ben Hutchings wrote:
-> Commit 355a901e6cf1b2b763ec85caa2a9f04fbcc4ab4a ("tcp: make connect()
-> mem charging friendly") was backported to various stable branches:
-> 
-> v3.10.73: e64a85197b3f tcp: make connect() mem charging friendly
-> v3.12.40: d06381e8aac5 tcp: make connect() mem charging friendly
-> v3.14.37: 5a8e8f482b4a tcp: make connect() mem charging friendly
-> v3.18.11: e8f117f002ca tcp: make connect() mem charging friendly
-> v3.13.11-ckt19: de023863df9d tcp: make connect() mem charging friendly
-> v3.16.7-ckt9: bea5f6ef9fcb tcp: make connect() mem charging friendly
-> 
-> On the 3.16 branch, this has resulted in a regression for TCP Fast Open:
-> <https://bugs.debian.org/782515>.  The BUG() at the top of
-> tcp_transmit_skb() fires as tcp_skb_pcount(skb) == 0.
-> 
-> tcp_send_syn_data() does:
-> 
-> 	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
-> 
-> Since commit cd7d8498c9a5 ("tcp: change tcp_skb_pcount() location") this
-> is sufficient to set the GSO segment count correctly.  But in older
-> branches (< 3.18) the GSO segment count in skb_shared_info is used and
-> is no longer copied by tcp_send_syn_data().
-> 
-> All the versions listed above, except v3.18.11, appear to have suffered
-> this regression.
-> 
-> Ben.
-> 
+On x86 allyesconfig build:
+The function compiles to 130 bytes of machine code.
+It has 493 callsites.
+Total reduction of vmlinux size: 27906 bytes.
 
-Hi Ben
+   text	     data      bss       dec     hex filename
+82447071 22255384 20627456 125329911 77861f7 vmlinux4
+82419165 22255384 20627456 125302005 777f4f5 vmlinux5
 
-Sorry to ear that. Have you already fixed this, or are you asking for
-help ?
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Jan Engelhardt <jengelh@medozas.de>
+CC: Jiri Pirko <jpirko@redhat.com>
+CC: linux-kernel@vger.kernel.org
+CC: netdev@vger.kernel.org
+---
+ include/net/netns/generic.h | 15 +--------------
+ net/core/net_namespace.c    | 16 ++++++++++++++++
+ 2 files changed, 17 insertions(+), 14 deletions(-)
+
+diff --git a/include/net/netns/generic.h b/include/net/netns/generic.h
+index 0931618..61a33bf 100644
+--- a/include/net/netns/generic.h
++++ b/include/net/netns/generic.h
+@@ -31,18 +31,5 @@ struct net_generic {
+ 	void *ptr[0];
+ };
+ 
+-static inline void *net_generic(const struct net *net, int id)
+-{
+-	struct net_generic *ng;
+-	void *ptr;
+-
+-	rcu_read_lock();
+-	ng = rcu_dereference(net->gen);
+-	BUG_ON(id == 0 || id > ng->len);
+-	ptr = ng->ptr[id - 1];
+-	rcu_read_unlock();
+-
+-	BUG_ON(!ptr);
+-	return ptr;
+-}
++void *net_generic(const struct net *net, int id);
+ #endif
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index cb5290b..66c9ba1 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -42,6 +42,22 @@ EXPORT_SYMBOL(init_net);
+ 
+ static unsigned int max_gen_ptrs = INITIAL_NET_GEN_PTRS;
+ 
++void *net_generic(const struct net *net, int id)
++{
++	struct net_generic *ng;
++	void *ptr;
++
++	rcu_read_lock();
++	ng = rcu_dereference(net->gen);
++	BUG_ON(id == 0 || id > ng->len);
++	ptr = ng->ptr[id - 1];
++	rcu_read_unlock();
++
++	BUG_ON(!ptr);
++	return ptr;
++}
++EXPORT_SYMBOL(net_generic);
++
+ static struct net_generic *net_alloc_generic(void)
+ {
+ 	struct net_generic *ng;
+-- 
+1.8.1.4
