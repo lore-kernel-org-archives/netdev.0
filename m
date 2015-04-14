@@ -1,107 +1,38 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v6 2/9] bgmac: leave interrupts disabled as long as there is work to do
-Date: Tue, 14 Apr 2015 01:42:10 +0200
-Message-ID: <1428968537-6181-2-git-send-email-nbd@openwrt.org>
-References: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
-Cc: zajec5@gmail.com, hauke@hauke-m.de
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 4/9] bgmac: simplify rx DMA error handling
+Date: Mon, 13 Apr 2015 20:04:08 -0400 (EDT)
+Message-ID: <20150413.200408.109329017927025696.davem@davemloft.net>
+References: <1428946067-75650-1-git-send-email-nbd@openwrt.org>
+	<1428946067-75650-4-git-send-email-nbd@openwrt.org>
+	<20150413232040.GA30799@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nbd@openwrt.org, netdev@vger.kernel.org, zajec5@gmail.com,
+	hauke@hauke-m.de
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:53106
-	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751956AbbDMXmV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 19:42:21 -0400
-In-Reply-To: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55418 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751575AbbDNAEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Apr 2015 20:04:12 -0400
+In-Reply-To: <20150413232040.GA30799@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Always poll rx and tx during NAPI poll instead of relying on the status
-of the first interrupt. This prevents bgmac_poll from leaving unfinished
-work around until the next IRQ.
-In my tests this makes bridging/routing throughput under heavy load more
-stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
-the entire budget.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 14 Apr 2015 01:20:40 +0200
 
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
----
- drivers/net/ethernet/broadcom/bgmac.c | 31 ++++++++++---------------------
- drivers/net/ethernet/broadcom/bgmac.h |  1 -
- 2 files changed, 10 insertions(+), 22 deletions(-)
+> Felix Fietkau <nbd@openwrt.org> :
+>> Unmap the DMA buffer before checking it. If an error occurs, free the
+>> buffer and allocate a new one. If allocation or mapping fails, retry as
+>> long as there is NAPI poll budget left (count every attempt instead of
+>> every frame).
+> 
+> The driver is not supposed to use the NAPI budget this way.
+> 
+> If the driver can't reserve resources to handle the packet, it should
+> drop the data, keep everything in place for the hardware and move to the
+> next slot.
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 73374b4..30464d0 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1105,8 +1105,6 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
- 	bgmac_phy_init(bgmac);
- 
- 	netdev_reset_queue(bgmac->net_dev);
--
--	bgmac->int_status = 0;
- }
- 
- static void bgmac_chip_intrs_on(struct bgmac *bgmac)
-@@ -1221,14 +1219,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
- 	if (!int_status)
- 		return IRQ_NONE;
- 
--	/* Ack */
--	bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
-+	int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
-+	if (int_status)
-+		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
- 
- 	/* Disable new interrupts until handling existing ones */
- 	bgmac_chip_intrs_off(bgmac);
- 
--	bgmac->int_status = int_status;
--
- 	napi_schedule(&bgmac->napi);
- 
- 	return IRQ_HANDLED;
-@@ -1237,25 +1234,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
- static int bgmac_poll(struct napi_struct *napi, int weight)
- {
- 	struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
--	struct bgmac_dma_ring *ring;
- 	int handled = 0;
- 
--	if (bgmac->int_status & BGMAC_IS_TX0) {
--		ring = &bgmac->tx_ring[0];
--		bgmac_dma_tx_free(bgmac, ring);
--		bgmac->int_status &= ~BGMAC_IS_TX0;
--	}
-+	/* Ack */
-+	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
- 
--	if (bgmac->int_status & BGMAC_IS_RX) {
--		ring = &bgmac->rx_ring[0];
--		handled += bgmac_dma_rx_read(bgmac, ring, weight);
--		bgmac->int_status &= ~BGMAC_IS_RX;
--	}
-+	bgmac_dma_tx_free(bgmac, &bgmac->tx_ring[0]);
-+	handled += bgmac_dma_rx_read(bgmac, &bgmac->rx_ring[0], weight);
- 
--	if (bgmac->int_status) {
--		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", bgmac->int_status);
--		bgmac->int_status = 0;
--	}
-+	/* Poll again if more events arrived in the meantime */
-+	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
-+		return handled;
- 
- 	if (handled < weight) {
- 		napi_complete(napi);
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index 5a198d5..abd50d1 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -452,7 +452,6 @@ struct bgmac {
- 
- 	/* Int */
- 	u32 int_mask;
--	u32 int_status;
- 
- 	/* Current MAC state */
- 	int mac_speed;
--- 
-2.2.2
++1
