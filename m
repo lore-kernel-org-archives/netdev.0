@@ -1,98 +1,163 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next 0/4] Allow use of rocker ports without
- bridging
-Date: Tue, 14 Apr 2015 16:11:49 +0900
-Message-ID: <20150414071146.GA28577@vergenet.net>
-References: <1428907677-27204-1-git-send-email-simon.horman@netronome.com>
- <CAE4R7bA3hsRBOY9+YZXQ8b-7T_DwgzcrAM=wzYj+cyyWVkbRHQ@mail.gmail.com>
- <CAE4R7bANSqhUWeYarFmdOLsCbWtRFVW9jwvQufgNEb8OURJdPA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4vf: Implement mailbox access locking and list management
+Date: Tue, 14 Apr 2015 18:00:45 +0530
+Message-ID: <1429014645-20361-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35575 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751465AbbDNHL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:11:59 -0400
-Received: by pabtp1 with SMTP id tp1so1507334pab.2
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:11:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bANSqhUWeYarFmdOLsCbWtRFVW9jwvQufgNEb8OURJdPA@mail.gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:23192 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751559AbbDNHSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:18:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Scott,
+Implement queue mechanism using list for avoiding concurrent access to mailbox
+and provide fair access to mailbox for all commands being executed
 
-On Mon, Apr 13, 2015 at 08:43:16AM -0700, Scott Feldman wrote:
-> On Mon, Apr 13, 2015 at 7:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
-> > On Sun, Apr 12, 2015 at 11:47 PM, Simon Horman
-> > <simon.horman@netronome.com> wrote:
-> >> Hi,
-> >>
-> >> this short series attempts to allow rocker ports to be used when they
-> >> are not attached to a bridge. It attempts to make use of flow entries
-> >> in a rocker switch where appropriate and otherwise forwards packets up
-> >> to the kernel for processing.
-> >
-> > Hi Simon,
-> >
-> > Unbridged ports should be working now with current driver/device.  I
-> > wonder if you have an older qemu rocker device?  Use master branch of
-> > https://github.com/scottfeldman/qemu-rocker.git.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |  8 ++++
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |  3 ++
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     | 56 +++++++++++++++++++++-
+ 3 files changed, 66 insertions(+), 1 deletion(-)
 
-For the record, that is what I am using.
-
-> > My test setup is to IPv4 ping two hosts from two different ports.
-> > Something like:
-> >
-> > sw1:sw1p1:11.0.0.1/24 <----------------> h1:eth1:11.0.0.2/24
-> > sw1:sw1p2:12.0.0.1/24 <----------------> h2:eth1:12.0.0.2/24
-> >
-> > ARP and ping work fine.  What is your test setup?  I haven't spent a
-> > lot of time on unbridged port testing, since major focus has been on
-> > offloading bridge L2 and L3.
-
-My setup is similar if not the same. I used it to test both bridging
-and routing.
-
-> Ah, I think I know why it's not working for you.  You don't have the
-> VLAN 8021.q module loaded, do you?  I'm getting these:
-> 
-> [    2.871619] 8021q: 802.1Q VLAN Support v1.8
-> [    2.871629] 8021q: adding VLAN 0 to HW filter on device sw1p1
-> [    2.872097] 8021q: adding VLAN 0 to HW filter on device sw1p2
-> 
-> Which calls into the driver ndo_vlan ops and sets up untagged access.
-
-Thanks! There is now one less mystery in my life.
-
-I had not considered the ndo_vlan ops and with the 802.1q driver present
-things seem to work.
-
-> But, dependence on VLAN 802.1q module is wrong I think, and we'll need
-> your patch (I haven't reviewed it yet, but I'm assuming it's doing
-> basically what loading what VLAN 802.1q driver forces).
-
-Yes, I think that is more or less the case.
-
-One thing that my patches did which does not seem to occur without
-them is to cause, or at least try to cause, all packets to
-be forwarded to the CPU if the interface is in promiscuous mode.
-This seems logical to me.
-
-> The Spring Cleanup patchset has better setlink/dellink support so
-> driver can manage VLANs from bridge driver and moves away from
-> ndo_vlan ops used with 802.1q VLAN driver.  Ronan (Cc:d) has a VLAN
-> patch that builds on top of my Spring Cleanup patchset  I think the
-> order of changes will be to get my Spring Cleanup patchset in and then
-> get yours/Ronan's patches in.  And rocker can get away from using
-> ndo_vlan ops.
-
-Sure, that ordering is entirely fine by me.
-
-> Would you verify that without your patch, and with VLAN 802.1q driver
-> loaded, unbridged ports are working?
-
-As noted above, I have verified that scenario works.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+index 6049f70..15d9440 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+@@ -348,6 +348,10 @@ struct sge {
+ #define for_each_ethrxq(sge, iter) \
+ 	for (iter = 0; iter < (sge)->ethqsets; iter++)
+ 
++struct mbox_list {
++	struct list_head list;
++};
++
+ /*
+  * Per-"adapter" (Virtual Function) information.
+  */
+@@ -381,6 +385,10 @@ struct adapter {
+ 
+ 	/* various locks */
+ 	spinlock_t stats_lock;
++
++	/* support for single-threading access to adapter mailbox registers */
++	spinlock_t mbox_lock;
++	struct mbox_list mlist;
+ };
+ 
+ enum { /* adapter flags */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 122e296..6ca1540 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2680,6 +2680,9 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+ 	 */
+ 	spin_lock_init(&adapter->stats_lock);
+ 
++	spin_lock_init(&adapter->mbox_lock);
++	INIT_LIST_HEAD(&adapter->mlist.list);
++
+ 	/*
+ 	 * Map our I/O registers in BAR0.
+ 	 */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index 280b4a2..fb4c135 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -125,6 +125,7 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 	const __be64 *p;
+ 	u32 mbox_data = T4VF_MBDATA_BASE_ADDR;
+ 	u32 mbox_ctl = T4VF_CIM_BASE_ADDR + CIM_VF_EXT_MAILBOX_CTRL;
++	struct mbox_list entry;
+ 
+ 	/*
+ 	 * Commands must be multiples of 16 bytes in length and may not be
+@@ -134,6 +135,49 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 	    size > NUM_CIM_VF_MAILBOX_DATA_INSTANCES * 4)
+ 		return -EINVAL;
+ 
++	/* Queue ourselves onto the mailbox access list.  When our entry is at
++	 * the front of the list, we have rights to access the mailbox.  So we
++	 * wait [for a while] till we're at the front [or bail out with an
++	 * EBUSY] ...
++	 */
++	spin_lock(&adapter->mbox_lock);
++	list_add_tail(&entry.list, &adapter->mlist.list);
++	spin_unlock(&adapter->mbox_lock);
++
++	delay_idx = 0;
++	ms = delay[0];
++
++	for (i = 0; ; i += ms) {
++		/* If we've waited too long, return a busy indication.  This
++		 * really ought to be based on our initial position in the
++		 * mailbox access list but this is a start.  We very rarely
++		 * contend on access to the mailbox ...
++		 */
++		if (i > 4 * FW_CMD_MAX_TIMEOUT) {
++			spin_lock(&adapter->mbox_lock);
++			list_del(&entry.list);
++			spin_unlock(&adapter->mbox_lock);
++			return -EBUSY;
++		}
++
++		/* If we're at the head, break out and start the mailbox
++		 * protocol.
++		 */
++		if (list_first_entry(&adapter->mlist.list,
++				     struct mbox_list, list) == &entry)
++			break;
++
++		/* Delay for a bit before checking again ...*/
++		if (sleep_ok) {
++			ms = delay[delay_idx];  /* last element may repeat */
++			if (delay_idx < ARRAY_SIZE(delay) - 1)
++				delay_idx++;
++			msleep(ms);
++		} else {
++			mdelay(ms);
++		}
++	}
++
+ 	/*
+ 	 * Loop trying to get ownership of the mailbox.  Return an error
+ 	 * if we can't gain ownership.
+@@ -141,8 +185,12 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 	v = MBOWNER_G(t4_read_reg(adapter, mbox_ctl));
+ 	for (i = 0; v == MBOX_OWNER_NONE && i < 3; i++)
+ 		v = MBOWNER_G(t4_read_reg(adapter, mbox_ctl));
+-	if (v != MBOX_OWNER_DRV)
++	if (v != MBOX_OWNER_DRV) {
++		spin_lock(&adapter->mbox_lock);
++		list_del(&entry.list);
++		spin_unlock(&adapter->mbox_lock);
+ 		return v == MBOX_OWNER_FW ? -EBUSY : -ETIMEDOUT;
++	}
+ 
+ 	/*
+ 	 * Write the command array into the Mailbox Data register array and
+@@ -218,6 +266,9 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 			}
+ 			t4_write_reg(adapter, mbox_ctl,
+ 				     MBOWNER_V(MBOX_OWNER_NONE));
++			spin_lock(&adapter->mbox_lock);
++			list_del(&entry.list);
++			spin_unlock(&adapter->mbox_lock);
+ 			return -FW_CMD_RETVAL_G(v);
+ 		}
+ 	}
+@@ -226,6 +277,9 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 	 * We timed out.  Return the error ...
+ 	 */
+ 	dump_mbox(adapter, "FW Timeout", mbox_data);
++	spin_lock(&adapter->mbox_lock);
++	list_del(&entry.list);
++	spin_unlock(&adapter->mbox_lock);
+ 	return -ETIMEDOUT;
+ }
+ 
+-- 
+2.3.4
