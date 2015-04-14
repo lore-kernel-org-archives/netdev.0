@@ -1,29 +1,44 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net-next] fou: avoid missing unlock in failure path
-Date: Tue, 14 Apr 2015 11:25:35 -0700
-Message-ID: <CAHA+R7NH_xUS99L62K68ZF+_=7MWNJ3aC_MS_mfQmEQuRWKvRA@mail.gmail.com>
-References: <1429029150-31710-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1429030869.7346.41.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 03/17] fs: don't allow to complete sync iocbs through
+ aio_complete
+Date: Tue, 14 Apr 2015 19:26:33 +0100
+Message-ID: <20150414182633.GD889@ZenIV.linux.org.uk>
+References: <20150411211742.GJ889@ZenIV.linux.org.uk>
+ <1428787108-13650-3-git-send-email-viro@ZenIV.linux.org.uk>
+ <552D55D1.2000908@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:34667 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753356AbbDNSZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:25:37 -0400
-Received: by widjs5 with SMTP id js5so94683186wid.1
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 11:25:35 -0700 (PDT)
-In-Reply-To: <1429030869.7346.41.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-crypto@vger.kernel.org
+To: Tadeusz Struk <tadeusz.struk@intel.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <552D55D1.2000908@intel.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 14, 2015 at 10:01 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> When was this bug added ?
+On Tue, Apr 14, 2015 at 11:00:49AM -0700, Tadeusz Struk wrote:
+> On 04/11/2015 02:18 PM, Al Viro wrote:
+> > @@ -766,8 +765,7 @@ int sock_recvmsg(struct socket *sock, struct msghdr *msg,
+> >  
+> >  	init_sync_kiocb(&iocb, NULL);
+> >  	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
+> > -	if (-EIOCBQUEUED == ret)
+> > -		ret = wait_on_sync_kiocb(&iocb);
+> > +	BUG_ON(ret == -EIOCBQUEUED);
+> 
+> NACK - PF_ALG type sockets support async operations and return -EIOCBQUEUED
+> See skcipher_recvmsg_async() in crypto/algif_skcipher.c in net-next
 
-Fixes: 7a6c8c34e5b7 ("fou: implement FOU_CMD_GET")
+Its only caller is
+
+static int skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
+                            size_t ignored, int flags)
+{
+        return (msg->msg_iocb && !is_sync_kiocb(msg->msg_iocb)) ?
+                skcipher_recvmsg_async(sock, msg, flags) :
+                skcipher_recvmsg_sync(sock, msg, flags);
+}
+
+Note that !is_sync_kiocb() in there.  Compare with init_sync_kiocb() in
+sock_recvmsg()...
