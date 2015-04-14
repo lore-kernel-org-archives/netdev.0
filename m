@@ -1,7 +1,7 @@
 From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH net-next v4 3/6] mpls: Per-device enabling of packet input
-Date: Tue, 14 Apr 2015 23:45:00 +0100
-Message-ID: <1429051503-31287-4-git-send-email-rshearma@brocade.com>
+Subject: [PATCH net-next v4 5/6] mpls: Differentiate implicit-null and unlabeled neighbours
+Date: Tue, 14 Apr 2015 23:45:02 +0100
+Message-ID: <1429051503-31287-6-git-send-email-rshearma@brocade.com>
 References: <1427739356-28113-1-git-send-email-rshearma@brocade.com>
  <1429051503-31287-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
@@ -9,184 +9,236 @@ Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>
 To: <davem@davemloft.net>, <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:57213 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:32554 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932286AbbDNWrK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 18:47:10 -0400
+	by vger.kernel.org with ESMTP id S932286AbbDNWrO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 18:47:14 -0400
 In-Reply-To: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An MPLS network is a single trust domain where the edges must be in
-control of what labels make their way into the core. The simplest way
-of ensuring this is for the edge device to always impose the labels,
-and not allow forward labeled traffic from untrusted neighbours. This
-is achieved by allowing a per-device configuration of whether MPLS
-traffic input from that interface should be processed or not.
+The control plane can advertise labels for neighbours that don't have
+an outgoing label which means that in terms of RFC3031 the label is
+valid, but there won't be an NHFLE. RFC3031 s3.22 states in this
+situation that either the remaining labels should be popped (if the
+control plane can determine that it's safe to do so, which in light of
+MPLS-VPN, RFC4364, is never the case now) or that the packet should
+be discarded.
 
-To be secure by default, the default state is changed to MPLS being
-disabled on all interfaces (except the loopback) unless explicitly
-enabled and no global option is provided to change the default. Whilst
-this differs from other protocols (e.g. IPv6), network operators are
-used to explicitly enabling MPLS forwarding on interfaces, and with
-the number of links to the MPLS core typically fairly low this doesn't
-present too much of a burden on operators.
+Therefore, introduce a new route attribute, RTA_MPLS_PAYLOAD_TYPE,
+that allows the control plane to restrict/specify what traffic is
+carried by the LSP (suggested by Eric W. Biederman). Add a flag that
+can be used in combination with a type to allow the control plane to
+specify that packets arriving on an LSP must be BOS only. Otherwise,
+the packets are dropped.
 
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>
 Signed-off-by: Robert Shearman <rshearma@brocade.com>
 ---
- Documentation/networking/mpls-sysctl.txt |  9 ++++
- net/mpls/af_mpls.c                       | 75 +++++++++++++++++++++++++++++++-
- net/mpls/internal.h                      |  3 ++
- 3 files changed, 85 insertions(+), 2 deletions(-)
+ include/uapi/linux/mpls.h      | 16 +++++++++++
+ include/uapi/linux/rtnetlink.h |  1 +
+ net/mpls/af_mpls.c             | 61 +++++++++++++++++++++++++++---------------
+ 3 files changed, 57 insertions(+), 21 deletions(-)
 
-diff --git a/Documentation/networking/mpls-sysctl.txt b/Documentation/networking/mpls-sysctl.txt
-index 639ddf0ece9b..9ed15f86c17c 100644
---- a/Documentation/networking/mpls-sysctl.txt
-+++ b/Documentation/networking/mpls-sysctl.txt
-@@ -18,3 +18,12 @@ platform_labels - INTEGER
+diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
+index bc9abfe88c9a..fb6aa9a054a8 100644
+--- a/include/uapi/linux/mpls.h
++++ b/include/uapi/linux/mpls.h
+@@ -31,4 +31,20 @@ struct mpls_label {
+ #define MPLS_LS_TTL_MASK        0x000000FF
+ #define MPLS_LS_TTL_SHIFT       0
  
- 	Possible values: 0 - 1048575
- 	Default: 0
++/* RTA_MPLS_PAYLOAD_TYPE - u32 specifying type and zero or more flags */
++enum rtmpls_payload_type {
++	RTMPT_IP		= 0x0000, /* IPv4 or IPv6 */
++	RTMPT_IPV4		= 0x0004,
++	RTMPT_IPV6		= 0x0006,
 +
-+conf/<interface>/input - BOOL
-+	Control whether packets can be input on this interface.
++	/* Other types not implemented:
++	 *  - Pseudo-wire with or without control word (RFC4385)
++	 *  - GAL (RFC5586)
++	 */
++};
++#define RTMPT_TYPE_MASK		0x0000ffff
 +
-+	If disabled, packets will be discarded without further
-+	processing.
++#define RTMPT_FLAG_BOS_ONLY	0x80000000
++#define RTMPT_ALL_FLAGS		(RTMPT_FLAG_BOS_ONLY)
 +
-+	0 - disabled (default)
-+	not 0 - enabled
+ #endif /* _UAPI_MPLS_H */
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 974db03f7b1a..aa9b7a775a2e 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -308,6 +308,7 @@ enum rtattr_type_t {
+ 	RTA_VIA,
+ 	RTA_NEWDST,
+ 	RTA_PREF,
++	RTA_MPLS_PAYLOAD_TYPE,
+ 	__RTA_MAX
+ };
+ 
 diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 6e7a91ec1ae1..1fd303a87df4 100644
+index f802578f5172..e99f88556d6b 100644
 --- a/net/mpls/af_mpls.c
 +++ b/net/mpls/af_mpls.c
-@@ -150,7 +150,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
- 	/* Careful this entire function runs inside of an rcu critical section */
+@@ -23,23 +23,12 @@
+ /* This maximum ha length copied from the definition of struct neighbour */
+ #define MAX_VIA_ALEN (ALIGN(MAX_ADDR_LEN, sizeof(unsigned long)))
  
- 	mdev = mpls_dev_get(dev);
--	if (!mdev)
-+	if (!mdev || !mdev->input_enabled)
- 		goto drop;
- 
- 	if (skb->pkt_type != PACKET_HOST)
-@@ -438,6 +438,60 @@ errout:
- 	return err;
- }
- 
-+#define MPLS_PERDEV_SYSCTL_OFFSET(field)	\
-+	(&((struct mpls_dev *)0)->field)
-+
-+static const struct ctl_table mpls_dev_table[] = {
-+	{
-+		.procname	= "input",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+		.data		= MPLS_PERDEV_SYSCTL_OFFSET(input_enabled),
-+	},
-+	{ }
-+};
-+
-+static int mpls_dev_sysctl_register(struct net_device *dev,
-+				    struct mpls_dev *mdev)
-+{
-+	char path[sizeof("net/mpls/conf/") + IFNAMSIZ];
-+	struct ctl_table *table;
-+	int i;
-+
-+	table = kmemdup(&mpls_dev_table, sizeof(mpls_dev_table), GFP_KERNEL);
-+	if (!table)
-+		goto out;
-+
-+	/* Table data contains only offsets relative to the base of
-+	 * the mdev at this point, so make them absolute.
-+	 */
-+	for (i = 0; i < ARRAY_SIZE(mpls_dev_table); i++)
-+		table[i].data = (char *)mdev + (uintptr_t)table[i].data;
-+
-+	snprintf(path, sizeof(path), "net/mpls/conf/%s", dev->name);
-+
-+	mdev->sysctl = register_net_sysctl(dev_net(dev), path, table);
-+	if (!mdev->sysctl)
-+		goto free;
-+
-+	return 0;
-+
-+free:
-+	kfree(table);
-+out:
-+	return -ENOBUFS;
-+}
-+
-+static void mpls_dev_sysctl_unregister(struct mpls_dev *mdev)
-+{
-+	struct ctl_table *table;
-+
-+	table = mdev->sysctl->ctl_table_arg;
-+	unregister_net_sysctl_table(mdev->sysctl);
-+	kfree(table);
-+}
-+
- static struct mpls_dev *mpls_add_dev(struct net_device *dev)
+-enum mpls_payload_type {
+-	MPT_UNSPEC, /* IPv4 or IPv6 */
+-	MPT_IPV4 = 4,
+-	MPT_IPV6 = 6,
+-
+-	/* Other types not implemented:
+-	 *  - Pseudo-wire with or without control word (RFC4385)
+-	 *  - GAL (RFC5586)
+-	 */
+-};
+-
+ struct mpls_route { /* next hop label forwarding entry */
+ 	struct net_device __rcu *rt_dev;
+ 	struct rcu_head		rt_rcu;
+ 	u32			rt_label[MAX_NEW_LABELS];
++	u32                     rt_payload_type;
+ 	u8			rt_protocol; /* routing protocol that set this entry */
+-	u8                      rt_payload_type;
+ 	u8			rt_labels;
+ 	u8			rt_via_alen;
+ 	u8			rt_via_table;
+@@ -101,7 +90,7 @@ static bool mpls_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 			struct mpls_entry_decoded dec)
  {
- 	struct mpls_dev *mdev;
-@@ -449,9 +503,24 @@ static struct mpls_dev *mpls_add_dev(struct net_device *dev)
- 	if (!mdev)
- 		return ERR_PTR(err);
+-	enum mpls_payload_type payload_type;
++	enum rtmpls_payload_type payload_type;
+ 	bool success = false;
  
-+	/* Enable MPLS by default on loopback devices, since this
-+	 * doesn't represent a security boundary and is required for the
-+	 * lookup of inner labels for LSPs terminating on this router.
-+	 */
-+	if (dev->flags & IFF_LOOPBACK)
-+		mdev->input_enabled = 1;
-+
-+	err = mpls_dev_sysctl_register(dev, mdev);
-+	if (err)
-+		goto free;
-+
- 	rcu_assign_pointer(dev->mpls_ptr, mdev);
+ 	/* The IPv4 code below accesses through the IPv4 header
+@@ -117,12 +106,12 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 	if (!pskb_may_pull(skb, 12))
+ 		return false;
  
- 	return mdev;
-+
-+free:
-+	kfree(mdev);
-+	return ERR_PTR(err);
- }
+-	payload_type = rt->rt_payload_type;
+-	if (payload_type == MPT_UNSPEC)
++	payload_type = rt->rt_payload_type & RTMPT_TYPE_MASK;
++	if (payload_type == RTMPT_IP)
+ 		payload_type = ip_hdr(skb)->version;
  
- static void mpls_ifdown(struct net_device *dev)
-@@ -475,6 +544,8 @@ static void mpls_ifdown(struct net_device *dev)
- 	if (!mdev)
- 		return;
+ 	switch (payload_type) {
+-	case MPT_IPV4: {
++	case RTMPT_IPV4: {
+ 		struct iphdr *hdr4 = ip_hdr(skb);
+ 		skb->protocol = htons(ETH_P_IP);
+ 		csum_replace2(&hdr4->check,
+@@ -132,14 +121,15 @@ static bool mpls_egress(struct mpls_route *rt, struct sk_buff *skb,
+ 		success = true;
+ 		break;
+ 	}
+-	case MPT_IPV6: {
++	case RTMPT_IPV6: {
+ 		struct ipv6hdr *hdr6 = ipv6_hdr(skb);
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		hdr6->hop_limit = dec.ttl;
+ 		success = true;
+ 		break;
+ 	}
+-	case MPT_UNSPEC:
++	case RTMPT_IP:
++		/* Should have decided which protocol it is by now */
+ 		break;
+ 	}
  
-+	mpls_dev_sysctl_unregister(mdev);
-+
- 	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
- 
- 	kfree(mdev);
-@@ -958,7 +1029,7 @@ static int mpls_platform_labels(struct ctl_table *table, int write,
- 	return ret;
- }
- 
--static struct ctl_table mpls_table[] = {
-+static const struct ctl_table mpls_table[] = {
- 	{
- 		.procname	= "platform_labels",
- 		.data		= NULL,
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index 7de7e7850d1a..d0aad5e9a2c9 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -24,6 +24,9 @@ struct mpls_entry_decoded {
+@@ -225,6 +215,11 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 		/* Penultimate hop popping */
+ 		if (!mpls_egress(rt, skb, dec))
+ 			goto drop;
++	} else if (rt->rt_payload_type & RTMPT_FLAG_BOS_ONLY) {
++		/* Labeled traffic destined to unlabeled peer should
++		 * be discarded
++		 */
++		goto drop;
+ 	} else {
+ 		bool bos;
+ 		int i;
+@@ -258,6 +253,7 @@ static struct packet_type mpls_packet_type __read_mostly = {
+ static const struct nla_policy rtm_mpls_policy[RTA_MAX+1] = {
+ 	[RTA_DST]		= { .type = NLA_U32 },
+ 	[RTA_OIF]		= { .type = NLA_U32 },
++	[RTA_MPLS_PAYLOAD_TYPE]	= { .type = NLA_U32 },
  };
  
- struct mpls_dev {
-+	int			input_enabled;
-+
-+	struct ctl_table_header *sysctl;
+ struct mpls_route_config {
+@@ -270,7 +266,7 @@ struct mpls_route_config {
+ 	u32			rc_output_labels;
+ 	u32			rc_output_label[MAX_NEW_LABELS];
+ 	u32			rc_nlflags;
+-	enum mpls_payload_type	rc_payload_type;
++	u32			rc_payload_type;
+ 	struct nl_info		rc_nlinfo;
  };
  
- struct sk_buff;
+@@ -781,6 +777,24 @@ static int rtm_to_route_config(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 			memcpy(cfg->rc_via, via->rtvia_addr, cfg->rc_via_alen);
+ 			break;
+ 		}
++		case RTA_MPLS_PAYLOAD_TYPE:
++			cfg->rc_payload_type = nla_get_u32(nla);
++
++			/* Ensure there are no unsupported flags */
++			if (cfg->rc_payload_type &
++			    ~(RTMPT_TYPE_MASK | RTMPT_ALL_FLAGS))
++				goto errout;
++
++			switch (cfg->rc_payload_type & RTMPT_TYPE_MASK) {
++			case RTMPT_IP:
++			case RTMPT_IPV4:
++			case RTMPT_IPV6:
++				break;
++			default:
++				goto errout;
++			}
++
++			break;
+ 		default:
+ 			/* Unsupported attribute */
+ 			goto errout;
+@@ -849,6 +863,9 @@ static int mpls_dump_route(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 		goto nla_put_failure;
+ 	if (nla_put_labels(skb, RTA_DST, 1, &label))
+ 		goto nla_put_failure;
++	if (rt->rt_payload_type &&
++	    nla_put_u32(skb, RTA_MPLS_PAYLOAD_TYPE, rt->rt_payload_type))
++		goto nla_put_failure;
+ 
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
+@@ -899,6 +916,8 @@ static inline size_t lfib_nlmsg_size(struct mpls_route *rt)
+ 		payload += nla_total_size(rt->rt_labels * 4);
+ 	if (rt->rt_dev)					/* RTA_OIF */
+ 		payload += nla_total_size(4);
++	if (rt->rt_payload_type)
++		payload += nla_total_size(4); /* RTA_MPLS_PAYLOAD_TYPE */
+ 	return payload;
+ }
+ 
+@@ -955,7 +974,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 			goto nort0;
+ 		RCU_INIT_POINTER(rt0->rt_dev, lo);
+ 		rt0->rt_protocol = RTPROT_KERNEL;
+-		rt0->rt_payload_type = MPT_IPV4;
++		rt0->rt_payload_type = RTMPT_IPV4;
+ 		rt0->rt_via_table = NEIGH_LINK_TABLE;
+ 		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
+ 	}
+@@ -966,7 +985,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 			goto nort2;
+ 		RCU_INIT_POINTER(rt2->rt_dev, lo);
+ 		rt2->rt_protocol = RTPROT_KERNEL;
+-		rt2->rt_payload_type = MPT_IPV6;
++		rt2->rt_payload_type = RTMPT_IPV6;
+ 		rt2->rt_via_table = NEIGH_LINK_TABLE;
+ 		memcpy(rt2->rt_via, lo->dev_addr, lo->addr_len);
+ 	}
 -- 
 2.1.4
