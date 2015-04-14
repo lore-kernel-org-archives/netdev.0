@@ -1,8 +1,8 @@
 From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4 19/24] switchdev: add new swdev_port_bridge_getlink
-Date: Mon, 13 Apr 2015 22:47:11 -0700
-Message-ID: <552CA9DF.8060808@cumulusnetworks.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com> <1428905838-14920-20-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v4 00/24] switchdev: spring cleanup
+Date: Mon, 13 Apr 2015 22:47:56 -0700
+Message-ID: <552CAA0C.3030009@cumulusnetworks.com>
+References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,93 +11,63 @@ Cc: netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
 	ronen.arad@intel.com, andrew@lunn.ch
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:33136 "EHLO
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:35021 "EHLO
 	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567AbbDNFrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:47:14 -0400
-Received: by qkx62 with SMTP id 62so221400711qkx.0
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:47:13 -0700 (PDT)
-In-Reply-To: <1428905838-14920-20-git-send-email-sfeldma@gmail.com>
+	with ESMTP id S1751465AbbDNFr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:47:58 -0400
+Received: by qkhg7 with SMTP id g7so222445571qkh.2
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:47:58 -0700 (PDT)
+In-Reply-To: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/12/15, 11:17 PM, sfeldma@gmail.com wrote:
+On 4/12/15, 11:16 PM, sfeldma@gmail.com wrote:
 > From: Scott Feldman <sfeldma@gmail.com>
 >
-> Like bridge_setlink, add swdev wrapper to handle bridge_getlink and call into
-> port driver to get port attrs.  For now, only BR_LEARNING and BR_LEARNING_SYNC
-> are returned.  To add more, we'll probably want to break away from
-> ndo_dflt_bridge_getlink() and build the netlink skb directly in the swdev code.
+> v4:
 >
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> ---
->   include/net/switchdev.h   |    9 +++++++++
->   net/switchdev/switchdev.c |   27 +++++++++++++++++++++++++++
->   2 files changed, 36 insertions(+)
->
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index 8c9814f..d04322e 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -121,6 +121,8 @@ int swdev_port_attr_get(struct net_device *dev, struct swdev_attr *attr);
->   int swdev_port_attr_set(struct net_device *dev, struct swdev_attr *attr);
->   int swdev_port_obj_add(struct net_device *dev, struct swdev_obj *obj);
->   int swdev_port_obj_del(struct net_device *dev, struct swdev_obj *obj);
-> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-> +			      struct net_device *dev, u32 filter_mask);
->   int swdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
->   			      u16 flags);
->   int swdev_port_bridge_dellink(struct net_device *dev, struct nlmsghdr *nlh,
-> @@ -161,6 +163,13 @@ static inline int swdev_port_obj_del(struct net_device *dev,
->   	return -EOPNOTSUPP;
->   }
->   
-> +static inline int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
-> +					    u32 seq, struct net_device *dev,
-> +					    u32 filter_mask)
-> +{
-> +	return -EOPNOTSUPP;
-> +}
-> +
->   static inline int swdev_port_bridge_setlink(struct net_device *dev,
->   					    struct nlmsghdr *nlh, u16 flags)
->   {
-> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-> index ae0ed06..6866e0c 100644
-> --- a/net/switchdev/switchdev.c
-> +++ b/net/switchdev/switchdev.c
-> @@ -371,6 +371,33 @@ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
->   }
->   EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
->   
-> +/**
-> + *	swdev_port_bridge_getlink - Get bridge port attributes
-> + *
-> + *	@dev: port device
-> + *
-> + *	Called for SELF on rtnl_bridge_getlink to get bridge port
-> + *	attributes.
-> + */
-> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-> +			      struct net_device *dev, u32 filter_mask)
-> +{
-> +	struct swdev_attr attr = {
-> +		.id = SWDEV_ATTR_PORT_BRIDGE_FLAGS,
-> +	};
-> +	u16 mode = BRIDGE_MODE_UNDEF;
-> +	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
-> +	int err;
-> +
-> +	err = swdev_port_attr_get(dev, &attr);
-> +	if (err)
-> +		return err;
-> +
-> +	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
-> +				       attr.brport_flags, mask);
-> +}
-> +EXPORT_SYMBOL_GPL(swdev_port_bridge_getlink);
+> Well, it was a lot of work, but now prepare-commit transaction model is how
+> davem advises: if prepare fails, abort the transaction.  The driver must do
+> resource reservations up front in prepare phase and return those resources if
+> aborting.  Commit phase would use reserved resources.  The good news is the
+> driver code (for rocker) now handles resource allocation failures better by not
+> leaving partially device or driver states.  This is a side-effect of the
+> prepare phase where state isn't modified; only validation of inputs and
+> resource reservations happen in the prepare phase.  Since we're supporting
+> setting attrs and add objs across lower devs in the stacked case, we need to
+> hold rtnl_lock (or ensure rtnl_lock is held) so lower devs don't move on us
+> during the prepare-commit transaction.  DSA driver code skips the prepare phase
+> and goes straight for the commit phase since no up-front allocations are done
+> and no device failures (that could be detected in the prepare phase) can
+> happen.
 
-This should ideally get vlans as well because setlink/dellink supports 
-add/del vlans.
-This can however be an incremental patch. I think this was the point 
-arad was making as well some time back.
+thanks for the series. It definitely does look cleaner and less 
+confusing now!.
+I do love the abstraction but i was one of the people voting against 
+duplicating the
+kernel objects into swdev objs which this patches does (which i am still 
+not convinced
+we should have).
+
+>
+> Remove NETIF_F_HW_SWITCH_OFFLOAD from rocker and the swdev_attr_set/get
+> wrappers.  DSA doesn't set NETIF_F_HW_SWITCH_OFFLOAD, so it can't be in
+> swdev_attr_set/get.  rocker doesn't need it; or rather can't support
+> NETIF_F_HW_SWITCH_OFFLOAD being set/cleared at run-time after the device
+> port is already up and offloading L2/L3.  NETIF_F_HW_SWITCH_OFFLOAD is still
+> left as a feature flag for drivers that can use it.
+
+I see that this series removes all uses of it in the switchdev api 
+later. I had summarized
+the need for the flag in reply to one of your questions a few weeks 
+back. Since you have moved all
+ndo ops to swdev ops (including ndo_bridge_setlink/dellink), I don't 
+want to hold on to the
+  feature flag if no one is using it. yes, my userspace driver uses it 
+today.
+I will come back with stronger justification to keep it or
+will submit a patch to remove it and add it back at a later point if needed.
+
+
+Thanks,
+Roopa
