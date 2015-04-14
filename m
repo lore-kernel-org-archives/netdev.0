@@ -1,59 +1,45 @@
-From: yzhu1 <Yanjun.Zhu@windriver.com>
-Subject: Re: [PATCH] ip_forward: Drop frames with attached skb->sk
-Date: Tue, 14 Apr 2015 14:33:32 +0800
-Message-ID: <552CB4BC.9000207@windriver.com>
-References: <1428990724.6812.8.camel@googlemail.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCHv2 net-next 0/2] Exporting IGMP/MLD checking from
+	bridge code
+Date: Tue, 14 Apr 2015 08:37:40 +0200
+Message-ID: <1428993462-6079-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <fw@strlen.de>, <eric.dumazet@gmail.com>
-To: Sebastian Poehn <sebastian.poehn@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39644 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751428AbbDNGdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 02:33:32 -0400
-In-Reply-To: <1428990724.6812.8.camel@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <therbert@google.com>, "David S. Miller" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 04/14/2015 01:52 PM, Sebastian Poehn wrote:
-> Initial discussion was:
-> [FYI] xfrm: Don't lookup sk_policy for timewait sockets
->
-> Forwarded frames should not have a socket attached. Especially
-> tw sockets will lead to panics later-on in the stack.
->
-> This was observed with TPROXY assigning a tw socket and broken
-> policy routing (misconfigured). As a result frame enters
-> forwarding path instead of input. We cannot solve this in
-> TPROXY as it cannot know that policy routing is broken.
->
-> Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
-> ---
-> diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-> index 939992c..2fc3b3e 100644
-> --- a/net/ipv4/ip_forward.c
-> +++ b/net/ipv4/ip_forward.c
-> @@ -82,6 +82,10 @@ int ip_forward(struct sk_buff *skb)
->   	if (skb->pkt_type != PACKET_HOST)
->   		goto drop;
->   
-> +	/* this should happen neither */
-Sorry. "neither" should be "either"?
+The multicast optimizations in batman-adv are yet only usable and
+enabled in non-bridged scenarios. To be able to support bridged setups
+batman-adv needs to be able to detect IGMP/MLD queriers and reports on
+mesh nodes without bridges, too. See the following link for details:
 
-Zhu Yanjun
-> +	if (unlikely(skb->sk))
-> +		goto drop;
-> +
->   	if (skb_warn_if_lro(skb))
->   		goto drop;
-> --
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+http://www.open-mesh.org/projects/batman-adv/wiki/Multicast-optimizations=
+-listener-reports
+
+To avoid duplicate code between the bridge and batman-adv, the IGMP/MLD
+message validation code is moved from the bridge to the IPv4/IPv6 stack.
+
+On the way, some refactoring to increase readability and to iron out
+some subtle differences between the IGMP and MLD parsing code is done.
+
+Cheers, Linus
+
+
+Changelog v2:
+* Updated copyright for mcast_snoop.c
