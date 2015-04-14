@@ -1,61 +1,124 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [patch 4/5] net: hip04: Make tx coalesce timer actually work
-Date: Tue, 14 Apr 2015 15:53:49 +0800
-Message-ID: <552CC78D.3090906@huawei.com>
-References: <20150413210009.682000343@linutronix.de> <9614284.QjZ4xls6zV@wuerfel> <alpine.DEB.2.11.1504132338080.3845@nanos> <3040901.Bp3bfgc1te@wuerfel> <alpine.DEB.2.11.1504140007570.3845@nanos>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v4 19/24] switchdev: add new swdev_port_bridge_getlink
+Date: Tue, 14 Apr 2015 00:59:32 -0700
+Message-ID: <CAE4R7bDBasLS3s7Q8ehgFzfV-mZYCoOgbCm-qpFgkVhoAMe=UA@mail.gmail.com>
+References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
+	<1428905838-14920-20-git-send-email-sfeldma@gmail.com>
+	<552CA9DF.8060808@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Zhangfei Gao <zhangfei.gao@linaro.org>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	<netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>, Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:56409 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751650AbbDNHyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:54:23 -0400
-In-Reply-To: <alpine.DEB.2.11.1504140007570.3845@nanos>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:36114 "EHLO
+	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752447AbbDNH7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:59:32 -0400
+Received: by qku63 with SMTP id 63so4426957qku.3
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:59:32 -0700 (PDT)
+In-Reply-To: <552CA9DF.8060808@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015/4/14 6:08, Thomas Gleixner wrote:
-> On Tue, 14 Apr 2015, Arnd Bergmann wrote:
->> On Monday 13 April 2015 23:42:03 Thomas Gleixner wrote:
->>>>
->>>> Question: this looks to me like it sets both the minimum and maximum
->>>> time to priv->tx_coalesce_usecs/2, when the intention was to set
->>>> the minimum to priv->tx_coalesce_usecs/2 and the maximum to
->>>> priv->tx_coalesce_usecs. Am I missing something subtle here, or did
->>>> you just misread my original intention from the botched code?
->>>
->>> Yes, I missed that. Simple fix for this is:
->>>
->>>   unsigned long t_ns = priv->tx_coalesce_usecs * NSEC_PER_USEC / 2;
->>>   
->>>   hrtimer_start_range_ns(&priv->tx_coalesce_timer, ns_to_ktime(t_ns),
->>>                          t_ns, HRTIMER_MODE_REL);
+On Mon, Apr 13, 2015 at 10:47 PM, roopa <roopa@cumulusnetworks.com> wrote:
+> On 4/12/15, 11:17 PM, sfeldma@gmail.com wrote:
 >>
->> Ah, good. I have to admit that I'd probably make the same mistake
->> again if I was to do this for another driver and you hadn't sent
->> the fix. The hrtimer_set_expires_range() function just looked like
->> it had been designed for the use case I was interested in ;-).
+>> From: Scott Feldman <sfeldma@gmail.com>
 >>
->> Any idea how to prevent the next person from making the same mistake?
-> 
-> Yes. Documentation :)
-> 
-Looks good to me, thanks everyone.
+>> Like bridge_setlink, add swdev wrapper to handle bridge_getlink and call
+>> into
+>> port driver to get port attrs.  For now, only BR_LEARNING and
+>> BR_LEARNING_SYNC
+>> are returned.  To add more, we'll probably want to break away from
+>> ndo_dflt_bridge_getlink() and build the netlink skb directly in the swdev
+>> code.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> ---
+>>   include/net/switchdev.h   |    9 +++++++++
+>>   net/switchdev/switchdev.c |   27 +++++++++++++++++++++++++++
+>>   2 files changed, 36 insertions(+)
+>>
+>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>> index 8c9814f..d04322e 100644
+>> --- a/include/net/switchdev.h
+>> +++ b/include/net/switchdev.h
+>> @@ -121,6 +121,8 @@ int swdev_port_attr_get(struct net_device *dev, struct
+>> swdev_attr *attr);
+>>   int swdev_port_attr_set(struct net_device *dev, struct swdev_attr
+>> *attr);
+>>   int swdev_port_obj_add(struct net_device *dev, struct swdev_obj *obj);
+>>   int swdev_port_obj_del(struct net_device *dev, struct swdev_obj *obj);
+>> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>> +                             struct net_device *dev, u32 filter_mask);
+>>   int swdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr
+>> *nlh,
+>>                               u16 flags);
+>>   int swdev_port_bridge_dellink(struct net_device *dev, struct nlmsghdr
+>> *nlh,
+>> @@ -161,6 +163,13 @@ static inline int swdev_port_obj_del(struct
+>> net_device *dev,
+>>         return -EOPNOTSUPP;
+>>   }
+>>   +static inline int swdev_port_bridge_getlink(struct sk_buff *skb, u32
+>> pid,
+>> +                                           u32 seq, struct net_device
+>> *dev,
+>> +                                           u32 filter_mask)
+>> +{
+>> +       return -EOPNOTSUPP;
+>> +}
+>> +
+>>   static inline int swdev_port_bridge_setlink(struct net_device *dev,
+>>                                             struct nlmsghdr *nlh, u16
+>> flags)
+>>   {
+>> diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>> index ae0ed06..6866e0c 100644
+>> --- a/net/switchdev/switchdev.c
+>> +++ b/net/switchdev/switchdev.c
+>> @@ -371,6 +371,33 @@ int call_netdev_switch_notifiers(unsigned long val,
+>> struct net_device *dev,
+>>   }
+>>   EXPORT_SYMBOL_GPL(call_netdev_switch_notifiers);
+>>   +/**
+>> + *     swdev_port_bridge_getlink - Get bridge port attributes
+>> + *
+>> + *     @dev: port device
+>> + *
+>> + *     Called for SELF on rtnl_bridge_getlink to get bridge port
+>> + *     attributes.
+>> + */
+>> +int swdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+>> +                             struct net_device *dev, u32 filter_mask)
+>> +{
+>> +       struct swdev_attr attr = {
+>> +               .id = SWDEV_ATTR_PORT_BRIDGE_FLAGS,
+>> +       };
+>> +       u16 mode = BRIDGE_MODE_UNDEF;
+>> +       u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
+>> +       int err;
+>> +
+>> +       err = swdev_port_attr_get(dev, &attr);
+>> +       if (err)
+>> +               return err;
+>> +
+>> +       return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
+>> +                                      attr.brport_flags, mask);
+>> +}
+>> +EXPORT_SYMBOL_GPL(swdev_port_bridge_getlink);
+>
+>
+> This should ideally get vlans as well because setlink/dellink supports
+> add/del vlans.
+> This can however be an incremental patch. I think this was the point arad
+> was making as well some time back.
 
-Ding
-
-> Thanks,
-> 
-> 	tglx
-> 
-> .
-> 
+Ronan (Arad) has this patch ready but he's waiting on my patchset to
+go in before he submits it.
