@@ -1,87 +1,45 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v7 3/9] bgmac: set received skb headroom to NET_SKB_PAD
-Date: Tue, 14 Apr 2015 12:07:56 +0200
-Message-ID: <1429006082-23489-3-git-send-email-nbd@openwrt.org>
-References: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
-Cc: zajec5@gmail.com, hauke@hauke-m.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:54947
-	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753928AbbDNKIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 06:08:07 -0400
-In-Reply-To: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 0/7 RFC] Netfilter/nf_tables ingress support
+Date: Tue, 14 Apr 2015 11:08:46 +0100
+Message-ID: <20150414100846.GB14022@casper.infradead.org>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <20150410132205.GF23070@casper.infradead.org>
+ <20150410200901.GB5968@salvia>
+ <20150412.211421.1771298417488412635.davem@davemloft.net>
+ <20150413201913.GD20275@acer.localdomain>
+ <20150414090048.GA14022@casper.infradead.org>
+ <20150414090559.GH22725@acer.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150414090559.GH22725@acer.localdomain>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A packet buffer offset of 30 bytes is inefficient, because the first 2
-bytes end up in a different cacheline.
+On 04/14/15 at 10:06am, Patrick McHardy wrote:
+> On 14.04, Thomas Graf wrote:
+> > On 04/13/15 at 09:19pm, Patrick McHardy wrote:
+> > > Now the advantages of being able to use nft. First, the obvious
+> > > one is that we have a nice userspace tool, a well defined
+> > > grammar, and that people would be able to use the same tool for
+> > > very similar tasks. nftables in the kernel is almost completely
+> > > lockless, we support way more possibilites already and we won't
+> > > have to add new special case TC actions anymore. Look at the
+> > > connmark action for example. It can set a value. How long until
+> > > someone wants to use a bitmask? We support all operations
+> > > (assignment, bit operations) for all types, we have sets for fast
+> > > lookups, maps for associating values quickly, we have a nice and
+> > > readable syntax and full translation back to the readable
+> > > representation and much more.
+> > 
+> > *cough* Performance numbers? *cough* ;-)
+> 
+> I'm just arguing, not implementing :)
 
-Signed-off-by: Felix Fietkau <nbd@openwrt.org>
----
- drivers/net/ethernet/broadcom/bgmac.c | 14 ++++++++------
- drivers/net/ethernet/broadcom/bgmac.h |  4 +++-
- 2 files changed, 11 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 9c3b2ff..424a68c 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -346,13 +346,13 @@ static int bgmac_dma_rx_skb_for_slot(struct bgmac *bgmac,
- 		return -ENOMEM;
- 
- 	/* Poison - if everything goes fine, hardware will overwrite it */
--	rx = buf;
-+	rx = buf + BGMAC_RX_BUF_OFFSET;
- 	rx->len = cpu_to_le16(0xdead);
- 	rx->flags = cpu_to_le16(0xbeef);
- 
- 	/* Map skb for the DMA */
--	dma_addr = dma_map_single(dma_dev, buf, BGMAC_RX_BUF_SIZE,
--				  DMA_FROM_DEVICE);
-+	dma_addr = dma_map_single(dma_dev, buf + BGMAC_RX_BUF_OFFSET,
-+				  BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
- 	if (dma_mapping_error(dma_dev, dma_addr)) {
- 		bgmac_err(bgmac, "DMA mapping error\n");
- 		put_page(virt_to_head_page(buf));
-@@ -403,7 +403,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 	while (ring->start != ring->end) {
- 		struct device *dma_dev = bgmac->core->dma_dev;
- 		struct bgmac_slot_info *slot = &ring->slots[ring->start];
--		struct bgmac_rx_header *rx = slot->buf;
-+		struct bgmac_rx_header *rx = slot->buf + BGMAC_RX_BUF_OFFSET;
- 		struct sk_buff *skb;
- 		void *buf = slot->buf;
- 		u16 len, flags;
-@@ -454,8 +454,10 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 					 BGMAC_RX_BUF_SIZE, DMA_FROM_DEVICE);
- 
- 			skb = build_skb(buf, BGMAC_RX_ALLOC_SIZE);
--			skb_put(skb, BGMAC_RX_FRAME_OFFSET + len);
--			skb_pull(skb, BGMAC_RX_FRAME_OFFSET);
-+			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
-+				BGMAC_RX_BUF_OFFSET + len);
-+			skb_pull(skb, BGMAC_RX_FRAME_OFFSET +
-+				 BGMAC_RX_BUF_OFFSET);
- 
- 			skb_checksum_none_assert(skb);
- 			skb->protocol = eth_type_trans(skb, bgmac->net_dev);
-diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
-index abd50d1..3db0d52 100644
---- a/drivers/net/ethernet/broadcom/bgmac.h
-+++ b/drivers/net/ethernet/broadcom/bgmac.h
-@@ -360,9 +360,11 @@
- 
- #define BGMAC_RX_HEADER_LEN			28		/* Last 24 bytes are unused. Well... */
- #define BGMAC_RX_FRAME_OFFSET			30		/* There are 2 unused bytes between header and real data */
-+#define BGMAC_RX_BUF_OFFSET			(NET_SKB_PAD + NET_IP_ALIGN - \
-+						 BGMAC_RX_FRAME_OFFSET)
- #define BGMAC_RX_MAX_FRAME_SIZE			1536		/* Copied from b44/tg3 */
- #define BGMAC_RX_BUF_SIZE			(BGMAC_RX_FRAME_OFFSET + BGMAC_RX_MAX_FRAME_SIZE)
--#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE) + \
-+#define BGMAC_RX_ALLOC_SIZE			(SKB_DATA_ALIGN(BGMAC_RX_BUF_SIZE + BGMAC_RX_BUF_OFFSET) + \
- 						 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
- 
- #define BGMAC_BFL_ENETROBO			0x0010		/* has ephy roboswitch spi */
--- 
-2.2.2
+OK ;-) Seriously though, we need to start putting emphasis on
+numbers as well. We are supposed to run data centers with all of
+this, we can't just horse around for fun ;-)
