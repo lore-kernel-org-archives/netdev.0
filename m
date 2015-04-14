@@ -1,42 +1,37 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Tue, 14 Apr 2015 20:30:01 +0200
-Message-ID: <20150414183000.GA5327@localhost.localdomain>
-References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
- <20150328082853.GA4255@localhost.localdomain>
- <5519D380.6070200@cogentembedded.com>
- <552C25BE.3070606@cogentembedded.com>
- <20150414052729.GA5179@netboy>
- <552CE890.3040103@cogentembedded.com>
- <20150414163002.GB4309@localhost.localdomain>
- <552D472A.6080309@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netns: deinline net_generic()
+Date: Tue, 14 Apr 2015 14:37:47 -0400 (EDT)
+Message-ID: <20150414.143747.1155055158701231768.davem@davemloft.net>
+References: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	masaru.nagai.vx@renesas.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <552D472A.6080309@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, jengelh@medozas.de, jpirko@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvlasenk@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36756 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751646AbbDNShu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:37:50 -0400
+In-Reply-To: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2015 at 07:58:18PM +0300, Sergei Shtylyov wrote:
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Date: Tue, 14 Apr 2015 14:25:11 +0200
+
+> On x86 allyesconfig build:
+> The function compiles to 130 bytes of machine code.
+> It has 493 callsites.
+> Total reduction of vmlinux size: 27906 bytes.
 > 
->    I tried to explain to you that I can't. We enter the device
-> configuration mode (from the operation mode) when e.g. the
-> *Ethernet* device is closed.
+>    text	     data      bss       dec     hex filename
+> 82447071 22255384 20627456 125329911 77861f7 vmlinux4
+> 82419165 22255384 20627456 125302005 777f4f5 vmlinux5
+> 
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
 
-Is this a hardware restriction?
-
-Logically speaking, the clock has nothing to do with the state of the
-Ethernet interface.  If the clock keeps ticking and you can access
-it, then there is no reason to return EBUSY just because the interface
-is down.
-
-Thanks,
-Richard
+That BUG_ON() was added 7 years ago, and I don't remember it ever
+triggering or helping us diagnose something, so just remove it and
+keep the function inlined.
