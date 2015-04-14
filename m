@@ -1,43 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/17] get rid of the size argument of sock_sendmsg()
-Date: Tue, 14 Apr 2015 13:55:35 -0400 (EDT)
-Message-ID: <20150414.135535.190405308746783212.davem@davemloft.net>
-References: <1428787108-13650-16-git-send-email-viro@ZenIV.linux.org.uk>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB1DDB2@AcuExch.aculab.com>
-	<20150414163534.GZ889@ZenIV.linux.org.uk>
+From: Tadeusz Struk <tadeusz.struk@intel.com>
+Subject: Re: [PATCH 03/17] fs: don't allow to complete sync iocbs through
+ aio_complete
+Date: Tue, 14 Apr 2015 11:00:49 -0700
+Message-ID: <552D55D1.2000908@intel.com>
+References: <20150411211742.GJ889@ZenIV.linux.org.uk> <1428787108-13650-3-git-send-email-viro@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org
-To: viro@ZenIV.linux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36330 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752579AbbDNRzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 13:55:37 -0400
-In-Reply-To: <20150414163534.GZ889@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>, davem@davemloft.net
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1428787108-13650-3-git-send-email-viro@ZenIV.linux.org.uk>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Tue, 14 Apr 2015 17:35:34 +0100
+On 04/11/2015 02:18 PM, Al Viro wrote:
+> @@ -766,8 +765,7 @@ int sock_recvmsg(struct socket *sock, struct msghdr *msg,
+>  
+>  	init_sync_kiocb(&iocb, NULL);
+>  	ret = __sock_recvmsg(&iocb, sock, msg, size, flags);
+> -	if (-EIOCBQUEUED == ret)
+> -		ret = wait_on_sync_kiocb(&iocb);
+> +	BUG_ON(ret == -EIOCBQUEUED);
 
-> On Tue, Apr 14, 2015 at 04:25:24PM +0000, David Laight wrote:
->> From: Al Viro
->> > Sent: 11 April 2015 22:18
->> > it's equal to iov_iter_count(&msg->msg_iter) in all cases
->> 
->> I don't know whether this is guaranteed for iov[] that come from
->> userspace.
->>
->> In any case iov_iter_count() is non-trivial and you don't
->> really want to call it when unnecessary.
-> 
-> Really?
-> 
-> static inline size_t iov_iter_count(struct iov_iter *i)
-> {
->         return i->count;
-> }
-
-This just made my day.
+NACK - PF_ALG type sockets support async operations and return -EIOCBQUEUED
+See skcipher_recvmsg_async() in crypto/algif_skcipher.c in net-next
