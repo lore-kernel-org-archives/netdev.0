@@ -1,7 +1,7 @@
 From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
 Subject: Re: [PATCH v6 4/9] bgmac: simplify/optimize rx DMA error handling
-Date: Tue, 14 Apr 2015 11:32:49 +0200
-Message-ID: <CACna6rxoCobPSF2ihB2k6kGWf7vzmMZyjHo19JwZ854rr7V=Wg@mail.gmail.com>
+Date: Tue, 14 Apr 2015 11:37:54 +0200
+Message-ID: <CACna6rx_6NRnA4s_b8WspTAm3SichxqQAN5VzK9MgcaKfXVD-w@mail.gmail.com>
 References: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
 	<1428968537-6181-4-git-send-email-nbd@openwrt.org>
 	<CACna6ry7yD4jb2ph1EOvOrmdWiqOU8+yFQKvH0OCS=haH4dUqA@mail.gmail.com>
@@ -15,12 +15,12 @@ Cc: Network Development <netdev@vger.kernel.org>,
 	Hauke Mehrtens <hauke@hauke-m.de>
 To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:34898 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752203AbbDNJcu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 05:32:50 -0400
-Received: by iejt8 with SMTP id t8so10089525iej.2
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 02:32:49 -0700 (PDT)
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:36827 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795AbbDNJhy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 05:37:54 -0400
+Received: by igblo3 with SMTP id lo3so68999085igb.1
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 02:37:54 -0700 (PDT)
 In-Reply-To: <552CDD58.5030904@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -66,13 +66,8 @@ t
 >
 > Where's the memory leak?
 
-I mean the buf, not skb, sorry:
-buf =3D netdev_alloc_frag(BGMAC_RX_ALLOC_SIZE);
-
-if (dma_mapping_error(dma_dev, dma_addr)) {
-        LACKING free(buf) HERE
-        return -ENOMEM;
-}
+Oooh, sorry. I didn't understand put_page. I just expected direct
+kfree here. It's alright then, sorry.
 
 --=20
 Rafa=C5=82
