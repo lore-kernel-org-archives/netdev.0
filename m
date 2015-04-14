@@ -1,66 +1,61 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v4 03/24] switchdev: convert STP update to swdev
- attr set
-Date: Tue, 14 Apr 2015 00:51:46 -0700
-Message-ID: <CAE4R7bDxc-XOBoVibGtzReM1kXi7HFLf5e8Zr0j0nJCHz+qTPQ@mail.gmail.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
-	<1428905838-14920-4-git-send-email-sfeldma@gmail.com>
-	<552C1773.3030907@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [patch 4/5] net: hip04: Make tx coalesce timer actually work
+Date: Tue, 14 Apr 2015 15:53:49 +0800
+Message-ID: <552CC78D.3090906@huawei.com>
+References: <20150413210009.682000343@linutronix.de> <9614284.QjZ4xls6zV@wuerfel> <alpine.DEB.2.11.1504132338080.3845@nanos> <3040901.Bp3bfgc1te@wuerfel> <alpine.DEB.2.11.1504140007570.3845@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Zhangfei Gao <zhangfei.gao@linaro.org>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	<netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>, Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:34052 "EHLO
-	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbbDNHvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:51:47 -0400
-Received: by qkgx75 with SMTP id x75so3968924qkg.1
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:51:46 -0700 (PDT)
-In-Reply-To: <552C1773.3030907@gmail.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:56409 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751650AbbDNHyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:54:23 -0400
+In-Reply-To: <alpine.DEB.2.11.1504140007570.3845@nanos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 12:22 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 12/04/15 23:16, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
+On 2015/4/14 6:08, Thomas Gleixner wrote:
+> On Tue, 14 Apr 2015, Arnd Bergmann wrote:
+>> On Monday 13 April 2015 23:42:03 Thomas Gleixner wrote:
+>>>>
+>>>> Question: this looks to me like it sets both the minimum and maximum
+>>>> time to priv->tx_coalesce_usecs/2, when the intention was to set
+>>>> the minimum to priv->tx_coalesce_usecs/2 and the maximum to
+>>>> priv->tx_coalesce_usecs. Am I missing something subtle here, or did
+>>>> you just misread my original intention from the botched code?
+>>>
+>>> Yes, I missed that. Simple fix for this is:
+>>>
+>>>   unsigned long t_ns = priv->tx_coalesce_usecs * NSEC_PER_USEC / 2;
+>>>   
+>>>   hrtimer_start_range_ns(&priv->tx_coalesce_timer, ns_to_ktime(t_ns),
+>>>                          t_ns, HRTIMER_MODE_REL);
 >>
->> STP update is just a writable port attribute, so convert swdev_port_stp_update
->> to an attr set.
+>> Ah, good. I have to admit that I'd probably make the same mistake
+>> again if I was to do this for another driver and you hadn't sent
+>> the fix. The hrtimer_set_expires_range() function just looked like
+>> it had been designed for the use case I was interested in ;-).
 >>
->> For rocker, support prepare-commit transaction model for setting STP state.
->> This requires rocker to preallocate memory needed for the commit up front in
->> the prepare phase.  Since rtnl_lock is held between prepare-commit, store the
->> allocated memory on a queue hanging off of the rocker_port.  Also, in prepare
->> phase, do everything right up to calling into HW.  The same code paths are
->> tranversed in the driver for both prepare and commit phases.  In some cases,
->> any state modified in the prepare phase must be reverted before returning
->> so the commit phase makes the same decisions.
->
-> I now better understand the reason for introducing both the object and
-> transactional model, but that is really a dramatic change in the API
-> complexity now, and unfortunately this is reflected in the drivers using
-> it...
+>> Any idea how to prevent the next person from making the same mistake?
+> 
+> Yes. Documentation :)
+> 
+Looks good to me, thanks everyone.
 
-Yes, the drivers must now individually handle each transaction phase
-at the level that makes sense for the driver/device.  For DSA, the
-prepare phase is skipped and only the commit phase is run, as would
-have happened before all this transactional model work.  Rocker gets
-more interesting because the driver allocates memory as it goes and
-updates driver and device state in multiple steps, any which can fail,
-so the prepare phase needs to do a lot of work before giving the all
-clear for commit.  I'm not sure how to up-level the prepare phase
-since it's very device/driver specific.
+Ding
 
-> Can we try to classify switches by their underlying control/transport
-> bus, essentially sleeping vs. non-sleeping I/O operations and provide a
-> good enough abstraction from there which avoids drivers like rocker to
-> have to maintain a list of transactions?
-
-I'm not sure I follow the sleeping vs. non-sleeping classification.
+> Thanks,
+> 
+> 	tglx
+> 
+> .
+> 
