@@ -1,10 +1,11 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Honggang LI <honli@redhat.com>
 Subject: Re: [PATCH linux-next 3/4] macvlan: fix possible NULL pointer
  dereference in macvlan_dev_get_iflink
-Date: Tue, 14 Apr 2015 16:26:27 +0100
-Message-ID: <20150414152626.GJ7874@acer.localdomain>
+Date: Tue, 14 Apr 2015 23:32:39 +0800
+Message-ID: <20150414153239.GA21856@honli.nay.redhat.com>
 References: <1429024817-21561-1-git-send-email-honli@redhat.com>
  <1429024817-21561-4-git-send-email-honli@redhat.com>
+ <20150414152626.GJ7874@acer.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
@@ -16,35 +17,23 @@ Cc: roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
 	sfeldma@gmail.com, alexander.h.duyck@intel.com,
 	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Honggang Li <honli@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47823 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753922AbbDNP0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 11:26:36 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:42047 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753771AbbDNPcn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2015 11:32:43 -0400
 Content-Disposition: inline
-In-Reply-To: <1429024817-21561-4-git-send-email-honli@redhat.com>
+In-Reply-To: <20150414152626.GJ7874@acer.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14.04, Honggang Li wrote:
-> Signed-off-by: Honggang Li <honli@redhat.com>
-> ---
->  drivers/net/macvlan.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
+On Tue, Apr 14, 2015 at 04:26:27PM +0100, Patrick McHardy wrote:
 > 
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index b227a13..1e59f39 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -998,7 +998,9 @@ static int macvlan_dev_get_iflink(const struct net_device *dev)
->  {
->  	struct macvlan_dev *vlan = netdev_priv(dev);
->  
-> -	return vlan->lowerdev->ifindex;
-> +	if (vlan && vlan->lowerdev)
-> +		return vlan->lowerdev->ifindex;
+> That is completely useless. vlan (=netdev_priv) can not be NULL as
+> netdev_priv() never returns NULL and vlan->lowerdev is always valid
+> because a macvlan wouldn't make much sense otherwise.
 
-That is completely useless. vlan (=netdev_priv) can not be NULL as
-netdev_priv() never returns NULL and vlan->lowerdev is always valid
-because a macvlan wouldn't make much sense otherwise.
+OK, please drop this patch.
+
+thanks
