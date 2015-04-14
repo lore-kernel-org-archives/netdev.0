@@ -1,51 +1,69 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
-Date: Tue, 14 Apr 2015 19:58:18 +0300
-Message-ID: <552D472A.6080309@cogentembedded.com>
-References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com> <20150328082853.GA4255@localhost.localdomain> <5519D380.6070200@cogentembedded.com> <552C25BE.3070606@cogentembedded.com> <20150414052729.GA5179@netboy> <552CE890.3040103@cogentembedded.com> <20150414163002.GB4309@localhost.localdomain>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH 15/17] switch kernel_sendmsg() and kernel_recvmsg() to
+ iov_iter_kvec()
+Date: Tue, 14 Apr 2015 17:59:21 +0100
+Message-ID: <20150414165920.GB889@ZenIV.linux.org.uk>
+References: <20150411211742.GJ889@ZenIV.linux.org.uk>
+ <1428787108-13650-15-git-send-email-viro@ZenIV.linux.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB1DD9D@AcuExch.aculab.com>
+ <20150414163403.GY889@ZenIV.linux.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6D1CB1DE00@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
-	masaru.nagai.vx@renesas.com
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:35701 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933002AbbDNQ6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:58:23 -0400
-Received: by labbd9 with SMTP id bd9so13139287lab.2
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 09:58:21 -0700 (PDT)
-In-Reply-To: <20150414163002.GB4309@localhost.localdomain>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:60004 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932412AbbDNQ7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 12:59:24 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB1DE00@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, Apr 14, 2015 at 04:36:36PM +0000, David Laight wrote:
+> From: Al Viro 
+> > Sent: 14 April 2015 17:34
+> > On Tue, Apr 14, 2015 at 04:21:02PM +0000, David Laight wrote:
+> > 
+> > > Massive NAK.
+> > > This breaks any code that is using msg_control to set SCTP parameters
+> > > when sending data.
+> > 
+> > 	Huh?  ->sendmsg() expects ->msg_control already in kernel space;
+> > it's ->recvmsg() that plays silly buggers with userland pointers there.
+> 
+> I read your commit message as implying that you hadn't found any
+> users of kernel_sendmsg() that used msg_control.
+> Not that the data was always read from kernel space.
 
-On 04/14/2015 07:30 PM, Richard Cochran wrote:
-
->>> It is surely avoidable.  The driver knows (or should know) whether or
->>> not the hardware has been configured or not.
-
->>     So you only want to avoid the register read here?
-
-> No, that is not what I mean.  The two callers are gettime and adjtime.
-> Can't you make sure the hardware is ready before you register the
-
-    I tried to explain to you that I can't. We enter the device configuration 
-mode (from the operation mode) when e.g. the *Ethernet* device is closed.
-
-> clock in the first place?  If not, what is purpose of returning EBUSY?
-
-    I'm not sure (remember, I'm not the primary author), perhaps this is to 
-prevent bad time values when the AVB-DMAC in not operational... Nagai-san, 
-could you explain this please?
-
-> Thanks,
-> Richard
-
-WBR, Sergei
+Sigh...  The situation is:
+	* ->sendmsg() expects ->msg_control copied to userland.  sendmsg(2),
+sendto(2), etc. do that copying.  See ___sys_sendmsg() - there we have
+                /*
+                 * Careful! Before this, msg_sys->msg_control contains a user pointer.
+                 * Afterwards, it will be a kernel pointer. Thus the compiler-assisted
+                 * checking falls down on this.
+                 */
+                if (copy_from_user(ctl_buf,
+                                   (void __user __force *)msg_sys->msg_control,
+                                   ctl_len))
+                        goto out_freectl;
+                msg_sys->msg_control = ctl_buf;
+As the result, ->sendmsg() instances access ->msg_control contents as normal
+kernel data.
+	* ->recvmsg() expects ->msg_control to point to userland.  See
+net/core/scm.c for the helpers used to store into it.  recvmsg(2) et.al.
+simply leave the userland pointer there; worse, that pointer might be
+to native or to compat variants, and layouts _are_ different.  Thus those
+if (MSG_CMSG_COMPAT & msg->msg_flags) in net/core/scm.c...
+	* kernel-side users of ->sendmsg() do not depend on setfs() for
+access to their ->msg_control, simply because ->sendmsg() won't be using
+copy_from_user()/get_user() to access it anyway.
+	* kernel-side users of ->recvmsg() are less lucky - most of them
+don't give a damn either (they have NULL ->msg_control), but there's an
+exception (somewhere in sunrpc, IIRC).  So there we need to keep
+playing with setfs(), even though the data side would be just fine without
+that.
