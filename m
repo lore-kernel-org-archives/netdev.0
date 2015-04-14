@@ -1,54 +1,46 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net] bnx2x: Fix netpoll interoperability
-Date: Tue, 14 Apr 2015 18:11:47 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
-References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>
-	 ,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>,<1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/1] stmmac: rmmod oops after ifconfig on interface
+Date: Tue, 14 Apr 2015 14:13:52 -0400 (EDT)
+Message-ID: <20150414.141352.1998810106861142707.davem@davemloft.net>
+References: <552BB695.9090508@nexus-software.ie>
+	<552BC36F.3060809@nexus-software.ie>
+	<CAHp75VckYS54tVjCoqLSNbgAa48h5+Vp4XGXV1qCmahxOYbEzQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
-	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	"Willem de Bruijn" <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pure.logic@nexus-software.ie, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org
+To: andy.shevchenko@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:56801 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753993AbbDNSMK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2015 14:12:10 -0400
-In-Reply-To: <1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:36529 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752844AbbDNSNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:13:55 -0400
+In-Reply-To: <CAHp75VckYS54tVjCoqLSNbgAa48h5+Vp4XGXV1qCmahxOYbEzQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I believe the original busypoll yield concern was forgotten or reversed.
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Date: Mon, 13 Apr 2015 16:33:46 +0300
 
-> If you have many busypoll users, they might get the 'lock', and the poor
-> cpu that received the hardware interrupt and raised RX softirq for this
-> RX queue will spin forever [1]
+> Hmm... By some reason this didn't make mailing list.
+> 
+> On Mon, Apr 13, 2015 at 4:23 PM, Bryan O'Donoghue
+> <pure.logic@nexus-software.ie> wrote:
+>> Might be a bit of an issue getting you a 'fixes' tag - I can't bisect back
+>> in time very far - very soon we stop booting.
+>>
+>> Would you be happy with a fixes that indicates the original checkin
+>> sequenced the unregister_netdev(); and mdiobus_unreg() in the wrong order ?
+> 
+> I actually think David could help us in this.
+> 
+>> Basically the 'fixes' tag then would be 47dd7a540
+>> net: add support for STMicroelectronics Ethernet controllers.
+> 
+> I don't know how to proceed in such cases since the patch will
+> apparently not apply to that commit.
 
-> busypoll users should backoff and not attempt to grab a lock (especially
-> if this lock is not a ticket lock anymore) if the softirq handler is
-> desperately trying to make progress.
+Please resubmit your original fix with an appropriate Fixes: tag.
 
-> [1]
-> sofirq handler
-
->   while (1) {
->       if (!bnx2x_fp_lock_napi())
->                continue;
-
-bnx2x returns the budget, it doesn't loop in the poll function.
-[I don't have the napi_poll logic in mind, but I do hope it doesn't iterate
-repeatedly but rather only on next re-schedule]
-
->        }
->   }
-
-> I can provide an alternative patch if you like.
-
-If you're willing to make the effort, sure.
+Thank you.
