@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Implement partial copy into send
- buffer
-Date: Tue, 14 Apr 2015 14:20:10 -0400 (EDT)
-Message-ID: <20150414.142010.215561781435149789.davem@davemloft.net>
-References: <1428968075-9950-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH 1/3] toshiba: Remove celleb from Kconfig options
+Date: Tue, 14 Apr 2015 14:21:47 -0400 (EDT)
+Message-ID: <20150414.142147.460840469991351107.davem@davemloft.net>
+References: <1428989006-5929-1-git-send-email-dja@axtens.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1428968075-9950-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	valentinrothberg@gmail.com, mpe@ellerman.id.au,
+	linuxppc-dev@lists.ozlab.org
+To: dja@axtens.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36604 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755121AbbDNSVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:21:50 -0400
+In-Reply-To: <1428989006-5929-1-git-send-email-dja@axtens.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon, 13 Apr 2015 16:34:35 -0700
+From: Daniel Axtens <dja@axtens.net>
+Date: Tue, 14 Apr 2015 15:23:24 +1000
 
-> If remaining space in a send buffer slot is too small for the whole message,
-> we only copy the RNDIS header and PPI data into send buffer, so we can batch
-> one more packet each time. It reduces the vmbus per-message overhead.
+> The toshiba drivers had celleb as an optional dependency.
+> celleb has been dropped [1], so clean that out of Kconfig.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> [1] http://patchwork.ozlabs.org/patch/451730/
+> 
+> CC: netdev@vger.kernel.org
+> CC: Valentin Rothberg <valentinrothberg@gmail.com>
+> CC: mpe@ellerman.id.au
+> CC: linuxppc-dev@lists.ozlab.org
+> Signed-off-by: Daniel Axtens <dja@axtens.net>
 
 Applied, thanks.
