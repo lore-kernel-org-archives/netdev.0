@@ -1,66 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 2/2] tc: add 'needs_l2' flag to ingress
- qdisc
-Date: Tue, 14 Apr 2015 14:05:06 -0400 (EDT)
-Message-ID: <20150414.140506.401099074422805944.davem@davemloft.net>
-References: <5528C4FC.5020207@iogearbox.net>
-	<CAHA+R7N1oPoZBgtF0WOa=aXveT4T=26yfL73Temdp+qWxkxfug@mail.gmail.com>
-	<552C65F1.8010402@plumgrid.com>
+Subject: Re: [PATCH linux-next v2] mlx5: wrong page mask if
+ CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
+Date: Tue, 14 Apr 2015 14:05:46 -0400 (EDT)
+Message-ID: <20150414.140546.1390992213156919928.davem@davemloft.net>
+References: <1428916918-24404-1-git-send-email-honli@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, daniel@iogearbox.net, edumazet@google.com,
-	tgraf@suug.ch, jiri@resnulli.us, jhs@mojatatu.com,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: eli@mellanox.com, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: honli@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36437 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36448 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753449AbbDNSFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:05:10 -0400
-In-Reply-To: <552C65F1.8010402@plumgrid.com>
+	with ESMTP id S1752859AbbDNSFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 14:05:49 -0400
+In-Reply-To: <1428916918-24404-1-git-send-email-honli@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 13 Apr 2015 17:57:21 -0700
+From: Honggang Li <honli@redhat.com>
+Date: Mon, 13 Apr 2015 17:21:58 +0800
 
-> On 4/13/15 3:44 PM, Cong Wang wrote:
->>
->> My suggestion is fairly simple: move skb_pull() out of
->> eth_type_trans()
->> and move it to netif_receive_skb(), it apparently needs much more work
->> but it worth the effort. This would eliminate the skb_push() in mirred
->> and in ifb too, dev_forward_skb() would benefit too.
+> If CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for x86 systems and physical
+> memory is more than 4GB, dma_map_page may return a valid memory
+> address which greater than 0xffffffff. As a result, the mlx5 device page
+> allocator RB tree will be initialized with valid addresses greater than
+> 0xfffffff.
 > 
-> wow. That would be massive. We're talking months worth of work here.
+> However, (addr & PAGE_MASK) set the high four bytes to zeros. So, it's
+> impossible for the function, free_4k, to release the pages whose
+> addresses greater than 4GB. Memory leaks. And mlx5_ib module can't
+> release the pages when user try to remove the module, as a result,
+> system hang.
+> 
+> [root@rdma05 root]# dmesg  | grep addr | head
+> addr             = 3fe384000
+> addr & PAGE_MASK =  fe384000
+> [root@rdma05 root]# rmmod mlx5_ib   <---- hang on
+> 
+> ---------------------- cosnole log -----------------
+> mlx5_ib 0000:04:00.0: irq 138 for MSI/MSI-X
+>   alloc irq_desc for 139 on node -1
+>   alloc kstat_irqs on node -1
+> mlx5_ib 0000:04:00.0: irq 139 for MSI/MSI-X
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> ---------------------- cosnole log -----------------
+> 
+> Signed-off-by: Honggang Li <honli@redhat.com>
 
-I think it's worth the effort.
-
-Alexei I cannot apply your needs_l2 patch, it's fundamentally broken
-because it assumes the whole chain of classifiers and actions starting
-from a given qdisc root want the skb->data in one place or another.
-It can be mixed, and quite easily so, and for that scenerio it's
-broken.
-
-You've been told multiple ways to keep the existing stuff working
-yet give cls_bpf what it wants.  I'll add another one so you'll have
-three options:
-
-1) Firstly, to propagate the packet offset into the code generated
-   for the BPF classifier when being attached to the ingress qdisc.
-   Not only is this doable, you'll know you aren't being shared with
-   other kinds of qdiscs so it'll just work.
-
-2) Adjust where skb_pull() happens, Cong's idea.
-
-3) Do the SKB share_check/pull/push in cls_bpf.  No impact on anyone
-   else in the qdisc paths, mixed configurations handled in a guaranteed
-   way.
-
-I know none of these fit into your unreasonable idealistic model of
-how you want all of this to work, but surprise this is the real world
-and you'll need to compromise some of your absolute requirements in
-order to meet your goals of proper functionality.
-
-Thanks.
+Please someone at Mellanox review this.
