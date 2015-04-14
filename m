@@ -1,63 +1,49 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 5/5] cxgb4: Don't call t4_slow_intr_handler when we're not the Master PF
-Date: Wed, 15 Apr 2015 02:02:34 +0530
-Message-ID: <1429043554-8744-6-git-send-email-hariprasad@chelsio.com>
-References: <1429043554-8744-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:4081 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753818AbbDNPUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 11:20:47 -0400
-In-Reply-To: <1429043554-8744-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH linux-next 0/4] fix possile NULL pointer dereference in ndo_get_iflink callback functions
+Date: Tue, 14 Apr 2015 23:20:13 +0800
+Message-ID: <1429024817-21561-1-git-send-email-honli@redhat.com>
+Cc: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+	sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 3 ++-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        | 6 ++++--
- 2 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5892706..4e00bea 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -724,7 +724,8 @@ static irqreturn_t t4_nondata_intr(int irq, void *cookie)
- 		adap->swintr = 1;
- 		t4_write_reg(adap, MYPF_REG(PL_PF_INT_CAUSE_A), v);
- 	}
--	t4_slow_intr_handler(adap);
-+	if (adap->flags & MASTER_PF)
-+		t4_slow_intr_handler(adap);
- 	return IRQ_HANDLED;
- }
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 1a31e40..0d2edda 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2238,7 +2238,8 @@ static irqreturn_t t4_intr_msi(int irq, void *cookie)
- {
- 	struct adapter *adap = cookie;
- 
--	t4_slow_intr_handler(adap);
-+	if (adap->flags & MASTER_PF)
-+		t4_slow_intr_handler(adap);
- 	process_intrq(adap);
- 	return IRQ_HANDLED;
- }
-@@ -2253,7 +2254,8 @@ static irqreturn_t t4_intr_intx(int irq, void *cookie)
- 	struct adapter *adap = cookie;
- 
- 	t4_write_reg(adap, MYPF_REG(PCIE_PF_CLI_A), 0);
--	if (t4_slow_intr_handler(adap) | process_intrq(adap))
-+	if (((adap->flags & MASTER_PF) && t4_slow_intr_handler(adap)) |
-+	    process_intrq(adap))
- 		return IRQ_HANDLED;
- 	return IRQ_NONE;             /* probably shared interrupt */
- }
+The four callback functions deferference the pointers without test. 
+As ipoib_get_iflink failed, it is a good reason to fix the other three
+functions. Those functions will return zero on error, as valid ifindex
+greater than zero.
+
+I understand that those simple patches should be emerged into a single
+patch. However, those files have be maintained by different maintainers.
+So, I split it for review. It also will be convenient to remove one or
+more patches with the rest not be affected.
+
+Honggang Li (4):
+  infiniband/ipoib: fix possible NULL pointer dereference in
+ ipoib_get_iflink
+  ipvlan: fix possible NULL pointer dereference in ipvlan_get_iflink
+  macvlan: fix possible NULL pointer dereference in macvlan_dev_get_iflink
+  net/dsa: fix possible NULL pointer dereference in dsa_slave_get_iflink
+
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 5 ++++-
+ drivers/net/ipvlan/ipvlan_main.c          | 5 ++++-
+ drivers/net/macvlan.c                     | 4 +++-
+ net/dsa/slave.c                           | 5 ++++-
+ 4 files changed, 15 insertions(+), 4 deletions(-)
+
 -- 
-2.3.4
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
