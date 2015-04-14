@@ -1,45 +1,37 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH linux-next 1/4] infiniband/ipoib: fix possible NULL
- pointer dereference in ipoib_get_iflink
-Date: Tue, 14 Apr 2015 08:34:33 -0700
-Message-ID: <1429025673.7346.37.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429024817-21561-1-git-send-email-honli@redhat.com>
-	 <1429024817-21561-2-git-send-email-honli@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH linux-next 3/4] macvlan: fix possible NULL pointer dereference
+ in macvlan_dev_get_iflink
+Date: Tue, 14 Apr 2015 17:35:12 +0200
+Message-ID: <552D33B0.6040808@6wind.com>
+References: <1429024817-21561-1-git-send-email-honli@redhat.com> <1429024817-21561-4-git-send-email-honli@redhat.com> <20150414152626.GJ7874@acer.localdomain>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-	sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1429024817-21561-2-git-send-email-honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	davem@davemloft.net, alex.estrin@intel.com, dledford@redhat.com,
+	edumazet@google.com, erezsh@mellanox.com, maheshb@google.com,
+	jbenc@redhat.com, ebiederm@xmission.com,
+	elfring@users.sourceforge.net, f.fainelli@gmail.com,
+	linux@roeck-us.net, andrew@lunn.ch, sfeldma@gmail.com,
+	alexander.h.duyck@intel.com, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>, Honggang Li <honli@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150414152626.GJ7874@acer.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-04-14 at 23:20 +0800, Honggang Li wrote:
-> Starting monitoring for VG vg_rdma01:   3 logical volume(s) in volume
-> group "vg_rdma01" monitored
-> [  OK  ]
-
-
-> CR2: 0000000000000120
-> ---[ end trace a8610f6e9640eb85 ]---
-> 
-> Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
-When was this bug added ?
-
-Please add a proper Fixes: tag
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Le 14/04/2015 17:26, Patrick McHardy a =E9crit :
+> On 14.04, Honggang Li wrote:
+[snip]
+>> -	return vlan->lowerdev->ifindex;
+>> +	if (vlan && vlan->lowerdev)
+>> +		return vlan->lowerdev->ifindex;
+>
+> That is completely useless. vlan (=3Dnetdev_priv) can not be NULL as
+> netdev_priv() never returns NULL and vlan->lowerdev is always valid
+> because a macvlan wouldn't make much sense otherwise.
+>
+And I suspect that it is the same for ipvlan and dsa.
