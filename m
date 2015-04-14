@@ -1,108 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 09/24] switchdev: add new swdev bridge setlink
-Date: Tue, 14 Apr 2015 07:30:45 +0200
-Message-ID: <20150414053045.GA2063@nanopsycho.orion>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
- <1428905838-14920-10-git-send-email-sfeldma@gmail.com>
- <552C92F8.8030604@cumulusnetworks.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH v6 1/9] bgmac: simplify tx ring index handling
+Date: Tue, 14 Apr 2015 07:38:47 +0200
+Message-ID: <CACna6ryBVXS0-bC_L7KnSr_BBRLMekYJ9-p+zF_a5-hHKewbKQ@mail.gmail.com>
+References: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org, linux@roeck-us.net,
-	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
-	ronen.arad@intel.com, andrew@lunn.ch
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:37948 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751369AbbDNFat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:30:49 -0400
-Received: by wiun10 with SMTP id n10so8277324wiu.1
-        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:30:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <552C92F8.8030604@cumulusnetworks.com>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:34250 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751596AbbDNFis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 01:38:48 -0400
+Received: by iedfl3 with SMTP id fl3so7732990ied.1
+        for <netdev@vger.kernel.org>; Mon, 13 Apr 2015 22:38:48 -0700 (PDT)
+In-Reply-To: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Apr 14, 2015 at 06:09:28AM CEST, roopa@cumulusnetworks.com wrote:
->On 4/12/15, 11:17 PM, sfeldma@gmail.com wrote:
->>From: Scott Feldman <sfeldma@gmail.com>
->>
->>Add new swdev_port_bridge_setlink that can be used by drivers implementing
->>.ndo_bridge_setlink to set swdev bridge attributes.  Basically turn the raw
->>rtnl_bridge_setlink netlink into swdev attr sets.  Proper netlink attr policy
->>checking is done on the protinfo part of the netlink msg.
->>
->>Currently, for protinfo, only bridge port attrs BR_LEARNING and
->>BR_LEARNING_SYNC are parsed and passed to port driver.
->>
->>For afspec, VLAN objs are passed so swdev driver can set VLANs assigned to
->>SELF.  To illustrate with iproute2 cmd, we have:
->>
->>	bridge vlan add vid 10 dev sw1p1 self master
->>
->>To add VLAN 10 to port sw1p1 for both the bridge (master) and the device
->>(self).
->>
->>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>---
->>  include/net/switchdev.h   |    8 +++
->>  net/switchdev/switchdev.c |  152 +++++++++++++++++++++++++++++++++++++++++++++
->>  2 files changed, 160 insertions(+)
->>
-
-...
-
->>+static int swdev_port_br_afspec(struct net_device *dev,
->>+				struct nlattr *afspec,
->>+				int (*f)(struct net_device *dev,
->>+					 struct swdev_obj *obj))
->>+{
->>+	struct nlattr *attr;
->>+	struct bridge_vlan_info *vinfo;
->>+	struct swdev_obj obj = {
->>+		.id = SWDEV_OBJ_PORT_VLAN,
->>+	};
->>+	int rem;
->>+	int err;
->>+
->>+	nla_for_each_nested(attr, afspec, rem) {
->>+		if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO)
->>+			continue;
->>+		if (nla_len(attr) != sizeof(struct bridge_vlan_info))
->>+			return -EINVAL;
->>+		vinfo = nla_data(attr);
->>+		obj.vlan.flags = vinfo->flags;
->>+		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
->>+			if (obj.vlan.vid_start)
->>+				return -EINVAL;
->>+			obj.vlan.vid_start = vinfo->vid;
->>+		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
->>+			if (!obj.vlan.vid_start)
->>+				return -EINVAL;
->>+			obj.vlan.vid_end = vinfo->vid;
->>+			if (obj.vlan.vid_end <= obj.vlan.vid_start)
->>+				return -EINVAL;
->>+			err = f(dev, &obj);
->>+			if (err)
->>+				return err;
->>+			memset(&obj.vlan, 0, sizeof(obj.vlan));
->>+		} else {
->>+			if (obj.vlan.vid_start)
->>+				return -EINVAL;
->>+			obj.vlan.vid_start = vinfo->vid;
->>+			obj.vlan.vid_end = vinfo->vid;
->>+			err = f(dev, &obj);
->>+			if (err)
->>+				return err;
->>+			memset(&obj.vlan, 0, sizeof(obj.vlan));
->>+		}
->>+	}
->>+
->>+	return 0;
->>+}
->>+
+On 14 April 2015 at 01:42, Felix Fietkau <nbd@openwrt.org> wrote:
+> @@ -158,13 +157,7 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
+>                 skb_checksum_help(skb);
 >
->This seems to be duplicating code that is already there in the bridge driver.
->
- 
-Sure, this is used by swdev_port_bridge_setlink, default ndo.
+>         nr_frags = skb_shinfo(skb)->nr_frags;
+> -
+> -       if (ring->start <= ring->end)
+> -               free_slots = ring->start - ring->end + BGMAC_TX_RING_SLOTS;
+> -       else
+> -               free_slots = ring->start - ring->end;
+> -
+> -       if (free_slots <= nr_frags + 1) {
+> +       if (ring->end - ring->start + nr_frags + 1 >= BGMAC_TX_RING_SLOTS) {
+>                 bgmac_err(bgmac, "TX ring is full, queue should be stopped!\n");
+>                 netif_stop_queue(net_dev);
+>                 return NETDEV_TX_BUSY;
+
+Regarding my previous report if following problem:
+ring->end:0x00 ring->start:0xfd (ring->end - ring->start + nr_frags + 1):-252
+ring->end:0x00 ring->start:0xff (ring->end - ring->start + nr_frags + 1):-254
+ring->end:0x00 ring->start:0xff (ring->end - ring->start + nr_frags + 1):-254
+ring->end:0x00 ring->start:0xff (ring->end - ring->start + nr_frags + 1):-254
+ring->end:0x00 ring->start:0xfe (ring->end - ring->start + nr_frags + 1):-253
+ring->end:0x00 ring->start:0xff (ring->end - ring->start + nr_frags + 1):-254
+ring->end:0x00 ring->start:0xfe (ring->end - ring->start + nr_frags + 1):-253
+ring->end:0x00 ring->start:0xfd (ring->end - ring->start + nr_frags + 1):-252
+ring->end:0x00 ring->start:0xfd (ring->end - ring->start + nr_frags + 1):-252
+(with hacked *_RING_SLOTS and u8 start, end;)
+
+My hacked code didn't work, because using u8 killed your trick with
+using the way of treating numbers (32b limit) in condition.
+
+When using u32 your trick seems to work:
+bgmac: [bgmac_dma_tx_add] ring->end:0x00000000 ring->start:0xfffffff9
+bgmac: [bgmac_dma_tx_add] (ring->end - ring->start + nr_frags + 1):8
+
+bgmac: [bgmac_dma_tx_add] ring->end:0x00000001 ring->start:0xfffffff9
+bgmac: [bgmac_dma_tx_add] (ring->end - ring->start + nr_frags + 1):9
+
+bgmac: [bgmac_dma_tx_add] ring->end:0x00000002 ring->start:0xfffffff9
+bgmac: [bgmac_dma_tx_add] (ring->end - ring->start + nr_frags + 1):10
+
+If you'll be sending V7, what about adding something like
+/* Ring start and end are u32, subtraction gives number of free slots */
+Would that be OK? To point this way the code is OK and help understand why?
