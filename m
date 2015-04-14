@@ -1,119 +1,53 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/1] cxgb4: drop __GFP_NOFAIL allocation
-Date: Tue, 14 Apr 2015 13:24:33 -0700
-Message-ID: <552d7781.skJyaStdJ4esZHiL%akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: hariprasad@chelsio.com, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, mhocko@suse.cz, davem@davemloft.net,
-	david@fromorbit.com, hannes@cmpxchg.org, jack@suse.cz,
-	mgorman@suse.de, penguin-kernel@I-love.SAKURA.ne.jp,
-	rientjes@google.com, tytso@mit.edu
+From: Andreas Oetken <ennoerlangen@googlemail.com>
+Subject: [PATCH 1/1] altera tse: Fix network-delays and -retransmissions after high throughput.
+Date: Tue, 14 Apr 2015 22:25:26 +0200
+Message-ID: <1429043126-10829-1-git-send-email-ennoerlangen@gmail.com>
+Cc: Andreas Oetken <ennoerlangen@gmail.com>,
+	Andreas Oetken <andreas@oetken.name>
+To: Vince Bridgers <vbridger@opensource.altera.com>,
+	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:52596 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753570AbbDNUYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 16:24:34 -0400
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:34139 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754198AbbDNUZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 16:25:56 -0400
+Received: by wgso17 with SMTP id o17so25079206wgs.1
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 13:25:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Hocko <mhocko@suse.cz>
-Subject: cxgb4: drop __GFP_NOFAIL allocation
+From: Andreas Oetken <andreas@oetken.name>
 
-set_filter_wr is requesting __GFP_NOFAIL allocation although it can return
-ENOMEM without any problems obviously (t4_l2t_set_switching does that
-already).  So the non-failing requirement is too strong without any
-obvious reason.  Drop __GFP_NOFAIL and reorganize the code to have the
-failure paths easier.
+Fix bug which occurs when more than <limit> packets are available during napi-poll,
+leading to "delays" and retransmissions on the network.
 
-The same applies to _c4iw_write_mem_dma_aligned which uses __GFP_NOFAIL
-and then checks the return value and returns -ENOMEM on failure.  This
-doesn't make any sense what so ever.  Either the allocation cannot fail or
-it can.
+Check for (count < limit) before checking the get_rx_status in tse_rx-function. get_rx_status is reading from the response-fifo.
+If there is currently a response in the fifo, reading the last byte of the response pops the value from the fifo.
+If the limit is check as second condition and the limit is reached the fifo is popped but the packet is not processed.
 
-del_filter_wr seems to be safe as well because the filter entry is not
-marked as pending and the return value is propagated up the stack up to
-c4iw_destroy_listen.
-
-Signed-off-by: Michal Hocko <mhocko@suse.cz>
-Cc: David Rientjes <rientjes@google.com>
-Cc: Johannes Weiner <hannes@cmpxchg.org>
-Cc: Dave Chinner <david@fromorbit.com>
-Cc: "Theodore Ts'o" <tytso@mit.edu>
-Cc: Mel Gorman <mgorman@suse.de>
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Hariprasad S <hariprasad@chelsio.com>
-Cc: Jan Kara <jack@suse.cz>
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Andreas Oetken <ennoerlangen@gmail.com>
 ---
+ drivers/net/ethernet/altera/altera_tse_main.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
- drivers/infiniband/hw/cxgb4/mem.c               |    2 -
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   15 +++++++++++---
- 2 files changed, 13 insertions(+), 4 deletions(-)
-
-diff -puN drivers/infiniband/hw/cxgb4/mem.c~cxgb4-drop-__gfp_nofail-allocation drivers/infiniband/hw/cxgb4/mem.c
---- a/drivers/infiniband/hw/cxgb4/mem.c~cxgb4-drop-__gfp_nofail-allocation
-+++ a/drivers/infiniband/hw/cxgb4/mem.c
-@@ -73,7 +73,7 @@ static int _c4iw_write_mem_dma_aligned(s
- 		c4iw_init_wr_wait(&wr_wait);
- 	wr_len = roundup(sizeof(*req) + sizeof(*sgl), 16);
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index 6725dc0..b927b8b 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -376,8 +376,12 @@ static int tse_rx(struct altera_tse_private *priv, int limit)
+ 	u16 pktlength;
+ 	u16 pktstatus;
  
--	skb = alloc_skb(wr_len, GFP_KERNEL | __GFP_NOFAIL);
-+	skb = alloc_skb(wr_len, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOMEM;
- 	set_wr_txq(skb, CPL_PRIORITY_CONTROL, 0);
-diff -puN drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c~cxgb4-drop-__gfp_nofail-allocation drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c~cxgb4-drop-__gfp_nofail-allocation
-+++ a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -1149,6 +1149,10 @@ static int set_filter_wr(struct adapter
- 	struct fw_filter_wr *fwr;
- 	unsigned int ftid;
+-	while (((rxstatus = priv->dmaops->get_rx_status(priv)) != 0) &&
+-	       (count < limit))  {
++	/* Check for limit first. get_rx_status is reading the from the
++	* response-fifo. If there is a currently a response in the fifo,
++	* reading the last byte of the response pops the value from the fifo.
++	*/
++	while ((count < limit) &&
++		((rxstatus = priv->dmaops->get_rx_status(priv)) != 0)) {
+ 		pktstatus = rxstatus >> 16;
+ 		pktlength = rxstatus & 0xffff;
  
-+	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
- 	/* If the new filter requires loopback Destination MAC and/or VLAN
- 	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
- 	 * the filter.
-@@ -1156,19 +1160,21 @@ static int set_filter_wr(struct adapter
- 	if (f->fs.newdmac || f->fs.newvlan) {
- 		/* allocate L2T entry for new filter */
- 		f->l2t = t4_l2t_alloc_switching(adapter->l2t);
--		if (f->l2t == NULL)
-+		if (f->l2t == NULL) {
-+			kfree_skb(skb);
- 			return -EAGAIN;
-+		}
- 		if (t4_l2t_set_switching(adapter, f->l2t, f->fs.vlan,
- 					f->fs.eport, f->fs.dmac)) {
- 			cxgb4_l2t_release(f->l2t);
- 			f->l2t = NULL;
-+			kfree_skb(skb);
- 			return -ENOMEM;
- 		}
- 	}
- 
- 	ftid = adapter->tids.ftid_base + fidx;
- 
--	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL | __GFP_NOFAIL);
- 	fwr = (struct fw_filter_wr *)__skb_put(skb, sizeof(*fwr));
- 	memset(fwr, 0, sizeof(*fwr));
- 
-@@ -1266,7 +1272,10 @@ static int del_filter_wr(struct adapter
- 	len = sizeof(*fwr);
- 	ftid = adapter->tids.ftid_base + fidx;
- 
--	skb = alloc_skb(len, GFP_KERNEL | __GFP_NOFAIL);
-+	skb = alloc_skb(len, GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
- 	fwr = (struct fw_filter_wr *)__skb_put(skb, len);
- 	t4_mk_filtdelwr(ftid, fwr, adapter->sge.fw_evtq.abs_id);
- 
-_
+-- 
+2.1.4
