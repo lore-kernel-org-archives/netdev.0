@@ -1,70 +1,69 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: RE: [PATCH net] cxgb4vf: Implement mailbox access locking and list
- management
-Date: Tue, 14 Apr 2015 21:57:57 +0000
-Message-ID: <4985EFDD773FCB459EF7915D2A3621ADBB8E0A@nice.asicdesigners.com>
-References: <1429014645-20361-1-git-send-email-hariprasad@chelsio.com>
-	<20150414.142916.969366711752555436.davem@davemloft.net>,<20150414.144052.843726517109270692.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/5] ibmveth: Add support for Large Receive Offload
+Date: Tue, 14 Apr 2015 15:00:22 -0700
+Message-ID: <1429048822.7346.53.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429043704-22552-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+	 <1429043704-22552-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>
-To: David Miller <davem@davemloft.net>,
-	Hariprasad S <hariprasad@chelsio.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	Brian King <brking@linux.vnet.ibm.com>
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:8909 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753787AbbDNV6A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 17:58:00 -0400
-In-Reply-To: <20150414.144052.843726517109270692.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:33234 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753787AbbDNWAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 18:00:24 -0400
+Received: by igbpi8 with SMTP id pi8so55805991igb.0
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 15:00:23 -0700 (PDT)
+In-Reply-To: <1429043704-22552-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  I don't believe that there's any ordering requirement other than fairness.  There is an ordering requirement for a single thread of control issuing multiple mailbox requests but that's the job of the thread to issue the requests in the order which is correct.  The issue comes when there are multiple threads attempting to use the mailbox facility at the same time.  Normally this would be guarded by the RTNL one would presume but we ran into cases where a thread would come in and issue mailbox requests without the RTNL being held ...  Hold on a second and I'll look this up ...
+On Tue, 2015-04-14 at 15:35 -0500, Thomas Falcon wrote:
+> Enables receiving large packets from other LPARs. These packets
+> have a -1 IP header checksum, so we must recalculate to have
+> a valid checksum.
+> 
+> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/ibm/ibmveth.c | 15 ++++++++++++++-
+>  1 file changed, 14 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+> index 08970c7..05eaca6a 100644
+> --- a/drivers/net/ethernet/ibm/ibmveth.c
+> +++ b/drivers/net/ethernet/ibm/ibmveth.c
+> @@ -1092,6 +1092,7 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
+>  	struct net_device *netdev = adapter->netdev;
+>  	int frames_processed = 0;
+>  	unsigned long lpar_rc;
+> +	struct iphdr *iph;
+>  
+>  restart_poll:
+>  	while (frames_processed < budget) {
+> @@ -1134,8 +1135,20 @@ restart_poll:
+>  			skb_put(skb, length);
+>  			skb->protocol = eth_type_trans(skb, netdev);
+>  
+> -			if (csum_good)
+> +			if (csum_good) {
+>  				skb->ip_summed = CHECKSUM_UNNECESSARY;
+> +				if (be16_to_cpu(skb->protocol) == ETH_P_IP) {
+> +					skb_set_network_header(skb, 0);
+> +					skb_set_transport_header(skb, sizeof(struct iphdr));
+> +					iph = ip_hdr(skb);
+> +
+> +					/* If the IP checksum is not offloaded and if the packet
+> +					 *  is large send, the checksum must be rebuilt.
+> +					 */
+> +					if (iph->check == 0xffff)
+> +						iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
 
-  ... Okay, that took a while but I finally dug it up.  The issue is the for the Virtual Function Driver, the only way to get the Virtual Interface statistics is to issue mailbox commands to ask the firmware for the VI Stats.  And, because the VI Stats command can only retrieve a smallish number of stats per mailbox command, we have to issue three mailbox commands in quick succession.  What we ran into was irqbalance coming in every 10 seconds and interrogating every network interface in the system and apparently doing this without holding RTNL.  But since other accesses under the RTNL could be using the mailbox registers we need to create an exclusion mechanism.
 
-  We chose a simple first-come/first-served queue because there wasn't a need for anything more and we figured it would provide "fairness" in the presence of an abusive script, etc. (see below).  In reality, the number of mailbox access collisions is going to be very rare but we had to pick some upper bound for a timeout.  The original timeout was only found when a QA engineer was manically doing ifup/ifdown in a scripted llop in order to stress the system.
+How can this possibly work ?
 
-  And we picked four times the maximum mailbox execution timeout out of thin air.  Also not that the 10s maximum mailbox command execution timeout was setup for FPGA testing: the ASICs rarely takes more than a few milliseconds.  It would be completely reasonable to set up a lower bound for ASICs.  But again, mailbox timeout rarely happen in real life.
-
-  And now that I'm reading the original bug report, I see that we ran into exactly the same problem with the Physical Function driver under the same exact test.  So this problem and its fix affect both drivers.
-
-Casey
-
-________________________________________
-From: David Miller [davem@davemloft.net]
-Sent: Tuesday, April 14, 2015 11:40 AM
-To: Hariprasad S
-Cc: netdev@vger.kernel.org; Casey Leedom; Nirranjan Kirubaharan
-Subject: Re: [PATCH net] cxgb4vf: Implement mailbox access locking and list management
-
-From: David Miller <davem@davemloft.net>
-Date: Tue, 14 Apr 2015 14:29:16 -0400 (EDT)
-
-> From: Hariprasad Shenai <hariprasad@chelsio.com>
-> Date: Tue, 14 Apr 2015 18:00:45 +0530
->
->> +    for (i = 0; ; i += ms) {
->> +            /* If we've waited too long, return a busy indication.  This
->> +             * really ought to be based on our initial position in the
->> +             * mailbox access list but this is a start.  We very rarely
->> +             * contend on access to the mailbox ...
->> +             */
->> +            if (i > 4 * FW_CMD_MAX_TIMEOUT) {
->
-> So you're going to sit here potentially polling for 40000 ms in a non-preemptable
-> context?
->
-> I don't think so...
-
-Also, you haven't really explained in the commit message what the real
-problem is and why the ordering of processing these messages matters
-so much and furthermore what might go wrong if things are processed
-out of order.
-
-You have to assume I'm a complete idiot when I read your patches and
-it is your job to explain to someone with now knowledge of your driver
-or your hardware what you are doing.
+Normally you would have to set iph->check to 0 before calling
+ip_fast_csum(), as done in ip_send_check()
