@@ -1,77 +1,100 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V2 03/12] net/mlx5_core: Add EQ renaming mechanism
-Date: Tue, 14 Apr 2015 11:20:26 +0300
-Message-ID: <1428999635-15025-4-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V2 07/12] net/mlx5_core: Implement get/set port status
+Date: Tue, 14 Apr 2015 11:20:30 +0300
+Message-ID: <1428999635-15025-8-git-send-email-amirv@mellanox.com>
 References: <1428999635-15025-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
 	Ido Shamay <idos@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Rana Shahout <ranas@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:42018 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:42030 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752748AbbDNIVd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752782AbbDNIVd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 14 Apr 2015 04:21:33 -0400
 In-Reply-To: <1428999635-15025-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
+From: Rana Shahout <ranas@mellanox.com>
 
-Preparation for ethernet support.
-
+Signed-off-by: Rana Shahout <ranas@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c      | 21 +++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h |  2 ++
- 2 files changed, 23 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/port.c | 32 ++++++++++++++++++++++++++
+ include/linux/mlx5/driver.h                    |  8 +++++++
+ 2 files changed, 40 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 55085b0..aa496c0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -609,6 +609,27 @@ int mlx5_vector2eqn(struct mlx5_core_dev *dev, int vector, int *eqn, int *irqn)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 6e2d99c..742a6fb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -179,3 +179,35 @@ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+ 	return err;
  }
- EXPORT_SYMBOL(mlx5_vector2eqn);
- 
-+int mlx5_rename_eq(struct mlx5_core_dev *dev, int eq_ix, char *name)
+ EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
++
++int mlx5_set_port_status(struct mlx5_core_dev *dev,
++			 enum mlx5_port_status status)
 +{
-+	struct mlx5_priv *priv = &dev->priv;
-+	struct mlx5_eq_table *table = &priv->eq_table;
-+	struct mlx5_eq *eq;
-+	int err = -ENOENT;
++	u32 in[MLX5_ST_SZ_DW(paos_reg)];
++	u32 out[MLX5_ST_SZ_DW(paos_reg)];
 +
-+	spin_lock(&table->lock);
-+	list_for_each_entry(eq, &table->comp_eqs_list, list) {
-+		if (eq->index == eq_ix) {
-+			snprintf(priv->irq_info[eq_ix].name, MLX5_MAX_IRQ_NAME,
-+				 "%s-%d", name, eq_ix);
-+			err = 0;
-+			break;
-+		}
-+	}
-+	spin_unlock(&table->lock);
++	memset(in, 0, sizeof(in));
 +
-+	return err;
++	MLX5_SET(paos_reg, in, admin_status, status);
++	MLX5_SET(paos_reg, in, ase, 1);
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), out,
++				    sizeof(out), MLX5_REG_PAOS, 0, 1);
 +}
 +
- static void free_comp_eqs(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_eq_table *table = &dev->priv.eq_table;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index a051b90..230855a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -72,4 +72,6 @@ int mlx5_cmd_query_adapter(struct mlx5_core_dev *dev);
- int mlx5_cmd_init_hca(struct mlx5_core_dev *dev);
- int mlx5_cmd_teardown_hca(struct mlx5_core_dev *dev);
- 
-+int mlx5_rename_eq(struct mlx5_core_dev *dev, int eq_ix, char *name);
++int mlx5_query_port_status(struct mlx5_core_dev *dev, u8 *status)
++{
++	u32 in[MLX5_ST_SZ_DW(paos_reg)];
++	u32 out[MLX5_ST_SZ_DW(paos_reg)];
++	int err;
 +
- #endif /* __MLX5_CORE_H__ */
++	memset(in, 0, sizeof(in));
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
++				   sizeof(out), MLX5_REG_PAOS, 0, 0);
++	if (err)
++		return err;
++
++	*status = MLX5_GET(paos_reg, out, oper_status);
++	return err;
++}
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 266d549..6438444 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -149,6 +149,11 @@ enum mlx5_dev_event {
+ 	MLX5_DEV_EVENT_CLIENT_REREG,
+ };
+ 
++enum mlx5_port_status {
++	MLX5_PORT_UP        = 1 << 1,
++	MLX5_PORT_DOWN      = 1 << 2,
++};
++
+ struct mlx5_uuar_info {
+ 	struct mlx5_uar	       *uars;
+ 	int			num_uars;
+@@ -701,6 +706,9 @@ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
+ 				u32 *proto_admin, int proto_mask);
+ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+ 			int proto_mask);
++int mlx5_set_port_status(struct mlx5_core_dev *dev,
++			 enum mlx5_port_status status);
++int mlx5_query_port_status(struct mlx5_core_dev *dev, u8 *status);
+ 
+ int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
 -- 
 1.9.3
