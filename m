@@ -1,45 +1,107 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 0/7 RFC] Netfilter/nf_tables ingress support
-Date: Tue, 14 Apr 2015 11:08:46 +0100
-Message-ID: <20150414100846.GB14022@casper.infradead.org>
-References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
- <20150410132205.GF23070@casper.infradead.org>
- <20150410200901.GB5968@salvia>
- <20150412.211421.1771298417488412635.davem@davemloft.net>
- <20150413201913.GD20275@acer.localdomain>
- <20150414090048.GA14022@casper.infradead.org>
- <20150414090559.GH22725@acer.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150414090559.GH22725@acer.localdomain>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Felix Fietkau <nbd@openwrt.org>
+Subject: [PATCH v7 2/9] bgmac: leave interrupts disabled as long as there is work to do
+Date: Tue, 14 Apr 2015 12:07:55 +0200
+Message-ID: <1429006082-23489-2-git-send-email-nbd@openwrt.org>
+References: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
+Cc: zajec5@gmail.com, hauke@hauke-m.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:54945
+	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753805AbbDNKIH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 06:08:07 -0400
+In-Reply-To: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/14/15 at 10:06am, Patrick McHardy wrote:
-> On 14.04, Thomas Graf wrote:
-> > On 04/13/15 at 09:19pm, Patrick McHardy wrote:
-> > > Now the advantages of being able to use nft. First, the obvious
-> > > one is that we have a nice userspace tool, a well defined
-> > > grammar, and that people would be able to use the same tool for
-> > > very similar tasks. nftables in the kernel is almost completely
-> > > lockless, we support way more possibilites already and we won't
-> > > have to add new special case TC actions anymore. Look at the
-> > > connmark action for example. It can set a value. How long until
-> > > someone wants to use a bitmask? We support all operations
-> > > (assignment, bit operations) for all types, we have sets for fast
-> > > lookups, maps for associating values quickly, we have a nice and
-> > > readable syntax and full translation back to the readable
-> > > representation and much more.
-> > 
-> > *cough* Performance numbers? *cough* ;-)
-> 
-> I'm just arguing, not implementing :)
+Always poll rx and tx during NAPI poll instead of relying on the status
+of the first interrupt. This prevents bgmac_poll from leaving unfinished
+work around until the next IRQ.
+In my tests this makes bridging/routing throughput under heavy load more
+stable and ensures that no new IRQs arrive as long as bgmac_poll uses up
+the entire budget.
 
-OK ;-) Seriously though, we need to start putting emphasis on
-numbers as well. We are supposed to run data centers with all of
-this, we can't just horse around for fun ;-)
+Signed-off-by: Felix Fietkau <nbd@openwrt.org>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 31 ++++++++++---------------------
+ drivers/net/ethernet/broadcom/bgmac.h |  1 -
+ 2 files changed, 10 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index b9e02e4..9c3b2ff 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1109,8 +1109,6 @@ static void bgmac_chip_reset(struct bgmac *bgmac)
+ 	bgmac_phy_init(bgmac);
+ 
+ 	netdev_reset_queue(bgmac->net_dev);
+-
+-	bgmac->int_status = 0;
+ }
+ 
+ static void bgmac_chip_intrs_on(struct bgmac *bgmac)
+@@ -1225,14 +1223,13 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ 	if (!int_status)
+ 		return IRQ_NONE;
+ 
+-	/* Ack */
+-	bgmac_write(bgmac, BGMAC_INT_STATUS, int_status);
++	int_status &= ~(BGMAC_IS_TX0 | BGMAC_IS_RX);
++	if (int_status)
++		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", int_status);
+ 
+ 	/* Disable new interrupts until handling existing ones */
+ 	bgmac_chip_intrs_off(bgmac);
+ 
+-	bgmac->int_status = int_status;
+-
+ 	napi_schedule(&bgmac->napi);
+ 
+ 	return IRQ_HANDLED;
+@@ -1241,25 +1238,17 @@ static irqreturn_t bgmac_interrupt(int irq, void *dev_id)
+ static int bgmac_poll(struct napi_struct *napi, int weight)
+ {
+ 	struct bgmac *bgmac = container_of(napi, struct bgmac, napi);
+-	struct bgmac_dma_ring *ring;
+ 	int handled = 0;
+ 
+-	if (bgmac->int_status & BGMAC_IS_TX0) {
+-		ring = &bgmac->tx_ring[0];
+-		bgmac_dma_tx_free(bgmac, ring);
+-		bgmac->int_status &= ~BGMAC_IS_TX0;
+-	}
++	/* Ack */
++	bgmac_write(bgmac, BGMAC_INT_STATUS, ~0);
+ 
+-	if (bgmac->int_status & BGMAC_IS_RX) {
+-		ring = &bgmac->rx_ring[0];
+-		handled += bgmac_dma_rx_read(bgmac, ring, weight);
+-		bgmac->int_status &= ~BGMAC_IS_RX;
+-	}
++	bgmac_dma_tx_free(bgmac, &bgmac->tx_ring[0]);
++	handled += bgmac_dma_rx_read(bgmac, &bgmac->rx_ring[0], weight);
+ 
+-	if (bgmac->int_status) {
+-		bgmac_err(bgmac, "Unknown IRQs: 0x%08X\n", bgmac->int_status);
+-		bgmac->int_status = 0;
+-	}
++	/* Poll again if more events arrived in the meantime */
++	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX))
++		return handled;
+ 
+ 	if (handled < weight) {
+ 		napi_complete(napi);
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index 5a198d5..abd50d1 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -452,7 +452,6 @@ struct bgmac {
+ 
+ 	/* Int */
+ 	u32 int_mask;
+-	u32 int_status;
+ 
+ 	/* Current MAC state */
+ 	int mac_speed;
+-- 
+2.2.2
