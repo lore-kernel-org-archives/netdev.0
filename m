@@ -1,120 +1,79 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next 0/4] Allow use of rocker ports without
- bridging
-Date: Tue, 14 Apr 2015 17:02:15 +0900
-Message-ID: <20150414080212.GA2504@vergenet.net>
-References: <1428907677-27204-1-git-send-email-simon.horman@netronome.com>
- <CAE4R7bA3hsRBOY9+YZXQ8b-7T_DwgzcrAM=wzYj+cyyWVkbRHQ@mail.gmail.com>
- <CAE4R7bANSqhUWeYarFmdOLsCbWtRFVW9jwvQufgNEb8OURJdPA@mail.gmail.com>
- <20150414071146.GA28577@vergenet.net>
- <CAE4R7bBmhiSCSNu=KhDh+kY7EduLZoeT=yopBUxGaPRQ7sL_qQ@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/4] mac80211-hwsim: notify user-space about channel
+ change.
+Date: Tue, 14 Apr 2015 10:14:09 +0200
+Message-ID: <1428999249.3019.7.camel@sipsolutions.net>
+References: <1428095523-374-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34173 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbbDNIC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 04:02:26 -0400
-Received: by pacyx8 with SMTP id yx8so2803317pac.1
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 01:02:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAE4R7bBmhiSCSNu=KhDh+kY7EduLZoeT=yopBUxGaPRQ7sL_qQ@mail.gmail.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:54358 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752659AbbDNIOM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Apr 2015 04:14:12 -0400
+In-Reply-To: <1428095523-374-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2015 at 12:23:41AM -0700, Scott Feldman wrote:
-> On Tue, Apr 14, 2015 at 12:11 AM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > Hi Scott,
-> >
-> > On Mon, Apr 13, 2015 at 08:43:16AM -0700, Scott Feldman wrote:
-> >> On Mon, Apr 13, 2015 at 7:59 AM, Scott Feldman <sfeldma@gmail.com> wrote:
-> >> > On Sun, Apr 12, 2015 at 11:47 PM, Simon Horman
-> >> > <simon.horman@netronome.com> wrote:
-> >> >> Hi,
-> >> >>
-> >> >> this short series attempts to allow rocker ports to be used when they
-> >> >> are not attached to a bridge. It attempts to make use of flow entries
-> >> >> in a rocker switch where appropriate and otherwise forwards packets up
-> >> >> to the kernel for processing.
-> >> >
-> >> > Hi Simon,
-> >> >
-> >> > Unbridged ports should be working now with current driver/device.  I
-> >> > wonder if you have an older qemu rocker device?  Use master branch of
-> >> > https://github.com/scottfeldman/qemu-rocker.git.
-> >
-> > For the record, that is what I am using.
-> >
-> >> > My test setup is to IPv4 ping two hosts from two different ports.
-> >> > Something like:
-> >> >
-> >> > sw1:sw1p1:11.0.0.1/24 <----------------> h1:eth1:11.0.0.2/24
-> >> > sw1:sw1p2:12.0.0.1/24 <----------------> h2:eth1:12.0.0.2/24
-> >> >
-> >> > ARP and ping work fine.  What is your test setup?  I haven't spent a
-> >> > lot of time on unbridged port testing, since major focus has been on
-> >> > offloading bridge L2 and L3.
-> >
-> > My setup is similar if not the same. I used it to test both bridging
-> > and routing.
-> >
-> >> Ah, I think I know why it's not working for you.  You don't have the
-> >> VLAN 8021.q module loaded, do you?  I'm getting these:
-> >>
-> >> [    2.871619] 8021q: 802.1Q VLAN Support v1.8
-> >> [    2.871629] 8021q: adding VLAN 0 to HW filter on device sw1p1
-> >> [    2.872097] 8021q: adding VLAN 0 to HW filter on device sw1p2
-> >>
-> >> Which calls into the driver ndo_vlan ops and sets up untagged access.
-> >
-> > Thanks! There is now one less mystery in my life.
-> >
-> > I had not considered the ndo_vlan ops and with the 802.1q driver present
-> > things seem to work.
-> 
-> Good.  Sorry about the wasted time.  I'm trying to get the
-> Documentation/network/switchdev.txt file updated with notes about
-> setup, so at least we all go the same path, right or wrong.
 
-It wasn't really a waste; I learnt a lot about rocker :)
+> +static void mac80211_hwsim_check_nl_notify(struct mac80211_hwsim_data *data)
+> +{
+> +	struct sk_buff *skb;
+> +	u32 center_freq = 0;
+> +	u32 _portid;
+> +	void *msg_head;
+> +
+> +	/* wmediumd mode check */
+> +	_portid = ACCESS_ONCE(wmediumd_portid);
+> +
+> +	if (!_portid)
+> +		return;
+> +
+> +	skb = genlmsg_new(GENLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+> +	if (skb == NULL)
+> +		goto err_print;
+> +
+> +	msg_head = genlmsg_put(skb, 0, 0, &hwsim_genl_family, 0,
+> +			       HWSIM_CMD_NOTIFY);
+> +	if (msg_head == NULL) {
+> +		printk(KERN_DEBUG "mac80211_hwsim: problem with msg_head, notify\n");
 
-> >> But, dependence on VLAN 802.1q module is wrong I think, and we'll need
-> >> your patch (I haven't reviewed it yet, but I'm assuming it's doing
-> >> basically what loading what VLAN 802.1q driver forces).
-> >
-> > Yes, I think that is more or less the case.
-> >
-> > One thing that my patches did which does not seem to occur without
-> > them is to cause, or at least try to cause, all packets to
-> > be forwarded to the CPU if the interface is in promiscuous mode.
-> > This seems logical to me.
-> 
-> rocker needs help here for rx filters, for things like IGMP snooping
-> and so on.  promisc is ignored now as you found out.  Maybe after this
-> vlan stuff gets sorted out with mine and Ronan's patchsets, you can
-> look at the rx filters again?  I think we'll need to be more selective
-> with some of the default setups, like the bridge or bond putting port
-> in promisc by default.  Promisc seems dangerous thing to enable on a
-> live switch port.  Firehose in mouth kind of thing.
+None of this can really happen, so I don't think you should print
+anything here. It's just a waste of space in all ways I think.
 
-I agree that it would make sense to try treading carefully in this area
-once your and Ronan's patchsets have landed.
+> +	if (nla_put(skb, HWSIM_ATTR_ADDR_TRANSMITTER,
+> +		    ETH_ALEN, data->addresses[1].addr))
 
-> >> The Spring Cleanup patchset has better setlink/dellink support so
-> >> driver can manage VLANs from bridge driver and moves away from
-> >> ndo_vlan ops used with 802.1q VLAN driver.  Ronan (Cc:d) has a VLAN
-> >> patch that builds on top of my Spring Cleanup patchset  I think the
-> >> order of changes will be to get my Spring Cleanup patchset in and then
-> >> get yours/Ronan's patches in.  And rocker can get away from using
-> >> ndo_vlan ops.
-> >
-> > Sure, that ordering is entirely fine by me.
-> >
-> >> Would you verify that without your patch, and with VLAN 802.1q driver
-> >> loaded, unbridged ports are working?
-> >
-> > As noted above, I have verified that scenario works.
+That doesn't seem right, Bob just fixed the code to not do this any
+more.
+
+> +	if (nla_put_u32(skb, HWSIM_ATTR_FREQ, center_freq))
+> +		goto nla_put_failure;
+
+You shouldn't unconditionally put this attribute but just leave it out
+when the channel isn't known. However, see below.
+
+> +nla_put_failure:
+> +	nlmsg_free(skb);
+> +err_print:
+> +	printk(KERN_DEBUG "mac80211_hwsim: error occurred in %s\n", __func__);
+
+ditto.
+
+> @@ -1465,6 +1511,8 @@ static int mac80211_hwsim_config(struct ieee80211_hw *hw, u32 changed)
+>  				      HRTIMER_MODE_REL);
+>  	}
+>  
+> +	mac80211_hwsim_check_nl_notify(data);
+
+Still this bothers me a bit, if you enable multi-channel in hwsim, you
+don't actually get a data->channel, which renders this functionality
+useless, you might never get this message.
+
+Wouldn't it be better to have an API to wmediumd and similar userspace
+that didn't break as soon as you enable multi-channel?
+
+johannes
