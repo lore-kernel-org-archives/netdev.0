@@ -1,45 +1,144 @@
 From: Felix Fietkau <nbd@openwrt.org>
-Subject: [PATCH v7 5/9] bgmac: add check for oversized packets
-Date: Tue, 14 Apr 2015 12:07:58 +0200
-Message-ID: <1429006082-23489-5-git-send-email-nbd@openwrt.org>
-References: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
+Subject: [PATCH v7 1/9] bgmac: simplify tx ring index handling
+Date: Tue, 14 Apr 2015 12:07:54 +0200
+Message-ID: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
 Cc: zajec5@gmail.com, hauke@hauke-m.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:54946
+Received: from static.88-198-24-112.clients.your-server.de ([88.198.24.112]:54957
 	"EHLO nbd.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752965AbbDNKIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 06:08:06 -0400
-In-Reply-To: <1429006082-23489-1-git-send-email-nbd@openwrt.org>
+	with ESMTP id S1752479AbbDNKII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 06:08:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In very rare cases, the MAC can catch an internal buffer that is bigger
-than it's supposed to be. Instead of crashing the kernel, simply pass
-the buffer back to the hardware
+Keep incrementing ring->start and ring->end instead of pointing it to
+the actual ring slot entry. This simplifies the calculation of the
+number of free slots.
 
 Signed-off-by: Felix Fietkau <nbd@openwrt.org>
 ---
- drivers/net/ethernet/broadcom/bgmac.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/broadcom/bgmac.c | 46 +++++++++++++++--------------------
+ drivers/net/ethernet/broadcom/bgmac.h |  6 ++---
+ 2 files changed, 23 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 60b5c3c..5a20108 100644
+index fa8f9e1..b9e02e4 100644
 --- a/drivers/net/ethernet/broadcom/bgmac.c
 +++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -445,6 +445,13 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 				break;
- 			}
+@@ -142,11 +142,10 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
+ {
+ 	struct device *dma_dev = bgmac->core->dma_dev;
+ 	struct net_device *net_dev = bgmac->net_dev;
+-	struct bgmac_slot_info *slot = &ring->slots[ring->end];
+-	int free_slots;
++	int index = ring->end % BGMAC_TX_RING_SLOTS;
++	struct bgmac_slot_info *slot = &ring->slots[index];
+ 	int nr_frags;
+ 	u32 flags;
+-	int index = ring->end;
+ 	int i;
  
-+			if (len > BGMAC_RX_ALLOC_SIZE) {
-+				bgmac_err(bgmac, "Found oversized packet at slot %d, DMA issue!\n",
-+					  ring->start);
-+				put_page(virt_to_head_page(buf));
-+				break;
-+			}
-+
- 			/* Omit CRC. */
- 			len -= ETH_FCS_LEN;
+ 	if (skb->len > BGMAC_DESC_CTL1_LEN) {
+@@ -159,12 +158,10 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
  
+ 	nr_frags = skb_shinfo(skb)->nr_frags;
+ 
+-	if (ring->start <= ring->end)
+-		free_slots = ring->start - ring->end + BGMAC_TX_RING_SLOTS;
+-	else
+-		free_slots = ring->start - ring->end;
+-
+-	if (free_slots <= nr_frags + 1) {
++	/* ring->end - ring->start will return the number of valid slots,
++	 * even when ring->end overflows
++	 */
++	if (ring->end - ring->start + nr_frags + 1 >= BGMAC_TX_RING_SLOTS) {
+ 		bgmac_err(bgmac, "TX ring is full, queue should be stopped!\n");
+ 		netif_stop_queue(net_dev);
+ 		return NETDEV_TX_BUSY;
+@@ -200,7 +197,7 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
+ 	}
+ 
+ 	slot->skb = skb;
+-
++	ring->end += nr_frags + 1;
+ 	netdev_sent_queue(net_dev, skb->len);
+ 
+ 	wmb();
+@@ -208,13 +205,12 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
+ 	/* Increase ring->end to point empty slot. We tell hardware the first
+ 	 * slot it should *not* read.
+ 	 */
+-	ring->end = (index + 1) % BGMAC_TX_RING_SLOTS;
+ 	bgmac_write(bgmac, ring->mmio_base + BGMAC_DMA_TX_INDEX,
+ 		    ring->index_base +
+-		    ring->end * sizeof(struct bgmac_dma_desc));
++		    (ring->end % BGMAC_TX_RING_SLOTS) *
++		    sizeof(struct bgmac_dma_desc));
+ 
+-	free_slots -= nr_frags + 1;
+-	if (free_slots < 8)
++	if (ring->end - ring->start >= BGMAC_TX_RING_SLOTS - 8)
+ 		netif_stop_queue(net_dev);
+ 
+ 	return NETDEV_TX_OK;
+@@ -256,17 +252,17 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
+ 	empty_slot &= BGMAC_DMA_TX_STATDPTR;
+ 	empty_slot /= sizeof(struct bgmac_dma_desc);
+ 
+-	while (ring->start != empty_slot) {
+-		struct bgmac_slot_info *slot = &ring->slots[ring->start];
+-		u32 ctl1 = le32_to_cpu(ring->cpu_base[ring->start].ctl1);
+-		int len = ctl1 & BGMAC_DESC_CTL1_LEN;
++	while (ring->start != ring->end) {
++		int slot_idx = ring->start % BGMAC_TX_RING_SLOTS;
++		struct bgmac_slot_info *slot = &ring->slots[slot_idx];
++		u32 ctl1;
++		int len;
+ 
+-		if (!slot->dma_addr) {
+-			bgmac_err(bgmac, "Hardware reported transmission for empty TX ring slot %d! End of ring: %d\n",
+-				  ring->start, ring->end);
+-			goto next;
+-		}
++		if (slot_idx == empty_slot)
++			break;
+ 
++		ctl1 = le32_to_cpu(ring->cpu_base[slot_idx].ctl1);
++		len = ctl1 & BGMAC_DESC_CTL1_LEN;
+ 		if (ctl1 & BGMAC_DESC_CTL0_SOF)
+ 			/* Unmap no longer used buffer */
+ 			dma_unmap_single(dma_dev, slot->dma_addr, len,
+@@ -284,10 +280,8 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
+ 			slot->skb = NULL;
+ 		}
+ 
+-next:
+ 		slot->dma_addr = 0;
+-		if (++ring->start >= BGMAC_TX_RING_SLOTS)
+-			ring->start = 0;
++		ring->start++;
+ 		freed = true;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethernet/broadcom/bgmac.h
+index 3ad965f..5a198d5 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.h
++++ b/drivers/net/ethernet/broadcom/bgmac.h
+@@ -414,10 +414,10 @@ enum bgmac_dma_ring_type {
+  * empty.
+  */
+ struct bgmac_dma_ring {
+-	u16 num_slots;
+-	u16 start;
+-	u16 end;
++	u32 start;
++	u32 end;
+ 
++	u16 num_slots;
+ 	u16 mmio_base;
+ 	struct bgmac_dma_desc *cpu_base;
+ 	dma_addr_t dma_base;
 -- 
 2.2.2
