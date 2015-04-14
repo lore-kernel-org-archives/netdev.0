@@ -1,42 +1,50 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net] bnx2x: Fix netpoll interoperability
-Date: Tue, 14 Apr 2015 16:44:22 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>
-References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH linux-next 1/4] infiniband/ipoib: fix possible NULL pointer
+ dereference in ipoib_get_iflink
+Date: Tue, 14 Apr 2015 18:46:22 +0200
+Message-ID: <552D445E.3040503@6wind.com>
+References: <1429024817-21561-1-git-send-email-honli@redhat.com>	<1429024817-21561-2-git-send-email-honli@redhat.com> <CAAk-MO-O9sjHQvDfCEuzJJPvUMXJTuRaCzrCkB0xc1DUfK8Aew@mail.gmail.com>
+Reply-To: nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
-	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	"Willem de Bruijn" <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:48951 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932975AbbDNQom convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2015 12:44:42 -0400
-In-Reply-To: <1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Alex Estrin <alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+	Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAAk-MO-O9sjHQvDfCEuzJJPvUMXJTuRaCzrCkB0xc1DUfK8Aew-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->> Commit 9a2620c877454 ("bnx2x: prevent WARN during driver unload") switched
->> the napi/busy_lock locking mechanism from spin_lock() into spin_lock_bh(),
->> breaking inter-operability with netconsole, as netpoll disables interrupts
->> prior to calling our napi mechanism.
->>
->> This switches the driver into using atomic assignments instead of the spinlock
->> mechanisms previously employed.
-
-> This fix is prone to starvation of softirq handler.
-> Since you use 2 bits, I believe you could set one bit unconditionally to
-> make sure the bnx2x_low_latency_recv() will yield to softirq handler.
-
-Care to elaborate a bit? About the possibly starvation?
-
-> Please CC me and Willem on busypoll stuff, thanks !
-
-Sure.
+Le 14/04/2015 18:30, Erez Shitrit a =C3=A9crit :
+> On Tue, Apr 14, 2015 at 6:20 PM, Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote=
+:
+[snip]
+> This will make parent interface to return 0 instead of its own ifinde=
+x.
+> I would suggest write something like that:
+>
+> +       /* parent interface */
+> +       if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
+> +               return dev->ifindex;
+> +
+> +       /* child/vlan interface */
+> +       if (!priv->parent)
+> +               return -1;
+'return 0' here.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
