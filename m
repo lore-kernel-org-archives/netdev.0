@@ -1,56 +1,73 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3] Renesas Ethernet AVB driver
-Date: Tue, 14 Apr 2015 11:31:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1DA25@AcuExch.aculab.com>
-References: <32501816.HtkLenWQpn@wasted.cogentembedded.com>
- <552C63FD.9010005@gmx.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ip_forward: Drop frames with attached skb->sk
+Date: Tue, 14 Apr 2015 04:54:47 -0700
+Message-ID: <1429012487.7346.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1428990724.6812.8.camel@googlemail.com>
+	 <552CB4BC.9000207@windriver.com> <1428993608.6812.24.camel@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>
-To: 'Lino Sanfilippo' <LinoSanfilippo@gmx.de>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.com" <pawel.moll@arm.com>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"richardcochran@gmail.com" <richardcochran@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: yzhu1 <Yanjun.Zhu@windriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	fw@strlen.de
+To: Sebastian Poehn <sebastian.poehn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:53161 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754970AbbDNLdD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 07:33:03 -0400
-In-Reply-To: <552C63FD.9010005@gmx.de>
-Content-Language: en-US
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34102 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753541AbbDNLyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 07:54:49 -0400
+Received: by pacyx8 with SMTP id yx8so9348381pac.1
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 04:54:49 -0700 (PDT)
+In-Reply-To: <1428993608.6812.24.camel@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lino Sanfilippo
-> On 14.04.2015 00:07, Sergei Shtylyov wrote:
+On Tue, 2015-04-14 at 08:40 +0200, Sebastian Poehn wrote:
+> On Tue, 2015-04-14 at 14:33 +0800, yzhu1 wrote:
+> > On 04/14/2015 01:52 PM, Sebastian Poehn wrote:
+> > > Initial discussion was:
+> > > [FYI] xfrm: Don't lookup sk_policy for timewait sockets
+> > >
+> > > Forwarded frames should not have a socket attached. Especially
+> > > tw sockets will lead to panics later-on in the stack.
+> > >
+> > > This was observed with TPROXY assigning a tw socket and broken
+> > > policy routing (misconfigured). As a result frame enters
+> > > forwarding path instead of input. We cannot solve this in
+> > > TPROXY as it cannot know that policy routing is broken.
+> > >
+> > > Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
+> > > ---
+> > > diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+> > > index 939992c..2fc3b3e 100644
+> > > --- a/net/ipv4/ip_forward.c
+> > > +++ b/net/ipv4/ip_forward.c
+> > > @@ -82,6 +82,10 @@ int ip_forward(struct sk_buff *skb)
+> > >   	if (skb->pkt_type != PACKET_HOST)
+> > >   		goto drop;
+> > >   
+> > > +	/* this should happen neither */
+> > Sorry. "neither" should be "either"?
 > 
-...
-> > +#ifdef __LITTLE_ENDIAN
-> > +	u32 res: 16;	/* Reserved bits */
-> > +	u32 ts_sh: 16;	/* Timestamp high */
-> > +#else
-> > +	u32 ts_sh: 16;	/* Timestamp high */
-> > +	u32 res: 16;	/* Reserved bits */
-> > +#endif
-> > +};
+>         /* that should never happen */
+>         if (skb->pkt_type != PACKET_HOST)
+>                 goto drop;
 > 
-> I recall a thread in which the use of bitfields for structs that are
-> shared with the hardware was considered a bad idea (because the compiler
-> is free to reorder the fields). Shift operations are probably a better
-> choice here.
+>         /* this should happen neither */
+>         if (unlikely(skb->sk))
+>                 goto drop;
+> 
+> Both of them should never happen.
 
-The compiler itself isn't free to reorder the fields, but the order
-is an implementation decision for the compiler/ABI.
-An ABI will probably define a bit order, but it doesn't have to match
-the endianness.
+I do not feel the comment is useful in this form.
 
-Shifting and masking also tends to generate better code.
+I would prefer explicit TPROXY reference, maybe using this :
 
-	David
+#if IS_ENABLED(CONFIG_NETFILTER_XT_TARGET_TPROXY)
+	if (skb->sk)
+		goto drop;
+#endif
+
+changelog will precisely describes the problem for the curious readers.
+
+Thanks !
