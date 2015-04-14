@@ -1,88 +1,64 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH v6 7/9] bgmac: simplify dma init/cleanup
-Date: Tue, 14 Apr 2015 09:24:35 +0200
-Message-ID: <CACna6rz+fY-MGKJw858-i47rx5_9ZKhW2ik-YEpDGyMSqALK=A@mail.gmail.com>
-References: <1428968537-6181-1-git-send-email-nbd@openwrt.org>
-	<1428968537-6181-7-git-send-email-nbd@openwrt.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v4 07/24] switchdev: add port vlan obj
+Date: Tue, 14 Apr 2015 00:28:40 -0700
+Message-ID: <CAE4R7bBqJnKT+0Z_E8BLqsAX=g9WRtsZSgQAW2aVqcLcz4jZzg@mail.gmail.com>
+References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
+	<1428905838-14920-8-git-send-email-sfeldma@gmail.com>
+	<552C0190.8080606@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: Felix Fietkau <nbd@openwrt.org>
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37817 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751941AbbDNHYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:24:36 -0400
-Received: by igblo3 with SMTP id lo3so7963545igb.0
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:24:36 -0700 (PDT)
-In-Reply-To: <1428968537-6181-7-git-send-email-nbd@openwrt.org>
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:35918 "EHLO
+	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751650AbbDNH2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 03:28:41 -0400
+Received: by qku63 with SMTP id 63so3185699qku.3
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 00:28:40 -0700 (PDT)
+In-Reply-To: <552C0190.8080606@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14 April 2015 at 01:42, Felix Fietkau <nbd@openwrt.org> wrote:
-> Instead of allocating buffers at device init time and initializing
-> descriptors at device open, do both at the same time (during open).
-> Free all buffers when closing the device.
+On Mon, Apr 13, 2015 at 10:49 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 12/04/15 23:17, sfeldma@gmail.com wrote:
+>> From: Scott Feldman <sfeldma@gmail.com>
+>>
+>> VLAN obj has flags (PVID and untagged) as well as start and end vid ranges.
+>> The swdev driver can optimize programing the device using the ranges.
+>>
+>> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>> ---
+>>  include/net/switchdev.h |    8 ++++++++
+>>  1 file changed, 8 insertions(+)
+>>
+>> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>> index f5f7733..d3cc8eb 100644
+>> --- a/include/net/switchdev.h
+>> +++ b/include/net/switchdev.h
+>> @@ -45,12 +45,20 @@ struct fib_info;
+>>
+>>  enum swdev_obj_id {
+>>       SWDEV_OBJ_UNDEFINED,
+>> +     SWDEV_OBJ_PORT_VLAN,
+>>  };
+>>
+>>  struct swdev_obj {
+>>       enum swdev_obj_id id;
+>>       enum swdev_trans trans;
+>>       u32 flags;
+>> +     union {
+>> +             struct swdev_obj_vlan {                 /* PORT_VLAN */
+>> +                     u16 flags;
 >
-> Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-> ---
->  drivers/net/ethernet/broadcom/bgmac.c | 70 +++++++++++++++++------------------
->  1 file changed, 35 insertions(+), 35 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-> index eafdbca..aad80a7 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -557,18 +557,26 @@ static void bgmac_dma_ring_desc_free(struct bgmac *bgmac,
->                           ring->dma_base);
->  }
->
-> -static void bgmac_dma_free(struct bgmac *bgmac)
-> +static void bgmac_dma_cleanup(struct bgmac *bgmac)
->  {
->         int i;
->
-> -       for (i = 0; i < BGMAC_MAX_TX_RINGS; i++) {
-> +       for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
->                 bgmac_dma_tx_ring_free(bgmac, &bgmac->tx_ring[i]);
-> -               bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
-> -       }
-> -       for (i = 0; i < BGMAC_MAX_RX_RINGS; i++) {
-> +
-> +       for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
->                 bgmac_dma_rx_ring_free(bgmac, &bgmac->rx_ring[i]);
-> +}
-> +
-> +static void bgmac_dma_free(struct bgmac *bgmac)
-> +{
-> +       int i;
-> +
-> +       for (i = 0; i < BGMAC_MAX_TX_RINGS; i++)
-> +               bgmac_dma_ring_desc_free(bgmac, &bgmac->tx_ring[i]);
-> +
-> +       for (i = 0; i < BGMAC_MAX_RX_RINGS; i++)
->                 bgmac_dma_ring_desc_free(bgmac, &bgmac->rx_ring[i]);
-> -       }
->  }
->
->  static int bgmac_dma_alloc(struct bgmac *bgmac)
-> @@ -693,8 +690,13 @@ static void bgmac_dma_init(struct bgmac *bgmac)
->                 if (ring->unaligned)
->                         bgmac_dma_rx_enable(bgmac, ring);
->
-> -               for (j = 0; j < ring->num_slots; j++)
-> +               for (j = 0; j < ring->num_slots; j++) {
-> +                       err = bgmac_dma_rx_skb_for_slot(bgmac, &ring->slots[j]);
-> +                       if (err)
-> +                               return err;
+> Should not we enforce some sort of definition of how we plan on using
+> the "flags" member here?, if not, we might just as well remove it from
+> this patch set until we actually use it?
 
-I don't think I like this logic. Instead of allowing caller to just
-detect an error and handle it, you require it to do a cleanup. I think
-bgmac_dma_init shouldn't leave any mess after failing.
-
-If you e.g. call alloc_netdev and it fails, you don't care about
-freeing whatever is allocated before failing.
-
-I think you should call bgmac_dma_cleanup directly in a bgmac_dma_init
-in case of error.
+removed in v5
