@@ -1,41 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: fix verifier memory corruption
-Date: Wed, 15 Apr 2015 19:05:58 +0200
-Message-ID: <552E9A76.9080006@iogearbox.net>
-References: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net] bnx2x: Fix busy_poll vs netpoll
+Date: Wed, 15 Apr 2015 10:09:30 -0700
+Message-ID: <1429117770.7346.111.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>
+	 ,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>
+	 ,<1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
+	 <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 ,<1429062300.7346.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF5B1E@AVMB1.qlogic.org>
+	 <1429092351.7346.71.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF66F2@AVMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
+	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56473 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755851AbbDORGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 13:06:05 -0400
-In-Reply-To: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:35951 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753753AbbDORJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 13:09:38 -0400
+Received: by oift201 with SMTP id t201so32383584oif.3
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 10:09:37 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63CF66F2@AVMB1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/15/2015 12:57 AM, Alexei Starovoitov wrote:
-> Due to missing bounds check the DAG pass of the BPF verifier can corrupt
-> the memory which can cause random crashes during program loading:
->
-> [8.449451] BUG: unable to handle kernel paging request at ffffffffffffffff
-> [8.451293] IP: [<ffffffff811de33d>] kmem_cache_alloc_trace+0x8d/0x2f0
-> [8.452329] Oops: 0000 [#1] SMP
-> [8.452329] Call Trace:
-> [8.452329]  [<ffffffff8116cc82>] bpf_check+0x852/0x2000
-> [8.452329]  [<ffffffff8116b7e4>] bpf_prog_load+0x1e4/0x310
-> [8.452329]  [<ffffffff811b190f>] ? might_fault+0x5f/0xb0
-> [8.452329]  [<ffffffff8116c206>] SyS_bpf+0x806/0xa30
->
-> Fixes: f1bca824dabb ("bpf: add search pruning optimization to verifier")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+On Wed, 2015-04-15 at 14:03 +0000, Yuval Mintz wrote:
+> > >
+> > > BTW, this looks quite generic - isn't it possible to take it out of
+> > > the driver and push it into the networking core, uniforming it in the process?
+> > 
+> > Yes, this is the plan I have in mind, once net-next is opened again ;)
+> > 
+> > Thanks !
+> > 
+> 
+> I'm not familiar with any real strong test-suite for the busy poll, but I did try
+> running all kinds of netperf connections with various busy_{poll,read} values
+> and performance seemed reasonable, and verified that netconsole manages
+> to work.
+> 
+> So for all it's worth,
+> Tested-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-As far as I can tell, looks good to me. Any other access to a next
-instruction elsewhere would be blocked from push_insn() with an error.
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Thanks a lot !
