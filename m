@@ -1,88 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 15/17] switch kernel_sendmsg() and kernel_recvmsg() to
- iov_iter_kvec()
-Date: Wed, 15 Apr 2015 09:08:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1E86A@AcuExch.aculab.com>
-References: <20150411211742.GJ889@ZenIV.linux.org.uk>
- <1428787108-13650-15-git-send-email-viro@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CB1DD9D@AcuExch.aculab.com>
- <20150414163403.GY889@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CB1DE00@AcuExch.aculab.com>
- <20150414165920.GB889@ZenIV.linux.org.uk>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 0/7 RFC] Netfilter/nf_tables ingress support
+Date: Wed, 15 Apr 2015 11:19:08 +0200
+Message-ID: <552E2D0C.6090809@iogearbox.net>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org> <20150410132205.GF23070@casper.infradead.org> <20150410200901.GB5968@salvia> <20150412.211421.1771298417488412635.davem@davemloft.net> <20150413201913.GD20275@acer.localdomain> <552D07C4.1020509@mojatatu.com> <552D2E52.8020303@intel.com> <20150414153613.GA2781@Alexeis-MBP.westell.com> <552E14B4.7060907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Al Viro' <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:56005 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751669AbbDOJK1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 05:10:27 -0400
-In-Reply-To: <20150414165920.GB889@ZenIV.linux.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, pablo@netfilter.org,
+	tgraf@suug.ch, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <552E14B4.7060907@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Al Viro
-> Sent: 14 April 2015 17:59
-> On Tue, Apr 14, 2015 at 04:36:36PM +0000, David Laight wrote:
-> > From: Al Viro
-> > > Sent: 14 April 2015 17:34
-> > > On Tue, Apr 14, 2015 at 04:21:02PM +0000, David Laight wrote:
-> > >
-> > > > Massive NAK.
-> > > > This breaks any code that is using msg_control to set SCTP parameters
-> > > > when sending data.
-> > >
-> > > 	Huh?  ->sendmsg() expects ->msg_control already in kernel space;
-> > > it's ->recvmsg() that plays silly buggers with userland pointers there.
-> >
-> > I read your commit message as implying that you hadn't found any
-> > users of kernel_sendmsg() that used msg_control.
-> > Not that the data was always read from kernel space.
-> 
-> Sigh...  The situation is:
-> 	* ->sendmsg() expects ->msg_control copied to userland.  sendmsg(2),
-> sendto(2), etc. do that copying.  See ___sys_sendmsg() - there we have
->                 /*
->                  * Careful! Before this, msg_sys->msg_control contains a user pointer.
->                  * Afterwards, it will be a kernel pointer. Thus the compiler-assisted
->                  * checking falls down on this.
->                  */
->                 if (copy_from_user(ctl_buf,
->                                    (void __user __force *)msg_sys->msg_control,
->                                    ctl_len))
->                         goto out_freectl;
->                 msg_sys->msg_control = ctl_buf;
-> As the result, ->sendmsg() instances access ->msg_control contents as normal
-> kernel data.
-> 	* ->recvmsg() expects ->msg_control to point to userland.  See
-> net/core/scm.c for the helpers used to store into it.  recvmsg(2) et.al.
-> simply leave the userland pointer there; worse, that pointer might be
-> to native or to compat variants, and layouts _are_ different.  Thus those
-> if (MSG_CMSG_COMPAT & msg->msg_flags) in net/core/scm.c...
-> 	* kernel-side users of ->sendmsg() do not depend on setfs() for
-> access to their ->msg_control, simply because ->sendmsg() won't be using
-> copy_from_user()/get_user() to access it anyway.
-> 	* kernel-side users of ->recvmsg() are less lucky - most of them
-> don't give a damn either (they have NULL ->msg_control), but there's an
-> exception (somewhere in sunrpc, IIRC).  So there we need to keep
-> playing with setfs(), even though the data side would be just fine without
-> that.
+On 04/15/2015 09:35 AM, John Fastabend wrote:
+> On 04/14/2015 08:36 AM, Alexei Starovoitov wrote:
+>> On Tue, Apr 14, 2015 at 08:12:18AM -0700, John Fastabend wrote:
+>>>
+>>> I was hoping to push the skb lists onto something like rte_ring
+>>> used by the DPDK folks or possibly some of the lockless ring work Jesper
+>>> created. This is needed for many qdisc's to drop the qlock but not the
+>>> ingress qdisc. Been busy working on switch bits lately but might be
+>>> able to pick this up next merge window.
+>>
+>> I've spent quite a bit of time reanalyzying your work ;) It seems
+>> only trivial stuff left to drop ingress spinlock. Can you send me
+>> your TC test scripts ? I'm only starting building mine and they're
+>> not covering everything. Roughly I'm creating namespaces and running
+>> traffic between them while varying csum/gso/gro offload settings.
+>
+> I'll dig up my scripts and post them to github this weekend. They
+> are a bit organized and all over the place at the moment.
+>
+> Maybe we can build a master repository. I know there a lot of different
+> scripts running around, for example I already collected a few from
+> Jamal and I think Cong must have some as well.
 
-Apart from any other code that is using the interface.
-I know you guys don't do anything to help out of tree code, but removing the setfs()
-stuff from the kernel_recvmsg() code would break anything using sctp.
-It shouldn't need some code lurking in sunrpc for you to leave the setfs().
-
-In any case, how much does the setfs() cost?
-I suspect it is just modifying a flag in 'current'.
-
-A comment in kernel_recvmsg() saying that the setfs() is for msg_control
-might be useful.
-Then one in kelnel_sendmsg() saying that setfs() isn't needed because
-msg_control is always kernel - just to avoid any confusion.
-
-	David
+Sounds awesome, I think that will be really useful for better test
+coverage.
