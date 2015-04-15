@@ -1,66 +1,37 @@
-From: George Dunlap <George.Dunlap@eu.citrix.com>
-Subject: Re: [Xen-devel] [PATCH RFC] tcp: Allow sk_wmem_alloc to exceed sysctl_tcp_limit_output_bytes
-Date: Wed, 15 Apr 2015 15:19:16 +0100
-Message-ID: <CAFLBxZaDPa0Em6z-bwg1HoLqCU9R_rWD8ri+0sNVgX-Httj_1A@mail.gmail.com>
-References: <1427388414-31077-1-git-send-email-jonathan.davies@citrix.com>
-	<1427390070.25985.145.camel@edumazet-glaptop2.roam.corp.google.com>
-	<551555E3.80205@citrix.com>
-	<552BC899.8090300@citrix.com>
-	<1428933925.3834.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	<552BDAC6.2020708@citrix.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 4/6] net: hip04: Don't free the tx skb when the buffer is not ready for xmit
+Date: Wed, 15 Apr 2015 16:19:59 +0200
+Message-ID: <2218546.M1hzu1bzfh@wuerfel>
+References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-5-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Jonathan Davies <jonathan.davies@citrix.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>,
-	James Morris <jmorris@namei.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	xen-devel <xen-devel@lists.xenproject.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Wei Liu <Wei.Liu2@citrix.com>
-To: Malcolm Crossley <malcolm.crossley@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, grant.likely@linaro.org,
+	sergei.shtylyov@cogentembedded.com,
+	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
+	zhangfei.gao@linaro.org, joe@perches.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux@arm.linux.org.uk
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:35293 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753554AbbDOOTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 10:19:42 -0400
-Received: by oign205 with SMTP id n205so24019616oig.2
-        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 07:19:41 -0700 (PDT)
-In-Reply-To: <552BDAC6.2020708@citrix.com>
+Received: from mout.kundenserver.de ([212.227.126.187]:59318 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753450AbbDOOUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 10:20:10 -0400
+In-Reply-To: <1429101008-9464-5-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 4:03 PM, Malcolm Crossley
-<malcolm.crossley@citrix.com> wrote:
->>
->> But the main concern here is it basically breaks back pressure.
->>
->> And you do not want this, unless there is no other choice.
->>
->
-> virtio_net already use's skb_orphan() in it's transmit path. It seems
-> only fair that other virtual network drivers behave in the same way.
->
-> There are no easy solutions to decrease the transmit latency for
-> netback/netfront. We map the guest memory through to the backend to
-> avoid memory copies. The frontend memory can only be freed once the
-> network driver has completed transmitting the packet in the backend.
->
-> Modern network drivers can be quite slow at freeing the skb's once
-> transmitted (the packet is already on the wire as far as they are
-> concerned) and this delay is compounded by needing the signal the
-> completion of the transmit back to the frontend (by IPI in worst case).
->
-> From a networking point of view, the backend is a switch. Is it OK to
-> consider the packet to have been transmitted from the guest point of
-> view once the backend is aware of the packet?
->
-> This would help justify the skb_orphan() in the frontend.
+On Wednesday 15 April 2015 20:30:06 Ding Tianhong wrote:
+> @@ -489,6 +487,8 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  
+>         /* Ensure tx_head update visible to tx reclaim */
+>         smp_wmb();
+> +       count++;
+> +       priv->tx_head = TX_NEXT(tx_head);
+>  
+> 
 
-This sounds sensible to me, particularly if virtio_net is already doing it.
+Something is wrong here, the comment does not match the code any more, because
+the smp_wmb() won't actually make the tx_head update visible.
 
- -George
+	Arnd
