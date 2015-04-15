@@ -1,83 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ip_tunnel: Remove gratuitous skb scrubbing
-Date: Wed, 15 Apr 2015 21:57:39 +0800
-Message-ID: <20150415135739.GA5534@gondor.apana.org.au>
-References: <20150415100107.GA3655@gondor.apana.org.au>
- <552E3B7A.2040701@6wind.com>
- <20150415102229.GA3917@gondor.apana.org.au>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH v2 net] bnx2x: Fix busy_poll vs netpoll
+Date: Wed, 15 Apr 2015 14:03:09 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63CF66F2@AVMB1.qlogic.org>
+References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>
+	 ,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>
+	 ,<1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
+	 <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	 ,<1429062300.7346.64.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF5B1E@AVMB1.qlogic.org>
+ <1429092351.7346.71.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	James Morris <jmorris@redhat.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
+	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	"Willem de Bruijn" <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:52610 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbbDON5q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 09:57:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20150415102229.GA3917@gondor.apana.org.au>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:51018 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752593AbbDOODX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 10:03:23 -0400
+In-Reply-To: <1429092351.7346.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2015 at 06:22:29PM +0800, Herbert Xu wrote:
->
-> Yes this is better.  I'm currently auditing all the other bits
-> that are cleared to see if there is anything else that we should
-> preserve for tunneling.
-
-OK the only other thing that we may wish to preserve is secmark.
-James, can you confirm whether secmark should be preserved or
-cleared for tunnels within the same name space? Up until December
-2014 it was preserved but since then it has been cleared.
-
-For the mark here is my final tested patch.
-
----8<---
-Subject: skbuff: Do not scrub skb mark within the same name space
-
-The commit ea23192e8e577dfc51e0f4fc5ca113af334edff9 ("tunnels:
-harmonize cleanup done on skb on rx path") broke anyone trying to
-use netfilter marking across IPv4 tunnels.  While most of the
-fields that are cleared by skb_scrub_packet don't matter, the
-netfilter mark must be preserved.
-
-This patch rearranges skb_scurb_packet to preserve the mark field.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3b6e583..a185427 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4124,19 +4124,22 @@ EXPORT_SYMBOL(skb_try_coalesce);
-  */
- void skb_scrub_packet(struct sk_buff *skb, bool xnet)
- {
--	if (xnet)
--		skb_orphan(skb);
- 	skb->tstamp.tv64 = 0;
- 	skb->pkt_type = PACKET_HOST;
- 	skb->skb_iif = 0;
- 	skb->ignore_df = 0;
- 	skb_dst_drop(skb);
--	skb->mark = 0;
- 	skb_sender_cpu_clear(skb);
- 	skb_init_secmark(skb);
- 	secpath_reset(skb);
- 	nf_reset(skb);
- 	nf_reset_trace(skb);
-+
-+	if (!xnet)
-+		return;
-+
-+	skb_orphan(skb);
-+	skb->mark = 0;
- }
- EXPORT_SYMBOL_GPL(skb_scrub_packet);
- 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+PiA+DQo+ID4gQlRXLCB0aGlzIGxvb2tzIHF1aXRlIGdlbmVyaWMgLSBpc24ndCBpdCBwb3NzaWJs
+ZSB0byB0YWtlIGl0IG91dCBvZg0KPiA+IHRoZSBkcml2ZXIgYW5kIHB1c2ggaXQgaW50byB0aGUg
+bmV0d29ya2luZyBjb3JlLCB1bmlmb3JtaW5nIGl0IGluIHRoZSBwcm9jZXNzPw0KPiANCj4gWWVz
+LCB0aGlzIGlzIHRoZSBwbGFuIEkgaGF2ZSBpbiBtaW5kLCBvbmNlIG5ldC1uZXh0IGlzIG9wZW5l
+ZCBhZ2FpbiA7KQ0KPiANCj4gVGhhbmtzICENCj4gDQoNCkknbSBub3QgZmFtaWxpYXIgd2l0aCBh
+bnkgcmVhbCBzdHJvbmcgdGVzdC1zdWl0ZSBmb3IgdGhlIGJ1c3kgcG9sbCwgYnV0IEkgZGlkIHRy
+eQ0KcnVubmluZyBhbGwga2luZHMgb2YgbmV0cGVyZiBjb25uZWN0aW9ucyB3aXRoIHZhcmlvdXMg
+YnVzeV97cG9sbCxyZWFkfSB2YWx1ZXMNCmFuZCBwZXJmb3JtYW5jZSBzZWVtZWQgcmVhc29uYWJs
+ZSwgYW5kIHZlcmlmaWVkIHRoYXQgbmV0Y29uc29sZSBtYW5hZ2VzDQp0byB3b3JrLg0KDQpTbyBm
+b3IgYWxsIGl0J3Mgd29ydGgsDQpUZXN0ZWQtYnk6IFl1dmFsIE1pbnR6IDxZdXZhbC5NaW50ekBx
+bG9naWMuY29tPg0K
