@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
  regression on Xen
-Date: Wed, 15 Apr 2015 10:29:08 -0700
-Message-ID: <1429118948.7346.114.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Wed, 15 Apr 2015 10:41:28 -0700
+Message-ID: <1429119688.7346.123.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
 	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
@@ -34,60 +34,20 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, 2015-04-15 at 18:23 +0100, George Dunlap wrote:
-> On 04/15/2015 05:38 PM, Eric Dumazet wrote:
-> > My thoughts that instead of these long talks you should guys read the
-> > code :
-> > 
-> >                 /* TCP Small Queues :
-> >                  * Control number of packets in qdisc/devices to two packets / or ~1 ms.
-> >                  * This allows for :
-> >                  *  - better RTT estimation and ACK scheduling
-> >                  *  - faster recovery
-> >                  *  - high rates
-> >                  * Alas, some drivers / subsystems require a fair amount
-> >                  * of queued bytes to ensure line rate.
-> >                  * One example is wifi aggregation (802.11 AMPDU)
-> >                  */
-> >                 limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
-> >                 limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
-> > 
-> > 
-> > Then you'll see that most of your questions are already answered.
-> > 
-> > Feel free to try to improve the behavior, if it does not hurt critical workloads
-> > like TCP_RR, where we we send very small messages, millions times per second.
-> 
-> First of all, with regard to critical workloads, once this patch gets
-> into distros, *normal TCP streams* on every VM running on Amazon,
-> Rackspace, Linode, &c will get a 30% hit in performance *by default*.
-> Normal TCP streams on xennet *are* a critical workload, and deserve the
-> same kind of accommodation as TCP_RR (if not more).  The same goes for
-> virtio_net.
-> 
-> Secondly, according to Stefano's and Jonathan's tests,
-> tcp_limit_output_bytes completely fixes the problem for Xen.
-> 
+
 > Which means that max(2*skb->truesize, sk->sk_pacing_rate >>10) is
 > *already* larger for Xen; that calculation mentioned in the comment is
 > *already* doing the right thing.
-> 
-> As Jonathan pointed out, sysctl_tcp_limit_output_bytes is overriding an
-> automatic TSQ calculation which is actually choosing an effective value
-> for xennet.
-> 
-> It certainly makes sense for sysctl_tcp_limit_output_bytes to be an
-> actual maximum limit.  I went back and looked at the original patch
-> which introduced it (46d3ceabd), and it looks to me like it was designed
-> to be a rough, quick estimate of "two packets outstanding" (by choosing
-> the maximum size of the packet, 64k, and multiplying it by two).
-> 
-> Now that you have a better algorithm -- the size of 2 actual packets or
-> the amount transmitted in 1ms -- it seems like the default
-> sysctl_tcp_limit_output_bytes should be higher, and let the automatic
-> TSQ you have on the first line throttle things down when necessary.
 
+Sigh.
 
-I asked you guys to make a test by increasing
-sysctl_tcp_limit_output_bytes
+1ms of traffic at 40Gbit is 5 MBytes
 
-You have no need to explain me the code I wrote, thank you.
+The reason for the cap to /proc/sys/net/ipv4/tcp_limit_output_bytes is
+to provide the limitation of ~2 TSO packets, which _also_ is documented.
+
+Without this limitation, 5 MBytes could translate to : Fill the queue,
+do not limit.
+
+If a particular driver needs to extend the limit, fine, document it and
+take actions.
