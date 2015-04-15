@@ -1,45 +1,91 @@
-From: Honggang LI <honli@redhat.com>
-Subject: Re: [PATCH linux-next v2] mlx5: wrong page mask if
- CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
-Date: Wed, 15 Apr 2015 11:12:03 +0800
-Message-ID: <20150415031203.GA4881@honli.nay.redhat.com>
-References: <1428916918-24404-1-git-send-email-honli@redhat.com>
- <20150414192316.GB27750@mtldesk30>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eli Cohen <eli@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48623 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753761AbbDODMM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Apr 2015 23:12:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20150414192316.GB27750@mtldesk30>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH linux-next v3] mlx5: wrong page mask if CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
+Date: Wed, 15 Apr 2015 11:19:17 +0800
+Message-ID: <1429067957-9148-1-git-send-email-honli@redhat.com>
+Cc: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 14, 2015 at 10:23:16PM +0300, Eli Cohen wrote:
-> On Mon, Apr 13, 2015 at 05:21:58PM +0800, Honggang Li wrote:
-> > @@ -241,7 +243,7 @@ static void free_4k(struct mlx5_core_dev *dev, u64 addr)
-> >  static int alloc_system_page(struct mlx5_core_dev *dev, u16 func_id)
-> >  {
-> >  	struct page *page;
-> > -	u64 addr;
-> > +	u64 addr = 0;
-> >  	int err;
-> >  	int nid = dev_to_node(&dev->pdev->dev);
-> >  
-> 
-> I really don't see any reason why you need to set addr to 0. Can you
-> please explain this?
-> Other than that the patch is ok.
+If CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for x86 systems and physical
+memory is more than 4GB, dma_map_page may return a valid memory
+address which greater than 0xffffffff. As a result, the mlx5 device page
+allocator RB tree will be initialized with valid addresses greater than
+0xfffffff.
 
-Sorry, I trid my best to explain it. But failed. I'm fine to remove it.
-New patch will be submit. And I will insert a fix tag in it.
+However, (addr & PAGE_MASK) set the high four bytes to zeros. So, it's
+impossible for the function, free_4k, to release the pages whose
+addresses greater than 4GB. Memory leaks. And mlx5_ib module can't
+release the pages when user try to remove the module, as a result,
+system hang.
+
+[root@rdma05 root]# dmesg  | grep addr | head
+addr             = 3fe384000
+addr & PAGE_MASK =  fe384000
+[root@rdma05 root]# rmmod mlx5_ib   <---- hang on
+
+---------------------- cosnole log -----------------
+mlx5_ib 0000:04:00.0: irq 138 for MSI/MSI-X
+  alloc irq_desc for 139 on node -1
+  alloc kstat_irqs on node -1
+mlx5_ib 0000:04:00.0: irq 139 for MSI/MSI-X
+0000:04:00.0:free_4k:221:(pid 1519): page not found
+0000:04:00.0:free_4k:221:(pid 1519): page not found
+0000:04:00.0:free_4k:221:(pid 1519): page not found
+0000:04:00.0:free_4k:221:(pid 1519): page not found
+---------------------- cosnole log -----------------
 
 Fix(bf0bf77 mlx5: Support communicating arbitrary host page size to
 firmware)
 
-thanks
+Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+index df22383..8a64542 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+@@ -211,26 +211,28 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
+ 	return 0;
+ }
+ 
++#define MLX5_U64_4K_PAGE_MASK ((~(u64)0U) << PAGE_SHIFT)
++
+ static void free_4k(struct mlx5_core_dev *dev, u64 addr)
+ {
+ 	struct fw_page *fwp;
+ 	int n;
+ 
+-	fwp = find_fw_page(dev, addr & PAGE_MASK);
++	fwp = find_fw_page(dev, addr & MLX5_U64_4K_PAGE_MASK);
+ 	if (!fwp) {
+ 		mlx5_core_warn(dev, "page not found\n");
+ 		return;
+ 	}
+ 
+-	n = (addr & ~PAGE_MASK) >> MLX5_ADAPTER_PAGE_SHIFT;
++	n = (addr & ~MLX5_U64_4K_PAGE_MASK) >> MLX5_ADAPTER_PAGE_SHIFT;
+ 	fwp->free_count++;
+ 	set_bit(n, &fwp->bitmask);
+ 	if (fwp->free_count == MLX5_NUM_4K_IN_PAGE) {
+ 		rb_erase(&fwp->rb_node, &dev->priv.page_root);
+ 		if (fwp->free_count != 1)
+ 			list_del(&fwp->list);
+-		dma_unmap_page(&dev->pdev->dev, addr & PAGE_MASK, PAGE_SIZE,
+-			       DMA_BIDIRECTIONAL);
++		dma_unmap_page(&dev->pdev->dev, addr & MLX5_U64_4K_PAGE_MASK,
++			       PAGE_SIZE, DMA_BIDIRECTIONAL);
+ 		__free_page(fwp->page);
+ 		kfree(fwp);
+ 	} else if (fwp->free_count == 1) {
+-- 
+1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
