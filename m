@@ -1,101 +1,72 @@
-From: Vince Bridgers <vbridger@opensource.altera.com>
-Subject: [PATCH net 2/5] stmmac: Add defines and documentation for enabling flow control
-Date: Wed, 15 Apr 2015 11:17:39 -0500
-Message-ID: <1429114662-1528-3-git-send-email-vbridger@opensource.altera.com>
-References: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Question] TCP stack performance decrease since 3.14
+Date: Wed, 15 Apr 2015 14:01:52 -0700
+Message-ID: <1429131712.7346.144.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <552EBCA8.6090408@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <vbridger@opensource.altera.com>, <vbridger@altera.com>
-To: <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: rapier <rapier@psc.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0096.outbound.protection.outlook.com ([207.46.100.96]:60919
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754958AbbDOU4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2015 16:56:25 -0400
-In-Reply-To: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:36375 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536AbbDOVBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 17:01:54 -0400
+Received: by iebrs15 with SMTP id rs15so37411585ieb.3
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 14:01:53 -0700 (PDT)
+In-Reply-To: <552EBCA8.6090408@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add defines and documentation for enabling flow control on the stmmac. Flow
-control was not implemented correctly on the stmmac driver and is currently
-non-functional as a result. This is the first in a series of small patches
-to correctly implement this feature.
+On Wed, 2015-04-15 at 15:31 -0400, rapier wrote:
+> All,
+> 
+> First, my apologies if this came up previously but I couldn't find 
+> anything using a keyword search of the mailing list archive.
+> 
+> As part of the on going work with web10g I need to come up with baseline 
+> TCP stack performance for various kernel revision. Using netperf and 
+> super_netperf* I've found that performance for TCP_CC, TCP_RR, and 
+> TCP_CRR has decreased since 3.14.
+> 
+> 	3.14	3.18	4.0 	decrease %
+> TCP_CC	183945	179222	175793	4.4%
+> TCP_RR	594495	585484	561365	5.6%
+> TCP_CRR	98677	96726	93026	5.7%
+> 
+> Stream tests have remained the same from 3.14 through 4.0.
+> 
+> All tests were conducted on the same platform from clean boot with stock 
+> kernels.
+> 
+> So my questions are:
+> 
+> Has anyone else seen this or is this a result of some weirdness on my 
+> system or artifact of my tests?
+> 
+> If others have seen this or is just simply to be expected (from new 
+> features and the like) is it due to the TCP stack itself or other 
+> changes in the kernel?
+> 
+> If so, is there anyway to mitigate the effect of this via stack tuning, 
+> kernel configuration, etc?
+> 
+> Thanks!
+> 
+> Chris
+> 
+> 
+> * The above results are the average of 10 iterations of super_netperf 
+> for each test. I can run more iterations to verify the results but it 
+> seem consistent. The number of parallel processes for each test was 
+> tuned to produce the maximum test result. In other words, enough to push 
+> things but not enough to cause performance hits due to being 
+> cpu/memory/etc bound. If anyone wants the full results and test scripts 
+> just let me know.
+> --
 
-Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h | 51 +++++++++++++++++++++++++
- 1 file changed, 51 insertions(+)
+Make sure you do not hit a c-state issue.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index 64d8f56..b3fe057 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -172,6 +172,7 @@ enum inter_frame_gap {
- /* GMAC FLOW CTRL defines */
- #define GMAC_FLOW_CTRL_PT_MASK	0xffff0000	/* Pause Time Mask */
- #define GMAC_FLOW_CTRL_PT_SHIFT	16
-+#define GMAC_FLOW_CTRL_UP	0x00000008	/* Unicast pause frame enable */
- #define GMAC_FLOW_CTRL_RFE	0x00000004	/* Rx Flow Control Enable */
- #define GMAC_FLOW_CTRL_TFE	0x00000002	/* Tx Flow Control Enable */
- #define GMAC_FLOW_CTRL_FCB_BPA	0x00000001	/* Flow Control Busy ... */
-@@ -246,6 +247,56 @@ enum ttc_control {
- #define DMA_CONTROL_FEF		0x00000080
- #define DMA_CONTROL_FUF		0x00000040
- 
-+/* Receive flow control activation field
-+ * RFA field in DMA control register, bits 23,10:9
-+ */
-+#define DMA_CONTROL_RFA_MASK	0x00800600
-+
-+/* Receive flow control deactivation field
-+ * RFD field in DMA control register, bits 22,12:11
-+ */
-+#define DMA_CONTROL_RFD_MASK	0x00401800
-+
-+/* RFD and RFA fields are encoded as follows
-+ *
-+ *   Bit Field
-+ *   0,00 - Full minus 1KB (only valid when rxfifo >= 4KB and EFC enabled)
-+ *   0,01 - Full minus 2KB (only valid when rxfifo >= 4KB and EFC enabled)
-+ *   0,10 - Full minus 3KB (only valid when rxfifo >= 4KB and EFC enabled)
-+ *   0,11 - Full minus 4KB (only valid when rxfifo > 4KB and EFC enabled)
-+ *   1,00 - Full minus 5KB (only valid when rxfifo > 8KB and EFC enabled)
-+ *   1,01 - Full minus 6KB (only valid when rxfifo > 8KB and EFC enabled)
-+ *   1,10 - Full minus 7KB (only valid when rxfifo > 8KB and EFC enabled)
-+ *   1,11 - Reserved
-+ *
-+ * RFD should always be > RFA for a given FIFO size. RFD == RFA may work,
-+ * but packet throughput performance may not be as expected.
-+ *
-+ * Be sure that bit 3 in GMAC Register 6 is set for Unicast Pause frame
-+ * detection (IEEE Specification Requirement, Annex 31B, 31B.1, Pause
-+ * Description).
-+ *
-+ * Be sure that DZPA (bit 7 in Flow Control Register, GMAC Register 6),
-+ * is set to 0. This allows pause frames with a quanta of 0 to be sent
-+ * as an XOFF message to the link peer.
-+ */
-+
-+#define RFA_FULL_MINUS_1K	0x00000000
-+#define RFA_FULL_MINUS_2K	0x00000200
-+#define RFA_FULL_MINUS_3K	0x00000400
-+#define RFA_FULL_MINUS_4K	0x00000600
-+#define RFA_FULL_MINUS_5K	0x00800000
-+#define RFA_FULL_MINUS_6K	0x00800200
-+#define RFA_FULL_MINUS_7K	0x00800400
-+
-+#define RFD_FULL_MINUS_1K	0x00000000
-+#define RFD_FULL_MINUS_2K	0x00000800
-+#define RFD_FULL_MINUS_3K	0x00001000
-+#define RFD_FULL_MINUS_4K	0x00001800
-+#define RFD_FULL_MINUS_5K	0x00400000
-+#define RFD_FULL_MINUS_6K	0x00400800
-+#define RFD_FULL_MINUS_7K	0x00401000
-+
- enum rtc_control {
- 	DMA_CONTROL_RTC_64 = 0x00000000,
- 	DMA_CONTROL_RTC_32 = 0x00000008,
--- 
-1.9.1
+I've seen improvements in the stack translate to longer wait times, and
+cpu takes longer to exit deep c-state.
