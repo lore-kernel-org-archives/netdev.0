@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 6/6] net: hip04: add ratelimit for rx/tx drops skb
-Date: Wed, 15 Apr 2015 20:30:08 +0800
-Message-ID: <1429101008-9464-7-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next 5/6] net: hip04: remove the unnecessary check
+Date: Wed, 15 Apr 2015 20:30:07 +0800
+Message-ID: <1429101008-9464-6-git-send-email-dingtianhong@huawei.com>
 References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,9 +16,8 @@ In-Reply-To: <1429101008-9464-1-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+Al
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-There can be quite a lot of rx/tx drops message and affect
-useful message, so need to ratelimit them to not overwhelm
-logging.
+Testing bytes_compl should be enough, because there is no way
+that pkt_compl could be 0 if bytes_compl is not 0.
 
 Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
@@ -28,31 +27,22 @@ Cc: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/hisilicon/hip04_eth.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/hisilicon/hip04_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-index a7ab1d9..b19830d 100644
+index ff9d19c..a7ab1d9 100644
 --- a/drivers/net/ethernet/hisilicon/hip04_eth.c
 +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-@@ -608,11 +608,15 @@ static irqreturn_t hip04_mac_interrupt(int irq, void *dev_id)
- 		if (ists & (RCV_NOBUF | RCV_DROP)) {
- 			stats->rx_errors++;
- 			stats->rx_dropped++;
--			netdev_err(ndev, "rx drop\n");
-+			if (net_ratelimit())
-+				netdev_dbg(ndev, "rx drop: %lu\n",
-+					   stats->rx_dropped);
- 		}
- 		if (ists & TX_DROP) {
- 			stats->tx_dropped++;
--			netdev_err(ndev, "tx drop\n");
-+			if (net_ratelimit())
-+				netdev_dbg(ndev, "tx drop: %lu\n",
-+					   stats->rx_dropped);
- 		}
- 	}
+@@ -440,7 +440,7 @@ static int hip04_tx_reclaim(struct net_device *ndev, bool force)
+ 	smp_wmb(); /* Ensure tx_tail visible to xmit */
  
+ out:
+-	if (pkts_compl || bytes_compl)
++	if (bytes_compl)
+ 		netdev_completed_queue(ndev, pkts_compl, bytes_compl);
+ 
+ 	if (unlikely(netif_queue_stopped(ndev)) && (count < (TX_DESC_NUM - 1)))
 -- 
 1.8.0
 
