@@ -1,41 +1,42 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 5/6] net: hip04: remove the unnecessary check
-Date: Wed, 15 Apr 2015 16:14:26 +0200
-Message-ID: <2645626.sX8mP7tn7R@wuerfel>
-References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-6-git-send-email-dingtianhong@huawei.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH net-next 3/6] net: hip04: Solve the problem of the skb memory allocation failure
+Date: Wed, 15 Apr 2015 16:17:31 +0200
+Message-ID: <2443005.XhuHWvJbTU@wuerfel>
+References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-4-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, grant.likely@linaro.org,
-	sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
-	zhangfei.gao@linaro.org, joe@perches.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux@arm.linux.org.uk
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:55230 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751968AbbDOOOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 10:14:40 -0400
-In-Reply-To: <1429101008-9464-6-git-send-email-dingtianhong@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org
+To: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1429101008-9464-4-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 15 April 2015 20:30:07 Ding Tianhong wrote:
-> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-> index ff9d19c..a7ab1d9 100644
-> --- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-> @@ -440,7 +440,7 @@ static int hip04_tx_reclaim(struct net_device *ndev, bool force)
->         smp_wmb(); /* Ensure tx_tail visible to xmit */
->  
->  out:
-> -       if (pkts_compl || bytes_compl)
-> +       if (bytes_compl)
->                 netdev_completed_queue(ndev, pkts_compl, bytes_compl);
->  
->         if (unlikely(netif_queue_stopped(ndev)) && (count < (TX_DESC_NUM - 1)))
-> -- 
+On Wednesday 15 April 2015 20:30:05 Ding Tianhong wrote:
+> The driver will alloc some skb buffer for hareware queue, but without
+> considering the case of memory allocation failure, when memory is low,
+> the skb may be null and panic the system, so break the loop when skb is
+> null and try to alloc the memory again to fix this problem.
+> 
+> Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Cc: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 > 
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Looks reasonable to me, though I haven't done a deep analysis
+to see if there are remaining problems in this area.
+
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
