@@ -1,50 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/17] get rid of the size argument of sock_sendmsg()
-Date: Wed, 15 Apr 2015 12:06:38 -0400 (EDT)
-Message-ID: <20150415.120638.1390441568056166764.davem@davemloft.net>
-References: <20150414163534.GZ889@ZenIV.linux.org.uk>
-	<20150414.135535.190405308746783212.davem@davemloft.net>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB1E7FD@AcuExch.aculab.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH linux-next 1/4] infiniband/ipoib: fix possible NULL
+ pointer dereference in ipoib_get_iflink
+Date: Wed, 15 Apr 2015 10:06:23 -0600
+Message-ID: <20150415160623.GA4653@obsidianresearch.com>
+References: <1429024817-21561-1-git-send-email-honli@redhat.com>
+ <1429024817-21561-2-git-send-email-honli@redhat.com>
+ <CAAk-MO-O9sjHQvDfCEuzJJPvUMXJTuRaCzrCkB0xc1DUfK8Aew@mail.gmail.com>
+ <20150414204133.GJ7682@obsidianresearch.com>
+ <552E026A.4020200@dev.mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50200 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751575AbbDOQGm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 12:06:42 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB1E7FD@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Alex Estrin <alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+	maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <552E026A.4020200-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Wed, 15 Apr 2015 08:37:01 +0000
+On Wed, Apr 15, 2015 at 09:17:14AM +0300, Erez Shitrit wrote:
+> >>+       /* parent interface */
+> >>+       if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
+> >>+               return dev->ifindex;
+> >>+
+> >>+       /* child/vlan interface */
+> >>+       if (!priv->parent)
+> >>+               return -1;
 
-> From: David Miller
->> Sent: 14 April 2015 18:56
->> > On Tue, Apr 14, 2015 at 04:25:24PM +0000, David Laight wrote:
->> >> From: Al Viro
->> >> > Sent: 11 April 2015 22:18
->> >> > it's equal to iov_iter_count(&msg->msg_iter) in all cases
->> >>
->> >> I don't know whether this is guaranteed for iov[] that come from
->> >> userspace.
->> >>
->> >> In any case iov_iter_count() is non-trivial and you don't
->> >> really want to call it when unnecessary.
->> >
->> > Really?
->> >
->> > static inline size_t iov_iter_count(struct iov_iter *i)
->> > {
->> >         return i->count;
->> > }
->> 
->> This just made my day.
-> 
-> I hate accessor functions
+> >Like was said for other drivers, I can't see how parent can be null
+> >while IPOIB_FLAG_SUBINTERFACE is set. Drop the last if.
 
-I hate people who jump to conclusions and don't actually read the code
-in question before commenting. :-)
+> It can, at least for ipoib child interface (AKA "vlan"), you can't
+> control the call for that ndo and it can be called before the parent
+> was set.
+
+If the ndo can be called before the netdev private structures are fully
+prepared then we have another bug, and returning -1 or 0 is not the right
+answer anyhow.
+
+For safety, fold this into your patch.
+
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+index 9fad7b5ac8b9..e62b007adf5d 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+@@ -58,6 +58,7 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
+        /* MTU will be reset when mcast join happens */
+        priv->dev->mtu   = IPOIB_UD_MTU(priv->max_ib_mtu);
+        priv->mcast_mtu  = priv->admin_mtu = priv->dev->mtu;
++       priv->parent = ppriv->dev;
+        set_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags);
+ 
+        result = ipoib_set_dev_features(priv, ppriv->ca);
+@@ -84,8 +85,6 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
+                goto register_failed;
+        }
+ 
+-       priv->parent = ppriv->dev;
+-
+        ipoib_create_debug_files(priv->dev);
+ 
+        /* RTNL childs don't need proprietary sysfs entries */
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
