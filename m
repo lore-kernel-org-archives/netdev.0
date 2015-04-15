@@ -1,46 +1,57 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 3/4] mac80211-hwsim: Pass rate-ctrl flags and tx-power
- to user-space
-Date: Wed, 15 Apr 2015 09:23:58 -0700
-Message-ID: <552E909E.6010405@candelatech.com>
-References: <1428095523-374-1-git-send-email-greearb@candelatech.com>  <1428095523-374-3-git-send-email-greearb@candelatech.com> <1428999345.3019.9.camel@sipsolutions.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 0/7 RFC] Netfilter/nf_tables ingress support
+Date: Wed, 15 Apr 2015 09:24:35 -0700
+Message-ID: <20150415162434.GA3490@Alexeis-MBP.westell.com>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <20150410132205.GF23070@casper.infradead.org>
+ <20150410200901.GB5968@salvia>
+ <20150412.211421.1771298417488412635.davem@davemloft.net>
+ <20150413201913.GD20275@acer.localdomain>
+ <552D07C4.1020509@mojatatu.com>
+ <552D2E52.8020303@intel.com>
+ <20150414153613.GA2781@Alexeis-MBP.westell.com>
+ <552E14B4.7060907@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:50346 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753753AbbDOQYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 12:24:00 -0400
-In-Reply-To: <1428999345.3019.9.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, pablo@netfilter.org,
+	tgraf@suug.ch, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <552E14B4.7060907@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/14/2015 01:15 AM, Johannes Berg wrote:
-> On Fri, 2015-04-03 at 14:12 -0700, greearb@candelatech.com wrote:
+On Wed, Apr 15, 2015 at 12:35:16AM -0700, John Fastabend wrote:
+>
+> I'll dig up my scripts and post them to github this weekend. They
+> are a bit organized and all over the place at the moment.
 > 
->> +/* Auxilary info to allow user-space to better understand the rate */
->> +struct hwsim_tx_rate2 {
->> +	u16 rc_flags; /* rate-ctrl flags (see mac80211_rate_control_flags) */
-> 
-> I really don't like this - it ties internal API to userspace API. You
-> may argue that this is userspace that is for debug purposes only, but
-> I'm sure you'll also scratch your head very confused when I change the
-> rate control flags for any reason and your code breaks :)
+> Maybe we can build a master repository. I know there a lot of different
+> scripts running around, for example I already collected a few from
+> Jamal and I think Cong must have some as well.
 
-Is this a documentation only issue (at this point, while code matches)?
+great. let's start building a proper testsuite.
 
-Then later, we can add translation to keep user-space API the same
-as needed?
+> diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+> index 4cdbfb8..a2542ac 100644
+> --- a/net/sched/sch_ingress.c
+> +++ b/net/sched/sch_ingress.c
+> @@ -69,7 +69,7 @@ static int ingress_enqueue(struct sk_buff *skb, struct
+> Qdisc *sch)
+>  	switch (result) {
+>  	case TC_ACT_SHOT:
+>  		result = TC_ACT_SHOT;
+> -		qdisc_qstats_drop(sch);
+> +		qdisc_qstats_drop_cpu(sch);
 
-And in that case, maybe I'll make it u32 to give room down the road?
+Your quick patch missed updating:
+- qdisc_bstats_update(sch, skb);
++ qdisc_bstats_update_cpu(sch, skb);
 
-Thanks,
-Ben
+I've tried the same :)
 
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
