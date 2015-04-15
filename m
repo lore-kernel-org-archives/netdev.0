@@ -1,91 +1,35 @@
-From: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH linux-next v3] mlx5: wrong page mask if CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
-Date: Wed, 15 Apr 2015 11:19:17 +0800
-Message-ID: <1429067957-9148-1-git-send-email-honli@redhat.com>
-Cc: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the ftrace tree with the net-next
+ tree
+Date: Tue, 14 Apr 2015 23:24:40 -0400 (EDT)
+Message-ID: <20150414.232440.5065499008228520.davem@davemloft.net>
+References: <20150413175224.73a9baff@canb.auug.org.au>
+	<20150415112323.057080ad@canb.auug.org.au>
+	<20150414230629.78b83480@grimm.local.home>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	emmanuel.grumbach@intel.com
+To: rostedt@goodmis.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150414230629.78b83480@grimm.local.home>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for x86 systems and physical
-memory is more than 4GB, dma_map_page may return a valid memory
-address which greater than 0xffffffff. As a result, the mlx5 device page
-allocator RB tree will be initialized with valid addresses greater than
-0xfffffff.
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 14 Apr 2015 23:06:29 -0400
 
-However, (addr & PAGE_MASK) set the high four bytes to zeros. So, it's
-impossible for the function, free_4k, to release the pages whose
-addresses greater than 4GB. Memory leaks. And mlx5_ib module can't
-release the pages when user try to remove the module, as a result,
-system hang.
+> I also noted this coming conflict in my pull request. So Linus should
+> be very well aware of it.
+> 
+>  https://lkml.org/lkml/2015/4/13/652
+> 
+> "Also there's a conflict with commit 7e1223b50089 ("iwlwifi: mvm: new
+> Alive / error table API") that Stephen found and he resolved it with
+> cd98c1ef4ec1a4d08e920060b70e47a5a4e69377."
+> 
+> That is, if that commit sha1 still exists.
 
-[root@rdma05 root]# dmesg  | grep addr | head
-addr             = 3fe384000
-addr & PAGE_MASK =  fe384000
-[root@rdma05 root]# rmmod mlx5_ib   <---- hang on
-
----------------------- cosnole log -----------------
-mlx5_ib 0000:04:00.0: irq 138 for MSI/MSI-X
-  alloc irq_desc for 139 on node -1
-  alloc kstat_irqs on node -1
-mlx5_ib 0000:04:00.0: irq 139 for MSI/MSI-X
-0000:04:00.0:free_4k:221:(pid 1519): page not found
-0000:04:00.0:free_4k:221:(pid 1519): page not found
-0000:04:00.0:free_4k:221:(pid 1519): page not found
-0000:04:00.0:free_4k:221:(pid 1519): page not found
----------------------- cosnole log -----------------
-
-Fix(bf0bf77 mlx5: Support communicating arbitrary host page size to
-firmware)
-
-Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index df22383..8a64542 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -211,26 +211,28 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
- 	return 0;
- }
- 
-+#define MLX5_U64_4K_PAGE_MASK ((~(u64)0U) << PAGE_SHIFT)
-+
- static void free_4k(struct mlx5_core_dev *dev, u64 addr)
- {
- 	struct fw_page *fwp;
- 	int n;
- 
--	fwp = find_fw_page(dev, addr & PAGE_MASK);
-+	fwp = find_fw_page(dev, addr & MLX5_U64_4K_PAGE_MASK);
- 	if (!fwp) {
- 		mlx5_core_warn(dev, "page not found\n");
- 		return;
- 	}
- 
--	n = (addr & ~PAGE_MASK) >> MLX5_ADAPTER_PAGE_SHIFT;
-+	n = (addr & ~MLX5_U64_4K_PAGE_MASK) >> MLX5_ADAPTER_PAGE_SHIFT;
- 	fwp->free_count++;
- 	set_bit(n, &fwp->bitmask);
- 	if (fwp->free_count == MLX5_NUM_4K_IN_PAGE) {
- 		rb_erase(&fwp->rb_node, &dev->priv.page_root);
- 		if (fwp->free_count != 1)
- 			list_del(&fwp->list);
--		dma_unmap_page(&dev->pdev->dev, addr & PAGE_MASK, PAGE_SIZE,
--			       DMA_BIDIRECTIONAL);
-+		dma_unmap_page(&dev->pdev->dev, addr & MLX5_U64_4K_PAGE_MASK,
-+			       PAGE_SIZE, DMA_BIDIRECTIONAL);
- 		__free_page(fwp->page);
- 		kfree(fwp);
- 	} else if (fwp->free_count == 1) {
--- 
-1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll be sure to explain this to Linus.
