@@ -1,46 +1,30 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 0/7 RFC] Netfilter/nf_tables ingress support
-Date: Wed, 15 Apr 2015 11:19:08 +0200
-Message-ID: <552E2D0C.6090809@iogearbox.net>
-References: <1428668142-4006-1-git-send-email-pablo@netfilter.org> <20150410132205.GF23070@casper.infradead.org> <20150410200901.GB5968@salvia> <20150412.211421.1771298417488412635.davem@davemloft.net> <20150413201913.GD20275@acer.localdomain> <552D07C4.1020509@mojatatu.com> <552D2E52.8020303@intel.com> <20150414153613.GA2781@Alexeis-MBP.westell.com> <552E14B4.7060907@gmail.com>
+Subject: Re: [PATCH 15/17] switch kernel_sendmsg() and kernel_recvmsg() to
+ iov_iter_kvec()
+Date: Wed, 15 Apr 2015 11:36:59 +0200
+Message-ID: <552E313B.6040302@iogearbox.net>
+References: <20150411211742.GJ889@ZenIV.linux.org.uk> <1428787108-13650-15-git-send-email-viro@ZenIV.linux.org.uk> <063D6719AE5E284EB5DD2968C1650D6D1CB1DD9D@AcuExch.aculab.com> <20150414163403.GY889@ZenIV.linux.org.uk> <063D6719AE5E284EB5DD2968C1650D6D1CB1DE00@AcuExch.aculab.com> <20150414165920.GB889@ZenIV.linux.org.uk> <063D6719AE5E284EB5DD2968C1650D6D1CB1E86A@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, pablo@netfilter.org,
-	tgraf@suug.ch, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <552E14B4.7060907@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Al Viro' <viro@ZenIV.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:49829 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276AbbDOJhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 05:37:17 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB1E86A@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/15/2015 09:35 AM, John Fastabend wrote:
-> On 04/14/2015 08:36 AM, Alexei Starovoitov wrote:
->> On Tue, Apr 14, 2015 at 08:12:18AM -0700, John Fastabend wrote:
->>>
->>> I was hoping to push the skb lists onto something like rte_ring
->>> used by the DPDK folks or possibly some of the lockless ring work Jesper
->>> created. This is needed for many qdisc's to drop the qlock but not the
->>> ingress qdisc. Been busy working on switch bits lately but might be
->>> able to pick this up next merge window.
->>
->> I've spent quite a bit of time reanalyzying your work ;) It seems
->> only trivial stuff left to drop ingress spinlock. Can you send me
->> your TC test scripts ? I'm only starting building mine and they're
->> not covering everything. Roughly I'm creating namespaces and running
->> traffic between them while varying csum/gso/gro offload settings.
->
-> I'll dig up my scripts and post them to github this weekend. They
-> are a bit organized and all over the place at the moment.
->
-> Maybe we can build a master repository. I know there a lot of different
-> scripts running around, for example I already collected a few from
-> Jamal and I think Cong must have some as well.
+On 04/15/2015 11:08 AM, David Laight wrote:
+...
+> Apart from any other code that is using the interface.
+> I know you guys don't do anything to help out of tree code, but removing the setfs()
+> stuff from the kernel_recvmsg() code would break anything using sctp.
 
-Sounds awesome, I think that will be really useful for better test
-coverage.
+Then that might just be one more incentive to work towards upstreaming
+your out-of-tree SCTP bits ... ;)
