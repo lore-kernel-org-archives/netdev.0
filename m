@@ -1,49 +1,37 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 16/17] get rid of the size argument of sock_sendmsg()
-Date: Wed, 15 Apr 2015 08:37:01 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1E7FD@AcuExch.aculab.com>
-References: <1428787108-13650-16-git-send-email-viro@ZenIV.linux.org.uk>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB1DDB2@AcuExch.aculab.com>
-	<20150414163534.GZ889@ZenIV.linux.org.uk>
- <20150414.135535.190405308746783212.davem@davemloft.net>
+From: Stefan Bauer <sb@plzk.de>
+Subject: [SOLVED]Re: ip link macvtap interface not processing specific ipv6
+ multicast traffic without promiscuous mode on
+Date: Wed, 15 Apr 2015 10:38:56 +0200
+Message-ID: <1429087136.3383.39.camel@plzk.de>
+References: <1428574167.2171.32.camel@plzk.de>
+	 <1428598288.2759.2.camel@plzk.de> <1429086115.3383.36.camel@plzk.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'David Miller' <davem@davemloft.net>,
-	"viro@ZenIV.linux.org.uk" <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.181]:55849 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751909AbbDOIi7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 04:38:59 -0400
-In-Reply-To: <20150414.135535.190405308746783212.davem@davemloft.net>
-Content-Language: en-US
+Received: from smtprelay03.ispgateway.de ([80.67.31.41]:48455 "EHLO
+	smtprelay03.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751509AbbDOIjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 04:39:00 -0400
+Received: from [87.185.75.237] (helo=zarafa)
+	by smtprelay03.ispgateway.de with esmtpsa (TLSv1.2:DHE-RSA-AES256-GCM-SHA384:256)
+	(Exim 4.84)
+	(envelope-from <sb@plzk.de>)
+	id 1YiIq8-0003CO-7S
+	for netdev@vger.kernel.org; Wed, 15 Apr 2015 10:38:32 +0200
+Received: from s1 (unknown [192.168.0.151])
+	by zarafa (Postfix) with ESMTP id 58210220064
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 10:38:56 +0200 (CEST)
+In-Reply-To: <1429086115.3383.36.camel@plzk.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> Sent: 14 April 2015 18:56
-> > On Tue, Apr 14, 2015 at 04:25:24PM +0000, David Laight wrote:
-> >> From: Al Viro
-> >> > Sent: 11 April 2015 22:18
-> >> > it's equal to iov_iter_count(&msg->msg_iter) in all cases
-> >>
-> >> I don't know whether this is guaranteed for iov[] that come from
-> >> userspace.
-> >>
-> >> In any case iov_iter_count() is non-trivial and you don't
-> >> really want to call it when unnecessary.
-> >
-> > Really?
-> >
-> > static inline size_t iov_iter_count(struct iov_iter *i)
-> > {
-> >         return i->count;
-> > }
-> 
-> This just made my day.
+It was the privacy extension enabled on the windows hosts.
 
-I hate accessor functions
+So it was sending out from addresses the KVM HOST is not member of the
+multicast group.
 
-	David
+disabled it with netsh interface ipv6 set privacy state=disabled
+
+Stefan
