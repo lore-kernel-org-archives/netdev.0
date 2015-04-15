@@ -1,77 +1,91 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH linux-next 1/4] infiniband/ipoib: fix possible NULL
- pointer dereference in ipoib_get_iflink
-Date: Wed, 15 Apr 2015 10:06:23 -0600
-Message-ID: <20150415160623.GA4653@obsidianresearch.com>
-References: <1429024817-21561-1-git-send-email-honli@redhat.com>
- <1429024817-21561-2-git-send-email-honli@redhat.com>
- <CAAk-MO-O9sjHQvDfCEuzJJPvUMXJTuRaCzrCkB0xc1DUfK8Aew@mail.gmail.com>
- <20150414204133.GJ7682@obsidianresearch.com>
- <552E026A.4020200@dev.mellanox.co.il>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] bpf: fix verifier memory corruption
+Date: Wed, 15 Apr 2015 09:07:36 -0700
+Message-ID: <552E8CC8.9070403@plumgrid.com>
+References: <1429052233-8252-1-git-send-email-ast@plumgrid.com> <1429113575.12070.19.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Alex Estrin <alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
-	maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <552E026A.4020200-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:34328 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756173AbbDOQHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 12:07:40 -0400
+Received: by pdbqa5 with SMTP id qa5so57319812pdb.1
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 09:07:39 -0700 (PDT)
+In-Reply-To: <1429113575.12070.19.camel@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 15, 2015 at 09:17:14AM +0300, Erez Shitrit wrote:
-> >>+       /* parent interface */
-> >>+       if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
-> >>+               return dev->ifindex;
-> >>+
-> >>+       /* child/vlan interface */
-> >>+       if (!priv->parent)
-> >>+               return -1;
+On 4/15/15 8:59 AM, Hannes Frederic Sowa wrote:
+> On Di, 2015-04-14 at 15:57 -0700, Alexei Starovoitov wrote:
+>> Due to missing bounds check the DAG pass of the BPF verifier can corrupt
+>> the memory which can cause random crashes during program loading:
+>>
+>> [8.449451] BUG: unable to handle kernel paging request at ffffffffffffffff
+>> [8.451293] IP: [<ffffffff811de33d>] kmem_cache_alloc_trace+0x8d/0x2f0
+>> [8.452329] Oops: 0000 [#1] SMP
+>> [8.452329] Call Trace:
+>> [8.452329]  [<ffffffff8116cc82>] bpf_check+0x852/0x2000
+>> [8.452329]  [<ffffffff8116b7e4>] bpf_prog_load+0x1e4/0x310
+>> [8.452329]  [<ffffffff811b190f>] ? might_fault+0x5f/0xb0
+>> [8.452329]  [<ffffffff8116c206>] SyS_bpf+0x806/0xa30
+>>
+>> Fixes: f1bca824dabb ("bpf: add search pruning optimization to verifier")
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> ---
+>> Many things need to align for this crash to be seen, yet I managed to hit it.
+>> In my case JA was last insn, 't' was 255 and explored_states array
+>> had 256 elements. I've double checked other similar paths and all seems clean.
+>>
+>>   kernel/bpf/verifier.c |    3 ++-
+>>   1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+>> index a28e09c7825d..36508e69e92a 100644
+>> --- a/kernel/bpf/verifier.c
+>> +++ b/kernel/bpf/verifier.c
+>> @@ -1380,7 +1380,8 @@ peek_stack:
+>>   			/* tell verifier to check for equivalent states
+>>   			 * after every call and jump
+>>   			 */
+>> -			env->explored_states[t + 1] = STATE_LIST_MARK;
+>> +			if (t + 1 < insn_cnt)
+>> +				env->explored_states[t + 1] = STATE_LIST_MARK;
+>>   		} else {
+>>   			/* conditional jump with two edges */
+>>   			ret = push_insn(t, t + 1, FALLTHROUGH, env);
+>
+> Quick review:
+>
+> We have env->explored_states[t+1] access in the
+>
+>                  } else {
+>                          /* conditional jump with two edges */
+>                          ret = push_insn(t, t + 1, FALLTHROUGH, env);
+>                          if (ret == 1)
+>                                  goto peek_stack;
+>                          else if (ret < 0)
+>                                  goto err_free;
+>
+>>>>                      ret = push_insn(t, t + insns[t].off + 1, BRANCH, env);
+>                          if (ret == 1)
+>                                  goto peek_stack;
+>                          else if (ret < 0)
+>                                  goto err_free;
+>                  }
+>          } else {
+>
+>
+> push_insn call. At this point insn[t].off could be 0, no?
 
-> >Like was said for other drivers, I can't see how parent can be null
-> >while IPOIB_FLAG_SUBINTERFACE is set. Drop the last if.
-
-> It can, at least for ipoib child interface (AKA "vlan"), you can't
-> control the call for that ndo and it can be called before the parent
-> was set.
-
-If the ndo can be called before the netdev private structures are fully
-prepared then we have another bug, and returning -1 or 0 is not the right
-answer anyhow.
-
-For safety, fold this into your patch.
-
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-index 9fad7b5ac8b9..e62b007adf5d 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-@@ -58,6 +58,7 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
-        /* MTU will be reset when mcast join happens */
-        priv->dev->mtu   = IPOIB_UD_MTU(priv->max_ib_mtu);
-        priv->mcast_mtu  = priv->admin_mtu = priv->dev->mtu;
-+       priv->parent = ppriv->dev;
-        set_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags);
- 
-        result = ipoib_set_dev_features(priv, ppriv->ca);
-@@ -84,8 +85,6 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
-                goto register_failed;
-        }
- 
--       priv->parent = ppriv->dev;
--
-        ipoib_create_debug_files(priv->dev);
- 
-        /* RTNL childs don't need proprietary sysfs entries */
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+insn[t].off can be anything, but the first thing that push_insn()
+checks is:
+if (w < 0 || w >= env->prog->len)
+only then it does:
+env->explored_states[w] = STATE_LIST_MARK;
+so we're good there.
+Though thanks for triple checking :)
