@@ -1,82 +1,104 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] i40e/i40evf: Save WR_CSR_PROT field from DEV/FUNC capabilities
-Date: Tue, 14 Apr 2015 21:51:47 -0700
-Message-ID: <1429073511-27664-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10570 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751648AbbDOEwK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2015 00:52:10 -0400
-In-Reply-To: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH linux-next v3] mlx5: wrong page mask if
+ CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
+Date: Wed, 15 Apr 2015 08:17:26 +0300
+Message-ID: <20150415051726.GC27750@mtldesk30>
+References: <1429067957-9148-1-git-send-email-honli@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1429067957-9148-1-git-send-email-honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kevin Scott <kevin.c.scott@intel.com>
+Acked-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Store the 8 bytes of the WR_CSR_PROT field returned as part of the get
-device/function capabilities AQ command.
-
-Change-ID: Ifcaeea2ff29885fa769e4f384c7db88a25e8afd0
-Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
-Tested-by: Jim Young <james.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_common.c | 5 +++++
- drivers/net/ethernet/intel/i40e/i40e_type.h   | 1 +
- drivers/net/ethernet/intel/i40evf/i40e_type.h | 1 +
- 3 files changed, 7 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index ce522d7..0bae22d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2397,6 +2397,7 @@ i40e_aq_erase_nvm_exit:
- #define I40E_DEV_FUNC_CAP_LED		0x61
- #define I40E_DEV_FUNC_CAP_SDP		0x62
- #define I40E_DEV_FUNC_CAP_MDIO		0x63
-+#define I40E_DEV_FUNC_CAP_WR_CSR_PROT	0x64
- 
- /**
-  * i40e_parse_discover_capabilities
-@@ -2541,6 +2542,10 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
- 			p->fd_filters_guaranteed = number;
- 			p->fd_filters_best_effort = logical_id;
- 			break;
-+		case I40E_DEV_FUNC_CAP_WR_CSR_PROT:
-+			p->wr_csr_prot = (u64)number;
-+			p->wr_csr_prot |= (u64)logical_id << 32;
-+			break;
- 		default:
- 			break;
- 		}
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 67c7bc9e9..568e855 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -242,6 +242,7 @@ struct i40e_hw_capabilities {
- 	u8 rx_buf_chain_len;
- 	u32 enabled_tcmap;
- 	u32 maxtc;
-+	u64 wr_csr_prot;
- };
- 
- struct i40e_mac_info {
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 9c79cb6..ec9d83a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -242,6 +242,7 @@ struct i40e_hw_capabilities {
- 	u8 rx_buf_chain_len;
- 	u32 enabled_tcmap;
- 	u32 maxtc;
-+	u64 wr_csr_prot;
- };
- 
- struct i40e_mac_info {
--- 
-1.9.3
+On Wed, Apr 15, 2015 at 11:19:17AM +0800, Honggang Li wrote:
+> If CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for x86 systems and physical
+> memory is more than 4GB, dma_map_page may return a valid memory
+> address which greater than 0xffffffff. As a result, the mlx5 device page
+> allocator RB tree will be initialized with valid addresses greater than
+> 0xfffffff.
+> 
+> However, (addr & PAGE_MASK) set the high four bytes to zeros. So, it's
+> impossible for the function, free_4k, to release the pages whose
+> addresses greater than 4GB. Memory leaks. And mlx5_ib module can't
+> release the pages when user try to remove the module, as a result,
+> system hang.
+> 
+> [root@rdma05 root]# dmesg  | grep addr | head
+> addr             = 3fe384000
+> addr & PAGE_MASK =  fe384000
+> [root@rdma05 root]# rmmod mlx5_ib   <---- hang on
+> 
+> ---------------------- cosnole log -----------------
+> mlx5_ib 0000:04:00.0: irq 138 for MSI/MSI-X
+>   alloc irq_desc for 139 on node -1
+>   alloc kstat_irqs on node -1
+> mlx5_ib 0000:04:00.0: irq 139 for MSI/MSI-X
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> ---------------------- cosnole log -----------------
+> 
+> Fix(bf0bf77 mlx5: Support communicating arbitrary host page size to
+> firmware)
+> 
+> Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
+>  .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   10 ++++++----
+>  1 files changed, 6 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> index df22383..8a64542 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> @@ -211,26 +211,28 @@ static int alloc_4k(struct mlx5_core_dev *dev, u64 *addr)
+>  	return 0;
+>  }
+>  
+> +#define MLX5_U64_4K_PAGE_MASK ((~(u64)0U) << PAGE_SHIFT)
+> +
+>  static void free_4k(struct mlx5_core_dev *dev, u64 addr)
+>  {
+>  	struct fw_page *fwp;
+>  	int n;
+>  
+> -	fwp = find_fw_page(dev, addr & PAGE_MASK);
+> +	fwp = find_fw_page(dev, addr & MLX5_U64_4K_PAGE_MASK);
+>  	if (!fwp) {
+>  		mlx5_core_warn(dev, "page not found\n");
+>  		return;
+>  	}
+>  
+> -	n = (addr & ~PAGE_MASK) >> MLX5_ADAPTER_PAGE_SHIFT;
+> +	n = (addr & ~MLX5_U64_4K_PAGE_MASK) >> MLX5_ADAPTER_PAGE_SHIFT;
+>  	fwp->free_count++;
+>  	set_bit(n, &fwp->bitmask);
+>  	if (fwp->free_count == MLX5_NUM_4K_IN_PAGE) {
+>  		rb_erase(&fwp->rb_node, &dev->priv.page_root);
+>  		if (fwp->free_count != 1)
+>  			list_del(&fwp->list);
+> -		dma_unmap_page(&dev->pdev->dev, addr & PAGE_MASK, PAGE_SIZE,
+> -			       DMA_BIDIRECTIONAL);
+> +		dma_unmap_page(&dev->pdev->dev, addr & MLX5_U64_4K_PAGE_MASK,
+> +			       PAGE_SIZE, DMA_BIDIRECTIONAL);
+>  		__free_page(fwp->page);
+>  		kfree(fwp);
+>  	} else if (fwp->free_count == 1) {
+> -- 
+> 1.7.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
