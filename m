@@ -1,53 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] bnx2x: Fix busy_poll vs netpoll
-Date: Wed, 15 Apr 2015 10:09:30 -0700
-Message-ID: <1429117770.7346.111.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>
-	 ,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>
-	 ,<1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
-	 <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
-	 ,<1429062300.7346.64.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63CF5B1E@AVMB1.qlogic.org>
-	 <1429092351.7346.71.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63CF66F2@AVMB1.qlogic.org>
+From: George Dunlap <george.dunlap@eu.citrix.com>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance regression
+ on Xen
+Date: Wed, 15 Apr 2015 18:23:25 +0100
+Message-ID: <552E9E8D.1080000@eu.citrix.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
+	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
+	 <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
+	 <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
+ <1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
-	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Jonathan Davies <Jonathan.Davies@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"Stefano Stabellini" <stefano.stabellini@eu.citrix.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Paul Durrant" <paul.durrant@citrix.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	Felipe Franciosi <felipe.franciosi@citrix.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	"David Vrabel" <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:35951 "EHLO
-	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753753AbbDORJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 13:09:38 -0400
-Received: by oift201 with SMTP id t201so32383584oif.3
-        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 10:09:37 -0700 (PDT)
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63CF66F2@AVMB1.qlogic.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:13975 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756217AbbDORX4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 13:23:56 -0400
+In-Reply-To: <1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-15 at 14:03 +0000, Yuval Mintz wrote:
-> > >
-> > > BTW, this looks quite generic - isn't it possible to take it out of
-> > > the driver and push it into the networking core, uniforming it in the process?
-> > 
-> > Yes, this is the plan I have in mind, once net-next is opened again ;)
-> > 
-> > Thanks !
-> > 
+On 04/15/2015 05:38 PM, Eric Dumazet wrote:
+> My thoughts that instead of these long talks you should guys read the
+> code :
 > 
-> I'm not familiar with any real strong test-suite for the busy poll, but I did try
-> running all kinds of netperf connections with various busy_{poll,read} values
-> and performance seemed reasonable, and verified that netconsole manages
-> to work.
+>                 /* TCP Small Queues :
+>                  * Control number of packets in qdisc/devices to two packets / or ~1 ms.
+>                  * This allows for :
+>                  *  - better RTT estimation and ACK scheduling
+>                  *  - faster recovery
+>                  *  - high rates
+>                  * Alas, some drivers / subsystems require a fair amount
+>                  * of queued bytes to ensure line rate.
+>                  * One example is wifi aggregation (802.11 AMPDU)
+>                  */
+>                 limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
+>                 limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
 > 
-> So for all it's worth,
-> Tested-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> 
+> Then you'll see that most of your questions are already answered.
+> 
+> Feel free to try to improve the behavior, if it does not hurt critical workloads
+> like TCP_RR, where we we send very small messages, millions times per second.
 
-Thanks a lot !
+First of all, with regard to critical workloads, once this patch gets
+into distros, *normal TCP streams* on every VM running on Amazon,
+Rackspace, Linode, &c will get a 30% hit in performance *by default*.
+Normal TCP streams on xennet *are* a critical workload, and deserve the
+same kind of accommodation as TCP_RR (if not more).  The same goes for
+virtio_net.
+
+Secondly, according to Stefano's and Jonathan's tests,
+tcp_limit_output_bytes completely fixes the problem for Xen.
+
+Which means that max(2*skb->truesize, sk->sk_pacing_rate >>10) is
+*already* larger for Xen; that calculation mentioned in the comment is
+*already* doing the right thing.
+
+As Jonathan pointed out, sysctl_tcp_limit_output_bytes is overriding an
+automatic TSQ calculation which is actually choosing an effective value
+for xennet.
+
+It certainly makes sense for sysctl_tcp_limit_output_bytes to be an
+actual maximum limit.  I went back and looked at the original patch
+which introduced it (46d3ceabd), and it looks to me like it was designed
+to be a rough, quick estimate of "two packets outstanding" (by choosing
+the maximum size of the packet, 64k, and multiplying it by two).
+
+Now that you have a better algorithm -- the size of 2 actual packets or
+the amount transmitted in 1ms -- it seems like the default
+sysctl_tcp_limit_output_bytes should be higher, and let the automatic
+TSQ you have on the first line throttle things down when necessary.
+
+ -George
