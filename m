@@ -1,61 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next 11/14] i40e: handle possible memory allocation failure
-Date: Wed, 15 Apr 2015 14:27:56 +0300
-Message-ID: <552E4B3C.60002@cogentembedded.com>
-References: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com> <1429073511-27664-12-git-send-email-jeffrey.t.kirsher@intel.com>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH v3 0/2] iputils ping/ping6: add (non-raw) ICMP socket
+ support
+Date: Wed, 15 Apr 2015 20:53:25 +0900
+Message-ID: <552E5135.1090905@miraclelinux.com>
+References: <2533400.J7TS57yqTy@msg-id>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Lorenzo Colitti <lorenzo@google.com>,
+	Vasiliy Kulikov <segooon@gmail.com>,
+	Tyler Hicks <tyhicks@canonical.com>
+To: Salvatore Mesoraca <s.mesoraca16@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:33066 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753934AbbDOL17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 07:27:59 -0400
-Received: by layy10 with SMTP id y10so30171379lay.0
-        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 04:27:58 -0700 (PDT)
-In-Reply-To: <1429073511-27664-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from exprod7og111.obsmtp.com ([64.18.2.175]:59006 "HELO
+	exprod7og111.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1755739AbbDOLxa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 07:53:30 -0400
+Received: by mail-pd0-f172.google.com with SMTP id qd1so49965088pdb.2
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 04:53:29 -0700 (PDT)
+In-Reply-To: <2533400.J7TS57yqTy@msg-id>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Hi,
 
-On 4/15/2015 7:51 AM, Jeff Kirsher wrote:
+Salvatore Mesoraca wrote:
+> V2->V3:
+>  This patchset is based on the Lorenzo Colitti's one instead of the original by
+>  Vasiliy Kulikov. This one also support ping6.
+> 
+> Salvatore Mesoraca (2):
+>   iputils ping/ping6: Add a function to check if a packet is ours
+>   iputils ping/ping6: add (non-raw) ICMP socket support
+> 
+>  doc/ping.sgml |  5 ++--
+>  ping.c        | 78 ++++++++++++++++++++++++++++++++++++++++++++++++---------------
+>  ping6.c       | 84 ++++++++++++++++++++++++++++++++++++++++----------------------------
+>  ping_common.c |  9 ++++++--
+>  ping_common.h |  2 ++
+>  5 files changed, 121 insertions(+), 57 deletions(-)
+> 
 
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Applied.  Thanks a lot.
 
-> The init_interrupt_scheme function had a possible failure
-> path to allocate memory that was found by smatch.
-
-> This adds the correct handling to the function to abort
-> probe if the memory allocation fails.
-
-> Change-ID: I2bf1d826a244209619da4c452d0d58b3eb5e26a3
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Jim Young <james.m.young@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/ethernet/intel/i40e/i40e_main.c | 14 +++++++++++---
->   1 file changed, 11 insertions(+), 3 deletions(-)
-
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index 63de3f4..b297294 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-[...]
-> @@ -7343,11 +7343,17 @@ static void i40e_init_interrupt_scheme(struct i40e_pf *pf)
->   	/* set up vector assignment tracking */
->   	size = sizeof(struct i40e_lump_tracking) + (sizeof(u16) * vectors);
->   	pf->irq_pile = kzalloc(size, GFP_KERNEL);
-> +	if (!pf->irq_pile) {
-> +		dev_err(&pf->pdev->dev, "error allocating irq_pile memory\n");
-
-    No need for error message, a call trace will be printed on failed 
-allocation anyway.
-
-[...]
-
-WBR, Sergei
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
