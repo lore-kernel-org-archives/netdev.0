@@ -1,78 +1,183 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/14] i40e: get rid of unused locals
-Date: Tue, 14 Apr 2015 21:51:49 -0700
-Message-ID: <1429073511-27664-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/14] i40e: enable user dump of internal hardware state
+Date: Tue, 14 Apr 2015 21:51:46 -0700
+Message-ID: <1429073511-27664-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:49799 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:34763 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751396AbbDOEwP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2015 00:52:15 -0400
+	id S1751530AbbDOEwJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2015 00:52:09 -0400
 In-Reply-To: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-These changes just remove unused variables and any code that uses them
-as the results of storing into these variables doesn't have any
-side effects that I can see or provide any benefit.
+This is a feature to enable better debugging of user reported issues by
+allowing a bash script to acquire information about the internal hardware
+state. The data output to the kernel log is collected by the script and can
+then be sent to Intel. This is a critical debugging feature for helping us
+interpret and reproduce complex customer setups.
 
-Change-ID: I8a5ec7132ff1443d23aae729cef94beaaaf19e3a
+Change-ID: Ie8b3ab09086d6870a709015f51ada05af10b41bb
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_dcb.c | 6 ++----
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 3 +--
- 2 files changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 57 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c   | 45 +++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  5 +++
+ 3 files changed, 107 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_dcb.c b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-index 6e14667..2547aa2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_dcb.c
-@@ -419,7 +419,7 @@ static void i40e_cee_to_dcb_v1_config(
- {
- 	u16 status, tlv_status = le16_to_cpu(cee_cfg->tlv_status);
- 	u16 app_prio = le16_to_cpu(cee_cfg->oper_app_prio);
--	u8 i, tc, err, sync, oper;
-+	u8 i, tc, err;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 44dc4b1..ce522d7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -3506,6 +3506,63 @@ void i40e_set_pci_config_data(struct i40e_hw *hw, u16 link_status)
+ }
  
- 	/* CEE PG data to ETS config */
- 	dcbcfg->etscfg.maxtcs = cee_cfg->oper_num_tc;
-@@ -456,9 +456,7 @@ static void i40e_cee_to_dcb_v1_config(
- 	status = (tlv_status & I40E_AQC_CEE_APP_STATUS_MASK) >>
- 		  I40E_AQC_CEE_APP_STATUS_SHIFT;
- 	err = (status & I40E_TLV_STATUS_ERR) ? 1 : 0;
--	sync = (status & I40E_TLV_STATUS_SYNC) ? 1 : 0;
--	oper = (status & I40E_TLV_STATUS_OPER) ? 1 : 0;
--	/* Add APPs if Error is False and Oper/Sync is True */
-+	/* Add APPs if Error is False */
- 	if (!err) {
- 		/* CEE operating configuration supports FCoE/iSCSI/FIP only */
- 		dcbcfg->numapps = I40E_CEE_OPER_MAX_APPS;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index e49acd2..554e49d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -821,13 +821,12 @@ static enum i40e_nvmupd_cmd i40e_nvmupd_validate_command(struct i40e_hw *hw,
- 						 int *errno)
- {
- 	enum i40e_nvmupd_cmd upd_cmd;
--	u8 transaction, module;
-+	u8 transaction;
- 
- 	/* anything that doesn't match a recognized case is an error */
- 	upd_cmd = I40E_NVMUPD_INVALID;
- 
- 	transaction = i40e_nvmupd_get_transaction(cmd->config);
--	module = i40e_nvmupd_get_module(cmd->config);
- 
- 	/* limits on data size */
- 	if ((cmd->data_size < 1) ||
+ /**
++ * i40e_aq_debug_dump
++ * @hw: pointer to the hardware structure
++ * @cluster_id: specific cluster to dump
++ * @table_id: table id within cluster
++ * @start_index: index of line in the block to read
++ * @buff_size: dump buffer size
++ * @buff: dump buffer
++ * @ret_buff_size: actual buffer size returned
++ * @ret_next_table: next block to read
++ * @ret_next_index: next index to read
++ *
++ * Dump internal FW/HW data for debug purposes.
++ *
++ **/
++i40e_status i40e_aq_debug_dump(struct i40e_hw *hw, u8 cluster_id,
++			       u8 table_id, u32 start_index, u16 buff_size,
++			       void *buff, u16 *ret_buff_size,
++			       u8 *ret_next_table, u32 *ret_next_index,
++			       struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_debug_dump_internals *cmd =
++		(struct i40e_aqc_debug_dump_internals *)&desc.params.raw;
++	struct i40e_aqc_debug_dump_internals *resp =
++		(struct i40e_aqc_debug_dump_internals *)&desc.params.raw;
++	i40e_status status;
++
++	if (buff_size == 0 || !buff)
++		return I40E_ERR_PARAM;
++
++	i40e_fill_default_direct_cmd_desc(&desc,
++					  i40e_aqc_opc_debug_dump_internals);
++	/* Indirect Command */
++	desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_BUF);
++	if (buff_size > I40E_AQ_LARGE_BUF)
++		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
++
++	cmd->cluster_id = cluster_id;
++	cmd->table_id = table_id;
++	cmd->idx = cpu_to_le32(start_index);
++
++	desc.datalen = cpu_to_le16(buff_size);
++
++	status = i40e_asq_send_command(hw, &desc, buff, buff_size, cmd_details);
++	if (!status) {
++		if (ret_buff_size)
++			*ret_buff_size = le16_to_cpu(desc.datalen);
++		if (ret_next_table)
++			*ret_next_table = resp->table_id;
++		if (ret_next_index)
++			*ret_next_index = le32_to_cpu(resp->idx);
++	}
++
++	return status;
++}
++
++/**
+  * i40e_read_bw_from_alt_ram
+  * @hw: pointer to the hardware structure
+  * @max_bw: pointer for max_bw read
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index daa8826..34170ea 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1388,6 +1388,50 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 					 r_cfg->app[i].selector,
+ 					 r_cfg->app[i].protocolid);
+ 			}
++		} else if (strncmp(&cmd_buf[5], "debug fwdata", 12) == 0) {
++			int cluster_id, table_id;
++			int index, ret;
++			u16 buff_len = 4096;
++			u32 next_index;
++			u8 next_table;
++			u8 *buff;
++			u16 rlen;
++
++			cnt = sscanf(&cmd_buf[18], "%i %i %i",
++				     &cluster_id, &table_id, &index);
++			if (cnt != 3) {
++				dev_info(&pf->pdev->dev,
++					 "dump debug fwdata <cluster_id> <table_id> <index>\n");
++				goto command_write_done;
++			}
++
++			dev_info(&pf->pdev->dev,
++				 "AQ debug dump fwdata params %x %x %x %x\n",
++				 cluster_id, table_id, index, buff_len);
++			buff = kzalloc(buff_len, GFP_KERNEL);
++			if (!buff)
++				goto command_write_done;
++
++			ret = i40e_aq_debug_dump(&pf->hw, cluster_id, table_id,
++						 index, buff_len, buff, &rlen,
++						 &next_table, &next_index,
++						 NULL);
++			if (ret) {
++				dev_info(&pf->pdev->dev,
++					 "debug dump fwdata AQ Failed %d 0x%x\n",
++					 ret, pf->hw.aq.asq_last_status);
++				kfree(buff);
++				buff = NULL;
++				goto command_write_done;
++			}
++			dev_info(&pf->pdev->dev,
++				 "AQ debug dump fwdata rlen=0x%x next_table=0x%x next_index=0x%x\n",
++				 rlen, next_table, next_index);
++			print_hex_dump(KERN_INFO, "AQ buffer WB: ",
++				       DUMP_PREFIX_OFFSET, 16, 1,
++				       buff, rlen, true);
++			kfree(buff);
++			buff = NULL;
+ 		} else {
+ 			dev_info(&pf->pdev->dev,
+ 				 "dump desc tx <vsi_seid> <ring_id> [<desc_n>], dump desc rx <vsi_seid> <ring_id> [<desc_n>],\n");
+@@ -1903,6 +1947,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
+ 		dev_info(&pf->pdev->dev, "  dump desc rx <vsi_seid> <ring_id> [<desc_n>]\n");
+ 		dev_info(&pf->pdev->dev, "  dump desc aq\n");
+ 		dev_info(&pf->pdev->dev, "  dump reset stats\n");
++		dev_info(&pf->pdev->dev, "  dump debug fwdata <cluster_id> <table_id> <index>\n");
+ 		dev_info(&pf->pdev->dev, "  msg_enable [level]\n");
+ 		dev_info(&pf->pdev->dev, "  read <reg>\n");
+ 		dev_info(&pf->pdev->dev, "  write <reg> <value>\n");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index fea0d37..7b34f1e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -303,4 +303,9 @@ i40e_status i40e_aq_add_rem_control_packet_filter(struct i40e_hw *hw,
+ 				u16 vsi_seid, u16 queue, bool is_add,
+ 				struct i40e_control_filter_stats *stats,
+ 				struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_debug_dump(struct i40e_hw *hw, u8 cluster_id,
++			       u8 table_id, u32 start_index, u16 buff_size,
++			       void *buff, u16 *ret_buff_size,
++			       u8 *ret_next_table, u32 *ret_next_index,
++			       struct i40e_asq_cmd_details *cmd_details);
+ #endif /* _I40E_PROTOTYPE_H_ */
 -- 
 1.9.3
