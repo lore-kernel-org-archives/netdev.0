@@ -1,76 +1,200 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH 1/7] net: refactor __netif_receive_skb_core
-Date: Wed, 15 Apr 2015 06:28:22 -0700
-Message-ID: <552E6776.9060409@redhat.com>
-References: <1428668142-4006-1-git-send-email-pablo@netfilter.org> <1428668142-4006-2-git-send-email-pablo@netfilter.org> <55282AED.1050306@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1CB1EA6B@AcuExch.aculab.com>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
+Date: Wed, 15 Apr 2015 15:40:29 +0200
+Message-ID: <552E6A4D.7040600@ericsson.com>
+References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "kaber@trash.net" <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"'Alexander Duyck'" <alexander.duyck@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>
+To: <netdev@emagii.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59712 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752200AbbDON2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2015 09:28:41 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB1EA6B@AcuExch.aculab.com>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:45772 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751743AbbDONkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 09:40:33 -0400
+In-Reply-To: <5527892D.4020608@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+No reply on this....
 
+in net/core/neighbour.c: neigh_timer_handler I see:
 
-On 04/15/2015 05:44 AM, David Laight wrote:
-> From: Alexander Duyck
->> Sent: 10 April 2015 20:56
->> On 04/10/2015 05:15 AM, Pablo Neira Ayuso wrote:
->>> +another_round:
->>> +	ret = __netif_receive_skb_ingress(skb, pfmemalloc, orig_dev);
->>> +	switch (ret) {
->>> +	case NET_RX_SUCCESS:
->>> +	case NET_RX_DROP:
->>> +		break;
->>> +	case __NET_RX_ANOTHER_ROUND:
->>> +		goto another_round;
->>> +	}
->>>   	rcu_read_unlock();
->>> +
->>>   	return ret;
->>>   }
->>>
->>>
+     if (state & NUD_REACHABLE) {
+         if (time_before_eq(now,
+                    neigh->confirmed + neigh->parms->reachable_time)) {
+             neigh_dbg(2, "neigh %p is still alive\n", neigh);
+             next = neigh->confirmed + neigh->parms->reachable_time;
+         } else if (time_before_eq(now,
+                       neigh->used +
+                       NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME))) {
+             neigh_dbg(2, "neigh %p is delayed\n", neigh);
+             neigh->nud_state = NUD_DELAY;
+             neigh->updated = jiffies;
+             neigh_suspect(neigh);
+             next = now + NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME);
+         } else {
+             neigh_dbg(2, "neigh %p is suspected\n", neigh);
+             neigh->nud_state = NUD_STALE;
+             neigh->updated = jiffies;
+             neigh_suspect(neigh);
+             notify = 1;
+         }
+     } else ...
+
+Why is the second test there in the first place?
+
+In the normal case, "neigh->used" does not get updated until the entry 
+is found STALE
+in the periodic work.
+
+Why not use "neigh->confirmed" and another sysctl variable?
+
+     if (state & NUD_REACHABLE) {
+         if (time_before_eq(now,
+                    neigh->confirmed + neigh->parms->reachable_time)) {
+             neigh_dbg(2, "neigh %p is still alive\n", neigh);
+             next = neigh->confirmed + neigh->parms->reachable_time;
+         } else if (time_before_eq(now,
+-                     neigh->used +
+-                      NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME))) {
++                    neigh->confirmed +
++                     NEIGH_VAR(neigh->parms, DELAY_REPROBE_TIME))) {
+             neigh_dbg(2, "neigh %p is delayed\n", neigh);
+             neigh->nud_state = NUD_DELAY;
+             neigh->updated = jiffies;
+             neigh_suspect(neigh);
+             next = now + NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME);
+         } else {
+             neigh_dbg(2, "neigh %p is suspected\n", neigh);
+             neigh->nud_state = NUD_STALE;
+             neigh->updated = jiffies;
+             neigh_suspect(neigh);
+             notify = 1;
+         }
+     } else ...
+
+if DELAY_REPROBE_TIME is larger than "reachable_time", then
+     the kernel will send out ARP probes when it is about
+     to lose communication with a remote machine.
+     This is what we need.
+
+If it is smaller, then
+     it will go from REACHABLE to STALE.
+
+The initial value of DELAY_REPROBE_TIME needs to be settable in Kconfig
+to allow the selection of functionality.
+
+I am told that setting stuff using sysctl has a performance penalty, when
+interfaces are dynamically created and deleted in hundreds.
+
+Best Regards,
+Ulf Samuelsson
+  
+
+On 04/10/2015 10:26 AM, Ulf Samuelsson wrote:
+>
+> On 03/12/2015 07:26 PM, David Miller wrote:
+>> I hate changes like this.
 >>
->> Couldn't this just be done as a do while?  It would probably be easier
->> to read and there wouldn't be any need for the another_round label anymore.
+>> By making this a Kconfig options it cannot be dynamic, and every
+>> distribution is going to have to scratch their head and decide
+>> what to set this to.
+>>
+>> That's seriously suboptimal.
+>>
+>> If you want to change behavior based upon whether userspace is
+>> managing the damn table, make it so the user doing so has to
+>> ask for the new behavior at _RUN TIME_ via the netlink interface
+>> or similar.
+>>
+>> Picking the guard time itself at compile time is also undesirable.
+>>
+>> And you don't even want a damn timer, what you want is for the
+>> state of the entry to be frozen and for the user to "release"
+>> it by either adjusting the state to something else or marking
+>> in some other way to allow it to be unfrozen and released again.
+>>
+>> Why put it to chance with some timeout?  Make things explicit.
 >
-> Or an infinite loop with a break at the bottom, as in:
-> 	for (;;) {
-> 		switch (...) {
-> 		case again:
-> 			continue;
-> 		default:
-> 			break;
-> 		}
-> 		break;
-> 	}
+> The desired functionality is that if communication stops,
+> you want to send out ARP probes, before the entry is deleted.
 >
-> 	David
+> The current (pseudo) code of the neigh timer is:
 >
-
-That is even more complicated.  What I was thinking was
-	do {
-		ret = __netif_receive_skb_ingress(skb, pfmemalloc,
-						  orig_dev);
-	} while (ret == __NET_RX_ANOTHER_ROUND);
-
-Either that or the switch could just be replaced with a if statement 
-since the only case that really goes anywhere is __NET_RX_ANOTHER_ROUND 
-and everything else just exits anyway.  I had just suggested a do/while 
-since that lets the goto be dropped, but an if would allow for avoiding 
-any unnecessary indentation on the call to __netif_receive_skb_ingress.
-
-- Alex
+>     if (state & NUD_REACHABLE) {
+>         if (now <= "confirmed + "reachable_time")) {
+>                     ... /* We are OK */
+>         } else if (now < "used" + DELAY_PROBE_TIME) {    /* Never 
+> happens */
+>                     state = NUD_DELAY;
+>         } else {
+>             state = NUD_STALE;
+>             notify = 1;
+>         }
+>
+> We never see the state beeing changed from REACHABLE to DELAY,
+> so the probes are not beeing sent out, instead you always go
+> from REACHABLE to STALE.
+>
+> DELAY_PROBE_TIME is set to (5 x HZ) and "used"
+> seems to be only set by the periodic_work routine
+> when the neigh entry is in STALE state, and then it is too late.
+> It is also set by "arp_find" which is used by "broken" devices.
+>
+> In practice, the second condition: "(now < "used" + DELAY_PROBE_TIME)" 
+> is never used.
+> What is the intention of this test?
+>
+> By adding a new test + parameter, we would get the desired functionality,
+> and no need to listen for notifications or doing ARP state updates 
+> from applications.
+>
+>         if (now <= "confirmed + "reachable_time")) {
+>                     ... /* We are OK */
+> +        else if (now <= "confirmed + "reprobe_time")) {
+> +                   state <= NUD_DELAY;
+>         } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
+> happens */
+>                     state <= NUD_DELAY;
+>         } else {
+>             state = NUD_STALE;
+>             notify = 1;
+>         }
+>
+> This way the entry would remain in REACHABLE while normal 
+> communication occurs,
+> then it would enter DELAY state to probe, and if that fails, it goes 
+> to STALE state.
+>
+> Alternatively, we just change the second test:
+>         if (now <= "confirmed + "reachable_time")) {
+>                     ... /* We are OK */
+> -        } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
+> happens */
+> +       } else if (now < "confirmed" + DELAY_PROBE_TIME))) {
+>                     state <= NUD_DELAY;
+>         } else {
+>             state = NUD_STALE;
+>             notify = 1;
+>         }
+>
+>
+> The  DELAY_PROBE_TIME, should preferrably be a kernel Kconfig parameter.
+>
+> Best Regards,
+> Ulf Samuelsson
+>
+>
+>> I'm not applying this patch.
+>>
+>> -- 
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
