@@ -1,67 +1,86 @@
-From: Stefan Bauer <sb@plzk.de>
-Subject: Re: ip link macvtap interface not processing specific ipv6
- multicast traffic without promiscuous mode on
-Date: Wed, 15 Apr 2015 10:21:55 +0200
-Message-ID: <1429086115.3383.36.camel@plzk.de>
-References: <1428574167.2171.32.camel@plzk.de>
-	 <1428598288.2759.2.camel@plzk.de>
+From: "Shengzhou.Liu@freescale.com" <Shengzhou.Liu@freescale.com>
+Subject: RE: [PATCH v2] net/phy: tune get_phy_c45_ids to support more c45 phy
+Date: Wed, 15 Apr 2015 08:27:05 +0000
+Message-ID: <DM2PR03MB398B7FB38DB8C40CF8D65A8F8E50@DM2PR03MB398.namprd03.prod.outlook.com>
+References: <1429006192-21403-1-git-send-email-Shengzhou.Liu@freescale.com>
+ <552D5221.1030703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay05.ispgateway.de ([80.67.31.97]:40110 "EHLO
-	smtprelay05.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751681AbbDOIV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 04:21:59 -0400
-Received: from [87.185.75.237] (helo=zarafa)
-	by smtprelay05.ispgateway.de with esmtpsa (TLSv1.2:DHE-RSA-AES256-GCM-SHA384:256)
-	(Exim 4.84)
-	(envelope-from <sb@plzk.de>)
-	id 1YiIa4-0007te-FZ
-	for netdev@vger.kernel.org; Wed, 15 Apr 2015 10:21:56 +0200
-Received: from s1 (unknown [192.168.0.151])
-	by zarafa (Postfix) with ESMTP id 2E438220064
-	for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 10:21:55 +0200 (CEST)
-In-Reply-To: <1428598288.2759.2.camel@plzk.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <552D5221.1030703@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I could narrow down the problem. Win7Prof and Windows 10 is having this
-issue.
-
-Win Client is member of the multicast group and is listening on
-ff02::1:ffdf:fe88
-
-Traffic from router -> client - captured on router:
-
-07:41:23.104567 IP6 fe80::12fe:edff:fee6:cfa > ff02::1:ffdf:fe88: ICMP6,
-neighbor solicitation, who has 2a01:198:200:8350:851e:21a7:28df:fe88,
-length 32
-07:41:24.099764 IP6 fe80::12fe:edff:fee6:cfa > ff02::1:ffdf:fe88: ICMP6,
-neighbor solicitation, who has 2a01:198:200:8350:851e:21a7:28df:fe88,
-length 32
-07:41:25.099772 IP6 fe80::12fe:edff:fee6:cfa > ff02::1:ffdf:fe88: ICMP6,
-neighbor solicitation, who has 2a01:198:200:8350:851e:21a7:28df:fe88,
-length 32
-
-
-Traffic from router to client - captured on KVM HOST
-
-09:41:23.106444 IP6 fe80::12fe:edff:fee6:cfa > ff02::1:ffdf:fe88: ICMP6,
-neighbor solicitation, who has 2a01:198:200:8350:851e:21a7:28df:fe88,
-length 32
-09:41:24.101647 IP6 fe80::12fe:edff:fee6:cfa > ff02::1:ffdf:fe88: ICMP6,
-neighbor solicitation, who has 2a01:198:200:8350:851e:21a7:28df:fe88,
-length 32
-09:41:25.101718 IP6 fe80::12fe:edff:fee6:cfa > ff02::1:ffdf:fe88: ICMP6,
-neighbor solicitation, who has 2a01:198:200:8350:851e:21a7:28df:fe88,
-length 32
-
-No traffic seen on KVM GUEST (win7 or win10) with wireshark
-
-Any ideas to debug this further?
-
-Cheers
-
-Stefan
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
+YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgQXByaWwgMTUs
+IDIwMTUgMTo0NSBBTQ0KPiBUbzogTGl1IFNoZW5nemhvdS1CMzY2ODU7IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtl
+cm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCB2Ml0gbmV0L3BoeTogdHVuZSBnZXRfcGh5
+X2M0NV9pZHMgdG8gc3VwcG9ydCBtb3JlIGM0NSBwaHkNCj4gDQo+IE9uIDE0LzA0LzE1IDAzOjA5
+LCBTaGVuZ3pob3UgTGl1IHdyb3RlOg0KPiA+IEFzIHNvbWUgQzQ1IDEwRyBQSFlzKGUuZy4gQ29y
+dGluYSBDUzQzMTUvQ1M0MzQwIFBIWSkgaGF2ZSB6ZXJvIERldmljZXMNCj4gPiBJbiBwYWNrYWdl
+LCBjdXJyZW50IGRyaXZlciBjYW4ndCBnZXQgY29ycmVjdCBkZXZpY2VzX2luX3BhY2thZ2UgdmFs
+dWUNCj4gPiBieSBub24temVybyBEZXZpY2VzIEluIHBhY2thZ2UuDQo+ID4gc28gbGV0J3MgcHJv
+YmUgbW9yZSB3aXRoIHplcm8gRGV2aWNlcyBJbiBwYWNrYWdlIHRvIHN1cHBvcnQgbW9yZSBDNDUN
+Cj4gPiBQSFlzLg0KPiANCj4gSSBjYW5ub3QgcmVtZW1iZXIgZXhhY3RseSBob3cgbWFueSB0aW1l
+cyB0aGlzIHBhdGNoIGhhcyBiZWVuIHBvc3RlZCwgYnV0IGl0DQo+IHN0aWxsIGlzIG5vdCBjbGVh
+ciB0byBtZSB3aGF0IHlvdSBhcmUgZG9pbmcgaGVyZSBpcyBoZWxwaW5nIHdpdGggdGhlc2UNCj4g
+Q29ydGluYSBQSFlzLg0KPiANCj4gQ291bGQgeW91IHBvc3QgYSBkdW1wIG9mIHRoZSBtZGlvYnVz
+X3JlYWQoKSBhcmd1bWVudHMgYW5kIHZhbHVlcyBmb3IgdGhlIG9sZA0KPiBjb2RlIGFuZCB0aGUg
+bmV3IGNvZGUgeW91IGFyZSBwcm9wb3Npbmc/IFRoYXQgd2F5IGl0IG1pZ2h0IGJlIGNsZWFyZXIg
+d2hhdCBpcw0KPiB0aGUgZ29hbCBoZXJlPw0KPiANClRoZSBrZXkgcG9pbnQgaXMgdGhhdCBzdGFu
+ZGFyZCBDNDUgUEhZcyB1c2Ugbm9uLXplcm8gRGV2aWNlcyBpbiBwYWNrYWdlIGkocmVnX2FkZHIg
+PSBNSUlfQUREUl9DNDUgfCBpIDw8IDE2IHwgTURJT19ERVZTKSB0byByZWFkICBkZXZpY2VzX2lu
+X3BhY2thZ2UsIGRldmljZSB6ZXJvIGlzIHJlc2VydmVkLCBidXQgQ29ydGluYSBDUzQzMTUvQ1M0
+MzQwIFBIWSB1c2UgemVybyBEZXZpY2VzIGluIHBhY2thZ2UocmVnX2FkZHIgPSBNSUlfQUREUl9D
+NDUgfCAwIDw8IDE2IHwgTURJT19ERVZTKSB0byByZWFkIGRldmljZXNfaW5fcGFja2FnZS4gDQoN
+ClRoaXMgaXMgY2F1c2VkIGJ5IENvcnRpbmEgbm9uLXN0YW5kYXJkIFBIWSwgZS5nLiBzdGFuZGFy
+ZCBQSFkgaGFzIE1JSV9QSFlTSUQxPTB4MDIsIE1JSV9QSFlTSUQyPTB4MDMsIGJ1dCBDUzQzMTUv
+Q1M0MzQwIFBIWSBoYXMgbm9uLXN0YW5kYXJkIG9mZnNldCBvZiBQSFkgSUQgcmVnaXN0ZXJzKE1J
+SV9QSFlTSUQxPTB4MDAsIE1JSV9QSFlTSUQyPTB4MDEpLg0KICANCj4gPg0KPiA+IFNpZ25lZC1v
+ZmYtYnk6IFNoZW5nemhvdSBMaXUgPFNoZW5nemhvdS5MaXVAZnJlZXNjYWxlLmNvbT4NCj4gPiAt
+LS0NCj4gPiB2MjogdXNlIE1ESU9fREVWUzEgYW5kIE1ESU9fREVWUzIgaW5zdGVhZCBvZiBjb25z
+dGFudCAnNicsICc1Jw0KPiA+DQo+ID4gIGRyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMgfCAy
+NSArKysrKysrKysrKysrKysrKysrKystLS0tDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAyMSBpbnNl
+cnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L3BoeS9waHlfZGV2aWNlLmMNCj4gPiBiL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMg
+aW5kZXggYmRmZTUxZi4uYzRmODM2ZiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9waHkv
+cGh5X2RldmljZS5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYw0KPiA+
+IEBAIC0yNDIsMTIgKzI0MiwyOSBAQCBzdGF0aWMgaW50IGdldF9waHlfYzQ1X2lkcyhzdHJ1Y3Qg
+bWlpX2J1cyAqYnVzLCBpbnQNCj4gYWRkciwgdTMyICpwaHlfaWQsDQo+ID4gIAkJCXJldHVybiAt
+RUlPOw0KPiA+ICAJCWM0NV9pZHMtPmRldmljZXNfaW5fcGFja2FnZSB8PSAocGh5X3JlZyAmIDB4
+ZmZmZik7DQo+ID4NCj4gPiAtCQkvKiBJZiBtb3N0bHkgRnMsIHRoZXJlIGlzIG5vIGRldmljZSB0
+aGVyZSwNCj4gPiAtCQkgKiBsZXQncyBnZXQgb3V0IG9mIGhlcmUuDQo+ID4gKwkJLyogSWYgbW9z
+dGx5IEZzLCBsZXQncyBjb250aW51ZSB0byBwcm9iZSBtb3JlDQo+ID4gKwkJICogYXMgc29tZSBj
+NDUgUEhZcyBoYXZlIHplcm8gRGV2aWNlcyBJbiBwYWNrYWdlLA0KPiA+ICsJCSAqIGUuZy4gQ29y
+dGluYSBDUzQzMTUvQ1M0MzQwIFBIWS4NCj4gPiAgCQkgKi8NCj4gPiAgCQlpZiAoKGM0NV9pZHMt
+PmRldmljZXNfaW5fcGFja2FnZSAmIDB4MWZmZmZmZmYpID09IDB4MWZmZmZmZmYpIHsNCj4gPiAt
+CQkJKnBoeV9pZCA9IDB4ZmZmZmZmZmY7DQo+ID4gLQkJCXJldHVybiAwOw0KPiA+ICsJCQlyZWdf
+YWRkciA9IE1JSV9BRERSX0M0NSB8IDAgPDwgMTYgfCBNRElPX0RFVlMyOw0KPiA+ICsJCQlwaHlf
+cmVnID0gbWRpb2J1c19yZWFkKGJ1cywgYWRkciwgcmVnX2FkZHIpOw0KPiA+ICsJCQlpZiAocGh5
+X3JlZyA8IDApDQo+ID4gKwkJCQlyZXR1cm4gLUVJTzsNCj4gPiArCQkJYzQ1X2lkcy0+ZGV2aWNl
+c19pbl9wYWNrYWdlID0gKHBoeV9yZWcgJiAweGZmZmYpIDw8IDE2Ow0KPiA+ICsJCQlyZWdfYWRk
+ciA9IE1JSV9BRERSX0M0NSB8IDAgPDwgMTYgfCBNRElPX0RFVlMxOw0KPiA+ICsJCQlwaHlfcmVn
+ID0gbWRpb2J1c19yZWFkKGJ1cywgYWRkciwgcmVnX2FkZHIpOw0KPiA+ICsJCQlpZiAocGh5X3Jl
+ZyA8IDApDQo+ID4gKwkJCQlyZXR1cm4gLUVJTzsNCj4gPiArCQkJYzQ1X2lkcy0+ZGV2aWNlc19p
+bl9wYWNrYWdlIHw9IChwaHlfcmVnICYgMHhmZmZmKTsNCj4gPiArCQkJLyogSWYgbW9zdGx5IEZz
+LCB0aGVyZSBpcyBubyBkZXZpY2UgdGhlcmUsDQo+ID4gKwkJCSAqIGxldCdzIGdldCBvdXQgb2Yg
+aGVyZS4NCj4gPiArCQkJICovDQo+ID4gKwkJCWlmICgoYzQ1X2lkcy0+ZGV2aWNlc19pbl9wYWNr
+YWdlICYgMHgxZmZmZmZmZikgPT0NCj4gPiArCQkJCQkJCTB4MWZmZmZmZmYpIHsNCj4gPiArCQkJ
+CSpwaHlfaWQgPSAweGZmZmZmZmZmOw0KPiA+ICsJCQkJcmV0dXJuIDA7DQo+ID4gKwkJCX0NCj4g
+DQo+IENvdWxkIG5vdCB3ZSBzb21laG93IGJlIGEgYml0IG1vcmUgY2xldmVyIGFuZCB1dGlsaXpl
+IHRoZSBsb29wLCB3aXRoIGFuDQo+IGFkanVzdGVkIGkgPSAwIGR1cmluZyB0aGlzIGNvbmRpdGlv
+bj8gU29tZSBzb21ldGhpbmcgbGlrZSB0aGlzICh1bnRlc3RlZCk6DQo+IA0KPiBGbG9yaWFuDQoN
+CkkgaGFkIGRvbmUgaXQgdG8gdXRpbGl6ZSB0aGUgbG9vcCB3aXRoIGkgPSAwIGFzIHlvdXIgdGhv
+dWdodCwgYnV0IERhdmlkIE1pbGxlciBzYWlkIHRoYXQgdGhlIHdheSBvZiB1dGlsaXppbmcgdGhl
+IGxvb3AgbWFrZXMgbm8gc2Vuc2UgdG8gdGVzdCAnaScgZm9yIHplcm8gdnMuIG5vbi16ZXJvIHVu
+dGlsIHRoZSBsb29waW5nIGNvbnN0cnVjdCBpdCBpcyBjb250YWluZWQgd2l0aGluIGNhbiBhY3R1
+YWxseSBoaXQgYSB6ZXJvIHZhbHVlLCBhZGRpbmcgc3VjaCBhIGNoZWNrIGhlcmUgbWFrZXMgdGhl
+IGNvZGUgY29uZnVzaW5nLg0KU28gSSBkcm9wcGVkIHRoZSB3YXkgb2YgdXRpbGl6aW5nIHRoZSBs
+b29wIHRvIG1ha2UgY29kZSByZWFkYWJsZS4NCg0K
