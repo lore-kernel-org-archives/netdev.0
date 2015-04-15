@@ -1,297 +1,105 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] bnx2x: Fix busy_poll vs netpoll
-Date: Tue, 14 Apr 2015 18:45:00 -0700
-Message-ID: <1429062300.7346.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>
-	 ,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>
-	 ,<1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
-	 <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [patch v2] net: hip04: Make tx coalesce timer actually work
+Date: Wed, 15 Apr 2015 10:24:16 +0800
+Message-ID: <552DCBD0.5030607@huawei.com>
+References: <alpine.DEB.2.11.1504132338080.3845@nanos> <3040901.Bp3bfgc1te@wuerfel> <alpine.DEB.2.11.1504140007570.3845@nanos> <20150414.141529.797692010779414843.davem@davemloft.net> <alpine.DEB.2.11.1504142140290.3845@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
-	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Willem de Bruijn <willemb@google.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:33377 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754286AbbDOBpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 21:45:04 -0400
-Received: by iecrt8 with SMTP id rt8so17483548iec.0
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 18:45:03 -0700 (PDT)
-In-Reply-To: <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <arnd@arndb.de>, <linux-kernel@vger.kernel.org>,
+	<peterz@infradead.org>, <mingo@kernel.org>,
+	<zhangfei.gao@linaro.org>, <dan.carpenter@oracle.com>,
+	<netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1504142140290.3845@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 2015/4/15 3:42, Thomas Gleixner wrote:
+> The code sets the expiry value of the timer to a relative value and
+> starts it with hrtimer_start_expires. That's fine, but that only works
+> once. The timer is started in relative mode, so the expiry value gets
+> overwritten with the absolut expiry time (now + expiry).
+> 
+> So once the timer expired, a new call to hrtimer_start_expires results
+> in an immidiately expired timer, because the expiry value is
+> already in the past.
+> 
+> Use the proper mechanisms to (re)start the timer in the intended way.
+> 
 
-Commit 9a2620c877454 ("bnx2x: prevent WARN during driver unload")
-switched the napi/busy_lock locking mechanism from spin_lock() into
-spin_lock_bh(), breaking inter-operability with netconsole, as netpoll
-disables interrupts prior to calling our napi mechanism.
+Acked-by: Ding Tianhong <dingtianhong@huawei.com>
 
-This switches the driver into using atomic assignments instead of the
-spinlock mechanisms previously employed.
-
-Based on initial patch from Yuval Mintz & Ariel Elior
-
-I basically added softirq starvation avoidance, and mixture
-of atomic operations, plain writes and barriers.
-
-Note this slightly reduces the overhead for this driver when no
-busy_poll sockets are in use.
-
-Fixes: 9a2620c877454 ("bnx2x: prevent WARN during driver unload")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-
-Please Yuval Mintz & Ariel Elior carefully review and test this patch.
-
-David: This applies on net-next or net, and needs a stable backport once
-validated.
-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |  137 +++++---------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    9 
- 2 files changed, 56 insertions(+), 90 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 4085c4b31047..355d5fea5be9 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -531,20 +531,8 @@ struct bnx2x_fastpath {
- 	struct napi_struct	napi;
- 
- #ifdef CONFIG_NET_RX_BUSY_POLL
--	unsigned int state;
--#define BNX2X_FP_STATE_IDLE		      0
--#define BNX2X_FP_STATE_NAPI		(1 << 0)    /* NAPI owns this FP */
--#define BNX2X_FP_STATE_POLL		(1 << 1)    /* poll owns this FP */
--#define BNX2X_FP_STATE_DISABLED		(1 << 2)
--#define BNX2X_FP_STATE_NAPI_YIELD	(1 << 3)    /* NAPI yielded this FP */
--#define BNX2X_FP_STATE_POLL_YIELD	(1 << 4)    /* poll yielded this FP */
--#define BNX2X_FP_OWNED	(BNX2X_FP_STATE_NAPI | BNX2X_FP_STATE_POLL)
--#define BNX2X_FP_YIELD	(BNX2X_FP_STATE_NAPI_YIELD | BNX2X_FP_STATE_POLL_YIELD)
--#define BNX2X_FP_LOCKED	(BNX2X_FP_OWNED | BNX2X_FP_STATE_DISABLED)
--#define BNX2X_FP_USER_PEND (BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_POLL_YIELD)
--	/* protect state */
--	spinlock_t lock;
--#endif /* CONFIG_NET_RX_BUSY_POLL */
-+	unsigned long		busy_poll_state;
-+#endif
- 
- 	union host_hc_status_block	status_blk;
- 	/* chip independent shortcuts into sb structure */
-@@ -619,104 +607,83 @@ struct bnx2x_fastpath {
- #define bnx2x_fp_qstats(bp, fp)	(&((bp)->fp_stats[(fp)->index].eth_q_stats))
- 
- #ifdef CONFIG_NET_RX_BUSY_POLL
--static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
-+
-+enum bnx2x_fp_state {
-+	BNX2X_STATE_FP_NAPI	= BIT(0), /* NAPI handler owns the queue */
-+
-+	BNX2X_STATE_FP_NAPI_REQ_BIT = 1, /* NAPI would like to own the queue */
-+	BNX2X_STATE_FP_NAPI_REQ = BIT(1),
-+
-+	BNX2X_STATE_FP_POLL_BIT = 2,
-+	BNX2X_STATE_FP_POLL     = BIT(2), /* busy_poll owns the queue */
-+
-+	BNX2X_STATE_FP_DISABLE_BIT = 3, /* queue is dismantled */
-+};
-+
-+static inline void bnx2x_fp_busy_poll_init(struct bnx2x_fastpath *fp)
- {
--	spin_lock_init(&fp->lock);
--	fp->state = BNX2X_FP_STATE_IDLE;
-+	WRITE_ONCE(fp->busy_poll_state, 0);
- }
- 
- /* called from the device poll routine to get ownership of a FP */
- static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
- {
--	bool rc = true;
--
--	spin_lock_bh(&fp->lock);
--	if (fp->state & BNX2X_FP_LOCKED) {
--		WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
--		fp->state |= BNX2X_FP_STATE_NAPI_YIELD;
--		rc = false;
--	} else {
--		/* we don't care if someone yielded */
--		fp->state = BNX2X_FP_STATE_NAPI;
-+	unsigned long prev, old = READ_ONCE(fp->busy_poll_state);
-+
-+	while (1) {
-+		switch (old) {
-+		case BNX2X_STATE_FP_POLL:
-+			/* make sure bnx2x_fp_lock_poll() wont starve us */
-+			set_bit(BNX2X_STATE_FP_NAPI_REQ_BIT,
-+				&fp->busy_poll_state);
-+			/* fallthrough */
-+		case BNX2X_STATE_FP_POLL | BNX2X_STATE_FP_NAPI_REQ:
-+			return false;
-+		default:
-+			break;
-+		}
-+		prev = cmpxchg(&fp->busy_poll_state, old, BNX2X_STATE_FP_NAPI);
-+		if (unlikely(prev != old)) {
-+			old = prev;
-+			continue;
-+		}
-+		return true;
- 	}
--	spin_unlock_bh(&fp->lock);
--	return rc;
- }
- 
--/* returns true is someone tried to get the FP while napi had it */
--static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
-+static inline void bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
- {
--	bool rc = false;
--
--	spin_lock_bh(&fp->lock);
--	WARN_ON(fp->state &
--		(BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_NAPI_YIELD));
--
--	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
--		rc = true;
--
--	/* state ==> idle, unless currently disabled */
--	fp->state &= BNX2X_FP_STATE_DISABLED;
--	spin_unlock_bh(&fp->lock);
--	return rc;
-+	smp_wmb();
-+	fp->busy_poll_state = 0;
- }
- 
- /* called from bnx2x_low_latency_poll() */
- static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
- {
--	bool rc = true;
--
--	spin_lock_bh(&fp->lock);
--	if ((fp->state & BNX2X_FP_LOCKED)) {
--		fp->state |= BNX2X_FP_STATE_POLL_YIELD;
--		rc = false;
--	} else {
--		/* preserve yield marks */
--		fp->state |= BNX2X_FP_STATE_POLL;
--	}
--	spin_unlock_bh(&fp->lock);
--	return rc;
-+	return cmpxchg(&fp->busy_poll_state, 0, BNX2X_STATE_FP_POLL) == 0;
- }
- 
--/* returns true if someone tried to get the FP while it was locked */
--static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
-+static inline void bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
- {
--	bool rc = false;
--
--	spin_lock_bh(&fp->lock);
--	WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
--
--	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
--		rc = true;
--
--	/* state ==> idle, unless currently disabled */
--	fp->state &= BNX2X_FP_STATE_DISABLED;
--	spin_unlock_bh(&fp->lock);
--	return rc;
-+	smp_mb__before_atomic();
-+	clear_bit(BNX2X_STATE_FP_POLL_BIT, &fp->busy_poll_state);
- }
- 
--/* true if a socket is polling, even if it did not get the lock */
-+/* true if a socket is polling */
- static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
- {
--	WARN_ON(!(fp->state & BNX2X_FP_OWNED));
--	return fp->state & BNX2X_FP_USER_PEND;
-+	return READ_ONCE(fp->busy_poll_state) & BNX2X_STATE_FP_POLL;
- }
- 
- /* false if fp is currently owned */
- static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
- {
--	int rc = true;
--
--	spin_lock_bh(&fp->lock);
--	if (fp->state & BNX2X_FP_OWNED)
--		rc = false;
--	fp->state |= BNX2X_FP_STATE_DISABLED;
--	spin_unlock_bh(&fp->lock);
-+	set_bit(BNX2X_STATE_FP_DISABLE_BIT, &fp->busy_poll_state);
-+	return !bnx2x_fp_ll_polling(fp);
- 
--	return rc;
- }
- #else
--static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
-+static inline void bnx2x_fp_busy_poll_init(struct bnx2x_fastpath *fp)
- {
- }
- 
-@@ -725,9 +692,8 @@ static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
- 	return true;
- }
- 
--static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
-+static inline void bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
- {
--	return false;
- }
- 
- static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
-@@ -735,9 +701,8 @@ static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
- 	return false;
- }
- 
--static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
-+static inline void bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
- {
--	return false;
- }
- 
- static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 0a9faa134a9a..2f63467bce46 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1849,7 +1849,7 @@ static void bnx2x_napi_enable_cnic(struct bnx2x *bp)
- 	int i;
- 
- 	for_each_rx_queue_cnic(bp, i) {
--		bnx2x_fp_init_lock(&bp->fp[i]);
-+		bnx2x_fp_busy_poll_init(&bp->fp[i]);
- 		napi_enable(&bnx2x_fp(bp, i, napi));
- 	}
- }
-@@ -1859,7 +1859,7 @@ static void bnx2x_napi_enable(struct bnx2x *bp)
- 	int i;
- 
- 	for_each_eth_queue(bp, i) {
--		bnx2x_fp_init_lock(&bp->fp[i]);
-+		bnx2x_fp_busy_poll_init(&bp->fp[i]);
- 		napi_enable(&bnx2x_fp(bp, i, napi));
- 	}
- }
-@@ -3191,9 +3191,10 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
- 			}
- 		}
- 
-+		bnx2x_fp_unlock_napi(fp);
-+
- 		/* Fall out from the NAPI loop if needed */
--		if (!bnx2x_fp_unlock_napi(fp) &&
--		    !(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
-+		if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
- 
- 			/* No need to update SB for FCoE L2 ring as long as
- 			 * it's connected to the default SB and the SB
+> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: dingtianhong <dingtianhong@huawei.com>
+> Cc: Arnd Bergmann <arnd@arndb.de>
+> Cc: Zhangfei Gao <zhangfei.gao@linaro.org>
+> Cc: Dan Carpenter <dan.carpenter@oracle.com>
+> Cc: netdev@vger.kernel.org
+> ---
+>  drivers/net/ethernet/hisilicon/hip04_eth.c |   18 +++++++++++-------
+>  1 file changed, 11 insertions(+), 7 deletions(-)
+> 
+> Index: linux/drivers/net/ethernet/hisilicon/hip04_eth.c
+> ===================================================================
+> --- linux.orig/drivers/net/ethernet/hisilicon/hip04_eth.c
+> +++ linux/drivers/net/ethernet/hisilicon/hip04_eth.c
+> @@ -413,6 +413,15 @@ out:
+>  	return count;
+>  }
+>  
+> +static void hip04_start_tx_timer(struct hip04_priv *priv)
+> +{
+> +	unsigned long ns = priv->tx_coalesce_usecs * NSEC_PER_USEC / 2;
+> +
+> +	/* allow timer to fire after half the time at the earliest */
+> +	hrtimer_start_range_ns(&priv->tx_coalesce_timer, ns_to_ktime(ns),
+> +			       ns, HRTIMER_MODE_REL);
+> +}
+> +
+>  static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  {
+>  	struct hip04_priv *priv = netdev_priv(ndev);
+> @@ -466,8 +475,7 @@ static int hip04_mac_start_xmit(struct s
+>  		}
+>  	} else if (!hrtimer_is_queued(&priv->tx_coalesce_timer)) {
+>  		/* cleanup not pending yet, start a new timer */
+> -		hrtimer_start_expires(&priv->tx_coalesce_timer,
+> -				      HRTIMER_MODE_REL);
+> +		hip04_start_tx_timer(priv);
+>  	}
+>  
+>  	return NETDEV_TX_OK;
+> @@ -549,7 +557,7 @@ done:
+>  	/* clean up tx descriptors and start a new timer if necessary */
+>  	tx_remaining = hip04_tx_reclaim(ndev, false);
+>  	if (rx < budget && tx_remaining)
+> -		hrtimer_start_expires(&priv->tx_coalesce_timer, HRTIMER_MODE_REL);
+> +		hip04_start_tx_timer(priv);
+>  
+>  	return rx;
+>  }
+> @@ -809,7 +817,6 @@ static int hip04_mac_probe(struct platfo
+>  	struct hip04_priv *priv;
+>  	struct resource *res;
+>  	unsigned int irq;
+> -	ktime_t txtime;
+>  	int ret;
+>  
+>  	ndev = alloc_etherdev(sizeof(struct hip04_priv));
+> @@ -846,9 +853,6 @@ static int hip04_mac_probe(struct platfo
+>  	 */
+>  	priv->tx_coalesce_frames = TX_DESC_NUM * 3 / 4;
+>  	priv->tx_coalesce_usecs = 200;
+> -	/* allow timer to fire after half the time at the earliest */
+> -	txtime = ktime_set(0, priv->tx_coalesce_usecs * NSEC_PER_USEC / 2);
+> -	hrtimer_set_expires_range(&priv->tx_coalesce_timer, txtime, txtime);
+>  	priv->tx_coalesce_timer.function = tx_done;
+>  
+>  	priv->map = syscon_node_to_regmap(arg.np);
+> 
+> .
+> 
