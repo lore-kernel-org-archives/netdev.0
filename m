@@ -1,38 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 1/6] net: hip04: Set more appropriate value for tx coalesce num
-Date: Wed, 15 Apr 2015 16:11:23 +0200
-Message-ID: <4574922.qP9qWKPK3R@wuerfel>
-References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-2-git-send-email-dingtianhong@huawei.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH net-next 2/6] net: hip04: use the big endian for tx and rx desc
+Date: Wed, 15 Apr 2015 16:13:37 +0200
+Message-ID: <6631765.x1c1LvG6uN@wuerfel>
+References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-3-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, grant.likely@linaro.org,
-	sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
-	zhangfei.gao@linaro.org, joe@perches.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux@arm.linux.org.uk
-To: Ding Tianhong <dingtianhong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:56433 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755105AbbDOOLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 10:11:43 -0400
-In-Reply-To: <1429101008-9464-2-git-send-email-dingtianhong@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org
+To: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1429101008-9464-3-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 15 April 2015 20:30:03 Ding Tianhong wrote:
-> According Arnd's suggestion, the user might set the tx coalesce value
-> in large range for different workloads, so we should define them to
-> appropriate value.
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Cc: Zhangfei Gao <zhangfei.gao@linaro.org>
-> Cc: Dan Carpenter <dan.carpenter@oracle.com>
-> Cc: Joe Perches <joe@perches.com>
-> 
+On Wednesday 15 April 2015 20:30:04 Ding Tianhong wrote:
+> The hip04 ethernet use the big endian for tx and rx, so set desc to
+> big endian and remove the unused next_addr.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+I don't understand:
+
+> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+> index b0a7f03..6473462 100644
+> --- a/drivers/net/ethernet/hisilicon/hip04_eth.c
+> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
+> @@ -132,19 +132,18 @@
+>  #define HIP04_MIN_TX_COALESCE_FRAMES   1
+>  
+>  struct tx_desc {
+> -       u32 send_addr;
+> -       u32 send_size;
+> -       u32 next_addr;
+> -       u32 cfg;
+> -       u32 wb_addr;
+> +       __be32 send_addr;
+> +       __be32 send_size;
+> +       __be32 cfg;
+> +       __be32 wb_addr;
+>  } __aligned(64);
+
+I would think this is a hardware structure, does this not break
+access to the cfg and wb_addr fields if you remove next_addr?
+
+	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
