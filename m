@@ -1,65 +1,65 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [RFC PATCH] bgmac: Fix build error seen if BCM47XX is not configured
-Date: Wed, 15 Apr 2015 22:21:49 +0200
-Message-ID: <CACna6rwPYP0FV60v9ey0uV=3eU_8SZ4t+WoZCtiDHHeCLiM3Dg@mail.gmail.com>
-References: <1429128338-28549-1-git-send-email-linux@roeck-us.net>
+From: rapier <rapier@psc.edu>
+Subject: [Question] TCP stack performance decrease since 3.14
+Date: Wed, 15 Apr 2015 15:31:52 -0400
+Message-ID: <552EBCA8.6090408@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linux-mips@linux-mips.org" <linux-mips@linux-mips.org>
-To: Guenter Roeck <linux@roeck-us.net>,
-	Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:35613 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753305AbbDOUVu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 16:21:50 -0400
-In-Reply-To: <1429128338-28549-1-git-send-email-linux@roeck-us.net>
+Received: from mailer1.psc.edu ([128.182.58.100]:39560 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754913AbbDOUXh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2015 16:23:37 -0400
+Received: from iztli.psc.edu (iztli.psc.edu [128.182.160.106])
+	(authenticated bits=0)
+	by mailer1.psc.edu (8.13.8/8.13.8) with ESMTP id t3FJVqC1010985
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES128-SHA bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 15:31:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15 April 2015 at 22:05, Guenter Roeck <linux@roeck-us.net> wrote:
-> arm:allmodconfig fails to build as follows since ARCH_BCM_5301X
-> is configured but not BCM47XX.
->
-> drivers/net/ethernet/broadcom/bgmac.c: In function 'bgmac_probe':
-> drivers/net/ethernet/broadcom/bgmac.c:1643:2: error:
->                 implicit declaration of function 'bcm47xx_nvram_geten=
-v'
->
-> Fixes: fc300dc3733f ("bgmac: allow enabling on ARCH_BCM_5301X")
-> Cc: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
-> Seen in today's upstream kernel.
->
-> I don't like this fix too much (I think it is quite kludgy),
-> so I marked it RFC (and please don't beat the messenger ;-).
+All,
 
-Ooh great, I totally forgot about this :|
+First, my apologies if this came up previously but I couldn't find 
+anything using a keyword search of the mailing list archive.
 
-The problem is that fc300dc (bgmac: allow enabling on ARCH_BCM_5301X)
-[0] shouldn't really be sent (by me) in the first place. This is
-because it depends on 138173d (MIPS: BCM47xx: Move NVRAM header to the
-include/linux/.) [1] which isn't in Linus's tree yet.
+As part of the on going work with web10g I need to come up with baseline 
+TCP stack performance for various kernel revision. Using netperf and 
+super_netperf* I've found that performance for TCP_CC, TCP_RR, and 
+TCP_CRR has decreased since 3.14.
 
-So there are two solutions:
-1) Revert fc300dc, wait for 138173d and re-apply fc300dc
-2) Wait for 138173d with this build breakage
+	3.14	3.18	4.0 	decrease %
+TCP_CC	183945	179222	175793	4.4%
+TCP_RR	594495	585484	561365	5.6%
+TCP_CRR	98677	96726	93026	5.7%
 
-I guess the decisions depends on
-a) time needed for David to revert fc300dc & send pull request
-vs.
-b) time needed for Ralf to send pull request
+Stream tests have remained the same from 3.14 through 4.0.
 
-David, Ralf, what do you think about this?
+All tests were conducted on the same platform from clean boot with stock 
+kernels.
 
-Sorry for causing this problem :|
+So my questions are:
 
-[0] http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/comm=
-it/?id=3Dfc300dc3733fdc328e6e10c7b8379b60c26cd648
-[1] http://git.linux-mips.org/cgit/ralf/upstream-sfr.git/commit/?id=3D1=
-38173d4e826587da66c7d321da1a91283222536
+Has anyone else seen this or is this a result of some weirdness on my 
+system or artifact of my tests?
+
+If others have seen this or is just simply to be expected (from new 
+features and the like) is it due to the TCP stack itself or other 
+changes in the kernel?
+
+If so, is there anyway to mitigate the effect of this via stack tuning, 
+kernel configuration, etc?
+
+Thanks!
+
+Chris
+
+
+* The above results are the average of 10 iterations of super_netperf 
+for each test. I can run more iterations to verify the results but it 
+seem consistent. The number of parallel processes for each test was 
+tuned to produce the maximum test result. In other words, enough to push 
+things but not enough to cause performance hits due to being 
+cpu/memory/etc bound. If anyone wants the full results and test scripts 
+just let me know.
