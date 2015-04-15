@@ -1,44 +1,86 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: ip_tunnel: Remove gratuitous skb scrubbing
-Date: Wed, 15 Apr 2015 17:41:26 +0200
-Message-ID: <552E86A6.9000101@6wind.com>
-References: <20150415100107.GA3655@gondor.apana.org.au> <552E3B7A.2040701@6wind.com> <20150415102229.GA3917@gondor.apana.org.au> <20150415135739.GA5534@gondor.apana.org.au>
-Reply-To: nicolas.dichtel@6wind.com
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] bpf: fix verifier memory corruption
+Date: Wed, 15 Apr 2015 17:59:35 +0200
+Message-ID: <1429113575.12070.19.camel@stressinduktion.org>
+References: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	James Morris <jmorris@redhat.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:33902 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755702AbbDOPl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 11:41:29 -0400
-Received: by wgso17 with SMTP id o17so51516951wgs.1
-        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 08:41:28 -0700 (PDT)
-In-Reply-To: <20150415135739.GA5534@gondor.apana.org.au>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:45458 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753753AbbDOP7h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 11:59:37 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 32BB720CB6
+	for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 11:59:37 -0400 (EDT)
+In-Reply-To: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 15/04/2015 15:57, Herbert Xu a =E9crit :
-> On Wed, Apr 15, 2015 at 06:22:29PM +0800, Herbert Xu wrote:
-[snip]
-> Subject: skbuff: Do not scrub skb mark within the same name space
->
-> The commit ea23192e8e577dfc51e0f4fc5ca113af334edff9 ("tunnels:
-Maybe add a Fixes tag?
-=46ixes: ea23192e8e57 ("tunnels: harmonize cleanup done on skb on rx pa=
-th")
+On Di, 2015-04-14 at 15:57 -0700, Alexei Starovoitov wrote:
+> Due to missing bounds check the DAG pass of the BPF verifier can corrupt
+> the memory which can cause random crashes during program loading:
+> 
+> [8.449451] BUG: unable to handle kernel paging request at ffffffffffffffff
+> [8.451293] IP: [<ffffffff811de33d>] kmem_cache_alloc_trace+0x8d/0x2f0
+> [8.452329] Oops: 0000 [#1] SMP
+> [8.452329] Call Trace:
+> [8.452329]  [<ffffffff8116cc82>] bpf_check+0x852/0x2000
+> [8.452329]  [<ffffffff8116b7e4>] bpf_prog_load+0x1e4/0x310
+> [8.452329]  [<ffffffff811b190f>] ? might_fault+0x5f/0xb0
+> [8.452329]  [<ffffffff8116c206>] SyS_bpf+0x806/0xa30
+> 
+> Fixes: f1bca824dabb ("bpf: add search pruning optimization to verifier")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> Many things need to align for this crash to be seen, yet I managed to hit it.
+> In my case JA was last insn, 't' was 255 and explored_states array
+> had 256 elements. I've double checked other similar paths and all seems clean.
+> 
+>  kernel/bpf/verifier.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index a28e09c7825d..36508e69e92a 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -1380,7 +1380,8 @@ peek_stack:
+>  			/* tell verifier to check for equivalent states
+>  			 * after every call and jump
+>  			 */
+> -			env->explored_states[t + 1] = STATE_LIST_MARK;
+> +			if (t + 1 < insn_cnt)
+> +				env->explored_states[t + 1] = STATE_LIST_MARK;
+>  		} else {
+>  			/* conditional jump with two edges */
+>  			ret = push_insn(t, t + 1, FALLTHROUGH, env);
 
-> harmonize cleanup done on skb on rx path") broke anyone trying to
-> use netfilter marking across IPv4 tunnels.  While most of the
-> fields that are cleared by skb_scrub_packet don't matter, the
-> netfilter mark must be preserved.
->
-> This patch rearranges skb_scurb_packet to preserve the mark field.
-nit: s/scurb/scrub
+Quick review:
 
-Else it's fine for me.
+We have env->explored_states[t+1] access in the 
+
+                } else {
+                        /* conditional jump with two edges */
+                        ret = push_insn(t, t + 1, FALLTHROUGH, env);
+                        if (ret == 1)
+                                goto peek_stack;
+                        else if (ret < 0)
+                                goto err_free;
+
+>>>                     ret = push_insn(t, t + insns[t].off + 1, BRANCH, env);
+                        if (ret == 1)
+                                goto peek_stack;
+                        else if (ret < 0)
+                                goto err_free;
+                }
+        } else {
+
+
+push_insn call. At this point insn[t].off could be 0, no?
+
+Thanks,
+Hannes
