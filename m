@@ -1,48 +1,39 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [patch net-next v2 0/2] switchdev: unify naming prefix
-Date: Wed, 15 Apr 2015 13:54:56 -0400
-Message-ID: <20150415175455.GB26741@gospo.home.greyhouse.net>
-References: <1428960304-11497-1-git-send-email-jiri@resnulli.us>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance regression
+ on Xen
+Date: Wed, 15 Apr 2015 10:55:16 -0700
+Message-ID: <552EA604.8010400@hp.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com> <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com> <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com> <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com> <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com> <CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com> <1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com> <552E9E8D.1080000@eu.citrix.com> <1429118948.7346.114.camel@edumazet-glaptop2.roam.corp.google.com> <552EA2BC.5000707@eu.citrix.com> <1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com,
-	roopa@cumulusnetworks.com, f.fainelli@gmail.com,
-	sridhar.samudrala@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f182.google.com ([209.85.160.182]:33072 "EHLO
-	mail-yk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755224AbbDORzA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 13:55:00 -0400
-Received: by ykfa3 with SMTP id a3so2917975ykf.0
-        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 10:54:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1428960304-11497-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jonathan Davies <Jonathan.Davies@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Paul Durrant <paul.durrant@citrix.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	Felipe Franciosi <felipe.franciosi@citrix.com>,
+	linux-arm-kernel@lists.infradead.org,
+	David Vrabel <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	George Dunlap <george.dunlap@eu.citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 13, 2015 at 11:25:02PM +0200, Jiri Pirko wrote:
-> Turned out that "switchdev" sticks. So just unify all releated terms to
-> use this prefix.
-> 
-> Jiri Pirko (2):
->   switchdev: s/netdev_switch_/switchdev_/ and
->     s/NETDEV_SWITCH_/SWITCHDEV_/
->   switchdev: s/swdev_/switchdev_/
-> 
->  drivers/net/bonding/bond_main.c      |   4 +-
->  drivers/net/ethernet/rocker/rocker.c |  47 +++++-----
->  drivers/net/team/team.c              |   4 +-
->  include/linux/netdevice.h            |   2 +-
->  include/net/switchdev.h              | 140 ++++++++++++++--------------
->  net/bridge/br.c                      |  22 ++---
->  net/bridge/br_netlink.c              |   6 +-
->  net/bridge/br_stp.c                  |   2 +-
->  net/core/net-sysfs.c                 |   2 +-
->  net/core/rtnetlink.c                 |   2 +-
->  net/dsa/slave.c                      |   8 +-
->  net/ipv4/fib_trie.c                  |  40 ++++----
->  net/switchdev/switchdev.c            | 174 +++++++++++++++++------------------
->  13 files changed, 224 insertions(+), 229 deletions(-)
+>
+> Have you tested this patch on a NIC without GSO/TSO ?
+>
+> This would allow more than 500 packets for a single flow.
+>
+> Hello bufferbloat.
 
-Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+Woudln't the fq_codel qdisc on that interface address that problem?
+
+rick
