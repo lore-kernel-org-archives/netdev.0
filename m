@@ -1,134 +1,130 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the ftrace tree with the net-next
- tree
-Date: Wed, 15 Apr 2015 11:23:23 +1000
-Message-ID: <20150415112323.057080ad@canb.auug.org.au>
-References: <20150413175224.73a9baff@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the tip tree
+Date: Wed, 15 Apr 2015 11:25:49 +1000
+Message-ID: <20150415112549.173f49ab@canb.auug.org.au>
+References: <20150407171858.2ad46594@canb.auug.org.au>
+	<20150407084829.GA9577@gmail.com>
+	<55239BAD.6040304@iogearbox.net>
+	<20150407190527.1633a186@canb.auug.org.au>
+	<5523BBE0.8030400@iogearbox.net>
+	<55240342.9050900@plumgrid.com>
+	<552435DD.5040802@iogearbox.net>
+	<20150408150327.313be6a3@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/G+ffXACnC8+UO.V8LlX6zZZ"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-To: Steven Rostedt <rostedt@goodmis.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150413175224.73a9baff@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+ boundary="Sig_/GNefAMD9wSJcs.WOzYElYKP"; protocol="application/pgp-signature"
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Ingo Molnar <mingo@kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
+	<netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20150408150327.313be6a3@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/G+ffXACnC8+UO.V8LlX6zZZ
+--Sig_/GNefAMD9wSJcs.WOzYElYKP
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: quoted-printable
 
 Hi all,
 
-On Mon, 13 Apr 2015 17:52:24 +1000 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
+On Wed, 8 Apr 2015 15:03:27 +1000 Stephen Rothwell <sfr@canb.auug.org.au> w=
+rote:
 >
-> Today's linux-next merge of the ftrace tree got a conflict in
-> drivers/net/wireless/iwlwifi/iwl-devtrace.h between commit 7e1223b50089
-> ("iwlwifi: mvm: new Alive / error table API") from the net-next tree
-> and commit c5ef935d01a2 ("iwlwifi: Move each system tracepoints to
-> their own header") from the ftrace tree.
+> Hi all,
 >=20
-> I fixed it up (see patch below, since this code was moved to a new file)
-> and can carry the fix as necessary (no action is required).
+> On Tue, 07 Apr 2015 21:54:05 +0200 Daniel Borkmann <daniel@iogearbox.net>=
+ wrote:
+> >
+> > On 04/07/2015 06:18 PM, Alexei Starovoitov wrote:
+> > > On 4/7/15 4:13 AM, Daniel Borkmann wrote:
+> > >> [ Cc'ing Dave, fyi ]
+> > >>
+> > >> On 04/07/2015 11:05 AM, Stephen Rothwell wrote:
+> > >>> On Tue, 07 Apr 2015 10:56:13 +0200 Daniel Borkmann
+> > >>> <daniel@iogearbox.net> wrote:
+> > >>>> On 04/07/2015 10:48 AM, Ingo Molnar wrote:
+> > >>>>> * Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> > >>>>>
+> > >>>>>> After merging the tip tree, today's linux-next build (powerpc
+> > >>>>>> ppc64_defconfig) failed like this:
+> > >>>>>>
+> > >>>>>> kernel/events/core.c: In function 'perf_event_set_bpf_prog':
+> > >>>>>> kernel/events/core.c:6732:15: error: 'struct bpf_prog_aux' has no
+> > >>>>>> member named 'prog_type'
+> > >>>>>>     if (prog->aux->prog_type !=3D BPF_PROG_TYPE_KPROBE) {
+> > >>>>>>                  ^
+> > >>>>>>
+> > >>>>>> Caused by commit 2541517c32be ("tracing, perf: Implement BPF pro=
+grams
+> > >>>>>> attached to kprobes").
+> > >>>>>
+> > >>>>> Note, this must be some (rarely triggered) aspect of the ppc64
+> > >>>>> defconfig that neither x86 randconfigs nor most other arch defcon=
+figs
+> > >>>>> expose?
+> > >>>>
+> > >>>> Note, this is a merge conflict with the work that went via net-next
+> > >>>> tree,
+> > >>>> i.e. 24701ecea76b ("ebpf: move read-only fields to bpf_prog and sh=
+rink
+> > >>>> bpf_prog_aux"). I believe that is why it didn't trigger on tip tre=
+e.
+> > >>>>
+> > >>>> You should be able to resolve it in linux-next by changing the tes=
+t to:
+> > >>>>
+> > >>>>     if (prog->prog_type !=3D BPF_PROG_TYPE_KPROBE) {
+> > >>>
+> > >>> Thanks Daniel, I will do that tomorrow.  Someone will have to remem=
+ber
+> > >>> to tell Linus.
+> > >>
+> > >> Yes, indeed, depending which tree is merged first.
+> > >
+> > > Daniel analysis is correct, but the fix for kernel/events/core.c
+> > > should be:
+> > > - if (prog->aux->prog_type !=3D BPF_PROG_TYPE_KPROBE) {
+> > > + if (prog->type !=3D BPF_PROG_TYPE_KPROBE) {
+> > > instead of 'prog->prog_type'
+> >=20
+> > Yes, absolutely, thanks!
 >=20
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 13 Apr 2015 17:21:30 +1000
-> Subject: [PATCH] iwlwifi: mvm: fix up for tracing split
->=20
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h | 18 ++++++++++-----=
----
->  1 file changed, 10 insertions(+), 8 deletions(-)
->=20
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h b/driver=
-s/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h
-> index 6cb66a988271..223b8752f924 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h
-> +++ b/drivers/net/wireless/iwlwifi/iwl-devtrace-iwlwifi.h
-> @@ -116,11 +116,11 @@ TRACE_EVENT(iwlwifi_dev_ucode_error,
->  	TP_PROTO(const struct device *dev, u32 desc, u32 tsf_low,
->  		 u32 data1, u32 data2, u32 line, u32 blink1,
->  		 u32 blink2, u32 ilink1, u32 ilink2, u32 bcon_time,
-> -		 u32 gp1, u32 gp2, u32 gp3, u32 ucode_ver, u32 hw_ver,
-> +		 u32 gp1, u32 gp2, u32 gp3, u32 major, u32 minor, u32 hw_ver,
->  		 u32 brd_ver),
->  	TP_ARGS(dev, desc, tsf_low, data1, data2, line,
->  		blink1, blink2, ilink1, ilink2, bcon_time, gp1, gp2,
-> -		gp3, ucode_ver, hw_ver, brd_ver),
-> +		gp3, major, minor, hw_ver, brd_ver),
->  	TP_STRUCT__entry(
->  		DEV_ENTRY
->  		__field(u32, desc)
-> @@ -136,7 +136,8 @@ TRACE_EVENT(iwlwifi_dev_ucode_error,
->  		__field(u32, gp1)
->  		__field(u32, gp2)
->  		__field(u32, gp3)
-> -		__field(u32, ucode_ver)
-> +		__field(u32, major)
-> +		__field(u32, minor)
->  		__field(u32, hw_ver)
->  		__field(u32, brd_ver)
->  	),
-> @@ -155,21 +156,22 @@ TRACE_EVENT(iwlwifi_dev_ucode_error,
->  		__entry->gp1 =3D gp1;
->  		__entry->gp2 =3D gp2;
->  		__entry->gp3 =3D gp3;
-> -		__entry->ucode_ver =3D ucode_ver;
-> +		__entry->major =3D major;
-> +		__entry->minor =3D minor;
->  		__entry->hw_ver =3D hw_ver;
->  		__entry->brd_ver =3D brd_ver;
->  	),
->  	TP_printk("[%s] #%02d %010u data 0x%08X 0x%08X line %u, "
->  		  "blink 0x%05X 0x%05X ilink 0x%05X 0x%05X "
-> -		  "bcon_tm %010u gp 0x%08X 0x%08X 0x%08X uCode 0x%08X "
-> -		  "hw 0x%08X brd 0x%08X",
-> +		  "bcon_tm %010u gp 0x%08X 0x%08X 0x%08X major 0x%08X "
-> +		  "minor 0x%08X hw 0x%08X brd 0x%08X",
->  		  __get_str(dev), __entry->desc, __entry->tsf_low,
->  		  __entry->data1,
->  		  __entry->data2, __entry->line, __entry->blink1,
->  		  __entry->blink2, __entry->ilink1, __entry->ilink2,
->  		  __entry->bcon_time, __entry->gp1, __entry->gp2,
-> -		  __entry->gp3, __entry->ucode_ver, __entry->hw_ver,
-> -		  __entry->brd_ver)
-> +		  __entry->gp3, __entry->major, __entry->minor,
-> +		  __entry->hw_ver, __entry->brd_ver)
->  );
-> =20
->  TRACE_EVENT(iwlwifi_dev_ucode_event,
+> So I have applied that as a merge fix patch.
 
 This patch is now needed when the net-next tree is merged with Linus'
-tree ...
+tree.
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
---Sig_/G+ffXACnC8+UO.V8LlX6zZZ
+--Sig_/GNefAMD9wSJcs.WOzYElYKP
 Content-Type: application/pgp-signature
 Content-Description: OpenPGP digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAEBCAAGBQJVLb2PAAoJEMDTa8Ir7ZwVNlYP/iTHvWuPhsbLUC8GWd+goynV
-+yD9oeHXFpFRXgoraYlfD9Z1Niqy1CKEQG1cXyNKueE+Nyr8qiKPewPmjDLA1tTr
-WsHl++td8f9l+W5ypXpfnHIyK/x/vGjQ6mQdmTtB4yyrwn1uUZ7s/KQ7ntcA1Y6E
-Jq8gLHs54iPTTAwniO6ikCeJzTnjTqosbRRogxoGWrrtsL/90/ngqcAVmGEKTSKQ
-1/wv/Nr1fToYzZUfs4BBTWoGr4yY+bbZ99i34dF+W3TLTZEAPsXaTY2ExMq/jncO
-Z82eaz0kzwnsaEP7WBQR7cVkm5YxM7GcFXWhT4aoTR1o8LOl21H1qgO4q/MzXQHY
-eH7gu2Qy1J4Cy8V5yOD/cxAwBT6k9mUKok9jHbm38biYPfyG98aY8M0DiTILeecp
-lp9Jc76ZGB9HnFJ11CvpoPNvYYW9otsCxAAR7g47TnVUyW4s2wMpCrfE6eQjt/KU
-ir+fmiNJq3G27lFb6KW9RZcYUqLMwJ2G91FQvF+rQGjZnf5H6B7/6yMpcCwPltcL
-IcKw0TBBntcGyEmJO8LxniT2X/+AgJndIU+F3OPi/WdGT/0KYHDPv2i6Z+1e+qnz
-p984NgUpTcP1i2gKci6gN8qerv84PhvqOuMhgy/MKSil3TdaLlaAlt35ooTlJEtN
-bHPNvmW7/ZI1Y6kD7As6
-=muIN
+iQIcBAEBCAAGBQJVLb4hAAoJEMDTa8Ir7ZwVNIwP/RMbTqat1w8CyidQYHpIar8N
+7vVcB5NXwRK14Sv7ftXU1lG5pJz9c6jP5mZJVSFR6RJCZuJdyab/1JPkMbPbi+m0
+b18an+L5GwdJYhSKlei0rHqJLt70YrMoGHN30NMzJwk2EHaGKXd/+ldxMQ8uhKyA
+ftd4jwrkKEDOA8Ufxc1STZknO1WBB6+j4XO1bwnt2g9qBohS/TKoCV0USRIkdFtF
+wb4ljdZEf98Hnh+igoMk7igoQbxMxFgzLatq8yYGQNCLJBA8qnhNW4Y+hbqnKXSJ
++I6Rn9mDU3cVDE4IUvL8/Gbh1leG7CtWaIZRNAVlo8RMwYxhq1Taz/Itrq9V2RSJ
+aJxf/4rhv3vImOsTQntLoWjyOQVZWLl4D0m472/X3/JNX9x1mLfFEQNn5CuMG8At
+z6JDelRi8LTMxxSXxUGZLTChdc65hUJ6g5usXc9EHpqB4gzIn91TxuFprP+CIVkg
+SJLRtIjcoOnbcp/oTG3NgGngUnHd5Y75wSPdLbTV0voGwa0xWKb9Ml/yf6lOs6GF
+rzCmgmUX5ccr483YfOynqmbOnkAXOZY/47IY7wf2FsFZUY0jw2A1yvskZDcYYyRO
+79Gnu8Drg5YQQNTyyW+COV+GPo1cbUTCwwqnWceJtz2tIe7OEPKuysPciQQ7wOUh
+khAc6rIqom6pGHPUI+GW
+=hG+b
 -----END PGP SIGNATURE-----
 
---Sig_/G+ffXACnC8+UO.V8LlX6zZZ--
+--Sig_/GNefAMD9wSJcs.WOzYElYKP--
