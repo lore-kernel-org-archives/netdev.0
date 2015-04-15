@@ -1,60 +1,67 @@
-From: Vince Bridgers <vbridger@opensource.altera.com>
-Subject: [PATCH net 3/5] stmmac: Read tx-fifo-depth and rx-fifo-depth from the devicetree
-Date: Wed, 15 Apr 2015 11:17:40 -0500
-Message-ID: <1429114662-1528-4-git-send-email-vbridger@opensource.altera.com>
-References: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [RFC PATCH] bgmac: Fix build error seen if BCM47XX is not
+ configured
+Date: Wed, 15 Apr 2015 13:46:35 -0700
+Message-ID: <20150415204635.GA18364@roeck-us.net>
+References: <1429128338-28549-1-git-send-email-linux@roeck-us.net>
+ <CACna6rwPYP0FV60v9ey0uV=3eU_8SZ4t+WoZCtiDHHeCLiM3Dg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <vbridger@opensource.altera.com>, <vbridger@altera.com>
-To: <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0071.outbound.protection.outlook.com ([65.55.169.71]:53856
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754720AbbDOUhz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2015 16:37:55 -0400
-In-Reply-To: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"linux-mips@linux-mips.org" <linux-mips@linux-mips.org>
+To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACna6rwPYP0FV60v9ey0uV=3eU_8SZ4t+WoZCtiDHHeCLiM3Dg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Read the tx-fifo-depth and rx-fifo-depth from the devicetree. The Synopsys
-stmmac controller fifos are configurable per product instance, and the fifo
-sizes are needed to configure certain features correctly such as flow control.
+On Wed, Apr 15, 2015 at 10:21:49PM +0200, Rafa=C5=82 Mi=C5=82ecki wrote=
+:
+> On 15 April 2015 at 22:05, Guenter Roeck <linux@roeck-us.net> wrote:
+> > arm:allmodconfig fails to build as follows since ARCH_BCM_5301X
+> > is configured but not BCM47XX.
+> >
+> > drivers/net/ethernet/broadcom/bgmac.c: In function 'bgmac_probe':
+> > drivers/net/ethernet/broadcom/bgmac.c:1643:2: error:
+> >                 implicit declaration of function 'bcm47xx_nvram_get=
+env'
+> >
+> > Fixes: fc300dc3733f ("bgmac: allow enabling on ARCH_BCM_5301X")
+> > Cc: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> > ---
+> > Seen in today's upstream kernel.
+> >
+> > I don't like this fix too much (I think it is quite kludgy),
+> > so I marked it RFC (and please don't beat the messenger ;-).
+>=20
+> Ooh great, I totally forgot about this :|
+>=20
+> The problem is that fc300dc (bgmac: allow enabling on ARCH_BCM_5301X)
+> [0] shouldn't really be sent (by me) in the first place. This is
+> because it depends on 138173d (MIPS: BCM47xx: Move NVRAM header to th=
+e
+> include/linux/.) [1] which isn't in Linus's tree yet.
+>=20
+> So there are two solutions:
+> 1) Revert fc300dc, wait for 138173d and re-apply fc300dc
+> 2) Wait for 138173d with this build breakage
+>=20
+> I guess the decisions depends on
+> a) time needed for David to revert fc300dc & send pull request
+> vs.
+> b) time needed for Ralf to send pull request
+>=20
+> David, Ralf, what do you think about this?
+>=20
 
-Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 4 ++++
- include/linux/stmmac.h                                | 2 ++
- 2 files changed, 6 insertions(+)
+Since the fix is in the queue, maybe we can live with the breakage
+for a few days ? Your solution is definitely _much_ better than my hack=
+=2E
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index f9b42f1..705bbdf 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -181,6 +181,10 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
- 				     sizeof(struct stmmac_mdio_bus_data),
- 				     GFP_KERNEL);
- 
-+	of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size);
-+
-+	of_property_read_u32(np, "rx-fifo-depth", &plat->rx_fifo_size);
-+
- 	plat->force_sf_dma_mode =
- 		of_property_read_bool(np, "snps,force_sf_dma_mode");
- 
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index cd63851..7f484a2 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -114,6 +114,8 @@ struct plat_stmmacenet_data {
- 	int maxmtu;
- 	int multicast_filter_bins;
- 	int unicast_filter_entries;
-+	int tx_fifo_size;
-+	int rx_fifo_size;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
- 	void *(*setup)(struct platform_device *pdev);
--- 
-1.9.1
+Guenter
