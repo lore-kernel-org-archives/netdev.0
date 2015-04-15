@@ -1,49 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
- regression on Xen
-Date: Wed, 15 Apr 2015 11:19:39 -0700
-Message-ID: <1429121979.7346.138.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
-	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
-	 <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
-	 <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
-	 <1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <552E9E8D.1080000@eu.citrix.com>
-	 <1429118948.7346.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <552EA2BC.5000707@eu.citrix.com>
-	 <1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <552EA844.5010308@eu.citrix.com>
+Subject: Re: [PATCH stable 3.10-3.16] tcp: Fix crash in TCP Fast Open
+Date: Wed, 15 Apr 2015 11:22:44 -0700
+Message-ID: <1429122164.7346.139.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429120832.3211.91.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jonathan Davies <Jonathan.Davies@citrix.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Paul Durrant <paul.durrant@citrix.com>,
-	Christoffer Dall <christoffer.dall@linaro.org>,
-	Felipe Franciosi <felipe.franciosi@citrix.com>,
-	linux-arm-kernel@lists.infradead.org,
-	David Vrabel <david.vrabel@citrix.com>
-To: George Dunlap <george.dunlap@eu.citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <552EA844.5010308@eu.citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	782515@bugs.debian.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1429120832.3211.91.camel@decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-04-15 at 19:04 +0100, George Dunlap wrote:
+On Wed, 2015-04-15 at 19:00 +0100, Ben Hutchings wrote:
+> Commit 355a901e6cf1 ("tcp: make connect() mem charging friendly")
+> changed tcp_send_syn_data() to perform an open-coded copy of the 'syn'
+> skb rather than using skb_copy_expand().
+> 
+> The open-coded copy does not cover the skb_shared_info::gso_segs
+> field, so in the new skb it is left set to 0.  When this commit was
+> backported into stable branches between 3.10.y and 3.16.7-ckty
+> inclusive, it triggered the BUG() in tcp_transmit_skb().
+> 
+> Since Linux 3.18 the GSO segment count is kept in the
+> tcp_skb_cb::tcp_gso_segs field and tcp_send_syn_data() does copy the
+> tcp_skb_cb structure to the new skb, so mainline and newer stable
+> branches are not affected.
+> 
+> Set skb_shared_info::gso_segs to the correct value of 1.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+>  net/ipv4/tcp_output.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index d5457e4..1ea0a07 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2992,6 +2992,7 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+>  		goto fallback;
+>  	syn_data->ip_summed = CHECKSUM_PARTIAL;
+>  	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
+> +	skb_shinfo(syn_data)->gso_segs = 1;
+>  	if (unlikely(memcpy_fromiovecend(skb_put(syn_data, space),
+>  					 fo->data->msg_iov, 0, space))) {
+>  		kfree_skb(syn_data);
+> 
 
-> Maybe you should stop wasting all of our time and just tell us what
-> you're thinking.
+Looks goot to me, thanks Ben !
 
-I think you make me wasting my time.
-
-I already gave all the hints in prior discussions.
-
-Rome was not built in one day.
+Acked-by: Eric Dumazet <edumazet@google.com>
