@@ -1,50 +1,75 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 15/17] switch kernel_sendmsg() and kernel_recvmsg() to
- iov_iter_kvec()
-Date: Wed, 15 Apr 2015 09:53:15 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1E8D4@AcuExch.aculab.com>
-References: <20150411211742.GJ889@ZenIV.linux.org.uk>
- <1428787108-13650-15-git-send-email-viro@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CB1DD9D@AcuExch.aculab.com>
- <20150414163403.GY889@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CB1DE00@AcuExch.aculab.com>
- <20150414165920.GB889@ZenIV.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1CB1E86A@AcuExch.aculab.com>
- <552E313B.6040302@iogearbox.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: use kthread_run macro
+Date: Wed, 15 Apr 2015 11:59:01 +0200
+Message-ID: <20150415115547-mutt-send-email-mst@redhat.com>
+References: <jpgiocywg3x.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Daniel Borkmann' <daniel@iogearbox.net>,
-	'Al Viro' <viro@ZenIV.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:51615 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752517AbbDOJzN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 05:55:13 -0400
-In-Reply-To: <552E313B.6040302@iogearbox.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bandan Das <bsd@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <jpgiocywg3x.fsf@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann
-> Sent: 15 April 2015 10:37
-> On 04/15/2015 11:08 AM, David Laight wrote:
-> ...
-> > Apart from any other code that is using the interface.
-> > I know you guys don't do anything to help out of tree code, but removing the setfs()
-> > stuff from the kernel_recvmsg() code would break anything using sctp.
+On Tue, Apr 14, 2015 at 05:32:34PM -0400, Bandan Das wrote:
 > 
-> Then that might just be one more incentive to work towards upstreaming
-> your out-of-tree SCTP bits ... ;)
+> Code Cleanup, kthread_run is a convenient wrapper
+> around kthread_create() that even wakes up the process
+> for us. Use it and remove no longer needed temp
+> task_struct variable.
+> 
+> Signed-off-by: Bandan Das <bsd@redhat.com>
+> ---
+>  drivers/vhost/vhost.c | 12 ++++--------
+>  1 file changed, 4 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 2ee2826..9ac66f7 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -366,7 +366,6 @@ EXPORT_SYMBOL_GPL(vhost_dev_has_owner);
+>  /* Caller should have device mutex */
+>  long vhost_dev_set_owner(struct vhost_dev *dev)
+>  {
+> -	struct task_struct *worker;
+>  	int err;
+>  
+>  	/* Is there an owner already? */
+> @@ -377,15 +376,12 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
+>  
+>  	/* No owner, become one */
+>  	dev->mm = get_task_mm(current);
+> -	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
+> -	if (IS_ERR(worker)) {
+> -		err = PTR_ERR(worker);
+> +	dev->worker = kthread_run(vhost_worker, dev, "vhost-%d", current->pid);
+> +	if (IS_ERR(dev->worker)) {
+> +		err = PTR_ERR(dev->worker);
+>  		goto err_worker;
 
-You really wouldn't want the many MB of code that generates several MB
-of driver object to support a telephony applications using custom hardware.
+If you do it like this, dev->worker is not initialized when thread
+starts running.  As thread itself might queue entries using
+vhost_work_queue, this seems wrong.
 
-Almost all the code is completely OS agnostic, the linux 'glue' code is
-a few 1000 lines of wrapper functions (compiled as part of the installation
-process).
-Much the same wrappers exist for windows and solaris.
-
-	David
+>  	}
+>  
+> -	dev->worker = worker;
+> -	wake_up_process(worker);	/* avoid contributing to loadavg */
+> -
+>  	err = vhost_attach_cgroups(dev);
+>  	if (err)
+>  		goto err_cgroup;
+> @@ -396,7 +392,7 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
+>  
+>  	return 0;
+>  err_cgroup:
+> -	kthread_stop(worker);
+> +	kthread_stop(dev->worker);
+>  	dev->worker = NULL;
+>  err_worker:
+>  	if (dev->mm)
+> -- 
+> 2.1.0
