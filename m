@@ -1,73 +1,58 @@
-From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 2/6] net: hip04: use the big endian for tx and rx desc
-Date: Wed, 15 Apr 2015 20:30:04 +0800
-Message-ID: <1429101008-9464-3-git-send-email-dingtianhong@huawei.com>
-References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/7] net: refactor __netif_receive_skb_core
+Date: Wed, 15 Apr 2015 12:44:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB1EA6B@AcuExch.aculab.com>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <1428668142-4006-2-git-send-email-pablo@netfilter.org>
+ <55282AED.1050306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: <arnd-r2nGTMty4D4@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1429101008-9464-1-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "kaber@trash.net" <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <55282AED.1050306@gmail.com>
+Content-Language: en-US
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The hip04 ethernet use the big endian for tx and rx, so set desc to
-big endian and remove the unused next_addr.
+From: Alexander Duyck
+> Sent: 10 April 2015 20:56
+> On 04/10/2015 05:15 AM, Pablo Neira Ayuso wrote:
+> > +another_round:
+> > +	ret = __netif_receive_skb_ingress(skb, pfmemalloc, orig_dev);
+> > +	switch (ret) {
+> > +	case NET_RX_SUCCESS:
+> > +	case NET_RX_DROP:
+> > +		break;
+> > +	case __NET_RX_ANOTHER_ROUND:
+> > +		goto another_round;
+> > +	}
+> >  	rcu_read_unlock();
+> > +
+> >  	return ret;
+> >  }
+> >
+> >
+> 
+> Couldn't this just be done as a do while?  It would probably be easier
+> to read and there wouldn't be any need for the another_round label anymore.
 
-Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Cc: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/ethernet/hisilicon/hip04_eth.c | 19 +++++++++----------
- 1 file changed, 9 insertions(+), 10 deletions(-)
+Or an infinite loop with a break at the bottom, as in:
+	for (;;) {
+		switch (...) {
+		case again:
+			continue;
+		default:
+			break;
+		}
+		break;
+	}
 
-diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
-index b0a7f03..6473462 100644
---- a/drivers/net/ethernet/hisilicon/hip04_eth.c
-+++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
-@@ -132,19 +132,18 @@
- #define HIP04_MIN_TX_COALESCE_FRAMES	1
- 
- struct tx_desc {
--	u32 send_addr;
--	u32 send_size;
--	u32 next_addr;
--	u32 cfg;
--	u32 wb_addr;
-+	__be32 send_addr;
-+	__be32 send_size;
-+	__be32 cfg;
-+	__be32 wb_addr;
- } __aligned(64);
- 
- struct rx_desc {
--	u16 reserved_16;
--	u16 pkt_len;
--	u32 reserve1[3];
--	u32 pkt_err;
--	u32 reserve2[4];
-+	__be16 reserved_16;
-+	__be16 pkt_len;
-+	__be32 reserve1[3];
-+	__be32 pkt_err;
-+	__be32 reserve2[4];
- };
- 
- struct hip04_priv {
--- 
-1.8.0
+	David
 
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+			
