@@ -1,32 +1,37 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH linux-next v3] mlx5: wrong page mask if CONFIG_ARCH_DMA_ADDR_T_64BIT
- enabled for 32Bit architectures
-Date: Wed, 15 Apr 2015 08:27:23 +0300
-Message-ID: <552DF6BB.5040005@mellanox.com>
-References: <1429067957-9148-1-git-send-email-honli@redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH resend] Renesas Ethernet AVB driver
+Date: Wed, 15 Apr 2015 07:31:09 +0200
+Message-ID: <20150415053108.GA5443@netboy>
+References: <2926619.fiYHPz1IBk@wasted.cogentembedded.com>
+ <20150328082853.GA4255@localhost.localdomain>
+ <5519D380.6070200@cogentembedded.com>
+ <552C25BE.3070606@cogentembedded.com>
+ <20150414052729.GA5179@netboy>
+ <552CE890.3040103@cogentembedded.com>
+ <20150414163002.GB4309@localhost.localdomain>
+ <552D472A.6080309@cogentembedded.com>
+ <20150414183000.GA5327@localhost.localdomain>
+ <552DB851.8050800@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1429067957-9148-1-git-send-email-honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sergei.shtylyov@cogentembedded.com, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, mitsuhiro.kimura.kc@renesas.com
+To: masaru.nagai.vx@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <552DB851.8050800@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/15/2015 6:19 AM, Honggang Li wrote:
-> Fix(bf0bf77 mlx5: Support communicating arbitrary host page size to firmware)
+On Wed, Apr 15, 2015 at 10:01:05AM +0900, masaru.nagai.vx@renesas.com wrote:
+> 
+> Oddly, This hardware is linked operation mode of the Ethernet I/F with PTP clock.
 
-This isn't the way to write the fix note, do it that way
+In that case, you should remove the clock along with the interface.
+Please see ixgbe as an example.
 
-Fixes: bf0bf77f6519 ('mlx5: Support communicating arbitrary host page 
-size to firmware')
-
->
-> Signed-off-by: Honggang Li<honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Richard
