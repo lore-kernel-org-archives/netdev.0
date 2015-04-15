@@ -1,130 +1,297 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the tip tree
-Date: Wed, 15 Apr 2015 11:25:49 +1000
-Message-ID: <20150415112549.173f49ab@canb.auug.org.au>
-References: <20150407171858.2ad46594@canb.auug.org.au>
-	<20150407084829.GA9577@gmail.com>
-	<55239BAD.6040304@iogearbox.net>
-	<20150407190527.1633a186@canb.auug.org.au>
-	<5523BBE0.8030400@iogearbox.net>
-	<55240342.9050900@plumgrid.com>
-	<552435DD.5040802@iogearbox.net>
-	<20150408150327.313be6a3@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net] bnx2x: Fix busy_poll vs netpoll
+Date: Tue, 14 Apr 2015 18:45:00 -0700
+Message-ID: <1429062300.7346.64.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429018513-9553-1-git-send-email-Yuval.Mintz@qlogic.com>
+	 ,<1429023140.7346.33.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF5830@AVMB1.qlogic.org>
+	 ,<1429033912.7346.47.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
+	 <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/GNefAMD9wSJcs.WOzYElYKP"; protocol="application/pgp-signature"
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	<netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20150408150327.313be6a3@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, "bind@enas.net" <bind@enas.net>,
+	"peter@hurleysoftware.com" <peter@hurleysoftware.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Willem de Bruijn <willemb@google.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:33377 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754286AbbDOBpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Apr 2015 21:45:04 -0400
+Received: by iecrt8 with SMTP id rt8so17483548iec.0
+        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 18:45:03 -0700 (PDT)
+In-Reply-To: <1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/GNefAMD9wSJcs.WOzYElYKP
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+From: Eric Dumazet <edumazet@google.com>
 
-Hi all,
+Commit 9a2620c877454 ("bnx2x: prevent WARN during driver unload")
+switched the napi/busy_lock locking mechanism from spin_lock() into
+spin_lock_bh(), breaking inter-operability with netconsole, as netpoll
+disables interrupts prior to calling our napi mechanism.
 
-On Wed, 8 Apr 2015 15:03:27 +1000 Stephen Rothwell <sfr@canb.auug.org.au> w=
-rote:
->
-> Hi all,
->=20
-> On Tue, 07 Apr 2015 21:54:05 +0200 Daniel Borkmann <daniel@iogearbox.net>=
- wrote:
-> >
-> > On 04/07/2015 06:18 PM, Alexei Starovoitov wrote:
-> > > On 4/7/15 4:13 AM, Daniel Borkmann wrote:
-> > >> [ Cc'ing Dave, fyi ]
-> > >>
-> > >> On 04/07/2015 11:05 AM, Stephen Rothwell wrote:
-> > >>> On Tue, 07 Apr 2015 10:56:13 +0200 Daniel Borkmann
-> > >>> <daniel@iogearbox.net> wrote:
-> > >>>> On 04/07/2015 10:48 AM, Ingo Molnar wrote:
-> > >>>>> * Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> > >>>>>
-> > >>>>>> After merging the tip tree, today's linux-next build (powerpc
-> > >>>>>> ppc64_defconfig) failed like this:
-> > >>>>>>
-> > >>>>>> kernel/events/core.c: In function 'perf_event_set_bpf_prog':
-> > >>>>>> kernel/events/core.c:6732:15: error: 'struct bpf_prog_aux' has no
-> > >>>>>> member named 'prog_type'
-> > >>>>>>     if (prog->aux->prog_type !=3D BPF_PROG_TYPE_KPROBE) {
-> > >>>>>>                  ^
-> > >>>>>>
-> > >>>>>> Caused by commit 2541517c32be ("tracing, perf: Implement BPF pro=
-grams
-> > >>>>>> attached to kprobes").
-> > >>>>>
-> > >>>>> Note, this must be some (rarely triggered) aspect of the ppc64
-> > >>>>> defconfig that neither x86 randconfigs nor most other arch defcon=
-figs
-> > >>>>> expose?
-> > >>>>
-> > >>>> Note, this is a merge conflict with the work that went via net-next
-> > >>>> tree,
-> > >>>> i.e. 24701ecea76b ("ebpf: move read-only fields to bpf_prog and sh=
-rink
-> > >>>> bpf_prog_aux"). I believe that is why it didn't trigger on tip tre=
-e.
-> > >>>>
-> > >>>> You should be able to resolve it in linux-next by changing the tes=
-t to:
-> > >>>>
-> > >>>>     if (prog->prog_type !=3D BPF_PROG_TYPE_KPROBE) {
-> > >>>
-> > >>> Thanks Daniel, I will do that tomorrow.  Someone will have to remem=
-ber
-> > >>> to tell Linus.
-> > >>
-> > >> Yes, indeed, depending which tree is merged first.
-> > >
-> > > Daniel analysis is correct, but the fix for kernel/events/core.c
-> > > should be:
-> > > - if (prog->aux->prog_type !=3D BPF_PROG_TYPE_KPROBE) {
-> > > + if (prog->type !=3D BPF_PROG_TYPE_KPROBE) {
-> > > instead of 'prog->prog_type'
-> >=20
-> > Yes, absolutely, thanks!
->=20
-> So I have applied that as a merge fix patch.
+This switches the driver into using atomic assignments instead of the
+spinlock mechanisms previously employed.
 
-This patch is now needed when the net-next tree is merged with Linus'
-tree.
+Based on initial patch from Yuval Mintz & Ariel Elior
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+I basically added softirq starvation avoidance, and mixture
+of atomic operations, plain writes and barriers.
 
---Sig_/GNefAMD9wSJcs.WOzYElYKP
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+Note this slightly reduces the overhead for this driver when no
+busy_poll sockets are in use.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Fixes: 9a2620c877454 ("bnx2x: prevent WARN during driver unload")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
 
-iQIcBAEBCAAGBQJVLb4hAAoJEMDTa8Ir7ZwVNIwP/RMbTqat1w8CyidQYHpIar8N
-7vVcB5NXwRK14Sv7ftXU1lG5pJz9c6jP5mZJVSFR6RJCZuJdyab/1JPkMbPbi+m0
-b18an+L5GwdJYhSKlei0rHqJLt70YrMoGHN30NMzJwk2EHaGKXd/+ldxMQ8uhKyA
-ftd4jwrkKEDOA8Ufxc1STZknO1WBB6+j4XO1bwnt2g9qBohS/TKoCV0USRIkdFtF
-wb4ljdZEf98Hnh+igoMk7igoQbxMxFgzLatq8yYGQNCLJBA8qnhNW4Y+hbqnKXSJ
-+I6Rn9mDU3cVDE4IUvL8/Gbh1leG7CtWaIZRNAVlo8RMwYxhq1Taz/Itrq9V2RSJ
-aJxf/4rhv3vImOsTQntLoWjyOQVZWLl4D0m472/X3/JNX9x1mLfFEQNn5CuMG8At
-z6JDelRi8LTMxxSXxUGZLTChdc65hUJ6g5usXc9EHpqB4gzIn91TxuFprP+CIVkg
-SJLRtIjcoOnbcp/oTG3NgGngUnHd5Y75wSPdLbTV0voGwa0xWKb9Ml/yf6lOs6GF
-rzCmgmUX5ccr483YfOynqmbOnkAXOZY/47IY7wf2FsFZUY0jw2A1yvskZDcYYyRO
-79Gnu8Drg5YQQNTyyW+COV+GPo1cbUTCwwqnWceJtz2tIe7OEPKuysPciQQ7wOUh
-khAc6rIqom6pGHPUI+GW
-=hG+b
------END PGP SIGNATURE-----
+Please Yuval Mintz & Ariel Elior carefully review and test this patch.
 
---Sig_/GNefAMD9wSJcs.WOzYElYKP--
+David: This applies on net-next or net, and needs a stable backport once
+validated.
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     |  137 +++++---------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    9 
+ 2 files changed, 56 insertions(+), 90 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 4085c4b31047..355d5fea5be9 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -531,20 +531,8 @@ struct bnx2x_fastpath {
+ 	struct napi_struct	napi;
+ 
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+-	unsigned int state;
+-#define BNX2X_FP_STATE_IDLE		      0
+-#define BNX2X_FP_STATE_NAPI		(1 << 0)    /* NAPI owns this FP */
+-#define BNX2X_FP_STATE_POLL		(1 << 1)    /* poll owns this FP */
+-#define BNX2X_FP_STATE_DISABLED		(1 << 2)
+-#define BNX2X_FP_STATE_NAPI_YIELD	(1 << 3)    /* NAPI yielded this FP */
+-#define BNX2X_FP_STATE_POLL_YIELD	(1 << 4)    /* poll yielded this FP */
+-#define BNX2X_FP_OWNED	(BNX2X_FP_STATE_NAPI | BNX2X_FP_STATE_POLL)
+-#define BNX2X_FP_YIELD	(BNX2X_FP_STATE_NAPI_YIELD | BNX2X_FP_STATE_POLL_YIELD)
+-#define BNX2X_FP_LOCKED	(BNX2X_FP_OWNED | BNX2X_FP_STATE_DISABLED)
+-#define BNX2X_FP_USER_PEND (BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_POLL_YIELD)
+-	/* protect state */
+-	spinlock_t lock;
+-#endif /* CONFIG_NET_RX_BUSY_POLL */
++	unsigned long		busy_poll_state;
++#endif
+ 
+ 	union host_hc_status_block	status_blk;
+ 	/* chip independent shortcuts into sb structure */
+@@ -619,104 +607,83 @@ struct bnx2x_fastpath {
+ #define bnx2x_fp_qstats(bp, fp)	(&((bp)->fp_stats[(fp)->index].eth_q_stats))
+ 
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+-static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
++
++enum bnx2x_fp_state {
++	BNX2X_STATE_FP_NAPI	= BIT(0), /* NAPI handler owns the queue */
++
++	BNX2X_STATE_FP_NAPI_REQ_BIT = 1, /* NAPI would like to own the queue */
++	BNX2X_STATE_FP_NAPI_REQ = BIT(1),
++
++	BNX2X_STATE_FP_POLL_BIT = 2,
++	BNX2X_STATE_FP_POLL     = BIT(2), /* busy_poll owns the queue */
++
++	BNX2X_STATE_FP_DISABLE_BIT = 3, /* queue is dismantled */
++};
++
++static inline void bnx2x_fp_busy_poll_init(struct bnx2x_fastpath *fp)
+ {
+-	spin_lock_init(&fp->lock);
+-	fp->state = BNX2X_FP_STATE_IDLE;
++	WRITE_ONCE(fp->busy_poll_state, 0);
+ }
+ 
+ /* called from the device poll routine to get ownership of a FP */
+ static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
+ {
+-	bool rc = true;
+-
+-	spin_lock_bh(&fp->lock);
+-	if (fp->state & BNX2X_FP_LOCKED) {
+-		WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
+-		fp->state |= BNX2X_FP_STATE_NAPI_YIELD;
+-		rc = false;
+-	} else {
+-		/* we don't care if someone yielded */
+-		fp->state = BNX2X_FP_STATE_NAPI;
++	unsigned long prev, old = READ_ONCE(fp->busy_poll_state);
++
++	while (1) {
++		switch (old) {
++		case BNX2X_STATE_FP_POLL:
++			/* make sure bnx2x_fp_lock_poll() wont starve us */
++			set_bit(BNX2X_STATE_FP_NAPI_REQ_BIT,
++				&fp->busy_poll_state);
++			/* fallthrough */
++		case BNX2X_STATE_FP_POLL | BNX2X_STATE_FP_NAPI_REQ:
++			return false;
++		default:
++			break;
++		}
++		prev = cmpxchg(&fp->busy_poll_state, old, BNX2X_STATE_FP_NAPI);
++		if (unlikely(prev != old)) {
++			old = prev;
++			continue;
++		}
++		return true;
+ 	}
+-	spin_unlock_bh(&fp->lock);
+-	return rc;
+ }
+ 
+-/* returns true is someone tried to get the FP while napi had it */
+-static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
++static inline void bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
+ {
+-	bool rc = false;
+-
+-	spin_lock_bh(&fp->lock);
+-	WARN_ON(fp->state &
+-		(BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_NAPI_YIELD));
+-
+-	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
+-		rc = true;
+-
+-	/* state ==> idle, unless currently disabled */
+-	fp->state &= BNX2X_FP_STATE_DISABLED;
+-	spin_unlock_bh(&fp->lock);
+-	return rc;
++	smp_wmb();
++	fp->busy_poll_state = 0;
+ }
+ 
+ /* called from bnx2x_low_latency_poll() */
+ static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
+ {
+-	bool rc = true;
+-
+-	spin_lock_bh(&fp->lock);
+-	if ((fp->state & BNX2X_FP_LOCKED)) {
+-		fp->state |= BNX2X_FP_STATE_POLL_YIELD;
+-		rc = false;
+-	} else {
+-		/* preserve yield marks */
+-		fp->state |= BNX2X_FP_STATE_POLL;
+-	}
+-	spin_unlock_bh(&fp->lock);
+-	return rc;
++	return cmpxchg(&fp->busy_poll_state, 0, BNX2X_STATE_FP_POLL) == 0;
+ }
+ 
+-/* returns true if someone tried to get the FP while it was locked */
+-static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
++static inline void bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
+ {
+-	bool rc = false;
+-
+-	spin_lock_bh(&fp->lock);
+-	WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
+-
+-	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
+-		rc = true;
+-
+-	/* state ==> idle, unless currently disabled */
+-	fp->state &= BNX2X_FP_STATE_DISABLED;
+-	spin_unlock_bh(&fp->lock);
+-	return rc;
++	smp_mb__before_atomic();
++	clear_bit(BNX2X_STATE_FP_POLL_BIT, &fp->busy_poll_state);
+ }
+ 
+-/* true if a socket is polling, even if it did not get the lock */
++/* true if a socket is polling */
+ static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
+ {
+-	WARN_ON(!(fp->state & BNX2X_FP_OWNED));
+-	return fp->state & BNX2X_FP_USER_PEND;
++	return READ_ONCE(fp->busy_poll_state) & BNX2X_STATE_FP_POLL;
+ }
+ 
+ /* false if fp is currently owned */
+ static inline bool bnx2x_fp_ll_disable(struct bnx2x_fastpath *fp)
+ {
+-	int rc = true;
+-
+-	spin_lock_bh(&fp->lock);
+-	if (fp->state & BNX2X_FP_OWNED)
+-		rc = false;
+-	fp->state |= BNX2X_FP_STATE_DISABLED;
+-	spin_unlock_bh(&fp->lock);
++	set_bit(BNX2X_STATE_FP_DISABLE_BIT, &fp->busy_poll_state);
++	return !bnx2x_fp_ll_polling(fp);
+ 
+-	return rc;
+ }
+ #else
+-static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
++static inline void bnx2x_fp_busy_poll_init(struct bnx2x_fastpath *fp)
+ {
+ }
+ 
+@@ -725,9 +692,8 @@ static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
+ 	return true;
+ }
+ 
+-static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
++static inline void bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
+ {
+-	return false;
+ }
+ 
+ static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
+@@ -735,9 +701,8 @@ static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
+ 	return false;
+ }
+ 
+-static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
++static inline void bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
+ {
+-	return false;
+ }
+ 
+ static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 0a9faa134a9a..2f63467bce46 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -1849,7 +1849,7 @@ static void bnx2x_napi_enable_cnic(struct bnx2x *bp)
+ 	int i;
+ 
+ 	for_each_rx_queue_cnic(bp, i) {
+-		bnx2x_fp_init_lock(&bp->fp[i]);
++		bnx2x_fp_busy_poll_init(&bp->fp[i]);
+ 		napi_enable(&bnx2x_fp(bp, i, napi));
+ 	}
+ }
+@@ -1859,7 +1859,7 @@ static void bnx2x_napi_enable(struct bnx2x *bp)
+ 	int i;
+ 
+ 	for_each_eth_queue(bp, i) {
+-		bnx2x_fp_init_lock(&bp->fp[i]);
++		bnx2x_fp_busy_poll_init(&bp->fp[i]);
+ 		napi_enable(&bnx2x_fp(bp, i, napi));
+ 	}
+ }
+@@ -3191,9 +3191,10 @@ static int bnx2x_poll(struct napi_struct *napi, int budget)
+ 			}
+ 		}
+ 
++		bnx2x_fp_unlock_napi(fp);
++
+ 		/* Fall out from the NAPI loop if needed */
+-		if (!bnx2x_fp_unlock_napi(fp) &&
+-		    !(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
++		if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
+ 
+ 			/* No need to update SB for FCoE L2 ring as long as
+ 			 * it's connected to the default SB and the SB
