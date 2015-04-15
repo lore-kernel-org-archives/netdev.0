@@ -1,86 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] bpf: fix verifier memory corruption
-Date: Wed, 15 Apr 2015 17:59:35 +0200
-Message-ID: <1429113575.12070.19.camel@stressinduktion.org>
-References: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 16/17] get rid of the size argument of sock_sendmsg()
+Date: Wed, 15 Apr 2015 12:06:38 -0400 (EDT)
+Message-ID: <20150415.120638.1390441568056166764.davem@davemloft.net>
+References: <20150414163534.GZ889@ZenIV.linux.org.uk>
+	<20150414.135535.190405308746783212.davem@davemloft.net>
+	<063D6719AE5E284EB5DD2968C1650D6D1CB1E7FD@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: viro@ZenIV.linux.org.uk, netdev@vger.kernel.org
+To: David.Laight@ACULAB.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:45458 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753753AbbDOP7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 11:59:37 -0400
-Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
-	by mailout.nyi.internal (Postfix) with ESMTP id 32BB720CB6
-	for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 11:59:37 -0400 (EDT)
-In-Reply-To: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50200 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751575AbbDOQGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 12:06:42 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB1E7FD@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Di, 2015-04-14 at 15:57 -0700, Alexei Starovoitov wrote:
-> Due to missing bounds check the DAG pass of the BPF verifier can corrupt
-> the memory which can cause random crashes during program loading:
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Wed, 15 Apr 2015 08:37:01 +0000
+
+> From: David Miller
+>> Sent: 14 April 2015 18:56
+>> > On Tue, Apr 14, 2015 at 04:25:24PM +0000, David Laight wrote:
+>> >> From: Al Viro
+>> >> > Sent: 11 April 2015 22:18
+>> >> > it's equal to iov_iter_count(&msg->msg_iter) in all cases
+>> >>
+>> >> I don't know whether this is guaranteed for iov[] that come from
+>> >> userspace.
+>> >>
+>> >> In any case iov_iter_count() is non-trivial and you don't
+>> >> really want to call it when unnecessary.
+>> >
+>> > Really?
+>> >
+>> > static inline size_t iov_iter_count(struct iov_iter *i)
+>> > {
+>> >         return i->count;
+>> > }
+>> 
+>> This just made my day.
 > 
-> [8.449451] BUG: unable to handle kernel paging request at ffffffffffffffff
-> [8.451293] IP: [<ffffffff811de33d>] kmem_cache_alloc_trace+0x8d/0x2f0
-> [8.452329] Oops: 0000 [#1] SMP
-> [8.452329] Call Trace:
-> [8.452329]  [<ffffffff8116cc82>] bpf_check+0x852/0x2000
-> [8.452329]  [<ffffffff8116b7e4>] bpf_prog_load+0x1e4/0x310
-> [8.452329]  [<ffffffff811b190f>] ? might_fault+0x5f/0xb0
-> [8.452329]  [<ffffffff8116c206>] SyS_bpf+0x806/0xa30
-> 
-> Fixes: f1bca824dabb ("bpf: add search pruning optimization to verifier")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> Many things need to align for this crash to be seen, yet I managed to hit it.
-> In my case JA was last insn, 't' was 255 and explored_states array
-> had 256 elements. I've double checked other similar paths and all seems clean.
-> 
->  kernel/bpf/verifier.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index a28e09c7825d..36508e69e92a 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -1380,7 +1380,8 @@ peek_stack:
->  			/* tell verifier to check for equivalent states
->  			 * after every call and jump
->  			 */
-> -			env->explored_states[t + 1] = STATE_LIST_MARK;
-> +			if (t + 1 < insn_cnt)
-> +				env->explored_states[t + 1] = STATE_LIST_MARK;
->  		} else {
->  			/* conditional jump with two edges */
->  			ret = push_insn(t, t + 1, FALLTHROUGH, env);
+> I hate accessor functions
 
-Quick review:
-
-We have env->explored_states[t+1] access in the 
-
-                } else {
-                        /* conditional jump with two edges */
-                        ret = push_insn(t, t + 1, FALLTHROUGH, env);
-                        if (ret == 1)
-                                goto peek_stack;
-                        else if (ret < 0)
-                                goto err_free;
-
->>>                     ret = push_insn(t, t + insns[t].off + 1, BRANCH, env);
-                        if (ret == 1)
-                                goto peek_stack;
-                        else if (ret < 0)
-                                goto err_free;
-                }
-        } else {
-
-
-push_insn call. At this point insn[t].off could be 0, no?
-
-Thanks,
-Hannes
+I hate people who jump to conclusions and don't actually read the code
+in question before commenting. :-)
