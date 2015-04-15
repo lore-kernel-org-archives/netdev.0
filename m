@@ -1,86 +1,38 @@
-From: "Shengzhou.Liu@freescale.com" <Shengzhou.Liu@freescale.com>
-Subject: RE: [PATCH v2] net/phy: tune get_phy_c45_ids to support more c45 phy
-Date: Wed, 15 Apr 2015 08:27:05 +0000
-Message-ID: <DM2PR03MB398B7FB38DB8C40CF8D65A8F8E50@DM2PR03MB398.namprd03.prod.outlook.com>
-References: <1429006192-21403-1-git-send-email-Shengzhou.Liu@freescale.com>
- <552D5221.1030703@gmail.com>
+From: Honggang LI <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH linux-next v4] mlx5: wrong page mask if
+ CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
+Date: Wed, 15 Apr 2015 16:34:07 +0800
+Message-ID: <20150415083407.GF4514@honli.nay.redhat.com>
+References: <1429078919-28122-1-git-send-email-honli@redhat.com>
+ <552E0F37.2080509@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <552D5221.1030703@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <552E0F37.2080509-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
-YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgQXByaWwgMTUs
-IDIwMTUgMTo0NSBBTQ0KPiBUbzogTGl1IFNoZW5nemhvdS1CMzY2ODU7IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IGRhdmVtQGRhdmVtbG9mdC5uZXQNCj4gQ2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtl
-cm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCB2Ml0gbmV0L3BoeTogdHVuZSBnZXRfcGh5
-X2M0NV9pZHMgdG8gc3VwcG9ydCBtb3JlIGM0NSBwaHkNCj4gDQo+IE9uIDE0LzA0LzE1IDAzOjA5
-LCBTaGVuZ3pob3UgTGl1IHdyb3RlOg0KPiA+IEFzIHNvbWUgQzQ1IDEwRyBQSFlzKGUuZy4gQ29y
-dGluYSBDUzQzMTUvQ1M0MzQwIFBIWSkgaGF2ZSB6ZXJvIERldmljZXMNCj4gPiBJbiBwYWNrYWdl
-LCBjdXJyZW50IGRyaXZlciBjYW4ndCBnZXQgY29ycmVjdCBkZXZpY2VzX2luX3BhY2thZ2UgdmFs
-dWUNCj4gPiBieSBub24temVybyBEZXZpY2VzIEluIHBhY2thZ2UuDQo+ID4gc28gbGV0J3MgcHJv
-YmUgbW9yZSB3aXRoIHplcm8gRGV2aWNlcyBJbiBwYWNrYWdlIHRvIHN1cHBvcnQgbW9yZSBDNDUN
-Cj4gPiBQSFlzLg0KPiANCj4gSSBjYW5ub3QgcmVtZW1iZXIgZXhhY3RseSBob3cgbWFueSB0aW1l
-cyB0aGlzIHBhdGNoIGhhcyBiZWVuIHBvc3RlZCwgYnV0IGl0DQo+IHN0aWxsIGlzIG5vdCBjbGVh
-ciB0byBtZSB3aGF0IHlvdSBhcmUgZG9pbmcgaGVyZSBpcyBoZWxwaW5nIHdpdGggdGhlc2UNCj4g
-Q29ydGluYSBQSFlzLg0KPiANCj4gQ291bGQgeW91IHBvc3QgYSBkdW1wIG9mIHRoZSBtZGlvYnVz
-X3JlYWQoKSBhcmd1bWVudHMgYW5kIHZhbHVlcyBmb3IgdGhlIG9sZA0KPiBjb2RlIGFuZCB0aGUg
-bmV3IGNvZGUgeW91IGFyZSBwcm9wb3Npbmc/IFRoYXQgd2F5IGl0IG1pZ2h0IGJlIGNsZWFyZXIg
-d2hhdCBpcw0KPiB0aGUgZ29hbCBoZXJlPw0KPiANClRoZSBrZXkgcG9pbnQgaXMgdGhhdCBzdGFu
-ZGFyZCBDNDUgUEhZcyB1c2Ugbm9uLXplcm8gRGV2aWNlcyBpbiBwYWNrYWdlIGkocmVnX2FkZHIg
-PSBNSUlfQUREUl9DNDUgfCBpIDw8IDE2IHwgTURJT19ERVZTKSB0byByZWFkICBkZXZpY2VzX2lu
-X3BhY2thZ2UsIGRldmljZSB6ZXJvIGlzIHJlc2VydmVkLCBidXQgQ29ydGluYSBDUzQzMTUvQ1M0
-MzQwIFBIWSB1c2UgemVybyBEZXZpY2VzIGluIHBhY2thZ2UocmVnX2FkZHIgPSBNSUlfQUREUl9D
-NDUgfCAwIDw8IDE2IHwgTURJT19ERVZTKSB0byByZWFkIGRldmljZXNfaW5fcGFja2FnZS4gDQoN
-ClRoaXMgaXMgY2F1c2VkIGJ5IENvcnRpbmEgbm9uLXN0YW5kYXJkIFBIWSwgZS5nLiBzdGFuZGFy
-ZCBQSFkgaGFzIE1JSV9QSFlTSUQxPTB4MDIsIE1JSV9QSFlTSUQyPTB4MDMsIGJ1dCBDUzQzMTUv
-Q1M0MzQwIFBIWSBoYXMgbm9uLXN0YW5kYXJkIG9mZnNldCBvZiBQSFkgSUQgcmVnaXN0ZXJzKE1J
-SV9QSFlTSUQxPTB4MDAsIE1JSV9QSFlTSUQyPTB4MDEpLg0KICANCj4gPg0KPiA+IFNpZ25lZC1v
-ZmYtYnk6IFNoZW5nemhvdSBMaXUgPFNoZW5nemhvdS5MaXVAZnJlZXNjYWxlLmNvbT4NCj4gPiAt
-LS0NCj4gPiB2MjogdXNlIE1ESU9fREVWUzEgYW5kIE1ESU9fREVWUzIgaW5zdGVhZCBvZiBjb25z
-dGFudCAnNicsICc1Jw0KPiA+DQo+ID4gIGRyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMgfCAy
-NSArKysrKysrKysrKysrKysrKysrKystLS0tDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAyMSBpbnNl
-cnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L3BoeS9waHlfZGV2aWNlLmMNCj4gPiBiL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNlLmMg
-aW5kZXggYmRmZTUxZi4uYzRmODM2ZiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9waHkv
-cGh5X2RldmljZS5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYw0KPiA+
-IEBAIC0yNDIsMTIgKzI0MiwyOSBAQCBzdGF0aWMgaW50IGdldF9waHlfYzQ1X2lkcyhzdHJ1Y3Qg
-bWlpX2J1cyAqYnVzLCBpbnQNCj4gYWRkciwgdTMyICpwaHlfaWQsDQo+ID4gIAkJCXJldHVybiAt
-RUlPOw0KPiA+ICAJCWM0NV9pZHMtPmRldmljZXNfaW5fcGFja2FnZSB8PSAocGh5X3JlZyAmIDB4
-ZmZmZik7DQo+ID4NCj4gPiAtCQkvKiBJZiBtb3N0bHkgRnMsIHRoZXJlIGlzIG5vIGRldmljZSB0
-aGVyZSwNCj4gPiAtCQkgKiBsZXQncyBnZXQgb3V0IG9mIGhlcmUuDQo+ID4gKwkJLyogSWYgbW9z
-dGx5IEZzLCBsZXQncyBjb250aW51ZSB0byBwcm9iZSBtb3JlDQo+ID4gKwkJICogYXMgc29tZSBj
-NDUgUEhZcyBoYXZlIHplcm8gRGV2aWNlcyBJbiBwYWNrYWdlLA0KPiA+ICsJCSAqIGUuZy4gQ29y
-dGluYSBDUzQzMTUvQ1M0MzQwIFBIWS4NCj4gPiAgCQkgKi8NCj4gPiAgCQlpZiAoKGM0NV9pZHMt
-PmRldmljZXNfaW5fcGFja2FnZSAmIDB4MWZmZmZmZmYpID09IDB4MWZmZmZmZmYpIHsNCj4gPiAt
-CQkJKnBoeV9pZCA9IDB4ZmZmZmZmZmY7DQo+ID4gLQkJCXJldHVybiAwOw0KPiA+ICsJCQlyZWdf
-YWRkciA9IE1JSV9BRERSX0M0NSB8IDAgPDwgMTYgfCBNRElPX0RFVlMyOw0KPiA+ICsJCQlwaHlf
-cmVnID0gbWRpb2J1c19yZWFkKGJ1cywgYWRkciwgcmVnX2FkZHIpOw0KPiA+ICsJCQlpZiAocGh5
-X3JlZyA8IDApDQo+ID4gKwkJCQlyZXR1cm4gLUVJTzsNCj4gPiArCQkJYzQ1X2lkcy0+ZGV2aWNl
-c19pbl9wYWNrYWdlID0gKHBoeV9yZWcgJiAweGZmZmYpIDw8IDE2Ow0KPiA+ICsJCQlyZWdfYWRk
-ciA9IE1JSV9BRERSX0M0NSB8IDAgPDwgMTYgfCBNRElPX0RFVlMxOw0KPiA+ICsJCQlwaHlfcmVn
-ID0gbWRpb2J1c19yZWFkKGJ1cywgYWRkciwgcmVnX2FkZHIpOw0KPiA+ICsJCQlpZiAocGh5X3Jl
-ZyA8IDApDQo+ID4gKwkJCQlyZXR1cm4gLUVJTzsNCj4gPiArCQkJYzQ1X2lkcy0+ZGV2aWNlc19p
-bl9wYWNrYWdlIHw9IChwaHlfcmVnICYgMHhmZmZmKTsNCj4gPiArCQkJLyogSWYgbW9zdGx5IEZz
-LCB0aGVyZSBpcyBubyBkZXZpY2UgdGhlcmUsDQo+ID4gKwkJCSAqIGxldCdzIGdldCBvdXQgb2Yg
-aGVyZS4NCj4gPiArCQkJICovDQo+ID4gKwkJCWlmICgoYzQ1X2lkcy0+ZGV2aWNlc19pbl9wYWNr
-YWdlICYgMHgxZmZmZmZmZikgPT0NCj4gPiArCQkJCQkJCTB4MWZmZmZmZmYpIHsNCj4gPiArCQkJ
-CSpwaHlfaWQgPSAweGZmZmZmZmZmOw0KPiA+ICsJCQkJcmV0dXJuIDA7DQo+ID4gKwkJCX0NCj4g
-DQo+IENvdWxkIG5vdCB3ZSBzb21laG93IGJlIGEgYml0IG1vcmUgY2xldmVyIGFuZCB1dGlsaXpl
-IHRoZSBsb29wLCB3aXRoIGFuDQo+IGFkanVzdGVkIGkgPSAwIGR1cmluZyB0aGlzIGNvbmRpdGlv
-bj8gU29tZSBzb21ldGhpbmcgbGlrZSB0aGlzICh1bnRlc3RlZCk6DQo+IA0KPiBGbG9yaWFuDQoN
-CkkgaGFkIGRvbmUgaXQgdG8gdXRpbGl6ZSB0aGUgbG9vcCB3aXRoIGkgPSAwIGFzIHlvdXIgdGhv
-dWdodCwgYnV0IERhdmlkIE1pbGxlciBzYWlkIHRoYXQgdGhlIHdheSBvZiB1dGlsaXppbmcgdGhl
-IGxvb3AgbWFrZXMgbm8gc2Vuc2UgdG8gdGVzdCAnaScgZm9yIHplcm8gdnMuIG5vbi16ZXJvIHVu
-dGlsIHRoZSBsb29waW5nIGNvbnN0cnVjdCBpdCBpcyBjb250YWluZWQgd2l0aGluIGNhbiBhY3R1
-YWxseSBoaXQgYSB6ZXJvIHZhbHVlLCBhZGRpbmcgc3VjaCBhIGNoZWNrIGhlcmUgbWFrZXMgdGhl
-IGNvZGUgY29uZnVzaW5nLg0KU28gSSBkcm9wcGVkIHRoZSB3YXkgb2YgdXRpbGl6aW5nIHRoZSBs
-b29wIHRvIG1ha2UgY29kZSByZWFkYWJsZS4NCg0K
+On Wed, Apr 15, 2015 at 10:11:51AM +0300, Or Gerlitz wrote:
+> On 4/15/2015 9:21 AM, Honggang Li wrote:
+> >Fixes: bf0bf77f6519 ('mlx5: Support communicating arbitrary host page size to firmware')
+> >
+> >Signed-off-by: Honggang Li<honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ain't over... avoid the blank line between the Fixes tag to your SOB
+
+Removed the blank line. New patch (v5) has been send out. Really hope it
+is the finial one.
+
+thanks
+
+> >---
+> >  drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c | 10 ++++++----
+> >  1 file changed, 6 insertions(+), 4 deletions(-)
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
