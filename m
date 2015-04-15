@@ -1,40 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2] net: hip04: Make tx coalesce timer actually work
-Date: Wed, 15 Apr 2015 17:22:27 -0400 (EDT)
-Message-ID: <20150415.172227.1813336970100255734.davem@davemloft.net>
-References: <alpine.DEB.2.11.1504140007570.3845@nanos>
-	<20150414.141529.797692010779414843.davem@davemloft.net>
-	<alpine.DEB.2.11.1504142140290.3845@nanos>
+Subject: Re: [PATCH v2 net] bnx2x: Fix busy_poll vs netpoll
+Date: Wed, 15 Apr 2015 17:25:40 -0400 (EDT)
+Message-ID: <20150415.172540.2003542806481345239.davem@davemloft.net>
+References: <B5657A6538887040AD3A81F1008BEC63CF58CE@AVMB1.qlogic.org>
+	<1429035897.7346.49.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1429062300.7346.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, linux-kernel@vger.kernel.org, peterz@infradead.org,
-	mingo@kernel.org, dingtianhong@huawei.com, zhangfei.gao@linaro.org,
-	dan.carpenter@oracle.com, netdev@vger.kernel.org
-To: tglx@linutronix.de
+Cc: Yuval.Mintz@qlogic.com, netdev@vger.kernel.org, bind@enas.net,
+	peter@hurleysoftware.com, Ariel.Elior@qlogic.com,
+	willemb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52829 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52864 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753654AbbDOVW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 17:22:29 -0400
-In-Reply-To: <alpine.DEB.2.11.1504142140290.3845@nanos>
+	with ESMTP id S1752288AbbDOVZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 17:25:42 -0400
+In-Reply-To: <1429062300.7346.64.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 14 Apr 2015 21:42:42 +0200 (CEST)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 14 Apr 2015 18:45:00 -0700
 
-> The code sets the expiry value of the timer to a relative value and
-> starts it with hrtimer_start_expires. That's fine, but that only works
-> once. The timer is started in relative mode, so the expiry value gets
-> overwritten with the absolut expiry time (now + expiry).
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> So once the timer expired, a new call to hrtimer_start_expires results
-> in an immidiately expired timer, because the expiry value is
-> already in the past.
+> Commit 9a2620c877454 ("bnx2x: prevent WARN during driver unload")
+> switched the napi/busy_lock locking mechanism from spin_lock() into
+> spin_lock_bh(), breaking inter-operability with netconsole, as netpoll
+> disables interrupts prior to calling our napi mechanism.
 > 
-> Use the proper mechanisms to (re)start the timer in the intended way.
+> This switches the driver into using atomic assignments instead of the
+> spinlock mechanisms previously employed.
 > 
-> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> Based on initial patch from Yuval Mintz & Ariel Elior
+> 
+> I basically added softirq starvation avoidance, and mixture
+> of atomic operations, plain writes and barriers.
+> 
+> Note this slightly reduces the overhead for this driver when no
+> busy_poll sockets are in use.
+> 
+> Fixes: 9a2620c877454 ("bnx2x: prevent WARN during driver unload")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks Thomas.
+Applied and queued up for -stable, thanks Eric.
