@@ -1,65 +1,76 @@
-From: Varun Prakash <varun-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 1/4] cxgb4/iw_cxgb4/cxgb4i: remove duplicate
- definitions
-Date: Wed, 15 Apr 2015 18:34:27 +0530
-Message-ID: <20150415130425.GA5317@chelsio.com>
-References: <cover.1428930614.git.varun@chelsio.com>
- <6358f849b5a1a3727879f4f2f5c855e3a5b95ab4.1428930614.git.varun@chelsio.com>
- <20150413163808.GA17521@obsidianresearch.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [PATCH 1/7] net: refactor __netif_receive_skb_core
+Date: Wed, 15 Apr 2015 06:28:22 -0700
+Message-ID: <552E6776.9060409@redhat.com>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org> <1428668142-4006-2-git-send-email-pablo@netfilter.org> <55282AED.1050306@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1CB1EA6B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<JBottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	<leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	<hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>,
-	<kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <praveenm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150413163808.GA17521-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "kaber@trash.net" <kaber@trash.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"'Alexander Duyck'" <alexander.duyck@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59712 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752200AbbDON2l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2015 09:28:41 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB1EA6B@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 13, 2015 at 10:38:08AM -0600, Jason Gunthorpe wrote:
-> On Mon, Apr 13, 2015 at 07:34:23PM +0530, Varun Prakash wrote:
-> > define struct ulptx_idata in common header file t4_msg.h
-> > to remove duplicate definitions.
-> 
-> The Infiniband side of this patch looks OK.
-> 
-> Reviewed-By: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-> 
-> Just some random thoughts on the other patches:
->  - Try and use 'if (IS_ENABLED(CONFIG_XX))' over #ifdef 
->    to improve compile test coverage. This would drop a fair number
->    of ifdefs.
 
-FCoE specific structures and functions are defined only if 
-CONFIG_CHELSIO_T4_FCOE is enabled.
 
-#ifdef CONFIG_CHELSIO_T4_FCOE
-void cxgb_fcoe_init_ddp(struct adapter *adap)
-{
-	...
-}
-#endif
-
-If CONFIG_CHELSIO_T4_FCOE is disabled then following code will
-result in build error "implicit declaration of function cxgb_fcoe_init_ddp"
-
-if (IS_ENABLED(CONFIG_CHELSIO_T4_FCOE))
-	cxgb_fcoe_init_ddp(adap);
-
->  - Some of the commit message are short, or non existant (ie #4)
->  - Generally, no need for 'static inline' in a .c file, the compiler knows
->    what to do.
-> 
-> Regards,
-> Jason
+On 04/15/2015 05:44 AM, David Laight wrote:
+> From: Alexander Duyck
+>> Sent: 10 April 2015 20:56
+>> On 04/10/2015 05:15 AM, Pablo Neira Ayuso wrote:
+>>> +another_round:
+>>> +	ret = __netif_receive_skb_ingress(skb, pfmemalloc, orig_dev);
+>>> +	switch (ret) {
+>>> +	case NET_RX_SUCCESS:
+>>> +	case NET_RX_DROP:
+>>> +		break;
+>>> +	case __NET_RX_ANOTHER_ROUND:
+>>> +		goto another_round;
+>>> +	}
+>>>   	rcu_read_unlock();
+>>> +
+>>>   	return ret;
+>>>   }
+>>>
+>>>
+>>
+>> Couldn't this just be done as a do while?  It would probably be easier
+>> to read and there wouldn't be any need for the another_round label anymore.
 >
-Thanks 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Or an infinite loop with a break at the bottom, as in:
+> 	for (;;) {
+> 		switch (...) {
+> 		case again:
+> 			continue;
+> 		default:
+> 			break;
+> 		}
+> 		break;
+> 	}
+>
+> 	David
+>
+
+That is even more complicated.  What I was thinking was
+	do {
+		ret = __netif_receive_skb_ingress(skb, pfmemalloc,
+						  orig_dev);
+	} while (ret == __NET_RX_ANOTHER_ROUND);
+
+Either that or the switch could just be replaced with a if statement 
+since the only case that really goes anywhere is __NET_RX_ANOTHER_ROUND 
+and everything else just exits anyway.  I had just suggested a do/while 
+since that lets the goto be dropped, but an if would allow for avoiding 
+any unnecessary indentation on the call to __netif_receive_skb_ingress.
+
+- Alex
