@@ -1,42 +1,66 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH net-next 3/6] net: hip04: Solve the problem of the skb memory allocation failure
-Date: Wed, 15 Apr 2015 16:17:31 +0200
-Message-ID: <2443005.XhuHWvJbTU@wuerfel>
-References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-4-git-send-email-dingtianhong@huawei.com>
+From: George Dunlap <George.Dunlap@eu.citrix.com>
+Subject: Re: [Xen-devel] [PATCH RFC] tcp: Allow sk_wmem_alloc to exceed sysctl_tcp_limit_output_bytes
+Date: Wed, 15 Apr 2015 15:19:16 +0100
+Message-ID: <CAFLBxZaDPa0Em6z-bwg1HoLqCU9R_rWD8ri+0sNVgX-Httj_1A@mail.gmail.com>
+References: <1427388414-31077-1-git-send-email-jonathan.davies@citrix.com>
+	<1427390070.25985.145.camel@edumazet-glaptop2.roam.corp.google.com>
+	<551555E3.80205@citrix.com>
+	<552BC899.8090300@citrix.com>
+	<1428933925.3834.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	<552BDAC6.2020708@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org
-To: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1429101008-9464-4-git-send-email-dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Jonathan Davies <jonathan.davies@citrix.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev <netdev@vger.kernel.org>,
+	James Morris <jmorris@namei.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	xen-devel <xen-devel@lists.xenproject.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Wei Liu <Wei.Liu2@citrix.com>
+To: Malcolm Crossley <malcolm.crossley@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:35293 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753554AbbDOOTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 10:19:42 -0400
+Received: by oign205 with SMTP id n205so24019616oig.2
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 07:19:41 -0700 (PDT)
+In-Reply-To: <552BDAC6.2020708@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 15 April 2015 20:30:05 Ding Tianhong wrote:
-> The driver will alloc some skb buffer for hareware queue, but without
-> considering the case of memory allocation failure, when memory is low,
-> the skb may be null and panic the system, so break the loop when skb is
-> null and try to alloc the memory again to fix this problem.
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> Cc: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-> Cc: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> 
+On Mon, Apr 13, 2015 at 4:03 PM, Malcolm Crossley
+<malcolm.crossley@citrix.com> wrote:
+>>
+>> But the main concern here is it basically breaks back pressure.
+>>
+>> And you do not want this, unless there is no other choice.
+>>
+>
+> virtio_net already use's skb_orphan() in it's transmit path. It seems
+> only fair that other virtual network drivers behave in the same way.
+>
+> There are no easy solutions to decrease the transmit latency for
+> netback/netfront. We map the guest memory through to the backend to
+> avoid memory copies. The frontend memory can only be freed once the
+> network driver has completed transmitting the packet in the backend.
+>
+> Modern network drivers can be quite slow at freeing the skb's once
+> transmitted (the packet is already on the wire as far as they are
+> concerned) and this delay is compounded by needing the signal the
+> completion of the transmit back to the frontend (by IPI in worst case).
+>
+> From a networking point of view, the backend is a switch. Is it OK to
+> consider the packet to have been transmitted from the guest point of
+> view once the backend is aware of the packet?
+>
+> This would help justify the skb_orphan() in the frontend.
 
-Looks reasonable to me, though I haven't done a deep analysis
-to see if there are remaining problems in this area.
+This sounds sensible to me, particularly if virtio_net is already doing it.
 
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ -George
