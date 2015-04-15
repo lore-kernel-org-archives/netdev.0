@@ -1,95 +1,71 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v4 05/24] rocker: use swdev get/set attr for
- bridge port flags
-Date: Tue, 14 Apr 2015 23:03:21 -0700
-Message-ID: <CAE4R7bDoDSeS14Ge1h2mDw-tywdwijkFjqzjF1oe7QGD_8gztw@mail.gmail.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com>
-	<1428905838-14920-6-git-send-email-sfeldma@gmail.com>
-	<20150415052542.GA5891@vergenet.net>
+From: Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH linux-next 1/4] infiniband/ipoib: fix possible NULL pointer
+ dereference in ipoib_get_iflink
+Date: Wed, 15 Apr 2015 09:17:14 +0300
+Message-ID: <552E026A.4020200@dev.mellanox.co.il>
+References: <1429024817-21561-1-git-send-email-honli@redhat.com> <1429024817-21561-2-git-send-email-honli@redhat.com> <CAAk-MO-O9sjHQvDfCEuzJJPvUMXJTuRaCzrCkB0xc1DUfK8Aew@mail.gmail.com> <20150414204133.GJ7682@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:32885 "EHLO
-	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932740AbbDOGD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 02:03:27 -0400
-Received: by qkx62 with SMTP id 62so62827257qkx.0
-        for <netdev@vger.kernel.org>; Tue, 14 Apr 2015 23:03:26 -0700 (PDT)
-In-Reply-To: <20150415052542.GA5891@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Alex Estrin <alex.estrin-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+	maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, sfeldma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150414204133.GJ7682-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 14, 2015 at 10:25 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> Hi Scott,
+On 4/14/2015 11:41 PM, Jason Gunthorpe wrote:
+> On Tue, Apr 14, 2015 at 07:30:03PM +0300, Erez Shitrit wrote:
 >
-> On Sun, Apr 12, 2015 at 11:16:59PM -0700, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> ---
->>  drivers/net/ethernet/rocker/rocker.c |   31 +++++++++++++++++++++++++++++--
->>  1 file changed, 29 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->> index 80c7f6f..9bd4fc6 100644
->> --- a/drivers/net/ethernet/rocker/rocker.c
->> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+>>> index 657b89b..11ea6e2 100644
+>>> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+>>> @@ -846,7 +846,10 @@ static int ipoib_get_iflink(const struct net_device *dev)
+>>>   {
+>>>          struct ipoib_dev_priv *priv = netdev_priv(dev);
+>>>
+>>> -       return priv->parent->ifindex;
+>>> +       if (priv && priv->parent)
+>>> +               return priv->parent->ifindex;
+>>> +       else
+>>> +               return 0;
+>> This will make parent interface to return 0 instead of its own ifindex.
+>> I would suggest write something like that:
+> Agree
 >
-> [snip]
->
->> @@ -4349,6 +4354,23 @@ static void rocker_port_trans_abort(struct rocker_port *rocker_port)
->>       }
->>  }
->>
->> +static int rocker_port_brport_flags_set(struct rocker_port *rocker_port,
->> +                                     unsigned long brport_flags)
->> +{
->> +     unsigned long orig_flags;
->> +     int err = 0;
+>> +       /* parent interface */
+>> +       if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
+>> +               return dev->ifindex;
 >> +
->> +     orig_flags = rocker_port->brport_flags;
->> +     rocker_port->brport_flags = brport_flags;
->> +     if ((orig_flags ^ rocker_port->brport_flags) & BR_LEARNING)
->> +             err = rocker_port_set_learning(rocker_port);
+>> +       /* child/vlan interface */
+>> +       if (!priv->parent)
+>> +               return -1;
+> Like was said for other drivers, I can't see how parent can be null
+> while IPOIB_FLAG_SUBINTERFACE is set. Drop the last if.
+It can, at least for ipoib child interface (AKA "vlan"), you can't 
+control the call for that ndo and it can be called before the parent was 
+set.
+> Erez, you basically rewrote this, please make a proper patch with the
+> Fixes and Reported-By credit for Honggang. Lets merge this through
+> Dave M's tree right away.
 >
-> My understanding is that the two-phase set scheme that this
-> patch-set proposes allows failure, e.g. due resource constraints,
-> during the prepare phase but that failure in the commit phase
-> indicates a hardware or driver bug.
+> Thank you all
 >
-> It seems to me that this patch doesn't follow the above scheme because
-> I see the following call-chain:
+> Jason
+> .
 >
->         rocker_port_set_learning()
->         -> rocker_cmd_exec()
->            -> rocker_wait_create()
->               -> kmalloc()
->
-> I am probably missing something but it does seem to me that the above is
-> called in both the prepare and commit phases and that kalloc() may fail in
-> ether case, the latter case being the problem I see.
 
-Nope, you're not missing something, you found a bug.   A little later
-you'll see we use a desc on the cmd ring to issue the cmd to HW.  If
-we're in prepare phase, we want to put that desc back on the ring so
-commit phase has a desc.  So this needs to be fixed also.  More work
-for v5.  But I'm totally glad you're reviewing at this level and
-finding issues like this.  Thank you very much.
-
-It's been a little tricky retrofitting rocker for this prepare-commit
-scheme.  Prepare phase really forces you to examine all failure paths
-and make sure everything is just how you found it and resources are
-reserved so commit has a happy life.  My hope is this will be easier
-with new drivers knowing the prepare-commit rules up-front.
-
--scott
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
