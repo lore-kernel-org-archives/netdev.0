@@ -1,200 +1,120 @@
-From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
-Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Wed, 15 Apr 2015 15:40:29 +0200
-Message-ID: <552E6A4D.7040600@ericsson.com>
-References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com>
+From: George Dunlap <George.Dunlap@eu.citrix.com>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
+ regression on Xen
+Date: Wed, 15 Apr 2015 14:43:58 +0100
+Message-ID: <CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
+	<1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
+	<CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
+	<1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <netdev@emagii.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jonathan Davies <Jonathan.Davies@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Paul Durrant <paul.durrant@citrix.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	Felipe Franciosi <felipe.franciosi@citrix.com>,
+	linux-arm-kernel@lists.infradead.org,
+	David Vrabel <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:45772 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751743AbbDONkd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 09:40:33 -0400
-In-Reply-To: <5527892D.4020608@ericsson.com>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:35922 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751675AbbDONoc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 09:44:32 -0400
+In-Reply-To: <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No reply on this....
+On Mon, Apr 13, 2015 at 2:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2015-04-13 at 11:56 +0100, George Dunlap wrote:
+>
+>> Is the problem perhaps that netback/netfront delays TX completion?
+>> Would it be better to see if that can be addressed properly, so that
+>> the original purpose of the patch (fighting bufferbloat) can be
+>> achieved while not degrading performance for Xen?  Or at least, so
+>> that people get decent perfomance out of the box without having to
+>> tweak TCP parameters?
+>
+> Sure, please provide a patch, that does not break back pressure.
+>
+> But just in case, if Xen performance relied on bufferbloat, it might be
+> very difficult to reach a stable equilibrium : Any small change in stack
+> or scheduling might introduce a significant difference in 'raw
+> performance'.
 
-in net/core/neighbour.c: neigh_timer_handler I see:
+So help me understand this a little bit here.  tcp_limit_output_bytes
+limits the amount of data allowed to be "in-transit" between a send()
+and the wire, is that right?
 
-     if (state & NUD_REACHABLE) {
-         if (time_before_eq(now,
-                    neigh->confirmed + neigh->parms->reachable_time)) {
-             neigh_dbg(2, "neigh %p is still alive\n", neigh);
-             next = neigh->confirmed + neigh->parms->reachable_time;
-         } else if (time_before_eq(now,
-                       neigh->used +
-                       NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME))) {
-             neigh_dbg(2, "neigh %p is delayed\n", neigh);
-             neigh->nud_state = NUD_DELAY;
-             neigh->updated = jiffies;
-             neigh_suspect(neigh);
-             next = now + NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME);
-         } else {
-             neigh_dbg(2, "neigh %p is suspected\n", neigh);
-             neigh->nud_state = NUD_STALE;
-             neigh->updated = jiffies;
-             neigh_suspect(neigh);
-             notify = 1;
-         }
-     } else ...
+And so the "bufferbloat" problem you're talking about here are TCP
+buffers inside the kernel, and/or buffers in the NIC, is that right?
 
-Why is the second test there in the first place?
+So ideally, you want this to be large enough to fill the "pipeline"
+all the way from send() down to actually getting out on the wire;
+otherwise, you'll have gaps in the pipeline, and the machinery won't
+be working at full throttle.
 
-In the normal case, "neigh->used" does not get updated until the entry 
-is found STALE
-in the periodic work.
+And the reason it's a problem is that many NICs now come with large
+send buffers; and effectively what happens then is that this makes the
+"pipeline" longer -- as the buffer fills up, the time between send()
+and the wire is increased.  This increased latency causes delays in
+round-trip-times and interferes with the mechanisms TCP uses to try to
+determine what the actual sustainable rate of data trasmission is.
 
-Why not use "neigh->confirmed" and another sysctl variable?
+By limiting the number of "in-transit" bytes, you make sure that
+neither the kernel nor the NIC are going to have packets queues up for
+long lengths of time in buffers, and you keep this "pipeline" as close
+to the actual minimal length of the pipeline as possible.  And it
+sounds like for your 40G NIC, 128k is big enough to fill the pipeline
+without unduly making it longer by introducing buffering.
 
-     if (state & NUD_REACHABLE) {
-         if (time_before_eq(now,
-                    neigh->confirmed + neigh->parms->reachable_time)) {
-             neigh_dbg(2, "neigh %p is still alive\n", neigh);
-             next = neigh->confirmed + neigh->parms->reachable_time;
-         } else if (time_before_eq(now,
--                     neigh->used +
--                      NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME))) {
-+                    neigh->confirmed +
-+                     NEIGH_VAR(neigh->parms, DELAY_REPROBE_TIME))) {
-             neigh_dbg(2, "neigh %p is delayed\n", neigh);
-             neigh->nud_state = NUD_DELAY;
-             neigh->updated = jiffies;
-             neigh_suspect(neigh);
-             next = now + NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME);
-         } else {
-             neigh_dbg(2, "neigh %p is suspected\n", neigh);
-             neigh->nud_state = NUD_STALE;
-             neigh->updated = jiffies;
-             neigh_suspect(neigh);
-             notify = 1;
-         }
-     } else ...
+Is that an accurate picture of what you're trying to achieve?
 
-if DELAY_REPROBE_TIME is larger than "reachable_time", then
-     the kernel will send out ARP probes when it is about
-     to lose communication with a remote machine.
-     This is what we need.
+But the problem for xennet (and a number of other drivers), as I
+understand it, is that at the moment the "pipeline" itself is just
+longer -- it just takes a longer time from the time you send a packet
+to the time it actually gets out on the wire.
 
-If it is smaller, then
-     it will go from REACHABLE to STALE.
+So it's not actually accurate to say that "Xen performance relies on
+bufferbloat".  There's no buffering involved -- the pipeline is just
+longer, and so to fill up the pipeline you need more data.
 
-The initial value of DELAY_REPROBE_TIME needs to be settable in Kconfig
-to allow the selection of functionality.
+Basically, to maximize throughput while minimizing buffering, for
+*any* connection, tcp_limit_output_bytes should ideally be around
+(min_tx_latency * max_bandwidth).  For physical NICs, the minimum
+latency is really small, but for xennet -- and I'm guessing for a lot
+of virtualized cards -- the min_tx_latency will be a lot higher,
+requiring a much higher ideal tcp_limit_output value.
 
-I am told that setting stuff using sysctl has a performance penalty, when
-interfaces are dynamically created and deleted in hundreds.
+Rather than trying to pick a single value which will be good for all
+NICs, it seems like it would make more sense to have this vary
+depending on the parameters of the NIC.  After all, for NICs that have
+low throughput -- say, old 100MiB NICs -- even 128k may still
+introduce a significant amount of buffering.
 
-Best Regards,
-Ulf Samuelsson
-  
+Obviously one solution would be to allow the drivers themselves to set
+the tcp_limit_output_bytes, but that seems like a maintenance
+nightmare.
 
-On 04/10/2015 10:26 AM, Ulf Samuelsson wrote:
->
-> On 03/12/2015 07:26 PM, David Miller wrote:
->> I hate changes like this.
->>
->> By making this a Kconfig options it cannot be dynamic, and every
->> distribution is going to have to scratch their head and decide
->> what to set this to.
->>
->> That's seriously suboptimal.
->>
->> If you want to change behavior based upon whether userspace is
->> managing the damn table, make it so the user doing so has to
->> ask for the new behavior at _RUN TIME_ via the netlink interface
->> or similar.
->>
->> Picking the guard time itself at compile time is also undesirable.
->>
->> And you don't even want a damn timer, what you want is for the
->> state of the entry to be frozen and for the user to "release"
->> it by either adjusting the state to something else or marking
->> in some other way to allow it to be unfrozen and released again.
->>
->> Why put it to chance with some timeout?  Make things explicit.
->
-> The desired functionality is that if communication stops,
-> you want to send out ARP probes, before the entry is deleted.
->
-> The current (pseudo) code of the neigh timer is:
->
->     if (state & NUD_REACHABLE) {
->         if (now <= "confirmed + "reachable_time")) {
->                     ... /* We are OK */
->         } else if (now < "used" + DELAY_PROBE_TIME) {    /* Never 
-> happens */
->                     state = NUD_DELAY;
->         } else {
->             state = NUD_STALE;
->             notify = 1;
->         }
->
-> We never see the state beeing changed from REACHABLE to DELAY,
-> so the probes are not beeing sent out, instead you always go
-> from REACHABLE to STALE.
->
-> DELAY_PROBE_TIME is set to (5 x HZ) and "used"
-> seems to be only set by the periodic_work routine
-> when the neigh entry is in STALE state, and then it is too late.
-> It is also set by "arp_find" which is used by "broken" devices.
->
-> In practice, the second condition: "(now < "used" + DELAY_PROBE_TIME)" 
-> is never used.
-> What is the intention of this test?
->
-> By adding a new test + parameter, we would get the desired functionality,
-> and no need to listen for notifications or doing ARP state updates 
-> from applications.
->
->         if (now <= "confirmed + "reachable_time")) {
->                     ... /* We are OK */
-> +        else if (now <= "confirmed + "reprobe_time")) {
-> +                   state <= NUD_DELAY;
->         } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
-> happens */
->                     state <= NUD_DELAY;
->         } else {
->             state = NUD_STALE;
->             notify = 1;
->         }
->
-> This way the entry would remain in REACHABLE while normal 
-> communication occurs,
-> then it would enter DELAY state to probe, and if that fails, it goes 
-> to STALE state.
->
-> Alternatively, we just change the second test:
->         if (now <= "confirmed + "reachable_time")) {
->                     ... /* We are OK */
-> -        } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never 
-> happens */
-> +       } else if (now < "confirmed" + DELAY_PROBE_TIME))) {
->                     state <= NUD_DELAY;
->         } else {
->             state = NUD_STALE;
->             notify = 1;
->         }
->
->
-> The  DELAY_PROBE_TIME, should preferrably be a kernel Kconfig parameter.
->
-> Best Regards,
-> Ulf Samuelsson
->
->
->> I'm not applying this patch.
->>
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at http://vger.kernel.org/majordomo-info.html
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Another simple solution would be to allow drivers to indicate whether
+they have a high transmit latency, and have the kernel use a higher
+value by default when that's the case.
+
+Probably the most sustainable solution would be to have the networking
+layer keep track of the average and minimum transmit latencies, and
+automatically adjust tcp_limit_output_bytes based on that.  (Keeping
+the minimum as well as the average because the whole problem with
+bufferbloat is that the more data you give it, the longer the apparent
+"pipeline" becomes.)
+
+Thoughts?
+
+ -George
