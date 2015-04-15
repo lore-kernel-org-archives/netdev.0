@@ -1,44 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable 3.10-3.16] tcp: Fix crash in TCP Fast Open
-Date: Wed, 15 Apr 2015 14:33:50 -0400 (EDT)
-Message-ID: <20150415.143350.1405489800706487173.davem@davemloft.net>
-References: <1429120832.3211.91.camel@decadent.org.uk>
-	<1429122164.7346.139.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 0/2] switchdev: unify naming prefix
+Date: Wed, 15 Apr 2015 20:38:15 +0200
+Message-ID: <20150415183815.GC2026@nanopsycho.orion>
+References: <1428960304-11497-1-git-send-email-jiri@resnulli.us>
+ <20150415175455.GB26741@gospo.home.greyhouse.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, stable@vger.kernel.org,
-	netdev@vger.kernel.org, 782515@bugs.debian.org
-To: eric.dumazet@gmail.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1429122164.7346.139.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, sfeldma@gmail.com,
+	roopa@cumulusnetworks.com, f.fainelli@gmail.com,
+	sridhar.samudrala@intel.com
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:35731 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756624AbbDOSiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 14:38:18 -0400
+Received: by widdi4 with SMTP id di4so165930957wid.0
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 11:38:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150415175455.GB26741@gospo.home.greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 15 Apr 2015 11:22:44 -0700
+Wed, Apr 15, 2015 at 07:54:56PM CEST, gospo@cumulusnetworks.com wrote:
+>On Mon, Apr 13, 2015 at 11:25:02PM +0200, Jiri Pirko wrote:
+>> Turned out that "switchdev" sticks. So just unify all releated terms to
+>> use this prefix.
+>> 
+>> Jiri Pirko (2):
+>>   switchdev: s/netdev_switch_/switchdev_/ and
+>>     s/NETDEV_SWITCH_/SWITCHDEV_/
+>>   switchdev: s/swdev_/switchdev_/
+>> 
+>>  drivers/net/bonding/bond_main.c      |   4 +-
+>>  drivers/net/ethernet/rocker/rocker.c |  47 +++++-----
+>>  drivers/net/team/team.c              |   4 +-
+>>  include/linux/netdevice.h            |   2 +-
+>>  include/net/switchdev.h              | 140 ++++++++++++++--------------
+>>  net/bridge/br.c                      |  22 ++---
+>>  net/bridge/br_netlink.c              |   6 +-
+>>  net/bridge/br_stp.c                  |   2 +-
+>>  net/core/net-sysfs.c                 |   2 +-
+>>  net/core/rtnetlink.c                 |   2 +-
+>>  net/dsa/slave.c                      |   8 +-
+>>  net/ipv4/fib_trie.c                  |  40 ++++----
+>>  net/switchdev/switchdev.c            | 174 +++++++++++++++++------------------
+>>  13 files changed, 224 insertions(+), 229 deletions(-)
+>
+>Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>
 
-> On Wed, 2015-04-15 at 19:00 +0100, Ben Hutchings wrote:
->> Commit 355a901e6cf1 ("tcp: make connect() mem charging friendly")
->> changed tcp_send_syn_data() to perform an open-coded copy of the 'syn'
->> skb rather than using skb_copy_expand().
->> 
->> The open-coded copy does not cover the skb_shared_info::gso_segs
->> field, so in the new skb it is left set to 0.  When this commit was
->> backported into stable branches between 3.10.y and 3.16.7-ckty
->> inclusive, it triggered the BUG() in tcp_transmit_skb().
->> 
->> Since Linux 3.18 the GSO segment count is kept in the
->> tcp_skb_cb::tcp_gso_segs field and tcp_send_syn_data() does copy the
->> tcp_skb_cb structure to the new skb, so mainline and newer stable
->> branches are not affected.
->> 
->> Set skb_shared_info::gso_segs to the correct value of 1.
->> 
->> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
- ...
-> Looks goot to me, thanks Ben !
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+Unfortunatelly, this patchset did not make it into this net-next. Will
+resubmit with the acks once the merge-window closes.
 
-Ben, thanks for taking care of this.
+Thanks.
