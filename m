@@ -1,86 +1,102 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH stable 3.10-3.16] tcp: Fix crash in TCP Fast Open
-Date: Wed, 15 Apr 2015 19:00:32 +0100
-Message-ID: <1429120832.3211.91.camel@decadent.org.uk>
+From: George Dunlap <george.dunlap@eu.citrix.com>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance regression
+ on Xen
+Date: Wed, 15 Apr 2015 19:04:52 +0100
+Message-ID: <552EA844.5010308@eu.citrix.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
+	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
+	 <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
+	 <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
+	 <1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <552E9E8D.1080000@eu.citrix.com>
+	 <1429118948.7346.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <552EA2BC.5000707@eu.citrix.com>
+ <1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-q7mPDk7yAqV2SuNr+Uup"
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>, 782515@bugs.debian.org
-To: stable <stable@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Jonathan Davies <Jonathan.Davies@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"Stefano Stabellini" <stefano.stabellini@eu.citrix.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Paul Durrant" <paul.durrant@citrix.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	Felipe Franciosi <felipe.franciosi@citrix.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	"David Vrabel" <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:48762 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754959AbbDOSAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 14:00:44 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:8938 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932836AbbDOSFr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2015 14:05:47 -0400
+In-Reply-To: <1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/15/2015 06:52 PM, Eric Dumazet wrote:
+> On Wed, 2015-04-15 at 18:41 +0100, George Dunlap wrote:
+> 
+>> So you'd be OK with a patch like this?  (With perhaps a better changelog?)
+>>
+>>  -George
+>>
+>> ---
+>> TSQ: Raise default static TSQ limit
+>>
+>> A new dynamic TSQ limit was introduced in c/s 605ad7f18 based on the
+>> size of actual packets and the amount of data being transmitted.
+>> Raise the default static limit to allow that new limit to actually
+>> come into effect.
+>>
+>> This fixes a regression where NICs with large transmit completion
+>> times (such as xennet) had a 30% hit unless the user manually tweaked
+>> the value in /proc.
+>>
+>> Signed-off-by: George Dunlap <george.dunlap@eu.citrix.com>
+>>
+>> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+>> index 1db253e..8ad7cdf 100644
+>> --- a/net/ipv4/tcp_output.c
+>> +++ b/net/ipv4/tcp_output.c
+>> @@ -50,8 +50,8 @@ int sysctl_tcp_retrans_collapse __read_mostly = 1;
+>>   */
+>>  int sysctl_tcp_workaround_signed_windows __read_mostly = 0;
+>>
+>> -/* Default TSQ limit of two TSO segments */
+>> -int sysctl_tcp_limit_output_bytes __read_mostly = 131072;
+>> +/* Static TSQ limit.  A more dynamic limit is calculated in
+>> tcp_write_xmit. */
+>> +int sysctl_tcp_limit_output_bytes __read_mostly = 1048576;
+>>
+>>  /* This limits the percentage of the congestion window which we
+>>   * will allow a single TSO frame to consume.  Building TSO frames
+>>
+> 
+> Have you tested this patch on a NIC without GSO/TSO ?
+> 
+> This would allow more than 500 packets for a single flow.
+> 
+> Hello bufferbloat.
+> 
+> So my answer to this patch is a no.
 
---=-q7mPDk7yAqV2SuNr+Uup
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+You said:
 
-Commit 355a901e6cf1 ("tcp: make connect() mem charging friendly")
-changed tcp_send_syn_data() to perform an open-coded copy of the 'syn'
-skb rather than using skb_copy_expand().
+"I asked you guys to make a test by increasing
+sysctl_tcp_limit_output_bytes  You have no need to explain me the code I
+wrote, thank you."
 
-The open-coded copy does not cover the skb_shared_info::gso_segs
-field, so in the new skb it is left set to 0.  When this commit was
-backported into stable branches between 3.10.y and 3.16.7-ckty
-inclusive, it triggered the BUG() in tcp_transmit_skb().
+Which implies to me that you think you've already pointed us to the
+answer you want and we're just not getting it.
 
-Since Linux 3.18 the GSO segment count is kept in the
-tcp_skb_cb::tcp_gso_segs field and tcp_send_syn_data() does copy the
-tcp_skb_cb structure to the new skb, so mainline and newer stable
-branches are not affected.
+Maybe you should stop wasting all of our time and just tell us what
+you're thinking.
 
-Set skb_shared_info::gso_segs to the correct value of 1.
-
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- net/ipv4/tcp_output.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index d5457e4..1ea0a07 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2992,6 +2992,7 @@ static int tcp_send_syn_data(struct sock *sk, struct =
-sk_buff *syn)
- 		goto fallback;
- 	syn_data->ip_summed =3D CHECKSUM_PARTIAL;
- 	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
-+	skb_shinfo(syn_data)->gso_segs =3D 1;
- 	if (unlikely(memcpy_fromiovecend(skb_put(syn_data, space),
- 					 fo->data->msg_iov, 0, space))) {
- 		kfree_skb(syn_data);
-
---=20
-Ben Hutchings
-Editing code like this is akin to sticking plasters on the bleeding stump
-of a severed limb. - me, 29 June 1999
-
---=-q7mPDk7yAqV2SuNr+Uup
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVS6nRee/yOyVhhEJAQrmpBAAw6E5TtwLAmvnM9iAJE/oMUlj9CArXBwr
-4l0uJNivyhbyU/vVraHk85XRrQTjmKTM5LTcbWCS3WaZsyAK8Ek3MHvV7azGh3lg
-TptR0mOVEAzOfuJkDdoH3zwBgQoVTTrtBF6ejTmd2Hf5E2501rGPz3Gkb+DfyFB1
-p7jSK0sG3DzyfnZtTaV47AnEXmu+Zn8b+NDUeUsmFrNX+YXmdtyltWFvopxxqrlO
-t3wYCGvkMcv9cOw90SCmf2V7wqeDAsSwbI3KWPhVyWia8ldPUfhL7nnwTSYDZ2U5
-8UabZK9cTUJ2GHaAPfGKiRmVfmx4E84GRBQDqZ5ycxlYQXIe+qzeowyIaKbk6g10
-LwzvvG6IZK0koAFkgF9lQCXD/rij8ePmTCYyqMoIhEiPUid82F7DSWsaJ84Feo/p
-jUk9QSYa3aBa4EIs8+7sk3gaOrGCdWsr9+h/sVBZP7RtsfB8pyYAqcLRohcKGtmw
-Yitvf9XejACO6rQ0QFj997pV6ZgZL8kcv1e8dOY5TYWc6RKXAh2MeCDagx6AQnkG
-ihynoyfT67cQZDL2oFEXP+3EgeH1ANFi5iuxOmOTpTpH7hcWeaseFzP9R17NqXD+
-bTEfTwW8GCJIuo4IovjrLHZXnF7fclMSXyN/Cruvpfc0UHfzPgDibOT6nFOb/LOG
-th6bsih2ZcA=
-=7sfN
------END PGP SIGNATURE-----
-
---=-q7mPDk7yAqV2SuNr+Uup--
+ -George
