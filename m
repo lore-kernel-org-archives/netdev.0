@@ -1,90 +1,123 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/14] i40e: Add support to program FDir SB rules for VF from PF through ethtool
-Date: Tue, 14 Apr 2015 21:51:40 -0700
-Message-ID: <1429073511-27664-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/14] i40e: notify VFs of link state
+Date: Tue, 14 Apr 2015 21:51:42 -0700
+Message-ID: <1429073511-27664-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:47805 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751530AbbDOEv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2015 00:51:59 -0400
+	id S932230AbbDOEwC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Apr 2015 00:52:02 -0400
 In-Reply-To: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-With this patch we can now add Flow director Sideband rules for a VF from
-it's PF. Here is an example on how it can be done when VF id = 5 and
-queue = 2:
+Gratuitously notify VFs of link state when they activate their queues.
+In general, this is the last thing that a VF driver will do as it opens
+its interface, so this is a good time to notify the VF.
 
-"ethtool -N ethx flow-type udp4 src-ip x.x.x.x dst-ip y.y.y.y src-port p1 dst-port p2 action 2 user-def 5"
+Currently, VF devices assume link is up unless told otherwise, which
+means that VFs instantiated on a PF with no link will report the wrong
+state. This change corrects that issue.
 
-User-def specifies VF id and action specifies queue.
-
-Change-ID: Ib37d6dff3823a4d85caffde638473891c38c2b89
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Iea53622904ecc681ac3f8938d81c30033ef9a0a6
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <james.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 50 ++++++++++++++--------
+ 1 file changed, 31 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index c848b18..7d60587 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1914,6 +1914,16 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
- 	else
- 		fsp->ring_cookie = rule->q_index;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 9b3fc83..8df2b52 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -25,6 +25,7 @@
+  ******************************************************************************/
  
-+	if (rule->dest_vsi != pf->vsi[pf->lan_vsi]->id) {
-+		struct i40e_vsi *vsi;
+ #include "i40e.h"
++static void i40e_vc_notify_vf_link_state(struct i40e_vf *vf);
+ 
+ /***********************misc routines*****************************/
+ 
+@@ -1767,6 +1768,7 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, u16 vf_id, u32 v_opcode,
+ 		break;
+ 	case I40E_VIRTCHNL_OP_ENABLE_QUEUES:
+ 		ret = i40e_vc_enable_queues_msg(vf, msg, msglen);
++		i40e_vc_notify_vf_link_state(vf);
+ 		break;
+ 	case I40E_VIRTCHNL_OP_DISABLE_QUEUES:
+ 		ret = i40e_vc_disable_queues_msg(vf, msg, msglen);
+@@ -1875,35 +1877,45 @@ static void i40e_vc_vf_broadcast(struct i40e_pf *pf,
+ 
+ /**
+  * i40e_vc_notify_link_state
+- * @pf: pointer to the PF structure
++ * @vf: pointer to the VF structure
+  *
+- * send a link status message to all VFs on a given PF
++ * send a link status message to a single VF
+  **/
+-void i40e_vc_notify_link_state(struct i40e_pf *pf)
++static void i40e_vc_notify_vf_link_state(struct i40e_vf *vf)
+ {
+ 	struct i40e_virtchnl_pf_event pfe;
++	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_hw *hw = &pf->hw;
+-	struct i40e_vf *vf = pf->vf;
+ 	struct i40e_link_status *ls = &pf->hw.phy.link_info;
+-	int i;
++	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 
+ 	pfe.event = I40E_VIRTCHNL_EVENT_LINK_CHANGE;
+ 	pfe.severity = I40E_PF_EVENT_SEVERITY_INFO;
+-	for (i = 0; i < pf->num_alloc_vfs; i++, vf++) {
+-		int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+-		if (vf->link_forced) {
+-			pfe.event_data.link_event.link_status = vf->link_up;
+-			pfe.event_data.link_event.link_speed =
+-				(vf->link_up ? I40E_LINK_SPEED_40GB : 0);
+-		} else {
+-			pfe.event_data.link_event.link_status =
+-				ls->link_info & I40E_AQ_LINK_UP;
+-			pfe.event_data.link_event.link_speed = ls->link_speed;
+-		}
+-		i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
+-				       0, (u8 *)&pfe, sizeof(pfe),
+-				       NULL);
++	if (vf->link_forced) {
++		pfe.event_data.link_event.link_status = vf->link_up;
++		pfe.event_data.link_event.link_speed =
++			(vf->link_up ? I40E_LINK_SPEED_40GB : 0);
++	} else {
++		pfe.event_data.link_event.link_status =
++			ls->link_info & I40E_AQ_LINK_UP;
++		pfe.event_data.link_event.link_speed = ls->link_speed;
+ 	}
++	i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
++			       0, (u8 *)&pfe, sizeof(pfe), NULL);
++}
 +
-+		vsi = i40e_find_vsi_from_id(pf, rule->dest_vsi);
-+		if (vsi && vsi->type == I40E_VSI_SRIOV) {
-+			fsp->h_ext.data[1] = htonl(vsi->vf_id);
-+			fsp->m_ext.data[1] = htonl(0x1);
-+		}
-+	}
++/**
++ * i40e_vc_notify_link_state
++ * @pf: pointer to the PF structure
++ *
++ * send a link status message to all VFs on a given PF
++ **/
++void i40e_vc_notify_link_state(struct i40e_pf *pf)
++{
++	int i;
 +
- 	return 0;
++	for (i = 0; i < pf->num_alloc_vfs; i++)
++		i40e_vc_notify_vf_link_state(&pf->vf[i]);
  }
  
-@@ -2207,6 +2217,7 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 	struct i40e_fdir_filter *input;
- 	struct i40e_pf *pf;
- 	int ret = -EINVAL;
-+	u16 vf_id;
- 
- 	if (!vsi)
- 		return -EINVAL;
-@@ -2267,7 +2278,22 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 	input->dst_ip[0] = fsp->h_u.tcp_ip4_spec.ip4src;
- 	input->src_ip[0] = fsp->h_u.tcp_ip4_spec.ip4dst;
- 
-+	if (ntohl(fsp->m_ext.data[1])) {
-+		if (ntohl(fsp->h_ext.data[1]) >= pf->num_alloc_vfs) {
-+			netif_info(pf, drv, vsi->netdev, "Invalid VF id\n");
-+			goto free_input;
-+		}
-+		vf_id = ntohl(fsp->h_ext.data[1]);
-+		/* Find vsi id from vf id and override dest vsi */
-+		input->dest_vsi = pf->vf[vf_id].lan_vsi_id;
-+		if (input->q_index >= pf->vf[vf_id].num_queue_pairs) {
-+			netif_info(pf, drv, vsi->netdev, "Invalid queue id\n");
-+			goto free_input;
-+		}
-+	}
-+
- 	ret = i40e_add_del_fdir(vsi, input, true);
-+free_input:
- 	if (ret)
- 		kfree(input);
- 	else
+ /**
 -- 
 1.9.3
