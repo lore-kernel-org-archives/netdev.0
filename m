@@ -1,44 +1,49 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [v3] skbuff: Do not scrub skb mark within the same name space
-Date: Thu, 16 Apr 2015 09:33:35 +0100
-Message-ID: <20150416083335.GE32170@casper.infradead.org>
-References: <20150415100107.GA3655@gondor.apana.org.au>
- <552E3B7A.2040701@6wind.com>
- <20150415102229.GA3917@gondor.apana.org.au>
- <20150415135739.GA5534@gondor.apana.org.au>
- <552E86A6.9000101@6wind.com>
- <20150416010326.GA10864@gondor.apana.org.au>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 4/6] net: hip04: Don't free the tx skb when the buffer is not ready for xmit
+Date: Thu, 16 Apr 2015 10:41:09 +0200
+Message-ID: <4971105.FJGVdDRE9f@wuerfel>
+References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <2218546.M1hzu1bzfh@wuerfel> <552F560D.4070309@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	James Morris <jmorris@namei.org>,
-	linux-security-module@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, grant.likely@linaro.org,
+	sergei.shtylyov@cogentembedded.com,
+	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
+	zhangfei.gao@linaro.org, joe@perches.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux@arm.linux.org.uk
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41020 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753603AbbDPIdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 04:33:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20150416010326.GA10864@gondor.apana.org.au>
+Received: from mout.kundenserver.de ([212.227.17.13]:60769 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755AbbDPIlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 04:41:20 -0400
+In-Reply-To: <552F560D.4070309@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/16/15 at 09:03am, Herbert Xu wrote:
-> The commit ea23192e8e577dfc51e0f4fc5ca113af334edff9 ("tunnels:
-> harmonize cleanup done on skb on rx path") broke anyone trying to
-> use netfilter marking across IPv4 tunnels.  While most of the
-> fields that are cleared by skb_scrub_packet don't matter, the
-> netfilter mark must be preserved.
-> 
-> This patch rearranges skb_scrub_packet to preserve the mark field.
-> 
-> Fixes: ea23192e8e57 ("tunnels: harmonize cleanup done on skb on rx path")
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Thursday 16 April 2015 14:26:21 Ding Tianhong wrote:
+> On 2015/4/15 22:19, Arnd Bergmann wrote:
+> > On Wednesday 15 April 2015 20:30:06 Ding Tianhong wrote:
+> >> @@ -489,6 +487,8 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+> >>  
+> >>         /* Ensure tx_head update visible to tx reclaim */
+> >>         smp_wmb();
+> >> +       count++;
+> >> +       priv->tx_head = TX_NEXT(tx_head);
+> >>  
+> >>
+> > 
+> > Something is wrong here, the comment does not match the code any more, because
+> > the smp_wmb() won't actually make the tx_head update visible.
+> > 
+> >       Arnd
+> > 
+> Yes, the smp_wmb() could only make sure the tx buffer was ready to xmit.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+The problem you need to avoid is that the tx reclaim function thinks it's
+done with all outstanding packets and does not retrigger, while the
+start_xmit thinks it will still get to that. This means you
+need a barrier between the priv->tx_head update and the
+napi_schedule_prep() call.
 
-We should also add a flag to veth which expclitly allows to preserve
-the mark into the namespace.
+	Arnd
