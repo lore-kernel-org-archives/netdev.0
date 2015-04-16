@@ -1,152 +1,104 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 08/16] netconsole: punt disabling to workqueue from netdevice_notifier
-Date: Thu, 16 Apr 2015 19:03:45 -0400
-Message-ID: <1429225433-11946-9-git-send-email-tj@kernel.org>
+Subject: [PATCH 07/16] netconsole: factor out alloc_netconsole_target()
+Date: Thu, 16 Apr 2015 19:03:44 -0400
+Message-ID: <1429225433-11946-8-git-send-email-tj@kernel.org>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>
 To: akpm@linux-foundation.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:35132 "EHLO
-	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753805AbbDPXEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:31 -0400
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:34146 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753503AbbDPXE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:29 -0400
 In-Reply-To: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The netdevice_notifier callback, netconsole_netdev_event(), needs to
-perform netpoll_cleanup() for the affected targets; however, the
-notifier is called with rtnl_lock held which the netpoll_cleanup()
-path also grabs.  To avoid deadlock, the path uses __netpoll_cleanup()
-instead and making the code path different from others.
+alloc_param_target() and make_netconsole_target() were duplicating the
+same allocation and init logic.  Factor it out to
+alloc_netconsole_target().
 
-The planned reliable netconsole support will add more logic to the
-cleanup path making the slightly different paths painful.  Let's punt
-netconsole_target disabling to workqueue so that it can later share
-the same cleanup path.  This would also allow ditching
-target_list_lock and depending on console_lock for synchronization.
-
-Note that this introduces a narrow race window where the asynchronous
-disabling may race against disabling from configfs ending up executing
-netpoll_cleanup() more than once on the same instance.  The follow up
-patches will fix it by introducing a mutex to protect overall enable /
-disable operations; unfortunately, the locking update couldn't be
-ordered before this change due to the locking order with rtnl_lock.
+This is pure reorganization.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/netconsole.c | 58 ++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 41 insertions(+), 17 deletions(-)
+ drivers/net/netconsole.c | 40 ++++++++++++++++++++--------------------
+ 1 file changed, 20 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 17692b8..d355776 100644
+index 09d4e12..17692b8 100644
 --- a/drivers/net/netconsole.c
 +++ b/drivers/net/netconsole.c
-@@ -105,6 +105,7 @@ struct netconsole_target {
- 	struct config_item	item;
- #endif
- 	bool			enabled;
-+	bool			disable_scheduled;
- 	struct mutex		mutex;
- 	struct netpoll		np;
- };
-@@ -660,6 +661,39 @@ static struct configfs_subsystem netconsole_subsys = {
+@@ -167,19 +167,17 @@ static void netconsole_target_put(struct netconsole_target *nt)
  
  #endif	/* CONFIG_NETCONSOLE_DYNAMIC */
  
-+static void netconsole_deferred_disable_work_fn(struct work_struct *work)
-+{
-+	struct netconsole_target *nt, *to_disable;
-+	unsigned long flags;
-+
-+repeat:
-+	to_disable = NULL;
-+	spin_lock_irqsave(&target_list_lock, flags);
-+	list_for_each_entry(nt, &target_list, list) {
-+		if (!nt->disable_scheduled)
-+			continue;
-+		nt->disable_scheduled = false;
-+
-+		if (!nt->enabled)
-+			continue;
-+
-+		netconsole_target_get(nt);
-+		nt->enabled = false;
-+		to_disable = nt;
-+		break;
-+	}
-+	spin_unlock_irqrestore(&target_list_lock, flags);
-+
-+	if (to_disable) {
-+		netpoll_cleanup(&to_disable->np);
-+		netconsole_target_put(to_disable);
-+		goto repeat;
-+	}
+-/* Allocate new target (from boot/module param) and setup netpoll for it */
+-static struct netconsole_target *alloc_param_target(char *target_config)
++/*
++ * Allocate and initialize with defaults.  Note that these targets get
++ * their config_item fields zeroed-out.
++ */
++static struct netconsole_target *alloc_netconsole_target(void)
+ {
+-	int err = -ENOMEM;
+ 	struct netconsole_target *nt;
+ 
+-	/*
+-	 * Allocate and initialize with defaults.
+-	 * Note that these targets get their config_item fields zeroed-out.
+-	 */
+ 	nt = kzalloc(sizeof(*nt), GFP_KERNEL);
+ 	if (!nt)
+-		goto fail;
++		return NULL;
+ 
+ 	nt->np.name = "netconsole";
+ 	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
+@@ -188,6 +186,19 @@ static struct netconsole_target *alloc_param_target(char *target_config)
+ 	mutex_init(&nt->mutex);
+ 	eth_broadcast_addr(nt->np.remote_mac);
+ 
++	return nt;
 +}
 +
-+static DECLARE_WORK(netconsole_deferred_disable_work,
-+		    netconsole_deferred_disable_work_fn);
++/* Allocate new target (from boot/module param) and setup netpoll for it */
++static struct netconsole_target *alloc_param_target(char *target_config)
++{
++	int err = -ENOMEM;
++	struct netconsole_target *nt;
 +
- /* Handle network interface device notifications */
- static int netconsole_netdev_event(struct notifier_block *this,
- 				   unsigned long event, void *ptr)
-@@ -674,9 +708,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 		goto done;
++	nt = alloc_netconsole_target();
++	if (!nt)
++		goto fail;
++
+ 	/* Parse parameters and setup netpoll */
+ 	err = netpoll_parse_options(&nt->np, target_config);
+ 	if (err)
+@@ -592,21 +603,10 @@ static struct config_item *make_netconsole_target(struct config_group *group,
+ 	unsigned long flags;
+ 	struct netconsole_target *nt;
  
- 	spin_lock_irqsave(&target_list_lock, flags);
--restart:
- 	list_for_each_entry(nt, &target_list, list) {
--		netconsole_target_get(nt);
- 		if (nt->np.dev == dev) {
- 			switch (event) {
- 			case NETDEV_CHANGENAME:
-@@ -685,23 +717,14 @@ restart:
- 			case NETDEV_RELEASE:
- 			case NETDEV_JOIN:
- 			case NETDEV_UNREGISTER:
--				/* rtnl_lock already held
--				 * we might sleep in __netpoll_cleanup()
--				 */
--				spin_unlock_irqrestore(&target_list_lock, flags);
+-	/*
+-	 * Allocate and initialize with defaults.
+-	 * Target is disabled at creation (!enabled).
+-	 */
+-	nt = kzalloc(sizeof(*nt), GFP_KERNEL);
++	nt = alloc_netconsole_target();
+ 	if (!nt)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	nt->np.name = "netconsole";
+-	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
+-	nt->np.local_port = 6665;
+-	nt->np.remote_port = 6666;
+-	mutex_init(&nt->mutex);
+-	eth_broadcast_addr(nt->np.remote_mac);
 -
--				__netpoll_cleanup(&nt->np);
--
--				spin_lock_irqsave(&target_list_lock, flags);
--				dev_put(nt->np.dev);
--				nt->np.dev = NULL;
--				nt->enabled = false;
-+				/* rtnl_lock already held, punt to workqueue */
-+				if (nt->enabled && !nt->disable_scheduled) {
-+					nt->disable_scheduled = true;
-+					schedule_work(&netconsole_deferred_disable_work);
-+				}
- 				stopped = true;
--				netconsole_target_put(nt);
--				goto restart;
- 			}
- 		}
--		netconsole_target_put(nt);
- 	}
- 	spin_unlock_irqrestore(&target_list_lock, flags);
- 	if (stopped) {
-@@ -810,7 +833,7 @@ static int __init init_netconsole(void)
+ 	/* Initialize the config_item member */
+ 	config_item_init_type_name(&nt->item, name, &netconsole_target_type);
  
- undonotifier:
- 	unregister_netdevice_notifier(&netconsole_netdev_notifier);
--
-+	cancel_work_sync(&netconsole_deferred_disable_work);
- fail:
- 	pr_err("cleaning up\n");
- 
-@@ -834,6 +857,7 @@ static void __exit cleanup_netconsole(void)
- 	unregister_console(&netconsole);
- 	dynamic_netconsole_exit();
- 	unregister_netdevice_notifier(&netconsole_netdev_notifier);
-+	cancel_work_sync(&netconsole_deferred_disable_work);
- 
- 	/*
- 	 * Targets created via configfs pin references on our module
 -- 
 2.1.0
