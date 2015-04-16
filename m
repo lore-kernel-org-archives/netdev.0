@@ -1,50 +1,66 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] net: dsa: mv88e6xxx: Add missing initialization in mv88e6xxx_set_port_state()
-Date: Thu, 16 Apr 2015 20:49:14 +0200
-Message-ID: <1429210154-21805-1-git-send-email-geert@linux-m68k.org>
+Subject: Re: [PATCH] dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
+Date: Thu, 16 Apr 2015 20:51:08 +0200
+Message-ID: <CAMuHMdVEbXGLR_svG9tHVMSvEOfajNX6GxAo113n2TfvGSRcwA@mail.gmail.com>
+References: <1429161162-2028-1-git-send-email-linux@roeck-us.net>
+	<552FBD4C.4070405@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: "David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baptiste.telenet-ops.be ([195.130.132.51]:59455 "EHLO
-	baptiste.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752686AbbDPStJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 14:49:09 -0400
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:33393 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753428AbbDPSvJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 14:51:09 -0400
+In-Reply-To: <552FBD4C.4070405@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_set_port_st=
-ate=E2=80=99:
-drivers/net/dsa/mv88e6xxx.c:905: warning: =E2=80=98ret=E2=80=99 may be =
-used uninitialized in this function
+On Thu, Apr 16, 2015 at 3:46 PM, Guenter Roeck <linux@roeck-us.net> wro=
+te:
+> On 04/15/2015 10:12 PM, Guenter Roeck wrote:
+>>
+>> Return correct error code if _mv88e6xxx_reg_read returns an error.
+>>
+>> Fixes: facd95b2e0ec0 ("net: dsa: mv88e6xxx: Add Hardware bridging
+>> support")
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>
+>
+> I should have given proper credit.
+>
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+>
+> For the curious, neither W=3D1, W=3D2, C-1, C=3D2, nor sparse report =
+this problem,
+> at least not with gcc 4.9.1.
 
-If oldstate =3D=3D state, mv88e6xxx_set_port_state() will return an
-uninitialized value. Pre-initialize ret to zero to fix this.
+Good old gcc 4.1.2 (which I still use for m68k builds, and won't retire=
+ anytime
+soon as it finds real bugs in every new kernel release) says:
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/dsa/mv88e6xxx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+    drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_set_por=
+t_state=E2=80=99:
+    drivers/net/dsa/mv88e6xxx.c:905: warning: =E2=80=98ret=E2=80=99 may=
+ be used
+uninitialized in this function
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index f64186a5f63453f3..859a332fe5cd0251 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -902,7 +902,7 @@ static int _mv88e6xxx_flush_fid(struct dsa_switch *=
-ds, int fid)
- static int mv88e6xxx_set_port_state(struct dsa_switch *ds, int port, u=
-8 state)
- {
- 	struct mv88e6xxx_priv_state *ps =3D ds_to_priv(ds);
--	int reg, ret;
-+	int reg, ret =3D 0;
- 	u8 oldstate;
-=20
- 	mutex_lock(&ps->smi_mutex);
---=20
-1.9.1
+Even after your patch, as it missed one case (patch sent).
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+                                -- Linus Torvalds
