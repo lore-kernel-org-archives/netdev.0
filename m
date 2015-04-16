@@ -1,39 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix verifier memory corruption
-Date: Thu, 16 Apr 2015 12:07:00 -0400 (EDT)
-Message-ID: <20150416.120700.1239591146749471799.davem@davemloft.net>
-References: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH v2 1/1] stmmac: fix oops on rmmod after assigning ip
+ addr
+Date: Thu, 16 Apr 2015 12:07:57 -0400 (EDT)
+Message-ID: <20150416.120757.1014138571559447688.davem@davemloft.net>
+References: <1429060066-9156-1-git-send-email-pure.logic@nexus-software.ie>
+	<1429060066-9156-2-git-send-email-pure.logic@nexus-software.ie>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, hannes@stressinduktion.org,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	andriy.shevchenko@linux.intel.com, hock.leong.kweh@intel.com,
+	boon.leong.ong@intel.com, dan.odonovan@emutex.com,
+	linux-kernel@vger.kernel.org
+To: pure.logic@nexus-software.ie
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33348 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33361 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751376AbbDPQHC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 12:07:02 -0400
-In-Reply-To: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S1751179AbbDPQH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 12:07:59 -0400
+In-Reply-To: <1429060066-9156-2-git-send-email-pure.logic@nexus-software.ie>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Tue, 14 Apr 2015 15:57:13 -0700
+From: Bryan O'Donoghue <pure.logic@nexus-software.ie>
+Date: Wed, 15 Apr 2015 02:07:46 +0100
 
-> Due to missing bounds check the DAG pass of the BPF verifier can corrupt
-> the memory which can cause random crashes during program loading:
+> An oops exists in the flow of stmmac_release().
+> phy_ethtool_get_wol() depends on phydev->drv.
+> phydev->drv will be null after stmmac_mdio_unreg() completes.
 > 
-> [8.449451] BUG: unable to handle kernel paging request at ffffffffffffffff
-> [8.451293] IP: [<ffffffff811de33d>] kmem_cache_alloc_trace+0x8d/0x2f0
-> [8.452329] Oops: 0000 [#1] SMP
-> [8.452329] Call Trace:
-> [8.452329]  [<ffffffff8116cc82>] bpf_check+0x852/0x2000
-> [8.452329]  [<ffffffff8116b7e4>] bpf_prog_load+0x1e4/0x310
-> [8.452329]  [<ffffffff811b190f>] ? might_fault+0x5f/0xb0
-> [8.452329]  [<ffffffff8116c206>] SyS_bpf+0x806/0xa30
+> Steps to reproduce on Quark X1000:
 > 
-> Fixes: f1bca824dabb ("bpf: add search pruning optimization to verifier")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> 1. ifconfig eth0 192.168.0.1
+> 2. rmmod stmmac_pci
+> 
+> To fix this stmmac_mdio_unreg() should be run after unregister_netdev().
+> 
+> Signed-off-by: Bryan O'Donoghue <pure.logic@nexus-software.ie>
+> Reported-by: Dan O'Donovan <dan.odonovan@emutex.com>
 
-Applied and queued up for -stable, thanks.
+This patch does not apply to the current tree, please respin.
