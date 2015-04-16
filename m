@@ -1,77 +1,59 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH 2/2] net: dsa: register hwmon for any provided function
-Date: Thu, 16 Apr 2015 14:26:38 -0700
-Message-ID: <20150416212638.GB2587@roeck-us.net>
-References: <1429209499-2447-1-git-send-email-vivien.didelot@savoirfairelinux.com>
- <1429209499-2447-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	kernel@savoirfairelinux.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Andreas Oetken <ennoerlangen@googlemail.com>
+Subject: [PATCH 1/1] altera tse: Fix network-delays and -retransmissions after high throughput.
+Date: Thu, 16 Apr 2015 23:48:08 +0200
+Message-ID: <1429220888-18119-1-git-send-email-ennoerlangen@gmail.com>
+References: <1429043126-10829-1-git-send-email-ennoerlangen@gmail.com>
+Cc: Andreas Oetken <ennoerlangen@gmail.com>,
+	Andreas Oetken <andreas@oetken.name>
+To: Vince Bridgers <vbridger@opensource.altera.com>,
+	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:58410 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160AbbDPV1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 17:27:04 -0400
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YirJQ-004Fjp-4s
-	for netdev@vger.kernel.org; Thu, 16 Apr 2015 21:27:04 +0000
-Content-Disposition: inline
-In-Reply-To: <1429209499-2447-2-git-send-email-vivien.didelot@savoirfairelinux.com>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:36078 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810AbbDPVs2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 17:48:28 -0400
+Received: by wgsk9 with SMTP id k9so94949508wgs.3
+        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 14:48:27 -0700 (PDT)
+In-Reply-To: <1429043126-10829-1-git-send-email-ennoerlangen@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 16, 2015 at 02:38:19PM -0400, Vivien Didelot wrote:
-> A switch driver may only provide one of the temperature limit accessors,
-> or the temperature alarm getter. So register the hwmon subsystem if any
-> of the related functions is provided.
-> 
-> Thus, check get_temp to set the visibility of temp1_input.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  net/dsa/dsa.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 67d2983..6b68994 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -157,6 +157,10 @@ static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
->  	umode_t mode = 0;
->  
->  	switch (index) {
-> +	case 0: /* temp1_input */
-> +		if (drv->get_temp)
-> +			mode |= S_IRUGO;
+From: Andreas Oetken <andreas@oetken.name>
 
-This should be mandatory. Sorry, I don't really understand what you are
-trying to accomplish here.
+Fix bug which occurs when more than <limit> packets are available during
+napi-poll, leading to "delays" and retransmissions on the network.
 
-Can you give me a real world example where a chip would support setting
-a limit but not reading it ?
+Check for (count < limit) before checking the get_rx_status in tse_rx-function.
+Function get_rx_status is reading from the response-fifo.
+If there is currently a response in the fifo,
+reading the last byte of the response pops the value from the fifo.
+If the limit is checked as second condition
+and the limit is reached the fifo is popped but the packet is not processed.
 
-Thanks,
-Guenter
+Signed-off-by: Andreas Oetken <ennoerlangen@gmail.com>
+---
+ drivers/net/ethernet/altera/altera_tse_main.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-> +		break;
->  	case 1: /* temp1_max */
->  		if (drv->get_temp_limit)
->  			mode |= S_IRUGO;
-> @@ -310,7 +314,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  	 * register with hardware monitoring subsystem.
->  	 * Treat registration error as non-fatal and ignore it.
->  	 */
-> -	if (drv->get_temp) {
-> +	if (drv->get_temp || drv->get_temp_limit || drv->set_temp_limit ||
-> +	    drv->get_temp_alarm) {
->  		const char *netname = netdev_name(dst->master_netdev);
->  		char hname[IFNAMSIZ + 1];
->  		int i, j;
-> -- 
-> 2.3.5
-> 
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index 6725dc0..dbbbd34 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -376,8 +376,13 @@ static int tse_rx(struct altera_tse_private *priv, int limit)
+ 	u16 pktlength;
+ 	u16 pktstatus;
+ 
+-	while (((rxstatus = priv->dmaops->get_rx_status(priv)) != 0) &&
+-	       (count < limit))  {
++	/* Check for count < limit first as get_rx_status is changing
++	* the response-fifo so we must process the next packet
++	* after calling get_rx_status if a response is pending.
++	* (reading the last byte of the response pops the value from the fifo.)
++	*/
++	while ((count < limit) &&
++	       ((rxstatus = priv->dmaops->get_rx_status(priv)) != 0)) {
+ 		pktstatus = rxstatus >> 16;
+ 		pktlength = rxstatus & 0xffff;
+ 
+-- 
+2.1.4
