@@ -1,59 +1,44 @@
-From: Andreas Oetken <ennoerlangen@googlemail.com>
-Subject: [PATCH 1/1] altera tse: Fix network-delays and -retransmissions after high throughput.
-Date: Thu, 16 Apr 2015 23:48:08 +0200
-Message-ID: <1429220888-18119-1-git-send-email-ennoerlangen@gmail.com>
-References: <1429043126-10829-1-git-send-email-ennoerlangen@gmail.com>
-Cc: Andreas Oetken <ennoerlangen@gmail.com>,
-	Andreas Oetken <andreas@oetken.name>
-To: Vince Bridgers <vbridger@opensource.altera.com>,
-	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 2/2] net: dsa: register hwmon for any provided function
+Date: Thu, 16 Apr 2015 18:05:39 -0400 (EDT)
+Message-ID: <973411308.896485.1429221939679.JavaMail.zimbra@savoirfairelinux.com>
+References: <1429209499-2447-1-git-send-email-vivien.didelot@savoirfairelinux.com> <1429209499-2447-2-git-send-email-vivien.didelot@savoirfairelinux.com> <20150416212638.GB2587@roeck-us.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	kernel@savoirfairelinux.com
+To: Guenter Roeck <linux@roeck-us.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:36078 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbbDPVs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 17:48:28 -0400
-Received: by wgsk9 with SMTP id k9so94949508wgs.3
-        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 14:48:27 -0700 (PDT)
-In-Reply-To: <1429043126-10829-1-git-send-email-ennoerlangen@gmail.com>
+Received: from mail.savoirfairelinux.com ([209.172.62.77]:63238 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810AbbDPWFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 18:05:41 -0400
+In-Reply-To: <20150416212638.GB2587@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Oetken <andreas@oetken.name>
+Hi Guenter,
 
-Fix bug which occurs when more than <limit> packets are available during
-napi-poll, leading to "delays" and retransmissions on the network.
+> >          switch (index) {
+> > +        case 0: /* temp1_input */
+> > +                if (drv->get_temp)
+> > +                        mode |= S_IRUGO;
+> 
+> This should be mandatory. Sorry, I don't really understand what you are
+> trying to accomplish here.
+> 
+> Can you give me a real world example where a chip would support setting
+> a limit but not reading it ?
 
-Check for (count < limit) before checking the get_rx_status in tse_rx-function.
-Function get_rx_status is reading from the response-fifo.
-If there is currently a response in the fifo,
-reading the last byte of the response pops the value from the fifo.
-If the limit is checked as second condition
-and the limit is reached the fifo is popped but the packet is not processed.
+I have no such example. I just did not see why this couldn't be allowed
+(e.g. setting only set_temp_limit and get_temp_alarm looks fine to me).
+But if you say that get_temp should be mandatory, I'm OK with that.
 
-Signed-off-by: Andreas Oetken <ennoerlangen@gmail.com>
----
- drivers/net/ethernet/altera/altera_tse_main.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+The primary goal of this patchset was to use DEVICE_ATTR_RW to declare
+temp1_max, instead of reflecting the minimal permissions needed.
 
-diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
-index 6725dc0..dbbbd34 100644
---- a/drivers/net/ethernet/altera/altera_tse_main.c
-+++ b/drivers/net/ethernet/altera/altera_tse_main.c
-@@ -376,8 +376,13 @@ static int tse_rx(struct altera_tse_private *priv, int limit)
- 	u16 pktlength;
- 	u16 pktstatus;
- 
--	while (((rxstatus = priv->dmaops->get_rx_status(priv)) != 0) &&
--	       (count < limit))  {
-+	/* Check for count < limit first as get_rx_status is changing
-+	* the response-fifo so we must process the next packet
-+	* after calling get_rx_status if a response is pending.
-+	* (reading the last byte of the response pops the value from the fifo.)
-+	*/
-+	while ((count < limit) &&
-+	       ((rxstatus = priv->dmaops->get_rx_status(priv)) != 0)) {
- 		pktstatus = rxstatus >> 16;
- 		pktlength = rxstatus & 0xffff;
- 
--- 
-2.1.4
+Best,
+-v
