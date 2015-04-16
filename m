@@ -1,48 +1,45 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] Bluetooth: Pre-initialize variables in read_local_oob_ext_data_complete()
-Date: Thu, 16 Apr 2015 13:34:54 -0700
-Message-ID: <A962A040-4EB5-4AE6-A790-A8767185172B@holtmann.org>
-References: <1429212265-26750-1-git-send-email-geert@linux-m68k.org>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH -next 0/3] net: cap size to original frag size when
+ refragmenting
+Date: Fri, 17 Apr 2015 04:47:02 +0800
+Message-ID: <20150416204702.GA20616@gondor.apana.org.au>
+References: <20150416052357.GA3285@acer.localdomain>
+ <20150416052904.GA12648@gondor.apana.org.au>
+ <1429186302.1075929.254563877.238D8F77@webmail.messagingengine.com>
+ <20150416.114323.2122666447487730641.davem@davemloft.net>
+ <1429200805.1141475.254665081.0E1724C4@webmail.messagingengine.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net, fw@strlen.de,
+	netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:35243 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752040AbbDPUfC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 16:35:02 -0400
-In-Reply-To: <1429212265-26750-1-git-send-email-geert@linux-m68k.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:41598 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751976AbbDPUrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 16:47:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1429200805.1141475.254665081.0E1724C4@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Geert,
+On Thu, Apr 16, 2015 at 06:13:25PM +0200, Hannes Frederic Sowa wrote:
+>
+> So currently we have one fast path, that is: we are not fragmented, we
+> get out non-fragmented, none of this code is ever touched and no
+> problem.
+> 
+> We don't want to mak this more complex, but
 
-> net/bluetooth/mgmt.c: In function =E2=80=98read_local_oob_ext_data_co=
-mplete=E2=80=99:
-> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r256=E2=80=99 may be use=
-d uninitialized in this function
-> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h256=E2=80=99 may be use=
-d uninitialized in this function
-> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r192=E2=80=99 may be use=
-d uninitialized in this function
-> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h192=E2=80=99 may be use=
-d uninitialized in this function
->=20
-> While these are false positives, the code can be shortened by
-> pre-initializing the hash table pointers and eir_len. This has the si=
-de
-> effect of killing the compiler warnings.
+You should read Dave's other email where he gives you an obvious
+solution.  If you have to modify the skb then you don't have to
+worry about the original fragments.
 
-can you be a bit specific on which compiler version is this. I fixed on=
-e occurrence that seemed valid. However in this case the compiler seems=
- to be just plain stupid. On a gcc 4.9, I am not seeing these for examp=
-le.
+But if you only read the skb then don't linearise it completely
+and keep the original fragments.
 
-Regards
-
-Marcel
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
