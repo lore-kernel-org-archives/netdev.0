@@ -1,57 +1,107 @@
-From: Bryan O'Donoghue <pure.logic@nexus-software.ie>
-Subject: [PATCH v3 1/1] stmmac: fix oops on rmmod after assigning ip addr
-Date: Thu, 16 Apr 2015 17:56:03 +0100
-Message-ID: <1429203363-10919-2-git-send-email-pure.logic@nexus-software.ie>
-References: <1429203363-10919-1-git-send-email-pure.logic@nexus-software.ie>
-Cc: andriy.shevchenko@linux.intel.com, hock.leong.kweh@intel.com,
-	boon.leong.ong@intel.com, dan.odonovan@emutex.com,
-	linux-kernel@vger.kernel.org,
-	Bryan O'Donoghue <pure.logic@nexus-software.ie>
-To: peppe.cavallaro@st.com, netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429203363-10919-1-git-send-email-pure.logic@nexus-software.ie>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH V1 net-next] IB/ipoib: Fix ndo_get_iflink
+Date: Thu, 16 Apr 2015 18:10:34 +0200
+Message-ID: <1429200634.4333.9.camel@opteya.com>
+References: <1429191274-11600-1-git-send-email-erezsh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1429191274-11600-1-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-An oops exists in the flow of stmmac_release().
-phy_ethtool_get_wol() depends on phydev->drv.
-phydev->drv will be null after stmmac_mdio_unreg() completes.
+Hi,
 
-Steps to reproduce on Quark X1000:
+Le jeudi 16 avril 2015 =C3=A0 16:34 +0300, Erez Shitrit a =C3=A9crit :
+> Currently, iflink of the parent interface was always accessed, even=20
+> when interface didn't have a parent and hence we crashed there.
 
-1. ifconfig eth0 192.168.0.1
-2. rmmod stmmac_pci
++ since commit 5aa7add8f14b ('infiniband/ipoib: implement
+ndo_get_iflink').
 
-To fix this stmmac_mdio_unreg() should be run after unregister_netdev().
+as there was no crash here before AFAIK.
 
-Signed-off-by: Bryan O'Donoghue <pure.logic@nexus-software.ie>
-Reported-by: Dan O'Donovan <dan.odonovan@emutex.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+>=20
+> Handle the interface types properly: for a child interface, return
+> the ifindex of the parent, for parent interface, return its ifindex.
+>=20
+> For child devices, make sure to set the parent pointer prior to
+> invoking register_netdevice(), this allows the new ndo to be called
+> by the stack immediately after the child device is registered.
+>=20
+> Fixes: 5aa7add8f14b ('infiniband/ipoib: implement ndo_get_iflink')
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 06103ca..6065173 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2970,15 +2970,15 @@ int stmmac_dvr_remove(struct net_device *ndev)
- 	priv->hw->dma->stop_tx(priv->ioaddr);
- 
- 	stmmac_set_mac(priv->ioaddr, false);
--	if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
--	    priv->pcs != STMMAC_PCS_RTBI)
--		stmmac_mdio_unregister(ndev);
- 	netif_carrier_off(ndev);
- 	unregister_netdev(ndev);
- 	if (priv->stmmac_rst)
- 		reset_control_assert(priv->stmmac_rst);
- 	clk_disable_unprepare(priv->pclk);
- 	clk_disable_unprepare(priv->stmmac_clk);
-+	if (priv->pcs != STMMAC_PCS_RGMII && priv->pcs != STMMAC_PCS_TBI &&
-+	    priv->pcs != STMMAC_PCS_RTBI)
-+		stmmac_mdio_unregister(ndev);
- 	free_netdev(ndev);
- 
- 	return 0;
--- 
-1.9.1
+Cc: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+
+> Reported-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
+>=20
+> changes from V0:
+>  - fixed two typos in the change-log
+>=20
+>  drivers/infiniband/ulp/ipoib/ipoib_main.c | 5 +++++
+>  drivers/infiniband/ulp/ipoib/ipoib_vlan.c | 3 +--
+>  2 files changed, 6 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infi=
+niband/ulp/ipoib/ipoib_main.c
+> index 657b89b..915ad04 100644
+> --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+> @@ -846,6 +846,11 @@ static int ipoib_get_iflink(const struct net_dev=
+ice *dev)
+>  {
+>  	struct ipoib_dev_priv *priv =3D netdev_priv(dev);
+> =20
+> +	/* parent interface */
+> +	if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
+> +		return dev->ifindex;
+> +
+> +	/* child/vlan interface */
+>  	return priv->parent->ifindex;
+>  }
+> =20
+> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infi=
+niband/ulp/ipoib/ipoib_vlan.c
+> index 4dd1313..fca1a88 100644
+> --- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+> +++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+> @@ -58,6 +58,7 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, =
+struct ipoib_dev_priv *priv,
+>  	/* MTU will be reset when mcast join happens */
+>  	priv->dev->mtu   =3D IPOIB_UD_MTU(priv->max_ib_mtu);
+>  	priv->mcast_mtu  =3D priv->admin_mtu =3D priv->dev->mtu;
+> +	priv->parent =3D ppriv->dev;
+>  	set_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags);
+> =20
+>  	result =3D ipoib_set_dev_features(priv, ppriv->ca);
+> @@ -84,8 +85,6 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, =
+struct ipoib_dev_priv *priv,
+>  		goto register_failed;
+>  	}
+> =20
+> -	priv->parent =3D ppriv->dev;
+> -
+>  	ipoib_create_debug_files(priv->dev);
+> =20
+>  	/* RTNL childs don't need proprietary sysfs entries */
+
+Regards.
+
+--=20
+Yann Droneaud
+OPTEYA
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
