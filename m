@@ -1,49 +1,75 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 4/6] net: hip04: Don't free the tx skb when the buffer is not ready for xmit
-Date: Thu, 16 Apr 2015 10:41:09 +0200
-Message-ID: <4971105.FJGVdDRE9f@wuerfel>
-References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <2218546.M1hzu1bzfh@wuerfel> <552F560D.4070309@huawei.com>
+From: George Dunlap <george.dunlap@eu.citrix.com>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance regression
+ on Xen
+Date: Thu, 16 Apr 2015 09:56:22 +0100
+Message-ID: <552F7936.9070205@eu.citrix.com>
+References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
+	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
+	 <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
+	 <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
+	 <1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <552E9E8D.1080000@eu.citrix.com>
+	 <1429118948.7346.114.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <552EA2BC.5000707@eu.citrix.com>
+	 <1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <552EA844.5010308@eu.citrix.com>
+ <1429121979.7346.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, grant.likely@linaro.org,
-	sergei.shtylyov@cogentembedded.com,
-	linux-arm-kernel@lists.infradead.org, eric.dumazet@gmail.com,
-	zhangfei.gao@linaro.org, joe@perches.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux@arm.linux.org.uk
-To: Ding Tianhong <dingtianhong@huawei.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Jonathan Davies <Jonathan.Davies@citrix.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"Stefano Stabellini" <stefano.stabellini@eu.citrix.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Paul Durrant" <paul.durrant@citrix.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	Felipe Franciosi <felipe.franciosi@citrix.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	David Vrabel <david.vrabel@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:60769 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750755AbbDPIlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 04:41:20 -0400
-In-Reply-To: <552F560D.4070309@huawei.com>
+Received: from smtp.citrix.com ([66.165.176.89]:7550 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753444AbbDPI4w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2015 04:56:52 -0400
+In-Reply-To: <1429121979.7346.138.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 16 April 2015 14:26:21 Ding Tianhong wrote:
-> On 2015/4/15 22:19, Arnd Bergmann wrote:
-> > On Wednesday 15 April 2015 20:30:06 Ding Tianhong wrote:
-> >> @@ -489,6 +487,8 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-> >>  
-> >>         /* Ensure tx_head update visible to tx reclaim */
-> >>         smp_wmb();
-> >> +       count++;
-> >> +       priv->tx_head = TX_NEXT(tx_head);
-> >>  
-> >>
-> > 
-> > Something is wrong here, the comment does not match the code any more, because
-> > the smp_wmb() won't actually make the tx_head update visible.
-> > 
-> >       Arnd
-> > 
-> Yes, the smp_wmb() could only make sure the tx buffer was ready to xmit.
+On 04/15/2015 07:19 PM, Eric Dumazet wrote:
+> On Wed, 2015-04-15 at 19:04 +0100, George Dunlap wrote:
+> 
+>> Maybe you should stop wasting all of our time and just tell us what
+>> you're thinking.
+> 
+> I think you make me wasting my time.
+> 
+> I already gave all the hints in prior discussions.
 
-The problem you need to avoid is that the tx reclaim function thinks it's
-done with all outstanding packets and does not retrigger, while the
-start_xmit thinks it will still get to that. This means you
-need a barrier between the priv->tx_head update and the
-napi_schedule_prep() call.
+Right, and I suggested these two options:
 
-	Arnd
+"Obviously one solution would be to allow the drivers themselves to set
+the tcp_limit_output_bytes, but that seems like a maintenance
+nightmare.
+
+"Another simple solution would be to allow drivers to indicate whether
+they have a high transmit latency, and have the kernel use a higher
+value by default when that's the case." [1]
+
+Neither of which you commented on.  Instead you pointed me to a comment
+that only partially described what the limitations were. (I.e., it
+described the "two packets or 1ms", but not how they related, nor how
+they related to the "max of 2 64k packets outstanding" of the default
+tcp_limit_output_bytes setting.)
+
+ -George
+
+
+[1]
+http://marc.info/?i=<CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
