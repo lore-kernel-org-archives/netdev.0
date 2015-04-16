@@ -1,89 +1,107 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 03/14] i40e: Add support to program FDir SB rules for
- VF from PF through ethtool
-Date: Wed, 15 Apr 2015 18:42:36 -0700
-Message-ID: <1429148556.2638.72.camel@jtkirshe-mobl>
-References: <1429073511-27664-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1429073511-27664-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAJ3xEMiKw2DBWhF5UQZ8yfCpPKAMuyZk18sQm9Z=QgPhG_DPqg@mail.gmail.com>
+From: Andy Walls <awalls@md.metrocast.net>
+Subject: Re: ioremap_uc() followed by set_memory_wc() - burrying MTRR
+Date: Wed, 15 Apr 2015 21:07:37 -0400
+Message-ID: <1429146457.1899.99.camel@palomino.walls.org>
+References: <CALCETrUG=RiG8S9Gpiqm_0CxvxurxLTNKyuyPoFNX46EAauA+g@mail.gmail.com>
+	 <CAB=NE6XgNgu7i2OiDxFVJLWiEjbjBY17-dV7L3yi2+yzgMhEbw@mail.gmail.com>
+	 <1428695379.6646.69.camel@misato.fc.hp.com>
+	 <20150410210538.GB5622@wotan.suse.de>
+	 <1428699490.21794.5.camel@misato.fc.hp.com>
+	 <CALCETrUP688aNjckygqO=AXXrNYvLQX6F0=b5fjmsCqqZU78+Q@mail.gmail.com>
+	 <20150411012938.GC5622@wotan.suse.de>
+	 <CALCETrXd19C6pARde3pv-4pt-i52APtw5xs20itwROPq9VmCfg@mail.gmail.com>
+	 <20150413174938.GE5622@wotan.suse.de>
+	 <1429137531.1899.28.camel@palomino.walls.org>
+	 <20150415235816.GG5622@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-TuzeGC8dqdMDO/lP0OA9"
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Matan Barak <matanb@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:28787 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751449AbbDPBmj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Apr 2015 21:42:39 -0400
-In-Reply-To: <CAJ3xEMiKw2DBWhF5UQZ8yfCpPKAMuyZk18sQm9Z=QgPhG_DPqg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-TuzeGC8dqdMDO/lP0OA9
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2015-04-15 at 11:58 +0300, Or Gerlitz wrote:
-> On Wed, Apr 15, 2015 at 7:51 AM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
-> > From: Anjali Singhai Jain <anjali.singhai@intel.com>
->=20
-> > With this patch we can now add Flow director Sideband rules for a VF
-> from
-> > it's PF. Here is an example on how it can be done when VF id =3D 5 and
-> > queue =3D 2:
-> >
-> > "ethtool -N ethx flow-type udp4 src-ip x.x.x.x dst-ip y.y.y.y
-> src-port p1 dst-port p2 action 2 user-def 5"
-> >
-> > User-def specifies VF id and action specifies queue.
->=20
-> Hi Jeff,
->=20
-> We're too eager to have support for PF controlled ACL / over-ruling VF
-> traffic.
->=20
-> I don't think the way to go here is just go an use the user-defined
-> "data" field of struct ethtool_flow_ext to represent a VF -- since VF
-> is well defined multiple vendor supported construct. At least in the
-> command line would be better to see "vf 5" and not "user-def 5" -- and
-> maybe also down into the user-kernel API somehow enhance the ethtool
-> flow related structures such that VF ID is specified?
-
-Thanks for the feedback Or, I will work with Anajali and Jesse to get
-your suggestions implemented in follow-on patches.
-
---=-TuzeGC8dqdMDO/lP0OA9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
+	Andy Lutomirski <luto@amacapital.net>,
+	Toshi Kani <toshi.kani@hp.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>,
+	linux-kernel@vger.kernel.org,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Suresh Siddha <sbsiddha@gmail.com>,
+	Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Mike Marciniszyn <mike.marciniszyn@intel.com>,
+	Roland Dreier <roland@purestorage.com>,
+	Juergen Gross <jgross@suse.com>,
+	Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
+	Borislav Petkov <bp@suse.de>, Mel Gorman <mgorman@suse.de>,
+	Vlastimil Babka <vbabka@suse.cz>,
+	Davidlohr Bueso <dbueso@suse.de>, dave.hansen@linux.intel.com,
+	plagnioj@jcrosoft.com, tglx@linutronix.de,
+	Ville =?ISO-8859-1?Q?Syrj=E4l=E4?= <syrjala@sci.fi>,
+	linux-fbdev@vger.kernel.org, linux-media@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <20150415235816.GG5622@wotan.suse.de>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+On Thu, 2015-04-16 at 01:58 +0200, Luis R. Rodriguez wrote:
+> Hey Andy, thanks for your review,  adding Hyong-Youb Kim for  review of the
+> full range ioremap_wc() idea below.
+> 
+> On Wed, Apr 15, 2015 at 06:38:51PM -0400, Andy Walls wrote:
+> > Hi All,
+> > 
+> > On Mon, 2015-04-13 at 19:49 +0200, Luis R. Rodriguez wrote:
+> > > From the beginning it seems only framebuffer devices used MTRR/WC,
+> > [snip]
+> > >  The ivtv device is a good example of the worst type of
+> > > situations and these days. So perhap __arch_phys_wc_add() and a
+> > > ioremap_ucminus() might be something more than transient unless hardware folks
+> > > get a good memo or already know how to just Do The Right Thing (TM).
+> > 
+> > Just to reiterate a subtle point, use of the ivtvfb is *optional*.  A
+> > user may or may not load it.  When the user does load the ivtvfb driver,
+> > the ivtv driver has already been initialized and may have functions of
+> > the card already in use by userspace.
+> 
+> I suspected this and its why I note that a rewrite to address a clean
+> split with separate ioremap seems rather difficult in this case.
+> 
+> > Hopefully no one is trying to use the OSD as framebuffer and the video
+> > decoder/output engine for video display at the same time. 
+> 
+> Worst case concern I have also is the implications of having overlapping
+> ioremap() calls (as proposed in my last reply) for different memory types
+> and having the different virtual memory addresse used by different parts
+> of the driver. Its not clear to me what the hardware implications of this
+> are.
+> 
+> >  But the video
+> > decoder/output device nodes may already be open for performing ioctl()
+> > functions so unmapping the decoder IO space out from under them, when
+> > loading the ivtvfb driver module, might not be a good thing. 
+> 
+> Using overlapping ioremap() calls with different memory types would address
+> this concern provided hardware won't barf both on the device and CPU. Hardware
+> folks could provide feedback or an ivtvfb user could test the patch supplied
+> on both non-PAT and PAT systems. Even so, who knows,  this might work on some
+> systems while not on others, only hardware folks would know.
 
-iQIcBAABCgAGBQJVLxOMAAoJEOVv75VaS+3OgVMP/0qRdJoX1UHgVThUtw4uR5ie
-YejMbk0Bct7ZGQ3R8dh43xUDpnryL0weZV6UuQUPpHTO7umxHvRtQfDo3SU21ajn
-CkjCY9ilUYfw1wLqijVLAkW44TOVFSqn0Puctvz2goN18kSvHYCZwUurBfN+DFZy
-0xesOJm9IG61pFwLBOZ7GFyslNKSfcpWEII8zyQHB3u+uKLXtL43ZnUAg+wjOhAC
-guw6nJBMZ0SeQPmz8puRKDH4QSIi2tcfHiNJOMcFwbV1XbbJlQFOULpkBXI2Mi1y
-onrRwXX8rqqAldeAfCdvhPKiOJzOpRBGsTnueUKICYOhz2sqX4jLcknxdlvxnOk+
-zDKJA5R62OO8ZItoOUWcuDggYSaqKKGEoL39CvSVtRx/lg8iTIxD7kazc7PlOaY0
-gqZot5MawPE0oozUVnJWdd59ReW6LhyBNBz7NergLQtil3mO1an41vl3UHNc/g3b
-iaTy1ZSJHpAvyDZxCs6fWJ1lr2Picw5vZMjDgc06aKF5fc6Fqk+4y13T5mfmBSqx
-+7XXxB8154vB7kti6IEPM+1sz7smwws8oO0VSbZhWOIBakNaz6iu/M/AWS/s+BKi
-xB+TPzGviRcfcsxA79H0phShuRKCFP1Ql6s/tr9Gq8YadnA/o5V7YjkFREsIbJuM
-7vhqggtybXpnRINOrkrQ
-=1p1U
------END PGP SIGNATURE-----
+The CX2341[56] firmware+hardware has a track record for being really
+picky about sytem hardware.  It's primary symptoms are for the DMA
+engine or Mailbox protocol to get hung up.  So yeah, it could barf
+easily on some users.
 
---=-TuzeGC8dqdMDO/lP0OA9--
+> An alternative... is to just ioremap_wc() the entire region, including
+> MMIO registers for these old devices.
+
+That's my thought; as long as implementing PCI write then read can force
+writes to be posted and that setting that many pages as WC doesn't cause
+some sort of PAT resource exhaustion. (I know very little about PAT).
+
+>  I see one ethernet driver that does
+> this, myri10ge, and am curious how and why they ended up deciding this
+> and if they have run into any issues. I wonder if this is a reasonable
+> comrpomise for these 2 remaining corner cases.
+> 
+>   Luis
+
+Regards,
+Andy
