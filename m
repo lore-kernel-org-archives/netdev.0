@@ -1,92 +1,38 @@
-From: George Dunlap <george.dunlap@eu.citrix.com>
-Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance regression
- on Xen
-Date: Thu, 16 Apr 2015 12:39:12 +0100
-Message-ID: <552F9F60.7090406@eu.citrix.com>
-References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
-	 <1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
-	 <CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
-	 <1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
-	 <1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <552E9E8D.1080000@eu.citrix.com>
-	 <1429119688.7346.123.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1504151846110.7690@kaball.uk.xensource.com>
- <1429121867.7346.136.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: pppoe relay and MAC address filtering
+Date: Thu, 16 Apr 2015 11:34:34 +0000
+Message-ID: <1429184073.12901.34.camel@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Jonathan Davies <Jonathan.Davies@citrix.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"Paul Durrant" <paul.durrant@citrix.com>,
-	Christoffer Dall <christoffer.dall@linaro.org>,
-	Felipe Franciosi <felipe.franciosi@citrix.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	"David Vrabel" <david.vrabel@citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:6004 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.transmode.se ([31.15.61.139]:61617 "EHLO smtp.transmode.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754399AbbDPLjn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2015 07:39:43 -0400
-In-Reply-To: <1429121867.7346.136.camel@edumazet-glaptop2.roam.corp.google.com>
+	id S1753747AbbDPLoD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 07:44:03 -0400
+Received: from exch2.transmode.se (exch2.transmode.se [192.168.203.24])
+	by smtp.transmode.se (Postfix) with ESMTP id C6F601186FE0
+	for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 13:34:34 +0200 (CEST)
+Content-Language: en-US
+Content-ID: <4243157921D27148AA88C455C6D7357B@transmode.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/15/2015 07:17 PM, Eric Dumazet wrote:
-> Do not expect me to fight bufferbloat alone. Be part of the challenge,
-> instead of trying to get back to proven bad solutions.
+I have create pppoe session over a pppoe relay socket:
+A B and C are Linux nodes, B impl. a relay socket so
+that A and B can create a pppoe session:
 
-I tried that.  I wrote a description of what I thought the situation
-was, so that you could correct me if my understanding was wrong, and
-then what I thought we could do about it.  You apparently didn't even
-read it, but just pointed me to a single cryptic comment that doesn't
-give me enough information to actually figure out what the situation is.
+A ifA---------ifB0 B ifB1----------ifC C
 
-We all agree that bufferbloat is a problem for everybody, and I can
-definitely understand the desire to actually make the situation better
-rather than dying the death of a thousand exceptions.
+Now I noticed that if ifB0 is in promisc mode it picks up other pppoe pkgs which
+are meant for some other pppoe session to another node(D) and relays this
+pkg to node C!
 
-If you want help fighting bufferbloat, you have to educate people to
-help you; or alternately, if you don't want to bother educating people,
-you have to fight it alone -- or lose the battle due to having a
-thousand exceptions.
+To me this looks like the pppoe relay socket does not check if the DST MAC on
+pppoe pkgs received over ifB0 matches ifB0 MAC address?
+Instead the relay socket happily relays any pppoe pkg as long as the session id matches.
 
-So, back to TSQ limits.  What's so magical about 2 packets being *in the
-device itself*?  And what does 1ms, or 2*64k packets (the default for
-tcp_limit_output_bytes), have anything to do with it?
+This feels like a bug to me, comments?
 
-Your comment lists three benefits:
-1. better RTT estimation
-2. faster recovery
-3. high rates
-
-#3 is just marketing fluff; it's also contradicted by the statement that
-immediately follows it -- i.e., there are drivers for which the
-limitation does *not* give high rates.
-
-#1, as far as I can tell, has to do with measuring the *actual* minimal
-round trip time of an empty pipe, rather than the round trip time you
-get when there's 512MB of packets in the device buffer.  If a device has
-a large internal buffer, then having a large number of packets
-outstanding means that the measured RTT is skewed.
-
-The goal here, I take it, is to have this "pipe" *exactly* full; having
-it significantly more than "full" is what leads to bufferbloat.
-
-#2 sounds like you're saying that if there are too many packets
-outstanding when you discover that you need to adjust things, that it
-takes a long time for your changes to have an effect; i.e., if you have
-5ms of data in the pipe, it will take at least 5ms for your reduced
-transmmission rate to actually have an effect.
-
-Is that accurate, or have I misunderstood something?
-
- -George
+  Jocke
