@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v3] skbuff: Do not scrub skb mark within the same name space
-Date: Thu, 16 Apr 2015 14:21:24 -0400 (EDT)
-Message-ID: <20150416.142124.1721494984301782904.davem@davemloft.net>
-References: <552E86A6.9000101@6wind.com>
-	<20150416010326.GA10864@gondor.apana.org.au>
-	<20150416083335.GE32170@casper.infradead.org>
+Subject: Re: Revert "net: Reset secmark when scrubbing packet"
+Date: Thu, 16 Apr 2015 14:21:35 -0400 (EDT)
+Message-ID: <20150416.142135.1372448954643242617.davem@davemloft.net>
+References: <20150416010326.GA10864@gondor.apana.org.au>
+	<alpine.LRH.2.11.1504161700130.23392@namei.org>
+	<20150416081253.GA13595@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, nicolas.dichtel@6wind.com,
-	netdev@vger.kernel.org, ebiederm@xmission.com, jmorris@namei.org,
-	linux-security-module@vger.kernel.org
-To: tgraf@suug.ch
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20150416083335.GE32170@casper.infradead.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jmorris@namei.org, nicolas.dichtel@6wind.com,
+	netdev@vger.kernel.org, ebiederm@xmission.com,
+	linux-security-module@vger.kernel.org, tgraf@suug.ch,
+	fbl@sysclose.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34599 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754197AbbDPSVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 14:21:37 -0400
+In-Reply-To: <20150416081253.GA13595@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 16 Apr 2015 09:33:35 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 16 Apr 2015 16:12:53 +0800
 
-> On 04/16/15 at 09:03am, Herbert Xu wrote:
->> The commit ea23192e8e577dfc51e0f4fc5ca113af334edff9 ("tunnels:
->> harmonize cleanup done on skb on rx path") broke anyone trying to
->> use netfilter marking across IPv4 tunnels.  While most of the
->> fields that are cleared by skb_scrub_packet don't matter, the
->> netfilter mark must be preserved.
+> On Thu, Apr 16, 2015 at 05:02:15PM +1000, James Morris wrote:
 >> 
->> This patch rearranges skb_scrub_packet to preserve the mark field.
->> 
->> Fixes: ea23192e8e57 ("tunnels: harmonize cleanup done on skb on rx path")
->> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>> They don't support namespaces, and maintaining the label is critical for 
+>> SELinux, at least, which mediates security for the system as a whole.
 > 
-> Acked-by: Thomas Graf <tgraf@suug.ch>
+> Thanks for the confirmation James, I thought this looked a bit
+> dodgy :)
 > 
-> We should also add a flag to veth which expclitly allows to preserve
-> the mark into the namespace.
+> ---8<---
+> This patch reverts commit b8fb4e0648a2ab3734140342002f68fb0c7d1602
+> because the secmark must be preserved even when a packet crosses
+> namespace boundaries.  The reason is that security labels apply to
+> the system as a whole and is not per-namespace.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied and queued up for -stable, thanks.
+Applied and queued up for -stable.
