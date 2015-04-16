@@ -1,38 +1,35 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] dsa: mv88e6xxx: Drop duplicate declaration of 'ret' variable
-Date: Thu, 16 Apr 2015 06:49:50 -0700
-Message-ID: <1429192190-31229-1-git-send-email-linux@roeck-us.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH -next] netns: remove duplicated include from net_namespace.c
+Date: Thu, 16 Apr 2015 16:12:06 +0200
+Message-ID: <552FC336.4000704@6wind.com>
+References: <1429190255-24722-1-git-send-email-weiyj_lk@163.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: weiyj_lk@163.com, "David S. Miller" <davem@davemloft.net>,
+	xiao jin <jin.xiao@intel.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:33172 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753668AbbDPOMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 10:12:09 -0400
+Received: by wgin8 with SMTP id n8so82145982wgi.0
+        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 07:12:08 -0700 (PDT)
+In-Reply-To: <1429190255-24722-1-git-send-email-weiyj_lk@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A duplicate declaration of 'ret' can result in hiding an error code.
-Drop it.
-
-Fixes: 17ee3e04ddbf ("net: dsa: Provide additional RMON statistics")
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
-Found by compiling the file with W=2.
-
- drivers/net/dsa/mv88e6xxx.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index f64186a5f634..12f186cb30cc 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -602,8 +602,6 @@ static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
- 		u32 high = 0;
- 
- 		if (s->reg >= 0x100) {
--			int ret;
--
- 			ret = mv88e6xxx_reg_read(ds, REG_PORT(port),
- 						 s->reg - 0x100);
- 			if (ret < 0)
--- 
-2.1.0
+Le 16/04/2015 15:17, weiyj_lk@163.com a =E9crit :
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+> Remove duplicated include.
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
