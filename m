@@ -1,38 +1,46 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [v3] skbuff: Do not scrub skb mark within the same name space
-Date: Thu, 16 Apr 2015 09:35:31 +0200
-Message-ID: <552F6643.4090206@6wind.com>
-References: <20150415100107.GA3655@gondor.apana.org.au> <552E3B7A.2040701@6wind.com> <20150415102229.GA3917@gondor.apana.org.au> <20150415135739.GA5534@gondor.apana.org.au> <552E86A6.9000101@6wind.com> <20150416010326.GA10864@gondor.apana.org.au> <alpine.LRH.2.11.1504161700130.23392@namei.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: Re: make mandocs build failure with next-20150407
+Date: Thu, 16 Apr 2015 09:43:50 +0200
+Message-ID: <20150416094350.2cf7e38b@lwn.net>
+References: <CA+r1Zhh1iwe4go+hOUwzngTphyareAvbooyRARihJa8LwbqHKg@mail.gmail.com>
+	<CALLJCT3E7V9eZ_5-kFY1StQ4t6h73EuEyDc8wRpgm1fGJXNnAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-security-module@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: James Morris <jmorris@namei.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:36424 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbbDPHfe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 03:35:34 -0400
-Received: by wizk4 with SMTP id k4so183477212wiz.1
-        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 00:35:33 -0700 (PDT)
-In-Reply-To: <alpine.LRH.2.11.1504161700130.23392@namei.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8bit
+Cc: Jim Davis <jim.epost@gmail.com>, emmanuel.grumbach@intel.com,
+	David Miller <davem@davemloft.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-doc <linux-doc@vger.kernel.org>, netdev@vger.kernel.org,
+	johannes.berg@intel.com
+To: Masanari Iida <standby24x7@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CALLJCT3E7V9eZ_5-kFY1StQ4t6h73EuEyDc8wRpgm1fGJXNnAg@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 16/04/2015 09:02, James Morris a =E9crit :
-> On Thu, 16 Apr 2015, Herbert Xu wrote:
-[snip]
->> PS I used the wrong email for James the first time around.  So
->> let me repeat the question here.  Should secmark be preserved
->> or cleared across tunnels within the same name space? In fact,
->> do our security models even support name spaces?
->
-> They don't support namespaces, and maintaining the label is critical =
-for
-> SELinux, at least, which mediates security for the system as a whole.
-Herbert, could you send a v4 of your patch with the secmark included?
+On Thu, 16 Apr 2015 08:33:15 +0900
+Masanari Iida <standby24x7@gmail.com> wrote:
+
+> On Wed, Apr 8, 2015 at 7:41 AM, Jim Davis <jim.epost@gmail.com> wrote:
+> >   DOCPROC Documentation/DocBook/80211.xml
+> > Error(.//include/net/mac80211.h:329): Cannot parse enum!
+> > Error(.//include/net/mac80211.h:367): Cannot parse enum!
+> > Warning(.//include/net/mac80211.h:381): No description found for
+> > parameter 'type'
+> > --  
+> 
+> This error start to appear on Linus's tree.
+> make xmldocs stops after this error.
+> Then run it again,  make xmldocs process rest of the files.
+> 
+> Add TO:  netdev and patch authors for reporting the issue.
+
+It's the result of some incomplete changes in the wireless tree; I sent a
+fix to Johannes that he applied a couple of days ago.  Once that hits
+mainline the problem should go away.
+
+Thanks,
+
+jon
