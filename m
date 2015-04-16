@@ -1,7 +1,7 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 09/16] netconsole: replace target_list_lock with console_lock
-Date: Thu, 16 Apr 2015 19:03:46 -0400
-Message-ID: <1429225433-11946-10-git-send-email-tj@kernel.org>
+Subject: [PATCH 13/16] netconsole: implement retransmission support for extended consoles
+Date: Thu, 16 Apr 2015 19:03:50 -0400
+Message-ID: <1429225433-11946-14-git-send-email-tj@kernel.org>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>
@@ -11,219 +11,322 @@ In-Reply-To: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netconsole has been using a spinlock - target_list_lock - to protect
-the list of configured netconsole targets and their enable/disable
-states.  With the disabling from netdevice_notifier moved off to a
-workqueue by the previous patch and thus outside of rtnl_lock,
-target_list_lock can be replaced with console_lock, which allows us to
-avoid grabbing an extra lock in the log write path and can simplify
-locking when involving other subsystems as console_lock is only
-trylocked from printk path.
+With extended netconsole, the logger can reliably determine which
+messages are missing.  This patch implements receiver for extended
+netconsole which accepts retransmission request packets coming into
+the the netconsole source port and sends back the requested messages.
 
-This patch replaces target_list_lock with console_lock.  The
-conversion is one-to-one except for write_msg().  The function is
-called with console_lock() already held so no further locking is
-necessary; however, as netpoll_send_udp() expects irq to be disabled,
-explicit irq save/restore pair is added around it.
+The receiving socket is automatically created when an extended console
+is enabled.  A poll_table with a custom callback is queued on the
+socket.  When a packet is received on the socket, a work item is
+scheduled which reads and parses the payload and sends back the
+requested ones.  A retransmission packet looks like the following.
+
+ nca <missing-seq> <missing-seq>...
+
+The receiver doesn't interfere with the normal transmission path.
+Even if something goes wrong with the network stack or receiver
+itself, the normal transmission path should keep working.
+
+This can be used to implement reliable netconsole logger.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/netconsole.c | 50 ++++++++++++++++++------------------------------
- 1 file changed, 19 insertions(+), 31 deletions(-)
+ drivers/net/netconsole.c | 238 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 238 insertions(+)
 
 diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index d355776..57c02ab 100644
+index 626d9f0..b2763e0 100644
 --- a/drivers/net/netconsole.c
 +++ b/drivers/net/netconsole.c
-@@ -73,12 +73,12 @@ static int __init option_setup(char *opt)
- __setup("netconsole=", option_setup);
- #endif	/* MODULE */
+@@ -45,7 +45,10 @@
+ #include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/netpoll.h>
++#include <linux/net.h>
+ #include <linux/inet.h>
++#include <linux/file.h>
++#include <linux/poll.h>
+ #include <linux/configfs.h>
+ #include <linux/etherdevice.h>
  
--/* Linked list of all configured targets */
-+/*
-+ * Linked list of all configured targets.  The list and each target's
-+ * enable/disable state are protected by console_lock.
-+ */
- static LIST_HEAD(target_list);
+@@ -89,6 +92,14 @@ static struct console netconsole_ext;
  
--/* This needs to be a spinlock because write_msg() cannot sleep */
--static DEFINE_SPINLOCK(target_list_lock);
--
+ static struct console netconsole;
+ 
++union sockaddr_in46 {
++	struct sockaddr		addr;
++	struct sockaddr_in6	in6;
++	struct sockaddr_in	in4;
++};
++
++static char *netconsole_ext_tx_buf;	/* CONSOLE_EXT_LOG_MAX */
++
  /**
   * struct netconsole_target - Represents a configured netconsole target.
   * @list:	Links this target into the target_list.
-@@ -325,7 +325,6 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 			     const char *buf,
- 			     size_t count)
- {
--	unsigned long flags;
- 	int enabled;
- 	int err;
+@@ -118,6 +129,14 @@ struct netconsole_target {
+ 	bool			disable_scheduled;
+ 	bool			extended;
+ 	struct netpoll		np;
++
++	/* response packet handling for extended netconsoles */
++	union sockaddr_in46	raddr;		/* logging target address */
++	struct file		*rx_file;	/* sock to receive responses */
++	poll_table		rx_ptable;	/* for polling the socket */
++	wait_queue_t		rx_wait;	/* ditto */
++	wait_queue_head_t	*rx_waitq;	/* ditto */
++	struct work_struct	rx_work;	/* receive & process packets */
+ };
  
-@@ -357,9 +356,9 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 		 * otherwise we might end up in write_msg() with
- 		 * nt->np.dev == NULL and nt->enabled == true
- 		 */
--		spin_lock_irqsave(&target_list_lock, flags);
-+		console_lock();
+ #ifdef	CONFIG_NETCONSOLE_DYNAMIC
+@@ -274,6 +293,219 @@ static void send_ext_msg_udp(struct netconsole_target *nt, const char *msg,
+ 	}
+ }
+ 
++static bool sockaddr_in46_equal(union sockaddr_in46 *a, union sockaddr_in46 *b)
++{
++	if (a->addr.sa_family != b->addr.sa_family)
++		return false;
++	if (a->in4.sin_port != b->in4.sin_port)
++		return false;
++	if (a->addr.sa_family == AF_INET &&
++	    memcmp(&a->in4.sin_addr, &b->in4.sin_addr, sizeof(a->in4.sin_addr)))
++		return false;
++	if (a->addr.sa_family == AF_INET6 &&
++	    memcmp(&a->in6.sin6_addr, &b->in6.sin6_addr, sizeof(a->in6.sin6_addr)))
++		return false;
++	return true;
++}
++
++/**
++ * netconsole_rx_work_fn - work function to handle netconsole ack packets
++ * @work: netconsole_target->rx_work
++ *
++ * This function is scheduled when packets are received on the source port
++ * of extended netconsole target and responds to ack messages from the
++ * remote logger.  An ack message has the following format.
++ *
++ * nca <missing-seq> <missing-seq> ...
++ *
++ * There can be any number of missing-seq's as long as the whole payload
++ * fits inside MAX_PRINT_CHUNK.  This function re-transmits each message
++ * matching the missing-seq's if available.  This can be used to implement
++ * reliable logging from the receiver side.
++ *
++ * The rx path doesn't interfere with the normal tx path except for when it
++ * actually sends out the messages, and that path doesn't depend on
++ * anything more working compared to the normal tx path.  As such, this
++ * shouldn't make netconsole any less robust when things start going south.
++ */
++static void netconsole_rx_work_fn(struct work_struct *work)
++{
++	struct netconsole_target *nt =
++		container_of(work, struct netconsole_target, rx_work);
++	union sockaddr_in46 raddr;
++	struct msghdr msgh = { .msg_name = &raddr.addr, };
++	struct kvec iov;
++	char *tx_buf = netconsole_ext_tx_buf;
++	char *rx_buf, *pos, *tok;
++	u64 seq;
++	int len;
++
++	rx_buf = kmalloc(MAX_PRINT_CHUNK + 1, GFP_KERNEL);
++	if (!rx_buf && printk_ratelimit()) {
++		pr_warning("failed to allocate RX buffer\n");
++		return;
++	}
++
++	iov.iov_base = rx_buf;
++	iov.iov_len = MAX_PRINT_CHUNK;
++repeat:
++	msgh.msg_namelen = sizeof(raddr);
++	len = kernel_recvmsg(sock_from_file(nt->rx_file, &len), &msgh, &iov, 1,
++			     MAX_PRINT_CHUNK, MSG_DONTWAIT);
++	if (len < 0) {
++		if (len != -EAGAIN && printk_ratelimit())
++			pr_warning("RX failed err=%d\n", len);
++		kfree(rx_buf);
++		return;
++	}
++
++	if (!sockaddr_in46_equal(msgh.msg_name, &nt->raddr)) {
++		if (printk_ratelimit())
++			pr_warning("stray packet from %pIS:%u\n",
++				   &raddr.addr, ntohs(raddr.in4.sin_port));
++		goto repeat;
++	}
++
++	rx_buf[len] = '\0';
++	pos = rx_buf;
++	tok = strsep(&pos, " ");
++
++	/* nca header */
++	if (strncmp(tok, "nca", 3)) {
++		if (printk_ratelimit())
++			pr_warning("malformed packet from %pIS:%u\n",
++				   &nt->raddr, ntohs(nt->raddr.in4.sin_port));
++		goto repeat;
++	}
++	tok += 3;
++
++	console_lock();
++
++	/* <missing-seq>... */
++	while ((tok = strsep(&pos, " "))) {
++		if (sscanf(tok, "%llu", &seq)) {
++			len = ext_log_from_seq(tx_buf, CONSOLE_EXT_LOG_MAX, seq);
++			if (len >= 0)
++				send_ext_msg_udp(nt, tx_buf, len);
++		}
++	}
++
++	console_unlock();
++	goto repeat;
++}
++
++static int netconsole_rx_wait_fn(wait_queue_t *wait, unsigned mode, int flags,
++				 void *key)
++{
++	struct netconsole_target *nt =
++		container_of(wait, struct netconsole_target, rx_wait);
++
++	schedule_work(&nt->rx_work);
++	return 0;
++}
++
++static void netconsole_rx_ptable_queue_fn(struct file *file,
++					  wait_queue_head_t *waitq,
++					  poll_table *ptable)
++{
++	struct netconsole_target *nt =
++		container_of(ptable, struct netconsole_target, rx_ptable);
++
++	nt->rx_waitq = waitq;
++	add_wait_queue(waitq, &nt->rx_wait);
++}
++
++static void netconsole_enable_rx(struct netconsole_target *nt)
++{
++	union sockaddr_in46 laddr = { }, raddr = { };
++	struct socket *sock;
++	struct file *file;
++	int addr_len, ret;
++
++	if (!netconsole_ext_tx_buf) {
++		char *buf;
++
++		buf = kmalloc(CONSOLE_EXT_LOG_MAX, GFP_KERNEL);
++		if (!buf) {
++			kfree(buf);
++			pr_warning("failed to allocate TX buffer\n");
++			return;
++		}
++
++		if (cmpxchg(&netconsole_ext_tx_buf, NULL, buf))
++			kfree(buf);
++	}
++
++	if (!nt->np.ipv6) {
++		laddr.in4.sin_family = AF_INET;
++		laddr.in4.sin_port = htons(nt->np.local_port);
++		laddr.in4.sin_addr = nt->np.local_ip.in;
++		raddr.in4.sin_family = AF_INET;
++		raddr.in4.sin_port = htons(nt->np.remote_port);
++		raddr.in4.sin_addr = nt->np.remote_ip.in;
++		addr_len = sizeof(laddr.in4);
++	} else {
++		laddr.in6.sin6_family = AF_INET6;
++		laddr.in6.sin6_port = htons(nt->np.local_port);
++		laddr.in6.sin6_addr = nt->np.local_ip.in6;
++		raddr.in6.sin6_family = AF_INET6;
++		raddr.in6.sin6_port = htons(nt->np.remote_port);
++		raddr.in6.sin6_addr = nt->np.remote_ip.in6;
++		addr_len = sizeof(laddr.in6);
++	}
++
++	ret = sock_create_kern(laddr.addr.sa_family, SOCK_DGRAM, IPPROTO_UDP,
++			       &sock);
++	if (ret) {
++		pr_warning("failed to create rx socket, err=%d\n", ret);
++		return;
++	}
++
++	file = sock_alloc_file(sock, 0, NULL);
++	if (IS_ERR(file)) {
++		pr_warning("failed to rx socket file, err=%ld\n", PTR_ERR(file));
++		sock_release(sock);
++		return;
++	}
++
++	ret = sock->ops->bind(sock, &laddr.addr, addr_len);
++	if (ret) {
++		pr_warning("failed to bind rx socket at %pIS:%u, err=%d\n",
++			   &laddr.addr, ntohs(laddr.in4.sin_port), ret);
++		fput(file);
++		return;
++	}
++
++	nt->raddr = raddr;
++	init_poll_funcptr(&nt->rx_ptable, netconsole_rx_ptable_queue_fn);
++	init_waitqueue_func_entry(&nt->rx_wait, netconsole_rx_wait_fn);
++	INIT_WORK(&nt->rx_work, netconsole_rx_work_fn);
++
++	ret = file->f_op->poll(file, &nt->rx_ptable);
++	if (ret < 0) {
++		pr_warning("failed to poll rx socket, err=%d\n", ret);
++		fput(file);
++		return;
++	}
++
++	if (ret & POLLIN)
++		schedule_work(&nt->rx_work);
++
++	nt->rx_file = file;
++}
++
++static void netconsole_disable_rx(struct netconsole_target *nt)
++{
++	if (!nt->rx_file)
++		return;
++
++	remove_wait_queue(nt->rx_waitq, &nt->rx_wait);
++	cancel_work_sync(&nt->rx_work);
++
++	fput(nt->rx_file);
++	nt->rx_file = NULL;
++}
++
+ static int netconsole_enable(struct netconsole_target *nt)
+ {
+ 	int err;
+@@ -285,6 +517,9 @@ static int netconsole_enable(struct netconsole_target *nt)
+ 	if (err)
+ 		return err;
+ 
++	if (nt->extended)
++		netconsole_enable_rx(nt);
++
+ 	console_lock();
+ 	nt->enabled = true;
+ 	console_unlock();
+@@ -305,6 +540,7 @@ static void netconsole_disable(struct netconsole_target *nt)
  		nt->enabled = false;
--		spin_unlock_irqrestore(&target_list_lock, flags);
-+		console_unlock();
+ 		console_unlock();
+ 
++		netconsole_disable_rx(nt);
  		netpoll_cleanup(&nt->np);
  	}
- 
-@@ -601,7 +600,6 @@ static struct config_item_type netconsole_target_type = {
- static struct config_item *make_netconsole_target(struct config_group *group,
- 						  const char *name)
- {
--	unsigned long flags;
- 	struct netconsole_target *nt;
- 
- 	nt = alloc_netconsole_target();
-@@ -612,9 +610,9 @@ static struct config_item *make_netconsole_target(struct config_group *group,
- 	config_item_init_type_name(&nt->item, name, &netconsole_target_type);
- 
- 	/* Adding, but it is disabled */
--	spin_lock_irqsave(&target_list_lock, flags);
-+	console_lock();
- 	list_add(&nt->list, &target_list);
--	spin_unlock_irqrestore(&target_list_lock, flags);
-+	console_unlock();
- 
- 	return &nt->item;
  }
-@@ -622,12 +620,11 @@ static struct config_item *make_netconsole_target(struct config_group *group,
- static void drop_netconsole_target(struct config_group *group,
- 				   struct config_item *item)
- {
--	unsigned long flags;
- 	struct netconsole_target *nt = to_target(item);
- 
--	spin_lock_irqsave(&target_list_lock, flags);
-+	console_lock();
- 	list_del(&nt->list);
--	spin_unlock_irqrestore(&target_list_lock, flags);
-+	console_unlock();
- 
- 	/*
- 	 * The target may have never been enabled, or was manually disabled
-@@ -664,11 +661,10 @@ static struct configfs_subsystem netconsole_subsys = {
- static void netconsole_deferred_disable_work_fn(struct work_struct *work)
- {
- 	struct netconsole_target *nt, *to_disable;
--	unsigned long flags;
- 
- repeat:
- 	to_disable = NULL;
--	spin_lock_irqsave(&target_list_lock, flags);
-+	console_lock();
- 	list_for_each_entry(nt, &target_list, list) {
- 		if (!nt->disable_scheduled)
- 			continue;
-@@ -682,7 +678,7 @@ repeat:
- 		to_disable = nt;
- 		break;
+@@ -974,6 +1210,8 @@ static void __init_or_module netconsole_destroy_all(void)
+ 		netconsole_disable(nt);
+ 		kfree(nt);
  	}
--	spin_unlock_irqrestore(&target_list_lock, flags);
-+	console_unlock();
- 
- 	if (to_disable) {
- 		netpoll_cleanup(&to_disable->np);
-@@ -698,7 +694,6 @@ static DECLARE_WORK(netconsole_deferred_disable_work,
- static int netconsole_netdev_event(struct notifier_block *this,
- 				   unsigned long event, void *ptr)
- {
--	unsigned long flags;
- 	struct netconsole_target *nt;
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 	bool stopped = false;
-@@ -707,7 +702,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 	      event == NETDEV_RELEASE || event == NETDEV_JOIN))
- 		goto done;
- 
--	spin_lock_irqsave(&target_list_lock, flags);
-+	console_lock();
- 	list_for_each_entry(nt, &target_list, list) {
- 		if (nt->np.dev == dev) {
- 			switch (event) {
-@@ -726,7 +721,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 			}
- 		}
- 	}
--	spin_unlock_irqrestore(&target_list_lock, flags);
-+	console_unlock();
- 	if (stopped) {
- 		const char *msg = "had an event";
- 		switch (event) {
-@@ -755,7 +750,6 @@ static struct notifier_block netconsole_netdev_notifier = {
- static void write_msg(struct console *con, const char *msg, unsigned int len)
- {
- 	int frag, left;
--	unsigned long flags;
- 	struct netconsole_target *nt;
- 	const char *tmp;
- 
-@@ -765,9 +759,7 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
- 	if (list_empty(&target_list))
- 		return;
- 
--	spin_lock_irqsave(&target_list_lock, flags);
- 	list_for_each_entry(nt, &target_list, list) {
--		netconsole_target_get(nt);
- 		if (nt->enabled && netif_running(nt->np.dev)) {
- 			/*
- 			 * We nest this inside the for-each-target loop above
-@@ -783,9 +775,7 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
- 				left -= frag;
- 			}
- 		}
--		netconsole_target_put(nt);
- 	}
--	spin_unlock_irqrestore(&target_list_lock, flags);
++
++	kfree(netconsole_ext_tx_buf);
  }
  
- static struct console netconsole = {
-@@ -798,7 +788,6 @@ static int __init init_netconsole(void)
- {
- 	int err;
- 	struct netconsole_target *nt, *tmp;
--	unsigned long flags;
- 	char *target_config;
- 	char *input = config;
- 
-@@ -812,9 +801,9 @@ static int __init init_netconsole(void)
- 			/* Dump existing printks when we register */
- 			netconsole.flags |= CON_PRINTBUFFER;
- 
--			spin_lock_irqsave(&target_list_lock, flags);
-+			console_lock();
- 			list_add(&nt->list, &target_list);
--			spin_unlock_irqrestore(&target_list_lock, flags);
-+			console_unlock();
- 		}
- 	}
- 
-@@ -839,8 +828,8 @@ fail:
- 
- 	/*
- 	 * Remove all targets and destroy them (only targets created
--	 * from the boot/module option exist here). Skipping the list
--	 * lock is safe here, and netpoll_cleanup() will sleep.
-+	 * from the boot/module option exist here). Skipping the console
-+	 * lock is safe here.
- 	 */
- 	list_for_each_entry_safe(nt, tmp, &target_list, list) {
- 		list_del(&nt->list);
-@@ -864,8 +853,7 @@ static void __exit cleanup_netconsole(void)
- 	 * and would first be rmdir(2)'ed from userspace. We reach
- 	 * here only when they are already destroyed, and only those
- 	 * created from the boot/module option are left, so remove and
--	 * destroy them. Skipping the list lock is safe here, and
--	 * netpoll_cleanup() will sleep.
-+	 * destroy them. Skipping the console lock is safe here.
- 	 */
- 	list_for_each_entry_safe(nt, tmp, &target_list, list) {
- 		list_del(&nt->list);
+ static int __init init_netconsole(void)
 -- 
 2.1.0
