@@ -1,44 +1,54 @@
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Subject: [PATCH] ethtool: return 1 as exit code on a settings(-s) failure.
-Date: Thu, 16 Apr 2015 13:55:09 -0700
-Message-ID: <1429217709-21625-1-git-send-email-sridhar.samudrala@intel.com>
-To: bwh@kernel.org, netdev@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH -next 0/3] net: cap size to original frag size when
+ refragmenting
+Date: Thu, 16 Apr 2015 22:55:48 +0200
+Message-ID: <20150416205547.GA4020@acer.localdomain>
+References: <20150413.135348.461869719021663434.davem@davemloft.net>
+ <20150416045622.GA12454@gondor.apana.org.au>
+ <20150416052357.GA3285@acer.localdomain>
+ <20150416.113218.1551818529213866015.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, fw@strlen.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12563 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753582AbbDPUxv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2015 16:53:51 -0400
+Received: from stinky.trash.net ([213.144.137.162]:39028 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753706AbbDPUzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 16:55:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20150416.113218.1551818529213866015.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently 0 is returned on both success or failure.
+On 16.04, David Miller wrote:
+> > Netfilter may change the contents of the packet, even change its size.
+> > It is *really* hard to do this while keeping the original fragments
+> > intact.
+> 
+> I keep hearing a lot of "it's hard" as the only reason we shouldn't do
+> this properly, and that frankly sucks.  People aren't looking for a
+> solution and to be honest it's quite tiring.
+> 
+> The common case is that the rules processed are simple, the size of
+> the overall packet does _not_ change, and therefore the best thing
+> to do is pass the entire thing as a unit with the frags in tact.
+> 
+> That's the fundamental fact.  It's also the fastest way to process
+> these packets and avoids all of these stupid max frag garbage.
+> 
+> Only at the point where netfilter makes changes to the size of the
+> packet does it take "ownership" and get to take on the responsibility
+> of making sure the new resulting fragments are sane.
+> 
+> But only at that point.
 
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
----
- ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Agreed, that part shouldn't be hard. We need to pass the defragmented
+skb through the ruleset, meaning we need to pass it through the stack.
+That's needed since the rules depend on this.
 
-diff --git a/ethtool.c b/ethtool.c
-index 01b13a6..163dff2 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2352,7 +2352,7 @@ static int do_sset(struct cmd_context *ctx)
- 	int argc = ctx->argc;
- 	char **argp = ctx->argp;
- 	int i;
--	int err;
-+	int err = 0;
- 
- 	for (i = 0; i < ARRAY_SIZE(flags_msglvl); i++)
- 		flag_to_cmdline_info(flags_msglvl[i].name,
-@@ -2665,7 +2665,7 @@ static int do_sset(struct cmd_context *ctx)
- 		}
- 	}
- 
--	return 0;
-+	return err ? 1 : 0;
- }
- 
- static int do_gregs(struct cmd_context *ctx)
--- 
-1.8.4.2
+If we don't make changes, we can spit out the original fragments, but
+for this we need to keep a reference to them from the skb. We still
+need the max_frag_size thing, once a modification is made we drop the
+frag list reference and just regulary refragment the modified skb
+according to the limits.
