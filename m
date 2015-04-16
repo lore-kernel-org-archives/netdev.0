@@ -1,66 +1,36 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 01/16] printk: guard the amount written per line by devkmsg_read()
-Date: Thu, 16 Apr 2015 19:03:38 -0400
-Message-ID: <1429225433-11946-2-git-send-email-tj@kernel.org>
+Subject: [PATCH 02/16] printk: factor out message formatting from devkmsg_read()
+Date: Thu, 16 Apr 2015 19:03:39 -0400
+Message-ID: <1429225433-11946-3-git-send-email-tj@kernel.org>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>, Kay Sievers <kay@vrfy.org>,
 	Petr Mladek <pmladek@suse.cz>
 To: akpm@linux-foundation.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:33518 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753666AbbDPXEU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:20 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1429225433-11946-1-git-send-email-tj@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-devkmsg_read() uses 8k buffer and assumes that the formatted output
-message won't overrun which seems safe given LOG_LINE_MAX, the current
-use of dict and the escaping method being used; however, we're
-planning to use devkmsg formatting wider and accounting for the buffer
-size properly isn't that complicated.
+The extended message formatting used for /dev/kmsg will be used
+implement extended consoles.  Factor out msg_print_ext_header() and
+msg_print_ext_body() from devkmsg_read().
 
-This patch defines CONSOLE_EXT_LOG_MAX as 8192 and updates
-devkmsg_read() so that it limits output accordingly.
+This is pure restructuring.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: Kay Sievers <kay@vrfy.org>
 Cc: Petr Mladek <pmladek@suse.cz>
 ---
- include/linux/printk.h |  2 ++
- kernel/printk/printk.c | 35 +++++++++++++++++++++++------------
- 2 files changed, 25 insertions(+), 12 deletions(-)
+ kernel/printk/printk.c | 157 ++++++++++++++++++++++++++-----------------------
+ 1 file changed, 85 insertions(+), 72 deletions(-)
 
-diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 9b30871..58b1fec 100644
---- a/include/linux/printk.h
-+++ b/include/linux/printk.h
-@@ -30,6 +30,8 @@ static inline const char *printk_skip_level(const char *buffer)
- 	return buffer;
- }
- 
-+#define CONSOLE_EXT_LOG_MAX	8192
-+
- /* printk's without a loglevel use this.. */
- #define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
- 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 879edfc..b6e24af 100644
+index b6e24af..5ea6709 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -512,7 +512,7 @@ struct devkmsg_user {
- 	u32 idx;
- 	enum log_flags prev;
- 	struct mutex lock;
--	char buf[8192];
-+	char buf[CONSOLE_EXT_LOG_MAX];
- };
- 
- static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
-@@ -565,11 +565,18 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
- 	return ret;
+@@ -505,6 +505,86 @@ int check_syslog_permissions(int type, bool from_file)
+ 	return security_syslog(type);
  }
  
 +static void append_char(char **pp, char *e, char c)
@@ -69,87 +39,188 @@ index 879edfc..b6e24af 100644
 +		*(*pp)++ = c;
 +}
 +
++static ssize_t msg_print_ext_header(char *buf, size_t size,
++				    struct printk_log *msg, u64 seq,
++				    enum log_flags prev_flags)
++{
++	u64 ts_usec = msg->ts_nsec;
++	char cont = '-';
++
++	do_div(ts_usec, 1000);
++
++	/*
++	 * If we couldn't merge continuation line fragments during the print,
++	 * export the stored flags to allow an optional external merge of the
++	 * records. Merging the records isn't always neccessarily correct, like
++	 * when we hit a race during printing. In most cases though, it produces
++	 * better readable output. 'c' in the record flags mark the first
++	 * fragment of a line, '+' the following.
++	 */
++	if (msg->flags & LOG_CONT && !(prev_flags & LOG_CONT))
++		cont = 'c';
++	else if ((msg->flags & LOG_CONT) ||
++		 ((prev_flags & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
++		cont = '+';
++
++	return scnprintf(buf, size, "%u,%llu,%llu,%c;",
++		       (msg->facility << 3) | msg->level, seq, ts_usec, cont);
++}
++
++static ssize_t msg_print_ext_body(char *buf, size_t size,
++				  char *dict, size_t dict_len,
++				  char *text, size_t text_len)
++{
++	char *p = buf, *e = buf + size;
++	size_t i;
++
++	/* escape non-printable characters */
++	for (i = 0; i < text_len; i++) {
++		unsigned char c = text[i];
++
++		if (c < ' ' || c >= 127 || c == '\\')
++			p += scnprintf(p, e - p, "\\x%02x", c);
++		else
++			append_char(&p, e, c);
++	}
++	append_char(&p, e, '\n');
++
++	if (dict_len) {
++		bool line = true;
++
++		for (i = 0; i < dict_len; i++) {
++			unsigned char c = dict[i];
++
++			if (line) {
++				append_char(&p, e, ' ');
++				line = false;
++			}
++
++			if (c == '\0') {
++				append_char(&p, e, '\n');
++				line = true;
++				continue;
++			}
++
++			if (c < ' ' || c >= 127 || c == '\\') {
++				p += scnprintf(p, e - p, "\\x%02x", c);
++				continue;
++			}
++
++			append_char(&p, e, c);
++		}
++		append_char(&p, e, '\n');
++	}
++
++	return p - buf;
++}
+ 
+ /* /dev/kmsg - userspace message inject/listen interface */
+ struct devkmsg_user {
+@@ -565,30 +645,17 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
+ 	return ret;
+ }
+ 
+-static void append_char(char **pp, char *e, char c)
+-{
+-	if (*pp < e)
+-		*(*pp)++ = c;
+-}
+-
  static ssize_t devkmsg_read(struct file *file, char __user *buf,
  			    size_t count, loff_t *ppos)
  {
  	struct devkmsg_user *user = file->private_data;
  	struct printk_log *msg;
-+	char *p, *e;
- 	u64 ts_usec;
- 	size_t i;
- 	char cont = '-';
-@@ -579,6 +586,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+-	char *p, *e;
+-	u64 ts_usec;
+-	size_t i;
+-	char cont = '-';
+ 	size_t len;
+ 	ssize_t ret;
+ 
  	if (!user)
  		return -EBADF;
  
-+	p = user->buf;
-+	e = user->buf + sizeof(user->buf);
-+
+-	p = user->buf;
+-	e = user->buf + sizeof(user->buf);
+-
  	ret = mutex_lock_interruptible(&user->lock);
  	if (ret)
  		return ret;
-@@ -625,9 +635,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
- 		cont = '+';
+@@ -618,71 +685,17 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+ 	}
  
--	len = sprintf(user->buf, "%u,%llu,%llu,%c;",
--		      (msg->facility << 3) | msg->level,
--		      user->seq, ts_usec, cont);
-+	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
-+		       (msg->facility << 3) | msg->level,
-+		       user->seq, ts_usec, cont);
+ 	msg = log_from_idx(user->idx);
+-	ts_usec = msg->ts_nsec;
+-	do_div(ts_usec, 1000);
+-
+-	/*
+-	 * If we couldn't merge continuation line fragments during the print,
+-	 * export the stored flags to allow an optional external merge of the
+-	 * records. Merging the records isn't always neccessarily correct, like
+-	 * when we hit a race during printing. In most cases though, it produces
+-	 * better readable output. 'c' in the record flags mark the first
+-	 * fragment of a line, '+' the following.
+-	 */
+-	if (msg->flags & LOG_CONT && !(user->prev & LOG_CONT))
+-		cont = 'c';
+-	else if ((msg->flags & LOG_CONT) ||
+-		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
+-		cont = '+';
++	len = msg_print_ext_header(user->buf, sizeof(user->buf),
++				   msg, user->seq, user->prev);
++	len += msg_print_ext_body(user->buf + len, sizeof(user->buf) - len,
++				  log_dict(msg), msg->dict_len,
++				  log_text(msg), msg->text_len);
+ 
+-	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
+-		       (msg->facility << 3) | msg->level,
+-		       user->seq, ts_usec, cont);
  	user->prev = msg->flags;
- 
- 	/* escape non-printable characters */
-@@ -635,11 +645,11 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 		unsigned char c = log_text(msg)[i];
- 
- 		if (c < ' ' || c >= 127 || c == '\\')
--			len += sprintf(user->buf + len, "\\x%02x", c);
-+			p += scnprintf(p, e - p, "\\x%02x", c);
- 		else
--			user->buf[len++] = c;
-+			append_char(&p, e, c);
- 	}
--	user->buf[len++] = '\n';
-+	append_char(&p, e, '\n');
- 
- 	if (msg->dict_len) {
- 		bool line = true;
-@@ -648,30 +658,31 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 			unsigned char c = log_dict(msg)[i];
- 
- 			if (line) {
--				user->buf[len++] = ' ';
-+				append_char(&p, e, ' ');
- 				line = false;
- 			}
- 
- 			if (c == '\0') {
--				user->buf[len++] = '\n';
-+				append_char(&p, e, '\n');
- 				line = true;
- 				continue;
- 			}
- 
- 			if (c < ' ' || c >= 127 || c == '\\') {
--				len += sprintf(user->buf + len, "\\x%02x", c);
-+				p += scnprintf(p, e - p, "\\x%02x", c);
- 				continue;
- 			}
- 
--			user->buf[len++] = c;
-+			append_char(&p, e, c);
- 		}
--		user->buf[len++] = '\n';
-+		append_char(&p, e, '\n');
- 	}
- 
+-
+-	/* escape non-printable characters */
+-	for (i = 0; i < msg->text_len; i++) {
+-		unsigned char c = log_text(msg)[i];
+-
+-		if (c < ' ' || c >= 127 || c == '\\')
+-			p += scnprintf(p, e - p, "\\x%02x", c);
+-		else
+-			append_char(&p, e, c);
+-	}
+-	append_char(&p, e, '\n');
+-
+-	if (msg->dict_len) {
+-		bool line = true;
+-
+-		for (i = 0; i < msg->dict_len; i++) {
+-			unsigned char c = log_dict(msg)[i];
+-
+-			if (line) {
+-				append_char(&p, e, ' ');
+-				line = false;
+-			}
+-
+-			if (c == '\0') {
+-				append_char(&p, e, '\n');
+-				line = true;
+-				continue;
+-			}
+-
+-			if (c < ' ' || c >= 127 || c == '\\') {
+-				p += scnprintf(p, e - p, "\\x%02x", c);
+-				continue;
+-			}
+-
+-			append_char(&p, e, c);
+-		}
+-		append_char(&p, e, '\n');
+-	}
+-
  	user->idx = log_next(user->idx);
  	user->seq++;
  	raw_spin_unlock_irq(&logbuf_lock);
  
-+	len = p - user->buf;
+-	len = p - user->buf;
  	if (len > count) {
  		ret = -EINVAL;
  		goto out;
