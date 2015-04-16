@@ -1,64 +1,36 @@
-From: Prashant <prashant@broadcom.com>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
-Date: Wed, 15 Apr 2015 19:53:16 -0700
-Message-ID: <552F241C.4080002@broadcom.com>
-References: <21795.62414.465476.464027@mariner.uk.xensource.com>	<1428425741.4212.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>	<21796.6843.983774.271495@mariner.uk.xensource.com>	<21796.7755.270785.292996@mariner.uk.xensource.com>	<1428448869.4212.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>	<1428448976.4720.15.camel@prashant>	<21797.13348.524963.29127@mariner.uk.xensource.com>	<1428543798.4720.20.camel@prashant>	<21798.24161.922394.539733@mariner.uk.xensource.com>	<1428595851.4720.22.camel@prashant>	<21798.44949.156680.399387@mariner.uk.xensource.com>	<21798.46590.928152.666550@mariner.uk.xensource.com>	<1428602883.4720.31.camel@prashant>	<21799.59138.666831.970946@mariner.uk.xensource.com>	<5528D4F0.6060203@broadcom.com> <21806.17257.971957.13215@mariner.uk.xensource.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
+ regression on Xen
+Date: Thu, 16 Apr 2015 12:20:06 +0800
+Message-ID: <20150416042005.GA12179@gondor.apana.org.au>
+References: <1429121867.7346.136.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
-	"Siva Reddy (Siva) Kallam" <siva.kallam@broadcom.com>,
-	Sanjeev Bansal <sanjeevb@broadcom.com>
-To: Ian Jackson <Ian.Jackson@eu.citrix.com>,
-	Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:62531 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752686AbbDPCxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Apr 2015 22:53:19 -0400
-In-Reply-To: <21806.17257.971957.13215@mariner.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stefano.stabellini@eu.citrix.com, george.dunlap@eu.citrix.com,
+	Jonathan.Davies@citrix.com, xen-devel@lists.xensource.com,
+	wei.liu2@citrix.com, Ian.Campbell@citrix.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	edumazet@google.com, paul.durrant@citrix.com,
+	christoffer.dall@linaro.org, felipe.franciosi@citrix.com,
+	linux-arm-kernel@lists.infradead.org, david.vrabel@citrix.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1429121867.7346.136.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> We already have netdev->gso_max_size and netdev->gso_max_segs
+> which are cached into sk->sk_gso_max_size & sk->sk_gso_max_segs
 
-On 4/15/2015 3:54 AM, Ian Jackson wrote:
-> Prashant writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
->> I tried to reproduce the problem on 32 bit 3.14.34 stable kernel
->> baremetal, with iommu=soft swiotlb=force but no luck, no drops or
->> errors. I did not try with Xen 64 bit yet. Btw I need a pcie analyzer
->> trace to confirm the problem. Is it feasible to capture at your end ?
->
-> In private correspondence with Prashant we have established that
-> Prashant was using a different kernel configuration.  Prashant
-> provided me with their kernel and module binaries, which work in my
-> environment.
->
-> I have also established that I can reproduce the problem with 3.14.37
-> (`iommu=soft swiotlb=force' baremetal => all rx wholly corrupted).
->
-> The kernel config I was using is here:
->    http://logs.test-lab.xenproject.org/osstest/logs/50387/build-i386-pvops/build/config
->
-> As far as I am aware no-one at Broadcom has attempted a build and test
-> using my kernel config.
->
+It is quite dangerous to attempt tricks like this because a
+tc redirection or netfilter nat could change the destination
+device rendering such hints incorrect.
 
-Ian, using your config we are able to recreate the problem that you are 
-seeing. The driver finds the RX data buffer to be all zero, with a 
-analyzer trace we are seeing the chip is DMA'ing valid RX data buffer 
-contents to the host but once the driver tries to read this DMA area, it 
-is seeing all zero's which is the reason of the corruption. This is only 
-for the RX data buffer, the RX descriptor and status block update DMA 
-regions are having valid contents.
-
-This is unlikely to be a chip or driver issue, as the chip is doing the 
-correct DMA but the corruption occurs before driver reads it. Would 
-request iommu experts to take a look and suggest what can be done next.
-
-We are more than willing to try any changes in the driver, I have added 
-few more team members who will work with you if needed. Thanks.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
