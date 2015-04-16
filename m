@@ -1,67 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/7] net: refactor __netif_receive_skb_core
-Date: Thu, 16 Apr 2015 06:49:05 +0100
-Message-ID: <20150416054904.GC3285@acer.localdomain>
-References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
- <1428668142-4006-2-git-send-email-pablo@netfilter.org>
- <5527D476.6030306@iogearbox.net>
- <20150415180927.4592eb6e@brouer.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 2/6] net: hip04: use the big endian for tx and
+ rx desc
+Date: Thu, 16 Apr 2015 14:25:26 +0800
+Message-ID: <552F55D6.1040307@huawei.com>
+References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-3-git-send-email-dingtianhong@huawei.com> <6631765.x1c1LvG6uN@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Jesper Dangaard Brouer <netdev@brouer.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150415180927.4592eb6e@brouer.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <grant.likely@linaro.org>,
+	<sergei.shtylyov@cogentembedded.com>,
+	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
+	<zhangfei.gao@linaro.org>, <joe@perches.com>,
+	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<linux@arm.linux.org.uk>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:22199 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946AbbDPGaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 02:30:03 -0400
+In-Reply-To: <6631765.x1c1LvG6uN@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15.04, Jesper Dangaard Brouer wrote:
-> > Out of curiosity, what is actually the performance impact on all
-> > of this? We were just arguing on a different matter on two more
-> > instructions in the fast-path, here it's refactoring the whole
-> > function into several ones, I presume gcc won't inline it.
+On 2015/4/15 22:13, Arnd Bergmann wrote:
+> On Wednesday 15 April 2015 20:30:04 Ding Tianhong wrote:
+>> The hip04 ethernet use the big endian for tx and rx, so set desc to
+>> big endian and remove the unused next_addr.
 > 
-> Pablo asked me to performance test this change.  Full test report below.
+> I don't understand:
 > 
-> The performance effect (of this patch) depend on the Gcc compiler
-> version.
+>> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+>> index b0a7f03..6473462 100644
+>> --- a/drivers/net/ethernet/hisilicon/hip04_eth.c
+>> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
+>> @@ -132,19 +132,18 @@
+>>  #define HIP04_MIN_TX_COALESCE_FRAMES   1
+>>  
+>>  struct tx_desc {
+>> -       u32 send_addr;
+>> -       u32 send_size;
+>> -       u32 next_addr;
+>> -       u32 cfg;
+>> -       u32 wb_addr;
+>> +       __be32 send_addr;
+>> +       __be32 send_size;
+>> +       __be32 cfg;
+>> +       __be32 wb_addr;
+>>  } __aligned(64);
 > 
-> Two tests:
->  1. IP-forwarding (unloaded netfilter modules)
->  2. Early drop in iptables "raw" table
+> I would think this is a hardware structure, does this not break
+> access to the cfg and wb_addr fields if you remove next_addr?
 > 
-> With GCC 4.4.7, which does not inline the new functions
-> (__netif_receive_skb_ingress and __netif_receive_skb_finish) the
-> performance impact/regression is definitly measurable.
+> 	Arnd
 > 
-> With GCC 4.4.7:
->  1. IP-forwarding: +25.18 ns (slower) (-27776 pps)
->  2. Early-drop   :  +7.55 ns (slower) (-66577 pps)
-> 
-> With GCC 4.9.1, the new functions gets inlined, thus the refactor
-> splitup of __netif_receive_skb_core() is basically "cancled".
-> Strangly there is a small improvement for forwarding, likely due to
-> some lucky assember reordering that give less icache/fetch-misses.
-> The early-drop improvement is below accuracy levels, can cannot be
-> trusted.
-> 
-> With GCC 4.9.1:
->  1. IP-forwarding: -10.05ns (faster) (+17532 pps)
->  2. Early-drop   :  -1.54ns (faster) (+16216 pps) below accuracy levels
-> 
-> I don't know what to conclude, as the result depend on the compiler
-> version... but these kind of change do affect performance, and should
-> be tested/measured.
+good cache, I make a mistake here, thanks.
 
-Thanks Jesper. This effect without inlinging was to be expected I guess.
-The interesting question would be a patch that uses nf_hook() without okfn
-callback, moves the ingress qdisc to register with the netfilter ingress
-hook and moves the TTL tracking of ing_filter() to the ingress qdisc,
-where it belongs.
-
-My expectation would be that this would result in an overall performance
-gain.
+> .
+> 
