@@ -1,63 +1,38 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH net 0/5] stmmac: Correct flow control configuration
-Date: Thu, 16 Apr 2015 09:22:58 +0200
-Message-ID: <552F6352.1020601@st.com>
-References: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [v3] skbuff: Do not scrub skb mark within the same name space
+Date: Thu, 16 Apr 2015 09:35:31 +0200
+Message-ID: <552F6643.4090206@6wind.com>
+References: <20150415100107.GA3655@gondor.apana.org.au> <552E3B7A.2040701@6wind.com> <20150415102229.GA3917@gondor.apana.org.au> <20150415135739.GA5534@gondor.apana.org.au> <552E86A6.9000101@6wind.com> <20150416010326.GA10864@gondor.apana.org.au> <alpine.LRH.2.11.1504161700130.23392@namei.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <vbridger@altera.com>
-To: Vince Bridgers <vbridger@opensource.altera.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-security-module@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: James Morris <jmorris@namei.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:36424 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751664AbbDPHfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 03:35:34 -0400
+Received: by wizk4 with SMTP id k4so183477212wiz.1
+        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 00:35:33 -0700 (PDT)
+In-Reply-To: <alpine.LRH.2.11.1504161700130.23392@namei.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vince
-
-On 4/15/2015 6:17 PM, Vince Bridgers wrote:
-> This series of patches corrects flow control configuration for the Synopsys
-> GMAC driver.
-
-Thx for these patches
-
-For the series
-
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-
-peppe
-
+Le 16/04/2015 09:02, James Morris a =E9crit :
+> On Thu, 16 Apr 2015, Herbert Xu wrote:
+[snip]
+>> PS I used the wrong email for James the first time around.  So
+>> let me repeat the question here.  Should secmark be preserved
+>> or cleared across tunnels within the same name space? In fact,
+>> do our security models even support name spaces?
 >
-> Flow control is configured based on a configurable receive fifo size. If
-> less than 4Kbytes flow control is left disabled and a warning is presented. If
-> a receive fifo size is not specified, flow control is left disabled to
-> maintain current behavior. Unicast pause detection was disabled, but is now
-> enabled. The pause time was modified to be maximum time per a XON/XOFF
-> flow control mode of operation.
->
-> This patch was tested on an Altera Cyclone 5 and an Altera Arria 10 devkit,
-> and verified that flow control operates as expected when enabled.
->
-> Please consider this series for inclusion so that flow control will
-> function as expected for the Synopsys GMAC controller.
->
-> Vince Bridgers (5):
->    stmmac: Add properties for transmit and receive fifo sizes
->    stmmac: Add defines and documentation for enabling flow control
->    stmmac: Read tx-fifo-depth and rx-fifo-depth from the devicetree
->    stmmac: Enable unicast pause frame detect in GMAC Register 6
->    stmmac: Configure Flow Control to work correctly based on rxfifo size
->
->   Documentation/devicetree/bindings/net/ethernet.txt |  6 +++
->   Documentation/devicetree/bindings/net/stmmac.txt   |  4 ++
->   drivers/net/ethernet/stmicro/stmmac/common.h       |  5 ++-
->   drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    | 51 ++++++++++++++++++++++
->   .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  5 ++-
->   .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    | 26 ++++++++++-
->   drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |  2 +-
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 16 ++++---
->   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  4 ++
->   include/linux/stmmac.h                             |  2 +
->   10 files changed, 111 insertions(+), 10 deletions(-)
->
+> They don't support namespaces, and maintaining the label is critical =
+for
+> SELinux, at least, which mediates security for the system as a whole.
+Herbert, could you send a v4 of your patch with the secmark included?
