@@ -1,37 +1,103 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
-Date: Wed, 15 Apr 2015 22:12:42 -0700
-Message-ID: <1429161162-2028-1-git-send-email-linux@roeck-us.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Guenter Roeck <linux@roeck-us.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
+Date: Thu, 16 Apr 2015 14:16:26 +0900
+Message-ID: <552F45AA.6010906@miraclelinux.com>
+References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
+To: Ulf Samuelsson <ulf.samuelsson@ericsson.com>, netdev@emagii.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og102.obsmtp.com ([64.18.2.157]:33784 "HELO
+	exprod7og102.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1750971AbbDPFQa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 01:16:30 -0400
+Received: by mail-pa0-f44.google.com with SMTP id tp1so76452389pab.2
+        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 22:16:29 -0700 (PDT)
+In-Reply-To: <5527892D.4020608@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Return correct error code if _mv88e6xxx_reg_read returns an error.
+Hi,
 
-Fixes: facd95b2e0ec0 ("net: dsa: mv88e6xxx: Add Hardware bridging support")
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/dsa/mv88e6xxx.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Ulf Samuelsson wrote:
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index fc8d3b6ffe8e..f64186a5f634 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -908,8 +908,10 @@ static int mv88e6xxx_set_port_state(struct dsa_switch *ds, int port, u8 state)
- 	mutex_lock(&ps->smi_mutex);
- 
- 	reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL);
--	if (reg < 0)
-+	if (reg < 0) {
-+		ret = reg;
- 		goto abort;
-+	}
- 
- 	oldstate = reg & PORT_CONTROL_STATE_MASK;
- 	if (oldstate != state) {
+> The desired functionality is that if communication stops,
+> you want to send out ARP probes, before the entry is deleted.
+> 
+> The current (pseudo) code of the neigh timer is:
+> 
+>     if (state & NUD_REACHABLE) {
+>         if (now <= "confirmed + "reachable_time")) {
+>                     ... /* We are OK */
+>         } else if (now < "used" + DELAY_PROBE_TIME) {    /* Never happens */
+>                     state = NUD_DELAY;
+>         } else {
+>             state = NUD_STALE;
+>             notify = 1;
+>         }
+> 
+> We never see the state beeing changed from REACHABLE to DELAY,
+> so the probes are not beeing sent out, instead you always go
+> from REACHABLE to STALE.
+
+That's right.
+
+
+> DELAY_PROBE_TIME is set to (5 x HZ) and "used"
+> seems to be only set by the periodic_work routine
+> when the neigh entry is in STALE state, and then it is too late.
+> It is also set by "arp_find" which is used by "broken" devices.
+> 
+
+In STALE state, neigh->used is set by neigh_event_send(), called
+by neigh_resolve_output() via neigh->output().
+
+
+> In practice, the second condition: "(now < "used" + DELAY_PROBE_TIME)" is never used.
+> What is the intention of this test?
+
+That's right.  It is NOT used in normal condition unless
+reachable time is too short.
+
+
+> 
+> By adding a new test + parameter, we would get the desired functionality,
+> and no need to listen for notifications or doing ARP state updates from applications.
+> 
+>         if (now <= "confirmed + "reachable_time")) {
+>                     ... /* We are OK */
+> +        else if (now <= "confirmed + "reprobe_time")) {
+> +                   state <= NUD_DELAY;
+>         } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never happens */
+>                     state <= NUD_DELAY;
+>         } else {
+>             state = NUD_STALE;
+>             notify = 1;
+>         }
+> 
+> This way the entry would remain in REACHABLE while normal communication occurs,
+> then it would enter DELAY state to probe, and if that fails, it goes to STALE state.
+
+No, it is not what REACHABLE and DELAY mean.
+
+>From RFC2461:
+
+|      REACHABLE   Roughly speaking, the neighbor is known to have been
+|                  reachable recently (within tens of seconds ago).
+:
+|      STALE       The neighbor is no longer known to be reachable but
+|                  until traffic is sent to the neighbor, no attempt
+|                  should be made to verify its reachability.
+|      DELAY       The neighbor is no longer known to be reachable, and
+|                  traffic has recently been sent to the neighbor.
+|                  Rather than probe the neighbor immediately, however,
+|                  delay sending probes for a short while in order to
+|                  give upper layer protocols a chance to provide
+|                  reachability confirmation.
+
+
 -- 
-2.1.0
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
