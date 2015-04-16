@@ -1,92 +1,119 @@
-From: George Dunlap <George.Dunlap@eu.citrix.com>
-Subject: Re: [Xen-devel] "tcp: refine TSO autosizing" causes performance
- regression on Xen
-Date: Thu, 16 Apr 2015 11:57:24 +0100
-Message-ID: <CAFLBxZYn1t8huXrLyXPhRO=B4fthsQy9J+3bVTU5-n9AsRS43w@mail.gmail.com>
-References: <alpine.DEB.2.02.1504091344260.7690@kaball.uk.xensource.com>
-	<1428596218.25985.263.camel@edumazet-glaptop2.roam.corp.google.com>
-	<alpine.DEB.2.02.1504091729160.7690@kaball.uk.xensource.com>
-	<CAFLBxZaVjFHh4UBnksGZS4waBr4jLdO8aJegyKvsU1-TvVt2Dg@mail.gmail.com>
-	<1428932970.3834.4.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAFLBxZYt7-v29ysm=f+5QMOw64_QhESjzj98udba+1cS-PfObA@mail.gmail.com>
-	<1429115934.7346.107.camel@edumazet-glaptop2.roam.corp.google.com>
-	<552E9E8D.1080000@eu.citrix.com>
-	<1429118948.7346.114.camel@edumazet-glaptop2.roam.corp.google.com>
-	<552EA2BC.5000707@eu.citrix.com>
-	<1429120373.7346.125.camel@edumazet-glaptop2.roam.corp.google.com>
-	<552EA844.5010308@eu.citrix.com>
-	<1429121979.7346.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<552F7936.9070205@eu.citrix.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB1F43C@AcuExch.aculab.com>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: Re: [PATCH] netns: deinline net_generic()
+Date: Thu, 16 Apr 2015 13:14:14 +0200
+Message-ID: <552F9986.30207@redhat.com>
+References: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com> <20150414.143747.1155055158701231768.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jonathan Davies <Jonathan.Davies@citrix.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Paul Durrant <paul.durrant@citrix.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Felipe Franciosi <felipe.franciosi@citrix.com>,
-	Christoffer Dall <christoffer.dall@linaro.org>,
-	David Vrabel <david.vrabel@citrix.com>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:33529 "EHLO
-	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754560AbbDPK5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 06:57:24 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB1F43C@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, jengelh@medozas.de, jpirko@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150414.143747.1155055158701231768.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 16, 2015 at 10:22 AM, David Laight <David.Laight@aculab.com> wrote:
-> ISTM that you are changing the wrong knob.
-> You need to change something that affects the global amount of pending tx data,
-> not the amount that can be buffered by a single connection.
+Hi David, Eric,
 
-Well it seems like the problem is that the global amount of pending tx
-data is high enough, but that the per-stream amount is too low for
-only a single stream.
+As you may have surmised, this patch wasn't a result of me looking
+at networking code; rather, it is a result of semi-automated search
+for huge inlines.
 
-> If you change tcp_limit_output_bytes and then have 1000 connections trying
-> to send data you'll suffer 'bufferbloat'.
+The last step of this process would be the submission of patches.
+I am expecting a range of responses from maintainers: enthusiastic,
+"no reply", "go away, I don't care about code size",
+and everything in between.
 
-Right -- so are you worried about the buffers in the local device
-here, or are you worried about buffers elsewhere in the network?
+I can't invest a large amount of effort trying to push
+every deinlining patch through. If someone, for example, would
+flat out refuse to fix a huge inline in his driver, so be it.
 
-If you're worried about buffers on the local device, don't you have a
-similar problem for physical NICs?  i.e., if a NIC has a big buffer
-that you're trying to keep mostly empty, limiting a single TCP stream
-may keep that buffer empty, but if you have 1000 connections,
-1000*limit will still fill up the buffer.
+I will be happy to run at least a few iterations over a patch
+if maintainers do see a merit in deinlining, but have some
+reservations wrt performance.
 
-Or am I missing something?
+Your response falls into the latter case (you aren't refusing the patch
+outright, but want it to be changed in some way).
 
-> If you call skb_orphan() in the tx setup path then the total number of
-> buffers is limited, but a single connection can (and will) will the tx
-> ring leading to incorrect RTT calculations and additional latency for
-> other connections.
-> This will give high single connection throughput but isn't ideal.
+It would help if you tell me how I should change the patches.
+
+(I also hope to have a semi-generic way of addressing
+performance concerns for future deinlining
+patch submissions.)
+
+
+On 04/14/2015 08:37 PM, David Miller wrote:
+> From: Denys Vlasenko <dvlasenk@redhat.com>
+> Date: Tue, 14 Apr 2015 14:25:11 +0200
+> 
+>> On x86 allyesconfig build:
+>> The function compiles to 130 bytes of machine code.
+>> It has 493 callsites.
+>> Total reduction of vmlinux size: 27906 bytes.
+>>
+>>    text      data      bss       dec     hex filename
+>> 82447071 22255384 20627456 125329911 77861f7 vmlinux4
+>> 82419165 22255384 20627456 125302005 777f4f5 vmlinux5
+>>
+>> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> 
+> That BUG_ON() was added 7 years ago, and I don't remember it ever
+> triggering or helping us diagnose something, so just remove it and
+> keep the function inlined.
+
+There are two BUG_ONs. I'll remove both of them in v2.
+Let me know if you want something else.
+
+However, without BUG_ONs, function is still a bit big
+on PREEMPT configs.
+
+Among almost 500 users, many probably aren't hot paths.
+
+How about having an inlined version, say, "fast_net_generic()",
+and a deinlined one, and using one or another as appropriate.
+Is this ok with you?
+
+
+On 04/14/2015 03:19 PM, Eric Dumazet wrote:
+> On Tue, 2015-04-14 at 14:25 +0200, Denys Vlasenko wrote:
+>> On x86 allyesconfig build:
+>> The function compiles to 130 bytes of machine code.
+>> It has 493 callsites.
+>> Total reduction of vmlinux size: 27906 bytes.
+>>
+>>    text	     data      bss       dec     hex filename
+>> 82447071 22255384 20627456 125329911 77861f7 vmlinux4
+>> 82419165 22255384 20627456 125302005 777f4f5 vmlinux5
 >
-> One possibility might be to call skb_orphan() when enough time has
-> elapsed since the packet was queued for transmit that it is very likely
-> to have actually been transmitted - even though 'transmit done' has
-> not yet been signalled.
-> Not at all sure how this would fit in though...
+> This sounds a big hammer to me.
+>
+> These savings probably comes from the BUG_ON() that could simply be
+> removed.
+> The second one for sure has no purpose. First one looks defensive.
+>
+> For a typical (non allyesconfig) kernel, net_generic() would translate
+> to :
+>
+> return net->gen[id - 1]
+>
+> Tunnels need this in fast path, so I presume we could introduce
+> net_generic_rcu() to keep this stuff inlined where it matters.
+>
+> static inline void *net_generic_rcu(const struct net *net, int id)
+> {
+> 	struct net_generic *ng = rcu_dereference(net->gen);
+>
+> 	return ng->ptr[id - 1];
+> }
 
-Right -- so it sounds like the problem with skb_orphan() is making
-sure that the tx ring is shared properly between different streams.
-That would mean that ideally we wouldn't call it until the tx ring
-actually had space to add more packets onto it.
+I looked at the code and I'm not feeling confident enough
+to find places where replacing net_generic() with
+net_generic_rcu() is okay.
 
-The Xen project is having a sort of developer meeting in a few weeks;
-if we can get a good picture of all the constraints, maybe we can hash
-out a solution that works for everyone.
+Would it be okay if I add net_generic_rcu() as you suggest,
+but leave it to you (network people) to switch to it where
+appropriate?
 
- -George
+-- 
+vda
