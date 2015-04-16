@@ -1,62 +1,63 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [v3] skbuff: Do not scrub skb mark within the same name space
-Date: Thu, 16 Apr 2015 17:02:15 +1000 (AEST)
-Message-ID: <alpine.LRH.2.11.1504161700130.23392@namei.org>
-References: <20150415100107.GA3655@gondor.apana.org.au> <552E3B7A.2040701@6wind.com> <20150415102229.GA3917@gondor.apana.org.au> <20150415135739.GA5534@gondor.apana.org.au> <552E86A6.9000101@6wind.com> <20150416010326.GA10864@gondor.apana.org.au>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net 0/5] stmmac: Correct flow control configuration
+Date: Thu, 16 Apr 2015 09:22:58 +0200
+Message-ID: <552F6352.1020601@st.com>
+References: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1665246916-1497334712-1429167736=:23392"
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	linux-security-module@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20150416010326.GA10864@gondor.apana.org.au>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <vbridger@altera.com>
+To: Vince Bridgers <vbridger@opensource.altera.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1429114662-1528-1-git-send-email-vbridger@opensource.altera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi Vince
 
---1665246916-1497334712-1429167736=:23392
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+On 4/15/2015 6:17 PM, Vince Bridgers wrote:
+> This series of patches corrects flow control configuration for the Synopsys
+> GMAC driver.
 
-On Thu, 16 Apr 2015, Herbert Xu wrote:
+Thx for these patches
 
-> On Wed, Apr 15, 2015 at 05:41:26PM +0200, Nicolas Dichtel wrote:
-> > Le 15/04/2015 15:57, Herbert Xu a écrit :
-> > >On Wed, Apr 15, 2015 at 06:22:29PM +0800, Herbert Xu wrote:
-> > [snip]
-> > >Subject: skbuff: Do not scrub skb mark within the same name space
-> > >
-> > >The commit ea23192e8e577dfc51e0f4fc5ca113af334edff9 ("tunnels:
-> > Maybe add a Fixes tag?
-> > Fixes: ea23192e8e57 ("tunnels: harmonize cleanup done on skb on rx path")
-> > 
-> > >harmonize cleanup done on skb on rx path") broke anyone trying to
-> > >use netfilter marking across IPv4 tunnels.  While most of the
-> > >fields that are cleared by skb_scrub_packet don't matter, the
-> > >netfilter mark must be preserved.
-> > >
-> > >This patch rearranges skb_scurb_packet to preserve the mark field.
-> > nit: s/scurb/scrub
-> > 
-> > Else it's fine for me.
-> 
-> Sure.
-> 
-> PS I used the wrong email for James the first time around.  So
-> let me repeat the question here.  Should secmark be preserved
-> or cleared across tunnels within the same name space? In fact,
-> do our security models even support name spaces?
+For the series
 
-They don't support namespaces, and maintaining the label is critical for 
-SELinux, at least, which mediates security for the system as a whole.
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
+peppe
 
--- 
-James Morris
-<jmorris@namei.org>
-
---1665246916-1497334712-1429167736=:23392--
+>
+> Flow control is configured based on a configurable receive fifo size. If
+> less than 4Kbytes flow control is left disabled and a warning is presented. If
+> a receive fifo size is not specified, flow control is left disabled to
+> maintain current behavior. Unicast pause detection was disabled, but is now
+> enabled. The pause time was modified to be maximum time per a XON/XOFF
+> flow control mode of operation.
+>
+> This patch was tested on an Altera Cyclone 5 and an Altera Arria 10 devkit,
+> and verified that flow control operates as expected when enabled.
+>
+> Please consider this series for inclusion so that flow control will
+> function as expected for the Synopsys GMAC controller.
+>
+> Vince Bridgers (5):
+>    stmmac: Add properties for transmit and receive fifo sizes
+>    stmmac: Add defines and documentation for enabling flow control
+>    stmmac: Read tx-fifo-depth and rx-fifo-depth from the devicetree
+>    stmmac: Enable unicast pause frame detect in GMAC Register 6
+>    stmmac: Configure Flow Control to work correctly based on rxfifo size
+>
+>   Documentation/devicetree/bindings/net/ethernet.txt |  6 +++
+>   Documentation/devicetree/bindings/net/stmmac.txt   |  4 ++
+>   drivers/net/ethernet/stmicro/stmmac/common.h       |  5 ++-
+>   drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    | 51 ++++++++++++++++++++++
+>   .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  5 ++-
+>   .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    | 26 ++++++++++-
+>   drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c |  2 +-
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 16 ++++---
+>   .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  4 ++
+>   include/linux/stmmac.h                             |  2 +
+>   10 files changed, 111 insertions(+), 10 deletions(-)
+>
