@@ -1,45 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH -next 0/3] net: cap size to original frag size when
- refragmenting
-Date: Thu, 16 Apr 2015 12:56:22 +0800
-Message-ID: <20150416045622.GA12454@gondor.apana.org.au>
-References: <20150413.135348.461869719021663434.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fw@strlen.de, netdev@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:36086 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752664AbbDPE4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 00:56:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20150413.135348.461869719021663434.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
+Date: Wed, 15 Apr 2015 22:12:42 -0700
+Message-ID: <1429161162-2028-1-git-send-email-linux@roeck-us.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Guenter Roeck <linux@roeck-us.net>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote:
-> 
-> Because then there is no ambiguity at all, you preserve on output
-> exactly what you had on input.  The same geometry, the same
-> everything.  No special checks, no max frag len, none of this crap.
-> Those are all hacks trying to work around the _fundamental_ issue
-> which is that we potentially change the thing when we refrag.
+Return correct error code if _mv88e6xxx_reg_read returns an error.
 
-Agreed.  Doing anything other than preserving the original geometry
-is simply wrong.
+Fixes: facd95b2e0ec0 ("net: dsa: mv88e6xxx: Add Hardware bridging support")
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/net/dsa/mv88e6xxx.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-However, this doesn't mean that netfilter has to process each
-fragment.  What we could do is to preserve the original fragments
-in frag_list and then process the overall skb as a unit in netfilter.
-
-On output we simply fragment according to the original frag_list.
-
-The only thing to watch out for is to eliminate anything in the
-middle that tries to linearise the skb.
-
-Cheers,
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index fc8d3b6ffe8e..f64186a5f634 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -908,8 +908,10 @@ static int mv88e6xxx_set_port_state(struct dsa_switch *ds, int port, u8 state)
+ 	mutex_lock(&ps->smi_mutex);
+ 
+ 	reg = _mv88e6xxx_reg_read(ds, REG_PORT(port), PORT_CONTROL);
+-	if (reg < 0)
++	if (reg < 0) {
++		ret = reg;
+ 		goto abort;
++	}
+ 
+ 	oldstate = reg & PORT_CONTROL_STATE_MASK;
+ 	if (oldstate != state) {
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.0
