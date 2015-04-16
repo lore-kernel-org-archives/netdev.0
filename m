@@ -1,38 +1,44 @@
-From: weiyj_lk@163.com
-Subject: [PATCH] rocker: fix error return code in rocker_probe()
-Date: Thu, 16 Apr 2015 20:21:02 +0800
-Message-ID: <1429186862-20989-1-git-send-email-weiyj_lk@163.com>
-Content-Type: text/plain; charset=ISO-8859-1
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netns: deinline net_generic()
+Date: Thu, 16 Apr 2015 05:38:15 -0700
+Message-ID: <1429187895.7346.195.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>
+	 <20150414.143747.1155055158701231768.davem@davemloft.net>
+	 <552F9986.30207@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>
+Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	jengelh@medozas.de, jpirko@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Denys Vlasenko <dvlasenk@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-16.163.com ([220.181.12.16]:60560 "EHLO m12-16.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752367AbbDPM10 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2015 08:27:26 -0400
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:35518 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753327AbbDPMiR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 08:38:17 -0400
+In-Reply-To: <552F9986.30207@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Thu, 2015-04-16 at 13:14 +0200, Denys Vlasenko wrote:
 
-Fix to return -EINVAL from the invalid PCI region size error
-handling case instead of 0, as done elsewhere in this function.
+> However, without BUG_ONs, function is still a bit big
+> on PREEMPT configs.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/rocker/rocker.c | 1 +
- 1 file changed, 1 insertion(+)
+Only on allyesconfig builds, that nobody use but to prove some points
+about code size.
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 5cecec2..0cc17f5 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4293,6 +4293,7 @@ static int rocker_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 
- 	if (pci_resource_len(pdev, 0) < ROCKER_PCI_BAR0_SIZE) {
- 		dev_err(&pdev->dev, "invalid PCI region size\n");
-+		err = -EINVAL;
- 		goto err_pci_resource_len_check;
- 	}
- 
+If you look at net_generic(), it is mostly used from code that is
+normally in 3 modules. How many people really load them ?
+
+net/tipc : 91 call sites
+net/sunrpc : 57
+fs/nfsd & fs/lockd : 183
+
+Then few remaining uses in tunnels.
+
+As we suggested, please just remove the BUG_ON().
+
+Then, if you can come up with a solution that does not slow down non
+PREEMPT kernel, why not.
