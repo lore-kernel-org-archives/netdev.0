@@ -1,314 +1,300 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 14/16] netconsole: implement ack handling and emergency transmission
-Date: Thu, 16 Apr 2015 19:03:51 -0400
-Message-ID: <1429225433-11946-15-git-send-email-tj@kernel.org>
+Subject: [PATCH 11/16] netconsole: consolidate enable/disable and create/destroy paths
+Date: Thu, 16 Apr 2015 19:03:48 -0400
+Message-ID: <1429225433-11946-12-git-send-email-tj@kernel.org>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>
 To: akpm@linux-foundation.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:33086 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753902AbbDPXEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:41 -0400
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:33107 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753887AbbDPXEh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:37 -0400
 In-Reply-To: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While the retransmission support added by the previous patch goes a
-long way towards enabling implementation of reliable remote logger, it
-depends on a lot larger part of the kernel working and there's no
-non-polling way of discovering whether the latest messages have been
-lost.
+netconsole management paths are scattered around in different places.
+This patch reorganizes them so that
 
-This patch implements an optional ack handling.  An extended remote
-logger can respond with a message formatted like the following.
+* All enable logic is in netconsole_enable() and disable in
+  netconsole_disable().  Both should be called with netconsole_mutex
+  held and netconsole_disable() may be invoked without intervening
+  enable.
 
- nca[<ack-seq>] <missing-seq> <missing-seq>...
+* alloc_param_target() now also handles linking the new target to
+  target_list.  It's renamed to create_param_target() and now returns
+  errno.
 
-The optional <ack-seq> enables ack handling.  Whenever ack lags
-transmission by more than ACK_TIMEOUT (10s), the netconsole target
-will retransmit all unacked messages with increasing interval (100ms
-between message at the beginning, exponentially backing out to 10s).
-This ensures that the remote logger has a very high chance of getting
-all the messages even after severe failures as long as the timer and
-netpoll are working.
+* store_enabled() now uses netconsole_enable/disable() instead of
+  open-coding the logic.  This also fixes the missing synchronization
+  against write path when manipulating ->enabled flag.
 
-This doesn't interfere with the normal transmission path.  Even if
-something goes wrong with timer, the normal transmission path should
-keep working.
+* drop_netconsole_target() and netconsole_deferred_disable_work_fn()
+  updated to use netconsole_disable().
 
-Emergency transmissions are marked with "emg=1" header.
+* init/cleanup_netconsole()'s destruction paths are consolidated into
+  netconsole_destroy_all() which uses netconsole_disable().
+  free_param_target() is no longer used and removed.
+
+While the conversions aren't one-to-one equivalent, this patch
+shouldn't cause any visible behavior differences and makes extension
+of the enable/disable logic a lot easier.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/netconsole.c | 136 +++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 127 insertions(+), 9 deletions(-)
+ drivers/net/netconsole.c | 147 +++++++++++++++++++++++++----------------------
+ 1 file changed, 79 insertions(+), 68 deletions(-)
 
 diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index b2763e0..82c8be0 100644
+index f0ac9f6..d72d902 100644
 --- a/drivers/net/netconsole.c
 +++ b/drivers/net/netconsole.c
-@@ -49,6 +49,7 @@
- #include <linux/inet.h>
- #include <linux/file.h>
- #include <linux/poll.h>
-+#include <linux/timer.h>
- #include <linux/configfs.h>
- #include <linux/etherdevice.h>
+@@ -83,6 +83,8 @@ static LIST_HEAD(target_list);
+ /* protects target creation/destruction and enable/disable */
+ static DEFINE_MUTEX(netconsole_mutex);
  
-@@ -59,6 +60,10 @@ MODULE_LICENSE("GPL");
- #define MAX_PARAM_LENGTH	256
- #define MAX_PRINT_CHUNK		1000
- 
-+#define ACK_TIMEOUT		(10 * HZ)
-+#define EMG_TX_MIN_INTV		(HZ / 10)
-+#define EMG_TX_MAX_INTV		HZ
++static struct console netconsole;
 +
- static char config[MAX_PARAM_LENGTH];
- module_param_string(netconsole, config, MAX_PARAM_LENGTH, 0);
- MODULE_PARM_DESC(netconsole, " netconsole=[src-port]@[src-ip]/[dev],[tgt-port]@<tgt-ip>/[tgt-macaddr]");
-@@ -137,6 +142,13 @@ struct netconsole_target {
- 	wait_queue_t		rx_wait;	/* ditto */
- 	wait_queue_head_t	*rx_waitq;	/* ditto */
- 	struct work_struct	rx_work;	/* receive & process packets */
-+
-+	/* ack handling and emergency transmission for extended netconsoles */
-+	unsigned long		ack_tstmp;	/* pending ack timestamp */
-+	u64			ack_seq;	/* last acked sequence */
-+	struct timer_list	ack_timer;	/* ack timeout */
-+	unsigned long		emg_tx_intv;	/* emergency tx interval */
-+	u64			emg_tx_seq;	/* current emg tx sequence */
- };
- 
- #ifdef	CONFIG_NETCONSOLE_DYNAMIC
-@@ -223,16 +235,17 @@ static struct netconsole_target *alloc_netconsole_target(void)
-  * @nt: target to send message to
-  * @msg: extended log message to send
-  * @msg_len: length of message
-+ * @emg_tx: is it for emergency transmission?
-  *
-  * Transfer extended log @msg to @nt.  If @msg is too long, it'll be split
-  * and transmitted in multiple chunks with ncfrag header field added to
-- * enable correct reassembly.
-+ * enable correct reassembly.  If @emg_tx, emg header field is added.
-  */
- static void send_ext_msg_udp(struct netconsole_target *nt, const char *msg,
--			     int msg_len)
-+			     int msg_len, bool emg_tx)
- {
- 	static char buf[MAX_PRINT_CHUNK];
--	const int max_extra_len = sizeof(",ncfrag=0000@00/00");
-+	const int max_extra_len = sizeof(",emg=1,ncfrag=0000@00/00");
- 	const char *header, *body;
- 	int header_len = msg_len, body_len = 0;
- 	int chunk_len, nr_chunks, i;
-@@ -240,7 +253,7 @@ static void send_ext_msg_udp(struct netconsole_target *nt, const char *msg,
- 	if (!nt->enabled || !netif_running(nt->np.dev))
- 		return;
- 
--	if (msg_len <= MAX_PRINT_CHUNK) {
-+	if (!emg_tx && msg_len <= MAX_PRINT_CHUNK) {
- 		netpoll_send_udp(&nt->np, msg, msg_len);
- 		return;
- 	}
-@@ -261,6 +274,8 @@ static void send_ext_msg_udp(struct netconsole_target *nt, const char *msg,
- 	/*
- 	 * Transfer possibly multiple chunks with extra header fields.
- 	 *
-+	 * For emergency transfers due to missing acks, add "emg=1".
-+	 *
- 	 * If @msg needs to be split to fit MAX_PRINT_CHUNK, add
- 	 * "ncfrag=<byte-offset>@<0-based-chunk-index>/<total-chunks>" to
- 	 * enable proper reassembly on receiver side.
-@@ -272,6 +287,10 @@ static void send_ext_msg_udp(struct netconsole_target *nt, const char *msg,
- 		int this_header = header_len;
- 		int this_chunk;
- 
-+		if (emg_tx)
-+			this_header += scnprintf(buf + this_header,
-+						 sizeof(buf) - this_header,
-+						 ",emg=1");
- 		if (nr_chunks > 1)
- 			this_header += scnprintf(buf + this_header,
- 						 sizeof(buf) - this_header,
-@@ -309,6 +328,78 @@ static bool sockaddr_in46_equal(union sockaddr_in46 *a, union sockaddr_in46 *b)
+ /**
+  * struct netconsole_target - Represents a configured netconsole target.
+  * @list:	Links this target into the target_list.
+@@ -192,8 +194,43 @@ static struct netconsole_target *alloc_netconsole_target(void)
+ 	return nt;
  }
  
- /**
-+ * netconsole_ack_timer_fn - timer function to handle netconsole ack timeouts
-+ * @data: netconsole_target
-+ *
-+ * For an extended netconsole, if the remote logger acked messages
-+ * previously but is failing to ack new messages for over ACK_TIMEOUT, this
-+ * timer kicks in for emergency transmission.
-+ *
-+ * The lack of ack may be caused by a number of things including the ack
-+ * packet being dropped or the network stack oopsing.  Whatever the cause
-+ * may be, we repeatedly retransmit the unacked message at increasing
-+ * interval which should allow the remote logger to eventually obtain all
-+ * messages as long as the packets are going out.
-+ *
-+ * This mechanism depends only on the timer and netpoll working.
-+ */
-+static void netconsole_ack_timer_fn(unsigned long data)
++static int netconsole_enable(struct netconsole_target *nt)
 +{
-+	struct netconsole_target *nt = (void *)data;
-+	unsigned long now = jiffies;
-+	unsigned long next_at;
-+	char *buf = netconsole_ext_tx_buf;
-+	u64 begin_seq, end_seq, seq;
-+	int len;
++	int err;
 +
-+	if (!console_trylock()) {
-+		mod_timer(&nt->ack_timer, now + 1);
-+		return;
-+	}
++	lockdep_assert_held(&netconsole_mutex);
++	WARN_ON_ONCE(nt->enabled);
 +
-+	log_seq_range(&begin_seq, &end_seq);
-+	if (nt->ack_seq == end_seq - 1) {
-+		nt->ack_tstmp = 0;
-+		next_at = now + ACK_TIMEOUT;
-+		goto out_unlock;
-+	}
-+	if (time_before(now, nt->ack_tstmp + ACK_TIMEOUT)) {
-+		next_at = nt->ack_tstmp + ACK_TIMEOUT;
-+		goto out_unlock;
-+	}
++	err = netpoll_setup(&nt->np);
++	if (err)
++		return err;
 +
-+	/* zero emg_tx_intv indicates that we're starting emergency tx */
-+	if (!nt->emg_tx_intv) {
-+		nt->emg_tx_intv = EMG_TX_MIN_INTV;
-+		nt->emg_tx_seq = nt->ack_seq + 1;
-+	}
-+
-+	seq = nt->emg_tx_seq;
-+	do {
-+		len = ext_log_from_seq(buf, CONSOLE_EXT_LOG_MAX, seq);
-+	} while (len < 0 && ++seq < end_seq);
-+
-+	if (len >= 0) {
-+		send_ext_msg_udp(nt, buf, len, true);
-+		seq++;
-+	}
-+
-+	nt->emg_tx_seq = seq;
-+
-+	if (nt->emg_tx_seq >= end_seq) {
-+		/* all messages transferred, bump up intv and repeat */
-+		nt->emg_tx_intv = min_t(unsigned long, 2 * nt->emg_tx_intv,
-+					EMG_TX_MAX_INTV);
-+		nt->emg_tx_seq = nt->ack_seq + 1;
-+	}
-+
-+	next_at = now + nt->emg_tx_intv;
-+out_unlock:
++	console_lock();
++	nt->enabled = true;
 +	console_unlock();
-+	mod_timer(&nt->ack_timer, next_at);
++	return 0;
 +}
 +
-+/**
-  * netconsole_rx_work_fn - work function to handle netconsole ack packets
-  * @work: netconsole_target->rx_work
-  *
-@@ -316,7 +407,7 @@ static bool sockaddr_in46_equal(union sockaddr_in46 *a, union sockaddr_in46 *b)
-  * of extended netconsole target and responds to ack messages from the
-  * remote logger.  An ack message has the following format.
-  *
-- * nca <missing-seq> <missing-seq> ...
-+ * nca[<ack-seq>] <missing-seq> <missing-seq> ...
-  *
-  * There can be any number of missing-seq's as long as the whole payload
-  * fits inside MAX_PRINT_CHUNK.  This function re-transmits each message
-@@ -327,6 +418,10 @@ static bool sockaddr_in46_equal(union sockaddr_in46 *a, union sockaddr_in46 *b)
-  * actually sends out the messages, and that path doesn't depend on
-  * anything more working compared to the normal tx path.  As such, this
-  * shouldn't make netconsole any less robust when things start going south.
-+ *
-+ * If <ack-seq> exists, emergency tx is enabled.  Whenever ack is lagging
-+ * by more than ACK_TIMEOUT, netconsole will repeatedly send out unacked
-+ * messages with increasing interval.  See netconsole_ack_timer_fn().
-  */
- static void netconsole_rx_work_fn(struct work_struct *work)
- {
-@@ -335,6 +430,7 @@ static void netconsole_rx_work_fn(struct work_struct *work)
- 	union sockaddr_in46 raddr;
- 	struct msghdr msgh = { .msg_name = &raddr.addr, };
- 	struct kvec iov;
-+	bool ack_was_enabled = nt->ack_seq;
- 	char *tx_buf = netconsole_ext_tx_buf;
- 	char *rx_buf, *pos, *tok;
- 	u64 seq;
-@@ -355,6 +451,9 @@ repeat:
- 	if (len < 0) {
- 		if (len != -EAGAIN && printk_ratelimit())
- 			pr_warning("RX failed err=%d\n", len);
-+		if (!ack_was_enabled && nt->ack_seq)
-+			pr_info("ACK timeout enabled for %pIS:%d\n",
-+				&nt->raddr.addr, ntohs(nt->raddr.in4.sin_port));
- 		kfree(rx_buf);
- 		return;
- 	}
-@@ -381,12 +480,25 @@ repeat:
- 
- 	console_lock();
- 
-+	/* <ack-seq> */
-+	if (sscanf(tok, "%llu", &seq)) {
-+		u64 begin_seq, end_seq;
++static void netconsole_disable(struct netconsole_target *nt)
++{
++	lockdep_assert_held(&netconsole_mutex);
 +
-+		log_seq_range(&begin_seq, &end_seq);
-+		if (seq && seq < end_seq) {
-+			nt->ack_seq = max(seq, nt->ack_seq);
-+			nt->emg_tx_intv = 0;
-+			if (!ack_was_enabled)
-+				mod_timer(&nt->ack_timer, jiffies);
-+		}
++	/*
++	 * We need to disable the netconsole before cleaning it up
++	 * otherwise we might end up in write_msg() with !nt->np.dev &&
++	 * nt->enabled.
++	 */
++	if (nt->enabled) {
++		console_lock();
++		nt->enabled = false;
++		console_unlock();
++
++		netpoll_cleanup(&nt->np);
 +	}
++}
 +
- 	/* <missing-seq>... */
- 	while ((tok = strsep(&pos, " "))) {
- 		if (sscanf(tok, "%llu", &seq)) {
- 			len = ext_log_from_seq(tx_buf, CONSOLE_EXT_LOG_MAX, seq);
- 			if (len >= 0)
--				send_ext_msg_udp(nt, tx_buf, len);
-+				send_ext_msg_udp(nt, tx_buf, len, false);
+ /* Allocate new target (from boot/module param) and setup netpoll for it */
+-static struct netconsole_target *alloc_param_target(char *target_config)
++static int create_param_target(char *target_config)
+ {
+ 	int err = -ENOMEM;
+ 	struct netconsole_target *nt;
+@@ -209,24 +246,26 @@ static struct netconsole_target *alloc_param_target(char *target_config)
+ 	if (err)
+ 		goto fail;
+ 
+-	err = netpoll_setup(&nt->np);
++	console_lock();
++	list_add(&nt->list, &target_list);
++	console_unlock();
++
++	err = netconsole_enable(nt);
+ 	if (err)
+-		goto fail;
++		goto fail_del;
+ 
+-	nt->enabled = true;
++	/* Dump existing printks when we register */
++	netconsole.flags |= CON_PRINTBUFFER;
+ 
+-	return nt;
++	return 0;
+ 
++fail_del:
++	console_lock();
++	list_del(&nt->list);
++	console_unlock();
+ fail:
+ 	kfree(nt);
+-	return ERR_PTR(err);
+-}
+-
+-/* Cleanup netpoll for given target (from boot/module param) and free it */
+-static void free_param_target(struct netconsole_target *nt)
+-{
+-	netpoll_cleanup(&nt->np);
+-	kfree(nt);
++	return err;
+ }
+ 
+ #ifdef	CONFIG_NETCONSOLE_DYNAMIC
+@@ -350,24 +389,15 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 		 */
+ 		netpoll_print_options(&nt->np);
+ 
+-		err = netpoll_setup(&nt->np);
++		err = netconsole_enable(nt);
+ 		if (err)
+ 			return err;
+ 
+ 		pr_info("netconsole: network logging started\n");
+ 	} else {	/* false */
+-		/* We need to disable the netconsole before cleaning it up
+-		 * otherwise we might end up in write_msg() with
+-		 * nt->np.dev == NULL and nt->enabled == true
+-		 */
+-		console_lock();
+-		nt->enabled = false;
+-		console_unlock();
+-		netpoll_cleanup(&nt->np);
++		netconsole_disable(nt);
+ 	}
+ 
+-	nt->enabled = enabled;
+-
+ 	return strnlen(buf, count);
+ }
+ 
+@@ -633,13 +663,7 @@ static void drop_netconsole_target(struct config_group *group,
+ 	list_del(&nt->list);
+ 	console_unlock();
+ 
+-	/*
+-	 * The target may have never been enabled, or was manually disabled
+-	 * before being removed so netpoll may have already been cleaned up.
+-	 */
+-	if (nt->enabled)
+-		netpoll_cleanup(&nt->np);
+-
++	netconsole_disable(nt);
+ 	config_item_put(&nt->item);
+ 	mutex_unlock(&netconsole_mutex);
+ }
+@@ -675,22 +699,16 @@ repeat:
+ 	to_disable = NULL;
+ 	console_lock();
+ 	list_for_each_entry(nt, &target_list, list) {
+-		if (!nt->disable_scheduled)
+-			continue;
+-		nt->disable_scheduled = false;
+-
+-		if (!nt->enabled)
+-			continue;
+-
+-		netconsole_target_get(nt);
+-		nt->enabled = false;
+-		to_disable = nt;
+-		break;
++		if (nt->disable_scheduled) {
++			nt->disable_scheduled = false;
++			netconsole_target_get(nt);
++			to_disable = nt;
++		}
+ 	}
+ 	console_unlock();
+ 
+ 	if (to_disable) {
+-		netpoll_cleanup(&to_disable->np);
++		netconsole_disable(to_disable);
+ 		netconsole_target_put(to_disable);
+ 		goto repeat;
+ 	}
+@@ -795,10 +813,23 @@ static struct console netconsole = {
+ 	.write	= write_msg,
+ };
+ 
++static void __init_or_module netconsole_destroy_all(void)
++{
++	struct netconsole_target *nt, *tmp;
++
++	lockdep_assert_held(&netconsole_mutex);
++
++	/* targets are already inactive, skipping the console lock is safe */
++	list_for_each_entry_safe(nt, tmp, &target_list, list) {
++		list_del(&nt->list);
++		netconsole_disable(nt);
++		kfree(nt);
++	}
++}
++
+ static int __init init_netconsole(void)
+ {
+ 	int err;
+-	struct netconsole_target *nt, *tmp;
+ 	char *target_config;
+ 	char *input = config;
+ 
+@@ -806,17 +837,9 @@ static int __init init_netconsole(void)
+ 
+ 	if (strnlen(input, MAX_PARAM_LENGTH)) {
+ 		while ((target_config = strsep(&input, ";"))) {
+-			nt = alloc_param_target(target_config);
+-			if (IS_ERR(nt)) {
+-				err = PTR_ERR(nt);
++			err = create_param_target(target_config);
++			if (err)
+ 				goto fail;
+-			}
+-			/* Dump existing printks when we register */
+-			netconsole.flags |= CON_PRINTBUFFER;
+-
+-			console_lock();
+-			list_add(&nt->list, &target_list);
+-			console_unlock();
  		}
  	}
  
-@@ -480,6 +592,7 @@ static void netconsole_enable_rx(struct netconsole_target *nt)
- 	init_poll_funcptr(&nt->rx_ptable, netconsole_rx_ptable_queue_fn);
- 	init_waitqueue_func_entry(&nt->rx_wait, netconsole_rx_wait_fn);
- 	INIT_WORK(&nt->rx_work, netconsole_rx_work_fn);
-+	setup_timer(&nt->ack_timer, netconsole_ack_timer_fn, (unsigned long)nt);
+@@ -838,12 +861,7 @@ undonotifier:
+ 	unregister_netdevice_notifier(&netconsole_netdev_notifier);
+ fail:
+ 	pr_err("cleaning up\n");
+-
+-	/* targets are already inactive, skipping the console lock is safe */
+-	list_for_each_entry_safe(nt, tmp, &target_list, list) {
+-		list_del(&nt->list);
+-		free_param_target(nt);
+-	}
++	netconsole_destroy_all();
+ 	mutex_unlock(&netconsole_mutex);
+ 	cancel_work_sync(&netconsole_deferred_disable_work);
+ 	return err;
+@@ -851,19 +869,12 @@ fail:
  
- 	ret = file->f_op->poll(file, &nt->rx_ptable);
- 	if (ret < 0) {
-@@ -501,6 +614,7 @@ static void netconsole_disable_rx(struct netconsole_target *nt)
+ static void __exit cleanup_netconsole(void)
+ {
+-	struct netconsole_target *nt, *tmp;
+-
+ 	mutex_lock(&netconsole_mutex);
  
- 	remove_wait_queue(nt->rx_waitq, &nt->rx_wait);
- 	cancel_work_sync(&nt->rx_work);
-+	del_timer_sync(&nt->ack_timer);
+ 	unregister_console(&netconsole);
+ 	dynamic_netconsole_exit();
+ 	unregister_netdevice_notifier(&netconsole_netdev_notifier);
+-
+-	/* targets are already inactive, skipping the console lock is safe */
+-	list_for_each_entry_safe(nt, tmp, &target_list, list) {
+-		list_del(&nt->list);
+-		free_param_target(nt);
+-	}
++	netconsole_destroy_all();
  
- 	fput(nt->rx_file);
- 	nt->rx_file = NULL;
-@@ -1148,9 +1262,13 @@ static void write_ext_msg(struct console *con, const char *msg,
- 	if ((oops_only && !oops_in_progress) || list_empty(&target_list))
- 		return;
- 
--	list_for_each_entry(nt, &target_list, list)
--		if (nt->extended)
--			send_ext_msg_udp(nt, msg, len);
-+	list_for_each_entry(nt, &target_list, list) {
-+		if (nt->extended) {
-+			send_ext_msg_udp(nt, msg, len, false);
-+			if (!nt->ack_tstmp)
-+				nt->ack_tstmp = jiffies ?: 1;
-+		}
-+	}
- }
- 
- static void write_msg(struct console *con, const char *msg, unsigned int len)
+ 	mutex_unlock(&netconsole_mutex);
+ 	cancel_work_sync(&netconsole_deferred_disable_work);
 -- 
 2.1.0
