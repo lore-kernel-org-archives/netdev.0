@@ -1,46 +1,42 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Subject: Re: make mandocs build failure with next-20150407
-Date: Thu, 16 Apr 2015 09:43:50 +0200
-Message-ID: <20150416094350.2cf7e38b@lwn.net>
-References: <CA+r1Zhh1iwe4go+hOUwzngTphyareAvbooyRARihJa8LwbqHKg@mail.gmail.com>
-	<CALLJCT3E7V9eZ_5-kFY1StQ4t6h73EuEyDc8wRpgm1fGJXNnAg@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [v3] skbuff: Do not scrub skb mark within the same name space
+Date: Thu, 16 Apr 2015 15:59:52 +0800
+Message-ID: <20150416075952.GA13496@gondor.apana.org.au>
+References: <20150415100107.GA3655@gondor.apana.org.au>
+ <552E3B7A.2040701@6wind.com>
+ <20150415102229.GA3917@gondor.apana.org.au>
+ <20150415135739.GA5534@gondor.apana.org.au>
+ <552E86A6.9000101@6wind.com>
+ <20150416010326.GA10864@gondor.apana.org.au>
+ <alpine.LRH.2.11.1504161700130.23392@namei.org>
+ <552F6643.4090206@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8bit
-Cc: Jim Davis <jim.epost@gmail.com>, emmanuel.grumbach@intel.com,
-	David Miller <davem@davemloft.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-doc <linux-doc@vger.kernel.org>, netdev@vger.kernel.org,
-	johannes.berg@intel.com
-To: Masanari Iida <standby24x7@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CALLJCT3E7V9eZ_5-kFY1StQ4t6h73EuEyDc8wRpgm1fGJXNnAg@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: James Morris <jmorris@namei.org>, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-security-module@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:46107 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753340AbbDPIAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 04:00:05 -0400
+Content-Disposition: inline
+In-Reply-To: <552F6643.4090206@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Apr 2015 08:33:15 +0900
-Masanari Iida <standby24x7@gmail.com> wrote:
+On Thu, Apr 16, 2015 at 09:35:31AM +0200, Nicolas Dichtel wrote:
+> Herbert, could you send a v4 of your patch with the secmark included?
 
-> On Wed, Apr 8, 2015 at 7:41 AM, Jim Davis <jim.epost@gmail.com> wrote:
-> >   DOCPROC Documentation/DocBook/80211.xml
-> > Error(.//include/net/mac80211.h:329): Cannot parse enum!
-> > Error(.//include/net/mac80211.h:367): Cannot parse enum!
-> > Warning(.//include/net/mac80211.h:381): No description found for
-> > parameter 'type'
-> > --  
-> 
-> This error start to appear on Linus's tree.
-> make xmldocs stops after this error.
-> Then run it again,  make xmldocs process rest of the files.
-> 
-> Add TO:  netdev and patch authors for reporting the issue.
+Actually this should go into a separate patch because it's a
+straight revert and also that unlike the mark this should never
+be cleared, even when you cross a namespace boundary.
 
-It's the result of some incomplete changes in the wireless tree; I sent a
-fix to Johannes that he applied a couple of days ago.  Once that hits
-mainline the problem should go away.
+But I will send a patch.
 
-Thanks,
-
-jon
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
