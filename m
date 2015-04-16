@@ -1,54 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH -next 0/3] net: cap size to original frag size when
- refragmenting
-Date: Thu, 16 Apr 2015 14:11:42 +0200
-Message-ID: <1429186302.1075929.254563877.238D8F77@webmail.messagingengine.com>
-References: <20150413.135348.461869719021663434.davem@davemloft.net>
- <20150416045622.GA12454@gondor.apana.org.au>
- <20150416052357.GA3285@acer.localdomain>
- <20150416052904.GA12648@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: weiyj_lk@163.com
+Subject: [PATCH -next] fou: Fix missing unlock on error in fou_nl_dump()
+Date: Thu, 16 Apr 2015 20:14:39 +0800
+Message-ID: <1429186479-20265-1-git-send-email-weiyj_lk@163.com>
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	WANG Cong <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:40596 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754513AbbDPMLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 08:11:42 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id 549D720FB4
-	for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 08:11:42 -0400 (EDT)
-In-Reply-To: <20150416052904.GA12648@gondor.apana.org.au>
+Received: from m12-15.163.com ([220.181.12.15]:59588 "EHLO m12-15.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754513AbbDPMPm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2015 08:15:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 16, 2015, at 07:29, Herbert Xu wrote:
-> On Thu, Apr 16, 2015 at 06:24:00AM +0100, Patrick McHardy wrote:
-> >
-> > Netfilter may change the contents of the packet, even change its size.
-> > It is *really* hard to do this while keeping the original fragments
-> > intact.
-> 
-> Perhaps we should provide better helpers to facilitate this?
-> 
-> So instead of directly manipulating the content of the skb you
-> would so so through helpers and the helpers can then try to do
-> sensible things with the fragments.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-When Florian and me started discussing how to solve this we also wanted
-to be as transparent as possible. But looking at all possible
-fragmentation scenarios, this seems to be too complicated.
+Add the missing unlock before return from function fou_nl_dump()
+in the error handling case.
 
-Even imagine a fragment with overlapping offsets and some of the
-fragments got duplicated. If we had to keep this in frag_list and now
-netfilter has to change any of this contents, this will become a total
-mess, like changing one port in multiple skbs at different offsets.
+Fixes: 7a6c8c34e5b7 (fou: implement FOU_CMD_GET)
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ net/ipv4/fou.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I doubt it is worth the effort.
-
-Thanks,
-Hannes
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index af150b4..6ca0182 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -711,7 +711,7 @@ static int fou_nl_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 				    cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 				    skb, FOU_CMD_GET);
+ 		if (ret)
+-			goto done;
++			break;
+ 	}
+ 	mutex_unlock(&fn->fou_lock);
+ 
