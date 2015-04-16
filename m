@@ -1,107 +1,49 @@
-From: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V1 net-next] IB/ipoib: Fix ndo_get_iflink
-Date: Thu, 16 Apr 2015 18:10:34 +0200
-Message-ID: <1429200634.4333.9.camel@opteya.com>
-References: <1429191274-11600-1-git-send-email-erezsh@mellanox.com>
+From: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Thu, 16 Apr 2015 18:15:47 +0100
+Message-ID: <21807.60995.462892.714138@mariner.uk.xensource.com>
+References: <21798.24161.922394.539733@mariner.uk.xensource.com>
+	<1428595851.4720.22.camel@prashant>
+	<21798.44949.156680.399387@mariner.uk.xensource.com>
+	<21798.46590.928152.666550@mariner.uk.xensource.com>
+	<1428602883.4720.31.camel@prashant>
+	<21799.59138.666831.970946@mariner.uk.xensource.com>
+	<5528D4F0.6060203@broadcom.com>
+	<21806.17257.971957.13215@mariner.uk.xensource.com>
+	<552F241C.4080002@broadcom.com>
+	<21807.35967.660396.209954@mariner.uk.xensource.com>
+	<20150416122420.GA4051@oc0812247204.ltc.br.ibm.com>
+	<1429202353.6668.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1429191274-11600-1-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <cascardo@linux.vnet.ibm.com>, Prashant <prashant@broadcom.com>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"Vlad Yasevich" <vyasevich@gmail.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
+	"Siva Reddy (Siva) Kallam" <siva.kallam@broadcom.com>,
+	Sanjeev Bansal <sanjeevb@broadcom.com>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:54226 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751530AbbDPRWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 13:22:38 -0400
+In-Reply-To: <1429202353.6668.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
+> On Thu, 2015-04-16 at 09:24 -0300, cascardo@linux.vnet.ibm.com wrote: 
+> > Yes, this looks like the driver is not syncing the DMA buffers. Unmap is
+> > supposed to synchronize as well.
+> 
+> For small rx packets (< 256 bytes), we sync the DMA buffer before we
+> copy the data to another SKB.  For larger packets, we unmap the DMA
+> buffer.  Do we see the corruption in both cases?
 
-Le jeudi 16 avril 2015 =C3=A0 16:34 +0300, Erez Shitrit a =C3=A9crit :
-> Currently, iflink of the parent interface was always accessed, even=20
-> when interface didn't have a parent and hence we crashed there.
+Yes, at least with swiotlb=force iommu=soft.
 
-+ since commit 5aa7add8f14b ('infiniband/ipoib: implement
-ndo_get_iflink').
-
-as there was no crash here before AFAIK.
-
->=20
-> Handle the interface types properly: for a child interface, return
-> the ifindex of the parent, for parent interface, return its ifindex.
->=20
-> For child devices, make sure to set the parent pointer prior to
-> invoking register_netdevice(), this allows the new ndo to be called
-> by the stack immediately after the child device is registered.
->=20
-> Fixes: 5aa7add8f14b ('infiniband/ipoib: implement ndo_get_iflink')
-
-Cc: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-
-> Reported-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
->=20
-> changes from V0:
->  - fixed two typos in the change-log
->=20
->  drivers/infiniband/ulp/ipoib/ipoib_main.c | 5 +++++
->  drivers/infiniband/ulp/ipoib/ipoib_vlan.c | 3 +--
->  2 files changed, 6 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infi=
-niband/ulp/ipoib/ipoib_main.c
-> index 657b89b..915ad04 100644
-> --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> @@ -846,6 +846,11 @@ static int ipoib_get_iflink(const struct net_dev=
-ice *dev)
->  {
->  	struct ipoib_dev_priv *priv =3D netdev_priv(dev);
-> =20
-> +	/* parent interface */
-> +	if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
-> +		return dev->ifindex;
-> +
-> +	/* child/vlan interface */
->  	return priv->parent->ifindex;
->  }
-> =20
-> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infi=
-niband/ulp/ipoib/ipoib_vlan.c
-> index 4dd1313..fca1a88 100644
-> --- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-> +++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-> @@ -58,6 +58,7 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, =
-struct ipoib_dev_priv *priv,
->  	/* MTU will be reset when mcast join happens */
->  	priv->dev->mtu   =3D IPOIB_UD_MTU(priv->max_ib_mtu);
->  	priv->mcast_mtu  =3D priv->admin_mtu =3D priv->dev->mtu;
-> +	priv->parent =3D ppriv->dev;
->  	set_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags);
-> =20
->  	result =3D ipoib_set_dev_features(priv, ppriv->ca);
-> @@ -84,8 +85,6 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, =
-struct ipoib_dev_priv *priv,
->  		goto register_failed;
->  	}
-> =20
-> -	priv->parent =3D ppriv->dev;
-> -
->  	ipoib_create_debug_files(priv->dev);
-> =20
->  	/* RTNL childs don't need proprietary sysfs entries */
-
-Regards.
-
---=20
-Yann Droneaud
-OPTEYA
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ian.
