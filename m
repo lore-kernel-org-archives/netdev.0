@@ -1,208 +1,317 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 10/16] netconsole: introduce netconsole_mutex
-Date: Thu, 16 Apr 2015 19:03:47 -0400
-Message-ID: <1429225433-11946-11-git-send-email-tj@kernel.org>
+Subject: [PATCH 12/16] netconsole: implement extended console support
+Date: Thu, 16 Apr 2015 19:03:49 -0400
+Message-ID: <1429225433-11946-13-git-send-email-tj@kernel.org>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>
 To: akpm@linux-foundation.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:35851 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753865AbbDPXEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:35 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1429225433-11946-1-git-send-email-tj@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-console_lock protects the target_list itself and setting and clearing
-of its ->enabled flag; however, nothing protects the overall
-enable/disable operations which we'll need to make netconsole
-management more dynamic for the scheduled reliable transmission
-support.  Also, an earlier patch introduced a small race window where
-dynamic console disable may compete against asynchronous disable
-kicked off from netdevice_notifier.
+netconsole transmits raw console messages using one or multiple UDP
+packets and there's no way to find out whether the packets are lost in
+transit or received out of order.  Depending on the setup, this can
+make the logging significantly unreliable and untrustworthy.
 
-This patch adds netconsole_mutex which protects all target
-create/destroy and enable/disable operations.  It also replaces
-netconsole_target->mutex used by dynamic consoles.  The above
-mentioned race is removed by this change.
+With the new extended console support, printk now can be told to
+expose log metadata including the message sequence number to console
+drivers which can be used by log receivers to determine whether and
+which messages are missing and reorder messages received out of order.
+
+This patch implements extended console support for netconsole which
+can be enabled by either prepending "+" to a netconsole boot param
+entry or echoing 1 to "extended" file in configfs.  When enabled,
+netconsole transmits extended log messages with headers identical to
+/dev/kmsg output.
+
+netconsole may have to split a single messages to multiple fragments.
+In this case, if the extended mode is enabled, an optional header of
+the form "ncfrag=OFF@IDX/NR" is added to each fragment where OFF is
+the byte offset of the message body, IDX is the 0-based fragment index
+and NR is the number of total fragments for this message.
+
+To avoid unnecessarily forcing printk to format extended messages,
+extended netconsole is registered with printk iff it's actually used.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/netconsole.c | 48 ++++++++++++++++++++++++++++--------------------
- 1 file changed, 28 insertions(+), 20 deletions(-)
+ drivers/net/netconsole.c | 159 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 158 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 57c02ab..f0ac9f6 100644
+index d72d902..626d9f0 100644
 --- a/drivers/net/netconsole.c
 +++ b/drivers/net/netconsole.c
-@@ -75,10 +75,14 @@ __setup("netconsole=", option_setup);
+@@ -83,6 +83,10 @@ static LIST_HEAD(target_list);
+ /* protects target creation/destruction and enable/disable */
+ static DEFINE_MUTEX(netconsole_mutex);
  
- /*
-  * Linked list of all configured targets.  The list and each target's
-- * enable/disable state are protected by console_lock.
-+ * enable/disable state are protected by both netconsole_mutex and
-+ * console_lock.
-  */
- static LIST_HEAD(target_list);
- 
-+/* protects target creation/destruction and enable/disable */
-+static DEFINE_MUTEX(netconsole_mutex);
++static bool netconsole_ext_used_during_init;
++static bool netconsole_ext_registered;
++static struct console netconsole_ext;
 +
+ static struct console netconsole;
+ 
  /**
-  * struct netconsole_target - Represents a configured netconsole target.
-  * @list:	Links this target into the target_list.
-@@ -106,7 +110,6 @@ struct netconsole_target {
+@@ -112,6 +116,7 @@ struct netconsole_target {
  #endif
  	bool			enabled;
  	bool			disable_scheduled;
--	struct mutex		mutex;
++	bool			extended;
  	struct netpoll		np;
  };
  
-@@ -184,7 +187,6 @@ static struct netconsole_target *alloc_netconsole_target(void)
- 	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
- 	nt->np.local_port = 6665;
- 	nt->np.remote_port = 6666;
--	mutex_init(&nt->mutex);
- 	eth_broadcast_addr(nt->np.remote_mac);
- 
+@@ -194,6 +199,81 @@ static struct netconsole_target *alloc_netconsole_target(void)
  	return nt;
-@@ -196,6 +198,8 @@ static struct netconsole_target *alloc_param_target(char *target_config)
- 	int err = -ENOMEM;
- 	struct netconsole_target *nt;
+ }
  
-+	lockdep_assert_held(&netconsole_mutex);
++/**
++ * send_ext_msg_udp - send extended log message to target
++ * @nt: target to send message to
++ * @msg: extended log message to send
++ * @msg_len: length of message
++ *
++ * Transfer extended log @msg to @nt.  If @msg is too long, it'll be split
++ * and transmitted in multiple chunks with ncfrag header field added to
++ * enable correct reassembly.
++ */
++static void send_ext_msg_udp(struct netconsole_target *nt, const char *msg,
++			     int msg_len)
++{
++	static char buf[MAX_PRINT_CHUNK];
++	const int max_extra_len = sizeof(",ncfrag=0000@00/00");
++	const char *header, *body;
++	int header_len = msg_len, body_len = 0;
++	int chunk_len, nr_chunks, i;
 +
- 	nt = alloc_netconsole_target();
++	if (!nt->enabled || !netif_running(nt->np.dev))
++		return;
++
++	if (msg_len <= MAX_PRINT_CHUNK) {
++		netpoll_send_udp(&nt->np, msg, msg_len);
++		return;
++	}
++
++	/* need to insert extra header fields, detect header and body */
++	header = msg;
++	body = memchr(msg, ';', msg_len);
++	if (body) {
++		header_len = body - header;
++		body_len = msg_len - header_len - 1;
++		body++;
++	}
++
++	chunk_len = MAX_PRINT_CHUNK - header_len - max_extra_len;
++	if (WARN_ON_ONCE(chunk_len <= 0))
++		return;
++
++	/*
++	 * Transfer possibly multiple chunks with extra header fields.
++	 *
++	 * If @msg needs to be split to fit MAX_PRINT_CHUNK, add
++	 * "ncfrag=<byte-offset>@<0-based-chunk-index>/<total-chunks>" to
++	 * enable proper reassembly on receiver side.
++	 */
++	memcpy(buf, header, header_len);
++	nr_chunks = DIV_ROUND_UP(body_len, chunk_len);
++
++	for (i = 0; i < nr_chunks; i++) {
++		int this_header = header_len;
++		int this_chunk;
++
++		if (nr_chunks > 1)
++			this_header += scnprintf(buf + this_header,
++						 sizeof(buf) - this_header,
++						 ",ncfrag=%d@%d/%d",
++						 i * chunk_len, i, nr_chunks);
++		if (this_header < sizeof(buf))
++			buf[this_header++] = ';';
++
++		if (WARN_ON_ONCE(this_header + chunk_len > MAX_PRINT_CHUNK))
++			return;
++
++		this_chunk = min(body_len, chunk_len);
++		memcpy(buf + this_header, body, this_chunk);
++
++		netpoll_send_udp(&nt->np, buf, this_header + this_chunk);
++
++		body += this_chunk;
++		body_len -= this_chunk;
++	}
++}
++
+ static int netconsole_enable(struct netconsole_target *nt)
+ {
+ 	int err;
+@@ -241,6 +321,11 @@ static int create_param_target(char *target_config)
  	if (!nt)
  		goto fail;
-@@ -573,10 +577,10 @@ static ssize_t netconsole_target_attr_store(struct config_item *item,
- 	struct netconsole_target_attr *na =
- 		container_of(attr, struct netconsole_target_attr, attr);
  
--	mutex_lock(&nt->mutex);
-+	mutex_lock(&netconsole_mutex);
- 	if (na->store)
- 		ret = na->store(nt, buf, count);
--	mutex_unlock(&nt->mutex);
-+	mutex_unlock(&netconsole_mutex);
++	if (*target_config == '+') {
++		nt->extended = 1;
++		target_config++;
++	}
++
+ 	/* Parse parameters and setup netpoll */
+ 	err = netpoll_parse_options(&nt->np, target_config);
+ 	if (err)
+@@ -255,7 +340,12 @@ static int create_param_target(char *target_config)
+ 		goto fail_del;
  
- 	return ret;
+ 	/* Dump existing printks when we register */
+-	netconsole.flags |= CON_PRINTBUFFER;
++	if (nt->extended) {
++		netconsole_ext.flags |= CON_PRINTBUFFER;
++		netconsole_ext_used_during_init = true;
++	} else {
++		netconsole.flags |= CON_PRINTBUFFER;
++	}
+ 
+ 	return 0;
+ 
+@@ -313,6 +403,11 @@ static ssize_t show_enabled(struct netconsole_target *nt, char *buf)
+ 	return snprintf(buf, PAGE_SIZE, "%d\n", nt->enabled);
  }
-@@ -610,9 +614,11 @@ static struct config_item *make_netconsole_target(struct config_group *group,
- 	config_item_init_type_name(&nt->item, name, &netconsole_target_type);
+ 
++static ssize_t show_extended(struct netconsole_target *nt, char *buf)
++{
++	return snprintf(buf, PAGE_SIZE, "%d\n", nt->extended);
++}
++
+ static ssize_t show_dev_name(struct netconsole_target *nt, char *buf)
+ {
+ 	return snprintf(buf, PAGE_SIZE, "%s\n", nt->np.dev_name);
+@@ -401,6 +496,30 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 	return strnlen(buf, count);
+ }
+ 
++static ssize_t store_extended(struct netconsole_target *nt,
++			      const char *buf,
++			      size_t count)
++{
++	int extended;
++	int err;
++
++	if (nt->enabled) {
++		pr_err("target (%s) is enabled, disable to update parameters\n",
++		       config_item_name(&nt->item));
++		return -EINVAL;
++	}
++
++	err = kstrtoint(buf, 10, &extended);
++	if (err < 0)
++		return err;
++	if (extended < 0 || extended > 1)
++		return -EINVAL;
++
++	nt->extended = extended;
++
++	return strnlen(buf, count);
++}
++
+ static ssize_t store_dev_name(struct netconsole_target *nt,
+ 			      const char *buf,
+ 			      size_t count)
+@@ -553,6 +672,7 @@ static struct netconsole_target_attr netconsole_target_##_name =	\
+ 	__CONFIGFS_ATTR(_name, S_IRUGO | S_IWUSR, show_##_name, store_##_name)
+ 
+ NETCONSOLE_TARGET_ATTR_RW(enabled);
++NETCONSOLE_TARGET_ATTR_RW(extended);
+ NETCONSOLE_TARGET_ATTR_RW(dev_name);
+ NETCONSOLE_TARGET_ATTR_RW(local_port);
+ NETCONSOLE_TARGET_ATTR_RW(remote_port);
+@@ -563,6 +683,7 @@ NETCONSOLE_TARGET_ATTR_RW(remote_mac);
+ 
+ static struct configfs_attribute *netconsole_target_attrs[] = {
+ 	&netconsole_target_enabled.attr,
++	&netconsole_target_extended.attr,
+ 	&netconsole_target_dev_name.attr,
+ 	&netconsole_target_local_port.attr,
+ 	&netconsole_target_remote_port.attr,
+@@ -645,9 +766,16 @@ static struct config_item *make_netconsole_target(struct config_group *group,
  
  	/* Adding, but it is disabled */
-+	mutex_lock(&netconsole_mutex);
+ 	mutex_lock(&netconsole_mutex);
++
  	console_lock();
  	list_add(&nt->list, &target_list);
  	console_unlock();
-+	mutex_unlock(&netconsole_mutex);
++
++	if (nt->extended && !netconsole_ext_registered) {
++		register_console(&netconsole_ext);
++		netconsole_ext_registered = true;
++	}
++
+ 	mutex_unlock(&netconsole_mutex);
  
  	return &nt->item;
- }
-@@ -622,6 +628,7 @@ static void drop_netconsole_target(struct config_group *group,
+@@ -776,6 +904,19 @@ static struct notifier_block netconsole_netdev_notifier = {
+ 	.notifier_call  = netconsole_netdev_event,
+ };
+ 
++static void write_ext_msg(struct console *con, const char *msg,
++			  unsigned int len)
++{
++	struct netconsole_target *nt;
++
++	if ((oops_only && !oops_in_progress) || list_empty(&target_list))
++		return;
++
++	list_for_each_entry(nt, &target_list, list)
++		if (nt->extended)
++			send_ext_msg_udp(nt, msg, len);
++}
++
+ static void write_msg(struct console *con, const char *msg, unsigned int len)
  {
- 	struct netconsole_target *nt = to_target(item);
+ 	int frag, left;
+@@ -789,6 +930,8 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
+ 		return;
  
-+	mutex_lock(&netconsole_mutex);
- 	console_lock();
- 	list_del(&nt->list);
- 	console_unlock();
-@@ -634,6 +641,7 @@ static void drop_netconsole_target(struct config_group *group,
- 		netpoll_cleanup(&nt->np);
- 
- 	config_item_put(&nt->item);
-+	mutex_unlock(&netconsole_mutex);
- }
- 
- static struct configfs_group_operations netconsole_subsys_group_ops = {
-@@ -662,6 +670,7 @@ static void netconsole_deferred_disable_work_fn(struct work_struct *work)
- {
- 	struct netconsole_target *nt, *to_disable;
- 
-+	mutex_lock(&netconsole_mutex);
- repeat:
- 	to_disable = NULL;
- 	console_lock();
-@@ -685,6 +694,8 @@ repeat:
- 		netconsole_target_put(to_disable);
- 		goto repeat;
+ 	list_for_each_entry(nt, &target_list, list) {
++		if (nt->extended)
++			continue;
+ 		if (nt->enabled && netif_running(nt->np.dev)) {
+ 			/*
+ 			 * We nest this inside the for-each-target loop above
+@@ -807,6 +950,12 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
  	}
-+
-+	mutex_unlock(&netconsole_mutex);
  }
  
- static DECLARE_WORK(netconsole_deferred_disable_work,
-@@ -791,6 +802,8 @@ static int __init init_netconsole(void)
- 	char *target_config;
- 	char *input = config;
- 
-+	mutex_lock(&netconsole_mutex);
++static struct console netconsole_ext = {
++	.name	= "netcon_ext",
++	.flags	= CON_ENABLED | CON_EXTENDED,
++	.write	= write_ext_msg,
++};
 +
- 	if (strnlen(input, MAX_PARAM_LENGTH)) {
- 		while ((target_config = strsep(&input, ";"))) {
- 			nt = alloc_param_target(target_config);
-@@ -818,24 +831,21 @@ static int __init init_netconsole(void)
+ static struct console netconsole = {
+ 	.name	= "netcon",
+ 	.flags	= CON_ENABLED,
+@@ -851,6 +1000,11 @@ static int __init init_netconsole(void)
+ 	if (err)
+ 		goto undonotifier;
+ 
++	if (netconsole_ext_used_during_init) {
++		register_console(&netconsole_ext);
++		netconsole_ext_registered = true;
++	}
++
  	register_console(&netconsole);
  	pr_info("network logging started\n");
  
-+	mutex_unlock(&netconsole_mutex);
- 	return err;
- 
- undonotifier:
- 	unregister_netdevice_notifier(&netconsole_netdev_notifier);
--	cancel_work_sync(&netconsole_deferred_disable_work);
- fail:
- 	pr_err("cleaning up\n");
- 
--	/*
--	 * Remove all targets and destroy them (only targets created
--	 * from the boot/module option exist here). Skipping the console
--	 * lock is safe here.
--	 */
-+	/* targets are already inactive, skipping the console lock is safe */
- 	list_for_each_entry_safe(nt, tmp, &target_list, list) {
- 		list_del(&nt->list);
- 		free_param_target(nt);
- 	}
--
-+	mutex_unlock(&netconsole_mutex);
-+	cancel_work_sync(&netconsole_deferred_disable_work);
- 	return err;
- }
- 
-@@ -843,22 +853,20 @@ static void __exit cleanup_netconsole(void)
+@@ -871,6 +1025,9 @@ static void __exit cleanup_netconsole(void)
  {
- 	struct netconsole_target *nt, *tmp;
+ 	mutex_lock(&netconsole_mutex);
  
-+	mutex_lock(&netconsole_mutex);
++	if (netconsole_ext_registered)
++		unregister_console(&netconsole_ext);
 +
  	unregister_console(&netconsole);
  	dynamic_netconsole_exit();
  	unregister_netdevice_notifier(&netconsole_netdev_notifier);
--	cancel_work_sync(&netconsole_deferred_disable_work);
- 
--	/*
--	 * Targets created via configfs pin references on our module
--	 * and would first be rmdir(2)'ed from userspace. We reach
--	 * here only when they are already destroyed, and only those
--	 * created from the boot/module option are left, so remove and
--	 * destroy them. Skipping the console lock is safe here.
--	 */
-+	/* targets are already inactive, skipping the console lock is safe */
- 	list_for_each_entry_safe(nt, tmp, &target_list, list) {
- 		list_del(&nt->list);
- 		free_param_target(nt);
- 	}
-+
-+	mutex_unlock(&netconsole_mutex);
-+	cancel_work_sync(&netconsole_deferred_disable_work);
- }
- 
- /*
 -- 
 2.1.0
