@@ -1,21 +1,21 @@
 From: Erez Shitrit <erezsh@mellanox.com>
-Subject: [PATCH net-next] IB/ipoib: Fix ndo_get_iflink
-Date: Thu, 16 Apr 2015 16:30:35 +0300
-Message-ID: <1429191035-8555-1-git-send-email-erezsh@mellanox.com>
+Subject: [PATCH V1 net-next] IB/ipoib: Fix ndo_get_iflink
+Date: Thu, 16 Apr 2015 16:34:34 +0300
+Message-ID: <1429191274-11600-1-git-send-email-erezsh@mellanox.com>
 Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com,
 	linux-rdma@vger.kernel.org, Erez Shitrit <erezsh@mellanox.com>,
 	Honggang Li <honli@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:38568 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:38884 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754527AbbDPNbP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2015 09:31:15 -0400
+	id S1755242AbbDPNfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2015 09:35:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, iflink of the parent interface was always accessed, event 
-when interface didn't have a parent and hence we rashed there.
+Currently, iflink of the parent interface was always accessed, even 
+when interface didn't have a parent and hence we crashed there.
 
 Handle the interface types properly: for a child interface, return
 the ifindex of the parent, for parent interface, return its ifindex.
@@ -29,6 +29,10 @@ Reported-by: Honggang Li <honli@redhat.com>
 Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
 Signed-off-by: Honggang Li <honli@redhat.com>
 ---
+
+changes from V0:
+ - fixed two typos in the change-log
+
  drivers/infiniband/ulp/ipoib/ipoib_main.c | 5 +++++
  drivers/infiniband/ulp/ipoib/ipoib_vlan.c | 3 +--
  2 files changed, 6 insertions(+), 2 deletions(-)
