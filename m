@@ -1,49 +1,47 @@
-From: Ian Jackson <Ian.Jackson@eu.citrix.com>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
-Date: Thu, 16 Apr 2015 18:15:47 +0100
-Message-ID: <21807.60995.462892.714138@mariner.uk.xensource.com>
-References: <21798.24161.922394.539733@mariner.uk.xensource.com>
-	<1428595851.4720.22.camel@prashant>
-	<21798.44949.156680.399387@mariner.uk.xensource.com>
-	<21798.46590.928152.666550@mariner.uk.xensource.com>
-	<1428602883.4720.31.camel@prashant>
-	<21799.59138.666831.970946@mariner.uk.xensource.com>
-	<5528D4F0.6060203@broadcom.com>
-	<21806.17257.971957.13215@mariner.uk.xensource.com>
-	<552F241C.4080002@broadcom.com>
-	<21807.35967.660396.209954@mariner.uk.xensource.com>
-	<20150416122420.GA4051@oc0812247204.ltc.br.ibm.com>
-	<1429202353.6668.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH iproute2 -next] tc: built-in eBPF exec proxy
+Date: Thu, 16 Apr 2015 10:48:39 -0700
+Message-ID: <552FF5F7.2070108@plumgrid.com>
+References: <e970d60e68be0ac905542635cc28abb2bf1bebea.1429109269.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <cascardo@linux.vnet.ibm.com>, Prashant <prashant@broadcom.com>,
-	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	"Vlad Yasevich" <vyasevich@gmail.com>,
-	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
-	"Siva Reddy (Siva) Kallam" <siva.kallam@broadcom.com>,
-	Sanjeev Bansal <sanjeevb@broadcom.com>
-To: Michael Chan <mchan@broadcom.com>
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:54226 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751530AbbDPRWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 13:22:38 -0400
-In-Reply-To: <1429202353.6668.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:33078 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754254AbbDPRsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 13:48:42 -0400
+Received: by iecrt8 with SMTP id rt8so44856703iec.0
+        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 10:48:41 -0700 (PDT)
+In-Reply-To: <e970d60e68be0ac905542635cc28abb2bf1bebea.1429109269.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
-> On Thu, 2015-04-16 at 09:24 -0300, cascardo@linux.vnet.ibm.com wrote: 
-> > Yes, this looks like the driver is not syncing the DMA buffers. Unmap is
-> > supposed to synchronize as well.
-> 
-> For small rx packets (< 256 bytes), we sync the DMA buffer before we
-> copy the data to another SKB.  For larger packets, we unmap the DMA
-> buffer.  Do we see the corruption in both cases?
+On 4/15/15 7:52 AM, Daniel Borkmann wrote:
+>
+> File descriptors, based on their id, are being fetched from the same
+> unix domain socket as demonstrated in the bpf_agent, the shell spawned
+> via execvpe(2) and the map fds passed over the environment, and thus
+> are made available to applications in the fashion of std{in,out,err}
+> for read/write access, for example in case of iproute2's examples/bpf/:
 
-Yes, at least with swiotlb=force iommu=soft.
+Amazing that it worked.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Ian.
+> +static void bpf_map_set_env(int *tfd)
+> +{
+> +	char key[64], *val;
+> +	int i;
+> +	for (i = 0; i < BPF_MAP_ID_MAX; i++) {
+> +		memset(key, 0, sizeof(key));
+> +		snprintf(key, sizeof(key), "BPF_MAP%d", i);
+>
+> +		val = secure_getenv(key);
+> +		assert(val != NULL);
+
+everything looks good. My only nit is that the name of the function
+reads as this function is setting env vars, whereas it's actually
+reading them. I guess in your mind it fits with the rest of
+'bpf_map_set_*' functions, but the name is still confusing.
