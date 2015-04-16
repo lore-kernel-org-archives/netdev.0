@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 31/39] net: core: pktgen: Remove bogus hrtimer_active()
- check
-Date: Thu, 16 Apr 2015 12:04:21 -0400 (EDT)
-Message-ID: <20150416.120421.898004929174813546.davem@davemloft.net>
-References: <20150414203303.702062272@linutronix.de>
-	<20150414203503.165258315@linutronix.de>
+Subject: Re: [PATCH net] bpf: fix verifier memory corruption
+Date: Thu, 16 Apr 2015 12:07:00 -0400 (EDT)
+Message-ID: <20150416.120700.1239591146749471799.davem@davemloft.net>
+References: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, peterz@infradead.org,
-	mingo@kernel.org, preeti@linux.vnet.ibm.com,
-	viresh.kumar@linaro.org, mtosatt@redhat.com, fweisbec@gmail.com,
+Cc: daniel@iogearbox.net, hannes@stressinduktion.org,
 	netdev@vger.kernel.org
-To: tglx@linutronix.de
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33323 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33348 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753307AbbDPQEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 12:04:23 -0400
-In-Reply-To: <20150414203503.165258315@linutronix.de>
+	with ESMTP id S1751376AbbDPQHC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 12:07:02 -0400
+In-Reply-To: <1429052233-8252-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 14 Apr 2015 21:09:16 -0000
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 14 Apr 2015 15:57:13 -0700
 
-> The check for hrtimer_active() after starting the timer is
-> pointless. If the timer is inactive it has expired already and
-> therefor the task pointer is already NULL.
+> Due to missing bounds check the DAG pass of the BPF verifier can corrupt
+> the memory which can cause random crashes during program loading:
 > 
-> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> [8.449451] BUG: unable to handle kernel paging request at ffffffffffffffff
+> [8.451293] IP: [<ffffffff811de33d>] kmem_cache_alloc_trace+0x8d/0x2f0
+> [8.452329] Oops: 0000 [#1] SMP
+> [8.452329] Call Trace:
+> [8.452329]  [<ffffffff8116cc82>] bpf_check+0x852/0x2000
+> [8.452329]  [<ffffffff8116b7e4>] bpf_prog_load+0x1e4/0x310
+> [8.452329]  [<ffffffff811b190f>] ? might_fault+0x5f/0xb0
+> [8.452329]  [<ffffffff8116c206>] SyS_bpf+0x806/0xa30
+> 
+> Fixes: f1bca824dabb ("bpf: add search pruning optimization to verifier")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied and queued up for -stable, thanks.
