@@ -1,78 +1,37 @@
-From: Erez Shitrit <erezsh@mellanox.com>
-Subject: [PATCH V1 net-next] IB/ipoib: Fix ndo_get_iflink
-Date: Thu, 16 Apr 2015 16:34:34 +0300
-Message-ID: <1429191274-11600-1-git-send-email-erezsh@mellanox.com>
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com,
-	linux-rdma@vger.kernel.org, Erez Shitrit <erezsh@mellanox.com>,
-	Honggang Li <honli@redhat.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH] dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
+Date: Thu, 16 Apr 2015 06:46:52 -0700
+Message-ID: <552FBD4C.4070405@roeck-us.net>
+References: <1429161162-2028-1-git-send-email-linux@roeck-us.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:38884 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755242AbbDPNfD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Apr 2015 09:35:03 -0400
+Received: from bh-25.webhostbox.net ([208.91.199.152]:50595 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933584AbbDPNqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 09:46:55 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1Yik87-003izy-5Z
+	for netdev@vger.kernel.org; Thu, 16 Apr 2015 13:46:55 +0000
+In-Reply-To: <1429161162-2028-1-git-send-email-linux@roeck-us.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, iflink of the parent interface was always accessed, even 
-when interface didn't have a parent and hence we crashed there.
+On 04/15/2015 10:12 PM, Guenter Roeck wrote:
+> Return correct error code if _mv88e6xxx_reg_read returns an error.
+>
+> Fixes: facd95b2e0ec0 ("net: dsa: mv88e6xxx: Add Hardware bridging support")
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-Handle the interface types properly: for a child interface, return
-the ifindex of the parent, for parent interface, return its ifindex.
+I should have given proper credit.
 
-For child devices, make sure to set the parent pointer prior to
-invoking register_netdevice(), this allows the new ndo to be called
-by the stack immediately after the child device is registered.
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
 
-Fixes: 5aa7add8f14b ('infiniband/ipoib: implement ndo_get_iflink')
-Reported-by: Honggang Li <honli@redhat.com>
-Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
-Signed-off-by: Honggang Li <honli@redhat.com>
----
+For the curious, neither W=1, W=2, C-1, C=2, nor sparse report this problem,
+at least not with gcc 4.9.1.
 
-changes from V0:
- - fixed two typos in the change-log
-
- drivers/infiniband/ulp/ipoib/ipoib_main.c | 5 +++++
- drivers/infiniband/ulp/ipoib/ipoib_vlan.c | 3 +--
- 2 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 657b89b..915ad04 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -846,6 +846,11 @@ static int ipoib_get_iflink(const struct net_device *dev)
- {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
- 
-+	/* parent interface */
-+	if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
-+		return dev->ifindex;
-+
-+	/* child/vlan interface */
- 	return priv->parent->ifindex;
- }
- 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-index 4dd1313..fca1a88 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
-@@ -58,6 +58,7 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
- 	/* MTU will be reset when mcast join happens */
- 	priv->dev->mtu   = IPOIB_UD_MTU(priv->max_ib_mtu);
- 	priv->mcast_mtu  = priv->admin_mtu = priv->dev->mtu;
-+	priv->parent = ppriv->dev;
- 	set_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags);
- 
- 	result = ipoib_set_dev_features(priv, ppriv->ca);
-@@ -84,8 +85,6 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
- 		goto register_failed;
- 	}
- 
--	priv->parent = ppriv->dev;
--
- 	ipoib_create_debug_files(priv->dev);
- 
- 	/* RTNL childs don't need proprietary sysfs entries */
--- 
-1.7.11.3
+Guenter
