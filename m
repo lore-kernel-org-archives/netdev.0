@@ -1,55 +1,50 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH 2/2] net: dsa: register hwmon for any provided function
-Date: Thu, 16 Apr 2015 14:38:19 -0400
-Message-ID: <1429209499-2447-2-git-send-email-vivien.didelot@savoirfairelinux.com>
-References: <1429209499-2447-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	"David S. Miller" <davem@davemloft.net>,
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH] net: dsa: mv88e6xxx: Add missing initialization in mv88e6xxx_set_port_state()
+Date: Thu, 16 Apr 2015 20:49:14 +0200
+Message-ID: <1429210154-21805-1-git-send-email-geert@linux-m68k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: "David S. Miller" <davem@davemloft.net>,
 	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	kernel@savoirfairelinux.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429209499-2447-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from baptiste.telenet-ops.be ([195.130.132.51]:59455 "EHLO
+	baptiste.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752686AbbDPStJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 14:49:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A switch driver may only provide one of the temperature limit accessors,
-or the temperature alarm getter. So register the hwmon subsystem if any
-of the related functions is provided.
+drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_set_port_st=
+ate=E2=80=99:
+drivers/net/dsa/mv88e6xxx.c:905: warning: =E2=80=98ret=E2=80=99 may be =
+used uninitialized in this function
 
-Thus, check get_temp to set the visibility of temp1_input.
+If oldstate =3D=3D state, mv88e6xxx_set_port_state() will return an
+uninitialized value. Pre-initialize ret to zero to fix this.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- net/dsa/dsa.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6xxx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 67d2983..6b68994 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -157,6 +157,10 @@ static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
- 	umode_t mode = 0;
- 
- 	switch (index) {
-+	case 0: /* temp1_input */
-+		if (drv->get_temp)
-+			mode |= S_IRUGO;
-+		break;
- 	case 1: /* temp1_max */
- 		if (drv->get_temp_limit)
- 			mode |= S_IRUGO;
-@@ -310,7 +314,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	 * register with hardware monitoring subsystem.
- 	 * Treat registration error as non-fatal and ignore it.
- 	 */
--	if (drv->get_temp) {
-+	if (drv->get_temp || drv->get_temp_limit || drv->set_temp_limit ||
-+	    drv->get_temp_alarm) {
- 		const char *netname = netdev_name(dst->master_netdev);
- 		char hname[IFNAMSIZ + 1];
- 		int i, j;
--- 
-2.3.5
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index f64186a5f63453f3..859a332fe5cd0251 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -902,7 +902,7 @@ static int _mv88e6xxx_flush_fid(struct dsa_switch *=
+ds, int fid)
+ static int mv88e6xxx_set_port_state(struct dsa_switch *ds, int port, u=
+8 state)
+ {
+ 	struct mv88e6xxx_priv_state *ps =3D ds_to_priv(ds);
+-	int reg, ret;
++	int reg, ret =3D 0;
+ 	u8 oldstate;
+=20
+ 	mutex_lock(&ps->smi_mutex);
+--=20
+1.9.1
