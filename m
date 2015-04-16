@@ -1,7 +1,7 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 02/16] printk: factor out message formatting from devkmsg_read()
-Date: Thu, 16 Apr 2015 19:03:39 -0400
-Message-ID: <1429225433-11946-3-git-send-email-tj@kernel.org>
+Subject: [PATCH 03/16] printk: move LOG_NOCONS skipping into call_console_drivers()
+Date: Thu, 16 Apr 2015 19:03:40 -0400
+Message-ID: <1429225433-11946-4-git-send-email-tj@kernel.org>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>, Kay Sievers <kay@vrfy.org>,
@@ -12,217 +12,134 @@ In-Reply-To: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The extended message formatting used for /dev/kmsg will be used
-implement extended consoles.  Factor out msg_print_ext_header() and
-msg_print_ext_body() from devkmsg_read().
+When a line is printed by multiple printk invocations, each chunk is
+directly sent out to console drivers so that they don't get lost.
+When the line is completed and stored in the log buffer, the line is
+suppressed from going out to consoles as that'd lead to duplicate
+outputs.  This is tracked with LOG_NOCONS flag.
 
-This is pure restructuring.
+The suppression is currently implemented in console_unlock() which
+skips invoking call_console_drivers() for LOG_NOCONS messages.  This
+patch moves the filtering into call_console_drivers() in preparation
+of the planned extended console drivers which will deal with the
+duplicate messages themselves.
+
+While this makes call_console_drivers() iterate over LOG_NOCONS
+messages, this is extremely unlikely to matter especially given that
+continuation lines aren't that common and also simplifies
+console_unlock() a bit.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: Kay Sievers <kay@vrfy.org>
 Cc: Petr Mladek <pmladek@suse.cz>
 ---
- kernel/printk/printk.c | 157 ++++++++++++++++++++++++++-----------------------
- 1 file changed, 85 insertions(+), 72 deletions(-)
+ kernel/printk/printk.c | 46 ++++++++++++++++++++++++----------------------
+ 1 file changed, 24 insertions(+), 22 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index b6e24af..5ea6709 100644
+index 5ea6709..0175c46 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -505,6 +505,86 @@ int check_syslog_permissions(int type, bool from_file)
- 	return security_syslog(type);
- }
- 
-+static void append_char(char **pp, char *e, char c)
-+{
-+	if (*pp < e)
-+		*(*pp)++ = c;
-+}
-+
-+static ssize_t msg_print_ext_header(char *buf, size_t size,
-+				    struct printk_log *msg, u64 seq,
-+				    enum log_flags prev_flags)
-+{
-+	u64 ts_usec = msg->ts_nsec;
-+	char cont = '-';
-+
-+	do_div(ts_usec, 1000);
-+
-+	/*
-+	 * If we couldn't merge continuation line fragments during the print,
-+	 * export the stored flags to allow an optional external merge of the
-+	 * records. Merging the records isn't always neccessarily correct, like
-+	 * when we hit a race during printing. In most cases though, it produces
-+	 * better readable output. 'c' in the record flags mark the first
-+	 * fragment of a line, '+' the following.
-+	 */
-+	if (msg->flags & LOG_CONT && !(prev_flags & LOG_CONT))
-+		cont = 'c';
-+	else if ((msg->flags & LOG_CONT) ||
-+		 ((prev_flags & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
-+		cont = '+';
-+
-+	return scnprintf(buf, size, "%u,%llu,%llu,%c;",
-+		       (msg->facility << 3) | msg->level, seq, ts_usec, cont);
-+}
-+
-+static ssize_t msg_print_ext_body(char *buf, size_t size,
-+				  char *dict, size_t dict_len,
-+				  char *text, size_t text_len)
-+{
-+	char *p = buf, *e = buf + size;
-+	size_t i;
-+
-+	/* escape non-printable characters */
-+	for (i = 0; i < text_len; i++) {
-+		unsigned char c = text[i];
-+
-+		if (c < ' ' || c >= 127 || c == '\\')
-+			p += scnprintf(p, e - p, "\\x%02x", c);
-+		else
-+			append_char(&p, e, c);
-+	}
-+	append_char(&p, e, '\n');
-+
-+	if (dict_len) {
-+		bool line = true;
-+
-+		for (i = 0; i < dict_len; i++) {
-+			unsigned char c = dict[i];
-+
-+			if (line) {
-+				append_char(&p, e, ' ');
-+				line = false;
-+			}
-+
-+			if (c == '\0') {
-+				append_char(&p, e, '\n');
-+				line = true;
-+				continue;
-+			}
-+
-+			if (c < ' ' || c >= 127 || c == '\\') {
-+				p += scnprintf(p, e - p, "\\x%02x", c);
-+				continue;
-+			}
-+
-+			append_char(&p, e, c);
-+		}
-+		append_char(&p, e, '\n');
-+	}
-+
-+	return p - buf;
-+}
- 
- /* /dev/kmsg - userspace message inject/listen interface */
- struct devkmsg_user {
-@@ -565,30 +645,17 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
- 	return ret;
- }
- 
--static void append_char(char **pp, char *e, char c)
--{
--	if (*pp < e)
--		*(*pp)++ = c;
--}
--
- static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 			    size_t count, loff_t *ppos)
+@@ -1417,7 +1417,8 @@ SYSCALL_DEFINE3(syslog, int, type, char __user *, buf, int, len)
+  * log_buf[start] to log_buf[end - 1].
+  * The console_lock must be held.
+  */
+-static void call_console_drivers(int level, const char *text, size_t len)
++static void call_console_drivers(int level, bool nocons,
++				 const char *text, size_t len)
  {
- 	struct devkmsg_user *user = file->private_data;
- 	struct printk_log *msg;
--	char *p, *e;
--	u64 ts_usec;
--	size_t i;
--	char cont = '-';
- 	size_t len;
- 	ssize_t ret;
+ 	struct console *con;
  
- 	if (!user)
- 		return -EBADF;
- 
--	p = user->buf;
--	e = user->buf + sizeof(user->buf);
--
- 	ret = mutex_lock_interruptible(&user->lock);
- 	if (ret)
- 		return ret;
-@@ -618,71 +685,17 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+@@ -1438,6 +1439,13 @@ static void call_console_drivers(int level, const char *text, size_t len)
+ 		if (!cpu_online(smp_processor_id()) &&
+ 		    !(con->flags & CON_ANYTIME))
+ 			continue;
++		/*
++		 * Skip record we have buffered and already printed
++		 * directly to the console when we received it.
++		 */
++		if (nocons)
++			continue;
++
+ 		con->write(con, text, len);
  	}
+ }
+@@ -1919,7 +1927,8 @@ static struct cont {
+ } cont;
+ static struct printk_log *log_from_idx(u32 idx) { return NULL; }
+ static u32 log_next(u32 idx) { return 0; }
+-static void call_console_drivers(int level, const char *text, size_t len) {}
++static void call_console_drivers(int level, bool nocons,
++				 const char *text, size_t len) {}
+ static size_t msg_print_text(const struct printk_log *msg, enum log_flags prev,
+ 			     bool syslog, char *buf, size_t size) { return 0; }
+ static size_t cont_print_text(char *text, size_t size) { return 0; }
+@@ -2190,7 +2199,7 @@ static void console_cont_flush(char *text, size_t size)
+ 	len = cont_print_text(text, size);
+ 	raw_spin_unlock(&logbuf_lock);
+ 	stop_critical_timings();
+-	call_console_drivers(cont.level, text, len);
++	call_console_drivers(cont.level, false, text, len);
+ 	start_critical_timings();
+ 	local_irq_restore(flags);
+ 	return;
+@@ -2234,6 +2243,7 @@ again:
+ 		struct printk_log *msg;
+ 		size_t len;
+ 		int level;
++		bool nocons;
  
- 	msg = log_from_idx(user->idx);
--	ts_usec = msg->ts_nsec;
--	do_div(ts_usec, 1000);
--
--	/*
--	 * If we couldn't merge continuation line fragments during the print,
--	 * export the stored flags to allow an optional external merge of the
--	 * records. Merging the records isn't always neccessarily correct, like
--	 * when we hit a race during printing. In most cases though, it produces
--	 * better readable output. 'c' in the record flags mark the first
--	 * fragment of a line, '+' the following.
--	 */
--	if (msg->flags & LOG_CONT && !(user->prev & LOG_CONT))
--		cont = 'c';
--	else if ((msg->flags & LOG_CONT) ||
--		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
--		cont = '+';
-+	len = msg_print_ext_header(user->buf, sizeof(user->buf),
-+				   msg, user->seq, user->prev);
-+	len += msg_print_ext_body(user->buf + len, sizeof(user->buf) - len,
-+				  log_dict(msg), msg->dict_len,
-+				  log_text(msg), msg->text_len);
+ 		raw_spin_lock_irqsave(&logbuf_lock, flags);
+ 		if (seen_seq != log_next_seq) {
+@@ -2252,38 +2262,30 @@ again:
+ 		} else {
+ 			len = 0;
+ 		}
+-skip:
++
+ 		if (console_seq == log_next_seq)
+ 			break;
  
--	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
--		       (msg->facility << 3) | msg->level,
--		       user->seq, ts_usec, cont);
- 	user->prev = msg->flags;
--
--	/* escape non-printable characters */
--	for (i = 0; i < msg->text_len; i++) {
--		unsigned char c = log_text(msg)[i];
--
--		if (c < ' ' || c >= 127 || c == '\\')
--			p += scnprintf(p, e - p, "\\x%02x", c);
--		else
--			append_char(&p, e, c);
--	}
--	append_char(&p, e, '\n');
--
--	if (msg->dict_len) {
--		bool line = true;
--
--		for (i = 0; i < msg->dict_len; i++) {
--			unsigned char c = log_dict(msg)[i];
--
--			if (line) {
--				append_char(&p, e, ' ');
--				line = false;
--			}
--
--			if (c == '\0') {
--				append_char(&p, e, '\n');
--				line = true;
--				continue;
--			}
--
--			if (c < ' ' || c >= 127 || c == '\\') {
--				p += scnprintf(p, e - p, "\\x%02x", c);
--				continue;
--			}
--
--			append_char(&p, e, c);
+ 		msg = log_from_idx(console_idx);
+-		if (msg->flags & LOG_NOCONS) {
+-			/*
+-			 * Skip record we have buffered and already printed
+-			 * directly to the console when we received it.
+-			 */
+-			console_idx = log_next(console_idx);
+-			console_seq++;
+-			/*
+-			 * We will get here again when we register a new
+-			 * CON_PRINTBUFFER console. Clear the flag so we
+-			 * will properly dump everything later.
+-			 */
+-			msg->flags &= ~LOG_NOCONS;
+-			console_prev = msg->flags;
+-			goto skip;
 -		}
--		append_char(&p, e, '\n');
--	}
 -
- 	user->idx = log_next(user->idx);
- 	user->seq++;
- 	raw_spin_unlock_irq(&logbuf_lock);
+ 		level = msg->level;
++		nocons = msg->flags & LOG_NOCONS;
+ 		len += msg_print_text(msg, console_prev, false,
+ 				      text + len, sizeof(text) - len);
+ 		console_idx = log_next(console_idx);
+ 		console_seq++;
+ 		console_prev = msg->flags;
++
++		/*
++		 * The log will be processed again when we register a new
++		 * CON_PRINTBUFFER console. Clear the flag so we will
++		 * properly dump everything later.
++		 */
++		msg->flags &= ~LOG_NOCONS;
++
+ 		raw_spin_unlock(&logbuf_lock);
  
--	len = p - user->buf;
- 	if (len > count) {
- 		ret = -EINVAL;
- 		goto out;
+ 		stop_critical_timings();	/* don't trace print latency */
+-		call_console_drivers(level, text, len);
++		call_console_drivers(level, nocons, text, len);
+ 		start_critical_timings();
+ 		local_irq_restore(flags);
+ 	}
 -- 
 2.1.0
