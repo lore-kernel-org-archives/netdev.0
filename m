@@ -1,60 +1,47 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 2/6] net: hip04: use the big endian for tx and
- rx desc
-Date: Thu, 16 Apr 2015 14:25:26 +0800
-Message-ID: <552F55D6.1040307@huawei.com>
-References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-3-git-send-email-dingtianhong@huawei.com> <6631765.x1c1LvG6uN@wuerfel>
+From: Ding Tianhong <dingtianhong-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 4/6] net: hip04: Don't free the tx skb when the
+ buffer is not ready for xmit
+Date: Thu, 16 Apr 2015 14:26:21 +0800
+Message-ID: <552F560D.4070309@huawei.com>
+References: <1429101008-9464-1-git-send-email-dingtianhong@huawei.com> <1429101008-9464-5-git-send-email-dingtianhong@huawei.com> <2218546.M1hzu1bzfh@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <grant.likely@linaro.org>,
-	<sergei.shtylyov@cogentembedded.com>,
-	<linux-arm-kernel@lists.infradead.org>, <eric.dumazet@gmail.com>,
-	<zhangfei.gao@linaro.org>, <joe@perches.com>,
-	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux@arm.linux.org.uk>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:22199 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946AbbDPGaD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 02:30:03 -0400
-In-Reply-To: <6631765.x1c1LvG6uN@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2218546.M1hzu1bzfh@wuerfel>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2015/4/15 22:13, Arnd Bergmann wrote:
-> On Wednesday 15 April 2015 20:30:04 Ding Tianhong wrote:
->> The hip04 ethernet use the big endian for tx and rx, so set desc to
->> big endian and remove the unused next_addr.
-> 
-> I don't understand:
-> 
->> diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
->> index b0a7f03..6473462 100644
->> --- a/drivers/net/ethernet/hisilicon/hip04_eth.c
->> +++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
->> @@ -132,19 +132,18 @@
->>  #define HIP04_MIN_TX_COALESCE_FRAMES   1
+On 2015/4/15 22:19, Arnd Bergmann wrote:
+> On Wednesday 15 April 2015 20:30:06 Ding Tianhong wrote:
+>> @@ -489,6 +487,8 @@ static int hip04_mac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 >>  
->>  struct tx_desc {
->> -       u32 send_addr;
->> -       u32 send_size;
->> -       u32 next_addr;
->> -       u32 cfg;
->> -       u32 wb_addr;
->> +       __be32 send_addr;
->> +       __be32 send_size;
->> +       __be32 cfg;
->> +       __be32 wb_addr;
->>  } __aligned(64);
+>>         /* Ensure tx_head update visible to tx reclaim */
+>>         smp_wmb();
+>> +       count++;
+>> +       priv->tx_head = TX_NEXT(tx_head);
+>>  
+>>
 > 
-> I would think this is a hardware structure, does this not break
-> access to the cfg and wb_addr fields if you remove next_addr?
+> Something is wrong here, the comment does not match the code any more, because
+> the smp_wmb() won't actually make the tx_head update visible.
 > 
 > 	Arnd
 > 
-good cache, I make a mistake here, thanks.
+Yes, the smp_wmb() could only make sure the tx buffer was ready to xmit.
 
 > .
 > 
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
