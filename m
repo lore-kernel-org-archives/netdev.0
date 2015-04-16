@@ -1,63 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: tcp_get_info() should fetch socket fields once
-Date: Thu, 16 Apr 2015 16:12:28 -0700
-Message-ID: <1429225948.7346.232.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Thu, 16 Apr 2015 15:51:34 -0700
+Message-ID: <1429224694.4720.68.camel@prashant>
+References: <21798.24161.922394.539733@mariner.uk.xensource.com>
+	 <1428595851.4720.22.camel@prashant>
+	 <21798.44949.156680.399387@mariner.uk.xensource.com>
+	 <21798.46590.928152.666550@mariner.uk.xensource.com>
+	 <1428602883.4720.31.camel@prashant>
+	 <21799.59138.666831.970946@mariner.uk.xensource.com>
+	 <5528D4F0.6060203@broadcom.com>
+	 <21806.17257.971957.13215@mariner.uk.xensource.com>
+	 <552F241C.4080002@broadcom.com>
+	 <21807.35967.660396.209954@mariner.uk.xensource.com>
+	 <20150416122420.GA4051@oc0812247204.ltc.br.ibm.com>
+	 <1429202353.6668.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <21807.60995.462892.714138@mariner.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Michael Chan <mchan@broadcom.com>, <cascardo@linux.vnet.ibm.com>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"Vlad Yasevich" <vyasevich@gmail.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
+	"Siva Reddy (Siva) Kallam" <siva.kallam@broadcom.com>,
+	Sanjeev Bansal <sanjeevb@broadcom.com>
+To: Ian Jackson <Ian.Jackson@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:33314 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426AbbDPXM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:12:29 -0400
-Received: by igbpi8 with SMTP id pi8so18216717igb.0
-        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 16:12:29 -0700 (PDT)
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:43273 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751426AbbDPXPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:15:38 -0400
+In-Reply-To: <21807.60995.462892.714138@mariner.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, 2015-04-16 at 18:15 +0100, Ian Jackson wrote:
+> Michael Chan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
+> > On Thu, 2015-04-16 at 09:24 -0300, cascardo@linux.vnet.ibm.com wrote: 
+> > > Yes, this looks like the driver is not syncing the DMA buffers. Unmap is
+> > > supposed to synchronize as well.
+> > 
+> > For small rx packets (< 256 bytes), we sync the DMA buffer before we
+> > copy the data to another SKB.  For larger packets, we unmap the DMA
+> > buffer.  Do we see the corruption in both cases?
+> 
+> Yes, at least with swiotlb=force iommu=soft.
 
-tcp_get_info() can be called without holding socket lock,
-so any socket fields can change under us.
-
-Use READ_ONCE() to fetch sk_pacing_rate and sk_max_pacing_rate
-
-Fixes: 977cb0ecf82e ("tcp: add pacing_rate information into tcp_info")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-David, I do not think this needs stable backport, this is a quite
-minor bug. I've added the 'Fixes' tag for reference only.
-
- net/ipv4/tcp.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 18e3a12eb1b2..59c8a027721b 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2595,6 +2595,7 @@ void tcp_get_info(const struct sock *sk, struct tcp_info *info)
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
- 	u32 now = tcp_time_stamp;
-+	u32 rate;
- 
- 	memset(info, 0, sizeof(*info));
- 
-@@ -2655,10 +2656,11 @@ void tcp_get_info(const struct sock *sk, struct tcp_info *info)
- 
- 	info->tcpi_total_retrans = tp->total_retrans;
- 
--	info->tcpi_pacing_rate = sk->sk_pacing_rate != ~0U ?
--					sk->sk_pacing_rate : ~0ULL;
--	info->tcpi_max_pacing_rate = sk->sk_max_pacing_rate != ~0U ?
--					sk->sk_max_pacing_rate : ~0ULL;
-+	rate = READ_ONCE(sk->sk_pacing_rate);
-+	info->tcpi_pacing_rate = rate != ~0U ? rate : ~0ULL;
-+
-+	rate = READ_ONCE(sk->sk_max_pacing_rate);
-+	info->tcpi_max_pacing_rate = rate != ~0U ? rate : ~0ULL;
- }
- EXPORT_SYMBOL_GPL(tcp_get_info);
- 
+Ok this is what is causing the problem, the driver uses
+DEFINE_DMA_UNMAP_ADDR(), dma_unmap_addr_set() to keep a copy of the dma
+"mapping" and dma_unmap_addr() to get the "mapping" value. On most of
+the platforms this is a no-op, but it appears with "iommu=soft and
+swiotlb=force" this house keeping is required, when I pass the correct
+dma_addr instead of 0 while calling pci_unmap_/pci_dma_sync_ I don't see
+the corruption. ie If you set CONFIG_NEED_DMA_MAP_STATE=y in your kernel
+config you should not see the problem. Can you confirm ? Thanks
