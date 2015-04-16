@@ -1,132 +1,74 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH] hso: fix refcnt leak in recent patch.
-Date: Thu, 16 Apr 2015 15:21:42 +0200
-Message-ID: <20150416132142.GA19956@thinkoso.home>
-References: <20150414093634.4fe24ba3@notabene.brown>
- <20150414110303.66edcfee@notabene.brown>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jan Dumon <j.dumon@option.com>, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	GTA04 owners <gta04-owner@goldelico.com>
-To: NeilBrown <neilb@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150414110303.66edcfee@notabene.brown>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Erez Shitrit <erezsh@mellanox.com>
+Subject: [PATCH net-next] IB/ipoib: Fix ndo_get_iflink
+Date: Thu, 16 Apr 2015 16:30:35 +0300
+Message-ID: <1429191035-8555-1-git-send-email-erezsh@mellanox.com>
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com,
+	linux-rdma@vger.kernel.org, Erez Shitrit <erezsh@mellanox.com>,
+	Honggang Li <honli@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1327.ztomy.com ([193.47.165.129]:38568 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754527AbbDPNbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Apr 2015 09:31:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 14, 2015 at 11:03:03AM +1000, NeilBrown wrote:
-> On Tue, 14 Apr 2015 09:36:34 +1000 NeilBrown <neilb@suse.de> wrote:
-> 
-> > 
-> > 
-> > Prior to
-> > commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-> >     hso: fix crash when device disappears while serial port is open
-> > 
-> > hso_serial_open would always kref_get(&serial->parent->ref) before
-> > returning zero.
-> > Since that commit, it only calls kref_get when returning 0 if
-> > serial->port.count was zero.
-> > 
-> > This results in calls to
-> >        kref_put(&serial->parent->ref, hso_serial_ref_free);
-> > 
-> > after hso_serial_ref_free has been called, which dereferences a freed
-> > pointer.
-> > 
-> > This patch adds the missing kref_get().
-> > 
-> > Fixes: commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-> > Cc: stable@vger.kernel.org (v4.0)
-> > Cc: Olivier Sobrie <olivier@sobrie.be>
-> > Signed-off-by: NeilBrown <neilb@suse.de>
-> > 
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index 75befc1bd816..6848fc903340 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -1299,6 +1299,7 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
-> >  		}
-> >  	} else {
-> >  		D1("Port was already open");
-> > +		kref_get(&serial->parent->ref);
-> >  	}
-> >  
-> >  	usb_autopm_put_interface(serial->parent->interface);
-> 
-> 
-> Sorry - that was wrong.
-> I'm getting crashes which strongly suggest the kref_put is being called extra
-> times, but I misunderstood the code and was hasty.
-> 
-> Maybe this instead?
+Currently, iflink of the parent interface was always accessed, event 
+when interface didn't have a parent and hence we rashed there.
 
-I tested the patch and it looks fine :-)
-Thank you,
-Olivier
+Handle the interface types properly: for a child interface, return
+the ifindex of the parent, for parent interface, return its ifindex.
 
-> 
-> Thanks,
-> NeilBrown
-> 
-> From: NeilBrown <neil@brown.name>
-> Date: Tue, 14 Apr 2015 09:33:03 +1000
-> Subject: [PATCH] hso: fix refcnt leak in recent patch.
-> 
-> Prior to
-> commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
->     hso: fix crash when device disappears while serial port is open
-> 
-> a kref_get on serial->parent->ref would be taken on each open,
-> and it would be kref_put on each close.
-> 
-> Now the kref_put happens when the tty_struct is finally put (via
-> the 'cleanup') providing tty->driver_data has been set.
-> So the kref_get must be called exact once when tty->driver_data is
-> set.
-> 
-> With the current code, if the first open fails the kref_get() is never
-> called, but the kref_put() is called, leaving to a crash.
-> 
-> So change the kref_get call to happen exactly when ->driver_data is
-> changed from NULL to non-NULL.
-> 
-> Fixes: commit 29bd3bc1194c624ce863cab2a7da9bc1f0c3b47b
-> Cc: stable@vger.kernel.org (v4.0)
-> Cc: Olivier Sobrie <olivier@sobrie.be>
+For child devices, make sure to set the parent pointer prior to
+invoking register_netdevice(), this allows the new ndo to be called
+by the stack immediately after the child device is registered.
 
-Tested-by: Olivier Sobrie <olivier@sobrie.be>
+Fixes: 5aa7add8f14b ('infiniband/ipoib: implement ndo_get_iflink')
+Reported-by: Honggang Li <honli@redhat.com>
+Signed-off-by: Erez Shitrit <erezsh@mellanox.com>
+Signed-off-by: Honggang Li <honli@redhat.com>
+---
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 5 +++++
+ drivers/infiniband/ulp/ipoib/ipoib_vlan.c | 3 +--
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-> Signed-off-by: NeilBrown <neil@brown.name>
-> 
-> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> index 75befc1bd816..17fd3820263a 100644
-> --- a/drivers/net/usb/hso.c
-> +++ b/drivers/net/usb/hso.c
-> @@ -1278,6 +1278,8 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
->  	D1("Opening %d", serial->minor);
->  
->  	/* setup */
-> +	if (tty->driver_data == NULL)
-> +		kref_get(&serial->parent->ref);
->  	tty->driver_data = serial;
->  	tty_port_tty_set(&serial->port, tty);
->  
-> @@ -1294,8 +1296,6 @@ static int hso_serial_open(struct tty_struct *tty, struct file *filp)
->  		if (result) {
->  			hso_stop_serial_device(serial->parent);
->  			serial->port.count--;
-> -		} else {
-> -			kref_get(&serial->parent->ref);
->  		}
->  	} else {
->  		D1("Port was already open");
-
-
-
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 657b89b..915ad04 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -846,6 +846,11 @@ static int ipoib_get_iflink(const struct net_device *dev)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+ 
++	/* parent interface */
++	if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags))
++		return dev->ifindex;
++
++	/* child/vlan interface */
+ 	return priv->parent->ifindex;
+ }
+ 
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+index 4dd1313..fca1a88 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+@@ -58,6 +58,7 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
+ 	/* MTU will be reset when mcast join happens */
+ 	priv->dev->mtu   = IPOIB_UD_MTU(priv->max_ib_mtu);
+ 	priv->mcast_mtu  = priv->admin_mtu = priv->dev->mtu;
++	priv->parent = ppriv->dev;
+ 	set_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags);
+ 
+ 	result = ipoib_set_dev_features(priv, ppriv->ca);
+@@ -84,8 +85,6 @@ int __ipoib_vlan_add(struct ipoib_dev_priv *ppriv, struct ipoib_dev_priv *priv,
+ 		goto register_failed;
+ 	}
+ 
+-	priv->parent = ppriv->dev;
+-
+ 	ipoib_create_debug_files(priv->dev);
+ 
+ 	/* RTNL childs don't need proprietary sysfs entries */
 -- 
-Olivier
+1.7.11.3
