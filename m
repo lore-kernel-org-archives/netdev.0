@@ -1,35 +1,35 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] rocker: fix error return code in rocker_probe()
-Date: Thu, 16 Apr 2015 14:47:15 +0200
-Message-ID: <20150416124715.GB1965@nanopsycho.orion>
-References: <1429186862-20989-1-git-send-email-weiyj_lk@163.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH] dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
+Date: Thu, 16 Apr 2015 05:51:46 -0700
+Message-ID: <552FB062.5090307@roeck-us.net>
+References: <1429161162-2028-1-git-send-email-linux@roeck-us.net> <20150416123742.GG13105@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	netdev@vger.kernel.org
-To: weiyj_lk@163.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:36483 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757151AbbDPMrT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 08:47:19 -0400
-Received: by wizk4 with SMTP id k4so193310774wiz.1
-        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 05:47:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1429186862-20989-1-git-send-email-weiyj_lk@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150416123742.GG13105@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Apr 16, 2015 at 02:21:02PM CEST, weiyj_lk@163.com wrote:
->From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On 04/16/2015 05:37 AM, Andrew Lunn wrote:
+> On Wed, Apr 15, 2015 at 10:12:42PM -0700, Guenter Roeck wrote:
+>> Return correct error code if _mv88e6xxx_reg_read returns an error.
+>>
+>> Fixes: facd95b2e0ec0 ("net: dsa: mv88e6xxx: Add Hardware bridging support")
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 >
->Fix to return -EINVAL from the invalid PCI region size error
->handling case instead of 0, as done elsewhere in this function.
+> Hi Guenter
 >
->Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Good catch. I'm surprised there is no compiler warning, possibly used
+> before set.
+>
+There was, actually. No idea how I missed that. Fengguang's build bots caught it.
 
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+>
+Thanks!
 
-Good catch.
-
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+Guenter
