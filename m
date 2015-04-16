@@ -1,88 +1,97 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] ethtool: return 1 as exit code on a settings(-s)
- failure.
-Date: Thu, 16 Apr 2015 22:11:59 +0100
-Message-ID: <1429218719.3211.119.camel@decadent.org.uk>
-References: <1429217709-21625-1-git-send-email-sridhar.samudrala@intel.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 1/2] net: dsa: use DEVICE_ATTR_RW to declare temp1_max
+Date: Thu, 16 Apr 2015 14:24:34 -0700
+Message-ID: <20150416212434.GA2587@roeck-us.net>
+References: <1429209499-2447-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-AunGeNmCQJ6AMXWrJlR7"
-Cc: netdev@vger.kernel.org
-To: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	kernel@savoirfairelinux.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53186 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750856AbbDPVMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 17:12:12 -0400
-In-Reply-To: <1429217709-21625-1-git-send-email-sridhar.samudrala@intel.com>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:58129 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751934AbbDPVYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 17:24:52 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1YirHH-004B7g-8u
+	for netdev@vger.kernel.org; Thu, 16 Apr 2015 21:24:51 +0000
+Content-Disposition: inline
+In-Reply-To: <1429209499-2447-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 16, 2015 at 02:38:18PM -0400, Vivien Didelot wrote:
+> Since commit da4759c, sysfs will only use the permissions returned by
+> is_visible, instead of OR'ing them with the default file mode.
+> 
+> This allows us to declare temp1_max with the DEVICE_ATTR_RW macro and
+> just return the desired permissions for the hwmon sysfs attributes in
+> dsa_hwmon_attrs_visible.
+> 
+> Also, allow temp1_max to be write-only if set_temp_limit is provided,
+> but not get_temp_limit.
+> 
+Hi Vivien,
 
---=-AunGeNmCQJ6AMXWrJlR7
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This would be a first for the entire hwmon subsystem and doesn't really
+make sense.
 
-On Thu, 2015-04-16 at 13:55 -0700, Sridhar Samudrala wrote:
-> Currently 0 is returned on both success or failure.
+Guenter
 
-Previously discussed here:
-<http://thread.gmane.org/gmane.linux.network/349717>.
-
-Ben.
-
-> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 > ---
->  ethtool.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/ethtool.c b/ethtool.c
-> index 01b13a6..163dff2 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -2352,7 +2352,7 @@ static int do_sset(struct cmd_context *ctx)
->  	int argc =3D ctx->argc;
->  	char **argp =3D ctx->argp;
->  	int i;
-> -	int err;
-> +	int err =3D 0;
-> =20
->  	for (i =3D 0; i < ARRAY_SIZE(flags_msglvl); i++)
->  		flag_to_cmdline_info(flags_msglvl[i].name,
-> @@ -2665,7 +2665,7 @@ static int do_sset(struct cmd_context *ctx)
->  		}
->  	}
-> =20
-> -	return 0;
-> +	return err ? 1 : 0;
+>  net/dsa/dsa.c | 24 ++++++++++++++++--------
+>  1 file changed, 16 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 5eaadab..67d2983 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -124,7 +124,7 @@ static ssize_t temp1_max_store(struct device *dev,
+>  
+>  	return count;
 >  }
-> =20
->  static int do_gregs(struct cmd_context *ctx)
-
---=20
-Ben Hutchings
-Humour is the best antidote to reality.
-
---=-AunGeNmCQJ6AMXWrJlR7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAVTAlpOe/yOyVhhEJAQooChAAsouHsNWybf8rXKzk7jxacAdxGu9Giddh
-J3WPt9xINXnKkfDH41iyIoqPzT2RQ/GjfynuQBMIE1Q2FlqR8LJ1JUQTawfFbuks
-sokmTWHUG7E6RIroA4pn0zlPipfY7TVgrxcpQkAI7caFwyPkkm8IJRZXJEOBHmgh
-NccGPiRcAyJftlukGdbiSCLGRnB1gtaX5uY8yuhJ8jjZohAYgVZgoTCCbO/dbnUW
-plzeTaui1nIYK8KfLuO+xbokJSRUv1BmjsFqR8irevmaQQVQLw1myNlw2Xsr8+aY
-Xe8vfg2p0pwnOkZXKNP+N7Z+Nz5NQ+IMknK4enFPvpGakDXL+lzXMktn6MU4jWfV
-/8nPFe5hrRC8QFOu5lkQQtS78+eU0u6C0uzvJiXIoRNm0zx0WxSdyimlpOw9lz/Z
-odfbGmE1MzuxJ9iJnMGWGly1YTN9BbRD4KZNqOllIYGZyFXvG/SbPaREQlfR2jM/
-GuWApmW42HSObDW2wmPRWU5+Nw6WVXMIWMzP/IAlrdLDZgXb76S49YvKQvFgZQCC
-4nGAnrBX3ntJBp4a5SyWLXNa836pJHW1ZypitEMKLtAsOTF0LUGZ7A12PizGCEQh
-mw8479e5t7adBBcVtC2TkJk1qXay0aeJrdGKicyWSa8pCqcBGvRazlRMALP9caUP
-C/pJug1IOI8=
-=vpcu
------END PGP SIGNATURE-----
-
---=-AunGeNmCQJ6AMXWrJlR7--
+> -static DEVICE_ATTR(temp1_max, S_IRUGO, temp1_max_show, temp1_max_store);
+> +static DEVICE_ATTR_RW(temp1_max);
+>  
+>  static ssize_t temp1_max_alarm_show(struct device *dev,
+>  				    struct device_attribute *attr, char *buf)
+> @@ -154,16 +154,24 @@ static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
+>  	struct device *dev = container_of(kobj, struct device, kobj);
+>  	struct dsa_switch *ds = dev_get_drvdata(dev);
+>  	struct dsa_switch_driver *drv = ds->drv;
+> -	umode_t mode = attr->mode;
+> +	umode_t mode = 0;
+>  
+> -	if (index == 1) {
+> -		if (!drv->get_temp_limit)
+> -			mode = 0;
+> -		else if (drv->set_temp_limit)
+> +	switch (index) {
+> +	case 1: /* temp1_max */
+> +		if (drv->get_temp_limit)
+> +			mode |= S_IRUGO;
+> +		if (drv->set_temp_limit)
+>  			mode |= S_IWUSR;
+> -	} else if (index == 2 && !drv->get_temp_alarm) {
+> -		mode = 0;
+> +		break;
+> +	case 2: /* temp1_max_alarm */
+> +		if (drv->get_temp_alarm)
+> +			mode |= S_IRUGO;
+> +		break;
+> +	default:
+> +		mode = attr->mode;
+> +		break;
+>  	}
+> +
+>  	return mode;
+>  }
+>  
+> -- 
+> 2.3.5
+> 
