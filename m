@@ -1,300 +1,208 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 11/16] netconsole: consolidate enable/disable and create/destroy paths
-Date: Thu, 16 Apr 2015 19:03:48 -0400
-Message-ID: <1429225433-11946-12-git-send-email-tj@kernel.org>
+Subject: [PATCH 10/16] netconsole: introduce netconsole_mutex
+Date: Thu, 16 Apr 2015 19:03:47 -0400
+Message-ID: <1429225433-11946-11-git-send-email-tj@kernel.org>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>
 To: akpm@linux-foundation.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:33107 "EHLO
-	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753887AbbDPXEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:37 -0400
+Received: from mail-qc0-f178.google.com ([209.85.216.178]:35851 "EHLO
+	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753865AbbDPXEf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 19:04:35 -0400
 In-Reply-To: <1429225433-11946-1-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netconsole management paths are scattered around in different places.
-This patch reorganizes them so that
+console_lock protects the target_list itself and setting and clearing
+of its ->enabled flag; however, nothing protects the overall
+enable/disable operations which we'll need to make netconsole
+management more dynamic for the scheduled reliable transmission
+support.  Also, an earlier patch introduced a small race window where
+dynamic console disable may compete against asynchronous disable
+kicked off from netdevice_notifier.
 
-* All enable logic is in netconsole_enable() and disable in
-  netconsole_disable().  Both should be called with netconsole_mutex
-  held and netconsole_disable() may be invoked without intervening
-  enable.
-
-* alloc_param_target() now also handles linking the new target to
-  target_list.  It's renamed to create_param_target() and now returns
-  errno.
-
-* store_enabled() now uses netconsole_enable/disable() instead of
-  open-coding the logic.  This also fixes the missing synchronization
-  against write path when manipulating ->enabled flag.
-
-* drop_netconsole_target() and netconsole_deferred_disable_work_fn()
-  updated to use netconsole_disable().
-
-* init/cleanup_netconsole()'s destruction paths are consolidated into
-  netconsole_destroy_all() which uses netconsole_disable().
-  free_param_target() is no longer used and removed.
-
-While the conversions aren't one-to-one equivalent, this patch
-shouldn't cause any visible behavior differences and makes extension
-of the enable/disable logic a lot easier.
+This patch adds netconsole_mutex which protects all target
+create/destroy and enable/disable operations.  It also replaces
+netconsole_target->mutex used by dynamic consoles.  The above
+mentioned race is removed by this change.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/netconsole.c | 147 +++++++++++++++++++++++++----------------------
- 1 file changed, 79 insertions(+), 68 deletions(-)
+ drivers/net/netconsole.c | 48 ++++++++++++++++++++++++++++--------------------
+ 1 file changed, 28 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index f0ac9f6..d72d902 100644
+index 57c02ab..f0ac9f6 100644
 --- a/drivers/net/netconsole.c
 +++ b/drivers/net/netconsole.c
-@@ -83,6 +83,8 @@ static LIST_HEAD(target_list);
- /* protects target creation/destruction and enable/disable */
- static DEFINE_MUTEX(netconsole_mutex);
+@@ -75,10 +75,14 @@ __setup("netconsole=", option_setup);
  
-+static struct console netconsole;
+ /*
+  * Linked list of all configured targets.  The list and each target's
+- * enable/disable state are protected by console_lock.
++ * enable/disable state are protected by both netconsole_mutex and
++ * console_lock.
+  */
+ static LIST_HEAD(target_list);
+ 
++/* protects target creation/destruction and enable/disable */
++static DEFINE_MUTEX(netconsole_mutex);
 +
  /**
   * struct netconsole_target - Represents a configured netconsole target.
   * @list:	Links this target into the target_list.
-@@ -192,8 +194,43 @@ static struct netconsole_target *alloc_netconsole_target(void)
- 	return nt;
- }
+@@ -106,7 +110,6 @@ struct netconsole_target {
+ #endif
+ 	bool			enabled;
+ 	bool			disable_scheduled;
+-	struct mutex		mutex;
+ 	struct netpoll		np;
+ };
  
-+static int netconsole_enable(struct netconsole_target *nt)
-+{
-+	int err;
-+
-+	lockdep_assert_held(&netconsole_mutex);
-+	WARN_ON_ONCE(nt->enabled);
-+
-+	err = netpoll_setup(&nt->np);
-+	if (err)
-+		return err;
-+
-+	console_lock();
-+	nt->enabled = true;
-+	console_unlock();
-+	return 0;
-+}
-+
-+static void netconsole_disable(struct netconsole_target *nt)
-+{
-+	lockdep_assert_held(&netconsole_mutex);
-+
-+	/*
-+	 * We need to disable the netconsole before cleaning it up
-+	 * otherwise we might end up in write_msg() with !nt->np.dev &&
-+	 * nt->enabled.
-+	 */
-+	if (nt->enabled) {
-+		console_lock();
-+		nt->enabled = false;
-+		console_unlock();
-+
-+		netpoll_cleanup(&nt->np);
-+	}
-+}
-+
- /* Allocate new target (from boot/module param) and setup netpoll for it */
--static struct netconsole_target *alloc_param_target(char *target_config)
-+static int create_param_target(char *target_config)
- {
+@@ -184,7 +187,6 @@ static struct netconsole_target *alloc_netconsole_target(void)
+ 	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
+ 	nt->np.local_port = 6665;
+ 	nt->np.remote_port = 6666;
+-	mutex_init(&nt->mutex);
+ 	eth_broadcast_addr(nt->np.remote_mac);
+ 
+ 	return nt;
+@@ -196,6 +198,8 @@ static struct netconsole_target *alloc_param_target(char *target_config)
  	int err = -ENOMEM;
  	struct netconsole_target *nt;
-@@ -209,24 +246,26 @@ static struct netconsole_target *alloc_param_target(char *target_config)
- 	if (err)
- 		goto fail;
  
--	err = netpoll_setup(&nt->np);
-+	console_lock();
-+	list_add(&nt->list, &target_list);
-+	console_unlock();
++	lockdep_assert_held(&netconsole_mutex);
 +
-+	err = netconsole_enable(nt);
- 	if (err)
--		goto fail;
-+		goto fail_del;
+ 	nt = alloc_netconsole_target();
+ 	if (!nt)
+ 		goto fail;
+@@ -573,10 +577,10 @@ static ssize_t netconsole_target_attr_store(struct config_item *item,
+ 	struct netconsole_target_attr *na =
+ 		container_of(attr, struct netconsole_target_attr, attr);
  
--	nt->enabled = true;
-+	/* Dump existing printks when we register */
-+	netconsole.flags |= CON_PRINTBUFFER;
+-	mutex_lock(&nt->mutex);
++	mutex_lock(&netconsole_mutex);
+ 	if (na->store)
+ 		ret = na->store(nt, buf, count);
+-	mutex_unlock(&nt->mutex);
++	mutex_unlock(&netconsole_mutex);
  
--	return nt;
-+	return 0;
- 
-+fail_del:
-+	console_lock();
-+	list_del(&nt->list);
-+	console_unlock();
- fail:
- 	kfree(nt);
--	return ERR_PTR(err);
--}
--
--/* Cleanup netpoll for given target (from boot/module param) and free it */
--static void free_param_target(struct netconsole_target *nt)
--{
--	netpoll_cleanup(&nt->np);
--	kfree(nt);
-+	return err;
+ 	return ret;
  }
+@@ -610,9 +614,11 @@ static struct config_item *make_netconsole_target(struct config_group *group,
+ 	config_item_init_type_name(&nt->item, name, &netconsole_target_type);
  
- #ifdef	CONFIG_NETCONSOLE_DYNAMIC
-@@ -350,24 +389,15 @@ static ssize_t store_enabled(struct netconsole_target *nt,
- 		 */
- 		netpoll_print_options(&nt->np);
+ 	/* Adding, but it is disabled */
++	mutex_lock(&netconsole_mutex);
+ 	console_lock();
+ 	list_add(&nt->list, &target_list);
+ 	console_unlock();
++	mutex_unlock(&netconsole_mutex);
  
--		err = netpoll_setup(&nt->np);
-+		err = netconsole_enable(nt);
- 		if (err)
- 			return err;
- 
- 		pr_info("netconsole: network logging started\n");
- 	} else {	/* false */
--		/* We need to disable the netconsole before cleaning it up
--		 * otherwise we might end up in write_msg() with
--		 * nt->np.dev == NULL and nt->enabled == true
--		 */
--		console_lock();
--		nt->enabled = false;
--		console_unlock();
--		netpoll_cleanup(&nt->np);
-+		netconsole_disable(nt);
- 	}
- 
--	nt->enabled = enabled;
--
- 	return strnlen(buf, count);
+ 	return &nt->item;
  }
+@@ -622,6 +628,7 @@ static void drop_netconsole_target(struct config_group *group,
+ {
+ 	struct netconsole_target *nt = to_target(item);
  
-@@ -633,13 +663,7 @@ static void drop_netconsole_target(struct config_group *group,
++	mutex_lock(&netconsole_mutex);
+ 	console_lock();
  	list_del(&nt->list);
  	console_unlock();
+@@ -634,6 +641,7 @@ static void drop_netconsole_target(struct config_group *group,
+ 		netpoll_cleanup(&nt->np);
  
--	/*
--	 * The target may have never been enabled, or was manually disabled
--	 * before being removed so netpoll may have already been cleaned up.
--	 */
--	if (nt->enabled)
--		netpoll_cleanup(&nt->np);
--
-+	netconsole_disable(nt);
  	config_item_put(&nt->item);
- 	mutex_unlock(&netconsole_mutex);
++	mutex_unlock(&netconsole_mutex);
  }
-@@ -675,22 +699,16 @@ repeat:
+ 
+ static struct configfs_group_operations netconsole_subsys_group_ops = {
+@@ -662,6 +670,7 @@ static void netconsole_deferred_disable_work_fn(struct work_struct *work)
+ {
+ 	struct netconsole_target *nt, *to_disable;
+ 
++	mutex_lock(&netconsole_mutex);
+ repeat:
  	to_disable = NULL;
  	console_lock();
- 	list_for_each_entry(nt, &target_list, list) {
--		if (!nt->disable_scheduled)
--			continue;
--		nt->disable_scheduled = false;
--
--		if (!nt->enabled)
--			continue;
--
--		netconsole_target_get(nt);
--		nt->enabled = false;
--		to_disable = nt;
--		break;
-+		if (nt->disable_scheduled) {
-+			nt->disable_scheduled = false;
-+			netconsole_target_get(nt);
-+			to_disable = nt;
-+		}
- 	}
- 	console_unlock();
- 
- 	if (to_disable) {
--		netpoll_cleanup(&to_disable->np);
-+		netconsole_disable(to_disable);
+@@ -685,6 +694,8 @@ repeat:
  		netconsole_target_put(to_disable);
  		goto repeat;
  	}
-@@ -795,10 +813,23 @@ static struct console netconsole = {
- 	.write	= write_msg,
- };
++
++	mutex_unlock(&netconsole_mutex);
+ }
  
-+static void __init_or_module netconsole_destroy_all(void)
-+{
-+	struct netconsole_target *nt, *tmp;
-+
-+	lockdep_assert_held(&netconsole_mutex);
-+
-+	/* targets are already inactive, skipping the console lock is safe */
-+	list_for_each_entry_safe(nt, tmp, &target_list, list) {
-+		list_del(&nt->list);
-+		netconsole_disable(nt);
-+		kfree(nt);
-+	}
-+}
-+
- static int __init init_netconsole(void)
- {
- 	int err;
--	struct netconsole_target *nt, *tmp;
+ static DECLARE_WORK(netconsole_deferred_disable_work,
+@@ -791,6 +802,8 @@ static int __init init_netconsole(void)
  	char *target_config;
  	char *input = config;
  
-@@ -806,17 +837,9 @@ static int __init init_netconsole(void)
- 
++	mutex_lock(&netconsole_mutex);
++
  	if (strnlen(input, MAX_PARAM_LENGTH)) {
  		while ((target_config = strsep(&input, ";"))) {
--			nt = alloc_param_target(target_config);
--			if (IS_ERR(nt)) {
--				err = PTR_ERR(nt);
-+			err = create_param_target(target_config);
-+			if (err)
- 				goto fail;
--			}
--			/* Dump existing printks when we register */
--			netconsole.flags |= CON_PRINTBUFFER;
--
--			console_lock();
--			list_add(&nt->list, &target_list);
--			console_unlock();
- 		}
- 	}
+ 			nt = alloc_param_target(target_config);
+@@ -818,24 +831,21 @@ static int __init init_netconsole(void)
+ 	register_console(&netconsole);
+ 	pr_info("network logging started\n");
  
-@@ -838,12 +861,7 @@ undonotifier:
++	mutex_unlock(&netconsole_mutex);
+ 	return err;
+ 
+ undonotifier:
  	unregister_netdevice_notifier(&netconsole_netdev_notifier);
+-	cancel_work_sync(&netconsole_deferred_disable_work);
  fail:
  	pr_err("cleaning up\n");
+ 
+-	/*
+-	 * Remove all targets and destroy them (only targets created
+-	 * from the boot/module option exist here). Skipping the console
+-	 * lock is safe here.
+-	 */
++	/* targets are already inactive, skipping the console lock is safe */
+ 	list_for_each_entry_safe(nt, tmp, &target_list, list) {
+ 		list_del(&nt->list);
+ 		free_param_target(nt);
+ 	}
 -
--	/* targets are already inactive, skipping the console lock is safe */
--	list_for_each_entry_safe(nt, tmp, &target_list, list) {
--		list_del(&nt->list);
--		free_param_target(nt);
--	}
-+	netconsole_destroy_all();
- 	mutex_unlock(&netconsole_mutex);
- 	cancel_work_sync(&netconsole_deferred_disable_work);
++	mutex_unlock(&netconsole_mutex);
++	cancel_work_sync(&netconsole_deferred_disable_work);
  	return err;
-@@ -851,19 +869,12 @@ fail:
+ }
  
- static void __exit cleanup_netconsole(void)
+@@ -843,22 +853,20 @@ static void __exit cleanup_netconsole(void)
  {
--	struct netconsole_target *nt, *tmp;
--
- 	mutex_lock(&netconsole_mutex);
+ 	struct netconsole_target *nt, *tmp;
  
++	mutex_lock(&netconsole_mutex);
++
  	unregister_console(&netconsole);
  	dynamic_netconsole_exit();
  	unregister_netdevice_notifier(&netconsole_netdev_notifier);
--
--	/* targets are already inactive, skipping the console lock is safe */
--	list_for_each_entry_safe(nt, tmp, &target_list, list) {
--		list_del(&nt->list);
--		free_param_target(nt);
--	}
-+	netconsole_destroy_all();
+-	cancel_work_sync(&netconsole_deferred_disable_work);
  
- 	mutex_unlock(&netconsole_mutex);
- 	cancel_work_sync(&netconsole_deferred_disable_work);
+-	/*
+-	 * Targets created via configfs pin references on our module
+-	 * and would first be rmdir(2)'ed from userspace. We reach
+-	 * here only when they are already destroyed, and only those
+-	 * created from the boot/module option are left, so remove and
+-	 * destroy them. Skipping the console lock is safe here.
+-	 */
++	/* targets are already inactive, skipping the console lock is safe */
+ 	list_for_each_entry_safe(nt, tmp, &target_list, list) {
+ 		list_del(&nt->list);
+ 		free_param_target(nt);
+ 	}
++
++	mutex_unlock(&netconsole_mutex);
++	cancel_work_sync(&netconsole_deferred_disable_work);
+ }
+ 
+ /*
 -- 
 2.1.0
