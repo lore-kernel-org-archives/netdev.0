@@ -1,37 +1,38 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
-Date: Thu, 16 Apr 2015 06:46:52 -0700
-Message-ID: <552FBD4C.4070405@roeck-us.net>
-References: <1429161162-2028-1-git-send-email-linux@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH] dsa: mv88e6xxx: Drop duplicate declaration of 'ret' variable
+Date: Thu, 16 Apr 2015 06:49:50 -0700
+Message-ID: <1429192190-31229-1-git-send-email-linux@roeck-us.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrew Lunn <andrew@lunn.ch>,
+	Guenter Roeck <linux@roeck-us.net>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:50595 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933584AbbDPNqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 09:46:55 -0400
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
-	(envelope-from <linux@roeck-us.net>)
-	id 1Yik87-003izy-5Z
-	for netdev@vger.kernel.org; Thu, 16 Apr 2015 13:46:55 +0000
-In-Reply-To: <1429161162-2028-1-git-send-email-linux@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/15/2015 10:12 PM, Guenter Roeck wrote:
-> Return correct error code if _mv88e6xxx_reg_read returns an error.
->
-> Fixes: facd95b2e0ec0 ("net: dsa: mv88e6xxx: Add Hardware bridging support")
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+A duplicate declaration of 'ret' can result in hiding an error code.
+Drop it.
 
-I should have given proper credit.
+Fixes: 17ee3e04ddbf ("net: dsa: Provide additional RMON statistics")
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+Found by compiling the file with W=2.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
+ drivers/net/dsa/mv88e6xxx.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-For the curious, neither W=1, W=2, C-1, C=2, nor sparse report this problem,
-at least not with gcc 4.9.1.
-
-Guenter
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index f64186a5f634..12f186cb30cc 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -602,8 +602,6 @@ static void _mv88e6xxx_get_ethtool_stats(struct dsa_switch *ds,
+ 		u32 high = 0;
+ 
+ 		if (s->reg >= 0x100) {
+-			int ret;
+-
+ 			ret = mv88e6xxx_reg_read(ds, REG_PORT(port),
+ 						 s->reg - 0x100);
+ 			if (ret < 0)
+-- 
+2.1.0
