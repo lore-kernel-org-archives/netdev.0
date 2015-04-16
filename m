@@ -1,103 +1,46 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Thu, 16 Apr 2015 14:16:26 +0900
-Message-ID: <552F45AA.6010906@miraclelinux.com>
-References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH -next 0/3] net: cap size to original frag size when
+ refragmenting
+Date: Thu, 16 Apr 2015 06:24:00 +0100
+Message-ID: <20150416052357.GA3285@acer.localdomain>
+References: <20150413.135348.461869719021663434.davem@davemloft.net>
+ <20150416045622.GA12454@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
-To: Ulf Samuelsson <ulf.samuelsson@ericsson.com>, netdev@emagii.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og102.obsmtp.com ([64.18.2.157]:33784 "HELO
-	exprod7og102.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1750971AbbDPFQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 01:16:30 -0400
-Received: by mail-pa0-f44.google.com with SMTP id tp1so76452389pab.2
-        for <netdev@vger.kernel.org>; Wed, 15 Apr 2015 22:16:29 -0700 (PDT)
-In-Reply-To: <5527892D.4020608@ericsson.com>
+Received: from stinky.trash.net ([213.144.137.162]:64402 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752651AbbDPFYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 01:24:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20150416045622.GA12454@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Ulf Samuelsson wrote:
-
-> The desired functionality is that if communication stops,
-> you want to send out ARP probes, before the entry is deleted.
+On 16.04, Herbert Xu wrote:
+> David Miller <davem@davemloft.net> wrote:
+> > 
+> > Because then there is no ambiguity at all, you preserve on output
+> > exactly what you had on input.  The same geometry, the same
+> > everything.  No special checks, no max frag len, none of this crap.
+> > Those are all hacks trying to work around the _fundamental_ issue
+> > which is that we potentially change the thing when we refrag.
 > 
-> The current (pseudo) code of the neigh timer is:
+> Agreed.  Doing anything other than preserving the original geometry
+> is simply wrong.
 > 
->     if (state & NUD_REACHABLE) {
->         if (now <= "confirmed + "reachable_time")) {
->                     ... /* We are OK */
->         } else if (now < "used" + DELAY_PROBE_TIME) {    /* Never happens */
->                     state = NUD_DELAY;
->         } else {
->             state = NUD_STALE;
->             notify = 1;
->         }
+> However, this doesn't mean that netfilter has to process each
+> fragment.  What we could do is to preserve the original fragments
+> in frag_list and then process the overall skb as a unit in netfilter.
 > 
-> We never see the state beeing changed from REACHABLE to DELAY,
-> so the probes are not beeing sent out, instead you always go
-> from REACHABLE to STALE.
-
-That's right.
-
-
-> DELAY_PROBE_TIME is set to (5 x HZ) and "used"
-> seems to be only set by the periodic_work routine
-> when the neigh entry is in STALE state, and then it is too late.
-> It is also set by "arp_find" which is used by "broken" devices.
+> On output we simply fragment according to the original frag_list.
 > 
+> The only thing to watch out for is to eliminate anything in the
+> middle that tries to linearise the skb.
 
-In STALE state, neigh->used is set by neigh_event_send(), called
-by neigh_resolve_output() via neigh->output().
-
-
-> In practice, the second condition: "(now < "used" + DELAY_PROBE_TIME)" is never used.
-> What is the intention of this test?
-
-That's right.  It is NOT used in normal condition unless
-reachable time is too short.
-
-
-> 
-> By adding a new test + parameter, we would get the desired functionality,
-> and no need to listen for notifications or doing ARP state updates from applications.
-> 
->         if (now <= "confirmed + "reachable_time")) {
->                     ... /* We are OK */
-> +        else if (now <= "confirmed + "reprobe_time")) {
-> +                   state <= NUD_DELAY;
->         } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never happens */
->                     state <= NUD_DELAY;
->         } else {
->             state = NUD_STALE;
->             notify = 1;
->         }
-> 
-> This way the entry would remain in REACHABLE while normal communication occurs,
-> then it would enter DELAY state to probe, and if that fails, it goes to STALE state.
-
-No, it is not what REACHABLE and DELAY mean.
-
->From RFC2461:
-
-|      REACHABLE   Roughly speaking, the neighbor is known to have been
-|                  reachable recently (within tens of seconds ago).
-:
-|      STALE       The neighbor is no longer known to be reachable but
-|                  until traffic is sent to the neighbor, no attempt
-|                  should be made to verify its reachability.
-|      DELAY       The neighbor is no longer known to be reachable, and
-|                  traffic has recently been sent to the neighbor.
-|                  Rather than probe the neighbor immediately, however,
-|                  delay sending probes for a short while in order to
-|                  give upper layer protocols a chance to provide
-|                  reachability confirmation.
-
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+Netfilter may change the contents of the packet, even change its size.
+It is *really* hard to do this while keeping the original fragments
+intact.
