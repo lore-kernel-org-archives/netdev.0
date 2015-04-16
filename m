@@ -1,63 +1,67 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH -next 0/3] net: cap size to original frag size when
- refragmenting
-Date: Thu, 16 Apr 2015 06:42:34 +0100
-Message-ID: <20150416054233.GB3285@acer.localdomain>
-References: <20150413.135348.461869719021663434.davem@davemloft.net>
- <20150416045622.GA12454@gondor.apana.org.au>
- <20150416052357.GA3285@acer.localdomain>
- <20150416052904.GA12648@gondor.apana.org.au>
+Subject: Re: [PATCH 1/7] net: refactor __netif_receive_skb_core
+Date: Thu, 16 Apr 2015 06:49:05 +0100
+Message-ID: <20150416054904.GC3285@acer.localdomain>
+References: <1428668142-4006-1-git-send-email-pablo@netfilter.org>
+ <1428668142-4006-2-git-send-email-pablo@netfilter.org>
+ <5527D476.6030306@iogearbox.net>
+ <20150415180927.4592eb6e@brouer.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64539 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952AbbDPFmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 01:42:39 -0400
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Jesper Dangaard Brouer <netdev@brouer.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150416052904.GA12648@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150415180927.4592eb6e@brouer.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16.04, Herbert Xu wrote:
-> On Thu, Apr 16, 2015 at 06:24:00AM +0100, Patrick McHardy wrote:
-> >
-> > Netfilter may change the contents of the packet, even change its size.
-> > It is *really* hard to do this while keeping the original fragments
-> > intact.
+On 15.04, Jesper Dangaard Brouer wrote:
+> > Out of curiosity, what is actually the performance impact on all
+> > of this? We were just arguing on a different matter on two more
+> > instructions in the fast-path, here it's refactoring the whole
+> > function into several ones, I presume gcc won't inline it.
 > 
-> Perhaps we should provide better helpers to facilitate this?
+> Pablo asked me to performance test this change.  Full test report below.
 > 
-> So instead of directly manipulating the content of the skb you
-> would so so through helpers and the helpers can then try to do
-> sensible things with the fragments.
+> The performance effect (of this patch) depend on the Gcc compiler
+> version.
+> 
+> Two tests:
+>  1. IP-forwarding (unloaded netfilter modules)
+>  2. Early drop in iptables "raw" table
+> 
+> With GCC 4.4.7, which does not inline the new functions
+> (__netif_receive_skb_ingress and __netif_receive_skb_finish) the
+> performance impact/regression is definitly measurable.
+> 
+> With GCC 4.4.7:
+>  1. IP-forwarding: +25.18 ns (slower) (-27776 pps)
+>  2. Early-drop   :  +7.55 ns (slower) (-66577 pps)
+> 
+> With GCC 4.9.1, the new functions gets inlined, thus the refactor
+> splitup of __netif_receive_skb_core() is basically "cancled".
+> Strangly there is a small improvement for forwarding, likely due to
+> some lucky assember reordering that give less icache/fetch-misses.
+> The early-drop improvement is below accuracy levels, can cannot be
+> trusted.
+> 
+> With GCC 4.9.1:
+>  1. IP-forwarding: -10.05ns (faster) (+17532 pps)
+>  2. Early-drop   :  -1.54ns (faster) (+16216 pps) below accuracy levels
+> 
+> I don't know what to conclude, as the result depend on the compiler
+> version... but these kind of change do affect performance, and should
+> be tested/measured.
 
-Yeah, but its going to get pretty complicated. There can be multiple
-size changes and modifications for every packet, so we would need to
-keep track of the size modifications that have already occured to
-map to the correct position in the frag_list. The modifications
-would then have to be performed on both the reassembled skb since
-they might again be matched against later on and on the frag_list,
-potentially split over multiple skbs.
+Thanks Jesper. This effect without inlinging was to be expected I guess.
+The interesting question would be a patch that uses nf_hook() without okfn
+callback, moves the ingress qdisc to register with the netfilter ingress
+hook and moves the TTL tracking of ing_filter() to the ingress qdisc,
+where it belongs.
 
-When enlarging the packet, I guess we would insert a new (small)
-fragment to keep the geometry of the original fragments. In extreme
-cases like H.323 NAT this might result in a huge amount of new very
-small fragments. And it might still break the geometry when the
-size difference isn't representable as a multiple of 8.
-
-When reducing the skb size, we might have to choice but to change
-the geometry of at least on fragment and would have to shift a lot
-of data around.
-
-This is very complicated, it we really want to do this, its a lot
-easier to just keep note of the full original geometry and refragment
-to those exact sizes while potentially adding or removing things
-at the end.
-
-My personal opinion is, why bother. The only thing that cares about
-the fragment sizes is PMTUD, and that's what this patch is fixing in
-a much simpler fashion.
+My expectation would be that this would result in an overall performance
+gain.
