@@ -1,63 +1,35 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] Bluetooth: Pre-initialize variables in read_local_oob_ext_data_complete()
-Date: Fri, 17 Apr 2015 13:38:47 -0700
-Message-ID: <8684664B-22C2-45E8-B547-48F173B3CA7A@holtmann.org>
-References: <1429212265-26750-1-git-send-email-geert@linux-m68k.org> <A962A040-4EB5-4AE6-A790-A8767185172B@holtmann.org> <CAMuHMdUxnrg1BVoFpKExzGHKj2aOmYGp+wChhMbPfmWvMzQT=Q@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMuHMdUxnrg1BVoFpKExzGHKj2aOmYGp+wChhMbPfmWvMzQT=Q@mail.gmail.com>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [RFC PATCH v2 02/11] slab: add private memory allocator header
+ for arch/lib
+Date: Fri, 17 Apr 2015 17:26:34 -0500 (CDT)
+Message-ID: <alpine.DEB.2.11.1504171725100.10545@gentwo.org>
+References: <1427202642-1716-1-git-send-email-tazaki@sfc.wide.ad.jp> <1429263374-57517-1-git-send-email-tazaki@sfc.wide.ad.jp> <1429263374-57517-3-git-send-email-tazaki@sfc.wide.ad.jp> <alpine.DEB.2.11.1504170716380.20800@gentwo.org> <55310033.1060108@nod.at>
+ <m2h9se4x2b.wl@sfc.wide.ad.jp> <553121E6.5000005@nod.at>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hajime Tazaki <tazaki@sfc.wide.ad.jp>, linux-arch@vger.kernel.org,
+    arnd@arndb.de, corbet@lwn.net, penberg@kernel.org, rientjes@google.com,
+    iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
+    linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+    netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
+    rusty@rustcorp.com.au, upa@haeena.net, christoph.paasch@gmail.com,
+    mathieu.lacage@gmail.com, libos-nuse@googlegroups.com
+To: Richard Weinberger <richard@nod.at>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <553121E6.5000005@nod.at>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi Geert,
+On Fri, 17 Apr 2015, Richard Weinberger wrote:
 
->>> net/bluetooth/mgmt.c: In function =E2=80=98read_local_oob_ext_data_=
-complete=E2=80=99:
->>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r256=E2=80=99 may be u=
-sed uninitialized in this function
->>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h256=E2=80=99 may be u=
-sed uninitialized in this function
->>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r192=E2=80=99 may be u=
-sed uninitialized in this function
->>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h192=E2=80=99 may be u=
-sed uninitialized in this function
->>>=20
->>> While these are false positives, the code can be shortened by
->>> pre-initializing the hash table pointers and eir_len. This has the =
-side
->>> effect of killing the compiler warnings.
->>=20
->> can you be a bit specific on which compiler version is this. I fixed=
- one occurrence that seemed valid. However in this case the compiler se=
-ems to be just plain stupid. On a gcc 4.9, I am not seeing these for ex=
-ample.
->=20
-> gcc 4.1.2. As there were too many false positives, these warnings wer=
-e
-> disabled in later versions (throwing away the children with the bad w=
-ater).
->=20
-> If you don't like my patch, just drop it. I only look at newly
-> introduced warnings
-> of this kind anyway.
+> SLUB is the unqueued SLAB and SLLB is the library SLAB. :D
 
-I really do not know what is the best solution here. This is a false po=
-sitive. And I have been looking at this particular code for a warning t=
-hat was valid, but we missed initially. But these warnings that you are=
- fixing are clearly false positive.
+Good that this convention is now so broadly known that I did not even
+have to explain what it meant. But I think you can give it any name you
+want. SLLB was just a way to tersely state how this is going to integrate
+into the overall scheme of things.
 
-If this only happens with an old compiler version, I would tend to leav=
-e the code as is. Then again, what is the general preferred approach he=
-re?
-
-Regards
-
-Marcel
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
