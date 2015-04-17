@@ -1,43 +1,30 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCHSET] printk, netconsole: implement reliable netconsole
-Date: Fri, 17 Apr 2015 14:04:38 -0400
-Message-ID: <20150417180438.GE16743@htj.duckdns.org>
-References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <201504180035.AIJ09349.SOFFHFtLOOQVMJ@I-love.SAKURA.ne.jp>
- <20150417162826.GB16743@htj.duckdns.org>
- <20150417.131712.1245246947203158168.davem@davemloft.net>
- <20150417173754.GC16743@htj.duckdns.org>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: Re: [PATCH] netns: deinline net_generic()
+Date: Fri, 17 Apr 2015 20:05:11 +0200
+Message-ID: <55314B57.6050301@redhat.com>
+References: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>	 <20150414.143747.1155055158701231768.davem@davemloft.net>	 <552F9986.30207@redhat.com>	 <1429187895.7346.195.camel@edumazet-glaptop2.roam.corp.google.com>	 <55313D4D.4050402@redhat.com> <1429292536.7346.248.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: penguin-kernel@I-love.SAKURA.ne.jp, akpm@linux-foundation.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	jengelh@medozas.de, jpirko@redhat.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150417173754.GC16743@htj.duckdns.org>
+In-Reply-To: <1429292536.7346.248.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just a bit of addition.
+On 04/17/2015 07:42 PM, Eric Dumazet wrote:
+> On Fri, 2015-04-17 at 19:05 +0200, Denys Vlasenko wrote:
+>> How do you expect one to find excessively large inlines,
+>> if not on allyesconfig build?
+> 
+> Tuning kernel sources based on allyesconfig build _size_ only is
+> terrible. We could build an interpreter based kernel and maybe reduce
+> its size by 50% who knows...
+> 
+> You are saying that all inline should be removed, since it is obvious
+> kernel size _will_ be smaller.
 
-On Fri, Apr 17, 2015 at 01:37:54PM -0400, Tejun Heo wrote:
-> Upto patch 12, it's just the same mechanism transferring extended
-> messages.  It doesn't add any smartness to netconsole per-se except
-> that it can now emit messages with metadata headers.  What do you
-> think about them?
-
-So, as long as netconsole can send messages with metadata header,
-moving the reliability part to userland is trivial.  All that's
-necessary is a program which follows /dev/kmsg, keeps the unacked
-sequences and implement the same retransmission mechanism.  It'd be
-less reobust in certain failure scenarios and a bit more cumbersome to
-set up but nothing major and if we do that there'd be no reason to
-keep the userland part in the kernel tree.
-
-If the retransmission and timer parts are bothering, moving those to
-userland sounds like an acceptable compromise.
-
-Thanks.
-
--- 
-tejun
+I am not saying that. That would be stupid.
