@@ -1,35 +1,64 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: act_mirred: Fix bogus header when redirecting from VLAN
-Date: Thu, 16 Apr 2015 18:34:02 -0700
-Message-ID: <20150417013401.GA4335@Alexeis-MacBook-Pro.local>
-References: <20150417010216.GA22415@gondor.apana.org.au>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH] dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
+Date: Thu, 16 Apr 2015 19:05:11 -0700
+Message-ID: <55306A57.4060701@roeck-us.net>
+References: <1429161162-2028-1-git-send-email-linux@roeck-us.net>	<552FBD4C.4070405@roeck-us.net> <CAMuHMdVEbXGLR_svG9tHVMSvEOfajNX6GxAo113n2TfvGSRcwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jamal <hadi@cyberus.ca>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33985 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752062AbbDQBeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 21:34:04 -0400
-Received: by pacyx8 with SMTP id yx8so108304326pac.1
-        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 18:34:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150417010216.GA22415@gondor.apana.org.au>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:33293 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355AbbDQCFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Apr 2015 22:05:16 -0400
+Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.82)
+	(envelope-from <linux@roeck-us.net>)
+	id 1Yivee-002rOo-AQ
+	for netdev@vger.kernel.org; Fri, 17 Apr 2015 02:05:16 +0000
+In-Reply-To: <CAMuHMdVEbXGLR_svG9tHVMSvEOfajNX6GxAo113n2TfvGSRcwA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 17, 2015 at 09:02:16AM +0800, Herbert Xu wrote:
-> @@ -105,7 +105,7 @@ static void ri_tasklet(unsigned long dev)
->  		if (from & AT_EGRESS) {
->  			dev_queue_xmit(skb);
->  		} else if (from & AT_INGRESS) {
-> -			skb_pull(skb, skb->dev->hard_header_len);
-> +			skb_pull(skb, _dev->hard_header_len);
-...
->  	if (!(at & AT_EGRESS)) {
->  		if (m->tcfm_ok_push)
-> -			skb_push(skb2, skb2->dev->hard_header_len);
-> +			skb_push(skb2, dev->hard_header_len);
+On 04/16/2015 11:51 AM, Geert Uytterhoeven wrote:
+> On Thu, Apr 16, 2015 at 3:46 PM, Guenter Roeck <linux@roeck-us.net> w=
+rote:
+>> On 04/15/2015 10:12 PM, Guenter Roeck wrote:
+>>>
+>>> Return correct error code if _mv88e6xxx_reg_read returns an error.
+>>>
+>>> Fixes: facd95b2e0ec0 ("net: dsa: mv88e6xxx: Add Hardware bridging
+>>> support")
+>>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>>
+>>
+>> I should have given proper credit.
+>>
+>> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+>>
+>> For the curious, neither W=3D1, W=3D2, C-1, C=3D2, nor sparse report=
+ this problem,
+>> at least not with gcc 4.9.1.
+>
+> Good old gcc 4.1.2 (which I still use for m68k builds, and won't reti=
+re anytime
+> soon as it finds real bugs in every new kernel release) says:
+>
+>      drivers/net/dsa/mv88e6xxx.c: In function =E2=80=98mv88e6xxx_set_=
+port_state=E2=80=99:
+>      drivers/net/dsa/mv88e6xxx.c:905: warning: =E2=80=98ret=E2=80=99 =
+may be used
+> uninitialized in this function
+>
+> Even after your patch, as it missed one case (patch sent).
+>
 
-seems the cleaner fix will be to push skb->mac_len instead?
+Grumble. So much for trusting tools :-(
+
+Thanks for fixing this!
+
+Guenter
