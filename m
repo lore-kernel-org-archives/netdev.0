@@ -1,30 +1,51 @@
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Subject: Re: [PATCH] netns: deinline net_generic()
-Date: Fri, 17 Apr 2015 20:05:11 +0200
-Message-ID: <55314B57.6050301@redhat.com>
-References: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>	 <20150414.143747.1155055158701231768.davem@davemloft.net>	 <552F9986.30207@redhat.com>	 <1429187895.7346.195.camel@edumazet-glaptop2.roam.corp.google.com>	 <55313D4D.4050402@redhat.com> <1429292536.7346.248.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCHSET] printk, netconsole: implement reliable netconsole
+Date: Fri, 17 Apr 2015 14:07:32 -0400
+Message-ID: <20150417180732.GF16743@htj.duckdns.org>
+References: <20150417162826.GB16743@htj.duckdns.org>
+ <20150417.131712.1245246947203158168.davem@davemloft.net>
+ <20150417173754.GC16743@htj.duckdns.org>
+ <201504180243.IDB78159.tFVOOFQFSOHLMJ@I-love.SAKURA.ne.jp>
+ <20150417174522.GD16743@htj.duckdns.org>
+ <201504180303.GAB26011.OLJFSMVFFOHtOQ@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
-	jengelh@medozas.de, jpirko@redhat.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, akpm@linux-foundation.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429292536.7346.248.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Disposition: inline
+In-Reply-To: <201504180303.GAB26011.OLJFSMVFFOHtOQ@I-love.SAKURA.ne.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/17/2015 07:42 PM, Eric Dumazet wrote:
-> On Fri, 2015-04-17 at 19:05 +0200, Denys Vlasenko wrote:
->> How do you expect one to find excessively large inlines,
->> if not on allyesconfig build?
-> 
-> Tuning kernel sources based on allyesconfig build _size_ only is
-> terrible. We could build an interpreter based kernel and maybe reduce
-> its size by 50% who knows...
-> 
-> You are saying that all inline should be removed, since it is obvious
-> kernel size _will_ be smaller.
+On Sat, Apr 18, 2015 at 03:03:46AM +0900, Tetsuo Handa wrote:
+> If you tolerate loss of kernel messages, adding sequence number to each UDP
 
-I am not saying that. That would be stupid.
+Well, there's a difference between accepting loss when log buffer
+overflows and when any packets get lost.
+
+> packet will be sufficient for finding out whether the packets were lost and/or
+> reordered in flight.
+> 
+>   printk("Hello");
+>    => netconsole sends "00000000 Hello" using UDP
+>   printk("netconsole");
+>    => netconsole sends "00000001 netconsole" using UDP
+>   printk("world\n");
+>    => netconsole sends "00000002 world\n" using UDP
+> 
+> It might be nice to allow administrator to prefix a sequence number
+> to netconsole messages for those who are using special receiver
+> program (e.g. ncrx) which checks that sequence number.
+
+That said, this is pretty much what the first 12 patches do (except
+for the last printk patch, which can be taken out).  We already have
+sequencing and established format to expose them to userland - try cat
+/dev/kmsg, which btw is what local loggers on modern systems use
+anyway.  Why introduce netconsole's own version of metadata?
+
+Thanks.
+
+-- 
+tejun
