@@ -1,86 +1,82 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4 00/24] switchdev: spring cleanup
-Date: Thu, 16 Apr 2015 21:48:12 -0700
-Message-ID: <5530908C.6020601@cumulusnetworks.com>
-References: <1428905838-14920-1-git-send-email-sfeldma@gmail.com> <552CAA0C.3030009@cumulusnetworks.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [v2] act_mirred: Fix bogus header when redirecting from VLAN
+Date: Fri, 17 Apr 2015 13:32:09 +0800
+Message-ID: <20150417053209.GA23855@gondor.apana.org.au>
+References: <20150417010216.GA22415@gondor.apana.org.au>
+ <20150417013401.GA4335@Alexeis-MacBook-Pro.local>
+ <20150417021501.GB22835@gondor.apana.org.au>
+ <20150417024029.GA6718@Alexeis-MacBook-Pro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, linux@roeck-us.net,
-	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
-	ronen.arad@intel.com, andrew@lunn.ch
-To: sfeldma@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jamal <hadi@cyberus.ca>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:36717 "EHLO
-	mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873AbbDQEsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 00:48:16 -0400
-Received: by qku63 with SMTP id 63so146618812qku.3
-        for <netdev@vger.kernel.org>; Thu, 16 Apr 2015 21:48:15 -0700 (PDT)
-In-Reply-To: <552CAA0C.3030009@cumulusnetworks.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:54975 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900AbbDQFcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 01:32:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20150417024029.GA6718@Alexeis-MacBook-Pro.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/13/15, 10:47 PM, roopa wrote:
-> On 4/12/15, 11:16 PM, sfeldma@gmail.com wrote:
->> From: Scott Feldman <sfeldma@gmail.com>
->>
->> v4:
->>
->> Well, it was a lot of work, but now prepare-commit transaction model 
->> is how
->> davem advises: if prepare fails, abort the transaction.  The driver 
->> must do
->> resource reservations up front in prepare phase and return those 
->> resources if
->> aborting.  Commit phase would use reserved resources.  The good news 
->> is the
->> driver code (for rocker) now handles resource allocation failures 
->> better by not
->> leaving partially device or driver states.  This is a side-effect of the
->> prepare phase where state isn't modified; only validation of inputs and
->> resource reservations happen in the prepare phase.  Since we're 
->> supporting
->> setting attrs and add objs across lower devs in the stacked case, we 
->> need to
->> hold rtnl_lock (or ensure rtnl_lock is held) so lower devs don't move 
->> on us
->> during the prepare-commit transaction.  DSA driver code skips the 
->> prepare phase
->> and goes straight for the commit phase since no up-front allocations 
->> are done
->> and no device failures (that could be detected in the prepare phase) can
->> happen.
->
-> thanks for the series. It definitely does look cleaner and less 
-> confusing now!.
-> I do love the abstraction but i was one of the people voting against 
-> duplicating the
-> kernel objects into swdev objs which this patches does (which i am 
-> still not convinced
-> we should have).
->
->>
->> Remove NETIF_F_HW_SWITCH_OFFLOAD from rocker and the swdev_attr_set/get
->> wrappers.  DSA doesn't set NETIF_F_HW_SWITCH_OFFLOAD, so it can't be in
->> swdev_attr_set/get.  rocker doesn't need it; or rather can't support
->> NETIF_F_HW_SWITCH_OFFLOAD being set/cleared at run-time after the device
->> port is already up and offloading L2/L3. NETIF_F_HW_SWITCH_OFFLOAD is 
->> still
->> left as a feature flag for drivers that can use it.
->
-> I see that this series removes all uses of it in the switchdev api 
-> later. I had summarized
-> the need for the flag in reply to one of your questions a few weeks 
-> back. Since you have moved all
-> ndo ops to swdev ops (including ndo_bridge_setlink/dellink), I don't 
-> want to hold on to the
->  feature flag if no one is using it. yes, my userspace driver uses it 
-> today.
-> I will come back with stronger justification to keep it or
-> will submit a patch to remove it and add it back at a later point if 
-> needed.
->
-scott,  I see that you will be spinning v5 of the series. In which case 
-feel free to remove the feature flag during your
-code restructuring effort. If i need it again, i will resubmit. thanks.
+On Thu, Apr 16, 2015 at 07:40:30PM -0700, Alexei Starovoitov wrote:
+> On Fri, Apr 17, 2015 at 10:15:01AM +0800, Herbert Xu wrote:
+> > > seems the cleaner fix will be to push skb->mac_len instead?
+> > 
+> > No skb->mac_len is the same as skb2->dev->hard_header_len.
+> 
+> hmm. please help me understand the problem then.
+> In the commit log you mentioned that your vlan dev and ifb
+> have unequal hard header length. I think that can only happen if
+> your master dev used to create vlan, didn't have vlan offload,
+> so vlandev->hhl = 18 and ifb->hhl = 14. Then when tagged packet
+> arrives on master device we call skb_vlan_untag() and
+> skb->mac_len becomes 14, then vlan_do_receive() will do
+
+You are right.  I should've just used mac_len.
+
+---8<---
+When you redirect a VLAN device to any device, you end up with
+crap in af_packet on the xmit path because hard_header_len is
+not equal to skb->mac_len.  So the redirected packet contains
+four extra bytes at the start which then gets interpreted as
+part of the MAC address.
+
+This patch fixes this by only pushing skb->mac_len.  We also
+need to fix ifb because it tries to undo the pushing done by
+act_mirred.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index 34f846b..94570aa 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -105,7 +105,7 @@ static void ri_tasklet(unsigned long dev)
+ 		if (from & AT_EGRESS) {
+ 			dev_queue_xmit(skb);
+ 		} else if (from & AT_INGRESS) {
+-			skb_pull(skb, skb->dev->hard_header_len);
++			skb_pull(skb, skb->mac_len);
+ 			netif_receive_skb(skb);
+ 		} else
+ 			BUG();
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 5953517..3f63cea 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -157,7 +157,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+ 
+ 	if (!(at & AT_EGRESS)) {
+ 		if (m->tcfm_ok_push)
+-			skb_push(skb2, skb2->dev->hard_header_len);
++			skb_push(skb2, skb->mac_len);
+ 	}
+ 
+ 	/* mirror is always swallowed */
+
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
