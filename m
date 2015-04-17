@@ -1,35 +1,62 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHSET] printk, netconsole: implement reliable netconsole
-Date: Fri, 17 Apr 2015 13:17:12 -0400 (EDT)
-Message-ID: <20150417.131712.1245246947203158168.davem@davemloft.net>
-References: <1429225433-11946-1-git-send-email-tj@kernel.org>
-	<201504180035.AIJ09349.SOFFHFtLOOQVMJ@I-love.SAKURA.ne.jp>
-	<20150417162826.GB16743@htj.duckdns.org>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Fri, 17 Apr 2015 13:19:56 -0400 (EDT)
+Message-ID: <20150417.131956.2235150293184897656.davem@davemloft.net>
+References: <21807.60995.462892.714138@mariner.uk.xensource.com>
+	<1429224694.4720.68.camel@prashant>
+	<21809.13544.303033.990277@mariner.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: penguin-kernel@I-love.SAKURA.ne.jp, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: tj@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150417162826.GB16743@htj.duckdns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: prashant@broadcom.com, mchan@broadcom.com,
+	cascardo@linux.vnet.ibm.com, konrad.wilk@oracle.com,
+	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
+	vyasevich@gmail.com, xen-devel@lists.xensource.com,
+	netdev@vger.kernel.org, siva.kallam@broadcom.com,
+	sanjeevb@broadcom.com
+To: Ian.Jackson@eu.citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45212 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753081AbbDQRUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 13:20:00 -0400
+In-Reply-To: <21809.13544.303033.990277@mariner.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj@kernel.org>
-Date: Fri, 17 Apr 2015 12:28:26 -0400
+From: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Date: Fri, 17 Apr 2015 17:29:28 +0100
 
-> On Sat, Apr 18, 2015 at 12:35:06AM +0900, Tetsuo Handa wrote:
->> If the sender side can wait for retransmission, why can't we use
->> userspace programs (e.g. rsyslogd)?
+> Prashant Sreedharan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
+>> Ok this is what is causing the problem, the driver uses
+>> DEFINE_DMA_UNMAP_ADDR(), dma_unmap_addr_set() to keep a copy of the dma
+>> "mapping" and dma_unmap_addr() to get the "mapping" value. On most of
+>> the platforms this is a no-op, but it appears with "iommu=soft and
+>> swiotlb=force" this house keeping is required, when I pass the correct
+>> dma_addr instead of 0 while calling pci_unmap_/pci_dma_sync_ I don't see
+>> the corruption. ie If you set CONFIG_NEED_DMA_MAP_STATE=y in your kernel
+>> config you should not see the problem. Can you confirm ? Thanks
 > 
-> Because the system may be oopsing, ooming or threshing excessively
-> rendering the userland inoperable and that's exactly when we want
-> those log messages to be transmitted out of the system.
+> That kernel config option is an automatically computed one:
+> 
+> config NEED_DMA_MAP_STATE
+>         def_bool y
+>         depends on X86_64 || INTEL_IOMMU || DMA_API_DEBUG
+> 
+> and grepping my .config shows:
+> 
+> # CONFIG_INTEL_IOMMU is not set
+> # CONFIG_DMA_API_DEBUG is not set
+> 
+> It's a 32-bit kernel so it hasn't got X86_64 enabled either.
+> 
+> Arguably at least some of osstest's kernels should have INTEL_IOMMU
+> enabled to detect conflicts between Xen's use of the iommu and
+> possible attempts bo Linux to do the same thing, but not having it
+> enabled should not cause a driver bug.
 
-If userland cannot run properly, it is almost certain that neither will
-your complex reliability layer logic.
+So the gist of the situation is, that NEED_DMA_MAP_STATE can be 'n' in
+situations where we might actually need it to be 'y' based upon kernel
+comman line boot options given.
 
-I tend to agree with Tetsuo, that in-kernel netconsole should remain
-as simple as possible and once it starts to have any smarts and less
-trivial logic the job belongs in userspace.
+Right?
