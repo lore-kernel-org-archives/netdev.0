@@ -1,107 +1,144 @@
-From: Hyong-Youb Kim <hkim@cspi.com>
-Subject: Re: ioremap_uc() followed by set_memory_wc() - burrying MTRR
-Date: Fri, 17 Apr 2015 17:00:46 +0900
-Message-ID: <20150417080046.GA4620@hykim-PC>
-References: <20150410210538.GB5622@wotan.suse.de>
- <1428699490.21794.5.camel@misato.fc.hp.com>
- <CALCETrUP688aNjckygqO=AXXrNYvLQX6F0=b5fjmsCqqZU78+Q@mail.gmail.com>
- <20150411012938.GC5622@wotan.suse.de>
- <CALCETrXd19C6pARde3pv-4pt-i52APtw5xs20itwROPq9VmCfg@mail.gmail.com>
- <20150413174938.GE5622@wotan.suse.de>
- <1429137531.1899.28.camel@palomino.walls.org>
- <20150415235816.GG5622@wotan.suse.de>
- <20150416041837.GA5712@hykim-PC>
- <20150416185426.GH5622@wotan.suse.de>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
+Date: Fri, 17 Apr 2015 10:03:12 +0200
+Message-ID: <5530BE40.1000504@ericsson.com>
+References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com> <552F45AA.6010906@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Andy Walls <awalls@md.metrocast.net>,
-	Hyong-Youb Kim <hykim@myri.com>, <netdev@vger.kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Toshi Kani <toshi.kani@hp.com>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Suresh Siddha <sbsiddha@gmail.com>,
-	Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	Mike Marciniszyn <mike.marciniszyn@intel.com>,
-	Roland Dreier <roland@purestorage.com>,
-	"Juergen Gross" <jgross@suse.com>,
-	Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
-	Borislav Petkov <bp@suse.de>, Mel Gorman <mgorman@suse.de>,
-	Vlastimil Babka <vbabka@suse.cz>,
-	Davidlohr Bueso <dbueso@suse.de>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Felix Fietkau <nbd@openwrt.org>,
-	"Benjamin Poirier" <bpoirier@suse.de>,
-	<dave.hansen@linux.i
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	<netdev@emagii.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0137.outbound.protection.outlook.com ([157.56.112.137]:29328
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752157AbbDQIBs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Apr 2015 04:01:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20150416185426.GH5622@wotan.suse.de>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:60285 "EHLO
+	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752891AbbDQIDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 04:03:18 -0400
+In-Reply-To: <552F45AA.6010906@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 16, 2015 at 08:54:26PM +0200, Luis R. Rodriguez wrote:
-> > Without WC, descriptors would end up as multiple 4B or 8B MWr packets
-> > to the NIC, which has a pretty big performance impact on this
-> > particular NIC.
-> 
-> How big are the descriptors?
 
-Some are 64B (a batch of eight 8B descriptors).  Some are 16B.
+On 04/16/2015 07:16 AM, YOSHIFUJI Hideaki wrote:
+> Hi,
+>
+> Ulf Samuelsson wrote:
+>
+>> The desired functionality is that if communication stops,
+>> you want to send out ARP probes, before the entry is deleted.
+>>
+>> The current (pseudo) code of the neigh timer is:
+>>
+>>      if (state & NUD_REACHABLE) {
+>>          if (now <= "confirmed + "reachable_time")) {
+>>                      ... /* We are OK */
+>>          } else if (now < "used" + DELAY_PROBE_TIME) {    /* Never happens */
+>>                      state = NUD_DELAY;
+>>          } else {
+>>              state = NUD_STALE;
+>>              notify = 1;
+>>          }
+>>
+>> We never see the state beeing changed from REACHABLE to DELAY,
+>> so the probes are not beeing sent out, instead you always go
+>> from REACHABLE to STALE.
+> That's right.
+But not acceptable, in telecom.
+>
+>
+>> DELAY_PROBE_TIME is set to (5 x HZ) and "used"
+>> seems to be only set by the periodic_work routine
+>> when the neigh entry is in STALE state, and then it is too late.
+>> It is also set by "arp_find" which is used by "broken" devices.
+>>
+> In STALE state, neigh->used is set by neigh_event_send(), called
+> by neigh_resolve_output() via neigh->output().
 
-> > Most registers that do not want WC are actually in BAR2, which is not
-> > mapped as WC.  For registers that are in BAR0, we do "write to the
-> > register; wmb".  If we want to wait till the NIC has seen the write,
-> > we do "write; wmb; read".
-> 
-> Interesting, thanks, yeah using this as a work around to the problem sounds
-> plausible however it still would require likely making just as many changes to
-> the ivtv and ipath driver as to just do a proper split. I do wonder however if
-> this sort of work around can be generalized somehow though so that others could
-> use, if this sort of thing is going to become prevalent. If so then this would
-> serve two purposes: work around for the corner cases of MTRR use on Linux and
-> also these sorts of device constraints.
 
-These Myricom devices are very non-standard in my opinion, at least in
-the Ethernet world.  Few, if any, other devices depend so much on WC
-like these do.  I think almost all devices now have rings in host
-memory.  The NIC pulls them via DMA.  No need for WC, and no need to
-special case registers...
 
-> In order to determine if this is likely to be generally useful could you elaborate
-> a bit more about the detals of the performance issues of not bursting writes
-> for the descriptor on this device.
+>> In practice, the second condition: "(now < "used" + DELAY_PROBE_TIME)" is never used.
+>> What is the intention of this test?
+> That's right.  It is NOT used in normal condition unless
+> reachable time is too short.
+>
+>
+>> By adding a new test + parameter, we would get the desired functionality,
+>> and no need to listen for notifications or doing ARP state updates from applications.
+>>
+>>          if (now <= "confirmed + "reachable_time")) {
+>>                      ... /* We are OK */
+>> +        else if (now <= "confirmed + "reprobe_time")) {
+>> +                   state <= NUD_DELAY;
+>>          } else if (now < "used" + DELAY_PROBE_TIME))) {    /* Never happens */
+>>                      state <= NUD_DELAY;
+>>          } else {
+>>              state = NUD_STALE;
+>>              notify = 1;
+>>          }
+>>
+>> This way the entry would remain in REACHABLE while normal communication occurs,
+>> then it would enter DELAY state to probe, and if that fails, it goes to STALE state.
+> No, it is not what REACHABLE and DELAY mean.
+>
+>  From RFC2461:
+>
+> |      REACHABLE   Roughly speaking, the neighbor is known to have been
+> |                  reachable recently (within tens of seconds ago).
+> :
+> |      STALE       The neighbor is no longer known to be reachable but
+> |                  until traffic is sent to the neighbor, no attempt
+> |                  should be made to verify its reachability.
+> |      DELAY       The neighbor is no longer known to be reachable, and
+> |                  traffic has recently been sent to the neighbor.
+> |                  Rather than probe the neighbor immediately, however,
+> |                  delay sending probes for a short while in order to
+> |                  give upper layer protocols a chance to provide
+> |                  reachability confirmation.
+>
+>
 
-For this particular Myricom device, performance penalty stems from the
-use of slow path in the firmware.  They are not about how effectively
-we use PCI Express or latency or bandwidth.  Small MWr packets end up
-casuing slow path processing via the firmware in this device.
+It is all depending on the meaning of the word "recently".
+You imply, that if timeouts have been triggered, then it is no longer 
+"recent",
+but that is not the only interpretation, it is up to the implementer to 
+decide
+what is "recently".
 
-There are HPC low latency NICs that use WC for different reasons.  To
-reduce latency as much as possible, some of these copy small packets
-to the NIC memory via PIO (BAR0, and so on), instead of DMA.  They
-want WC mapping to minimize PCI Express packets/transactions.
+You can argue, that for REACHABLE they define it as "(within tens of 
+seconds ago)",
+but in a standards document, that is not enough,
+so the definition of STALE is perfectly OK due to this ambiguity.
 
-I do not know about video adapters and their use for WC.
+We have the situation in that machines enter and exit the network, at 
+unpredictable times,
+and while traffic is sporadic, they still need to be reachable.
+They should not enter FAILED state unless they leave the network.
 
-> Even if that is done a conversion over to this work around seems it may require
-> device specific nitpicks. For instance I note in myri10ge_submit_req() for
-> small writes you just do a reverse write and do the first set last, then
-> finally the last 32 bits are rewritten, I guess to trigger something?
+I see also in the RFC2461:
+"To reduce unnecessary network traffic, probe messages are only sent to
+neighbors to which the node is actively sending packets."
 
-Right.  The device polls the last word to start sending, DMA, etc.
+In telecom applications, as long as the neighbour is present on the network,
+the node will be sending packets, even if it is not that frequent.
 
-> > This approach has worked for this device for many years.  I cannot say
-> > whether it works for other devices, though.
-> 
-> I think it should but the more interesting question would be exactly
-> *why* it was needed for this device, who determined that, and why?
+These probes are *neccessary* for the system to work properly,
+due to the long time for garbage collection.
 
-Hopefully, the above text answers some of your questions.
+The PROBE state need to be entered once, and only when these probes get 
+no answer,
+the entry should move into STALE.
+I think that is compliant with the statement above.
+
+Since they leave at unpredictable times, it is not good to set them to 
+PERMANENT.
+
+Therefore, if a timeout occurs due to no traffic, they must be probed before
+they are garbage collected.
+
+If this is not acceptable, how do you propose to solve the problem that 
+you cannot
+make remote units inaccessible for more than a fraction of a second?
+
+
+Best Regards,
+Ulf Samuelsson
