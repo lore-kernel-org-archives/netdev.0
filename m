@@ -1,51 +1,47 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
-Date: Fri, 17 Apr 2015 13:24:00 -0700
-Message-ID: <1429302240-654-2-git-send-email-jtoppins@cumulusnetworks.com>
-References: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com>
-Cc: jesse.brandeburg@intel.com, shannon.nelson@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	matthew.vick@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, gospo@cumulusnetworks.com,
-	shm@cumulusnetworks.com, Alan Liebthal <alanl@cumulusnetworks.com>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34265 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768AbbDQUYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 16:24:17 -0400
-Received: by pacyx8 with SMTP id yx8so135837873pac.1
-        for <netdev@vger.kernel.org>; Fri, 17 Apr 2015 13:24:16 -0700 (PDT)
-In-Reply-To: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH] Bluetooth: hidp: Fix regression with older userspace and flags validation
+Date: Fri, 17 Apr 2015 22:34:18 +0200
+Message-ID: <1429302858-44595-1-git-send-email-marcel@holtmann.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jrg.otte-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alan Liebthal <alanl@cumulusnetworks.com>
+While it is not used by newer userspace anymore, the older userspace wa=
+s
+utilizing HIDP_VIRTUAL_CABLE_UNPLUG and HIDP_BOOT_PROTOCOL_MODE flags
+when adding a new HIDP connection.
 
-Support setting the MII register via SIOCSMIIREG.
+The flags validation is important, but we can not break older userspace
+and with that allow providing these flags even if newer userspace does
+not use them anymore.
 
-Signed-off-by: Alan Liebthal <alanl@cumulusnetworks.com>
-Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Reported-by: J=C3=B6rg Otte <jrg.otte-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ net/bluetooth/hidp/core.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 720b785..1071a71 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -7141,6 +7141,11 @@ static int igb_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 			return -EIO;
- 		break;
- 	case SIOCSMIIREG:
-+		adapter->hw.phy.addr = data->phy_id;
-+		if (igb_write_phy_reg(&adapter->hw, data->reg_num & 0x1F,
-+				      data->val_in))
-+			return -EIO;
-+		break;
- 	default:
- 		return -EOPNOTSUPP;
- 	}
--- 
-1.7.10.4
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index a05b9dbf14c9..9070dfd6b4ad 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -1313,7 +1313,8 @@ int hidp_connection_add(struct hidp_connadd_req *=
+req,
+ 			struct socket *ctrl_sock,
+ 			struct socket *intr_sock)
+ {
+-	u32 valid_flags =3D 0;
++	u32 valid_flags =3D BIT(HIDP_VIRTUAL_CABLE_UNPLUG) |
++			  BIT(HIDP_BOOT_PROTOCOL_MODE);
+ 	struct hidp_session *session;
+ 	struct l2cap_conn *conn;
+ 	struct l2cap_chan *chan;
+--=20
+2.1.0
