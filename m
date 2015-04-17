@@ -1,7 +1,7 @@
 From: <gregkh@linuxfoundation.org>
-Subject: Patch "tcp: Fix crash in TCP Fast Open" has been added to the 3.10-stable tree
-Date: Fri, 17 Apr 2015 11:45:05 +0200
-Message-ID: <1429263905491@kroah.com>
+Subject: Patch "tcp: Fix crash in TCP Fast Open" has been added to the 3.14-stable tree
+Date: Fri, 17 Apr 2015 12:05:42 +0200
+Message-ID: <14292651428767@kroah.com>
 References: <1429120832.3211.91.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
@@ -10,26 +10,22 @@ Cc: <stable@vger.kernel.org>, <stable-commits@vger.kernel.org>
 To: ben@decadent.org.uk, edumazet@google.com, eric.dumazet@gmail.com,
 	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
 	stable@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:57960 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932205AbbDQJpJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 05:45:09 -0400
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1429120832.3211.91.camel@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 This is a note to let you know that I've just added the patch titled
 
     tcp: Fix crash in TCP Fast Open
 
-to the 3.10-stable tree which can be found at:
+to the 3.14-stable tree which can be found at:
     http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
 
 The filename of the patch is:
      tcp-fix-crash-in-tcp-fast-open.patch
-and it can be found in the queue-3.10 subdirectory.
+and it can be found in the queue-3.14 subdirectory.
 
 If you, or anyone else, feels it should not be added to the stable tree,
 please let <stable@vger.kernel.org> know about it.
@@ -71,7 +67,7 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -2909,6 +2909,7 @@ static int tcp_send_syn_data(struct sock
+@@ -2933,6 +2933,7 @@ static int tcp_send_syn_data(struct sock
  		goto fallback;
  	syn_data->ip_summed = CHECKSUM_PARTIAL;
  	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
@@ -83,4 +79,4 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
 Patches currently in stable-queue which might be from ben@decadent.org.uk are
 
-queue-3.10/tcp-fix-crash-in-tcp-fast-open.patch
+queue-3.14/tcp-fix-crash-in-tcp-fast-open.patch
