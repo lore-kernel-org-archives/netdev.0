@@ -1,204 +1,235 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Fri, 17 Apr 2015 16:13:57 -0400 (EDT)
-Message-ID: <20150417.161357.840055440924361246.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: [PATCH v1 net-next 1/2] igb: add PHY support for Broadcom 5461S
+Date: Fri, 17 Apr 2015 13:23:59 -0700
+Message-ID: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com>
+Cc: jesse.brandeburg@intel.com, shannon.nelson@intel.com,
+	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+	matthew.vick@intel.com, john.ronciak@intel.com,
+	mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, gospo@cumulusnetworks.com,
+	shm@cumulusnetworks.com, Alan Liebthal <alanl@cumulusnetworks.com>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:34673 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751494AbbDQUYM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 16:24:12 -0400
+Received: by pdbqa5 with SMTP id qa5so138465685pdb.1
+        for <netdev@vger.kernel.org>; Fri, 17 Apr 2015 13:24:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Alan Liebthal <alanl@cumulusnetworks.com>
 
-1) Fix verifier memory corruption and other bugs in BPF layer, from
-   Alexei Starovoitov.
+The Quanta LY8 Ethernet management port uses a Broadcom 5461S chip for
+the PHY layer. This adds support for this PHY to the Intel igb driver.
 
-2) Add a conservative fix for doing BPF properly in the BPF classifier
-   of the packet scheduler on ingress.  Also from Alexei.
+Signed-off-by: Alan Liebthal <alanl@cumulusnetworks.com>
+Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_82575.c   |   20 +++++-
+ drivers/net/ethernet/intel/igb/e1000_defines.h |    1 +
+ drivers/net/ethernet/intel/igb/e1000_hw.h      |    1 +
+ drivers/net/ethernet/intel/igb/e1000_phy.c     |   79 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_phy.h     |    2 +
+ 5 files changed, 102 insertions(+), 1 deletion(-)
 
-3) The SKB scrubber should not clear out the packet MARK and security
-   label, from Herbert Xu.
-
-4) Fix oops on rmmod in stmmac driver, from Bryan O'Donoghue.
-
-5) Pause handling is not correct in the stmmac driver because it doesn't
-   take into consideration the RX and TX fifo sizes.  From Vince
-   Bridgers.
-
-6) Failure path missing unlock in FOU driver, from Wang Cong.
-
-Please pull, thanks a lot!
-
-The following changes since commit c841e12add6926d64aa608687893465330b5a03e:
-
-  Merge branch 'kconfig' of git://git.kernel.org/pub/scm/linux/kernel/git/mmarek/kbuild (2015-04-15 11:24:41 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git 
-
-for you to fetch changes up to e3122b7fae7b4e3d1d49fa84f6515bcbe6cbc6fc:
-
-  net: dsa: use DEVICE_ATTR_RW to declare temp1_max (2015-04-17 15:58:37 -0400)
-
-----------------------------------------------------------------
-Alexei Starovoitov (3):
-      bpf: fix verifier memory corruption
-      bpf: fix bpf helpers to use skb->mac_header relative offsets
-      bpf: fix two bugs in verification logic when accessing 'ctx' pointer
-
-Andreas Oetken (1):
-      altera tse: Fix network-delays and -retransmissions after high throughput.
-
-Anjali Singhai Jain (2):
-      i40e: Add support to program FDir SB rules for VF from PF through ethtool
-      i40e: For VF reset (VFR and VFLR) add some more delay
-
-Bryan O'Donoghue (1):
-      stmmac: fix oops on rmmod after assigning ip addr
-
-Catherine Sullivan (1):
-      i40e: Bump version to 1.3.2
-
-David S. Miller (3):
-      Merge branch 'master' of git://git.kernel.org/.../jkirsher/next-queue
-      Merge branch 'stmmac-flow-control'
-      sfc: Fix memcpy() with const destination compiler warning.
-
-Denys Vlasenko (1):
-      netns: remove BUG_ONs from net_generic()
-
-Erez Shitrit (1):
-      IB/ipoib: Fix ndo_get_iflink
-
-Eric Dumazet (3):
-      bnx2x: Fix busy_poll vs netpoll
-      tcp: tcp_get_info() should fetch socket fields once
-      inet_diag: fix access to tcp cc information
-
-Geert Uytterhoeven (1):
-      net: dsa: mv88e6xxx: Add missing initialization in mv88e6xxx_set_port_state()
-
-Greg Rose (1):
-      i40e: Use new 40G speeds
-
-Guenter Roeck (2):
-      dsa: mv88e6xxx: Fix error handling in mv88e6xxx_set_port_state
-      dsa: mv88e6xxx: Drop duplicate declaration of 'ret' variable
-
-Herbert Xu (3):
-      Revert "net: Reset secmark when scrubbing packet"
-      skbuff: Do not scrub skb mark within the same name space
-      act_mirred: Fix bogus header when redirecting from VLAN
-
-Jesse Brandeburg (3):
-      i40e: enable user dump of internal hardware state
-      i40e: handle possible memory allocation failure
-      i40e: get rid of unused locals
-
-Johannes Berg (1):
-      net: remove unused 'dev' argument from netif_needs_gso()
-
-Kevin Scott (1):
-      i40e/i40evf: Save WR_CSR_PROT field from DEV/FUNC capabilities
-
-Michal Hocko (1):
-      cxgb4: drop __GFP_NOFAIL allocation
-
-Mitch Williams (5):
-      i40e: stop VF rings
-      i40evf: fix bad indentation
-      i40evf: remove aq_pending
-      i40e: notify VFs of link state
-      i40e: move VF notification routines up
-
-Thomas Gleixner (1):
-      net: hip04: Make tx coalesce timer actually work
-
-Vasu Dev (1):
-      i40e: print FCoE capability reported by the device function
-
-Vince Bridgers (5):
-      stmmac: Add properties for transmit and receive fifo sizes
-      stmmac: Add defines and documentation for enabling flow control
-      stmmac: Read tx-fifo-depth and rx-fifo-depth from the devicetree
-      stmmac: Enable unicast pause frame detect in GMAC Register 6
-      stmmac: Configure Flow Control to work correctly based on rxfifo size
-
-Vivien Didelot (1):
-      net: dsa: use DEVICE_ATTR_RW to declare temp1_max
-
-WANG Cong (1):
-      fou: avoid missing unlock in failure path
-
-Wei Yongjun (3):
-      rocker: fix error return code in rocker_probe()
-      ethernet: remove unused including <linux/version.h>
-      netns: remove duplicated include from net_namespace.c
-
- Documentation/devicetree/bindings/net/ethernet.txt    |   6 +++
- Documentation/devicetree/bindings/net/stmmac.txt      |   4 ++
- drivers/infiniband/hw/cxgb4/mem.c                     |   2 +-
- drivers/infiniband/ulp/ipoib/ipoib_main.c             |   5 ++
- drivers/infiniband/ulp/ipoib/ipoib_vlan.c             |   3 +-
- drivers/net/dsa/mv88e6xxx.c                           |   8 ++--
- drivers/net/ethernet/altera/altera_tse_main.c         |   9 +++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h           | 137 ++++++++++++++++++++---------------------------------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c       |   9 ++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c       |  15 ++++--
- drivers/net/ethernet/hisilicon/hip04_eth.c            |  18 ++++---
- drivers/net/ethernet/intel/i40e/i40e_common.c         |  65 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_dcb.c            |   6 +--
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c        |  45 ++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c        |  29 +++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c           |  16 +++++--
- drivers/net/ethernet/intel/i40e/i40e_nvm.c            |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h      |   5 ++
- drivers/net/ethernet/intel/i40e/i40e_type.h           |   1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c    | 244 +++++++++++++++++++++++++++++++++++++++++++++++++++-------------------------------------------
- drivers/net/ethernet/intel/i40evf/i40e_type.h         |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf.h            |   1 -
- drivers/net/ethernet/intel/i40evf/i40evf_main.c       |   9 +---
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c   |  42 +++++------------
- drivers/net/ethernet/qualcomm/qca_spi.c               |   1 -
- drivers/net/ethernet/rocker/rocker.c                  |   1 +
- drivers/net/ethernet/sfc/selftest.c                   |   2 +-
- drivers/net/ethernet/stmicro/stmmac/common.h          |   5 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h       |  51 ++++++++++++++++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c  |   5 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c   |  26 +++++++++-
- drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c    |   2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     |  22 +++++----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |   4 ++
- drivers/net/ifb.c                                     |   2 +-
- drivers/net/macvtap.c                                 |   2 +-
- drivers/net/xen-netfront.c                            |   2 +-
- include/linux/netdevice.h                             |   2 +-
- include/linux/stmmac.h                                |   2 +
- include/net/netns/generic.h                           |   2 -
- include/net/tcp.h                                     |   2 +-
- include/uapi/linux/bpf.h                              |   2 +-
- include/uapi/linux/filter.h                           |   7 ++-
- kernel/bpf/verifier.c                                 |  12 +++--
- net/core/dev.c                                        |   2 +-
- net/core/filter.c                                     |  41 ++++++++++++----
- net/core/net_namespace.c                              |   1 -
- net/core/skbuff.c                                     |  10 ++--
- net/dsa/dsa.c                                         |   6 +--
- net/ipv4/fou.c                                        |   3 +-
- net/ipv4/inet_diag.c                                  |  28 ++++++++---
- net/ipv4/tcp.c                                        |  10 ++--
- net/ipv4/tcp_dctcp.c                                  |   5 +-
- net/ipv4/tcp_illinois.c                               |   6 +--
- net/ipv4/tcp_vegas.c                                  |   5 +-
- net/ipv4/tcp_vegas.h                                  |   2 +-
- net/ipv4/tcp_westwood.c                               |   6 +--
- net/sched/act_bpf.c                                   |   3 ++
- net/sched/act_mirred.c                                |   2 +-
- net/sched/cls_bpf.c                                   |   3 ++
- samples/bpf/tcbpf1_kern.c                             |  16 +++----
- samples/bpf/test_verifier.c                           |  22 +++++++++
- 62 files changed, 656 insertions(+), 352 deletions(-)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 2dcc808..e222804 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -178,7 +178,7 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
+ 
+ 	ctrl_ext = rd32(E1000_CTRL_EXT);
+ 
+-	if (igb_sgmii_active_82575(hw)) {
++	if (igb_sgmii_active_82575(hw) && phy->type != e1000_phy_bcm5461s) {
+ 		phy->ops.reset = igb_phy_hw_reset_sgmii_82575;
+ 		ctrl_ext |= E1000_CTRL_I2C_ENA;
+ 	} else {
+@@ -289,6 +289,11 @@ static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
+ 	case BCM54616_E_PHY_ID:
+ 		phy->type = e1000_phy_bcm54616;
+ 		break;
++	case BCM5461S_E_PHY_ID:
++		phy->type                   = e1000_phy_bcm5461s;
++		phy->ops.get_phy_info       = igb_get_phy_info_5461s;
++		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_82580;
++		break;
+ 	default:
+ 		ret_val = -E1000_ERR_PHY;
+ 		goto out;
+@@ -841,6 +846,15 @@ static s32 igb_get_phy_id_82575(struct e1000_hw *hw)
+ 			goto out;
+ 		}
+ 		ret_val = igb_get_phy_id(hw);
++		if (ret_val && hw->mac.type == e1000_i354) {
++			/* We do a special check for bcm5461s phy by setting
++			 * the phy->addr to 5 and doing the phy check again.
++			 * This call will succeed and retrieve a valid phy
++			 * id if we have the bcm5461s phy.
++			 */
++			phy->addr = 5;
++			ret_val = igb_get_phy_id(hw);
++		}
+ 		goto out;
+ 	}
+ 
+@@ -1221,6 +1235,9 @@ static s32 igb_get_cfg_done_82575(struct e1000_hw *hw)
+ 	    (hw->phy.type == e1000_phy_igp_3))
+ 		igb_phy_init_script_igp3(hw);
+ 
++	if (hw->phy.type == e1000_phy_bcm5461s)
++		igb_phy_init_script_5461s(hw);
++
+ 	return 0;
+ }
+ 
+@@ -1597,6 +1614,7 @@ static s32 igb_setup_copper_link_82575(struct e1000_hw *hw)
+ 		ret_val = igb_copper_link_setup_82580(hw);
+ 		break;
+ 	case e1000_phy_bcm54616:
++	case e1000_phy_bcm5461s:
+ 		break;
+ 	default:
+ 		ret_val = -E1000_ERR_PHY;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index 50d51e4..787224d 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -861,6 +861,7 @@
+ #define I210_I_PHY_ID        0x01410C00
+ #define M88E1543_E_PHY_ID    0x01410EA0
+ #define BCM54616_E_PHY_ID    0x03625D10
++#define BCM5461S_E_PHY_ID    0x002060C0
+ 
+ /* M88E1000 Specific Registers */
+ #define M88E1000_PHY_SPEC_CTRL     0x10  /* PHY Specific Control Register */
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index d82c96b..408a3e5 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -129,6 +129,7 @@ enum e1000_phy_type {
+ 	e1000_phy_82580,
+ 	e1000_phy_i210,
+ 	e1000_phy_bcm54616,
++	e1000_phy_bcm5461s,
+ };
+ 
+ enum e1000_bus_type {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index c1bb64d..0f5a55b 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -148,6 +148,13 @@ s32 igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	 * Control register.  The MAC will take care of interfacing with the
+ 	 * PHY to retrieve the desired data.
+ 	 */
++	if (phy->type == e1000_phy_bcm5461s) {
++		mdic = rd32(E1000_MDICNFG);
++		mdic &= ~E1000_MDICNFG_PHY_MASK;
++		mdic |= (phy->addr << E1000_MDICNFG_PHY_SHIFT);
++		wr32(E1000_MDICNFG, mdic);
++	}
++
+ 	mdic = ((offset << E1000_MDIC_REG_SHIFT) |
+ 		(phy->addr << E1000_MDIC_PHY_SHIFT) |
+ 		(E1000_MDIC_OP_READ));
+@@ -204,6 +211,13 @@ s32 igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 	 * Control register.  The MAC will take care of interfacing with the
+ 	 * PHY to retrieve the desired data.
+ 	 */
++	if (phy->type == e1000_phy_bcm5461s) {
++		mdic = rd32(E1000_MDICNFG);
++		mdic &= ~E1000_MDICNFG_PHY_MASK;
++		mdic |= (phy->addr << E1000_MDICNFG_PHY_SHIFT);
++		wr32(E1000_MDICNFG, mdic);
++	}
++
+ 	mdic = (((u32)data) |
+ 		(offset << E1000_MDIC_REG_SHIFT) |
+ 		(phy->addr << E1000_MDIC_PHY_SHIFT) |
+@@ -2509,3 +2523,68 @@ static s32 igb_set_master_slave_mode(struct e1000_hw *hw)
+ 
+ 	return hw->phy.ops.write_reg(hw, PHY_1000T_CTRL, phy_data);
+ }
++
++/**
++ *  igb_phy_init_script_5461s - Inits the BCM5461S PHY
++ *  @hw: pointer to the HW structure
++ *
++ *  Initializes a Broadcom Gigabit PHY.
++ **/
++s32 igb_phy_init_script_5461s(struct e1000_hw *hw)
++{
++	u16 mii_reg_led = 0;
++
++	/* 1. Speed LED (Set the Link LED mode), Shadow 00010, 0x1C.bit2=1 */
++	hw->phy.ops.write_reg(hw, 0x1C, 0x0800);
++	hw->phy.ops.read_reg(hw, 0x1C, &mii_reg_led);
++	mii_reg_led |= 0x0004;
++	hw->phy.ops.write_reg(hw, 0x1C, mii_reg_led | 0x8000);
++
++	/* 2. Active LED (Set the Link LED mode), Shadow 01001, 0x1C.bit4=1,
++	 *    0x10.bit5=0
++	 */
++	hw->phy.ops.write_reg(hw, 0x1C, 0x2400);
++	hw->phy.ops.read_reg(hw, 0x1C, &mii_reg_led);
++	mii_reg_led |= 0x0010;
++	hw->phy.ops.write_reg(hw, 0x1C, mii_reg_led | 0x8000);
++	hw->phy.ops.read_reg(hw, 0x10, &mii_reg_led);
++	mii_reg_led &= 0xffdf;
++	hw->phy.ops.write_reg(hw, 0x10, mii_reg_led);
++
++	return 0;
++}
++
++/**
++ *  igb_get_phy_info_5461s - Retrieve 5461s PHY information
++ *  @hw: pointer to the HW structure
++ *
++ *  Read PHY status to determine if link is up.  If link is up, then
++ *  set/determine 10base-T extended distance and polarity correction.  Read
++ *  PHY port status to determine MDI/MDIx and speed.  Based on the speed,
++ *  determine on the cable length, local and remote receiver.
++ **/
++s32 igb_get_phy_info_5461s(struct e1000_hw *hw)
++{
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val;
++	bool link;
++
++	ret_val = igb_phy_has_link(hw, 1, 0, &link);
++	if (ret_val)
++		goto out;
++
++	if (!link) {
++		ret_val = -E1000_ERR_CONFIG;
++		goto out;
++	}
++
++	phy->polarity_correction = true;
++
++	phy->is_mdix = true;
++	phy->cable_length = E1000_CABLE_LENGTH_UNDEFINED;
++	phy->local_rx = e1000_1000t_rx_status_ok;
++	phy->remote_rx = e1000_1000t_rx_status_ok;
++
++out:
++	return ret_val;
++}
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
+index 7af4ffa..fcdd84c 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.h
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
+@@ -61,6 +61,8 @@ s32  igb_phy_has_link(struct e1000_hw *hw, u32 iterations,
+ void igb_power_up_phy_copper(struct e1000_hw *hw);
+ void igb_power_down_phy_copper(struct e1000_hw *hw);
+ s32  igb_phy_init_script_igp3(struct e1000_hw *hw);
++s32  igb_phy_init_script_5461s(struct e1000_hw *hw);
++s32  igb_get_phy_info_5461s(struct e1000_hw *hw);
+ s32  igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data);
+ s32  igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data);
+ s32  igb_read_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 *data);
+-- 
+1.7.10.4
