@@ -1,39 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V1 net-next] IB/ipoib: Fix ndo_get_iflink
-Date: Fri, 17 Apr 2015 15:21:33 -0400 (EDT)
-Message-ID: <20150417.152133.1818018053733533978.davem@davemloft.net>
-References: <1429191274-11600-1-git-send-email-erezsh@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netns: remove BUG_ONs from net_generic()
+Date: Fri, 17 Apr 2015 15:22:00 -0400 (EDT)
+Message-ID: <20150417.152200.405809009304639029.davem@davemloft.net>
+References: <1429290390-5600-1-git-send-email-dvlasenk@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1429191274-11600-1-git-send-email-erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: ebiederm@xmission.com, jengelh@medozas.de, jpirko@redhat.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dvlasenk@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1429290390-5600-1-git-send-email-dvlasenk@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Date: Thu, 16 Apr 2015 16:34:34 +0300
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Date: Fri, 17 Apr 2015 19:06:30 +0200
 
-> Currently, iflink of the parent interface was always accessed, even 
-> when interface didn't have a parent and hence we crashed there.
+> This inline has ~500 callsites.
 > 
-> Handle the interface types properly: for a child interface, return
-> the ifindex of the parent, for parent interface, return its ifindex.
+> On 04/14/2015 08:37 PM, David Miller wrote:
+>> That BUG_ON() was added 7 years ago, and I don't remember it ever
+>> triggering or helping us diagnose something, so just remove it and
+>> keep the function inlined.
 > 
-> For child devices, make sure to set the parent pointer prior to
-> invoking register_netdevice(), this allows the new ndo to be called
-> by the stack immediately after the child device is registered.
+> On x86 allyesconfig build:
 > 
-> Fixes: 5aa7add8f14b ('infiniband/ipoib: implement ndo_get_iflink')
-> Reported-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>     text     data      bss       dec     hex filename
+> 82447071 22255384 20627456 125329911 77861f7 vmlinux4
+> 82441375 22255384 20627456 125324215 7784bb7 vmlinux5prime
+> 
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
