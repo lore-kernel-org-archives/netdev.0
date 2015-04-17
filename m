@@ -1,66 +1,65 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: [PATCH] Bluetooth: Pre-initialize variables in read_local_oob_ext_data_complete()
-Date: Fri, 17 Apr 2015 22:03:29 +0200
-Message-ID: <CAMuHMdUxnrg1BVoFpKExzGHKj2aOmYGp+wChhMbPfmWvMzQT=Q@mail.gmail.com>
-References: <1429212265-26750-1-git-send-email-geert@linux-m68k.org>
-	<A962A040-4EB5-4AE6-A790-A8767185172B@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHSET] printk, netconsole: implement reliable netconsole
+Date: Fri, 17 Apr 2015 16:06:20 -0400 (EDT)
+Message-ID: <20150417.160620.266679938341020488.davem@davemloft.net>
+References: <20150417173754.GC16743@htj.duckdns.org>
+	<20150417.145537.237750900198310263.davem@davemloft.net>
+	<20150417195238.GH16743@htj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	BlueZ development <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <A962A040-4EB5-4AE6-A790-A8767185172B-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: tj@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150417195238.GH16743@htj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marcel,
+From: Tejun Heo <tj@kernel.org>
+Date: Fri, 17 Apr 2015 15:52:38 -0400
 
-On Thu, Apr 16, 2015 at 10:34 PM, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>=
- wrote:
->> net/bluetooth/mgmt.c: In function =E2=80=98read_local_oob_ext_data_c=
-omplete=E2=80=99:
->> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r256=E2=80=99 may be us=
-ed uninitialized in this function
->> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h256=E2=80=99 may be us=
-ed uninitialized in this function
->> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r192=E2=80=99 may be us=
-ed uninitialized in this function
->> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h192=E2=80=99 may be us=
-ed uninitialized in this function
->>
->> While these are false positives, the code can be shortened by
->> pre-initializing the hash table pointers and eir_len. This has the s=
-ide
->> effect of killing the compiler warnings.
->
-> can you be a bit specific on which compiler version is this. I fixed =
-one occurrence that seemed valid. However in this case the compiler see=
-ms to be just plain stupid. On a gcc 4.9, I am not seeing these for exa=
-mple.
+> Hello,
+> 
+> On Fri, Apr 17, 2015 at 02:55:37PM -0400, David Miller wrote:
+>> > * The bulk of patches are to pipe extended log messages to console
+>> >   drivers and let netconsole relay them to the receiver (and quite a
+>> >   bit of refactoring in the process), which, regardless of the
+>> >   reliability logic, is beneficial as we're currently losing
+>> >   structured logging (dictionary) and other metadata over consoles and
+>> >   regardless of where the reliability logic is implemented, it's a lot
+>> >   easier to have messages IDs.
+>> 
+>> I do not argue against cleanups and good restructuring of the existing
+>> code.  But you have decided to mix that up with something that is not
+>> exactly non-controversial.
+> 
+> Is the controlversial part referring to sending extended messages or
+> the reliability part or both?
 
-gcc 4.1.2. As there were too many false positives, these warnings were
-disabled in later versions (throwing away the children with the bad wat=
-er).
+Anything outside of the non-side-effect cleanups.
 
-If you don't like my patch, just drop it. I only look at newly
-introduced warnings
-of this kind anyway.
+> Hmmm... yeah, probably would have been a better idea.  FWIW, the
+> patches are stacked roughly in the order of escalating
+> controversiness.  Will split the series up.
 
-Gr{oetje,eeting}s,
+Thanks.
 
-                        Geert
+> Sure, if irq handling is hosed, this won't work but I think there are
+> enough other failure modes like oopsing while holding a mutex or
+> falling into infinite loop while holding task_list lock (IIRC we had
+> something simliar a while ago due to iterator bug).
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
+If you oops while holding a mutex, unless it's the console mutex the
+logging process can schedule and likely get the message transmitted.
 
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-                                -- Linus Torvalds
+What we're going to keep discussing is the fact that in return for all
+of your unnecessary added complexity, we get something that only applies
+in an extremely narrow scope of situations.
+
+That is a very poor value proposition.
+
+It took nearly two decades to get rid of all of the races and locking
+problems with current netpoll/netconsole, and it's as simple as can
+possibly be.  I do not want to even think about having to worry about
+a reliability layer on top of it, that's just too much.
