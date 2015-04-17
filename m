@@ -1,55 +1,34 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCHSET] printk, netconsole: implement reliable netconsole
-Date: Fri, 17 Apr 2015 13:37:54 -0400
-Message-ID: <20150417173754.GC16743@htj.duckdns.org>
-References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <201504180035.AIJ09349.SOFFHFtLOOQVMJ@I-love.SAKURA.ne.jp>
- <20150417162826.GB16743@htj.duckdns.org>
- <20150417.131712.1245246947203158168.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] netns: deinline net_generic()
+Date: Fri, 17 Apr 2015 10:42:16 -0700
+Message-ID: <1429292536.7346.248.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429014311-19868-1-git-send-email-dvlasenk@redhat.com>
+	 <20150414.143747.1155055158701231768.davem@davemloft.net>
+	 <552F9986.30207@redhat.com>
+	 <1429187895.7346.195.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <55313D4D.4050402@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: penguin-kernel@I-love.SAKURA.ne.jp, akpm@linux-foundation.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ebiederm@xmission.com,
+	jengelh@medozas.de, jpirko@redhat.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Denys Vlasenko <dvlasenk@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150417.131712.1245246947203158168.davem@davemloft.net>
+In-Reply-To: <55313D4D.4050402@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, David.
+On Fri, 2015-04-17 at 19:05 +0200, Denys Vlasenko wrote:
 
-On Fri, Apr 17, 2015 at 01:17:12PM -0400, David Miller wrote:
-> If userland cannot run properly, it is almost certain that neither will
-> your complex reliability layer logic.
+> How do you expect one to find excessively large inlines,
+> if not on allyesconfig build?
 
-* The bulk of patches are to pipe extended log messages to console
-  drivers and let netconsole relay them to the receiver (and quite a
-  bit of refactoring in the process), which, regardless of the
-  reliability logic, is beneficial as we're currently losing
-  structured logging (dictionary) and other metadata over consoles and
-  regardless of where the reliability logic is implemented, it's a lot
-  easier to have messages IDs.
+Tuning kernel sources based on allyesconfig build _size_ only is
+terrible. We could build an interpreter based kernel and maybe reduce
+its size by 50% who knows...
 
-* The only thing necessary for reliable transmission are timer and
-  netpoll.  There sure are cases where they go down too but there's a
-  pretty big gap between those two going down and userland getting
-  hosed, but where to put the retransmission and reliability logic
-  definitely is debatable.
+You are saying that all inline should be removed, since it is obvious
+kernel size _will_ be smaller.
 
-* That said, the "reliability" part of the patch series are just two
-  patches - 13 and 14, both of which are actually pretty simple.
-
-> I tend to agree with Tetsuo, that in-kernel netconsole should remain
-> as simple as possible and once it starts to have any smarts and less
-> trivial logic the job belongs in userspace.
-
-Upto patch 12, it's just the same mechanism transferring extended
-messages.  It doesn't add any smartness to netconsole per-se except
-that it can now emit messages with metadata headers.  What do you
-think about them?
-
-Thanks.
-
--- 
-tejun
+That is an ... interesting idea, but hardly related to net_generic().
