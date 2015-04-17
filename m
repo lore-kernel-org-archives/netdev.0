@@ -1,56 +1,35 @@
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Subject: [PATCH] netns: remove BUG_ONs from net_generic()
-Date: Fri, 17 Apr 2015 19:06:30 +0200
-Message-ID: <1429290390-5600-1-git-send-email-dvlasenk@redhat.com>
-Cc: Denys Vlasenko <dvlasenk@redhat.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHSET] printk, netconsole: implement reliable netconsole
+Date: Fri, 17 Apr 2015 13:17:12 -0400 (EDT)
+Message-ID: <20150417.131712.1245246947203158168.davem@davemloft.net>
+References: <1429225433-11946-1-git-send-email-tj@kernel.org>
+	<201504180035.AIJ09349.SOFFHFtLOOQVMJ@I-love.SAKURA.ne.jp>
+	<20150417162826.GB16743@htj.duckdns.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: tj@kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150417162826.GB16743@htj.duckdns.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This inline has ~500 callsites.
+From: Tejun Heo <tj@kernel.org>
+Date: Fri, 17 Apr 2015 12:28:26 -0400
 
-On 04/14/2015 08:37 PM, David Miller wrote:
-> That BUG_ON() was added 7 years ago, and I don't remember it ever
-> triggering or helping us diagnose something, so just remove it and
-> keep the function inlined.
+> On Sat, Apr 18, 2015 at 12:35:06AM +0900, Tetsuo Handa wrote:
+>> If the sender side can wait for retransmission, why can't we use
+>> userspace programs (e.g. rsyslogd)?
+> 
+> Because the system may be oopsing, ooming or threshing excessively
+> rendering the userland inoperable and that's exactly when we want
+> those log messages to be transmitted out of the system.
 
-On x86 allyesconfig build:
+If userland cannot run properly, it is almost certain that neither will
+your complex reliability layer logic.
 
-    text     data      bss       dec     hex filename
-82447071 22255384 20627456 125329911 77861f7 vmlinux4
-82441375 22255384 20627456 125324215 7784bb7 vmlinux5prime
-
-Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-CC: Eric W. Biederman <ebiederm@xmission.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: Jan Engelhardt <jengelh@medozas.de>
-CC: Jiri Pirko <jpirko@redhat.com>
-CC: linux-kernel@vger.kernel.org
-CC: netdev@vger.kernel.org
----
- include/net/netns/generic.h | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/include/net/netns/generic.h b/include/net/netns/generic.h
-index 0931618..70e1585 100644
---- a/include/net/netns/generic.h
-+++ b/include/net/netns/generic.h
-@@ -38,11 +38,9 @@ static inline void *net_generic(const struct net *net, int id)
- 
- 	rcu_read_lock();
- 	ng = rcu_dereference(net->gen);
--	BUG_ON(id == 0 || id > ng->len);
- 	ptr = ng->ptr[id - 1];
- 	rcu_read_unlock();
- 
--	BUG_ON(!ptr);
- 	return ptr;
- }
- #endif
--- 
-1.8.1.4
+I tend to agree with Tetsuo, that in-kernel netconsole should remain
+as simple as possible and once it starts to have any smarts and less
+trivial logic the job belongs in userspace.
