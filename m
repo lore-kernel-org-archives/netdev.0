@@ -1,82 +1,57 @@
-From: <gregkh@linuxfoundation.org>
-Subject: Patch "tcp: Fix crash in TCP Fast Open" has been added to the 3.14-stable tree
-Date: Fri, 17 Apr 2015 12:05:42 +0200
-Message-ID: <14292651428767@kroah.com>
-References: <1429120832.3211.91.camel@decadent.org.uk>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 3/4] mac80211-hwsim: Pass rate-ctrl flags and tx-power
+ to user-space
+Date: Fri, 17 Apr 2015 13:23:28 +0200
+Message-ID: <1429269808.1885.2.camel@sipsolutions.net>
+References: <1428095523-374-1-git-send-email-greearb@candelatech.com>
+	  <1428095523-374-3-git-send-email-greearb@candelatech.com>
+	 <1428999345.3019.9.camel@sipsolutions.net>
+	 <552E909E.6010405@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-Cc: <stable@vger.kernel.org>, <stable-commits@vger.kernel.org>
-To: ben@decadent.org.uk, edumazet@google.com, eric.dumazet@gmail.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	stable@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1429120832.3211.91.camel@decadent.org.uk>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:46669 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752865AbbDQLXd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Apr 2015 07:23:33 -0400
+In-Reply-To: <552E909E.6010405@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2015-04-15 at 09:23 -0700, Ben Greear wrote:
+> On 04/14/2015 01:15 AM, Johannes Berg wrote:
+> > On Fri, 2015-04-03 at 14:12 -0700, greearb@candelatech.com wrote:
+> > 
+> >> +/* Auxilary info to allow user-space to better understand the rate */
+> >> +struct hwsim_tx_rate2 {
+> >> +	u16 rc_flags; /* rate-ctrl flags (see mac80211_rate_control_flags) */
+> > 
+> > I really don't like this - it ties internal API to userspace API. You
+> > may argue that this is userspace that is for debug purposes only, but
+> > I'm sure you'll also scratch your head very confused when I change the
+> > rate control flags for any reason and your code breaks :)
+> 
+> Is this a documentation only issue (at this point, while code matches)?
 
-This is a note to let you know that I've just added the patch titled
+Well, technically this could be done.
 
-    tcp: Fix crash in TCP Fast Open
+> Then later, we can add translation to keep user-space API the same
+> as needed?
 
-to the 3.14-stable tree which can be found at:
-    http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
+We'll almost certainly forget that though, so better to have a
+translation layer now.
 
-The filename of the patch is:
-     tcp-fix-crash-in-tcp-fast-open.patch
-and it can be found in the queue-3.14 subdirectory.
+OTOH though, perhaps we don't even want to advertise all these flags. We
+might want to change the details of how these work, so I think it'd be
+good to actually analyse them and see which ones really are needed. That
+really applies more to the rx-status flags then here perhaps.
 
-If you, or anyone else, feels it should not be added to the stable tree,
-please let <stable@vger.kernel.org> know about it.
+> And in that case, maybe I'll make it u32 to give room down the road?
 
+That makes sense - netlink attributes are even 4-byte aligned so there's
+no space saving with u16 either :)
 
->From ben@decadent.org.uk  Fri Apr 17 11:41:49 2015
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Wed, 15 Apr 2015 19:00:32 +0100
-Subject: tcp: Fix crash in TCP Fast Open
-To: stable <stable@vger.kernel.org>
-Cc: netdev <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>, 782515@bugs.debian.org
-Message-ID: <1429120832.3211.91.camel@decadent.org.uk>
-
-From: Ben Hutchings <ben@decadent.org.uk>
-
-Commit 355a901e6cf1 ("tcp: make connect() mem charging friendly")
-changed tcp_send_syn_data() to perform an open-coded copy of the 'syn'
-skb rather than using skb_copy_expand().
-
-The open-coded copy does not cover the skb_shared_info::gso_segs
-field, so in the new skb it is left set to 0.  When this commit was
-backported into stable branches between 3.10.y and 3.16.7-ckty
-inclusive, it triggered the BUG() in tcp_transmit_skb().
-
-Since Linux 3.18 the GSO segment count is kept in the
-tcp_skb_cb::tcp_gso_segs field and tcp_send_syn_data() does copy the
-tcp_skb_cb structure to the new skb, so mainline and newer stable
-branches are not affected.
-
-Set skb_shared_info::gso_segs to the correct value of 1.
-
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-Acked-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
----
- net/ipv4/tcp_output.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2933,6 +2933,7 @@ static int tcp_send_syn_data(struct sock
- 		goto fallback;
- 	syn_data->ip_summed = CHECKSUM_PARTIAL;
- 	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
-+	skb_shinfo(syn_data)->gso_segs = 1;
- 	if (unlikely(memcpy_fromiovecend(skb_put(syn_data, space),
- 					 fo->data->msg_iov, 0, space))) {
- 		kfree_skb(syn_data);
-
-
-Patches currently in stable-queue which might be from ben@decadent.org.uk are
-
-queue-3.14/tcp-fix-crash-in-tcp-fast-open.patch
+johannes
