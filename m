@@ -1,37 +1,36 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] ip: Add color output option
-Date: Fri, 17 Apr 2015 19:26:54 +0200
-Message-ID: <5531425E.1020206@iogearbox.net>
-References: <20150417130202.GA29596@iki.fi> <20150417164402.GA7041@Alexeis-MBP.westell.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: tcp_get_info() should fetch socket fields once
+Date: Fri, 17 Apr 2015 13:28:45 -0400 (EDT)
+Message-ID: <20150417.132845.1469377605486721196.davem@davemloft.net>
+References: <1429225948.7346.232.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aleksi.aalto@iki.fi
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Mathias Nyman <m.nyman@iki.fi>
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40542 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753242AbbDQR1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 13:27:03 -0400
-In-Reply-To: <20150417164402.GA7041@Alexeis-MBP.westell.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45289 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752647AbbDQR2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 13:28:48 -0400
+In-Reply-To: <1429225948.7346.232.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/17/2015 06:44 PM, Alexei Starovoitov wrote:
-> On Fri, Apr 17, 2015 at 04:02:02PM +0300, Mathias Nyman wrote:
->> It is hard to quickly find what you are looking for in the output of the ip
->> command. Color helps.
->>
->> This patch adds a '-c' flag to highlight these with individual colors:
->>    - interface name
->>    - ip addresse
->>    - mac addresse
->>    - up/down state
->
-> idea looks good, but the patch doesn't apply at all, since it's
-> whitespace damaged. Also there is no SOB.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 16 Apr 2015 16:12:28 -0700
 
-You also might want to move the library bits into lib/ so that
-not only ip but also other tools could use it in future. So -c
-is neither taken in ip nor in tc or ss, that's good. ;)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> tcp_get_info() can be called without holding socket lock,
+> so any socket fields can change under us.
+> 
+> Use READ_ONCE() to fetch sk_pacing_rate and sk_max_pacing_rate
+> 
+> Fixes: 977cb0ecf82e ("tcp: add pacing_rate information into tcp_info")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> David, I do not think this needs stable backport, this is a quite
+> minor bug. I've added the 'Fixes' tag for reference only.
+
+Ok, applied.
