@@ -1,47 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: deinline net_generic()
-Date: Fri, 17 Apr 2015 15:55:32 -0400 (EDT)
-Message-ID: <20150417.155532.328134690699313472.davem@davemloft.net>
-References: <552F9986.30207@redhat.com>
-	<1429187895.7346.195.camel@edumazet-glaptop2.roam.corp.google.com>
-	<55313D4D.4050402@redhat.com>
+Subject: Re: [PATCH v2] net: dsa: use DEVICE_ATTR_RW to declare temp1_max
+Date: Fri, 17 Apr 2015 15:59:16 -0400 (EDT)
+Message-ID: <20150417.155916.1229306319675431834.davem@davemloft.net>
+References: <1429297945-26651-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+	<20150417194006.GA9538@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, ebiederm@xmission.com, jengelh@medozas.de,
-	jpirko@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dvlasenk@redhat.com
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: linux@roeck-us.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55313D4D.4050402@redhat.com>
+In-Reply-To: <20150417194006.GA9538@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Date: Fri, 17 Apr 2015 19:05:17 +0200
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Fri, 17 Apr 2015 12:40:06 -0700
 
-> On 04/16/2015 02:38 PM, Eric Dumazet wrote:
->> On Thu, 2015-04-16 at 13:14 +0200, Denys Vlasenko wrote:
+> On Fri, Apr 17, 2015 at 03:12:25PM -0400, Vivien Didelot wrote:
+>> Since commit da4759c (sysfs: Use only return value from is_visible for
+>> the file mode), it is possible to reduce the permissions of a file.
 >> 
->>> However, without BUG_ONs, function is still a bit big
->>> on PREEMPT configs.
+>> So declare temp1_max with the DEVICE_ATTR_RW macro and remove the write
+>> permission in dsa_hwmon_attrs_visible if set_temp_limit isn't provided.
 >> 
->> Only on allyesconfig builds, that nobody use but to prove some points
->> about code size.
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 > 
-> How do you expect one to find excessively large inlines,
-> if not on allyesconfig build?
+> Looks good.
 > 
-> Only by using allyesconfig, I can measure how many calls
-> are there in the kernel. (grepping source is utterly unreliable
-> due to nested inlines and macros).
+> Reviewed-by: Guenter Roeck <linux@roeck-us.net>
 
-It is not indicative for it's overhead in what people actually make
-use of, which is what is actually important.
-
-Uninlining a static inline that basically does no more than index into
-an array is nothing more than pure folly.  So please don't try to
-weasel your way out of accepting this basic fact.
-
-That's exactly the situation where the implementation of an abstraction
-via a static inline is exactly the thing to do.
+Applied, thanks everyone.
