@@ -1,54 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
-Date: Fri, 17 Apr 2015 15:12:08 -0400 (EDT)
-Message-ID: <20150417.151208.1757850423694976996.davem@davemloft.net>
-References: <20150417.131956.2235150293184897656.davem@davemloft.net>
-	<1429292769.6668.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<20150417190448.GA9462@l.oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, tglx@linutronix.de, mingo@redhat.com,
-	hpa@zytor.com, x86@kernel.org, Ian.Jackson@eu.citrix.com,
-	prashant@broadcom.com, cascardo@linux.vnet.ibm.com,
-	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
-	vyasevich@gmail.com, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, siva.kallam@broadcom.com,
-	sanjeevb@broadcom.com
-To: konrad.wilk@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46133 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751354AbbDQTMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Apr 2015 15:12:12 -0400
-In-Reply-To: <20150417190448.GA9462@l.oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v2] net: dsa: use DEVICE_ATTR_RW to declare temp1_max
+Date: Fri, 17 Apr 2015 15:12:25 -0400
+Message-ID: <1429297945-26651-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Date: Fri, 17 Apr 2015 15:04:48 -0400
+Since commit da4759c (sysfs: Use only return value from is_visible for
+the file mode), it is possible to reduce the permissions of a file.
 
-> From 9e417af099e3cee2b219ab28ffc1e96b0564b213 Mon Sep 17 00:00:00 2001
-> From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Date: Fri, 17 Apr 2015 14:55:47 -0400
-> Subject: [PATCH] config: Enable NEED_DMA_MAP_STATE when SWIOTLB is selected
-> 
-> A huge amount of NIC drivers use the DMA API, however if compiled
-> under 32-bit an very important part of the DMA API can be ommitted leading
-> to the drivers not working at all (especially if used with
-> 'swiotlb=force iommu=soft').
-> 
-> As Prashant Sreedharan explains it: "the driver [tg3] uses
-> DEFINE_DMA_UNMAP_ADDR(), dma_unmap_addr_set() to keep a copy of the dma
-> "mapping" and dma_unmap_addr() to get the "mapping" value. On most of
-> the platforms this is a no-op, but ... with "iommu=soft and
-> swiotlb=force" this house keeping is required, ... otherwise
-> we pass 0 while calling pci_unmap_/pci_dma_sync_ instead of the
-> DMA address."
-> 
-> As such enable this even when using 32-bit kernels.
-> 
-> Reported-by: Ian Jackson <Ian.Jackson@eu.citrix.com>
-> Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+So declare temp1_max with the DEVICE_ATTR_RW macro and remove the write
+permission in dsa_hwmon_attrs_visible if set_temp_limit isn't provided.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 5eaadab..079a224 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -124,7 +124,7 @@ static ssize_t temp1_max_store(struct device *dev,
+ 
+ 	return count;
+ }
+-static DEVICE_ATTR(temp1_max, S_IRUGO, temp1_max_show, temp1_max_store);
++static DEVICE_ATTR_RW(temp1_max);
+ 
+ static ssize_t temp1_max_alarm_show(struct device *dev,
+ 				    struct device_attribute *attr, char *buf)
+@@ -159,8 +159,8 @@ static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
+ 	if (index == 1) {
+ 		if (!drv->get_temp_limit)
+ 			mode = 0;
+-		else if (drv->set_temp_limit)
+-			mode |= S_IWUSR;
++		else if (!drv->set_temp_limit)
++			mode &= ~S_IWUSR;
+ 	} else if (index == 2 && !drv->get_temp_alarm) {
+ 		mode = 0;
+ 	}
+-- 
+2.3.5
