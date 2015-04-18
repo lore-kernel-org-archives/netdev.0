@@ -1,41 +1,52 @@
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Subject: [PATCH v2] pppoe: Lacks DST MAC address check
-Date: Sat, 18 Apr 2015 11:53:14 +0200
-Message-ID: <1429350794-17170-1-git-send-email-Joakim.Tjernlund@transmode.se>
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-To: netdev@vger.kernel.org
+From: Mathias Nyman <m.nyman@iki.fi>
+Subject: Re: [PATCH net-next] ip: Add color output option
+Date: Sat, 18 Apr 2015 13:22:58 +0300
+Message-ID: <20150418102258.GA7005@iki.fi>
+References: <20150417130202.GA29596@iki.fi>
+ <20150417164402.GA7041@Alexeis-MBP.westell.com>
+ <5531425E.1020206@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, aleksi.aalto@iki.fi
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.transmode.se ([31.15.61.139]:62818 "EHLO smtp.transmode.se"
+Received: from mail.kapsi.fi ([217.30.184.167]:35576 "EHLO mail.kapsi.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751328AbbDRJxT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Apr 2015 05:53:19 -0400
+	id S1751694AbbDRKXD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Apr 2015 06:23:03 -0400
+Content-Disposition: inline
+In-Reply-To: <5531425E.1020206@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A pppoe session is identified by its session ID and MAC address.
-Currently pppoe does not check if the received pkg has the correct
-MAC address. This is a problem when the eth I/F is in promisc mode
-as then any DST MAC address is accepted.
----
+On 2015-04-17 19:26+0200, Daniel Borkmann wrote:
+>On 04/17/2015 06:44 PM, Alexei Starovoitov wrote:
+>>On Fri, Apr 17, 2015 at 04:02:02PM +0300, Mathias Nyman wrote:
+>>>It is hard to quickly find what you are looking for in the output of the ip
+>>>command. Color helps.
+>>>
+>>>This patch adds a '-c' flag to highlight these with individual colors:
+>>>   - interface name
+>>>   - ip addresse
+>>>   - mac addresse
+>>>   - up/down state
+>>
+>>idea looks good, but the patch doesn't apply at all, since it's
+>>whitespace damaged. Also there is no SOB.
 
-v2 - The MAC address check should encompass all pppoe pkgs,
-     not only the relay type.
- drivers/net/ppp/pppoe.c | 3 +++
- 1 file changed, 3 insertions(+)
+First timer; the v2 should fix these.
 
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index ff059e1..aa1dd92 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -380,6 +380,9 @@ static int pppoe_rcv_core(struct sock *sk, struct sk_buff *skb)
- 	 * can't change.
- 	 */
- 
-+	if (skb->pkt_type == PACKET_OTHERHOST)
-+		goto abort_kfree;
-+
- 	if (sk->sk_state & PPPOX_BOUND) {
- 		ppp_input(&po->chan, skb);
- 	} else if (sk->sk_state & PPPOX_RELAY) {
--- 
-2.0.5
+
+>You also might want to move the library bits into lib/ so that
+>not only ip but also other tools could use it in future. So -c
+>is neither taken in ip nor in tc or ss, that's good. ;)
+>
+
+I don't understand what you mean by "-c is neither taken in ip nor in
+tc or ss". I am not finding a common place where to handle the -color
+flag for ip, tc and ss, if that's what you mean. The common color.c is
+under lib/ in v2 though.
+
+
+Thanks for super fast feedback guys!
