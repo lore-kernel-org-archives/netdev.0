@@ -1,7 +1,7 @@
 From: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
-Subject: [PATCH v2 1/2] checkpatch: suggest using ether_addr_equal*()
-Date: Mon, 20 Apr 2015 00:16:55 +0200
-Message-ID: <1429481816-6664-2-git-send-email-mateusz.kulikowski@gmail.com>
+Subject: [PATCH v2 2/2] checkpatch: suggest using eth_zero_addr() and eth_broadcast_addr()
+Date: Mon, 20 Apr 2015 00:16:56 +0200
+Message-ID: <1429481816-6664-3-git-send-email-mateusz.kulikowski@gmail.com>
 References: <1429481816-6664-1-git-send-email-mateusz.kulikowski@gmail.com>
 Cc: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
 	davem@davemloft.net, netdev@vger.kernel.org,
@@ -12,27 +12,35 @@ In-Reply-To: <1429481816-6664-1-git-send-email-mateusz.kulikowski@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Check if memcmp() is used to compare ethernet addresses and suggest
-using ether_addr_equal() or ether_addr_equal_unaligned()
+Suggest using eth_zero_addr() or eth_broadcast_addr() instead of memset().
 
 Signed-off-by: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
 ---
- scripts/checkpatch.pl | 7 +++++++
- 1 file changed, 7 insertions(+)
+ scripts/checkpatch.pl | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 89b1df4..b9ea436 100755
+index b9ea436..aee6d43 100755
 --- a/scripts/checkpatch.pl
 +++ b/scripts/checkpatch.pl
-@@ -5035,6 +5035,13 @@ sub process {
- 			}
+@@ -5042,6 +5042,22 @@ sub process {
+ 			     "Prefer ether_addr_equal() or ether_addr_equal_unaligned() over memcmp()\n" . $herecurr)
  		}
  
-+# Check for memcmp(foo, bar, ETH_ALEN) that could be ether_addr_equal*(foo, bar)
++# check for memset(foo, 0x0, ETH_ALEN) that could be eth_zero_addr
++# check for memset(foo, 0xFF, ETH_ALEN) that could be eth_broadcast_addr
 +		if ($^V && $^V ge 5.10.0 &&
-+		    $line =~ /^\+(?:.*?)\bmemcmp\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*\,\s*ETH_ALEN\s*\)/s) {
-+			WARN("PREFER_ETHER_ADDR_EQUAL",
-+			     "Prefer ether_addr_equal() or ether_addr_equal_unaligned() over memcmp()\n" . $herecurr)
++		    $line =~ /^\+(?:.*?)\bmemset\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*\,\s*ETH_ALEN\s*\)/s) {
++
++			my $ms_val = $7;
++
++			if ($ms_val =~ /^(0x|)0+$/i) {
++				WARN("PREFER_ETH_ZERO_ADDR",
++				     "Prefer eth_zero_addr over memset()\n" . $herecurr);
++			} elsif ($ms_val =~ /^(?:0xff|255)$/i) {
++				WARN("PREFER_ETH_BROADCAST_ADDR",
++				     "Prefer eth_broadcast_addr() over memset()\n" . $herecurr);
++			}
 +		}
 +
  # typecasts on min/max could be min_t/max_t
