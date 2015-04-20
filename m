@@ -1,29 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] etherdevice: Add ether_addr_copy_unaligned
-Date: Mon, 20 Apr 2015 14:19:14 -0400 (EDT)
-Message-ID: <20150420.141914.1605864056122893264.davem@davemloft.net>
-References: <1429479577-3977-1-git-send-email-mateusz.kulikowski@gmail.com>
+Subject: Re: [RFC PATCH 06/10] ipv6: Avoid deleting RTF_CACHE route from
+ ip6_route_del()
+Date: Mon, 20 Apr 2015 14:23:05 -0400 (EDT)
+Message-ID: <20150420.142305.507346652058648202.davem@davemloft.net>
+References: <1428717253-1006248-1-git-send-email-kafai@fb.com>
+	<1428717253-1006248-7-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, dan.carpenter@oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mateusz.kulikowski@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429479577-3977-1-git-send-email-mateusz.kulikowski@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	kernel-team@fb.com
+To: kafai@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46100 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755180AbbDTSXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 14:23:08 -0400
+In-Reply-To: <1428717253-1006248-7-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
-Date: Sun, 19 Apr 2015 23:39:37 +0200
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 10 Apr 2015 18:54:09 -0700
 
-> Some drivers require copying unaligned ethernet addresses.
-> Using memcpy() causes checkpatch warnings and may cause
-> regressions (someone will "fix" alignment of packed structure)
+> Before patch 'Allow pmtu update on /128 via gateway route',
+> RTF_CACHE route was not created for DST_HOST.  It also requires changes on both
+> delete code path and rt6_select() code patch.
 > 
-> Signed-off-by: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
+> This patch fixes the delete code path to avoid deleting the RTF_CACHE
+> route by 'ip -6 r del...'
+> 
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I'd rather see something like this submitted in a patch series alongside
-some actual uses.
+If a cached route was created in response to say a PMTU event, and
+it's a clone/copy/cow of the route we are being asked to delete,
+it absolutely should be removed.
 
-So I'm tossing this for now.
+In fact this is a critically important aspect of removing routes
+from the table.
+
+So this change does not seem correct.
