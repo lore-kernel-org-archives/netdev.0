@@ -1,54 +1,55 @@
-From: Sebastian Poehn <sebastian.poehn@gmail.com>
-Subject: [PATCH v2] ip_forward: Drop frames with attached skb->sk
-Date: Mon, 20 Apr 2015 09:19:20 +0200
-Message-ID: <1429514360.7091.9.camel@googlemail.com>
+From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH linux-next v5] mlx5: wrong page mask if
+ CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for 32Bit architectures
+Date: Mon, 20 Apr 2015 10:48:48 +0300
+Message-ID: <20150420074848.GA17506@mtldesk30>
+References: <1429086975-15506-1-git-send-email-honli@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:38014 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752942AbbDTHTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 03:19:23 -0400
-Received: by wiun10 with SMTP id n10so80215446wiu.1
-        for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 00:19:22 -0700 (PDT)
-Received: from de-ka-36785.green.sophos (port-92-198-130-190.static.qsc.de. [92.198.130.190])
-        by mx.google.com with ESMTPSA id f8sm13947705wiy.7.2015.04.20.00.19.21
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 20 Apr 2015 00:19:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1429086975-15506-1-git-send-email-honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Initial discussion was:
-[FYI] xfrm: Don't lookup sk_policy for timewait sockets
+On Wed, Apr 15, 2015 at 04:36:15PM +0800, Honggang Li wrote:
+> If CONFIG_ARCH_DMA_ADDR_T_64BIT enabled for x86 systems and physical
+> memory is more than 4GB, dma_map_page may return a valid memory
+> address which greater than 0xffffffff. As a result, the mlx5 device page
+> allocator RB tree will be initialized with valid addresses greater than
+> 0xfffffff.
+> 
+> However, (addr & PAGE_MASK) set the high four bytes to zeros. So, it's
+> impossible for the function, free_4k, to release the pages whose
+> addresses greater than 4GB. Memory leaks. And mlx5_ib module can't
+> release the pages when user try to remove the module, as a result,
+> system hang.
+> 
+> [root@rdma05 root]# dmesg  | grep addr | head
+> addr             = 3fe384000
+> addr & PAGE_MASK =  fe384000
+> [root@rdma05 root]# rmmod mlx5_ib   <---- hang on
+> 
+> ---------------------- cosnole log -----------------
+> mlx5_ib 0000:04:00.0: irq 138 for MSI/MSI-X
+>   alloc irq_desc for 139 on node -1
+>   alloc kstat_irqs on node -1
+> mlx5_ib 0000:04:00.0: irq 139 for MSI/MSI-X
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> 0000:04:00.0:free_4k:221:(pid 1519): page not found
+> ---------------------- cosnole log -----------------
+> 
+> Fixes: bf0bf77f6519 ('mlx5: Support communicating arbitrary host page size to firmware')
+> Signed-off-by: Honggang Li <honli-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> ---
 
-Forwarded frames should not have a socket attached. Especially
-tw sockets will lead to panics later-on in the stack.
-
-This was observed with TPROXY assigning a tw socket and broken
-policy routing (misconfigured). As a result frame enters
-forwarding path instead of input. We cannot solve this in
-TPROXY as it cannot know that policy routing is broken.
-
-v2:
-Remove useless comment
-
-Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
----
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 939992c..3674484 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -82,6 +82,9 @@ int ip_forward(struct sk_buff *skb)
- 	if (skb->pkt_type != PACKET_HOST)
- 		goto drop;
- 
-+	if (unlikely(skb->sk))
-+		goto drop;
-+
- 	if (skb_warn_if_lro(skb))
- 		goto drop;
- 
+Acked-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 --
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
