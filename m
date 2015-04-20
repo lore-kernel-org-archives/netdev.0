@@ -1,9 +1,9 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 05/11] time/posix-timers:Convert to the 64bit methods
- for k_clock callback functions
-Date: Mon, 20 Apr 2015 22:48:06 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1504202243070.13914@nanos>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <1429509459-17068-6-git-send-email-baolin.wang@linaro.org>
+Subject: Re: [PATCH 09/11] cputime:Introduce the cputime_to_timespec64/timespec64_to_cputime
+ function
+Date: Mon, 20 Apr 2015 23:09:17 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1504202249590.13914@nanos>
+References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <1429509459-17068-10-git-send-email-baolin.wang@linaro.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
@@ -19,39 +19,52 @@ Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
 	y2038@lists.linaro.org
 To: Baolin Wang <baolin.wang@linaro.org>
 Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1429509459-17068-6-git-send-email-baolin.wang@linaro.org>
+In-Reply-To: <1429509459-17068-10-git-send-email-baolin.wang@linaro.org>
 Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, 20 Apr 2015, Baolin Wang wrote:
->  /* Set clock_realtime */
->  static int posix_clock_realtime_set(const clockid_t which_clock,
-> -				    const struct timespec *tp)
-> +				    const struct timespec64 *tp)
->  {
-> -	return do_sys_settimeofday(tp, NULL);
-> +	struct timespec ts = timespec64_to_timespec(*tp);
-> +
-> +	return do_sys_settimeofday(&ts, NULL);
 
-Sigh. No. We first provide a proper function for this, which takes a
-timespec64, i.e. do_sys_settimeofday64() instead of having this
-wrapper mess all over the place.
+> This patch introduces some functions for converting cputime to timespec64 and back,
+> that repalce the timespec type with timespec64 type, as well as for arch/s390 and
+> arch/powerpc architecture.
 
->  	/* SIGEV_NONE timers are not queued ! See common_timer_get */
->  	if (((timr->it_sigev_notify & ~SIGEV_THREAD_ID) == SIGEV_NONE)) {
-> diff --git a/kernel/time/timekeeping.h b/kernel/time/timekeeping.h
-> index 1d91416..144af14 100644
-> --- a/kernel/time/timekeeping.h
-> +++ b/kernel/time/timekeeping.h
-> @@ -15,7 +15,7 @@ extern u64 timekeeping_max_deferment(void);
->  extern int timekeeping_inject_offset(struct timespec *ts);
->  extern s32 timekeeping_get_tai_offset(void);
->  extern void timekeeping_set_tai_offset(s32 tai_offset);
-> -extern void timekeeping_clocktai(struct timespec *ts);
-> +extern void timekeeping_clocktai(struct timespec64 *ts);
+No. We want a patch which adds the functions and then a patch which
+uses them. This stuff is tricky and hard to review. So please split
+the patches into smaller chunks.
 
-# git grep timekeeping_clocktai() is your friend.
+> +unsigned long
+> +timespec64_to_jiffies(const struct timespec64 *value)
+> +{
+> +	return __timespec_to_jiffies(value->tv_sec, value->tv_nsec);
+> +}
+> +EXPORT_SYMBOL(timespec64_to_jiffies);
+
+So we have now two exports which are doing exactly the same
+thing. Copy and paste is wonderful, right?
+
+What about exporting __timespec_to_jiffies() and providing inlines for
+timespec_to_jiffies() and timespec64_to_jiffies() ?
+
+EXPORT_SYMBOL is not just a stupid annotation. Its impact on the
+resulting kernel size is larger than the actual function
+implementation.
+
+> +void
+> +jiffies_to_timespec64(const unsigned long jiffies, struct timespec64 *value)
+> +{
+> +	/*
+> +	 * Convert jiffies to nanoseconds and separate with
+> +	 * one divide.
+> +	 */
+> +	u32 rem;
+> +	value->tv_sec = div_u64_rem((u64)jiffies * TICK_NSEC,
+> +				   NSEC_PER_SEC, &rem);
+> +	value->tv_nsec = rem;
+> +}
+> +EXPORT_SYMBOL(jiffies_to_timespec64);
+
+Sigh.
 
 Thanks,
 
