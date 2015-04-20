@@ -1,163 +1,106 @@
-From: Petr Mladek <pmladek@suse.cz>
-Subject: Re: [PATCH 03/16] printk: move LOG_NOCONS skipping into
- call_console_drivers()
-Date: Mon, 20 Apr 2015 14:50:16 +0200
-Message-ID: <20150420125016.GH4368@pathway.suse.cz>
-References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <1429225433-11946-4-git-send-email-tj@kernel.org>
+From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
+Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
+Date: Mon, 20 Apr 2015 14:48:56 +0200
+Message-ID: <5534F5B8.1030405@ericsson.com>
+References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com> <552F45AA.6010906@miraclelinux.com> <5530BE40.1000504@ericsson.com> <55346580.6060801@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Kay Sievers <kay@vrfy.org>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1429225433-11946-4-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+	<netdev@emagii.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:43036 "EHLO
+	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754839AbbDTMtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 08:49:13 -0400
+In-Reply-To: <55346580.6060801@miraclelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 2015-04-16 19:03:40, Tejun Heo wrote:
-> When a line is printed by multiple printk invocations, each chunk is
-> directly sent out to console drivers so that they don't get lost.
-> When the line is completed and stored in the log buffer, the line is
-> suppressed from going out to consoles as that'd lead to duplicate
-> outputs.  This is tracked with LOG_NOCONS flag.
-> 
-> The suppression is currently implemented in console_unlock() which
-> skips invoking call_console_drivers() for LOG_NOCONS messages.  This
-> patch moves the filtering into call_console_drivers() in preparation
-> of the planned extended console drivers which will deal with the
-> duplicate messages themselves.
-> 
-> While this makes call_console_drivers() iterate over LOG_NOCONS
-> messages, this is extremely unlikely to matter especially given that
-> continuation lines aren't that common and also simplifies
-> console_unlock() a bit.
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Cc: Kay Sievers <kay@vrfy.org>
-> Cc: Petr Mladek <pmladek@suse.cz>
-> ---
->  kernel/printk/printk.c | 46 ++++++++++++++++++++++++----------------------
->  1 file changed, 24 insertions(+), 22 deletions(-)
-> 
-> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-> index 5ea6709..0175c46 100644
-> --- a/kernel/printk/printk.c
-> +++ b/kernel/printk/printk.c
-> @@ -1417,7 +1417,8 @@ SYSCALL_DEFINE3(syslog, int, type, char __user *, buf, int, len)
->   * log_buf[start] to log_buf[end - 1].
->   * The console_lock must be held.
->   */
-> -static void call_console_drivers(int level, const char *text, size_t len)
-> +static void call_console_drivers(int level, bool nocons,
-> +				 const char *text, size_t len)
->  {
->  	struct console *con;
->  
-> @@ -1438,6 +1439,13 @@ static void call_console_drivers(int level, const char *text, size_t len)
->  		if (!cpu_online(smp_processor_id()) &&
->  		    !(con->flags & CON_ANYTIME))
->  			continue;
-> +		/*
-> +		 * Skip record we have buffered and already printed
-> +		 * directly to the console when we received it.
-> +		 */
-> +		if (nocons)
-> +			continue;
-> +
->  		con->write(con, text, len);
->  	}
->  }
-> @@ -1919,7 +1927,8 @@ static struct cont {
->  } cont;
->  static struct printk_log *log_from_idx(u32 idx) { return NULL; }
->  static u32 log_next(u32 idx) { return 0; }
-> -static void call_console_drivers(int level, const char *text, size_t len) {}
-> +static void call_console_drivers(int level, bool nocons,
-> +				 const char *text, size_t len) {}
->  static size_t msg_print_text(const struct printk_log *msg, enum log_flags prev,
->  			     bool syslog, char *buf, size_t size) { return 0; }
->  static size_t cont_print_text(char *text, size_t size) { return 0; }
-> @@ -2190,7 +2199,7 @@ static void console_cont_flush(char *text, size_t size)
->  	len = cont_print_text(text, size);
->  	raw_spin_unlock(&logbuf_lock);
->  	stop_critical_timings();
-> -	call_console_drivers(cont.level, text, len);
-> +	call_console_drivers(cont.level, false, text, len);
->  	start_critical_timings();
->  	local_irq_restore(flags);
->  	return;
-> @@ -2234,6 +2243,7 @@ again:
->  		struct printk_log *msg;
->  		size_t len;
->  		int level;
-> +		bool nocons;
->  
->  		raw_spin_lock_irqsave(&logbuf_lock, flags);
->  		if (seen_seq != log_next_seq) {
-> @@ -2252,38 +2262,30 @@ again:
->  		} else {
->  			len = 0;
->  		}
-> -skip:
-> +
->  		if (console_seq == log_next_seq)
->  			break;
->  
->  		msg = log_from_idx(console_idx);
-> -		if (msg->flags & LOG_NOCONS) {
-> -			/*
-> -			 * Skip record we have buffered and already printed
-> -			 * directly to the console when we received it.
-> -			 */
-> -			console_idx = log_next(console_idx);
-> -			console_seq++;
-> -			/*
-> -			 * We will get here again when we register a new
-> -			 * CON_PRINTBUFFER console. Clear the flag so we
-> -			 * will properly dump everything later.
-> -			 */
-> -			msg->flags &= ~LOG_NOCONS;
-> -			console_prev = msg->flags;
-> -			goto skip;
-> -		}
-> -
->  		level = msg->level;
-> +		nocons = msg->flags & LOG_NOCONS;
->  		len += msg_print_text(msg, console_prev, false,
->  				      text + len, sizeof(text) - len);
->  		console_idx = log_next(console_idx);
->  		console_seq++;
->  		console_prev = msg->flags;
-> +
-> +		/*
-> +		 * The log will be processed again when we register a new
-> +		 * CON_PRINTBUFFER console. Clear the flag so we will
-> +		 * properly dump everything later.
-> +		 */
-> +		msg->flags &= ~LOG_NOCONS;
 
-The previous code cleared LOG_NOCONS before saving flags into
-console_prev. Well, the change does not have any real effect.
-And the new order makes more sense.
+On 04/20/2015 04:33 AM, YOSHIFUJI Hideaki wrote:
+> Hi,
+>
+> Ulf Samuelsson wrote:
+>>>   From RFC2461:
+>>>
+>>> |      REACHABLE   Roughly speaking, the neighbor is known to have been
+>>> |                  reachable recently (within tens of seconds ago).
+>>> :
+>>> |      STALE       The neighbor is no longer known to be reachable but
+>>> |                  until traffic is sent to the neighbor, no attempt
+>>> |                  should be made to verify its reachability.
+>>> |      DELAY       The neighbor is no longer known to be reachable, and
+>>> |                  traffic has recently been sent to the neighbor.
+>>> |                  Rather than probe the neighbor immediately, however,
+>>> |                  delay sending probes for a short while in order to
+>>> |                  give upper layer protocols a chance to provide
+>>> |                  reachability confirmation.
+>>>
+>>>
+>> It is all depending on the meaning of the word "recently".
+>> You imply, that if timeouts have been triggered, then it is no longer "recent",
+>> but that is not the only interpretation, it is up to the implementer to decide
+>> what is "recently".
+> That quoted text is just a "brief" description.  The document has detailed
+> state machine.
+>
 
-This patch looks fine to me.
+It is not *mandatory* to follow the state machine strictly, Page 85:
 
-Reviewed-by: Petr Mladek <pmladek@suse.cz>
+    "This appendix contains a summary of the rules specified in Sections
+    7.2 and 7.3.  This document does not mandate that implementations
+    adhere to this model as long as their external behavior is consistent
+    with that described in this document."
+
+The kernel does not follow the state machine today.
+The kernel already have a test which compares
+
+     "neigh->used" + timeout with current time,
+     and move the entry to DELAY.
+
+This is not documented in the state machine so there is already
+a precedent to compare
+
+     "neigh->compared" + timeout with current time
+     and move the entry into DELAY state.
+
+Obviously, some people would not want you to send probes before going STALE,
+so it needs to be configurable.
+>> Therefore, if a timeout occurs due to no traffic, they must be probed before
+>> they are garbage collected.
+> It is what we do in PROBE state.
+Yes, but you have to start by moving it into DELAY state first, to init 
+the probe counter.
+If you move the entry from REACHABLE to DELAY, then the probe counter
+may be any value.
+
+>
+>> If this is not acceptable, how do you propose to solve the problem that you cannot
+>> make remote units inaccessible for more than a fraction of a second?
+> How many neighbors do you want to maintain?
+> I guess you have to increase the number of gc_thresh1.
+The current use cases have up to 2048 entries.
+This is expected to grow in the future.
+The 3.4 kernel used in the system today is limited to 1024,
+but that has been raised to about 10k.
+
+The gc_thresh1 test is not implemented in 3.4 but can be backported,
+but still not convinced it is a good idea.
+
+To complicate things, one requirement is that for some interfaces
+you always want to keep things alive, if connected, but
+for other interfaces you want things to be removed
+to conserve memory.
+Actually you would want to do this selection on a subnet level.
+
+Internal discussions resulted in a proposal to change the patch,
+so that you have a "keepalive" flag which is tested after
+it has been decided to exit the REACHABLE state.
+
+if the "keepalive" flag is set, you always go to DELAY state from REACHABLE.
+
 
 Best Regards,
-Petr
-
->  		raw_spin_unlock(&logbuf_lock);
->  
->  		stop_critical_timings();	/* don't trace print latency */
-> -		call_console_drivers(level, text, len);
-> +		call_console_drivers(level, nocons, text, len);
->  		start_critical_timings();
->  		local_irq_restore(flags);
->  	}
-> -- 
-> 2.1.0
-> 
+Ulf Samuelsson
