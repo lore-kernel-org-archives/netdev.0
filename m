@@ -1,71 +1,62 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 09/11] cputime:Introduce the cputime_to_timespec64/timespec64_to_cputime
- function
-Date: Mon, 20 Apr 2015 23:09:17 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1504202249590.13914@nanos>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <1429509459-17068-10-git-send-email-baolin.wang@linaro.org>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 1/2] net: add skb_checksum_complete_unset
+Date: Mon, 20 Apr 2015 14:10:04 -0700
+Message-ID: <1429564205-1661247-2-git-send-email-tom@herbertland.com>
+References: <1429564205-1661247-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
-	pang.xunlei@linaro.org, peterz@infradead.org,
-	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
-	richardcochran@gmail.com, benh@kernel.crashing.org,
-	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
-	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
-	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
-	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	y2038@lists.linaro.org
-To: Baolin Wang <baolin.wang@linaro.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1429509459-17068-10-git-send-email-baolin.wang@linaro.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47500 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754402AbbDTVKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 17:10:22 -0400
+Received: from pps.filterd (m0004348 [127.0.0.1])
+	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t3KL9osK021545
+	for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 14:10:21 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0004348.ppops.net with ESMTP id 1tw7pwr4y6-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 14:10:21 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ a6fd948ee7a111e487e00002c95209d8-492a72c0 for <netdev@vger.kernel.org>;	Mon,
+ 20 Apr 2015 14:10:20 -0700
+In-Reply-To: <1429564205-1661247-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Apr 2015, Baolin Wang wrote:
+This function changes ip_summed to CHECKSUM_NONE if CHECKSUM_COMPLETE
+is set. This is called to discard checksum-complete when packet
+is being modified and checksum is not pulled for headers in a layer.
 
-> This patch introduces some functions for converting cputime to timespec64 and back,
-> that repalce the timespec type with timespec64 type, as well as for arch/s390 and
-> arch/powerpc architecture.
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/linux/skbuff.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-No. We want a patch which adds the functions and then a patch which
-uses them. This stuff is tricky and hard to review. So please split
-the patches into smaller chunks.
-
-> +unsigned long
-> +timespec64_to_jiffies(const struct timespec64 *value)
-> +{
-> +	return __timespec_to_jiffies(value->tv_sec, value->tv_nsec);
-> +}
-> +EXPORT_SYMBOL(timespec64_to_jiffies);
-
-So we have now two exports which are doing exactly the same
-thing. Copy and paste is wonderful, right?
-
-What about exporting __timespec_to_jiffies() and providing inlines for
-timespec_to_jiffies() and timespec64_to_jiffies() ?
-
-EXPORT_SYMBOL is not just a stupid annotation. Its impact on the
-resulting kernel size is larger than the actual function
-implementation.
-
-> +void
-> +jiffies_to_timespec64(const unsigned long jiffies, struct timespec64 *value)
-> +{
-> +	/*
-> +	 * Convert jiffies to nanoseconds and separate with
-> +	 * one divide.
-> +	 */
-> +	u32 rem;
-> +	value->tv_sec = div_u64_rem((u64)jiffies * TICK_NSEC,
-> +				   NSEC_PER_SEC, &rem);
-> +	value->tv_nsec = rem;
-> +}
-> +EXPORT_SYMBOL(jiffies_to_timespec64);
-
-Sigh.
-
-Thanks,
-
-	tglx
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 0991259..06793b5 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3016,6 +3016,18 @@ static inline bool __skb_checksum_validate_needed(struct sk_buff *skb,
+  */
+ #define CHECKSUM_BREAK 76
+ 
++/* Unset checksum-complete
++ *
++ * Unset checksum complete can be done when packet is being modified
++ * (uncompressed for instance) and checksum-complete value is
++ * invalidated.
++ */
++static inline void skb_checksum_complete_unset(struct sk_buff *skb)
++{
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->ip_summed = CHECKSUM_NONE;
++}
++
+ /* Validate (init) checksum based on checksum complete.
+  *
+  * Return values:
+-- 
+1.8.1
