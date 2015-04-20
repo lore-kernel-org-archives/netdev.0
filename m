@@ -1,52 +1,177 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCHSET] printk, netconsole: implement reliable netconsole
-Date: Mon, 20 Apr 2015 12:00:38 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB223B4@AcuExch.aculab.com>
+From: Petr Mladek <pmladek@suse.cz>
+Subject: Re: [PATCH 01/16] printk: guard the amount written per line by
+ devkmsg_read()
+Date: Mon, 20 Apr 2015 14:11:36 +0200
+Message-ID: <20150420121136.GE4368@pathway.suse.cz>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <CAOS_Y6Q=1YwsL3wijnNSGmZh-xa8DXjp4PLc-hPGXGd3acTuZA@mail.gmail.com>
+ <1429225433-11946-2-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Rob Landley' <rob@landley.net>, Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Kay Sievers <kay@vrfy.org>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:58493 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754548AbbDTMBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 08:01:53 -0400
-In-Reply-To: <CAOS_Y6Q=1YwsL3wijnNSGmZh-xa8DXjp4PLc-hPGXGd3acTuZA@mail.gmail.com>
-Content-Language: en-US
+Received: from cantor2.suse.de ([195.135.220.15]:54578 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754548AbbDTMJd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2015 08:09:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1429225433-11946-2-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogT2YgUm9iIExhbmRsZXkNCj4gU2VudDogMTkgQXByaWwgMjAxNSAwODoyNQ0KPiBPbiBU
-aHUsIEFwciAxNiwgMjAxNSBhdCA2OjAzIFBNLCBUZWp1biBIZW8gPHRqQGtlcm5lbC5vcmc+IHdy
-b3RlOg0KPiA+IEluIGEgbG90IG9mIGNvbmZpZ3VyYXRpb25zLCBuZXRjb25zb2xlIGlzIGEgdXNl
-ZnVsIHdheSB0byBjb2xsZWN0DQo+ID4gc3lzdGVtIGxvZ3M7IGhvd2V2ZXIsIGFsbCBuZXRjb25z
-b2xlIGRvZXMgaXMgc2ltcGx5IGVtaXR0aW5nIFVEUA0KPiA+IHBhY2tldHMgZm9yIHRoZSByYXcg
-bWVzc2FnZXMgYW5kIHRoZXJlJ3Mgbm8gd2F5IGZvciB0aGUgcmVjZWl2ZXIgdG8NCj4gPiBmaW5k
-IG91dCB3aGV0aGVyIHRoZSBwYWNrZXRzIHdlcmUgbG9zdCBhbmQvb3IgcmVvcmRlcmVkIGluIGZs
-aWdodC4NCj4gDQo+IEV4Y2VwdCBhIG1vZGVybiBub25zYXR1cmF0ZWQgTEFOIHNob3VsZG4ndCBk
-byB0aGF0Lg0KPiANCj4gSWYgeW91IGhhdmUgdHdvIG1hY2hpbmVzIHBsdWdnZWQgaW50byBhIGh1
-YiwgYW5kIHRoYXQncyBfYWxsXyB0aGF0J3MNCj4gcGx1Z2dlZCBpbiwgcGFja2V0cyBzaG91bGQg
-bmV2ZXIgZ2V0IGRyb3BwZWQuIFRoaXMgd2FzIHRoZSBvcmlnaW5hbA0KPiB1c2UgY2FzZSBvZiBu
-ZXRjb25zb2xlIHdhcyB0aGF0IHRoZSBzZW5kZXIgYW5kIHRoZSByZWNlaXZlciB3ZXJlDQo+IHBs
-dWdnZWQgaW50byB0aGUgc2FtZSByb3V0ZXIuDQo+IA0KPiBIb3dldmVyLCBldmVuIG9uIGEgcXVp
-dGUgYWN0aXZlIExBTiB0aGUgZGF5cyBvZiBldGhlcm5ldCBkb2luZyBDRE1BDQo+IHJlcXVpcmlu
-ZyByZXRyYW5zbWl0cyBhcmUgbG9uZyBnb25lLCBldmVuIDEwMGJhc2VUIHJvdXRlcnMgaGF2ZSBi
-ZWVuDQo+IGNhY2hlaW5nIGFuZCByZXRyYW5zbWl0dGluZyBkYXRhIGludGVybmFsbHkgc28gZWFj
-aCBjb25uZWN0aW9uIGNhbiBnbw0KPiBhdCB0aGUgZnVsbCAxMSBtZWdhYnl0ZXMvc2Vjb25kIHdp
-dGggdGhlIGJhY2twbGFuZSBydW5uaW5nIGZhc3QgZW5vdWdoDQo+IHRvIGtlZXAgdGhlbSBhbGwg
-YWN0aXZlIGF0IHRoZSBzYW1lIHRpbWUuIChUaGF0J3Mgd2h5IGl0J3Mgc28gaGFyZCB0bw0KPiBm
-aW5kIGEgX2h1Yl8gYW55bW9yZSwgaXQncyBhbGwgcm91dGVycw0KLi4uDQoNCk1vc3QgbWFjaGlu
-ZXMgYXJlIHBsdWdnZWQgaW50byBzd2l0Y2hlcyAobm90IHJvdXRlcnMpLCBtYW55IG9mIHRoZW0N
-CndpbGwgc2VuZCAncGF1c2UnIGZyYW1lcyB3aGljaCB0aGUgaG9zdCBtYWMgbWF5IGFjdCBvbi4N
-CkluIHdoaWNoIGNhc2UgcGFja2V0IGxvc3MgaXMgbm90IGV4cGVjdGVkICh1bmxlc3MgeW91IGhh
-dmUgYnJvYWRjYXN0IHN0b3Jtcw0Kd2hlbiBhbGwgYmV0cyBhcmUgb2ZmKS4NCg0KQWRkaXRpb25h
-bGx5LCB3aXRoaW4gYSBsb2NhbCBuZXR3b3JrIHlvdSBzaG91bGRuJ3QgcmVhbGx5IGdldCBhbnkg
-cGFja2V0DQpsb3NzIHNpbmNlIG5vIHNlZ21lbnRzIHNob3VsZCBiZSAxMDAlIGxvYWRlZC4NClNv
-IGZvciB0ZXN0aW5nIGl0IGlzIG5vdCB1bnJlYXNvbmFibGUgdG8gZXhwZWN0IG5vIGxvc3QgcGFj
-a2V0cyBpbiBuZXRjb25zb2xlDQp0cmFmZmljLg0KDQoJRGF2aWQNCg0KDQo=
+On Thu 2015-04-16 19:03:38, Tejun Heo wrote:
+> devkmsg_read() uses 8k buffer and assumes that the formatted output
+> message won't overrun which seems safe given LOG_LINE_MAX, the current
+> use of dict and the escaping method being used; however, we're
+> planning to use devkmsg formatting wider and accounting for the buffer
+> size properly isn't that complicated.
+> 
+> This patch defines CONSOLE_EXT_LOG_MAX as 8192 and updates
+> devkmsg_read() so that it limits output accordingly.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+
+Reviewed-by: Petr Mladek <pmladek@suse.cz>
+
+It is just a refactoring and does not modify the current behavior.
+
+
+> Cc: Kay Sievers <kay@vrfy.org>
+> Cc: Petr Mladek <pmladek@suse.cz>
+> ---
+>  include/linux/printk.h |  2 ++
+>  kernel/printk/printk.c | 35 +++++++++++++++++++++++------------
+>  2 files changed, 25 insertions(+), 12 deletions(-)
+> 
+> diff --git a/include/linux/printk.h b/include/linux/printk.h
+> index 9b30871..58b1fec 100644
+> --- a/include/linux/printk.h
+> +++ b/include/linux/printk.h
+> @@ -30,6 +30,8 @@ static inline const char *printk_skip_level(const char *buffer)
+>  	return buffer;
+>  }
+>  
+> +#define CONSOLE_EXT_LOG_MAX	8192
+
+If you do a respin from some reason. I would suggest to remove
+"CONSOLE_" because it is used also for devkmsg.
+
+Best Regards,
+Petr
+
+> +
+>  /* printk's without a loglevel use this.. */
+>  #define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
+>  
+> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+> index 879edfc..b6e24af 100644
+> --- a/kernel/printk/printk.c
+> +++ b/kernel/printk/printk.c
+> @@ -512,7 +512,7 @@ struct devkmsg_user {
+>  	u32 idx;
+>  	enum log_flags prev;
+>  	struct mutex lock;
+> -	char buf[8192];
+> +	char buf[CONSOLE_EXT_LOG_MAX];
+>  };
+>  
+>  static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
+> @@ -565,11 +565,18 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
+>  	return ret;
+>  }
+>  
+> +static void append_char(char **pp, char *e, char c)
+> +{
+> +	if (*pp < e)
+> +		*(*pp)++ = c;
+> +}
+> +
+>  static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  			    size_t count, loff_t *ppos)
+>  {
+>  	struct devkmsg_user *user = file->private_data;
+>  	struct printk_log *msg;
+> +	char *p, *e;
+>  	u64 ts_usec;
+>  	size_t i;
+>  	char cont = '-';
+> @@ -579,6 +586,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  	if (!user)
+>  		return -EBADF;
+>  
+> +	p = user->buf;
+> +	e = user->buf + sizeof(user->buf);
+> +
+>  	ret = mutex_lock_interruptible(&user->lock);
+>  	if (ret)
+>  		return ret;
+> @@ -625,9 +635,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
+>  		cont = '+';
+>  
+> -	len = sprintf(user->buf, "%u,%llu,%llu,%c;",
+> -		      (msg->facility << 3) | msg->level,
+> -		      user->seq, ts_usec, cont);
+> +	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
+> +		       (msg->facility << 3) | msg->level,
+> +		       user->seq, ts_usec, cont);
+>  	user->prev = msg->flags;
+>  
+>  	/* escape non-printable characters */
+> @@ -635,11 +645,11 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  		unsigned char c = log_text(msg)[i];
+>  
+>  		if (c < ' ' || c >= 127 || c == '\\')
+> -			len += sprintf(user->buf + len, "\\x%02x", c);
+> +			p += scnprintf(p, e - p, "\\x%02x", c);
+>  		else
+> -			user->buf[len++] = c;
+> +			append_char(&p, e, c);
+>  	}
+> -	user->buf[len++] = '\n';
+> +	append_char(&p, e, '\n');
+>  
+>  	if (msg->dict_len) {
+>  		bool line = true;
+> @@ -648,30 +658,31 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  			unsigned char c = log_dict(msg)[i];
+>  
+>  			if (line) {
+> -				user->buf[len++] = ' ';
+> +				append_char(&p, e, ' ');
+>  				line = false;
+>  			}
+>  
+>  			if (c == '\0') {
+> -				user->buf[len++] = '\n';
+> +				append_char(&p, e, '\n');
+>  				line = true;
+>  				continue;
+>  			}
+>  
+>  			if (c < ' ' || c >= 127 || c == '\\') {
+> -				len += sprintf(user->buf + len, "\\x%02x", c);
+> +				p += scnprintf(p, e - p, "\\x%02x", c);
+>  				continue;
+>  			}
+>  
+> -			user->buf[len++] = c;
+> +			append_char(&p, e, c);
+>  		}
+> -		user->buf[len++] = '\n';
+> +		append_char(&p, e, '\n');
+>  	}
+>  
+>  	user->idx = log_next(user->idx);
+>  	user->seq++;
+>  	raw_spin_unlock_irq(&logbuf_lock);
+>  
+> +	len = p - user->buf;
+>  	if (len > count) {
+>  		ret = -EINVAL;
+>  		goto out;
+> -- 
+> 2.1.0
+> 
