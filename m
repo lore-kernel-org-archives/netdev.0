@@ -1,65 +1,192 @@
-From: "Igal.Liberman@freescale.com" <Igal.Liberman@freescale.com>
-Subject: RE: [RFC,1/8] soc/fman: Add FMan MURAM support
-Date: Mon, 20 Apr 2015 08:58:20 +0000
-Message-ID: <DM2PR03MB3835BC56CD47613CB1AD4EBE6E00@DM2PR03MB383.namprd03.prod.outlook.com>
-References: <1426050469-12507-1-git-send-email-igal.liberman@freescale.com>
- <32CF85E2-A8AA-454D-A46F-0E778DAF97ED@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Scott Wood <scottwood@freescale.com>,
-	Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <32CF85E2-A8AA-454D-A46F-0E778DAF97ED@kernel.crashing.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Haggai Eran <haggaie@mellanox.com>
+Subject: [PATCH v2 05/11] IB/ipoib: Return IPoIB devices as possible matches to get_net_device_by_port_pkey_ip
+Date: Mon, 20 Apr 2015 12:03:36 +0300
+Message-ID: <1429520622-10303-6-git-send-email-haggaie@mellanox.com>
+References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
+Cc: Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>,
+	Haggai Eran <haggaie@mellanox.com>
+To: Doug Ledford <dledford@redhat.com>,
+	Roland Dreier <roland@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1327.ztomy.com ([193.47.165.129]:44577 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754026AbbDTJEL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Apr 2015 05:04:11 -0400
+In-Reply-To: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Guy Shapiro <guysh@mellanox.com>
 
+Implement callback that returns network device to ib_core according to
+connection parameters. Check the ipoib device and iterate over all child
+devices to look for a match.
 
-Regards,
-Igal Liberman.
+For each ipoib device we iterate through all upper devices when searching for
+a matching IP, in order to support bonding.
 
-> -----Original Message-----
-> From: Kumar Gala [mailto:galak@kernel.crashing.org]
-> Sent: Thursday, March 12, 2015 5:57 PM
-> To: Liberman Igal-B31950
-> Cc: linuxppc-dev@lists.ozlabs.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; Wood Scott-B07421
-> Subject: Re: [RFC,1/8] soc/fman: Add FMan MURAM support
-> 
-> 
-> On Mar 11, 2015, at 12:07 AM, Igal.Liberman <igal.liberman@freescale.com>
-> wrote:
-> 
-> > From: Igal Liberman <Igal.Liberman@freescale.com>
-> >
-> > Add Frame Manager Multi-User RAM support.
-> >
-> > Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
-> > ---
-> > drivers/soc/fsl/fman/Kconfig            |    1 +
-> > drivers/soc/fsl/fman/Makefile           |    5 +-
-> > drivers/soc/fsl/fman/fm_muram.c         |  174
-> +++++++++++++++++++++++++++++++
-> > drivers/soc/fsl/fman/inc/fm_muram_ext.h |   98 +++++++++++++++++
-> > 4 files changed, 276 insertions(+), 2 deletions(-) create mode 100644
-> > drivers/soc/fsl/fman/fm_muram.c create mode 100644
-> > drivers/soc/fsl/fman/inc/fm_muram_ext.h
-> >
-> 
-> use lib/genalloc instead of rheap
-> 
+Signed-off-by: Guy Shapiro <guysh@mellanox.com>
+Signed-off-by: Haggai Eran <haggaie@mellanox.com>
+Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
+Signed-off-by: Shachar Raindel <raindel@mellanox.com>
+---
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 122 +++++++++++++++++++++++++++++-
+ 1 file changed, 121 insertions(+), 1 deletion(-)
 
-Hi Kumar,
-I looked into lib/genalloc allocator.
-As far as I see, the genalloc allocator doesn't allow to control the memory alignment when you allocate a chunk of memory.
-Two important notes regarding MURAM memory:
-- The allocated memory chunks should have specific alignment (might be different in each chunk).
-- The allocations must be efficient, we don't want to "waste" MURAM due to alignment issues.
-
-> - k
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 7cad4dd87469..89a59a0e17e6 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -48,6 +48,9 @@
+ 
+ #include <linux/jhash.h>
+ #include <net/arp.h>
++#include <net/addrconf.h>
++#include <linux/inetdevice.h>
++#include <rdma/ib_cache.h>
+ 
+ #define DRV_VERSION "1.0.0"
+ 
+@@ -91,11 +94,15 @@ struct ib_sa_client ipoib_sa_client;
+ static void ipoib_add_one(struct ib_device *device);
+ static void ipoib_remove_one(struct ib_device *device);
+ static void ipoib_neigh_reclaim(struct rcu_head *rp);
++static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
++		struct ib_device *dev, u8 port, u16 pkey,
++		struct sockaddr *addr);
+ 
+ static struct ib_client ipoib_client = {
+ 	.name   = "ipoib",
+ 	.add    = ipoib_add_one,
+-	.remove = ipoib_remove_one
++	.remove = ipoib_remove_one,
++	.get_net_device_by_port_pkey_ip = ipoib_get_net_device_by_port_pkey_ip,
+ };
+ 
+ int ipoib_open(struct net_device *dev)
+@@ -222,6 +229,119 @@ static int ipoib_change_mtu(struct net_device *dev, int new_mtu)
+ 	return 0;
+ }
+ 
++static bool ipoib_is_dev_match_addr(struct sockaddr *addr,
++				    struct net_device *dev)
++{
++	struct net *net = dev_net(dev);
++
++	if (addr->sa_family == AF_INET) {
++		struct in_device *in_dev = in_dev_get(dev);
++		struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
++		__be32 ret_addr;
++
++		if (!in_dev)
++			return false;
++
++		ret_addr = inet_confirm_addr(net, in_dev, 0,
++					     addr_in->sin_addr.s_addr,
++					     RT_SCOPE_HOST);
++		in_dev_put(in_dev);
++		if (ret_addr)
++			return true;
++	}
++#if IS_ENABLED(CONFIG_IPV6)
++	else if (addr->sa_family == AF_INET6) {
++		struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
++
++		if (ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
++			return true;
++	}
++#endif
++	return false;
++}
++
++/**
++ * Find a net_device matching the given address, which is an upper device of
++ * the given net_device.
++ * @addr: IP address to look for.
++ * @dev: base IPoIB net_device
++ *
++ * If found, returns the net_device with a reference held. Otherwise return
++ * NULL.
++ */
++static struct net_device *ipoib_get_net_dev_match_addr(struct sockaddr *addr,
++						       struct net_device *dev)
++{
++	struct net_device *upper,
++			  *result = NULL;
++	struct list_head *iter;
++
++	if (ipoib_is_dev_match_addr(addr, dev)) {
++		dev_hold(dev);
++		return dev;
++	}
++
++	rcu_read_lock();
++	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
++		if (ipoib_is_dev_match_addr(addr, upper)) {
++			dev_hold(upper);
++			result = upper;
++			break;
++		}
++	}
++	rcu_read_unlock();
++	return result;
++}
++
++static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
++		struct ib_device *dev, u8 port, u16 pkey, struct sockaddr *addr)
++{
++	struct ipoib_dev_priv *priv;
++	struct list_head *dev_list;
++	u16 pkey_index;
++
++	ib_find_cached_pkey(dev, port, pkey, &pkey_index);
++	if (pkey_index == (u16)-1)
++		return NULL;
++
++	if (rdma_node_get_transport(dev->node_type) != RDMA_TRANSPORT_IB)
++		return NULL;
++
++	dev_list = ib_get_client_data(dev, &ipoib_client);
++	if (!dev_list)
++		return NULL;
++
++	list_for_each_entry(priv, dev_list, list) {
++		struct net_device *net_dev = NULL;
++		struct ipoib_dev_priv *child_priv;
++
++		if (priv->port != port)
++			continue;
++
++		if (priv->pkey_index == pkey_index) {
++			net_dev = ipoib_get_net_dev_match_addr(addr, priv->dev);
++			if (net_dev)
++				return net_dev;
++		}
++
++		down_read(&priv->vlan_rwsem);
++		list_for_each_entry(child_priv,
++				    &priv->child_intfs, list) {
++			if (child_priv->pkey_index != pkey_index)
++				continue;
++
++			net_dev = ipoib_get_net_dev_match_addr(
++					addr, child_priv->dev);
++			if (net_dev)
++				break;
++		}
++		up_read(&priv->vlan_rwsem);
++		if (net_dev)
++			return net_dev;
++	}
++	return NULL;
++}
++
+ int ipoib_set_mode(struct net_device *dev, const char *buf)
+ {
+ 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+-- 
+1.7.11.2
