@@ -1,11 +1,10 @@
 From: Petr Mladek <pmladek@suse.cz>
-Subject: Re: [PATCH 01/16] printk: guard the amount written per line by
- devkmsg_read()
-Date: Mon, 20 Apr 2015 14:33:49 +0200
-Message-ID: <20150420123348.GG4368@pathway.suse.cz>
+Subject: Re: [PATCH 03/16] printk: move LOG_NOCONS skipping into
+ call_console_drivers()
+Date: Mon, 20 Apr 2015 14:50:16 +0200
+Message-ID: <20150420125016.GH4368@pathway.suse.cz>
 References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <1429225433-11946-2-git-send-email-tj@kernel.org>
- <20150420121136.GE4368@pathway.suse.cz>
+ <1429225433-11946-4-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@linux-foundation.org, davem@davemloft.net,
@@ -14,29 +13,151 @@ Cc: akpm@linux-foundation.org, davem@davemloft.net,
 To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20150420121136.GE4368@pathway.suse.cz>
+In-Reply-To: <1429225433-11946-4-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon 2015-04-20 14:11:36, Petr Mladek wrote:
-> On Thu 2015-04-16 19:03:38, Tejun Heo wrote:
-> > devkmsg_read() uses 8k buffer and assumes that the formatted output
-> > message won't overrun which seems safe given LOG_LINE_MAX, the current
-> > use of dict and the escaping method being used; however, we're
-> > planning to use devkmsg formatting wider and accounting for the buffer
-> > size properly isn't that complicated.
-> > 
-> > This patch defines CONSOLE_EXT_LOG_MAX as 8192 and updates
-> > devkmsg_read() so that it limits output accordingly.
-> > 
-> > Signed-off-by: Tejun Heo <tj@kernel.org>
+On Thu 2015-04-16 19:03:40, Tejun Heo wrote:
+> When a line is printed by multiple printk invocations, each chunk is
+> directly sent out to console drivers so that they don't get lost.
+> When the line is completed and stored in the log buffer, the line is
+> suppressed from going out to consoles as that'd lead to duplicate
+> outputs.  This is tracked with LOG_NOCONS flag.
 > 
-> Reviewed-by: Petr Mladek <pmladek@suse.cz>
+> The suppression is currently implemented in console_unlock() which
+> skips invoking call_console_drivers() for LOG_NOCONS messages.  This
+> patch moves the filtering into call_console_drivers() in preparation
+> of the planned extended console drivers which will deal with the
+> duplicate messages themselves.
 > 
-> It is just a refactoring and does not modify the current behavior.
+> While this makes call_console_drivers() iterate over LOG_NOCONS
+> messages, this is extremely unlikely to matter especially given that
+> continuation lines aren't that common and also simplifies
+> console_unlock() a bit.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: Kay Sievers <kay@vrfy.org>
+> Cc: Petr Mladek <pmladek@suse.cz>
+> ---
+>  kernel/printk/printk.c | 46 ++++++++++++++++++++++++----------------------
+>  1 file changed, 24 insertions(+), 22 deletions(-)
+> 
+> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+> index 5ea6709..0175c46 100644
+> --- a/kernel/printk/printk.c
+> +++ b/kernel/printk/printk.c
+> @@ -1417,7 +1417,8 @@ SYSCALL_DEFINE3(syslog, int, type, char __user *, buf, int, len)
+>   * log_buf[start] to log_buf[end - 1].
+>   * The console_lock must be held.
+>   */
+> -static void call_console_drivers(int level, const char *text, size_t len)
+> +static void call_console_drivers(int level, bool nocons,
+> +				 const char *text, size_t len)
+>  {
+>  	struct console *con;
+>  
+> @@ -1438,6 +1439,13 @@ static void call_console_drivers(int level, const char *text, size_t len)
+>  		if (!cpu_online(smp_processor_id()) &&
+>  		    !(con->flags & CON_ANYTIME))
+>  			continue;
+> +		/*
+> +		 * Skip record we have buffered and already printed
+> +		 * directly to the console when we received it.
+> +		 */
+> +		if (nocons)
+> +			continue;
+> +
+>  		con->write(con, text, len);
+>  	}
+>  }
+> @@ -1919,7 +1927,8 @@ static struct cont {
+>  } cont;
+>  static struct printk_log *log_from_idx(u32 idx) { return NULL; }
+>  static u32 log_next(u32 idx) { return 0; }
+> -static void call_console_drivers(int level, const char *text, size_t len) {}
+> +static void call_console_drivers(int level, bool nocons,
+> +				 const char *text, size_t len) {}
+>  static size_t msg_print_text(const struct printk_log *msg, enum log_flags prev,
+>  			     bool syslog, char *buf, size_t size) { return 0; }
+>  static size_t cont_print_text(char *text, size_t size) { return 0; }
+> @@ -2190,7 +2199,7 @@ static void console_cont_flush(char *text, size_t size)
+>  	len = cont_print_text(text, size);
+>  	raw_spin_unlock(&logbuf_lock);
+>  	stop_critical_timings();
+> -	call_console_drivers(cont.level, text, len);
+> +	call_console_drivers(cont.level, false, text, len);
+>  	start_critical_timings();
+>  	local_irq_restore(flags);
+>  	return;
+> @@ -2234,6 +2243,7 @@ again:
+>  		struct printk_log *msg;
+>  		size_t len;
+>  		int level;
+> +		bool nocons;
+>  
+>  		raw_spin_lock_irqsave(&logbuf_lock, flags);
+>  		if (seen_seq != log_next_seq) {
+> @@ -2252,38 +2262,30 @@ again:
+>  		} else {
+>  			len = 0;
+>  		}
+> -skip:
+> +
+>  		if (console_seq == log_next_seq)
+>  			break;
+>  
+>  		msg = log_from_idx(console_idx);
+> -		if (msg->flags & LOG_NOCONS) {
+> -			/*
+> -			 * Skip record we have buffered and already printed
+> -			 * directly to the console when we received it.
+> -			 */
+> -			console_idx = log_next(console_idx);
+> -			console_seq++;
+> -			/*
+> -			 * We will get here again when we register a new
+> -			 * CON_PRINTBUFFER console. Clear the flag so we
+> -			 * will properly dump everything later.
+> -			 */
+> -			msg->flags &= ~LOG_NOCONS;
+> -			console_prev = msg->flags;
+> -			goto skip;
+> -		}
+> -
+>  		level = msg->level;
+> +		nocons = msg->flags & LOG_NOCONS;
+>  		len += msg_print_text(msg, console_prev, false,
+>  				      text + len, sizeof(text) - len);
+>  		console_idx = log_next(console_idx);
+>  		console_seq++;
+>  		console_prev = msg->flags;
+> +
+> +		/*
+> +		 * The log will be processed again when we register a new
+> +		 * CON_PRINTBUFFER console. Clear the flag so we will
+> +		 * properly dump everything later.
+> +		 */
+> +		msg->flags &= ~LOG_NOCONS;
 
-Ah, to make it clear. It did not modify the behavior except for
-adding the check for potential buffer overflow.
+The previous code cleared LOG_NOCONS before saving flags into
+console_prev. Well, the change does not have any real effect.
+And the new order makes more sense.
+
+This patch looks fine to me.
+
+Reviewed-by: Petr Mladek <pmladek@suse.cz>
 
 Best Regards,
 Petr
+
+>  		raw_spin_unlock(&logbuf_lock);
+>  
+>  		stop_critical_timings();	/* don't trace print latency */
+> -		call_console_drivers(level, text, len);
+> +		call_console_drivers(level, nocons, text, len);
+>  		start_critical_timings();
+>  		local_irq_restore(flags);
+>  	}
+> -- 
+> 2.1.0
+> 
