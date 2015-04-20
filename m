@@ -1,126 +1,132 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -next] examples: bpf: fix ld offs to have same prog loaded on ingress/egress
-Date: Mon, 20 Apr 2015 13:48:54 +0200
-Message-ID: <02fed6731d00ae1af3936c58e363a4e2d1df13e5.1429528359.git.daniel@iogearbox.net>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34854 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754734AbbDTLtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 07:49:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: Re: [PATCH 01/11] linux/time64.h:Introduce the 'struct itimerspec64'
+ for 64bit
+Date: Mon, 20 Apr 2015 18:55:32 +0800
+Message-ID: <CAMz4kuJ+Kh++H1O9YSYjV+dz9fCXHP7uqbkmN0qjqNp+Rcr86w@mail.gmail.com>
+References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
+ <1429509459-17068-2-git-send-email-baolin.wang@linaro.org>
+ <5534CB9D.1080600@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============5733674424914077835=="
+Cc: pang.xunlei@linaro.org, peterz@infradead.org, heiko.carstens@de.ibm.com,
+ paulus@samba.org, cl@linux.com, heenasirwani@gmail.com,
+ linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
+ y2038 Mailman List <y2038@lists.linaro.org>, rafael.j.wysocki@intel.com,
+ ahh@google.com, fweisbec@gmail.com, pjt@google.com, riel@redhat.com,
+ Arnd Bergmann <arnd@arndb.de>, Richard Cochran <richardcochran@gmail.com>,
+ schwidefsky@de.ibm.com, John Stultz <john.stultz@linaro.org>,
+ Thomas Gleixner <tglx@linutronix.de>, rth@twiddle.net,
+ gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
+ linuxppc-dev@lists.ozlabs.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <5534CB9D.1080600@cogentembedded.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Fix up the eBPF example program to match our kernel fix in a166151cbe33 ("bpf:
-fix bpf helpers to use skb->mac_header relative offsets"). Tested on ingress
-and egress paths.
+--===============5733674424914077835==
+Content-Type: multipart/alternative; boundary=089e0122f074d7efa6051425c45d
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
----
- ( Stephen, this applies on top of "tc: built-in eBPF exec proxy":
-   https://patchwork.ozlabs.org/patch/461837/ )
+--089e0122f074d7efa6051425c45d
+Content-Type: text/plain; charset=UTF-8
 
- examples/bpf/bpf_prog.c | 28 +++++++++++++++++-----------
- 1 file changed, 17 insertions(+), 11 deletions(-)
+On 20 April 2015 at 17:49, Sergei Shtylyov <
+sergei.shtylyov@cogentembedded.com> wrote:
 
-diff --git a/examples/bpf/bpf_prog.c b/examples/bpf/bpf_prog.c
-index 4dc00c3..009febd 100644
---- a/examples/bpf/bpf_prog.c
-+++ b/examples/bpf/bpf_prog.c
-@@ -58,6 +58,12 @@
-  *    random type none pass val 0
-  *    index 38 ref 1 bind 1
-  *
-+ * The same program can also be installed on ingress side (as opposed to above
-+ * egress configuration), e.g.:
-+ *
-+ * # tc qdisc add dev em1 handle ffff: ingress
-+ * # tc filter add dev em1 parent ffff: bpf obj ...
-+ *
-  * Notes on BPF agent:
-  *
-  * In the above example, the bpf_agent creates the unix domain socket
-@@ -157,6 +163,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>
- #include <linux/if_tunnel.h>
-+#include <linux/filter.h>
- #include <linux/bpf.h>
- 
- /* Common, shared definitions with ebpf_agent.c. */
-@@ -222,7 +229,7 @@ struct flow_keys {
- 		__u32 ports;
- 		__u16 port16[2];
- 	};
--	__u16 th_off;
-+	__s32 th_off;
- 	__u8 ip_proto;
- };
- 
-@@ -242,14 +249,14 @@ static inline int flow_ports_offset(__u8 ip_proto)
- 	}
- }
- 
--static inline bool flow_is_frag(struct __sk_buff *skb, __u32 nh_off)
-+static inline bool flow_is_frag(struct __sk_buff *skb, int nh_off)
- {
- 	return !!(load_half(skb, nh_off + offsetof(struct iphdr, frag_off)) &
- 		  (IP_MF | IP_OFFSET));
- }
- 
--static inline __u32 flow_parse_ipv4(struct __sk_buff *skb, __u32 nh_off,
--				    __u8 *ip_proto, struct flow_keys *flow)
-+static inline int flow_parse_ipv4(struct __sk_buff *skb, int nh_off,
-+				  __u8 *ip_proto, struct flow_keys *flow)
- {
- 	__u8 ip_ver_len;
- 
-@@ -272,18 +279,18 @@ static inline __u32 flow_parse_ipv4(struct __sk_buff *skb, __u32 nh_off,
- 	return nh_off;
- }
- 
--static inline __u32 flow_addr_hash_ipv6(struct __sk_buff *skb, __u32 off)
-+static inline __u32 flow_addr_hash_ipv6(struct __sk_buff *skb, int off)
- {
- 	__u32 w0 = load_word(skb, off);
- 	__u32 w1 = load_word(skb, off + sizeof(w0));
- 	__u32 w2 = load_word(skb, off + sizeof(w0) * 2);
- 	__u32 w3 = load_word(skb, off + sizeof(w0) * 3);
- 
--	return (__u32)(w0 ^ w1 ^ w2 ^ w3);
-+	return w0 ^ w1 ^ w2 ^ w3;
- }
- 
--static inline __u32 flow_parse_ipv6(struct __sk_buff *skb, __u32 nh_off,
--				    __u8 *ip_proto, struct flow_keys *flow)
-+static inline int flow_parse_ipv6(struct __sk_buff *skb, int nh_off,
-+				  __u8 *ip_proto, struct flow_keys *flow)
- {
- 	*ip_proto = load_byte(skb, nh_off + offsetof(struct ipv6hdr, nexthdr));
- 
-@@ -296,10 +303,9 @@ static inline __u32 flow_parse_ipv6(struct __sk_buff *skb, __u32 nh_off,
- static inline bool flow_dissector(struct __sk_buff *skb,
- 				  struct flow_keys *flow)
- {
-+	int poff, nh_off = BPF_LL_OFF + ETH_HLEN;
- 	__be16 proto = skb->protocol;
--	__u32 nh_off = ETH_HLEN;
- 	__u8 ip_proto;
--	int poff;
- 
- 	/* TODO: check for skb->vlan_tci, skb->vlan_proto first */
- 	if (proto == htons(ETH_P_8021AD)) {
-@@ -369,7 +375,7 @@ static inline bool flow_dissector(struct __sk_buff *skb,
- 	nh_off += flow_ports_offset(ip_proto);
- 
- 	flow->ports = load_word(skb, nh_off);
--	flow->th_off = (__u16)nh_off;
-+	flow->th_off = nh_off;
- 	flow->ip_proto = ip_proto;
- 
- 	return true;
+> Hello.
+>
+> On 4/20/2015 8:57 AM, Baolin Wang wrote:
+>
+>  This patch introduces the 'struct itimerspec64' for 64bit to replace
+>> itimerspec,
+>> and also introduces the conversion methods: itimerspec64_to_itimerspec()
+>> and
+>> itimerspec_to_itimerspec64(), that makes itimerspec to ready for 2038
+>> year.
+>>
+>
+>    "To" not needed here.
+>
+>  Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
+>>
+>
+> [...]
+>
+> WBR, Sergei
+>
+>
+Hi Sergei,
+
+Sorry for the mistake. Thank you for your comments. I'll fix that in next
+patch.
+
+
 -- 
-1.9.3
+Baolin.wang
+Best Regards
+
+--089e0122f074d7efa6051425c45d
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><br><div class=3D"gmail_extra"><br><div class=3D"gmail_quo=
+te">On 20 April 2015 at 17:49, Sergei Shtylyov <span dir=3D"ltr">&lt;<a hre=
+f=3D"mailto:sergei.shtylyov@cogentembedded.com" target=3D"_blank">sergei.sh=
+tylyov@cogentembedded.com</a>&gt;</span> wrote:<br><blockquote class=3D"gma=
+il_quote" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-lef=
+t:1ex">Hello.<span class=3D""><br>
+<br>
+On 4/20/2015 8:57 AM, Baolin Wang wrote:<br>
+<br>
+<blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1p=
+x #ccc solid;padding-left:1ex">
+This patch introduces the &#39;struct itimerspec64&#39; for 64bit to replac=
+e itimerspec,<br>
+and also introduces the conversion methods: itimerspec64_to_itimerspec() an=
+d<br>
+itimerspec_to_itimerspec64(), that makes itimerspec to ready for 2038 year.=
+<br>
+</blockquote>
+<br></span>
+=C2=A0 =C2=A0&quot;To&quot; not needed here.<br>
+<br>
+<blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1p=
+x #ccc solid;padding-left:1ex">
+Signed-off-by: Baolin Wang &lt;<a href=3D"mailto:baolin.wang@linaro.org" ta=
+rget=3D"_blank">baolin.wang@linaro.org</a>&gt;<br>
+</blockquote>
+<br>
+[...]<br>
+<br>
+WBR, Sergei<br>
+<br>
+</blockquote></div><div class=3D"gmail_extra"><br></div>Hi Sergei,</div><di=
+v class=3D"gmail_extra"><br></div><div class=3D"gmail_extra">Sorry for the =
+mistake. Thank you for your comments. I&#39;ll fix that in next patch.<br><=
+br clear=3D"all"><div><br></div>-- <br><div class=3D"gmail_signature"><div =
+dir=3D"ltr"><div>Baolin.wang<br></div>Best Regards<br></div></div>
+</div></div>
+
+--089e0122f074d7efa6051425c45d--
+
+--===============5733674424914077835==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: inline
+
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+
+--===============5733674424914077835==--
