@@ -1,66 +1,48 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCHSET] printk, netconsole: implement reliable netconsole
-Date: Mon, 20 Apr 2015 10:33:54 -0400
-Message-ID: <20150420143354.GA4206@htj.duckdns.org>
-References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <CAOS_Y6Q=1YwsL3wijnNSGmZh-xa8DXjp4PLc-hPGXGd3acTuZA@mail.gmail.com>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: [PATCH v2 00/11] Add network namespace support in the RDMA-CM
+Date: Mon, 20 Apr 2015 09:53:46 -0500
+Message-ID: <553512FA.1040708@opengridcomputing.com>
+References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Rob Landley <rob@landley.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAOS_Y6Q=1YwsL3wijnNSGmZh-xa8DXjp4PLc-hPGXGd3acTuZA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1429520622-10303-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Rob.
 
-On Sun, Apr 19, 2015 at 02:25:09AM -0500, Rob Landley wrote:
-> If you have two machines plugged into a hub, and that's _all_ that's
-> plugged in, packets should never get dropped. This was the original
-> use case of netconsole was that the sender and the receiver were
-> plugged into the same router.
+Hey Haggai,
 
-Development aid on local network hasn't been the only use case for a
-very long time now.  I haven't seen too many large scale setups and
-two of them were using netconsole as a way to collect kernel messages
-cluster-wide and having issues with lost messages.  One was running it
-over a separate lower speed network from the main one which they used
-for most managerial tasks including deployment and packet losses
-weren't that unusual.
+Did you check for changes needed in drivers/infiniband/core/iwcm.c? I 
+notice that it uses init_net here:
 
-The other is running on the same network but the log collector isn't
-per-rack so the packets end up getting routed through congested parts
-of the network again experiencing messages losses.
+static int __init iw_cm_init(void)
+{
+         iwcm_wq = create_singlethread_workqueue("iw_cm_wq");
+         if (!iwcm_wq)
+                 return -ENOMEM;
 
-> So are you trying to program around a problem you've actually _seen_,
-> or are you attempting to reinvent TCP/IP yet again based on top of UDP
-> (Drink!) because of a purely theoretical issue?
+         iwcm_ctl_table_hdr = register_net_sysctl(&init_net, "net/iw_cm",
+                                                  iwcm_ctl_table);
+         if (!iwcm_ctl_table_hdr) {
+                 pr_err("iw_cm: couldn't register sysctl paths\n");
+                 destroy_workqueue(iwcm_wq);
+                 return -ENOMEM;
+         }
 
-At larger scale, the problem is very real.  Let's forget about the
-reliability part.  The main thing is being able to identify message
-sequences so that the receiver can put the message streams back
-together.
+         return 0;
+}
 
-That said, once that's there, whether the "reliability" part is done
-with TCP doesn't make that much of difference as it'd still need to
-put back the two message streams together, but again this doesn't
-matter.  Let's just ignore this part.
-
-> > printk already keeps log metadata which contains enough information to
-> > make netconsole reliable.  This patchset does the followings.
-> 
-> Adds a giant amount of complexity without quite explaining why.
-
-The only signficant complexity is on the receiver side and it doesn't
-even have to be in the kernel.  CON_EXTENDED and emitting extended
-messages are pretty straight-forward changes.
-
-Thanks.
-
--- 
-tejun
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
