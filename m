@@ -1,35 +1,40 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 03/11] time/hrtimer:Introduce hrtimer_get_res64() with
- timespec64 type for getting the timer resolution
-Date: Mon, 20 Apr 2015 21:15:55 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1504202114360.13914@nanos>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <1429509459-17068-4-git-send-email-baolin.wang@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3] pppoe: Lacks DST MAC address check
+Date: Mon, 20 Apr 2015 15:27:28 -0400 (EDT)
+Message-ID: <20150420.152728.2303510459953341238.davem@davemloft.net>
+References: <1429556868-28640-1-git-send-email-joakim.tjernlund@transmode.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
-	pang.xunlei@linaro.org, peterz@infradead.org,
-	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
-	richardcochran@gmail.com, benh@kernel.crashing.org,
-	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
-	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
-	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
-	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	y2038@lists.linaro.org
-To: Baolin Wang <baolin.wang@linaro.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1429509459-17068-4-git-send-email-baolin.wang@linaro.org>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: joakim.tjernlund@transmode.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46512 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752491AbbDTT1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 15:27:32 -0400
+In-Reply-To: <1429556868-28640-1-git-send-email-joakim.tjernlund@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 Apr 2015, Baolin Wang wrote:
-> This patch introduces hrtimer_get_res64() function to get the timer resolution
-> with timespec64 type, and moves the hrtimer_get_res() function into
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Date: Mon, 20 Apr 2015 21:07:48 +0200
 
-FYI, That function is about to go away, but it's not a big deal to
-sort that out once I applied the hrtimer rework to the tip tree.
+> From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+> 
+> A pppoe session is identified by its session ID and MAC address.
+> Currently pppoe does not check if the received pkg has the correct
+> MAC address. This is a problem when the eth I/F is in promisc mode
+> as then any DST MAC address is accepted.
+> 
+> Signed-off-by: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+> ---
+>  drivers/net/ppp/pppoe.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> v2 - The MAC address check should encompass all pppoe pkgs,
+>      not only the relay type.
+> 
+> v3 - Add signoff
 
-Thanks,
-
-	tglx
+Applied, thanks.
