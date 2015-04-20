@@ -1,62 +1,59 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 1/2] net: add skb_checksum_complete_unset
-Date: Mon, 20 Apr 2015 14:10:04 -0700
-Message-ID: <1429564205-1661247-2-git-send-email-tom@herbertland.com>
-References: <1429564205-1661247-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 0/2] net: Fix "hw csum failure" message flood for ppp tunnel
+Date: Mon, 20 Apr 2015 14:10:03 -0700
+Message-ID: <1429564205-1661247-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47500 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47497 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754402AbbDTVKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 17:10:22 -0400
+	by vger.kernel.org with ESMTP id S1751997AbbDTVKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 17:10:15 -0400
 Received: from pps.filterd (m0004348 [127.0.0.1])
-	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t3KL9osK021545
-	for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 14:10:21 -0700
+	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t3KL9kqS021508
+	for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 14:10:15 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004348.ppops.net with ESMTP id 1tw7pwr4y6-1
+	by m0004348.ppops.net with ESMTP id 1tw7pwr4y0-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 14:10:21 -0700
+	for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 14:10:15 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- a6fd948ee7a111e487e00002c95209d8-492a72c0 for <netdev@vger.kernel.org>;	Mon,
- 20 Apr 2015 14:10:20 -0700
-In-Reply-To: <1429564205-1661247-1-git-send-email-tom@herbertland.com>
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ a2ff1434e7a111e4b3f20002c9521c9e-b68a42c0 for <netdev@vger.kernel.org>;	Mon,
+ 20 Apr 2015 14:10:13 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function changes ip_summed to CHECKSUM_NONE if CHECKSUM_COMPLETE
-is set. This is called to discard checksum-complete when packet
-is being modified and checksum is not pulled for headers in a layer.
+This patch set addresses bug "Bug 95171 - "hw csum failure" message
+flood for ppp tunnel since upgrade to 3.16". The problem is that pppoe
+is being used over UDP with UDP checksusm enabled. On receive
+checksum conversion turns checksum-unnecessary in checksum-
+complete. The PPP receive functions do no properly pull
+the checksum over its headers, so that when an encapsulated
+checksums is considered the checksum-complete value is incorrect.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/linux/skbuff.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+This patch adds skb_checksum_complete_unset which can be called
+in the receive path in lieu of pulling checksum complete in
+layer. This is useful when the packet is being modified (e.g.
+decompressed) and the checksum-complete value is no longer
+relevant.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0991259..06793b5 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3016,6 +3016,18 @@ static inline bool __skb_checksum_validate_needed(struct sk_buff *skb,
-  */
- #define CHECKSUM_BREAK 76
- 
-+/* Unset checksum-complete
-+ *
-+ * Unset checksum complete can be done when packet is being modified
-+ * (uncompressed for instance) and checksum-complete value is
-+ * invalidated.
-+ */
-+static inline void skb_checksum_complete_unset(struct sk_buff *skb)
-+{
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->ip_summed = CHECKSUM_NONE;
-+}
-+
- /* Validate (init) checksum based on checksum complete.
-  *
-  * Return values:
+In the ppp_receive_frame we call skb_checksum_complete_unset to toss
+out checksum-complete. This should eliminate the reported messages.
+Alternatively, we could add skb_postpull_rcsum and probably
+special case handling for VJ compression if maintaining the
+checksum-complete is needed (not clear to me this is worth the
+effort).
+
+I haven't tested this since setting up the failure scenario doesn't
+seem trivial to configure.
+Tom Herbert (2):
+  net: add skb_checksum_complete_unset
+  ppp: call skb_checksum_complete_unset in ppp_receive_frame
+
+ drivers/net/ppp/ppp_generic.c |  1 +
+ include/linux/skbuff.h        | 12 ++++++++++++
+ 2 files changed, 13 insertions(+)
+
 -- 
 1.8.1
