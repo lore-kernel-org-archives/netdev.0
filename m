@@ -1,165 +1,65 @@
-From: "ira.weiny" <ira.weiny@intel.com>
-Subject: Re: [PATCH v2 05/11] IB/ipoib: Return IPoIB devices as possible matches to get_net_device_by_port_pkey_ip
-Date: Mon, 20 Apr 2015 19:09:33 -0400
-Message-ID: <20150420230931.GA1409@phlsvsds.ph.intel.com>
-References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com> <1429520622-10303-6-git-send-email-haggaie@mellanox.com>
+From: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 06/11] IB/cm, cma: Move RDMA IP CM private-data parsing code from ib_cma to ib_cm
+Date: Mon, 20 Apr 2015 19:29:05 -0400
+Message-ID: <20150420232904.GB1409@phlsvsds.ph.intel.com>
+References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com> <1429520622-10303-7-git-send-email-haggaie@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Haggai Eran <haggaie@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:47026 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753675AbbDTXJh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2015 19:09:37 -0400
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1429520622-10303-6-git-send-email-haggaie@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1429520622-10303-7-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 20, 2015 at 12:03:36PM +0300, Haggai Eran wrote:
-> From: Guy Shapiro <guysh@mellanox.com>
+On Mon, Apr 20, 2015 at 12:03:37PM +0300, Haggai Eran wrote:
+> From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 > 
-> Implement callback that returns network device to ib_core according to
-> connection parameters. Check the ipoib device and iterate over all child
-> devices to look for a match.
+> When receiving a connection request, ib_cm needs to associate the request with
+> a network namespace. To do this, it needs to know the request's destination
+> IP. For this the RDMA IP CM packet formatting functionality needs to be
+> exposed to ib_cm.
 > 
-> For each ipoib device we iterate through all upper devices when searching for
-> a matching IP, in order to support bonding.
-> 
-> Signed-off-by: Guy Shapiro <guysh@mellanox.com>
-> Signed-off-by: Haggai Eran <haggaie@mellanox.com>
-> Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
-> Signed-off-by: Shachar Raindel <raindel@mellanox.com>
-> ---
->  drivers/infiniband/ulp/ipoib/ipoib_main.c | 122 +++++++++++++++++++++++++++++-
->  1 file changed, 121 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> index 7cad4dd87469..89a59a0e17e6 100644
-> --- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> +++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-> @@ -48,6 +48,9 @@
->  
->  #include <linux/jhash.h>
->  #include <net/arp.h>
-> +#include <net/addrconf.h>
-> +#include <linux/inetdevice.h>
-> +#include <rdma/ib_cache.h>
->  
->  #define DRV_VERSION "1.0.0"
->  
-> @@ -91,11 +94,15 @@ struct ib_sa_client ipoib_sa_client;
->  static void ipoib_add_one(struct ib_device *device);
->  static void ipoib_remove_one(struct ib_device *device);
->  static void ipoib_neigh_reclaim(struct rcu_head *rp);
-> +static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
-> +		struct ib_device *dev, u8 port, u16 pkey,
-> +		struct sockaddr *addr);
->  
->  static struct ib_client ipoib_client = {
->  	.name   = "ipoib",
->  	.add    = ipoib_add_one,
-> -	.remove = ipoib_remove_one
-> +	.remove = ipoib_remove_one,
-> +	.get_net_device_by_port_pkey_ip = ipoib_get_net_device_by_port_pkey_ip,
->  };
->  
->  int ipoib_open(struct net_device *dev)
-> @@ -222,6 +229,119 @@ static int ipoib_change_mtu(struct net_device *dev, int new_mtu)
->  	return 0;
->  }
->  
-> +static bool ipoib_is_dev_match_addr(struct sockaddr *addr,
-> +				    struct net_device *dev)
+
+[snip]
+
+> +
+> +int cm_save_net_info(struct sockaddr *src_addr,
+> +		     struct sockaddr *dst_addr,
+> +		     struct ib_cm_event *ib_event)
 > +{
-> +	struct net *net = dev_net(dev);
+> +	struct cm_work *work = container_of(ib_event, struct cm_work, cm_event);
 > +
-> +	if (addr->sa_family == AF_INET) {
-> +		struct in_device *in_dev = in_dev_get(dev);
-> +		struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
-> +		__be32 ret_addr;
-> +
-> +		if (!in_dev)
-> +			return false;
-> +
-> +		ret_addr = inet_confirm_addr(net, in_dev, 0,
-> +					     addr_in->sin_addr.s_addr,
-> +					     RT_SCOPE_HOST);
-> +		in_dev_put(in_dev);
-> +		if (ret_addr)
-> +			return true;
-> +	}
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +	else if (addr->sa_family == AF_INET6) {
-> +		struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
-> +
-> +		if (ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
-> +			return true;
-> +	}
-> +#endif
-> +	return false;
-> +}
-> +
-> +/**
-> + * Find a net_device matching the given address, which is an upper device of
-> + * the given net_device.
-> + * @addr: IP address to look for.
-> + * @dev: base IPoIB net_device
-> + *
-> + * If found, returns the net_device with a reference held. Otherwise return
-> + * NULL.
-> + */
-> +static struct net_device *ipoib_get_net_dev_match_addr(struct sockaddr *addr,
-> +						       struct net_device *dev)
-> +{
-> +	struct net_device *upper,
-> +			  *result = NULL;
-> +	struct list_head *iter;
-> +
-> +	if (ipoib_is_dev_match_addr(addr, dev)) {
-> +		dev_hold(dev);
-> +		return dev;
-> +	}
-> +
-> +	rcu_read_lock();
-> +	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
-> +		if (ipoib_is_dev_match_addr(addr, upper)) {
-> +			dev_hold(upper);
-> +			result = upper;
-> +			break;
-> +		}
-> +	}
-> +	rcu_read_unlock();
-> +	return result;
-> +}
-> +
-> +static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
-> +		struct ib_device *dev, u8 port, u16 pkey, struct sockaddr *addr)
-> +{
-> +	struct ipoib_dev_priv *priv;
-> +	struct list_head *dev_list;
-> +	u16 pkey_index;
-> +
-> +	ib_find_cached_pkey(dev, port, pkey, &pkey_index);
-> +	if (pkey_index == (u16)-1)
-> +		return NULL;
+> +	if ((rdma_port_get_link_layer(work->port->cm_dev->ib_device,
+> +				      work->port->port_num) ==
+> +	     IB_LINK_LAYER_INFINIBAND) &&
+> +	    (ib_event->event == IB_CM_REQ_RECEIVED)) {
 
-Why not check the return value of ib_find_cached_pkey?
-
-> +
-> +	if (rdma_node_get_transport(dev->node_type) != RDMA_TRANSPORT_IB)
-> +		return NULL;
-
-The use of Link Layer and Transport in this series will need to be reevaluated
-based on Michaels work:
-
-https://www.mail-archive.com/linux-rdma@vger.kernel.org/msg24140.html
+The original code in the RDMA CM had a check for AF_IB.  Isn't that needed here
+as well?
 
 Ira
+
+> +		cm_save_ib_info(src_addr, dst_addr,
+> +				ib_event->param.req_rcvd.primary_path);
+> +		return 0;
+> +	}
+> +
+> +	return cm_save_ip_info(src_addr, dst_addr, work);
+> +}
+> +EXPORT_SYMBOL(cm_save_net_info);
+> +
+>  struct ib_cm_id *ib_create_cm_id(struct ib_device *device,
+>  				 ib_cm_handler cm_handler,
+>  				 void *context)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
