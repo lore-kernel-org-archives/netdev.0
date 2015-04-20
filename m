@@ -1,62 +1,32 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v2 07/11] IB/cm: Add network namespace support
-Date: Mon, 20 Apr 2015 11:06:59 -0600
-Message-ID: <20150420170659.GD7676@obsidianresearch.com>
-References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
- <1429520622-10303-8-git-send-email-haggaie@mellanox.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] tc util: Fix possible buffer overflow when
+ print class id
+Date: Mon, 20 Apr 2015 10:08:51 -0700
+Message-ID: <20150420100851.5450adff@urahara>
+References: <1429508012-19119-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1429520622-10303-8-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vadim Kochan <vadim4j@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35742 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751295AbbDTRIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 13:08:46 -0400
+Received: by pabtp1 with SMTP id tp1so212498042pab.2
+        for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 10:08:46 -0700 (PDT)
+In-Reply-To: <1429508012-19119-1-git-send-email-vadim4j@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 20, 2015 at 12:03:38PM +0300, Haggai Eran wrote:
-> From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+On Mon, 20 Apr 2015 08:33:32 +0300
+Vadim Kochan <vadim4j@gmail.com> wrote:
+
+> From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> Add namespace support to the IB-CM layer.
+> Use correct handle buffer length.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
 
-> - Each CM-ID now has a network namespace it is associated with, assigned at
->   creation. This namespace is used as needed during subsequent action on the
->   CM-ID or related objects.
-
-There is really something weird about this layering. At the CM layer
-there should be no concept of an IP address, it only deals with GIDs.
-
-So how can a CM object have a network namespace associated with it?
-
->  {
->  	av->port = port;
->  	av->pkey_index = wc->pkey_index;
->  	ib_init_ah_from_wc(port->cm_dev->ib_device, port->port_num, wc,
-> -			   grh, &av->ah_attr, &init_net);
-> +			   grh, &av->ah_attr, net);
-
-There is something deeply wrong with adding network namespace
-arguments to verbs.
-
-For rocee the gid index clearly specifies the network namespace
-to use, so much of this should go away and have rocee get the
-namespace from the gid index.
-
-Ie in ib_init_ah_from_wc we have the ib_wc which contains the sgid
-index.
-
-I'm really not excited at how many places are gaining a net when those
-layers shouldn't even need to care about IP layer details. Just acting
-as a pass through for rocee doesn't make sense.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks fine, applied.
