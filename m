@@ -1,72 +1,75 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] tc util: Fix possible buffer overflow when print class id
-Date: Mon, 20 Apr 2015 08:33:32 +0300
-Message-ID: <1429508012-19119-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:34844 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbbDTFdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 01:33:44 -0400
-Received: by lbbuc2 with SMTP id uc2so121988141lbb.2
-        for <netdev@vger.kernel.org>; Sun, 19 Apr 2015 22:33:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: [PATCH 00/11] Convert the posix_clock_operations and k_clock structure to ready for 2038
+Date: Mon, 20 Apr 2015 13:57:28 +0800
+Message-ID: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
+Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
+	pang.xunlei@linaro.org, peterz@infradead.org,
+	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
+	richardcochran@gmail.com, benh@kernel.crashing.org,
+	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
+	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
+	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
+	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	baolin.wang@linaro.org, y2038@lists.linaro.org
+To: tglx@linutronix.de
+Return-path: <linux-arch-owner@vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+This patch series changes the 32-bit time type (timespec/itimerspec) to the 64-bit one
+(timespec64/itimerspec64), since 32-bit time types will break in the year 2038.
 
-Use correct handle buffer length.
+This patch series introduces new methods with timespec64/itimerspec64 type,
+and removes the old ones with timespec/itimerspec type for posix_clock_operations
+and k_clock structure.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- tc/tc_util.c | 19 ++++++++++---------
- 1 file changed, 10 insertions(+), 9 deletions(-)
+Also introduces some new functions with timespec64/itimerspec64 type, like current_kernel_time64(),
+hrtimer_get_res64(), cputime_to_timespec64() and timespec64_to_cputime().
 
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 1d3153d..dc2b70f 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -128,30 +128,31 @@ ok:
- 	return 0;
- }
- 
--int print_tc_classid(char *buf, int len, __u32 h)
-+int print_tc_classid(char *buf, int blen, __u32 h)
- {
--	char handle[40] = {};
-+	SPRINT_BUF(handle) = {};
-+	int hlen = SPRINT_BSIZE - 1;
- 
- 	if (h == TC_H_ROOT)
- 		sprintf(handle, "root");
- 	else if (h == TC_H_UNSPEC)
--		snprintf(handle, len, "none");
-+		snprintf(handle, hlen, "none");
- 	else if (TC_H_MAJ(h) == 0)
--		snprintf(handle, len, ":%x", TC_H_MIN(h));
-+		snprintf(handle, hlen, ":%x", TC_H_MIN(h));
- 	else if (TC_H_MIN(h) == 0)
--		snprintf(handle, len, "%x:", TC_H_MAJ(h) >> 16);
-+		snprintf(handle, hlen, "%x:", TC_H_MAJ(h) >> 16);
- 	else
--		snprintf(handle, len, "%x:%x", TC_H_MAJ(h) >> 16, TC_H_MIN(h));
-+		snprintf(handle, hlen, "%x:%x", TC_H_MAJ(h) >> 16, TC_H_MIN(h));
- 
- 	if (use_names) {
- 		char clname[IDNAME_MAX] = {};
- 
- 		if (id_to_name(cls_names, h, clname))
--			snprintf(buf, len, "%s#%s", clname, handle);
-+			snprintf(buf, blen, "%s#%s", clname, handle);
- 		else
--			snprintf(buf, len, "%s", handle);
-+			snprintf(buf, blen, "%s", handle);
- 	} else {
--		snprintf(buf, len, "%s", handle);
-+		snprintf(buf, blen, "%s", handle);
- 	}
- 
- 	return 0;
+Baolin Wang (11):
+  linux/time64.h:Introduce the 'struct itimerspec64' for 64bit
+  timekeeping:Introduce the current_kernel_time64() function with
+    timespec64 type
+  time/hrtimer:Introduce hrtimer_get_res64() with timespec64 type for
+    getting the timer resolution
+  posix timers:Introduce the 64bit methods with timespec64 type for
+    k_clock structure
+  time/posix-timers:Convert to the 64bit methods for k_clock callback
+    functions
+  char/mmtimer:Convert to the 64bit methods for k_clock callback
+    function
+  time/alarmtimer:Convert to the new methods for k_clock structure
+  time/posix-clock:Convert to the 64bit methods for k_clock and
+    posix_clock_operations structure
+  cputime:Introduce the cputime_to_timespec64/timespec64_to_cputime
+    function
+  time/posix-cpu-timers:Convert to the 64bit methods for k_clock
+    structure
+  k_clock:Remove the 32bit methods with timespec type
+
+ arch/powerpc/include/asm/cputime.h    |    6 +-
+ arch/s390/include/asm/cputime.h       |    8 +-
+ drivers/char/mmtimer.c                |   36 ++++----
+ drivers/ptp/ptp_clock.c               |   26 ++----
+ include/asm-generic/cputime_jiffies.h |   10 +--
+ include/linux/cputime.h               |   15 ++++
+ include/linux/hrtimer.h               |   12 ++-
+ include/linux/jiffies.h               |    3 +
+ include/linux/posix-clock.h           |   10 +--
+ include/linux/posix-timers.h          |   18 ++--
+ include/linux/time64.h                |   13 +++
+ include/linux/timekeeping.h           |   14 ++-
+ kernel/time/alarmtimer.c              |   43 ++++-----
+ kernel/time/hrtimer.c                 |   10 +--
+ kernel/time/posix-clock.c             |   20 ++---
+ kernel/time/posix-cpu-timers.c        |   83 +++++++++--------
+ kernel/time/posix-timers.c            |  157 +++++++++++++++++++--------------
+ kernel/time/time.c                    |   21 +++++
+ kernel/time/timekeeping.c             |    6 +-
+ kernel/time/timekeeping.h             |    2 +-
+ 20 files changed, 302 insertions(+), 211 deletions(-)
+
 -- 
-2.3.1
+1.7.9.5
