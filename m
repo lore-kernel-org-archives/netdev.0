@@ -1,119 +1,90 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 11/11] k_clock:Remove the 32bit methods with timespec type
-Date: Mon, 20 Apr 2015 10:42:30 +0200
-Message-ID: <20150420084229.GA4608@localhost.localdomain>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
- <1429509459-17068-12-git-send-email-baolin.wang@linaro.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] Bluetooth: Pre-initialize variables in read_local_oob_ext_data_complete()
+Date: Mon, 20 Apr 2015 10:47:03 +0200
+Message-ID: <CAMuHMdUXcAYe4KCqG9wV3O5QYzK9RGt+QZz7E_jk7v9yhtrkRQ@mail.gmail.com>
+References: <1429212265-26750-1-git-send-email-geert@linux-m68k.org>
+	<A962A040-4EB5-4AE6-A790-A8767185172B@holtmann.org>
+	<CAMuHMdUxnrg1BVoFpKExzGHKj2aOmYGp+wChhMbPfmWvMzQT=Q@mail.gmail.com>
+	<8684664B-22C2-45E8-B547-48F173B3CA7A@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, arnd@arndb.de, john.stultz@linaro.org,
-	heenasirwani@gmail.com, pang.xunlei@linaro.org,
-	peterz@infradead.org, rafael.j.wysocki@intel.com,
-	gregkh@linuxfoundation.org, benh@kernel.crashing.org,
-	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
-	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
-	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
-	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	y2038@lists.linaro.org
-To: Baolin Wang <baolin.wang@linaro.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1429509459-17068-12-git-send-email-baolin.wang@linaro.org>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	BlueZ development <linux-bluetooth@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8684664B-22C2-45E8-B547-48F173B3CA7A@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 20, 2015 at 01:57:39PM +0800, Baolin Wang wrote:
+Hi Marcel,
 
-> @@ -911,18 +907,14 @@ retry:
->  		return -EINVAL;
->  
->  	kc = clockid_to_kclock(timr->it_clock);
-> -	if (WARN_ON_ONCE(!kc || (!kc->timer_set && !kc->timer_set64))) {
-> +	if (WARN_ON_ONCE(!kc || !kc->timer_set64)) {
->  		error = -EINVAL;
->  	} else {
-> -		if (kc->timer_set64) {
-> -			new_spec64 = itimerspec_to_itimerspec64(new_spec);
-> -			error = kc->timer_set64(timr, flags, &new_spec64,
-> -						&old_spec64);
-> -			if (old_setting)
-> -				old_spec = itimerspec64_to_itimerspec(old_spec64);
-> -		} else {
-> -			error = kc->timer_set(timr, flags, &new_spec, rtn);
-> -		}
-> +		new_spec64 = itimerspec_to_itimerspec64(new_spec);
-> +		error = kc->timer_set64(timr, flags, &new_spec64,
-> +					&old_spec64);
+On Fri, Apr 17, 2015 at 10:38 PM, Marcel Holtmann <marcel@holtmann.org>=
+ wrote:
+>>>> net/bluetooth/mgmt.c: In function =E2=80=98read_local_oob_ext_data=
+_complete=E2=80=99:
+>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r256=E2=80=99 may be =
+used uninitialized in this function
+>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h256=E2=80=99 may be =
+used uninitialized in this function
+>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r192=E2=80=99 may be =
+used uninitialized in this function
+>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h192=E2=80=99 may be =
+used uninitialized in this function
+>>>>
+>>>> While these are false positives, the code can be shortened by
+>>>> pre-initializing the hash table pointers and eir_len. This has the=
+ side
+>>>> effect of killing the compiler warnings.
+>>>
+>>> can you be a bit specific on which compiler version is this. I fixe=
+d one occurrence that seemed valid. However in this case the compiler s=
+eems to be just plain stupid. On a gcc 4.9, I am not seeing these for e=
+xample.
+>>
+>> gcc 4.1.2. As there were too many false positives, these warnings we=
+re
+>> disabled in later versions (throwing away the children with the bad =
+water).
+>>
+>> If you don't like my patch, just drop it. I only look at newly
+>> introduced warnings
+>> of this kind anyway.
+>
+> I really do not know what is the best solution here. This is a false =
+positive. And I have been looking at this particular code for a warning=
+ that was valid, but we missed initially. But these warnings that you a=
+re fixing are clearly false positive.
 
-This statement can fit on one line.
+I only sent patches to fix false positives if I think the patches impro=
+ve the
+code. As this is a subjective matter, it's up to you as the maintainer =
+to
+decide.
 
-> +		if (old_setting)
-> +			old_spec = itimerspec64_to_itimerspec(old_spec64);
->  	}
->  
->  	unlock_timer(timr, flag);
+> If this only happens with an old compiler version, I would tend to le=
+ave the code as is. Then again, what is the general preferred approach =
+here?
 
-> @@ -1057,14 +1045,13 @@ SYSCALL_DEFINE2(clock_gettime, const clockid_t, which_clock,
->  	if (!kc)
->  		return -EINVAL;
->  
-> -	if (kc->clock_get64) {
-> -		error = kc->clock_get64(which_clock, &kernel_tp64);
-> -		kernel_tp = timespec64_to_timespec(kernel_tp64);
-> -	} else {
-> -		error = kc->clock_get(which_clock, &kernel_tp);
-> -	}
-> +	error = kc->clock_get64(which_clock, &kernel_tp64);
-> +	if (!error)
-> +		return error;
+As this is a false positive, it's clearly up to the maintainer to
+decide if the patch
+improves the code or not.
 
-Wrong test, should be: if (error) ...
+Thanks!
 
-> +
-> +	kernel_tp = timespec64_to_timespec(kernel_tp64);
->  
-> -	if (!error && copy_to_user(tp, &kernel_tp, sizeof (kernel_tp)))
+Gr{oetje,eeting}s,
 
-The (!error && ...) was correct here!
+                        Geert
 
-> +	if (copy_to_user(tp, &kernel_tp, sizeof (kernel_tp)))
->  		error = -EFAULT;
->  
->  	return error;
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
 
-You can simplify this like so:
-
-	return copy_to_user(tp, &kernel_tp, sizeof(kernel_tp)) ? -EFAULT : 0;
-
-> @@ -1104,14 +1091,13 @@ SYSCALL_DEFINE2(clock_getres, const clockid_t, which_clock,
->  	if (!kc)
->  		return -EINVAL;
->  
-> -	if (kc->clock_getres64) {
-> -		error = kc->clock_getres64(which_clock, &rtn_tp64);
-> -		rtn_tp = timespec64_to_timespec(rtn_tp64);
-> -	} else {
-> -		error = kc->clock_getres(which_clock, &rtn_tp);
-> -	}
-> +	error = kc->clock_getres64(which_clock, &rtn_tp64);
-> +	if (!error)
-> +		return error;
-
-Also wrong.
-
-> +
-> +	rtn_tp = timespec64_to_timespec(rtn_tp64);
->  
-> -	if (!error && tp && copy_to_user(tp, &rtn_tp, sizeof (rtn_tp)))
-> +	if (tp && copy_to_user(tp, &rtn_tp, sizeof (rtn_tp)))
->  		error = -EFAULT;
->  
->  	return error;
-> -- 
-> 1.7.9.5
-> 
-
-Thanks,
-Richard
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+                                -- Linus Torvalds
