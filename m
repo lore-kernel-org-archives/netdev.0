@@ -1,57 +1,41 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v2 01/11] RDMA/CMA: Mark IPv4 addresses correctly when
- the listener is IPv6
-Date: Mon, 20 Apr 2015 10:41:40 -0600
-Message-ID: <20150420164140.GC7676@obsidianresearch.com>
-References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
- <1429520622-10303-2-git-send-email-haggaie@mellanox.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 2/7] turn Makefile more distribution friendly
+Date: Mon, 20 Apr 2015 09:55:15 -0700
+Message-ID: <20150420095515.1578733e@urahara>
+References: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1429520622-10303-2-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, psimerda@redhat.com
+To: Pavel =?UTF-8?B?xaBpbWVyZGE=?= <pavlix@pavlix.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33274 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998AbbDTQzL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 12:55:11 -0400
+Received: by paboj16 with SMTP id oj16so212225388pab.0
+        for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 09:55:11 -0700 (PDT)
+In-Reply-To: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 20, 2015 at 12:03:32PM +0300, Haggai Eran wrote:
-> From: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> 
-> When accepting a new connection with the listener being IPv6, the
-> family of the new connection is set as IPv6. This causes cma_zero_addr
-> function to return true on an non-zero address. As a result, the wrong
-> code path is taken. This causes the connection request to be rejected,
-> as the RDMA-CM code looks for the wrong type of device.
+On Mon, 13 Apr 2015 16:00:56 +0200
+Pavel =C5=A0imerda <pavlix@pavlix.net> wrote:
 
-This description doesn't really make sense as to what the problem is.
+> From: Pavel =C5=A0imerda <psimerda@redhat.com>
+>=20
+> Changes:
+>=20
+>  * Accept directory settings from environment.
+>  * Remove redundant ROOTDIR variable.
+>  * Set KERNEL_INCLUDE default to '/usr/include'.
+>  * Use CFLAGS from environemnt.
+>=20
+> Note: In the long term it might be better to improve the configure
+> script to generate those parts of the Makefile in a manner similar
+> to autoconf. It might be even practical to autotoolize the package.
+>=20
+> Signed-off-by: Pavel =C5=A0imerda <psimerda@redhat.com>
 
-> @@ -866,12 +866,12 @@ static void cma_save_ip4_info(struct rdma_cm_id *id, struct rdma_cm_id *listen_i
->  
->  	listen4 = (struct sockaddr_in *) &listen_id->route.addr.src_addr;
->  	ip4 = (struct sockaddr_in *) &id->route.addr.src_addr;
-> -	ip4->sin_family = listen4->sin_family;
-> +	ip4->sin_family = AF_INET;
-
-If listen_id->route.addr.src_addr.ss_family != AF_INET then it is
-invalid to cast to sockaddr_in.
-
-So listen4->sin_family MUST be AF_INET or this function MUST NOT be
-called.
-
-Forcing to AF_INET cannot be correct here.
-
-What does this patch have to do with this series?
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I will take this part.
+But don't want to start iproute2 down the autoconf/autotool sink hole.
