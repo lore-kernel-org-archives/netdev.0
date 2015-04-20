@@ -1,132 +1,52 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: Re: [PATCH 01/11] linux/time64.h:Introduce the 'struct itimerspec64'
- for 64bit
-Date: Mon, 20 Apr 2015 18:55:32 +0800
-Message-ID: <CAMz4kuJ+Kh++H1O9YSYjV+dz9fCXHP7uqbkmN0qjqNp+Rcr86w@mail.gmail.com>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
- <1429509459-17068-2-git-send-email-baolin.wang@linaro.org>
- <5534CB9D.1080600@cogentembedded.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCHSET] printk, netconsole: implement reliable netconsole
+Date: Mon, 20 Apr 2015 12:00:38 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB223B4@AcuExch.aculab.com>
+References: <1429225433-11946-1-git-send-email-tj@kernel.org>
+ <CAOS_Y6Q=1YwsL3wijnNSGmZh-xa8DXjp4PLc-hPGXGd3acTuZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5733674424914077835=="
-Cc: pang.xunlei@linaro.org, peterz@infradead.org, heiko.carstens@de.ibm.com,
- paulus@samba.org, cl@linux.com, heenasirwani@gmail.com,
- linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
- y2038 Mailman List <y2038@lists.linaro.org>, rafael.j.wysocki@intel.com,
- ahh@google.com, fweisbec@gmail.com, pjt@google.com, riel@redhat.com,
- Arnd Bergmann <arnd@arndb.de>, Richard Cochran <richardcochran@gmail.com>,
- schwidefsky@de.ibm.com, John Stultz <john.stultz@linaro.org>,
- Thomas Gleixner <tglx@linutronix.de>, rth@twiddle.net,
- gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
- linuxppc-dev@lists.ozlabs.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <5534CB9D.1080600@cogentembedded.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
-
---===============5733674424914077835==
-Content-Type: multipart/alternative; boundary=089e0122f074d7efa6051425c45d
-
---089e0122f074d7efa6051425c45d
-Content-Type: text/plain; charset=UTF-8
-
-On 20 April 2015 at 17:49, Sergei Shtylyov <
-sergei.shtylyov@cogentembedded.com> wrote:
-
-> Hello.
->
-> On 4/20/2015 8:57 AM, Baolin Wang wrote:
->
->  This patch introduces the 'struct itimerspec64' for 64bit to replace
->> itimerspec,
->> and also introduces the conversion methods: itimerspec64_to_itimerspec()
->> and
->> itimerspec_to_itimerspec64(), that makes itimerspec to ready for 2038
->> year.
->>
->
->    "To" not needed here.
->
->  Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
->>
->
-> [...]
->
-> WBR, Sergei
->
->
-Hi Sergei,
-
-Sorry for the mistake. Thank you for your comments. I'll fix that in next
-patch.
-
-
--- 
-Baolin.wang
-Best Regards
-
---089e0122f074d7efa6051425c45d
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr"><br><div class=3D"gmail_extra"><br><div class=3D"gmail_quo=
-te">On 20 April 2015 at 17:49, Sergei Shtylyov <span dir=3D"ltr">&lt;<a hre=
-f=3D"mailto:sergei.shtylyov@cogentembedded.com" target=3D"_blank">sergei.sh=
-tylyov@cogentembedded.com</a>&gt;</span> wrote:<br><blockquote class=3D"gma=
-il_quote" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-lef=
-t:1ex">Hello.<span class=3D""><br>
-<br>
-On 4/20/2015 8:57 AM, Baolin Wang wrote:<br>
-<br>
-<blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1p=
-x #ccc solid;padding-left:1ex">
-This patch introduces the &#39;struct itimerspec64&#39; for 64bit to replac=
-e itimerspec,<br>
-and also introduces the conversion methods: itimerspec64_to_itimerspec() an=
-d<br>
-itimerspec_to_itimerspec64(), that makes itimerspec to ready for 2038 year.=
-<br>
-</blockquote>
-<br></span>
-=C2=A0 =C2=A0&quot;To&quot; not needed here.<br>
-<br>
-<blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1p=
-x #ccc solid;padding-left:1ex">
-Signed-off-by: Baolin Wang &lt;<a href=3D"mailto:baolin.wang@linaro.org" ta=
-rget=3D"_blank">baolin.wang@linaro.org</a>&gt;<br>
-</blockquote>
-<br>
-[...]<br>
-<br>
-WBR, Sergei<br>
-<br>
-</blockquote></div><div class=3D"gmail_extra"><br></div>Hi Sergei,</div><di=
-v class=3D"gmail_extra"><br></div><div class=3D"gmail_extra">Sorry for the =
-mistake. Thank you for your comments. I&#39;ll fix that in next patch.<br><=
-br clear=3D"all"><div><br></div>-- <br><div class=3D"gmail_signature"><div =
-dir=3D"ltr"><div>Baolin.wang<br></div>Best Regards<br></div></div>
-</div></div>
-
---089e0122f074d7efa6051425c45d--
-
---===============5733674424914077835==
 Content-Type: text/plain; charset="utf-8"
-MIME-Version: 1.0
 Content-Transfer-Encoding: base64
-Content-Disposition: inline
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Rob Landley' <rob@landley.net>, Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.181]:58493 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754548AbbDTMBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 08:01:53 -0400
+In-Reply-To: <CAOS_Y6Q=1YwsL3wijnNSGmZh-xa8DXjp4PLc-hPGXGd3acTuZA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
-ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
-c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
-
---===============5733674424914077835==--
+RnJvbTogT2YgUm9iIExhbmRsZXkNCj4gU2VudDogMTkgQXByaWwgMjAxNSAwODoyNQ0KPiBPbiBU
+aHUsIEFwciAxNiwgMjAxNSBhdCA2OjAzIFBNLCBUZWp1biBIZW8gPHRqQGtlcm5lbC5vcmc+IHdy
+b3RlOg0KPiA+IEluIGEgbG90IG9mIGNvbmZpZ3VyYXRpb25zLCBuZXRjb25zb2xlIGlzIGEgdXNl
+ZnVsIHdheSB0byBjb2xsZWN0DQo+ID4gc3lzdGVtIGxvZ3M7IGhvd2V2ZXIsIGFsbCBuZXRjb25z
+b2xlIGRvZXMgaXMgc2ltcGx5IGVtaXR0aW5nIFVEUA0KPiA+IHBhY2tldHMgZm9yIHRoZSByYXcg
+bWVzc2FnZXMgYW5kIHRoZXJlJ3Mgbm8gd2F5IGZvciB0aGUgcmVjZWl2ZXIgdG8NCj4gPiBmaW5k
+IG91dCB3aGV0aGVyIHRoZSBwYWNrZXRzIHdlcmUgbG9zdCBhbmQvb3IgcmVvcmRlcmVkIGluIGZs
+aWdodC4NCj4gDQo+IEV4Y2VwdCBhIG1vZGVybiBub25zYXR1cmF0ZWQgTEFOIHNob3VsZG4ndCBk
+byB0aGF0Lg0KPiANCj4gSWYgeW91IGhhdmUgdHdvIG1hY2hpbmVzIHBsdWdnZWQgaW50byBhIGh1
+YiwgYW5kIHRoYXQncyBfYWxsXyB0aGF0J3MNCj4gcGx1Z2dlZCBpbiwgcGFja2V0cyBzaG91bGQg
+bmV2ZXIgZ2V0IGRyb3BwZWQuIFRoaXMgd2FzIHRoZSBvcmlnaW5hbA0KPiB1c2UgY2FzZSBvZiBu
+ZXRjb25zb2xlIHdhcyB0aGF0IHRoZSBzZW5kZXIgYW5kIHRoZSByZWNlaXZlciB3ZXJlDQo+IHBs
+dWdnZWQgaW50byB0aGUgc2FtZSByb3V0ZXIuDQo+IA0KPiBIb3dldmVyLCBldmVuIG9uIGEgcXVp
+dGUgYWN0aXZlIExBTiB0aGUgZGF5cyBvZiBldGhlcm5ldCBkb2luZyBDRE1BDQo+IHJlcXVpcmlu
+ZyByZXRyYW5zbWl0cyBhcmUgbG9uZyBnb25lLCBldmVuIDEwMGJhc2VUIHJvdXRlcnMgaGF2ZSBi
+ZWVuDQo+IGNhY2hlaW5nIGFuZCByZXRyYW5zbWl0dGluZyBkYXRhIGludGVybmFsbHkgc28gZWFj
+aCBjb25uZWN0aW9uIGNhbiBnbw0KPiBhdCB0aGUgZnVsbCAxMSBtZWdhYnl0ZXMvc2Vjb25kIHdp
+dGggdGhlIGJhY2twbGFuZSBydW5uaW5nIGZhc3QgZW5vdWdoDQo+IHRvIGtlZXAgdGhlbSBhbGwg
+YWN0aXZlIGF0IHRoZSBzYW1lIHRpbWUuIChUaGF0J3Mgd2h5IGl0J3Mgc28gaGFyZCB0bw0KPiBm
+aW5kIGEgX2h1Yl8gYW55bW9yZSwgaXQncyBhbGwgcm91dGVycw0KLi4uDQoNCk1vc3QgbWFjaGlu
+ZXMgYXJlIHBsdWdnZWQgaW50byBzd2l0Y2hlcyAobm90IHJvdXRlcnMpLCBtYW55IG9mIHRoZW0N
+CndpbGwgc2VuZCAncGF1c2UnIGZyYW1lcyB3aGljaCB0aGUgaG9zdCBtYWMgbWF5IGFjdCBvbi4N
+CkluIHdoaWNoIGNhc2UgcGFja2V0IGxvc3MgaXMgbm90IGV4cGVjdGVkICh1bmxlc3MgeW91IGhh
+dmUgYnJvYWRjYXN0IHN0b3Jtcw0Kd2hlbiBhbGwgYmV0cyBhcmUgb2ZmKS4NCg0KQWRkaXRpb25h
+bGx5LCB3aXRoaW4gYSBsb2NhbCBuZXR3b3JrIHlvdSBzaG91bGRuJ3QgcmVhbGx5IGdldCBhbnkg
+cGFja2V0DQpsb3NzIHNpbmNlIG5vIHNlZ21lbnRzIHNob3VsZCBiZSAxMDAlIGxvYWRlZC4NClNv
+IGZvciB0ZXN0aW5nIGl0IGlzIG5vdCB1bnJlYXNvbmFibGUgdG8gZXhwZWN0IG5vIGxvc3QgcGFj
+a2V0cyBpbiBuZXRjb25zb2xlDQp0cmFmZmljLg0KDQoJRGF2aWQNCg0KDQo=
