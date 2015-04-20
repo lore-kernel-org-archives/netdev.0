@@ -1,48 +1,28 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: [PATCHv3] pppoe: Lacks DST MAC address check
-Date: Mon, 20 Apr 2015 21:07:48 +0200
-Message-ID: <1429556868-28640-1-git-send-email-joakim.tjernlund@transmode.se>
-Cc: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>,
-	Joakim Tjernlund <joakim.tjernlund@transmode.se>
+From: Christ-Jan Wijtmans <cj.wijtmans@gmail.com>
+Subject: Bug 61651 - [regression] Wake-on-LAN broken in alx (AR8161)
+Date: Mon, 20 Apr 2015 21:12:04 +0200
+Message-ID: <CAMjv+TQRJ9QLxi1iaFRfFPzaXVbGjn-JEzav+J6hWCRb7JuOdg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.transmode.se ([31.15.61.139]:62264 "EHLO smtp.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750872AbbDTTIB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Apr 2015 15:08:01 -0400
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:34147 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752740AbbDTTMF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 15:12:05 -0400
+Received: by lbcga7 with SMTP id ga7so138569777lbc.1
+        for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 12:12:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Apologies if this is the wrong place or wrong format but since a while
+multiple people want this functionality back into the ALX driver and
+also claim that the reason for removing the functionality no longer
+applies in new kernels. Also i believe that it could at least be made
+an option in the .config file.
 
-A pppoe session is identified by its session ID and MAC address.
-Currently pppoe does not check if the received pkg has the correct
-MAC address. This is a problem when the eth I/F is in promisc mode
-as then any DST MAC address is accepted.
+https://bugzilla.kernel.org/show_bug.cgi?id=61651
 
-Signed-off-by: Joakim Tjernlund <joakim.tjernlund@transmode.se>
----
- drivers/net/ppp/pppoe.c | 3 +++
- 1 file changed, 3 insertions(+)
+Live long and prosper,
 
-v2 - The MAC address check should encompass all pppoe pkgs,
-     not only the relay type.
-
-v3 - Add signoff
-
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index ff059e1..aa1dd92 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -380,6 +380,9 @@ static int pppoe_rcv_core(struct sock *sk, struct sk_buff *skb)
- 	 * can't change.
- 	 */
- 
-+	if (skb->pkt_type == PACKET_OTHERHOST)
-+		goto abort_kfree;
-+
- 	if (sk->sk_state & PPPOX_BOUND) {
- 		ppp_input(&po->chan, skb);
- 	} else if (sk->sk_state & PPPOX_RELAY) {
--- 
-2.0.5
+Christ-Jan Wijtmans
