@@ -1,65 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 2/2] checkpatch: suggest using eth_zero_addr() and
- eth_broadcast_addr()
-Date: Sun, 19 Apr 2015 18:13:04 -0700
-Message-ID: <1429492384.27863.13.camel@perches.com>
-References: <1429481816-6664-1-git-send-email-mateusz.kulikowski@gmail.com>
-	 <1429481816-6664-3-git-send-email-mateusz.kulikowski@gmail.com>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
+Date: Mon, 20 Apr 2015 11:33:36 +0900
+Message-ID: <55346580.6060801@miraclelinux.com>
+References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com> <552F45AA.6010906@miraclelinux.com> <5530BE40.1000504@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: apw@canonical.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429481816-6664-3-git-send-email-mateusz.kulikowski@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
+To: Ulf Samuelsson <ulf.samuelsson@ericsson.com>, netdev@emagii.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og112.obsmtp.com ([64.18.2.177]:36967 "HELO
+	exprod7og112.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752343AbbDTCdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Apr 2015 22:33:41 -0400
+Received: by mail-pd0-f174.google.com with SMTP id qa5so192255409pdb.1
+        for <netdev@vger.kernel.org>; Sun, 19 Apr 2015 19:33:40 -0700 (PDT)
+In-Reply-To: <5530BE40.1000504@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-04-20 at 00:16 +0200, Mateusz Kulikowski wrote:
-> Suggest using eth_zero_addr() or eth_broadcast_addr() instead of memset().
+Hi,
 
-Hi again Mateusz
+Ulf Samuelsson wrote:
+>>  From RFC2461:
+>>
+>> |      REACHABLE   Roughly speaking, the neighbor is known to have been
+>> |                  reachable recently (within tens of seconds ago).
+>> :
+>> |      STALE       The neighbor is no longer known to be reachable but
+>> |                  until traffic is sent to the neighbor, no attempt
+>> |                  should be made to verify its reachability.
+>> |      DELAY       The neighbor is no longer known to be reachable, and
+>> |                  traffic has recently been sent to the neighbor.
+>> |                  Rather than probe the neighbor immediately, however,
+>> |                  delay sending probes for a short while in order to
+>> |                  give upper layer protocols a chance to provide
+>> |                  reachability confirmation.
+>>
+>>
+> 
+> It is all depending on the meaning of the word "recently".
+> You imply, that if timeouts have been triggered, then it is no longer "recent",
+> but that is not the only interpretation, it is up to the implementer to decide
+> what is "recently".
 
-> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-[]
-> @@ -5042,6 +5042,22 @@ sub process {
->  			     "Prefer ether_addr_equal() or ether_addr_equal_unaligned() over memcmp()\n" . $herecurr)
->  		}
->  
-> +# check for memset(foo, 0x0, ETH_ALEN) that could be eth_zero_addr
-> +# check for memset(foo, 0xFF, ETH_ALEN) that could be eth_broadcast_addr
-> +		if ($^V && $^V ge 5.10.0 &&
-> +		    $line =~ /^\+(?:.*?)\bmemset\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*\,\s*ETH_ALEN\s*\)/s) {
+That quoted text is just a "brief" description.  The document has detailed
+state machine.
 
-Because you are working with $line and not $stat,
-the last /s isn't useful here.
 
-$line is always a single line.
+> Therefore, if a timeout occurs due to no traffic, they must be probed before
+> they are garbage collected.
 
-> +			my $ms_val = $7;
-> +
-> +			if ($ms_val =~ /^(0x|)0+$/i) {
+It is what we do in PROBE state.
 
-It's trivially faster to use (?:0x|) so the 0x is not captured.
 
-> +				WARN("PREFER_ETH_ZERO_ADDR",
-> +				     "Prefer eth_zero_addr over memset()\n" . $herecurr);
+> If this is not acceptable, how do you propose to solve the problem that you cannot
+> make remote units inaccessible for more than a fraction of a second?
 
-And these could be:
-				if (WARN(...) &&
-				    $fix) {
-					$fixed[$fixlinenr] = s/\bmemset\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*,\s*ETH_ALEN\s*\)/eth_zero_addr($1)/;
-				}
-			}
-		
-> +			} elsif ($ms_val =~ /^(?:0xff|255)$/i) {
-> +				WARN("PREFER_ETH_BROADCAST_ADDR",
-> +				     "Prefer eth_broadcast_addr() over memset()\n" . $herecurr);
+How many neighbors do you want to maintain?
+I guess you have to increase the number of gc_thresh1.
 
-				if (WARN(...) &&
-				    $fix) {
-					$fixed[$fixlinenr] = s/\bmemset\s*\(\s*$FuncArg\s*,\s*$FuncArg\s*,\s*ETH_ALEN\s*\)/eth_broadcast_addr($1)/;
-				}
-
-cheers, Joe
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
