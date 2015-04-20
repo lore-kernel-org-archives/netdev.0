@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ip_forward: Drop frames with attached skb->sk
-Date: Mon, 20 Apr 2015 14:08:25 -0400 (EDT)
-Message-ID: <20150420.140825.121616346767140780.davem@davemloft.net>
-References: <1429514360.7091.9.camel@googlemail.com>
+Subject: Re: [PATCH v2] pppoe: Lacks DST MAC address check
+Date: Mon, 20 Apr 2015 14:11:58 -0400 (EDT)
+Message-ID: <20150420.141158.32627615256852547.davem@davemloft.net>
+References: <1429350794-17170-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: sebastian.poehn@gmail.com
+To: Joakim.Tjernlund@transmode.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45995 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46025 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbbDTSIa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 14:08:30 -0400
-In-Reply-To: <1429514360.7091.9.camel@googlemail.com>
+	with ESMTP id S1751865AbbDTSL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 14:11:59 -0400
+In-Reply-To: <1429350794-17170-1-git-send-email-Joakim.Tjernlund@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Poehn <sebastian.poehn@gmail.com>
-Date: Mon, 20 Apr 2015 09:19:20 +0200
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Sat, 18 Apr 2015 11:53:14 +0200
 
-> Initial discussion was:
-> [FYI] xfrm: Don't lookup sk_policy for timewait sockets
-> 
-> Forwarded frames should not have a socket attached. Especially
-> tw sockets will lead to panics later-on in the stack.
-> 
-> This was observed with TPROXY assigning a tw socket and broken
-> policy routing (misconfigured). As a result frame enters
-> forwarding path instead of input. We cannot solve this in
-> TPROXY as it cannot know that policy routing is broken.
-> 
-> v2:
-> Remove useless comment
-> 
-> Signed-off-by: Sebastian Poehn <sebastian.poehn@gmail.com>
+> A pppoe session is identified by its session ID and MAC address.
+> Currently pppoe does not check if the received pkg has the correct
+> MAC address. This is a problem when the eth I/F is in promisc mode
+> as then any DST MAC address is accepted.
 
-Applied and queued up for -stable, thanks Sebastian.
+Please read Documentation/SubmittingPatches in the source tree, you
+need to provide a proper signoff.
