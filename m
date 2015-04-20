@@ -1,7 +1,7 @@
 From: Baolin Wang <baolin.wang@linaro.org>
-Subject: [PATCH 08/11] time/posix-clock:Convert to the 64bit methods for k_clock and posix_clock_operations structure
-Date: Mon, 20 Apr 2015 13:57:36 +0800
-Message-ID: <1429509459-17068-9-git-send-email-baolin.wang@linaro.org>
+Subject: [PATCH 09/11] cputime:Introduce the cputime_to_timespec64/timespec64_to_cputime function
+Date: Mon, 20 Apr 2015 13:57:37 +0800
+Message-ID: <1429509459-17068-10-git-send-email-baolin.wang@linaro.org>
 References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
 Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
 	pang.xunlei@linaro.org, peterz@infradead.org,
@@ -15,187 +15,176 @@ Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	baolin.wang@linaro.org, y2038@lists.linaro.org
 To: tglx@linutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36331 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754096AbbDTF7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 01:59:33 -0400
+Received: by pabsx10 with SMTP id sx10so196503502pab.3
+        for <netdev@vger.kernel.org>; Sun, 19 Apr 2015 22:59:33 -0700 (PDT)
 In-Reply-To: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch converts the posix clock operations over to the new methods with
-timespec64/itimerspec64 type to making them ready for 2038, and it is based on
-the ptp patch series.
+This patch introduces some functions for converting cputime to timespec64 and back,
+that repalce the timespec type with timespec64 type, as well as for arch/s390 and
+arch/powerpc architecture.
 
-And also changes to the 64bit methods for k_clock structure, that
-converts the timespec/itimerspec type to timespec64/itimerspec64 type.
+And these new methods will replace the old cputime_to_timespec/timespec_to_cputime
+function to ready for 2038 issue. The cputime_to_timespec/timespec_to_cputime functions
+are moved to include/linux/cputime.h file for removing conveniently.
 
 Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
 ---
- drivers/ptp/ptp_clock.c     |   26 ++++++++------------------
- include/linux/posix-clock.h |   10 +++++-----
- kernel/time/posix-clock.c   |   20 ++++++++++----------
- 3 files changed, 23 insertions(+), 33 deletions(-)
+ arch/powerpc/include/asm/cputime.h    |    6 +++---
+ arch/s390/include/asm/cputime.h       |    8 ++++----
+ include/asm-generic/cputime_jiffies.h |   10 +++++-----
+ include/linux/cputime.h               |   15 +++++++++++++++
+ include/linux/jiffies.h               |    3 +++
+ kernel/time/time.c                    |   21 +++++++++++++++++++++
+ 6 files changed, 51 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-index bee8270..8c086e7 100644
---- a/drivers/ptp/ptp_clock.c
-+++ b/drivers/ptp/ptp_clock.c
-@@ -97,32 +97,24 @@ static s32 scaled_ppm_to_ppb(long ppm)
+diff --git a/arch/powerpc/include/asm/cputime.h b/arch/powerpc/include/asm/cputime.h
+index e245255..5dda5c0 100644
+--- a/arch/powerpc/include/asm/cputime.h
++++ b/arch/powerpc/include/asm/cputime.h
+@@ -154,9 +154,9 @@ static inline cputime_t secs_to_cputime(const unsigned long sec)
+ }
  
- /* posix clock implementation */
- 
--static int ptp_clock_getres(struct posix_clock *pc, struct timespec *tp)
-+static int ptp_clock_getres(struct posix_clock *pc, struct timespec64 *tp)
+ /*
+- * Convert cputime <-> timespec
++ * Convert cputime <-> timespec64
+  */
+-static inline void cputime_to_timespec(const cputime_t ct, struct timespec *p)
++static inline void cputime_to_timespec64(const cputime_t ct, struct timespec64 *p)
  {
- 	tp->tv_sec = 0;
- 	tp->tv_nsec = 1;
- 	return 0;
+ 	u64 x = (__force u64) ct;
+ 	unsigned int frac;
+@@ -168,7 +168,7 @@ static inline void cputime_to_timespec(const cputime_t ct, struct timespec *p)
+ 	p->tv_nsec = x;
  }
  
--static int ptp_clock_settime(struct posix_clock *pc, const struct timespec *tp)
-+static int ptp_clock_settime(struct posix_clock *pc,
-+				const struct timespec64 *tp)
+-static inline cputime_t timespec_to_cputime(const struct timespec *p)
++static inline cputime_t timespec64_to_cputime(const struct timespec64 *p)
  {
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	struct timespec64 ts = timespec_to_timespec64(*tp);
--
--	return ptp->info->settime64(ptp->info, &ts);
-+	return ptp->info->settime64(ptp->info, tp);
+ 	u64 ct;
+ 
+diff --git a/arch/s390/include/asm/cputime.h b/arch/s390/include/asm/cputime.h
+index b91e960..1266697 100644
+--- a/arch/s390/include/asm/cputime.h
++++ b/arch/s390/include/asm/cputime.h
+@@ -89,16 +89,16 @@ static inline cputime_t secs_to_cputime(const unsigned int s)
  }
  
--static int ptp_clock_gettime(struct posix_clock *pc, struct timespec *tp)
-+static int ptp_clock_gettime(struct posix_clock *pc, struct timespec64 *tp)
+ /*
+- * Convert cputime to timespec and back.
++ * Convert cputime to timespec64 and back.
+  */
+-static inline cputime_t timespec_to_cputime(const struct timespec *value)
++static inline cputime_t timespec64_to_cputime(const struct timespec64 *value)
  {
- 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
--	struct timespec64 ts;
--	int err;
--
--	err = ptp->info->gettime64(ptp->info, &ts);
--	if (!err)
--		*tp = timespec64_to_timespec(ts);
--
--	return err;
-+	return ptp->info->gettime64(ptp->info, tp);
+ 	unsigned long long ret = value->tv_sec * CPUTIME_PER_SEC;
+ 	return (__force cputime_t)(ret + __div(value->tv_nsec * CPUTIME_PER_USEC, NSEC_PER_USEC));
  }
  
- static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
-@@ -134,8 +126,7 @@ static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
- 	ops = ptp->info;
- 
- 	if (tx->modes & ADJ_SETOFFSET) {
--		struct timespec ts;
--		ktime_t kt;
-+		struct timespec64 ts;
- 		s64 delta;
- 
- 		ts.tv_sec  = tx->time.tv_sec;
-@@ -147,8 +138,7 @@ static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
- 		if ((unsigned long) ts.tv_nsec >= NSEC_PER_SEC)
- 			return -EINVAL;
- 
--		kt = timespec_to_ktime(ts);
--		delta = ktime_to_ns(kt);
-+		delta = timespec64_to_ns(&ts);
- 		err = ops->adjtime(ops, delta);
- 	} else if (tx->modes & ADJ_FREQUENCY) {
- 		s32 ppb = scaled_ppm_to_ppb(tx->freq);
-diff --git a/include/linux/posix-clock.h b/include/linux/posix-clock.h
-index 34c4498..fd7e22c 100644
---- a/include/linux/posix-clock.h
-+++ b/include/linux/posix-clock.h
-@@ -59,23 +59,23 @@ struct posix_clock_operations {
- 
- 	int  (*clock_adjtime)(struct posix_clock *pc, struct timex *tx);
- 
--	int  (*clock_gettime)(struct posix_clock *pc, struct timespec *ts);
-+	int  (*clock_gettime)(struct posix_clock *pc, struct timespec64 *ts);
- 
--	int  (*clock_getres) (struct posix_clock *pc, struct timespec *ts);
-+	int  (*clock_getres)(struct posix_clock *pc, struct timespec64 *ts);
- 
- 	int  (*clock_settime)(struct posix_clock *pc,
--			      const struct timespec *ts);
-+			      const struct timespec64 *ts);
- 
- 	int  (*timer_create) (struct posix_clock *pc, struct k_itimer *kit);
- 
- 	int  (*timer_delete) (struct posix_clock *pc, struct k_itimer *kit);
- 
- 	void (*timer_gettime)(struct posix_clock *pc,
--			      struct k_itimer *kit, struct itimerspec *tsp);
-+			      struct k_itimer *kit, struct itimerspec64 *tsp);
- 
- 	int  (*timer_settime)(struct posix_clock *pc,
- 			      struct k_itimer *kit, int flags,
--			      struct itimerspec *tsp, struct itimerspec *old);
-+			      struct itimerspec64 *tsp, struct itimerspec64 *old);
- 	/*
- 	 * Optional character device methods:
- 	 */
-diff --git a/kernel/time/posix-clock.c b/kernel/time/posix-clock.c
-index ce033c7..e21e4c1 100644
---- a/kernel/time/posix-clock.c
-+++ b/kernel/time/posix-clock.c
-@@ -297,7 +297,7 @@ out:
- 	return err;
- }
- 
--static int pc_clock_gettime(clockid_t id, struct timespec *ts)
-+static int pc_clock_gettime(clockid_t id, struct timespec64 *ts)
+-static inline void cputime_to_timespec(const cputime_t cputime,
+-				       struct timespec *value)
++static inline void cputime_to_timespec64(const cputime_t cputime,
++				       struct timespec64 *value)
  {
- 	struct posix_clock_desc cd;
- 	int err;
-@@ -316,7 +316,7 @@ static int pc_clock_gettime(clockid_t id, struct timespec *ts)
- 	return err;
- }
+ 	unsigned long long __cputime = (__force unsigned long long) cputime;
+ #ifndef CONFIG_64BIT
+diff --git a/include/asm-generic/cputime_jiffies.h b/include/asm-generic/cputime_jiffies.h
+index fe386fc..ec77c0b 100644
+--- a/include/asm-generic/cputime_jiffies.h
++++ b/include/asm-generic/cputime_jiffies.h
+@@ -44,12 +44,12 @@ typedef u64 __nocast cputime64_t;
+ #define secs_to_cputime(sec)		jiffies_to_cputime((sec) * HZ)
  
--static int pc_clock_getres(clockid_t id, struct timespec *ts)
-+static int pc_clock_getres(clockid_t id, struct timespec64 *ts)
- {
- 	struct posix_clock_desc cd;
- 	int err;
-@@ -335,7 +335,7 @@ static int pc_clock_getres(clockid_t id, struct timespec *ts)
- 	return err;
- }
+ /*
+- * Convert cputime to timespec and back.
++ * Convert cputime to timespec64 and abck.
+  */
+-#define timespec_to_cputime(__val)	\
+-	jiffies_to_cputime(timespec_to_jiffies(__val))
+-#define cputime_to_timespec(__ct,__val)	\
+-	jiffies_to_timespec(cputime_to_jiffies(__ct),__val)
++#define timespec64_to_cputime(__val)      \
++	jiffies_to_cputime(timespec64_to_jiffies(__val))
++#define cputime_to_timespec64(__ct,__val)	\
++	jiffies_to_timespec64(cputime_to_jiffies(__ct),__val)
  
--static int pc_clock_settime(clockid_t id, const struct timespec *ts)
-+static int pc_clock_settime(clockid_t id, const struct timespec64 *ts)
- {
- 	struct posix_clock_desc cd;
- 	int err;
-@@ -399,7 +399,7 @@ static int pc_timer_delete(struct k_itimer *kit)
- 	return err;
- }
+ /*
+  * Convert cputime to timeval and back.
+diff --git a/include/linux/cputime.h b/include/linux/cputime.h
+index f2eb2ee..f01896f 100644
+--- a/include/linux/cputime.h
++++ b/include/linux/cputime.h
+@@ -13,4 +13,19 @@
+ 	usecs_to_cputime((__nsecs) / NSEC_PER_USEC)
+ #endif
  
--static void pc_timer_gettime(struct k_itimer *kit, struct itimerspec *ts)
-+static void pc_timer_gettime(struct k_itimer *kit, struct itimerspec64 *ts)
- {
- 	clockid_t id = kit->it_clock;
- 	struct posix_clock_desc cd;
-@@ -414,7 +414,7 @@ static void pc_timer_gettime(struct k_itimer *kit, struct itimerspec *ts)
++static inline cputime_t timespec_to_cputime(const struct timespec *ts)
++{
++	struct timespec64 ts64 = timespec_to_timespec64(*ts);
++	return timespec64_to_cputime(&ts64);
++}
++
++static inline void cputime_to_timespec(const cputime_t cputime,
++					struct timespec *value)
++{
++	struct timespec64 *ts64;
++
++	*ts64 = timespec_to_timespec64(*value);
++	cputime_to_timespec64(cputime, ts64);
++}
++
+ #endif /* __LINUX_CPUTIME_H */
+diff --git a/include/linux/jiffies.h b/include/linux/jiffies.h
+index c367cbd..dbaa4ee 100644
+--- a/include/linux/jiffies.h
++++ b/include/linux/jiffies.h
+@@ -293,6 +293,9 @@ extern unsigned long usecs_to_jiffies(const unsigned int u);
+ extern unsigned long timespec_to_jiffies(const struct timespec *value);
+ extern void jiffies_to_timespec(const unsigned long jiffies,
+ 				struct timespec *value);
++extern unsigned long timespec64_to_jiffies(const struct timespec64 *value);
++extern void jiffies_to_timespec64(const unsigned long jiffies,
++				struct timespec64 *value);
+ extern unsigned long timeval_to_jiffies(const struct timeval *value);
+ extern void jiffies_to_timeval(const unsigned long jiffies,
+ 			       struct timeval *value);
+diff --git a/kernel/time/time.c b/kernel/time/time.c
+index 2c85b77..d5978c5 100644
+--- a/kernel/time/time.c
++++ b/kernel/time/time.c
+@@ -606,6 +606,27 @@ jiffies_to_timespec(const unsigned long jiffies, struct timespec *value)
  }
+ EXPORT_SYMBOL(jiffies_to_timespec);
  
- static int pc_timer_settime(struct k_itimer *kit, int flags,
--			    struct itimerspec *ts, struct itimerspec *old)
-+			    struct itimerspec64 *ts, struct itimerspec64 *old)
- {
- 	clockid_t id = kit->it_clock;
- 	struct posix_clock_desc cd;
-@@ -435,12 +435,12 @@ static int pc_timer_settime(struct k_itimer *kit, int flags,
- }
- 
- struct k_clock clock_posix_dynamic = {
--	.clock_getres	= pc_clock_getres,
--	.clock_set	= pc_clock_settime,
--	.clock_get	= pc_clock_gettime,
-+	.clock_getres64	= pc_clock_getres,
-+	.clock_set64	= pc_clock_settime,
-+	.clock_get64	= pc_clock_gettime,
- 	.clock_adj	= pc_clock_adjtime,
- 	.timer_create	= pc_timer_create,
--	.timer_set	= pc_timer_settime,
-+	.timer_set64	= pc_timer_settime,
- 	.timer_del	= pc_timer_delete,
--	.timer_get	= pc_timer_gettime,
-+	.timer_get64	= pc_timer_gettime,
- };
++unsigned long
++timespec64_to_jiffies(const struct timespec64 *value)
++{
++	return __timespec_to_jiffies(value->tv_sec, value->tv_nsec);
++}
++EXPORT_SYMBOL(timespec64_to_jiffies);
++
++void
++jiffies_to_timespec64(const unsigned long jiffies, struct timespec64 *value)
++{
++	/*
++	 * Convert jiffies to nanoseconds and separate with
++	 * one divide.
++	 */
++	u32 rem;
++	value->tv_sec = div_u64_rem((u64)jiffies * TICK_NSEC,
++				   NSEC_PER_SEC, &rem);
++	value->tv_nsec = rem;
++}
++EXPORT_SYMBOL(jiffies_to_timespec64);
++
+ /*
+  * We could use a similar algorithm to timespec_to_jiffies (with a
+  * different multiplier for usec instead of nsec). But this has a
 -- 
 1.7.9.5
