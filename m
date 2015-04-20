@@ -1,7 +1,7 @@
 From: Baolin Wang <baolin.wang@linaro.org>
-Subject: [PATCH 02/11] timekeeping:Introduce the current_kernel_time64() function with timespec64 type
-Date: Mon, 20 Apr 2015 13:57:30 +0800
-Message-ID: <1429509459-17068-3-git-send-email-baolin.wang@linaro.org>
+Subject: [PATCH 03/11] time/hrtimer:Introduce hrtimer_get_res64() with timespec64 type for getting the timer resolution
+Date: Mon, 20 Apr 2015 13:57:31 +0800
+Message-ID: <1429509459-17068-4-git-send-email-baolin.wang@linaro.org>
 References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
 Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
 	pang.xunlei@linaro.org, peterz@infradead.org,
@@ -20,68 +20,76 @@ In-Reply-To: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds current_kernel_time64() function with timespec64 type,
-and makes current_kernel_time() 'static inline' and moves it to timekeeping.h
-file.
+This patch introduces hrtimer_get_res64() function to get the timer resolution
+with timespec64 type, and moves the hrtimer_get_res() function into
+include/linux/hrtimer.h as a 'static inline' helper that just calls hrtimer_get_res64.
 
-It is convenient for user to get the current kernel time with timespec64 type,
-and delete the current_kernel_time() function easily in timekeeping.h file. That
-is ready for 2038 when get the current time.
+It is ready for 2038 year when getting the timer resolution by hrtimer_get_res64() function
+with timespec64 type, and it is convenient to delete the old hrtimer_get_res() function
+in hrtimer.h file.
 
 Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
 ---
- include/linux/timekeeping.h |   10 +++++++++-
- kernel/time/timekeeping.c   |    6 +++---
- 2 files changed, 12 insertions(+), 4 deletions(-)
+ include/linux/hrtimer.h |   12 +++++++++++-
+ kernel/time/hrtimer.c   |   10 +++++-----
+ 2 files changed, 16 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index 3eaae47..c6d5ae9 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -18,10 +18,18 @@ extern int do_sys_settimeofday(const struct timespec *tv,
-  * Kernel time accessors
-  */
- unsigned long get_seconds(void);
--struct timespec current_kernel_time(void);
-+struct timespec64 current_kernel_time64(void);
- /* does not take xtime_lock */
- struct timespec __current_kernel_time(void);
+diff --git a/include/linux/hrtimer.h b/include/linux/hrtimer.h
+index 05f6df1..ee8ed44 100644
+--- a/include/linux/hrtimer.h
++++ b/include/linux/hrtimer.h
+@@ -383,7 +383,17 @@ static inline int hrtimer_restart(struct hrtimer *timer)
  
-+static inline struct timespec current_kernel_time(void)
+ /* Query timers: */
+ extern ktime_t hrtimer_get_remaining(const struct hrtimer *timer);
+-extern int hrtimer_get_res(const clockid_t which_clock, struct timespec *tp);
++extern int hrtimer_get_res64(const clockid_t which_clock,
++			     struct timespec64 *tp);
++
++static inline int hrtimer_get_res(const clockid_t which_clock,
++				  struct timespec *tp)
 +{
-+	struct timespec64 now;
++	struct timespec64 *ts64;
 +
-+	now = current_kernel_time64();
-+	return timespec64_to_timespec(now);
++	*ts64 = timespec_to_timespec64(*tp);
++	return hrtimer_get_res64(which_clock, ts64);
 +}
-+
- /*
-  * timespec based interfaces
+ 
+ extern ktime_t hrtimer_get_next_event(void);
+ 
+diff --git a/kernel/time/hrtimer.c b/kernel/time/hrtimer.c
+index bee0c1f..508d936 100644
+--- a/kernel/time/hrtimer.c
++++ b/kernel/time/hrtimer.c
+@@ -1175,24 +1175,24 @@ void hrtimer_init(struct hrtimer *timer, clockid_t clock_id,
+ EXPORT_SYMBOL_GPL(hrtimer_init);
+ 
+ /**
+- * hrtimer_get_res - get the timer resolution for a clock
++ * hrtimer_get_res64 - get the timer resolution for a clock
+  * @which_clock: which clock to query
+- * @tp:		 pointer to timespec variable to store the resolution
++ * @tp:		 pointer to timespec64 variable to store the resolution
+  *
+  * Store the resolution of the clock selected by @which_clock in the
+  * variable pointed to by @tp.
   */
-diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
-index 91db941..8ccc02c 100644
---- a/kernel/time/timekeeping.c
-+++ b/kernel/time/timekeeping.c
-@@ -1721,7 +1721,7 @@ struct timespec __current_kernel_time(void)
- 	return timespec64_to_timespec(tk_xtime(tk));
- }
- 
--struct timespec current_kernel_time(void)
-+struct timespec64 current_kernel_time64(void)
+-int hrtimer_get_res(const clockid_t which_clock, struct timespec *tp)
++int hrtimer_get_res64(const clockid_t which_clock, struct timespec64 *tp)
  {
- 	struct timekeeper *tk = &tk_core.timekeeper;
- 	struct timespec64 now;
-@@ -1733,9 +1733,9 @@ struct timespec current_kernel_time(void)
- 		now = tk_xtime(tk);
- 	} while (read_seqcount_retry(&tk_core.seq, seq));
+ 	struct hrtimer_cpu_base *cpu_base;
+ 	int base = hrtimer_clockid_to_base(which_clock);
  
--	return timespec64_to_timespec(now);
-+	return now;
+ 	cpu_base = raw_cpu_ptr(&hrtimer_bases);
+-	*tp = ktime_to_timespec(cpu_base->clock_base[base].resolution);
++	*tp = ktime_to_timespec64(cpu_base->clock_base[base].resolution);
+ 
+ 	return 0;
  }
--EXPORT_SYMBOL(current_kernel_time);
-+EXPORT_SYMBOL(current_kernel_time64);
+-EXPORT_SYMBOL_GPL(hrtimer_get_res);
++EXPORT_SYMBOL_GPL(hrtimer_get_res64);
  
- struct timespec64 get_monotonic_coarse64(void)
+ static void __run_hrtimer(struct hrtimer *timer, ktime_t *now)
  {
 -- 
 1.7.9.5
