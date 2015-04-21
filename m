@@ -1,71 +1,63 @@
-From: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: RE: [PATCH v2 01/11] RDMA/CMA: Mark IPv4 addresses correctly when the
- listener is IPv6
-Date: Tue, 21 Apr 2015 05:18:18 +0000
-Message-ID: <AM3PR05MB0935A4C8ECDB01DDE146BCA2DCEF0@AM3PR05MB0935.eurprd05.prod.outlook.com>
+From: Haggai Eran <haggaie@mellanox.com>
+Subject: Re: [PATCH v2 00/11] Add network namespace support in the RDMA-CM
+Date: Tue, 21 Apr 2015 09:36:25 +0300
+Message-ID: <5535EFE9.3000106@mellanox.com>
 References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
-	<1429520622-10303-2-git-send-email-haggaie@mellanox.com>
-	<20150420164140.GC7676@obsidianresearch.com>
- <CAJ3xEMgKFdr68Qt0vNCaf1p4YjPK2KUSn2FdtQVP0SZQ+Y7atg@mail.gmail.com>
+ <553512FA.1040708@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJ3xEMgKFdr68Qt0vNCaf1p4YjPK2KUSn2FdtQVP0SZQ+Y7atg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Sean Hefty <sean.hefty@intel.com>, <linux-rdma@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: Steve Wise <swise@opengridcomputing.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Roland Dreier <roland@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0099.outbound.protection.outlook.com ([157.56.112.99]:56316
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750710AbbDUGiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Apr 2015 02:38:21 -0400
+In-Reply-To: <553512FA.1040708@opengridcomputing.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT3IgR2VybGl0eiBbbWFp
-bHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDIwLCAyMDE1
-IDk6MzggUE0NCj4gDQo+IE9uIE1vbiwgQXByIDIwLCAyMDE1IGF0IDc6NDEgUE0sIEphc29uIEd1
-bnRob3JwZQ0KPiA8amd1bnRob3JwZUBvYnNpZGlhbnJlc2VhcmNoLmNvbT4gd3JvdGU6DQo+ID4g
-T24gTW9uLCBBcHIgMjAsIDIwMTUgYXQgMTI6MDM6MzJQTSArMDMwMCwgSGFnZ2FpIEVyYW4gd3Jv
-dGU6DQo+ID4+IEZyb206IFlvdGFtIEtlbm5ldGggPHlvdGFta2VAbWVsbGFub3guY29tPg0KPiA+
-Pg0KPiA+PiBXaGVuIGFjY2VwdGluZyBhIG5ldyBjb25uZWN0aW9uIHdpdGggdGhlIGxpc3RlbmVy
-IGJlaW5nIElQdjYsIHRoZQ0KPiA+PiBmYW1pbHkgb2YgdGhlIG5ldyBjb25uZWN0aW9uIGlzIHNl
-dCBhcyBJUHY2LiBUaGlzIGNhdXNlcw0KPiBjbWFfemVyb19hZGRyDQo+ID4+IGZ1bmN0aW9uIHRv
-IHJldHVybiB0cnVlIG9uIGFuIG5vbi16ZXJvIGFkZHJlc3MuIEFzIGEgcmVzdWx0LCB0aGUNCj4g
-d3JvbmcNCj4gPj4gY29kZSBwYXRoIGlzIHRha2VuLiBUaGlzIGNhdXNlcyB0aGUgY29ubmVjdGlv
-biByZXF1ZXN0IHRvIGJlDQo+IHJlamVjdGVkLA0KPiA+PiBhcyB0aGUgUkRNQS1DTSBjb2RlIGxv
-b2tzIGZvciB0aGUgd3JvbmcgdHlwZSBvZiBkZXZpY2UuDQo+ID4NCj4gPiBUaGlzIGRlc2NyaXB0
-aW9uIGRvZXNuJ3QgcmVhbGx5IG1ha2Ugc2Vuc2UgYXMgdG8gd2hhdCB0aGUgcHJvYmxlbSBpcy4N
-Cj4gPg0KPiA+PiBAQCAtODY2LDEyICs4NjYsMTIgQEAgc3RhdGljIHZvaWQgY21hX3NhdmVfaXA0
-X2luZm8oc3RydWN0IHJkbWFfY21faWQNCj4gKmlkLCBzdHJ1Y3QgcmRtYV9jbV9pZCAqbGlzdGVu
-X2kNCj4gPj4NCj4gPj4gICAgICAgbGlzdGVuNCA9IChzdHJ1Y3Qgc29ja2FkZHJfaW4gKikgJmxp
-c3Rlbl9pZC0NCj4gPnJvdXRlLmFkZHIuc3JjX2FkZHI7DQo+ID4+ICAgICAgIGlwNCA9IChzdHJ1
-Y3Qgc29ja2FkZHJfaW4gKikgJmlkLT5yb3V0ZS5hZGRyLnNyY19hZGRyOw0KPiA+PiAtICAgICBp
-cDQtPnNpbl9mYW1pbHkgPSBsaXN0ZW40LT5zaW5fZmFtaWx5Ow0KPiA+PiArICAgICBpcDQtPnNp
-bl9mYW1pbHkgPSBBRl9JTkVUOw0KPiA+DQo+ID4gSWYgbGlzdGVuX2lkLT5yb3V0ZS5hZGRyLnNy
-Y19hZGRyLnNzX2ZhbWlseSAhPSBBRl9JTkVUIHRoZW4gaXQgaXMNCj4gPiBpbnZhbGlkIHRvIGNh
-c3QgdG8gc29ja2FkZHJfaW4uDQo+ID4NCj4gPiBTbyBsaXN0ZW40LT5zaW5fZmFtaWx5IE1VU1Qg
-YmUgQUZfSU5FVCBvciB0aGlzIGZ1bmN0aW9uIE1VU1QgTk9UIGJlDQo+ID4gY2FsbGVkLg0KPiA+
-DQo+ID4gRm9yY2luZyB0byBBRl9JTkVUIGNhbm5vdCBiZSBjb3JyZWN0IGhlcmUuDQo+IA0KPiBK
-YXNvbiwgY291bGQgeW91IHRha2UgYSBsb29rIEAgdGhpcyB0aHJlYWQNCj4gaHR0cDovL21hcmMu
-aW5mby8/dD0xNDE1ODkzOTUwMDAwMDQmcj0xJnc9MiB3aGVyZSB0aGUgYXV0aG9ycw0KPiBhZGRy
-ZXNzZWQgc29tZSBjb21tZW50cyBmcm9tIFNlYW4gYW5kIGhlIGV2ZW50dWFsbHkgQWNrZWQgdGhl
-IHBhdGNoPw0KPiANCj4gPiBXaGF0IGRvZXMgdGhpcyBwYXRjaCBoYXZlIHRvIGRvIHdpdGggdGhp
-cyBzZXJpZXM/DQo+IA0KPiBJIGJlbGlldmUgaXQncyBlaXRoZXIgYSBwcmUtcGF0Y2ggdG8gYWRk
-cmVzcyBzb21lIGFzc3VtcHRpb24gb3INCj4gc29tZXRoaW5nIHRoZXkgc3RlcHBlZCBvbiB3aGls
-ZSB0ZXN0aW5nDQo+IA0KDQpXZSBzdGVwcGVkIHVwb24gdGhpcyBpc3N1ZSB3aGlsZSB0ZXN0aW5n
-IHRoZSBjb250YWluZXJzIHN1cHBvcnQgd2UgYXJlDQpTdWJtaXR0aW5nIGhlcmUuIFdoZW4gY3Jl
-YXRpbmcgYSBuZXcgbmV0d29yayBuYW1lc3BhY2UsIHRoZSBrZXJuZWwgc2V0IA0KbmV0LT5pcHY2
-LnN5c2N0bC5iaW5kdjZvbmx5IHRvIDAuIEFzIGEgcmVzdWx0LCB3ZSBnb3QgdGhlIElQdjYgbGlz
-dGVuaW5nDQpJRCBhY2NlcHRpbmcgSVB2NCBjb25uZWN0aW9uLiBUaGlzIGlzIGZpeGVkIGJ5IHRo
-ZSBhYm92ZSBwYXRjaC4NCg0KVGhhbmtzLA0KLS1TaGFjaGFyDQoNCg==
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 20/04/2015 17:53, Steve Wise wrote:
+> 
+> Hey Haggai,
+> 
+> Did you check for changes needed in drivers/infiniband/core/iwcm.c? 
+
+We focused on namespace support for InfiniBand alone in this series. We
+didn't handle iWARP, nor did we implement support for RoCE or other
+transports.
+
+> I notice that it uses init_net here:
+> 
+> static int __init iw_cm_init(void)
+> {
+>         iwcm_wq = create_singlethread_workqueue("iw_cm_wq");
+>         if (!iwcm_wq)
+>                 return -ENOMEM;
+> 
+>         iwcm_ctl_table_hdr = register_net_sysctl(&init_net, "net/iw_cm",
+>                                                  iwcm_ctl_table);
+>         if (!iwcm_ctl_table_hdr) {
+>                 pr_err("iw_cm: couldn't register sysctl paths\n");
+>                 destroy_workqueue(iwcm_wq);
+>                 return -ENOMEM;
+>         }
+> 
+>         return 0;
+> }
+> 
+
+I see the only thing in the iWARP sysctl registered here is the default
+backlog. If you want to control this parameter per namespace, we could
+store it per network namespace, and add a namespace parameter to
+iw_cm_listen. I'm not sure how important this is though.
+
+Haggai
