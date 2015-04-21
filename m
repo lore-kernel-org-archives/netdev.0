@@ -1,62 +1,55 @@
-From: Simon Xiao <sixiao@microsoft.com>
-Subject: RE: [PATCH net-next,1/1] hv_netvsc: call dump_rndis_message() only in
- netvsc debug mode
-Date: Tue, 21 Apr 2015 22:14:14 +0000
-Message-ID: <CY1PR03MB137672BCD670AF429263C498C4EF0@CY1PR03MB1376.namprd03.prod.outlook.com>
-References: <1429657085-23379-1-git-send-email-sixiao@microsoft.com>
- <20150421.174852.1894618346723165016.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 2/2] checkpatch: suggest using eth_zero_addr() and
+ eth_broadcast_addr()
+Date: Tue, 21 Apr 2015 15:27:27 -0700
+Message-ID: <1429655247.31675.20.camel@perches.com>
+References: <1429481816-6664-1-git-send-email-mateusz.kulikowski@gmail.com>
+	 <1429481816-6664-3-git-send-email-mateusz.kulikowski@gmail.com>
+	 <1429492384.27863.13.camel@perches.com> <5536B9D2.7030200@gmail.com>
+	 <1429651348.31675.12.camel@perches.com> <5536C4C2.4000001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0140.outbound.protection.outlook.com ([157.56.111.140]:56792
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S964865AbbDUWOY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 18:14:24 -0400
-In-Reply-To: <20150421.174852.1894618346723165016.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: apw@canonical.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5536C4C2.4000001@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, April 21, 2015 2:49 PM
-> To: Simon Xiao
-> Cc: KY Srinivasan; Haiyang Zhang; devel@linuxdriverproject.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next,1/1] hv_netvsc: call dump_rndis_message() only in
-> netvsc debug mode
+On Tue, 2015-04-21 at 23:44 +0200, Mateusz Kulikowski wrote:
+> On 21.04.2015 23:22, Joe Perches wrote:
+> > On Tue, 2015-04-21 at 22:57 +0200, Mateusz Kulikowski wrote:
+> (...)
+> >>
+> >> Perhaps it would be smarter to use (for both patches) $stat instead.
+> >> This applies also to existing checks (like PREFER_ETHER_ADDR_COPY) 
+> >> so we can catch calls formatted like
+> >>
+> >> memset(very.long.structure->something.something_different42,
+> >>        0xFF, ETH_ALEN);
+> > 
+> > Yes, likely that's true.
+> > 
+> > checkpatch couldn't --fix it easily unless it's on a
+> > single line though.
 > 
-> From: sixiao@microsoft.com
-> Date: Tue, 21 Apr 2015 15:58:05 -0700
-> 
-> > From: Simon Xiao <sixiao@microsoft.com>
-> >
-> > Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> > Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
-> 
-> I just gave you feedback on this patch in response to your original submission,
-> do not ignore it.
+> True, True; If you prefer $line and ability to --fix - I'll use that in v3
 
-Thanks for your feedback, David.
+I suppose you could do both $line and $stat
+and the fix would only work when it's on a
+single line.
 
-In current netvsc driver, for each packet received, it will call dump_rndis_message() 
-to try to dump the rndis packet information by netdev_dbg(). 
-In non-debug mode, dump_rndis_message() will not dump anything 
-but it still initialize some local variables and process the switch logic in the function 
-of dump_rndis_message(), which is unnecessary, especially in high network throughput situation.
+Perhaps something like this would work:
 
-My change is to have a run-time config flag to control the execution of dump_rndis_message() 
-and avoid above unnecessary cost in non-debug mode.
-In the default case, it will be non-debug mode,
- and rndis_filter_receive() will not call dump_rndis_message() 
-which saves the above extra cost for each packet received.
+	if ($line =~ /whatever/ ||
+	    (defined($stat) && $stat =~ /whatever/)) {
+		if (WARN(...) &&
+		    $fix) {
+			fixed[$fixlinenr] =~ s/whatever/appropriate/;
+		}
+	}
+
+No worries about getting 'round the the list.
+It'll get got eventually.
