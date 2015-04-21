@@ -1,74 +1,56 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 07/11] IB/cm: Add network namespace support
-Date: Tue, 21 Apr 2015 14:59:55 +0300
-Message-ID: <55363BBB.1020407@mellanox.com>
-References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
- <1429520622-10303-8-git-send-email-haggaie@mellanox.com>
- <20150420170659.GD7676@obsidianresearch.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net] net/mlx4_core: Fix reading HCA max message size in mlx4_QUERY_DEV_CAP
+Date: Tue, 21 Apr 2015 15:46:34 +0300
+Message-ID: <1429620394-7665-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150420170659.GD7676-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 20/04/2015 20:06, Jason Gunthorpe wrote:
-> On Mon, Apr 20, 2015 at 12:03:38PM +0300, Haggai Eran wrote:
->> From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>
->> Add namespace support to the IB-CM layer.
-> 
->> - Each CM-ID now has a network namespace it is associated with, assigned at
->>   creation. This namespace is used as needed during subsequent action on the
->>   CM-ID or related objects.
-> 
-> There is really something weird about this layering. At the CM layer
-> there should be no concept of an IP address, it only deals with GIDs.
+From: Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Using the GID alone is not enough to distinguish between namespaces,
-because you can have multiple IPoIB interfaces, all using the GID (and
-possibly the same P_Key), and each belonging to a different namespace.
+Currently we parse max_msg_sz from the wrong offset in QUERY_DEV_CAP,
+fix to use the right offset.
 
-> So how can a CM object have a network namespace associated with it?
+Fixes: 0b131561a7d6 ('net/mlx4_en: Add Flow control statistics [..]')
+Signed-off-by: Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+---
 
-The listener rbtree's key is currently the service ID, for instance. Now
-with namespaces, you can have multiple listeners listening on the same
-service ID, so we need to use (service ID, namespace) as the key.
+Hi Dave, 
 
-> 
->>  {
->>  	av->port = port;
->>  	av->pkey_index = wc->pkey_index;
->>  	ib_init_ah_from_wc(port->cm_dev->ib_device, port->port_num, wc,
->> -			   grh, &av->ah_attr, &init_net);
->> +			   grh, &av->ah_attr, net);
-> 
-> There is something deeply wrong with adding network namespace
-> arguments to verbs.
-> 
-> For rocee the gid index clearly specifies the network namespace
-> to use, so much of this should go away and have rocee get the
-> namespace from the gid index.
-> 
-> Ie in ib_init_ah_from_wc we have the ib_wc which contains the sgid
-> index.
+Sending this fix early as that innocent bug breaks RoCE applications on SRIOV VFs,
+since the max message size there gets down to two bytes. No need for -stable here
+as the bug was introduced in this merge window.
 
-I don't see it there. The code seem to fetch the GID from the GRH.
-Because the IP address in the source GID can be the same for different
-namespaces, this is not enough to pick the right namespace.
+Or.
 
-Regards,
-Haggai
+ drivers/net/ethernet/mellanox/mlx4/fw.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index b9881fc..a407981 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -781,10 +781,10 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_VL_PORT_OFFSET);
+ 	dev_cap->num_ports = field & 0xf;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_MAX_MSG_SZ_OFFSET);
++	dev_cap->max_msg_sz = 1 << (field & 0x1f);
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_PORT_FLOWSTATS_COUNTERS_OFFSET);
+ 	if (field & 0x10)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN;
+-	dev_cap->max_msg_sz = 1 << (field & 0x1f);
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_FLOW_STEERING_RANGE_EN_OFFSET);
+ 	if (field & 0x80)
+ 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FS_EN;
+-- 
+1.7.1
+
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
