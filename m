@@ -1,56 +1,76 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods
- with timespec64 type for k_clock structure
-Date: Tue, 21 Apr 2015 22:13:42 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1504212204130.13914@nanos>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <3231171.5TrYVVBLh4@wuerfel> <alpine.DEB.2.11.1504211701140.13914@nanos> <2819798.f0KhjY3UAe@wuerfel>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: y2038@lists.linaro.org, Baolin Wang <baolin.wang@linaro.org>,
-	pang.xunlei@linaro.org, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	paulus@samba.org, cl@linux.com, heenasirwani@gmail.com,
-	linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
-	mpe@ellerman.id.au, rafael.j.wysocki@intel.com, ahh@google.com,
-	fweisbec@gmail.com, pjt@google.com, riel@redhat.com,
-	richardcochran@gmail.com, schwidefsky@de.ibm.com,
-	john.stultz@linaro.org, rth@twiddle.net,
-	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
-	linuxppc-dev@lists.ozlabs.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: sixiao@microsoft.com
+Subject: [PATCH 1/1] v2: Driver: hv: netvsc: call dump_rndis_message() only in netvsc debug mode
+Date: Tue, 21 Apr 2015 14:43:55 -0700
+Message-ID: <1429652635-22698-1-git-send-email-sixiao@microsoft.com>
+Cc: Simon Xiao <sixiao@microsoft.com>
+To: kys@microsoft.com, haiyangz@microsoft.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2819798.f0KhjY3UAe@wuerfel>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Apr 2015, Arnd Bergmann wrote:
-> I know there are concerns about this, in particular because C11 and
-> POSIX both require tv_nsec to be 'long', unlike timeval->tv_usec,
-> which is a 'suseconds_t' and can be defined as 'long long'.
->
-> a)
-> 
-> struct timespec {
-> 	time_t tv_sec;
-> 	long long tv_nsec; /* or typedef long long snseconds_t */
-> };
-> 
-> This is not directly compatible with C11 or POSIX.1-2008, but it
-> matches what we do inside of 64-bit kernels, so probably has the
-> highest chance of working correctly in practice
+From: Simon Xiao <sixiao@microsoft.com>
 
-After reading Linus rant in the x32 thread again (thanks for the
-reminder), and looking at b/c/d - which rate between ugly and butt
-ugly - I think we should go for a) and screw POSIX and C11 as those
-committee dinosaurs seem to completely ignore the 2038 problem on
-32bit machines. At least I have not found any hint that these folks
-care at all. So why should we comply to something which is completely
-useless?
+Signed-off-by: Simon Xiao <sixiao@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 3 +++
+ drivers/net/hyperv/netvsc_drv.c   | 8 ++++++++
+ drivers/net/hyperv/rndis_filter.c | 3 ++-
+ 3 files changed, 13 insertions(+), 1 deletion(-)
 
-That also makes the question about the upper 32bits check moot, so
-it's the simplest and clearest of the possible solutions.
-
-Thanks,
-
-	tglx
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index a10b316..c9be35e 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -28,6 +28,9 @@
+ #include <linux/hyperv.h>
+ #include <linux/rndis.h>
+ 
++/* flag for netvsc debug mode */
++extern int debug_mode;
++
+ /* RSS related */
+ #define OID_GEN_RECEIVE_SCALE_CAPABILITIES 0x00010203  /* query only */
+ #define OID_GEN_RECEIVE_SCALE_PARAMETERS 0x00010204  /* query and set */
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index a3a9d38..7c41864 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -52,6 +52,10 @@ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+ 
++int debug_mode = 0;
++module_param(debug_mode, int, S_IRUGO);
++MODULE_PARM_DESC(debug_mode, "debug mode: zero(0) for non-debug mode; non-zero for debug mode");
++
+ static void do_set_multicast(struct work_struct *w)
+ {
+ 	struct net_device_context *ndevctx =
+@@ -999,6 +1003,10 @@ static int __init netvsc_drv_init(void)
+ 		pr_info("Increased ring_size to %d (min allowed)\n",
+ 			ring_size);
+ 	}
++
++	if (debug_mode != 0)
++		pr_info("Run netvsc in debug mode");
++
+ 	return vmbus_driver_register(&netvsc_drv);
+ }
+ 
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 0d92efe..a3f43f6 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -429,7 +429,8 @@ int rndis_filter_receive(struct hv_device *dev,
+ 
+ 	rndis_msg = pkt->data;
+ 
+-	dump_rndis_message(dev, rndis_msg);
++	if (debug_mode != 0)
++		dump_rndis_message(dev, rndis_msg);
+ 
+ 	switch (rndis_msg->ndis_msg_type) {
+ 	case RNDIS_MSG_PACKET:
+-- 
+1.8.5.2
