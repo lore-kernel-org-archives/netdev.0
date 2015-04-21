@@ -1,51 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: Fix "hw csum failure" message flood
- for ppp tunnel
-Date: Mon, 20 Apr 2015 22:01:44 -0400 (EDT)
-Message-ID: <20150420.220144.784138484983756987.davem@davemloft.net>
-References: <1429564205-1661247-1-git-send-email-tom@herbertland.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: fix setup of port control 1
+Date: Mon, 20 Apr 2015 22:01:53 -0400 (EDT)
+Message-ID: <20150420.220153.1027836111884807798.davem@davemloft.net>
+References: <1429564763-10098-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+	<20150420230507.GC32294@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48761 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021AbbDUCBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Apr 2015 22:01:48 -0400
-In-Reply-To: <1429564205-1661247-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+	linux@roeck-us.net, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com
+To: andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150420230507.GC32294@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Mon, 20 Apr 2015 14:10:03 -0700
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Tue, 21 Apr 2015 01:05:07 +0200
 
-> This patch set addresses bug "Bug 95171 - "hw csum failure" message
-> flood for ppp tunnel since upgrade to 3.16". The problem is that pppoe
-> is being used over UDP with UDP checksusm enabled. On receive
-> checksum conversion turns checksum-unnecessary in checksum-
-> complete. The PPP receive functions do no properly pull
-> the checksum over its headers, so that when an encapsulated
-> checksums is considered the checksum-complete value is incorrect.
+> On Mon, Apr 20, 2015 at 05:19:23PM -0400, Vivien Didelot wrote:
+>> mv88e6xxx_setup_port_common was writing to PORT_DEFAULT_VLAN (port
+>> offset 0x07) instead of PORT_CONTROL_1 (port offset 0x05).
 > 
-> This patch adds skb_checksum_complete_unset which can be called
-> in the receive path in lieu of pulling checksum complete in
-> layer. This is useful when the packet is being modified (e.g.
-> decompressed) and the checksum-complete value is no longer
-> relevant.
+> Hi Vivien
 > 
-> In the ppp_receive_frame we call skb_checksum_complete_unset to toss
-> out checksum-complete. This should eliminate the reported messages.
-> Alternatively, we could add skb_postpull_rcsum and probably
-> special case handling for VJ compression if maintaining the
-> checksum-complete is needed (not clear to me this is worth the
-> effort).
+> Good catch.
+>  
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 > 
-> I haven't tested this since setting up the failure scenario doesn't
-> seem trivial to configure.
+> Fixes: cca8b1337541 ("net: dsa: Use mnemonics rather than register numbers")
+> Acked-by: Andrew Lunn <andrew@lunn.ch>
 
-I'm preemptively applying this, but it's really important for
-folks to give this some good testing.
-
-Thanks Tom.
+Applied.
