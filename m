@@ -1,55 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 2/2] checkpatch: suggest using eth_zero_addr() and
- eth_broadcast_addr()
-Date: Tue, 21 Apr 2015 15:27:27 -0700
-Message-ID: <1429655247.31675.20.camel@perches.com>
-References: <1429481816-6664-1-git-send-email-mateusz.kulikowski@gmail.com>
-	 <1429481816-6664-3-git-send-email-mateusz.kulikowski@gmail.com>
-	 <1429492384.27863.13.camel@perches.com> <5536B9D2.7030200@gmail.com>
-	 <1429651348.31675.12.camel@perches.com> <5536C4C2.4000001@gmail.com>
+From: Michael Trimarchi <michael@amarulasolutions.com>
+Subject: Re: [PATCH V2] net: stmmac: use msleep instead of udelay for gpio
+ reset
+Date: Wed, 22 Apr 2015 01:13:47 +0200
+Message-ID: <20150421231347.GA3392@panicking>
+References: <1429614973-6883-1-git-send-email-michael@amarulasolutions.com>
+ <20150421.173540.1253961571051792975.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: apw@canonical.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5536C4C2.4000001@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, festevam@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:34596 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965016AbbDUXOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 19:14:03 -0400
+Received: by pdbqa5 with SMTP id qa5so255544295pdb.1
+        for <netdev@vger.kernel.org>; Tue, 21 Apr 2015 16:14:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150421.173540.1253961571051792975.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-21 at 23:44 +0200, Mateusz Kulikowski wrote:
-> On 21.04.2015 23:22, Joe Perches wrote:
-> > On Tue, 2015-04-21 at 22:57 +0200, Mateusz Kulikowski wrote:
-> (...)
-> >>
-> >> Perhaps it would be smarter to use (for both patches) $stat instead.
-> >> This applies also to existing checks (like PREFER_ETHER_ADDR_COPY) 
-> >> so we can catch calls formatted like
-> >>
-> >> memset(very.long.structure->something.something_different42,
-> >>        0xFF, ETH_ALEN);
-> > 
-> > Yes, likely that's true.
-> > 
-> > checkpatch couldn't --fix it easily unless it's on a
-> > single line though.
+Hi
+
+On Tue, Apr 21, 2015 at 05:35:40PM -0400, David Miller wrote:
+> From: Michael Trimarchi <michael@amarulasolutions.com>
+> Date: Tue, 21 Apr 2015 13:16:13 +0200
 > 
-> True, True; If you prefer $line and ability to --fix - I'll use that in v3
+> > -			udelay(data->delays[0]);
+>  ...
+> > +			msleep(max(1U, data->delays[0] / 1000));
+> 
+> That looks very ugly with that max() expression in there.
+>
 
-I suppose you could do both $line and $stat
-and the fix would only work when it's on a
-single line.
+Is fine for you a DIV_ROUND_UP?
 
-Perhaps something like this would work:
+> Please find some clean way to get rid of it if you want to
+> make this conversion.
+>
 
-	if ($line =~ /whatever/ ||
-	    (defined($stat) && $stat =~ /whatever/)) {
-		if (WARN(...) &&
-		    $fix) {
-			fixed[$fixlinenr] =~ s/whatever/appropriate/;
-		}
-	}
+Agree, I will repost it
 
-No worries about getting 'round the the list.
-It'll get got eventually.
+Michael
+
+> Thanks.
+
+-- 
+| Michael Nazzareno Trimarchi                     Amarula Solutions BV |
+| COO  -  Founder                                      Cruquiuskade 47 |
+| +31(0)851119172                                 Amsterdam 1018 AM NL |
+|                  [`as] http://www.amarulasolutions.com               |
