@@ -1,57 +1,53 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net] net/mlx4_core: Fix reading HCA max message size in mlx4_QUERY_DEV_CAP
-Date: Tue, 21 Apr 2015 15:46:34 +0300
-Message-ID: <1429620394-7665-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH 0/3] Enable connecting DSA-based switch to the USB
+ RMII interface.
+Date: Tue, 21 Apr 2015 14:47:37 +0200
+Message-ID: <20150421124737.GD32294@lunn.ch>
+References: <1429622791-7195-1-git-send-email-kaisrja1@fel.cvut.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sojkam1@fel.cvut.cz, tkonecny@retia.cz, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jan Kaisrlik <ja.kaisrlik@gmail.com>
+To: Jan Kaisrlik <kaisrja1@fel.cvut.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1429622791-7195-1-git-send-email-kaisrja1@fel.cvut.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Hi Jan
 
-Currently we parse max_msg_sz from the wrong offset in QUERY_DEV_CAP,
-fix to use the right offset.
+Interesting work, but i think the architecture is wrong.
 
-Fixes: 0b131561a7d6 ('net/mlx4_en: Add Flow control statistics [..]')
-Signed-off-by: Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
----
+DSA needs an Ethernet device, an MDIO bus, and information about ports
+on the switch. The MDIO bus and the Ethernet need no knowledge of
+DSA. So putting your DSA configuration code in the MDIO driver is
+wrong.
 
-Hi Dave, 
+The problem you have is where the put the configuration data. There
+are the currently two choices, using a platform driver, which you can
+find some examples of in arch/arm/mach-orion5x, or via device tree. Or
+you need a new method.
 
-Sending this fix early as that innocent bug breaks RoCE applications on SRIOV VFs,
-since the max message size there gets down to two bytes. No need for -stable here
-as the bug was introduced in this merge window.
+Part of your problem is hotplug, since you have a USB device, and no
+stable names for the ethernet device nor the MDIO device. Your
+hardware is not fixed, you could hang any switch off the USB
+device. So it does sound like you need a user space API.
 
-Or.
+I would however say that sysfs is the wrong API. The linux network
+stack uses netlink for most configuration activities. So i would
+suggest adding a netlink binding to DSA, and place the code in
+net/dsa/, not within an MDIO driver.
 
- drivers/net/ethernet/mellanox/mlx4/fw.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Device tree overlays might be a solution, if you can dynamically load
+a blob as part of a USB hotplug event. What makes it easier is that
+both the Ethernet device and MDIO bus are on the same USB device, so
+all your phandles are within the blob.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index b9881fc..a407981 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -781,10 +781,10 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_VL_PORT_OFFSET);
- 	dev_cap->num_ports = field & 0xf;
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_MAX_MSG_SZ_OFFSET);
-+	dev_cap->max_msg_sz = 1 << (field & 0x1f);
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_PORT_FLOWSTATS_COUNTERS_OFFSET);
- 	if (field & 0x10)
- 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FLOWSTATS_EN;
--	dev_cap->max_msg_sz = 1 << (field & 0x1f);
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_FLOW_STEERING_RANGE_EN_OFFSET);
- 	if (field & 0x80)
- 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_FS_EN;
--- 
-1.7.1
+What is your long term goal? Is this just a development tool? Are you
+thinking of making a product which integrates both the switch and the
+USB ethernet onto a USB dongle? This could also change the
+architecture, since it makes the configuration more fixed.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    Andrew
