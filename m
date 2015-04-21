@@ -1,48 +1,46 @@
-From: =?UTF-8?B?UGF2ZWwgxaBpbWVyZGE=?= <pavlix@pavlix.net>
-Subject: Re: [PATCH 2/7] turn Makefile more distribution friendly
-Date: Tue, 21 Apr 2015 17:32:32 +0200
-Message-ID: <55366D90.8070904@pavlix.net>
-References: <1428933661-8193-2-git-send-email-pavlix@pavlix.net> <20150420095515.1578733e@urahara>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2 1/3] tc: fix compilation warning on 32bits arch
+Date: Tue, 21 Apr 2015 18:06:35 +0200
+Message-ID: <1429632397-11122-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, psimerda@redhat.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fox.pavlix.net ([84.246.161.104]:35622 "EHLO fox.pavlix.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932359AbbDUPeX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Apr 2015 11:34:23 -0400
-In-Reply-To: <20150420095515.1578733e@urahara>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53649 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932796AbbDUQGv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 12:06:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/20/2015 06:55 PM, Stephen Hemminger wrote:
-> On Mon, 13 Apr 2015 16:00:56 +0200
-> Pavel =C5=A0imerda <pavlix@pavlix.net> wrote:
->=20
->> From: Pavel =C5=A0imerda <psimerda@redhat.com>
->>
->> Changes:
->>
->>  * Accept directory settings from environment.
->>  * Remove redundant ROOTDIR variable.
->>  * Set KERNEL_INCLUDE default to '/usr/include'.
->>  * Use CFLAGS from environemnt.
->>
->> Note: In the long term it might be better to improve the configure
->> script to generate those parts of the Makefile in a manner similar
->> to autoconf. It might be even practical to autotoolize the package.
->>
->> Signed-off-by: Pavel =C5=A0imerda <psimerda@redhat.com>
->=20
-> I will take this part.
-> But don't want to start iproute2 down the autoconf/autotool sink hole=
-=2E
+The warning was:
+m_simple.c: In function =E2=80=98parse_simple=E2=80=99:
+m_simple.c:142:4: warning: format =E2=80=98%ld=E2=80=99 expects argumen=
+t of type =E2=80=98long int=E2=80=99, but argument 3 has type =E2=80=98=
+size_t=E2=80=99 [-Wformat]
 
-Thanks! The changes I submitted should generally be good enough for
-distro maintainers to avoid Makefile modifications.
+Useful to be able to compile with -Werror.
 
-Cheers,
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ tc/m_simple.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Pavel
+diff --git a/tc/m_simple.c b/tc/m_simple.c
+index 866552f559b3..3b6d7beb769c 100644
+--- a/tc/m_simple.c
++++ b/tc/m_simple.c
+@@ -139,7 +139,7 @@ parse_simple(struct action_util *a, int *argc_p, ch=
+ar ***argv_p, int tca_id,
+=20
+ 	if (strlen(simpdata) > (SIMP_MAX_DATA - 1)) {
+ 		fprintf(stderr, "simple: Illegal string len %ld <%s> \n",
+-			strlen(simpdata), simpdata);
++			(long)strlen(simpdata), simpdata);
+ 		return -1;
+ 	}
+=20
+--=20
+2.2.2
