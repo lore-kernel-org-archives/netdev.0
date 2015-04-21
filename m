@@ -1,54 +1,71 @@
-From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Tue, 21 Apr 2015 12:58:56 +0900
-Message-ID: <5535CB00.4060209@miraclelinux.com>
-References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com> <552F45AA.6010906@miraclelinux.com> <5530BE40.1000504@ericsson.com> <55346580.6060801@miraclelinux.com> <5534F5B8.1030405@ericsson.com>
+From: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [PATCH v2 01/11] RDMA/CMA: Mark IPv4 addresses correctly when the
+ listener is IPv6
+Date: Tue, 21 Apr 2015 05:18:18 +0000
+Message-ID: <AM3PR05MB0935A4C8ECDB01DDE146BCA2DCEF0@AM3PR05MB0935.eurprd05.prod.outlook.com>
+References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
+	<1429520622-10303-2-git-send-email-haggaie@mellanox.com>
+	<20150420164140.GC7676@obsidianresearch.com>
+ <CAJ3xEMgKFdr68Qt0vNCaf1p4YjPK2KUSn2FdtQVP0SZQ+Y7atg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, netdev@vger.kernel.org
-To: Ulf Samuelsson <ulf.samuelsson@ericsson.com>, netdev@emagii.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og111.obsmtp.com ([64.18.2.175]:54281 "HELO
-	exprod7og111.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752107AbbDUEGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 00:06:19 -0400
-Received: by mail-pa0-f51.google.com with SMTP id oj16so227816776pab.0
-        for <netdev@vger.kernel.org>; Mon, 20 Apr 2015 21:06:19 -0700 (PDT)
-In-Reply-To: <5534F5B8.1030405@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAJ3xEMgKFdr68Qt0vNCaf1p4YjPK2KUSn2FdtQVP0SZQ+Y7atg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Ulf Samuelsson wrote:
->> How many neighbors do you want to maintain?
->> I guess you have to increase the number of gc_thresh1.
-> The current use cases have up to 2048 entries.
-> This is expected to grow in the future.
-> The 3.4 kernel used in the system today is limited to 1024,
-> but that has been raised to about 10k.
-> 
-> The gc_thresh1 test is not implemented in 3.4 but can be backported,
-> but still not convinced it is a good idea.
-
-Why?
-
-> To complicate things, one requirement is that for some interfaces
-> you always want to keep things alive, if connected, but
-> for other interfaces you want things to be removed
-> to conserve memory.
-> Actually you would want to do this selection on a subnet level.
-
-If you want to introduce per-interface parameter, I am okay with it.
-
-> 
-> Internal discussions resulted in a proposal to change the patch,
-> so that you have a "keepalive" flag which is tested after
-> it has been decided to exit the REACHABLE state.
-> 
-> if the "keepalive" flag is set, you always go to DELAY state from REACHABLE.
-
-No.
-
--- 
-Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
-Technical Division, MIRACLE LINUX CORPORATION
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT3IgR2VybGl0eiBbbWFp
+bHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDIwLCAyMDE1
+IDk6MzggUE0NCj4gDQo+IE9uIE1vbiwgQXByIDIwLCAyMDE1IGF0IDc6NDEgUE0sIEphc29uIEd1
+bnRob3JwZQ0KPiA8amd1bnRob3JwZUBvYnNpZGlhbnJlc2VhcmNoLmNvbT4gd3JvdGU6DQo+ID4g
+T24gTW9uLCBBcHIgMjAsIDIwMTUgYXQgMTI6MDM6MzJQTSArMDMwMCwgSGFnZ2FpIEVyYW4gd3Jv
+dGU6DQo+ID4+IEZyb206IFlvdGFtIEtlbm5ldGggPHlvdGFta2VAbWVsbGFub3guY29tPg0KPiA+
+Pg0KPiA+PiBXaGVuIGFjY2VwdGluZyBhIG5ldyBjb25uZWN0aW9uIHdpdGggdGhlIGxpc3RlbmVy
+IGJlaW5nIElQdjYsIHRoZQ0KPiA+PiBmYW1pbHkgb2YgdGhlIG5ldyBjb25uZWN0aW9uIGlzIHNl
+dCBhcyBJUHY2LiBUaGlzIGNhdXNlcw0KPiBjbWFfemVyb19hZGRyDQo+ID4+IGZ1bmN0aW9uIHRv
+IHJldHVybiB0cnVlIG9uIGFuIG5vbi16ZXJvIGFkZHJlc3MuIEFzIGEgcmVzdWx0LCB0aGUNCj4g
+d3JvbmcNCj4gPj4gY29kZSBwYXRoIGlzIHRha2VuLiBUaGlzIGNhdXNlcyB0aGUgY29ubmVjdGlv
+biByZXF1ZXN0IHRvIGJlDQo+IHJlamVjdGVkLA0KPiA+PiBhcyB0aGUgUkRNQS1DTSBjb2RlIGxv
+b2tzIGZvciB0aGUgd3JvbmcgdHlwZSBvZiBkZXZpY2UuDQo+ID4NCj4gPiBUaGlzIGRlc2NyaXB0
+aW9uIGRvZXNuJ3QgcmVhbGx5IG1ha2Ugc2Vuc2UgYXMgdG8gd2hhdCB0aGUgcHJvYmxlbSBpcy4N
+Cj4gPg0KPiA+PiBAQCAtODY2LDEyICs4NjYsMTIgQEAgc3RhdGljIHZvaWQgY21hX3NhdmVfaXA0
+X2luZm8oc3RydWN0IHJkbWFfY21faWQNCj4gKmlkLCBzdHJ1Y3QgcmRtYV9jbV9pZCAqbGlzdGVu
+X2kNCj4gPj4NCj4gPj4gICAgICAgbGlzdGVuNCA9IChzdHJ1Y3Qgc29ja2FkZHJfaW4gKikgJmxp
+c3Rlbl9pZC0NCj4gPnJvdXRlLmFkZHIuc3JjX2FkZHI7DQo+ID4+ICAgICAgIGlwNCA9IChzdHJ1
+Y3Qgc29ja2FkZHJfaW4gKikgJmlkLT5yb3V0ZS5hZGRyLnNyY19hZGRyOw0KPiA+PiAtICAgICBp
+cDQtPnNpbl9mYW1pbHkgPSBsaXN0ZW40LT5zaW5fZmFtaWx5Ow0KPiA+PiArICAgICBpcDQtPnNp
+bl9mYW1pbHkgPSBBRl9JTkVUOw0KPiA+DQo+ID4gSWYgbGlzdGVuX2lkLT5yb3V0ZS5hZGRyLnNy
+Y19hZGRyLnNzX2ZhbWlseSAhPSBBRl9JTkVUIHRoZW4gaXQgaXMNCj4gPiBpbnZhbGlkIHRvIGNh
+c3QgdG8gc29ja2FkZHJfaW4uDQo+ID4NCj4gPiBTbyBsaXN0ZW40LT5zaW5fZmFtaWx5IE1VU1Qg
+YmUgQUZfSU5FVCBvciB0aGlzIGZ1bmN0aW9uIE1VU1QgTk9UIGJlDQo+ID4gY2FsbGVkLg0KPiA+
+DQo+ID4gRm9yY2luZyB0byBBRl9JTkVUIGNhbm5vdCBiZSBjb3JyZWN0IGhlcmUuDQo+IA0KPiBK
+YXNvbiwgY291bGQgeW91IHRha2UgYSBsb29rIEAgdGhpcyB0aHJlYWQNCj4gaHR0cDovL21hcmMu
+aW5mby8/dD0xNDE1ODkzOTUwMDAwMDQmcj0xJnc9MiB3aGVyZSB0aGUgYXV0aG9ycw0KPiBhZGRy
+ZXNzZWQgc29tZSBjb21tZW50cyBmcm9tIFNlYW4gYW5kIGhlIGV2ZW50dWFsbHkgQWNrZWQgdGhl
+IHBhdGNoPw0KPiANCj4gPiBXaGF0IGRvZXMgdGhpcyBwYXRjaCBoYXZlIHRvIGRvIHdpdGggdGhp
+cyBzZXJpZXM/DQo+IA0KPiBJIGJlbGlldmUgaXQncyBlaXRoZXIgYSBwcmUtcGF0Y2ggdG8gYWRk
+cmVzcyBzb21lIGFzc3VtcHRpb24gb3INCj4gc29tZXRoaW5nIHRoZXkgc3RlcHBlZCBvbiB3aGls
+ZSB0ZXN0aW5nDQo+IA0KDQpXZSBzdGVwcGVkIHVwb24gdGhpcyBpc3N1ZSB3aGlsZSB0ZXN0aW5n
+IHRoZSBjb250YWluZXJzIHN1cHBvcnQgd2UgYXJlDQpTdWJtaXR0aW5nIGhlcmUuIFdoZW4gY3Jl
+YXRpbmcgYSBuZXcgbmV0d29yayBuYW1lc3BhY2UsIHRoZSBrZXJuZWwgc2V0IA0KbmV0LT5pcHY2
+LnN5c2N0bC5iaW5kdjZvbmx5IHRvIDAuIEFzIGEgcmVzdWx0LCB3ZSBnb3QgdGhlIElQdjYgbGlz
+dGVuaW5nDQpJRCBhY2NlcHRpbmcgSVB2NCBjb25uZWN0aW9uLiBUaGlzIGlzIGZpeGVkIGJ5IHRo
+ZSBhYm92ZSBwYXRjaC4NCg0KVGhhbmtzLA0KLS1TaGFjaGFyDQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
