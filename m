@@ -1,30 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: add memory barriers to write space paths
-Date: Tue, 21 Apr 2015 15:58:15 -0400 (EDT)
-Message-ID: <20150421.155815.1818097515812833010.davem@davemloft.net>
-References: <20150420200507.21414203F@prod-mail-relay06.akamai.com>
+From: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
+Subject: Re: [PATCH] etherdevice: Add ether_addr_copy_unaligned
+Date: Tue, 21 Apr 2015 22:06:16 +0200
+Message-ID: <5536ADB8.1040809@gmail.com>
+References: <1429479577-3977-1-git-send-email-mateusz.kulikowski@gmail.com> <20150420.141914.1605864056122893264.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: jbaron@akamai.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55292 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932096AbbDUT6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 15:58:20 -0400
-In-Reply-To: <20150420200507.21414203F@prod-mail-relay06.akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, dan.carpenter@oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150420.141914.1605864056122893264.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jason Baron <jbaron@akamai.com>
-Date: Mon, 20 Apr 2015 20:05:07 +0000 (GMT)
-
-> Ensure that we either see that the buffer has write space
-> in tcp_poll() or that we perform a wakeup from the input
-> side. Did not run into any actual problem here, but thought
-> that we should make things explicit.
+On 20.04.2015 20:19, David Miller wrote:
+(...)
+> I'd rather see something like this submitted in a patch series alongside
+> some actual uses.
 > 
-> Signed-off-by: Jason Baron <jbaron@akamai.com>
+> So I'm tossing this for now.
+> 
+Ok;
 
-This looks fine, applied, thanks.
+I'll add it to a series where I need it (rtl8192e)
+
+Regards,
+Mateusz
