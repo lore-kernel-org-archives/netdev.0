@@ -1,80 +1,62 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next V2 12/12] net/mlx5: Ethernet driver
-Date: Tue, 21 Apr 2015 16:30:40 +0300
-Message-ID: <55365100.4060208@mellanox.com>
-References: <1428999635-15025-1-git-send-email-amirv@mellanox.com>
-	<1428999635-15025-13-git-send-email-amirv@mellanox.com>
- <20150414.145113.192331451516214119.davem@davemloft.net>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: [PATCH v2 00/11] Add network namespace support in the RDMA-CM
+Date: Tue, 21 Apr 2015 09:11:57 -0500
+Message-ID: <55365AAD.6020100@opengridcomputing.com>
+References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com> <553512FA.1040708@opengridcomputing.com> <5535EFE9.3000106@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<yevgenyp@mellanox.com>, <saeedm@mellanox.com>,
-	<achiad@mellanox.com>, <idos@mellanox.com>, <talal@mellanox.com>
-To: <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0070.outbound.protection.outlook.com ([157.55.234.70]:27706
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754056AbbDUNaw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Apr 2015 09:30:52 -0400
-In-Reply-To: <20150414.145113.192331451516214119.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5535EFE9.3000106-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 4/14/2015 9:51 PM, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Tue, 14 Apr 2015 11:20:35 +0300
+On 4/21/2015 1:36 AM, Haggai Eran wrote:
+> On 20/04/2015 17:53, Steve Wise wrote:
+>> Hey Haggai,
+>>
+>> Did you check for changes needed in drivers/infiniband/core/iwcm.c?
+> We focused on namespace support for InfiniBand alone in this series. We
+> didn't handle iWARP, nor did we implement support for RoCE or other
+> transports.
 >
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> What does "Ethernet driver" mean?
->
-> Are you adding a new ethernet driver?  If so, what is it for and how
-> does it interact with the existing mlx5 driver?
->
-> It looks to me like you are adding a lot of code and objects to the
-> existing mlx5 module.  An incredible amount, in fact.  This seems very
-> suboptimal especially for users of the existing mlx5 chips.
+>> I notice that it uses init_net here:
+>>
+>> static int __init iw_cm_init(void)
+>> {
+>>          iwcm_wq = create_singlethread_workqueue("iw_cm_wq");
+>>          if (!iwcm_wq)
+>>                  return -ENOMEM;
+>>
+>>          iwcm_ctl_table_hdr = register_net_sysctl(&init_net, "net/iw_cm",
+>>                                                   iwcm_ctl_table);
+>>          if (!iwcm_ctl_table_hdr) {
+>>                  pr_err("iw_cm: couldn't register sysctl paths\n");
+>>                  destroy_workqueue(iwcm_wq);
+>>                  return -ENOMEM;
+>>          }
+>>
+>>          return 0;
+>> }
+>>
+> I see the only thing in the iWARP sysctl registered here is the default
+> backlog. If you want to control this parameter per namespace, we could
+> store it per network namespace, and add a namespace parameter to
+> iw_cm_listen. I'm not sure how important this is though.
 
-Hi Dave,
+I don't think it needs to be per namespace, as long as it still applies 
+across all name spaces.
 
-To clarify things a bit, the mlx5 driver serves two NICs families: 
-ConnectIB (device IDs 0x1011/12) and ConnectX4 (device IDs 1013-1016).
-
-ConnectIB HW is IB only, ConnextX4 is IB and Ethernet.
-
-This submission enhances the driver to support Ethernet for the 
-ConnectX4 family.
-
-In a similar manner to the mlx4 driver stacking, mlx5 has has IB driver 
-and core driver. Per your comments, in V3, the Ethernet functionality 
-would be added per dedicated config directive, such that if someone 
-wants only the IB driver to be functional, the Ethernet netdev code and 
-such doesn't get built.
-
-
-
-
-
-> You haven't discussed this, what design decisions made you decide in the end to do it this way, etc.
->
-> You absolutely have to say something other than "Ethernet driver"
-> in this commit message, I expect several paragraphs of details
-> and the hows and whys of the change as it is a non-trivial amount
-> of code being added here.
-
-Understood, will add more text to the cover letter, change-logs, etc.
-
-
-> I still consider this patch series not ready yet, and the merge
-> window is open thus closing the net-next tree.
->
-> You will therefore need to wait until the net-next tree opens
-> again before submitting this series again.
-
-Sure, thanks for the review feedback provided so far.
-
-BTW Sorry for the late reply, just realized today there has been no 
-response on your comments.
-
-Or.
+Steve.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
