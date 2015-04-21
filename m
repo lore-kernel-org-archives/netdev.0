@@ -1,41 +1,37 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] igb: fix a typo in igb_reset_q_vector()
-Date: Tue, 21 Apr 2015 16:20:33 -0700
-Message-ID: <1429658433-8634-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Networking microconference at LPC15 in Seattle (Aug 19-21)
+Date: Wed, 22 Apr 2015 00:33:04 +0100
+Message-ID: <20150421233304.GA21799@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:34321 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964880AbbDUXUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 19:20:41 -0400
-Received: by pdbqa5 with SMTP id qa5so255675591pdb.1
-        for <netdev@vger.kernel.org>; Tue, 21 Apr 2015 16:20:41 -0700 (PDT)
+Received: from casper.infradead.org ([85.118.1.10]:48718 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964880AbbDUXdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 19:33:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes: 5536d2102a2d ("igb: Combine q_vector and ring allocation into a single function")
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi,
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8457d03..85bbeb2 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1036,7 +1036,7 @@ static void igb_reset_q_vector(struct igb_adapter *adapter, int v_idx)
- 		adapter->tx_ring[q_vector->tx.ring->queue_index] = NULL;
- 
- 	if (q_vector->rx.ring)
--		adapter->tx_ring[q_vector->rx.ring->queue_index] = NULL;
-+		adapter->rx_ring[q_vector->rx.ring->queue_index] = NULL;
- 
- 	netif_napi_del(&q_vector->napi);
- 
--- 
-1.8.3.1
+Tom and myself will be running another iteration of a networking
+focused microconference [0] at LPC, Aug 19-21 in Seattle. Given that
+a bunch of us will be in Seattle anyway we might as well have a
+general networking session and spend some time together.
+
+This year's focus is on: IPv6, Network Virtualization, and Security.
+
+Please note that separated sessions are proposed for "Network offload",
+"Wireless networking" and "Network management".
+
+If you are interested in participating and have ideas for discussions,
+please add them to the wiki [0]. If you are interested in attending,
+please list your name on the wiki [0]. If you are interested in
+helping us run the session, feel free to reach out to us.
+
+[0] http://wiki.linuxplumbersconf.org/2015:networking
+
+Thomas
