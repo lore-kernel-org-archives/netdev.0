@@ -1,63 +1,29 @@
-From: Haggai Eran <haggaie@mellanox.com>
-Subject: Re: [PATCH v2 00/11] Add network namespace support in the RDMA-CM
-Date: Tue, 21 Apr 2015 09:36:25 +0300
-Message-ID: <5535EFE9.3000106@mellanox.com>
-References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
- <553512FA.1040708@opengridcomputing.com>
+From: Colin & Chris Weir <isanchez@utm.edu.ec>
+Subject: DONATION OF $1.5 MILLION DOLLARS!!!
+Date: Tue, 21 Apr 2015 02:33:22 -0500 (ECT)
+Message-ID: <3e95a290-6dbb-430e-ae9b-303e8da2416d@mail>
+Reply-To: Colin & Chris Weir <chrisweir45@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Sean Hefty <sean.hefty@intel.com>, <linux-rdma@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Steve Wise <swise@opengridcomputing.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Roland Dreier <roland@kernel.org>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0099.outbound.protection.outlook.com ([157.56.112.99]:56316
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750710AbbDUGiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Apr 2015 02:38:21 -0400
-In-Reply-To: <553512FA.1040708@opengridcomputing.com>
+Received: from mail.utm.edu.ec ([186.46.160.198]:38643 "EHLO mail.utm.edu.ec"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752112AbbDUHhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Apr 2015 03:37:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20/04/2015 17:53, Steve Wise wrote:
-> 
-> Hey Haggai,
-> 
-> Did you check for changes needed in drivers/infiniband/core/iwcm.c? 
+My wife and I have awarded you with a donation of $ 1.5 million Dollars from
+part of our Jackpot Lottery of 161,653,000 Million Pounds, send your name,
+address, phone for claims.
 
-We focused on namespace support for InfiniBand alone in this series. We
-didn't handle iWARP, nor did we implement support for RoCE or other
-transports.
+View http://www.bbc.co.uk/news/uk-scotland-glasgow-west-18801698
 
-> I notice that it uses init_net here:
-> 
-> static int __init iw_cm_init(void)
-> {
->         iwcm_wq = create_singlethread_workqueue("iw_cm_wq");
->         if (!iwcm_wq)
->                 return -ENOMEM;
-> 
->         iwcm_ctl_table_hdr = register_net_sysctl(&init_net, "net/iw_cm",
->                                                  iwcm_ctl_table);
->         if (!iwcm_ctl_table_hdr) {
->                 pr_err("iw_cm: couldn't register sysctl paths\n");
->                 destroy_workqueue(iwcm_wq);
->                 return -ENOMEM;
->         }
-> 
->         return 0;
-> }
-> 
+We await your earliest response and God Bless you.
 
-I see the only thing in the iWARP sysctl registered here is the default
-backlog. If you want to control this parameter per namespace, we could
-store it per network namespace, and add a namespace parameter to
-iw_cm_listen. I'm not sure how important this is though.
+Best of luck.
 
-Haggai
+Colin & Chris Weir
+Reply to: chrisweir45@qq.com
