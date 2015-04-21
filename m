@@ -1,145 +1,175 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v2 02/11] IB/addr: Pass network namespace as a parameter
-Date: Tue, 21 Apr 2015 13:34:58 +0300
-Message-ID: <553627D2.7050607@mellanox.com>
-References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
-	 <1429520622-10303-3-git-send-email-haggaie@mellanox.com>
- <1429567530.45956.31.camel@redhat.com>
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: Re: [PATCH 05/11] time/posix-timers:Convert to the 64bit methods for
+ k_clock callback functions
+Date: Tue, 21 Apr 2015 16:36:13 +0800
+Message-ID: <CAMz4kuKF2sU4tMD7UtDobu2kVDMp7cfHNERSPQ9Yyzs80tOzYg@mail.gmail.com>
+References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
+ <1429509459-17068-6-git-send-email-baolin.wang@linaro.org>
+ <alpine.DEB.2.11.1504202243070.13914@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1429567530.45956.31.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed; boundary="===============5371854255723363967=="
+Cc: Xunlei Pang <pang.xunlei@linaro.org>, peterz@infradead.org,
+ heiko.carstens@de.ibm.com, paulus@samba.org, cl@linux.com,
+ Heena Sirwani <heenasirwani@gmail.com>, linux-arch@vger.kernel.org,
+ linux-s390@vger.kernel.org, y2038 Mailman List <y2038@lists.linaro.org>,
+ rafael.j.wysocki@intel.com, Andrew Hunter <ahh@google.com>,
+ =?UTF-8?B?RnLDqWTDqXJpYyBXZWlzYmVja2Vy?= <fweisbec@gmail.com>,
+ Paul Turner <pjt@google.com>, riel@redhat.com, Arnd Bergmann <arnd@arndb.de>,
+ Richard Cochran <richardcochran@gmail.com>, schwidefsky@de.ibm.com,
+ John Stultz <john.stultz@linaro.org>, rth@twiddle.net,
+ gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
+ linuxppc-dev@lists.ozlabs.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <alpine.DEB.2.11.1504202243070.13914@nanos>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-On 21/04/2015 01:05, Doug Ledford wrote:
-> On Mon, 2015-04-20 at 12:03 +0300, Haggai Eran wrote:
->> From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>
->> Add network namespace support to the ib_addr module. For that, all the address
->> resolution and matching should be done using the appropriate namespace instead
->> of init_net.
->>
->> This is achieved by:
->>
->> 1. Adding an explicit network namespace argument to exported function that
->>    require a namespace.
->> 2. Saving the namespace in the rdma_addr_client structure.
->> 3. Using it when calling networking functions.
->>
->> In order to preserve the behavior of calling modules, &init_net is
->> passed as the parameter in calls from other modules. This is modified as
->> namespace support is added on more levels.
->>
->> Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->> Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->> Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->> Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->> ---
->>  drivers/infiniband/core/addr.c           | 31 ++++++++++++----------
->>  drivers/infiniband/core/cma.c            |  4 ++-
->>  drivers/infiniband/core/verbs.c          | 14 +++++++---
->>  drivers/infiniband/hw/ocrdma/ocrdma_ah.c |  3 ++-
->>  include/rdma/ib_addr.h                   | 44 ++++++++++++++++++++++++++++----
->>  5 files changed, 72 insertions(+), 24 deletions(-)
->>
->> diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
->> index f80da50d84a5..95beaef6b66d 100644
->> --- a/drivers/infiniband/core/addr.c
->> +++ b/drivers/infiniband/core/addr.c
->> @@ -128,7 +128,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
->>  	int ret = -EADDRNOTAVAIL;
->>  
->>  	if (dev_addr->bound_dev_if) {
->> -		dev = dev_get_by_index(&init_net, dev_addr->bound_dev_if);
->> +		dev = dev_get_by_index(dev_addr->net, dev_addr->bound_dev_if);
->>  		if (!dev)
->>  			return -ENODEV;
->>  		ret = rdma_copy_addr(dev_addr, dev, NULL);
->> @@ -137,9 +137,10 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
->>  	}
->>  
->>  	switch (addr->sa_family) {
->> -	case AF_INET:
->> -		dev = ip_dev_find(&init_net,
->> -			((struct sockaddr_in *) addr)->sin_addr.s_addr);
->> +	case AF_INET: {
->                        ^ Please don't add brackets just so you can
-> convert a cast into a variable declaration that's unnecessary
-> 
->> +		struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
->> +
->> +		dev = ip_dev_find(dev_addr->net, addr_in->sin_addr.s_addr);
->>  
->>  		if (!dev)
->>  			return ret;
->> @@ -149,12 +150,12 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
->>  			*vlan_id = rdma_vlan_dev_vlan_id(dev);
->>  		dev_put(dev);
->>  		break;
->> -
->> +	}
->>  #if IS_ENABLED(CONFIG_IPV6)
->>  	case AF_INET6:
->>  		rcu_read_lock();
->> -		for_each_netdev_rcu(&init_net, dev) {
->> -			if (ipv6_chk_addr(&init_net,
->> +		for_each_netdev_rcu(dev_addr->net, dev) {
->> +			if (ipv6_chk_addr(dev_addr->net,
->>  					  &((struct sockaddr_in6 *) addr)->sin6_addr,
->>  					  dev, 1)) {
->>  				ret = rdma_copy_addr(dev_addr, dev, NULL);
->> @@ -236,7 +237,7 @@ static int addr4_resolve(struct sockaddr_in *src_in,
->>  	fl4.daddr = dst_ip;
->>  	fl4.saddr = src_ip;
->>  	fl4.flowi4_oif = addr->bound_dev_if;
->> -	rt = ip_route_output_key(&init_net, &fl4);
->> +	rt = ip_route_output_key(addr->net, &fl4);
->>  	if (IS_ERR(rt)) {
->>  		ret = PTR_ERR(rt);
->>  		goto out;
->> @@ -278,12 +279,13 @@ static int addr6_resolve(struct sockaddr_in6 *src_in,
->>  	fl6.saddr = src_in->sin6_addr;
->>  	fl6.flowi6_oif = addr->bound_dev_if;
->>  
->> -	dst = ip6_route_output(&init_net, NULL, &fl6);
->> +	dst = ip6_route_output(addr->net, NULL, &fl6);
->>  	if ((ret = dst->error))
->>  		goto put;
->>  
->>  	if (ipv6_addr_any(&fl6.saddr)) {
->> -		ret = ipv6_dev_get_saddr(&init_net, ip6_dst_idev(dst)->dev,
->> +		ret = ipv6_dev_get_saddr(addr->net,
->> +					 ip6_dst_idev(dst)->dev,
->>  					 &fl6.daddr, 0, &fl6.saddr);
->>  		if (ret)
->>  			goto put;
->> @@ -458,7 +460,7 @@ static void resolve_cb(int status, struct sockaddr *src_addr,
->>  }
->>  
->>  int rdma_addr_find_dmac_by_grh(union ib_gid *sgid, union ib_gid *dgid, u8 *dmac,
->> -			       u16 *vlan_id)
->> +			       u16 *vlan_id, struct net *net)
-> 
-> In the core networking code, the net namespace is always first.  Please
-> stick with that paradigm.
-> 
+--===============5371854255723363967==
+Content-Type: multipart/alternative; boundary=089e0122f07478b051051437f06d
 
-I'll fix these comments in the next revision.
+--089e0122f07478b051051437f06d
+Content-Type: text/plain; charset=UTF-8
 
-Thanks,
-Haggai
+On 21 April 2015 at 04:48, Thomas Gleixner <tglx@linutronix.de> wrote:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On Mon, 20 Apr 2015, Baolin Wang wrote:
+> >  /* Set clock_realtime */
+> >  static int posix_clock_realtime_set(const clockid_t which_clock,
+> > -                                 const struct timespec *tp)
+> > +                                 const struct timespec64 *tp)
+> >  {
+> > -     return do_sys_settimeofday(tp, NULL);
+> > +     struct timespec ts = timespec64_to_timespec(*tp);
+> > +
+> > +     return do_sys_settimeofday(&ts, NULL);
+>
+> Sigh. No. We first provide a proper function for this, which takes a
+> timespec64, i.e. do_sys_settimeofday64() instead of having this
+> wrapper mess all over the place.
+>
+
+Thanks for your comments,but if use do_sys_settimeofday64() here that
+will  introduce
+a security bug: do_sys_settimeofday contains a capability
+check that normally prevents non-root users from setting the time.
+
+With your change, any user can set the system time.
+
+>
+> >       /* SIGEV_NONE timers are not queued ! See common_timer_get */
+> >       if (((timr->it_sigev_notify & ~SIGEV_THREAD_ID) == SIGEV_NONE)) {
+> > diff --git a/kernel/time/timekeeping.h b/kernel/time/timekeeping.h
+> > index 1d91416..144af14 100644
+> > --- a/kernel/time/timekeeping.h
+> > +++ b/kernel/time/timekeeping.h
+> > @@ -15,7 +15,7 @@ extern u64 timekeeping_max_deferment(void);
+> >  extern int timekeeping_inject_offset(struct timespec *ts);
+> >  extern s32 timekeeping_get_tai_offset(void);
+> >  extern void timekeeping_set_tai_offset(s32 tai_offset);
+> > -extern void timekeeping_clocktai(struct timespec *ts);
+> > +extern void timekeeping_clocktai(struct timespec64 *ts);
+>
+> # git grep timekeeping_clocktai() is your friend.
+>
+> Thanks,
+>
+>         tglx
+>
+
+
+
+-- 
+Baolin.wang
+Best Regards
+
+--089e0122f07478b051051437f06d
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr"><br><div class=3D"gmail_extra"><br><div class=3D"gmail_quo=
+te">On 21 April 2015 at 04:48, Thomas Gleixner <span dir=3D"ltr">&lt;<a hre=
+f=3D"mailto:tglx@linutronix.de" target=3D"_blank">tglx@linutronix.de</a>&gt=
+;</span> wrote:<br><blockquote class=3D"gmail_quote" style=3D"margin-top:0p=
+x;margin-right:0px;margin-bottom:0px;margin-left:0.8ex;border-left-width:1p=
+x;border-left-color:rgb(204,204,204);border-left-style:solid;padding-left:1=
+ex"><span class=3D"">On Mon, 20 Apr 2015, Baolin Wang wrote:<br>
+&gt;=C2=A0 /* Set clock_realtime */<br>
+&gt;=C2=A0 static int posix_clock_realtime_set(const clockid_t which_clock,=
+<br>
+&gt; -=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0const struct timespec *tp)=
+<br>
+&gt; +=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0const struct timespec64 *t=
+p)<br>
+&gt;=C2=A0 {<br>
+&gt; -=C2=A0 =C2=A0 =C2=A0return do_sys_settimeofday(tp, NULL);<br>
+&gt; +=C2=A0 =C2=A0 =C2=A0struct timespec ts =3D timespec64_to_timespec(*tp=
+);<br>
+&gt; +<br>
+&gt; +=C2=A0 =C2=A0 =C2=A0return do_sys_settimeofday(&amp;ts, NULL);<br>
+<br>
+</span>Sigh. No. We first provide a proper function for this, which takes a=
+<br>
+timespec64, i.e. do_sys_settimeofday64() instead of having this<br>
+wrapper mess all over the place.<br></blockquote><div><br></div><span style=
+=3D"font-size:13px">Thanks for your comments,but if use=C2=A0</span>do_sys_=
+settimeofday64() here that will=C2=A0<span style=3D"font-size:13px">=C2=A0i=
+ntroduce a security bug: do_sys_settimeofday contains a capability</span></=
+div><div class=3D"gmail_quote"><span style=3D"font-size:13px">check that no=
+rmally prevents non-root users from setting the time.</span><br style=3D"fo=
+nt-size:13px"><br style=3D"font-size:13px"><div><span style=3D"font-size:13=
+px">With your change, any user can set the system time.</span>=C2=A0</div><=
+blockquote class=3D"gmail_quote" style=3D"margin-top:0px;margin-right:0px;m=
+argin-bottom:0px;margin-left:0.8ex;border-left-width:1px;border-left-color:=
+rgb(204,204,204);border-left-style:solid;padding-left:1ex">
+<span class=3D""><br>
+&gt;=C2=A0 =C2=A0 =C2=A0 =C2=A0/* SIGEV_NONE timers are not queued ! See co=
+mmon_timer_get */<br>
+&gt;=C2=A0 =C2=A0 =C2=A0 =C2=A0if (((timr-&gt;it_sigev_notify &amp; ~SIGEV_=
+THREAD_ID) =3D=3D SIGEV_NONE)) {<br>
+&gt; diff --git a/kernel/time/timekeeping.h b/kernel/time/timekeeping.h<br>
+&gt; index 1d91416..144af14 100644<br>
+&gt; --- a/kernel/time/timekeeping.h<br>
+&gt; +++ b/kernel/time/timekeeping.h<br>
+&gt; @@ -15,7 +15,7 @@ extern u64 timekeeping_max_deferment(void);<br>
+&gt;=C2=A0 extern int timekeeping_inject_offset(struct timespec *ts);<br>
+&gt;=C2=A0 extern s32 timekeeping_get_tai_offset(void);<br>
+&gt;=C2=A0 extern void timekeeping_set_tai_offset(s32 tai_offset);<br>
+&gt; -extern void timekeeping_clocktai(struct timespec *ts);<br>
+&gt; +extern void timekeeping_clocktai(struct timespec64 *ts);<br>
+<br>
+</span># git grep timekeeping_clocktai() is your friend.<br>
+<br>
+Thanks,<br>
+<br>
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 tglx<br>
+</blockquote></div><br><br clear=3D"all"><div><br></div>-- <br><div class=
+=3D"gmail_signature"><div dir=3D"ltr"><div>Baolin.wang<br></div>Best Regard=
+s<br></div></div>
+</div></div>
+
+--089e0122f07478b051051437f06d--
+
+--===============5371854255723363967==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: inline
+
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+
+--===============5371854255723363967==--
