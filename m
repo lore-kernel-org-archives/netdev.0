@@ -1,54 +1,94 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: randconfig build error with next-20150421, in net/ceph
-Date: Tue, 21 Apr 2015 19:26:07 +0300
-Message-ID: <CAOi1vP8v+w8hOgaDEYcHC-S4Mgw1kkmLuG1KJ+vQ7aUZ9dhRrw@mail.gmail.com>
-References: <CA+r1Zhgwq-t+M8XOxDqf5synesyHODOee2gNwAJpWE+wwmAAoQ@mail.gmail.com>
-	<20150421161613.GA29133@roeck-us.net>
-	<alpine.DEB.2.00.1504210920110.18547@cobra.newdream.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"Yan, Zheng" <zyan@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ceph Development <ceph-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Sage Weil <sage@newdream.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1504210920110.18547@cobra.newdream.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andreas Oetken <ennoerlangen@googlemail.com>
+Subject: [PATCH] altera tse: add support for lixed-links.
+Date: Tue, 21 Apr 2015 18:32:25 +0200
+Message-ID: <1429633945-30463-1-git-send-email-ennoerlangen@gmail.com>
+Cc: Andreas Oetken <ennoerlangen@gmail.com>
+To: Vince Bridgers <vbridger@opensource.altera.com>,
+	netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:34847 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934341AbbDUQcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 12:32:32 -0400
+Received: by widdi4 with SMTP id di4so146170985wid.0
+        for <netdev@vger.kernel.org>; Tue, 21 Apr 2015 09:32:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 21, 2015 at 7:21 PM, Sage Weil <sage@newdream.net> wrote:
-> On Tue, 21 Apr 2015, Guenter Roeck wrote:
->> On Tue, Apr 21, 2015 at 08:10:44AM -0700, Jim Davis wrote:
->> > Building with the attached random configuration file,
->> >
->> > ERROR: "__divdi3" [net/ceph/libceph.ko] undefined!
->>
->> Commit 7321f19d ("crush: straw2 bucket type with an efficient 64-bit crush_ln()").
->>
->> +                       draw = ln / w;
->>
->> where 'ln' is 64 bit.
->>
->> Some other oddies in that patch, such as
->>
->> +#if defined(__linux__)
->> +#include <linux/types.h>
->> +#elif defined(__FreeBSD__)
->> +#include <sys/types.h>
->> +#endif
->>
->> and lots of coding style violations.
->
-> Thanks for the report--we'll fix it up!
+From: Andreas Oetken <ennoerlangen@gmail.com>
 
-Fixed in ceph-client/master, should make it to linux-next tomorrow.
+Add support for fixed-links in configurations without PHY.
+(e.g. connection to a switch, SGMII point to point, SFPs)
 
-Thanks,
+Check: Documentation/devicetree/bindings/net/fixed-link.txt.
+Signed-off-by: Andreas Oetken <ennoerlangen@gmail.com>
+---
+ drivers/net/ethernet/altera/altera_tse_main.c | 36 +++++++++++++++++++++------
+ 1 file changed, 28 insertions(+), 8 deletions(-)
 
-                Ilya
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index dbbbd34..a90262e 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -777,6 +777,7 @@ static int init_phy(struct net_device *dev)
+ 	struct altera_tse_private *priv = netdev_priv(dev);
+ 	struct phy_device *phydev;
+ 	struct device_node *phynode;
++	bool fixed_link = false;
+ 
+ 	/* Avoid init phy in case of no phy present */
+ 	if (!priv->phy_iface)
+@@ -789,13 +790,32 @@ static int init_phy(struct net_device *dev)
+ 	phynode = of_parse_phandle(priv->device->of_node, "phy-handle", 0);
+ 
+ 	if (!phynode) {
+-		netdev_dbg(dev, "no phy-handle found\n");
+-		if (!priv->mdio) {
+-			netdev_err(dev,
+-				   "No phy-handle nor local mdio specified\n");
+-			return -ENODEV;
++		/* check if a fixed-link is defined in device-tree */
++		if (of_phy_is_fixed_link(priv->device->of_node)) {
++			if (of_phy_register_fixed_link(priv->device->of_node)
++			    < 0) {
++				netdev_err(dev, "cannot register fixed PHY\n");
++				return -ENODEV;
++			}
++
++			/* In the case of a fixed PHY, the DT node associated
++			* to the PHY is the Ethernet MAC DT node.
++			*/
++			phynode = of_node_get(priv->device->of_node);
++			fixed_link = true;
++
++			netdev_dbg(dev, "fixed-link detected\n");
++			phydev = of_phy_connect(dev, phynode,
++						&altera_tse_adjust_link,
++						0, priv->phy_iface);
++		} else {
++			netdev_dbg(dev, "no phy-handle found\n");
++			if (!priv->mdio) {
++				netdev_err(dev, "No phy-handle nor local mdio specified\n");
++				return -ENODEV;
++			}
++			phydev = connect_local_phy(dev);
+ 		}
+-		phydev = connect_local_phy(dev);
+ 	} else {
+ 		netdev_dbg(dev, "phy-handle found\n");
+ 		phydev = of_phy_connect(dev, phynode,
+@@ -819,10 +839,10 @@ static int init_phy(struct net_device *dev)
+ 	/* Broken HW is sometimes missing the pull-up resistor on the
+ 	 * MDIO line, which results in reads to non-existent devices returning
+ 	 * 0 rather than 0xffff. Catch this here and treat 0 as a non-existent
+-	 * device as well.
++	 * device as well. If a fixed-link is used the phy_id is always 0.
+ 	 * Note: phydev->phy_id is the result of reading the UID PHY registers.
+ 	 */
+-	if (phydev->phy_id == 0) {
++	if ((phydev->phy_id == 0) && !fixed_link) {
+ 		netdev_err(dev, "Bad PHY UID 0x%08x\n", phydev->phy_id);
+ 		phy_disconnect(phydev);
+ 		return -ENODEV;
+-- 
+2.1.4
