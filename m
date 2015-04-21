@@ -1,78 +1,110 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods
- with timespec64 type for k_clock structure
-Date: Tue, 21 Apr 2015 16:57:18 +0200
-Message-ID: <3231171.5TrYVVBLh4@wuerfel>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
- <3755355.Xf0HbltZXg@wuerfel> <alpine.DEB.2.11.1504211528040.13914@nanos>
+From: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Subject: Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]
+Date: Tue, 21 Apr 2015 16:05:11 +0100
+Message-ID: <21814.26407.914735.236087@mariner.uk.xensource.com>
+References: <20150417.131956.2235150293184897656.davem@davemloft.net>
+	<1429292769.6668.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	<20150417190448.GA9462@l.oracle.com>
+	<20150417.151208.1757850423694976996.davem@davemloft.net>
+	<1429296772.4720.70.camel@prashant>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pang.xunlei@linaro.org, peterz@infradead.org, heiko.carstens@de.ibm.com,
- paulus@samba.org, cl@linux.com, heenasirwani@gmail.com,
- linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, y2038@lists.linaro.org,
- rafael.j.wysocki@intel.com, ahh@google.com, fweisbec@gmail.com, pjt@google.com,
- riel@redhat.com, richardcochran@gmail.com, tj@kernel.org,
- john.stultz@linaro.org, rth@twiddle.net, Baolin Wang <baolin.wang@linaro.org>,
- gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, schwidefsky@de.ibm.com, linux390@de.ibm.com,
- linuxppc-dev@lists.ozlabs.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <alpine.DEB.2.11.1504211528040.13914@nanos>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	<mchan@broadcom.com>, <tglx@linutronix.de>, <mingo@redhat.com>,
+	<hpa@zytor.com>, <x86@kernel.org>, <cascardo@linux.vnet.ibm.com>,
+	<boris.ostrovsky@oracle.com>, <david.vrabel@citrix.com>,
+	<vyasevich@gmail.com>, <xen-devel@lists.xensource.com>,
+	<netdev@vger.kernel.org>, <siva.kallam@broadcom.com>,
+	<sanjeevb@broadcom.com>
+To: <konrad.wilk@oracle.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:19798 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752606AbbDUPHx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 11:07:53 -0400
+In-Reply-To: <1429296772.4720.70.camel@prashant>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlc2RheSAyMSBBcHJpbCAyMDE1IDE2OjE0OjI2IFRob21hcyBHbGVpeG5lciB3cm90ZToK
-PiA+IE5vdGUgdGhlIHVzZSBvZiBhIHNlcGFyYXRlIF9fa2VybmVsX2l0aW1lcnNwZWM2NCBmb3Ig
-dGhlIHVzZXIgaW50ZXJmYWNlCj4gPiBoZXJlLCB3aGljaCBJIHRoaW5rIHdpbGwgYmUgbmVlZGVk
-IHRvIGhpZGUgdGhlIGRpZmZlcmVuY2VzIGJldHdlZW4gdGhlCj4gPiBub3JtYWwgaXRpbWVyc3Bl
-YyBvbiA2NC1iaXQgbWFjaGluZXMsIGFuZCB0aGUgbmV3IGl0aW1lcnNwZWMgb24gMzItYml0Cj4g
-PiBwbGF0Zm9ybXMgdGhhdCB3aWxsIGJlIGRlZmluZWQgZGlmZmVyZW50bHkgKHVzaW5nICdsb25n
-IGxvbmcnKS4KPiAKPiBDb25mdXNlZC4KPiAKPiB0aW1lc3BlYzY0IC8gaXRpbWVyc3BlYzY0IHNo
-b3VsZCBiZSB0aGUgc2FtZSBpbmRlcGVuZGVudCBvZiA2NGJpdCBhbmQKPiAzMmJpdC4gU28gd2h5
-IGRvIHdlIG5lZWQgYW5vdGhlciB2YXJpYW50ID8KClRoZXJlIGFyZSBtdWx0aXBsZSByZWFzb25z
-OgoKKiBPbiA2NC1iaXQgc3lzdGVtcywgdGltZXNwZWM2NCB3b3VsZCBhbHdheXMgYmUgZGVmaW5l
-ZCBpbiB0aGUgc2FtZSB3YXkKICBhcyBzdHJ1Y3QgdGltZXNwZWMgeyBfX2tlcm5lbF90aW1lX3Qg
-dHZfc2VjOyBsb25nIHR2X25zZWM7IH0sIHdpdGgKICBfX2tlcm5lbF90aW1lX3QgYmVpbmcgJ2xv
-bmcnLiBPbiAzMi1iaXQsIHdlIHByb2JhYmx5IG5lZWQgdG8gbWFrZSBib3RoCiAgbWVtYmVycyAn
-bG9uZyBsb25nJyBmb3IgdGhlIHVzZXIgc3BhY2Ugc2lkZSwgaW4gb3JkZXIgdG8gc2hhcmUgdGhl
-CiAgc3lzY2FsbCBpbXBsZW1lbnRhdGlvbiB3aXRoIHRoZSBrZXJuZWwgc2lkZSwgYnV0IHdlIG1h
-eSBhbHNvIHdhbnQgdG8KICBrZWVwIHRoZSBpbnRlcm5hbCB0aW1lc3BlYzY0IHVzaW5nIGEgJ2xv
-bmcnIGZvciB0dl9uc2VjLCBhcyB3ZSBkbwogIHRvZGF5LiBUaGlzIG1lYW5zIHRoYXQgYm90aCB0
-aGUgYmluYXJ5IGxheW91dCAocGFkZGluZyBvciBubyBwYWRkaW5nKQogIGFuZCB0aGUgYmFzaWMg
-dHlwZXMgKGxvbmcgb3IgbG9uZyBsb25nKSBhcmUgZGlmZmVyZW50IGJldHdlZW4gMzItYml0CiAg
-YW5kIDY0LWJpdCwgYW5kIGJldHdlZW4ga2VybmVsIGFuZCB1c2VyIHNwYWNlCiogV2Ugc2hvdWxk
-IG5vdCBwdXQgJ3N0cnVjdCB0aW1lc3BlYzY0JyBpbnRvIHRoZSB1c2VyIHNwYWNlIG5hbWVzcGFj
-ZSwKICBhcyBhcHBsaWNhdGlvbnMgbWlnaHQgYWxyZWFkeSB1c2UgdGhhdCBpZGVudGlmaWVyLiBU
-aGlzIGlzIHNpbWlsYXIKICB0byB0aGUgX191MzIvdTMyIG9yIF9fa2VybmVsX3RpbWVfdC90aW1l
-X3QgdHVwbGUgb2YgdHlwZXMgZm9yIGludGVyZmFjZQogIGFuZCBpbi1rZXJuZWwgdXNlcy4gVGhp
-cyBpcyBwYXJ0aWN1bGFybHkgaW1wb3J0YW50IHdoZW4gZW1iZWRkaW5nIGEKICB0aW1lc3BlYyBp
-biBhbm90aGVyIGRhdGEgc3RydWN0dXJlLgoqIE15IHBsYW4gaXMgdG8gdXNlIGEgdGVtcG9yYXJ5
-IGhhY2sgd2hlcmUgSSBhY3R1YWxseSBkZWZpbmUKICBfX2tlcm5lbF90aW1lc3BlYzY0IHRvIGxv
-b2sgbGlrZSB0aGUgMzItYml0IHZlcnNpb24gb2YgdGltZXNwZWMsCiAgYXMgYW4gaW50ZXJtZWRp
-YXRlIHN0ZXAgd2hlbiBjb252ZXJ0aW5nIGFsbCAzMi1iaXQgYXJjaGl0ZWN0dXJlcyBvdmVyCiAg
-dG8gdXNlIHRoZSBjb21wYXRfKigpIHN5c2NhbGxzIGluIHBsYWNlIG9mIHRoZSBleGlzdGluZyBv
-bmVzLCBzbwogIEkgY2FuIGNoYW5nZSBvdmVyIHRoZSBub3JtYWwgc3lzY2FsbHMgdG8gdXNlIF9f
-a2VybmVsX3RpbWVzcGVjNjQKICB3aXRob3V0IGhhdmluZyB0byBjaGFuZ2UgYWxsIGFyY2hpdGVj
-dHVyZXMgYXQgb25jZSwgb3IgaGF2aW5nIHRvCiAgbW9kaWZ5IGVhY2ggc3lzY2FsbCBtdWx0aXBs
-ZSB0aW1lcy4KCj4gPiBJIHdvdWxkIGFsc28gcHJlZmVyIG5vdCB0b28gbWFueSBwZW9wbGUgdG8g
-d29yayBvbiB0aGUgc3lzY2FsbHMsIGFuZAo+ID4gd291bGQgcmF0aGVyIGhhdmUgQmFvbGluIG5v
-dCB0b3VjaCBhbnkgb2YgdGhlIHN5c2NhbGwgcHJvdG90eXBlcyBmb3IKPiA+IHRoZSBtb21lbnQu
-Cj4gCj4gSSBkaWQgbm90IGFzayBoaW0gdG8gY2hhbmdlIGFueSBvZiB0aGUgc3lzY2FsbCBwcm90
-b3R5cGVzLiBJIGp1c3QKPiB3YW50ZWQgaGltIHRvIHNwbGl0IG91dCB0aGUgZ3V0cyBvZiB0aGUg
-c3lzY2FsbCBpbnRvIGEgc2VwZXJhdGUgc3RhdGljCj4gZnVuY3Rpb24gdG8gYXZvaWQgYWxsIHRo
-YXQgY29kZSBjaHVybi4KCk9rLCBJIHdhc24ndCBzdXJlIGFib3V0IHRoYXQgcGFydCwgdGhhbmtz
-IGZvciBjbGFyaWZ5aW5nLgoKCUFybmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlz
-dHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMt
-ZGV2
+Prashant Sreedharan writes ("Re: tg3 NIC driver bug in 3.14.x under Xen [and 3 more messages]"):
+> On Fri, 2015-04-17 at 15:12 -0400, David Miller wrote:
+> > From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > Date: Fri, 17 Apr 2015 15:04:48 -0400
+> > > A huge amount of NIC drivers use the DMA API, however if
+> > > compiled under 32-bit an very important part of the DMA API can
+> > > be ommitted leading to the drivers not working at all
+> > > (especially if used with 'swiotlb=force iommu=soft').
+...
+> > > As such enable this even when using 32-bit kernels.
+> > > 
+> > > Reported-by: Ian Jackson <Ian.Jackson@eu.citrix.com>
+> > > Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+
+Thanks.
+
+Tested-by: Ian Jackson <ian.jackson@eu.citrix.com>
+
+I'd appreciate it if this patch could make its way into the 3.14.y
+stable branch, as well as all the other places it's applicable of
+course.  I've included another copy below for convenience, with
+acks etc. from this email thread folded in.
+
+I have tested 3.14.34 plus just this patch, with my usual kernel
+configuration input and the affected machine, and this fixes the
+problem completely AFAICT.
+
+I have tested both baremetal 32-bit with `iommu=soft swiotlb=force'
+(which previously corrupted all received network packets) and 32-bit
+Linux under 64-bit Xen without any special options (which previously
+gave 25-30% packet loss).
+
+Thanks,
+Ian.
+
+>From 9e417af099e3cee2b219ab28ffc1e96b0564b213 Mon Sep 17 00:00:00 2001
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Date: Fri, 17 Apr 2015 14:55:47 -0400
+Subject: [PATCH] config: Enable NEED_DMA_MAP_STATE when SWIOTLB is selected
+
+A huge amount of NIC drivers use the DMA API, however if compiled
+under 32-bit an very important part of the DMA API can be ommitted leading
+to the drivers not working at all (especially if used with
+'swiotlb=force iommu=soft').
+
+As Prashant Sreedharan explains it: "the driver [tg3] uses
+DEFINE_DMA_UNMAP_ADDR(), dma_unmap_addr_set() to keep a copy of the dma
+"mapping" and dma_unmap_addr() to get the "mapping" value. On most of
+the platforms this is a no-op, but ... with "iommu=soft and
+swiotlb=force" this house keeping is required, ... otherwise
+we pass 0 while calling pci_unmap_/pci_dma_sync_ instead of the
+DMA address."
+
+As such enable this even when using 32-bit kernels.
+
+Reported-by: Ian Jackson <Ian.Jackson@eu.citrix.com>
+Signed-off-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Acked-by: David S. Miller <davem@davemloft.net>
+Acked-by: Prashant Sreedharan <prashant@broadcom.com>
+Tested-by: Ian Jackson <ian.jackson@eu.citrix.com>
+---
+ arch/x86/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index b7d31ca..570c71d 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -177,7 +177,7 @@ config SBUS
+ 
+ config NEED_DMA_MAP_STATE
+ 	def_bool y
+-	depends on X86_64 || INTEL_IOMMU || DMA_API_DEBUG
++	depends on X86_64 || INTEL_IOMMU || DMA_API_DEBUG || SWIOTLB
+ 
+ config NEED_SG_DMA_LENGTH
+ 	def_bool y
+-- 
+2.1.0
