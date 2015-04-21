@@ -1,123 +1,144 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: [PATCH 3.16.y-ckt 093/144] net: ethernet: pcnet32: Setup the SRAM and
- NOUFLO on Am79C97{3, 5}
-Date: Tue, 21 Apr 2015 16:31:18 +0100
-Message-ID: <1429630329-21748-94-git-send-email-luis.henriques@canonical.com>
-References: <1429630329-21748-1-git-send-email-luis.henriques@canonical.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods with timespec64 type for k_clock structure
+Date: Tue, 21 Apr 2015 17:40:32 +0200
+Message-ID: <2819798.f0KhjY3UAe@wuerfel>
+References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <3231171.5TrYVVBLh4@wuerfel> <alpine.DEB.2.11.1504211701140.13914@nanos>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Don Fry <pcnet32@frontier.com>,
- Markos Chandras <markos.chandras@imgtec.com>,
- "David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
- kernel-team@lists.ubuntu.com
-Return-path: <kernel-team-bounces@lists.ubuntu.com>
-In-Reply-To: <1429630329-21748-1-git-send-email-luis.henriques@canonical.com>
-List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
- <mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
-List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
-List-Post: <mailto:kernel-team@lists.ubuntu.com>
-List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
-List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
- <mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
-Errors-To: kernel-team-bounces@lists.ubuntu.com
-Sender: kernel-team-bounces@lists.ubuntu.com
+Content-Transfer-Encoding: 7Bit
+Cc: y2038@lists.linaro.org, Baolin Wang <baolin.wang@linaro.org>,
+	pang.xunlei@linaro.org, peterz@infradead.org,
+	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
+	paulus@samba.org, cl@linux.com, heenasirwani@gmail.com,
+	linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
+	mpe@ellerman.id.au, rafael.j.wysocki@intel.com, ahh@google.com,
+	fweisbec@gmail.com, pjt@google.com, riel@redhat.com,
+	richardcochran@gmail.com, schwidefsky@de.ibm.com,
+	john.stultz@linaro.org, rth@twiddle.net,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
+	linuxppc-dev@lists.ozlabs.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1504211701140.13914@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.16.7-ckt10 -stable review patch.  If anyone has any objections, please let me know.
+On Tuesday 21 April 2015 17:13:32 Thomas Gleixner wrote:
+> On Tue, 21 Apr 2015, Arnd Bergmann wrote:
+> > On Tuesday 21 April 2015 16:14:26 Thomas Gleixner wrote:
+> > > > Note the use of a separate __kernel_itimerspec64 for the user interface
+> > > > here, which I think will be needed to hide the differences between the
+> > > > normal itimerspec on 64-bit machines, and the new itimerspec on 32-bit
+> > > > platforms that will be defined differently (using 'long long').
+> > > 
+> > > Confused.
+> > > 
+> > > timespec64 / itimerspec64 should be the same independent of 64bit and
+> > > 32bit. So why do we need another variant ?
+> > 
+> > There are multiple reasons:
+> > 
+> > * On 64-bit systems, timespec64 would always be defined in the same way
+> >   as struct timespec { __kernel_time_t tv_sec; long tv_nsec; }, with
+> >   __kernel_time_t being 'long'. On 32-bit, we probably need to make both
+> >   members 'long long' for the user space side, in order to share the
+> >   syscall implementation with the kernel side, but we may also want to
+> >   keep the internal timespec64 using a 'long' for tv_nsec, as we do
+> >   today. This means that both the binary layout (padding or no padding)
+> >   and the basic types (long or long long) are different between 32-bit
+> >   and 64-bit, and between kernel and user space
+> 
+> So you want to avoid a compat syscall for 32bit applications on a
+> 64bit kernel, right?
 
-------------------
+That is the idea at the moment, yes. At least for the kernel-user
+interface.
 
-From: Markos Chandras <markos.chandras@imgtec.com>
+> That burdens 32bit with the extra 'long long' in user space. Not sure
+> whether user space folks will be happy about it.
 
-commit 87f966d97b89774162df04d2106c6350c8fe4cb3 upstream.
+I know there are concerns about this, in particular because C11 and
+POSIX both require tv_nsec to be 'long', unlike timeval->tv_usec,
+which is a 'suseconds_t' and can be defined as 'long long'.
 
-On a MIPS Malta board, tons of fifo underflow errors have been observed
-when using u-boot as bootloader instead of YAMON. The reason for that
-is that YAMON used to set the pcnet device to SRAM mode but u-boot does
-not. As a result, the default Tx threshold (64 bytes) is now too small to
-keep the fifo relatively used and it can result to Tx fifo underflow errors.
-As a result of which, it's best to setup the SRAM on supported controllers
-so we can always use the NOUFLO bit.
+There are four possible ways that 32-bit user space could define
+timespec based on the uncontroversial (I hope) 'typedef long long
+time_t;'.
 
-Cc: <netdev@vger.kernel.org>
-Cc: <linux-kernel@vger.kernel.org>
-Cc: Don Fry <pcnet32@frontier.com>
-Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Luis Henriques <luis.henriques@canonical.com>
----
- drivers/net/ethernet/amd/pcnet32.c | 31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
+a)
 
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index e7cc9174e364..02d3b7975835 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -1552,7 +1552,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- {
- 	struct pcnet32_private *lp;
- 	int i, media;
--	int fdx, mii, fset, dxsuflo;
-+	int fdx, mii, fset, dxsuflo, sram;
- 	int chip_version;
- 	char *chipname;
- 	struct net_device *dev;
-@@ -1589,7 +1589,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 	}
- 
- 	/* initialize variables */
--	fdx = mii = fset = dxsuflo = 0;
-+	fdx = mii = fset = dxsuflo = sram = 0;
- 	chip_version = (chip_version >> 12) & 0xffff;
- 
- 	switch (chip_version) {
-@@ -1622,6 +1622,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 		chipname = "PCnet/FAST III 79C973";	/* PCI */
- 		fdx = 1;
- 		mii = 1;
-+		sram = 1;
- 		break;
- 	case 0x2626:
- 		chipname = "PCnet/Home 79C978";	/* PCI */
-@@ -1645,6 +1646,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 		chipname = "PCnet/FAST III 79C975";	/* PCI */
- 		fdx = 1;
- 		mii = 1;
-+		sram = 1;
- 		break;
- 	case 0x2628:
- 		chipname = "PCnet/PRO 79C976";
-@@ -1673,6 +1675,31 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 		dxsuflo = 1;
- 	}
- 
-+	/*
-+	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
-+	 * which we can use for the Tx/Rx buffers but most importantly,
-+	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
-+	 * Tx fifo underflows.
-+	 */
-+	if (sram) {
-+		/*
-+		 * The SRAM is being configured in two steps. First we
-+		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
-+		 * to the datasheet, each bit corresponds to a 512-byte
-+		 * page so we can have at most 24 pages. The SRAM_SIZE
-+		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
-+		 * The low 8-bits start at 0x00 and end at 0xff. So the
-+		 * address range is from 0x0000 up to 0x17ff. Therefore,
-+		 * the SRAM_SIZE is set to 0x17. The next step is to set
-+		 * the BCR26:SRAM_BND midway through so the Tx and Rx
-+		 * buffers can share the SRAM equally.
-+		 */
-+		a->write_bcr(ioaddr, 25, 0x17);
-+		a->write_bcr(ioaddr, 26, 0xc);
-+		/* And finally enable the NOUFLO bit */
-+		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
-+	}
-+
- 	dev = alloc_etherdev(sizeof(*lp));
- 	if (!dev) {
- 		ret = -ENOMEM;
+struct timespec {
+	time_t tv_sec;
+	long long tv_nsec; /* or typedef long long snseconds_t */
+};
+
+This is not directly compatible with C11 or POSIX.1-2008, but it
+matches what we do inside of 64-bit kernels, so probably has the
+highest chance of working correctly in practice
+
+b)
+
+struct timespec {
+	time_t tv_sec;
+	long tv_nsec;
+};
+
+This is the definition according to C11 and POSIX, and the main problem
+here is the padding, which may cause a 4-byte data leak and has the tv_nsec
+in the wrong place when used together with the timespec we have in the kernel
+on big-endian 64-bit machines.
+
+c)
+
+struct timespec {
+	time_t tv_sec;
+#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __BIG_ENDIAN
+	long __pad;
+#endif
+	long tv_nsec; /* or typedef long long snseconds_t */
+#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __LITTLE_ENDIAN
+	long __pad;
+#endif
+};
+
+This version could be used transparently by user space, but has
+the potential to cause problems with existing user space doing
+things like
+
+struct timespec ts = { 0, 1000 }; /* one microsecond */
+
+even though it is probably compliant.
+
+d)
+
+struct timespec {
+	time_t tv_sec;
+#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __BIG_ENDIAN
+	long :32;
+#endif
+	long tv_nsec; /* or typedef long long snseconds_t */
+#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __LITTLE_ENDIAN
+	long :32;
+#endif
+};
+
+This is very similar to c, but trades the problem I described
+above for a dependency on a gcc extension that is not part of
+C11 or any earlier standard.
+
+
+>From the kernel's point of view, b), c) and d) can all be
+treated the same for output data, as we only ever pass back
+normalized timespec structures that have zeroes in the upper
+bits of timespec. However, for input to the kernel, we would
+require an extra conditional on 64-bit kernels to decide whether
+we ignore the upper bits (doing tv->tv_nsec &= 0xffffffff) or 
+a structure that has the upper bits set  needs to cause EINVAL.
+We could still do that in get_timespec() if we decide to not to
+go with a).
+
+See also https://lwn.net/Articles/457089/ for an earlier discussion
+on the topic when debating the x32 ABI.
+
+	Arnd
