@@ -1,76 +1,36 @@
-From: sixiao@microsoft.com
-Subject: [PATCH 1/1] v2: Driver: hv: netvsc: call dump_rndis_message() only in netvsc debug mode
-Date: Tue, 21 Apr 2015 14:43:55 -0700
-Message-ID: <1429652635-22698-1-git-send-email-sixiao@microsoft.com>
-Cc: Simon Xiao <sixiao@microsoft.com>
-To: kys@microsoft.com, haiyangz@microsoft.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC PATCH] tc filter not show last u32 filter
+Date: Tue, 21 Apr 2015 13:25:38 -0700
+Message-ID: <CAHA+R7N+m0GPgvcxYXb0GbrApdTCq7RZSLj2c5Fi6b3Q8UAbTQ@mail.gmail.com>
+References: <55368E7F.4030005@guap.ru>
+	<55369446.10806@cogentembedded.com>
+	<5536ADFC.8070601@guap.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Vitaly E. Lavrov" <lve@guap.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:33866 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932714AbbDUUZj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 16:25:39 -0400
+Received: by wicmx19 with SMTP id mx19so71969376wic.1
+        for <netdev@vger.kernel.org>; Tue, 21 Apr 2015 13:25:38 -0700 (PDT)
+In-Reply-To: <5536ADFC.8070601@guap.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Xiao <sixiao@microsoft.com>
+On Tue, Apr 21, 2015 at 1:07 PM, Vitaly E. Lavrov <lve@guap.ru> wrote:
+>
+> A similar patch is already exists in the
+> git.kernel.org/linux-stable.git/master (commit
+> b057df24a7536cce6c372efe9d0e3d1558afedf4)
+> and linux-4.0.y.
+>
+> The patch can be applied to branches of the kernel 3.14, 3.18 and 3.19.  Why
+> is this not done at once?
+>
 
-Signed-off-by: Simon Xiao <sixiao@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h   | 3 +++
- drivers/net/hyperv/netvsc_drv.c   | 8 ++++++++
- drivers/net/hyperv/rndis_filter.c | 3 ++-
- 3 files changed, 13 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index a10b316..c9be35e 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -28,6 +28,9 @@
- #include <linux/hyperv.h>
- #include <linux/rndis.h>
- 
-+/* flag for netvsc debug mode */
-+extern int debug_mode;
-+
- /* RSS related */
- #define OID_GEN_RECEIVE_SCALE_CAPABILITIES 0x00010203  /* query only */
- #define OID_GEN_RECEIVE_SCALE_PARAMETERS 0x00010204  /* query and set */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index a3a9d38..7c41864 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -52,6 +52,10 @@ static int ring_size = 128;
- module_param(ring_size, int, S_IRUGO);
- MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
- 
-+int debug_mode = 0;
-+module_param(debug_mode, int, S_IRUGO);
-+MODULE_PARM_DESC(debug_mode, "debug mode: zero(0) for non-debug mode; non-zero for debug mode");
-+
- static void do_set_multicast(struct work_struct *w)
- {
- 	struct net_device_context *ndevctx =
-@@ -999,6 +1003,10 @@ static int __init netvsc_drv_init(void)
- 		pr_info("Increased ring_size to %d (min allowed)\n",
- 			ring_size);
- 	}
-+
-+	if (debug_mode != 0)
-+		pr_info("Run netvsc in debug mode");
-+
- 	return vmbus_driver_register(&netvsc_drv);
- }
- 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 0d92efe..a3f43f6 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -429,7 +429,8 @@ int rndis_filter_receive(struct hv_device *dev,
- 
- 	rndis_msg = pkt->data;
- 
--	dump_rndis_message(dev, rndis_msg);
-+	if (debug_mode != 0)
-+		dump_rndis_message(dev, rndis_msg);
- 
- 	switch (rndis_msg->ndis_msg_type) {
- 	case RNDIS_MSG_PACKET:
--- 
-1.8.5.2
+That commit should already have been backported to all stable kernels, so why
+do we need a different one?
