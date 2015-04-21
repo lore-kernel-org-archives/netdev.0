@@ -1,44 +1,44 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 2/3] libnamespaces: fix warning about syscall()
-Date: Tue, 21 Apr 2015 18:06:36 +0200
-Message-ID: <1429632397-11122-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2 3/3] mroute: remove invalid check against NLM_F_MULTI
+Date: Tue, 21 Apr 2015 18:06:37 +0200
+Message-ID: <1429632397-11122-3-git-send-email-nicolas.dichtel@6wind.com>
 References: <1429632397-11122-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53648 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53650 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932348AbbDUQGv (ORCPT
+	with ESMTP id S933135AbbDUQGv (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 12:06:51 -0400
 In-Reply-To: <1429632397-11122-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The warning was:
-In file included from namespace.c:14:0:
-=2E./include/namespace.h: In function =E2=80=98setns=E2=80=99:
-=2E./include/namespace.h:37:2: warning: implicit declaration of functio=
-n =E2=80=98syscall=E2=80=99 [-Wimplicit-function-declaration]
+This flag is only for the netlink protocol (multi-part messages), no reason
+to reject messages without it.
+
+Note that this flag was removed by the following kernel patches (v3.14)
+65886f439ab0 ipmr: fix mfc notification flags
+f518338b1603 ip6mr: fix mfc notification flags
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/namespace.h | 1 +
- 1 file changed, 1 insertion(+)
+ ip/ipmroute.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/include/namespace.h b/include/namespace.h
-index a2ac7dccd0e1..5add9d266b7d 100644
---- a/include/namespace.h
-+++ b/include/namespace.h
-@@ -3,6 +3,7 @@
-=20
- #include <sched.h>
- #include <sys/mount.h>
-+#include <unistd.h>
- #include <sys/syscall.h>
- #include <errno.h>
-=20
---=20
+diff --git a/ip/ipmroute.c b/ip/ipmroute.c
+index 13ac892512d0..125a13f8c582 100644
+--- a/ip/ipmroute.c
++++ b/ip/ipmroute.c
+@@ -67,8 +67,7 @@ int print_mroute(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	int family;
+ 
+ 	if ((n->nlmsg_type != RTM_NEWROUTE &&
+-	     n->nlmsg_type != RTM_DELROUTE) ||
+-	    !(n->nlmsg_flags & NLM_F_MULTI)) {
++	     n->nlmsg_type != RTM_DELROUTE)) {
+ 		fprintf(stderr, "Not a multicast route: %08x %08x %08x\n",
+ 			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
+ 		return 0;
+-- 
 2.2.2
