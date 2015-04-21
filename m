@@ -1,83 +1,78 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: [PATCH] tcp: set SOCK_NOSPACE under memory presure
-Date: Mon, 20 Apr 2015 20:05:13 +0000 (GMT)
-Message-ID: <20150420200513.11D8E202D@prod-mail-relay06.akamai.com>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:30176 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750960AbbDUO5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 10:57:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods
+ with timespec64 type for k_clock structure
+Date: Tue, 21 Apr 2015 16:57:18 +0200
+Message-ID: <3231171.5TrYVVBLh4@wuerfel>
+References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
+ <3755355.Xf0HbltZXg@wuerfel> <alpine.DEB.2.11.1504211528040.13914@nanos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pang.xunlei@linaro.org, peterz@infradead.org, heiko.carstens@de.ibm.com,
+ paulus@samba.org, cl@linux.com, heenasirwani@gmail.com,
+ linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, y2038@lists.linaro.org,
+ rafael.j.wysocki@intel.com, ahh@google.com, fweisbec@gmail.com, pjt@google.com,
+ riel@redhat.com, richardcochran@gmail.com, tj@kernel.org,
+ john.stultz@linaro.org, rth@twiddle.net, Baolin Wang <baolin.wang@linaro.org>,
+ gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, schwidefsky@de.ibm.com, linux390@de.ibm.com,
+ linuxppc-dev@lists.ozlabs.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <alpine.DEB.2.11.1504211528040.13914@nanos>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Under tcp memory pressure, calling epoll_wait() in edge triggered
-mode after -EAGAIN, can result in an indefinite hang in epoll_wait(),
-even when there is suffcient memory available to continue making
-progress. The problem is that __sk_mem_schedule() can return 0,
-under memory pressure without having set the SOCK_NOSPACE flag. Thus,
-even though all the outstanding packets have been acked, we never
-get the EPOLLOUT that we are expecting from epoll_wait().
-
-This issue is currently limited to epoll when used in edge trigger
-mode, since 'tcp_poll()', does in fact currently set SOCK_NOSPACE.
-This is sufficient for poll()/select() and epoll() in level trigger
-mode. However, in edge trigger mode, epoll() is relying on the write
-path to set SOCK_NOSPACE. So I view this patch as bringing us into
-sync with poll()/select() and epoll() level trigger behavior.
-
-I can reproduce this issue, using SO_SNDBUF, since
-__sk_mem_schedule() will return 0, or failure more readily with
-SO_SNDBUF:
-
-1) create socket and set SO_SNDBUF to N
-2) add socket as edge trigger
-3) write to socket and block in epoll on -EAGAIN
-4) cause tcp mem pressure via: echo "<small val>" > net.ipv4.tcp_mem
-
-The fix here is simply to set SOCK_NOSPACE in sk_stream_wait_memory()
-when the socket is non-blocking.
-
-Note that we could still hang if sk->sk_wmem_queue is 0, when we get
-the -EAGAIN. In this case the SOCK_NOSPACE bit will not help, since we
-are waiting for and event that will never happen. I believe
-that this case is hard to hit (and did not hit in my testing),
-in that over the 'soft' limit, we continue to guarantee a minimum
-write buffer size. Perhaps, we could return -ENOSPC in this
-case...note that this case is not specific to epoll ET, but
-rather would affect all blocking and non-blocking sockets as well,
-and thus I think its ok to treat it as a separate case.
-
-Signed-off-by: Jason Baron <jbaron@akamai.com>
----
- net/core/stream.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/stream.c b/net/core/stream.c
-index 301c05f..d70f77a 100644
---- a/net/core/stream.c
-+++ b/net/core/stream.c
-@@ -119,6 +119,7 @@ int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
- 	int err = 0;
- 	long vm_wait = 0;
- 	long current_timeo = *timeo_p;
-+	bool noblock = (*timeo_p ? false : true);
- 	DEFINE_WAIT(wait);
- 
- 	if (sk_stream_memory_free(sk))
-@@ -131,8 +132,11 @@ int sk_stream_wait_memory(struct sock *sk, long *timeo_p)
- 
- 		if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
- 			goto do_error;
--		if (!*timeo_p)
-+		if (!*timeo_p) {
-+			if (noblock)
-+				set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
- 			goto do_nonblock;
-+		}
- 		if (signal_pending(current))
- 			goto do_interrupted;
- 		clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
--- 
-1.8.2.rc2
+T24gVHVlc2RheSAyMSBBcHJpbCAyMDE1IDE2OjE0OjI2IFRob21hcyBHbGVpeG5lciB3cm90ZToK
+PiA+IE5vdGUgdGhlIHVzZSBvZiBhIHNlcGFyYXRlIF9fa2VybmVsX2l0aW1lcnNwZWM2NCBmb3Ig
+dGhlIHVzZXIgaW50ZXJmYWNlCj4gPiBoZXJlLCB3aGljaCBJIHRoaW5rIHdpbGwgYmUgbmVlZGVk
+IHRvIGhpZGUgdGhlIGRpZmZlcmVuY2VzIGJldHdlZW4gdGhlCj4gPiBub3JtYWwgaXRpbWVyc3Bl
+YyBvbiA2NC1iaXQgbWFjaGluZXMsIGFuZCB0aGUgbmV3IGl0aW1lcnNwZWMgb24gMzItYml0Cj4g
+PiBwbGF0Zm9ybXMgdGhhdCB3aWxsIGJlIGRlZmluZWQgZGlmZmVyZW50bHkgKHVzaW5nICdsb25n
+IGxvbmcnKS4KPiAKPiBDb25mdXNlZC4KPiAKPiB0aW1lc3BlYzY0IC8gaXRpbWVyc3BlYzY0IHNo
+b3VsZCBiZSB0aGUgc2FtZSBpbmRlcGVuZGVudCBvZiA2NGJpdCBhbmQKPiAzMmJpdC4gU28gd2h5
+IGRvIHdlIG5lZWQgYW5vdGhlciB2YXJpYW50ID8KClRoZXJlIGFyZSBtdWx0aXBsZSByZWFzb25z
+OgoKKiBPbiA2NC1iaXQgc3lzdGVtcywgdGltZXNwZWM2NCB3b3VsZCBhbHdheXMgYmUgZGVmaW5l
+ZCBpbiB0aGUgc2FtZSB3YXkKICBhcyBzdHJ1Y3QgdGltZXNwZWMgeyBfX2tlcm5lbF90aW1lX3Qg
+dHZfc2VjOyBsb25nIHR2X25zZWM7IH0sIHdpdGgKICBfX2tlcm5lbF90aW1lX3QgYmVpbmcgJ2xv
+bmcnLiBPbiAzMi1iaXQsIHdlIHByb2JhYmx5IG5lZWQgdG8gbWFrZSBib3RoCiAgbWVtYmVycyAn
+bG9uZyBsb25nJyBmb3IgdGhlIHVzZXIgc3BhY2Ugc2lkZSwgaW4gb3JkZXIgdG8gc2hhcmUgdGhl
+CiAgc3lzY2FsbCBpbXBsZW1lbnRhdGlvbiB3aXRoIHRoZSBrZXJuZWwgc2lkZSwgYnV0IHdlIG1h
+eSBhbHNvIHdhbnQgdG8KICBrZWVwIHRoZSBpbnRlcm5hbCB0aW1lc3BlYzY0IHVzaW5nIGEgJ2xv
+bmcnIGZvciB0dl9uc2VjLCBhcyB3ZSBkbwogIHRvZGF5LiBUaGlzIG1lYW5zIHRoYXQgYm90aCB0
+aGUgYmluYXJ5IGxheW91dCAocGFkZGluZyBvciBubyBwYWRkaW5nKQogIGFuZCB0aGUgYmFzaWMg
+dHlwZXMgKGxvbmcgb3IgbG9uZyBsb25nKSBhcmUgZGlmZmVyZW50IGJldHdlZW4gMzItYml0CiAg
+YW5kIDY0LWJpdCwgYW5kIGJldHdlZW4ga2VybmVsIGFuZCB1c2VyIHNwYWNlCiogV2Ugc2hvdWxk
+IG5vdCBwdXQgJ3N0cnVjdCB0aW1lc3BlYzY0JyBpbnRvIHRoZSB1c2VyIHNwYWNlIG5hbWVzcGFj
+ZSwKICBhcyBhcHBsaWNhdGlvbnMgbWlnaHQgYWxyZWFkeSB1c2UgdGhhdCBpZGVudGlmaWVyLiBU
+aGlzIGlzIHNpbWlsYXIKICB0byB0aGUgX191MzIvdTMyIG9yIF9fa2VybmVsX3RpbWVfdC90aW1l
+X3QgdHVwbGUgb2YgdHlwZXMgZm9yIGludGVyZmFjZQogIGFuZCBpbi1rZXJuZWwgdXNlcy4gVGhp
+cyBpcyBwYXJ0aWN1bGFybHkgaW1wb3J0YW50IHdoZW4gZW1iZWRkaW5nIGEKICB0aW1lc3BlYyBp
+biBhbm90aGVyIGRhdGEgc3RydWN0dXJlLgoqIE15IHBsYW4gaXMgdG8gdXNlIGEgdGVtcG9yYXJ5
+IGhhY2sgd2hlcmUgSSBhY3R1YWxseSBkZWZpbmUKICBfX2tlcm5lbF90aW1lc3BlYzY0IHRvIGxv
+b2sgbGlrZSB0aGUgMzItYml0IHZlcnNpb24gb2YgdGltZXNwZWMsCiAgYXMgYW4gaW50ZXJtZWRp
+YXRlIHN0ZXAgd2hlbiBjb252ZXJ0aW5nIGFsbCAzMi1iaXQgYXJjaGl0ZWN0dXJlcyBvdmVyCiAg
+dG8gdXNlIHRoZSBjb21wYXRfKigpIHN5c2NhbGxzIGluIHBsYWNlIG9mIHRoZSBleGlzdGluZyBv
+bmVzLCBzbwogIEkgY2FuIGNoYW5nZSBvdmVyIHRoZSBub3JtYWwgc3lzY2FsbHMgdG8gdXNlIF9f
+a2VybmVsX3RpbWVzcGVjNjQKICB3aXRob3V0IGhhdmluZyB0byBjaGFuZ2UgYWxsIGFyY2hpdGVj
+dHVyZXMgYXQgb25jZSwgb3IgaGF2aW5nIHRvCiAgbW9kaWZ5IGVhY2ggc3lzY2FsbCBtdWx0aXBs
+ZSB0aW1lcy4KCj4gPiBJIHdvdWxkIGFsc28gcHJlZmVyIG5vdCB0b28gbWFueSBwZW9wbGUgdG8g
+d29yayBvbiB0aGUgc3lzY2FsbHMsIGFuZAo+ID4gd291bGQgcmF0aGVyIGhhdmUgQmFvbGluIG5v
+dCB0b3VjaCBhbnkgb2YgdGhlIHN5c2NhbGwgcHJvdG90eXBlcyBmb3IKPiA+IHRoZSBtb21lbnQu
+Cj4gCj4gSSBkaWQgbm90IGFzayBoaW0gdG8gY2hhbmdlIGFueSBvZiB0aGUgc3lzY2FsbCBwcm90
+b3R5cGVzLiBJIGp1c3QKPiB3YW50ZWQgaGltIHRvIHNwbGl0IG91dCB0aGUgZ3V0cyBvZiB0aGUg
+c3lzY2FsbCBpbnRvIGEgc2VwZXJhdGUgc3RhdGljCj4gZnVuY3Rpb24gdG8gYXZvaWQgYWxsIHRo
+YXQgY29kZSBjaHVybi4KCk9rLCBJIHdhc24ndCBzdXJlIGFib3V0IHRoYXQgcGFydCwgdGhhbmtz
+IGZvciBjbGFyaWZ5aW5nLgoKCUFybmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlz
+dHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMt
+ZGV2
