@@ -1,144 +1,96 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods with timespec64 type for k_clock structure
-Date: Tue, 21 Apr 2015 17:40:32 +0200
-Message-ID: <2819798.f0KhjY3UAe@wuerfel>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <3231171.5TrYVVBLh4@wuerfel> <alpine.DEB.2.11.1504211701140.13914@nanos>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v2 07/11] IB/cm: Add network namespace support
+Date: Tue, 21 Apr 2015 09:54:02 -0600
+Message-ID: <20150421155402.GA26088@obsidianresearch.com>
+References: <1429520622-10303-1-git-send-email-haggaie@mellanox.com>
+ <1429520622-10303-8-git-send-email-haggaie@mellanox.com>
+ <20150420170659.GD7676@obsidianresearch.com>
+ <20150420233520.GC1409@phlsvsds.ph.intel.com>
+ <55363D93.10706@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: y2038@lists.linaro.org, Baolin Wang <baolin.wang@linaro.org>,
-	pang.xunlei@linaro.org, peterz@infradead.org,
-	benh@kernel.crashing.org, heiko.carstens@de.ibm.com,
-	paulus@samba.org, cl@linux.com, heenasirwani@gmail.com,
-	linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
-	mpe@ellerman.id.au, rafael.j.wysocki@intel.com, ahh@google.com,
-	fweisbec@gmail.com, pjt@google.com, riel@redhat.com,
-	richardcochran@gmail.com, schwidefsky@de.ibm.com,
-	john.stultz@linaro.org, rth@twiddle.net,
-	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, tj@kernel.org, linux390@de.ibm.com,
-	linuxppc-dev@lists.ozlabs.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1504211701140.13914@nanos>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <55363D93.10706-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 21 April 2015 17:13:32 Thomas Gleixner wrote:
-> On Tue, 21 Apr 2015, Arnd Bergmann wrote:
-> > On Tuesday 21 April 2015 16:14:26 Thomas Gleixner wrote:
-> > > > Note the use of a separate __kernel_itimerspec64 for the user interface
-> > > > here, which I think will be needed to hide the differences between the
-> > > > normal itimerspec on 64-bit machines, and the new itimerspec on 32-bit
-> > > > platforms that will be defined differently (using 'long long').
-> > > 
-> > > Confused.
-> > > 
-> > > timespec64 / itimerspec64 should be the same independent of 64bit and
-> > > 32bit. So why do we need another variant ?
-> > 
-> > There are multiple reasons:
-> > 
-> > * On 64-bit systems, timespec64 would always be defined in the same way
-> >   as struct timespec { __kernel_time_t tv_sec; long tv_nsec; }, with
-> >   __kernel_time_t being 'long'. On 32-bit, we probably need to make both
-> >   members 'long long' for the user space side, in order to share the
-> >   syscall implementation with the kernel side, but we may also want to
-> >   keep the internal timespec64 using a 'long' for tv_nsec, as we do
-> >   today. This means that both the binary layout (padding or no padding)
-> >   and the basic types (long or long long) are different between 32-bit
-> >   and 64-bit, and between kernel and user space
-> 
-> So you want to avoid a compat syscall for 32bit applications on a
-> 64bit kernel, right?
+On Tue, Apr 21, 2015 at 03:07:47PM +0300, Haggai Eran wrote:
 
-That is the idea at the moment, yes. At least for the kernel-user
-interface.
+> Namespace is needed for RoCE address resolution, in cases where the
+> driver doesn't report the MAC as part of the ib_wc.
 
-> That burdens 32bit with the extra 'long long' in user space. Not sure
-> whether user space folks will be happy about it.
+This patch explicitly says it doesn't deal with RoCE, so why are we
+adding namespaces to support RoCE paths in this series? Especially
+since we have no idea how that should fit into verbs.
 
-I know there are concerns about this, in particular because C11 and
-POSIX both require tv_nsec to be 'long', unlike timeval->tv_usec,
-which is a 'suseconds_t' and can be defined as 'long long'.
+Frankly, that stuff is the most objectionable part of this series.
 
-There are four possible ways that 32-bit user space could define
-timespec based on the uncontroversial (I hope) 'typedef long long
-time_t;'.
+I suggest:
+ 1) Focus only on the RDMA-CM, and only on IB support, as the title
+    says
+ 2) Drop all changes to verbs and cm and otherwise that are not
+    directly related to IB
+ 3) Very, very, strongly justify why the remaining layer violations are
+    necessary, and think very carefully about doing something else.
 
-a)
+For IB, it is very clear to me that only the RDMA-CM can possibly have
+the knoweldge to find the namespace, so only the RDMA-CM should be
+touching it.
 
-struct timespec {
-	time_t tv_sec;
-	long long tv_nsec; /* or typedef long long snseconds_t */
-};
+If the interface between the RDMA-CM and IB-CM layers is preventing
+something, then extend the interface, don't drop RDMA-CM code into
+IB-CM.
 
-This is not directly compatible with C11 or POSIX.1-2008, but it
-matches what we do inside of 64-bit kernels, so probably has the
-highest chance of working correctly in practice
+>From that point, with working IB, we can revisit what is needed to
+make iWarp and RoCE work at the verbs layer and ultimately at the CM
+layer, in steps.
 
-b)
+Your other questions:
 
-struct timespec {
-	time_t tv_sec;
-	long tv_nsec;
-};
+> Using the GID alone is not enough to distinguish between namespaces,
+> because you can have multiple IPoIB interfaces, all using the GID (and
+> possibly the same P_Key), and each belonging to a different namespace.
 
-This is the definition according to C11 and POSIX, and the main problem
-here is the padding, which may cause a 4-byte data leak and has the tv_nsec
-in the wrong place when used together with the timespec we have in the kernel
-on big-endian 64-bit machines.
+Exactly, this is why IB GID layers can't possibly need to touch the net
+namespace.
 
-c)
+> The listener rbtree's key is currently the service ID, for
+> instance. Now with namespaces, you can have multiple listeners
+> listening on the same service ID, so we need to use (service ID,
+> namespace) as the key.
 
-struct timespec {
-	time_t tv_sec;
-#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __BIG_ENDIAN
-	long __pad;
-#endif
-	long tv_nsec; /* or typedef long long snseconds_t */
-#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __LITTLE_ENDIAN
-	long __pad;
-#endif
-};
+CM doesn't care, a service ID is registered by RDMA-CM and RDMA-CM can
+demux the (service ID,IP) tuple to the right namespace. Having CM
+snoop private data is a huge layering violation!
 
-This version could be used transparently by user space, but has
-the potential to cause problems with existing user space doing
-things like
+> looks at it's private data and demuxes it to a net namespace.
+> I don't see it there. The code seem to fetch the GID from the GRH.
+> Because the IP address in the source GID can be the same for different
+> namespaces, this is not enough to pick the right namespace.
 
-struct timespec ts = { 0, 1000 }; /* one microsecond */
+For IB, ib_init_ah_from_wc does not need a namespace.
 
-even though it is probably compliant.
+For RoCEE, the GID *MUST* be enough to find the namespace because each
+namespace will create a unique GID table entry.
 
-d)
+RoCEE and IB are going to be totally different in how this
+implemented...
 
-struct timespec {
-	time_t tv_sec;
-#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __BIG_ENDIAN
-	long :32;
-#endif
-	long tv_nsec; /* or typedef long long snseconds_t */
-#if __BITS_PER_LONG == 32 && __BYTE_ORDER == __LITTLE_ENDIAN
-	long :32;
-#endif
-};
+I expect RoCEE to have namespace constraints at the verbs QP level,
+while IB cannot - that feels like a huge journey...
 
-This is very similar to c, but trades the problem I described
-above for a dependency on a gcc extension that is not part of
-C11 or any earlier standard.
-
-
->From the kernel's point of view, b), c) and d) can all be
-treated the same for output data, as we only ever pass back
-normalized timespec structures that have zeroes in the upper
-bits of timespec. However, for input to the kernel, we would
-require an extra conditional on 64-bit kernels to decide whether
-we ignore the upper bits (doing tv->tv_nsec &= 0xffffffff) or 
-a structure that has the upper bits set  needs to cause EINVAL.
-We could still do that in get_timespec() if we decide to not to
-go with a).
-
-See also https://lwn.net/Articles/457089/ for an earlier discussion
-on the topic when debating the x32 ABI.
-
-	Arnd
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
