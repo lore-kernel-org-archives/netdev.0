@@ -1,39 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] Renesas Ethernet AVB driver
-Date: Wed, 22 Apr 2015 18:18:13 -0400 (EDT)
-Message-ID: <20150422.181813.1931455043058560592.davem@davemloft.net>
-References: <553804CA.1030605@cogentembedded.com>
-	<20150422.164242.2185477513394713122.davem@davemloft.net>
-	<553814F0.40405@cogentembedded.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
+Date: Wed, 22 Apr 2015 15:22:12 -0700
+Message-ID: <55381F14.4070708@plumgrid.com>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>	<1429644476-8914-3-git-send-email-ast@plumgrid.com> <CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mitsuhiro.kimura.kc@renesas.com, f.fainelli@gmail.com,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	richardcochran@gmail.com, linux-sh@vger.kernel.org,
-	masaru.nagai.vx@renesas.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <553814F0.40405@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:33026 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933307AbbDVWWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 18:22:16 -0400
+Received: by pdbnk13 with SMTP id nk13so481760pdb.0
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 15:22:16 -0700 (PDT)
+In-Reply-To: <CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Thu, 23 Apr 2015 00:38:56 +0300
+On 4/21/15 10:02 PM, Cong Wang wrote:
+> On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> TC_ACT_QUEUED was always an alias of TC_ACT_STOLEN.
+>> Get rid of redundant checks in all qdiscs.
+>> Instead do it once.
+>
+> The current code can be easily extended, while your code not.
+> I don't see the need of this change.
 
-> On 04/22/2015 11:42 PM, David Miller wrote:
-> 
->>>     Hmm, I've been digging in the net core, and was unable to see where TX
->>>     skb's get their NET_IP_ALIGN bytes reserved. Have I missed something?
->>>     Probably need to print out skb's fields...
-> 
->> NET_IP_ALIGN is for receive, not transmit.
-> 
->    But when I print 'skb->data' from the ndo_start_xmit() method (in the
->    'sh_eth' driver), all addresses end with 2, so it looks like
->    NET_IP_ALIGN gets added somewhere...
-
-It's the IPV4 header which is 4 byte aligned, then the ethernet header
-is pushed which is 14 bytes.
+well, iproute2 doesn't use TC_ACT_QUEUED action at all and
+TC_ACT_STOLEN is used by mirred. All in-tree qdiscs alias them.
+If you're saying that some future actions together with
+some future qdiscs may take advantage of that, then why they didn't
+use it over the last 10 years?
+Having both that do the same thing is only confusing.
+I think having one value to indicate 'stolen' condition makes TC
+code easier to understand.
+Jamal, what's your take on this?
