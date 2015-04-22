@@ -1,95 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net/phy: refactor RTL8211F initialization
-Date: Wed, 22 Apr 2015 09:57:20 -0700
-Message-ID: <5537D2F0.9050903@gmail.com>
-References: <1429698120-17882-1-git-send-email-Shengzhou.Liu@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Shengzhou Liu <Shengzhou.Liu@freescale.com>,
-	netdev@vger.kernel.org, joe.hershberger@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34442 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965529AbbDVQ6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 12:58:30 -0400
-Received: by pacyx8 with SMTP id yx8so277883594pac.1
-        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 09:58:29 -0700 (PDT)
-In-Reply-To: <1429698120-17882-1-git-send-email-Shengzhou.Liu@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH] net: mdio-gpio: support access that may sleep
+Date: Wed, 22 Apr 2015 13:06:54 -0400
+Message-ID: <1429722414-18173-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 22/04/15 03:22, Shengzhou Liu wrote:
-> RTL8211F needs to enalbe TXDLY for RGMII during
-> phy initialization, so move it to rtl8211f_config
-> for early initialization.
-> 
-> Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-> cc: Joe Hershberger <joe.hershberger@gmail.com>
-> ---
->  drivers/net/phy/realtek.c | 25 +++++++++++++++++--------
->  1 file changed, 17 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-> index 3917c82..d48095b 100644
-> --- a/drivers/net/phy/realtek.c
-> +++ b/drivers/net/phy/realtek.c
-> @@ -43,6 +43,22 @@ static int rtl8211x_config(struct phy_device *phydev)
->  	return 0;
->  }
->  
-> +static int rtl8211f_config(struct phy_device *phydev)
-> +{
-> +	phy_write(phydev, MDIO_DEVAD_NONE, MII_BMCR, BMCR_RESET);
+Some systems using mdio-gpio may use gpio on message based busses, which
+require sleeping (e.g. gpio from an I2C I/O expander).
 
-That part of the change is not documented but has to be, and you should
-use genphy_soft_reset() which also takes care of waiting the required
-amount of time before BMCR_RESET is cleared.
+Since this driver does not use IRQ handler, it is safe to use the
+_cansleep suffixed gpio accessors.
 
-> +
-> +	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
-> +		/* enable TXDLY */
-> +		phy_write(phydev, MDIO_DEVAD_NONE,
-> +			  MIIM_RTL8211F_PAGE_SELECT, 0xd08);
-> +		phy_write(phydev, MDIO_DEVAD_NONE, 0x11, 0x109);
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/phy/mdio-gpio.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-Do you need to reset the page selector somehow after this write?
-
-> +	}
-> +
-> +	genphy_config_aneg(phydev);
-> +
-> +	return 0;
-> +}
-> +
->  static int rtl8211x_parse_status(struct phy_device *phydev)
->  {
->  	unsigned int speed;
-> @@ -142,13 +158,6 @@ static int rtl8211f_parse_status(struct phy_device *phydev)
->  		phydev->speed = SPEED_10;
->  	}
->  
-> -	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
-> -		/* enable TXDLY */
-> -		phy_write(phydev, MDIO_DEVAD_NONE,
-> -			  MIIM_RTL8211F_PAGE_SELECT, 0xd08);
-> -		phy_write(phydev, MDIO_DEVAD_NONE, 0x11, 0x109);
-> -	}
-> -
->  	return 0;
->  }
->  
-> @@ -209,7 +218,7 @@ static struct phy_driver RTL8211F_driver = {
->  	.uid = 0x1cc916,
->  	.mask = 0xffffff,
->  	.features = PHY_GBIT_FEATURES,
-> -	.config = &rtl8211x_config,
-> +	.config = &rtl8211f_config,
->  	.startup = &rtl8211f_startup,
->  	.shutdown = &genphy_shutdown,
->  };
-> 
-
-
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 49ce7ec..c9cb486c 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -80,7 +80,8 @@ static void mdio_dir(struct mdiobb_ctrl *ctrl, int dir)
+ 		 * assume the pin serves as pull-up. If direction is
+ 		 * output, the default value is high.
+ 		 */
+-		gpio_set_value(bitbang->mdo, 1 ^ bitbang->mdo_active_low);
++		gpio_set_value_cansleep(bitbang->mdo,
++					1 ^ bitbang->mdo_active_low);
+ 		return;
+ 	}
+ 
+@@ -96,7 +97,8 @@ static int mdio_get(struct mdiobb_ctrl *ctrl)
+ 	struct mdio_gpio_info *bitbang =
+ 		container_of(ctrl, struct mdio_gpio_info, ctrl);
+ 
+-	return gpio_get_value(bitbang->mdio) ^ bitbang->mdio_active_low;
++	return gpio_get_value_cansleep(bitbang->mdio) ^
++		bitbang->mdio_active_low;
+ }
+ 
+ static void mdio_set(struct mdiobb_ctrl *ctrl, int what)
+@@ -105,9 +107,11 @@ static void mdio_set(struct mdiobb_ctrl *ctrl, int what)
+ 		container_of(ctrl, struct mdio_gpio_info, ctrl);
+ 
+ 	if (bitbang->mdo)
+-		gpio_set_value(bitbang->mdo, what ^ bitbang->mdo_active_low);
++		gpio_set_value_cansleep(bitbang->mdo,
++					what ^ bitbang->mdo_active_low);
+ 	else
+-		gpio_set_value(bitbang->mdio, what ^ bitbang->mdio_active_low);
++		gpio_set_value_cansleep(bitbang->mdio,
++					what ^ bitbang->mdio_active_low);
+ }
+ 
+ static void mdc_set(struct mdiobb_ctrl *ctrl, int what)
+@@ -115,7 +119,7 @@ static void mdc_set(struct mdiobb_ctrl *ctrl, int what)
+ 	struct mdio_gpio_info *bitbang =
+ 		container_of(ctrl, struct mdio_gpio_info, ctrl);
+ 
+-	gpio_set_value(bitbang->mdc, what ^ bitbang->mdc_active_low);
++	gpio_set_value_cansleep(bitbang->mdc, what ^ bitbang->mdc_active_low);
+ }
+ 
+ static struct mdiobb_ops mdio_gpio_ops = {
 -- 
-Florian
+2.3.5
