@@ -1,44 +1,37 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] igb: fix a typo in igb_reset_q_vector()
-Date: Tue, 21 Apr 2015 21:35:04 -0700
-Message-ID: <CAM_iQpWjUiJdb5E8QHvquzweQsEEdDQqtxJLyBL8KM1zOL6W9Q@mail.gmail.com>
-References: <1429658433-8634-1-git-send-email-xiyou.wangcong@gmail.com>
-	<5536EAA3.10701@lab.ntt.co.jp>
-	<1429662577.2638.201.camel@jtkirshe-mobl>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC 1/3] tc: fix return values of ingress qdisc
+Date: Tue, 21 Apr 2015 21:59:33 -0700
+Message-ID: <CAHA+R7NwAdc81bFSoqvXsTpzod0vzT-PV38_Q0N0WTUVGFUY-g@mail.gmail.com>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
+	<1429644476-8914-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:36518 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168AbbDVEfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 00:35:05 -0400
-Received: by pdea3 with SMTP id a3so262702118pde.3
-        for <netdev@vger.kernel.org>; Tue, 21 Apr 2015 21:35:04 -0700 (PDT)
-In-Reply-To: <1429662577.2638.201.camel@jtkirshe-mobl>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:36304 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756082AbbDVE7f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 00:59:35 -0400
+Received: by wizk4 with SMTP id k4so163281936wiz.1
+        for <netdev@vger.kernel.org>; Tue, 21 Apr 2015 21:59:33 -0700 (PDT)
+In-Reply-To: <1429644476-8914-2-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 21, 2015 at 5:29 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> On Wed, 2015-04-22 at 09:26 +0900, Toshiaki Makita wrote:
->> Hi Cong Wang,
->>
->> I have already sent a patch to intel's tree.
->> http://git.kernel.org/cgit/linux/kernel/git/jkirsher/net-queue.git/commit/?h=dev-queue&id=02ac4b65689f8df824117395fd8d160c04161a7b
->>
-
-I didn't know this tree, I use -net tree.
-
->>
+On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> ingress qdisc should return NET_XMIT_* values just like all other qdiscs.
 >
-> Oops, yeah.  I already have this in my queue.  I wondered why the patch
-> seemed familiar, Cong dropping your patch since I already have
-> Tochiaki's patch in my queue.
 
-Sure. Please queue it for -stable too, since it apparently fixes a bug.
+XMIT already means egress...
 
-Thanks!
+> Since it's invoked via qdisc_enqueue_root() (which suppose to return
+> only NET_XMIT_* values as well), it was working by accident,
+> since TC_ACT_* values fit within NET_XMIT_MASK.
+>
+
+Why not just add a BUILD_BUG_ON() to capture this?
