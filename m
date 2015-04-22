@@ -1,42 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net 2/2] rhashtable: Do not schedule more than one rehash
- if we can't grow further
-Date: Wed, 22 Apr 2015 08:37:45 +0800
-Message-ID: <20150422003744.GB5724@gondor.apana.org.au>
-References: <cover.1429620438.git.tgraf@suug.ch>
- <8f90c3e52b4930ae24627dd193cf3fc26878bdb9.1429620438.git.tgraf@suug.ch>
+From: Michael Trimarchi <michael@amarulasolutions.com>
+Subject: Re: [PATCH V2] net: stmmac: use msleep instead of udelay for gpio
+ reset
+Date: Wed, 22 Apr 2015 02:55:03 +0200
+Message-ID: <20150422005503.GA11073@panicking>
+References: <1429614973-6883-1-git-send-email-michael@amarulasolutions.com>
+ <20150421.173540.1253961571051792975.davem@davemloft.net>
+ <20150421231347.GA3392@panicking>
+ <20150421.203134.3443090203330589.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: peppe.cavallaro@st.com, festevam@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:40897 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965084AbbDVAhy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 20:37:54 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35390 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932273AbbDVAy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 20:54:58 -0400
+Received: by pabtp1 with SMTP id tp1so256794505pab.2
+        for <netdev@vger.kernel.org>; Tue, 21 Apr 2015 17:54:57 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <8f90c3e52b4930ae24627dd193cf3fc26878bdb9.1429620438.git.tgraf@suug.ch>
+In-Reply-To: <20150421.203134.3443090203330589.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 21, 2015 at 02:55:35PM +0200, Thomas Graf wrote:
-> The current code currently only stops inserting rehashes into the
-> chain when no resizes are currently scheduled. As long as resizes
-> are scheduled and while inserting above the utilization watermark,
-> more and more rehashes will be scheduled.
-> 
-> This lead to a perfect DoS storm with thousands of rehashes
-> scheduled which lead to thousands of spinlocks to be taken
-> sequentially.
-> 
-> Instead, only allow either a series of resizes or a single rehash.
-> Drop any further rehashes and return -EBUSY.
-> 
-> Fixes: ccd57b1bd324 ("rhashtable: Add immediate rehash during insertion")
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Hi
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Tue, Apr 21, 2015 at 08:31:34PM -0400, David Miller wrote:
+> From: Michael Trimarchi <michael@amarulasolutions.com>
+> Date: Wed, 22 Apr 2015 01:13:47 +0200
+> 
+> > Hi
+> > 
+> > On Tue, Apr 21, 2015 at 05:35:40PM -0400, David Miller wrote:
+> >> From: Michael Trimarchi <michael@amarulasolutions.com>
+> >> Date: Tue, 21 Apr 2015 13:16:13 +0200
+> >> 
+> >> > -			udelay(data->delays[0]);
+> >>  ...
+> >> > +			msleep(max(1U, data->delays[0] / 1000));
+> >> 
+> >> That looks very ugly with that max() expression in there.
+> >>
+> > 
+> > Is fine for you a DIV_ROUND_UP?
+> 
+> Not inside of these simple msleep() calls, no.
+> 
+> How about adjusting the values either in the datastructure or
+> in local variables instead?  That wasn't so hard to come up
+> with now, was it?
+
+Ok, it's easy no problem at all, I will post later today but I prefer
+local variables and use DIV_ROUND_UP
+
+Michael
