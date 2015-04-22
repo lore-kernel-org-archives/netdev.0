@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,1/1] hv_netvsc: call dump_rndis_message() only
- in netvsc debug mode
-Date: Tue, 21 Apr 2015 20:30:13 -0400 (EDT)
-Message-ID: <20150421.203013.1642320994735532678.davem@davemloft.net>
-References: <1429657085-23379-1-git-send-email-sixiao@microsoft.com>
-	<20150421.174852.1894618346723165016.davem@davemloft.net>
-	<CY1PR03MB137672BCD670AF429263C498C4EF0@CY1PR03MB1376.namprd03.prod.outlook.com>
+Subject: Re: [PATCH V2] net: stmmac: use msleep instead of udelay for gpio
+ reset
+Date: Tue, 21 Apr 2015 20:31:34 -0400 (EDT)
+Message-ID: <20150421.203134.3443090203330589.davem@davemloft.net>
+References: <1429614973-6883-1-git-send-email-michael@amarulasolutions.com>
+	<20150421.173540.1253961571051792975.davem@davemloft.net>
+	<20150421231347.GA3392@panicking>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sixiao@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CY1PR03MB137672BCD670AF429263C498C4EF0@CY1PR03MB1376.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: peppe.cavallaro@st.com, festevam@gmail.com, netdev@vger.kernel.org
+To: michael@amarulasolutions.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56817 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753753AbbDVAbf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 20:31:35 -0400
+In-Reply-To: <20150421231347.GA3392@panicking>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Xiao <sixiao@microsoft.com>
-Date: Tue, 21 Apr 2015 22:14:14 +0000
+From: Michael Trimarchi <michael@amarulasolutions.com>
+Date: Wed, 22 Apr 2015 01:13:47 +0200
 
-> In current netvsc driver, for each packet received, it will call
-> dump_rndis_message() to try to dump the rndis packet information by
-> netdev_dbg().  In non-debug mode, dump_rndis_message() will not dump
-> anything but it still initialize some local variables and process
-> the switch logic in the function of dump_rndis_message(), which is
-> unnecessary, especially in high network throughput situation.
+> Hi
+> 
+> On Tue, Apr 21, 2015 at 05:35:40PM -0400, David Miller wrote:
+>> From: Michael Trimarchi <michael@amarulasolutions.com>
+>> Date: Tue, 21 Apr 2015 13:16:13 +0200
+>> 
+>> > -			udelay(data->delays[0]);
+>>  ...
+>> > +			msleep(max(1U, data->delays[0] / 1000));
+>> 
+>> That looks very ugly with that max() expression in there.
+>>
+> 
+> Is fine for you a DIV_ROUND_UP?
 
-See NETIF_MSG_* and use it properly in your driver, read other drivers
-and learn how to properly use it for things like this.
+Not inside of these simple msleep() calls, no.
 
-I'm not going to explain this a third time.
+How about adjusting the values either in the datastructure or
+in local variables instead?  That wasn't so hard to come up
+with now, was it?
