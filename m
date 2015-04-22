@@ -1,46 +1,52 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] fm10k: pass the correct maxlen for eth_get_headlen()
-Date: Wed, 22 Apr 2015 10:45:58 -0700
-Message-ID: <1429724760-10075-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1429724760-10075-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: intel-wired-lan@lists.osuosl.org,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fix possible deadlock in tcp_send_fin()
+Date: Wed, 22 Apr 2015 14:15:34 -0400 (EDT)
+Message-ID: <20150422.141534.1363191163633903371.davem@davemloft.net>
+References: <55110009.4020706@akamai.com>
+	<1429661349.18561.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1429666344.18561.37.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johunt@akamai.com, netdev@vger.kernel.org, edumazet@google.com,
+	gthelen@google.com, rientjes@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36321 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753973AbbDVRqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 13:46:12 -0400
-Received: by pabsx10 with SMTP id sx10so279109250pab.3
-        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 10:46:12 -0700 (PDT)
-In-Reply-To: <1429724760-10075-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34568 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754013AbbDVSPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 14:15:39 -0400
+In-Reply-To: <1429666344.18561.37.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The second parameter of eth_get_headlen() is the length of
-the frame buffer, not the header length of skb.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 21 Apr 2015 18:32:24 -0700
 
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Using sk_stream_alloc_skb() in tcp_send_fin() is dangerous in
+> case a huge process is killed by OOM, and tcp_mem[2] is hit.
+> 
+> To be able to free memory we need to make progress, so this
+> patch allows FIN packets to not care about tcp_mem[2], if
+> skb allocation succeeded.
+> 
+> In a follow-up patch, we might abort tcp_send_fin() infinite loop
+> in case TIF_MEMDIE is set on this thread, as memory allocator
+> did its best getting extra memory already. 
+> 
+> This patch reverts d22e15371811 ("tcp: fix tcp fin memory accounting")
+> 
+> Fixes: d22e15371811 ("tcp: fix tcp fin memory accounting")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-index 1b0661e..cd044b1 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
-@@ -543,7 +543,9 @@ static void fm10k_pull_tail(struct sk_buff *skb)
- 	/* we need the header to contain the greater of either ETH_HLEN or
- 	 * 60 bytes if the skb->len is less than 60 for skb_pad.
- 	 */
--	pull_len = eth_get_headlen(va, FM10K_RX_HDR_LEN);
-+	pull_len = eth_get_headlen(va, skb_frag_size(frag));
-+	if (unlikely(pull_len > FM10K_RX_HDR_LEN))
-+		pull_len = FM10K_RX_HDR_LEN;
- 
- 	/* align pull length to size of long to optimize memcpy performance */
- 	skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
--- 
-1.8.3.1
+Applied and queued up for -stable, since the tcp fin memory accounting change
+went to -stable already.
+
+Wrt. longer term solutions, I would even be OK at this point aborting
+the connection altogether if the skb allocation fails period.  Not
+just if TIF_MEMDIE is set.  That endless loop has been nothing but
+trouble.
+
+Thanks.
