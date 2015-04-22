@@ -1,51 +1,43 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [RFC 1/3] tc: fix return values of ingress qdisc
-Date: Wed, 22 Apr 2015 15:04:03 -0700
-Message-ID: <55381AD3.30209@plumgrid.com>
-References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>	<1429644476-8914-2-git-send-email-ast@plumgrid.com> <CAHA+R7NwAdc81bFSoqvXsTpzod0vzT-PV38_Q0N0WTUVGFUY-g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] Renesas Ethernet AVB driver
+Date: Wed, 22 Apr 2015 18:17:28 -0400 (EDT)
+Message-ID: <20150422.181728.1904622458656373346.davem@davemloft.net>
+References: <553804CA.1030605@cogentembedded.com>
+	<20150422.164242.2185477513394713122.davem@davemloft.net>
+	<553808BC.5020600@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Cc: mitsuhiro.kimura.kc@renesas.com, f.fainelli@gmail.com,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	richardcochran@gmail.com, linux-sh@vger.kernel.org,
+	masaru.nagai.vx@renesas.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33919 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758326AbbDVWEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 18:04:06 -0400
-Received: by pacyx8 with SMTP id yx8so60358pac.1
-        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 15:04:05 -0700 (PDT)
-In-Reply-To: <CAHA+R7NwAdc81bFSoqvXsTpzod0vzT-PV38_Q0N0WTUVGFUY-g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36109 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934116AbbDVWRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 18:17:34 -0400
+In-Reply-To: <553808BC.5020600@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/21/15 9:59 PM, Cong Wang wrote:
-> On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> ingress qdisc should return NET_XMIT_* values just like all other qdiscs.
->>
->
-> XMIT already means egress...
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Wed, 22 Apr 2015 23:46:52 +0300
 
-may be then it should be renamed as well.
-from include/linux/netdevice.h:
-/* qdisc ->enqueue() return codes. */
-#define NET_XMIT_SUCCESS        0x00
-...
+> Hello.
+> 
+> On 04/22/2015 11:42 PM, David Miller wrote:
+> 
+>>>     Hmm, I've been digging in the net core, and was unable to see where TX
+>>>     skb's get their NET_IP_ALIGN bytes reserved. Have I missed something?
+>>>     Probably need to print out skb's fields...
+> 
+>> NET_IP_ALIGN is for receive, not transmit.
+> 
+>    Hm, then 'skb->data' should be aligned to 4 byte boundary on TX,
+>    right?
 
-the point is that qdisc->enqeue() must return NET_XMIT_* values.
-ingress qdisc is violating this and therefore should be fixed.
-
->> Since it's invoked via qdisc_enqueue_root() (which suppose to return
->> only NET_XMIT_* values as well), it was working by accident,
->> since TC_ACT_* values fit within NET_XMIT_MASK.
->>
->
-> Why not just add a BUILD_BUG_ON() to capture this?
-
-ingress qdisc returning TC_ACT_* values is an obvious layering
-violation. I'm puzzled why it's been this way for so long.
-Adding BUILD_BUG_ON is not an option.
+Yes, TCP even take great pains to ensure this.
