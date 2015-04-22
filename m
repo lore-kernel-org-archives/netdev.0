@@ -1,11 +1,11 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [RFC 1/3] tc: fix return values of ingress qdisc
-Date: Wed, 22 Apr 2015 16:29:48 -0700
-Message-ID: <CAHA+R7ODYz4Awh-HuxARktS2vdUa_pEbN_8DZY1Qk4mH7vd=9Q@mail.gmail.com>
+Subject: Re: [RFC 3/3] tc: cleanup tc_classify
+Date: Wed, 22 Apr 2015 16:38:04 -0700
+Message-ID: <CAHA+R7Mzz-6j1u=6KqVgT1pesbWcon+=EZcsVU6VX7wm1zEUVg@mail.gmail.com>
 References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
-	<1429644476-8914-2-git-send-email-ast@plumgrid.com>
-	<CAHA+R7NwAdc81bFSoqvXsTpzod0vzT-PV38_Q0N0WTUVGFUY-g@mail.gmail.com>
-	<55381AD3.30209@plumgrid.com>
+	<1429644476-8914-4-git-send-email-ast@plumgrid.com>
+	<CAHA+R7OSVs1rYcXkOM=FYoDMHGM30iWRRAVtdiJmU7jz9GRdYw@mail.gmail.com>
+	<55382055.1090207@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -15,59 +15,36 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:34019 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758583AbbDVX3t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 19:29:49 -0400
-Received: by wicmx19 with SMTP id mx19so594839wic.1
-        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 16:29:48 -0700 (PDT)
-In-Reply-To: <55381AD3.30209@plumgrid.com>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:36611 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751980AbbDVXiF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 19:38:05 -0400
+Received: by wizk4 with SMTP id k4so196364732wiz.1
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 16:38:04 -0700 (PDT)
+In-Reply-To: <55382055.1090207@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2015 at 3:04 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On 4/21/15 9:59 PM, Cong Wang wrote:
+On Wed, Apr 22, 2015 at 3:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On 4/21/15 10:05 PM, Cong Wang wrote:
 >>
 >> On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com>
 >> wrote:
 >>>
->>> ingress qdisc should return NET_XMIT_* values just like all other qdiscs.
->>>
+>>> introduce tc_classify_act() and qdisc_drop_bypass() helper functions to
+>>> reduce
+>>> copy-paste among different qdiscs
 >>
->> XMIT already means egress...
->
->
-> may be then it should be renamed as well.
-> from include/linux/netdevice.h:
-> /* qdisc ->enqueue() return codes. */
-> #define NET_XMIT_SUCCESS        0x00
-> ...
->
-> the point is that qdisc->enqeue() must return NET_XMIT_* values.
-> ingress qdisc is violating this and therefore should be fixed.
-
-XMIT is non-sense for ingress, you really need to pick another
-name for it if TC_ACT_OK isn't okay for you (it is okay for me).
-
-
->
->>> Since it's invoked via qdisc_enqueue_root() (which suppose to return
->>> only NET_XMIT_* values as well), it was working by accident,
->>> since TC_ACT_* values fit within NET_XMIT_MASK.
->>>
 >>
->> Why not just add a BUILD_BUG_ON() to capture this?
+>>
+>> I don't think qdisc_drop_bypass() is more readable than without it,
+>> maybe you need a better name, or just leave the code as it is.
 >
 >
-> ingress qdisc returning TC_ACT_* values is an obvious layering
-> violation. I'm puzzled why it's been this way for so long.
+> what would be a better name? I'm open to suggestions.
 
-Why? Everyone knows ingress is the only qdisc on ingress
-and it has no queue and can only accept filters (actions are on filters).
+My reading for "qdisc_drop_bypass()" is it bypasses packet
+dropping for some case, apparently doesn't match its definition.
 
-> Adding BUILD_BUG_ON is not an option.
->
-
-It at least tells people we know their value are same, IOW, not a bug.
-
-I don't see the need for the change except a BUILD_BUG_ON().
+I can't think out a better name therefore I don't think it deserves
+a function, just leave as it is.
