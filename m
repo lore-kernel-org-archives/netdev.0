@@ -1,52 +1,44 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/3] mpls: ABI changes for security and correctness
-Date: Tue, 21 Apr 2015 19:29:42 -0500
-Message-ID: <87d22xm2dl.fsf@x220.int.ebiederm.org>
-References: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
-	<1429648467-8449-1-git-send-email-rshearma@brocade.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net 1/2] rhashtable: Schedule async resize when sync
+ realloc fails
+Date: Wed, 22 Apr 2015 08:36:34 +0800
+Message-ID: <20150422003634.GA5724@gondor.apana.org.au>
+References: <cover.1429620438.git.tgraf@suug.ch>
+ <4f55f5c9abd6b09ed44f0da3f0e72a10040e8278.1429620438.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:55846 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932209AbbDVAd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 20:33:58 -0400
-In-Reply-To: <1429648467-8449-1-git-send-email-rshearma@brocade.com> (Robert
-	Shearman's message of "Tue, 21 Apr 2015 21:34:24 +0100")
+Received: from helcar.hengli.com.au ([209.40.204.226]:38714 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933767AbbDVAgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 20:36:50 -0400
+Content-Disposition: inline
+In-Reply-To: <4f55f5c9abd6b09ed44f0da3f0e72a10040e8278.1429620438.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Robert Shearman <rshearma@brocade.com> writes:
+On Tue, Apr 21, 2015 at 02:55:34PM +0200, Thomas Graf wrote:
+> When rhashtable_insert_rehash() fails with ENOMEM, this indicates that
+> we can't allocate the necessary memory in the current context but the
+> limits as set by the user would still allow to grow.
+> 
+> Thus attempt an async resize in the background where we can allocate
+> using GFP_KERNEL which is more likely to succeed. The insertion itself
+> will still fail to indicate pressure.
+> 
+> This fixes a bug where the table would never continue growing once the
+> utilization is above 100%.
+> 
+> Fixes: ccd57b1bd324 ("rhashtable: Add immediate rehash during insertion")
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> These changes make mpls not be enabled by default on all
-> interfaces when in use for security, along with ensuring that a label
-> not valid as an outgoing label can be added in mpls routes.
->
-> This series contains three ABI/behaviour-affecting changes which have
-> been split out from "[PATCH net-next v4 0/6] mpls: Behaviour-changing
-> improvements" without any further modification. These changes need to
-> be considered for 4.1 otherwise we'll be stuck with the current
-> behaviour/ABI forever.
+Good catch.  But I think this call should happen in
+rhashtable_insert_rehash since it's on the slow-path.
 
-I don't like the difference in default between loopback and everything
-else.  That just seems like an extra arbitrary rule.
-
-Otherwise:
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-
-Not that I expect Dave Miller is taking patches during the merge window.
-
-> Robert Shearman (3):
->   mpls: Per-device MPLS state
->   mpls: Per-device enabling of packet input
->   mpls: Prevent use of implicit NULL label as outgoing label
->
->  Documentation/networking/mpls-sysctl.txt |   9 +++
->  include/linux/netdevice.h                |   4 +
->  net/mpls/af_mpls.c                       | 132 ++++++++++++++++++++++++++++++-
->  net/mpls/internal.h                      |   6 ++
->  4 files changed, 148 insertions(+), 3 deletions(-)
-
-Eric
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
