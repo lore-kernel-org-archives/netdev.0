@@ -1,34 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 0/6] crypto: Make all AEAD users include aead.h
-Date: Wed, 22 Apr 2015 15:04:55 +0800
-Message-ID: <20150422070455.GA8351@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 1/6] crypto: arm64/aes-ce-ccm - Include crypto/internal/aead.h
+Date: Wed, 22 Apr 2015 15:06:27 +0800
+Message-ID: <E1Ykojr-0002C3-Fr@gondolin.me.apana.org.au>
+References: <20150422070455.GA8351@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Johannes Berg <johannes@sipsolutions.net>,
 	Marcel Holtmann <marcel@holtmann.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:34685 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754334AbbDVHFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 03:05:01 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+All implementers of AEAD should include crypto/internal/aead.h
+instead of include/linux/crypto.h.
 
-This series adds inclusions of aead.h to all AEAD users including
-AEAD implementors (where it's internal/aead.h).  This is necessary
-because I'll be adding an updated AEAD interface and that will live
-in aead.h instead of crypto.h.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-Dave, if it's OK with you I'd like to push the last two patches
-through my tree as the new AEAD interface would depend on them.
+ arch/arm64/crypto/aes-ce-ccm-glue.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/arch/arm64/crypto/aes-ce-ccm-glue.c b/arch/arm64/crypto/aes-ce-ccm-glue.c
+index 6c348df..3303e8a 100644
+--- a/arch/arm64/crypto/aes-ce-ccm-glue.c
++++ b/arch/arm64/crypto/aes-ce-ccm-glue.c
+@@ -13,7 +13,7 @@
+ #include <crypto/aes.h>
+ #include <crypto/algapi.h>
+ #include <crypto/scatterwalk.h>
+-#include <linux/crypto.h>
++#include <crypto/internal/aead.h>
+ #include <linux/module.h>
+ 
+ #include "aes-ce-setkey.h"
