@@ -1,111 +1,129 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods
- with timespec64 type for k_clock structure
-Date: Wed, 22 Apr 2015 15:37:47 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1504221531470.13914@nanos>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org> <alpine.DEB.2.11.1504212204130.13914@nanos> <alpine.DEB.2.11.1504220946460.13914@nanos> <2233518.Z2Q4dpO62C@wuerfel>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: y2038@lists.linaro.org, pang.xunlei@linaro.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Paul Mackerras <paulus@samba.org>, cl@linux.com,
-	Ingo Molnar <mingo@kernel.org>, heenasirwani@gmail.com,
-	linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
-	mpe@ellerman.id.au, rafael.j.wysocki@intel.com, ahh@google.com,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, pjt@google.com,
-	riel@redhat.com, richardcochran@gmail.com,
-	Tejun Heo <tj@kernel.org>,
-	John Stultz <john.stultz@linaro.org>, rth@twiddle.net,
-	Baolin Wang <baolin.wang@linaro.org>,
-	gregkh@linuxfoundation.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	linux390@de.ibm.com, linuxppc-dev@lists.ozlabs.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <2233518.Z2Q4dpO62C@wuerfel>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net-next v2] be2net: log link status
+Date: Wed, 22 Apr 2015 15:43:30 +0200
+Message-ID: <1429710210-7291-1-git-send-email-ivecera@redhat.com>
+Cc: Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49283 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757138AbbDVNnd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Apr 2015 09:43:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Apr 2015, Arnd Bergmann wrote:
-> On Wednesday 22 April 2015 10:45:23 Thomas Gleixner wrote:
-> > On Tue, 21 Apr 2015, Thomas Gleixner wrote:
-> 
-> > So we could save one translation step if we implement new syscalls
-> > which have a scalar nsec interface instead of the timespec/timeval
-> > cruft and let user space do the translation to whatever it wants.
-> > 
-> > So
-> > 
-> > sys_clock_nanosleep(const clockid_t which_clock, int flags,
-> > 	            const struct timespec __user *expires,
-> > 		    struct timespec __user *reminder)
-> > 
-> > would get the new syscall variant:
-> > 
-> > sys_clock_nanosleep_ns(const clockid_t which_clock, int flags,
-> > 		       const s64 expires, s64 __user *reminder)
-> 
-> As you might expect, there are a number of complications with this
-> approach:
-> 
-> - John Stultz likes to point out that it's easier to do one change
->   at a time, so extending the interface to 64-bit has less potential
->   of breaking things than a more fundamental change. I think it's
->   useful to drop a lot of the syscalls when a more modern version
->   is around (e.g. let libc implement usleep and nanosleep through
->   clock_nanosleep), but keep the syscalls as close to the known-working
->   64-bit versions as we can.
+The driver unlike other drivers does not log link state changes.
 
-Well. I don't see a massive risk when implementing
-e.g. usleep/nanosleep & al with clock_nanosleep_ns().
+v2: added current link speed to log message
 
-> - The inode timestamp related syscalls (stat, utimes and variants
->   thereof) require the full range of time64_t and cannot use ktime_t.
+Cc: Sathya Perla <sathya.perla@emulex.com>
+Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h         |  3 ++-
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |  3 ++-
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |  2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c    | 20 +++++++++++++++-----
+ 4 files changed, 20 insertions(+), 8 deletions(-)
 
-I'm aware that there are a lot of interfaces which cannot use
-ktime_t. That's fine.
-
-> - converting between timespec types of different size is cheap,
->   converting timespec to ktime_t is still relatively cheap, but
->   converting ktime_t to timespec is rather expensive (at least eight
->   32-bit multiplies, plus a few shifts and additions if you don't
->   have 64-bit arithmetic).
-
-Right. That's what I said vs. gettime().
-
-> - ioctls that pass a timespec need to keep doing that or would require
->   a source-level change in user space instead of recompiling.
-
-No argument here.
-
-> We should probably look at it separately for each syscall. It's
-> quite possible that we find a number of them for which it helps
-> and others for which it hurts, so we need to see the big pictures.
-
-Agreed.
-
-> There are also a few other calls that will never need 64-bit
-> time_t because the range is limited by the need to only ever
-> pass relative timeouts (select, poll, io_getevents, recvmmsg,
-> clock_getres, rt_sigtimedwait, sched_rr_get_interval, getrusage,
-> waitid, semtimedop, sysinfo), so we could actually leave them
-> using a 32-bit structure and have the libc do the conversion.
-
-Indeed.
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 1bf1cdc..f5409d9 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -796,7 +796,8 @@ static inline void  be_clear_all_error(struct be_adapter *adapter)
  
-> I've started a list of affected syscalls at
-> https://docs.google.com/spreadsheets/d/1HCYwHXxs48TsTb6IGUduNjQnmfRvMPzCN6T_0YiQwis/edit?usp=sharing
-> 
-> Still adding more calls and description, let me know if you want edit
-> permissions.
-
-Only if you have a strong backup system for this file. My GUI foo is
-rather limited :)
-
-Thanks,
-
-	tglx
+ void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
+ 		  u16 num_popped);
+-void be_link_status_update(struct be_adapter *adapter, u8 link_status);
++void be_link_status_update(struct be_adapter *adapter, u8 link_status,
++			   u16 speed);
+ void be_parse_stats(struct be_adapter *adapter);
+ int be_load_fw(struct be_adapter *adapter, u8 *func);
+ bool be_is_wol_supported(struct be_adapter *adapter);
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index fb140fa..60381eb 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -262,7 +262,8 @@ static void be_async_link_state_process(struct be_adapter *adapter,
+ 	 */
+ 	if (adapter->flags & BE_FLAGS_LINK_STATUS_INIT)
+ 		be_link_status_update(adapter,
+-				      evt->port_link_status & LINK_STATUS_MASK);
++				      evt->port_link_status & LINK_STATUS_MASK,
++				      0);
+ }
+ 
+ static void be_async_port_misconfig_event_process(struct be_adapter *adapter,
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index b765c24..831db95 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -611,7 +611,7 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		status = be_cmd_link_status_query(adapter, &link_speed,
+ 						  &link_status, 0);
+ 		if (!status)
+-			be_link_status_update(adapter, link_status);
++			be_link_status_update(adapter, link_status, link_speed);
+ 		ethtool_cmd_speed_set(ecmd, link_speed);
+ 
+ 		status = be_cmd_get_phy_info(adapter);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index fb0bc3c..d3bfac9 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -649,7 +649,8 @@ static struct rtnl_link_stats64 *be_get_stats64(struct net_device *netdev,
+ 	return stats;
+ }
+ 
+-void be_link_status_update(struct be_adapter *adapter, u8 link_status)
++void be_link_status_update(struct be_adapter *adapter, u8 link_status,
++			   u16 speed)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 
+@@ -658,10 +659,18 @@ void be_link_status_update(struct be_adapter *adapter, u8 link_status)
+ 		adapter->flags |= BE_FLAGS_LINK_STATUS_INIT;
+ 	}
+ 
+-	if (link_status)
++	if (link_status) {
++		if (speed)
++			/* Print speed only when it is known */
++			netdev_info(netdev, "Link is Up at %d Mbps\n", speed);
++		else
++			netdev_info(netdev, "Link is Up");
++
+ 		netif_carrier_on(netdev);
+-	else
++	} else {
++		netdev_info(netdev, "Link is Down\n");
+ 		netif_carrier_off(netdev);
++	}
+ }
+ 
+ static void be_tx_stats_update(struct be_tx_obj *txo, struct sk_buff *skb)
+@@ -3241,6 +3250,7 @@ static int be_open(struct net_device *netdev)
+ 	struct be_eq_obj *eqo;
+ 	struct be_rx_obj *rxo;
+ 	struct be_tx_obj *txo;
++	u16 speed;
+ 	u8 link_status;
+ 	int status, i;
+ 
+@@ -3267,9 +3277,9 @@ static int be_open(struct net_device *netdev)
+ 	}
+ 	adapter->flags |= BE_FLAGS_NAPI_ENABLED;
+ 
+-	status = be_cmd_link_status_query(adapter, NULL, &link_status, 0);
++	status = be_cmd_link_status_query(adapter, &speed, &link_status, 0);
+ 	if (!status)
+-		be_link_status_update(adapter, link_status);
++		be_link_status_update(adapter, link_status, speed);
+ 
+ 	netif_tx_start_all_queues(netdev);
+ 	be_roce_dev_open(adapter);
+-- 
+2.0.5
