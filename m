@@ -1,70 +1,92 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3] Renesas Ethernet AVB driver
-Date: Wed, 22 Apr 2015 23:30:02 +0300
-Message-ID: <553804CA.1030605@cogentembedded.com>
-References: <552C4554.2070608@gmail.com>	<552D8898.3060905@cogentembedded.com>	<SIXPR06MB03142A49C392C39922DC2BDA3EE0@SIXPR06MB031.apcprd06.prod.outlook.com> <20150422.113654.1169277303695917496.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net] igb: pass the correct maxlen for eth_get_headlen()
+Date: Wed, 22 Apr 2015 13:33:09 -0700
+Message-ID: <CAHA+R7PtzNd2asXFtiqsWyzCgeE1k_iF84358cvKg6ZCU-yVkQ@mail.gmail.com>
+References: <1429724760-10075-1-git-send-email-xiyou.wangcong@gmail.com>
+	<5537F9F1.1080008@gmail.com>
+	<CAHA+R7PVrxJ41WSqfO4mZSpCTGdJ++Gf757f_kq5z0UeMHXbXg@mail.gmail.com>
+	<553802DA.4050709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	devicetree@vger.kernel.org, galak@codeaurora.org,
-	netdev@vger.kernel.org, richardcochran@gmail.com,
-	linux-sh@vger.kernel.org, masaru.nagai.vx@renesas.com
-To: David Miller <davem@davemloft.net>, mitsuhiro.kimura.kc@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20150422.113654.1169277303695917496.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:36126 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793AbbDVUdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 16:33:12 -0400
+Received: by wizk4 with SMTP id k4so192319651wiz.1
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 13:33:10 -0700 (PDT)
+In-Reply-To: <553802DA.4050709@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, Apr 22, 2015 at 1:21 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 04/22/2015 01:14 PM, Cong Wang wrote:
+>> On Wed, Apr 22, 2015 at 12:43 PM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>>> On 04/22/2015 10:45 AM, Cong Wang wrote:
+>>>> The second parameter of eth_get_headlen() is the length of
+>>>> the frame buffer, not the header length of skb.
+>>>>
+>>>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>>>> ---
+>>>>  drivers/net/ethernet/intel/igb/igb_main.c | 4 +++-
+>>>>  1 file changed, 3 insertions(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+>>>> index a0a9b1f..7b3a370 100644
+>>>> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+>>>> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+>>>> @@ -6852,7 +6852,9 @@ static void igb_pull_tail(struct igb_ring *rx_ring,
+>>>>       /* we need the header to contain the greater of either ETH_HLEN or
+>>>>        * 60 bytes if the skb->len is less than 60 for skb_pad.
+>>>>        */
+>>>> -     pull_len = eth_get_headlen(va, IGB_RX_HDR_LEN);
+>>>> +     pull_len = eth_get_headlen(va, skb_frag_size(frag));
+>>>> +     if (unlikely(pull_len > IGB_RX_HDR_LEN))
+>>>> +             pull_len = IGB_RX_HDR_LEN;
+>>>>
+>>>>       /* align pull length to size of long to optimize memcpy performance */
+>>>>       skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
+>>> You have this part right.  The length represents the maximum length we
+>>> are willing to traverse in the buffer.  So if we 100% want to get the
+>>> entire header regardless of what we can copy into then we could follow
+>>> your approach.  However, since the allocated space in the skb is only
+>>> IGB_RX_HDR_LEN we only really want to traverse up to that length.  Then
+>>> that is all we copy out of the header.
+>> But the frag size could be smaller than IGB_RX_HDR_LEN which is
+>> the case this patch tries to fix.
+>
+> No it can't.  We only add frags if the first frag is larger than
+> IGB_RX_HDR_LEN.  Go look at the code where this driver calls
+> add_rx_frag.  You should find there is copybreak code in there that
+> kicks in for anything less than or equal to IGB_RX_HDR_LEN in size on
+> the first frag.  It is there to allow us to avoid having to perform an
+> atomic inc/dec on the page.
+>
 
-On 04/22/2015 06:36 PM, David Miller wrote:
+First, make sure you don't miss the TSIP case right above:
 
->>>>> +		if (!ravb_tx_free(ndev, q)) {
->>>>> +			netif_warn(priv, tx_queued, ndev, "TX FD exhausted.\n");
->>>>> +			netif_stop_queue(ndev);
->>>>> +			spin_unlock_irqrestore(&priv->lock, flags);
->>>>> +			return NETDEV_TX_BUSY;
->>>>> +		}
->>>>> +	}
->>>>> +	entry = priv->cur_tx[q] % priv->num_tx_ring[q];
->>>>> +	priv->cur_tx[q]++;
->>>>> +	spin_unlock_irqrestore(&priv->lock, flags);
->>>>> +
->>>>> +	if (skb_put_padto(skb, ETH_ZLEN))
->>>>> +		return NETDEV_TX_OK;
->>>>> +
->>>>> +	priv->tx_skb[q][entry] = skb;
->>>>> +	buffer = PTR_ALIGN(priv->tx_buffers[q][entry], RAVB_ALIGN);
->>>>> +	memcpy(buffer, skb->data, skb->len);
+The frag starting pointer and its size are advanced by:
 
->>>> ~1500 bytes memcpy(), not good...
+skb_frag_size_sub(frag, IGB_TS_HDR_LEN);
+...
+va += IGB_TS_HDR_LEN;
 
->>>      I'm looking in the manual and not finding the hard requirement to have the
->>> buffer address aligned to 128 bytes (RAVB_ALIGN), sigh... Kimura-san?
+even though we unlikely pull header longer than
+IGB_RX_HDR_LEN - IGB_TS_HDR_LEN either.
 
->> There are the hardware requirement that the frame data must be aligned with
->> a 32-bit boundary in the URAM, see section 45A.3.3.1 Data Representation
->> in the manual.
->> I think that the original skb->data is almost aligned with 2 bytes boundary
->> by NET_IP_ALING, so we copied original skb->data to the local aligned buffer.
 
->> In addition, see section 45A.3.3.12 Tips for Optimizing Performance in Handling
->> Descriptors, it mentioned that frame data is accessed in blocks up to 128 bytes
->> and the number of 128 byte borders (addresses H'xxx00 and H'xxx80) and frame data
->> inside should be minimized.
->> So we set RAVB_ALIGN to 128 bytes.
+Second, the check you mentioned above is:
 
-> There is no way that copying is going to be faster than finding an adequate way
-> to transmit directly out of the SKB memory.
+if ((size <= IGB_RX_HDR_LEN) && !skb_is_nonlinear(skb))
 
-> In this day and age there is simply no excuse for something like this, you will
-> have to find a way.
-
-    Hmm, I've been digging in the net core, and was unable to see where TX 
-skb's get their NET_IP_ALIGN bytes reserved. Have I missed something? Probably 
-need to print out skb's fields...
-
-WBR, Sergei
-
+skb is nonlinear _after_ the first igb_add_rx_frag(), a second
+igb_add_rx_frag() is possible since igb_is_non_eop() could
+return true.
