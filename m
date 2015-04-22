@@ -1,45 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] net: stmmac: use msleep instead of udelay for gpio
- reset
-Date: Tue, 21 Apr 2015 20:31:34 -0400 (EDT)
-Message-ID: <20150421.203134.3443090203330589.davem@davemloft.net>
-References: <1429614973-6883-1-git-send-email-michael@amarulasolutions.com>
-	<20150421.173540.1253961571051792975.davem@davemloft.net>
-	<20150421231347.GA3392@panicking>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 0/3] mpls: ABI changes for security and correctness
+Date: Tue, 21 Apr 2015 19:29:42 -0500
+Message-ID: <87d22xm2dl.fsf@x220.int.ebiederm.org>
+References: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
+	<1429648467-8449-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, festevam@gmail.com, netdev@vger.kernel.org
-To: michael@amarulasolutions.com
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56817 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753753AbbDVAbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 20:31:35 -0400
-In-Reply-To: <20150421231347.GA3392@panicking>
+Received: from out02.mta.xmission.com ([166.70.13.232]:55846 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932209AbbDVAd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 20:33:58 -0400
+In-Reply-To: <1429648467-8449-1-git-send-email-rshearma@brocade.com> (Robert
+	Shearman's message of "Tue, 21 Apr 2015 21:34:24 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Trimarchi <michael@amarulasolutions.com>
-Date: Wed, 22 Apr 2015 01:13:47 +0200
+Robert Shearman <rshearma@brocade.com> writes:
 
-> Hi
-> 
-> On Tue, Apr 21, 2015 at 05:35:40PM -0400, David Miller wrote:
->> From: Michael Trimarchi <michael@amarulasolutions.com>
->> Date: Tue, 21 Apr 2015 13:16:13 +0200
->> 
->> > -			udelay(data->delays[0]);
->>  ...
->> > +			msleep(max(1U, data->delays[0] / 1000));
->> 
->> That looks very ugly with that max() expression in there.
->>
-> 
-> Is fine for you a DIV_ROUND_UP?
+> These changes make mpls not be enabled by default on all
+> interfaces when in use for security, along with ensuring that a label
+> not valid as an outgoing label can be added in mpls routes.
+>
+> This series contains three ABI/behaviour-affecting changes which have
+> been split out from "[PATCH net-next v4 0/6] mpls: Behaviour-changing
+> improvements" without any further modification. These changes need to
+> be considered for 4.1 otherwise we'll be stuck with the current
+> behaviour/ABI forever.
 
-Not inside of these simple msleep() calls, no.
+I don't like the difference in default between loopback and everything
+else.  That just seems like an extra arbitrary rule.
 
-How about adjusting the values either in the datastructure or
-in local variables instead?  That wasn't so hard to come up
-with now, was it?
+Otherwise:
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+Not that I expect Dave Miller is taking patches during the merge window.
+
+> Robert Shearman (3):
+>   mpls: Per-device MPLS state
+>   mpls: Per-device enabling of packet input
+>   mpls: Prevent use of implicit NULL label as outgoing label
+>
+>  Documentation/networking/mpls-sysctl.txt |   9 +++
+>  include/linux/netdevice.h                |   4 +
+>  net/mpls/af_mpls.c                       | 132 ++++++++++++++++++++++++++++++-
+>  net/mpls/internal.h                      |   6 ++
+>  4 files changed, 148 insertions(+), 3 deletions(-)
+
+Eric
