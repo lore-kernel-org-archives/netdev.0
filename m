@@ -1,59 +1,181 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods
- with timespec64 type for k_clock structure
-Date: Wed, 22 Apr 2015 12:11:14 +0200
-Message-ID: <20150422101114.GA5527@localhost.localdomain>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
- <3231171.5TrYVVBLh4@wuerfel>
- <alpine.DEB.2.11.1504211701140.13914@nanos>
- <2819798.f0KhjY3UAe@wuerfel>
- <alpine.DEB.2.11.1504212204130.13914@nanos>
- <alpine.DEB.2.11.1504220946460.13914@nanos>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH v2 1/3] mpls: Per-device MPLS state
+Date: Wed, 22 Apr 2015 11:14:37 +0100
+Message-ID: <1429697679-13767-2-git-send-email-rshearma@brocade.com>
+References: <1429648467-8449-1-git-send-email-rshearma@brocade.com>
+ <1429697679-13767-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org,
-	Baolin Wang <baolin.wang@linaro.org>, pang.xunlei@linaro.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Paul Mackerras <paulus@samba.org>, cl@linux.com,
-	heenasirwani@gmail.com, linux-arch@vger.kernel.org,
-	linux-s390@vger.kernel.org, mpe@ellerman.id.au,
-	rafael.j.wysocki@intel.com, ahh@google.com,
-	Frederic Weisbecker <fweisbec@gmail.com>, pjt@google.com,
-	riel@redhat.com, Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	John Stultz <john.stultz@linaro.org>, rth@twiddle.net,
-	gregkh@linuxfoundation.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	linux390@de.ibm.com, linuxppc-dev@lists.ozlabs.org,
-	Ingo Molnar <mingo@kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.11.1504220946460.13914@nanos>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>
+To: <davem@davemloft.net>, <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:12267 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756403AbbDVKPK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 06:15:10 -0400
+In-Reply-To: <1429697679-13767-1-git-send-email-rshearma@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2015 at 10:45:23AM +0200, Thomas Gleixner wrote:
-> So we could save one translation step if we implement new syscalls
-> which have a scalar nsec interface instead of the timespec/timeval
-> cruft and let user space do the translation to whatever it wants.
+Add per-device MPLS state to supported interfaces. Use the presence of
+this state in mpls_route_add to determine that this is a supported
+interface.
 
-+1
+Use the presence of mpls_dev to drop packets that arrived on an
+unsupported interface - previously they were allowed through.
 
-> I personally would welcome such an interface as it makes user space
-> programming simpler. Just (re)arming a periodic nanosleep based on
-> absolute expiry time is horrible stupid today:
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ include/linux/netdevice.h |  4 ++++
+ net/mpls/af_mpls.c        | 50 +++++++++++++++++++++++++++++++++++++++++++++--
+ net/mpls/internal.h       |  3 +++
+ 3 files changed, 55 insertions(+), 2 deletions(-)
 
-Jup.
-
-> Thoughts?
-
-Current user space example: The linuxptp programs are doing ns64 to
-timespec conversions to call into the kernel, which then does timespec
-to ns64 to talk to the hardware.  I would bet that most (all?) use
-cases are better served with 64 bit nanosecond system calls.
-
-Thanks,
-Richard
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index bcbde799ec69..dae106a3a998 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -60,6 +60,7 @@ struct phy_device;
+ struct wireless_dev;
+ /* 802.15.4 specific */
+ struct wpan_dev;
++struct mpls_dev;
+ 
+ void netdev_set_default_ethtool_ops(struct net_device *dev,
+ 				    const struct ethtool_ops *ops);
+@@ -1627,6 +1628,9 @@ struct net_device {
+ 	void			*ax25_ptr;
+ 	struct wireless_dev	*ieee80211_ptr;
+ 	struct wpan_dev		*ieee802154_ptr;
++#if IS_ENABLED(CONFIG_MPLS_ROUTING)
++	struct mpls_dev __rcu	*mpls_ptr;
++#endif
+ 
+ /*
+  * Cache lines mostly used on receive path (including eth_type_trans())
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index db8a2ea6d4de..ad45017eed99 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -53,6 +53,11 @@ static struct mpls_route *mpls_route_input_rcu(struct net *net, unsigned index)
+ 	return rt;
+ }
+ 
++static inline struct mpls_dev *mpls_dev_get(const struct net_device *dev)
++{
++	return rcu_dereference_rtnl(dev->mpls_ptr);
++}
++
+ static bool mpls_output_possible(const struct net_device *dev)
+ {
+ 	return dev && (dev->flags & IFF_UP) && netif_carrier_ok(dev);
+@@ -136,6 +141,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 	struct mpls_route *rt;
+ 	struct mpls_entry_decoded dec;
+ 	struct net_device *out_dev;
++	struct mpls_dev *mdev;
+ 	unsigned int hh_len;
+ 	unsigned int new_header_size;
+ 	unsigned int mtu;
+@@ -143,6 +149,10 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	/* Careful this entire function runs inside of an rcu critical section */
+ 
++	mdev = mpls_dev_get(dev);
++	if (!mdev)
++		goto drop;
++
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		goto drop;
+ 
+@@ -352,9 +362,9 @@ static int mpls_route_add(struct mpls_route_config *cfg)
+ 	if (!dev)
+ 		goto errout;
+ 
+-	/* For now just support ethernet devices */
++	/* Ensure this is a supported device */
+ 	err = -EINVAL;
+-	if ((dev->type != ARPHRD_ETHER) && (dev->type != ARPHRD_LOOPBACK))
++	if (!mpls_dev_get(dev))
+ 		goto errout;
+ 
+ 	err = -EINVAL;
+@@ -428,10 +438,27 @@ errout:
+ 	return err;
+ }
+ 
++static struct mpls_dev *mpls_add_dev(struct net_device *dev)
++{
++	struct mpls_dev *mdev;
++	int err = -ENOMEM;
++
++	ASSERT_RTNL();
++
++	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
++	if (!mdev)
++		return ERR_PTR(err);
++
++	rcu_assign_pointer(dev->mpls_ptr, mdev);
++
++	return mdev;
++}
++
+ static void mpls_ifdown(struct net_device *dev)
+ {
+ 	struct mpls_route __rcu **platform_label;
+ 	struct net *net = dev_net(dev);
++	struct mpls_dev *mdev;
+ 	unsigned index;
+ 
+ 	platform_label = rtnl_dereference(net->mpls.platform_label);
+@@ -443,14 +470,33 @@ static void mpls_ifdown(struct net_device *dev)
+ 			continue;
+ 		rt->rt_dev = NULL;
+ 	}
++
++	mdev = mpls_dev_get(dev);
++	if (!mdev)
++		return;
++
++	RCU_INIT_POINTER(dev->mpls_ptr, NULL);
++
++	kfree(mdev);
+ }
+ 
+ static int mpls_dev_notify(struct notifier_block *this, unsigned long event,
+ 			   void *ptr)
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct mpls_dev *mdev;
+ 
+ 	switch(event) {
++	case NETDEV_REGISTER:
++		/* For now just support ethernet devices */
++		if ((dev->type == ARPHRD_ETHER) ||
++		    (dev->type == ARPHRD_LOOPBACK)) {
++			mdev = mpls_add_dev(dev);
++			if (IS_ERR(mdev))
++				return notifier_from_errno(PTR_ERR(mdev));
++		}
++		break;
++
+ 	case NETDEV_UNREGISTER:
+ 		mpls_ifdown(dev);
+ 		break;
+diff --git a/net/mpls/internal.h b/net/mpls/internal.h
+index fb6de92052c4..8090cb3099b4 100644
+--- a/net/mpls/internal.h
++++ b/net/mpls/internal.h
+@@ -22,6 +22,9 @@ struct mpls_entry_decoded {
+ 	u8 bos;
+ };
+ 
++struct mpls_dev {
++};
++
+ struct sk_buff;
+ 
+ static inline struct mpls_shim_hdr *mpls_hdr(const struct sk_buff *skb)
+-- 
+2.1.4
