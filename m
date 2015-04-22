@@ -1,45 +1,55 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [Y2038] [PATCH 04/11] posix timers:Introduce the 64bit methods
- with timespec64 type for k_clock structure
-Date: Wed, 22 Apr 2015 16:54:32 +0200
-Message-ID: <20150422145432.GA31405@localhost.localdomain>
-References: <1429509459-17068-1-git-send-email-baolin.wang@linaro.org>
- <alpine.DEB.2.11.1504220946460.13914@nanos>
- <2233518.Z2Q4dpO62C@wuerfel>
- <2500914.bVUENZ0dAZ@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: y2038@lists.linaro.org, pang.xunlei@linaro.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Paul Mackerras <paulus@samba.org>, cl@linux.com,
-	Ingo Molnar <mingo@kernel.org>, heenasirwani@gmail.com,
-	linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
-	mpe@ellerman.id.au, rafael.j.wysocki@intel.com, ahh@google.com,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, pjt@google.com,
-	riel@redhat.com, Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Thomas Gleixner <tglx@linutronix.de>, rth@twiddle.net,
-	Baolin Wang <baolin.wang@linaro.org>,
-	gregkh@linuxfoundation.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	linux390@de.ibm.com, linuxppc-dev@lists.ozlabs.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2500914.bVUENZ0dAZ@wuerfel>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] ip6_gre: use netdev_alloc_pcpu_stats()
+Date: Wed, 22 Apr 2015 16:56:16 +0200
+Message-ID: <1429714576-23911-1-git-send-email-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:55142 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932874AbbDVO4X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Apr 2015 10:56:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2015 at 03:50:45PM +0200, Arnd Bergmann wrote:
-> time, stime, gettimeofday, settimeofday, adjtimex, nanosleep,
-> getitimer, setitimer:
->  all deprecated => wontfix
+From: Johannes Berg <johannes.berg@intel.com>
 
-If adjtimex is deprecated, what will replace it?  It is really
-important for ntp.
+The code there just open-codes the same, so use the provided macro instead.
 
-Thanks,
-Richard
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/ipv6/ip6_gre.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
+
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index b5e6cc1d4a73..a38d3ac0f18f 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1246,7 +1246,6 @@ static void ip6gre_tunnel_setup(struct net_device *dev)
+ static int ip6gre_tunnel_init(struct net_device *dev)
+ {
+ 	struct ip6_tnl *tunnel;
+-	int i;
+ 
+ 	tunnel = netdev_priv(dev);
+ 
+@@ -1260,16 +1259,10 @@ static int ip6gre_tunnel_init(struct net_device *dev)
+ 	if (ipv6_addr_any(&tunnel->parms.raddr))
+ 		dev->header_ops = &ip6gre_header_ops;
+ 
+-	dev->tstats = alloc_percpu(struct pcpu_sw_netstats);
++	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
+ 
+-	for_each_possible_cpu(i) {
+-		struct pcpu_sw_netstats *ip6gre_tunnel_stats;
+-		ip6gre_tunnel_stats = per_cpu_ptr(dev->tstats, i);
+-		u64_stats_init(&ip6gre_tunnel_stats->syncp);
+-	}
+-
+ 	return 0;
+ }
+ 
+-- 
+2.1.4
