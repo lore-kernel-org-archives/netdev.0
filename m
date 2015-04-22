@@ -1,41 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net 1/2] rhashtable: Schedule async resize when sync
- realloc fails
-Date: Wed, 22 Apr 2015 15:43:44 +0800
-Message-ID: <20150422074344.GA8882@gondor.apana.org.au>
-References: <cover.1429688383.git.tgraf@suug.ch>
- <b5b3fa09e48a245bcbe9d9b38d271619f4c2fd80.1429688383.git.tgraf@suug.ch>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
+Date: Wed, 22 Apr 2015 09:43:56 +0200
+Message-ID: <5537513C.504@iogearbox.net>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>	<1429644476-8914-3-git-send-email-ast@plumgrid.com> <CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:59771 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933639AbbDVHnw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 03:43:52 -0400
-Content-Disposition: inline
-In-Reply-To: <b5b3fa09e48a245bcbe9d9b38d271619f4c2fd80.1429688383.git.tgraf@suug.ch>
+Received: from www62.your-server.de ([213.133.104.62]:56468 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932124AbbDVHoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 03:44:12 -0400
+In-Reply-To: <CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2015 at 09:41:45AM +0200, Thomas Graf wrote:
-> When rhashtable_insert_rehash() fails with ENOMEM, this indicates that
-> we can't allocate the necessary memory in the current context but the
-> limits as set by the user would still allow to grow.
-> 
-> Thus attempt an async resize in the background where we can allocate
-> using GFP_KERNEL which is more likely to succeed. The insertion itself
-> will still fail to indicate pressure.
-> 
-> This fixes a bug where the table would never continue growing once the
-> utilization is above 100%.
-> 
-> Fixes: ccd57b1bd324 ("rhashtable: Add immediate rehash during insertion")
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On 04/22/2015 07:02 AM, Cong Wang wrote:
+> On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> TC_ACT_QUEUED was always an alias of TC_ACT_STOLEN.
+>> Get rid of redundant checks in all qdiscs.
+>> Instead do it once.
+>
+> The current code can be easily extended, while your code not.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+So, do you plan to extend it ?
+
+The alias has been there since pre-git times, so more than
+10 years now, where no-one felt the need to extended the
+semantics of it ...
