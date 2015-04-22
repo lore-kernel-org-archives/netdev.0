@@ -1,222 +1,55 @@
-From: Jason Eastman <eastman.jason.linux@gmail.com>
-Subject: net: unix: garbage: fixed several comment and whitespace style issues
-Date: Wed, 22 Apr 2015 00:56:42 -0600
-Message-ID: <1429685802-10494-1-git-send-email-eastman.jason.linux@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jason Eastman <eastman.jason.linux@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net 2/2] rhashtable: Do not schedule more than one rehash if we can't grow further
+Date: Wed, 22 Apr 2015 09:41:46 +0200
+Message-ID: <51bb8e331b30d9a418a577008996bc0c61c9e69d.1429688383.git.tgraf@suug.ch>
+References: <cover.1429688383.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+	kaber@trash.net
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:51885 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934199AbbDVHlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 03:41:50 -0400
+In-Reply-To: <cover.1429688383.git.tgraf@suug.ch>
+In-Reply-To: <cover.1429688383.git.tgraf@suug.ch>
+References: <cover.1429688383.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fixed several comment and whitespace style issues
+The current code currently only stops inserting rehashes into the
+chain when no resizes are currently scheduled. As long as resizes
+are scheduled and while inserting above the utilization watermark,
+more and more rehashes will be scheduled.
 
-Signed-off-by: Jason Eastman <eastman.jason.linux@gmail.com>
+This lead to a perfect DoS storm with thousands of rehashes
+scheduled which lead to thousands of spinlocks to be taken
+sequentially.
+
+Instead, only allow either a series of resizes or a single rehash.
+Drop any further rehashes and return -EBUSY.
+
+Fixes: ccd57b1bd324 ("rhashtable: Add immediate rehash during insertion")
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
- net/unix/garbage.c |   70 +++++++++++++++++++++-------------------------------
- 1 file changed, 28 insertions(+), 42 deletions(-)
+ lib/rhashtable.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/unix/garbage.c b/net/unix/garbage.c
-index 99f7012..a73a226 100644
---- a/net/unix/garbage.c
-+++ b/net/unix/garbage.c
-@@ -95,39 +95,36 @@ static DECLARE_WAIT_QUEUE_HEAD(unix_gc_wait);
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index f648cfd..b28df40 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -405,8 +405,8 @@ int rhashtable_insert_rehash(struct rhashtable *ht)
  
- unsigned int unix_tot_inflight;
+ 	if (rht_grow_above_75(ht, tbl))
+ 		size *= 2;
+-	/* More than two rehashes (not resizes) detected. */
+-	else if (WARN_ON(old_tbl != tbl && old_tbl->size == size))
++	/* Do not schedule more than one rehash */
++	else if (old_tbl != tbl)
+ 		return -EBUSY;
  
--
- struct sock *unix_get_socket(struct file *filp)
- {
- 	struct sock *u_sock = NULL;
- 	struct inode *inode = file_inode(filp);
- 
--	/*
--	 *	Socket ?
--	 */
-+	/* Socket ? */
- 	if (S_ISSOCK(inode->i_mode) && !(filp->f_mode & FMODE_PATH)) {
- 		struct socket *sock = SOCKET_I(inode);
- 		struct sock *s = sock->sk;
- 
--		/*
--		 *	PF_UNIX ?
--		 */
-+		/* PF_UNIX ? */
- 		if (s && sock->ops && sock->ops->family == PF_UNIX)
- 			u_sock = s;
- 	}
- 	return u_sock;
- }
- 
--/*
-- *	Keep the number of times in flight count for the file
-- *	descriptor if it is for an AF_UNIX socket.
-+/* Keep the number of times in flight count for the file
-+ * descriptor if it is for an AF_UNIX socket.
-  */
- 
- void unix_inflight(struct file *fp)
- {
- 	struct sock *s = unix_get_socket(fp);
-+
- 	if (s) {
- 		struct unix_sock *u = unix_sk(s);
-+
- 		spin_lock(&unix_gc_lock);
-+
- 		if (atomic_long_inc_return(&u->inflight) == 1) {
- 			BUG_ON(!list_empty(&u->link));
- 			list_add_tail(&u->link, &gc_inflight_list);
-@@ -142,10 +139,13 @@ void unix_inflight(struct file *fp)
- void unix_notinflight(struct file *fp)
- {
- 	struct sock *s = unix_get_socket(fp);
-+
- 	if (s) {
- 		struct unix_sock *u = unix_sk(s);
-+
- 		spin_lock(&unix_gc_lock);
- 		BUG_ON(list_empty(&u->link));
-+
- 		if (atomic_long_dec_and_test(&u->inflight))
- 			list_del_init(&u->link);
- 		unix_tot_inflight--;
-@@ -161,32 +161,27 @@ static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
- 
- 	spin_lock(&x->sk_receive_queue.lock);
- 	skb_queue_walk_safe(&x->sk_receive_queue, skb, next) {
--		/*
--		 *	Do we have file descriptors ?
--		 */
-+		/* Do we have file descriptors ? */
- 		if (UNIXCB(skb).fp) {
- 			bool hit = false;
--			/*
--			 *	Process the descriptors of this socket
--			 */
-+			/* Process the descriptors of this socket */
- 			int nfd = UNIXCB(skb).fp->count;
- 			struct file **fp = UNIXCB(skb).fp->fp;
-+
- 			while (nfd--) {
--				/*
--				 *	Get the socket the fd matches
--				 *	if it indeed does so
--				 */
-+				/* Get the socket the fd matches if it indeed does so */
- 				struct sock *sk = unix_get_socket(*fp++);
-+
- 				if (sk) {
- 					struct unix_sock *u = unix_sk(sk);
- 
--					/*
--					 * Ignore non-candidates, they could
-+					/* Ignore non-candidates, they could
- 					 * have been added to the queues after
- 					 * starting the garbage collection
- 					 */
- 					if (test_bit(UNIX_GC_CANDIDATE, &u->gc_flags)) {
- 						hit = true;
-+
- 						func(u);
- 					}
- 				}
-@@ -203,24 +198,22 @@ static void scan_inflight(struct sock *x, void (*func)(struct unix_sock *),
- static void scan_children(struct sock *x, void (*func)(struct unix_sock *),
- 			  struct sk_buff_head *hitlist)
- {
--	if (x->sk_state != TCP_LISTEN)
-+	if (x->sk_state != TCP_LISTEN) {
- 		scan_inflight(x, func, hitlist);
--	else {
-+	} else {
- 		struct sk_buff *skb;
- 		struct sk_buff *next;
- 		struct unix_sock *u;
- 		LIST_HEAD(embryos);
- 
--		/*
--		 * For a listening socket collect the queued embryos
-+		/* For a listening socket collect the queued embryos
- 		 * and perform a scan on them as well.
- 		 */
- 		spin_lock(&x->sk_receive_queue.lock);
- 		skb_queue_walk_safe(&x->sk_receive_queue, skb, next) {
- 			u = unix_sk(skb->sk);
- 
--			/*
--			 * An embryo cannot be in-flight, so it's safe
-+			/* An embryo cannot be in-flight, so it's safe
- 			 * to use the list link.
- 			 */
- 			BUG_ON(!list_empty(&u->link));
-@@ -249,8 +242,7 @@ static void inc_inflight(struct unix_sock *usk)
- static void inc_inflight_move_tail(struct unix_sock *u)
- {
- 	atomic_long_inc(&u->inflight);
--	/*
--	 * If this still might be part of a cycle, move it to the end
-+	/* If this still might be part of a cycle, move it to the end
- 	 * of the list, so that it's checked even if it was already
- 	 * passed over
- 	 */
-@@ -263,8 +255,7 @@ static bool gc_in_progress;
- 
- void wait_for_unix_gc(void)
- {
--	/*
--	 * If number of inflight sockets is insane,
-+	/* If number of inflight sockets is insane,
- 	 * force a garbage collect right now.
- 	 */
- 	if (unix_tot_inflight > UNIX_INFLIGHT_TRIGGER_GC && !gc_in_progress)
-@@ -288,8 +279,7 @@ void unix_gc(void)
- 		goto out;
- 
- 	gc_in_progress = true;
--	/*
--	 * First, select candidates for garbage collection.  Only
-+	/* First, select candidates for garbage collection.  Only
- 	 * in-flight sockets are considered, and from those only ones
- 	 * which don't have any external reference.
- 	 *
-@@ -320,15 +310,13 @@ void unix_gc(void)
- 		}
- 	}
- 
--	/*
--	 * Now remove all internal in-flight reference to children of
-+	/* Now remove all internal in-flight reference to children of
- 	 * the candidates.
- 	 */
- 	list_for_each_entry(u, &gc_candidates, link)
- 		scan_children(&u->sk, dec_inflight, NULL);
- 
--	/*
--	 * Restore the references for children of all candidates,
-+	/* Restore the references for children of all candidates,
- 	 * which have remaining references.  Do this recursively, so
- 	 * only those remain, which form cyclic references.
- 	 *
-@@ -350,8 +338,7 @@ void unix_gc(void)
- 	}
- 	list_del(&cursor);
- 
--	/*
--	 * not_cycle_list contains those sockets which do not make up a
-+	/* not_cycle_list contains those sockets which do not make up a
- 	 * cycle.  Restore these to the inflight list.
- 	 */
- 	while (!list_empty(&not_cycle_list)) {
-@@ -360,8 +347,7 @@ void unix_gc(void)
- 		list_move_tail(&u->link, &gc_inflight_list);
- 	}
- 
--	/*
--	 * Now gc_candidates contains only garbage.  Restore original
-+	/* Now gc_candidates contains only garbage.  Restore original
- 	 * inflight counters for these as well, and remove the skbuffs
- 	 * which are creating the cycle(s).
- 	 */
+ 	new_tbl = bucket_table_alloc(ht, size, GFP_ATOMIC);
 -- 
-1.7.10.4
+2.3.5
