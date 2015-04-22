@@ -1,70 +1,70 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [Patch net] igb: pass the correct maxlen for eth_get_headlen()
-Date: Wed, 22 Apr 2015 13:14:46 -0700
-Message-ID: <CAHA+R7PVrxJ41WSqfO4mZSpCTGdJ++Gf757f_kq5z0UeMHXbXg@mail.gmail.com>
-References: <1429724760-10075-1-git-send-email-xiyou.wangcong@gmail.com>
-	<5537F9F1.1080008@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net: do not deplete pfmemalloc reserve
+Date: Wed, 22 Apr 2015 13:20:48 -0700
+Message-ID: <1429734048.18561.142.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1429661349.18561.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1429666344.18561.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1429713216.18561.82.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150422.153532.90668848178533836.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, gthelen@google.com,
+	rientjes@google.com, mgorman@suse.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:32813 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752231AbbDVUOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 16:14:48 -0400
-Received: by wiax7 with SMTP id x7so2623178wia.0
-        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 13:14:47 -0700 (PDT)
-In-Reply-To: <5537F9F1.1080008@gmail.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:33405 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753008AbbDVUUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 16:20:50 -0400
+Received: by iecrt8 with SMTP id rt8so46494466iec.0
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 13:20:49 -0700 (PDT)
+In-Reply-To: <20150422.153532.90668848178533836.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2015 at 12:43 PM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On 04/22/2015 10:45 AM, Cong Wang wrote:
->> The second parameter of eth_get_headlen() is the length of
->> the frame buffer, not the header length of skb.
->>
->> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->> ---
->>  drivers/net/ethernet/intel/igb/igb_main.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
->> index a0a9b1f..7b3a370 100644
->> --- a/drivers/net/ethernet/intel/igb/igb_main.c
->> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
->> @@ -6852,7 +6852,9 @@ static void igb_pull_tail(struct igb_ring *rx_ring,
->>       /* we need the header to contain the greater of either ETH_HLEN or
->>        * 60 bytes if the skb->len is less than 60 for skb_pad.
->>        */
->> -     pull_len = eth_get_headlen(va, IGB_RX_HDR_LEN);
->> +     pull_len = eth_get_headlen(va, skb_frag_size(frag));
->> +     if (unlikely(pull_len > IGB_RX_HDR_LEN))
->> +             pull_len = IGB_RX_HDR_LEN;
->>
->>       /* align pull length to size of long to optimize memcpy performance */
->>       skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
->
-> You have this part right.  The length represents the maximum length we
-> are willing to traverse in the buffer.  So if we 100% want to get the
-> entire header regardless of what we can copy into then we could follow
-> your approach.  However, since the allocated space in the skb is only
-> IGB_RX_HDR_LEN we only really want to traverse up to that length.  Then
-> that is all we copy out of the header.
+On Wed, 2015-04-22 at 15:35 -0400, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 22 Apr 2015 07:33:36 -0700
+> 
+> > Also, we must refrain using high order pages from the pfmemalloc
+> > reserve, so __page_frag_refill() must also use __GFP_NOMEMALLOC for
+> > them. Under memory pressure, using order-0 pages is probably the best
+> > strategy.
+>  ...
+> > @@ -348,7 +352,8 @@ static struct page *__page_frag_refill(struct netdev_alloc_cache *nc,
+> >  	gfp_t gfp = gfp_mask;
+> >  
+> >  	if (order) {
+> > -		gfp_mask |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY;
+> > +		gfp_mask |= __GFP_COMP | __GFP_NOWARN | __GFP_NORETRY |
+> > +			    __GFP_NOMEMALLOC;
+> >  		page = alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
+> 
+> Hmmm, skbuff.h says:
+> 
+>  * @gfp_mask: allocation priority. Set __GFP_NOMEMALLOC if not for network Rx
+> 
+> But that's exactly what this __page_frag_refill() code is primarily
+> being used for, network RX, right?
+> 
+> If we believe the comment, you should not be adding the
+> __GFP_NOMEMALLOC flag here.
 
-But the frag size could be smaller than IGB_RX_HDR_LEN which is
-the case this patch tries to fix.
+I do not see a problem here.
 
->
-> As a result we don't need the extra code for putting the upper limit on
-> pull_len since that is factored in by passing IGB_RX_HDR_LEN as the
-> maximum traversal length.
+We attempt high order pages allocations only if they bring a performance
+gain. Under memory pressure, there is the high risk a whole order-3 page
+is consumed by a tiny buffer using 200 bytes but not consumed.
 
-That is why I put unlikely() there, even with tunnel headers we unlikely
-pull header longer than IGB_RX_HDR_LEN, the code is just for
-completeness.
+Only high order pages allocation attempts should request this
+__GFP_NOMEMALLOC flag set.
+
+order-0 pages will have __GFP_MEMALLOC if requested by at least one
+socket in the host.
+
+About __dev_alloc_pages() comment / users, they have to know if they
+need high order pages, or could fallback to order-0 ones.
+
+We can update the comments in skbuff.h, but so far the only user has no
+need to assert __GFP_NOMEMALLOC.
