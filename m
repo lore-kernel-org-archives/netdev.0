@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/6] crypto: tcrypt - Include crypto/aead.h
-Date: Wed, 22 Apr 2015 15:06:30 +0800
-Message-ID: <E1Ykoju-0002Cd-0W@gondolin.me.apana.org.au>
+Subject: [PATCH 5/6] mac80211: Include crypto/aead.h
+Date: Wed, 22 Apr 2015 15:06:32 +0800
+Message-ID: <E1Ykojw-0002DB-BM@gondolin.me.apana.org.au>
 References: <20150422070455.GA8351@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -17,18 +17,52 @@ include/linux/crypto.h.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/tcrypt.c |    1 +
- 1 file changed, 1 insertion(+)
+ net/mac80211/aes_ccm.c  |    3 +--
+ net/mac80211/aes_gcm.c  |    3 +--
+ net/mac80211/aes_gmac.c |    2 +-
+ 3 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/crypto/tcrypt.c b/crypto/tcrypt.c
-index 22cdd61..2bff613 100644
---- a/crypto/tcrypt.c
-+++ b/crypto/tcrypt.c
-@@ -22,6 +22,7 @@
-  *
-  */
+diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
+index 208df7c..70d53da 100644
+--- a/net/mac80211/aes_ccm.c
++++ b/net/mac80211/aes_ccm.c
+@@ -11,9 +11,8 @@
  
-+#include <crypto/aead.h>
- #include <crypto/hash.h>
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+-#include <linux/crypto.h>
  #include <linux/err.h>
- #include <linux/fips.h>
+-#include <crypto/aes.h>
++#include <crypto/aead.h>
+ 
+ #include <net/mac80211.h>
+ #include "key.h"
+diff --git a/net/mac80211/aes_gcm.c b/net/mac80211/aes_gcm.c
+index fd278bb..b91c9d7 100644
+--- a/net/mac80211/aes_gcm.c
++++ b/net/mac80211/aes_gcm.c
+@@ -8,9 +8,8 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+-#include <linux/crypto.h>
+ #include <linux/err.h>
+-#include <crypto/aes.h>
++#include <crypto/aead.h>
+ 
+ #include <net/mac80211.h>
+ #include "key.h"
+diff --git a/net/mac80211/aes_gmac.c b/net/mac80211/aes_gmac.c
+index f1321b7..c34b06ca 100644
+--- a/net/mac80211/aes_gmac.c
++++ b/net/mac80211/aes_gmac.c
+@@ -9,8 +9,8 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+-#include <linux/crypto.h>
+ #include <linux/err.h>
++#include <crypto/aead.h>
+ #include <crypto/aes.h>
+ 
+ #include <net/mac80211.h>
