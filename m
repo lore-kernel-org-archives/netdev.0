@@ -1,57 +1,91 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] mpls: ABI changes for security and correctness
-Date: Tue, 21 Apr 2015 22:12:16 -0400 (EDT)
-Message-ID: <20150421.221216.1827780895297926700.davem@davemloft.net>
-References: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
-	<1429648467-8449-1-git-send-email-rshearma@brocade.com>
-	<87d22xm2dl.fsf@x220.int.ebiederm.org>
+Subject: [GIT] Networking
+Date: Tue, 21 Apr 2015 22:58:27 -0400 (EDT)
+Message-ID: <20150421.225827.1165782705436050301.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rshearma@brocade.com, netdev@vger.kernel.org
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57217 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932273AbbDVCMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 22:12:17 -0400
-In-Reply-To: <87d22xm2dl.fsf@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 21 Apr 2015 19:29:42 -0500
 
-> Robert Shearman <rshearma@brocade.com> writes:
-> 
->> These changes make mpls not be enabled by default on all
->> interfaces when in use for security, along with ensuring that a label
->> not valid as an outgoing label can be added in mpls routes.
->>
->> This series contains three ABI/behaviour-affecting changes which have
->> been split out from "[PATCH net-next v4 0/6] mpls: Behaviour-changing
->> improvements" without any further modification. These changes need to
->> be considered for 4.1 otherwise we'll be stuck with the current
->> behaviour/ABI forever.
-> 
-> I don't like the difference in default between loopback and everything
-> else.  That just seems like an extra arbitrary rule.
-> 
-> Otherwise:
-> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> 
-> Not that I expect Dave Miller is taking patches during the merge window.
+Just a few fixes trickling in at this point.
 
-Eric, you say you disagree with the loopback vs. everything else
-behavior, yet you're ACK'ing this.
+1) If we see an attached socket on an skb in the ipv4 forwarding
+   path, bail.  This can happen due to races with FIB rule addition,
+   and deletion, and we should just drop such frames.  From Sebastian
+   P=F6hn.
 
-Please don't say something like that because it is confusing and
-I can't tell what you want me to do.
+2) pppoe receive should only accept packets destined for this hosts's
+   MAC address.  From Joakim Tjernlund.
 
-If you're willing to accept the series as is, say is: "Even though
-I disagree with X, I'm ok with this series for now."
+3) Handle checksum unwrapping properly in ppp receive properly when
+   it's encapsulated in UDP in some way, fix from Tom Herbert.
 
-If you want changes before the series gets applied: "I want X
-changed to Y, and with that I give my ACK."
+4) Fix some bugs in mv88e6xxx DSA driver resulting from the conversion
+   from register offset constants to mnenomic macros.  From Vivien
+   Didelot.
 
-Thanks.
+5) Fix handling of HCA max message size in mlx4 adapters, from Eran
+   Ben ELisha.
+
+Please pull, thanks a lot.
+
+The following changes since commit 04b7fe6a4a231871ef681bc95e08fe66992f=
+7b1f:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/ide (2015-0=
+4-17 16:36:59 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git=20
+
+for you to fetch changes up to fab9adfb71fc8690e20c3c280d39d49c8f4a3f0a=
+:
+
+  net/mlx4_core: Fix reading HCA max message size in mlx4_QUERY_DEV_CAP=
+ (2015-04-21 17:36:08 -0400)
+
+----------------------------------------------------------------
+Andreas Oetken (1):
+      altera tse: Error-Bit on tx-avalon-stream always set.
+
+David S. Miller (1):
+      Merge branch 'ppp_csum_unset'
+
+Eran Ben Elisha (1):
+      net/mlx4_core: Fix reading HCA max message size in mlx4_QUERY_DEV=
+_CAP
+
+Joakim Tjernlund (1):
+      pppoe: Lacks DST MAC address check
+
+Sebastian P=F6hn (1):
+      ip_forward: Drop frames with attached skb->sk
+
+Tom Herbert (2):
+      net: add skb_checksum_complete_unset
+      ppp: call skb_checksum_complete_unset in ppp_receive_frame
+
+Vivien Didelot (2):
+      net: dsa: mv88e6xxx: fix setup of port control 1
+      net: dsa: mv88e6xxx: use PORT_DEFAULT_VLAN
+
+jbaron@akamai.com (1):
+      tcp: add memory barriers to write space paths
+
+ drivers/net/dsa/mv88e6xxx.c                   |  6 +++---
+ drivers/net/ethernet/altera/altera_msgdmahw.h |  1 -
+ drivers/net/ethernet/mellanox/mlx4/fw.c       |  2 +-
+ drivers/net/ppp/ppp_generic.c                 |  1 +
+ drivers/net/ppp/pppoe.c                       |  3 +++
+ include/linux/skbuff.h                        | 12 ++++++++++++
+ net/ipv4/ip_forward.c                         |  3 +++
+ net/ipv4/tcp.c                                |  4 +++-
+ net/ipv4/tcp_input.c                          |  2 ++
+ 9 files changed, 28 insertions(+), 6 deletions(-)
