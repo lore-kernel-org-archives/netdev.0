@@ -1,45 +1,51 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v2 iproute2 3/3] mroute: remove invalid check against NLM_F_MULTI
-Date: Wed, 22 Apr 2015 10:27:07 +0200
-Message-ID: <1429691227-12310-3-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH v2 iproute2 1/3] tc: fix compilation warning on 32bits arch
+Date: Wed, 22 Apr 2015 10:27:05 +0200
+Message-ID: <1429691227-12310-1-git-send-email-nicolas.dichtel@6wind.com>
 References: <063D6719AE5E284EB5DD2968C1650D6D1CB2312E@AcuExch.aculab.com>
- <1429691227-12310-1-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: shemminger@vyatta.com, david.laight@aculab.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:54359 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:54353 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756010AbbDVI1M (ORCPT
+	with ESMTP id S1754870AbbDVI1M (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 04:27:12 -0400
-In-Reply-To: <1429691227-12310-1-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB2312E@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This flag is only for the netlink protocol (multi-part messages), no reason
-to reject messages without it.
+The warning was:
+m_simple.c: In function =E2=80=98parse_simple=E2=80=99:
+m_simple.c:142:4: warning: format =E2=80=98%ld=E2=80=99 expects argumen=
+t of type =E2=80=98long int=E2=80=99, but argument 3 has type =E2=80=98=
+size_t=E2=80=99 [-Wformat]
 
-Note that this flag was removed by the following kernel patches (v3.14)
-65886f439ab0 ipmr: fix mfc notification flags
-f518338b1603 ip6mr: fix mfc notification flags
+Useful to be able to compile with -Werror.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- ip/ipmroute.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/ip/ipmroute.c b/ip/ipmroute.c
-index 13ac892512d0..125a13f8c582 100644
---- a/ip/ipmroute.c
-+++ b/ip/ipmroute.c
-@@ -67,8 +67,7 @@ int print_mroute(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	int family;
- 
- 	if ((n->nlmsg_type != RTM_NEWROUTE &&
--	     n->nlmsg_type != RTM_DELROUTE) ||
--	    !(n->nlmsg_flags & NLM_F_MULTI)) {
-+	     n->nlmsg_type != RTM_DELROUTE)) {
- 		fprintf(stderr, "Not a multicast route: %08x %08x %08x\n",
- 			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
- 		return 0;
--- 
+v2: use %zu instead of casting to a long
+
+ tc/m_simple.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tc/m_simple.c b/tc/m_simple.c
+index 866552f559b3..1ad55268729c 100644
+--- a/tc/m_simple.c
++++ b/tc/m_simple.c
+@@ -138,7 +138,7 @@ parse_simple(struct action_util *a, int *argc_p, ch=
+ar ***argv_p, int tca_id,
+ 	}
+=20
+ 	if (strlen(simpdata) > (SIMP_MAX_DATA - 1)) {
+-		fprintf(stderr, "simple: Illegal string len %ld <%s> \n",
++		fprintf(stderr, "simple: Illegal string len %zu <%s> \n",
+ 			strlen(simpdata), simpdata);
+ 		return -1;
+ 	}
+--=20
 2.2.2
