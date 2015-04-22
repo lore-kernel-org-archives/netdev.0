@@ -1,44 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] rhashtable: Schedule async resize when sync
- realloc fails
-Date: Tue, 21 Apr 2015 22:10:33 -0400 (EDT)
-Message-ID: <20150421.221033.573953908362966477.davem@davemloft.net>
-References: <cover.1429620438.git.tgraf@suug.ch>
-	<4f55f5c9abd6b09ed44f0da3f0e72a10040e8278.1429620438.git.tgraf@suug.ch>
-	<20150422003634.GA5724@gondor.apana.org.au>
+Subject: Re: [PATCH 0/3] mpls: ABI changes for security and correctness
+Date: Tue, 21 Apr 2015 22:12:16 -0400 (EDT)
+Message-ID: <20150421.221216.1827780895297926700.davem@davemloft.net>
+References: <1429051503-31287-1-git-send-email-rshearma@brocade.com>
+	<1429648467-8449-1-git-send-email-rshearma@brocade.com>
+	<87d22xm2dl.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, kaber@trash.net, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: rshearma@brocade.com, netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57211 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57217 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753798AbbDVCKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 22:10:37 -0400
-In-Reply-To: <20150422003634.GA5724@gondor.apana.org.au>
+	with ESMTP id S932273AbbDVCMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Apr 2015 22:12:17 -0400
+In-Reply-To: <87d22xm2dl.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 22 Apr 2015 08:36:34 +0800
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 21 Apr 2015 19:29:42 -0500
 
-> On Tue, Apr 21, 2015 at 02:55:34PM +0200, Thomas Graf wrote:
->> When rhashtable_insert_rehash() fails with ENOMEM, this indicates that
->> we can't allocate the necessary memory in the current context but the
->> limits as set by the user would still allow to grow.
->> 
->> Thus attempt an async resize in the background where we can allocate
->> using GFP_KERNEL which is more likely to succeed. The insertion itself
->> will still fail to indicate pressure.
->> 
->> This fixes a bug where the table would never continue growing once the
->> utilization is above 100%.
->> 
->> Fixes: ccd57b1bd324 ("rhashtable: Add immediate rehash during insertion")
->> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Robert Shearman <rshearma@brocade.com> writes:
 > 
-> Good catch.  But I think this call should happen in
-> rhashtable_insert_rehash since it's on the slow-path.
+>> These changes make mpls not be enabled by default on all
+>> interfaces when in use for security, along with ensuring that a label
+>> not valid as an outgoing label can be added in mpls routes.
+>>
+>> This series contains three ABI/behaviour-affecting changes which have
+>> been split out from "[PATCH net-next v4 0/6] mpls: Behaviour-changing
+>> improvements" without any further modification. These changes need to
+>> be considered for 4.1 otherwise we'll be stuck with the current
+>> behaviour/ABI forever.
+> 
+> I don't like the difference in default between loopback and everything
+> else.  That just seems like an extra arbitrary rule.
+> 
+> Otherwise:
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+> Not that I expect Dave Miller is taking patches during the merge window.
 
-Ok, then I expect a respin of this series.
+Eric, you say you disagree with the loopback vs. everything else
+behavior, yet you're ACK'ing this.
+
+Please don't say something like that because it is confusing and
+I can't tell what you want me to do.
+
+If you're willing to accept the series as is, say is: "Even though
+I disagree with X, I'm ok with this series for now."
+
+If you want changes before the series gets applied: "I want X
+changed to Y, and with that I give my ACK."
+
+Thanks.
