@@ -1,96 +1,58 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next, 1/1] hv_netvsc: call dump_rndis_message() only in netvsc debug mode
-Date: Wed, 22 Apr 2015 10:52:57 +0200
-Message-ID: <871tjcbl3q.fsf@vitty.brq.redhat.com>
-References: <1429657085-23379-1-git-send-email-sixiao@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: kys@microsoft.com, haiyangz@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sixiao@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429657085-23379-1-git-send-email-sixiao@microsoft.com>
-	(sixiao@microsoft.com's message of "Tue, 21 Apr 2015 15:58:05 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: roy.qing.li@gmail.com
+Subject: [PATCH][net-next][v2] xfrm: optimise the use of walk list header in xfrm_policy/state_walk
+Date: Wed, 22 Apr 2015 17:09:54 +0800
+Message-ID: <1429693794-17256-1-git-send-email-roy.qing.li@gmail.com>
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:53021 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756379AbbDVJL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 05:11:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sixiao@microsoft.com writes:
+From: Li RongQing <roy.qing.li@gmail.com>
 
-> From: Simon Xiao <sixiao@microsoft.com>
->
-> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+The walk from input is the list header, and marked as dead, and will
+be skipped in loop.
 
-I don't quite understand what problem is being solved here (and empty
-commit message doesn't is not very helpful).
+list_first_entry() can be used to return the true usable value from
+walk if walk is not empty
 
-netdev_dbg() is not being printed by default and in case if floods logs
-with too many messages you can change it to net_dbg_ratelimited(). We
-already have dynamic debug and adding another module parameter shouldn't
-be needed...
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/xfrm/xfrm_policy.c | 4 +++-
+ net/xfrm/xfrm_state.c  | 2 +-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-> ---
->  drivers/net/hyperv/hyperv_net.h   | 3 +++
->  drivers/net/hyperv/netvsc_drv.c   | 8 ++++++++
->  drivers/net/hyperv/rndis_filter.c | 3 ++-
->  3 files changed, 13 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-> index a10b316..c9be35e 100644
-> --- a/drivers/net/hyperv/hyperv_net.h
-> +++ b/drivers/net/hyperv/hyperv_net.h
-> @@ -28,6 +28,9 @@
->  #include <linux/hyperv.h>
->  #include <linux/rndis.h>
->
-> +/* flag for netvsc debug mode */
-> +extern int debug_mode;
-> +
->  /* RSS related */
->  #define OID_GEN_RECEIVE_SCALE_CAPABILITIES 0x00010203  /* query only */
->  #define OID_GEN_RECEIVE_SCALE_PARAMETERS 0x00010204  /* query and set */
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index a3a9d38..7c41864 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -52,6 +52,10 @@ static int ring_size = 128;
->  module_param(ring_size, int, S_IRUGO);
->  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
->
-> +int debug_mode = 0;
-> +module_param(debug_mode, int, S_IRUGO);
-> +MODULE_PARM_DESC(debug_mode, "debug mode: zero(0) for non-debug mode; non-zero for debug mode");
-> +
->  static void do_set_multicast(struct work_struct *w)
->  {
->  	struct net_device_context *ndevctx =
-> @@ -999,6 +1003,10 @@ static int __init netvsc_drv_init(void)
->  		pr_info("Increased ring_size to %d (min allowed)\n",
->  			ring_size);
->  	}
-> +
-> +	if (debug_mode != 0)
-> +		pr_info("Run netvsc in debug mode");
-> +
->  	return vmbus_driver_register(&netvsc_drv);
->  }
->
-> diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-> index 0d92efe..a3f43f6 100644
-> --- a/drivers/net/hyperv/rndis_filter.c
-> +++ b/drivers/net/hyperv/rndis_filter.c
-> @@ -429,7 +429,8 @@ int rndis_filter_receive(struct hv_device *dev,
->
->  	rndis_msg = pkt->data;
->
-> -	dump_rndis_message(dev, rndis_msg);
-> +	if (debug_mode != 0)
-> +		dump_rndis_message(dev, rndis_msg);
->
->  	switch (rndis_msg->ndis_msg_type) {
->  	case RNDIS_MSG_PACKET:
-
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index d8c35ad..847053e 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1004,7 +1004,9 @@ int xfrm_policy_walk(struct net *net, struct xfrm_policy_walk *walk,
+ 	if (list_empty(&walk->walk.all))
+ 		x = list_first_entry(&net->xfrm.policy_all, struct xfrm_policy_walk_entry, all);
+ 	else
+-		x = list_entry(&walk->walk.all, struct xfrm_policy_walk_entry, all);
++		x = list_first_entry(&walk->walk.all,
++				     struct xfrm_policy_walk_entry, all);
++
+ 	list_for_each_entry_from(x, &net->xfrm.policy_all, all) {
+ 		if (x->dead)
+ 			continue;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index f5e39e3..df93183 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1626,7 +1626,7 @@ int xfrm_state_walk(struct net *net, struct xfrm_state_walk *walk,
+ 	if (list_empty(&walk->all))
+ 		x = list_first_entry(&net->xfrm.state_all, struct xfrm_state_walk, all);
+ 	else
+-		x = list_entry(&walk->all, struct xfrm_state_walk, all);
++		x = list_first_entry(&walk->all, struct xfrm_state_walk, all);
+ 	list_for_each_entry_from(x, &net->xfrm.state_all, all) {
+ 		if (x->state == XFRM_STATE_DEAD)
+ 			continue;
 -- 
-  Vitaly
+2.1.0
