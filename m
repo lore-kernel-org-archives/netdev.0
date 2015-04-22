@@ -1,30 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] crypto: Make all AEAD users include aead.h
-Date: Wed, 22 Apr 2015 11:41:48 -0400 (EDT)
-Message-ID: <20150422.114148.495349325919156837.davem@davemloft.net>
-References: <20150422070455.GA8351@gondor.apana.org.au>
+From: Jan Kaisrlik <kaisrja1@fel.cvut.cz>
+Subject: Re: [RFC PATCH 0/3] Enable connecting DSA-based switch to the USB
+ RMII interface.
+Date: Wed, 22 Apr 2015 16:14:33 +0000
+Message-ID: <CAPnxhu7uFP1Moxg4b-=j36AMBNMSu64SkdhVWhh+Ab1R34fCow@mail.gmail.com>
+References: <1429622791-7195-1-git-send-email-kaisrja1@fel.cvut.cz>
+	<20150421124737.GD32294@lunn.ch>
+	<55368667.5030105@gmail.com>
+	<20150421173902.GL32294@lunn.ch>
+	<55368E0B.8060600@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	johannes@sipsolutions.net, marcel@holtmann.org
-To: herbert@gondor.apana.org.au
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20150422070455.GA8351@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lunn <andrew@lunn.ch>, Michal Sojka <sojkam1@fel.cvut.cz>,
+	=?UTF-8?B?S29uZcSNbsO9IFRvbcOhxaE=?= <tkonecny@retia.cz>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from max.feld.cvut.cz ([147.32.192.36]:40454 "EHLO max.feld.cvut.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965847AbbDVQOi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Apr 2015 12:14:38 -0400
+In-Reply-To: <55368E0B.8060600@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 22 Apr 2015 15:04:55 +0800
+2015-04-21 17:51 GMT+00:00 Florian Fainelli <f.fainelli@gmail.com>:
+> On 21/04/15 10:39, Andrew Lunn wrote:
+>>>> I would however say that sysfs is the wrong API. The linux network
+>>>> stack uses netlink for most configuration activities. So i would
+>>>> suggest adding a netlink binding to DSA, and place the code in
+>>>> net/dsa/, not within an MDIO driver.
+>>>
+>>> I suppose we could do that, but that sounds like a pretty radical change
+>>> in how DSA is currently configured (that is statically at boot time),
+>>> part in order to allow booting from DSA-enabled network devices (e.g:
+>>> nfsroot).
+>>
+>> We would keep both DT and platform device. But statically at boot does
+>> not work for a USB hotpluggable switch!
+>
+> Is the switch really hotpluggable, or it is the USB-Ethernet adapter
+> connecting to it? If the former, then I agree, if not, I would imagine
+> that there is nothing that prevents creating the switch device first,
+> and wait for its "master_netdev" to show up later before it starts doing
+> anything useful?
+> --
+> Florian
 
-> This series adds inclusions of aead.h to all AEAD users including
-> AEAD implementors (where it's internal/aead.h).  This is necessary
-> because I'll be adding an updated AEAD interface and that will live
-> in aead.h instead of crypto.h.
-> 
-> Dave, if it's OK with you I'd like to push the last two patches
-> through my tree as the new AEAD interface would depend on them.
+Thank you for your quick and helpful answers.
 
-No objection, feel free to add my:
+The goal of this project is to extend embeded modules without integreted
+MII to add possibility to connect ethernet switch.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Current version of switch is hotplugable but this feature is not required.
+In my humble opinion, hotplugable switch seems to be pretty interesting idea.
+
+Jan
