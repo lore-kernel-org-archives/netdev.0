@@ -1,51 +1,79 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: [PATCH v2 3/3] mpls: Prevent use of implicit NULL label as outgoing label
-Date: Wed, 22 Apr 2015 11:14:39 +0100
-Message-ID: <1429697679-13767-4-git-send-email-rshearma@brocade.com>
-References: <1429648467-8449-1-git-send-email-rshearma@brocade.com>
- <1429697679-13767-1-git-send-email-rshearma@brocade.com>
+From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+Subject: [PATCH] net/phy: refactor RTL8211F initialization
+Date: Wed, 22 Apr 2015 18:22:00 +0800
+Message-ID: <1429698120-17882-1-git-send-email-Shengzhou.Liu@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Robert Shearman <rshearma@brocade.com>
-To: <davem@davemloft.net>, <ebiederm@xmission.com>
+Cc: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+To: <netdev@vger.kernel.org>, <joe.hershberger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:21811 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753991AbbDVKQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 06:16:03 -0400
-In-Reply-To: <1429697679-13767-1-git-send-email-rshearma@brocade.com>
+Received: from mail-bl2on0123.outbound.protection.outlook.com ([65.55.169.123]:34112
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752465AbbDVKZ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Apr 2015 06:25:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The reserved implicit-NULL label isn't allowed to appear in the label
-stack for packets, so make it an error for the control plane to
-specify it as an outgoing label.
+RTL8211F needs to enalbe TXDLY for RGMII during
+phy initialization, so move it to rtl8211f_config
+for early initialization.
 
-Suggested-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: Robert Shearman <rshearma@brocade.com>
+Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+cc: Joe Hershberger <joe.hershberger@gmail.com>
 ---
- net/mpls/af_mpls.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/phy/realtek.c | 25 +++++++++++++++++--------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
 
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 9fdd94cba83e..954810c76a86 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -646,6 +646,15 @@ int nla_get_labels(const struct nlattr *nla,
- 		if ((dec.bos != bos) || dec.ttl || dec.tc)
- 			return -EINVAL;
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index 3917c82..d48095b 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -43,6 +43,22 @@ static int rtl8211x_config(struct phy_device *phydev)
+ 	return 0;
+ }
  
-+		switch (dec.label) {
-+		case LABEL_IMPLICIT_NULL:
-+			/* RFC3032: This is a label that an LSR may
-+			 * assign and distribute, but which never
-+			 * actually appears in the encapsulation.
-+			 */
-+			return -EINVAL;
-+		}
++static int rtl8211f_config(struct phy_device *phydev)
++{
++	phy_write(phydev, MDIO_DEVAD_NONE, MII_BMCR, BMCR_RESET);
 +
- 		label[i] = dec.label;
++	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
++		/* enable TXDLY */
++		phy_write(phydev, MDIO_DEVAD_NONE,
++			  MIIM_RTL8211F_PAGE_SELECT, 0xd08);
++		phy_write(phydev, MDIO_DEVAD_NONE, 0x11, 0x109);
++	}
++
++	genphy_config_aneg(phydev);
++
++	return 0;
++}
++
+ static int rtl8211x_parse_status(struct phy_device *phydev)
+ {
+ 	unsigned int speed;
+@@ -142,13 +158,6 @@ static int rtl8211f_parse_status(struct phy_device *phydev)
+ 		phydev->speed = SPEED_10;
  	}
- 	*labels = nla_labels;
+ 
+-	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
+-		/* enable TXDLY */
+-		phy_write(phydev, MDIO_DEVAD_NONE,
+-			  MIIM_RTL8211F_PAGE_SELECT, 0xd08);
+-		phy_write(phydev, MDIO_DEVAD_NONE, 0x11, 0x109);
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -209,7 +218,7 @@ static struct phy_driver RTL8211F_driver = {
+ 	.uid = 0x1cc916,
+ 	.mask = 0xffffff,
+ 	.features = PHY_GBIT_FEATURES,
+-	.config = &rtl8211x_config,
++	.config = &rtl8211f_config,
+ 	.startup = &rtl8211f_startup,
+ 	.shutdown = &genphy_shutdown,
+ };
 -- 
-2.1.4
+2.1.0.27.g96db324
