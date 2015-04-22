@@ -1,204 +1,73 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3] Renesas Ethernet AVB driver
-Date: Wed, 22 Apr 2015 16:22:54 -0700
-Message-ID: <55382D4E.5070708@gmail.com>
-References: <32501816.HtkLenWQpn@wasted.cogentembedded.com> <552C4554.2070608@gmail.com> <552D8898.3060905@cogentembedded.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC 1/3] tc: fix return values of ingress qdisc
+Date: Wed, 22 Apr 2015 16:29:48 -0700
+Message-ID: <CAHA+R7ODYz4Awh-HuxARktS2vdUa_pEbN_8DZY1Qk4mH7vd=9Q@mail.gmail.com>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
+	<1429644476-8914-2-git-send-email-ast@plumgrid.com>
+	<CAHA+R7NwAdc81bFSoqvXsTpzod0vzT-PV38_Q0N0WTUVGFUY-g@mail.gmail.com>
+	<55381AD3.30209@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org,
-	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
-	galak@codeaurora.org, netdev@vger.kernel.org,
-	richardcochran@gmail.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <552D8898.3060905@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:34019 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758583AbbDVX3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 19:29:49 -0400
+Received: by wicmx19 with SMTP id mx19so594839wic.1
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 16:29:48 -0700 (PDT)
+In-Reply-To: <55381AD3.30209@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14/04/15 14:37, Sergei Shtylyov wrote:
-> 
->>> +    /* Wait for stopping the hardware TX process */
->>> +    ravb_wait(ndev, TCCR, TCCR_TSRQ0 | TCCR_TSRQ1 | TCCR_TSRQ2 |
->>> TCCR_TSRQ3,
->>> +          0);
->>> +
->>> +    ravb_wait(ndev, CSR, CSR_TPO0 | CSR_TPO1 | CSR_TPO2 | CSR_TPO3, 0);
->>> +
->>> +    /* Stop the E-MAC's RX processes. */
->>> +    ravb_write(ndev, ravb_read(ndev, ECMR) & ~ECMR_RE, ECMR);
-> 
->> [snip]
-> 
->>> +        /* Transmited network control queue */
->>> +        if (tis & TIS_FTF1) {
->>> +            ravb_tx_free(ndev, RAVB_NC);
->>> +            netif_wake_queue(ndev);
-> 
->> This would be better moved to the NAPI handler.
-> 
->    Maybe, not sure...
-> 
->>> +            result = IRQ_HANDLED;
->>> +        }
-> 
->> [snip]
-> 
->>> +    if (ecmd->duplex == DUPLEX_FULL)
->>> +        priv->duplex = 1;
->>> +    else
->>> +        priv->duplex = 0;
-> 
->> Why not use what priv->phydev->duplex has cached for you?
-> 
->    Because we compare 'priv->duplex' with 'priv->phydev->duplex' in
-> ravb_adjust_link(). Or what did you mean?
+On Wed, Apr 22, 2015 at 3:04 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On 4/21/15 9:59 PM, Cong Wang wrote:
+>>
+>> On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com>
+>> wrote:
+>>>
+>>> ingress qdisc should return NET_XMIT_* values just like all other qdiscs.
+>>>
+>>
+>> XMIT already means egress...
+>
+>
+> may be then it should be renamed as well.
+> from include/linux/netdevice.h:
+> /* qdisc ->enqueue() return codes. */
+> #define NET_XMIT_SUCCESS        0x00
+> ...
+>
+> the point is that qdisc->enqeue() must return NET_XMIT_* values.
+> ingress qdisc is violating this and therefore should be fixed.
 
-Oh I see how you are using this now, but it does not look like it is
-necessary, since you use phy_ethtool_sset() using phydev->duplex
-directly ought to be enough anywhere in your driver? Unless there is a
-mode where you are running PHY-less, and not using a fixed PHY to
-emulate a PHY...
+XMIT is non-sense for ingress, you really need to pick another
+name for it if TC_ACT_OK isn't okay for you (it is okay for me).
 
-> 
-> [...]
-> 
->>> +static int ravb_nway_reset(struct net_device *ndev)
->>> +{
->>> +    struct ravb_private *priv = netdev_priv(ndev);
->>> +    int error = -ENODEV;
->>> +    unsigned long flags;
->>> +
->>> +    if (priv->phydev) {
-> 
->> Is checking against priv->phydev really necessary, it does not look like
->> the driver will work or accept an invalid PHY device at all anyway?
-> 
->    You still can run 'ethtool' on a closed network device.
 
-Sure, but that does not mean that priv->phydev becomes NULL, even if you
-have called phy_disconnect() in your ndo_close() function, you should
-still have a correct priv->phydev reference to the PHY device, no?
+>
+>>> Since it's invoked via qdisc_enqueue_root() (which suppose to return
+>>> only NET_XMIT_* values as well), it was working by accident,
+>>> since TC_ACT_* values fit within NET_XMIT_MASK.
+>>>
+>>
+>> Why not just add a BUILD_BUG_ON() to capture this?
+>
+>
+> ingress qdisc returning TC_ACT_* values is an obvious layering
+> violation. I'm puzzled why it's been this way for so long.
 
-> 
-> [...]
-> 
->>> +/* Network device open function for Ethernet AVB */
->>> +static int ravb_open(struct net_device *ndev)
->>> +{
->>> +    struct ravb_private *priv = netdev_priv(ndev);
->>> +    int error;
->>> +
->>> +    napi_enable(&priv->napi);
->>> +
->>> +    error = request_irq(ndev->irq, ravb_interrupt, IRQF_SHARED,
->>> ndev->name,
->>> +                ndev);
->>> +    if (error) {
->>> +        netdev_err(ndev, "cannot request IRQ\n");
->>> +        goto out_napi_off;
->>> +    }
->>> +
->>> +    /* Descriptor set */
->>> +    /* +26 gets the maximum ethernet encapsulation, +7 & ~7 because the
->>> +     * card needs room to do 8 byte alignment, +2 so we can reserve
->>> +     * the first 2 bytes, and +16 gets room for the status word from
->>> the
->>> +     * card.
->>> +     */
->>> +    priv->rx_buffer_size = (ndev->mtu <= 1492 ? PKT_BUF_SZ :
->>> +                (((ndev->mtu + 26 + 7) & ~7) + 2 + 16));
-> 
->> Is not that something that should be moved to a local ndo_change_mtu()
-> 
->    That was copied from sh_eth.c verbatim, I even doubt that the formula
-> is correct for EtherAVB...
-> 
->> function? What happens if I change the MTU of an interface running, does
->> not that completely break this RX buffer estimation?
-> 
->    Well, not completely, I think. eth_change_mtu() doesn't allow MTU >
-> 1500 bytes, so it looks like we just need to change 1492 to 1500 here.
-> 
-> [...]
-> 
->>> +static int ravb_start_xmit(struct sk_buff *skb, struct net_device
->>> *ndev)
->>> +{
->>> +    struct ravb_private *priv = netdev_priv(ndev);
->>> +    struct ravb_tstamp_skb *ts_skb = NULL;
->>> +    struct ravb_tx_desc *desc;
->>> +    unsigned long flags;
->>> +    void *buffer;
->>> +    u32 entry;
->>> +    u32 tccr;
->>> +    int q;
->>> +
->>> +    /* If skb needs TX timestamp, it is handled in network control
->>> queue */
->>> +    q = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? RAVB_NC :
->>> RAVB_BE;
->>> +
->>> +    spin_lock_irqsave(&priv->lock, flags);
->>> +    if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q]
->>> - 4) {
-> 
->> What's so special about 4 here, you don't seem to be using 4 descriptors
-> 
->    Not sure, this was clearly copied from sh_eth.c. Perhaps it's just a
-> threshold for calling ravb_tx_free()...
+Why? Everyone knows ingress is the only qdisc on ingress
+and it has no queue and can only accept filters (actions are on filters).
 
-Then 1 inclusive or 0 exclusive is probably what you should be comparing
-to, otherwise you may just stop the tx queue earlier than needed.
+> Adding BUILD_BUG_ON is not an option.
+>
 
-> 
->>> +        if (!ravb_tx_free(ndev, q)) {
->>> +            netif_warn(priv, tx_queued, ndev, "TX FD exhausted.\n");
->>> +            netif_stop_queue(ndev);
->>> +            spin_unlock_irqrestore(&priv->lock, flags);
->>> +            return NETDEV_TX_BUSY;
->>> +        }
->>> +    }
->>> +    entry = priv->cur_tx[q] % priv->num_tx_ring[q];
->>> +    priv->cur_tx[q]++;
->>> +    spin_unlock_irqrestore(&priv->lock, flags);
->>> +
->>> +    if (skb_put_padto(skb, ETH_ZLEN))
->>> +        return NETDEV_TX_OK;
->>> +
->>> +    priv->tx_skb[q][entry] = skb;
->>> +    buffer = PTR_ALIGN(priv->tx_buffers[q][entry], RAVB_ALIGN);
->>> +    memcpy(buffer, skb->data, skb->len);
-> 
->> ~1500 bytes memcpy(), not good...
-> 
->    I'm looking in the manual and not finding the hard requirement to
-> have the buffer address aligned to 128 bytes (RAVB_ALIGN), sigh...
-> Kimura-san?
-> 
->>> +    desc = &priv->tx_ring[q][entry];
-> 
->> Since we have released the spinlock few lines above, is there something
->> protecting ravb_tx_free() from concurrently running with this xmit()
->> call and trashing this entry?
-> 
->    Probably nothing... :-)
-> 
->>> +    desc->ds = skb->len;
->>> +    desc->dptr = dma_map_single(&ndev->dev, buffer, skb->len,
->>> +                    DMA_TO_DEVICE);
->>> +    if (dma_mapping_error(&ndev->dev, desc->dptr)) {
->>> +        dev_kfree_skb_any(skb);
->>> +        priv->tx_skb[q][entry] = NULL;
-> 
->> Don't you need to make sure this NULL is properly seen by ravb_tx_free()?
-> 
->    You mean doing this before releasing the spinlock? Or what?
+It at least tells people we know their value are same, IOW, not a bug.
 
-Yes, the locking your transmit function seems to open windows during
-which it is possible for the interrupt handler running on another CPU to
-mess up with the data you are using here.
---
-Florian
+I don't see the need for the change except a BUILD_BUG_ON().
