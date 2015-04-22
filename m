@@ -1,11 +1,11 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [RFC 3/3] tc: cleanup tc_classify
-Date: Wed, 22 Apr 2015 16:38:04 -0700
-Message-ID: <CAHA+R7Mzz-6j1u=6KqVgT1pesbWcon+=EZcsVU6VX7wm1zEUVg@mail.gmail.com>
+Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
+Date: Wed, 22 Apr 2015 16:39:41 -0700
+Message-ID: <CAHA+R7Mz0LSZ-S=k7rvUuhXm+GT9w2ve6Ug+YPJ4vqnsrLnfpw@mail.gmail.com>
 References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
-	<1429644476-8914-4-git-send-email-ast@plumgrid.com>
-	<CAHA+R7OSVs1rYcXkOM=FYoDMHGM30iWRRAVtdiJmU7jz9GRdYw@mail.gmail.com>
-	<55382055.1090207@plumgrid.com>
+	<1429644476-8914-3-git-send-email-ast@plumgrid.com>
+	<CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
+	<55381F14.4070708@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -15,36 +15,38 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
 To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:36611 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980AbbDVXiF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 19:38:05 -0400
-Received: by wizk4 with SMTP id k4so196364732wiz.1
-        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 16:38:04 -0700 (PDT)
-In-Reply-To: <55382055.1090207@plumgrid.com>
+Received: from mail-wg0-f53.google.com ([74.125.82.53]:33639 "EHLO
+	mail-wg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758556AbbDVXjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 19:39:42 -0400
+Received: by wgin8 with SMTP id n8so1642469wgi.0
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 16:39:41 -0700 (PDT)
+In-Reply-To: <55381F14.4070708@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 22, 2015 at 3:27 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On 4/21/15 10:05 PM, Cong Wang wrote:
+On Wed, Apr 22, 2015 at 3:22 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On 4/21/15 10:02 PM, Cong Wang wrote:
 >>
 >> On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com>
 >> wrote:
 >>>
->>> introduce tc_classify_act() and qdisc_drop_bypass() helper functions to
->>> reduce
->>> copy-paste among different qdiscs
+>>> TC_ACT_QUEUED was always an alias of TC_ACT_STOLEN.
+>>> Get rid of redundant checks in all qdiscs.
+>>> Instead do it once.
 >>
 >>
->>
->> I don't think qdisc_drop_bypass() is more readable than without it,
->> maybe you need a better name, or just leave the code as it is.
+>> The current code can be easily extended, while your code not.
+>> I don't see the need of this change.
 >
 >
-> what would be a better name? I'm open to suggestions.
+> well, iproute2 doesn't use TC_ACT_QUEUED action at all and
+> TC_ACT_STOLEN is used by mirred. All in-tree qdiscs alias them.
+> If you're saying that some future actions together with
+> some future qdiscs may take advantage of that, then why they didn't
+> use it over the last 10 years?
+> Having both that do the same thing is only confusing.
+> I think having one value to indicate 'stolen' condition makes TC
+> code easier to understand.
 
-My reading for "qdisc_drop_bypass()" is it bypasses packet
-dropping for some case, apparently doesn't match its definition.
-
-I can't think out a better name therefore I don't think it deserves
-a function, just leave as it is.
+Then remove it, I am all for this. ;)
