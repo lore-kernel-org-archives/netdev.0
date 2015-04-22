@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/6] crypto: arm64/aes-ce-ccm - Include crypto/internal/aead.h
-Date: Wed, 22 Apr 2015 15:06:27 +0800
-Message-ID: <E1Ykojr-0002C3-Fr@gondolin.me.apana.org.au>
+Subject: [PATCH 2/6] crypto: algif_aead - Include crypto/aead.h
+Date: Wed, 22 Apr 2015 15:06:28 +0800
+Message-ID: <E1Ykojs-0002CM-Oc@gondolin.me.apana.org.au>
 References: <20150422070455.GA8351@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -11,25 +11,24 @@ Return-path: <linux-crypto-owner@vger.kernel.org>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All implementers of AEAD should include crypto/internal/aead.h
-instead of include/linux/crypto.h.
+All users of AEAD should include crypto/aead.h instead of
+include/linux/crypto.h.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- arch/arm64/crypto/aes-ce-ccm-glue.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ crypto/algif_aead.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm64/crypto/aes-ce-ccm-glue.c b/arch/arm64/crypto/aes-ce-ccm-glue.c
-index 6c348df..3303e8a 100644
---- a/arch/arm64/crypto/aes-ce-ccm-glue.c
-+++ b/arch/arm64/crypto/aes-ce-ccm-glue.c
-@@ -13,7 +13,7 @@
- #include <crypto/aes.h>
- #include <crypto/algapi.h>
- #include <crypto/scatterwalk.h>
--#include <linux/crypto.h>
-+#include <crypto/internal/aead.h>
- #include <linux/module.h>
+diff --git a/crypto/algif_aead.c b/crypto/algif_aead.c
+index 00a6fe1..53702e9 100644
+--- a/crypto/algif_aead.c
++++ b/crypto/algif_aead.c
+@@ -13,6 +13,7 @@
+  * any later version.
+  */
  
- #include "aes-ce-setkey.h"
++#include <crypto/aead.h>
+ #include <crypto/scatterwalk.h>
+ #include <crypto/if_alg.h>
+ #include <linux/init.h>
