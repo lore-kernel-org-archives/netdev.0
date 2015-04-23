@@ -1,67 +1,48 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] xfrm: fix the return code when xfrm_*_register_afinfo failed
-Date: Thu, 23 Apr 2015 11:06:53 +0800
-Message-ID: <1429758413-30896-1-git-send-email-roy.qing.li@gmail.com>
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:58278 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756296AbbDWDHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 23:07:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: CCM/GCM implementation defect
+Date: Thu, 23 Apr 2015 11:26:20 +0800
+Message-ID: <20150423032619.GA17648@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Paul Wouters <pwouters@redhat.com>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+Hi:
 
-If xfrm_*_register_afinfo failed since xfrm_*_afinfo[afinfo->family] had the
-value, return the -EEXIST, not -ENOBUFS
+It looks like our IPsec implementations of CCM and GCM are buggy
+in that they don't include the IV in the authentication calculation.
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/xfrm/xfrm_input.c  | 2 +-
- net/xfrm/xfrm_policy.c | 2 +-
- net/xfrm/xfrm_state.c  | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+This definitely breaks interoperability with anyone who implements
+them correctly.  The fact that there have been no reports on this
+probably means that nobody has run into this in the field yet.
 
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 526c4fe..459796a 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -29,7 +29,7 @@ int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
- 		return -EAFNOSUPPORT;
- 	spin_lock_bh(&xfrm_input_afinfo_lock);
- 	if (unlikely(xfrm_input_afinfo[afinfo->family] != NULL))
--		err = -ENOBUFS;
-+		err = -EEXIST;
- 	else
- 		rcu_assign_pointer(xfrm_input_afinfo[afinfo->family], afinfo);
- 	spin_unlock_bh(&xfrm_input_afinfo_lock);
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 847053e..c4c47f3 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2808,7 +2808,7 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
- 		return -EAFNOSUPPORT;
- 	spin_lock(&xfrm_policy_afinfo_lock);
- 	if (unlikely(xfrm_policy_afinfo[afinfo->family] != NULL))
--		err = -ENOBUFS;
-+		err = -EEXIST;
- 	else {
- 		struct dst_ops *dst_ops = afinfo->dst_ops;
- 		if (likely(dst_ops->kmem_cachep == NULL))
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index df93183..e47e498 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1908,7 +1908,7 @@ int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo)
- 		return -EAFNOSUPPORT;
- 	spin_lock_bh(&xfrm_state_afinfo_lock);
- 	if (unlikely(xfrm_state_afinfo[afinfo->family] != NULL))
--		err = -ENOBUFS;
-+		err = -EEXIST;
- 	else
- 		rcu_assign_pointer(xfrm_state_afinfo[afinfo->family], afinfo);
- 	spin_unlock_bh(&xfrm_state_afinfo_lock);
+On the security side, this is probably not a big deal for CCM
+because it always verifies the authentication tag after decryption.
+But for GCM this may be a DoS issue as an attacker could modify
+the IV without triggering the authentication check and thus cause
+an unnecessary decryption.  For both CCM and GCM this will result
+in random data injected as a packet into the network stack which
+hopefully will be dropped.
+
+In order to fix this without breaking backwards compatibility,
+my plan is to introduce new templates such as rfc4106v2 which
+implement the RFC correctly.  The existing templates will be
+retained so that current users aren't broken by the fix.
+
+Once the kernel side is complete we could then get the user-space
+implementors to update their tools to request for the new v2
+templates.
+
+Comments?
+
+Cheers,
 -- 
-2.1.0
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
