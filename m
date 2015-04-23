@@ -1,50 +1,33 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH] net: netcp: remove call to netif_carrier_(on/off) for MAC to Phy interface
-Date: Thu, 23 Apr 2015 15:17:07 -0400
-Message-ID: <1429816627-24337-1-git-send-email-m-karicheri2@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NAPI: Polling function requesting extra calls - difference
+ between 3.18.11 and 4.0.0
+Date: Thu, 23 Apr 2015 12:27:40 -0700
+Message-ID: <1429817260.22254.83.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACna6rzMMUA_MQemYyP93+TjP4aocL1WaYQUJFwQm3+DLNAefg@mail.gmail.com>
+	 <1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CACna6rzx0=P5dOYggLCihg+9ONKfL428PYhP8CQrTgtKG5N_PQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Murali Karicheri <m-karicheri2@ti.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>
+To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:36289 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030362AbbDWT1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 15:27:43 -0400
+Received: by iebrs15 with SMTP id rs15so68623725ieb.3
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 12:27:42 -0700 (PDT)
+In-Reply-To: <CACna6rzx0=P5dOYggLCihg+9ONKfL428PYhP8CQrTgtKG5N_PQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently when interface type is MAC to Phy, netif_carrier_(on/off)
-is called which is not needed as Phy lib already updates the carrier
-status to net stack. This is needed only for other interface types
+On Thu, 2015-04-23 at 21:08 +0200, Rafa=C5=82 Mi=C5=82ecki wrote:
 
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
----
- drivers/net/ethernet/ti/netcp_ethss.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+> As you obviously noticed, I fixed bgmac now and submitted the fix.
+>=20
+> Just wanted to say a thanks for helping with that!
+>=20
 
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 2bef655..0a1ef2e 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -1765,7 +1765,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
- 				     ALE_PORT_STATE,
- 				     ALE_PORT_STATE_FORWARD);
- 
--		if (ndev && slave->open)
-+		if (ndev && slave->open &&
-+		    ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
-+		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
- 			netif_carrier_on(ndev);
- 	} else {
- 		writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
-@@ -1773,7 +1775,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
- 		cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
- 				     ALE_PORT_STATE,
- 				     ALE_PORT_STATE_DISABLE);
--		if (ndev)
-+		if (ndev &&
-+		    ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
-+		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
- 			netif_carrier_off(ndev);
- 	}
- 
--- 
-1.7.9.5
+Sure, it was a pleasure ;)
