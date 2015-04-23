@@ -1,66 +1,35 @@
-From: "Shengzhou.Liu@freescale.com" <Shengzhou.Liu@freescale.com>
-Subject: RE: [PATCH] net/phy: refactor RTL8211F initialization
-Date: Thu, 23 Apr 2015 05:58:46 +0000
-Message-ID: <DM2PR03MB398991EDFF16E79D6D87278F8ED0@DM2PR03MB398.namprd03.prod.outlook.com>
-References: <1429698120-17882-1-git-send-email-Shengzhou.Liu@freescale.com>
- <5537D2F0.9050903@gmail.com>
- <DM2PR03MB398CDA834F4E9BAFE2AF34CF8ED0@DM2PR03MB398.namprd03.prod.outlook.com>
- <55387781.3010707@gmail.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next v2] be2net: log link status
+Date: Thu, 23 Apr 2015 06:31:40 +0000
+Message-ID: <447118c7-cb5e-4e64-88cc-8205cadfaf5e@CMEXHTCAS2.ad.emulex.com>
+References: <1429710210-7291-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"joe.hershberger@gmail.com" <joe.hershberger@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
+	"Ajit Kumar Khaparde" <Ajit.Khaparde@Emulex.Com>
+To: Ivan Vecera <ivecera@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bn0109.outbound.protection.outlook.com ([157.56.110.109]:13696
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750893AbbDWF6s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2015 01:58:48 -0400
-In-Reply-To: <55387781.3010707@gmail.com>
+Received: from cmexedge2.emulex.com ([138.239.224.100]:3516 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089AbbDWGcI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 02:32:08 -0400
+In-Reply-To: <1429710210-7291-1-git-send-email-ivecera@redhat.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
-YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBBcHJpbCAyMywg
-MjAxNSAxMjozOSBQTQ0KPiBUbzogTGl1IFNoZW5nemhvdS1CMzY2ODU7IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IGpvZS5oZXJzaGJlcmdlckBnbWFpbC5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRD
-SF0gbmV0L3BoeTogcmVmYWN0b3IgUlRMODIxMUYgaW5pdGlhbGl6YXRpb24NCj4gDQo+IExlIDIy
-LzA0LzIwMTUgMjA6NTMsIFNoZW5nemhvdS5MaXVAZnJlZXNjYWxlLmNvbSBhIMOpY3JpdCA6DQo+
-ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IEZsb3JpYW4gRmFpbmVs
-bGkgW21haWx0bzpmLmZhaW5lbGxpQGdtYWlsLmNvbV0NCj4gPj4gU2VudDogVGh1cnNkYXksIEFw
-cmlsIDIzLCAyMDE1IDEyOjU3IEFNDQo+ID4+IFRvOiBMaXUgU2hlbmd6aG91LUIzNjY4NTsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPj4gam9lLmhlcnNoYmVyZ2VyQGdtYWlsLmNvbQ0KPiA+
-PiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQvcGh5OiByZWZhY3RvciBSVEw4MjExRiBpbml0aWFs
-aXphdGlvbg0KPiA+Pg0KPiA+PiBPbiAyMi8wNC8xNSAwMzoyMiwgU2hlbmd6aG91IExpdSB3cm90
-ZToNCj4gPj4+IFJUTDgyMTFGIG5lZWRzIHRvIGVuYWxiZSBUWERMWSBmb3IgUkdNSUkgZHVyaW5n
-IHBoeSBpbml0aWFsaXphdGlvbiwNCj4gPj4+IHNvIG1vdmUgaXQgdG8gcnRsODIxMWZfY29uZmln
-IGZvciBlYXJseSBpbml0aWFsaXphdGlvbi4NCj4gPj4+DQo+ID4+PiBTaWduZWQtb2ZmLWJ5OiBT
-aGVuZ3pob3UgTGl1IDxTaGVuZ3pob3UuTGl1QGZyZWVzY2FsZS5jb20+DQo+ID4+PiBjYzogSm9l
-IEhlcnNoYmVyZ2VyIDxqb2UuaGVyc2hiZXJnZXJAZ21haWwuY29tPg0KPiA+Pj4gLS0tDQo+ID4+
-PiAgZHJpdmVycy9uZXQvcGh5L3JlYWx0ZWsuYyB8IDI1ICsrKysrKysrKysrKysrKysrLS0tLS0t
-LS0NCj4gPj4+ICAxIGZpbGUgY2hhbmdlZCwgMTcgaW5zZXJ0aW9ucygrKSwgOCBkZWxldGlvbnMo
-LSkNCj4gPj4+DQo+ID4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvcGh5L3JlYWx0ZWsuYyBi
-L2RyaXZlcnMvbmV0L3BoeS9yZWFsdGVrLmMNCj4gPj4+IGluZGV4IDM5MTdjODIuLmQ0ODA5NWIg
-MTAwNjQ0DQo+ID4+PiAtLS0gYS9kcml2ZXJzL25ldC9waHkvcmVhbHRlay5jDQo+ID4+PiArKysg
-Yi9kcml2ZXJzL25ldC9waHkvcmVhbHRlay5jDQo+ID4+PiBAQCAtNDMsNiArNDMsMjIgQEAgc3Rh
-dGljIGludCBydGw4MjExeF9jb25maWcoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikNCj4gPj4+
-ICAJcmV0dXJuIDA7DQo+ID4+PiAgfQ0KPiA+Pj4NCj4gPj4+ICtzdGF0aWMgaW50IHJ0bDgyMTFm
-X2NvbmZpZyhzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KSB7DQo+ID4+PiArCXBoeV93cml0ZShw
-aHlkZXYsIE1ESU9fREVWQURfTk9ORSwgTUlJX0JNQ1IsIEJNQ1JfUkVTRVQpOw0KPiA+Pg0KPiA+
-PiBUaGF0IHBhcnQgb2YgdGhlIGNoYW5nZSBpcyBub3QgZG9jdW1lbnRlZCBidXQgaGFzIHRvIGJl
-LCBhbmQgeW91DQo+ID4+IHNob3VsZCB1c2UNCj4gPj4gZ2VucGh5X3NvZnRfcmVzZXQoKSB3aGlj
-aCBhbHNvIHRha2VzIGNhcmUgb2Ygd2FpdGluZyB0aGUgcmVxdWlyZWQNCj4gPj4gYW1vdW50IG9m
-IHRpbWUgYmVmb3JlIEJNQ1JfUkVTRVQgaXMgY2xlYXJlZC4NCj4gPg0KPiA+IFRoZXJlIGlzIG5v
-IGdlbnBoeV9zb2Z0X3Jlc2V0KCkgaW4gY3VycmVudCB1LWJvb3QgdHJlZS4NCj4gDQo+IERpZCB5
-b3UgbWVhbiB0byBzdWJtaXQgdGhhdCBhZ2FpbnN0IHUtYm9vdCBvciBMaW51eD8gSWYgdGhlIGxh
-dHRlciwgdGhlcmUgaXMNCj4gYWJzb2x1dGVseSBubyBuZWVkIHRvIGhhdmUgdGhlIHNhbWUgZmls
-ZSBjb21waWxlIHVuZGVyIHUtYm9vdCBhbmQgTGludXgNCj4gd2l0aG91dCBjaGFuZ2VzLCB0aGF0
-IGlzIHRvbyByZXN0cmljdGl2ZS4gVGhlcmUgaXMgYQ0KPiBnZW5waHlfc29mdF9yZXNldCgpIHdo
-aWNoIHRha2VzIGNhcmUgb2Ygd2FpdGluZyBmb3IgQk1DUl9SRVNFVCB0byBjbGVhciwNCj4gcGxl
-YXNlIHVzZSBpdCwgdGhlcmUgaXMgbm8gZ3VhcmFudGVlIG90aGVyd2lzZSB0aGF0IGEgUEhZIGhh
-cyBjb21wbGV0ZWQgYQ0KPiByZXNldC4NCj4gLS0NCj4gRmxvcmlhbg0KVGhpcyBwYXRjaCBpcyBm
-b3IgdS1ib290LCBub3QgZm9yIGtlcm5lbC4gVGhlcmUgaXMgbm8gZ2VucGh5X3NvZnRfcmVzZXQo
-KSBpbiB1LWJvb3QuDQoNCg==
+> -----Original Message-----
+> From: Ivan Vecera [mailto:ivecera@redhat.com]
+> 
+> The driver unlike other drivers does not log link state changes.
+> 
+> v2: added current link speed to log message
+> 
+Ivan, I disagree with the v2 change. I think your original intention
+was just to log a message when the link goes up or down 
+asynchronously (i.e., without any user intervention.)
+After alerting the user, if the user wants to know other link
+properties like speed, duplex etc then the ethtool cmd needs 
+to be used; there is no need to log a message with those details.
