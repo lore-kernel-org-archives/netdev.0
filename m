@@ -1,40 +1,37 @@
-From: Martin Willi <martin@strongswan.org>
-Subject: Re: CCM/GCM implementation defect
-Date: Thu, 23 Apr 2015 15:24:59 +0200
-Message-ID: <1429795499.31437.9.camel@martin>
-References: <20150423032619.GA17648@gondor.apana.org.au>
-	 <20150423114533.GI8928@secunet.com>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: [PATCH] net: phy: micrel: don't do clock-mode-select if we got NULL clock
+Date: Thu, 23 Apr 2015 15:37:11 +0200
+Message-ID: <1429796231-8542-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Wouters <pwouters@redhat.com>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<johan@kernel.org>, Niklas Cassel <niklass@axis.com>
+To: <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sitav-80046.hsr.ch ([152.96.80.46]:33840 "EHLO
-	mail.strongswan.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756788AbbDWNZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:25:03 -0400
-In-Reply-To: <20150423114533.GI8928@secunet.com>
+Received: from bastet.se.axis.com ([195.60.68.11]:36577 "EHLO
+	bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752291AbbDWNhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:37:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steffen,
+Signed-off-by: Niklas Cassel <niklass@axis.com>
+---
+ drivers/net/phy/micrel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> > It looks like our IPsec implementations of CCM and GCM are buggy
-> > in that they don't include the IV in the authentication calculation.
-> 
-> Seems like crypto_rfc4106_crypt() passes the associated data it
-> got from ESP directly to gcm, without chaining with the IV.
-
-Do you have any pointer for me where this is defined? Why is it needed,
-given that GCM implicitly authenticates the IV by using it in Y0?
-
-Also, I've just verified that a tunnel between the Windows Filtering
-Platform and Linux 3.13 using AES128GCM16 works just fine. So if we do
-something wrong, the problem does not only affect Linux.
-
-Regards
-Martin
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 1190fd8..a422036 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -548,7 +548,7 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	}
+ 
+ 	clk = devm_clk_get(&phydev->dev, "rmii-ref");
+-	if (!IS_ERR(clk)) {
++	if (!IS_ERR_OR_NULL(clk)) {
+ 		unsigned long rate = clk_get_rate(clk);
+ 		bool rmii_ref_clk_sel_25_mhz;
+ 
+-- 
+2.1.4
