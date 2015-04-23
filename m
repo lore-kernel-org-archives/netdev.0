@@ -1,86 +1,32 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 3/3] tipc: fix node refcount issue
-Date: Thu, 23 Apr 2015 09:37:40 -0400
-Message-ID: <1429796260-14178-4-git-send-email-jon.maloy@ericsson.com>
-References: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Josh Hunt <johunt@akamai.com>
+Subject: Re: [PATCH] fix tcp fin memory accounting
+Date: Thu, 23 Apr 2015 08:48:17 -0500
+Message-ID: <5538F821.6070503@akamai.com>
+References: <1426807170-19258-1-git-send-email-johunt@akamai.com>		<20150320.132029.103306583158863864.davem@davemloft.net>		<550C5A98.5040305@akamai.com>	 <20150324.021050.384709317309031128.davem@davemloft.net>	 <55110009.4020706@akamai.com> <1429661349.18561.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:24066 "EHLO
-	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933919AbbDWNiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:38:24 -0400
-In-Reply-To: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
+Received: from prod-mail-xrelay08.akamai.com ([96.6.114.112]:12314 "EHLO
+	prod-mail-xrelay08.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752754AbbDWNzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:55:02 -0400
+In-Reply-To: <1429661349.18561.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On 04/21/2015 07:09 PM, Eric Dumazet wrote:
+>
+> Note that this patch adds a deadlock possibility in some stress
+> situations.
+>
+> If a process owning some tcp socket dies, and tcp_mem[2] is already hit,
+> all sk_stream_alloc_skb() can return NULL and we loop in tcp_send_fin(),
+> making no progress because we can not free any tcp memory.
 
-When link statistics is dumped over netlink, we iterate over
-the list of peer nodes and append each links statistics to
-the netlink msg. In the case where the dump is resumed after
-filling up a nlmsg, the node refcnt is decremented without
-having been incremented previously which may cause the node
-reference to be freed. When this happens, the following
-info/stacktrace will be generated, followed by a crash or
-undefined behavior.
-We fix this by removing the erroneous call to tipc_node_put
-inside the loop that iterates over nodes.
+Ugh. Thanks for fixing this Eric!
 
-[  384.312303] INFO: trying to register non-static key.
-[  384.313110] the code is fine but needs lockdep annotation.
-[  384.313290] turning off the locking correctness validator.
-[  384.313290] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.0.0+ #13
-[  384.313290] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  384.313290]  ffff88003c6d0290 ffff88003cc03ca8 ffffffff8170adf1 0000000000000007
-[  384.313290]  ffffffff82728730 ffff88003cc03d38 ffffffff810a6a6d 00000000001d7200
-[  384.313290]  ffff88003c6d0ab0 ffff88003cc03ce8 0000000000000285 0000000000000001
-[  384.313290] Call Trace:
-[  384.313290]  <IRQ>  [<ffffffff8170adf1>] dump_stack+0x4c/0x65
-[  384.313290]  [<ffffffff810a6a6d>] __lock_acquire+0xf3d/0xf50
-[  384.313290]  [<ffffffff810a7375>] lock_acquire+0xd5/0x290
-[  384.313290]  [<ffffffffa0043e8c>] ? link_timeout+0x1c/0x170 [tipc]
-[  384.313290]  [<ffffffffa0043e70>] ? link_state_event+0x4e0/0x4e0 [tipc]
-[  384.313290]  [<ffffffff81712890>] _raw_spin_lock_bh+0x40/0x80
-[  384.313290]  [<ffffffffa0043e8c>] ? link_timeout+0x1c/0x170 [tipc]
-[  384.313290]  [<ffffffffa0043e8c>] link_timeout+0x1c/0x170 [tipc]
-[  384.313290]  [<ffffffff810c4698>] call_timer_fn+0xb8/0x490
-[  384.313290]  [<ffffffff810c45e0>] ? process_timeout+0x10/0x10
-[  384.313290]  [<ffffffff810c5a2c>] run_timer_softirq+0x21c/0x420
-[  384.313290]  [<ffffffffa0043e70>] ? link_state_event+0x4e0/0x4e0 [tipc]
-[  384.313290]  [<ffffffff8105a954>] __do_softirq+0xf4/0x630
-[  384.313290]  [<ffffffff8105afdd>] irq_exit+0x5d/0x60
-[  384.313290]  [<ffffffff8103ade1>] smp_apic_timer_interrupt+0x41/0x50
-[  384.313290]  [<ffffffff817144a0>] apic_timer_interrupt+0x70/0x80
-[  384.313290]  <EOI>  [<ffffffff8100db10>] ? default_idle+0x20/0x210
-[  384.313290]  [<ffffffff8100db0e>] ? default_idle+0x1e/0x210
-[  384.313290]  [<ffffffff8100e61a>] arch_cpu_idle+0xa/0x10
-[  384.313290]  [<ffffffff81099803>] cpu_startup_entry+0x2c3/0x530
-[  384.313290]  [<ffffffff810d2893>] ? clockevents_register_device+0x113/0x200
-[  384.313290]  [<ffffffff81038b0f>] start_secondary+0x13f/0x170
-
-Fixes: 8a0f6ebe8494 ("tipc: involve reference counter for node structure")
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index a6b30df..57be6e6 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2143,7 +2143,6 @@ int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 			err = __tipc_nl_add_node_links(net, &msg, node,
- 						       &prev_link);
- 			tipc_node_unlock(node);
--			tipc_node_put(node);
- 			if (err)
- 				goto out;
- 
--- 
-1.9.1
+Josh
