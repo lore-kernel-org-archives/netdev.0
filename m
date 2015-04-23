@@ -1,60 +1,66 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Subject: [PATCHv2] ibmveth: Fix off-by-one error in ibmveth_change_mtu()
-Date: Thu, 23 Apr 2015 14:43:05 +1000
-Message-ID: <1429764185-597-1-git-send-email-david@gibson.dropbear.id.au>
-Cc: tlfalcon@linux.vnet.ibm.com, michael@ellerman.id.au,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, David Gibson <david@gibson.dropbear.id.au>
-To: anton@au1.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Shengzhou.Liu@freescale.com" <Shengzhou.Liu@freescale.com>
+Subject: RE: [PATCH] net/phy: refactor RTL8211F initialization
+Date: Thu, 23 Apr 2015 05:58:46 +0000
+Message-ID: <DM2PR03MB398991EDFF16E79D6D87278F8ED0@DM2PR03MB398.namprd03.prod.outlook.com>
+References: <1429698120-17882-1-git-send-email-Shengzhou.Liu@freescale.com>
+ <5537D2F0.9050903@gmail.com>
+ <DM2PR03MB398CDA834F4E9BAFE2AF34CF8ED0@DM2PR03MB398.namprd03.prod.outlook.com>
+ <55387781.3010707@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"joe.hershberger@gmail.com" <joe.hershberger@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bn0109.outbound.protection.outlook.com ([157.56.110.109]:13696
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750893AbbDWF6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Apr 2015 01:58:48 -0400
+In-Reply-To: <55387781.3010707@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-AFAIK the PAPR document which defines the virtual device interface used by
-the ibmveth driver doesn't specify a specific maximum MTU.  So, in the
-ibmveth driver, the maximum allowed MTU is determined by the maximum
-allocated buffer size of 64k (corresponding to one page in the common case)
-minus the per-buffer overhead IBMVETH_BUFF_OH (which has value 22 for 14
-bytes of ethernet header, plus 8 bytes for an opaque handle).
-
-This suggests a maximum allowable MTU of 65514 bytes, but in fact the
-driver only permits a maximum MTU of 65513.  This is because there is a <
-instead of an <= in ibmveth_change_mtu(), which only permits an MTU which
-is strictly smaller than the buffer size, rather than allowing the buffer
-to be completely filled.
-
-This patch fixes the buglet.
-
-Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
-Acked-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmveth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-Resending with Thomas Falcon's ACK included, since I previously forgot
-to include the netdev list amongst the recipients.
-
-diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index cd7675a..1813476 100644
---- a/drivers/net/ethernet/ibm/ibmveth.c
-+++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -1238,7 +1238,7 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
- 		return -EINVAL;
- 
- 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
--		if (new_mtu_oh < adapter->rx_buff_pool[i].buff_size)
-+		if (new_mtu_oh <= adapter->rx_buff_pool[i].buff_size)
- 			break;
- 
- 	if (i == IBMVETH_NUM_BUFF_POOLS)
-@@ -1257,7 +1257,7 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
- 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++) {
- 		adapter->rx_buff_pool[i].active = 1;
- 
--		if (new_mtu_oh < adapter->rx_buff_pool[i].buff_size) {
-+		if (new_mtu_oh <= adapter->rx_buff_pool[i].buff_size) {
- 			dev->mtu = new_mtu;
- 			vio_cmo_set_dev_desired(viodev,
- 						ibmveth_get_desired_dma
--- 
-2.1.0
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
+YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBBcHJpbCAyMywg
+MjAxNSAxMjozOSBQTQ0KPiBUbzogTGl1IFNoZW5nemhvdS1CMzY2ODU7IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmc7IGpvZS5oZXJzaGJlcmdlckBnbWFpbC5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRD
+SF0gbmV0L3BoeTogcmVmYWN0b3IgUlRMODIxMUYgaW5pdGlhbGl6YXRpb24NCj4gDQo+IExlIDIy
+LzA0LzIwMTUgMjA6NTMsIFNoZW5nemhvdS5MaXVAZnJlZXNjYWxlLmNvbSBhIMOpY3JpdCA6DQo+
+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IEZsb3JpYW4gRmFpbmVs
+bGkgW21haWx0bzpmLmZhaW5lbGxpQGdtYWlsLmNvbV0NCj4gPj4gU2VudDogVGh1cnNkYXksIEFw
+cmlsIDIzLCAyMDE1IDEyOjU3IEFNDQo+ID4+IFRvOiBMaXUgU2hlbmd6aG91LUIzNjY4NTsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gPj4gam9lLmhlcnNoYmVyZ2VyQGdtYWlsLmNvbQ0KPiA+
+PiBTdWJqZWN0OiBSZTogW1BBVENIXSBuZXQvcGh5OiByZWZhY3RvciBSVEw4MjExRiBpbml0aWFs
+aXphdGlvbg0KPiA+Pg0KPiA+PiBPbiAyMi8wNC8xNSAwMzoyMiwgU2hlbmd6aG91IExpdSB3cm90
+ZToNCj4gPj4+IFJUTDgyMTFGIG5lZWRzIHRvIGVuYWxiZSBUWERMWSBmb3IgUkdNSUkgZHVyaW5n
+IHBoeSBpbml0aWFsaXphdGlvbiwNCj4gPj4+IHNvIG1vdmUgaXQgdG8gcnRsODIxMWZfY29uZmln
+IGZvciBlYXJseSBpbml0aWFsaXphdGlvbi4NCj4gPj4+DQo+ID4+PiBTaWduZWQtb2ZmLWJ5OiBT
+aGVuZ3pob3UgTGl1IDxTaGVuZ3pob3UuTGl1QGZyZWVzY2FsZS5jb20+DQo+ID4+PiBjYzogSm9l
+IEhlcnNoYmVyZ2VyIDxqb2UuaGVyc2hiZXJnZXJAZ21haWwuY29tPg0KPiA+Pj4gLS0tDQo+ID4+
+PiAgZHJpdmVycy9uZXQvcGh5L3JlYWx0ZWsuYyB8IDI1ICsrKysrKysrKysrKysrKysrLS0tLS0t
+LS0NCj4gPj4+ICAxIGZpbGUgY2hhbmdlZCwgMTcgaW5zZXJ0aW9ucygrKSwgOCBkZWxldGlvbnMo
+LSkNCj4gPj4+DQo+ID4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvcGh5L3JlYWx0ZWsuYyBi
+L2RyaXZlcnMvbmV0L3BoeS9yZWFsdGVrLmMNCj4gPj4+IGluZGV4IDM5MTdjODIuLmQ0ODA5NWIg
+MTAwNjQ0DQo+ID4+PiAtLS0gYS9kcml2ZXJzL25ldC9waHkvcmVhbHRlay5jDQo+ID4+PiArKysg
+Yi9kcml2ZXJzL25ldC9waHkvcmVhbHRlay5jDQo+ID4+PiBAQCAtNDMsNiArNDMsMjIgQEAgc3Rh
+dGljIGludCBydGw4MjExeF9jb25maWcoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikNCj4gPj4+
+ICAJcmV0dXJuIDA7DQo+ID4+PiAgfQ0KPiA+Pj4NCj4gPj4+ICtzdGF0aWMgaW50IHJ0bDgyMTFm
+X2NvbmZpZyhzdHJ1Y3QgcGh5X2RldmljZSAqcGh5ZGV2KSB7DQo+ID4+PiArCXBoeV93cml0ZShw
+aHlkZXYsIE1ESU9fREVWQURfTk9ORSwgTUlJX0JNQ1IsIEJNQ1JfUkVTRVQpOw0KPiA+Pg0KPiA+
+PiBUaGF0IHBhcnQgb2YgdGhlIGNoYW5nZSBpcyBub3QgZG9jdW1lbnRlZCBidXQgaGFzIHRvIGJl
+LCBhbmQgeW91DQo+ID4+IHNob3VsZCB1c2UNCj4gPj4gZ2VucGh5X3NvZnRfcmVzZXQoKSB3aGlj
+aCBhbHNvIHRha2VzIGNhcmUgb2Ygd2FpdGluZyB0aGUgcmVxdWlyZWQNCj4gPj4gYW1vdW50IG9m
+IHRpbWUgYmVmb3JlIEJNQ1JfUkVTRVQgaXMgY2xlYXJlZC4NCj4gPg0KPiA+IFRoZXJlIGlzIG5v
+IGdlbnBoeV9zb2Z0X3Jlc2V0KCkgaW4gY3VycmVudCB1LWJvb3QgdHJlZS4NCj4gDQo+IERpZCB5
+b3UgbWVhbiB0byBzdWJtaXQgdGhhdCBhZ2FpbnN0IHUtYm9vdCBvciBMaW51eD8gSWYgdGhlIGxh
+dHRlciwgdGhlcmUgaXMNCj4gYWJzb2x1dGVseSBubyBuZWVkIHRvIGhhdmUgdGhlIHNhbWUgZmls
+ZSBjb21waWxlIHVuZGVyIHUtYm9vdCBhbmQgTGludXgNCj4gd2l0aG91dCBjaGFuZ2VzLCB0aGF0
+IGlzIHRvbyByZXN0cmljdGl2ZS4gVGhlcmUgaXMgYQ0KPiBnZW5waHlfc29mdF9yZXNldCgpIHdo
+aWNoIHRha2VzIGNhcmUgb2Ygd2FpdGluZyBmb3IgQk1DUl9SRVNFVCB0byBjbGVhciwNCj4gcGxl
+YXNlIHVzZSBpdCwgdGhlcmUgaXMgbm8gZ3VhcmFudGVlIG90aGVyd2lzZSB0aGF0IGEgUEhZIGhh
+cyBjb21wbGV0ZWQgYQ0KPiByZXNldC4NCj4gLS0NCj4gRmxvcmlhbg0KVGhpcyBwYXRjaCBpcyBm
+b3IgdS1ib290LCBub3QgZm9yIGtlcm5lbC4gVGhlcmUgaXMgbm8gZ2VucGh5X3NvZnRfcmVzZXQo
+KSBpbiB1LWJvb3QuDQoNCg==
