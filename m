@@ -1,35 +1,37 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
 Subject: Re: [PATCH] rhashtable: don't attempt to grow when at max_size
-Date: Thu, 23 Apr 2015 18:09:36 +0200
-Message-ID: <1429805376.1859.5.camel@sipsolutions.net>
-References: <1429799923-28122-1-git-send-email-johannes@sipsolutions.net>
-	 <20150423.115919.1353583175267783165.davem@davemloft.net>
+Date: Thu, 23 Apr 2015 18:16:08 +0200
+Message-ID: <55391AC8.3020901@iogearbox.net>
+References: <1429799923-28122-1-git-send-email-johannes@sipsolutions.net>	 <20150423.115919.1353583175267783165.davem@davemloft.net> <1429805376.1859.5.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, kaber@trash.net, tgraf@suug.ch,
 	herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:35321 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965896AbbDWQJk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2015 12:09:40 -0400
-In-Reply-To: <20150423.115919.1353583175267783165.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:32897 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966153AbbDWQQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 12:16:12 -0400
+In-Reply-To: <1429805376.1859.5.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-23 at 11:59 -0400, David Miller wrote:
+On 04/23/2015 06:09 PM, Johannes Berg wrote:
+> On Thu, 2015-04-23 at 11:59 -0400, David Miller wrote:
+>
+>>> This fixes the "lost insertion" issue and consequently allows my
+>>> code to display its error (and verify my fix for it.)
+>
+>> It looks fine to me, but I'll let Herbert and Thomas review this.
+>
+> Oh, sorry, didn't know Herbert was also involved with this.
 
-> > This fixes the "lost insertion" issue and consequently allows my
-> > code to display its error (and verify my fix for it.)
+Would be good to add Fixes tags, commit in question seems to be:
+ccd57b1bd324 ("rhashtable: Add immediate rehash during insertion")
 
-> It looks fine to me, but I'll let Herbert and Thomas review this.
-
-Oh, sorry, didn't know Herbert was also involved with this.
-
-Anyway, that's a good idea. I really went for "this looks obvious" and
-patched it, and it started working for me thereafter. I don't know
-anything about side effects here.
-
-johannes
+> Anyway, that's a good idea. I really went for "this looks obvious" and
+> patched it, and it started working for me thereafter. I don't know
+> anything about side effects here.
