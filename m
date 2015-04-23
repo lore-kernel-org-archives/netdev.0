@@ -1,55 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] fix tcp fin memory accounting
-Date: Thu, 23 Apr 2015 09:48:12 -0700
-Message-ID: <1429807692.22254.59.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429661349.18561.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5538F821.6070503@akamai.com>
-	 <1429797767.22254.41.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150423.115447.2163146250304402014.davem@davemloft.net>
-	 <1429805815.22254.57.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: Suspicious RCU usage in bridge with Linux v4.0-9362-g1fc149933fd4
+Date: Thu, 23 Apr 2015 13:07:45 -0400
+Message-ID: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: johunt@akamai.com, netdev@vger.kernel.org, edumazet@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:33071 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966257AbbDWQsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 12:48:20 -0400
-Received: by iecrt8 with SMTP id rt8so65184304iec.0
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 09:48:19 -0700 (PDT)
-In-Reply-To: <1429805815.22254.57.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>,
+	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+	dac.override@gmail.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-04-23 at 09:16 -0700, Eric Dumazet wrote:
-> On Thu, 2015-04-23 at 11:54 -0400, David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Thu, 23 Apr 2015 07:02:47 -0700
-> > 
-> > > +		if (!tcp_send_head(sk)) {
-> > > +			tp->snd_nxt++;
-> > > +			return;
-> > > +		}
-> > 
-> > I'm not so sure about this.  Why is this needed?
-> > 
-> > Otherwise patch looks fine to me.
-> > 
-> 
-> I guess I need to add a comment then ;)
-> 
-> If we want to pretend FIN was sent, we also need to tweak tp->snd_nxt to
-> match new tskb->end_seq (or tp->write_seq).
-> 
-> I tested following packetdrill script and confirmed that if I do not
-> tweak snd_nxt, last packet sent is incorrect :
-> 
-> 	> . 5001:5001(0) ack 2
-> 
-> This might be because our stack relies that we never coalesce something
-> on one already sent skb (we do this check in tcp_sendmsg() for example)
+Hi All,
 
-Well, real reason is that tp->snd_nxt is not touched in retransmit
-paths, but when new data is sent (tcp_event_new_data_sent())
+We've had a user report the following backtrace from the bridge module
+with a recent Linus' tree.  Has anything like this been reported yet?
+If you have any questions on setup, the user is CC'd.
+
+josh
+
+[   29.382235] br0: port 1(tap0) entered forwarding state
+
+[   29.382286] ===============================
+[   29.382315] [ INFO: suspicious RCU usage. ]
+[   29.382344] 4.1.0-0.rc0.git11.1.fc23.x86_64 #1 Not tainted
+[   29.382380] -------------------------------
+[   29.382409] net/bridge/br_private.h:626 suspicious
+rcu_dereference_check() usage!
+[   29.382455]
+               other info that might help us debug this:
+
+[   29.382507]
+               rcu_scheduler_active = 1, debug_locks = 0
+[   29.382549] 2 locks held by swapper/0/0:
+[   29.382576]  #0:  (((&p->forward_delay_timer))){+.-...}, at:
+[<ffffffff81139f75>] call_timer_fn+0x5/0x4f0
+[   29.382660]  #1:  (&(&br->lock)->rlock){+.-...}, at:
+[<ffffffffa0450dc1>] br_forward_delay_timer_expired+0x31/0x140
+[bridge]
+[   29.382754]
+               stack backtrace:
+[   29.382787] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
+4.1.0-0.rc0.git11.1.fc23.x86_64 #1
+[   29.382838] Hardware name: LENOVO 422916G/LENOVO, BIOS A1KT53AUS 04/07/2015
+[   29.382882]  0000000000000000 3ebfc20364115825 ffff880666603c48
+ffffffff81892d4b
+[   29.382943]  0000000000000000 ffffffff81e124e0 ffff880666603c78
+ffffffff8110bcd7
+[   29.383004]  ffff8800785c9d00 ffff88065485ac58 ffff880c62002800
+ffff880c5fc88ac0
+[   29.383065] Call Trace:
+[   29.383084]  <IRQ>  [<ffffffff81892d4b>] dump_stack+0x4c/0x65
+[   29.383130]  [<ffffffff8110bcd7>] lockdep_rcu_suspicious+0xe7/0x120
+[   29.383178]  [<ffffffffa04520f9>] br_fill_ifinfo+0x4a9/0x6a0 [bridge]
+[   29.383225]  [<ffffffffa045266b>] br_ifinfo_notify+0x11b/0x4b0 [bridge]
+[   29.383271]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
+[   29.383320]  [<ffffffffa0450de8>]
+br_forward_delay_timer_expired+0x58/0x140 [bridge]
+[   29.383371]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
+[   29.383416]  [<ffffffff8113a033>] call_timer_fn+0xc3/0x4f0
+[   29.383454]  [<ffffffff81139f75>] ? call_timer_fn+0x5/0x4f0
+[   29.383493]  [<ffffffff8110a90f>] ? lock_release_holdtime.part.29+0xf/0x200
+[   29.383541]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
+[   29.383587]  [<ffffffff8113a6a4>] run_timer_softirq+0x244/0x490
+[   29.383629]  [<ffffffff810b68cc>] __do_softirq+0xec/0x670
+[   29.383666]  [<ffffffff810b70d5>] irq_exit+0x145/0x150
+[   29.383703]  [<ffffffff8189f506>] smp_apic_timer_interrupt+0x46/0x60
+[   29.383744]  [<ffffffff8189d523>] apic_timer_interrupt+0x73/0x80
+[   29.383782]  <EOI>  [<ffffffff816f131f>] ? cpuidle_enter_state+0x5f/0x2f0
+[   29.383832]  [<ffffffff816f131b>] ? cpuidle_enter_state+0x5b/0x2f0
+[   29.383873]  [<ffffffff816f15e7>] cpuidle_enter+0x17/0x20
+[   29.383908]  [<ffffffff81103c6f>] cpu_startup_entry+0x36f/0x5f0
+[   29.383949]  [<ffffffff81887cbd>] rest_init+0x13d/0x150
+[   29.383986]  [<ffffffff821c905b>] start_kernel+0x4d2/0x4f3
+[   29.384023]  [<ffffffff821c8120>] ? early_idt_handlers+0x120/0x120
+[   29.384064]  [<ffffffff821c8339>] x86_64_start_reservations+0x2a/0x2c
+[   29.384105]  [<ffffffff821c8485>] x86_64_start_kernel+0x14a/0x16d
+[   36.100347] IN=br0 OUT=
+MAC=33:33:00:00:00:02:52:54:00:12:01:00:86:dd
+SRC=fe80:0000:0000:0000:5054:00ff:fe12:0100
+DST=ff02:0000:0000:0000:0000:0000:0000:0002 LEN=56 TC=0 HOPLIMIT=255
+FLOWLBL=0 PROTO=ICMPv6 TYPE=133 CODE=0
+[   40.113744] IN=br0 OUT=
+MAC=33:33:00:00:00:02:52:54:00:12:01:00:86:dd
+SRC=fe80:0000:0000:0000:5054:00ff:fe12:0100
+DST=ff02:0000:0000:0000:0000:0000:0000:0002 LEN=56 TC=0 HOPLIMIT=255
+FLOWLBL=0 PROTO=ICMPv6 TYPE=133 CODE=0
+[   44.119727] IN=br0 OUT=
+MAC=33:33:00:00:00:02:52:54:00:12:01:00:86:dd
+SRC=fe80:0000:0000:0000:5054:00ff:fe12:0100
+DST=ff02:0000:0000:0000:0000:0000:0000:0002 LEN=56 TC=0 HOPLIMIT=255
+FLOWLBL=0 PROTO=ICMPv6 TYPE=133 CODE=0
