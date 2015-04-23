@@ -1,71 +1,70 @@
-From: "Shengzhou.Liu@freescale.com" <Shengzhou.Liu@freescale.com>
-Subject: RE: [PATCH] net/phy: refactor RTL8211F initialization
-Date: Thu, 23 Apr 2015 03:53:19 +0000
-Message-ID: <DM2PR03MB398CDA834F4E9BAFE2AF34CF8ED0@DM2PR03MB398.namprd03.prod.outlook.com>
-References: <1429698120-17882-1-git-send-email-Shengzhou.Liu@freescale.com>
- <5537D2F0.9050903@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net/phy: refactor RTL8211F initialization
+Date: Wed, 22 Apr 2015 21:39:29 -0700
+Message-ID: <55387781.3010707@gmail.com>
+References: <1429698120-17882-1-git-send-email-Shengzhou.Liu@freescale.com> <5537D2F0.9050903@gmail.com> <DM2PR03MB398CDA834F4E9BAFE2AF34CF8ED0@DM2PR03MB398.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Florian Fainelli <f.fainelli@gmail.com>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "Shengzhou.Liu@freescale.com" <Shengzhou.Liu@freescale.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"joe.hershberger@gmail.com" <joe.hershberger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0144.outbound.protection.outlook.com ([207.46.100.144]:31136
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753087AbbDWDxV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Apr 2015 23:53:21 -0400
-In-Reply-To: <5537D2F0.9050903@gmail.com>
-Content-Language: en-US
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:35648 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756659AbbDWEjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 00:39:31 -0400
+Received: by obcux3 with SMTP id ux3so5180940obc.2
+        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 21:39:31 -0700 (PDT)
+In-Reply-To: <DM2PR03MB398CDA834F4E9BAFE2AF34CF8ED0@DM2PR03MB398.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
-YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBBcHJpbCAyMywg
-MjAxNSAxMjo1NyBBTQ0KPiBUbzogTGl1IFNoZW5nemhvdS1CMzY2ODU7IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IGpvZS5oZXJzaGJlcmdlckBnbWFpbC5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRD
-SF0gbmV0L3BoeTogcmVmYWN0b3IgUlRMODIxMUYgaW5pdGlhbGl6YXRpb24NCj4gDQo+IE9uIDIy
-LzA0LzE1IDAzOjIyLCBTaGVuZ3pob3UgTGl1IHdyb3RlOg0KPiA+IFJUTDgyMTFGIG5lZWRzIHRv
-IGVuYWxiZSBUWERMWSBmb3IgUkdNSUkgZHVyaW5nIHBoeSBpbml0aWFsaXphdGlvbiwgc28NCj4g
-PiBtb3ZlIGl0IHRvIHJ0bDgyMTFmX2NvbmZpZyBmb3IgZWFybHkgaW5pdGlhbGl6YXRpb24uDQo+
-ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBTaGVuZ3pob3UgTGl1IDxTaGVuZ3pob3UuTGl1QGZyZWVz
-Y2FsZS5jb20+DQo+ID4gY2M6IEpvZSBIZXJzaGJlcmdlciA8am9lLmhlcnNoYmVyZ2VyQGdtYWls
-LmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvcGh5L3JlYWx0ZWsuYyB8IDI1ICsrKysr
-KysrKysrKysrKysrLS0tLS0tLS0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDE3IGluc2VydGlvbnMo
-KyksIDggZGVsZXRpb25zKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvcGh5
-L3JlYWx0ZWsuYyBiL2RyaXZlcnMvbmV0L3BoeS9yZWFsdGVrLmMNCj4gPiBpbmRleCAzOTE3Yzgy
-Li5kNDgwOTViIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L3BoeS9yZWFsdGVrLmMNCj4g
-PiArKysgYi9kcml2ZXJzL25ldC9waHkvcmVhbHRlay5jDQo+ID4gQEAgLTQzLDYgKzQzLDIyIEBA
-IHN0YXRpYyBpbnQgcnRsODIxMXhfY29uZmlnKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpDQo+
-ID4gIAlyZXR1cm4gMDsNCj4gPiAgfQ0KPiA+DQo+ID4gK3N0YXRpYyBpbnQgcnRsODIxMWZfY29u
-ZmlnKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpIHsNCj4gPiArCXBoeV93cml0ZShwaHlkZXYs
-IE1ESU9fREVWQURfTk9ORSwgTUlJX0JNQ1IsIEJNQ1JfUkVTRVQpOw0KPiANCj4gVGhhdCBwYXJ0
-IG9mIHRoZSBjaGFuZ2UgaXMgbm90IGRvY3VtZW50ZWQgYnV0IGhhcyB0byBiZSwgYW5kIHlvdSBz
-aG91bGQgdXNlDQo+IGdlbnBoeV9zb2Z0X3Jlc2V0KCkgd2hpY2ggYWxzbyB0YWtlcyBjYXJlIG9m
-IHdhaXRpbmcgdGhlIHJlcXVpcmVkIGFtb3VudCBvZg0KPiB0aW1lIGJlZm9yZSBCTUNSX1JFU0VU
-IGlzIGNsZWFyZWQuDQoNClRoZXJlIGlzIG5vIGdlbnBoeV9zb2Z0X3Jlc2V0KCkgaW4gY3VycmVu
-dCB1LWJvb3QgdHJlZS4gIA0KDQo+ID4gKw0KPiA+ICsJaWYgKHBoeWRldi0+aW50ZXJmYWNlID09
-IFBIWV9JTlRFUkZBQ0VfTU9ERV9SR01JSSkgew0KPiA+ICsJCS8qIGVuYWJsZSBUWERMWSAqLw0K
-PiA+ICsJCXBoeV93cml0ZShwaHlkZXYsIE1ESU9fREVWQURfTk9ORSwNCj4gPiArCQkJICBNSUlN
-X1JUTDgyMTFGX1BBR0VfU0VMRUNULCAweGQwOCk7DQo+ID4gKwkJcGh5X3dyaXRlKHBoeWRldiwg
-TURJT19ERVZBRF9OT05FLCAweDExLCAweDEwOSk7DQo+IA0KPiBEbyB5b3UgbmVlZCB0byByZXNl
-dCB0aGUgcGFnZSBzZWxlY3RvciBzb21laG93IGFmdGVyIHRoaXMgd3JpdGU/DQoNCkFjdHVhbGx5
-IG5vIG5lZWQgdG8gcmVzZXQgdGhlIHBhZ2Ugc2VsZWN0b3IuDQoNCj4gPiArCX0NCj4gPiArDQo+
-ID4gKwlnZW5waHlfY29uZmlnX2FuZWcocGh5ZGV2KTsNCj4gPiArDQo+ID4gKwlyZXR1cm4gMDsN
-Cj4gPiArfQ0KPiA+ICsNCj4gPiAgc3RhdGljIGludCBydGw4MjExeF9wYXJzZV9zdGF0dXMoc3Ry
-dWN0IHBoeV9kZXZpY2UgKnBoeWRldikgIHsNCj4gPiAgCXVuc2lnbmVkIGludCBzcGVlZDsNCj4g
-PiBAQCAtMTQyLDEzICsxNTgsNiBAQCBzdGF0aWMgaW50IHJ0bDgyMTFmX3BhcnNlX3N0YXR1cyhz
-dHJ1Y3QgcGh5X2RldmljZQ0KPiAqcGh5ZGV2KQ0KPiA+ICAJCXBoeWRldi0+c3BlZWQgPSBTUEVF
-RF8xMDsNCj4gPiAgCX0NCj4gPg0KPiA+IC0JaWYgKHBoeWRldi0+aW50ZXJmYWNlID09IFBIWV9J
-TlRFUkZBQ0VfTU9ERV9SR01JSSkgew0KPiA+IC0JCS8qIGVuYWJsZSBUWERMWSAqLw0KPiA+IC0J
-CXBoeV93cml0ZShwaHlkZXYsIE1ESU9fREVWQURfTk9ORSwNCj4gPiAtCQkJICBNSUlNX1JUTDgy
-MTFGX1BBR0VfU0VMRUNULCAweGQwOCk7DQo+ID4gLQkJcGh5X3dyaXRlKHBoeWRldiwgTURJT19E
-RVZBRF9OT05FLCAweDExLCAweDEwOSk7DQo+ID4gLQl9DQo+ID4gLQ0KPiA+ICAJcmV0dXJuIDA7
-DQo+ID4gIH0NCj4gPg0KPiA+IEBAIC0yMDksNyArMjE4LDcgQEAgc3RhdGljIHN0cnVjdCBwaHlf
-ZHJpdmVyIFJUTDgyMTFGX2RyaXZlciA9IHsNCj4gPiAgCS51aWQgPSAweDFjYzkxNiwNCj4gPiAg
-CS5tYXNrID0gMHhmZmZmZmYsDQo+ID4gIAkuZmVhdHVyZXMgPSBQSFlfR0JJVF9GRUFUVVJFUywN
-Cj4gPiAtCS5jb25maWcgPSAmcnRsODIxMXhfY29uZmlnLA0KPiA+ICsJLmNvbmZpZyA9ICZydGw4
-MjExZl9jb25maWcsDQo+ID4gIAkuc3RhcnR1cCA9ICZydGw4MjExZl9zdGFydHVwLA0KPiA+ICAJ
-LnNodXRkb3duID0gJmdlbnBoeV9zaHV0ZG93biwNCj4gPiAgfTsNCj4gPg0KPiANCj4gDQo+IC0t
-DQo+IEZsb3JpYW4NCg==
+Le 22/04/2015 20:53, Shengzhou.Liu@freescale.com a =C3=A9crit :
+>> -----Original Message-----
+>> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+>> Sent: Thursday, April 23, 2015 12:57 AM
+>> To: Liu Shengzhou-B36685; netdev@vger.kernel.org; joe.hershberger@gm=
+ail.com
+>> Subject: Re: [PATCH] net/phy: refactor RTL8211F initialization
+>>
+>> On 22/04/15 03:22, Shengzhou Liu wrote:
+>>> RTL8211F needs to enalbe TXDLY for RGMII during phy initialization,=
+ so
+>>> move it to rtl8211f_config for early initialization.
+>>>
+>>> Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+>>> cc: Joe Hershberger <joe.hershberger@gmail.com>
+>>> ---
+>>>  drivers/net/phy/realtek.c | 25 +++++++++++++++++--------
+>>>  1 file changed, 17 insertions(+), 8 deletions(-)
+>>>
+>>> diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+>>> index 3917c82..d48095b 100644
+>>> --- a/drivers/net/phy/realtek.c
+>>> +++ b/drivers/net/phy/realtek.c
+>>> @@ -43,6 +43,22 @@ static int rtl8211x_config(struct phy_device *ph=
+ydev)
+>>>  	return 0;
+>>>  }
+>>>
+>>> +static int rtl8211f_config(struct phy_device *phydev) {
+>>> +	phy_write(phydev, MDIO_DEVAD_NONE, MII_BMCR, BMCR_RESET);
+>>
+>> That part of the change is not documented but has to be, and you sho=
+uld use
+>> genphy_soft_reset() which also takes care of waiting the required am=
+ount of
+>> time before BMCR_RESET is cleared.
+>=20
+> There is no genphy_soft_reset() in current u-boot tree.=20
+
+Did you mean to submit that against u-boot or Linux? If the latter,
+there is absolutely no need to have the same file compile under u-boot
+and Linux without changes, that is too restrictive. There is a
+genphy_soft_reset() which takes care of waiting for BMCR_RESET to clear=
+,
+please use it, there is no guarantee otherwise that a PHY has completed
+a reset.
+--
+=46lorian
