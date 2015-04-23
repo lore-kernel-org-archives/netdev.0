@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/3] tipc: fix topology server broken issue
-Date: Thu, 23 Apr 2015 09:37:38 -0400
-Message-ID: <1429796260-14178-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net 3/3] tipc: fix node refcount issue
+Date: Thu, 23 Apr 2015 09:37:40 -0400
+Message-ID: <1429796260-14178-4-git-send-email-jon.maloy@ericsson.com>
 References: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,74 +10,77 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:23991 "EHLO
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:24066 "EHLO
 	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933949AbbDWNiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:38:19 -0400
+	by vger.kernel.org with ESMTP id S933919AbbDWNiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:38:24 -0400
 In-Reply-To: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-When a new topology server is launched in a new namespace, its
-listening socket is inserted into the "init ns" namespace's socket
-hash table rather than the one owned by the new namespace. Although
-the socket's namespace is forcedly changed to the new namespace later,
-the socket is still stored in the socket hash table of "init ns"
-namespace. When a client created in the new namespace connects
-its own topology server, the connection is failed as its server's
-socket could not be found from its own namespace's socket table.
+When link statistics is dumped over netlink, we iterate over
+the list of peer nodes and append each links statistics to
+the netlink msg. In the case where the dump is resumed after
+filling up a nlmsg, the node refcnt is decremented without
+having been incremented previously which may cause the node
+reference to be freed. When this happens, the following
+info/stacktrace will be generated, followed by a crash or
+undefined behavior.
+We fix this by removing the erroneous call to tipc_node_put
+inside the loop that iterates over nodes.
 
-If __sock_create() instead of original sock_create_kern() is used
-to create the server's socket through specifying an expected namesapce,
-the socket will be inserted into the specified namespace's socket
-table, thereby avoiding to the topology server broken issue.
+[  384.312303] INFO: trying to register non-static key.
+[  384.313110] the code is fine but needs lockdep annotation.
+[  384.313290] turning off the locking correctness validator.
+[  384.313290] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.0.0+ #13
+[  384.313290] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  384.313290]  ffff88003c6d0290 ffff88003cc03ca8 ffffffff8170adf1 0000000000000007
+[  384.313290]  ffffffff82728730 ffff88003cc03d38 ffffffff810a6a6d 00000000001d7200
+[  384.313290]  ffff88003c6d0ab0 ffff88003cc03ce8 0000000000000285 0000000000000001
+[  384.313290] Call Trace:
+[  384.313290]  <IRQ>  [<ffffffff8170adf1>] dump_stack+0x4c/0x65
+[  384.313290]  [<ffffffff810a6a6d>] __lock_acquire+0xf3d/0xf50
+[  384.313290]  [<ffffffff810a7375>] lock_acquire+0xd5/0x290
+[  384.313290]  [<ffffffffa0043e8c>] ? link_timeout+0x1c/0x170 [tipc]
+[  384.313290]  [<ffffffffa0043e70>] ? link_state_event+0x4e0/0x4e0 [tipc]
+[  384.313290]  [<ffffffff81712890>] _raw_spin_lock_bh+0x40/0x80
+[  384.313290]  [<ffffffffa0043e8c>] ? link_timeout+0x1c/0x170 [tipc]
+[  384.313290]  [<ffffffffa0043e8c>] link_timeout+0x1c/0x170 [tipc]
+[  384.313290]  [<ffffffff810c4698>] call_timer_fn+0xb8/0x490
+[  384.313290]  [<ffffffff810c45e0>] ? process_timeout+0x10/0x10
+[  384.313290]  [<ffffffff810c5a2c>] run_timer_softirq+0x21c/0x420
+[  384.313290]  [<ffffffffa0043e70>] ? link_state_event+0x4e0/0x4e0 [tipc]
+[  384.313290]  [<ffffffff8105a954>] __do_softirq+0xf4/0x630
+[  384.313290]  [<ffffffff8105afdd>] irq_exit+0x5d/0x60
+[  384.313290]  [<ffffffff8103ade1>] smp_apic_timer_interrupt+0x41/0x50
+[  384.313290]  [<ffffffff817144a0>] apic_timer_interrupt+0x70/0x80
+[  384.313290]  <EOI>  [<ffffffff8100db10>] ? default_idle+0x20/0x210
+[  384.313290]  [<ffffffff8100db0e>] ? default_idle+0x1e/0x210
+[  384.313290]  [<ffffffff8100e61a>] arch_cpu_idle+0xa/0x10
+[  384.313290]  [<ffffffff81099803>] cpu_startup_entry+0x2c3/0x530
+[  384.313290]  [<ffffffff810d2893>] ? clockevents_register_device+0x113/0x200
+[  384.313290]  [<ffffffff81038b0f>] start_secondary+0x13f/0x170
 
-Fixes: 76100a8a64bc ("tipc: fix netns refcnt leak")
-
-Reported-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Fixes: 8a0f6ebe8494 ("tipc: involve reference counter for node structure")
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/server.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ net/tipc/link.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index ab6183c..77ff03e 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -102,7 +102,7 @@ static void tipc_conn_kref_release(struct kref *kref)
- 		}
- 		saddr->scope = -TIPC_NODE_SCOPE;
- 		kernel_bind(sock, (struct sockaddr *)saddr, sizeof(*saddr));
--		sk_release_kernel(sk);
-+		sock_release(sock);
- 		con->sock = NULL;
- 	}
- 
-@@ -321,12 +321,9 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
- 	struct socket *sock = NULL;
- 	int ret;
- 
--	ret = sock_create_kern(AF_TIPC, SOCK_SEQPACKET, 0, &sock);
-+	ret = __sock_create(s->net, AF_TIPC, SOCK_SEQPACKET, 0, &sock, 1);
- 	if (ret < 0)
- 		return NULL;
--
--	sk_change_net(sock->sk, s->net);
--
- 	ret = kernel_setsockopt(sock, SOL_TIPC, TIPC_IMPORTANCE,
- 				(char *)&s->imp, sizeof(s->imp));
- 	if (ret < 0)
-@@ -376,7 +373,7 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
- 
- create_err:
- 	kernel_sock_shutdown(sock, SHUT_RDWR);
--	sk_release_kernel(sock->sk);
-+	sock_release(sock);
- 	return NULL;
- }
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index a6b30df..57be6e6 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2143,7 +2143,6 @@ int tipc_nl_link_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 			err = __tipc_nl_add_node_links(net, &msg, node,
+ 						       &prev_link);
+ 			tipc_node_unlock(node);
+-			tipc_node_put(node);
+ 			if (err)
+ 				goto out;
  
 -- 
 1.9.1
