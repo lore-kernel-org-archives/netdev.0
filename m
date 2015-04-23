@@ -1,61 +1,69 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
-Date: Thu, 23 Apr 2015 11:30:33 -0700
-Message-ID: <CAHA+R7PoJjcwiTBJC5BLSRTeMprbNkuojAyOHjqMw46+L=mAnA@mail.gmail.com>
-References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
-	<1429644476-8914-3-git-send-email-ast@plumgrid.com>
-	<CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
-	<55381F14.4070708@plumgrid.com>
-	<CAHA+R7Mz0LSZ-S=k7rvUuhXm+GT9w2ve6Ug+YPJ4vqnsrLnfpw@mail.gmail.com>
-	<55385D0B.5030103@plumgrid.com>
-	<CAHA+R7N0w0gSVRrxchzHoYHV6=ubs7m1CW6G+e-G3+sBbnz+yQ@mail.gmail.com>
-	<5539381D.8030501@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NAPI: Polling function requesting extra calls - difference
+ between 3.18.11 and 4.0.0
+Date: Thu, 23 Apr 2015 11:33:58 -0700
+Message-ID: <1429814038.22254.80.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACna6rzMMUA_MQemYyP93+TjP4aocL1WaYQUJFwQm3+DLNAefg@mail.gmail.com>
+	 <1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Network Development <netdev@vger.kernel.org>,
+	Felix Fietkau <nbd@openwrt.org>
+To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:38744 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030509AbbDWSae (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 14:30:34 -0400
-Received: by wiun10 with SMTP id n10so102231899wiu.1
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 11:30:33 -0700 (PDT)
-In-Reply-To: <5539381D.8030501@iogearbox.net>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:36665 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751734AbbDWSeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 14:34:00 -0400
+Received: by igblo3 with SMTP id lo3so30694714igb.1
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 11:33:59 -0700 (PDT)
+In-Reply-To: <1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2015 at 11:21 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 04/23/2015 08:12 PM, Cong Wang wrote:
->>
->> On Wed, Apr 22, 2015 at 7:46 PM, Alexei Starovoitov <ast@plumgrid.com>
->> wrote:
->
-> ...
->>>
->>> TC_ACT_QUEUED cannot be removed.
->>> Only deprecated with backwards compatibility the way this patch did it.
->>> That should have been obvious.
->>
->>
->> It is at least the third time I have to repeat that: we really don't care
->> about out-of-tree modules.
->>
->> Everyone MUST read Documentation/stable_api_nonsense.txt.
->
->
-> Seriously, what are you talking about ???
->
-> $ git grep -n TC_ACT_QUEUED include/uapi/
-> include/uapi/linux/pkt_cls.h:105:#define TC_ACT_QUEUED          5
->
-> This is *UAPI*, no-one is even remotely talking about out-of-tree
-> kernel modules.
+On Thu, 2015-04-23 at 11:28 -0700, Eric Dumazet wrote:
+> On Thu, 2015-04-23 at 20:18 +0200, Rafa=C5=82 Mi=C5=82ecki wrote:
+>=20
+> >=20
+> > Can you help us with this, please? Does bgmac use NAPI incorrectly?
+> > Were there some important changes in 3.19 or 4.0?
+> >=20
+>=20
+> Right they were important changes in NAPI indeed :
+>=20
+> 3b47d30396ba net: gro: add a per device gro flush timer
+> d75b1ade567f net: less interrupt masking in NAPI
+> bc9ad166e38a net: introduce napi_schedule_irqoff()
+>=20
+> This requested some fixes in various drivers :
+>=20
+> commit f31ec95fa19e07a8beebcc0297284f23aa57967e
+> commit 24e579c8898aa641ede3149234906982290934e5
+> commit 6088beef3f7517717bd21d90b379714dd0837079
+> commit f104fedc0da126abe93dd0f4a9fa13e5133bf9df
+> commit 7a05dc64e2e4c611d89007b125b20c0d2a4d31a5
+> commit 001ce546bb537bb5b7821f05633556a0c9787e32
+> commit 3079c652141f9d6377417a7e8fd650c9948df65e
+> commit 8acdf999accfd95093db17f33a58429a38782060
+> commit 6a6dc08ff6395f58be3ee568cb970ea956f16819
+>=20
 
-I am not stupid. You should figure out we can just leave its definition
-by removing it, leaving the default as stolen.
+It looks like following fix is needed :
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index de77d3a74abc..21e3c38c7c75 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -1260,7 +1260,7 @@ static int bgmac_poll(struct napi_struct *napi, i=
+nt weight)
+=20
+ 	/* Poll again if more events arrived in the meantime */
+ 	if (bgmac_read(bgmac, BGMAC_INT_STATUS) & (BGMAC_IS_TX0 | BGMAC_IS_RX=
+))
+-		return handled;
++		return weight;
+=20
+ 	if (handled < weight) {
+ 		napi_complete(napi);
