@@ -1,45 +1,57 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Resource usages in Linux drivers
-Date: Fri, 24 Apr 2015 01:19:17 +0200
-Message-ID: <20150423231917.GA16450@electric-eye.fr.zoreil.com>
-References: <5538950F.3040405@163.com>
- <5538B938.9060607@cogentembedded.com>
- <5538BB61.30907@163.com>
- <5538C4A3.6080302@163.com>
- <5538CB50.3010601@cogentembedded.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 2/2] checkpatch: suggest using eth_zero_addr() and
+ eth_broadcast_addr()
+Date: Thu, 23 Apr 2015 16:54:08 -0700
+Message-ID: <1429833248.32612.46.camel@perches.com>
+References: <1429481816-6664-1-git-send-email-mateusz.kulikowski@gmail.com>
+	 <1429481816-6664-3-git-send-email-mateusz.kulikowski@gmail.com>
+	 <1429492384.27863.13.camel@perches.com> <5536B9D2.7030200@gmail.com>
+	 <1429651348.31675.12.camel@perches.com> <5536C4C2.4000001@gmail.com>
+	 <1429655247.31675.20.camel@perches.com> <55394DA8.3060705@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jia-Ju Bai <baijiaju1990@163.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	stephen@networkplumber.org, Neil Horman <nhorman@tuxdriver.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:48599 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932841AbbDWXUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 19:20:12 -0400
-Content-Disposition: inline
-In-Reply-To: <5538CB50.3010601@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: apw@canonical.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55394DA8.3060705@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> :
-> On 4/23/2015 1:08 PM, Jia-Ju Bai wrote:
-[...]
-> >I also find many drivers do not use these managed APIs, especially in ethernet
-> >card drivers (like e100, r8169). Is it possible to change them?
+On Thu, 2015-04-23 at 21:53 +0200, Mateusz Kulikowski wrote:
+> On 22.04.2015 00:27, Joe Perches wrote:
+> > On Tue, 2015-04-21 at 23:44 +0200, Mateusz Kulikowski wrote:
+> >> On 21.04.2015 23:22, Joe Perches wrote:
+> >>> On Tue, 2015-04-21 at 22:57 +0200, Mateusz Kulikowski wrote:
+> >> (...)
+> (...)
+> >> True, True; If you prefer $line and ability to --fix - I'll use that in v3
+> > 
+> > I suppose you could do both $line and $stat
+> > and the fix would only work when it's on a
+> > single line.
+> > 
+> > Perhaps something like this would work:
+> > 
+> > 	if ($line =~ /whatever/ ||
+> > 	    (defined($stat) && $stat =~ /whatever/)) {
+> > 		if (WARN(...) &&
+> > 		    $fix) {
+> > 			fixed[$fixlinenr] =~ s/whatever/appropriate/;
+> > 		}
+> > 	}
 > 
->    Patches welcome. :-)
+> Isn't it enough to just match $stat and do fix for line (that in 
+> some cases will just not match)?
 
-I respectfully disagree.
+Yeah, that'd work too.
 
-If someone believes basic resouce management to be too hard or error-prone
-to handle, he should imvho seriously rise the bar and reconsider the way
-he wants to contribute to the kernel.
+> One more thing
+> I noticed funny behavior about $stat matches - 
+> it reports the same error several times (including as "scope" whole file)
+> Is it feature or "feature" or I missed something?
 
-I may hope he who reads e100.c to think about DMA api, bql or rx ring
-holes avoidance to quote a few ones. Managed API ? Mildly...
+You have to make sure the first character of $stat is a +
 
--- 
-Ueimor
+	if ($stat =~ /\+(?:.*)\bmem<foo>
