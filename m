@@ -1,60 +1,67 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
-Date: Wed, 22 Apr 2015 19:46:35 -0700
-Message-ID: <55385D0B.5030103@plumgrid.com>
-References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>	<1429644476-8914-3-git-send-email-ast@plumgrid.com>	<CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>	<55381F14.4070708@plumgrid.com> <CAHA+R7Mz0LSZ-S=k7rvUuhXm+GT9w2ve6Ug+YPJ4vqnsrLnfpw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] xfrm: fix the return code when xfrm_*_register_afinfo failed
+Date: Thu, 23 Apr 2015 11:06:53 +0800
+Message-ID: <1429758413-30896-1-git-send-email-roy.qing.li@gmail.com>
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:33489 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932076AbbDWCqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 22:46:37 -0400
-Received: by pdbnk13 with SMTP id nk13so5561602pdb.0
-        for <netdev@vger.kernel.org>; Wed, 22 Apr 2015 19:46:37 -0700 (PDT)
-In-Reply-To: <CAHA+R7Mz0LSZ-S=k7rvUuhXm+GT9w2ve6Ug+YPJ4vqnsrLnfpw@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:58278 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756296AbbDWDHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Apr 2015 23:07:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/22/15 4:39 PM, Cong Wang wrote:
-> On Wed, Apr 22, 2015 at 3:22 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> On 4/21/15 10:02 PM, Cong Wang wrote:
->>>
->>> On Tue, Apr 21, 2015 at 12:27 PM, Alexei Starovoitov <ast@plumgrid.com>
->>> wrote:
->>>>
->>>> TC_ACT_QUEUED was always an alias of TC_ACT_STOLEN.
->>>> Get rid of redundant checks in all qdiscs.
->>>> Instead do it once.
->>>
->>>
->>> The current code can be easily extended, while your code not.
->>> I don't see the need of this change.
->>
->>
->> well, iproute2 doesn't use TC_ACT_QUEUED action at all and
->> TC_ACT_STOLEN is used by mirred. All in-tree qdiscs alias them.
->> If you're saying that some future actions together with
->> some future qdiscs may take advantage of that, then why they didn't
->> use it over the last 10 years?
->> Having both that do the same thing is only confusing.
->> I think having one value to indicate 'stolen' condition makes TC
->> code easier to understand.
->
-> Then remove it, I am all for this. ;)
+From: Li RongQing <roy.qing.li@gmail.com>
 
-TC_ACT_QUEUED cannot be removed.
-Only deprecated with backwards compatibility the way this patch did it.
-That should have been obvious.
+If xfrm_*_register_afinfo failed since xfrm_*_afinfo[afinfo->family] had the
+value, return the -EEXIST, not -ENOBUFS
 
-The other two threads degenerated into non-technical comments.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/xfrm/xfrm_input.c  | 2 +-
+ net/xfrm/xfrm_policy.c | 2 +-
+ net/xfrm/xfrm_state.c  | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-Anyway, this set was RFC to answer my main question whether I should
-continue with tc cleanup or stop right here. I got my answer.
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 526c4fe..459796a 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -29,7 +29,7 @@ int xfrm_input_register_afinfo(struct xfrm_input_afinfo *afinfo)
+ 		return -EAFNOSUPPORT;
+ 	spin_lock_bh(&xfrm_input_afinfo_lock);
+ 	if (unlikely(xfrm_input_afinfo[afinfo->family] != NULL))
+-		err = -ENOBUFS;
++		err = -EEXIST;
+ 	else
+ 		rcu_assign_pointer(xfrm_input_afinfo[afinfo->family], afinfo);
+ 	spin_unlock_bh(&xfrm_input_afinfo_lock);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 847053e..c4c47f3 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2808,7 +2808,7 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 		return -EAFNOSUPPORT;
+ 	spin_lock(&xfrm_policy_afinfo_lock);
+ 	if (unlikely(xfrm_policy_afinfo[afinfo->family] != NULL))
+-		err = -ENOBUFS;
++		err = -EEXIST;
+ 	else {
+ 		struct dst_ops *dst_ops = afinfo->dst_ops;
+ 		if (likely(dst_ops->kmem_cachep == NULL))
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index df93183..e47e498 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1908,7 +1908,7 @@ int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo)
+ 		return -EAFNOSUPPORT;
+ 	spin_lock_bh(&xfrm_state_afinfo_lock);
+ 	if (unlikely(xfrm_state_afinfo[afinfo->family] != NULL))
+-		err = -ENOBUFS;
++		err = -EEXIST;
+ 	else
+ 		rcu_assign_pointer(xfrm_state_afinfo[afinfo->family], afinfo);
+ 	spin_unlock_bh(&xfrm_state_afinfo_lock);
+-- 
+2.1.0
