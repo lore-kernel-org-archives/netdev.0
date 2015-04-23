@@ -1,77 +1,95 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [Intel-wired-lan] [Patch net] igb: pass the correct maxlen for
- eth_get_headlen()
-Date: Thu, 23 Apr 2015 12:45:21 -0700
-Message-ID: <55394BD1.5040006@redhat.com>
-References: <1429724760-10075-1-git-send-email-xiyou.wangcong@gmail.com> <5537F9F1.1080008@gmail.com> <CAHA+R7PVrxJ41WSqfO4mZSpCTGdJ++Gf757f_kq5z0UeMHXbXg@mail.gmail.com> <553802DA.4050709@gmail.com> <CAHA+R7PtzNd2asXFtiqsWyzCgeE1k_iF84358cvKg6ZCU-yVkQ@mail.gmail.com> <553815DF.4000109@gmail.com> <CAHA+R7MMrrBYbQALovxuhcXrbiWjD_XpgohPXxTvNkcd3-R3WA@mail.gmail.com> <553821E4.5010901@gmail.com> <CAHA+R7MJv7tbHwU_ECbJunXVJ8uo=eQv+Xmw42oR5sKEde35RQ@mail.gmail.com> <CAHA+R7OhbCSjggyb_Deq_jmoDWzEcR+=hhkKjyE9Pue7bXOmHg@mail.gmail.com>
+From: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>
+Subject: Re: [PATCH v2 2/2] checkpatch: suggest using eth_zero_addr() and
+ eth_broadcast_addr()
+Date: Thu, 23 Apr 2015 21:53:12 +0200
+Message-ID: <55394DA8.3060705@gmail.com>
+References: <1429481816-6664-1-git-send-email-mateusz.kulikowski@gmail.com>	 <1429481816-6664-3-git-send-email-mateusz.kulikowski@gmail.com>	 <1429492384.27863.13.camel@perches.com> <5536B9D2.7030200@gmail.com>	 <1429651348.31675.12.camel@perches.com> <5536C4C2.4000001@gmail.com> <1429655247.31675.20.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56451 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030357AbbDWTpW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2015 15:45:22 -0400
-In-Reply-To: <CAHA+R7OhbCSjggyb_Deq_jmoDWzEcR+=hhkKjyE9Pue7bXOmHg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: apw@canonical.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1429655247.31675.20.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/23/2015 12:30 PM, Cong Wang wrote:
-> (Off-topic...)
->
-> On Wed, Apr 22, 2015 at 4:23 PM, Cong Wang <cwang@twopensource.com> wrote:
->> The code looks correct to me now, except it is suspicious skb->len
->> is not updated after skb_copy_to_linear_data() while skb->tail is
->> advanced already. I need to think more before submitting a patch.
-> I feel like we need the following patch, maybe skb->len is updated somewhere
-> else by "skb->tail - skb->head", otherwise we are screwed?
+On 22.04.2015 00:27, Joe Perches wrote:
+> On Tue, 2015-04-21 at 23:44 +0200, Mateusz Kulikowski wrote:
+>> On 21.04.2015 23:22, Joe Perches wrote:
+>>> On Tue, 2015-04-21 at 22:57 +0200, Mateusz Kulikowski wrote:
+>> (...)
+(...)
+>> True, True; If you prefer $line and ability to --fix - I'll use that in v3
+> 
+> I suppose you could do both $line and $stat
+> and the fix would only work when it's on a
+> single line.
+> 
+> Perhaps something like this would work:
+> 
+> 	if ($line =~ /whatever/ ||
+> 	    (defined($stat) && $stat =~ /whatever/)) {
+> 		if (WARN(...) &&
+> 		    $fix) {
+> 			fixed[$fixlinenr] =~ s/whatever/appropriate/;
+> 		}
+> 	}
 
-Maybe in skb_add_rx_frag?  You might take a look at it.
+Isn't it enough to just match $stat and do fix for line (that in 
+some cases will just not match)?
 
->
-> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> b/drivers/net/ethernet/intel/igb/igb_main.c
-> index a0a9b1f..66e6fb6 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -6843,7 +6843,6 @@ static void igb_pull_tail(struct igb_ring *rx_ring,
->                  skb_frag_size_sub(frag, IGB_TS_HDR_LEN);
->                  frag->page_offset += IGB_TS_HDR_LEN;
->                  skb->data_len -= IGB_TS_HDR_LEN;
-> -               skb->len -= IGB_TS_HDR_LEN;
->
->                  /* move va to start of packet data */
->                  va += IGB_TS_HDR_LEN;
-> @@ -6856,12 +6855,12 @@ static void igb_pull_tail(struct igb_ring *rx_ring,
->
->          /* align pull length to size of long to optimize memcpy performance */
->          skb_copy_to_linear_data(skb, va, ALIGN(pull_len, sizeof(long)));
-> +       __skb_put(skb, pull_len);
->
->          /* update all of the pointers */
->          skb_frag_size_sub(frag, pull_len);
->          frag->page_offset += pull_len;
->          skb->data_len -= pull_len;
-> -       skb->tail += pull_len;
->   }
->
->   /**
 
-Seriously?  Are you even reading the code?  The fragment is already a 
-part of the skb, as such it is already included in skb->len. By 
-re-adding the header you are adding bytes that aren't there.  All we 
-were doing is moving data from a fragment to the linear portion.
+One more thing
+I noticed funny behavior about $stat matches - 
+it reports the same error several times (including as "scope" whole file)
+Is it feature or "feature" or I missed something?
 
-No offense but your starting to waste my time with these silly patch 
-ideas.  The patches I submitted to intel-wired-lan fix the issue that 
-you found, and there aren't any new issues that it creates so the issue 
-is resolved.  And like I said if you need to fix this in stable just 
-subtract IGB_TS_HDR_LEN from the header length scanned in 
-eth_get_headlen and it will resolve the issue you reported and that way 
-we can fix the issue and avoid pulling a fragment down to size 0.
+Ex. file:
+-------------- cut
+int foo(void)
+{
+baz();
+memset(a, b, 0);
+bar();
+}
+-------------- cut
 
-- Alex
+Output of (@master) 
+
+-------------- cut
+$ scripts/checkpatch.pl -f test42.c --types MEMSET
+ERROR: memset to 0's uses 0 as the 2nd argument, not the 3rd
+#1: FILE: test42.c:1:
++int foo(void)
+ {
+ baz();
+ memset(a, b, 0);
+ bar();
+ }
+
+ERROR: memset to 0's uses 0 as the 2nd argument, not the 3rd
+#2: FILE: test42.c:2:
++{
+ baz();
+ memset(a, b, 0);
+ bar();
+ }
+
+ERROR: memset to 0's uses 0 as the 2nd argument, not the 3rd
+#4: FILE: test42.c:4:
++memset(a, b, 0);
+
+total: 3 errors, 0 warnings, 6 lines checked
+
+NOTE: Used message types: MEMSET
+
+test42.c has style problems, please review.
+
+If any of these errors are false positives, please report
+them to the maintainer, see CHECKPATCH in MAINTAINERS.
+--------------cut
+
+Regards,
+Mateusz
