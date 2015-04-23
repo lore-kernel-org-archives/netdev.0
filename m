@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 2/3] tipc: fix random link reset problem
-Date: Thu, 23 Apr 2015 09:37:39 -0400
-Message-ID: <1429796260-14178-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net 1/3] tipc: fix topology server broken issue
+Date: Thu, 23 Apr 2015 09:37:38 -0400
+Message-ID: <1429796260-14178-2-git-send-email-jon.maloy@ericsson.com>
 References: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,49 +10,74 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:24027 "EHLO
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:23991 "EHLO
 	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933920AbbDWNiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:38:21 -0400
+	by vger.kernel.org with ESMTP id S933949AbbDWNiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 09:38:19 -0400
 In-Reply-To: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+From: Ying Xue <ying.xue@windriver.com>
 
-In the function tipc_sk_rcv(), the stack variable 'err'
-is only initialized to TIPC_ERR_NO_PORT for the first
-iteration over the link input queue. If a chain of messages
-are received from a link, failure to lookup the socket for
-any but the first message will cause the message to bounce back
-out on a random link.
-We fix this by properly initializing err.
+When a new topology server is launched in a new namespace, its
+listening socket is inserted into the "init ns" namespace's socket
+hash table rather than the one owned by the new namespace. Although
+the socket's namespace is forcedly changed to the new namespace later,
+the socket is still stored in the socket hash table of "init ns"
+namespace. When a client created in the new namespace connects
+its own topology server, the connection is failed as its server's
+socket could not be found from its own namespace's socket table.
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+If __sock_create() instead of original sock_create_kern() is used
+to create the server's socket through specifying an expected namesapce,
+the socket will be inserted into the specified namespace's socket
+table, thereby avoiding to the topology server broken issue.
+
+Fixes: 76100a8a64bc ("tipc: fix netns refcnt leak")
+
+Reported-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/socket.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/tipc/server.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index ee90d74..9074b5c 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1764,13 +1764,14 @@ static int tipc_sk_enqueue(struct sk_buff_head *inputq, struct sock *sk,
- int tipc_sk_rcv(struct net *net, struct sk_buff_head *inputq)
- {
- 	u32 dnode, dport = 0;
--	int err = -TIPC_ERR_NO_PORT;
-+	int err;
- 	struct sk_buff *skb;
- 	struct tipc_sock *tsk;
- 	struct tipc_net *tn;
- 	struct sock *sk;
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index ab6183c..77ff03e 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -102,7 +102,7 @@ static void tipc_conn_kref_release(struct kref *kref)
+ 		}
+ 		saddr->scope = -TIPC_NODE_SCOPE;
+ 		kernel_bind(sock, (struct sockaddr *)saddr, sizeof(*saddr));
+-		sk_release_kernel(sk);
++		sock_release(sock);
+ 		con->sock = NULL;
+ 	}
  
- 	while (skb_queue_len(inputq)) {
-+		err = -TIPC_ERR_NO_PORT;
- 		skb = NULL;
- 		dport = tipc_skb_peek_port(inputq, dport);
- 		tsk = tipc_sk_lookup(net, dport);
+@@ -321,12 +321,9 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
+ 	struct socket *sock = NULL;
+ 	int ret;
+ 
+-	ret = sock_create_kern(AF_TIPC, SOCK_SEQPACKET, 0, &sock);
++	ret = __sock_create(s->net, AF_TIPC, SOCK_SEQPACKET, 0, &sock, 1);
+ 	if (ret < 0)
+ 		return NULL;
+-
+-	sk_change_net(sock->sk, s->net);
+-
+ 	ret = kernel_setsockopt(sock, SOL_TIPC, TIPC_IMPORTANCE,
+ 				(char *)&s->imp, sizeof(s->imp));
+ 	if (ret < 0)
+@@ -376,7 +373,7 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
+ 
+ create_err:
+ 	kernel_sock_shutdown(sock, SHUT_RDWR);
+-	sk_release_kernel(sock->sk);
++	sock_release(sock);
+ 	return NULL;
+ }
+ 
 -- 
 1.9.1
