@@ -1,64 +1,39 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] rhashtable: don't attempt to grow when at max_size
-Date: Thu, 23 Apr 2015 22:49:52 +0200
-Message-ID: <1429822192.9525.2.camel@sipsolutions.net>
-References: <1429799923-28122-1-git-send-email-johannes@sipsolutions.net>
-	 <20150423204628.GA28217@casper.infradead.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
+Date: Thu, 23 Apr 2015 23:20:42 +0200
+Message-ID: <20150423212042.GA1627@breakpoint.cc>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
+ <1429644476-8914-3-git-send-email-ast@plumgrid.com>
+ <CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
+ <55381F14.4070708@plumgrid.com>
+ <553959E3.9070209@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Cong Wang <cwang@twopensource.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:36608 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753164AbbDWUt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2015 16:49:59 -0400
-In-Reply-To: <20150423204628.GA28217@casper.infradead.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:55162 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030714AbbDWVUw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 17:20:52 -0400
+Content-Disposition: inline
+In-Reply-To: <553959E3.9070209@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-23 at 21:46 +0100, Thomas Graf wrote:
-> On 04/23/15 at 04:38pm, Johannes Berg wrote:
-> > From: Johannes Berg <johannes.berg@intel.com>
-> > 
-> > The conversion of mac80211's station table to rhashtable had a bug
-> > that I found by accident in code review, that hadn't been found as
-> > rhashtable apparently managed to have a maximum hash chain length
-> > of one (!) in all our testing.
-> 
-> This is the desired chain length ;-)
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> 2) the ACT_QUEUED vs STOLEN was supposed to have semantics of something
+> that was stolen (eg redirection should definetely have been returning
+> STOLEN not QUEUED); something that queues for later re-injection
+> (with any/all metadata) was intended to use QUEUED. I believe netfilter
+> may have  followed suit and introduced similar codes (so it would be
+> interesting to see how they use them).
 
-Sure. But I had a bug in my handling of collisions, so I explicitly
-wanted to test them. After all, they are in some ways expected in a hash
-table :)
-
-> > At that point, rhashtable WARNed in rhashtable_insert_rehash() but
-> > didn't actually reject the hash table insertion. This caused it to
-> > lose insertions - my master list of stations would have 9 entries,
-> > but the rhashtable only had 5. This may warrant a deeper look, but
-> > that WARN_ON() just shouldn't happen.
-> 
-> The warning got fixed recently (51bb8e331b) and
-> rhashtable_insert_rehash() now only allows a single rehash if at
-> max_size already. It will now return -EBUSY.
-> 
-> Insertions may still fail while the table is above 100% utilization
-> so this fix is absolutely needed though.
-
-Yeah just failing would be a bit strange.
-
-> > Fix this by not returning true from rht_grow_above_100() when the
-> > rhashtable's max_size has been reached - in this case the user is
-> > explicitly configuring it to be at most that big, so even if it's
-> > now above 100% it shouldn't attempt to resize.
-> 
-> Good catch. I wonder whether we want to trigger a periodic rehash
-> in an interval in this situation or just leave this up to the user
-> to setup a timer himself.
-
-You could just document it that it's probably useful if max_size is set?
-I'm just going to be setting max_size for debug purposes, so don't
-really care all that much.
-
-johannes
+Hooks (Targets) don't queue themselves, i.e. NF_QUEUE tells the
+netfilter core that the skb is to be handed off to nf_queue machinery,
+while NF_STOLEN is the more obvious "don't touch this skb ever again".
