@@ -1,33 +1,36 @@
-From: =?UTF-8?B?SG9yaWEgR2VhbnTEgw==?= <horia.geanta@freescale.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: CCM/GCM implementation defect
-Date: Thu, 23 Apr 2015 12:03:38 +0300
-Message-ID: <5538B56A.7060707@freescale.com>
+Date: Thu, 23 Apr 2015 17:05:45 +0800
+Message-ID: <20150423090545.GA20369@gondor.apana.org.au>
 References: <20150423032619.GA17648@gondor.apana.org.au>
+ <5538B56A.7060707@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Paul Wouters <pwouters@redhat.com>,
-	"Linux Crypto Mailing List" <linux-crypto@vger.kernel.org>
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: Horia =?utf-8?Q?Geant=C4=83?= <horia.geanta@freescale.com>
 Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20150423032619.GA17648@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <5538B56A.7060707@freescale.com>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/23/2015 6:26 AM, Herbert Xu wrote:
-> Hi:
->
-> It looks like our IPsec implementations of CCM and GCM are buggy
-This applies also to GMAC (rfc4543), right?
+On Thu, Apr 23, 2015 at 12:03:38PM +0300, Horia Geant=C4=83 wrote:
+> This applies also to GMAC (rfc4543), right?
 
-> in that they don't include the IV in the authentication calculation.
->
-> This definitely breaks interoperability with anyone who implements
-> them correctly.  The fact that there have been no reports on this
-> probably means that nobody has run into this in the field yet.
-Does this mean that even the test vectors (crypto/testmgr.h) are broken?
+No RFC4543 appears to be correctly implemented.
 
-Thanks,
-Horia
+> Does this mean that even the test vectors (crypto/testmgr.h) are brok=
+en?
+
+Indeed.  The test vectors appear to be generated either through
+our implementation or by one that is identical to us.
+
+Cheers,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
