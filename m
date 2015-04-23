@@ -1,66 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: Resource usages in Linux drivers
-Date: Thu, 23 Apr 2015 13:37:04 +0300
-Message-ID: <5538CB50.3010601@cogentembedded.com>
-References: <5538950F.3040405@163.com> <5538B938.9060607@cogentembedded.com> <5538BB61.30907@163.com> <5538C4A3.6080302@163.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: CCM/GCM implementation defect
+Date: Thu, 23 Apr 2015 13:45:34 +0200
+Message-ID: <20150423114533.GI8928@secunet.com>
+References: <20150423032619.GA17648@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>, stephen@networkplumber.org,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Jia-Ju Bai <baijiaju1990@163.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:34996 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933691AbbDWKhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 06:37:08 -0400
-Received: by labbd9 with SMTP id bd9so9500684lab.2
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 03:37:06 -0700 (PDT)
-In-Reply-To: <5538C4A3.6080302@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Paul Wouters <pwouters@redhat.com>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150423032619.GA17648@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/23/2015 1:08 PM, Jia-Ju Bai wrote:
+On Thu, Apr 23, 2015 at 11:26:20AM +0800, Herbert Xu wrote:
+> Hi:
+> 
+> It looks like our IPsec implementations of CCM and GCM are buggy
+> in that they don't include the IV in the authentication calculation.
 
->>>> I am very sorry to trouble you.
+Seems like crypto_rfc4106_crypt() passes the associated data it
+got from ESP directly to gcm, without chaining with the IV.
 
->>>> I find that resource management is error-prone when writing Linux drivers,
->>>> and
->>>> many problems may occur, such as resource leaks.
->>>> Meanwhile, I find that many applied patches in the kernel mailing list focus
->>>> on releasing allocated resources, especially in error-handling paths.
+> 
+> This definitely breaks interoperability with anyone who implements
+> them correctly.  The fact that there have been no reports on this
+> probably means that nobody has run into this in the field yet.
+> 
+> On the security side, this is probably not a big deal for CCM
+> because it always verifies the authentication tag after decryption.
+> But for GCM this may be a DoS issue as an attacker could modify
+> the IV without triggering the authentication check and thus cause
+> an unnecessary decryption.  For both CCM and GCM this will result
+> in random data injected as a packet into the network stack which
+> hopefully will be dropped.
+> 
+> In order to fix this without breaking backwards compatibility,
+> my plan is to introduce new templates such as rfc4106v2 which
+> implement the RFC correctly.  The existing templates will be
+> retained so that current users aren't broken by the fix.
 
->>>> Therefore, I have a question: is it possible to automatically release
->>>> allocated resources in drivers before unloading and in error-handling paths?
-
->>>    Yes, there's managed device API, look for functions starting with devm_.
->>> There's one limitation though: it can be used only in the driver's probe()
->>> method, so can't be used when e.g. network device is being opened.
-
->> I think many APIs, such as kmalloc, can also be managed like garbage
->> collection in Java.
->> Maybe the performance is a matter.
-
->>>> I am looking forward to your reply, thanks!
-
->>>    Such questions should actually be asked on the mailing lists, not
->>> personally.
-
->> I am sorry for that, and I will cc to the mailing lists and other maintainers.
-
-> I find that some common APIs are not managed, such as napi_enable and
-> napi_start_queue. Is it possible to provide managed APIs for them?
-
-    No, they're only called from ndo_open() method IIRC. The device managed 
-APIs can only be called at the device probing time.
-
-> I also find many drivers do not use these managed APIs, especially in ethernet
-> card drivers (like e100, r8169). Is it possible to change them?
-
-    Patches welcome. :-)
-
-> Best wishes,
-> Jia-Ju Bai
-
-WBR, Sergei
+Adding a second template for the correct implementation is
+probaply the only thing that we can do if we don't want to
+break backwards compatibility. But maybe we can add a warning
+to the old implementation, such that users notice that they
+use a broken version.
