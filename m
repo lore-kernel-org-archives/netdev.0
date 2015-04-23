@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] tipc: three bug fixes
-Date: Thu, 23 Apr 2015 11:50:52 -0400 (EDT)
-Message-ID: <20150423.115052.1429500292653550772.davem@davemloft.net>
-References: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH] fix tcp fin memory accounting
+Date: Thu, 23 Apr 2015 11:54:47 -0400 (EDT)
+Message-ID: <20150423.115447.2163146250304402014.davem@davemloft.net>
+References: <1429661349.18561.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5538F821.6070503@akamai.com>
+	<1429797767.22254.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1429796260-14178-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: johunt@akamai.com, netdev@vger.kernel.org, edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42140 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965646AbbDWPyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 11:54:50 -0400
+In-Reply-To: <1429797767.22254.41.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 23 Apr 2015 09:37:37 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Apr 2015 07:02:47 -0700
 
-> A set of unrelated corrections; one for the tipc netns implementation,
-> one regarding problems with random link resets, and one removing a
-> an erroneous refcount decrement when reading link statistsics via
-> netlink.
+> +		if (!tcp_send_head(sk)) {
+> +			tp->snd_nxt++;
+> +			return;
+> +		}
 
-Series applied, thanks Jon.
+I'm not so sure about this.  Why is this needed?
 
-------------------------------------------------------------------------------
-BPM Camp - Free Virtual Workshop May 6th at 10am PDT/1PM EDT
-Develop your own process in accordance with the BPMN 2 standard
-Learn Process modeling best practices with Bonita BPM through live exercises
-http://www.bonitasoft.com/be-part-of-it/events/bpm-camp-virtual- event?utm_
-source=Sourceforge_BPM_Camp_5_6_15&utm_medium=email&utm_campaign=VA_SF
+Otherwise patch looks fine to me.
