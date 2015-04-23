@@ -1,40 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH][FIX 4.1] bgmac: fix requests for extra polling calls
- from NAPI
-Date: Thu, 23 Apr 2015 12:06:50 -0700
-Message-ID: <1429816010.22254.82.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429815389-17265-1-git-send-email-zajec5@gmail.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: NAPI: Polling function requesting extra calls - difference
+ between 3.18.11 and 4.0.0
+Date: Thu, 23 Apr 2015 21:08:37 +0200
+Message-ID: <CACna6rzx0=P5dOYggLCihg+9ONKfL428PYhP8CQrTgtKG5N_PQ@mail.gmail.com>
+References: <CACna6rzMMUA_MQemYyP93+TjP4aocL1WaYQUJFwQm3+DLNAefg@mail.gmail.com>
+	<1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>,
+Cc: Network Development <netdev@vger.kernel.org>,
 	Felix Fietkau <nbd@openwrt.org>
-To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:34033 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030481AbbDWTGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 15:06:52 -0400
-Received: by iedfl3 with SMTP id fl3so76648275ied.1
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 12:06:51 -0700 (PDT)
-In-Reply-To: <1429815389-17265-1-git-send-email-zajec5@gmail.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:38204 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030479AbbDWTIi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 15:08:38 -0400
+Received: by igbhj9 with SMTP id hj9so32541352igb.1
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 12:08:37 -0700 (PDT)
+In-Reply-To: <1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-23 at 20:56 +0200, Rafa=C5=82 Mi=C5=82ecki wrote:
-> After d75b1ade567f ("net: less interrupt masking in NAPI") polling
-> function has to return whole budget when it wants NAPI to call it aga=
-in.
->=20
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-> Cc: Felix Fietkau <nbd@openwrt.org>
-> Fixes: eb64e2923a886 ("bgmac: leave interrupts disabled as long as th=
-ere is work to do")
-> ---
->  drivers/net/ethernet/broadcom/bgmac.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+On 23 April 2015 at 20:28, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2015-04-23 at 20:18 +0200, Rafa=C5=82 Mi=C5=82ecki wrote:
+>
+>>
+>> Can you help us with this, please? Does bgmac use NAPI incorrectly?
+>> Were there some important changes in 3.19 or 4.0?
+>>
+>
+> Right they were important changes in NAPI indeed :
+>
+> 3b47d30396ba net: gro: add a per device gro flush timer
+> d75b1ade567f net: less interrupt masking in NAPI
+> bc9ad166e38a net: introduce napi_schedule_irqoff()
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+As you obviously noticed, I fixed bgmac now and submitted the fix.
 
-Thanks !
+Just wanted to say a thanks for helping with that!
+
+--=20
+Rafa=C5=82
