@@ -1,47 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NAPI: Polling function requesting extra calls - difference
- between 3.18.11 and 4.0.0
-Date: Thu, 23 Apr 2015 11:28:52 -0700
-Message-ID: <1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACna6rzMMUA_MQemYyP93+TjP4aocL1WaYQUJFwQm3+DLNAefg@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
+Date: Thu, 23 Apr 2015 11:30:33 -0700
+Message-ID: <CAHA+R7PoJjcwiTBJC5BLSRTeMprbNkuojAyOHjqMw46+L=mAnA@mail.gmail.com>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
+	<1429644476-8914-3-git-send-email-ast@plumgrid.com>
+	<CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
+	<55381F14.4070708@plumgrid.com>
+	<CAHA+R7Mz0LSZ-S=k7rvUuhXm+GT9w2ve6Ug+YPJ4vqnsrLnfpw@mail.gmail.com>
+	<55385D0B.5030103@plumgrid.com>
+	<CAHA+R7N0w0gSVRrxchzHoYHV6=ubs7m1CW6G+e-G3+sBbnz+yQ@mail.gmail.com>
+	<5539381D.8030501@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	Felix Fietkau <nbd@openwrt.org>
-To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:35862 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030612AbbDWS2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 14:28:55 -0400
-Received: by iebrs15 with SMTP id rs15so67396258ieb.3
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 11:28:54 -0700 (PDT)
-In-Reply-To: <CACna6rzMMUA_MQemYyP93+TjP4aocL1WaYQUJFwQm3+DLNAefg@mail.gmail.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:38744 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030509AbbDWSae (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 14:30:34 -0400
+Received: by wiun10 with SMTP id n10so102231899wiu.1
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 11:30:33 -0700 (PDT)
+In-Reply-To: <5539381D.8030501@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-23 at 20:18 +0200, Rafa=C5=82 Mi=C5=82ecki wrote:
+On Thu, Apr 23, 2015 at 11:21 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 04/23/2015 08:12 PM, Cong Wang wrote:
+>>
+>> On Wed, Apr 22, 2015 at 7:46 PM, Alexei Starovoitov <ast@plumgrid.com>
+>> wrote:
+>
+> ...
+>>>
+>>> TC_ACT_QUEUED cannot be removed.
+>>> Only deprecated with backwards compatibility the way this patch did it.
+>>> That should have been obvious.
+>>
+>>
+>> It is at least the third time I have to repeat that: we really don't care
+>> about out-of-tree modules.
+>>
+>> Everyone MUST read Documentation/stable_api_nonsense.txt.
+>
+>
+> Seriously, what are you talking about ???
+>
+> $ git grep -n TC_ACT_QUEUED include/uapi/
+> include/uapi/linux/pkt_cls.h:105:#define TC_ACT_QUEUED          5
+>
+> This is *UAPI*, no-one is even remotely talking about out-of-tree
+> kernel modules.
 
->=20
-> Can you help us with this, please? Does bgmac use NAPI incorrectly?
-> Were there some important changes in 3.19 or 4.0?
->=20
-
-Right they were important changes in NAPI indeed :
-
-3b47d30396ba net: gro: add a per device gro flush timer
-d75b1ade567f net: less interrupt masking in NAPI
-bc9ad166e38a net: introduce napi_schedule_irqoff()
-
-This requested some fixes in various drivers :
-
-commit f31ec95fa19e07a8beebcc0297284f23aa57967e
-commit 24e579c8898aa641ede3149234906982290934e5
-commit 6088beef3f7517717bd21d90b379714dd0837079
-commit f104fedc0da126abe93dd0f4a9fa13e5133bf9df
-commit 7a05dc64e2e4c611d89007b125b20c0d2a4d31a5
-commit 001ce546bb537bb5b7821f05633556a0c9787e32
-commit 3079c652141f9d6377417a7e8fd650c9948df65e
-commit 8acdf999accfd95093db17f33a58429a38782060
-commit 6a6dc08ff6395f58be3ee568cb970ea956f16819
+I am not stupid. You should figure out we can just leave its definition
+by removing it, leaving the default as stolen.
