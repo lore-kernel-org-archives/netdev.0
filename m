@@ -1,42 +1,34 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net-next v2] be2net: log link status
-Date: Thu, 23 Apr 2015 08:52:03 +0200
-Message-ID: <55389693.1050903@redhat.com>
-References: <1429710210-7291-1-git-send-email-ivecera@redhat.com> <447118c7-cb5e-4e64-88cc-8205cadfaf5e@CMEXHTCAS2.ad.emulex.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
+Date: Thu, 23 Apr 2015 09:13:36 +0200
+Message-ID: <55389BA0.2030801@iogearbox.net>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>	<1429644476-8914-3-git-send-email-ast@plumgrid.com>	<CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>	<55381F14.4070708@plumgrid.com> <CAHA+R7Mz0LSZ-S=k7rvUuhXm+GT9w2ve6Ug+YPJ4vqnsrLnfpw@mail.gmail.com> <55385D0B.5030103@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Subramanian Seetharaman <subbu.seetharaman@Emulex.Com>,
-	Ajit Kumar Khaparde <Ajit.Khaparde@Emulex.Com>,
-	David Miller <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>
-To: Sathya Perla <Sathya.Perla@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37464 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750746AbbDWGwN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Apr 2015 02:52:13 -0400
-In-Reply-To: <447118c7-cb5e-4e64-88cc-8205cadfaf5e@CMEXHTCAS2.ad.emulex.com>
+Received: from www62.your-server.de ([213.133.104.62]:46697 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750822AbbDWHNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 03:13:50 -0400
+In-Reply-To: <55385D0B.5030103@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2015 08:31 AM, Sathya Perla wrote:
->> -----Original Message-----
->> From: Ivan Vecera [mailto:ivecera@redhat.com]
->>
->> The driver unlike other drivers does not log link state changes.
->>
->> v2: added current link speed to log message
->>
-> Ivan, I disagree with the v2 change. I think your original intention
-> was just to log a message when the link goes up or down
-> asynchronously (i.e., without any user intervention.)
-> After alerting the user, if the user wants to know other link
-> properties like speed, duplex etc then the ethtool cmd needs
-> to be used; there is no need to log a message with those details.
-Yes, this was my original intention... to see these async link events in 
-the system log.
-In this case the v1 should be used.
+On 04/23/2015 04:46 AM, Alexei Starovoitov wrote:
+...
+> The other two threads degenerated into non-technical comments.
 
-Ivan
+Yep. :-/
+
+> Anyway, this set was RFC to answer my main question whether I should
+> continue with tc cleanup or stop right here. I got my answer.
+
+I think it's worth proceeding with this, it's long overdue.
