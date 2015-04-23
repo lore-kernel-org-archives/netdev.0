@@ -1,44 +1,137 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: NAPI: Polling function requesting extra calls - difference
- between 3.18.11 and 4.0.0
-Date: Thu, 23 Apr 2015 21:08:37 +0200
-Message-ID: <CACna6rzx0=P5dOYggLCihg+9ONKfL428PYhP8CQrTgtKG5N_PQ@mail.gmail.com>
-References: <CACna6rzMMUA_MQemYyP93+TjP4aocL1WaYQUJFwQm3+DLNAefg@mail.gmail.com>
-	<1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [Patch net] igb: pass the correct maxlen for eth_get_headlen()
+Date: Thu, 23 Apr 2015 12:14:25 -0700
+Message-ID: <CAHA+R7P=vT_aVJU+JP91Nrn+Xury=aGOfCmHPRU50CEk_EbzcA@mail.gmail.com>
+References: <1429724760-10075-1-git-send-email-xiyou.wangcong@gmail.com>
+	<5537F9F1.1080008@gmail.com>
+	<CAHA+R7PVrxJ41WSqfO4mZSpCTGdJ++Gf757f_kq5z0UeMHXbXg@mail.gmail.com>
+	<553802DA.4050709@gmail.com>
+	<CAHA+R7PtzNd2asXFtiqsWyzCgeE1k_iF84358cvKg6ZCU-yVkQ@mail.gmail.com>
+	<553815DF.4000109@gmail.com>
+	<CAHA+R7MMrrBYbQALovxuhcXrbiWjD_XpgohPXxTvNkcd3-R3WA@mail.gmail.com>
+	<553821E4.5010901@gmail.com>
+	<CAHA+R7MJv7tbHwU_ECbJunXVJ8uo=eQv+Xmw42oR5sKEde35RQ@mail.gmail.com>
+	<553869C4.30107@gmail.com>
+	<CAHA+R7O2p2VkA2KJ0QGaq4qa=BCAUFAYOQL_FByRUi=q1koQ_w@mail.gmail.com>
+	<55393C92.5090903@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Network Development <netdev@vger.kernel.org>,
-	Felix Fietkau <nbd@openwrt.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:38204 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030479AbbDWTIi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 15:08:38 -0400
-Received: by igbhj9 with SMTP id hj9so32541352igb.1
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 12:08:37 -0700 (PDT)
-In-Reply-To: <1429813732.22254.78.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:35806 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030434AbbDWTO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 15:14:27 -0400
+Received: by widdi4 with SMTP id di4so227500754wid.0
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 12:14:25 -0700 (PDT)
+In-Reply-To: <55393C92.5090903@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23 April 2015 at 20:28, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2015-04-23 at 20:18 +0200, Rafa=C5=82 Mi=C5=82ecki wrote:
+On Thu, Apr 23, 2015 at 11:40 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 04/23/2015 11:06 AM, Cong Wang wrote:
+>> On Wed, Apr 22, 2015 at 8:40 PM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>>> On 04/22/2015 04:23 PM, Cong Wang wrote:
+>>>> On Wed, Apr 22, 2015 at 3:34 PM, Alexander Duyck
+>>>> <alexander.duyck@gmail.com> wrote:
+>>>>> On 04/22/2015 02:56 PM, Cong Wang wrote:
+>>>>>> On Wed, Apr 22, 2015 at 2:42 PM, Alexander Duyck
+>>>>>> <alexander.duyck@gmail.com> wrote:
+>>>>>>> On 04/22/2015 01:33 PM, Cong Wang wrote:
+>>>>>>>> First, make sure you don't miss the TSIP case right above:
+>>>>>>>>
+>>>>>>>> The frag starting pointer and its size are advanced by:
+>>>>>>>>
+>>>>>>>> skb_frag_size_sub(frag, IGB_TS_HDR_LEN);
+>>>>>>>> ...
+>>>>>>>> va += IGB_TS_HDR_LEN;
+>>>>>>>>
+>>>>>>>> even though we unlikely pull header longer than
+>>>>>>>> IGB_RX_HDR_LEN - IGB_TS_HDR_LEN either.
+>>>>>>> So I believe this is a possible bug, one heck of a corner case to get
+>>>>>>> into though.  It requires timestamp in packet, size 240 - 256, and a
+>>>>>>> malformed header.
+>>>>>>>
+>>>>>>> The proper fix would probably be to pull the timestamp out of the packet
+>>>>>>> before we add it to the frame.  I'll submit a patch to address this.
+>>>>>>>
+>>>>>> Huh? Doesn't my patch already fix this? skb_frag_size() is always
+>>>>>> up to date. Or you mean another different problem?
+>>>>> Your patch has other issues.  I am still NAKing your patch, but there is
+>>>>> an issue with igb that you have pointed out.  The proper fix would be to
+>>>>> deal with the timestamp before we add the page fragment to the skb.
+>>>>>
+>>>> If the first frag is always 2K, then this is not a problem either.
+>>>> IGB_TS_HDR_LEN + IGB_RX_HDR_LEN < 2K.
+>>> The problem is skb->tail will get screwed up.
+>>>
+>> Why? We don't copy timestamp into skb header, instead it is saved
+>> in shared_info, why skb->tail matters here in TSIP case?
 >
+> TSIP only matters if you have a network header with bad data in it that
+> indicates the size is actually larger than it actually is.
+
+
+OK.
+
+>
+>>> The first frag will be 2K in size only if there are multiple frags.  The
 >>
->> Can you help us with this, please? Does bgmac use NAPI incorrectly?
->> Were there some important changes in 3.19 or 4.0?
+>> Or it doesn't have frags at all since we just copy it to skb header, right?
+>
+> That is moot since this code only gets called if the skb is nonlinear
+>
+>>> problem in the TSIP case is that we will put the size reported by the
+>>> descriptor into the fragment, and then try to pull the size we
+>>
+>> That size is saved when adding the frag, in TSIP case we just sub it
+>> by IGB_TS_HDR_LEN, which seems correct.
 >>
 >
-> Right they were important changes in NAPI indeed :
+> Yes, the size is saved.  But with your solution we could pull the whole
+> fragment but not free it which isn't correct as we shouldn't be left
+> with any 0 sized fragments.
+
+
+Good point, then TSIP case should check frag_size == 0 case,
+the rest handles 0-size case correctly, see below.
+
 >
-> 3b47d30396ba net: gro: add a per device gro flush timer
-> d75b1ade567f net: less interrupt masking in NAPI
-> bc9ad166e38a net: introduce napi_schedule_irqoff()
+>>> determined via eth_get_headlen.  So there is a window where that value
+>>> can be wrong and result in data_len going negative and tail being moved
+>>> beyond the end of the actual data.
+>> This sounds like a different problem if you are saying we should sub
+>> the size in the descriptor too. Therefore I don't see why your patch
+>> could replace mine.
+>
+> Your patches sort-of fixed the problem, but they introduced other issues
+> in the process.
+>
+> The thing I don't think you are getting is that the code was meant to be
+> mutually exclusive w/ the copy-break code.  Either the frag is less than
+> IGB_RX_HDR_SIZE in which case we copy-break and don't attached the
+> fragment, or we should be pulling the header and leaving at least 1 byte
+> in the fragment.  The problem with your solution is that you potentially
+> pull the entire fragment in, but you don't free it if the size drops to
 
-As you obviously noticed, I fixed bgmac now and submitted the fix.
 
-Just wanted to say a thanks for helping with that!
+Only if it is a malformed packet, and it is still safe as long as we don't
+run over the buffer size. Also I have a upper limit check for
+IGB_RX_HDR_SIZE after eth_get_headlen().
 
---=20
-Rafa=C5=82
+> 0.  That is why in the other mail I told you the better solution for igb
+
+I am sure eth_get_headlen() handles 0 case correctly, it simply returns 0.
+
+> would likely be to just pass IGB_RX_HDR_SIZE - IGB_TS_HDR_SIZE as that
+> way you end up with at least 1 byte left in the fragment after you pull
+> the header.
+>
+
+The code should already handle pull_len==0 correctly.
