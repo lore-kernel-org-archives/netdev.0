@@ -1,72 +1,79 @@
-From: Cong Wang <cwang@twopensource.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [RFC 2/3] tc: deprecate TC_ACT_QUEUED
-Date: Thu, 23 Apr 2015 15:33:31 -0700
-Message-ID: <CAHA+R7OS_GxDS4BCj8ppM03mnimGAYJYU4qAqOasfxz_NQO-jg@mail.gmail.com>
-References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>
-	<1429644476-8914-3-git-send-email-ast@plumgrid.com>
-	<CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com>
-	<55381F14.4070708@plumgrid.com>
-	<553959E3.9070209@mojatatu.com>
-	<55396E70.2080908@plumgrid.com>
+Date: Thu, 23 Apr 2015 18:51:10 -0400
+Message-ID: <5539775E.6070704@mojatatu.com>
+References: <1429644476-8914-1-git-send-email-ast@plumgrid.com>	<1429644476-8914-3-git-send-email-ast@plumgrid.com> <CAHA+R7MYcKTHmZWtHm9V5_DjdB0zTBhayhsftcqkDFMwCno7dg@mail.gmail.com> <55381F14.4070708@plumgrid.com> <553959E3.9070209@mojatatu.com> <55396E70.2080908@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
 	netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:35096 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932410AbbDWWdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 18:33:33 -0400
-Received: by widdi4 with SMTP id di4so1460967wid.0
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 15:33:32 -0700 (PDT)
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:35616 "EHLO
+	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932841AbbDWWvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 18:51:12 -0400
+Received: by qkhg7 with SMTP id g7so20381263qkh.2
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 15:51:11 -0700 (PDT)
 In-Reply-To: <55396E70.2080908@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2015 at 3:13 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+On 04/23/15 18:13, Alexei Starovoitov wrote:
 > On 4/23/15 1:45 PM, Jamal Hadi Salim wrote:
->>
->>
->> 1) the _XMIT semantics are useful on the egress side because in fact
->> we do have queues and they can be attached to qdiscs etc.
->> The TC_ACT_XXX codes were _intentional_ since ingress works as a
->> classifier shell.
->
->
+
 > then it is worse mess than I thought :(
 > Why call it _qdisc_ then? and have special and convoluted handling for
 > it in qdisc_create, qdisc_graft and other places?
 
-It needs to glue into qdisc layer, unify the abstractions.
+Convinience for tooling and using existing abstractions is the
+historical. You can attach qdiscs to netdevs.
+You can then use all sorts of well understood tools.
 
->
->> Are you planning to queue things on ingress?
+>  > Are you planning to queue things on ingress?
 >
 > I thought that was the whole purpose of ingress qdisc.
-
-There is no queue for ingress qdisc.
-
 > why then we have dev->ingress_queue?
-
-Glue layer, qdisc ties too much with txq, which is what I want to solve.
-
-We have struct netdev_rx_queue too, but look at it, there is nothing
-but some sysfs stuffs needed by RPS.
-
 >
+
+So you are planning to add queues? If you are that is a different
+discussion (and the use case needs some clarity).
+
 > If queueing was never a goal, may be we should kill ingress qdisc
 > and replace it with a simple shim that only does cls/act.
 > The code overall will get much simpler and faster.
 >
 
-As I said in response to your patch for skb->data, we need to align
-ingress with egress, rather than making more differences, this includes
-qdisc's too. We do have per-cpu queues for ingress, at least in theory
-we have a queue for ingress to use.
+Attaching to the device was considered "simpler" based on the tooling
+thought process. On whether we should queue on ingress - it was not
+considered useful if the packets were going to the host i.e we want to
+proceed to completion likely queueing to some socket layer further
+upstream.
+For packets being forwarded we already had egress qdiscs which had
+queues so it didnt seem to make sense to enqueue on ingress for such
+use cases.
+There was a use case later where multiple ingress ports had to be shared
+and ifb was born - which is pseudo temporary enqueueing on ingress.
 
-Of course, RX is naturally different from TX, which is the root cause
-why we have so many differences here.
+
+> Feels like falling into rabbit hole.
+>
+>> The fact that qdiscs dealt with these codes directly
+>> allows for specialized handling. Moving them to a generic function
+>> seems to defeat that purpose. So I am siding with Cong on this.
+>
+> that's not what patch 1 is doing. It is still doing specialized
+> handling... but in light of what you said above, it looks like much
+> bigger cleanup is needed. We'll continue arguing when I refactor
+> this set and resubmit when net-next reopens.
+>
+
+Sorry - i was refereing to the patch where you agregated things after
+the qdisc invokes a classifier.
+
+cheers,
+jamal
