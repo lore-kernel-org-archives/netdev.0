@@ -1,35 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: CCM/GCM implementation defect
-Date: Fri, 24 Apr 2015 07:17:03 +0800
-Message-ID: <20150423231703.GB26635@gondor.apana.org.au>
-References: <20150423032619.GA17648@gondor.apana.org.au>
- <20150423114533.GI8928@secunet.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Resource usages in Linux drivers
+Date: Fri, 24 Apr 2015 01:19:17 +0200
+Message-ID: <20150423231917.GA16450@electric-eye.fr.zoreil.com>
+References: <5538950F.3040405@163.com>
+ <5538B938.9060607@cogentembedded.com>
+ <5538BB61.30907@163.com>
+ <5538C4A3.6080302@163.com>
+ <5538CB50.3010601@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Paul Wouters <pwouters@redhat.com>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
+Cc: Jia-Ju Bai <baijiaju1990@163.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	stephen@networkplumber.org, Neil Horman <nhorman@tuxdriver.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48599 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932841AbbDWXUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 19:20:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20150423114533.GI8928@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5538CB50.3010601@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 23, 2015 at 01:45:34PM +0200, Steffen Klassert wrote:
->
-> Adding a second template for the correct implementation is
-> probaply the only thing that we can do if we don't want to
-> break backwards compatibility. But maybe we can add a warning
-> to the old implementation, such that users notice that they
-> use a broken version.
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> :
+> On 4/23/2015 1:08 PM, Jia-Ju Bai wrote:
+[...]
+> >I also find many drivers do not use these managed APIs, especially in ethernet
+> >card drivers (like e100, r8169). Is it possible to change them?
+> 
+>    Patches welcome. :-)
 
-If we are going to do a warning I think the place to do it would
-be in xfrm_algo.c.  We could add an insecure/warning flag and if
-then print a warning if said algorithm is used.
+I respectfully disagree.
 
-Cheers,
+If someone believes basic resouce management to be too hard or error-prone
+to handle, he should imvho seriously rise the bar and reconsider the way
+he wants to contribute to the kernel.
+
+I may hope he who reads e100.c to think about DMA api, bql or rx ring
+holes avoidance to quote a few ones. Managed API ? Mildly...
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ueimor
