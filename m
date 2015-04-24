@@ -1,62 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ethernet: myri10ge: use arch_phys_wc_add()
-Date: Thu, 23 Apr 2015 22:35:06 -0400 (EDT)
-Message-ID: <20150423.223506.1929957496445086975.davem@davemloft.net>
-References: <1429646986-16686-1-git-send-email-mcgrof@do-not-panic.com>
-	<20150423.142840.1391606504290988877.davem@davemloft.net>
-	<20150424015758.GA5300@hykim-PC>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next 1/3] ipvlan: Defer multicast / broadcast processing
+ to a work-queue
+Date: Thu, 23 Apr 2015 19:54:29 -0700
+Message-ID: <CAF2d9jgBwgLzg3y9KDaVHmbE7_NYnHVjTPfD=Jw-yAbLGGhe7w@mail.gmail.com>
+References: <1429824589-23663-1-git-send-email-maheshb@google.com> <1429835549.22254.105.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mcgrof@do-not-panic.com, hykim@myri.com, netdev@vger.kernel.org,
-	luto@amacapital.net, mcgrof@suse.com, sbsiddha@gmail.com,
-	mingo@elte.hu, tglx@linutronix.de, jgross@suse.com,
-	daniel.vetter@ffwll.ch, airlied@redhat.com, adaplas@gmail.com,
-	plagnioj@jcrosoft.com, tomi.valkeinen@ti.com,
-	linux-kernel@vger.kernel.org
-To: hkim@cspi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150424015758.GA5300@hykim-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Dan Willems <dcbw@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:36754 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753783AbbDXCyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 22:54:50 -0400
+Received: by oift201 with SMTP id t201so30433504oif.3
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 19:54:49 -0700 (PDT)
+In-Reply-To: <1429835549.22254.105.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hyong-Youb Kim <hkim@cspi.com>
-Date: Fri, 24 Apr 2015 10:57:58 +0900
-
-> X-MS-Exchange-CrossTenant-OriginalArrivalTime: 24 Apr 2015 01:58:46.2847 (UTC)
-> X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
-> X-MS-Exchange-Transport-CrossTenantHeadersStamped: DB5PR05MB1302
-> X-Greylist: Default is to whitelist mail, not delayed by milter-greylist-4.5.12 (shards.monkeyblade.net [149.20.54.216]); Thu, 23 Apr 2015 18:58:55 -0700 (PDT)
-> Content-Type: text/plain; charset="us-ascii"
-> Content-Disposition: inline
-> Subject: Re: [PATCH v3] ethernet: myri10ge: use arch_phys_wc_add()
-> From: Hyong-Youb Kim <hkim@cspi.com>
-> To: David Miller <davem@davemloft.net>
-> CC: <mcgrof@do-not-panic.com>, <hykim@myri.com>, <netdev@vger.kernel.org>,
-> 	<luto@amacapital.net>, <mcgrof@suse.com>, <sbsiddha@gmail.com>,
-> 	<mingo@elte.hu>, <tglx@linutronix.de>, <jgross@suse.com>,
-> 	<daniel.vetter@ffwll.ch>, <airlied@redhat.com>, <adaplas@gmail.com>,
-> 	<plagnioj@jcrosoft.com>, <tomi.valkeinen@ti.com>,
-> 	<linux-kernel@vger.kernel.org>
-> Date: Fri, 24 Apr 2015 10:57:58 +0900
-> User-Agent: Mutt/1.5.23 (2014-03-12)
-> 
-> On Thu, Apr 23, 2015 at 02:28:40PM -0400, David Miller wrote:
->> I can't wait forever for the driver maintainers to review this, so
->> I'm applying it.
-> 
-> FWIW, I replied to Luis's patch yesterday.  It appears on the netdev
-> list and patchwork.  Checked the recipient list, and it includes
-> netdev, but not your address.  I guess I will not make that mistake
-> again.
-
-I saw it.
-
-You did not supply an Acked-by: or Tested-by: tag in that response.
-
-Also, if you are not going to use the email address listed in the
-MAINTAINERS entry for this driver, you should update it so I know
-what email addresses to look for to know if someone is responsible
-for that driver or not.
-
-Thanks.
+On Thu, Apr 23, 2015 at 5:32 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2015-04-23 at 14:29 -0700, Mahesh Bandewar wrote:
+>
+>> +static void ipvlan_multicast_enqueue(struct ipvl_port *port,
+>> +                                  struct sk_buff *skb)
+>> +{
+>> +     if (skb->protocol == htons(ETH_P_PAUSE))
+>> +             return;
+>
+> But what happens to this packet ? It seems leaked ?
+>
+Hmm, will take care of it in v2.
+>> +
+>> +     spin_lock(&port->backlog.lock);
+>> +     if (skb_queue_len(&port->backlog) < IPVLAN_QBACKLOG_LIMIT) {
+>> +             __skb_queue_tail(&port->backlog, skb);
+>> +             spin_unlock(&port->backlog.lock);
+>> +     } else {
+>> +             spin_unlock(&port->backlog.lock);
+>> +             atomic_long_inc(&skb->dev->rx_dropped);
+>> +             kfree_skb(skb);
+>> +     }
+>> +     schedule_work(&port->wq);
+>
+> No point calling schedule_work(&port->wq); if packet was dropped.
+>
+> We are under pressure, so don't add extra cpu cycles ;)
+>
+The only possibility of schedule_work() while doing kfree_skb() is
+when the queue limit is reached. How can the queue be reduced if not
+scheduled? May be I'm missing something..
+>
