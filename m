@@ -1,112 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 RFC 12/15] flow_dissector: introduce support for ipv6 addressses
-Date: Fri, 24 Apr 2015 17:51:38 +0200
-Message-ID: <1429890701-30052-13-git-send-email-jiri@resnulli.us>
-References: <1429890701-30052-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
-	jesse@nicira.com, kaber@trash.net, therbert@google.com,
-	edumazet@google.com, alexander.h.duyck@redhat.com,
-	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
-	herbert@gondor.apana.org.au, cwang@twopensource.com,
-	john.fastabend@gmail.com
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: mdio-gpio: support access that may sleep
+Date: Fri, 24 Apr 2015 08:56:34 -0700
+Message-ID: <553A67B2.3040400@gmail.com>
+References: <1429722414-18173-1-git-send-email-vivien.didelot@savoirfairelinux.com> <20150424.110455.2117537129018647564.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com
+To: David Miller <davem@davemloft.net>,
+	vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:35633 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031324AbbDXPwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:52:05 -0400
-Received: by wgyo15 with SMTP id o15so55184237wgy.2
-        for <netdev@vger.kernel.org>; Fri, 24 Apr 2015 08:52:04 -0700 (PDT)
-In-Reply-To: <1429890701-30052-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:35536 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031381AbbDXP5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:57:47 -0400
+In-Reply-To: <20150424.110455.2117537129018647564.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So far, only hashes made out of ipv6 addresses could be dissected. This
-patch introduces support for dissection of full ipv6 addresses.
+On 24/04/15 08:04, David Miller wrote:
+> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Date: Wed, 22 Apr 2015 13:06:54 -0400
+> 
+>> Some systems using mdio-gpio may use gpio on message based busses, which
+>> require sleeping (e.g. gpio from an I2C I/O expander).
+>>
+>> Since this driver does not use IRQ handler, it is safe to use the
+>> _cansleep suffixed gpio accessors.
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> 
+> Since this is down underneath the layer of an MII bus, you cannot
+> universally say that these routines are always called in a sleepable
+> context.
+> 
+> The PHY layer, and the driver itself above that, might call these
+> routines from timers, interruptes etc.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/net/flow_dissector.h | 13 +++++++++++++
- net/core/flow_dissector.c    | 29 +++++++++++++++++++++--------
- 2 files changed, 34 insertions(+), 8 deletions(-)
+The PHY library calls these routines from its state machine workqueue
+for that reason, or from process context (when invoked via ethtool
+ioctl). The only special case is phy_mac_interrupt() which is callable
+from interrupt context, but schedules the state machine workqueue anyway
+to circumvent the "in-interrupt" context.
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index b67ce84..7c9e84c 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -3,6 +3,7 @@
- 
- #include <linux/types.h>
- #include <linux/skbuff.h>
-+#include <linux/in6.h>
- 
- /**
-  * struct flow_dissector_key_basic:
-@@ -42,11 +43,23 @@ struct flow_dissector_key_ports {
- 	};
- };
- 
-+/**
-+ * struct flow_dissector_key_ipv6_addrs:
-+ * @src: source ip address
-+ * @dst: destination ip address
-+ */
-+struct flow_dissector_key_ipv6_addrs {
-+	/* (src,dst) must be grouped, in the same way than in IP header */
-+	struct in6_addr src;
-+	struct in6_addr dst;
-+};
-+
- enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
- 	FLOW_DISSECTOR_KEY_IPV4_ADDRS, /* struct flow_dissector_key_addrs */
- 	FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS, /* struct flow_dissector_key_addrs */
- 	FLOW_DISSECTOR_KEY_PORTS, /* struct flow_dissector_key_ports */
-+	FLOW_DISSECTOR_KEY_IPV6_ADDRS, /* struct flow_dissector_key_ipv6_addrs */
- 
- 	FLOW_DISSECTOR_KEY_MAX,
- };
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 564288e..95e9a21 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -175,16 +175,29 @@ ipv6:
- 		ip_proto = iph->nexthdr;
- 		nhoff += sizeof(struct ipv6hdr);
- 
--		if (!skb_flow_dissector_uses_key(flow_dissector,
--						 FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS))
--			break;
--		key_addrs = skb_flow_dissector_target(flow_dissector,
--						      FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS,
--						      target_container);
-+		if (skb_flow_dissector_uses_key(flow_dissector,
-+						FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS)) {
-+			key_addrs = skb_flow_dissector_target(flow_dissector,
-+							      FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS,
-+							      target_container);
- 
--		key_addrs->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
--		key_addrs->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
-+			key_addrs->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
-+			key_addrs->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
-+			goto flow_label;
-+		}
-+		if (skb_flow_dissector_uses_key(flow_dissector,
-+						FLOW_DISSECTOR_KEY_IPV6_ADDRS)) {
-+			struct flow_dissector_key_ipv6_addrs *key_ipv6_addrs;
- 
-+			key_ipv6_addrs = skb_flow_dissector_target(flow_dissector,
-+								   FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-+								   target_container);
-+
-+			memcpy(key_ipv6_addrs, &iph->saddr, sizeof(*key_ipv6_addrs));
-+			goto flow_label;
-+		}
-+		break;
-+flow_label:
- 		flow_label = ip6_flowlabel(iph);
- 		if (flow_label) {
- 			/* Awesome, IPv6 packet has a flow label so we can
+If we were not doing that, there would be a number of things broken, for
+instance the per-MDIO bus mutex would not protect us from anything.
+
+> 
+> In fact, since the whole point of this driver is to provide a specific
+> implementation for programming registers over an MII bus, it's quite
+> rediculuous to say that just because interrupts are not used in this
+> implementation it means that sleeping is always valid.
+> 
+> You have to look at all of the (real and potential) users, all the way
+> up into the specific ethernet drivers.
+
+It seems to me like this patch in itself is ok, but if there are
+particular drivers you believe are at risk, then yes, we definitively
+need to audit those.
 -- 
-1.9.3
+Florian
