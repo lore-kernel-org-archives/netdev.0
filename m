@@ -1,67 +1,41 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH] net/tg3: Release IRQs on permanent error
-Date: Fri, 24 Apr 2015 15:22:23 +1000
-Message-ID: <1429852943-28953-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Cc: davem@davemloft.net, prashant@broadcom.com, mchan@broadcom.com,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp06.au.ibm.com ([202.81.31.148]:52796 "EHLO
-	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754496AbbDXFX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 01:23:29 -0400
-Received: from /spool/local
-	by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Fri, 24 Apr 2015 15:23:26 +1000
-Received: from d23relay07.au.ibm.com (d23relay07.au.ibm.com [9.190.26.37])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id D64DC2BB0040
-	for <netdev@vger.kernel.org>; Fri, 24 Apr 2015 15:23:22 +1000 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t3O5NEgM655808
-	for <netdev@vger.kernel.org>; Fri, 24 Apr 2015 15:23:22 +1000
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t3O5Mm23001659
-	for <netdev@vger.kernel.org>; Fri, 24 Apr 2015 15:22:48 +1000
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: CCM/GCM implementation defect
+Date: Fri, 24 Apr 2015 13:30:00 +0800
+Message-ID: <20150424053000.GA28657@gondor.apana.org.au>
+References: <20150423032619.GA17648@gondor.apana.org.au>
+ <20150423114533.GI8928@secunet.com>
+ <1429795499.31437.9.camel@martin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Paul Wouters <pwouters@redhat.com>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: Martin Willi <martin@strongswan.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1429795499.31437.9.camel@martin>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When having permanent EEH error, the PCI device will be removed
-from the system. For this case, we shouldn't set pcierr_recovery
-to true wrongly, which blocks the driver to release the allocated
-interrupts and their handlers. Eventually, we can't disable MSI
-or MSIx successfully because of the MSI or MSIx interrupts still
-have associated interrupt actions, which is turned into following
-stack dump.
+On Thu, Apr 23, 2015 at 03:24:59PM +0200, Martin Willi wrote:
+>
+> Do you have any pointer for me where this is defined? Why is it needed,
+> given that GCM implicitly authenticates the IV by using it in Y0?
 
-Oops: Exception in kernel mode, sig: 5 [#1]
-        :
-[c0000000003b76a8] .free_msi_irqs+0x80/0x1a0 (unreliable)
-[c00000000039f388] .pci_remove_bus_device+0x98/0x110
-[c0000000000790f4] .pcibios_remove_pci_devices+0x9c/0x128
-[c000000000077b98] .handle_eeh_events+0x2d8/0x4b0
-[c0000000000782d0] .eeh_event_handler+0x130/0x1c0
-[c000000000022bd4] .kernel_thread+0x54/0x70
+Actually you're quite right.  Both GCM and CCM implicitly includes
+the IV in the authentication tag.
 
-Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+In fact after reviewing the two relevant RFCs (4106/4309) it seems
+that we are correct after all since they explicitly exclude the IV
+from the AAD.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 1270b18..069952f 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -18129,7 +18129,9 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
- 
- 	rtnl_lock();
- 
--	tp->pcierr_recovery = true;
-+	/* We needn't recover from permanent error */
-+	if (state == pci_channel_io_frozen)
-+		tp->pcierr_recovery = true;
- 
- 	/* We probably don't have netdev yet */
- 	if (!netdev || !netif_running(netdev))
+Now we just need to figre out whether we're still OK with RFC4543.
+
+Sorry for the false alarm.
+
+Cheers,
 -- 
-2.1.0
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
