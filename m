@@ -1,7 +1,7 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 16/21] ARCNET: capmode: move dev_free_skb to its only user
-Date: Fri, 24 Apr 2015 19:20:50 +0200
-Message-ID: <1429896055-31680-17-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 21/21] ARCNET: com20020-pci: add rotary index support
+Date: Fri, 24 Apr 2015 19:20:55 +0200
+Message-ID: <1429896055-31680-22-git-send-email-m.grzeschik@pengutronix.de>
 References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel@pengutronix.de
@@ -11,62 +11,108 @@ In-Reply-To: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The call for dev_free_skb is done only once. This patch
-moves its call to its only user and removes the obsolete
-condition variable.
+The EAE PLX-PCI card has a special rotary encoder
+to configure the address of every card individually.
+We take this information for the initial setup of
+the cards dev_id.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/arcnet.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/arcnet/com20020-pci.c | 28 ++++++++++++++++++++++++++++
+ include/linux/com20020.h          |  4 ++++
+ 2 files changed, 32 insertions(+)
 
-diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
-index 4990b0d..5eec14d 100644
---- a/drivers/net/arcnet/arcnet.c
-+++ b/drivers/net/arcnet/arcnet.c
-@@ -541,7 +541,7 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 	struct ArcProto *proto;
- 	int txbuf;
- 	unsigned long flags;
--	int freeskb, retval;
-+	int retval;
+diff --git a/drivers/net/arcnet/com20020-pci.c b/drivers/net/arcnet/com20020-pci.c
+index de8c894..308adb9 100644
+--- a/drivers/net/arcnet/com20020-pci.c
++++ b/drivers/net/arcnet/com20020-pci.c
+@@ -67,6 +67,7 @@ static void com20020pci_remove(struct pci_dev *pdev);
+ static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ {
+ 	struct com20020_pci_card_info *ci;
++	struct com20020_pci_channel_map *mm;
+ 	struct net_device *dev;
+ 	struct arcnet_local *lp;
+ 	struct com20020_priv *priv;
+@@ -83,9 +84,21 @@ static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *i
  
- 	BUGMSG(D_DURING,
- 	       "transmit requested (status=%Xh, txbufs=%d/%d, len=%d, protocol %x)\n",
-@@ -578,15 +578,13 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 			/* done right away and we don't want to acknowledge
- 			   the package later - forget about it now */
- 			dev->stats.tx_bytes += skb->len;
--			freeskb = 1;
-+			dev_kfree_skb(skb);
- 		} else {
- 			/* do it the 'split' way */
- 			lp->outgoing.proto = proto;
- 			lp->outgoing.skb = skb;
- 			lp->outgoing.pkt = pkt;
+ 	ci = (struct com20020_pci_card_info *)id->driver_data;
+ 	priv->ci = ci;
++	mm = &ci->misc_map;
  
--			freeskb = 0;
--
- 			if (proto->continue_tx &&
- 			    proto->continue_tx(dev, txbuf)) {
- 			  BUGMSG(D_NORMAL,
-@@ -598,7 +596,6 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 		lp->next_tx = txbuf;
- 	} else {
- 		retval = NETDEV_TX_BUSY;
--		freeskb = 0;
- 	}
+ 	INIT_LIST_HEAD(&priv->list_dev);
  
- 	BUGMSG(D_DEBUG, "%s: %d: %s, status: %x\n",
-@@ -613,9 +610,6 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
- 	       __FILE__, __LINE__, __func__, lp->hw.status(dev));
++	if (mm->size) {
++		ioaddr = pci_resource_start(pdev, mm->bar) + mm->offset;
++		r = devm_request_region(&pdev->dev, ioaddr, mm->size,
++					"com20020-pci");
++		if (!r) {
++			pr_err("IO region %xh-%xh already allocated.\n",
++			       ioaddr, ioaddr + mm->size - 1);
++			return -EBUSY;
++		}
++		priv->misc = ioaddr;
++	}
  
- 	spin_unlock_irqrestore(&lp->lock, flags);
--	if (freeskb) {
--		dev_kfree_skb(skb);
--	}
- 	return retval;		/* no need to try again */
- }
+ 	for (i = 0; i < ci->devcount; i++) {
+ 		struct com20020_pci_channel_map *cm = &ci->chan_map_tbl[i];
+@@ -132,6 +145,9 @@ static int com20020pci_probe(struct pci_dev *pdev, const struct pci_device_id *i
+ 		lp->timeout = timeout;
+ 		lp->hw.owner = THIS_MODULE;
  
++		/* Get the dev_id from the PLX rotary coder */
++		dev->dev_id = inb(priv->misc + ci->rotary) >> 4;
++
+ 		if (inb(_STATUS) == 0xFF) {
+ 			pr_err("IO address %Xh is empty!\n", ioaddr);
+ 			ret = -EIO;
+@@ -237,6 +253,12 @@ static struct com20020_pci_card_info card_info_eae_arc1 = {
+ 			.size = 0x08,
+ 		},
+ 	},
++	.misc_map = {
++		.bar = 2,
++		.offset = 0x10,
++		.size = 0x04,
++	},
++	.rotary = 0x0,
+ 	.flags = ARC_CAN_10MBIT,
+ };
+ 
+@@ -254,6 +276,12 @@ static struct com20020_pci_card_info card_info_eae_ma1 = {
+ 			.size = 0x08,
+ 		}
+ 	},
++	.misc_map = {
++		.bar = 2,
++		.offset = 0x10,
++		.size = 0x04,
++	},
++	.rotary = 0x0,
+ 	.flags = ARC_CAN_10MBIT,
+ };
+ 
+diff --git a/include/linux/com20020.h b/include/linux/com20020.h
+index 939d69d..8028ef8 100644
+--- a/include/linux/com20020.h
++++ b/include/linux/com20020.h
+@@ -47,6 +47,9 @@ struct com20020_pci_card_info {
+ 	int devcount;
+ 
+ 	struct com20020_pci_channel_map chan_map_tbl[PLX_PCI_MAX_CARDS];
++	struct com20020_pci_channel_map misc_map;
++
++	int rotary;
+ 
+ 	unsigned int flags;
+ };
+@@ -54,6 +57,7 @@ struct com20020_pci_card_info {
+ struct com20020_priv {
+ 	struct com20020_pci_card_info *ci;
+ 	struct list_head list_dev;
++	int __iomem misc;
+ };
+ 
+ struct com20020_dev {
 -- 
 2.1.4
