@@ -1,94 +1,61 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH next 1/3] ipvlan: Defer multicast / broadcast processing
- to a work-queue
-Date: Fri, 24 Apr 2015 17:59:37 -0500
-Message-ID: <1429916377.6379.29.camel@redhat.com>
-References: <1429824589-23663-1-git-send-email-maheshb@google.com>
-	 <1429906542.6379.16.camel@redhat.com>
-	 <CAF2d9jgUccznBGtouWs37Pttzbh3uFX3OdSsZ1dz0GS16ofv-A@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next,v2,1/1] hv_netvsc: introduce netif-msg into
+ netvsc module
+Date: Fri, 24 Apr 2015 15:59:29 -0700
+Message-ID: <1429916369.23327.29.camel@perches.com>
+References: <1429900488-7302-1-git-send-email-sixiao@microsoft.com>
+	 <1429907357.23327.14.camel@perches.com>
+	 <CY1PR03MB137688C6CC69DBFC097F6031C4EC0@CY1PR03MB1376.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: KY Srinivasan <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Simon Xiao <sixiao@microsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50134 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756343AbbDXW6b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Apr 2015 18:58:31 -0400
-In-Reply-To: <CAF2d9jgUccznBGtouWs37Pttzbh3uFX3OdSsZ1dz0GS16ofv-A@mail.gmail.com>
+Received: from smtprelay0165.hostedemail.com ([216.40.44.165]:52969 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756343AbbDXW7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 18:59:33 -0400
+In-Reply-To: <CY1PR03MB137688C6CC69DBFC097F6031C4EC0@CY1PR03MB1376.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-04-24 at 15:40 -0700, Mahesh Bandewar wrote:
-> On Fri, Apr 24, 2015 at 1:15 PM, Dan Williams <dcbw@redhat.com> wrote:
-> > On Thu, 2015-04-23 at 14:29 -0700, Mahesh Bandewar wrote:
-> >> Processing multicast / broadcast in fast path is performance draining
-> >> and having more links means more clonning and bringing performance
-> >> down further.
-> >>
-> >> Broadcast; in particular, need to be given to all the virtual links.
-> >> Earlier tricks of enabling broadcast bit for IPv4 only interfaces are not
-> >> really working since it fails autoconf. Which means enabling braodcast
-> >> for all the links if protocol specific hacks do not have to be added into
-> >> the driver.
-> >>
-> >> This patch defers all (incoming as well as outgoing) multicast traffic to
-> >> a work-queue leaving only the unicast traffic in the fast-path. Now if we
-> >> need to apply any additional tricks to further reduce the impact of this
-> >> (multicast / broadcast) type of traffic, it can be implemented while
-> >> processing this work without affecting the fast-path.
-> >
-> > These patches appear to work for me for the L2 + DHCP use-case, however
-> > I experienced some quite odd behavior when pinging the ipvlan interface
-> > from another machine.  I did this:
-> >
-> > ip link add link eno1 type ipvlan mode l2
-> > ip netns add ipv
-> > ip link set dev ipvlan0 netns ipv
-> > ip netns exec ipv /sbin/dhclient -B -4 -1 -v
-> > -pf /run/dhclient-ipvlan0.pid -C adafdasdfasf ipvlan0
-> > ip netns exec ping 4.2.2.1 <success>
-> >
-> > However, when pinging from another machine, I got very inconsistent ping
-> > replies:
-> >
-> > 64 bytes from 192.168.1.38: icmp_seq=1 ttl=64 time=11.4 ms
-> > 64 bytes from 192.168.1.38: icmp_seq=16 ttl=64 time=64.9 ms
-> > 64 bytes from 192.168.1.38: icmp_seq=25 ttl=64 time=87.9 ms
-> > 64 bytes from 192.168.1.38: icmp_seq=30 ttl=64 time=242 ms
-> > 64 bytes from 192.168.1.38: icmp_seq=35 ttl=64 time=40.1 ms
-> > 64 bytes from 192.168.1.38: icmp_seq=36 ttl=64 time=60.9 ms
-> >
-> We know that there is that PAUSE frame leak but that should not cause
-> this behavior if those are present in your network. The sched_work()
-> which is wrong (as pointed by Eric) especially when the machine is
-> busy and that might trigger something like this. Almost every 10th -
-> 15th ping packet seems to be processed correctly.
+On Fri, 2015-04-24 at 22:52 +0000, Simon Xiao wrote:
+> > From: Joe Perches [mailto:joe@perches.com]
+> > On Fri, 2015-04-24 at 11:34 -0700, sixiao@microsoft.com wrote:
+> > > From: Simon Xiao <sixiao@microsoft.com>
+> > >
+> > > 1. Introduce netif-msg to netvsc to control debug logging output and
+> > > keep msg_enable in netvsc_device_context so that it is kept
+> > > persistently.
+[]
+> > > diff --git a/drivers/net/hyperv/netvsc_drv.c
+[]
+> > > +	if (netif_msg_probe(net_device_ctx))
+> > > +		netdev_dbg(net, "netvsc msg_enable: %d",
+> > > +			   net_device_ctx->msg_enable);
+> > 
+> > Please use newlines to terminate formats.
+> > 
+> > It helps prevent log content interleaving when multiple processes are
+> > emitting output at the same time.
+> > 
+> > This could be shortened to use netif_<level> like:
+> > 
+> > 	netif_dbg(net_device_ctx, probe, net, "netvsc_msg_enable: %d\n",
+> > 		  net_device_ctx->msg_enable);
+> > 
 > 
-> I did get consistent results as opposed what you have shown here, but
-> will dig some more to see if something obviously wrong here.
-> 
-> > But I cannot reproduce that in a second run (though I haven't rebooted
-> > to test cleanly again).
-> >
-> > And oddly, the dhclient process takes a consistent 5% CPU and wireshark
-> > running on eno1 (not even the ipvlan interface) jumps to 100% CPU along
-> > with the dumpcap process taking another 25%, none of which are normal.
-> > This is a 4-core i4790 box, so something is wrong here; is something
-> > holding onto a spinlock for way too long?
-> >
-> > But at least it handles the packets ok, so I say progress!  Happy to
-> > help track down the CPU usage issue if you want to give me patches to
-> > test.
-> >
-> Which patch(es) you are referring to?
+> Thanks Joe. I would like to leave this to my next patch as there are some places else in netvsc (rndis_filter.c) 
+> have the same usage. I would like to fix them in one patch to make them consistent.
 
-None that yet exist; simply that if any of the issues I described
-triggered thoughts or patches on your end, I'm happy to test them.  I
-will try to characterize the issues I have seen more next week and
-report back.
+Oh sure no worries.
 
-Dan
+It is nicer though to not introduce new formats
+with missing newline defects.
+
+cheers, Joe
