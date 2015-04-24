@@ -1,50 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH next 1/3] ipvlan: Defer multicast / broadcast processing
- to a work-queue
-Date: Thu, 23 Apr 2015 17:32:29 -0700
-Message-ID: <1429835549.22254.105.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1429824589-23663-1-git-send-email-maheshb@google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Resource usages in Linux drivers
+Date: Thu, 23 Apr 2015 17:40:12 -0700
+Message-ID: <553990EC.1030401@gmail.com>
+References: <5538950F.3040405@163.com> <5538B938.9060607@cogentembedded.com> <5538BB61.30907@163.com> <5538C4A3.6080302@163.com> <5538CB50.3010601@cogentembedded.com> <20150423231917.GA16450@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Dan Willems <dcbw@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: Jia-Ju Bai <baijiaju1990@163.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	stephen@networkplumber.org, Neil Horman <nhorman@tuxdriver.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:33508 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703AbbDXAcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 20:32:32 -0400
-Received: by igbpi8 with SMTP id pi8so20005552igb.0
-        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 17:32:31 -0700 (PDT)
-In-Reply-To: <1429824589-23663-1-git-send-email-maheshb@google.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:34091 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750AbbDXAlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Apr 2015 20:41:25 -0400
+Received: by pdbqa5 with SMTP id qa5so32853065pdb.1
+        for <netdev@vger.kernel.org>; Thu, 23 Apr 2015 17:41:25 -0700 (PDT)
+In-Reply-To: <20150423231917.GA16450@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-23 at 14:29 -0700, Mahesh Bandewar wrote:
+On 23/04/15 16:19, Francois Romieu wrote:
+> Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> :
+>> On 4/23/2015 1:08 PM, Jia-Ju Bai wrote:
+> [...]
+>>> I also find many drivers do not use these managed APIs, especially in ethernet
+>>> card drivers (like e100, r8169). Is it possible to change them?
+>>
+>>    Patches welcome. :-)
+> 
+> I respectfully disagree.
 
-> +static void ipvlan_multicast_enqueue(struct ipvl_port *port,
-> +				     struct sk_buff *skb)
-> +{
-> +	if (skb->protocol == htons(ETH_P_PAUSE))
-> +		return;
+Me too, most of the device managed conversions we have seen were bogus
+because they were done in a semi-automated way without understanding the
+peculiarities of the network devices, that is the separation between
+init/open/close that most other device drivers do not have.
 
-But what happens to this packet ? It seems leaked ?
+A typical example is this:
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6892b41d9701283085b655c6086fb57a5d63fa47
 
-> +
-> +	spin_lock(&port->backlog.lock);
-> +	if (skb_queue_len(&port->backlog) < IPVLAN_QBACKLOG_LIMIT) {
-> +		__skb_queue_tail(&port->backlog, skb);
-> +		spin_unlock(&port->backlog.lock);
-> +	} else {
-> +		spin_unlock(&port->backlog.lock);
-> +		atomic_long_inc(&skb->dev->rx_dropped);
-> +		kfree_skb(skb);
-> +	}
-> +	schedule_work(&port->wq);
+> 
+> If someone believes basic resouce management to be too hard or error-prone
+> to handle, he should imvho seriously rise the bar and reconsider the way
+> he wants to contribute to the kernel.
 
-No point calling schedule_work(&port->wq); if packet was dropped.
+Well, for one, we could have a device managed register_netdev() which
+cleans up resources in case of failures and calls free_netdev()
+automatically, but is that adding much value?
 
-We are under pressure, so don't add extra cpu cycles ;)
+> 
+> I may hope he who reads e100.c to think about DMA api, bql or rx ring
+> holes avoidance to quote a few ones. Managed API ? Mildly...
+> 
+
+
+-- 
+Florian
