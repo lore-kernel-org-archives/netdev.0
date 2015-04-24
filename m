@@ -1,79 +1,43 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 15/21] ARCNET: capmode: remove extra function and use C99 in struct
-Date: Fri, 24 Apr 2015 19:20:49 +0200
-Message-ID: <1429896055-31680-16-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 02/21] ARCNET: fix hard_header_len limit
+Date: Fri, 24 Apr 2015 19:20:36 +0200
+Message-ID: <1429896055-31680-3-git-send-email-m.grzeschik@pengutronix.de>
 References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:44240 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:44255 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031388AbbDXRWS (ORCPT
+	with ESMTP id S1031399AbbDXRWS (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 13:22:18 -0400
 In-Reply-To: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch cleans the capmode protocol module. It removes the obsolete
-function arcnet_cap_init and uses the C99 struct definition. It also
-replaces printk with pr_info.
+The commit <9c7077622dd9> ("packet: make packet_snd fail on len smaller
+than l2 header") adds the check for minimum packet length of the used l2.
+For arcnet the hardware header length is not the complete archdr which
+includes hard + soft header. This patch changes the length to
+sizeof(arc_hardware).
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/capmode.c | 28 +++++++++++-----------------
- 1 file changed, 11 insertions(+), 17 deletions(-)
+ drivers/net/arcnet/arcnet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/arcnet/capmode.c b/drivers/net/arcnet/capmode.c
-index b6868a2..91ec9fa 100644
---- a/drivers/net/arcnet/capmode.c
-+++ b/drivers/net/arcnet/capmode.c
-@@ -229,22 +229,22 @@ free_outskb:
- 	return 0;
- }
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index 10f71c73..816d0e9 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -326,7 +326,7 @@ static void arcdev_setup(struct net_device *dev)
+ 	dev->type = ARPHRD_ARCNET;
+ 	dev->netdev_ops = &arcnet_netdev_ops;
+ 	dev->header_ops = &arcnet_header_ops;
+-	dev->hard_header_len = sizeof(struct archdr);
++	dev->hard_header_len = sizeof(struct arc_hardware);
+ 	dev->mtu = choose_mtu();
  
--static struct ArcProto capmode_proto =
--{
--	'r',
--	XMTU,
--	0,
--	rx,
--	build_header,
--	prepare_tx,
--	NULL,
--	ack_tx
-+static struct ArcProto capmode_proto = {
-+	.suffix		= 'r',
-+	.mtu		= XMTU,
-+	.rx		= rx,
-+	.build_header	= build_header,
-+	.prepare_tx	= prepare_tx,
-+	.continue_tx    = NULL,
-+	.ack_tx         = ack_tx
- };
- 
--static void arcnet_cap_init(void)
-+static int __init capmode_module_init(void)
- {
- 	int count;
- 
-+	pr_info(VERSION);
-+
- 	for (count = 1; count <= 8; count++)
- 		if (arc_proto_map[count] == arc_proto_default)
- 			arc_proto_map[count] = &capmode_proto;
-@@ -255,12 +255,6 @@ static void arcnet_cap_init(void)
- 
- 	arc_proto_default = &capmode_proto;
- 	arc_raw_proto = &capmode_proto;
--}
--
--static int __init capmode_module_init(void)
--{
--	printk(VERSION);
--	arcnet_cap_init();
- 	return 0;
- }
- 
+ 	dev->addr_len = ARCNET_ALEN;
 -- 
 2.1.4
