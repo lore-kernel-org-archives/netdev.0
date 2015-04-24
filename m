@@ -1,39 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: Add cap on number of elements in hash table
-Date: Fri, 24 Apr 2015 16:22:11 +0800
-Message-ID: <20150424082211.GA29731@gondor.apana.org.au>
-References: <1429799923-28122-1-git-send-email-johannes@sipsolutions.net>
- <20150423.115919.1353583175267783165.davem@davemloft.net>
- <20150424005729.GA27075@gondor.apana.org.au>
- <20150424080608.GM21799@casper.infradead.org>
- <20150424081224.GA29599@gondor.apana.org.au>
- <20150424081539.GN21799@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, johannes@sipsolutions.net,
-	netdev@vger.kernel.org, kaber@trash.net, johannes.berg@intel.com
-To: Thomas Graf <tgraf@suug.ch>
+From: roy.qing.li@gmail.com
+Subject: [PATCH][net-next] xfrm: slightly optimise xfrm_input
+Date: Fri, 24 Apr 2015 16:49:31 +0800
+Message-ID: <1429865371-14722-1-git-send-email-roy.qing.li@gmail.com>
+Cc: steffen.klassert@secunet.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:42912 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965702AbbDXIWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 04:22:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20150424081539.GN21799@casper.infradead.org>
+Received: from mail.windriver.com ([147.11.1.11]:58040 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965840AbbDXItl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 04:49:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 24, 2015 at 09:15:39AM +0100, Thomas Graf wrote:
-> 
-> You are claiming that the rhashtable convertion removed a cap. I'm
-> not seeing such a change. Can you point me to where netlink_insert()
-> enforced a cap pre-rhashtable?
+From: Li RongQing <roy.qing.li@gmail.com>
 
-OK you are right.  We never had such a limit.  In that case I'm
-OK with Johannes's original patch.
+Check x->km.state with XFRM_STATE_ACQ only when state is not
+XFRM_STAT_VALID, not everytime
 
-Cheers,
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/xfrm/xfrm_input.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 459796a..1858a45f 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -239,13 +239,13 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		skb->sp->xvec[skb->sp->len++] = x;
+ 
+ 		spin_lock(&x->lock);
+-		if (unlikely(x->km.state == XFRM_STATE_ACQ)) {
+-			XFRM_INC_STATS(net, LINUX_MIB_XFRMACQUIREERROR);
+-			goto drop_unlock;
+-		}
+ 
+ 		if (unlikely(x->km.state != XFRM_STATE_VALID)) {
+-			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEINVALID);
++			if (x->km.state == XFRM_STATE_ACQ)
++				XFRM_INC_STATS(net, LINUX_MIB_XFRMACQUIREERROR);
++			else
++				XFRM_INC_STATS(net,
++					       LINUX_MIB_XFRMINSTATEINVALID);
+ 			goto drop_unlock;
+ 		}
+ 
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.1.0
