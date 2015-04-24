@@ -1,55 +1,62 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 03/21] ARCNET: capmode: fix transfer length
-Date: Fri, 24 Apr 2015 19:20:37 +0200
-Message-ID: <1429896055-31680-4-git-send-email-m.grzeschik@pengutronix.de>
-References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 00/21] ARCNET: Defibrillation
+Date: Fri, 24 Apr 2015 19:20:34 +0200
+Message-ID: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel@pengutronix.de
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The commit <52edc17f94f7bd4d9> ("bugfixes and new hardware support for
-arcnet driver") adds fixes for the packet length calculations in
-arc-rawmode. As the capmode protocol is derived from the arc-rawmode
-code, the capmode also needs the fixes.
+Hi!
 
-rx():
-- Fixed error in received packet lengths; 256 byte packets were
-  being received as 257 bytes packets.
+This patch series tries to reanimate the ARCNET hardware layer to be
+somehow readable and maintainable again. It includes a lot of cleanup
+patches. It also adds some fixes which leads the layer to become usable
+again. And as a special treatment it adds more features like correct
+loading and unloading of the com20020 card.
 
-prepare_tx():
-- Fixed error in transmit length calcs; 257 byte packets were being
-  transmitted as 260 byte packets.
+Cheers,
+Michael
 
-Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
----
- drivers/net/arcnet/capmode.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Michael Grzeschik (21):
+  com20020-pci: add dev_port for udev handling
+  ARCNET: fix hard_header_len limit
+  ARCNET: capmode: fix transfer length
+  ARCNET: whitespace, tab and codingstyle fixes
+  ARCNET: remove unneeded macros
+  ARCNET: com20020: remove unneeded macros
+  ARCNET: rimi: remove unneeded macros
+  ARCNET: com90io: remove unneeded macros
+  ARCNET: com90xx: remove unneeded macros
+  ARCNET: com20020: fix ioaddr prefixes
+  ARCNET: rimi: fix ioaddr prefixes
+  ARCNET: com90io: fix ioaddr prefixes
+  ARCNET: com90xx: fix ioaddr prefixes
+  ARCNET: arc-rawmode: reorder module functions
+  ARCNET: capmode: remove extra function and use C99 in struct
+  ARCNET: capmode: move dev_free_skb to its only user
+  ARCNET: com20020: replace magic numbers with readable macros
+  ARCNET: com20020: remove obsolete BUS_ALIGN offset factor
+  ARCNET: com20020: add enable and disable device on open/close
+  ARCNET: com20020-pci: reformat structs to C99 format
+  ARCNET: com20020-pci: add rotary index support
 
-diff --git a/drivers/net/arcnet/capmode.c b/drivers/net/arcnet/capmode.c
-index 42fce91..b6868a2 100644
---- a/drivers/net/arcnet/capmode.c
-+++ b/drivers/net/arcnet/capmode.c
-@@ -49,7 +49,7 @@ static void rx(struct net_device *dev, int bufnum,
- 
- 	BUGMSG(D_DURING, "it's a raw(cap) packet (length=%d)\n", length);
- 
--	if (length >= MinTU)
-+	if (length > MTU)
- 		ofs = 512 - length;
- 	else
- 		ofs = 256 - length;
-@@ -156,7 +156,7 @@ static int prepare_tx(struct net_device *dev, struct archdr *pkt, int length,
- 		       length, XMTU);
- 		length = XMTU;
- 	}
--	if (length > MinTU) {
-+	if (length >= MinTU) {
- 		hard->offset[0] = 0;
- 		hard->offset[1] = ofs = 512 - length;
- 	} else if (length > MTU) {
+ drivers/net/arcnet/arc-rawmode.c  |  91 +++++-------
+ drivers/net/arcnet/arc-rimi.c     |  42 ++----
+ drivers/net/arcnet/arcnet.c       | 192 +++++++++++-------------
+ drivers/net/arcnet/capmode.c      |  32 ++--
+ drivers/net/arcnet/com20020-isa.c |   4 +-
+ drivers/net/arcnet/com20020-pci.c |  66 ++++++++-
+ drivers/net/arcnet/com20020.c     | 152 +++++++++++--------
+ drivers/net/arcnet/com20020_cs.c  | 302 ++++++++++++++++++--------------------
+ drivers/net/arcnet/com90io.c      |  98 ++++++-------
+ drivers/net/arcnet/com90xx.c      |  65 ++++----
+ include/linux/arcdevice.h         |  15 +-
+ include/linux/com20020.h          |  69 +++------
+ include/uapi/linux/if_arcnet.h    |  48 +++---
+ 13 files changed, 572 insertions(+), 604 deletions(-)
+
 -- 
 2.1.4
