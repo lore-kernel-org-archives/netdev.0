@@ -1,52 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] inet: fix possible panic in reqsk_queue_unlink()
-Date: Fri, 24 Apr 2015 11:39:30 -0400 (EDT)
-Message-ID: <20150424.113930.411412345479090439.davem@davemloft.net>
-References: <1429837424.22254.110.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com
-To: eric.dumazet@gmail.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v4 RFC 04/15] flow_dissector: fix doc for __skb_get_hash and remove couple of empty lines
+Date: Fri, 24 Apr 2015 17:51:30 +0200
+Message-ID: <1429890701-30052-5-git-send-email-jiri@resnulli.us>
+References: <1429890701-30052-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
+	jesse@nicira.com, kaber@trash.net, therbert@google.com,
+	edumazet@google.com, alexander.h.duyck@redhat.com,
+	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
+	herbert@gondor.apana.org.au, cwang@twopensource.com,
+	john.fastabend@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51130 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752801AbbDXPjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:39:31 -0400
-In-Reply-To: <1429837424.22254.110.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:34081 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031220AbbDXPvw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:51:52 -0400
+Received: by wicmx19 with SMTP id mx19so38024704wic.1
+        for <netdev@vger.kernel.org>; Fri, 24 Apr 2015 08:51:50 -0700 (PDT)
+In-Reply-To: <1429890701-30052-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Apr 2015 18:03:44 -0700
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/flow_dissector.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> [ 3897.923145] BUG: unable to handle kernel NULL pointer dereference at
->  0000000000000080
-> [ 3897.931025] IP: [<ffffffffa9f27686>] reqsk_timer_handler+0x1a6/0x243
-> 
-> There is a race when reqsk_timer_handler() and tcp_check_req() call
-> inet_csk_reqsk_queue_unlink() on the same req at the same time.
-> 
-> Before commit fa76ce7328b2 ("inet: get rid of central tcp/dccp listener
-> timer"), listener spinlock was held and race could not happen.
-> 
-> To solve this bug, we change reqsk_queue_unlink() to not assume req
-> must be found, and we return a status, to conditionally release a
-> refcount on the request sock.
-> 
-> This also means tcp_check_req() in non fastopen case might or not
-> consume req refcount, so tcp_v6_hnd_req() & tcp_v4_hnd_req() have
-> to properly handle this.
-> 
-> (Same remark for dccp_check_req() and its callers)
-> 
-> inet_csk_reqsk_queue_drop() is now too big to be inlined, as it is
-> called 4 times in tcp and 3 times in dccp.
-> 
-> Fixes: fa76ce7328b2 ("inet: get rid of central tcp/dccp listener timer")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Yuchung Cheng <ycheng@google.com>
-
-Applied, thanks Eric.
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 1d4c54d..6a02b26 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -300,8 +300,11 @@ u32 flow_hash_from_keys(struct flow_keys *keys)
+ }
+ EXPORT_SYMBOL(flow_hash_from_keys);
+ 
+-/*
+- * __skb_get_hash: calculate a flow hash based on src/dst addresses
++/**
++ * __skb_get_hash - calculate a flow hash
++ * @skb: sk_buff to calculate flow hash from
++ *
++ * This function calculates a flow hash based on src/dst addresses
+  * and src/dst port numbers.  Sets hash in skb to non-zero hash value
+  * on success, zero indicates no valid hash.  Also, sets l4_hash in skb
+  * if hash is a canonical 4-tuple hash over transport ports.
+@@ -312,12 +315,9 @@ void __skb_get_hash(struct sk_buff *skb)
+ 
+ 	if (!skb_flow_dissect(skb, &keys))
+ 		return;
+-
+ 	if (keys.ports)
+ 		skb->l4_hash = 1;
+-
+ 	skb->sw_hash = 1;
+-
+ 	skb->hash = __flow_hash_from_keys(&keys);
+ }
+ EXPORT_SYMBOL(__skb_get_hash);
+-- 
+1.9.3
