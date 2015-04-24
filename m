@@ -1,90 +1,142 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: rhashtable: Add cap on number of elements in hash table
-Date: Fri, 24 Apr 2015 09:01:10 +0200
-Message-ID: <1429858870.1852.7.camel@sipsolutions.net>
-References: <1429799923-28122-1-git-send-email-johannes@sipsolutions.net>
-	 <20150423.115919.1353583175267783165.davem@davemloft.net>
-	 <20150424005729.GA27075@gondor.apana.org.au>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [RFC PATCH v3 00/10] an introduction of library operating system
+ for Linux (LibOS)
+Date: Fri, 24 Apr 2015 09:40:32 +0200
+Message-ID: <5539F370.9070704@nod.at>
+References: <1429263374-57517-1-git-send-email-tazaki@sfc.wide.ad.jp> <1429450104-47619-1-git-send-email-tazaki@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, tgraf@suug.ch
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:38851 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933431AbbDXHBU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Apr 2015 03:01:20 -0400
-In-Reply-To: <20150424005729.GA27075@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Bergmann <arnd@arndb.de>, Jonathan Corbet <corbet@lwn.net>,
+	Christoph Lameter <cl@linux.com>,
+	Jekka Enberg <penberg@kernel.org>,
+	Javid Rientjes <rientjes@google.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Jndrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	Jeff Dike <jdike@addtoit.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Ryo Nakamura <upa@haeena.net>,
+	Christoph Paasch <christoph.paasch@gmail.com>,
+	Mathieu Lacage <mathieu.lacage@gmail.com>,
+	libos-nuse@googlegroups.com
+To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>, linux-arch@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1429450104-47619-1-git-send-email-tazaki@sfc.wide.ad.jp>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-04-24 at 08:57 +0800, Herbert Xu wrote:
+Hi!
 
-> It seems that I lost track somewhere along the line.  I meant
-> to add an explicit limit on the overall number of entries since
-> that was what users like netlink expected but never got around
-> to doing it.  Instead it seems that we're currently relying on
-> the rht_grow_above_100 to protect us.
+Am 19.04.2015 um 15:28 schrieb Hajime Tazaki:
+> changes from v2:
+> - Patch 02/11 ("slab: add private memory allocator header for arch/li=
+b")
+> * add new allocator named SLIB (Library Allocator): Patch 04/11 is in=
+tegrated
+>   to 02 (commented by Christoph Lameter)
+> - Overall
+> * rewrite commit log messages
+>=20
+> changes from v1:
+> - Patch 01/11 ("sysctl: make some functions unstatic to access by arc=
+h/lib"):
+> * add prefix ctl_table_ to newly publiced functions (commented by Joe=
+ Perches)
+> - Patch 08/11 ("lib: other kernel glue layer code"):
+> * significantly reduce glue codes (stubs) (commented by Richard Weinb=
+erger)
+> - Others
+> * adapt to linux-4.0.0
+> * detect make dependency by Kbuild .cmd files
 
-This isn't really what I wanted though :-)
+I still fail to build it. :-(
 
-I just wanted to test hash collisions.
+for-asm-upstream-v3 on top of Linus' tree gives:
 
-> We currently have no limit on the number of elements in a hash table.
-> This is very bad especially considering that some rhashtable users
-> had such a limit before the conversion and relied on it for defence
-> against DoS attacks.
-> 
-> We already have a maximum hash table size limit but its enforcement
-> is only by luck and results in a nasty WARN_ON.
+rw@sandpuppy:~/linux (libos $)> make library ARCH=3Dlib
+  OBJS-MK   arch/lib/objs.mk
+arch/lib/Makefile.print:41: target 'lzo/' given more than once in the s=
+ame rule.
+make[2]: Nothing to be done for '.config'.
+scripts/kconfig/conf  --silentoldconfig arch/lib/Kconfig
+  CHK     include/config/kernel.release
+  CHK     include/generated/utsrelease.h
+  CHK     include/generated/uapi/linux/version.h
+  CHK     include/generated/compile.h
+  GEN     arch/lib/timeconst.h
+  GEN     arch/lib/linker.lds
+  CC      arch/lib/lib.o
+  CC      arch/lib/lib-device.o
+  CC      arch/lib/lib-socket.o
+  CC      arch/lib/random.o
+  CC      arch/lib/softirq.o
+  CC      arch/lib/time.o
+  CC      arch/lib/timer.o
+  CC      arch/lib/hrtimer.o
+  CC      arch/lib/sched.o
+  CC      arch/lib/workqueue.o
+  CC      arch/lib/print.o
+  CC      arch/lib/tasklet.o
+  CC      arch/lib/tasklet-hrtimer.o
+  CC      arch/lib/glue.o
+  CC      arch/lib/fs.o
+  CC      arch/lib/sysctl.o
+  CC      arch/lib/proc.o
+  CC      arch/lib/sysfs.o
+  CC      arch/lib/capability.o
+arch/lib/capability.c:16:6: error: redefinition of =E2=80=98capable=E2=80=
+=99
+ bool capable(int cap)
+      ^
+In file included from arch/lib/capability.c:9:0:
+=2E/include/linux/capability.h:236:20: note: previous definition of =E2=
+=80=98capable=E2=80=99 was here
+ static inline bool capable(int cap)
+                    ^
+arch/lib/capability.c:39:6: error: redefinition of =E2=80=98ns_capable=E2=
+=80=99
+ bool ns_capable(struct user_namespace *ns, int cap)
+      ^
+In file included from arch/lib/capability.c:9:0:
+=2E/include/linux/capability.h:240:20: note: previous definition of =E2=
+=80=98ns_capable=E2=80=99 was here
+ static inline bool ns_capable(struct user_namespace *ns, int cap)
+                    ^
+arch/lib/Makefile:210: recipe for target 'arch/lib/capability.o' failed
+make: *** [arch/lib/capability.o] Error 1
 
-And doesn't actually work, the insertion appears to succeed :-)
+And on top of v4.0 it fails too:
 
-> This patch adds a new paramater insecure_max_entries which becomes
+rw@sandpuppy:~/linux (libos-v4.0 $)> make library ARCH=3Dlib
+  OBJS-MK   arch/lib/objs.mk
+arch/lib/Makefile.print:41: target 'lzo/' given more than once in the s=
+ame rule.
+make[2]: Nothing to be done for '.config'.
+scripts/kconfig/conf --silentoldconfig arch/lib/Kconfig
+  CHK     include/config/kernel.release
+  CHK     include/generated/utsrelease.h
+  CHK     include/generated/uapi/linux/version.h
+  CHK     include/generated/compile.h
+  GEN     arch/lib/timeconst.h
+  GEN     arch/lib/linker.lds
+  CC      arch/lib/lib.o
+  CC      arch/lib/lib-device.o
+  CC      arch/lib/lib-socket.o
+arch/lib/lib-socket.c: In function =E2=80=98lib_sock_sendmsg=E2=80=99:
+arch/lib/lib-socket.c:114:2: error: too few arguments to function =E2=80=
+=98sock_sendmsg=E2=80=99
+  retval =3D sock_sendmsg(kernel_socket, &msg_sys);
+  ^
+In file included from arch/lib/lib-socket.c:12:0:
+=2E/include/linux/net.h:216:5: note: declared here
+ int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t len);
+     ^
+arch/lib/Makefile:210: recipe for target 'arch/lib/lib-socket.o' failed
+make: *** [arch/lib/lib-socket.o] Error 1
 
-typo: parameter
+You *really* need to shape up wrt the build process.
 
-> the cap on the table.  If unset it defaults to max_size.  
-
-So at least for my (admittedly testing only) use case, I wouldn't want
-it to default to max_size, since the two at least *seem* to do different
-things (max # of chains vs. max # of entries), no?
-
-Anyway - since it's for testing only I guess I could even set max_size
-to 4 and insecure_max_entries to something far bigger :)
-
-> If it is
-> also zero it means that there is no cap on the number of elements
-> in the table.  However, the table will grow whenever the utilisation
-> hits 100% and if that growth fails, you will get ENOMEM on insertion.
-> 
-> As allowing >100% utilisation is potentially dangerous, the name
-> contains the word insecure.
-
-Not sure I get this. So rhashtable is trying to actually never have
-collisions? How could that possibly work?
-
-> @@ -282,7 +285,20 @@ static inline bool rht_shrink_below_30(const struct rhashtable *ht,
->  static inline bool rht_grow_above_100(const struct rhashtable *ht,
->  				      const struct bucket_table *tbl)
->  {
-> -	return atomic_read(&ht->nelems) > tbl->size;
-> +	return atomic_read(&ht->nelems) > tbl->size &&
-> +	       (!ht->p.max_size || tbl->size < ht->p.max_size);
-> +}
-
-Since you're also doing what I did here, would it make sense to apply my
-patch to net and this one only to net-next?
-
-For my use case (which was testing/debug) I don't actually care that
-much, but perhaps that'd be an easier sell towards the end of the merge
-window :) It seems that my patch would mostly fix the *issue*, while
-yours actually adds a new parameter that's also not actually used yet.
-
-The netlink hash table could potentially hit max_size and thus the
-warning and the case I was hitting (on a system with >>64k netlink
-sockets.)
-
-johannes
+Thanks,
+//richard
