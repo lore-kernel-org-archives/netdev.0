@@ -1,51 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mdio-gpio: support access that may sleep
-Date: Fri, 24 Apr 2015 12:01:42 -0400 (EDT)
-Message-ID: <20150424.120142.515098054679955418.davem@davemloft.net>
-References: <1429722414-18173-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-	<20150424.110455.2117537129018647564.davem@davemloft.net>
-	<553A67B2.3040400@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <553A67B2.3040400@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH for 4.1] rtlwifi: rtl8192cu: Fix kernel deadlock
+Date: Fri, 24 Apr 2015 11:03:37 -0500
+Message-ID: <1429891417-1224-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
+	Bernhard Wiedemann <bwiedemann@suse.com>,
+	Takashi Iwai <tiwai@suse.com>
+To: kvalo@codeaurora.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 24 Apr 2015 08:56:34 -0700
+The USB mini-driver in rtlwifi, which is used by rtl8192cu, issues a call to
+usb_control_msg() with a timeout value of 0. In some instances where the
+interface is shutting down, this infinite wait results in a CPU deadlock. A
+one second timeout fixes this problem without affecting any normal operations.
 
-> On 24/04/15 08:04, David Miller wrote:
->> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> Date: Wed, 22 Apr 2015 13:06:54 -0400
->> 
->>> Some systems using mdio-gpio may use gpio on message based busses, which
->>> require sleeping (e.g. gpio from an I2C I/O expander).
->>>
->>> Since this driver does not use IRQ handler, it is safe to use the
->>> _cansleep suffixed gpio accessors.
->>>
->>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> 
->> Since this is down underneath the layer of an MII bus, you cannot
->> universally say that these routines are always called in a sleepable
->> context.
->> 
->> The PHY layer, and the driver itself above that, might call these
->> routines from timers, interruptes etc.
-> 
-> The PHY library calls these routines from its state machine workqueue
-> for that reason, or from process context (when invoked via ethtool
-> ioctl). The only special case is phy_mac_interrupt() which is callable
-> from interrupt context, but schedules the state machine workqueue anyway
-> to circumvent the "in-interrupt" context.
-> 
-> If we were not doing that, there would be a number of things broken, for
-> instance the per-MDIO bus mutex would not protect us from anything.
+This bug is reported at https://bugzilla.novell.com/show_bug.cgi?id=927786.
 
-Does the link state polling timer use a workqueue in this manner as
-well?
+Reported-by: Bernhard Wiedemann <bwiedemann@suse.com>
+Tested-by: Bernhard Wiedemann <bwiedemann@suse.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org>
+Cc: Bernhard Wiedemann <bwiedemann@suse.com>
+Cc: Takashi Iwai<tiwai@suse.com>
+---
+
+Kalle,
+
+I marked this patch for V4.1, and I hope that timing can be met.
+
+Thanks,
+
+Larry
+---
+
+ drivers/net/wireless/rtlwifi/usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
+index 46ee956..27cd6ca 100644
+--- a/drivers/net/wireless/rtlwifi/usb.c
++++ b/drivers/net/wireless/rtlwifi/usb.c
+@@ -126,7 +126,7 @@ static int _usbctrl_vendorreq_sync_read(struct usb_device *udev, u8 request,
+ 
+ 	do {
+ 		status = usb_control_msg(udev, pipe, request, reqtype, value,
+-					 index, pdata, len, 0); /*max. timeout*/
++					 index, pdata, len, 1000);
+ 		if (status < 0) {
+ 			/* firmware download is checksumed, don't retry */
+ 			if ((value >= FW_8192C_START_ADDRESS &&
+-- 
+2.1.4
