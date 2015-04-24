@@ -1,52 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: avoid looping in tcp_send_fin()
-Date: Fri, 24 Apr 2015 11:07:44 -0400 (EDT)
-Message-ID: <20150424.110744.1450285878142227065.davem@davemloft.net>
-References: <1429807692.22254.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150423.131234.2270841808622853554.davem@davemloft.net>
-	<1429810959.22254.74.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH] net: netcp: remove call to netif_carrier_(on/off) for
+ MAC to Phy interface
+Date: Fri, 24 Apr 2015 11:18:00 -0400
+Message-ID: <553A5EA8.4010908@ti.com>
+References: <1429816627-24337-1-git-send-email-m-karicheri2@ti.com> <553A4623.2070802@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johunt@akamai.com, netdev@vger.kernel.org, edumazet@google.com,
-	ncardwell@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50918 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757392AbbDXPHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:07:46 -0400
-In-Reply-To: <1429810959.22254.74.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <553A4623.2070802@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Apr 2015 10:42:39 -0700
+On 04/24/2015 09:33 AM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 4/23/2015 10:17 PM, Murali Karicheri wrote:
+>
+>> Currently when interface type is MAC to Phy, netif_carrier_(on/off)
+>> is called which is not needed as Phy lib already updates the carrier
+>> status to net stack. This is needed only for other interface types
+>
+>> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+>> ---
+>>   drivers/net/ethernet/ti/netcp_ethss.c |    8 ++++++--
+>>   1 file changed, 6 insertions(+), 2 deletions(-)
+>
+>> diff --git a/drivers/net/ethernet/ti/netcp_ethss.c 
+>> b/drivers/net/ethernet/ti/netcp_ethss.c
+>> index 2bef655..0a1ef2e 100644
+>> --- a/drivers/net/ethernet/ti/netcp_ethss.c
+>> +++ b/drivers/net/ethernet/ti/netcp_ethss.c
+>> @@ -1765,7 +1765,9 @@ static void 
+>> netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
+>>                        ALE_PORT_STATE,
+>>                        ALE_PORT_STATE_FORWARD);
+>>
+>> -        if (ndev && slave->open)
+>> +        if (ndev && slave->open &&
+>> +            ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
+>> +            (slave->link_interface != XGMII_LINK_MAC_PHY)))
+>
+>    You don't need extra parens around &&.
+You are right! I will fix it up and re-send.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Presence of an unbound loop in tcp_send_fin() had always been hard
-> to explain when analyzing crash dumps involving gigantic dying processes
-> with millions of sockets.
-> 
-> Lets try a different strategy :
-> 
-> In case of memory pressure, try to add the FIN flag to last packet
-> in write queue, even if packet was already sent. TCP stack will
-> be able to deliver this FIN after a timeout event. Note that this
-> FIN being delivered by a retransmit, it also carries a Push flag
-> given our current implementation.
-> 
-> By checking sk_under_memory_pressure(), we anticipate that cooking
-> many FIN packets might deplete tcp memory.
-> 
-> In the case we could not allocate a packet, even with __GFP_WAIT
-> allocation, then not sending a FIN seems quite reasonable if it allows
-> to get rid of this socket, free memory, and not block the process from
-> eventually doing other useful work.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Mruali
+>
+>>               netif_carrier_on(ndev);
+>>       } else {
+>>           writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
+>> @@ -1773,7 +1775,9 @@ static void 
+>> netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
+>>           cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
+>>                        ALE_PORT_STATE,
+>>                        ALE_PORT_STATE_DISABLE);
+>> -        if (ndev)
+>> +        if (ndev &&
+>> +            ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
+>> +            (slave->link_interface != XGMII_LINK_MAC_PHY)))
+>
+>    Likewise.
+>
+> WBR, Sergei
+>
 
-This is really nice, and long overdue, so I'm going to apply this now.
 
-Thanks Eric.
+-- 
+Murali Karicheri
+Linux Kernel, Texas Instruments
