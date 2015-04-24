@@ -1,66 +1,64 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [RFC PATCH v3 00/10] an introduction of library operating system
- for Linux (LibOS)
-Date: Fri, 24 Apr 2015 10:59:21 +0200
-Message-ID: <553A05E9.7040601@nod.at>
-References: <1429263374-57517-1-git-send-email-tazaki@sfc.wide.ad.jp>	<1429450104-47619-1-git-send-email-tazaki@sfc.wide.ad.jp>	<5539F370.9070704@nod.at> <m2r3randg5.wl@sfc.wide.ad.jp>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3] Renesas Ethernet AVB driver
+Date: Fri, 24 Apr 2015 09:03:42 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB24BB5@AcuExch.aculab.com>
+References: <SIXPR06MB03142A49C392C39922DC2BDA3EE0@SIXPR06MB031.apcprd06.prod.outlook.com>
+	<20150422.113654.1169277303695917496.davem@davemloft.net>
+	<553804CA.1030605@cogentembedded.com>
+ <20150422.164242.2185477513394713122.davem@davemloft.net>
+ <553814F0.40405@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: linux-arch@vger.kernel.org, arnd@arndb.de, corbet@lwn.net,
-	cl@linux.com, penberg@kernel.org, rientjes@google.com,
-	iamjoonsoo.kim@lge.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org, jdike@addtoit.com,
-	rusty@rustcorp.com.au, upa@haeena.net, christoph.paasch@gmail.com,
-	mathieu.lacage@gmail.com, libos-nuse@googlegroups.com
-To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <m2r3randg5.wl@sfc.wide.ad.jp>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "mitsuhiro.kimura.kc@renesas.com" <mitsuhiro.kimura.kc@renesas.com>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.com" <pawel.moll@arm.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"masaru.nagai.vx@renesas.com" <masaru.nagai.vx@renesas.com>
+To: 'Sergei Shtylyov' <sergei.shtylyov@cogentembedded.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.181]:59413 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934577AbbDXJFO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 05:05:14 -0400
+In-Reply-To: <553814F0.40405@cogentembedded.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Sergei Shtylyov
+> Sent: 22 April 2015 22:39
+> On 04/22/2015 11:42 PM, David Miller wrote:
+> 
+> >>     Hmm, I've been digging in the net core, and was unable to see where TX
+> >>     skb's get their NET_IP_ALIGN bytes reserved. Have I missed something?
+> >>     Probably need to print out skb's fields...
+> 
+> > NET_IP_ALIGN is for receive, not transmit.
+> 
+>     But when I print 'skb->data' from the ndo_start_xmit() method (in the
+> 'sh_eth' driver), all addresses end with 2, so it looks like NET_IP_ALIGN gets
+> added somewhere...
 
-Am 24.04.2015 um 10:22 schrieb Hajime Tazaki:
->> You *really* need to shape up wrt the build process.
-> 
-> at the moment, the implementation of libos can't automate to
-> follow such changes in the build process. but good news is
-> it's a trivial task to follow up the latest function.
-> 
-> my observation on this manual follow up since around 3.7
-> kernel (2.5 yrs ago) is that these changes mostly happened
-> during merge-window of each new version, and the fix only
-> takes a couple of hours at maximum.
-> 
-> I think I can survive with these changes but I'd like to ask
-> broader opinions.
-> 
-> 
-> one more question:
-> 
-> I'd really like to have a suggestion on which tree I should
-> base for libos tree.
-> 
-> I'm proposing a patchset to arnd/asm-generic tree (which I
-> believe the base tree for new arch/), while the patchset is
-> tested with davem/net-next tree because right now libos is
-> only for net/.
-> 
-> shall I propose a patchset based on Linus' tree instead ?
+For a locally generated message:
+The TCP userdata is likely to be 4 byte aligned.
+The TCP and IP headers are multiples of 4 bytes.
+The MAC header is 14 bytes.
+So you end up with a buffer that starts on a 4n+2 boundary or an initial
+short fragment that is 4n+2 bytes long.
 
-I'd suggest the following:
-Maintain LibOS in your git tree and follow Linus' tree.
-Make sure that all kernel releases build and work.
+If a message is being forwarded the alignment probably depends on where
+it came from.
 
-This way you can experiment with automation and other
-stuff. If it works well you can ask for mainline inclusion
-after a few kernel releases.
+If you have ethernet hardware that requires tx or rx buffers to be on
+4n boundaries you should send it back as 'not fit for purpose'.
 
-Your git history will show how much maintenance burden
-LibOS has and how much with every merge window breaks and
-needs manual fixup.
-
-Thanks,
-//richard
+	David
