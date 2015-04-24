@@ -1,73 +1,37 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH] net: netcp: remove call to netif_carrier_(on/off) for
- MAC to Phy interface
-Date: Fri, 24 Apr 2015 11:18:00 -0400
-Message-ID: <553A5EA8.4010908@ti.com>
-References: <1429816627-24337-1-git-send-email-m-karicheri2@ti.com> <553A4623.2070802@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][FIX 4.1] bgmac: fix requests for extra polling calls
+ from NAPI
+Date: Fri, 24 Apr 2015 11:32:03 -0400 (EDT)
+Message-ID: <20150424.113203.653089953794770127.davem@davemloft.net>
+References: <1429815389-17265-1-git-send-email-zajec5@gmail.com>
+	<55394134.3070505@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <553A4623.2070802@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: zajec5@gmail.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hauke@hauke-m.de
+To: nbd@openwrt.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51044 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932218AbbDXPcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:32:05 -0400
+In-Reply-To: <55394134.3070505@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/24/2015 09:33 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 4/23/2015 10:17 PM, Murali Karicheri wrote:
->
->> Currently when interface type is MAC to Phy, netif_carrier_(on/off)
->> is called which is not needed as Phy lib already updates the carrier
->> status to net stack. This is needed only for other interface types
->
->> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
->> ---
->>   drivers/net/ethernet/ti/netcp_ethss.c |    8 ++++++--
->>   1 file changed, 6 insertions(+), 2 deletions(-)
->
->> diff --git a/drivers/net/ethernet/ti/netcp_ethss.c 
->> b/drivers/net/ethernet/ti/netcp_ethss.c
->> index 2bef655..0a1ef2e 100644
->> --- a/drivers/net/ethernet/ti/netcp_ethss.c
->> +++ b/drivers/net/ethernet/ti/netcp_ethss.c
->> @@ -1765,7 +1765,9 @@ static void 
->> netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
->>                        ALE_PORT_STATE,
->>                        ALE_PORT_STATE_FORWARD);
->>
->> -        if (ndev && slave->open)
->> +        if (ndev && slave->open &&
->> +            ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
->> +            (slave->link_interface != XGMII_LINK_MAC_PHY)))
->
->    You don't need extra parens around &&.
-You are right! I will fix it up and re-send.
+=46rom: Felix Fietkau <nbd@openwrt.org>
+Date: Thu, 23 Apr 2015 21:00:04 +0200
 
-Mruali
->
->>               netif_carrier_on(ndev);
->>       } else {
->>           writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
->> @@ -1773,7 +1775,9 @@ static void 
->> netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
->>           cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
->>                        ALE_PORT_STATE,
->>                        ALE_PORT_STATE_DISABLE);
->> -        if (ndev)
->> +        if (ndev &&
->> +            ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
->> +            (slave->link_interface != XGMII_LINK_MAC_PHY)))
->
->    Likewise.
->
-> WBR, Sergei
->
+> On 2015-04-23 20:56, Rafa=A9=A9 Mi=A9=A9ecki wrote:
+>> After d75b1ade567f ("net: less interrupt masking in NAPI") polling
+>> function has to return whole budget when it wants NAPI to call it ag=
+ain.
+>>=20
+>> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+>> Cc: Felix Fietkau <nbd@openwrt.org>
+>> Fixes: eb64e2923a886 ("bgmac: leave interrupts disabled as long as t=
+here is work to do")
+> Acked-by: Felix Fietkau <nbd@openwrt.org>
 
-
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+Applied, thanks everyone.
