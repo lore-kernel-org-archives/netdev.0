@@ -1,43 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: mdio-gpio: support access that may sleep
-Date: Fri, 24 Apr 2015 11:04:55 -0400 (EDT)
-Message-ID: <20150424.110455.2117537129018647564.davem@davemloft.net>
-References: <1429722414-18173-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] tcp: avoid looping in tcp_send_fin()
+Date: Fri, 24 Apr 2015 11:07:44 -0400 (EDT)
+Message-ID: <20150424.110744.1450285878142227065.davem@davemloft.net>
+References: <1429807692.22254.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150423.131234.2270841808622853554.davem@davemloft.net>
+	<1429810959.22254.74.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429722414-18173-1-git-send-email-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: johunt@akamai.com, netdev@vger.kernel.org, edumazet@google.com,
+	ncardwell@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50918 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757392AbbDXPHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:07:46 -0400
+In-Reply-To: <1429810959.22254.74.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed, 22 Apr 2015 13:06:54 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 Apr 2015 10:42:39 -0700
 
-> Some systems using mdio-gpio may use gpio on message based busses, which
-> require sleeping (e.g. gpio from an I2C I/O expander).
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Since this driver does not use IRQ handler, it is safe to use the
-> _cansleep suffixed gpio accessors.
+> Presence of an unbound loop in tcp_send_fin() had always been hard
+> to explain when analyzing crash dumps involving gigantic dying processes
+> with millions of sockets.
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Lets try a different strategy :
+> 
+> In case of memory pressure, try to add the FIN flag to last packet
+> in write queue, even if packet was already sent. TCP stack will
+> be able to deliver this FIN after a timeout event. Note that this
+> FIN being delivered by a retransmit, it also carries a Push flag
+> given our current implementation.
+> 
+> By checking sk_under_memory_pressure(), we anticipate that cooking
+> many FIN packets might deplete tcp memory.
+> 
+> In the case we could not allocate a packet, even with __GFP_WAIT
+> allocation, then not sending a FIN seems quite reasonable if it allows
+> to get rid of this socket, free memory, and not block the process from
+> eventually doing other useful work.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Since this is down underneath the layer of an MII bus, you cannot
-universally say that these routines are always called in a sleepable
-context.
+This is really nice, and long overdue, so I'm going to apply this now.
 
-The PHY layer, and the driver itself above that, might call these
-routines from timers, interruptes etc.
-
-In fact, since the whole point of this driver is to provide a specific
-implementation for programming registers over an MII bus, it's quite
-rediculuous to say that just because interrupts are not used in this
-implementation it means that sleeping is always valid.
-
-You have to look at all of the (real and potential) users, all the way
-up into the specific ethernet drivers.
-
-Sorry I'm not applying this.
+Thanks Eric.
