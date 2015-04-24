@@ -1,95 +1,253 @@
 From: Michael Grzeschik <m.grzeschik@pengutronix.de>
-Subject: [PATCH 18/21] ARCNET: com20020: remove obsolete BUS_ALIGN offset factor
-Date: Fri, 24 Apr 2015 19:20:52 +0200
-Message-ID: <1429896055-31680-19-git-send-email-m.grzeschik@pengutronix.de>
+Subject: [PATCH 05/21] ARCNET: remove unneeded macros
+Date: Fri, 24 Apr 2015 19:20:39 +0200
+Message-ID: <1429896055-31680-6-git-send-email-m.grzeschik@pengutronix.de>
 References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel@pengutronix.de
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:44292 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031546AbbDXRWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 13:22:24 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes the obsolete macro BUS_ALIGN as the kernel option
-CONFIG_SA1100_CT6001 is not longer available.
+The simple macros ARCRESET, ACOMMAND, ASTATUS, AINTMASK are unnecessary
+indirections to the use of registers. This patch removes them and improves the
+readability of the code.
 
 Signed-off-by: Michael Grzeschik <m.grzeschik@pengutronix.de>
 ---
- drivers/net/arcnet/com20020.c |  4 ++--
- include/linux/com20020.h      | 27 ++++++++++-----------------
- 2 files changed, 12 insertions(+), 19 deletions(-)
+ drivers/net/arcnet/arcnet.c | 68 +++++++++++++++++++++++----------------------
+ include/linux/arcdevice.h   |  7 -----
+ 2 files changed, 35 insertions(+), 40 deletions(-)
 
-diff --git a/drivers/net/arcnet/com20020.c b/drivers/net/arcnet/com20020.c
-index 27ad484..1dbc748 100644
---- a/drivers/net/arcnet/com20020.c
-+++ b/drivers/net/arcnet/com20020.c
-@@ -134,7 +134,7 @@ int com20020_check(struct net_device *dev)
- 	/* Enable TX */
- 	lp->config |= TXENcfg;
- 	outb(lp->config, ioaddr + _CONFIG);
--	outb(inb(ioaddr + BUS_ALIGN * 8), ioaddr + _XREG);
-+	outb(inb(ioaddr + 8), ioaddr + _XREG);
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index f83034c..4990b0d 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -382,7 +382,7 @@ int arcnet_open(struct net_device *dev)
+ 	 * time, actually reset it.
+ 	 */
+ 	error = -ENODEV;
+-	if (ARCRESET(0) && ARCRESET(1))
++	if (lp->hw.reset(dev, 0) && lp->hw.reset(dev, 1))
+ 		goto out_module_put;
  
- 	outb((CFLAGScmd | RESETclear | CONFIGclear), ioaddr + _COMMAND);
+ 	newmtu = choose_mtu();
+@@ -427,22 +427,22 @@ int arcnet_open(struct net_device *dev)
+ 		       "DOS networking programs!\n");
  
-@@ -200,7 +200,7 @@ int com20020_found(struct net_device *dev, int shared)
- 	lp->hw.close = com20020_close;
+ 	BUGMSG(D_DEBUG, "%s: %d: %s\n",__FILE__,__LINE__,__func__);
+-	if (ASTATUS() & RESETflag) {
++	if (lp->hw.status(dev) & RESETflag) {
+ 	  	BUGMSG(D_DEBUG, "%s: %d: %s\n",__FILE__,__LINE__,__func__);
+-		ACOMMAND(CFLAGScmd | RESETclear);
++		lp->hw.command(dev, CFLAGScmd | RESETclear);
+ 	}
  
- 	if (!dev->dev_addr[0])
--		dev->dev_addr[0] = inb(ioaddr + BUS_ALIGN*8);	/* FIXME: do this some other way! */
-+		dev->dev_addr[0] = inb(ioaddr + 8);	/* FIXME: do this some other way! */
  
- 	lp->config = (lp->config & ~0x03) | SUB_SETUP1;
- 	outb(lp->config, ioaddr + _CONFIG);
-diff --git a/include/linux/com20020.h b/include/linux/com20020.h
-index f194b74..939d69d 100644
---- a/include/linux/com20020.h
-+++ b/include/linux/com20020.h
-@@ -34,13 +34,6 @@ extern const struct net_device_ops com20020_netdev_ops;
- /* The number of low I/O ports used by the card. */
- #define ARCNET_TOTAL_SIZE 8
+ 	BUGMSG(D_DEBUG, "%s: %d: %s\n",__FILE__,__LINE__,__func__);
+ 	/* make sure we're ready to receive IRQ's. */
+-	AINTMASK(0);
++	lp->hw.intmask(dev, 0);
+ 	udelay(1);		/* give it time to set the mask before
+ 				 * we reset it again. (may not even be
+ 				 * necessary)
+ 				 */
+ 	BUGMSG(D_DEBUG, "%s: %d: %s\n",__FILE__,__LINE__,__func__);
+ 	lp->intmask = NORXflag | RECONflag;
+-	AINTMASK(lp->intmask);
++	lp->hw.intmask(dev, lp->intmask);
+ 	BUGMSG(D_DEBUG, "%s: %d: %s\n",__FILE__,__LINE__,__func__);
  
--/* various register addresses */
--#ifdef CONFIG_SA1100_CT6001
--#define BUS_ALIGN  2  /* 8 bit device on a 16 bit bus - needs padding */
--#else
--#define BUS_ALIGN  1
--#endif
--
- #define PLX_PCI_MAX_CARDS 2
+ 	netif_start_queue(dev);
+@@ -463,9 +463,9 @@ int arcnet_close(struct net_device *dev)
+ 	netif_stop_queue(dev);
  
- struct com20020_pci_channel_map {
-@@ -71,16 +64,16 @@ struct com20020_dev {
- 	int index;
+ 	/* flush TX and disable RX */
+-	AINTMASK(0);
+-	ACOMMAND(NOTXcmd);	/* stop transmit */
+-	ACOMMAND(NORXcmd);	/* disable receive */
++	lp->hw.intmask(dev, 0);
++	lp->hw.command(dev, NOTXcmd);	/* stop transmit */
++	lp->hw.command(dev, NORXcmd);	/* disable receive */
+ 	mdelay(1);
+ 
+ 	/* shut down the card */
+@@ -545,7 +545,7 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
+ 
+ 	BUGMSG(D_DURING,
+ 	       "transmit requested (status=%Xh, txbufs=%d/%d, len=%d, protocol %x)\n",
+-	       ASTATUS(), lp->cur_tx, lp->next_tx, skb->len,skb->protocol);
++	       lp->hw.status(dev), lp->cur_tx, lp->next_tx, skb->len, skb->protocol);
+ 
+ 	pkt = (struct archdr *) skb->data;
+ 	soft = &pkt->soft.rfc1201;
+@@ -566,7 +566,7 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
+ 	netif_stop_queue(dev);
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+-	AINTMASK(0);
++	lp->hw.intmask(dev, 0);
+ 	if (lp->next_tx == -1) {
+ 		txbuf = get_arcbuf(dev);
+ 	} else {
+@@ -601,14 +601,16 @@ netdev_tx_t arcnet_send_packet(struct sk_buff *skb,
+ 		freeskb = 0;
+ 	}
+ 
+-	BUGMSG(D_DEBUG, "%s: %d: %s, status: %x\n",__FILE__,__LINE__,__func__,ASTATUS());
++	BUGMSG(D_DEBUG, "%s: %d: %s, status: %x\n",
++	       __FILE__, __LINE__, __func__, lp->hw.status(dev));
+ 	/* make sure we didn't ignore a TX IRQ while we were in here */
+-	AINTMASK(0);
++	lp->hw.intmask(dev, 0);
+ 
+-	BUGMSG(D_DEBUG, "%s: %d: %s\n",__FILE__,__LINE__,__func__);
++	BUGMSG(D_DEBUG, "%s: %d: %s\n", __FILE__, __LINE__, __func__);
+ 	lp->intmask |= TXFREEflag|EXCNAKflag;
+-	AINTMASK(lp->intmask);
+-	BUGMSG(D_DEBUG, "%s: %d: %s, status: %x\n",__FILE__,__LINE__,__func__,ASTATUS());
++	lp->hw.intmask(dev, lp->intmask);
++	BUGMSG(D_DEBUG, "%s: %d: %s, status: %x\n",
++	       __FILE__, __LINE__, __func__, lp->hw.status(dev));
+ 
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 	if (freeskb) {
+@@ -627,7 +629,7 @@ static int go_tx(struct net_device *dev)
+ 	struct arcnet_local *lp = netdev_priv(dev);
+ 
+ 	BUGMSG(D_DURING, "go_tx: status=%Xh, intmask=%Xh, next_tx=%d, cur_tx=%d\n",
+-	       ASTATUS(), lp->intmask, lp->next_tx, lp->cur_tx);
++	       lp->hw.status(dev), lp->intmask, lp->next_tx, lp->cur_tx);
+ 
+ 	if (lp->cur_tx != -1 || lp->next_tx == -1)
+ 		return 0;
+@@ -638,7 +640,7 @@ static int go_tx(struct net_device *dev)
+ 	lp->next_tx = -1;
+ 
+ 	/* start sending */
+-	ACOMMAND(TXcmd | (lp->cur_tx << 3));
++	lp->hw.command(dev, TXcmd | (lp->cur_tx << 3));
+ 
+ 	dev->stats.tx_packets++;
+ 	lp->lasttrans_dest = lp->lastload_dest;
+@@ -655,7 +657,7 @@ void arcnet_timeout(struct net_device *dev)
+ {
+ 	unsigned long flags;
+ 	struct arcnet_local *lp = netdev_priv(dev);
+-	int status = ASTATUS();
++	int status = lp->hw.status(dev);
+ 	char *msg;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+@@ -665,14 +667,14 @@ void arcnet_timeout(struct net_device *dev)
+ 		msg = "";
+ 		dev->stats.tx_aborted_errors++;
+ 		lp->timed_out = 1;
+-		ACOMMAND(NOTXcmd | (lp->cur_tx << 3));
++		lp->hw.command(dev, NOTXcmd | (lp->cur_tx << 3));
+ 	}
+ 	dev->stats.tx_errors++;
+ 
+ 	/* make sure we didn't miss a TX or a EXC NAK IRQ */
+-	AINTMASK(0);
++	lp->hw.intmask(dev, 0);
+ 	lp->intmask |= TXFREEflag|EXCNAKflag;
+-	AINTMASK(lp->intmask);
++	lp->hw.intmask(dev, lp->intmask);
+ 
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 
+@@ -713,19 +715,19 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 	 * away (but nothing else).
+ 	 */
+ 	if (!netif_running(dev)) {
+-		if (ASTATUS() & RESETflag)
+-			ACOMMAND(CFLAGScmd | RESETclear);
+-		AINTMASK(0);
++		if (lp->hw.status(dev) & RESETflag)
++			lp->hw.command(dev, CFLAGScmd | RESETclear);
++		lp->hw.intmask(dev, 0);
+ 		spin_unlock(&lp->lock);
+ 		return retval;
+ 	}
+ 
+ 	BUGMSG(D_DURING, "in arcnet_inthandler (status=%Xh, intmask=%Xh)\n",
+-	       ASTATUS(), lp->intmask);
++	       lp->hw.status(dev), lp->intmask);
+ 
+ 	boguscount = 5;
+ 	do {
+-		status = ASTATUS();
++		status = lp->hw.status(dev);
+ 		diagstatus = (status >> 8) & 0xFF;
+ 
+ 		BUGMSG(D_DEBUG, "%s: %d: %s: status=%x\n",
+@@ -765,7 +767,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 			if (lp->cur_rx != -1) {
+ 				BUGMSG(D_DURING, "enabling receive to buffer #%d\n",
+ 				       lp->cur_rx);
+-				ACOMMAND(RXcmd | (lp->cur_rx << 3) | RXbcasts);
++				lp->hw.command(dev, RXcmd | (lp->cur_rx << 3) | RXbcasts);
+ 			}
+ 			didsomething++;
+ 		}
+@@ -774,10 +776,10 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 			BUGMSG(D_DURING, "EXCNAK IRQ (diagstat=%Xh)\n",
+ 			       diagstatus);
+ 
+-			ACOMMAND(NOTXcmd);      /* disable transmit */
++			lp->hw.command(dev, NOTXcmd); /* disable transmit */
+ 			lp->excnak_pending = 1;
+ 
+-			ACOMMAND(EXCNAKclear);
++			lp->hw.command(dev, EXCNAKclear);
+ 			lp->intmask &= ~(EXCNAKflag);
+ 			didsomething++;
+ 		}
+@@ -860,7 +862,7 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 			didsomething++;
+ 		}
+ 		if (status & lp->intmask & RECONflag) {
+-			ACOMMAND(CFLAGScmd | CONFIGclear);
++			lp->hw.command(dev, CFLAGScmd | CONFIGclear);
+ 			dev->stats.tx_carrier_errors++;
+ 
+ 			BUGMSG(D_RECON, "Network reconfiguration detected (status=%Xh)\n",
+@@ -921,12 +923,12 @@ irqreturn_t arcnet_interrupt(int irq, void *dev_id)
+ 	while (--boguscount && didsomething);
+ 
+ 	BUGMSG(D_DURING, "arcnet_interrupt complete (status=%Xh, count=%d)\n",
+-	       ASTATUS(), boguscount);
++	       lp->hw.status(dev), boguscount);
+ 	BUGMSG(D_DURING, "\n");
+ 
+-	AINTMASK(0);
++	lp->hw.intmask(dev, 0);
+ 	udelay(1);
+-	AINTMASK(lp->intmask);
++	lp->hw.intmask(dev, lp->intmask);
+ 
+ 	spin_unlock(&lp->lock);
+ 	return retval;
+diff --git a/include/linux/arcdevice.h b/include/linux/arcdevice.h
+index 81f336f..c20f100 100644
+--- a/include/linux/arcdevice.h
++++ b/include/linux/arcdevice.h
+@@ -314,13 +314,6 @@ struct arcnet_local {
  };
  
--#define _INTMASK  (BUS_ALIGN*0)	/* writable */
--#define _STATUS   (BUS_ALIGN*0)	/* readable */
--#define _COMMAND  (BUS_ALIGN*1)	/* standard arcnet commands */
--#define _DIAGSTAT (BUS_ALIGN*1)	/* diagnostic status register */
--#define _ADDR_HI  (BUS_ALIGN*2)	/* control registers for IO-mapped memory */
--#define _ADDR_LO  (BUS_ALIGN*3)
--#define _MEMDATA  (BUS_ALIGN*4)	/* data port for IO-mapped memory */
--#define _SUBADR   (BUS_ALIGN*5)	/* the extended port _XREG refers to */
--#define _CONFIG   (BUS_ALIGN*6)	/* configuration register */
--#define _XREG     (BUS_ALIGN*7)	/* extra registers (indexed by _CONFIG
-+#define _INTMASK  0	/* writable */
-+#define _STATUS   0	/* readable */
-+#define _COMMAND  1	/* standard arcnet commands */
-+#define _DIAGSTAT 1	/* diagnostic status register */
-+#define _ADDR_HI  2	/* control registers for IO-mapped memory */
-+#define _ADDR_LO  3
-+#define _MEMDATA  4	/* data port for IO-mapped memory */
-+#define _SUBADR   5	/* the extended port _XREG refers to */
-+#define _CONFIG   6	/* configuration register */
-+#define _XREG     7	/* extra registers (indexed by _CONFIG
- 					or _SUBADR) */
  
- /* in the ADDR_HI register */
+-#define ARCRESET(x)  (lp->hw.reset(dev, (x)))
+-#define ACOMMAND(x)  (lp->hw.command(dev, (x)))
+-#define ASTATUS()    (lp->hw.status(dev))
+-#define AINTMASK(x)  (lp->hw.intmask(dev, (x)))
+-
+-
+-
+ #if ARCNET_DEBUG_MAX & D_SKB
+ void arcnet_dump_skb(struct net_device *dev, struct sk_buff *skb, char *desc);
+ #else
 -- 
 2.1.4
