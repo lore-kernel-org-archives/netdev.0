@@ -1,59 +1,65 @@
-From: Vince Bridgers <vbridger@opensource.altera.com>
-Subject: [PATCH] net: eth: altera: Resolve false errors from MSGDMA to TSE
-Date: Fri, 24 Apr 2015 02:32:07 -0500
-Message-ID: <1429860727-1359-1-git-send-email-vbridger@opensource.altera.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: netcp: remove call to netif_carrier_(on/off) for
+ MAC to Phy interface
+Date: Fri, 24 Apr 2015 16:33:23 +0300
+Message-ID: <553A4623.2070802@cogentembedded.com>
+References: <1429816627-24337-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <vbridger@altera.com>, <cnphoon@altera.com>,
-	<ennoerlangen@gmail.com>,
-	Vince Bridgers <vbridger@opensource.altera.com>
-To: <netdev@vger.kernel.org>, <nios2-dev@lists.rocketboards.org>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Murali Karicheri <m-karicheri2@ti.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:35723 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755233AbbDXNd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 09:33:26 -0400
+Received: by lbbuc2 with SMTP id uc2so36541136lbb.2
+        for <netdev@vger.kernel.org>; Fri, 24 Apr 2015 06:33:25 -0700 (PDT)
+In-Reply-To: <1429816627-24337-1-git-send-email-m-karicheri2@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Chee Nouk Phoon <cnphoon@altera.com>
+Hello.
 
-This patch resolves false errors from MSGDMA in TX mSGDMA MM to ST
-mode, and is a continuation of the patch recently submitted by Andrea
-Oetken. The MSGDMA had a logic bug that masked detection of this issue
-prior to Quartus 14.1/Build 164. When the MSGDMA logic bug was addressed
-in Quartus 14.1/Build 164, the driver problem was exposed.
+On 4/23/2015 10:17 PM, Murali Karicheri wrote:
 
-The problem is corrected by making sure MSGDMA_DESC_CTL_TR_ERR_IRQ is not
-set for any of the transmit DMA descriptors, and only used for receive
-descriptors.
+> Currently when interface type is MAC to Phy, netif_carrier_(on/off)
+> is called which is not needed as Phy lib already updates the carrier
+> status to net stack. This is needed only for other interface types
 
-Fixes: 71cd26e altera tse: Error-Bit on tx-avalon-stream always set.
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+> ---
+>   drivers/net/ethernet/ti/netcp_ethss.c |    8 ++++++--
+>   1 file changed, 6 insertions(+), 2 deletions(-)
 
-Signed-off-by: Chee Nouk Phoon <cnphoon@altera.com>
-Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>a
-Cc: Andreas Oetken <ennoerlangen@gmail.com>
----
- drivers/net/ethernet/altera/altera_msgdmahw.h | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+> index 2bef655..0a1ef2e 100644
+> --- a/drivers/net/ethernet/ti/netcp_ethss.c
+> +++ b/drivers/net/ethernet/ti/netcp_ethss.c
+> @@ -1765,7 +1765,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
+>   				     ALE_PORT_STATE,
+>   				     ALE_PORT_STATE_FORWARD);
+>
+> -		if (ndev && slave->open)
+> +		if (ndev && slave->open &&
+> +		    ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
+> +		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
 
-diff --git a/drivers/net/ethernet/altera/altera_msgdmahw.h b/drivers/net/ethernet/altera/altera_msgdmahw.h
-index eba070f..89cd11d 100644
---- a/drivers/net/ethernet/altera/altera_msgdmahw.h
-+++ b/drivers/net/ethernet/altera/altera_msgdmahw.h
-@@ -58,15 +58,12 @@ struct msgdma_extended_desc {
- /* Tx buffer control flags
-  */
- #define MSGDMA_DESC_CTL_TX_FIRST	(MSGDMA_DESC_CTL_GEN_SOP |	\
--					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
- 					 MSGDMA_DESC_CTL_GO)
- 
--#define MSGDMA_DESC_CTL_TX_MIDDLE	(MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
--					 MSGDMA_DESC_CTL_GO)
-+#define MSGDMA_DESC_CTL_TX_MIDDLE	(MSGDMA_DESC_CTL_GO)
- 
- #define MSGDMA_DESC_CTL_TX_LAST		(MSGDMA_DESC_CTL_GEN_EOP |	\
- 					 MSGDMA_DESC_CTL_TR_COMP_IRQ |	\
--					 MSGDMA_DESC_CTL_TR_ERR_IRQ |	\
- 					 MSGDMA_DESC_CTL_GO)
- 
- #define MSGDMA_DESC_CTL_TX_SINGLE	(MSGDMA_DESC_CTL_GEN_SOP |	\
--- 
-1.9.1
+    You don't need extra parens around &&.
+
+>   			netif_carrier_on(ndev);
+>   	} else {
+>   		writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
+> @@ -1773,7 +1775,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
+>   		cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
+>   				     ALE_PORT_STATE,
+>   				     ALE_PORT_STATE_DISABLE);
+> -		if (ndev)
+> +		if (ndev &&
+> +		    ((slave->link_interface != SGMII_LINK_MAC_PHY) &&
+> +		    (slave->link_interface != XGMII_LINK_MAC_PHY)))
+
+    Likewise.
+
+WBR, Sergei
