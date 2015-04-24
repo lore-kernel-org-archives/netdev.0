@@ -1,83 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 RFC 00/15] introduce programable flow dissector and cls_flower
-Date: Fri, 24 Apr 2015 17:51:26 +0200
-Message-ID: <1429890701-30052-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
-	jesse@nicira.com, kaber@trash.net, therbert@google.com,
-	edumazet@google.com, alexander.h.duyck@redhat.com,
-	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
-	herbert@gondor.apana.org.au, cwang@twopensource.com,
-	john.fastabend@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:33990 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030973AbbDXPvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Apr 2015 11:51:45 -0400
-Received: by wicmx19 with SMTP id mx19so38022424wic.1
-        for <netdev@vger.kernel.org>; Fri, 24 Apr 2015 08:51:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: mdio-gpio: support access that may sleep
+Date: Fri, 24 Apr 2015 09:19:55 -0700
+Message-ID: <553A6D2B.20901@gmail.com>
+References: <1429722414-18173-1-git-send-email-vivien.didelot@savoirfairelinux.com>	<20150424.110455.2117537129018647564.davem@davemloft.net>	<553A67B2.3040400@gmail.com> <20150424.120142.515098054679955418.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150424.120142.515098054679955418.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Per Davem's request, I prepared this patchset which introduces programmable
-flow dissector. For current users of flow_keys, there is a wrapper
-skb_flow_dissect_flow_keys which maintains the previous behaviour.
-For purposes of cls_flower, couple of new dissection keys were introduced.
+On 24/04/15 09:01, David Miller wrote:
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Fri, 24 Apr 2015 08:56:34 -0700
+> 
+>> On 24/04/15 08:04, David Miller wrote:
+>>> From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>>> Date: Wed, 22 Apr 2015 13:06:54 -0400
+>>>
+>>>> Some systems using mdio-gpio may use gpio on message based busses, which
+>>>> require sleeping (e.g. gpio from an I2C I/O expander).
+>>>>
+>>>> Since this driver does not use IRQ handler, it is safe to use the
+>>>> _cansleep suffixed gpio accessors.
+>>>>
+>>>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>>>
+>>> Since this is down underneath the layer of an MII bus, you cannot
+>>> universally say that these routines are always called in a sleepable
+>>> context.
+>>>
+>>> The PHY layer, and the driver itself above that, might call these
+>>> routines from timers, interruptes etc.
+>>
+>> The PHY library calls these routines from its state machine workqueue
+>> for that reason, or from process context (when invoked via ethtool
+>> ioctl). The only special case is phy_mac_interrupt() which is callable
+>> from interrupt context, but schedules the state machine workqueue anyway
+>> to circumvent the "in-interrupt" context.
+>>
+>> If we were not doing that, there would be a number of things broken, for
+>> instance the per-MDIO bus mutex would not protect us from anything.
+> 
+> Does the link state polling timer use a workqueue in this manner as
+> well?
 
-Note that this dissector can be also eventually used by openvswitch code.
-
-Also, I plan to get rid of *skb_flow_get_ports(export) and *__skb_get_poff as
-their functionality can be now implemented by skb_flow_dissect as well.
-
-Ideas, comments?
-
-Jiri Pirko (15):
-  net: change name of flow_dissector header to match the .c file name
-  flow_dissector: remove unused function flow_get_hlen declaration
-  net: move *skb_get_poff declarations into correct header
-  flow_dissector: fix doc for __skb_get_hash and remove couple of empty
-    lines
-  net: move __skb_get_hash function declaration to flow_dissector.h
-  net: move __skb_tx_hash to skbuff.c
-  net: move netdev_pick_tx and dependencies to net/core/dev.c
-  flow_dissector: fix doc for skb_get_poff
-  flow_dissector: introduce programable flow_dissector
-  flow_dissect: use programable dissector in skb_flow_dissect and
-    friends
-  flow_dissector: add missing header includes
-  flow_dissector: introduce support for ipv6 addressses
-  flow_dissector: introduce support for Ethernet addresses
-  flow_dissector: change port array into src,dst tuple
-  tc: introduce Flower classifier
-
- drivers/net/bonding/bond_main.c                |  20 +-
- drivers/net/ethernet/cisco/enic/enic_clsf.c    |  29 +-
- drivers/net/ethernet/cisco/enic/enic_ethtool.c |  10 +-
- drivers/net/hyperv/netvsc_drv.c                |   8 +-
- include/linux/skbuff.h                         |  11 +-
- include/net/flow_dissector.h                   | 152 ++++++
- include/net/flow_keys.h                        |  45 --
- include/net/ip.h                               |  10 +-
- include/net/ipv6.h                             |  10 +-
- include/uapi/linux/pkt_cls.h                   |  31 ++
- net/core/dev.c                                 |  78 +++
- net/core/filter.c                              |   1 +
- net/core/flow_dissector.c                      | 376 ++++++++------
- net/core/skbuff.c                              |  28 +
- net/ethernet/eth.c                             |   7 +-
- net/sched/Kconfig                              |  10 +
- net/sched/Makefile                             |   1 +
- net/sched/cls_flow.c                           |  22 +-
- net/sched/cls_flower.c                         | 688 +++++++++++++++++++++++++
- net/sched/sch_choke.c                          |   6 +-
- net/sched/sch_fq_codel.c                       |  10 +-
- net/sched/sch_hhf.c                            |  10 +-
- net/sched/sch_sfb.c                            |  22 +-
- net/sched/sch_sfq.c                            |  10 +-
- 24 files changed, 1292 insertions(+), 303 deletions(-)
- create mode 100644 include/net/flow_dissector.h
- delete mode 100644 include/net/flow_keys.h
- create mode 100644 net/sched/cls_flower.c
-
+Yes, the state machine re-schedules its own delayed workqueue at the end
+of its state processing, no timer/hrtimer is used.
 -- 
-1.9.3
+Florian
