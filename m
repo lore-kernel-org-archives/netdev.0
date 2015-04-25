@@ -1,47 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ehea: Fix memory hook reference counting crashes
-Date: Sat, 25 Apr 2015 14:43:54 -0400 (EDT)
-Message-ID: <20150425.144354.1149917806926276049.davem@davemloft.net>
-References: <1429854752-5698-1-git-send-email-mpe@ellerman.id.au>
+Subject: Re: [PATCH] net: eth: altera: Resolve false errors from MSGDMA to
+ TSE
+Date: Sat, 25 Apr 2015 14:44:00 -0400 (EDT)
+Message-ID: <20150425.144400.1784698109604961465.davem@davemloft.net>
+References: <1429860727-1359-1-git-send-email-vbridger@opensource.altera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, anton@samba.org,
-	cascardo@linux.vnet.ibm.com
-To: mpe@ellerman.id.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35280 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbbDYSn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2015 14:43:56 -0400
-In-Reply-To: <1429854752-5698-1-git-send-email-mpe@ellerman.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org,
+	linux-kernel@vger.kernel.org, vbridger@altera.com,
+	cnphoon@altera.com, ennoerlangen@gmail.com
+To: vbridger@opensource.altera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1429860727-1359-1-git-send-email-vbridger@opensource.altera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Fri, 24 Apr 2015 15:52:32 +1000
+From: Vince Bridgers <vbridger@opensource.altera.com>
+Date: Fri, 24 Apr 2015 02:32:07 -0500
 
-> The recent commit to only register the EHEA memory hotplug hooks on
-> adapter probe has a few problems.
+> From: Chee Nouk Phoon <cnphoon@altera.com>
 > 
-> Firstly the reference counting is wrong for multiple adapters, in that
-> the hooks are registered multiple times. Secondly the check in the tear
-> down path is backward. Finally the error path doesn't decrement the
-> count.
+> This patch resolves false errors from MSGDMA in TX mSGDMA MM to ST
+> mode, and is a continuation of the patch recently submitted by Andrea
+> Oetken. The MSGDMA had a logic bug that masked detection of this issue
+> prior to Quartus 14.1/Build 164. When the MSGDMA logic bug was addressed
+> in Quartus 14.1/Build 164, the driver problem was exposed.
 > 
-> The multiple registration of the hooks is the biggest problem, as it
-> leads to oopses when the system is rebooted, and/or errors during memory
-> hotplug, eg:
- ...
-> Fixes: aa183323312d ("ehea: Register memory hotplug, reboot and crash hooks on adapter probe")
-> Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
+> The problem is corrected by making sure MSGDMA_DESC_CTL_TR_ERR_IRQ is not
+> set for any of the transmit DMA descriptors, and only used for receive
+> descriptors.
+> 
+> Fixes: 71cd26e altera tse: Error-Bit on tx-avalon-stream always set.
+> 
+> Signed-off-by: Chee Nouk Phoon <cnphoon@altera.com>
+> Signed-off-by: Vince Bridgers <vbridger@opensource.altera.com>a
+> Cc: Andreas Oetken <ennoerlangen@gmail.com>
 
-Applied, but using an atomic counter for this is really inappropriate
-and is what lead to this bug in the first place.
-
-You're not counting anything, because if you were, then you would be
-decrementing this thing somewhere.
-
-Rather, it's purely a boolean state saying "I did X".  So it should be
-a boolean, and no atomicity nor other special considerations are
-needed for setting it to true.
+Applied.
