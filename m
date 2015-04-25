@@ -1,49 +1,40 @@
-From: Felix Janda <felix.janda@posteo.de>
-Subject: iproute2: Make linux/in6.h a stub?
-Date: Sat, 25 Apr 2015 22:54:11 +0200
-Message-ID: <20150425205410.GB9433@euler>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: fix crash in build_skb()
+Date: Sat, 25 Apr 2015 17:32:10 -0400 (EDT)
+Message-ID: <20150425.173210.137054898842699437.davem@davemloft.net>
+References: <553AB56F.4000600@oracle.com>
+	<1429916701.22254.143.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sasha.levin@oracle.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.posteo.de ([89.146.194.165]:35993 "EHLO mx02.posteo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750852AbbDYUyS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Apr 2015 16:54:18 -0400
-Received: from dovecot03.posteo.de (unknown [185.67.36.28])
-	by mx02.posteo.de (Postfix) with ESMTPS id AF6FD25AF503
-	for <netdev@vger.kernel.org>; Sat, 25 Apr 2015 22:54:16 +0200 (CEST)
-Received: from mail.posteo.de (localhost [127.0.0.1])
-	by dovecot03.posteo.de (Postfix) with ESMTPSA id 3lZ4Nm2nLSz5vNB
-	for <netdev@vger.kernel.org>; Sat, 25 Apr 2015 22:54:16 +0200 (CEST)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:36664 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771AbbDYVcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2015 17:32:14 -0400
+In-Reply-To: <1429916701.22254.143.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 24 Apr 2015 16:05:01 -0700
 
-Background:
-Current iproute2 does not build when the libc is musl instead of glibc.
-This is because of redefinition of in6_addr in netinet/in.h and
-linux/in6.h. There are workarounds in linux/libc-compat.h to make it
-somehow work for glibc.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When I added pfmemalloc support in build_skb(), I forgot netlink
+> was using build_skb() with a vmalloc() area.
+> 
+> In this patch I introduce __build_skb() for netlink use,
+> and build_skb() is a wrapper handling both skb->head_frag and
+> skb->pfmemalloc
+> 
+> This means netlink no longer has to hack skb->head_frag
+ ...
+> Fixes: 79930f5892e ("net: do not deplete pfmemalloc reserve")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Sasha Levin <sasha.levin@oracle.com>
 
-
-As I can see linux/in6.h is only indirectly used via the other kernel
-headers linux/if_bridge.h and linux/xfrm.h. These in turn include
-linux/in6.h only in order to get a declaration of in6_addr.
-
-Since iproute2 depends on the fact that in6_addr is defined in
-<netinet/in.h> it should be safe to replace the content of linux/in6.h
-by
-
-#include <netinet/in.h>
-
-This completely removes the possibility for redefinition of in6_addr
-for any libc. Since linux/in6.h is anyway a patched kernel header, such
-a change should also not increase the work needed to sync with newer
-kernel headers.
-
-Would it be possible to implement such a change?
-
-Felix
+Applied, and since this fixes a patch I have queued up for -stable,
+queued up for -stable as well.
