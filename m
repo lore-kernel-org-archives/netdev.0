@@ -1,60 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 00/21] ARCNET: Defibrillation
-Date: Fri, 24 Apr 2015 21:52:37 -0700
-Message-ID: <1429937557.23327.57.camel@perches.com>
-References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
-	 <1429901273.23327.5.camel@perches.com> <553AB241.3080004@pengutronix.de>
-	 <20150424.235853.1997287895150693202.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: mkl@pengutronix.de, m.grzeschik@pengutronix.de,
-	netdev@vger.kernel.org, kernel@pengutronix.de,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150424.235853.1997287895150693202.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ian Morris <ipm@chirality.org.uk>
+Subject: [PATCH net-next 0/6] ipv6: netfilter - coding style improvements
+Date: Sat, 25 Apr 2015 10:26:54 +0100
+Message-ID: <1429954020-11763-1-git-send-email-ipm@chirality.org.uk>
+Cc: Ian Morris <ipm@chirality.org.uk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inet-gw.chirality.org.uk ([88.97.209.22]:36719 "EHLO
+	yew.chirality.org.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758803AbbDYJ1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2015 05:27:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-04-24 at 23:58 -0400, David Miller wrote:
-> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> Date: Fri, 24 Apr 2015 23:14:41 +0200
-> > On 04/24/2015 08:47 PM, Joe Perches wrote:
-> >> On Fri, 2015-04-24 at 19:20 +0200, Michael Grzeschik wrote:
-> >>> This patch series tries to reanimate the ARCNET hardware layer to be
-> >>> somehow readable and maintainable again. It includes a lot of cleanup
-> >>> patches. It also adds some fixes which leads the layer to become usable
-> >>> again. And as a special treatment it adds more features like correct
-> >>> loading and unloading of the com20020 card.
-> >> Wow.  Good for you, but why?  Does anyone still use these?
-> > Yes, there are parts of the industry where "old" machines are
-> > retrofitted with new hardware...and a lot of these machines still talk
-> > ARCNET :)
-> 
-> But the real issue is, this layer is development wise in the same
-> category as the IDE layer.
-> 
-> Any non-trivial change is nothing but pure risk, especially given the
-> low level of test coverage the code gets.
-> 
-> So I really only want to see the most critical obvious bug fixes
-> submitted for this layer and drivers.
-> 
-> And no I will not accept an argument stating that you have to
-> restructure and clean this code up in order to fix the bugs.  That's
-> bogus.
+This series of patches removes some style issues in the ipv6 netfilter
+code detected by checkpatch. There is no change to functionality and
+no changes to the resultant object determined by objdiff.
 
-I think that arcnet is a fairly simple protocol.
 
-Given the current state of the code, if someone wants to
-make the code better, it might be better to wholesale
-replace what's there instead of incrementally modifying it.
+Ian Morris (6):
+  ipv6: netfilter: Tidy up indenting
+  ipv6: netfilter: whitespace in line layouts
+  ipv6: netfilter: remove unnecessary braces
+  ipv6: netfilter: comparison for equality with NULL
+  ipv6: netfilter: comparison for inequality with NULL
+  ipv6: netfilter: simply if-else statements
 
-It's not that difficult to make what's there style cleaner
-though.  Most if it is trivial sed style replacements.
+ net/ipv6/netfilter/ip6_tables.c                |  40 ++++-----
+ net/ipv6/netfilter/ip6t_REJECT.c               |   2 +-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c             |  18 ++--
+ net/ipv6/netfilter/ip6t_ah.c                   |  18 ++--
+ net/ipv6/netfilter/ip6t_frag.c                 |  26 +++---
+ net/ipv6/netfilter/ip6t_hbh.c                  | 114 ++++++++++++-------------
+ net/ipv6/netfilter/ip6t_ipv6header.c           |   2 +-
+ net/ipv6/netfilter/ip6t_mh.c                   |   2 +-
+ net/ipv6/netfilter/ip6t_rpfilter.c             |   2 +-
+ net/ipv6/netfilter/ip6t_rt.c                   | 102 +++++++++++-----------
+ net/ipv6/netfilter/ip6table_filter.c           |   2 +-
+ net/ipv6/netfilter/ip6table_mangle.c           |   2 +-
+ net/ipv6/netfilter/ip6table_nat.c              |   2 +-
+ net/ipv6/netfilter/ip6table_raw.c              |   2 +-
+ net/ipv6/netfilter/ip6table_security.c         |   2 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |  15 ++--
+ net/ipv6/netfilter/nf_conntrack_reasm.c        |  26 +++---
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |   2 +-
+ net/ipv6/netfilter/nf_log_ipv6.c               |  16 ++--
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c       |   2 +-
+ net/ipv6/netfilter/nf_reject_ipv6.c            |  10 +--
+ net/ipv6/netfilter/nf_tables_ipv6.c            |   2 +-
+ net/ipv6/netfilter/nft_chain_route_ipv6.c      |   6 +-
+ net/ipv6/netfilter/nft_reject_ipv6.c           |   2 +-
+ 25 files changed, 205 insertions(+), 214 deletions(-)
 
-Dunno. It doesn't look like that big a job actually, but I
-don't use it nor could I do testing on actual hardware.
-
-If pengutronix wants help, I probably could.
+-- 
+1.9.1
