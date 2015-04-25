@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2,1/1] hv_netvsc: introduce netif-msg into
- netvsc module
-Date: Sat, 25 Apr 2015 15:48:35 -0400 (EDT)
-Message-ID: <20150425.154835.1582262265647227722.davem@davemloft.net>
-References: <1429900488-7302-1-git-send-email-sixiao@microsoft.com>
+Subject: Re: [PATCH net-next v1] net: netcp: remove call to
+ netif_carrier_(on/off) for MAC to Phy interface
+Date: Sat, 25 Apr 2015 15:48:56 -0400 (EDT)
+Message-ID: <20150425.154856.1696991150241343700.davem@davemloft.net>
+References: <1429902101-2911-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sixiao@microsoft.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: m-karicheri2@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1429900488-7302-1-git-send-email-sixiao@microsoft.com>
+In-Reply-To: <1429902101-2911-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: sixiao@microsoft.com
-Date: Fri, 24 Apr 2015 11:34:48 -0700
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Fri, 24 Apr 2015 15:01:41 -0400
 
-> +	net_device_ctx->msg_enable = netif_msg_init(debug, default_msg);
-> +	if (netif_msg_probe(net_device_ctx))
-> +		netdev_dbg(net, "netvsc msg_enable: %d",
-> +			   net_device_ctx->msg_enable);
-> +
+> Currently when interface type is MAC to Phy, netif_carrier_(on/off)
+> is called which is not needed as Phy lib already updates the carrier
+> status to net stack. This is needed only for other interface types
+> 
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 
-I expect you to respin this and fix the newline problem.
-
-Also, net-next is not open for submissions yet.
+net-next is not open for submissions yet
