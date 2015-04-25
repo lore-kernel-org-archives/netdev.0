@@ -1,26 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 3/6] ipv6: netfilter: remove unnecessary braces
-Date: Sat, 25 Apr 2015 10:01:05 -0700
-Message-ID: <1429981265.32250.25.camel@perches.com>
-References: <1429954020-11763-1-git-send-email-ipm@chirality.org.uk>
-	 <1429954020-11763-4-git-send-email-ipm@chirality.org.uk>
-	 <1429977542.32250.12.camel@perches.com>
-	 <553BC6B2.5080807@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/tg3: Release IRQs on permanent error
+Date: Sat, 25 Apr 2015 14:42:12 -0400 (EDT)
+Message-ID: <20150425.144212.306837701165179931.davem@davemloft.net>
+References: <1429852943-28953-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ian Morris <ipm@chirality.org.uk>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: netdev@vger.kernel.org, prashant@broadcom.com, mchan@broadcom.com
+To: gwshan@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0122.hostedemail.com ([216.40.44.122]:46855 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965568AbbDYRBJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2015 13:01:09 -0400
-In-Reply-To: <553BC6B2.5080807@cogentembedded.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35264 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751223AbbDYSmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2015 14:42:16 -0400
+In-Reply-To: <1429852943-28953-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-04-25 at 19:54 +0300, Sergei Shtylyov wrote:
->     Parens around the *return* expression are not necessary. :-)
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Date: Fri, 24 Apr 2015 15:22:23 +1000
 
-Yeah, what Sergei said...
+> When having permanent EEH error, the PCI device will be removed
+> from the system. For this case, we shouldn't set pcierr_recovery
+> to true wrongly, which blocks the driver to release the allocated
+> interrupts and their handlers. Eventually, we can't disable MSI
+> or MSIx successfully because of the MSI or MSIx interrupts still
+> have associated interrupt actions, which is turned into following
+> stack dump.
+> 
+> Oops: Exception in kernel mode, sig: 5 [#1]
+>         :
+> [c0000000003b76a8] .free_msi_irqs+0x80/0x1a0 (unreliable)
+> [c00000000039f388] .pci_remove_bus_device+0x98/0x110
+> [c0000000000790f4] .pcibios_remove_pci_devices+0x9c/0x128
+> [c000000000077b98] .handle_eeh_events+0x2d8/0x4b0
+> [c0000000000782d0] .eeh_event_handler+0x130/0x1c0
+> [c000000000022bd4] .kernel_thread+0x54/0x70
+> 
+> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+
+Applied.
