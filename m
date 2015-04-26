@@ -1,33 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] altera tse: add support for fixed-links.
-Date: Sun, 26 Apr 2015 16:07:41 -0400 (EDT)
-Message-ID: <20150426.160741.554416361572963947.davem@davemloft.net>
-References: <1429633945-30463-1-git-send-email-ennoerlangen@gmail.com>
-	<1429978072-8376-1-git-send-email-ennoerlangen@gmail.com>
+Subject: Re: [PATCH net] net: rfs: fix crash in get_rps_cpus()
+Date: Sun, 26 Apr 2015 16:09:10 -0400 (EDT)
+Message-ID: <20150426.160910.281303860512321258.davem@davemloft.net>
+References: <1429979724.22254.172.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vbridger@opensource.altera.com, netdev@vger.kernel.org,
-	nios2-dev@lists.rocketboards.org, ennoerlangen@gmail.com
-To: ennoerlangen@googlemail.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com, ben@decadent.org.uk
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47207 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47214 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751937AbbDZUHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2015 16:07:43 -0400
-In-Reply-To: <1429978072-8376-1-git-send-email-ennoerlangen@gmail.com>
+	with ESMTP id S1752431AbbDZUJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2015 16:09:11 -0400
+In-Reply-To: <1429979724.22254.172.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Oetken <ennoerlangen@googlemail.com>
-Date: Sat, 25 Apr 2015 18:07:52 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 25 Apr 2015 09:35:24 -0700
 
-> From: Andreas Oetken <ennoerlangen@gmail.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Add support for fixed-links in configurations without PHY.
-> (e.g. connection to a switch, SGMII point to point, SFPs)
+> Commit 567e4b79731c ("net: rfs: add hash collision detection") had one
+> mistake :
 > 
-> Check: Documentation/devicetree/bindings/net/fixed-link.txt.
-> Signed-off-by: Andreas Oetken <ennoerlangen@gmail.com>
+> RPS_NO_CPU is no longer the marker for invalid cpu in set_rps_cpu()
+> and get_rps_cpu(), as @next_cpu was the result of an AND with
+> rps_cpu_mask
+> 
+> This bug showed up on a host with 72 cpus :
+> next_cpu was 0x7f, and the code was trying to access percpu data of an
+> non existent cpu.
+> 
+> In a follow up patch, we might get rid of compares against nr_cpu_ids,
+> if we init the tables with 0. This is silly to test for a very unlikely
+> condition that exists only shortly after table initialization, as
+> we got rid of rps_reset_sock_flow() and similar functions that were
+> writing this RPS_NO_CPU magic value at flow dismantle : When table is
+> old enough, it never contains this value anymore.
+> 
+> Fixes: 567e4b79731c ("net: rfs: add hash collision detection")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Tom Herbert <tom@herbertland.com>
+> Cc: Ben Hutchings <ben@decadent.org.uk>
 
-Applied.
+Applied and queued up for 4.0-stable, thanks Eric.
