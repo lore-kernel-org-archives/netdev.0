@@ -1,40 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fix crash in build_skb()
-Date: Sat, 25 Apr 2015 17:32:10 -0400 (EDT)
-Message-ID: <20150425.173210.137054898842699437.davem@davemloft.net>
-References: <553AB56F.4000600@oracle.com>
-	<1429916701.22254.143.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vlad Zolotarov <vladz@cloudius-systems.com>
+Subject: Re: [PATCH iproute2] ip link set vf: Added "query_rss" command
+Date: Sun, 26 Apr 2015 13:35:12 +0300
+Message-ID: <553CBF60.2070506@cloudius-systems.com>
+References: <1427050378-15004-1-git-send-email-vladz@cloudius-systems.com> <20150324154732.57d84cb6@urahara> <552BA2A1.7020706@cloudius-systems.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sasha.levin@oracle.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36664 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771AbbDYVcO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Apr 2015 17:32:14 -0400
-In-Reply-To: <1429916701.22254.143.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:38105 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505AbbDZKfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2015 06:35:17 -0400
+Received: by wiun10 with SMTP id n10so61526608wiu.1
+        for <netdev@vger.kernel.org>; Sun, 26 Apr 2015 03:35:15 -0700 (PDT)
+In-Reply-To: <552BA2A1.7020706@cloudius-systems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 24 Apr 2015 16:05:01 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When I added pfmemalloc support in build_skb(), I forgot netlink
-> was using build_skb() with a vmalloc() area.
-> 
-> In this patch I introduce __build_skb() for netlink use,
-> and build_skb() is a wrapper handling both skb->head_frag and
-> skb->pfmemalloc
-> 
-> This means netlink no longer has to hack skb->head_frag
- ...
-> Fixes: 79930f5892e ("net: do not deplete pfmemalloc reserve")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Sasha Levin <sasha.levin@oracle.com>
 
-Applied, and since this fixes a patch I have queued up for -stable,
-queued up for -stable as well.
+On 04/13/15 14:04, Vlad Zolotarov wrote:
+>
+>
+> On 03/25/15 00:47, Stephen Hemminger wrote:
+>> On Sun, 22 Mar 2015 20:52:58 +0200
+>> Vlad Zolotarov <vladz@cloudius-systems.com> wrote:
+>>
+>>> Add a new option to toggle the ability of querying the RSS 
+>>> configuration of a specific VF.
+>>>
+>>> VF RSS information like RSS hash key may be considered sensitive on 
+>>> some devices where
+>>> this information is shared between VF and PF and thus its querying 
+>>> may be prohibited by default.
+>>>
+>>> This new option allows a system administrator with privileges to 
+>>> modify a PF state
+>>> to control if the above VF querying is allowed or not.
+>>>
+>>> For example:
+>>>   To enable RSS querying of VF[0] of ethX:
+>>>   >> ip link set dev ethX vf 0 query_rss on
+>>>
+>>> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+>> Holding off on this going into iproute until kernel component goes
+>> into net-next
+>
+> Hi. The kernel patches have been pulled by Dave. Could u, pls., 
+> proceed with this one?
+
+ping ;)
+
+>
+> thanks,
+> vlad
+>
+>>
+>
