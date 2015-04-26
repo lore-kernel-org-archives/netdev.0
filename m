@@ -1,47 +1,30 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net 0/2] net/ethtool, mlx4_en: RSS hash function setting fixes
-Date: Sun, 26 Apr 2015 20:18:28 +0300
-Message-ID: <CAJ3xEMh2fbToSmRkx77VrppTfxFNKa17TpewbjZzyWrzU6fisA@mail.gmail.com>
-References: <1430058966-24046-1-git-send-email-amirv@mellanox.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3 0/4] new ethernet address manipulation checks
+Date: Sun, 26 Apr 2015 11:20:16 -0700
+Message-ID: <1430072416.4833.10.camel@perches.com>
+References: <1430066600-12210-1-git-send-email-mateusz.kulikowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:35473 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779AbbDZRS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2015 13:18:28 -0400
-Received: by obcux3 with SMTP id ux3so68700869obc.2
-        for <netdev@vger.kernel.org>; Sun, 26 Apr 2015 10:18:28 -0700 (PDT)
-In-Reply-To: <1430058966-24046-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: apw@canonical.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430066600-12210-1-git-send-email-mateusz.kulikowski@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 26, 2015 at 5:36 PM, Amir Vadai <amirv@mellanox.com> wrote:
-> Hi Dave,
->
-> This small patchset fixes a small issue in the ethtool User/kernel API.
->
-> Hash function is represented as an eight bit field, every bit represents a
-> function.  Currently possible values are: 1 for Toeplitz and 2 for XOR.
-> This commit changes the representation from bit flags into a value. Because
-> only one hash function will be used at a time, there is no sense using bit
-> flags for it.
-> Since today only 2 functions are supported, and there is no user space ethtool
-> that supports this feature, we can switch into values without causing any
-> backward compatibility issues.
->
-> After this patchset is applied, I will send the user space patch.
->
-> In this occasion I added a missing validation to the hash function value.
->
-> This patchset was applied and tested over commit 2ea2f62 ("net: fix crash in build_skb()")
->
-> Please push this patchset to stable 3.19.y in which those two issues were introduced.
+(adding Andrew Morton)
 
-and 4.0.y too I guess?
+On Sun, 2015-04-26 at 18:43 +0200, Mateusz Kulikowski wrote:
+> Changes in v3:
+> - Fixed handling of MEMSET issues (due to '/s' at the end the same 
+>   error/warning was reported several times)
+> - Added handling of multiline PREFER_ETHER_ADDR_COPY warnings
+> - Review: added --fix option to eth_zero/broadcast_addr checks
+> - All new warnings are multi-line aware (fixes work on single lines only)
+
+Acked-by: Joe Perches <joe@perches.com>
+
+Thanks Mateusz
