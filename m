@@ -1,89 +1,46 @@
-From: Sylvain Rochet <sylvain.rochet@finsecur.com>
-Subject: [PATCH 1/2] ppp: mppe: sanity error path rework
-Date: Sun, 26 Apr 2015 20:40:52 +0200
-Message-ID: <1430073653-22131-2-git-send-email-sylvain.rochet@finsecur.com>
-References: <1430073653-22131-1-git-send-email-sylvain.rochet@finsecur.com>
-Cc: Sylvain Rochet <sylvain.rochet@finsecur.com>
-To: Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1430073653-22131-1-git-send-email-sylvain.rochet@finsecur.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next v4 RFC 00/15] introduce programable flow
+ dissector and cls_flower
+Date: Sun, 26 Apr 2015 22:55:08 +0300
+Message-ID: <CAJ3xEMj-BvNiQP_w_72K5MBC32hcybZ_KvEZvZLupGR6A8QQiQ@mail.gmail.com>
+References: <1429890701-30052-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Thomas Graf <tgraf@suug.ch>, Jesse Gross <jesse@nicira.com>,
+	kaber@trash.net, Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	hannes@stressinduktion.org, Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	herbert@gondor.apana.org.au, Cong Wang <cwang@twopensource.com>,
+	john fastabend <john.fastabend@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:34311 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315AbbDZTzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2015 15:55:09 -0400
+Received: by obfe9 with SMTP id e9so69991761obf.1
+        for <netdev@vger.kernel.org>; Sun, 26 Apr 2015 12:55:08 -0700 (PDT)
+In-Reply-To: <1429890701-30052-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We are going to need sanity error path a little further, rework to be
-able to use the sanity error path anywhere in decompressor.
+On Fri, Apr 24, 2015 at 6:51 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Per Davem's request, I prepared this patchset which introduces programmable
+> flow dissector. For current users of flow_keys, there is a wrapper
+> skb_flow_dissect_flow_keys which maintains the previous behaviour.
+> For purposes of cls_flower, couple of new dissection keys were introduced.
+>
+> Note that this dissector can be also eventually used by openvswitch code.
 
-Signed-off-by: Sylvain Rochet <sylvain.rochet@finsecur.com>
----
- drivers/net/ppp/ppp_mppe.c | 29 +++++++++++++----------------
- 1 file changed, 13 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-index 911b216..692ee0f 100644
---- a/drivers/net/ppp/ppp_mppe.c
-+++ b/drivers/net/ppp/ppp_mppe.c
-@@ -478,7 +478,6 @@ mppe_decompress(void *arg, unsigned char *ibuf, int isize, unsigned char *obuf,
- 	struct blkcipher_desc desc = { .tfm = state->arc4 };
- 	unsigned ccount;
- 	int flushed = MPPE_BITS(ibuf) & MPPE_BIT_FLUSHED;
--	int sanity = 0;
- 	struct scatterlist sg_in[1], sg_out[1];
- 
- 	if (isize <= PPP_HDRLEN + MPPE_OVHD) {
-@@ -514,31 +513,19 @@ mppe_decompress(void *arg, unsigned char *ibuf, int isize, unsigned char *obuf,
- 		       "mppe_decompress[%d]: ENCRYPTED bit not set!\n",
- 		       state->unit);
- 		state->sanity_errors += 100;
--		sanity = 1;
-+		goto sanity_error;
- 	}
- 	if (!state->stateful && !flushed) {
- 		printk(KERN_DEBUG "mppe_decompress[%d]: FLUSHED bit not set in "
- 		       "stateless mode!\n", state->unit);
- 		state->sanity_errors += 100;
--		sanity = 1;
-+		goto sanity_error;
- 	}
- 	if (state->stateful && ((ccount & 0xff) == 0xff) && !flushed) {
- 		printk(KERN_DEBUG "mppe_decompress[%d]: FLUSHED bit not set on "
- 		       "flag packet!\n", state->unit);
- 		state->sanity_errors += 100;
--		sanity = 1;
--	}
--
--	if (sanity) {
--		if (state->sanity_errors < SANITY_MAX)
--			return DECOMP_ERROR;
--		else
--			/*
--			 * Take LCP down if the peer is sending too many bogons.
--			 * We don't want to do this for a single or just a few
--			 * instances since it could just be due to packet corruption.
--			 */
--			return DECOMP_FATALERROR;
-+		goto sanity_error;
- 	}
- 
- 	/*
-@@ -649,6 +636,16 @@ mppe_decompress(void *arg, unsigned char *ibuf, int isize, unsigned char *obuf,
- 	state->sanity_errors >>= 1;
- 
- 	return osize;
-+
-+sanity_error:
-+	if (state->sanity_errors < SANITY_MAX)
-+		return DECOMP_ERROR;
-+	else
-+		/* Take LCP down if the peer is sending too many bogons.
-+		 * We don't want to do this for a single or just a few
-+		 * instances since it could just be due to packet corruption.
-+		 */
-+		return DECOMP_FATALERROR;
- }
- 
- /*
--- 
-2.1.4
+Hi Jiri,
 
+>From the subject line I conclude that this is the fifth version (V4),
+could you please point on  the previous four (V0-3) posts?
+
+Or.
