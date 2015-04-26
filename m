@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7] Add support of Cavium Liquidio ethernet
- adapters
-Date: Sun, 26 Apr 2015 16:04:07 -0400 (EDT)
-Message-ID: <20150426.160407.2043024228389437605.davem@davemloft.net>
-References: <1428540419.22406.70.camel@perches.com>
-	<1429922056-14124-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: Re: [PATCH] pxa168: fix double deallocation of managed resources
+Date: Sun, 26 Apr 2015 16:06:27 -0400 (EDT)
+Message-ID: <20150426.160627.2170240613916324389.davem@davemloft.net>
+References: <1429924023-11543-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com
-To: rvatsavayi@caviumnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47184 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752654AbbDZUEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2015 16:04:46 -0400
-In-Reply-To: <1429922056-14124-1-git-send-email-rvatsavayi@caviumnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: antoine.tenart@free-electrons.com, arnd@arndb.de,
+	sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1429924023-11543-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Fri, 24 Apr 2015 17:34:16 -0700
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Sat, 25 Apr 2015 04:07:03 +0300
 
-> Following patch adds support for Cavium Liquidio ethernet adapter.
-> LiquidIO adapters are pci express based 10Gig server adapters.
+> Commit 43d3ddf87a57 ("net: pxa168_eth: add device tree support") starts
+> to use managed resources by adding devm_clk_get() and
+> devm_ioremap_resource(), but it leaves explicit iounmap() and clock_put()
+> in pxa168_eth_remove() and in failure handling code of pxa168_eth_probe().
+> As a result double free can happen.
 > 
-> This patch v7 has changes based on the feedback from earlier patches:
+> The patch removes explicit resource deallocation. Also it converts
+> clk_disable() to clk_disable_unprepare() to make it symmetrical with
+> clk_prepare_enable().
 > 
-> 1) Minor comments from v6 release regarding debug statements.
-> 2) Fix for large multicast lists.
-> 3) Fixed lockup issue if port initialization fails.
-> 4) Enabled MSI by default.
+> Found by Linux Driver Verification project (linuxtesting.org).
 > 
-> Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-> Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-It is extremely disappointing that you've defined your own debug
-logging macros, which use generic dev_*() printks, instead of using
-the proper netdev_*() printk logging interfaces to do this.
+Applied and queued up for -stable, thanks.
+
+I find this patch _extremely_ amusing, as it shows that that these
+managed interfaces can be just as error prone to use as the
+non-managed ones. :-)
