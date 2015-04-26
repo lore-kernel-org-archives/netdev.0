@@ -1,128 +1,78 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/bonding: Make DRV macros private
-Date: Sun, 26 Apr 2015 15:55:57 +0300
-Message-ID: <1430052957-7345-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net 1/2] ethtool: Use values instead of bit flags for RSS hash function
+Date: Sun, 26 Apr 2015 17:36:05 +0300
+Message-ID: <1430058966-24046-2-git-send-email-amirv@mellanox.com>
+References: <1430058966-24046-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:40925 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:50993 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751829AbbDZM4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Apr 2015 08:56:22 -0400
+	id S1751335AbbDZOgn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Apr 2015 10:36:43 -0400
+In-Reply-To: <1430058966-24046-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+The RX indirection hash function is eight bits. Using more than one hash
+function doesn't make sense, therefore using this field as a value
+instead of a bit flag.
+Moving from bit flags into value shouldn't introduce any backward
+compatibility issues, since currently there are only 2 functions,
+therfore the actual value in the field hfunc is the same like before 1
+for Toeplitz and 2 for XOR.
 
-The bonding modules currently defines four macros with
-general names that pollute the global namespace:
-DRV_VERSION
-DRV_RELDATE
-DRV_NAME
-DRV_DESCRIPTION
-
-Fixing that by defining a private bonding_priv.h
-header files which includes those defines.
-
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Fixes: 892311f ("ethtool: Support for configurable RSS hash function")
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
+ include/linux/ethtool.h | 9 ++-------
+ net/core/ethtool.c      | 4 ++--
+ 2 files changed, 4 insertions(+), 9 deletions(-)
 
-Hi Dave,
-
-We've been hitting this small issue when working on 
-rdma-next (4.2) features to the IB driver, so just 
-to avoid unnecessary deps sending it as fix for 4.1-rc1
-
-Matan used the somehow old header for the new file, hope
-this is OK, and if not, we'll change...
-
-Or.
-
- drivers/net/bonding/bond_main.c    |    2 ++
- drivers/net/bonding/bond_procfs.c  |    1 +
- drivers/net/bonding/bonding_priv.h |   25 +++++++++++++++++++++++++
- include/net/bonding.h              |    7 -------
- 4 files changed, 28 insertions(+), 7 deletions(-)
- create mode 100644 drivers/net/bonding/bonding_priv.h
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 78dde56..3a10551 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -82,6 +82,8 @@
- #include <net/bond_3ad.h>
- #include <net/bond_alb.h>
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 653dc9c..d19f31a 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -60,8 +60,8 @@ enum ethtool_phys_id_state {
+ };
  
-+#include "bonding_priv.h"
-+
- /*---------------------------- Module parameters ----------------------------*/
+ enum {
+-	ETH_RSS_HASH_TOP_BIT, /* Configurable RSS hash function - Toeplitz */
+-	ETH_RSS_HASH_XOR_BIT, /* Configurable RSS hash function - Xor */
++	ETH_RSS_HASH_TOP = 1, /* Configurable RSS hash function - Toeplitz */
++	ETH_RSS_HASH_XOR = 2, /* Configurable RSS hash function - Xor */
  
- /* monitor all links that often (in milliseconds). <=0 disables monitoring */
-diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
-index 62694cf..b20b35a 100644
---- a/drivers/net/bonding/bond_procfs.c
-+++ b/drivers/net/bonding/bond_procfs.c
-@@ -4,6 +4,7 @@
- #include <net/netns/generic.h>
- #include <net/bonding.h>
+ 	/*
+ 	 * Add your fresh new hash function bits above and remember to update
+@@ -70,11 +70,6 @@ enum {
+ 	ETH_RSS_HASH_FUNCS_COUNT
+ };
  
-+#include "bonding_priv.h"
- 
- static void *bond_info_seq_start(struct seq_file *seq, loff_t *pos)
- 	__acquires(RCU)
-diff --git a/drivers/net/bonding/bonding_priv.h b/drivers/net/bonding/bonding_priv.h
-new file mode 100644
-index 0000000..5a4d81a
---- /dev/null
-+++ b/drivers/net/bonding/bonding_priv.h
-@@ -0,0 +1,25 @@
-+/*
-+ * Bond several ethernet interfaces into a Cisco, running 'Etherchannel'.
-+ *
-+ * Portions are (c) Copyright 1995 Simon "Guru Aleph-Null" Janes
-+ * NCM: Network and Communications Management, Inc.
-+ *
-+ * BUT, I'm the one who modified it for ethernet, so:
-+ * (c) Copyright 1999, Thomas Davis, tadavis@lbl.gov
-+ *
-+ *	This software may be used and distributed according to the terms
-+ *	of the GNU Public License, incorporated herein by reference.
-+ *
-+ */
-+
-+#ifndef _BONDING_PRIV_H
-+#define _BONDING_PRIV_H
-+
-+#define DRV_VERSION	"3.7.1"
-+#define DRV_RELDATE	"April 27, 2011"
-+#define DRV_NAME	"bonding"
-+#define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
-+
-+#define bond_version DRV_DESCRIPTION ": v" DRV_VERSION " (" DRV_RELDATE ")\n"
-+
-+#endif
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index fda6fee..78ed135 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -30,13 +30,6 @@
- #include <net/bond_alb.h>
- #include <net/bond_options.h>
- 
--#define DRV_VERSION	"3.7.1"
--#define DRV_RELDATE	"April 27, 2011"
--#define DRV_NAME	"bonding"
--#define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
+-#define __ETH_RSS_HASH_BIT(bit)	((u32)1 << (bit))
+-#define __ETH_RSS_HASH(name)	__ETH_RSS_HASH_BIT(ETH_RSS_HASH_##name##_BIT)
 -
--#define bond_version DRV_DESCRIPTION ": v" DRV_VERSION " (" DRV_RELDATE ")\n"
--
- #define BOND_MAX_ARP_TARGETS	16
+-#define ETH_RSS_HASH_TOP	__ETH_RSS_HASH(TOP)
+-#define ETH_RSS_HASH_XOR	__ETH_RSS_HASH(XOR)
  
- #define BOND_DEFAULT_MIIMON	100
+ #define ETH_RSS_HASH_UNKNOWN	0
+ #define ETH_RSS_HASH_NO_CHANGE	0
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 1d00b89..1a1db95 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -103,8 +103,8 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 
+ static const char
+ rss_hash_func_strings[ETH_RSS_HASH_FUNCS_COUNT][ETH_GSTRING_LEN] = {
+-	[ETH_RSS_HASH_TOP_BIT] =	"toeplitz",
+-	[ETH_RSS_HASH_XOR_BIT] =	"xor",
++	[ETH_RSS_HASH_TOP] =		"toeplitz",
++	[ETH_RSS_HASH_XOR] =		"xor",
+ };
+ 
+ static int ethtool_get_features(struct net_device *dev, void __user *useraddr)
 -- 
-1.7.1
+1.9.3
