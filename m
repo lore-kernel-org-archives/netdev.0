@@ -1,30 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3 0/4] new ethernet address manipulation checks
-Date: Sun, 26 Apr 2015 11:20:16 -0700
-Message-ID: <1430072416.4833.10.camel@perches.com>
-References: <1430066600-12210-1-git-send-email-mateusz.kulikowski@gmail.com>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next V7 0/2] openvswitch: Add support for
+	802.1AD
+Date: Sun, 26 Apr 2015 14:33:00 -0400
+Message-ID: <1430073182-14195-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: apw@canonical.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430066600-12210-1-git-send-email-mateusz.kulikowski@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-(adding Andrew Morton)
-
-On Sun, 2015-04-26 at 18:43 +0200, Mateusz Kulikowski wrote:
-> Changes in v3:
-> - Fixed handling of MEMSET issues (due to '/s' at the end the same 
->   error/warning was reported several times)
-> - Added handling of multiline PREFER_ETHER_ADDR_COPY warnings
-> - Review: added --fix option to eth_zero/broadcast_addr checks
-> - All new warnings are multi-line aware (fixes work on single lines only)
-
-Acked-by: Joe Perches <joe@perches.com>
-
-Thanks Mateusz
+QWRkIHN1cHBvcnQgZm9yIDgwMi4xQUQgdG8gdGhlIG9wZW52c3dpdGNoIGtlcm5lbCBtb2R1bGUu
+CgpBbHRob3VnaCB0aGUgT3BlbiBGbG93IHNwZWNpZmljYXRpb24gc3BlY2lmaWVkIHN1cHBvcnQg
+Zm9yIDgwMi4xQUQgKHFpbnEpIAphcyB3ZWxsIGFzIHB1c2ggYW5kIHBvcCB2bGFuIGhlYWRlcnMs
+ICBTbyBmYXIgT3BlbiB2U3dpdGNoIGhhcyBvbmx5CnN1cHBvcnRlZCBhIHNpbmdsZSB0YWcgaGVh
+ZGVyLgoKVGhpcyBhY2NvbXBhbmllcyB2ZXJzaW9uIDcgb2YgdGhlIHBhdGNoIHN1Ym1pdHRlZCB0
+byBvcGVudnN3aXRjaCBkZXYgbGlzdC4KCkZvciBkaXNjdXNzaW9uLCBoaXN0b3J5ICBhbmQgcHJl
+dmlvdXMgdmVyc2lvbnMsIG9mIHRoZSBrZXJuZWwgcGF0Y2gsIApzZWUgdGhlIE9WUyBkZXYgbWFp
+bGluZyBsaXN0LCBvcGVudnN3aXRjaC5vcmcvcGlwZXJtYWlsL2Rldi8uLgoKVGhvbWFzIEYgSGVy
+YmVydCAoMik6CiAgYWRkIGZsb3cga2V5IGZpZWxkIGZvciBjdGFnCiAgRmxvdyBoYW5kbGluZywg
+YWN0aW9ucywgYW5kIHZsYW4gcGFyc2luZyBmb3IgODAyMUFECgogaW5jbHVkZS91YXBpL2xpbnV4
+L29wZW52c3dpdGNoLmggfCAxNyArKysrLS0tLQogbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYyAg
+ICAgICAgfCAgNiArKy0KIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAgICAgIHwgODMgKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLQogbmV0L29wZW52c3dpdGNoL2Zs
+b3cuaCAgICAgICAgICAgfCAgMSArCiBuZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgICB8
+IDgxICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLQogNSBmaWxlcyBjaGFu
+Z2VkLCAxNjAgaW5zZXJ0aW9ucygrKSwgMjggZGVsZXRpb25zKC0pCgotLSAKMi4xLjAKCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxp
+c3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlz
+dGluZm8vZGV2Cg==
