@@ -1,39 +1,50 @@
-From: Gabriele Mazzotta <gabriele.mzt-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] Bluetooth: Skip the shutdown routine if the interface is not up
-Date: Sun, 26 Apr 2015 20:51:50 +0200
-Message-ID: <1430074310-3192-1-git-send-email-gabriele.mzt@gmail.com>
-Cc: tedd.an-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org,
-	johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Gabriele Mazzotta <gabriele.mzt-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sylvain Rochet <sylvain.rochet@finsecur.com>
+Subject: [PATCH 0/2] ppp: mppe: fixes MPPE desync on links which don't guarantee packet ordering
+Date: Sun, 26 Apr 2015 20:40:51 +0200
+Message-ID: <1430073653-22131-1-git-send-email-sylvain.rochet@finsecur.com>
+Cc: Sylvain Rochet <sylvain.rochet@finsecur.com>
+To: Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Most likely, the shutdown routine requires the interface to be up.
-This is the case for BTUSB_INTEL: the routine tries to send a command
-to the interface, but since this one is down, it fails and exits once
-HCI_INIT_TIMEOUT has expired.
+I am currently having an issue with PPP over L2TP (UDP) and MPPE in
+stateless mode (default mode), UDP does not guarantee packet ordering so
+we might get out of order packet. MPPE needs to be continuously synched
+so we should drop late UDP packet.
 
-Signed-off-by: Gabriele Mazzotta <gabriele.mzt-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/bluetooth/hci_core.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+I added a printk on the number of time we rekeyed in MPPE decompressor,
+this is what we currently have if we receive a slightly out of order UDP
+packet:
 
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 476709b..4663c3d 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -1557,7 +1557,8 @@ static int hci_dev_do_close(struct hci_dev *hdev)
- {
- 	BT_DBG("%s %p", hdev->name, hdev);
- 
--	if (!hci_dev_test_flag(hdev, HCI_UNREGISTER)) {
-+	if (!hci_dev_test_flag(hdev, HCI_UNREGISTER) &&
-+	    test_bit(HCI_UP, &hdev->flags)) {
- 		/* Execute vendor specific shutdown routine */
- 		if (hdev->shutdown)
- 			hdev->shutdown(hdev);
+[1731001.049206] mppe_decompress[1]: ccount 1559
+[1731001.049216] mppe_decompress[1]: rekeyed 1 times
+
+[1731001.049228] mppe_decompress[1]: ccount 1560
+[1731001.049232] mppe_decompress[1]: rekeyed 1 times
+
+[1731001.050170] mppe_decompress[1]: ccount 1562
+[1731001.050182] mppe_decompress[1]: rekeyed 2 times
+
+[1731001.050191] mppe_decompress[1]: ccount 1561
+[1731001.062576] mppe_decompress[1]: rekeyed 4095 times
+                                             ^^^^
+This is obviously wrong, we missed packet 1561 and we already rekeyed 2
+times for 1562 we previously received, we can't recover the decryption
+key we need for 1561, we should drop it instead of rekeying 4095 times.
+
+This patch series drop any packet with are not within the 4096/2 forward
+window.
+
+Sylvain Rochet (2):
+  ppp: mppe: sanity error path rework
+  ppp: mppe: discard late packet in stateless mode
+
+ drivers/net/ppp/ppp_mppe.c | 36 ++++++++++++++++++++----------------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
+
 -- 
 2.1.4
+
