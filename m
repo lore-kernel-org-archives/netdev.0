@@ -1,52 +1,81 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net 0/2] net/ethtool, mlx4_en: RSS hash function setting fixes
-Date: Sun, 26 Apr 2015 17:36:04 +0300
-Message-ID: <1430058966-24046-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net 2/2] net/mlx4_en: Prevent setting invalid RSS hash function
+Date: Sun, 26 Apr 2015 17:36:06 +0300
+Message-ID: <1430058966-24046-3-git-send-email-amirv@mellanox.com>
+References: <1430058966-24046-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Tal Alon <talal@mellanox.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:51000 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:51018 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752222AbbDZOgq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Apr 2015 10:36:46 -0400
+	id S1752235AbbDZOgy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Apr 2015 10:36:54 -0400
+In-Reply-To: <1430058966-24046-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+mlx4_en_check_rxfh_func() was checking for hardware support before
+setting a known RSS hash function, but didn't do any check before
+setting unknown RSS hash function. Need to make it fail on such values.
+In this occasion, moved the actual setting of the new value from the
+check function into mlx4_en_set_rxfh().
 
-This small patchset fixes a small issue in the ethtool User/kernel API.
-
-Hash function is represented as an eight bit field, every bit represents a
-function.  Currently possible values are: 1 for Toeplitz and 2 for XOR.
-This commit changes the representation from bit flags into a value. Because
-only one hash function will be used at a time, there is no sense using bit
-flags for it.
-Since today only 2 functions are supported, and there is no user space ethtool
-that supports this feature, we can switch into values without causing any
-backward compatibility issues.
-
-After this patchset is applied, I will send the user space patch.
-
-In this occasion I added a missing validation to the hash function value.
-
-This patchset was applied and tested over commit 2ea2f62 ("net: fix crash in build_skb()")
-
-Please push this patchset to stable 3.19.y in which those two issues were introduced.
-
-Thanks,
-Amir
-
-Amir Vadai (2):
-  ethtool: Use values instead of bit flags for RSS hash function
-  net/mlx4_en: Prevent setting invalid RSS hash function
-
+Fixes: 947cbb0 ("net/mlx4_en: Support for configurable RSS hash function")
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
  drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 29 ++++++++++++++-----------
- include/linux/ethtool.h                         |  9 ++------
- net/core/ethtool.c                              |  4 ++--
- 3 files changed, 20 insertions(+), 22 deletions(-)
+ 1 file changed, 16 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 3f44e2b..a2ddf3d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1102,20 +1102,21 @@ static int mlx4_en_check_rxfh_func(struct net_device *dev, u8 hfunc)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
+ 	/* check if requested function is supported by the device */
+-	if ((hfunc == ETH_RSS_HASH_TOP &&
+-	     !(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RSS_TOP)) ||
+-	    (hfunc == ETH_RSS_HASH_XOR &&
+-	     !(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RSS_XOR)))
+-		return -EINVAL;
++	if (hfunc == ETH_RSS_HASH_TOP) {
++		if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RSS_TOP))
++			return -EINVAL;
++		if (!(dev->features & NETIF_F_RXHASH))
++			en_warn(priv, "Toeplitz hash function should be used in conjunction with RX hashing for optimal performance\n");
++		return 0;
++	} else if (hfunc == ETH_RSS_HASH_XOR) {
++		if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_RSS_XOR))
++			return -EINVAL;
++		if (dev->features & NETIF_F_RXHASH)
++			en_warn(priv, "Enabling both XOR Hash function and RX Hashing can limit RPS functionality\n");
++		return 0;
++	}
+ 
+-	priv->rss_hash_fn = hfunc;
+-	if (hfunc == ETH_RSS_HASH_TOP && !(dev->features & NETIF_F_RXHASH))
+-		en_warn(priv,
+-			"Toeplitz hash function should be used in conjunction with RX hashing for optimal performance\n");
+-	if (hfunc == ETH_RSS_HASH_XOR && (dev->features & NETIF_F_RXHASH))
+-		en_warn(priv,
+-			"Enabling both XOR Hash function and RX Hashing can limit RPS functionality\n");
+-	return 0;
++	return -EINVAL;
+ }
+ 
+ static int mlx4_en_get_rxfh(struct net_device *dev, u32 *ring_index, u8 *key,
+@@ -1189,6 +1190,8 @@ static int mlx4_en_set_rxfh(struct net_device *dev, const u32 *ring_index,
+ 		priv->prof->rss_rings = rss_rings;
+ 	if (key)
+ 		memcpy(priv->rss_key, key, MLX4_EN_RSS_KEY_SIZE);
++	if (hfunc !=  ETH_RSS_HASH_NO_CHANGE)
++		priv->rss_hash_fn = hfunc;
+ 
+ 	if (port_up) {
+ 		err = mlx4_en_start_port(dev);
 -- 
 1.9.3
