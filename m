@@ -1,59 +1,26 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH] ehea: Fix memory hook reference counting crashes
-Date: Mon, 27 Apr 2015 10:30:36 +1000
-Message-ID: <1430094636.8494.3.camel@ellerman.id.au>
-References: <1429854752-5698-1-git-send-email-mpe@ellerman.id.au>
-	 <20150425.144354.1149917806926276049.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next 0/6] ipv6: netfilter - coding style improvements
+Date: Mon, 27 Apr 2015 04:43:10 +0200
+Message-ID: <20150427023320.GA18576@salvia>
+References: <1429954020-11763-1-git-send-email-ipm@chirality.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, anton@samba.org,
-	cascardo@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Ian Morris <ipm@chirality.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:51663 "EHLO ozlabs.org"
+Received: from mail.us.es ([193.147.175.20]:55918 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751283AbbD0Aai (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Apr 2015 20:30:38 -0400
-In-Reply-To: <20150425.144354.1149917806926276049.davem@davemloft.net>
+	id S1751909AbbD0Cij (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Apr 2015 22:38:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1429954020-11763-1-git-send-email-ipm@chirality.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2015-04-25 at 14:43 -0400, David Miller wrote:
-> From: Michael Ellerman <mpe@ellerman.id.au>
-> Date: Fri, 24 Apr 2015 15:52:32 +1000
-> 
-> > The recent commit to only register the EHEA memory hotplug hooks on
-> > adapter probe has a few problems.
-> > 
-> > Firstly the reference counting is wrong for multiple adapters, in that
-> > the hooks are registered multiple times. Secondly the check in the tear
-> > down path is backward. Finally the error path doesn't decrement the
-> > count.
-> > 
-> > The multiple registration of the hooks is the biggest problem, as it
-> > leads to oopses when the system is rebooted, and/or errors during memory
-> > hotplug, eg:
->  ...
-> > Fixes: aa183323312d ("ehea: Register memory hotplug, reboot and crash hooks on adapter probe")
-> > Signed-off-by: Michael Ellerman <mpe@ellerman.id.au>
-> 
-> Applied, but using an atomic counter for this is really inappropriate
-> and is what lead to this bug in the first place.
-> 
-> You're not counting anything, because if you were, then you would be
-> decrementing this thing somewhere.
-> 
-> Rather, it's purely a boolean state saying "I did X".  So it should be
-> a boolean, and no atomicity nor other special considerations are
-> needed for setting it to true.
+On Sat, Apr 25, 2015 at 10:26:54AM +0100, Ian Morris wrote:
+> This series of patches removes some style issues in the ipv6 netfilter
+> code detected by checkpatch. There is no change to functionality and
+> no changes to the resultant object determined by objdiff.
 
-Yeah I agree, it's a mess.
-
-We should be unregistering the hooks when the last adapter is removed, which is
-where we'd do the decrement. As it's written the hooks stay registered until
-the driver is removed.
-
-I'll try and find time, or someone else with time, to fix it up properly for 4.2.
-
-cheers
+Please, Cc: netfilter-devel@vger.kernel.org for netfilter updates,
+thanks.
