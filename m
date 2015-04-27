@@ -1,65 +1,87 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH 2/2] net:wireless:treewide: Fix typo in drivers/net/wireless
-Date: Mon, 27 Apr 2015 23:14:58 +0900
-Message-ID: <1430144098-4933-2-git-send-email-standby24x7@gmail.com>
-References: <1430144098-4933-1-git-send-email-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7@gmail.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, Larry.Finger@lwfinger.net,
-	rdunlap@infradead.org, trivial@kernel.org,
-	chaoming_li@realsil.com.cn, linux-wireless@vger.kernel.org
+From: Michael Grzeschik <mgr@pengutronix.de>
+Subject: Re: [PATCH 00/21] ARCNET: Defibrillation
+Date: Mon, 27 Apr 2015 16:57:15 +0200
+Message-ID: <20150427145715.GC23151@pengutronix.de>
+References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
+ <1429901273.23327.5.camel@perches.com>
+ <553AB241.3080004@pengutronix.de>
+ <20150424.235853.1997287895150693202.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mkl@pengutronix.de, joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430144098-4933-1-git-send-email-standby24x7@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20150424.235853.1997287895150693202.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fix some spelling typo in drivers/net/wirless
+Hi!
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- drivers/net/wireless/mwifiex/tdls.c         | 2 +-
- drivers/net/wireless/rtlwifi/rtl8192ee/fw.c | 2 +-
- drivers/net/wireless/rtlwifi/rtl8723be/fw.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+On Fri, Apr 24, 2015 at 11:58:53PM -0400, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Fri, 24 Apr 2015 23:14:41 +0200
+> 
+> > On 04/24/2015 08:47 PM, Joe Perches wrote:
+> >> On Fri, 2015-04-24 at 19:20 +0200, Michael Grzeschik wrote:
+> >>> Hi!
+> >> 
+> >> Hello.
+> >> 
+> >>> This patch series tries to reanimate the ARCNET hardware layer to be
+> >>> somehow readable and maintainable again. It includes a lot of cleanup
+> >>> patches. It also adds some fixes which leads the layer to become usable
+> >>> again. And as a special treatment it adds more features like correct
+> >>> loading and unloading of the com20020 card.
+> >> 
+> >> Wow.  Good for you, but why?  Does anyone still use these?
+> > 
+> > Yes, there are parts of the industry where "old" machines are
+> > retrofitted with new hardware...and a lot of these machines still talk
+> > ARCNET :)
+> 
+> But the real issue is, this layer is development wise in the same
+> category as the IDE layer.
+> 
+> Any non-trivial change is nothing but pure risk, especially given the
+> low level of test coverage the code gets.
 
-diff --git a/drivers/net/wireless/mwifiex/tdls.c b/drivers/net/wireless/mwifiex/tdls.c
-index 087d847..275a476 100644
---- a/drivers/net/wireless/mwifiex/tdls.c
-+++ b/drivers/net/wireless/mwifiex/tdls.c
-@@ -255,7 +255,7 @@ static int mwifiex_tdls_add_vht_oper(struct mwifiex_private *priv,
- 		if (sta_ptr->tdls_cap.extcap.ext_capab[7] &
- 		   WLAN_EXT_CAPA8_TDLS_WIDE_BW_ENABLED) {
- 			dev_dbg(adapter->dev,
--				"TDLS peer doesn't support wider bandwitdh\n");
-+				"TDLS peer doesn't support wider bandwidth\n");
- 			return 0;
- 		}
- 	} else {
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c b/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
-index c5d4b80..232865c 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ee/fw.c
-@@ -875,7 +875,7 @@ static void _rtl92ee_c2h_content_parsing(struct ieee80211_hw *hw, u8 c2h_cmd_id,
- 		break;
- 	default:
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
--			 "[C2H], Unkown packet!! CmdId(%#X)!\n", c2h_cmd_id);
-+			 "[C2H], Unknown packet!! CmdId(%#X)!\n", c2h_cmd_id);
- 		break;
- 	}
- }
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/fw.c b/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
-index 69d4f0f..d5da0f3 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/fw.c
-@@ -613,7 +613,7 @@ static void _rtl8723be_c2h_content_parsing(struct ieee80211_hw *hw,
- 		break;
- 	default:
- 		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
--			 "[C2H], Unkown packet!! CmdId(%#X)!\n", c2h_cmd_id);
-+			 "[C2H], Unknown packet!! CmdId(%#X)!\n", c2h_cmd_id);
- 		break;
- 	}
- }
+Do you count coding style patches as non-trivial or trivial
+patches?
+
+> So I really only want to see the most critical obvious bug fixes
+> submitted for this layer and drivers.
+
+The cleanup changes I submitted should not change the actual behaviour.
+Replacing the register access macros with their equivalent outb/inb
+seems pretty obvious. What is your opinion on those?
+
+I see that the "ARCNET: whitespace, tab and codingstyle fixes" patch is
+pretty mixed up and not very reliable. But Joe has sent me a nice series
+for the cleanup.
+
+> And no I will not accept an argument stating that you have to
+> restructure and clean this code up in order to fix the bugs.  That's
+> bogus.
+
+OK.
+
+I have the following patches in this series which fix bugs found during
+my development:
+
+com20020-pci: add dev_port for udev handling
+ARCNET: fix hard_header_len limit
+ARCNET: com20020: add enable and disable device on open/close
+
+I would send a new series containing only those patches with more
+detailed patch descriptions, if that's fine with you?
+
+Regards,
+Michael
+
 -- 
-2.4.0.rc3.3.g6eb1401
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
