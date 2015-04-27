@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net:wireless:treewide: Fix typo in
- drivers/net/wireless
-Date: Mon, 27 Apr 2015 13:41:29 -0400 (EDT)
-Message-ID: <20150427.134129.720882241495065374.davem@davemloft.net>
-References: <1430144098-4933-1-git-send-email-standby24x7@gmail.com>
-	<1430144098-4933-2-git-send-email-standby24x7@gmail.com>
+Subject: Re: [PATCH net] bnx2x: really disable TPA if 'disable_tpa' option
+ is set
+Date: Mon, 27 Apr 2015 13:43:23 -0400 (EDT)
+Message-ID: <20150427.134323.156569796484222010.davem@davemloft.net>
+References: <1430148038-25695-1-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Larry.Finger@lwfinger.net, rdunlap@infradead.org,
-	trivial@kernel.org, chaoming_li@realsil.com.cn,
-	linux-wireless@vger.kernel.org
-To: standby24x7@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430144098-4933-2-git-send-email-standby24x7@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dmitry.Kravkov@qlogic.com,
+	Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com
+To: mschmidt@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56305 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932208AbbD0RnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 13:43:25 -0400
+In-Reply-To: <1430148038-25695-1-git-send-email-mschmidt@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masanari Iida <standby24x7@gmail.com>
-Date: Mon, 27 Apr 2015 23:14:58 +0900
+From: Michal Schmidt <mschmidt@redhat.com>
+Date: Mon, 27 Apr 2015 17:20:38 +0200
 
-> This patch fix some spelling typo in drivers/net/wirless
+> bnx2x's 'disable_tpa=1' module option is not respected properly and TPA
+> (transparent packet aggregation) remains enabled. Even though the
+> module option causes LRO to be disabled, TPA is enabled in GRO mode.
 > 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+> Additionally, disabling GRO via ethtool then has no effect. One can
+> still observe tpa_* statistics increase and large packets being received
+> in tcpdump.
+> 
+> The bug was an unintended consequence of commit aebf6244cd39 "bnx2x: Be
+> more forgiving toward SW GRO".
+> 
+> Fix it by following the bp->disable_tpa flag when initializing fp's.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 
-I'll let the wireless folks pick this one up, thanks.
+Applied, thanks.
