@@ -1,14 +1,14 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/2] netfilter: bridge: fix NULL deref in physin/out ifindex helpers
-Date: Mon, 27 Apr 2015 20:41:57 +0200
-Message-ID: <1430160117-21150-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/2] netfilter: nf_tables: fix wrong length for jump/goto verdicts
+Date: Mon, 27 Apr 2015 20:41:56 +0200
+Message-ID: <1430160117-21150-2-git-send-email-pablo@netfilter.org>
 References: <1430160117-21150-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44483 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:44478 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753168AbbD0Shf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753167AbbD0Shf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 27 Apr 2015 14:37:35 -0400
 In-Reply-To: <1430160117-21150-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
@@ -16,50 +16,40 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-Might not have an outdev yet. We'll oops when iface goes down while skbs
-are still nfqueue'd:
+NFT_JUMP/GOTO erronously sets length to sizeof(void *).
 
-RIP: 0010:[<ffffffff81422a2f>]  [<ffffffff81422a2f>] dev_cmp+0x4f/0x80
-nfqnl_rcv_dev_event+0xe2/0x150
-notifier_call_chain+0x53/0xa0
+We then allocate insufficient memory when such element is added to a vmap.
 
-Fixes: c737b7c4510026 ("netfilter: bridge: add helpers for fetching physin/outdev")
+Suggested-by: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter_bridge.h |   16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ net/netfilter/nf_tables_api.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index ab8f76d..f2fdb5a 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -39,12 +39,24 @@ static inline void br_drop_fake_rtable(struct sk_buff *skb)
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 78af83b..ad9d11f 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -4340,7 +4340,6 @@ static int nft_verdict_init(const struct nft_ctx *ctx, struct nft_data *data,
+ 	case NFT_CONTINUE:
+ 	case NFT_BREAK:
+ 	case NFT_RETURN:
+-		desc->len = sizeof(data->verdict);
+ 		break;
+ 	case NFT_JUMP:
+ 	case NFT_GOTO:
+@@ -4355,10 +4354,10 @@ static int nft_verdict_init(const struct nft_ctx *ctx, struct nft_data *data,
  
- static inline int nf_bridge_get_physinif(const struct sk_buff *skb)
- {
--	return skb->nf_bridge ? skb->nf_bridge->physindev->ifindex : 0;
-+	struct nf_bridge_info *nf_bridge;
-+
-+	if (skb->nf_bridge == NULL)
-+		return 0;
-+
-+	nf_bridge = skb->nf_bridge;
-+	return nf_bridge->physindev ? nf_bridge->physindev->ifindex : 0;
+ 		chain->use++;
+ 		data->verdict.chain = chain;
+-		desc->len = sizeof(data);
+ 		break;
+ 	}
+ 
++	desc->len = sizeof(data->verdict);
+ 	desc->type = NFT_DATA_VERDICT;
+ 	return 0;
  }
- 
- static inline int nf_bridge_get_physoutif(const struct sk_buff *skb)
- {
--	return skb->nf_bridge ? skb->nf_bridge->physoutdev->ifindex : 0;
-+	struct nf_bridge_info *nf_bridge;
-+
-+	if (skb->nf_bridge == NULL)
-+		return 0;
-+
-+	nf_bridge = skb->nf_bridge;
-+	return nf_bridge->physoutdev ? nf_bridge->physoutdev->ifindex : 0;
- }
- 
- static inline struct net_device *
 -- 
 1.7.10.4
