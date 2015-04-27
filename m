@@ -1,57 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Bluetooth: Skip the shutdown routine if the interface
- is not up
-Date: Mon, 27 Apr 2015 01:01:14 -0400 (EDT)
-Message-ID: <20150427.010114.1023073688671559343.davem@davemloft.net>
-References: <1430074310-3192-1-git-send-email-gabriele.mzt@gmail.com>
-	<C0DF74E2-3705-42A4-898D-3E89C8C95D4A@holtmann.org>
+From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Subject: [PATCH 2/2] brcmfmac: keep WiFi chip's power during system suspension
+Date: Mon, 27 Apr 2015 13:06:43 +0800
+Message-ID: <553DC3E3.5050802@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: gabriele.mzt@gmail.com, tedd.an@intel.com, gustavo@padovan.org,
-	johan.hedberg@gmail.com, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: marcel@holtmann.org
+To: "brudley@broadcom.com" <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>,
+	"meuleman@broadcom.com" <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"pieterpg@broadcom.com" <pieterpg@broadcom.com>,
+	"hdegoede@redhat.com" <hdegoede@redhat.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C0DF74E2-3705-42A4-898D-3E89C8C95D4A@holtmann.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Sun, 26 Apr 2015 21:49:06 -0700
+Need to keep the power supply for WiFi chip during system suspension.
+Otherwise, the context of WiFi chip will be lost.
 
-> Hi Gabriele,
-> 
->> Most likely, the shutdown routine requires the interface to be up.
->> This is the case for BTUSB_INTEL: the routine tries to send a command
->> to the interface, but since this one is down, it fails and exits once
->> HCI_INIT_TIMEOUT has expired.
->> 
->> Signed-off-by: Gabriele Mazzotta <gabriele.mzt@gmail.com>
->> ---
->> net/bluetooth/hci_core.c | 3 ++-
->> 1 file changed, 2 insertions(+), 1 deletion(-)
->> 
->> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
->> index 476709b..4663c3d 100644
->> --- a/net/bluetooth/hci_core.c
->> +++ b/net/bluetooth/hci_core.c
->> @@ -1557,7 +1557,8 @@ static int hci_dev_do_close(struct hci_dev *hdev)
->> {
->> 	BT_DBG("%s %p", hdev->name, hdev);
->> 
->> -	if (!hci_dev_test_flag(hdev, HCI_UNREGISTER)) {
->> +	if (!hci_dev_test_flag(hdev, HCI_UNREGISTER) &&
->> +	    test_bit(HCI_UP, &hdev->flags)) {
->> 		/* Execute vendor specific shutdown routine */
->> 		if (hdev->shutdown)
->> 			hdev->shutdown(hdev);
-> 
-> this is a good catch.
-> 
-> Acked-by: Marcel Holtmann <marcel@holtmann.org>
-> Cc: stable@vger.kernel.org # 4.0.x
-> 
-> Dave, do you want to take this patch straight into your stable tree?
+Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
+---
+ drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-Please handle this via the bluetooth tree, thanks.
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+index fdf8feb..03d3671 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+@@ -1251,15 +1251,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+ 	brcmf_sdiod_freezer_on(sdiodev);
+ 	brcmf_sdio_wd_timer(sdiodev->bus, 0);
+ 
++	sdio_flags = MMC_PM_KEEP_POWER;
+ 	if (sdiodev->wowl_enabled) {
+-		sdio_flags = MMC_PM_KEEP_POWER;
+ 		if (sdiodev->pdata->oob_irq_supported)
+ 			enable_irq_wake(sdiodev->pdata->oob_irq_nr);
+ 		else
+-			sdio_flags = MMC_PM_WAKE_SDIO_IRQ;
+-		if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
+-			brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
++			sdio_flags |= MMC_PM_WAKE_SDIO_IRQ;
+ 	}
++
++	if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
++		brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
++
+ 	return 0;
+ }
+ 
+-- 1.7.1
