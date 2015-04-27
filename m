@@ -1,54 +1,56 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net] bnx2x: really disable TPA if 'disable_tpa' option is set
-Date: Mon, 27 Apr 2015 17:20:38 +0200
-Message-ID: <1430148038-25695-1-git-send-email-mschmidt@redhat.com>
-Cc: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34091 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752321AbbD0PUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2015 11:20:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: v3.12-stable-queue build errors
+Date: Mon, 27 Apr 2015 10:35:51 -0500
+Message-ID: <87fv7lk2i0.fsf@x220.int.ebiederm.org>
+References: <20150425141609.GA1147@roeck-us.net> <553DF71E.7060409@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	ML netdev <netdev@vger.kernel.org>,
+	Guenter Roeck <linux@roeck-us.net>, stable@vger.kernel.org
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <553DF71E.7060409@suse.cz> (Jiri Slaby's message of "Mon, 27 Apr
+	2015 10:45:18 +0200")
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-bnx2x's 'disable_tpa=1' module option is not respected properly and TPA
-(transparent packet aggregation) remains enabled. Even though the
-module option causes LRO to be disabled, TPA is enabled in GRO mode.
+Jiri Slaby <jslaby@suse.cz> writes:
 
-Additionally, disabling GRO via ethtool then has no effect. One can
-still observe tpa_* statistics increase and large packets being received
-in tcpdump.
+> On 04/25/2015, 04:16 PM, Guenter Roeck wrote:
+>> Several powerpc build fail with:
+>> 
+>> drivers/net/ethernet/freescale/gianfar.c: In function 'gfar_start_xmit':
+>> drivers/net/ethernet/freescale/gianfar.c:2146:3: error: implicit declaration of
+>> function 'dev_consume_skb_any' [-Werror=implicit-function-declaration]
+>>    dev_consume_skb_any(skb);
+>> 
+>> dev_consume_skb_any() does not exist in 3.12.
+>> 
+>> Introduced by 'gianfar: Carefully free skbs in functions called by netpoll'.
+>
+> Eric, David,
+>
+> what action should I take here?
+>
+> 1) take also:
+> commit e6247027e5173c00efb2084d688d06ff835bc3b0
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Thu Dec 5 04:45:08 2013 -0800
+>
+>     net: introduce dev_consume_skb_any()
+>
+>
+> 2) drop 'gianfar: Carefully free skbs in functions called by netpoll'
+> from stable-3.12
 
-The bug was an unintended consequence of commit aebf6244cd39 "bnx2x: Be
-more forgiving toward SW GRO".
+This is probably the most reasonable.   KISS.
 
-Fix it by following the bp->disable_tpa flag when initializing fp's.
+> 3) any other idea?
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+#define dev_consume_sky_any dev_kfree_skb_any
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 6f7dc81581..3558a36b1c 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -2485,8 +2485,10 @@ static void bnx2x_bz_fp(struct bnx2x *bp, int index)
- 	else if (bp->flags & GRO_ENABLE_FLAG)
- 		fp->mode = TPA_MODE_GRO;
- 
--	/* We don't want TPA on an FCoE L2 ring */
--	if (IS_FCOE_FP(fp))
-+	/* We don't want TPA if it's disabled in bp
-+	 * or if this is an FCoE L2 ring.
-+	 */
-+	if (bp->disable_tpa || IS_FCOE_FP(fp))
- 		fp->disable_tpa = 1;
- }
- 
--- 
-2.1.0
+The correctness fix is updating the code to handle any context.  The
+consume vs kfree accouting difference is not particularly interesting.
+
+Eric
