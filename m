@@ -1,92 +1,140 @@
 From: anuradhak@cumulusnetworks.com
-Subject: [RFC PATCH net-next v3 1/4] net core: Add IFF_PROTO_DOWN support.
-Date: Mon, 27 Apr 2015 10:38:21 -0700
-Message-ID: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: [RFC PATCH net-next v3 2/4] switchdev: APIs for setting physical state of the switch port.
+Date: Mon, 27 Apr 2015 10:38:22 -0700
+Message-ID: <1430156304-13187-3-git-send-email-anuradhak@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	gospo@cumulusnetworks.com, wkok@cumulusnetworks.com,
 	anuradhak@cumulusnetworks.com
 To: davem@davemloft.net, sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34982 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753087AbbD0Rid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 13:38:33 -0400
-Received: by pabtp1 with SMTP id tp1so136351998pab.2
-        for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 10:38:33 -0700 (PDT)
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:36180 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933012AbbD0Rif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 13:38:35 -0400
+Received: by pdea3 with SMTP id a3so135638690pde.3
+        for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 10:38:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 
-This patch introduces an IFF_PROTO_DOWN flag that can be used by
-user space applications to notify drivers that errors have been
-detected on the device.
+On detecting errors an application can set IFF_PROTO_DOWN on a device.
+These switchdev APIs allow the switch device driver to react to
+IFF_PROTO_DOWN by doing a phy down on the switch port. Doing this allows
+the connected server to react quickly and prevent traffic black holing
+in the network.
 
 Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 ---
- include/uapi/linux/if.h |    4 ++++
- net/8021q/vlan_dev.c    |    3 ++-
- net/core/dev.c          |    2 +-
- 3 files changed, 7 insertions(+), 2 deletions(-)
+ include/net/switchdev.h   |   12 ++++++++++++
+ net/core/dev.c            |    6 ++++++
+ net/switchdev/switchdev.c |   23 +++++++++++++++++++++++
+ 3 files changed, 41 insertions(+)
 
-diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
-index 9cf2394..e263bd2 100644
---- a/include/uapi/linux/if.h
-+++ b/include/uapi/linux/if.h
-@@ -66,6 +66,8 @@
-  * @IFF_LOWER_UP: driver signals L1 up. Volatile.
-  * @IFF_DORMANT: driver signals dormant. Volatile.
-  * @IFF_ECHO: echo sent packets. Volatile.
-+ * @IFF_PROTO_DOWN: protocol is down on the interface. Can be toggled
-+ *	through sysfs.
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index d2e69ee..5265e05 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -29,6 +29,9 @@ struct fib_info;
+  * @swdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
+  *
+  * @swdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
++
++ * @swdev_port_phy_state_set: Called to set the physical state of the switch
++ *   device port.
   */
- enum net_device_flags {
- 	IFF_UP				= 1<<0,  /* sysfs */
-@@ -87,6 +89,7 @@ enum net_device_flags {
- 	IFF_LOWER_UP			= 1<<16, /* volatile */
- 	IFF_DORMANT			= 1<<17, /* volatile */
- 	IFF_ECHO			= 1<<18, /* volatile */
-+	IFF_PROTO_DOWN			= 1<<19, /* sysfs */
+ struct swdev_ops {
+ 	int	(*swdev_parent_id_get)(struct net_device *dev,
+@@ -41,6 +44,8 @@ struct swdev_ops {
+ 	int	(*swdev_fib_ipv4_del)(struct net_device *dev, __be32 dst,
+ 				      int dst_len, struct fib_info *fi,
+ 				      u8 tos, u8 type, u32 tb_id);
++	int	(*swdev_port_phy_state_set)(struct net_device *dev,
++					    bool enable);
  };
  
- #define IFF_UP				IFF_UP
-@@ -108,6 +111,7 @@ enum net_device_flags {
- #define IFF_LOWER_UP			IFF_LOWER_UP
- #define IFF_DORMANT			IFF_DORMANT
- #define IFF_ECHO			IFF_ECHO
-+#define IFF_PROTO_DOWN			IFF_PROTO_DOWN
+ enum netdev_switch_notifier_type {
+@@ -69,6 +74,7 @@ netdev_switch_notifier_info_to_dev(const struct netdev_switch_notifier_info *inf
+ int netdev_switch_parent_id_get(struct net_device *dev,
+ 				struct netdev_phys_item_id *psid);
+ int netdev_switch_port_stp_update(struct net_device *dev, u8 state);
++int netdev_switch_port_phy_state_set(struct net_device *dev, bool enable);
+ int register_netdev_switch_notifier(struct notifier_block *nb);
+ int unregister_netdev_switch_notifier(struct notifier_block *nb);
+ int call_netdev_switch_notifiers(unsigned long val, struct net_device *dev,
+@@ -101,6 +107,12 @@ static inline int netdev_switch_port_stp_update(struct net_device *dev,
+ 	return -EOPNOTSUPP;
+ }
  
- #define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
- 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 01d7ba8..7073ee1 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -537,7 +537,8 @@ static int vlan_dev_init(struct net_device *dev)
- 
- 	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
- 	dev->flags  = real_dev->flags & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI |
--					  IFF_MASTER | IFF_SLAVE);
-+					  IFF_MASTER | IFF_SLAVE |
-+					  IFF_PROTO_DOWN);
- 	dev->state  = (real_dev->state & ((1<<__LINK_STATE_NOCARRIER) |
- 					  (1<<__LINK_STATE_DORMANT))) |
- 		      (1<<__LINK_STATE_PRESENT);
++static inline int netdev_switch_port_phy_state_set(struct net_device *dev,
++						bool enable)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int register_netdev_switch_notifier(struct notifier_block *nb)
+ {
+ 	return 0;
 diff --git a/net/core/dev.c b/net/core/dev.c
-index af4a1b0..e9600fa 100644
+index e9600fa..8607ed8 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5725,7 +5725,7 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
+@@ -135,6 +135,7 @@
+ #include <linux/if_macvlan.h>
+ #include <linux/errqueue.h>
+ #include <linux/hrtimer.h>
++#include <net/switchdev.h>
  
- 	dev->flags = (flags & (IFF_DEBUG | IFF_NOTRAILERS | IFF_NOARP |
- 			       IFF_DYNAMIC | IFF_MULTICAST | IFF_PORTSEL |
--			       IFF_AUTOMEDIA)) |
-+			       IFF_AUTOMEDIA | IFF_PROTO_DOWN)) |
- 		     (dev->flags & (IFF_UP | IFF_VOLATILE | IFF_PROMISC |
- 				    IFF_ALLMULTI));
+ #include "net-sysfs.h"
+ 
+@@ -5770,6 +5771,11 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
+ 		__dev_set_allmulti(dev, inc, false);
+ 	}
+ 
++	if ((old_flags ^ flags) & IFF_PROTO_DOWN)
++		netdev_switch_port_phy_state_set(dev,
++						 (flags & IFF_PROTO_DOWN) ?
++						 false : true);
++
+ 	return ret;
+ }
+ 
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 46568b8..5c710cf 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -64,6 +64,29 @@ int netdev_switch_port_stp_update(struct net_device *dev, u8 state)
+ }
+ EXPORT_SYMBOL_GPL(netdev_switch_port_stp_update);
+ 
++/**
++ *	netdev_switch_port_phy_state_set - Request switch device to set
++ *					physical state of the port
++ *	@dev: port device
++ *	@enable: port phy state
++ *
++ *	Request switch device to set physical state of the port. This
++ *	API is only available for a device that has a switch port
++ *	associated with it i.e. not available for virtual/software
++ *	devices.
++ */
++int netdev_switch_port_phy_state_set(struct net_device *dev, bool enable)
++{
++	const struct swdev_ops *ops = dev->swdev_ops;
++	int err = -EOPNOTSUPP;
++
++	if (ops && ops->swdev_port_phy_state_set)
++		return ops->swdev_port_phy_state_set(dev, enable);
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(netdev_switch_port_phy_state_set);
++
+ static DEFINE_MUTEX(netdev_switch_mutex);
+ static RAW_NOTIFIER_HEAD(netdev_switch_notif_chain);
  
 -- 
 1.7.10.4
