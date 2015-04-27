@@ -1,48 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] netfilter; Add some missing default cases to switch
- statements in nft_reject.
-Date: Mon, 27 Apr 2015 13:21:36 -0400 (EDT)
-Message-ID: <20150427.132136.1140998595054330703.davem__20614.2653980807$1430155326$gmane$org@davemloft.net>
+Subject: Re: [PATCH net-next v7] Add support of Cavium Liquidio ethernet
+ adapters
+Date: Mon, 27 Apr 2015 13:22:42 -0400 (EDT)
+Message-ID: <20150427.132242.1898729531212160949.davem@davemloft.net>
+References: <BY1PR0701MB1706BF510E830F151F5E1BC5FEE90@BY1PR0701MB1706.namprd07.prod.outlook.com>
+	<20150427.122731.2291810668949579803.davem@davemloft.net>
+	<BY1PR0701MB1706783543EEC1BED49CEE84FEE90@BY1PR0701MB1706.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netfilter-devel@vger.kernel.org, pablo@netfilter.org
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Raghu.Vatsavayi@caviumnetworks.com, netdev@vger.kernel.org,
+	Satananda.Burla@caviumnetworks.com,
+	Felix.Manlunas@caviumnetworks.com
+To: Derek.Chickles@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56059 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56079 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752965AbbD0RVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 13:21:40 -0400
+	with ESMTP id S932656AbbD0RWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 13:22:44 -0400
+In-Reply-To: <BY1PR0701MB1706783543EEC1BED49CEE84FEE90@BY1PR0701MB1706.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpUaGlzIGZpeGVzOg0KDQo9PT09PT09PT09PT09PT09PT09PQ0KbmV0L25ldGZpbHRlci9uZnRf
-cmVqZWN0LmM6IEluIGZ1bmN0aW9uIKFuZnRfcmVqZWN0X2R1bXCiOg0KbmV0L25ldGZpbHRlci9u
-ZnRfcmVqZWN0LmM6NjE6Mjogd2FybmluZzogZW51bWVyYXRpb24gdmFsdWUgoU5GVF9SRUpFQ1Rf
-VENQX1JTVKIgbm90IGhhbmRsZWQgaW4gc3dpdGNoIFstV3N3aXRjaF0NCiAgc3dpdGNoIChwcml2
-LT50eXBlKSB7DQogIF4NCm5ldC9uZXRmaWx0ZXIvbmZ0X3JlamVjdC5jOjYxOjI6IHdhcm5pbmc6
-IGVudW1lcmF0aW9uIHZhbHVlIKFORlRfUkVKRUNUX0lDTVBYX1VOUkVBQ0iiIG5vdCBoYW5kbGVk
-IGluIHN3aXRjaCBbLVdzd2lcDQp0Y2hdDQpuZXQvbmV0ZmlsdGVyL25mdF9yZWplY3RfaW5ldC5j
-OiBJbiBmdW5jdGlvbiChbmZ0X3JlamVjdF9pbmV0X2R1bXCiOg0KbmV0L25ldGZpbHRlci9uZnRf
-cmVqZWN0X2luZXQuYzoxMDU6Mjogd2FybmluZzogZW51bWVyYXRpb24gdmFsdWUgoU5GVF9SRUpF
-Q1RfVENQX1JTVKIgbm90IGhhbmRsZWQgaW4gc3dpdGNoIFstV3N3aVwNCnRjaF0NCiAgc3dpdGNo
-IChwcml2LT50eXBlKSB7DQogIF4NCj09PT09PT09PT09PT09PT09PT09DQoNClNpZ25lZC1vZmYt
-Ynk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KDQpJIGp1c3Qg
-cHVzaGVkIHRoaXMgaW50byB0aGUgJ25ldCcgdHJlZSwganVzdCBGWUkuLi4NCg0KIG5ldC9uZXRm
-aWx0ZXIvbmZ0X3JlamVjdC5jICAgICAgfCAyICsrDQogbmV0L25ldGZpbHRlci9uZnRfcmVqZWN0
-X2luZXQuYyB8IDIgKysNCiAyIGZpbGVzIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQ0KDQpkaWZm
-IC0tZ2l0IGEvbmV0L25ldGZpbHRlci9uZnRfcmVqZWN0LmMgYi9uZXQvbmV0ZmlsdGVyL25mdF9y
-ZWplY3QuYw0KaW5kZXggNTdkM2UxYS4uMDUyMmZjOSAxMDA2NDQNCi0tLSBhL25ldC9uZXRmaWx0
-ZXIvbmZ0X3JlamVjdC5jDQorKysgYi9uZXQvbmV0ZmlsdGVyL25mdF9yZWplY3QuYw0KQEAgLTYz
-LDYgKzYzLDggQEAgaW50IG5mdF9yZWplY3RfZHVtcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBjb25z
-dCBzdHJ1Y3QgbmZ0X2V4cHIgKmV4cHIpDQogCQlpZiAobmxhX3B1dF91OChza2IsIE5GVEFfUkVK
-RUNUX0lDTVBfQ09ERSwgcHJpdi0+aWNtcF9jb2RlKSkNCiAJCQlnb3RvIG5sYV9wdXRfZmFpbHVy
-ZTsNCiAJCWJyZWFrOw0KKwlkZWZhdWx0Og0KKwkJYnJlYWs7DQogCX0NCiANCiAJcmV0dXJuIDA7
-DQpkaWZmIC0tZ2l0IGEvbmV0L25ldGZpbHRlci9uZnRfcmVqZWN0X2luZXQuYyBiL25ldC9uZXRm
-aWx0ZXIvbmZ0X3JlamVjdF9pbmV0LmMNCmluZGV4IDYyY2FiZWUuLjYzNWRiYmEgMTAwNjQ0DQot
-LS0gYS9uZXQvbmV0ZmlsdGVyL25mdF9yZWplY3RfaW5ldC5jDQorKysgYi9uZXQvbmV0ZmlsdGVy
-L25mdF9yZWplY3RfaW5ldC5jDQpAQCAtMTA4LDYgKzEwOCw4IEBAIHN0YXRpYyBpbnQgbmZ0X3Jl
-amVjdF9pbmV0X2R1bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwNCiAJCWlmIChubGFfcHV0X3U4KHNr
-YiwgTkZUQV9SRUpFQ1RfSUNNUF9DT0RFLCBwcml2LT5pY21wX2NvZGUpKQ0KIAkJCWdvdG8gbmxh
-X3B1dF9mYWlsdXJlOw0KIAkJYnJlYWs7DQorCWRlZmF1bHQ6DQorCQlicmVhazsNCiAJfQ0KIA0K
-IAlyZXR1cm4gMDsNCi0tIA0KMi4zLjUNCg0K
+From: "Chickles, Derek" <Derek.Chickles@caviumnetworks.com>
+Date: Mon, 27 Apr 2015 17:04:35 +0000
+
+> 
+>> >>
+>> >> It is extremely disappointing that you've defined your own debug
+>> >> logging macros, which use generic dev_*() printks, instead of using
+>> >> the proper netdev_*() printk logging interfaces to do this.
+>> >
+>> > We can make this change. I'm not sure why it was missed since we
+>> > have netif_level support. Please note, we will still need to use the
+>> > dev_ macros for those places in the driver where we don't have a
+>> > netdev yet.
+>> 
+>> Of course.
+>> 
+>> But there is no reason to go through a special locally defined
+>> macros to do this stuff.  Just invoke dev_* and netdev_* directly.
+> 
+> I think the main reason we're doing this is because we're passing around
+> struct octeon_device (which has a pcI_dev pointer and a netdev pointer)
+> through some parts of the code and felt the consistency in the printk
+> interface was better than having extra pointer dereferences (like
+> &oct->pci_dev->dev) inline in the code.  Do you mind if we keep wrappers
+> for those pieces? The other places where netdev is immediately available
+> can easily be changed.
+
+I don't think this is reasonable.
+
+You can always get to the octeon_device object from the netdev pointer,
+so pass that everywhere.
