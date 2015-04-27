@@ -1,64 +1,48 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: v3.12-stable-queue build errors
-Date: Mon, 27 Apr 2015 20:00:06 +0200
-Message-ID: <553E7926.7040108@suse.cz>
-References: <20150425141609.GA1147@roeck-us.net>	<553DF71E.7060409@suse.cz>	<87fv7lk2i0.fsf@x220.int.ebiederm.org> <20150427.122528.2203423133753350979.davem@davemloft.net>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next v1] net: netcp: remove call to netif_carrier_(on/off)
+ for MAC to Phy interface
+Date: Mon, 27 Apr 2015 14:09:40 -0400
+Message-ID: <553E7B64.3080407@ti.com>
+References: <1429902101-2911-1-git-send-email-m-karicheri2@ti.com> <20150425.154856.1696991150241343700.davem@davemloft.net> <553E6CD7.9040409@ti.com> <20150427.132318.64451627276298303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@roeck-us.net, stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>, ebiederm@xmission.com
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:33934 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932949AbbD0SAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 14:00:10 -0400
-In-Reply-To: <20150427.122528.2203423133753350979.davem@davemloft.net>
+Received: from devils.ext.ti.com ([198.47.26.153]:57637 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932817AbbD0SJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 14:09:36 -0400
+In-Reply-To: <20150427.132318.64451627276298303.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/27/2015, 06:25 PM, David Miller wrote:
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Mon, 27 Apr 2015 10:35:51 -0500
-> 
->> Jiri Slaby <jslaby@suse.cz> writes:
+On 04/27/2015 01:23 PM, David Miller wrote:
+> From: Murali Karicheri<m-karicheri2@ti.com>
+> Date: Mon, 27 Apr 2015 13:07:35 -0400
+>
+>> On 04/25/2015 03:48 PM, David Miller wrote:
+>>> From: Murali Karicheri<m-karicheri2@ti.com>
+>>> Date: Fri, 24 Apr 2015 15:01:41 -0400
+>>>
+>>>> Currently when interface type is MAC to Phy, netif_carrier_(on/off)
+>>>> is called which is not needed as Phy lib already updates the carrier
+>>>> status to net stack. This is needed only for other interface types
+>>>>
+>>>> Signed-off-by: Murali Karicheri<m-karicheri2@ti.com>
+>>>
+>>> net-next is not open for submissions yet
+>> David,
 >>
->>> On 04/25/2015, 04:16 PM, Guenter Roeck wrote:
->>>> Several powerpc build fail with:
->>>>
->>>> drivers/net/ethernet/freescale/gianfar.c: In function 'gfar_start_xmit':
->>>> drivers/net/ethernet/freescale/gianfar.c:2146:3: error: implicit declaration of
->>>> function 'dev_consume_skb_any' [-Werror=implicit-function-declaration]
->>>>    dev_consume_skb_any(skb);
->>>>
->>>> dev_consume_skb_any() does not exist in 3.12.
->>>>
->>>> Introduced by 'gianfar: Carefully free skbs in functions called by netpoll'.
->>>
->>> Eric, David,
->>>
->>> what action should I take here?
->>>
->>> 1) take also:
->>> commit e6247027e5173c00efb2084d688d06ff835bc3b0
->>> Author: Eric Dumazet <edumazet@google.com>
->>> Date:   Thu Dec 5 04:45:08 2013 -0800
->>>
->>>     net: introduce dev_consume_skb_any()
->>>
->>>
->>> 2) drop 'gianfar: Carefully free skbs in functions called by netpoll'
->>> from stable-3.12
->>
->> This is probably the most reasonable.   KISS.
-> 
-> Yeah just drop the patch.
-> 
-> I didn't even want to submit this series in the first place but
-> people kept poking me endlessly about it.
-
-Now dropped. Thanks.
+>> Do I need to re-submit this patch when the net-next gets opened for
+>> this? This is essentially a bug fix and can be applied to current
+>
+> If it's really a bug fix, then you shouldn't target it at net-next.
+>
+> I'll never understand why people do things like this.
+Ok. My bad. I will re-send it with proper prefix for applying to v4.1.
 
 -- 
-js
-suse labs
+Murali Karicheri
+Linux Kernel, Texas Instruments
