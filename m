@@ -1,44 +1,48 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH net-next v1] net: netcp: remove call to netif_carrier_(on/off)
- for MAC to Phy interface
-Date: Mon, 27 Apr 2015 13:07:35 -0400
-Message-ID: <553E6CD7.9040409@ti.com>
-References: <1429902101-2911-1-git-send-email-m-karicheri2@ti.com> <20150425.154856.1696991150241343700.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] netfilter; Add some missing default cases to switch
+ statements in nft_reject.
+Date: Mon, 27 Apr 2015 13:21:36 -0400 (EDT)
+Message-ID: <20150427.132136.1140998595054330703.davem__20614.2653980807$1430155326$gmane$org@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netfilter-devel@vger.kernel.org, pablo@netfilter.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:55068 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932363AbbD0RHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 13:07:31 -0400
-In-Reply-To: <20150425.154856.1696991150241343700.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56059 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752965AbbD0RVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 13:21:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/25/2015 03:48 PM, David Miller wrote:
-> From: Murali Karicheri<m-karicheri2@ti.com>
-> Date: Fri, 24 Apr 2015 15:01:41 -0400
->
->> Currently when interface type is MAC to Phy, netif_carrier_(on/off)
->> is called which is not needed as Phy lib already updates the carrier
->> status to net stack. This is needed only for other interface types
->>
->> Signed-off-by: Murali Karicheri<m-karicheri2@ti.com>
->
-> net-next is not open for submissions yet
-David,
-
-Do I need to re-submit this patch when the net-next gets opened for 
-this? This is essentially a bug fix and can be applied to current 
-version (v4.1) as well. The reason I thought of adding this to net-next 
-is because the DTS patch set for enabling network driver on K2 devices
-is queued for v4.2. But this has no dependency on this DTS patch and
-hence can be applied to v4.1 as well if you are fine with it.
-
-Regards,
--- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+DQpUaGlzIGZpeGVzOg0KDQo9PT09PT09PT09PT09PT09PT09PQ0KbmV0L25ldGZpbHRlci9uZnRf
+cmVqZWN0LmM6IEluIGZ1bmN0aW9uIKFuZnRfcmVqZWN0X2R1bXCiOg0KbmV0L25ldGZpbHRlci9u
+ZnRfcmVqZWN0LmM6NjE6Mjogd2FybmluZzogZW51bWVyYXRpb24gdmFsdWUgoU5GVF9SRUpFQ1Rf
+VENQX1JTVKIgbm90IGhhbmRsZWQgaW4gc3dpdGNoIFstV3N3aXRjaF0NCiAgc3dpdGNoIChwcml2
+LT50eXBlKSB7DQogIF4NCm5ldC9uZXRmaWx0ZXIvbmZ0X3JlamVjdC5jOjYxOjI6IHdhcm5pbmc6
+IGVudW1lcmF0aW9uIHZhbHVlIKFORlRfUkVKRUNUX0lDTVBYX1VOUkVBQ0iiIG5vdCBoYW5kbGVk
+IGluIHN3aXRjaCBbLVdzd2lcDQp0Y2hdDQpuZXQvbmV0ZmlsdGVyL25mdF9yZWplY3RfaW5ldC5j
+OiBJbiBmdW5jdGlvbiChbmZ0X3JlamVjdF9pbmV0X2R1bXCiOg0KbmV0L25ldGZpbHRlci9uZnRf
+cmVqZWN0X2luZXQuYzoxMDU6Mjogd2FybmluZzogZW51bWVyYXRpb24gdmFsdWUgoU5GVF9SRUpF
+Q1RfVENQX1JTVKIgbm90IGhhbmRsZWQgaW4gc3dpdGNoIFstV3N3aVwNCnRjaF0NCiAgc3dpdGNo
+IChwcml2LT50eXBlKSB7DQogIF4NCj09PT09PT09PT09PT09PT09PT09DQoNClNpZ25lZC1vZmYt
+Ynk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCi0tLQ0KDQpJIGp1c3Qg
+cHVzaGVkIHRoaXMgaW50byB0aGUgJ25ldCcgdHJlZSwganVzdCBGWUkuLi4NCg0KIG5ldC9uZXRm
+aWx0ZXIvbmZ0X3JlamVjdC5jICAgICAgfCAyICsrDQogbmV0L25ldGZpbHRlci9uZnRfcmVqZWN0
+X2luZXQuYyB8IDIgKysNCiAyIGZpbGVzIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQ0KDQpkaWZm
+IC0tZ2l0IGEvbmV0L25ldGZpbHRlci9uZnRfcmVqZWN0LmMgYi9uZXQvbmV0ZmlsdGVyL25mdF9y
+ZWplY3QuYw0KaW5kZXggNTdkM2UxYS4uMDUyMmZjOSAxMDA2NDQNCi0tLSBhL25ldC9uZXRmaWx0
+ZXIvbmZ0X3JlamVjdC5jDQorKysgYi9uZXQvbmV0ZmlsdGVyL25mdF9yZWplY3QuYw0KQEAgLTYz
+LDYgKzYzLDggQEAgaW50IG5mdF9yZWplY3RfZHVtcChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBjb25z
+dCBzdHJ1Y3QgbmZ0X2V4cHIgKmV4cHIpDQogCQlpZiAobmxhX3B1dF91OChza2IsIE5GVEFfUkVK
+RUNUX0lDTVBfQ09ERSwgcHJpdi0+aWNtcF9jb2RlKSkNCiAJCQlnb3RvIG5sYV9wdXRfZmFpbHVy
+ZTsNCiAJCWJyZWFrOw0KKwlkZWZhdWx0Og0KKwkJYnJlYWs7DQogCX0NCiANCiAJcmV0dXJuIDA7
+DQpkaWZmIC0tZ2l0IGEvbmV0L25ldGZpbHRlci9uZnRfcmVqZWN0X2luZXQuYyBiL25ldC9uZXRm
+aWx0ZXIvbmZ0X3JlamVjdF9pbmV0LmMNCmluZGV4IDYyY2FiZWUuLjYzNWRiYmEgMTAwNjQ0DQot
+LS0gYS9uZXQvbmV0ZmlsdGVyL25mdF9yZWplY3RfaW5ldC5jDQorKysgYi9uZXQvbmV0ZmlsdGVy
+L25mdF9yZWplY3RfaW5ldC5jDQpAQCAtMTA4LDYgKzEwOCw4IEBAIHN0YXRpYyBpbnQgbmZ0X3Jl
+amVjdF9pbmV0X2R1bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwNCiAJCWlmIChubGFfcHV0X3U4KHNr
+YiwgTkZUQV9SRUpFQ1RfSUNNUF9DT0RFLCBwcml2LT5pY21wX2NvZGUpKQ0KIAkJCWdvdG8gbmxh
+X3B1dF9mYWlsdXJlOw0KIAkJYnJlYWs7DQorCWRlZmF1bHQ6DQorCQlicmVhazsNCiAJfQ0KIA0K
+IAlyZXR1cm4gMDsNCi0tIA0KMi4zLjUNCg0K
