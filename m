@@ -1,88 +1,116 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 04/16] printk: implement support for extended console
- drivers
-Date: Mon, 27 Apr 2015 17:09:22 -0400
-Message-ID: <20150427210922.GA2152@htj.duckdns.org>
-References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <1429225433-11946-5-git-send-email-tj@kernel.org>
- <20150420154120.GA4589@pathway.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Kay Sievers <kay@vrfy.org>
-To: Petr Mladek <pmladek@suse.cz>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 3.12 04/83] net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
+Date: Mon, 27 Apr 2015 23:31:35 +0200
+Message-ID: <cff7c16575024195708bc209a5ab0aa81ff07188.1430159990.git.jslaby@suse.cz>
+References: <3426bb8de3a655aa6668e92ee92eb35f0db86582.1430159990.git.jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org,
+	Markos Chandras <markos.chandras@imgtec.com>,
+	<netdev@vger.kernel.org>, Don Fry <pcnet32@frontier.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Slaby <jslaby@suse.cz>
+To: stable@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150420154120.GA4589@pathway.suse.cz>
+In-Reply-To: <3426bb8de3a655aa6668e92ee92eb35f0db86582.1430159990.git.jslaby@suse.cz>
+In-Reply-To: <cover.1430159990.git.jslaby@suse.cz>
+References: <cover.1430159990.git.jslaby@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Petr.
+From: Markos Chandras <markos.chandras@imgtec.com>
 
-Sorry about the delay.
+3.12-stable review patch.  If anyone has any objections, please let me know.
 
-On Mon, Apr 20, 2015 at 05:43:07PM +0200, Petr Mladek wrote:
-...
-> > * Extended message formatting for console drivers is enabled iff there
-> 
-> s/iff/if/
+===============
 
-if and only if
+commit 87f966d97b89774162df04d2106c6350c8fe4cb3 upstream.
 
-> I was afraid that there might be a potential buffer overflow because
-> the user-provided dict need not be limited by '\0'. But LOG_DICT_META
-> is used only with the internal data that are safe. We might document
-> this as well.
-> 
-> BTW: Do you want to print the internal dict when calling this function
-> in devkmsg_read()?
+On a MIPS Malta board, tons of fifo underflow errors have been observed
+when using u-boot as bootloader instead of YAMON. The reason for that
+is that YAMON used to set the pcnet device to SRAM mode but u-boot does
+not. As a result, the default Tx threshold (64 bytes) is now too small to
+keep the fifo relatively used and it can result to Tx fifo underflow errors.
+As a result of which, it's best to setup the SRAM on supported controllers
+so we can always use the NOUFLO bit.
 
-No, plesae see below.
+Cc: <netdev@vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>
+Cc: Don Fry <pcnet32@frontier.com>
+Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+---
+ drivers/net/ethernet/amd/pcnet32.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
 
-> > +		scnprintf(fragid_buf, sizeof(fragid_buf),
-> > +			  ",fragid=%llu", fragid);
-> > +	return scnprintf(buf, size, "%u,%llu,%llu,%c%s;",
-> > +			 (msg->facility << 3) | msg->level, seq, ts_usec, cont,
-> > +			 fragid_buf);
-> 
-> The above comment suggests that  "cont" and "fragid_buf" are delimited
-> by a comma but it is not used here. Is it by intention.
-
-Hmm... how is it not?  The fragid printf has preceding comma.
-
-> > +		dict_len = scnprintf(dict_buf, sizeof(dict_buf), "FRAGID=%llu",
-> > +				     cont.fragid);
-> > +		log_store(cont.facility, cont.level,
-> > +			  flags | LOG_NOCONS | LOG_DICT_META,
-> > +			  cont.ts_nsec, dict_buf, dict_len, cont.buf, cont.len);
-> 
-> I wonder if it would make sense to restart fragid here. Another line
-> will get distinguished by "seqnum".
-
-That'd assume that there can only ever be a single continuation
-buffer, which is true now but it's possible that we may want to make
-it per-cpu in the future.
-
-> Sigh, the whole mess is caused by the fact that we could not extend
-> struct printk_log easily. It would be much better if we could put
-> fragid there. I finally understand why you need to reuse the dict.
-
-I've been thinking about it and using dict area for internal metadata
-is indeed quite messy.  I think a better way to do it is declaring
-dict_len as a union w/ fragid.  This'd limit the fragid to 16bit but
-that should be more than enough and we can do away with the string
-formatting and reading back.
-
-> Another solution would be to allow to disable the continuous buffer
-> via some boot option or /sys/kernel/debug entry if you want to debug
-> such a problem and have problem with the partial flushing.
-
-It isn't really about debugging partial flushing itself but rather
-always being able to push out the messages before the printk
-invocation finishes.
-
-Thanks.
-
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index 2d8e28819779..048743573230 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1516,7 +1516,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ {
+ 	struct pcnet32_private *lp;
+ 	int i, media;
+-	int fdx, mii, fset, dxsuflo;
++	int fdx, mii, fset, dxsuflo, sram;
+ 	int chip_version;
+ 	char *chipname;
+ 	struct net_device *dev;
+@@ -1553,7 +1553,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 	}
+ 
+ 	/* initialize variables */
+-	fdx = mii = fset = dxsuflo = 0;
++	fdx = mii = fset = dxsuflo = sram = 0;
+ 	chip_version = (chip_version >> 12) & 0xffff;
+ 
+ 	switch (chip_version) {
+@@ -1586,6 +1586,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		chipname = "PCnet/FAST III 79C973";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2626:
+ 		chipname = "PCnet/Home 79C978";	/* PCI */
+@@ -1609,6 +1610,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		chipname = "PCnet/FAST III 79C975";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2628:
+ 		chipname = "PCnet/PRO 79C976";
+@@ -1637,6 +1639,31 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		dxsuflo = 1;
+ 	}
+ 
++	/*
++	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
++	 * which we can use for the Tx/Rx buffers but most importantly,
++	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
++	 * Tx fifo underflows.
++	 */
++	if (sram) {
++		/*
++		 * The SRAM is being configured in two steps. First we
++		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
++		 * to the datasheet, each bit corresponds to a 512-byte
++		 * page so we can have at most 24 pages. The SRAM_SIZE
++		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
++		 * The low 8-bits start at 0x00 and end at 0xff. So the
++		 * address range is from 0x0000 up to 0x17ff. Therefore,
++		 * the SRAM_SIZE is set to 0x17. The next step is to set
++		 * the BCR26:SRAM_BND midway through so the Tx and Rx
++		 * buffers can share the SRAM equally.
++		 */
++		a->write_bcr(ioaddr, 25, 0x17);
++		a->write_bcr(ioaddr, 26, 0xc);
++		/* And finally enable the NOUFLO bit */
++		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
++	}
++
+ 	dev = alloc_etherdev(sizeof(*lp));
+ 	if (!dev) {
+ 		ret = -ENOMEM;
 -- 
-tejun
+2.3.5
