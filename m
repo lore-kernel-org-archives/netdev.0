@@ -1,57 +1,58 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: [PATCH 2/2] brcmfmac: keep WiFi chip's power during system suspension
-Date: Mon, 27 Apr 2015 13:06:43 +0800
-Message-ID: <553DC3E3.5050802@linux.intel.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH v4 00/10] an introduction of Linux library operating system
+ (LibOS)
+Date: Mon, 27 Apr 2015 09:29:17 +0200
+Message-ID: <553DE54D.9030301@nod.at>
+References: <1429450104-47619-1-git-send-email-tazaki@sfc.wide.ad.jp> <1430103618-10832-1-git-send-email-tazaki@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: 7bit
-To: "brudley@broadcom.com" <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>,
-	"meuleman@broadcom.com" <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"pieterpg@broadcom.com" <pieterpg@broadcom.com>,
-	"hdegoede@redhat.com" <hdegoede@redhat.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, Jonathan Corbet <corbet@lwn.net>,
+ Christoph Lameter <cl@linux.com>,
+ Jekka Enberg <penberg@kernel.org>, Javid Rientjes <rientjes@google.com>,
+ Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+ Jndrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org,
+ linux-doc@vger.kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
+ Jeff Dike <jdike@addtoit.com>,
+ Rusty Russell <rusty@rustcorp.com.au>, Ryo Nakamura <upa@haeena.net>,
+ Christoph Paasch <christoph.paasch@gmail.com>,
+ Mathieu Lacage <mathieu.lacage@gmail.com>, libos-nuse@googlegroups.com
+To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>, linux-arch@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1430103618-10832-1-git-send-email-tazaki@sfc.wide.ad.jp>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Need to keep the power supply for WiFi chip during system suspension.
-Otherwise, the context of WiFi chip will be lost.
+Hi!
 
-Signed-off-by: Zhonghui Fu <zhonghui.fu@linux.intel.com>
----
- drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+Am 27.04.2015 um 05:00 schrieb Hajime Tazaki:
+> This is the 4th version of Linux LibOS patchset which reflects a
+> couple of comments received from people.
+> 
+> changes from v3:
+> - Patch 09/10 ("lib: libos build scripts and documentation")
+> 1) Remove RFC (now it's a proposal)
+> 2) build environment cleanup (commented by Paul Bolle)
+> - Overall
+> 3) change based tree from arnd/asm-generic to torvalds/linux.git
+>    (commented by Richard Weinberger)
+> 4) rebased to Linux 4.1-rc1 (b787f68c36d49bb1d9236f403813641efa74a031)
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-index fdf8feb..03d3671 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-@@ -1251,15 +1251,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
- 	brcmf_sdiod_freezer_on(sdiodev);
- 	brcmf_sdio_wd_timer(sdiodev->bus, 0);
- 
-+	sdio_flags = MMC_PM_KEEP_POWER;
- 	if (sdiodev->wowl_enabled) {
--		sdio_flags = MMC_PM_KEEP_POWER;
- 		if (sdiodev->pdata->oob_irq_supported)
- 			enable_irq_wake(sdiodev->pdata->oob_irq_nr);
- 		else
--			sdio_flags = MMC_PM_WAKE_SDIO_IRQ;
--		if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
--			brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
-+			sdio_flags |= MMC_PM_WAKE_SDIO_IRQ;
- 	}
-+
-+	if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
-+		brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
-+
- 	return 0;
- }
- 
--- 1.7.1
+Hmm, it still does not build. This time I got:
+
+  CC      kernel/time/time.o
+In file included from kernel/time/time.c:44:0:
+kernel/time/timeconst.h:11:2: error: #error "kernel/timeconst.h has the wrong HZ value!"
+ #error "kernel/timeconst.h has the wrong HZ value!"
+  ^
+arch/lib/Makefile:187: recipe for target 'kernel/time/time.o' failed
+make: *** [kernel/time/time.o] Error 1
+
+Thanks,
+//richard
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
