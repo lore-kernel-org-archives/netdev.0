@@ -1,48 +1,54 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH net-next v1] net: netcp: remove call to netif_carrier_(on/off)
- for MAC to Phy interface
-Date: Mon, 27 Apr 2015 14:09:40 -0400
-Message-ID: <553E7B64.3080407@ti.com>
-References: <1429902101-2911-1-git-send-email-m-karicheri2@ti.com> <20150425.154856.1696991150241343700.davem@davemloft.net> <553E6CD7.9040409@ti.com> <20150427.132318.64451627276298303.davem@davemloft.net>
+Subject: [PATCH v2] net: netcp: remove call to netif_carrier_(on/off) for MAC to Phy interface
+Date: Mon, 27 Apr 2015 14:12:43 -0400
+Message-ID: <1430158363-26870-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:57637 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932817AbbD0SJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 14:09:36 -0400
-In-Reply-To: <20150427.132318.64451627276298303.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Murali Karicheri <m-karicheri2@ti.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/27/2015 01:23 PM, David Miller wrote:
-> From: Murali Karicheri<m-karicheri2@ti.com>
-> Date: Mon, 27 Apr 2015 13:07:35 -0400
->
->> On 04/25/2015 03:48 PM, David Miller wrote:
->>> From: Murali Karicheri<m-karicheri2@ti.com>
->>> Date: Fri, 24 Apr 2015 15:01:41 -0400
->>>
->>>> Currently when interface type is MAC to Phy, netif_carrier_(on/off)
->>>> is called which is not needed as Phy lib already updates the carrier
->>>> status to net stack. This is needed only for other interface types
->>>>
->>>> Signed-off-by: Murali Karicheri<m-karicheri2@ti.com>
->>>
->>> net-next is not open for submissions yet
->> David,
->>
->> Do I need to re-submit this patch when the net-next gets opened for
->> this? This is essentially a bug fix and can be applied to current
->
-> If it's really a bug fix, then you shouldn't target it at net-next.
->
-> I'll never understand why people do things like this.
-Ok. My bad. I will re-send it with proper prefix for applying to v4.1.
+Currently when interface type is MAC to Phy, netif_carrier_(on/off)
+is called which is not needed as Phy lib already updates the carrier
+status to net stack. This is needed only for other interface types
 
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+---
+ - v2: re-send to apply this on v4.1
+ - Fixed comment against initial version
+ - Ok to apply this to net-next. So changed subject prefix to reflect the same
+
+ drivers/net/ethernet/ti/netcp_ethss.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index 2bef655..9b7e0a3 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -1765,7 +1765,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
+ 				     ALE_PORT_STATE,
+ 				     ALE_PORT_STATE_FORWARD);
+ 
+-		if (ndev && slave->open)
++		if (ndev && slave->open &&
++		    slave->link_interface != SGMII_LINK_MAC_PHY &&
++		    slave->link_interface != XGMII_LINK_MAC_PHY)
+ 			netif_carrier_on(ndev);
+ 	} else {
+ 		writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
+@@ -1773,7 +1775,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
+ 		cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
+ 				     ALE_PORT_STATE,
+ 				     ALE_PORT_STATE_DISABLE);
+-		if (ndev)
++		if (ndev &&
++		    slave->link_interface != SGMII_LINK_MAC_PHY &&
++		    slave->link_interface != XGMII_LINK_MAC_PHY)
+ 			netif_carrier_off(ndev);
+ 	}
+ 
 -- 
-Murali Karicheri
-Linux Kernel, Texas Instruments
+1.7.9.5
