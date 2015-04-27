@@ -1,103 +1,114 @@
 From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net-next v2 4/4] ibmveth: Add support for Large Receive Offload
-Date: Mon, 27 Apr 2015 17:10:55 -0500
-Message-ID: <1430172655-17606-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net-next v2 2/4] ibmveth: Add support for TSO
+Date: Mon, 27 Apr 2015 17:10:53 -0500
+Message-ID: <1430172655-17606-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
 References: <1430172655-17606-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Cc: linuxppc-dev@lists.ozlabs.org, nfont@linux.vnet.ibm.com,
 	eric.dumazet@gmail.com, Brian King <brking@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:55482 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965246AbbD0WLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 18:11:06 -0400
+Received: from e39.co.us.ibm.com ([32.97.110.160]:54741 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965246AbbD0WLC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 18:11:02 -0400
 Received: from /spool/local
-	by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-	Mon, 27 Apr 2015 16:11:06 -0600
-Received: from b03cxnp08025.gho.boulder.ibm.com (b03cxnp08025.gho.boulder.ibm.com [9.17.130.17])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id AAF493E40047
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 16:11:04 -0600 (MDT)
+	Mon, 27 Apr 2015 16:11:02 -0600
+Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 1BAF319D8047
+	for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 16:02:05 -0600 (MDT)
 Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by b03cxnp08025.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t3RMAgDP34996346
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 15:10:42 -0700
+	by b03cxnp08026.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t3RMAu2p49610962
+	for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 15:10:56 -0700
 Received: from d03av03.boulder.ibm.com (localhost [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t3RMB3SQ028891
-	for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 16:11:04 -0600
+	by d03av03.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t3RMB09M028530
+	for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 16:11:00 -0600
 In-Reply-To: <1430172655-17606-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enables receiving large packets from other LPARs. These packets
-have a -1 IP header checksum, so we must recalculate to have
-a valid checksum.
+Add support for TSO.  TSO is turned off by default and
+must be enabled and configured by the user.  The driver
+version number is increased so that users can be sure
+that they are using ibmveth with TSO support.
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+Cc: Brian King <brking@linux.vnet.ibm.com>
 Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 ---
-v2: 
- -Included statistics that were previously in a separate patch
- -Zeroed the IP header checksum before calling ip_fast_csum
-  Thanks to Eric Dumazet.
+v2: Included statistics that were previously in a separate patch
 
  drivers/net/ethernet/ibm/ibmveth.c | 19 ++++++++++++++++++-
  drivers/net/ethernet/ibm/ibmveth.h |  1 +
  2 files changed, 19 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-index f0ec4e5..3bab896 100644
+index 0210622..25cfc26 100644
 --- a/drivers/net/ethernet/ibm/ibmveth.c
 +++ b/drivers/net/ethernet/ibm/ibmveth.c
-@@ -101,6 +101,7 @@ struct ibmveth_stat ibmveth_stats[] = {
+@@ -58,7 +58,7 @@ static struct kobj_type ktype_veth_pool;
+ 
+ static const char ibmveth_driver_name[] = "ibmveth";
+ static const char ibmveth_driver_string[] = "IBM Power Virtual Ethernet Driver";
+-#define ibmveth_driver_version "1.04"
++#define ibmveth_driver_version "1.05"
+ 
+ MODULE_AUTHOR("Santiago Leon <santil@linux.vnet.ibm.com>");
+ MODULE_DESCRIPTION("IBM Power Virtual Ethernet Driver");
+@@ -100,6 +100,7 @@ struct ibmveth_stat ibmveth_stats[] = {
+ 	{ "tx_send_failed", IBMVETH_STAT_OFF(tx_send_failed) },
  	{ "fw_enabled_ipv4_csum", IBMVETH_STAT_OFF(fw_ipv4_csum_support) },
  	{ "fw_enabled_ipv6_csum", IBMVETH_STAT_OFF(fw_ipv6_csum_support) },
- 	{ "tx_large_packets", IBMVETH_STAT_OFF(tx_large_packets) },
-+	{ "rx_large_packets", IBMVETH_STAT_OFF(rx_large_packets) }
++	{ "tx_large_packets", IBMVETH_STAT_OFF(tx_large_packets) },
  };
  
  /* simple methods of getting data from the current rxq entry */
-@@ -1094,6 +1095,7 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
- 	struct net_device *netdev = adapter->netdev;
- 	int frames_processed = 0;
- 	unsigned long lpar_rc;
-+	struct iphdr *iph;
- 
- restart_poll:
- 	while (frames_processed < budget) {
-@@ -1136,8 +1138,23 @@ restart_poll:
- 			skb_put(skb, length);
- 			skb->protocol = eth_type_trans(skb, netdev);
- 
--			if (csum_good)
-+			if (csum_good) {
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
-+				if (be16_to_cpu(skb->protocol) == ETH_P_IP) {
-+					skb_set_network_header(skb, 0);
-+					skb_set_transport_header(skb, sizeof(struct iphdr));
-+					iph = ip_hdr(skb);
+@@ -852,6 +853,10 @@ static int ibmveth_set_features(struct net_device *dev,
+ 	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	int rx_csum = !!(features & NETIF_F_RXCSUM);
+ 	int rc;
++	netdev_features_t changed = features ^ dev->features;
 +
-+					/* If the IP checksum is not offloaded and if the packet
-+					 *  is large send, the checksum must be rebuilt.
-+					 */
-+					if (iph->check == 0xffff) {
-+						iph->check = 0;
-+						iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
-+						adapter->rx_large_packets++;
-+					}
-+				}
-+			}
++	if (features & NETIF_F_TSO & changed)
++		netdev_info(dev, "TSO feature requires all partitions to have updated driver");
  
- 			napi_gro_receive(napi, skb);	/* send it up */
+ 	if (rx_csum == adapter->rx_csum)
+ 		return 0;
+@@ -1035,6 +1040,15 @@ retry_bounce:
+ 		descs[i+1].fields.address = dma_addr;
+ 	}
  
++	if (skb_is_gso(skb) && !skb_is_gso_v6(skb)) {
++		/* Put -1 in the IP checksum to tell phyp it
++		 *  is a largesend packet and put the mss in the TCP checksum.
++		 */
++		ip_hdr(skb)->check = 0xffff;
++		tcp_hdr(skb)->check = cpu_to_be16(skb_shinfo(skb)->gso_size);
++		adapter->tx_large_packets++;
++	}
++
+ 	if (ibmveth_send(adapter, descs)) {
+ 		adapter->tx_send_failed++;
+ 		netdev->stats.tx_dropped++;
+@@ -1422,6 +1436,9 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	netdev->features |= netdev->hw_features;
+ 
++	/* TSO is disabled by default */
++	netdev->hw_features |= NETIF_F_TSO;
++
+ 	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
+ 
+ 	if (firmware_has_feature(FW_FEATURE_CMO))
 diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
-index 56d1e22..41dedb1 100644
+index 0dc664b..56d1e22 100644
 --- a/drivers/net/ethernet/ibm/ibmveth.h
 +++ b/drivers/net/ethernet/ibm/ibmveth.h
-@@ -162,6 +162,7 @@ struct ibmveth_adapter {
+@@ -161,6 +161,7 @@ struct ibmveth_adapter {
+     u64 rx_no_buffer;
      u64 tx_map_failed;
      u64 tx_send_failed;
-     u64 tx_large_packets;
-+    u64 rx_large_packets;
++    u64 tx_large_packets;
  };
  
  /*
