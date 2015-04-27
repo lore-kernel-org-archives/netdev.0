@@ -1,54 +1,103 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH v2] net: netcp: remove call to netif_carrier_(on/off) for MAC to Phy interface
-Date: Mon, 27 Apr 2015 14:12:43 -0400
-Message-ID: <1430158363-26870-1-git-send-email-m-karicheri2@ti.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next 1/3] ipvlan: Defer multicast / broadcast processing
+ to a work-queue
+Date: Mon, 27 Apr 2015 11:14:12 -0700
+Message-ID: <CAF2d9jis3Q-nLVznHXJL+0+7S+B1a5pXHbAFOO5E_Og5jTgNeQ@mail.gmail.com>
+References: <1429824589-23663-1-git-send-email-maheshb@google.com>
+ <1429906542.6379.16.camel@redhat.com> <CAF2d9jgUccznBGtouWs37Pttzbh3uFX3OdSsZ1dz0GS16ofv-A@mail.gmail.com>
+ <1429916377.6379.29.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Murali Karicheri <m-karicheri2@ti.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f45.google.com ([209.85.218.45]:34669 "EHLO
+	mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965054AbbD0SOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 14:14:33 -0400
+Received: by oiko83 with SMTP id o83so96432103oik.1
+        for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 11:14:32 -0700 (PDT)
+In-Reply-To: <1429916377.6379.29.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently when interface type is MAC to Phy, netif_carrier_(on/off)
-is called which is not needed as Phy lib already updates the carrier
-status to net stack. This is needed only for other interface types
+On Fri, Apr 24, 2015 at 3:59 PM, Dan Williams <dcbw@redhat.com> wrote:
+> On Fri, 2015-04-24 at 15:40 -0700, Mahesh Bandewar wrote:
+>> On Fri, Apr 24, 2015 at 1:15 PM, Dan Williams <dcbw@redhat.com> wrote:
+>> > On Thu, 2015-04-23 at 14:29 -0700, Mahesh Bandewar wrote:
+>> >> Processing multicast / broadcast in fast path is performance draining
+>> >> and having more links means more clonning and bringing performance
+>> >> down further.
+>> >>
+>> >> Broadcast; in particular, need to be given to all the virtual links.
+>> >> Earlier tricks of enabling broadcast bit for IPv4 only interfaces are not
+>> >> really working since it fails autoconf. Which means enabling braodcast
+>> >> for all the links if protocol specific hacks do not have to be added into
+>> >> the driver.
+>> >>
+>> >> This patch defers all (incoming as well as outgoing) multicast traffic to
+>> >> a work-queue leaving only the unicast traffic in the fast-path. Now if we
+>> >> need to apply any additional tricks to further reduce the impact of this
+>> >> (multicast / broadcast) type of traffic, it can be implemented while
+>> >> processing this work without affecting the fast-path.
+>> >
+>> > These patches appear to work for me for the L2 + DHCP use-case, however
+>> > I experienced some quite odd behavior when pinging the ipvlan interface
+>> > from another machine.  I did this:
+>> >
+>> > ip link add link eno1 type ipvlan mode l2
+>> > ip netns add ipv
+>> > ip link set dev ipvlan0 netns ipv
+>> > ip netns exec ipv /sbin/dhclient -B -4 -1 -v
+>> > -pf /run/dhclient-ipvlan0.pid -C adafdasdfasf ipvlan0
+>> > ip netns exec ping 4.2.2.1 <success>
+>> >
+>> > However, when pinging from another machine, I got very inconsistent ping
+>> > replies:
+>> >
+>> > 64 bytes from 192.168.1.38: icmp_seq=1 ttl=64 time=11.4 ms
+>> > 64 bytes from 192.168.1.38: icmp_seq=16 ttl=64 time=64.9 ms
+>> > 64 bytes from 192.168.1.38: icmp_seq=25 ttl=64 time=87.9 ms
+>> > 64 bytes from 192.168.1.38: icmp_seq=30 ttl=64 time=242 ms
+>> > 64 bytes from 192.168.1.38: icmp_seq=35 ttl=64 time=40.1 ms
+>> > 64 bytes from 192.168.1.38: icmp_seq=36 ttl=64 time=60.9 ms
+>> >
+>> We know that there is that PAUSE frame leak but that should not cause
+>> this behavior if those are present in your network. The sched_work()
+>> which is wrong (as pointed by Eric) especially when the machine is
+>> busy and that might trigger something like this. Almost every 10th -
+>> 15th ping packet seems to be processed correctly.
+>>
+>> I did get consistent results as opposed what you have shown here, but
+>> will dig some more to see if something obviously wrong here.
+>>
+>> > But I cannot reproduce that in a second run (though I haven't rebooted
+>> > to test cleanly again).
+>> >
+>> > And oddly, the dhclient process takes a consistent 5% CPU and wireshark
+>> > running on eno1 (not even the ipvlan interface) jumps to 100% CPU along
+>> > with the dumpcap process taking another 25%, none of which are normal.
+>> > This is a 4-core i4790 box, so something is wrong here; is something
+>> > holding onto a spinlock for way too long?
+>> >
+>> > But at least it handles the packets ok, so I say progress!  Happy to
+>> > help track down the CPU usage issue if you want to give me patches to
+>> > test.
+>> >
+>> Which patch(es) you are referring to?
+>
+> None that yet exist; simply that if any of the issues I described
+> triggered thoughts or patches on your end, I'm happy to test them.  I
+> will try to characterize the issues I have seen more next week and
+> report back.
+>
+OK found the issue! RX frames  are never drained from the queue and
+are processed again and again causing the CPU-usage spike you have
+observed. I'll integrate the fix into v2
 
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
----
- - v2: re-send to apply this on v4.1
- - Fixed comment against initial version
- - Ok to apply this to net-next. So changed subject prefix to reflect the same
+--mahesh..
 
- drivers/net/ethernet/ti/netcp_ethss.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 2bef655..9b7e0a3 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -1765,7 +1765,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
- 				     ALE_PORT_STATE,
- 				     ALE_PORT_STATE_FORWARD);
- 
--		if (ndev && slave->open)
-+		if (ndev && slave->open &&
-+		    slave->link_interface != SGMII_LINK_MAC_PHY &&
-+		    slave->link_interface != XGMII_LINK_MAC_PHY)
- 			netif_carrier_on(ndev);
- 	} else {
- 		writel(mac_control, GBE_REG_ADDR(slave, emac_regs,
-@@ -1773,7 +1775,9 @@ static void netcp_ethss_link_state_action(struct gbe_priv *gbe_dev,
- 		cpsw_ale_control_set(gbe_dev->ale, slave->port_num,
- 				     ALE_PORT_STATE,
- 				     ALE_PORT_STATE_DISABLE);
--		if (ndev)
-+		if (ndev &&
-+		    slave->link_interface != SGMII_LINK_MAC_PHY &&
-+		    slave->link_interface != XGMII_LINK_MAC_PHY)
- 			netif_carrier_off(ndev);
- 	}
- 
--- 
-1.7.9.5
+> Dan
+>
