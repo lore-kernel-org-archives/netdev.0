@@ -1,26 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next 0/6] ipv6: netfilter - coding style improvements
-Date: Mon, 27 Apr 2015 04:43:10 +0200
-Message-ID: <20150427023320.GA18576@salvia>
-References: <1429954020-11763-1-git-send-email-ipm@chirality.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/bonding: Make DRV macros private
+Date: Sun, 26 Apr 2015 23:00:21 -0400 (EDT)
+Message-ID: <20150426.230021.471975772251803616.davem@davemloft.net>
+References: <1430052957-7345-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Ian Morris <ipm@chirality.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@cumulusnetworks.com,
+	j.vosburgh@gmail.com, matanb@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55918 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751909AbbD0Cij (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Apr 2015 22:38:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1429954020-11763-1-git-send-email-ipm@chirality.org.uk>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49602 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751769AbbD0DAX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Apr 2015 23:00:23 -0400
+In-Reply-To: <1430052957-7345-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 25, 2015 at 10:26:54AM +0100, Ian Morris wrote:
-> This series of patches removes some style issues in the ipv6 netfilter
-> code detected by checkpatch. There is no change to functionality and
-> no changes to the resultant object determined by objdiff.
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun, 26 Apr 2015 15:55:57 +0300
 
-Please, Cc: netfilter-devel@vger.kernel.org for netfilter updates,
-thanks.
+> From: Matan Barak <matanb@mellanox.com>
+> 
+> The bonding modules currently defines four macros with
+> general names that pollute the global namespace:
+> DRV_VERSION
+> DRV_RELDATE
+> DRV_NAME
+> DRV_DESCRIPTION
+> 
+> Fixing that by defining a private bonding_priv.h
+> header files which includes those defines.
+> 
+> Signed-off-by: Matan Barak <matanb@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+
+Applied, thanks.
