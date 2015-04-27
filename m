@@ -1,39 +1,54 @@
-From: Anders Larsen <al@alarsen.net>
-Subject: Re: Linux device driver for USB WIFI needs integrating
-Date: Mon, 27 Apr 2015 17:11:20 +0200
-Message-ID: <1430147480.5462.2@alarsen-lx>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
-Content-Transfer-Encoding: 8BIT
-Cc: Marek Vasut <marex@denx.de>, Chris Ward <tjcw@cantab.net>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: [PATCH net] bnx2x: really disable TPA if 'disable_tpa' option is set
+Date: Mon, 27 Apr 2015 17:20:38 +0200
+Message-ID: <1430148038-25695-1-git-send-email-mschmidt@redhat.com>
+Cc: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jesper.alarsen.net ([144.76.18.233]:46566 "EHLO
-	mail.alarsen.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752321AbbD0PUY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 11:20:24 -0400
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:34091 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752321AbbD0PUl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Apr 2015 11:20:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(misspelled the list address - sorry)
+bnx2x's 'disable_tpa=1' module option is not respected properly and TPA
+(transparent packet aggregation) remains enabled. Even though the
+module option causes LRO to be disabled, TPA is enabled in GRO mode.
 
-On 2015-04-27 16:23, Chris Ward wrote:
-> With the patch actually applied, the WiFi adapter is recognised and  
-> works,
-> both on boot and if the adapter is plugged in later. So, all is well.
+Additionally, disabling GRO via ethtool then has no effect. One can
+still observe tpa_* statistics increase and large packets being received
+in tcpdump.
 
-glad to hear that - and thanks for testing!
+The bug was an unintended consequence of commit aebf6244cd39 "bnx2x: Be
+more forgiving toward SW GRO".
 
-> What mainline kernel level will contain the patch ?
+Fix it by following the bp->disable_tpa flag when initializing fp's.
 
-Marek (CC'ed) added the USB ID some 4 weeks ago, so it's scheduled for  
-the upcoming 4.1
+Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-@Marek: can we get your commit 9374e7d2 added to the stable kernels,  
-please?
-(the full discussion with Chris is archived here:  
-https://lkml.org/lkml/2015/4/24/156)
-
-Cheers
-Anders
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 6f7dc81581..3558a36b1c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -2485,8 +2485,10 @@ static void bnx2x_bz_fp(struct bnx2x *bp, int index)
+ 	else if (bp->flags & GRO_ENABLE_FLAG)
+ 		fp->mode = TPA_MODE_GRO;
+ 
+-	/* We don't want TPA on an FCoE L2 ring */
+-	if (IS_FCOE_FP(fp))
++	/* We don't want TPA if it's disabled in bp
++	 * or if this is an FCoE L2 ring.
++	 */
++	if (bp->disable_tpa || IS_FCOE_FP(fp))
+ 		fp->disable_tpa = 1;
+ }
+ 
+-- 
+2.1.0
