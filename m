@@ -1,8 +1,9 @@
 From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH 2/2] brcmfmac: keep WiFi chip's power during system suspension
-Date: Mon, 27 Apr 2015 10:53:55 +0200
-Message-ID: <553DF923.5070300@broadcom.com>
-References: <553DC3E3.5050802@linux.intel.com>
+Subject: Re: [PATCH 1/2] brcmfmac: prohibit ACPI power management for brcmfmac
+ driver
+Date: Mon, 27 Apr 2015 10:59:06 +0200
+Message-ID: <553DFA5A.3090802@broadcom.com>
+References: <553DC280.6080503@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,54 +16,32 @@ Cc: "brudley@broadcom.com" <brudley@broadcom.com>,
 	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
 	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Adrian Hunter <adrian.hunter@intel.com>
 To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <553DC3E3.5050802@linux.intel.com>
+In-Reply-To: <553DC280.6080503@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/27/15 07:06, Fu, Zhonghui wrote:
-> Need to keep the power supply for WiFi chip during system suspension.
-> Otherwise, the context of WiFi chip will be lost.
+On 04/27/15 07:00, Fu, Zhonghui wrote:
+> ACPI will manage WiFi chip's power state during suspend/resume
+> process on some tablet platforms(such as ASUS T100TA). This is
+> not supported by brcmfmac driver now, and the context of WiFi
+> chip will be damaged after resume. This patch disconnects the
+> relationship between WiFi chip and it's ACPI companion, and
+> prohibit ACPI PM for it.
 
-I already submitted a patch doing exactly the same thing [1]
+Nice. However, ACPI may contain configuration data that brcmfmac needs 
+on some platforms and Adrian Hunter is looking into this. So it is 
+probably better to do this operation at the end of the probe before 
+returning successful.
 
 Regards,
 Arend
 
-[1] https://patchwork.kernel.org/patch/6217391/
-
 > Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
 > ---
->   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   10 ++++++----
->   1 files changed, 6 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> index fdf8feb..03d3671 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> @@ -1251,15 +1251,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
->   	brcmf_sdiod_freezer_on(sdiodev);
->   	brcmf_sdio_wd_timer(sdiodev->bus, 0);
->
-> +	sdio_flags = MMC_PM_KEEP_POWER;
->   	if (sdiodev->wowl_enabled) {
-> -		sdio_flags = MMC_PM_KEEP_POWER;
->   		if (sdiodev->pdata->oob_irq_supported)
->   			enable_irq_wake(sdiodev->pdata->oob_irq_nr);
->   		else
-> -			sdio_flags = MMC_PM_WAKE_SDIO_IRQ;
-> -		if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
-> -			brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
-> +			sdio_flags |= MMC_PM_WAKE_SDIO_IRQ;
->   	}
-> +
-> +	if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
-> +		brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
-> +
->   	return 0;
->   }
->
-> -- 1.7.1
+>   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    5 +++++
+>   1 files changed, 5 insertions(+), 0 deletions(-)
 >
