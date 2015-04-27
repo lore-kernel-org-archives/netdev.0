@@ -1,50 +1,68 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: v3.12-stable-queue build errors
-Date: Mon, 27 Apr 2015 10:45:18 +0200
-Message-ID: <553DF71E.7060409@suse.cz>
-References: <20150425141609.GA1147@roeck-us.net>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH 2/2] brcmfmac: keep WiFi chip's power during system suspension
+Date: Mon, 27 Apr 2015 10:53:55 +0200
+Message-ID: <553DF923.5070300@broadcom.com>
+References: <553DC3E3.5050802@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Guenter Roeck <linux@roeck-us.net>, stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	ML netdev <netdev@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20150425141609.GA1147@roeck-us.net>
-Sender: stable-owner@vger.kernel.org
+Cc: "brudley@broadcom.com" <brudley@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>,
+	"meuleman@broadcom.com" <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"pieterpg@broadcom.com" <pieterpg@broadcom.com>,
+	"hdegoede@redhat.com" <hdegoede@redhat.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <553DC3E3.5050802@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/25/2015, 04:16 PM, Guenter Roeck wrote:
-> Several powerpc build fail with:
-> 
-> drivers/net/ethernet/freescale/gianfar.c: In function 'gfar_start_xmit':
-> drivers/net/ethernet/freescale/gianfar.c:2146:3: error: implicit declaration of
-> function 'dev_consume_skb_any' [-Werror=implicit-function-declaration]
->    dev_consume_skb_any(skb);
-> 
-> dev_consume_skb_any() does not exist in 3.12.
-> 
-> Introduced by 'gianfar: Carefully free skbs in functions called by netpoll'.
+On 04/27/15 07:06, Fu, Zhonghui wrote:
+> Need to keep the power supply for WiFi chip during system suspension.
+> Otherwise, the context of WiFi chip will be lost.
 
-Eric, David,
+I already submitted a patch doing exactly the same thing [1]
 
-what action should I take here?
+Regards,
+Arend
 
-1) take also:
-commit e6247027e5173c00efb2084d688d06ff835bc3b0
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Thu Dec 5 04:45:08 2013 -0800
+[1] https://patchwork.kernel.org/patch/6217391/
 
-    net: introduce dev_consume_skb_any()
-
-
-2) drop 'gianfar: Carefully free skbs in functions called by netpoll'
-from stable-3.12
-
-3) any other idea?
-
-thanks,
--- 
-js
-suse labs
+> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+> ---
+>   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |   10 ++++++----
+>   1 files changed, 6 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> index fdf8feb..03d3671 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+> @@ -1251,15 +1251,17 @@ static int brcmf_ops_sdio_suspend(struct device *dev)
+>   	brcmf_sdiod_freezer_on(sdiodev);
+>   	brcmf_sdio_wd_timer(sdiodev->bus, 0);
+>
+> +	sdio_flags = MMC_PM_KEEP_POWER;
+>   	if (sdiodev->wowl_enabled) {
+> -		sdio_flags = MMC_PM_KEEP_POWER;
+>   		if (sdiodev->pdata->oob_irq_supported)
+>   			enable_irq_wake(sdiodev->pdata->oob_irq_nr);
+>   		else
+> -			sdio_flags = MMC_PM_WAKE_SDIO_IRQ;
+> -		if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
+> -			brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
+> +			sdio_flags |= MMC_PM_WAKE_SDIO_IRQ;
+>   	}
+> +
+> +	if (sdio_set_host_pm_flags(sdiodev->func[1], sdio_flags))
+> +		brcmf_err("Failed to set pm_flags %x\n", sdio_flags);
+> +
+>   	return 0;
+>   }
+>
+> -- 1.7.1
+>
