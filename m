@@ -1,45 +1,49 @@
-From: Michael Grzeschik <mgr@pengutronix.de>
-Subject: Re: [PATCH 06/21] ARCNET: com20020: remove unneeded macros
-Date: Mon, 27 Apr 2015 16:13:39 +0200
-Message-ID: <20150427141339.GB23151@pengutronix.de>
-References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
- <1429896055-31680-7-git-send-email-m.grzeschik@pengutronix.de>
- <1429916685.23327.32.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kernel@pengutronix.de,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:47466 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932671AbbD0ONp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 10:13:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1429916685.23327.32.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH 1/2] net:treewide: Fix typo in drivers/net
+Date: Mon, 27 Apr 2015 23:14:57 +0900
+Message-ID: <1430144098-4933-1-git-send-email-standby24x7@gmail.com>
+Cc: Masanari Iida <standby24x7@gmail.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, Larry.Finger@lwfinger.net,
+	rdunlap@infradead.org, trivial@kernel.org,
+	chaoming_li@realsil.com.cn, linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 24, 2015 at 04:04:45PM -0700, Joe Perches wrote:
-> On Fri, 2015-04-24 at 19:20 +0200, Michael Grzeschik wrote:
-> > The macros SET_SUBADR, ARCRESET, ARCRESET0, ACOMMAND, ASTATUS, AINTMASK
-> > and ADIAGSTATUS are unnecessary indirections to the use of registers.
-> > This patch removes them and improves the readability of the code.
-> 
-> This breaks compilation.
-> 
-> Please compile test your patches before sending them.
+This patch fix spelling typo in printk.
 
-Sorry, but I can not reproduce this break.
-What was your base you applied this series on?
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+---
+ drivers/net/can/usb/kvaser_usb.c   | 2 +-
+ drivers/net/ethernet/8390/etherh.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Can you send me the failure you get?
-
-Thanks,
-Michael
-
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index 4643914..8b17a90 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -1102,7 +1102,7 @@ static void kvaser_usb_rx_can_err(const struct kvaser_usb_net_priv *priv,
+ 
+ 	if (msg->u.rx_can_header.flag & (MSG_FLAG_ERROR_FRAME |
+ 					 MSG_FLAG_NERR)) {
+-		netdev_err(priv->netdev, "Unknow error (flags: 0x%02x)\n",
++		netdev_err(priv->netdev, "Unknown error (flags: 0x%02x)\n",
+ 			   msg->u.rx_can_header.flag);
+ 
+ 		stats->rx_errors++;
+diff --git a/drivers/net/ethernet/8390/etherh.c b/drivers/net/ethernet/8390/etherh.c
+index b36ee9e..d686b9c 100644
+--- a/drivers/net/ethernet/8390/etherh.c
++++ b/drivers/net/ethernet/8390/etherh.c
+@@ -523,7 +523,7 @@ static int etherh_addr(char *addr, struct expansion_card *ec)
+ 	char *s;
+ 	
+ 	if (!ecard_readchunk(&cd, ec, 0xf5, 0)) {
+-		printk(KERN_ERR "%s: unable to read podule description string\n",
++		printk(KERN_ERR "%s: unable to read module description string\n",
+ 		       dev_name(&ec->dev));
+ 		goto no_addr;
+ 	}
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+2.4.0.rc3.3.g6eb1401
