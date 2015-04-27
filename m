@@ -1,54 +1,51 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net] bnx2x: really disable TPA if 'disable_tpa' option
- is set
-Date: Mon, 27 Apr 2015 18:15:44 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63D2041C@AVMB1.qlogic.org>
-References: <1430148038-25695-1-git-send-email-mschmidt@redhat.com>,<20150427.134323.156569796484222010.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
-To: David Miller <davem@davemloft.net>,
-	"mschmidt@redhat.com" <mschmidt@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:36265 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964918AbbD0SP5 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2015 14:15:57 -0400
-In-Reply-To: <20150427.134323.156569796484222010.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/2] Netfilter fixes for net
+Date: Mon, 27 Apr 2015 20:41:55 +0200
+Message-ID: <1430160117-21150-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> bnx2x's 'disable_tpa=1' module option is not respected properly and TPA
->> (transparent packet aggregation) remains enabled. Even though the
->> module option causes LRO to be disabled, TPA is enabled in GRO mode.
->>
->> Additionally, disabling GRO via ethtool then has no effect. One can
->> still observe tpa_* statistics increase and large packets being received
->> in tcpdump.
->>
->> The bug was an unintended consequence of commit aebf6244cd39 "bnx2x: Be
->> more forgiving toward SW GRO".
->>
->> Fix it by following the bp->disable_tpa flag when initializing fp's.
->>
->> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
->
->Applied, thanks.
+Hi David,
 
-Michal - thanks, but Dave -is it possible you gave us only 2.5 hours to
-review this one?
+The following patchset contains Netfilter fixes for your net tree,
+they are:
 
-I agree that this fixes an incorrect logic, but its incomplete as the bnx2x
-'bp->flags' no longer represent the correct logic. I.e., it might cause
-additional issues down the road, as the 'fp->mode' and 'fp->disable_tpa'
-are no longer in sync.
+1) Fix a crash in nf_tables when dictionaries are used from the ruleset,
+   due to memory corruption, from Florian Westphal.
 
-We already have a fix for this issue, we just haven't sent it to 'net' yet.
-Are you willing to give us an additional day to send an alternative fix?
-Or do you prefer to take this, and possibly later we'll remove the logic
-added by this patch in our own?
+2) Fix another crash in nf_queue when used with br_netfilter. Also from
+   Florian.
+
+Both fixes are related to new stuff that got in 4.0-rc.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit b357a364c57c940ddb932224542494363df37378:
+
+  inet: fix possible panic in reqsk_queue_unlink() (2015-04-24 11:39:15 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to 547c4b547e07dcc60874b6ef6252dd49ff74aec1:
+
+  netfilter: bridge: fix NULL deref in physin/out ifindex helpers (2015-04-24 20:51:40 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (2):
+      netfilter: nf_tables: fix wrong length for jump/goto verdicts
+      netfilter: bridge: fix NULL deref in physin/out ifindex helpers
+
+ include/linux/netfilter_bridge.h |   16 ++++++++++++++--
+ net/netfilter/nf_tables_api.c    |    3 +--
+ 2 files changed, 15 insertions(+), 4 deletions(-)
