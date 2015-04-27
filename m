@@ -1,37 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] ppp: mppe: fixes MPPE desync on links which don't
- guarantee packet ordering
-Date: Sun, 26 Apr 2015 23:26:16 -0400 (EDT)
-Message-ID: <20150426.232616.353503560380309931.davem@davemloft.net>
-References: <1430073653-22131-1-git-send-email-sylvain.rochet@finsecur.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] Bluetooth: Skip the shutdown routine if the interface is not up
+Date: Sun, 26 Apr 2015 21:49:06 -0700
+Message-ID: <C0DF74E2-3705-42A4-898D-3E89C8C95D4A@holtmann.org>
+References: <1430074310-3192-1-git-send-email-gabriele.mzt@gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sylvain.rochet@finsecur.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1430073653-22131-1-git-send-email-sylvain.rochet@finsecur.com>
-Sender: linux-ppp-owner@vger.kernel.org
+Cc: "An, Tedd" <tedd.an@intel.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Gabriele Mazzotta <gabriele.mzt@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430074310-3192-1-git-send-email-gabriele.mzt@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sylvain Rochet <sylvain.rochet@finsecur.com>
-Date: Sun, 26 Apr 2015 20:40:51 +0200
+Hi Gabriele,
 
-> I am currently having an issue with PPP over L2TP (UDP) and MPPE in
-> stateless mode (default mode), UDP does not guarantee packet ordering so
-> we might get out of order packet. MPPE needs to be continuously synched
-> so we should drop late UDP packet.
+> Most likely, the shutdown routine requires the interface to be up.
+> This is the case for BTUSB_INTEL: the routine tries to send a command
+> to the interface, but since this one is down, it fails and exits once
+> HCI_INIT_TIMEOUT has expired.
 > 
-> I added a printk on the number of time we rekeyed in MPPE decompressor,
-> this is what we currently have if we receive a slightly out of order UDP
-> packet:
- ...
-> This is obviously wrong, we missed packet 1561 and we already rekeyed 2
-> times for 1562 we previously received, we can't recover the decryption
-> key we need for 1561, we should drop it instead of rekeying 4095 times.
+> Signed-off-by: Gabriele Mazzotta <gabriele.mzt@gmail.com>
+> ---
+> net/bluetooth/hci_core.c | 3 ++-
+> 1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> This patch series drop any packet with are not within the 4096/2 forward
-> window.
+> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+> index 476709b..4663c3d 100644
+> --- a/net/bluetooth/hci_core.c
+> +++ b/net/bluetooth/hci_core.c
+> @@ -1557,7 +1557,8 @@ static int hci_dev_do_close(struct hci_dev *hdev)
+> {
+> 	BT_DBG("%s %p", hdev->name, hdev);
+> 
+> -	if (!hci_dev_test_flag(hdev, HCI_UNREGISTER)) {
+> +	if (!hci_dev_test_flag(hdev, HCI_UNREGISTER) &&
+> +	    test_bit(HCI_UP, &hdev->flags)) {
+> 		/* Execute vendor specific shutdown routine */
+> 		if (hdev->shutdown)
+> 			hdev->shutdown(hdev);
 
-Series applied, thanks Sylvain.
+this is a good catch.
+
+Acked-by: Marcel Holtmann <marcel@holtmann.org>
+Cc: stable@vger.kernel.org # 4.0.x
+
+Dave, do you want to take this patch straight into your stable tree?
+
+Regards
+
+Marcel
