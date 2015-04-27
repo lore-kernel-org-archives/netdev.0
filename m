@@ -1,55 +1,83 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/2] netfilter: nf_tables: fix wrong length for jump/goto verdicts
-Date: Mon, 27 Apr 2015 20:41:56 +0200
-Message-ID: <1430160117-21150-2-git-send-email-pablo@netfilter.org>
-References: <1430160117-21150-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Cong Wang <cwang@twopensource.com>
+Subject: igb driver randomly truncates packets
+Date: Mon, 27 Apr 2015 12:09:15 -0700
+Message-ID: <CAHA+R7OhiJVNDMLOeQZEZ8u0gKu7X=31kLXXv=wkW3cMdysvug@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	netdev <netdev@vger.kernel.org>, intel-wired-lan@lists.osuosl.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44478 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753167AbbD0Shf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Apr 2015 14:37:35 -0400
-In-Reply-To: <1430160117-21150-1-git-send-email-pablo@netfilter.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:33896 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753040AbbD0TJR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 15:09:17 -0400
+Received: by wicmx19 with SMTP id mx19so91301431wic.1
+        for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 12:09:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+Hi, all
 
-NFT_JUMP/GOTO erronously sets length to sizeof(void *).
 
-We then allocate insufficient memory when such element is added to a vmap.
+We saw some packet corruptions with igb driver after upgrading to 3.14
+kernel, but we have no idea how to reproduce it. Below are my
+observations for debugging:
 
-Suggested-by: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_tables_api.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+1) This is probably a regression from 3.10 to 3.14 as we don't see any
+issue with 3.10 kernel. Someone else reported similar regression too:
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 78af83b..ad9d11f 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -4340,7 +4340,6 @@ static int nft_verdict_init(const struct nft_ctx *ctx, struct nft_data *data,
- 	case NFT_CONTINUE:
- 	case NFT_BREAK:
- 	case NFT_RETURN:
--		desc->len = sizeof(data->verdict);
- 		break;
- 	case NFT_JUMP:
- 	case NFT_GOTO:
-@@ -4355,10 +4354,10 @@ static int nft_verdict_init(const struct nft_ctx *ctx, struct nft_data *data,
- 
- 		chain->use++;
- 		data->verdict.chain = chain;
--		desc->len = sizeof(data);
- 		break;
- 	}
- 
-+	desc->len = sizeof(data->verdict);
- 	desc->type = NFT_DATA_VERDICT;
- 	return 0;
- }
--- 
-1.7.10.4
+https://www.mail-archive.com/e1000-devel%40lists.sourceforge.net/msg10105.html
+
+# ethtool -i eth0
+driver: igb
+version: 5.0.5-k
+firmware-version: 1.4.3
+bus-info: 0000:01:00.0
+
+2) It seems the interface needs to be in some status to trigger this
+bug: before this, there was no bug; after this, the bug always happens
+randomly on every 3 packets or so.
+
+3) It doesn't always truncate packets, sometimes it fills in more
+(garbage) data than expect, see below:
+
+17:31:45.719107 IP (tos 0x0, ttl  56, id 62032, offset 0, flags
+[none], proto: ICMP (1), length: 91) 172.25.141.57 > 10.40.73.112:
+ICMP echo request, id 14715, seq 3, length 71
+0x0000:  008c fa00 8934 0001 e882 3f42 0800 4500
+0x0010:  005b f250 0000 3801 0367 ac19 8d39 0a28
+0x0020:  4970 0800 30e3 397b 0003 553e 728e 0001
+0x0030:  ee1b 0809 0a0b 0c0d 0e0f 1011 1213 1415
+0x0040:  1617 1819 1a1b 1c1d 1e1f 2021 2223 2425
+0x0050:  2627 2829 2a2b 2c2d 2e2f 3031 3233 3435
+0x0060:  3637 3839 3a3b 3c3d 3e61 e06c
+
+(the last "61 e06c" bytes are garbage.)
+
+17:31:46.717448 IP truncated-ip - 3 bytes missing! (tos 0x0, ttl  56,
+id 37686, offset 0, flags [none], proto: ICMP (1), length: 91)
+172.25.141.57 > 10.40.73.112: ICMP echo request, id 14715, seq 4,
+length 71
+0x0000:  008c fa00 8934 0001 e882 3f42 0800 4500
+0x0010:  005b 9336 0000 3801 6281 ac19 8d39 0a28
+0x0020:  4970 0800 2d2e 397b 0004 553e 728f 0001
+0x0030:  f1ce 0809 0a0b 0c0d 0e0f 1011 1213 1415
+0x0040:  1617 1819 1a1b 1c1d 1e1f 2021 2223 2425
+0x0050:  2627 2829 2a2b 2c2d 2e2f 3031 3233 3435
+0x0060:  3637 3839 3a3b
+
+("3c3d 3e" bytes are truncated.)
+
+Checking the trace events on napi, I don't see anything wrong with
+regarding to skb fields etc, this is why I suspect it is related to
+igb hardware (e.g. registers, rx rings), which is beyond my knowledge.
+
+Again, given that we don't know how to reproduce this issue, we can't
+check if the latest upstream has the same issue or not, nor we can do
+any bisect.
+
+But I am very happy to provide any other information if you need, as
+long as I can. ;)
+
+Thanks!
