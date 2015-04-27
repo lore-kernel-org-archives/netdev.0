@@ -1,60 +1,142 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH v4 00/10] an introduction of Linux library operating system
- (LibOS)
-Date: Mon, 27 Apr 2015 09:39:20 +0200
-Message-ID: <553DE7A8.8060706@nod.at>
-References: <1429450104-47619-1-git-send-email-tazaki@sfc.wide.ad.jp> <1430103618-10832-1-git-send-email-tazaki@sfc.wide.ad.jp> <553DE54D.9030301@nod.at>
+From: Rojhalat Ibrahim <imr@rtschenk.de>
+Subject: [PATCH][RESEND] mdio-mux-gpio: use new gpiod_get_array and gpiod_put_array functions
+Date: Mon, 27 Apr 2015 10:37:31 +0200
+Message-ID: <5503716.QxOoBLSTJz@pcimr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Jonathan Corbet <corbet@lwn.net>,
-	Christoph Lameter <cl@linux.com>,
-	Jekka Enberg <penberg@kernel.org>,
-	Javid Rientjes <rientjes@google.com>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-	Jndrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org, linux-mm@kvack.org,
-	Jeff Dike <jdike@addtoit.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Ryo Nakamura <upa@haeena.net>,
-	Christoph Paasch <christoph.paasch@gmail.com>,
-	Mathieu Lacage <mathieu.lacage@gmail.com>,
-	libos-nuse@googlegroups.com
-To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>, linux-arch@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <553DE54D.9030301@nod.at>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <acourbot@nvidia.com>
+To: netdev@vger.kernel.org,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+Sender: linux-gpio-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 27.04.2015 um 09:29 schrieb Richard Weinberger:
-> Hi!
-> 
-> Am 27.04.2015 um 05:00 schrieb Hajime Tazaki:
->> This is the 4th version of Linux LibOS patchset which reflects a
->> couple of comments received from people.
->>
->> changes from v3:
->> - Patch 09/10 ("lib: libos build scripts and documentation")
->> 1) Remove RFC (now it's a proposal)
->> 2) build environment cleanup (commented by Paul Bolle)
->> - Overall
->> 3) change based tree from arnd/asm-generic to torvalds/linux.git
->>    (commented by Richard Weinberger)
->> 4) rebased to Linux 4.1-rc1 (b787f68c36d49bb1d9236f403813641efa74a031)
-> 
-> Hmm, it still does not build. This time I got:
-> 
->   CC      kernel/time/time.o
-> In file included from kernel/time/time.c:44:0:
-> kernel/time/timeconst.h:11:2: error: #error "kernel/timeconst.h has the wrong HZ value!"
->  #error "kernel/timeconst.h has the wrong HZ value!"
->   ^
-> arch/lib/Makefile:187: recipe for target 'kernel/time/time.o' failed
-> make: *** [kernel/time/time.o] Error 1
+Use the new gpiod_get_array and gpiod_put_array functions
+(added to mainline in the v4.1 merge window) for obtaining and
+disposing of GPIO descriptors.
 
-A make mrproper made the issue go away.
-Please use kbuild. :)
+Cc: David Miller <davem@davemloft.net>
+Cc: Linus Walleij <linus.walleij@linaro.org>
+Signed-off-by: Rojhalat Ibrahim <imr@rtschenk.de>
+---
+ drivers/net/phy/mdio-mux-gpio.c |   60 +++++++++++-----------------------------
+ 1 file changed, 17 insertions(+), 43 deletions(-)
 
-Thanks,
-//richard
+diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+index 320eb15..c49ad09 100644
+--- a/drivers/net/phy/mdio-mux-gpio.c
++++ b/drivers/net/phy/mdio-mux-gpio.c
+@@ -12,33 +12,30 @@
+ #include <linux/module.h>
+ #include <linux/phy.h>
+ #include <linux/mdio-mux.h>
+-#include <linux/of_gpio.h>
++#include <linux/gpio/consumer.h>
+ 
+ #define DRV_VERSION "1.1"
+ #define DRV_DESCRIPTION "GPIO controlled MDIO bus multiplexer driver"
+ 
+-#define MDIO_MUX_GPIO_MAX_BITS 8
+-
+ struct mdio_mux_gpio_state {
+-	struct gpio_desc *gpio[MDIO_MUX_GPIO_MAX_BITS];
+-	unsigned int num_gpios;
++	struct gpio_descs *gpios;
+ 	void *mux_handle;
+ };
+ 
+ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ 				   void *data)
+ {
+-	int values[MDIO_MUX_GPIO_MAX_BITS];
+-	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = data;
++	int values[s->gpios->ndescs];
++	unsigned int n;
+ 
+ 	if (current_child == desired_child)
+ 		return 0;
+ 
+-	for (n = 0; n < s->num_gpios; n++) {
++	for (n = 0; n < s->gpios->ndescs; n++)
+ 		values[n] = (desired_child >> n) & 1;
+-	}
+-	gpiod_set_array_cansleep(s->num_gpios, s->gpio, values);
++
++	gpiod_set_array_cansleep(s->gpios->ndescs, s->gpios->desc, values);
+ 
+ 	return 0;
+ }
+@@ -46,56 +43,33 @@ static int mdio_mux_gpio_switch_fn(int current_child, int desired_child,
+ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct mdio_mux_gpio_state *s;
+-	int num_gpios;
+-	unsigned int n;
+ 	int r;
+ 
+-	if (!pdev->dev.of_node)
+-		return -ENODEV;
+-
+-	num_gpios = of_gpio_count(pdev->dev.of_node);
+-	if (num_gpios <= 0 || num_gpios > MDIO_MUX_GPIO_MAX_BITS)
+-		return -ENODEV;
+-
+ 	s = devm_kzalloc(&pdev->dev, sizeof(*s), GFP_KERNEL);
+ 	if (!s)
+ 		return -ENOMEM;
+ 
+-	s->num_gpios = num_gpios;
+-
+-	for (n = 0; n < num_gpios; ) {
+-		struct gpio_desc *gpio = gpiod_get_index(&pdev->dev, NULL, n,
+-							 GPIOD_OUT_LOW);
+-		if (IS_ERR(gpio)) {
+-			r = PTR_ERR(gpio);
+-			goto err;
+-		}
+-		s->gpio[n] = gpio;
+-		n++;
+-	}
++	s->gpios = gpiod_get_array(&pdev->dev, NULL, GPIOD_OUT_LOW);
++	if (IS_ERR(s->gpios))
++		return PTR_ERR(s->gpios);
+ 
+ 	r = mdio_mux_init(&pdev->dev,
+ 			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
+ 
+-	if (r == 0) {
+-		pdev->dev.platform_data = s;
+-		return 0;
+-	}
+-err:
+-	while (n) {
+-		n--;
+-		gpiod_put(s->gpio[n]);
++	if (r != 0) {
++		gpiod_put_array(s->gpios);
++		return r;
+ 	}
+-	return r;
++
++	pdev->dev.platform_data = s;
++	return 0;
+ }
+ 
+ static int mdio_mux_gpio_remove(struct platform_device *pdev)
+ {
+-	unsigned int n;
+ 	struct mdio_mux_gpio_state *s = dev_get_platdata(&pdev->dev);
+ 	mdio_mux_uninit(s->mux_handle);
+-	for (n = 0; n < s->num_gpios; n++)
+-		gpiod_put(s->gpio[n]);
++	gpiod_put_array(s->gpios);
+ 	return 0;
+ }
+ 
+--
+2.0.5
+
