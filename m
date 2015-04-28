@@ -1,35 +1,44 @@
-From: Marek Vasut <marex-ynQEQJNshbs@public.gmane.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
 Subject: Re: Stable request 9374e7d2 "rtlwifi: rtl8192cu: Add new device ID"
-Date: Tue, 28 Apr 2015 16:33:17 +0200
-Message-ID: <201504281633.17160.marex@denx.de>
-References: <1430230954.6036.4@alarsen-lx>
+Date: Tue, 28 Apr 2015 10:23:28 -0500
+Message-ID: <553FA5F0.1070402@lwfinger.net>
+References: <1430230954.6036.4@alarsen-lx> <201504281633.17160.marex@denx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Anders Larsen <al-V9/YLgxv/GvR7s880joybQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1430230954.6036.4@alarsen-lx>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Marek Vasut <marex@denx.de>, Anders Larsen <al@alarsen.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Stable <stable@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <201504281633.17160.marex@denx.de>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, April 28, 2015 at 04:22:34 PM, Anders Larsen wrote:
-> On 2015-04-28 16:10, Marek Vasut wrote:
-> > did you check [1] please? I might be wrong, but these are
-> > the official -stable submission guidelines to my knowledge.
-> > 
-> > [1] https://www.kernel.org/doc/Documentation/stable_kernel_rules.txt
-> 
-> sure I did - networking has its own stable submission guidelines in
-> Documentation/networking/netdev-FAQ.txt
+Please note that there are two commits just added to the mainline repo that 
+should be propagated to all stable kernels. Both are addition of new USB IDs for 
+an old driver, thus they will cause to side effects. Unfortunately, the Cc to 
+stable was missed in the first of these, thus the need for this message. The 
+second was Cc for stable, but I include it here for completeness.
 
-I apologize, thank you for pointing this out, I will educate myself.
+The two commits in question are
 
-Best regards,
-Marek Vasut
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+commit 9374e7d2fdcad3c36dafc8d3effd554bc702c4b6
+Author: Marek Vasut <marex@denx.de>
+Date:   Thu Mar 26 02:16:06 2015 +0100
+
+     rtlwifi: rtl8192cu: Add new device ID
+
+     Add new ID for ASUS N10 WiFi dongle.
+
+commit 2f92b314f4daff2117847ac5343c54d3d041bf78
+Author: Larry Finger <Larry.Finger@lwfinger.net>
+Date:   Mon Mar 23 18:14:10 2015 -0500
+
+     rtlwifi: rtl8192cu: Add new USB ID
+
+     USB ID 2001:330d is used for a D-Link DWA-131.
+
+
+Thanks,
+
+Larry
