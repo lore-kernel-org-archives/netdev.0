@@ -1,44 +1,37 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 0/2] tcp: extend access to CC information
-Date: Tue, 28 Apr 2015 16:23:47 -0700
-Message-ID: <1430263429-4069-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: "Hello, Webmail / Email," <webmail@redcotel.bo>
+Subject: Re
+Date: Tue, 28 Apr 2015 16:16:42 -0700 (PDT)
+Message-ID: <42627.41.203.67.174.1430263002.squirrel@mail.redcotel.bo>
+Reply-To: paulsboro121@yahoo.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f201.google.com ([209.85.220.201]:33948 "EHLO
-	mail-qk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030957AbbD1Xb1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 19:31:27 -0400
-Received: by qkbw1 with SMTP id w1so390247qkb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 16:31:26 -0700 (PDT)
+Received: from mail.redcotel.bo ([190.103.64.16]:2625 "EHLO mail.redcotel.bo"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031079AbbD1Xi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2015 19:38:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of being forced to use netlink, we want to get (optional) CC
-information using a getsockopt() on the socket file handle.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
 
-Eric Dumazet (2):
-  tcp: prepare CC get_info() access from getsockopt()
-  tcp: add TCP_CC_INFO socket option
 
- include/net/tcp.h              |  5 ++++-
- include/uapi/linux/inet_diag.h |  4 ++++
- include/uapi/linux/tcp.h       |  1 +
- net/ipv4/inet_diag.c           |  8 +++++---
- net/ipv4/tcp.c                 | 21 +++++++++++++++++++++
- net/ipv4/tcp_dctcp.c           | 20 ++++++++++----------
- net/ipv4/tcp_illinois.c        | 21 +++++++++++----------
- net/ipv4/tcp_vegas.c           | 19 ++++++++++---------
- net/ipv4/tcp_vegas.h           |  3 ++-
- 9 files changed, 68 insertions(+), 34 deletions(-)
+Hello, Webmail / Email,
+This message is from our message center for all our webmail users. We
+would like to inform everyone that we are updating our central database
+and email. Therefore,
 
--- 
-2.2.0.rc0.207.ga3a616c
+the elimination of all emails from inactive accounts not used to create
+more space for new accounts. To prevent your account from being closed
+during this period, you need to confirm your account by clicking on the
+below link
+
+http://webmailupgrade2015.page.tl/Update-Contact-Form.htm
+
+NOTE: Failure to comply with this notification, your email account will=
+ be
+deactivated from our database and email server. Sorry for the
+inconvenience. Verification code:
+SQP4039VE =A9 2015 Accounts Support
