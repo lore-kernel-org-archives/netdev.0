@@ -1,47 +1,328 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v1 0/4] drivers: net: xgene: Add ethernet with ring manager v2 support
-Date: Tue, 28 Apr 2015 13:52:36 -0700
-Message-ID: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
+Subject: [PATCH net-next v1 1/4] drivers: net: xgene: Change ring manager to use function pointers
+Date: Tue, 28 Apr 2015 13:52:37 -0700
+Message-ID: <1430254360-23698-2-git-send-email-isubramanian@apm.com>
+References: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, kchudgar@apm.com,
 	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og103.obsmtp.com ([64.18.0.145]:49799 "EHLO
+Received: from exprod5og110.obsmtp.com ([64.18.0.20]:41631 "EHLO
 	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965992AbbD1UrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:47:13 -0400
-Received: by pdbqa5 with SMTP id qa5so6545194pdb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 13:47:12 -0700 (PDT)
+	by vger.kernel.org with ESMTP id S965988AbbD1UrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:47:15 -0400
+Received: by pdea3 with SMTP id a3so6449277pde.3
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 13:47:14 -0700 (PDT)
+In-Reply-To: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding XFI based 10GbE and SGMII based 1GbE with ring manager v2 support
-for APM X-Gene ethernet driver.  The ring manager v2 is used by 2nd
-generation SoC.
+This is a preparatory patch for adding ethernet support for APM X-Gene
+ethernet driver to work with ring manager v2.
 
-v1:
-* Initial version
+Added xgene_ring_ops structure for storing chip specific ring manager
+properties and functions.
+
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 36 ++++++++++++++++++---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   |  5 ++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 40 +++++++++++-------------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h | 10 ++++++
+ 4 files changed, 61 insertions(+), 30 deletions(-)
 
-Iyappan Subramanian (4):
-  drivers: net: xgene: Change ring manager to use function pointers
-  drivers: net: xgene: Add ring manager v2 functions
-  drivers: net: xgene: Add 10GbE support with ring manager v2
-  drivers: net: xgene: Add SGMII based 1GbE support with ring manager v2
-
- drivers/net/ethernet/apm/xgene/Makefile           |   2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    |  36 +++-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |   8 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 205 ++++++++++++++++------
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  28 +++
- drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c | 200 +++++++++++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h |  49 ++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c |  62 +++++--
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |   1 -
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |  20 +++
- 10 files changed, 530 insertions(+), 81 deletions(-)
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h
-
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index b927021..25873d1 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -87,10 +87,11 @@ static void xgene_enet_ring_rd32(struct xgene_enet_desc_ring *ring,
+ 
+ static void xgene_enet_write_ring_state(struct xgene_enet_desc_ring *ring)
+ {
++	struct xgene_enet_pdata *pdata = netdev_priv(ring->ndev);
+ 	int i;
+ 
+ 	xgene_enet_ring_wr32(ring, CSR_RING_CONFIG, ring->num);
+-	for (i = 0; i < NUM_RING_CONFIG; i++) {
++	for (i = 0; i < pdata->ring_ops->num_ring_config; i++) {
+ 		xgene_enet_ring_wr32(ring, CSR_RING_WR_BASE + (i * 4),
+ 				     ring->state[i]);
+ 	}
+@@ -98,7 +99,7 @@ static void xgene_enet_write_ring_state(struct xgene_enet_desc_ring *ring)
+ 
+ static void xgene_enet_clr_ring_state(struct xgene_enet_desc_ring *ring)
+ {
+-	memset(ring->state, 0, sizeof(u32) * NUM_RING_CONFIG);
++	memset(ring->state, 0, sizeof(ring->state));
+ 	xgene_enet_write_ring_state(ring);
+ }
+ 
+@@ -141,8 +142,8 @@ static void xgene_enet_clr_desc_ring_id(struct xgene_enet_desc_ring *ring)
+ 	xgene_enet_ring_wr32(ring, CSR_RING_ID_BUF, 0);
+ }
+ 
+-struct xgene_enet_desc_ring *xgene_enet_setup_ring(
+-					struct xgene_enet_desc_ring *ring)
++static struct xgene_enet_desc_ring *xgene_enet_setup_ring(
++				    struct xgene_enet_desc_ring *ring)
+ {
+ 	u32 size = ring->size;
+ 	u32 i, data;
+@@ -168,7 +169,7 @@ struct xgene_enet_desc_ring *xgene_enet_setup_ring(
+ 	return ring;
+ }
+ 
+-void xgene_enet_clear_ring(struct xgene_enet_desc_ring *ring)
++static void xgene_enet_clear_ring(struct xgene_enet_desc_ring *ring)
+ {
+ 	u32 data;
+ 	bool is_bufpool;
+@@ -186,6 +187,22 @@ out:
+ 	xgene_enet_clr_ring_state(ring);
+ }
+ 
++static void xgene_enet_wr_cmd(struct xgene_enet_desc_ring *ring, int count)
++{
++	iowrite32(count, ring->cmd);
++}
++
++static u32 xgene_enet_ring_len(struct xgene_enet_desc_ring *ring)
++{
++	u32 __iomem *cmd_base = ring->cmd_base;
++	u32 ring_state, num_msgs;
++
++	ring_state = ioread32(&cmd_base[1]);
++	num_msgs = GET_VAL(NUMMSGSINQ, ring_state);
++
++	return num_msgs;
++}
++
+ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
+ 			    struct xgene_enet_pdata *pdata,
+ 			    enum xgene_enet_err_code status)
+@@ -803,3 +820,12 @@ struct xgene_port_ops xgene_gport_ops = {
+ 	.cle_bypass = xgene_enet_cle_bypass,
+ 	.shutdown = xgene_gport_shutdown,
+ };
++
++struct xgene_ring_ops xgene_ring1_ops = {
++	.num_ring_config = NUM_RING_CONFIG,
++	.num_ring_id_shift = 6,
++	.setup = xgene_enet_setup_ring,
++	.clear = xgene_enet_clear_ring,
++	.wr_cmd = xgene_enet_wr_cmd,
++	.len = xgene_enet_ring_len,
++};
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+index d9bc89d6..00a3778 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+@@ -26,6 +26,7 @@
+ 
+ struct xgene_enet_pdata;
+ struct xgene_enet_stats;
++struct xgene_enet_desc_ring;
+ 
+ /* clears and then set bits */
+ static inline void xgene_set_bits(u32 *dst, u32 val, u32 start, u32 len)
+@@ -314,9 +315,6 @@ static inline u16 xgene_enet_get_numslots(u16 id, u32 size)
+ 		      size / WORK_DESC_SIZE;
+ }
+ 
+-struct xgene_enet_desc_ring *xgene_enet_setup_ring(
+-		struct xgene_enet_desc_ring *ring);
+-void xgene_enet_clear_ring(struct xgene_enet_desc_ring *ring);
+ void xgene_enet_parse_error(struct xgene_enet_desc_ring *ring,
+ 			    struct xgene_enet_pdata *pdata,
+ 			    enum xgene_enet_err_code status);
+@@ -327,5 +325,6 @@ bool xgene_ring_mgr_init(struct xgene_enet_pdata *p);
+ 
+ extern struct xgene_mac_ops xgene_gmac_ops;
+ extern struct xgene_port_ops xgene_gport_ops;
++extern struct xgene_ring_ops xgene_ring1_ops;
+ 
+ #endif /* __XGENE_ENET_HW_H__ */
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 40d3530..b3bbc68 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -48,6 +48,7 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
+ {
+ 	struct sk_buff *skb;
+ 	struct xgene_enet_raw_desc16 *raw_desc;
++	struct xgene_enet_pdata *pdata;
+ 	struct net_device *ndev;
+ 	struct device *dev;
+ 	dma_addr_t dma_addr;
+@@ -58,6 +59,7 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
+ 
+ 	ndev = buf_pool->ndev;
+ 	dev = ndev_to_dev(buf_pool->ndev);
++	pdata = netdev_priv(ndev);
+ 	bufdatalen = BUF_LEN_CODE_2K | (SKB_BUFFER_SIZE & GENMASK(11, 0));
+ 	len = XGENE_ENET_MAX_MTU;
+ 
+@@ -82,7 +84,7 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
+ 		tail = (tail + 1) & slots;
+ 	}
+ 
+-	iowrite32(nbuf, buf_pool->cmd);
++	pdata->ring_ops->wr_cmd(buf_pool, nbuf);
+ 	buf_pool->tail = tail;
+ 
+ 	return 0;
+@@ -102,26 +104,16 @@ static u8 xgene_enet_hdr_len(const void *data)
+ 	return (eth->h_proto == htons(ETH_P_8021Q)) ? VLAN_ETH_HLEN : ETH_HLEN;
+ }
+ 
+-static u32 xgene_enet_ring_len(struct xgene_enet_desc_ring *ring)
+-{
+-	u32 __iomem *cmd_base = ring->cmd_base;
+-	u32 ring_state, num_msgs;
+-
+-	ring_state = ioread32(&cmd_base[1]);
+-	num_msgs = ring_state & CREATE_MASK(NUMMSGSINQ_POS, NUMMSGSINQ_LEN);
+-
+-	return num_msgs >> NUMMSGSINQ_POS;
+-}
+-
+ static void xgene_enet_delete_bufpool(struct xgene_enet_desc_ring *buf_pool)
+ {
++	struct xgene_enet_pdata *pdata = netdev_priv(buf_pool->ndev);
+ 	struct xgene_enet_raw_desc16 *raw_desc;
+ 	u32 slots = buf_pool->slots - 1;
+ 	u32 tail = buf_pool->tail;
+ 	u32 userinfo;
+ 	int i, len;
+ 
+-	len = xgene_enet_ring_len(buf_pool);
++	len = pdata->ring_ops->len(buf_pool);
+ 	for (i = 0; i < len; i++) {
+ 		tail = (tail - 1) & slots;
+ 		raw_desc = &buf_pool->raw_desc16[tail];
+@@ -131,7 +123,7 @@ static void xgene_enet_delete_bufpool(struct xgene_enet_desc_ring *buf_pool)
+ 		dev_kfree_skb_any(buf_pool->rx_skb[userinfo]);
+ 	}
+ 
+-	iowrite32(-len, buf_pool->cmd);
++	pdata->ring_ops->wr_cmd(buf_pool, -len);
+ 	buf_pool->tail = tail;
+ }
+ 
+@@ -263,8 +255,8 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
+ 	struct xgene_enet_desc_ring *cp_ring = tx_ring->cp_ring;
+ 	u32 tx_level, cq_level;
+ 
+-	tx_level = xgene_enet_ring_len(tx_ring);
+-	cq_level = xgene_enet_ring_len(cp_ring);
++	tx_level = pdata->ring_ops->len(tx_ring);
++	cq_level = pdata->ring_ops->len(cp_ring);
+ 	if (unlikely(tx_level > pdata->tx_qcnt_hi ||
+ 		     cq_level > pdata->cp_qcnt_hi)) {
+ 		netif_stop_queue(ndev);
+@@ -276,7 +268,7 @@ static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
+ 		return NETDEV_TX_OK;
+ 	}
+ 
+-	iowrite32(1, tx_ring->cmd);
++	pdata->ring_ops->wr_cmd(tx_ring, 1);
+ 	skb_tx_timestamp(skb);
+ 	tx_ring->tail = (tx_ring->tail + 1) & (tx_ring->slots - 1);
+ 
+@@ -389,11 +381,11 @@ static int xgene_enet_process_ring(struct xgene_enet_desc_ring *ring,
+ 	} while (--budget);
+ 
+ 	if (likely(count)) {
+-		iowrite32(-count, ring->cmd);
++		pdata->ring_ops->wr_cmd(ring, -count);
+ 		ring->head = head;
+ 
+ 		if (netif_queue_stopped(ring->ndev)) {
+-			if (xgene_enet_ring_len(ring) < pdata->cp_qcnt_low)
++			if (pdata->ring_ops->len(ring) < pdata->cp_qcnt_low)
+ 				netif_wake_queue(ring->ndev);
+ 		}
+ 	}
+@@ -510,6 +502,7 @@ static int xgene_enet_open(struct net_device *ndev)
+ 	else
+ 		schedule_delayed_work(&pdata->link_work, PHY_POLL_LINK_OFF);
+ 
++	netif_carrier_off(ndev);
+ 	netif_start_queue(ndev);
+ 
+ 	return ret;
+@@ -545,7 +538,7 @@ static void xgene_enet_delete_ring(struct xgene_enet_desc_ring *ring)
+ 	pdata = netdev_priv(ring->ndev);
+ 	dev = ndev_to_dev(ring->ndev);
+ 
+-	xgene_enet_clear_ring(ring);
++	pdata->ring_ops->clear(ring);
+ 	dma_free_coherent(dev, ring->size, ring->desc_addr, ring->dma);
+ }
+ 
+@@ -598,15 +591,17 @@ static int xgene_enet_get_ring_size(struct device *dev,
+ 
+ static void xgene_enet_free_desc_ring(struct xgene_enet_desc_ring *ring)
+ {
++	struct xgene_enet_pdata *pdata;
+ 	struct device *dev;
+ 
+ 	if (!ring)
+ 		return;
+ 
+ 	dev = ndev_to_dev(ring->ndev);
++	pdata = netdev_priv(ring->ndev);
+ 
+ 	if (ring->desc_addr) {
+-		xgene_enet_clear_ring(ring);
++		pdata->ring_ops->clear(ring);
+ 		dma_free_coherent(dev, ring->size, ring->desc_addr, ring->dma);
+ 	}
+ 	devm_kfree(dev, ring);
+@@ -670,7 +665,7 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+ 
+ 	ring->cmd_base = pdata->ring_cmd_addr + (ring->num << 6);
+ 	ring->cmd = ring->cmd_base + INC_DEC_CMD_ADDR;
+-	ring = xgene_enet_setup_ring(ring);
++	ring = pdata->ring_ops->setup(ring);
+ 	netdev_dbg(ndev, "ring info: num=%d  size=%d  id=%d  slots=%d\n",
+ 		   ring->num, ring->size, ring->id, ring->slots);
+ 
+@@ -1051,6 +1046,7 @@ static void xgene_enet_setup_ops(struct xgene_enet_pdata *pdata)
+ 		break;
+ 	}
+ 
++	pdata->ring_ops = &xgene_ring1_ops;
+ }
+ 
+ static void xgene_enet_napi_add(struct xgene_enet_pdata *pdata)
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 8f3d232..577c63c 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -105,6 +105,15 @@ struct xgene_port_ops {
+ 	void (*shutdown)(struct xgene_enet_pdata *pdata);
+ };
+ 
++struct xgene_ring_ops {
++	u8 num_ring_config;
++	u8 num_ring_id_shift;
++	struct xgene_enet_desc_ring * (*setup)(struct xgene_enet_desc_ring *);
++	void (*clear)(struct xgene_enet_desc_ring *);
++	void (*wr_cmd)(struct xgene_enet_desc_ring *, int);
++	u32 (*len)(struct xgene_enet_desc_ring *);
++};
++
+ /* ethernet private data */
+ struct xgene_enet_pdata {
+ 	struct net_device *ndev;
+@@ -136,6 +145,7 @@ struct xgene_enet_pdata {
+ 	struct rtnl_link_stats64 stats;
+ 	struct xgene_mac_ops *mac_ops;
+ 	struct xgene_port_ops *port_ops;
++	struct xgene_ring_ops *ring_ops;
+ 	struct delayed_work link_work;
+ 	u32 port_id;
+ 	u8 cpu_bufnum;
 -- 
 1.9.1
