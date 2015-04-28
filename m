@@ -1,88 +1,151 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 0/6 v2] ipv6: Only create RTF_CACHE route after encountering pmtu exception
-Date: Tue, 28 Apr 2015 14:07:47 -0700
-Message-ID: <1430255273-3045254-1-git-send-email-kafai@fb.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next 2/2] tcp: add tcpi_bytes_received to tcp_info
+Date: Tue, 28 Apr 2015 14:07:35 -0700
+Message-ID: <CAK6E8=eD84Qb1ZJO3fm2KVMMoth44QmsFG8ZmCZ5a1HaX82jpQ@mail.gmail.com>
+References: <1430242338-23156-1-git-send-email-edumazet@google.com> <1430242338-23156-3-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>,
-	Kernel Team <Kernel-team@fb.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Eric Salo <salo@google.com>, Martin Lau <kafai@fb.com>,
+	Chris Rapier <rapier@psc.edu>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41603 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1030857AbbD1VIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 17:08:13 -0400
-Received: from pps.filterd (m0004346 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3SL6v3E008757
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 14:08:13 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1u2eyhgc0r-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 14:08:13 -0700
-Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- adab6082edea11e4a3240002c991e86a-bcb02c0 for <netdev@vger.kernel.org>;	Tue,
- 28 Apr 2015 14:08:12 -0700
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:36157 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030857AbbD1VIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 17:08:17 -0400
+Received: by igblo3 with SMTP id lo3so101132042igb.1
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 14:08:16 -0700 (PDT)
+In-Reply-To: <1430242338-23156-3-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1 -> v2:
-- Move the /128 route bug fixes to another series (posted).
-- Create a function for checking (rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)).
-- Avoid shuffling the skb network_header.  Instead, change the function
-  signature to take iph instead of skb.
+On Tue, Apr 28, 2015 at 10:32 AM, Eric Dumazet <edumazet@google.com> wrote:
+> This patch tracks total number of payload bytes received on a TCP socket.
+> This is the sum of all changes done to tp->rcv_nxt
+>
+> RFC4898 named this : tcpEStatsAppHCThruOctetsReceived
+>
+> This is a 64bit field, and can be fetched both from TCP_INFO
+> getsockopt() if one has a handle on a TCP socket, or from inet_diag
+> netlink facility (iproute2/ss patch will follow)
+>
+> Note that tp->bytes_received was placed near tp->rcv_nxt for
+> best data locality and minimal performance impact.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Matt Mathis <mattmathis@google.com>
+> Cc: Eric Salo <salo@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Martin Lau <kafai@fb.com>
+> Cc: Chris Rapier <rapier@psc.edu>
+> ---
+>  include/linux/tcp.h      |  4 ++++
+>  include/uapi/linux/tcp.h |  1 +
+>  net/ipv4/tcp.c           |  1 +
+>  net/ipv4/tcp_input.c     | 17 +++++++++++++----
+>  4 files changed, 19 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 0f73b43171da..3b2911502a8c 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -145,6 +145,10 @@ struct tcp_sock {
+>   *     read the code and the spec side by side (and laugh ...)
+>   *     See RFC793 and RFC1122. The RFC writes these in capitals.
+>   */
+> +       u64     bytes_received; /* RFC4898 tcpEStatsAppHCThruOctetsReceived
+> +                                * sum(delta(rcv_nxt)), or how many bytes
+> +                                * were acked.
+> +                                */
+>         u32     rcv_nxt;        /* What we want to receive next         */
+>         u32     copied_seq;     /* Head of yet unread data              */
+>         u32     rcv_wup;        /* rcv_nxt on last window update sent   */
+> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+> index 6666e98a0af9..a48f93f3207b 100644
+> --- a/include/uapi/linux/tcp.h
+> +++ b/include/uapi/linux/tcp.h
+> @@ -190,6 +190,7 @@ struct tcp_info {
+>         __u64   tcpi_pacing_rate;
+>         __u64   tcpi_max_pacing_rate;
+>         __u64   tcpi_bytes_acked; /* RFC4898 tcpEStatsAppHCThruOctetsAcked */
+> +       __u64   tcpi_bytes_received; /* RFC4898 tcpEStatsAppHCThruOctetsReceived */
+>  };
+>
+>  /* for TCP_MD5SIG socket option */
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 4bf0e8ca7b5b..99fcc0b22c92 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2666,6 +2666,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
+>
+>         spin_lock_bh(&sk->sk_lock.slock);
+>         info->tcpi_bytes_acked = tp->bytes_acked;
+> +       info->tcpi_bytes_received = tp->bytes_received;
+>         spin_unlock_bh(&sk->sk_lock.slock);
+>  }
+>  EXPORT_SYMBOL_GPL(tcp_get_info);
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 378d3f4d4dc3..7e6962bcfc30 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3289,6 +3289,15 @@ static void tcp_snd_una_update(struct tcp_sock *tp, u32 ack)
+>         tp->snd_una = ack;
+>  }
+>
+> +/* If we update tp->rcv_nxt, also update tp->bytes_received */
+> +static void tcp_rcv_nxt_update(struct tcp_sock *tp, u32 seq)
+> +{
+> +       u32 delta = seq - tp->rcv_nxt;
+> +
+> +       tp->bytes_received += delta;
+> +       tp->rcv_nxt = seq;
+> +}
+Account for received syn-data when rcv_nxt is updated in tcp_fastopen.c?
 
-The perf numbers do not change much since v1.
-
-It depends on another patch series,
-'ipv6: Stop /128 route from disappearing after pmtu update', which
-should be applied first.
-
-Many thanks to "Hannes Frederic Sowa <hannes@stressinduktion.org>" on
-reviewing the patches and giving advice.
-
---Martin
-
-~~~ start: v1 compose message (with the out-dated parts removed) ~~~
-
-This series is to avoid creating a RTF_CACHE route whenever we are consulting
-the fib6 tree with a new destination.  Instead, only create RTF_CACHE route
-when we see a pmtu exception.
-
-Out of all ipv6 RTF_CACHE routes that are created, the percentage that has a
-different mtu is very small. In one of our end-user facing proxy server,
-only 1k out of 80k RTF_CACHE routes have a smaller MTU.  For our DC
-traffic, there is no mtu exception.
-
-A large fib6 tree has problems like, 'ip -6 r show' takes a long time.
-gc may kick in too often.  Also, when a service has restarted and a lot
-of new TCP conn requests come in, it creates pressure on the tree by inserting
-a lot of RTF_CACHE in a short time and it currently requires a write lock
-to do that.
-
-The first few patches are prep works to remove assumption that the
-returned rt is always RTF_CACHE.
-
-The patch 'ipv6: Only create RTF_CACHE routes after encountering pmtu exception'
-do the lazy RTF_CACHE route creation.
-
-The following patches added percpu rt to compensate the performance loss after
-doing the RTF_CACHE lazy creation.
-
-Here is some numbers of the udpflood test.  The udpflood has been
-slightly modified to have a time limit instead of count limit.
-
-A /64 via gateway route is used for the test. Each udpflood uses 10000 dst
-addresses.  The dst addresses of different udpflood processes do not overlap
-with each other.
-
-# of udpflood        # of trans (patched)        # of trans (upstream)
-
-1                    16M                          15M
-10                   61M                          61M
-20                   65M                          62M
-40                   88M                          83M
-
-~~~ end: v1 compose message ~~~
+> +
+>  /* Update our send window.
+>   *
+>   * Window update algorithm, described in RFC793/RFC1122 (used in linux-2.2
+> @@ -4245,7 +4254,7 @@ static void tcp_ofo_queue(struct sock *sk)
+>
+>                 tail = skb_peek_tail(&sk->sk_receive_queue);
+>                 eaten = tail && tcp_try_coalesce(sk, tail, skb, &fragstolen);
+> -               tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+> +               tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
+>                 if (!eaten)
+>                         __skb_queue_tail(&sk->sk_receive_queue, skb);
+>                 if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+> @@ -4413,7 +4422,7 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
+>         __skb_pull(skb, hdrlen);
+>         eaten = (tail &&
+>                  tcp_try_coalesce(sk, tail, skb, fragstolen)) ? 1 : 0;
+> -       tcp_sk(sk)->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+> +       tcp_rcv_nxt_update(tcp_sk(sk), TCP_SKB_CB(skb)->end_seq);
+>         if (!eaten) {
+>                 __skb_queue_tail(&sk->sk_receive_queue, skb);
+>                 skb_set_owner_r(skb, sk);
+> @@ -4506,7 +4515,7 @@ queue_and_out:
+>
+>                         eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
+>                 }
+> -               tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+> +               tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
+>                 if (skb->len)
+>                         tcp_event_data_recv(sk, skb);
+>                 if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
+> @@ -5254,7 +5263,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
+>                                         tcp_rcv_rtt_measure_ts(sk, skb);
+>
+>                                         __skb_pull(skb, tcp_header_len);
+> -                                       tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
+> +                                       tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
+>                                         NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPHITSTOUSER);
+>                                         eaten = 1;
+>                                 }
+> --
+> 2.2.0.rc0.207.ga3a616c
+>
