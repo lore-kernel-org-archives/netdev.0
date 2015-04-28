@@ -1,41 +1,43 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [for,4.1] rtlwifi: rtl8192cu: Fix kernel deadlock
-Date: Tue, 28 Apr 2015 10:55:59 +0000 (UTC)
-Message-ID: <20150428105559.12144141A32@smtp.codeaurora.org>
-References: <1429891417-1224-1-git-send-email-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
-	Bernhard Wiedemann <bwiedemann@suse.com>,
-	Takashi Iwai <tiwai@suse.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>
+From: Antonio Ospite <ao2@ao2.it>
+Subject: [PATCH 10/12] trivial: net: systemport: bcmsysport.h: fix 0x0x prefix
+Date: Tue, 28 Apr 2015 13:11:29 +0200
+Message-ID: <1430219491-5076-11-git-send-email-ao2@ao2.it>
+References: <1430219491-5076-1-git-send-email-ao2@ao2.it>
+Cc: Antonio Ospite <ao2@ao2.it>,
+	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33988 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933012AbbD1K4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 06:56:00 -0400
-In-Reply-To: <1429891417-1224-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from smtp207.alice.it ([82.57.200.103]:29355 "EHLO smtp207.alice.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964991AbbD1LRr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2015 07:17:47 -0400
+In-Reply-To: <1430219491-5076-1-git-send-email-ao2@ao2.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fix the 0x0x prefix in an integer constant.
 
-> The USB mini-driver in rtlwifi, which is used by rtl8192cu, issues a call to
-> usb_control_msg() with a timeout value of 0. In some instances where the
-> interface is shutting down, this infinite wait results in a CPU deadlock. A
-> one second timeout fixes this problem without affecting any normal operations.
-> 
-> This bug is reported at https://bugzilla.novell.com/show_bug.cgi?id=927786.
-> 
-> Reported-by: Bernhard Wiedemann <bwiedemann@suse.com>
-> Tested-by: Bernhard Wiedemann <bwiedemann@suse.com>
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: Stable <stable@vger.kernel.org>
-> Cc: Bernhard Wiedemann <bwiedemann@suse.com>
-> Cc: Takashi Iwai<tiwai@suse.com>
+In this case, while at it, also fix a typo (s/unitcast/unicast/).
 
-Thanks, applied to wireless-drivers.git.
+Signed-off-by: Antonio Ospite <ao2@ao2.it>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/broadcom/bcmsysport.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Kalle Valo
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+index 7e3d87a..e2c043e 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.h
++++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+@@ -543,7 +543,7 @@ struct bcm_sysport_tx_counters {
+ 	u32	jbr;		/* RO # of xmited jabber count*/
+ 	u32	bytes;		/* RO # of xmited byte count */
+ 	u32	pok;		/* RO # of xmited good pkt */
+-	u32	uc;		/* RO (0x0x4f0)# of xmited unitcast pkt */
++	u32	uc;		/* RO (0x4f0) # of xmited unicast pkt */
+ };
+ 
+ struct bcm_sysport_mib {
+-- 
+2.1.4
