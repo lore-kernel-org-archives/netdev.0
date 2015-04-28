@@ -1,73 +1,56 @@
-From: Mihai Moldovan <ionic@ionic.de>
-Subject: Re: iproute2 regression -- ss -u returns an empty list
-Date: Tue, 28 Apr 2015 15:14:31 +0200
-Message-ID: <553F87B7.7090602@ionic.de>
-References: <553EE0D9.3050601@ionic.de> <20150428112108.GA22108@angus-think.wlc.globallogic.com>
+From: Ido Shamay <idos@dev.mellanox.co.il>
+Subject: Re: [PATCH] mlx4: Fix tx ring affinity_mask creation
+Date: Tue, 28 Apr 2015 16:37:33 +0300
+Message-ID: <553F8D1D.3040803@dev.mellanox.co.il>
+References: <1428683240-22879-1-git-send-email-bpoirier@suse.de> <552A18A8.1040109@dev.mellanox.co.il> <20150414002256.GA22775@f1.synalogic.ca> <20150428032637.GA6169@f1.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="uwN9MNwgEdAxBLUPL3i3hlT8uLOjoCWpN"
-Cc: netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from powered.by.root24.eu ([5.135.3.88]:37799 "EHLO Root24.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965549AbbD1NOd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2015 09:14:33 -0400
-In-Reply-To: <20150428112108.GA22108@angus-think.wlc.globallogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Ido Shamay <idos@mellanox.com>
+To: Benjamin Poirier <benjamin.poirier@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150428032637.GA6169@f1.synalogic.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---uwN9MNwgEdAxBLUPL3i3hlT8uLOjoCWpN
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+On 4/28/2015 6:26 AM, Benjamin Poirier wrote:
+> On 2015/04/13 17:22, Benjamin Poirier wrote:
+>> On 2015/04/12 10:03, Ido Shamay wrote:
+>>> Hi Benjamin,
+>>>
+>>> On 4/10/2015 7:27 PM, Benjamin Poirier wrote:
+>>>> By default, the number of tx queues is limited by the number of online cpus in
+>>>> mlx4_en_get_profile(). However, this limit no longer holds after the ethtool
+>>>> .set_channels method has been called. In that situation, the driver may access
+>>>> invalid bits of certain cpumask variables when queue_index > nr_cpu_ids.
+>>> I must say I don't see the above issue with the current code.
+>>> Whatever is the modified value of priv->num_tx_rings_p_up, it will set XPS
+>>> only on queues which have
+>>> been set with CPU affinity mask (no access to invalid bits).
+>> The problem is not with the call to netif_set_xps_queue() it is with the
+>> calls to cpu_online() and cpumask_set_cpu().
+>>
+>> For example, if the user calls `ethtool -L ethX tx 32`, queue_index in
+>> mlx4_en_create_tx_ring() can be up to 255. Depending on CONFIG_NR_CPUS
+>> and CONFIG_CPUMASK_OFFSTACK this may result in calls to cpu_online() and
+>> cpumask_set_cpu() with cpu >= nr_cpumask_bits which is an invalid usage
+>> of the cpumask api. The driver will potentially read or write beyond the
+>> end of the bitmap. With CONFIG_CPUMASK_OFFSTACK=y and
+>> CONFIG_DEBUG_PER_CPU_MAPS=y, the aforementioned ethtool call on a system
+>> with <32 cpus triggers the warning in cpumask_check().
+>>
+> Mellanox, can you please
+> ack the patch as submitted, or
+> clarify what changes you'd like to see given my reply above, or
+> submit a fix of your own for this problem
+>
+> Thanks,
+> -Benjamin
+Hi Benjamin,
 
-Hi Vadim,
+After further review and better understanding of the issue, we are okay 
+with your patch as is.
+Thanks for the good work.
 
-
-On 28.04.2015 01:21 PM, Vadim Kochan wrote:
-> Seems I have a fixed version, I tested it localy with different
-> option combinations, and now there should be no issues when specifying
-> different families.
-
-Thanks for the quick work! I'm happy to test.
-
-
-> Would you be able to test it ? How I can provide a fixed version to you=
- -
-> by patch or I can push to my github and give you a link ?
-
-I don't mind, any way is fine. I can work either way.
-
-
-
-Mihai
-
-
-
---uwN9MNwgEdAxBLUPL3i3hlT8uLOjoCWpN
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJVP4e3AAoJEB/WLtluJTqH3eoQAN6hCtz6WcdVG1XWURs1WtFO
-aeX+wcl/YWSktUc01tlSWfhZTZYcxuhP8c8Tq4T/aw070Hps9WNlo6IvNl/H7YQE
-7x03IdmarpAWIoIZFYMhzn1ymD7hCTZagE428b/TAQRx2vSg9rSj46KtqGDVrums
-qP/LLUhAlw09agKqNQtFTzFQ9jHjVlouGXBksrbdQT8wXRvss4PlVTORAB3BIgUg
-EDNVbz+gkCNqjIK6/YqlhuVYAnVtnbvNxa9u2ipbVCmqUuacmRiPoAx26A1OIT3S
-PA12QU9J1qwNLx6fvx2QqupaZJXH/AqmLVMDwuKWZbeM8BkvMvN+7JW64r3iYznH
-bu8x1tmmwzc9duQJHxhLd2QP07kw+j0w8PMhx6p45NFs5w/BYn+0szeQm0cI+4Hd
-+K9wmYoM8daWSLvNYDdvsi4yGVnE20u0asH/8GF2OXa9b/2OCg+L6R5ijyFYSY7g
-cevWO9LKzY00rD5pfgTw3XDvwLF10xCP+w2nFqEm3vdOdwUULllYnfImWxj83RZ3
-+vsshFGQoSLj6GW+slIKJdP3GMDKIOhG8kguyAfsgJ9PV6Yzf7ZiTQzEvsj2W2Qn
-rktE1bUM+gBIAXGdzBHx5eUVMOGD9qguKysSxqdYVvQimnb6BGaRmpRnTz3R3j/Z
-4ePHUwPtd2KXUWlb3s+v
-=Y/Sd
------END PGP SIGNATURE-----
-
---uwN9MNwgEdAxBLUPL3i3hlT8uLOjoCWpN--
+Acked-by: Ido Shamay <idos@mellanox.com>
