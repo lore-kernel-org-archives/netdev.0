@@ -1,331 +1,38 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v1 2/4] drivers: net: xgene: Add ring manager v2 functions
-Date: Tue, 28 Apr 2015 13:52:38 -0700
-Message-ID: <1430254360-23698-3-git-send-email-isubramanian@apm.com>
-References: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, kchudgar@apm.com,
-	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod5og116.obsmtp.com ([64.18.0.147]:37525 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S965966AbbD1UrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:47:17 -0400
-Received: by pabtp1 with SMTP id tp1so6373581pab.2
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 13:47:16 -0700 (PDT)
-In-Reply-To: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] net/macb: Fix UDPv4 checksum offload
+Date: Tue, 28 Apr 2015 16:47:51 -0400 (EDT)
+Message-ID: <20150428.164751.1765242259665119244.davem@davemloft.net>
+References: <1430174610-6834-1-git-send-email-jaeden.amero@ni.com>
+	<20150427.224713.291017556251723132.davem@davemloft.net>
+	<553FEF66.7010503@ni.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jeff.westfahl@ni.com,
+	mihai.neagu@ni.com
+To: jaeden.amero@ni.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <553FEF66.7010503@ni.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Adding ring manager v2 support for APM X-Gene ethernet driver.
+From: Jaeden Amero <jaeden.amero@ni.com>
+Date: Tue, 28 Apr 2015 15:36:54 -0500
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- drivers/net/ethernet/apm/xgene/Makefile           |   2 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |   1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |   2 +
- drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c | 200 ++++++++++++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h |  49 ++++++
- 5 files changed, 253 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h
+> On 04/27/2015 09:47 PM, David Miller wrote:
+>> From: Jaeden Amero <jaeden.amero@ni.com>
+>> Date: Mon, 27 Apr 2015 17:43:30 -0500
+>>
+>> A UDP checksum of zero, means "checksum not computed".  And your
+>> device isn't computing the checksum at all, but rather is leaving it
+>> at zero.
+> 
+> The "zero" checksum is not what gets sent over the wire. Independent of
+> the value of the checksum field, hardware generates a correct checksum
+> for payloads of 3 or more bytes. The bug is that hardware generates an
+> incorrect checksum for payloads of 2 or less bytes, unless the checksum
+> field is zeroed.
 
-diff --git a/drivers/net/ethernet/apm/xgene/Makefile b/drivers/net/ethernet/apm/xgene/Makefile
-index 68be5655..700b5ab 100644
---- a/drivers/net/ethernet/apm/xgene/Makefile
-+++ b/drivers/net/ethernet/apm/xgene/Makefile
-@@ -3,5 +3,5 @@
- #
- 
- xgene-enet-objs := xgene_enet_hw.o xgene_enet_sgmac.o xgene_enet_xgmac.o \
--		   xgene_enet_main.o xgene_enet_ethtool.o
-+		   xgene_enet_main.o xgene_enet_ring2.o xgene_enet_ethtool.o
- obj-$(CONFIG_NET_XGENE) += xgene-enet.o
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index 00a3778..1dbc10a 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -262,6 +262,7 @@ enum xgene_enet_ring_type {
- 
- enum xgene_ring_owner {
- 	RING_OWNER_ETH0,
-+	RING_OWNER_ETH1,
- 	RING_OWNER_CPU = 15,
- 	RING_OWNER_INVALID
- };
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 577c63c..a44f4a3 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -72,6 +72,8 @@ struct xgene_enet_desc_ring {
- 	void __iomem *cmd_base;
- 	void __iomem *cmd;
- 	dma_addr_t dma;
-+	dma_addr_t irq_mbox_dma;
-+	void *irq_mbox_addr;
- 	u16 dst_ring_num;
- 	u8 nbufpool;
- 	struct sk_buff *(*rx_skb);
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c b/drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c
-new file mode 100644
-index 0000000..0b6896b
---- /dev/null
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c
-@@ -0,0 +1,200 @@
-+/* Applied Micro X-Gene SoC Ethernet Driver
-+ *
-+ * Copyright (c) 2015, Applied Micro Circuits Corporation
-+ * Author: Iyappan Subramanian <isubramanian@apm.com>
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#include "xgene_enet_main.h"
-+#include "xgene_enet_hw.h"
-+#include "xgene_enet_ring2.h"
-+
-+static void xgene_enet_ring_init(struct xgene_enet_desc_ring *ring)
-+{
-+	u32 *ring_cfg = ring->state;
-+	u64 addr = ring->dma;
-+
-+	if (xgene_enet_ring_owner(ring->id) == RING_OWNER_CPU) {
-+		ring_cfg[0] |= SET_VAL(X2_INTLINE, ring->id & RING_BUFNUM_MASK);
-+		ring_cfg[3] |= SET_BIT(X2_DEQINTEN);
-+	}
-+	ring_cfg[0] |= SET_VAL(X2_CFGCRID, 1);
-+
-+	addr >>= 8;
-+	ring_cfg[2] |= QCOHERENT | SET_VAL(RINGADDRL, addr);
-+
-+	addr >>= 27;
-+	ring_cfg[3] |= SET_VAL(RINGSIZE, ring->cfgsize)
-+		    | ACCEPTLERR
-+		    | SET_VAL(RINGADDRH, addr);
-+	ring_cfg[4] |= SET_VAL(X2_SELTHRSH, 1);
-+	ring_cfg[5] |= SET_BIT(X2_QBASE_AM) | SET_BIT(X2_MSG_AM);
-+}
-+
-+static void xgene_enet_ring_set_type(struct xgene_enet_desc_ring *ring)
-+{
-+	u32 *ring_cfg = ring->state;
-+	bool is_bufpool;
-+	u32 val;
-+
-+	is_bufpool = xgene_enet_is_bufpool(ring->id);
-+	val = (is_bufpool) ? RING_BUFPOOL : RING_REGULAR;
-+	ring_cfg[4] |= SET_VAL(X2_RINGTYPE, val);
-+	if (is_bufpool)
-+		ring_cfg[3] |= SET_VAL(RINGMODE, BUFPOOL_MODE);
-+}
-+
-+static void xgene_enet_ring_set_recombbuf(struct xgene_enet_desc_ring *ring)
-+{
-+	u32 *ring_cfg = ring->state;
-+
-+	ring_cfg[3] |= RECOMBBUF;
-+	ring_cfg[4] |= SET_VAL(X2_RECOMTIMEOUT, 0x7);
-+}
-+
-+static void xgene_enet_ring_wr32(struct xgene_enet_desc_ring *ring,
-+				 u32 offset, u32 data)
-+{
-+	struct xgene_enet_pdata *pdata = netdev_priv(ring->ndev);
-+
-+	iowrite32(data, pdata->ring_csr_addr + offset);
-+}
-+
-+static void xgene_enet_write_ring_state(struct xgene_enet_desc_ring *ring)
-+{
-+	struct xgene_enet_pdata *pdata = netdev_priv(ring->ndev);
-+	int i;
-+
-+	xgene_enet_ring_wr32(ring, CSR_RING_CONFIG, ring->num);
-+	for (i = 0; i < pdata->ring_ops->num_ring_config; i++) {
-+		xgene_enet_ring_wr32(ring, CSR_RING_WR_BASE + (i * 4),
-+				     ring->state[i]);
-+	}
-+}
-+
-+static void xgene_enet_clr_ring_state(struct xgene_enet_desc_ring *ring)
-+{
-+	memset(ring->state, 0, sizeof(ring->state));
-+	xgene_enet_write_ring_state(ring);
-+}
-+
-+static void xgene_enet_set_ring_state(struct xgene_enet_desc_ring *ring)
-+{
-+	enum xgene_ring_owner owner;
-+
-+	xgene_enet_ring_set_type(ring);
-+
-+	owner = xgene_enet_ring_owner(ring->id);
-+	if (owner == RING_OWNER_ETH0 || owner == RING_OWNER_ETH1)
-+		xgene_enet_ring_set_recombbuf(ring);
-+
-+	xgene_enet_ring_init(ring);
-+	xgene_enet_write_ring_state(ring);
-+}
-+
-+static void xgene_enet_set_ring_id(struct xgene_enet_desc_ring *ring)
-+{
-+	u32 ring_id_val, ring_id_buf;
-+	bool is_bufpool;
-+
-+	if (xgene_enet_ring_owner(ring->id) == RING_OWNER_CPU)
-+		return;
-+
-+	is_bufpool = xgene_enet_is_bufpool(ring->id);
-+
-+	ring_id_val = ring->id & GENMASK(9, 0);
-+	ring_id_val |= OVERWRITE;
-+
-+	ring_id_buf = (ring->num << 9) & GENMASK(18, 9);
-+	ring_id_buf |= PREFETCH_BUF_EN;
-+	if (is_bufpool)
-+		ring_id_buf |= IS_BUFFER_POOL;
-+
-+	xgene_enet_ring_wr32(ring, CSR_RING_ID, ring_id_val);
-+	xgene_enet_ring_wr32(ring, CSR_RING_ID_BUF, ring_id_buf);
-+}
-+
-+static void xgene_enet_clr_desc_ring_id(struct xgene_enet_desc_ring *ring)
-+{
-+	u32 ring_id;
-+
-+	ring_id = ring->id | OVERWRITE;
-+	xgene_enet_ring_wr32(ring, CSR_RING_ID, ring_id);
-+	xgene_enet_ring_wr32(ring, CSR_RING_ID_BUF, 0);
-+}
-+
-+static struct xgene_enet_desc_ring *xgene_enet_setup_ring(
-+				    struct xgene_enet_desc_ring *ring)
-+{
-+	bool is_bufpool;
-+	u32 addr, i;
-+
-+	xgene_enet_clr_ring_state(ring);
-+	xgene_enet_set_ring_state(ring);
-+	xgene_enet_set_ring_id(ring);
-+
-+	ring->slots = xgene_enet_get_numslots(ring->id, ring->size);
-+
-+	is_bufpool = xgene_enet_is_bufpool(ring->id);
-+	if (is_bufpool || xgene_enet_ring_owner(ring->id) != RING_OWNER_CPU)
-+		return ring;
-+
-+	addr = CSR_VMID0_INTR_MBOX + (4 * (ring->id & RING_BUFNUM_MASK));
-+	xgene_enet_ring_wr32(ring, addr, ring->irq_mbox_dma >> 10);
-+
-+	for (i = 0; i < ring->slots; i++)
-+		xgene_enet_mark_desc_slot_empty(&ring->raw_desc[i]);
-+
-+	return ring;
-+}
-+
-+static void xgene_enet_clear_ring(struct xgene_enet_desc_ring *ring)
-+{
-+	xgene_enet_clr_desc_ring_id(ring);
-+	xgene_enet_clr_ring_state(ring);
-+}
-+
-+static void xgene_enet_wr_cmd(struct xgene_enet_desc_ring *ring, int count)
-+{
-+	u32 data = 0;
-+
-+	if (xgene_enet_ring_owner(ring->id) == RING_OWNER_CPU) {
-+		data = SET_VAL(X2_INTLINE, ring->id & RING_BUFNUM_MASK) |
-+		       INTR_CLEAR;
-+	}
-+	data |= (count & GENMASK(16, 0));
-+
-+	iowrite32(data, ring->cmd);
-+}
-+
-+static u32 xgene_enet_ring_len(struct xgene_enet_desc_ring *ring)
-+{
-+	u32 __iomem *cmd_base = ring->cmd_base;
-+	u32 ring_state, num_msgs;
-+
-+	ring_state = ioread32(&cmd_base[1]);
-+	num_msgs = GET_VAL(X2_NUMMSGSINQ, ring_state);
-+
-+	return num_msgs;
-+}
-+
-+struct xgene_ring_ops xgene_ring2_ops = {
-+	.num_ring_config = X2_NUM_RING_CONFIG,
-+	.num_ring_id_shift = 13,
-+	.setup = xgene_enet_setup_ring,
-+	.clear = xgene_enet_clear_ring,
-+	.wr_cmd = xgene_enet_wr_cmd,
-+	.len = xgene_enet_ring_len,
-+};
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h b/drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h
-new file mode 100644
-index 0000000..8b235db
---- /dev/null
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h
-@@ -0,0 +1,49 @@
-+/* Applied Micro X-Gene SoC Ethernet Driver
-+ *
-+ * Copyright (c) 2015, Applied Micro Circuits Corporation
-+ * Author: Iyappan Subramanian <isubramanian@apm.com>
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
-+
-+#ifndef __XGENE_ENET_RING2_H__
-+#define __XGENE_ENET_RING2_H__
-+
-+#include "xgene_enet_main.h"
-+
-+#define X2_NUM_RING_CONFIG	6
-+
-+#define INTR_MBOX_SIZE		1024
-+#define CSR_VMID0_INTR_MBOX	0x0270
-+#define INTR_CLEAR		BIT(23)
-+
-+#define X2_MSG_AM_POS		10
-+#define X2_QBASE_AM_POS		11
-+#define X2_INTLINE_POS		24
-+#define X2_INTLINE_LEN		5
-+#define X2_CFGCRID_POS		29
-+#define X2_CFGCRID_LEN		3
-+#define X2_SELTHRSH_POS		7
-+#define X2_SELTHRSH_LEN		3
-+#define X2_RINGTYPE_POS		23
-+#define X2_RINGTYPE_LEN		2
-+#define X2_DEQINTEN_POS		29
-+#define X2_RECOMTIMEOUT_POS	0
-+#define X2_RECOMTIMEOUT_LEN	7
-+#define X2_NUMMSGSINQ_POS	0
-+#define X2_NUMMSGSINQ_LEN	17
-+
-+extern struct xgene_ring_ops xgene_ring2_ops;
-+
-+#endif /* __XGENE_ENET_RING2_H__ */
--- 
-1.9.1
+Ok, then you need to add a comment here, because other people might come
+to the same conclusion I did.
