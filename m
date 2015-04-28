@@ -1,46 +1,47 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH iproute2 -master] tc: {m,f}_ebpf: add option for dumping
- verifier log
-Date: Tue, 28 Apr 2015 13:37:48 -0700
-Message-ID: <553FEF9C.6010104@plumgrid.com>
-References: <b312101ba95af54ffd2f4c56694c0b44ccbfa051.1430220466.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, stephen@networkplumber.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next v1 0/4] drivers: net: xgene: Add ethernet with ring manager v2 support
+Date: Tue, 28 Apr 2015 13:52:36 -0700
+Message-ID: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, kchudgar@apm.com,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:36495 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030901AbbD1Uhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:37:50 -0400
-Received: by pdea3 with SMTP id a3so6229168pde.3
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 13:37:50 -0700 (PDT)
-In-Reply-To: <b312101ba95af54ffd2f4c56694c0b44ccbfa051.1430220466.git.daniel@iogearbox.net>
+Received: from exprod5og103.obsmtp.com ([64.18.0.145]:49799 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965992AbbD1UrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:47:13 -0400
+Received: by pdbqa5 with SMTP id qa5so6545194pdb.1
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 13:47:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/28/15 4:37 AM, Daniel Borkmann wrote:
-> Currently, only on error we get a log dump, but I found it useful when
-> working with eBPF to have an option to also dump the log on success.
-> Also spotted a typo in a header comment, which is fixed here as well.
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-...
-> @@ -284,8 +287,11 @@ static int bpf_prog_attach(enum bpf_prog_type type, const struct bpf_insn *insns
->   {
->   	int prog_fd = bpf_prog_load(type, insns, size, license);
->
-> -	if (prog_fd < 0)
-> -		bpf_dump_error("BPF program rejected: %s\n", strerror(errno));
-> +	if (prog_fd < 0 || bpf_verbose) {
-> +		bpf_dump_error("%s: %s\n", prog_fd < 0 ?
-> +			       "BPF program rejected" :
-> +			       "BPF program verification", strerror(errno));
-> +	}
+Adding XFI based 10GbE and SGMII based 1GbE with ring manager v2 support
+for APM X-Gene ethernet driver.  The ring manager v2 is used by 2nd
+generation SoC.
 
-I have very similar hack locally that I stash/unstash periodically for
-debugging. Good thing to have it in generic form.
+v1:
+* Initial version
+---
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Iyappan Subramanian (4):
+  drivers: net: xgene: Change ring manager to use function pointers
+  drivers: net: xgene: Add ring manager v2 functions
+  drivers: net: xgene: Add 10GbE support with ring manager v2
+  drivers: net: xgene: Add SGMII based 1GbE support with ring manager v2
+
+ drivers/net/ethernet/apm/xgene/Makefile           |   2 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    |  36 +++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |   8 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 205 ++++++++++++++++------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  28 +++
+ drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c | 200 +++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h |  49 ++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c |  62 +++++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |   1 -
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |  20 +++
+ 10 files changed, 530 insertions(+), 81 deletions(-)
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ring2.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ring2.h
+
+-- 
+1.9.1
