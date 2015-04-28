@@ -1,54 +1,52 @@
-From: Joseph Salisbury <joseph.salisbury@canonical.com>
-Subject: Re: [PATCH][v3.19.y] tun: return proper error code from tun_do_read
-Date: Tue, 28 Apr 2015 17:18:51 -0400
-Message-ID: <553FF93B.9080905@canonical.com>
-References: <553FED33.8020406@canonical.com> <CA+5PVA78+XBL+zDdTtVa6FqM_ectVY0rrdYD=S+yU3CXVCFXPg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@linuxfoundation.org>, agartrell@fb.com,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>, jasowang@redhat.com,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Ben Hutchings <ben@decadent.org.uk>, xii@google.com,
-	vyasevich@gmail.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: Josh Boyer <jwboyer@fedoraproject.org>
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: [PATCH RESEND] mlx4: Fix tx ring affinity_mask creation
+Date: Tue, 28 Apr 2015 14:49:29 -0700
+Message-ID: <1430257769-23350-1-git-send-email-bpoirier@suse.de>
+Cc: Or Gerlitz <gerlitz.or@gmail.com>, clsoto@us.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Amir Vadai <amirv@mellanox.com>, Ido Shamay <idos@mellanox.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+5PVA78+XBL+zDdTtVa6FqM_ectVY0rrdYD=S+yU3CXVCFXPg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/28/2015 05:15 PM, Josh Boyer wrote:
-> On Tue, Apr 28, 2015 at 4:27 PM, Joseph Salisbury
-> <joseph.salisbury@canonical.com> wrote:
->> Hello,
->>
->> Please consider including mainline commit
->> 957f094f221f81e457133b1f4c4d95ffa49ff731 in the next v3.19.y release.
->> It was included in the mainline tree as of v4.0-rc1.  It has been tested
->> and confirmed to resolve:
->> http://bugs.launchpad.net/bugs/1448942
->> And upstream bug report:
->> https://bugzilla.kernel.org/show_bug.cgi?id=90901
->>
->> The bug was introduce in v3.19-rc1 by commit 9b067034d0, so it is not
->> needed in any other stable kernels.
->>
->>
->>
->> commit 957f094f221f81e457133b1f4c4d95ffa49ff731
->> Author: Alex Gartrell <agartrell@fb.com>
->> Date:   Thu Dec 25 23:22:49 2014 -0800
->>
->>     tun: return proper error code from tun_do_read
-> It's already queued for 3.19.6.  I pinged DaveM about it back in March
-> and it eventually got queued up.
->
-> josh
-Great.  Thanks for the feedback, Josh.
+By default, the number of tx queues is limited by the number of online cpus
+in mlx4_en_get_profile(). However, this limit no longer holds after the
+ethtool .set_channels method has been called. In that situation, the driver
+may access invalid bits of certain cpumask variables when queue_index >=
+nr_cpu_ids.
 
-Joe
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+Acked-by: Ido Shamay <idos@mellanox.com>
+Fixes: d03a68f ("net/mlx4_en: Configure the XPS queue mapping on driver load")
+---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 1783705..f7bf312 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -143,8 +143,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
+ 	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
+ 	ring->queue_index = queue_index;
+ 
+-	if (queue_index < priv->num_tx_rings_p_up && cpu_online(queue_index))
+-		cpumask_set_cpu(queue_index, &ring->affinity_mask);
++	if (queue_index < priv->num_tx_rings_p_up)
++		cpumask_set_cpu_local_first(queue_index,
++					    priv->mdev->dev->numa_node,
++					    &ring->affinity_mask);
+ 
+ 	*pring = ring;
+ 	return 0;
+@@ -213,7 +215,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ 
+ 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
+ 			       &ring->qp, &ring->qp_state);
+-	if (!user_prio && cpu_online(ring->queue_index))
++	if (!cpumask_empty(&ring->affinity_mask))
+ 		netif_set_xps_queue(priv->dev, &ring->affinity_mask,
+ 				    ring->queue_index);
+ 
+-- 
+2.3.5
