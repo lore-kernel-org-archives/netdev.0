@@ -1,42 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix 64-bit divide
-Date: Mon, 27 Apr 2015 23:15:14 -0400 (EDT)
-Message-ID: <20150427.231514.208514856523229950.davem@davemloft.net>
-References: <1430170837-9394-1-git-send-email-ast@plumgrid.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH v1 net-next 1/3] igb: set driver data for device entries
+ that were missing
+Date: Tue, 28 Apr 2015 03:17:41 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B78DBB03B@ORSMSX101.amr.corp.intel.com>
+References: <1428707018-6405-1-git-send-email-jtoppins@cumulusnetworks.com>
+ <553E58E5.9000105@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, holzheu@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60603 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932259AbbD1DPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 23:15:16 -0400
-In-Reply-To: <1430170837-9394-1-git-send-email-ast@plumgrid.com>
+Received: from mga03.intel.com ([134.134.136.65]:40588 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752850AbbD1DRn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Apr 2015 23:17:43 -0400
+In-Reply-To: <553E58E5.9000105@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 27 Apr 2015 14:40:37 -0700
-
-> ALU64_DIV instruction should be dividing 64-bit by 64-bit,
-> whereas do_div() does 64-bit by 32-bit divide.
-> x64 and arm64 JITs correctly implement 64 by 64 unsigned divide.
-> llvm BPF backend emits code assuming that ALU64_DIV does 64 by 64.
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Jonathan Toppins
+> Sent: Monday, April 27, 2015 8:42 AM
+> To: Kirsher, Jeffrey T
+> Cc: Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald
+> C; Vick, Matthew; Ronciak, John; Williams, Mitch A; intel-wired-
+> lan@lists.osuosl.org; netdev@vger.kernel.org; gospo@cumulusnetworks.com;
+> shm@cumulusnetworks.com
+> Subject: Re: [PATCH v1 net-next 1/3] igb: set driver data for device
+> entries that were missing
 > 
-> Fixes: 89aa075832b0 ("net: sock: allow eBPF programs to be attached to sockets")
-> Reported-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> The bug is old and sneaked in during the very first eBPF code drop:
-> Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
-> but it's not affecting classic and shouldn't be backported further
-> than commit 89aa075832b0 (which is the above Fixes tag).
-> It was found by exhaustive tests being written by Michael Holzheu.
+> On 4/10/15 7:03 PM, Jonathan Toppins wrote:
+> > Three of the supported PCI device entries neglected to set driver data
+> > to "board_82575". This is not a problem until a new board type is
+> > defined, so avoid the potential problem all together.
+> >
+> > Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+> > ---
+> >   drivers/net/ethernet/intel/igb/igb_main.c |    6 +++---
+> >   1 file changed, 3 insertions(+), 3 deletions(-)
 
-Ok, applied and queued up for v3.19 -stable and later.
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 
-Thanks.
+Well, regression tested that is as I don't have any of the potential new boards.
