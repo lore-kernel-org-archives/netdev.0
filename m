@@ -1,52 +1,51 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH RESEND] mlx4: Fix tx ring affinity_mask creation
-Date: Tue, 28 Apr 2015 14:49:29 -0700
-Message-ID: <1430257769-23350-1-git-send-email-bpoirier@suse.de>
-Cc: Or Gerlitz <gerlitz.or@gmail.com>, clsoto@us.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Amir Vadai <amirv@mellanox.com>, Ido Shamay <idos@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] tcp: add tcpi_bytes_received to tcp_info
+Date: Tue, 28 Apr 2015 15:21:26 -0700
+Message-ID: <1430259686.28069.29.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430242338-23156-1-git-send-email-edumazet@google.com>
+	 <1430242338-23156-3-git-send-email-edumazet@google.com>
+	 <CAK6E8=eD84Qb1ZJO3fm2KVMMoth44QmsFG8ZmCZ5a1HaX82jpQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Matt Mathis <mattmathis@google.com>,
+	Eric Salo <salo@google.com>, Martin Lau <kafai@fb.com>,
+	Chris Rapier <rapier@psc.edu>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:35151 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031052AbbD1WVu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 18:21:50 -0400
+Received: by igbyr2 with SMTP id yr2so104296970igb.0
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 15:21:48 -0700 (PDT)
+In-Reply-To: <CAK6E8=eD84Qb1ZJO3fm2KVMMoth44QmsFG8ZmCZ5a1HaX82jpQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-By default, the number of tx queues is limited by the number of online cpus
-in mlx4_en_get_profile(). However, this limit no longer holds after the
-ethtool .set_channels method has been called. In that situation, the driver
-may access invalid bits of certain cpumask variables when queue_index >=
-nr_cpu_ids.
+On Tue, 2015-04-28 at 14:07 -0700, Yuchung Cheng wrote:
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-Acked-by: Ido Shamay <idos@mellanox.com>
-Fixes: d03a68f ("net/mlx4_en: Configure the XPS queue mapping on driver load")
----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+> Account for received syn-data when rcv_nxt is updated in tcp_fastopen.c?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 1783705..f7bf312 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -143,8 +143,10 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 	ring->hwtstamp_tx_type = priv->hwtstamp_config.tx_type;
- 	ring->queue_index = queue_index;
- 
--	if (queue_index < priv->num_tx_rings_p_up && cpu_online(queue_index))
--		cpumask_set_cpu(queue_index, &ring->affinity_mask);
-+	if (queue_index < priv->num_tx_rings_p_up)
-+		cpumask_set_cpu_local_first(queue_index,
-+					    priv->mdev->dev->numa_node,
-+					    &ring->affinity_mask);
- 
- 	*pring = ring;
- 	return 0;
-@@ -213,7 +215,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 
- 	err = mlx4_qp_to_ready(mdev->dev, &ring->wqres.mtt, &ring->context,
- 			       &ring->qp, &ring->qp_state);
--	if (!user_prio && cpu_online(ring->queue_index))
-+	if (!cpumask_empty(&ring->affinity_mask))
- 		netif_set_xps_queue(priv->dev, &ring->affinity_mask,
- 				    ring->queue_index);
- 
--- 
-2.3.5
+Right, I'll send a v2 with the following FO part :
+
+Note that I do not call the helper to keep it static and inline
+candidate.
+
+Thanks !
+
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index e3d87aca6be8..b1b110d07816 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -206,6 +206,7 @@ static bool tcp_fastopen_create_child(struct sock *sk,
+                        skb_set_owner_r(skb2, child);
+                        __skb_queue_tail(&child->sk_receive_queue, skb2);
+                        tp->syn_data_acked = 1;
++                       tp->bytes_received = end_seq - (TCP_SKB_CB(skb)->seq + 1);
+                } else {
+                        end_seq = TCP_SKB_CB(skb)->seq + 1;
+                }
