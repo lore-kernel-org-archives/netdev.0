@@ -1,43 +1,41 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [PATCH] iwl4965: Enable checking of format strings
-Date: Tue, 28 Apr 2015 19:49:31 +0200
-Message-ID: <20150428174929.GA8397@redhat.com>
-References: <1423695069-23436-1-git-send-email-linux@rasmusvillemoes.dk>
- <877fsw5iq1.fsf@kamboji.qca.qualcomm.com>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [Problem] broadcom tg3 network driver disconnects under high
+ load
+Date: Tue, 28 Apr 2015 11:11:05 -0700
+Message-ID: <1430244665.6888.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <CAGNmLEMbyR6-1WSyPRZQhLanH_UB7xb5cVVQ9N625bvdhbA6MA@mail.gmail.com>
+	 <1429908991.3920.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <877fsw5iq1.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Toan Pham <tpham3783@gmail.com>, <sanjeevb@broadcom.com>,
+	<prashant@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:44866 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030316AbbD1SLi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 14:11:38 -0400
+In-Reply-To: <CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 28, 2015 at 07:19:02PM +0300, Kalle Valo wrote:
-> Rasmus Villemoes <linux@rasmusvillemoes.dk> writes:
+On Mon, 2015-04-27 at 22:10 +0000, Toan Pham wrote: 
+> Michael,
 > 
-> > Since these fmt_* variables are just const char*, and not const
-> > char[], gcc (and smatch) doesn't to type checking of the arguments to
-> > the printf functions. Since the linker knows perfectly well to merge
-> > identical string constants, there's no point in having three static
-> > pointers waste memory and give an extra level of indirection.
-> >
-> > This removes over 100 "non-constant format argument" warnings from
-> > smatch, accounting for about 20% of all such warnings in an
-> > allmodconfig.
-> >
-> > Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 > 
-> So what's the conclusion, should I commit this patch or not?
+> Please see attach files.
 > 
-> Full discussion here:
-> 
-> https://patchwork.kernel.org/patch/5814811/
+> BTW, I have also tested this bug on at least 8 different HP 705 PCs
+> with the 5762 NIC, so it is probably not a manufacturer defect.  In
+> addition, I can never replicate the same issue on the older chipset,
+> BCM5761, which can be found on the HP model 6005.  I hope this
+> information is helpful.  Thanks
 
-I do not see the point of the patch. If compiler behave not
-optimally, fix the compiler. NACK.
+Thanks for the data.  The memory enable bit is cleared and there are
+some correctable error bits set.  My colleague Sanjeev will look into
+this.
 
-Stanislaw
+Do you have PCIE Advanced Error Reporting (CONFIG_PCIEAER) enabled in
+your kernel?
