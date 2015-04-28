@@ -1,47 +1,65 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: Re: [Problem] broadcom tg3 network driver disconnects under high
- load
-Date: Tue, 28 Apr 2015 13:43:01 -0700
-Message-ID: <1430253781.26841.21.camel@prashant>
-References: <CAGNmLEMbyR6-1WSyPRZQhLanH_UB7xb5cVVQ9N625bvdhbA6MA@mail.gmail.com>
-	 <1429908991.3920.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
-	 <1430244665.6888.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <1430247712.26841.18.camel@prashant>
-	 <CAGNmLEOJxarDZxmoXQfruPQ3RP89=h_zOTfBw-Fzq+Vizg315g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>, <sanjeevb@broadcom.com>,
-	<netdev@vger.kernel.org>
-To: Toan Pham <tpham3783@gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: fix problem with parallel link synchronization mechanism
+Date: Tue, 28 Apr 2015 16:59:04 -0400
+Message-ID: <1430254744-10081-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:28115 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965966AbbD1UwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:52:15 -0400
-In-Reply-To: <CAGNmLEOJxarDZxmoXQfruPQ3RP89=h_zOTfBw-Fzq+Vizg315g@mail.gmail.com>
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:26341 "EHLO
+	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965987AbbD1U7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:59:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-28 at 16:06 -0400, Toan Pham wrote:
-> > We were able to reproduce this issue internally only with iommu enabled.
-> 
-> My last test to collect lspci-info took about 5 hours over a gigabit
-> network for the bug to show up.  My setup was running 3 tx scp
-> sessions, each transferring a 1GB file outbound, and 1 rx scp session
-> copying another 1GB file inbound.  In a production environment with
-> the BCM5762 NIC running as a server, I observed that the failure rate
-> is about 1.65/week.  Please perform a similar test with iommu
-> disabled, and leave it running for days if need be.
+Currently, we try to accumulate arrived packets in the links's
+'deferred' queue during the parallel link syncronization phase.
 
-Sure will try
-> 
-> 
-> >  Meanwhile can you try the attached patch and see if you are able to reproduce the problem ?
-> 
-> No problem.  I will apply the patch to kernel 4.0 and report back the
-> result.  Let me know if you need me to turn on any debug options like
-> pcie trace, dev debug etc....  Thanks
+This entails two problems:
 
-If you can collect pcie trace that would be great. Thanks
+- With an unlucky combination of arriving packets the algorithm
+  may go into a lockstep with the out-of-sequence handling function,
+  where the synch mechanism is adding a packet to the deferred queue,
+  while the out-of-sequence handling is retrieving it again, thus
+  ending up in a loop inside the node_lock scope.
+
+- Even if this is avoided, the link will very often send out
+  unnecessary protocol messages, in the worst case leading to
+  redundant retransmissions.
+
+We fix this by just dropping arriving packets on the upcoming link
+during the synchronization phase, thus relying on the retransmission
+protocol to resolve the situation once the two links have arrived to
+a synchronized state.
+
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/link.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 57be6e6..f97c235 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1145,11 +1145,8 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
+ 		}
+ 		/* Synchronize with parallel link if applicable */
+ 		if (unlikely((l_ptr->flags & LINK_SYNCHING) && !msg_dup(msg))) {
+-			link_handle_out_of_seq_msg(l_ptr, skb);
+-			if (link_synch(l_ptr))
+-				link_retrieve_defq(l_ptr, &head);
+-			skb = NULL;
+-			goto unlock;
++			if (!link_synch(l_ptr))
++				goto unlock;
+ 		}
+ 		l_ptr->next_in_no++;
+ 		if (unlikely(!skb_queue_empty(&l_ptr->deferdq)))
+-- 
+1.9.1
