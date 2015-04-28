@@ -1,41 +1,45 @@
-From: Toan Pham <tpham3783@gmail.com>
-Subject: Re: [Problem] broadcom tg3 network driver disconnects under high load
-Date: Tue, 28 Apr 2015 16:06:47 -0400
-Message-ID: <CAGNmLEOJxarDZxmoXQfruPQ3RP89=h_zOTfBw-Fzq+Vizg315g@mail.gmail.com>
-References: <CAGNmLEMbyR6-1WSyPRZQhLanH_UB7xb5cVVQ9N625bvdhbA6MA@mail.gmail.com>
-	<1429908991.3920.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
-	<1430244665.6888.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	<1430247712.26841.18.camel@prashant>
+From: Joseph Salisbury <joseph.salisbury@canonical.com>
+Subject: [PATCH][v3.19.y] tun: return proper error code from tun_do_read
+Date: Tue, 28 Apr 2015 16:27:31 -0400
+Message-ID: <553FED33.8020406@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Michael Chan <mchan@broadcom.com>, sanjeevb@broadcom.com,
-	netdev@vger.kernel.org
-To: Prashant Sreedharan <prashant@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:35200 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030690AbbD1UGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 16:06:48 -0400
-Received: by iejt8 with SMTP id t8so27395830iej.2
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 13:06:48 -0700 (PDT)
-In-Reply-To: <1430247712.26841.18.camel@prashant>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: agartrell@fb.com, "davem@davemloft.net" <davem@davemloft.net>,
+	mst@redhat.com, jasowang@redhat.com, herbert@gondor.apana.org.au,
+	viro@zeniv.linux.org.uk, Ben Hutchings <ben@decadent.org.uk>,
+	xii@google.com, vyasevich@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> We were able to reproduce this issue internally only with iommu enabled.
+Hello,
 
-My last test to collect lspci-info took about 5 hours over a gigabit
-network for the bug to show up.  My setup was running 3 tx scp
-sessions, each transferring a 1GB file outbound, and 1 rx scp session
-copying another 1GB file inbound.  In a production environment with
-the BCM5762 NIC running as a server, I observed that the failure rate
-is about 1.65/week.  Please perform a similar test with iommu
-disabled, and leave it running for days if need be.
+Please consider including mainline commit
+957f094f221f81e457133b1f4c4d95ffa49ff731 in the next v3.19.y release. 
+It was included in the mainline tree as of v4.0-rc1.  It has been tested
+and confirmed to resolve:
+http://bugs.launchpad.net/bugs/1448942
+And upstream bug report:
+https://bugzilla.kernel.org/show_bug.cgi?id=90901
+
+The bug was introduce in v3.19-rc1 by commit 9b067034d0, so it is not
+needed in any other stable kernels.
 
 
->  Meanwhile can you try the attached patch and see if you are able to reproduce the problem ?
 
-No problem.  I will apply the patch to kernel 4.0 and report back the
-result.  Let me know if you need me to turn on any debug options like
-pcie trace, dev debug etc....  Thanks
+commit 957f094f221f81e457133b1f4c4d95ffa49ff731
+Author: Alex Gartrell <agartrell@fb.com>
+Date:   Thu Dec 25 23:22:49 2014 -0800
+
+    tun: return proper error code from tun_do_read
+
+
+
+Sincerely,
+
+Joseph Salisbury
