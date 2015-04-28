@@ -1,36 +1,41 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH 0/3] bnx2x: minor cleanups related to TPA bits
-Date: Tue, 28 Apr 2015 10:45:17 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63D2406E@AVMB1.qlogic.org>
-References: <1430213663-5657-1-git-send-email-mschmidt@redhat.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [for,4.1] rtlwifi: rtl8192cu: Fix kernel deadlock
+Date: Tue, 28 Apr 2015 10:55:59 +0000 (UTC)
+Message-ID: <20150428105559.12144141A32@smtp.codeaurora.org>
+References: <1429891417-1224-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	David Miller <davem@davemloft.net>
-To: Michal Schmidt <mschmidt@redhat.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
+	Bernhard Wiedemann <bwiedemann@suse.com>,
+	Takashi Iwai <tiwai@suse.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:17853 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932699AbbD1KpY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2015 06:45:24 -0400
-In-Reply-To: <1430213663-5657-1-git-send-email-mschmidt@redhat.com>
-Content-Language: en-US
+Received: from smtp.codeaurora.org ([198.145.29.96]:33988 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933012AbbD1K4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 06:56:00 -0400
+In-Reply-To: <1429891417-1224-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I noticed some simplification possibilities while looking into the bug fixed by
-> "bnx2x: really disable TPA if 'disable_tpa' is set'.
-> 
-> Michal Schmidt (3):
->   bnx2x: mark LRO as a fixed disabled feature if disable_tpa is set
->   bnx2x: merge fp->disable_tpa with fp->mode
->   bnx2x: remove {TPA,GRO}_ENABLE_FLAG
-> 
 
-Looking good; Thanks Michal.
+> The USB mini-driver in rtlwifi, which is used by rtl8192cu, issues a call to
+> usb_control_msg() with a timeout value of 0. In some instances where the
+> interface is shutting down, this infinite wait results in a CPU deadlock. A
+> one second timeout fixes this problem without affecting any normal operations.
+> 
+> This bug is reported at https://bugzilla.novell.com/show_bug.cgi?id=927786.
+> 
+> Reported-by: Bernhard Wiedemann <bwiedemann@suse.com>
+> Tested-by: Bernhard Wiedemann <bwiedemann@suse.com>
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Cc: Stable <stable@vger.kernel.org>
+> Cc: Bernhard Wiedemann <bwiedemann@suse.com>
+> Cc: Takashi Iwai<tiwai@suse.com>
 
-Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Thanks, applied to wireless-drivers.git.
+
+Kalle Valo
