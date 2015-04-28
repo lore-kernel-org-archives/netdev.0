@@ -1,42 +1,56 @@
-From: Antonio Ospite <ao2@ao2.it>
-Subject: [PATCH 08/12] trivial: net: atl1e: atl1e_hw.h: fix 0x0x prefix
-Date: Tue, 28 Apr 2015 13:11:27 +0200
-Message-ID: <1430219491-5076-9-git-send-email-ao2@ao2.it>
-References: <1430219491-5076-1-git-send-email-ao2@ao2.it>
-Cc: Antonio Ospite <ao2@ao2.it>, Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>, netdev@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: iproute2 regression -- ss -u returns an empty list
+Date: Tue, 28 Apr 2015 14:21:08 +0300
+Message-ID: <20150428112108.GA22108@angus-think.wlc.globallogic.com>
+References: <553EE0D9.3050601@ionic.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Mihai Moldovan <ionic@ionic.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp206.alice.it ([82.57.200.102]:21275 "EHLO smtp206.alice.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964921AbbD1LSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2015 07:18:11 -0400
-In-Reply-To: <1430219491-5076-1-git-send-email-ao2@ao2.it>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:36705 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965450AbbD1LVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 07:21:30 -0400
+Received: by lagv1 with SMTP id v1so101667451lag.3
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 04:21:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <553EE0D9.3050601@ionic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the 0x0x prefix in an integer constant.
+On Tue, Apr 28, 2015 at 03:22:33AM +0200, Mihai Moldovan wrote:
+> Hi,
+> 
+> Following up a bug report I received at
+> http://bugs.x2go.org/cgi-bin/bugreport.cgi?bug=799 it looks like the current
+> version iproute2's ss utility always returns an empty result set whenever
+> specifying the -u flag.
+> 
+> The problem has been bisected to 9db7bf15e22b6a1b8bc09c4a1e29571cbca55c94 and is
+> also affecting version 3.19.0, but most notably 4.0.0+.
+> 
+> I'm not quite sure that's the correct commit, but it does definitely look related.
+> 
+> Even ss -xu, which previously returned a list of UNIX and UDP sockets now
+> returns nothing on my systems.
+> 
+> 
+> Any help with that matter is greatly appreciated.
+> 
+> 
+> 
+> Mihai
+> 
 
-Signed-off-by: Antonio Ospite <ao2@ao2.it>
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
-Cc: netdev@vger.kernel.org
----
- drivers/net/ethernet/atheros/atl1e/atl1e_hw.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_hw.h b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
-index 74df16a..88a6271 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_hw.h
-@@ -129,7 +129,7 @@ s32 atl1e_restart_autoneg(struct atl1e_hw *hw);
- #define     TWSI_CTRL_LD_SLV_ADDR_SHIFT     8
- #define     TWSI_CTRL_SW_LDSTART            0x800
- #define     TWSI_CTRL_HW_LDSTART            0x1000
--#define     TWSI_CTRL_SMB_SLV_ADDR_MASK     0x0x7F
-+#define     TWSI_CTRL_SMB_SLV_ADDR_MASK     0x7F
- #define     TWSI_CTRL_SMB_SLV_ADDR_SHIFT    15
- #define     TWSI_CTRL_LD_EXIST              0x400000
- #define     TWSI_CTRL_READ_FREQ_SEL_MASK    0x3
--- 
-2.1.4
+Hi Mihai,
+
+Seems I have a fixed version, I tested it localy with different
+option combinations, and now there should be no issues when specifying
+different families.
+
+Would you be able to test it ? How I can provide a fixed version to you -
+by patch or I can push to my github and give you a link ?
+
+Thanks,
