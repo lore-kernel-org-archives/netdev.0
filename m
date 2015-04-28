@@ -1,57 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 -next v2] tc: built-in eBPF exec proxy
-Date: Tue, 28 Apr 2015 09:45:08 +0200
-Message-ID: <553F3A84.40306@iogearbox.net>
-References: <d41d6003521cbb231112e4a78c10cb8c07f05cc2.1429211530.git.daniel@iogearbox.net> <20150427164144.2d7279ef@urahara>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: Re: [PATCH net] bnx2x: really disable TPA if 'disable_tpa' option
+ is set
+Date: Tue, 28 Apr 2015 11:05:03 +0200
+Message-ID: <553F4D3F.7000301@redhat.com>
+References: <1430148038-25695-1-git-send-email-mschmidt@redhat.com>,<20150427.134323.156569796484222010.davem@davemloft.net> <B5657A6538887040AD3A81F1008BEC63D2041C@AVMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, ast@plumgrid.com,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44705 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932293AbbD1HpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 03:45:13 -0400
-In-Reply-To: <20150427164144.2d7279ef@urahara>
+Received: from mx1.redhat.com ([209.132.183.28]:42360 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752866AbbD1JFK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Apr 2015 05:05:10 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63D2041C@AVMB1.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/28/2015 01:41 AM, Stephen Hemminger wrote:
-...
-> This will go in for 4.1 version of iproute2.
+On 04/27/2015 08:15 PM, Yuval Mintz wrote:
+> I agree that this fixes an incorrect logic, but its incomplete as the bnx2x
+> 'bp->flags' no longer represent the correct logic. I.e., it might cause
+> additional issues down the road, as the 'fp->mode' and 'fp->disable_tpa'
+> are no longer in sync.
 
-Ok, thanks!
+> We already have a fix for this issue, we just haven't sent it to 'net'
+> yet. Are you willing to give us an additional day to send an
+> alternative fix?  Or do you prefer to take this, and possibly later
+> we'll remove the logic added by this patch in our own?
 
-Btw, I noticed that we still need a header rebase for the 'master'
-branch.
+Yuval,
 
-Due to the merge window, eBPF support for tracing came in as well
-meaning currently, the kernel thinks we intend to attach a kprobe
-program from tc side:
+I also have a patch that removes fp->disable_tpa by merging it into
+fp->mode (adding a 3rd mode: TPA_MODE_DISABLED). And another patch that
+removes {TPA,GRO}_ENABLE_FLAG by using dev->features everywhere.
+I'll wait and see what changes you have.
 
-iproute2 version:
-
-   enum bpf_prog_type {
-     BPF_PROG_TYPE_UNSPEC,
-     BPF_PROG_TYPE_SOCKET_FILTER,
-     BPF_PROG_TYPE_SCHED_CLS,
-     BPF_PROG_TYPE_SCHED_ACT,
-   };
-
-kernel version (include/uapi/linux/bpf.h):
-
-   enum bpf_prog_type {
-     BPF_PROG_TYPE_UNSPEC,
-     BPF_PROG_TYPE_SOCKET_FILTER,
-     BPF_PROG_TYPE_KPROBE,
-     BPF_PROG_TYPE_SCHED_CLS,
-     BPF_PROG_TYPE_SCHED_ACT,
-   };
-
-Afaik, you have a script for doing that, otherwise I can also send
-you a patch.
-
-Thanks,
-Daniel
+Regards,
+Michal
