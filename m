@@ -1,41 +1,32 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [Problem] broadcom tg3 network driver disconnects under high
- load
-Date: Tue, 28 Apr 2015 11:11:05 -0700
-Message-ID: <1430244665.6888.26.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <CAGNmLEMbyR6-1WSyPRZQhLanH_UB7xb5cVVQ9N625bvdhbA6MA@mail.gmail.com>
-	 <1429908991.3920.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH] mlx4: Fix tx ring affinity_mask creation
+Date: Tue, 28 Apr 2015 21:24:01 +0300
+Message-ID: <CAJ3xEMiGSsDPNe+bFQxB-YshaDKjMCrgfqJW41MZ3-yKjefCRQ@mail.gmail.com>
+References: <1428683240-22879-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Toan Pham <tpham3783@gmail.com>, <sanjeevb@broadcom.com>,
-	<prashant@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:44866 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030316AbbD1SLi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 14:11:38 -0400
-In-Reply-To: <CAGNmLEMB-hpG_TW3qQGbiHM2Vfd30P=D5H3_ioeY56+iKt14hA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Benjamin Poirier <bpoirier@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1428683240-22879-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-04-27 at 22:10 +0000, Toan Pham wrote: 
-> Michael,
-> 
-> 
-> Please see attach files.
-> 
-> BTW, I have also tested this bug on at least 8 different HP 705 PCs
-> with the 5762 NIC, so it is probably not a manufacturer defect.  In
-> addition, I can never replicate the same issue on the older chipset,
-> BCM5761, which can be found on the HP model 6005.  I hope this
-> information is helpful.  Thanks
+On Fri, Apr 10, 2015 at 7:27 PM, Benjamin Poirier <bpoirier@suse.de> wrote:
+> By default, the number of tx queues is limited by the number of online cpus in
+> mlx4_en_get_profile(). However, this limit no longer holds after the ethtool
+> .set_channels method has been called. In that situation, the driver may access
+> invalid bits of certain cpumask variables when queue_index > nr_cpu_ids.
+>
 
-Thanks for the data.  The memory enable bit is cleared and there are
-some correctable error bits set.  My colleague Sanjeev will look into
-this.
+Hi Benjamin,
 
-Do you have PCIE Advanced Error Reporting (CONFIG_PCIEAER) enabled in
-your kernel?
+Can this fix be related to a specific commit? if yes, would be good if
+you can add here a Fixes: line so it would be easier to spot down to
+which stable kernels the fix should go.
+
+Or.
+
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
