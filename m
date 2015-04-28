@@ -1,44 +1,82 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: Stable request 9374e7d2 "rtlwifi: rtl8192cu: Add new device ID"
-Date: Tue, 28 Apr 2015 10:23:28 -0500
-Message-ID: <553FA5F0.1070402@lwfinger.net>
-References: <1430230954.6036.4@alarsen-lx> <201504281633.17160.marex@denx.de>
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v3 0/4] net: Introduce IFF_PROTO_DOWN flag.
+Date: Tue, 28 Apr 2015 08:43:51 -0700
+Message-ID: <CACcJQnSeyVpLHAfFOh+oWfVNvOMzv5J68HmVucS0ncXDpsFY5w@mail.gmail.com>
+References: <1430156304-13187-1-git-send-email-anuradhak@cumulusnetworks.com>
+	<CAE4R7bAGRKGShQuSqjvQDW8cG6MHE8Jie7Hp=7FJw00kJM4NgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Marek Vasut <marex@denx.de>, Anders Larsen <al@alarsen.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Stable <stable@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <201504281633.17160.marex@denx.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:33300 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030276AbbD1Pnx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 11:43:53 -0400
+Received: by layy10 with SMTP id y10so107702719lay.0
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 08:43:51 -0700 (PDT)
+In-Reply-To: <CAE4R7bAGRKGShQuSqjvQDW8cG6MHE8Jie7Hp=7FJw00kJM4NgQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please note that there are two commits just added to the mainline repo that 
-should be propagated to all stable kernels. Both are addition of new USB IDs for 
-an old driver, thus they will cause to side effects. Unfortunately, the Cc to 
-stable was missed in the first of these, thus the need for this message. The 
-second was Cc for stable, but I include it here for completeness.
+On Mon, Apr 27, 2015 at 10:45 PM, Scott Feldman <sfeldma@gmail.com> wro=
+te:
+> On Mon, Apr 27, 2015 at 10:38 AM,  <anuradhak@cumulusnetworks.com> wr=
+ote:
+>> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>>
+>> User space daemons can detect errors in the network that need to be
+>> notified to the switch device drivers.
+>>
+>> Drivers can react to this error state by doing a phy-down on the
+>> switch-port which would result in a carrier-off locally and on the
+>> directly connected switch. Doing that would prevent loops and
+>> black-holes in the network.
+>
+> (Sorry if this was asked earlier)
+>
+> Can the application simply send a SETLINK with IFF_UP clear and the
+> port driver's ndo_stop would bring the PHY link down?
 
-The two commits in question are
+(Re-sending as plain text) -
 
-commit 9374e7d2fdcad3c36dafc8d3effd554bc702c4b6
-Author: Marek Vasut <marex@denx.de>
-Date:   Thu Mar 26 02:16:06 2015 +0100
+Yes, Clearing IFF_UP on detecting errors (PROTO_DOWN) is possible and w=
+e tried
+that implementation as well. Unfortunately it failed because of the fol=
+lowing
+reasons -
 
-     rtlwifi: rtl8192cu: Add new device ID
+1. There is no way to disambiguate between admin_down (!IFF_UP) and an
+APP/driver enforced error_down (IFF_PROTO_DOWN). Administrator or
+automatation-scripts that monitor the config assumed that switch-port
+configuration had somehow fallen out of sync (and attempted to reinstat=
+e the
+admin_up repeatedly).
 
-     Add new ID for ASUS N10 WiFi dongle.
-
-commit 2f92b314f4daff2117847ac5343c54d3d041bf78
-Author: Larry Finger <Larry.Finger@lwfinger.net>
-Date:   Mon Mar 23 18:14:10 2015 -0500
-
-     rtlwifi: rtl8192cu: Add new USB ID
-
-     USB ID 2001:330d is used for a D-Link DWA-131.
-
-
-Thanks,
-
-Larry
+2. Automatic error recovery was not possible; consider the following sc=
+enario
+for e.g.
+   a. The MLAG peer-link is down so the MLAG app on the secondary switc=
+h has
+      proto_down=E2=80=99ed all the MLAG ports (including switch-port s=
+wp1) by clearing
+      IFF_UP.
+   b. At the same time the administrator is in the process of making so=
+me
+      changes on the network connected to swp1. To avoid doing it live =
+he would
+      admin_disable swp1 (!IFF_UP) by doing an "ip link set swp1 down" =
+(this
+      is a no-op as event #a has already cleared IFF_UP on swp1).
+   c. If the MLAG peer-link recovers at this point the MLAG app on the
+      secondary switch would try to automatically recover the MLAG port=
+s
+      by clearing proto_down (i.e. setting IFF_UP); including on swp1. =
+Doing
+      that overrides the administrator=E2=80=99s directive to keep swp1=
+ admin_down.
+      Overriding an admin-down in a live network can be very dangerous =
+so it
+      is not possible to do auto-error-recovery unless we have a way to
+      disambiguate between the admin and error states.
