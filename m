@@ -1,50 +1,33 @@
-From: Petr Mladek <pmladek@suse.cz>
-Subject: Re: [PATCH 04/16] printk: implement support for extended console
- drivers
-Date: Tue, 28 Apr 2015 16:24:13 +0200
-Message-ID: <20150428142413.GG3979@pathway.suse.cz>
-References: <1429225433-11946-1-git-send-email-tj@kernel.org>
- <1429225433-11946-5-git-send-email-tj@kernel.org>
- <20150420154120.GA4589@pathway.suse.cz>
- <20150427210922.GA2152@htj.duckdns.org>
- <20150428094244.GF3979@pathway.suse.cz>
- <20150428141014.GF2152@htj.duckdns.org>
+From: Anders Larsen <al@alarsen.net>
+Subject: Re: Stable request 9374e7d2 "rtlwifi: rtl8192cu: Add new device ID"
+Date: Tue, 28 Apr 2015 16:22:34 +0200
+Message-ID: <1430230954.6036.4@alarsen-lx>
+References: <201504281610.15973.marex@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Kay Sievers <kay@vrfy.org>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
+Content-Transfer-Encoding: 8BIT
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Marek Vasut <marex@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49583 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030499AbbD1OVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2015 10:21:45 -0400
+Received: from jesper.alarsen.net ([144.76.18.233]:42477 "EHLO
+	mail.alarsen.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965959AbbD1OWj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 10:22:39 -0400
+In-Reply-To: <201504281610.15973.marex@denx.de> (from marex@denx.de on Tue
+ Apr 28 16:10:15 2015)
 Content-Disposition: inline
-In-Reply-To: <20150428141014.GF2152@htj.duckdns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue 2015-04-28 10:10:14, Tejun Heo wrote:
-> Hello, Petr.
+On 2015-04-28 16:10, Marek Vasut wrote:
+> did you check [1] please? I might be wrong, but these are
+> the official -stable submission guidelines to my knowledge.
 > 
-> On Tue, Apr 28, 2015 at 11:42:44AM +0200, Petr Mladek wrote:
-> > Note that cont buffer is only a memory optimization. You could put
-> > every text snippet into the ring buffer and console immediately.
-> > You need to set LOG_CONT instead of LOG_NEWLINE flag. This is
-> > already used when the line is too long for the cont buffer or
-> > when there is printed a message from another cpu in the middle
-> > of a continuing message.
-> 
-> Yeah, hmmm, I wonder whether the right solution here is to bypass cont
-> buffer if ext_console is present.  This would use a bit more memory
-> and hurt users catting /proc/kmsg but everyone else should be able to
-> get the same result and things get a lot simpler on both sending and
-> receiving sides.  What do you think?
+> [1] https://www.kernel.org/doc/Documentation/stable_kernel_rules.txt
 
-I would personally give it a try. If it works well, we might
-eventually get rid of the cont buffer completely and make
-the printk code a bit easier again.
+sure I did - networking has its own stable submission guidelines in
+Documentation/networking/netdev-FAQ.txt
 
-Best Regards,
-Petr
+Cheers
+Anders
