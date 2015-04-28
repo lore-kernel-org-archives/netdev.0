@@ -1,151 +1,193 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next 2/2] tcp: add tcpi_bytes_received to tcp_info
-Date: Tue, 28 Apr 2015 14:07:35 -0700
-Message-ID: <CAK6E8=eD84Qb1ZJO3fm2KVMMoth44QmsFG8ZmCZ5a1HaX82jpQ@mail.gmail.com>
-References: <1430242338-23156-1-git-send-email-edumazet@google.com> <1430242338-23156-3-git-send-email-edumazet@google.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next 2/6] ipv6: Remove external dependency on rt6i_gateway and RTF_ANYCAST
+Date: Tue, 28 Apr 2015 14:07:49 -0700
+Message-ID: <1430255273-3045254-3-git-send-email-kafai@fb.com>
+References: <1430255273-3045254-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Eric Salo <salo@google.com>, Martin Lau <kafai@fb.com>,
-	Chris Rapier <rapier@psc.edu>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Kernel Team <Kernel-team@fb.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:36157 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030857AbbD1VIR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 17:08:17 -0400
-Received: by igblo3 with SMTP id lo3so101132042igb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 14:08:16 -0700 (PDT)
-In-Reply-To: <1430242338-23156-3-git-send-email-edumazet@google.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34513 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1030944AbbD1VIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 17:08:13 -0400
+Received: from pps.filterd (m0004346 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3SL6v3G008757
+	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 14:08:13 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1u2eyhgc0r-3
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 14:08:13 -0700
+Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ adb52766edea11e4a7f70002c9521c9e-1e7da2c0 for <netdev@vger.kernel.org>;	Tue,
+ 28 Apr 2015 14:08:12 -0700
+In-Reply-To: <1430255273-3045254-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 28, 2015 at 10:32 AM, Eric Dumazet <edumazet@google.com> wrote:
-> This patch tracks total number of payload bytes received on a TCP socket.
-> This is the sum of all changes done to tp->rcv_nxt
->
-> RFC4898 named this : tcpEStatsAppHCThruOctetsReceived
->
-> This is a 64bit field, and can be fetched both from TCP_INFO
-> getsockopt() if one has a handle on a TCP socket, or from inet_diag
-> netlink facility (iproute2/ss patch will follow)
->
-> Note that tp->bytes_received was placed near tp->rcv_nxt for
-> best data locality and minimal performance impact.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Matt Mathis <mattmathis@google.com>
-> Cc: Eric Salo <salo@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Martin Lau <kafai@fb.com>
-> Cc: Chris Rapier <rapier@psc.edu>
-> ---
->  include/linux/tcp.h      |  4 ++++
->  include/uapi/linux/tcp.h |  1 +
->  net/ipv4/tcp.c           |  1 +
->  net/ipv4/tcp_input.c     | 17 +++++++++++++----
->  4 files changed, 19 insertions(+), 4 deletions(-)
->
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 0f73b43171da..3b2911502a8c 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -145,6 +145,10 @@ struct tcp_sock {
->   *     read the code and the spec side by side (and laugh ...)
->   *     See RFC793 and RFC1122. The RFC writes these in capitals.
->   */
-> +       u64     bytes_received; /* RFC4898 tcpEStatsAppHCThruOctetsReceived
-> +                                * sum(delta(rcv_nxt)), or how many bytes
-> +                                * were acked.
-> +                                */
->         u32     rcv_nxt;        /* What we want to receive next         */
->         u32     copied_seq;     /* Head of yet unread data              */
->         u32     rcv_wup;        /* rcv_nxt on last window update sent   */
-> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> index 6666e98a0af9..a48f93f3207b 100644
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -190,6 +190,7 @@ struct tcp_info {
->         __u64   tcpi_pacing_rate;
->         __u64   tcpi_max_pacing_rate;
->         __u64   tcpi_bytes_acked; /* RFC4898 tcpEStatsAppHCThruOctetsAcked */
-> +       __u64   tcpi_bytes_received; /* RFC4898 tcpEStatsAppHCThruOctetsReceived */
->  };
->
->  /* for TCP_MD5SIG socket option */
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 4bf0e8ca7b5b..99fcc0b22c92 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2666,6 +2666,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
->
->         spin_lock_bh(&sk->sk_lock.slock);
->         info->tcpi_bytes_acked = tp->bytes_acked;
-> +       info->tcpi_bytes_received = tp->bytes_received;
->         spin_unlock_bh(&sk->sk_lock.slock);
->  }
->  EXPORT_SYMBOL_GPL(tcp_get_info);
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 378d3f4d4dc3..7e6962bcfc30 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3289,6 +3289,15 @@ static void tcp_snd_una_update(struct tcp_sock *tp, u32 ack)
->         tp->snd_una = ack;
->  }
->
-> +/* If we update tp->rcv_nxt, also update tp->bytes_received */
-> +static void tcp_rcv_nxt_update(struct tcp_sock *tp, u32 seq)
-> +{
-> +       u32 delta = seq - tp->rcv_nxt;
-> +
-> +       tp->bytes_received += delta;
-> +       tp->rcv_nxt = seq;
-> +}
-Account for received syn-data when rcv_nxt is updated in tcp_fastopen.c?
+When creating a RTF_CACHE route, RTF_ANYCAST is set based on rt6i_dst.
+Also, rt6i_gateway is always set to the nexthop while the nexthop
+could be a gateway or the rt6i_dst.addr.
 
-> +
->  /* Update our send window.
->   *
->   * Window update algorithm, described in RFC793/RFC1122 (used in linux-2.2
-> @@ -4245,7 +4254,7 @@ static void tcp_ofo_queue(struct sock *sk)
->
->                 tail = skb_peek_tail(&sk->sk_receive_queue);
->                 eaten = tail && tcp_try_coalesce(sk, tail, skb, &fragstolen);
-> -               tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-> +               tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
->                 if (!eaten)
->                         __skb_queue_tail(&sk->sk_receive_queue, skb);
->                 if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
-> @@ -4413,7 +4422,7 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
->         __skb_pull(skb, hdrlen);
->         eaten = (tail &&
->                  tcp_try_coalesce(sk, tail, skb, fragstolen)) ? 1 : 0;
-> -       tcp_sk(sk)->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-> +       tcp_rcv_nxt_update(tcp_sk(sk), TCP_SKB_CB(skb)->end_seq);
->         if (!eaten) {
->                 __skb_queue_tail(&sk->sk_receive_queue, skb);
->                 skb_set_owner_r(skb, sk);
-> @@ -4506,7 +4515,7 @@ queue_and_out:
->
->                         eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
->                 }
-> -               tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-> +               tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
->                 if (skb->len)
->                         tcp_event_data_recv(sk, skb);
->                 if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
-> @@ -5254,7 +5263,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
->                                         tcp_rcv_rtt_measure_ts(sk, skb);
->
->                                         __skb_pull(skb, tcp_header_len);
-> -                                       tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
-> +                                       tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
->                                         NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPHITSTOUSER);
->                                         eaten = 1;
->                                 }
-> --
-> 2.2.0.rc0.207.ga3a616c
->
+After removing the rt6i_dst and rt6i_src dependency in the last patch,
+we also need to stop the caller from depending on rt6i_gateway and
+RTF_ANYCAST.
+
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ include/net/ip6_route.h                | 14 +++++++++-----
+ net/bluetooth/6lowpan.c                |  2 +-
+ net/ipv6/icmp.c                        |  4 ++--
+ net/ipv6/ip6_output.c                  |  5 +++--
+ net/ipv6/route.c                       |  6 +-----
+ net/netfilter/nf_conntrack_h323_main.c |  4 ++--
+ net/netfilter/xt_addrtype.c            |  2 +-
+ 7 files changed, 19 insertions(+), 18 deletions(-)
+
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 5e19206..0e4d170 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -163,11 +163,14 @@ static inline bool ipv6_unicast_destination(const struct sk_buff *skb)
+ 	return rt->rt6i_flags & RTF_LOCAL;
+ }
+ 
+-static inline bool ipv6_anycast_destination(const struct sk_buff *skb)
++static inline bool ipv6_anycast_destination(const struct dst_entry *dst,
++					    const struct in6_addr *daddr)
+ {
+-	struct rt6_info *rt = (struct rt6_info *) skb_dst(skb);
++	struct rt6_info *rt = (struct rt6_info *)dst;
+ 
+-	return rt->rt6i_flags & RTF_ANYCAST;
++	return rt->rt6i_flags & RTF_ANYCAST ||
++		(rt->rt6i_dst.plen != 128 &&
++		 ipv6_addr_equal(&rt->rt6i_dst.addr, daddr));
+ }
+ 
+ int ip6_fragment(struct sock *sk, struct sk_buff *skb,
+@@ -194,9 +197,10 @@ static inline bool ip6_sk_ignore_df(const struct sock *sk)
+ 	       inet6_sk(sk)->pmtudisc == IPV6_PMTUDISC_OMIT;
+ }
+ 
+-static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt)
++static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt,
++					   struct in6_addr *daddr)
+ {
+-	return &rt->rt6i_gateway;
++	return (rt->rt6i_flags & RTF_GATEWAY) ? &rt->rt6i_gateway : daddr;
+ }
+ 
+ #endif
+diff --git a/net/bluetooth/6lowpan.c b/net/bluetooth/6lowpan.c
+index 1742b84..f3d6046 100644
+--- a/net/bluetooth/6lowpan.c
++++ b/net/bluetooth/6lowpan.c
+@@ -192,7 +192,7 @@ static inline struct lowpan_peer *peer_lookup_dst(struct lowpan_dev *dev,
+ 		if (ipv6_addr_any(nexthop))
+ 			return NULL;
+ 	} else {
+-		nexthop = rt6_nexthop(rt);
++		nexthop = rt6_nexthop(rt, daddr);
+ 
+ 		/* We need to remember the address because it is needed
+ 		 * by bt_xmit() when sending the packet. In bt_xmit(), the
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 24b359d..713d743 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -337,7 +337,7 @@ static struct dst_entry *icmpv6_route_lookup(struct net *net,
+ 	 * We won't send icmp if the destination is known
+ 	 * anycast.
+ 	 */
+-	if (((struct rt6_info *)dst)->rt6i_flags & RTF_ANYCAST) {
++	if (ipv6_anycast_destination(dst, &fl6->daddr)) {
+ 		net_dbg_ratelimited("icmp6_send: acast source\n");
+ 		dst_release(dst);
+ 		return ERR_PTR(-EINVAL);
+@@ -564,7 +564,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 
+ 	if (!ipv6_unicast_destination(skb) &&
+ 	    !(net->ipv6.sysctl.anycast_src_echo_reply &&
+-	      ipv6_anycast_destination(skb)))
++	      ipv6_anycast_destination(skb_dst(skb), saddr)))
+ 		saddr = NULL;
+ 
+ 	memcpy(&tmp_hdr, icmph, sizeof(tmp_hdr));
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index b987fbf..e58e402 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -105,7 +105,7 @@ static int ip6_finish_output2(struct sock *sk, struct sk_buff *skb)
+ 	}
+ 
+ 	rcu_read_lock_bh();
+-	nexthop = rt6_nexthop((struct rt6_info *)dst);
++	nexthop = rt6_nexthop((struct rt6_info *)dst, &ipv6_hdr(skb)->daddr);
+ 	neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop);
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
+@@ -913,7 +913,8 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ 	 */
+ 	rt = (struct rt6_info *) *dst;
+ 	rcu_read_lock_bh();
+-	n = __ipv6_neigh_lookup_noref(rt->dst.dev, rt6_nexthop(rt));
++	n = __ipv6_neigh_lookup_noref(rt->dst.dev,
++				      rt6_nexthop(rt, &fl6->daddr));
+ 	err = n && !(n->nud_state & NUD_VALID) ? -EINVAL : 0;
+ 	rcu_read_unlock_bh();
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 3522711..8efde73 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1936,11 +1936,7 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+ 		if (rt->rt6i_idev)
+ 			in6_dev_hold(rt->rt6i_idev);
+ 		rt->dst.lastuse = jiffies;
+-
+-		if (ort->rt6i_flags & RTF_GATEWAY)
+-			rt->rt6i_gateway = ort->rt6i_gateway;
+-		else
+-			rt->rt6i_gateway = *dest;
++		rt->rt6i_gateway = ort->rt6i_gateway;
+ 		rt->rt6i_flags = ort->rt6i_flags;
+ 		rt6_set_from(rt, ort);
+ 		rt->rt6i_metric = 0;
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+index 1d69f5b..9511af0 100644
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -779,8 +779,8 @@ static int callforward_do_filter(struct net *net,
+ 				   flowi6_to_flowi(&fl1), false)) {
+ 			if (!afinfo->route(net, (struct dst_entry **)&rt2,
+ 					   flowi6_to_flowi(&fl2), false)) {
+-				if (ipv6_addr_equal(rt6_nexthop(rt1),
+-						    rt6_nexthop(rt2)) &&
++				if (ipv6_addr_equal(rt6_nexthop(rt1, &fl1.daddr),
++						    rt6_nexthop(rt2, &fl2.daddr)) &&
+ 				    rt1->dst.dev == rt2->dst.dev)
+ 					ret = 1;
+ 				dst_release(&rt2->dst);
+diff --git a/net/netfilter/xt_addrtype.c b/net/netfilter/xt_addrtype.c
+index fab6eea..5b4743c 100644
+--- a/net/netfilter/xt_addrtype.c
++++ b/net/netfilter/xt_addrtype.c
+@@ -73,7 +73,7 @@ static u32 match_lookup_rt6(struct net *net, const struct net_device *dev,
+ 
+ 	if (dev == NULL && rt->rt6i_flags & RTF_LOCAL)
+ 		ret |= XT_ADDRTYPE_LOCAL;
+-	if (rt->rt6i_flags & RTF_ANYCAST)
++	if (ipv6_anycast_destination((struct dst_entry *)rt, addr))
+ 		ret |= XT_ADDRTYPE_ANYCAST;
+ 
+ 	dst_release(&rt->dst);
+-- 
+1.8.1
