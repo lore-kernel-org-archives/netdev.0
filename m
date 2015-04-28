@@ -1,9 +1,8 @@
 From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next v3 3/4] rocker: Handle IFF_PROTODOWN by doing
- a PHYS-DOWN on the switch port.
-Date: Mon, 27 Apr 2015 22:51:06 -0700
-Message-ID: <CAE4R7bDF4C_WpueoiRkXDyHk=TfQJG99GB8jEFtOL-yN6Sa2xQ@mail.gmail.com>
-References: <1430156304-13187-4-git-send-email-anuradhak@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v3 1/4] net core: Add IFF_PROTO_DOWN support.
+Date: Mon, 27 Apr 2015 23:05:04 -0700
+Message-ID: <CAE4R7bBv350WnC4uEp7YZy7Jpq0zaTouWysgbSHXyktwTA9voA@mail.gmail.com>
+References: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -13,63 +12,42 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Wilson Kok <wkok@cumulusnetworks.com>
 To: anuradhak@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:33563 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656AbbD1FvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 01:51:07 -0400
-Received: by qcrf4 with SMTP id f4so65617344qcr.0
-        for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 22:51:06 -0700 (PDT)
-In-Reply-To: <1430156304-13187-4-git-send-email-anuradhak@cumulusnetworks.com>
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:36355 "EHLO
+	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbbD1GFE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 02:05:04 -0400
+Received: by qku63 with SMTP id 63so74622787qku.3
+        for <netdev@vger.kernel.org>; Mon, 27 Apr 2015 23:05:04 -0700 (PDT)
+In-Reply-To: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, Apr 27, 2015 at 10:38 AM,  <anuradhak@cumulusnetworks.com> wrote:
 > From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 >
-> IFF_PROTODOWN can be set by user space applications like MLAG on detecting
-> errors on a switch port. This patch provides sample switch driver changes
-> for handling IFF_PROTODOWN. Rocker PHYS disables the port in response to
-> protodown.
->
-> Note: I understand Scott has some rocker changes on hold. I will re-spin
-> this patch once his changes are in.
+> This patch introduces an IFF_PROTO_DOWN flag that can be used by
+> user space applications to notify drivers that errors have been
+> detected on the device.
 >
 > Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 > Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 > Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 > Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 > ---
->  drivers/net/ethernet/rocker/rocker.c |   16 +++++++++++++++-
->  1 file changed, 15 insertions(+), 1 deletion(-)
+>  include/uapi/linux/if.h |    4 ++++
+>  net/8021q/vlan_dev.c    |    3 ++-
+>  net/core/dev.c          |    2 +-
+>  3 files changed, 7 insertions(+), 2 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-> index a87b177..e3084e3 100644
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -3838,7 +3838,8 @@ static int rocker_port_open(struct net_device *dev)
->
->         napi_enable(&rocker_port->napi_tx);
->         napi_enable(&rocker_port->napi_rx);
-> -       rocker_port_set_enable(rocker_port, true);
-> +       if (!(dev->flags & IFF_PROTO_DOWN))
-> +               rocker_port_set_enable(rocker_port, true);
->         netif_start_queue(dev);
->         return 0;
->
-> @@ -4238,6 +4239,18 @@ static int rocker_port_swdev_port_stp_update(struct net_device *dev, u8 state)
->         return rocker_port_stp_update(rocker_port, state);
->  }
->
-> +static int rocker_port_swdev_port_phy_state_set(struct net_device *dev,
-> +                                               bool enable)
-> +{
-> +       struct rocker_port *rocker_port = netdev_priv(dev);
-> +
-> +       if (enable && (dev->flags & IFF_UP) && !(dev->flags & IFF_PROTO_DOWN))
-> +               rocker_port_set_enable(rocker_port, true);
-> +       else
-> +               rocker_port_set_enable(rocker_port, false);
+> diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
+> index 9cf2394..e263bd2 100644
+> --- a/include/uapi/linux/if.h
+> +++ b/include/uapi/linux/if.h
+> @@ -66,6 +66,8 @@
+>   * @IFF_LOWER_UP: driver signals L1 up. Volatile.
+>   * @IFF_DORMANT: driver signals dormant. Volatile.
+>   * @IFF_ECHO: echo sent packets. Volatile.
+> + * @IFF_PROTO_DOWN: protocol is down on the interface. Can be toggled
+> + *     through sysfs.
 
-This isn't working like your expecting.  PHY link is still up on the
-rocker port, so the other end of the wire still sees link UP even when
-IFF_PROTO_DOWN is set locally.
+This comment is stale, right?  I didn't see any sysfs support in the patchset.
