@@ -1,46 +1,35 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net-next v2] be2net: log link status
-Date: Tue, 28 Apr 2015 16:32:37 +0200
-Message-ID: <553F9A05.3020704@redhat.com>
-References: <1429710210-7291-1-git-send-email-ivecera@redhat.com> <447118c7-cb5e-4e64-88cc-8205cadfaf5e@CMEXHTCAS2.ad.emulex.com>
+From: Marek Vasut <marex-ynQEQJNshbs@public.gmane.org>
+Subject: Re: Stable request 9374e7d2 "rtlwifi: rtl8192cu: Add new device ID"
+Date: Tue, 28 Apr 2015 16:33:17 +0200
+Message-ID: <201504281633.17160.marex@denx.de>
+References: <1430230954.6036.4@alarsen-lx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Subramanian Seetharaman <subbu.seetharaman@Emulex.Com>,
-	Ajit Kumar Khaparde <Ajit.Khaparde@Emulex.Com>,
-	David Miller <davem@davemloft.net>
-To: Sathya Perla <Sathya.Perla@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33818 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965773AbbD1Ocr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Apr 2015 10:32:47 -0400
-In-Reply-To: <447118c7-cb5e-4e64-88cc-8205cadfaf5e@CMEXHTCAS2.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Anders Larsen <al-V9/YLgxv/GvR7s880joybQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1430230954.6036.4@alarsen-lx>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/23/2015 08:31 AM, Sathya Perla wrote:
->> -----Original Message-----
->> From: Ivan Vecera [mailto:ivecera@redhat.com]
->>
->> The driver unlike other drivers does not log link state changes.
->>
->> v2: added current link speed to log message
->>
-> Ivan, I disagree with the v2 change. I think your original intention
-> was just to log a message when the link goes up or down
-> asynchronously (i.e., without any user intervention.)
-> After alerting the user, if the user wants to know other link
-> properties like speed, duplex etc then the ethtool cmd needs
-> to be used; there is no need to log a message with those details.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-Dave, could we apply the v1 WRT Sathya's comment?
+On Tuesday, April 28, 2015 at 04:22:34 PM, Anders Larsen wrote:
+> On 2015-04-28 16:10, Marek Vasut wrote:
+> > did you check [1] please? I might be wrong, but these are
+> > the official -stable submission guidelines to my knowledge.
+> > 
+> > [1] https://www.kernel.org/doc/Documentation/stable_kernel_rules.txt
+> 
+> sure I did - networking has its own stable submission guidelines in
+> Documentation/networking/netdev-FAQ.txt
 
-Thanks,
-Ivan
+I apologize, thank you for pointing this out, I will educate myself.
+
+Best regards,
+Marek Vasut
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
