@@ -1,72 +1,83 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/2] tcp: add TCP_CC_INFO socket option
-Date: Wed, 29 Apr 2015 13:15:25 +0200
-Message-ID: <5540BD4D.2070808@iogearbox.net>
-References: <1430263429-4069-1-git-send-email-edumazet@google.com>	 <1430263429-4069-3-git-send-email-edumazet@google.com>	 <55409393.3040003@iogearbox.net> <1430305625.3711.40.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/7] net: Add skb_get_hash_perturb
+Date: Wed, 29 Apr 2015 04:19:30 -0700
+Message-ID: <1430306370.3711.48.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
+	 <1430281661-2271966-2-git-send-email-tom@herbertland.com>
+	 <20150429075947.GB30392@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, jiri@resnulli.us
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35122 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422664AbbD2LPe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 07:15:34 -0400
-In-Reply-To: <1430305625.3711.40.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36721 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422882AbbD2LTc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 07:19:32 -0400
+Received: by pabsx10 with SMTP id sx10so25144466pab.3
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 04:19:32 -0700 (PDT)
+In-Reply-To: <20150429075947.GB30392@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2015 01:07 PM, Eric Dumazet wrote:
-> On Wed, 2015-04-29 at 10:17 +0200, Daniel Borkmann wrote:
->> On 04/29/2015 01:23 AM, Eric Dumazet wrote:
->>> Some Congestion Control modules can provide per flow information,
->>> but current way to get this information is to use netlink.
->>>
->>> Like TCP_INFO, let's add TCP_CC_INFO so that applications can
->>> issue a getsockopt() if they have a socket file descriptor,
->>> instead of playing complex netlink games.
->>>
->>> Sample usage would be :
->>>
->>>     union tcp_cc_info info;
->>>     socklen_t len = sizeof(info);
->>>
->>>     if (getsockopt(fd, SOL_TCP, TCP_CC_INFO, &info, &len) == -1)
->>>
->>> Signed-off-by: Eric Dumazet <edumazet@google.com>
->>> Cc: Yuchung Cheng <ycheng@google.com>
->>> Cc: Neal Cardwell <ncardwell@google.com>
->>
->> Presuming other cc algorithms would in future also export
->> internal information through this interface, would it make
->> sense to put tcp_cc_info into a container structure so we
->> don't miss out attr (vegas, dctcp, ...), like:
->>
->>     struct tcp_cc_exp {
->>       u32               kind;
->>       union tcp_cc_info info;
->>     };
->>
->> Otherwise looks good:
->>
->> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->
-> I thought of this, but I really believe this is not needed, as the
-> application can already fetch CC name (if really its does not know yet)
->
-> And I also wanted to get same layout for info provided by netlink and
-> getsockopt()
+On Wed, 2015-04-29 at 09:59 +0200, Florian Westphal wrote:
+> Tom Herbert <tom@herbertland.com> wrote:
+> > This is used to get the skb->hash and then perturb it for a local use.
+> > 
+> > Signed-off-by: Tom Herbert <tom@herbertland.com>
+> > ---
+> >  include/linux/skbuff.h | 15 +++++++++++++++
+> >  1 file changed, 15 insertions(+)
+> > 
+> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> > index 66e374d..b706889 100644
+> > --- a/include/linux/skbuff.h
+> > +++ b/include/linux/skbuff.h
+> > @@ -17,6 +17,7 @@
+> >  #include <linux/kernel.h>
+> >  #include <linux/kmemcheck.h>
+> >  #include <linux/compiler.h>
+> > +#include <linux/jhash.h>
+> >  #include <linux/time.h>
+> >  #include <linux/bug.h>
+> >  #include <linux/cache.h>
+> > @@ -927,6 +928,20 @@ static inline __u32 skb_get_hash(struct sk_buff *skb)
+> >  	return skb->hash;
+> >  }
+> >  
+> > +static inline __u32 skb_get_hash_perturb(struct sk_buff *skb,
+> > +					 u32 perturb)
+> > +{
+> > +	u32 hash = skb_get_hash(skb);
+> > +
+> > +	if (likely(hash)) {
+> > +		hash = jhash_1word((__force __u32) hash, perturb);
+> 
+> Whats this perturb for?
+> 
+> perturb is supposed to make sure that if you have
+> 
+> flow1, flow2 where hash(flow1, perturb) == hash(flow2, perturb)
+> the collision will be temporary and go away once perturb changes.
+> 
+> If you perturb after hashing, such collision is permanent.
+> 
+> So I think this either should flow_dissect + hash in software,
+> or just use skb_get_hash without perturb.
 
-Ok, I'm fine with that. Presumably, applications making use of
-this facility would most likely set the cc op themselves from
-the application, so they know exactly what to expect here. Or,
-might have fetched it via the cc name albeit a bit inconvenient,
-but not impossible.
+Yes, I mentioned this several times to Tom in the various past attempts.
 
-Thanks,
-Daniel
+Also, this stuff means that sfq will call jhash twice instead of once,
+unless skb->hash is already populated before sfq enqueue.
+
+If the goal is to extend skb to include a flow_keys_digest instead of
+u32 hash, lets state this right now ;)
+
+I think I already suggested to add a 'perturb' parameter to
+skb_get_hash() to use in place of hashrnd (found in
+net/core/flow_dissector.c)
+
+If hash is Toeplitz based and provided by a NIC, I doubt a jhash()
+perturbation will get anything better.
