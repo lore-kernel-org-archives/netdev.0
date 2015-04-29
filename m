@@ -1,68 +1,107 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Re: [GIT] Networking
-Date: Wed, 29 Apr 2015 16:51:52 +0200
-Message-ID: <CAK1hOcOd=dLUyxJy1mEj2=Hy-zOqDp2KJ8or+1Zrsk+BvNn5oQ@mail.gmail.com>
-References: <20150401.154847.612566794393812348.davem@davemloft.net>
+From: Madalin Bucur <madalin.bucur@freescale.com>
+Subject: [RFC,v3 00/10] Introduce DPAA Ethernet driver
+Date: Wed, 29 Apr 2015 17:56:07 +0300
+Message-ID: <1430319367-31234-1-git-send-email-madalin.bucur@freescale.com>
+Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"D.S. Ljungmark" <ljungmark@modio.se>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Don Howard <dhoward@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <joe@perches.com>,
+	<pebolle@tiscali.nl>, Madalin Bucur <madalin.bucur@freescale.com>
+To: <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150401.154847.612566794393812348.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 1, 2015 at 9:48 PM, David Miller <davem@davemloft.net> wrote:
-> D.S. Ljungmark (1):
->       ipv6: Don't reduce hop limit for an interface
+This is the 3rd version of a patch series that adds
+the Ethernet driver for the Freescale QorIQ Data Path
+Acceleration Architecture (DPAA).
 
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6fd99094de2b83d1d4c8457f2c83483b2828e75a
+This version addresses the feedback received from Joe
+Perches and Paul Bolle. 
 
-I was testing this change and apparently it doesn't close the hole.
+Together with the driver a managed version of alloc_percpu
+is provided that simplifies the release of percpu memory.
 
-The python script I use to send RAs:
+The Freescale DPAA architecture consists in a series of
+hardware blocks that support the Ethernet connectivity.
+the Ethernet driver depends upon the Peripheral Access
+Memory Unit (PAMU), Frame Manager (FMan), Queue Manager
+(QMan), Buffer Manager (BMan). Drivers for these blocks
+are currently in the kernel or in review.
 
-#!/usr/bin/env python
-import sys
-import time
-import scapy.all
-from scapy.layers.inet6 import *
-ip = IPv6()
-# ip.dst = 'ff02::1'
-ip.dst = sys.argv[1]
-icmp = ICMPv6ND_RA()
-icmp.chlim = 1
-for x in range(10):
-    send(ip/icmp)
-    time.sleep(1)
+The current set of RFC patches is meant to provide early
+access to the codebase and also provide context and aid
+the review of the latest FMan driver patches submitted
+by Igal Liberman:
 
-# ./ipv6-hop-limit.py fe80::21e:37ff:fed0:5006
-.
-Sent 1 packets.
-...<10 times>...
-Sent 1 packets.
+https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=Igal.Liberman&state=*&q=RFC%2Cv3
 
-After I do this, on the targeted machine I check hop_limits:
+These patches rely also on the Q/BMan drivers submitted
+by Emil Medve:
 
-# for f in /proc/sys/net/ipv6/conf/*/hop_limit; do echo -n $f:; cat $f; done
-/proc/sys/net/ipv6/conf/all/hop_limit:64
-/proc/sys/net/ipv6/conf/default/hop_limit:64
-/proc/sys/net/ipv6/conf/enp0s25/hop_limit:1  <=== THIS
-/proc/sys/net/ipv6/conf/lo/hop_limit:64
-/proc/sys/net/ipv6/conf/wlp3s0/hop_limit:64
+https://patchwork.ozlabs.org/project/linuxppc-dev/list/?submitter=Emil+Medve&state=*&q=RFC
 
-As you see, the interface which received RAs still lowered
-its hop_limit to 1. I take it means that the bug is still present
-(right? I'm not a network guy...).
+The complete set of patches will be available soon in this
+public git repository under the ldup_public_git_20150429 tag:
+http://git.freescale.com/git/cgit.cgi/ppc/upstream/linux.git/
 
-I triple-checked that I do run the kernel with the fix.
-Further investigation shows that the code touched by the fix
-is not even reached, hop_limit is changed elsewhere.
+Due to device tree binding changes, a u-boot patch is also
+required to be applied to enable this set of drivers.
+The u-boot patch is available in this public git under the 
+ldup_public_git_20150410 tag:
 
-I'm willing to test additional patches.
+http://git.freescale.com/git/cgit.cgi/ppc/upstream/u-boot.git/
+
+The actual patch is 052f94430230e7ff388e6ae7daec45ba4f2f6b2f
+powerpc/mpc85xx: align to the new FMan compatibles
+
+http://git.freescale.com/git/cgit.cgi/ppc/upstream/u-boot.git/commit/?id=052f94430230e7ff388e6ae7daec45ba4f2f6b2f
+
+The SDK documentation and source code, documentation for
+the DPAA hardware are available at the company website.
+
+Madalin Bucur (10):
+  devres: add devm_alloc_percpu()
+  dpaa_eth: add support for DPAA Ethernet
+  dpaa_eth: add configurable bpool thresholds
+  dpaa_eth: add support for S/G frames
+  dpaa_eth: add driver's Tx queue selection mechanism
+  dpaa_eth: add ethtool functionality
+  dpaa_eth: add sysfs exports
+  dpaa_eth: add debugfs counters
+  dpaa_eth: add debugfs entries
+  dpaa_eth: add trace points
+
+ Documentation/driver-model/devres.txt              |    4 +
+ drivers/base/devres.c                              |   64 +
+ drivers/net/ethernet/freescale/Kconfig             |    2 +
+ drivers/net/ethernet/freescale/Makefile            |    1 +
+ drivers/net/ethernet/freescale/dpaa/Kconfig        |   81 ++
+ drivers/net/ethernet/freescale/dpaa/Makefile       |   17 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c |  273 ++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h |   43 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  875 +++++++++++++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  495 +++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.c  | 1379 ++++++++++++++++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_common.h  |  130 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c  |  726 +++++++++++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  168 +++
+ .../net/ethernet/freescale/dpaa/dpaa_eth_trace.h   |  141 ++
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  247 ++++
+ include/linux/device.h                             |   19 +
+ 17 files changed, 4665 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Kconfig
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/Makefile
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_debugfs.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_common.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sg.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_eth_trace.h
+ create mode 100644 drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+
+-- 
+1.7.11.7
