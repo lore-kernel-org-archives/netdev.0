@@ -1,104 +1,103 @@
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-Subject: Re: [RFC PATCH net-next v3 1/4] net core: Add IFF_PROTO_DOWN support.
-Date: Wed, 29 Apr 2015 16:25:07 -0700
-Message-ID: <CACcJQnQyW7GWp42AuRBwKpzVRAGnXoB7ddtcURW5GxDa_4wKKQ@mail.gmail.com>
-References: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
-	<20150429151336.0d6d8aab@urahara>
-	<CACcJQnTYa-TuVzOi7B7cYFqht_KPbi9EB+_L0TuaPxWjPZ6oKg@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of
+ netfilter ingress hooks
+Date: Thu, 30 Apr 2015 01:32:05 +0200
+Message-ID: <20150429233205.GA3416@salvia>
+References: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
+ <1430333589-4940-7-git-send-email-pablo@netfilter.org>
+ <55413E99.5000807@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Scott Feldman <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:36640 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883AbbD2XZI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:25:08 -0400
-Received: by lbbqq2 with SMTP id qq2so31884913lbb.3
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 16:25:07 -0700 (PDT)
-In-Reply-To: <CACcJQnTYa-TuVzOi7B7cYFqht_KPbi9EB+_L0TuaPxWjPZ6oKg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, jhs@mojatatu.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <55413E99.5000807@iogearbox.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 29, 2015 at 4:07 PM, Anuradha Karuppiah
-<anuradhak@cumulusnetworks.com> wrote:
-> On Wed, Apr 29, 2015 at 3:13 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> On Mon, 27 Apr 2015 10:38:21 -0700
->> anuradhak@cumulusnetworks.com wrote:
->>
->>> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
->>>
->>> This patch introduces an IFF_PROTO_DOWN flag that can be used by
->>> user space applications to notify drivers that errors have been
->>> detected on the device.
->>>
->>> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
->>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
->>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->>
->> I worry that adding another bit to an already complex state API
->> will break userspace.
->>
->> There are lots of things besides iproute2 which look at those
->> flags including routing daemons (quagga), network manager, netplugd,
->> and switch controllers.
->
-> Yes, I understand your concerns here. And tried to work around introd=
-ucing
-> a separate error flag by clearing IFF_UP on proto_down/detecting erro=
-rs (as
-> Scott also brought up earlier).
->
-> That implementation failed because of the following reasons -
-> 1. There is no way to disambiguate between admin_down (!IFF_UP) and a=
-n
-> APP/driver enforced error_down (IFF_PROTO_DOWN). Administrator or
-> automation-scripts that monitor the config assumed that switch-port
-> configuration had somehow fallen out of sync (and attempted to reinst=
-ate the
-> admin_up repeatedly).
->
-> 2. Automatic error recovery was not possible; consider the following =
-scenario
-> for e.g.
->    a. The MLAG peer-link is down so the MLAG app on the secondary swi=
-tch has
->       proto_down=E2=80=99ed all the MLAG ports (including switch-port=
- swp1) by clearing
->       IFF_UP.
->    b. At the same time the administrator is in the process of making =
-some
->       changes on the network connected to swp1. To avoid doing it liv=
-e he would
->       admin_disable swp1 (!IFF_UP) by doing an "ip link set swp1 down=
-" (this
->       is a no-op as event #a has already cleared IFF_UP on swp1).
->    c. If the MLAG peer-link recovers at this point the MLAG app on th=
-e
->       secondary switch would try to automatically recover the MLAG po=
-rts
->       by clearing proto_down (i.e. setting IFF_UP); including on swp1=
-=2E Doing
->       that overrides the administrator=E2=80=99s directive to keep sw=
-p1 admin_down.
->       Overriding an admin-down in a live network can be very dangerou=
-s so it
->       is not possible to do auto-error-recovery unless we have a way =
-to
->       disambiguate between the admin and error states.
+On Wed, Apr 29, 2015 at 10:27:05PM +0200, Daniel Borkmann wrote:
+> On 04/29/2015 08:53 PM, Pablo Neira Ayuso wrote:
+> >Port qdisc ingress on top of the Netfilter ingress allows us to detach the
+> >qdisc ingress filtering code from the core, so now it resides where it really
+> >belongs.
+> 
+> Hm, but that means, in case you have a tc ingress qdisc attached
+> with one single (ideal) or more (less ideal) classifier/actions,
+> the path we _now_ have to traverse just to a single tc classifier
+> invocation is, if I spot this correctly, f.e.:
+> 
+>  __netif_receive_skb_core()
+>  `-> nf_hook_ingress()
+>   `-> nf_hook_do_ingress()
+>    `-> nf_hook_slow()
+>     `-> [for each entry in hook list]
+>      `-> nf_iterate()
+>       `-> (*elemp)->hook()
+>        `-> handle_ing()
+>         `-> ing_filter()
+>          `-> qdisc_enqueue_root()
+>           `-> sch->enqueue()
+>            `-> ingress_enqueue()
+>             `-> tc_classify()
+>              `-> tc_classify_compat()
+>               `-> [for each attached classifier]
+>                `-> tp->classify()
+>                 `-> f.e. cls_bpf_classify()
+>                  `-> [for each classifier from plist]
+>                   `-> BPF_PROG_RUN()
 
-I have the need to disambiguate the error state but it doesn't have to =
-be an
-IFF_X attribute. Stephen, Do you think it would be more easily consumab=
-le if
-it were a new/separate net_device attribute instead of being a new bit =
-in
-"&struct net_device flags"?
+Actually, the extra cost is roughly (getting inlined stuff away and
+other non-relevant stuff):
+
+    `-> nf_hook_slow()
+     `-> [for each entry in hook list]
+      `-> nf_iterate()
+       `-> (*elemp)->hook()
+
+as part of the generic hook infrastructure, which comes with extra
+flexibility in return. I think the main concern so far was not to harm
+the critical netif_receive_core() path, and this patchset proves not
+to affect this.
+
+BTW, the sch->enqueue() can easily go away after this patchset, see
+attached patch.
+
+> What was actually mentioned in the other thread where we'd like to
+> see a more lightweight ingress qdisc is to cut that down tremendously
+> to increase pps rate, as provided, that we would be able to process
+> a path roughly like:
+> 
+>  __netif_receive_skb_core()
+>  `-> tc_classify()
+>   `-> tc_classify_compat()
+>     `-> [for each attached classifier]
+>       `-> tp->classify()
+>         `-> f.e. cls_bpf_classify()
+>           `-> [for each classifier from plist]
+>             `-> BPF_PROG_RUN()
+> 
+> Therefore, I think it would be better to not wrap that ingress qdisc
+> part of the patch set into even more layers. What do you think?
+
+I think the main front to improve performance in qdisc ingress is to
+remove the central spinlock that is harming scalability. There's also
+the built-in rule counters there that look problematic. So I would
+focus on improving performance from the qdisc ingress core
+infrastructure itself.
+
+On the bugfix front, the illegal mangling of shared skb from actions
+like stateless nat and bpf look also important to be addressed to me.
+David already suggested to propagate some state object that keeps a
+pointer to the skb that is passed to the action. Thus, the action can
+clone it and get the skb back to the ingress path. I started a
+patchset to do so here, it's a bit large since it requires quite a lot
+of function signature adjustment.
+
+I can also see there were also intentions to support userspace
+queueing at some point since TC_ACT_QUEUED has been there since the
+beginning.  That should be possible at some point using this
+infrastructure (once there are no further concerns on the
+netif_receive_core_finish() patch as soon as gcc 4.9 and follow up
+versions keep inlining this new function).
