@@ -1,61 +1,69 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 0/7] net: Eliminate calls to flow_dissector and introduce flow_keys_digest
-Date: Tue, 28 Apr 2015 21:27:34 -0700
-Message-ID: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 2/7] sched: Eliminate use of flow_keys in sch_fq_codel
+Date: Tue, 28 Apr 2015 21:27:36 -0700
+Message-ID: <1430281661-2271966-3-git-send-email-tom@herbertland.com>
+References: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <jiri@resnulli.us>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:46953 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752650AbbD2E2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 00:28:02 -0400
-Received: from pps.filterd (m0004060 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3T4PX9L002536
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:01 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39978 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752650AbbD2E2H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 00:28:07 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3T4PGfd004735
+	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:07 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1u2nmngeeu-1
+	by mx0a-00082601.pphosted.com with ESMTP id 1u2k1ygfmt-2
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:01 -0700
+	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:07 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- 1dd0520eee2811e49d4f0002c9521c9e-971d42c0 for <netdev@vger.kernel.org>;	Tue,
- 28 Apr 2015 21:27:59 -0700
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 2199e6a2ee2811e48b1a0002c95209d8-e51c62c0 for <netdev@vger.kernel.org>;	Tue,
+ 28 Apr 2015 21:28:05 -0700
+In-Reply-To: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In this patch set we add skb_get_hash_perturb which gets the skbuff
-hash for a packet and perturbs it using a provided key and jhash1.
-This function is used in serveral qdiscs and eliminates many calls
-to flow_dissector and jhash3 to get a perturbed hash for a packet.
+Call qdisc_skb_get_hash instead of doing skb_flow_dissect and then
+jhash by hand.
 
-To handle the sch_choke issue (passes flow_keys in skbuff cb) we
-add flow_keys_digest which is a digest of a flow constructed
-from a flow_keys structure.
-
-This is the second version of these patches I posted a while ago,
-and is prerequisite work to increasing the size of the flow_keys
-structure and hashing over it (full IPv6 address, flow label, VLAN ID,
-etc.).
-
-Tom Herbert (7):
-  net: Add skb_get_hash_perturb
-  sched: Eliminate use of flow_keys in sch_fq_codel
-  sched: Eliminate use of flow_keys in sch_hhf
-  sched: Eliminate use of flow_keys in sch_sfb
-  sched: Eliminate use of flow_keys in sch_sfq
-  net: Add flow_keys digest
-  sch_choke: Use flow_keys_digest
-
- include/linux/skbuff.h   | 15 +++++++++++++++
- include/net/flow_keys.h  | 19 +++++++++++++++++++
- net/sched/sch_choke.c    | 14 ++++----------
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
  net/sched/sch_fq_codel.c | 11 ++---------
- net/sched/sch_hhf.c      | 19 +------------------
- net/sched/sch_sfb.c      | 24 ++++++++----------------
- net/sched/sch_sfq.c      | 29 +++--------------------------
- 7 files changed, 52 insertions(+), 79 deletions(-)
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 1e52dec..a6fc53d 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -23,7 +23,6 @@
+ #include <linux/vmalloc.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+-#include <net/flow_keys.h>
+ #include <net/codel.h>
+ 
+ /*	Fair Queue CoDel.
+@@ -68,15 +67,9 @@ struct fq_codel_sched_data {
+ };
+ 
+ static unsigned int fq_codel_hash(const struct fq_codel_sched_data *q,
+-				  const struct sk_buff *skb)
++				  struct sk_buff *skb)
+ {
+-	struct flow_keys keys;
+-	unsigned int hash;
+-
+-	skb_flow_dissect(skb, &keys);
+-	hash = jhash_3words((__force u32)keys.dst,
+-			    (__force u32)keys.src ^ keys.ip_proto,
+-			    (__force u32)keys.ports, q->perturbation);
++	u32 hash = skb_get_hash_perturb(skb, q->perturbation);
+ 
+ 	return reciprocal_scale(hash, q->flows_cnt);
+ }
 -- 
 1.8.1
