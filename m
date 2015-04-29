@@ -1,134 +1,145 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V2 net 1/1] hv_netvsc: Fix a bug in netvsc_start_xmit()
-Date: Tue, 28 Apr 2015 17:59:48 -0700
-Message-ID: <1430269188-31701-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next v3 0/4] net: Introduce IFF_PROTO_DOWN flag.
+Date: Tue, 28 Apr 2015 17:28:25 -0700
+Message-ID: <CAE4R7bC6tchoeSz+N82s_3h62tSUujx0+aCD_HBhjNBRixv17A@mail.gmail.com>
+References: <1430156304-13187-1-git-send-email-anuradhak@cumulusnetworks.com>
+	<CAE4R7bAGRKGShQuSqjvQDW8cG6MHE8Jie7Hp=7FJw00kJM4NgQ@mail.gmail.com>
+	<CACcJQnRw5HVUb0M3A2u_zbMtp85pi+kdCUa5gaY6cN4HXpVyeQ@mail.gmail.com>
+	<CAE4R7bAbe34eOqfdEUqNAp57936Eqcu54+r_Bp75CDdB4FgThw@mail.gmail.com>
+	<CACcJQnSZJGU2ohYo=NKjiyo3n0rX-0SP2Aupt74ONbvY7aE33A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:33516 "EHLO
+	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031157AbbD2A2Z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 20:28:25 -0400
+Received: by qkx62 with SMTP id 62so7264815qkx.0
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 17:28:25 -0700 (PDT)
+In-Reply-To: <CACcJQnSZJGU2ohYo=NKjiyo3n0rX-0SP2Aupt74ONbvY7aE33A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit b08cc79155fc26d0d112b1470d1ece5034651a4b eliminated memory
-allocation in the packet send path:
+On Tue, Apr 28, 2015 at 1:04 PM, Anuradha Karuppiah
+<anuradhak@cumulusnetworks.com> wrote:
+> On Tue, Apr 28, 2015 at 12:37 PM, Scott Feldman <sfeldma@gmail.com> w=
+rote:
+>> On Tue, Apr 28, 2015 at 8:39 AM, Anuradha Karuppiah
+>> <anuradhak@cumulusnetworks.com> wrote:
+>>>
+>>>
+>>> On Mon, Apr 27, 2015 at 10:45 PM, Scott Feldman <sfeldma@gmail.com>=
+ wrote:
+>>>>
+>>>> On Mon, Apr 27, 2015 at 10:38 AM,  <anuradhak@cumulusnetworks.com>=
+ wrote:
+>>>> > From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>>>> >
+>>>> > User space daemons can detect errors in the network that need to=
+ be
+>>>> > notified to the switch device drivers.
+>>>> >
+>>>> > Drivers can react to this error state by doing a phy-down on the
+>>>> > switch-port which would result in a carrier-off locally and on t=
+he
+>>>> > directly connected switch. Doing that would prevent loops and
+>>>> > black-holes in the network.
+>>>>
+>>>> (Sorry if this was asked earlier)
+>>>>
+>>>> Can the application simply send a SETLINK with IFF_UP clear and th=
+e
+>>>> port driver's ndo_stop would bring the PHY link down?
+>>>
+>>>
+>>> Yes, Clearing IFF_UP on detecting errors (PROTO_DOWN) is possible a=
+nd we
+>>> tried
+>>> that implementation as well. Unfortunately it failed because of the
+>>> following
+>>> reasons -
+>>>
+>>> 1. There is no way to disambiguate between admin_down (!IFF_UP) and=
+ an
+>>> APP/driver enforced error_down (IFF_PROTO_DOWN). Administrator or
+>>> automation-scripts that monitor the config assumed that switch-port
+>>> configuration had somehow fallen out of sync (and attempted to rein=
+state the
+>>> admin_up repeatedly).
+>>>
+>>> 2. Automatic error recovery was not possible; consider the followin=
+g
+>>> scenario
+>>> for e.g.
+>>>    a. The MLAG peer-link is down so the MLAG app on the secondary s=
+witch has
+>>>       proto_down=E2=80=99ed all the MLAG ports (including switch-po=
+rt swp1) by
+>>> clearing
+>>>       IFF_UP.
+>>>    b. At the same time the administrator is in the process of makin=
+g some
+>>>       changes on the network connected to swp1. To avoid doing it l=
+ive he
+>>> would
+>>>       admin_disable swp1 (!IFF_UP) by doing an "ip link set swp1 do=
+wn" (this
+>>>       is a no-op as event #a has already cleared IFF_UP on swp1).
+>>>    c. If the MLAG peer-link recovers at this point the MLAG app on =
+the
+>>>       secondary switch would try to automatically recover the MLAG =
+ports
+>>>       by clearing proto_down (i.e. setting IFF_UP); including on sw=
+p1. Doing
+>>>       that overrides the administrator=E2=80=99s directive to keep =
+swp1 admin_down.
+>>>       Overriding an admin-down in a live network can be very danger=
+ous so it
+>>>       is not possible to do auto-error-recovery unless we have a wa=
+y to
+>>>       disambiguate between the admin and error states
+>>
+>> That makes sense.
+>>
+>> Dang, this is so close to IFF_DORMANT.  The interface can be IFF_UP
+>> and link mode can be DORMANT.  Can the port driver kill PHY link if
+>> dev->flags&IFF_DORMANT in ndo_set_rx_mode()?  Would require
+>> IFF_DORMANT is included in dev->flags in __dev_change_flags().
+>
+> Yes, IFF_DORMANT does seem close to what is needed; in the current/st=
+andard
+> interpretation IFF_DORMANT keeps the switch port phy-up and running (=
+and most
+> PDUs are also exchanged in the dormant state). Like you said we could
+> re-interpret IFF_DORMANT in this context to phy-down the switch-port;
+> unfortunately we are already using IFF_DORMANT as well (in its standa=
+rd
+> interpretation)...
 
-    "hv_netvsc: Eliminate memory allocation in the packet send path
+That makes sense; best to not confuse IFF_DORMANT with this new need.
 
-    The network protocol used to communicate with the host is the remote ndis (rndis)
-    protocol. We need to decorate each outgoing packet with a rndis header and
-    additional rndis state (rndis per-packet state). To manage this state, we
-    currently allocate memory in the transmit path. Eliminate this allocation by
-    requesting additional head room in the skb."
+> We are using the dormant mode (for the MLAG app itself) to hold the M=
+LAG port
+> in a brief/transition-ary suspended state when the switch-port link/c=
+arrier up
+> happens. This has been done to co-ordinate states across the MLAG pee=
+r switches
+> and to ensure that egress port block masks are programmed on the peer=
+ switch
+> before transitioning the local switch port to an OPER_UP state. If we=
+ didn't do
+> that the dual-connected server would see duplicate packets every time=
+ a
+> link-down to link-up happened on a MLAG port.
 
-This commit introduced a bug since it did not account for the case if the skb
-was cloned. Fix this bug.
-
-
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
-	V2: Used skb_cow_head() based on Dave Miller's feedback
-	V2: Fixed up the commit log based on feedback from Sergei Shtylyov
-
- drivers/net/hyperv/hyperv_net.h |    1 -
- drivers/net/hyperv/netvsc.c     |    5 -----
- drivers/net/hyperv/netvsc_drv.c |   27 +++++++--------------------
- 3 files changed, 7 insertions(+), 26 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index a10b316..ae04eb5 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -128,7 +128,6 @@ struct ndis_tcp_ip_checksum_info;
- struct hv_netvsc_packet {
- 	/* Bookkeeping stuff */
- 	u32 status;
--	bool part_of_skb;
- 
- 	bool is_data_pkt;
- 	bool xmit_more; /* from skb */
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 2e8ad06..6d0ac8f 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -889,11 +889,6 @@ int netvsc_send(struct hv_device *device,
- 		} else {
- 			packet->page_buf_cnt = 0;
- 			packet->total_data_buflen += msd_len;
--			if (!packet->part_of_skb) {
--				skb = (struct sk_buff *)(unsigned long)packet->
--				       send_completion_tid;
--				packet->send_completion_tid = 0;
--			}
- 		}
- 
- 		if (msdp->pkt)
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index a3a9d38..19037a6 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -235,9 +235,6 @@ void netvsc_xmit_completion(void *context)
- 	struct sk_buff *skb = (struct sk_buff *)
- 		(unsigned long)packet->send_completion_tid;
- 
--	if (!packet->part_of_skb)
--		kfree(packet);
--
- 	if (skb)
- 		dev_kfree_skb_any(skb);
- }
-@@ -389,7 +386,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	u32 net_trans_info;
- 	u32 hash;
- 	u32 skb_length;
--	u32 head_room;
- 	u32 pkt_sz;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 
-@@ -402,7 +398,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 
- check_size:
- 	skb_length = skb->len;
--	head_room = skb_headroom(skb);
- 	num_data_pgs = netvsc_get_slots(skb) + 2;
- 	if (num_data_pgs > MAX_PAGE_BUFFER_COUNT && linear) {
- 		net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
-@@ -421,20 +416,14 @@ check_size:
- 
- 	pkt_sz = sizeof(struct hv_netvsc_packet) + RNDIS_AND_PPI_SIZE;
- 
--	if (head_room < pkt_sz) {
--		packet = kmalloc(pkt_sz, GFP_ATOMIC);
--		if (!packet) {
--			/* out of memory, drop packet */
--			netdev_err(net, "unable to alloc hv_netvsc_packet\n");
--			ret = -ENOMEM;
--			goto drop;
--		}
--		packet->part_of_skb = false;
--	} else {
--		/* Use the headroom for building up the packet */
--		packet = (struct hv_netvsc_packet *)skb->head;
--		packet->part_of_skb = true;
-+	ret = skb_cow_head(skb, pkt_sz);
-+	if (ret) {
-+		netdev_err(net, "unable to alloc hv_netvsc_packet\n");
-+		ret = -ENOMEM;
-+		goto drop;
- 	}
-+	/* Use the headroom for building up the packet */
-+	packet = (struct hv_netvsc_packet *)skb->head;
- 
- 	packet->status = 0;
- 	packet->xmit_more = skb->xmit_more;
-@@ -591,8 +580,6 @@ drop:
- 		net->stats.tx_bytes += skb_length;
- 		net->stats.tx_packets++;
- 	} else {
--		if (packet && !packet->part_of_skb)
--			kfree(packet);
- 		if (ret != -EAGAIN) {
- 			dev_kfree_skb_any(skb);
- 			net->stats.tx_dropped++;
--- 
-1.7.4.1
+How can we see this in action?  I didn't find where the kernel egress
+blocks the port when dormant.  What are the requirements for a kernel
+port driver to support your MLAG app?  Is this MLAG app available
+somewhere?
