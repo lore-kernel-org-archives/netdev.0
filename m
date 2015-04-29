@@ -1,41 +1,37 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC net-next] pktgen: introduce 'rx' mode
-Date: Wed, 29 Apr 2015 16:28:05 -0700
-Message-ID: <55416905.7070308@plumgrid.com>
-References: <1430273488-8403-1-git-send-email-ast@plumgrid.com>	 <1430273488-8403-2-git-send-email-ast@plumgrid.com>	 <1430280853.3711.19.camel@edumazet-glaptop2.roam.corp.google.com>	 <5541535E.1060908@plumgrid.com>	 <1430345993.3711.59.camel@edumazet-glaptop2.roam.corp.google.com>	 <55415D6B.7070009@plumgrid.com> <1430348211.3711.66.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [RFC,v3,00/12] Freescale DPAA FMan
+Date: Wed, 29 Apr 2015 18:29:13 -0500
+Message-ID: <1430350153.16357.119.camel@freescale.com>
+References: <1430299583-29031-1-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:33617 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883AbbD2X2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:28:08 -0400
-Received: by igbpi8 with SMTP id pi8so726124igb.0
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 16:28:07 -0700 (PDT)
-In-Reply-To: <1430348211.3711.66.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org, madalin.bucur@freescale.com
+To: Igal.Liberman <igal.liberman@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1430299583-29031-1-git-send-email-igal.liberman@freescale.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On 4/29/15 3:56 PM, Eric Dumazet wrote:
->
-> So pktgen in RX mode MUST deliver skb with skb->users = 1, there is no
-> way around it.
-
-if I only knew how to do it...
-The cost of continuously allocating skbs is way higher than
-netif_receive_skb itself. Such benchmarking tool would measure the
-speed of skb alloc/free instead of speed of netif_receive_skb.
-Are you suggesting to pre-allocate 10s of millions of skbs and
-then feed them in one go? The profile will be dominated by
-cache misses in the first few lines of __netif_receive_skb_core()
-where it accesses skb->dev,data,head. Doesn't sound too useful either.
-Other thoughts?
+T24gV2VkLCAyMDE1LTA0LTI5IGF0IDEyOjI2ICswMzAwLCBJZ2FsLkxpYmVybWFuIHdyb3RlOgo+
+IEZyb206IElnYWwgTGliZXJtYW4gPElnYWwuTGliZXJtYW5AZnJlZXNjYWxlLmNvbT4KPiAKPiBU
+aGUgRnJlZXNjYWxlIERhdGEgUGF0aCBBY2NlbGVyYXRpb24gQXJjaGl0ZWN0dXJlIChEUEFBKQo+
+IGlzIGEgc2V0IG9mIGhhcmR3YXJlIGNvbXBvbmVudHMgb24gc3BlY2lmaWMgUW9ySVEgbXVsdGlj
+b3JlCj4gcHJvY2Vzc29ycy4gVGhpcyBhcmNoaXRlY3R1cmUgcHJvdmlkZXMgdGhlIGluZnJhc3Ry
+dWN0dXJlIHRvCj4gc3VwcG9ydCBzaW1wbGlmaWVkIHNoYXJpbmcgb2YgbmV0d29ya2luZyBpbnRl
+cmZhY2VzIGFuZAo+IGFjY2VsZXJhdG9ycyBieSBtdWx0aXBsZSBDUFUgY29yZXMgYW5kIHRoZSBh
+Y2NlbGVyYXRvcnMuCj4gCgpXaHkgaXMgdGhpcyBhIHNlcGFyYXRlIHBhdGNoc2V0IGZyb20gIklu
+dHJvZHVjZSBEUEFBIEV0aGVybmV0IGRyaXZlciI/CgotU2NvdHQKCgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0
+CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9s
+aXN0aW5mby9saW51eHBwYy1kZXY=
