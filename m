@@ -1,47 +1,74 @@
-From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
-Subject: [PATCH] net: macb: Fix race condition in driver when Rx frame is dropped
-Date: Wed, 29 Apr 2015 08:34:46 +0530
-Message-ID: <c84f3773-71f2-431a-bc20-6a969d32eb63@BN1BFFO11FD033.protection.gbl>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH V2 net 1/1] hv_netvsc: Fix a bug in netvsc_start_xmit()
+Date: Wed, 29 Apr 2015 03:51:44 +0000
+Message-ID: <066b094eb64e418e835c066214d8ef73@SIXPR30MB031.064d.mgd.msft.net>
+References: <1430269188-31701-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<michals@xilinx.com>, <harinik@xilinx.com>, <kpc528@gmail.com>,
-	<kalluripunnaiahchoudary@gmail.com>,
-	Punnaiah Choudary Kalluri
-	<punnaiah.choudary.kalluri@xilinx.com>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: KY Srinivasan <kys@microsoft.com>, "davem@davemloft.net"
+ <davem@davemloft.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "olaf@aepfle.de" <olaf@aepfle.de>, "apw@canonical.com" <apw@canonical.com>,
+ "jasowang@redhat.com" <jasowang@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1430269188-31701-1-git-send-email-kys@microsoft.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>
+> -----Original Message-----
+> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On
+> Behalf Of K. Y. Srinivasan
+> Sent: Wednesday, April 29, 2015 9:00
+> To: davem@davemloft.net; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com
+> Subject: [PATCH V2 net 1/1] hv_netvsc: Fix a bug in netvsc_start_xmit()
+> 
+> Commit b08cc79155fc26d0d112b1470d1ece5034651a4b eliminated
+> memory
+> allocation in the packet send path:
+> 
+>     "hv_netvsc: Eliminate memory allocation in the packet send path
+> 
+>     The network protocol used to communicate with the host is the remote
+> ndis (rndis)
+>     protocol. We need to decorate each outgoing packet with a rndis header
+> and
+>     additional rndis state (rndis per-packet state). To manage this state, we
+>     currently allocate memory in the transmit path. Eliminate this allocation
+> by
+>     requesting additional head room in the skb."
+> 
+> This commit introduced a bug since it did not account for the case if the skb
+> was cloned. Fix this bug.
+> 
+> 
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+> 	V2: Used skb_cow_head() based on Dave Miller's feedback
+> 	V2: Fixed up the commit log based on feedback from Sergei
+> Shtylyov
+> 
+>  drivers/net/hyperv/hyperv_net.h |    1 -
+>  drivers/net/hyperv/netvsc.c     |    5 -----
+>  drivers/net/hyperv/netvsc_drv.c |   27 +++++++--------------------
+>  3 files changed, 7 insertions(+), 26 deletions(-)
 
-Under heavy Rx load, observed that the Hw is updating the USED bit
-and it is not updating the received frame status to the BD control
-field. This could be lack of resources for processing the BDs at high
-data rates. Driver drops the frame associated with this BD but not
-clearing the USED bit. So, this is causing hang condition as Hw
-expects USED bit to be cleared for this BD.
+Without the patch, the guest can panic due to memory corruption.
 
-Signed-off-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+I confirm the patch can fix the panic I saw.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 9f53872..d79b0b1 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -707,6 +707,9 @@ static void gem_rx_refill(struct macb *bp)
- 
- 			/* properly align Ethernet header */
- 			skb_reserve(skb, NET_IP_ALIGN);
-+		} else {
-+			bp->rx_ring[entry].addr &= ~MACB_BIT(RX_USED);
-+			bp->rx_ring[entry].ctrl = 0;
- 		}
- 	}
- 
--- 
-1.7.4
+Tested-by: Dexuan Cui <decui@microsoft.com>
+
+-- Dexuan
