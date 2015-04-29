@@ -1,68 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp_westwood: fix tcp_westwood_info()
-Date: Wed, 29 Apr 2015 16:20:58 -0700
-Message-ID: <1430349658.3711.71.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430263429-4069-1-git-send-email-edumazet@google.com>
-	 <1430263429-4069-2-git-send-email-edumazet@google.com>
-	 <20150429.181252.2106091176943411796.davem@davemloft.net>
-	 <1430347239.3711.61.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v3 1/4] net core: Add IFF_PROTO_DOWN support.
+Date: Wed, 29 Apr 2015 16:25:07 -0700
+Message-ID: <CACcJQnQyW7GWp42AuRBwKpzVRAGnXoB7ddtcURW5GxDa_4wKKQ@mail.gmail.com>
+References: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
+	<20150429151336.0d6d8aab@urahara>
+	<CACcJQnTYa-TuVzOi7B7cYFqht_KPbi9EB+_L0TuaPxWjPZ6oKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, ycheng@google.com,
-	ncardwell@google.com, kbuild test robot <fengguang.wu@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:35192 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883AbbD2XVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:21:00 -0400
-Received: by iejt8 with SMTP id t8so54970186iej.2
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 16:20:59 -0700 (PDT)
-In-Reply-To: <1430347239.3711.61.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:36640 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750883AbbD2XZI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:25:08 -0400
+Received: by lbbqq2 with SMTP id qq2so31884913lbb.3
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 16:25:07 -0700 (PDT)
+In-Reply-To: <CACcJQnTYa-TuVzOi7B7cYFqht_KPbi9EB+_L0TuaPxWjPZ6oKg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Apr 29, 2015 at 4:07 PM, Anuradha Karuppiah
+<anuradhak@cumulusnetworks.com> wrote:
+> On Wed, Apr 29, 2015 at 3:13 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+>> On Mon, 27 Apr 2015 10:38:21 -0700
+>> anuradhak@cumulusnetworks.com wrote:
+>>
+>>> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>>>
+>>> This patch introduces an IFF_PROTO_DOWN flag that can be used by
+>>> user space applications to notify drivers that errors have been
+>>> detected on the device.
+>>>
+>>> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>>
+>> I worry that adding another bit to an already complex state API
+>> will break userspace.
+>>
+>> There are lots of things besides iproute2 which look at those
+>> flags including routing daemons (quagga), network manager, netplugd,
+>> and switch controllers.
+>
+> Yes, I understand your concerns here. And tried to work around introd=
+ucing
+> a separate error flag by clearing IFF_UP on proto_down/detecting erro=
+rs (as
+> Scott also brought up earlier).
+>
+> That implementation failed because of the following reasons -
+> 1. There is no way to disambiguate between admin_down (!IFF_UP) and a=
+n
+> APP/driver enforced error_down (IFF_PROTO_DOWN). Administrator or
+> automation-scripts that monitor the config assumed that switch-port
+> configuration had somehow fallen out of sync (and attempted to reinst=
+ate the
+> admin_up repeatedly).
+>
+> 2. Automatic error recovery was not possible; consider the following =
+scenario
+> for e.g.
+>    a. The MLAG peer-link is down so the MLAG app on the secondary swi=
+tch has
+>       proto_down=E2=80=99ed all the MLAG ports (including switch-port=
+ swp1) by clearing
+>       IFF_UP.
+>    b. At the same time the administrator is in the process of making =
+some
+>       changes on the network connected to swp1. To avoid doing it liv=
+e he would
+>       admin_disable swp1 (!IFF_UP) by doing an "ip link set swp1 down=
+" (this
+>       is a no-op as event #a has already cleared IFF_UP on swp1).
+>    c. If the MLAG peer-link recovers at this point the MLAG app on th=
+e
+>       secondary switch would try to automatically recover the MLAG po=
+rts
+>       by clearing proto_down (i.e. setting IFF_UP); including on swp1=
+=2E Doing
+>       that overrides the administrator=E2=80=99s directive to keep sw=
+p1 admin_down.
+>       Overriding an admin-down in a live network can be very dangerou=
+s so it
+>       is not possible to do auto-error-recovery unless we have a way =
+to
+>       disambiguate between the admin and error states.
 
-I forgot to update tcp_westwood when changing get_info() behavior,
-this patch should fix this.
-
-Fixes: 64f40ff5bbdb ("tcp: prepare CC get_info() access from getsockopt()")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_westwood.c |   15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index b3c57cceb9907fe9d79f33f33369a96b647b5f26..c10732e39837872c724b801700f627a7fb1c9390 100644
---- a/net/ipv4/tcp_westwood.c
-+++ b/net/ipv4/tcp_westwood.c
-@@ -256,18 +256,19 @@ static void tcp_westwood_event(struct sock *sk, enum tcp_ca_event event)
- }
- 
- /* Extract info for Tcp socket info provided via netlink. */
--static int tcp_westwood_info(struct sock *sk, u32 ext, struct sk_buff *skb)
-+static size_t tcp_westwood_info(struct sock *sk, u32 ext, int *attr,
-+				union tcp_cc_info *info)
- {
- 	const struct westwood *ca = inet_csk_ca(sk);
- 
- 	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
--		struct tcpvegas_info info = {
--			.tcpv_enabled = 1,
--			.tcpv_rtt = jiffies_to_usecs(ca->rtt),
--			.tcpv_minrtt = jiffies_to_usecs(ca->rtt_min),
--		};
-+		info->vegas.tcpv_enabled = 1;
-+		info->vegas.tcpv_rttcnt	= 0;
-+		info->vegas.tcpv_rtt	= jiffies_to_usecs(ca->rtt),
-+		info->vegas.tcpv_minrtt	= jiffies_to_usecs(ca->rtt_min),
- 
--		return nla_put(skb, INET_DIAG_VEGASINFO, sizeof(info), &info);
-+		*attr = INET_DIAG_VEGASINFO;
-+		return sizeof(struct tcpvegas_info);
- 	}
- 	return 0;
- }
+I have the need to disambiguate the error state but it doesn't have to =
+be an
+IFF_X attribute. Stephen, Do you think it would be more easily consumab=
+le if
+it were a new/separate net_device attribute instead of being a new bit =
+in
+"&struct net_device flags"?
