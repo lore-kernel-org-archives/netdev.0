@@ -1,63 +1,147 @@
-From: "Du, Fan" <fan.du@intel.com>
-Subject: RE: [PATCH] xfrm: fix a race in xfrm_state_lookup_byspi
-Date: Wed, 29 Apr 2015 05:25:25 +0000
-Message-ID: <5A90DA2E42F8AE43BC4A093BF0678848E4D693@SHSMSX104.ccr.corp.intel.com>
-References: <1430268164-19019-1-git-send-email-roy.qing.li@gmail.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next v3 3/4] rocker: Handle IFF_PROTODOWN by doing
+ a PHYS-DOWN on the switch port.
+Date: Tue, 28 Apr 2015 22:51:07 -0700
+Message-ID: <CAE4R7bD=QPViX4Fig7TSS+P3XdBHWG=Ei_LOPcBYi+4qGhhaew@mail.gmail.com>
+References: <1430156304-13187-4-git-send-email-anuradhak@cumulusnetworks.com>
+	<CAE4R7bDF4C_WpueoiRkXDyHk=TfQJG99GB8jEFtOL-yN6Sa2xQ@mail.gmail.com>
+	<CACcJQnRi1AOYiu_0t3Acx1=t7W6z6i7DqawvWZUiCcOLV5Rm+w@mail.gmail.com>
+	<CAE4R7bAcH7OSYfKWEj+Jn8XTX4CbKzeCpSGvkZQn6UU-EoFMYA@mail.gmail.com>
+	<CACcJQnRjQbmK_PqOgga-hT5vBDBGCXTRbuDXfoFDuODZJHQ9tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
-	"Du, Fan" <fan.du@intel.com>
-To: "roy.qing.li@gmail.com" <roy.qing.li@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:40041 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751518AbbD2FZa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 01:25:30 -0400
-In-Reply-To: <1430268164-19019-1-git-send-email-roy.qing.li@gmail.com>
-Content-Language: en-US
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:32813 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031630AbbD2FvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 01:51:08 -0400
+Received: by qgdy78 with SMTP id y78so7349410qgd.0
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 22:51:07 -0700 (PDT)
+In-Reply-To: <CACcJQnRjQbmK_PqOgga-hT5vBDBGCXTRbuDXfoFDuODZJHQ9tw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 28, 2015 at 1:35 PM, Anuradha Karuppiah
+<anuradhak@cumulusnetworks.com> wrote:
+> On Tue, Apr 28, 2015 at 12:48 PM, Scott Feldman <sfeldma@gmail.com> wrote:
+>> On Tue, Apr 28, 2015 at 8:49 AM, Anuradha Karuppiah
+>> <anuradhak@cumulusnetworks.com> wrote:
+>>> On Mon, Apr 27, 2015 at 10:51 PM, Scott Feldman <sfeldma@gmail.com> wrote:
+>>>> On Mon, Apr 27, 2015 at 10:38 AM,  <anuradhak@cumulusnetworks.com> wrote:
+>>>>> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>>>>>
+>>>>> IFF_PROTODOWN can be set by user space applications like MLAG on detecting
+>>>>> errors on a switch port. This patch provides sample switch driver changes
+>>>>> for handling IFF_PROTODOWN. Rocker PHYS disables the port in response to
+>>>>> protodown.
+>>>>>
+>>>>> Note: I understand Scott has some rocker changes on hold. I will re-spin
+>>>>> this patch once his changes are in.
+>>>>>
+>>>>> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>>>>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>>>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>>>>> ---
+>>>>>  drivers/net/ethernet/rocker/rocker.c |   16 +++++++++++++++-
+>>>>>  1 file changed, 15 insertions(+), 1 deletion(-)
+>>>>>
+>>>>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>>>>> index a87b177..e3084e3 100644
+>>>>> --- a/drivers/net/ethernet/rocker/rocker.c
+>>>>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>>>>> @@ -3838,7 +3838,8 @@ static int rocker_port_open(struct net_device *dev)
+>>>>>
+>>>>>         napi_enable(&rocker_port->napi_tx);
+>>>>>         napi_enable(&rocker_port->napi_rx);
+>>>>> -       rocker_port_set_enable(rocker_port, true);
+>>>>> +       if (!(dev->flags & IFF_PROTO_DOWN))
+>>>>> +               rocker_port_set_enable(rocker_port, true);
+>>>>>         netif_start_queue(dev);
+>>>>>         return 0;
+>>>>>
+>>>>> @@ -4238,6 +4239,18 @@ static int rocker_port_swdev_port_stp_update(struct net_device *dev, u8 state)
+>>>>>         return rocker_port_stp_update(rocker_port, state);
+>>>>>  }
+>>>>>
+>>>>> +static int rocker_port_swdev_port_phy_state_set(struct net_device *dev,
+>>>>> +                                               bool enable)
+>>>>> +{
+>>>>> +       struct rocker_port *rocker_port = netdev_priv(dev);
+>>>>> +
+>>>>> +       if (enable && (dev->flags & IFF_UP) && !(dev->flags & IFF_PROTO_DOWN))
+>>>>> +               rocker_port_set_enable(rocker_port, true);
+>>>>> +       else
+>>>>> +               rocker_port_set_enable(rocker_port, false);
+>>>>
+>>>> This isn't working like your expecting.  PHY link is still up on the
+>>>> rocker port, so the other end of the wire still sees link UP even when
+>>>> IFF_PROTO_DOWN is set locally.
+>>>
+>>> I wanted to check with you first on the rocker handling; that is the main
+>>> reason for posting this an RFC (thanks for the review).
+>>>
+>>> I used rocker_port_set_enable/PORT_PHYS_ENABLE for setting the phy state
+>>> because I assumed that in the case of an offloaded switch driver it would be
+>>> the equivalent of doing "sdk port N en=1|0". Is that not the case? If not,
+>>> could you please point me in the right direction?
+>>
+>> To put PHY link down, on PORT_PHYS_ENABLE true, rocker device (qemu)
+>> would need to down the link state for the port so other end of wire
+>> sees link down.  I think I remember looking into that but didn't
+>> implement it.  In qemu monitor, you can manually set the link up/down
+>> (set_link <dev> [on|off]).  We'd need to call the same from within the
+>> rocker device.
+>>
+>> So if we want to be able to test this with rocker, we'll need a device
+>> and driver change.
+>
+> Thanks for the details, Scott. We will looking into implementing the necessary
+> changes to get it working with rocker.
 
->-----Original Message-----
->From: roy.qing.li@gmail.com [mailto:roy.qing.li@gmail.com]
->Sent: Wednesday, April 29, 2015 8:43 AM
->To: netdev@vger.kernel.org
->Cc: Du, Fan; steffen.klassert@secunet.com
->Subject: [PATCH] xfrm: fix a race in xfrm_state_lookup_byspi
->
->From: Li RongQing <roy.qing.li@gmail.com>
->
->The returned xfrm_state should be hold before unlock xfrm_state_lock,
->otherwise the returned xfrm_state maybe be released.
->
->Fixes: c454997e6[{pktgen, xfrm} Introduce xfrm_state_lookup_byspi..]
->Cc: Fan Du <fan.du@intel.com>
->Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Hmmm....looks like we can only go so far using rocker.  The patch
+below for rocker device will set link up/down when phy is
+enabled/disabled, but that only affects the local link status.  The
+remote will not see link down/up when the local changes because there
+is no physical signalling between two VM instances (local and remote)
+(duh!).  I'll add the device patch to my queue just because it's a
+good things to have, but at this point I'm not seeing how you can use
+rocker to down the remote link.
 
-Acked-by: Fan Du <fan.du@intel.com>
- 
+diff --git a/hw/net/rocker/rocker_fp.c b/hw/net/rocker/rocker_fp.c
+index 42354c3..d8d934c 100644
+--- a/hw/net/rocker/rocker_fp.c
++++ b/hw/net/rocker/rocker_fp.c
+@@ -188,8 +188,19 @@ bool fp_port_enabled(FpPort *port)
+     return port->enabled;
+ }
 
->---
-> net/xfrm/xfrm_state.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
->
->diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
->index f5e39e3..96688cd 100644
->--- a/net/xfrm/xfrm_state.c
->+++ b/net/xfrm/xfrm_state.c
->@@ -927,8 +927,8 @@ struct xfrm_state *xfrm_state_lookup_byspi(struct net
->*net, __be32 spi,
-> 			x->id.spi != spi)
-> 			continue;
->
->-		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
-> 		xfrm_state_hold(x);
->+		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
-> 		return x;
-> 	}
-> 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
->--
->2.1.0
++static void fp_port_set_link(FpPort *port, bool up)
++{
++    NetClientState *nc = qemu_get_queue(port->nic);
++
++    if (up == nc->link_down) {
++        nc->link_down = !up;
++        nc->info->link_status_changed(nc);
++    }
++}
++
+ void fp_port_enable(FpPort *port)
+ {
++    fp_port_set_link(port, true);
+     port->enabled = true;
+     DPRINTF("port %d enabled\n", port->index);
+ }
+@@ -197,6 +208,7 @@ void fp_port_enable(FpPort *port)
+ void fp_port_disable(FpPort *port)
+ {
+     port->enabled = false;
++    fp_port_set_link(port, false);
+     DPRINTF("port %d disabled\n", port->index);
+ }
