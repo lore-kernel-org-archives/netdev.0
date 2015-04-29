@@ -1,39 +1,38 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 2/6] ipv6: Remove external dependency on
- rt6i_gateway and RTF_ANYCAST
-Date: Wed, 29 Apr 2015 12:02:24 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1504291200430.2286@ja.home.ssi.bg>
-References: <1430255273-3045254-1-git-send-email-kafai@fb.com> <1430255273-3045254-3-git-send-email-kafai@fb.com> <alpine.LFD.2.11.1504291106060.1504@ja.home.ssi.bg>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next v3] be2net: log link status
+Date: Wed, 29 Apr 2015 09:17:50 +0000
+Message-ID: <afae13d0-679e-4eb0-a044-425e81d0cf71@CMEXHTCAS2.ad.emulex.com>
+References: <553FE1F4.60402@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>,
-	Kernel Team <Kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Subramanian Seetharaman <subbu.seetharaman@emulex.com>,
+	"Ajit Kumar Khaparde" <Ajit.Khaparde@Emulex.Com>,
+	David Miller <davem@davemloft.net>
+To: Ivan Vecera <ivecera@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:42908 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1031665AbbD2JCj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Apr 2015 05:02:39 -0400
-In-Reply-To: <alpine.LFD.2.11.1504291106060.1504@ja.home.ssi.bg>
+Received: from cmexedge2.emulex.com ([138.239.224.100]:2076 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422805AbbD2JSW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 05:18:22 -0400
+In-Reply-To: <553FE1F4.60402@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: Ivan Vecera [mailto:ivecera@redhat.com]
+> 
+> The driver unlike other drivers does not log link state changes. It's
+> better for an user when asynchronous link states are logged in the
+> system log.
+> 
+> v3: Changes from v2 discarded as "not necessary"
+> 
+> Cc: Sathya Perla <sathya.perla@emulex.com>
+> Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+> Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-	Hello,
-
-On Wed, 29 Apr 2015, Julian Anastasov wrote:
-
-> 	We then solved it with FLOWI_FLAG_KNOWN_NH flag which
-> forces a cached route where rt_gateway is filled with requested
-
-	Sorry, I mean "non-cached", not "cached"...
-
-> nexthop address:
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Acked-by: Sathya Perla <sathya.perla@emulex.com>
