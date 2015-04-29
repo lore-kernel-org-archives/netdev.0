@@ -1,48 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] be2net: log link status
-Date: Wed, 29 Apr 2015 15:01:25 -0400 (EDT)
-Message-ID: <20150429.150125.1929181206333250804.davem@davemloft.net>
-References: <553FE1F4.60402@redhat.com>
+Subject: Re: [PATCH net 1/1] tipc: fix problem with parallel link
+ synchronization mechanism
+Date: Wed, 29 Apr 2015 15:09:23 -0400 (EDT)
+Message-ID: <20150429.150923.1291697432920867232.davem@davemloft.net>
+References: <1430254744-10081-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sathya.perla@emulex.com,
-	subbu.seetharaman@emulex.com, ajit.khaparde@emulex.com
-To: ivecera@redhat.com
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50214 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50234 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbbD2TB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 15:01:27 -0400
-In-Reply-To: <553FE1F4.60402@redhat.com>
+	with ESMTP id S1751006AbbD2TJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 15:09:26 -0400
+In-Reply-To: <1430254744-10081-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Tue, 28 Apr 2015 21:39:32 +0200
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Tue, 28 Apr 2015 16:59:04 -0400
 
-> The driver unlike other drivers does not log link state changes. It's
-> better for an user when asynchronous link states are logged in the
-> system log.
+> Currently, we try to accumulate arrived packets in the links's
+> 'deferred' queue during the parallel link syncronization phase.
 > 
-> v3: Changes from v2 discarded as "not necessary"
+> This entails two problems:
 > 
-> Cc: Sathya Perla <sathya.perla@emulex.com>
-> Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-> Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c | 2 ++
->  1 file changed, 2 insertions(+)
+> - With an unlucky combination of arriving packets the algorithm
+>   may go into a lockstep with the out-of-sequence handling function,
+>   where the synch mechanism is adding a packet to the deferred queue,
+>   while the out-of-sequence handling is retrieving it again, thus
+>   ending up in a loop inside the node_lock scope.
 > 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
-> b/drivers/net/ethernet/emulex/benet/be_main.c
-> index fb0bc3c..e349131 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -662,6 +662,8 @@ void be_link_status_update(struct be_adapter
-> *adapter, u8 link_status)
+> - Even if this is avoided, the link will very often send out
+>   unnecessary protocol messages, in the worst case leading to
+>   redundant retransmissions.
+> 
+> We fix this by just dropping arriving packets on the upcoming link
+> during the synchronization phase, thus relying on the retransmission
+> protocol to resolve the situation once the two links have arrived to
+> a synchronized state.
+> 
+> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+> Reviewed-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Patch has been corrupted by your email client.
-
-Please fix this up and resubmit.
+Applied, thanks Jon.
