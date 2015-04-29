@@ -1,63 +1,55 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 1/7] net: Add skb_get_hash_perturb
-Date: Wed, 29 Apr 2015 09:59:47 +0200
-Message-ID: <20150429075947.GB30392@breakpoint.cc>
-References: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
- <1430281661-2271966-2-git-send-email-tom@herbertland.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/2] tcp: add TCP_CC_INFO socket option
+Date: Wed, 29 Apr 2015 10:17:23 +0200
+Message-ID: <55409393.3040003@iogearbox.net>
+References: <1430263429-4069-1-git-send-email-edumazet@google.com> <1430263429-4069-3-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@resnulli.us
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36126 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1031044AbbD2H7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 03:59:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1430281661-2271966-2-git-send-email-tom@herbertland.com>
+Received: from www62.your-server.de ([213.133.104.62]:46388 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031451AbbD2IR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 04:17:27 -0400
+In-Reply-To: <1430263429-4069-3-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@herbertland.com> wrote:
-> This is used to get the skb->hash and then perturb it for a local use.
-> 
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  include/linux/skbuff.h | 15 +++++++++++++++
->  1 file changed, 15 insertions(+)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 66e374d..b706889 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -17,6 +17,7 @@
->  #include <linux/kernel.h>
->  #include <linux/kmemcheck.h>
->  #include <linux/compiler.h>
-> +#include <linux/jhash.h>
->  #include <linux/time.h>
->  #include <linux/bug.h>
->  #include <linux/cache.h>
-> @@ -927,6 +928,20 @@ static inline __u32 skb_get_hash(struct sk_buff *skb)
->  	return skb->hash;
->  }
->  
-> +static inline __u32 skb_get_hash_perturb(struct sk_buff *skb,
-> +					 u32 perturb)
-> +{
-> +	u32 hash = skb_get_hash(skb);
-> +
-> +	if (likely(hash)) {
-> +		hash = jhash_1word((__force __u32) hash, perturb);
+On 04/29/2015 01:23 AM, Eric Dumazet wrote:
+> Some Congestion Control modules can provide per flow information,
+> but current way to get this information is to use netlink.
+>
+> Like TCP_INFO, let's add TCP_CC_INFO so that applications can
+> issue a getsockopt() if they have a socket file descriptor,
+> instead of playing complex netlink games.
+>
+> Sample usage would be :
+>
+>    union tcp_cc_info info;
+>    socklen_t len = sizeof(info);
+>
+>    if (getsockopt(fd, SOL_TCP, TCP_CC_INFO, &info, &len) == -1)
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
 
-Whats this perturb for?
+Presuming other cc algorithms would in future also export
+internal information through this interface, would it make
+sense to put tcp_cc_info into a container structure so we
+don't miss out attr (vegas, dctcp, ...), like:
 
-perturb is supposed to make sure that if you have
+   struct tcp_cc_exp {
+     u32               kind;
+     union tcp_cc_info info;
+   };
 
-flow1, flow2 where hash(flow1, perturb) == hash(flow2, perturb)
-the collision will be temporary and go away once perturb changes.
+Otherwise looks good:
 
-If you perturb after hashing, such collision is permanent.
-
-So I think this either should flow_dissect + hash in software,
-or just use skb_get_hash without perturb.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
