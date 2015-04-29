@@ -1,71 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC net-next] pktgen: introduce 'rx' mode
-Date: Wed, 29 Apr 2015 16:39:46 -0700
-Message-ID: <1430350786.3711.77.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430273488-8403-1-git-send-email-ast@plumgrid.com>
-	 <1430273488-8403-2-git-send-email-ast@plumgrid.com>
-	 <1430280853.3711.19.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5541535E.1060908@plumgrid.com>
-	 <1430345993.3711.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <55415D6B.7070009@plumgrid.com>
-	 <1430348211.3711.66.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <55416905.7070308@plumgrid.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: [RFC] r8169 DMA failure with iommu=off
+Date: Wed, 29 Apr 2015 16:58:13 -0700
+Message-ID: <20150429165813.5d64daf0@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:38457 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751324AbbD2Xjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:39:48 -0400
-Received: by igbhj9 with SMTP id hj9so63698325igb.1
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 16:39:48 -0700 (PDT)
-In-Reply-To: <55416905.7070308@plumgrid.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:25975 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751477AbbD2X6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:58:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-29 at 16:28 -0700, Alexei Starovoitov wrote:
-> On 4/29/15 3:56 PM, Eric Dumazet wrote:
-> >
-> > So pktgen in RX mode MUST deliver skb with skb->users = 1, there is no
-> > way around it.
-> 
-> if I only knew how to do it...
-> The cost of continuously allocating skbs is way higher than
-> netif_receive_skb itself. Such benchmarking tool would measure the
-> speed of skb alloc/free instead of speed of netif_receive_skb.
-> Are you suggesting to pre-allocate 10s of millions of skbs and
-> then feed them in one go? The profile will be dominated by
-> cache misses in the first few lines of __netif_receive_skb_core()
-> where it accesses skb->dev,data,head. Doesn't sound too useful either.
-> Other thoughts?
+This only fixes the Rx side, what about Tx?
 
-The code I copy pasted from your patch is buggy. Not the whole thing.
+I think maybe just removing the whole use_dac flag completely?
 
-You have to replace it by something smarter.
+Subject: r8169: allocate rx memory in correct region
 
-This should not be hard really.
+This fixes failure when using r8169 with IOMMU defined but not
+enabled. Reproduced on a 16G machine with LOM r8169 and kernel
+set to 'iommu=off'.
 
-Zap the 'burst/clone' thing, this is not going to work for RX.
-TX was okay, not RX. 
+This driver has two dma modes. By default use_dac module parameter
+is zero and therefore the driver uses only has a 32 bit DMA
+mask. But since it calls kmalloc_node() without setting DMA32 flag
+the receive buffer maybe above 4G and the dma_map_single will fail.
 
-You could for instance do :
+In either case since this is a receive DMA buffer, it should set
+the appropriate GFP_DMA since that may matter on some platforms.
 
-atomic_inc(&skb->users);
-netif_receive_skb(skb);
-if (atomic_read(skb->users) != 1) {
-	/* This is too bad, I can not recycle this skb because it is still used */
-	consume_skb(skb);
-	/* allocate a fresh new skb */
-	skb = ...
-} else {
-	/* Yeah ! Lets celebrate, cost of reusing this skb was one atomic op */
-}
+This an old bug was introduced by:
+
+commit 6f0333b8fde44b8c04a53b2461504f0e8f1cebe6
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Mon Oct 11 11:17:47 2010 +0000
+
+    r8169: use 50% less ram for RX ring
+    
+    Using standard skb allocations in r8169 leads to order-3 allocations (if
+    PAGE_SIZE=4096), because NIC needs 16383 bytes, and skb overhead makes
+    this bigger than 16384 -> 32768 bytes per "skb"
+    
+    Using kmalloc() permits to reduce memory requirements of one r8169 nic
+    by 4Mbytes. (256 frames * 16Kbytes). This is fine since a hardware bug
+    requires us to copy incoming frames, so we build real skb when doing
+    this copy.
+    
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -5721,14 +5721,16 @@ static struct sk_buff *rtl8169_alloc_rx_
+ 	struct device *d = &tp->pci_dev->dev;
+ 	struct net_device *dev = tp->dev;
+ 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
++	gfp_t flags = GFP_KERNEL;
+ 
+-	data = kmalloc_node(rx_buf_sz, GFP_KERNEL, node);
++	flags |= (dev->features & NETIF_F_HIGHDMA) ? GFP_DMA : GFP_DMA32;
++	data = kmalloc_node(rx_buf_sz, flags, node);
+ 	if (!data)
+ 		return NULL;
+ 
+ 	if (rtl8169_align(data) != data) {
+ 		kfree(data);
+-		data = kmalloc_node(rx_buf_sz + 15, GFP_KERNEL, node);
++		data = kmalloc_node(rx_buf_sz + 15, flags, node);
+ 		if (!data)
+ 			return NULL;
+ 	}
