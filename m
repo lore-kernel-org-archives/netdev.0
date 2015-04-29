@@ -1,28 +1,21 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix Kernel Panic in bonding driver debugfs file:
- rlb_hash_table
-Date: Wed, 29 Apr 2015 16:57:06 -0400 (EDT)
-Message-ID: <20150429.165706.2224795686499859484.davem@davemloft.net>
-References: <E1YnWel-0004R7-1o@bos-lpqrs.kendall.corp.akamai.com>
-	<554134D1.7070509@blackwall.org>
-	<55413F74.3010204@akamai.com>
+Subject: net-next is now OPEN
+Date: Wed, 29 Apr 2015 17:08:21 -0400 (EDT)
+Message-ID: <20150429.170821.1440756964940107639.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: razor@blackwall.org, andy@greyhouse.net, j.vosburgh@gmail.com,
-	vfalico@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: vpai@akamai.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55413F74.3010204@akamai.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, linux-wireless@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51153 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbbD2VIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 17:08:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vishwanath Pai <vpai@akamai.com>
-Date: Wed, 29 Apr 2015 16:30:44 -0400
 
-> Since the patch has been applied already - should I send a V2 with the
-> suggested changes? Or submit a new patch that applies on top of the
-> first patch?
+The net-next tree is now open for submissions.
 
-You should always send me a relative patch in this situation.
+Fire away...
