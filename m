@@ -1,54 +1,52 @@
-From: Pai <vpai@akamai.com>
-Subject: [PATCH] Fix Kernel Panic in bonding driver debugfs file: rlb_hash_table
-Date: Wed, 29 Apr 2015 14:24:23 -0400
-Message-ID: <E1YnWel-0004R7-1o@bos-lpqrs.kendall.corp.akamai.com>
-To: "Jay Vosburgh" <j.vosburgh@gmail.com>,
-	"Veaceslav Falico" <vfalico@gmail.com>,
-	"Andy Gospodarek" <andy@greyhouse.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, "Vishwanath Pai" <vpai@akamai.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net-next] tcp: update reordering first before detecting loss
+Date: Wed, 29 Apr 2015 11:28:30 -0700
+Message-ID: <1430332110-10278-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:36864 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751801AbbD2S2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 14:28:45 -0400
+Received: by igblo3 with SMTP id lo3so56422088igb.0
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 11:28:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a Kernel Panic in bonding driver debugfs file: rlb_hash_table.
+tcp_mark_lost_retrans is not used when FACK is disabled. Since
+tcp_update_reordering may disable FACK, it should be called first
+before tcp_mark_lost_retrans.
 
-$> modprobe bonding mode=6
-$> cat /sys/kernel/debug/bonding/bond0/rlb_hash_table
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-This will crash the kernel. The struct alb_bond_info is initialized only when
-the bonding interface is initialized (ip link set bond0 up) and not at the time
-it is allocated. If we try to read the table before that, it'll result in a 
-kernel panic.
-
-The patch applies against both net and net-next
-
-Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 3a4d9b34..5136247 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1820,14 +1820,12 @@ advance_sp:
+ 	for (j = 0; j < used_sacks; j++)
+ 		tp->recv_sack_cache[i++] = sp[j];
  
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 089a402..806892a 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4510,6 +4510,8 @@ unsigned int bond_get_num_tx_queues(void)
- int bond_create(struct net *net, const char *name)
- {
- 	struct net_device *bond_dev;
-+	struct bonding *bond;
-+	struct alb_bond_info *bond_info;
- 	int res;
+-	tcp_mark_lost_retrans(sk);
+-
+-	tcp_verify_left_out(tp);
+-
+ 	if ((state.reord < tp->fackets_out) &&
+ 	    ((inet_csk(sk)->icsk_ca_state != TCP_CA_Loss) || tp->undo_marker))
+ 		tcp_update_reordering(sk, tp->fackets_out - state.reord, 0);
  
- 	rtnl_lock();
-@@ -4523,6 +4525,14 @@ int bond_create(struct net *net, const char *name)
- 		return -ENOMEM;
- 	}
++	tcp_mark_lost_retrans(sk);
++	tcp_verify_left_out(tp);
+ out:
  
-+	/*
-+	 * Initialize rx_hashtbl_used_head to RLB_NULL_INDEX.
-+	 * It is set to 0 by default which is wrong.
-+	 */
-+	bond = netdev_priv(bond_dev);
-+	bond_info = &(BOND_ALB_INFO(bond));
-+	bond_info->rx_hashtbl_used_head = RLB_NULL_INDEX;
-+
- 	dev_net_set(bond_dev, net);
- 	bond_dev->rtnl_link_ops = &bond_link_ops;
- 
+ #if FASTRETRANS_DEBUG > 0
+-- 
+2.2.0.rc0.207.ga3a616c
