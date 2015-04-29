@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [bisected] ICMP fragmentation needed ignored / PMTU discovery
- broken since 3.19-rc7
-Date: Wed, 29 Apr 2015 14:43:52 -0400 (EDT)
-Message-ID: <20150429.144352.361536645438114802.davem@davemloft.net>
-References: <1508242.C2rIQlqbSL@thunder>
-	<20150428034314.GA30299@gondor.apana.org.au>
+Subject: Re: [PATCH net-next,v3,1/1] hv_netvsc: introduce netif-msg into
+ netvsc module
+Date: Wed, 29 Apr 2015 14:45:39 -0400 (EDT)
+Message-ID: <20150429.144539.270258012829964745.davem@davemloft.net>
+References: <1430208317-25493-1-git-send-email-sixiao@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gerd.von.egidy@intra2net.com, netdev@vger.kernel.org,
-	lw@cn.fujitsu.com
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50007 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751964AbbD2Sn5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 14:43:57 -0400
-In-Reply-To: <20150428034314.GA30299@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kys@microsoft.com, haiyangz@microsoft.com,
+	devel@linuxdriverproject.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sixiao@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430208317-25493-1-git-send-email-sixiao@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 28 Apr 2015 11:43:15 +0800
+From: sixiao@microsoft.com
+Date: Tue, 28 Apr 2015 01:05:17 -0700
 
-> Subject: route: Use ipv4_mtu instead of raw rt_pmtu
+> From: Simon Xiao <sixiao@microsoft.com>
 > 
-> The commit 3cdaa5be9e81a914e633a6be7b7d2ef75b528562 ("ipv4: Don't
-> increase PMTU with Datagram Too Big message") broke PMTU in cases
-> where the rt_pmtu value has expired but is smaller than the new
-> PMTU value.
+> 1. Introduce netif-msg to netvsc to control debug logging output
+> and keep msg_enable in netvsc_device_context so that it is
+> kept persistently.
+> 2. Only call dump_rndis_message() when NETIF_MSG_RX_ERR or above
+> is specified in netvsc module debug param.
+> In non-debug mode, in current code, dump_rndis_message() will not
+> dump anything but it still initialize some local variables and
+> process the switch logic which is unnecessary, especially in
+> high network throughput situation.
 > 
-> This obsolete rt_pmtu then prevents the new PMTU value from being
-> installed.
-> 
-> Fixes: 3cdaa5be9e81 ("ipv4: Don't increase PMTU with Datagram Too Big message")
-> Reported-by: Gerd v. Egidy <gerd.von.egidy@intra2net.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Applied and queued up for -stable, thanks!
+Applied.
