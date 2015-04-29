@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 08/12] trivial: net: atl1e: atl1e_hw.h: fix 0x0x prefix
-Date: Wed, 29 Apr 2015 14:56:55 -0400 (EDT)
-Message-ID: <20150429.145655.608665407519496876.davem@davemloft.net>
-References: <1430219491-5076-1-git-send-email-ao2@ao2.it>
-	<1430219491-5076-9-git-send-email-ao2@ao2.it>
+Subject: Re: [PATCH] net: sched: act_connmark: don't zap skb->nfct
+Date: Wed, 29 Apr 2015 14:57:01 -0400 (EDT)
+Message-ID: <20150429.145701.2285841701248872564.davem@davemloft.net>
+References: <1430220801-21798-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
-	netdev@vger.kernel.org
-To: ao2@ao2.it
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50184 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50188 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbbD2S46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 14:56:58 -0400
-In-Reply-To: <1430219491-5076-9-git-send-email-ao2@ao2.it>
+	with ESMTP id S1751270AbbD2S5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 14:57:03 -0400
+In-Reply-To: <1430220801-21798-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Ospite <ao2@ao2.it>
-Date: Tue, 28 Apr 2015 13:11:27 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Tue, 28 Apr 2015 13:33:21 +0200
 
-> Fix the 0x0x prefix in an integer constant.
+> This action is meant to be passive, i.e. we should not alter
+> skb->nfct: If nfct is present just leave it alone.
 > 
-> Signed-off-by: Antonio Ospite <ao2@ao2.it>
+> Compile tested only.
+> 
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
 Applied.
