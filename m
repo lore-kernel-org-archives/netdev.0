@@ -1,91 +1,116 @@
-From: Mihai Moldovan <ionic@ionic.de>
-Subject: Re: [PATCH] ss: Fix wrong filter behaviour
-Date: Wed, 29 Apr 2015 23:22:13 +0200
-Message-ID: <55414B85.1070204@ionic.de>
-References: <1430227008-7440-1-git-send-email-vadim4j@gmail.com> <20150428133745.GA10292@angus-think.wlc.globallogic.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="XNte156wRLe9kbNabV5T4gFNjnWjVTcv9"
-Cc: netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net-next v3 2/4] ibmveth: Add support for TSO
+Date: Wed, 29 Apr 2015 16:25:45 -0500
+Message-ID: <1430342747-16774-2-git-send-email-tlfalcon@linux.vnet.ibm.com>
+References: <1430342747-16774-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: linuxppc-dev@lists.ozlabs.org, nfont@linux.vnet.ibm.com,
+	eric.dumazet@gmail.com, Brian King <brking@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from powered.by.root24.eu ([5.135.3.88]:33415 "EHLO Root24.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750737AbbD2VWT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Apr 2015 17:22:19 -0400
-In-Reply-To: <20150428133745.GA10292@angus-think.wlc.globallogic.com>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:39568 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878AbbD2VZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 17:25:54 -0400
+Received: from /spool/local
+	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Wed, 29 Apr 2015 15:25:54 -0600
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id A56193E40047
+	for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 15:25:52 -0600 (MDT)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by b03cxnp07028.gho.boulder.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t3TLNrWQ29425760
+	for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 14:23:53 -0700
+Received: from d03av01.boulder.ibm.com (localhost [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t3TLPoCg021621
+	for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 15:25:52 -0600
+In-Reply-To: <1430342747-16774-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---XNte156wRLe9kbNabV5T4gFNjnWjVTcv9
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Add support for TSO.  TSO is turned off by default and
+must be enabled and configured by the user.  The driver
+version number is increased so that users can be sure
+that they are using ibmveth with TSO support.
 
-On 28.04.2015 03:37 PM, Vadim Kochan wrote:
-> On Tue, Apr 28, 2015 at 04:16:48PM +0300, Vadim Kochan wrote:
->> From: Vadim Kochan <vadim4j@gmail.com>
->>
->> Fixed applying family & socket type filters.
->> It was not possible to select UDP & UNIX sockets together.
->>
->> Now selected families are ORed.
->>
->> The problem was that filters were combined by AND.
->>
->> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
->> Reported-By: Mihai Moldovan <ionic@ionic.de>
->> ---
->>  misc/ss.c | 91 ++++++++++++++++++++++++++++++++++--------------------=
----------
->>  1 file changed, 49 insertions(+), 42 deletions(-)
->>
->> diff --git a/misc/ss.c b/misc/ss.c
->> index 954a30b..46dbb39 100644
->> [...]
->=20
-> Would you please respond if you received this patch ?
-> I am just checking, in case if it was get into 'Spam' list.
->=20
-> Regards,
+Cc: Brian King <brking@linux.vnet.ibm.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+v2: Included statistics that were previously in a separate patch
 
-I finally came around to testing this, sorry it took me so long.
+ drivers/net/ethernet/ibm/ibmveth.c | 19 ++++++++++++++++++-
+ drivers/net/ethernet/ibm/ibmveth.h |  1 +
+ 2 files changed, 19 insertions(+), 1 deletion(-)
 
-Using that patch, the output looks much better. It works for my use case.=
-
-
-What do we do with the "broken" versions, though? Even if that patch hits=
- 4.1.0,
-older versions like 4.0.0, 3.19.0 etc. will still be broken?
-
-
-
-Mihai
-
-
---XNte156wRLe9kbNabV5T4gFNjnWjVTcv9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJVQUuFAAoJEB/WLtluJTqH4+MP/3Uogsc4LQHMsM4I/wizepHQ
-yEqJ1NotyXrtij0QTQ5gCCgztdCpIj3WjKe9L1Wvw+X+BjpBjGJtGddy0sG78bbS
-NMsAj0bYS6725zZ3O7XnwQzAW96BgsHecyffaB9JKFLO9C/myWG51gfrgSiWWfsS
-wPQDkKKdzDMepawvs1/eco95y04jPPMurND4jRrP7Z8+phqIq0C1+NHgMsda87SJ
-Q/JALPV3yX2PBV/UXHZurJMbRBISJMuEGNQt/IKjhszjHFiOg9pp7Z72gaxHM/Wd
-9eK6KMp7fJ5BjTWjuQCvNbys5vyeax+Ce/yWScccBcSu1wsG/AgU8FQnZpKBxqhu
-6dOXtE4qtKdAcUlQpdvclDVXYx5xtkDmokEgYcx28cdiyfeapAHxWs8r/KcNK56H
-S50yxNv5BBprVQl8hMvLTdA+Ck8bKMtYesl53iHz0vMKHvghuO2AjF7vSXqP2f03
-IEX1IUd3A03JeCy5uVoBxm7ZxhHKTMFqA3cpKRUNoEPVEIOI2D43HuETTydMC7WV
-vFGpz5ct2H/iZtp/vjQ1zW+THCqHUaQrBUdyHfSwH/RLLGutoXWDTofSF5xEIhkv
-qERAU5vubgfn5gngzo36JeThqaJaHI8/nF2xDYC/A+sc2xzs1rsuz8ry5ZV5qt47
-Bz1DUhlX3BDPCgAqd6QL
-=48iU
------END PGP SIGNATURE-----
-
---XNte156wRLe9kbNabV5T4gFNjnWjVTcv9--
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 0210622..25cfc26 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -58,7 +58,7 @@ static struct kobj_type ktype_veth_pool;
+ 
+ static const char ibmveth_driver_name[] = "ibmveth";
+ static const char ibmveth_driver_string[] = "IBM Power Virtual Ethernet Driver";
+-#define ibmveth_driver_version "1.04"
++#define ibmveth_driver_version "1.05"
+ 
+ MODULE_AUTHOR("Santiago Leon <santil@linux.vnet.ibm.com>");
+ MODULE_DESCRIPTION("IBM Power Virtual Ethernet Driver");
+@@ -100,6 +100,7 @@ struct ibmveth_stat ibmveth_stats[] = {
+ 	{ "tx_send_failed", IBMVETH_STAT_OFF(tx_send_failed) },
+ 	{ "fw_enabled_ipv4_csum", IBMVETH_STAT_OFF(fw_ipv4_csum_support) },
+ 	{ "fw_enabled_ipv6_csum", IBMVETH_STAT_OFF(fw_ipv6_csum_support) },
++	{ "tx_large_packets", IBMVETH_STAT_OFF(tx_large_packets) },
+ };
+ 
+ /* simple methods of getting data from the current rxq entry */
+@@ -852,6 +853,10 @@ static int ibmveth_set_features(struct net_device *dev,
+ 	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	int rx_csum = !!(features & NETIF_F_RXCSUM);
+ 	int rc;
++	netdev_features_t changed = features ^ dev->features;
++
++	if (features & NETIF_F_TSO & changed)
++		netdev_info(dev, "TSO feature requires all partitions to have updated driver");
+ 
+ 	if (rx_csum == adapter->rx_csum)
+ 		return 0;
+@@ -1035,6 +1040,15 @@ retry_bounce:
+ 		descs[i+1].fields.address = dma_addr;
+ 	}
+ 
++	if (skb_is_gso(skb) && !skb_is_gso_v6(skb)) {
++		/* Put -1 in the IP checksum to tell phyp it
++		 *  is a largesend packet and put the mss in the TCP checksum.
++		 */
++		ip_hdr(skb)->check = 0xffff;
++		tcp_hdr(skb)->check = cpu_to_be16(skb_shinfo(skb)->gso_size);
++		adapter->tx_large_packets++;
++	}
++
+ 	if (ibmveth_send(adapter, descs)) {
+ 		adapter->tx_send_failed++;
+ 		netdev->stats.tx_dropped++;
+@@ -1422,6 +1436,9 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+ 	netdev->features |= netdev->hw_features;
+ 
++	/* TSO is disabled by default */
++	netdev->hw_features |= NETIF_F_TSO;
++
+ 	memcpy(netdev->dev_addr, mac_addr_p, ETH_ALEN);
+ 
+ 	if (firmware_has_feature(FW_FEATURE_CMO))
+diff --git a/drivers/net/ethernet/ibm/ibmveth.h b/drivers/net/ethernet/ibm/ibmveth.h
+index 0dc664b..56d1e22 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.h
++++ b/drivers/net/ethernet/ibm/ibmveth.h
+@@ -161,6 +161,7 @@ struct ibmveth_adapter {
+     u64 rx_no_buffer;
+     u64 tx_map_failed;
+     u64 tx_send_failed;
++    u64 tx_large_packets;
+ };
+ 
+ /*
+-- 
+1.9.3
