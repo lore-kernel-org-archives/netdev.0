@@ -1,72 +1,212 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCHSET] printk: implement extended console support
-Date: Wed, 29 Apr 2015 10:45:01 -0400
-Message-ID: <1430318704-32374-1-git-send-email-tj@kernel.org>
+Subject: [PATCH 2/3] printk: factor out message formatting from devkmsg_read()
+Date: Wed, 29 Apr 2015 10:45:03 -0400
+Message-ID: <1430318704-32374-3-git-send-email-tj@kernel.org>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Kay Sievers <kay@vrfy.org>
 To: pmladek@suse.cz, akpm@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430318704-32374-1-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset is v2 of printk extended console support.  v1 was part
-of "printk, netconsole: implement reliable netconsole" patchset [1].
-The biggest change is dropping of cont buffer handling as hinted by
-Petr's hint.  This made it unnecessary to change LOG_NOCONS handling
-and made the actual extended console support a lot simpler as now each
-printk invocation always maps to a single log entry.
+The extended message formatting used for /dev/kmsg will be used
+implement extended consoles.  Factor out msg_print_ext_header() and
+msg_print_ext_body() from devkmsg_read().
 
-The kernel keeps quite a bit of metadata for each printk message in
-its log buffer, all of which are accessible through /dev/kmsg;
-however, when the messages are transmitted to consoles, a lot of
-metadata is lost along with dictionary for structured logging.
+This is pure restructuring.
 
-Allowing consoles access to full log message information can be useful
-for multiple reasons.  The consumer of the console output can identify
-the orginating facility, make use of structured logging, determine
-whether any message got lost if the medium isn't reliable and so on.
-This will be further discussed in the netconsole patchset which will
-follow soon.
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Cc: Kay Sievers <kay@vrfy.org>
+Cc: Petr Mladek <pmladek@suse.cz>
+---
+ kernel/printk/printk.c | 146 +++++++++++++++++++++++++++----------------------
+ 1 file changed, 80 insertions(+), 66 deletions(-)
 
-Thanks to /dev/kmsg, printk already implements most of logic necessary
-for extended console support.  The header is well defined and the
-formatting code is already there.  The only possible complication is
-handling of cont buffer.
-
-This is dealt with by simply disabling in-kernel KERN_CONT
-concatenation when extended consoles are registered.  This makes
-message fragments consume more memory as each gets assigned a separate
-log entry, but this greatly simplifies extended console support and
-provided that /dev/kmsg and extended consumers perform trivial
-concatenation directed by the <contflag> field, the end results are
-the same.  In the long term, we might want to drop in-kernel
-concatenation entirely.
-
-Note that currently neither dmesg nor journald implements <contflag>
-handling but this is trivial to add and this patchset doesn't change
-the kernel behavior when no external console is registered.
-
-This patchset contains the following three patches.
-
-0001-printk-guard-the-amount-written-per-line-by-devkmsg_.patch
-0002-printk-factor-out-message-formatting-from-devkmsg_re.patch
-0003-printk-implement-support-for-extended-console-driver.patch
-
-0001-0002 are straight-forward prep patches.  0003 implements the
-extended console support.
-
-The patches are also available in the following git branch.
-
- git://git.kernel.org/pub/scm/linux/kernel/git/tj/misc.git review-printk-ext-console
-
-diffstat follows.  Thanks.
-
- include/linux/console.h |    1
- include/linux/printk.h  |    2
- kernel/printk/printk.c  |  213 ++++++++++++++++++++++++++++++++----------------
- 3 files changed, 146 insertions(+), 70 deletions(-)
-
---
-tejun
-
-[1] http://lkml.kernel.org/g/1429225433-11946-1-git-send-email-tj@kernel.org
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index a115490..51ce4f1 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -511,6 +511,81 @@ static void append_char(char **pp, char *e, char c)
+ 		*(*pp)++ = c;
+ }
+ 
++static ssize_t msg_print_ext_header(char *buf, size_t size,
++				    struct printk_log *msg, u64 seq,
++				    enum log_flags prev_flags)
++{
++	u64 ts_usec = msg->ts_nsec;
++	char cont = '-';
++
++	do_div(ts_usec, 1000);
++
++	/*
++	 * If we couldn't merge continuation line fragments during the print,
++	 * export the stored flags to allow an optional external merge of the
++	 * records. Merging the records isn't always neccessarily correct, like
++	 * when we hit a race during printing. In most cases though, it produces
++	 * better readable output. 'c' in the record flags mark the first
++	 * fragment of a line, '+' the following.
++	 */
++	if (msg->flags & LOG_CONT && !(prev_flags & LOG_CONT))
++		cont = 'c';
++	else if ((msg->flags & LOG_CONT) ||
++		 ((prev_flags & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
++		cont = '+';
++
++	return scnprintf(buf, size, "%u,%llu,%llu,%c;",
++		       (msg->facility << 3) | msg->level, seq, ts_usec, cont);
++}
++
++static ssize_t msg_print_ext_body(char *buf, size_t size,
++				  char *dict, size_t dict_len,
++				  char *text, size_t text_len)
++{
++	char *p = buf, *e = buf + size;
++	size_t i;
++
++	/* escape non-printable characters */
++	for (i = 0; i < text_len; i++) {
++		unsigned char c = text[i];
++
++		if (c < ' ' || c >= 127 || c == '\\')
++			p += scnprintf(p, e - p, "\\x%02x", c);
++		else
++			append_char(&p, e, c);
++	}
++	append_char(&p, e, '\n');
++
++	if (dict_len) {
++		bool line = true;
++
++		for (i = 0; i < dict_len; i++) {
++			unsigned char c = dict[i];
++
++			if (line) {
++				append_char(&p, e, ' ');
++				line = false;
++			}
++
++			if (c == '\0') {
++				append_char(&p, e, '\n');
++				line = true;
++				continue;
++			}
++
++			if (c < ' ' || c >= 127 || c == '\\') {
++				p += scnprintf(p, e - p, "\\x%02x", c);
++				continue;
++			}
++
++			append_char(&p, e, c);
++		}
++		append_char(&p, e, '\n');
++	}
++
++	return p - buf;
++}
++
+ /* /dev/kmsg - userspace message inject/listen interface */
+ struct devkmsg_user {
+ 	u64 seq;
+@@ -575,19 +650,12 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+ {
+ 	struct devkmsg_user *user = file->private_data;
+ 	struct printk_log *msg;
+-	char *p, *e;
+-	u64 ts_usec;
+-	size_t i;
+-	char cont = '-';
+ 	size_t len;
+ 	ssize_t ret;
+ 
+ 	if (!user)
+ 		return -EBADF;
+ 
+-	p = user->buf;
+-	e = user->buf + sizeof(user->buf);
+-
+ 	ret = mutex_lock_interruptible(&user->lock);
+ 	if (ret)
+ 		return ret;
+@@ -617,71 +685,17 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+ 	}
+ 
+ 	msg = log_from_idx(user->idx);
+-	ts_usec = msg->ts_nsec;
+-	do_div(ts_usec, 1000);
++	len = msg_print_ext_header(user->buf, sizeof(user->buf),
++				   msg, user->seq, user->prev);
++	len += msg_print_ext_body(user->buf + len, sizeof(user->buf) - len,
++				  log_dict(msg), msg->dict_len,
++				  log_text(msg), msg->text_len);
+ 
+-	/*
+-	 * If we couldn't merge continuation line fragments during the print,
+-	 * export the stored flags to allow an optional external merge of the
+-	 * records. Merging the records isn't always neccessarily correct, like
+-	 * when we hit a race during printing. In most cases though, it produces
+-	 * better readable output. 'c' in the record flags mark the first
+-	 * fragment of a line, '+' the following.
+-	 */
+-	if (msg->flags & LOG_CONT && !(user->prev & LOG_CONT))
+-		cont = 'c';
+-	else if ((msg->flags & LOG_CONT) ||
+-		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
+-		cont = '+';
+-
+-	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
+-		       (msg->facility << 3) | msg->level,
+-		       user->seq, ts_usec, cont);
+ 	user->prev = msg->flags;
+-
+-	/* escape non-printable characters */
+-	for (i = 0; i < msg->text_len; i++) {
+-		unsigned char c = log_text(msg)[i];
+-
+-		if (c < ' ' || c >= 127 || c == '\\')
+-			p += scnprintf(p, e - p, "\\x%02x", c);
+-		else
+-			append_char(&p, e, c);
+-	}
+-	append_char(&p, e, '\n');
+-
+-	if (msg->dict_len) {
+-		bool line = true;
+-
+-		for (i = 0; i < msg->dict_len; i++) {
+-			unsigned char c = log_dict(msg)[i];
+-
+-			if (line) {
+-				append_char(&p, e, ' ');
+-				line = false;
+-			}
+-
+-			if (c == '\0') {
+-				append_char(&p, e, '\n');
+-				line = true;
+-				continue;
+-			}
+-
+-			if (c < ' ' || c >= 127 || c == '\\') {
+-				p += scnprintf(p, e - p, "\\x%02x", c);
+-				continue;
+-			}
+-
+-			append_char(&p, e, c);
+-		}
+-		append_char(&p, e, '\n');
+-	}
+-
+ 	user->idx = log_next(user->idx);
+ 	user->seq++;
+ 	raw_spin_unlock_irq(&logbuf_lock);
+ 
+-	len = p - user->buf;
+ 	if (len > count) {
+ 		ret = -EINVAL;
+ 		goto out;
+-- 
+2.1.0
