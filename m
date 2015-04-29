@@ -1,41 +1,68 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH RFC] net/macb: Fix UDPv4 checksum offload
-Date: Wed, 29 Apr 2015 11:15:21 +0100
-Message-ID: <20150429111521.288902f6@lxorguk.ukuu.org.uk>
-References: <1430174610-6834-1-git-send-email-jaeden.amero@ni.com>
-	<20150427.224713.291017556251723132.davem@davemloft.net>
-	<553FEF66.7010503@ni.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] tcp: add TCP_CC_INFO socket option
+Date: Wed, 29 Apr 2015 04:07:05 -0700
+Message-ID: <1430305625.3711.40.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430263429-4069-1-git-send-email-edumazet@google.com>
+	 <1430263429-4069-3-git-send-email-edumazet@google.com>
+	 <55409393.3040003@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, nicolas.ferre@atmel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jeff.westfahl@ni.com, mihai.neagu@ni.com
-To: Jaeden Amero <jaeden.amero@ni.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 251.110.2.81.in-addr.arpa ([81.2.110.251]:60566 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753419AbbD2KPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 06:15:42 -0400
-In-Reply-To: <553FEF66.7010503@ni.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:35943 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422735AbbD2LHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 07:07:08 -0400
+Received: by pdea3 with SMTP id a3so25206819pde.3
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 04:07:07 -0700 (PDT)
+In-Reply-To: <55409393.3040003@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Unfortunately, the Cadence MACB doesn't support the enabling or
-> disabling of checksum generation per descriptor.
+On Wed, 2015-04-29 at 10:17 +0200, Daniel Borkmann wrote:
+> On 04/29/2015 01:23 AM, Eric Dumazet wrote:
+> > Some Congestion Control modules can provide per flow information,
+> > but current way to get this information is to use netlink.
+> >
+> > Like TCP_INFO, let's add TCP_CC_INFO so that applications can
+> > issue a getsockopt() if they have a socket file descriptor,
+> > instead of playing complex netlink games.
+> >
+> > Sample usage would be :
+> >
+> >    union tcp_cc_info info;
+> >    socklen_t len = sizeof(info);
+> >
+> >    if (getsockopt(fd, SOL_TCP, TCP_CC_INFO, &info, &len) == -1)
+> >
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Cc: Yuchung Cheng <ycheng@google.com>
+> > Cc: Neal Cardwell <ncardwell@google.com>
+> 
+> Presuming other cc algorithms would in future also export
+> internal information through this interface, would it make
+> sense to put tcp_cc_info into a container structure so we
+> don't miss out attr (vegas, dctcp, ...), like:
+> 
+>    struct tcp_cc_exp {
+>      u32               kind;
+>      union tcp_cc_info info;
+>    };
+> 
+> Otherwise looks good:
+> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-So how does packet forwarding work ? If that means the device is
-re-checksumming packets it is forwarding then that's really not very good
-at all, especially if it takes frames that are unchecksummed and corrupts
-them with a checksum midflight which is based upon unknown validity.
+I thought of this, but I really believe this is not needed, as the
+application can already fetch CC name (if really its does not know yet)
 
-Other question: you seem to be assuming that the headers in part are
-valid. That's not necessarily the case (even for local traffic you can
-get UDP frames sent via RAW sockets that are invalid - eg with the ihl
-pointing beyond the end of the packet). Given you then write into that
-offset isn't a length check needed.
+And I also wanted to get same layout for info provided by netlink and
+getsockopt()
 
-That might also be a useful fast path for longer frames, as you know the
-worst case length for a 2 byte UDP frame.
-
-Alan
+Thanks !
