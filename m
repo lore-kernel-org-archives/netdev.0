@@ -1,41 +1,49 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp_westwood: fix tcp_westwood_info()
-Date: Wed, 29 Apr 2015 19:36:27 -0400
-Message-ID: <CADVnQynFp3XXCnt6K7tTMHrA+tEHe7Z4ujnkaJ_jbzrPokzJtQ@mail.gmail.com>
-References: <1430263429-4069-1-git-send-email-edumazet@google.com>
-	<1430263429-4069-2-git-send-email-edumazet@google.com>
-	<20150429.181252.2106091176943411796.davem@davemloft.net>
-	<1430347239.3711.61.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1430349658.3711.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of
+ netfilter ingress hooks
+Date: Thu, 30 Apr 2015 01:37:23 +0200
+Message-ID: <20150429233723.GB7025@acer.localdomain>
+References: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
+ <1430333589-4940-7-git-send-email-pablo@netfilter.org>
+ <CAHA+R7NWeOLTjgAd9xQNcVP=snNOiH0aLy0FyUWzqdH+gVbJ9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	kbuild test robot <fengguang.wu@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:33830 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160AbbD2Xg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:36:27 -0400
-Received: by obfe9 with SMTP id e9so32345953obf.1
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 16:36:27 -0700 (PDT)
-In-Reply-To: <1430349658.3711.71.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAHA+R7NWeOLTjgAd9xQNcVP=snNOiH0aLy0FyUWzqdH+gVbJ9g@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 29, 2015 at 7:20 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> I forgot to update tcp_westwood when changing get_info() behavior,
-> this patch should fix this.
->
-> Fixes: 64f40ff5bbdb ("tcp: prepare CC get_info() access from getsockopt()")
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On 29.04, Cong Wang wrote:
+> On Wed, Apr 29, 2015 at 11:53 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+> > index 2274e72..23b57da 100644
+> > --- a/net/sched/Kconfig
+> > +++ b/net/sched/Kconfig
+> > @@ -312,6 +312,7 @@ config NET_SCH_PIE
+> >  config NET_SCH_INGRESS
+> >         tristate "Ingress Qdisc"
+> >         depends on NET_CLS_ACT
+> > +       select NETFILTER_INGRESS
+> >         ---help---
+> >           Say Y here if you want to use classifiers for incoming packets.
+> >           If unsure, say Y.
+> 
+> 
+> So now it impossible to compile ingress Qdics without netfilters...
+> 
+> (I know you moved them into net/core/, but still they are netfilter API's.)
+> 
+> Why do we have to mix different layers? IOW, why not just keep TC at L2
+> and netfilters at L3 even just w.r.t. API?
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-neal
+Call it what you want, netfilter for most people is the entire infrastructure
+built on top of the hooks. We can call it packet hooks if that makes you
+happy. And the are infrastructure and not affiliated to any particular
+layer.
