@@ -1,50 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: fix problem with parallel link
- synchronization mechanism
-Date: Wed, 29 Apr 2015 15:09:23 -0400 (EDT)
-Message-ID: <20150429.150923.1291697432920867232.davem@davemloft.net>
-References: <1430254744-10081-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH RESEND] mlx4: Fix tx ring affinity_mask creation
+Date: Wed, 29 Apr 2015 15:17:26 -0400 (EDT)
+Message-ID: <20150429.151726.2104003118383475913.davem@davemloft.net>
+References: <1430257769-23350-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50234 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006AbbD2TJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 15:09:26 -0400
-In-Reply-To: <1430254744-10081-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: amirv@mellanox.com, idos@mellanox.com, gerlitz.or@gmail.com,
+	clsoto@us.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: bpoirier@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430257769-23350-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Tue, 28 Apr 2015 16:59:04 -0400
+From: Benjamin Poirier <bpoirier@suse.de>
+Date: Tue, 28 Apr 2015 14:49:29 -0700
 
-> Currently, we try to accumulate arrived packets in the links's
-> 'deferred' queue during the parallel link syncronization phase.
+> By default, the number of tx queues is limited by the number of online cpus
+> in mlx4_en_get_profile(). However, this limit no longer holds after the
+> ethtool .set_channels method has been called. In that situation, the driver
+> may access invalid bits of certain cpumask variables when queue_index >=
+> nr_cpu_ids.
 > 
-> This entails two problems:
-> 
-> - With an unlucky combination of arriving packets the algorithm
->   may go into a lockstep with the out-of-sequence handling function,
->   where the synch mechanism is adding a packet to the deferred queue,
->   while the out-of-sequence handling is retrieving it again, thus
->   ending up in a loop inside the node_lock scope.
-> 
-> - Even if this is avoided, the link will very often send out
->   unnecessary protocol messages, in the worst case leading to
->   redundant retransmissions.
-> 
-> We fix this by just dropping arriving packets on the upcoming link
-> during the synchronization phase, thus relying on the retransmission
-> protocol to resolve the situation once the two links have arrived to
-> a synchronized state.
-> 
-> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> Acked-by: Ido Shamay <idos@mellanox.com>
+> Fixes: d03a68f ("net/mlx4_en: Configure the XPS queue mapping on driver load")
 
-Applied, thanks Jon.
+Applied and queue up for -stable, thanks.
