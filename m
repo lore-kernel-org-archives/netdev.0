@@ -1,77 +1,103 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 6/7] net: Add flow_keys digest
-Date: Tue, 28 Apr 2015 21:27:40 -0700
-Message-ID: <1430281661-2271966-7-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 4/7] sched: Eliminate use of flow_keys in sch_sfb
+Date: Tue, 28 Apr 2015 21:27:38 -0700
+Message-ID: <1430281661-2271966-5-git-send-email-tom@herbertland.com>
 References: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <jiri@resnulli.us>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39868 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:22220 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751518AbbD2E2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 00:28:17 -0400
-Received: from pps.filterd (m0044008 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3T4R4im021998
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:16 -0700
+	by vger.kernel.org with ESMTP id S966113AbbD2E2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 00:28:13 -0400
+Received: from pps.filterd (m0004347 [127.0.0.1])
+	by m0004347.ppops.net (8.14.5/8.14.5) with SMTP id t3T4R9YS010149
+	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:12 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1u2pxcr470-1
+	by m0004347.ppops.net with ESMTP id 1u2qpfr1g1-2
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:16 -0700
+	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:12 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 274912b2ee2811e4afb00002c992ebde-377d02c0 for <netdev@vger.kernel.org>;	Tue,
- 28 Apr 2015 21:28:15 -0700
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 2504c05aee2811e48b1a0002c95209d8-e51c62c0 for <netdev@vger.kernel.org>;	Tue,
+ 28 Apr 2015 21:28:11 -0700
 In-Reply-To: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some users of flow keys (well just sch_choke now) need to pass
-flow_keys in skbuff cb, and use them for exact comparisons of flows
-so that skb->hash is not sufficient. In order to increase size of
-the flow_keys structure, we introduce another structure for
-the purpose of passing flow keys in skbuff cb. We limit this structure
-to sixteen bytes, and we will technically treat this as a digest of
-flow_keys struct hence its name flow_keys_digest. In the first
-incaranation we just copy the flow_keys structure up to 16 bytes--
-this is the same information previously passed in the cb. In the
-future, we'll adapt this for larger flow_keys and could use something
-like SHA-1 over the whole flow_keys to improve the quality of the
-digest.
+Call qdisc_skb_get_hash instead of doing skb_flow_dissect and then
+jhash by hand.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/flow_keys.h | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+ net/sched/sch_sfb.c | 24 ++++++++----------------
+ 1 file changed, 8 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index dc8fd81..f2610ad 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -42,4 +42,23 @@ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8
- u32 flow_hash_from_keys(struct flow_keys *keys);
- unsigned int flow_get_hlen(const unsigned char *data, unsigned int max_len,
- 			   __be16 protocol);
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 5819dd8..4b81519 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -26,7 +26,6 @@
+ #include <net/ip.h>
+ #include <net/pkt_sched.h>
+ #include <net/inet_ecn.h>
+-#include <net/flow_keys.h>
+ 
+ /*
+  * SFB uses two B[l][n] : L x N arrays of bins (L levels, N bins per level)
+@@ -285,9 +284,9 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	int i;
+ 	u32 p_min = ~0;
+ 	u32 minqlen = ~0;
+-	u32 r, slot, salt, sfbhash;
++	u32 r, sfbhash;
++	u32 slot = q->slot;
+ 	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
+-	struct flow_keys keys;
+ 
+ 	if (unlikely(sch->q.qlen >= q->limit)) {
+ 		qdisc_qstats_overlimit(sch);
+@@ -309,22 +308,17 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	fl = rcu_dereference_bh(q->filter_list);
+ 	if (fl) {
++		u32 salt;
 +
-+/* struct flow_keys_digest:
-+ *
-+ * This structure used to hold a digest of the full flow keys. This is a larger
-+ * "hash" of a connection to allow definitively matching specific flows where
-+ * the 32 bit skb_hash is not large enough. The size is limited to 16 bytes
-+ * so that it can by used in CB of skb (see sch_choke for an example).
-+ */
-+#define FLOW_KEYS_DIGEST_LEN	16
-+struct flow_keys_digest {
-+	u8	data[FLOW_KEYS_DIGEST_LEN];
-+};
-+
-+static inline void make_flow_keys_digest(struct flow_keys_digest *digest,
-+					 struct flow_keys *flow)
-+{
-+	memcpy(&digest->data, flow, FLOW_KEYS_DIGEST_LEN);
-+}
-+
- #endif
+ 		/* If using external classifiers, get result and record it. */
+ 		if (!sfb_classify(skb, fl, &ret, &salt))
+ 			goto other_drop;
+-		keys.src = salt;
+-		keys.dst = 0;
+-		keys.ports = 0;
++		sfbhash = jhash_1word(salt, q->bins[slot].perturbation);
+ 	} else {
+-		skb_flow_dissect(skb, &keys);
++		sfbhash = skb_get_hash_perturb(skb, q->bins[slot].perturbation);
+ 	}
+ 
+-	slot = q->slot;
+ 
+-	sfbhash = jhash_3words((__force u32)keys.dst,
+-			       (__force u32)keys.src,
+-			       (__force u32)keys.ports,
+-			       q->bins[slot].perturbation);
+ 	if (!sfbhash)
+ 		sfbhash = 1;
+ 	sfb_skb_cb(skb)->hashes[slot] = sfbhash;
+@@ -356,10 +350,8 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	if (unlikely(p_min >= SFB_MAX_PROB)) {
+ 		/* Inelastic flow */
+ 		if (q->double_buffering) {
+-			sfbhash = jhash_3words((__force u32)keys.dst,
+-					       (__force u32)keys.src,
+-					       (__force u32)keys.ports,
+-					       q->bins[slot].perturbation);
++			sfbhash = skb_get_hash_perturb(skb,
++			    q->bins[slot].perturbation);
+ 			if (!sfbhash)
+ 				sfbhash = 1;
+ 			sfb_skb_cb(skb)->hashes[slot] = sfbhash;
 -- 
 1.8.1
