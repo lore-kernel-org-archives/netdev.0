@@ -1,57 +1,41 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: iproute2 regression -- ss -u returns an empty list
-Date: Wed, 29 Apr 2015 12:46:27 +0300
-Message-ID: <20150429094627.GA676@angus-think.wlc.globallogic.com>
-References: <553EE0D9.3050601@ionic.de>
- <20150428112108.GA22108@angus-think.wlc.globallogic.com>
- <553F87B7.7090602@ionic.de>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH RFC] net/macb: Fix UDPv4 checksum offload
+Date: Wed, 29 Apr 2015 11:15:21 +0100
+Message-ID: <20150429111521.288902f6@lxorguk.ukuu.org.uk>
+References: <1430174610-6834-1-git-send-email-jaeden.amero@ni.com>
+	<20150427.224713.291017556251723132.davem@davemloft.net>
+	<553FEF66.7010503@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: Mihai Moldovan <ionic@ionic.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, nicolas.ferre@atmel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jeff.westfahl@ni.com, mihai.neagu@ni.com
+To: Jaeden Amero <jaeden.amero@ni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:34267 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966117AbbD2Jqw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 05:46:52 -0400
-Received: by laat2 with SMTP id t2so15806153laa.1
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 02:46:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <553F87B7.7090602@ionic.de>
+Received: from 251.110.2.81.in-addr.arpa ([81.2.110.251]:60566 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753419AbbD2KPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 06:15:42 -0400
+In-Reply-To: <553FEF66.7010503@ni.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 28, 2015 at 03:14:31PM +0200, Mihai Moldovan wrote:
-> Hi Vadim,
-> 
-> 
-> On 28.04.2015 01:21 PM, Vadim Kochan wrote:
-> > Seems I have a fixed version, I tested it localy with different
-> > option combinations, and now there should be no issues when specifying
-> > different families.
-> 
-> Thanks for the quick work! I'm happy to test.
-> 
-> 
-> > Would you be able to test it ? How I can provide a fixed version to you -
-> > by patch or I can push to my github and give you a link ?
-> 
-> I don't mind, any way is fine. I can work either way.
-> 
-> 
-> 
-> Mihai
-> 
-> 
+> Unfortunately, the Cadence MACB doesn't support the enabling or
+> disabling of checksum generation per descriptor.
 
-Hi Stephen,
+So how does packet forwarding work ? If that means the device is
+re-checksumming packets it is forwarding then that's really not very good
+at all, especially if it takes frames that are unchecksummed and corrupts
+them with a checksum midflight which is based upon unknown validity.
 
-I just saw that Linux 4.0.1 was released so I assume that you will
-prepare the v4.0.1 tag for iproute2 too, but would you please wait until
-this bug will be fixed ? I already have a working patch (from my point
-of view it works better than before), so I'd like to wait when Mihai
-will test the patch which I have sent directly to him.
+Other question: you seem to be assuming that the headers in part are
+valid. That's not necessarily the case (even for local traffic you can
+get UDP frames sent via RAW sockets that are invalid - eg with the ihl
+pointing beyond the end of the packet). Given you then write into that
+offset isn't a length check needed.
 
-Thanks,
-Vadim
+That might also be a useful fast path for longer frames, as you know the
+worst case length for a 2 byte UDP frame.
+
+Alan
