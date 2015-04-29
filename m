@@ -1,83 +1,62 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 7/7] sch_choke: Use flow_keys_digest
-Date: Tue, 28 Apr 2015 21:27:41 -0700
-Message-ID: <1430281661-2271966-8-git-send-email-tom@herbertland.com>
-References: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net] bnx2x: Delay during kdump load
+Date: Wed, 29 Apr 2015 08:09:49 +0300
+Message-ID: <1430284189-6773-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <jiri@resnulli.us>
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51608 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966129AbbD2E2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 00:28:19 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t3T4Rw7R007238
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:18 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1u2p8fr9xf-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 21:28:18 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 2841dc3aee2811e480ee0002c95209d8-e49c52c0 for <netdev@vger.kernel.org>;	Tue,
- 28 Apr 2015 21:28:17 -0700
-In-Reply-To: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:3244 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751518AbbD2FKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 01:10:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call make_flow_keys_digest to get a digest from flow keys and
-use that to pass skbuff cb and for comparing flows.
+In a kdump environment interfaces might be re-loaded without a proper
+unload sequence in the previous running kernel.
+bnx2x management FW and driver maintains a `pulse' that notifies the FW
+that the driver is still up and running.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Driver load on the kdump kernel should be performed only after the pulse
+has been out-of-sync long enough for the management FW to identify that
+the driver has crashed, on which point it will perform some necessary
+cleanup of the HW.
+
+In today's distros kdump loading is quite fast, sometimes too fast for our
+FW to get out-of-sync. This patch delays the bnx2x's probe during kdump
+to allow a proper re-load on the kdump kernel.
+
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+
 ---
- net/sched/sch_choke.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+Hi Dave,
 
-diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-index c009eb9..dfe3da7 100644
---- a/net/sched/sch_choke.c
-+++ b/net/sched/sch_choke.c
-@@ -133,16 +133,10 @@ static void choke_drop_by_idx(struct Qdisc *sch, unsigned int idx)
- 	--sch->q.qlen;
- }
+Please consider applying this to 'net'.
+
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index b9f85fcc..0939279 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13371,6 +13371,12 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ 	bool is_vf;
+ 	int cnic_cnt;
  
--/* private part of skb->cb[] that a qdisc is allowed to use
-- * is limited to QDISC_CB_PRIV_LEN bytes.
-- * As a flow key might be too large, we store a part of it only.
-- */
--#define CHOKE_K_LEN min_t(u32, sizeof(struct flow_keys), QDISC_CB_PRIV_LEN - 3)
--
- struct choke_skb_cb {
- 	u16			classid;
- 	u8			keys_valid;
--	u8			keys[QDISC_CB_PRIV_LEN - 3];
-+	struct			flow_keys_digest keys;
- };
- 
- static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
-@@ -177,18 +171,18 @@ static bool choke_match_flow(struct sk_buff *skb1,
- 	if (!choke_skb_cb(skb1)->keys_valid) {
- 		choke_skb_cb(skb1)->keys_valid = 1;
- 		skb_flow_dissect(skb1, &temp);
--		memcpy(&choke_skb_cb(skb1)->keys, &temp, CHOKE_K_LEN);
-+		make_flow_keys_digest(&choke_skb_cb(skb1)->keys, &temp);
- 	}
- 
- 	if (!choke_skb_cb(skb2)->keys_valid) {
- 		choke_skb_cb(skb2)->keys_valid = 1;
- 		skb_flow_dissect(skb2, &temp);
--		memcpy(&choke_skb_cb(skb2)->keys, &temp, CHOKE_K_LEN);
-+		make_flow_keys_digest(&choke_skb_cb(skb2)->keys, &temp);
- 	}
- 
- 	return !memcmp(&choke_skb_cb(skb1)->keys,
- 		       &choke_skb_cb(skb2)->keys,
--		       CHOKE_K_LEN);
-+		       sizeof(choke_skb_cb(skb1)->keys));
- }
- 
- /*
++	/* Management FW 'remembers' living interfaces. Allow it some time
++	 * to forget previously living interfaces, allowing a proper re-load.
++	 */
++	if (is_kdump_kernel())
++		msleep(5000);
++
+ 	/* An estimated maximum supported CoS number according to the chip
+ 	 * version.
+ 	 * We will try to roughly estimate the maximum number of CoSes this chip
 -- 
-1.8.1
+1.9.3
