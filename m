@@ -1,178 +1,113 @@
-From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [RFC PATCH net-next v3 0/4] net: Introduce IFF_PROTO_DOWN flag.
-Date: Wed, 29 Apr 2015 15:04:09 -0700
-Message-ID: <CACcJQnSmQQtZoPAEOwAGsvaLHzb4_fU2dxrgAXDXAjHsgkaFhA@mail.gmail.com>
+Date: Wed, 29 Apr 2015 15:08:41 -0700
+Message-ID: <20150429150841.55477595@urahara>
 References: <1430156304-13187-1-git-send-email-anuradhak@cumulusnetworks.com>
-	<CAE4R7bAGRKGShQuSqjvQDW8cG6MHE8Jie7Hp=7FJw00kJM4NgQ@mail.gmail.com>
-	<CACcJQnRw5HVUb0M3A2u_zbMtp85pi+kdCUa5gaY6cN4HXpVyeQ@mail.gmail.com>
-	<CAE4R7bAbe34eOqfdEUqNAp57936Eqcu54+r_Bp75CDdB4FgThw@mail.gmail.com>
-	<CACcJQnSZJGU2ohYo=NKjiyo3n0rX-0SP2Aupt74ONbvY7aE33A@mail.gmail.com>
-	<CAE4R7bC6tchoeSz+N82s_3h62tSUujx0+aCD_HBhjNBRixv17A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Wilson Kok <wkok@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Cc: davem@davemloft.net, sfeldma@gmail.com, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	wkok@cumulusnetworks.com
+To: anuradhak@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:35971 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbbD2WEL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 18:04:11 -0400
-Received: by lagv1 with SMTP id v1so30675949lag.3
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 15:04:10 -0700 (PDT)
-In-Reply-To: <CAE4R7bC6tchoeSz+N82s_3h62tSUujx0+aCD_HBhjNBRixv17A@mail.gmail.com>
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:33625 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751007AbbD2WIk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 18:08:40 -0400
+Received: by pdbnk13 with SMTP id nk13so40482909pdb.0
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 15:08:39 -0700 (PDT)
+In-Reply-To: <1430156304-13187-1-git-send-email-anuradhak@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 28, 2015 at 5:28 PM, Scott Feldman <sfeldma@gmail.com> wrot=
-e:
-> On Tue, Apr 28, 2015 at 1:04 PM, Anuradha Karuppiah
-> <anuradhak@cumulusnetworks.com> wrote:
->> On Tue, Apr 28, 2015 at 12:37 PM, Scott Feldman <sfeldma@gmail.com> =
-wrote:
->>> On Tue, Apr 28, 2015 at 8:39 AM, Anuradha Karuppiah
->>> <anuradhak@cumulusnetworks.com> wrote:
->>>>
->>>>
->>>> On Mon, Apr 27, 2015 at 10:45 PM, Scott Feldman <sfeldma@gmail.com=
-> wrote:
->>>>>
->>>>> On Mon, Apr 27, 2015 at 10:38 AM,  <anuradhak@cumulusnetworks.com=
-> wrote:
->>>>> > From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
->>>>> >
->>>>> > User space daemons can detect errors in the network that need t=
-o be
->>>>> > notified to the switch device drivers.
->>>>> >
->>>>> > Drivers can react to this error state by doing a phy-down on th=
+On Mon, 27 Apr 2015 10:38:20 -0700
+anuradhak@cumulusnetworks.com wrote:
+
+> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>=20
+> User space daemons can detect errors in the network that need to be
+> notified to the switch device drivers.=20
+>=20
+> Drivers can react to this error state by doing a phy-down on the
+> switch-port which would result in a carrier-off locally and on the
+> directly connected switch. Doing that would prevent loops and
+> black-holes in the network.
+>=20
+> One such use case is the multi-chassis LAG application -
+> 1. The MLAG application runs on peer switches (say Switch0 and Switch=
+1)
+>    synchronizing states, forwarding entries etc. between the two
+>    switches over the peer-link (this is a link directly connecting th=
 e
->>>>> > switch-port which would result in a carrier-off locally and on =
-the
->>>>> > directly connected switch. Doing that would prevent loops and
->>>>> > black-holes in the network.
->>>>>
->>>>> (Sorry if this was asked earlier)
->>>>>
->>>>> Can the application simply send a SETLINK with IFF_UP clear and t=
-he
->>>>> port driver's ndo_stop would bring the PHY link down?
->>>>
->>>>
->>>> Yes, Clearing IFF_UP on detecting errors (PROTO_DOWN) is possible =
-and we
->>>> tried
->>>> that implementation as well. Unfortunately it failed because of th=
+>    two switches).
+> 2. An MLAG election process designates one of the switches as a prima=
+ry
+>    (for e.g. Switch0 is primary and Switch1 is secondary).=20
+> 3. The peer link plays a critical role in allowing Switch0-Switch1 to
+>    function as a single LAG partner to the downstream dual-connected
+>    servers. When the peer-link between the switches goes down we have=
+ a
+>    split-brain situation. Switch0 and Switch1 are no longer in sync a=
+nd
+>    are acting independently. This can result in traffic loops and
+>    traffic black-holing in the network.=20
+> 4. To prevent these problems the MLAG application on the secondary
+>    switch phy-downs the MLAG ports on detecting the peer-link down.
+>    This will be seen as a carrier down on servers that are
+>    dual-connected to Switch0 and Switch1.
+> 5. Specifically a dual-connected server will see a carrier-down on th=
 e
->>>> following
->>>> reasons -
->>>>
->>>> 1. There is no way to disambiguate between admin_down (!IFF_UP) an=
-d an
->>>> APP/driver enforced error_down (IFF_PROTO_DOWN). Administrator or
->>>> automation-scripts that monitor the config assumed that switch-por=
-t
->>>> configuration had somehow fallen out of sync (and attempted to rei=
-nstate the
->>>> admin_up repeatedly).
->>>>
->>>> 2. Automatic error recovery was not possible; consider the followi=
-ng
->>>> scenario
->>>> for e.g.
->>>>    a. The MLAG peer-link is down so the MLAG app on the secondary =
-switch has
->>>>       proto_down=E2=80=99ed all the MLAG ports (including switch-p=
-ort swp1) by
->>>> clearing
->>>>       IFF_UP.
->>>>    b. At the same time the administrator is in the process of maki=
-ng some
->>>>       changes on the network connected to swp1. To avoid doing it =
-live he
->>>> would
->>>>       admin_disable swp1 (!IFF_UP) by doing an "ip link set swp1 d=
-own" (this
->>>>       is a no-op as event #a has already cleared IFF_UP on swp1).
->>>>    c. If the MLAG peer-link recovers at this point the MLAG app on=
- the
->>>>       secondary switch would try to automatically recover the MLAG=
- ports
->>>>       by clearing proto_down (i.e. setting IFF_UP); including on s=
-wp1. Doing
->>>>       that overrides the administrator=E2=80=99s directive to keep=
- swp1 admin_down.
->>>>       Overriding an admin-down in a live network can be very dange=
-rous so it
->>>>       is not possible to do auto-error-recovery unless we have a w=
-ay to
->>>>       disambiguate between the admin and error states
->>>
->>> That makes sense.
->>>
->>> Dang, this is so close to IFF_DORMANT.  The interface can be IFF_UP
->>> and link mode can be DORMANT.  Can the port driver kill PHY link if
->>> dev->flags&IFF_DORMANT in ndo_set_rx_mode()?  Would require
->>> IFF_DORMANT is included in dev->flags in __dev_change_flags().
->>
->> Yes, IFF_DORMANT does seem close to what is needed; in the current/s=
-tandard
->> interpretation IFF_DORMANT keeps the switch port phy-up and running =
-(and most
->> PDUs are also exchanged in the dormant state). Like you said we coul=
-d
->> re-interpret IFF_DORMANT in this context to phy-down the switch-port=
-;
->> unfortunately we are already using IFF_DORMANT as well (in its stand=
-ard
->> interpretation)...
->
-> That makes sense; best to not confuse IFF_DORMANT with this new need.
->
->> We are using the dormant mode (for the MLAG app itself) to hold the =
-MLAG port
->> in a brief/transition-ary suspended state when the switch-port link/=
-carrier up
->> happens. This has been done to co-ordinate states across the MLAG pe=
-er switches
->> and to ensure that egress port block masks are programmed on the pee=
-r switch
->> before transitioning the local switch port to an OPER_UP state. If w=
-e didn't do
->> that the dual-connected server would see duplicate packets every tim=
-e a
->> link-down to link-up happened on a MLAG port.
->
-> How can we see this in action?  I didn't find where the kernel egress
-> blocks the port when dormant.  What are the requirements for a kernel
-> port driver to support your MLAG app?  Is this MLAG app available
-> somewhere?
+>    port connected to the MLAG secondary, Switch1, and will stop using
+>    that port for traffic TX. So traffic black holing is prevented.
+>=20
+> v2 to v3:
+>    In response to Dave=E2=80=99s comments I have tried to make IFF_PR=
+OTODOWN
+>    more easily consumable by providing switchdev APIs to control the
+>    phy state of the switch port. The use case is relevant primarily t=
+o
+>    switch drivers at this point. That is the reason for making the
+>    change in rocker (commonly used switch driver example).
+>=20
+>    One other change that could be done is to bring back the net-core
+>    change to hold the oper state down in response to IFF_PROTO_DOWN.
+>    This would be a driver agnostic change and the phy-down could be d=
+one
+>    in addition by interested switch drivers.
+>=20
+> v1 to v2:
+>    Based on Dave's suggestion I have moved out aggregating of error b=
+its
+>    across applications to a user space framework. This patch now simp=
+ly
+>    notifies an aggregated error bit to drivers enabling them to handl=
+e
+>    the error gracefully.
+>=20
+>=20
+> Anuradha Karuppiah (4):
+>   net core: Add IFF_PROTO_DOWN support.
+>   switchdev: APIs for setting physical state of the switch port.
+>   rocker: Handle IFF_PROTODOWN by doing a PHYS-DOWN on the switch por=
+t.
+>   ip link: Config and display IFF_PROTO_DOWN flag.
+>=20
+> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>=20
+>  drivers/net/ethernet/rocker/rocker.c |   16 +++++++++++++++-
+>  include/net/switchdev.h              |   12 ++++++++++++
+>  include/uapi/linux/if.h              |    4 ++++
+>  net/8021q/vlan_dev.c                 |    3 ++-
+>  net/core/dev.c                       |    8 +++++++-
+>  net/switchdev/switchdev.c            |   23 +++++++++++++++++++++++
+>  6 files changed, 63 insertions(+), 3 deletions(-)
+>=20
 
-Traffic forwarding on local dormant switch ports is being done implicit=
-ly by
-using MSTP which puts !OPER_UP (OPER_DOWN, OPER_DORMANT) ports in an ST=
-P
-disabled/blocking state. Egress traffic blocking is really needed on th=
-e peer
-switch to prevent the traffic from the peer link being sent again to
-the server.We are using
-ebtables for this purpose currently so there are no additional kernel
-requirements.
-
-=46urther details on the MLAG app can also be found at -
-https://www.netdev01.org/sessions/23
-
-We are actively working on consolidating the MLAG app and making it ava=
-ilable
-for everybody's use soon. Getting proto_down out was part of that proce=
-ss.
-
-PROTO_DOWN also has other use cases - like a link-dampening app which c=
-an
-monitor (and proto_down) flapping or otherwise-misbehaving switch ports=
- and
-attempt paced/periodic auto-recovery.
+How does this interact with operstate?
+It seems RFC2863 operstate (Documentation/network/operstates.txt) alrea=
+dy
+has concept of LOWERLAYERDOWN
