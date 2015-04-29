@@ -1,68 +1,50 @@
-From: Felix Janda <felix.janda@posteo.de>
-Subject: Re: iproute2: Make linux/in6.h a stub?
-Date: Wed, 29 Apr 2015 19:36:58 +0200
-Message-ID: <20150429173658.GB1364@euler>
-References: <20150425205410.GB9433@euler>
- <20150427091704.125f42cb@urahara>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [GIT] Networking
+Date: Wed, 29 Apr 2015 19:53:49 +0200
+Message-ID: <CAK1hOcPTStgJ+PF8Mq02tDz2nvSX9U74+gBRoGVYXCDN2TnfJQ@mail.gmail.com>
+References: <20150401.154847.612566794393812348.davem@davemloft.net>
+ <CAK1hOcOd=dLUyxJy1mEj2=Hy-zOqDp2KJ8or+1Zrsk+BvNn5oQ@mail.gmail.com> <5540F605.2040907@modio.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Don Howard <dhoward@redhat.com>
+To: "D.S. Ljungmark" <ljungmark@modio.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx02.posteo.de ([89.146.194.165]:52227 "EHLO mx02.posteo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031471AbbD2RhH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Apr 2015 13:37:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20150427091704.125f42cb@urahara>
+Received: from mail-qc0-f175.google.com ([209.85.216.175]:35779 "EHLO
+	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751702AbbD2RyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 13:54:10 -0400
+In-Reply-To: <5540F605.2040907@modio.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Sat, 25 Apr 2015 22:54:11 +0200
-> Felix Janda <felix.janda@posteo.de> wrote:
-> 
-> > Hello.
-> > 
-> > Background:
-> > Current iproute2 does not build when the libc is musl instead of glibc.
-> > This is because of redefinition of in6_addr in netinet/in.h and
-> > linux/in6.h. There are workarounds in linux/libc-compat.h to make it
-> > somehow work for glibc.
-> > 
-> > 
-> > As I can see linux/in6.h is only indirectly used via the other kernel
-> > headers linux/if_bridge.h and linux/xfrm.h. These in turn include
-> > linux/in6.h only in order to get a declaration of in6_addr.
-> > 
-> > Since iproute2 depends on the fact that in6_addr is defined in
-> > <netinet/in.h> it should be safe to replace the content of linux/in6.h
-> > by
-> > 
-> > #include <netinet/in.h>
-> > 
-> > This completely removes the possibility for redefinition of in6_addr
-> > for any libc. Since linux/in6.h is anyway a patched kernel header, such
-> > a change should also not increase the work needed to sync with newer
-> > kernel headers.
-> > 
-> > Would it be possible to implement such a change?
-> > 
-> > Felix
-> 
-> I appreciate the effort to make iproute2 in other environments.
-> The header files in linux for iproute2 are automatically generated
-> from the upstream kernel headers. A lot of effort has been done
-> to align kernel, iproute2 and glibc. Therefore doing something
-> special just to work around incompatibles with other
-> environments is not going to be accepted.
-> 
-> Any other libc has to be compatible with glibc in this area
-> rather than introducing more complexity in what is already fragile.
+On Wed, Apr 29, 2015 at 5:17 PM, D.S. Ljungmark <ljungmark@modio.se> wrote:
+>
+> On 29/04/15 16:51, Denys Vlasenko wrote:
+>> # for f in /proc/sys/net/ipv6/conf/*/hop_limit; do echo -n $f:; cat $f; done
+>> /proc/sys/net/ipv6/conf/all/hop_limit:64
+>> /proc/sys/net/ipv6/conf/default/hop_limit:64
+>> /proc/sys/net/ipv6/conf/enp0s25/hop_limit:1  <=== THIS
+>> /proc/sys/net/ipv6/conf/lo/hop_limit:64
+>> /proc/sys/net/ipv6/conf/wlp3s0/hop_limit:64
+>>
+>> As you see, the interface which received RAs still lowered
+>> its hop_limit to 1. I take it means that the bug is still present
+>> (right? I'm not a network guy...).
+>
+> It might not be present in the _kernel_. Do you run NetworkManager on
+> your system? If so, see below.
 
-Thanks for your consideration. I see that you want to stay as close to
-upstream kernel headers as possible and cannot argue against that. So
-in order of not having to patch iproute2 it will be necessary to get
-fixes to the upstream kernel headers.
+Yes. "killall -STOP  NetworkManager" and now I see that bug is fixed.
 
-Felix
+Sorry for the false alarm.
+
+(If anyone would want to reproduce this, NB:
+be sure to also enable accept_ra* sysctls,
+otherwise kernel will ignore RAs and bug wouldn't be reproduced
+on previous kernels too).
