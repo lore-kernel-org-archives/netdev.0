@@ -1,54 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC net-next] netif_receive_skb performance
-Date: Tue, 28 Apr 2015 22:23:00 -0700
-Message-ID: <1430284980.3711.38.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430273488-8403-1-git-send-email-ast@plumgrid.com>
+From: "Du, Fan" <fan.du@intel.com>
+Subject: RE: [PATCH] xfrm: fix a race in xfrm_state_lookup_byspi
+Date: Wed, 29 Apr 2015 05:25:25 +0000
+Message-ID: <5A90DA2E42F8AE43BC4A093BF0678848E4D693@SHSMSX104.ccr.corp.intel.com>
+References: <1430268164-19019-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>,
+	"Du, Fan" <fan.du@intel.com>
+To: "roy.qing.li@gmail.com" <roy.qing.li@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:36111 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753326AbbD2FXE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 01:23:04 -0400
-Received: by igblo3 with SMTP id lo3so108137185igb.1
-        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 22:23:03 -0700 (PDT)
-In-Reply-To: <1430273488-8403-1-git-send-email-ast@plumgrid.com>
+Received: from mga03.intel.com ([134.134.136.65]:40041 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751518AbbD2FZa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 01:25:30 -0400
+In-Reply-To: <1430268164-19019-1-git-send-email-roy.qing.li@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-04-28 at 19:11 -0700, Alexei Starovoitov wrote:
-> Hi,
-> 
-> there were many requests for performance numbers in the past, but not
-> everyone has access to 10/40G nics and we need a common way to talk
-> about RX path performance without overhead of driver RX. That's
-> especially important when making changes to netif_receive_skb.
 
-Well, in real life, having to fetch RX descriptor and packet headers are
-the main cost, and skb->users == 1.
+>-----Original Message-----
+>From: roy.qing.li@gmail.com [mailto:roy.qing.li@gmail.com]
+>Sent: Wednesday, April 29, 2015 8:43 AM
+>To: netdev@vger.kernel.org
+>Cc: Du, Fan; steffen.klassert@secunet.com
+>Subject: [PATCH] xfrm: fix a race in xfrm_state_lookup_byspi
+>
+>From: Li RongQing <roy.qing.li@gmail.com>
+>
+>The returned xfrm_state should be hold before unlock xfrm_state_lock,
+>otherwise the returned xfrm_state maybe be released.
+>
+>Fixes: c454997e6[{pktgen, xfrm} Introduce xfrm_state_lookup_byspi..]
+>Cc: Fan Du <fan.du@intel.com>
+>Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-So its nice trying to optimize netif_receive_skb(), but make sure you
-have something that can really exercise same code flows/stalls,
-otherwise you'll be tempted by wrong optimizations.
+Acked-by: Fan Du <fan.du@intel.com>
+ 
 
-I would for example use a ring buffer, so that each skb you provide to
-netif_receive_skb() has cold cache lines (at least skb->head if you want
-to mimic build_skb() or napi_get_frags()/napi_reuse_skb() behavior)
-
-Also, this model of flooding one cpu (no irqs, no context switch) mask
-latencies caused by code size, since icache is fully populated, with a
-very specialized working set.
-
-If we want to pursue this model (like user space (DPDK and alike
-frameworks)), we might have to design a very different model than the
-IRQ driven one, by dedicating one or multiple cpu threads to run
-networking code with no state transition.
+>---
+> net/xfrm/xfrm_state.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+>index f5e39e3..96688cd 100644
+>--- a/net/xfrm/xfrm_state.c
+>+++ b/net/xfrm/xfrm_state.c
+>@@ -927,8 +927,8 @@ struct xfrm_state *xfrm_state_lookup_byspi(struct net
+>*net, __be32 spi,
+> 			x->id.spi != spi)
+> 			continue;
+>
+>-		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+> 		xfrm_state_hold(x);
+>+		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+> 		return x;
+> 	}
+> 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+>--
+>2.1.0
