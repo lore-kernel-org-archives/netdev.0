@@ -1,288 +1,263 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/6] net: move qdisc ingress filtering on top of netfilter ingress hooks
-Date: Wed, 29 Apr 2015 20:53:09 +0200
-Message-ID: <1430333589-4940-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/6] net: add netfilter ingress hook
+Date: Wed, 29 Apr 2015 20:53:08 +0200
+Message-ID: <1430333589-4940-6-git-send-email-pablo@netfilter.org>
 References: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org, jhs@mojatatu.com
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55886 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751876AbbD2Ss6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Apr 2015 14:48:58 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Port qdisc ingress on top of the Netfilter ingress allows us to detach the
-qdisc ingress filtering code from the core, so now it resides where it really
-belongs.
+This patch adds a new NFPROTO_NETDEV family that allows you to register hooks
+from the ingress path.
 
-The specific qdisc ingress static key is also gone since we now rely on the
-generic netfilter hook static key infrastructure.
+This patch adds a hook list per device, so this introduces a new net_device
+structure pointer to nf_hook_ops that needs to be set before hook registration.
+The caller is responsible for holding/putting the reference on the net_device
+that is attached to nf_hook_ops.
 
-This only depends on the basic hook infrastructure that resides on
-net/core/hooks.c, so you have enable qdisc ingress filtering without the
-layer 3 netfilter hooks.
+As in other netfilter hooks, we have a static key to enable the netfilter path
+if we at least have one registered hook. So the code follows the usual path for
+people that don't need this.
+
+The follow up patch moves qdisc ingress on top of netfilter ingress to cancel
+the extra overhead in the critical input path.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/rtnetlink.h |   13 -------
- net/core/dev.c            |   92 ++-------------------------------------------
- net/sched/Kconfig         |    1 +
- net/sched/sch_ingress.c   |   60 +++++++++++++++++++++++++++--
- 4 files changed, 61 insertions(+), 105 deletions(-)
+ include/linux/netdevice.h         |    4 ++++
+ include/linux/netfilter_hooks.h   |    1 +
+ include/linux/netfilter_ingress.h |   44 +++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/netfilter.h    |    6 +++++
+ net/Kconfig                       |    7 ++++++
+ net/core/dev.c                    |   26 +++++++++++++++++++++-
+ net/core/hooks.c                  |   25 ++++++++++++++++++++-
+ 7 files changed, 111 insertions(+), 2 deletions(-)
+ create mode 100644 include/linux/netfilter_ingress.h
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 2da5d10..5b2cc04 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -79,19 +79,6 @@ static inline struct netdev_queue *dev_ingress_queue(struct net_device *dev)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index dbad4d7..a644af5 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1654,6 +1654,10 @@ struct net_device {
+ 	void __rcu		*rx_handler_data;
  
- struct netdev_queue *dev_ingress_queue_create(struct net_device *dev);
+ 	struct netdev_queue __rcu *ingress_queue;
++#ifdef CONFIG_NETFILTER_INGRESS
++	struct list_head	nf_hooks_ingress;
++#endif
++
+ 	unsigned char		broadcast[MAX_ADDR_LEN];
+ #ifdef CONFIG_RFS_ACCEL
+ 	struct cpu_rmap		*rx_cpu_rmap;
+diff --git a/include/linux/netfilter_hooks.h b/include/linux/netfilter_hooks.h
+index d7a65e6..10683b9 100644
+--- a/include/linux/netfilter_hooks.h
++++ b/include/linux/netfilter_hooks.h
+@@ -54,6 +54,7 @@ struct nf_hook_ops {
  
--#ifdef CONFIG_NET_CLS_ACT
--void net_inc_ingress_queue(void);
--void net_dec_ingress_queue(void);
--#else
--static inline void net_inc_ingress_queue(void)
--{
--}
--
--static inline void net_dec_ingress_queue(void)
--{
--}
--#endif
--
- extern void rtnetlink_init(void);
- extern void __rtnl_unlock(void);
+ 	/* User fills in from here down. */
+ 	nf_hookfn		*hook;
++	struct net_device	*dev;
+ 	struct module		*owner;
+ 	void			*priv;
+ 	u_int8_t		pf;
+diff --git a/include/linux/netfilter_ingress.h b/include/linux/netfilter_ingress.h
+new file mode 100644
+index 0000000..1620dae3
+--- /dev/null
++++ b/include/linux/netfilter_ingress.h
+@@ -0,0 +1,44 @@
++#ifndef _NETFILTER_INGRESS_H_
++#define _NETFILTER_INGRESS_H_
++
++#include <linux/netfilter.h>
++#include <linux/netdevice.h>
++#include <linux/netfilter_hooks.h>
++
++#ifdef CONFIG_NETFILTER_INGRESS
++static inline int nf_hook_ingress_active(struct sk_buff *skb)
++{
++	return nf_hook_list_active(&skb->dev->nf_hooks_ingress,
++				   NFPROTO_NETDEV, NF_NETDEV_INGRESS);
++}
++
++static inline int nf_hook_do_ingress(struct sk_buff *skb)
++{
++	struct nf_hook_state state;
++
++	nf_hook_state_init(&state, &skb->dev->nf_hooks_ingress,
++			   NF_NETDEV_INGRESS, INT_MIN, NFPROTO_NETDEV, NULL,
++			   skb->dev, NULL, NULL);
++	return nf_hook_slow(skb, &state);
++}
++
++static inline void nf_hook_ingress_init(struct net_device *dev)
++{
++        INIT_LIST_HEAD(&dev->nf_hooks_ingress);
++}
++#else /* CONFIG_NETFILTER_INGRESS */
++static inline int nf_hook_ingress_active(struct sk_buff *skb)
++{
++	return 0;
++}
++
++static inline int nf_hook_ingress(struct sk_buff *skb,
++				  struct packet_type **pt_prev,
++				  struct net_device *orig_dev)
++{
++	BUG("nf_hook_ingress() called with CONFIG_NETFILTER_INGRESS disabled\n");
++}
++
++static inline void nf_hook_ingress_init(struct net_device *dev) {}
++#endif /* CONFIG_NETFILTER_INGRESS */
++#endif /* _NETFILTER_INGRESS_H_ */
+diff --git a/include/uapi/linux/netfilter.h b/include/uapi/linux/netfilter.h
+index ef1b1f8..177027c 100644
+--- a/include/uapi/linux/netfilter.h
++++ b/include/uapi/linux/netfilter.h
+@@ -51,11 +51,17 @@ enum nf_inet_hooks {
+ 	NF_INET_NUMHOOKS
+ };
  
++enum nf_dev_hooks {
++	NF_NETDEV_INGRESS,
++	NF_NETDEV_NUMHOOKS
++};
++
+ enum {
+ 	NFPROTO_UNSPEC =  0,
+ 	NFPROTO_INET   =  1,
+ 	NFPROTO_IPV4   =  2,
+ 	NFPROTO_ARP    =  3,
++	NFPROTO_NETDEV =  5,
+ 	NFPROTO_BRIDGE =  7,
+ 	NFPROTO_IPV6   = 10,
+ 	NFPROTO_DECNET = 12,
+diff --git a/net/Kconfig b/net/Kconfig
+index 710d393..4a98cb5 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -109,6 +109,13 @@ config NETFILTER_HOOKS
+ 	  If this option is enabled, the kernel will include support
+ 	  for the generic Netfilter hook infrastructure.
+ 
++config NETFILTER_INGRESS
++	bool "Netfilter ingress support"
++	select NETFILTER_HOOKS
++	help
++	  This allows you to classify packets from ingress using the Netfilter
++	  infrastructure.
++
+ menuconfig NETFILTER
+ 	select NETFILTER_HOOKS
+ 	bool "Network packet filtering framework (Netfilter)"
 diff --git a/net/core/dev.c b/net/core/dev.c
-index fa8a262..af03263 100644
+index 3d63b85..fa8a262 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1631,22 +1631,6 @@ int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
+@@ -135,7 +135,7 @@
+ #include <linux/if_macvlan.h>
+ #include <linux/errqueue.h>
+ #include <linux/hrtimer.h>
+-#include <linux/netfilter_hooks.h>
++#include <linux/netfilter_ingress.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -3653,6 +3653,20 @@ static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
+ 	}
  }
- EXPORT_SYMBOL(call_netdevice_notifiers);
  
--#ifdef CONFIG_NET_CLS_ACT
--static struct static_key ingress_needed __read_mostly;
--
--void net_inc_ingress_queue(void)
--{
--	static_key_slow_inc(&ingress_needed);
--}
--EXPORT_SYMBOL_GPL(net_inc_ingress_queue);
--
--void net_dec_ingress_queue(void)
--{
--	static_key_slow_dec(&ingress_needed);
--}
--EXPORT_SYMBOL_GPL(net_dec_ingress_queue);
--#endif
--
- static struct static_key netstamp_needed __read_mostly;
- #ifdef HAVE_JUMP_LABEL
- /* We are not allowed to call static_key_slow_dec() from irq context
-@@ -3521,67 +3505,6 @@ int (*br_fdb_test_addr_hook)(struct net_device *dev,
- EXPORT_SYMBOL_GPL(br_fdb_test_addr_hook);
- #endif
- 
--#ifdef CONFIG_NET_CLS_ACT
--/* TODO: Maybe we should just force sch_ingress to be compiled in
-- * when CONFIG_NET_CLS_ACT is? otherwise some useless instructions
-- * a compare and 2 stores extra right now if we dont have it on
-- * but have CONFIG_NET_CLS_ACT
-- * NOTE: This doesn't stop any functionality; if you dont have
-- * the ingress scheduler, you just can't add policies on ingress.
-- *
-- */
--static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
--{
--	struct net_device *dev = skb->dev;
--	u32 ttl = G_TC_RTTL(skb->tc_verd);
--	int result = TC_ACT_OK;
--	struct Qdisc *q;
--
--	if (unlikely(MAX_RED_LOOP < ttl++)) {
--		net_warn_ratelimited("Redir loop detected Dropping packet (%d->%d)\n",
--				     skb->skb_iif, dev->ifindex);
--		return TC_ACT_SHOT;
--	}
--
--	skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
--	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
--
--	q = rcu_dereference(rxq->qdisc);
--	if (q != &noop_qdisc) {
--		spin_lock(qdisc_lock(q));
--		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
--			result = qdisc_enqueue_root(skb, q);
--		spin_unlock(qdisc_lock(q));
--	}
--
--	return result;
--}
--
--static inline struct sk_buff *handle_ing(struct sk_buff *skb,
--					 struct packet_type **pt_prev,
--					 int *ret, struct net_device *orig_dev)
--{
--	struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
--
--	if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
--		return skb;
--
--	if (*pt_prev) {
--		*ret = deliver_skb(skb, *pt_prev, orig_dev);
--		*pt_prev = NULL;
--	}
--
--	switch (ing_filter(skb, rxq)) {
--	case TC_ACT_SHOT:
--	case TC_ACT_STOLEN:
--		kfree_skb(skb);
--		return NULL;
--	}
--
--	return skb;
--}
--#endif
--
- /**
-  *	netdev_rx_handler_register - register receive handler
-  *	@dev: device to register a handler for
-@@ -3726,16 +3649,6 @@ another_round:
- 	}
- 
- skip_taps:
--#ifdef CONFIG_NET_CLS_ACT
--	if (static_key_false(&ingress_needed)) {
--		skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
--		if (!skb)
--			goto unlock;
--	}
--
--	skb->tc_verd = 0;
--ncls:
--#endif
- 	if (nf_hook_ingress_active(skb)) {
- 		ret = nf_hook_ingress(skb, &pt_prev, &ret, orig_dev);
- 		if (ret < 0) {
-@@ -3743,7 +3656,10 @@ ncls:
- 			goto unlock;
- 		}
- 	}
--
-+#ifdef CONFIG_NET_CLS_ACT
-+	skb->tc_verd = 0;
-+ncls:
++#ifdef CONFIG_NETFILTER_INGRESS
++static inline int nf_hook_ingress(struct sk_buff *skb,
++				  struct packet_type **pt_prev,
++				  int *ret, struct net_device *orig_dev)
++{
++	if (*pt_prev) {
++		*ret = deliver_skb(skb, *pt_prev, orig_dev);
++		*pt_prev = NULL;
++	}
++
++	return nf_hook_do_ingress(skb);
++}
 +#endif
++
+ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+ {
+ 	struct packet_type *ptype, *pt_prev;
+@@ -3722,6 +3736,14 @@ skip_taps:
+ 	skb->tc_verd = 0;
+ ncls:
+ #endif
++	if (nf_hook_ingress_active(skb)) {
++		ret = nf_hook_ingress(skb, &pt_prev, &ret, orig_dev);
++		if (ret < 0) {
++			ret = NET_RX_DROP;
++			goto unlock;
++		}
++	}
++
  	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
  		goto drop;
  
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 2274e72..23b57da 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -312,6 +312,7 @@ config NET_SCH_PIE
- config NET_SCH_INGRESS
- 	tristate "Ingress Qdisc"
- 	depends on NET_CLS_ACT
-+	select NETFILTER_INGRESS
- 	---help---
- 	  Say Y here if you want to use classifiers for incoming packets.
- 	  If unsure, say Y.
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index 4cdbfb8..996c823 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -14,10 +14,11 @@
- #include <linux/rtnetlink.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
--
-+#include <linux/netfilter_hooks.h>
+@@ -6870,6 +6892,8 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	dev->group = INIT_NETDEV_GROUP;
+ 	if (!dev->ethtool_ops)
+ 		dev->ethtool_ops = &default_ethtool_ops;
++
++	nf_hook_ingress_init(dev);
+ 	return dev;
  
- struct ingress_qdisc_data {
- 	struct tcf_proto __rcu	*filter_list;
-+	struct nf_hook_ops	ops;
- };
+ free_all:
+diff --git a/net/core/hooks.c b/net/core/hooks.c
+index aa9c56c..e30ace0 100644
+--- a/net/core/hooks.c
++++ b/net/core/hooks.c
+@@ -19,10 +19,26 @@ static DEFINE_MUTEX(nf_hook_mutex);
  
- /* ------------------------- Class/flow operations ------------------------- */
-@@ -88,11 +89,62 @@ static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- /* ------------------------------------------------------------- */
- 
-+static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
-+{
-+	struct net_device *dev = skb->dev;
-+	u32 ttl = G_TC_RTTL(skb->tc_verd);
-+	int result = TC_ACT_OK;
-+	struct Qdisc *q;
-+
-+	if (unlikely(MAX_RED_LOOP < ttl++)) {
-+		net_warn_ratelimited("Redir loop detected Dropping packet (%d->%d)\n",
-+				     skb->skb_iif, dev->ifindex);
-+		return TC_ACT_SHOT;
-+	}
-+
-+	skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
-+	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
-+
-+	q = rcu_dereference(rxq->qdisc);
-+	if (q != &noop_qdisc) {
-+		spin_lock(qdisc_lock(q));
-+		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
-+			result = qdisc_enqueue_root(skb, q);
-+		spin_unlock(qdisc_lock(q));
-+	}
-+
-+	return result;
-+}
-+
-+static unsigned int handle_ing(const struct nf_hook_ops *ops,
-+			       struct sk_buff *skb,
-+			       const struct nf_hook_state *state)
-+{
-+	struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
-+
-+	if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
-+		return NF_ACCEPT;
-+
-+	switch (ing_filter(skb, rxq)) {
-+	case TC_ACT_SHOT:
-+	case TC_ACT_STOLEN:
-+		return NF_DROP;
-+	}
-+
-+	return NF_ACCEPT;
-+}
-+
- static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
+ int nf_register_hook(struct nf_hook_ops *reg)
  {
--	net_inc_ingress_queue();
-+	struct ingress_qdisc_data *p = qdisc_priv(sch);
++	struct list_head *nf_hook_list;
+ 	struct nf_hook_ops *elem;
+ 
+ 	mutex_lock(&nf_hook_mutex);
+-	list_for_each_entry(elem, &nf_hooks[reg->pf][reg->hooknum], list) {
++	switch (reg->pf) {
++	case NFPROTO_NETDEV:
++#ifdef CONFIG_NETFILTER_INGRESS
++		if (reg->hooknum == NF_NETDEV_INGRESS) {
++			BUG_ON(reg->dev == NULL);
++			nf_hook_list = &reg->dev->nf_hooks_ingress;
++			break;
++		}
++#endif
++		/* Fall through. */
++	default:
++		nf_hook_list = &nf_hooks[reg->pf][reg->hooknum];
++		break;
++	}
 +
-+	p->ops.hook	= handle_ing;
-+	p->ops.pf	= NFPROTO_NETDEV;
-+	p->ops.hooknum	= NF_NETDEV_INGRESS;
-+	p->ops.priority = 0;
-+	p->ops.dev	= qdisc_dev(sch);
- 
--	return 0;
-+	return nf_register_hook(&p->ops);
- }
- 
- static void ingress_destroy(struct Qdisc *sch)
-@@ -100,7 +152,7 @@ static void ingress_destroy(struct Qdisc *sch)
- 	struct ingress_qdisc_data *p = qdisc_priv(sch);
- 
- 	tcf_destroy_chain(&p->filter_list);
--	net_dec_ingress_queue();
-+	nf_unregister_hook(&p->ops);
- }
- 
- static int ingress_dump(struct Qdisc *sch, struct sk_buff *skb)
++	list_for_each_entry(elem, nf_hook_list, list) {
+ 		if (reg->priority < elem->priority)
+ 			break;
+ 	}
+@@ -39,6 +55,13 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+ {
+ 	mutex_lock(&nf_hook_mutex);
+ 	list_del_rcu(&reg->list);
++	switch (reg->pf) {
++	case NFPROTO_NETDEV:
++		WARN_ON(reg->dev == NULL);
++		break;
++	default:
++		break;
++	}
+ 	mutex_unlock(&nf_hook_mutex);
+ #ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
 -- 
 1.7.10.4
+
