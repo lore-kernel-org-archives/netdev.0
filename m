@@ -1,154 +1,68 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 1/3] printk: guard the amount written per line by devkmsg_read()
-Date: Wed, 29 Apr 2015 10:45:02 -0400
-Message-ID: <1430318704-32374-2-git-send-email-tj@kernel.org>
-References: <1430318704-32374-1-git-send-email-tj@kernel.org>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Kay Sievers <kay@vrfy.org>
-To: pmladek@suse.cz, akpm@linux-foundation.org
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [GIT] Networking
+Date: Wed, 29 Apr 2015 16:51:52 +0200
+Message-ID: <CAK1hOcOd=dLUyxJy1mEj2=Hy-zOqDp2KJ8or+1Zrsk+BvNn5oQ@mail.gmail.com>
+References: <20150401.154847.612566794393812348.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"D.S. Ljungmark" <ljungmark@modio.se>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Don Howard <dhoward@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430318704-32374-1-git-send-email-tj@kernel.org>
+In-Reply-To: <20150401.154847.612566794393812348.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-devkmsg_read() uses 8k buffer and assumes that the formatted output
-message won't overrun which seems safe given LOG_LINE_MAX, the current
-use of dict and the escaping method being used; however, we're
-planning to use devkmsg formatting wider and accounting for the buffer
-size properly isn't that complicated.
+On Wed, Apr 1, 2015 at 9:48 PM, David Miller <davem@davemloft.net> wrote:
+> D.S. Ljungmark (1):
+>       ipv6: Don't reduce hop limit for an interface
 
-This patch defines CONSOLE_EXT_LOG_MAX as 8192 and updates
-devkmsg_read() so that it limits output accordingly.
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6fd99094de2b83d1d4c8457f2c83483b2828e75a
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Kay Sievers <kay@vrfy.org>
-Cc: Petr Mladek <pmladek@suse.cz>
----
- include/linux/printk.h |  2 ++
- kernel/printk/printk.c | 34 ++++++++++++++++++++++------------
- 2 files changed, 24 insertions(+), 12 deletions(-)
+I was testing this change and apparently it doesn't close the hole.
 
-diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 9b30871..58b1fec 100644
---- a/include/linux/printk.h
-+++ b/include/linux/printk.h
-@@ -30,6 +30,8 @@ static inline const char *printk_skip_level(const char *buffer)
- 	return buffer;
- }
- 
-+#define CONSOLE_EXT_LOG_MAX	8192
-+
- /* printk's without a loglevel use this.. */
- #define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
- 
-diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index c099b08..a115490 100644
---- a/kernel/printk/printk.c
-+++ b/kernel/printk/printk.c
-@@ -505,6 +505,11 @@ int check_syslog_permissions(int type, bool from_file)
- 	return security_syslog(type);
- }
- 
-+static void append_char(char **pp, char *e, char c)
-+{
-+	if (*pp < e)
-+		*(*pp)++ = c;
-+}
- 
- /* /dev/kmsg - userspace message inject/listen interface */
- struct devkmsg_user {
-@@ -512,7 +517,7 @@ struct devkmsg_user {
- 	u32 idx;
- 	enum log_flags prev;
- 	struct mutex lock;
--	char buf[8192];
-+	char buf[CONSOLE_EXT_LOG_MAX];
- };
- 
- static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
-@@ -570,6 +575,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- {
- 	struct devkmsg_user *user = file->private_data;
- 	struct printk_log *msg;
-+	char *p, *e;
- 	u64 ts_usec;
- 	size_t i;
- 	char cont = '-';
-@@ -579,6 +585,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 	if (!user)
- 		return -EBADF;
- 
-+	p = user->buf;
-+	e = user->buf + sizeof(user->buf);
-+
- 	ret = mutex_lock_interruptible(&user->lock);
- 	if (ret)
- 		return ret;
-@@ -625,9 +634,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
- 		cont = '+';
- 
--	len = sprintf(user->buf, "%u,%llu,%llu,%c;",
--		      (msg->facility << 3) | msg->level,
--		      user->seq, ts_usec, cont);
-+	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
-+		       (msg->facility << 3) | msg->level,
-+		       user->seq, ts_usec, cont);
- 	user->prev = msg->flags;
- 
- 	/* escape non-printable characters */
-@@ -635,11 +644,11 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 		unsigned char c = log_text(msg)[i];
- 
- 		if (c < ' ' || c >= 127 || c == '\\')
--			len += sprintf(user->buf + len, "\\x%02x", c);
-+			p += scnprintf(p, e - p, "\\x%02x", c);
- 		else
--			user->buf[len++] = c;
-+			append_char(&p, e, c);
- 	}
--	user->buf[len++] = '\n';
-+	append_char(&p, e, '\n');
- 
- 	if (msg->dict_len) {
- 		bool line = true;
-@@ -648,30 +657,31 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 			unsigned char c = log_dict(msg)[i];
- 
- 			if (line) {
--				user->buf[len++] = ' ';
-+				append_char(&p, e, ' ');
- 				line = false;
- 			}
- 
- 			if (c == '\0') {
--				user->buf[len++] = '\n';
-+				append_char(&p, e, '\n');
- 				line = true;
- 				continue;
- 			}
- 
- 			if (c < ' ' || c >= 127 || c == '\\') {
--				len += sprintf(user->buf + len, "\\x%02x", c);
-+				p += scnprintf(p, e - p, "\\x%02x", c);
- 				continue;
- 			}
- 
--			user->buf[len++] = c;
-+			append_char(&p, e, c);
- 		}
--		user->buf[len++] = '\n';
-+		append_char(&p, e, '\n');
- 	}
- 
- 	user->idx = log_next(user->idx);
- 	user->seq++;
- 	raw_spin_unlock_irq(&logbuf_lock);
- 
-+	len = p - user->buf;
- 	if (len > count) {
- 		ret = -EINVAL;
- 		goto out;
--- 
-2.1.0
+The python script I use to send RAs:
+
+#!/usr/bin/env python
+import sys
+import time
+import scapy.all
+from scapy.layers.inet6 import *
+ip = IPv6()
+# ip.dst = 'ff02::1'
+ip.dst = sys.argv[1]
+icmp = ICMPv6ND_RA()
+icmp.chlim = 1
+for x in range(10):
+    send(ip/icmp)
+    time.sleep(1)
+
+# ./ipv6-hop-limit.py fe80::21e:37ff:fed0:5006
+.
+Sent 1 packets.
+...<10 times>...
+Sent 1 packets.
+
+After I do this, on the targeted machine I check hop_limits:
+
+# for f in /proc/sys/net/ipv6/conf/*/hop_limit; do echo -n $f:; cat $f; done
+/proc/sys/net/ipv6/conf/all/hop_limit:64
+/proc/sys/net/ipv6/conf/default/hop_limit:64
+/proc/sys/net/ipv6/conf/enp0s25/hop_limit:1  <=== THIS
+/proc/sys/net/ipv6/conf/lo/hop_limit:64
+/proc/sys/net/ipv6/conf/wlp3s0/hop_limit:64
+
+As you see, the interface which received RAs still lowered
+its hop_limit to 1. I take it means that the bug is still present
+(right? I'm not a network guy...).
+
+I triple-checked that I do run the kernel with the fix.
+Further investigation shows that the code touched by the fix
+is not even reached, hop_limit is changed elsewhere.
+
+I'm willing to test additional patches.
