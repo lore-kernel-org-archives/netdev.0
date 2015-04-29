@@ -1,62 +1,72 @@
-From: Ido Shamay <idos@dev.mellanox.co.il>
-Subject: Re: [PATCH RFC] net/mlx4: Remove improper usage of dma_alloc_coherent().
-Date: Wed, 29 Apr 2015 17:13:50 +0300
-Message-ID: <5540E71E.2050200@dev.mellanox.co.il>
-References: <1428361229-31542-1-git-send-email-ddaney.cavm@gmail.com> <55243362.5040207@dev.mellanox.co.il> <552AE4A4.30005@dev.mellanox.co.il>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Moni Shoua <monis@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.co.il>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Yuval Atias <yuvala@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	David Daney <david.daney@cavium.com>
-To: David Daney <ddaney.cavm@gmail.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCHSET] printk: implement extended console support
+Date: Wed, 29 Apr 2015 10:45:01 -0400
+Message-ID: <1430318704-32374-1-git-send-email-tj@kernel.org>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: pmladek@suse.cz, akpm@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <552AE4A4.30005@dev.mellanox.co.il>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This patchset is v2 of printk extended console support.  v1 was part
+of "printk, netconsole: implement reliable netconsole" patchset [1].
+The biggest change is dropping of cont buffer handling as hinted by
+Petr's hint.  This made it unnecessary to change LOG_NOCONS handling
+and made the actual extended console support a lot simpler as now each
+printk invocation always maps to a single log entry.
 
-On 4/13/2015 12:33 AM, Ido Shamay wrote:
-> On 4/7/2015 10:43 PM, Ido Shamay wrote:
->> On 4/7/2015 2:00 AM, David Daney wrote:
->>> From: David Daney <david.daney@cavium.com>
->>>
->>> The dma_alloc_coherent() function returns a virtual address which can
->>> be used for coherent access to the underlying memory.  On some
->>> architectures, like arm64, undefined behavior results if this memory is
->>> also accessed via virtual mappings that are not coherent. Because of
->>> their undefined nature, operations like virt_to_page() return garbage
->>> when passed virtual addresses obtained from dma_alloc_coherent().  Any
->>> subsequent mappings via vmap() of the garbage page values are unusable
->>> and result in bad things like bus errors (synchronous aborts in ARM64
->>> speak).
->>>
->>> The MLX4 driver contains code that does the equivalent of:
->>>
->>>    vmap(virt_to_page(dma_alloc_coherent))
->>>
->>> This results in an OOPs when the device is opened.
->>>
->>> To fix this...
->>>
->>> Always use result of dma_alloc_coherent() directly.
-> Acked-by: Ido Shamay <idos@mellanox.com>
-> Thanks David, this is good for us
+The kernel keeps quite a bit of metadata for each printk message in
+its log buffer, all of which are accessible through /dev/kmsg;
+however, when the messages are transmitted to consoles, a lot of
+metadata is lost along with dictionary for structured logging.
 
-Hi David,
+Allowing consoles access to full log message information can be useful
+for multiple reasons.  The consumer of the console output can identify
+the orginating facility, make use of structured logging, determine
+whether any message got lost if the medium isn't reliable and so on.
+This will be further discussed in the netconsole patchset which will
+follow soon.
 
-Are you resending this patch or you want us to do that?
+Thanks to /dev/kmsg, printk already implements most of logic necessary
+for extended console support.  The header is well defined and the
+formatting code is already there.  The only possible complication is
+handling of cont buffer.
+
+This is dealt with by simply disabling in-kernel KERN_CONT
+concatenation when extended consoles are registered.  This makes
+message fragments consume more memory as each gets assigned a separate
+log entry, but this greatly simplifies extended console support and
+provided that /dev/kmsg and extended consumers perform trivial
+concatenation directed by the <contflag> field, the end results are
+the same.  In the long term, we might want to drop in-kernel
+concatenation entirely.
+
+Note that currently neither dmesg nor journald implements <contflag>
+handling but this is trivial to add and this patchset doesn't change
+the kernel behavior when no external console is registered.
+
+This patchset contains the following three patches.
+
+0001-printk-guard-the-amount-written-per-line-by-devkmsg_.patch
+0002-printk-factor-out-message-formatting-from-devkmsg_re.patch
+0003-printk-implement-support-for-extended-console-driver.patch
+
+0001-0002 are straight-forward prep patches.  0003 implements the
+extended console support.
+
+The patches are also available in the following git branch.
+
+ git://git.kernel.org/pub/scm/linux/kernel/git/tj/misc.git review-printk-ext-console
+
+diffstat follows.  Thanks.
+
+ include/linux/console.h |    1
+ include/linux/printk.h  |    2
+ kernel/printk/printk.c  |  213 ++++++++++++++++++++++++++++++++----------------
+ 3 files changed, 146 insertions(+), 70 deletions(-)
+
+--
+tejun
+
+[1] http://lkml.kernel.org/g/1429225433-11946-1-git-send-email-tj@kernel.org
