@@ -1,66 +1,98 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of netfilter
- ingress hooks
-Date: Wed, 29 Apr 2015 22:27:05 +0200
-Message-ID: <55413E99.5000807@iogearbox.net>
-References: <1430333589-4940-1-git-send-email-pablo@netfilter.org> <1430333589-4940-7-git-send-email-pablo@netfilter.org>
+From: Vishwanath Pai <vpai@akamai.com>
+Subject: Re: [PATCH] Fix Kernel Panic in bonding driver debugfs file: rlb_hash_table
+Date: Wed, 29 Apr 2015 16:30:44 -0400
+Message-ID: <55413F74.3010204@akamai.com>
+References: <E1YnWel-0004R7-1o@bos-lpqrs.kendall.corp.akamai.com> <554134D1.7070509@blackwall.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jhs@mojatatu.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1430333589-4940-7-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nikolay Aleksandrov <razor@blackwall.org>,
+	Andy Gospodarek <andy@greyhouse.net>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:63558 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750804AbbD2Uap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 16:30:45 -0400
+In-Reply-To: <554134D1.7070509@blackwall.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2015 08:53 PM, Pablo Neira Ayuso wrote:
-> Port qdisc ingress on top of the Netfilter ingress allows us to detach the
-> qdisc ingress filtering code from the core, so now it resides where it really
-> belongs.
+On 04/29/2015 03:45 PM, Nikolay Aleksandrov wrote:
+> On 04/29/2015 08:24 PM, Pai wrote:
+>> This patch fixes a Kernel Panic in bonding driver debugfs file: rlb_hash_table.
+>>
+>> $> modprobe bonding mode=6
+>> $> cat /sys/kernel/debug/bonding/bond0/rlb_hash_table
+>>
+>> This will crash the kernel. The struct alb_bond_info is initialized only when
+>> the bonding interface is initialized (ip link set bond0 up) and not at the time
+>> it is allocated. If we try to read the table before that, it'll result in a 
+>> kernel panic.
+>>
+>> The patch applies against both net and net-next
+>>
+>> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+>>  
+> Good catch, a few cosmetic nits below.
+> 
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 089a402..806892a 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -4510,6 +4510,8 @@ unsigned int bond_get_num_tx_queues(void)
+>>  int bond_create(struct net *net, const char *name)
+>>  {
+>>  	struct net_device *bond_dev;
+>> +	struct bonding *bond;
+>> +	struct alb_bond_info *bond_info;
+> Please arrange these longest to shortest line, it's easier to read.
+> 
+>>  	int res;
+>>  
+>>  	rtnl_lock();
+>> @@ -4523,6 +4525,14 @@ int bond_create(struct net *net, const char *name)
+>>  		return -ENOMEM;
+>>  	}
+>>  
+>> +	/*
+>> +	 * Initialize rx_hashtbl_used_head to RLB_NULL_INDEX.
+>> +	 * It is set to 0 by default which is wrong.
+>> +	 */
+> Multiline comment style of networking content is:
+> 	/* text
+> 	 * text
+> 	 */
+> 
+> See: Documentation/networking/netdev-FAQ.txt
+> 
+> Alternatively you can create an inline with descriptive name that does the
+> initialization and wouldn't need the comment. Either way's fine by me.
+> 
+> Cheers,
+>  Nik
+> 
+>> +	bond = netdev_priv(bond_dev);
+>> +	bond_info = &(BOND_ALB_INFO(bond));
+>> +	bond_info->rx_hashtbl_used_head = RLB_NULL_INDEX;
+>> +
+>>  	dev_net_set(bond_dev, net);
+>>  	bond_dev->rtnl_link_ops = &bond_link_ops;
+>>  
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> 
 
-Hm, but that means, in case you have a tc ingress qdisc attached
-with one single (ideal) or more (less ideal) classifier/actions,
-the path we _now_ have to traverse just to a single tc classifier
-invocation is, if I spot this correctly, f.e.:
+David,
 
-  __netif_receive_skb_core()
-  `-> nf_hook_ingress()
-   `-> nf_hook_do_ingress()
-    `-> nf_hook_slow()
-     `-> [for each entry in hook list]
-      `-> nf_iterate()
-       `-> (*elemp)->hook()
-        `-> handle_ing()
-         `-> ing_filter()
-          `-> qdisc_enqueue_root()
-           `-> sch->enqueue()
-            `-> ingress_enqueue()
-             `-> tc_classify()
-              `-> tc_classify_compat()
-               `-> [for each attached classifier]
-                `-> tp->classify()
-                 `-> f.e. cls_bpf_classify()
-                  `-> [for each classifier from plist]
-                   `-> BPF_PROG_RUN()
-
-What was actually mentioned in the other thread where we'd like to
-see a more lightweight ingress qdisc is to cut that down tremendously
-to increase pps rate, as provided, that we would be able to process
-a path roughly like:
-
-  __netif_receive_skb_core()
-  `-> tc_classify()
-   `-> tc_classify_compat()
-     `-> [for each attached classifier]
-       `-> tp->classify()
-         `-> f.e. cls_bpf_classify()
-           `-> [for each classifier from plist]
-             `-> BPF_PROG_RUN()
-
-Therefore, I think it would be better to not wrap that ingress qdisc
-part of the patch set into even more layers. What do you think?
+Since the patch has been applied already - should I send a V2 with the
+suggested changes? Or submit a new patch that applies on top of the
+first patch?
 
 Thanks,
-Daniel
+Vishwanath
