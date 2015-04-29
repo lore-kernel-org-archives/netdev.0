@@ -1,281 +1,212 @@
-From: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2] bnx2x: Alloc 4k fragment for each rx ring buffer element
-Date: Wed, 29 Apr 2015 10:30:34 -0300
-Message-ID: <87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
-References: <1429908351-12262-1-git-send-email-krisman@linux.vnet.ibm.com>
-	<553AD097.4020209@gmx.de>
+From: Igal.Liberman <igal.liberman@freescale.com>
+Subject: [RFC,v3,00/12] Freescale DPAA FMan
+Date: Wed, 29 Apr 2015 12:26:23 +0300
+Message-ID: <1430299583-29031-1-git-send-email-igal.liberman@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
-	cascardo@linux.vnet.ibm.com, cascardo@cascardo.eti.br,
-	brking@linux.vnet.ibm.com
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:38567 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422884AbbD2Nak (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 09:30:40 -0400
-Received: from /spool/local
-	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <krisman@linux.vnet.ibm.com>;
-	Wed, 29 Apr 2015 10:30:38 -0300
-Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id D3964352006A
-	for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 09:29:33 -0400 (EDT)
-Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
-	by d24relay02.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t3TDTUSC65929324
-	for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 10:29:30 -0300
-Received: from d24av03.br.ibm.com (localhost [127.0.0.1])
-	by d24av03.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t3TDUXps002032
-	for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 10:30:34 -0300
-In-Reply-To: <553AD097.4020209@gmx.de> (Lino Sanfilippo's message of "Sat, 25
-	Apr 2015 01:24:07 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Igal Liberman <Igal.Liberman@freescale.com>, linuxppc-dev@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org, madalin.bucur@freescale.com
+To: <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-
-Hi Lino,
-
-Lino Sanfilippo <LinoSanfilippo@gmx.de> writes:
-> Looks like setting pool->page to NULL is missing in case that dma
-> mapping failed. Otherwise put_page is called on the freed page the next
-> time bnx2x_alloc_rx_sge is called.
-
-Thanks, I fixed it.  Please take this new version with the fix you
-suggested.
-
--- >8 --
-Subject: [PATCH] bnx2x: Alloc 4k fragment for each rx ring buffer element
-
-The driver allocates one page for each buffer on the rx ring, which is
-too much on architectures like ppc64 and can cause unexpected allocation
-failures when the system is under stress.  Now, we keep a memory pool
-per queue, and if the architecture's PAGE_SIZE is greater than 4k, we
-fragment pages and assign each 4k segment to a ring element, which
-reduces the overall memory consumption on such architectures.  This
-helps avoiding errors like the example below:
-
-[bnx2x_alloc_rx_sge:435(eth1)]Can't alloc sge
-[c00000037ffeb900] [d000000075eddeb4] .bnx2x_alloc_rx_sge+0x44/0x200 [bnx2x]
-[c00000037ffeb9b0] [d000000075ee0b34] .bnx2x_fill_frag_skb+0x1ac/0x460 [bnx2x]
-[c00000037ffebac0] [d000000075ee11f0] .bnx2x_tpa_stop+0x160/0x2e8 [bnx2x]
-[c00000037ffebb90] [d000000075ee1560] .bnx2x_rx_int+0x1e8/0xc30 [bnx2x]
-[c00000037ffebcd0] [d000000075ee2084] .bnx2x_poll+0xdc/0x3d8 [bnx2x] (unreliable)
-
-Signed-off-by: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     | 19 ++++++--
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 61 +++++++++++++++++--------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h | 33 +++++++++++--
- 3 files changed, 89 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 4085c4b..d0c8ed0 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -356,6 +356,8 @@ struct sw_tx_bd {
- 
- struct sw_rx_page {
- 	struct page	*page;
-+	int		len;
-+	int		offset;
- 	DEFINE_DMA_UNMAP_ADDR(mapping);
- };
- 
-@@ -381,9 +383,10 @@ union db_prod {
- 
- #define PAGES_PER_SGE_SHIFT	0
- #define PAGES_PER_SGE		(1 << PAGES_PER_SGE_SHIFT)
--#define SGE_PAGE_SIZE		PAGE_SIZE
--#define SGE_PAGE_SHIFT		PAGE_SHIFT
--#define SGE_PAGE_ALIGN(addr)	PAGE_ALIGN((typeof(PAGE_SIZE))(addr))
-+#define SGE_PAGE_SHIFT		12
-+#define SGE_PAGE_SIZE		(1 << SGE_PAGE_SHIFT)
-+#define SGE_PAGE_MASK		(~(SGE_PAGE_SIZE - 1))
-+#define SGE_PAGE_ALIGN(addr)	(((addr) + SGE_PAGE_SIZE - 1) & SGE_PAGE_MASK)
- #define SGE_PAGES		(SGE_PAGE_SIZE * PAGES_PER_SGE)
- #define TPA_AGG_SIZE		min_t(u32, (min_t(u32, 8, MAX_SKB_FRAGS) * \
- 					    SGE_PAGES), 0xffff)
-@@ -525,6 +528,14 @@ enum bnx2x_tpa_mode_t {
- 	TPA_MODE_GRO
- };
- 
-+struct bnx2x_alloc_pool {
-+	struct page	*page;
-+	dma_addr_t	dma;
-+	int		len;
-+	int		offset;
-+	int		last_offset;
-+};
-+
- struct bnx2x_fastpath {
- 	struct bnx2x		*bp; /* parent */
- 
-@@ -611,6 +622,8 @@ struct bnx2x_fastpath {
- 	     4 (for the digits and to make it DWORD aligned) */
- #define FP_NAME_SIZE		(sizeof(((struct net_device *)0)->name) + 8)
- 	char			name[FP_NAME_SIZE];
-+
-+	struct bnx2x_alloc_pool	page_pool;
- };
- 
- #define bnx2x_fp(bp, nr, var)	((bp)->fp[(nr)].var)
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 0a9faa1..52ce87f 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -544,30 +544,53 @@ static void bnx2x_set_gro_params(struct sk_buff *skb, u16 parsing_flags,
- static int bnx2x_alloc_rx_sge(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 			      u16 index, gfp_t gfp_mask)
- {
--	struct page *page = alloc_pages(gfp_mask, PAGES_PER_SGE_SHIFT);
- 	struct sw_rx_page *sw_buf = &fp->rx_page_ring[index];
- 	struct eth_rx_sge *sge = &fp->rx_sge_ring[index];
-+	struct bnx2x_alloc_pool *pool = &fp->page_pool;
- 	dma_addr_t mapping;
- 
--	if (unlikely(page == NULL)) {
--		BNX2X_ERR("Can't alloc sge\n");
--		return -ENOMEM;
--	}
-+	if (!pool->page || pool->offset > pool->last_offset) {
- 
--	mapping = dma_map_page(&bp->pdev->dev, page, 0,
--			       SGE_PAGES, DMA_FROM_DEVICE);
--	if (unlikely(dma_mapping_error(&bp->pdev->dev, mapping))) {
--		__free_pages(page, PAGES_PER_SGE_SHIFT);
--		BNX2X_ERR("Can't map sge\n");
--		return -ENOMEM;
-+		/* put page reference used by the memory pool, since we
-+		 * won't be using this page as the mempool anymore.
-+		 */
-+		if (pool->page)
-+			put_page(pool->page);
-+
-+		pool->page = alloc_pages(gfp_mask, PAGES_PER_SGE_SHIFT);
-+		if (unlikely(!pool->page)) {
-+			BNX2X_ERR("Can't alloc sge\n");
-+			return -ENOMEM;
-+		}
-+
-+		pool->dma = dma_map_page(&bp->pdev->dev, pool->page, 0,
-+					 PAGE_SIZE, DMA_FROM_DEVICE);
-+		if (unlikely(dma_mapping_error(&bp->pdev->dev,
-+					       pool->dma))) {
-+			__free_pages(pool->page, PAGES_PER_SGE_SHIFT);
-+			pool->page = NULL;
-+			BNX2X_ERR("Can't map sge\n");
-+			return -ENOMEM;
-+		}
-+		pool->offset = 0;
-+		pool->len = PAGE_SIZE;
-+		pool->last_offset = ((PAGE_SIZE / SGE_PAGE_SIZE - 1)
-+				     * SGE_PAGE_SIZE);
- 	}
- 
--	sw_buf->page = page;
-+	get_page(pool->page);
-+	sw_buf->page = pool->page;
-+	sw_buf->len = SGE_PAGE_SIZE;
-+	sw_buf->offset = pool->offset;
-+
-+	mapping = pool->dma + sw_buf->offset;
- 	dma_unmap_addr_set(sw_buf, mapping, mapping);
- 
- 	sge->addr_hi = cpu_to_le32(U64_HI(mapping));
- 	sge->addr_lo = cpu_to_le32(U64_LO(mapping));
- 
-+	pool->offset += SGE_PAGE_SIZE;
-+
- 	return 0;
- }
- 
-@@ -629,20 +652,22 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 			return err;
- 		}
- 
--		/* Unmap the page as we're going to pass it to the stack */
--		dma_unmap_page(&bp->pdev->dev,
--			       dma_unmap_addr(&old_rx_pg, mapping),
--			       SGE_PAGES, DMA_FROM_DEVICE);
-+		dma_unmap_single(&bp->pdev->dev,
-+				 dma_unmap_addr(&old_rx_pg, mapping),
-+				 old_rx_pg.len, DMA_FROM_DEVICE);
- 		/* Add one frag and update the appropriate fields in the skb */
- 		if (fp->mode == TPA_MODE_LRO)
--			skb_fill_page_desc(skb, j, old_rx_pg.page, 0, frag_len);
-+			skb_fill_page_desc(skb, j, old_rx_pg.page,
-+					   old_rx_pg.offset, frag_len);
- 		else { /* GRO */
- 			int rem;
- 			int offset = 0;
- 			for (rem = frag_len; rem > 0; rem -= gro_size) {
- 				int len = rem > gro_size ? gro_size : rem;
- 				skb_fill_page_desc(skb, frag_id++,
--						   old_rx_pg.page, offset, len);
-+						   old_rx_pg.page,
-+						   old_rx_pg.offset + offset,
-+						   len);
- 				if (offset)
- 					get_page(old_rx_pg.page);
- 				offset += len;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index adcacda..3842d51 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -804,9 +804,14 @@ static inline void bnx2x_free_rx_sge(struct bnx2x *bp,
- 	if (!page)
- 		return;
- 
--	dma_unmap_page(&bp->pdev->dev, dma_unmap_addr(sw_buf, mapping),
--		       SGE_PAGES, DMA_FROM_DEVICE);
--	__free_pages(page, PAGES_PER_SGE_SHIFT);
-+	/* Since many fragments can share the same page, make sure to
-+	 * only unmap and free the page once.
-+	 */
-+	dma_unmap_single(&bp->pdev->dev,
-+			 dma_unmap_addr(sw_buf, mapping),
-+			 sw_buf->len, DMA_FROM_DEVICE);
-+
-+	put_page(page);
- 
- 	sw_buf->page = NULL;
- 	sge->addr_hi = 0;
-@@ -964,6 +969,26 @@ static inline void bnx2x_set_fw_mac_addr(__le16 *fw_hi, __le16 *fw_mid,
- 	((u8 *)fw_lo)[1]  = mac[4];
- }
- 
-+static inline void bnx2x_free_rx_mem_pool(struct bnx2x *bp,
-+					  struct bnx2x_alloc_pool *pool)
-+{
-+	if (!pool->page)
-+		return;
-+
-+	/* Page was not fully fragmented.  Unmap unused space */
-+	if (pool->offset <= pool->last_offset) {
-+		dma_addr_t dma = pool->dma + pool->offset;
-+
-+		dma_unmap_single(&bp->pdev->dev, dma,
-+				 pool->len - pool->offset,
-+				 DMA_FROM_DEVICE);
-+	}
-+
-+	put_page(pool->page);
-+
-+	pool->page = NULL;
-+}
-+
- static inline void bnx2x_free_rx_sge_range(struct bnx2x *bp,
- 					   struct bnx2x_fastpath *fp, int last)
- {
-@@ -974,6 +999,8 @@ static inline void bnx2x_free_rx_sge_range(struct bnx2x *bp,
- 
- 	for (i = 0; i < last; i++)
- 		bnx2x_free_rx_sge(bp, fp, i);
-+
-+	bnx2x_free_rx_mem_pool(bp, &fp->page_pool);
- }
- 
- static inline void bnx2x_set_next_page_rx_bd(struct bnx2x_fastpath *fp)
--- 
-2.1.0
+RnJvbTogSWdhbCBMaWJlcm1hbiA8SWdhbC5MaWJlcm1hbkBmcmVlc2NhbGUuY29tPgoKVGhlIEZy
+ZWVzY2FsZSBEYXRhIFBhdGggQWNjZWxlcmF0aW9uIEFyY2hpdGVjdHVyZSAoRFBBQSkKaXMgYSBz
+ZXQgb2YgaGFyZHdhcmUgY29tcG9uZW50cyBvbiBzcGVjaWZpYyBRb3JJUSBtdWx0aWNvcmUKcHJv
+Y2Vzc29ycy4gVGhpcyBhcmNoaXRlY3R1cmUgcHJvdmlkZXMgdGhlIGluZnJhc3RydWN0dXJlIHRv
+CnN1cHBvcnQgc2ltcGxpZmllZCBzaGFyaW5nIG9mIG5ldHdvcmtpbmcgaW50ZXJmYWNlcyBhbmQK
+YWNjZWxlcmF0b3JzIGJ5IG11bHRpcGxlIENQVSBjb3JlcyBhbmQgdGhlIGFjY2VsZXJhdG9ycy4K
+Ck9uZSBvZiB0aGUgRFBBQSBhY2NlbGVyYXRvcnMgaXMgdGhlIEZyYW1lIE1hbmFnZXIgKEZNYW4p
+CndoaWNoIGNvbnRhaW5zIGEgc2VyaWVzIG9mIGhhcmR3YXJlIGJsb2NrczoKcG9ydHMsIEV0aGVy
+bmV0IE1BQ3MsIGEgbXVsdGkgdXNlciBSQU0gKE1VUkFNKSBhbmQKU3RvcmFnZSBQcm9maWxlIChT
+UCkuCgpUaGlzIHBhdGNoIHNldCBpbnRyb2R1Y2VkIHRoZSBGTWFuIGRyaXZlciBjb2RlIHRoYXQg
+Y29uZmlndXJlcwphbmQgaW5pdGlhbGl6ZXMgdGhlIEZNYW4gaGFyZHdhcmUgYmxvY2tzLCBvZmZl
+cmluZyBzdXBwb3J0IGZvcgp0aHJlZSBkaWZmZXJlbnQgdHlwZXMgb2YgTUFDcy4KVGhlIGZpcnN0
+IDYgcGF0Y2hlcyBwcmVzZW50IHRoZSBGTWFuIEZvdW5kYXRpb24gTGlicmFyaWVzIChGTElCcyks
+CnRoZSBGTWFuIEZMaWIgcHJvdmlkZXMgdGhlIGJhc2ljIEFQSSB1c2VkIGJ5IHRoZSBGTWFuIGRy
+aXZlcnMKdG8gY29uZmlndXJlIGFuZCBjb250cm9sIHRoZSBGTWFuIGhhcmR3YXJlLgpUaGUgZm9s
+bG93aW5nIHBhdGNoZXMgcHJlc2VudCB0aGUgRk1hbiBkcml2ZXIgaXRzZWxmLApzcGxpdCBpbnRv
+IHBhdGNoZXMgZm9yIGVhY2ggcmVxdWlyZWQgaGFyZHdhcmUgbW9kdWxlLgoKdjM6CS0gTW92ZWQg
+Rk1hbiB0byAuL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS8KCS0gVXNlIGdlbmFsbG9j
+IGZvciBNVVJBTSBtYW5hZ2VtZW50LgoJLSBTb21lIHVwZGF0ZXMgZm9yIFQxMDI0IHN1cHBvcnQu
+Cgp2MjoJLSBUaGlzIHNldCBvZiBwYXRjaGVzIGNvbWJpbmVzIHRoZSBmb2xsb3dpbmcgc3VibWlz
+c2lvbnM6CgkJLSB2MiBvZiBGTWFuIChSRkMpCgkJLSB2MyBvZiBGTWFuIEZMaWIKCS0gUmVkdWNl
+ZCBGTWFuIGNvZGUgc2l6ZToKCQktIFJlZHVjZWQgRk1hbiBGTGliJ3Mgc2l6ZToKCQkJUmVtb3Zl
+ZCBjb2RlIGZvciBmdXR1cmUgc3VwcG9ydC4KCQktIFJlbW92ZWQgUHJpb3JpdHkgRmxvdyBDb250
+cm9sIChQRkMpIHN1cHBvcnQuCgkJLSBSZW1vdmVkIHJhdGUtbGltaXRlci4KCQktIFJlbW92ZWQg
+c29tZSBNQUMgZmVhdHVyZXMuCgkJLSBSZW1vdmVkIFJlYWwgVGltZSBDbG9jayAoUlRDKSBzdXBw
+b3J0LgoKSWdhbCBMaWJlcm1hbiAoMTIpOgogIGZzbC9mbWFuOiBBZGQgdGhlIEZNYW4gRkxJQiBo
+ZWFkZXJzCiAgZnNsL2ZtYW46IEFkZCB0aGUgRk1hbiBGTElCCiAgZnNsL2ZtYW46IEFkZCB0aGUg
+Rk1hbiBwb3J0IEZMSUIgaGVhZGVycwogIGZzbC9mbWFuOiBBZGQgdGhlIEZNYW4gcG9ydCBGTElC
+CiAgZnNsL2ZtYW46IEFkZCB0aGUgRk1hbiBNQUMgRkxJQiBoZWFkZXJzCiAgZnNsL2ZtYW46IEFk
+ZCB0aGUgRk1hbiBNQUMgRkxJQgogIGZzbC9mbWFuOiBBZGQgRk1hbiBNVVJBTSBzdXBwb3J0CiAg
+ZnNsL2ZtYW46IEFkZCBGcmFtZSBNYW5hZ2VyIHN1cHBvcnQKICBmc2wvZm1hbjogQWRkIEZNYW4g
+TUFDIHN1cHBvcnQKICBmc2wvZm1hbjogQWRkIEZNYW4gU1Agc3VwcG9ydAogIGZzbC9mbWFuOiBB
+ZGQgRk1hbiBQb3J0IFN1cHBvcnQKICBmc2wvZm1hbjogQWRkIEZNYW4gTUFDIGRyaXZlcgoKIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9LY29uZmlnICAgICAgICAgICAgIHwgICAgMSAr
+CiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvTWFrZWZpbGUgICAgICAgICAgICB8ICAg
+IDIgKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vS2NvbmZpZyAgICAgICAg
+fCAgIDQ2ICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlICAg
+ICAgIHwgICAxMiArCiAuLi4vZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9jb21tb24vZ2Vu
+ZXJhbC5oICB8ICAgNDEgKwogLi4uL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbGliL2Zt
+YW5fY29tbW9uLmggfCAgIDczICsKIC4uLi9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxp
+Yi9mc2xfZW5ldC5oICAgIHwgIDI3NSArKysKIC4uLi9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2Zt
+YW4vZmxpYi9mc2xfZm1hbi5oICAgIHwgIDc0MyArKysrKysrCiAuLi4vZXRoZXJuZXQvZnJlZXNj
+YWxlL2ZtYW4vZmxpYi9mc2xfZm1hbl9kdHNlYy5oICB8ICA3OTEgKysrKysrKysKIC4uLi9mcmVl
+c2NhbGUvZm1hbi9mbGliL2ZzbF9mbWFuX2R0c2VjX21paV9hY2MuaCAgIHwgIDEwMyArCiAuLi4v
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xfZm1hbl9tZW1hYy5oICB8ICA0NTMgKysr
+KysKIC4uLi9mcmVlc2NhbGUvZm1hbi9mbGliL2ZzbF9mbWFuX21lbWFjX21paV9hY2MuaCAgIHwg
+ICA3NiArCiAuLi4vZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xfZm1hbl9wb3J0Lmgg
+ICB8ICA0NjIgKysrKysKIC4uLi9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xf
+Zm1hbl9zcC5oIHwgICA2NiArCiAuLi4vZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xf
+Zm1hbl90Z2VjLmggICB8ICA0MDkgKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2ZtYW4vZm0uYyAgICAgICAgICAgfCAyMDgyICsrKysrKysrKysrKysrKysrKysrCiBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbS5oICAgICAgICAgICB8ICA0ODggKysrKysK
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtX2NvbW1vbi5oICAgIHwgIDUz
+OCArKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1fZHJ2LmMgICAg
+ICAgfCAgOTczICsrKysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4v
+Zm1fZHJ2LmggICAgICAgfCAgMTIzICsrCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+Zm1hbi9mbV9tdXJhbS5jICAgICB8ICAxMTQgKysKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVz
+Y2FsZS9mbWFuL2ZtX3BvcnRfZHJ2LmMgIHwgIDUzNiArKysrKwogZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZtYW4vZm1fc3BfY29tbW9uLmggfCAgMTA0ICsKIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtYW4uYyAgICAgICAgIHwgIDk3OCArKysrKysrKysKIC4u
+Li9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9pbmMvY3JjX21hY19hZGRyX2V4dC5oIHwgIDM0MyAr
+KysrCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9pbmMvZHBhYV9leHQuaCB8
+ICAyNTMgKysrCiAuLi4vZnJlZXNjYWxlL2ZtYW4vaW5jL2RwYWFfaW50ZWdyYXRpb25fZXh0Lmgg
+ICAgICB8ICAxMjAgKysKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2luYy9l
+bmV0X2V4dC5oIHwgIDE5OSArKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4v
+aW5jL2ZtX2V4dC5oICAgfCAgNzE1ICsrKysrKysKIC4uLi9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
+L2ZtYW4vaW5jL2ZtX21hY19leHQuaCAgIHwgIDQ1MiArKysrKwogLi4uL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvZm1hbi9pbmMvZm1fbXVyYW1fZXh0LmggfCAgIDg5ICsKIC4uLi9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL2ZtX3BvcnRfZXh0LmggIHwgIDM5NyArKysrCiAuLi4vbmV0
+L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2luYy9mc2xfZm1hbl9kcnYuaCB8ICAxOTIgKysKIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2luYy9tYWMuaCAgICAgIHwgIDEyNSAr
+KwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL25ldF9leHQuaCAgfCAg
+NTM0ICsrKysrCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9pbmMvc2Vydmlj
+ZS5oICB8ICAgOTAgKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjL01h
+a2VmaWxlICAgfCAgICA5ICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21h
+Yy9kdHNlYy5jICAgIHwgMTIyNiArKysrKysrKysrKysKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS9mbWFuL21hYy9kdHNlYy5oICAgIHwgIDE4NSArKwogLi4uL2V0aGVybmV0L2ZyZWVz
+Y2FsZS9mbWFuL21hYy9kdHNlY19taWlfYWNjLmMgICAgfCAgIDgyICsKIC4uLi9ldGhlcm5ldC9m
+cmVlc2NhbGUvZm1hbi9tYWMvZHRzZWNfbWlpX2FjYy5oICAgIHwgICA0MyArCiBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvZm1fbWFjLmMgICB8ICA1MTAgKysrKysKIGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9mbV9tYWMuaCAgIHwgIDE4MyAr
+KwogLi4uL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvZm1hbl9jcmMzMi5jICAgfCAg
+MTE2ICsrCiAuLi4vbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9mbWFuX2NyYzMyLmgg
+ICB8ICAgMzkgKwogLi4uL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvZm1hbl9kdHNl
+Yy5jICAgfCAgNTcxICsrKysrKwogLi4uL2ZyZWVzY2FsZS9mbWFuL21hYy9mbWFuX2R0c2VjX21p
+aV9hY2MuYyAgICAgICAgfCAgMTY4ICsrCiAuLi4vbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFu
+L21hYy9mbWFuX21lbWFjLmMgICB8ICAzNjUgKysrKwogLi4uL2ZyZWVzY2FsZS9mbWFuL21hYy9m
+bWFuX21lbWFjX21paV9hY2MuYyAgICAgICAgfCAgMjE3ICsrCiAuLi4vbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS9mbWFuL21hYy9mbWFuX3RnZWMuYyAgICB8ICAyMTcgKysKIGRyaXZlcnMvbmV0L2V0
+aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9tYWMtYXBpLmMgIHwgIDYwNSArKysrKysKIGRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9tYWMuYyAgICAgIHwgIDUyNyArKysr
+KwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjL21lbWFjLmMgICAgfCAg
+ODM3ICsrKysrKysrCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvbWVt
+YWMuaCAgICB8ICAxMDMgKwogLi4uL2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9tZW1hY19t
+aWlfYWNjLmMgICAgfCAgIDY2ICsKIC4uLi9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvbWVt
+YWNfbWlpX2FjYy5oICAgIHwgICA1MCArCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+Zm1hbi9tYWMvdGdlYy5jICAgICB8ICA3OTcgKysrKysrKysKIGRyaXZlcnMvbmV0L2V0aGVybmV0
+L2ZyZWVzY2FsZS9mbWFuL21hYy90Z2VjLmggICAgIHwgIDExMiArKwogLi4uL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvZm1hbi9tYWMvdGdlY19taWlfYWNjLmggfCAgIDY2ICsKIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL3BvcnQvTWFrZWZpbGUgIHwgICAgMyArCiBkcml2ZXJz
+L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9wb3J0L2ZtX3BvcnQuYyB8IDE0ODQgKysrKysr
+KysrKysrKysKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL3BvcnQvZm1fcG9y
+dC5oIHwgIDcxMSArKysrKysrCiAuLi4vbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL3BvcnQv
+Zm1hbl9wb3J0LmMgICB8ICA3MjggKysrKysrKwogZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
+YWxlL2ZtYW4vc3AvTWFrZWZpbGUgICAgfCAgICAzICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS9mbWFuL3NwL2ZtX3NwLmMgICAgIHwgIDM5OCArKysrCiA2NSBmaWxlcyBjaGFuZ2Vk
+LCAyMzQxOSBpbnNlcnRpb25zKCspCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vS2NvbmZpZwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL01ha2VmaWxlCiBjcmVhdGUgbW9kZSAxMDA2NDQg
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9jb21tb24vZ2VuZXJhbC5o
+CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4v
+ZmxpYi9mbWFuX2NvbW1vbi5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xfZW5ldC5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJp
+dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xfZm1hbi5oCiBjcmVhdGUg
+bW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xf
+Zm1hbl9kdHNlYy5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2ZtYW4vZmxpYi9mc2xfZm1hbl9kdHNlY19taWlfYWNjLmgKIGNyZWF0ZSBtb2RlIDEw
+MDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbGliL2ZzbF9mbWFuX21l
+bWFjLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+Zm1hbi9mbGliL2ZzbF9mbWFuX21lbWFjX21paV9hY2MuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZsaWIvZnNsX2ZtYW5fcG9ydC5oCiBj
+cmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZmxp
+Yi9mc2xfZm1hbl9zcC5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2ZtYW4vZmxpYi9mc2xfZm1hbl90Z2VjLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbS5jCiBjcmVhdGUgbW9kZSAxMDA2
+NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm0uaAogY3JlYXRlIG1vZGUg
+MTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2ZtX2NvbW1vbi5oCiBj
+cmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1f
+ZHJ2LmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+Zm1hbi9mbV9kcnYuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS9mbWFuL2ZtX211cmFtLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbV9wb3J0X2Rydi5jCiBjcmVhdGUgbW9kZSAxMDA2NDQg
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vZm1fc3BfY29tbW9uLmgKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9mbWFuLmMK
+IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9p
+bmMvY3JjX21hY19hZGRyX2V4dC5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL2RwYWFfZXh0LmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9pbmMvZHBhYV9pbnRlZ3JhdGlvbl9l
+eHQuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9m
+bWFuL2luYy9lbmV0X2V4dC5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL2ZtX2V4dC5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL2ZtX21hY19leHQuaAogY3JlYXRlIG1v
+ZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL2luYy9mbV9tdXJh
+bV9leHQuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
+ZS9mbWFuL2luYy9mbV9wb3J0X2V4dC5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL2ZzbF9mbWFuX2Rydi5oCiBjcmVhdGUgbW9kZSAx
+MDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL21hYy5oCiBjcmVh
+dGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vaW5jL25l
+dF9leHQuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2Fs
+ZS9mbWFuL2luYy9zZXJ2aWNlLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvTWFrZWZpbGUKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvZHRzZWMuYwogY3JlYXRlIG1vZGUg
+MTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9kdHNlYy5oCiBj
+cmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFj
+L2R0c2VjX21paV9hY2MuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0
+L2ZyZWVzY2FsZS9mbWFuL21hYy9kdHNlY19taWlfYWNjLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvZm1fbWFjLmMKIGNyZWF0ZSBt
+b2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvZm1fbWFj
+LmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1h
+bi9tYWMvZm1hbl9jcmMzMi5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZtYW4vbWFjL2ZtYW5fY3JjMzIuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9mbWFuX2R0c2VjLmMKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvZm1h
+bl9kdHNlY19taWlfYWNjLmMKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5l
+dC9mcmVlc2NhbGUvZm1hbi9tYWMvZm1hbl9tZW1hYy5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJp
+dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjL2ZtYW5fbWVtYWNfbWlpX2FjYy5j
+CiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4v
+bWFjL2ZtYW5fdGdlYy5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2ZtYW4vbWFjL21hYy1hcGkuYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9tYWMuYwogY3JlYXRlIG1vZGUgMTAwNjQ0
+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy9tZW1hYy5jCiBjcmVhdGUg
+bW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjL21lbWFj
+LmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1h
+bi9tYWMvbWVtYWNfbWlpX2FjYy5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vbWFjL21lbWFjX21paV9hY2MuaAogY3JlYXRlIG1vZGUgMTAw
+NjQ0IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL21hYy90Z2VjLmMKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9tYWMvdGdl
+Yy5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2Zt
+YW4vbWFjL3RnZWNfbWlpX2FjYy5oCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vcG9ydC9NYWtlZmlsZQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRy
+aXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mbWFuL3BvcnQvZm1fcG9ydC5jCiBjcmVhdGUg
+bW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZtYW4vcG9ydC9mbV9w
+b3J0LmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
+Zm1hbi9wb3J0L2ZtYW5fcG9ydC5jCiBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvZnJlZXNjYWxlL2ZtYW4vc3AvTWFrZWZpbGUKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZm1hbi9zcC9mbV9zcC5jCgotLSAKMS43LjkuNQoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
