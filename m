@@ -1,43 +1,38 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net] cxgb4: Fix MC1 memory offset calculation
-Date: Wed, 29 Apr 2015 17:19:05 +0530
-Message-ID: <1430308145-15225-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>,
-	Steve Wise <swise@opengridcomputing.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/2] tcp: prepare CC get_info() access from getsockopt()
+Date: Wed, 29 Apr 2015 09:55:16 +0200
+Message-ID: <55408E64.1050306@iogearbox.net>
+References: <1430263429-4069-1-git-send-email-edumazet@google.com> <1430263429-4069-2-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21659 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751126AbbD2GhR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 02:37:17 -0400
+Received: from www62.your-server.de ([213.133.104.62]:44179 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031285AbbD2HzV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 03:55:21 -0400
+In-Reply-To: <1430263429-4069-2-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 6559a7e8296002b4 ("cxgb4: Cleanup macros so they follow the same
-style and look consistent") introduced a regression where reading MC1
-memory in adapters where MC0 isn't present or MC0 size is not equal to MC1
-size caused the adapter to crash due to incorrect computation of memoffset.
-Fix is to read the size of MC0 instead of MC1 for offset calculation
+On 04/29/2015 01:23 AM, Eric Dumazet wrote:
+> We would like that optional info provided by Congestion Control
+> modules using netlink can also be read using getsockopt()
+>
+> This patch changes get_info() to put this information in a buffer,
+> instead of skb, like tcp_get_info(), so that following patch
+> can reuse this common infrastructure.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Looks good to me, thanks!
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 5959e3a..e8578a7 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -492,7 +492,7 @@ int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr,
- 		memoffset = (mtype * (edc_size * 1024 * 1024));
- 	else {
- 		mc_size = EXT_MEM0_SIZE_G(t4_read_reg(adap,
--						      MA_EXT_MEMORY1_BAR_A));
-+						      MA_EXT_MEMORY0_BAR_A));
- 		memoffset = (MEM_MC0 * edc_size + mc_size) * 1024 * 1024;
- 	}
- 
--- 
-2.3.4
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
