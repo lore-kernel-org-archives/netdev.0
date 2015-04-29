@@ -1,83 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/7] net: Add skb_get_hash_perturb
-Date: Wed, 29 Apr 2015 04:19:30 -0700
-Message-ID: <1430306370.3711.48.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
-	 <1430281661-2271966-2-git-send-email-tom@herbertland.com>
-	 <20150429075947.GB30392@breakpoint.cc>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 4/6] ipv6: Only create RTF_CACHE routes after
+ encountering pmtu exception
+Date: Wed, 29 Apr 2015 13:39:18 +0200
+Message-ID: <20150429113918.GN8928@secunet.com>
+References: <1430255273-3045254-1-git-send-email-kafai@fb.com>
+ <1430255273-3045254-5-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jiri@resnulli.us
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>,
+	Kernel Team <Kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:36721 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422882AbbD2LTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 07:19:32 -0400
-Received: by pabsx10 with SMTP id sx10so25144466pab.3
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 04:19:32 -0700 (PDT)
-In-Reply-To: <20150429075947.GB30392@breakpoint.cc>
+Received: from a.mx.secunet.com ([195.81.216.161]:57722 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753506AbbD2LjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2015 07:39:23 -0400
+Content-Disposition: inline
+In-Reply-To: <1430255273-3045254-5-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-04-29 at 09:59 +0200, Florian Westphal wrote:
-> Tom Herbert <tom@herbertland.com> wrote:
-> > This is used to get the skb->hash and then perturb it for a local use.
-> > 
-> > Signed-off-by: Tom Herbert <tom@herbertland.com>
-> > ---
-> >  include/linux/skbuff.h | 15 +++++++++++++++
-> >  1 file changed, 15 insertions(+)
-> > 
-> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> > index 66e374d..b706889 100644
-> > --- a/include/linux/skbuff.h
-> > +++ b/include/linux/skbuff.h
-> > @@ -17,6 +17,7 @@
-> >  #include <linux/kernel.h>
-> >  #include <linux/kmemcheck.h>
-> >  #include <linux/compiler.h>
-> > +#include <linux/jhash.h>
-> >  #include <linux/time.h>
-> >  #include <linux/bug.h>
-> >  #include <linux/cache.h>
-> > @@ -927,6 +928,20 @@ static inline __u32 skb_get_hash(struct sk_buff *skb)
-> >  	return skb->hash;
-> >  }
-> >  
-> > +static inline __u32 skb_get_hash_perturb(struct sk_buff *skb,
-> > +					 u32 perturb)
-> > +{
-> > +	u32 hash = skb_get_hash(skb);
-> > +
-> > +	if (likely(hash)) {
-> > +		hash = jhash_1word((__force __u32) hash, perturb);
-> 
-> Whats this perturb for?
-> 
-> perturb is supposed to make sure that if you have
-> 
-> flow1, flow2 where hash(flow1, perturb) == hash(flow2, perturb)
-> the collision will be temporary and go away once perturb changes.
-> 
-> If you perturb after hashing, such collision is permanent.
-> 
-> So I think this either should flow_dissect + hash in software,
-> or just use skb_get_hash without perturb.
+On Tue, Apr 28, 2015 at 02:07:51PM -0700, Martin KaFai Lau wrote:
+>  
+> -static void ip6_rt_update_pmtu(struct dst_entry *dst, struct sock *sk,
+> -			       struct sk_buff *skb, u32 mtu)
+> +static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
+> +				 const struct ipv6hdr *iph, u32 mtu)
+>  {
+>  	struct rt6_info *rt6 = (struct rt6_info *)dst;
+> +	struct net *net;
+> +
+> +	if (rt6->rt6i_flags & RTF_LOCAL)
+> +		return;
+>  
+>  	dst_confirm(dst);
+> -	if (mtu < dst_mtu(dst) && (rt6->rt6i_flags & RTF_CACHE)) {
+> -		struct net *net = dev_net(dst->dev);
+> +	mtu = max_t(u32, mtu, IPV6_MIN_MTU);
+> +	if (mtu >= dst_mtu(dst))
+> +		return;
+>  
+> -		rt6->rt6i_flags |= RTF_MODIFIED;
+> -		if (mtu < IPV6_MIN_MTU)
+> -			mtu = IPV6_MIN_MTU;
+> +	if (!(rt6->rt6i_flags & RTF_CACHE)) {
+> +		const struct in6_addr *daddr, *saddr;
+> +		struct rt6_info *nrt6;
+>  
+> -		rt6->rt6i_pmtu = mtu;
+> -		rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
+> +		if (iph) {
+> +			daddr = &iph->daddr;
+> +			saddr = &iph->saddr;
+> +		} else if (sk) {
+> +			daddr = &sk->sk_v6_daddr;
+> +			saddr = &inet6_sk(sk)->saddr;
+> +		} else {
+> +			return;
+> +		}
+> +		nrt6 = ip6_pmtu_rt_cache_alloc(rt6, daddr, saddr);
+> +		if (!nrt6)
+> +			return;
+> +		/* ip6_ins_rt(nrt6) will bump the rt6->rt6i_node->fn_sernum
+> +		 * which will fail the next rt6_check() and invalidate the
+> +		 * sk->sk_dst_cache.
+> +		 */
+> +		if (ip6_ins_rt(nrt6)) {
+> +			dst_destroy(&nrt6->dst);
 
-Yes, I mentioned this several times to Tom in the various past attempts.
+fib6_add() does a dst_free() on error, so calling dst_destroy()
+here might result in a use after free.
 
-Also, this stuff means that sfq will call jhash twice instead of once,
-unless skb->hash is already populated before sfq enqueue.
 
-If the goal is to extend skb to include a flow_keys_digest instead of
-u32 hash, lets state this right now ;)
+> +			return;
+> +		}
+> +
+> +		rt6 = nrt6;
+> +		dst = &nrt6->dst;
+>  	}
+> +
+> +	net = dev_net(dst->dev);
+> +	rt6->rt6i_flags |= RTF_MODIFIED;
+> +	rt6->rt6i_pmtu = mtu;
+> +	rt6_update_expires(rt6, net->ipv6.sysctl.ip6_rt_mtu_expires);
 
-I think I already suggested to add a 'perturb' parameter to
-skb_get_hash() to use in place of hashrnd (found in
-net/core/flow_dissector.c)
+The update of expires and the setting of rt6i_pmtu should
+happen before the route is inserted with ip6_ins_rt().
+This is because fib6_add_rt2node() tries to reuse old
+expired routes if still in the fib tree, the necessary
+informations are copied from the new route before it
+returnes -EEXIST on the new route. If your new route
+has no expires value set, fib6_add_rt2node() cleans
+expires of the old route before it resues it.
 
-If hash is Toeplitz based and provided by a NIC, I doubt a jhash()
-perturbation will get anything better.
+Also rt6i_pmtu should be copied to the reused route in
+fib6_add_rt2node(), this should be done already in your
+first patchset. Otherwise we might use stale pmtu informations.
