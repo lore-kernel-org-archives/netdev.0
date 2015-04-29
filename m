@@ -1,42 +1,42 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH] xfrm: fix a race in xfrm_state_lookup_byspi
-Date: Wed, 29 Apr 2015 08:42:44 +0800
-Message-ID: <1430268164-19019-1-git-send-email-roy.qing.li@gmail.com>
-Cc: fan.du@intel.com, steffen.klassert@secunet.com
-To: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next 1/2] tcp: prepare CC get_info() access from getsockopt()
+Date: Tue, 28 Apr 2015 20:58:09 -0400
+Message-ID: <CADVnQy=sbhVk2fenrXd3QiVHx7n1pLZWyHDQcZuhRE6pKCWovQ@mail.gmail.com>
+References: <1430263429-4069-1-git-send-email-edumazet@google.com>
+	<1430263429-4069-2-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60781 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031083AbbD2Amy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 20:42:54 -0400
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:34581 "EHLO
+	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1031191AbbD2A6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Apr 2015 20:58:10 -0400
+Received: by oiko83 with SMTP id o83so10331373oik.1
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 17:58:10 -0700 (PDT)
+In-Reply-To: <1430263429-4069-2-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On Tue, Apr 28, 2015 at 7:23 PM, Eric Dumazet <edumazet@google.com> wrote:
+> We would like that optional info provided by Congestion Control
+> modules using netlink can also be read using getsockopt()
+>
+> This patch changes get_info() to put this information in a buffer,
+> instead of skb, like tcp_get_info(), so that following patch
+> can reuse this common infrastructure.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
 
-The returned xfrm_state should be hold before unlock xfrm_state_lock,
-otherwise the returned xfrm_state maybe be released.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Fixes: c454997e6[{pktgen, xfrm} Introduce xfrm_state_lookup_byspi..]
-Cc: Fan Du <fan.du@intel.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/xfrm/xfrm_state.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks, Eric!
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index f5e39e3..96688cd 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -927,8 +927,8 @@ struct xfrm_state *xfrm_state_lookup_byspi(struct net *net, __be32 spi,
- 			x->id.spi != spi)
- 			continue;
- 
--		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 		xfrm_state_hold(x);
-+		spin_unlock_bh(&net->xfrm.xfrm_state_lock);
- 		return x;
- 	}
- 	spin_unlock_bh(&net->xfrm.xfrm_state_lock);
--- 
-2.1.0
+neal
