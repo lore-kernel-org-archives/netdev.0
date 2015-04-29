@@ -1,62 +1,78 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net] bnx2x: Delay during kdump load
-Date: Wed, 29 Apr 2015 08:09:49 +0300
-Message-ID: <1430284189-6773-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 6/7] net: Add flow_keys digest
+Date: Tue, 28 Apr 2015 22:15:00 -0700
+Message-ID: <1430284500.3711.33.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430281661-2271966-1-git-send-email-tom@herbertland.com>
+	 <1430281661-2271966-7-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@resnulli.us
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:3244 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751518AbbD2FKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 01:10:03 -0400
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:36570 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751518AbbD2FPD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 01:15:03 -0400
+Received: by iebrs15 with SMTP id rs15so34686096ieb.3
+        for <netdev@vger.kernel.org>; Tue, 28 Apr 2015 22:15:02 -0700 (PDT)
+In-Reply-To: <1430281661-2271966-7-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In a kdump environment interfaces might be re-loaded without a proper
-unload sequence in the previous running kernel.
-bnx2x management FW and driver maintains a `pulse' that notifies the FW
-that the driver is still up and running.
+On Tue, 2015-04-28 at 21:27 -0700, Tom Herbert wrote:
+> Some users of flow keys (well just sch_choke now) need to pass
+> flow_keys in skbuff cb, and use them for exact comparisons of flows
+> so that skb->hash is not sufficient. In order to increase size of
+> the flow_keys structure, we introduce another structure for
+> the purpose of passing flow keys in skbuff cb. We limit this structure
+> to sixteen bytes, and we will technically treat this as a digest of
+> flow_keys struct hence its name flow_keys_digest. In the first
+> incaranation we just copy the flow_keys structure up to 16 bytes--
+> this is the same information previously passed in the cb. In the
+> future, we'll adapt this for larger flow_keys and could use something
+> like SHA-1 over the whole flow_keys to improve the quality of the
+> digest.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
+> ---
+>  include/net/flow_keys.h | 19 +++++++++++++++++++
+>  1 file changed, 19 insertions(+)
+> 
+> diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+> index dc8fd81..f2610ad 100644
+> --- a/include/net/flow_keys.h
+> +++ b/include/net/flow_keys.h
+> @@ -42,4 +42,23 @@ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8
+>  u32 flow_hash_from_keys(struct flow_keys *keys);
+>  unsigned int flow_get_hlen(const unsigned char *data, unsigned int max_len,
+>  			   __be16 protocol);
+> +
+> +/* struct flow_keys_digest:
+> + *
+> + * This structure used to hold a digest of the full flow keys. This is a larger
+> + * "hash" of a connection to allow definitively matching specific flows where
+> + * the 32 bit skb_hash is not large enough. The size is limited to 16 bytes
+> + * so that it can by used in CB of skb (see sch_choke for an example).
+> + */
+> +#define FLOW_KEYS_DIGEST_LEN	16
+> +struct flow_keys_digest {
+> +	u8	data[FLOW_KEYS_DIGEST_LEN];
+> +};
+> +
+> +static inline void make_flow_keys_digest(struct flow_keys_digest *digest,
+> +					 struct flow_keys *flow)
 
-Driver load on the kdump kernel should be performed only after the pulse
-has been out-of-sync long enough for the management FW to identify that
-the driver has crashed, on which point it will perform some necessary
-cleanup of the HW.
+const struct flow_keys *flow
 
-In today's distros kdump loading is quite fast, sometimes too fast for our
-FW to get out-of-sync. This patch delays the bnx2x's probe during kdump
-to allow a proper re-load on the kdump kernel.
+> +{
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Maybe document that src,dst,ports must be in first 16 bytes of
+flows_keys
 
----
-Hi Dave,
+Some BUILD_BUG_ON() might do the trick
 
-Please consider applying this to 'net'.
-
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index b9f85fcc..0939279 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13371,6 +13371,12 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 	bool is_vf;
- 	int cnic_cnt;
- 
-+	/* Management FW 'remembers' living interfaces. Allow it some time
-+	 * to forget previously living interfaces, allowing a proper re-load.
-+	 */
-+	if (is_kdump_kernel())
-+		msleep(5000);
-+
- 	/* An estimated maximum supported CoS number according to the chip
- 	 * version.
- 	 * We will try to roughly estimate the maximum number of CoSes this chip
--- 
-1.9.3
+> +	memcpy(&digest->data, flow, FLOW_KEYS_DIGEST_LEN);
+> +}
+> +
+>  #endif
