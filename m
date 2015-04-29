@@ -1,83 +1,45 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH next v2 3/3] ipvlan: Always set broadcast bit in multicast filter
-Date: Wed, 29 Apr 2015 11:19:19 -0700
-Message-ID: <1430331559-20328-1-git-send-email-maheshb@google.com>
+Subject: [PATCH next v2 0/3] Multicast processing in IPvlan
+Date: Wed, 29 Apr 2015 11:19:11 -0700
+Message-ID: <1430331551-20199-1-git-send-email-maheshb@google.com>
 Cc: Dan Willems <dcbw@redhat.com>, David Miller <davem@davemloft.net>,
 	Mahesh Bandewar <maheshb@google.com>
 To: netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:34640 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751170AbbD2Smh (ORCPT
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:34640 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbbD2Smh (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 14:42:37 -0400
-Received: by obbgq1 with SMTP id gq1so2170508obb.1
+Received: by obbgq1 with SMTP id gq1so2170510obb.1
         for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 11:42:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Earlier tricks of setting broadcast bit only when IPv4 address is added
-onto interface are not good enough especially when autoconf comes in play.
-Setting them on always is performance drag but now that multicast /
-broadcast is not processed in fast-path; enabling broadcast will let
-autoconf work correctly without affecting performance characteristics of
-the device.
+Dan Willems pointed out that autoconf in IPvlan is broken because of the
+way broadcast bit gets set. Since broadcast processing is a real performance
+drain, the broadcast bit in multicast filter was only set when the interface
+was configured with IPv4 address. In autoconf scenario, when there are
+no addresses configured; this logic did not work and it wouldn't allow
+DHCPv4 to work. The only way was to add protocol specific hacks to avoid
+processing unnecessary broadcast burdon.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 20 ++++++--------------
- 1 file changed, 6 insertions(+), 14 deletions(-)
+This jugglery could be avoided if these multicast / broadcast packets are taken
+out of fast-path and are processed in a work-queue. This will enable us to add
+broadcast bit in all multicast filters without any impact on performance of
+the virtual device. This patch series just does that. This also addresses the
+issue when multicast packets received are fragmented, the current code did not
+handle that scenario.
+ 
+Mahesh Bandewar (3):
+  ipvlan: Defer multicast / broadcast processing to a work-queue
+  ipvlan: Process fragmented multicast frames correctly
+  ipvlan: Always set broadcast bit in multicast filter
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index a16d3017fdc3..8fe9d5ff331e 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -218,17 +218,6 @@ static void ipvlan_change_rx_flags(struct net_device *dev, int change)
- 		dev_set_allmulti(phy_dev, dev->flags & IFF_ALLMULTI? 1 : -1);
- }
- 
--static void ipvlan_set_broadcast_mac_filter(struct ipvl_dev *ipvlan, bool set)
--{
--	struct net_device *dev = ipvlan->dev;
--	unsigned int hashbit = ipvlan_mac_hash(dev->broadcast);
--
--	if (set && !test_bit(hashbit, ipvlan->mac_filters))
--		__set_bit(hashbit, ipvlan->mac_filters);
--	else if (!set && test_bit(hashbit, ipvlan->mac_filters))
--		__clear_bit(hashbit, ipvlan->mac_filters);
--}
--
- static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
- {
- 	struct ipvl_dev *ipvlan = netdev_priv(dev);
-@@ -243,6 +232,12 @@ static void ipvlan_set_multicast_mac_filter(struct net_device *dev)
- 		netdev_for_each_mc_addr(ha, dev)
- 			__set_bit(ipvlan_mac_hash(ha->addr), mc_filters);
- 
-+		/* Turn-on broadcast bit irrespective of address family,
-+		 * since broadcast is deferred to a work-queue, hence no
-+		 * impact on fast-path processing.
-+		 */
-+		__set_bit(ipvlan_mac_hash(dev->broadcast), mc_filters);
-+
- 		bitmap_copy(ipvlan->mac_filters, mc_filters,
- 			    IPVLAN_MAC_FILTER_SIZE);
- 	}
-@@ -710,7 +705,6 @@ static int ipvlan_add_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	 */
- 	if (netif_running(ipvlan->dev))
- 		ipvlan_ht_addr_add(ipvlan, addr);
--	ipvlan_set_broadcast_mac_filter(ipvlan, true);
- 
- 	return 0;
- }
-@@ -727,8 +721,6 @@ static void ipvlan_del_addr4(struct ipvl_dev *ipvlan, struct in_addr *ip4_addr)
- 	list_del(&addr->anode);
- 	ipvlan->ipv4cnt--;
- 	WARN_ON(ipvlan->ipv4cnt < 0);
--	if (!ipvlan->ipv4cnt)
--	    ipvlan_set_broadcast_mac_filter(ipvlan, false);
- 	kfree_rcu(addr, rcu);
- 
- 	return;
+ drivers/net/ipvlan/ipvlan.h      |   5 ++
+ drivers/net/ipvlan/ipvlan_core.c | 145 +++++++++++++++++++++++++--------------
+ drivers/net/ipvlan/ipvlan_main.c |  25 +++----
+ include/net/ip.h                 |   1 +
+ 4 files changed, 111 insertions(+), 65 deletions(-)
+
 -- 
 2.2.0.rc0.207.ga3a616c
