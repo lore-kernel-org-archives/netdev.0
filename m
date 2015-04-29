@@ -1,32 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: update reordering first before detecting
- loss
-Date: Wed, 29 Apr 2015 18:13:13 -0400 (EDT)
-Message-ID: <20150429.181313.1414453244451621760.davem@davemloft.net>
-References: <1430332110-10278-1-git-send-email-ycheng@google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH net-next v3 1/4] net core: Add IFF_PROTO_DOWN
+ support.
+Date: Wed, 29 Apr 2015 15:13:36 -0700
+Message-ID: <20150429151336.0d6d8aab@urahara>
+References: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nanditad@google.com, ncardwell@google.com
-To: ycheng@google.com
+Cc: davem@davemloft.net, sfeldma@gmail.com, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+	wkok@cumulusnetworks.com
+To: anuradhak@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51548 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751006AbbD2WNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 18:13:15 -0400
-In-Reply-To: <1430332110-10278-1-git-send-email-ycheng@google.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34338 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbbD2WNg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 18:13:36 -0400
+Received: by pacyx8 with SMTP id yx8so40017339pac.1
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 15:13:36 -0700 (PDT)
+In-Reply-To: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed, 29 Apr 2015 11:28:30 -0700
+On Mon, 27 Apr 2015 10:38:21 -0700
+anuradhak@cumulusnetworks.com wrote:
 
-> tcp_mark_lost_retrans is not used when FACK is disabled. Since
-> tcp_update_reordering may disable FACK, it should be called first
-> before tcp_mark_lost_retrans.
+> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 > 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> This patch introduces an IFF_PROTO_DOWN flag that can be used by
+> user space applications to notify drivers that errors have been
+> detected on the device.
+> 
+> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
 
-Applied.
+I worry that adding another bit to an already complex state API
+will break userspace.
+
+There are lots of things besides iproute2 which look at those
+flags including routing daemons (quagga), network manager, netplugd,
+and switch controllers.
