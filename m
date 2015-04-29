@@ -1,55 +1,67 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/2] tcp: add TCP_CC_INFO socket option
-Date: Wed, 29 Apr 2015 10:17:23 +0200
-Message-ID: <55409393.3040003@iogearbox.net>
-References: <1430263429-4069-1-git-send-email-edumazet@google.com> <1430263429-4069-3-git-send-email-edumazet@google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 2/6] ipv6: Remove external dependency on
+ rt6i_gateway and RTF_ANYCAST
+Date: Wed, 29 Apr 2015 11:28:46 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1504291106060.1504@ja.home.ssi.bg>
+References: <1430255273-3045254-1-git-send-email-kafai@fb.com> <1430255273-3045254-3-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Kernel Team <Kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46388 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031451AbbD2IR1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 04:17:27 -0400
-In-Reply-To: <1430263429-4069-3-git-send-email-edumazet@google.com>
+Received: from ja.ssi.bg ([178.16.129.10]:42897 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1422660AbbD2I3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Apr 2015 04:29:06 -0400
+In-Reply-To: <1430255273-3045254-3-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2015 01:23 AM, Eric Dumazet wrote:
-> Some Congestion Control modules can provide per flow information,
-> but current way to get this information is to use netlink.
->
-> Like TCP_INFO, let's add TCP_CC_INFO so that applications can
-> issue a getsockopt() if they have a socket file descriptor,
-> instead of playing complex netlink games.
->
-> Sample usage would be :
->
->    union tcp_cc_info info;
->    socklen_t len = sizeof(info);
->
->    if (getsockopt(fd, SOL_TCP, TCP_CC_INFO, &info, &len) == -1)
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
 
-Presuming other cc algorithms would in future also export
-internal information through this interface, would it make
-sense to put tcp_cc_info into a container structure so we
-don't miss out attr (vegas, dctcp, ...), like:
+	Hello,
 
-   struct tcp_cc_exp {
-     u32               kind;
-     union tcp_cc_info info;
-   };
+On Tue, 28 Apr 2015, Martin KaFai Lau wrote:
 
-Otherwise looks good:
+> -static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt)
+> +static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt,
+> +					   struct in6_addr *daddr)
+>  {
+> -	return &rt->rt6i_gateway;
+> +	return (rt->rt6i_flags & RTF_GATEWAY) ? &rt->rt6i_gateway : daddr;
+>  }
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+	Similar change in ipv4 caused problem for places
+that request route to one nexthop but later the transmitted
+IP header contains different destination. Such examples
+were:
+
+- net/ipv4/raw.c when hdrincl is used
+- xt_TEE.c: I see that it has IPv6 support
+- IPVS: request route to real server but send packet with
+daddr=virtual IP (Direct Route method)
+
+	For IPv4 link routes, callers can get a route
+with rt_gateway=0 and rt_nexthop() can return daddr from
+header.
+
+	We then solved it with FLOWI_FLAG_KNOWN_NH flag which
+forces a cached route where rt_gateway is filled with requested
+nexthop address:
+
+commit c27c9322d015
+commit 2ad5b9e4bd31
+commit ad4d3ef8b7eb
+
+	Can you check if this series causes the same
+problem for net/ipv6/raw.c (hdrincl=1), xt_TEE.c. IPVS code is
+in __ip_vs_get_out_rt_v6() where the route is resolved
+and then attached to skb with skb_dst_set_noref().
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
