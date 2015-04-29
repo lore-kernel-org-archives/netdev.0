@@ -1,10 +1,13 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC net-next] netif_receive_skb performance
-Date: Wed, 29 Apr 2015 15:15:22 -0700
-Message-ID: <554157FA.404@plumgrid.com>
-References: <1430273488-8403-1-git-send-email-ast@plumgrid.com> <1430284980.3711.38.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC net-next] pktgen: introduce 'rx' mode
+Date: Wed, 29 Apr 2015 15:19:53 -0700
+Message-ID: <1430345993.3711.59.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430273488-8403-1-git-send-email-ast@plumgrid.com>
+	 <1430273488-8403-2-git-send-email-ast@plumgrid.com>
+	 <1430280853.3711.19.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5541535E.1060908@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
@@ -13,68 +16,60 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:35680 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbbD2WPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 18:15:25 -0400
-Received: by igbyr2 with SMTP id yr2so132426235igb.0
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 15:15:25 -0700 (PDT)
-In-Reply-To: <1430284980.3711.38.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:36853 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751106AbbD2WT4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 18:19:56 -0400
+Received: by igblo3 with SMTP id lo3so130493087igb.1
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 15:19:55 -0700 (PDT)
+In-Reply-To: <5541535E.1060908@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/28/15 10:23 PM, Eric Dumazet wrote:
-> On Tue, 2015-04-28 at 19:11 -0700, Alexei Starovoitov wrote:
->> Hi,
->>
->> there were many requests for performance numbers in the past, but not
->> everyone has access to 10/40G nics and we need a common way to talk
->> about RX path performance without overhead of driver RX. That's
->> especially important when making changes to netif_receive_skb.
->
-> Well, in real life, having to fetch RX descriptor and packet headers are
-> the main cost, and skb->users == 1.
+On Wed, 2015-04-29 at 14:55 -0700, Alexei Starovoitov wrote:
+> On 4/28/15 9:14 PM, Eric Dumazet wrote:
+> > On Tue, 2015-04-28 at 19:11 -0700, Alexei Starovoitov wrote:
+> >
+> >> +	if (pkt_dev->flags & F_DO_RX) {
+> >> +		local_bh_disable();
+> >> +		atomic_add(burst, &pkt_dev->skb->users);
+> >> +		do {
+> >> +			ret = netif_receive_skb(pkt_dev->skb);
+> >> +			if (ret == NET_RX_DROP)
+> >> +				pkt_dev->errors++;
+> >> +			pkt_dev->last_ok = 1;
+> >> +			pkt_dev->sofar++;
+> >> +			pkt_dev->seq_num++;
+> >> +		} while (--burst > 0);
+> >> +		local_bh_enable();
+> >> +		goto out;
+> >> +	}
+> >> +
+> >
+> > This looks buggy.
+> >
+> > skb can be put on a queue, so skb->next and skb->prev cannot be reused,
+> > or queues will be corrupted.
+> 
+> don't see the bug yet.
+> Any layer that wants to do such queueing should do skb_share_check
+> first. Just like ip_rcv does. So everything in IP world should
+> work fine, because it will be operating on clean cloned skb.
 
-yes. you're describing the main cost of overall RX including drivers.
-This pktgen rx mode is aiming to benchmark RX _after_ drivers.
-I'm assuming driver vendors equally care a lot about performance of
-their bits.
+Really this is what _you_ think is needed, so that your patch can fly.
 
-> So its nice trying to optimize netif_receive_skb(), but make sure you
-> have something that can really exercise same code flows/stalls,
-> otherwise you'll be tempted by wrong optimizations.
->
-> I would for example use a ring buffer, so that each skb you provide to
-> netif_receive_skb() has cold cache lines (at least skb->head if you want
-> to mimic build_skb() or napi_get_frags()/napi_reuse_skb() behavior)
+In current state of the stack, the skb_share_check() is done where we
+know that packet _might_ be delivered to multiple end points
+(deliver_skb() does atomic_inc(&skb->users) )
 
-agree as well, but cache cold benchmarking is not a substitute for
-cache hot. Both are valuable and numbers from both shouldn't be blindly
-used to make decisions.
-This pktgen rx mode simulates copybreak and/or small packets when
-skb->data/head/... pointers and packet data itself is cache hot,
-since driver's copybreak logic just touched it.
-The ring-buffer approach with cold skbs is useful as well, but it will
-benchmark different codepath through netif_receive_skb.
-I think at the end we need both. This patch tackles simple case first.
+But RPS/RFS/GRO do not care of your new rule.
 
-> Also, this model of flooding one cpu (no irqs, no context switch) mask
-> latencies caused by code size, since icache is fully populated, with a
-> very specialized working set.
->
-> If we want to pursue this model (like user space (DPDK and alike
-> frameworks)), we might have to design a very different model than the
-> IRQ driven one, by dedicating one or multiple cpu threads to run
-> networking code with no state transition.
+Yes, before reaching __netif_receive_skb_core(), packets are supposed to
+belong to the stack. We are supposed to queue them, without adding a
+check for skb->users being one or not, and eventually add an expensive
+memory allocation/copy.
 
-well, that's very different discussion. I would like to see this type
-of model implemented in kernel, where we can dedicate a core for
-network only processing. Though I think irq+napi are good enough for
-doing batch processing of a lot of packets. My numbers show
-that netif_receive_skb+ingress_qdisc+cls/act can do tens of millions
-packet per second. imo that's a great base. We need skb alloc/free
-and driver RX path to catch up. TX is already in good shape. Then
-overall we'll have very capable packet processing machine from
-one physical interface into another.
+We are not going to add an extra check just to make pktgen rx fast.
+pktgen will have to comply to existing rules.
