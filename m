@@ -1,7 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [RFC PATCH net-next 0/8] net: dsa: New registration API
-Date: Wed, 29 Apr 2015 18:57:36 -0700
-Message-ID: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
+Subject: [RFC PATCH net-next 3/8] net: phy: Allow PHY devices to identify themselves as Ethernet switches
+Date: Wed, 29 Apr 2015 18:57:39 -0700
+Message-ID: <1430359064-23454-4-git-send-email-f.fainelli@gmail.com>
+References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Cc: dave@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	vivien.didelot@savoirfairelinux.com,
 	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
@@ -10,84 +11,73 @@ Cc: dave@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Chris.Packham@alliedtelesis.co.nz
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:36529 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751119AbbD3B6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 21:58:00 -0400
-Received: by pdea3 with SMTP id a3so45193500pde.3
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 18:57:59 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34815 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482AbbD3B6E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 21:58:04 -0400
+Received: by pacyx8 with SMTP id yx8so44621849pac.1
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 18:58:04 -0700 (PDT)
+In-Reply-To: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Some Ethernet MAC drivers using the PHY library require the hardcoding
+of link parameters when interfaced to a switch device. This has
+typically lead to various ad-hoc implementations looking like this:
 
-This patch series is the long promised API rework to allow registering DSA
-switch as PCI, platform, SPI, or PHY drivers, and this is pretty much the
-grand plan described here:
-http://permalink.gmane.org/gmane.linux.network/329848
+- using a "fixed PHY" emulated device, which will provide link
+  indication towards the Ethernet MAC driver and hardware
 
-Note that unless appropriate Device Tree or platform_data configuration is
-changed, this is not conflicting with the current approach of registering DSA
-switches using the special "dsa" platform device/driver. Rather this introduces
-a parallel API which allows drivers to be converted and tested one by one.
+- pretend there is no PHY and hardcode link parameters, ala mv643x_eth
 
-This has been tested on the following two systems:
+Based on that, it is desireable to have the PHY drivers advertise the
+correct link parameters, just like regular Ethernet PHYs towards their
+CPU Ethernet MAC drivers, however, Ethernet MAC drivers should be able
+to tell whether this link should be monitored or not. In the context of
+an Ethernet switch, we do not need to monitor this link since it should
+be always up.
 
-- Linksys/Cisco EA4500 which has a MV88E6171 at MDIO address 16
-- BCM7445 reference board with the on-chip Starfighter 2 switch (MMIO)
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/linux/phy.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-Note that there are currenlty no incompatibles changes made to existing Device
-Tree sources, rather, depending on the bus we are probed for, e.g: MDIO
-the dsa,mii-bus and dsa,ethernet phandles and first cell of the  "reg" property
-will become obsolete, everything else remains entirely compatible. This is all
-appearing in patches.
-
-Known issues:
-
-- the new API probably does not work with multiple switches in a tree
-  since I don't have such a system, I would welcome testing on these
-  particular setups and would help take care of the problems, this is
-  currently the biggest limitation I see
-
-- there is a bit of duplication and special casing now, but that is
-  mostly due to having to maintain two different ways of registering DSA
-  drivers, this will eventually go away
-
-- on my EA4500, doing PHY-driver registration slows things down dramatically
-  iperf switches from ~700Mbits/sec to ~200Mbits/sec, not sure what's wrong
-  here, could be some sort of RGMII setting going wrong
-
-These changes can be pulled from my tree here:
-
-https://github.com/ffainelli/linux/tree/dsa-model-proposal
-
-Happy testing!
-
-Florian Fainelli (8):
-  net: dsa: Move dsa_switch_tree final setup in separate function
-  net: phy: Check fixup lists in get_phy_device()
-  net: phy: Allow PHY devices to identify themselves as Ethernet
-    switches
-  net: mv643xx_eth: Handle Ethernet switches as PHY devices
-  net: dsa: add new API to register switch devices
-  net: dsa: bcm_sf2: make it a real platform driver
-  net: dsa: mv88e6060: make it a proper PHY driver
-  net: dsa: mv88e6xxx: Allow them to be proper PHY drivers
-
- drivers/net/dsa/bcm_sf2.c                  | 239 +++++++++++++++--------------
- drivers/net/dsa/mv88e6060.c                | 114 +++++++++++++-
- drivers/net/dsa/mv88e6123_61_65.c          | 116 ++++++++++++++
- drivers/net/dsa/mv88e6131.c                | 107 +++++++++++++
- drivers/net/dsa/mv88e6171.c                |  95 ++++++++++++
- drivers/net/dsa/mv88e6352.c                | 102 ++++++++++++
- drivers/net/dsa/mv88e6xxx.c                |  40 ++++-
- drivers/net/dsa/mv88e6xxx.h                |  12 ++
- drivers/net/ethernet/marvell/mv643xx_eth.c |   4 +-
- drivers/net/phy/phy_device.c               |   9 +-
- include/linux/phy.h                        |  12 ++
- include/net/dsa.h                          |  15 ++
- net/dsa/dsa.c                              | 219 ++++++++++++++++++++------
- 13 files changed, 917 insertions(+), 167 deletions(-)
-
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 685809835b5c..52fc64874fdb 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -327,6 +327,7 @@ struct phy_c45_device_ids {
+  * c45_ids: 802.3-c45 Device Identifers if is_c45.
+  * is_c45:  Set to true if this phy uses clause 45 addressing.
+  * is_internal: Set to true if this phy is internal to a MAC.
++ * is_switch: Set to true if this phy is an Ethernet switch.
+  * has_fixups: Set to true if this phy has fixups/quirks.
+  * suspended: Set to true if this phy has been suspended successfully.
+  * state: state of the PHY for management purposes
+@@ -365,6 +366,7 @@ struct phy_device {
+ 	struct phy_c45_device_ids c45_ids;
+ 	bool is_c45;
+ 	bool is_internal;
++	bool is_switch;
+ 	bool has_fixups;
+ 	bool suspended;
+ 
+@@ -675,6 +677,16 @@ static inline bool phy_is_internal(struct phy_device *phydev)
+ }
+ 
+ /**
++ * phy_is_ethswitch - Convenience function for testing if this PHY is the
++ * CPU port facing side of an Ethernet switch
++ * @phydev: the phy_device struct
++ */
++static inline bool phy_is_ethswitch(struct phy_device *phydev)
++{
++	return phydev->is_switch;
++}
++
++/**
+  * phy_write_mmd - Convenience function for writing a register
+  * on an MMD on a given PHY.
+  * @phydev: The phy_device struct
 -- 
 2.1.0
