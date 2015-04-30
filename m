@@ -1,85 +1,75 @@
-From: Vlad Zolotarov <vladz@cloudius-systems.com>
-Subject: [PATCH RESEND iproute2] ip link set vf: Added "query_rss" command
-Date: Thu, 30 Apr 2015 13:46:43 +0300
-Message-ID: <1430390803-17959-1-git-send-email-vladz@cloudius-systems.com>
-Cc: jeffrey.t.kirsher@intel.com,
-	Vlad Zolotarov <vladz@cloudius-systems.com>
-To: stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH v2] bnx2x: Alloc 4k fragment for each rx ring buffer
+ element
+Date: Thu, 30 Apr 2015 11:25:31 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>
+References: <1429908351-12262-1-git-send-email-krisman@linux.vnet.ibm.com>
+	<553AD097.4020209@gmx.de> <87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"cascardo@linux.vnet.ibm.com" <cascardo@linux.vnet.ibm.com>,
+	"cascardo@cascardo.eti.br" <cascardo@cascardo.eti.br>,
+	"brking@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
+To: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>,
+	Lino Sanfilippo <LinoSanfilippo@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:37212 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750963AbbD3Kqz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 06:46:55 -0400
-Received: by widdi4 with SMTP id di4so12870162wid.0
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 03:46:54 -0700 (PDT)
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:13958 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750876AbbD3LZo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 07:25:44 -0400
+In-Reply-To: <87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new option to toggle the ability of querying the RSS configuration of a specific VF.
+ The driver allocates one page for each buffer on the rx ring, which is too much
+> on architectures like ppc64 and can cause unexpected allocation failures when
+> the system is under stress.  Now, we keep a memory pool per queue, and if the
+> architecture's PAGE_SIZE is greater than 4k, we fragment pages and assign each
+> 4k segment to a ring element, which reduces the overall memory consumption
+> on such architectures.  This helps avoiding errors like the example below:
+> 
+> [bnx2x_alloc_rx_sge:435(eth1)]Can't alloc sge [c00000037ffeb900]
+> [d000000075eddeb4] .bnx2x_alloc_rx_sge+0x44/0x200 [bnx2x]
+> [c00000037ffeb9b0] [d000000075ee0b34] .bnx2x_fill_frag_skb+0x1ac/0x460
+> [bnx2x] [c00000037ffebac0] [d000000075ee11f0]
+> .bnx2x_tpa_stop+0x160/0x2e8 [bnx2x] [c00000037ffebb90]
+> [d000000075ee1560] .bnx2x_rx_int+0x1e8/0xc30 [bnx2x] [c00000037ffebcd0]
+> [d000000075ee2084] .bnx2x_poll+0xdc/0x3d8 [bnx2x] (unreliable)
+> 
+> Signed-off-by: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     | 19 ++++++--
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 61 +++++++++++++++++-
+> -------  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h | 33 +++++++++++--
+>  3 files changed, 89 insertions(+), 24 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+> index 4085c4b..d0c8ed0 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+> @@ -356,6 +356,8 @@ struct sw_tx_bd {
+> 
+ ...
+> +struct bnx2x_alloc_pool {
+> +	struct page	*page;
+> +	dma_addr_t	dma;
+> +	int		len;
 
-VF RSS information like RSS hash key may be considered sensitive on some devices where
-this information is shared between VF and PF and thus its querying may be prohibited by default.
+Isn't len always set to PAGE_SIZE? If so it can be dropped
 
-This new option allows a system administrator with privileges to modify a PF state
-to control if the above VF querying is allowed or not.
+> +	int		offset;
+> +	int		last_offset;
 
-For example:
- To enable RSS querying of VF[0] of ethX:
- >> ip link set dev ethX vf 0 query_rss on
+Looks like you last_offset is used only for comparisons with offset;
+Can we make it into a counter of possible allocations instead?
 
-Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
----
- include/linux/if_link.h |  5 +++++
- ip/iplink.c             | 13 +++++++++++++
- 2 files changed, 18 insertions(+)
-
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 3d0d613..fda8153 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -498,6 +498,11 @@ struct ifla_vf_spoofchk {
- 	__u32 setting;
- };
- 
-+struct ifla_vf_rss_query_en {
-+	__u32 vf;
-+	__u32 setting;
-+};
-+
- enum {
- 	IFLA_VF_LINK_STATE_AUTO,	/* link state of the uplink */
- 	IFLA_VF_LINK_STATE_ENABLE,	/* link always up */
-diff --git a/ip/iplink.c b/ip/iplink.c
-index e6f30e9..708f2ca 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -80,6 +80,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "				   [ rate TXRATE ] ] \n");
- 
- 	fprintf(stderr, "				   [ spoofchk { on | off} ] ] \n");
-+	fprintf(stderr, "				   [ query_rss { on | off} ] ] \n");
- 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
- 	fprintf(stderr, "			  [ master DEVICE ]\n");
- 	fprintf(stderr, "			  [ nomaster ]\n");
-@@ -331,6 +332,18 @@ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
- 			ivs.vf = vf;
- 			addattr_l(&req->n, sizeof(*req), IFLA_VF_SPOOFCHK, &ivs, sizeof(ivs));
- 
-+		} else if (matches(*argv, "query_rss") == 0) {
-+			struct ifla_vf_rss_query_en ivs;
-+			NEXT_ARG();
-+			if (matches(*argv, "on") == 0)
-+				ivs.setting = 1;
-+			else if (matches(*argv, "off") == 0)
-+				ivs.setting = 0;
-+			else
-+				invarg("Invalid \"query_rss\" value\n", *argv);
-+			ivs.vf = vf;
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_RSS_QUERY_EN, &ivs, sizeof(ivs));
-+
- 		} else if (matches(*argv, "state") == 0) {
- 			struct ifla_vf_link_state ivl;
- 			NEXT_ARG();
--- 
-2.1.0
+I.e., set it to (PAGE_SIZE / SGE_PAGE_SIZE - 1) during allocation
+And decrement it each time an SGE_PAGE_SIZE chunk is taken.
+That would turn (pool-> offset > pool->last_offset) into (!remain).
+	
