@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [RFC PATCH net-next 6/8] net: dsa: bcm_sf2: make it a real platform driver
-Date: Wed, 29 Apr 2015 18:57:42 -0700
-Message-ID: <1430359064-23454-7-git-send-email-f.fainelli@gmail.com>
+Subject: [RFC PATCH net-next 8/8] net: dsa: mv88e6xxx: Allow them to be proper PHY drivers
+Date: Wed, 29 Apr 2015 18:57:44 -0700
+Message-ID: <1430359064-23454-9-git-send-email-f.fainelli@gmail.com>
 References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Cc: dave@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	vivien.didelot@savoirfairelinux.com,
@@ -11,336 +11,609 @@ Cc: dave@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Chris.Packham@alliedtelesis.co.nz
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36250 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482AbbD3B6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 21:58:10 -0400
-Received: by pabsx10 with SMTP id sx10so44534258pab.3
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 18:58:09 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:33592 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751915AbbD3B6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 21:58:13 -0400
+Received: by pacwv17 with SMTP id wv17so44665465pac.0
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 18:58:12 -0700 (PDT)
 In-Reply-To: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Broadcom Starfighter 2 switch driver should be a proper platform
-driver, now that the DSA code has been updated to allow that, register a
-switch device, feed it with the proper configuration data coming from
-Device Tree and register our switch device.
+Register a PHY fixup for the different MV88E6xxx switches supported by
+the 88e6xxxx driver, basically replacing the legacy probe function.
+
+Since these are all now a PHY driver, the Ethernet MAC controller attached
+to it needs to be signaled proper link parameters (speed, duplex, link)
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/bcm_sf2.c | 239 +++++++++++++++++++++++++---------------------
- 1 file changed, 128 insertions(+), 111 deletions(-)
+ drivers/net/dsa/mv88e6123_61_65.c | 116 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6131.c       | 107 +++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6171.c       |  95 +++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6352.c       | 102 +++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx.c       |  40 ++++++++++++-
+ drivers/net/dsa/mv88e6xxx.h       |  12 ++++
+ 6 files changed, 470 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index cedb572bf25a..1e75f30eaf5c 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -131,11 +131,6 @@ static int bcm_sf2_sw_get_sset_count(struct dsa_switch *ds)
- 	return BCM_SF2_STATS_SIZE;
- }
- 
--static char *bcm_sf2_sw_probe(struct device *host_dev, int sw_addr)
--{
--	return "Broadcom Starfighter 2";
--}
--
- static void bcm_sf2_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
- {
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-@@ -612,76 +607,8 @@ static void bcm_sf2_intr_disable(struct bcm_sf2_priv *priv)
- 
- static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- {
--	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
--	struct device_node *dn;
--	void __iomem **base;
- 	unsigned int port;
--	unsigned int i;
--	u32 reg, rev;
--	int ret;
--
--	spin_lock_init(&priv->indir_lock);
--	mutex_init(&priv->stats_mutex);
--
--	/* All the interesting properties are at the parent device_node
--	 * level
--	 */
--	dn = ds->pd->of_node->parent;
--
--	priv->irq0 = irq_of_parse_and_map(dn, 0);
--	priv->irq1 = irq_of_parse_and_map(dn, 1);
--
--	base = &priv->core;
--	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
--		*base = of_iomap(dn, i);
--		if (*base == NULL) {
--			pr_err("unable to find register: %s\n", reg_names[i]);
--			ret = -ENOMEM;
--			goto out_unmap;
--		}
--		base++;
--	}
--
--	ret = bcm_sf2_sw_rst(priv);
--	if (ret) {
--		pr_err("unable to software reset switch: %d\n", ret);
--		goto out_unmap;
--	}
--
--	/* Disable all interrupts and request them */
--	bcm_sf2_intr_disable(priv);
--
--	ret = request_irq(priv->irq0, bcm_sf2_switch_0_isr, 0,
--			  "switch_0", priv);
--	if (ret < 0) {
--		pr_err("failed to request switch_0 IRQ\n");
--		goto out_unmap;
--	}
--
--	ret = request_irq(priv->irq1, bcm_sf2_switch_1_isr, 0,
--			  "switch_1", priv);
--	if (ret < 0) {
--		pr_err("failed to request switch_1 IRQ\n");
--		goto out_free_irq0;
--	}
--
--	/* Reset the MIB counters */
--	reg = core_readl(priv, CORE_GMNCFGCFG);
--	reg |= RST_MIB_CNT;
--	core_writel(priv, reg, CORE_GMNCFGCFG);
--	reg &= ~RST_MIB_CNT;
--	core_writel(priv, reg, CORE_GMNCFGCFG);
--
--	/* Get the maximum number of ports for this switch */
--	priv->hw_params.num_ports = core_readl(priv, CORE_IMP0_PRT_ID) + 1;
--	if (priv->hw_params.num_ports > DSA_MAX_PORTS)
--		priv->hw_params.num_ports = DSA_MAX_PORTS;
--
--	/* Assume a single GPHY setup if we can't read that property */
--	if (of_property_read_u32(dn, "brcm,num-gphy",
--				 &priv->hw_params.num_gphy))
--		priv->hw_params.num_gphy = 1;
- 
- 	/* Enable all valid ports and disable those unused */
- 	for (port = 0; port < priv->hw_params.num_ports; port++) {
-@@ -699,31 +626,7 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- 	 */
- 	ds->phys_mii_mask |= ((1 << 30) | (1 << 0));
- 
--	rev = reg_readl(priv, REG_SWITCH_REVISION);
--	priv->hw_params.top_rev = (rev >> SWITCH_TOP_REV_SHIFT) &
--					SWITCH_TOP_REV_MASK;
--	priv->hw_params.core_rev = (rev & SF2_REV_MASK);
--
--	rev = reg_readl(priv, REG_PHY_REVISION);
--	priv->hw_params.gphy_rev = rev & PHY_REVISION_MASK;
--
--	pr_info("Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
--		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
--		priv->hw_params.core_rev >> 8, priv->hw_params.core_rev & 0xff,
--		priv->core, priv->irq0, priv->irq1);
--
- 	return 0;
--
--out_free_irq0:
--	free_irq(priv->irq0, priv);
--out_unmap:
--	base = &priv->core;
--	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
--		if (*base)
--			iounmap(*base);
--		base++;
--	}
--	return ret;
- }
- 
- static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
-@@ -947,8 +850,10 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
- 		status->pause = 1;
- }
- 
--static int bcm_sf2_sw_suspend(struct dsa_switch *ds)
-+static int bcm_sf2_sw_suspend(struct device *d)
- {
-+	struct platform_device *pdev = to_platform_device(d);
-+	struct dsa_switch *ds = platform_get_drvdata(pdev);
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 	unsigned int port;
- 
-@@ -967,8 +872,10 @@ static int bcm_sf2_sw_suspend(struct dsa_switch *ds)
- 	return 0;
- }
- 
--static int bcm_sf2_sw_resume(struct dsa_switch *ds)
-+static int bcm_sf2_sw_resume(struct device *d)
- {
-+	struct platform_device *pdev = to_platform_device(d);
-+	struct dsa_switch *ds = platform_get_drvdata(pdev);
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
- 	unsigned int port;
- 	int ret;
-@@ -1044,10 +951,8 @@ static int bcm_sf2_sw_set_wol(struct dsa_switch *ds, int port,
- 	return p->ethtool_ops->set_wol(p, wol);
- }
- 
--static struct dsa_switch_driver bcm_sf2_switch_driver = {
-+static struct dsa_switch_driver bcm_sf2_switch_ops = {
- 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
--	.priv_size		= sizeof(struct bcm_sf2_priv),
--	.probe			= bcm_sf2_sw_probe,
- 	.setup			= bcm_sf2_sw_setup,
- 	.set_addr		= bcm_sf2_sw_set_addr,
- 	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
-@@ -1058,8 +963,6 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
- 	.get_sset_count		= bcm_sf2_sw_get_sset_count,
- 	.adjust_link		= bcm_sf2_sw_adjust_link,
- 	.fixed_link_update	= bcm_sf2_sw_fixed_link_update,
--	.suspend		= bcm_sf2_sw_suspend,
--	.resume			= bcm_sf2_sw_resume,
- 	.get_wol		= bcm_sf2_sw_get_wol,
- 	.set_wol		= bcm_sf2_sw_set_wol,
- 	.port_enable		= bcm_sf2_port_setup,
-@@ -1071,19 +974,133 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
- 	.port_stp_update	= bcm_sf2_sw_br_set_stp_state,
+diff --git a/drivers/net/dsa/mv88e6123_61_65.c b/drivers/net/dsa/mv88e6123_61_65.c
+index b4af6d5aff7c..acd0e08d6b21 100644
+--- a/drivers/net/dsa/mv88e6123_61_65.c
++++ b/drivers/net/dsa/mv88e6123_61_65.c
+@@ -296,6 +296,122 @@ struct dsa_switch_driver mv88e6123_61_65_switch_driver = {
+ 	.get_regs		= mv88e6xxx_get_regs,
  };
  
--static int __init bcm_sf2_init(void)
-+static int bcm_sf2_sw_probe(struct platform_device *pdev)
- {
--	register_switch_driver(&bcm_sf2_switch_driver);
-+	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
-+	struct resource *res;
++/* PHY library read status callback, must reflect the CPU port link parameters
++ * towards the attached Ethernet MAC driver
++ */
++static int mv88e6123_61_65_read_status(struct phy_device *phydev)
++{
++	phydev->link = 1;
++	phydev->speed = SPEED_1000;
++	phydev->duplex = DUPLEX_FULL;
++	phydev->state = PHY_RUNNING;
++
++	netif_carrier_on(phydev->attached_dev);
++	phydev->adjust_link(phydev->attached_dev);
++
++	return 0;
++}
++
++static int mv88e6123_61_65_phy_probe(struct phy_device *phydev)
++{
 +	struct dsa_switch *ds;
-+	struct bcm_sf2_priv *priv;
-+	struct device_node *dn = pdev->dev.of_node;
-+	void __iomem **base;
-+	unsigned int i;
-+	u32 reg, rev;
-+	int ret;
- 
--	return 0;
-+	ds = devm_kzalloc(&pdev->dev, sizeof(*ds) + sizeof(*priv), GFP_KERNEL);
++
++	ds = dsa_alloc_switch(sizeof(struct mv88e6xxx_priv_state));
 +	if (!ds)
 +		return -ENOMEM;
 +
-+	priv = ds_to_priv(ds);
-+
-+	ds->master_dev = &pdev->dev;
-+	ds->tag_protocol = DSA_TAG_PROTO_BRCM;
-+	ds->drv = &bcm_sf2_switch_ops;
-+
-+	spin_lock_init(&priv->indir_lock);
-+	mutex_init(&priv->stats_mutex);
-+
-+	priv->irq0 = platform_get_irq(pdev, 0);
-+	priv->irq1 = platform_get_irq(pdev, 1);
-+
-+	base = &priv->core;
-+	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-+		*base = devm_ioremap_resource(&pdev->dev, res);
-+		if (*base == NULL) {
-+			dev_err(&pdev->dev,
-+				"unable to find register: %s\n", reg_names[i]);
-+			return -ENODEV;
-+		}
-+		base++;
-+	}
-+
-+	ret = bcm_sf2_sw_rst(priv);
-+	if (ret) {
-+		pr_err("unable to software reset switch: %d\n", ret);
-+		return ret;
-+	}
-+
-+	/* Disable all interrupts and request them */
-+	bcm_sf2_intr_disable(priv);
-+
-+	ret = devm_request_irq(&pdev->dev, priv->irq0, bcm_sf2_switch_0_isr, 0,
-+			       "switch_0", priv);
-+	if (ret < 0) {
-+		dev_err(&pdev->dev, "failed to request switch_0 IRQ\n");
-+		return ret;
-+	}
-+
-+	ret = devm_request_irq(&pdev->dev, priv->irq1, bcm_sf2_switch_1_isr, 0,
-+			       "switch_1", priv);
-+	if (ret < 0) {
-+		dev_err(&pdev->dev, "failed to request switch_1 IRQ\n");
-+		return ret;
-+	}
-+
-+	/* Reset the MIB counters */
-+	reg = core_readl(priv, CORE_GMNCFGCFG);
-+	reg |= RST_MIB_CNT;
-+	core_writel(priv, reg, CORE_GMNCFGCFG);
-+	reg &= ~RST_MIB_CNT;
-+	core_writel(priv, reg, CORE_GMNCFGCFG);
-+
-+	/* Get the maximum number of ports for this switch */
-+	priv->hw_params.num_ports = core_readl(priv, CORE_IMP0_PRT_ID) + 1;
-+	if (priv->hw_params.num_ports > DSA_MAX_PORTS)
-+		priv->hw_params.num_ports = DSA_MAX_PORTS;
-+
-+	/* Assume a single GPHY setup if we can't read that property */
-+	if (of_property_read_u32(dn, "brcm,num-gphy",
-+				 &priv->hw_params.num_gphy))
-+		priv->hw_params.num_gphy = 1;
-+
-+	rev = reg_readl(priv, REG_SWITCH_REVISION);
-+	priv->hw_params.top_rev = (rev >> SWITCH_TOP_REV_SHIFT) &
-+					SWITCH_TOP_REV_MASK;
-+	priv->hw_params.core_rev = (rev & SF2_REV_MASK);
-+
-+	dev_info(&pdev->dev,
-+		"Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
-+		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
-+		priv->hw_params.core_rev >> 8, priv->hw_params.core_rev & 0xff,
-+		priv->core, priv->irq0, priv->irq1);
-+
-+	platform_set_drvdata(pdev, ds);
-+
-+	return dsa_switch_register(ds);
- }
--module_init(bcm_sf2_init);
- 
--static void __exit bcm_sf2_exit(void)
-+static int bcm_sf2_sw_remove(struct platform_device *pdev)
- {
--	unregister_switch_driver(&bcm_sf2_switch_driver);
-+	struct dsa_switch *ds = platform_get_drvdata(pdev);
-+	struct bcm_sf2_priv *priv = ds_to_priv(ds);
-+
-+	/* Disable all ports and interrupts */
-+	priv->wol_ports_mask = 0;
-+	bcm_sf2_sw_suspend(&pdev->dev);
-+	platform_set_drvdata(pdev, NULL);
++	phydev->priv = ds;
++	phydev->is_switch = true;
++	ds->drv = &mv88e6123_61_65_switch_driver;
++	ds->tag_protocol = DSA_TAG_PROTO_EDSA;
++	ds->master_dev = &phydev->dev;
 +
 +	return 0;
- }
--module_exit(bcm_sf2_exit);
++}
 +
-+static SIMPLE_DEV_PM_OPS(bcm_sf2_pm_ops,
-+			 bcm_sf2_sw_suspend, bcm_sf2_sw_resume);
++static void mv88e6123_61_65_remove(struct phy_device *phydev)
++{
++	struct dsa_switch *ds = phydev->priv;
 +
-+static const struct of_device_id bcm_sf2_of_match[] = {
-+	{ .compatible = "brcm,bcm7445-switch-v4.0" },
-+	{ /* sentinel */ },
++	dsa_switch_unregister(ds);
++	kfree(ds);
++	phydev->priv = NULL;
++}
++
++static int mv88e6123_61_65_phy_fixup(struct phy_device *phydev)
++{
++	int ret;
++
++	if (phydev->addr != 16)
++		return 0;
++
++	ret = __mv88e6xxx_reg_read(phydev->bus, phydev->addr, REG_PORT(0), 0x03);
++	if (ret < 0)
++		return 0;
++
++	switch (ret) {
++	case PORT_SWITCH_ID_6123_A1:
++	case PORT_SWITCH_ID_6123_A2:
++	case PORT_SWITCH_ID_6161_A1:
++	case PORT_SWITCH_ID_6161_A2:
++	case PORT_SWITCH_ID_6165_A1:
++	case PORT_SWITCH_ID_6165_A2:
++		phydev->phy_id = ret;
++		break;
++	default:
++		ret &= 0xfff0;
++		switch (ret) {
++		case PORT_SWITCH_ID_6123:
++		case PORT_SWITCH_ID_6161:
++		case PORT_SWITCH_ID_6165:
++			phydev->phy_id = ret;
++			break;
++		}
++	}
++
++	return 0;
++}
++
++#define MV88E61XX_DRV(_magic, _name)			\
++{							\
++	.phy_id		= (_magic),			\
++	.phy_id_mask	= 0xffffffff,			\
++	.name		= (_name),			\
++	.features	= PHY_GBIT_FEATURES,		\
++	.config_init	= mv88e6xxx_config_init,	\
++	.config_aneg	= mv88e6xxx_config_aneg,	\
++	.read_status	= mv88e6123_61_65_read_status,	\
++	.probe		= mv88e6123_61_65_phy_probe,	\
++	.remove		= mv88e6123_61_65_remove,	\
++	.driver		= { .owner = THIS_MODULE },	\
++}
++
++static struct phy_driver mv88e6123_61_65_phy_drivers[] = {
++	MV88E61XX_DRV(PORT_SWITCH_ID_6123_A1, "Marvell 88E6123 (A1)"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6123_A2, "Marvell 88E6123 (A2)"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6123, "Marvell 88E6123"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6161_A1, "Marvell 88E6161 (A1)"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6161_A2, "Marvell 88E6161 (A2)"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6161, "Marvell 88E6161"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6165_A1, "Marvell 88E6165 (A1)"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6165_A2, "Marvell 88E6165 (A2)"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6165, "Marvell 88E6165"),
 +};
 +
-+static struct platform_driver bcm_sf2_driver = {
-+	.probe	= bcm_sf2_sw_probe,
-+	.remove	= bcm_sf2_sw_remove,
-+	.driver = {
-+		.name = "brcm-sf2",
-+		.of_match_table = bcm_sf2_of_match,
-+		.pm = &bcm_sf2_pm_ops,
-+	},
-+};
-+module_platform_driver(bcm_sf2_driver);
++int __init mv88e6123_61_65_phy_drivers_register(void)
++{
++	phy_register_fixup_for_id(PHY_ANY_ID, mv88e6123_61_65_phy_fixup);
++
++	return phy_drivers_register(mv88e6123_61_65_phy_drivers,
++				    ARRAY_SIZE(mv88e6123_61_65_phy_drivers));
++}
++
++void __exit mv88e6123_61_65_phy_drivers_unregister(void)
++{
++	phy_drivers_unregister(mv88e6123_61_65_phy_drivers,
++			       ARRAY_SIZE(mv88e6123_61_65_phy_drivers));
++}
++
+ MODULE_ALIAS("platform:mv88e6123");
+ MODULE_ALIAS("platform:mv88e6161");
+ MODULE_ALIAS("platform:mv88e6165");
+diff --git a/drivers/net/dsa/mv88e6131.c b/drivers/net/dsa/mv88e6131.c
+index e54824fa0d95..e60e3e3a2e65 100644
+--- a/drivers/net/dsa/mv88e6131.c
++++ b/drivers/net/dsa/mv88e6131.c
+@@ -313,6 +313,113 @@ struct dsa_switch_driver mv88e6131_switch_driver = {
+ 	.get_sset_count		= mv88e6xxx_get_sset_count,
+ };
  
- MODULE_AUTHOR("Broadcom Corporation");
- MODULE_DESCRIPTION("Driver for Broadcom Starfighter 2 ethernet switch chip");
++static int mv88e6131_read_status(struct phy_device *phydev)
++{
++	struct dsa_switch *ds = phydev->priv;
++	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++
++	phydev->link = 1;
++	phydev->duplex = DUPLEX_FULL;
++	if (ps->id == PORT_SWITCH_ID_6085)
++		phydev->speed = SPEED_100;
++	else
++		phydev->speed = SPEED_1000;
++	phydev->state = PHY_RUNNING;
++
++	netif_carrier_on(phydev->attached_dev);
++	phydev->adjust_link(phydev->attached_dev);
++
++	return 0;
++}
++
++static int mv88e6131_phy_probe(struct phy_device *phydev)
++{
++	struct dsa_switch *ds;
++
++	ds = dsa_alloc_switch(sizeof(struct mv88e6xxx_priv_state));
++	if (!ds)
++		return -ENOMEM;
++
++	phydev->priv = ds;
++	phydev->is_switch = true;
++	ds->master_dev = &phydev->dev;
++	ds->drv = &mv88e6131_switch_driver;
++	ds->tag_protocol = DSA_TAG_PROTO_DSA;
++
++	return 0;
++}
++
++static void mv88e6131_remove(struct phy_device *phydev)
++{
++	struct dsa_switch *ds = phydev->priv;
++
++	dsa_switch_unregister(ds);
++	kfree(ds);
++	phydev->priv = NULL;
++}
++
++static int mv88e6131_phy_fixup(struct phy_device *phydev)
++{
++	int ret;
++
++	if (phydev->addr != 16)
++		return 0;
++
++	ret = __mv88e6xxx_reg_read(phydev->bus, phydev->addr, REG_PORT(0), 0x03);
++	if (ret < 0)
++		return 0;
++
++	if (ret == PORT_SWITCH_ID_6131_B2) {
++		phydev->phy_id = ret;
++		return 0;
++	}
++
++	ret &= 0xfff0;
++	switch (ret) {
++	case PORT_SWITCH_ID_6085:
++	case PORT_SWITCH_ID_6095:
++	case PORT_SWITCH_ID_6131:
++		phydev->phy_id = ret;
++		break;
++	}
++
++	return 0;
++}
++
++#define MV88E61XX_DRV(_magic, _feat, _name)		\
++{							\
++	.phy_id		= (_magic),			\
++	.phy_id_mask	= 0xffffffff,			\
++	.name		= _name,			\
++	.features	= (_feat),			\
++	.config_init	= mv88e6xxx_config_init,	\
++	.config_aneg	= mv88e6xxx_config_aneg,	\
++	.read_status	= mv88e6131_read_status,	\
++	.probe		= mv88e6131_phy_probe,		\
++	.remove		= mv88e6131_remove,		\
++	.driver		= { .owner = THIS_MODULE },	\
++}
++static struct phy_driver mv88e6131_phy_drivers[] = {
++	MV88E61XX_DRV(PORT_SWITCH_ID_6085, PHY_BASIC_FEATURES, "Marvell 88E6085"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6095, PHY_GBIT_FEATURES, "Marvell 88E6095/88E6095F"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6131_B2, PHY_GBIT_FEATURES, "Marvell 88E6131 (B2)"),
++	MV88E61XX_DRV(PORT_SWITCH_ID_6131, PHY_GBIT_FEATURES, "Marvell 88E6131"),
++};
++
++int __init mv88e6131_phy_drivers_register(void)
++{
++	phy_register_fixup_for_id(PHY_ANY_ID, mv88e6131_phy_fixup);
++
++	return phy_drivers_register(mv88e6131_phy_drivers,
++				    ARRAY_SIZE(mv88e6131_phy_drivers));
++}
++
++void __exit mv88e6131_phy_drivers_unregister(void)
++{
++	phy_drivers_unregister(mv88e6131_phy_drivers,
++			       ARRAY_SIZE(mv88e6131_phy_drivers));
++}
++
+ MODULE_ALIAS("platform:mv88e6085");
+ MODULE_ALIAS("platform:mv88e6095");
+ MODULE_ALIAS("platform:mv88e6095f");
+diff --git a/drivers/net/dsa/mv88e6171.c b/drivers/net/dsa/mv88e6171.c
+index 9104efea0e3e..120a0f46e321 100644
+--- a/drivers/net/dsa/mv88e6171.c
++++ b/drivers/net/dsa/mv88e6171.c
+@@ -307,5 +307,100 @@ struct dsa_switch_driver mv88e6171_switch_driver = {
+ 	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
+ };
+ 
++static int mv88e6171_read_status(struct phy_device *phydev)
++{
++	phydev->link = 1;
++	phydev->duplex = DUPLEX_FULL;
++	phydev->state = PHY_RUNNING;
++
++	netif_carrier_on(phydev->attached_dev);
++	phydev->adjust_link(phydev->attached_dev);
++
++	return 0;
++}
++
++static int mv88e6171_phy_probe(struct phy_device *phydev)
++{
++	struct dsa_switch *ds;
++
++	ds = dsa_alloc_switch(sizeof(struct mv88e6xxx_priv_state));
++	if (!ds)
++		return -ENOMEM;
++
++	/* We cannot register the switch yet, since we do not have an attached
++	 * network device
++	 */
++	phydev->is_switch = true;
++	phydev->priv = ds;
++	ds->master_dev = &phydev->dev;
++	ds->drv = &mv88e6171_switch_driver;
++	ds->tag_protocol = DSA_TAG_PROTO_EDSA;
++
++	return 0;
++}
++
++static void mv88e6171_remove(struct phy_device *phydev)
++{
++	struct dsa_switch *ds = phydev->priv;
++
++	dsa_switch_unregister(ds);
++	kfree(ds);
++	phydev->priv = NULL;
++}
++
++static int mv88e6171_phy_fixup(struct phy_device *phydev)
++{
++	int ret;
++
++	if (phydev->addr != 16)
++		return 0;
++
++	ret = __mv88e6xxx_reg_read(phydev->bus, phydev->addr, REG_PORT(0), 0x03);
++	if (ret < 0)
++		return 0;
++
++	ret &= 0xfff0;
++	switch (ret) {
++	case PORT_SWITCH_ID_6171:
++	case PORT_SWITCH_ID_6172:
++		phydev->phy_id = ret;
++		break;
++	}
++
++	return 0;
++}
++
++#define MV88E6171_DRV(_magic, _name)			\
++{							\
++	.phy_id		= (_magic),			\
++	.phy_id_mask	= 0xfffffff0,			\
++	.name		= _name,			\
++	.features	= PHY_GBIT_FEATURES,		\
++	.config_init	= mv88e6xxx_config_init,	\
++	.config_aneg	= mv88e6xxx_config_aneg,	\
++	.read_status	= mv88e6171_read_status,	\
++	.probe		= mv88e6171_phy_probe,		\
++	.remove		= mv88e6171_remove,		\
++	.driver		= { .owner = THIS_MODULE },	\
++}
++static struct phy_driver mv88e6171_phy_drivers[] = {
++	MV88E6171_DRV(PORT_SWITCH_ID_6171, "Marvell 88E6171"),
++	MV88E6171_DRV(PORT_SWITCH_ID_6172, "Marvell 88E6172"),
++};
++
++int __init mv88e6171_phy_drivers_register(void)
++{
++	phy_register_fixup_for_id(PHY_ANY_ID, mv88e6171_phy_fixup);
++
++	return phy_drivers_register(mv88e6171_phy_drivers,
++				    ARRAY_SIZE(mv88e6171_phy_drivers));
++}
++
++void __exit mv88e6171_phy_drivers_unregister(void)
++{
++	phy_drivers_unregister(mv88e6171_phy_drivers,
++			       ARRAY_SIZE(mv88e6171_phy_drivers));
++}
++
+ MODULE_ALIAS("platform:mv88e6171");
+ MODULE_ALIAS("platform:mv88e6172");
+diff --git a/drivers/net/dsa/mv88e6352.c b/drivers/net/dsa/mv88e6352.c
+index 126c11b81e75..e7198edddd13 100644
+--- a/drivers/net/dsa/mv88e6352.c
++++ b/drivers/net/dsa/mv88e6352.c
+@@ -551,4 +551,106 @@ struct dsa_switch_driver mv88e6352_switch_driver = {
+ 	.fdb_getnext		= mv88e6xxx_port_fdb_getnext,
+ };
+ 
++static int mv88e6352_read_status(struct phy_device *phydev)
++{
++	phydev->link = 1;
++	phydev->duplex = DUPLEX_FULL;
++	phydev->speed = SPEED_1000;
++	phydev->state = PHY_RUNNING;
++
++	netif_carrier_on(phydev->attached_dev);
++	phydev->adjust_link(phydev->attached_dev);
++
++	return 0;
++}
++
++static int mv88e6352_phy_probe(struct phy_device *phydev)
++{
++	struct dsa_switch *ds;
++
++	ds = dsa_alloc_switch(sizeof(struct mv88e6xxx_priv_state));
++	if (!ds)
++		return -ENOMEM;
++
++	phydev->priv = ds;
++	phydev->is_switch = true;
++	ds->master_dev = &phydev->dev;
++	ds->drv = &mv88e6352_switch_driver;
++	ds->tag_protocol = DSA_TAG_PROTO_EDSA;
++
++	return 0;
++}
++
++static void mv88e6352_remove(struct phy_device *phydev)
++{
++	struct dsa_switch *ds = phydev->priv;
++
++	dsa_switch_unregister(ds);
++	kfree(ds);
++	phydev->priv = NULL;
++}
++
++static int mv88e6352_phy_fixup(struct phy_device *phydev)
++{
++	int ret;
++
++	if (phydev->addr != 16)
++		return 0;
++
++	ret = __mv88e6xxx_reg_read(phydev->bus, phydev->addr, REG_PORT(0), 0x03);
++	if (ret < 0)
++		return 0;
++
++	switch (ret) {
++	case PORT_SWITCH_ID_6352_A0:
++	case PORT_SWITCH_ID_6352_A1:
++		phydev->phy_id = ret;
++		return 0;
++	}
++
++	ret &= 0xfff0;
++	switch (ret) {
++	case PORT_SWITCH_ID_6176:
++	case PORT_SWITCH_ID_6352:
++		phydev->phy_id = ret;
++		break;
++	}
++
++	return 0;
++}
++#define MV88E6352_DRV(_magic, _name)			\
++{							\
++	.phy_id		= (_magic),			\
++	.phy_id_mask	= 0xffffffff,			\
++	.name		= _name,			\
++	.features	= PHY_GBIT_FEATURES,		\
++	.config_init	= mv88e6xxx_config_init,	\
++	.config_aneg	= mv88e6xxx_config_aneg,	\
++	.read_status	= mv88e6352_read_status,	\
++	.probe		= mv88e6352_phy_probe,		\
++	.remove		= mv88e6352_remove,		\
++	.driver		= { .owner = THIS_MODULE },	\
++}
++
++static struct phy_driver mv88e6352_phy_drivers[] = {
++	MV88E6352_DRV(PORT_SWITCH_ID_6176, "Marvell 88E6176"),
++	MV88E6352_DRV(PORT_SWITCH_ID_6352_A0, "Marvell 88E6352 (A0)"),
++	MV88E6352_DRV(PORT_SWITCH_ID_6352_A1, "Marvell 88E6352 (A1)"),
++	MV88E6352_DRV(PORT_SWITCH_ID_6352, "Marvell 88E6352"),
++};
++
++int __init mv88e6352_phy_drivers_register(void)
++{
++	phy_register_fixup_for_id(PHY_ANY_ID, mv88e6352_phy_fixup);
++
++	return phy_drivers_register(mv88e6352_phy_drivers,
++				    ARRAY_SIZE(mv88e6352_phy_drivers));
++}
++
++void __exit mv88e6352_phy_drivers_unregister(void)
++{
++	phy_drivers_unregister(mv88e6352_phy_drivers,
++			       ARRAY_SIZE(mv88e6352_phy_drivers));
++}
++
+ MODULE_ALIAS("platform:mv88e6352");
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index af639ab4c55b..c51c6f179682 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -75,10 +75,22 @@ int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr, int reg)
+ 	return ret & 0xffff;
+ }
+ 
++static inline struct mii_bus *mv88e6xxx_mii_bus(struct dsa_switch *ds)
++{
++	struct phy_device *phydev;
++	if (ds->from_pd)
++		return dsa_host_dev_to_mii_bus(ds->master_dev);
++
++	phydev = to_phy_device(ds->master_dev);
++
++	return phydev->bus;
++}
++
++
+ /* Must be called with SMI mutex held */
+ static int _mv88e6xxx_reg_read(struct dsa_switch *ds, int addr, int reg)
+ {
+-	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
++	struct mii_bus *bus = mv88e6xxx_mii_bus(ds);
+ 	int ret;
+ 
+ 	if (bus == NULL)
+@@ -142,7 +154,7 @@ int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
+ static int _mv88e6xxx_reg_write(struct dsa_switch *ds, int addr, int reg,
+ 				u16 val)
+ {
+-	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
++	struct mii_bus *bus = mv88e6xxx_mii_bus(ds);
+ 
+ 	if (bus == NULL)
+ 		return -EINVAL;
+@@ -1446,19 +1458,36 @@ mv88e6xxx_phy_write_indirect(struct dsa_switch *ds, int port, int regnum,
+ 	return ret;
+ }
+ 
++int mv88e6xxx_config_init(struct phy_device *phydev)
++{
++	struct dsa_switch *ds = phydev->priv;
++
++	/* We now have an attached network device, register this device */
++	return dsa_switch_register_phydev(ds, phydev);
++}
++
++int mv88e6xxx_config_aneg(struct phy_device *phydev)
++{
++	return 0;
++}
++
+ static int __init mv88e6xxx_init(void)
+ {
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
+ 	register_switch_driver(&mv88e6131_switch_driver);
++	mv88e6131_phy_drivers_register();
+ #endif
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6123_61_65)
+ 	register_switch_driver(&mv88e6123_61_65_switch_driver);
++	mv88e6123_61_65_phy_drivers_register();
+ #endif
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6352)
+ 	register_switch_driver(&mv88e6352_switch_driver);
++	mv88e6352_phy_drivers_register();
+ #endif
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6171)
+ 	register_switch_driver(&mv88e6171_switch_driver);
++	mv88e6171_phy_drivers_register();
+ #endif
+ 	return 0;
+ }
+@@ -1468,12 +1497,19 @@ static void __exit mv88e6xxx_cleanup(void)
+ {
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6171)
+ 	unregister_switch_driver(&mv88e6171_switch_driver);
++	mv88e6171_phy_drivers_unregister();
++#endif
++#if IS_ENABLED(CONFIG_NET_DSA_MV88E6352)
++	unregister_switch_driver(&mv88e6352_switch_driver);
++	mv88e6352_phy_drivers_unregister();
+ #endif
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6123_61_65)
+ 	unregister_switch_driver(&mv88e6123_61_65_switch_driver);
++	mv88e6123_61_65_phy_drivers_unregister();
+ #endif
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6131)
+ 	unregister_switch_driver(&mv88e6131_switch_driver);
++	mv88e6131_phy_drivers_unregister();
+ #endif
+ }
+ module_exit(mv88e6xxx_cleanup);
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index e045154f3364..449f948ca27f 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -315,6 +315,18 @@ extern struct dsa_switch_driver mv88e6123_61_65_switch_driver;
+ extern struct dsa_switch_driver mv88e6352_switch_driver;
+ extern struct dsa_switch_driver mv88e6171_switch_driver;
+ 
++int mv88e6xxx_config_init(struct phy_device *phydev);
++int mv88e6xxx_config_aneg(struct phy_device *phydev);
++
++int mv88e6123_61_65_phy_drivers_register(void);
++void mv88e6123_61_65_phy_drivers_unregister(void);
++int mv88e6131_phy_drivers_register(void);
++void mv88e6131_phy_drivers_unregister(void);
++int mv88e6352_phy_drivers_register(void);
++void mv88e6352_phy_drivers_unregister(void);
++int mv88e6171_phy_drivers_register(void);
++void mv88e6171_phy_drivers_unregister(void);
++
+ #define REG_READ(addr, reg)						\
+ 	({								\
+ 		int __ret;						\
 -- 
 2.1.0
