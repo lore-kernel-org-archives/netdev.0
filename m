@@ -1,83 +1,98 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 3/8] net: phy: Allow PHY devices to identify
- themselves as Ethernet switches
-Date: Thu, 30 Apr 2015 14:56:58 +0200
-Message-ID: <20150430125658.GB22831@lunn.ch>
-References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
- <1430359064-23454-4-git-send-email-f.fainelli@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net 2/3] bridge/nl: remove wrong use of NLM_F_MULTI
+Date: Thu, 30 Apr 2015 06:01:46 -0700
+Message-ID: <1430398906.2669.111.camel@jtkirshe-mobl>
+References: <1430238831-29966-1-git-send-email-nicolas.dichtel@6wind.com>
+	 <1430238831-29966-3-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dave@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
-	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
-	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Wia7gmDkFlwWdnjSRV8w"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	dmitry.tarnyaginuug.ch@6wind.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	intel-wired-lan@lists.osuosl.org, Jiri Pirko <jiri@resnulli.us>,
+	Scott Feldman <sfeldma@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	bridge@lists.linux-foundation.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44600 "EHLO vps0.lunn.ch"
+Received: from mga09.intel.com ([134.134.136.24]:1929 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750961AbbD3NBg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 09:01:36 -0400
-Content-Disposition: inline
-In-Reply-To: <1430359064-23454-4-git-send-email-f.fainelli@gmail.com>
+	id S1751777AbbD3NCj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 09:02:39 -0400
+In-Reply-To: <1430238831-29966-3-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 29, 2015 at 06:57:39PM -0700, Florian Fainelli wrote:
-> Some Ethernet MAC drivers using the PHY library require the hardcoding
-> of link parameters when interfaced to a switch device. This has
-> typically lead to various ad-hoc implementations looking like this:
-> 
-> - using a "fixed PHY" emulated device, which will provide link
->   indication towards the Ethernet MAC driver and hardware
-> 
-> - pretend there is no PHY and hardcode link parameters, ala mv643x_eth
-> 
-> Based on that, it is desireable to have the PHY drivers advertise the
-> correct link parameters, just like regular Ethernet PHYs towards their
-> CPU Ethernet MAC drivers, however, Ethernet MAC drivers should be able
-> to tell whether this link should be monitored or not. In the context of
-> an Ethernet switch, we do not need to monitor this link since it should
-> be always up.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+--=-Wia7gmDkFlwWdnjSRV8w
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2015-04-28 at 18:33 +0200, Nicolas Dichtel wrote:
+> NLM_F_MULTI must be used only when a NLMSG_DONE message is sent. In
+> fact,
+> it is sent only at the end of a dump.
+>=20
+> Libraries like libnl will wait forever for NLMSG_DONE.
+>=20
+> Fixes: e5a55a898720 ("net: create generic bridge ops")
+> Fixes: 815cccbf10b2 ("ixgbe: add setlink, getlink support to ixgbe and
+> ixgbevf")
+> CC: John Fastabend <john.r.fastabend@intel.com>
+> CC: Sathya Perla <sathya.perla@emulex.com>
+> CC: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+> CC: Ajit Khaparde <ajit.khaparde@emulex.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: intel-wired-lan@lists.osuosl.org
+> CC: Jiri Pirko <jiri@resnulli.us>
+> CC: Scott Feldman <sfeldma@gmail.com>
+> CC: Stephen Hemminger <stephen@networkplumber.org>
+> CC: bridge@lists.linux-foundation.org
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+For the i40e and ixgbe driver changes
+
 > ---
->  include/linux/phy.h | 12 ++++++++++++
->  1 file changed, 12 insertions(+)
-> 
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 685809835b5c..52fc64874fdb 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -327,6 +327,7 @@ struct phy_c45_device_ids {
->   * c45_ids: 802.3-c45 Device Identifers if is_c45.
->   * is_c45:  Set to true if this phy uses clause 45 addressing.
->   * is_internal: Set to true if this phy is internal to a MAC.
-> + * is_switch: Set to true if this phy is an Ethernet switch.
->   * has_fixups: Set to true if this phy has fixups/quirks.
->   * suspended: Set to true if this phy has been suspended successfully.
->   * state: state of the PHY for management purposes
-> @@ -365,6 +366,7 @@ struct phy_device {
->  	struct phy_c45_device_ids c45_ids;
->  	bool is_c45;
->  	bool is_internal;
-> +	bool is_switch;
+>  drivers/net/ethernet/emulex/benet/be_main.c   |  5 +++--
+>  drivers/net/ethernet/intel/i40e/i40e_main.c   |  7 ++++---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  4 ++--
+>  drivers/net/ethernet/rocker/rocker.c          |  5 +++--
+>  include/linux/netdevice.h                     |  6 ++++--
+>  include/linux/rtnetlink.h                     |  2 +-
+>  net/bridge/br_netlink.c                       |  4 ++--
+>  net/bridge/br_private.h                       |  2 +-
+>  net/core/rtnetlink.c                          | 12 +++++++-----
+>  9 files changed, 27 insertions(+), 20 deletions(-)
 
-Hi Florian
 
-I have another two use cases for fixed_phy which i'm thinking about
-implementing soon. Both require putting a fixed_phy into DSA port
-properties in DT.
 
-The first is when the CPU ethernet and the switch don't have the same
-speed capabilities. At the moment, the switch driver configures the
-CPU port to its maximum speed. But i know of a board coming soon with
-gigabit switch ports, but the CPU Ethernet is only fast Ethernet.
+--=-Wia7gmDkFlwWdnjSRV8w
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-When switch ports are connected to an SFP module, not a copper phy. A
-fixed phy allows the switch to be configured to the correct
-speed/duplex to match the SFP module.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-So in this respect, i'm wondering if is_switch is the best of names?
+iQIcBAABCgAGBQJVQie6AAoJEOVv75VaS+3ODhwQAJaclgRr5r7vTkBv6gMGn7y7
+tvEan35xxboPRfjfGlZH3bzjuwdagrs6eeC+9Vm9K0I007jIbe+ItJu5FThK4JQH
+bvUHZkyPIryeXuYryfoVI/BsuOUavC+WNOr4nNcba5H4E2Vq7CtvczyrUxne4sRc
+n7WUYmHCN27C0a5dxRCbEjIL4t1usfU8Ofw0KvgAup8Y9KUXhRVgkVO2DYH9m2to
+qSTa9WMSqeXwWJ7tb5f0lHVz6ccuxJWj5VV5JEMNGwul+mULLZbAG7yfcmYyahoS
+geGrN/kWZTZkheS46LO5zHnKK1D2H8cRrWMV9hlxU5JbNeklglzTZz6hquTlvz25
+nfLCusPkg/f2ddQ7rVW2F7vPYtgngUoQ8YhlQKw738OMiv0UxSSeq+KyGQIVs0yS
+LoaxNuW/xEhg75Y06l4hBIfev49ltQgctXpWcDEd79/Kyak0MjWcAPw4oEimgair
++qe/+MzCE89romkvfPF3O2R6guiDx7x1w0MyiGPSBewuQwE/cfvhl52adEMwKMv/
+Div5YnqJGCSwQlFqZdmDezHgoQkKO+DTs5GpdL3WrhlBfIyL52ZE2RyBQUZbQqHb
+ACvXYu7gceWkkBbV509uEGH/4m3duk6OpoU5mTYD8B0Fj6nFy4i+zamkwVCdAdD5
+FdHhI8u9ynqu0ppqICL+
+=U8Qp
+-----END PGP SIGNATURE-----
 
-   Andrew
+--=-Wia7gmDkFlwWdnjSRV8w--
