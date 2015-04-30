@@ -1,52 +1,89 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [RFC PATCH net-next 7/8] net: dsa: mv88e6060: make it a proper
- PHY driver
-Date: Thu, 30 Apr 2015 06:49:29 -0700
-Message-ID: <554232E9.5080104@roeck-us.net>
-References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com> <1430359064-23454-8-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dave@davemloft.net, vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, andrew@lunn.ch,
-	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
-	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] test_bpf: indicate whether bpf prog got jited in test suite
+Date: Thu, 30 Apr 2015 16:17:27 +0200
+Message-ID: <c031528c3effbdb3a3a566b0a8d6f48f3e4ad3be.1430403176.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:34434 "EHLO
-	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341AbbD3NuZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 09:50:25 -0400
-Received: from mailnull by bh-25.webhostbox.net with sa-checked (Exim 4.85)
-	(envelope-from <linux@roeck-us.net>)
-	id 1YnorA-003gJ1-9r
-	for netdev@vger.kernel.org; Thu, 30 Apr 2015 13:50:24 +0000
-In-Reply-To: <1430359064-23454-8-git-send-email-f.fainelli@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:39411 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317AbbD3ORb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 10:17:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2015 06:57 PM, Florian Fainelli wrote:
-> Convert the Marvell 88E6060 switch driver into a proper PHY library
-> driver that can be registered. To make sure we do not introduce
-> functional changes, the PHY driver provides autoneg and status callbacks
-> to make sure the attached Ethernet MAC driver still sees a link UP at
-> the CPU port full speed.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->   drivers/net/dsa/mv88e6060.c | 114 ++++++++++++++++++++++++++++++++++++++++++--
->   1 file changed, 109 insertions(+), 5 deletions(-)
->
+I think this is useful to verify whether a filter could be JITed or
+not in case of bpf_prog_enable >= 1, which otherwise the test suite
+doesn't tell besides taking a good peek at the performance numbers.
 
-The whole complexity added here makes me wonder if we are really on the right track.
-After all, switches are _not_ phy devices. Forcing them to register as phy devices
-just because they use mdio and just because the Linux mdio implementation assumes
-that anything connected to it is a phy seems odd.
+Nicolas Schichan reported a bug in the ARM JIT compiler that rejected
+and waved the filter to the interpreter although it shouldn't have.
+Nevertheless, the test passes as expected, but such information is
+not visible.
 
-A much better solution might be be to disconnect mdio from phy, ie to create a new
-mdio bus framework, as then use this framework for anything connected to an mdio bus.
+It's i.e. useful for the remaining classic JITs, but also for
+implementing remaining opcodes that are not yet present in eBPF JITs
+(e.g. ARM64 waves some of them to the interpreter). This minor patch
+allows to grep through dmesg to find those accordingly, but also
+provides a total summary, i.e.: [<X>/53 JIT'ed]
 
-Does this make any sense, or am I completely off track ?
+  # echo 1 > /proc/sys/net/core/bpf_jit_enable
+  # insmod lib/test_bpf.ko
+  # dmesg | grep "jited:0"
 
-Thanks,
-Guenter
+dmesg example on the ARM issue with JIT rejection:
+
+[...]
+[   67.925387] test_bpf: #2 ADD_SUB_MUL_K jited:1 24 PASS
+[   67.930889] test_bpf: #3 DIV_MOD_KX jited:0 794 PASS
+[   67.943940] test_bpf: #4 AND_OR_LSH_K jited:1 20 20 PASS
+[...]
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Nicolas Schichan <nschichan@freebox.fr>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+---
+ lib/test_bpf.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 80d78c5..f2c23ff 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -1990,6 +1990,7 @@ static int run_one(const struct bpf_prog *fp, struct bpf_test *test)
+ static __init int test_bpf(void)
+ {
+ 	int i, err_cnt = 0, pass_cnt = 0;
++	int jit_cnt = 0, run_cnt = 0;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(tests); i++) {
+ 		struct bpf_prog *fp;
+@@ -2006,6 +2007,13 @@ static __init int test_bpf(void)
+ 
+ 			return err;
+ 		}
++
++		pr_cont("jited:%u ", fp->jited);
++
++		run_cnt++;
++		if (fp->jited)
++			jit_cnt++;
++
+ 		err = run_one(fp, &tests[i]);
+ 		release_filter(fp, i);
+ 
+@@ -2018,7 +2026,9 @@ static __init int test_bpf(void)
+ 		}
+ 	}
+ 
+-	pr_info("Summary: %d PASSED, %d FAILED\n", pass_cnt, err_cnt);
++	pr_info("Summary: %d PASSED, %d FAILED, [%d/%d JIT'ed]\n",
++		pass_cnt, err_cnt, jit_cnt, run_cnt);
++
+ 	return err_cnt ? -EINVAL : 0;
+ }
+ 
+-- 
+1.9.3
