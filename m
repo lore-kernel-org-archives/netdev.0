@@ -1,66 +1,85 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: [PATCH net-next 3/3] tcp: invoke pkts_acked hook on every ACK
-Date: Thu, 30 Apr 2015 18:23:32 +0200
-Message-ID: <1430411012-4939-3-git-send-email-kennetkl@ifi.uio.no>
-References: <1430411012-4939-1-git-send-email-kennetkl@ifi.uio.no>
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
+From: Thomas F Herbert <thomasfherbert@gmail.com>
+Subject: Re: [PATCH net-next V7 2/2] openvswitch: 802.1ad: Flow handling,
+ actions, and vlan parsing
+Date: Thu, 30 Apr 2015 12:26:43 -0400
+Message-ID: <554257C3.20701@gmail.com>
+References: <1430261059-7920-1-git-send-email-thomasfherbert@gmail.com>	<1430261059-7920-3-git-send-email-thomasfherbert@gmail.com> <CALnjE+qtYW4JE5TT3WiOofe=Q+YkLEZ7e+MpJQYLs5f6wD3nvw@mail.gmail.com>
+Reply-To: thomasfherbert@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
+	ccp@atcnet.net
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out4.uio.no ([129.240.10.15]:60943 "EHLO mail-out4.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750891AbbD3QZ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 12:25:28 -0400
-In-Reply-To: <1430411012-4939-1-git-send-email-kennetkl@ifi.uio.no>
+Received: from mail-vn0-f48.google.com ([209.85.216.48]:42277 "EHLO
+	mail-vn0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbbD3Q0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 12:26:45 -0400
+Received: by vnbf129 with SMTP id f129so7822199vnb.9
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 09:26:45 -0700 (PDT)
+In-Reply-To: <CALnjE+qtYW4JE5TT3WiOofe=Q+YkLEZ7e+MpJQYLs5f6wD3nvw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Invoking pkts_acked is currently conditioned on FLAG_ACKED: receiving a
-cumulative ACK of new data, or ACK with SYN flag set.
+On 4/29/15 9:27 PM, Pravin Shelar wrote:
+> On Tue, Apr 28, 2015 at 3:44 PM, Thomas F Herbert
+> <thomasfherbert@gmail.com> wrote:
+>> Add support for 802.1ad including the ability to push and pop double
+>> tagged vlans.
+>>
+> I saw multiple checkpatch.pl errors and warning.
+>
+>> Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
+> ...
+>> diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+>> index 2dacc7b..6989451 100644
+>> --- a/net/openvswitch/flow.c
+>> +++ b/net/openvswitch/flow.c
+>> @@ -298,21 +298,78 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
+>>   static int parse_vlan(struct sk_buff *skb, struct sw_flow_key *key)
+>>   {
+>>          struct qtag_prefix {
+>> -               __be16 eth_type; /* ETH_P_8021Q */
+>> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
+>>                  __be16 tci;
+>>          };
+>> -       struct qtag_prefix *qp;
+>> +       struct qtag_prefix *qp = (struct qtag_prefix *) skb->data;
+>>
+>> -       if (unlikely(skb->len < sizeof(struct qtag_prefix) + sizeof(__be16)))
+>> -               return 0;
+>> +       struct qinqtag_prefix {
+>> +               __be16 eth_type; /* ETH_P_8021Q  or ETH_P_8021AD */
+>> +               __be16 tci;
+>> +               __be16 inner_tpid; /* ETH_P_8021Q */
+>> +               __be16 ctci;
+>> +       };
+>> +
+>> +       if (likely(skb_vlan_tag_present(skb))) {
+>> +
+>> +               key->eth.tci = htons(skb->vlan_tci);
+>> +
+> I think there is bug in existing OVS where it does not check
+> vlan_proto before populating the flow key. Can you send a separate
+> patch to fix this issue?.
+Pravin,
 
-Remove this condition so that CC may get RTT measurements from all SACKs.
+Thanks for your review.
 
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
----
- net/ipv4/tcp_input.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+OK. I will find and fix this bug.
+>
+> Checking for swkey->eth.tci does not make sense here. There is check
+> for it in previous if condition.
+>
+>> +               __be16 eth_type;
+>> +               eth_type = !is_mask ? htons(ETH_P_8021AD) : htons(0xffff);
+>> +               if (nla_put_be16(skb, OVS_KEY_ATTR_ETHERTYPE, eth_type) ||
+>> +                   nla_put_be16(skb, OVS_KEY_ATTR_VLAN, output->eth.tci))
+> What about eth.ctci?
+OK, yes the logic seems wrong so I will fix the check for ctci above and 
+fix the  checkpatch issues and resubmit to net-next.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 32bac6a..e5089c5 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3161,9 +3161,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 	rtt_update = tcp_ack_update_rtt(sk, flag, seq_rtt_us, sack_rtt_us);
- 
- 	if (flag & FLAG_ACKED) {
--		const struct tcp_congestion_ops *ca_ops
--			= inet_csk(sk)->icsk_ca_ops;
--
- 		tcp_rearm_rto(sk);
- 		if (unlikely(icsk->icsk_mtup.probe_size &&
- 			     !after(tp->mtu_probe.probe_seq_end, tp->snd_una))) {
-@@ -3186,9 +3183,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 
- 		tp->fackets_out -= min(pkts_acked, tp->fackets_out);
- 
--		if (ca_ops->pkts_acked)
--			ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
--
- 	} else if (skb && rtt_update && sack_rtt_us >= 0 &&
- 		   sack_rtt_us > skb_mstamp_us_delta(&now, &skb->skb_mstamp)) {
- 		/* Do not re-arm RTO if the sack RTT is measured from data sent
-@@ -3198,6 +3192,9 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 		tcp_rearm_rto(sk);
- 	}
- 
-+	if (icsk->icsk_ca_ops->pkts_acked)
-+		icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
-+
- #if FASTRETRANS_DEBUG > 0
- 	WARN_ON((int)tp->sacked_out < 0);
- 	WARN_ON((int)tp->lost_out < 0);
+
 -- 
-2.1.0
+Thomas F. Herbert
