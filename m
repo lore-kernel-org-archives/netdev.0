@@ -1,46 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] codel: fix maxpacket/mtu confusion
-Date: Thu, 30 Apr 2015 10:19:29 -0700
-Message-ID: <1430414369.3711.100.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430412040.3711.94.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAA93jw4QUyc_hA-TYr4Xqruj4KHUztiE+QP+-9pDtmEvNfH3Tg@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 3/8] net: phy: Allow PHY devices to identify
+ themselves as Ethernet switches
+Date: Thu, 30 Apr 2015 19:16:30 +0200
+Message-ID: <20150430171630.GE18874@lunn.ch>
+References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
+ <1430359064-23454-4-git-send-email-f.fainelli@gmail.com>
+ <20150430125658.GB22831@lunn.ch>
+ <55425AB3.2040908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Kathleen Nichols <nichols@pollere.com>,
-	Van Jacobson <vanj@google.com>, netdev <netdev@vger.kernel.org>
-To: Dave Taht <dave.taht@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
+	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:37600 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750705AbbD3RTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 13:19:31 -0400
-Received: by igblo3 with SMTP id lo3so19317597igb.0
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 10:19:30 -0700 (PDT)
-In-Reply-To: <CAA93jw4QUyc_hA-TYr4Xqruj4KHUztiE+QP+-9pDtmEvNfH3Tg@mail.gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:44842 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751132AbbD3RVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 13:21:09 -0400
+Content-Disposition: inline
+In-Reply-To: <55425AB3.2040908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-04-30 at 10:01 -0700, Dave Taht wrote:
-> I long ago dropped the maxpacket check and the statistic/statistic
-> collection from various test versions of codel in favor of either a
-> constant (1500 byte) check or none at all. There is always some level
-> of buffering underneath codel. I have always wanted the big
-> GRO/TSO/GRO superpackets to get peeled apart also - the present system
-> worked OK with ECN in most cases, but seemed  like it could get ugly
-> if we started dropping 64k worth of superpacket.
+> > Hi Florian
+> > 
+> > I have another two use cases for fixed_phy which i'm thinking about
+> > implementing soon. Both require putting a fixed_phy into DSA port
+> > properties in DT.
+> > 
+> > The first is when the CPU ethernet and the switch don't have the same
+> > speed capabilities. At the moment, the switch driver configures the
+> > CPU port to its maximum speed. But i know of a board coming soon with
+> > gigabit switch ports, but the CPU Ethernet is only fast Ethernet.
+> 
+> With the patch after, if your switch is MDIO connected to your host, you
+> could make that happen easily, since the read_status() callback would
+> only be invoked for the CPU port from the CPU Ethernet MAC driver
+> (that's the theory).
 
-The peeling part does not belong to codel or fq_codel, but eventually
-the parent qdisc, like TBF (peeling is already there), or HTB (no
-peeling yet)
+I'm not sure i get what you are saying.
 
-codel has binary choice : drop or not drop.
+What we currently have is:
 
-Starting to doing X MSS drops out of GRO packets seems not needed to me
-if sender is elastic (properly reacts to drop/ecn_marks). It put extra
-logic in the wrong place.
+CPU ETH->fixed_phy                      Switch port CPU
+|                                       |
++---------------------------------------+
 
-Again, if you have GRO super packets in codel/fq_codel, it means the
-sender is buggy enough to send big bursts. Just drop the big GRO packet,
-do not try to be gentle with the bad guy.
+and what i'm thinking we want is:
+
+CPU ETH->fixed_phy          fixed_phy <-Switch port CPU
+|                                       |
++---------------------------------------+
+
+So that when setting up the switch side of the link, i can read from
+the switch ports fixed_phy how the port should be configured.
+
+I'm also wondering if they could even share one fixed_phy? 
+But i suspect that will not work.
+
+> > So in this respect, i'm wondering if is_switch is the best of names?
+> 
+> Probably not, I agree, pseudo_fixed_link ;)?
+
+Yes, something like that.
+
+     Andrew
