@@ -1,119 +1,108 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Schedule napi when RX buffers allocation fails
-Date: Thu, 30 Apr 2015 17:32:46 +0300
-Message-ID: <1430404366-27038-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>, Ido Shamay <idos@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH] tcp: set SOCK_NOSPACE under memory presure
+Date: Thu, 30 Apr 2015 10:34:17 -0400
+Message-ID: <55423D69.7000907@akamai.com>
+References: <20150420200513.11D8E202D@prod-mail-relay06.akamai.com> <20150421.173300.553980773035401270.davem@davemloft.net> <5537AF76.1020108@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Jason Baron <jbaron@akamai.com>, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:58613 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751159AbbD3OdR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 10:33:17 -0400
+Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:49688 "EHLO
+	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750719AbbD3OeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 10:34:18 -0400
+In-Reply-To: <5537AF76.1020108@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Shamay <idos@mellanox.com>
+On 04/22/2015 10:25 AM, Jason Baron wrote:
+> On 04/21/2015 05:33 PM, David Miller wrote:
+>> From: Jason Baron <jbaron@akamai.com>
+>> Date: Mon, 20 Apr 2015 20:05:13 +0000 (GMT)
+>>
+>>> Under tcp memory pressure, calling epoll_wait() in edge triggered
+>>> mode after -EAGAIN, can result in an indefinite hang in epoll_wait(),
+>>> even when there is suffcient memory available to continue making
+>>> progress. The problem is that __sk_mem_schedule() can return 0,
+>>> under memory pressure without having set the SOCK_NOSPACE flag. Thus,
+>>> even though all the outstanding packets have been acked, we never
+>>> get the EPOLLOUT that we are expecting from epoll_wait().
+>>>
+>>> This issue is currently limited to epoll when used in edge trigger
+>>> mode, since 'tcp_poll()', does in fact currently set SOCK_NOSPACE.
+>>> This is sufficient for poll()/select() and epoll() in level trigger
+>>> mode. However, in edge trigger mode, epoll() is relying on the write
+>>> path to set SOCK_NOSPACE. So I view this patch as bringing us into
+>>> sync with poll()/select() and epoll() level trigger behavior.
+>> Can you explain exactly how epoll in edge trigger mode is
+>> depending upon SOCK_NOSPACE being set in this way?  I tried
+>> to read the epoll code and it just seems to call ->poll()
+>> in the normal way when returning event state.
+> In edge trigger mode, when we receive a wakeup event we
+> call ->poll() in the normal way, *but* we do not leave the event
+> as still pending. (Specifically, in the epoll() code we are not
+> re-adding it (fs/eventpoll.c:ep_send_events_proc())). This is
+> because we are only interested in the 'edge' or the event
+> going high. In level trigger mode, we do leave the event
+> pending if its 'high', such that it will re-trigger again for us on
+> the next epoll_wait().
+>
+> EPOLL(7) is clear that in edge-trigger mode we can only do
+> epoll_wait() after read/write return -EAGAIN. Thus, in the
+> case of the socket write, we are relying on the fact that
+> tcp_sendmsg()/network layer is going to issue a wakeup
+> for us at some point in the future when we get -EAGAIN.
+>
+> This all works fine in the case you pointed out where we
+> have exceeded the sk->sndbuf and set SOCK_NOSPACE.
+> However, when we return -EAGAIN from the write path
+> b/c we are over the tcp memory limits and not b/c we are
+> over the sndbuf, we are never going to get another wakeup
+> (since SOCK_NOSPACE is not set in this case). Level trigger
+> avoids this since the subsequent epoll_wait() is going to
+> re-try the ->poll() (and set SOCK_NOSPACE if it fails).
+>
+> Now, in the memory failure case, we are not really
+> waiting for the buffer to empty, but rather for there to be
+> memory more generally available. So it could be argued
+> that we need to implement a wakeup here based on memory
+> being available as opposed to the write queue emptying.
+> That is one potential option here.
+>
+> I think the other one is the route I was proposing, which was
+> to treat the out of memory case, in the same way as the
+> sk->sndbuf queue full case, as select(), poll() and epoll() level
+> trigger are currently doing. And potentially add maybe an
+> -ENOSPC return if the write queue really is empty...I thought
+> that approach made sense b/c even under memory pressure
+> (over sk_prot_mem_limits(sk, 1), but not over
+> sk_prot_mem_limits(sk, 2)) we continue to guarantee a
+> minimum sndbuf size (implying we can keep making progress).
+> That said, there is a case, over sk_prot_mem_limits(sk, 2),
+> where we do not guarantee the minimum buffer size, but I
+> think in practice that is very hard to hit (since we are reducing
+> usage over sk_prot_mem_limits(sk, 1) aggressively).
+>
+> There is also the case where we actually are out of memory
+> on the system, ie kmalloc() etc. are failing, in which case
+> we could maybe return -ENOSPC, or else we would potentially
+> need a larger change to wait on memory being available
+> as opposed to the buffer emptying.
+>
+> Thanks,
+>
+> -Jason
 
-When system is out of memory, refilling of RX buffers fails while
-the driver continue to pass the received packets to the kernel stack.
-At some point, when all RX buffers deplete, driver may fall into a
-sleep, and not recover when memory for new RX buffers is once again
-availible. This is because hardware does not have valid descriptors,
-so no interrupt will be generated for the driver to return to work
-in napi context. Fix it by schedule the napi poll function from
-stats_task delayed workqueue, as long as the allocations fail.
+Hi,
 
-Signed-off-by: Ido Shamay <idos@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
-Hi Dave,
-
-This is a bug that our driver had from day one. Please pull it into -stable.
+Just curious if anybody had any further reaction on this issue.
+I think making the epoll edge trigger case, as least match what
+we are seeing for poll()/select()/epoll() level trigger seems
+reasonable here.
 
 Thanks,
-Amir
 
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  1 +
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 26 ++++++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 +
- 3 files changed, 26 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 0f1afc0..a23a96a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1467,6 +1467,7 @@ static void mlx4_en_service_task(struct work_struct *work)
- 		if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
- 			mlx4_en_ptp_overflow_check(mdev);
- 
-+		mlx4_en_recover_from_oom(priv);
- 		queue_delayed_work(mdev->workqueue, &priv->service_task,
- 				   SERVICE_TASK_DELAY);
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 4fdd3c3..2a77a6b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -244,6 +244,12 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
- 	return mlx4_en_alloc_frags(priv, rx_desc, frags, ring->page_alloc, gfp);
- }
- 
-+static inline bool mlx4_en_is_ring_empty(struct mlx4_en_rx_ring *ring)
-+{
-+	BUG_ON((u32)(ring->prod - ring->cons) > ring->actual_size);
-+	return ring->prod == ring->cons;
-+}
-+
- static inline void mlx4_en_update_rx_prod_db(struct mlx4_en_rx_ring *ring)
- {
- 	*ring->wqres.db.db = cpu_to_be32(ring->prod & 0xffff);
-@@ -315,8 +321,7 @@ static void mlx4_en_free_rx_buf(struct mlx4_en_priv *priv,
- 	       ring->cons, ring->prod);
- 
- 	/* Unmap and free Rx buffers */
--	BUG_ON((u32) (ring->prod - ring->cons) > ring->actual_size);
--	while (ring->cons != ring->prod) {
-+	while (!mlx4_en_is_ring_empty(ring)) {
- 		index = ring->cons & ring->size_mask;
- 		en_dbg(DRV, priv, "Processing descriptor:%d\n", index);
- 		mlx4_en_free_rx_desc(priv, ring, index);
-@@ -491,6 +496,23 @@ err_allocator:
- 	return err;
- }
- 
-+/* We recover from out of memory by scheduling our napi poll
-+ * function (mlx4_en_process_cq), which tries to allocate
-+ * all missing RX buffers (call to mlx4_en_refill_rx_buffers).
-+ */
-+void mlx4_en_recover_from_oom(struct mlx4_en_priv *priv)
-+{
-+	int ring;
-+
-+	if (!priv->port_up)
-+		return;
-+
-+	for (ring = 0; ring < priv->rx_ring_num; ring++) {
-+		if (mlx4_en_is_ring_empty(priv->rx_ring[ring]))
-+			napi_reschedule(&priv->rx_cq[ring]->napi);
-+	}
-+}
-+
- void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
- 			     struct mlx4_en_rx_ring **pring,
- 			     u32 size, u16 stride)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 9de3021..d021f07 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -774,6 +774,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- void mlx4_en_deactivate_tx_ring(struct mlx4_en_priv *priv,
- 				struct mlx4_en_tx_ring *ring);
- void mlx4_en_set_num_rx_rings(struct mlx4_en_dev *mdev);
-+void mlx4_en_recover_from_oom(struct mlx4_en_priv *priv);
- int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_rx_ring **pring,
- 			   u32 size, u16 stride, int node);
--- 
-1.9.3
+-Jason
