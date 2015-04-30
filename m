@@ -1,69 +1,56 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V2 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to optimize signaling the host
-Date: Thu, 30 Apr 2015 16:29:15 -0700
-Message-ID: <1430436555-32729-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 3/3] printk: implement support for extended console
+ drivers
+Date: Thu, 30 Apr 2015 18:12:31 -0400
+Message-ID: <20150430221231.GB1949@htj.duckdns.org>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+ <1430318704-32374-4-git-send-email-tj@kernel.org>
+ <20150430143128.68c2295ca18f1b872876f129@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: pmladek@suse.cz, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Kay Sievers <kay@vrfy.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150430143128.68c2295ca18f1b872876f129@linux-foundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Based on the information given to this driver (via the xmit_more skb flag),
-we can defer signaling the host if more packets are on the way. This will help
-make the host more efficient since it can potentially process a larger batch of
-packets. Implement this optimization.
+Hello, Andrew.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
-	v2: Fixed up indentation based on feedback from David Miller.
+On Thu, Apr 30, 2015 at 02:31:28PM -0700, Andrew Morton wrote:
+> So if I'm understanding this correctly, the /dev/kmsg output is altered
+> (different cont handling) if some console registers with CON_EXTENDED
+> (and there are no such consoles yet, so the patch is a no-op).
 
- drivers/net/hyperv/netvsc.c |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
+Yeah, that's mostly right.  /dev/kmsg output already has
+"continuation" flag which indicates whether a message should be
+concatenated which gets triggered occassionally currently.  This would
+make use of that behavior a lot more frequently.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 2e8ad06..5fdc5e1 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
- 	u64 req_id;
- 	int ret;
- 	struct hv_page_buffer *pgbuf;
-+	u32 vmbus_flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
- 
- 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
- 	if (packet->is_data_pkt) {
-@@ -772,19 +773,22 @@ static inline int netvsc_send_pkt(
- 	if (packet->page_buf_cnt) {
- 		pgbuf = packet->cp_partial ? packet->page_buf +
- 			packet->rmsg_pgcnt : packet->page_buf;
--		ret = vmbus_sendpacket_pagebuffer(out_channel,
--						  pgbuf,
--						  packet->page_buf_cnt,
--						  &nvmsg,
--						  sizeof(struct nvsp_message),
--						  req_id);
-+		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
-+						      pgbuf,
-+						      packet->page_buf_cnt,
-+						      &nvmsg,
-+						      sizeof(struct
-+							     nvsp_message),
-+						      req_id,
-+						      vmbus_flags,
-+						      !packet->xmit_more);
- 	} else {
--		ret = vmbus_sendpacket(
-+		ret = vmbus_sendpacket_ctl(
- 				out_channel, &nvmsg,
- 				sizeof(struct nvsp_message),
- 				req_id,
- 				VM_PKT_DATA_INBAND,
--				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-+				vmbus_flags, !packet->xmit_more);
- 	}
- 
- 	if (ret == 0) {
+> If correct, this seems undesirable - registration of a CON_EXTENDED
+> console collaterally damages the /dev/kmsg interface?  If the user has
+> an app which depends on the original /dev/kmsg format then they'll be
+> wondered what-the-heck-just-happened?
+
+For applications which ignore the continuation flags, this would lead
+to a different output.  We can fake it for /dev/kmsg (concatenate from
+the kernel side and then output empty message for the later fragments)
+but that'd be piling more hacks on top of already unnecessary hack
+which is the cont buffer.
+
+We can generate a log message indicating that the new mode is enabled
+to make it easier to figure out why it changed.  Given that this is
+not an entirely new behavior and the usage of extended console is
+likely to stay fairly specific, transitioning this way is unlikely to
+cause too much trouble especially given that most traditional tools
+use the older interfaces w/o metadata which aren't affected by this
+change.
+
+What do you think?
+
+Thanks.
+
 -- 
-1.7.4.1
+tejun
