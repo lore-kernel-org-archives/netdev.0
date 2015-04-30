@@ -1,69 +1,119 @@
-From: David Ahern <david.ahern@oracle.com>
-Subject: [PATCH] net/rds: fix unaligned memory access
-Date: Thu, 30 Apr 2015 10:27:53 -0400
-Message-ID: <1430404073-16879-1-git-send-email-david.ahern@oracle.com>
-Cc: shamir rabinovitch <shamir.rabinovitch@oracle.com>,
-	David Ahern <david.ahern@oracle.com>
-To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net] net/mlx4_en: Schedule napi when RX buffers allocation fails
+Date: Thu, 30 Apr 2015 17:32:46 +0300
+Message-ID: <1430404366-27038-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Ido Shamay <idos@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48853 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbbD3O2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 10:28:02 -0400
-Received: from aserv0022.oracle.com (aserv0022.oracle.com [141.146.126.234])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t3UES04G031813
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 14:28:01 GMT
+Received: from ns1327.ztomy.com ([193.47.165.129]:58613 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751159AbbD3OdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 10:33:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+From: Ido Shamay <idos@mellanox.com>
 
-rdma_conn_param private data is copied using memcpy after headers such
-as cma_hdr (see cma_resolve_ib_udp as example). so the start of the
-private data is aligned to the end of the structure that come before. if
-this structure end with u32 the meaning is that the start of the private
-data will be 4 bytes aligned. structures that use u8/u16/u32/u64 are
-naturally aligned but in case the structure start is not 8 bytes aligned,
-all u64 members of this structure will not be aligned. to solve this issue
-we must use special macros that allow unaligned access to those
-unaligned members.
+When system is out of memory, refilling of RX buffers fails while
+the driver continue to pass the received packets to the kernel stack.
+At some point, when all RX buffers deplete, driver may fall into a
+sleep, and not recover when memory for new RX buffers is once again
+availible. This is because hardware does not have valid descriptors,
+so no interrupt will be generated for the driver to return to work
+in napi context. Fix it by schedule the napi poll function from
+stats_task delayed workqueue, as long as the allocations fail.
 
-Addresses the following kernel log seen when attempting to use RDMA:
-
-Kernel unaligned access at TPC[10507a88] rds_ib_cm_connect_complete+0x1bc/0x1e0 [rds_rdma]
-
-Acked-by: Chien Yen <chien.yen@oracle.com>
-Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
-[Minor tweaks for top of tree by:]
-Signed-off-by: David Ahern <david.ahern@oracle.com>
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- net/rds/ib_cm.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
+Hi Dave,
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 31b74f5..e0bbbac 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -183,8 +183,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
+This is a bug that our driver had from day one. Please pull it into -stable.
+
+Thanks,
+Amir
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  1 +
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 26 ++++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 +
+ 3 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 0f1afc0..a23a96a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1467,6 +1467,7 @@ static void mlx4_en_service_task(struct work_struct *work)
+ 		if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
+ 			mlx4_en_ptp_overflow_check(mdev);
  
- 	/* If the peer gave us the last packet it saw, process this as if
- 	 * we had received a regular ACK. */
--	if (dp && dp->dp_ack_seq)
--		rds_send_drop_acked(conn, be64_to_cpu(dp->dp_ack_seq), NULL);
-+	if (dp) {
-+		/* dp structure start is not guaranteed to be 8 bytes aligned
-+		 * so on SPARC we get trap for nu-aligned access. we solve
-+		 * this by using the macros for unaligned memory access
-+		 */
-+		u64 dp_ack_seq = get_unaligned(&dp->dp_ack_seq);
-+
-+		if (dp_ack_seq)
-+			rds_send_drop_acked(conn, be64_to_cpu(dp_ack_seq),
-+					    NULL);
-+	}
- 
- 	rds_connect_complete(conn);
++		mlx4_en_recover_from_oom(priv);
+ 		queue_delayed_work(mdev->workqueue, &priv->service_task,
+ 				   SERVICE_TASK_DELAY);
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 4fdd3c3..2a77a6b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -244,6 +244,12 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
+ 	return mlx4_en_alloc_frags(priv, rx_desc, frags, ring->page_alloc, gfp);
  }
+ 
++static inline bool mlx4_en_is_ring_empty(struct mlx4_en_rx_ring *ring)
++{
++	BUG_ON((u32)(ring->prod - ring->cons) > ring->actual_size);
++	return ring->prod == ring->cons;
++}
++
+ static inline void mlx4_en_update_rx_prod_db(struct mlx4_en_rx_ring *ring)
+ {
+ 	*ring->wqres.db.db = cpu_to_be32(ring->prod & 0xffff);
+@@ -315,8 +321,7 @@ static void mlx4_en_free_rx_buf(struct mlx4_en_priv *priv,
+ 	       ring->cons, ring->prod);
+ 
+ 	/* Unmap and free Rx buffers */
+-	BUG_ON((u32) (ring->prod - ring->cons) > ring->actual_size);
+-	while (ring->cons != ring->prod) {
++	while (!mlx4_en_is_ring_empty(ring)) {
+ 		index = ring->cons & ring->size_mask;
+ 		en_dbg(DRV, priv, "Processing descriptor:%d\n", index);
+ 		mlx4_en_free_rx_desc(priv, ring, index);
+@@ -491,6 +496,23 @@ err_allocator:
+ 	return err;
+ }
+ 
++/* We recover from out of memory by scheduling our napi poll
++ * function (mlx4_en_process_cq), which tries to allocate
++ * all missing RX buffers (call to mlx4_en_refill_rx_buffers).
++ */
++void mlx4_en_recover_from_oom(struct mlx4_en_priv *priv)
++{
++	int ring;
++
++	if (!priv->port_up)
++		return;
++
++	for (ring = 0; ring < priv->rx_ring_num; ring++) {
++		if (mlx4_en_is_ring_empty(priv->rx_ring[ring]))
++			napi_reschedule(&priv->rx_cq[ring]->napi);
++	}
++}
++
+ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
+ 			     struct mlx4_en_rx_ring **pring,
+ 			     u32 size, u16 stride)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 9de3021..d021f07 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -774,6 +774,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
+ void mlx4_en_deactivate_tx_ring(struct mlx4_en_priv *priv,
+ 				struct mlx4_en_tx_ring *ring);
+ void mlx4_en_set_num_rx_rings(struct mlx4_en_dev *mdev);
++void mlx4_en_recover_from_oom(struct mlx4_en_priv *priv);
+ int mlx4_en_create_rx_ring(struct mlx4_en_priv *priv,
+ 			   struct mlx4_en_rx_ring **pring,
+ 			   u32 size, u16 stride, int node);
 -- 
-1.7.1
+1.9.3
