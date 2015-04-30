@@ -1,94 +1,150 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next 2/2] rhashtable: Quick initial growth of tables
-Date: Thu, 30 Apr 2015 22:46:45 +0000
-Message-ID: <1430434005-6143-3-git-send-email-tgraf@suug.ch>
-References: <1430434005-6143-1-git-send-email-tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kaber@trash.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:35630 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831AbbD3WrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 18:47:05 -0400
-Received: by pdbqd1 with SMTP id qd1so74462166pdb.2
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 15:47:04 -0700 (PDT)
-In-Reply-To: <1430434005-6143-1-git-send-email-tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of netfilter
+ ingress hooks
+Date: Fri, 01 May 2015 01:01:14 +0200
+Message-ID: <5542B43A.6020201@iogearbox.net>
+References: <20150430003019.GE7025@acer.localdomain> <55417A3A.50405@iogearbox.net> <20150430004839.GG7025@acer.localdomain> <20150430011633.GA12674@Alexeis-MBP.westell.com> <20150430013452.GA7956@acer.localdomain> <554191F9.3010301@mojatatu.com> <20150430031138.GA8950@acer.localdomain> <5542182A.800@mojatatu.com> <20150430153317.GA3230@salvia> <554253B5.40801@iogearbox.net> <20150430163634.GA3814@salvia> <55427F81.4080807@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <55427F81.4080807@iogearbox.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Grow the table quicker than 2x in the beginning to avoid long chains
-of rehashes. The effect is observable in the self-test where table
-jumps are reduced to a minimum after a lot of entries have been added
-in a short period of time. The iterator is able to get a consistent
-view most of the time.
+On 04/30/2015 09:16 PM, Daniel Borkmann wrote:
+> On 04/30/2015 06:36 PM, Pablo Neira Ayuso wrote:
+> ...
+>> But where are the barriers? These unfounded performance claims are
+>> simply absurd, qdisc ingress barely performs a bit better just because
+>> it executes a bit less code and only in the single CPU scenario with
+>> no rules at all.
+>
+> I think we're going in circles a bit. :( You are right in saying that
+> currently, there's a central spinlock, which is worked on to get rid
+> of, you've seen the patch on the list floating around already. Single
+> CPU, artificial micro-benchmark, which were done show that you see on
+> your machine ~613Kpps to ~545Kpps, others have seen it more amplified
+> as 22.4Mpps to 18.0Mpps drop from __netif_receive_skb_core() up to an
+> empty dummy u32_classify() rule, which has already been acknowledged
+> that this gap needs to be improved. Lets call it unfounded then. I
+> think we wouldn't even have this discussion if we wouldn't try brute
+> forcing both worlds behind this single static key, or, have both
+> invoked from within the same layer/list.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- lib/rhashtable.c | 37 +++++++++++++++++++++++++++++++++++--
- 1 file changed, 35 insertions(+), 2 deletions(-)
+Ok, out of curiosity, I did the same as both of you: I'm using a pretty
+standard Supermicro X10SLM-F/X10SLM-F, Xeon E3-1240 v3.
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 4936fc4..23e7f18 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -271,6 +271,38 @@ static int rhashtable_rehash_table(struct rhashtable *ht)
- 	return rht_dereference(new_tbl->future_tbl, ht) ? -EAGAIN : 0;
- }
- 
-+static int table_growth_log(unsigned int size)
-+{
-+	/*
-+	 * Table growth:
-+	 *     2 ->   64
-+	 *     4 ->  128
-+	 *     8 ->  128
-+	 *    16 ->  256
-+	 *    32 ->  512
-+	 *    64 ->  512
-+	 *   128 -> 1024
-+	 *   256 -> 2048
-+	 *   512 -> 2048
-+	 *  1024 -> 4096
-+	 *  2048 -> 8192
-+	 *  4096 -> 8192
-+	 */
-+	int log = 5 - (ilog2(size) / 3);
-+
-+	return log > 1 ? log : 1;
-+}
-+
-+static unsigned int grow_table(struct rhashtable *ht, unsigned int old_size)
-+{
-+	unsigned int new_size;
-+
-+	new_size = old_size << table_growth_log(old_size);
-+	new_size = min(new_size, ht->p.max_size);
-+
-+	return new_size;
-+}
-+
- /**
-  * rhashtable_expand - Expand hash table while allowing concurrent lookups
-  * @ht:		the hash table to expand
-@@ -295,7 +327,8 @@ static int rhashtable_expand(struct rhashtable *ht)
- 
- 	old_tbl = rhashtable_last_table(ht, old_tbl);
- 
--	new_tbl = bucket_table_alloc(ht, old_tbl->size * 2, GFP_KERNEL);
-+	new_tbl = bucket_table_alloc(ht, grow_table(ht, old_tbl->size),
-+				     GFP_KERNEL);
- 	if (new_tbl == NULL)
- 		return -ENOMEM;
- 
-@@ -404,7 +437,7 @@ int rhashtable_insert_rehash(struct rhashtable *ht)
- 	size = tbl->size;
- 
- 	if (rht_grow_above_75(ht, tbl))
--		size *= 2;
-+		size = grow_table(ht, size);
- 	/* Do not schedule more than one rehash */
- 	else if (old_tbl != tbl)
- 		return -EBUSY;
--- 
-1.9.3
+*** ingress + dummy u32, net-next:
+
+w/o perf:
+...
+Result: OK: 5157948(c5157388+d559) usec, 100000000 (60byte,0frags)
+   19387551pps 9306Mb/sec (9306024480bps) errors: 100000000
+
+perf record -C0 -ecycles:k ./pktgen.sh p1p1
+...
+Result: OK: 5182638(c5182057+d580) usec, 100000000 (60byte,0frags)
+   19295191pps 9261Mb/sec (9261691680bps) errors: 100000000
+
+   26.07%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+   14.39%   kpktgend_0  [kernel.kallsyms]  [k] kfree_skb
+   13.69%   kpktgend_0  [cls_u32]          [k] u32_classify
+   11.75%   kpktgend_0  [kernel.kallsyms]  [k] _raw_spin_lock
+    5.34%   kpktgend_0  [sch_ingress]      [k] ingress_enqueue
+    5.21%   kpktgend_0  [kernel.kallsyms]  [k] tc_classify_compat
+    4.93%   kpktgend_0  [kernel.kallsyms]  [k] skb_defer_rx_timestamp
+    3.41%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_internal
+    3.21%   kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+    3.16%   kpktgend_0  [kernel.kallsyms]  [k] tc_classify
+    3.08%   kpktgend_0  [kernel.kallsyms]  [k] ip_rcv
+    2.05%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb
+    1.60%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_sk
+    1.15%   kpktgend_0  [kernel.kallsyms]  [k] classify
+    0.45%   kpktgend_0  [kernel.kallsyms]  [k] __local_bh_enable_ip
+
+*** nf hook infra + ingress + dummy u32, net-next:
+
+w/o perf:
+...
+Result: OK: 6555903(c6555744+d159) usec, 100000000 (60byte,0frags)
+   15253426pps 7321Mb/sec (7321644480bps) errors: 100000000
+
+perf record -C0 -ecycles:k ./pktgen.sh p1p1
+...
+Result: OK: 6591291(c6591153+d138) usec, 100000000 (60byte,0frags)
+   15171532pps 7282Mb/sec (7282335360bps) errors: 100000000
+
+   25.94%  kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+   12.19%  kpktgend_0  [kernel.kallsyms]  [k] kfree_skb
+   11.00%  kpktgend_0  [kernel.kallsyms]  [k] _raw_spin_lock
+   10.58%  kpktgend_0  [cls_u32]          [k] u32_classify
+    5.34%  kpktgend_0  [sch_ingress]      [k] handle_ing
+    4.68%  kpktgend_0  [kernel.kallsyms]  [k] nf_iterate
+    4.33%  kpktgend_0  [kernel.kallsyms]  [k] tc_classify_compat
+    4.32%  kpktgend_0  [sch_ingress]      [k] ingress_enqueue
+    3.62%  kpktgend_0  [kernel.kallsyms]  [k] skb_defer_rx_timestamp
+    2.95%  kpktgend_0  [kernel.kallsyms]  [k] nf_hook_slow
+    2.75%  kpktgend_0  [kernel.kallsyms]  [k] ip_rcv
+    2.60%  kpktgend_0  [kernel.kallsyms]  [k] tc_classify
+    2.52%  kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_internal
+    2.50%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+    1.77%  kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb
+    1.28%  kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_sk
+    0.94%  kpktgend_0  [kernel.kallsyms]  [k] classify
+    0.38%  kpktgend_0  [kernel.kallsyms]  [k] __local_bh_enable_ip
+
+*** drop ingress spinlock (patch w/ bstats addition) + ingress +
+     dummy u32, net-next:
+
+w/o perf:
+...
+Result: OK: 4789828(c4789353+d474) usec, 100000000 (60byte,0frags)
+   20877576pps 10021Mb/sec (10021236480bps) errors: 100000000
+
+perf record -C0 -ecycles:k ./pktgen.sh p1p1
+...
+Result: OK: 4829276(c4828437+d839) usec, 100000000 (60byte,0frags)
+   20707036pps 9939Mb/sec (9939377280bps) errors: 100000000
+
+   33.11%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb_core
+   15.27%   kpktgend_0  [kernel.kallsyms]  [k] kfree_skb
+   14.60%   kpktgend_0  [cls_u32]          [k] u32_classify
+    6.06%   kpktgend_0  [sch_ingress]      [k] ingress_enqueue
+    5.55%   kpktgend_0  [kernel.kallsyms]  [k] tc_classify_compat
+    5.31%   kpktgend_0  [kernel.kallsyms]  [k] skb_defer_rx_timestamp
+    3.77%   kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+    3.45%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_internal
+    3.33%   kpktgend_0  [kernel.kallsyms]  [k] tc_classify
+    3.33%   kpktgend_0  [kernel.kallsyms]  [k] ip_rcv
+    2.34%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb
+    1.78%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_sk
+    1.15%   kpktgend_0  [kernel.kallsyms]  [k] classify
+    0.48%   kpktgend_0  [kernel.kallsyms]  [k] __local_bh_enable_ip
+
+That means, here, moving ingress behind nf hooks, I see a similar
+slowdown in this micro-benchmark as Alexei of really worst case
+of ~27%.
+
+Now in real world that might probably just end up as a few percent
+depending on the use case, but really, why should we go down that
+path if we can just avoid that?
+
+If you find a way, where both tc/nf hooks are triggered from within
+the same list, then that would probably look better already. Or,
+as a start, as mentioned, with a second static key for netfilter,
+which can later on then still be reworked for a better integration,
+although I agree with you that it's less clean and I see the point
+of consolidating code.
+
+If you want, I'm happy to provide numbers if you have a next set as
+well, feel free to ping me.
+
+Thanks,
+Daniel
