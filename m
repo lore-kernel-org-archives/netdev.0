@@ -1,66 +1,68 @@
-From: Mihai Moldovan <ionic@ionic.de>
-Subject: Re: [PATCH] ss: Fix wrong filter behaviour
-Date: Thu, 30 Apr 2015 14:13:13 +0200
-Message-ID: <55421C59.9040303@ionic.de>
-References: <1430227008-7440-1-git-send-email-vadim4j@gmail.com> <20150428133745.GA10292@angus-think.wlc.globallogic.com> <55414B85.1070204@ionic.de> <20150430072655.GA689@angus-think.wlc.globallogic.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 7/8] net: dsa: mv88e6060: make it a proper
+ PHY driver
+Date: Thu, 30 Apr 2015 14:46:01 +0200
+Message-ID: <20150430124601.GA22831@lunn.ch>
+References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
+ <1430359064-23454-8-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="8Evj7FLNCcHT5SWeGJJ2bHCKkhv9HATM8"
-Cc: netdev@vger.kernel.org
-To: Vadim Kochan <vadim4j@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dave@davemloft.net,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
+	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from powered.by.root24.eu ([5.135.3.88]:54691 "EHLO Root24.de"
+Received: from vps0.lunn.ch ([178.209.37.122]:44585 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751176AbbD3MNQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 08:13:16 -0400
-In-Reply-To: <20150430072655.GA689@angus-think.wlc.globallogic.com>
+	id S1750719AbbD3Mum (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 08:50:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1430359064-23454-8-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---8Evj7FLNCcHT5SWeGJJ2bHCKkhv9HATM8
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+> +/* Read the switch identifier register using the special Port register, and if
+> + * successful, override the PHY ID for this device
+> + */
+> +static int mv88e6060_phy_fixup(struct phy_device *phydev)
+> +{
+> +	int ret;
+> +
+> +	/* Marvell switches should be accessed using MDIO address 16 */
+> +	if (phydev->addr != 16)
+> +		return 0;
+> +
+> +	ret = mdiobus_read(phydev->bus, REG_PORT(0), 0x03) &
+> +			   MV88E6060_MAGIC_MASK;
+> +	if (ret != MV88E6060_MAGIC)
+> +		return 0;
+> +
+> +	phydev->phy_id = MV88E6060_MAGIC;
+> +
+> +	return 0;
+> +}
 
-On 30.04.2015 09:26 AM, Vadim Kochan wrote:
-> I think it depends on distro package maintainers, usually they track th=
-e
-> upstream fixes and uses them in their stable versions, may be I should
-> grep some maintainers emails (LARTC mailing list ?) and broadcast to th=
-em ?
+Hi Florian
 
-Well... that's strictly speaking not your responsibility. I can make them=
- aware,
-I guess?
+The 6060 datasheet is the only public one. It talks a little bit about
+this. The switch can either use addresses 0-15, or 16-31, depending on
+EE_CLK/ADDR4 pin. So your first check needs expanding.
 
+The other chips have two different addressing modes, depending on pins
+at reset time. They can be similar to the 6060, using a large number
+of registers over a number of MDIO addresses. Or they can use two
+registers at a configurable MDIO address, with these two registers
+being Operation and Data. You access all the real switch registers
+indirectly. Probing such a setup could be destructive, you need to
+perform writes to register address 0 and 1, which if it is a real phy,
+not a switch, means writing to its control register and status
+register. So i guess before doing this, we need to read phyid1 and
+phyid2, and only do such a probe if we get 0xffff for both.
 
+I guess we need to see how problematic this is, before we can modify
+all the drivers to probe like this. I do have hardware using this
+indirect mode, so i can do some testing.
 
-Mihai
-
-
---8Evj7FLNCcHT5SWeGJJ2bHCKkhv9HATM8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJVQhxZAAoJEB/WLtluJTqHFlAP/AnDdSQ7qEPKbI6VjwgHA7sH
-Ywv3ARvVR+MccaxU39yLWHljgsH8c4Q4Pw1peuWfz7GMI5N2Ny9mCoXlYxAJ5mve
-m5wLiguMlNhpz70Nztsk6VBoMiZqvRIfK3XYm5sRPHtWjR1bAiaKW+heyPZ2Or08
-B2TRMTw/xD5ggIE4sSGWXtwlbDCqs9A4bu9fAGET23ndx8ywczzAaAFukgrEo82E
-5kxP3vYMX2RHdnYLFRyS3QikhVZh/51r3p7Y2FILYr8njhvs/0cd3YMeYZxJ5HS7
-U484ZcxKhiY/XCl8w+2oEndzkbJ5s2wLheT/vwoagr3KNgfQocVQJNriWho0i+lh
-2RG9Lt7N9FHIU/ECKh/0HmEE9X2ZfZOeCajRjyOBvXGVqHXy1j3XLk9IV9kUhN5G
-5Z47a0k7Mf0iFvObluN+aRDBZfz1kTn1FriAHbEbspfnR6LF016DiztzeU5wbCFZ
-R7zjQGF7ZT/ZKaAbAy0e7twwav+g0RIkjGfCgD+dWVvBcze2vwTGc42acnk6EEZA
-1870f0Kpu+W01IRfIjXXKqJVjkD8gLJ188nSW2WNwStVE3Tq+kEfdBrREpISgfzL
-Y6FaYfjCvZYKEYf9yButDz4JFMZPEknrl0GZhRnO9QQpKjyYpHpk2PoO6LdgsDFS
-7maax/iV4mG6qHyaJxTa
-=Nz5t
------END PGP SIGNATURE-----
-
---8Evj7FLNCcHT5SWeGJJ2bHCKkhv9HATM8--
+    Andrew
