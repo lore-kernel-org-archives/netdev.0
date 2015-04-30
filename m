@@ -1,59 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/rds: fix unaligned memory access
-Date: Thu, 30 Apr 2015 11:58:37 -0400 (EDT)
-Message-ID: <20150430.115837.2003620882862909173.davem@davemloft.net>
-References: <1430404073-16879-1-git-send-email-david.ahern@oracle.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1CB289BF@AcuExch.aculab.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of netfilter
+ ingress hooks
+Date: Thu, 30 Apr 2015 18:09:25 +0200
+Message-ID: <554253B5.40801@iogearbox.net>
+References: <20150429233205.GA3416@salvia> <55417545.30103@iogearbox.net> <20150430003019.GE7025@acer.localdomain> <55417A3A.50405@iogearbox.net> <20150430004839.GG7025@acer.localdomain> <20150430011633.GA12674@Alexeis-MBP.westell.com> <20150430013452.GA7956@acer.localdomain> <554191F9.3010301@mojatatu.com> <20150430031138.GA8950@acer.localdomain> <5542182A.800@mojatatu.com> <20150430153317.GA3230@salvia>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: david.ahern@oracle.com, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, shamir.rabinovitch@oracle.com
-To: David.Laight@ACULAB.COM
+Cc: Patrick McHardy <kaber@trash.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57353 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783AbbD3P6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 11:58:40 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB289BF@AcuExch.aculab.com>
+Received: from www62.your-server.de ([213.133.104.62]:48276 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751700AbbD3QJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 12:09:30 -0400
+In-Reply-To: <20150430153317.GA3230@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Thu, 30 Apr 2015 15:23:39 +0000
+On 04/30/2015 05:33 PM, Pablo Neira Ayuso wrote:
+...
+> On Thu, Apr 30, 2015 at 07:55:22AM -0400, Jamal Hadi Salim wrote:
+> [...]
+>> Start with a zero rules. Add them logarithmically (with and without
+>> traffic running). i.e in order of {0, 1, 10, 100, 1000, ...}
+>> With a single rule you dont notice much difference. Start adding rules
+>> and it becomes very obvious.
+>
+> I think the days of linear ruleset performance competitions are over,
 
-> From: David Ahern
->> Sent: 30 April 2015 15:28
->> rdma_conn_param private data is copied using memcpy after headers such
->> as cma_hdr (see cma_resolve_ib_udp as example). so the start of the
->> private data is aligned to the end of the structure that come before. if
->> this structure end with u32 the meaning is that the start of the private
->> data will be 4 bytes aligned. structures that use u8/u16/u32/u64 are
->> naturally aligned but in case the structure start is not 8 bytes aligned,
->> all u64 members of this structure will not be aligned. to solve this issue
->> we must use special macros that allow unaligned access to those
->> unaligned members.
->> 
->> Addresses the following kernel log seen when attempting to use RDMA:
->> 
->> Kernel unaligned access at TPC[10507a88] rds_ib_cm_connect_complete+0x1bc/0x1e0 [rds_rdma]
-> ...
->> diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
->> index 31b74f5..e0bbbac 100644
->> --- a/net/rds/ib_cm.c
->> +++ b/net/rds/ib_cm.c
->> @@ -183,8 +183,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
->> 
->>  	/* If the peer gave us the last packet it saw, process this as if
->>  	 * we had received a regular ACK. */
->> -	if (dp && dp->dp_ack_seq)
->> -		rds_send_drop_acked(conn, be64_to_cpu(dp->dp_ack_seq), NULL);
-> 
-> Or just mark 'dp_ack_seq' with __attribute((aligned(4))).
-> Then the compiler will generate two 32bit loads.
-> (provided be64_to_cpu() doesn't do anything stupid.)
+Totally agree with you. You want to have a single classification pass
+that parses the packet once and comes to a verdict immediately.
 
-It's a __be64 which already requires 8 byte alignment.
+> we have better data structures to allow users to arrange the ruleset
+> through the multidimensional dictionaries and the arbitrary state
+> flows that minimize the number of inspections, which is what it harms
+> performance when it comes to packet classification.
 
-That's not what is causing the problem here.  It's the opaque area that
-this structure can end up being placed afterwards.
+I think both have different use cases, though, but on cls_bpf side you
+have maps infrastructure that is evolving as well. Not really speaking
+about the other remaining classifiers, however. I also don't want to go
+any further into this vim vs emacs debate. ;) And, personally, I also
+don't have any issue offering alternatives to users.
+
+However, I still disagree with moving ingress behind this artificial
+barrier if it's just not necessary. I believe, in your RFC v1 patch,
+you had a second ingress hook as a static key for nft, I tend to like
+that much better consensus-wise. Both subsystems should not put
+unnecessary barriers into their way, really.
+
+Best,
+Daniel
