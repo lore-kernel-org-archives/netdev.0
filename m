@@ -1,43 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 0/3] A few minor clean-ups to eth_type_trans
-Date: Thu, 30 Apr 2015 15:35:13 -0700
-Message-ID: <20150430223510.GA13111@Alexeis-MBP.westell.com>
-References: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next 0/6] rhashtable self-test improvements
+Date: Thu, 30 Apr 2015 22:37:39 +0000
+Message-ID: <1430433465-6066-1-git-send-email-tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:37370 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839AbbD3WfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 18:35:17 -0400
-Received: by igblo3 with SMTP id lo3so26251596igb.0
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 15:35:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:33537 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750801AbbD3Why (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 18:37:54 -0400
+Received: by pdbnk13 with SMTP id nk13so74273850pdb.0
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 15:37:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 30, 2015 at 02:53:42PM -0700, Alexander Duyck wrote:
-> This series addresses a few minor issues I found in eth_type_trans that
-> that allow us to gain back something like 3 or more cycles per packet.  
-> 
-> The first change is to drop the byte swap since it isn't necessary.  On x86
-> we could just check the first byte and compare that against the upper 8
-> bits of the Ethertype to determine if we are dealing with a size value or
-> not.
-> 
-> The second makes it so that the value we read in to test for multicast can
-> be used for the address comparison.  This allows us to avoid a second read
-> of the destination address.
-> 
-> The final change is to avoid some unneeded instructions in computing the
-> Ethernet header pointer.  When we start the call the Ethernet header is at
-> skb->data, so we just use that rather than computing mac_header, and then
-> adding that back to skb->head.
+This series improves the rhashtable self-test to:
+  * Avoid allocation of test objects
+  * Measure the time of test runs
+  * Use the iterator to walk the table for consistency
+  * Account for failed insertions due to memory pressure or
+    utilization pressure
+  * Ignore failed insertions when checking for consistency
 
-Great stuff! Excellent optimizations.
+Thomas Graf (6):
+  rhashtable-test: Remove unused TEST_NEXPANDS
+  rhashtable-test: Measure time to insert, remove & traverse entries
+  rhashtable-test: Get rid of ptr in test_obj structure
+  rhashtable-test: Do not allocate individual test objects
+  rhashtable-test: Use walker to test bucket statistics
+  rhashtable-test: Detect insertion failures
 
-Only the comment 'ETH_P_802_3_MIN is aligned to 512' through me off.
-It's divisible by 256 that matters.
+ lib/test_rhashtable.c | 214 +++++++++++++++++++++++++++++---------------------
+ 1 file changed, 123 insertions(+), 91 deletions(-)
+
+-- 
+1.9.3
