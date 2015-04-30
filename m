@@ -1,47 +1,72 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next v3] be2net: log link status
-Date: Thu, 30 Apr 2015 11:59:49 +0200
-Message-ID: <1430387989-3552-1-git-send-email-ivecera@redhat.com>
-References: <20150429.150125.1929181206333250804.davem@davemloft.net>
-Cc: davem@davemloft.net, Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of
+ netfilter ingress hooks
+Date: Thu, 30 Apr 2015 12:12:04 +0200
+Message-ID: <20150430101204.GA3167@salvia>
+References: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
+ <1430333589-4940-7-git-send-email-pablo@netfilter.org>
+ <55413E99.5000807@iogearbox.net>
+ <20150429233205.GA3416@salvia>
+ <55417545.30103@iogearbox.net>
+ <20150430003019.GE7025@acer.localdomain>
+ <55417A3A.50405@iogearbox.net>
+ <20150430004839.GG7025@acer.localdomain>
+ <20150430011633.GA12674@Alexeis-MBP.westell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, jhs@mojatatu.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60709 "EHLO mx1.redhat.com"
+Received: from mail.us.es ([193.147.175.20]:54037 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751077AbbD3J7y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 05:59:54 -0400
-In-Reply-To: <20150429.150125.1929181206333250804.davem@davemloft.net>
+	id S1750771AbbD3KHj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 06:07:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20150430011633.GA12674@Alexeis-MBP.westell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver unlike other drivers does not log link state changes. It's
-better for an user when asynchronous link states are logged to the system
-log.
+On Wed, Apr 29, 2015 at 06:16:35PM -0700, Alexei Starovoitov wrote:
+> On Thu, Apr 30, 2015 at 02:48:39AM +0200, Patrick McHardy wrote:
+> > Netfilter is based on hook chains. The cost when only using a single hook
+> > is minimal (as Pablo showed in his numbers), but even if only using
+> > TC and a single netfilter classifier chain, there has to be some relative
+> > ordering and the hooks provide this in a generic way.
+>
+> Unfortunately the numbers that Pablo shown are not measuring
+> the right thing.
 
-v3: Changes from v2 discarded as "not necessary"
+The numbers I've shown were measuring the critical ingress path. I
+never posted numbers on generic hook infrastructure.
 
-Cc: Sathya Perla <sathya.perla@emulex.com>
-Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+> > 840203pps 403Mb/sec
+>
+> this is 20 times less than what they should be.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index fb0bc3c..e349131 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -662,6 +662,8 @@ void be_link_status_update(struct be_adapter *adapter, u8 link_status)
- 		netif_carrier_on(netdev);
- 	else
- 		netif_carrier_off(netdev);
-+
-+	netdev_info(netdev, "Link is %s\n", link_status ? "Up" : "Down");
- }
- 
- static void be_tx_stats_update(struct be_tx_obj *txo, struct sk_buff *skb)
--- 
-2.0.5
+It's ~10% less, because obviously we run more code in the generic hook
+infrastructure, as they provide more features. So far it was only
+possible to register one single chain at ingress. Eric Dumazet already
+indicated that this benchmark only measures *one single CPU* and
+icache is fully populated. The numbers with smp will go worse because
+of the central lock contention.
+
+These are the numbers I got banging *one single CPU*:
+
+* Without patches + qdisc ingress:
+
+Result: OK: 16298126(c16298125+d0) usec, 10000000 (60byte,0frags)
+  613567pps 294Mb/sec (294512160bps) errors: 10000000
+
+* With patches + qdisc ingress on top of hooks:
+
+Result: OK: 18339281(c18339280+d0) usec, 10000000 (60byte,0frags)
+  545277pps 261Mb/sec (261732960bps) errors: 10000000
+
+* With patches + nftables ingress chain:
+
+Result: OK: 17118167(c17118167+d0) usec, 10000000 (60byte,0frags)
+
+  584174pps 280Mb/sec (280403520bps) errors: 10000000
