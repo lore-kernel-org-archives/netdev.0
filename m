@@ -1,35 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 2/2] rhashtable: Quick initial growth of tables
-Date: Fri, 1 May 2015 07:45:56 +0800
-Message-ID: <20150430234556.GA31180@gondor.apana.org.au>
-References: <1430434005-6143-3-git-send-email-tgraf@suug.ch>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: [PATCH] mwifiex: do not return success when command times out
+Date: Thu, 30 Apr 2015 16:52:02 -0700
+Message-ID: <20150430235202.GA35256@dtor-ws>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:48612 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbbD3XqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 19:46:02 -0400
+Cc: Avinash Patil <patila@marvell.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Amitkumar Karwar <akarwar@marvell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1430434005-6143-3-git-send-email-tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf@suug.ch> wrote:
-> Grow the table quicker than 2x in the beginning to avoid long chains
-> of rehashes. The effect is observable in the self-test where table
-> jumps are reduced to a minimum after a lot of entries have been added
-> in a short period of time. The iterator is able to get a consistent
-> view most of the time.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+wait_event_interruptible_timeout() returns 0 upon timeout. We should
+convert it to a negative error code (such as -ETIMEDOUT) instead of
+returning it directly, as return code of 0 indicates that command was
+executed.
 
-Wouldn't automatic shrinking immediately undo your quick growth?
+Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+---
+ drivers/net/wireless/mwifiex/sta_ioctl.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Cheers,
+diff --git a/drivers/net/wireless/mwifiex/sta_ioctl.c b/drivers/net/wireless/mwifiex/sta_ioctl.c
+index 0599e41..a0bc26c 100644
+--- a/drivers/net/wireless/mwifiex/sta_ioctl.c
++++ b/drivers/net/wireless/mwifiex/sta_ioctl.c
+@@ -64,6 +64,8 @@ int mwifiex_wait_queue_complete(struct mwifiex_adapter *adapter,
+ 						  *(cmd_queued->condition),
+ 						  (12 * HZ));
+ 	if (status <= 0) {
++		if (status == 0)
++			status = -ETIMEDOUT;
+ 		dev_err(adapter->dev, "cmd_wait_q terminated: %d\n", status);
+ 		mwifiex_cancel_all_pending_cmd(adapter);
+ 		return status;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.2.0.rc0.207.ga3a616c
+
+
+-- 
+Dmitry
