@@ -1,85 +1,83 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2 0/3] RSS fix for ixgbe/ixgbevf
-Date: Thu, 30 Apr 2015 05:59:41 -0700
-Message-ID: <1430398781.2669.110.camel@jtkirshe-mobl>
-References: <1430276261-29821-1-git-send-email-fan.du@intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 3/8] net: phy: Allow PHY devices to identify
+ themselves as Ethernet switches
+Date: Thu, 30 Apr 2015 14:56:58 +0200
+Message-ID: <20150430125658.GB22831@lunn.ch>
+References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
+ <1430359064-23454-4-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-XrJx4BLspoka1S0Lc9Hg"
-Cc: alexander.h.duyck@redhat.com, emil.s.tantilov@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Fan Du <fan.du@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dave@davemloft.net,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
+	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:27786 "EHLO mga11.intel.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:44600 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751639AbbD3M7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 08:59:42 -0400
-In-Reply-To: <1430276261-29821-1-git-send-email-fan.du@intel.com>
+	id S1750961AbbD3NBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 09:01:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1430359064-23454-4-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Apr 29, 2015 at 06:57:39PM -0700, Florian Fainelli wrote:
+> Some Ethernet MAC drivers using the PHY library require the hardcoding
+> of link parameters when interfaced to a switch device. This has
+> typically lead to various ad-hoc implementations looking like this:
+> 
+> - using a "fixed PHY" emulated device, which will provide link
+>   indication towards the Ethernet MAC driver and hardware
+> 
+> - pretend there is no PHY and hardcode link parameters, ala mv643x_eth
+> 
+> Based on that, it is desireable to have the PHY drivers advertise the
+> correct link parameters, just like regular Ethernet PHYs towards their
+> CPU Ethernet MAC drivers, however, Ethernet MAC drivers should be able
+> to tell whether this link should be monitored or not. In the context of
+> an Ethernet switch, we do not need to monitor this link since it should
+> be always up.
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  include/linux/phy.h | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index 685809835b5c..52fc64874fdb 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -327,6 +327,7 @@ struct phy_c45_device_ids {
+>   * c45_ids: 802.3-c45 Device Identifers if is_c45.
+>   * is_c45:  Set to true if this phy uses clause 45 addressing.
+>   * is_internal: Set to true if this phy is internal to a MAC.
+> + * is_switch: Set to true if this phy is an Ethernet switch.
+>   * has_fixups: Set to true if this phy has fixups/quirks.
+>   * suspended: Set to true if this phy has been suspended successfully.
+>   * state: state of the PHY for management purposes
+> @@ -365,6 +366,7 @@ struct phy_device {
+>  	struct phy_c45_device_ids c45_ids;
+>  	bool is_c45;
+>  	bool is_internal;
+> +	bool is_switch;
 
---=-XrJx4BLspoka1S0Lc9Hg
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Hi Florian
 
-On Wed, 2015-04-29 at 10:57 +0800, Fan Du wrote:
-> This patchset provides RSS hash value for upper stack by indicating
-> whether it's a L3 or L4 hash. Thus other component of network
-> stack could utilize this hash value provided by NIC without caculating
-> by themselves.
->=20
-> Test:
-> * Simple iperf test using ixgbe for 82599ES
-> * Build test only for ixgbevf
-> * make C=3D1 CF=3D-D__CHECK_ENDIAN__, no warnings introduced by this patc=
-hset
->=20
-> Changelog:
-> v2:
->   - Add patch3 to make all hash value from RSS part.
-> v1:
->   - Code style issue suggeted by Tantilov, Emil S.
->   - Initial version
->=20
-> Fan Du (3):
->   ixgbe: Specify rx hash type wrt rx desc RSS type
->   ixgbevf: Set rx hash type for ingress packets
->   ixgbe: Don't report flow director filter's status
->=20
->  drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |    2 -
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   25 +++++++++++++++=
-+---
->  drivers/net/ethernet/intel/ixgbevf/defines.h      |   12 +++++++++
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   27 +++++++++++++++=
-++++++
->  4 files changed, 60 insertions(+), 6 deletions(-)
->=20
+I have another two use cases for fixed_phy which i'm thinking about
+implementing soon. Both require putting a fixed_phy into DSA port
+properties in DT.
 
-Thanks Fan, I have added your series to my queue for further review and
-testing.
+The first is when the CPU ethernet and the switch don't have the same
+speed capabilities. At the moment, the switch driver configures the
+CPU port to its maximum speed. But i know of a board coming soon with
+gigabit switch ports, but the CPU Ethernet is only fast Ethernet.
 
---=-XrJx4BLspoka1S0Lc9Hg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+When switch ports are connected to an SFP module, not a copper phy. A
+fixed phy allows the switch to be configured to the correct
+speed/duplex to match the SFP module.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+So in this respect, i'm wondering if is_switch is the best of names?
 
-iQIcBAABCgAGBQJVQic9AAoJEOVv75VaS+3O9g0P/3CjBBlDP6Lo561tcTiUWLGZ
-RynPv+jhNWrcYDoN7l8B2evbZTT9EeMFgEGjD455yXDTQ+XMWit691TQv9pFp+Ed
-wEX7PlWZpKWylJHBObeqYOMZ8QVsroEM7ANJbeOH6AU0zaShenIwCks+FATDsYzX
-4zX8Atbz1wYnM4P4+if7eY0vwYSXQP6zIb066EkfCl/slETr7b0veevanzC6HH8U
-EnFoP1z4JOz82Lnp2u1vLZPzLyXZ2IT8SObKhZM97HMMu/XjrdsTqJeVnorEPauN
-OL9FAuG76clUdqC1QM0dJ59KtC2yhL0GUsS/TT7+gNb/ONKClvFPhXLMB8NgKPb/
-3MkzR9gaSZqkEEkXqkx90YozDZynTbW+AVZN+YHg9Ss8RY+di2BeFRHAKFnULOS0
-7jZLwcY0AogXeO9N2HZf47vl/Z0lLXpYk++tAq2jHLjXc05sdh/hxEY/rTdndpFu
-C8GvdeQfXgdVb7r/K+twgiID35v8ZGUX2mXcn1sTAv4J2mUKhn1QGoeBl32lLYfD
-LOPS356EsoB3urfNdArJqN3bcodY8ijBguiW3NzxC366UcbmHDwiMOBwMEoFYnmR
-LttfY0p0WUQnHhK4PtPG5a9gncdyjX3FUi6OQijGPbL62hMSIMENXC6WV/3Mn5bn
-b+5btDYji9y3ne0oyCx2
-=Q3TP
------END PGP SIGNATURE-----
-
---=-XrJx4BLspoka1S0Lc9Hg--
+   Andrew
