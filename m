@@ -1,47 +1,69 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH 3/3] etherdev: Use skb->data to retrieve Ethernet header
- instead of eth_hdr
-Date: Thu, 30 Apr 2015 14:53:59 -0700
-Message-ID: <20150430215359.1798.79917.stgit@ahduyck-vm-fedora22>
-References: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34091 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752192AbbD3VyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 17:54:00 -0400
-In-Reply-To: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH V2 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to optimize signaling the host
+Date: Thu, 30 Apr 2015 16:29:15 -0700
+Message-ID: <1430436555-32729-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Avoid recomputing the Ethernet header location and instead just use the
-pointer provided by skb->data.  The problem with using eth_hdr is that the
-compiler wasn't smart enough to realize that skb->head + skb->mac_header
-was the same thing as skb->data before it added ETH_HLEN.  By just caching
-it off before calling skb_pull_inline we can avoid a few unnecessary
-instructions.
+Based on the information given to this driver (via the xmit_more skb flag),
+we can defer signaling the host if more packets are on the way. This will help
+make the host more efficient since it can potentially process a larger batch of
+packets. Implement this optimization.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- net/ethernet/eth.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+	v2: Fixed up indentation based on feedback from David Miller.
 
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 21c211e9fd5a..314e4c5a5a5e 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -156,8 +156,9 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+ drivers/net/hyperv/netvsc.c |   20 ++++++++++++--------
+ 1 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 2e8ad06..5fdc5e1 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
+ 	u64 req_id;
+ 	int ret;
+ 	struct hv_page_buffer *pgbuf;
++	u32 vmbus_flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
  
- 	skb->dev = dev;
- 	skb_reset_mac_header(skb);
-+
-+	eth = (struct ethhdr *)skb->data;
- 	skb_pull_inline(skb, ETH_HLEN);
--	eth = eth_hdr(skb);
+ 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
+ 	if (packet->is_data_pkt) {
+@@ -772,19 +773,22 @@ static inline int netvsc_send_pkt(
+ 	if (packet->page_buf_cnt) {
+ 		pgbuf = packet->cp_partial ? packet->page_buf +
+ 			packet->rmsg_pgcnt : packet->page_buf;
+-		ret = vmbus_sendpacket_pagebuffer(out_channel,
+-						  pgbuf,
+-						  packet->page_buf_cnt,
+-						  &nvmsg,
+-						  sizeof(struct nvsp_message),
+-						  req_id);
++		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
++						      pgbuf,
++						      packet->page_buf_cnt,
++						      &nvmsg,
++						      sizeof(struct
++							     nvsp_message),
++						      req_id,
++						      vmbus_flags,
++						      !packet->xmit_more);
+ 	} else {
+-		ret = vmbus_sendpacket(
++		ret = vmbus_sendpacket_ctl(
+ 				out_channel, &nvmsg,
+ 				sizeof(struct nvsp_message),
+ 				req_id,
+ 				VM_PKT_DATA_INBAND,
+-				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
++				vmbus_flags, !packet->xmit_more);
+ 	}
  
- 	if (unlikely(is_multicast_ether_addr_64bits(eth->h_dest))) {
- 		if (ether_addr_equal_64bits(eth->h_dest, dev->broadcast))
+ 	if (ret == 0) {
+-- 
+1.7.4.1
