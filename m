@@ -1,50 +1,47 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] xfrm: move the checking for old xfrm_policy hold_queue to beginning
-Date: Thu, 30 Apr 2015 17:25:19 +0800
-Message-ID: <1430385919-22030-1-git-send-email-roy.qing.li@gmail.com>
-Cc: steffen.klassert@secunet.com
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net-next v3] be2net: log link status
+Date: Thu, 30 Apr 2015 11:59:49 +0200
+Message-ID: <1430387989-3552-1-git-send-email-ivecera@redhat.com>
+References: <20150429.150125.1929181206333250804.davem@davemloft.net>
+Cc: davem@davemloft.net, Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39612 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863AbbD3J0m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 05:26:42 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:60709 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751077AbbD3J7y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 05:59:54 -0400
+In-Reply-To: <20150429.150125.1929181206333250804.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+The driver unlike other drivers does not log link state changes. It's
+better for an user when asynchronous link states are logged to the system
+log.
 
-if hold_queue of old xfrm_policy is NULL, return directly, then not need to
-run other codes, especially take the spin lock
+v3: Changes from v2 discarded as "not necessary"
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Cc: Sathya Perla <sathya.perla@emulex.com>
+Cc: Subbu Seetharaman <subbu.seetharaman@emulex.com>
+Cc: Ajit Khaparde <ajit.khaparde@emulex.com>
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 ---
- net/xfrm/xfrm_policy.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index f576217..1d53f4d 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -708,6 +708,9 @@ static void xfrm_policy_requeue(struct xfrm_policy *old,
- 	struct xfrm_policy_queue *pq = &old->polq;
- 	struct sk_buff_head list;
- 
-+	if (skb_queue_empty(&pq->hold_queue))
-+		return;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index fb0bc3c..e349131 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -662,6 +662,8 @@ void be_link_status_update(struct be_adapter *adapter, u8 link_status)
+ 		netif_carrier_on(netdev);
+ 	else
+ 		netif_carrier_off(netdev);
 +
- 	__skb_queue_head_init(&list);
++	netdev_info(netdev, "Link is %s\n", link_status ? "Up" : "Down");
+ }
  
- 	spin_lock_bh(&pq->hold_queue.lock);
-@@ -716,9 +719,6 @@ static void xfrm_policy_requeue(struct xfrm_policy *old,
- 		xfrm_pol_put(old);
- 	spin_unlock_bh(&pq->hold_queue.lock);
- 
--	if (skb_queue_empty(&list))
--		return;
--
- 	pq = &new->polq;
- 
- 	spin_lock_bh(&pq->hold_queue.lock);
+ static void be_tx_stats_update(struct be_tx_obj *txo, struct sk_buff *skb)
 -- 
-2.1.0
+2.0.5
