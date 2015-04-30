@@ -1,60 +1,53 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next 1/1] hv_netvsc: Use the xmit_more skb flag to
- optimize signaling the host
-Date: Thu, 30 Apr 2015 20:37:38 +0000
-Message-ID: <BY2PR0301MB0711597E1A28FC78BB6533C8A0D60@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1430346822-13103-1-git-send-email-kys@microsoft.com>
- <20150430.163517.1578100484032071517.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] test_bpf: indicate whether bpf prog got jited
+ in test suite
+Date: Thu, 30 Apr 2015 16:41:16 -0400 (EDT)
+Message-ID: <20150430.164116.1218828988425937462.davem@davemloft.net>
+References: <c031528c3effbdb3a3a566b0a8d6f48f3e4ad3be.1430403176.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20150430.163517.1578100484032071517.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nschichan@freebox.fr, ast@plumgrid.com
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59369 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345AbbD3UlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 16:41:18 -0400
+In-Reply-To: <c031528c3effbdb3a3a566b0a8d6f48f3e4ad3be.1430403176.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 30 Apr 2015 16:17:27 +0200
 
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, April 30, 2015 1:35 PM
-> To: KY Srinivasan
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com
-> Subject: Re: [PATCH net-next 1/1] hv_netvsc: Use the xmit_more skb flag to
-> optimize signaling the host
+> I think this is useful to verify whether a filter could be JITed or
+> not in case of bpf_prog_enable >= 1, which otherwise the test suite
+> doesn't tell besides taking a good peek at the performance numbers.
 > 
-> From: "K. Y. Srinivasan" <kys@microsoft.com>
-> Date: Wed, 29 Apr 2015 15:33:42 -0700
+> Nicolas Schichan reported a bug in the ARM JIT compiler that rejected
+> and waved the filter to the interpreter although it shouldn't have.
+> Nevertheless, the test passes as expected, but such information is
+> not visible.
 > 
-> > @@ -772,19 +773,21 @@ static inline int netvsc_send_pkt(
-> >  	if (packet->page_buf_cnt) {
-> >  		pgbuf = packet->cp_partial ? packet->page_buf +
-> >  			packet->rmsg_pgcnt : packet->page_buf;
-> > -		ret = vmbus_sendpacket_pagebuffer(out_channel,
-> > +		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
-> >  						  pgbuf,
+> It's i.e. useful for the remaining classic JITs, but also for
+> implementing remaining opcodes that are not yet present in eBPF JITs
+> (e.g. ARM64 waves some of them to the interpreter). This minor patch
+> allows to grep through dmesg to find those accordingly, but also
+> provides a total summary, i.e.: [<X>/53 JIT'ed]
 > 
-> You have to fix the indentation of the arguments if you are going to change
-> the column where the openning parenthesis occurs on the first line.
+>   # echo 1 > /proc/sys/net/core/bpf_jit_enable
+>   # insmod lib/test_bpf.ko
+>   # dmesg | grep "jited:0"
+> 
+> dmesg example on the ARM issue with JIT rejection:
+> 
+> [...]
+> [   67.925387] test_bpf: #2 ADD_SUB_MUL_K jited:1 24 PASS
+> [   67.930889] test_bpf: #3 DIV_MOD_KX jited:0 794 PASS
+> [   67.943940] test_bpf: #4 AND_OR_LSH_K jited:1 20 20 PASS
+> [...]
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Will do.
-
-K. Y
+Applied, thanks.
