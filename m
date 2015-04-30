@@ -1,200 +1,52 @@
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Subject: [PATCH v2 net-next 1/3] tcp: move struct tcp_sacktag_state to tcp_ack()
-Date: Fri,  1 May 2015 01:10:57 +0200
-Message-ID: <1430435459-12805-2-git-send-email-kennetkl@ifi.uio.no>
-References: <1430435459-12805-1-git-send-email-kennetkl@ifi.uio.no>
-Cc: ycheng@google.com, Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
-	Eric Dumazet <edumazet@google.com>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 0/3] A few minor clean-ups to eth_type_trans
+Date: Thu, 30 Apr 2015 16:11:43 -0700
+Message-ID: <5542B6AF.9010602@gmail.com>
+References: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22> <20150430223510.GA13111@Alexeis-MBP.westell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out5.uio.no ([129.240.10.17]:51236 "EHLO mail-out5.uio.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750966AbbD3XLj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 19:11:39 -0400
-In-Reply-To: <1430435459-12805-1-git-send-email-kennetkl@ifi.uio.no>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:35964 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300AbbD3XLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 19:11:46 -0400
+Received: by pdea3 with SMTP id a3so74977511pde.3
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 16:11:45 -0700 (PDT)
+In-Reply-To: <20150430223510.GA13111@Alexeis-MBP.westell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Later patch passes two values set in tcp_sacktag_one() to
-tcp_clean_rtx_queue(). Prepare passing them via struct tcp_sacktag_state.
+On 04/30/2015 03:35 PM, Alexei Starovoitov wrote:
+> On Thu, Apr 30, 2015 at 02:53:42PM -0700, Alexander Duyck wrote:
+>> This series addresses a few minor issues I found in eth_type_trans that
+>> that allow us to gain back something like 3 or more cycles per packet.
+>>
+>> The first change is to drop the byte swap since it isn't necessary.  On x86
+>> we could just check the first byte and compare that against the upper 8
+>> bits of the Ethertype to determine if we are dealing with a size value or
+>> not.
+>>
+>> The second makes it so that the value we read in to test for multicast can
+>> be used for the address comparison.  This allows us to avoid a second read
+>> of the destination address.
+>>
+>> The final change is to avoid some unneeded instructions in computing the
+>> Ethernet header pointer.  When we start the call the Ethernet header is at
+>> skb->data, so we just use that rather than computing mac_header, and then
+>> adding that back to skb->head.
+> Great stuff! Excellent optimizations.
+>
+> Only the comment 'ETH_P_802_3_MIN is aligned to 512' through me off.
+> It's divisible by 256 that matters.
 
-Acked-by: Yuchung Cheng <ycheng@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
----
- net/ipv4/tcp_input.c | 45 ++++++++++++++++++++++-----------------------
- 1 file changed, 22 insertions(+), 23 deletions(-)
+Yeah, it is 0x0600 hex so we can ignore the lower 8 bits, or in the case 
+of little-endian systems the upper 8 bits.  I think when I had 
+originally written the patch I was using a mask of 0xFE00, but then I 
+realized that all the compiler cared about is knowing which byte it is 
+supposed to compare against.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bc790ea..9902cf1 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1634,7 +1634,7 @@ static int tcp_sack_cache_ok(const struct tcp_sock *tp, const struct tcp_sack_bl
- 
- static int
- tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
--			u32 prior_snd_una, long *sack_rtt_us)
-+			u32 prior_snd_una, struct tcp_sacktag_state *state)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	const unsigned char *ptr = (skb_transport_header(ack_skb) +
-@@ -1642,7 +1642,6 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 	struct tcp_sack_block_wire *sp_wire = (struct tcp_sack_block_wire *)(ptr+2);
- 	struct tcp_sack_block sp[TCP_NUM_SACKS];
- 	struct tcp_sack_block *cache;
--	struct tcp_sacktag_state state;
- 	struct sk_buff *skb;
- 	int num_sacks = min(TCP_NUM_SACKS, (ptr[1] - TCPOLEN_SACK_BASE) >> 3);
- 	int used_sacks;
-@@ -1650,9 +1649,8 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 	int i, j;
- 	int first_sack_index;
- 
--	state.flag = 0;
--	state.reord = tp->packets_out;
--	state.rtt_us = -1L;
-+	state->flag = 0;
-+	state->reord = tp->packets_out;
- 
- 	if (!tp->sacked_out) {
- 		if (WARN_ON(tp->fackets_out))
-@@ -1663,7 +1661,7 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 	found_dup_sack = tcp_check_dsack(sk, ack_skb, sp_wire,
- 					 num_sacks, prior_snd_una);
- 	if (found_dup_sack)
--		state.flag |= FLAG_DSACKING_ACK;
-+		state->flag |= FLAG_DSACKING_ACK;
- 
- 	/* Eliminate too old ACKs, but take into
- 	 * account more or less fresh ones, they can
-@@ -1728,7 +1726,7 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 	}
- 
- 	skb = tcp_write_queue_head(sk);
--	state.fack_count = 0;
-+	state->fack_count = 0;
- 	i = 0;
- 
- 	if (!tp->sacked_out) {
-@@ -1762,10 +1760,10 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 
- 			/* Head todo? */
- 			if (before(start_seq, cache->start_seq)) {
--				skb = tcp_sacktag_skip(skb, sk, &state,
-+				skb = tcp_sacktag_skip(skb, sk, state,
- 						       start_seq);
- 				skb = tcp_sacktag_walk(skb, sk, next_dup,
--						       &state,
-+						       state,
- 						       start_seq,
- 						       cache->start_seq,
- 						       dup_sack);
-@@ -1776,7 +1774,7 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 				goto advance_sp;
- 
- 			skb = tcp_maybe_skipping_dsack(skb, sk, next_dup,
--						       &state,
-+						       state,
- 						       cache->end_seq);
- 
- 			/* ...tail remains todo... */
-@@ -1785,12 +1783,12 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 				skb = tcp_highest_sack(sk);
- 				if (!skb)
- 					break;
--				state.fack_count = tp->fackets_out;
-+				state->fack_count = tp->fackets_out;
- 				cache++;
- 				goto walk;
- 			}
- 
--			skb = tcp_sacktag_skip(skb, sk, &state, cache->end_seq);
-+			skb = tcp_sacktag_skip(skb, sk, state, cache->end_seq);
- 			/* Check overlap against next cached too (past this one already) */
- 			cache++;
- 			continue;
-@@ -1800,12 +1798,12 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
- 			skb = tcp_highest_sack(sk);
- 			if (!skb)
- 				break;
--			state.fack_count = tp->fackets_out;
-+			state->fack_count = tp->fackets_out;
- 		}
--		skb = tcp_sacktag_skip(skb, sk, &state, start_seq);
-+		skb = tcp_sacktag_skip(skb, sk, state, start_seq);
- 
- walk:
--		skb = tcp_sacktag_walk(skb, sk, next_dup, &state,
-+		skb = tcp_sacktag_walk(skb, sk, next_dup, state,
- 				       start_seq, end_seq, dup_sack);
- 
- advance_sp:
-@@ -1820,9 +1818,9 @@ advance_sp:
- 	for (j = 0; j < used_sacks; j++)
- 		tp->recv_sack_cache[i++] = sp[j];
- 
--	if ((state.reord < tp->fackets_out) &&
-+	if ((state->reord < tp->fackets_out) &&
- 	    ((inet_csk(sk)->icsk_ca_state != TCP_CA_Loss) || tp->undo_marker))
--		tcp_update_reordering(sk, tp->fackets_out - state.reord, 0);
-+		tcp_update_reordering(sk, tp->fackets_out - state->reord, 0);
- 
- 	tcp_mark_lost_retrans(sk);
- 	tcp_verify_left_out(tp);
-@@ -1834,8 +1832,7 @@ out:
- 	WARN_ON((int)tp->retrans_out < 0);
- 	WARN_ON((int)tcp_packets_in_flight(tp) < 0);
- #endif
--	*sack_rtt_us = state.rtt_us;
--	return state.flag;
-+	return state->flag;
- }
- 
- /* Limits sacked_out so that sum with lost_out isn't ever larger than
-@@ -3459,6 +3456,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
-+	struct tcp_sacktag_state sack_state;
- 	u32 prior_snd_una = tp->snd_una;
- 	u32 ack_seq = TCP_SKB_CB(skb)->seq;
- 	u32 ack = TCP_SKB_CB(skb)->ack_seq;
-@@ -3467,7 +3465,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	int prior_packets = tp->packets_out;
- 	const int prior_unsacked = tp->packets_out - tp->sacked_out;
- 	int acked = 0; /* Number of packets newly acked */
--	long sack_rtt_us = -1L;
-+
-+	sack_state.rtt_us = -1L;
- 
- 	/* We very likely will need to access write queue head. */
- 	prefetchw(sk->sk_write_queue.next);
-@@ -3531,7 +3530,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 
- 		if (TCP_SKB_CB(skb)->sacked)
- 			flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
--							&sack_rtt_us);
-+							&sack_state);
- 
- 		if (tcp_ecn_rcv_ecn_echo(tp, tcp_hdr(skb))) {
- 			flag |= FLAG_ECE;
-@@ -3556,7 +3555,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
- 	/* See if we can take anything off of the retransmit queue. */
- 	acked = tp->packets_out;
- 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una,
--				    sack_rtt_us);
-+				    sack_state.rtt_us);
- 	acked -= tp->packets_out;
- 
- 	/* Advance cwnd if state allows */
-@@ -3608,7 +3607,7 @@ old_ack:
- 	 */
- 	if (TCP_SKB_CB(skb)->sacked) {
- 		flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
--						&sack_rtt_us);
-+						&sack_state);
- 		tcp_fastretrans_alert(sk, acked, prior_unsacked,
- 				      is_dupack, flag);
- 	}
--- 
-2.1.0
+- Alex
