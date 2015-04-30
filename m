@@ -1,44 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of netfilter
- ingress hooks
-Date: Thu, 30 Apr 2015 02:00:21 +0200
-Message-ID: <55417095.9030202@iogearbox.net>
-References: <1430333589-4940-1-git-send-email-pablo@netfilter.org> <1430333589-4940-7-git-send-email-pablo@netfilter.org> <55413E99.5000807@iogearbox.net> <20150429233600.GA7025@acer.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, jhs@mojatatu.com
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36683 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751410AbbD3AA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 20:00:28 -0400
-In-Reply-To: <20150429233600.GA7025@acer.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pai <vpai@akamai.com>
+Subject: [PATCH net] net/bonding: Fix code style issues in a previous commit
+Date: Wed, 29 Apr 2015 20:01:27 -0400
+Message-ID: <E1Ynbux-0004Zy-Jn@bos-lpqrs.kendall.corp.akamai.com>
+To: "Nikolay Aleksandrov" <razor@blackwall.org>,
+	"Jay Vosburgh" <j.vosburgh@gmail.com>,
+	"Veaceslav Falico" <vfalico@gmail.com>,
+	"Andy Gospodarek" <andy@greyhouse.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, "Vishwanath Pai" <vpai@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/30/2015 01:36 AM, Patrick McHardy wrote:
-...
-> You obviously realize this callchain is fully made up by yourself
+This fixes a few coding style issues in my previous patch:
+commit e913fb279c56
+("net: Fix Kernel Panic in bonding driver debugfs file: rlb_hash_table")
 
-Hence, I wrote path, not call chain, I guess that should have been
-clear.
+Signed-off-by: Vishwanath Pai <vpai@akamai.com>
 
-[...]
-> The difference is very simple: where we had an indirect call to
-> q->enqueue before (and a lot of crap that didn't belong there),
-> we now have a call to nf_hook_slow, followed by the hook invocation.
-
-Sure, but what I wanted to express is that from an architectural
-point of view down to invoking a classifier, we now have a list of
-hooks, one element of those can be ingress qdisc and that one can
-have lists of classifier/actions by itself, etc. That doesn't seem
-sound wrt 'where it really belongs'.
-
-Personally, I have no objections if you want to use netfilter on
-ingress, don't get me wrong, but that ingress qdisc part doesn't
-really fit in there, and moving it behind netfilter facilities does
-have additional cost for a packet.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d5fe5d5..ab3eeb1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4543,8 +4543,8 @@ unsigned int bond_get_num_tx_queues(void)
+  */
+ int bond_create(struct net *net, const char *name)
+ {
+-	struct net_device *bond_dev;
+ 	struct bonding *bond;
++	struct net_device *bond_dev;
+ 	struct alb_bond_info *bond_info;
+ 	int res;
+ 
+@@ -4559,8 +4559,7 @@ int bond_create(struct net *net, const char *name)
+ 		return -ENOMEM;
+ 	}
+ 
+-	/*
+-	 * Initialize rx_hashtbl_used_head to RLB_NULL_INDEX.
++	/* Initialize rx_hashtbl_used_head to RLB_NULL_INDEX.
+ 	 * It is set to 0 by default which is wrong.
+ 	 */
+ 	bond = netdev_priv(bond_dev);
