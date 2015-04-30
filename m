@@ -1,98 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net 2/3] bridge/nl: remove wrong use of NLM_F_MULTI
-Date: Thu, 30 Apr 2015 06:01:46 -0700
-Message-ID: <1430398906.2669.111.camel@jtkirshe-mobl>
-References: <1430238831-29966-1-git-send-email-nicolas.dichtel@6wind.com>
-	 <1430238831-29966-3-git-send-email-nicolas.dichtel@6wind.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH net-next 0/8] net: dsa: New registration API
+Date: Thu, 30 Apr 2015 15:12:16 +0200
+Message-ID: <20150430131216.GC22831@lunn.ch>
+References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Wia7gmDkFlwWdnjSRV8w"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	dmitry.tarnyaginuug.ch@6wind.com,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Sathya Perla <sathya.perla@emulex.com>,
-	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
-	Ajit Khaparde <ajit.khaparde@emulex.com>,
-	intel-wired-lan@lists.osuosl.org, Jiri Pirko <jiri@resnulli.us>,
-	Scott Feldman <sfeldma@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	bridge@lists.linux-foundation.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dave@davemloft.net,
+	vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
+	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
+	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:1929 "EHLO mga09.intel.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:44616 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751777AbbD3NCj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 09:02:39 -0400
-In-Reply-To: <1430238831-29966-3-git-send-email-nicolas.dichtel@6wind.com>
+	id S1750899AbbD3NQy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Apr 2015 09:16:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> Note that there are currenlty no incompatibles changes made to existing Device
+> Tree sources, rather, depending on the bus we are probed for, e.g: MDIO
+> the dsa,mii-bus and dsa,ethernet phandles and first cell of the  "reg" property
+> will become obsolete, everything else remains entirely compatible. 
 
---=-Wia7gmDkFlwWdnjSRV8w
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Hi Florian
 
-On Tue, 2015-04-28 at 18:33 +0200, Nicolas Dichtel wrote:
-> NLM_F_MULTI must be used only when a NLMSG_DONE message is sent. In
-> fact,
-> it is sent only at the end of a dump.
->=20
-> Libraries like libnl will wait forever for NLMSG_DONE.
->=20
-> Fixes: e5a55a898720 ("net: create generic bridge ops")
-> Fixes: 815cccbf10b2 ("ixgbe: add setlink, getlink support to ixgbe and
-> ixgbevf")
-> CC: John Fastabend <john.r.fastabend@intel.com>
-> CC: Sathya Perla <sathya.perla@emulex.com>
-> CC: Subbu Seetharaman <subbu.seetharaman@emulex.com>
-> CC: Ajit Khaparde <ajit.khaparde@emulex.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: intel-wired-lan@lists.osuosl.org
-> CC: Jiri Pirko <jiri@resnulli.us>
-> CC: Scott Feldman <sfeldma@gmail.com>
-> CC: Stephen Hemminger <stephen@networkplumber.org>
-> CC: bridge@lists.linux-foundation.org
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+I'm not sure dsa,mii-bus and dsa,ethernet will become obsolete. At
+least they are probably needed for multi switch setups, and the
+possible but probably unlikely multi DSA setups.
 
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+You cannot assume that dsa,mii-bus and dsa,ethernet have the same
+parent. In a multi switch setup, it could be there is an mdio-mux in
+the picture. So all your probe really tells you, is that there is a
+switch on this mii bus, but you don't know what ethernet it is hanging
+off.
 
-For the i40e and ixgbe driver changes
+The switch could be hanging off multiple ethernets. I'm working on
+supporting this for the WRT1900AC, where i use the bond driver on the
+host side. So dsa,ethernet is a phandle to a bond interface.
 
-> ---
->  drivers/net/ethernet/emulex/benet/be_main.c   |  5 +++--
->  drivers/net/ethernet/intel/i40e/i40e_main.c   |  7 ++++---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  4 ++--
->  drivers/net/ethernet/rocker/rocker.c          |  5 +++--
->  include/linux/netdevice.h                     |  6 ++++--
->  include/linux/rtnetlink.h                     |  2 +-
->  net/bridge/br_netlink.c                       |  4 ++--
->  net/bridge/br_private.h                       |  2 +-
->  net/core/rtnetlink.c                          | 12 +++++++-----
->  9 files changed, 27 insertions(+), 20 deletions(-)
+The probe is likely to find all switches in a multi switch setup. But
+i guess we only want the probe of the root devices in a switch tree to
+cause a DSA setup.
 
+So i think there needs to be some matching performed when looking in
+the device tree. The dsa,mii-bus and address discovered by probing
+need to match what is in the DSA properties.
 
-
---=-Wia7gmDkFlwWdnjSRV8w
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVQie6AAoJEOVv75VaS+3ODhwQAJaclgRr5r7vTkBv6gMGn7y7
-tvEan35xxboPRfjfGlZH3bzjuwdagrs6eeC+9Vm9K0I007jIbe+ItJu5FThK4JQH
-bvUHZkyPIryeXuYryfoVI/BsuOUavC+WNOr4nNcba5H4E2Vq7CtvczyrUxne4sRc
-n7WUYmHCN27C0a5dxRCbEjIL4t1usfU8Ofw0KvgAup8Y9KUXhRVgkVO2DYH9m2to
-qSTa9WMSqeXwWJ7tb5f0lHVz6ccuxJWj5VV5JEMNGwul+mULLZbAG7yfcmYyahoS
-geGrN/kWZTZkheS46LO5zHnKK1D2H8cRrWMV9hlxU5JbNeklglzTZz6hquTlvz25
-nfLCusPkg/f2ddQ7rVW2F7vPYtgngUoQ8YhlQKw738OMiv0UxSSeq+KyGQIVs0yS
-LoaxNuW/xEhg75Y06l4hBIfev49ltQgctXpWcDEd79/Kyak0MjWcAPw4oEimgair
-+qe/+MzCE89romkvfPF3O2R6guiDx7x1w0MyiGPSBewuQwE/cfvhl52adEMwKMv/
-Div5YnqJGCSwQlFqZdmDezHgoQkKO+DTs5GpdL3WrhlBfIyL52ZE2RyBQUZbQqHb
-ACvXYu7gceWkkBbV509uEGH/4m3duk6OpoU5mTYD8B0Fj6nFy4i+zamkwVCdAdD5
-FdHhI8u9ynqu0ppqICL+
-=U8Qp
------END PGP SIGNATURE-----
-
---=-Wia7gmDkFlwWdnjSRV8w--
+     Andrew
