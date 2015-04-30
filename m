@@ -1,56 +1,46 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next] test_bpf: indicate whether bpf prog got jited
- in test suite
-Date: Thu, 30 Apr 2015 10:10:46 -0700
-Message-ID: <55426216.3080003@plumgrid.com>
-References: <c031528c3effbdb3a3a566b0a8d6f48f3e4ad3be.1430403176.git.daniel@iogearbox.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC PATCH net-next 7/8] net: dsa: mv88e6060: make it a proper
+ PHY driver
+Date: Thu, 30 Apr 2015 10:13:38 -0700
+Message-ID: <554262C2.7060302@gmail.com>
+References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com> <1430359064-23454-8-git-send-email-f.fainelli@gmail.com> <554232E9.5080104@roeck-us.net> <55425C53.6060509@gmail.com> <20150430170253.GD18874@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas Schichan <nschichan@freebox.fr>
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Cc: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org,
+	davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+	jerome.oufella@savoirfairelinux.com, cphealy@gmail.com,
+	mathieu@codeaurora.org, jonasj76@gmail.com,
+	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:36907 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751272AbbD3RKr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 13:10:47 -0400
-Received: by igblo3 with SMTP id lo3so19091063igb.0
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 10:10:46 -0700 (PDT)
-In-Reply-To: <c031528c3effbdb3a3a566b0a8d6f48f3e4ad3be.1430403176.git.daniel@iogearbox.net>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:35006 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750791AbbD3RNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 13:13:50 -0400
+Received: by pdbqd1 with SMTP id qd1so66623457pdb.2
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 10:13:49 -0700 (PDT)
+In-Reply-To: <20150430170253.GD18874@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/30/15 7:17 AM, Daniel Borkmann wrote:
-> I think this is useful to verify whether a filter could be JITed or
-> not in case of bpf_prog_enable >= 1, which otherwise the test suite
-> doesn't tell besides taking a good peek at the performance numbers.
->
-> Nicolas Schichan reported a bug in the ARM JIT compiler that rejected
-> and waved the filter to the interpreter although it shouldn't have.
-> Nevertheless, the test passes as expected, but such information is
-> not visible.
->
-> It's i.e. useful for the remaining classic JITs, but also for
-> implementing remaining opcodes that are not yet present in eBPF JITs
-> (e.g. ARM64 waves some of them to the interpreter). This minor patch
-> allows to grep through dmesg to find those accordingly, but also
-> provides a total summary, i.e.: [<X>/53 JIT'ed]
->
->    # echo 1 > /proc/sys/net/core/bpf_jit_enable
->    # insmod lib/test_bpf.ko
->    # dmesg | grep "jited:0"
->
-> dmesg example on the ARM issue with JIT rejection:
->
-> [...]
-> [   67.925387] test_bpf: #2 ADD_SUB_MUL_K jited:1 24 PASS
-> [   67.930889] test_bpf: #3 DIV_MOD_KX jited:0 794 PASS
-> [   67.943940] test_bpf: #4 AND_OR_LSH_K jited:1 20 20 PASS
-> [...]
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Nicolas Schichan <nschichan@freebox.fr>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
+On 30/04/15 10:02, Andrew Lunn wrote:
+>> The net advantage I see with this approach is that currently, with DSA,
+>> you get to do the following:
+>>
+>> - register a "dsa" platform device
+>> - force your CPU Ethernet MAC to hardcode link parameters, either via a
+>> "fixed PHY" or via custom settings (ala mv643xx_eth)
+>> - probing needs to occur in a *very* specific order: MDIO first,
+>> Ethernet device second, DSA last
+> 
+> I'm not sure this is true. I'm pretty sure i've seen DSA return with
+> -EPROBE_DEFER and try again later.
 
-yeah. definitely useful addition.
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+Right, I fixed that a little while ago, but that still prevents all the
+scenarios described in my reply, in particular module unloading is
+completely hairy, see this attempt:
+
+http://permalink.gmane.org/gmane.linux.network/345803
+-- 
+Florian
