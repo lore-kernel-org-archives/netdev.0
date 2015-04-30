@@ -1,63 +1,44 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC net-next] pktgen: introduce 'rx' mode
-Date: Wed, 29 Apr 2015 16:59:49 -0700
-Message-ID: <55417075.9010601@plumgrid.com>
-References: <1430273488-8403-1-git-send-email-ast@plumgrid.com>	 <1430273488-8403-2-git-send-email-ast@plumgrid.com>	 <1430280853.3711.19.camel@edumazet-glaptop2.roam.corp.google.com>	 <5541535E.1060908@plumgrid.com>	 <1430345993.3711.59.camel@edumazet-glaptop2.roam.corp.google.com>	 <55415D6B.7070009@plumgrid.com>	 <1430348211.3711.66.camel@edumazet-glaptop2.roam.corp.google.com>	 <55416905.7070308@plumgrid.com> <1430350786.3711.77.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of netfilter
+ ingress hooks
+Date: Thu, 30 Apr 2015 02:00:21 +0200
+Message-ID: <55417095.9030202@iogearbox.net>
+References: <1430333589-4940-1-git-send-email-pablo@netfilter.org> <1430333589-4940-7-git-send-email-pablo@netfilter.org> <55413E99.5000807@iogearbox.net> <20150429233600.GA7025@acer.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, jhs@mojatatu.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:34871 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751944AbbD2X7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 19:59:52 -0400
-Received: by iejt8 with SMTP id t8so55450394iej.2
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 16:59:52 -0700 (PDT)
-In-Reply-To: <1430350786.3711.77.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:36683 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751410AbbD3AA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 20:00:28 -0400
+In-Reply-To: <20150429233600.GA7025@acer.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/29/15 4:39 PM, Eric Dumazet wrote:
->
-> Zap the 'burst/clone' thing, this is not going to work for RX.
-> TX was okay, not RX.
->
-> You could for instance do :
->
-> atomic_inc(&skb->users);
-> netif_receive_skb(skb);
-> if (atomic_read(skb->users) != 1) {
-> 	/* This is too bad, I can not recycle this skb because it is still used */
-> 	consume_skb(skb);
-> 	/* allocate a fresh new skb */
-> 	skb = ...
-> } else {
-> 	/* Yeah ! Lets celebrate, cost of reusing this skb was one atomic op */
-> }
+On 04/30/2015 01:36 AM, Patrick McHardy wrote:
+...
+> You obviously realize this callchain is fully made up by yourself
 
-ahh, great! I think I'm starting to understand.
-then the following should be ok as well?
+Hence, I wrote path, not call chain, I guess that should have been
+clear.
 
-atomic_add(burst, &skb->users);
-do {
-    netif_receive_skb(skb);
-    if (atomic_read(skb->users) != burst) {
-  	/* too bad, can not recycle */
-         atomic_sub(burst - 1, &skb->users);
-  	consume_skb(skb);
-  	/* allocate a fresh new skb */
-  	skb = ...
-         /* and get out of this loop */
-    } else {
-	/* Yeah ! the cost of reusing this skb was
-            one atomic op amortized over 'burst' iterations */
-    }
-} while (--burst > 0);
+[...]
+> The difference is very simple: where we had an indirect call to
+> q->enqueue before (and a lot of crap that didn't belong there),
+> we now have a call to nf_hook_slow, followed by the hook invocation.
+
+Sure, but what I wanted to express is that from an architectural
+point of view down to invoking a classifier, we now have a list of
+hooks, one element of those can be ingress qdisc and that one can
+have lists of classifier/actions by itself, etc. That doesn't seem
+sound wrt 'where it really belongs'.
+
+Personally, I have no objections if you want to use netfilter on
+ingress, don't get me wrong, but that ingress qdisc part doesn't
+really fit in there, and moving it behind netfilter facilities does
+have additional cost for a packet.
