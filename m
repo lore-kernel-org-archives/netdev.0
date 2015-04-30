@@ -1,71 +1,132 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of
- netfilter ingress hooks
-Date: Thu, 30 Apr 2015 02:15:20 +0200
-Message-ID: <20150430001519.GD7025@acer.localdomain>
-References: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
- <1430333589-4940-7-git-send-email-pablo@netfilter.org>
- <55413E99.5000807@iogearbox.net>
- <20150429233600.GA7025@acer.localdomain>
- <55417095.9030202@iogearbox.net>
+From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+Subject: Re: [RFC PATCH net-next v3 1/4] net core: Add IFF_PROTO_DOWN support.
+Date: Wed, 29 Apr 2015 17:16:23 -0700
+Message-ID: <CACcJQnQAYd+iv9tueydQbCOecHey8akwZDtrF=N5Khc35WD4cw@mail.gmail.com>
+References: <1430156304-13187-2-git-send-email-anuradhak@cumulusnetworks.com>
+	<20150429151336.0d6d8aab@urahara>
+	<CACcJQnTYa-TuVzOi7B7cYFqht_KPbi9EB+_L0TuaPxWjPZ6oKg@mail.gmail.com>
+	<CACcJQnQyW7GWp42AuRBwKpzVRAGnXoB7ddtcURW5GxDa_4wKKQ@mail.gmail.com>
+	<20150429163350.601351ba@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, jhs@mojatatu.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Wilson Kok <wkok@cumulusnetworks.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:47995 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751160AbbD3APX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 20:15:23 -0400
-Content-Disposition: inline
-In-Reply-To: <55417095.9030202@iogearbox.net>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:36542 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751324AbbD3AQZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 20:16:25 -0400
+Received: by lbbqq2 with SMTP id qq2so32488201lbb.3
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 17:16:23 -0700 (PDT)
+In-Reply-To: <20150429163350.601351ba@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.04, Daniel Borkmann wrote:
-> On 04/30/2015 01:36 AM, Patrick McHardy wrote:
-> ...
-> >You obviously realize this callchain is fully made up by yourself
-> 
-> Hence, I wrote path, not call chain, I guess that should have been
-> clear.
-> 
-> [...]
-> >The difference is very simple: where we had an indirect call to
-> >q->enqueue before (and a lot of crap that didn't belong there),
-> >we now have a call to nf_hook_slow, followed by the hook invocation.
-> 
-> Sure, but what I wanted to express is that from an architectural
-> point of view down to invoking a classifier, we now have a list of
-> hooks, one element of those can be ingress qdisc and that one can
-> have lists of classifier/actions by itself, etc. That doesn't seem
-> sound wrt 'where it really belongs'.
-> 
-> Personally, I have no objections if you want to use netfilter on
-> ingress, don't get me wrong, but that ingress qdisc part doesn't
-> really fit in there, and moving it behind netfilter facilities does
-> have additional cost for a packet.
+On Wed, Apr 29, 2015 at 4:33 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Wed, 29 Apr 2015 16:25:07 -0700
+> Anuradha Karuppiah <anuradhak@cumulusnetworks.com> wrote:
+>
+>> On Wed, Apr 29, 2015 at 4:07 PM, Anuradha Karuppiah
+>> <anuradhak@cumulusnetworks.com> wrote:
+>> > On Wed, Apr 29, 2015 at 3:13 PM, Stephen Hemminger
+>> > <stephen@networkplumber.org> wrote:
+>> >> On Mon, 27 Apr 2015 10:38:21 -0700
+>> >> anuradhak@cumulusnetworks.com wrote:
+>> >>
+>> >>> From: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
+>> >>>
+>> >>> This patch introduces an IFF_PROTO_DOWN flag that can be used by
+>> >>> user space applications to notify drivers that errors have been
+>> >>> detected on the device.
+>> >>>
+>> >>> Signed-off-by: Anuradha Karuppiah <anuradhak@cumulusnetworks.com=
+>
+>> >>> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+>> >>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> >>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>> >>
+>> >> I worry that adding another bit to an already complex state API
+>> >> will break userspace.
+>> >>
+>> >> There are lots of things besides iproute2 which look at those
+>> >> flags including routing daemons (quagga), network manager, netplu=
+gd,
+>> >> and switch controllers.
+>> >
+>> > Yes, I understand your concerns here. And tried to work around int=
+roducing
+>> > a separate error flag by clearing IFF_UP on proto_down/detecting e=
+rrors (as
+>> > Scott also brought up earlier).
+>> >
+>> > That implementation failed because of the following reasons -
+>> > 1. There is no way to disambiguate between admin_down (!IFF_UP) an=
+d an
+>> > APP/driver enforced error_down (IFF_PROTO_DOWN). Administrator or
+>> > automation-scripts that monitor the config assumed that switch-por=
+t
+>> > configuration had somehow fallen out of sync (and attempted to rei=
+nstate the
+>> > admin_up repeatedly).
+>> >
+>> > 2. Automatic error recovery was not possible; consider the followi=
+ng scenario
+>> > for e.g.
+>> >    a. The MLAG peer-link is down so the MLAG app on the secondary =
+switch has
+>> >       proto_down=E2=80=99ed all the MLAG ports (including switch-p=
+ort swp1) by clearing
+>> >       IFF_UP.
+>> >    b. At the same time the administrator is in the process of maki=
+ng some
+>> >       changes on the network connected to swp1. To avoid doing it =
+live he would
+>> >       admin_disable swp1 (!IFF_UP) by doing an "ip link set swp1 d=
+own" (this
+>> >       is a no-op as event #a has already cleared IFF_UP on swp1).
+>> >    c. If the MLAG peer-link recovers at this point the MLAG app on=
+ the
+>> >       secondary switch would try to automatically recover the MLAG=
+ ports
+>> >       by clearing proto_down (i.e. setting IFF_UP); including on s=
+wp1. Doing
+>> >       that overrides the administrator=E2=80=99s directive to keep=
+ swp1 admin_down.
+>> >       Overriding an admin-down in a live network can be very dange=
+rous so it
+>> >       is not possible to do auto-error-recovery unless we have a w=
+ay to
+>> >       disambiguate between the admin and error states.
+>>
+>> I have the need to disambiguate the error state but it doesn't have =
+to be an
+>> IFF_X attribute. Stephen, Do you think it would be more easily consu=
+mable if
+>> it were a new/separate net_device attribute instead of being a new b=
+it in
+>> "&struct net_device flags"?
+>
+> You need to separate.
+>   1. Flags visible by existing user applications. These really can't =
+change.
+>   2. Flags required for special management applications. These are be=
+st handled
+>      by additional netlink nested attributes
+>   3. Internal kernel flags. As long as they are not visible to usersp=
+ace
+>      nothing should care.
 
-It does, and Pablo made up for this cost by moving the TTL tracking
-to ingress where it actually belongs. This would obviously also be
-possible without his patchset, but the fact is, nobody seemed to
-have cared for the past ten years, we have from today a basically
-zero cost feature and people can decide what the want for themselves,
-there is no added cost for people not using it, there is no added
-cost for people using ingress.
+Ack. I will move IFF_PROTO_DOWN out of "&struct net_device flags".
 
-As for "really fit", ingress started off as living on a netfilter
-hook and only moved to a direct invocation somewhere around 2.6.12
-IIRC. As I was mentioning earlier, ingress *qdisc* is a hack in
-itself since there is no freaking queuing, its a hack to invoke
-classifier chains, so actually netfilter is *the better* abstraction
-to do this. And it's not netfilter, its packet hooks for classification
-purposes.
-
-To me all these arguments have to very negative sounds. It has always
-been like this - and it hasn't. And we want ingress queueing to be
-the exclusive way to do this. And this quite frankly sucks for all
-the reasons stated before. Its a hack, its not queueing, it doesn't
-cost anything, let the people decide what they actually want to use.
+PROTO_DOWN needs to be configurable/visible only to new APPs so I will =
+add a
+separate "&struct net_device protodown" field and the corresponding net=
+link
+attribute.
