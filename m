@@ -1,53 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH net-next 0/8] net: dsa: New registration API
-Date: Thu, 30 Apr 2015 15:12:16 +0200
-Message-ID: <20150430131216.GC22831@lunn.ch>
-References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH] net/mlx4_core: Fix unaligned accesses
+Date: Thu, 30 Apr 2015 16:26:42 +0300
+Message-ID: <CAJ3xEMhrSDXhGgQbV=EGJ_TcJfJE3=44Ad_daKmDpcQwnuxkpg@mail.gmail.com>
+References: <1430340771-12425-1-git-send-email-david.ahern@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dave@davemloft.net,
-	vivien.didelot@savoirfairelinux.com,
-	jerome.oufella@savoirfairelinux.com, linux@roeck-us.net,
-	cphealy@gmail.com, mathieu@codeaurora.org, jonasj76@gmail.com,
-	andrey.volkov@nexvision.fr, Chris.Packham@alliedtelesis.co.nz
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: David Ahern <david.ahern@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44616 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899AbbD3NQy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Apr 2015 09:16:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:35834 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbbD3N0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 09:26:43 -0400
+Received: by oign205 with SMTP id n205so47561741oig.2
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 06:26:42 -0700 (PDT)
+In-Reply-To: <1430340771-12425-1-git-send-email-david.ahern@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Note that there are currenlty no incompatibles changes made to existing Device
-> Tree sources, rather, depending on the bus we are probed for, e.g: MDIO
-> the dsa,mii-bus and dsa,ethernet phandles and first cell of the  "reg" property
-> will become obsolete, everything else remains entirely compatible. 
+On Wed, Apr 29, 2015 at 11:52 PM, David Ahern <david.ahern@oracle.com> wrote:
+> Addresses the following kernel logs seen during boot:
+>
+> Kernel unaligned access at TPC[100ee150] mlx4_QUERY_HCA+0x80/0x248 [mlx4_core]
+> Kernel unaligned access at TPC[100f071c] mlx4_QUERY_ADAPTER+0x100/0x12c [mlx4_core]
+> Kernel unaligned access at TPC[100f071c] mlx4_QUERY_ADAPTER+0x100/0x12c [mlx4_core]
+> Kernel unaligned access at TPC[100f071c] mlx4_QUERY_ADAPTER+0x100/0x12c [mlx4_core]
+> Kernel unaligned access at TPC[100f071c] mlx4_QUERY_ADAPTER+0x100/0x12c [mlx4_core]
+>
+> Signed-off-by: David Ahern <david.ahern@oracle.com>
 
-Hi Florian
+Looks OK
 
-I'm not sure dsa,mii-bus and dsa,ethernet will become obsolete. At
-least they are probably needed for multi switch setups, and the
-possible but probably unlikely multi DSA setups.
-
-You cannot assume that dsa,mii-bus and dsa,ethernet have the same
-parent. In a multi switch setup, it could be there is an mdio-mux in
-the picture. So all your probe really tells you, is that there is a
-switch on this mii bus, but you don't know what ethernet it is hanging
-off.
-
-The switch could be hanging off multiple ethernets. I'm working on
-supporting this for the WRT1900AC, where i use the bond driver on the
-host side. So dsa,ethernet is a phandle to a bond interface.
-
-The probe is likely to find all switches in a multi switch setup. But
-i guess we only want the probe of the root devices in a switch tree to
-cause a DSA setup.
-
-So i think there needs to be some matching performed when looking in
-the device tree. The dsa,mii-bus and address discovered by probing
-need to match what is in the DSA properties.
-
-     Andrew
+Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
