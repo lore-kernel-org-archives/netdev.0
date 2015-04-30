@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 0/4] drivers: net: xgene: Add ethernet with
- ring manager v2 support
-Date: Thu, 30 Apr 2015 16:03:31 -0400 (EDT)
-Message-ID: <20150430.160331.151978329337247263.davem@davemloft.net>
-References: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
+Subject: Re: [PATCH v2] bnx2x: Alloc 4k fragment for each rx ring buffer
+ element
+Date: Thu, 30 Apr 2015 16:05:37 -0400 (EDT)
+Message-ID: <20150430.160537.232956261880122754.davem@davemloft.net>
+References: <553AD097.4020209@gmx.de>
+	<87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
+	<B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	kchudgar@apm.com, patches@apm.com
-To: isubramanian@apm.com
+Cc: krisman@linux.vnet.ibm.com, LinoSanfilippo@gmx.de,
+	Ariel.Elior@qlogic.com, netdev@vger.kernel.org,
+	cascardo@linux.vnet.ibm.com, cascardo@cascardo.eti.br,
+	brking@linux.vnet.ibm.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59123 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59137 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252AbbD3UDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 16:03:34 -0400
-In-Reply-To: <1430254360-23698-1-git-send-email-isubramanian@apm.com>
+	with ESMTP id S1752680AbbD3UFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 16:05:41 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Tue, 28 Apr 2015 13:52:36 -0700
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Thu, 30 Apr 2015 11:25:31 +0000
 
-> Adding XFI based 10GbE and SGMII based 1GbE with ring manager v2 support
-> for APM X-Gene ethernet driver.  The ring manager v2 is used by 2nd
-> generation SoC.
+>> +struct bnx2x_alloc_pool {
+>> +	struct page	*page;
+>> +	dma_addr_t	dma;
+>> +	int		len;
 > 
-> v1:
-> * Initial version
+> Isn't len always set to PAGE_SIZE? If so it can be dropped
 
-Series applied, thanks.
+Agreed, len appears unnecessary.
