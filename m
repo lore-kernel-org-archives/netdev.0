@@ -1,78 +1,208 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next 3/3] tcp: invoke pkts_acked hook on every ACK
-Date: Thu, 30 Apr 2015 10:25:20 -0700
-Message-ID: <CAK6E8=c1S5kmdZ8mjAf4+5otH8CeVjRD6VyGaS-U1tEMaGLgag@mail.gmail.com>
-References: <1430411012-4939-1-git-send-email-kennetkl@ifi.uio.no> <1430411012-4939-3-git-send-email-kennetkl@ifi.uio.no>
+Subject: Re: [PATCH net-next 1/3] tcp: move struct tcp_sacktag_state to tcp_ack()
+Date: Thu, 30 Apr 2015 10:26:02 -0700
+Message-ID: <CAK6E8=d54S6v8_QGysHhDdxm3QK6N-ZZ7KHcZdbKMfEvmdRLsA@mail.gmail.com>
+References: <1430411012-4939-1-git-send-email-kennetkl@ifi.uio.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>
+Cc: netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>
 To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:35547 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152AbbD3R0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 13:26:02 -0400
-Received: by igbyr2 with SMTP id yr2so20055200igb.0
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 10:26:01 -0700 (PDT)
-In-Reply-To: <1430411012-4939-3-git-send-email-kennetkl@ifi.uio.no>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:38466 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751211AbbD3R0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 13:26:43 -0400
+Received: by igbhj9 with SMTP id hj9so19853868igb.1
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 10:26:42 -0700 (PDT)
+In-Reply-To: <1430411012-4939-1-git-send-email-kennetkl@ifi.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, Apr 30, 2015 at 9:23 AM, Kenneth Klette Jonassen
 <kennetkl@ifi.uio.no> wrote:
->
-> Invoking pkts_acked is currently conditioned on FLAG_ACKED: receiving a
-> cumulative ACK of new data, or ACK with SYN flag set.
->
-> Remove this condition so that CC may get RTT measurements from all SACKs.
+> Later patch passes two values set in tcp_sacktag_one() to
+> tcp_clean_rtx_queue(). Prepare passing them via struct tcp_sacktag_state.
 >
 > Cc: Yuchung Cheng <ycheng@google.com>
 > Cc: Eric Dumazet <edumazet@google.com>
 > Signed-off-by: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+
 > ---
->  net/ipv4/tcp_input.c | 9 +++------
->  1 file changed, 3 insertions(+), 6 deletions(-)
+>  net/ipv4/tcp_input.c | 45 ++++++++++++++++++++++-----------------------
+>  1 file changed, 22 insertions(+), 23 deletions(-)
 >
 > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 32bac6a..e5089c5 100644
+> index bc790ea..9902cf1 100644
 > --- a/net/ipv4/tcp_input.c
 > +++ b/net/ipv4/tcp_input.c
-> @@ -3161,9 +3161,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->         rtt_update = tcp_ack_update_rtt(sk, flag, seq_rtt_us, sack_rtt_us);
+> @@ -1634,7 +1634,7 @@ static int tcp_sack_cache_ok(const struct tcp_sock *tp, const struct tcp_sack_bl
 >
->         if (flag & FLAG_ACKED) {
-> -               const struct tcp_congestion_ops *ca_ops
-> -                       = inet_csk(sk)->icsk_ca_ops;
-> -
->                 tcp_rearm_rto(sk);
->                 if (unlikely(icsk->icsk_mtup.probe_size &&
->                              !after(tp->mtu_probe.probe_seq_end, tp->snd_una))) {
-> @@ -3186,9 +3183,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+>  static int
+>  tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+> -                       u32 prior_snd_una, long *sack_rtt_us)
+> +                       u32 prior_snd_una, struct tcp_sacktag_state *state)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
+>         const unsigned char *ptr = (skb_transport_header(ack_skb) +
+> @@ -1642,7 +1642,6 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+>         struct tcp_sack_block_wire *sp_wire = (struct tcp_sack_block_wire *)(ptr+2);
+>         struct tcp_sack_block sp[TCP_NUM_SACKS];
+>         struct tcp_sack_block *cache;
+> -       struct tcp_sacktag_state state;
+>         struct sk_buff *skb;
+>         int num_sacks = min(TCP_NUM_SACKS, (ptr[1] - TCPOLEN_SACK_BASE) >> 3);
+>         int used_sacks;
+> @@ -1650,9 +1649,8 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+>         int i, j;
+>         int first_sack_index;
 >
->                 tp->fackets_out -= min(pkts_acked, tp->fackets_out);
+> -       state.flag = 0;
+> -       state.reord = tp->packets_out;
+> -       state.rtt_us = -1L;
+> +       state->flag = 0;
+> +       state->reord = tp->packets_out;
 >
-> -               if (ca_ops->pkts_acked)
-> -                       ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
-> -
->         } else if (skb && rtt_update && sack_rtt_us >= 0 &&
->                    sack_rtt_us > skb_mstamp_us_delta(&now, &skb->skb_mstamp)) {
->                 /* Do not re-arm RTO if the sack RTT is measured from data sent
-> @@ -3198,6 +3192,9 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
->                 tcp_rearm_rto(sk);
+>         if (!tp->sacked_out) {
+>                 if (WARN_ON(tp->fackets_out))
+> @@ -1663,7 +1661,7 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+>         found_dup_sack = tcp_check_dsack(sk, ack_skb, sp_wire,
+>                                          num_sacks, prior_snd_una);
+>         if (found_dup_sack)
+> -               state.flag |= FLAG_DSACKING_ACK;
+> +               state->flag |= FLAG_DSACKING_ACK;
+>
+>         /* Eliminate too old ACKs, but take into
+>          * account more or less fresh ones, they can
+> @@ -1728,7 +1726,7 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
 >         }
 >
-> +       if (icsk->icsk_ca_ops->pkts_acked)
-> +               icsk->icsk_ca_ops->pkts_acked(sk, pkts_acked, ca_rtt_us);
+>         skb = tcp_write_queue_head(sk);
+> -       state.fack_count = 0;
+> +       state->fack_count = 0;
+>         i = 0;
+>
+>         if (!tp->sacked_out) {
+> @@ -1762,10 +1760,10 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+>
+>                         /* Head todo? */
+>                         if (before(start_seq, cache->start_seq)) {
+> -                               skb = tcp_sacktag_skip(skb, sk, &state,
+> +                               skb = tcp_sacktag_skip(skb, sk, state,
+>                                                        start_seq);
+>                                 skb = tcp_sacktag_walk(skb, sk, next_dup,
+> -                                                      &state,
+> +                                                      state,
+>                                                        start_seq,
+>                                                        cache->start_seq,
+>                                                        dup_sack);
+> @@ -1776,7 +1774,7 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+>                                 goto advance_sp;
+>
+>                         skb = tcp_maybe_skipping_dsack(skb, sk, next_dup,
+> -                                                      &state,
+> +                                                      state,
+>                                                        cache->end_seq);
+>
+>                         /* ...tail remains todo... */
+> @@ -1785,12 +1783,12 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+>                                 skb = tcp_highest_sack(sk);
+>                                 if (!skb)
+>                                         break;
+> -                               state.fack_count = tp->fackets_out;
+> +                               state->fack_count = tp->fackets_out;
+>                                 cache++;
+>                                 goto walk;
+>                         }
+>
+> -                       skb = tcp_sacktag_skip(skb, sk, &state, cache->end_seq);
+> +                       skb = tcp_sacktag_skip(skb, sk, state, cache->end_seq);
+>                         /* Check overlap against next cached too (past this one already) */
+>                         cache++;
+>                         continue;
+> @@ -1800,12 +1798,12 @@ tcp_sacktag_write_queue(struct sock *sk, const struct sk_buff *ack_skb,
+>                         skb = tcp_highest_sack(sk);
+>                         if (!skb)
+>                                 break;
+> -                       state.fack_count = tp->fackets_out;
+> +                       state->fack_count = tp->fackets_out;
+>                 }
+> -               skb = tcp_sacktag_skip(skb, sk, &state, start_seq);
+> +               skb = tcp_sacktag_skip(skb, sk, state, start_seq);
+>
+>  walk:
+> -               skb = tcp_sacktag_walk(skb, sk, next_dup, &state,
+> +               skb = tcp_sacktag_walk(skb, sk, next_dup, state,
+>                                        start_seq, end_seq, dup_sack);
+>
+>  advance_sp:
+> @@ -1820,9 +1818,9 @@ advance_sp:
+>         for (j = 0; j < used_sacks; j++)
+>                 tp->recv_sack_cache[i++] = sp[j];
+>
+> -       if ((state.reord < tp->fackets_out) &&
+> +       if ((state->reord < tp->fackets_out) &&
+>             ((inet_csk(sk)->icsk_ca_state != TCP_CA_Loss) || tp->undo_marker))
+> -               tcp_update_reordering(sk, tp->fackets_out - state.reord, 0);
+> +               tcp_update_reordering(sk, tp->fackets_out - state->reord, 0);
+>
+>         tcp_mark_lost_retrans(sk);
+>         tcp_verify_left_out(tp);
+> @@ -1834,8 +1832,7 @@ out:
+>         WARN_ON((int)tp->retrans_out < 0);
+>         WARN_ON((int)tcp_packets_in_flight(tp) < 0);
+>  #endif
+> -       *sack_rtt_us = state.rtt_us;
+> -       return state.flag;
+> +       return state->flag;
+>  }
+>
+>  /* Limits sacked_out so that sum with lost_out isn't ever larger than
+> @@ -3459,6 +3456,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>  {
+>         struct inet_connection_sock *icsk = inet_csk(sk);
+>         struct tcp_sock *tp = tcp_sk(sk);
+> +       struct tcp_sacktag_state sack_state;
+>         u32 prior_snd_una = tp->snd_una;
+>         u32 ack_seq = TCP_SKB_CB(skb)->seq;
+>         u32 ack = TCP_SKB_CB(skb)->ack_seq;
+> @@ -3467,7 +3465,8 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>         int prior_packets = tp->packets_out;
+>         const int prior_unsacked = tp->packets_out - tp->sacked_out;
+>         int acked = 0; /* Number of packets newly acked */
+> -       long sack_rtt_us = -1L;
 > +
-There might be congestion control that assumes pkts_acked > 0 or data
-is cumulatively when this is called. Did you audit that?
-
-
->  #if FASTRETRANS_DEBUG > 0
->         WARN_ON((int)tp->sacked_out < 0);
->         WARN_ON((int)tp->lost_out < 0);
+> +       sack_state.rtt_us = -1L;
+>
+>         /* We very likely will need to access write queue head. */
+>         prefetchw(sk->sk_write_queue.next);
+> @@ -3531,7 +3530,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>
+>                 if (TCP_SKB_CB(skb)->sacked)
+>                         flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
+> -                                                       &sack_rtt_us);
+> +                                                       &sack_state);
+>
+>                 if (tcp_ecn_rcv_ecn_echo(tp, tcp_hdr(skb))) {
+>                         flag |= FLAG_ECE;
+> @@ -3556,7 +3555,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>         /* See if we can take anything off of the retransmit queue. */
+>         acked = tp->packets_out;
+>         flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una,
+> -                                   sack_rtt_us);
+> +                                   sack_state.rtt_us);
+>         acked -= tp->packets_out;
+>
+>         /* Advance cwnd if state allows */
+> @@ -3608,7 +3607,7 @@ old_ack:
+>          */
+>         if (TCP_SKB_CB(skb)->sacked) {
+>                 flag |= tcp_sacktag_write_queue(sk, skb, prior_snd_una,
+> -                                               &sack_rtt_us);
+> +                                               &sack_state);
+>                 tcp_fastretrans_alert(sk, acked, prior_unsacked,
+>                                       is_dupack, flag);
+>         }
 > --
 > 2.1.0
 >
