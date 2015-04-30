@@ -1,87 +1,90 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of
- netfilter ingress hooks
-Date: Thu, 30 Apr 2015 05:29:23 +0200
-Message-ID: <20150430032921.GB8950@acer.localdomain>
-References: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
- <1430333589-4940-7-git-send-email-pablo@netfilter.org>
- <55413E99.5000807@iogearbox.net>
- <20150429233205.GA3416@salvia>
- <20150430003740.GF7025@acer.localdomain>
- <55417F80.4000506@iogearbox.net>
- <20150430014316.GB7956@acer.localdomain>
- <554194E9.5040002@mojatatu.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 00/21] ARCNET: Defibrillation
+Date: Wed, 29 Apr 2015 20:49:25 -0700
+Message-ID: <1430365765.2575.5.camel@perches.com>
+References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
+	 <1429901273.23327.5.camel@perches.com> <553AB241.3080004@pengutronix.de>
+	 <20150424.235853.1997287895150693202.davem@davemloft.net>
+	 <20150427145715.GC23151@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:49231 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751374AbbD3D31 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 23:29:27 -0400
-Content-Disposition: inline
-In-Reply-To: <554194E9.5040002@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, mkl@pengutronix.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@pengutronix.de
+To: Michael Grzeschik <mgr@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150427145715.GC23151@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 29.04, Jamal Hadi Salim wrote:
-> On 04/29/15 21:43, Patrick McHardy wrote:
-> >On 30.04, Daniel Borkmann wrote:
-> >>On 04/30/2015 02:37 AM, Patrick McHardy wrote:
-> >>>On 30.04, Pablo Neira Ayuso wrote:
+On Mon, 2015-04-27 at 16:57 +0200, Michael Grzeschik wrote:
+> Hi!
 > 
-> >>Totally agree with you that the situation is quite a mess. From tc ingress/
-> >>egress side, at least my use case is to have an as minimal as possible entry
-> >>point for cls_bpf/act_bpf, which is what we were working on recently. That
-> >>is rather ``fresh'' compared to the remaining history of cls/act in tc.
-> >
-> >It's more than a mess. Leaving aside the fully broken code at ingress,
-> >just look at the TC action APIs. Its "a failed state".
+> On Fri, Apr 24, 2015 at 11:58:53PM -0400, David Miller wrote:
+> > From: Marc Kleine-Budde <mkl@pengutronix.de>
+> > Date: Fri, 24 Apr 2015 23:14:41 +0200
+> > 
+> > > On 04/24/2015 08:47 PM, Joe Perches wrote:
+> > >> On Fri, 2015-04-24 at 19:20 +0200, Michael Grzeschik wrote:
+> > >>> Hi!
+> > >> 
+> > >> Hello.
+> > >> 
+> > >>> This patch series tries to reanimate the ARCNET hardware layer to be
+> > >>> somehow readable and maintainable again. It includes a lot of cleanup
+> > >>> patches. It also adds some fixes which leads the layer to become usable
+> > >>> again. And as a special treatment it adds more features like correct
+> > >>> loading and unloading of the com20020 card.
+> > >> 
+> > >> Wow.  Good for you, but why?  Does anyone still use these?
+> > > 
+> > > Yes, there are parts of the industry where "old" machines are
+> > > retrofitted with new hardware...and a lot of these machines still talk
+> > > ARCNET :)
+> > 
+> > But the real issue is, this layer is development wise in the same
+> > category as the IDE layer.
+> > 
+> > Any non-trivial change is nothing but pure risk, especially given the
+> > low level of test coverage the code gets.
 > 
-> Since youve repeated about 100 that tc api being broken, maybe
-> you can explain more rationally? By that i mean dont use words
-> like words like "crap" or "failed state" or no chest-thumping.
-> Lets say we totally stopped trying to reuse netfilter code, what are
-> you talking about?
+> Do you count coding style patches as non-trivial or trivial
+> patches?
 > 
-> I think there is confusion about usability vs merits of performance.
+> > So I really only want to see the most critical obvious bug fixes
+> > submitted for this layer and drivers.
+> 
+> The cleanup changes I submitted should not change the actual behaviour.
+> Replacing the register access macros with their equivalent outb/inb
+> seems pretty obvious. What is your opinion on those?
+> 
+> I see that the "ARCNET: whitespace, tab and codingstyle fixes" patch is
+> pretty mixed up and not very reliable. But Joe has sent me a nice series
+> for the cleanup.
+> 
+> > And no I will not accept an argument stating that you have to
+> > restructure and clean this code up in order to fix the bugs.  That's
+> > bogus.
+> 
+> OK.
+> 
+> I have the following patches in this series which fix bugs found during
+> my development:
+> 
+> com20020-pci: add dev_port for udev handling
+> ARCNET: fix hard_header_len limit
+> ARCNET: com20020: add enable and disable device on open/close
+> 
+> I would send a new series containing only those patches with more
+> detailed patch descriptions, if that's fine with you?
 
-I noticed tons of semantical holes when actually working on this, but
-let me just give a single example which is still on the top of my head:
+I was away for a few days and while out I did another
+restructuring of all the inb/outb/readb/writeb code
+removing all the A<FOO> macros.  It removes all the
+dependencies on ioaddr and names all the offsets with
+new defines.
 
-tcf_action_init:
+I could post if you like.
 
-        for (i = 1; i <= TCA_ACT_MAX_PRIO && tb[i]; i++) {                      
-	        act = tcf_action_init_1(net, tb[i], est, name, ovr, bind);
-
-So the API allows up to *magic number* (32) actions in one list, but not
-more. So many will be atomic at least from a rtnetlink perspective, but
-certainly not from a packet processing perspecting, from that one, they
-will simply be processed as they are instantiated. So, we simulate
-atomicity (what netlink is about) for a magic number of elements, but
-do not even provide it at runtime.
-
-Even ignoring the harder problem of having transactional semantics for
-multiple actions, why even support *magic number* of elements in one
-message and pretend atomicity? Smells a lot like premature optimization,
-ignoring sementical expectations.
-
-And yes, I do think it breaks with every concept of rtnetlink (messages
-are atomic) for no reason at all. I remember TC actions where full of
-these "special" interpretations. If you insist, I can do a review again,
-but I did all that and stated it years ago.
-
-Regarding TC as a whole, I think the problem is shared between userspace
-and the kernel. iproute TC is certainly completely failed, its unusable
-without looking at the kernel and iproute code, it hasn't even made the
-slightest infrastructrual progess in the past 15 years (*(u16)RTN_DATA(bla))?)
-and that is telling for itself. I don't extend that to ip, even though it
-suffers from the same coding problems, but let's be honest, do you really
-expect some magic is going to happen and TC userspace will suddenly become
-usable?
-
-I don't. And we intend to provide an alternative.
+I think it's a lot cleaner and easier to read.
