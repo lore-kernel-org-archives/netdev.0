@@ -1,50 +1,50 @@
 From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] ipv4: remove the unnecessary codes in fib_info_hash_move
-Date: Thu, 30 Apr 2015 17:25:12 +0800
-Message-ID: <1430385912-21987-1-git-send-email-roy.qing.li@gmail.com>
+Subject: [PATCH][net-next] xfrm: move the checking for old xfrm_policy hold_queue to beginning
+Date: Thu, 30 Apr 2015 17:25:19 +0800
+Message-ID: <1430385919-22030-1-git-send-email-roy.qing.li@gmail.com>
+Cc: steffen.klassert@secunet.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:39593 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:39612 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751410AbbD3JZO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 05:25:14 -0400
-Received: from localhost (lirq-optiplex-780.corp.ad.wrs.com [128.224.162.142])
-	by mail.windriver.com (8.14.9/8.14.9) with ESMTP id t3U9PDnC023217
-	for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 02:25:13 -0700 (PDT)
+	with ESMTP id S1750863AbbD3J0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 05:26:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Li RongQing <roy.qing.li@gmail.com>
 
-The whole hlist will be moved, so not need to call hlist_del before
-add the hlist_node to other hlist_head.
+if hold_queue of old xfrm_policy is NULL, return directly, then not need to
+run other codes, especially take the spin lock
 
 Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- net/ipv4/fib_semantics.c | 4 ----
- 1 file changed, 4 deletions(-)
+ net/xfrm/xfrm_policy.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 8d695b6..28ec3c1 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -713,8 +713,6 @@ static void fib_info_hash_move(struct hlist_head *new_info_hash,
- 			struct hlist_head *dest;
- 			unsigned int new_hash;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index f576217..1d53f4d 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -708,6 +708,9 @@ static void xfrm_policy_requeue(struct xfrm_policy *old,
+ 	struct xfrm_policy_queue *pq = &old->polq;
+ 	struct sk_buff_head list;
  
--			hlist_del(&fi->fib_hash);
--
- 			new_hash = fib_info_hashfn(fi);
- 			dest = &new_info_hash[new_hash];
- 			hlist_add_head(&fi->fib_hash, dest);
-@@ -731,8 +729,6 @@ static void fib_info_hash_move(struct hlist_head *new_info_hash,
- 			struct hlist_head *ldest;
- 			unsigned int new_hash;
++	if (skb_queue_empty(&pq->hold_queue))
++		return;
++
+ 	__skb_queue_head_init(&list);
  
--			hlist_del(&fi->fib_lhash);
+ 	spin_lock_bh(&pq->hold_queue.lock);
+@@ -716,9 +719,6 @@ static void xfrm_policy_requeue(struct xfrm_policy *old,
+ 		xfrm_pol_put(old);
+ 	spin_unlock_bh(&pq->hold_queue.lock);
+ 
+-	if (skb_queue_empty(&list))
+-		return;
 -
- 			new_hash = fib_laddr_hashfn(fi->fib_prefsrc);
- 			ldest = &new_laddrhash[new_hash];
- 			hlist_add_head(&fi->fib_lhash, ldest);
+ 	pq = &new->polq;
+ 
+ 	spin_lock_bh(&pq->hold_queue.lock);
 -- 
 2.1.0
