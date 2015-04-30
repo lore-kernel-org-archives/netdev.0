@@ -1,132 +1,87 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of
  netfilter ingress hooks
-Date: Thu, 30 Apr 2015 05:11:40 +0200
-Message-ID: <20150430031138.GA8950@acer.localdomain>
-References: <1430333589-4940-7-git-send-email-pablo@netfilter.org>
+Date: Thu, 30 Apr 2015 05:29:23 +0200
+Message-ID: <20150430032921.GB8950@acer.localdomain>
+References: <1430333589-4940-1-git-send-email-pablo@netfilter.org>
+ <1430333589-4940-7-git-send-email-pablo@netfilter.org>
  <55413E99.5000807@iogearbox.net>
  <20150429233205.GA3416@salvia>
- <55417545.30103@iogearbox.net>
- <20150430003019.GE7025@acer.localdomain>
- <55417A3A.50405@iogearbox.net>
- <20150430004839.GG7025@acer.localdomain>
- <20150430011633.GA12674@Alexeis-MBP.westell.com>
- <20150430013452.GA7956@acer.localdomain>
- <554191F9.3010301@mojatatu.com>
+ <20150430003740.GF7025@acer.localdomain>
+ <55417F80.4000506@iogearbox.net>
+ <20150430014316.GB7956@acer.localdomain>
+ <554194E9.5040002@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	Pablo Neira Ayuso <pablo@netfilter.org>,
 	netfilter-devel@vger.kernel.org, davem@davemloft.net,
 	netdev@vger.kernel.org
 To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:49231 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751374AbbD3D31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 23:29:27 -0400
 Content-Disposition: inline
-In-Reply-To: <554191F9.3010301@mojatatu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <554194E9.5040002@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 29.04, Jamal Hadi Salim wrote:
-> >>You're right that for 10 years no one cared about performance
-> >>of ingress qdisc, but that doesn't mean it's a wrong abstraction
-> >>and wrong architecture. Now I care about its performance and
-> >>I hope other people will do too.
-> >
+> On 04/29/15 21:43, Patrick McHardy wrote:
+> >On 30.04, Daniel Borkmann wrote:
+> >>On 04/30/2015 02:37 AM, Patrick McHardy wrote:
+> >>>On 30.04, Pablo Neira Ayuso wrote:
 > 
-> Well, even if you didnt touch tc and got rid of the lock
-> it will still be about a magnitude faster than netfilter ;->
-> How about i call netfilter crap Patrick? It is slower than
-> molasses. For more than 10+ years no-one has found good ways
-> to bring it up to speed.
-
-Quite frankly, that is ridiculous. I realize we turn in circles
-in this discussion, so we will provide the numbers. Give us a test
-case if you want, something you think is hard.
-
-> For sure the attempt to re-use netfilter code from tc has failed.
-
-Agreed.
-
-> I think thats what you keep probably repeating as something that will
-> crash.
-
-*Everything* except the purely passive ones as the policer will crash.
-Everything. Its well known. No point in repeating it.
-
-> Apart from some help from Pablo in recent times - this re-use
-> has been a disaster even when linking in user space (from lack of
-> backward incompatibilities mostly).
-> It seems to me we may just have to drop support for ipt and anything
-> netfilter from tc.
-> And at some point we are going to need those features, we'll just need
-> to write faster versions of them. ebpf maybe helpful.
-
-I stopped caring about TC a long time ago, basically when actions were
-merged over my head, despite me being the only person actually taking
-care of TC. You might remember, I spent multiple months cleaning up the
-action mess when it was merged, and that was only the *really* bad bugs.
-Magic numbers in the APIs, lists limited to more magic numbers etc,
-I didn't care. Today I do not think its about individual problems anymore,
-the entire thing is broken. Egress has some shared problems with ingress,
-such as horrible userspace code, horrible error reporting, no way to use it
-even for me without looking at both TC and kernel code as the same time, but
-ingress is worse in the sense that the supermajority of it will actually
-crash in very likely cases, and its not about ipt, its everything touching
-a packet in the presence of a tap, like 2/3 of all actions. The qdiscs are
-mostly (except integration of classifiers) fine, everything else is crap.
-
-> >The wrong abstraction is using a qdisc for ingress. An abstraction
-> >is not about performance. Why do you thing ingress exists? For
-> >queueing? Or as providing a hooking point for a bunch of broken
-> >(at ingress) actions? You're (one of) the one who painfully realized
-> >how broken any kind of packet mangling at that point is. The
-> >infrastructure is simply crap and always has been.
+> >>Totally agree with you that the situation is quite a mess. From tc ingress/
+> >>egress side, at least my use case is to have an as minimal as possible entry
+> >>point for cls_bpf/act_bpf, which is what we were working on recently. That
+> >>is rather ``fresh'' compared to the remaining history of cls/act in tc.
+> >
+> >It's more than a mess. Leaving aside the fully broken code at ingress,
+> >just look at the TC action APIs. Its "a failed state".
 > 
-> What abstraction is broken? The ingress expects L3 headers. The egress
-> expects L2 headers. I dont think there is disagreement that the ingress
-> should see L2 headers. The view is that it will be a bit of work.
-> Discussion is ongoing to resolve this without penalizing performance.
-> You dont care about performance - netfilter is all about how to have
-> nice usability. I care about usability but not as much as i do
-> about performance.
-
-The abstraction is *wrong*. There is no queueing, hence using a qdisc
-is the wrong abstraction. Why are we arguing about that? Its a
-mechanism to invoke classifiers and actions. What is the qdisc actually
-used for? It certainly doesn't queue anything, the only thing it's
-doing is imposing the worst locking imaginable on the entire path.
-
-If that's not enough, look at the actions. I mean, you're not classifying
-for the sake of it, there are not even classes on ingress, its purely
-done for the actions. And they are, as stated, almost completely
-broken. We can do policing. That actually works. Maybe one or two more.
-Except policing, none of those is even remotely related to QoS.
-So let me ask again, in what sense is the abstraction actually right?
-
-> >>So please leave ingress qdisc alone, this 'generalization'
-> >>is too costly.
-> >
-> >Sorry, we are of the opinion that TC classifiers suck, so we will
-> >not leave that path alone :) You're numbers are well appreciated,
-> >we will fix this and return with better numbers.
-> >
-> >>That doesn't mean that netfilter shouldn't have its own hook
-> >>on ingress. Without patch 6, the set looks good.
-> >
-> >I don't agree. It would be preferable to optimize the single hook
-> >case not only for ingress's sake, but for all the already existing
-> >hooks.
-> >
+> Since youve repeated about 100 that tc api being broken, maybe
+> you can explain more rationally? By that i mean dont use words
+> like words like "crap" or "failed state" or no chest-thumping.
+> Lets say we totally stopped trying to reuse netfilter code, what are
+> you talking about?
 > 
-> And i strongly disagree. Netfilter is slow as a boring hot day.
-> Please dont enforce it on us. I thought you were kidding when you said
-> you want to move the ingress back to netfilter. We run away from there
-> years ago.
+> I think there is confusion about usability vs merits of performance.
 
-Quite frankly, talking about netfilter at all is so wrong that there
-isn't even a possibility to respond. Netfilter is a mechanism - a hook
-to receive a packet. And even that kicks your single threaded ingress
-qdiscs ass every packet of the day. What we're talking about are the
-things built on top. There's no question we also win on hardware that's
-not 1975 there, because people are actually using it.
+I noticed tons of semantical holes when actually working on this, but
+let me just give a single example which is still on the top of my head:
+
+tcf_action_init:
+
+        for (i = 1; i <= TCA_ACT_MAX_PRIO && tb[i]; i++) {                      
+	        act = tcf_action_init_1(net, tb[i], est, name, ovr, bind);
+
+So the API allows up to *magic number* (32) actions in one list, but not
+more. So many will be atomic at least from a rtnetlink perspective, but
+certainly not from a packet processing perspecting, from that one, they
+will simply be processed as they are instantiated. So, we simulate
+atomicity (what netlink is about) for a magic number of elements, but
+do not even provide it at runtime.
+
+Even ignoring the harder problem of having transactional semantics for
+multiple actions, why even support *magic number* of elements in one
+message and pretend atomicity? Smells a lot like premature optimization,
+ignoring sementical expectations.
+
+And yes, I do think it breaks with every concept of rtnetlink (messages
+are atomic) for no reason at all. I remember TC actions where full of
+these "special" interpretations. If you insist, I can do a review again,
+but I did all that and stated it years ago.
+
+Regarding TC as a whole, I think the problem is shared between userspace
+and the kernel. iproute TC is certainly completely failed, its unusable
+without looking at the kernel and iproute code, it hasn't even made the
+slightest infrastructrual progess in the past 15 years (*(u16)RTN_DATA(bla))?)
+and that is telling for itself. I don't extend that to ip, even though it
+suffers from the same coding problems, but let's be honest, do you really
+expect some magic is going to happen and TC userspace will suddenly become
+usable?
+
+I don't. And we intend to provide an alternative.
