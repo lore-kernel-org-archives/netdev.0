@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [RFC PATCH net-next 7/8] net: dsa: mv88e6060: make it a proper PHY driver
-Date: Wed, 29 Apr 2015 18:57:43 -0700
-Message-ID: <1430359064-23454-8-git-send-email-f.fainelli@gmail.com>
+Subject: [RFC PATCH net-next 5/8] net: dsa: add new API to register switch devices
+Date: Wed, 29 Apr 2015 18:57:41 -0700
+Message-ID: <1430359064-23454-6-git-send-email-f.fainelli@gmail.com>
 References: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Cc: dave@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	vivien.didelot@savoirfairelinux.com,
@@ -11,190 +11,309 @@ Cc: dave@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Chris.Packham@alliedtelesis.co.nz
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:33492 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751871AbbD3B6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 21:58:11 -0400
-Received: by pdbnk13 with SMTP id nk13so45268589pdb.0
-        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 18:58:11 -0700 (PDT)
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:35091 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751876AbbD3B6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Apr 2015 21:58:08 -0400
+Received: by pdbqd1 with SMTP id qd1so45248119pdb.2
+        for <netdev@vger.kernel.org>; Wed, 29 Apr 2015 18:58:07 -0700 (PDT)
 In-Reply-To: <1430359064-23454-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert the Marvell 88E6060 switch driver into a proper PHY library
-driver that can be registered. To make sure we do not introduce
-functional changes, the PHY driver provides autoneg and status callbacks
-to make sure the attached Ethernet MAC driver still sees a link UP at
-the CPU port full speed.
+Add a new API to register DSA switch devices:
+
+- dsa_switch_register
+- dsa_switch_unregister
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/mv88e6060.c | 114 ++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 109 insertions(+), 5 deletions(-)
+ include/net/dsa.h |  15 +++++
+ net/dsa/dsa.c     | 182 +++++++++++++++++++++++++++++++++++++++++++++---------
+ 2 files changed, 168 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index c29aebe1e62b..7bd15bbb0787 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -19,9 +19,23 @@
- #define REG_PORT(p)		(8 + (p))
- #define REG_GLOBAL		0x0f
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index fbca63ba8f73..b057536f6a77 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -139,6 +139,12 @@ struct dsa_switch {
+ 	struct dsa_chip_data	*pd;
  
-+#define MV88E6060_MAGIC		0x600
-+#define MV88E6060_MAGIC_MASK	0xfff0
+ 	/*
++	 * Configuration came from "classic" platform_data
++	 * registration
++	 */
++	bool			from_pd;
 +
-+static inline struct mii_bus *mv88e6060_mii_bus(struct dsa_switch *ds)
++	/*
+ 	 * The used switch driver.
+ 	 */
+ 	struct dsa_switch_driver	*drv;
+@@ -317,4 +323,13 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+ {
+ 	return dst->rcv != NULL;
+ }
++
++static inline struct dsa_switch *dsa_alloc_switch(size_t priv_size)
 +{
-+	struct phy_device *phydev;
-+
-+	if (ds->from_pd)
-+		return dsa_host_dev_to_mii_bus(ds->master_dev);
-+
-+	phydev = to_phy_device(ds->master_dev);
-+	return phydev->bus;
++	return kzalloc(sizeof(struct dsa_switch) + priv_size, GFP_KERNEL);
 +}
 +
- static int reg_read(struct dsa_switch *ds, int addr, int reg)
++int dsa_switch_register(struct dsa_switch *ds);
++int dsa_switch_register_phydev(struct dsa_switch *ds, struct phy_device *phy);
++void dsa_switch_unregister(struct dsa_switch *ds);
+ #endif
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 58b99ff4591b..2d9762974880 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -364,6 +364,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 	ds->dst = dst;
+ 	ds->index = index;
+ 	ds->pd = pd;
++	ds->from_pd = true;
+ 	ds->drv = drv;
+ 	ds->tag_protocol = drv->tag_protocol;
+ 	ds->master_dev = host_dev;
+@@ -570,12 +571,12 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
+ 	kfree(pd->chip);
+ }
+ 
+-static int dsa_of_probe(struct device *dev)
++static int dsa_of_probe(struct device *dev, struct phy_device *phydev)
  {
--	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-+	struct mii_bus *bus = mv88e6060_mii_bus(ds);
- 
- 	if (bus == NULL)
- 		return -EINVAL;
-@@ -42,7 +56,7 @@ static int reg_read(struct dsa_switch *ds, int addr, int reg)
- 
- static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
- {
--	struct mii_bus *bus = dsa_host_dev_to_mii_bus(ds->master_dev);
-+	struct mii_bus *bus = mv88e6060_mii_bus(ds);
- 
- 	if (bus == NULL)
- 		return -EINVAL;
-@@ -59,7 +73,7 @@ static int reg_write(struct dsa_switch *ds, int addr, int reg, u16 val)
- 			return __ret;				\
- 	})
- 
--static char *mv88e6060_probe(struct device *host_dev, int sw_addr)
-+static char *mv88e6060_switch_probe(struct device *host_dev, int sw_addr)
- {
- 	struct mii_bus *bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	struct device_node *np = dev->of_node;
+ 	struct device_node *child, *mdio, *ethernet, *port, *link;
+-	struct mii_bus *mdio_bus;
+-	struct net_device *ethernet_dev;
++	struct mii_bus *mdio_bus = NULL;
++	struct net_device *ethernet_dev = NULL;
+ 	struct dsa_platform_data *pd;
+ 	struct dsa_chip_data *cd;
+ 	const char *port_name;
+@@ -584,28 +585,38 @@ static int dsa_of_probe(struct device *dev)
+ 	u32 eeprom_len;
  	int ret;
-@@ -275,7 +289,7 @@ static void mv88e6060_poll_link(struct dsa_switch *ds)
  
- static struct dsa_switch_driver mv88e6060_switch_driver = {
- 	.tag_protocol	= DSA_TAG_PROTO_TRAILER,
--	.probe		= mv88e6060_probe,
-+	.probe		= mv88e6060_switch_probe,
- 	.setup		= mv88e6060_setup,
- 	.set_addr	= mv88e6060_set_addr,
- 	.phy_read	= mv88e6060_phy_read,
-@@ -283,16 +297,106 @@ static struct dsa_switch_driver mv88e6060_switch_driver = {
- 	.poll_link	= mv88e6060_poll_link,
- };
+-	mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
+-	if (!mdio)
+-		return -EINVAL;
+-
+-	mdio_bus = of_mdio_find_bus(mdio);
+-	if (!mdio_bus)
+-		return -EPROBE_DEFER;
+-
+-	ethernet = of_parse_phandle(np, "dsa,ethernet", 0);
+-	if (!ethernet)
+-		return -EINVAL;
+-
+-	ethernet_dev = of_find_net_device_by_node(ethernet);
+-	if (!ethernet_dev)
+-		return -EPROBE_DEFER;
++	/* Parsing of these properties only makes sense in the context of
++	 * non-MDIO probed devices (phydev == NULL) since all of these are
++	 * already implied by the PHY device:
++	 *
++	 * phydev->attached_dev is our netdev
++	 * phydev->bus is our MDIO bus
++	 */
++	if (!phydev) {
++		mdio = of_parse_phandle(np, "dsa,mii-bus", 0);
++		if (!mdio)
++			return -EINVAL;
++
++		mdio_bus = of_mdio_find_bus(mdio);
++		if (!mdio_bus)
++			return -EPROBE_DEFER;
++
++		ethernet = of_parse_phandle(np, "dsa,ethernet", 0);
++		if (!ethernet)
++			return -EINVAL;
++
++		ethernet_dev = of_find_net_device_by_node(ethernet);
++		if (!ethernet_dev)
++			return -EPROBE_DEFER;
++	}
  
-+static int mv88e6060_probe(struct phy_device *phydev)
+ 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
+ 	if (!pd)
+ 		return -ENOMEM;
+ 
+ 	dev->platform_data = pd;
+-	pd->of_netdev = ethernet_dev;
++	if (!phydev)
++		pd->of_netdev = ethernet_dev;
+ 	pd->nr_chips = of_get_available_child_count(np);
+ 	if (pd->nr_chips > DSA_MAX_SWITCHES)
+ 		pd->nr_chips = DSA_MAX_SWITCHES;
+@@ -623,15 +634,21 @@ static int dsa_of_probe(struct device *dev)
+ 		cd = &pd->chip[chip_index];
+ 
+ 		cd->of_node = child;
+-		cd->host_dev = &mdio_bus->dev;
+-
+-		sw_addr = of_get_property(child, "reg", NULL);
+-		if (!sw_addr)
+-			continue;
++		if (!phydev)
++			cd->host_dev = &mdio_bus->dev;
++		else
++			cd->host_dev = &phydev->bus->dev;
++
++		if (!phydev) {
++			sw_addr = of_get_property(child, "reg", NULL);
++			if (!sw_addr)
++				continue;
+ 
+-		cd->sw_addr = be32_to_cpup(sw_addr);
+-		if (cd->sw_addr > PHY_MAX_ADDR)
+-			continue;
++			cd->sw_addr = be32_to_cpup(sw_addr);
++			if (cd->sw_addr > PHY_MAX_ADDR)
++				continue;
++		} else
++			cd->sw_addr = phydev->addr;
+ 
+ 		if (!of_property_read_u32(np, "eeprom-length", &eeprom_len))
+ 			cd->eeprom_len = eeprom_len;
+@@ -761,7 +778,7 @@ static int dsa_probe(struct platform_device *pdev)
+ 		       dsa_driver_version);
+ 
+ 	if (pdev->dev.of_node) {
+-		ret = dsa_of_probe(&pdev->dev);
++		ret = dsa_of_probe(&pdev->dev, NULL);
+ 		if (ret)
+ 			return ret;
+ 
+@@ -807,6 +824,107 @@ out:
+ 	return ret;
+ }
+ 
++static int __dsa_switch_register(struct dsa_switch *ds,
++				 struct phy_device *phydev)
 +{
-+	struct dsa_switch *ds;
-+
-+	ds = dsa_alloc_switch(0);
-+	if (!ds)
-+		return -ENOMEM;
-+
-+	phydev->priv = ds;
-+	phydev->is_switch = true;
-+	ds->master_dev = &phydev->dev;
-+	ds->tag_protocol = DSA_TAG_PROTO_TRAILER;
-+	ds->drv = &mv88e6060_switch_driver;
-+
-+	return 0;
-+}
-+
-+static void mv88e6060_remove(struct phy_device *phydev)
-+{
-+	struct dsa_switch *ds = phydev->priv;
-+
-+	dsa_switch_unregister(ds);
-+	phydev->priv = NULL;
-+}
-+
-+static int mv88e6060_config_init(struct phy_device *phydev)
-+{
-+	struct dsa_switch *ds = phydev->priv;
-+
-+	return dsa_switch_register_phydev(ds, phydev);
-+}
-+
-+static int mv88e6060_config_aneg(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+
-+/* Called by the network device driver attached to this PHY
-+ * we need to reflect the CPU port status here since the Ethernet MAC will
-+ * use those PHY device link parameters for its configuration
-+ */
-+static int mv88e6060_read_status(struct phy_device *phydev)
-+{
-+	phydev->speed = 100;
-+	phydev->duplex = DUPLEX_FULL;
-+	phydev->link = 1;
-+	phydev->state = PHY_RUNNING;
-+
-+	netif_carrier_on(phydev->attached_dev);
-+	phydev->adjust_link(phydev->attached_dev);
-+
-+	return 0;
-+}
-+
-+/* Read the switch identifier register using the special Port register, and if
-+ * successful, override the PHY ID for this device
-+ */
-+static int mv88e6060_phy_fixup(struct phy_device *phydev)
-+{
++	struct dsa_switch_tree *dst;
++	struct dsa_platform_data *pd = NULL;
++	struct net_device *dev;
 +	int ret;
 +
-+	/* Marvell switches should be accessed using MDIO address 16 */
-+	if (phydev->addr != 16)
-+		return 0;
++	/* If using Device Tree, just try to parse standard properties */
++	if (ds->master_dev->of_node) {
++		ret = dsa_of_probe(ds->master_dev, phydev);
++		if (ret)
++			return ret;
 +
-+	ret = mdiobus_read(phydev->bus, REG_PORT(0), 0x03) &
-+			   MV88E6060_MAGIC_MASK;
-+	if (ret != MV88E6060_MAGIC)
-+		return 0;
++		pd = ds->master_dev->platform_data;
++	}
 +
-+	phydev->phy_id = MV88E6060_MAGIC;
++	if (pd == NULL)
++		return -ENODEV;
++
++	/* Cannot find the network device */
++	if (!phydev && (pd->netdev == NULL || pd->of_netdev == NULL))
++		return -ENODEV;
++
++	if (pd->of_netdev) {
++		dev = pd->of_netdev;
++		dev_hold(dev);
++	} else if (phydev == NULL) {
++		dev = dev_to_net_device(pd->netdev);
++	} else {
++		dev = phydev->attached_dev;
++		dev_hold(dev);
++	}
++
++	/* Regardless of our position within a switch tree, we should be
++	 * attached to a network device
++	 */
++	if (dev == NULL) {
++		dev_err(ds->master_dev, "invalid network device\n");
++		if (pd->of_netdev)
++			dev_put(pd->of_netdev);
++		if (phydev)
++			dev_put(phydev->attached_dev);
++		ret = -EPROBE_DEFER;
++		goto out;
++	}
++
++	/* For now we just bail out, but we would want to deal with stacked
++	 * setups with different tagging protocols sitting on top of each other
++	 * in the future
++	 */
++	if (dev->dsa_ptr != NULL) {
++		dev_put(dev);
++		ret = -EEXIST;
++		goto out;
++	}
++
++	dst = kzalloc(sizeof(*dst), GFP_KERNEL);
++	if (!dst) {
++		dev_put(dev);
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	dst->pd = pd;
++	ds->dst = dst;
++	ds->index = 0;
++	dst->master_netdev = dev;
++	dst->cpu_switch = -1;
++	dst->cpu_port = -1;
++	ds->pd = (struct dsa_chip_data *)dst->pd->chip + ds->index;
++
++	ret = dsa_switch_setup_one(ds, ds->master_dev);
++	if (ret)
++		return ret;
++
++	dst->ds[ds->index] = ds;
++
++	dsa_setup_dst_end(dev, dst);
++
++	netdev_info(dev, "Attached switch@%d\n", ds->index);
 +
 +	return 0;
++
++out:
++	dsa_of_remove(ds->master_dev);
++	return ret;
 +}
 +
-+static struct phy_driver mv88e6060_phy_driver = {
-+	.phy_id		= MV88E6060_MAGIC,
-+	.name		= "Marvell 88E6060",
-+	.phy_id_mask	= 0xffffffff,
-+	.features	= PHY_BASIC_FEATURES,
-+	.probe		= mv88e6060_probe,
-+	.remove		= mv88e6060_remove,
-+	.config_aneg	= mv88e6060_config_aneg,
-+	.config_init	= mv88e6060_config_init,
-+	.read_status	= mv88e6060_read_status,
-+	.driver		= { .owner = THIS_MODULE, },
-+};
++int dsa_switch_register(struct dsa_switch *ds)
++{
++	return __dsa_switch_register(ds, NULL);
++}
++EXPORT_SYMBOL_GPL(dsa_switch_register);
 +
- static int __init mv88e6060_init(void)
++int dsa_switch_register_phydev(struct dsa_switch *ds, struct phy_device *phydev)
++{
++	return __dsa_switch_register(ds, phydev);
++}
++EXPORT_SYMBOL_GPL(dsa_switch_register_phydev);
++
+ static void dsa_remove_dst(struct dsa_switch_tree *dst)
  {
- 	register_switch_driver(&mv88e6060_switch_driver);
--	return 0;
-+	phy_register_fixup_for_id(PHY_ANY_ID, mv88e6060_phy_fixup);
-+	return phy_driver_register(&mv88e6060_phy_driver);
+ 	int i;
+@@ -824,6 +942,13 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ 	}
  }
- module_init(mv88e6060_init);
  
- static void __exit mv88e6060_cleanup(void)
++void dsa_switch_unregister(struct dsa_switch *ds)
++{
++	dsa_remove_dst(ds->dst);
++	dsa_of_remove(ds->master_dev);
++}
++EXPORT_SYMBOL_GPL(dsa_switch_unregister);
++
+ static int dsa_remove(struct platform_device *pdev)
  {
- 	unregister_switch_driver(&mv88e6060_switch_driver);
-+	phy_driver_unregister(&mv88e6060_phy_driver);
- }
- module_exit(mv88e6060_cleanup);
+ 	struct dsa_switch_tree *dst = platform_get_drvdata(pdev);
+@@ -897,7 +1022,6 @@ static int dsa_resume(struct device *d)
+ static SIMPLE_DEV_PM_OPS(dsa_pm_ops, dsa_suspend, dsa_resume);
  
+ static const struct of_device_id dsa_of_match_table[] = {
+-	{ .compatible = "brcm,bcm7445-switch-v4.0" },
+ 	{ .compatible = "marvell,dsa", },
+ 	{}
+ };
 -- 
 2.1.0
