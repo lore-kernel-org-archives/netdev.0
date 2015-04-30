@@ -1,7 +1,7 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH 3/3] bnx2: Use dev_kfree_skb in Tx cleanup path
-Date: Thu, 30 Apr 2015 13:58:31 -0700
-Message-ID: <20150430205831.1512.61081.stgit@ahduyck-vm-fedora22>
+Subject: [PATCH 2/3] r8169: Use dev_kfree_skb in Tx cleanup path
+Date: Thu, 30 Apr 2015 13:58:24 -0700
+Message-ID: <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22>
 References: <20150430205423.1512.13487.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,9 +11,9 @@ Cc: nic_swsd@realtek.com, Dept-HSGLinuxNICDev@qlogic.com,
 	jeffrey.t.kirsher@intel.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54525 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35032 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752951AbbD3U6c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752983AbbD3U6c (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 30 Apr 2015 16:58:32 -0400
 In-Reply-To: <20150430205423.1512.13487.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
@@ -30,19 +30,19 @@ anyway.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2.c |    2 +-
+ drivers/net/ethernet/realtek/r8169.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 2b66ef3d8217..a76f21a90a4e 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -2887,7 +2887,7 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 		sw_cons = BNX2_NEXT_TX_BD(sw_cons);
- 
- 		tx_bytes += skb->len;
--		dev_kfree_skb_any(skb);
-+		dev_kfree_skb(skb);
- 		tx_pkt++;
- 		if (tx_pkt == budget)
- 			break;
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index c70ab40d8698..ca94040b0ec2 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -7215,7 +7215,7 @@ static void rtl_tx(struct net_device *dev, struct rtl8169_private *tp)
+ 			tp->tx_stats.packets++;
+ 			tp->tx_stats.bytes += tx_skb->skb->len;
+ 			u64_stats_update_end(&tp->tx_stats.syncp);
+-			dev_kfree_skb_any(tx_skb->skb);
++			dev_kfree_skb(tx_skb->skb);
+ 			tx_skb->skb = NULL;
+ 		}
+ 		dirty_tx++;
