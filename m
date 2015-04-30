@@ -1,36 +1,56 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH -next] net: sched: remove TC_MUNGED bits
-Date: Thu, 30 Apr 2015 14:16:24 -0700
-Message-ID: <20150430211620.GA13076@Alexeis-MBP.westell.com>
-References: <1430388720-5112-1-git-send-email-fw@strlen.de>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 3/3] printk: implement support for extended console
+ drivers
+Date: Thu, 30 Apr 2015 14:31:28 -0700
+Message-ID: <20150430143128.68c2295ca18f1b872876f129@linux-foundation.org>
+References: <1430318704-32374-1-git-send-email-tj@kernel.org>
+	<1430318704-32374-4-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:36909 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766AbbD3VQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 17:16:29 -0400
-Received: by igblo3 with SMTP id lo3so24801545igb.0
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 14:16:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1430388720-5112-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pmladek@suse.cz, davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Kay Sievers <kay@vrfy.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430318704-32374-4-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 30, 2015 at 12:12:00PM +0200, Florian Westphal wrote:
-> Not used.
-> 
-> pedit sets TC_MUNGED when packet content was altered, but all the core
-> does is unset MUNGED again and then set OK2MUNGE.
-> 
-> And the latter isn't tested anywhere. So lets remove both
-> TC_MUNGED and TC_OK2MUNGE.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+On Wed, 29 Apr 2015 10:45:04 -0400 Tejun Heo <tj@kernel.org> wrote:
 
-Wanted to do the same.
-iproute2 doesn't use 'munge' flag either.
+> printk log_buf keeps various metadata for each message including its
+> sequence number and timestamp.  The metadata is currently available
+> only through /dev/kmsg and stripped out before passed onto console
+> drivers.  We want this metadata to be available to console drivers too
+> so that console consumers can get full information including the
+> metadata and dictionary, which among other things can be used to
+> detect whether messages got lost in transit.
+> 
+> This patch implements support for extended console drivers.  Consoles
+> can indicate that they want extended messages by setting the new
+> CON_EXTENDED flag and they'll be fed messages formatted the same way
+> as /dev/kmsg.
+> 
+>  "<level>,<sequnum>,<timestamp>,<contflag>;<message text>\n"
+> 
+> If extended consoles exist, in-kernel fragment assembly is disabled.
+> This ensures that all messages emitted to consoles have full metadata
+> including sequence number.  The contflag carries enough information to
+> reassemble the fragments from the reader side trivially.  Note that
+> this only affects /dev/kmsg.  Regular console and /proc/kmsg outputs
+> are not affected by this change.
+> 
+> * Extended message formatting for console drivers is enabled iff there
+>   are registered extended consoles.
+> 
+> * Comment describing /dev/kmsg message format updated to add missing
+>   contflag field and help distinguishing variable from verbatim terms.
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+So if I'm understanding this correctly, the /dev/kmsg output is altered
+(different cont handling) if some console registers with CON_EXTENDED
+(and there are no such consoles yet, so the patch is a no-op).
+
+If correct, this seems undesirable - registration of a CON_EXTENDED
+console collaterally damages the /dev/kmsg interface?  If the user has
+an app which depends on the original /dev/kmsg format then they'll be
+wondered what-the-heck-just-happened?
