@@ -1,91 +1,132 @@
 From: Baolin Wang <baolin.wang@linaro.org>
-Subject: [PATCH v2 00/15] Convert the posix_clock_operations and k_clock structure to ready for 2038
-Date: Thu, 30 Apr 2015 16:06:25 +0800
-Message-ID: <1430381185-26191-1-git-send-email-baolin.wang@linaro.org>
-Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
-	pang.xunlei@linaro.org, peterz@infradead.org,
-	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
-	richardcochran@gmail.com, benh@kernel.crashing.org,
-	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
-	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
-	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
-	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	baolin.wang@linaro.org, y2038@lists.linaro.org
-To: tglx@linutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Subject: [PATCH v2 11/15] time/posix-clock:Convert to the 64bit
+	methods for k_clock and posix_clock_operations structure
+Date: Thu, 30 Apr 2015 16:18:45 +0800
+Message-ID: <1430381925-26627-1-git-send-email-baolin.wang@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, arnd@arndb.de, baolin.wang@linaro.org
+To: richardcochran@gmail.com
+Return-path: <y2038-bounces@lists.linaro.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-This patch series changes the 32-bit time type (timespec/itimerspec) to the 64-bit one
-(timespec64/itimerspec64), since 32-bit time types will break in the year 2038.
-
-This patch series introduces new methods with timespec64/itimerspec64 type,
-and removes the old ones with timespec/itimerspec type for posix_clock_operations
-and k_clock structure.
-
-Also introduces some new functions with timespec64/itimerspec64 type, like current_kernel_time64(),
-hrtimer_get_res64(), cputime_to_timespec64() and timespec64_to_cputime().
-
-Changes since V1:
-	-Split some patch into small patch.
-	-Change the methods for converting the syscall and add some default function for new 64bit methods for syscall function.
-	-Introduce the new function do_sys_settimeofday64() and move do_sys_settimeofday() function to head file.
-	-Modify the EXPORT_SYMPOL issue.
-	-Add new 64bit methods in cputime_nsecs.h file.
-	-Modify some patch logs.
-
-Baolin Wang (15):
-  linux/time64.h:Introduce the 'struct itimerspec64' for 64bit
-  timekeeping:Introduce the current_kernel_time64() function with
-    timespec64 type
-  time/hrtimer:Introduce hrtimer_get_res64() with timespec64 type for
-    getting the timer resolution
-  posix timers:Introduce the 64bit methods with timespec64 type for
-    k_clock structure
-  posix-timers:Split out the guts of the syscall and change the
-    implementation
-  posix-timers:Convert to the 64bit methods for the syscall function
-  time:Introduce the do_sys_settimeofday64() function with timespec64
-    type
-  time/posix-timers:Convert to the 64bit methods for k_clock callback
-    functions
-  char/mmtimer:Convert to the 64bit methods for k_clock callback
-    function
-  time/alarmtimer:Convert to the new methods for k_clock structure
-  time/posix-clock:Convert to the 64bit methods for k_clock and
-    posix_clock_operations structure
-  time/time:Introduce the timespec64_to_jiffies/jiffies_to_timespec64
-    function
-  cputime:Introduce the cputime_to_timespec64/timespec64_to_cputime
-    function
-  time/posix-cpu-timers:Convert to the 64bit methods for k_clock
-    structure
-  k_clock:Remove the 32bit methods with timespec/itimerspec type
-
- arch/powerpc/include/asm/cputime.h    |    6 +-
- arch/s390/include/asm/cputime.h       |    8 +-
- drivers/char/mmtimer.c                |   36 +++--
- drivers/ptp/ptp_clock.c               |   26 +---
- include/asm-generic/cputime_jiffies.h |   10 +-
- include/asm-generic/cputime_nsecs.h   |    4 +-
- include/linux/cputime.h               |   15 ++
- include/linux/hrtimer.h               |   12 +-
- include/linux/jiffies.h               |   21 ++-
- include/linux/posix-clock.h           |   10 +-
- include/linux/posix-timers.h          |   18 +--
- include/linux/time64.h                |   35 +++++
- include/linux/timekeeping.h           |   26 +++-
- kernel/time/alarmtimer.c              |   43 +++---
- kernel/time/hrtimer.c                 |   10 +-
- kernel/time/posix-clock.c             |   20 +--
- kernel/time/posix-cpu-timers.c        |   83 +++++-----
- kernel/time/posix-timers.c            |  269 ++++++++++++++++++++++-----------
- kernel/time/time.c                    |   22 +--
- kernel/time/timekeeping.c             |    6 +-
- kernel/time/timekeeping.h             |    2 +-
- 21 files changed, 428 insertions(+), 254 deletions(-)
-
--- 
-1.7.9.5
+VGhpcyBwYXRjaCBjb252ZXJ0cyB0aGUgcG9zaXggY2xvY2sgb3BlcmF0aW9ucyBvdmVyIHRvIHRo
+ZSBuZXcgbWV0aG9kcyB3aXRoCnRpbWVzcGVjNjQvaXRpbWVyc3BlYzY0IHR5cGUgdG8gbWFraW5n
+IHRoZW0gcmVhZHkgZm9yIDIwMzgsIGFuZCBpdCBpcyBiYXNlZCBvbgp0aGUgcHRwIHBhdGNoIHNl
+cmllcy4KCkFuZCBhbHNvIGNoYW5nZXMgdG8gdGhlIDY0Yml0IG1ldGhvZHMgZm9yIGtfY2xvY2sg
+c3RydWN0dXJlLCB0aGF0CmNvbnZlcnRzIHRoZSB0aW1lc3BlYy9pdGltZXJzcGVjIHR5cGUgdG8g
+dGltZXNwZWM2NC9pdGltZXJzcGVjNjQgdHlwZS4KClNpZ25lZC1vZmYtYnk6IEJhb2xpbiBXYW5n
+IDxiYW9saW4ud2FuZ0BsaW5hcm8ub3JnPgotLS0KIGRyaXZlcnMvcHRwL3B0cF9jbG9jay5jICAg
+ICB8ICAgMjYgKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0KIGluY2x1ZGUvbGludXgvcG9zaXgt
+Y2xvY2suaCB8ICAgMTAgKysrKystLS0tLQoga2VybmVsL3RpbWUvcG9zaXgtY2xvY2suYyAgIHwg
+ICAyMCArKysrKysrKysrLS0tLS0tLS0tLQogMyBmaWxlcyBjaGFuZ2VkLCAyMyBpbnNlcnRpb25z
+KCspLCAzMyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL3B0cC9wdHBfY2xvY2su
+YyBiL2RyaXZlcnMvcHRwL3B0cF9jbG9jay5jCmluZGV4IGJlZTgyNzAuLjhjMDg2ZTcgMTAwNjQ0
+Ci0tLSBhL2RyaXZlcnMvcHRwL3B0cF9jbG9jay5jCisrKyBiL2RyaXZlcnMvcHRwL3B0cF9jbG9j
+ay5jCkBAIC05NywzMiArOTcsMjQgQEAgc3RhdGljIHMzMiBzY2FsZWRfcHBtX3RvX3BwYihsb25n
+IHBwbSkKIAogLyogcG9zaXggY2xvY2sgaW1wbGVtZW50YXRpb24gKi8KIAotc3RhdGljIGludCBw
+dHBfY2xvY2tfZ2V0cmVzKHN0cnVjdCBwb3NpeF9jbG9jayAqcGMsIHN0cnVjdCB0aW1lc3BlYyAq
+dHApCitzdGF0aWMgaW50IHB0cF9jbG9ja19nZXRyZXMoc3RydWN0IHBvc2l4X2Nsb2NrICpwYywg
+c3RydWN0IHRpbWVzcGVjNjQgKnRwKQogewogCXRwLT50dl9zZWMgPSAwOwogCXRwLT50dl9uc2Vj
+ID0gMTsKIAlyZXR1cm4gMDsKIH0KIAotc3RhdGljIGludCBwdHBfY2xvY2tfc2V0dGltZShzdHJ1
+Y3QgcG9zaXhfY2xvY2sgKnBjLCBjb25zdCBzdHJ1Y3QgdGltZXNwZWMgKnRwKQorc3RhdGljIGlu
+dCBwdHBfY2xvY2tfc2V0dGltZShzdHJ1Y3QgcG9zaXhfY2xvY2sgKnBjLAorCQkJCWNvbnN0IHN0
+cnVjdCB0aW1lc3BlYzY0ICp0cCkKIHsKIAlzdHJ1Y3QgcHRwX2Nsb2NrICpwdHAgPSBjb250YWlu
+ZXJfb2YocGMsIHN0cnVjdCBwdHBfY2xvY2ssIGNsb2NrKTsKLQlzdHJ1Y3QgdGltZXNwZWM2NCB0
+cyA9IHRpbWVzcGVjX3RvX3RpbWVzcGVjNjQoKnRwKTsKLQotCXJldHVybiBwdHAtPmluZm8tPnNl
+dHRpbWU2NChwdHAtPmluZm8sICZ0cyk7CisJcmV0dXJuIHB0cC0+aW5mby0+c2V0dGltZTY0KHB0
+cC0+aW5mbywgdHApOwogfQogCi1zdGF0aWMgaW50IHB0cF9jbG9ja19nZXR0aW1lKHN0cnVjdCBw
+b3NpeF9jbG9jayAqcGMsIHN0cnVjdCB0aW1lc3BlYyAqdHApCitzdGF0aWMgaW50IHB0cF9jbG9j
+a19nZXR0aW1lKHN0cnVjdCBwb3NpeF9jbG9jayAqcGMsIHN0cnVjdCB0aW1lc3BlYzY0ICp0cCkK
+IHsKIAlzdHJ1Y3QgcHRwX2Nsb2NrICpwdHAgPSBjb250YWluZXJfb2YocGMsIHN0cnVjdCBwdHBf
+Y2xvY2ssIGNsb2NrKTsKLQlzdHJ1Y3QgdGltZXNwZWM2NCB0czsKLQlpbnQgZXJyOwotCi0JZXJy
+ID0gcHRwLT5pbmZvLT5nZXR0aW1lNjQocHRwLT5pbmZvLCAmdHMpOwotCWlmICghZXJyKQotCQkq
+dHAgPSB0aW1lc3BlYzY0X3RvX3RpbWVzcGVjKHRzKTsKLQotCXJldHVybiBlcnI7CisJcmV0dXJu
+IHB0cC0+aW5mby0+Z2V0dGltZTY0KHB0cC0+aW5mbywgdHApOwogfQogCiBzdGF0aWMgaW50IHB0
+cF9jbG9ja19hZGp0aW1lKHN0cnVjdCBwb3NpeF9jbG9jayAqcGMsIHN0cnVjdCB0aW1leCAqdHgp
+CkBAIC0xMzQsOCArMTI2LDcgQEAgc3RhdGljIGludCBwdHBfY2xvY2tfYWRqdGltZShzdHJ1Y3Qg
+cG9zaXhfY2xvY2sgKnBjLCBzdHJ1Y3QgdGltZXggKnR4KQogCW9wcyA9IHB0cC0+aW5mbzsKIAog
+CWlmICh0eC0+bW9kZXMgJiBBREpfU0VUT0ZGU0VUKSB7Ci0JCXN0cnVjdCB0aW1lc3BlYyB0czsK
+LQkJa3RpbWVfdCBrdDsKKwkJc3RydWN0IHRpbWVzcGVjNjQgdHM7CiAJCXM2NCBkZWx0YTsKIAog
+CQl0cy50dl9zZWMgID0gdHgtPnRpbWUudHZfc2VjOwpAQCAtMTQ3LDggKzEzOCw3IEBAIHN0YXRp
+YyBpbnQgcHRwX2Nsb2NrX2FkanRpbWUoc3RydWN0IHBvc2l4X2Nsb2NrICpwYywgc3RydWN0IHRp
+bWV4ICp0eCkKIAkJaWYgKCh1bnNpZ25lZCBsb25nKSB0cy50dl9uc2VjID49IE5TRUNfUEVSX1NF
+QykKIAkJCXJldHVybiAtRUlOVkFMOwogCi0JCWt0ID0gdGltZXNwZWNfdG9fa3RpbWUodHMpOwot
+CQlkZWx0YSA9IGt0aW1lX3RvX25zKGt0KTsKKwkJZGVsdGEgPSB0aW1lc3BlYzY0X3RvX25zKCZ0
+cyk7CiAJCWVyciA9IG9wcy0+YWRqdGltZShvcHMsIGRlbHRhKTsKIAl9IGVsc2UgaWYgKHR4LT5t
+b2RlcyAmIEFESl9GUkVRVUVOQ1kpIHsKIAkJczMyIHBwYiA9IHNjYWxlZF9wcG1fdG9fcHBiKHR4
+LT5mcmVxKTsKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvcG9zaXgtY2xvY2suaCBiL2luY2x1
+ZGUvbGludXgvcG9zaXgtY2xvY2suaAppbmRleCAzNGM0NDk4Li5mZDdlMjJjIDEwMDY0NAotLS0g
+YS9pbmNsdWRlL2xpbnV4L3Bvc2l4LWNsb2NrLmgKKysrIGIvaW5jbHVkZS9saW51eC9wb3NpeC1j
+bG9jay5oCkBAIC01OSwyMyArNTksMjMgQEAgc3RydWN0IHBvc2l4X2Nsb2NrX29wZXJhdGlvbnMg
+ewogCiAJaW50ICAoKmNsb2NrX2FkanRpbWUpKHN0cnVjdCBwb3NpeF9jbG9jayAqcGMsIHN0cnVj
+dCB0aW1leCAqdHgpOwogCi0JaW50ICAoKmNsb2NrX2dldHRpbWUpKHN0cnVjdCBwb3NpeF9jbG9j
+ayAqcGMsIHN0cnVjdCB0aW1lc3BlYyAqdHMpOworCWludCAgKCpjbG9ja19nZXR0aW1lKShzdHJ1
+Y3QgcG9zaXhfY2xvY2sgKnBjLCBzdHJ1Y3QgdGltZXNwZWM2NCAqdHMpOwogCi0JaW50ICAoKmNs
+b2NrX2dldHJlcykgKHN0cnVjdCBwb3NpeF9jbG9jayAqcGMsIHN0cnVjdCB0aW1lc3BlYyAqdHMp
+OworCWludCAgKCpjbG9ja19nZXRyZXMpKHN0cnVjdCBwb3NpeF9jbG9jayAqcGMsIHN0cnVjdCB0
+aW1lc3BlYzY0ICp0cyk7CiAKIAlpbnQgICgqY2xvY2tfc2V0dGltZSkoc3RydWN0IHBvc2l4X2Ns
+b2NrICpwYywKLQkJCSAgICAgIGNvbnN0IHN0cnVjdCB0aW1lc3BlYyAqdHMpOworCQkJICAgICAg
+Y29uc3Qgc3RydWN0IHRpbWVzcGVjNjQgKnRzKTsKIAogCWludCAgKCp0aW1lcl9jcmVhdGUpIChz
+dHJ1Y3QgcG9zaXhfY2xvY2sgKnBjLCBzdHJ1Y3Qga19pdGltZXIgKmtpdCk7CiAKIAlpbnQgICgq
+dGltZXJfZGVsZXRlKSAoc3RydWN0IHBvc2l4X2Nsb2NrICpwYywgc3RydWN0IGtfaXRpbWVyICpr
+aXQpOwogCiAJdm9pZCAoKnRpbWVyX2dldHRpbWUpKHN0cnVjdCBwb3NpeF9jbG9jayAqcGMsCi0J
+CQkgICAgICBzdHJ1Y3Qga19pdGltZXIgKmtpdCwgc3RydWN0IGl0aW1lcnNwZWMgKnRzcCk7CisJ
+CQkgICAgICBzdHJ1Y3Qga19pdGltZXIgKmtpdCwgc3RydWN0IGl0aW1lcnNwZWM2NCAqdHNwKTsK
+IAogCWludCAgKCp0aW1lcl9zZXR0aW1lKShzdHJ1Y3QgcG9zaXhfY2xvY2sgKnBjLAogCQkJICAg
+ICAgc3RydWN0IGtfaXRpbWVyICpraXQsIGludCBmbGFncywKLQkJCSAgICAgIHN0cnVjdCBpdGlt
+ZXJzcGVjICp0c3AsIHN0cnVjdCBpdGltZXJzcGVjICpvbGQpOworCQkJICAgICAgc3RydWN0IGl0
+aW1lcnNwZWM2NCAqdHNwLCBzdHJ1Y3QgaXRpbWVyc3BlYzY0ICpvbGQpOwogCS8qCiAJICogT3B0
+aW9uYWwgY2hhcmFjdGVyIGRldmljZSBtZXRob2RzOgogCSAqLwpkaWZmIC0tZ2l0IGEva2VybmVs
+L3RpbWUvcG9zaXgtY2xvY2suYyBiL2tlcm5lbC90aW1lL3Bvc2l4LWNsb2NrLmMKaW5kZXggY2Uw
+MzNjNy4uZTIxZTRjMSAxMDA2NDQKLS0tIGEva2VybmVsL3RpbWUvcG9zaXgtY2xvY2suYworKysg
+Yi9rZXJuZWwvdGltZS9wb3NpeC1jbG9jay5jCkBAIC0yOTcsNyArMjk3LDcgQEAgb3V0OgogCXJl
+dHVybiBlcnI7CiB9CiAKLXN0YXRpYyBpbnQgcGNfY2xvY2tfZ2V0dGltZShjbG9ja2lkX3QgaWQs
+IHN0cnVjdCB0aW1lc3BlYyAqdHMpCitzdGF0aWMgaW50IHBjX2Nsb2NrX2dldHRpbWUoY2xvY2tp
+ZF90IGlkLCBzdHJ1Y3QgdGltZXNwZWM2NCAqdHMpCiB7CiAJc3RydWN0IHBvc2l4X2Nsb2NrX2Rl
+c2MgY2Q7CiAJaW50IGVycjsKQEAgLTMxNiw3ICszMTYsNyBAQCBzdGF0aWMgaW50IHBjX2Nsb2Nr
+X2dldHRpbWUoY2xvY2tpZF90IGlkLCBzdHJ1Y3QgdGltZXNwZWMgKnRzKQogCXJldHVybiBlcnI7
+CiB9CiAKLXN0YXRpYyBpbnQgcGNfY2xvY2tfZ2V0cmVzKGNsb2NraWRfdCBpZCwgc3RydWN0IHRp
+bWVzcGVjICp0cykKK3N0YXRpYyBpbnQgcGNfY2xvY2tfZ2V0cmVzKGNsb2NraWRfdCBpZCwgc3Ry
+dWN0IHRpbWVzcGVjNjQgKnRzKQogewogCXN0cnVjdCBwb3NpeF9jbG9ja19kZXNjIGNkOwogCWlu
+dCBlcnI7CkBAIC0zMzUsNyArMzM1LDcgQEAgc3RhdGljIGludCBwY19jbG9ja19nZXRyZXMoY2xv
+Y2tpZF90IGlkLCBzdHJ1Y3QgdGltZXNwZWMgKnRzKQogCXJldHVybiBlcnI7CiB9CiAKLXN0YXRp
+YyBpbnQgcGNfY2xvY2tfc2V0dGltZShjbG9ja2lkX3QgaWQsIGNvbnN0IHN0cnVjdCB0aW1lc3Bl
+YyAqdHMpCitzdGF0aWMgaW50IHBjX2Nsb2NrX3NldHRpbWUoY2xvY2tpZF90IGlkLCBjb25zdCBz
+dHJ1Y3QgdGltZXNwZWM2NCAqdHMpCiB7CiAJc3RydWN0IHBvc2l4X2Nsb2NrX2Rlc2MgY2Q7CiAJ
+aW50IGVycjsKQEAgLTM5OSw3ICszOTksNyBAQCBzdGF0aWMgaW50IHBjX3RpbWVyX2RlbGV0ZShz
+dHJ1Y3Qga19pdGltZXIgKmtpdCkKIAlyZXR1cm4gZXJyOwogfQogCi1zdGF0aWMgdm9pZCBwY190
+aW1lcl9nZXR0aW1lKHN0cnVjdCBrX2l0aW1lciAqa2l0LCBzdHJ1Y3QgaXRpbWVyc3BlYyAqdHMp
+CitzdGF0aWMgdm9pZCBwY190aW1lcl9nZXR0aW1lKHN0cnVjdCBrX2l0aW1lciAqa2l0LCBzdHJ1
+Y3QgaXRpbWVyc3BlYzY0ICp0cykKIHsKIAljbG9ja2lkX3QgaWQgPSBraXQtPml0X2Nsb2NrOwog
+CXN0cnVjdCBwb3NpeF9jbG9ja19kZXNjIGNkOwpAQCAtNDE0LDcgKzQxNCw3IEBAIHN0YXRpYyB2
+b2lkIHBjX3RpbWVyX2dldHRpbWUoc3RydWN0IGtfaXRpbWVyICpraXQsIHN0cnVjdCBpdGltZXJz
+cGVjICp0cykKIH0KIAogc3RhdGljIGludCBwY190aW1lcl9zZXR0aW1lKHN0cnVjdCBrX2l0aW1l
+ciAqa2l0LCBpbnQgZmxhZ3MsCi0JCQkgICAgc3RydWN0IGl0aW1lcnNwZWMgKnRzLCBzdHJ1Y3Qg
+aXRpbWVyc3BlYyAqb2xkKQorCQkJICAgIHN0cnVjdCBpdGltZXJzcGVjNjQgKnRzLCBzdHJ1Y3Qg
+aXRpbWVyc3BlYzY0ICpvbGQpCiB7CiAJY2xvY2tpZF90IGlkID0ga2l0LT5pdF9jbG9jazsKIAlz
+dHJ1Y3QgcG9zaXhfY2xvY2tfZGVzYyBjZDsKQEAgLTQzNSwxMiArNDM1LDEyIEBAIHN0YXRpYyBp
+bnQgcGNfdGltZXJfc2V0dGltZShzdHJ1Y3Qga19pdGltZXIgKmtpdCwgaW50IGZsYWdzLAogfQog
+CiBzdHJ1Y3Qga19jbG9jayBjbG9ja19wb3NpeF9keW5hbWljID0gewotCS5jbG9ja19nZXRyZXMJ
+PSBwY19jbG9ja19nZXRyZXMsCi0JLmNsb2NrX3NldAk9IHBjX2Nsb2NrX3NldHRpbWUsCi0JLmNs
+b2NrX2dldAk9IHBjX2Nsb2NrX2dldHRpbWUsCisJLmNsb2NrX2dldHJlczY0CT0gcGNfY2xvY2tf
+Z2V0cmVzLAorCS5jbG9ja19zZXQ2NAk9IHBjX2Nsb2NrX3NldHRpbWUsCisJLmNsb2NrX2dldDY0
+CT0gcGNfY2xvY2tfZ2V0dGltZSwKIAkuY2xvY2tfYWRqCT0gcGNfY2xvY2tfYWRqdGltZSwKIAku
+dGltZXJfY3JlYXRlCT0gcGNfdGltZXJfY3JlYXRlLAotCS50aW1lcl9zZXQJPSBwY190aW1lcl9z
+ZXR0aW1lLAorCS50aW1lcl9zZXQ2NAk9IHBjX3RpbWVyX3NldHRpbWUsCiAJLnRpbWVyX2RlbAk9
+IHBjX3RpbWVyX2RlbGV0ZSwKLQkudGltZXJfZ2V0CT0gcGNfdGltZXJfZ2V0dGltZSwKKwkudGlt
+ZXJfZ2V0NjQJPSBwY190aW1lcl9nZXR0aW1lLAogfTsKLS0gCjEuNy45LjUKCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClkyMDM4IG1haWxpbmcgbGlzdApZ
+MjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGluYXJvLm9yZy9tYWlsbWFuL2xp
+c3RpbmZvL3kyMDM4Cg==
