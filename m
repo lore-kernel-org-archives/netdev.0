@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/rds: fix unaligned memory access
-Date: Thu, 30 Apr 2015 11:44:03 -0400 (EDT)
-Message-ID: <20150430.114403.2012017340124788492.davem@davemloft.net>
-References: <1430404073-16879-1-git-send-email-david.ahern@oracle.com>
+Subject: Re: [PATCH] tcp: set SOCK_NOSPACE under memory presure
+Date: Thu, 30 Apr 2015 11:44:38 -0400 (EDT)
+Message-ID: <20150430.114438.1344047101033865261.davem@davemloft.net>
+References: <20150421.173300.553980773035401270.davem@davemloft.net>
+	<5537AF76.1020108@akamai.com>
+	<55423D69.7000907@akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	shamir.rabinovitch@oracle.com
-To: david.ahern@oracle.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: jbaron@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57234 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57239 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbbD3PoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 11:44:08 -0400
-In-Reply-To: <1430404073-16879-1-git-send-email-david.ahern@oracle.com>
+	with ESMTP id S1750710AbbD3Pom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 11:44:42 -0400
+In-Reply-To: <55423D69.7000907@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <david.ahern@oracle.com>
-Date: Thu, 30 Apr 2015 10:27:53 -0400
+From: Jason Baron <jbaron@akamai.com>
+Date: Thu, 30 Apr 2015 10:34:17 -0400
 
-> @@ -183,8 +183,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
->  
->  	/* If the peer gave us the last packet it saw, process this as if
->  	 * we had received a regular ACK. */
-> -	if (dp && dp->dp_ack_seq)
-> -		rds_send_drop_acked(conn, be64_to_cpu(dp->dp_ack_seq), NULL);
-> +	if (dp) {
-> +		/* dp structure start is not guaranteed to be 8 bytes aligned
-> +		 * so on SPARC we get trap for nu-aligned access. we solve
-> +		 * this by using the macros for unaligned memory access
-> +		 */
+> Just curious if anybody had any further reaction on this issue.
+> I think making the epoll edge trigger case, as least match what
+> we are seeing for poll()/select()/epoll() level trigger seems
+> reasonable here.
 
-"nu-aligned" is misspelled, and Mentioning sparc specifically is completely
-inappropriate because this is not a sparc specific problem.
+It's in my inbox and looking into this is on my TODO list.
+
+I simply lack the time right now and you will need to be
+patient.
