@@ -1,88 +1,39 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #3 5/8] via-rhine: kiss rx_head_desc goodbye.
-Date: Fri,  1 May 2015 22:14:42 +0200
-Message-ID: <e5bf15dc3bcf558ea3115310bf85fb2cd4bd1b0f.1430509434.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #3 1/8] via-rhine: commit receive buffer address before descriptor status update.
+Date: Fri,  1 May 2015 22:14:38 +0200
+Message-ID: <ba587daa13881f47b02df778a534e0a39a5222ec.1430509434.git.romieu@fr.zoreil.com>
 References: <cover.1430509434.git.romieu@fr.zoreil.com>
 Cc: David Miller <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
 	Roger.Luethi.rl@hellgate.ch,
 	Bjarke Istrup Pedersen <gurligebis@gentoo.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51009 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51003 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752195AbbEAUPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:15:17 -0400
+	with ESMTP id S1751305AbbEAUPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:15:12 -0400
 In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
 In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
 References: <cover.1430509434.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver no longer produces holes in its receive ring so rx_head_desc
-only duplicates cur_rx.
-
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/via/via-rhine.c | 13 +++----------
- 1 file changed, 3 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 8d322bb..fede9fc 100644
+index de28504..88b45c7 100644
 --- a/drivers/net/ethernet/via/via-rhine.c
 +++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -472,7 +472,6 @@ struct rhine_private {
- 
- 	/* Frequently used values: keep some adjacent for cache effect. */
- 	u32 quirks;
--	struct rx_desc *rx_head_desc;
- 	unsigned int cur_rx;
- 	unsigned int cur_tx, dirty_tx;
- 	unsigned int rx_buf_sz;		/* Based on MTU+slack. */
-@@ -1244,7 +1243,6 @@ static void rhine_reset_rbufs(struct rhine_private *rp)
- 	int i;
- 
- 	rp->cur_rx = 0;
--	rp->rx_head_desc = rp->rx_ring;
- 
- 	for (i = 0; i < RX_RING_SIZE; i++)
- 		rp->rx_ring[i].rx_status = cpu_to_le32(DescOwn);
-@@ -2000,15 +1998,15 @@ static int rhine_rx(struct net_device *dev, int limit)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
- 	struct device *hwdev = dev->dev.parent;
--	int count;
- 	int entry = rp->cur_rx % RX_RING_SIZE;
-+	int count;
- 
- 	netif_dbg(rp, rx_status, dev, "%s(), entry %d status %08x\n", __func__,
--		  entry, le32_to_cpu(rp->rx_head_desc->rx_status));
-+		  entry, le32_to_cpu(rp->rx_ring[entry].rx_status));
- 
- 	/* If EOP is set on the next entry, it's a new packet. Send it up. */
- 	for (count = 0; count < limit; ++count) {
--		struct rx_desc *desc = rp->rx_head_desc;
-+		struct rx_desc *desc = rp->rx_ring + entry;
- 		u32 desc_status = le32_to_cpu(desc->rx_status);
- 		u32 desc_length = le32_to_cpu(desc->desc_length);
- 		int data_size = desc_status >> 16;
-@@ -2026,10 +2024,6 @@ static int rhine_rx(struct net_device *dev, int limit)
- 	"entry %#x length %d status %08x!\n",
- 					    entry, data_size,
- 					    desc_status);
--				netdev_warn(dev,
--					    "Oversized Ethernet frame %p vs %p\n",
--					    rp->rx_head_desc,
--					    &rp->rx_ring[entry]);
- 				dev->stats.rx_length_errors++;
- 			} else if (desc_status & RxErr) {
- 				/* There was a error. */
-@@ -2110,7 +2104,6 @@ static int rhine_rx(struct net_device *dev, int limit)
- give_descriptor_to_nic:
- 		desc->rx_status = cpu_to_le32(DescOwn);
- 		entry = (++rp->cur_rx) % RX_RING_SIZE;
--		rp->rx_head_desc = &rp->rx_ring[entry];
+@@ -2075,6 +2075,7 @@ static int rhine_rx(struct net_device *dev, int limit)
+ 				break;
+ 			}
+ 			rp->rx_ring[entry].addr = cpu_to_le32(rp->rx_skbuff_dma[entry]);
++			dma_wmb();
+ 		}
+ 		rp->rx_ring[entry].rx_status = cpu_to_le32(DescOwn);
  	}
- 
- 	return count;
 -- 
 Ueimor
