@@ -1,74 +1,82 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v2 net-next] tc: remove unused redirect ttl
-Date: Thu, 30 Apr 2015 20:11:36 -0700
-Message-ID: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Subject: [PATCH net-next] net: sched: run ingress qdisc without locks
+Date: Thu, 30 Apr 2015 20:14:07 -0700
+Message-ID: <1430450047-5671-1-git-send-email-ast@plumgrid.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:35287 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753132AbbEADLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 23:11:43 -0400
-Received: by pdbqd1 with SMTP id qd1so80055073pdb.2
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 20:11:42 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36216 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753262AbbEADOP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 23:14:15 -0400
+Received: by pabsx10 with SMTP id sx10so78850621pab.3
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 20:14:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
+TC classifiers/actions were converted to RCU by John in the series:
+http://thread.gmane.org/gmane.linux.network/329739/focus=329739
+and many follow on patches.
+This is the last patch from that series that finally drops
+ingress spin_lock.
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Single cpu ingress+u32 performance goes from 22.9 Mpps to 24.5 Mpps.
+
+In two cpu case when both cores are receiving traffic on the same
+device and go into the same ingress+u32 the performance jumps
+from 4.5 + 4.5 Mpps to 23.5 + 23.5 Mpps
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
-The code is from Jamal. I only did testing and benchmarking.
+All the credit goes to John. I merely tested and benchmarked.
 
-V1->V2: missed removal of unused 'dev' variable.
+ net/core/dev.c          |    2 --
+ net/sched/sch_ingress.c |    5 +++--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
- include/uapi/linux/pkt_cls.h |    2 ++
- net/core/dev.c               |    9 ---------
- 2 files changed, 2 insertions(+), 9 deletions(-)
-
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index bf08e76bf505..f6344a522cd6 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -62,11 +62,13 @@ bits 9,10,11: redirect counter -  redirect TTL. Loop avoidance
- #define SET_TC_NCLS(v)   ( TC_NCLS | (v & ~TC_NCLS))
- #define CLR_TC_NCLS(v)   ( v & ~TC_NCLS)
- 
-+#ifndef __KERNEL__
- #define S_TC_RTTL          _TC_MAKE32(9)
- #define M_TC_RTTL          _TC_MAKEMASK(3,S_TC_RTTL)
- #define G_TC_RTTL(x)       _TC_GETVALUE(x,S_TC_RTTL,M_TC_RTTL)
- #define V_TC_RTTL(x)       _TC_MAKEVALUE(x,S_TC_RTTL)
- #define SET_TC_RTTL(v,n)   ((V_TC_RTTL(n)) | (v & ~M_TC_RTTL))
-+#endif
- 
- #define S_TC_AT          _TC_MAKE32(12)
- #define M_TC_AT          _TC_MAKEMASK(2,S_TC_AT)
 diff --git a/net/core/dev.c b/net/core/dev.c
-index c7ba0388f1be..97a15ae8d07a 100644
+index 97a15ae8d07a..862875ec8f2f 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -3531,18 +3531,9 @@ EXPORT_SYMBOL_GPL(br_fdb_test_addr_hook);
-  */
- static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
- {
--	struct net_device *dev = skb->dev;
--	u32 ttl = G_TC_RTTL(skb->tc_verd);
- 	int result = TC_ACT_OK;
- 	struct Qdisc *q;
- 
--	if (unlikely(MAX_RED_LOOP < ttl++)) {
--		net_warn_ratelimited("Redir loop detected Dropping packet (%d->%d)\n",
--				     skb->skb_iif, dev->ifindex);
--		return TC_ACT_SHOT;
--	}
--
--	skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
- 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
+@@ -3538,10 +3538,8 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
  
  	q = rcu_dereference(rxq->qdisc);
+ 	if (q != &noop_qdisc) {
+-		spin_lock(qdisc_lock(q));
+ 		if (likely(!test_bit(__QDISC_STATE_DEACTIVATED, &q->state)))
+ 			result = qdisc_enqueue_root(skb, q);
+-		spin_unlock(qdisc_lock(q));
+ 	}
+ 
+ 	return result;
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+index 4cdbfb85686a..a89cc3278bfb 100644
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -65,11 +65,11 @@ static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 
+ 	result = tc_classify(skb, fl, &res);
+ 
+-	qdisc_bstats_update(sch, skb);
++	qdisc_bstats_update_cpu(sch, skb);
+ 	switch (result) {
+ 	case TC_ACT_SHOT:
+ 		result = TC_ACT_SHOT;
+-		qdisc_qstats_drop(sch);
++		qdisc_qstats_drop_cpu(sch);
+ 		break;
+ 	case TC_ACT_STOLEN:
+ 	case TC_ACT_QUEUED:
+@@ -91,6 +91,7 @@ static int ingress_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	net_inc_ingress_queue();
++	sch->flags |= TCQ_F_CPUSTATS;
+ 
+ 	return 0;
+ }
 -- 
 1.7.9.5
