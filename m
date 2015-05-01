@@ -1,47 +1,42 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH 2/3] r8169: Use dev_kfree_skb in Tx cleanup path
-Date: Fri, 01 May 2015 14:06:35 +0200
-Message-ID: <55436C4B.7090509@gmx.de>
-References: <20150430205423.1512.13487.stgit@ahduyck-vm-fedora22> <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22> <20150501093420.GA11669@electric-eye.fr.zoreil.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] net: sched: run ingress qdisc without locks
+Date: Fri, 01 May 2015 08:08:18 -0400
+Message-ID: <55436CB2.9070506@mojatatu.com>
+References: <1430450047-5671-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	Dept-HSGLinuxNICDev@qlogic.com, sony.chacko@qlogic.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	davem@davemloft.net, ebiederm@xmission.com
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:57309 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753463AbbEAMHY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 May 2015 08:07:24 -0400
-In-Reply-To: <20150501093420.GA11669@electric-eye.fr.zoreil.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:35517 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753503AbbEAMIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 08:08:20 -0400
+Received: by iejt8 with SMTP id t8so87692868iej.2
+        for <netdev@vger.kernel.org>; Fri, 01 May 2015 05:08:20 -0700 (PDT)
+In-Reply-To: <1430450047-5671-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.05.2015 11:34, Francois Romieu wrote:
-> Alexander Duyck <alexander.h.duyck@redhat.com> :
->> This change replaces the use of either dev_kfree_skb_any or
->> dev_consume_skb_any in the Tx cleanup path of this driver with
->> dev_kfree_skb.  There isn't any need for the "_any" version of these
->> functions since the NAPI cleanup context is not a hard irq context.
-> 
-> netconsole ?
-> 
-> __dev_kfree_skb_any contains a big "if (... || irqs_disabled())" test
-> and the NAPI poll handler is called with irq disabled from
-> netpoll_send_skb_on_dev.
-> 
+On 04/30/15 23:14, Alexei Starovoitov wrote:
+> TC classifiers/actions were converted to RCU by John in the series:
+> http://thread.gmane.org/gmane.linux.network/329739/focus=329739
+> and many follow on patches.
+> This is the last patch from that series that finally drops
+> ingress spin_lock.
+>
 
-Indeed. Also there have been changes from Eric Biederman not long ago,
-which did just the opposite: replace dev_kfree() with dev_kfree_any()
-for that reason. See
+As the culprit who added this lock I would like to offer a kudos
+to John for the hard work. Alexei thanks for the hard work in
+pursuing this further.
+And to the rest of the community who has been beating up on me
+all these years, you can stop now ;->
 
-http://marc.info/?l=linux-stable-commits&m=142965098111361&w=2
+I think this at least deserves a:
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-[CCing Eric]
-
-Regards,
-Lino
+cheers,
+jamal
