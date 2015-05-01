@@ -1,28 +1,32 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next] tc: remove unused redirect ttl
-Date: Fri, 01 May 2015 14:46:08 +0200
-Message-ID: <55437590.4090404@iogearbox.net>
-References: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH -next] net: sched: remove TC_MUNGED bits
+Date: Fri, 01 May 2015 14:55:58 +0200
+Message-ID: <554377DE.6070106@iogearbox.net>
+References: <1430388720-5112-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40601 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:41166 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751122AbbEAMqM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 08:46:12 -0400
-In-Reply-To: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S1751635AbbEAM4A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 08:56:00 -0400
+In-Reply-To: <1430388720-5112-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/01/2015 05:11 AM, Alexei Starovoitov wrote:
-> improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
+On 04/30/2015 12:12 PM, Florian Westphal wrote:
+> Not used.
 >
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> pedit sets TC_MUNGED when packet content was altered, but all the core
+> does is unset MUNGED again and then set OK2MUNGE.
+>
+> And the latter isn't tested anywhere. So lets remove both
+> TC_MUNGED and TC_OK2MUNGE.
+>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+
+Also looks good, thanks Florian!
 
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
