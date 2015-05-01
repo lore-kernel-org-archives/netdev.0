@@ -1,257 +1,59 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #3 4/8] via-rhine: forbid holes in the receive descriptor ring.
-Date: Fri,  1 May 2015 22:14:41 +0200
-Message-ID: <d449ec14d9afe995936eba098215bbc0dca38277.1430509434.git.romieu@fr.zoreil.com>
-References: <cover.1430509434.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #3 0/8] via-rhine rework
+Date: Fri,  1 May 2015 22:14:37 +0200
+Message-ID: <cover.1430509434.git.romieu@fr.zoreil.com>
 Cc: David Miller <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
 	Roger.Luethi.rl@hellgate.ch,
 	Bjarke Istrup Pedersen <gurligebis@gentoo.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51006 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51004 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751201AbbEAUPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:15:16 -0400
-In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
-In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
-References: <cover.1430509434.git.romieu@fr.zoreil.com>
+	with ESMTP id S1751482AbbEAUPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:15:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rationales:
-- throttle work under memory pressure
-- lower receive descriptor recycling latency for the network adapter
-- lower the maintenance burden of uncommon paths
+The series applies against davem-next as of
+9dd3c797496affd699805c8a9d8429ad318c892f ("drivers: net: xgene: fix kbuild
+warnings").
 
-The patch is twofold:
-- it fails early if the receive ring can't be completely initialized
-  at dev->open() time
-- it drops packets on the floor in the napi receive handler so as to
-  keep the received ring full
+Patches #1..#4 avoid holes in the receive ring.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/via/via-rhine.c | 103 ++++++++++++++++++-----------------
- 1 file changed, 53 insertions(+), 50 deletions(-)
+Patch #5 is a small leftover cleanup for #1..#4.
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 91661e0..8d322bb 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -473,7 +473,7 @@ struct rhine_private {
- 	/* Frequently used values: keep some adjacent for cache effect. */
- 	u32 quirks;
- 	struct rx_desc *rx_head_desc;
--	unsigned int cur_rx, dirty_rx;	/* Producer/consumer ring indices */
-+	unsigned int cur_rx;
- 	unsigned int cur_tx, dirty_tx;
- 	unsigned int rx_buf_sz;		/* Based on MTU+slack. */
- 	struct rhine_stats rx_stats;
-@@ -1239,6 +1239,17 @@ static inline int rhine_skb_dma_init(struct net_device *dev,
- 	return 0;
- }
- 
-+static void rhine_reset_rbufs(struct rhine_private *rp)
-+{
-+	int i;
-+
-+	rp->cur_rx = 0;
-+	rp->rx_head_desc = rp->rx_ring;
-+
-+	for (i = 0; i < RX_RING_SIZE; i++)
-+		rp->rx_ring[i].rx_status = cpu_to_le32(DescOwn);
-+}
-+
- static inline void rhine_skb_dma_nic_store(struct rhine_private *rp,
- 					   struct rhine_skb_dma *sd, int entry)
- {
-@@ -1249,16 +1260,15 @@ static inline void rhine_skb_dma_nic_store(struct rhine_private *rp,
- 	dma_wmb();
- }
- 
--static void alloc_rbufs(struct net_device *dev)
-+static void free_rbufs(struct net_device* dev);
-+
-+static int alloc_rbufs(struct net_device *dev)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
- 	dma_addr_t next;
- 	int rc, i;
- 
--	rp->dirty_rx = rp->cur_rx = 0;
--
- 	rp->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
--	rp->rx_head_desc = &rp->rx_ring[0];
- 	next = rp->rx_ring_dma;
- 
- 	/* Init the ring entries */
-@@ -1277,14 +1287,17 @@ static void alloc_rbufs(struct net_device *dev)
- 		struct rhine_skb_dma sd;
- 
- 		rc = rhine_skb_dma_init(dev, &sd);
--		if (rc < 0)
--			break;
-+		if (rc < 0) {
-+			free_rbufs(dev);
-+			goto out;
-+		}
- 
- 		rhine_skb_dma_nic_store(rp, &sd, i);
--
--		rp->rx_ring[i].rx_status = cpu_to_le32(DescOwn);
- 	}
--	rp->dirty_rx = (unsigned int)(i - RX_RING_SIZE);
-+
-+	rhine_reset_rbufs(rp);
-+out:
-+	return rc;
- }
- 
- static void free_rbufs(struct net_device* dev)
-@@ -1696,7 +1709,10 @@ static int rhine_open(struct net_device *dev)
- 	if (rc < 0)
- 		goto out_free_irq;
- 
--	alloc_rbufs(dev);
-+	rc = alloc_rbufs(dev);
-+	if (rc < 0)
-+		goto out_free_ring;
-+
- 	alloc_tbufs(dev);
- 	rhine_chip_reset(dev);
- 	rhine_task_enable(rp);
-@@ -1711,6 +1727,8 @@ static int rhine_open(struct net_device *dev)
- out:
- 	return rc;
- 
-+out_free_ring:
-+	free_ring(dev);
- out_free_irq:
- 	free_irq(rp->irq, dev);
- 	goto out;
-@@ -1733,9 +1751,9 @@ static void rhine_reset_task(struct work_struct *work)
- 
- 	/* clear all descriptors */
- 	free_tbufs(dev);
--	free_rbufs(dev);
- 	alloc_tbufs(dev);
--	alloc_rbufs(dev);
-+
-+	rhine_reset_rbufs(rp);
- 
- 	/* Reinitialize the hardware. */
- 	rhine_chip_reset(dev);
-@@ -2033,16 +2051,18 @@ static int rhine_rx(struct net_device *dev, int limit)
- 				}
- 			}
- 		} else {
--			struct sk_buff *skb = NULL;
- 			/* Length should omit the CRC */
- 			int pkt_len = data_size - 4;
-+			struct sk_buff *skb;
- 			u16 vlan_tci = 0;
- 
- 			/* Check if the packet is long enough to accept without
- 			   copying to a minimally-sized skbuff. */
--			if (pkt_len < rx_copybreak)
-+			if (pkt_len < rx_copybreak) {
- 				skb = netdev_alloc_skb_ip_align(dev, pkt_len);
--			if (skb) {
-+				if (unlikely(!skb))
-+					goto drop;
-+
- 				dma_sync_single_for_cpu(hwdev,
- 							rp->rx_skbuff_dma[entry],
- 							rp->rx_buf_sz,
-@@ -2051,25 +2071,28 @@ static int rhine_rx(struct net_device *dev, int limit)
- 				skb_copy_to_linear_data(skb,
- 						 rp->rx_skbuff[entry]->data,
- 						 pkt_len);
--				skb_put(skb, pkt_len);
-+
- 				dma_sync_single_for_device(hwdev,
- 							   rp->rx_skbuff_dma[entry],
- 							   rp->rx_buf_sz,
- 							   DMA_FROM_DEVICE);
- 			} else {
-+				struct rhine_skb_dma sd;
-+
-+				if (unlikely(rhine_skb_dma_init(dev, &sd) < 0))
-+					goto drop;
-+
- 				skb = rp->rx_skbuff[entry];
--				if (skb == NULL) {
--					netdev_err(dev, "Inconsistent Rx descriptor chain\n");
--					break;
--				}
--				rp->rx_skbuff[entry] = NULL;
--				skb_put(skb, pkt_len);
-+
- 				dma_unmap_single(hwdev,
- 						 rp->rx_skbuff_dma[entry],
- 						 rp->rx_buf_sz,
- 						 DMA_FROM_DEVICE);
-+				rhine_skb_dma_nic_store(rp, &sd, entry);
- 			}
- 
-+			skb_put(skb, pkt_len);
-+
- 			if (unlikely(desc_length & DescTag))
- 				vlan_tci = rhine_get_vlan_tci(skb, data_size);
- 
-@@ -2084,36 +2107,17 @@ static int rhine_rx(struct net_device *dev, int limit)
- 			rp->rx_stats.packets++;
- 			u64_stats_update_end(&rp->rx_stats.syncp);
- 		}
-+give_descriptor_to_nic:
-+		desc->rx_status = cpu_to_le32(DescOwn);
- 		entry = (++rp->cur_rx) % RX_RING_SIZE;
- 		rp->rx_head_desc = &rp->rx_ring[entry];
- 	}
- 
--	/* Refill the Rx ring buffers. */
--	for (; rp->cur_rx - rp->dirty_rx > 0; rp->dirty_rx++) {
--		struct sk_buff *skb;
--		entry = rp->dirty_rx % RX_RING_SIZE;
--		if (rp->rx_skbuff[entry] == NULL) {
--			skb = netdev_alloc_skb(dev, rp->rx_buf_sz);
--			rp->rx_skbuff[entry] = skb;
--			if (skb == NULL)
--				break;	/* Better luck next round. */
--			rp->rx_skbuff_dma[entry] =
--				dma_map_single(hwdev, skb->data,
--					       rp->rx_buf_sz,
--					       DMA_FROM_DEVICE);
--			if (dma_mapping_error(hwdev,
--					      rp->rx_skbuff_dma[entry])) {
--				dev_kfree_skb(skb);
--				rp->rx_skbuff_dma[entry] = 0;
--				break;
--			}
--			rp->rx_ring[entry].addr = cpu_to_le32(rp->rx_skbuff_dma[entry]);
--			dma_wmb();
--		}
--		rp->rx_ring[entry].rx_status = cpu_to_le32(DescOwn);
--	}
--
- 	return count;
-+
-+drop:
-+	dev->stats.rx_dropped++;
-+	goto give_descriptor_to_nic;
- }
- 
- static void rhine_restart_tx(struct net_device *dev) {
-@@ -2518,9 +2522,8 @@ static int rhine_resume(struct device *device)
- 	enable_mmio(rp->pioaddr, rp->quirks);
- 	rhine_power_init(dev);
- 	free_tbufs(dev);
--	free_rbufs(dev);
- 	alloc_tbufs(dev);
--	alloc_rbufs(dev);
-+	rhine_reset_rbufs(rp);
- 	rhine_task_enable(rp);
- 	spin_lock_bh(&rp->lock);
- 	init_registers(dev);
+Patches #6 and #7 are fairly simple barrier stuff.
+
+Patch #8 closes some SMP transmit races - not that anyone really
+complained about these but it's a bit hard to handwave that they
+can be safely ignored. Some testing, especially SMP testing of
+course, would be welcome.
+
+. Changes since #2:
+  - added dma_rmb barrier in vlan related patch 6.
+  - s/wmb/dma_wmb/ in (*new*) patch 7 of 8.
+  - added explicit SMP barriers in (*new*) patch 8 of 8.
+
+. Changes since #1:
+  - turned wmb() into dma_wmb() as suggested by davem and Alexander Duyck
+    in patch 1 of 6.
+  - forgot to reset rx_head_desc in rhine_reset_rbufs in patch 4 of 6.
+  - removed rx_head_desc altogether in (*new*) patch 5 of 6
+  - remoed some vlan receive uglyness in (*new*) patch 6 of 6.
+
+
+Francois Romieu (8):
+  via-rhine: commit receive buffer address before descriptor status update.
+  via-rhine: allocate and map receive buffer in a single transaction
+  via-rhine: gotoize rhine_open error path.
+  via-rhine: forbid holes in the receive descriptor ring.
+  via-rhine: kiss rx_head_desc goodbye.
+  via-rhine: add consistent memory barrier in vlan receive code.
+  via-rhine: dma_wmb transmit barrier.
+  via-rhine: close SMP transmit races.
+
+ drivers/net/ethernet/via/via-rhine.c | 249 +++++++++++++++++++++++------------
+ 1 file changed, 162 insertions(+), 87 deletions(-)
+
 -- 
 Ueimor
