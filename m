@@ -1,53 +1,194 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 6/6] net: move qdisc ingress filtering on top of netfilter
- ingress hooks
-Date: Thu, 30 Apr 2015 21:15:35 -0400
-Message-ID: <5542D3B7.1060307@mojatatu.com>
-References: <20150429233205.GA3416@salvia> <55417545.30103@iogearbox.net> <20150430003019.GE7025@acer.localdomain> <55417A3A.50405@iogearbox.net> <20150430004839.GG7025@acer.localdomain> <20150430011633.GA12674@Alexeis-MBP.westell.com> <20150430013452.GA7956@acer.localdomain> <554191F9.3010301@mojatatu.com> <20150430031138.GA8950@acer.localdomain> <5542182A.800@mojatatu.com> <20150430153317.GA3230@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20150430153317.GA3230@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v2 net-next] pktgen: introduce 'rx' mode
+Date: Thu, 30 Apr 2015 18:18:47 -0700
+Message-ID: <1430443127-14408-1-git-send-email-ast@plumgrid.com>
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36451 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751100AbbEABSz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 21:18:55 -0400
+Received: by pabsx10 with SMTP id sx10so76462135pab.3
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 18:18:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo,
+Introduce 'RX' mode for pktgen which generates the packets
+using familiar pktgen commands, but feeds them into
+netif_receive_skb() instead of ndo_start_xmit().
 
-On 04/30/15 11:33, Pablo Neira Ayuso wrote:
+It is designed to test netif_receive_skb and ingress qdisc
+performace only. Make sure to understand how it works before
+using it for other rx benchmarking.
 
->
-> You keep saying that qdisc ingress outperforms, that's only right for
-> just a very slight difference when comparing it with no rules on
-> single CPU (when ported to the common playground of the generic hook
-> infrastructure). On SMP nftables will outperform, even more if the
-> ruleset is arranged in a non-linear list fashion, with all the new
-> tricks that we got.
->
+Sample script 'pktgen.sh':
+\#!/bin/bash
+function pgset() {
+  local result
 
-I am interested to see the numbers. I think this would be a great paper;
-it is extremely tempting to spend time on it.
+  echo $1 > $PGDEV
 
-> Anyway, let's take this "nftables vs. qdisc ingress" discussion to an
-> end. I think the main point of this discussion is to provide a generic
-> entry point to ingress filtering (for both qdisc ingress and nftables)
-> that, if unused, doesn't harm performance of the critical path
-> netif_receive_core() path at all. Thus, users can choose what they
-> want, I have heard you saying several times: "To each their poison"
-> and I like that.
->
+  result=`cat $PGDEV | fgrep "Result: OK:"`
+  if [ "$result" = "" ]; then
+    cat $PGDEV | fgrep Result:
+  fi
+}
 
-Yes - but my good friend Patrick is not saying that.
-I dont want to turn on netfilter in order to get tc actions on ingress.
-And i dont want to be slowed down because now the code path has become
-longer. We are trying to prune the code path. If somehow you can work to
-not affect performance then we can live well together.
+ETH=$1
 
-cheers,
-jamal
+PGDEV=/proc/net/pktgen/kpktgend_0
+pgset "rem_device_all"
+pgset "add_device $ETH"
+
+PGDEV=/proc/net/pktgen/$ETH
+pgset "rx"
+pgset "pkt_size 60"
+pgset "dst 99.1.1.2"
+pgset "dst_mac 90:e2:ba:6e:a8:e5"
+pgset "count 10000000"
+pgset "burst 32"
+
+PGDEV=/proc/net/pktgen/pgctrl
+echo "Running... ctrl^C to stop"
+pgset "start"
+echo "Done"
+cat /proc/net/pktgen/$ETH
+
+Usage:
+$ sudo ./pktgen.sh eth2
+...
+Result: OK: 232376(c232372+d3) usec, 10000000 (60byte,0frags)
+  43033682pps 20656Mb/sec (20656167360bps) errors: 10000000
+
+Raw netif_receive_skb speed should be ~43 million packet
+per second on 3.7Ghz x86 and 'perf report' should look like:
+  37.69%  kpktgend_0   [kernel.vmlinux]  [k] __netif_receive_skb_core
+  25.81%  kpktgend_0   [kernel.vmlinux]  [k] kfree_skb
+   7.22%  kpktgend_0   [kernel.vmlinux]  [k] ip_rcv
+   5.68%  kpktgend_0   [pktgen]          [k] pktgen_thread_worker
+
+if fib_table_lookup is seen on top, it means skb was processed
+by the stack. To benchmark netif_receive_skb only make sure
+that 'dst_mac' of your pktgen script is different from
+receiving device mac and it will be dropped by ip_rcv
+
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+v1->v2: as suggested by Eric:
+- dropped 'clone_skb' flag, now it will return enotsupp
+- fixed rps/rfs bug by checking skb->users after every netif_receive_skb
+- tested with RPS/RFS, taps, veth, physical devs, various tc cls/act
+
+ net/core/pktgen.c |   49 +++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 47 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 508155b283dd..d9d92365acf0 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -203,6 +203,7 @@
+ #define F_NODE          (1<<15)	/* Node memory alloc*/
+ #define F_UDPCSUM       (1<<16)	/* Include UDP checksum */
+ #define F_NO_TIMESTAMP  (1<<17)	/* Don't timestamp packets (default TS) */
++#define F_DO_RX		(1<<18)	/* generate packets for RX */
+ 
+ /* Thread control flag bits */
+ #define T_STOP        (1<<0)	/* Stop run */
+@@ -1081,7 +1082,8 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		if (len < 0)
+ 			return len;
+ 		if ((value > 0) &&
+-		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
++		    ((pkt_dev->flags & F_DO_RX) ||
++		     !(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
+ 			return -ENOTSUPP;
+ 		i += len;
+ 		pkt_dev->clone_skb = value;
+@@ -1089,6 +1091,12 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		sprintf(pg_result, "OK: clone_skb=%d", pkt_dev->clone_skb);
+ 		return count;
+ 	}
++	if (!strcmp(name, "rx")) {
++		pkt_dev->flags |= F_DO_RX;
++
++		sprintf(pg_result, "OK: RX is ON");
++		return count;
++	}
+ 	if (!strcmp(name, "count")) {
+ 		len = num_arg(&user_buffer[i], 10, &value);
+ 		if (len < 0)
+@@ -1134,7 +1142,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 			return len;
+ 
+ 		i += len;
+-		if ((value > 1) &&
++		if ((value > 1) && !(pkt_dev->flags & F_DO_RX) &&
+ 		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
+ 			return -ENOTSUPP;
+ 		pkt_dev->burst = value < 1 ? 1 : value;
+@@ -3317,6 +3325,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 	unsigned int burst = ACCESS_ONCE(pkt_dev->burst);
+ 	struct net_device *odev = pkt_dev->odev;
+ 	struct netdev_queue *txq;
++	struct sk_buff *skb;
+ 	int ret;
+ 
+ 	/* If device is offline, then don't send */
+@@ -3349,11 +3358,46 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 		pkt_dev->last_pkt_size = pkt_dev->skb->len;
+ 		pkt_dev->allocated_skbs++;
+ 		pkt_dev->clone_count = 0;	/* reset counter */
++		if (pkt_dev->flags & F_DO_RX)
++			pkt_dev->skb->protocol = eth_type_trans(pkt_dev->skb,
++								pkt_dev->skb->dev);
+ 	}
+ 
+ 	if (pkt_dev->delay && pkt_dev->last_ok)
+ 		spin(pkt_dev, pkt_dev->next_tx);
+ 
++	if (pkt_dev->flags & F_DO_RX) {
++		skb = pkt_dev->skb;
++		local_bh_disable();
++		atomic_add(burst, &skb->users);
++		do {
++			ret = netif_receive_skb(skb);
++			if (ret == NET_RX_DROP)
++				pkt_dev->errors++;
++			pkt_dev->sofar++;
++			pkt_dev->seq_num++;
++			if (atomic_read(&skb->users) != burst) {
++				/* skb was queued by rps/rfs or taps,
++				 * so cannot reuse this skb
++				 */
++				atomic_sub(burst - 1, &skb->users);
++				/* get out of the loop and wait
++				 * until skb is consumed
++				 */
++				pkt_dev->last_ok = 1;
++				pkt_dev->clone_skb = 0;
++				break;
++			} else {
++				/* skb was 'freed' by stack, so clean few
++				 * bits and reuse it
++				 */
++				skb->tc_verd = 0; /* reset reclass/redir ttl */
++			}
++		} while (--burst > 0);
++		local_bh_enable();
++		goto out;
++	}
++
+ 	txq = skb_get_tx_queue(odev, pkt_dev->skb);
+ 
+ 	local_bh_disable();
+@@ -3403,6 +3447,7 @@ unlock:
+ 
+ 	local_bh_enable();
+ 
++out:
+ 	/* If pkt_dev->count is zero, then run forever */
+ 	if ((pkt_dev->count != 0) && (pkt_dev->sofar >= pkt_dev->count)) {
+ 		pktgen_wait_for_skb(pkt_dev);
+-- 
+1.7.9.5
