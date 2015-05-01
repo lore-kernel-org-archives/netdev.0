@@ -1,46 +1,47 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 0/3] A few minor clean-ups to eth_type_trans
-Date: Fri, 1 May 2015 11:30:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB2A3B6@AcuExch.aculab.com>
-References: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
- <20150430223510.GA13111@Alexeis-MBP.westell.com> <5542B6AF.9010602@gmail.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH 2/3] r8169: Use dev_kfree_skb in Tx cleanup path
+Date: Fri, 01 May 2015 14:06:35 +0200
+Message-ID: <55436C4B.7090509@gmx.de>
+References: <20150430205423.1512.13487.stgit@ahduyck-vm-fedora22> <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22> <20150501093420.GA11669@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	Dept-HSGLinuxNICDev@qlogic.com, sony.chacko@qlogic.com,
+	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+	davem@davemloft.net, ebiederm@xmission.com
+To: Francois Romieu <romieu@fr.zoreil.com>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.194]:52337 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbbEALc2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 07:32:28 -0400
-In-Reply-To: <5542B6AF.9010602@gmail.com>
-Content-Language: en-US
+Received: from mout.gmx.net ([212.227.17.21]:57309 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753463AbbEAMHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 May 2015 08:07:24 -0400
+In-Reply-To: <20150501093420.GA11669@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck
-> Sent: 01 May 2015 00:12
-...
-> > Only the comment 'ETH_P_802_3_MIN is aligned to 512' through me off.
-> > It's divisible by 256 that matters.
+On 01.05.2015 11:34, Francois Romieu wrote:
+> Alexander Duyck <alexander.h.duyck@redhat.com> :
+>> This change replaces the use of either dev_kfree_skb_any or
+>> dev_consume_skb_any in the Tx cleanup path of this driver with
+>> dev_kfree_skb.  There isn't any need for the "_any" version of these
+>> functions since the NAPI cleanup context is not a hard irq context.
 > 
-> Yeah, it is 0x0600 hex so we can ignore the lower 8 bits, or in the case
-> of little-endian systems the upper 8 bits.  I think when I had
-> originally written the patch I was using a mask of 0xFE00, but then I
-> realized that all the compiler cared about is knowing which byte it is
-> supposed to compare against.
+> netconsole ?
+> 
+> __dev_kfree_skb_any contains a big "if (... || irqs_disabled())" test
+> and the NAPI poll handler is called with irq disabled from
+> netpoll_send_skb_on_dev.
+> 
 
-Isn't the limit actually 1500 (0x5dc) not 1536 (0x600).
-Certainly the longest 8802.3 frame has a 'length' field of 1500
-followed by the 3 bytes LLC header and 1497 bytes of 'userdata'.
-(If you do ISO transport nothing is ever word aligned.)
+Indeed. Also there have been changes from Eric Biederman not long ago,
+which did just the opposite: replace dev_kfree() with dev_kfree_any()
+for that reason. See
 
-Whether any 'ethertypes' from 0x5dd to 0x5ff were ever allocated
-(and plausibly still in use) is a separate question.
-Some below 1500 were allocated.
+http://marc.info/?l=linux-stable-commits&m=142965098111361&w=2
 
-	David
+[CCing Eric]
+
+Regards,
+Lino
