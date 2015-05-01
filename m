@@ -1,71 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/2] rhashtable: Quick initial growth of tables
-Date: Fri, 01 May 2015 14:04:35 +0300
-Message-ID: <55435DC3.4060304@cogentembedded.com>
-References: <1430434005-6143-1-git-send-email-tgraf@suug.ch> <1430434005-6143-3-git-send-email-tgraf@suug.ch>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 0/3] A few minor clean-ups to eth_type_trans
+Date: Fri, 1 May 2015 11:30:33 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB2A3B6@AcuExch.aculab.com>
+References: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
+ <20150430223510.GA13111@Alexeis-MBP.westell.com> <5542B6AF.9010602@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-	kaber@trash.net
-To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:33816 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbbEALEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 07:04:38 -0400
-Received: by lbcga7 with SMTP id ga7so62944330lbc.1
-        for <netdev@vger.kernel.org>; Fri, 01 May 2015 04:04:37 -0700 (PDT)
-In-Reply-To: <1430434005-6143-3-git-send-email-tgraf@suug.ch>
+Received: from smtp-out6.electric.net ([192.162.217.194]:52337 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbbEALc2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 07:32:28 -0400
+In-Reply-To: <5542B6AF.9010602@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Alexander Duyck
+> Sent: 01 May 2015 00:12
+...
+> > Only the comment 'ETH_P_802_3_MIN is aligned to 512' through me off.
+> > It's divisible by 256 that matters.
+> 
+> Yeah, it is 0x0600 hex so we can ignore the lower 8 bits, or in the case
+> of little-endian systems the upper 8 bits.  I think when I had
+> originally written the patch I was using a mask of 0xFE00, but then I
+> realized that all the compiler cared about is knowing which byte it is
+> supposed to compare against.
 
-On 5/1/2015 1:46 AM, Thomas Graf wrote:
+Isn't the limit actually 1500 (0x5dc) not 1536 (0x600).
+Certainly the longest 8802.3 frame has a 'length' field of 1500
+followed by the 3 bytes LLC header and 1497 bytes of 'userdata'.
+(If you do ISO transport nothing is ever word aligned.)
 
-> Grow the table quicker than 2x in the beginning to avoid long chains
-> of rehashes. The effect is observable in the self-test where table
-> jumps are reduced to a minimum after a lot of entries have been added
-> in a short period of time. The iterator is able to get a consistent
-> view most of the time.
+Whether any 'ethertypes' from 0x5dd to 0x5ff were ever allocated
+(and plausibly still in use) is a separate question.
+Some below 1500 were allocated.
 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->   lib/rhashtable.c | 37 +++++++++++++++++++++++++++++++++++--
->   1 file changed, 35 insertions(+), 2 deletions(-)
-
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index 4936fc4..23e7f18 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -271,6 +271,38 @@ static int rhashtable_rehash_table(struct rhashtable *ht)
->   	return rht_dereference(new_tbl->future_tbl, ht) ? -EAGAIN : 0;
->   }
->
-> +static int table_growth_log(unsigned int size)
-> +{
-> +	/*
-> +	 * Table growth:
-> +	 *     2 ->   64
-> +	 *     4 ->  128
-> +	 *     8 ->  128
-> +	 *    16 ->  256
-> +	 *    32 ->  512
-> +	 *    64 ->  512
-> +	 *   128 -> 1024
-> +	 *   256 -> 2048
-> +	 *   512 -> 2048
-> +	 *  1024 -> 4096
-> +	 *  2048 -> 8192
-> +	 *  4096 -> 8192
-> +	 */
-> +	int log = 5 - (ilog2(size) / 3);
-> +
-> +	return log > 1 ? log : 1;
-
-    max(log, 1)?
-
-[...]
-
-WBR, Sergei
+	David
