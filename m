@@ -1,54 +1,32 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] net: can: xilinx_can: fix extended frame handling
-Date: Fri,  1 May 2015 10:28:58 +0200
-Message-ID: <1430468938-28173-2-git-send-email-mkl@pengutronix.de>
-References: <1430468938-28173-1-git-send-email-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Jeppe Ledet-Pedersen <jlp@gomspace.com>,
-	linux-stable <stable@vger.kernel.org>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1430468938-28173-1-git-send-email-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2 net-next] tc: remove unused redirect ttl
+Date: Fri, 1 May 2015 10:57:25 +0200
+Message-ID: <20150501085725.GB1164@breakpoint.cc>
+References: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41029 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751995AbbEAI5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 04:57:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeppe Ledet-Pedersen <jlp@gomspace.com>
+Alexei Starovoitov <ast@plumgrid.com> wrote:
+> improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> The code is from Jamal. I only did testing and benchmarking.
 
-Using IDR_SRR in RXFIFO_ID to test for the presence of data is only
-valid for standard frames. For extended frames the bit is always 1 and
-IDR_RTR should be used instead. This patch switches the check to use
-CAN_RTR_FLAG which is correctly set when reading the ID.
-
-The patch also changes the DW1/DW2 to be read unconditionally, since
-this is necessary to remove the frame from the RXFIFO.
-
-Signed-off-by: Jeppe Ledet-Pedersen <jlp@gomspace.com>
-Acked-by: Kedareswara rao Appana <appanad@xilinx.com>
-Cc: linux-stable <stable@vger.kernel.org>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/xilinx_can.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/can/xilinx_can.c b/drivers/net/can/xilinx_can.c
-index 6bddfe062b51..fc55e8e0351d 100644
---- a/drivers/net/can/xilinx_can.c
-+++ b/drivers/net/can/xilinx_can.c
-@@ -509,10 +509,11 @@ static int xcan_rx(struct net_device *ndev)
- 			cf->can_id |= CAN_RTR_FLAG;
- 	}
- 
--	if (!(id_xcan & XCAN_IDR_SRR_MASK)) {
--		data[0] = priv->read_reg(priv, XCAN_RXFIFO_DW1_OFFSET);
--		data[1] = priv->read_reg(priv, XCAN_RXFIFO_DW2_OFFSET);
-+	/* DW1/DW2 must always be read to remove message from RXFIFO */
-+	data[0] = priv->read_reg(priv, XCAN_RXFIFO_DW1_OFFSET);
-+	data[1] = priv->read_reg(priv, XCAN_RXFIFO_DW2_OFFSET);
- 
-+	if (!(cf->can_id & CAN_RTR_FLAG)) {
- 		/* Change Xilinx CAN data format to socketCAN data format */
- 		if (cf->can_dlc > 0)
- 			*(__be32 *)(cf->data) = cpu_to_be32(data[0]);
--- 
-2.1.4
+I had similar patch, so
+Acked-by: Florian Westphal <fw@strlen.de>
