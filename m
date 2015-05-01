@@ -1,59 +1,86 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #3 0/8] via-rhine rework
-Date: Fri,  1 May 2015 22:14:37 +0200
-Message-ID: <cover.1430509434.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #3 6/8] via-rhine: add consistent memory barrier in vlan receive code.
+Date: Fri,  1 May 2015 22:14:43 +0200
+Message-ID: <f335ac0435f2a9783fe3a0440a449822585020a2.1430509434.git.romieu@fr.zoreil.com>
+References: <cover.1430509434.git.romieu@fr.zoreil.com>
 Cc: David Miller <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
 	Roger.Luethi.rl@hellgate.ch,
 	Bjarke Istrup Pedersen <gurligebis@gentoo.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51004 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50999 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482AbbEAUPM (ORCPT
+	with ESMTP id S1750951AbbEAUPM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:15:12 -0400
+In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
+In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
+References: <cover.1430509434.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The series applies against davem-next as of
-9dd3c797496affd699805c8a9d8429ad318c892f ("drivers: net: xgene: fix kbuild
-warnings").
+The NAPI receive path depends on desc->rx_status but it does not
+enforce any explicit receive barrier.
 
-Patches #1..#4 avoid holes in the receive ring.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/ethernet/via/via-rhine.c | 22 ++++++++++++++--------
+ 1 file changed, 14 insertions(+), 8 deletions(-)
 
-Patch #5 is a small leftover cleanup for #1..#4.
-
-Patches #6 and #7 are fairly simple barrier stuff.
-
-Patch #8 closes some SMP transmit races - not that anyone really
-complained about these but it's a bit hard to handwave that they
-can be safely ignored. Some testing, especially SMP testing of
-course, would be welcome.
-
-. Changes since #2:
-  - added dma_rmb barrier in vlan related patch 6.
-  - s/wmb/dma_wmb/ in (*new*) patch 7 of 8.
-  - added explicit SMP barriers in (*new*) patch 8 of 8.
-
-. Changes since #1:
-  - turned wmb() into dma_wmb() as suggested by davem and Alexander Duyck
-    in patch 1 of 6.
-  - forgot to reset rx_head_desc in rhine_reset_rbufs in patch 4 of 6.
-  - removed rx_head_desc altogether in (*new*) patch 5 of 6
-  - remoed some vlan receive uglyness in (*new*) patch 6 of 6.
-
-
-Francois Romieu (8):
-  via-rhine: commit receive buffer address before descriptor status update.
-  via-rhine: allocate and map receive buffer in a single transaction
-  via-rhine: gotoize rhine_open error path.
-  via-rhine: forbid holes in the receive descriptor ring.
-  via-rhine: kiss rx_head_desc goodbye.
-  via-rhine: add consistent memory barrier in vlan receive code.
-  via-rhine: dma_wmb transmit barrier.
-  via-rhine: close SMP transmit races.
-
- drivers/net/ethernet/via/via-rhine.c | 249 +++++++++++++++++++++++------------
- 1 file changed, 162 insertions(+), 87 deletions(-)
-
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index fede9fc..8195fcd 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -1993,6 +1993,18 @@ static inline u16 rhine_get_vlan_tci(struct sk_buff *skb, int data_size)
+ 	return be16_to_cpup((__be16 *)trailer);
+ }
+ 
++static inline void rhine_rx_vlan_tag(struct sk_buff *skb, struct rx_desc *desc,
++				     int data_size)
++{
++	dma_rmb();
++	if (unlikely(desc->desc_length & cpu_to_le32(DescTag))) {
++		u16 vlan_tci;
++
++		vlan_tci = rhine_get_vlan_tci(skb, data_size);
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tci);
++	}
++}
++
+ /* Process up to limit frames from receive ring */
+ static int rhine_rx(struct net_device *dev, int limit)
+ {
+@@ -2008,7 +2020,6 @@ static int rhine_rx(struct net_device *dev, int limit)
+ 	for (count = 0; count < limit; ++count) {
+ 		struct rx_desc *desc = rp->rx_ring + entry;
+ 		u32 desc_status = le32_to_cpu(desc->rx_status);
+-		u32 desc_length = le32_to_cpu(desc->desc_length);
+ 		int data_size = desc_status >> 16;
+ 
+ 		if (desc_status & DescOwn)
+@@ -2048,7 +2059,6 @@ static int rhine_rx(struct net_device *dev, int limit)
+ 			/* Length should omit the CRC */
+ 			int pkt_len = data_size - 4;
+ 			struct sk_buff *skb;
+-			u16 vlan_tci = 0;
+ 
+ 			/* Check if the packet is long enough to accept without
+ 			   copying to a minimally-sized skbuff. */
+@@ -2086,14 +2096,10 @@ static int rhine_rx(struct net_device *dev, int limit)
+ 			}
+ 
+ 			skb_put(skb, pkt_len);
+-
+-			if (unlikely(desc_length & DescTag))
+-				vlan_tci = rhine_get_vlan_tci(skb, data_size);
+-
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 
+-			if (unlikely(desc_length & DescTag))
+-				__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tci);
++			rhine_rx_vlan_tag(skb, desc, data_size);
++
+ 			netif_receive_skb(skb);
+ 
+ 			u64_stats_update_begin(&rp->rx_stats.syncp);
 -- 
 Ueimor
