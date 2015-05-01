@@ -1,47 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 2/2] rhashtable: Quick initial growth of tables
-Date: Fri, 1 May 2015 12:37:25 +0800
-Message-ID: <20150501043725.GA927@gondor.apana.org.au>
-References: <1430434005-6143-3-git-send-email-tgraf@suug.ch>
- <20150430234556.GA31180@gondor.apana.org.au>
- <20150501043025.GB26676@pox.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] pktgen: introduce 'rx' mode
+Date: Thu, 30 Apr 2015 21:46:50 -0700
+Message-ID: <1430455610.3711.118.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430443127-14408-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:53241 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750982AbbEAEhd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 00:37:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20150501043025.GB26676@pox.localdomain>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34695 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708AbbEAEqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 00:46:52 -0400
+Received: by pacyx8 with SMTP id yx8so80822191pac.1
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 21:46:52 -0700 (PDT)
+In-Reply-To: <1430443127-14408-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 01, 2015 at 06:30:25AM +0200, Thomas Graf wrote:
->
-> Yes, that can happen. Since shrinks are ordered to the end of the
-> chain it is often the case that enough entries have been added so the
-> shrink is not carried out in the end. Obviously this is also not the
-> case if no entries are actually removed.
+On Thu, 2015-04-30 at 18:18 -0700, Alexei Starovoitov wrote:
 
-It's just a matter of logical consistency.  At 75% if you grow by
-a factor of 4, you get 18.75% utilisation which is way below the
-30% shrink threshold.
+> +	if (pkt_dev->flags & F_DO_RX) {
+> +		skb = pkt_dev->skb;
+> +		local_bh_disable();
+> +		atomic_add(burst, &skb->users);
 
-> What about we apply quick growing on >100% utilization? It is a
-> clear indication that we are growing rapidly.
+this atomic_add() could be done before local_bh_disable()
 
-Even at 100%, a factor of 4 leads you to 25% which is less than 30%.
+> +		do {
+> +			ret = netif_receive_skb(skb);
+> +			if (ret == NET_RX_DROP)
+> +				pkt_dev->errors++;
+> +			pkt_dev->sofar++;
+> +			pkt_dev->seq_num++;
+> +			if (atomic_read(&skb->users) != burst) {
+> +				/* skb was queued by rps/rfs or taps,
+> +				 * so cannot reuse this skb
+> +				 */
+> +				atomic_sub(burst - 1, &skb->users);
+> +				/* get out of the loop and wait
+> +				 * until skb is consumed
+> +				 */
+> +				pkt_dev->last_ok = 1;
+> +				pkt_dev->clone_skb = 0;
+> +				break;
 
-Perhaps we could lower the shrink thresholds? Alternatively, only
-grow quickly if automatic shrinking is disabled.  After all, the one
-case that's inspring all of this, netlink really wants to grow
-quickly as well as only shrink at specific points in time.
+after a break; you don't need the 'else', and therefore can save one
+tab/ indent level.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> +			} else {
+> +				/* skb was 'freed' by stack, so clean few
+> +				 * bits and reuse it
+> +				 */
+> +				skb->tc_verd = 0; /* reset reclass/redir ttl */
+
+tc_verd needs CONFIG_NET_CLS_ACT
+
+> +			}
+> +		} while (--burst > 0);
+> +		local_bh_enable();
+> +		goto out;
+> +	}
+> +
+>  	txq = skb_get_tx_queue(odev, pkt_dev->skb);
+>  
+>  	local_bh_disable();
+> @@ -3403,6 +3447,7 @@ unlock:
+>  
+
+You could put the out: label here, and remove one local_bh_enable()
+before "goto out;"
+
+>  	local_bh_enable();
+>  
+> +out:
+>  	/* If pkt_dev->count is zero, then run forever */
+>  	if ((pkt_dev->count != 0) && (pkt_dev->sofar >= pkt_dev->count)) {
+>  		pktgen_wait_for_skb(pkt_dev);
