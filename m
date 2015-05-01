@@ -1,54 +1,72 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH -next] net: sched: remove TC_MUNGED bits
-Date: Thu, 30 Apr 2015 20:43:17 -0400
-Message-ID: <5542CC25.8060501@mojatatu.com>
-References: <1430388720-5112-1-git-send-email-fw@strlen.de> <20150430211620.GA13076@Alexeis-MBP.westell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Florian Westphal <fw@strlen.de>
+From: David Ahern <david.ahern@oracle.com>
+Subject: [PATCH v2] net/rds: fix unaligned memory access
+Date: Thu, 30 Apr 2015 20:58:07 -0400
+Message-ID: <1430441887-37808-1-git-send-email-david.ahern@oracle.com>
+Cc: shamir rabinovitch <shamir.rabinovitch@oracle.com>,
+	David Ahern <david.ahern@oracle.com>
+To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37579 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbbEAAnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 20:43:19 -0400
-Received: by igblo3 with SMTP id lo3so28171839igb.0
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 17:43:18 -0700 (PDT)
-In-Reply-To: <20150430211620.GA13076@Alexeis-MBP.westell.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:38753 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270AbbEAA6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 20:58:23 -0400
+Received: from userv0021.oracle.com (userv0021.oracle.com [156.151.31.71])
+	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t410wMOI029156
+	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 1 May 2015 00:58:22 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/30/15 17:16, Alexei Starovoitov wrote:
-> On Thu, Apr 30, 2015 at 12:12:00PM +0200, Florian Westphal wrote:
->> Not used.
->>
->> pedit sets TC_MUNGED when packet content was altered, but all the core
->> does is unset MUNGED again and then set OK2MUNGE.
->>
->> And the latter isn't tested anywhere. So lets remove both
->> TC_MUNGED and TC_OK2MUNGE.
->>
->> Signed-off-by: Florian Westphal <fw@strlen.de>
->
-> Wanted to do the same.
-> iproute2 doesn't use 'munge' flag either.
->
-> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
->
+From: shamir rabinovitch <shamir.rabinovitch@oracle.com>
 
-Florian,
-If you are going to take this path then fix pedit to do a pskb_expand.
+rdma_conn_param private data is copied using memcpy after headers such
+as cma_hdr (see cma_resolve_ib_udp as example). so the start of the
+private data is aligned to the end of the structure that come before. if
+this structure end with u32 the meaning is that the start of the private
+data will be 4 bytes aligned. structures that use u8/u16/u32/u64 are
+naturally aligned but in case the structure start is not 8 bytes aligned,
+all u64 members of this structure will not be aligned. to solve this issue
+we must use special macros that allow unaligned access to those
+unaligned members.
 
-I think it would be better to fix the actions that do
-pskb_expand_head() and let them indicated they were munged.
-The flag was intended to be an optimization where it would indicate
-to the action processing a packet to not bother and just trample
-on the packet if noone is referencing it.
-That was the rule, unfortunately nobody paid attention and it
-didnt matter because it doesnt seem there was a use case where two
-actions in a graph would be editing packets one after the other).
+Addresses the following kernel log seen when attempting to use RDMA:
 
-cheers,
-jamal
+Kernel unaligned access at TPC[10507a88] rds_ib_cm_connect_complete+0x1bc/0x1e0 [rds_rdma]
+
+Acked-by: Chien Yen <chien.yen@oracle.com>
+Signed-off-by: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+[Minor tweaks for top of tree by:]
+Signed-off-by: David Ahern <david.ahern@oracle.com>
+---
+v2
+- remove references to sparc from code comment
+
+ net/rds/ib_cm.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 31b74f5e61ad..29144a60019f 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -183,8 +183,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
+ 
+ 	/* If the peer gave us the last packet it saw, process this as if
+ 	 * we had received a regular ACK. */
+-	if (dp && dp->dp_ack_seq)
+-		rds_send_drop_acked(conn, be64_to_cpu(dp->dp_ack_seq), NULL);
++	if (dp) {
++		/* dp structure start is not guaranteed to be 8 bytes aligned.
++		 * Since dp_ack_seq is 64-bit extended load operations can be
++		 * used so go through get_unaligned to avoid unaligned errors.
++		 */
++		u64 dp_ack_seq = get_unaligned(&dp->dp_ack_seq);
++
++		if (dp_ack_seq)
++			rds_send_drop_acked(conn, be64_to_cpu(dp_ack_seq),
++					    NULL);
++	}
+ 
+ 	rds_connect_complete(conn);
+ }
+-- 
+2.3.0
