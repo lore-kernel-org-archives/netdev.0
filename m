@@ -1,123 +1,96 @@
-From: Andrey Wagin <avagin@gmail.com>
-Subject: Re: Netlink socket leaks
-Date: Sat, 2 May 2015 02:31:09 +0300
-Message-ID: <CANaxB-zvU0St+TkniHu9AKsW0Pd_j3BK17EfzCB+ghmDC0U22g@mail.gmail.com>
-References: <CANaxB-weCVV0eQqRMnH59psXavrckip+Wfep2gdGLiw9rz3B5g@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/3] net: dsa: introduce module_switch_driver macro
+Date: Fri, 01 May 2015 16:34:21 -0700
+Message-ID: <55440D7D.4060504@gmail.com>
+References: <1430518155-29565-1-git-send-email-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:35234 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750778AbbEAXbL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 19:31:11 -0400
-Received: by labbd9 with SMTP id bd9so72616325lab.2
-        for <netdev@vger.kernel.org>; Fri, 01 May 2015 16:31:09 -0700 (PDT)
-In-Reply-To: <CANaxB-weCVV0eQqRMnH59psXavrckip+Wfep2gdGLiw9rz3B5g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>, kernel@savoirfairelinux.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430518155-29565-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2015-05-01 13:22 GMT+03:00 Andrey Wagin <avagin@gmail.com>:
-> Hi Herbert,
->
-> I've found that netlink sockets start leaking after your patch:
-> commit c428ecd1a21f1457ca3beb4df71b8a079c410e41
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Fri Mar 20 21:57:01 2015 +1100
->
->     netlink: Move namespace into hash key
->
-> Could you look at this?
+On 01/05/15 15:09, Vivien Didelot wrote:
+> This commit introduces a new module_switch_driver macro, similar to
+> module_platform_driver and such, to reduce boilerplate when declaring
+> DSA switch drivers.
+> 
+> In order to use the module_driver macro, register_switch_driver needed
+> to be changed to return an int instead of void, so make it return 0.
 
-A socket leaks if it is released by sk_release_kernel(). The problem
-is that netlink_insert() and netlink_remove() is called when a socket
-has different values of sk->sk_net.
+Do we get much benefit from having this change, the diffstat looks
+pretty neutral, ultimately register_switch_driver() might be gone (see:
+http://www.spinics.net/lists/netdev/msg326900.html) and mv88e6xxx cannot
+be converted to it due to how it is designed. This is not a strong
+objection though, the changes look fine to me.
 
-The following patch fixes this problem, but I am not sure that it
-breaks nothing else.
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e891bcf..292f422 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1474,8 +1474,8 @@ void sk_release_kernel(struct sock *sk)
-                return;
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  include/net/dsa.h | 13 ++++++++++++-
+>  net/dsa/dsa.c     |  4 +++-
+>  2 files changed, 15 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/net/dsa.h b/include/net/dsa.h
+> index fbca63b..927f16a 100644
+> --- a/include/net/dsa.h
+> +++ b/include/net/dsa.h
+> @@ -11,6 +11,7 @@
+>  #ifndef __LINUX_NET_DSA_H
+>  #define __LINUX_NET_DSA_H
+>  
+> +#include <linux/device.h>
+>  #include <linux/if_ether.h>
+>  #include <linux/list.h>
+>  #include <linux/timer.h>
+> @@ -304,8 +305,18 @@ struct dsa_switch_driver {
+>  			       unsigned char *addr, bool *is_static);
+>  };
+>  
+> -void register_switch_driver(struct dsa_switch_driver *type);
+> +int register_switch_driver(struct dsa_switch_driver *type);
+>  void unregister_switch_driver(struct dsa_switch_driver *type);
+> +
+> +/* module_switch_driver() - Helper macro for drivers that don't do anything
+> + * special in module init/exit. This eliminates a lot of boilerplate. Each
+> + * module may only use this macro once, and calling it replaces module_init()
+> + * and module_exit()
+> + */
+> +#define module_switch_driver(__switch_driver) \
+> +	module_driver(__switch_driver, register_switch_driver, \
+> +			unregister_switch_driver)
+> +
+>  struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
+>  
+>  static inline void *ds_to_priv(struct dsa_switch *ds)
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index e6f6cc3..9630522 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -31,11 +31,13 @@ char dsa_driver_version[] = "0.1";
+>  static DEFINE_MUTEX(dsa_switch_drivers_mutex);
+>  static LIST_HEAD(dsa_switch_drivers);
+>  
+> -void register_switch_driver(struct dsa_switch_driver *drv)
+> +int register_switch_driver(struct dsa_switch_driver *drv)
+>  {
+>  	mutex_lock(&dsa_switch_drivers_mutex);
+>  	list_add_tail(&drv->list, &dsa_switch_drivers);
+>  	mutex_unlock(&dsa_switch_drivers_mutex);
+> +
+> +	return 0;
+>  }
+>  EXPORT_SYMBOL_GPL(register_switch_driver);
+>  
+> 
 
-        sock_hold(sk);
--       sock_net_set(sk, get_net(&init_net));
-        sock_release(sk->sk_socket);
-+       sock_net_set(sk, get_net(&init_net));
-        sock_put(sk);
- }
- EXPORT_SYMBOL(sk_release_kernel);
 
->
-> It can be reproduced by the following script:
-> ss -a | wc -l; ip netns add test && ip netns exec test ip a && ip
-> netns del test ; ss -a | wc -l
->
-> [root@jenkins ~]# uname -a
-> Linux jenkins.criu.org 4.1.0-rc1-00117-g4a152c3 #46 SMP Fri May 1
-> 14:09:02 MSK 2015 x86_64 x86_64 x86_64 GNU/Linux
->
->
-> I have applied a patch with debug messages:
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 72c6b55..79aece4 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1081,7 +1081,9 @@ static int netlink_insert(struct sock *sk, u32 portid)
->                 if (err == -EEXIST)
->                         err = -EADDRINUSE;
->                 sock_put(sk);
-> +               printk("%s:%d: %p\n", __func__, __LINE__, sk);
->         }
-> +       printk("%s:%d: %p\n", __func__, __LINE__, sk);
->
->  err:
->         release_sock(sk);
-> @@ -1097,7 +1099,9 @@ static void netlink_remove(struct sock *sk)
->                                     netlink_rhashtable_params)) {
->                 WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
->                 __sock_put(sk);
-> +               printk("%s:%d: %p\n", __func__, __LINE__, sk);
->         }
-> +       printk("%s:%d: %p\n", __func__, __LINE__, sk);
->
->         netlink_table_grab();
->         if (nlk_sk(sk)->subscriptions) {
->
-> And here is the output
-> [ 3868.202260] netlink_insert:1086: ffff8800d8c14000
-> [ 3868.202962] netlink_insert:1086: ffff8800d8c15800
-> [ 3868.202995] netlink_insert:1086: ffff8800d8c12000
-> [ 3868.203228] netlink_insert:1086: ffff8800d8c16000
-> [ 3868.203360] netlink_insert:1086: ffff8800d8c11000
-> [ 3868.203920] netlink_insert:1086: ffff8800d8c13000
-> [ 3868.203951] netlink_insert:1086: ffff8800d8c11800
-> [ 3868.204216] netlink_insert:1086: ffff8800d8c17000
-> [ 3868.205846] netlink_remove:1102: ffff8800d8c14000
-> [ 3868.205849] netlink_remove:1104: ffff8800d8c14000
-> [ 3868.208270] netlink_insert:1086: ffff8800d81d3800
-> [ 3868.215363] netlink_remove:1102: ffff8800d81d3800
-> [ 3868.215368] netlink_remove:1104: ffff8800d81d3800
-> [ 3868.216465] netlink_insert:1086: ffff8800d8c0a000
-> [ 3868.226320] netlink_remove:1102: ffff8800d8c0a000
-> [ 3868.226324] netlink_remove:1104: ffff8800d8c0a000
-> [ 3868.230662] netlink_insert:1086: ffff8800d8c0e800
-> [ 3868.235906] netlink_remove:1102: ffff8800d8c0e800
-> [ 3868.235910] netlink_remove:1104: ffff8800d8c0e800
-> [ 3868.280231] netlink_remove:1104: ffff8800d8c17000
-> [ 3868.280283] netlink_remove:1104: ffff8800d8c11800
-> [ 3868.286152] netlink_remove:1104: ffff8800d8c13000
-> [ 3868.318148] netlink_remove:1104: ffff8800d8c11000
-> [ 3868.318185] netlink_remove:1104: ffff8800d8c16000
-> [ 3868.318241] netlink_remove:1104: ffff8800d8c12000
-> [ 3868.318255] netlink_remove:1104: ffff8800d8c15800
->
-> So it looks like
->
-> netlink_insert() returns zero, but then rhashtable_remove_fast()
-> returns non-zero code
->
-> Thanks,
-> Andrew
+-- 
+Florian
