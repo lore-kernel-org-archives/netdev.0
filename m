@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: speedup ip_idents_reserve()
-Date: Fri, 01 May 2015 19:44:13 -0400 (EDT)
-Message-ID: <20150501.194413.195074972640434346.davem@davemloft.net>
-References: <1430501869.3711.131.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2 net-next] tc: remove unused redirect ttl
+Date: Fri, 01 May 2015 19:48:21 -0400 (EDT)
+Message-ID: <20150501.194821.135988326109135305.davem@davemloft.net>
+References: <55435313.9030706@cogentembedded.com>
+	<5543B7D6.9050508@plumgrid.com>
+	<CAHA+R7NOr4aQMXfC7yMuzy3dKRTJB9AYg5HMD2zVXLHM5iZYyw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: ast@plumgrid.com, sergei.shtylyov@cogentembedded.com,
+	jhs@mojatatu.com, daniel@iogearbox.net, fw@strlen.de,
+	netdev@vger.kernel.org
+To: cwang@twopensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40644 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40672 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbbEAXoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 19:44:16 -0400
-In-Reply-To: <1430501869.3711.131.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750778AbbEAXsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 19:48:23 -0400
+In-Reply-To: <CAHA+R7NOr4aQMXfC7yMuzy3dKRTJB9AYg5HMD2zVXLHM5iZYyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 01 May 2015 10:37:49 -0700
+From: Cong Wang <cwang@twopensource.com>
+Date: Fri, 1 May 2015 13:33:28 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
+> Quote from Documentation/SubmittingPatches:
 > 
-> Under stress, ip_idents_reserve() is accessing a contended
-> cache line twice, with non optimal MESI transactions.
+> "
+> The "from" line must be the very first line in the message body,
+> and has the form:
 > 
-> If we place timestamps in separate location, we reduce this
-> pressure by ~50% and allow atomic_add_return() to issue
-> a Request for Ownership.
+>         From: Original Author <author@example.com>
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The "from" line specifies who will be credited as the author of the
+> patch in the permanent changelog.  If the "from" line is missing,
+> then the "From:" line from the email header will be used to determine
+> the patch author in the changelog.
+> "
+> 
+> You should take a look at how Andrew Morton works
+> when he fixes minor things, I am sure he fixes much
+> more than you do.
 
-Looks good, applied, thanks Eric.
++1
