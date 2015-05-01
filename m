@@ -1,130 +1,111 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #3 8/8] via-rhine: close SMP transmit races.
-Date: Fri,  1 May 2015 22:14:45 +0200
-Message-ID: <f8493e71d92ba6dec3f7816d8473bdc8f80874ac.1430509434.git.romieu@fr.zoreil.com>
+Subject: [PATCH net-next #3 2/8] via-rhine: allocate and map receive buffer in a single transaction
+Date: Fri,  1 May 2015 22:14:39 +0200
+Message-ID: <29da68d2ad7bb3678d5faea08dd4bb2dc0d06f74.1430509434.git.romieu@fr.zoreil.com>
 References: <cover.1430509434.git.romieu@fr.zoreil.com>
 Cc: David Miller <davem@davemloft.net>, Nix <nix@esperi.org.uk>,
 	Roger.Luethi.rl@hellgate.ch,
 	Bjarke Istrup Pedersen <gurligebis@gentoo.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51001 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51010 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751201AbbEAUPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:15:12 -0400
+	with ESMTP id S1752197AbbEAUPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:15:17 -0400
 In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
 In-Reply-To: <cover.1430509434.git.romieu@fr.zoreil.com>
 References: <cover.1430509434.git.romieu@fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-7ab87ff4c770eed71e3777936299292739fcd0fe ("via-rhine: move work from
-irq handler to softirq and beyond") forgot to explicitely control the
-lifespan of the tx_dirty and tx_cur pointers.
+It's used to initialize the receive ring but it will actually shine when
+the receive poll code is reworked.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/ethernet/via/via-rhine.c | 51 +++++++++++++++++++++++++++++++-----
- 1 file changed, 45 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c | 57 +++++++++++++++++++++++++++---------
+ 1 file changed, 43 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 86ca8b2..725106f 100644
+index 88b45c7..aa398ea 100644
 --- a/drivers/net/ethernet/via/via-rhine.c
 +++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -1779,6 +1779,11 @@ static void rhine_tx_timeout(struct net_device *dev)
- 	schedule_work(&rp->reset_task);
+@@ -1213,12 +1213,47 @@ static void free_ring(struct net_device* dev)
+ 
  }
  
-+static inline bool rhine_tx_queue_full(struct rhine_private *rp)
-+{
-+	return (rp->cur_tx - rp->dirty_tx) >= TX_QUEUE_LEN;
-+}
+-static void alloc_rbufs(struct net_device *dev)
++struct rhine_skb_dma {
++	struct sk_buff *skb;
++	dma_addr_t dma;
++};
 +
- static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 				  struct net_device *dev)
- {
-@@ -1854,6 +1859,12 @@ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 	wmb();
- 
- 	rp->cur_tx++;
-+	/*
-+	 * Nobody wants cur_tx write to rot for ages after the NIC will have
-+	 * seen the transmit request, especially as the transmit completion
-+	 * handler could miss it.
-+	 */
-+	smp_wmb();
- 
- 	/* Non-x86 Todo: explicitly flush cache lines here. */
- 
-@@ -1866,8 +1877,14 @@ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 	       ioaddr + ChipCmd1);
- 	IOSYNC;
- 
--	if (rp->cur_tx == rp->dirty_tx + TX_QUEUE_LEN)
-+	/* dirty_tx may be pessimistically out-of-sync. See rhine_tx. */
-+	if (rhine_tx_queue_full(rp)) {
- 		netif_stop_queue(dev);
-+		smp_rmb();
-+		/* Rejuvenate. */
-+		if (!rhine_tx_queue_full(rp))
-+			netif_wake_queue(dev);
-+	}
- 
- 	netif_dbg(rp, tx_queued, dev, "Transmit frame #%d queued in slot %d\n",
- 		  rp->cur_tx - 1, entry);
-@@ -1915,13 +1932,24 @@ static void rhine_tx(struct net_device *dev)
++static inline int rhine_skb_dma_init(struct net_device *dev,
++				     struct rhine_skb_dma *sd)
  {
  	struct rhine_private *rp = netdev_priv(dev);
  	struct device *hwdev = dev->dev.parent;
--	int txstatus = 0, entry = rp->dirty_tx % TX_RING_SIZE;
- 	unsigned int pkts_compl = 0, bytes_compl = 0;
-+	unsigned int dirty_tx = rp->dirty_tx;
-+	unsigned int cur_tx;
- 	struct sk_buff *skb;
- 
-+	/*
-+	 * The race with rhine_start_tx does not matter here as long as the
-+	 * driver enforces a value of cur_tx that was relevant when the
-+	 * packet was scheduled to the network chipset.
-+	 * Executive summary: smp_rmb() balances smp_wmb() in rhine_start_tx.
-+	 */
-+	smp_rmb();
-+	cur_tx = rp->cur_tx;
- 	/* find and cleanup dirty tx descriptors */
--	while (rp->dirty_tx != rp->cur_tx) {
--		txstatus = le32_to_cpu(rp->tx_ring[entry].tx_status);
-+	while (dirty_tx != cur_tx) {
-+		unsigned int entry = dirty_tx % TX_RING_SIZE;
-+		u32 txstatus = le32_to_cpu(rp->tx_ring[entry].tx_status);
++	const int size = rp->rx_buf_sz;
 +
- 		netif_dbg(rp, tx_done, dev, "Tx scavenge %d status %08x\n",
- 			  entry, txstatus);
- 		if (txstatus & DescOwn)
-@@ -1970,12 +1998,23 @@ static void rhine_tx(struct net_device *dev)
- 		pkts_compl++;
- 		dev_consume_skb_any(skb);
- 		rp->tx_skbuff[entry] = NULL;
--		entry = (++rp->dirty_tx) % TX_RING_SIZE;
-+		dirty_tx++;
- 	}
- 
-+	rp->dirty_tx = dirty_tx;
-+	/* Pity we can't rely on the nearby BQL completion implicit barrier. */
-+	smp_wmb();
++	sd->skb = netdev_alloc_skb(dev, size);
++	if (!sd->skb)
++		return -ENOMEM;
 +
- 	netdev_completed_queue(dev, pkts_compl, bytes_compl);
--	if ((rp->cur_tx - rp->dirty_tx) < TX_QUEUE_LEN - 4)
-+
-+	/* cur_tx may be optimistically out-of-sync. See rhine_start_tx. */
-+	if (!rhine_tx_queue_full(rp) && netif_queue_stopped(dev)) {
- 		netif_wake_queue(dev);
-+		smp_rmb();
-+		/* Rejuvenate. */
-+		if (rhine_tx_queue_full(rp))
-+			netif_stop_queue(dev);
++	sd->dma = dma_map_single(hwdev, sd->skb->data, size, DMA_FROM_DEVICE);
++	if (unlikely(dma_mapping_error(hwdev, sd->dma))) {
++		netif_err(rp, drv, dev, "Rx DMA mapping failure\n");
++		dev_kfree_skb_any(sd->skb);
++		return -EIO;
 +	}
- }
++
++	return 0;
++}
++
++static inline void rhine_skb_dma_nic_store(struct rhine_private *rp,
++					   struct rhine_skb_dma *sd, int entry)
++{
++	rp->rx_skbuff_dma[entry] = sd->dma;
++	rp->rx_skbuff[entry] = sd->skb;
++
++	rp->rx_ring[entry].addr = cpu_to_le32(sd->dma);
++	dma_wmb();
++}
++
++static void alloc_rbufs(struct net_device *dev)
++{
++	struct rhine_private *rp = netdev_priv(dev);
+ 	dma_addr_t next;
+-	int i;
++	int rc, i;
  
- /**
+ 	rp->dirty_rx = rp->cur_rx = 0;
+ 
+@@ -1239,20 +1274,14 @@ static void alloc_rbufs(struct net_device *dev)
+ 
+ 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb = netdev_alloc_skb(dev, rp->rx_buf_sz);
+-		rp->rx_skbuff[i] = skb;
+-		if (skb == NULL)
+-			break;
++		struct rhine_skb_dma sd;
+ 
+-		rp->rx_skbuff_dma[i] =
+-			dma_map_single(hwdev, skb->data, rp->rx_buf_sz,
+-				       DMA_FROM_DEVICE);
+-		if (dma_mapping_error(hwdev, rp->rx_skbuff_dma[i])) {
+-			rp->rx_skbuff_dma[i] = 0;
+-			dev_kfree_skb(skb);
++		rc = rhine_skb_dma_init(dev, &sd);
++		if (rc < 0)
+ 			break;
+-		}
+-		rp->rx_ring[i].addr = cpu_to_le32(rp->rx_skbuff_dma[i]);
++
++		rhine_skb_dma_nic_store(rp, &sd, i);
++
+ 		rp->rx_ring[i].rx_status = cpu_to_le32(DescOwn);
+ 	}
+ 	rp->dirty_rx = (unsigned int)(i - RX_RING_SIZE);
 -- 
 Ueimor
