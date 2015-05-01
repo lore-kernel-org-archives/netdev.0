@@ -1,112 +1,93 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 6/7] net: Add flow_keys digest
-Date: Fri, 1 May 2015 11:30:17 -0700
-Message-ID: <1430505018-496801-7-git-send-email-tom@herbertland.com>
-References: <1430505018-496801-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:27554 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751873AbbEASao (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 14:30:44 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t41IRgwM016506
-	for <netdev@vger.kernel.org>; Fri, 1 May 2015 11:30:43 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1u4e72861d-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 01 May 2015 11:30:43 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 2c30a4d4f03011e484500002c95209d8-7cad8240 for <netdev@vger.kernel.org>;	Fri,
- 01 May 2015 11:30:41 -0700
-In-Reply-To: <1430505018-496801-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCHSET] netconsole: implement extended console support
+Date: Fri,  1 May 2015 14:33:37 -0400
+Message-ID: <1430505220-25160-1-git-send-email-tj@kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net, akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some users of flow keys (well just sch_choke now) need to pass
-flow_keys in skbuff cb, and use them for exact comparisons of flows
-so that skb->hash is not sufficient. In order to increase size of
-the flow_keys structure, we introduce another structure for
-the purpose of passing flow keys in skbuff cb. We limit this structure
-to sixteen bytes, and we will technically treat this as a digest of
-flow_keys struct hence its name flow_keys_digest. In the first
-incaranation we just copy the flow_keys structure up to 16 bytes--
-this is the same information previously passed in the cb. In the
-future, we'll adapt this for larger flow_keys and could use something
-like SHA-1 over the whole flow_keys to improve the quality of the
-digest.
+This patchset is v2 of netconsole extended console support.  v1 was
+part of "printk, netconsole: implement reliable netconsole"
+patchset[1].  The printk part is broken off to a separate patchset[2]
+"printk: implement extended console support" which this patchset is
+dependant upon.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/net/flow_keys.h   | 16 ++++++++++++++++
- net/core/flow_dissector.c | 27 +++++++++++++++++++++++++++
- 2 files changed, 43 insertions(+)
+Changes from the last last posting are
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index dc8fd81..6d6ef62 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -42,4 +42,20 @@ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8
- u32 flow_hash_from_keys(struct flow_keys *keys);
- unsigned int flow_get_hlen(const unsigned char *data, unsigned int max_len,
- 			   __be16 protocol);
-+
-+/* struct flow_keys_digest:
-+ *
-+ * This structure is used to hold a digest of the full flow keys. This is a
-+ * larger "hash" of a flow to allow definitively matching specific flows where
-+ * the 32 bit skb->hash is not large enough. The size is limited to 16 bytes so
-+ * that it can by used in CB of skb (see sch_choke for an example).
-+ */
-+#define FLOW_KEYS_DIGEST_LEN	16
-+struct flow_keys_digest {
-+	u8	data[FLOW_KEYS_DIGEST_LEN];
-+};
-+
-+void make_flow_keys_digest(struct flow_keys_digest *digest,
-+			   const struct flow_keys *flow);
-+
- #endif
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index b1df995..d3acc4d 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -310,6 +310,33 @@ static inline u32 ___skb_get_hash(const struct sk_buff *skb,
- 	return __flow_hash_from_keys(keys, keyval);
- }
- 
-+struct _flow_keys_digest_data {
-+	__be16	n_proto;
-+	u8	ip_proto;
-+	u8	padding;
-+	__be32	ports;
-+	__be32	src;
-+	__be32	dst;
-+};
-+
-+void make_flow_keys_digest(struct flow_keys_digest *digest,
-+			   const struct flow_keys *flow)
-+{
-+	struct _flow_keys_digest_data *data =
-+	    (struct _flow_keys_digest_data *)digest;
-+
-+	BUILD_BUG_ON(sizeof(*data) > sizeof(*digest));
-+
-+	memset(digest, 0, sizeof(*digest));
-+
-+	data->n_proto = flow->n_proto;
-+	data->ip_proto = flow->ip_proto;
-+	data->ports = flow->ports;
-+	data->src = flow->src;
-+	data->dst = flow->dst;
-+}
-+EXPORT_SYMBOL(make_flow_keys_digest);
-+
- /*
-  * __skb_get_hash: calculate a flow hash based on src/dst addresses
-  * and src/dst port numbers.  Sets hash in skb to non-zero hash value
--- 
-1.8.1
+* Dynamic ext console de-registration is dropped.  This made most of
+  lock restructuring and refactoring in enable/disable path
+  unnecessary.  Ext netconsole is now registered on first use and stay
+  registered.  While this means that ext console support will stay
+  enabled even after a dynamic extended console is disabled, such
+  scenarios are likely very rare and the incurred overhead isn't
+  drastic enough to justify the complexity.
+
+* Retransmission handling is removed from the patchset.  Handling
+  retransmission in kernel doesn't provide enough benefits and is
+  moved to userland.
+
+netconsole emits one or more udp messages per each log message and
+only transmits the body, which works fine when it's used as a
+debugging tool on local network; however, netconsole, due to its
+advantages for troubleshooting kernel issues, is also used as a
+mechanism to collect kernel messages at larger scale where the packets
+may have to travel across congested networks or networks with multiple
+paths.
+
+Of the handful large cluster setups that I've seen, two were using
+netconsole for fleet-wide kernel logging and having problem with lost
+messages.  One was a HPC cluster which had a dedicated slower
+management network which was used for all management traffic where
+packet losses were fairly common for several different reasons - the
+network itself could get fairly overloaded at times and IPMI sharing
+the interface didn't seem to help either.  The other is a large web
+service cluster where the aggregator is some hops away and packet
+losses do happen from time to time.
+
+Because netconsole packets don't carry any metadata, it's impossible
+to tell what happened to the messages during transit and even
+combining it with messages transmitted via a separate reliable
+mechanism is challenging as it boils down to matching message content
+textually.
+
+The "printk, netconsole: implement reliable netconsole" patchset[1]
+implements extended console support.  If a console driver sets
+CON_EXTENDED, printk formats each message in the same way /dev/kmsg
+messages are formatted which includes all metadata and, for structured
+log messages, KEY=VALUE dictionary.
+
+This patchset implements extended console support for netconsole,
+which allows log consumers access to complete log information and to
+tell which messages are missing and/or reordered, which can be used to
+implement reliable kernel message logging when combined with userland
+helpers.
+
+Changes to netconsole are straight-forward.  It optionally registers a
+separate extended console driver.  printk passes in extended format
+messages which are transmitted the same way.  The only complication is
+when the message is longer than the maximum payload size (1k).  As
+each message should have proper header and the log receiver should be
+able to tell which part the fragment is, netconsole duplicates full
+header on each fragment and also adds an extra ncfrag=OFF/LEN header.
+
+ 0001-netconsole-make-netconsole_target-enabled-a-bool.patch
+ 0002-netconsole-make-all-dynamic-netconsoles-share-a-mute.patch
+ 0003-netconsole-implement-extended-console-support.patch
+
+David, the patchset is small enough that I don't think splitting it
+makes much sense.  While the first two patches are mostly independent
+cleanups, they can be ignored w/o the third patch.
+
+diffstat follows.  Thanks.
+
+ Documentation/networking/netconsole.txt |   34 ++++++
+ drivers/net/netconsole.c                |  175 +++++++++++++++++++++++++++++---
+ 2 files changed, 192 insertions(+), 17 deletions(-)
+
+--
+tejun
+
+[1] http://lkml.kernel.org/g/1429225433-11946-1-git-send-email-tj@kernel.org
+[2] http://lkml.kernel.org/g/1430318704-32374-1-git-send-email-tj@kernel.org
