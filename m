@@ -1,113 +1,46 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH iproute2 v1 net-next] iplink_bond: add support for ad_actor and port_key options
-Date: Fri,  1 May 2015 10:24:38 -0700
-Message-ID: <d5ed7d7e14c4f4acdb652cb69cf5ae7edac839da.1430497989.git.jtoppins@cumulusnetworks.com>
-References: <cover.1430498637.git.jtoppins@cumulusnetworks.com>
-To: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 net-next] tc: remove unused redirect ttl
+Date: Fri, 01 May 2015 10:28:54 -0700
+Message-ID: <5543B7D6.9050508@plumgrid.com>
+References: <1430449896-5406-1-git-send-email-ast@plumgrid.com> <55435313.9030706@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36345 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbbEARY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 13:24:59 -0400
-Received: by pabsx10 with SMTP id sx10so96174563pab.3
-        for <netdev@vger.kernel.org>; Fri, 01 May 2015 10:24:59 -0700 (PDT)
-In-Reply-To: <cover.1430498637.git.jtoppins@cumulusnetworks.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:36436 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923AbbEAR25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 13:28:57 -0400
+Received: by igblo3 with SMTP id lo3so43519629igb.1
+        for <netdev@vger.kernel.org>; Fri, 01 May 2015 10:28:56 -0700 (PDT)
+In-Reply-To: <55435313.9030706@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for setting and displaying the following bonding
-options:
-* ad_user_port_key
-* ad_actor_sys_prio
-* ad_actor_system
+On 5/1/15 3:18 AM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 5/1/2015 6:11 AM, Alexei Starovoitov wrote:
+>
+>> improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
+>
+>> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> ---
+>> The code is from Jamal. I only did testing and benchmarking.
+>
+>     Then your patch should have had:
+>
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> before the change log, no?
 
-Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
----
- ip/iplink_bond.c |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 48 insertions(+)
-
-diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
-index a573f92..989e642 100644
---- a/ip/iplink_bond.c
-+++ b/ip/iplink_bond.c
-@@ -135,6 +135,9 @@ static void print_explain(FILE *f)
- 		"                [ packets_per_slave PACKETS_PER_SLAVE ]\n"
- 		"                [ lacp_rate LACP_RATE ]\n"
- 		"                [ ad_select AD_SELECT ]\n"
-+		"                [ ad_user_port_key PORTKEY ]\n"
-+		"                [ ad_actor_sys_prio SYSPRIO ]\n"
-+		"                [ ad_actor_system LLADDR ]\n"
- 		"\n"
- 		"BONDMODE := balance-rr|active-backup|balance-xor|broadcast|802.3ad|balance-tlb|balance-alb\n"
- 		"ARP_VALIDATE := none|active|backup|all\n"
-@@ -158,6 +161,7 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 mode, use_carrier, primary_reselect, fail_over_mac;
- 	__u8 xmit_hash_policy, num_peer_notif, all_slaves_active;
- 	__u8 lacp_rate, ad_select;
-+	__u16 ad_user_port_key, ad_actor_sys_prio;
- 	__u32 miimon, updelay, downdelay, arp_interval, arp_validate;
- 	__u32 arp_all_targets, resend_igmp, min_links, lp_interval;
- 	__u32 packets_per_slave;
-@@ -344,6 +348,31 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
- 			}
- 			ad_select = get_index(ad_select_tbl, *argv);
- 			addattr8(n, 1024, IFLA_BOND_AD_SELECT, ad_select);
-+		} else if (matches(*argv, "ad_user_port_key") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&ad_user_port_key, *argv, 0)) {
-+				invarg("invalid ad_user_port_key", *argv);
-+				return -1;
-+			}
-+			addattr16(n, 1024, IFLA_BOND_AD_USER_PORT_KEY,
-+				  ad_user_port_key);
-+		} else if (matches(*argv, "ad_actor_sys_prio") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&ad_actor_sys_prio, *argv, 0)) {
-+				invarg("invalid ad_actor_sys_prio", *argv);
-+				return -1;
-+			}
-+			addattr16(n, 1024, IFLA_BOND_AD_ACTOR_SYS_PRIO,
-+				  ad_actor_sys_prio);
-+		} else if (matches(*argv, "ad_actor_system") == 0) {
-+			int len;
-+			char abuf[32];
-+
-+			NEXT_ARG();
-+			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-+			if (len < 0)
-+				return -1;
-+			addattr_l(n, 1024, IFLA_BOND_AD_ACTOR_SYSTEM, abuf, len);
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -534,6 +563,25 @@ static void bond_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 				ll_addr_n2a(p, ETH_ALEN, 0, b, sizeof(b)));
- 		}
- 	}
-+
-+	if (tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]) {
-+		fprintf(f, "ad_actor_sys_prio %u ",
-+			rta_getattr_u16(tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]));
-+	}
-+
-+	if (tb[IFLA_BOND_AD_USER_PORT_KEY]) {
-+		fprintf(f, "ad_user_port_key %u ",
-+			rta_getattr_u16(tb[IFLA_BOND_AD_USER_PORT_KEY]));
-+	}
-+
-+	if (tb[IFLA_BOND_AD_ACTOR_SYSTEM]) {
-+		/* We assume the l2 address is an Ethernet MAC address */
-+		SPRINT_BUF(b1);
-+		fprintf(f, "ad_actor_system %s ",
-+			ll_addr_n2a(RTA_DATA(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
-+				    RTA_PAYLOAD(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
-+				    1 /*ARPHDR_ETHER*/, b1, sizeof(b1)));
-+	}
- }
- 
- static void bond_print_help(struct link_util *lu, int argc, char **argv,
--- 
-1.7.10.4
+I don't think that's how it works. I've applied Jamal's patch
+then fixed few minor things. Therefore his SOB is on top and
+mine below. 'From' has no DCO meaning. It's used from time to time
+in merge request summary, but that's a different case.
