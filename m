@@ -1,55 +1,72 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] Allow TCP connections to cache SYN packet for userspace
- inspection
-Date: Fri, 01 May 2015 11:42:57 -0700
-Message-ID: <1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1430502237-5619-1-git-send-email-emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH] man ip-link: Add deleting links by group
+Date: Fri,  1 May 2015 21:46:41 +0300
+Message-ID: <1430506001-10229-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:33836 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717AbbEASrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 14:47:07 -0400
+Received: by lbcga7 with SMTP id ga7so69934969lbc.1
+        for <netdev@vger.kernel.org>; Fri, 01 May 2015 11:47:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-05-01 at 13:43 -0400, Eric B Munson wrote:
-> In order to enable policy decisions in userspace, the data contained in
-> the SYN packet would be useful for tracking or identifying connections.
-> Only parts of this data are available to userspace after the hand shake
-> is completed.  This patch exposes a new setsockopt() option that will,
-> when used with a listening socket, ask the kernel to cache the skb
-> holding the SYN packet for retrieval later.  The SYN skbs will not be
-> saved while the kernel is in syn cookie mode.
-> 
-> The same option will ask the kernel for the packet headers when used
-> with getsockopt() with the socket returned from accept().  The cached
-> packet will only be available for the first getsockopt() call, the skb
-> is consumed after the requested data is copied to userspace.  Subsequent
-> calls will return -ENOENT.  Because of this behavior, getsockopt() will
-> return -E2BIG if the caller supplied a buffer that is too small to hold
-> the skb header.
-> 
-> Signed-off-by: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>
-> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> ---
+From: Vadim Kochan <vadim4j@gmail.com>
 
-We have a similar patch here at Google, but we do not hold one skb and
-dst per saved syn. That can be ~4KB for some drivers.
+Indicate possibility deleting virtual links by group.
 
-Only a kmalloc() with the needed part (headers), usually less than 128
-bytes. We store the length in first byte of this allocation.
+Also changed the alignment of 'ip link delete' args
+descriptions, to look like similary to 'ip link set'.
 
-This has a huge difference if you want to have ~4 million request socks.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+ man/man8/ip-link.8.in | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 5ad372c..0dfcb2e 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -78,7 +78,10 @@ ip-link \- network device configuration
+ .BR ipvlan " ]"
+ 
+ .ti -8
+-.BI "ip link delete " DEVICE
++.BR "ip link delete " {
++.IR DEVICE " | "
++.BI "group " GROUP
++}
+ .BI type " TYPE"
+ .RI "[ " ARGS " ]"
+ 
+@@ -588,15 +591,19 @@ the following additional arguments are supported:
+ - specifies the mode (datagram or connected) to use.
+ 
+ .SS ip link delete - delete virtual link
+-.I DEVICE
+-specifies the virtual  device to act operate on.
+-.I TYPE
+-specifies the type of the device.
+-
+ 
+ .TP
+ .BI dev " DEVICE "
+-specifies the physical device to act operate on.
++specifies the virtual device to act operate on.
++
++.TP
++.BI group " GROUP "
++specifies the group of virtual links to delete. Group 0 is not allowed to be
++deleted since it is the default group.
++
++.TP
++.BI type " TYPE "
++specifies the type of the device.
+ 
+ .SS ip link set - change device attributes
+ 
+-- 
+2.3.1
