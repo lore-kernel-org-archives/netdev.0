@@ -1,37 +1,70 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/3] r8169: Use dev_kfree_skb in Tx cleanup path
-Date: Fri, 1 May 2015 11:34:20 +0200
-Message-ID: <20150501093420.GA11669@electric-eye.fr.zoreil.com>
-References: <20150430205423.1512.13487.stgit@ahduyck-vm-fedora22>
- <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] net: sched: remove TC_MUNGED bits
+Date: Fri, 1 May 2015 11:46:19 +0200
+Message-ID: <20150501094619.GA22481@breakpoint.cc>
+References: <5542CC25.8060501@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	Dept-HSGLinuxNICDev@qlogic.com, sony.chacko@qlogic.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:49014 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751995AbbEAJez (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 05:34:55 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41091 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751604AbbEAJqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 05:46:21 -0400
 Content-Disposition: inline
-In-Reply-To: <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22>
+In-Reply-To: <5542CC25.8060501@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck <alexander.h.duyck@redhat.com> :
-> This change replaces the use of either dev_kfree_skb_any or
-> dev_consume_skb_any in the Tx cleanup path of this driver with
-> dev_kfree_skb.  There isn't any need for the "_any" version of these
-> functions since the NAPI cleanup context is not a hard irq context.
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 04/30/15 17:16, Alexei Starovoitov wrote:
+> >On Thu, Apr 30, 2015 at 12:12:00PM +0200, Florian Westphal wrote:
+> >>Not used.
+> >>
+> >>pedit sets TC_MUNGED when packet content was altered, but all the core
+> >>does is unset MUNGED again and then set OK2MUNGE.
+> >>
+> >>And the latter isn't tested anywhere. So lets remove both
+> >>TC_MUNGED and TC_OK2MUNGE.
+> >>
+> >>Signed-off-by: Florian Westphal <fw@strlen.de>
+> >
+> >Wanted to do the same.
+> >iproute2 doesn't use 'munge' flag either.
+> >
+> >Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> >
+> 
+> Florian,
+> If you are going to take this path then fix pedit to do a pskb_expand.
 
-netconsole ?
+Jamal, what about this:
 
-__dev_kfree_skb_any contains a big "if (... || irqs_disabled())" test
-and the NAPI poll handler is called with irq disabled from
-netpoll_send_skb_on_dev.
+- I'll wait for this patch to be accepted or rejected
+- same for your suggested rttl removal patch to go in
 
--- 
-Ueimor
+After that I will then send out all my pending tc_verd patches.
+
+As for pedit, my suggestion would be to use skb_make_writeable(),
+something like.... (untested):
+
+-                       ptr = skb_header_pointer(skb, off + offset, 4, &_data);
+-                       if (!ptr)
++                       if (!skb_make_writable(skb, off + offset + 4))
+                                goto bad;
++
++                       ptr = skb->data + off + offset;
++
+
+Does that sound ok?  I can send a followup patch to take care of pedit.
+
+[ I'd first move skb_make_writeable out of netfilter core, of course ]
+
+> I think it would be better to fix the actions that do
+> pskb_expand_head() and let them indicated they were munged.
+
+I don't think 'i was munged' flag is needed, the helper should
+do on-demand copy if needed to get us exclusive access.
+
+Thanks Jamal.
