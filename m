@@ -1,39 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next] pktgen: introduce 'rx' mode
-Date: Fri, 01 May 2015 09:54:47 -0700
-Message-ID: <1430499287.3711.121.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430457130-16003-1-git-send-email-ast@plumgrid.com>
+From: Kamal Mostafa <kamal@canonical.com>
+Subject: Re: [PATCH stable 3.10-3.16] tcp: Fix crash in TCP Fast Open
+Date: Fri, 01 May 2015 10:13:00 -0700
+Message-ID: <1430500380.25872.22.camel@fourier>
+References: <1429120832.3211.91.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37260 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750994AbbEAQyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 12:54:50 -0400
-Received: by igblo3 with SMTP id lo3so41820413igb.0
-        for <netdev@vger.kernel.org>; Fri, 01 May 2015 09:54:49 -0700 (PDT)
-In-Reply-To: <1430457130-16003-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, 782515@bugs.debian.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1429120832.3211.91.camel@decadent.org.uk>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-04-30 at 22:12 -0700, Alexei Starovoitov wrote:
-> Introduce 'RX' mode for pktgen which generates the packets
-> using familiar pktgen commands, but feeds them into
-> netif_receive_skb() instead of ndo_start_xmit().
-
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> v2->v3: addressed more Eric comments. Thanks!
+On Wed, 2015-04-15 at 19:00 +0100, Ben Hutchings wrote:
+> Commit 355a901e6cf1 ("tcp: make connect() mem charging friendly")
+> changed tcp_send_syn_data() to perform an open-coded copy of the 'syn'
+> skb rather than using skb_copy_expand().
 > 
-> v1->v2: as suggested by Eric:
-> - dropped 'clone_skb' flag, now it will return enotsupp
-> - fix rps/rfs bug by checking skb->users after every netif_receive_skb
-> - tested with RPS/RFS, taps, veth, physical devs, various tc cls/act
+> The open-coded copy does not cover the skb_shared_info::gso_segs
+> field, so in the new skb it is left set to 0.  When this commit was
+> backported into stable branches between 3.10.y and 3.16.7-ckty
+> inclusive, it triggered the BUG() in tcp_transmit_skb().
+> 
+> Since Linux 3.18 the GSO segment count is kept in the
+> tcp_skb_cb::tcp_gso_segs field and tcp_send_syn_data() does copy the
+> tcp_skb_cb structure to the new skb, so mainline and newer stable
+> branches are not affected.
+> 
+> Set skb_shared_info::gso_segs to the correct value of 1.
+> 
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
 
-Thanks !
+Queued for 3.13-stable.  Thanks very much, Ben!
+
+ -Kamal
+
+
+> ---
+>  net/ipv4/tcp_output.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index d5457e4..1ea0a07 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2992,6 +2992,7 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+>  		goto fallback;
+>  	syn_data->ip_summed = CHECKSUM_PARTIAL;
+>  	memcpy(syn_data->cb, syn->cb, sizeof(syn->cb));
+> +	skb_shinfo(syn_data)->gso_segs = 1;
+>  	if (unlikely(memcpy_fromiovecend(skb_put(syn_data, space),
+>  					 fo->data->msg_iov, 0, space))) {
+>  		kfree_skb(syn_data);
+> 
