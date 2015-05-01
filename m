@@ -1,54 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next] net: ipv4: route: Fix sending IGMP messages with link address
-Date: Fri,  1 May 2015 16:39:54 +0200
-Message-ID: <1430491194-16615-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45318 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753345AbbEAOoy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 May 2015 10:44:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH] net: dsa: mv88e6xxx: unregister mv88e6352 driver
+Date: Fri,  1 May 2015 10:43:52 -0400
+Message-ID: <1430491432-7566-1-git-send-email-vivien.didelot@savoirfairelinux.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In setups with a global scope address on an interface, and a lesser
-scope address on an interface sending IGMP reports, the reports can be
-sent using the other interfaces global scope address rather than the
-local interface address. RFC 2236 suggests:
+Add the missing unregister for the mv88e6352_switch_driver.
 
-     Ignore the Report if you cannot identify the source address of
-     the packet as belonging to a subnet assigned to the interface on
-     which the packet was received.
-
-since such reports could be forged.
-
-Look at the protocol when deciding if a RT_SCOPE_LINK address should
-be used for the packet.
-
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
+ drivers/net/dsa/mv88e6xxx.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Not sure what to use for a Fixes: tag. All 3.x kernels have this
-problem, and it seems to go back a long way.
-
-
- net/ipv4/route.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a78540f28276..9aa43c4dc2a7 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2096,7 +2096,8 @@ struct rtable *__ip_route_output_key(struct net *net, struct flowi4 *fl4)
- 			goto out;
- 		}
- 		if (ipv4_is_local_multicast(fl4->daddr) ||
--		    ipv4_is_lbcast(fl4->daddr)) {
-+		    ipv4_is_lbcast(fl4->daddr) ||
-+		    fl4->flowi4_proto == IPPROTO_IGMP) {
- 			if (!fl4->saddr)
- 				fl4->saddr = inet_select_addr(dev_out, 0,
- 							      RT_SCOPE_LINK);
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 51130fc..7339885 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -1788,6 +1788,9 @@ static void __exit mv88e6xxx_cleanup(void)
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6171)
+ 	unregister_switch_driver(&mv88e6171_switch_driver);
+ #endif
++#if IS_ENABLED(CONFIG_NET_DSA_MV88E6352)
++	unregister_switch_driver(&mv88e6352_switch_driver);
++#endif
+ #if IS_ENABLED(CONFIG_NET_DSA_MV88E6123_61_65)
+ 	unregister_switch_driver(&mv88e6123_61_65_switch_driver);
+ #endif
 -- 
-2.1.4
+2.3.7
