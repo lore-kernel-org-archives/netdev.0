@@ -1,154 +1,123 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH linux v1 net-next 4/4] bonding: add netlink support for
- sys prio, actor sys mac, and port key
-Date: Fri, 1 May 2015 16:15:46 -0700
-Message-ID: <CAF2d9jjKmYd7pVVVnsXQkGoysQy09Ro4VFA7a8etFYYTzv9+Ag@mail.gmail.com>
-References: <cover.1430498637.git.jtoppins@cumulusnetworks.com> <73eb78d846c220d223f68a3b29f42eff011795fd.1430498637.git.jtoppins@cumulusnetworks.com>
+From: Andrey Wagin <avagin@gmail.com>
+Subject: Re: Netlink socket leaks
+Date: Sat, 2 May 2015 02:31:09 +0300
+Message-ID: <CANaxB-zvU0St+TkniHu9AKsW0Pd_j3BK17EfzCB+ghmDC0U22g@mail.gmail.com>
+References: <CANaxB-weCVV0eQqRMnH59psXavrckip+Wfep2gdGLiw9rz3B5g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+To: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:32943 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947AbbEAXQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 19:16:07 -0400
-Received: by oica37 with SMTP id a37so79418558oic.0
-        for <netdev@vger.kernel.org>; Fri, 01 May 2015 16:16:07 -0700 (PDT)
-In-Reply-To: <73eb78d846c220d223f68a3b29f42eff011795fd.1430498637.git.jtoppins@cumulusnetworks.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:35234 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750778AbbEAXbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 19:31:11 -0400
+Received: by labbd9 with SMTP id bd9so72616325lab.2
+        for <netdev@vger.kernel.org>; Fri, 01 May 2015 16:31:09 -0700 (PDT)
+In-Reply-To: <CANaxB-weCVV0eQqRMnH59psXavrckip+Wfep2gdGLiw9rz3B5g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 1, 2015 at 10:24 AM, Jonathan Toppins
-<jtoppins@cumulusnetworks.com> wrote:
-> From: Andy Gospodarek <gospo@cumulusnetworks.com>
+2015-05-01 13:22 GMT+03:00 Andrey Wagin <avagin@gmail.com>:
+> Hi Herbert,
 >
-> Adds netlink support for the following bonding options:
-> * BOND_OPT_AD_ACTOR_SYS_PRIO
-> * BOND_OPT_AD_ACTOR_SYSTEM
-> * BOND_OPT_AD_USER_PORT_KEY
+> I've found that netlink sockets start leaking after your patch:
+> commit c428ecd1a21f1457ca3beb4df71b8a079c410e41
+> Author: Herbert Xu <herbert@gondor.apana.org.au>
+> Date:   Fri Mar 20 21:57:01 2015 +1100
 >
-> When setting the actor system mac address we assume the netlink message
-> contains a binary mac and not a string representation of a mac.
+>     netlink: Move namespace into hash key
 >
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> [jt: completed the setting side of the netlink attributes]
-> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-> ---
->  drivers/net/bonding/bond_netlink.c |   50 ++++++++++++++++++++++++++++++++++++
->  include/uapi/linux/if_link.h       |    3 +++
->  2 files changed, 53 insertions(+)
+> Could you look at this?
+
+A socket leaks if it is released by sk_release_kernel(). The problem
+is that netlink_insert() and netlink_remove() is called when a socket
+has different values of sk->sk_net.
+
+The following patch fixes this problem, but I am not sure that it
+breaks nothing else.
+diff --git a/net/core/sock.c b/net/core/sock.c
+index e891bcf..292f422 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1474,8 +1474,8 @@ void sk_release_kernel(struct sock *sk)
+                return;
+
+        sock_hold(sk);
+-       sock_net_set(sk, get_net(&init_net));
+        sock_release(sk->sk_socket);
++       sock_net_set(sk, get_net(&init_net));
+        sock_put(sk);
+ }
+ EXPORT_SYMBOL(sk_release_kernel);
+
 >
-> diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-> index 7b11243..d98f770 100644
-> --- a/drivers/net/bonding/bond_netlink.c
-> +++ b/drivers/net/bonding/bond_netlink.c
-> @@ -94,6 +94,10 @@ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
->         [IFLA_BOND_AD_LACP_RATE]        = { .type = NLA_U8 },
->         [IFLA_BOND_AD_SELECT]           = { .type = NLA_U8 },
->         [IFLA_BOND_AD_INFO]             = { .type = NLA_NESTED },
-> +       [IFLA_BOND_AD_ACTOR_SYS_PRIO]   = { .type = NLA_U16 },
-> +       [IFLA_BOND_AD_USER_PORT_KEY]    = { .type = NLA_U16 },
-> +       [IFLA_BOND_AD_ACTOR_SYSTEM]     = { .type = NLA_BINARY,
-> +                                           .len = MAX_ADDR_LEN },
->  };
+> It can be reproduced by the following script:
+> ss -a | wc -l; ip netns add test && ip netns exec test ip a && ip
+> netns del test ; ss -a | wc -l
 >
->  static const struct nla_policy bond_slave_policy[IFLA_BOND_SLAVE_MAX + 1] = {
-> @@ -379,6 +383,36 @@ static int bond_changelink(struct net_device *bond_dev,
->                 if (err)
->                         return err;
+> [root@jenkins ~]# uname -a
+> Linux jenkins.criu.org 4.1.0-rc1-00117-g4a152c3 #46 SMP Fri May 1
+> 14:09:02 MSK 2015 x86_64 x86_64 x86_64 GNU/Linux
+>
+>
+> I have applied a patch with debug messages:
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 72c6b55..79aece4 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -1081,7 +1081,9 @@ static int netlink_insert(struct sock *sk, u32 portid)
+>                 if (err == -EEXIST)
+>                         err = -EADDRINUSE;
+>                 sock_put(sk);
+> +               printk("%s:%d: %p\n", __func__, __LINE__, sk);
 >         }
-> +       if (data[IFLA_BOND_AD_ACTOR_SYS_PRIO]) {
-> +               int actor_sys_prio =
-> +                       nla_get_u16(data[IFLA_BOND_AD_ACTOR_SYS_PRIO]);
-> +
-> +               bond_opt_initval(&newval, actor_sys_prio);
-> +               err = __bond_opt_set(bond, BOND_OPT_AD_ACTOR_SYS_PRIO, &newval);
-> +               if (err)
-> +                       return err;
-> +       }
-> +
-> +       if (data[IFLA_BOND_AD_USER_PORT_KEY]) {
-> +               int port_key =
-> +                       nla_get_u16(data[IFLA_BOND_AD_USER_PORT_KEY]);
-> +
-> +               bond_opt_initval(&newval, port_key);
-> +               err = __bond_opt_set(bond, BOND_OPT_AD_USER_PORT_KEY, &newval);
-> +               if (err)
-> +                       return err;
-> +       }
-> +
-> +       if (data[IFLA_BOND_AD_ACTOR_SYSTEM]) {
-> +               if (nla_len(data[IFLA_BOND_AD_ACTOR_SYSTEM]) != ETH_ALEN)
-> +                       return -EINVAL;
-> +
-> +               bond_opt_initstr(&newval,
-> +                                nla_data(data[IFLA_BOND_AD_ACTOR_SYSTEM]));
-> +               err = __bond_opt_set(bond, BOND_OPT_AD_ACTOR_SYSTEM, &newval);
-> +               if (err)
-> +                       return err;
-> +       }
->         return 0;
->  }
+> +       printk("%s:%d: %p\n", __func__, __LINE__, sk);
 >
-> @@ -426,6 +460,9 @@ static size_t bond_get_size(const struct net_device *bond_dev)
->                 nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_INFO_ACTOR_KEY */
->                 nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_INFO_PARTNER_KEY*/
->                 nla_total_size(ETH_ALEN) +    /* IFLA_BOND_AD_INFO_PARTNER_MAC*/
-> +               nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_ACTOR_SYS_PRIO */
-> +               nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_USER_PORT_KEY */
-> +               nla_total_size(ETH_ALEN) + /* IFLA_BOND_AD_ACTOR_SYSTEM */
->                 0;
->  }
+>  err:
+>         release_sock(sk);
+> @@ -1097,7 +1099,9 @@ static void netlink_remove(struct sock *sk)
+>                                     netlink_rhashtable_params)) {
+>                 WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
+>                 __sock_put(sk);
+> +               printk("%s:%d: %p\n", __func__, __LINE__, sk);
+>         }
+> +       printk("%s:%d: %p\n", __func__, __LINE__, sk);
 >
-> @@ -548,6 +585,19 @@ static int bond_fill_info(struct sk_buff *skb,
->                        bond->params.ad_select))
->                 goto nla_put_failure;
+>         netlink_table_grab();
+>         if (nlk_sk(sk)->subscriptions) {
 >
-> +       if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
-> +                       bond->params.ad_actor_sys_prio))
-> +               goto nla_put_failure;
-> +
-> +       if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
-> +                       bond->params.ad_user_port_key))
-> +               goto nla_put_failure;
-> +
-> +       if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
-> +                   sizeof(bond->params.ad_actor_system),
-> +                   &bond->params.ad_actor_system))
-> +               goto nla_put_failure;
-> +
-I think this does not make sense for MODE != 8023AD. Shouldn't this be
-inside next block which is for the 802.3ad mode?
-
->         if (BOND_MODE(bond) == BOND_MODE_8023AD) {
->                 struct ad_info info;
+> And here is the output
+> [ 3868.202260] netlink_insert:1086: ffff8800d8c14000
+> [ 3868.202962] netlink_insert:1086: ffff8800d8c15800
+> [ 3868.202995] netlink_insert:1086: ffff8800d8c12000
+> [ 3868.203228] netlink_insert:1086: ffff8800d8c16000
+> [ 3868.203360] netlink_insert:1086: ffff8800d8c11000
+> [ 3868.203920] netlink_insert:1086: ffff8800d8c13000
+> [ 3868.203951] netlink_insert:1086: ffff8800d8c11800
+> [ 3868.204216] netlink_insert:1086: ffff8800d8c17000
+> [ 3868.205846] netlink_remove:1102: ffff8800d8c14000
+> [ 3868.205849] netlink_remove:1104: ffff8800d8c14000
+> [ 3868.208270] netlink_insert:1086: ffff8800d81d3800
+> [ 3868.215363] netlink_remove:1102: ffff8800d81d3800
+> [ 3868.215368] netlink_remove:1104: ffff8800d81d3800
+> [ 3868.216465] netlink_insert:1086: ffff8800d8c0a000
+> [ 3868.226320] netlink_remove:1102: ffff8800d8c0a000
+> [ 3868.226324] netlink_remove:1104: ffff8800d8c0a000
+> [ 3868.230662] netlink_insert:1086: ffff8800d8c0e800
+> [ 3868.235906] netlink_remove:1102: ffff8800d8c0e800
+> [ 3868.235910] netlink_remove:1104: ffff8800d8c0e800
+> [ 3868.280231] netlink_remove:1104: ffff8800d8c17000
+> [ 3868.280283] netlink_remove:1104: ffff8800d8c11800
+> [ 3868.286152] netlink_remove:1104: ffff8800d8c13000
+> [ 3868.318148] netlink_remove:1104: ffff8800d8c11000
+> [ 3868.318185] netlink_remove:1104: ffff8800d8c16000
+> [ 3868.318241] netlink_remove:1104: ffff8800d8c12000
+> [ 3868.318255] netlink_remove:1104: ffff8800d8c15800
 >
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index d9cd192..6d6e502 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -417,6 +417,9 @@ enum {
->         IFLA_BOND_AD_LACP_RATE,
->         IFLA_BOND_AD_SELECT,
->         IFLA_BOND_AD_INFO,
-> +       IFLA_BOND_AD_ACTOR_SYS_PRIO,
-> +       IFLA_BOND_AD_USER_PORT_KEY,
-> +       IFLA_BOND_AD_ACTOR_SYSTEM,
-Even though this is available / stored in bond->param, I feel that
-these belong to IFLA_BOND_AD_INFO_, no?
-
->         __IFLA_BOND_MAX,
->  };
+> So it looks like
 >
-> --
-> 1.7.10.4
+> netlink_insert() returns zero, but then rhashtable_remove_fast()
+> returns non-zero code
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Thanks,
+> Andrew
