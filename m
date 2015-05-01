@@ -1,51 +1,51 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH v2 net-next] tc: remove unused redirect ttl
-Date: Fri, 1 May 2015 13:33:28 -0700
-Message-ID: <CAHA+R7NOr4aQMXfC7yMuzy3dKRTJB9AYg5HMD2zVXLHM5iZYyw@mail.gmail.com>
-References: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
-	<55435313.9030706@cogentembedded.com>
-	<5543B7D6.9050508@plumgrid.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] Allow TCP connections to cache SYN packet for userspace
+ inspection
+Date: Fri, 01 May 2015 13:41:34 -0700
+Message-ID: <1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
+	 <1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S34ftz_wDoPwcJg_cMQu4QtnBJF-=d+gF5ieTA=d=r31-Q@mail.gmail.com>
+	 <20150501201417.GB6113@akamai.com>
+	 <1430511800.3711.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150501202908.GC6113@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Florian Westphal <fw@strlen.de>,
-	netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:34040 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750728AbbEAUd3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 16:33:29 -0400
-Received: by wgso17 with SMTP id o17so100087296wgs.1
-        for <netdev@vger.kernel.org>; Fri, 01 May 2015 13:33:28 -0700 (PDT)
-In-Reply-To: <5543B7D6.9050508@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150501202908.GC6113-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 1, 2015 at 10:28 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> I don't think that's how it works. I've applied Jamal's patch
-> then fixed few minor things. Therefore his SOB is on top and
-> mine below. 'From' has no DCO meaning. It's used from time to time
-> in merge request summary, but that's a different case.
+On Fri, 2015-05-01 at 16:29 -0400, Eric B Munson wrote:
+
+>  
+> 
+> As long as your implementation provides the IP and TCP headers, I would
+> be happy with that.  I am also happy to rework my implementation to
+> extract and cache information when the request structure is built.  If
+> you all have an implementation that you want to post, I will add my ack
+> if it meets our needs as well.
+
+Yes, I believe it will be easier we provide our implementation instead
+of reviewing yours ;)
+
+For example you had :
+
++       case TCP_SAVED_SYN:
++               if (!((1 << sk->sk_state) & TCPF_LISTEN))
++                       err = -EINVAL;
++               tp->saved_syn = !!(val);
++               break;
 
 
-Quote from Documentation/SubmittingPatches:
-
-"
-The "from" line must be the very first line in the message body,
-and has the form:
-
-        From: Original Author <author@example.com>
-
-The "from" line specifies who will be credited as the author of the
-patch in the permanent changelog.  If the "from" line is missing,
-then the "From:" line from the email header will be used to determine
-the patch author in the changelog.
-"
-
-You should take a look at how Andrew Morton works
-when he fixes minor things, I am sure he fixes much
-more than you do.
+But if you return an error, tp->saved_syn should be left unchanged.
