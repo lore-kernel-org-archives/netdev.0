@@ -1,32 +1,37 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2 net-next] tc: remove unused redirect ttl
-Date: Fri, 1 May 2015 10:57:25 +0200
-Message-ID: <20150501085725.GB1164@breakpoint.cc>
-References: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/3] r8169: Use dev_kfree_skb in Tx cleanup path
+Date: Fri, 1 May 2015 11:34:20 +0200
+Message-ID: <20150501093420.GA11669@electric-eye.fr.zoreil.com>
+References: <20150430205423.1512.13487.stgit@ahduyck-vm-fedora22>
+ <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	Dept-HSGLinuxNICDev@qlogic.com, sony.chacko@qlogic.com,
+	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+	davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41029 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751995AbbEAI5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 04:57:31 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49014 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751995AbbEAJez (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 05:34:55 -0400
 Content-Disposition: inline
-In-Reply-To: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
+In-Reply-To: <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexei Starovoitov <ast@plumgrid.com> wrote:
-> improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> The code is from Jamal. I only did testing and benchmarking.
+Alexander Duyck <alexander.h.duyck@redhat.com> :
+> This change replaces the use of either dev_kfree_skb_any or
+> dev_consume_skb_any in the Tx cleanup path of this driver with
+> dev_kfree_skb.  There isn't any need for the "_any" version of these
+> functions since the NAPI cleanup context is not a hard irq context.
 
-I had similar patch, so
-Acked-by: Florian Westphal <fw@strlen.de>
+netconsole ?
+
+__dev_kfree_skb_any contains a big "if (... || irqs_disabled())" test
+and the NAPI poll handler is called with irq disabled from
+netpoll_send_skb_on_dev.
+
+-- 
+Ueimor
