@@ -1,70 +1,46 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] net: sched: remove TC_MUNGED bits
-Date: Fri, 1 May 2015 11:46:19 +0200
-Message-ID: <20150501094619.GA22481@breakpoint.cc>
-References: <5542CC25.8060501@mojatatu.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 net-next] tc: remove unused redirect ttl
+Date: Fri, 01 May 2015 13:18:59 +0300
+Message-ID: <55435313.9030706@cogentembedded.com>
+References: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:41091 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751604AbbEAJqV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 05:46:21 -0400
-Content-Disposition: inline
-In-Reply-To: <5542CC25.8060501@mojatatu.com>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:33785 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbbEAKTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 06:19:03 -0400
+Received: by layy10 with SMTP id y10so61953429lay.0
+        for <netdev@vger.kernel.org>; Fri, 01 May 2015 03:19:01 -0700 (PDT)
+In-Reply-To: <1430449896-5406-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 04/30/15 17:16, Alexei Starovoitov wrote:
-> >On Thu, Apr 30, 2015 at 12:12:00PM +0200, Florian Westphal wrote:
-> >>Not used.
-> >>
-> >>pedit sets TC_MUNGED when packet content was altered, but all the core
-> >>does is unset MUNGED again and then set OK2MUNGE.
-> >>
-> >>And the latter isn't tested anywhere. So lets remove both
-> >>TC_MUNGED and TC_OK2MUNGE.
-> >>
-> >>Signed-off-by: Florian Westphal <fw@strlen.de>
-> >
-> >Wanted to do the same.
-> >iproute2 doesn't use 'munge' flag either.
-> >
-> >Acked-by: Alexei Starovoitov <ast@plumgrid.com>
-> >
-> 
-> Florian,
-> If you are going to take this path then fix pedit to do a pskb_expand.
+Hello.
 
-Jamal, what about this:
+On 5/1/2015 6:11 AM, Alexei Starovoitov wrote:
 
-- I'll wait for this patch to be accepted or rejected
-- same for your suggested rttl removal patch to go in
+> improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
 
-After that I will then send out all my pending tc_verd patches.
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> The code is from Jamal. I only did testing and benchmarking.
 
-As for pedit, my suggestion would be to use skb_make_writeable(),
-something like.... (untested):
+    Then your patch should have had:
 
--                       ptr = skb_header_pointer(skb, off + offset, 4, &_data);
--                       if (!ptr)
-+                       if (!skb_make_writable(skb, off + offset + 4))
-                                goto bad;
-+
-+                       ptr = skb->data + off + offset;
-+
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Does that sound ok?  I can send a followup patch to take care of pedit.
+before the change log, no?
 
-[ I'd first move skb_make_writeable out of netfilter core, of course ]
+> V1->V2: missed removal of unused 'dev' variable.
 
-> I think it would be better to fix the actions that do
-> pskb_expand_head() and let them indicated they were munged.
+[...]
 
-I don't think 'i was munged' flag is needed, the helper should
-do on-demand copy if needed to get us exclusive access.
-
-Thanks Jamal.
+WBR, Sergei
