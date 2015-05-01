@@ -1,32 +1,40 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH 2/3] r8169: Use dev_kfree_skb in Tx cleanup path
-Date: Fri, 01 May 2015 14:15:42 +0200
-Message-ID: <55436E6E.5050609@gmx.de>
-References: <20150430205423.1512.13487.stgit@ahduyck-vm-fedora22> <20150430205824.1512.35158.stgit@ahduyck-vm-fedora22> <20150501093420.GA11669@electric-eye.fr.zoreil.com> <55436C4B.7090509@gmx.de>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] net: sched: run ingress qdisc without locks
+Date: Fri, 01 May 2015 14:41:14 +0200
+Message-ID: <5543746A.7080803@iogearbox.net>
+References: <1430450047-5671-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	Dept-HSGLinuxNICDev@qlogic.com, sony.chacko@qlogic.com,
-	intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-	davem@davemloft.net, ebiederm@xmission.com
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:52878 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753518AbbEAMQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 May 2015 08:16:18 -0400
-In-Reply-To: <55436C4B.7090509@gmx.de>
+Received: from www62.your-server.de ([213.133.104.62]:40220 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635AbbEAMlY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 08:41:24 -0400
+In-Reply-To: <1430450047-5671-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01.05.2015 14:06, Lino Sanfilippo wrote:
+On 05/01/2015 05:14 AM, Alexei Starovoitov wrote:
+> TC classifiers/actions were converted to RCU by John in the series:
+> http://thread.gmane.org/gmane.linux.network/329739/focus=329739
+> and many follow on patches.
+> This is the last patch from that series that finally drops
+> ingress spin_lock.
+>
+> Single cpu ingress+u32 performance goes from 22.9 Mpps to 24.5 Mpps.
+>
+> In two cpu case when both cores are receiving traffic on the same
+> device and go into the same ingress+u32 the performance jumps
+> from 4.5 + 4.5 Mpps to 23.5 + 23.5 Mpps
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-> which did just the opposite: replace dev_kfree() with dev_kfree_any()
-> for that reason. See
-> 
+Looks good to me, thanks!
 
-Um, this should of course be dev_kfree_skb() and dev_kfree_skb_any().
-
-Lino
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
