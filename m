@@ -1,81 +1,54 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 1/3] etherdev: Avoid unnecessary byte swap in check for
- Ethertype
-Date: Thu, 30 Apr 2015 17:41:04 -0700
-Message-ID: <5542CBA0.2030907@gmail.com>
-References: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>	 <20150430215348.1798.15509.stgit@ahduyck-vm-fedora22>	 <1430435029.3711.106.camel@edumazet-glaptop2.roam.corp.google.com>	 <5542B9A0.70605@gmail.com> <1430439180.3711.110.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH -next] net: sched: remove TC_MUNGED bits
+Date: Thu, 30 Apr 2015 20:43:17 -0400
+Message-ID: <5542CC25.8060501@mojatatu.com>
+References: <1430388720-5112-1-git-send-email-fw@strlen.de> <20150430211620.GA13076@Alexeis-MBP.westell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34150 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485AbbEAAlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 20:41:06 -0400
-Received: by pacyx8 with SMTP id yx8so75762093pac.1
-        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 17:41:05 -0700 (PDT)
-In-Reply-To: <1430439180.3711.110.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:37579 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751485AbbEAAnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Apr 2015 20:43:19 -0400
+Received: by igblo3 with SMTP id lo3so28171839igb.0
+        for <netdev@vger.kernel.org>; Thu, 30 Apr 2015 17:43:18 -0700 (PDT)
+In-Reply-To: <20150430211620.GA13076@Alexeis-MBP.westell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2015 05:13 PM, Eric Dumazet wrote:
-> On Thu, 2015-04-30 at 16:24 -0700, Alexander Duyck wrote:
->
->> Actually a byte operation itself is not faster.  Note in the next line
->> we are returning the value.  So what you typically end up with by doing
->> it that way would be 2 reads, one for the u8 and one for the u16 return
->> value.  That is actually what I am trying to address in the second patch
->> in the set since we were doing a 8b test on the first byte of the
->> address followed by a 64b read.
+On 04/30/15 17:16, Alexei Starovoitov wrote:
+> On Thu, Apr 30, 2015 at 12:12:00PM +0200, Florian Westphal wrote:
+>> Not used.
 >>
->> The advantage with the way I wrote this is that the compiler itself
->> should be able to sort out how it wants to test the value while
->> accessing it in a 16b size.  So at worst case it is a mask and compare,
->> followed by a return of the value.  From what I have seen the compiler
->> seems to be smart enough on x86 anyway to just convert this into a one
->> byte compare on AL and then return the result in AX.  I would suspect
->> that for bit-endian systems it would likely just perform the compare.
+>> pedit sets TC_MUNGED when packet content was altered, but all the core
+>> does is unset MUNGED again and then set OK2MUNGE.
 >>
+>> And the latter isn't tested anywhere. So lets remove both
+>> TC_MUNGED and TC_OK2MUNGE.
+>>
+>> Signed-off-by: Florian Westphal <fw@strlen.de>
 >
-> My compiler (4.8.2 (Ubuntu 4.8.2-19ubuntu1)) does the following :
+> Wanted to do the same.
+> iproute2 doesn't use 'munge' flag either.
 >
->   62d:	0f b7 42 0c          	movzwl 0xc(%rdx),%eax
->   631:	0f b6 d0             	movzbl %al,%edx
->   634:	83 fa 05             	cmp    $0x5,%edx
->   637:	7e 02                	jle    63b <eth_type_trans+0x8b>
->   639:	c9                   	leaveq
->   63a:	c3                   	retq
->
-> Presumably this would be possible
->
->            	movzwl 0xc(%rdx),%eax
->              	cmp    $0x5,%al
->                 	jle    63b <eth_type_trans+0x8b>
->                 	leaveq
->                 	retq
->
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 >
 
-My compiler (5.0.1 (Red Hat 5.0.1-0.1)) does like what you have in the 
-"would be possible" example.  What I end up with is something like this:
-  648:   0f b7 42 0c             movzwl 0xc(%rdx),%eax
-  64c:   3c 05                   cmp    $0x5,%al
-  64e:   76 40                   jbe    690 <eth_type_trans+0xc0>
+Florian,
+If you are going to take this path then fix pedit to do a pskb_expand.
 
-The assembler before my patch was:
-  652:   0f b7 40 0c             movzwl 0xc(%rax),%eax
-  656:   89 c2                   mov    %eax,%edx
-  658:   66 c1 c2 08             rol    $0x8,%dx
-  65c:   0f b7 d2                movzwl %dx,%edx
-  65f:   81 fa ff 05 00 00       cmp    $0x5ff,%edx
-  665:   7e 41                   jle    6a8 <eth_type_trans+0xd8>
+I think it would be better to fix the actions that do
+pskb_expand_head() and let them indicated they were munged.
+The flag was intended to be an optimization where it would indicate
+to the action processing a packet to not bother and just trample
+on the packet if noone is referencing it.
+That was the rule, unfortunately nobody paid attention and it
+didnt matter because it doesnt seem there was a use case where two
+actions in a graph would be editing packets one after the other).
 
-The savings isn't meant to be anything huge for the patch, maybe a cycle 
-or two.  I suspect the before on your system is probably something 
-similar to what I had so we are still probably dropping at least 2 
-instructions.
-
-- Alex
+cheers,
+jamal
