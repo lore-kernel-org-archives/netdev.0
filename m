@@ -1,99 +1,78 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH 3/3] netconsole: implement extended console support
-Date: Sat, 2 May 2015 13:54:57 +0900
-Message-ID: <201505021354.DEH35401.VOOFFMHLJFtOQS@I-love.SAKURA.ne.jp>
-References: <1430505220-25160-1-git-send-email-tj@kernel.org>
-	<1430505220-25160-4-git-send-email-tj@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: tj@kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH v3 net-next] tc: remove unused redirect ttl
+Date: Fri,  1 May 2015 22:19:43 -0700
+Message-ID: <1430543983-10446-1-git-send-email-ast@plumgrid.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:48860 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750819AbbEBEzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2015 00:55:12 -0400
-In-Reply-To: <1430505220-25160-4-git-send-email-tj@kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:34475 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbbEBFTy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2015 01:19:54 -0400
+Received: by pdbqa5 with SMTP id qa5so111204616pdb.1
+        for <netdev@vger.kernel.org>; Fri, 01 May 2015 22:19:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tejun Heo wrote:
-> +If a message doesn't fit in 1000 bytes, the message is split into
-> +multiple fragments by netconsole. These fragments are transmitted with
-> +"ncfrag" header field added.
-> +
-> + ncfrag=<byte-offset>/<total-bytes>
-> +
-> +For example,
-> +
-> + 6,416,1758426,-,ncfrag=0/33;the first chunk,
-> + 6,416,1758426,-,ncfrag=16/33;the second chunk.
-> +
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Wouldn't total-bytes > 1000 than 33 in this example?
+improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
 
-> +/**
-> + * send_ext_msg_udp - send extended log message to target
-> + * @nt: target to send message to
-> + * @msg: extended log message to send
-> + * @msg_len: length of message
-> + *
-> + * Transfer extended log @msg to @nt.  If @msg is longer than
-> + * MAX_PRINT_CHUNK, it'll be split and transmitted in multiple chunks with
-> + * ncfrag header field added to identify them.
-> + */
-> +static void send_ext_msg_udp(struct netconsole_target *nt, const char *msg,
-> +			     int msg_len)
-> +{
-> +	static char buf[MAX_PRINT_CHUNK];
-> +	const int max_extra_len = sizeof(",ncfrag=0000/0000");
-> +	const char *header, *body;
-> +	int header_len = msg_len, body_len = 0;
-> +	int chunk_len, nr_chunks, i;
-> +
-> +	if (msg_len <= MAX_PRINT_CHUNK) {
-> +		netpoll_send_udp(&nt->np, msg, msg_len);
-> +		return;
-> +	}
-> +
-> +	/* need to insert extra header fields, detect header and body */
-> +	header = msg;
-> +	body = memchr(msg, ';', msg_len);
-> +	if (body) {
-> +		header_len = body - header;
-> +		body_len = msg_len - header_len - 1;
-> +		body++;
-> +	}
-> +
-> +	chunk_len = MAX_PRINT_CHUNK - header_len - max_extra_len;
-> +	if (WARN_ON_ONCE(chunk_len <= 0))
-> +		return;
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Acked-by: Florian Westphal <fw@strlen.de>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
 
-This path is executed only when msg_len > MAX_PRINT_CHUNK.
-And since header_len == msg_len if body == NULL, chunk_len <= 0 is true.
-We will hit this WARN_ON_ONCE() if memchr(msg, ';', msg_len) == NULL
-which will fail to send the message. Is this what you want?
+V2->V3: added From:Jamal tag and Acks
+V1->V2: missed removal of unused variable.
 
-> +static void write_ext_msg(struct console *con, const char *msg,
-> +			  unsigned int len)
-> +{
-> +	struct netconsole_target *nt;
-> +	unsigned long flags;
-> +
-> +	if ((oops_only && !oops_in_progress) || list_empty(&target_list))
-> +		return;
-> +
-> +	spin_lock_irqsave(&target_list_lock, flags);
-> +	list_for_each_entry(nt, &target_list, list)
+ include/uapi/linux/pkt_cls.h |    2 ++
+ net/core/dev.c               |    9 ---------
+ 2 files changed, 2 insertions(+), 9 deletions(-)
 
-Don't you need to call netconsole_target_get() here
-
-> +		if (nt->extended && nt->enabled && netif_running(nt->np.dev))
-> +			send_ext_msg_udp(nt, msg, len);
-
-and netconsole_target_put() here as with write_msg()?
-
-> +	spin_unlock_irqrestore(&target_list_lock, flags);
-> +}
-> +
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index bf08e76bf505..f6344a522cd6 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -62,11 +62,13 @@ bits 9,10,11: redirect counter -  redirect TTL. Loop avoidance
+ #define SET_TC_NCLS(v)   ( TC_NCLS | (v & ~TC_NCLS))
+ #define CLR_TC_NCLS(v)   ( v & ~TC_NCLS)
+ 
++#ifndef __KERNEL__
+ #define S_TC_RTTL          _TC_MAKE32(9)
+ #define M_TC_RTTL          _TC_MAKEMASK(3,S_TC_RTTL)
+ #define G_TC_RTTL(x)       _TC_GETVALUE(x,S_TC_RTTL,M_TC_RTTL)
+ #define V_TC_RTTL(x)       _TC_MAKEVALUE(x,S_TC_RTTL)
+ #define SET_TC_RTTL(v,n)   ((V_TC_RTTL(n)) | (v & ~M_TC_RTTL))
++#endif
+ 
+ #define S_TC_AT          _TC_MAKE32(12)
+ #define M_TC_AT          _TC_MAKEMASK(2,S_TC_AT)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c7ba0388f1be..97a15ae8d07a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3531,18 +3531,9 @@ EXPORT_SYMBOL_GPL(br_fdb_test_addr_hook);
+  */
+ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
+ {
+-	struct net_device *dev = skb->dev;
+-	u32 ttl = G_TC_RTTL(skb->tc_verd);
+ 	int result = TC_ACT_OK;
+ 	struct Qdisc *q;
+ 
+-	if (unlikely(MAX_RED_LOOP < ttl++)) {
+-		net_warn_ratelimited("Redir loop detected Dropping packet (%d->%d)\n",
+-				     skb->skb_iif, dev->ifindex);
+-		return TC_ACT_SHOT;
+-	}
+-
+-	skb->tc_verd = SET_TC_RTTL(skb->tc_verd, ttl);
+ 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
+ 
+ 	q = rcu_dereference(rxq->qdisc);
+-- 
+1.7.9.5
