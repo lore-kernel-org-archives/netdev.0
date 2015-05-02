@@ -1,80 +1,58 @@
-From: roopa@cumulusnetworks.com
-Subject: [RFC PATCH net-next] switchdev: don't abort hardware ipv4 fib offload on failure to program fib entry in hardware
-Date: Sat,  2 May 2015 09:24:43 -0700
-Message-ID: <1430583883-3514-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, sfeldma@gmail.com, john.fastabend@gmail.com,
-	jiri@resnulli.us
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [PATCH 0/2] stmac: add glue for NXP LPC18xx family
+Date: Sat,  2 May 2015 18:40:40 +0200
+Message-ID: <1430584842-23408-1-git-send-email-manabian@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arnd@arndb.de,
+	linux-arm-kernel@lists.infradead.org,
+	Joachim Eastwood <manabian@gmail.com>
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34241 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbbEBQYu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2015 12:24:50 -0400
-Received: by pacyx8 with SMTP id yx8so120161557pac.1
-        for <netdev@vger.kernel.org>; Sat, 02 May 2015 09:24:49 -0700 (PDT)
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:35216 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbbEBQlr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 May 2015 12:41:47 -0400
+Received: by lbbuc2 with SMTP id uc2so81344345lbb.2
+        for <netdev@vger.kernel.org>; Sat, 02 May 2015 09:41:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+This small patch set adds support for using the stmmac on the NXP
+LPC18xx/43xx Cortex-M3/4 MCU family and add binding documentation.
 
-This basically removes the calls to netdev_switch_fib_ipv4_abort when
-there is an error in programming fib entry in hardware.
+Base support for the family can be found here:
+http://marc.info/?l=linux-arm-kernel&m=143016894704253&w=2
 
-On most systems where you can offload routes to hardware,
-doing routing in software is not an option (the cpu's are not powerful
-to route in software).
+DTS changes will be posted once base support, clk support and
+reset are upstream. All this has been posted on the relevant
+lists and my hope is that it will make it into Linux 4.1.
 
-I understand that this was added to keep the first fib offload support
-simple. This RFC patch is to start a discussion around why the fib
-abort will not work for most hardware and to discuss alternate options
-for default behaviour.
+Below is the boot log from the stmmac driver:
+[    2.831037] stmmac - user ID: 0x11, Synopsys ID: 0x36
+[    2.837085]  Ring mode enabled
+[    2.840559]  DMA HW capability register supported
+[    2.845457]  Enhanced/Alternate descriptors
+[    2.850866]  Enabled extended descriptors
+[    2.855351]  RX Checksum Offload Engine supported (type 2)
+[    2.861847]  TX Checksum insertion supported
+[    2.867106]  Wake-Up On Lan supported
+[    2.873938]  Enable RX Mitigation via HW Watchdog Timer
+[    2.923122] libphy: stmmac: probed
+[    2.927750] eth0: PHY ID 0007c0f1 at 1 IRQ POLL (stmmac-0:01) active
+[   94.735120]  No MAC Management Counters available
+[   97.767758] stmmaceth 40010000.ethernet eth0: Link is Up - 100Mbps/Full - flow control off
 
-Available options:
-a) Dont abort hardware offload and return appropriate error to the user on
-fib offload failure by default (this patch)
-b) make the behaviour in a) conditional on a global flag/sysctl (a per fib
-entry flag will not work because by default user/routing-daemons dont care
-if they are hardware offloaded)
-c) for the users/routing-daemons interested in controlling the hardware
-offload behaviour there is always the per fib entry flag RTF_F_EXTERNAL
-(and special error codes -EOFFLOAD could perhaps indicate that the
-hardware offload failed)
+Joachim Eastwood (2):
+  stmac: add dwmac glue for NXP 18xx/43xx family
+  doc: dt: add documentation for nxp,lpc1850-dwmac
 
-Considering the characteristics of the systems that support fib offloads,
-a) above seems to be the right default.
+ .../devicetree/bindings/net/nxp,lpc1850-dwmac.txt  | 20 ++++++
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |  3 +-
+ .../net/ethernet/stmicro/stmmac/dwmac-lpc18xx.c    | 76 ++++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  1 +
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |  1 +
+ 5 files changed, 100 insertions(+), 1 deletion(-)
+ create mode 100644 Documentation/devicetree/bindings/net/nxp,lpc1850-dwmac.txt
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-lpc18xx.c
 
-PS: This patch currently removes use of the netdev_switch_fib_ipv4_abort
-function but not the function itself. This will be fixed if we converge
-on the default behaviour.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/ipv4/fib_trie.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index e13fcc6..05b6439 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1171,7 +1171,6 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 							 cfg->fc_nlflags,
- 							 tb->tb_id);
- 			if (err) {
--				netdev_switch_fib_ipv4_abort(fi);
- 				kmem_cache_free(fn_alias_kmem, new_fa);
- 				goto out;
- 			}
-@@ -1219,10 +1218,8 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
- 					 cfg->fc_type,
- 					 cfg->fc_nlflags,
- 					 tb->tb_id);
--	if (err) {
--		netdev_switch_fib_ipv4_abort(fi);
-+	if (err)
- 		goto out_free_new_fa;
--	}
- 
- 	/* Insert new entry to the list. */
- 	err = fib_insert_alias(t, tp, l, new_fa, fa, key);
 -- 
-1.7.10.4
+1.8.0
