@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] r8169 DMA failure with iommu=off
-Date: Fri, 01 May 2015 21:46:06 -0400 (EDT)
-Message-ID: <20150501.214606.1559227616669665075.davem@davemloft.net>
-References: <20150429165813.5d64daf0@urahara>
+Subject: Re: [PATCH net-next] net: rocker: Use ether_addr_equal
+Date: Fri, 01 May 2015 21:48:47 -0400 (EDT)
+Message-ID: <20150501.214847.9214206308219613.davem@davemloft.net>
+References: <1430374889-7479-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: shemming@brocade.com
+Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org
+To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41305 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41320 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbbEBBqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 21:46:10 -0400
-In-Reply-To: <20150429165813.5d64daf0@urahara>
+	with ESMTP id S1750837AbbEBBst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 May 2015 21:48:49 -0400
+In-Reply-To: <1430374889-7479-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemming@brocade.com>
-Date: Wed, 29 Apr 2015 16:58:13 -0700
+From: Simon Horman <simon.horman@netronome.com>
+Date: Thu, 30 Apr 2015 15:21:29 +0900
 
-> In either case since this is a receive DMA buffer, it should set
-> the appropriate GFP_DMA since that may matter on some platforms.
+> A small cleanup to make use of the ether_addr_equal helper.
+> 
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-Plain GFP_DMA is really only appropriate when used for ISA DMA
-situations where we must have 24-bit addresses or whatever that
-restriction was.
-
-Anyways, it is dma_map_single()'s job to restrict DMA addressing if
-necessary.  Otherwise, the transmit path would not work at all.
+Applied.
