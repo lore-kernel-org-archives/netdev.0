@@ -1,88 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/11] igb: simplify and clean up igb_enable_mas()
-Date: Sat,  2 May 2015 03:42:28 -0700
-Message-ID: <1430563358-113833-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/11] ixgbe: Use a signed type to hold error codes
+Date: Sat,  2 May 2015 03:42:38 -0700
+Message-ID: <1430563358-113833-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:8026 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:39277 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751159AbbEBKmo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 May 2015 06:42:44 -0400
+	id S1751965AbbEBKmv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 May 2015 06:42:51 -0400
 In-Reply-To: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-igb_enable_mas() should only be called for the 82575 and has no clear
-return so changing it to void. Also simplify the odd conditional
-expression.
+Because error codes are negative, it only makes sense to
+consistently use signed types when handling them. Also remove
+some explicit comparisons with 0 on these variables.
 
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 27 +++++++--------------------
- 1 file changed, 7 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 10 +++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    |  4 ++--
+ 4 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 8457d03..e636646 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1834,31 +1834,19 @@ void igb_reinit_locked(struct igb_adapter *adapter)
-  *
-  * @adapter: adapter struct
-  **/
--static s32 igb_enable_mas(struct igb_adapter *adapter)
-+static void igb_enable_mas(struct igb_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index eafa9ec..9f6fb19 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -3053,7 +3053,7 @@ static int ixgbe_get_module_info(struct net_device *dev,
  {
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 connsw;
--	s32 ret_val = 0;
--
--	connsw = rd32(E1000_CONNSW);
--	if (!(hw->phy.media_type == e1000_media_type_copper))
--		return ret_val;
-+	u32 connsw = rd32(E1000_CONNSW);
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 status;
++	s32 status;
+ 	u8 sff8472_rev, addr_mode;
+ 	bool page_swap = false;
  
- 	/* configure for SerDes media detect */
--	if (!(connsw & E1000_CONNSW_SERDESD)) {
-+	if ((hw->phy.media_type == e1000_media_type_copper) &&
-+	    (!(connsw & E1000_CONNSW_SERDESD))) {
- 		connsw |= E1000_CONNSW_ENRGSRC;
- 		connsw |= E1000_CONNSW_AUTOSENSE_EN;
- 		wr32(E1000_CONNSW, connsw);
- 		wrfl();
--	} else if (connsw & E1000_CONNSW_SERDESD) {
--		/* already SerDes, no need to enable anything */
--		return ret_val;
--	} else {
--		netdev_info(adapter->netdev,
--			"MAS: Unable to configure feature, disabling..\n");
--		adapter->flags &= ~IGB_FLAG_MAS_ENABLE;
- 	}
--	return ret_val;
- }
+@@ -3061,14 +3061,14 @@ static int ixgbe_get_module_info(struct net_device *dev,
+ 	status = hw->phy.ops.read_i2c_eeprom(hw,
+ 					     IXGBE_SFF_SFF_8472_COMP,
+ 					     &sff8472_rev);
+-	if (status != 0)
++	if (status)
+ 		return -EIO;
  
- void igb_reset(struct igb_adapter *adapter)
-@@ -1978,10 +1966,9 @@ void igb_reset(struct igb_adapter *adapter)
- 		adapter->ei.get_invariants(hw);
- 		adapter->flags &= ~IGB_FLAG_MEDIA_RESET;
- 	}
--	if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
--		if (igb_enable_mas(adapter))
--			dev_err(&pdev->dev,
--				"Error enabling Media Auto Sense\n");
-+	if ((mac->type == e1000_82575) &&
-+	    (adapter->flags & IGB_FLAG_MAS_ENABLE)) {
-+		igb_enable_mas(adapter);
- 	}
- 	if (hw->mac.ops.init_hw(hw))
- 		dev_err(&pdev->dev, "Hardware Error\n");
+ 	/* addressing mode is not supported */
+ 	status = hw->phy.ops.read_i2c_eeprom(hw,
+ 					     IXGBE_SFF_SFF_8472_SWAP,
+ 					     &addr_mode);
+-	if (status != 0)
++	if (status)
+ 		return -EIO;
+ 
+ 	if (addr_mode & IXGBE_SFF_ADDRESSING_MODE) {
+@@ -3095,7 +3095,7 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 status = IXGBE_ERR_PHY_ADDR_INVALID;
++	s32 status = IXGBE_ERR_PHY_ADDR_INVALID;
+ 	u8 databyte = 0xFF;
+ 	int i = 0;
+ 
+@@ -3112,7 +3112,7 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
+ 		else
+ 			status = hw->phy.ops.read_i2c_sff8472(hw, i, &databyte);
+ 
+-		if (status != 0)
++		if (status)
+ 			return -EIO;
+ 
+ 		data[i - ee->offset] = databyte;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 36072af..66adbd0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4761,7 +4761,7 @@ static int ixgbe_non_sfp_link_config(struct ixgbe_hw *hw)
+ {
+ 	u32 speed;
+ 	bool autoneg, link_up = false;
+-	u32 ret = IXGBE_ERR_LINK_SETUP;
++	int ret = IXGBE_ERR_LINK_SETUP;
+ 
+ 	if (hw->mac.ops.check_link)
+ 		ret = hw->mac.ops.check_link(hw, &speed, &link_up, false);
+@@ -8026,7 +8026,7 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
+ 		return -EINVAL;
+ 
+ 	nla_for_each_nested(attr, br_spec, rem) {
+-		u32 status;
++		int status;
+ 		__u16 mode;
+ 
+ 		if (nla_type(attr) != IFLA_BRIDGE_MODE)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index 8a2be44..af828f8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -317,14 +317,14 @@ bool ixgbe_check_reset_blocked(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_get_phy_id(struct ixgbe_hw *hw)
+ {
+-	u32 status;
++	s32 status;
+ 	u16 phy_id_high = 0;
+ 	u16 phy_id_low = 0;
+ 
+ 	status = hw->phy.ops.read_reg(hw, MDIO_DEVID1, MDIO_MMD_PMAPMD,
+ 				      &phy_id_high);
+ 
+-	if (status == 0) {
++	if (!status) {
+ 		hw->phy.id = (u32)(phy_id_high << 16);
+ 		status = hw->phy.ops.read_reg(hw, MDIO_DEVID2, MDIO_MMD_PMAPMD,
+ 					      &phy_id_low);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 58ab7d9..b023698 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -1063,7 +1063,7 @@ static s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_setup_internal_phy_x550em(struct ixgbe_hw *hw)
+ {
+-	u32 status;
++	s32 status;
+ 	u16 lasi, autoneg_status, speed;
+ 	ixgbe_link_speed force_speed;
+ 
+@@ -1205,7 +1205,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
+ {
+-	u32 status;
++	s32 status;
+ 	u16 reg;
+ 	u32 retries = 2;
+ 
 -- 
 2.1.0
