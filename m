@@ -1,45 +1,54 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 1/3] net: dsa: introduce module_switch_driver macro
-Date: Sat, 2 May 2015 15:00:01 -0400 (EDT)
-Message-ID: <402956743.177307.1430593201959.JavaMail.zimbra@savoirfairelinux.com>
-References: <1430518155-29565-1-git-send-email-vivien.didelot@savoirfairelinux.com> <55440D7D.4060504@gmail.com> <671088801.177214.1430592443529.JavaMail.zimbra@savoirfairelinux.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/2] stmac: add dwmac glue for NXP 18xx/43xx family
+Date: Sat, 02 May 2015 21:31:04 +0200
+Message-ID: <3200125.o3jqXuyPfG@wuerfel>
+References: <1430584842-23408-1-git-send-email-manabian@gmail.com>
+ <1430584842-23408-2-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	David <davem@davemloft.net>, Guenter Roeck <linux@roeck-us.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	kernel <kernel@savoirfairelinux.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <671088801.177214.1430592443529.JavaMail.zimbra@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: peppe.cavallaro@st.com, Joachim Eastwood <manabian@gmail.com>,
+ davem@davemloft.net, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1430584842-23408-2-git-send-email-manabian@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
-
->>> This commit introduces a new module_switch_driver macro, similar to
->>> module_platform_driver and such, to reduce boilerplate when declaring
->>> DSA switch drivers.
->>>
->>> In order to use the module_driver macro, register_switch_driver needed
->>> to be changed to return an int instead of void, so make it return 0.
->>
->> Do we get much benefit from having this change, the diffstat looks
->> pretty neutral, ultimately register_switch_driver() might be gone (see:
->> http://www.spinics.net/lists/netdev/msg326900.html) and mv88e6xxx cannot
->> be converted to it due to how it is designed. This is not a strong
->> objection though, the changes look fine to me.
+On Saturday 02 May 2015 18:40:41 Joachim Eastwood wrote:
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -36,6 +36,7 @@ static const struct of_device_id stmmac_dt_ids[] = {
+>         { .compatible = "rockchip,rk3288-gmac", .data = &rk3288_gmac_data},
+>         { .compatible = "amlogic,meson6-dwmac", .data = &meson6_dwmac_data},
+>         { .compatible = "allwinner,sun7i-a20-gmac", .data = &sun7i_gmac_data},
+> +       { .compatible = "nxp,lpc1850-dwmac", .data = &lpc18xx_dwmac_data},
+>         { .compatible = "st,stih415-dwmac", .data = &stih4xx_dwmac_data},
+>         { .compatible = "st,stih416-dwmac", .data = &stih4xx_dwmac_data},
+>         { .compatible = "st,stid127-dwmac", .data = &stid127_dwmac_data},
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
 > 
-> Indeed, I initially introduce the macro for that purpose, I have an RFC ready
-> to remove the mv88e6xxx module and expose its functions, since it'd better be a
-> library instead of a driver.
-> 
-> I'll attach it here as a reply to give an idea of what it looks like and
-> get feedback from you.
 
-I messed up with the reply, here's the RFC: https://lkml.org/lkml/2015/5/2/150
+Any chance you could turn this around and do the probing in the normal
+order, with a platform driver that registers to your compatible string
+and calls into a common base module?
 
-Thanks,
--v
+Unfortunately, something went wrong when we first started adding platform
+specific hacks to the driver. I tried to fix it up back then, and IIRC
+it was agreed that it should be changed but my patches for some reason
+missed out on getting merged and the mistake propagated afterwards.
+
+It should be fairly straightforward to split the probe function
+into two and export a function that takes a device and a stmmac_of_data
+pointer as arguments, and declare a module_platform_driver in your
+code.
+
+	Arnd
