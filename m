@@ -1,85 +1,67 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: [PATCHv3 net-next 1/2] bridge: multicast: call
- skb_checksum_{simple_, }validate
-Date: Sat,  2 May 2015 14:01:06 +0200
-Message-ID: <1430568067-6912-2-git-send-email-linus.luessing@c0d3.blue>
-References: <1430568067-6912-1-git-send-email-linus.luessing@c0d3.blue>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC PATCH net-next v3 6/9] ipv6: Set FLOWI_FLAG_KNOWN_NH at
+ flowi6_flags
+Date: Sat, 2 May 2015 15:21:06 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1505021453360.1526@ja.home.ssi.bg>
+References: <1430526418-3132761-1-git-send-email-kafai@fb.com> <1430526418-3132761-7-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-To: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Tom Herbert <tom@herbertland.com>, "David S. Miller" <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1430568067-6912-1-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>,
+	Kernel Team <Kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:49868 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751276AbbEBMVW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 May 2015 08:21:22 -0400
+In-Reply-To: <1430526418-3132761-7-git-send-email-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Let's use these new, neat helpers.
 
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
----
- net/bridge/br_multicast.c |   28 ++++------------------------
- 1 file changed, 4 insertions(+), 24 deletions(-)
+	Hello,
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 4b6722f..b52f4cb 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1610,16 +1610,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge=
- *br,
- 	if (!pskb_may_pull(skb2, sizeof(*ih)))
- 		goto out;
-=20
--	switch (skb2->ip_summed) {
--	case CHECKSUM_COMPLETE:
--		if (!csum_fold(skb2->csum))
--			break;
--		/* fall through */
--	case CHECKSUM_NONE:
--		skb2->csum =3D 0;
--		if (skb_checksum_complete(skb2))
--			goto out;
--	}
-+	if (skb_checksum_simple_validate(skb2))
-+		goto out;
-=20
- 	err =3D 0;
-=20
-@@ -1737,20 +1729,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge=
- *br,
-=20
- 	ip6h =3D ipv6_hdr(skb2);
-=20
--	switch (skb2->ip_summed) {
--	case CHECKSUM_COMPLETE:
--		if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr, skb2->len,
--					IPPROTO_ICMPV6, skb2->csum))
--			break;
--		/*FALLTHROUGH*/
--	case CHECKSUM_NONE:
--		skb2->csum =3D ~csum_unfold(csum_ipv6_magic(&ip6h->saddr,
--							&ip6h->daddr,
--							skb2->len,
--							IPPROTO_ICMPV6, 0));
--		if (__skb_checksum_complete(skb2))
--			goto out;
--	}
-+	if (skb_checksum_validate(skb2, IPPROTO_ICMPV6, ip6_compute_pseudo))
-+		goto out;
-=20
- 	err =3D 0;
-=20
---=20
-1.7.10.4
+On Fri, 1 May 2015, Martin KaFai Lau wrote:
+
+> The neighbor look-up used to depend on the rt6i_gateway (if
+> there is a gateway) or the rt6i_dst (if it is a RTF_CACHE clone)
+> as the nexthop address.  Note that rt6i_dst is set to fl6->daddr
+> for the RTF_CACHE clone where fl6->daddr is the one used to do
+> the route look-up.
+> 
+> Now, we only create RTF_CACHE clone after encountering exception.
+> When doing the neighbor look-up with a route that is neither a gateway
+> nor a RTF_CACHE clone, the daddr in skb will be used as the nexthop.
+> 
+> In some cases, the daddr in skb is not the one used to do
+> the route look-up.  One example is in ip_vs_dr_xmit_v6() where the
+> real nexthop server address is different from the one in the skb.
+> 
+> This patch is going to follow the IPv4 approach and ask the
+> ip6_pol_route() callers to set the FLOWI_FLAG_KNOWN_NH properly.
+> 
+> In the next patch, ip6_pol_route() will honor the FLOWI_FLAG_KNOWN_NH
+> and create a RTF_CACHE clone.
+> 
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: Julian Anastasov <ja@ssi.bg>
+
+	I applied all 9 patches to net-next and tested
+IPVS-DR. We are properly resolving the nexthop saved in
+route. Then I commented the FLOWI_FLAG_KNOWN_NH flag
+in IPVS and checked that daddr from packet was used. As
+expected, DR metod fails here. So, the new flag appears
+to work correctly.
+
+	I didn't analyzed the IPv6 changes but the
+IPVS changes look good to me:
+
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Tested-by: Julian Anastasov <ja@ssi.bg>
+
+Thanks!
