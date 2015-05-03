@@ -1,44 +1,92 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] netfilter: fix dependency issues between IPv6
- defragmentation and ip6tables
-Date: Sun, 3 May 2015 13:07:15 +0200
-Message-ID: <20150503110715.GE22481@breakpoint.cc>
-References: <1430646618-7625-1-git-send-email-sdu.liu@huawei.com>
+From: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+Subject: PATCH: af_packet / TX_RING not fully non-blocking (w/ MSG_DONTWAIT)
+Date: Sun, 3 May 2015 13:28:27 +0200
+Message-ID: <5546065B.6080706@fokus.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kadlec@blackhole.kfki.hu, kaber@trash.net,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	liusdu@126.com
-To: Liu Hua <sdu.liu@huawei.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1430646618-7625-1-git-send-email-sdu.liu@huawei.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="------------040903070401050404020107"
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx-relay36-dus.antispameurope.com ([94.100.134.236]:43812 "EHLO
+	mx-relay36-dus.antispameurope.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751062AbbECL2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 07:28:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Liu Hua <sdu.liu@huawei.com> wrote:
-> commit f6318e558806c925029dc101f14874be9f9fa78f fix some related issue
-> when ip6tables is enabled. But when IP6_NF_IPTABLES is disabled and
-> NETFILTER_XT_TARGET_TPROXY is enabled. We will meet build failure with
-> "net/built-in.o: In function `tproxy_tg_init':
-> net/netfilter/xt_TPROXY.c:588: undefined reference to `nf_defrag_ipv6_enable'
-> "
-> So this patch change the Kconfig as ipv4 does.
-> --- a/net/netfilter/Kconfig
-> +++ b/net/netfilter/Kconfig
-> @@ -865,7 +865,7 @@ config NETFILTER_XT_TARGET_TPROXY
->  	depends on (IPV6 || IPV6=n)
->  	depends on IP_NF_MANGLE
->  	select NF_DEFRAG_IPV4
-> -	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
-> +	select NF_DEFRAG_IPV6
+--------------040903070401050404020107
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
 
-If IP6_NF_IPTABLES is not set, why would we have to pick
-up IPV6 defragmentation?
+Hi,
 
-Without ip6tables, TPROXY cannot be used for ipv6; in fact;
-xt_TPROXY should be built without ipv6 support in this case.
+following up on my initial post and the feedback I have received,
+please find attached/in-line an updated patch.
 
-My guess is that you have TPROXY=y but DEFRAG_IPV6=m, but that
-might warrant a better fix (xt_socket seems to have same issue).
+Changes:
+*) keep the unlikely() in the case sock_alloc_send_skb() fails, as here 
+we enter the slow path, anyway.
+*) pass on the return code from sock_alloc_send_skb(), i.e. EGAIN
+
+Please consider this for inclusion.
+
+Cheers,
+
+Mathias
+
+---
+diff -uNpr linux-3.16.7.orig/net/packet/af_packet.c 
+linux-3.16.7/net/packet/af_packet.c
+--- linux-3.16.7.orig/net/packet/af_packet.c    2014-10-30 
+16:41:01.000000000 +0000
++++ linux-3.16.7/net/packet/af_packet.c 2015-04-05 08:41:14.577535454 +0000
+@@ -2291,11 +2291,14 @@ static int tpacket_snd(struct packet_soc
+                 tlen = dev->needed_tailroom;
+                 skb = sock_alloc_send_skb(&po->sk,
+                                 hlen + tlen + sizeof(struct sockaddr_ll),
+-                               0, &err);
++                               !need_wait, &err);
+
+-               if (unlikely(skb == NULL))
++               if (unlikely(skb == NULL)) {
++                       /* we assume the socket was initially writeable 
+... */
++                       if (likely(len_sum > 0))
++                               err = len_sum;
+                         goto out_status;
+-
++               }
+                 tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, 
+proto,
+                                           addr, hlen);
+                 if (tp_len > dev->mtu + dev->hard_header_len) {
+
+--------------040903070401050404020107
+Content-Type: text/x-patch; name="005-af_packet_no_block_tx.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="005-af_packet_no_block_tx.patch"
+
+diff -uNpr linux-3.16.7.orig/net/packet/af_packet.c linux-3.16.7/net/packet/af_packet.c
+--- linux-3.16.7.orig/net/packet/af_packet.c	2014-10-30 16:41:01.000000000 +0000
++++ linux-3.16.7/net/packet/af_packet.c	2015-04-05 08:41:14.577535454 +0000
+@@ -2291,11 +2291,14 @@ static int tpacket_snd(struct packet_soc
+ 		tlen = dev->needed_tailroom;
+ 		skb = sock_alloc_send_skb(&po->sk,
+ 				hlen + tlen + sizeof(struct sockaddr_ll),
+-				0, &err);
++				!need_wait, &err);
+ 
+-		if (unlikely(skb == NULL))
++		if (unlikely(skb == NULL)) {
++			/* we assume the socket was initially writeable ... */
++			if (likely(len_sum > 0))
++				err = len_sum;
+ 			goto out_status;
+-
++		}
+ 		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
+ 					  addr, hlen);
+ 		if (tp_len > dev->mtu + dev->hard_header_len) {
+
+--------------040903070401050404020107--
