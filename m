@@ -1,72 +1,84 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v2 net-next] net: sched: run ingress qdisc without locks
-Date: Sun, 3 May 2015 17:42:08 +0200
-Message-ID: <20150503174208.5b1548ba@redhat.com>
-References: <1430544448-19777-1-git-send-email-ast@plumgrid.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [RFC PATCH net-next] switchdev: don't abort hardware ipv4 fib
+ offload on failure to program fib entry in hardware
+Date: Sun, 3 May 2015 10:45:16 -0700
+Message-ID: <CAE4R7bCDG614esO1UByPYoX47+zzjr=Ed6LNPbqTKG7Nvnsm3A@mail.gmail.com>
+References: <1430583883-3514-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	john fastabend <john.fastabend@gmail.com>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Netdev <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46337 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750815AbbECPma (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 May 2015 11:42:30 -0400
-In-Reply-To: <1430544448-19777-1-git-send-email-ast@plumgrid.com>
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:35960 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750778AbbECRpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 13:45:17 -0400
+Received: by qcbgy10 with SMTP id gy10so10170999qcb.3
+        for <netdev@vger.kernel.org>; Sun, 03 May 2015 10:45:16 -0700 (PDT)
+In-Reply-To: <1430583883-3514-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  1 May 2015 22:27:28 -0700
-Alexei Starovoitov <ast@plumgrid.com> wrote:
+On Sat, May 2, 2015 at 9:24 AM,  <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This basically removes the calls to netdev_switch_fib_ipv4_abort when
+> there is an error in programming fib entry in hardware.
+>
+> On most systems where you can offload routes to hardware,
+> doing routing in software is not an option (the cpu's are not powerful
+> to route in software).
+>
+> I understand that this was added to keep the first fib offload support
+> simple. This RFC patch is to start a discussion around why the fib
+> abort will not work for most hardware and to discuss alternate options
+> for default behaviour.
 
-> From: John Fastabend <john.r.fastabend@intel.com>
-> 
-> TC classifiers/actions were converted to RCU by John in the series:
-> http://thread.gmane.org/gmane.linux.network/329739/focus=329739
-> and many follow on patches.
-> This is the last patch from that series that finally drops
-> ingress spin_lock.
+Thanks for revisiting this topic.  Agreed, current arrangement isn't
+practical for real offload devices with limited CPU support.
 
-I absolutely love this change.  It is a huge step for ingress
-scalability.
+> Available options:
+> a) Dont abort hardware offload and return appropriate error to the user on
+> fib offload failure by default (this patch)
+> b) make the behaviour in a) conditional on a global flag/sysctl (a per fib
+> entry flag will not work because by default user/routing-daemons dont care
+> if they are hardware offloaded)
+> c) for the users/routing-daemons interested in controlling the hardware
+> offload behaviour there is always the per fib entry flag RTF_F_EXTERNAL
+> (and special error codes -EOFFLOAD could perhaps indicate that the
+> hardware offload failed)
+>
+> Considering the characteristics of the systems that support fib offloads,
+> a) above seems to be the right default.
 
+Going with option a) puts a burden on the user: on failure, the user
+may or may not understand why the operation failed.  Or worse, the
+routing protocol may not make the failure obvious to the user, so the
+user is unaware or unsure why routes aren't getting installed.  With
+the current solution, routes are still installed even if there was a
+failure to offload, so the user doesn't care (yes, whimpy CPU would
+make the user care :).
 
-> Single cpu ingress+u32 performance goes from 22.9 Mpps to 24.5 Mpps.
+Anyway, I'd prefer to see an option c) -like solution where we force
+user to explicitly indicate route offload (by setting
+RTNH_F_EXTERNAL).  The default would be no offload.  The apps
+(iproute2 + routing protocols) would need to be updated to support
+setting this new flag.  This way, the user participates at the app
+level in setting the flag and if there is a failure, the user would be
+aware and can react.  (switchdev driver can return meaningful err
+codes, such as ENOSPC for hw route tables full, for example).
 
-I was actually expecting to see a higher performance boost.
+With c), the user must be aware that offloaded routes take priority
+over non-offloaded routes.  It's as if there is a new ip rule -1
+that's higher priority than the kernel's ip rule 0.  ip rule -1 says
+look up in offload device first.
 
- (processing cost per packet)
- (1/(22.9*10^6)*10^9) = 43.67 ns
- (1/(24.5*10^6)*10^9) = 40.82 ns
- improvement diff     = -2.85 ns
+> PS: This patch currently removes use of the netdev_switch_fib_ipv4_abort
+> function but not the function itself. This will be fixed if we converge
+> on the default behaviour.
 
-The patch is removing two atomic operations, spin_{un,}lock, which I
-have benchmarked[1] to cost approx 14ns on my system.  Your system
-likely is faster, but not that much (p.s. benchmark your own system
-with [1])
-
-[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench_sample.c
-
-> In two cpu case when both cores are receiving traffic on the same
-> device and go into the same ingress+u32 the performance jumps
-> from 4.5 + 4.5 Mpps to 23.5 + 23.5 Mpps
-
-This looks good for scalability :-)))
-
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+I'd prefer a full cleanup, including removal of
+ipv4.fib_offload_disabled, rather than leaving orphaned code.
