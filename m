@@ -1,44 +1,60 @@
-From: Ann Sanchez <lil4ril@gmail.com>
-Subject: Hello Dear
-Date: Sun, 3 May 2015 19:44:48 +0100
-Message-ID: <CAMOhD3rVF=7wUkW45fLPCmvhG0Z=JV=J+tedkDkG3rbks=Z97g@mail.gmail.com>
-Reply-To: ann_sanchez105@outlook.com
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next 3/5] ipv6: Stop /128 route from disappearing
+ after pmtu update
+Date: Sun, 3 May 2015 12:01:09 -0700
+Message-ID: <20150503190108.GF2731450@devbig242.prn2.facebook.com>
+References: <1430251387-2942539-1-git-send-email-kafai@fb.com>
+ <1430251387-2942539-4-git-send-email-kafai@fb.com>
+ <m2d22itxe2.wl@sfc.wide.ad.jp>
+ <20150502232040.GB2731450@devbig242.prn2.facebook.com>
+ <m2bni2tsv0.wl@sfc.wide.ad.jp>
+ <20150503033801.GE2731450@devbig242.prn2.facebook.com>
+ <m27fspu42k.wl@sfc.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <hannes@stressinduktion.org>,
+	<steffen.klassert@secunet.com>, <davem@davemloft.net>,
+	<yangyingliang@huawei.com>, <shengyong1@huawei.com>,
+	<Kernel-team@fb.com>
+To: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:34182 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbbECSot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 14:44:49 -0400
-Received: by iedfl3 with SMTP id fl3so132975348ied.1
-        for <netdev@vger.kernel.org>; Sun, 03 May 2015 11:44:48 -0700 (PDT)
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41714 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751549AbbECTCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 15:02:09 -0400
+Content-Disposition: inline
+In-Reply-To: <m27fspu42k.wl@sfc.wide.ad.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi dear,
+Hi Hajime,
 
-It is my pleasure to meet you , I hope all is well with you.
+On Sun, May 03, 2015 at 11:29:55PM +0900, Hajime Tazaki wrote:
+> the test uses two nodes (running on ns-3 network simulator
+> with net-next kernel), which is connected via a
+> point-to-point data link: payload is encapsulated by PPP
+> (RFC1661).
+> 
+> so there is no need of neighbor resolution (ARP, NS/NA) on
+> that link (dev->flags has IFF_NOARP and IFF_POINTOPOINT bits).
+> 
+>              point-to-point
+>    node 0  <---------------> node 1
+> 2001:1::1/64               2001:1::2/64
+> 
+> let me know if you need further information.
+Thanks for the details and confirming the last patch.  I think I may
+know what could be wrong.  I am going to confirm it first by trying
+to reproduce it.
 
-I am Ann Sanchez, a United States army officer from the United
-States of America. I am supportive, loving and humble. I really need a
-good friend with whom I can have a genuine , meaningful and intimate
-relationship full of love, passion and romance.
+> I'm going to create a real environment to figure out a
+> minimum-reproducible command set that we can try.
+That will be great!
 
-I took Interest in you and would love to meet you for a serious
-relationship, although I am not always available to write mail due to
-the condition of my duty.
+> do you have any chance to create an interface with IFF_NOARP
+> and IFF_POINTOPOINT (some tunnel device ?) on the latest
+> net-next kernel ?
+I am going to give it a try.
 
-Note that neither age nor ethnic differences will not be a barrier to
-our relationship , what I need is your love, trust and care and I will
-give you my best love.
-
-Please let us continue this conversation through my private email account
-(ann_sanchez105@outlook.com)
-
-I will introduce myself better and send you my picture as soon as I
-receive your mail.
-
-I hope to read your mail soon.
-yours faithful,
-Ann Sanchez
+Thanks,
+--Martin
