@@ -1,60 +1,72 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH 1/2] brcmfmac: prohibit ACPI power management for brcmfmac
- driver
-Date: Sun, 03 May 2015 23:30:55 +0800
-Message-ID: <55463F2F.2050505@linux.intel.com>
-References: <553DC280.6080503@linux.intel.com> <553DFA5A.3090802@broadcom.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2 net-next] net: sched: run ingress qdisc without locks
+Date: Sun, 3 May 2015 17:42:08 +0200
+Message-ID: <20150503174208.5b1548ba@redhat.com>
+References: <1430544448-19777-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "brudley@broadcom.com" <brudley@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>,
-	"meuleman@broadcom.com" <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"pieterpg@broadcom.com" <pieterpg@broadcom.com>,
-	"hdegoede@redhat.com" <hdegoede@redhat.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Adrian Hunter <adrian.hunter@intel.com>
-To: Arend van Spriel <arend@broadcom.com>
+Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57786 "EHLO mga11.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46337 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750815AbbECPbB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 May 2015 11:31:01 -0400
-In-Reply-To: <553DFA5A.3090802@broadcom.com>
+	id S1750815AbbECPma (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 May 2015 11:42:30 -0400
+In-Reply-To: <1430544448-19777-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri,  1 May 2015 22:27:28 -0700
+Alexei Starovoitov <ast@plumgrid.com> wrote:
+
+> From: John Fastabend <john.r.fastabend@intel.com>
+> 
+> TC classifiers/actions were converted to RCU by John in the series:
+> http://thread.gmane.org/gmane.linux.network/329739/focus=329739
+> and many follow on patches.
+> This is the last patch from that series that finally drops
+> ingress spin_lock.
+
+I absolutely love this change.  It is a huge step for ingress
+scalability.
 
 
-On 2015/4/27 16:59, Arend van Spriel wrote:
-> On 04/27/15 07:00, Fu, Zhonghui wrote:
->> ACPI will manage WiFi chip's power state during suspend/resume
->> process on some tablet platforms(such as ASUS T100TA). This is
->> not supported by brcmfmac driver now, and the context of WiFi
->> chip will be damaged after resume. This patch disconnects the
->> relationship between WiFi chip and it's ACPI companion, and
->> prohibit ACPI PM for it.
->
-> Nice. However, ACPI may contain configuration data that brcmfmac needs on some platforms and Adrian Hunter is looking into this. So it is probably better to do this operation at the end of the probe before returning successful.
-Your comment is right. I introduced another implementation in new patch - "[PATCH v2] brcmfmac: prohibit ACPI power management for brcmfmac driver".
+> Single cpu ingress+u32 performance goes from 22.9 Mpps to 24.5 Mpps.
 
+I was actually expecting to see a higher performance boost.
 
-Thanks,
-Zhonghui
->
-> Regards,
-> Arend
->
->> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->> ---
->>   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    5 +++++
->>   1 files changed, 5 insertions(+), 0 deletions(-)
->>
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ (processing cost per packet)
+ (1/(22.9*10^6)*10^9) = 43.67 ns
+ (1/(24.5*10^6)*10^9) = 40.82 ns
+ improvement diff     = -2.85 ns
+
+The patch is removing two atomic operations, spin_{un,}lock, which I
+have benchmarked[1] to cost approx 14ns on my system.  Your system
+likely is faster, but not that much (p.s. benchmark your own system
+with [1])
+
+[1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench_sample.c
+
+> In two cpu case when both cores are receiving traffic on the same
+> device and go into the same ingress+u32 the performance jumps
+> from 4.5 + 4.5 Mpps to 23.5 + 23.5 Mpps
+
+This looks good for scalability :-)))
+
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
