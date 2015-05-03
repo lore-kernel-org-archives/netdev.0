@@ -1,50 +1,81 @@
-From: =?utf-8?B?Ss61YW4=?= Sacren <sakiwit@gmail.com>
-Subject: Re: [PATCH net-next] sock: fix comment location
-Date: Sun, 3 May 2015 15:11:58 -0600
-Message-ID: <20150503211158.GA16515@mail.gmail.com>
-References: <1430686519-20548-1-git-send-email-sakiwit@gmail.com>
- <20150503210534.GG22481@breakpoint.cc>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Stable inclusion request: recvmsg/sendmsg userspace regression
+ fix
+Date: Sun, 03 May 2015 22:21:17 +0100
+Message-ID: <1430688077.4113.111.camel@decadent.org.uk>
+References: <54CBA338.1000207@suse.cz> <5525D4B3.6070400@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:35612 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbbECVPw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 17:15:52 -0400
-Received: by obcux3 with SMTP id ux3so94860325obc.2
-        for <netdev@vger.kernel.org>; Sun, 03 May 2015 14:15:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150503210534.GG22481@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-VL0QA7piBVqbaU2R75qh"
+Cc: Michal Marek <mmarek@suse.cz>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Ani Sinha <ani@arista.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stable Tree <stable@vger.kernel.org>
+To: Zefan Li <lizefan@huawei.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <5525D4B3.6070400@huawei.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Florian Westphal <fw@strlen.de>
-Date: Sun, 03 May 2015 23:05:34 +0200
->
-> J=CE=B5an Sacren <sakiwit@gmail.com> wrote:
-> > From: Jean Sacren <sakiwit@gmail.com>
+
+--=-VL0QA7piBVqbaU2R75qh
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2015-04-09 at 09:24 +0800, Zefan Li wrote:
+> Cc: Ben
+>=20
+> On 2015/1/30 23:28, Michal Marek wrote:
+> > Hi,
 > >=20
-> > The block of comment is for 'sk_incoming_cpu' rather than 'sk_txhas=
-h'.
-> > Therefore, move it above "u16 sk_incoming_cpu;" where it belongs.
+> > please include
+> >=20
+> > commit 6a2a2b3ae0759843b22c929881cc184b00cc63ff
+> > Author: Ani Sinha <ani@arista.com>
+> > Date:   Mon Sep 8 14:49:59 2014 -0700
+> >=20
+> >     net:socket: set msg_namelen to 0 if msg_name is passed as NULL in
+> > msghdr struct from userland.
+> >=20
+> > to 3.14.y and older trees, since it fixes a userspace regression caused
+> > by commit dbb490b9 ("net: socket: error on a negative msg_namelen"). Th=
+e
+> > patch applies cleanly to all trees down to 2.6.32.y.
+> >=20
 >=20
-> comment is at the right place.
+> Queued up for 3.4. Thansks!
 >=20
-> > diff --git a/include/net/sock.h b/include/net/sock.h
-> > --- a/include/net/sock.h
-> > +++ b/include/net/sock.h
-> > -	u16			sk_incoming_cpu;
-> >  	/* 16bit hole
-> >  	 * Warned : sk_incoming_cpu can be set from softirq,
-> >  	 * Do not use this hole without fully understanding possible issu=
-es.
-> >  	 */
-> > +	u16			sk_incoming_cpu;
->=20
-> This hole is between sk_incoming_cpu and sk_txhash.
+> It's still missing from 3.2.y, so cc Ben.
 
-I'm so sorry. Thank you for teaching me. I did wish there were an empty
-line below "u16 sk_incoming_cpu;"
+Queued up for 3.2, thanks.
+
+Ben.
+
+--=20
+Ben Hutchings
+One of the nice things about standards is that there are so many of them.
+
+--=-VL0QA7piBVqbaU2R75qh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAVUaRUee/yOyVhhEJAQqlBQ/+Pb185mJ4jyapp4ro6fBz2DjtqZdqhfdj
+7xjJWh+4jGvQA/c8vLQADiqBdxHvFMuQbbuTs2zKYKER9Pe2EHoDz203G7DxpSos
+1I8LDwNXbNrmsj7ugZPlKIbctTnarrhXqOpikEyIYxo11o8jSgvE3pyn6ZTgdTG2
+UD/zln3xtrYdTX35kRHJnwaA1jsdkzYeiodD9BaG054qLkHVZuR6Phwv2PveS/Tz
+1nCFdMWhjlc13FONbUNAirCLhqWH8up1TVJbTgmZFQY+WNbVVoUdw7Jibh5hPRFe
+1A7YdB07h67ulh436nk+wZ5ohVh2AcuSxsc9ENvWNLCtE+WZFDY31ygQR6QceOd1
+2i9j4xl0UBG8eynufD/YboRh5Jb1eZJZBntlDxTgjirwKCSs8ZqbjPfSgm9jSfxM
+t3AjAAKzEEVvjF1U3cXre7uZsrdHJUM1SoFOg+qPjMX6YKmPGyu08THhjlbYDsMt
+7vwhJVW3SV/ghJjk2wKNltQ76PYC9yOAlYEF9Q+GeSViJMgHspACfUHOa4mEO4WL
+bEee0jE30eWVElAVBGaHHRQymjhHSA1pYJTO8kwj27X6kZQyzh0EYNVfg+u2OfBs
+z6IklOEG/ybq3m0OnDwZskqYDrS7YdBZDK5q0QI4vIwKjBWuwKtsOs9Wdn9gC4uJ
+wQgJ8LeSXEY=
+=MPwc
+-----END PGP SIGNATURE-----
+
+--=-VL0QA7piBVqbaU2R75qh--
