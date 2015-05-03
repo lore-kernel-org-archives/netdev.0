@@ -1,76 +1,61 @@
-From: "Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: [PATCH v2] brcmfmac: prohibit ACPI power management for brcmfmac
- driver
-Date: Sun, 03 May 2015 23:26:17 +0800
-Message-ID: <55463E19.7070709@linux.intel.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v3 net-next] tc: remove unused redirect ttl
+Date: Sun, 3 May 2015 17:28:42 +0200
+Message-ID: <20150503172842.42379466@redhat.com>
+References: <1430543983-10446-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: "brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49959 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750887AbbECP2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 May 2015 11:28:49 -0400
+In-Reply-To: <1430543983-10446-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ACPI will manage WiFi chip's power state during suspend/resume
-process on some tablet platforms(such as ASUS T100TA). This is
-not supported by brcmfmac driver now, and the context of WiFi
-chip will be damaged after resume. This patch informs ACPI not
-to manage WiFi chip's power state.
+On Fri,  1 May 2015 22:19:43 -0700
+Alexei Starovoitov <ast@plumgrid.com> wrote:
 
-Signed-off-by: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
----
-Changes in v2:
-- Another implementation.
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> improves ingress+u32 performance from 22.4 Mpps to 22.9 Mpps
 
- drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+I like this change and I'm ACKing it.
 
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-index 9b508bd..6c519e3 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-@@ -33,6 +33,7 @@
- #include <linux/suspend.h>
- #include <linux/errno.h>
- #include <linux/module.h>
-+#include <linux/acpi.h>
- #include <net/cfg80211.h>
- 
- #include <defs.h>
-@@ -1114,6 +1115,8 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
- 	int err;
- 	struct brcmf_sdio_dev *sdiodev;
- 	struct brcmf_bus *bus_if;
-+	struct device *dev;
-+	struct acpi_device *adev;
- 
- 	brcmf_dbg(SDIO, "Enter\n");
- 	brcmf_dbg(SDIO, "Class=%x\n", func->class);
-@@ -1121,6 +1124,11 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
- 	brcmf_dbg(SDIO, "sdio device ID: 0x%04x\n", func->device);
- 	brcmf_dbg(SDIO, "Function#: %d\n", func->num);
- 
-+	/* prohibit ACPI power management for this device */
-+	dev = &func->dev;
-+	if (adev = ACPI_COMPANION(dev))
-+		adev->flags.power_manageable = 0;
-+
- 	/* Consume func num 1 but dont do anything with it. */
- 	if (func->num == 1)
- 		return 0;
--- 1.7.1
+But I would like to comment on these performance numbers.  I assume this
+is a single CPU test with your pktgen RX/STACK_INJECT mode that drops
+the packet "early (in ip_rcv() I think).
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It sound impressive to get +0.5 Mpps improvement from such a small
+change, while in reality this is approx a 1ns improvement.
+
+ (1/(22.4*10^6)*10^9) = 44.64ns
+ (1/(22.9*10^6)*10^9) = 43.67ns
+ improvement diff     =  0.97ns
+
+I'm a fan of zooming in on parts of the stack, as it allow us to
+performance optimize and measure parts of the stack that is normally
+hard to measure. And your ingress use-case is valid.  People should
+just be aware, that we can easily "over-sell" when "zooming" in...
+
+
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Acked-by: Florian Westphal <fw@strlen.de>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
