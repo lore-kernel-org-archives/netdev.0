@@ -1,56 +1,44 @@
-From: Sam Patton <sam@enhancedip.org>
-Subject: [ANNOUNCE] Enhanced IP v1.1 code and RFC
-Date: Sun, 3 May 2015 14:18:07 -0400
-Message-ID: <CABvMDUcEmm=rPNCfiDbZFAcDdQgYFyUQJ1FVkOWf+PT-VrSeNw@mail.gmail.com>
+From: Ann Sanchez <lil4ril@gmail.com>
+Subject: Hello Dear
+Date: Sun, 3 May 2015 19:44:48 +0100
+Message-ID: <CAMOhD3rVF=7wUkW45fLPCmvhG0Z=JV=J+tedkDkG3rbks=Z97g@mail.gmail.com>
+Reply-To: ann_sanchez105@outlook.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:33118 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751283AbbECSSI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 14:18:08 -0400
-Received: by lbbzk7 with SMTP id zk7so92259605lbb.0
-        for <netdev@vger.kernel.org>; Sun, 03 May 2015 11:18:07 -0700 (PDT)
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:34182 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751389AbbECSot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 14:44:49 -0400
+Received: by iedfl3 with SMTP id fl3so132975348ied.1
+        for <netdev@vger.kernel.org>; Sun, 03 May 2015 11:44:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Hi dear,
 
-The Enhanced IP project presents:
+It is my pleasure to meet you , I hope all is well with you.
 
-             Enhanced IP v1.1
+I am Ann Sanchez, a United States army officer from the United
+States of America. I am supportive, loving and humble. I really need a
+good friend with whom I can have a genuine , meaningful and intimate
+relationship full of love, passion and romance.
 
-Enhanced IP is a 64-bit protocol that uses IP options to extend the IP
-network.  The addresses in Enhanced IP look like two IP addresses
-concatenated together.  This is an example of an Enhanced IP (EnIP)
-address:
-   192.0.2.2.10.1.1.2
-The first four bytes are used to route the packet through the Internet
-and the second four bytes are used to route the packet to a node
-behind a modified NAT.
+I took Interest in you and would love to meet you for a serious
+relationship, although I am not always available to write mail due to
+the condition of my duty.
 
-Version 1.1 of the code adds a prototype of Enhanced IP's NAT driver
-on an OpenWRT router as well as some experiments that show how well IP
-options pass through the Internet's core.  See below for a preview of
-the important numbers, if you're interested.
+Note that neither age nor ethnic differences will not be a barrier to
+our relationship , what I need is your love, trust and care and I will
+give you my best love.
 
-Source:
-http://www.enhancedip.org/release/enip-1.1.tar.gz
+Please let us continue this conversation through my private email account
+(ann_sanchez105@outlook.com)
 
-Repository:
-git clone https://github.com/EnIP/enhancedip.git
+I will introduce myself better and send you my picture as soon as I
+receive your mail.
 
-Enhanced IP Draft RFC:
-http://www.ietf.org/id/draft-chimiak-enhanced-ipv4-01.txt
-
-Web site:
-http://www.enhancedip.org/
-
-IP Ping statistics:
-Standard ping returned replies when sent to the top 10,000 web sites
-86.4% of the time.  A modified ping command where the ping packet
-contains IP option 26 (the same one used for Enhanced IP) was sent to
-the same web sites.  A ping reply was returned 86.2% of the time.
-
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
+I hope to read your mail soon.
+yours faithful,
+Ann Sanchez
