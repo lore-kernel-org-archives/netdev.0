@@ -1,68 +1,68 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Subject: Re: [RFC v1 07/11] net/mlx4: Cache irq_desc->affinity instead of
- irq_desc
-Date: Mon, 04 May 2015 22:00:38 +0800
-Message-ID: <55477B86.70705@linux.intel.com>
-References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>	<1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com> <CAPcc5Ph4pk+4aL-PduvF67YU-A+vn2bfx6v3mr-tbY58zs7sZw@mail.gmail.com>
+From: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] tcp: provide SYN headers for passive connections
+Date: Mon, 4 May 2015 10:02:42 -0400
+Message-ID: <CADVnQymBB+H+v8SeC1+4QY7+tpVz1heVd2r4f=d6xFq8v2SyTQ@mail.gmail.com>
+References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
+	<1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S34ftz_wDoPwcJg_cMQu4QtnBJF-=d+gF5ieTA=d=r31-Q@mail.gmail.com>
+	<20150501201417.GB6113@akamai.com>
+	<1430511800.3711.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150501202908.GC6113@akamai.com>
+	<1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Yinghai Lu <yinghai@kernel.org>,
-	Borislav Petkov <bp@alien8.de>, Ido Shamay <idos@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org,
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <CAPcc5Ph4pk+4aL-PduvF67YU-A+vn2bfx6v3mr-tbY58zs7sZw@mail.gmail.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>,
+	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1430714086.3711.165.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2015/5/4 20:10, Amir Vadai wrote:
-> On Mon, May 4, 2015 at 6:15 AM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
->> The field 'affinity' in irq_desc won't change once the irq_desc data
->> structure is created. So cache irq_desc->affinity instead of irq_desc.
->> This also helps to hide struct irq_desc from device drivers.
-> 
-> Hi Jiang,
-> 
-> I might not understand the new changes irq core, but up until now
-> affinity was changed when the user changed it through
-> /proc/irq/<IRQ>/smp_affinity.
-> This code is monitoring the affinity from the napi_poll context to
-> detect affinity changes, and prevent napi from keep running on the
-> wrong CPU.
-> Therefore, the affinity can't be cached at the beginning. Please
-> revert this caching.
-Hi Amir,
-	Thanks for review:) We want to hide irq_desc implementation
-details from device drivers, so made these changes.
-	Function irq_get_affinity_mask() returns 'struct cpumask *'
-and we cache the returned pointer. On the other hand, user may change
-IRQ affinity through /proc/irq/<IRQ>/smp_affinity, but that only
-changes the bitmap pointed to by the cached pointer and won't change
-the pointer itself. So it should always return the latest affinity
-setting by calling cpumask_test_cpu(cpu_curr, cq->irq_affinity).
-Or am I missing something here?
-Thanks!
-Gerry
-> 
-> Thanks,
-> Amir
-> 
+On Mon, May 4, 2015 at 12:34 AM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+>
+> This patch allows a server application to get the TCP SYN headers for
+> its passive connections.  This is useful if the server is doing
+> fingerprinting of clients based on SYN packet contents.
+>
+> Two socket options are added: TCP_SAVE_SYN and TCP_SAVED_SYN.
+>
+> The first is used on a socket to enable saving the SYN headers
+> for child connections. This can be set before or after the listen()
+> call.
+>
+> The latter is used to retrieve the SYN headers for passive connections,
+> if the parent listener has enabled TCP_SAVE_SYN.
+>
+> TCP_SAVED_SYN is read once, it frees the saved SYN headers.
+>
+> The data returned in TCP_SAVED_SYN are network (IPv4/IPv6) and TCP
+> headers.
+>
+> Original patch was written by Tom Herbert, I changed it to not hold
+> a full skb (and associated dst and conntracking reference).
+>
+> We have used such patch for about 3 years at Google.
+>
+> Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> ---
+
+Acked-by: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Tested-by: Neal Cardwell <ncardwell-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+
+The code looks good to me, and I re-ran the test I wrote (and which I
+see Eric posted), and double-checked that it passes on net-next with
+this patch applied.
+
+Personally I like the socket option names from this patch.
+TCP_SAVE_SYN means "Please save SYN headers for child sockets of this
+listener". And TCP_SAVED_SYN means "Please give me the saved SYN for
+this accepted child."
+
+Thanks, Eric!
+
+neal
