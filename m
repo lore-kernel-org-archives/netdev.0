@@ -1,8 +1,8 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 4/5] tipc: adjust locking policy
-	of subscription
-Date: Mon, 4 May 2015 10:36:47 +0800
-Message-ID: <1430707008-11141-5-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 5/5] tipc: deal with return value
+	of tipc_conn_new callback
+Date: Mon, 4 May 2015 10:36:48 +0800
+Message-ID: <1430707008-11141-6-git-send-email-ying.xue@windriver.com>
 References: <1430707008-11141-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,65 +22,30 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Currently subscriber's lock protects not only subscriber's subscription
-list but also all subscriptions linked into the list. However, as all
-members of subscription are never changed after they are initialized,
-it's unnecessary for subscription to be protected under subscriber's
-lock. If the lock is used to only protect subscriber's subscription
-list, the adjustment not only makes the locking policy simpler, but
-also helps to avoid a deadlock which may happen once creating a
-subscription is failed.
+Once tipc_conn_new() returns NULL, the connection should be shut
+down immediately, otherwise, oops may happen due to the NULL pointer.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericson.com>
 ---
- net/tipc/subscr.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/tipc/server.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 9b24c9c..350cca3 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -201,6 +201,7 @@ static void tipc_subscrp_cancel(struct tipc_subscr *s,
- {
- 	struct tipc_subscription *sub, *temp;
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index 77ff03e..a91a2f7 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -309,6 +309,10 @@ static int tipc_accept_from_sock(struct tipc_conn *con)
  
-+	spin_lock_bh(&subscriber->lock);
- 	/* Find first matching subscription, exit if not found */
- 	list_for_each_entry_safe(sub, temp, &subscriber->subscrp_list,
- 				 subscrp_list) {
-@@ -212,6 +213,7 @@ static void tipc_subscrp_cancel(struct tipc_subscr *s,
- 			break;
- 		}
- 	}
-+	spin_unlock_bh(&subscriber->lock);
- }
+ 	/* Notify that new connection is incoming */
+ 	newcon->usr_data = s->tipc_conn_new(newcon->conid);
++	if (!newcon->usr_data) {
++		sock_release(newsock);
++		return -ENOMEM;
++	}
  
- static int tipc_subscrp_create(struct net *net, struct tipc_subscr *s,
-@@ -260,7 +262,9 @@ static int tipc_subscrp_create(struct net *net, struct tipc_subscr *s,
- 		kfree(sub);
- 		return -EINVAL;
- 	}
-+	spin_lock_bh(&subscriber->lock);
- 	list_add(&sub->subscrp_list, &subscriber->subscrp_list);
-+	spin_unlock_bh(&subscriber->lock);
- 	sub->subscriber = subscriber;
- 	sub->swap = swap;
- 	memcpy(&sub->evt.s, s, sizeof(*s));
-@@ -289,13 +293,11 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
- 	struct tipc_subscription *sub = NULL;
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 
--	spin_lock_bh(&subscriber->lock);
- 	tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber, &sub);
- 	if (sub)
- 		tipc_nametbl_subscribe(sub);
- 	else
- 		tipc_conn_terminate(tn->topsrv, subscriber->conid);
--	spin_unlock_bh(&subscriber->lock);
- }
- 
- /* Handle one request to establish a new subscriber */
+ 	/* Wake up receive process in case of 'SYN+' message */
+ 	newsock->sk->sk_data_ready(newsock->sk);
 -- 
 1.7.9.5
 
