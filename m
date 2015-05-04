@@ -1,115 +1,121 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH V2 -next 0/5] don't exceed original maximum fragment size when refragmenting
-Date: Mon,  4 May 2015 22:54:43 +0200
-Message-ID: <1430772888-5682-1-git-send-email-fw@strlen.de>
-Cc: hannes@stressinduktion.org, jesse@nicira.com
+Subject: [PATCH RFC 4/5] net: ip_fragment: attempt to preserve frag sizes for netfilter defragmented skbs
+Date: Mon,  4 May 2015 22:54:47 +0200
+Message-ID: <1430772888-5682-5-git-send-email-fw@strlen.de>
+References: <1430772888-5682-1-git-send-email-fw@strlen.de>
+Cc: hannes@stressinduktion.org, jesse@nicira.com,
+	Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <edumazet@google.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:47167 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:47182 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751716AbbEDUy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 16:54:56 -0400
+	by vger.kernel.org with ESMTP id S1751650AbbEDUzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 16:55:17 -0400
+In-Reply-To: <1430772888-5682-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+There was interest in allowing us to record the original fragment sizes
+in more detail, i.e. preserve length of all individual fragments.
 
-We would like to propose this patchset again. Only minor details
-changed since the last version, we incorporated the suggestion from
-Jesse to always store the size of the largest fragment received,
-regardless of the DF bit.
+This (re)enables this capability. Caveats are:
 
-Thus we never generate bigger fragments as originally received
-regardless if DF is set ot not.
+1. - this disables the optimizations made in
+commit 3cc4949269e01f39443d0 ("ipv4: use skb coalescing in defragmentation")
+for everyone as soon as nf_defrag_ipv4 module is loaded (it hooks earlier
+than ipv4 stacks own defragmentation for local delivery).
 
-We would like to summarize the current discussion on this topic and
-again would like you to consider applying this patchset to net-next:
+Unfortunately there is no (easy) way to determine if we will forward the skb
+at that stage.
 
-Several proposals were suggested:
+2. - it doesn't work when skb_linearize() and friends are invoked later.
 
-#1 employ GRO engine
-	- Reassembly would only work within one napi poll run. But
-	  reassembly must happen even independently of the interface
-	  the frame gets received. Delays cause single fragments to
-	  arrive in different napi runs, which wouldn't be aggregated.
+3. - we still call ip_fragment() when skbs are forwarded to (re-)create
+the fragment headers.
 
-	- We would have to kill the 1:1 correspondence between
-          aggregation and segmentation: within the TCP protocol we can
-          stop aggregating frames at any point without any harm
-          because of it being a streaming protocol. Fragmentation is
-          different in the way that we need to reassemble the complete
-          packet before processing, we cannot make sense of 'half skbs'.
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ I don't think this patch (and 5/5) is needed, but there was interest
+ in allowing to 'replay' original fragment geometry in more detail
+ when refragmenting, and this is one way of allowing this at least in
+ some cases.
 
-#2 keep fragments attached to reassembled
+ net/ipv4/ip_fragment.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-The idea is to attach the original skbs to the reassembled one, so the
-networking stack can choose which ones to use depending on the use
-case. Forwarding would operate on the original ones while code dealing
-with PACKET_HOST frames would use the reassembled one.
-
-	- We have the overhead to carry more skbs around, which we
-          currently don't do.
-
-	- This information cannot be stored in any of the currently
-          available fields in the skb or shared_info. That said, a new
-          pointer would be necessary in every skb, independently if it
-          is fragmented or not. This change does impact fast path and
-          skb size.
-
-	- sometimes using reassembled skb or the original ones could
-          lead to TOCTTOU attacks in some situations, like packet is
-          split in the TCP header, core stacks sees complete
-          reassembled TCP packet but netfilter only part of the
-          header, so different decisions might be done
-
-	- it does impact fast path in netfilter for every packet:
-	  pskb_may_pull is not enough to check if we can eat enough of
-	  the header, actually because of overlapping or duplicate
-	  fragments we have to touch all those fragments, thus
-	  creating new slow paths in netfilter
-
-	- all netfilter helpers would need to adapt in case e.g. a
-          udp packet containing a sip message is fragmented.
-
-	- in case we change fragment size, we don't have clear
-          semantics and the only behaviour which makes sense is what
-          this patchset does (i.e., refragment).
-
-	- still, even such complex change does not allow us to act as
-          transparent router/bridge: we still have to queue up
-          fragments; in case we cannot reassemble we have to drop
-          them (else firewall bypass is possible).
-
-#3 max_frag_size vector
-
-As it is based on the idea of keep fragments attached to reassembly it
-inherits a lot of the problems stated in section #2.
-
-	- Still needs an additional way to store this information in
-          the skb, thus enlarging a structure we try to shrink.
-
-	- TOCTTOU attacks are not possible because we do inspect the
-          same data all the time
-
-	- ... but at the same time, we cannot deal with overlapping or
-          duplicated fragments (without making this complex again)
-
-For years the linux kernel never correctly handled fragmented packets
-in forwarding L3 or L2 cases. We never heard any complaints. These
-patches try to make Linux a better internet citizen, correctly
-handling some edge cases, without harming core code and affecting
-performance.
-
-Thus we consider our proposed patches superior in all aspects. We are
-happy to discuss any ideas how to solve this otherwise.
-
-We investigated alternate approaches to allow transparent refragmentation
-for the common case of "well-formed" (i.e., non-overlapping, no duplicates, ..)
-fragments.  Unfortunately it involves removing an ip defragmentation
-optimization in case netfilter conntrack is active.
-
-The two patches that enable this are included as [RFC] as part of this series
-so they can be discussed.
-
-Thanks,
-Hannes, Florian
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index ad2404f..2326ae8 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -94,7 +94,7 @@ int ip_frag_mem(struct net *net)
+ }
+ 
+ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+-			 struct net_device *dev);
++			 struct net_device *dev, bool preserve_frags);
+ 
+ struct ip4_create_arg {
+ 	struct iphdr *iph;
+@@ -316,7 +316,8 @@ static int ip_frag_reinit(struct ipq *qp)
+ }
+ 
+ /* Add new segment to existing queue. */
+-static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
++static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb,
++			 bool preserve_frags)
+ {
+ 	struct sk_buff *prev, *next;
+ 	struct net_device *dev;
+@@ -490,7 +491,7 @@ found:
+ 		unsigned long orefdst = skb->_skb_refdst;
+ 
+ 		skb->_skb_refdst = 0UL;
+-		err = ip_frag_reasm(qp, prev, dev);
++		err = ip_frag_reasm(qp, prev, dev, preserve_frags);
+ 		skb->_skb_refdst = orefdst;
+ 		return err;
+ 	}
+@@ -507,7 +508,7 @@ err:
+ /* Build a new IP datagram from all its fragments. */
+ 
+ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+-			 struct net_device *dev)
++			 struct net_device *dev, bool preserve_frags)
+ {
+ 	struct net *net = container_of(qp->q.net, struct net, ipv4.frags);
+ 	struct iphdr *iph;
+@@ -597,7 +598,8 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 		else if (head->ip_summed == CHECKSUM_COMPLETE)
+ 			head->csum = csum_add(head->csum, fp->csum);
+ 
+-		if (skb_try_coalesce(head, fp, &headstolen, &delta)) {
++		if (!preserve_frags &&
++		    skb_try_coalesce(head, fp, &headstolen, &delta)) {
+ 			kfree_skb_partial(fp, headstolen);
+ 		} else {
+ 			if (!skb_shinfo(head)->frag_list)
+@@ -650,6 +652,11 @@ out_fail:
+ 	return err;
+ }
+ 
++static bool preserve_fraglist(u32 user)
++{
++	return user != IP_DEFRAG_LOCAL_DELIVER;
++}
++
+ /* Process an incoming IP datagram fragment. */
+ int ip_defrag(struct sk_buff *skb, u32 user)
+ {
+@@ -666,7 +673,7 @@ int ip_defrag(struct sk_buff *skb, u32 user)
+ 
+ 		spin_lock(&qp->q.lock);
+ 
+-		ret = ip_frag_queue(qp, skb);
++		ret = ip_frag_queue(qp, skb, preserve_fraglist(user));
+ 
+ 		spin_unlock(&qp->q.lock);
+ 		ipq_put(qp);
+-- 
+2.0.5
