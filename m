@@ -1,149 +1,101 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 8/8] ixgbe: Use a signed type to hold error codes
-Date: Mon,  4 May 2015 02:40:27 -0700
-Message-ID: <1430732427-29984-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1430732427-29984-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: Netlink socket leaks
+Date: Mon, 4 May 2015 18:09:18 +0800
+Message-ID: <5547454E.1070106@windriver.com>
+References: <CANaxB-weCVV0eQqRMnH59psXavrckip+Wfep2gdGLiw9rz3B5g@mail.gmail.com> <CANaxB-zvU0St+TkniHu9AKsW0Pd_j3BK17EfzCB+ghmDC0U22g@mail.gmail.com> <20150503000428.GA16211@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	Andrey Wagin <avagin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55549 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751160AbbEDJkx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 May 2015 05:40:53 -0400
-In-Reply-To: <1430732427-29984-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.windriver.com ([147.11.1.11]:47005 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752116AbbEDKKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 06:10:51 -0400
+In-Reply-To: <20150503000428.GA16211@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+On 05/03/2015 08:04 AM, Herbert Xu wrote:
+> On Sat, May 02, 2015 at 02:31:09AM +0300, Andrey Wagin wrote:
+>>
+>> A socket leaks if it is released by sk_release_kernel(). The problem
+>> is that netlink_insert() and netlink_remove() is called when a socket
+>> has different values of sk->sk_net.
+> 
+> I think we simply need to revert
+> c243d7e20996254f89c28d4838b5feca735c030d.
+> 
+> ---8<---
+> Subject: Revert "net: kernel socket should be released in init_net namespace"
+> 
+> This reverts commit c243d7e20996254f89c28d4838b5feca735c030d.
+> 
+> That patch is solving a non-existant problem while creating a
+> real problem.  Just because a socket is allocated in the init
+> name space doesn't mean that it gets hashed in the init name space.
+> 
+> When we unhash it the name space must be the same as the one
+> we had when we hashed it.  So this patch is completely bogus
+> and causes socket leaks.
+> 
 
-Because error codes are negative, it only makes sense to
-consistently use signed types when handling them. Also remove
-some explicit comparisons with 0 on these variables.
+Herbert, thanks for the fix.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 10 +++++-----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    |  4 ++--
- 4 files changed, 11 insertions(+), 11 deletions(-)
+Reverting commit c243d7e20996254f89c28d4838b5feca735c030d is absolutely a
+correct decision now.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index eafa9ec..9f6fb19 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -3053,7 +3053,7 @@ static int ixgbe_get_module_info(struct net_device *dev,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 status;
-+	s32 status;
- 	u8 sff8472_rev, addr_mode;
- 	bool page_swap = false;
- 
-@@ -3061,14 +3061,14 @@ static int ixgbe_get_module_info(struct net_device *dev,
- 	status = hw->phy.ops.read_i2c_eeprom(hw,
- 					     IXGBE_SFF_SFF_8472_COMP,
- 					     &sff8472_rev);
--	if (status != 0)
-+	if (status)
- 		return -EIO;
- 
- 	/* addressing mode is not supported */
- 	status = hw->phy.ops.read_i2c_eeprom(hw,
- 					     IXGBE_SFF_SFF_8472_SWAP,
- 					     &addr_mode);
--	if (status != 0)
-+	if (status)
- 		return -EIO;
- 
- 	if (addr_mode & IXGBE_SFF_ADDRESSING_MODE) {
-@@ -3095,7 +3095,7 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 status = IXGBE_ERR_PHY_ADDR_INVALID;
-+	s32 status = IXGBE_ERR_PHY_ADDR_INVALID;
- 	u8 databyte = 0xFF;
- 	int i = 0;
- 
-@@ -3112,7 +3112,7 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
- 		else
- 			status = hw->phy.ops.read_i2c_sff8472(hw, i, &databyte);
- 
--		if (status != 0)
-+		if (status)
- 			return -EIO;
- 
- 		data[i - ee->offset] = databyte;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 5be12a0..23d82b3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4757,7 +4757,7 @@ static int ixgbe_non_sfp_link_config(struct ixgbe_hw *hw)
- {
- 	u32 speed;
- 	bool autoneg, link_up = false;
--	u32 ret = IXGBE_ERR_LINK_SETUP;
-+	int ret = IXGBE_ERR_LINK_SETUP;
- 
- 	if (hw->mac.ops.check_link)
- 		ret = hw->mac.ops.check_link(hw, &speed, &link_up, false);
-@@ -8022,7 +8022,7 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
- 		return -EINVAL;
- 
- 	nla_for_each_nested(attr, br_spec, rem) {
--		u32 status;
-+		int status;
- 		__u16 mode;
- 
- 		if (nla_type(attr) != IFLA_BRIDGE_MODE)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 8a2be44..af828f8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -317,14 +317,14 @@ bool ixgbe_check_reset_blocked(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_get_phy_id(struct ixgbe_hw *hw)
- {
--	u32 status;
-+	s32 status;
- 	u16 phy_id_high = 0;
- 	u16 phy_id_low = 0;
- 
- 	status = hw->phy.ops.read_reg(hw, MDIO_DEVID1, MDIO_MMD_PMAPMD,
- 				      &phy_id_high);
- 
--	if (status == 0) {
-+	if (!status) {
- 		hw->phy.id = (u32)(phy_id_high << 16);
- 		status = hw->phy.ops.read_reg(hw, MDIO_DEVID2, MDIO_MMD_PMAPMD,
- 					      &phy_id_low);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 58ab7d9..b023698 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -1063,7 +1063,7 @@ static s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_setup_internal_phy_x550em(struct ixgbe_hw *hw)
- {
--	u32 status;
-+	s32 status;
- 	u16 lasi, autoneg_status, speed;
- 	ixgbe_link_speed force_speed;
- 
-@@ -1205,7 +1205,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
- {
--	u32 status;
-+	s32 status;
- 	u16 reg;
- 	u32 retries = 2;
- 
--- 
-2.1.0
+Actually my initial purpose of creating the commit is because inserting tipc
+socket into its rhashtable happens in socket creation, and deleting the socket
+from its rhashtable occurs in socket release. Without the commit, the creation
+of tipc kernel internal socket happens in init_net context, but the socket
+release occurs in the current namespace. More importantly, tipc allocates
+different rhashtables for different namespaces. Therefore, tipc kernel internal
+sockets created init_net would be inserted into init_net's rhashtable, but they
+would be removed from current namespace's rhashtable when deleting them. As a
+result, tipc kernel sockets are leaked as they are unable to be found in current
+namespace's rhashtable. But as the commit can guarantee that both creation and
+deletion of tipc kernel internal socket always happens in the current namespace,
+leaking tipc socket can be avoided.
+
+However, I did not realize that hashing of inet sockets usually occurs in
+bind(), and unashing is in release(). As The former context is current
+namespace, and the latter is init_net. the socket leak happens on netlink sockets.
+
+Currently as for tipc kernel sockets, even your patch is involved, the leak
+would never happen on tipc sockets because tipc uses __sock_create() instead of
+sock_create_kern() to create its kernel sockets.
+
+Until now, I believe that it's safe for all kinds of kernel sockets together
+with your patch.
+
+However, when I reviewed your patch, I found that moving netlink socket's
+namespace back and forth is unnecessary for us at all. Instead it artificially
+increases the complexity of netlink code. Therefore, I create the following
+patch to avoid it, please review it:
+
+http://patchwork.ozlabs.org/patch/467535/
+
+Thanks,
+Ying
+
+> Reported-by: Andrey Wagin <avagin@gmail.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index e891bcf..292f422 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1474,8 +1474,8 @@ void sk_release_kernel(struct sock *sk)
+>  		return;
+>  
+>  	sock_hold(sk);
+> -	sock_net_set(sk, get_net(&init_net));
+>  	sock_release(sk->sk_socket);
+> +	sock_net_set(sk, get_net(&init_net));
+>  	sock_put(sk);
+>  }
+>  EXPORT_SYMBOL(sk_release_kernel);
+> 
