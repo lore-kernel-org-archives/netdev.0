@@ -1,24 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] switchdev: don't abort hardware ipv4 fib
- offload on failure to program fib entry in hardware
-Date: Sun, 03 May 2015 21:20:40 -0400 (EDT)
-Message-ID: <20150503.212040.306168979645350533.davem@davemloft.net>
-References: <1430583883-3514-1-git-send-email-roopa@cumulusnetworks.com>
-	<9B0331B6EBBD0E4684FBFAEDA55776F9193A4364@HASMSX110.ger.corp.intel.com>
+Subject: Re: [PATCH net-next] ipv6: Check RTF_LOCAL on rt->rt6i_flags
+ instead of rt->dst.flags
+Date: Sun, 03 May 2015 21:50:00 -0400 (EDT)
+Message-ID: <20150503.215000.151892544983821315.davem@davemloft.net>
+References: <1430697949-3589092-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com,
-	john.fastabend@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org
-To: rami.rosen@intel.com
+Cc: netdev@vger.kernel.org, Kernel-team@fb.com, tazaki@sfc.wide.ad.jp
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58164 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58349 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036AbbEDBUp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 21:20:45 -0400
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F9193A4364@HASMSX110.ger.corp.intel.com>
+	with ESMTP id S1750977AbbEDBuF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 21:50:05 -0400
+In-Reply-To: <1430697949-3589092-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Sun, 3 May 2015 17:05:49 -0700
 
-Please do not top-post.
+> In my earlier commit:
+> 653437d02f1f ("ipv6: Stop /128 route from disappearing after pmtu update"),
+> there was a horrible typo.  Instead of checking RTF_LOCAL on
+> rt->rt6i_flags, it was checked on rt->dst.flags.  This patch fixes
+> it.
+> 
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+
+Whoops, good catch, applied.
+
+Thanks Martin.
