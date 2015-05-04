@@ -1,279 +1,271 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] tcp: provide SYN headers for passive connections
-Date: Mon, 4 May 2015 08:47:47 +0200
-Message-ID: <CAKgNAkiUOkjsE96E1DN_zwJAjJGLWME7-XGnFDszic7p7C=g7g@mail.gmail.com>
-References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
- <1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
- <CALx6S34ftz_wDoPwcJg_cMQu4QtnBJF-=d+gF5ieTA=d=r31-Q@mail.gmail.com>
- <20150501201417.GB6113@akamai.com> <1430511800.3711.138.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150501202908.GC6113@akamai.com> <1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
- <1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1430714086.3711.165.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next 01/10] be2net: add support for spoofchk setting
+Date: Mon,  4 May 2015 02:47:13 -0400
+Message-ID: <1430722042-26449-2-git-send-email-sathya.perla@emulex.com>
+References: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:63199 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752163AbbEDG7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 02:59:19 -0400
+In-Reply-To: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric,
+From: Kalesh AP <kalesh.purayil@emulex.com>
 
-On 4 May 2015 at 06:34, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
->
-> This patch allows a server application to get the TCP SYN headers for
-> its passive connections.  This is useful if the server is doing
-> fingerprinting of clients based on SYN packet contents.
->
-> Two socket options are added: TCP_SAVE_SYN and TCP_SAVED_SYN.
->
-> The first is used on a socket to enable saving the SYN headers
-> for child connections. This can be set before or after the listen()
-> call.
->
-> The latter is used to retrieve the SYN headers for passive connections,
-> if the parent listener has enabled TCP_SAVE_SYN.
->
-> TCP_SAVED_SYN is read once, it frees the saved SYN headers.
->
-> The data returned in TCP_SAVED_SYN are network (IPv4/IPv6) and TCP
-> headers.
+This patch adds support for spoofchk configuration for VFs.
+When it is enabled, "spoof checking" is done for both MAC-address and VLAN.
+This feature is supported in Skyhawk FW version 10.6.31.0 and above.
 
-This description is a little thin, so I'm unclear on one or two
-points. TCP_SAVE_SYN is clearly applied to the listening socket. But
-what about TCP_SAVED_SYN? Is that applied to the connected socket
-returned by accept()?
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |  1 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 16 +++++++--
+ drivers/net/ethernet/emulex/benet/be_cmds.h | 24 +++++++++-----
+ drivers/net/ethernet/emulex/benet/be_main.c | 51 ++++++++++++++++++++++++++---
+ 4 files changed, 78 insertions(+), 14 deletions(-)
 
-The highly similar naming of these two seems unfortunate. At the very
-least, it makes for easy confusion in conversations about the two
-options. It would be better to have names that were more distinct.
-Perhaps the latter could be TCP_CONN_SYN or TCP_CONN_SAVED_SYN, for
-example?
-
-Thanks,
-
-Michael
-
-> Original patch was written by Tom Herbert, I changed it to not hold
-> a full skb (and associated dst and conntracking reference).
->
-> We have used such patch for about 3 years at Google.
->
-> Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> ---
->  include/linux/tcp.h        |    8 ++++++++
->  include/net/request_sock.h |    4 +++-
->  include/uapi/linux/tcp.h   |    2 ++
->  net/ipv4/tcp.c             |   35 +++++++++++++++++++++++++++++++++++
->  net/ipv4/tcp_input.c       |   18 ++++++++++++++++++
->  net/ipv4/tcp_ipv4.c        |    1 +
->  net/ipv4/tcp_minisocks.c   |    3 +++
->  7 files changed, 70 insertions(+), 1 deletion(-)
->
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index 3b2911502a8c..e6fb5df22db1 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -199,6 +199,7 @@ struct tcp_sock {
->                 syn_fastopen:1, /* SYN includes Fast Open option */
->                 syn_fastopen_exp:1,/* SYN includes Fast Open exp. option */
->                 syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
-> +               save_syn:1,     /* Save headers of SYN packet */
->                 is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
->         u32     tlp_high_seq;   /* snd_nxt at the time of TLP retransmit. */
->
-> @@ -326,6 +327,7 @@ struct tcp_sock {
->          * socket. Used to retransmit SYNACKs etc.
->          */
->         struct request_sock *fastopen_rsk;
-> +       u32     *saved_syn;
->  };
->
->  enum tsq_flags {
-> @@ -393,4 +395,10 @@ static inline int fastopen_init_queue(struct sock *sk, int backlog)
->         return 0;
->  }
->
-> +static inline void tcp_saved_syn_free(struct tcp_sock *tp)
-> +{
-> +       kfree(tp->saved_syn);
-> +       tp->saved_syn = NULL;
-> +}
-> +
->  #endif /* _LINUX_TCP_H */
-> diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-> index 9f4265ce8892..87935cad2f7b 100644
-> --- a/include/net/request_sock.h
-> +++ b/include/net/request_sock.h
-> @@ -64,6 +64,7 @@ struct request_sock {
->         struct timer_list               rsk_timer;
->         const struct request_sock_ops   *rsk_ops;
->         struct sock                     *sk;
-> +       u32                             *saved_syn;
->         u32                             secid;
->         u32                             peer_secid;
->  };
-> @@ -77,7 +78,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener)
->                 req->rsk_ops = ops;
->                 sock_hold(sk_listener);
->                 req->rsk_listener = sk_listener;
-> -
-> +               req->saved_syn = NULL;
->                 /* Following is temporary. It is coupled with debugging
->                  * helpers in reqsk_put() & reqsk_free()
->                  */
-> @@ -104,6 +105,7 @@ static inline void reqsk_free(struct request_sock *req)
->         req->rsk_ops->destructor(req);
->         if (req->rsk_listener)
->                 sock_put(req->rsk_listener);
-> +       kfree(req->saved_syn);
->         kmem_cache_free(req->rsk_ops->slab, req);
->  }
->
-> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> index faa72f4fa547..51ebedba577f 100644
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -113,6 +113,8 @@ enum {
->  #define TCP_TIMESTAMP          24
->  #define TCP_NOTSENT_LOWAT      25      /* limit number of unsent bytes in write queue */
->  #define TCP_CC_INFO            26      /* Get Congestion Control (optional) info */
-> +#define TCP_SAVE_SYN           27      /* Record SYN headers for new connections */
-> +#define TCP_SAVED_SYN          28      /* Get SYN headers recorded for connection */
->
->  struct tcp_repair_opt {
->         __u32   opt_code;
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 46efa03d2b11..ecccfdc50d76 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2482,6 +2482,13 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
->                         icsk->icsk_syn_retries = val;
->                 break;
->
-> +       case TCP_SAVE_SYN:
-> +               if (val < 0 || val > 1)
-> +                       err = -EINVAL;
-> +               else
-> +                       tp->save_syn = val;
-> +               break;
-> +
->         case TCP_LINGER2:
->                 if (val < 0)
->                         tp->linger2 = -1;
-> @@ -2818,6 +2825,34 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
->         case TCP_NOTSENT_LOWAT:
->                 val = tp->notsent_lowat;
->                 break;
-> +       case TCP_SAVE_SYN:
-> +               val = tp->save_syn;
-> +               break;
-> +       case TCP_SAVED_SYN: {
-> +               if (get_user(len, optlen))
-> +                       return -EFAULT;
-> +
-> +               lock_sock(sk);
-> +               if (tp->saved_syn) {
-> +                       len = min_t(unsigned int, tp->saved_syn[0], len);
-> +                       if (put_user(len, optlen)) {
-> +                               release_sock(sk);
-> +                               return -EFAULT;
-> +                       }
-> +                       if (copy_to_user(optval, tp->saved_syn + 1, len)) {
-> +                               release_sock(sk);
-> +                               return -EFAULT;
-> +                       }
-> +                       tcp_saved_syn_free(tp);
-> +                       release_sock(sk);
-> +               } else {
-> +                       release_sock(sk);
-> +                       len = 0;
-> +                       if (put_user(len, optlen))
-> +                               return -EFAULT;
-> +               }
-> +               return 0;
-> +       }
->         default:
->                 return -ENOPROTOOPT;
->         }
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 09bdc4abfcbb..df2ca615cd0c 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -6060,6 +6060,23 @@ static bool tcp_syn_flood_action(struct sock *sk,
->         return want_cookie;
->  }
->
-> +static void tcp_reqsk_record_syn(const struct sock *sk,
-> +                                struct request_sock *req,
-> +                                const struct sk_buff *skb)
-> +{
-> +       if (tcp_sk(sk)->save_syn) {
-> +               u32 len = skb_network_header_len(skb) + tcp_hdrlen(skb);
-> +               u32 *copy;
-> +
-> +               copy = kmalloc(len + sizeof(u32), GFP_ATOMIC);
-> +               if (copy) {
-> +                       copy[0] = len;
-> +                       memcpy(&copy[1], skb_network_header(skb), len);
-> +                       req->saved_syn = copy;
-> +               }
-> +       }
-> +}
-> +
->  int tcp_conn_request(struct request_sock_ops *rsk_ops,
->                      const struct tcp_request_sock_ops *af_ops,
->                      struct sock *sk, struct sk_buff *skb)
-> @@ -6192,6 +6209,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
->                 tcp_rsk(req)->tfo_listener = false;
->                 af_ops->queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
->         }
-> +       tcp_reqsk_record_syn(sk, req, skb);
->
->         return 0;
->
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index fc1c658ec6c1..91cb4768a860 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1802,6 +1802,7 @@ void tcp_v4_destroy_sock(struct sock *sk)
->
->         /* If socket is aborted during connect operation */
->         tcp_free_fastopen_req(tp);
-> +       tcp_saved_syn_free(tp);
->
->         sk_sockets_allocated_dec(sk);
->         sock_release_memcg(sk);
-> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-> index e5d7649136fc..ebe2ab2596ed 100644
-> --- a/net/ipv4/tcp_minisocks.c
-> +++ b/net/ipv4/tcp_minisocks.c
-> @@ -536,6 +536,9 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
->                 newtp->fastopen_rsk = NULL;
->                 newtp->syn_data_acked = 0;
->
-> +               newtp->saved_syn = req->saved_syn;
-> +               req->saved_syn = NULL;
-> +
->                 TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_PASSIVEOPENS);
->         }
->         return newsk;
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-api" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 1bf1cdc..bbfbbb3 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -366,6 +366,7 @@ struct be_vf_cfg {
+ 	u32 tx_rate;
+ 	u32 plink_tracking;
+ 	u32 privileges;
++	bool spoofchk;
+ };
+ 
+ enum vf_state {
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index fb140fa..e630fe0 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -3153,7 +3153,7 @@ int be_cmd_set_mac(struct be_adapter *adapter, u8 *mac, int if_id, u32 dom)
+ }
+ 
+ int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+-			  u32 domain, u16 intf_id, u16 hsw_mode)
++			  u32 domain, u16 intf_id, u16 hsw_mode, u8 spoofchk)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_set_hsw_config *req;
+@@ -3189,6 +3189,14 @@ int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid,
+ 			      ctxt, hsw_mode);
+ 	}
+ 
++	/* Enable/disable both mac and vlan spoof checking */
++	if (!BEx_chip(adapter) && spoofchk) {
++		AMAP_SET_BITS(struct amap_set_hsw_context, mac_spoofchk,
++			      ctxt, spoofchk);
++		AMAP_SET_BITS(struct amap_set_hsw_context, vlan_spoofchk,
++			      ctxt, spoofchk);
++	}
++
+ 	be_dws_cpu_to_le(req->context, sizeof(req->context));
+ 	status = be_mcc_notify_wait(adapter);
+ 
+@@ -3199,7 +3207,7 @@ err:
+ 
+ /* Get Hyper switch config */
+ int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
+-			  u32 domain, u16 intf_id, u8 *mode)
++			  u32 domain, u16 intf_id, u8 *mode, bool *spoofchk)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_req_get_hsw_config *req;
+@@ -3247,6 +3255,10 @@ int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid,
+ 		if (mode)
+ 			*mode = AMAP_GET_BITS(struct amap_get_hsw_resp_context,
+ 					      port_fwd_type, &resp->context);
++		if (spoofchk)
++			*spoofchk =
++				AMAP_GET_BITS(struct amap_get_hsw_resp_context,
++					      spoofchk, &resp->context);
+ 	}
+ 
+ err:
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 1ec2230..cf5f855 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1745,18 +1745,24 @@ struct be_cmd_req_set_mac_list {
+ #define PORT_FWD_TYPE_VEPA		0x3
+ #define PORT_FWD_TYPE_VEB		0x2
+ 
++#define ENABLE_MAC_SPOOFCHK		0x2
++#define DISABLE_MAC_SPOOFCHK		0x3
++
+ struct amap_set_hsw_context {
+ 	u8 interface_id[16];
+-	u8 rsvd0[14];
++	u8 rsvd0[8];
++	u8 mac_spoofchk[2];
++	u8 rsvd1[4];
+ 	u8 pvid_valid;
+ 	u8 pport;
+-	u8 rsvd1[6];
++	u8 rsvd2[6];
+ 	u8 port_fwd_type[3];
+-	u8 rsvd2[7];
++	u8 rsvd3[5];
++	u8 vlan_spoofchk[2];
+ 	u8 pvid[16];
+-	u8 rsvd3[32];
+ 	u8 rsvd4[32];
+ 	u8 rsvd5[32];
++	u8 rsvd6[32];
+ } __packed;
+ 
+ struct be_cmd_req_set_hsw_config {
+@@ -1774,11 +1780,13 @@ struct amap_get_hsw_req_context {
+ struct amap_get_hsw_resp_context {
+ 	u8 rsvd0[6];
+ 	u8 port_fwd_type[3];
+-	u8 rsvd1[7];
++	u8 rsvd1[5];
++	u8 spoofchk;
++	u8 rsvd2;
+ 	u8 pvid[16];
+-	u8 rsvd2[32];
+ 	u8 rsvd3[32];
+ 	u8 rsvd4[32];
++	u8 rsvd5[32];
+ } __packed;
+ 
+ struct be_cmd_req_get_hsw_config {
+@@ -2334,9 +2342,9 @@ int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array, u8 mac_count,
+ 			u32 domain);
+ int be_cmd_set_mac(struct be_adapter *adapter, u8 *mac, int if_id, u32 dom);
+ int be_cmd_set_hsw_config(struct be_adapter *adapter, u16 pvid, u32 domain,
+-			  u16 intf_id, u16 hsw_mode);
++			  u16 intf_id, u16 hsw_mode, u8 spoofchk);
+ int be_cmd_get_hsw_config(struct be_adapter *adapter, u16 *pvid, u32 domain,
+-			  u16 intf_id, u8 *mode);
++			  u16 intf_id, u8 *mode, bool *spoofchk);
+ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter);
+ int be_cmd_set_fw_log_level(struct be_adapter *adapter, u32 level);
+ int be_cmd_get_fw_log_level(struct be_adapter *adapter);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index fb0bc3c..352ba95 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1466,6 +1466,7 @@ static int be_get_vf_config(struct net_device *netdev, int vf,
+ 	vi->qos = vf_cfg->vlan_tag >> VLAN_PRIO_SHIFT;
+ 	memcpy(&vi->mac, vf_cfg->mac_addr, ETH_ALEN);
+ 	vi->linkstate = adapter->vf_cfg[vf].plink_tracking;
++	vi->spoofchk = adapter->vf_cfg[vf].spoofchk;
+ 
+ 	return 0;
+ }
+@@ -1478,7 +1479,7 @@ static int be_set_vf_tvt(struct be_adapter *adapter, int vf, u16 vlan)
+ 	int status;
+ 
+ 	/* Enable Transparent VLAN Tagging */
+-	status = be_cmd_set_hsw_config(adapter, vlan, vf + 1, vf_if_id, 0);
++	status = be_cmd_set_hsw_config(adapter, vlan, vf + 1, vf_if_id, 0, 0);
+ 	if (status)
+ 		return status;
+ 
+@@ -1507,7 +1508,7 @@ static int be_clear_vf_tvt(struct be_adapter *adapter, int vf)
+ 
+ 	/* Reset Transparent VLAN Tagging. */
+ 	status = be_cmd_set_hsw_config(adapter, BE_RESET_VLAN_TAG_ID, vf + 1,
+-				       vf_cfg->if_handle, 0);
++				       vf_cfg->if_handle, 0, 0);
+ 	if (status)
+ 		return status;
+ 
+@@ -1642,6 +1643,39 @@ static int be_set_vf_link_state(struct net_device *netdev, int vf,
+ 	return 0;
+ }
+ 
++static int be_set_vf_spoofchk(struct net_device *netdev, int vf, bool enable)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf];
++	u8 spoofchk;
++	int status;
++
++	if (!sriov_enabled(adapter))
++		return -EPERM;
++
++	if (vf >= adapter->num_vfs)
++		return -EINVAL;
++
++	if (BEx_chip(adapter))
++		return -EOPNOTSUPP;
++
++	if (enable == vf_cfg->spoofchk)
++		return 0;
++
++	spoofchk = enable ? ENABLE_MAC_SPOOFCHK : DISABLE_MAC_SPOOFCHK;
++
++	status = be_cmd_set_hsw_config(adapter, 0, vf + 1, vf_cfg->if_handle,
++				       0, spoofchk);
++	if (status) {
++		dev_err(&adapter->pdev->dev,
++			"Spoofchk change on VF %d failed: %#x\n", vf, status);
++		return be_cmd_status(status);
++	}
++
++	vf_cfg->spoofchk = enable;
++	return 0;
++}
++
+ static void be_aic_update(struct be_aic_obj *aic, u64 rx_pkts, u64 tx_pkts,
+ 			  ulong now)
+ {
+@@ -3610,6 +3644,7 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 	struct device *dev = &adapter->pdev->dev;
+ 	struct be_vf_cfg *vf_cfg;
+ 	int status, old_vfs, vf;
++	bool spoofchk;
+ 
+ 	old_vfs = pci_num_vf(adapter->pdev);
+ 
+@@ -3657,6 +3692,12 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 		if (!old_vfs)
+ 			be_cmd_config_qos(adapter, 0, 0, vf + 1);
+ 
++		status = be_cmd_get_hsw_config(adapter, NULL, vf + 1,
++					       vf_cfg->if_handle, NULL,
++					       &spoofchk);
++		if (!status)
++			vf_cfg->spoofchk = spoofchk;
++
+ 		if (!old_vfs) {
+ 			be_cmd_enable_vf(adapter, vf + 1);
+ 			be_cmd_set_logical_link_config(adapter,
+@@ -4829,7 +4870,7 @@ static int be_ndo_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
+ 					       adapter->if_handle,
+ 					       mode == BRIDGE_MODE_VEPA ?
+ 					       PORT_FWD_TYPE_VEPA :
+-					       PORT_FWD_TYPE_VEB);
++					       PORT_FWD_TYPE_VEB, 0);
+ 		if (status)
+ 			goto err;
+ 
+@@ -4860,7 +4901,8 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 		hsw_mode = PORT_FWD_TYPE_VEB;
+ 	} else {
+ 		status = be_cmd_get_hsw_config(adapter, NULL, 0,
+-					       adapter->if_handle, &hsw_mode);
++					       adapter->if_handle, &hsw_mode,
++					       NULL);
+ 		if (status)
+ 			return 0;
+ 	}
+@@ -5013,6 +5055,7 @@ static const struct net_device_ops be_netdev_ops = {
+ 	.ndo_set_vf_rate	= be_set_vf_tx_rate,
+ 	.ndo_get_vf_config	= be_get_vf_config,
+ 	.ndo_set_vf_link_state  = be_set_vf_link_state,
++	.ndo_set_vf_spoofchk    = be_set_vf_spoofchk,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= be_netpoll,
+ #endif
 -- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+2.2.0
