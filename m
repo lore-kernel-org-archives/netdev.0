@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 01/10] be2net: add support for spoofchk setting
-Date: Mon, 04 May 2015 11:58:59 -0400 (EDT)
-Message-ID: <20150504.115859.519940284663048316.davem@davemloft.net>
-References: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
-	<1430722042-26449-2-git-send-email-sathya.perla@emulex.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: Fix wrong filter behaviour
+Date: Mon, 4 May 2015 08:59:48 -0700
+Message-ID: <20150504085948.517d2165@urahara>
+References: <1430368224-25147-1-git-send-email-vadim4j@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36386 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbbEDP7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 11:59:05 -0400
-In-Reply-To: <1430722042-26449-2-git-send-email-sathya.perla@emulex.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36259 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750798AbbEDP7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 11:59:44 -0400
+Received: by pabsx10 with SMTP id sx10so164241487pab.3
+        for <netdev@vger.kernel.org>; Mon, 04 May 2015 08:59:44 -0700 (PDT)
+In-Reply-To: <1430368224-25147-1-git-send-email-vadim4j@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Mon,  4 May 2015 02:47:13 -0400
+On Thu, 30 Apr 2015 07:30:24 +0300
+Vadim Kochan <vadim4j@gmail.com> wrote:
 
-> From: Kalesh AP <kalesh.purayil@emulex.com>
+> From: Vadim Kochan <vadim4j@gmail.com>
 > 
-> This patch adds support for spoofchk configuration for VFs.
-> When it is enabled, "spoof checking" is done for both MAC-address and VLAN.
-> This feature is supported in Skyhawk FW version 10.6.31.0 and above.
+> Fixed applying family & socket type filters.
+> It was not possible to select UDP & UNIX sockets together.
 > 
-> Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> Now selected families are ORed.
+> 
+> The problem was that filters were combined by AND.
+> 
+> Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+> Reported-By: Mihai Moldovan <ionic@ionic.de>
+> ---
+>  misc/ss.c | 91 ++++++++++++++++++++++++++++++++++-----------------------------
+>  1 file changed, 49 insertions(+), 42 deletions(-)
 
-You're going to have to explain exactly what the spoof checking facility
-of the card actually does.
+Applied to master (for 4.1)
