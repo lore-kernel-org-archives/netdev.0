@@ -1,44 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/smsc911x: fix irq resource allocation failure
-Date: Mon, 04 May 2015 15:11:23 -0400 (EDT)
-Message-ID: <20150504.151123.189020826693529469.davem@davemloft.net>
-References: <1430730589-17378-1-git-send-email-kamlakant.patel@broadcom.com>
+Subject: Re: [PATCH] Revert "smc91x: retrieve IRQ and trigger flags in a
+ modern way"
+Date: Mon, 04 May 2015 15:13:13 -0400 (EDT)
+Message-ID: <20150504.151313.1067947846072895736.davem@davemloft.net>
+References: <878uew8xfe.fsf@free.fr>
+	<20150317.150520.62518083516614772.davem@redhat.com>
+	<CACRpkdYYvUYygEjdHOT==W0CtMpyUbVYJxuFzNfL8mFOqHBxcw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
-	linus.walleij@linaro.org
-To: kamlakant.patel@broadcom.com
+Cc: robert.jarzmik@free.fr, nico@fluxnic.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linus.walleij@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38218 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38244 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751306AbbEDTLZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 15:11:25 -0400
-In-Reply-To: <1430730589-17378-1-git-send-email-kamlakant.patel@broadcom.com>
+	with ESMTP id S1751078AbbEDTNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 15:13:16 -0400
+In-Reply-To: <CACRpkdYYvUYygEjdHOT==W0CtMpyUbVYJxuFzNfL8mFOqHBxcw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <kamlakant.patel@broadcom.com>
-Date: Mon, 4 May 2015 14:39:49 +0530
+From: Linus Walleij <linus.walleij@linaro.org>
+Date: Mon, 4 May 2015 15:18:39 +0200
 
-> From: Kamlakant Patel <kamlakant.patel@broadcom.com>
+> On Tue, Mar 17, 2015 at 8:05 PM, David Miller <davem@redhat.com> wrote:
+>> From: Robert Jarzmik <robert.jarzmik@free.fr>
+>> Date: Mon, 16 Mar 2015 22:06:13 +0100
+>>
+>>> David Miller <davem@davemloft.net> writes:
+>>>
+>>>> From: Robert Jarzmik <robert.jarzmik@free.fr>
+>>>> Date: Thu, 19 Feb 2015 21:48:49 +0100
+>>>>
+>>>>> Linus has submitted the patch [1]. I'll be watching carefully until -rc4 that
+>>>>> this is applied. If it's not, I'll reping you to apply this revert. Until then,
+>>>>> you can forget about it, I'll do the follow-up.
+>>>>>
+>>>>> Does that plan sound good to you ?
+>>>>
+>>>> It sounds good to me.
+>>>
+>>> Hi David,
+>>>
+>>> Unfortunately Linus's patch didn't make it upstream. Therefore I'll ask you to
+>>> apply the revert, which is reminded in [1].
+>>
+>> Revert applied, thanks.
 > 
-> When smsc911x uses GPIO as the interrupt controller, and if both are
-> loaded as modules, we get following error:
-> 
-> "smsc911x: Could not allocate irq resource"
-> 
-> This issue is because of smsc911x using platform_get_resource to get
-> device tree based irq resource.
-> 
-> commit "9ec36ca (of/irq: do irq resolution in platform_get_irq)" and
-> commit "7085a7 (drivers: platform: parse IRQ flags from resources)" add
-> support in platform_get_irq to resolve irq and irq_flags respectively
-> for both modern device tree and legacy static platform data platforms.
-> 
-> Modify smsc911x driver to use platform_get_irq to pick up irq resource
-> correctly and use irq_get_trigger_type to get the IRQ trigger flags.
-> 
-> Signed-off-by: Kamlakant Patel <kamlakant.patel@broadcom.com>
+> Since the required patch fixing the actual problem is now upstream,
+> can we revert the revert?
 
-Applied.
+Ok, done.
