@@ -1,57 +1,55 @@
-From: Markus Stenberg <markus.stenberg@iki.fi>
-Subject: [PATCH] ipv6: RTA_PREFSRC dumping was somewhat incorrect.
-Date: Mon, 4 May 2015 14:46:02 +0300
-Message-ID: <BAADD2CA-4AC1-4916-B035-246F3CBF080B@iki.fi>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Markus Stenberg <markus.stenberg@iki.fi>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-out1.inet.fi ([62.71.2.203]:34113 "EHLO jenni2.inet.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752422AbbEDLwg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 May 2015 07:52:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [RFC v1 07/11] net/mlx4: Cache irq_desc->affinity instead of irq_desc
+Date: Mon, 4 May 2015 15:10:10 +0300
+Message-ID: <CAPcc5Ph4pk+4aL-PduvF67YU-A+vn2bfx6v3mr-tbY58zs7sZw@mail.gmail.com>
+References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>
+	<1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Yinghai Lu <yinghai@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-pci@vger.kern
+To: Jiang Liu <jiang.liu@linux.intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Avoid dumping RTA_PREFSRC twice if iif is not set, but dst is.
+On Mon, May 4, 2015 at 6:15 AM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
+> The field 'affinity' in irq_desc won't change once the irq_desc data
+> structure is created. So cache irq_desc->affinity instead of irq_desc.
+> This also helps to hide struct irq_desc from device drivers.
 
-Note that the change also dumps RTA_PREFSRC even if iif RTA_IIF is
-sent. As scopes are not that rare in IPv6, I believe that to be
-correct behavior.
+Hi Jiang,
 
-Signed-off-by: Markus Stenberg <markus.stenberg@iki.fi>
+I might not understand the new changes irq core, but up until now
+affinity was changed when the user changed it through
+/proc/irq/<IRQ>/smp_affinity.
+This code is monitoring the affinity from the napi_poll context to
+detect affinity changes, and prevent napi from keep running on the
+wrong CPU.
+Therefore, the affinity can't be cached at the beginning. Please
+revert this caching.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5c48293..442fa29 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2607,6 +2607,7 @@ static int rt6_fill_node(struct net *net,
- 	struct nlmsghdr *nlh;
- 	long expires;
- 	u32 table;
-+	struct in6_addr saddr_buf;
- 
- 	if (prefix) {	/* user wants prefix routes only */
- 		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
-@@ -2702,15 +2703,13 @@ static int rt6_fill_node(struct net *net,
- #endif
- 			if (nla_put_u32(skb, RTA_IIF, iif))
- 				goto nla_put_failure;
--	} else if (dst) {
--		struct in6_addr saddr_buf;
-+	}
-+
-+	if (dst) {
- 		if (ip6_route_get_saddr(net, rt, dst, 0, &saddr_buf) == 0 &&
- 		    nla_put_in6_addr(skb, RTA_PREFSRC, &saddr_buf))
- 			goto nla_put_failure;
--	}
--
--	if (rt->rt6i_prefsrc.plen) {
--		struct in6_addr saddr_buf;
-+	} else if (rt->rt6i_prefsrc.plen) {
- 		saddr_buf = rt->rt6i_prefsrc.addr;
- 		if (nla_put_in6_addr(skb, RTA_PREFSRC, &saddr_buf))
- 			goto nla_put_failure;
+Thanks,
+Amir
