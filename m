@@ -1,62 +1,60 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Suspicious RCU usage in bridge with Linux v4.0-9362-g1fc149933fd4
-Date: Mon, 4 May 2015 15:44:16 -0700
-Message-ID: <CAHA+R7N0MAKSHROEHQ+aHHD=Vv+trNG=QNttQVG2=MSY__k5pg@mail.gmail.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
-	<20150504133943.GA17043@x131e>
-	<CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-	<1430772572.27254.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7OD7Bh52MkB1hKs8DdncrgBN2_1VYQwrFGetJFJ7chgyg@mail.gmail.com>
-	<1430777167.27254.8.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAHA+R7OrtnPuNX+qa_o4MArL2Sc8T9jALp5tyQYFMv4dxUeF7A@mail.gmail.com>
-	<1430778550.27254.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH next v2 2/3] ipvlan: Process fragmented multicast frames correctly
+Date: Mon, 4 May 2015 15:58:59 -0700
+Message-ID: <CAF2d9jhESPaPCtRsh7GWUY9Kue2h2D0Nw2Qv1H=Gj15M3twN0w@mail.gmail.com>
+References: <1430331558-20286-1-git-send-email-maheshb@google.com> <20150501.211225.641281069847184355.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Dominick Grift <dac.override@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, dcbw@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:34121 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbbEDWoR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 18:44:17 -0400
-Received: by wgso17 with SMTP id o17so165046925wgs.1
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 15:44:16 -0700 (PDT)
-In-Reply-To: <1430778550.27254.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:36161 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbbEDW7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 18:59:20 -0400
+Received: by obbkp3 with SMTP id kp3so62609550obb.3
+        for <netdev@vger.kernel.org>; Mon, 04 May 2015 15:59:19 -0700 (PDT)
+In-Reply-To: <20150501.211225.641281069847184355.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 4, 2015 at 3:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2015-05-04 at 15:17 -0700, Cong Wang wrote:
->> On Mon, May 4, 2015 at 3:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Mon, 2015-05-04 at 14:38 -0700, Cong Wang wrote:
->> >
->> >> Compile-test only patch is never ready for review, I thought it is too obvious
->> >> to mention.
->> >
->> > Thats not relevant.
->> >
->> > Obvious or not, you are not making things easy for reviewers.
->> >
+On Fri, May 1, 2015 at 6:12 PM, David Miller <davem@davemloft.net> wrote:
+> From: Mahesh Bandewar <maheshb@google.com>
+> Date: Wed, 29 Apr 2015 11:19:18 -0700
+>
+>> Multicast processing in IPvlan was faulty as is. Eric Dumazet
+>> pointed out that fragmented packets won't be processed correctly
+>> unless defrag step is introduced.
 >>
->> Why should I make a NOT-ready-for-review patch easy for reviewers?
->> What's the point here? I don't have the right to choose my patch NOT
->> to be reviewed? Huh...
+>> This patch adds the defrag step before driver attempts to process
+>> multicast frame(s).
 >>
+>> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 >
-> Look, I only said :
+> And now you are potentially modifying the geometry of packets that
+> traverse ipvlan devices.
 >
-> "Please send inline patches, otherwise its hard for us to review them
-> and give feedback."
+Yes, that is true but to optimize the fragments processing.
+
+> I am sorry but I am going to put my foot down and not allow another
+> instance of this to happen again.  We already have this being done by
+> netfilter, and I consider it unacceptable as well as inefficient.
 >
-> I gave a quite reasonable request, with a "Please"
+Actually this will make the fragments processing more efficient. e.g.
+if there are 50 slave devices and we receive 10 fragments, the
+duplication will happen for 50*10 = 500 skbs but if the packet is
+defragmented, then it's only once per device making it more efficient.
 
-With hundreds of patches merged, I don't need to teach how to send
-a reviewable patch when it is ready, this one is just not ready for review.
+> If a fragmented frame is going to be forwarded by us, defragmenting
+> and refragmenting may create a different outgoing packet stream than
+> what arrived.  If the outgoing interface's MTU can accomodate the
+> incoming frames, this kind of modification is absolutely forbidden.
 
-So your request is only valid for patches ready for review. Focus on
-the bug.
+I understand the concern (after going though Florian Westphal's patch
+series) and will take this patch off of this series until matter
+settles. Also trying to optimize slow path (fragments) is not very
+high on the priority list in any case.
 
-It is not my first time to get surprised netdev people for some reason
-only talk when there is a patch, yet another reason I should send
-a patch even just for drawing attentions.
+Thanks,
+--mahesh..
