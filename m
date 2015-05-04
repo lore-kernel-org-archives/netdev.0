@@ -1,53 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] codel: fix maxpacket/mtu confusion
-Date: Sun, 03 May 2015 22:18:10 -0400 (EDT)
-Message-ID: <20150503.221810.908470058524978930.davem@davemloft.net>
-References: <1430412040.3711.94.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next 0/5] tipc: cleanup topology server
+Date: Mon, 4 May 2015 10:36:43 +0800
+Message-ID: <1430707008-11141-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nichols@pollere.com, vanj@google.com, dave.taht@gmail.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58570 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751998AbbEDCSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 22:18:12 -0400
-In-Reply-To: <1430412040.3711.94.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
+To: <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 30 Apr 2015 09:40:40 -0700
+Not only function names declared in subscr.c are very confused, but
+also topology server's locking policy is not designed very well, for
+instance, usually leading to panic in some special corner cases.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Under presence of TSO/GSO/GRO packets, codel at low rates can be quite
-> useless. In following example, not a single packet was ever dropped,
-> while average delay in codel queue is ~100 ms !
-> 
-> qdisc codel 0: parent 1:12 limit 16000p target 5.0ms interval 100.0ms 
->  Sent 134376498 bytes 88797 pkt (dropped 0, overlimits 0 requeues 0) 
->  backlog 13626b 3p requeues 0 
->   count 0 lastcount 0 ldelay 96.9ms drop_next 0us
->   maxpacket 9084 ecn_mark 0 drop_overlimit 0
-> 
-> This comes from a confusion of what should be the minimal backlog. It is
-> pretty clear it is not 64KB or whatever max GSO packet ever reached the
-> qdisc.
-> 
-> codel intent was to use MTU of the device.
-> 
-> After the fix, we finally drop some packets, and rtt/cwnd of my single
-> TCP flow are meeting our expectations.
-> 
-> qdisc codel 0: parent 1:12 limit 16000p target 5.0ms interval 100.0ms 
->  Sent 102798497 bytes 67912 pkt (dropped 1365, overlimits 0 requeues 0) 
->  backlog 6056b 3p requeues 0 
->   count 1 lastcount 1 ldelay 36.3ms drop_next 0us
->   maxpacket 10598 ecn_mark 0 drop_overlimit 0
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+In this series, we attempt to eliminate the confusion of function names
+and simplify topology server's locking policy to solve above mentioned
+issues. More importantly, the change will make relevant code easily
+understandable and maintainable.
 
-Looks good, applied, thanks Eric.
+Ying Xue (5):
+  tipc: rename functions defined in subscr.c
+  tipc: introduce tipc_subscrb_create routine
+  tipc: involve reference counter for subscriber
+  tipc: adjust locking policy of subscription
+  tipc: deal with return value of tipc_conn_new callback
+
+ net/tipc/core.c       |    4 +-
+ net/tipc/name_table.c |   34 +++----
+ net/tipc/server.c     |    4 +
+ net/tipc/subscr.c     |  242 ++++++++++++++++++++++---------------------------
+ net/tipc/subscr.h     |   18 ++--
+ 5 files changed, 137 insertions(+), 165 deletions(-)
+
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+One dashboard for servers and applications across Physical-Virtual-Cloud 
+Widest out-of-the-box monitoring support with 50+ applications
+Performance metrics, stats and reports that give you Actionable Insights
+Deep dive visibility with transaction tracing using APM Insight.
+http://ad.doubleclick.net/ddm/clk/290420510;117567292;y
