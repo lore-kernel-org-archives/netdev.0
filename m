@@ -1,50 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] core: Correct an over-stringent device loop detection.
-Date: Mon, 04 May 2015 14:58:15 -0400 (EDT)
-Message-ID: <20150504.145815.2274500932397440771.davem@davemloft.net>
-References: <1430616824-9006-1-git-send-email-vyasevic@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 0/4] Netfilter ingress support (v3)
+Date: Mon, 4 May 2015 20:59:41 +0200
+Message-ID: <20150504185941.GA17061@breakpoint.cc>
+References: <1430736649-3546-1-git-send-email-pablo@netfilter.org>
+ <20150504155639.GA14367@Alexeis-MBP.westell.com>
+ <20150504161956.GK22481@breakpoint.cc>
+ <5547AA9C.3030300@mojatatu.com>
+ <20150504174358.GN22481@breakpoint.cc>
+ <5547BEC4.4090400@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jpirko@redhat.com, vfalico@gmail.com,
-	vyasevic@redhat.com
-To: vyasevich@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38087 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751007AbbEDS6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 14:58:18 -0400
-In-Reply-To: <1430616824-9006-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, kaber@trash.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5547BEC4.4090400@mojatatu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Sat,  2 May 2015 21:33:44 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 05/04/15 13:43, Florian Westphal wrote:
+> >Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> >Please don't accuse anyone of being 'evil'.
+> >
+> 
+> It is a figure of speech and was intended to be humorous.
+> I consider Pablo a friend, sorry if that came out wrong.
 
-> The code in __netdev_upper_dev_link() has an over-stringent
-> loop detection logic that actually prevents valid configurations
-> from working correctly.
-> 
-> In particular, the logic returns an error if an upper device
-> is already in the list of all upper devices for a given dev.
-> This particular check seems to be a overzealous as it disallows
-> perfectly valid configurations.  For example:
->   # ip l a link eth0 name eth0.10 type vlan id 10
->   # ip l a dev br0 typ bridge
->   # ip l s eth0.10 master br0
->   # ip l s eth0 master br0  <--- Will fail
-> 
-> If you switch the last two commands (add eth0 first), then both
-> will succeed.  If after that, you remove eth0 and try to re-add
-> it, it will fail!
-> 
-> It appears to be enough to simply check adj_list to keeps things
-> safe.
-> 
-> I've tried stacking multiple devices multiple times in all different
-> combinations, and either rx_handler registration prevented the stacking
-> of the device linking cought the error.
-> 
-> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+Ugh.  I'm sorry Jamal, seems I lack a sense of humor.
+In any case, no offense taken.
 
-Applied, thanks Vlad.
+> >I think that tc and netfilter are both broken by design in the sense
+> >that we have two different systems with partially overlapping
+> >functionality while interaction between them consists of hacks.
+> >
+> >It works both ways, iptables CLASSIFY target is also not very
+> >elegant from a design point of view, it bolts the packet/connection matching
+> >functionality provided by iptables to qdisc hierarchy.
+> >
+> 
+> Well, from the tc perspective the angle has been one of laziness
+> and avoiding to rewrite any features that netfilter has. Essentially
+> a gateway-to-iptables. It has not been easy.
+
+Right, I can imagine that.
+
+> It does look silly if we copy things netfilter does in our view.
+
+Sure, that would not be good either (perhaps even worse).
+
+> >>think is that distros which ship with iptables rules and conntracking
+> >>on are going to not even turn on tc and my scripts now have to go
+> >>unload one.
+> >
+> >You mean add 'rmmod nft_ingress' or something similar?
+> >
+> >That might be a problem.  One possible way out would be to
+> >make 'tc qdisc add dev eth0 ingress' silently unregister nft ingress
+> >on kernel side (but not vice versa).
+> >
+> >Not nice, but it would keep compatibility with tc ingress scripts.
+> >
+> 
+> Assuming there is something else using the nft side, now they break
+> because tc has taken over.
+
+Well, thats true.  But I would not care at this point (in the 'nft
+ingress breaks when tc takes over') case.
+
+I'd first like to see what distros would do (by default, that is).
+
+I'd prefer to not base a 'we need to support both at same time' decision
+on speculation as to what some distribution might do at some point.
+
+Anything that makes sure that tc ingress doesn't break is fine.
+If that turns out to be 'two hooks' then, alas, so be it.
+
+I'd just like some evidence first 8-)
