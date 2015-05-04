@@ -1,143 +1,64 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [RFC PATCH net-next] netlink: avoid namespace change while creating socket
-Date: Mon, 4 May 2015 17:22:19 +0800
-Message-ID: <1430731339-22292-1-git-send-email-ying.xue@windriver.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net] bnx2x: Fix to prevent inner-reload
+Date: Mon, 4 May 2015 12:34:12 +0300
+Message-ID: <1430732052-17722-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <den@openvz.org>, <davem@davemloft.net>, <avagin@gmail.com>,
-	<netdev@vger.kernel.org>
-To: <herbert@gondor.apana.org.au>, <xemul@openvz.org>
+Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:45987 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750798AbbEDJWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 05:22:38 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:8407 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752085AbbEDJeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 05:34:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 23fe18669e7f ("[NETNS]: Fix race between put_net() and
-netlink_kernel_create().") attempts to fix the following race
-scenario:
+Submit 909d9faae2a44 ("bnx2x: Prevent inner-reload while VFs exist")
+contained a bug - MTU change was not prevented by it; Instead, it
+`randomally' prevented bnx2x_resume() from running [harmless yet wrong].
 
-put_net()
-  if (atomic_dec_and_test(&net->refcnt))
-    /* true */
-      __put_net(net);
-        queue_work(...);
+This moves the check to its correct spot.
 
-/*
- * note: the net now has refcnt 0, but still in
- * the global list of net namespaces
- */
-
-== re-schedule ==
-
-register_pernet_subsys(&some_ops);
-  register_pernet_operations(&some_ops);
-    (*some_ops)->init(net);
-      /*
-       * we call netlink_kernel_create() here
-       * in some places
-       */
-      netlink_kernel_create();
-         sk_alloc();
-            get_net(net); /* refcnt = 1 */
-         /*
-          * now we drop the net refcount not to
-          * block the net namespace exit in the
-          * future (or this can be done on the
-          * error path)
-          */
-         put_net(sk->sk_net);
-             if (atomic_dec_and_test(&...))
-                   /*
-                    * true. BOOOM! The net is
-                    * scheduled for release twice
-                    */
-
-In order to prevent the race from happening, the commit adopted the
-following solution: create netlink socket inside init_net namespace
-and then re-attach it to the desired one right the socket is created;
-similarly, when closing the socket, first move its namespace to
-init_net so that the socket can be destroyed in the same context of
-the socket creation.
-
-Actually the proposal artificially makes the whole thing complex.
-Instead there exists a simpler solution to avoid the risk of net
-double release: if we find that the net reference counter reaches
-zero before the reference counter is increased in sk_alloc(), we
-can identify that the process of the net namespace exit happening
-in workqueue is not finished yet. At the moment, we should immediately
-exit from sk_alloc() to avoid the risk. The method is not only simple
-and easily understandable, but also it can help to avoid the redundant
-namespace change. After this, both creation and deletion of netlink
-socket happen in its desired namespace all the time.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- net/core/sock.c          |    7 ++++++-
- net/netlink/af_netlink.c |   14 ++------------
- 2 files changed, 8 insertions(+), 13 deletions(-)
+Hi Dave,
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index e891bcf..88fdf2c 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1411,7 +1411,12 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
- 		 */
- 		sk->sk_prot = sk->sk_prot_creator = prot;
- 		sock_lock_init(sk);
--		sock_net_set(sk, get_net(net));
-+		net = maybe_get_net(net);
-+		if (!net) {
-+			sk_prot_free(prot, sk);
-+			return NULL;
-+		}
-+		sock_net_set(sk, net);
- 		atomic_set(&sk->sk_wmem_alloc, 1);
- 
- 		sock_update_classid(sk);
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index ec4adbd..3914662 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2473,17 +2473,10 @@ __netlink_kernel_create(struct net *net, int unit, struct module *module,
- 	if (sock_create_lite(PF_NETLINK, SOCK_DGRAM, unit, &sock))
- 		return NULL;
- 
--	/*
--	 * We have to just have a reference on the net from sk, but don't
--	 * get_net it. Besides, we cannot get and then put the net here.
--	 * So we create one inside init_net and the move it to net.
--	 */
--
--	if (__netlink_create(&init_net, sock, cb_mutex, unit) < 0)
-+	if (__netlink_create(net, sock, cb_mutex, unit) < 0)
- 		goto out_sock_release_nosk;
- 
- 	sk = sock->sk;
--	sk_change_net(sk, net);
- 
- 	if (!cfg || cfg->groups < 32)
- 		groups = 32;
-@@ -2527,9 +2520,6 @@ __netlink_kernel_create(struct net *net, int unit, struct module *module,
- 
- out_sock_release:
- 	kfree(listeners);
--	netlink_kernel_release(sk);
--	return NULL;
--
- out_sock_release_nosk:
- 	sock_release(sock);
- 	return NULL;
-@@ -2539,7 +2529,7 @@ EXPORT_SYMBOL(__netlink_kernel_create);
- void
- netlink_kernel_release(struct sock *sk)
+Please consider applying this to 'net'.
+
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 3558a36..4213825 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -4786,6 +4786,11 @@ int bnx2x_change_mtu(struct net_device *dev, int new_mtu)
  {
--	sk_release_kernel(sk);
-+	sock_release(sk->sk_socket);
- }
- EXPORT_SYMBOL(netlink_kernel_release);
+ 	struct bnx2x *bp = netdev_priv(dev);
  
++	if (pci_num_vf(bp->pdev)) {
++		DP(BNX2X_MSG_IOV, "VFs are enabled, can not change MTU\n");
++		return -EPERM;
++	}
++
+ 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
+ 		BNX2X_ERR("Can't perform change MTU during parity recovery\n");
+ 		return -EAGAIN;
+@@ -4953,11 +4958,6 @@ int bnx2x_resume(struct pci_dev *pdev)
+ 	}
+ 	bp = netdev_priv(dev);
+ 
+-	if (pci_num_vf(bp->pdev)) {
+-		DP(BNX2X_MSG_IOV, "VFs are enabled, can not change MTU\n");
+-		return -EPERM;
+-	}
+-
+ 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
+ 		BNX2X_ERR("Handling parity error recovery. Try again later\n");
+ 		return -EAGAIN;
 -- 
-1.7.9.5
+1.9.3
