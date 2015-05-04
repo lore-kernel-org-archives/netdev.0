@@ -1,33 +1,29 @@
 From: Cong Wang <cwang@twopensource.com>
 Subject: Re: Suspicious RCU usage in bridge with Linux v4.0-9362-g1fc149933fd4
-Date: Mon, 4 May 2015 14:35:27 -0700
-Message-ID: <CAHA+R7PVpNdqrOHQgHXYRM8io9GZpeucZ_Gk8YNHqQC=f9+egw@mail.gmail.com>
+Date: Mon, 4 May 2015 14:38:23 -0700
+Message-ID: <CAHA+R7OD7Bh52MkB1hKs8DdncrgBN2_1VYQwrFGetJFJ7chgyg@mail.gmail.com>
 References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
 	<20150504133943.GA17043@x131e>
 	<CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-	<20150504132714.55dca5b0@urahara>
+	<1430772572.27254.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Dominick Grift <dac.override@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:36824 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbbEDVf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 17:35:28 -0400
-Received: by wgiu9 with SMTP id u9so420678wgi.3
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 14:35:27 -0700 (PDT)
-In-Reply-To: <20150504132714.55dca5b0@urahara>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:33027 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752764AbbEDViY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 17:38:24 -0400
+Received: by wgin8 with SMTP id n8so163508793wgi.0
+        for <netdev@vger.kernel.org>; Mon, 04 May 2015 14:38:23 -0700 (PDT)
+In-Reply-To: <1430772572.27254.3.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 4, 2015 at 1:27 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Mon, 4 May 2015 11:45:41 -0700
-> Cong Wang <cwang@twopensource.com> wrote:
->
+On Mon, May 4, 2015 at 1:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2015-05-04 at 11:45 -0700, Cong Wang wrote:
 >> On Mon, May 4, 2015 at 6:39 AM, Dominick Grift <dac.override@gmail.com> wrote:
 >> > On Thu, Apr 23, 2015 at 01:07:45PM -0400, Josh Boyer wrote:
 >> >> Hi All,
@@ -57,17 +53,26 @@ On Mon, May 4, 2015 at 1:27 PM, Stephen Hemminger
 >>
 >> Thanks!
 >
-> Good analysis in identifying the issue. But the proposed patch
-> doesn't seem right.
->
-> The br->lock protects against changes to the bridge port state.
-> vlan_info should be treated as part of the bridge state.
->
-> The correct fix is to get vlan_info out of depending on RTNL
-> and use br->lock to control modifications.
+> Please send inline patches, otherwise its hard for us to review them and
+> give feedback.
 
-It _looks like_ we only retrieve vlan info to fill netlink
-messages in timer context, so it doesn't seem we need to
-hold br->lock here.
 
-But I never look into br vlan code of course.
+Compile-test only patch is never ready for review, I thought it is too obvious
+to mention.
+
+>
+> At first glance, it is way too complicated.
+>
+> br_get_vlan_info() change is not needed :
+>
+> rcu_dereference_rtnl() can already be used from RCU or RTNL protected
+> code.
+>
+> (Quite different from rtnl_dereference())
+>
+> What about :
+
+Feel free to submit a formal patch, I apparently don't have time to read more
+into this, nor have time to argument on details.
+
+Thanks.
