@@ -1,54 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next 0/2] Exporting IGMP/MLD checking
- from bridge code
-Date: Mon, 04 May 2015 14:49:44 -0400 (EDT)
-Message-ID: <20150504.144944.1896578946813579544.davem@davemloft.net>
-References: <1430568067-6912-1-git-send-email-linus.luessing@c0d3.blue>
+Subject: Re: [PATCH] isdn/gigaset: cede maintainership
+Date: Mon, 04 May 2015 14:51:56 -0400 (EDT)
+Message-ID: <20150504.145156.2078185807422320272.davem@davemloft.net>
+References: <5545080A.9040005@imap.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: bridge@lists.linux-foundation.org, herbert@gondor.apana.org.au,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	b.a.t.m.a.n@lists.open-mesh.org, linux-kernel@vger.kernel.org,
-	tom@herbertland.com
-To: linus.luessing@c0d3.blue
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1430568067-6912-1-git-send-email-linus.luessing@c0d3.blue>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hjlipp@web.de,
+	isdn4linux@listserv.isdn4linux.de, linux-kernel@vger.kernel.org
+To: tilman@imap.cc
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38033 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992AbbEDSv7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 14:51:59 -0400
+In-Reply-To: <5545080A.9040005@imap.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@c0d3.blue>
-Date: Sat,  2 May 2015 14:01:05 +0200
+=46rom: Tilman Schmidt <tilman@imap.cc>
+Date: Sat, 02 May 2015 19:23:22 +0200
 
-> The multicast optimizations in batman-adv are yet only usable and
-> enabled in non-bridged scenarios. To be able to support bridged setup=
-s
-> batman-adv needs to be able to detect IGMP/MLD queriers and reports o=
-n
-> mesh nodes without bridges, too. See the following link for details:
-> =
+> As German phone operators are discontinuing ISDN service, neither
+> Hansj=F6rg nor I will be able to maintain the Gigaset ISDN drivers
+> any longer. Paul Bolle offered to step into the breach for odd
+> fixes.
+>=20
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> Acked-by: Paul Bolle <pebolle@tiscali.nl>
 
-> http://www.open-mesh.org/projects/batman-adv/wiki/Multicast-optimizat=
-ions-listener-reports
-> =
+Applied, although your patch was whitespace damanged and thus I had to
+add it by hand.
 
-> To avoid duplicate code between the bridge and batman-adv, the IGMP/M=
-LD
-> message validation code is moved from the bridge to the IPv4/IPv6 sta=
-ck.
-> =
-
-> On the way, some refactoring to increase readability and to iron out
-> some subtle differences between the IGMP and MLD parsing code is done=
-.=
-
-
-Series applied, thanks.
+Thanks.
