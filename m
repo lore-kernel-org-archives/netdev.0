@@ -1,50 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Suspicious RCU usage in bridge with Linux
- v4.0-9362-g1fc149933fd4
-Date: Mon, 04 May 2015 15:06:07 -0700
-Message-ID: <1430777167.27254.8.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
-	 <20150504133943.GA17043@x131e>
-	 <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-	 <1430772572.27254.3.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAHA+R7OD7Bh52MkB1hKs8DdncrgBN2_1VYQwrFGetJFJ7chgyg@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 0/4] Netfilter ingress support (v3)
+Date: Tue, 5 May 2015 00:21:31 +0200
+Message-ID: <20150504222131.GA4348@salvia>
+References: <1430736649-3546-1-git-send-email-pablo@netfilter.org>
+ <20150504155639.GA14367@Alexeis-MBP.westell.com>
+ <20150504161956.GK22481@breakpoint.cc>
+ <5547AA9C.3030300@mojatatu.com>
+ <20150504174358.GN22481@breakpoint.cc>
+ <5547BEC4.4090400@mojatatu.com>
+ <20150504185941.GA17061@breakpoint.cc>
+ <20150504200506.GA14604@Alexeis-MacBook-Pro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dominick Grift <dac.override@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:36131 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750992AbbEDWGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 18:06:08 -0400
-Received: by igblo3 with SMTP id lo3so96417870igb.1
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 15:06:08 -0700 (PDT)
-In-Reply-To: <CAHA+R7OD7Bh52MkB1hKs8DdncrgBN2_1VYQwrFGetJFJ7chgyg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, kaber@trash.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150504200506.GA14604@Alexeis-MacBook-Pro.local>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-05-04 at 14:38 -0700, Cong Wang wrote:
+On Mon, May 04, 2015 at 01:05:08PM -0700, Alexei Starovoitov wrote:
+> [...] TC critical path becomes slower with extra dereference and
+> indirect jump.
 
-> Compile-test only patch is never ready for review, I thought it is too obvious
-> to mention.
+You complained on the performance impact of the initial generic hook
+infrastructure that allows qdisc ingress and nft to co-exist, fair
+enough.
 
-Thats not relevant.
+I came back with an even more simple hook infrastructure, to address
+performance concerns, and you indicate that an *extra dereference and
+indirect jump* makes this slowier and that both cannot co-exist with
+this.
 
-Obvious or not, you are not making things easy for reviewers.
+Well, any kind of hook generalization will need at least those minimal
+changes. And that allows us to move code that belongs to sch_ingress.
+That got embedded into net/core/dev.c because at the time this code
+was made when there was no RCU around.
 
-Our time is precious too, even if you believe its a minor detail.
-
-If you don't care for our feedback, send private patches.
-
-When I hit 'Reply' to your mail, I don't have the patch available at
-hand, and need to copy/paste it.
-
-Surely I am not alone.
-
-Surely you can change the way you provide patches, even if they are in
-RFC state.
-
-If you don't have time, just ignore these bug reports, and do whatever
-you need to, nobody will complain.
+This sounds as an excuse to me.
