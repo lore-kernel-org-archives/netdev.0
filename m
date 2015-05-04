@@ -1,65 +1,57 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: [PATCH] net: phy: micrel: support !CONFIG_HAVE_CLK
-Date: Mon, 4 May 2015 13:30:58 +0200
-Message-ID: <55475872.8020004@axis.com>
-References: <1430132450-4496-1-git-send-email-niklass@axis.com> <CAOMZO5Dg9FkGkSS7mygv3OdfdF4jOK_nbTvx8eUTGD+EMmRs0g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+From: Markus Stenberg <markus.stenberg@iki.fi>
+Subject: [PATCH] ipv6: RTA_PREFSRC dumping was somewhat incorrect.
+Date: Mon, 4 May 2015 14:46:02 +0300
+Message-ID: <BAADD2CA-4AC1-4916-B035-246F3CBF080B@iki.fi>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"johan@kernel.org" <johan@kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOMZO5Dg9FkGkSS7mygv3OdfdF4jOK_nbTvx8eUTGD+EMmRs0g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Markus Stenberg <markus.stenberg@iki.fi>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta-out1.inet.fi ([62.71.2.203]:34113 "EHLO jenni2.inet.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752422AbbEDLwg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 May 2015 07:52:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/27/2015 07:59 PM, Fabio Estevam wrote:
-> On Mon, Apr 27, 2015 at 8:00 AM, Niklas Cassel <niklas.cassel@axis.com> wrote:
-> 
->> Since NULL is a valid clock, we shouldn't use
->> IS_ERR_OR_NULL.
-> 
-> Yes, but this code is not using IS_ERR_OR_NULL.
-> 
-> It seems that you are not describing the problem you are trying to solve.
-> 
-> What is the exact issue you are seeing?
-> 
->>         clk = devm_clk_get(&phydev->dev, "rmii-ref");
-> 
-> You need to provide the 'rmii-ref' in your board file or dts.
-> 
-> Are you doing this?
-> 
+Avoid dumping RTA_PREFSRC twice if iif is not set, but dst is.
 
-I'm sorry, my commit message didn't really describe the problem properly.
+Note that the change also dumps RTA_PREFSRC even if iif RTA_IIF is
+sent. As scopes are not that rare in IPv6, I believe that to be
+correct behavior.
 
-When you compile your kernel without the clk.h API (CONFIG_HAVE_CLK),
-devm_clk_get returns NULL (which also happens to be a valid clock in the clk.h API).
-So it's not a matter of DT or board-files. This is on a mips platform without DT support.
+Signed-off-by: Markus Stenberg <markus.stenberg@iki.fi>
 
-I simply want the drivers/net/phy/micrel.c driver to also work without CONFIG_HAVE_CLK,
-like it did before commit
-
-63f44b2bfccdd98193bbd602747f780c0fae0f02
-net: phy: micrel: add generic clock-mode-select support
-
-Now I get an error every time I boot with "Clock rate out of range: 0",
-since clk_get_rate returns 0 when compiling with !CONFIG_HAVE_CLK.
-
-
-It is confusing that devm_clk_get returns a valid clock in the clk.h API (NULL),
-when compiling with !CONFIG_HAVE_CLK, but according to Russell King in:
-
-http://lkml.kernel.org/r/20150207172949.GE8656@n2100.arm.linux.org.uk
-
-this was intentional. (explained in the lkml mail above.)
-
-In the same mail Russell King also suggests how a driver can support both
-!CONFIG_HAVE_CLK and CONFIG_HAVE_CLK.
-
-This is the suggestion I followed when writing my patch.
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 5c48293..442fa29 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2607,6 +2607,7 @@ static int rt6_fill_node(struct net *net,
+ 	struct nlmsghdr *nlh;
+ 	long expires;
+ 	u32 table;
++	struct in6_addr saddr_buf;
+ 
+ 	if (prefix) {	/* user wants prefix routes only */
+ 		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
+@@ -2702,15 +2703,13 @@ static int rt6_fill_node(struct net *net,
+ #endif
+ 			if (nla_put_u32(skb, RTA_IIF, iif))
+ 				goto nla_put_failure;
+-	} else if (dst) {
+-		struct in6_addr saddr_buf;
++	}
++
++	if (dst) {
+ 		if (ip6_route_get_saddr(net, rt, dst, 0, &saddr_buf) == 0 &&
+ 		    nla_put_in6_addr(skb, RTA_PREFSRC, &saddr_buf))
+ 			goto nla_put_failure;
+-	}
+-
+-	if (rt->rt6i_prefsrc.plen) {
+-		struct in6_addr saddr_buf;
++	} else if (rt->rt6i_prefsrc.plen) {
+ 		saddr_buf = rt->rt6i_prefsrc.addr;
+ 		if (nla_put_in6_addr(skb, RTA_PREFSRC, &saddr_buf))
+ 			goto nla_put_failure;
