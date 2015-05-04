@@ -1,45 +1,52 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [RFC PATCH net-next v3 3/9] ipv6: Combine rt6_alloc_cow and
- rt6_alloc_clone
-Date: Mon, 4 May 2015 10:08:27 -0700
-Message-ID: <20150504170826.GH2731450@devbig242.prn2.facebook.com>
-References: <1430526418-3132761-1-git-send-email-kafai@fb.com>
- <1430526418-3132761-4-git-send-email-kafai@fb.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 0/4] Netfilter ingress support (v3)
+Date: Mon, 04 May 2015 13:21:32 -0400
+Message-ID: <5547AA9C.3030300@mojatatu.com>
+References: <1430736649-3546-1-git-send-email-pablo@netfilter.org> <20150504155639.GA14367@Alexeis-MBP.westell.com> <20150504161956.GK22481@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Julian Anastasov <ja@ssi.bg>,
-	David Miller <davem@davemloft.net>,
-	Kernel Team <Kernel-team@fb.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60409 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750941AbbEDRKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 13:10:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1430526418-3132761-4-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, kaber@trash.net
+To: Florian Westphal <fw@strlen.de>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150504161956.GK22481@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 01, 2015 at 05:26:52PM -0700, Martin KaFai Lau wrote:
->  static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
->  				      struct flowi6 *fl6, int flags)
->  {
-> @@ -918,10 +914,9 @@ redo_rt6_select:
->  	if (rt->rt6i_flags & RTF_CACHE)
->  		goto out2;
->  
-> -	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
-> -		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
-> -	else if (!(rt->dst.flags & DST_HOST) || !(rt->dst.flags & RTF_LOCAL))
-> -		nrt = rt6_alloc_clone(rt, &fl6->daddr);
-> +	if (!rt6_is_gw_or_nonexthop(rt) ||
-> +	    !(rt->dst.flags & DST_HOST) || !(rt->dst.flags & RTF_LOCAL))
-It inherited a similar typo here which has already been fixed in net-next.
-rt->dst.flags instead of rt->rt6i_flags is used when checking the RTF_LOCAL
-flag.  The other patches are still good for review purpose.  I will re-post this
-series later.
+On 05/04/15 12:19, Florian Westphal wrote:
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
---Martin
+>> wow, I have to say I'm impressed. That's the most genius way to
+>> really kill TC.
+>> Patch 1 looks good, patch 2,3,4 are nicely building on top...
+>> until somebody starts asking how patch 5 will look.
+>> In the future netfilter ingress module will be loaded along with
+>> other iptables modules just like conntrack is today and users
+>> who would want to use ingress tc would have to _unload_
+>> netfilter_ingress module, but if it has interesting dependencies
+>> it may mean to unload iptables and the rest.
+>
+> FWIW while I think this is a valid concern, I believe its unfounded.
+>
+> netfilter_ingress must not force run-time
+> dependencies like 'oh, you want tc, too bad, no conntrack for you)'.
+>
+> (and i don't see any need for such a dependency).
+>
+
+It is an either-or choice. You cant have both. The _evil genius_ part i
+think is that distros which ship with iptables rules and conntracking
+on are going to not even turn on tc and my scripts now have to go
+unload one.
+But even if the scripts worked (perhaps there are plans to make sure
+all scripts continue to work transparently), i care about performance
+and  youve suddenly taken that away from me.
+
+So i would agree with adding the two hooks. Priority should be given
+to tc in the code path.
+
+cheers,
+jamal
