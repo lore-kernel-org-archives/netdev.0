@@ -1,111 +1,193 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/6] cxgb4: Pass in a Congestion Channel Map to t4_sge_alloc_rxq()
-Date: Mon,  4 May 2015 21:58:17 +0530
-Message-ID: <1430756900-6086-4-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/6] cxgb4: Enable congestion notification from SGE for IQs and FLs.
+Date: Mon,  4 May 2015 21:58:16 +0530
+Message-ID: <1430756900-6086-3-git-send-email-hariprasad@chelsio.com>
 References: <1430756900-6086-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29224 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:31072 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752225AbbEDLQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 07:16:26 -0400
+	by vger.kernel.org with ESMTP id S1751252AbbEDLQY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 07:16:24 -0400
 In-Reply-To: <1430756900-6086-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Passes a Congestion Channel Map to t4_sge_alloc_rxq()
-for the Ethernet RX Queues based on the MPS Buffer Group Map
-of the TX Channel rather than just the TX Channel Map.
-Also, in t4_sge_alloc_rxq() for T5, setting up the
-Congestion Manager values of the new RX Ethernet Queue is
-done by firmware now.
+Also changed the name of t4_hw.c:get_mps_bg_map() to t4_get_mps_bg_map()
+and make it an exported routine with a definition in cxgb4.h.
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/sge.c       | 35 ++++++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h |  9 +++++++
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h  |  1 +
- 3 files changed, 45 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  3 ++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 14 ++++++++------
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        | 14 ++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  6 +++---
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  2 ++
+ 5 files changed, 27 insertions(+), 12 deletions(-)
 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 524d110..b6fa958 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1055,7 +1055,7 @@ int t4_mgmt_tx(struct adapter *adap, struct sk_buff *skb);
+ int t4_ofld_send(struct adapter *adap, struct sk_buff *skb);
+ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 		     struct net_device *dev, int intr_idx,
+-		     struct sge_fl *fl, rspq_handler_t hnd);
++		     struct sge_fl *fl, rspq_handler_t hnd, int cong);
+ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ 			 struct net_device *dev, struct netdev_queue *netdevq,
+ 			 unsigned int iqid);
+@@ -1215,6 +1215,7 @@ int t4_mc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
+ 	       u64 *parity);
+ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
+ 		u64 *parity);
++unsigned int t4_get_mps_bg_map(struct adapter *adapter, int idx);
+ void t4_pmtx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
+ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
+ int t4_read_cim_ibq(struct adapter *adap, unsigned int qid, u32 *data,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 803d91b..83cfded 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -977,7 +977,7 @@ static int alloc_ofld_rxqs(struct adapter *adap, struct sge_ofld_rxq *q,
+ 		err = t4_sge_alloc_rxq(adap, &q->rspq, false,
+ 				       adap->port[i / per_chan],
+ 				       msi_idx, q->fl.size ? &q->fl : NULL,
+-				       uldrx_handler);
++				       uldrx_handler, 0);
+ 		if (err)
+ 			return err;
+ 		memset(&q->stats, 0, sizeof(q->stats));
+@@ -1007,7 +1007,7 @@ static int setup_sge_queues(struct adapter *adap)
+ 		msi_idx = 1;         /* vector 0 is for non-queue interrupts */
+ 	else {
+ 		err = t4_sge_alloc_rxq(adap, &s->intrq, false, adap->port[0], 0,
+-				       NULL, NULL);
++				       NULL, NULL, -1);
+ 		if (err)
+ 			return err;
+ 		msi_idx = -((int)s->intrq.abs_id + 1);
+@@ -1027,7 +1027,7 @@ static int setup_sge_queues(struct adapter *adap)
+ 	 *    new/deleted queues.
+ 	 */
+ 	err = t4_sge_alloc_rxq(adap, &s->fw_evtq, true, adap->port[0],
+-			       msi_idx, NULL, fwevtq_handler);
++			       msi_idx, NULL, fwevtq_handler, -1);
+ 	if (err) {
+ freeout:	t4_free_sge_resources(adap);
+ 		return err;
+@@ -1042,9 +1042,11 @@ freeout:	t4_free_sge_resources(adap);
+ 		for (j = 0; j < pi->nqsets; j++, q++) {
+ 			if (msi_idx > 0)
+ 				msi_idx++;
+-			err = t4_sge_alloc_rxq(adap, &q->rspq, false, dev,
+-					       msi_idx, &q->fl,
+-					       t4_ethrx_handler);
++			err = t4_sge_alloc_rxq
++					(adap, &q->rspq, false, dev,
++					 msi_idx, &q->fl,
++					 t4_ethrx_handler,
++					 t4_get_mps_bg_map(adap, pi->tx_chan));
+ 			if (err)
+ 				goto freeout;
+ 			q->rspq.idx = j;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 7547a9c..757e0ab 100644
+index 517d5b4..7547a9c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2551,6 +2551,41 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 					     &fl->bar2_qid);
- 		refill_fl(adap, fl, fl_cap(fl), GFP_KERNEL);
- 	}
-+
-+	/* For T5 and later we attempt to set up the Congestion Manager values
-+	 * of the new RX Ethernet Queue.  This should really be handled by
-+	 * firmware because it's more complex than any host driver wants to
-+	 * get involved with and it's different per chip and this is almost
-+	 * certainly wrong.  Firmware would be wrong as well, but it would be
-+	 * a lot easier to fix in one place ...  For now we do something very
-+	 * simple (and hopefully less wrong).
-+	 */
-+	if (!is_t4(adap->params.chip) && cong >= 0) {
-+		u32 param, val;
-+		int i;
-+
-+		param = (FW_PARAMS_MNEM_V(FW_PARAMS_MNEM_DMAQ) |
-+			 FW_PARAMS_PARAM_X_V(FW_PARAMS_PARAM_DMAQ_CONM_CTXT) |
-+			 FW_PARAMS_PARAM_YZ_V(iq->cntxt_id));
-+		if (cong == 0) {
-+			val = CONMCTXT_CNGTPMODE_V(CONMCTXT_CNGTPMODE_QUEUE_X);
-+		} else {
-+			val =
-+			    CONMCTXT_CNGTPMODE_V(CONMCTXT_CNGTPMODE_CHANNEL_X);
-+			for (i = 0; i < 4; i++) {
-+				if (cong & (1 << i))
-+					val |=
-+					     CONMCTXT_CNGCHMAP_V(1 << (i << 2));
-+			}
-+		}
-+		ret = t4_set_params(adap, adap->mbox, adap->fn, 0, 1,
-+				    &param, &val);
-+		if (ret)
-+			dev_warn(adap->pdev_dev, "Failed to set Congestion"
-+				 " Manager Context for Ingress Queue %d: %d\n",
-+				 iq->cntxt_id, -ret);
-+	}
-+
- 	return 0;
+@@ -2437,9 +2437,12 @@ static void __iomem *bar2_address(struct adapter *adapter,
+ 	return adapter->bar2 + bar2_qoffset;
+ }
  
- fl_nomem:
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-index 19b2dcf..c4d9952 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_values.h
-@@ -61,6 +61,15 @@
- #define SGE_TIMERREGS			6
- #define TIMERREG_COUNTER0_X		0
- 
-+/* Congestion Manager Definitions.
++/* @intr_idx: MSI/MSI-X vector if >=0, -(absolute qid + 1) if < 0
++ * @cong: < 0 -> no congestion feedback, >= 0 -> congestion channel map
 + */
-+#define CONMCTXT_CNGTPMODE_S		19
-+#define CONMCTXT_CNGTPMODE_V(x)		((x) << CONMCTXT_CNGTPMODE_S)
-+#define CONMCTXT_CNGCHMAP_S		0
-+#define CONMCTXT_CNGCHMAP_V(x)		((x) << CONMCTXT_CNGCHMAP_S)
-+#define CONMCTXT_CNGTPMODE_CHANNEL_X	2
-+#define CONMCTXT_CNGTPMODE_QUEUE_X	1
-+
- /* T5 and later support a new BAR2-based doorbell mechanism for Egress Queues.
-  * The User Doorbells are each 128 bytes in length with a Simple Doorbell at
-  * offsets 8x and a Write Combining single 64-byte Egress Queue Unit
+ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 		     struct net_device *dev, int intr_idx,
+-		     struct sge_fl *fl, rspq_handler_t hnd)
++		     struct sge_fl *fl, rspq_handler_t hnd, int cong)
+ {
+ 	int ret, flsz = 0;
+ 	struct fw_iq_cmd c;
+@@ -2471,6 +2474,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 		FW_IQ_CMD_IQESIZE_V(ilog2(iq->iqe_len) - 4));
+ 	c.iqsize = htons(iq->size);
+ 	c.iqaddr = cpu_to_be64(iq->phys_addr);
++	if (cong >= 0)
++		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_IQFLINTCONGEN_F);
+ 
+ 	if (fl) {
+ 		/* Allocate the ring for the hardware free list (with space
+@@ -2490,10 +2495,15 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 			goto fl_nomem;
+ 
+ 		flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+-		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN_F |
++		c.iqns_to_fl0congen |= htonl(FW_IQ_CMD_FL0PACKEN_F |
+ 					    FW_IQ_CMD_FL0FETCHRO_F |
+ 					    FW_IQ_CMD_FL0DATARO_F |
+ 					    FW_IQ_CMD_FL0PADEN_F);
++		if (cong >= 0)
++			c.iqns_to_fl0congen |=
++				htonl(FW_IQ_CMD_FL0CNGCHMAP_V(cong) |
++				      FW_IQ_CMD_FL0CONGCIF_F |
++				      FW_IQ_CMD_FL0CONGEN_F);
+ 		c.fl0dcaen_to_fl0cidxfthresh = htons(FW_IQ_CMD_FL0FBMIN_V(2) |
+ 				FW_IQ_CMD_FL0FBMAX_V(3));
+ 		c.fl0size = htons(flsz);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index e8578a7..8ba91c3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3401,7 +3401,7 @@ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[])
+ }
+ 
+ /**
+- *	get_mps_bg_map - return the buffer groups associated with a port
++ *	t4_get_mps_bg_map - return the buffer groups associated with a port
+  *	@adap: the adapter
+  *	@idx: the port index
+  *
+@@ -3409,7 +3409,7 @@ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[])
+  *	with the given port.  Bit i is set if buffer group i is used by the
+  *	port.
+  */
+-static unsigned int get_mps_bg_map(struct adapter *adap, int idx)
++unsigned int t4_get_mps_bg_map(struct adapter *adap, int idx)
+ {
+ 	u32 n = NUMPORTS_G(t4_read_reg(adap, MPS_CMN_CTL_A));
+ 
+@@ -3460,7 +3460,7 @@ const char *t4_get_port_type_description(enum fw_port_type port_type)
+  */
+ void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
+ {
+-	u32 bgmap = get_mps_bg_map(adap, idx);
++	u32 bgmap = t4_get_mps_bg_map(adap, idx);
+ 
+ #define GET_STAT(name) \
+ 	t4_read_reg64(adap, \
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index e34efb7..d75fca7 100644
+index 03fbfd1..e34efb7 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -1123,6 +1123,7 @@ enum fw_params_param_dmaq {
- 	FW_PARAMS_PARAM_DMAQ_EQ_CMPLIQID_CTRL = 0x11,
- 	FW_PARAMS_PARAM_DMAQ_EQ_SCHEDCLASS_ETH = 0x12,
- 	FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH = 0x13,
-+	FW_PARAMS_PARAM_DMAQ_CONM_CTXT = 0x20,
- };
+@@ -1377,6 +1377,7 @@ struct fw_iq_cmd {
  
- enum fw_params_param_dev_diag {
+ #define FW_IQ_CMD_IQFLINTCONGEN_S	27
+ #define FW_IQ_CMD_IQFLINTCONGEN_V(x)	((x) << FW_IQ_CMD_IQFLINTCONGEN_S)
++#define FW_IQ_CMD_IQFLINTCONGEN_F	FW_IQ_CMD_IQFLINTCONGEN_V(1U)
+ 
+ #define FW_IQ_CMD_IQFLINTISCSIC_S	26
+ #define FW_IQ_CMD_IQFLINTISCSIC_V(x)	((x) << FW_IQ_CMD_IQFLINTISCSIC_S)
+@@ -1399,6 +1400,7 @@ struct fw_iq_cmd {
+ 
+ #define FW_IQ_CMD_FL0CONGCIF_S		11
+ #define FW_IQ_CMD_FL0CONGCIF_V(x)	((x) << FW_IQ_CMD_FL0CONGCIF_S)
++#define FW_IQ_CMD_FL0CONGCIF_F		FW_IQ_CMD_FL0CONGCIF_V(1U)
+ 
+ #define FW_IQ_CMD_FL0ONCHIP_S		10
+ #define FW_IQ_CMD_FL0ONCHIP_V(x)	((x) << FW_IQ_CMD_FL0ONCHIP_S)
 -- 
 2.3.4
