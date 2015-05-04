@@ -1,71 +1,82 @@
-From: Luis Henriques <luis.henriques-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: Stable request 9374e7d2 "rtlwifi: rtl8192cu: Add new device ID"
-Date: Mon, 4 May 2015 10:19:35 +0100
-Message-ID: <20150504091935.GD1792@ares.olymp>
-References: <1430230954.6036.4@alarsen-lx>
- <201504281633.17160.marex@denx.de>
- <553FA5F0.1070402@lwfinger.net>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: pull request: bluetooth 2015-05-04
+Date: Mon, 4 May 2015 12:21:54 +0300
+Message-ID: <20150504092154.GA9096@t440s.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Marek Vasut <marex-ynQEQJNshbs@public.gmane.org>,
-	Anders Larsen <al-V9/YLgxv/GvR7s880joybQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="cNdxnHkX5QqsyA0e"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <553FA5F0.1070402-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 28, 2015 at 10:23:28AM -0500, Larry Finger wrote:
-> Please note that there are two commits just added to the mainline rep=
-o that
-> should be propagated to all stable kernels. Both are addition of new =
-USB IDs
-> for an old driver, thus they will cause to side effects. Unfortunatel=
-y, the
-> Cc to stable was missed in the first of these, thus the need for this
-> message. The second was Cc for stable, but I include it here for
-> completeness.
->=20
-> The two commits in question are
->=20
-> commit 9374e7d2fdcad3c36dafc8d3effd554bc702c4b6
-> Author: Marek Vasut <marex-ynQEQJNshbs@public.gmane.org>
-> Date:   Thu Mar 26 02:16:06 2015 +0100
->=20
->     rtlwifi: rtl8192cu: Add new device ID
->=20
->     Add new ID for ASUS N10 WiFi dongle.
->=20
-> commit 2f92b314f4daff2117847ac5343c54d3d041bf78
-> Author: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> Date:   Mon Mar 23 18:14:10 2015 -0500
->=20
->     rtlwifi: rtl8192cu: Add new USB ID
->=20
->     USB ID 2001:330d is used for a D-Link DWA-131.
->=20
->
 
-Thank you, Larry.  Queuing both patches for the 3.16 kernel.
+--cNdxnHkX5QqsyA0e
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Cheers,
---
-Lu=EDs
+Hi Dave,
 
-> Thanks,
->=20
-> Larry
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe stable" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Here are a couple of important Bluetooth & mac802154 fixes for 4.1:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ - mac802154 fix for crypto algorithm allocation failure checking
+ - mac802154 wpan phy leak fix for error code path
+ - Fix for not calling Bluetooth shutdown() if interface is not up
+
+Let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 7f0b8a56c978b0a3315ac84c6cbb065413afb8e9:
+
+  cxgb4: Fix MC1 memory offset calculation (2015-04-29 15:50:16 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
+
+for you to fetch changes up to 89eb6d0677a6daf134015bc7bd5ec1432911eed2:
+
+  mac802154: llsec: fix return value check in llsec_key_alloc() (2015-04-30 18:46:28 +0200)
+
+----------------------------------------------------------------
+Alexander Aring (1):
+      mac802154: fix ieee802154_register_hw error handling
+
+Gabriele Mazzotta (1):
+      Bluetooth: Skip the shutdown routine if the interface is not up
+
+Wei Yongjun (1):
+      mac802154: llsec: fix return value check in llsec_key_alloc()
+
+ net/bluetooth/hci_core.c | 3 ++-
+ net/mac802154/llsec.c    | 4 ++--
+ net/mac802154/main.c     | 4 +++-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+
+--cNdxnHkX5QqsyA0e
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJVRzoyAAoJECQj9vv5qNQSOwUP/jI54ySBOkTAfyjVSuPUlcmg
+yCPv1mxYTK66detAheMiLZj/CRO1J4wssqK6o1bu5MFOBmqnWQSMoFvOoCnP5VGu
+XeU+eQJhEa1qq3PVAtKGNrji6lgRHa3nCpEfri6twM0gBqUMMwTWIqH1JUhQYDY5
+QIg4iTtwFupRlg0AA/PgfhG1T2X15y/pgvqx3KkFumUIJvJrr/z30jEgqM4Ap2ZW
+VLsC4tMiX5TxvhQBbFkXkJ21L+zVGGTsKs71i4GY+esSh7LgfPogucncHaX4g6fy
+z3gzfGW1JbMix0Gk/uh1fA0SNYH3DU9Mj6e4SfYCvyCgSqkKiEr0Xcb3YLMEe5Wt
+ALu9j7+xFQaagLAc5NknjU3PdGcV6oCsFSPLPLXigGugHkmK9/O6jO5BHBOyMRuQ
+nT6HMkmFMyaQO6HABd9oSCCHC0nB6kNs6i9l/ti2ucWtvueL4g7Ud1cTguFnGLSG
+eMZ0oVXogV6G8N0jdpHH0tP3c+747D/+q07Pi/KrukZ60KYuBFVEuSH14JrCvGII
+ELqujDpqZ8oReksRsctiG3I1JafeJ46kFENMriQvvZf6OsciCjT0lMYqUTbj+waR
+zDUJjJTVqNw1GfyNb+YKiCvb85O3vhUKEGl4qpAEvfbJmI50ogDqmjD+RuIQuuc0
+EbugTLNXUs6Cvvm+qhHy
+=FnzA
+-----END PGP SIGNATURE-----
+
+--cNdxnHkX5QqsyA0e--
