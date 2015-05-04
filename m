@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: netlink: Remove max_size setting
-Date: Sun, 03 May 2015 23:27:21 -0400 (EDT)
-Message-ID: <20150503.232721.113045176775125145.davem@davemloft.net>
-References: <20150501002759.GA31660@gondor.apana.org.au>
+Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+ 2015-05-02
+Date: Sun, 03 May 2015 23:36:15 -0400 (EDT)
+Message-ID: <20150503.233615.903254011818365143.davem@davemloft.net>
+References: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59306 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59401 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915AbbEDD1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 23:27:23 -0400
-In-Reply-To: <20150501002759.GA31660@gondor.apana.org.au>
+	with ESMTP id S1751128AbbEDDgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 23:36:17 -0400
+In-Reply-To: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 1 May 2015 08:27:59 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat,  2 May 2015 03:42:27 -0700
 
-> We currently limit the hash table size to 64K which is very bad
-> as even 10 years ago it was relatively easy to generate millions
-> of sockets.
-> 
-> Since the hash table is naturally limited by memory allocation
-> failure, we don't really need an explicit limit so this patch
-> removes it.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This series contains updates to igb, e100, e1000e and ixgbe.
 
-Applied, thanks Herbert.
+Jeff I would suggest resending this series with the various
+VF multicast changes removed as those seem to need some more
+discussion.
+
+Thanks.
