@@ -1,60 +1,44 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH next v2 2/3] ipvlan: Process fragmented multicast frames correctly
-Date: Mon, 4 May 2015 15:58:59 -0700
-Message-ID: <CAF2d9jhESPaPCtRsh7GWUY9Kue2h2D0Nw2Qv1H=Gj15M3twN0w@mail.gmail.com>
-References: <1430331558-20286-1-git-send-email-maheshb@google.com> <20150501.211225.641281069847184355.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Suspicious RCU usage in bridge with Linux
+ v4.0-9362-g1fc149933fd4
+Date: Mon, 04 May 2015 16:00:04 -0700
+Message-ID: <1430780404.27254.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
+	 <20150504133943.GA17043@x131e>
+	 <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
+	 <1430772572.27254.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7OD7Bh52MkB1hKs8DdncrgBN2_1VYQwrFGetJFJ7chgyg@mail.gmail.com>
+	 <1430777167.27254.8.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7OrtnPuNX+qa_o4MArL2Sc8T9jALp5tyQYFMv4dxUeF7A@mail.gmail.com>
+	 <1430778550.27254.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CAHA+R7N0MAKSHROEHQ+aHHD=Vv+trNG=QNttQVG2=MSY__k5pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, dcbw@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dominick Grift <dac.override@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:36161 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147AbbEDW7U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 18:59:20 -0400
-Received: by obbkp3 with SMTP id kp3so62609550obb.3
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 15:59:19 -0700 (PDT)
-In-Reply-To: <20150501.211225.641281069847184355.davem@davemloft.net>
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:32906 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbbEDXAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 19:00:06 -0400
+Received: by igbpi8 with SMTP id pi8so75740808igb.0
+        for <netdev@vger.kernel.org>; Mon, 04 May 2015 16:00:05 -0700 (PDT)
+In-Reply-To: <CAHA+R7N0MAKSHROEHQ+aHHD=Vv+trNG=QNttQVG2=MSY__k5pg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 1, 2015 at 6:12 PM, David Miller <davem@davemloft.net> wrote:
-> From: Mahesh Bandewar <maheshb@google.com>
-> Date: Wed, 29 Apr 2015 11:19:18 -0700
->
->> Multicast processing in IPvlan was faulty as is. Eric Dumazet
->> pointed out that fragmented packets won't be processed correctly
->> unless defrag step is introduced.
->>
->> This patch adds the defrag step before driver attempts to process
->> multicast frame(s).
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->
-> And now you are potentially modifying the geometry of packets that
-> traverse ipvlan devices.
->
-Yes, that is true but to optimize the fragments processing.
+On Mon, 2015-05-04 at 15:44 -0700, Cong Wang wrote:
 
-> I am sorry but I am going to put my foot down and not allow another
-> instance of this to happen again.  We already have this being done by
-> netfilter, and I consider it unacceptable as well as inefficient.
->
-Actually this will make the fragments processing more efficient. e.g.
-if there are 50 slave devices and we receive 10 fragments, the
-duplication will happen for 50*10 = 500 skbs but if the packet is
-defragmented, then it's only once per device making it more efficient.
+> So your request is only valid for patches ready for review. Focus on
+> the bug.
 
-> If a fragmented frame is going to be forwarded by us, defragmenting
-> and refragmenting may create a different outgoing packet stream than
-> what arrived.  If the outgoing interface's MTU can accomodate the
-> incoming frames, this kind of modification is absolutely forbidden.
+Yep, I was trying to, but couldn't reply on your patch, and this is not
+the first time it happens with you.
 
-I understand the concern (after going though Florian Westphal's patch
-series) and will take this patch off of this series until matter
-settles. Also trying to optimize slow path (fragments) is not very
-high on the priority list in any case.
+Thus my reasonable request.
 
-Thanks,
---mahesh..
+Turns out you did not understand it and turned it into personal attack.
+
+Too bad.
