@@ -1,101 +1,265 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: Netlink socket leaks
-Date: Mon, 4 May 2015 18:09:18 +0800
-Message-ID: <5547454E.1070106@windriver.com>
-References: <CANaxB-weCVV0eQqRMnH59psXavrckip+Wfep2gdGLiw9rz3B5g@mail.gmail.com> <CANaxB-zvU0St+TkniHu9AKsW0Pd_j3BK17EfzCB+ghmDC0U22g@mail.gmail.com> <20150503000428.GA16211@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	Andrey Wagin <avagin@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 4/4] net: add netfilter ingress hook
+Date: Mon,  4 May 2015 12:50:49 +0200
+Message-ID: <1430736649-3546-5-git-send-email-pablo@netfilter.org>
+References: <1430736649-3546-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
+	jhs@mojatatu.com
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:47005 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752116AbbEDKKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 06:10:51 -0400
-In-Reply-To: <20150503000428.GA16211@gondor.apana.org.au>
+Received: from mail.us.es ([193.147.175.20]:58276 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753169AbbEDKqa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 May 2015 06:46:30 -0400
+In-Reply-To: <1430736649-3546-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/03/2015 08:04 AM, Herbert Xu wrote:
-> On Sat, May 02, 2015 at 02:31:09AM +0300, Andrey Wagin wrote:
->>
->> A socket leaks if it is released by sk_release_kernel(). The problem
->> is that netlink_insert() and netlink_remove() is called when a socket
->> has different values of sk->sk_net.
-> 
-> I think we simply need to revert
-> c243d7e20996254f89c28d4838b5feca735c030d.
-> 
-> ---8<---
-> Subject: Revert "net: kernel socket should be released in init_net namespace"
-> 
-> This reverts commit c243d7e20996254f89c28d4838b5feca735c030d.
-> 
-> That patch is solving a non-existant problem while creating a
-> real problem.  Just because a socket is allocated in the init
-> name space doesn't mean that it gets hashed in the init name space.
-> 
-> When we unhash it the name space must be the same as the one
-> we had when we hashed it.  So this patch is completely bogus
-> and causes socket leaks.
-> 
+This patch adds a new NFPROTO_NETDEV family that allows you to register
+per-device hooks from the ingress path. This is built upon the minimalistic
+ingress hook infrastructure.
 
-Herbert, thanks for the fix.
+The caller is responsible for holding/putting the reference on the net_device
+that is attached to nf_hook_ops.
+---
+ include/linux/netdevice.h         |    3 +++
+ include/linux/netfilter.h         |    1 +
+ include/linux/netfilter_ingress.h |   26 +++++++++++++++++++++++
+ include/uapi/linux/netfilter.h    |    6 ++++++
+ net/Kconfig                       |    6 ++++++
+ net/core/dev.c                    |    3 +++
+ net/netfilter/Makefile            |    1 +
+ net/netfilter/core.c              |   23 ++++++++++++++++++++-
+ net/netfilter/ingress.c           |   41 +++++++++++++++++++++++++++++++++++++
+ 9 files changed, 109 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/netfilter_ingress.h
+ create mode 100644 net/netfilter/ingress.c
 
-Reverting commit c243d7e20996254f89c28d4838b5feca735c030d is absolutely a
-correct decision now.
-
-Actually my initial purpose of creating the commit is because inserting tipc
-socket into its rhashtable happens in socket creation, and deleting the socket
-from its rhashtable occurs in socket release. Without the commit, the creation
-of tipc kernel internal socket happens in init_net context, but the socket
-release occurs in the current namespace. More importantly, tipc allocates
-different rhashtables for different namespaces. Therefore, tipc kernel internal
-sockets created init_net would be inserted into init_net's rhashtable, but they
-would be removed from current namespace's rhashtable when deleting them. As a
-result, tipc kernel sockets are leaked as they are unable to be found in current
-namespace's rhashtable. But as the commit can guarantee that both creation and
-deletion of tipc kernel internal socket always happens in the current namespace,
-leaking tipc socket can be avoided.
-
-However, I did not realize that hashing of inet sockets usually occurs in
-bind(), and unashing is in release(). As The former context is current
-namespace, and the latter is init_net. the socket leak happens on netlink sockets.
-
-Currently as for tipc kernel sockets, even your patch is involved, the leak
-would never happen on tipc sockets because tipc uses __sock_create() instead of
-sock_create_kern() to create its kernel sockets.
-
-Until now, I believe that it's safe for all kinds of kernel sockets together
-with your patch.
-
-However, when I reviewed your patch, I found that moving netlink socket's
-namespace back and forth is unnecessary for us at all. Instead it artificially
-increases the complexity of netlink code. Therefore, I create the following
-patch to avoid it, please review it:
-
-http://patchwork.ozlabs.org/patch/467535/
-
-Thanks,
-Ying
-
-> Reported-by: Andrey Wagin <avagin@gmail.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index e891bcf..292f422 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1474,8 +1474,8 @@ void sk_release_kernel(struct sock *sk)
->  		return;
->  
->  	sock_hold(sk);
-> -	sock_net_set(sk, get_net(&init_net));
->  	sock_release(sk->sk_socket);
-> +	sock_net_set(sk, get_net(&init_net));
->  	sock_put(sk);
->  }
->  EXPORT_SYMBOL(sk_release_kernel);
-> 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 18e1500..8333feb 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1668,6 +1668,9 @@ struct net_device {
+ 	ingress_hook_func_t __rcu *ingress_hook;
+ #endif
+ 	struct netdev_queue __rcu *ingress_queue;
++#ifdef CONFIG_NETFILTER_INGRESS
++	struct list_head 	nf_hooks_ingress;
++#endif
+ 
+ 	unsigned char		broadcast[MAX_ADDR_LEN];
+ #ifdef CONFIG_RFS_ACCEL
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 388ed19..f91715a 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -90,6 +90,7 @@ struct nf_hook_ops {
+ 	void			*priv;
+ 	u_int8_t		pf;
+ 	unsigned int		hooknum;
++	struct net_device	*dev;
+ 	/* Hooks are ordered in ascending priority. */
+ 	int			priority;
+ };
+diff --git a/include/linux/netfilter_ingress.h b/include/linux/netfilter_ingress.h
+new file mode 100644
+index 0000000..5d94872
+--- /dev/null
++++ b/include/linux/netfilter_ingress.h
+@@ -0,0 +1,26 @@
++#ifndef _NETFILTER_INGRESS_H_
++#define _NETFILTER_INGRESS_H_
++
++#include <linux/netdevice.h>
++
++#ifdef CONFIG_NETFILTER_INGRESS
++struct list_head *nf_register_ingress_hook(struct nf_hook_ops *reg);
++void nf_unregister_ingress_hook(struct nf_hook_ops *reg);
++
++static inline void nf_hook_ingress_init(struct net_device *dev)
++{
++	INIT_LIST_HEAD(&dev->nf_hooks_ingress);
++}
++#else
++static inline struct list_head *
++nf_register_ingress_hook(struct nf_hook_ops *reg)
++{
++	return &nf_hooks[reg->pf][reg->hooknum];
++}
++
++static inline void nf_unregister_ingress_hook(struct nf_hook_ops *reg) {}
++
++static inline void nf_hook_ingress_init(struct net_device *dev) {}
++#endif
++
++#endif /* _NETFILTER_INGRESS_H_ */
+diff --git a/include/uapi/linux/netfilter.h b/include/uapi/linux/netfilter.h
+index ef1b1f8..177027c 100644
+--- a/include/uapi/linux/netfilter.h
++++ b/include/uapi/linux/netfilter.h
+@@ -51,11 +51,17 @@ enum nf_inet_hooks {
+ 	NF_INET_NUMHOOKS
+ };
+ 
++enum nf_dev_hooks {
++	NF_NETDEV_INGRESS,
++	NF_NETDEV_NUMHOOKS
++};
++
+ enum {
+ 	NFPROTO_UNSPEC =  0,
+ 	NFPROTO_INET   =  1,
+ 	NFPROTO_IPV4   =  2,
+ 	NFPROTO_ARP    =  3,
++	NFPROTO_NETDEV =  5,
+ 	NFPROTO_BRIDGE =  7,
+ 	NFPROTO_IPV6   = 10,
+ 	NFPROTO_DECNET = 12,
+diff --git a/net/Kconfig b/net/Kconfig
+index f0e2f3f..78d58c9 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -191,6 +191,12 @@ config BRIDGE_NETFILTER
+ 
+ 	  If unsure, say N.
+ 
++config NETFILTER_INGRESS
++	bool "Netfilter ingress hooks"
++	select NET_INGRESS_HOOK
++	help
++	  You can say Y here if you want to enable Netfilter ingress hook.
++
+ source "net/netfilter/Kconfig"
+ source "net/ipv4/netfilter/Kconfig"
+ source "net/ipv6/netfilter/Kconfig"
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 126d0b1..99d8728 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -135,6 +135,7 @@
+ #include <linux/if_macvlan.h>
+ #include <linux/errqueue.h>
+ #include <linux/hrtimer.h>
++#include <linux/netfilter_ingress.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -6841,6 +6842,8 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ #ifdef CONFIG_NET_INGRESS_HOOK
+ 	RCU_INIT_POINTER(dev->ingress_hook, NULL);
+ #endif
++	nf_hook_ingress_init(dev);
++
+ #ifdef CONFIG_SYSFS
+ 	dev->num_rx_queues = rxqs;
+ 	dev->real_num_rx_queues = rxqs;
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index a87d8b8..f6923e2 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -1,4 +1,5 @@
+ netfilter-objs := core.o nf_log.o nf_queue.o nf_sockopt.o
++netfilter-$(CONFIG_NETFILTER_INGRESS) += ingress.o
+ 
+ nf_conntrack-y	:= nf_conntrack_core.o nf_conntrack_standalone.o nf_conntrack_expect.o nf_conntrack_helper.o nf_conntrack_proto.o nf_conntrack_l3proto_generic.o nf_conntrack_proto_generic.o nf_conntrack_proto_tcp.o nf_conntrack_proto_udp.o nf_conntrack_extend.o nf_conntrack_acct.o nf_conntrack_seqadj.o
+ nf_conntrack-$(CONFIG_NF_CONNTRACK_TIMEOUT) += nf_conntrack_timeout.o
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e418cfd..370ea06 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -22,6 +22,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/mutex.h>
+ #include <linux/slab.h>
++#include <linux/netfilter_ingress.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ 
+@@ -64,10 +65,23 @@ static DEFINE_MUTEX(nf_hook_mutex);
+ 
+ int nf_register_hook(struct nf_hook_ops *reg)
+ {
++	struct list_head *nf_hook_list;
+ 	struct nf_hook_ops *elem;
+ 
+ 	mutex_lock(&nf_hook_mutex);
+-	list_for_each_entry(elem, &nf_hooks[reg->pf][reg->hooknum], list) {
++	switch (reg->pf) {
++	case NFPROTO_NETDEV:
++		nf_hook_list = nf_register_ingress_hook(reg);
++		if (IS_ERR(nf_hook_list)) {
++			mutex_unlock(&nf_hook_mutex);
++			return PTR_ERR(nf_hook_list);
++		}
++		break;
++	default:
++		nf_hook_list = &nf_hooks[reg->pf][reg->hooknum];
++		break;
++	}
++	list_for_each_entry(elem, nf_hook_list, list) {
+ 		if (reg->priority < elem->priority)
+ 			break;
+ 	}
+@@ -84,6 +98,13 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+ {
+ 	mutex_lock(&nf_hook_mutex);
+ 	list_del_rcu(&reg->list);
++	switch (reg->pf) {
++	case NFPROTO_NETDEV:
++		nf_unregister_ingress_hook(reg);
++		break;
++	default:
++		break;
++	}
+ 	mutex_unlock(&nf_hook_mutex);
+ #ifdef HAVE_JUMP_LABEL
+ 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
+diff --git a/net/netfilter/ingress.c b/net/netfilter/ingress.c
+new file mode 100644
+index 0000000..82bcfd1
+--- /dev/null
++++ b/net/netfilter/ingress.c
+@@ -0,0 +1,41 @@
++#include <linux/skbuff.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter_ingress.h>
++
++static struct sk_buff *nf_hook_ingress(struct sk_buff *skb)
++{
++	struct nf_hook_state state;
++
++	nf_hook_state_init(&state, &skb->dev->nf_hooks_ingress,
++			   NF_NETDEV_INGRESS, INT_MIN, NFPROTO_NETDEV, NULL,
++			   skb->dev, NULL, NULL);
++	if (nf_hook_slow(skb, &state) < 0)
++		return NULL;
++
++	return skb;
++}
++
++struct list_head *nf_register_ingress_hook(struct nf_hook_ops *reg)
++{
++	int ret;
++
++	BUG_ON(reg->dev == NULL);
++
++	if (reg->hooknum == NF_NETDEV_INGRESS &&
++	    list_empty(&reg->dev->nf_hooks_ingress)) {
++		ret = dev_ingress_hook_register(reg->dev, nf_hook_ingress);
++		if (ret < 0)
++			return ERR_PTR(ret);
++	}
++
++	return &reg->dev->nf_hooks_ingress;
++}
++
++void nf_unregister_ingress_hook(struct nf_hook_ops *reg)
++{
++	WARN_ON(reg->dev == NULL);
++
++	if (reg->hooknum == NF_NETDEV_INGRESS &&
++	    list_empty(&reg->dev->nf_hooks_ingress))
++		dev_ingress_hook_unregister(reg->dev);
++}
+-- 
+1.7.10.4
