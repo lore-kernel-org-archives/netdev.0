@@ -1,44 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 2/8] e100: don't initialize int object to zero
-Date: Mon,  4 May 2015 02:40:21 -0700
-Message-ID: <1430732427-29984-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 8/8] ixgbe: Use a signed type to hold error codes
+Date: Mon,  4 May 2015 02:40:27 -0700
+Message-ID: <1430732427-29984-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1430732427-29984-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jean Sacren <sakiwit@gmail.com>, netdev@vger.kernel.org,
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28587 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:55549 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752084AbbEDJkw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 May 2015 05:40:52 -0400
+	id S1751160AbbEDJkx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 May 2015 05:40:53 -0400
 In-Reply-To: <1430732427-29984-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Sacren <sakiwit@gmail.com>
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-'err' will be overwritten so no need to initialize it to zero.
+Because error codes are negative, it only makes sense to
+consistently use signed types when handling them. Also remove
+some explicit comparisons with 0 on these variables.
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e100.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 10 +++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |  4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    |  4 ++--
+ 4 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index 1a450f4..35357ae 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -874,7 +874,7 @@ static int e100_exec_cb(struct nic *nic, struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index eafa9ec..9f6fb19 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -3053,7 +3053,7 @@ static int ixgbe_get_module_info(struct net_device *dev,
  {
- 	struct cb *cb;
- 	unsigned long flags;
--	int err = 0;
-+	int err;
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 status;
++	s32 status;
+ 	u8 sff8472_rev, addr_mode;
+ 	bool page_swap = false;
  
- 	spin_lock_irqsave(&nic->cb_lock, flags);
+@@ -3061,14 +3061,14 @@ static int ixgbe_get_module_info(struct net_device *dev,
+ 	status = hw->phy.ops.read_i2c_eeprom(hw,
+ 					     IXGBE_SFF_SFF_8472_COMP,
+ 					     &sff8472_rev);
+-	if (status != 0)
++	if (status)
+ 		return -EIO;
+ 
+ 	/* addressing mode is not supported */
+ 	status = hw->phy.ops.read_i2c_eeprom(hw,
+ 					     IXGBE_SFF_SFF_8472_SWAP,
+ 					     &addr_mode);
+-	if (status != 0)
++	if (status)
+ 		return -EIO;
+ 
+ 	if (addr_mode & IXGBE_SFF_ADDRESSING_MODE) {
+@@ -3095,7 +3095,7 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 status = IXGBE_ERR_PHY_ADDR_INVALID;
++	s32 status = IXGBE_ERR_PHY_ADDR_INVALID;
+ 	u8 databyte = 0xFF;
+ 	int i = 0;
+ 
+@@ -3112,7 +3112,7 @@ static int ixgbe_get_module_eeprom(struct net_device *dev,
+ 		else
+ 			status = hw->phy.ops.read_i2c_sff8472(hw, i, &databyte);
+ 
+-		if (status != 0)
++		if (status)
+ 			return -EIO;
+ 
+ 		data[i - ee->offset] = databyte;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 5be12a0..23d82b3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4757,7 +4757,7 @@ static int ixgbe_non_sfp_link_config(struct ixgbe_hw *hw)
+ {
+ 	u32 speed;
+ 	bool autoneg, link_up = false;
+-	u32 ret = IXGBE_ERR_LINK_SETUP;
++	int ret = IXGBE_ERR_LINK_SETUP;
+ 
+ 	if (hw->mac.ops.check_link)
+ 		ret = hw->mac.ops.check_link(hw, &speed, &link_up, false);
+@@ -8022,7 +8022,7 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
+ 		return -EINVAL;
+ 
+ 	nla_for_each_nested(attr, br_spec, rem) {
+-		u32 status;
++		int status;
+ 		__u16 mode;
+ 
+ 		if (nla_type(attr) != IFLA_BRIDGE_MODE)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index 8a2be44..af828f8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -317,14 +317,14 @@ bool ixgbe_check_reset_blocked(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_get_phy_id(struct ixgbe_hw *hw)
+ {
+-	u32 status;
++	s32 status;
+ 	u16 phy_id_high = 0;
+ 	u16 phy_id_low = 0;
+ 
+ 	status = hw->phy.ops.read_reg(hw, MDIO_DEVID1, MDIO_MMD_PMAPMD,
+ 				      &phy_id_high);
+ 
+-	if (status == 0) {
++	if (!status) {
+ 		hw->phy.id = (u32)(phy_id_high << 16);
+ 		status = hw->phy.ops.read_reg(hw, MDIO_DEVID2, MDIO_MMD_PMAPMD,
+ 					      &phy_id_low);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 58ab7d9..b023698 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -1063,7 +1063,7 @@ static s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_setup_internal_phy_x550em(struct ixgbe_hw *hw)
+ {
+-	u32 status;
++	s32 status;
+ 	u16 lasi, autoneg_status, speed;
+ 	ixgbe_link_speed force_speed;
+ 
+@@ -1205,7 +1205,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
+  **/
+ static s32 ixgbe_init_ext_t_x550em(struct ixgbe_hw *hw)
+ {
+-	u32 status;
++	s32 status;
+ 	u16 reg;
+ 	u32 retries = 2;
  
 -- 
 2.1.0
