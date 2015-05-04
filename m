@@ -1,66 +1,91 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
- 2015-05-02
-Date: Mon, 04 May 2015 00:34:31 -0700
-Message-ID: <1430724871.2669.154.camel@jtkirshe-mobl>
-References: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20150503.233615.903254011818365143.davem@davemloft.net>
+From: Harini Katakam <harini.katakam@xilinx.com>
+Subject: [net-next PATCH v2 3/3] net: macb: Add change_mtu callback with jumbo support
+Date: Mon, 4 May 2015 13:22:40 +0530
+Message-ID: <dd84c056-ade8-4030-979f-d759e9132d14@BN1AFFO11OLC001.protection.gbl>
+References: <1430725960-8441-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-dS64zfizlEEB/4PfNTu+"
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
+	<punnaia@xilinx.com>, <michals@xilinx.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<harinikatakamlinux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37144 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751232AbbEDHee (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 May 2015 03:34:34 -0400
-In-Reply-To: <20150503.233615.903254011818365143.davem@davemloft.net>
+Received: from mail-bn1on0055.outbound.protection.outlook.com ([157.56.110.55]:28009
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751918AbbEDHxB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 May 2015 03:53:01 -0400
+In-Reply-To: <1430725960-8441-1-git-send-email-harinik@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add macb_change_mtu callback; if jumbo frame support is present allow
+mtu size changes upto (jumbo max length allowed - headers).
 
---=-dS64zfizlEEB/4PfNTu+
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Harini Katakam <harinik@xilinx.com>
+Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+---
 
-On Sun, 2015-05-03 at 23:36 -0400, David Miller wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Sat,  2 May 2015 03:42:27 -0700
->=20
-> > This series contains updates to igb, e100, e1000e and ixgbe.
->=20
-> Jeff I would suggest resending this series with the various
-> VF multicast changes removed as those seem to need some more
-> discussion.
->=20
-> Thanks.
->=20
+v2:
+Move constant definition.
 
-Ok, I will re-work the series.
+---
+ drivers/net/ethernet/cadence/macb.c |   24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
 
---=-dS64zfizlEEB/4PfNTu+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJVRyEHAAoJEOVv75VaS+3OcGsQAJEeqLGQPalT1vLwZUwGPn8S
-bRxbKNQFTmCz+UtJ78dLkjd/WR2OYRh3aQ22GYmddK3IuyDcH5tN4cPCH5vr6t0a
-VLztKf+oNfXA01Ub5gmOnhz60/8o3lLnxyoyWZprzzzRN7G0AM9aJ0bvUIo9G/HT
-iMckvYhiLj2zySNyZBQrIJgCp+3z0l+2Uy9ocz23VTyR3gKAFrCU39B8G9u3V97D
-dAHPVQK2yTrCCWHD2N78ts/u3N9B1sb9OiExdXuEJmp5bmvUu0ggoBCqXfhKzfsE
-ww1+Hg3PxymAI4kMN2llA6JimMUB8jc9neuuLCztGN2fkJQmQ3VEhwr5M3SFmCvv
-7o1hmBI5QMU9VJldrGu6tfwPAXd1ctflDpJEAGeFMd05UEAx91BRPHtRAOoTOSRr
-7Vu8eE0L0z9BdSpT6j0FVli1ujvIsSwxm81K0oI5BVoiYJd9aK3rdVuzujGFFzAz
-BRrnju9e188k6uZD1rMUnVK2KwsaYDAx1S24b3AmnjePayTTkKMOHmqXCX+jqcVR
-NpYqIN11DV3FKmwP9Z6YwqPPn1/zA79eQ0W/0hW9/bL/B4EgC3GKuIzKKodCAzWs
-1fFSGyw3kYmfh/92UVvniaT3vlLNSfZS1zOBuV7ZixO5Fa3JhHnlil2ljZUBBFK5
-BRc3xICxTALqeUrpQoSw
-=BCaX
------END PGP SIGNATURE-----
-
---=-dS64zfizlEEB/4PfNTu+--
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index a065283..e4a9c17 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -54,6 +54,8 @@
+ #define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1))
+ #define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1))
+ 
++#define GEM_MTU_MIN_SIZE	68
++
+ #define GEM_ZYNQMP_JUMBO_MAX	10240
+ 
+ /*
+@@ -1857,6 +1859,26 @@ static int macb_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int macb_change_mtu(struct net_device *dev, int new_mtu)
++{
++	struct macb *bp = netdev_priv(dev);
++	u32 max_mtu;
++
++	if (netif_running(dev))
++		return -EBUSY;
++
++	max_mtu = ETH_DATA_LEN;
++	if (bp->isjumbo)
++		max_mtu = gem_readl(bp, JML) - ETH_HLEN - ETH_FCS_LEN;
++
++	if ((new_mtu > max_mtu) || (new_mtu < GEM_MTU_MIN_SIZE))
++		return -EINVAL;
++
++	dev->mtu = new_mtu;
++
++	return 0;
++}
++
+ static void gem_update_stats(struct macb *bp)
+ {
+ 	int i;
+@@ -2133,7 +2155,7 @@ static const struct net_device_ops macb_netdev_ops = {
+ 	.ndo_get_stats		= macb_get_stats,
+ 	.ndo_do_ioctl		= macb_ioctl,
+ 	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_change_mtu		= macb_change_mtu,
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= macb_poll_controller,
+-- 
+1.7.9.5
