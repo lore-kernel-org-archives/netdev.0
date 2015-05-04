@@ -1,52 +1,67 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 0/6] Trivial fixes and changes for SGE
-Date: Mon,  4 May 2015 21:58:14 +0530
-Message-ID: <1430756900-6086-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/6] cxgb4: Make sure that Freelist size is larger than Egress Congestion Threshold
+Date: Mon,  4 May 2015 21:58:15 +0530
+Message-ID: <1430756900-6086-2-git-send-email-hariprasad@chelsio.com>
+References: <1430756900-6086-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:3869 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:5841 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751588AbbEDLP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 07:15:59 -0400
+	by vger.kernel.org with ESMTP id S1751252AbbEDLQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 07:16:22 -0400
+In-Reply-To: <1430756900-6086-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+We need to make sure that the Free List Size, in pointers, is at
+least 2 Egress Queue Units (8 pointers/each) larger than the SGE's Egress
+Congestion Threshold (in pointers).
 
-This patch series adds the following.
-Discard packet if length is greater than MTU, move sge monitor code to a
-new routine, add device node to ULD info, add congestion notification from
-SGE for ingress queue and freelists and for T5, setting up the Congestion
-Manager values of the new RX Ethernet Queue is done by firmware now.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c   | 9 +++++++++
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c | 6 +++++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
-This patch series has been created against net-next tree and includes
-patches on cxgb4 driver.
-
-We have included all the maintainers of respective drivers. Kindly review
-the change and let us know in case of any review comments.
-
-Thanks
-
-Hariprasad Shenai (6):
-  cxgb4: Make sure that Freelist size is larger than Egress Congestion
-    Threshold
-  cxgb4: Enable congestion notification from SGE for IQs and FLs.
-  cxgb4: Pass in a Congestion Channel Map to t4_sge_alloc_rxq()
-  cxgb4: Add device node to ULD info
-  cxgb4: Move SGE Ingress DMA state monitor code to a new routine
-  cxgb4: Discard the packet if the length is greater than mtu
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  26 ++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  15 ++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   1 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c        | 154 ++++++++++++------------
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 133 +++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_values.h  |   9 ++
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   3 +
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |  15 ++-
- 8 files changed, 261 insertions(+), 95 deletions(-)
-
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 0d2edda..517d5b4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2473,6 +2473,15 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	c.iqaddr = cpu_to_be64(iq->phys_addr);
+ 
+ 	if (fl) {
++		/* Allocate the ring for the hardware free list (with space
++		 * for its status page) along with the associated software
++		 * descriptor ring.  The free list size needs to be a multiple
++		 * of the Egress Queue Unit and at least 2 Egress Units larger
++		 * than the SGE's Egress Congrestion Threshold
++		 * (fl_starve_thres - 1).
++		 */
++		if (fl->size < s->fl_starve_thres - 1 + 2 * 8)
++			fl->size = s->fl_starve_thres - 1 + 2 * 8;
+ 		fl->size = roundup(fl->size, 8);
+ 		fl->desc = alloc_ring(adap->pdev_dev, fl->size, sizeof(__be64),
+ 				      sizeof(struct rx_sw_desc), &fl->addr,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 482f6de..cc92c69 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -2243,8 +2243,12 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
+ 		 * Allocate the ring for the hardware free list (with space
+ 		 * for its status page) along with the associated software
+ 		 * descriptor ring.  The free list size needs to be a multiple
+-		 * of the Egress Queue Unit.
++		 * of the Egress Queue Unit and at least 2 Egress Units larger
++		 * than the SGE's Egress Congrestion Threshold
++		 * (fl_starve_thres - 1).
+ 		 */
++		if (fl->size < s->fl_starve_thres - 1 + 2 * FL_PER_EQ_UNIT)
++			fl->size = s->fl_starve_thres - 1 + 2 * FL_PER_EQ_UNIT;
+ 		fl->size = roundup(fl->size, FL_PER_EQ_UNIT);
+ 		fl->desc = alloc_ring(adapter->pdev_dev, fl->size,
+ 				      sizeof(__be64), sizeof(struct rx_sw_desc),
 -- 
 2.3.4
