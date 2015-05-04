@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/3] tcp: SACK RTTM changes for congestion
- control
-Date: Sun, 03 May 2015 23:18:30 -0400 (EDT)
-Message-ID: <20150503.231830.1607485359485463917.davem@davemloft.net>
-References: <1430435459-12805-1-git-send-email-kennetkl@ifi.uio.no>
+Subject: Re: netlink: Remove max_size setting
+Date: Sun, 03 May 2015 23:27:21 -0400 (EDT)
+Message-ID: <20150503.232721.113045176775125145.davem@davemloft.net>
+References: <20150501002759.GA31660@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com
-To: kennetkl@ifi.uio.no
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59264 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59306 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751987AbbEDDSd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 23:18:33 -0400
-In-Reply-To: <1430435459-12805-1-git-send-email-kennetkl@ifi.uio.no>
+	with ESMTP id S1751915AbbEDD1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 23:27:23 -0400
+In-Reply-To: <20150501002759.GA31660@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
-Date: Fri,  1 May 2015 01:10:56 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 1 May 2015 08:27:59 +0800
 
-> This patch series improves SACK RTT measurements for congestion control:
->   o Picks the latest sequence SACKed for RTT, i.e. most accurate delay
->     signal.
->   o Calls the congestion control's pkts_acked hook with SACK RTTMs
->     even when not sequentially ACKing new data.
+> We currently limit the hash table size to 64K which is very bad
+> as even 10 years ago it was relatively easy to generate millions
+> of sockets.
 > 
-> V2: amend misleading comment
+> Since the hash table is naturally limited by memory allocation
+> failure, we don't really need an explicit limit so this patch
+> removes it.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Series applied to net-next, thanks.
+Applied, thanks Herbert.
