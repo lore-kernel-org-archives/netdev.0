@@ -1,90 +1,93 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Suspicious RCU usage in bridge with Linux v4.0-9362-g1fc149933fd4
-Date: Mon, 4 May 2015 11:45:41 -0700
-Message-ID: <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
-	<20150504133943.GA17043@x131e>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/2] stmac: add dwmac glue for NXP 18xx/43xx family
+Date: Mon, 04 May 2015 20:46:13 +0200
+Message-ID: <90049936.xgdXKqK565@wuerfel>
+References: <3200125.o3jqXuyPfG@wuerfel> <1430691251-28119-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=f46d043c7f0c094cdd051545f810
-Cc: netdev <netdev@vger.kernel.org>
-To: Dominick Grift <dac.override@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-arm-kernel@lists.infradead.org, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Joachim Eastwood <manabian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:34766 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015AbbEDSpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 14:45:43 -0400
-Received: by wgso17 with SMTP id o17so159655735wgs.1
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 11:45:42 -0700 (PDT)
-In-Reply-To: <20150504133943.GA17043@x131e>
+Received: from mout.kundenserver.de ([212.227.17.10]:56137 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbbEDSqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 14:46:22 -0400
+In-Reply-To: <1430691251-28119-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---f46d043c7f0c094cdd051545f810
-Content-Type: text/plain; charset=UTF-8
+On Monday 04 May 2015 00:14:11 Joachim Eastwood wrote:
+=> >It should be fairly straightforward to split the probe function
+> >into two and export a function that takes a device and a stmmac_of_data
+> >pointer as arguments, and declare a module_platform_driver in your
+> >code.
+> 
+> How about something like the patch below. All it does is to play a
+> little trick with the of_match_device in the dt config function and
+> export the probe/remove/pm stuff for the driver.
+> 
+> The dwmac-lpc18xx would then become something like this:
+> 
+> static const struct stmmac_of_data lpc18xx_dwmac_data = {
+> 	.has_gmac = 1,
+> 	.setup = lpc18xx_dwmac_setup,
+> 	.init = lpc18xx_dwmac_init,
+> };
+> 
+> static const struct of_device_id lpc18xx_dwmac_match[] = {
+> 	{ .compatible = "nxp,lpc1850-dwmac", .data = &lpc18xx_dwmac_data },
+> 	{ }
+> };
+> MODULE_DEVICE_TABLE(of, lpc18xx_dwmac_match);
+> 
+> static struct platform_driver lpc18xx_dwmac_driver = {
+> 	.probe  = stmmac_pltfr_probe,
+> 	.remove = stmmac_pltfr_remove,
+> 	.driver = {
+> 		.name           = "lpc18xx-dwmac",
+> 		.pm             = &stmmac_pltfr_pm_ops,
+> 		.of_match_table = lpc18xx_dwmac_match,
+> 	},
+> };
+> module_platform_driver(lpc18xx_dwmac_driver);
+> 
+> All though this seem to work, stmmac_platform.c could benefit from
+> some refactoring. But this patch and then fixing the other DT users
+> could be a first step.
 
-On Mon, May 4, 2015 at 6:39 AM, Dominick Grift <dac.override@gmail.com> wrote:
-> On Thu, Apr 23, 2015 at 01:07:45PM -0400, Josh Boyer wrote:
->> Hi All,
->>
->> We've had a user report the following backtrace from the bridge module
->> with a recent Linus' tree.  Has anything like this been reported yet?
->> If you have any questions on setup, the user is CC'd.
->>
->> josh
->>
->> [   29.382235] br0: port 1(tap0) entered forwarding state
->>
->> [   29.382286] ===============================
->> [   29.382315] [ INFO: suspicious RCU usage. ]
->> [   29.382344] 4.1.0-0.rc0.git11.1.fc23.x86_64 #1 Not tainted
->> [   29.382380] -------------------------------
->> [   29.382409] net/bridge/br_private.h:626 suspicious
->> rcu_dereference_check() usage!
->
-> <snip>
->
-> With 4.1.0-0.rc1.git1.1.fc23.x86_64 the situation seems to have slightly changed:
->
+Sounds good, yes.
 
-Should be the same issue. Please give the attached patch a try,
-it is compile-tested only.
+> -	device = of_match_device(stmmac_dt_ids, &pdev->dev);
+> +	device = of_match_device(dev->driver->of_match_table, dev);
+>  	if (!device)
+>  		return -ENODEV;
 
-Thanks!
+Ah, that is a nice trick to avoid passing the various match tables
+from a lot of duplicated probe functions.
 
---f46d043c7f0c094cdd051545f810
-Content-Type: text/plain; charset=US-ASCII; name="br.diff"
-Content-Disposition: attachment; filename="br.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_i9a8ly3r1
+I wonder if we could generalize that for use by any driver and
+introduce a common helper
 
-ZGlmZiAtLWdpdCBhL25ldC9icmlkZ2UvYnJfbmV0bGluay5jIGIvbmV0L2JyaWRnZS9icl9uZXRs
-aW5rLmMKaW5kZXggNGI1YzIzNi4uOGJhOTg5YSAxMDA2NDQKLS0tIGEvbmV0L2JyaWRnZS9icl9u
-ZXRsaW5rLmMKKysrIGIvbmV0L2JyaWRnZS9icl9uZXRsaW5rLmMKQEAgLTMyNSwyMiArMzI1LDI4
-IEBAIHN0YXRpYyBpbnQgYnJfZmlsbF9pZmluZm8oc3RydWN0IHNrX2J1ZmYgKnNrYiwKIAkJc3Ry
-dWN0IG5sYXR0ciAqYWY7CiAJCWludCBlcnI7CiAKKwkJcmN1X3JlYWRfbG9jaygpOwogCQlpZiAo
-cG9ydCkKIAkJCXB2ID0gbmJwX2dldF92bGFuX2luZm8ocG9ydCk7CiAJCWVsc2UKIAkJCXB2ID0g
-YnJfZ2V0X3ZsYW5faW5mbyhicik7CiAKLQkJaWYgKCFwdiB8fCBiaXRtYXBfZW1wdHkocHYtPnZs
-YW5fYml0bWFwLCBWTEFOX05fVklEKSkKKwkJaWYgKCFwdiB8fCBiaXRtYXBfZW1wdHkocHYtPnZs
-YW5fYml0bWFwLCBWTEFOX05fVklEKSkgeworCQkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJCQlnb3Rv
-IGRvbmU7CisJCX0KIAogCQlhZiA9IG5sYV9uZXN0X3N0YXJ0KHNrYiwgSUZMQV9BRl9TUEVDKTsK
-LQkJaWYgKCFhZikKKwkJaWYgKCFhZikgeworCQkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJCQlnb3Rv
-IG5sYV9wdXRfZmFpbHVyZTsKKwkJfQogCiAJCWlmIChmaWx0ZXJfbWFzayAmIFJURVhUX0ZJTFRF
-Ul9CUlZMQU5fQ09NUFJFU1NFRCkKIAkJCWVyciA9IGJyX2ZpbGxfaWZ2bGFuaW5mb19jb21wcmVz
-c2VkKHNrYiwgcHYpOwogCQllbHNlCiAJCQllcnIgPSBicl9maWxsX2lmdmxhbmluZm8oc2tiLCBw
-dik7CisJCXJjdV9yZWFkX3VubG9jaygpOwogCQlpZiAoZXJyKQogCQkJZ290byBubGFfcHV0X2Zh
-aWx1cmU7CiAJCW5sYV9uZXN0X2VuZChza2IsIGFmKTsKZGlmZiAtLWdpdCBhL25ldC9icmlkZ2Uv
-YnJfcHJpdmF0ZS5oIGIvbmV0L2JyaWRnZS9icl9wcml2YXRlLmgKaW5kZXggMzM2MmMyOS4uODYw
-ODMyZSAxMDA2NDQKLS0tIGEvbmV0L2JyaWRnZS9icl9wcml2YXRlLmgKKysrIGIvbmV0L2JyaWRn
-ZS9icl9wcml2YXRlLmgKQEAgLTYxNywxMyArNjE3LDE3IEBAIGludCBuYnBfdmxhbl9pbml0KHN0
-cnVjdCBuZXRfYnJpZGdlX3BvcnQgKnBvcnQpOwogc3RhdGljIGlubGluZSBzdHJ1Y3QgbmV0X3Bv
-cnRfdmxhbnMgKmJyX2dldF92bGFuX2luZm8oCiAJCQkJCQljb25zdCBzdHJ1Y3QgbmV0X2JyaWRn
-ZSAqYnIpCiB7Ci0JcmV0dXJuIHJjdV9kZXJlZmVyZW5jZV9ydG5sKGJyLT52bGFuX2luZm8pOwor
-CXJldHVybiByY3VfZGVyZWZlcmVuY2VfcHJvdGVjdGVkKGJyLT52bGFuX2luZm8sCisJCQkJCSBy
-Y3VfcmVhZF9sb2NrX2hlbGQoKSB8fAorCQkJCQkgbG9ja2RlcF9ydG5sX2lzX2hlbGQoKSk7CiB9
-CiAKIHN0YXRpYyBpbmxpbmUgc3RydWN0IG5ldF9wb3J0X3ZsYW5zICpuYnBfZ2V0X3ZsYW5faW5m
-bygKIAkJCQkJCWNvbnN0IHN0cnVjdCBuZXRfYnJpZGdlX3BvcnQgKnApCiB7Ci0JcmV0dXJuIHJj
-dV9kZXJlZmVyZW5jZV9ydG5sKHAtPnZsYW5faW5mbyk7CisJcmV0dXJuIHJjdV9kZXJlZmVyZW5j
-ZV9wcm90ZWN0ZWQocC0+dmxhbl9pbmZvLAorCQkJCQkgcmN1X3JlYWRfbG9ja19oZWxkKCkgfHwK
-KwkJCQkJIGxvY2tkZXBfcnRubF9pc19oZWxkKCkpOwogfQogCiAvKiBTaW5jZSBicmlkZ2Ugbm93
-IGRlcGVuZHMgb24gODAyMVEgbW9kdWxlLCBidXQgdGhlIHRpbWUgYnJpZGdlIHNlZXMgdGhlCg==
---f46d043c7f0c094cdd051545f810--
+void *of_platform_match_data(struct device *dev)
+{
+	struct of_device_id *id;
+
+	if (!dev || !dev->of_node)
+		return NULL;
+
+	id = of_match_device(dev->driver->of_match_table, dev);
+	if (!id)
+		return NULL;
+
+	return id->data;
+}
+EXPORT_SYMBOL_GPL(of_platform_match_data);
+
+I think that could save a few lines from many drivers, and it had not
+occurred to me that we can take this shortcut.
+
+The rest of your patch also looks great to me.
+
+	Arnd
