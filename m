@@ -1,49 +1,125 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 06/10] be2net: post full RXQ on interface enable
-Date: Mon,  4 May 2015 02:47:18 -0400
-Message-ID: <1430722042-26449-7-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 07/10] be2net: simplify UFI compatibility checking
+Date: Mon,  4 May 2015 02:47:19 -0400
+Message-ID: <1430722042-26449-8-git-send-email-sathya.perla@emulex.com>
 References: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:63199 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752219AbbEDG7l (ORCPT
+	by vger.kernel.org with ESMTP id S1752220AbbEDG7l (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 02:59:41 -0400
 In-Reply-To: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Suresh Reddy <Suresh.Reddy@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-When an RXQ is created in be_open(), the driver currently posts only
-64 buffers. This sometimes results in packet drops when there is a traffic
-burst as soon as the interface is enabled.
-This patch fixes this problem by posting the full RXQ on interface enable.
+The code in be_check_ufi_compatibility() checks to see if a UFI file meant
+for a lower rev of a chip is being flashed on a higher rev, which is
+disallowed. This patch re-writes the code needed for this check in a much
+simpler manner.
 
-Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.h |  4 ---
+ drivers/net/ethernet/emulex/benet/be_main.c | 56 +++++++++--------------------
+ 2 files changed, 16 insertions(+), 44 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 5eccf87..2694033 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1110,10 +1110,6 @@ struct be_cmd_req_query_fw_cfg {
+ 	u32 rsvd[31];
+ };
+ 
+-/* ASIC revisions */
+-#define ASIC_REV_B0		0x10
+-#define ASIC_REV_P2		0x11
+-
+ struct be_cmd_resp_query_fw_cfg {
+ 	struct be_cmd_resp_hdr hdr;
+ 	u32 be_config_number;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 66749d0..f6a226e 100644
+index f6a226e..00fbab47 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3324,9 +3324,12 @@ static int be_rx_qs_create(struct be_adapter *adapter)
- 
- 	memcpy(rss->rss_hkey, rss_key, RSS_HASH_KEY_LEN);
- 
--	/* First time posting */
-+	/* Post 1 less than RXQ-len to avoid head being equal to tail,
-+	 * which is a queue empty condition
-+	 */
- 	for_all_rx_queues(adapter, rxo, i)
--		be_post_rx_frags(rxo, GFP_KERNEL, MAX_RX_POST);
-+		be_post_rx_frags(rxo, GFP_KERNEL, RX_Q_LEN - 1);
-+
+@@ -4762,14 +4762,11 @@ static int lancer_fw_download(struct be_adapter *adapter,
  	return 0;
  }
  
+-#define BE2_UFI		2
+-#define BE3_UFI		3
+-#define BE3R_UFI	10
+-#define SH_UFI		4
+-#define SH_P2_UFI	11
+-
+-static int be_get_ufi_type(struct be_adapter *adapter,
+-			   struct flash_file_hdr_g3 *fhdr)
++/* Check if the flash image file is compatible with the adapter that
++ * is being flashed.
++ */
++static bool be_check_ufi_compatibility(struct be_adapter *adapter,
++				       struct flash_file_hdr_g3 *fhdr)
+ {
+ 	if (!fhdr) {
+ 		dev_err(&adapter->pdev->dev, "Invalid FW UFI file");
+@@ -4781,43 +4778,22 @@ static int be_get_ufi_type(struct be_adapter *adapter,
+ 	 */
+ 	switch (fhdr->build[0]) {
+ 	case BLD_STR_UFI_TYPE_SH:
+-		return (fhdr->asic_type_rev == ASIC_REV_P2) ? SH_P2_UFI :
+-								SH_UFI;
++		if (!skyhawk_chip(adapter))
++			return false;
++		break;
+ 	case BLD_STR_UFI_TYPE_BE3:
+-		return (fhdr->asic_type_rev == ASIC_REV_B0) ? BE3R_UFI :
+-								BE3_UFI;
++		if (!BE3_chip(adapter))
++			return false;
++		break;
+ 	case BLD_STR_UFI_TYPE_BE2:
+-		return BE2_UFI;
+-	default:
+-		return -1;
+-	}
+-}
+-
+-/* Check if the flash image file is compatible with the adapter that
+- * is being flashed.
+- * BE3 chips with asic-rev B0 must be flashed only with BE3R_UFI type.
+- * Skyhawk chips with asic-rev P2 must be flashed only with SH_P2_UFI type.
+- */
+-static bool be_check_ufi_compatibility(struct be_adapter *adapter,
+-				       struct flash_file_hdr_g3 *fhdr)
+-{
+-	int ufi_type = be_get_ufi_type(adapter, fhdr);
+-
+-	switch (ufi_type) {
+-	case SH_P2_UFI:
+-		return skyhawk_chip(adapter);
+-	case SH_UFI:
+-		return (skyhawk_chip(adapter) &&
+-			adapter->asic_rev < ASIC_REV_P2);
+-	case BE3R_UFI:
+-		return BE3_chip(adapter);
+-	case BE3_UFI:
+-		return (BE3_chip(adapter) && adapter->asic_rev < ASIC_REV_B0);
+-	case BE2_UFI:
+-		return BE2_chip(adapter);
++		if (!BE2_chip(adapter))
++			return false;
++		break;
+ 	default:
+ 		return false;
+ 	}
++
++	return (fhdr->asic_type_rev >= adapter->asic_rev);
+ }
+ 
+ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
 -- 
 2.2.0
