@@ -1,46 +1,279 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next] net: sched: run ingress qdisc without locks
-Date: Sun, 03 May 2015 22:12:43 -0700
-Message-ID: <5546FFCB.50903@plumgrid.com>
-References: <1430544448-19777-1-git-send-email-ast@plumgrid.com> <20150503174208.5b1548ba@redhat.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] tcp: provide SYN headers for passive connections
+Date: Mon, 4 May 2015 08:47:47 +0200
+Message-ID: <CAKgNAkiUOkjsE96E1DN_zwJAjJGLWME7-XGnFDszic7p7C=g7g@mail.gmail.com>
+References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
+ <1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CALx6S34ftz_wDoPwcJg_cMQu4QtnBJF-=d+gF5ieTA=d=r31-Q@mail.gmail.com>
+ <20150501201417.GB6113@akamai.com> <1430511800.3711.138.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150501202908.GC6113@akamai.com> <1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:34274 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750790AbbEDFMj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 01:12:39 -0400
-Received: by iget9 with SMTP id t9so60114004ige.1
-        for <netdev@vger.kernel.org>; Sun, 03 May 2015 22:12:38 -0700 (PDT)
-In-Reply-To: <20150503174208.5b1548ba@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>,
+	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1430714086.3711.165.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 5/3/15 8:42 AM, Jesper Dangaard Brouer wrote:
->
-> I was actually expecting to see a higher performance boost.
- > improvement diff     = -2.85 ns
-...
-> The patch is removing two atomic operations, spin_{un,}lock, which I
-> have benchmarked[1] to cost approx 14ns on my system.  Your system
-> likely is faster, but not that much (p.s. benchmark your own system
-> with [1])
->
-> [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/time_bench_sample.c
+Eric,
 
-have tried you tight loop spin_lock test on my box and it showed:
-time_bench: Type:spin_lock_unlock Per elem: 40 cycles(tsc) 11.070 ns
-and yet the total single cpu gain from removal of spin_lock/unlock
-in ingress path is smaller than 11ns. I think this observation is
-telling us that tight loop benchmarking is inherently flawed.
-I'm guessing that uops that cmpxchg is broken into can execute in
-parallel with uops of other insns, so tight loops of the same sequence
-of uops has more alu dependencies whereas in more normal insn flow
-these uops can mix and match better. Would be great if intel microarch
-experts can chime in.
+On 4 May 2015 at 06:34, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> From: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+>
+> This patch allows a server application to get the TCP SYN headers for
+> its passive connections.  This is useful if the server is doing
+> fingerprinting of clients based on SYN packet contents.
+>
+> Two socket options are added: TCP_SAVE_SYN and TCP_SAVED_SYN.
+>
+> The first is used on a socket to enable saving the SYN headers
+> for child connections. This can be set before or after the listen()
+> call.
+>
+> The latter is used to retrieve the SYN headers for passive connections,
+> if the parent listener has enabled TCP_SAVE_SYN.
+>
+> TCP_SAVED_SYN is read once, it frees the saved SYN headers.
+>
+> The data returned in TCP_SAVED_SYN are network (IPv4/IPv6) and TCP
+> headers.
+
+This description is a little thin, so I'm unclear on one or two
+points. TCP_SAVE_SYN is clearly applied to the listening socket. But
+what about TCP_SAVED_SYN? Is that applied to the connected socket
+returned by accept()?
+
+The highly similar naming of these two seems unfortunate. At the very
+least, it makes for easy confusion in conversations about the two
+options. It would be better to have names that were more distinct.
+Perhaps the latter could be TCP_CONN_SYN or TCP_CONN_SAVED_SYN, for
+example?
+
+Thanks,
+
+Michael
+
+> Original patch was written by Tom Herbert, I changed it to not hold
+> a full skb (and associated dst and conntracking reference).
+>
+> We have used such patch for about 3 years at Google.
+>
+> Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> ---
+>  include/linux/tcp.h        |    8 ++++++++
+>  include/net/request_sock.h |    4 +++-
+>  include/uapi/linux/tcp.h   |    2 ++
+>  net/ipv4/tcp.c             |   35 +++++++++++++++++++++++++++++++++++
+>  net/ipv4/tcp_input.c       |   18 ++++++++++++++++++
+>  net/ipv4/tcp_ipv4.c        |    1 +
+>  net/ipv4/tcp_minisocks.c   |    3 +++
+>  7 files changed, 70 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 3b2911502a8c..e6fb5df22db1 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -199,6 +199,7 @@ struct tcp_sock {
+>                 syn_fastopen:1, /* SYN includes Fast Open option */
+>                 syn_fastopen_exp:1,/* SYN includes Fast Open exp. option */
+>                 syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
+> +               save_syn:1,     /* Save headers of SYN packet */
+>                 is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
+>         u32     tlp_high_seq;   /* snd_nxt at the time of TLP retransmit. */
+>
+> @@ -326,6 +327,7 @@ struct tcp_sock {
+>          * socket. Used to retransmit SYNACKs etc.
+>          */
+>         struct request_sock *fastopen_rsk;
+> +       u32     *saved_syn;
+>  };
+>
+>  enum tsq_flags {
+> @@ -393,4 +395,10 @@ static inline int fastopen_init_queue(struct sock *sk, int backlog)
+>         return 0;
+>  }
+>
+> +static inline void tcp_saved_syn_free(struct tcp_sock *tp)
+> +{
+> +       kfree(tp->saved_syn);
+> +       tp->saved_syn = NULL;
+> +}
+> +
+>  #endif /* _LINUX_TCP_H */
+> diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+> index 9f4265ce8892..87935cad2f7b 100644
+> --- a/include/net/request_sock.h
+> +++ b/include/net/request_sock.h
+> @@ -64,6 +64,7 @@ struct request_sock {
+>         struct timer_list               rsk_timer;
+>         const struct request_sock_ops   *rsk_ops;
+>         struct sock                     *sk;
+> +       u32                             *saved_syn;
+>         u32                             secid;
+>         u32                             peer_secid;
+>  };
+> @@ -77,7 +78,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener)
+>                 req->rsk_ops = ops;
+>                 sock_hold(sk_listener);
+>                 req->rsk_listener = sk_listener;
+> -
+> +               req->saved_syn = NULL;
+>                 /* Following is temporary. It is coupled with debugging
+>                  * helpers in reqsk_put() & reqsk_free()
+>                  */
+> @@ -104,6 +105,7 @@ static inline void reqsk_free(struct request_sock *req)
+>         req->rsk_ops->destructor(req);
+>         if (req->rsk_listener)
+>                 sock_put(req->rsk_listener);
+> +       kfree(req->saved_syn);
+>         kmem_cache_free(req->rsk_ops->slab, req);
+>  }
+>
+> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+> index faa72f4fa547..51ebedba577f 100644
+> --- a/include/uapi/linux/tcp.h
+> +++ b/include/uapi/linux/tcp.h
+> @@ -113,6 +113,8 @@ enum {
+>  #define TCP_TIMESTAMP          24
+>  #define TCP_NOTSENT_LOWAT      25      /* limit number of unsent bytes in write queue */
+>  #define TCP_CC_INFO            26      /* Get Congestion Control (optional) info */
+> +#define TCP_SAVE_SYN           27      /* Record SYN headers for new connections */
+> +#define TCP_SAVED_SYN          28      /* Get SYN headers recorded for connection */
+>
+>  struct tcp_repair_opt {
+>         __u32   opt_code;
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 46efa03d2b11..ecccfdc50d76 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2482,6 +2482,13 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>                         icsk->icsk_syn_retries = val;
+>                 break;
+>
+> +       case TCP_SAVE_SYN:
+> +               if (val < 0 || val > 1)
+> +                       err = -EINVAL;
+> +               else
+> +                       tp->save_syn = val;
+> +               break;
+> +
+>         case TCP_LINGER2:
+>                 if (val < 0)
+>                         tp->linger2 = -1;
+> @@ -2818,6 +2825,34 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+>         case TCP_NOTSENT_LOWAT:
+>                 val = tp->notsent_lowat;
+>                 break;
+> +       case TCP_SAVE_SYN:
+> +               val = tp->save_syn;
+> +               break;
+> +       case TCP_SAVED_SYN: {
+> +               if (get_user(len, optlen))
+> +                       return -EFAULT;
+> +
+> +               lock_sock(sk);
+> +               if (tp->saved_syn) {
+> +                       len = min_t(unsigned int, tp->saved_syn[0], len);
+> +                       if (put_user(len, optlen)) {
+> +                               release_sock(sk);
+> +                               return -EFAULT;
+> +                       }
+> +                       if (copy_to_user(optval, tp->saved_syn + 1, len)) {
+> +                               release_sock(sk);
+> +                               return -EFAULT;
+> +                       }
+> +                       tcp_saved_syn_free(tp);
+> +                       release_sock(sk);
+> +               } else {
+> +                       release_sock(sk);
+> +                       len = 0;
+> +                       if (put_user(len, optlen))
+> +                               return -EFAULT;
+> +               }
+> +               return 0;
+> +       }
+>         default:
+>                 return -ENOPROTOOPT;
+>         }
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 09bdc4abfcbb..df2ca615cd0c 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -6060,6 +6060,23 @@ static bool tcp_syn_flood_action(struct sock *sk,
+>         return want_cookie;
+>  }
+>
+> +static void tcp_reqsk_record_syn(const struct sock *sk,
+> +                                struct request_sock *req,
+> +                                const struct sk_buff *skb)
+> +{
+> +       if (tcp_sk(sk)->save_syn) {
+> +               u32 len = skb_network_header_len(skb) + tcp_hdrlen(skb);
+> +               u32 *copy;
+> +
+> +               copy = kmalloc(len + sizeof(u32), GFP_ATOMIC);
+> +               if (copy) {
+> +                       copy[0] = len;
+> +                       memcpy(&copy[1], skb_network_header(skb), len);
+> +                       req->saved_syn = copy;
+> +               }
+> +       }
+> +}
+> +
+>  int tcp_conn_request(struct request_sock_ops *rsk_ops,
+>                      const struct tcp_request_sock_ops *af_ops,
+>                      struct sock *sk, struct sk_buff *skb)
+> @@ -6192,6 +6209,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+>                 tcp_rsk(req)->tfo_listener = false;
+>                 af_ops->queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
+>         }
+> +       tcp_reqsk_record_syn(sk, req, skb);
+>
+>         return 0;
+>
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index fc1c658ec6c1..91cb4768a860 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -1802,6 +1802,7 @@ void tcp_v4_destroy_sock(struct sock *sk)
+>
+>         /* If socket is aborted during connect operation */
+>         tcp_free_fastopen_req(tp);
+> +       tcp_saved_syn_free(tp);
+>
+>         sk_sockets_allocated_dec(sk);
+>         sock_release_memcg(sk);
+> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+> index e5d7649136fc..ebe2ab2596ed 100644
+> --- a/net/ipv4/tcp_minisocks.c
+> +++ b/net/ipv4/tcp_minisocks.c
+> @@ -536,6 +536,9 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
+>                 newtp->fastopen_rsk = NULL;
+>                 newtp->syn_data_acked = 0;
+>
+> +               newtp->saved_syn = req->saved_syn;
+> +               req->saved_syn = NULL;
+> +
+>                 TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_PASSIVEOPENS);
+>         }
+>         return newsk;
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-api" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
