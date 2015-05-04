@@ -1,49 +1,34 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 0/4] Netfilter ingress support (v3)
-Date: Mon, 4 May 2015 08:56:40 -0700
-Message-ID: <20150504155639.GA14367@Alexeis-MBP.westell.com>
-References: <1430736649-3546-1-git-send-email-pablo@netfilter.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 01/10] be2net: add support for spoofchk setting
+Date: Mon, 04 May 2015 11:58:59 -0400 (EDT)
+Message-ID: <20150504.115859.519940284663048316.davem@davemloft.net>
+References: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
+	<1430722042-26449-2-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, kaber@trash.net, jhs@mojatatu.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1430736649-3546-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36386 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750707AbbEDP7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 11:59:05 -0400
+In-Reply-To: <1430722042-26449-2-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 04, 2015 at 12:50:45PM +0200, Pablo Neira Ayuso wrote:
-> Hi,
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Mon,  4 May 2015 02:47:13 -0400
+
+> From: Kalesh AP <kalesh.purayil@emulex.com>
 > 
-> Another round of the patchset to add Netfilter ingress support. This new
-> patchset introduces the necessary updates in 2 steps:
+> This patch adds support for spoofchk configuration for VFs.
+> When it is enabled, "spoof checking" is done for both MAC-address and VLAN.
+> This feature is supported in Skyhawk FW version 10.6.31.0 and above.
 > 
-> 1) Add minismalistic ingress hook infrastructure that allows to register one
->    client at a time, so you hit -EBUSY in case the hook is in use. Basically,
->    we have a function pointer that is rcu-protected to invoke the corresponding
->    filter framework which has minimal performance impact in the critical ingress
->    path and avoid more pollution in it. This patch also ports the ingress qdisc
->    on top of this.
-...
-> In summary, this provides the facility to keep both tc and netfilter in place,
-> while the user can select what they prefer to filter from ingress.
+> Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
-wow, I have to say I'm impressed. That's the most genius way to
-really kill TC.
-Patch 1 looks good, patch 2,3,4 are nicely building on top...
-until somebody starts asking how patch 5 will look.
-In the future netfilter ingress module will be loaded along with
-other iptables modules just like conntrack is today and users
-who would want to use ingress tc would have to _unload_
-netfilter_ingress module, but if it has interesting dependencies
-it may mean to unload iptables and the rest.
-So at the end the users will have a binary choice either to use
-iptables/nft or use tc, because they won't be able to co-exist
-because ingress_hook is the only one.
-I don't understand this 'tc hate'. Why go out of the way to
-make TC more difficult to use ?
-Just add _new_ hook for netfilter ingress and both subsystems
-can happily co-exist.
-
+You're going to have to explain exactly what the spoof checking facility
+of the card actually does.
