@@ -1,55 +1,51 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [RFC v1 07/11] net/mlx4: Cache irq_desc->affinity instead of irq_desc
-Date: Mon, 4 May 2015 15:10:10 +0300
-Message-ID: <CAPcc5Ph4pk+4aL-PduvF67YU-A+vn2bfx6v3mr-tbY58zs7sZw@mail.gmail.com>
-References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>
-	<1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] staging: adm8211: fix checkpatch error for trailing statements on next line
+Date: Mon, 04 May 2015 15:42:04 +0300
+Message-ID: <87lhh4wm3n.fsf@kamboji.qca.qualcomm.com>
+References: <20150503104231.GA3607@bytefire-computer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Yinghai Lu <yinghai@kernel.org>,
-	Borislav Petkov <bp@alien8.de>,
-	Amir Vadai <amirv@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-pci@vger.kern
-To: Jiang Liu <jiang.liu@linux.intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Okash Khawaja <okash.khawaja@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150503104231.GA3607@bytefire-computer> (Okash Khawaja's
+	message of "Sun, 3 May 2015 11:42:31 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 4, 2015 at 6:15 AM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
-> The field 'affinity' in irq_desc won't change once the irq_desc data
-> structure is created. So cache irq_desc->affinity instead of irq_desc.
-> This also helps to hide struct irq_desc from device drivers.
+Okash Khawaja <okash.khawaja@gmail.com> writes:
 
-Hi Jiang,
+> This patch fixes the checkpatch.pl error:
+>
+> ERROR: trailing statements should be on next line
+>
+> More specifically, the fix has been applied to the four occurances of the error listed below.
+>
+> ERROR: trailing statements should be on next line
+> #1101: FILE: drivers/net/wireless/adm8211.c:1101:
+> +               case  0x8: reg |= (0x1 << 14);
+>
+> ERROR: trailing statements should be on next line
+> #1103: FILE: drivers/net/wireless/adm8211.c:1103:
+> +               case 0x16: reg |= (0x2 << 14);
+>
+> ERROR: trailing statements should be on next line
+> #1105: FILE: drivers/net/wireless/adm8211.c:1105:
+> +               case 0x32: reg |= (0x3 << 14);
+>
+> ERROR: trailing statements should be on next line
+> #1107: FILE: drivers/net/wireless/adm8211.c:1107:
+> +                 default: reg |= (0x0 << 14);
+>
+> Signed-off-by: Okash Khawaja <okash.khawaja@gmail.com>
+> ---
+>  drivers/net/wireless/adm8211.c | 20 ++++++++++++--------
+>  1 file changed, 12 insertions(+), 8 deletions(-)
 
-I might not understand the new changes irq core, but up until now
-affinity was changed when the user changed it through
-/proc/irq/<IRQ>/smp_affinity.
-This code is monitoring the affinity from the napi_poll context to
-detect affinity changes, and prevent napi from keep running on the
-wrong CPU.
-Therefore, the affinity can't be cached at the beginning. Please
-revert this caching.
+The patch has incorrectly "staging:" prefix in the title, please fix
+that. "adm8211:" is enough, you don't need anything for drivers in
+drivers/net/wireless.
 
-Thanks,
-Amir
+-- 
+Kalle Valo
