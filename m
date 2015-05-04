@@ -1,65 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Suspicious RCU usage in bridge with Linux
- v4.0-9362-g1fc149933fd4
-Date: Mon, 4 May 2015 13:27:14 -0700
-Message-ID: <20150504132714.55dca5b0@urahara>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
-	<20150504133943.GA17043@x131e>
-	<CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH net-next 0/8] Convert some skb_<foo> functions to
+ void
+Date: Mon, 04 May 2015 13:32:30 -0700
+Message-ID: <1430771550.2872.7.camel@perches.com>
+References: <cover.1430769294.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Dominick Grift <dac.override@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:36256 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751513AbbEDU1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 16:27:11 -0400
-Received: by pdea3 with SMTP id a3so172951819pde.3
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 13:27:10 -0700 (PDT)
-In-Reply-To: <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
+Received: from smtprelay0086.hostedemail.com ([216.40.44.86]:48376 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751036AbbEDUcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 16:32:33 -0400
+Received: from filter.hostedemail.com (unknown [216.40.38.60])
+	by smtprelay05.hostedemail.com (Postfix) with ESMTP id 88E30269195
+	for <netdev@vger.kernel.org>; Mon,  4 May 2015 20:32:32 +0000 (UTC)
+Received: from joe-X200MA.home (pool-173-51-221-2.lsanca.fios.verizon.net [173.51.221.2])
+	(Authenticated sender: joe@perches.com)
+	by omf02.hostedemail.com (Postfix) with ESMTPA
+	for <netdev@vger.kernel.org>; Mon,  4 May 2015 20:32:31 +0000 (UTC)
+In-Reply-To: <cover.1430769294.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 4 May 2015 11:45:41 -0700
-Cong Wang <cwang@twopensource.com> wrote:
-
-> On Mon, May 4, 2015 at 6:39 AM, Dominick Grift <dac.override@gmail.com> wrote:
-> > On Thu, Apr 23, 2015 at 01:07:45PM -0400, Josh Boyer wrote:
-> >> Hi All,
-> >>
-> >> We've had a user report the following backtrace from the bridge module
-> >> with a recent Linus' tree.  Has anything like this been reported yet?
-> >> If you have any questions on setup, the user is CC'd.
-> >>
-> >> josh
-> >>
-> >> [   29.382235] br0: port 1(tap0) entered forwarding state
-> >>
-> >> [   29.382286] ===============================
-> >> [   29.382315] [ INFO: suspicious RCU usage. ]
-> >> [   29.382344] 4.1.0-0.rc0.git11.1.fc23.x86_64 #1 Not tainted
-> >> [   29.382380] -------------------------------
-> >> [   29.382409] net/bridge/br_private.h:626 suspicious
-> >> rcu_dereference_check() usage!
-> >
-> > <snip>
-> >
-> > With 4.1.0-0.rc1.git1.1.fc23.x86_64 the situation seems to have slightly changed:
-> >
+On Mon, 2015-05-04 at 13:05 -0700, Joe Perches wrote:
+> unsigned char * return values are sometimes awkward to work with.
+> Changing the return to void * is sometimes clearer.
 > 
-> Should be the same issue. Please give the attached patch a try,
-> it is compile-tested only.
-> 
-> Thanks!
+> The only uses of the return type is to do sets like
+>     *skb_puts(skb, 1) = char;
+>     
+> Adding another function specifically for that purpose allows the return
+> type to become void.
 
-Good analysis in identifying the issue. But the proposed patch
-doesn't seem right.
+Obviously, this shouldn't be applied as-is.
 
-The br->lock protects against changes to the bridge port state.
-vlan_info should be treated as part of the bridge state.
+It spans too many subsystems and can be done
+more incrementally.
 
-The correct fix is to get vlan_info out of depending on RTNL
-and use br->lock to control modifications.
+Also, there are some missing conversions so
+this won't compile properly (sorry 'bout that)
+
+These will also need conversions:
+
+drivers/isdn/i4l/isdn_ppp.c:1311:       *skb_push(skb, 4) = 1; /* indicate outbound */
+drivers/net/ppp/ppp_generic.c:1208:             *skb_push(skb, 2) = 1;
+drivers/net/ppp/ppp_generic.c:1843:                     *skb_push(skb, 2) = 0;
+drivers/nfc/pn533.c:2601:                               *skb_push(frag, sizeof(u8)) =
+drivers/nfc/pn533.c:2604:                               *skb_push(frag, sizeof(u8)) =  1; /* TG */
+drivers/nfc/pn533.c:2671:                       *skb_push(skb, sizeof(u8)) =  1; /* TG */
+net/nfc/digital_dep.c:152:              *skb_push(skb, sizeof(u8)) = DIGITAL_NFC_DEP_NFCA_SOD_SB;
+net/nfc/digital_technology.c:1164:      *skb_push(skb, sizeof(u8)) = size + 1;
+net/nfc/rawsock.c:145:  *skb_push(skb, NFC_HEADER_SIZE) = 0;
+
+The isdn and ppp_generic uses maybe should be
+2 lines each for a little better clarity.
