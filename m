@@ -1,41 +1,30 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH RESEND iproute2] ip link set vf: Added "query_rss"
- command
-Date: Mon, 4 May 2015 09:08:43 -0700
-Message-ID: <20150504090843.33dd82a1@urahara>
-References: <1430390803-17959-1-git-send-email-vladz@cloudius-systems.com>
+Subject: Re: [PATCHv3 net-next 1/2] bridge: multicast: call
+ skb_checksum_{simple_, }validate
+Date: Mon, 4 May 2015 09:10:31 -0700
+Message-ID: <20150504091031.1ff55398@urahara>
+References: <1430568067-6912-1-git-send-email-linus.luessing@c0d3.blue>
+	<1430568067-6912-2-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com
-To: Vlad Zolotarov <vladz@cloudius-systems.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:35735 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751751AbbEDQIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 12:08:39 -0400
-Received: by pdbqd1 with SMTP id qd1so166975453pdb.2
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 09:08:39 -0700 (PDT)
-In-Reply-To: <1430390803-17959-1-git-send-email-vladz@cloudius-systems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Tom Herbert <tom@herbertland.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Linus =?UTF-8?B?TMO8c3Npbmc=?= <linus.luessing@c0d3.blue>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430568067-6912-2-git-send-email-linus.luessing@c0d3.blue>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Apr 2015 13:46:43 +0300
-Vlad Zolotarov <vladz@cloudius-systems.com> wrote:
+On Sat,  2 May 2015 14:01:06 +0200
+Linus L=C3=BCssing <linus.luessing@c0d3.blue> wrote:
 
-> Add a new option to toggle the ability of querying the RSS configuration of a specific VF.
-> 
-> VF RSS information like RSS hash key may be considered sensitive on some devices where
-> this information is shared between VF and PF and thus its querying may be prohibited by default.
-> 
-> This new option allows a system administrator with privileges to modify a PF state
-> to control if the above VF querying is allowed or not.
-> 
-> For example:
->  To enable RSS querying of VF[0] of ethX:
->  >> ip link set dev ethX vf 0 query_rss on
-> 
-> Signed-off-by: Vlad Zolotarov <vladz@cloudius-systems.com>
+> Let's use these new, neat helpers.
+>=20
+> Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
 
-Applied
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
