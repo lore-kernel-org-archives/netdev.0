@@ -1,193 +1,88 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 6/8] ixgbe: Fix IOSF SB access issues
-Date: Mon,  4 May 2015 02:40:25 -0700
-Message-ID: <1430732427-29984-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 1/8] igb: simplify and clean up igb_enable_mas()
+Date: Mon,  4 May 2015 02:40:20 -0700
+Message-ID: <1430732427-29984-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1430732427-29984-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:53718 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751871AbbEDJku (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 May 2015 05:40:50 -0400
+	id S1751463AbbEDJkt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 May 2015 05:40:49 -0400
 In-Reply-To: <1430732427-29984-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Todd Fujinaka <todd.fujinaka@intel.com>
 
-IOSF is the Intel On-chip System Fabric used in SOCs. IOSF SB is
-the IOSF SideBand message interface. This patch serializes IOSF SB
-access using both phy bits in the SWFW_SEMAPHORE register. It also
-adds a helper function to wait for IOSF SB accesses to complete.
-Use the new function to perform this wait before each access, as
-specified in the datasheet, in addition to using it to wait for
-IOSF SB read/write completion.
+igb_enable_mas() should only be called for the 82575 and has no clear
+return so changing it to void. Also simplify the odd conditional
+expression.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 102 ++++++++++++++++----------
- 1 file changed, 65 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 27 +++++++--------------------
+ 1 file changed, 7 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index cf5cf81..58ab7d9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -103,6 +103,39 @@ static s32 ixgbe_init_eeprom_params_X550(struct ixgbe_hw *hw)
- 	return 0;
- }
- 
-+/**
-+ * ixgbe_iosf_wait - Wait for IOSF command completion
-+ * @hw: pointer to hardware structure
-+ * @ctrl: pointer to location to receive final IOSF control value
-+ *
-+ * Return: failing status on timeout
-+ *
-+ * Note: ctrl can be NULL if the IOSF control register value is not needed
-+ */
-+static s32 ixgbe_iosf_wait(struct ixgbe_hw *hw, u32 *ctrl)
-+{
-+	u32 i, command;
-+
-+	/* Check every 10 usec to see if the address cycle completed.
-+	 * The SB IOSF BUSY bit will clear when the operation is
-+	 * complete.
-+	 */
-+	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
-+		command = IXGBE_READ_REG(hw, IXGBE_SB_IOSF_INDIRECT_CTRL);
-+		if (!(command & IXGBE_SB_IOSF_CTRL_BUSY))
-+			break;
-+		usleep_range(10, 20);
-+	}
-+	if (ctrl)
-+		*ctrl = command;
-+	if (i == IXGBE_MDIO_COMMAND_TIMEOUT) {
-+		hw_dbg(hw, "IOSF wait timed out\n");
-+		return IXGBE_ERR_PHY;
-+	}
-+
-+	return 0;
-+}
-+
- /** ixgbe_read_iosf_sb_reg_x550 - Writes a value to specified register of the
-  *  IOSF device
-  *  @hw: pointer to hardware structure
-@@ -113,7 +146,17 @@ static s32 ixgbe_init_eeprom_params_X550(struct ixgbe_hw *hw)
- static s32 ixgbe_read_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
- 				       u32 device_type, u32 *data)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 8457d03..e636646 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1834,31 +1834,19 @@ void igb_reinit_locked(struct igb_adapter *adapter)
+  *
+  * @adapter: adapter struct
+  **/
+-static s32 igb_enable_mas(struct igb_adapter *adapter)
++static void igb_enable_mas(struct igb_adapter *adapter)
  {
--	u32 i, command, error;
-+	u32 gssr = IXGBE_GSSR_PHY1_SM | IXGBE_GSSR_PHY0_SM;
-+	u32 command, error;
-+	s32 ret;
-+
-+	ret = hw->mac.ops.acquire_swfw_sync(hw, gssr);
-+	if (ret)
-+		return ret;
-+
-+	ret = ixgbe_iosf_wait(hw, NULL);
-+	if (ret)
-+		goto out;
- 
- 	command = ((reg_addr << IXGBE_SB_IOSF_CTRL_ADDR_SHIFT) |
- 		   (device_type << IXGBE_SB_IOSF_CTRL_TARGET_SELECT_SHIFT));
-@@ -121,17 +164,7 @@ static s32 ixgbe_read_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
- 	/* Write IOSF control register */
- 	IXGBE_WRITE_REG(hw, IXGBE_SB_IOSF_INDIRECT_CTRL, command);
- 
--	/* Check every 10 usec to see if the address cycle completed.
--	 * The SB IOSF BUSY bit will clear when the operation is
--	 * complete
--	 */
--	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
--		usleep_range(10, 20);
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 connsw;
+-	s32 ret_val = 0;
 -
--		command = IXGBE_READ_REG(hw, IXGBE_SB_IOSF_INDIRECT_CTRL);
--		if ((command & IXGBE_SB_IOSF_CTRL_BUSY) == 0)
--			break;
--	}
-+	ret = ixgbe_iosf_wait(hw, &command);
+-	connsw = rd32(E1000_CONNSW);
+-	if (!(hw->phy.media_type == e1000_media_type_copper))
+-		return ret_val;
++	u32 connsw = rd32(E1000_CONNSW);
  
- 	if ((command & IXGBE_SB_IOSF_CTRL_RESP_STAT_MASK) != 0) {
- 		error = (command & IXGBE_SB_IOSF_CTRL_CMPL_ERR_MASK) >>
-@@ -140,14 +173,12 @@ static s32 ixgbe_read_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
- 		return IXGBE_ERR_PHY;
+ 	/* configure for SerDes media detect */
+-	if (!(connsw & E1000_CONNSW_SERDESD)) {
++	if ((hw->phy.media_type == e1000_media_type_copper) &&
++	    (!(connsw & E1000_CONNSW_SERDESD))) {
+ 		connsw |= E1000_CONNSW_ENRGSRC;
+ 		connsw |= E1000_CONNSW_AUTOSENSE_EN;
+ 		wr32(E1000_CONNSW, connsw);
+ 		wrfl();
+-	} else if (connsw & E1000_CONNSW_SERDESD) {
+-		/* already SerDes, no need to enable anything */
+-		return ret_val;
+-	} else {
+-		netdev_info(adapter->netdev,
+-			"MAS: Unable to configure feature, disabling..\n");
+-		adapter->flags &= ~IGB_FLAG_MAS_ENABLE;
  	}
- 
--	if (i == IXGBE_MDIO_COMMAND_TIMEOUT) {
--		hw_dbg(hw, "Read timed out\n");
--		return IXGBE_ERR_PHY;
--	}
--
--	*data = IXGBE_READ_REG(hw, IXGBE_SB_IOSF_INDIRECT_DATA);
-+	if (!ret)
-+		*data = IXGBE_READ_REG(hw, IXGBE_SB_IOSF_INDIRECT_DATA);
- 
--	return 0;
-+out:
-+	hw->mac.ops.release_swfw_sync(hw, gssr);
-+	return ret;
+-	return ret_val;
  }
  
- /** ixgbe_read_ee_hostif_data_X550 - Read EEPROM word using a host interface
-@@ -789,7 +820,17 @@ static s32 ixgbe_get_link_capabilities_X550em(struct ixgbe_hw *hw,
- static s32 ixgbe_write_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
- 					u32 device_type, u32 data)
- {
--	u32 i, command, error;
-+	u32 gssr = IXGBE_GSSR_PHY1_SM | IXGBE_GSSR_PHY0_SM;
-+	u32 command, error;
-+	s32 ret;
-+
-+	ret = hw->mac.ops.acquire_swfw_sync(hw, gssr);
-+	if (ret)
-+		return ret;
-+
-+	ret = ixgbe_iosf_wait(hw, NULL);
-+	if (ret)
-+		goto out;
- 
- 	command = ((reg_addr << IXGBE_SB_IOSF_CTRL_ADDR_SHIFT) |
- 		   (device_type << IXGBE_SB_IOSF_CTRL_TARGET_SELECT_SHIFT));
-@@ -800,17 +841,7 @@ static s32 ixgbe_write_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
- 	/* Write IOSF data register */
- 	IXGBE_WRITE_REG(hw, IXGBE_SB_IOSF_INDIRECT_DATA, data);
- 
--	/* Check every 10 usec to see if the address cycle completed.
--	 * The SB IOSF BUSY bit will clear when the operation is
--	 * complete
--	 */
--	for (i = 0; i < IXGBE_MDIO_COMMAND_TIMEOUT; i++) {
--		usleep_range(10, 20);
--
--		command = IXGBE_READ_REG(hw, IXGBE_SB_IOSF_INDIRECT_CTRL);
--		if ((command & IXGBE_SB_IOSF_CTRL_BUSY) == 0)
--			break;
--	}
-+	ret = ixgbe_iosf_wait(hw, &command);
- 
- 	if ((command & IXGBE_SB_IOSF_CTRL_RESP_STAT_MASK) != 0) {
- 		error = (command & IXGBE_SB_IOSF_CTRL_CMPL_ERR_MASK) >>
-@@ -819,12 +850,9 @@ static s32 ixgbe_write_iosf_sb_reg_x550(struct ixgbe_hw *hw, u32 reg_addr,
- 		return IXGBE_ERR_PHY;
+ void igb_reset(struct igb_adapter *adapter)
+@@ -1978,10 +1966,9 @@ void igb_reset(struct igb_adapter *adapter)
+ 		adapter->ei.get_invariants(hw);
+ 		adapter->flags &= ~IGB_FLAG_MEDIA_RESET;
  	}
- 
--	if (i == IXGBE_MDIO_COMMAND_TIMEOUT) {
--		hw_dbg(hw, "Write timed out\n");
--		return IXGBE_ERR_PHY;
--	}
--
--	return 0;
-+out:
-+	hw->mac.ops.release_swfw_sync(hw, gssr);
-+	return ret;
- }
- 
- /** ixgbe_setup_ixfi_x550em - Configure the KR PHY for iXFI mode.
+-	if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
+-		if (igb_enable_mas(adapter))
+-			dev_err(&pdev->dev,
+-				"Error enabling Media Auto Sense\n");
++	if ((mac->type == e1000_82575) &&
++	    (adapter->flags & IGB_FLAG_MAS_ENABLE)) {
++		igb_enable_mas(adapter);
+ 	}
+ 	if (hw->mac.ops.init_hw(hw))
+ 		dev_err(&pdev->dev, "Hardware Error\n");
 -- 
 2.1.0
