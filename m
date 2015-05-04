@@ -1,58 +1,40 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 5/5] tipc: deal with return value
-	of tipc_conn_new callback
-Date: Mon, 4 May 2015 10:36:48 +0800
-Message-ID: <1430707008-11141-6-git-send-email-ying.xue@windriver.com>
-References: <1430707008-11141-1-git-send-email-ying.xue@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] A few minor clean-ups to eth_type_trans
+Date: Sun, 03 May 2015 22:47:59 -0400 (EDT)
+Message-ID: <20150503.224759.147226254654842153.davem@davemloft.net>
+References: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net, netdev@vger.kernel.org
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1430707008-11141-1-git-send-email-ying.xue@windriver.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: alexander.h.duyck@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58851 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751640AbbEDCsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 May 2015 22:48:03 -0400
+In-Reply-To: <20150430214917.1798.49769.stgit@ahduyck-vm-fedora22>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Once tipc_conn_new() returns NULL, the connection should be shut
-down immediately, otherwise, oops may happen due to the NULL pointer.
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Thu, 30 Apr 2015 14:53:42 -0700
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericson.com>
----
- net/tipc/server.c |    4 ++++
- 1 file changed, 4 insertions(+)
+> This series addresses a few minor issues I found in eth_type_trans that
+> that allow us to gain back something like 3 or more cycles per packet.  
+> 
+> The first change is to drop the byte swap since it isn't necessary.  On x86
+> we could just check the first byte and compare that against the upper 8
+> bits of the Ethertype to determine if we are dealing with a size value or
+> not.
+> 
+> The second makes it so that the value we read in to test for multicast can
+> be used for the address comparison.  This allows us to avoid a second read
+> of the destination address.
+> 
+> The final change is to avoid some unneeded instructions in computing the
+> Ethernet header pointer.  When we start the call the Ethernet header is at
+> skb->data, so we just use that rather than computing mac_header, and then
+> adding that back to skb->head.
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index 77ff03e..a91a2f7 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -309,6 +309,10 @@ static int tipc_accept_from_sock(struct tipc_conn *con)
- 
- 	/* Notify that new connection is incoming */
- 	newcon->usr_data = s->tipc_conn_new(newcon->conid);
-+	if (!newcon->usr_data) {
-+		sock_release(newsock);
-+		return -ENOMEM;
-+	}
- 
- 	/* Wake up receive process in case of 'SYN+' message */
- 	newsock->sk->sk_data_ready(newsock->sk);
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-One dashboard for servers and applications across Physical-Virtual-Cloud 
-Widest out-of-the-box monitoring support with 50+ applications
-Performance metrics, stats and reports that give you Actionable Insights
-Deep dive visibility with transaction tracing using APM Insight.
-http://ad.doubleclick.net/ddm/clk/290420510;117567292;y
+Series applied, thanks Alex.
