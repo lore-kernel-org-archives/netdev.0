@@ -1,33 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 -master] tc: {m,f}_ebpf: add option for dumping
- verifier log
-Date: Mon, 4 May 2015 08:46:46 -0700
-Message-ID: <20150504084646.683d8efd@urahara>
-References: <b312101ba95af54ffd2f4c56694c0b44ccbfa051.1430220466.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: David Ahern <david.ahern@oracle.com>
+Subject: [PATCH] net/rds: Fix new sparse warning
+Date: Mon,  4 May 2015 11:51:38 -0400
+Message-ID: <1430754698-247482-1-git-send-email-david.ahern@oracle.com>
+Cc: David Ahern <david.ahern@oracle.com>,
+	shamir rabinovitch <shamir.rabinovitch@oracle.com>
+To: rds-devel@oss.oracle.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34849 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751021AbbEDPqm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 11:46:42 -0400
-Received: by pabtp1 with SMTP id tp1so163988287pab.2
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 08:46:42 -0700 (PDT)
-In-Reply-To: <b312101ba95af54ffd2f4c56694c0b44ccbfa051.1430220466.git.daniel@iogearbox.net>
+Received: from userp1040.oracle.com ([156.151.31.81]:48915 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbbEDPvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 11:51:47 -0400
+Received: from userv0022.oracle.com (userv0022.oracle.com [156.151.31.74])
+	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id t44FplcS011234
+	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 4 May 2015 15:51:47 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Apr 2015 13:37:42 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+c0adf54a109 introduced new sparse warnings:
+  CHECK   /home/dahern/kernels/linux.git/net/rds/ib_cm.c
+net/rds/ib_cm.c:191:34: warning: incorrect type in initializer (different base types)
+net/rds/ib_cm.c:191:34:    expected unsigned long long [unsigned] [usertype] dp_ack_seq
+net/rds/ib_cm.c:191:34:    got restricted __be64 <noident>
+net/rds/ib_cm.c:194:51: warning: cast to restricted __be64
 
-> Currently, only on error we get a log dump, but I found it useful when
-> working with eBPF to have an option to also dump the log on success.
-> Also spotted a typo in a header comment, which is fixed here as well.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
+The temporary variable for sequence number should have been declared as __be64
+rather than u64. Make it so.
 
-Applied thanks
+Signed-off-by: David Ahern <david.ahern@oracle.com>
+Cc: shamir rabinovitch <shamir.rabinovitch@oracle.com>
+---
+ net/rds/ib_cm.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 29144a6..8a09ee7 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -188,7 +188,7 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
+ 		 * Since dp_ack_seq is 64-bit extended load operations can be
+ 		 * used so go through get_unaligned to avoid unaligned errors.
+ 		 */
+-		u64 dp_ack_seq = get_unaligned(&dp->dp_ack_seq);
++		__be64 dp_ack_seq = get_unaligned(&dp->dp_ack_seq);
+ 
+ 		if (dp_ack_seq)
+ 			rds_send_drop_acked(conn, be64_to_cpu(dp_ack_seq),
+-- 
+1.7.1
