@@ -1,82 +1,71 @@
-From: <kamlakant.patel@broadcom.com>
-Subject: [PATCH] net/smsc911x: fix irq resource allocation failure
-Date: Mon, 4 May 2015 14:39:49 +0530
-Message-ID: <1430730589-17378-1-git-send-email-kamlakant.patel@broadcom.com>
+From: Luis Henriques <luis.henriques-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: Stable request 9374e7d2 "rtlwifi: rtl8192cu: Add new device ID"
+Date: Mon, 4 May 2015 10:19:35 +0100
+Message-ID: <20150504091935.GD1792@ares.olymp>
+References: <1430230954.6036.4@alarsen-lx>
+ <201504281633.17160.marex@denx.de>
+ <553FA5F0.1070402@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kamlakant Patel <kamlakant.patel@broadcom.com>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	"David S . Miller" <davem@davemloft.net>,
-	<linus.walleij@linaro.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:9538 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751871AbbEDJKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 05:10:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Marek Vasut <marex-ynQEQJNshbs@public.gmane.org>,
+	Anders Larsen <al-V9/YLgxv/GvR7s880joybQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <553FA5F0.1070402-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Kamlakant Patel <kamlakant.patel@broadcom.com>
+On Tue, Apr 28, 2015 at 10:23:28AM -0500, Larry Finger wrote:
+> Please note that there are two commits just added to the mainline rep=
+o that
+> should be propagated to all stable kernels. Both are addition of new =
+USB IDs
+> for an old driver, thus they will cause to side effects. Unfortunatel=
+y, the
+> Cc to stable was missed in the first of these, thus the need for this
+> message. The second was Cc for stable, but I include it here for
+> completeness.
+>=20
+> The two commits in question are
+>=20
+> commit 9374e7d2fdcad3c36dafc8d3effd554bc702c4b6
+> Author: Marek Vasut <marex-ynQEQJNshbs@public.gmane.org>
+> Date:   Thu Mar 26 02:16:06 2015 +0100
+>=20
+>     rtlwifi: rtl8192cu: Add new device ID
+>=20
+>     Add new ID for ASUS N10 WiFi dongle.
+>=20
+> commit 2f92b314f4daff2117847ac5343c54d3d041bf78
+> Author: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> Date:   Mon Mar 23 18:14:10 2015 -0500
+>=20
+>     rtlwifi: rtl8192cu: Add new USB ID
+>=20
+>     USB ID 2001:330d is used for a D-Link DWA-131.
+>=20
+>
 
-When smsc911x uses GPIO as the interrupt controller, and if both are
-loaded as modules, we get following error:
+Thank you, Larry.  Queuing both patches for the 3.16 kernel.
 
-"smsc911x: Could not allocate irq resource"
+Cheers,
+--
+Lu=EDs
 
-This issue is because of smsc911x using platform_get_resource to get
-device tree based irq resource.
+> Thanks,
+>=20
+> Larry
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe stable" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-commit "9ec36ca (of/irq: do irq resolution in platform_get_irq)" and
-commit "7085a7 (drivers: platform: parse IRQ flags from resources)" add
-support in platform_get_irq to resolve irq and irq_flags respectively
-for both modern device tree and legacy static platform data platforms.
-
-Modify smsc911x driver to use platform_get_irq to pick up irq resource
-correctly and use irq_get_trigger_type to get the IRQ trigger flags.
-
-Signed-off-by: Kamlakant Patel <kamlakant.patel@broadcom.com>
----
- drivers/net/ethernet/smsc/smsc911x.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 41047c9..959aeea 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -2418,9 +2418,9 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 	struct net_device *dev;
- 	struct smsc911x_data *pdata;
- 	struct smsc911x_platform_config *config = dev_get_platdata(&pdev->dev);
--	struct resource *res, *irq_res;
-+	struct resource *res;
- 	unsigned int intcfg = 0;
--	int res_size, irq_flags;
-+	int res_size, irq, irq_flags;
- 	int retval;
- 
- 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-@@ -2434,8 +2434,8 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 	}
- 	res_size = resource_size(res);
- 
--	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
--	if (!irq_res) {
-+	irq = platform_get_irq(pdev, 0);
-+	if (irq <= 0) {
- 		pr_warn("Could not allocate irq resource\n");
- 		retval = -ENODEV;
- 		goto out_0;
-@@ -2455,8 +2455,8 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
- 	pdata = netdev_priv(dev);
--	dev->irq = irq_res->start;
--	irq_flags = irq_res->flags & IRQF_TRIGGER_MASK;
-+	dev->irq = irq;
-+	irq_flags = irq_get_trigger_type(irq);
- 	pdata->ioaddr = ioremap_nocache(res->start, res_size);
- 
- 	pdata->dev = dev;
--- 
-1.7.1
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
