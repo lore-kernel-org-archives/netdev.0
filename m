@@ -1,125 +1,80 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 07/10] be2net: simplify UFI compatibility checking
-Date: Mon,  4 May 2015 02:47:19 -0400
-Message-ID: <1430722042-26449-8-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 05/10] be2net: don't enable PAUSE by default
+Date: Mon,  4 May 2015 02:47:17 -0400
+Message-ID: <1430722042-26449-6-git-send-email-sathya.perla@emulex.com>
 References: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:63199 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752220AbbEDG7l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 02:59:41 -0400
+	by vger.kernel.org with ESMTP id S1752209AbbEDG7j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 02:59:39 -0400
 In-Reply-To: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasundhara Volam <vasundhara.volam@emulex.com>
+From: Kalesh AP <kalesh.purayil@emulex.com>
 
-The code in be_check_ufi_compatibility() checks to see if a UFI file meant
-for a lower rev of a chip is being flashed on a higher rev, which is
-disallowed. This patch re-writes the code needed for this check in a much
-simpler manner.
+The driver so far, on load, always tried to enable RX/TX general pause.
+This setting always fails on certain profiles (like FCoE) where PFC is
+needed. Such failures cannot be effectively communicated to the stack or
+user. To fix this unpredictability in state, this patch changes the driver
+behavior by not configuring pause at load time.
+The user can configure it via ethtool and if the setting is disallowed,
+an appropriate error is returned.
 
-Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.h |  4 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 56 +++++++++--------------------
- 2 files changed, 16 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |  5 ++++-
+ drivers/net/ethernet/emulex/benet/be_main.c    | 12 ------------
+ 2 files changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 5eccf87..2694033 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1110,10 +1110,6 @@ struct be_cmd_req_query_fw_cfg {
- 	u32 rsvd[31];
- };
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 61321de..8b50021 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -717,7 +717,10 @@ be_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
+ 	status = be_cmd_set_flow_control(adapter, ecmd->tx_pause,
+ 					 ecmd->rx_pause);
+ 	if (status) {
+-		dev_warn(&adapter->pdev->dev, "Pause param set failed\n");
++		dev_warn(&adapter->pdev->dev,
++			 "Failed to set Ethernet flow control parameters\n");
++		if (base_status(status) == MCC_STATUS_FEATURE_NOT_SUPPORTED)
++			return -EOPNOTSUPP;
+ 		return be_cmd_status(status);
+ 	}
  
--/* ASIC revisions */
--#define ASIC_REV_B0		0x10
--#define ASIC_REV_P2		0x11
--
- struct be_cmd_resp_query_fw_cfg {
- 	struct be_cmd_resp_hdr hdr;
- 	u32 be_config_number;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f6a226e..00fbab47 100644
+index b25c509..66749d0 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4762,14 +4762,11 @@ static int lancer_fw_download(struct be_adapter *adapter,
- 	return 0;
- }
+@@ -4248,15 +4248,6 @@ static int be_setup(struct be_adapter *adapter)
  
--#define BE2_UFI		2
--#define BE3_UFI		3
--#define BE3R_UFI	10
--#define SH_UFI		4
--#define SH_P2_UFI	11
--
--static int be_get_ufi_type(struct be_adapter *adapter,
--			   struct flash_file_hdr_g3 *fhdr)
-+/* Check if the flash image file is compatible with the adapter that
-+ * is being flashed.
-+ */
-+static bool be_check_ufi_compatibility(struct be_adapter *adapter,
-+				       struct flash_file_hdr_g3 *fhdr)
- {
- 	if (!fhdr) {
- 		dev_err(&adapter->pdev->dev, "Invalid FW UFI file");
-@@ -4781,43 +4778,22 @@ static int be_get_ufi_type(struct be_adapter *adapter,
- 	 */
- 	switch (fhdr->build[0]) {
- 	case BLD_STR_UFI_TYPE_SH:
--		return (fhdr->asic_type_rev == ASIC_REV_P2) ? SH_P2_UFI :
--								SH_UFI;
-+		if (!skyhawk_chip(adapter))
-+			return false;
-+		break;
- 	case BLD_STR_UFI_TYPE_BE3:
--		return (fhdr->asic_type_rev == ASIC_REV_B0) ? BE3R_UFI :
--								BE3_UFI;
-+		if (!BE3_chip(adapter))
-+			return false;
-+		break;
- 	case BLD_STR_UFI_TYPE_BE2:
--		return BE2_UFI;
--	default:
--		return -1;
--	}
--}
--
--/* Check if the flash image file is compatible with the adapter that
-- * is being flashed.
-- * BE3 chips with asic-rev B0 must be flashed only with BE3R_UFI type.
-- * Skyhawk chips with asic-rev P2 must be flashed only with SH_P2_UFI type.
-- */
--static bool be_check_ufi_compatibility(struct be_adapter *adapter,
--				       struct flash_file_hdr_g3 *fhdr)
--{
--	int ufi_type = be_get_ufi_type(adapter, fhdr);
--
--	switch (ufi_type) {
--	case SH_P2_UFI:
--		return skyhawk_chip(adapter);
--	case SH_UFI:
--		return (skyhawk_chip(adapter) &&
--			adapter->asic_rev < ASIC_REV_P2);
--	case BE3R_UFI:
--		return BE3_chip(adapter);
--	case BE3_UFI:
--		return (BE3_chip(adapter) && adapter->asic_rev < ASIC_REV_B0);
--	case BE2_UFI:
--		return BE2_chip(adapter);
-+		if (!BE2_chip(adapter))
-+			return false;
-+		break;
- 	default:
- 		return false;
- 	}
-+
-+	return (fhdr->asic_type_rev >= adapter->asic_rev);
- }
+ 	be_set_rx_mode(adapter->netdev);
  
- static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
+-	status = be_cmd_set_flow_control(adapter, adapter->tx_fc,
+-					 adapter->rx_fc);
+-	if (status)
+-		be_cmd_get_flow_control(adapter, &adapter->tx_fc,
+-					&adapter->rx_fc);
+-
+-	dev_info(&adapter->pdev->dev, "HW Flow control - TX:%d RX:%d\n",
+-		 adapter->tx_fc, adapter->rx_fc);
+-
+ 	if (be_physfn(adapter))
+ 		be_cmd_set_logical_link_config(adapter,
+ 					       IFLA_VF_LINK_STATE_AUTO, 0);
+@@ -5441,9 +5432,6 @@ static int be_drv_init(struct be_adapter *adapter)
+ 	INIT_DELAYED_WORK(&adapter->be_err_detection_work,
+ 			  be_err_detection_task);
+ 
+-	adapter->rx_fc = true;
+-	adapter->tx_fc = true;
+-
+ 	/* Must be a power of 2 or else MODULO will BUG_ON */
+ 	adapter->be_get_temp_freq = 64;
+ 
 -- 
 2.2.0
