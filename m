@@ -1,131 +1,54 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next] mpls: Move reserved label definitions
-Date: Tue, 5 May 2015 09:06:30 -0700
-Message-ID: <1430841990-2828702-1-git-send-email-tom@herbertland.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net V1] ethtool: Support for configurable RSS hash function
+Date: Tue, 5 May 2015 18:48:27 +0300
+Message-ID: <CAPcc5PigfcBCZV=z+Q15+0xBXh_GEyGEz6RASPCXtQvTXadP0w@mail.gmail.com>
+References: <1430133773-11613-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <ebiederm@xmission.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>, Eyal Perry <eyalpe@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50576 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S2993189AbbEEQGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 12:06:43 -0400
-Received: from pps.filterd (m0044012 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t45G6Ogf019850
-	for <netdev@vger.kernel.org>; Tue, 5 May 2015 09:06:42 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1u6kmesgmt-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 05 May 2015 09:06:42 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- b6e08ac8f34011e4a5670002c992ebde-638a31e0 for <netdev@vger.kernel.org>;	Tue,
- 05 May 2015 09:06:40 -0700
+Received: from mail-la0-f54.google.com ([209.85.215.54]:34017 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2993463AbbEEPs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 11:48:29 -0400
+Received: by laat2 with SMTP id t2so130904164laa.1
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 08:48:27 -0700 (PDT)
+In-Reply-To: <1430133773-11613-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move to include/uapi/linux/mpls.h to be externally visibile.
+On Mon, Apr 27, 2015 at 2:22 PM, Amir Vadai <amirv@mellanox.com> wrote:
+> From: Eyal Perry <eyalpe@mellanox.com>
+>
+> This ethtool patch adds support to set and get the current RSS hash
+> function for the device through through the new hfunc field in the
+> ethtool_rxfh struct. Kernel supported hash function names are queried
+> with ETHTOOL_GSTRINGS (value 0 is reserved and skipped).
+>
+> Although currently no device supports a combination of hash
+> functions/attributes, this ethtool implementation will support it. Both in the
+> set and in the get.
+> The device driver declares the functions and/or attributes that it supports,
+> and ethtool will show it correctly and enable the user to set those
+> combinations.
+> If a combination is not supported - the device driver will fail the operation
+> and ethtool will print an error message.
+>
+> Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> ---
+> Changes from V1:
+> - Fixed some English mistakes
+> - Fixed the complicated way to write '= req_hfunc;'...
+> - Better support in combination of hash functions/attributes
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- include/uapi/linux/mpls.h | 10 ++++++++++
- net/mpls/af_mpls.c        | 18 +++++++++---------
- net/mpls/internal.h       | 10 ----------
- 3 files changed, 19 insertions(+), 19 deletions(-)
+Ben Hi,
 
-diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
-index bc9abfe..0fe6ea5 100644
---- a/include/uapi/linux/mpls.h
-+++ b/include/uapi/linux/mpls.h
-@@ -31,4 +31,14 @@ struct mpls_label {
- #define MPLS_LS_TTL_MASK        0x000000FF
- #define MPLS_LS_TTL_SHIFT       0
- 
-+/* Reserved labels */
-+#define MPLS_LABEL_IPV4_EXPLICIT_NULL	0 /* RFC3032 */
-+#define MPLS_LABEL_ROUTER_ALERT		1 /* RFC3032 */
-+#define MPLS_LABEL_IPV6_EXPLICIT_NULL	2 /* RFC3032 */
-+#define MPLS_LABEL_IMPLICIT_NULL	3 /* RFC3032 */
-+#define MPLS_LABEL_ENTROPY_INDICATOR	7 /* RFC6790 */
-+#define MPLS_LABEL_GAL			13 /* RFC5586 */
-+#define MPLS_LABEL_OAM_ALERT		14 /* RFC3429 */
-+#define MPLS_LABEL_EXTENSION		15 /* RFC7274 */
-+
- #endif /* _UAPI_MPLS_H */
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index 954810c..b6eb761 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -647,7 +647,7 @@ int nla_get_labels(const struct nlattr *nla,
- 			return -EINVAL;
- 
- 		switch (dec.label) {
--		case LABEL_IMPLICIT_NULL:
-+		case MPLS_LABEL_IMPLICIT_NULL:
- 			/* RFC3032: This is a label that an LSR may
- 			 * assign and distribute, but which never
- 			 * actually appears in the encapsulation.
-@@ -935,7 +935,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 	}
- 
- 	/* In case the predefined labels need to be populated */
--	if (limit > LABEL_IPV4_EXPLICIT_NULL) {
-+	if (limit > MPLS_LABEL_IPV4_EXPLICIT_NULL) {
- 		struct net_device *lo = net->loopback_dev;
- 		rt0 = mpls_rt_alloc(lo->addr_len);
- 		if (!rt0)
-@@ -945,7 +945,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 		rt0->rt_via_table = NEIGH_LINK_TABLE;
- 		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
- 	}
--	if (limit > LABEL_IPV6_EXPLICIT_NULL) {
-+	if (limit > MPLS_LABEL_IPV6_EXPLICIT_NULL) {
- 		struct net_device *lo = net->loopback_dev;
- 		rt2 = mpls_rt_alloc(lo->addr_len);
- 		if (!rt2)
-@@ -973,15 +973,15 @@ static int resize_platform_label_table(struct net *net, size_t limit)
- 	memcpy(labels, old, cp_size);
- 
- 	/* If needed set the predefined labels */
--	if ((old_limit <= LABEL_IPV6_EXPLICIT_NULL) &&
--	    (limit > LABEL_IPV6_EXPLICIT_NULL)) {
--		RCU_INIT_POINTER(labels[LABEL_IPV6_EXPLICIT_NULL], rt2);
-+	if ((old_limit <= MPLS_LABEL_IPV6_EXPLICIT_NULL) &&
-+	    (limit > MPLS_LABEL_IPV6_EXPLICIT_NULL)) {
-+		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV6_EXPLICIT_NULL], rt2);
- 		rt2 = NULL;
- 	}
- 
--	if ((old_limit <= LABEL_IPV4_EXPLICIT_NULL) &&
--	    (limit > LABEL_IPV4_EXPLICIT_NULL)) {
--		RCU_INIT_POINTER(labels[LABEL_IPV4_EXPLICIT_NULL], rt0);
-+	if ((old_limit <= MPLS_LABEL_IPV4_EXPLICIT_NULL) &&
-+	    (limit > MPLS_LABEL_IPV4_EXPLICIT_NULL)) {
-+		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV4_EXPLICIT_NULL], rt0);
- 		rt0 = NULL;
- 	}
- 
-diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-index 693877d..b064c34 100644
---- a/net/mpls/internal.h
-+++ b/net/mpls/internal.h
-@@ -1,16 +1,6 @@
- #ifndef MPLS_INTERNAL_H
- #define MPLS_INTERNAL_H
- 
--#define LABEL_IPV4_EXPLICIT_NULL	0 /* RFC3032 */
--#define LABEL_ROUTER_ALERT_LABEL	1 /* RFC3032 */
--#define LABEL_IPV6_EXPLICIT_NULL	2 /* RFC3032 */
--#define LABEL_IMPLICIT_NULL		3 /* RFC3032 */
--#define LABEL_ENTROPY_INDICATOR		7 /* RFC6790 */
--#define LABEL_GAL			13 /* RFC5586 */
--#define LABEL_OAM_ALERT			14 /* RFC3429 */
--#define LABEL_EXTENSION			15 /* RFC7274 */
--
--
- struct mpls_shim_hdr {
- 	__be32 label_stack_entry;
- };
--- 
-1.8.1
+Could you take a look at this patch?
+
+Thanks,
+Amir
