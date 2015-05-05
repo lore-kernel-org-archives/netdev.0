@@ -1,47 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 02/12] net: axienet: Handle 0 packet receive gracefully
-Date: Tue, 05 May 2015 06:57:44 -0700
-Message-ID: <1430834264.7191.9.camel@perches.com>
-References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
-	 <55b3c89b3549c61d62b8440636516fd572870842.1430817941.git.michal.simek@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Peter Crosthwaite <peter.crosthwaite@xilinx.com>,
-	=?ISO-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
-	monstr@monstr.eu, John Linn <John.Linn@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <55b3c89b3549c61d62b8440636516fd572870842.1430817941.git.michal.simek@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/2] mlx4 fixes for 4.1-rc2
+Date: Tue,  5 May 2015 17:07:10 +0300
+Message-ID: <1430834832-13559-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1327.ztomy.com ([193.47.165.129]:54710 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S2992957AbbEEOHi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2015 10:07:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-05 at 11:25 +0200, Michal Simek wrote:
-> From: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
-> 
-> The AXI-DMA rx-delay interrupt can sometimes be triggered
-> when there are 0 outstanding packets received. This is due
-> to the fact that the receive function will greedily consume
-> as many packets as possible on interrupt. So if two packets
-> (with a very particular timing) arrive in succession they
-> will each cause the rx-delay interrupt, but the first interrupt
-> will consume both packets.
-> This means the second interrupt is a 0 packet receive.
-> 
-> This is mostly OK, except that the tail pointer register is
-> updated unconditionally on receive. Currently the tail pointer
-> is always set to the current bd-ring descriptor under
-> the assumption that the hardware has moved onto the next
-> descriptor. What this means for length 0 recv is the current
-> descriptor that the hardware is potentially yet to use will
-> be marked as the tail. This causes the hardware to think
-> its run out of descriptors deadlocking the whole rx path.
-> 
-> Fixed by updating the tail pointer to the most recent
-> successfully consumed descriptor.
+Hi Dave,
 
-I think some of this would be good to have as comments
-in the code instead of just in the changelog.
+Eran's fix is for a small off-by-one introduces on 4.1-rc1.
+
+Yisahi fixes an issue with comes into play only on VMs with 
+many (> 256) vCPUs.
+
+Or.
+
+
+Eran Ben Elisha (1):
+  net/mlx4_en: Fix off-by-one in counters manipulation
+
+Yishai Hadas (1):
+  net/mlx4_core: Work properly with EQ numbers > 256 in SRIOV
+
+ drivers/net/ethernet/mellanox/mlx4/en_port.c       |    2 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   14 +++++++-------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
