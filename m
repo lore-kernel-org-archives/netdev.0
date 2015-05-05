@@ -1,40 +1,31 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] rhashtable-test: Fix 64bit division
-Date: Tue,  5 May 2015 02:27:02 +0200
-Message-ID: <ce3dfbe753021ac49b34560aabe874d6f8fdc63e.1430785419.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37469 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887AbbEEA1G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 20:27:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next PATCH 4/6] e1000: Replace e1000_free_frag with skb_free_frag
+Date: Mon, 4 May 2015 17:28:10 -0700
+Message-ID: <CAL3LdT58zGo8tDSassf5EGFhL48wpQOuiA+9sX4d53fCGjpiAQ@mail.gmail.com>
+References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>
+	<20150504231505.1538.58292.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-mm@kvack.org, netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, David Miller <davem@davemloft.net>
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150504231505.1538.58292.stgit@ahduyck-vm-fedora22>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-A 64bit division went in unnoticed. Use do_div() to accomodate
-non 64bit architectures.
+On Mon, May 4, 2015 at 4:15 PM, Alexander Duyck
+<alexander.h.duyck@redhat.com> wrote:
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_main.c |   19 +++++++------------
+>  1 file changed, 7 insertions(+), 12 deletions(-)
+>
 
-Reported-by: kbuild test robot
-Fixes: 1aa661f5c3df ("rhashtable-test: Measure time to insert, remove & traverse entries")
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- lib/test_rhashtable.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-diff --git a/lib/test_rhashtable.c b/lib/test_rhashtable.c
-index 6893e57..c90777e 100644
---- a/lib/test_rhashtable.c
-+++ b/lib/test_rhashtable.c
-@@ -229,7 +229,8 @@ static int __init test_rht_init(void)
- 		total_time += time;
- 	}
- 
--	pr_info("Average test time: %llu\n", total_time / runs);
-+	do_div(total_time, runs);
-+	pr_info("Average test time: %llu\n", total_time);
- 
- 	return 0;
- }
--- 
-2.3.5
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
