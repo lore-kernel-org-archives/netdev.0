@@ -1,54 +1,62 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Linaro-acpi] [V2 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
-Date: Tue, 05 May 2015 20:02:53 +0200
-Message-ID: <9405327.TMH3y4SfqS@wuerfel>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com> <5548EC47.3020501@amd.com> <5548EEA3.8010101@amd.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v5 20/21] rocker: make checkpatch -f clean
+Date: Tue, 5 May 2015 20:13:21 +0200
+Message-ID: <20150505181321.GB2764@nanopsycho>
+References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
+ <1430847297-15728-21-git-send-email-sfeldma@gmail.com>
+ <1430847947.3943.4.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>,
-	linaro-acpi@lists.linaro.org, rjw@rjwysocki.net,
-	herbert@gondor.apana.org.au, catalin.marinas@arm.com,
-	will.deacon@arm.com, linux-kernel@vger.kernel.org,
-	linux-acpi@vger.kernel.org, linux-crypto@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, lenb@kernel.org
-To: Tom Lendacky <thomas.lendacky@amd.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com, linux@roeck-us.net,
+	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
+	ronen.arad@intel.com, andrew@lunn.ch, simon.horman@netronome.com
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:53348 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965923AbbEESDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 14:03:05 -0400
-In-Reply-To: <5548EEA3.8010101@amd.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:36757 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754620AbbEESN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 14:13:27 -0400
+Received: by wizk4 with SMTP id k4so172264563wiz.1
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 11:13:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1430847947.3943.4.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 05 May 2015 11:24:03 Tom Lendacky wrote:
-> On 05/05/2015 11:13 AM, Suravee Suthikulanit wrote:
-> > On 5/5/2015 11:12 AM, Arnd Bergmann wrote:
-> >> On Tuesday 05 May 2015 11:09:38 Suravee Suthikulanit wrote:
-> >>>
-> >>> However, codes in several places are making use of dma_map_ops without
-> >>> checking if the ops are NULL (i.e.
-> >>> include/asm-generic/dma-mapping-common.h and in arch-specific
-> >>> implementation). If setting it to NULL is what we are planning to
-> >>> support, we would need to scrub the current code to put NULL check.
-> >>> Also, would you consider if that is safe to do going forward?
-> >>>
-> >>>
-> >>
-> >> I mean the dma_mask pointer, not dma_map_ops.
-> 
-> Except a lot of drivers will actually set the dma_mask pointer during
-> probe (usually by setting dev->dma_mask = &dev->coherent_dma_mask or by
-> calling dma_coerce_mask_and_coherent).  So I think the dummy_dma_ops
-> might be the safest way to go.
+Tue, May 05, 2015 at 07:45:47PM CEST, joe@perches.com wrote:
+>On Tue, 2015-05-05 at 10:34 -0700, sfeldma@gmail.com wrote:
+>> Well almost clean: ignore the CHECKs for space after cast operator.
+>
+>I think, because this uses relatively long identifiers,
+>that you might as well ignore > 80 column lines length
+>warnings.
+>
+>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>[]
+>> @@ -1418,9 +1418,10 @@ static int rocker_event_link_change(struct rocker *rocker,
+>>  	if (!attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT] ||
+>>  	    !attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP])
+>>  		return -EIO;
+>> -	port_number =
+>> -		rocker_tlv_get_u32(attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT]) - 1;
+>> -	link_up = rocker_tlv_get_u8(attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP]);
+>> +	port_number = rocker_tlv_get_u32(
+>> +		attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT]) - 1;
+>> +	link_up = rocker_tlv_get_u8(
+>> +		attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP]);
+>
+>These would probably be better on single lines.
 
-Those drivers are broken already, I don't think we should worry about
-them. Let's just fix them properly when we run into problems with them.
+I agree. Let this be on single line.
 
-Basically any use of dma_coerce_mask_and_coherent() is an annotation
-for a bug where a driver used to set dev->dma_mask = &dev->coherent_dma_mask
-manually.
+>
+>Maybe it'd be OK to avoid the rocker_tlv_ prefix
 
-	Arnd
+I'd like to have that prefix.
+
+>and/or add a helper macro/define for the
+>	rocker_tlv_<foo>(attrs[ROCKER_TLV_<BAR>
+>style to shorten the line length.
+
+Not sure about the macros, they obfuscate things :/
