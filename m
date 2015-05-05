@@ -1,143 +1,89 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v5 15/21] switchdev: remove unused switchdev_port_bridge_dellink
-Date: Tue,  5 May 2015 10:34:51 -0700
-Message-ID: <1430847297-15728-16-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v5 17/21] switchdev: cut over to new switchdev_port_bridge_getlink
+Date: Tue,  5 May 2015 10:34:53 -0700
+Message-ID: <1430847297-15728-18-git-send-email-sfeldma@gmail.com>
 References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
 	ronen.arad@intel.com, andrew@lunn.ch, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33179 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965367AbbEEReR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:34:17 -0400
-Received: by pacwv17 with SMTP id wv17so200260975pac.0
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:17 -0700 (PDT)
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:36582 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965367AbbEEReU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:34:20 -0400
+Received: by pdea3 with SMTP id a3so203681494pde.3
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:19 -0700 (PDT)
 In-Reply-To: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Now we can remove old wrappers for dellink.
-
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- include/net/switchdev.h   |   15 ---------------
- net/bridge/br_netlink.c   |   11 +----------
- net/switchdev/switchdev.c |   30 ------------------------------
- 3 files changed, 1 insertion(+), 55 deletions(-)
+ drivers/net/bonding/bond_main.c      |    1 +
+ drivers/net/ethernet/rocker/rocker.c |   15 +--------------
+ drivers/net/team/team.c              |    1 +
+ 3 files changed, 3 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 8ffadca..397b1e6 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -130,8 +130,6 @@ int switchdev_port_bridge_setlink(struct net_device *dev,
- 				  struct nlmsghdr *nlh, u16 flags);
- int switchdev_port_bridge_dellink(struct net_device *dev,
- 				  struct nlmsghdr *nlh, u16 flags);
--int ndo_dflt_switchdev_port_bridge_dellink(struct net_device *dev,
--					   struct nlmsghdr *nlh, u16 flags);
- int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 			   u8 tos, u8 type, u32 nlflags, u32 tb_id);
- int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
-@@ -164,12 +162,6 @@ static inline int switchdev_port_obj_del(struct net_device *dev,
- 	return -EOPNOTSUPP;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index bb47661..b361d8c 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4040,6 +4040,7 @@ static const struct net_device_ops bond_netdev_ops = {
+ 	.ndo_del_slave		= bond_release,
+ 	.ndo_fix_features	= bond_fix_features,
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
++	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+ 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
+ };
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 2a77c22e..e3a0c58 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4249,19 +4249,6 @@ skip:
+ 	return idx;
  }
  
--static inline int switchdev_port_bridge_dellink(struct net_device *dev,
--					    struct nlmsghdr *nlh, u16 flags)
+-static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+-				      struct net_device *dev,
+-				      u32 filter_mask, int nlflags)
 -{
--	return -EOPNOTSUPP;
+-	struct rocker_port *rocker_port = netdev_priv(dev);
+-	u16 mode = BRIDGE_MODE_UNDEF;
+-	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
+-
+-	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
+-				       rocker_port->brport_flags, mask,
+-				       nlflags);
 -}
 -
- static inline int register_switchdev_notifier(struct notifier_block *nb)
+ static int rocker_port_get_phys_port_name(struct net_device *dev,
+ 					  char *buf, size_t len)
  {
- 	return 0;
-@@ -201,13 +193,6 @@ static inline int switchdev_port_bridge_dellink(struct net_device *dev,
- 	return -EOPNOTSUPP;
- }
- 
--static inline int ndo_dflt_switchdev_port_bridge_dellink(struct net_device *dev,
--							 struct nlmsghdr *nlh,
--							 u16 flags)
--{
--	return 0;
--}
--
- static inline int switchdev_fib_ipv4_add(u32 dst, int dst_len,
- 					 struct fib_info *fi,
- 					 u8 tos, u8 type,
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index e9b9435..6b67ed3 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -639,7 +639,7 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- {
- 	struct nlattr *afspec;
- 	struct net_bridge_port *p;
--	int err = 0, ret_offload = 0;
-+	int err = 0;
- 
- 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
- 	if (!afspec)
-@@ -658,15 +658,6 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 		 */
- 		br_ifinfo_notify(RTM_NEWLINK, p);
- 
--	if (p && !(flags & BRIDGE_FLAGS_SELF)) {
--		/* del bridge attributes in hardware
--		 */
--		ret_offload = switchdev_port_bridge_dellink(dev, nlh, flags);
--		if (ret_offload && ret_offload != -EOPNOTSUPP)
--			br_warn(p->br, "error deleting attrs on port %u (%s)\n",
--				(unsigned int)p->port_no, p->dev->name);
--	}
--
- 	return err;
- }
- static int br_validate(struct nlattr *tb[], struct nlattr *data[])
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 8ce678e..0e15b6f 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -536,36 +536,6 @@ int switchdev_port_bridge_dellink(struct net_device *dev,
- }
- EXPORT_SYMBOL_GPL(switchdev_port_bridge_dellink);
- 
--/**
-- *	ndo_dflt_switchdev_port_bridge_dellink - default ndo bridge dellink
-- *						 op for master devices
-- *
-- *	@dev: port device
-- *	@nlh: netlink msg with bridge port attributes
-- *	@flags: bridge dellink flags
-- *
-- *	Notify master device slaves of bridge port attribute deletes
-- */
--int ndo_dflt_switchdev_port_bridge_dellink(struct net_device *dev,
--					   struct nlmsghdr *nlh, u16 flags)
--{
--	struct net_device *lower_dev;
--	struct list_head *iter;
--	int ret = 0, err = 0;
--
--	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
--		return ret;
--
--	netdev_for_each_lower_dev(dev, lower_dev, iter) {
--		err = switchdev_port_bridge_dellink(lower_dev, nlh, flags);
--		if (err && err != -EOPNOTSUPP)
--			ret = err;
--	}
--
--	return ret;
--}
--EXPORT_SYMBOL_GPL(ndo_dflt_switchdev_port_bridge_dellink);
--
- static struct net_device *switchdev_get_lowest_dev(struct net_device *dev)
- {
- 	const struct switchdev_ops *ops = dev->switchdev_ops;
+@@ -4287,8 +4274,8 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_fdb_add			= rocker_port_fdb_add,
+ 	.ndo_fdb_del			= rocker_port_fdb_del,
+ 	.ndo_fdb_dump			= rocker_port_fdb_dump,
++	.ndo_bridge_getlink		= switchdev_port_bridge_getlink,
+ 	.ndo_bridge_setlink		= switchdev_port_bridge_setlink,
+-	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
+ 	.ndo_bridge_dellink		= switchdev_port_bridge_dellink,
+ 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
+ };
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 0283753..bda32be 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1978,6 +1978,7 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_fix_features	= team_fix_features,
+ 	.ndo_change_carrier     = team_change_carrier,
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
++	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+ 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
+ };
 -- 
 1.7.10.4
