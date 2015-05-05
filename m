@@ -1,15 +1,15 @@
 From: Amir Vadai <amirv@mellanox.com>
 Subject: Re: [RFC v1 07/11] net/mlx4: Cache irq_desc->affinity instead of irq_desc
-Date: Tue, 5 May 2015 12:07:08 +0300
-Message-ID: <CAPcc5PhU8oa1HCcpbjHNv0-4VT8EFtQb8HTxGUD_+G3i-uFRfg@mail.gmail.com>
+Date: Tue, 5 May 2015 12:17:28 +0300
+Message-ID: <CAPcc5Pi7qNQKocTVmfZafVhi3MJwboY=XKYzNmqAnVqt0gU4vw@mail.gmail.com>
 References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>
 	<1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com>
 	<CAPcc5Ph4pk+4aL-PduvF67YU-A+vn2bfx6v3mr-tbY58zs7sZw@mail.gmail.com>
-	<55477B86.70705@linux.intel.com>
+	<alpine.DEB.2.11.1505041708190.4225@nanos>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Amir Vadai <amirv@mellanox.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
+	Jiang Liu <jiang.liu@linux.intel.com>,
 	Bjorn Helgaas <bhelgaas@google.com>,
 	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
 	Ingo Molnar <mingo@redhat.com>,
@@ -29,19 +29,20 @@ Cc: Amir Vadai <amirv@mellanox.com>,
 	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
 	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-pci@vger.kerne
-To: Jiang Liu <jiang.liu@linux.intel.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <55477B86.70705@linux.intel.com>
-Sender: linux-acpi-owner@vger.kernel.org
+	linux-pci@vger.kern
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1505041708190.4225@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 4, 2015 at 5:00 PM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
-> On 2015/5/4 20:10, Amir Vadai wrote:
+On Mon, May 4, 2015 at 6:10 PM, Thomas Gleixner <tglx@linutronix.de> wrote:
+> On Mon, 4 May 2015, Amir Vadai wrote:
+>
 >> On Mon, May 4, 2015 at 6:15 AM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
->>> The field 'affinity' in irq_desc won't change once the irq_desc data
->>> structure is created. So cache irq_desc->affinity instead of irq_desc.
->>> This also helps to hide struct irq_desc from device drivers.
+>> > The field 'affinity' in irq_desc won't change once the irq_desc data
+>> > structure is created. So cache irq_desc->affinity instead of irq_desc.
+>> > This also helps to hide struct irq_desc from device drivers.
 >>
 >> Hi Jiang,
 >>
@@ -53,33 +54,33 @@ On Mon, May 4, 2015 at 5:00 PM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
 >> wrong CPU.
 >> Therefore, the affinity can't be cached at the beginning. Please
 >> revert this caching.
-> Hi Amir,
->         Thanks for review:) We want to hide irq_desc implementation
-> details from device drivers, so made these changes.
->         Function irq_get_affinity_mask() returns 'struct cpumask *'
-> and we cache the returned pointer. On the other hand, user may change
-> IRQ affinity through /proc/irq/<IRQ>/smp_affinity, but that only
-> changes the bitmap pointed to by the cached pointer and won't change
-> the pointer itself. So it should always return the latest affinity
-> setting by calling cpumask_test_cpu(cpu_curr, cq->irq_affinity).
-> Or am I missing something here?
-No - you are completely right - I missed it.
+>
+> Sigh. All of this is completely wrong. Polling in the internals of
+> irq_desc is just crap.
+Hi,
 
-Anyway I tested it to make sure, and everything works as expected.
+>
+> irq_set_affinity_notifier() has been added for exactly this purpose.
+rmap is already registered on irq_set_affinity_notifier().
+Actually, I did post an extension to the affinity notifier, to use
+affinity chain which you rejected [1] (and BTW, convinced me that this
+is not the way to do it).
+Current code is according to your suggestion.
 
-Acked-By: Amir Vadai <amirv@mellanox.com>
+[1] - https://lkml.org/lkml/2014/5/26/222
 
-Thanks,
 Amir
 
-
-> Thanks!
-> Gerry
->>
->> Thanks,
->> Amir
->>
+>
+> Please get rid of your irq_desc abuse.
+>
+> Thanks,
+>
+>         tglx
+>
+>
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
