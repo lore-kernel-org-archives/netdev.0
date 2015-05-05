@@ -1,55 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [V2 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
-Date: Tue, 05 May 2015 17:44:49 +0200
-Message-ID: <5126612.k0u2CL2zi5@wuerfel>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <1430838729-21572-3-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next V8 0/2] openvswitch: Add support for
+	802.1AD
+Date: Tue,  5 May 2015 11:51:25 -0400
+Message-ID: <1430841087-20764-1-git-send-email-thomasfherbert@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.lendacky@amd.com, msalter@redhat.com, herbert@gondor.apana.org.au,
- al.stone@linaro.org, rjw@rjwysocki.net, catalin.marinas@arm.com,
- linaro-acpi@lists.linaro.org, will.deacon@arm.com,
- linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
- linux-acpi@vger.kernel.org, leo.duran@amd.com, hanjun.guo@linaro.org,
- Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>, netdev@vger.kernel.org,
- grant.likely@linaro.org, davem@davemloft.net, lenb@kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1430838729-21572-3-git-send-email-Suravee.Suthikulpanit@amd.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ccp-HUUA3fb44xqsTnJN9+BGXg@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, therbert-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ Thomas F Herbert <thomasfherbert-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 05 May 2015 10:12:06 Suravee Suthikulpanit wrote:
-> +struct dma_map_ops dummy_dma_ops = {
-> +       .alloc                  = __dummy_alloc,
-> +       .free                   = __dummy_free,
-> +       .mmap                   = __dummy_mmap,
-> +       .map_page               = __dummy_map_page,
-> +       .unmap_page             = __dummy_unmap_page,
-> +       .map_sg                 = __dummy_map_sg,
-> +       .unmap_sg               = __dummy_unmap_sg,
-> +       .sync_single_for_cpu    = __dummy_sync_single_for_cpu,
-> +       .sync_single_for_device = __dummy_sync_single_for_device,
-> +       .sync_sg_for_cpu        = __dummy_sync_sg_for_cpu,
-> +       .sync_sg_for_device     = __dummy_sync_sg_for_device,
-> +       .mapping_error          = __dummy_mapping_error,
-> +       .dma_supported          = __dummy_dma_supported,
-> +};
-> +EXPORT_SYMBOL(dummy_dma_ops);
-> +
-> 
-
-This will clearly work, but I think it's easier to just leave
-the dma_mask pointer as NULL when creating the platform device,
-which should let the normal dma ops fail all the callbacks.
-
-	Arnd
+QWRkIHN1cHBvcnQgZm9yIDgwMi4xQUQgdG8gdGhlIG9wZW52c3dpdGNoIGtlcm5lbCBtb2R1bGUg
+KFZlcnNpb24gOC4pCgpQbGVhc2UgcmVwbGFjZSB2ZXJzaW9uIDcgc3VibWl0dGVkIG9uIEFwcmls
+IDI1LCB3aXRoIHRoaXMgcGF0Y2guClZlcnNpb24gOCBoYXMgY2hhbmdlcyBiYXNlZCBvbiB0aGUg
+cmV2aWV3IGJ5IFByYXZpbiBTaGVsYXIgb2YgVjcgYW5kIGEgZml4CnRvIGZsb3cuYyB0byBpbml0
+aWFsaXplIHRoZSBjdGNpIGluIHRoZSBmbG93IGtleS4KClRoZXJlIHdhcyBvbmUgcmVjb21tZW5k
+ZWQgY2hhbmdlIGZyb20gdGhlIHJldmlldyB0aGF0IHdhcyBub3QgbWFkZSBpbiB0aGlzIApwYXRj
+aCBhYm91dCBhIGRvdWJsZSBjaGVjayBmb3IgdmxhbiBoZWFkZXJzLiBUaGUgcmF0aW9uYWxlIGZv
+ciBub3QgbWFraW5nCnRoYXQgY2hhbmdlIHdpbGwgYmUgZXhwbGFpbmVkIHNlcGFyYXRlbHkuCgpB
+bHRob3VnaCB0aGUgT3BlbiBGbG93IHNwZWNpZmljYXRpb24gc3BlY2lmaWVkIHN1cHBvcnQgZm9y
+IDgwMi4xQUQgKHFpbnEpCmFzIHdlbGwgYXMgcHVzaCBhbmQgcG9wIHZsYW4gaGVhZGVycywgc28g
+ZmFyIE9wZW4gdlN3aXRjaCBoYXMgb25seQpzdXBwb3J0ZWQgYSBzaW5nbGUgdGFnIGhlYWRlci4g
+VGhpcyBwYXRjaCBhZGRyZXNzZXMgYWRkcyA4MDIuMWFkIHRvIHRoZQpMaW51eCBrZXJuZWwgb3Bl
+bnZzd2l0Y2ggZGF0YSBwYXRoLgoKVGhpcyBwYXRjaCBpcyB2ZXJzaW9uIDggb2YgdGhlIHBhdGNo
+IGFuZGNjb21wYW5pZXMgdXNlciBzcGFjZSB2ZXJzaW9uIDcgb2YKdGhlIHBhdGNoIHByZXZpb3Vz
+bHkgc3VibWl0dGVkIHNlcGFyYXRlbHkgdG8gb3BlbnZzd2l0Y2ggZGV2IGxpc3QuCgpGb3IgZGlz
+Y3Vzc2lvbiwgaGlzdG9yeSAgYW5kIHByZXZpb3VzIHZlcnNpb25zLCBvZiB0aGUga2VybmVsIHBh
+dGNoLApzZWUgdGhlIE9WUyBkZXYgbWFpbGluZyBsaXN0LCBvcGVudnN3aXRjaC5vcmcvcGlwZXJt
+YWlsL2Rldi8uLgpUaG9tYXMgRiBIZXJiZXJ0ICgyKToKICBBZGQgZmxvdyBrZXkgZmllbGQgZm9y
+IGN0YWcKICBGbG93IGhhbmRsaW5nLCBhY3Rpb25zIGFuZCB2bGFuIHBhcnNpbmcgZm9yIDgwMjFB
+RAoKIGluY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oIHwgMTcgKysrKy0tLS0KIG5ldC9v
+cGVudnN3aXRjaC9hY3Rpb25zLmMgICAgICAgIHwgIDYgKystCiBuZXQvb3BlbnZzd2l0Y2gvZmxv
+dy5jICAgICAgICAgICB8IDgzICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tCiBu
+ZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAgICAgICB8ICAxICsKIG5ldC9vcGVudnN3aXRjaC9m
+bG93X25ldGxpbmsuYyAgIHwgOTQgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+Ky0tLQogNSBmaWxlcyBjaGFuZ2VkLCAxNzQgaW5zZXJ0aW9ucygrKSwgMjcgZGVsZXRpb25zKC0p
+CgotLSAKMi4xLjAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0
+Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
