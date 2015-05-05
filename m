@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/6] Add skb_free_frag to replace
- put_page(virt_to_head_page(ptr))
-Date: Tue, 05 May 2015 19:28:51 -0400 (EDT)
-Message-ID: <20150505.192851.1294286421369630011.davem@davemloft.net>
-References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>
+Subject: Re: [PATCH next v3 0/2] Multicast processing in IPvlan
+Date: Tue, 05 May 2015 19:30:03 -0400 (EDT)
+Message-ID: <20150505.193003.1859381402714129421.davem@davemloft.net>
+References: <1430784356-2049-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org
-To: alexander.h.duyck@redhat.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, dcbw@redhat.com
+To: maheshb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57917 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57926 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752666AbbEEX2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:28:53 -0400
-In-Reply-To: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>
+	with ESMTP id S1753493AbbEEXaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:30:05 -0400
+In-Reply-To: <1430784356-2049-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Mon, 04 May 2015 16:14:42 -0700
+From: Mahesh Bandewar <maheshb@google.com>
+Date: Mon,  4 May 2015 17:05:56 -0700
 
-> This patch set cleans up some of the handling of page frags used in the skb
-> allocation.  The issue was we were having to use a number of calls to
-> virt_to_head_page in a number of places and then following that up with
-> put_page.  Both calls end up being expensive, the first due to size, and
-> the second due to the fact that we end up having to call a number of other
-> functions before we finally see the page freed in the case of compound
-> pages.
+> Dan Willems pointed out that autoconf in IPvlan is broken because of the
+> way broadcast bit gets set. Since broadcast processing is a real performance
+> drain, the broadcast bit in multicast filter was only set when the interface
+> was configured with IPv4 address. In autoconf scenario, when there are
+> no addresses configured; this logic did not work and it wouldn't allow
+> DHCPv4 to work. The only way was to add protocol specific hacks to avoid
+> processing unnecessary broadcast burdon.
 > 
-> The skb_free_frag function is meant to resolve that by providing a
-> centralized location for the virt_to_head_page call and by coalesing
-> several checks such as the check for PageHead into a single check so that
-> we can keep the instruction cound minimal when freeing the page frag.
-> 
-> With this change I am seeing an improvement of about 5% in a simple
-> receive/drop test.
+> This jugglery could be avoided if these multicast / broadcast packets are taken
+> out of fast-path and are processed in a work-queue. This will enable us to add
+> broadcast bit in all multicast filters without any impact on performance of
+> the virtual device. This patch series just does that.
 
-I'm going to need to see some buyin from the mm folks on this series.
+Series applied, thanks.
