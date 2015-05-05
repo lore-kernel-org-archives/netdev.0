@@ -1,47 +1,54 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH 1/2] net/rds: RDS-TCP: Always create a new rds_sock for
- an incoming connection.
-Date: Tue, 5 May 2015 00:00:29 -0400
-Message-ID: <20150505040029.GJ26844@oracle.com>
-References: <c3c228cbc7f6e4a4cb8e9e0ac400aaf4ed22b927.1430421231.git.sowmini.varadhan@oracle.com>
- <20150504.144720.2228274897975931117.davem@davemloft.net>
- <20150504192908.GC26844@oracle.com>
- <20150504.162134.1761886048618680717.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chien.yen@oracle.com, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com
-To: David Miller <davem@davemloft.net>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 0/6] Trivial fixes and changes for SGE
+Date: Tue,  5 May 2015 14:59:50 +0530
+Message-ID: <1430818196-26508-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42408 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750718AbbEEEAg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 00:00:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20150504.162134.1761886048618680717.davem@davemloft.net>
+Received: from stargate.chelsio.com ([67.207.112.58]:19822 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750756AbbEEERX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 00:17:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (05/04/15 16:21), David Miller wrote:
-> 
-> No table at all.
-> 
-> There has to be another way to notice this kind of situation, how
-> for example does NFS or any other sunrpc using service handle this
-> case?
+Hi,
 
-NFS fixes up CLOSE_WAIT connections from xs_tcp_state_change,
-so at the least, I can also do rds_conn_drop from rds_tcp_state_change,
-that will avoid all the extra baggage around the new hash list.
+This patch series adds the following.
+Discard packet if length is greater than MTU, move sge monitor code to a
+new routine, add device node to ULD info, add congestion notification from
+SGE for ingress queue and freelists and for T5, setting up the Congestion
+Manager values of the new RX Ethernet Queue is done by firmware now.
 
-But there's the case of the client disappearing without even sending
-a FIN, and here NFS seems to recover using a notion of idle-timeout
-(which applies to all idle peers, not merely the dead ones?) 
+This patch series has been created against net-next tree and includes
+patches on cxgb4 driver.
 
-The closest analog of that would be to  set up a so_keepalive option on
-the socket, but that brings in even more heuristics keepcnt, keepintvl,
-keepidle. Maybe I could set these to be some very generous values
-for now..
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
 
---Sowmini
+Thanks
+
+V2: Align parenthesis for PATCH 2/6 and PATCH 5/6
+
+Hariprasad Shenai (6):
+  cxgb4: Make sure that Freelist size is larger than Egress Congestion
+    Threshold
+  cxgb4: Enable congestion notification from SGE for IQs and FLs.
+  cxgb4: Pass in a Congestion Channel Map to t4_sge_alloc_rxq()
+  cxgb4: Add device node to ULD info
+  cxgb4: Move SGE Ingress DMA state monitor code to a new routine
+  cxgb4: Discard the packet if the length is greater than mtu
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  26 ++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  11 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        | 160 ++++++++++++------------
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 133 +++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_values.h  |   9 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   3 +
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |  15 ++-
+ 8 files changed, 262 insertions(+), 96 deletions(-)
+
+-- 
+2.3.4
