@@ -1,49 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] adm8211: fix checkpatch errors for indentation and new
- line around switch-case
-Date: Tue, 05 May 2015 06:50:52 -0700
-Message-ID: <1430833852.7191.7.camel@perches.com>
-References: <5548B192.8020808@lysator.liu.se>
+From: Robert Stonehouse <rstonehouse@solarflare.com>
+Subject: Re: sfc: Please add rss_cpus=hyperthreads support
+Date: Tue, 5 May 2015 14:48:45 +0100
+Message-ID: <5548CA3D.7010408@solarflare.com>
+References: <CALCETrWpJMT-SfKKhjRfeNRrXS6C6+SUuzOCuSYwMZbMCqB+tA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Okash Khawaja <okash.khawaja@gmail.com>, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Peter Rosin <peda@lysator.liu.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5548B192.8020808@lysator.liu.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Andy Lutomirski <luto@amacapital.net>,
+	Shradha Shah <sshah@solarflare.com>,
+	Edward Cree <ecree@solarflare.com>,
+	"Network Development" <netdev@vger.kernel.org>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:64910 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S2992488AbbEEN5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 09:57:44 -0400
+In-Reply-To: <CALCETrWpJMT-SfKKhjRfeNRrXS6C6+SUuzOCuSYwMZbMCqB+tA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-05 at 14:03 +0200, Peter Rosin wrote:
-> > diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
-[]
-> > @@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
-> >  		pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
-> >  
-> >  		switch (cline) {
-[]
-> > +		case  0x8:
-> > +			reg |= (0x1 << 14);
-> > +			break;
-> > +		case 0x16:
-> > +			reg |= (0x2 << 14);
-> > +			break;
-> > +		case 0x32:
-> > +			reg |= (0x3 << 14);
-> > +			break;
-> > +		default:
-> > +			reg |= (0x0 << 14);
-> > +			break;
-> >  		}
-> >  	}
-> >  
-> 
-> Those 0x16/0x32 hexadecimal case-selectors looking suspiciously like
-> decimal bits need a comment if they are in fact correct, which I doubt.
+On 02/05/15 01:03, Andy Lutomirski wrote:
+> Can you please port the rss_cpus=hyperthreads feature from the
+> OpenOnload driver to the upstream driver?  The fact that sticking:
+>
+> options sfc rss_cpus=hyperthreads
+>
+> into modprobe.conf causes sfc to fail to load when OpenOnload isn't
+> installed is incredibly annoying, and the option is genuinely useful.
 
-Good spot.
+Sure; I will make sure that happens soon.
+I can see how that would be annoying.
 
-As it's testing PCI_CACHE_LINE_SIZE,
-they seem very much broken.
+Thanks for the suggestion.
+Rob
