@@ -1,41 +1,92 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: tcp: ip_local_reserved_ports impact on inet_csk_get_port()
-Date: Tue, 5 May 2015 14:47:59 +0200
-Message-ID: <20150505124759.GA23707@haze>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next 0/5] replace skb tc_verd member with 3 dedicated
+ bit flags
+Date: Tue, 5 May 2015 15:06:08 +0200
+Message-ID: <20150505130608.GF17061@breakpoint.cc>
+References: <1430765318-13788-1-git-send-email-fw@strlen.de>
+ <5548ABF8.5080806@mojatatu.com>
+ <20150505114733.GE17061@breakpoint.cc>
+ <5548B070.80502@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Richard Alpe <richard.alpe@ericsson.com>,
-	Onar Olsen <onar.olsen@ericsson.com>, <ying.xue@windriver.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	alexei.starovoitov@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:61547 "EHLO
-	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758717AbbEEMxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 08:53:12 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48898 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161299AbbEENGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 09:06:09 -0400
 Content-Disposition: inline
+In-Reply-To: <5548B070.80502@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Defining a port range in net.ipv4.ip_local_reserved_ports can cause a linear
-and predictable behavior of inet_csk_get_port().
-This occurs when smallest_rover = rover = prandom_u32() % remaining + low;
-hits a value in the reserved range. The algorithm will then try the next
-consecutive port number until a free port is found.
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> It is borderline questionable for 1 bit but for consistency i
+> suggest you do what was there before. I pointed to nocls but
+> i meant the comment generically because previous code you are
+> changing intended to use the macros.
 
-Example:
-net.ipv4.ip_local_port_range = 32768	61000
-net.ipv4.ip_local_reserved_ports = 35000-61000
+True.
 
-This will give ~92% chance that the initial random port will be in the
-reserved range, and that the port selection will be done linearly
-starting from 32768.
-Section 3.3 in RFC6056[1] describes several port selection algorithms, and Linux
-seems to follow #1. This does not seem to be the best alternative since
-e3826f1e946e ("net: reserve ports for applications using fixed port numbers")
+> In any case I will leave it up to you.
 
-If the local port range is set not to overlap with the reserved ports,
-inet_csk_get_port will give a better randomness in the port selection.
+Okay, thanks Jamal.
 
-//E
+I'll have to think about this wrt. how to proceed.
 
-[1] https://tools.ietf.org/html/rfc6056
+> >>- We need two bits for the location (ingress, egress, from stack)
+> >>from stack being 0 i.e when it is not set implicitly it is from the
+> >>host stack then we can check for ingress or egress when we choose.
+> >
+> >Hmm, are you sure?  How is that used?
+> >
+> 
+> As example, when something like
+> if (!(at & AT_EGRESS))
+> implies it is either from ingress or the stack.
+> It does not only from ingress.
+> >In fact ifb will BUG() if neither AT_INGRESS or AT_EGRESS was set
+> >in G_TC_FROM().
+> >
+> 
+> Yes, because you cant send directly from the stack host to ifb. You
+> can only redirect to it. If we ever end there from the host we should
+> bug()
+
+$ git grep G_TC_FROM | nl
+1  drivers/net/ifb.c:              u32 from = G_TC_FROM(skb->tc_verd);
+2  drivers/net/ifb.c:      u32 from = G_TC_FROM(skb->tc_verd);
+3  include/uapi/linux/pkt_cls.h:#define G_TC_FROM(x)       _TC_GETVALUE(x,S_TC_FROM,M_TC_FROM)
+4  net/sched/sch_netem.c:                  if (G_TC_FROM(skb->tc_verd) & AT_INGRESS)
+
+#1 will BUG() if G_TC_FROM yields 0
+#4 only cares about AT_INGRESS
+
+I can indeed get #2 to return 'from 0', via:
+
+ip link set dev ifb0 up
+ip addr add  10.2.1.1/8 dev ifb0
+ping 10.2.1.2
+
+However, there is no user-visible behaviour change since skb->iif is 0 for locally generated
+skb.  Since we do '(from == 0 || skb->iif == 0) -> drop' ifb will still be a /dev/null sink
+without skb coming in via mirred action.
+
+This also seems to work:
+ip link set dev ifb0 up
+ip link set dev eth1 up
+ip addr add  192.168.42.1/24 dev eth1
+tc qdisc add dev eth1 root handle 1: htb default 1
+tc filter add dev eth1 parent 1: protocol all u32 match u32 0 0 action mirred egress redirect dev ifb0
+ping -c 1 -b 192.168.42.255
+
+iif is set to eth1 iif by the mirred action, so its nonzero by the time skb ends up in ifb and is redirected.
+
+I fully admit that I did not consider this beforehand though ;)
+
+Is there anything else I am missing?
+
+Cheers,
+Florian
