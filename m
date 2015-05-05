@@ -1,39 +1,64 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v5 20/21] rocker: make checkpatch -f clean
-Date: Tue, 5 May 2015 13:01:07 -0700
-Message-ID: <CAE4R7bAJi7a4f_me2V5Ea2w8TOeH1D-+ibHV-0bo5tDKF__-+g@mail.gmail.com>
-References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
-	<1430847297-15728-21-git-send-email-sfeldma@gmail.com>
-	<1430847947.3943.4.camel@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: provide SYN headers for passive
+ connections
+Date: Tue, 05 May 2015 16:05:35 -0400 (EDT)
+Message-ID: <20150505.160535.1034497188259706110.davem@davemloft.net>
+References: <20150501202908.GC6113@akamai.com>
+	<1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: emunson@akamai.com, tom@herbertland.com, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:33553 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933015AbbEEUBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 16:01:08 -0400
-Received: by qctx5 with SMTP id x5so9524981qct.0
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 13:01:07 -0700 (PDT)
-In-Reply-To: <1430847947.3943.4.camel@perches.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56079 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030908AbbEEUFk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 16:05:40 -0400
+In-Reply-To: <1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 5, 2015 at 10:45 AM, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2015-05-05 at 10:34 -0700, sfeldma@gmail.com wrote:
->> Well almost clean: ignore the CHECKs for space after cast operator.
->
-> I think, because this uses relatively long identifiers,
-> that you might as well ignore > 80 column lines length
-> warnings.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 03 May 2015 21:34:46 -0700
 
-Alright, I'll revert those.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> This patch allows a server application to get the TCP SYN headers for
+> its passive connections.  This is useful if the server is doing
+> fingerprinting of clients based on SYN packet contents.
+> 
+> Two socket options are added: TCP_SAVE_SYN and TCP_SAVED_SYN.
+> 
+> The first is used on a socket to enable saving the SYN headers
+> for child connections. This can be set before or after the listen()
+> call.
+> 
+> The latter is used to retrieve the SYN headers for passive connections,
+> if the parent listener has enabled TCP_SAVE_SYN.
+> 
+> TCP_SAVED_SYN is read once, it frees the saved SYN headers.
+> 
+> The data returned in TCP_SAVED_SYN are network (IPv4/IPv6) and TCP
+> headers.
+> 
+> Original patch was written by Tom Herbert, I changed it to not hold
+> a full skb (and associated dst and conntracking reference).
+> 
+> We have used such patch for about 3 years at Google.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Applied, but I think you should give maybe a little bit more thought
+into the behavior when a not-large-enough buffer is supplied by the
+user.
+
+Since we're talking about things on the order of 60 bytes or so at
+most, it seems clear to me that signalling an error is probably the
+most advisable thing to do in this situation.
+
+Maybe you could signal an error, yet write the actual length to
+"optlen".  That way the user can figure out how much they need.  Then
+they at least would have the option of retrying with a larger buffer.
