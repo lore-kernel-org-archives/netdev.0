@@ -1,72 +1,94 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v5 14/21] switchdev: cut over to new switchdev_port_bridge_dellink
-Date: Tue,  5 May 2015 10:34:50 -0700
-Message-ID: <1430847297-15728-15-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v5 13/21] switchdev: add new switchdev_port_bridge_dellink
+Date: Tue,  5 May 2015 10:34:49 -0700
+Message-ID: <1430847297-15728-14-git-send-email-sfeldma@gmail.com>
 References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
 	ronen.arad@intel.com, andrew@lunn.ch, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:36484 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965365AbbEEReQ (ORCPT
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:36459 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965349AbbEEReQ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:34:16 -0400
-Received: by pdea3 with SMTP id a3so203679686pde.3
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:16 -0700 (PDT)
+Received: by pdea3 with SMTP id a3so203679207pde.3
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:15 -0700 (PDT)
 In-Reply-To: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Rocker, bonding and team and switch over to the new
-switchdev_port_bridge_dellink to avoid duplicating code in each driver.
+Same change as setlink.  Provide the wrapper op for SELF ndo_bridge_dellink
+and call into the switchdev driver to delete afspec VLANs.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/bonding/bond_main.c      |    2 +-
- drivers/net/ethernet/rocker/rocker.c |    1 +
- drivers/net/team/team.c              |    2 +-
- 3 files changed, 3 insertions(+), 2 deletions(-)
+ include/net/switchdev.h   |    6 ++++++
+ net/switchdev/switchdev.c |   24 ++++++++++++------------
+ 2 files changed, 18 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e1d8a03..bb47661 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4040,7 +4040,7 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_del_slave		= bond_release,
- 	.ndo_fix_features	= bond_fix_features,
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
--	.ndo_bridge_dellink	= ndo_dflt_switchdev_port_bridge_dellink,
-+	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- 	.ndo_features_check	= passthru_features_check,
- };
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index ce5ceb2..8ffadca 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -164,6 +164,12 @@ static inline int switchdev_port_obj_del(struct net_device *dev,
+ 	return -EOPNOTSUPP;
+ }
  
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 1fcc020..2a77c22e 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4289,6 +4289,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_fdb_dump			= rocker_port_fdb_dump,
- 	.ndo_bridge_setlink		= switchdev_port_bridge_setlink,
- 	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
-+	.ndo_bridge_dellink		= switchdev_port_bridge_dellink,
- 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
- };
++static inline int switchdev_port_bridge_dellink(struct net_device *dev,
++					    struct nlmsghdr *nlh, u16 flags)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int register_switchdev_notifier(struct notifier_block *nb)
+ {
+ 	return 0;
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index dcdec9d..8ce678e 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -512,27 +512,27 @@ int switchdev_port_bridge_setlink(struct net_device *dev,
+ EXPORT_SYMBOL_GPL(switchdev_port_bridge_setlink);
  
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index e6c4df2..0283753 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1978,7 +1978,7 @@ static const struct net_device_ops team_netdev_ops = {
- 	.ndo_fix_features	= team_fix_features,
- 	.ndo_change_carrier     = team_change_carrier,
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
--	.ndo_bridge_dellink     = ndo_dflt_switchdev_port_bridge_dellink,
-+	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- 	.ndo_features_check	= passthru_features_check,
- };
+ /**
+- *	switchdev_port_bridge_dellink - Notify switch device port of bridge
+- *	port attribute delete
++ *	switchdev_port_bridge_dellink - Set bridge port attributes
+  *
+  *	@dev: port device
+- *	@nlh: netlink msg with bridge port attributes
+- *	@flags: bridge setlink flags
++ *	@nlh: netlink header
++ *	@flags: netlink flags
+  *
+- *	Notify switch device port of bridge port attribute delete
++ *	Called for SELF on rtnl_bridge_dellink to set bridge port
++ *	attributes.
+  */
+ int switchdev_port_bridge_dellink(struct net_device *dev,
+ 				  struct nlmsghdr *nlh, u16 flags)
+ {
+-	const struct net_device_ops *ops = dev->netdev_ops;
+-
+-	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+-		return 0;
++	struct nlattr *afspec;
+ 
+-	if (!ops->ndo_bridge_dellink)
+-		return -EOPNOTSUPP;
++	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
++				 IFLA_AF_SPEC);
++	if (afspec)
++		return switchdev_port_br_afspec(dev, afspec,
++						switchdev_port_obj_del);
+ 
+-	return ops->ndo_bridge_dellink(dev, nlh, flags);
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_bridge_dellink);
  
 -- 
 1.7.10.4
