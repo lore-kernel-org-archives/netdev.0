@@ -1,133 +1,53 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [3.13.y-ckt stable] Patch "net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}" has been added to staging queue
-Date: Tue,  5 May 2015 13:33:05 -0700
-Message-ID: <1430857985-2227-1-git-send-email-kamal@canonical.com>
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Don Fry <pcnet32@frontier.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kamal Mostafa <kamal@canonical.com>,
-	kernel-team@lists.ubuntu.com
-To: Markos Chandras <markos.chandras@imgtec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH 0/2] pktgen changes
+Date: Tue, 05 May 2015 22:29:26 +0200
+Message-ID: <20150505202730.8715.48527.stgit@ivy>
+References: <1430457130-16003-1-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35876 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1031318AbbEEUgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2015 16:36:08 -0400
+In-Reply-To: <1430457130-16003-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a note to let you know that I have just added a patch titled
+The following series introduce some pktgen changes
 
-    net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
+Patch01:
+ Cleanup my own work when I introduced NO_TIMESTAMP.
 
-to the linux-3.13.y-queue branch of the 3.13.y-ckt extended stable tree 
-which can be found at:
+Patch02:
+ Took over patch from Alexei, and addressed my own concerns, as Alexie
+ is too busy with other work, and this will provide an easy tool for
+ measuring ingress path performance, which is a hot topic ATM.
 
-    http://kernel.ubuntu.com/git/ubuntu/linux.git/log/?h=linux-3.13.y-queue
+ Changes were primarily user interface related.  Introduced a separate
+ "xmit_mode" setting, instead of stealing one of the dev flags like
+ Alexei did.
 
-This patch is scheduled to be released in version 3.13.11-ckt20.
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 3.13.y-ckt tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Kamal
-
-------
-
->From 4235c2c498aa627e2c3b4aec44b81b184749d393 Mon Sep 17 00:00:00 2001
-From: Markos Chandras <markos.chandras@imgtec.com>
-Date: Thu, 19 Mar 2015 10:28:14 +0000
-Subject: net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
-
-commit 87f966d97b89774162df04d2106c6350c8fe4cb3 upstream.
-
-On a MIPS Malta board, tons of fifo underflow errors have been observed
-when using u-boot as bootloader instead of YAMON. The reason for that
-is that YAMON used to set the pcnet device to SRAM mode but u-boot does
-not. As a result, the default Tx threshold (64 bytes) is now too small to
-keep the fifo relatively used and it can result to Tx fifo underflow errors.
-As a result of which, it's best to setup the SRAM on supported controllers
-so we can always use the NOUFLO bit.
-
-Cc: <netdev@vger.kernel.org>
-Cc: <linux-kernel@vger.kernel.org>
-Cc: Don Fry <pcnet32@frontier.com>
-Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
 ---
- drivers/net/ethernet/amd/pcnet32.c | 31 +++++++++++++++++++++++++++++--
- 1 file changed, 29 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index 38492e0..26e0653 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -1516,7 +1516,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- {
- 	struct pcnet32_private *lp;
- 	int i, media;
--	int fdx, mii, fset, dxsuflo;
-+	int fdx, mii, fset, dxsuflo, sram;
- 	int chip_version;
- 	char *chipname;
- 	struct net_device *dev;
-@@ -1553,7 +1553,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 	}
+Alexei Starovoitov (1):
+      pktgen: introduce xmit_mode 'rx_inject'
 
- 	/* initialize variables */
--	fdx = mii = fset = dxsuflo = 0;
-+	fdx = mii = fset = dxsuflo = sram = 0;
- 	chip_version = (chip_version >> 12) & 0xffff;
+Jesper Dangaard Brouer (1):
+      pktgen: adjust flag NO_TIMESTAMP to be more pktgen compliant
 
- 	switch (chip_version) {
-@@ -1586,6 +1586,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 		chipname = "PCnet/FAST III 79C973";	/* PCI */
- 		fdx = 1;
- 		mii = 1;
-+		sram = 1;
- 		break;
- 	case 0x2626:
- 		chipname = "PCnet/Home 79C978";	/* PCI */
-@@ -1609,6 +1610,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 		chipname = "PCnet/FAST III 79C975";	/* PCI */
- 		fdx = 1;
- 		mii = 1;
-+		sram = 1;
- 		break;
- 	case 0x2628:
- 		chipname = "PCnet/PRO 79C976";
-@@ -1637,6 +1639,31 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- 		dxsuflo = 1;
- 	}
 
-+	/*
-+	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
-+	 * which we can use for the Tx/Rx buffers but most importantly,
-+	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
-+	 * Tx fifo underflows.
-+	 */
-+	if (sram) {
-+		/*
-+		 * The SRAM is being configured in two steps. First we
-+		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
-+		 * to the datasheet, each bit corresponds to a 512-byte
-+		 * page so we can have at most 24 pages. The SRAM_SIZE
-+		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
-+		 * The low 8-bits start at 0x00 and end at 0xff. So the
-+		 * address range is from 0x0000 up to 0x17ff. Therefore,
-+		 * the SRAM_SIZE is set to 0x17. The next step is to set
-+		 * the BCR26:SRAM_BND midway through so the Tx and Rx
-+		 * buffers can share the SRAM equally.
-+		 */
-+		a->write_bcr(ioaddr, 25, 0x17);
-+		a->write_bcr(ioaddr, 26, 0xc);
-+		/* And finally enable the NOUFLO bit */
-+		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
-+	}
-+
- 	dev = alloc_etherdev(sizeof(*lp));
- 	if (!dev) {
- 		ret = -ENOMEM;
---
-1.9.1
+ Documentation/networking/pktgen.txt |    9 ++++
+ net/core/pktgen.c                   |   87 +++++++++++++++++++++++++++++++++--
+ 2 files changed, 91 insertions(+), 5 deletions(-)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
