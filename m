@@ -1,7 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 11/14] sfc: manually allocate and free vadaptors
-Date: Wed, 6 May 2015 00:58:54 +0100
-Message-ID: <5549593E.40603@solarflare.com>
+Subject: [PATCH net-next 12/14] sfc: Cope with permissions enforcement added
+ to firmware for SR-IOV
+Date: Wed, 6 May 2015 00:59:18 +0100
+Message-ID: <55495956.1040808@solarflare.com>
 References: <554957DF.2010307@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,213 +10,306 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:42981 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753565AbbEEX7B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:59:01 -0400
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:59817 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755662AbbEEX7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:59:24 -0400
 In-Reply-To: <554957DF.2010307@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To be able to use MC_CMD_VADAPTOR_SET_MAC, vadaptors must be
-manually allocated and freed as automatic vadaptors will disappear
-when their reference_count reaches zero, which must happen before
-the MAC address is changed.
+From: Edward Cree <ecree@solarflare.com>
 
-Vadaptors are allocated and freed in the vswitching_probe/remove
-functions for PFs and VFs, and this means that vadaptors are restored
-correctly following an MC reboot or other reset when required.
+* Accept EPERM in some simple cases, the following cases are handled:
+1) efx_mcdi_read_assertion()
+Unprivileged PCI functions aren't allowed to GET_ASSERTS.
+We return success as it's up to the primary PF to deal with asserts.
+2) efx_mcdi_mon_probe() in efx_ef10_probe()
+Unprivileged PCI functions aren't allowed to read sensor info, and
+worrying about sensor data is the primary PF's job.
+3) phy_op->reconfigure() in efx_init_port() and efx_reset_up()
+Unprivileged functions aren't allowed to MC_CMD_SET_LINK, they just have
+to accept the settings (including flow-control, which is what
+efx_init_port() is worried about) they've been given.
+4) Fallback to GET_WORKAROUNDS in efx_ef10_probe()
+Unprivileged PCI functions aren't allowed to set workarounds. So if
+efx_mcdi_set_workaround() fails EPERM, use efx_mcdi_get_workarounds()
+to find out if workaround_35388 is enabled.
+5) If DRV_ATTACH gets EPERM, try without specifying fw-variant
+Unprivileged PCI functions have to use a FIRMWARE_ID of 0xffffffff
+(MC_CMD_FW_DONT_CARE).
+6) Don't try to exit_assertion unless one had fired
+Previously we called efx_mcdi_exit_assertion even if
+efx_mcdi_read_assertion had received MC_CMD_GET_ASSERTS_FLAGS_NO_FAILS.
+This is unnecessary, and the resulting MC_CMD_REBOOT, even if the
+AFTER_ASSERTION flag made it a no-op, would fail EPERM for unprivileged
+PCI functions.
+So make efx_mcdi_read_assertion return whether an assert happened, and only
+call efx_mcdi_exit_assertion if it has.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c       | 12 +++---
- drivers/net/ethernet/sfc/ef10_sriov.c | 71 +++++++++++++++++++++++++++++++----
- drivers/net/ethernet/sfc/ef10_sriov.h |  9 +++--
- 3 files changed, 76 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c      | 16 ++++++-
+ drivers/net/ethernet/sfc/efx.c       |  5 ++-
+ drivers/net/ethernet/sfc/mcdi.c      | 82 ++++++++++++++++++++++++++++++------
+ drivers/net/ethernet/sfc/mcdi.h      |  2 +
+ drivers/net/ethernet/sfc/mcdi_pcol.h | 23 ++++++++++
+ 5 files changed, 111 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index ae98e42..0dff812 100644
+index 0dff812..ae0ed2a 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -3760,9 +3760,9 @@ const struct efx_nic_type efx_hunt_a0_vf_nic_type = {
- 	.ptp_write_host_time = efx_ef10_ptp_write_host_time_vf,
- 	.ptp_set_ts_config = efx_ef10_ptp_set_ts_config_vf,
- #ifdef CONFIG_SFC_SRIOV
--	.vswitching_probe = efx_port_dummy_op_int,
--	.vswitching_restore = efx_port_dummy_op_int,
--	.vswitching_remove = efx_port_dummy_op_void,
-+	.vswitching_probe = efx_ef10_vswitching_probe_vf,
-+	.vswitching_restore = efx_ef10_vswitching_restore_vf,
-+	.vswitching_remove = efx_ef10_vswitching_remove_vf,
- #endif
- 	.revision = EFX_REV_HUNT_A0,
- 	.max_dma_mask = DMA_BIT_MASK(ESF_DZ_TX_KER_BUF_ADDR_WIDTH),
-@@ -3876,9 +3876,9 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
- 	.sriov_set_vf_vlan = efx_ef10_sriov_set_vf_vlan,
- 	.sriov_set_vf_spoofchk = efx_ef10_sriov_set_vf_spoofchk,
- 	.sriov_get_vf_config = efx_ef10_sriov_get_vf_config,
--	.vswitching_probe = efx_ef10_vswitching_probe,
--	.vswitching_restore = efx_ef10_vswitching_restore,
--	.vswitching_remove = efx_ef10_vswitching_remove,
-+	.vswitching_probe = efx_ef10_vswitching_probe_pf,
-+	.vswitching_restore = efx_ef10_vswitching_restore_pf,
-+	.vswitching_remove = efx_ef10_vswitching_remove_pf,
- #endif
+@@ -286,10 +286,22 @@ static int efx_ef10_probe(struct efx_nic *efx)
+ 		goto fail3;
+ 	efx->timer_quantum_ns = 1536000 / rc; /* 1536 cycles */
  
- 	.revision = EFX_REV_HUNT_A0,
-diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
-index b9545bf..1b93acf 100644
---- a/drivers/net/ethernet/sfc/ef10_sriov.c
-+++ b/drivers/net/ethernet/sfc/ef10_sriov.c
-@@ -117,6 +117,24 @@ static int efx_ef10_vport_free(struct efx_nic *efx, unsigned int port_id)
+-	/* Check whether firmware supports bug 35388 workaround */
++	/* Check whether firmware supports bug 35388 workaround.
++	 * First try to enable it, then if we get EPERM, just
++	 * ask if it's already enabled
++	 */
+ 	rc = efx_mcdi_set_workaround(efx, MC_CMD_WORKAROUND_BUG35388, true);
+ 	if (rc == 0)
+ 		nic_data->workaround_35388 = true;
++	else if (rc == -EPERM) {
++		unsigned int enabled;
++
++		rc = efx_mcdi_get_workarounds(efx, NULL, &enabled);
++		if (rc)
++			goto fail3;
++		nic_data->workaround_35388 = enabled &
++			MC_CMD_GET_WORKAROUNDS_OUT_BUG35388;
++	}
+ 	else if (rc != -ENOSYS && rc != -ENOENT)
+ 		goto fail3;
+ 	netif_dbg(efx, probe, efx->net_dev,
+@@ -297,7 +309,7 @@ static int efx_ef10_probe(struct efx_nic *efx)
+ 		  nic_data->workaround_35388 ? "en" : "dis");
+ 
+ 	rc = efx_mcdi_mon_probe(efx);
+-	if (rc)
++	if (rc && rc != -EPERM)
+ 		goto fail3;
+ 
+ 	efx_ptp_probe(efx, NULL);
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 8b2edda..78f7760 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1046,7 +1046,7 @@ static int efx_init_port(struct efx_nic *efx)
+ 
+ 	/* Ensure the PHY advertises the correct flow control settings */
+ 	rc = efx->phy_op->reconfigure(efx);
+-	if (rc)
++	if (rc && rc != -EPERM)
+ 		goto fail2;
+ 
+ 	mutex_unlock(&efx->mac_lock);
+@@ -2429,7 +2429,8 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
+ 		rc = efx->phy_op->init(efx);
+ 		if (rc)
+ 			goto fail;
+-		if (efx->phy_op->reconfigure(efx))
++		rc = efx->phy_op->reconfigure(efx);
++		if (rc && rc != -EPERM)
+ 			netif_err(efx, drv, efx->net_dev,
+ 				  "could not restore PHY settings\n");
+ 	}
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index 6e0c789..1ffe289 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -1142,10 +1142,26 @@ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+ 	MCDI_SET_DWORD(inbuf, DRV_ATTACH_IN_UPDATE, 1);
+ 	MCDI_SET_DWORD(inbuf, DRV_ATTACH_IN_FIRMWARE_ID, MC_CMD_FW_LOW_LATENCY);
+ 
+-	rc = efx_mcdi_rpc(efx, MC_CMD_DRV_ATTACH, inbuf, sizeof(inbuf),
+-			  outbuf, sizeof(outbuf), &outlen);
+-	if (rc)
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_DRV_ATTACH, inbuf, sizeof(inbuf),
++				outbuf, sizeof(outbuf), &outlen);
++	/* If we're not the primary PF, trying to ATTACH with a FIRMWARE_ID
++	 * specified will fail with EPERM, and we have to tell the MC we don't
++	 * care what firmware we get.
++	 */
++	if (rc == -EPERM) {
++		netif_dbg(efx, probe, efx->net_dev,
++			  "efx_mcdi_drv_attach with fw-variant setting failed EPERM, trying without it\n");
++		MCDI_SET_DWORD(inbuf, DRV_ATTACH_IN_FIRMWARE_ID,
++			       MC_CMD_FW_DONT_CARE);
++		rc = efx_mcdi_rpc_quiet(efx, MC_CMD_DRV_ATTACH, inbuf,
++					sizeof(inbuf), outbuf, sizeof(outbuf),
++					&outlen);
++	}
++	if (rc) {
++		efx_mcdi_display_error(efx, MC_CMD_DRV_ATTACH, sizeof(inbuf),
++				       outbuf, outlen, rc);
+ 		goto fail;
++	}
+ 	if (outlen < MC_CMD_DRV_ATTACH_OUT_LEN) {
+ 		rc = -EIO;
+ 		goto fail;
+@@ -1377,6 +1393,9 @@ fail1:
+ 	return rc;
+ }
+ 
++/* Returns 1 if an assertion was read, 0 if no assertion had fired,
++ * negative on error.
++ */
+ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_ASSERTS_IN_LEN);
+@@ -1398,6 +1417,8 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ 		rc = efx_mcdi_rpc_quiet(efx, MC_CMD_GET_ASSERTS,
+ 					inbuf, MC_CMD_GET_ASSERTS_IN_LEN,
+ 					outbuf, sizeof(outbuf), &outlen);
++		if (rc == -EPERM)
++			return 0;
+ 	} while ((rc == -EINTR || rc == -EIO) && retry-- > 0);
+ 
+ 	if (rc) {
+@@ -1435,24 +1456,31 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ 			  MCDI_ARRAY_DWORD(outbuf, GET_ASSERTS_OUT_GP_REGS_OFFS,
+ 					   index));
+ 
+-	return 0;
++	return 1;
+ }
+ 
+-static void efx_mcdi_exit_assertion(struct efx_nic *efx)
++static int efx_mcdi_exit_assertion(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_REBOOT_IN_LEN);
++	int rc;
+ 
+ 	/* If the MC is running debug firmware, it might now be
+ 	 * waiting for a debugger to attach, but we just want it to
+ 	 * reboot.  We set a flag that makes the command a no-op if it
+-	 * has already done so.  We don't know what return code to
+-	 * expect (0 or -EIO), so ignore it.
++	 * has already done so.
++	 * The MCDI will thus return either 0 or -EIO.
+ 	 */
+ 	BUILD_BUG_ON(MC_CMD_REBOOT_OUT_LEN != 0);
+ 	MCDI_SET_DWORD(inbuf, REBOOT_IN_FLAGS,
+ 		       MC_CMD_REBOOT_FLAGS_AFTER_ASSERTION);
+-	(void) efx_mcdi_rpc(efx, MC_CMD_REBOOT, inbuf, MC_CMD_REBOOT_IN_LEN,
+-			    NULL, 0, NULL);
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_REBOOT, inbuf, MC_CMD_REBOOT_IN_LEN,
++				NULL, 0, NULL);
++	if (rc == -EIO)
++		rc = 0;
++	if (rc)
++		efx_mcdi_display_error(efx, MC_CMD_REBOOT, MC_CMD_REBOOT_IN_LEN,
++				       NULL, 0, rc);
++	return rc;
+ }
+ 
+ int efx_mcdi_handle_assertion(struct efx_nic *efx)
+@@ -1460,12 +1488,10 @@ int efx_mcdi_handle_assertion(struct efx_nic *efx)
+ 	int rc;
+ 
+ 	rc = efx_mcdi_read_assertion(efx);
+-	if (rc)
++	if (rc <= 0)
+ 		return rc;
+ 
+-	efx_mcdi_exit_assertion(efx);
+-
+-	return 0;
++	return efx_mcdi_exit_assertion(efx);
+ }
+ 
+ void efx_mcdi_set_id_led(struct efx_nic *efx, enum efx_led_mode mode)
+@@ -1680,6 +1706,36 @@ int efx_mcdi_set_workaround(struct efx_nic *efx, u32 type, bool enabled)
  			    NULL, 0, NULL);
  }
  
-+static int efx_ef10_vadaptor_alloc(struct efx_nic *efx, unsigned int port_id)
++int efx_mcdi_get_workarounds(struct efx_nic *efx, unsigned int *impl_out,
++			     unsigned int *enabled_out)
 +{
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_VADAPTOR_ALLOC_IN_LEN);
-+
-+	MCDI_SET_DWORD(inbuf, VADAPTOR_ALLOC_IN_UPSTREAM_PORT_ID, port_id);
-+	return efx_mcdi_rpc(efx, MC_CMD_VADAPTOR_ALLOC, inbuf, sizeof(inbuf),
-+			    NULL, 0, NULL);
-+}
-+
-+static int efx_ef10_vadaptor_free(struct efx_nic *efx, unsigned int port_id)
-+{
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_VADAPTOR_FREE_IN_LEN);
-+
-+	MCDI_SET_DWORD(inbuf, VADAPTOR_FREE_IN_UPSTREAM_PORT_ID, port_id);
-+	return efx_mcdi_rpc(efx, MC_CMD_VADAPTOR_FREE, inbuf, sizeof(inbuf),
-+			    NULL, 0, NULL);
-+}
-+
- static void efx_ef10_sriov_free_vf_vports(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-@@ -231,14 +249,17 @@ fail:
- /* On top of the default firmware vswitch setup, create a VEB vswitch and
-  * expansion vport for use by this function.
-  */
--int efx_ef10_vswitching_probe(struct efx_nic *efx)
-+int efx_ef10_vswitching_probe_pf(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 	struct net_device *net_dev = efx->net_dev;
- 	int rc;
- 
--	if (pci_sriov_get_totalvfs(efx->pci_dev) <= 0)
--		return 0; /* vswitch not needed as we have no VFs */
-+	if (pci_sriov_get_totalvfs(efx->pci_dev) <= 0) {
-+		/* vswitch not needed as we have no VFs */
-+		efx_ef10_vadaptor_alloc(efx, nic_data->vport_id);
-+		return 0;
-+	}
- 
- 	rc = efx_ef10_vswitch_alloc(efx, EVB_PORT_ID_ASSIGNED,
- 				    MC_CMD_VSWITCH_ALLOC_IN_VSWITCH_TYPE_VEB);
-@@ -254,10 +275,16 @@ int efx_ef10_vswitching_probe(struct efx_nic *efx)
- 	rc = efx_ef10_vport_add_mac(efx, nic_data->vport_id, net_dev->dev_addr);
- 	if (rc)
- 		goto fail3;
--
- 	ether_addr_copy(nic_data->vport_mac, net_dev->dev_addr);
- 
-+	rc = efx_ef10_vadaptor_alloc(efx, nic_data->vport_id);
-+	if (rc)
-+		goto fail4;
-+
- 	return 0;
-+fail4:
-+	efx_ef10_vport_del_mac(efx, nic_data->vport_id, nic_data->vport_mac);
-+	eth_zero_addr(nic_data->vport_mac);
- fail3:
- 	efx_ef10_vport_free(efx, nic_data->vport_id);
- 	nic_data->vport_id = EVB_PORT_ID_ASSIGNED;
-@@ -267,7 +294,14 @@ fail1:
- 	return rc;
- }
- 
--int efx_ef10_vswitching_restore(struct efx_nic *efx)
-+int efx_ef10_vswitching_probe_vf(struct efx_nic *efx)
-+{
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+
-+	return efx_ef10_vadaptor_alloc(efx, nic_data->vport_id);
-+}
-+
-+int efx_ef10_vswitching_restore_pf(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 	int rc;
-@@ -275,7 +309,7 @@ int efx_ef10_vswitching_restore(struct efx_nic *efx)
- 	if (!nic_data->must_probe_vswitching)
- 		return 0;
- 
--	rc = efx_ef10_vswitching_probe(efx);
-+	rc = efx_ef10_vswitching_probe_pf(efx);
- 	if (rc)
- 		goto fail;
- 
-@@ -288,12 +322,30 @@ fail:
- 	return rc;
- }
- 
--void efx_ef10_vswitching_remove(struct efx_nic *efx)
-+int efx_ef10_vswitching_restore_vf(struct efx_nic *efx)
-+{
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, MC_CMD_GET_WORKAROUNDS_OUT_LEN);
++	size_t outlen;
 +	int rc;
 +
-+	if (!nic_data->must_probe_vswitching)
-+		return 0;
-+
-+	rc = efx_ef10_vadaptor_free(efx, EVB_PORT_ID_ASSIGNED);
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_WORKAROUNDS, NULL, 0,
++			  outbuf, sizeof(outbuf), &outlen);
 +	if (rc)
-+		return rc;
++		goto fail;
 +
-+	nic_data->must_probe_vswitching = false;
++	if (outlen < MC_CMD_GET_WORKAROUNDS_OUT_LEN) {
++		rc = -EIO;
++		goto fail;
++	}
++
++	if (impl_out)
++		*impl_out = MCDI_DWORD(outbuf, GET_WORKAROUNDS_OUT_IMPLEMENTED);
++
++	if (enabled_out)
++		*enabled_out = MCDI_DWORD(outbuf, GET_WORKAROUNDS_OUT_ENABLED);
++
 +	return 0;
++
++fail:
++	netif_err(efx, hw, efx->net_dev, "%s: failed rc=%d\n", __func__, rc);
++	return rc;
 +}
 +
-+void efx_ef10_vswitching_remove_pf(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+ #ifdef CONFIG_SFC_MTD
  
- 	efx_ef10_sriov_free_vf_vswitching(efx);
+ #define EFX_MCDI_NVRAM_LEN_MAX 128
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 56465f7..5df1e98 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -339,6 +339,8 @@ bool efx_mcdi_mac_check_fault(struct efx_nic *efx);
+ enum reset_type efx_mcdi_map_reset_reason(enum reset_type reason);
+ int efx_mcdi_reset(struct efx_nic *efx, enum reset_type method);
+ int efx_mcdi_set_workaround(struct efx_nic *efx, u32 type, bool enabled);
++int efx_mcdi_get_workarounds(struct efx_nic *efx, unsigned int *impl_out,
++			     unsigned int *enabled_out);
  
-+	efx_ef10_vadaptor_free(efx, nic_data->vport_id);
+ #ifdef CONFIG_SFC_MCDI_MON
+ int efx_mcdi_mon_probe(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
+index e028de1..4fa6eb2 100644
+--- a/drivers/net/ethernet/sfc/mcdi_pcol.h
++++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
+@@ -1875,6 +1875,8 @@
+ #define          MC_CMD_FW_FULL_FEATURED 0x0
+ /* enum: Prefer to use firmware with fewer features but lower latency */
+ #define          MC_CMD_FW_LOW_LATENCY 0x1
++/* enum: Only this option is allowed for non-admin functions */
++#define          MC_CMD_FW_DONT_CARE  0xffffffff
+ 
+ /* MC_CMD_DRV_ATTACH_OUT msgresponse */
+ #define    MC_CMD_DRV_ATTACH_OUT_LEN 4
+@@ -4087,6 +4089,27 @@
+ 
+ 
+ /***********************************/
++/* MC_CMD_GET_WORKAROUNDS
++ * Read the list of all implemented and all currently enabled workarounds. The
++ * enums here must correspond with those in MC_CMD_WORKAROUND.
++ */
++#define MC_CMD_GET_WORKAROUNDS 0x59
 +
- 	if (nic_data->vport_id == EVB_PORT_ID_ASSIGNED)
- 		return; /* No vswitch was ever created */
- 
-@@ -308,6 +360,11 @@ void efx_ef10_vswitching_remove(struct efx_nic *efx)
- 	efx_ef10_vswitch_free(efx, nic_data->vport_id);
- }
- 
-+void efx_ef10_vswitching_remove_vf(struct efx_nic *efx)
-+{
-+	efx_ef10_vadaptor_free(efx, EVB_PORT_ID_ASSIGNED);
-+}
++/* MC_CMD_GET_WORKAROUNDS_OUT msgresponse */
++#define    MC_CMD_GET_WORKAROUNDS_OUT_LEN 8
++/* Each workaround is represented by a single bit according to the enums below.
++ */
++#define       MC_CMD_GET_WORKAROUNDS_OUT_IMPLEMENTED_OFST 0
++#define       MC_CMD_GET_WORKAROUNDS_OUT_ENABLED_OFST 4
++/* enum: Bug 17230 work around. */
++#define          MC_CMD_GET_WORKAROUNDS_OUT_BUG17230 0x2
++/* enum: Bug 35388 work around (unsafe EVQ writes). */
++#define          MC_CMD_GET_WORKAROUNDS_OUT_BUG35388 0x4
++/* enum: Bug35017 workaround (A64 tables must be identity map) */
++#define          MC_CMD_GET_WORKAROUNDS_OUT_BUG35017 0x8
 +
- static int efx_ef10_pci_sriov_enable(struct efx_nic *efx, int num_vfs)
- {
- 	int rc = 0;
-diff --git a/drivers/net/ethernet/sfc/ef10_sriov.h b/drivers/net/ethernet/sfc/ef10_sriov.h
-index 42d7145..86bac7eb 100644
---- a/drivers/net/ethernet/sfc/ef10_sriov.h
-+++ b/drivers/net/ethernet/sfc/ef10_sriov.h
-@@ -60,8 +60,11 @@ static inline int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf,
- 	return -EOPNOTSUPP;
- }
- 
--int efx_ef10_vswitching_probe(struct efx_nic *efx);
--int efx_ef10_vswitching_restore(struct efx_nic *efx);
--void efx_ef10_vswitching_remove(struct efx_nic *efx);
-+int efx_ef10_vswitching_probe_pf(struct efx_nic *efx);
-+int efx_ef10_vswitching_probe_vf(struct efx_nic *efx);
-+int efx_ef10_vswitching_restore_pf(struct efx_nic *efx);
-+int efx_ef10_vswitching_restore_vf(struct efx_nic *efx);
-+void efx_ef10_vswitching_remove_pf(struct efx_nic *efx);
-+void efx_ef10_vswitching_remove_vf(struct efx_nic *efx);
- 
- #endif /* EF10_SRIOV_H */
++
++/***********************************/
+ /* MC_CMD_READ_REGS
+  * Get a dump of the MCPU registers
+  */
