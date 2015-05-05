@@ -1,49 +1,81 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH 27/27] net: rfkill: Allow compile test of GPIO consumers if !GPIOLIB
-Date: Tue,  5 May 2015 18:32:43 +0200
-Message-ID: <1430843563-18615-27-git-send-email-geert@linux-m68k.org>
-References: <1430836404-15513-1-git-send-email-geert@linux-m68k.org>
- <1430843563-18615-1-git-send-email-geert@linux-m68k.org>
-Cc: linux-gpio@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Linus Walleij <linus.walleij@linaro.org>,
-	Alexandre Courbot <gnurou@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430843563-18615-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas F Herbert <thomasfherbert@gmail.com>
+Subject: Re: [PATCH net-next V7 2/2] openvswitch: 802.1ad: Flow handling,
+ actions, and vlan parsing
+Date: Tue, 05 May 2015 12:38:40 -0400
+Message-ID: <5548F210.3010808@gmail.com>
+References: <1430261059-7920-1-git-send-email-thomasfherbert@gmail.com>	<1430261059-7920-3-git-send-email-thomasfherbert@gmail.com> <CALnjE+qtYW4JE5TT3WiOofe=Q+YkLEZ7e+MpJQYLs5f6wD3nvw@mail.gmail.com>
+Reply-To: thomasfherbert@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
+	ccp@atcnet.net, Flavio Leitner <fbl@redhat.com>
+To: Pravin Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vn0-f53.google.com ([209.85.216.53]:44954 "EHLO
+	mail-vn0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbbEEQio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 12:38:44 -0400
+Received: by vnbg7 with SMTP id g7so17378401vnb.11
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 09:38:43 -0700 (PDT)
+In-Reply-To: <CALnjE+qtYW4JE5TT3WiOofe=Q+YkLEZ7e+MpJQYLs5f6wD3nvw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The GPIO subsystem provides dummy GPIO consumer functions if GPIOLIB is
-not enabled. Hence drivers that depend on GPIOLIB, but use GPIO consumer
-functionality only, can still be compiled if GPIOLIB is not enabled.
+On 4/29/15 9:27 PM, Pravin Shelar wrote:
+> On Tue, Apr 28, 2015 at 3:44 PM, Thomas F Herbert
+> <thomasfherbert@gmail.com> wrote:
+>
+> +
+> +       if (likely(skb_vlan_tag_present(skb))) {
+> +
+> +               key->eth.tci = htons(skb->vlan_tci);
+> +
+> I think there is bug in existing OVS where it does not check
+> vlan_proto before populating the flow key. Can you send a separate
+> patch to fix this issue?.
+Pravin, I realized I needed to address this  comment in more detail. I 
+would appreciate your and anybody
+else's thoughts on the following:
+1. the newer if_vlan header in the upstream kernel has a function that 
+probably should be used here and
+elsewhere when checking for tags, skb_vlan_tagged() which also checks 
+skb->protocol field.
+2.  What about the compat "stuff" in the linux datapath of openvswitch? 
+Should any fix for this issue also be
+applied to the compat layer which has different semantics for vlans or 
+should the compat layer be updated to
+be the same as the 3.19, 4.0 kernel semantics?
+3.  In spite of my comment #2 above, I am not convinced that the 
+generalized skb vlan functions in if_vlan.h are truly
+independent of hardware acceleration. I can see cases where the vlan 
+headers in the payload of the skb are not
+checked. I am thinking a patch to the upstream kernel may also be necessary.
+>
+>> +               /*
+>> +                * Case where upstream
+>> +                * processing has already stripped the outer vlan tag.
+>> +                */
+>> +               if (unlikely(skb->vlan_proto == htons(ETH_P_8021AD))) {
+>> +
+>> +                       if (unlikely(skb->len < sizeof(struct qtag_prefix) +
+>> +                                       sizeof(__be16)))
+>> +                               return 0;
+>> +
+> If this returns from here then it can match on flow with tci which
+> expect vlan_proto to be 8021Q but with vlan_proto equal to 8021AD.
+I did not fix this. This double checking has come up before when I 
+submitted an earlier revision of this patch.
+The double checking done here is also used in the single tagged vlan 
+code. I think that the consensus is that
+Open vSwitch wants to allow incomplete headers to allow user space 
+processing to decide how to
+process incomplete vlan tags. For more discussion, see the following thread:
+http://openvswitch.org/pipermail/dev/2014-December/049984.html
 
-Relax the dependency on GPIOLIB if COMPILE_TEST is enabled, where
-appropriate.
+Thanks,
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
- net/rfkill/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+--TFH
 
-diff --git a/net/rfkill/Kconfig b/net/rfkill/Kconfig
-index 4c10e7e6c9f6ae53..598d374f6a35f714 100644
---- a/net/rfkill/Kconfig
-+++ b/net/rfkill/Kconfig
-@@ -36,7 +36,8 @@ config RFKILL_REGULATOR
- 
- config RFKILL_GPIO
- 	tristate "GPIO RFKILL driver"
--	depends on RFKILL && GPIOLIB
-+	depends on RFKILL
-+	depends on GPIOLIB || COMPILE_TEST
- 	default n
- 	help
- 	  If you say yes here you get support of a generic gpio RFKILL
 -- 
-1.9.1
+Thomas F. Herbert
