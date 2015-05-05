@@ -1,88 +1,51 @@
-From: Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] adm8211: fix checkpatch error for trailing statements on
- next line
-Date: Tue, 5 May 2015 08:17:41 +0100
-Message-ID: <20150505071741.GA2678@bytefire-computer>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: [PATCH] stmmac: call local_irq_save other than disable_irq in poll_controller
+Date: Tue, 5 May 2015 15:55:53 +0800
+Message-ID: <1430812553-7588-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: joe@perchescom
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	<adi-buildroot-devel@lists.sourceforge.net>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0062.outbound.protection.outlook.com ([157.56.111.62]:31921
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756729AbbEEIco (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2015 04:32:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes these checkpatch.pl errors:
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-ERROR: trailing statements should be on next line
-ERROR: switch and case should be at the same indent
+It is possible that poll_controller is called from netpoll.c with irq
+already disabled. Unexpected interrupt may be triggered if always
+enable irq before returning from poll_controller.
 
-More specifically, the fix has been applied to the five occurances of the errors listed below.
-
-ERROR: trailing statements should be on next line
-#1101: FILE: drivers/net/wireless/adm8211.c:1101:
-+		case  0x8: reg |= (0x1 << 14);
-
-ERROR: trailing statements should be on next line
-#1103: FILE: drivers/net/wireless/adm8211.c:1103:
-+		case 0x16: reg |= (0x2 << 14);
-
-ERROR: trailing statements should be on next line
-#1105: FILE: drivers/net/wireless/adm8211.c:1105:
-+		case 0x32: reg |= (0x3 << 14);
-
-ERROR: trailing statements should be on next line
-#1107: FILE: drivers/net/wireless/adm8211.c:1107:
-+		default: reg |= (0x0 << 14);
-
-ERROR: switch and case should be at the same indent
-#1100: FILE: adm8211.c:1100:
-+		switch (cline) {
-[...]
-+		  default:
-
-
-Signed-off-by: Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 ---
- drivers/net/wireless/adm8211.c | 20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
-index f07a618..79e4e5f 100644
---- a/drivers/net/wireless/adm8211.c
-+++ b/drivers/net/wireless/adm8211.c
-@@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
- 		pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
- 
- 		switch (cline) {
--		case  0x8: reg |= (0x1 << 14);
--			   break;
--		case 0x16: reg |= (0x2 << 14);
--			   break;
--		case 0x32: reg |= (0x3 << 14);
--			   break;
--		  default: reg |= (0x0 << 14);
--			   break;
-+		case  0x8:
-+			reg |= (0x1 << 14);
-+			break;
-+		case 0x16:
-+			reg |= (0x2 << 14);
-+			break;
-+		case 0x32:
-+			reg |= (0x3 << 14);
-+			break;
-+		default:
-+			reg |= (0x0 << 14);
-+			break;
- 		}
- 	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 05c146f..830c008 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2465,9 +2465,11 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+  */
+ static void stmmac_poll_controller(struct net_device *dev)
+ {
+-	disable_irq(dev->irq);
++	unsigned long flags;
++
++	local_irq_save(flags);
+ 	stmmac_interrupt(dev->irq, dev);
+-	enable_irq(dev->irq);
++	local_irq_restore(flags);
+ }
+ #endif
  
 -- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.9.5
