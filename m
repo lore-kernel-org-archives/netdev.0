@@ -1,100 +1,53 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: wireless-drivers 2015-05-05
-Date: Tue, 5 May 2015 20:00:42 +0300
-Message-ID: <871tivt0w5.fsf@kamboji.qca.qualcomm.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 00/21] ARCNET: Defibrillation
+Date: Tue, 05 May 2015 10:02:30 -0700
+Message-ID: <1430845350.7191.36.camel@perches.com>
+References: <1429896055-31680-1-git-send-email-m.grzeschik@pengutronix.de>
+	 <1429901273.23327.5.camel@perches.com> <553AB241.3080004@pengutronix.de>
+	 <20150424.235853.1997287895150693202.davem@davemloft.net>
+	 <20150427145715.GC23151@pengutronix.de>
+	 <1430365765.2575.5.camel@perches.com>
+	 <20150505164310.GA26406@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mkl@pengutronix.de,
+	David Miller <davem@davemloft.net>, kernel@pengutronix.de,
+	linux-kernel@vger.kernel.org
+To: Michael Grzeschik <mgr@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150505164310.GA26406@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Tue, 2015-05-05 at 18:43 +0200, Michael Grzeschik wrote:
+> On Wed, Apr 29, 2015 at 08:49:25PM -0700, Joe Perches wrote:
+> > I was away for a few days and while out I did another
+> > restructuring of all the inb/outb/readb/writeb code
+> > removing all the A<FOO> macros.  It removes all the
+> > dependencies on ioaddr and names all the offsets with
+> > new defines.
+> > 
+> > I could post if you like.
+> 
+> Sure, you should do that! I will rework my patches on top of them.
 
-here are few fixes for 4.1. Please let me know if there are problems.
+As it's ~400KB and very few are likely interested,
+I'll send them to you privately.
 
-Kalle
+> I would like to know what David things about the whole work.
 
-The following changes since commit 39376ccb1968ba9f83e2a880a8bf02ad5dea44e1:
+I think he already said what he thinks.
 
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf (2015-04-27 23:12:34 -0400)
+As arcnet has neither a maintainer nor an active
+user base, arcnet is in "bugfix only mode".
 
-are available in the git repository at:
+Testing coverage is the biggest issue.
 
+If you want to become the maintainer for arcnet
+and have sufficient time and hardware to verify
+that changes don't break things, great!
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2015-05-05
+Responsibility then shifts to you.
 
-for you to fetch changes up to f673821864899153142365aca888435815ac93f0:
-
-  ath9k: fix per-packet tx power configuration (2015-05-03 23:54:38 +0300)
-
-----------------------------------------------------------------
-iwlwifi:
-
-* fix firmware API for -13.ucode
-* fix RSSI handling that avoid bad roaming decision
-* fix firmware debug
-* fix MFUART operation
-* fix ASSERT while restart the hardware (because of another ASSERT e.g)
-
-ath9k:
-
-* fix per-packet tx power configuration
-
-rtlwifi:
-
-* rtl8192cu: Fix kernel deadlock
-
-----------------------------------------------------------------
-Alexander Bondar (1):
-      iwlwifi: mvm: Avoid signal based decisions if ave beacon RSSI is 0
-
-Avraham Stern (1):
-      iwlwifi: mvm: fix scan iteration complete notification handling
-
-Avri Altman (1):
-      iwlwifi: mvm: fix Tx Power firmware API
-
-Emmanuel Grumbach (2):
-      iwlwifi: mvm: don't stop the FW monitor too early
-      iwlwifi: mvm: fix typo in CONFIG option
-
-Eran Harary (1):
-      iwlwifi: mvm: don't power off the device between INIT and OPER firmwares
-
-Johannes Berg (1):
-      iwlwifi: mvm: force quota update update after FW restart
-
-Kalle Valo (1):
-      Merge tag 'iwlwifi-for-kalle-2015-04-28' of https://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-
-Larry Finger (1):
-      rtlwifi: rtl8192cu: Fix kernel deadlock
-
-Liad Kaufman (1):
-      iwlwifi: pcie: prevent using unmapped memory in fw monitor
-
-Lorenzo Bianconi (1):
-      ath9k: fix per-packet tx power configuration
-
- drivers/net/wireless/ath/ath9k/xmit.c           |   52 +++++++++++-----------
- drivers/net/wireless/iwlwifi/iwl-fw-file.h      |    2 +
- drivers/net/wireless/iwlwifi/iwl-trans.h        |   41 +++++++++++------
- drivers/net/wireless/iwlwifi/mvm/d3.c           |    2 +-
- drivers/net/wireless/iwlwifi/mvm/fw-api-power.h |   34 ++++++++++++++
- drivers/net/wireless/iwlwifi/mvm/fw-api-scan.h  |   44 +-----------------
- drivers/net/wireless/iwlwifi/mvm/fw-api.h       |   13 ------
- drivers/net/wireless/iwlwifi/mvm/fw.c           |   54 +++++++++--------------
- drivers/net/wireless/iwlwifi/mvm/mac80211.c     |   26 +++++++++--
- drivers/net/wireless/iwlwifi/mvm/mvm.h          |    1 -
- drivers/net/wireless/iwlwifi/mvm/ops.c          |   10 +++++
- drivers/net/wireless/iwlwifi/mvm/rx.c           |    5 +++
- drivers/net/wireless/iwlwifi/mvm/scan.c         |    2 +-
- drivers/net/wireless/iwlwifi/pcie/trans.c       |   17 +++----
- drivers/net/wireless/rtlwifi/usb.c              |    2 +-
- 15 files changed, 161 insertions(+), 144 deletions(-)
-
--- 
-Kalle Valo
+Enjoy! (and thanks)
