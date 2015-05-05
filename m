@@ -1,41 +1,54 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [RFC PATCH net-next] switchdev: don't abort hardware ipv4 fib
- offload on failure to program fib entry in hardware
-Date: Tue, 5 May 2015 10:23:06 -0700
-Message-ID: <CAE4R7bDudMzestBJ1OLah8Ea5_BXqNdcC9bqQ3L_Ek0B7=m99Q@mail.gmail.com>
-References: <1430583883-3514-1-git-send-email-roopa@cumulusnetworks.com>
-	<CAE4R7bCDG614esO1UByPYoX47+zzjr=Ed6LNPbqTKG7Nvnsm3A@mail.gmail.com>
-	<5546EE05.1060206@cumulusnetworks.com>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
+Date: Tue, 5 May 2015 17:25:56 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B78DBE9D2@ORSMSX101.amr.corp.intel.com>
+References: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com>
+ <1429302240-654-2-git-send-email-jtoppins@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>
-To: roopa <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Alan Liebthal <alanl@cumulusnetworks.com>
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:36009 "EHLO
-	mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755251AbbEERXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:23:06 -0400
-Received: by qku63 with SMTP id 63so110543325qku.3
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:23:06 -0700 (PDT)
-In-Reply-To: <5546EE05.1060206@cumulusnetworks.com>
+Received: from mga14.intel.com ([192.55.52.115]:57360 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932927AbbEER0A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:26:00 -0400
+In-Reply-To: <1429302240-654-2-git-send-email-jtoppins@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 3, 2015 at 8:56 PM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 5/3/15, 10:45 AM, Scott Feldman wrote:
->>
->> On Sat, May 2, 2015 at 9:24 AM,  <roopa@cumulusnetworks.com> wrote:
->>>
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> This basically removes the calls to netdev_switch_fib_ipv4_abort when
->>> there is an error in programming fib entry in hardware.
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Jonathan Toppins
+> Sent: Friday, April 17, 2015 1:24 PM
+> To: Kirsher, Jeffrey T
+> Cc: Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald
+> C; Vick, Matthew; Ronciak, John; Williams, Mitch A; intel-wired-
+> lan@lists.osuosl.org; netdev@vger.kernel.org; gospo@cumulusnetworks.com;
+> shm@cumulusnetworks.com; Alan Liebthal
+> Subject: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
+> 
+> From: Alan Liebthal <alanl@cumulusnetworks.com>
+> 
+> Support setting the MII register via SIOCSMIIREG.
+> 
+> Signed-off-by: Alan Liebthal <alanl@cumulusnetworks.com>
+> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+> ---
+>  drivers/net/ethernet/intel/igb/igb_main.c |    5 +++++
+>  1 file changed, 5 insertions(+)
 
-[cut]
-
-> ack, I will post a full patch once we converge.
-
-I'm OK with option a) for now.
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
