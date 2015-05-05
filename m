@@ -1,50 +1,118 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next] net: sched: run ingress qdisc without locks
-Date: Mon, 04 May 2015 18:27:36 -0700
-Message-ID: <55481C88.2000007@plumgrid.com>
-References: <1430544448-19777-1-git-send-email-ast@plumgrid.com>	<20150503174208.5b1548ba@redhat.com>	<5546FFCB.50903@plumgrid.com> <20150504130405.3ff6672e@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH 3.2 145/221] net: ethernet: pcnet32: Setup the SRAM and
+ NOUFLO on Am79C97{3, 5}
+Date: Tue, 05 May 2015 02:16:39 +0100
+Message-ID: <lsq.1430788599.814248716@decadent.org.uk>
+References: <lsq.1430788598.234880031@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: akpm@linux-foundation.org, "" <netdev@vger.kernel.org>,
+	"Markos Chandras" <markos.chandras@imgtec.com>,
+	"Don Fry" <pcnet32@frontier.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:34754 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751068AbbEEB1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 21:27:38 -0400
-Received: by pdbqa5 with SMTP id qa5so178846288pdb.1
-        for <netdev@vger.kernel.org>; Mon, 04 May 2015 18:27:37 -0700 (PDT)
-In-Reply-To: <20150504130405.3ff6672e@redhat.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50962 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752575AbbEEBXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 21:23:07 -0400
+Content-Disposition: inline
+In-Reply-To: <lsq.1430788598.234880031@decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/4/15 4:04 AM, Jesper Dangaard Brouer wrote:
->
-> How do you activate the ingress code path?
->
-> I'm just doing (is this enough?):
->   export DEV=eth4
->   tc qdisc add dev $DEV handle ffff: ingress
+3.2.69-rc1 review patch.  If anyone has any objections, please let me know.
 
-yes. plus my numbers also include u32 classifier.
+------------------
 
-> I re-ran the experiment, and I can also only show a 2.68ns
-> improvement.  This is rather strange, and I cannot explain it.
->
-> The lock clearly shows up in perf report[1] with 12.23% raw_spin_lock,
-> and perf report[2] it clearly gone, but we don't see a 12% improvement
-> in performance, but around 4.7%.
+From: Markos Chandras <markos.chandras@imgtec.com>
 
-It's indeed puzzling. Hopefully intel experts can chime in.
+commit 87f966d97b89774162df04d2106c6350c8fe4cb3 upstream.
 
-> The "cost" of activating the ingress qdisc is also interesting:
->   (1/25398057*10^9)-(1/16989315*10^9) = -19.49 ns
->   (1/25398057*10^9)-(1/17800496*10^9) = -16.81 ns
+On a MIPS Malta board, tons of fifo underflow errors have been observed
+when using u-boot as bootloader instead of YAMON. The reason for that
+is that YAMON used to set the pcnet device to SRAM mode but u-boot does
+not. As a result, the default Tx threshold (64 bytes) is now too small to
+keep the fifo relatively used and it can result to Tx fifo underflow errors.
+As a result of which, it's best to setup the SRAM on supported controllers
+so we can always use the NOUFLO bit.
 
-yep, we're working hard on reducing it.
-btw the cost of enabling rps without using it is ~8ns.
-Our line rate goal is still a bit far, but hopefully getting closer :)
+Cc: <netdev@vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>
+Cc: Don Fry <pcnet32@frontier.com>
+Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ drivers/net/ethernet/amd/pcnet32.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1524,7 +1524,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ {
+ 	struct pcnet32_private *lp;
+ 	int i, media;
+-	int fdx, mii, fset, dxsuflo;
++	int fdx, mii, fset, dxsuflo, sram;
+ 	int chip_version;
+ 	char *chipname;
+ 	struct net_device *dev;
+@@ -1561,7 +1561,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 	}
+ 
+ 	/* initialize variables */
+-	fdx = mii = fset = dxsuflo = 0;
++	fdx = mii = fset = dxsuflo = sram = 0;
+ 	chip_version = (chip_version >> 12) & 0xffff;
+ 
+ 	switch (chip_version) {
+@@ -1594,6 +1594,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 		chipname = "PCnet/FAST III 79C973";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2626:
+ 		chipname = "PCnet/Home 79C978";	/* PCI */
+@@ -1617,6 +1618,7 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 		chipname = "PCnet/FAST III 79C975";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2628:
+ 		chipname = "PCnet/PRO 79C976";
+@@ -1645,6 +1647,31 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 		dxsuflo = 1;
+ 	}
+ 
++	/*
++	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
++	 * which we can use for the Tx/Rx buffers but most importantly,
++	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
++	 * Tx fifo underflows.
++	 */
++	if (sram) {
++		/*
++		 * The SRAM is being configured in two steps. First we
++		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
++		 * to the datasheet, each bit corresponds to a 512-byte
++		 * page so we can have at most 24 pages. The SRAM_SIZE
++		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
++		 * The low 8-bits start at 0x00 and end at 0xff. So the
++		 * address range is from 0x0000 up to 0x17ff. Therefore,
++		 * the SRAM_SIZE is set to 0x17. The next step is to set
++		 * the BCR26:SRAM_BND midway through so the Tx and Rx
++		 * buffers can share the SRAM equally.
++		 */
++		a->write_bcr(ioaddr, 25, 0x17);
++		a->write_bcr(ioaddr, 26, 0xc);
++		/* And finally enable the NOUFLO bit */
++		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
++	}
++
+ 	dev = alloc_etherdev(sizeof(*lp));
+ 	if (!dev) {
+ 		if (pcnet32_debug & NETIF_MSG_PROBE)
