@@ -1,8 +1,8 @@
 From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V2 PATCH 4/5] crypto: ccp - Unify coherency checking logic with
+Subject: [V2 PATCH 5/5] amd-xgbe: Unify coherency checking logic with
  device_dma_is_coherent()
-Date: Tue, 5 May 2015 10:12:08 -0500
-Message-ID: <1430838729-21572-5-git-send-email-Suravee.Suthikulpanit@amd.com>
+Date: Tue, 5 May 2015 10:12:09 -0500
+Message-ID: <1430838729-21572-6-git-send-email-Suravee.Suthikulpanit@amd.com>
 References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,36 +29,39 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Currently, the driver has separate logic to determine device coherency
-for DT vs ACPI.  This patch simplifies the code with a call to
-device_dma_is_coherent().
+Currently, amd-xgbe driver has separate logic to determine device
+coherency for DT vs. ACPI. This patch simplifies the code with
+a call to device_dma_is_coherent().
 
-CC: Herbert Xu <herbert@gondor.apana.org.au>
 CC: David S. Miller <davem@davemloft.net>
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
 ---
- drivers/crypto/ccp/ccp-platform.c | 60 +--------------------------------------
- 1 file changed, 1 insertion(+), 59 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c | 27 +--------------------------
+ 1 file changed, 1 insertion(+), 26 deletions(-)
 
-diff --git a/drivers/crypto/ccp/ccp-platform.c b/drivers/crypto/ccp/ccp-platform.c
-index b1c20b2..e446781 100644
---- a/drivers/crypto/ccp/ccp-platform.c
-+++ b/drivers/crypto/ccp/ccp-platform.c
-@@ -90,58 +90,6 @@ static struct resource *ccp_find_mmio_area(struct ccp_device *ccp)
- 	return NULL;
- }
- 
--#ifdef CONFIG_ACPI
--static int ccp_acpi_support(struct ccp_device *ccp)
--{
--	struct ccp_platform *ccp_platform = ccp->dev_specific;
--	struct acpi_device *adev = ACPI_COMPANION(ccp->dev);
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 7149053..6d2c702 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -168,13 +168,8 @@ static void xgbe_init_all_fptrs(struct xgbe_prv_data *pdata)
+ #ifdef CONFIG_ACPI
+ static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
+ {
+-	struct acpi_device *adev = pdata->adev;
+ 	struct device *dev = pdata->dev;
+ 	u32 property;
 -	acpi_handle handle;
 -	acpi_status status;
 -	unsigned long long data;
 -	int cca;
--
+ 	int ret;
+ 
+ 	/* Obtain the system clock setting */
+@@ -195,24 +190,6 @@ static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
+ 	}
+ 	pdata->ptpclk_rate = property;
+ 
 -	/* Retrieve the device cache coherency value */
 -	handle = adev->handle;
 -	do {
@@ -67,57 +70,36 @@ index b1c20b2..e446781 100644
 -			cca = data;
 -			break;
 -		}
+-
+-		status = acpi_get_parent(handle, &handle);
 -	} while (!ACPI_FAILURE(status));
 -
 -	if (ACPI_FAILURE(status)) {
--		dev_err(ccp->dev, "error obtaining acpi coherency value\n");
+-		dev_err(dev, "error obtaining acpi coherency value\n");
 -		return -EINVAL;
 -	}
+-	pdata->coherent = !!cca;
 -
--	ccp_platform->coherent = !!cca;
--
--	return 0;
--}
--#else	/* CONFIG_ACPI */
--static int ccp_acpi_support(struct ccp_device *ccp)
--{
--	return -EINVAL;
--}
--#endif
--
--#ifdef CONFIG_OF
--static int ccp_of_support(struct ccp_device *ccp)
--{
--	struct ccp_platform *ccp_platform = ccp->dev_specific;
--
--	ccp_platform->coherent = of_dma_is_coherent(ccp->dev->of_node);
--
--	return 0;
--}
--#else
--static int ccp_of_support(struct ccp_device *ccp)
--{
--	return -EINVAL;
--}
--#endif
--
- static int ccp_platform_probe(struct platform_device *pdev)
- {
- 	struct ccp_device *ccp;
-@@ -182,13 +130,7 @@ static int ccp_platform_probe(struct platform_device *pdev)
- 		goto e_err;
+ 	return 0;
+ }
+ #else   /* CONFIG_ACPI */
+@@ -243,9 +220,6 @@ static int xgbe_of_support(struct xgbe_prv_data *pdata)
  	}
+ 	pdata->ptpclk_rate = clk_get_rate(pdata->ptpclk);
  
--	if (ccp_platform->use_acpi)
--		ret = ccp_acpi_support(ccp);
--	else
--		ret = ccp_of_support(ccp);
--	if (ret)
--		goto e_err;
+-	/* Retrieve the device cache coherency value */
+-	pdata->coherent = of_dma_is_coherent(dev->of_node);
 -
-+	ccp_platform->coherent = device_dma_is_coherent(ccp->dev);
- 	if (ccp_platform->coherent)
- 		ccp->axcache = CACHE_WB_NO_ALLOC;
- 	else
+ 	return 0;
+ }
+ #else   /* CONFIG_OF */
+@@ -364,6 +338,7 @@ static int xgbe_probe(struct platform_device *pdev)
+ 		goto err_io;
+ 
+ 	/* Set the DMA coherency values */
++	pdata->coherent = device_dma_is_coherent(pdata->dev);
+ 	if (pdata->coherent) {
+ 		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
+ 		pdata->arcache = XGBE_DMA_OS_ARCACHE;
 -- 
 2.1.0
