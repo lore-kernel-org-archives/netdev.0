@@ -1,52 +1,47 @@
-From: John Heffner <johnwheffner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] tcp: provide SYN headers for passive connections
-Date: Mon, 4 May 2015 23:07:07 -0400
-Message-ID: <CABrhC0mmH8LzD1GQo1ORWErdRM4-ZFhco+FZYvYoKHrUDckOFQ@mail.gmail.com>
-References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
-	<1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S34ftz_wDoPwcJg_cMQu4QtnBJF-=d+gF5ieTA=d=r31-Q@mail.gmail.com>
-	<20150501201417.GB6113@akamai.com>
-	<1430511800.3711.138.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150501202908.GC6113@akamai.com>
-	<1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CABrhC0nmsfAyHgJX8zEBDBVfFN=2qXKy7cO0Kbp9R9UCeEYowg@mail.gmail.com>
-	<1430752330.3711.180.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH 1/2] net/rds: RDS-TCP: Always create a new rds_sock for
+ an incoming connection.
+Date: Tue, 5 May 2015 00:00:29 -0400
+Message-ID: <20150505040029.GJ26844@oracle.com>
+References: <c3c228cbc7f6e4a4cb8e9e0ac400aaf4ed22b927.1430421231.git.sowmini.varadhan@oracle.com>
+ <20150504.144720.2228274897975931117.davem@davemloft.net>
+ <20150504192908.GC26844@oracle.com>
+ <20150504.162134.1761886048618680717.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>,
-	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1430752330.3711.180.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:42408 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750718AbbEEEAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 00:00:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20150504.162134.1761886048618680717.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 4, 2015 at 11:12 AM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Mon, 2015-05-04 at 10:41 -0400, John Heffner wrote:
->
->> Nice idea, seems handy.  But a couple (somewhat related) questions:
->>
->> * Other than convenience, are there reasons not use an existing, more
->> general-purpose and portable mechanism like pcap?  (Permissions, I
->> guess?)
->
-> Very hard to synchronize when say you have 32 listeners sharing a single
-> port (SO_REUSEPORT), and receive one million SYN per second (when my TCP
-> listener scaling work is finished).
->
-> libpcap here would be a serious bottleneck, even with a clever FANIN
-> support on the af_packet sockets, considering use of multiqueue NIC.
->
->> * Are there conditions where, for security purposes, you don't want an
->> application to have access to the raw SYNs?
->
-> Not that we are aware of : We restrict the access to IP + TCP headers,
-> for the passive part. All information that is available there was
-> provided by the remote peer on a 'open way' anyway.
+On (05/04/15 16:21), David Miller wrote:
+> 
+> No table at all.
+> 
+> There has to be another way to notice this kind of situation, how
+> for example does NFS or any other sunrpc using service handle this
+> case?
 
-Makes sense, thanks.
+NFS fixes up CLOSE_WAIT connections from xs_tcp_state_change,
+so at the least, I can also do rds_conn_drop from rds_tcp_state_change,
+that will avoid all the extra baggage around the new hash list.
 
-  -John
+But there's the case of the client disappearing without even sending
+a FIN, and here NFS seems to recover using a notion of idle-timeout
+(which applies to all idle peers, not merely the dead ones?) 
+
+The closest analog of that would be to  set up a so_keepalive option on
+the socket, but that brings in even more heuristics keepcnt, keepintvl,
+keepidle. Maybe I could set these to be some very generous values
+for now..
+
+--Sowmini
