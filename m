@@ -1,55 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] bridge: change BR_GROUPFWD_RESTRICTED to
- allow forwarding of LLDP frames
-Date: Tue, 05 May 2015 19:21:17 -0400 (EDT)
-Message-ID: <20150505.192117.1979417987836600141.davem@davemloft.net>
-References: <20150401155001.40d58a37@urahara>
-	<1430772433-16384-1-git-send-email-bernhard.thaler@wvnet.at>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 10/10] net: dsa: Add lockdep class to tx queues
+ to avoid lockdep splat
+Date: Tue, 05 May 2015 16:22:33 -0700
+Message-ID: <554950B9.4020807@gmail.com>
+References: <1430867396-2268-1-git-send-email-andrew@lunn.ch> <1430867396-2268-11-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: bernhard.thaler@wvnet.at
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1430772433-16384-1-git-send-email-bernhard.thaler@wvnet.at>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>, davem@davemloft.net,
+	linux@roeck-us.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:34683 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753125AbbEEXWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:22:49 -0400
+Received: by pdbqa5 with SMTP id qa5so211641295pdb.1
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 16:22:48 -0700 (PDT)
+In-Reply-To: <1430867396-2268-11-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bernhard Thaler <bernhard.thaler@wvnet.at>
-Date: Mon,  4 May 2015 22:47:13 +0200
+On 05/05/15 16:09, Andrew Lunn wrote:
+> DSA stacks an Ethernet device on top of an Ethernet device. This can
+> cause false positive lockdep splats for the transmit queue:
+> 
+> =============================================
+> [ INFO: possible recursive locking detected ]
+> 4.0.0-rc7-01838-g70621a215fc7 #386 Not tainted
+> ---------------------------------------------
+> kworker/0:0/4 is trying to acquire lock:
+>  (_xmit_ETHER#2){+.-...}, at: [<c040e95c>] sch_direct_xmit+0xa8/0x1fc
+> 
+> but task is already holding lock:
+>  (_xmit_ETHER#2){+.-...}, at: [<c03f4208>] __dev_queue_xmit+0x4d4/0x56c
+> 
+> other info that might help us debug this:
+>  Possible unsafe locking scenario:
+> 
+>        CPU0
+>        ----
+>   lock(_xmit_ETHER#2);
+>   lock(_xmit_ETHER#2);
+> 
+> To avoid this, walk the tq queues of the dsa slaves and set a lockdep
+> class.
 
-> BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
-> /sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
-> some IEEE 802.1D Table 7-10 Reserved addresses:
-> 
-> 	(MAC Control) 802.3		01-80-C2-00-00-01
-> 	(Link Aggregation) 802.3	01-80-C2-00-00-02
-> 	802.1AB LLDP			01-80-C2-00-00-0E
-> 
-> Change BR_GROUPFWD_RESTRICTED to allow to forward LLDP frames and document
-> group_fwd_mask.
-> 
-> e.g.
->    echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
-> allows to forward LLDP frames.
-> 
-> This may be needed for bridge setups used for network troubleshooting or
-> any other scenario where forwarding of LLDP frames is desired (e.g. bridge
-> connecting a virtual machine to real switch transmitting LLDP frames that
-> virtual machine needs to receive).
-> 
-> Tested on a simple bridge setup with two interfaces and host transmitting
-> LLDP frames on one side of this bridge (used lldpd). Setting group_fwd_mask
-> as described above lets LLDP frames traverse bridge.
-> 
-> Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Had meant to fix that a while ago when this was bugging me, thanks for
+doing this!
 
-Applied, thanks.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
