@@ -1,29 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hv_netvsc: remove unused variable in netvsc_send()
-Date: Tue, 05 May 2015 17:31:23 -0400 (EDT)
-Message-ID: <20150505.173123.1768860135204113385.davem@davemloft.net>
-References: <1430762236-18660-1-git-send-email-jsnitsel@redhat.com>
+From: Okash Khawaja <okash.khawaja@gmail.com>
+Subject: [PATCH] adm8211: fix the possible pci cache line sizes inside
+ switch-case
+Date: Tue, 5 May 2015 22:48:51 +0100
+Message-ID: <20150505214851.GA3013@bytefire-computer>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devel@linuxdriverproject.org, haiyangz@microsoft.com,
-	kys@microsoft.com
-To: jsnitsel@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430762236-18660-1-git-send-email-jsnitsel@redhat.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jerry Snitselaar <jsnitsel@redhat.com>
-Date: Mon,  4 May 2015 10:57:16 -0700
+The PCI cache line size value, stored in cline variable, was being
+compared against decimal values written as hex literals. This patch
+changes those literals to correct hex values. 
 
-> With commit b56fc3c53654 ("hv_netvsc: Fix a bug in netvsc_start_xmit()"),
-> skb variable is no longer used in netvsc_send. Remove variable and dead
-> code that depended on it.
-> 
-> Cc: Haiyang Zhang <haiyangz@microsoft.com>
-> Cc: K. Y. Srinivasan <kys@microsoft.com>
-> Signed-off-by: Jerry Snitselaar <jsnitsel@redhat.com>
+Please note that this patch is on top of
+another code cleanup patch '[PATCH] adm8211: fix checkpatch errors for
+indentation and new line around switch-case'.
 
-Applied, thanks.
+
+Signed-off-by: Okash Khawaja <okash.khawaja@gmail.com>
+---
+ drivers/net/wireless/adm8211.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
+index 058fb4b..76c908f 100644
+--- a/drivers/net/wireless/adm8211.c
++++ b/drivers/net/wireless/adm8211.c
+@@ -1101,10 +1101,10 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
+ 		case  0x8:
+ 			reg |= (0x1 << 14);
+ 			break;
+-		case 0x16:
++		case 0x10:
+ 			reg |= (0x2 << 14);
+ 			break;
+-		case 0x32:
++		case 0x20:
+ 			reg |= (0x3 << 14);
+ 			break;
+ 		default:
+-- 
+1.9.1
