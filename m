@@ -1,60 +1,32 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch iproute2] tc: fill in handle before checking argc
-Date: Tue,  5 May 2015 15:30:20 -0700
-Message-ID: <1430865020-16509-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
+From: Okash Khawaja <okash.khawaja@gmail.com>
+Subject: [PATCH 0/2] adm8211 patches
+Date: Tue, 5 May 2015 23:39:40 +0100
+Message-ID: <20150505223940.GA3546@bytefire-computer>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33425 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752285AbbEEWa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 18:30:29 -0400
-Received: by pacwv17 with SMTP id wv17so207684946pac.0
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 15:30:29 -0700 (PDT)
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:38025 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbbEEWju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 18:39:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When deleting a specific basic filter with handle,
-tc command always ignores the 'handle' option, so
-tcm_handle is always 0 and kernel deletes all filters
-in the selected group. This is wrong, we should respect
-'handle' in cmdline.
+These patches include two changes:
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- tc/f_basic.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+1. Code cleanup around a switch-case statement
+2. Bug fix for the possible PCI cache line sizes
 
-diff --git a/tc/f_basic.c b/tc/f_basic.c
-index 1c33ca3..4adf1d2 100644
---- a/tc/f_basic.c
-+++ b/tc/f_basic.c
-@@ -43,9 +43,6 @@ static int basic_parse_opt(struct filter_util *qu, char *handle,
- 	struct rtattr *tail;
- 	long h = 0;
- 
--	if (argc == 0)
--		return 0;
--
- 	if (handle) {
- 		h = strtol(handle, NULL, 0);
- 		if (h == LONG_MIN || h == LONG_MAX) {
-@@ -54,9 +51,11 @@ static int basic_parse_opt(struct filter_util *qu, char *handle,
- 			return -1;
- 		}
- 	}
--
- 	t->tcm_handle = h;
- 
-+	if (argc == 0)
-+		return 0;
-+
- 	tail = (struct rtattr*)(((void*)n)+NLMSG_ALIGN(n->nlmsg_len));
- 	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
- 
+Okash Khawaja (2):
+  adm8211: fix checkpatch errors for indentation and new line
+  adm8211: fix the possible pci cache line sizes inside switch-case
+
+ drivers/net/wireless/adm8211.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
 -- 
-1.8.3.1
+1.9.1
