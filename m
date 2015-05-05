@@ -1,50 +1,58 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v3 net-next] pktgen: introduce 'rx' mode
-Date: Tue, 05 May 2015 11:30:06 -0700
-Message-ID: <55490C2E.5000702@plumgrid.com>
-References: <1430457130-16003-1-git-send-email-ast@plumgrid.com>	<20150502104621.4fede885@redhat.com>	<5544F4D7.50202@plumgrid.com>	<20150502184625.25426091@redhat.com>	<55450464.8060109@plumgrid.com> <20150505201546.0f998668@redhat.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [PATCH 02/12] net: axienet: Handle 0 packet receive gracefully
+Date: Tue, 5 May 2015 20:49:53 +0200
+Message-ID: <554910D1.1030706@xilinx.com>
+References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
+	 <55b3c89b3549c61d62b8440636516fd572870842.1430817941.git.michal.simek@xilinx.com>
+ <1430834264.7191.9.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Robert Olsson <robert@herjulf.net>,
-	Ben Greear <greearb@candelatech.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:35255 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752842AbbEESaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 14:30:09 -0400
-Received: by ieczm2 with SMTP id zm2so9906591iec.2
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 11:30:08 -0700 (PDT)
-In-Reply-To: <20150505201546.0f998668@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>,
+	Peter Crosthwaite <peter.crosthwaite@xilinx.com>,
+	=?windows-1252?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
+	<monstr@monstr.eu>, John Linn <John.Linn@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Joe Perches <joe@perches.com>,
+	Michal Simek <michal.simek@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430834264.7191.9.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/5/15 11:15 AM, Jesper Dangaard Brouer wrote:
->
-> On Sat, 02 May 2015 10:07:48 -0700 Alexei Starovoitov <ast@plumgrid.com> wrote:
->> On 5/2/15 9:46 AM, Jesper Dangaard Brouer wrote:
-> [...]
+On 05/05/2015 03:57 PM, Joe Perches wrote:
+> On Tue, 2015-05-05 at 11:25 +0200, Michal Simek wrote:
+>> From: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
 >>
->> all makes sense.
->> btw, I'm off the grid till Monday and it sounds like you see concrete
->> spots in the code to hack this stuff in, so if you want to take over,
->> please go ahead :)
->
-> Okay, I'll address my own concerns and post a patch in your name("From:")
+>> The AXI-DMA rx-delay interrupt can sometimes be triggered
+>> when there are 0 outstanding packets received. This is due
+>> to the fact that the receive function will greedily consume
+>> as many packets as possible on interrupt. So if two packets
+>> (with a very particular timing) arrive in succession they
+>> will each cause the rx-delay interrupt, but the first interrupt
+>> will consume both packets.
+>> This means the second interrupt is a 0 packet receive.
+>>
+>> This is mostly OK, except that the tail pointer register is
+>> updated unconditionally on receive. Currently the tail pointer
+>> is always set to the current bd-ring descriptor under
+>> the assumption that the hardware has moved onto the next
+>> descriptor. What this means for length 0 recv is the current
+>> descriptor that the hardware is potentially yet to use will
+>> be marked as the tail. This causes the hardware to think
+>> its run out of descriptors deadlocking the whole rx path.
+>>
+>> Fixed by updating the tail pointer to the most recent
+>> successfully consumed descriptor.
+> 
+> I think some of this would be good to have as comments
+> in the code instead of just in the changelog.
 
-lol :) I seriously don't care about commit count.
-Thank you for taking over.
-I'm swamped with tracing stuff at the moment.
 
-> As I would like to see this feature in pktgen, as it provides a really
-> easy and quick way to measure/profile changes in the ingress path...
+Is it really needed? If yes, no problem to add it but git blame can
+point you to that.
 
-same here. my motivation for this patch is to have a common tool
-to measure ingress speed, so we can have concrete numbers to talk about.
-Also, as you mentioned, there is always a danger of 'zooming in'.
-Any type of benchmarking shouldn't be blindly followed. At the same time
-all numbers are useful. They are different datapoints that make
-a complete picture.
+Thanks,
+Michal
