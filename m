@@ -1,36 +1,47 @@
-From: Robert Stonehouse <rstonehouse@solarflare.com>
-Subject: Re: sfc: Please add rss_cpus=hyperthreads support
-Date: Tue, 5 May 2015 14:48:45 +0100
-Message-ID: <5548CA3D.7010408@solarflare.com>
-References: <CALCETrWpJMT-SfKKhjRfeNRrXS6C6+SUuzOCuSYwMZbMCqB+tA@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 02/12] net: axienet: Handle 0 packet receive gracefully
+Date: Tue, 05 May 2015 06:57:44 -0700
+Message-ID: <1430834264.7191.9.camel@perches.com>
+References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
+	 <55b3c89b3549c61d62b8440636516fd572870842.1430817941.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: Andy Lutomirski <luto@amacapital.net>,
-	Shradha Shah <sshah@solarflare.com>,
-	Edward Cree <ecree@solarflare.com>,
-	"Network Development" <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:64910 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S2992488AbbEEN5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 09:57:44 -0400
-In-Reply-To: <CALCETrWpJMT-SfKKhjRfeNRrXS6C6+SUuzOCuSYwMZbMCqB+tA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Peter Crosthwaite <peter.crosthwaite@xilinx.com>,
+	=?ISO-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
+	monstr@monstr.eu, John Linn <John.Linn@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Michal Simek <michal.simek@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <55b3c89b3549c61d62b8440636516fd572870842.1430817941.git.michal.simek@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/05/15 01:03, Andy Lutomirski wrote:
-> Can you please port the rss_cpus=hyperthreads feature from the
-> OpenOnload driver to the upstream driver?  The fact that sticking:
->
-> options sfc rss_cpus=hyperthreads
->
-> into modprobe.conf causes sfc to fail to load when OpenOnload isn't
-> installed is incredibly annoying, and the option is genuinely useful.
+On Tue, 2015-05-05 at 11:25 +0200, Michal Simek wrote:
+> From: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+> 
+> The AXI-DMA rx-delay interrupt can sometimes be triggered
+> when there are 0 outstanding packets received. This is due
+> to the fact that the receive function will greedily consume
+> as many packets as possible on interrupt. So if two packets
+> (with a very particular timing) arrive in succession they
+> will each cause the rx-delay interrupt, but the first interrupt
+> will consume both packets.
+> This means the second interrupt is a 0 packet receive.
+> 
+> This is mostly OK, except that the tail pointer register is
+> updated unconditionally on receive. Currently the tail pointer
+> is always set to the current bd-ring descriptor under
+> the assumption that the hardware has moved onto the next
+> descriptor. What this means for length 0 recv is the current
+> descriptor that the hardware is potentially yet to use will
+> be marked as the tail. This causes the hardware to think
+> its run out of descriptors deadlocking the whole rx path.
+> 
+> Fixed by updating the tail pointer to the most recent
+> successfully consumed descriptor.
 
-Sure; I will make sure that happens soon.
-I can see how that would be annoying.
-
-Thanks for the suggestion.
-Rob
+I think some of this would be good to have as comments
+in the code instead of just in the changelog.
