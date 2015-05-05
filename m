@@ -1,57 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 02/12] net: axienet: Handle 0 packet receive gracefully
-Date: Tue, 05 May 2015 11:53:49 -0700
-Message-ID: <1430852029.6575.13.camel@perches.com>
-References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
-	 <55b3c89b3549c61d62b8440636516fd572870842.1430817941.git.michal.simek@xilinx.com>
-	 <1430834264.7191.9.camel@perches.com> <554910D1.1030706@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Peter Crosthwaite <peter.crosthwaite@xilinx.com>,
-	=?ISO-8859-1?Q?S=F6ren?= Brinkmann <soren.brinkmann@xilinx.com>,
-	monstr@monstr.eu, John Linn <John.Linn@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <554910D1.1030706@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v2 0/2] net/rds: RDS-TCP robustness fixes
+Date: Tue,  5 May 2015 15:20:50 -0400
+Message-ID: <cover.1430843646.git.sowmini.varadhan@oracle.com>
+Cc: chien.yen@oracle.com, davem@davemloft.net,
+	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
+	Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:42572 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752976AbbEETVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 15:21:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-05 at 20:49 +0200, Michal Simek wrote:
-> On 05/05/2015 03:57 PM, Joe Perches wrote:
-> > On Tue, 2015-05-05 at 11:25 +0200, Michal Simek wrote:
-> >> From: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
-> >>
-> >> The AXI-DMA rx-delay interrupt can sometimes be triggered
-> >> when there are 0 outstanding packets received. This is due
-> >> to the fact that the receive function will greedily consume
-> >> as many packets as possible on interrupt. So if two packets
-> >> (with a very particular timing) arrive in succession they
-> >> will each cause the rx-delay interrupt, but the first interrupt
-> >> will consume both packets.
-> >> This means the second interrupt is a 0 packet receive.
-> >>
-> >> This is mostly OK, except that the tail pointer register is
-> >> updated unconditionally on receive. Currently the tail pointer
-> >> is always set to the current bd-ring descriptor under
-> >> the assumption that the hardware has moved onto the next
-> >> descriptor. What this means for length 0 recv is the current
-> >> descriptor that the hardware is potentially yet to use will
-> >> be marked as the tail. This causes the hardware to think
-> >> its run out of descriptors deadlocking the whole rx path.
-> >>
-> >> Fixed by updating the tail pointer to the most recent
-> >> successfully consumed descriptor.
-> > 
-> > I think some of this would be good to have as comments
-> > in the code instead of just in the changelog.
-> Is it really needed? If yes, no problem to add it but git blame can
-> point you to that.
 
-That's up to you.
+This patch-set contains bug fixes for state-recovery at the RDS 
+layer when the underlying transport is TCP and the TCP state at one 
+of the endpoints is reset
 
-I think that useful but concealed information is
-always hard to follow or find.
+V2 changes: DaveM comments to reduce memory footprint, follow 
+            NFS/RPC model where possible. Added test-case #3
+
+Without the changes in this set, when one of the endpoints is reset,
+the existing code does not correctly clean up RDS socket state for stale
+connections, resulting in some unstable, timing-dependant behavior on
+the wire, including an infinite exchange of 3WHs back-and-forth, and a
+resulting potential to never converge RDS state. 
+
+Test cases used to verify the changes in this set are:
+
+1. Start rds client/server applications on two participating nodes,
+   node1 and node2. After at least one packet has been sent (to establish
+   the TCP connection), restart the rds_tcp module on the client, and
+   now resend packets. Tcpdump should show server sending a FIN for the
+   "old" client port, and clean connection establishment/exchange for
+   the new client port.
+
+2. At the end of step 1, restart rds srever on node2, and start client on 
+   node1, make sure using tcpdump, 'netstat -an|grep 16385' that 
+   packets flow correctly.
+
+3. start RDS client/server application on two participating nodes, and 
+   repeat steps 1 and 2, but this time, simulate node failure by doing
+   "ifconfig <intf> down", so no FIN is sent. 
+
+Sowmini Varadhan (2):
+  RDS-TCP: Always create a new rds_sock for an incoming connection.
+  RDS-TCP: only initiate reconnect attempt on outgoing TCP socket.
+
+ net/rds/connection.c  |   17 +++++++++++++++--
+ net/rds/tcp_connect.c |    1 +
+ net/rds/tcp_listen.c  |   46 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 62 insertions(+), 2 deletions(-)
