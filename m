@@ -1,43 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] iproute2: Fix typo in get_prefix_1()
-Date: Tue,  5 May 2015 02:14:16 +0200
-Message-ID: <1051c439b96abe2cf554720d5f7b456c48ebd838.1430784770.git.tgraf@suug.ch>
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 1/6] net: Add skb_free_frag to replace use of
+ put_page in freeing skb->head
+Date: Mon, 04 May 2015 17:16:43 -0700
+Message-ID: <1430785003.27254.20.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>
+	 <20150504231448.1538.84164.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:37420 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997AbbEEAOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 20:14:20 -0400
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:33653 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243AbbEEAQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 May 2015 20:16:45 -0400
+Received: by igbpi8 with SMTP id pi8so76573165igb.0
+        for <netdev@vger.kernel.org>; Mon, 04 May 2015 17:16:45 -0700 (PDT)
+In-Reply-To: <20150504231448.1538.84164.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes a typo in get_prefix_1() which broke the prefix default
-names { default | any | all }.
+On Mon, 2015-05-04 at 16:14 -0700, Alexander Duyck wrote:
+> This change adds a function called skb_free_frag which is meant to
+> compliment the function __alloc_page_frag.  The general idea is to enable a
+> more lightweight version of page freeing since we don't actually need all
+> the overhead of a put_page, and we don't quite fit the model of __free_pages.
 
-The most obvious fallout from this bug was:
+Could you describe what are the things that put_page() handle that we
+don't need for skb frags ?
 
-	$ ip route add default via 1.1.1.1
-	Error: an inet prefix is expected rather than "default".
-
-Fixes: dacc5d4197c1 ("add basic mpls support to iproute")
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- lib/utils.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/lib/utils.c b/lib/utils.c
-index 428ad8f..29b4f54 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -496,7 +496,7 @@ int get_prefix_1(inet_prefix *dst, char *arg, int family)
- 	if (strcmp(arg, "default") == 0 ||
- 	    strcmp(arg, "any") == 0 ||
- 	    strcmp(arg, "all") == 0) {
--		if ((family == AF_DECnet) || (family = AF_MPLS))
-+		if ((family == AF_DECnet) || (family == AF_MPLS))
- 			return -1;
- 		dst->family = family;
- 		dst->bytelen = 0;
--- 
-2.3.5
+It looks the change could benefit to other users (outside of networking)
