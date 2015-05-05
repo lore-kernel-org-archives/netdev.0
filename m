@@ -1,69 +1,52 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [net-next PATCH 1/6] net: Add skb_free_frag to replace use of
- put_page in freeing skb->head
-Date: Mon, 04 May 2015 19:49:53 -0700
-Message-ID: <55482FD1.5060707@redhat.com>
-References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>	 <20150504231448.1538.84164.stgit@ahduyck-vm-fedora22> <1430785003.27254.20.camel@edumazet-glaptop2.roam.corp.google.com>
+From: John Heffner <johnwheffner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] tcp: provide SYN headers for passive connections
+Date: Mon, 4 May 2015 23:07:07 -0400
+Message-ID: <CABrhC0mmH8LzD1GQo1ORWErdRM4-ZFhco+FZYvYoKHrUDckOFQ@mail.gmail.com>
+References: <1430502237-5619-1-git-send-email-emunson@akamai.com>
+	<1430505777.3711.135.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S34ftz_wDoPwcJg_cMQu4QtnBJF-=d+gF5ieTA=d=r31-Q@mail.gmail.com>
+	<20150501201417.GB6113@akamai.com>
+	<1430511800.3711.138.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150501202908.GC6113@akamai.com>
+	<1430512894.3711.140.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1430714086.3711.165.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CABrhC0nmsfAyHgJX8zEBDBVfFN=2qXKy7cO0Kbp9R9UCeEYowg@mail.gmail.com>
+	<1430752330.3711.180.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
-        davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1430785003.27254.20.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric B Munson <emunson-JqFfY2XvxFXQT0dZR+AlfA@public.gmane.org>,
+	Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1430752330.3711.180.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 05/04/2015 05:16 PM, Eric Dumazet wrote:
-> On Mon, 2015-05-04 at 16:14 -0700, Alexander Duyck wrote:
->> This change adds a function called skb_free_frag which is meant to
->> compliment the function __alloc_page_frag.  The general idea is to enable a
->> more lightweight version of page freeing since we don't actually need all
->> the overhead of a put_page, and we don't quite fit the model of __free_pages.
+On Mon, May 4, 2015 at 11:12 AM, Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Mon, 2015-05-04 at 10:41 -0400, John Heffner wrote:
 >
-> Could you describe what are the things that put_page() handle that we
-> don't need for skb frags ?
+>> Nice idea, seems handy.  But a couple (somewhat related) questions:
+>>
+>> * Other than convenience, are there reasons not use an existing, more
+>> general-purpose and portable mechanism like pcap?  (Permissions, I
+>> guess?)
+>
+> Very hard to synchronize when say you have 32 listeners sharing a single
+> port (SO_REUSEPORT), and receive one million SYN per second (when my TCP
+> listener scaling work is finished).
+>
+> libpcap here would be a serious bottleneck, even with a clever FANIN
+> support on the af_packet sockets, considering use of multiqueue NIC.
+>
+>> * Are there conditions where, for security purposes, you don't want an
+>> application to have access to the raw SYNs?
+>
+> Not that we are aware of : We restrict the access to IP + TCP headers,
+> for the passive part. All information that is available there was
+> provided by the remote peer on a 'open way' anyway.
 
-A large part of it is just all the extra code flow with each level 
-having to retest flags.  So if you follow the calls for put_page w/ a 
-page frag you end up with something like:
-skb_free_head - virt_to_head_page
-   put_page() - (Head | Tail)
-     put_compound_page() - Tail, Head, _count
-       __put_compound_page() - compound_dtor
-         __page_cache_release() - LRU, mem_cgroup
-           free_compound_page() - Head, compound_order
-             __free_pages_ok()
+Makes sense, thanks.
 
-If I free the same page frag in skb_frag_free the path ends up looking like:
-skb_free_head - inlined by compiler
-   skb_free_frag - virt_to_head_page, count, head, order
-     __free_pages_ok()
-
-> It looks the change could benefit to other users (outside of networking)
-
-It could, but there are also other mechanisms already in place for 
-freeing pages.  For example in the Intel drivers I had gotten into the 
-habit of using __free_pages for Rx pages since it does exactly the same 
-thing but you need to know the order of the pages you are freeing before 
-you can use it.  In the case of head frags we don't really know that 
-since it can be a page fragment given to us by any of the drivers using 
-alloc_pages.
-
-The motivation behind creating a centralized function was to take care 
-of the virt_to_head_page and compound_order portions of this in one 
-centralized spot.  It avoids bloating things as I'm able to get away 
-with little tricks like combining the compound_order Head flag check 
-with the one to determine if I call the compound freeing function or the 
-order 0 one.
-
-- Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+  -John
