@@ -1,70 +1,49 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH -next 0/5] replace skb tc_verd member with 3 dedicated
- bit flags
-Date: Tue, 05 May 2015 09:22:38 -0400
-Message-ID: <5548C41E.5020308@mojatatu.com>
-References: <1430765318-13788-1-git-send-email-fw@strlen.de> <5548ABF8.5080806@mojatatu.com> <20150505114733.GE17061@breakpoint.cc> <5548B070.80502@mojatatu.com> <5548B984.5000900@iogearbox.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] adm8211: fix checkpatch errors for indentation and new
+ line around switch-case
+Date: Tue, 05 May 2015 06:50:52 -0700
+Message-ID: <1430833852.7191.7.camel@perches.com>
+References: <5548B192.8020808@lysator.liu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:36077 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422884AbbEENXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 09:23:12 -0400
-Received: by oift201 with SMTP id t201so147570765oif.3
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 06:23:11 -0700 (PDT)
-In-Reply-To: <5548B984.5000900@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Okash Khawaja <okash.khawaja@gmail.com>, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Peter Rosin <peda@lysator.liu.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5548B192.8020808@lysator.liu.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/05/15 08:37, Daniel Borkmann wrote:
-> On 05/05/2015 01:58 PM, Jamal Hadi Salim wrote:
+On Tue, 2015-05-05 at 14:03 +0200, Peter Rosin wrote:
+> > diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
+[]
+> > @@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
+> >  		pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
+> >  
+> >  		switch (cline) {
+[]
+> > +		case  0x8:
+> > +			reg |= (0x1 << 14);
+> > +			break;
+> > +		case 0x16:
+> > +			reg |= (0x2 << 14);
+> > +			break;
+> > +		case 0x32:
+> > +			reg |= (0x3 << 14);
+> > +			break;
+> > +		default:
+> > +			reg |= (0x0 << 14);
+> > +			break;
+> >  		}
+> >  	}
+> >  
+> 
+> Those 0x16/0x32 hexadecimal case-selectors looking suspiciously like
+> decimal bits need a comment if they are in fact correct, which I doubt.
 
+Good spot.
 
->
-> ... I quite frankly find the transformation after Florian's series
-> *MUCH*, *MUCH* more intuitive, also given that we use such kind of
-> bit flags already extensively everywhere in else the stack.
->
-
-But he has to go around and change all occurrences where the macros are
-invoked.
-In some cases nothing has changed; in such a case the macros are useful
-for hiding what goes on.
-In any case - this is not as a big issue.
-
-> What's more is that we reduce skbuff usage by 13-12 bits (given the
-> follow up fix with AT_STACK is addressed).
->
-
-Thats an orthogonal issue. Those bits were useful a few years ago,
-and the use cases didnt pan out. So iam not against getting recycling.
-
-
-> I think that can be done as a follow-up *after* the series.
-
-Sure. Would of course be better to do it in this series if changes
-are going to be made.
-
-> Given
-> it's uapi (which probably never should have been?) it's a different
-> question on its own.
->
-> Looking at git log include/uapi/linux/pkt_cls.h, it slipped in via
-> David Howells uapi script ...
->
-> commit 607ca46e97a1b6594b29647d98a32d545c24bdff
-> Author: David Howells <dhowells@redhat.com>
-> Date:   Sat Oct 13 10:46:48 2012 +0100
->
-
-Should never have been in uapi.
-I dont think i saw that submission you pointed to.
-But the problem may have existed before that patch.
-
-cheers,
-jamal
+As it's testing PCI_CACHE_LINE_SIZE,
+they seem very much broken.
