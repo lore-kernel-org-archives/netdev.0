@@ -1,50 +1,80 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next 05/10] be2net: don't enable PAUSE by default
-Date: Tue, 5 May 2015 05:35:30 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C74D1075C@CMEXMB1.ad.emulex.com>
-References: <1430722042-26449-1-git-send-email-sathya.perla@emulex.com>
-	<1430722042-26449-6-git-send-email-sathya.perla@emulex.com>
- <20150504.115957.2215135038852456749.davem@davemloft.net>
+From: Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v3] adm8211: fix checkpatch error for trailing statements on
+ next line
+Date: Tue, 5 May 2015 07:01:51 +0100
+Message-ID: <20150505060150.GA2548@bytefire-computer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.emulex.com ([138.239.224.99]:2554 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030269AbbEEFgE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 01:36:04 -0400
-In-Reply-To: <20150504.115957.2215135038852456749.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> 
-> From: Sathya Perla <sathya.perla@emulex.com>
-> Date: Mon,  4 May 2015 02:47:17 -0400
-> 
-> > From: Kalesh AP <kalesh.purayil@emulex.com>
-> >
-> > The driver so far, on load, always tried to enable RX/TX general pause.
-> > This setting always fails on certain profiles (like FCoE) where PFC is
-> > needed. Such failures cannot be effectively communicated to the stack or
-> > user. To fix this unpredictability in state, this patch changes the driver
-> > behavior by not configuring pause at load time.
-> > The user can configure it via ethtool and if the setting is disallowed,
-> > an appropriate error is returned.
-...
-> 
-> Not enabling pause by default is going to be _STRONGLY_ not expected
-> by the user and will cause unwanted packet drops in high traffic
-> environments.
-> 
-> It's not the user's fault that your stuff is architected in such a way
-> such that handling this properly isn't easy.
+This patch fixes the checkpatch.pl error:
 
-Ok, I'll follow up with our FW team about this and in the meantime
-drop this patch from this patch-set. Thanks!
+ERROR: trailing statements should be on next line
 
--Sathya
+More specifically, the fix has been applied to the four occurances of the error listed below.
+
+ERROR: trailing statements should be on next line
+#1101: FILE: drivers/net/wireless/adm8211.c:1101:
++               case  0x8: reg |= (0x1 << 14);
+
+ERROR: trailing statements should be on next line
+#1103: FILE: drivers/net/wireless/adm8211.c:1103:
++               case 0x16: reg |= (0x2 << 14);
+
+ERROR: trailing statements should be on next line
+#1105: FILE: drivers/net/wireless/adm8211.c:1105:
++               case 0x32: reg |= (0x3 << 14);
+
+ERROR: trailing statements should be on next line
+#1107: FILE: drivers/net/wireless/adm8211.c:1107:
++                 default: reg |= (0x0 << 14);
+
+Signed-off-by: Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/wireless/adm8211.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
+index f07a618..79e4e5f 100644
+--- a/drivers/net/wireless/adm8211.c
++++ b/drivers/net/wireless/adm8211.c
+@@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
+                pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
+ 
+                switch (cline) {
+-               case  0x8: reg |= (0x1 << 14);
+-                          break;
+-               case 0x16: reg |= (0x2 << 14);
+-                          break;
+-               case 0x32: reg |= (0x3 << 14);
+-                          break;
+-                 default: reg |= (0x0 << 14);
+-                          break;
++               case  0x8:
++                       reg |= (0x1 << 14);
++                       break;
++               case 0x16:
++                       reg |= (0x2 << 14);
++                       break;
++               case 0x32:
++                       reg |= (0x3 << 14);
++                       break;
++                 default:
++                       reg |= (0x0 << 14);
++                       break;
+                }
+        }
+ 
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
