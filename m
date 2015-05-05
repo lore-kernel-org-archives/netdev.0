@@ -1,72 +1,53 @@
-From: Okash Khawaja <okash.khawaja@gmail.com>
-Subject: Re: [PATCH v3] adm8211: fix checkpatch error for trailing statements
- on next line
-Date: Tue, 5 May 2015 12:45:17 +0100
-Message-ID: <20150505114517.GA2934@bytefire-computer>
-References: <20150505060150.GA2548@bytefire-computer>
- <1430808298.7191.1.camel@perches.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next 0/5] replace skb tc_verd member with 3 dedicated
+ bit flags
+Date: Tue, 5 May 2015 13:47:33 +0200
+Message-ID: <20150505114733.GE17061@breakpoint.cc>
+References: <1430765318-13788-1-git-send-email-fw@strlen.de>
+ <5548ABF8.5080806@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com, kvalo@codeaurora.org
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	alexei.starovoitov@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:35008 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031623AbbEELpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 07:45:22 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48634 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752918AbbEELrf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 07:47:35 -0400
 Content-Disposition: inline
-In-Reply-To: <1430808298.7191.1.camel@perches.com>
+In-Reply-To: <5548ABF8.5080806@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 04, 2015 at 11:44:58PM -0700, Joe Perches wrote:
-> On Tue, 2015-05-05 at 07:01 +0100, Okash Khawaja wrote:
-> > This patch fixes the checkpatch.pl error:
-> 
-> Please fix the space/tab use too.
-> 
-> Your email client seems to have converted all the tabs
-> to spaces.
-> 
-> default should use the same indent as the case statements
->
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> Initial feedback on the series:
+> - Can you keep the macros around? eg SET_TC_NCLS is more readable
+> than skb->tc_nocls = 1 also hides the bit details.
 
-Joe and Kalle,
+I beg to differ, sorry :-/
 
-I have adjusted the patch. Since indentation of default adds more to the
-patch I have resent it under the subject '[PATCH] adm8211: fix
-checkpatch errors for indentation and new line around switch-case'.
-Thanks for the prompt feedback. I appreciate your patience.
+We use blah:1 everywhere else in sk_buff, only tc is different and
+its not obvious (to me) how tc_verd is being used and for what.
 
-> 
-> > diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
-> []
-> > @@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
-> >                 pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
-> >  
-> >                 switch (cline) {
-> > -               case  0x8: reg |= (0x1 << 14);
-> > -                          break;
-> > -               case 0x16: reg |= (0x2 << 14);
-> > -                          break;
-> > -               case 0x32: reg |= (0x3 << 14);
-> > -                          break;
-> > -                 default: reg |= (0x0 << 14);
-> > -                          break;
-> > +               case  0x8:
-> > +                       reg |= (0x1 << 14);
-> > +                       break;
-> > +               case 0x16:
-> > +                       reg |= (0x2 << 14);
-> > +                       break;
-> > +               case 0x32:
-> > +                       reg |= (0x3 << 14);
-> > +                       break;
-> > +                 default:
-> > +                       reg |= (0x0 << 14);
-> > +                       break;
-> >                 }
-> >         }
-> >  
-> 
+Or are you saying that should redefine SET_TC_NCLS to something like
+
+#define SET_TC_NCLS(skb)	(skb)->tc_nocls = 1
+
+?
+
+> I think the ones that are no longer needed should just be deleted
+> as opposed to what you and Alexei did earlier.
+
+Fair enough, I can do that.
+
+> - We need two bits for the location (ingress, egress, from stack)
+> from stack being 0 i.e when it is not set implicitly it is from the
+> host stack then we can check for ingress or egress when we choose.
+
+Hmm, are you sure?  How is that used?
+
+In fact ifb will BUG() if neither AT_INGRESS or AT_EGRESS was set
+in G_TC_FROM().
+
+Thanks for reviewing!
