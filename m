@@ -1,57 +1,87 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next 4/5] net: sched: remove AT INGRESS/EGRESS
-Date: Tue, 5 May 2015 13:11:32 +0200
-Message-ID: <20150505111132.GD17061@breakpoint.cc>
-References: <1430765318-13788-1-git-send-email-fw@strlen.de>
- <1430765318-13788-5-git-send-email-fw@strlen.de>
- <5548A446.90901@iogearbox.net>
+From: Okash Khawaja <okash.khawaja@gmail.com>
+Subject: [PATCH] adm8211: fix checkpatch errors for indentation and new line
+ around switch-case.
+Date: Tue, 5 May 2015 12:25:12 +0100
+Message-ID: <20150505112512.GA2775@bytefire-computer>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	jhs@mojatatu.com, alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: nux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48558 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753042AbbEELLe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 07:11:34 -0400
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:34564 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161155AbbEELZR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 07:25:17 -0400
 Content-Disposition: inline
-In-Reply-To: <5548A446.90901@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 05/04/2015 08:48 PM, Florian Westphal wrote:
-> >use single marker to propagate location.
-> >tc_at_ingress 1: ingress, 0 is egress.
-> >
-> >The new flag is set/unset in sch_ingress instead of the core.
-> >We will also no longer set skb->tc_verd to AT_EGRESS in the xmit
-> >handler.
-> >
-> >Signed-off-by: Florian Westphal <fw@strlen.de>
-> ...
-> >diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> >index 911d84e..d794077 100644
-> >--- a/include/linux/skbuff.h
-> >+++ b/include/linux/skbuff.h
-> >@@ -488,6 +488,7 @@ static inline u32 skb_mstamp_us_delta(const struct skb_mstamp *t1,
-> >   *	@queue_mapping: Queue mapping for multiqueue devices
-> >   *	@xmit_more: More SKBs are pending for this queue
-> >   *	@tc_from_ingress: skb is processed during rx, not transmit
-> >+ *	@tc_at_ingress: skb is processed during rx, not transmit
-> 
-> Minor nit:
-> 
-> I think both comments needs to be a bit more clear. I.e. tc_at_ingress
-> tells the *current* location whether we are invoked from ingress or
-> egress. And, tc_from_ingress explains the *previous* location, whether
-> the skbs has been mirred from ingress path or egress path.
+This patch fixes these checkpatch.pl errors around a single switch-case block:
 
-Agree, the reason is that I tried to go with single tc_ingress:1 but it
-turned out to be not as trivial as I thought.
+ERROR: trailing statements should be on next line
+ERROR: switch and case should be at the same indent
 
-I'll fix it up in v2, I'll wait a bit more though to give others
-a chance to comment.
+More specifically, the fix has been applied to the five occurances of the errors listed below.
 
-Thanks for reviewing!
+ERROR: trailing statements should be on next line
+#1101: FILE: drivers/net/wireless/adm8211.c:1101:
++               case  0x8: reg |= (0x1 << 14);
+
+ERROR: trailing statements should be on next line
+#1103: FILE: drivers/net/wireless/adm8211.c:1103:
++               case 0x16: reg |= (0x2 << 14);
+
+ERROR: trailing statements should be on next line
+#1105: FILE: drivers/net/wireless/adm8211.c:1105:
++               case 0x32: reg |= (0x3 << 14);
+
+ERROR: trailing statements should be on next line
+#1107: FILE: drivers/net/wireless/adm8211.c:1107:
++               default: reg |= (0x0 << 14);
+
+ERROR: switch and case should be at the same indent
+#1100: FILE: adm8211.c:1100:
++               switch (cline) {
+[...]
++                 default:
+
+
+Signed-off-by: Okash Khawaja <okash.khawaja@gmail.com>
+---
+ drivers/net/wireless/adm8211.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
+index f07a618..058fb4b 100644
+--- a/drivers/net/wireless/adm8211.c
++++ b/drivers/net/wireless/adm8211.c
+@@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
+ 		pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
+ 
+ 		switch (cline) {
+-		case  0x8: reg |= (0x1 << 14);
+-			   break;
+-		case 0x16: reg |= (0x2 << 14);
+-			   break;
+-		case 0x32: reg |= (0x3 << 14);
+-			   break;
+-		  default: reg |= (0x0 << 14);
+-			   break;
++		case  0x8:
++			reg |= (0x1 << 14);
++			break;
++		case 0x16:
++			reg |= (0x2 << 14);
++			break;
++		case 0x32:
++			reg |= (0x3 << 14);
++			break;
++		default:
++			reg |= (0x0 << 14);
++			break;
+ 		}
+ 	}
+ 
+-- 
+1.9.1
