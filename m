@@ -1,258 +1,72 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v5 18/21] switchdev: convert fib_ipv4_add/del over to switchdev_port_obj_add/del
-Date: Tue,  5 May 2015 10:34:54 -0700
-Message-ID: <1430847297-15728-19-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v5 14/21] switchdev: cut over to new switchdev_port_bridge_dellink
+Date: Tue,  5 May 2015 10:34:50 -0700
+Message-ID: <1430847297-15728-15-git-send-email-sfeldma@gmail.com>
 References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
 	ronen.arad@intel.com, andrew@lunn.ch, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:33705 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965378AbbEEReV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:34:21 -0400
-Received: by pdbnk13 with SMTP id nk13so203398892pdb.0
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:21 -0700 (PDT)
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:36484 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965365AbbEEReQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:34:16 -0400
+Received: by pdea3 with SMTP id a3so203679686pde.3
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:16 -0700 (PDT)
 In-Reply-To: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-The IPv4 FIB ops convert nicely to the switchdev objs and we're left with
-only four switchdev ops: port get/set and port add/del.  Other objs will
-follow, such as FDB.  So go ahead and convert IPv4 FIB over to switchdev
-obj for consistency, anticipating more objs to come.
+Rocker, bonding and team and switch over to the new
+switchdev_port_bridge_dellink to avoid duplicating code in each driver.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- drivers/net/ethernet/rocker/rocker.c |   42 +++++++++++------------------
- include/net/switchdev.h              |   21 +++++++--------
- net/switchdev/switchdev.c            |   49 +++++++++++++++++++++-------------
- 3 files changed, 56 insertions(+), 56 deletions(-)
+ drivers/net/bonding/bond_main.c      |    2 +-
+ drivers/net/ethernet/rocker/rocker.c |    1 +
+ drivers/net/team/team.c              |    2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index e1d8a03..bb47661 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4040,7 +4040,7 @@ static const struct net_device_ops bond_netdev_ops = {
+ 	.ndo_del_slave		= bond_release,
+ 	.ndo_fix_features	= bond_fix_features,
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+-	.ndo_bridge_dellink	= ndo_dflt_switchdev_port_bridge_dellink,
++	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
+ };
+ 
 diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index e3a0c58..32e9b2e 100644
+index 1fcc020..2a77c22e 100644
 --- a/drivers/net/ethernet/rocker/rocker.c
 +++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4403,6 +4403,7 @@ static int rocker_port_obj_add(struct net_device *dev,
- 			       struct switchdev_obj *obj)
- {
- 	struct rocker_port *rocker_port = netdev_priv(dev);
-+	struct switchdev_obj_ipv4_fib *fib4;
- 	int err = 0;
- 
- 	rocker_port->trans = obj->trans;
-@@ -4422,6 +4423,12 @@ static int rocker_port_obj_add(struct net_device *dev,
- 	case SWITCHDEV_OBJ_PORT_VLAN:
- 		err = rocker_port_vlans_add(rocker_port, &obj->vlan);
- 		break;
-+	case SWITCHDEV_OBJ_IPV4_FIB:
-+		fib4 = &obj->ipv4_fib;
-+		err = rocker_port_fib_ipv4(rocker_port, fib4->dst,
-+					   fib4->dst_len, fib4->fi,
-+					   fib4->tb_id, 0);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -4464,12 +4471,20 @@ static int rocker_port_obj_del(struct net_device *dev,
- 			       struct switchdev_obj *obj)
- {
- 	struct rocker_port *rocker_port = netdev_priv(dev);
-+	struct switchdev_obj_ipv4_fib *fib4;
- 	int err = 0;
- 
- 	switch (obj->id) {
- 	case SWITCHDEV_OBJ_PORT_VLAN:
- 		err = rocker_port_vlans_del(rocker_port, &obj->vlan);
- 		break;
-+	case SWITCHDEV_OBJ_IPV4_FIB:
-+		fib4 = &obj->ipv4_fib;
-+		err = rocker_port_fib_ipv4(rocker_port, fib4->dst,
-+					   fib4->dst_len, fib4->fi,
-+					   fib4->tb_id,
-+					   ROCKER_OP_FLAG_REMOVE);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -4478,38 +4493,11 @@ static int rocker_port_obj_del(struct net_device *dev,
- 	return err;
- }
- 
--static int rocker_port_switchdev_fib_ipv4_add(struct net_device *dev,
--					      __be32 dst, int dst_len,
--					      struct fib_info *fi,
--					      u8 tos, u8 type,
--					      u32 nlflags, u32 tb_id)
--{
--	struct rocker_port *rocker_port = netdev_priv(dev);
--	int flags = 0;
--
--	return rocker_port_fib_ipv4(rocker_port, dst, dst_len,
--				    fi, tb_id, flags);
--}
--
--static int rocker_port_switchdev_fib_ipv4_del(struct net_device *dev,
--					      __be32 dst, int dst_len,
--					      struct fib_info *fi,
--					      u8 tos, u8 type, u32 tb_id)
--{
--	struct rocker_port *rocker_port = netdev_priv(dev);
--	int flags = ROCKER_OP_FLAG_REMOVE;
--
--	return rocker_port_fib_ipv4(rocker_port, dst, dst_len,
--				    fi, tb_id, flags);
--}
--
- static const struct switchdev_ops rocker_port_switchdev_ops = {
- 	.switchdev_port_attr_get	= rocker_port_attr_get,
- 	.switchdev_port_attr_set	= rocker_port_attr_set,
- 	.switchdev_port_obj_add		= rocker_port_obj_add,
- 	.switchdev_port_obj_del		= rocker_port_obj_del,
--	.switchdev_fib_ipv4_add		= rocker_port_switchdev_fib_ipv4_add,
--	.switchdev_fib_ipv4_del		= rocker_port_switchdev_fib_ipv4_del,
+@@ -4289,6 +4289,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_fdb_dump			= rocker_port_fdb_dump,
+ 	.ndo_bridge_setlink		= switchdev_port_bridge_setlink,
+ 	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
++	.ndo_bridge_dellink		= switchdev_port_bridge_dellink,
+ 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
  };
  
- /********************
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index e081d67..3b217b4 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -46,6 +46,7 @@ struct fib_info;
- enum switchdev_obj_id {
- 	SWITCHDEV_OBJ_UNDEFINED,
- 	SWITCHDEV_OBJ_PORT_VLAN,
-+	SWITCHDEV_OBJ_IPV4_FIB,
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index e6c4df2..0283753 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1978,7 +1978,7 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_fix_features	= team_fix_features,
+ 	.ndo_change_carrier     = team_change_carrier,
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+-	.ndo_bridge_dellink     = ndo_dflt_switchdev_port_bridge_dellink,
++	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
  };
  
- struct switchdev_obj {
-@@ -57,6 +58,15 @@ struct switchdev_obj {
- 			u16 vid_start;
- 			u16 vid_end;
- 		} vlan;
-+		struct switchdev_obj_ipv4_fib {		/* IPV4_FIB */
-+			u32 dst;
-+			int dst_len;
-+			struct fib_info *fi;
-+			u8 tos;
-+			u8 type;
-+			u32 nlflags;
-+			u32 tb_id;
-+		} ipv4_fib;
- 	};
- };
- 
-@@ -70,10 +80,6 @@ struct switchdev_obj {
-  * @switchdev_port_obj_add: Add an object to port (see switchdev_obj).
-  *
-  * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj).
-- *
-- * @switchdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
-- *
-- * @switchdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
-  */
- struct switchdev_ops {
- 	int	(*switchdev_port_attr_get)(struct net_device *dev,
-@@ -84,13 +90,6 @@ struct switchdev_ops {
- 					  struct switchdev_obj *obj);
- 	int	(*switchdev_port_obj_del)(struct net_device *dev,
- 					  struct switchdev_obj *obj);
--	int	(*switchdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
--					  int dst_len, struct fib_info *fi,
--					  u8 tos, u8 type, u32 nlflags,
--					  u32 tb_id);
--	int	(*switchdev_fib_ipv4_del)(struct net_device *dev, __be32 dst,
--					  int dst_len, struct fib_info *fi,
--					  u8 tos, u8 type, u32 tb_id);
- };
- 
- enum switchdev_notifier_type {
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 9210355..65d49d4 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -641,8 +641,19 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
- int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 			   u8 tos, u8 type, u32 nlflags, u32 tb_id)
- {
-+	struct switchdev_obj fib_obj = {
-+		.id = SWITCHDEV_OBJ_IPV4_FIB,
-+		.ipv4_fib = {
-+			.dst = htonl(dst),
-+			.dst_len = dst_len,
-+			.fi = fi,
-+			.tos = tos,
-+			.type = type,
-+			.nlflags = nlflags,
-+			.tb_id = tb_id,
-+		},
-+	};
- 	struct net_device *dev;
--	const struct switchdev_ops *ops;
- 	int err = 0;
- 
- 	/* Don't offload route if using custom ip rules or if
-@@ -660,15 +671,10 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 	dev = switchdev_get_dev_by_nhs(fi);
- 	if (!dev)
- 		return 0;
--	ops = dev->switchdev_ops;
--
--	if (ops->switchdev_fib_ipv4_add) {
--		err = ops->switchdev_fib_ipv4_add(dev, htonl(dst), dst_len,
--						  fi, tos, type, nlflags,
--						  tb_id);
--		if (!err)
--			fi->fib_flags |= RTNH_F_EXTERNAL;
--	}
-+
-+	err = switchdev_port_obj_add(dev, &fib_obj);
-+	if (!err)
-+		fi->fib_flags |= RTNH_F_EXTERNAL;
- 
- 	return err;
- }
-@@ -689,8 +695,19 @@ EXPORT_SYMBOL_GPL(switchdev_fib_ipv4_add);
- int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 			   u8 tos, u8 type, u32 tb_id)
- {
-+	struct switchdev_obj fib_obj = {
-+		.id = SWITCHDEV_OBJ_IPV4_FIB,
-+		.ipv4_fib = {
-+			.dst = htonl(dst),
-+			.dst_len = dst_len,
-+			.fi = fi,
-+			.tos = tos,
-+			.type = type,
-+			.nlflags = 0,
-+			.tb_id = tb_id,
-+		},
-+	};
- 	struct net_device *dev;
--	const struct switchdev_ops *ops;
- 	int err = 0;
- 
- 	if (!(fi->fib_flags & RTNH_F_EXTERNAL))
-@@ -699,14 +716,10 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 	dev = switchdev_get_dev_by_nhs(fi);
- 	if (!dev)
- 		return 0;
--	ops = dev->switchdev_ops;
- 
--	if (ops->switchdev_fib_ipv4_del) {
--		err = ops->switchdev_fib_ipv4_del(dev, htonl(dst), dst_len,
--						  fi, tos, type, tb_id);
--		if (!err)
--			fi->fib_flags &= ~RTNH_F_EXTERNAL;
--	}
-+	err = switchdev_port_obj_del(dev, &fib_obj);
-+	if (!err)
-+		fi->fib_flags &= ~RTNH_F_EXTERNAL;
- 
- 	return err;
- }
 -- 
 1.7.10.4
