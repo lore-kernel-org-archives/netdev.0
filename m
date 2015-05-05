@@ -1,71 +1,85 @@
-From: Dominick Grift <dac.override@gmail.com>
-Subject: Re: Suspicious RCU usage in bridge with Linux v4.0-9362-g1fc149933fd4
-Date: Tue, 5 May 2015 10:33:54 +0200
-Message-ID: <20150505083354.GA14880@x131e>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
- <20150504133943.GA17043@x131e>
- <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [RFC v1 07/11] net/mlx4: Cache irq_desc->affinity instead of irq_desc
+Date: Tue, 5 May 2015 12:07:08 +0300
+Message-ID: <CAPcc5PhU8oa1HCcpbjHNv0-4VT8EFtQb8HTxGUD_+G3i-uFRfg@mail.gmail.com>
+References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>
+	<1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com>
+	<CAPcc5Ph4pk+4aL-PduvF67YU-A+vn2bfx6v3mr-tbY58zs7sZw@mail.gmail.com>
+	<55477B86.70705@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="LQksG6bCIzRHxTLp"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:34973 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756785AbbEEId5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 04:33:57 -0400
-Received: by wgyo15 with SMTP id o15so174505762wgy.2
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 01:33:56 -0700 (PDT)
-Received: from x131e (217-19-24-195.dsl.cambrium.nl. [217.19.24.195])
-        by mx.google.com with ESMTPSA id gj7sm14970342wib.4.2015.05.05.01.33.56
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 05 May 2015 01:33:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Yinghai Lu <yinghai@kernel.org>,
+	Borislav Petkov <bp@alien8.de>, Ido Shamay <idos@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Joe Perches <joe@perches.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-pci@vger.kerne
+To: Jiang Liu <jiang.liu@linux.intel.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <55477B86.70705@linux.intel.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Mon, May 4, 2015 at 5:00 PM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
+> On 2015/5/4 20:10, Amir Vadai wrote:
+>> On Mon, May 4, 2015 at 6:15 AM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
+>>> The field 'affinity' in irq_desc won't change once the irq_desc data
+>>> structure is created. So cache irq_desc->affinity instead of irq_desc.
+>>> This also helps to hide struct irq_desc from device drivers.
+>>
+>> Hi Jiang,
+>>
+>> I might not understand the new changes irq core, but up until now
+>> affinity was changed when the user changed it through
+>> /proc/irq/<IRQ>/smp_affinity.
+>> This code is monitoring the affinity from the napi_poll context to
+>> detect affinity changes, and prevent napi from keep running on the
+>> wrong CPU.
+>> Therefore, the affinity can't be cached at the beginning. Please
+>> revert this caching.
+> Hi Amir,
+>         Thanks for review:) We want to hide irq_desc implementation
+> details from device drivers, so made these changes.
+>         Function irq_get_affinity_mask() returns 'struct cpumask *'
+> and we cache the returned pointer. On the other hand, user may change
+> IRQ affinity through /proc/irq/<IRQ>/smp_affinity, but that only
+> changes the bitmap pointed to by the cached pointer and won't change
+> the pointer itself. So it should always return the latest affinity
+> setting by calling cpumask_test_cpu(cpu_curr, cq->irq_affinity).
+> Or am I missing something here?
+No - you are completely right - I missed it.
+
+Anyway I tested it to make sure, and everything works as expected.
+
+Acked-By: Amir Vadai <amirv@mellanox.com>
+
+Thanks,
+Amir
 
 
---LQksG6bCIzRHxTLp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, May 04, 2015 at 11:45:41AM -0700, Cong Wang wrote:
-
-<snip>
-
-> Should be the same issue. Please give the attached patch a try,
-> it is compile-tested only.
->=20
 > Thanks!
-
-<snip>
-
-Thank you.
-
-I have just booted with the above path and the "oops" is gone
-
-So although the patch may not be optimal, it does seem to take care of the =
-issue.
-
---LQksG6bCIzRHxTLp
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQGcBAEBCgAGBQJVSIBtAAoJENAR6kfG5xmcK7EL/jXploJbpfHJ+zC3urMm+czt
-9YlofmEpEpy+2Zk14+3BiihGdM3vq3Q8O1qUnSW2tD6vk+PMLlEQHvVi95iKwM+7
-F+5VaA+NHMzujVPVt2nZIHDqfWDOaRigPz7qRiBraFlMhwdR2HuKCSEE3VBaxVSZ
-0+dOKP/MNYTqe8JsgxIsiZVzcsts9pATrQ/Mu70zbigNZDd//IGdMcml2LPNu7Xf
-0mkJ90jqFW9GdOUjNOu/PpKnhWbiCwefTiwyFtX1RYmGBQbeaOwR/GwAk8K2uI0m
-p1ETW8mVoMr5ppiZnuJvjtbjK75Wksis05kKc1U4j/bhhMnLnXq9Ydf9+idaIbXr
-on2hLDsoShy7OJRs+I3Za5TAms4AOV6pKehutS0ti3mF303RJpYB17qbgZxLShZy
-As33ohj4D95KWgSvxtXn41u0avqPdQpkqq+V2vwKcbsM+JBLgfsOvYabdGKBXbC1
-uPRyq21LIqLmZhNvW6UTNBwiOrlN7GXzvIjE99Cmkg==
-=v8Yi
------END PGP SIGNATURE-----
-
---LQksG6bCIzRHxTLp--
+> Gerry
+>>
+>> Thanks,
+>> Amir
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
