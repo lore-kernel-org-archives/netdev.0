@@ -1,90 +1,75 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCHv2 net-next 6/6] cxgb4: Discard the packet if the length is greater than mtu
-Date: Tue,  5 May 2015 14:59:56 +0530
-Message-ID: <1430818196-26508-7-git-send-email-hariprasad@chelsio.com>
-References: <1430818196-26508-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21146 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752027AbbEEERf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 00:17:35 -0400
-In-Reply-To: <1430818196-26508-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Harini Katakam <harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCH v2 2/3] net: macb: Add support for jumbo frames
+Date: Tue, 5 May 2015 09:51:41 +0530
+Message-ID: <CAFcVECLkV=UKUD8T0dytdhqOZBU3MkWGPCqdFm9rfoS-FmEr1g@mail.gmail.com>
+References: <1430725960-8441-1-git-send-email-harinik@xilinx.com>
+	<b7d968f7-1eb8-4a37-ae28-e7b841d6b178@BY2FFO11FD038.protection.gbl>
+	<5547C23B.2080509@ni.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org" <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	"michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org" <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+To: Jaeden Amero <jaeden.amero-acOepvfBmUk@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5547C23B.2080509-acOepvfBmUk@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-pktgen sends raw udp packets and bypasses most of the
-linux networking stack. User can specify different packet sizes.
-Hence we need to discard the packet if the length is greater than mtu
+Hi,
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 9 ++++++++-
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c | 9 ++++++++-
- 2 files changed, 16 insertions(+), 2 deletions(-)
+On Tue, May 5, 2015 at 12:32 AM, Jaeden Amero <jaeden.amero-acOepvfBmUk@public.gmane.org> wrote:
+> On 05/04/2015 02:52 AM, Harini Katakam wrote:
+>> Check for "cdns,zynqmp-gem" compatible string and enable jumbo frame support
+>> in NWCFG register, update descriptor length masks and registers accordingly.
+>> Jumbo max length register should be set according to support in SoC; it is
+>> set to 10240 for Zynq Ultrascale+ MPSoC.
+>>
+>> Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+>> Reviewed-by: Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+>> ---
+>>
+>> On v1, Michal commented that I should use macb_config for jumbo parameters
+>> instead of defining them by reading the compatible string directly.
+>> I can use .caps for isjumbo. But jumbo-max-length needs to be defined.
+>> Can I add this to the structure? Any suggestions on how to handle this?
+>>
+>> v2:
+>> Add constant definition and update SoC name
+>>
+>> ---
+>>  drivers/net/ethernet/cadence/macb.c |   21 ++++++++++++++++++---
+>>  drivers/net/ethernet/cadence/macb.h |    8 ++++++++
+>>  2 files changed, 26 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+<snip>
+>> @@ -2762,6 +2772,11 @@ static int macb_probe(struct platform_device *pdev)
+>>       bp->pclk = pclk;
+>>       bp->hclk = hclk;
+>>       bp->tx_clk = tx_clk;
+>> +     if (of_device_is_compatible(pdev->dev.of_node, "cdns,zynqmp-gem")) {
+>> +             bp->isjumbo = 1;
+>> +             bp->jumbo_max_len = GEM_ZYNQMP_JUMBO_MAX;
+>
+> Could you use the bottom 16 bits of DCFG2 instead of GEM_ZYNQMP_JUMBO_MAX?
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index ad504d0..898842d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -1120,7 +1120,6 @@ cxgb_fcoe_offload(struct sk_buff *skb, struct adapter *adap,
-  */
- netdev_tx_t t4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	int len;
- 	u32 wr_mid;
- 	u64 cntrl, *end;
- 	int qidx, credits;
-@@ -1133,6 +1132,7 @@ netdev_tx_t t4_eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	const struct skb_shared_info *ssi;
- 	dma_addr_t addr[MAX_SKB_FRAGS + 1];
- 	bool immediate = false;
-+	int len, max_pkt_len;
- #ifdef CONFIG_CHELSIO_T4_FCOE
- 	int err;
- #endif /* CONFIG_CHELSIO_T4_FCOE */
-@@ -1146,6 +1146,13 @@ out_free:	dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
- 	}
- 
-+	/* Discard the packet if the length is greater than mtu */
-+	max_pkt_len = ETH_HLEN + dev->mtu;
-+	if (skb_vlan_tag_present(skb))
-+		max_pkt_len += VLAN_HLEN;
-+	if (!skb_shinfo(skb)->gso_size && (unlikely(skb->len > max_pkt_len)))
-+		goto out_free;
-+
- 	pi = netdev_priv(dev);
- 	adap = pi->adapter;
- 	qidx = skb_get_queue_mapping(skb);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index cc92c69..98cd47c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1160,7 +1160,7 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	u32 wr_mid;
- 	u64 cntrl, *end;
--	int qidx, credits;
-+	int qidx, credits, max_pkt_len;
- 	unsigned int flits, ndesc;
- 	struct adapter *adapter;
- 	struct sge_eth_txq *txq;
-@@ -1183,6 +1183,13 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (unlikely(skb->len < fw_hdr_copy_len))
- 		goto out_free;
- 
-+	/* Discard the packet if the length is greater than mtu */
-+	max_pkt_len = ETH_HLEN + dev->mtu;
-+	if (skb_vlan_tag_present(skb))
-+		max_pkt_len += VLAN_HLEN;
-+	if (!skb_shinfo(skb)->gso_size && (unlikely(skb->len > max_pkt_len)))
-+		goto out_free;
-+
- 	/*
- 	 * Figure out which TX Queue we're going to use.
- 	 */
--- 
-2.3.4
+The bottom 16 bits are 0x3FFF but the ZynqMP SoC actually supports
+only upto 10K (0x2800).
+
+Regards,
+Harini
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
