@@ -1,61 +1,69 @@
-From: Okash Khawaja <okash.khawaja@gmail.com>
-Subject: Re: [PATCH] adm8211: fix checkpatch errors for indentation and new line around switch-case
-Date: Tue, 5 May 2015 15:15:16 +0100
-Message-ID: <8BB992B7-F9AE-4D3E-92DC-E9154785C92F@gmail.com>
-References: <5548B192.8020808@lysator.liu.se> <1430833852.7191.7.camel@perches.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Peter Rosin <peda@lysator.liu.se>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v5 20/21] rocker: make checkpatch -f clean
+Date: Tue, 05 May 2015 10:45:47 -0700
+Message-ID: <1430847947.3943.4.camel@perches.com>
+References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
+	 <1430847297-15728-21-git-send-email-sfeldma@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us,
+	roopa@cumulusnetworks.com, linux@roeck-us.net,
+	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
+	ronen.arad@intel.com, andrew@lunn.ch, simon.horman@netronome.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:34528 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993131AbbEEOPd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 10:15:33 -0400
-In-Reply-To: <1430833852.7191.7.camel@perches.com>
+Received: from smtprelay0239.hostedemail.com ([216.40.44.239]:60728 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S965493AbbEERpw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:45:52 -0400
+In-Reply-To: <1430847297-15728-21-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On 5 May 2015, at 14:50, Joe Perches <joe@perches.com> wrote:
-> 
-> On Tue, 2015-05-05 at 14:03 +0200, Peter Rosin wrote:
->>> diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
-> []
->>> @@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
->>>        pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
->>> 
->>>        switch (cline) {
-> []
->>> +        case  0x8:
->>> +            reg |= (0x1 << 14);
->>> +            break;
->>> +        case 0x16:
->>> +            reg |= (0x2 << 14);
->>> +            break;
->>> +        case 0x32:
->>> +            reg |= (0x3 << 14);
->>> +            break;
->>> +        default:
->>> +            reg |= (0x0 << 14);
->>> +            break;
->>>        }
->>>    }
->> 
->> Those 0x16/0x32 hexadecimal case-selectors looking suspiciously like
->> decimal bits need a comment if they are in fact correct, which I doubt.
-> 
-> Good spot.
-> 
-> As it's testing PCI_CACHE_LINE_SIZE,
-> they seem very much broken.
-> 
-> 
+On Tue, 2015-05-05 at 10:34 -0700, sfeldma@gmail.com wrote:
+> Well almost clean: ignore the CHECKs for space after cast operator.
 
-Interesting. I'll be happy to fix that bit if someone could guide me on it. Looks like these values should be 0x10, 0x20 instead of 0x16, 0x32 respectively. But I am unable to understand their meaning in this code. 
-Thanks
+I think, because this uses relatively long identifiers,
+that you might as well ignore > 80 column lines length
+warnings.
+
+> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+[]
+> @@ -1418,9 +1418,10 @@ static int rocker_event_link_change(struct rocker *rocker,
+>  	if (!attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT] ||
+>  	    !attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP])
+>  		return -EIO;
+> -	port_number =
+> -		rocker_tlv_get_u32(attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT]) - 1;
+> -	link_up = rocker_tlv_get_u8(attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP]);
+> +	port_number = rocker_tlv_get_u32(
+> +		attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT]) - 1;
+> +	link_up = rocker_tlv_get_u8(
+> +		attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP]);
+
+These would probably be better on single lines.
+
+Maybe it'd be OK to avoid the rocker_tlv_ prefix
+and/or add a helper macro/define for the
+	rocker_tlv_<foo>(attrs[ROCKER_TLV_<BAR>
+style to shorten the line length.
+
+Otherwise, all the line breaks just seem to make
+it harder to read.
+
+> @@ -1686,9 +1687,12 @@ rocker_cmd_get_port_settings_ethtool_proc(struct rocker *rocker,
+>  	    !info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_AUTONEG])
+>  		return -EIO;
+>  
+> -	speed = rocker_tlv_get_u32(info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_SPEED]);
+> -	duplex = rocker_tlv_get_u8(info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_DUPLEX]);
+> -	autoneg = rocker_tlv_get_u8(info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_AUTONEG]);
+> +	speed = rocker_tlv_get_u32(
+> +		info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_SPEED]);
+> +	duplex = rocker_tlv_get_u8(
+> +		info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_DUPLEX]);
+> +	autoneg = rocker_tlv_get_u8(
+> +		info_attrs[ROCKER_TLV_CMD_PORT_SETTINGS_AUTONEG]);
+
+etc...
