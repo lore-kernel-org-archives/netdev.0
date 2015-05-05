@@ -1,51 +1,39 @@
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Subject: [PATCH] net: macb: Handle the RXUBR interrupt on all devices
-Date: Tue, 5 May 2015 15:00:25 -0500
-Message-ID: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nathan Sullivan <nathan.sullivan@ni.com>
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next v5 20/21] rocker: make checkpatch -f clean
+Date: Tue, 5 May 2015 13:01:07 -0700
+Message-ID: <CAE4R7bAJi7a4f_me2V5Ea2w8TOeH1D-+ibHV-0bo5tDKF__-+g@mail.gmail.com>
+References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
+	<1430847297-15728-21-git-send-email-sfeldma@gmail.com>
+	<1430847947.3943.4.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	"Arad, Ronen" <ronen.arad@intel.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	"simon.horman@netronome.com" <simon.horman@netronome.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:33553 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933015AbbEEUBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 16:01:08 -0400
+Received: by qctx5 with SMTP id x5so9524981qct.0
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 13:01:07 -0700 (PDT)
+In-Reply-To: <1430847947.3943.4.camel@perches.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The same hardware issue the at91 must work around applies to at least the
-Zynq ethernet, and possibly more devices.  The driver also needs to handle
-the RXUBR interrupt since it turns it on with MACB_RX_INT_FLAGS anyway.
+On Tue, May 5, 2015 at 10:45 AM, Joe Perches <joe@perches.com> wrote:
+> On Tue, 2015-05-05 at 10:34 -0700, sfeldma@gmail.com wrote:
+>> Well almost clean: ignore the CHECKs for space after cast operator.
+>
+> I think, because this uses relatively long identifiers,
+> that you might as well ignore > 80 column lines length
+> warnings.
 
-Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
----
- drivers/net/ethernet/cadence/macb.c |   11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 4104d49..61aa570 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -981,7 +981,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 	struct macb_queue *queue = dev_id;
- 	struct macb *bp = queue->bp;
- 	struct net_device *dev = bp->dev;
--	u32 status;
-+	u32 status, ctrl;
- 
- 	status = queue_readl(queue, ISR);
- 
-@@ -1037,6 +1037,15 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 		 * add that if/when we get our hands on a full-blown MII PHY.
- 		 */
- 
-+		if (status & MACB_BIT(RXUBR)) {
-+			ctrl = macb_readl(bp, NCR);
-+			macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
-+			macb_writel(bp, NCR, ctrl | MACB_BIT(RE));
-+
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				macb_writel(bp, ISR, MACB_BIT(RXUBR));
-+		}
-+
- 		if (status & MACB_BIT(ISR_ROVR)) {
- 			/* We missed at least one packet */
- 			if (macb_is_gem(bp))
--- 
-1.7.10.4
+Alright, I'll revert those.
