@@ -1,105 +1,87 @@
-From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V2 PATCH 5/5] amd-xgbe: Unify coherency checking logic with
- device_dma_is_coherent()
-Date: Tue, 5 May 2015 10:12:09 -0500
-Message-ID: <1430838729-21572-6-git-send-email-Suravee.Suthikulpanit@amd.com>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
+	instances
+Date: Tue, 05 May 2015 11:16:56 -0400
+Message-ID: <1782736.jR73a0QWZa@x2>
+References: <cover.1429252659.git.rgb@redhat.com> <2487286.y6vyJ9A3er@x2>
+	<87pp6fhy4c.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: al.stone@linaro.org, arnd@arndb.de, linaro-acpi@lists.linaro.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-acpi@vger.kernel.org, leo.duran@amd.com, hanjun.guo@linaro.org, Suravee
- Suthikulpanit <Suravee.Suthikulpanit@amd.com>, msalter@redhat.com,
- grant.likely@linaro.org, linux-arm-kernel@lists.infradead.org,
- linux-crypto@vger.kernel.org
-To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
- <will.deacon@arm.com>, <thomas.lendacky@amd.com>,
- <herbert@gondor.apana.org.au>, <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org,
+	pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org, zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87pp6fhy4c.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Currently, amd-xgbe driver has separate logic to determine device
-coherency for DT vs. ACPI. This patch simplifies the code with
-a call to device_dma_is_coherent().
+On Tuesday, May 05, 2015 09:56:03 AM Eric W. Biederman wrote:
+> Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
+> > The requirements for auditing of containers should be derived from VPP. In
+> > it, it asks for selectable auditing, selective audit, and selective audit
+> > review. What this means is that we need the container and all its
+> > children to have one identifier that is inserted into all the events that
+> > are associated with the container.
+> 
+> That is technically impossible.  Nested containers exist.
 
-CC: David S. Miller <davem@davemloft.net>
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
-Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-main.c | 27 +--------------------------
- 1 file changed, 1 insertion(+), 26 deletions(-)
+OK, then lets talk about that, too. When something is 2 layers deep, the 
+outside world cannot make sense of it. The inner one can be a loopback mounted 
+file in the outer one. That means that I need the container itself to be 
+responsible for events so that things are recorded using paths, uids, and pids 
+that make sense to it. It can enrich the events and send them to the outer 
+container.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 7149053..6d2c702 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -168,13 +168,8 @@ static void xgbe_init_all_fptrs(struct xgbe_prv_data *pdata)
- #ifdef CONFIG_ACPI
- static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
- {
--	struct acpi_device *adev = pdata->adev;
- 	struct device *dev = pdata->dev;
- 	u32 property;
--	acpi_handle handle;
--	acpi_status status;
--	unsigned long long data;
--	int cca;
- 	int ret;
- 
- 	/* Obtain the system clock setting */
-@@ -195,24 +190,6 @@ static int xgbe_acpi_support(struct xgbe_prv_data *pdata)
- 	}
- 	pdata->ptpclk_rate = property;
- 
--	/* Retrieve the device cache coherency value */
--	handle = adev->handle;
--	do {
--		status = acpi_evaluate_integer(handle, "_CCA", NULL, &data);
--		if (!ACPI_FAILURE(status)) {
--			cca = data;
--			break;
--		}
--
--		status = acpi_get_parent(handle, &handle);
--	} while (!ACPI_FAILURE(status));
--
--	if (ACPI_FAILURE(status)) {
--		dev_err(dev, "error obtaining acpi coherency value\n");
--		return -EINVAL;
--	}
--	pdata->coherent = !!cca;
--
- 	return 0;
- }
- #else   /* CONFIG_ACPI */
-@@ -243,9 +220,6 @@ static int xgbe_of_support(struct xgbe_prv_data *pdata)
- 	}
- 	pdata->ptpclk_rate = clk_get_rate(pdata->ptpclk);
- 
--	/* Retrieve the device cache coherency value */
--	pdata->coherent = of_dma_is_coherent(dev->of_node);
--
- 	return 0;
- }
- #else   /* CONFIG_OF */
-@@ -364,6 +338,7 @@ static int xgbe_probe(struct platform_device *pdev)
- 		goto err_io;
- 
- 	/* Set the DMA coherency values */
-+	pdata->coherent = device_dma_is_coherent(pdata->dev);
- 	if (pdata->coherent) {
- 		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
- 		pdata->arcache = XGBE_DMA_OS_ARCACHE;
--- 
-2.1.0
+
+> That is when container G is nested in container F which is in turn
+> nested in container E which is in turn nested in container D which is in
+> turn nested in container C which is in turn nested in container B which
+> is nested in container A there is no one label you can put on audit
+> messages from container G which is the ``correct'' one.
+> 
+> Or are you proposing that something in container G have labels
+> A B C D E F G included on every audit message?
+
+We need to have audit events to either be globally tagged so that the outside 
+world understand what happening no matter how deep. Or we need each layer to 
+be responsible for itself. This means having an audit rule match engine for 
+each namespace like netfilter is to networking.
+
+
+> That introduces enough complexity in generating and parsing the messages I
+> wouldn't trust those messages as the least bug in generation and parsing
+> would be a security issue.
+
+That goes with the territory.
+
+
+> What is the world is VPP?
+
+Virtualization Protection Profile. Before people say it doesn't apply, it kind 
+of does. It defines the necessary security mechanisms for either full blown 
+virt like QEMU/Xen based or it gives enough wiggle room for containers and 
+other types of VMs. Specifically, it defines the audit requirements needed for 
+this kind of technology.
+
+
+> It sounds like something non-public thing. Certainly it has never been a
+> part of the public container discussion and as such it appears to be
+> completely ridiculous to bring up in a public discussion.
+
+No, its a public thing. Audit requirements start in section 5.2:
+
+https://www.niap-ccevs.org/pp/PP_SV_V1.0/
+
+-Steve
