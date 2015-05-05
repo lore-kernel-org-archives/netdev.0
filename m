@@ -1,253 +1,121 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v5 10/21] switchdev: add new switchdev bridge setlink
-Date: Tue,  5 May 2015 10:34:46 -0700
-Message-ID: <1430847297-15728-11-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v5 19/21] switchdev: remove NETIF_F_HW_SWITCH_OFFLOAD feature flag
+Date: Tue,  5 May 2015 10:34:55 -0700
+Message-ID: <1430847297-15728-20-git-send-email-sfeldma@gmail.com>
 References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
 	ronen.arad@intel.com, andrew@lunn.ch, simon.horman@netronome.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36367 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965349AbbEEReM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:34:12 -0400
-Received: by pdea3 with SMTP id a3so203677535pde.3
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:11 -0700 (PDT)
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:33728 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965385AbbEEReW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 13:34:22 -0400
+Received: by pdbnk13 with SMTP id nk13so203399304pdb.0
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 10:34:22 -0700 (PDT)
 In-Reply-To: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Add new switchdev_port_bridge_setlink that can be used by drivers
-implementing .ndo_bridge_setlink to set switchdev bridge attributes.
-Basically turn the raw rtnl_bridge_setlink netlink into switchdev attr
-sets.  Proper netlink attr policy checking is done on the protinfo part of
-the netlink msg.
-
-Currently, for protinfo, only bridge port attrs BR_LEARNING and
-BR_LEARNING_SYNC are parsed and passed to port driver.
-
-For afspec, VLAN objs are passed so switchdev driver can set VLANs assigned
-to SELF.  To illustrate with iproute2 cmd, we have:
-
-	bridge vlan add vid 10 dev sw1p1 self master
-
-To add VLAN 10 to port sw1p1 for both the bridge (master) and the device
-(self).
+Roopa said remove the feature flag for this series and she'll work on
+bringing it back if needed at a later date.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 ---
- include/net/switchdev.h   |    8 +++
- net/switchdev/switchdev.c |  151 +++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 148 insertions(+), 11 deletions(-)
+ drivers/net/bonding/bond_main.c      |    5 +----
+ drivers/net/ethernet/rocker/rocker.c |    3 +--
+ drivers/net/team/team.c              |    2 +-
+ include/linux/netdev_features.h      |    5 +----
+ net/core/ethtool.c                   |    1 -
+ 5 files changed, 4 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 6cf6de1..aa6c370 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -122,6 +122,8 @@ int switchdev_port_attr_set(struct net_device *dev,
- 			    struct switchdev_attr *attr);
- int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj);
- int switchdev_port_obj_del(struct net_device *dev, struct switchdev_obj *obj);
-+int switchdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
-+			      u16 flags);
- int register_switchdev_notifier(struct notifier_block *nb);
- int unregister_switchdev_notifier(struct notifier_block *nb);
- int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
-@@ -166,6 +168,12 @@ static inline int switchdev_port_obj_del(struct net_device *dev,
- 	return -EOPNOTSUPP;
- }
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b361d8c..5215e63 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1015,10 +1015,7 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+ 	netdev_features_t mask;
+ 	struct slave *slave;
  
-+static inline int switchdev_port_bridge_setlink(struct net_device *dev,
-+					    struct nlmsghdr *nlh, u16 flags)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- static inline int register_switchdev_notifier(struct notifier_block *nb)
- {
- 	return 0;
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 3d4d99a..b01791a 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -15,6 +15,7 @@
- #include <linux/mutex.h>
- #include <linux/notifier.h>
- #include <linux/netdevice.h>
-+#include <linux/if_bridge.h>
- #include <net/ip_fib.h>
- #include <net/switchdev.h>
+-	/* If any slave has the offload feature flag set,
+-	 * set the offload flag on the bond.
+-	 */
+-	mask = features | NETIF_F_HW_SWITCH_OFFLOAD;
++	mask = features;
  
-@@ -357,28 +358,156 @@ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- }
- EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
+ 	features &= ~NETIF_F_ONE_FOR_ALL;
+ 	features |= NETIF_F_ALL_FOR_ALL;
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 32e9b2e..c4f65ce 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4861,8 +4861,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	rocker_carrier_init(rocker_port);
  
-+static int switchdev_port_br_setflag(struct net_device *dev,
-+				     struct nlattr *nlattr,
-+				     unsigned long brport_flag)
-+{
-+	struct switchdev_attr attr = {
-+		.id = SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS,
-+	};
-+	u8 flag = nla_get_u8(nlattr);
-+	int err;
-+
-+	err = switchdev_port_attr_get(dev, &attr);
-+	if (err)
-+		return err;
-+
-+	if (flag)
-+		attr.brport_flags |= brport_flag;
-+	else
-+		attr.brport_flags &= ~brport_flag;
-+
-+	return switchdev_port_attr_set(dev, &attr);
-+}
-+
-+static const struct nla_policy
-+switchdev_port_bridge_policy[IFLA_BRPORT_MAX + 1] = {
-+	[IFLA_BRPORT_STATE]		= { .type = NLA_U8 },
-+	[IFLA_BRPORT_COST]		= { .type = NLA_U32 },
-+	[IFLA_BRPORT_PRIORITY]		= { .type = NLA_U16 },
-+	[IFLA_BRPORT_MODE]		= { .type = NLA_U8 },
-+	[IFLA_BRPORT_GUARD]		= { .type = NLA_U8 },
-+	[IFLA_BRPORT_PROTECT]		= { .type = NLA_U8 },
-+	[IFLA_BRPORT_FAST_LEAVE]	= { .type = NLA_U8 },
-+	[IFLA_BRPORT_LEARNING]		= { .type = NLA_U8 },
-+	[IFLA_BRPORT_LEARNING_SYNC]	= { .type = NLA_U8 },
-+	[IFLA_BRPORT_UNICAST_FLOOD]	= { .type = NLA_U8 },
-+};
-+
-+static int switchdev_port_br_setlink_protinfo(struct net_device *dev,
-+					      struct nlattr *protinfo)
-+{
-+	struct nlattr *attr;
-+	int rem;
-+	int err;
-+
-+	err = nla_validate_nested(protinfo, IFLA_BRPORT_MAX,
-+				  switchdev_port_bridge_policy);
-+	if (err)
-+		return err;
-+
-+	nla_for_each_nested(attr, protinfo, rem) {
-+		switch (nla_type(attr)) {
-+		case IFLA_BRPORT_LEARNING:
-+			err = switchdev_port_br_setflag(dev, attr,
-+							BR_LEARNING);
-+			break;
-+		case IFLA_BRPORT_LEARNING_SYNC:
-+			err = switchdev_port_br_setflag(dev, attr,
-+							BR_LEARNING_SYNC);
-+			break;
-+		default:
-+			err = -EOPNOTSUPP;
-+			break;
-+		}
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
-+static int switchdev_port_br_afspec(struct net_device *dev,
-+				    struct nlattr *afspec,
-+				    int (*f)(struct net_device *dev,
-+					     struct switchdev_obj *obj))
-+{
-+	struct nlattr *attr;
-+	struct bridge_vlan_info *vinfo;
-+	struct switchdev_obj obj = {
-+		.id = SWITCHDEV_OBJ_PORT_VLAN,
-+	};
-+	int rem;
-+	int err;
-+
-+	nla_for_each_nested(attr, afspec, rem) {
-+		if (nla_type(attr) != IFLA_BRIDGE_VLAN_INFO)
-+			continue;
-+		if (nla_len(attr) != sizeof(struct bridge_vlan_info))
-+			return -EINVAL;
-+		vinfo = nla_data(attr);
-+		obj.vlan.flags = vinfo->flags;
-+		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
-+			if (obj.vlan.vid_start)
-+				return -EINVAL;
-+			obj.vlan.vid_start = vinfo->vid;
-+		} else if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END) {
-+			if (!obj.vlan.vid_start)
-+				return -EINVAL;
-+			obj.vlan.vid_end = vinfo->vid;
-+			if (obj.vlan.vid_end <= obj.vlan.vid_start)
-+				return -EINVAL;
-+			err = f(dev, &obj);
-+			if (err)
-+				return err;
-+			memset(&obj.vlan, 0, sizeof(obj.vlan));
-+		} else {
-+			if (obj.vlan.vid_start)
-+				return -EINVAL;
-+			obj.vlan.vid_start = vinfo->vid;
-+			obj.vlan.vid_end = vinfo->vid;
-+			err = f(dev, &obj);
-+			if (err)
-+				return err;
-+			memset(&obj.vlan, 0, sizeof(obj.vlan));
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- /**
-- *	switchdev_port_bridge_setlink - Notify switch device port of bridge
-- *	port attributes
-+ *	switchdev_port_bridge_setlink - Set bridge port attributes
-  *
-  *	@dev: port device
-- *	@nlh: netlink msg with bridge port attributes
-- *	@flags: bridge setlink flags
-+ *	@nlh: netlink header
-+ *	@flags: netlink flags
-  *
-- *	Notify switch device port of bridge port attributes
-+ *	Called for SELF on rtnl_bridge_setlink to set bridge port
-+ *	attributes.
+ 	dev->features |= NETIF_F_NETNS_LOCAL |
+-			 NETIF_F_HW_VLAN_CTAG_FILTER |
+-			 NETIF_F_HW_SWITCH_OFFLOAD;
++			 NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index bda32be..1ec035a 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1924,7 +1924,7 @@ static netdev_features_t team_fix_features(struct net_device *dev,
+ 	struct team *team = netdev_priv(dev);
+ 	netdev_features_t mask;
+ 
+-	mask = features | NETIF_F_HW_SWITCH_OFFLOAD;
++	mask = features;
+ 	features &= ~NETIF_F_ONE_FOR_ALL;
+ 	features |= NETIF_F_ALL_FOR_ALL;
+ 
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index 7d59dc6..9672781 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -66,7 +66,6 @@ enum {
+ 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
+ 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
+ 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
+-	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
+ 
+ 	/*
+ 	 * Add your fresh new feature above and remember to update
+@@ -125,7 +124,6 @@ enum {
+ #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
+ #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
+ #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
+-#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
+ 
+ /* Features valid for ethtool to change */
+ /* = all defined minus driver/device-class-related */
+@@ -161,8 +159,7 @@ enum {
   */
- int switchdev_port_bridge_setlink(struct net_device *dev,
- 				  struct nlmsghdr *nlh, u16 flags)
- {
--	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct nlattr *protinfo;
-+	struct nlattr *afspec;
-+	int err = 0;
+ #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
+ 				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
+-				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
+-				 NETIF_F_HW_SWITCH_OFFLOAD)
++				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
  
--	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
--		return 0;
-+	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
-+				   IFLA_PROTINFO);
-+	if (protinfo) {
-+		err = switchdev_port_br_setlink_protinfo(dev, protinfo);
-+		if (err)
-+			return err;
-+	}
+ /*
+  * If one device doesn't support one of these features, then disable it
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 1d00b89..eb0c3ac 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -98,7 +98,6 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
+ 	[NETIF_F_RXALL_BIT] =            "rx-all",
+ 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
+ 	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
+-	[NETIF_F_HW_SWITCH_OFFLOAD_BIT] = "hw-switch-offload",
+ };
  
--	if (!ops->ndo_bridge_setlink)
--		return -EOPNOTSUPP;
-+	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
-+				 IFLA_AF_SPEC);
-+	if (afspec)
-+		err = switchdev_port_br_afspec(dev, afspec,
-+					       switchdev_port_obj_add);
- 
--	return ops->ndo_bridge_setlink(dev, nlh, flags);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(switchdev_port_bridge_setlink);
- 
+ static const char
 -- 
 1.7.10.4
