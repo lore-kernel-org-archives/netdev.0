@@ -1,59 +1,57 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH v2 2/2] net/rds: RDS-TCP: only initiate reconnect attempt on outgoing TCP socket.
-Date: Tue,  5 May 2015 15:20:52 -0400
-Message-ID: <1632897642b4efa0151162713b698f2518e0f0c9.1430843646.git.sowmini.varadhan@oracle.com>
-References: <cover.1430843646.git.sowmini.varadhan@oracle.com>
-Cc: chien.yen@oracle.com, davem@davemloft.net,
-	rds-devel@oss.oracle.com, ajaykumar.hotchandani@oracle.com,
-	Sowmini Varadhan <sowmini.varadhan@oracle.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1430843646.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1430843646.git.sowmini.varadhan@oracle.com>
-References: <cover.1430843646.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
+Date: Tue, 05 May 2015 15:31:03 -0400
+Message-ID: <55491A77.70302@cumulusnetworks.com>
+References: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com> <1429302240-654-2-git-send-email-jtoppins@cumulusnetworks.com> <309B89C4C689E141A5FF6A0C5FB2118B78DBE9D2@ORSMSX101.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Alan Liebthal <alanl@cumulusnetworks.com>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:35921 "EHLO
+	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753377AbbEETbG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 15:31:06 -0400
+Received: by qku63 with SMTP id 63so113306150qku.3
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 12:31:05 -0700 (PDT)
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B78DBE9D2@ORSMSX101.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the peer of an RDS-TCP connection restarts, a reconnect
-attempt should only be made from the active side  of the TCP
-connection, i.e. the side that has a transient TCP port
-number. Do not add the passive side of the TCP connection
-to the c_hash_node and thus avoid triggering rds_queue_reconnect()
-for passive rds connections.
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/rds/connection.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 60f0cd6..da6da57 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -234,13 +234,22 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
- 		/* Creating normal conn */
- 		struct rds_connection *found;
- 
--		found = rds_conn_lookup(head, laddr, faddr, trans);
-+		if (!is_outgoing && otrans->t_type == RDS_TRANS_TCP)
-+			found = NULL;
-+		else
-+			found = rds_conn_lookup(head, laddr, faddr, trans);
- 		if (found) {
- 			trans->conn_free(conn->c_transport_data);
- 			kmem_cache_free(rds_conn_slab, conn);
- 			conn = found;
- 		} else {
--			hlist_add_head_rcu(&conn->c_hash_node, head);
-+			if ((is_outgoing && otrans->t_type == RDS_TRANS_TCP) ||
-+			    (otrans->t_type != RDS_TRANS_TCP)) {
-+				/* Only the active side should be added to
-+				 * reconnect list for TCP.
-+				 */
-+				hlist_add_head_rcu(&conn->c_hash_node, head);
-+			}
- 			rds_cong_add_conn(conn);
- 			rds_conn_count++;
- 		}
--- 
-1.7.1
+On 5/5/15 1:25 PM, Brown, Aaron F wrote:
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>> On Behalf Of Jonathan Toppins
+>> Sent: Friday, April 17, 2015 1:24 PM
+>> To: Kirsher, Jeffrey T
+>> Cc: Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald
+>> C; Vick, Matthew; Ronciak, John; Williams, Mitch A; intel-wired-
+>> lan@lists.osuosl.org; netdev@vger.kernel.org; gospo@cumulusnetworks.com;
+>> shm@cumulusnetworks.com; Alan Liebthal
+>> Subject: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
+>>
+>> From: Alan Liebthal <alanl@cumulusnetworks.com>
+>>
+>> Support setting the MII register via SIOCSMIIREG.
+>>
+>> Signed-off-by: Alan Liebthal <alanl@cumulusnetworks.com>
+>> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+>> ---
+>>   drivers/net/ethernet/intel/igb/igb_main.c |    5 +++++
+>>   1 file changed, 5 insertions(+)
+>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+>
+Thanks Aaron, appreciate the testing.
