@@ -1,41 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/5] Add eth_proto_is_802_3 to provide
- improved means of checking Ethertype
-Date: Tue, 05 May 2015 19:24:59 -0400 (EDT)
-Message-ID: <20150505.192459.2030369260746371959.davem@davemloft.net>
-References: <20150504212603.2536.29877.stgit@ahduyck-vm-fedora22>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next V7 2/2] openvswitch: 802.1ad: Flow handling,
+ actions, and vlan parsing
+Date: Tue, 5 May 2015 16:27:27 -0700
+Message-ID: <CALnjE+oeqX+7Lkmkw0yvLNCeaoHZ5kQjbPthdxPhkvW=OS2zBA@mail.gmail.com>
+References: <1430261059-7920-1-git-send-email-thomasfherbert@gmail.com>
+	<1430261059-7920-3-git-send-email-thomasfherbert@gmail.com>
+	<CALnjE+qtYW4JE5TT3WiOofe=Q+YkLEZ7e+MpJQYLs5f6wD3nvw@mail.gmail.com>
+	<5548F210.3010808@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	pshelar@nicira.com
-To: alexander.h.duyck@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, therbert@redhat.com,
+	ccp@atcnet.net, Flavio Leitner <fbl@redhat.com>
+To: Thomas F Herbert <thomasfherbert@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57885 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752727AbbEEXZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:25:02 -0400
-In-Reply-To: <20150504212603.2536.29877.stgit@ahduyck-vm-fedora22>
+Received: from na3sys009aog111.obsmtp.com ([74.125.149.205]:45893 "HELO
+	na3sys009aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752666AbbEEX12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:27:28 -0400
+Received: by mail-ig0-f178.google.com with SMTP id pi8so88230610igb.0
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 16:27:27 -0700 (PDT)
+In-Reply-To: <5548F210.3010808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Mon, 04 May 2015 14:33:42 -0700
+On Tue, May 5, 2015 at 9:38 AM, Thomas F Herbert
+<thomasfherbert@gmail.com> wrote:
+> On 4/29/15 9:27 PM, Pravin Shelar wrote:
+>>
+>> On Tue, Apr 28, 2015 at 3:44 PM, Thomas F Herbert
+>> <thomasfherbert@gmail.com> wrote:
+>>
+>> +
+>> +       if (likely(skb_vlan_tag_present(skb))) {
+>> +
+>> +               key->eth.tci = htons(skb->vlan_tci);
+>> +
+>> I think there is bug in existing OVS where it does not check
+>> vlan_proto before populating the flow key. Can you send a separate
+>> patch to fix this issue?.
+>
+> Pravin, I realized I needed to address this  comment in more detail. I would
+> appreciate your and anybody
+> else's thoughts on the following:
+> 1. the newer if_vlan header in the upstream kernel has a function that
+> probably should be used here and
+> elsewhere when checking for tags, skb_vlan_tagged() which also checks
+> skb->protocol field.
+When we populate flow key, we need to check skb->vlan_proto if it is
+8021Q. This bug fix should be targeted to net tree.
 
-> This patch series implements and makes use of eth_proto_is_802_3().  The
-> idea behind the function is to provide an optimized means of testing to
-> determine if a given Ethertype value is a length or 802.3 protocol number.
-> The standard path for this was to use ntohs(proto) and then perform a
-> comparison.  This adds a slight cost as it usually requires either a 16b
-> rotate or byte swap which can cost 1 cycle or more depending on the
-> processor.
-> 
-> I had previously addressed this for eth_type_trans, however in doing so I had
-> overlooked checking with sparse and had introduced a couple sparse warnings.
-> The first patch in this series fixes those sparse warnings as well as does
-> some additional optimization for big endian systems.  In addition it pushes
-> the code out into a separate function which can then be used in the other
-> patches to reduce the instruction count/processing time in those functions
-> as well.
+> 2.  What about the compat "stuff" in the linux datapath of openvswitch?
+> Should any fix for this issue also be
+> applied to the compat layer which has different semantics for vlans or
+> should the compat layer be updated to
+> be the same as the 3.19, 4.0 kernel semantics?
+I think compat layer is fine. But if you find any issue you can send fix.
 
-Series applied, thanks!
+> 3.  In spite of my comment #2 above, I am not convinced that the generalized
+> skb vlan functions in if_vlan.h are truly
+> independent of hardware acceleration. I can see cases where the vlan headers
+> in the payload of the skb are not
+> checked. I am thinking a patch to the upstream kernel may also be necessary.
+
+ok.
+
+>>
+>>
+>>> +               /*
+>>> +                * Case where upstream
+>>> +                * processing has already stripped the outer vlan tag.
+>>> +                */
+>>> +               if (unlikely(skb->vlan_proto == htons(ETH_P_8021AD))) {
+>>> +
+>>> +                       if (unlikely(skb->len < sizeof(struct
+>>> qtag_prefix) +
+>>> +                                       sizeof(__be16)))
+>>> +                               return 0;
+>>> +
+>>
+>> If this returns from here then it can match on flow with tci which
+>> expect vlan_proto to be 8021Q but with vlan_proto equal to 8021AD.
+>
+> I did not fix this. This double checking has come up before when I submitted
+> an earlier revision of this patch.
+> The double checking done here is also used in the single tagged vlan code. I
+> think that the consensus is that
+> Open vSwitch wants to allow incomplete headers to allow user space
+> processing to decide how to
+> process incomplete vlan tags. For more discussion, see the following thread:
+> http://openvswitch.org/pipermail/dev/2014-December/049984.html
+>
+When you return from error case you need to clear the key->eth.tci, so
+that it does not match on wrong flow.
