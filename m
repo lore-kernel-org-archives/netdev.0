@@ -1,154 +1,164 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 09/12] net: axienet: Use devm_* calls
-Date: Tue,  5 May 2015 11:26:02 +0200
-Message-ID: <ad3095e6ad3fe3b99e2f42c53a6c1d2419595e62.1430817941.git.michal.simek@xilinx.com>
+Subject: [PATCH 04/12] net: axienet: Handle jumbo frames for lesser frame sizes
+Date: Tue,  5 May 2015 11:25:57 +0200
+Message-ID: <4d41c4f2f9e8829a5e5aff1281de527e1dcf72e3.1430817941.git.michal.simek@xilinx.com>
 References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: Srikanth Thokala <srikanth.thokala@xilinx.com>,
-	=?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
-	monstr@monstr.eu, John Linn <John.Linn@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+ linux-kernel@vger.kernel.org, monstr@monstr.eu,
+ linux-arm-kernel@lists.infradead.org, Anirudha Sarangi <anirudh@xilinx.com>,
+ John Linn <John.Linn@xilinx.com>,
+ =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
 In-Reply-To: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
 References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Srikanth Thokala <srikanth.thokala@xilinx.com>
 
-use devm_* calls
+In the current implementation, jumbo frames are supported only
+for the frame sizes > 16K. This patch corrects this logic to
+handle jumbo frames for lesser frame sizes (< 16K) ensuring jumbo frame
+MTU is within the limit of max frame size configured in the h/w
+design.
 
 Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
 
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 54 +++++++++++------------
- 1 file changed, 27 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/xilinx/xilinx_axienet.h      |  9 ++---
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 46 +++++++++++------------
+ 2 files changed, 27 insertions(+), 28 deletions(-)
 
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet.h b/drivers/net/ethernet/xilinx/xilinx_axienet.h
+index 4c9b4fa1d3c1..4e309440964a 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet.h
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet.h
+@@ -11,16 +11,16 @@
+ #include <linux/netdevice.h>
+ #include <linux/spinlock.h>
+ #include <linux/interrupt.h>
++#include <linux/if_vlan.h>
+ 
+ /* Packet size info */
+ #define XAE_HDR_SIZE			14 /* Size of Ethernet header */
+-#define XAE_HDR_VLAN_SIZE		18 /* Size of an Ethernet hdr + VLAN */
+ #define XAE_TRL_SIZE			 4 /* Size of Ethernet trailer (FCS) */
+ #define XAE_MTU			      1500 /* Max MTU of an Ethernet frame */
+ #define XAE_JUMBO_MTU		      9000 /* Max MTU of a jumbo Eth. frame */
+ 
+ #define XAE_MAX_FRAME_SIZE	 (XAE_MTU + XAE_HDR_SIZE + XAE_TRL_SIZE)
+-#define XAE_MAX_VLAN_FRAME_SIZE  (XAE_MTU + XAE_HDR_VLAN_SIZE + XAE_TRL_SIZE)
++#define XAE_MAX_VLAN_FRAME_SIZE  (XAE_MTU + VLAN_ETH_HLEN + XAE_TRL_SIZE)
+ #define XAE_MAX_JUMBO_FRAME_SIZE (XAE_JUMBO_MTU + XAE_HDR_SIZE + XAE_TRL_SIZE)
+ 
+ /* Configuration options */
+@@ -407,8 +407,7 @@ struct axidma_bd {
+  *		  Txed/Rxed in the existing hardware. If jumbo option is
+  *		  supported, the maximum frame size would be 9k. Else it is
+  *		  1522 bytes (assuming support for basic VLAN)
+- * @jumbo_support: Stores hardware configuration for jumbo support. If hardware
+- *		   can handle jumbo packets, this entry will be 1, else 0.
++ * @rxmem:	Stores rx memory size for jumbo frame handling.
+  */
+ struct axienet_local {
+ 	struct net_device *ndev;
+@@ -446,7 +445,7 @@ struct axienet_local {
+ 	u32 rx_bd_ci;
+ 
+ 	u32 max_frm_size;
+-	u32 jumbo_support;
++	u32 rxmem;
+ 
+ 	int csum_offload_on_tx_path;
+ 	int csum_offload_on_rx_path;
 diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 757b2dc30cef..49ae4d50774d 100644
+index b83425393a24..b1081e1893b0 100644
 --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
 +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -1499,6 +1499,7 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	struct axienet_local *lp;
- 	struct net_device *ndev;
- 	const void *addr;
-+	struct resource *ethres, dmares;
+@@ -471,14 +471,16 @@ static void axienet_device_reset(struct net_device *ndev)
+ 	__axienet_device_reset(lp, &ndev->dev, XAXIDMA_RX_CR_OFFSET);
  
- 	ndev = alloc_etherdev(sizeof(*lp));
- 	if (!ndev)
-@@ -1517,12 +1518,14 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	lp->dev = &pdev->dev;
- 	lp->options = XAE_OPTION_DEFAULTS;
- 	/* Map device registers */
--	lp->regs = of_iomap(pdev->dev.of_node, 0);
-+	ethres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	lp->regs = devm_ioremap_resource(&pdev->dev, ethres);
- 	if (!lp->regs) {
- 		dev_err(&pdev->dev, "could not map Axi Ethernet regs.\n");
- 		ret = -ENOMEM;
--		goto nodev;
-+		goto free_netdev;
- 	}
+ 	lp->max_frm_size = XAE_MAX_VLAN_FRAME_SIZE;
++	lp->options |= XAE_OPTION_VLAN;
+ 	lp->options &= (~XAE_OPTION_JUMBO);
+ 
+ 	if ((ndev->mtu > XAE_MTU) &&
+-	    (ndev->mtu <= XAE_JUMBO_MTU) &&
+-	    (lp->jumbo_support)) {
+-		lp->max_frm_size = ndev->mtu + XAE_HDR_VLAN_SIZE +
+-				   XAE_TRL_SIZE;
+-		lp->options |= XAE_OPTION_JUMBO;
++		(ndev->mtu <= XAE_JUMBO_MTU)) {
++		lp->max_frm_size = ndev->mtu + VLAN_ETH_HLEN +
++					XAE_TRL_SIZE;
 +
- 	/* Setup checksum offload, but default to off if not specified */
- 	lp->features = 0;
- 
-@@ -1580,17 +1583,21 @@ static int axienet_of_probe(struct platform_device *pdev)
- 
- 	/* Find the DMA node, map the DMA registers, and decode the DMA IRQs */
- 	np = of_parse_phandle(pdev->dev.of_node, "axistream-connected", 0);
--	if (!np) {
-+	if (IS_ERR(np)) {
- 		dev_err(&pdev->dev, "could not find DMA node\n");
--		ret = -ENODEV;
--		goto err_iounmap;
-+		ret = PTR_ERR(np);
-+		goto free_netdev;
++		if (lp->max_frm_size <= lp->rxmem)
++			lp->options |= XAE_OPTION_JUMBO;
  	}
--	lp->dma_regs = of_iomap(np, 0);
--	if (lp->dma_regs) {
--		dev_dbg(&pdev->dev, "MEM base: %p\n", lp->dma_regs);
+ 
+ 	if (axienet_dma_bd_init(ndev)) {
+@@ -1027,15 +1029,15 @@ static int axienet_change_mtu(struct net_device *ndev, int new_mtu)
+ 
+ 	if (netif_running(ndev))
+ 		return -EBUSY;
+-	if (lp->jumbo_support) {
+-		if ((new_mtu > XAE_JUMBO_MTU) || (new_mtu < 64))
+-			return -EINVAL;
+-		ndev->mtu = new_mtu;
 -	} else {
--		dev_err(&pdev->dev, "unable to map DMA registers\n");
--		of_node_put(np);
-+	ret = of_address_to_resource(np, 0, &dmares);
-+	if (ret) {
-+		dev_err(&pdev->dev, "unable to get DMA resource\n");
-+		goto free_netdev;
-+	}
-+	lp->dma_regs = devm_ioremap_resource(&pdev->dev, &dmares);
-+	if (!lp->dma_regs) {
-+		dev_err(&pdev->dev, "could not map DMA regs\n");
-+		ret = -ENOMEM;
-+		goto free_netdev;
- 	}
- 	lp->rx_irq = irq_of_parse_and_map(np, 1);
- 	lp->tx_irq = irq_of_parse_and_map(np, 0);
-@@ -1598,7 +1605,7 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	if ((lp->rx_irq <= 0) || (lp->tx_irq <= 0)) {
- 		dev_err(&pdev->dev, "could not determine irqs\n");
- 		ret = -ENOMEM;
--		goto err_iounmap_2;
-+		goto free_netdev;
- 	}
- 
- 	/* Retrieve the MAC address */
-@@ -1606,7 +1613,7 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	if ((!addr) || (size != 6)) {
- 		dev_err(&pdev->dev, "could not find MAC address\n");
- 		ret = -ENODEV;
--		goto err_iounmap_2;
-+		goto free_netdev;
- 	}
- 	axienet_set_mac_address(ndev, (void *) addr);
- 
-@@ -1614,27 +1621,23 @@ static int axienet_of_probe(struct platform_device *pdev)
- 	lp->coalesce_count_tx = XAXIDMA_DFT_TX_THRESHOLD;
- 
- 	lp->phy_node = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
--	if (lp->phy_node)
-+	if (lp->phy_node) {
- 		ret = axienet_mdio_setup(lp, pdev->dev.of_node);
--	if (ret)
--		dev_warn(&pdev->dev, "error registering MDIO bus\n");
-+		if (ret)
-+			dev_warn(&pdev->dev, "error registering MDIO bus\n");
-+	}
- 
- 	ret = register_netdev(lp->ndev);
- 	if (ret) {
- 		dev_err(lp->dev, "register_netdev() error (%i)\n", ret);
--		goto err_iounmap_2;
-+		goto free_netdev;
- 	}
- 
- 	return 0;
- 
--err_iounmap_2:
--	if (lp->dma_regs)
--		iounmap(lp->dma_regs);
--err_iounmap:
--	iounmap(lp->regs);
--nodev:
-+free_netdev:
- 	free_netdev(ndev);
--	ndev = NULL;
+-		if ((new_mtu > XAE_MTU) || (new_mtu < 64))
+-			return -EINVAL;
+-		ndev->mtu = new_mtu;
+-	}
 +
- 	return ret;
- }
- 
-@@ -1649,9 +1652,6 @@ static int axienet_of_remove(struct platform_device *pdev)
- 	of_node_put(lp->phy_node);
- 	lp->phy_node = NULL;
- 
--	iounmap(lp->regs);
--	if (lp->dma_regs)
--		iounmap(lp->dma_regs);
- 	free_netdev(ndev);
++	if ((new_mtu + VLAN_ETH_HLEN +
++		XAE_TRL_SIZE) > lp->rxmem)
++		return -EINVAL;
++
++	if ((new_mtu > XAE_JUMBO_MTU) || (new_mtu < 64))
++		return -EINVAL;
++
++	ndev->mtu = new_mtu;
  
  	return 0;
+ }
+@@ -1556,16 +1558,14 @@ static int axienet_of_probe(struct platform_device *op)
+ 		}
+ 	}
+ 	/* For supporting jumbo frames, the Axi Ethernet hardware must have
+-	 * a larger Rx/Tx Memory. Typically, the size must be more than or
+-	 * equal to 16384 bytes, so that we can enable jumbo option and start
+-	 * supporting jumbo frames. Here we check for memory allocated for
+-	 * Rx/Tx in the hardware from the device-tree and accordingly set
+-	 * flags. */
++	 * a larger Rx/Tx Memory. Typically, the size must be large so that
++	 * we can enable jumbo option and start supporting jumbo frames.
++	 * Here we check for memory allocated for Rx/Tx in the hardware from
++	 * the device-tree and accordingly set flags.
++	 */
+ 	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,rxmem", NULL);
+-	if (p) {
+-		if ((be32_to_cpup(p)) >= 0x4000)
+-			lp->jumbo_support = 1;
+-	}
++	if (p)
++		lp->rxmem = be32_to_cpup(p);
+ 	p = (__be32 *) of_get_property(op->dev.of_node, "xlnx,phy-type", NULL);
+ 	if (p)
+ 		lp->phy_type = be32_to_cpup(p);
 -- 
 2.3.5
