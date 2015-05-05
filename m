@@ -1,86 +1,52 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [RFC v1 07/11] net/mlx4: Cache irq_desc->affinity instead of irq_desc
-Date: Tue, 5 May 2015 12:17:28 +0300
-Message-ID: <CAPcc5Pi7qNQKocTVmfZafVhi3MJwboY=XKYzNmqAnVqt0gU4vw@mail.gmail.com>
-References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>
-	<1430709339-29083-8-git-send-email-jiang.liu@linux.intel.com>
-	<CAPcc5Ph4pk+4aL-PduvF67YU-A+vn2bfx6v3mr-tbY58zs7sZw@mail.gmail.com>
-	<alpine.DEB.2.11.1505041708190.4225@nanos>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Jiang Liu <jiang.liu@linux.intel.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Yinghai Lu <yinghai@kernel.org>,
-	Borislav Petkov <bp@alien8.de>, Ido Shamay <idos@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Joe Perches <joe@perches.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-pci@vger.kern
-To: Thomas Gleixner <tglx@linutronix.de>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH 01/12] net: axienet: Support for RGMII
+Date: Tue,  5 May 2015 11:25:54 +0200
+Message-ID: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
+Cc: Srikanth Thokala <srikanth.thokala@xilinx.com>,
+	=?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+	monstr@monstr.eu, John Linn <John.Linn@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1505041708190.4225@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 4, 2015 at 6:10 PM, Thomas Gleixner <tglx@linutronix.de> wrote:
-> On Mon, 4 May 2015, Amir Vadai wrote:
->
->> On Mon, May 4, 2015 at 6:15 AM, Jiang Liu <jiang.liu@linux.intel.com> wrote:
->> > The field 'affinity' in irq_desc won't change once the irq_desc data
->> > structure is created. So cache irq_desc->affinity instead of irq_desc.
->> > This also helps to hide struct irq_desc from device drivers.
->>
->> Hi Jiang,
->>
->> I might not understand the new changes irq core, but up until now
->> affinity was changed when the user changed it through
->> /proc/irq/<IRQ>/smp_affinity.
->> This code is monitoring the affinity from the napi_poll context to
->> detect affinity changes, and prevent napi from keep running on the
->> wrong CPU.
->> Therefore, the affinity can't be cached at the beginning. Please
->> revert this caching.
->
-> Sigh. All of this is completely wrong. Polling in the internals of
-> irq_desc is just crap.
-Hi,
+From: Srikanth Thokala <srikanth.thokala@xilinx.com>
 
->
-> irq_set_affinity_notifier() has been added for exactly this purpose.
-rmap is already registered on irq_set_affinity_notifier().
-Actually, I did post an extension to the affinity notifier, to use
-affinity chain which you rejected [1] (and BTW, convinced me that this
-is not the way to do it).
-Current code is according to your suggestion.
+This patch adds support for the RGMII. The h/w configuration
+parameter C_PHY_TYPE, which represents the interface configured in
+the design, is used to differentiate various interfaces supported
+by AXI Ethernet.
 
-[1] - https://lkml.org/lkml/2014/5/26/222
+Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+---
 
-Amir
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
->
-> Please get rid of your irq_desc abuse.
->
-> Thanks,
->
->         tglx
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 28b7e7d9c272..0ab607732bb4 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -925,9 +925,16 @@ static int axienet_open(struct net_device *ndev)
+ 		return ret;
+ 
+ 	if (lp->phy_node) {
+-		lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
++		if (lp->phy_type == XAE_PHY_TYPE_GMII) {
++			lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
+ 					     axienet_adjust_link, 0,
+ 					     PHY_INTERFACE_MODE_GMII);
++		} else if (lp->phy_type == XAE_PHY_TYPE_RGMII_2_0) {
++			lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
++					     axienet_adjust_link, 0,
++					     PHY_INTERFACE_MODE_RGMII_ID);
++		}
++
+ 		if (!lp->phy_dev) {
+ 			dev_err(lp->dev, "of_phy_connect() failed\n");
+ 			return -ENODEV;
+-- 
+2.3.5
