@@ -1,46 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] adm8211: fix the possible pci cache line sizes inside
- switch-case
-Date: Tue, 05 May 2015 15:01:53 -0700
-Message-ID: <1430863313.9365.49.camel@perches.com>
-References: <20150505214851.GA3013@bytefire-computer>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Okash Khawaja <okash.khawaja@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] net_sched: fix a use-after-free in tc_ctl_tfilter()
+Date: Tue,  5 May 2015 15:22:02 -0700
+Message-ID: <1430864522-15691-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0238.hostedemail.com ([216.40.44.238]:42993 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751592AbbEEWB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 18:01:56 -0400
-In-Reply-To: <20150505214851.GA3013@bytefire-computer>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34347 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932139AbbEEWWQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 18:22:16 -0400
+Received: by pacyx8 with SMTP id yx8so207043158pac.1
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 15:22:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-05 at 22:48 +0100, Okash Khawaja wrote:
-> The PCI cache line size value, stored in cline variable, was being
-> compared against decimal values written as hex literals. This patch
-> changes those literals to correct hex values. 
+When tcf_destroy() returns true, tp could be already destroyed,
+we should not use tp->next after that.
 
-This is fine.
+For long term, we probably should move tp list to list_head.
 
-The grammar might be better as something like:
+Fixes: 1e052be69d04 ("net_sched: destroy proto tp when all filters are gone")
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/cls_api.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-The PCI cache line size value was being compared against
-decimal values prefixed with 0x.
-
-Fix the literals to use the correct hex values. 
-
-> Please note that this patch is on top of
-> another code cleanup patch '[PATCH] adm8211: fix checkpatch errors for
-> indentation and new line around switch-case'.
-
-But this information doesn't belong here as
-it would also be in a git log when someone
-uses git am to apply it to a tree.
-
-It'd be better to send a patch series using
-"git format-email --cover-letter -2 -o <dir>"
-and use git send-email for the series.
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 8b0470e..b6ef9a0 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -308,12 +308,11 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+ 		case RTM_DELTFILTER:
+ 			err = tp->ops->delete(tp, fh);
+ 			if (err == 0) {
+-				tfilter_notify(net, skb, n, tp, fh, RTM_DELTFILTER);
+-				if (tcf_destroy(tp, false)) {
+-					struct tcf_proto *next = rtnl_dereference(tp->next);
++				struct tcf_proto *next = rtnl_dereference(tp->next);
+ 
++				tfilter_notify(net, skb, n, tp, fh, RTM_DELTFILTER);
++				if (tcf_destroy(tp, false))
+ 					RCU_INIT_POINTER(*back, next);
+-				}
+ 			}
+ 			goto errout;
+ 		case RTM_GETTFILTER:
+-- 
+1.8.3.1
