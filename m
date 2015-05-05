@@ -1,62 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v5 20/21] rocker: make checkpatch -f clean
-Date: Tue, 5 May 2015 20:13:21 +0200
-Message-ID: <20150505181321.GB2764@nanopsycho>
-References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
- <1430847297-15728-21-git-send-email-sfeldma@gmail.com>
- <1430847947.3943.4.camel@perches.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v3 net-next] pktgen: introduce 'rx' mode
+Date: Tue, 5 May 2015 20:15:46 +0200
+Message-ID: <20150505201546.0f998668@redhat.com>
+References: <1430457130-16003-1-git-send-email-ast@plumgrid.com>
+	<20150502104621.4fede885@redhat.com>
+	<5544F4D7.50202@plumgrid.com>
+	<20150502184625.25426091@redhat.com>
+	<55450464.8060109@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com, linux@roeck-us.net,
-	f.fainelli@gmail.com, sridhar.samudrala@intel.com,
-	ronen.arad@intel.com, andrew@lunn.ch, simon.horman@netronome.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	Robert Olsson <robert@herjulf.net>,
+	Ben Greear <greearb@candelatech.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36757 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754620AbbEESN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 14:13:27 -0400
-Received: by wizk4 with SMTP id k4so172264563wiz.1
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 11:13:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1430847947.3943.4.camel@perches.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33472 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756228AbbEESQB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2015 14:16:01 -0400
+In-Reply-To: <55450464.8060109@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, May 05, 2015 at 07:45:47PM CEST, joe@perches.com wrote:
->On Tue, 2015-05-05 at 10:34 -0700, sfeldma@gmail.com wrote:
->> Well almost clean: ignore the CHECKs for space after cast operator.
->
->I think, because this uses relatively long identifiers,
->that you might as well ignore > 80 column lines length
->warnings.
->
->> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->[]
->> @@ -1418,9 +1418,10 @@ static int rocker_event_link_change(struct rocker *rocker,
->>  	if (!attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT] ||
->>  	    !attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP])
->>  		return -EIO;
->> -	port_number =
->> -		rocker_tlv_get_u32(attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT]) - 1;
->> -	link_up = rocker_tlv_get_u8(attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP]);
->> +	port_number = rocker_tlv_get_u32(
->> +		attrs[ROCKER_TLV_EVENT_LINK_CHANGED_PPORT]) - 1;
->> +	link_up = rocker_tlv_get_u8(
->> +		attrs[ROCKER_TLV_EVENT_LINK_CHANGED_LINKUP]);
->
->These would probably be better on single lines.
 
-I agree. Let this be on single line.
+On Sat, 02 May 2015 10:07:48 -0700 Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On 5/2/15 9:46 AM, Jesper Dangaard Brouer wrote:
+[...]
+> 
+> all makes sense.
+> btw, I'm off the grid till Monday and it sounds like you see concrete
+> spots in the code to hack this stuff in, so if you want to take over,
+> please go ahead :)
 
->
->Maybe it'd be OK to avoid the rocker_tlv_ prefix
+Okay, I'll address my own concerns and post a patch in your name("From:")
 
-I'd like to have that prefix.
+As I would like to see this feature in pktgen, as it provides a really
+easy and quick way to measure/profile changes in the ingress path...
 
->and/or add a helper macro/define for the
->	rocker_tlv_<foo>(attrs[ROCKER_TLV_<BAR>
->style to shorten the line length.
-
-Not sure about the macros, they obfuscate things :/
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
