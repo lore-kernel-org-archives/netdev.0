@@ -1,250 +1,133 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Tue, 05 May 2015 22:36:52 +0200
-Message-ID: <3234610.3j3NfP3xpR@vostro.rjw.lan>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1430838729-21572-2-git-send-email-Suravee.Suthikulpanit@amd.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	thomas.lendacky@amd.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net, msalter@redhat.com, hanjun.guo@linaro.org,
-	al.stone@linaro.org, grant.likely@linaro.org, arnd@arndb.de,
-	leo.duran@amd.com, linux-arm-kernel@lists.infradead.org,
-	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linaro-acpi@lists.linaro.org, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org,
-	Mika Westerberg <mika.westerberg@linux.intel.com>
-To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1430838729-21572-2-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
+From: Kamal Mostafa <kamal@canonical.com>
+Subject: [3.13.y-ckt stable] Patch "net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}" has been added to staging queue
+Date: Tue,  5 May 2015 13:33:05 -0700
+Message-ID: <1430857985-2227-1-git-send-email-kamal@canonical.com>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Don Fry <pcnet32@frontier.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Kamal Mostafa <kamal@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, May 05, 2015 10:12:05 AM Suravee Suthikulpanit wrote:
-> This patch implements support for ACPI _CCA object, which is introduced in
-> ACPIv5.1, can be used for specifying device DMA coherency attribute.
-> 
-> The parsing logic traverses device namespace to parse coherency
-> information, and stores it in acpi_device_flags. Then uses it to call
-> arch_setup_dma_ops() when creating each device enumerated in DSDT
-> during ACPI scan.
-> 
-> This patch also introduces acpi_dma_is_coherent(), which provides
-> an interface for device drivers to check the coherency information
-> similarly to the of_dma_is_coherent().
-> 
-> Signed-off-by: Mark Salter <msalter@redhat.com>
-> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-> ---
-> NOTE:
->  * Since there seem to be conflict opinions regarding how
->    architecture should handle _CCA=0. So, I am proposing the
->    CONFIG_ARCH_SUPPORT_CCA_ZERO, which can be specified by
->    for each architecture to define behavior of the ACPI
->    scanning code when _CCA=0. Let me know if this is acceptable.
-> 
->  drivers/acpi/Kconfig         |  6 +++++
->  drivers/acpi/acpi_platform.c |  4 ++-
->  drivers/acpi/scan.c          | 62 ++++++++++++++++++++++++++++++++++++++++++++
->  include/acpi/acpi_bus.h      | 11 +++++++-
->  include/linux/acpi.h         |  5 ++++
->  5 files changed, 86 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-> index ab2cbb5..dd386e9 100644
-> --- a/drivers/acpi/Kconfig
-> +++ b/drivers/acpi/Kconfig
-> @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
->  config ACPI_SYSTEM_POWER_STATES_SUPPORT
->  	bool
->  
-> +config ACPI_MUST_HAVE_CCA
+This is a note to let you know that I have just added a patch titled
 
-ACPI_CCA_REQUIRED maybe?
+    net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
 
-> +	bool
-> +
-> +config ACPI_SUPPORT_CCA_ZERO
+to the linux-3.13.y-queue branch of the 3.13.y-ckt extended stable tree 
+which can be found at:
 
-I guess this means "we support devices that can DMA, but are not coherent".
-right?
+    http://kernel.ubuntu.com/git/ubuntu/linux.git/log/?h=linux-3.13.y-queue
 
-> +	bool
-> +
->  config ACPI_SLEEP
->  	bool
->  	depends on SUSPEND || HIBERNATION
-> diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platform.c
-> index 4bf7559..a6feca4 100644
-> --- a/drivers/acpi/acpi_platform.c
-> +++ b/drivers/acpi/acpi_platform.c
-> @@ -108,9 +108,11 @@ struct platform_device *acpi_create_platform_device(struct acpi_device *adev)
->  	if (IS_ERR(pdev))
->  		dev_err(&adev->dev, "platform device creation failed: %ld\n",
->  			PTR_ERR(pdev));
-> -	else
-> +	else {
+This patch is scheduled to be released in version 3.13.11-ckt20.
 
-Please add braces to both branches when making such changes (as per CodingStyle).
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
 
-> +		acpi_setup_device_dma(adev, &pdev->dev);
+For more information about the 3.13.y-ckt tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
 
-Why do we need to do that here (for the second time)?
+Thanks.
+-Kamal
 
->  		dev_dbg(&adev->dev, "created platform device %s\n",
->  			dev_name(&pdev->dev));
-> +	}
->  
->  	kfree(resources);
->  	return pdev;
-> diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
-> index 849b699..ac33b29 100644
-> --- a/drivers/acpi/scan.c
-> +++ b/drivers/acpi/scan.c
-> @@ -11,6 +11,7 @@
->  #include <linux/kthread.h>
->  #include <linux/dmi.h>
->  #include <linux/nls.h>
-> +#include <linux/dma-mapping.h>
->  
->  #include <asm/pgtable.h>
->  
-> @@ -2137,6 +2138,66 @@ void acpi_free_pnp_ids(struct acpi_device_pnp *pnp)
->  	kfree(pnp->unique_id);
->  }
->  
-> +void acpi_setup_device_dma(struct acpi_device *adev, struct device *dev)
-> +{
-> +	int coherent = acpi_dma_is_coherent(adev);
-> +
-> +	/**
-> +	 * Currently, we only support DMA for devices that _CCA=1
-> +	 * since this seems to be the case on most ACPI platforms.
-> +	 *
-> +	 * For the case when _CCA=0 (i.e. is_coherent=0 && cca_seen=1),
-> +	 * we would rely on arch-specific cache maintenance for
-> +	 * non-coherence DMA operations if architecture enables
-> +	 * CONFIG_ACPI_SUPPORT_CCA_ZERO.
-> +	 *
-> +	 * For the case when _CCA is missing but platform requires it
-> +	 * (i.e. is_coherent=0 && cca_seen=0), we do not call
-> +	 * arch_setup_dma_ops() and fallback to arch-specific default
-> +	 * handling.
-> +	 */
-> +	if (adev->flags.cca_seen) {
-> +		if (!coherent && !IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO))
-> +			return;
-> +		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
+------
 
-Oh dear.
+>From 4235c2c498aa627e2c3b4aec44b81b184749d393 Mon Sep 17 00:00:00 2001
+From: Markos Chandras <markos.chandras@imgtec.com>
+Date: Thu, 19 Mar 2015 10:28:14 +0000
+Subject: net: ethernet: pcnet32: Setup the SRAM and NOUFLO on Am79C97{3, 5}
 
-What about
+commit 87f966d97b89774162df04d2106c6350c8fe4cb3 upstream.
 
-	if (adev->flags.cca_seen && (coherent || IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO)))
-		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
+On a MIPS Malta board, tons of fifo underflow errors have been observed
+when using u-boot as bootloader instead of YAMON. The reason for that
+is that YAMON used to set the pcnet device to SRAM mode but u-boot does
+not. As a result, the default Tx threshold (64 bytes) is now too small to
+keep the fifo relatively used and it can result to Tx fifo underflow errors.
+As a result of which, it's best to setup the SRAM on supported controllers
+so we can always use the NOUFLO bit.
 
-I wonder how this is going to affect x86/ia64 too?
+Cc: <netdev@vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>
+Cc: Don Fry <pcnet32@frontier.com>
+Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+---
+ drivers/net/ethernet/amd/pcnet32.c | 31 +++++++++++++++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
 
-> +	}
-> +}
-> +
-> +static void acpi_init_coherency(struct acpi_device *adev)
-> +{
-> +	unsigned long long cca = 0;
-> +	acpi_status status;
-> +	struct acpi_device *parent = adev->parent;
-> +
-> +	if (parent && parent->flags.cca_seen) {
-> +		/*
-> +		 * From ACPI spec, OSPM will ignore _CCA if an ancestor
-> +		 * already saw one.
-> +		 */
-> +		adev->flags.cca_seen = 1;
-> +		cca = acpi_dma_is_coherent(parent);
-> +	} else {
-> +		status = acpi_evaluate_integer(adev->handle, "_CCA",
-> +					       NULL, &cca);
-> +		if (ACPI_SUCCESS(status)) {
-> +			adev->flags.cca_seen = 1;
-> +		} else if (!IS_ENABLED(CONFIG_ACPI_MUST_HAVE_CCA)) {
-> +			/*
-> +			 * If architecture does not specify that _CCA is
-> +			 * required for DMA-able devices (e.g. x86),
-> +			 * we default to _CCA=1.
-> +			 */
-> +			cca = 1;
-> +		} else {
-> +			dev_err(&adev->dev, FW_BUG
-> +				"DMA is not setup due to missing _CCA.\n");
-> +		}
-> +	}
-> +
-> +	adev->flags.is_coherent = cca;
-> +	acpi_setup_device_dma(adev, &adev->dev);
-> +}
-> +
->  void acpi_init_device_object(struct acpi_device *device, acpi_handle handle,
->  			     int type, unsigned long long sta)
->  {
-> @@ -2155,6 +2216,7 @@ void acpi_init_device_object(struct acpi_device *device, acpi_handle handle,
->  	device->flags.visited = false;
->  	device_initialize(&device->dev);
->  	dev_set_uevent_suppress(&device->dev, true);
-> +	acpi_init_coherency(device);
->  }
->  
->  void acpi_device_add_finalize(struct acpi_device *device)
-> diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
-> index 8de4fa9..b804183 100644
-> --- a/include/acpi/acpi_bus.h
-> +++ b/include/acpi/acpi_bus.h
-> @@ -208,7 +208,9 @@ struct acpi_device_flags {
->  	u32 visited:1;
->  	u32 hotplug_notify:1;
->  	u32 is_dock_station:1;
-> -	u32 reserved:23;
-> +	u32 is_coherent:1;
-> +	u32 cca_seen:1;
-> +	u32 reserved:21;
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index 38492e0..26e0653 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1516,7 +1516,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ {
+ 	struct pcnet32_private *lp;
+ 	int i, media;
+-	int fdx, mii, fset, dxsuflo;
++	int fdx, mii, fset, dxsuflo, sram;
+ 	int chip_version;
+ 	char *chipname;
+ 	struct net_device *dev;
+@@ -1553,7 +1553,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 	}
 
-That will conflict with a patch I've already queued up, but never mind.
+ 	/* initialize variables */
+-	fdx = mii = fset = dxsuflo = 0;
++	fdx = mii = fset = dxsuflo = sram = 0;
+ 	chip_version = (chip_version >> 12) & 0xffff;
 
->  };
->  
->  /* File System */
-> @@ -380,6 +382,13 @@ struct acpi_device {
->  	void (*remove)(struct acpi_device *);
->  };
->  
-> +static inline bool acpi_dma_is_coherent(struct acpi_device *adev)
-> +{
-> +	return adev && adev->flags.is_coherent;
-> +}
-> +
-> +void acpi_setup_device_dma(struct acpi_device *adev, struct device *dev);
-> +
->  static inline bool is_acpi_node(struct fwnode_handle *fwnode)
->  {
->  	return fwnode && fwnode->type == FWNODE_ACPI;
-> diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-> index b10c4a6..d14e777 100644
-> --- a/include/linux/acpi.h
-> +++ b/include/linux/acpi.h
-> @@ -583,6 +583,11 @@ static inline int acpi_device_modalias(struct device *dev,
->  	return -ENODEV;
->  }
->  
-> +static inline bool acpi_dma_is_coherent(struct acpi_device *adev)
-> +{
-> +	return false;
-> +}
-> +
->  #define ACPI_PTR(_ptr)	(NULL)
->  
->  #endif	/* !CONFIG_ACPI */
-> 
+ 	switch (chip_version) {
+@@ -1586,6 +1586,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		chipname = "PCnet/FAST III 79C973";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2626:
+ 		chipname = "PCnet/Home 79C978";	/* PCI */
+@@ -1609,6 +1610,7 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		chipname = "PCnet/FAST III 79C975";	/* PCI */
+ 		fdx = 1;
+ 		mii = 1;
++		sram = 1;
+ 		break;
+ 	case 0x2628:
+ 		chipname = "PCnet/PRO 79C976";
+@@ -1637,6 +1639,31 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 		dxsuflo = 1;
+ 	}
 
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
++	/*
++	 * The Am79C973/Am79C975 controllers come with 12K of SRAM
++	 * which we can use for the Tx/Rx buffers but most importantly,
++	 * the use of SRAM allow us to use the BCR18:NOUFLO bit to avoid
++	 * Tx fifo underflows.
++	 */
++	if (sram) {
++		/*
++		 * The SRAM is being configured in two steps. First we
++		 * set the SRAM size in the BCR25:SRAM_SIZE bits. According
++		 * to the datasheet, each bit corresponds to a 512-byte
++		 * page so we can have at most 24 pages. The SRAM_SIZE
++		 * holds the value of the upper 8 bits of the 16-bit SRAM size.
++		 * The low 8-bits start at 0x00 and end at 0xff. So the
++		 * address range is from 0x0000 up to 0x17ff. Therefore,
++		 * the SRAM_SIZE is set to 0x17. The next step is to set
++		 * the BCR26:SRAM_BND midway through so the Tx and Rx
++		 * buffers can share the SRAM equally.
++		 */
++		a->write_bcr(ioaddr, 25, 0x17);
++		a->write_bcr(ioaddr, 26, 0xc);
++		/* And finally enable the NOUFLO bit */
++		a->write_bcr(ioaddr, 18, a->read_bcr(ioaddr, 18) | (1 << 11));
++	}
++
+ 	dev = alloc_etherdev(sizeof(*lp));
+ 	if (!dev) {
+ 		ret = -ENOMEM;
+--
+1.9.1
