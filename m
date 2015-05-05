@@ -1,92 +1,100 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next 0/5] replace skb tc_verd member with 3 dedicated
- bit flags
-Date: Tue, 5 May 2015 15:06:08 +0200
-Message-ID: <20150505130608.GF17061@breakpoint.cc>
-References: <1430765318-13788-1-git-send-email-fw@strlen.de>
- <5548ABF8.5080806@mojatatu.com>
- <20150505114733.GE17061@breakpoint.cc>
- <5548B070.80502@mojatatu.com>
+From: John Linn <john.linn@xilinx.com>
+Subject: RE: [PATCH 01/12] net: axienet: Support for RGMII
+Date: Tue, 5 May 2015 12:54:10 +0000
+Message-ID: <8C367E791021814DA6CAFCCCD4EFC2297C97A227@XSJ-PSEXMBX01.xlnx.xilinx.com>
+References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Srikanth Thokala <srikanth.thokala@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"monstr@monstr.eu" <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>
+To: Michal Simek <michals@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48898 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161299AbbEENGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 09:06:09 -0400
-Content-Disposition: inline
-In-Reply-To: <5548B070.80502@mojatatu.com>
+Received: from mail-by2on0064.outbound.protection.outlook.com ([207.46.100.64]:3584
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1423312AbbEENJW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 09:09:22 -0400
+Received: from unknown-38-66.xilinx.com ([149.199.38.66]:43256 helo=xsj-pvapsmtp01)
+	by xsj-pvapsmtpgw02 with esmtp (Exim 4.63)
+	(envelope-from <john.linn@xilinx.com>)
+	id 1YpcDy-0007JQ-Ho
+	for netdev@vger.kernel.org; Tue, 05 May 2015 05:45:22 -0700
+Received: from [127.0.0.1] (helo=xsj-smtp-dlp2.xlnx.xilinx.com)
+	by xsj-pvapsmtp01 with esmtp (Exim 4.63)
+	(envelope-from <john.linn@xilinx.com>)
+	id 1YpcMX-0006Z5-QF
+	for netdev@vger.kernel.org; Tue, 05 May 2015 05:54:13 -0700
+Received: from xsj-pvapsmtp01 (xsj-smtp.xilinx.com [149.199.38.66])
+	by xsj-smtp-dlp2.xlnx.xilinx.com (8.13.8/8.13.1) with ESMTP id t45CrqCm020400
+	for <netdev@vger.kernel.org>; Tue, 5 May 2015 05:53:53 -0700
+Received: from [172.19.131.25] (helo=XSJ-PVEXCAS01.xlnx.xilinx.com)
+	by xsj-pvapsmtp01 with esmtp (Exim 4.63)
+	(envelope-from <linnj@xilinx.com>)
+	id 1YpcMU-0006Yv-Ps
+	for netdev@vger.kernel.org; Tue, 05 May 2015 05:54:10 -0700
+In-Reply-To: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> It is borderline questionable for 1 bit but for consistency i
-> suggest you do what was there before. I pointed to nocls but
-> i meant the comment generically because previous code you are
-> changing intended to use the macros.
+Hi Michal,
 
-True.
+I removed the mailing lists.
 
-> In any case I will leave it up to you.
+One of the issues we see in the field is that the value of PHY_INTERFACE_MODE_RGMII_ID causes a delay on the RX and TX side in the PHY to align the clock and the data. Yet this does not work on every board such that         PHY_INTERFACE_MODE_RGMII_RXID or        PHY_INTERFACE_MODE_RGMII_TXID must be used.
 
-Okay, thanks Jamal.
+I realize that's a pain.  Sometimes the PHY driver allows register values (like Marvell) to be setup on the PHY node which helps, but not always.  It seems that the information in the device tree is not adequate to describe the hardware. I've not looked to see what others do as maybe this is a common problem, just thought I should pass on the problem.
 
-I'll have to think about this wrt. how to proceed.
+Thanks
+John
 
-> >>- We need two bits for the location (ingress, egress, from stack)
-> >>from stack being 0 i.e when it is not set implicitly it is from the
-> >>host stack then we can check for ingress or egress when we choose.
-> >
-> >Hmm, are you sure?  How is that used?
-> >
-> 
-> As example, when something like
-> if (!(at & AT_EGRESS))
-> implies it is either from ingress or the stack.
-> It does not only from ingress.
-> >In fact ifb will BUG() if neither AT_INGRESS or AT_EGRESS was set
-> >in G_TC_FROM().
-> >
-> 
-> Yes, because you cant send directly from the stack host to ifb. You
-> can only redirect to it. If we ever end there from the host we should
-> bug()
+-----Original Message-----
+From: Michal Simek [mailto:monstr@monstr.eu] On Behalf Of Michal Simek
+Sent: Tuesday, May 05, 2015 4:26 AM
+To: netdev@vger.kernel.org
+Cc: Srikanth Thokala; Soren Brinkmann; monstr@monstr.eu; John Linn; Anirudha Sarangi; linux-kernel@vger.kernel.org; linux-arm-kernel@lists.infradead.org
+Subject: [PATCH 01/12] net: axienet: Support for RGMII
 
-$ git grep G_TC_FROM | nl
-1  drivers/net/ifb.c:              u32 from = G_TC_FROM(skb->tc_verd);
-2  drivers/net/ifb.c:      u32 from = G_TC_FROM(skb->tc_verd);
-3  include/uapi/linux/pkt_cls.h:#define G_TC_FROM(x)       _TC_GETVALUE(x,S_TC_FROM,M_TC_FROM)
-4  net/sched/sch_netem.c:                  if (G_TC_FROM(skb->tc_verd) & AT_INGRESS)
+From: Srikanth Thokala <srikanth.thokala@xilinx.com>
 
-#1 will BUG() if G_TC_FROM yields 0
-#4 only cares about AT_INGRESS
+This patch adds support for the RGMII. The h/w configuration parameter C_PHY_TYPE, which represents the interface configured in the design, is used to differentiate various interfaces supported by AXI Ethernet.
 
-I can indeed get #2 to return 'from 0', via:
+Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+---
 
-ip link set dev ifb0 up
-ip addr add  10.2.1.1/8 dev ifb0
-ping 10.2.1.2
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-However, there is no user-visible behaviour change since skb->iif is 0 for locally generated
-skb.  Since we do '(from == 0 || skb->iif == 0) -> drop' ifb will still be a /dev/null sink
-without skb coming in via mirred action.
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 28b7e7d9c272..0ab607732bb4 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -925,9 +925,16 @@ static int axienet_open(struct net_device *ndev)
+                return ret;
 
-This also seems to work:
-ip link set dev ifb0 up
-ip link set dev eth1 up
-ip addr add  192.168.42.1/24 dev eth1
-tc qdisc add dev eth1 root handle 1: htb default 1
-tc filter add dev eth1 parent 1: protocol all u32 match u32 0 0 action mirred egress redirect dev ifb0
-ping -c 1 -b 192.168.42.255
+        if (lp->phy_node) {
+-               lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
++               if (lp->phy_type == XAE_PHY_TYPE_GMII) {
++                       lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
+                                             axienet_adjust_link, 0,
+                                             PHY_INTERFACE_MODE_GMII);
++               } else if (lp->phy_type == XAE_PHY_TYPE_RGMII_2_0) {
++                       lp->phy_dev = of_phy_connect(lp->ndev, lp->phy_node,
++                                            axienet_adjust_link, 0,
++                                            PHY_INTERFACE_MODE_RGMII_ID);
++               }
++
+                if (!lp->phy_dev) {
+                        dev_err(lp->dev, "of_phy_connect() failed\n");
+                        return -ENODEV;
+--
+2.3.5
 
-iif is set to eth1 iif by the mirred action, so its nonzero by the time skb ends up in ifb and is redirected.
 
-I fully admit that I did not consider this beforehand though ;)
 
-Is there anything else I am missing?
-
-Cheers,
-Florian
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
