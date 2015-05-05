@@ -1,76 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH -next 0/5] replace skb tc_verd member with 3 dedicated
- bit flags
-Date: Tue, 05 May 2015 07:58:40 -0400
-Message-ID: <5548B070.80502@mojatatu.com>
-References: <1430765318-13788-1-git-send-email-fw@strlen.de> <5548ABF8.5080806@mojatatu.com> <20150505114733.GE17061@breakpoint.cc>
+From: Peter Rosin <peda@lysator.liu.se>
+Subject: Re: [PATCH] adm8211: fix checkpatch errors for indentation and new
+ line around switch-case
+Date: Tue, 05 May 2015 14:03:30 +0200
+Message-ID: <5548B192.8020808@lysator.liu.se>
+References: <20150505113731.GA2885@bytefire-computer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:33414 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752109AbbEEL6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 07:58:51 -0400
-Received: by oica37 with SMTP id a37so142654023oic.0
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 04:58:50 -0700 (PDT)
-In-Reply-To: <20150505114733.GE17061@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Okash Khawaja <okash.khawaja@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150505113731.GA2885@bytefire-computer>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/05/15 07:47, Florian Westphal wrote:
-> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> Initial feedback on the series:
->> - Can you keep the macros around? eg SET_TC_NCLS is more readable
->> than skb->tc_nocls = 1 also hides the bit details.
->
-> I beg to differ, sorry :-/
->
-> We use blah:1 everywhere else in sk_buff, only tc is different and
-> its not obvious (to me) how tc_verd is being used and for what.
->
-> Or are you saying that should redefine SET_TC_NCLS to something like
->
-> #define SET_TC_NCLS(skb)	(skb)->tc_nocls = 1
->
-> ?
->
+> diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
+> index f07a618..058fb4b 100644
+> --- a/drivers/net/wireless/adm8211.c
+> +++ b/drivers/net/wireless/adm8211.c
+> @@ -1098,14 +1098,18 @@ static void adm8211_hw_init(struct ieee80211_hw *dev)
+>  		pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
+>  
+>  		switch (cline) {
+> -		case  0x8: reg |= (0x1 << 14);
+> -			   break;
+> -		case 0x16: reg |= (0x2 << 14);
+> -			   break;
+> -		case 0x32: reg |= (0x3 << 14);
+> -			   break;
+> -		  default: reg |= (0x0 << 14);
+> -			   break;
+> +		case  0x8:
+> +			reg |= (0x1 << 14);
+> +			break;
+> +		case 0x16:
+> +			reg |= (0x2 << 14);
+> +			break;
+> +		case 0x32:
+> +			reg |= (0x3 << 14);
+> +			break;
+> +		default:
+> +			reg |= (0x0 << 14);
+> +			break;
+>  		}
+>  	}
+>  
 
-It is borderline questionable for 1 bit but for consistency i
-suggest you do what was there before. I pointed to nocls but
-i meant the comment generically because previous code you are
-changing intended to use the macros.
-In any case I will leave it up to you.
+Those 0x16/0x32 hexadecimal case-selectors looking suspiciously like
+decimal bits need a comment if they are in fact correct, which I doubt.
 
->> I think the ones that are no longer needed should just be deleted
->> as opposed to what you and Alexei did earlier.
->
-> Fair enough, I can do that.
-
-Perhaps even as a first patch that move would be useful.
-
->
->> - We need two bits for the location (ingress, egress, from stack)
->> from stack being 0 i.e when it is not set implicitly it is from the
->> host stack then we can check for ingress or egress when we choose.
->
-> Hmm, are you sure?  How is that used?
->
-
-As example, when something like
-if (!(at & AT_EGRESS))
-implies it is either from ingress or the stack.
-It does not only from ingress.
-
-> In fact ifb will BUG() if neither AT_INGRESS or AT_EGRESS was set
-> in G_TC_FROM().
->
-
-Yes, because you cant send directly from the stack host to ifb. You
-can only redirect to it. If we ever end there from the host we should
-bug()
-
-cheers,
-jamal
+Cheers,
+Peter
