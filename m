@@ -1,105 +1,119 @@
-From: "Dr. Christopher Harrison" <acarranzav@munichiclayo.gob.pe>
-Subject: Von Dr. Christopher Harrison (Bitte antworten)
-Date: Tue, 5 May 2015 05:19:39 -0500 (PET)
-Message-ID: <1538426345.11543.1430821179251.JavaMail.zimbra__43151.0951988914$1430820834$gmane$org@munichiclayo.gob.pe>
-Reply-To: "Dr. Christopher Harrison" <dr.christopherhar90@yahoo.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+From: Markus Stenberg <markus.stenberg@iki.fi>
+Subject: [PATCH] ipv6: Fixed source specific default route handling.
+Date: Tue, 5 May 2015 13:36:59 +0300
+Message-ID: <7922B483-7EA7-4B50-BF1C-7681EB7CC454@iki.fi>
+Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Markus Stenberg <markus.stenberg@iki.fi>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.munichiclayo.gob.pe ([190.41.147.109]:54361 "EHLO
-	mail.munichiclayo.gob.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757593AbbEEKNX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 06:13:23 -0400
+Received: from mta-out1.inet.fi ([62.71.2.195]:56373 "EHLO kirsi1.inet.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752579AbbEEKhg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 May 2015 06:37:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If there are only IPv6 source specific default routes present, the
+host gets -ENETUNREACH on e.g. connect() because ip6_dst_lookup_tail
+calls ip6_route_output first, and given source address any, it fails,
+and ip6_route_get_saddr is never called.
 
-Lieber Freund,
+The change is to use the ip6_route_get_saddr, even if the initial
+ip6_route_output fails, and then doing ip6_route_output _again_ after
+we have appropriate source address available.
 
+Note that this is '99% fix' to the problem; a correct fix would be to
+do route lookups only within addrconf.c when picking a source address,
+and never call ip6_route_output before source address has been
+populated.
 
-Wie geht es dir heute? Ich hoffe, in Ordnung, ich bin Dr. Christopher H=
-arrison von NothWest London, England. Ich arbeite f=C3=BCr Zweig Lloyds=
- Bank London. Ich schreibe Ihnen aus meinem B=C3=BCro, das aus einem gr=
-o=C3=9Fen immense Vorteil f=C3=BCr uns beide sein wird. In meiner Abtei=
-lung, dass die Co-Trainer (Gro=C3=9Fregion London), entdeckte ich eine =
-verlassene Summe von =C2=A3 16,5 Millionen Pfund (Sechzehn Millionen f=C3=
-=BCnfhunderttausend Pfund und Pfund Sterling) in einem Konto, das Sie m=
-it einem unserer ausl=C3=A4ndischen Kunden Sp=C3=A4te Herr Ron Bramlage=
- geh=C3=B6rt , ein Amerikaner, der in Kansas Staaten lebt, die ein Opfe=
-r von einem Hubschrauberabsturz im vergangenen Jahr 8. Juni 2012, in Fl=
-orida Sumpf ihn und Familienmitglieder zu t=C3=B6ten war. Ron war 45 Ja=
-hre alt. Auch in der Chopper zum Zeitpunkt des Absturzes war seine Frau=
- Rebecca, 43, und die Kinder des Paares - Brandon, 15; Boston, 13; Beau=
-, 11; und 8-j=C3=A4hrige Roxanne - wurden get=C3=B6tet. Der Pilot war a=
-uch tot.
+Signed-off-by: Markus Stenberg <markus.stenberg@iki.fi>
+---
+ net/ipv6/ip6_output.c | 39 +++++++++++++++++++++++++++++++--------
+ net/ipv6/route.c      |  5 +++--
+ 2 files changed, 34 insertions(+), 10 deletions(-)
 
-
-Ich suche Ihre Partnerschaft und Zusammenarbeit zur Durchf=C3=BChrung d=
-ieser Transaktion zusammen, weil der Lloyds Bank schlie=C3=9Ft einige i=
-hrer Zweigstellen und den Zweig, wo dieser Fonds hinterlegt ist unter d=
-enen geschlossen werden, so dass ich m=C3=B6chte, dass wir diesen Fonds=
- zu bekommen, bevor ihre Verschluss. Ich habe Sie kontaktiert, weil ich=
- glaube, Sie werden nicht weglaufen mit eigenen Aktien dieses Fonds, we=
-nn es Ihrem Konto eingeht, und die gemeinsame Nutzung Quote von 60% f=C3=
-=BCr mich und 40% f=C3=BCr Ihre Zusammenarbeit. F=C3=BCr Sie die Lloyds=
- Bank, um sicherzustellen, Schlie=C3=9Fen Niederlassungen besuchen Sie =
-diese Seite:
-
-
-https://uk.news.yahoo.com/lloyds-bank-more-200-branches-close-181000783=
---finance.html#4KVKdTh
-
-
-Aufgrund der Sensibilit=C3=A4t der Transaktion und die Vertraulichkeit =
-hier, jetzt unsere Bank hat f=C3=BCr keine der Verwandten warten zu kom=
-men-up f=C3=BCr die Behauptung, aber niemand hat in der Suche die Verwa=
-ndten f=C3=BCr eine lange Zeit jetzt getan, dass ich pers=C3=B6nlich ni=
-cht erfolgreich waren . Mein lieber Freund, ich suche Ihre Zustimmung a=
-n Sie als n=C3=A4chsten Angeh=C3=B6rigen / Will Beg=C3=BCnstigter des V=
-erstorbenen zu pr=C3=A4sentieren, so dass die Erl=C3=B6se aus diesem Ko=
-nto bei =C2=A3 16,5 Millionen Pfund an Sie gezahlt werden bewertet.
-
-
-Das wird f=C3=BCr mich ausgezahlt oder geteilt in diese Prozents=C3=A4t=
-ze, 60% und 40% zu Ihnen, ich habe alle notwendigen rechtlichen Dokumen=
-te, die wir verwendet werden, um diese Behauptung wir machen gesichert.=
- Alles was ich brauche ist es, in Ihrem Namen zu den Dokumenten f=C3=BC=
-llen und legalisiert es in den Hof und die Lloyds Bank hier, um Ihnen z=
-u beweisen, als berechtigten Empf=C3=A4nger, ist Alles, was ich jetzt b=
-rauche Ihre ehrliche Zusammenarbeit, Verschwiegenheit und Vertrauen, da=
-mit wir sehen, diese Transaktion durch. Ich garantiere Ihnen, dass dies=
- unter einer legitimen Anordnung, die Sie von einem Versto=C3=9F gegen =
-das Gesetz hier in England und in Ihrem Land zu sch=C3=BCtzen wird ausg=
-ef=C3=BChrt.
-
-
-Bitte, bitte senden Sie mir die folgenden: wir haben 7 Tage, um es zu d=
-urchlaufen, das ist sehr, sehr URGENT PLEASE.
-
-
-1. Vollst=C3=A4ndiger Name: ......................
-2. Ihre Telefonnummer: .................
-3. Ihre Kontaktadresse: ..................
-4. Alter / Geschlecht: ...................
-5. Kern Job / Beruf: ..............
-
-
-Bitte beantworten Sie meine E-Mail hier: harrisondr.christoph_office@ya=
-hoo.co.uk
-
-
-Ich habe euch in Kontakt gebracht, zu glauben, dass Sie nicht weglaufen=
- mit eigenen Aktien dieses Fonds, wenn es Ihrem Konto kommt, hoffe ich,=
- k=C3=B6nnen Sie auf diese vertrauen? Wie Sie wissen, diese Transaktion=
- beinhalten sehr viel Geld. Bitte Standard freundlich zeigen Sie Ihr In=
-teresse, indem sie mich mit Ihren Angaben wie oben, so kann ich Ihnen m=
-ehr Informationen dar=C3=BCber, wie die Bank gehen, um diesen Fonds zu =
-Ihnen innerhalb von 5 Bankarbeitstagen =C3=BCbertragen bekommen zu erbr=
-ingen. Endeavour zu antworten, dass sie nicht l=C3=A4nger auf mich gewa=
-rtet. Ok, mein lieber Freund?
-
-
-=46reundliche Gr=C3=BC=C3=9Fe,
-Dr. Christopher Harrison
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7fde1f2..c217775 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -886,22 +886,45 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+ #endif
+ 	int err;
+ 
+-	if (!*dst)
+-		*dst = ip6_route_output(net, sk, fl6);
+-
+-	err = (*dst)->error;
+-	if (err)
+-		goto out_err_release;
++	/* The correct way to handle this would be to do
++	 * ip6_route_get_saddr, and then ip6_route_output; however,
++	 * the route-specific preferred source forces the
++	 * ip6_route_output call _before_ ip6_route_get_saddr.
++	 *
++	 * In source specific routing (no src=any default route),
++	 * ip6_route_output will fail given src=any saddr, though, so
++	 * that's why we try it again later.
++	 */
++	if (ipv6_addr_any(&fl6->saddr) && (!*dst || !(*dst)->error)) {
++		struct rt6_info *rt;
++		bool had_dst = *dst != NULL;
+ 
+-	if (ipv6_addr_any(&fl6->saddr)) {
+-		struct rt6_info *rt = (struct rt6_info *) *dst;
++		if (!had_dst)
++			*dst = ip6_route_output(net, sk, fl6);
++		rt = (*dst)->error ? NULL : (struct rt6_info *)*dst;
+ 		err = ip6_route_get_saddr(net, rt, &fl6->daddr,
+ 					  sk ? inet6_sk(sk)->srcprefs : 0,
+ 					  &fl6->saddr);
+ 		if (err)
+ 			goto out_err_release;
++
++		/* If we had an erroneous initial result, pretend it
++		 * never existed and let the SA-enabled version take
++		 * over.
++		 */
++		if (!had_dst && (*dst)->error) {
++			dst_release(*dst);
++			*dst = NULL;
++		}
+ 	}
+ 
++	if (!*dst)
++		*dst = ip6_route_output(net, sk, fl6);
++
++	err = (*dst)->error;
++	if (err)
++		goto out_err_release;
++
+ #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
+ 	/*
+ 	 * Here if the dst entry we've looked up
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 5c48293..d358888 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2245,9 +2245,10 @@ int ip6_route_get_saddr(struct net *net,
+ 			unsigned int prefs,
+ 			struct in6_addr *saddr)
+ {
+-	struct inet6_dev *idev = ip6_dst_idev((struct dst_entry *)rt);
++	struct inet6_dev *idev =
++		rt ? ip6_dst_idev((struct dst_entry *)rt) : NULL;
+ 	int err = 0;
+-	if (rt->rt6i_prefsrc.plen)
++	if (rt && rt->rt6i_prefsrc.plen)
+ 		*saddr = rt->rt6i_prefsrc.addr;
+ 	else
+ 		err = ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
+-- 
+2.3.2 (Apple Git-55)
