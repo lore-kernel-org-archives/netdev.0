@@ -1,57 +1,51 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: Re: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
-Date: Tue, 05 May 2015 15:31:03 -0400
-Message-ID: <55491A77.70302@cumulusnetworks.com>
-References: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com> <1429302240-654-2-git-send-email-jtoppins@cumulusnetworks.com> <309B89C4C689E141A5FF6A0C5FB2118B78DBE9D2@ORSMSX101.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Nelson, Shannon" <shannon.nelson@intel.com>,
-	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"Ronciak, John" <john.ronciak@intel.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
-	Alan Liebthal <alanl@cumulusnetworks.com>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:35921 "EHLO
-	mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753377AbbEETbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 15:31:06 -0400
-Received: by qku63 with SMTP id 63so113306150qku.3
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 12:31:05 -0700 (PDT)
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B78DBE9D2@ORSMSX101.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: [PATCH] net: macb: Handle the RXUBR interrupt on all devices
+Date: Tue, 5 May 2015 15:00:25 -0500
+Message-ID: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nathan Sullivan <nathan.sullivan@ni.com>
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/5/15 1:25 PM, Brown, Aaron F wrote:
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->> On Behalf Of Jonathan Toppins
->> Sent: Friday, April 17, 2015 1:24 PM
->> To: Kirsher, Jeffrey T
->> Cc: Brandeburg, Jesse; Nelson, Shannon; Wyborny, Carolyn; Skidmore, Donald
->> C; Vick, Matthew; Ronciak, John; Williams, Mitch A; intel-wired-
->> lan@lists.osuosl.org; netdev@vger.kernel.org; gospo@cumulusnetworks.com;
->> shm@cumulusnetworks.com; Alan Liebthal
->> Subject: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
->>
->> From: Alan Liebthal <alanl@cumulusnetworks.com>
->>
->> Support setting the MII register via SIOCSMIIREG.
->>
->> Signed-off-by: Alan Liebthal <alanl@cumulusnetworks.com>
->> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
->> ---
->>   drivers/net/ethernet/intel/igb/igb_main.c |    5 +++++
->>   1 file changed, 5 insertions(+)
->
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
->
-Thanks Aaron, appreciate the testing.
+The same hardware issue the at91 must work around applies to at least the
+Zynq ethernet, and possibly more devices.  The driver also needs to handle
+the RXUBR interrupt since it turns it on with MACB_RX_INT_FLAGS anyway.
+
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+---
+ drivers/net/ethernet/cadence/macb.c |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4104d49..61aa570 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -981,7 +981,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 	struct macb_queue *queue = dev_id;
+ 	struct macb *bp = queue->bp;
+ 	struct net_device *dev = bp->dev;
+-	u32 status;
++	u32 status, ctrl;
+ 
+ 	status = queue_readl(queue, ISR);
+ 
+@@ -1037,6 +1037,15 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 		 * add that if/when we get our hands on a full-blown MII PHY.
+ 		 */
+ 
++		if (status & MACB_BIT(RXUBR)) {
++			ctrl = macb_readl(bp, NCR);
++			macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
++			macb_writel(bp, NCR, ctrl | MACB_BIT(RE));
++
++			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++				macb_writel(bp, ISR, MACB_BIT(RXUBR));
++		}
++
+ 		if (status & MACB_BIT(ISR_ROVR)) {
+ 			/* We missed at least one packet */
+ 			if (macb_is_gem(bp))
+-- 
+1.7.10.4
