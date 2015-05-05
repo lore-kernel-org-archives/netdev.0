@@ -1,44 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next 0/8] Convert some skb_<foo> functions to
- void
-Date: Tue, 05 May 2015 19:20:03 -0400 (EDT)
-Message-ID: <20150505.192003.2226565044238098170.davem@davemloft.net>
-References: <cover.1430769294.git.joe@perches.com>
-	<1430771550.2872.7.camel@perches.com>
+Subject: Re: [PATCHv2] bridge: change BR_GROUPFWD_RESTRICTED to
+ allow forwarding of LLDP frames
+Date: Tue, 05 May 2015 19:21:17 -0400 (EDT)
+Message-ID: <20150505.192117.1979417987836600141.davem@davemloft.net>
+References: <20150401155001.40d58a37@urahara>
+	<1430772433-16384-1-git-send-email-bernhard.thaler@wvnet.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57835 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751277AbbEEXUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 19:20:05 -0400
-In-Reply-To: <1430771550.2872.7.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: bernhard.thaler@wvnet.at
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1430772433-16384-1-git-send-email-bernhard.thaler@wvnet.at>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Mon, 04 May 2015 13:32:30 -0700
+From: Bernhard Thaler <bernhard.thaler@wvnet.at>
+Date: Mon,  4 May 2015 22:47:13 +0200
 
-> On Mon, 2015-05-04 at 13:05 -0700, Joe Perches wrote:
->> unsigned char * return values are sometimes awkward to work with.
->> Changing the return to void * is sometimes clearer.
->> 
->> The only uses of the return type is to do sets like
->>     *skb_puts(skb, 1) = char;
->>     
->> Adding another function specifically for that purpose allows the return
->> type to become void.
+> BR_GROUPFWD_RESTRICTED bitmask restricts users from setting values to
+> /sys/class/net/brX/bridge/group_fwd_mask that allow forwarding of
+> some IEEE 802.1D Table 7-10 Reserved addresses:
 > 
-> Obviously, this shouldn't be applied as-is.
+> 	(MAC Control) 802.3		01-80-C2-00-00-01
+> 	(Link Aggregation) 802.3	01-80-C2-00-00-02
+> 	802.1AB LLDP			01-80-C2-00-00-0E
 > 
-> It spans too many subsystems and can be done
-> more incrementally.
+> Change BR_GROUPFWD_RESTRICTED to allow to forward LLDP frames and document
+> group_fwd_mask.
 > 
-> Also, there are some missing conversions so
-> this won't compile properly (sorry 'bout that)
+> e.g.
+>    echo 16384 > /sys/class/net/brX/bridge/group_fwd_mask
+> allows to forward LLDP frames.
+> 
+> This may be needed for bridge setups used for network troubleshooting or
+> any other scenario where forwarding of LLDP frames is desired (e.g. bridge
+> connecting a virtual machine to real switch transmitting LLDP frames that
+> virtual machine needs to receive).
+> 
+> Tested on a simple bridge setup with two interfaces and host transmitting
+> LLDP frames on one side of this bridge (used lldpd). Setting group_fwd_mask
+> as described above lets LLDP frames traverse bridge.
+> 
+> Signed-off-by: Bernhard Thaler <bernhard.thaler@wvnet.at>
 
-I have no fundamental issues with this series once you fix up those
-issues.
+Applied, thanks.
