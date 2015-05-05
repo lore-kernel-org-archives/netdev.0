@@ -1,7 +1,8 @@
 From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V2 PATCH 3/5] device property: Introduces device_dma_is_coherent()
-Date: Tue, 5 May 2015 10:12:07 -0500
-Message-ID: <1430838729-21572-4-git-send-email-Suravee.Suthikulpanit@amd.com>
+Subject: [V2 PATCH 4/5] crypto: ccp - Unify coherency checking logic with
+ device_dma_is_coherent()
+Date: Tue, 5 May 2015 10:12:08 -0500
+Message-ID: <1430838729-21572-5-git-send-email-Suravee.Suthikulpanit@amd.com>
 References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,57 +29,95 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Currently, device drivers, which support both OF and ACPI,
-need to call two separate APIs, of_dma_is_coherent() and
-acpi_dma_is_coherent()) to determine device coherency attribute.
+Currently, the driver has separate logic to determine device coherency
+for DT vs ACPI.  This patch simplifies the code with a call to
+device_dma_is_coherent().
 
-This patch simplifies this process by introducing a new device
-property API, device_dma_is_coherent(), which calls the appropriate
-interface based on the booting architecture.
-
+CC: Herbert Xu <herbert@gondor.apana.org.au>
+CC: David S. Miller <davem@davemloft.net>
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
 ---
- drivers/base/property.c  | 12 ++++++++++++
- include/linux/property.h |  2 ++
- 2 files changed, 14 insertions(+)
+ drivers/crypto/ccp/ccp-platform.c | 60 +--------------------------------------
+ 1 file changed, 1 insertion(+), 59 deletions(-)
 
-diff --git a/drivers/base/property.c b/drivers/base/property.c
-index 1d0b116..8123c6e 100644
---- a/drivers/base/property.c
-+++ b/drivers/base/property.c
-@@ -14,6 +14,7 @@
- #include <linux/export.h>
- #include <linux/kernel.h>
- #include <linux/of.h>
-+#include <linux/of_address.h>
- #include <linux/property.h>
- 
- /**
-@@ -519,3 +520,14 @@ unsigned int device_get_child_node_count(struct device *dev)
- 	return count;
+diff --git a/drivers/crypto/ccp/ccp-platform.c b/drivers/crypto/ccp/ccp-platform.c
+index b1c20b2..e446781 100644
+--- a/drivers/crypto/ccp/ccp-platform.c
++++ b/drivers/crypto/ccp/ccp-platform.c
+@@ -90,58 +90,6 @@ static struct resource *ccp_find_mmio_area(struct ccp_device *ccp)
+ 	return NULL;
  }
- EXPORT_SYMBOL_GPL(device_get_child_node_count);
-+
-+bool device_dma_is_coherent(struct device *dev)
-+{
-+	if (IS_ENABLED(CONFIG_OF) && dev->of_node)
-+		return of_dma_is_coherent(dev->of_node);
-+	else if (has_acpi_companion(dev))
-+		return acpi_dma_is_coherent(acpi_node(dev->fwnode));
-+
-+	return false;
-+}
-+EXPORT_SYMBOL_GPL(device_dma_is_coherent);
-diff --git a/include/linux/property.h b/include/linux/property.h
-index de8bdf4..76ebde9 100644
---- a/include/linux/property.h
-+++ b/include/linux/property.h
-@@ -164,4 +164,6 @@ struct property_set {
  
- void device_add_property_set(struct device *dev, struct property_set *pset);
+-#ifdef CONFIG_ACPI
+-static int ccp_acpi_support(struct ccp_device *ccp)
+-{
+-	struct ccp_platform *ccp_platform = ccp->dev_specific;
+-	struct acpi_device *adev = ACPI_COMPANION(ccp->dev);
+-	acpi_handle handle;
+-	acpi_status status;
+-	unsigned long long data;
+-	int cca;
+-
+-	/* Retrieve the device cache coherency value */
+-	handle = adev->handle;
+-	do {
+-		status = acpi_evaluate_integer(handle, "_CCA", NULL, &data);
+-		if (!ACPI_FAILURE(status)) {
+-			cca = data;
+-			break;
+-		}
+-	} while (!ACPI_FAILURE(status));
+-
+-	if (ACPI_FAILURE(status)) {
+-		dev_err(ccp->dev, "error obtaining acpi coherency value\n");
+-		return -EINVAL;
+-	}
+-
+-	ccp_platform->coherent = !!cca;
+-
+-	return 0;
+-}
+-#else	/* CONFIG_ACPI */
+-static int ccp_acpi_support(struct ccp_device *ccp)
+-{
+-	return -EINVAL;
+-}
+-#endif
+-
+-#ifdef CONFIG_OF
+-static int ccp_of_support(struct ccp_device *ccp)
+-{
+-	struct ccp_platform *ccp_platform = ccp->dev_specific;
+-
+-	ccp_platform->coherent = of_dma_is_coherent(ccp->dev->of_node);
+-
+-	return 0;
+-}
+-#else
+-static int ccp_of_support(struct ccp_device *ccp)
+-{
+-	return -EINVAL;
+-}
+-#endif
+-
+ static int ccp_platform_probe(struct platform_device *pdev)
+ {
+ 	struct ccp_device *ccp;
+@@ -182,13 +130,7 @@ static int ccp_platform_probe(struct platform_device *pdev)
+ 		goto e_err;
+ 	}
  
-+bool device_dma_is_coherent(struct device *dev);
-+
- #endif /* _LINUX_PROPERTY_H_ */
+-	if (ccp_platform->use_acpi)
+-		ret = ccp_acpi_support(ccp);
+-	else
+-		ret = ccp_of_support(ccp);
+-	if (ret)
+-		goto e_err;
+-
++	ccp_platform->coherent = device_dma_is_coherent(ccp->dev);
+ 	if (ccp_platform->coherent)
+ 		ccp->axcache = CACHE_WB_NO_ALLOC;
+ 	else
 -- 
 2.1.0
