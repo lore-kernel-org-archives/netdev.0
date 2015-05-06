@@ -1,42 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 5/6] netns: use a spin_lock to protect nsid
- management
-Date: Wed, 6 May 2015 14:23:14 +0200
-Message-ID: <20150506122314.GJ25248@pox.localdomain>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
- <1430906288-5108-6-git-send-email-nicolas.dichtel@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next fragmenation icmp 1/2] ipv4_fragment: Add a bit in
+ IPCB to control ICMP generation
+Date: Wed, 06 May 2015 05:23:54 -0700
+Message-ID: <1430915034.14545.32.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430877594-32054-1-git-send-email-azhou@nicira.com>
+	 <1430877594-32054-2-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, ebiederm@xmission.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:35747 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752023AbbEFMXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 08:23:17 -0400
-Received: by widdi4 with SMTP id di4so199686386wid.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 05:23:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1430906288-5108-6-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:35185 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837AbbEFMXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 08:23:55 -0400
+Received: by ieczm2 with SMTP id zm2so11872867iec.2
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 05:23:55 -0700 (PDT)
+In-Reply-To: <1430877594-32054-2-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/06/15 at 11:58am, Nicolas Dichtel wrote:
-> +/* Should be called with nsid_lock held. If a new id is assigned, the bool alloc
-> + * is set to true, thus the caller knows that the new id must be notified via
-> + * rtnl.
-> + */
->  static int __peernet2id(struct net *net, struct net *peer, bool *alloc)
->  {
->  	int id = idr_for_each(&net->netns_ids, net_eq_idr, peer);
->  	bool alloc_it = *alloc;
+On Tue, 2015-05-05 at 18:59 -0700, Andy Zhou wrote:
+> Currently, on fragmentation or defragmentation error, ICMP error message
+> can be generated. This is fine when they are used in a routing context,
+> but does not make sense when they are used in a bridging context, i.e.
+> netfilter for bridging.
+> 
+> This patch adds a bit in IPCB to control whether ICMP error message
+> should be generated.
+> 
+> IPV6 fragmentation and defragmentation functions are not reused by
+> bridge netfilter. Thus, this change is only required for IPV4.
+> 
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> ---
+>  include/net/inet_frag.h |  2 ++
+>  include/net/ip.h        |  1 +
+>  net/ipv4/ip_fragment.c  | 11 ++++++++++-
+>  net/ipv4/ip_output.c    |  5 +++--
+>  4 files changed, 16 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+> index 8d17655..1d57045 100644
+> --- a/include/net/inet_frag.h
+> +++ b/include/net/inet_frag.h
+> @@ -44,6 +44,7 @@ enum {
+>   * @meat: length of received fragments so far
+>   * @flags: fragment queue flags
+>   * @max_size: (ipv4 only) maximum received fragment size with IP_DF set
+> + * @no_icmp:  Do not generate any fragmentation related icmp packet
+>   * @net: namespace that this frag belongs to
+>   */
+>  struct inet_frag_queue {
+> @@ -58,6 +59,7 @@ struct inet_frag_queue {
+>  	int			meat;
+>  	__u8			flags;
+>  	u16			max_size;
+> +	bool			no_icmp;
+>  	struct netns_frags	*net;
+>  };
 >  
-> -	ASSERT_RTNL();
-> -
->  	*alloc = false;
->  
->  	/* Magic value for id 0. */
 
-If split into __peernet2id() and __peernet2id_alloc() then this could
-live with RCU protection I guess so we only take the lock when we
-actually allocate.
+
+What about filling the 8bit hole ?
+
+ 	int			meat;
+  	__u8			flags;
++	bool			no_icmp;
+  	u16			max_size;
+  	struct netns_frags	*net;
