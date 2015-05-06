@@ -1,72 +1,90 @@
-From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH v2 net-next 4/9] be2net: check for INSUFFICIENT_VLANS error
-Date: Wed,  6 May 2015 05:30:35 -0400
-Message-ID: <1430904640-31918-5-git-send-email-sathya.perla@avagotech.com>
-References: <1430904640-31918-1-git-send-email-sathya.perla@avagotech.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 3/6] netns: rename peernet2id() to peernet2id_alloc()
+Date: Wed,  6 May 2015 11:58:05 +0200
+Message-ID: <1430906288-5108-4-git-send-email-nicolas.dichtel@6wind.com>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:51843 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752399AbbEFJmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 05:42:43 -0400
-In-Reply-To: <1430904640-31918-1-git-send-email-sathya.perla@avagotech.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:42313 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837AbbEFJ6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 05:58:16 -0400
+In-Reply-To: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+In a following commit, a new function will be introduced to only lookup for
+a nsid (no allocation if the nsid doesn't exist). To avoid confusion, the
+existing function is renamed.
 
-When the FW runs out of vlan filters it can either return an
-INSUFFICIENT_RESOURCES error or an INSUFFICIENT_VLANS error.
-The driver currently checks only for the former error value.
-This patch adds a check for the latter value too.
-
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c | 1 +
- drivers/net/ethernet/emulex/benet/be_cmds.h | 3 ++-
- drivers/net/ethernet/emulex/benet/be_main.c | 3 ++-
- 3 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/vxlan.c         | 2 +-
+ include/net/net_namespace.h | 2 +-
+ net/core/net_namespace.c    | 4 ++--
+ net/core/rtnetlink.c        | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index e630fe0..095b1dc 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -140,6 +140,7 @@ static bool be_skip_err_log(u8 opcode, u16 base_status, u16 addl_status)
- 	if (base_status == MCC_STATUS_NOT_SUPPORTED ||
- 	    base_status == MCC_STATUS_ILLEGAL_REQUEST ||
- 	    addl_status == MCC_ADDL_STATUS_TOO_MANY_INTERFACES ||
-+	    addl_status == MCC_ADDL_STATUS_INSUFFICIENT_VLANS ||
- 	    (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
- 	    (base_status == MCC_STATUS_ILLEGAL_FIELD ||
- 	     addl_status == MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH)))
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index cf5f855..5eccf87 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -65,7 +65,8 @@ enum mcc_base_status {
- enum mcc_addl_status {
- 	MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES = 0x16,
- 	MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH = 0x4d,
--	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a
-+	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a,
-+	MCC_ADDL_STATUS_INSUFFICIENT_VLANS = 0xab
- };
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 3517ab0aa803..48341ae49012 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -336,7 +336,7 @@ static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
  
- #define CQE_BASE_STATUS_MASK		0xFFFF
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index f426a15..b25c509 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1267,7 +1267,8 @@ static int be_vid_config(struct be_adapter *adapter)
- 	if (status) {
- 		dev_err(dev, "Setting HW VLAN filtering failed\n");
- 		/* Set to VLAN promisc mode as setting VLAN filter failed */
--		if (addl_status(status) ==
-+		if (addl_status(status) == MCC_ADDL_STATUS_INSUFFICIENT_VLANS ||
-+		    addl_status(status) ==
- 				MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES)
- 			return be_set_vlan_promisc(adapter);
- 	} else if (adapter->if_flags & BE_IF_FLAGS_VLAN_PROMISCUOUS) {
+ 	if (!net_eq(dev_net(vxlan->dev), vxlan->net) &&
+ 	    nla_put_s32(skb, NDA_LINK_NETNSID,
+-			peernet2id(dev_net(vxlan->dev), vxlan->net)))
++			peernet2id_alloc(dev_net(vxlan->dev), vxlan->net)))
+ 		goto nla_put_failure;
+ 
+ 	if (send_eth && nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->eth_addr))
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index f733656404de..6d1e2eae32fb 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -271,7 +271,7 @@ static inline struct net *read_pnet(const possible_net_t *pnet)
+ #define __net_initconst	__initconst
+ #endif
+ 
+-int peernet2id(struct net *net, struct net *peer);
++int peernet2id_alloc(struct net *net, struct net *peer);
+ struct net *get_net_ns_by_id(struct net *net, int id);
+ 
+ struct pernet_operations {
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 37c68bb72db3..9c806ac569f9 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -202,13 +202,13 @@ static int __peernet2id(struct net *net, struct net *peer, bool alloc)
+ /* This function returns the id of a peer netns. If no id is assigned, one will
+  * be allocated and returned.
+  */
+-int peernet2id(struct net *net, struct net *peer)
++int peernet2id_alloc(struct net *net, struct net *peer)
+ {
+ 	bool alloc = atomic_read(&peer->count) == 0 ? false : true;
+ 
+ 	return __peernet2id(net, peer, alloc);
+ }
+-EXPORT_SYMBOL(peernet2id);
++EXPORT_SYMBOL(peernet2id_alloc);
+ 
+ struct net *get_net_ns_by_id(struct net *net, int id)
+ {
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 666e0928ba40..83e08323fdcd 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1204,7 +1204,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		struct net *link_net = dev->rtnl_link_ops->get_link_net(dev);
+ 
+ 		if (!net_eq(dev_net(dev), link_net)) {
+-			int id = peernet2id(dev_net(dev), link_net);
++			int id = peernet2id_alloc(dev_net(dev), link_net);
+ 
+ 			if (nla_put_s32(skb, IFLA_LINK_NETNSID, id))
+ 				goto nla_put_failure;
 -- 
-2.2.0
+2.2.2
