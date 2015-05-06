@@ -1,57 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 4/6] netns: notify new nsid outside
- __peernet2id()
-Date: Wed, 6 May 2015 13:48:32 +0200
-Message-ID: <20150506114832.GF25248@pox.localdomain>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
- <1430906288-5108-5-git-send-email-nicolas.dichtel@6wind.com>
+From: <richard.alpe@ericsson.com>
+Subject: [PATCH net-next 3/3] tipc: send explicit not supported error in nl compat
+Date: Wed, 6 May 2015 13:58:56 +0200
+Message-ID: <1430913536-4206-3-git-send-email-richard.alpe@ericsson.com>
+References: <1430913536-4206-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, ebiederm@xmission.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>,
+	Richard Alpe <richard.alpe@ericsson.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:34591 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738AbbEFLsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 07:48:35 -0400
-Received: by wgso17 with SMTP id o17so8616053wgs.1
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 04:48:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1430906288-5108-5-git-send-email-nicolas.dichtel@6wind.com>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:65386 "EHLO
+	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764AbbEFMDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 08:03:31 -0400
+In-Reply-To: <1430913536-4206-1-git-send-email-richard.alpe@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/06/15 at 11:58am, Nicolas Dichtel wrote:
-> -static int __peernet2id(struct net *net, struct net *peer, bool alloc)
-> +static int __peernet2id(struct net *net, struct net *peer, bool *alloc)
->  {
->  	int id = idr_for_each(&net->netns_ids, net_eq_idr, peer);
-> +	bool alloc_it = *alloc;
->  
->  	ASSERT_RTNL();
->  
-> +	*alloc = false;
-> +
->  	/* Magic value for id 0. */
->  	if (id == NET_ID_ZERO)
->  		return 0;
->  	if (id > 0)
->  		return id;
->  
-> -	if (alloc) {
-> +	if (alloc_it) {
->  		id = alloc_netid(net, peer, -1);
-> +		*alloc = true;
->  		return id >= 0 ? id : NETNSA_NSID_NOT_ASSIGNED;
->  	}
->  
->  	return NETNSA_NSID_NOT_ASSIGNED;
->  }
+From: Richard Alpe <richard.alpe@ericsson.com>
 
-Since you need the allocation behaviour from one call site only it
-might be cleaner to add a __peernet2id_alloc() which is used from
-the old __peernet2id() so you can call __peernet2id_alloc() from
-peernet2id_alloc() and avoid putting these ugly bool alloc = false
-in all other call sites.
+The legacy netlink API treated EPERM (permission denied) as
+"operation not supported".
 
-Otherwise this looks good.
+Reported-by: Tomi Ollila <tomi.ollila@iki.fi>
+Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/netlink_compat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+index 809aaf0..53e0fee 100644
+--- a/net/tipc/netlink_compat.c
++++ b/net/tipc/netlink_compat.c
+@@ -1121,7 +1121,7 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
+ 	}
+ 
+ 	err = tipc_nl_compat_handle(&msg);
+-	if (err == -EOPNOTSUPP)
++	if ((err == -EOPNOTSUPP) || (err == -EPERM))
+ 		msg.rep = tipc_get_err_tlv(TIPC_CFG_NOT_SUPPORTED);
+ 	else if (err == -EINVAL)
+ 		msg.rep = tipc_get_err_tlv(TIPC_CFG_TLV_ERROR);
+-- 
+2.1.4
