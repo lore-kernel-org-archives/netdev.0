@@ -1,83 +1,117 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [net-next fragmenation icmp 1/2] ipv4_fragment: Add a bit in IPCB
- to control ICMP generation
-Date: Wed, 6 May 2015 14:12:34 -0700
-Message-ID: <CACzMAJJ7AEmC4aGShrc0sCkotLD7_TxhQwPUm1sdVdcNFNic-A@mail.gmail.com>
-References: <1430877594-32054-1-git-send-email-azhou@nicira.com>
-	<1430877594-32054-2-git-send-email-azhou@nicira.com>
-	<1430915034.14545.32.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2015-05-06
+Date: Wed, 6 May 2015 23:21:06 +0200
+Message-ID: <554A85C2.1020700@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:52072 "HELO
-	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751034AbbEFVMf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 17:12:35 -0400
-Received: by mail-oi0-f44.google.com with SMTP id a37so18236220oic.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 14:12:34 -0700 (PDT)
-In-Reply-To: <1430915034.14545.32.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="HA6r4CFEX5fH6EVfwuWxtofVWl1takOdg"
+Cc: davem@davemloft.net, kernel@pengutronix.de,
+	linux-can@vger.kernel.org, David Jander <david@protonic.nl>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since I only need 1 bit for this, I can probably define and use one
-more bit in the 'flags' field above.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--HA6r4CFEX5fH6EVfwuWxtofVWl1takOdg
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for the review.  I will send out a 'v2'.
+Hello David,
+
+this is a pull request of a seven patches for net-next/master.
+
+Andreas Gr=C3=B6ger contributes two patches for the janz-ican3 driver. In=
+
+the first patch, the documentation for already existing sysfs entries
+is added, the second patch adds support for another module/firmware
+variant. A patch by Shawn Landden makes the padding in the struct
+can_frame explicit. The next 4 patches target the flexcan driver, the
+first one is by David Jander adding some documentation, the reaming
+three by me add more documentation and two small code cleanups.
+
+regards,
+Marc
+
+---
+
+The following changes since commit 239fb791d4ee194740e69fe9694f58ec404d16=
+89:
+
+  vxlan: Correctly set flow*i_mark and flow4i_proto in route lookups (201=
+5-05-05 19:37:54 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
+gs/linux-can-next-for-4.2-20150506
+
+for you to fetch changes up to 10d089bd4b289cbe08d2565f34e030c8980682f4:
+
+  can: flexcan: replace open coded "mailbox code" by proper define (2015-=
+05-06 22:57:27 +0200)
+
+----------------------------------------------------------------
+linux-can-next-for-4.2-20150506
+
+----------------------------------------------------------------
+Andreas Gr=C3=B6ger (2):
+      can: janz-ican3: add documentation for existing sysfs entries
+      can: janz-ican3: add support for CAL/CANopen firmware
+
+David Jander (1):
+      can: flexcan: add MB/FIFO specific column to comment table of IP ve=
+rsions
+
+Marc Kleine-Budde (3):
+      can: flexcan: add documentation about mailbox organization
+      can: flexcan: rename struct flexcan_regs::crl2 -> ctrl2
+      can: flexcan: replace open coded "mailbox code" by proper define
+
+Shawn Landden (1):
+      can.h: make padding given by gcc explicit
+
+ .../ABI/testing/sysfs-bus-pci-drivers-janz-cmodio  |   8 ++
+ .../ABI/testing/sysfs-class-net-janz-ican3         |  19 ++++
+ Documentation/networking/can.txt                   |   3 +
+ drivers/mfd/janz-cmodio.c                          |   4 +
+ drivers/net/can/flexcan.c                          |  53 +++++----
+ drivers/net/can/janz-ican3.c                       | 125 +++++++++++++++=
+------
+ include/uapi/linux/can.h                           |   6 +
+ 7 files changed, 159 insertions(+), 59 deletions(-)
+ create mode 100644 Documentation/ABI/testing/sysfs-bus-pci-drivers-janz-=
+cmodio
+ create mode 100644 Documentation/ABI/testing/sysfs-class-net-janz-ican3
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
-On Wed, May 6, 2015 at 5:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2015-05-05 at 18:59 -0700, Andy Zhou wrote:
->> Currently, on fragmentation or defragmentation error, ICMP error message
->> can be generated. This is fine when they are used in a routing context,
->> but does not make sense when they are used in a bridging context, i.e.
->> netfilter for bridging.
->>
->> This patch adds a bit in IPCB to control whether ICMP error message
->> should be generated.
->>
->> IPV6 fragmentation and defragmentation functions are not reused by
->> bridge netfilter. Thus, this change is only required for IPV4.
->>
->> Signed-off-by: Andy Zhou <azhou@nicira.com>
->> ---
->>  include/net/inet_frag.h |  2 ++
->>  include/net/ip.h        |  1 +
->>  net/ipv4/ip_fragment.c  | 11 ++++++++++-
->>  net/ipv4/ip_output.c    |  5 +++--
->>  4 files changed, 16 insertions(+), 3 deletions(-)
->>
->> diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
->> index 8d17655..1d57045 100644
->> --- a/include/net/inet_frag.h
->> +++ b/include/net/inet_frag.h
->> @@ -44,6 +44,7 @@ enum {
->>   * @meat: length of received fragments so far
->>   * @flags: fragment queue flags
->>   * @max_size: (ipv4 only) maximum received fragment size with IP_DF set
->> + * @no_icmp:  Do not generate any fragmentation related icmp packet
->>   * @net: namespace that this frag belongs to
->>   */
->>  struct inet_frag_queue {
->> @@ -58,6 +59,7 @@ struct inet_frag_queue {
->>       int                     meat;
->>       __u8                    flags;
->>       u16                     max_size;
->> +     bool                    no_icmp;
->>       struct netns_frags      *net;
->>  };
->>
->
->
-> What about filling the 8bit hole ?
->
->         int                     meat;
->         __u8                    flags;
-> +       bool                    no_icmp;
->         u16                     max_size;
->         struct netns_frags      *net;
->
->
->
+--HA6r4CFEX5fH6EVfwuWxtofVWl1takOdg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCgAGBQJVSoXGAAoJECte4hHFiupU9XEP/j2Z6mw1WB8JBUmpZlD+znNE
+UYiBiZSRZCH7KTdna0P5DeffZ9VG19X84aCCQ9PXYbNaPVKOuUk7JrOE6z8s6heu
+kyXYbZ0CfAGWcB2GJGzKfn5V1Pprtd2ocIvZ2XBres1Pn61CQ19SJxtQhi1w4eCY
+Ie7v3oV/XxiFYvKU+c1VkEDi7ewwL8Bn83KXwXscTkCT2BY1I1Xc+R/tx+GWHy8h
+ZkKoIS3P4d5TT9IHqhofjooZgCQSLTSEZkoMbitcjvQV+CI0214fvecTYIE0HWM1
+wQsdS4oUOjyW/qD0EQDH/XrvCx+nPY+EL7S6UQ/SA3lMOLDrgcX6+HmTdoa26LDR
+J2cjQHKNr+NCZYbWqjGbHijlJqMf/btxLZC7RUYL9HNLWWchbxj/3NkiFOj8AAC0
+F01elK2Kg6Tp8hLuoDBqRCDKFvGHBDuD3hhXRPYHGv7ClpUD1G/iOX9UK489uGbM
+mg9Q5EsX8jlOBtdIYaxFyD1Rb52Q7nbDqVKgmZPIE5PlTuHblC9wRHnaZ4FAFhE1
+tDvnzcyfDfGRXmPUbpvpouIqu6KE6wnzNUyqQS0RsBYCNrOyOmESjr07ZoLsdvuC
+tK9cd+gmNvFv4EhEdBptqG9T9RLf8HTNjOBMQyVSteSMj6TkaLFmTGc9qQbKO+rW
+Ja3v3TqR1iLgAjSh6zU0
+=Y+o8
+-----END PGP SIGNATURE-----
+
+--HA6r4CFEX5fH6EVfwuWxtofVWl1takOdg--
