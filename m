@@ -1,43 +1,42 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: inet netconf support for send_redirects
-Date: Wed, 6 May 2015 16:37:46 +0300
-Message-ID: <20150506163746.38d75537@vostro>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 4/6] netns: notify new nsid outside __peernet2id()
+Date: Wed, 06 May 2015 15:39:52 +0200
+Message-ID: <554A19A8.1080304@6wind.com>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com> <1430906288-5108-5-git-send-email-nicolas.dichtel@6wind.com> <20150506114832.GF25248@pox.localdomain>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ebiederm@xmission.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:36168 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751428AbbEFNjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 09:39:00 -0400
-Received: by lagv1 with SMTP id v1so7573594lag.3
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 06:38:58 -0700 (PDT)
-Received: from vostro ([2001:1bc8:101:f402:21a:9fff:fe0c:4022])
-        by mx.google.com with ESMTPSA id si3sm375099lbb.32.2015.05.06.06.38.58
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 06 May 2015 06:38:58 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:36336 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbbEFNjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 09:39:55 -0400
+Received: by wizk4 with SMTP id k4so202814788wiz.1
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 06:39:54 -0700 (PDT)
+In-Reply-To: <20150506114832.GF25248@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le 06/05/2015 13:48, Thomas Graf a =E9crit :
+[snip]
+>
+> Since you need the allocation behaviour from one call site only it
+> might be cleaner to add a __peernet2id_alloc() which is used from
+> the old __peernet2id() so you can call __peernet2id_alloc() from
+> peernet2id_alloc() and avoid putting these ugly bool alloc =3D false
+> in all other call sites.
+You're absolutely right.
 
-I'm wondering if inet netconf support is planned or known will-not-add
-for send_redirects (or the other missing proc/sys/ipv4/<if>/ knobs)?
+Side note:
 
-I would be interested in this, and willing to implement it at least for
-send_redirects. Mostly because I'd like an user-space routing daemon to
-be able to control it, and run it as non-root. Now it's not possible
-without dac-override capability to access proc/sys which sounds an
-overkill for this purpose. Where as with netlink access the net-admin
-capability is suit for the job.
+bool false =3D false;
+=2E..
+__peernet2id_alloc(net, peer, &false);
 
-Semi-relatedly, is there any specific reason why send_redirects is a
-IN_DEV_ORCONF() option? Meaning that having the all/send_redirects set
-to yes (the default) redirects are always sent. I would have thought
-IN_DEV_ANDCONF() would make more sense in this case. Or is this just
-some legacy thing?
-
-Thanks,
-Timo
+This compiles but the behavior is unexpected. In __peernet2id_alloc() t=
+he bool
+is true. I need to think a bit more to explain that.
