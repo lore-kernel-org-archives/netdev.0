@@ -1,60 +1,49 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH 2/4] ip: return correct exit code on route failure
-Date: Wed, 6 May 2015 20:25:02 +0300
-Message-ID: <20150506172502.GA2560@angus-think.lan>
-References: <1430931483-28595-1-git-send-email-stephen@networkplumber.org>
- <1430931483-28595-3-git-send-email-stephen@networkplumber.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V3 net-next 1/1] hv_netvsc: Use the xmit_more skb flag
+ to optimize signaling the host
+Date: Wed, 06 May 2015 11:08:53 -0700
+Message-ID: <1430935733.14545.57.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430936436-5837-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:34359 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbbEFRZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 13:25:33 -0400
-Received: by wicmx19 with SMTP id mx19so130320610wic.1
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 10:25:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1430931483-28595-3-git-send-email-stephen@networkplumber.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+To: "K. Y. Srinivasan" <kys@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430936436-5837-1-git-send-email-kys@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 06, 2015 at 09:58:01AM -0700, Stephen Hemminger wrote:
-> From: Stephen Hemminger <shemming@brocade.com>
-> 
-> If kernel complains about ip route request, exit status should be
-> 2 not 1.
-> 
-> This fixes regression introduced by:
-> commit 42ecedd4bae534fc688194a795eb4548c6530cda
-> Author: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date:   Tue Mar 17 19:26:32 2015 -0700
-> 
->     fix ip -force -batch to continue on errors
-> ---
->  ip/iproute.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index e0a6159..06aea6f 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -1164,7 +1164,7 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
->  		req.r.rtm_family = AF_INET;
->  
->  	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
-> -		return -1;
-> +		return -2;
-May be it would be good to have a #define's like ERR_APP & ERR_KERN ?
+On Wed, 2015-05-06 at 11:20 -0700, K. Y. Srinivasan wrote:
+> Based on the information given to this driver (via the xmit_more skb flag),
+> we can defer signaling the host if more packets are on the way. This will help
+> make the host more efficient since it can potentially process a larger batch of
+> packets. Implement this optimization.
 
+
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 5993c7e..4efaa6e 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -435,6 +435,8 @@ check_size:
+>  	packet->page_buf = page_buf;
 >  
->  	return 0;
->  }
-> -- 
-> 2.1.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  	packet->q_idx = skb_get_queue_mapping(skb);
+> +	if (netif_tx_queue_stopped(netdev_get_tx_queue(net, packet->q_idx)))
+> +		packet->xmit_more = false;
+
+Have you tested this condition ever triggers ?
+
+It should not.
+
+netvsc_start_xmit() should not be called if the queue is stopped.
+
+The problem is the following :
+
+netvsc_start_xmit() is called with the packet that is going to stop the
+queue, filling last slot, but with skb->xmit_more = 1;
+
+So you need to do something about xmit_more, after calling
+netif_tx_stop_queue(), not before.
