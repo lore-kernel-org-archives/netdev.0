@@ -1,92 +1,73 @@
-From: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
-Subject: Re: [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Wed, 6 May 2015 17:16:35 -0500
-Message-ID: <554A92C3.7060606@amd.com>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <3234610.3j3NfP3xpR@vostro.rjw.lan> <55499569.8060403@amd.com>
- <4573209.dHyztuCFMt@vostro.rjw.lan>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
+Date: Wed, 06 May 2015 15:42:38 -0700
+Message-ID: <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>
+	 <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>
+	 <1430939400.14545.65.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <2723870.nq54KKjWkm@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <lenb@kernel.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
-	<herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<msalter@redhat.com>, <hanjun.guo@linaro.org>,
-	<al.stone@linaro.org>, <grant.likely@linaro.org>, <arnd@arndb.de>,
-	<leo.duran@amd.com>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
-	<linux-crypto@vger.kernel.org>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4573209.dHyztuCFMt@vostro.rjw.lan>
+In-Reply-To: <2723870.nq54KKjWkm@h2o.as.studentenwerk.mhn.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/6/2015 5:21 PM, Rafael J. Wysocki wrote:
->>>> > >>+	bool
->>>> > >>+
->>>> > >>+config ACPI_SUPPORT_CCA_ZERO
->>> > >
->>> > >I guess this means "we support devices that can DMA, but are not coherent".
->>> > >right?
->> >
->> >Yes, basically when _CCA=0.
-> So what about
->
-> 	ARCH_SUPPORT_CACHE_INCOHERENT_DMA
+On Thu, 2015-05-07 at 00:04 +0200, Wolfgang Walter wrote:
+> Am Mittwoch, 6. Mai 2015, 12:10:00 schrieb Eric Dumazet:
+> > On Wed, 2015-05-06 at 11:15 -0700, Cong Wang wrote:
+> > > (Cc'ing netdev.)
+> > > 
+> > > On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
+> > > > Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
+> > > >> Hello,
+> > > >> 
+> > > >> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with
+> > > >> an
+> > > >> isatap-tunnel.
+> > > > 
+> > > > I did some further tests. To trigger the crash you need
+> > > > 
+> > > > * isatap-tunnel (probably any sit-tunnel will do it)
+> > > > * raw-socket
+> > > > * udp
+> > > > 
+> > > > Using icmpv6 or tcp i.e. does not trigger it.
+> > > 
+> > > Do you have a script to reproduce it?
+> > > 
+> > > 
+> > > Thanks for the bug report!
+> > > --
+> > 
+> > Please Wolfgang try to revert 32dce968dd987adfb0c00946d78dad9154f64759
+> > ("ipv6: Allow for partial checksums on non-ufo packets")
+> 
+> Indeed, that fixes the problem.
 
-Since this is specific to ACPI _CCA, I just want to be clear with the 
-naming.
+Yes, setting skb->csum to 0 is clearly wrong for CHECKSUM_PARTIAL
 
-> or something similar?
->
->>>> > >>+	bool
->>>> > >>+
->>>> > >>   config ACPI_SLEEP
->>>> > >>   	bool
->>>> > >>   	depends on SUSPEND || HIBERNATION
->>>> > >>diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platform.c
->>>> > >>index 4bf7559..a6feca4 100644
->>>> > >>--- a/drivers/acpi/acpi_platform.c
->>>> > >>+++ b/drivers/acpi/acpi_platform.c
->>>> > >>@@ -108,9 +108,11 @@ struct platform_device *acpi_create_platform_device(struct acpi_device *adev)
->>>> > >>   	if (IS_ERR(pdev))
->>>> > >>   		dev_err(&adev->dev, "platform device creation failed: %ld\n",
->>>> > >>   			PTR_ERR(pdev));
->>>> > >>-	else
->>>> > >>+	else {
->>> > >
->>> > >Please add braces to both branches when making such changes (as per CodingStyle).
->>> > >
->> >
->> >OK.
->> >
->>>> > >>+		acpi_setup_device_dma(adev, &pdev->dev);
->>> > >
->>> > >Why do we need to do that here (for the second time)?
->> >
->> >Because we are calling:
->> >    acpi_create_platform_device()
->> >      |--> platform_device_register_device_full()
->> >        |-->platform_device_alloc()
->> >
->> >This creates platform_device, which allocate a new platform_device->dev.
->> >This is not the same as the original acpi_device->dev that was created
->> >during acpi_add_single_object(). So, we have to set up the device
->> >coherency again.
-> Ah, so the second arg is different now.
->
-> Well, in that case, why do we need to set it up for the adev's dev member?
->
+Would you try :
 
-Just for sanity, since I don't know if adev->dev will be referenced 
-anywhere else. This way, it's consistent for all copied of struct device 
-generated.
-
-Lemme know if you think that is unnecessary.
-
-Thanks,
-
-Suravee
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7fde1f265c90e90f16291e6c861b6e242111c25b..694ae630e1ca67e25ab1e5f6dd0b3597db3669b0 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1416,6 +1416,10 @@ alloc_new_skb:
+ 			data += fragheaderlen;
+ 			skb->transport_header = (skb->network_header +
+ 						 fragheaderlen);
++			if (csummode == CHECKSUM_PARTIAL) {
++				skb->csum_start = skb_transport_header(skb) - skb->head;
++				skb->csum_offset = offsetof(struct udphdr, check);
++			}
+ 			if (fraggap) {
+ 				skb->csum = skb_copy_and_csum_bits(
+ 					skb_prev, maxfraglen,
