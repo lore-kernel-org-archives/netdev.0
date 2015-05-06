@@ -1,49 +1,90 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/2] pktgen: introduce xmit_mode 'rx_inject'
-Date: Wed, 06 May 2015 12:17:02 +0200
-Message-ID: <5549EA1E.6040708@iogearbox.net>
-References: <20150505202730.8715.48527.stgit@ivy>	<20150505202959.8715.51882.stgit@ivy>	<55499996.2090308@plumgrid.com> <20150506072440.7afb2c44@redhat.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: IP_MULTICAST_IF getsockopt man part
+Date: Wed, 06 May 2015 12:35:25 +0200
+Message-ID: <5549EE6D.3070608@gmail.com>
+References: <20120504090013.GA2362@minipsycho> <CAKgNAkgBz_dRV97JVV1Np0YuEd0EVqoLPZkajiE_KJ2Lk20YRA@mail.gmail.com> <20120509093428.GB1696@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37289 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554AbbEFKRK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 06:17:10 -0400
-In-Reply-To: <20150506072440.7afb2c44@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Magnus REFTEL <magnus.xm.reftel-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20120509093428.GB1696-RDzucLLXGGI+74MbWcDs8hcY2uh10dtjAL8bYrjMMd8@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 05/06/2015 07:24 AM, Jesper Dangaard Brouer wrote:
-> On Tue, 05 May 2015 21:33:26 -0700
-> Alexei Starovoitov <ast@plumgrid.com> wrote:
->> On 5/5/15 1:30 PM, Jesper Dangaard Brouer wrote:
+[CC +=3D Magnus, who made a related reported soon after yours.]
+
+Jiri,
+
+On 05/09/2012 11:34 AM, Jiri Pirko wrote:
+> Sat, May 05, 2012 at 01:57:35PM CEST, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+>> On Fri, May 4, 2012 at 9:00 PM, Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote=
+:
+>>> Hi.
 >>>
->>> Introduce xmit_mode 'rx_inject' for pktgen which generates the packets
->>> using familiar pktgen commands, but feeds them into
->>> netif_receive_skb() instead of ndo_start_xmit().
->> ...
->>> pgset "xmit_mode rx_inject"
+>>> <quote>
+>>> IP_MULTICAST_IF (since Linux 1.2)
+>>>                      Set the local device for a multicast socket.
+>>>                      Argument is an ip_mreqn or ip_mreq structure
+>>>                      similar to IP_ADD_MEMBERSHIP.
+>>> </quote>
+>>>
+>>> That is not true. Setsockopt recognizes only ip_mreqn and in_addr. =
+I
+>>> made patch which makes it recognize ip_mreq as well. So that would =
+be
+>>> probably ok.
+>>> http://patchwork.ozlabs.org/patch/156815/
+>>>
+>>> On the other hand, getsockopt works only with in_addr. That I think=
+ is
+>>> good behaviour but manpages here needs to be corrected in this way =
+(read
+>>> part needs to be added here)
 >>
->> I think 'xmit_mode rx_inject' would make native english speaker cringe,
->> since it's saying 'transmit mode is receive' ... but I don't mind :)
->
-> Yes, I know. Like Daniel suggested, I considered only calling it "rx"
-> but it made me cringe for this exact reason, thus I extended it with
-> "inject".  I'm flexible with the name of this...
+>> Jirka,
+>>
+>> I'm having trouble to understand what you mean. Perhaps it would be
+>> simplest if you showed your proposed replacement text for the text
+>> quoted above.
+>=20
+> <orig>
+> IP_MULTICAST_IF (since Linux 1.2)
+> Set the local device for a multicast socket. Argument is an ip_mreqn
+> or ip_mreq structure similar to IP_ADD_MEMBERSHIP.
+> </orig>
+> <new>
+> IP_MULTICAST_IF (since Linux 1.2)
+> Set or read the local device for a multicast socket.
+> Argument for set is an ip_mreqn or ip_mreq or addr_in structure.
+> Argument for read is an addr_in structure.
+> </new>
 
-I don't mind how you name it eventually. ;) 'xmit_mode' I think is
-good, and rx|tx would be symmetric. I believe you don't like "rx" due
-to these two out-of-tree pktgen projects you mentioned having rx
-capabilities. Is that correct? From my perspective, it would be more
-worth however to improve packet sockets and eBPF that could already
-do the same thing instead of a dedicated possible pktgen receive/
-capturing device for such analysis. Anyway, I can also live with a
-rx_inject.
+Long after the fact: I've amended the man page text to read:
+
+       IP_MULTICAST_IF (since Linux 1.2)
+              Set  the local device for a multicast socket.  The argu=E2=
+=80=90
+              ment for setsockopt(2) is an ip_mreqn  or  (since  Linux
+              3.5)  ip_mreq structure similar to IP_ADD_MEMBERSHIP, or
+              an in_addr  structure.   (The  kernel  determines  which
+              structure  is  being  passed based on the size passed in
+              optlen.)  For getsockopt(2), the argument is an  in_addr
+              structure.
 
 Cheers,
-Daniel
+
+Michael
+
+
+--=20
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
