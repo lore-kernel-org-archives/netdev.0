@@ -1,60 +1,57 @@
-From: Sebastien BLAVIER <sebastien.blavier@medianesysteme.com>
-Subject: MPC885 spi: fsl-spi and SCC2 : Allow dynamic allocation of CPM1 pRAM
-Date: Wed, 6 May 2015 23:18:40 +0000
-Message-ID: <9C239FD147603C458A197774921522B132937FE4@ikhexmbxc02n01.ikhex.ikoula.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] switchdev: add support for fdb add/del/dump
+ via switchdev_port_obj ops.
+Date: Wed, 06 May 2015 19:35:12 -0400
+Message-ID: <554AA530.7000702@mojatatu.com>
+References: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>, sfeldma@gmail.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ikhexhub01.ex10.biz ([178.170.125.76]:47747 "EHLO smtp.ex10.biz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751034AbbEFXYH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 19:24:07 -0400
-Content-Language: fr-FR
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:33200 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbbEFXfO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 19:35:14 -0400
+Received: by iepj10 with SMTP id j10so23867422iep.0
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 16:35:13 -0700 (PDT)
+In-Reply-To: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Dear,
-
-
-I would like to know if a patch of file spi_mpc8xxx.c exists to use SPI=
- and SCC2 on MPC885 for linux 2.6.35?
-
-
-The start of driver fails  =3D> the function mpc8xxx_spi_cpm_get_pram i=
-s KO due to :  spi_base_ofs =3D cpm_muram_alloc_fixed(iprop[2], 2);  =3D=
-> spi_base_ofs invalid .
-
-
-if i do this change spi_base_ofs =3D iprop[2], 2; in function mpc8xxx_s=
-pi_cpm_get_pram, the driver is loaded but the SCC2 does not work any mo=
-re and SPI does not work too.
-
-
-Arch setup :=20
-{CPM_PORTB, 28, CPM_PIN_OUTPUT},
-
-{CPM_PORTB, 29, CPM_PIN_OUTPUT},
-
-{CPM_PORTB, 30, CPM_PIN_OUTPUT},
+On 05/06/15 17:54, Sridhar Samudrala wrote:
+> - introduce port fdb obj and generic switchdev_port_fdb_add/del/dump()
+> - use switchdev_port_fdb_add/del/dump in rocker/team/bonding ndo ops.
+> - add support for fdb obj in switchdev_port_obj_add/del/dump()
+> - switch rocker to implement fdb ops via switchdev_ops
+>
+> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> ---
 
 
 
-My DTS below :
-          cpm@9c0 {
-              #address-cells =3D <1>;
-              #size-cells =3D <1>;
-              compatible =3D "fsl,mpc885-cpm", "fsl,cpm1";
-=2E...
-              spi: spi@aa0 {
-                  #address-cells =3D <1>;
-                  #size-cells =3D <0>;
-                  cell-index =3D <0>;
-                  compatible =3D "fsl,spi", "fsl,cpm1-spi";
-                  reg =3D <0xaa0 0x12 0x3d80 0x30>;
-		  interrupts =3D <5>;
+So i raised this earlier. DaveM also chimed in - but it seems still
+in there.
+i havent been following the discussion and i may have missed
+the agreement to keep the new IDs. Could we not just have used netlink
+  IDs (as opposed to a new SWITCHDEV_OBJ_PORT_FDB id)?
 
+> +int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+> +			   struct net_device *dev, const unsigned char *addr,
+> +			   u16 vid, u16 nlm_flags)
+> +{
+> +	struct switchdev_obj obj = {
+> +		.id = SWITCHDEV_OBJ_PORT_FDB,
+> +		.fdb = {
+> +			.addr = addr,
+> +			.vid = vid,
+> +		},
+> +	};
+> +
+> +	return switchdev_port_obj_add(dev, &obj);
+> +}
 
-S=E9bastien Blavier.
+cheers,
+jamal
