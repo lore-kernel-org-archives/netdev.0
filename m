@@ -1,172 +1,58 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Thu, 07 May 2015 00:21:44 +0200
-Message-ID: <4573209.dHyztuCFMt@vostro.rjw.lan>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com> <3234610.3j3NfP3xpR@vostro.rjw.lan> <55499569.8060403@amd.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
+Date: Thu, 07 May 2015 00:04:39 +0200
+Message-ID: <2723870.nq54KKjWkm@h2o.as.studentenwerk.mhn.de>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de> <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com> <1430939400.14545.65.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	thomas.lendacky@amd.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net, msalter@redhat.com, hanjun.guo@linaro.org,
-	al.stone@linaro.org, grant.likely@linaro.org, arnd@arndb.de,
-	leo.duran@amd.com, linux-arm-kernel@lists.infradead.org,
-	linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linaro-acpi@lists.linaro.org, netdev@vger.kernel.org,
-	linux-crypto@vger.kernel.org,
-	Mika Westerberg <mika.westerberg@linux.intel.com>
-To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <55499569.8060403@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430939400.14545.65.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, May 05, 2015 11:15:37 PM Suravee Suthikulpanit wrote:
-> [RESEND]
-> 
-> On 5/5/15 15:36, Rafael J. Wysocki wrote:
-> > On Tuesday, May 05, 2015 10:12:05 AM Suravee Suthikulpanit wrote:
-> >> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-> >> index ab2cbb5..dd386e9 100644
-> >> --- a/drivers/acpi/Kconfig
-> >> +++ b/drivers/acpi/Kconfig
-> >> @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
-> >>   config ACPI_SYSTEM_POWER_STATES_SUPPORT
-> >>   	bool
-> >>
-> >> +config ACPI_MUST_HAVE_CCA
-> >
-> > ACPI_CCA_REQUIRED maybe?
-> 
-> Sure.
-> 
-> >
-> >> +	bool
-> >> +
-> >> +config ACPI_SUPPORT_CCA_ZERO
-> >
-> > I guess this means "we support devices that can DMA, but are not coherent".
-> > right?
-> 
-> Yes, basically when _CCA=0.
+Am Mittwoch, 6. Mai 2015, 12:10:00 schrieb Eric Dumazet:
+> On Wed, 2015-05-06 at 11:15 -0700, Cong Wang wrote:
+> > (Cc'ing netdev.)
+> >=20
+> > On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wro=
+te:
+> > > Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
+> > >> Hello,
+> > >>=20
+> > >> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute=
+6 with
+> > >> an
+> > >> isatap-tunnel.
+> > >=20
+> > > I did some further tests. To trigger the crash you need
+> > >=20
+> > > * isatap-tunnel (probably any sit-tunnel will do it)
+> > > * raw-socket
+> > > * udp
+> > >=20
+> > > Using icmpv6 or tcp i.e. does not trigger it.
+> >=20
+> > Do you have a script to reproduce it?
+> >=20
+> >=20
+> > Thanks for the bug report!
+> > --
+>=20
+> Please Wolfgang try to revert 32dce968dd987adfb0c00946d78dad9154f6475=
+9
+> ("ipv6: Allow for partial checksums on non-ufo packets")
 
-So what about
+Indeed, that fixes the problem.
 
-	ARCH_SUPPORT_CACHE_INCOHERENT_DMA
-
-or something similar?
-
-> >> +	bool
-> >> +
-> >>   config ACPI_SLEEP
-> >>   	bool
-> >>   	depends on SUSPEND || HIBERNATION
-> >> diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platform.c
-> >> index 4bf7559..a6feca4 100644
-> >> --- a/drivers/acpi/acpi_platform.c
-> >> +++ b/drivers/acpi/acpi_platform.c
-> >> @@ -108,9 +108,11 @@ struct platform_device *acpi_create_platform_device(struct acpi_device *adev)
-> >>   	if (IS_ERR(pdev))
-> >>   		dev_err(&adev->dev, "platform device creation failed: %ld\n",
-> >>   			PTR_ERR(pdev));
-> >> -	else
-> >> +	else {
-> >
-> > Please add braces to both branches when making such changes (as per CodingStyle).
-> >
-> 
-> OK.
-> 
-> >> +		acpi_setup_device_dma(adev, &pdev->dev);
-> >
-> > Why do we need to do that here (for the second time)?
-> 
-> Because we are calling:
->    acpi_create_platform_device()
->      |--> platform_device_register_device_full()
->        |-->platform_device_alloc()
-> 
-> This creates platform_device, which allocate a new platform_device->dev. 
-> This is not the same as the original acpi_device->dev that was created 
-> during acpi_add_single_object(). So, we have to set up the device 
-> coherency again.
-
-Ah, so the second arg is different now.
-
-Well, in that case, why do we need to set it up for the adev's dev member?
-
-> >> diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
-> >> index 849b699..ac33b29 100644
-> >> --- a/drivers/acpi/scan.c
-> >> +++ b/drivers/acpi/scan.c
-> >> @@ -11,6 +11,7 @@
-> >>   #include <linux/kthread.h>
-> >>   #include <linux/dmi.h>
-> >>   #include <linux/nls.h>
-> >> +#include <linux/dma-mapping.h>
-> >>
-> >>   #include <asm/pgtable.h>
-> >>
-> >> @@ -2137,6 +2138,66 @@ void acpi_free_pnp_ids(struct acpi_device_pnp *pnp)
-> >>   	kfree(pnp->unique_id);
-> >>   }
-> >>
-> >> +void acpi_setup_device_dma(struct acpi_device *adev, struct device *dev)
-> >> +{
-> >> +	int coherent = acpi_dma_is_coherent(adev);
-> >> +
-> >> +	/**
-> >> +	 * Currently, we only support DMA for devices that _CCA=1
-> >> +	 * since this seems to be the case on most ACPI platforms.
-> >> +	 *
-> >> +	 * For the case when _CCA=0 (i.e. is_coherent=0 && cca_seen=1),
-> >> +	 * we would rely on arch-specific cache maintenance for
-> >> +	 * non-coherence DMA operations if architecture enables
-> >> +	 * CONFIG_ACPI_SUPPORT_CCA_ZERO.
-> >> +	 *
-> >> +	 * For the case when _CCA is missing but platform requires it
-> >> +	 * (i.e. is_coherent=0 && cca_seen=0), we do not call
-> >> +	 * arch_setup_dma_ops() and fallback to arch-specific default
-> >> +	 * handling.
-> >> +	 */
-> >> +	if (adev->flags.cca_seen) {
-> >> +		if (!coherent && !IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO))
-> >> +			return;
-> >> +		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
-> >
-> > Oh dear.
-> 
-> I made a mistake here. This logic should also call arch_setup_dma_ops() 
-> when cca_seen=0 and coherent=1 (e.g. when _CCA is not required and 
-> default to coherent when it is missing). The current logic doesn't do that.
-> 
-> >
-> > What about
-> >
-> > 	if (adev->flags.cca_seen && (coherent || IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO)))
-> > 		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
-> 
-> What about:
-> 	if (coherent ||
-> 	    (adev->flags.cca_seen &&
-> 			IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO))
-> 		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
-
-Yes, that works.
-
-> > I wonder how this is going to affect x86/ia64 too?
-> >
-> 
-> This should not affect x86 since arch_setup_dma_ops() is currently not 
-> implement for x86, and default to NOP (see include/linux/dma-mapping.h). 
-
-OK
-
->   Also, on x86, _CCA is not required and default to 1 if missing.
-
-Well, that's the point. :-)
-
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+Regards
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
