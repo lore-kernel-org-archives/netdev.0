@@ -1,107 +1,144 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 2/2] pktgen: introduce xmit_mode 'rx_inject'
-Date: Tue, 05 May 2015 22:32:34 -0700
-Message-ID: <5549A772.9060009@gmail.com>
-References: <20150505202730.8715.48527.stgit@ivy> <20150505202959.8715.51882.stgit@ivy>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [RFC PATCH v2 net-next] netlink: avoid namespace change while creating socket
+Date: Wed, 6 May 2015 14:08:46 +0800
+Message-ID: <1430892526-2446-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <herbert@gondor.apana.org.au>, <xemul@openvz.org>,
+	<davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<ebiederm@xmission.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:32846 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752793AbbEFFcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 01:32:36 -0400
-Received: by pacwv17 with SMTP id wv17so216595754pac.0
-        for <netdev@vger.kernel.org>; Tue, 05 May 2015 22:32:36 -0700 (PDT)
-In-Reply-To: <20150505202959.8715.51882.stgit@ivy>
+Received: from mail1.windriver.com ([147.11.146.13]:34789 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751452AbbEFGJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 02:09:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/05/2015 01:30 PM, Jesper Dangaard Brouer wrote:
+Commit 23fe18669e7f ("[NETNS]: Fix race between put_net() and
+netlink_kernel_create().") attempts to fix the following race
+scenario:
 
-<snip>
+put_net()
+  if (atomic_dec_and_test(&net->refcnt))
+    /* true */
+      __put_net(net);
+        queue_work(...);
 
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index 43bb215..85195b2 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -210,6 +210,10 @@
+/*
+ * note: the net now has refcnt 0, but still in
+ * the global list of net namespaces
+ */
 
-<snip>
+== re-schedule ==
 
-> @@ -3320,6 +3358,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->   	unsigned int burst = ACCESS_ONCE(pkt_dev->burst);
->   	struct net_device *odev = pkt_dev->odev;
->   	struct netdev_queue *txq;
-> +	struct sk_buff *skb;
->   	int ret;
->
->   	/* If device is offline, then don't send */
-> @@ -3352,11 +3391,45 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->   		pkt_dev->last_pkt_size = pkt_dev->skb->len;
->   		pkt_dev->allocated_skbs++;
->   		pkt_dev->clone_count = 0;	/* reset counter */
-> +		if (pkt_dev->xmit_mode == M_RX_INJECT)
-> +			pkt_dev->skb->protocol = eth_type_trans(pkt_dev->skb,
-> +								pkt_dev->skb->dev);
->   	}
->
+register_pernet_subsys(&some_ops);
+  register_pernet_operations(&some_ops);
+    (*some_ops)->init(net);
+      /*
+       * we call netlink_kernel_create() here
+       * in some places
+       */
+      netlink_kernel_create();
+         sk_alloc();
+            get_net(net); /* refcnt = 1 */
+         /*
+          * now we drop the net refcount not to
+          * block the net namespace exit in the
+          * future (or this can be done on the
+          * error path)
+          */
+         put_net(sk->sk_net);
+             if (atomic_dec_and_test(&...))
+                   /*
+                    * true. BOOOM! The net is
+                    * scheduled for release twice
+                    */
 
-I was just wondering.  Since M_RX_INJECT is not compatible with 
-clone_skb couldn't the lines added above be moved down into the block 
-below so that you could avoid the additional conditional jump?
+In order to prevent the race from happening, the commit adopted the
+following solution: create netlink socket inside init_net namespace
+and then re-attach it to the desired one right after the socket is
+created; similarly, when close the socket, move back its namespace
+to init_net so that the socket can be destroyed in the context which
+is same as the socket creation.
 
->   	if (pkt_dev->delay && pkt_dev->last_ok)
->   		spin(pkt_dev, pkt_dev->next_tx);
->
-> +	if (pkt_dev->xmit_mode == M_RX_INJECT) {
-> +		skb = pkt_dev->skb;
-> +		atomic_add(burst, &skb->users);
-> +		local_bh_disable();
-> +		do {
-> +			ret = netif_receive_skb(skb);
-> +			if (ret == NET_RX_DROP)
-> +				pkt_dev->errors++;
-> +			pkt_dev->sofar++;
-> +			pkt_dev->seq_num++;
-> +			if (atomic_read(&skb->users) != burst) {
-> +				/* skb was queued by rps/rfs or taps,
-> +				 * so cannot reuse this skb
-> +				 */
-> +				atomic_sub(burst - 1, &skb->users);
-> +				/* get out of the loop and wait
-> +				 * until skb is consumed
-> +				 */
-> +				pkt_dev->last_ok = 1;
-> +				break;
-> +			}
-> +			/* skb was 'freed' by stack, so clean few
-> +			 * bits and reuse it
-> +			 */
-> +#ifdef CONFIG_NET_CLS_ACT
-> +			skb->tc_verd = 0; /* reset reclass/redir ttl */
-> +#endif
-> +		} while (--burst > 0);
-> +		goto out; /* Skips xmit_mode M_TX */
-> +	}
-> +
->   	txq = skb_get_tx_queue(odev, pkt_dev->skb);
->
->   	local_bh_disable();
-> @@ -3404,6 +3477,7 @@ xmit_more:
->   unlock:
->   	HARD_TX_UNLOCK(odev, txq);
->
-> +out:
->   	local_bh_enable();
->
->   	/* If pkt_dev->count is zero, then run forever */
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Actually the proposal artificially makes the whole thing complex.
+Instead there exists a simpler solution to avoid the risk of net
+double release: if we find that the net reference counter reaches
+zero before the reference counter will be increased in sk_alloc(),
+we can identify that the process of the net namespace exit happening
+in workqueue is not finished yet. At the moment, we should immediately
+exit from sk_alloc() to avoid the risk. This is because once refcount
+reaches zero, the net will be definetely destroyed later in workqueue
+whatever we take its refcount or not. This solution is not only simple
+and easily understandable, but also it can help to avoid the redundant
+namespace change.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+v2 Changes:
+  Kernel sockets should not hold a reference count to a namespace,
+  otherwise, probably modules relying on them cannot be stopped. But
+  we hold a reference on the net from sk allocated in sk_alloc() in
+  previous version. In this version, we correct the wrong behaviour
+  by putting the net reference count once sk is created successfully.
+
+ net/core/sock.c          |    7 ++++++-
+ net/netlink/af_netlink.c |   11 ++++++-----
+ 2 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index e891bcf..9442387 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1411,7 +1411,12 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		 */
+ 		sk->sk_prot = sk->sk_prot_creator = prot;
+ 		sock_lock_init(sk);
+-		sock_net_set(sk, get_net(net));
++		net = maybe_get_net(net);
++		if (!net) {
++			sk_prot_free(prot, sk);
++			return NULL;
++		}
++		sock_net_set(sk, net);
+ 		atomic_set(&sk->sk_wmem_alloc, 1);
+ 
+ 		sock_update_classid(sk);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index ec4adbd..ca3f63a 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2475,15 +2475,15 @@ __netlink_kernel_create(struct net *net, int unit, struct module *module,
+ 
+ 	/*
+ 	 * We have to just have a reference on the net from sk, but don't
+-	 * get_net it. Besides, we cannot get and then put the net here.
+-	 * So we create one inside init_net and the move it to net.
++	 * get_net it as netlink kernel sockets are a part of the net. So
++	 * we put the net here and get it before release the socket.
+ 	 */
+ 
+-	if (__netlink_create(&init_net, sock, cb_mutex, unit) < 0)
++	if (__netlink_create(net, sock, cb_mutex, unit) < 0)
+ 		goto out_sock_release_nosk;
+ 
+ 	sk = sock->sk;
+-	sk_change_net(sk, net);
++	put_net(sock_net(sk));
+ 
+ 	if (!cfg || cfg->groups < 32)
+ 		groups = 32;
+@@ -2539,7 +2539,8 @@ EXPORT_SYMBOL(__netlink_kernel_create);
+ void
+ netlink_kernel_release(struct sock *sk)
+ {
+-	sk_release_kernel(sk);
++	get_net(sock_net(sk));
++	sock_release(sk->sk_socket);
+ }
+ EXPORT_SYMBOL(netlink_kernel_release);
+ 
+-- 
+1.7.9.5
