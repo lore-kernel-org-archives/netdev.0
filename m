@@ -1,55 +1,44 @@
-From: "Schmitt, Phillip J" <phillip.j.schmitt@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH v2 3/3] ixgbe: Don't report flow
- director	filter's status
-Date: Wed, 6 May 2015 22:46:07 +0000
-Message-ID: <305E19FFAC908240AB6DEBD1E2D8C1E17F8289DA@ORSMSX108.amr.corp.intel.com>
-References: <1430276261-29821-1-git-send-email-fan.du@intel.com>
- <1430276261-29821-4-git-send-email-fan.du@intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next] mpls: Move reserved label definitions
+Date: Wed, 06 May 2015 17:50:54 -0500
+Message-ID: <87mw1hfhgx.fsf@x220.int.ebiederm.org>
+References: <1430841990-2828702-1-git-send-email-tom@herbertland.com>
+	<20150506151656.137a0542@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Du, Fan" <fan.du@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Du, Fan" <fan.du@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Cc: Tom Herbert <tom@herbertland.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42371 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751402AbbEFWqJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 18:46:09 -0400
-In-Reply-To: <1430276261-29821-4-git-send-email-fan.du@intel.com>
-Content-Language: en-US
+Received: from out03.mta.xmission.com ([166.70.13.233]:38298 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751803AbbEFWzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 18:55:24 -0400
+In-Reply-To: <20150506151656.137a0542@urahara> (Stephen Hemminger's message of
+	"Wed, 6 May 2015 15:16:56 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Stephen Hemminger <stephen@networkplumber.org> writes:
 
+> On Tue, 5 May 2015 09:06:30 -0700
+> Tom Herbert <tom@herbertland.com> wrote:
+>
+>> Move to include/uapi/linux/mpls.h to be externally visibile.
+>> 
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>> ---
+>>  include/uapi/linux/mpls.h | 10 ++++++++++
+>>  net/mpls/af_mpls.c        | 18 +++++++++---------
+>>  net/mpls/internal.h       | 10 ----------
+>>  3 files changed, 19 insertions(+), 19 deletions(-)
+>> 
+>> diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
+>
+> You need to update include/uapi/linux/Kbuild to cause header
+> to be exported.
 
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Fan Du
-> Sent: Tuesday, April 28, 2015 7:58 PM
-> To: Kirsher, Jeffrey T
-> Cc: netdev@vger.kernel.org; Du, Fan; intel-wired-lan@lists.osuosl.org
-> Subject: [Intel-wired-lan] [PATCH v2 3/3] ixgbe: Don't report flow director filter's
-> status
-> 
-> For two reasons I want to disable this:
-> 1. Not any part actually check the report status(Alexander Duyck) 2. To report
-> hash value of a packet to stack,
->    RSS -> 32bits hash value
->    Perfect match fdir filter -> 13bits hash value
->    Hashed-based fdir filter -> 31bits hash value
-> 
->    fdir filter might hash on masked tuples for IP address,
->    so it's still not desirable for usage.
-> 
-> So for now, just stick to RSS 32bits hash value.
-> 
-> Signed-off-by: Fan Du <fan.du@intel.com>
-> Suggested-by: Alexander Duyck <alexander.h.duyck@redhat.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |    2 --
->  1 files changed, 0 insertions(+), 2 deletions(-)
+This header is already exported in include/uapi/linux/Kbuild and
+has been since before the recent mpls work.
 
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Eric
