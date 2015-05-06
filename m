@@ -1,39 +1,72 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH 2/2] pktgen: introduce xmit_mode 'rx_inject'
-Date: Wed, 06 May 2015 07:35:16 -0700
-Message-ID: <554A26A4.1000505@plumgrid.com>
-References: <20150505202730.8715.48527.stgit@ivy>	<20150505202959.8715.51882.stgit@ivy>	<5549A772.9060009@gmail.com> <20150506104442.009312cf@redhat.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 2/2] gianfar: Enable changing mac addr when if up
+Date: Wed, 6 May 2015 18:07:30 +0300
+Message-ID: <1430924850-2871-2-git-send-email-claudiu.manoil@freescale.com>
+References: <1430924850-2871-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:38699 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751504AbbEFOfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 10:35:16 -0400
-Received: by igbhj9 with SMTP id hj9so17821187igb.1
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 07:35:16 -0700 (PDT)
-In-Reply-To: <20150506104442.009312cf@redhat.com>
+Received: from mail-bn1bon0140.outbound.protection.outlook.com ([157.56.111.140]:59273
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752081AbbEFPHr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2015 11:07:47 -0400
+In-Reply-To: <1430924850-2871-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/6/15 1:44 AM, Jesper Dangaard Brouer wrote:
->>
->> I was just wondering.  Since M_RX_INJECT is not compatible with
->> clone_skb couldn't the lines added above be moved down into the block
->> below so that you could avoid the additional conditional jump?
->
-> Sure, that is possible.  I'll let Alexei answer, as it is his code.
-> (And repost if he also thinks so...)
+Use device flag IFF_LIVE_ADDR_CHANGE to signal that
+the device supports changing the hardware address when
+the device is running.
+This allows eth_mac_addr() to change the mac address
+also when the network device's interface is open.
+This capability is required by certain applications,
+like bonding mode 6 (Adaptive Load Balancing).
 
-I think this optimization makes sense. Cleans up the code a little too.
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
- > We could call it "stack_inject" instead? ... to take out the confusing
- > "rx" part of an "transmit/xmit" mode that "receives"
-
-I would vote for: 'mode netif_receive' + 'mode start_xmit'
-then if out-of-tree guys would want to upstream their stuff something
-like 'mode parse_and_consume' can fit.
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 3c84e5a..ff87502 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -516,6 +516,15 @@ static struct net_device_stats *gfar_get_stats(struct net_device *dev)
+ 	return &dev->stats;
+ }
+ 
++static int gfar_set_mac_addr(struct net_device *dev, void *p)
++{
++	eth_mac_addr(dev, p);
++
++	gfar_set_mac_for_addr(dev, 0, dev->dev_addr);
++
++	return 0;
++}
++
+ static const struct net_device_ops gfar_netdev_ops = {
+ 	.ndo_open = gfar_enet_open,
+ 	.ndo_start_xmit = gfar_start_xmit,
+@@ -526,7 +535,7 @@ static const struct net_device_ops gfar_netdev_ops = {
+ 	.ndo_tx_timeout = gfar_timeout,
+ 	.ndo_do_ioctl = gfar_ioctl,
+ 	.ndo_get_stats = gfar_get_stats,
+-	.ndo_set_mac_address = eth_mac_addr,
++	.ndo_set_mac_address = gfar_set_mac_addr,
+ 	.ndo_validate_addr = eth_validate_addr,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = gfar_netpoll,
+@@ -1411,6 +1420,8 @@ static int gfar_probe(struct platform_device *ofdev)
+ 		dev->features |= NETIF_F_HW_VLAN_CTAG_RX;
+ 	}
+ 
++	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
++
+ 	gfar_init_addr_hash_table(priv);
+ 
+ 	/* Insert receive time stamps into padding alignment bytes */
+-- 
+1.7.11.7
