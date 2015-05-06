@@ -1,55 +1,50 @@
-From: Tony Camuso <tcamuso@redhat.com>
-Subject: [PATCH] netxen_nic: use spin_[un]lock_bh around tx_clean_lock (2)
-Date: Wed,  6 May 2015 09:09:18 -0400
-Message-ID: <1430917758-45028-1-git-send-email-tcamuso@redhat.com>
-Cc: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
-	rajesh.borundia@qlogic.com, nhorman@redhat.com
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH] usbnet: avoid integer overflow in start_xmit
+Date: Wed,  6 May 2015 15:09:40 +0200
+Message-ID: <1430917780-12431-1-git-send-email-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: oneukum@suse.de, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:33376 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751365AbbEFNPz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2015 09:15:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch should have been part of the previous patch having the
-same summary. See  http://marc.info/?l=linux-kernel&m=143039470103795&w=2
-Unfortunately, I didn't check to see where else this lock was used before
-submitting that patch. This should take care of it for netxen_nic, as I
-did a thorough search this time.
+transfer_buffer_length is of type u32. It's therefore wrong to assign it
+to a signed integer. This patch avoids the overflow.
 
-To recap from the original patch; although testing this driver with
-DEBUG_LOCKDEP and DEBUG_SPINLOCK enabled did not produce any traces,
-it would be more prudent in the case of tx_clean_lock to use _bh
-versions of spin_[un]lock, since this lock is manipulated in both
-the process and softirq contexts.
+It's worth noting that entry->length here is a long; perhaps it would be
+beneficial at somepoint to change this to be unsigned as well, if
+nothing else relies on its signedness for error conditions or the like.
 
-This patch was tested for functionality and regressions with netperf
-and DEBUG_LOCKDEP and DEBUG_SPINLOCK enabled.
-
-Signed-off-by: Tony Camuso <tcamuso@redhat.com>
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
- drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c | 4 ++--
+ drivers/net/usb/usbnet.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-index 2da9627..6301bae 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-@@ -1766,7 +1766,7 @@ int netxen_process_cmd_ring(struct netxen_adapter *adapter)
- 	int done = 0;
- 	struct nx_host_tx_ring *tx_ring = adapter->tx_ring;
- 
--	if (!spin_trylock(&adapter->tx_clean_lock))
-+	if (!spin_trylock_bh(&adapter->tx_clean_lock))
- 		return 1;
- 
- 	sw_consumer = tx_ring->sw_consumer;
-@@ -1821,7 +1821,7 @@ int netxen_process_cmd_ring(struct netxen_adapter *adapter)
- 	 */
- 	hw_consumer = le32_to_cpu(*(tx_ring->hw_consumer));
- 	done = (sw_consumer == hw_consumer);
--	spin_unlock(&adapter->tx_clean_lock);
-+	spin_unlock_bh(&adapter->tx_clean_lock);
- 
- 	return done;
- }
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 733f4fe..3c86b10 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1285,7 +1285,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 				     struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+-	int			length;
++	unsigned int			length;
+ 	struct urb		*urb = NULL;
+ 	struct skb_data		*entry;
+ 	struct driver_info	*info = dev->driver_info;
+@@ -1413,7 +1413,7 @@ not_drop:
+ 		}
+ 	} else
+ 		netif_dbg(dev, tx_queued, dev->net,
+-			  "> tx, len %d, type 0x%x\n", length, skb->protocol);
++			  "> tx, len %u, type 0x%x\n", length, skb->protocol);
+ #ifdef CONFIG_PM
+ deferred:
+ #endif
 -- 
-1.8.3.1
+2.3.6
