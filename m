@@ -1,66 +1,61 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH v2] ARM: net fix emit_udiv() for BPF_ALU | BPF_DIV | BPF_K intruction.
-Date: Wed,  6 May 2015 18:31:56 +0200
-Message-ID: <1430929916-15852-1-git-send-email-nschichan@freebox.fr>
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Nicolas Schichan <nschichan@freebox.fr>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, <stable@vger.kernel.org>
-To: Russell King <linux@arm.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mircea Gherzan <mgherzan@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+From: Harini Katakam <harini.katakam@xilinx.com>
+Subject: [net-next PATCH v3 2/4] net: macb: Add compatible string for Zynq Ultrascale+ MPSoC
+Date: Wed, 6 May 2015 22:27:16 +0530
+Message-ID: <1430931438-32592-2-git-send-email-harinik@xilinx.com>
+References: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
+	<punnaia@xilinx.com>, <michals@xilinx.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<harinikatakamlinux@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In that case, emit_udiv() will be called with rn == ARM_R0 (r_scratch)
-and loading rm first into ARM_R0 will result in jit_udiv() function
-being called the same dividend and divisor. Fix that by loading rn
-first into ARM_R1 and then rm into ARM_R0.
+Add compatible string and config structure for Zynq Ultrascale+ MPSoC
 
-Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
-Cc: <stable@vger.kernel.org> # v3.13+
-Fixes: aee636c4809f (bpf: do not use reciprocal divide)
+Signed-off-by: Harini Katakam <harinik@xilinx.com>
+Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
 ---
- arch/arm/net/bpf_jit_32.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
 
-This patch was part of a serie adding support to JITed seccomp filters
-to ARM but as it is an unrelated fix, it is more appropriate to send
-it separately.
+Added in v3
 
-Changes from previous version: add a comment clarifying how
-emit_udiv() is called when translating BPF_ALU | BPF_DIV | BPF_K and
-BPF_ALU | BPF_DIV | BPF_X with respect to the rm and rn parameters.
+---
+ drivers/net/ethernet/cadence/macb.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index e1268f9..f412b53 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -449,10 +449,21 @@ static inline void emit_udiv(u8 rd, u8 rm, u8 rn, struct jit_ctx *ctx)
- 		return;
- 	}
- #endif
--	if (rm != ARM_R0)
--		emit(ARM_MOV_R(ARM_R0, rm), ctx);
-+
-+	/*
-+	 * For BPF_ALU | BPF_DIV | BPF_K instructions, rm is ARM_R4
-+	 * (r_A) and rn is ARM_R0 (r_scratch) so load rn first into
-+	 * ARM_R1 to avoid accidentally overwriting ARM_R0 with rm
-+	 * before using it as a source for ARM_R1.
-+	 *
-+	 * For BPF_ALU | BPF_DIV | BPF_X rm is ARM_R4 (r_A) and rn is
-+	 * ARM_R5 (r_X) so there is no particular register overlap
-+	 * issues.
-+	 */
- 	if (rn != ARM_R1)
- 		emit(ARM_MOV_R(ARM_R1, rn), ctx);
-+	if (rm != ARM_R0)
-+		emit(ARM_MOV_R(ARM_R0, rm), ctx);
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4104d49..bbe5656 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2684,6 +2684,13 @@ static const struct macb_config emac_config = {
+ 	.init = at91ether_init,
+ };
  
- 	ctx->seen |= SEEN_CALL;
- 	emit_mov_i(ARM_R3, (u32)jit_udiv, ctx);
++static const struct macb_config zynqmp_config = {
++	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
++	.dma_burst_length = 16,
++	.clk_init = macb_clk_init,
++	.init = macb_init,
++};
++
+ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,at32ap7000-macb" },
+ 	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
+@@ -2694,6 +2701,7 @@ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "atmel,sama5d4-gem", .data = &sama5d4_config },
+ 	{ .compatible = "cdns,at91rm9200-emac", .data = &emac_config },
+ 	{ .compatible = "cdns,emac", .data = &emac_config },
++	{ .compatible = "cdns,zynqmp-gem", .data = &zynqmp_config},
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, macb_dt_ids);
 -- 
-1.9.1
+1.7.9.5
