@@ -1,134 +1,83 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next] mpls: Move reserved label definitions
-Date: Wed, 06 May 2015 16:07:09 -0500
-Message-ID: <87sib9fm9u.fsf@x220.int.ebiederm.org>
-References: <1430841990-2828702-1-git-send-email-tom@herbertland.com>
+From: Andy Zhou <azhou@nicira.com>
+Subject: Re: [net-next fragmenation icmp 1/2] ipv4_fragment: Add a bit in IPCB
+ to control ICMP generation
+Date: Wed, 6 May 2015 14:12:34 -0700
+Message-ID: <CACzMAJJ7AEmC4aGShrc0sCkotLD7_TxhQwPUm1sdVdcNFNic-A@mail.gmail.com>
+References: <1430877594-32054-1-git-send-email-azhou@nicira.com>
+	<1430877594-32054-2-git-send-email-azhou@nicira.com>
+	<1430915034.14545.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:47458 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751119AbbEFVLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 17:11:37 -0400
-In-Reply-To: <1430841990-2828702-1-git-send-email-tom@herbertland.com> (Tom
-	Herbert's message of "Tue, 5 May 2015 09:06:30 -0700")
+Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:52072 "HELO
+	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751034AbbEFVMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 17:12:35 -0400
+Received: by mail-oi0-f44.google.com with SMTP id a37so18236220oic.0
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 14:12:34 -0700 (PDT)
+In-Reply-To: <1430915034.14545.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@herbertland.com> writes:
+Since I only need 1 bit for this, I can probably define and use one
+more bit in the 'flags' field above.
 
-> Move to include/uapi/linux/mpls.h to be externally visibile.
+Thanks for the review.  I will send out a 'v2'.
 
-Quick question.
 
-Have you looked to see if any of the BSD's provide any of these
-definitions?    I believe the existing macros in this header are
-used by tcpdump and are used by the bsds.
-
-I am just thinking if there was already similar definitions in different
-unices it would be polite to ensure we have the names in sync.
-
-Eric
-
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
-> ---
->  include/uapi/linux/mpls.h | 10 ++++++++++
->  net/mpls/af_mpls.c        | 18 +++++++++---------
->  net/mpls/internal.h       | 10 ----------
->  3 files changed, 19 insertions(+), 19 deletions(-)
+On Wed, May 6, 2015 at 5:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2015-05-05 at 18:59 -0700, Andy Zhou wrote:
+>> Currently, on fragmentation or defragmentation error, ICMP error message
+>> can be generated. This is fine when they are used in a routing context,
+>> but does not make sense when they are used in a bridging context, i.e.
+>> netfilter for bridging.
+>>
+>> This patch adds a bit in IPCB to control whether ICMP error message
+>> should be generated.
+>>
+>> IPV6 fragmentation and defragmentation functions are not reused by
+>> bridge netfilter. Thus, this change is only required for IPV4.
+>>
+>> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>> ---
+>>  include/net/inet_frag.h |  2 ++
+>>  include/net/ip.h        |  1 +
+>>  net/ipv4/ip_fragment.c  | 11 ++++++++++-
+>>  net/ipv4/ip_output.c    |  5 +++--
+>>  4 files changed, 16 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+>> index 8d17655..1d57045 100644
+>> --- a/include/net/inet_frag.h
+>> +++ b/include/net/inet_frag.h
+>> @@ -44,6 +44,7 @@ enum {
+>>   * @meat: length of received fragments so far
+>>   * @flags: fragment queue flags
+>>   * @max_size: (ipv4 only) maximum received fragment size with IP_DF set
+>> + * @no_icmp:  Do not generate any fragmentation related icmp packet
+>>   * @net: namespace that this frag belongs to
+>>   */
+>>  struct inet_frag_queue {
+>> @@ -58,6 +59,7 @@ struct inet_frag_queue {
+>>       int                     meat;
+>>       __u8                    flags;
+>>       u16                     max_size;
+>> +     bool                    no_icmp;
+>>       struct netns_frags      *net;
+>>  };
+>>
 >
-> diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
-> index bc9abfe..0fe6ea5 100644
-> --- a/include/uapi/linux/mpls.h
-> +++ b/include/uapi/linux/mpls.h
-> @@ -31,4 +31,14 @@ struct mpls_label {
->  #define MPLS_LS_TTL_MASK        0x000000FF
->  #define MPLS_LS_TTL_SHIFT       0
->  
-> +/* Reserved labels */
-> +#define MPLS_LABEL_IPV4_EXPLICIT_NULL	0 /* RFC3032 */
-> +#define MPLS_LABEL_ROUTER_ALERT		1 /* RFC3032 */
-> +#define MPLS_LABEL_IPV6_EXPLICIT_NULL	2 /* RFC3032 */
-> +#define MPLS_LABEL_IMPLICIT_NULL	3 /* RFC3032 */
-> +#define MPLS_LABEL_ENTROPY_INDICATOR	7 /* RFC6790 */
-> +#define MPLS_LABEL_GAL			13 /* RFC5586 */
-> +#define MPLS_LABEL_OAM_ALERT		14 /* RFC3429 */
-> +#define MPLS_LABEL_EXTENSION		15 /* RFC7274 */
-> +
->  #endif /* _UAPI_MPLS_H */
-> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-> index 954810c..b6eb761 100644
-> --- a/net/mpls/af_mpls.c
-> +++ b/net/mpls/af_mpls.c
-> @@ -647,7 +647,7 @@ int nla_get_labels(const struct nlattr *nla,
->  			return -EINVAL;
->  
->  		switch (dec.label) {
-> -		case LABEL_IMPLICIT_NULL:
-> +		case MPLS_LABEL_IMPLICIT_NULL:
->  			/* RFC3032: This is a label that an LSR may
->  			 * assign and distribute, but which never
->  			 * actually appears in the encapsulation.
-> @@ -935,7 +935,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
->  	}
->  
->  	/* In case the predefined labels need to be populated */
-> -	if (limit > LABEL_IPV4_EXPLICIT_NULL) {
-> +	if (limit > MPLS_LABEL_IPV4_EXPLICIT_NULL) {
->  		struct net_device *lo = net->loopback_dev;
->  		rt0 = mpls_rt_alloc(lo->addr_len);
->  		if (!rt0)
-> @@ -945,7 +945,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
->  		rt0->rt_via_table = NEIGH_LINK_TABLE;
->  		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
->  	}
-> -	if (limit > LABEL_IPV6_EXPLICIT_NULL) {
-> +	if (limit > MPLS_LABEL_IPV6_EXPLICIT_NULL) {
->  		struct net_device *lo = net->loopback_dev;
->  		rt2 = mpls_rt_alloc(lo->addr_len);
->  		if (!rt2)
-> @@ -973,15 +973,15 @@ static int resize_platform_label_table(struct net *net, size_t limit)
->  	memcpy(labels, old, cp_size);
->  
->  	/* If needed set the predefined labels */
-> -	if ((old_limit <= LABEL_IPV6_EXPLICIT_NULL) &&
-> -	    (limit > LABEL_IPV6_EXPLICIT_NULL)) {
-> -		RCU_INIT_POINTER(labels[LABEL_IPV6_EXPLICIT_NULL], rt2);
-> +	if ((old_limit <= MPLS_LABEL_IPV6_EXPLICIT_NULL) &&
-> +	    (limit > MPLS_LABEL_IPV6_EXPLICIT_NULL)) {
-> +		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV6_EXPLICIT_NULL], rt2);
->  		rt2 = NULL;
->  	}
->  
-> -	if ((old_limit <= LABEL_IPV4_EXPLICIT_NULL) &&
-> -	    (limit > LABEL_IPV4_EXPLICIT_NULL)) {
-> -		RCU_INIT_POINTER(labels[LABEL_IPV4_EXPLICIT_NULL], rt0);
-> +	if ((old_limit <= MPLS_LABEL_IPV4_EXPLICIT_NULL) &&
-> +	    (limit > MPLS_LABEL_IPV4_EXPLICIT_NULL)) {
-> +		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV4_EXPLICIT_NULL], rt0);
->  		rt0 = NULL;
->  	}
->  
-> diff --git a/net/mpls/internal.h b/net/mpls/internal.h
-> index 693877d..b064c34 100644
-> --- a/net/mpls/internal.h
-> +++ b/net/mpls/internal.h
-> @@ -1,16 +1,6 @@
->  #ifndef MPLS_INTERNAL_H
->  #define MPLS_INTERNAL_H
->  
-> -#define LABEL_IPV4_EXPLICIT_NULL	0 /* RFC3032 */
-> -#define LABEL_ROUTER_ALERT_LABEL	1 /* RFC3032 */
-> -#define LABEL_IPV6_EXPLICIT_NULL	2 /* RFC3032 */
-> -#define LABEL_IMPLICIT_NULL		3 /* RFC3032 */
-> -#define LABEL_ENTROPY_INDICATOR		7 /* RFC6790 */
-> -#define LABEL_GAL			13 /* RFC5586 */
-> -#define LABEL_OAM_ALERT			14 /* RFC3429 */
-> -#define LABEL_EXTENSION			15 /* RFC7274 */
-> -
-> -
->  struct mpls_shim_hdr {
->  	__be32 label_stack_entry;
->  };
+>
+> What about filling the 8bit hole ?
+>
+>         int                     meat;
+>         __u8                    flags;
+> +       bool                    no_icmp;
+>         u16                     max_size;
+>         struct netns_frags      *net;
+>
+>
+>
