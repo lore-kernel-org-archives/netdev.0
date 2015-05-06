@@ -1,83 +1,41 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH 2/2] pktgen: introduce xmit_mode 'rx_inject'
-Date: Wed, 6 May 2015 07:24:40 +0200
-Message-ID: <20150506072440.7afb2c44@redhat.com>
-References: <20150505202730.8715.48527.stgit@ivy>
-	<20150505202959.8715.51882.stgit@ivy>
-	<55499996.2090308@plumgrid.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [PATCH 01/12] net: axienet: Support for RGMII
+Date: Wed, 6 May 2015 07:29:35 +0200
+Message-ID: <5549A6BF.1030205@xilinx.com>
+References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com>
+ <20150505.193520.1238479814165419495.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	brouer@redhat.com
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34434 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751330AbbEFFYu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 May 2015 01:24:50 -0400
-In-Reply-To: <55499996.2090308@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <srikanth.thokala@xilinx.com>,
+	<soren.brinkmann@xilinx.com>, <monstr@monstr.eu>,
+	<John.Linn@xilinx.com>, <anirudh@xilinx.com>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: David Miller <davem@davemloft.net>, <michal.simek@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150505.193520.1238479814165419495.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 05 May 2015 21:33:26 -0700
-Alexei Starovoitov <ast@plumgrid.com> wrote:
+Hi David,
 
-> On 5/5/15 1:30 PM, Jesper Dangaard Brouer wrote:
-> >
-> > Introduce xmit_mode 'rx_inject' for pktgen which generates the packets
-> > using familiar pktgen commands, but feeds them into
-> > netif_receive_skb() instead of ndo_start_xmit().
-> ...
-> > pgset "xmit_mode rx_inject"
+On 05/06/2015 01:35 AM, David Miller wrote:
 > 
-> I think 'xmit_mode rx_inject' would make native english speaker cringe,
-> since it's saying 'transmit mode is receive' ... but I don't mind :)
+> Series applied to net-next.
 
-Yes, I know. Like Daniel suggested, I considered only calling it "rx"
-but it made me cringe for this exact reason, thus I extended it with
-"inject".  I'm flexible with the name of this...
+Thanks.
 
-
-> > Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ...
-> > @@ -251,13 +255,14 @@ struct pktgen_dev {
-> >   	 * we will do a random selection from within the range.
-> >   	 */
-> >   	__u32 flags;
-> > -	int removal_mark;	/* non-zero => the device is marked for
-> > -				 * removal by worker thread */
-> > -
-> > +	int xmit_mode;
-> >   	int min_pkt_size;
-> >   	int max_pkt_size;
-> >   	int pkt_overhead;	/* overhead for MPLS, VLANs, IPSEC etc */
-> >   	int nfrags;
-> > +	int removal_mark;	/* non-zero => the device is marked for
-> > +				 * removal by worker thread */
 > 
-> I'm not sure why you're moving removal_mark field.
-
-Because I wanted to place 'xmit_more' on a read-only/mostly cache-line,
-although it likely does not matter too much, I just wanted to avoid any
-funny cache coherency protocol interactions.
-
-
-> Looks good. Thank you for doing this.
-> Ack. My SOB is already there :)
+> Next time, you should give an initial "[PATCH 00/nn] " posting
+> describing overall at a high level what the series is doing.
 > 
-> btw, these patches didn't reach my subscribed to netdev email yet...
-> something is stalling vger.
+> That way I can use that information in the commit message of
+> a merge commit for your series, and also have one posting I
+> can reply to in order to give high level feedback or to simply
+> say I applied everything.
 
-Hmm, that is strange. I think I see them. And they are on patchwork too.
+Will do.
 
-https://patchwork.ozlabs.org/patch/468378/
-https://patchwork.ozlabs.org/patch/468390/
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks,
+Michal
