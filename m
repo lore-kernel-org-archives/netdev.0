@@ -1,70 +1,138 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 0/6] netns: ease netlink use with a lot of netns
-Date: Wed,  6 May 2015 11:58:02 +0200
-Message-ID: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com
+Subject: [PATCH net-next 2/6] netns: always provide the id to rtnl_net_fill()
+Date: Wed,  6 May 2015 11:58:04 +0200
+Message-ID: <1430906288-5108-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:42302 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:42306 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750989AbbEFJ6Q (ORCPT
+	with ESMTP id S1750968AbbEFJ6Q (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 05:58:16 -0400
+In-Reply-To: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The goal of this commit is to prepare the rework of the locking of nsnid
+protection.
+After this patch, rtnl_net_notifyid() will not call anymore __peernet2id(),
+ie no idr_* operation into this function.
 
-This idea was informally discussed in Ottawa / netdev0.1. The goal is to
-ease the use/scalability of netns, from a userland point of view.
-Today, users need to open one netlink socket per family and per netns.
-Thus, when the number of netns inscreases (for example 5K or more), the
-number of sockets needed to manage them grows a lot.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/core/net_namespace.c | 31 +++++++++++--------------------
+ 1 file changed, 11 insertions(+), 20 deletions(-)
 
-The goal of this series is to be able to monitor netlink events, for a
-specified family, for a set of netns, with only one netlink socket. For
-this purpose, a netlink socket option is added: NETLINK_LISTEN_ALL_NSID.
-When this option is set on a netlink socket, this socket will receive
-netlink notifications from all netns that have a nsid assigned into the
-netns where the socket has been opened.
-The nsid is sent to userland via an anscillary data.
-
-Here is an example with a patched iproute2. vxlan10 is created in the
-current netns (netns0, nsid 0) and then moved to another netns (netns1,
-nsid 1):
-
-$ ip netns exec netns0 ip monitor all-nsid label
-[nsid 0][NSID]nsid 1 (iproute2 netns name: netns1)
-[nsid 0][NEIGH]??? lladdr 00:00:00:00:00:00 REACHABLE,PERMANENT
-[nsid 0][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
-    link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff
-[nsid 0][LINK]Deleted 5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
-    link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff
-[nsid 1][NSID]nsid 0 (iproute2 netns name: netns0)
-[nsid 1][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
-    link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff link-netnsid 0
-[nsid 1][ADDR]5: vxlan10    inet 192.168.0.249/24 brd 192.168.0.255 scope global vxlan10
-       valid_lft forever preferred_lft forever
-[nsid 1][ROUTE]local 192.168.0.249 dev vxlan10  table local  proto kernel  scope host  src 192.168.0.249 
-[nsid 1][ROUTE]ff00::/8 dev vxlan10  table local  metric 256  pref medium
-[nsid 1][ROUTE]2001:123::/64 dev vxlan10  proto kernel  metric 256  pref medium
-[nsid 1][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default 
-    link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff link-netnsid 0
-[nsid 1][ROUTE]broadcast 192.168.0.255 dev vxlan10  table local  proto kernel  scope link  src 192.168.0.249 
-[nsid 1][ROUTE]192.168.0.0/24 dev vxlan10  proto kernel  scope link  src 192.168.0.249 
-[nsid 1][ROUTE]broadcast 192.168.0.0 dev vxlan10  table local  proto kernel  scope link  src 192.168.0.249 
-[nsid 1][ROUTE]fe80::/64 dev vxlan10  proto kernel  metric 256  pref medium
-
-
- drivers/net/vxlan.c          |   2 +-
- include/linux/netlink.h      |   1 +
- include/net/net_namespace.h  |   2 +
- include/uapi/linux/netlink.h |   1 +
- net/core/net_namespace.c     | 127 +++++++++++++++++++++++++++----------------
- net/core/rtnetlink.c         |   2 +-
- net/netlink/af_netlink.c     |  39 ++++++++++++-
- 7 files changed, 124 insertions(+), 50 deletions(-)
-
-
-Comments are welcome.
-
-Regards,
-Nicolas
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 294d38742e2a..37c68bb72db3 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -147,8 +147,7 @@ static void ops_free_list(const struct pernet_operations *ops,
+ 	}
+ }
+ 
+-static void rtnl_net_notifyid(struct net *net, struct net *peer, int cmd,
+-			      int id);
++static void rtnl_net_notifyid(struct net *net, int cmd, int id);
+ static int alloc_netid(struct net *net, struct net *peer, int reqid)
+ {
+ 	int min = 0, max = 0, id;
+@@ -162,7 +161,7 @@ static int alloc_netid(struct net *net, struct net *peer, int reqid)
+ 
+ 	id = idr_alloc(&net->netns_ids, peer, min, max, GFP_KERNEL);
+ 	if (id >= 0)
+-		rtnl_net_notifyid(net, peer, RTM_NEWNSID, id);
++		rtnl_net_notifyid(net, RTM_NEWNSID, id);
+ 
+ 	return id;
+ }
+@@ -365,7 +364,7 @@ static void cleanup_net(struct work_struct *work)
+ 			int id = __peernet2id(tmp, net, false);
+ 
+ 			if (id >= 0) {
+-				rtnl_net_notifyid(tmp, net, RTM_DELNSID, id);
++				rtnl_net_notifyid(tmp, RTM_DELNSID, id);
+ 				idr_remove(&tmp->netns_ids, id);
+ 			}
+ 		}
+@@ -538,14 +537,10 @@ static int rtnl_net_get_size(void)
+ }
+ 
+ static int rtnl_net_fill(struct sk_buff *skb, u32 portid, u32 seq, int flags,
+-			 int cmd, struct net *net, struct net *peer,
+-			 int nsid)
++			 int cmd, struct net *net, int nsid)
+ {
+ 	struct nlmsghdr *nlh;
+ 	struct rtgenmsg *rth;
+-	int id;
+-
+-	ASSERT_RTNL();
+ 
+ 	nlh = nlmsg_put(skb, portid, seq, cmd, sizeof(*rth), flags);
+ 	if (!nlh)
+@@ -554,11 +549,7 @@ static int rtnl_net_fill(struct sk_buff *skb, u32 portid, u32 seq, int flags,
+ 	rth = nlmsg_data(nlh);
+ 	rth->rtgen_family = AF_UNSPEC;
+ 
+-	if (nsid >= 0)
+-		id = nsid;
+-	else
+-		id = __peernet2id(net, peer, false);
+-	if (nla_put_s32(skb, NETNSA_NSID, id))
++	if (nla_put_s32(skb, NETNSA_NSID, nsid))
+ 		goto nla_put_failure;
+ 
+ 	nlmsg_end(skb, nlh);
+@@ -575,7 +566,7 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	struct nlattr *tb[NETNSA_MAX + 1];
+ 	struct sk_buff *msg;
+ 	struct net *peer;
+-	int err;
++	int err, id;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, NETNSA_MAX,
+ 			  rtnl_net_policy);
+@@ -597,8 +588,9 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		goto out;
+ 	}
+ 
++	id = __peernet2id(net, peer, false);
+ 	err = rtnl_net_fill(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
+-			    RTM_GETNSID, net, peer, -1);
++			    RTM_GETNSID, net, id);
+ 	if (err < 0)
+ 		goto err_out;
+ 
+@@ -630,7 +622,7 @@ static int rtnl_net_dumpid_one(int id, void *peer, void *data)
+ 
+ 	ret = rtnl_net_fill(net_cb->skb, NETLINK_CB(net_cb->cb->skb).portid,
+ 			    net_cb->cb->nlh->nlmsg_seq, NLM_F_MULTI,
+-			    RTM_NEWNSID, net_cb->net, peer, id);
++			    RTM_NEWNSID, net_cb->net, id);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -658,8 +650,7 @@ static int rtnl_net_dumpid(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return skb->len;
+ }
+ 
+-static void rtnl_net_notifyid(struct net *net, struct net *peer, int cmd,
+-			      int id)
++static void rtnl_net_notifyid(struct net *net, int cmd, int id)
+ {
+ 	struct sk_buff *msg;
+ 	int err = -ENOMEM;
+@@ -668,7 +659,7 @@ static void rtnl_net_notifyid(struct net *net, struct net *peer, int cmd,
+ 	if (!msg)
+ 		goto out;
+ 
+-	err = rtnl_net_fill(msg, 0, 0, 0, cmd, net, peer, id);
++	err = rtnl_net_fill(msg, 0, 0, 0, cmd, net, id);
+ 	if (err < 0)
+ 		goto err_out;
+ 
+-- 
+2.2.2
