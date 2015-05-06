@@ -1,94 +1,57 @@
-From: Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: [net-next PATCH v3 4/4] net: macb: Add change_mtu callback with jumbo support
-Date: Wed, 6 May 2015 22:27:18 +0530
-Message-ID: <1430931438-32592-4-git-send-email-harinik@xilinx.com>
-References: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH 1/4] ip: document exit code
+Date: Wed, 6 May 2015 20:16:25 +0300
+Message-ID: <20150506171625.GA849@angus-think.lan>
+References: <1430931483-28595-1-git-send-email-stephen@networkplumber.org>
+ <1430931483-28595-2-git-send-email-stephen@networkplumber.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	<punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	<harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1430931438-32592-1-git-send-email-harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:34607 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752479AbbEFRQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 13:16:56 -0400
+Received: by wgso17 with SMTP id o17so18989722wgs.1
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 10:16:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1430931483-28595-2-git-send-email-stephen@networkplumber.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add macb_change_mtu callback; if jumbo frame support is present allow
-mtu size changes upto (jumbo max length allowed - headers).
+Hi,
 
-Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
----
+On Wed, May 06, 2015 at 09:58:00AM -0700, Stephen Hemminger wrote:
+> From: Stephen Hemminger <shemming@brocade.com>
+> 
+> The ip command has always had a consistent exit status
+> document it so that developers see it.
+> ---
+>  man/man8/ip.8 | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/man/man8/ip.8 b/man/man8/ip.8
+> index 43ddac9..9574a50 100644
+> --- a/man/man8/ip.8
+> +++ b/man/man8/ip.8
+> @@ -275,6 +275,10 @@ Usually it is
+>  or, if the objects of this class cannot be listed,
+>  .BR "help" .
+>  
+> +.SH EXIT STATUS
+> +Exit statsis is 0 if command was sucessful, and 1 if there is a syntax error.
+statsis -> status ?                 sucessful -> successful ?
 
-v3:
-Check for jumbo capability in macb_config.
-
-v2:
-Move constant definition.
-
----
- drivers/net/ethernet/cadence/macb.c |   24 +++++++++++++++++++++++-
- 1 file changed, 23 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index cb84587..97c6646 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -54,6 +54,8 @@
- #define MACB_MAX_TX_LEN		((unsigned int)((1 << MACB_TX_FRMLEN_SIZE) - 1))
- #define GEM_MAX_TX_LEN		((unsigned int)((1 << GEM_TX_FRMLEN_SIZE) - 1))
- 
-+#define GEM_MTU_MIN_SIZE	68
-+
- /*
-  * Graceful stop timeouts in us. We should allow up to
-  * 1 frame time (10 Mbits/s, full-duplex, ignoring collisions)
-@@ -1855,6 +1857,26 @@ static int macb_close(struct net_device *dev)
- 	return 0;
- }
- 
-+static int macb_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct macb *bp = netdev_priv(dev);
-+	u32 max_mtu;
-+
-+	if (netif_running(dev))
-+		return -EBUSY;
-+
-+	max_mtu = ETH_DATA_LEN;
-+	if (bp->caps | MACB_CAPS_JUMBO)
-+		max_mtu = gem_readl(bp, JML) - ETH_HLEN - ETH_FCS_LEN;
-+
-+	if ((new_mtu > max_mtu) || (new_mtu < GEM_MTU_MIN_SIZE))
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+
-+	return 0;
-+}
-+
- static void gem_update_stats(struct macb *bp)
- {
- 	int i;
-@@ -2131,7 +2153,7 @@ static const struct net_device_ops macb_netdev_ops = {
- 	.ndo_get_stats		= macb_get_stats,
- 	.ndo_do_ioctl		= macb_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
--	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_change_mtu		= macb_change_mtu,
- 	.ndo_set_mac_address	= eth_mac_addr,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= macb_poll_controller,
--- 
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +If an error was reported by the kernel exit status is 2.
+> +
+>  .SH HISTORY
+>  .B ip
+>  was written by Alexey N. Kuznetsov and added in Linux 2.2.
+> -- 
+> 2.1.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
