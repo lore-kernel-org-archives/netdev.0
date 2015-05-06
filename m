@@ -1,50 +1,43 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] usbnet: avoid integer overflow in start_xmit
-Date: Wed,  6 May 2015 15:09:40 +0200
-Message-ID: <1430917780-12431-1-git-send-email-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: oneukum@suse.de, netdev@vger.kernel.org
+From: Timo Teras <timo.teras@iki.fi>
+Subject: inet netconf support for send_redirects
+Date: Wed, 6 May 2015 16:37:46 +0300
+Message-ID: <20150506163746.38d75537@vostro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:33376 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751365AbbEFNPz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 May 2015 09:15:55 -0400
+Received: from mail-la0-f44.google.com ([209.85.215.44]:36168 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751428AbbEFNjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 09:39:00 -0400
+Received: by lagv1 with SMTP id v1so7573594lag.3
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 06:38:58 -0700 (PDT)
+Received: from vostro ([2001:1bc8:101:f402:21a:9fff:fe0c:4022])
+        by mx.google.com with ESMTPSA id si3sm375099lbb.32.2015.05.06.06.38.58
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 06 May 2015 06:38:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-transfer_buffer_length is of type u32. It's therefore wrong to assign it
-to a signed integer. This patch avoids the overflow.
+Hi,
 
-It's worth noting that entry->length here is a long; perhaps it would be
-beneficial at somepoint to change this to be unsigned as well, if
-nothing else relies on its signedness for error conditions or the like.
+I'm wondering if inet netconf support is planned or known will-not-add
+for send_redirects (or the other missing proc/sys/ipv4/<if>/ knobs)?
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- drivers/net/usb/usbnet.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I would be interested in this, and willing to implement it at least for
+send_redirects. Mostly because I'd like an user-space routing daemon to
+be able to control it, and run it as non-root. Now it's not possible
+without dac-override capability to access proc/sys which sounds an
+overkill for this purpose. Where as with netlink access the net-admin
+capability is suit for the job.
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 733f4fe..3c86b10 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1285,7 +1285,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
- 				     struct net_device *net)
- {
- 	struct usbnet		*dev = netdev_priv(net);
--	int			length;
-+	unsigned int			length;
- 	struct urb		*urb = NULL;
- 	struct skb_data		*entry;
- 	struct driver_info	*info = dev->driver_info;
-@@ -1413,7 +1413,7 @@ not_drop:
- 		}
- 	} else
- 		netif_dbg(dev, tx_queued, dev->net,
--			  "> tx, len %d, type 0x%x\n", length, skb->protocol);
-+			  "> tx, len %u, type 0x%x\n", length, skb->protocol);
- #ifdef CONFIG_PM
- deferred:
- #endif
--- 
-2.3.6
+Semi-relatedly, is there any specific reason why send_redirects is a
+IN_DEV_ORCONF() option? Meaning that having the all/send_redirects set
+to yes (the default) redirects are always sent. I would have thought
+IN_DEV_ANDCONF() would make more sense in this case. Or is this just
+some legacy thing?
+
+Thanks,
+Timo
