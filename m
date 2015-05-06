@@ -1,289 +1,72 @@
-From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 1/3] tipc: fix default link prop
-	regression in nl compat
-Date: Wed, 6 May 2015 13:58:54 +0200
-Message-ID: <1430913536-4206-1-git-send-email-richard.alpe@ericsson.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 6/6] netlink: allow to listen "all" netns
+Date: Wed, 6 May 2015 14:10:22 +0200
+Message-ID: <20150506121022.GG25248@pox.localdomain>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1430906288-5108-7-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ebiederm@xmission.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:32850 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbbEFMKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 08:10:25 -0400
+Received: by wgin8 with SMTP id n8so9264257wgi.0
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 05:10:24 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1430906288-5108-7-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Alpe <richard.alpe@ericsson.com>
+On 05/06/15 at 11:58am, Nicolas Dichtel wrote:
+> More accurately, listen all netns that have a nsid assigned into the netns
+> where the netlink socket is opened.
+> For this purpose, a netlink socket option is added:
+> NETLINK_LISTEN_ALL_NSID. When this option is set on a netlink socket, this
+> socket will receive netlink notifications from all netns that have a nsid
+> assigned into the netns where the socket has been opened. The nsid is sent
+> to userland via an anscillary data.
+> 
+> With this patch, a daemon needs only one socket to listen many netns. This
+> is useful when the number of netns is high.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Default link properties can be set for media or bearer. This
-functionality was missed when introducing the NL compatibility layer.
+[...]
 
-This patch implements this functionality in the compat netlink
-layer. It works the same way as it did in the old API. We search for
-media and bearers matching the "link name". If we find a matching
-media or bearer the link tolerance, priority or window is used as
-default for new links on that media or bearer.
+> +/* This function returns true is the peer netns has an id assigned into the
+> + * current netns.
+> + */
+> +bool peernet_has_id(struct net *net, struct net *peer)
+> +{
+> +	return peernet2id(net, peer) >= 0;
+> +}
 
-Fixes: 37e2d4843f9e (tipc: convert legacy nl link prop set to nl compat)
-Reported-by: Tomi Ollila <tomi.ollila@iki.fi>
-Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/bearer.c         |   2 +-
- net/tipc/netlink_compat.c | 135 ++++++++++++++++++++++++++++++++++++++--------
- 2 files changed, 114 insertions(+), 23 deletions(-)
+Missing export?
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 70e3dac..99c0bd4 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -812,7 +812,7 @@ int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
- 	char *name;
- 	struct tipc_bearer *b;
- 	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
--	struct net *net = genl_info_net(info);
-+	struct net *net = sock_net(skb->sk);
- 
- 	if (!info->attrs[TIPC_NLA_BEARER])
- 		return -EINVAL;
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index ce9121e..809aaf0 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -55,6 +55,7 @@ struct tipc_nl_compat_msg {
- 	int rep_type;
- 	int rep_size;
- 	int req_type;
-+	struct net *net;
- 	struct sk_buff *rep;
- 	struct tlv_desc *req;
- 	struct sock *dst_sk;
-@@ -68,7 +69,8 @@ struct tipc_nl_compat_cmd_dump {
- 
- struct tipc_nl_compat_cmd_doit {
- 	int (*doit)(struct sk_buff *skb, struct genl_info *info);
--	int (*transcode)(struct sk_buff *skb, struct tipc_nl_compat_msg *msg);
-+	int (*transcode)(struct tipc_nl_compat_cmd_doit *cmd,
-+			 struct sk_buff *skb, struct tipc_nl_compat_msg *msg);
- };
- 
- static int tipc_skb_tailroom(struct sk_buff *skb)
-@@ -281,7 +283,7 @@ static int __tipc_nl_compat_doit(struct tipc_nl_compat_cmd_doit *cmd,
- 	if (!trans_buf)
- 		return -ENOMEM;
- 
--	err = (*cmd->transcode)(trans_buf, msg);
-+	err = (*cmd->transcode)(cmd, trans_buf, msg);
- 	if (err)
- 		goto trans_out;
- 
-@@ -353,7 +355,8 @@ static int tipc_nl_compat_bearer_dump(struct tipc_nl_compat_msg *msg,
- 			    nla_len(bearer[TIPC_NLA_BEARER_NAME]));
- }
- 
--static int tipc_nl_compat_bearer_enable(struct sk_buff *skb,
-+static int tipc_nl_compat_bearer_enable(struct tipc_nl_compat_cmd_doit *cmd,
-+					struct sk_buff *skb,
- 					struct tipc_nl_compat_msg *msg)
- {
- 	struct nlattr *prop;
-@@ -385,7 +388,8 @@ static int tipc_nl_compat_bearer_enable(struct sk_buff *skb,
- 	return 0;
- }
- 
--static int tipc_nl_compat_bearer_disable(struct sk_buff *skb,
-+static int tipc_nl_compat_bearer_disable(struct tipc_nl_compat_cmd_doit *cmd,
-+					 struct sk_buff *skb,
- 					 struct tipc_nl_compat_msg *msg)
- {
- 	char *name;
-@@ -576,11 +580,81 @@ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
- 			    &link_info, sizeof(link_info));
- }
- 
--static int tipc_nl_compat_link_set(struct sk_buff *skb,
--				   struct tipc_nl_compat_msg *msg)
-+static int __tipc_add_link_prop(struct sk_buff *skb,
-+				struct tipc_nl_compat_msg *msg,
-+				struct tipc_link_config *lc)
-+{
-+	switch (msg->cmd) {
-+	case TIPC_CMD_SET_LINK_PRI:
-+		return nla_put_u32(skb, TIPC_NLA_PROP_PRIO, ntohl(lc->value));
-+	case TIPC_CMD_SET_LINK_TOL:
-+		return nla_put_u32(skb, TIPC_NLA_PROP_TOL, ntohl(lc->value));
-+	case TIPC_CMD_SET_LINK_WINDOW:
-+		return nla_put_u32(skb, TIPC_NLA_PROP_WIN, ntohl(lc->value));
-+	}
-+
-+	return -EINVAL;
-+}
-+
-+static int tipc_nl_compat_media_set(struct sk_buff *skb,
-+				    struct tipc_nl_compat_msg *msg)
- {
--	struct nlattr *link;
- 	struct nlattr *prop;
-+	struct nlattr *media;
-+	struct tipc_link_config *lc;
-+
-+	lc = (struct tipc_link_config *)TLV_DATA(msg->req);
-+
-+	media = nla_nest_start(skb, TIPC_NLA_MEDIA);
-+	if (!media)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_string(skb, TIPC_NLA_MEDIA_NAME, lc->name))
-+		return -EMSGSIZE;
-+
-+	prop = nla_nest_start(skb, TIPC_NLA_MEDIA_PROP);
-+	if (!prop)
-+		return -EMSGSIZE;
-+
-+	__tipc_add_link_prop(skb, msg, lc);
-+	nla_nest_end(skb, prop);
-+	nla_nest_end(skb, media);
-+
-+	return 0;
-+}
-+
-+static int tipc_nl_compat_bearer_set(struct sk_buff *skb,
-+				     struct tipc_nl_compat_msg *msg)
-+{
-+	struct nlattr *prop;
-+	struct nlattr *bearer;
-+	struct tipc_link_config *lc;
-+
-+	lc = (struct tipc_link_config *)TLV_DATA(msg->req);
-+
-+	bearer = nla_nest_start(skb, TIPC_NLA_BEARER);
-+	if (!bearer)
-+		return -EMSGSIZE;
-+
-+	if (nla_put_string(skb, TIPC_NLA_BEARER_NAME, lc->name))
-+		return -EMSGSIZE;
-+
-+	prop = nla_nest_start(skb, TIPC_NLA_BEARER_PROP);
-+	if (!prop)
-+		return -EMSGSIZE;
-+
-+	__tipc_add_link_prop(skb, msg, lc);
-+	nla_nest_end(skb, prop);
-+	nla_nest_end(skb, bearer);
-+
-+	return 0;
-+}
-+
-+static int __tipc_nl_compat_link_set(struct sk_buff *skb,
-+				     struct tipc_nl_compat_msg *msg)
-+{
-+	struct nlattr *prop;
-+	struct nlattr *link;
- 	struct tipc_link_config *lc;
- 
- 	lc = (struct tipc_link_config *)TLV_DATA(msg->req);
-@@ -596,24 +670,40 @@ static int tipc_nl_compat_link_set(struct sk_buff *skb,
- 	if (!prop)
- 		return -EMSGSIZE;
- 
--	if (msg->cmd == TIPC_CMD_SET_LINK_PRI) {
--		if (nla_put_u32(skb, TIPC_NLA_PROP_PRIO, ntohl(lc->value)))
--			return -EMSGSIZE;
--	} else if (msg->cmd == TIPC_CMD_SET_LINK_TOL) {
--		if (nla_put_u32(skb, TIPC_NLA_PROP_TOL, ntohl(lc->value)))
--			return -EMSGSIZE;
--	} else if (msg->cmd == TIPC_CMD_SET_LINK_WINDOW) {
--		if (nla_put_u32(skb, TIPC_NLA_PROP_WIN, ntohl(lc->value)))
--			return -EMSGSIZE;
--	}
--
-+	__tipc_add_link_prop(skb, msg, lc);
- 	nla_nest_end(skb, prop);
- 	nla_nest_end(skb, link);
- 
- 	return 0;
- }
- 
--static int tipc_nl_compat_link_reset_stats(struct sk_buff *skb,
-+static int tipc_nl_compat_link_set(struct tipc_nl_compat_cmd_doit *cmd,
-+				   struct sk_buff *skb,
-+				   struct tipc_nl_compat_msg *msg)
-+{
-+	struct tipc_link_config *lc;
-+	struct tipc_bearer *bearer;
-+	struct tipc_media *media;
-+
-+	lc = (struct tipc_link_config *)TLV_DATA(msg->req);
-+
-+	media = tipc_media_find(lc->name);
-+	if (media) {
-+		cmd->doit = &tipc_nl_media_set;
-+		return tipc_nl_compat_media_set(skb, msg);
-+	}
-+
-+	bearer = tipc_bearer_find(msg->net, lc->name);
-+	if (bearer) {
-+		cmd->doit = &tipc_nl_bearer_set;
-+		return tipc_nl_compat_bearer_set(skb, msg);
-+	}
-+
-+	return __tipc_nl_compat_link_set(skb, msg);
-+}
-+
-+static int tipc_nl_compat_link_reset_stats(struct tipc_nl_compat_cmd_doit *cmd,
-+					   struct sk_buff *skb,
- 					   struct tipc_nl_compat_msg *msg)
- {
- 	char *name;
-@@ -851,7 +941,8 @@ static int tipc_nl_compat_node_dump(struct tipc_nl_compat_msg *msg,
- 			    sizeof(node_info));
- }
- 
--static int tipc_nl_compat_net_set(struct sk_buff *skb,
-+static int tipc_nl_compat_net_set(struct tipc_nl_compat_cmd_doit *cmd,
-+				  struct sk_buff *skb,
- 				  struct tipc_nl_compat_msg *msg)
- {
- 	u32 val;
-@@ -1007,7 +1098,6 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
- 	struct nlmsghdr *req_nlh;
- 	struct nlmsghdr *rep_nlh;
- 	struct tipc_genlmsghdr *req_userhdr = info->userhdr;
--	struct net *net = genl_info_net(info);
- 
- 	memset(&msg, 0, sizeof(msg));
- 
-@@ -1015,6 +1105,7 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
- 	msg.req = nlmsg_data(req_nlh) + GENL_HDRLEN + TIPC_GENL_HDRLEN;
- 	msg.cmd = req_userhdr->cmd;
- 	msg.dst_sk = info->dst_sk;
-+	msg.net = genl_info_net(info);
- 
- 	if ((msg.cmd & 0xC000) && (!netlink_net_capable(skb, CAP_NET_ADMIN))) {
- 		msg.rep = tipc_get_err_tlv(TIPC_CFG_NOT_NET_ADMIN);
-@@ -1043,7 +1134,7 @@ send:
- 	rep_nlh = nlmsg_hdr(msg.rep);
- 	memcpy(rep_nlh, info->nlhdr, len);
- 	rep_nlh->nlmsg_len = msg.rep->len;
--	genlmsg_unicast(net, msg.rep, NETLINK_CB(skb).portid);
-+	genlmsg_unicast(msg.net, msg.rep, NETLINK_CB(skb).portid);
- 
- 	return err;
- }
--- 
-2.1.4
+> +
+>  struct net *get_net_ns_by_id(struct net *net, int id)
+>  {
+>  	unsigned long flags;
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index ec4adbdcb9b4..bdbde542e952 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -83,6 +83,7 @@ struct listeners {
+>  #define NETLINK_RECV_PKTINFO	0x2
+>  #define NETLINK_BROADCAST_SEND_ERROR	0x4
+>  #define NETLINK_RECV_NO_ENOBUFS	0x8
+> +#define NETLINK_LISTEN_ALL	0x10
 
+Maybe name this NETLINK_LISTEN_ALL_NSID just to make it clear?
 
-------------------------------------------------------------------------------
-One dashboard for servers and applications across Physical-Virtual-Cloud 
-Widest out-of-the-box monitoring support with 50+ applications
-Performance metrics, stats and reports that give you Actionable Insights
-Deep dive visibility with transaction tracing using APM Insight.
-http://ad.doubleclick.net/ddm/clk/290420510;117567292;y
+> +		if (!file_ns_capable(sk->sk_socket->file, p->net->user_ns,
+> +				     CAP_NET_BROADCAST))
+> +			return;
+> +	}
+> +	NETLINK_CB(p->skb).net = p->net;
+
+Does this need a get_net()? The netns could disappear while the skb is
+queued, right?
