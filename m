@@ -1,85 +1,49 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Subject: Re: [V2 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
-Date: Wed, 06 May 2015 11:08:52 +0100
-Message-ID: <5549E834.1040305@arm.com>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1430838729-21572-3-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 2/2] pktgen: introduce xmit_mode 'rx_inject'
+Date: Wed, 06 May 2015 12:17:02 +0200
+Message-ID: <5549EA1E.6040708@iogearbox.net>
+References: <20150505202730.8715.48527.stgit@ivy>	<20150505202959.8715.51882.stgit@ivy>	<55499996.2090308@plumgrid.com> <20150506072440.7afb2c44@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=WINDOWS-1252; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: "al.stone@linaro.org" <al.stone@linaro.org>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"linaro-acpi@lists.linaro.org" <linaro-acpi@lists.linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	"leo.duran@amd.com" <leo.duran@amd.com>,
-	"hanjun.guo@linaro.org" <hanjun.guo@linaro.org>,
-	"msalter@redhat.com" <msalter@redhat.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
-To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-	"rjw@rjwysocki.net" <rjw@rjwysocki.net>,
-	"lenb@kernel.org" <lenb@kernel.org>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	Will Deacon <Will.Deacon@arm.com>,
-	"thomas.lendacky@amd.com" <thomas.lendacky@amd.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1430838729-21572-3-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:37289 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751554AbbEFKRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 06:17:10 -0400
+In-Reply-To: <20150506072440.7afb2c44@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Suravee,
-
-On 05/05/15 16:12, Suravee Suthikulpanit wrote:
->  From http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf,
-> section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
-> object to be specified for DMA-cabpable devices. This patch introduces
-> ACPI_MUST_HAVE_CCA in arm64 Kconfig to specify such requirement.
+On 05/06/2015 07:24 AM, Jesper Dangaard Brouer wrote:
+> On Tue, 05 May 2015 21:33:26 -0700
+> Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> On 5/5/15 1:30 PM, Jesper Dangaard Brouer wrote:
+>>>
+>>> Introduce xmit_mode 'rx_inject' for pktgen which generates the packets
+>>> using familiar pktgen commands, but feeds them into
+>>> netif_receive_skb() instead of ndo_start_xmit().
+>> ...
+>>> pgset "xmit_mode rx_inject"
+>>
+>> I think 'xmit_mode rx_inject' would make native english speaker cringe,
+>> since it's saying 'transmit mode is receive' ... but I don't mind :)
 >
-> In this case of missing _CCA, arm64 would assign dummy_dma_ops
-> to disable DMA capability of the device.
->
-> Signed-off-by: Mark Salter <msalter@redhat.com>
-> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-> ---
+> Yes, I know. Like Daniel suggested, I considered only calling it "rx"
+> but it made me cringe for this exact reason, thus I extended it with
+> "inject".  I'm flexible with the name of this...
 
-[...]
-> +static void __dummy_sync_single_for_cpu(struct device *dev,
-> +					dma_addr_t dev_addr, size_t size,
-> +					enum dma_data_direction dir)
-> +{
-> +}
-> +
-> +static void __dummy_sync_single_for_device(struct device *dev,
-> +					   dma_addr_t dev_addr, size_t size,
-> +					   enum dma_data_direction dir)
-> +{
-> +}
+I don't mind how you name it eventually. ;) 'xmit_mode' I think is
+good, and rx|tx would be symmetric. I believe you don't like "rx" due
+to these two out-of-tree pktgen projects you mentioned having rx
+capabilities. Is that correct? From my perspective, it would be more
+worth however to improve packet sockets and eBPF that could already
+do the same thing instead of a dedicated possible pktgen receive/
+capturing device for such analysis. Anyway, I can also live with a
+rx_inject.
 
-Minor point, but I don't see the need to have multiple dummy functions 
-with identical signatures - just have a generic dummy_sync_single and 
-assign it to both ops.
-
-> +static void __dummy_sync_sg_for_cpu(struct device *dev,
-> +				    struct scatterlist *sgl, int nelems,
-> +				    enum dma_data_direction dir)
-> +{
-> +}
-> +
-> +static void __dummy_sync_sg_for_device(struct device *dev,
-> +				       struct scatterlist *sgl, int nelems,
-> +				       enum dma_data_direction dir)
-> +{
-> +}
-
-Ditto here with dummy_sync_sg.
-
-I wonder if there's any argument for putting the dummy DMA ops somewhere 
-common, like drivers/base/dma-mapping.c?
-
-Robin.
-
+Cheers,
+Daniel
