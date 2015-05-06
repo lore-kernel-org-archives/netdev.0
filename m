@@ -1,56 +1,58 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [net-next PATCH 1/6] net: Add skb_free_frag to replace use of
- put_page in freeing skb->head
-Date: Wed, 6 May 2015 13:41:02 -0700
-Message-ID: <20150506134102.b01faad32e07ff3d308e1a09@linux-foundation.org>
-References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>
-	<20150504231448.1538.84164.stgit@ahduyck-vm-fedora22>
-	<20150506123840.312f41000e8d46f1ef9ce046@linux-foundation.org>
-	<554A793F.3070001@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org, davem@davemloft.net,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: [PATCH linux v2 net-next 0/5] add netlink support for new lacp bonding parameters
+Date: Wed,  6 May 2015 13:41:43 -0700
+Message-ID: <cover.1430892486.git.jtoppins@cumulusnetworks.com>
+To: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	shm@cumulusnetworks.com, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:53899 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894AbbEFUlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 16:41:04 -0400
-In-Reply-To: <554A793F.3070001@redhat.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34917 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845AbbEFUl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 16:41:56 -0400
+Received: by pabtp1 with SMTP id tp1so19434833pab.2
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 13:41:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 06 May 2015 13:27:43 -0700 Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
+This is a resubmit of Mahesh's last 3 bonding patches from this series
+(http://marc.info/?l=linux-netdev&m=142432864626179&w=2) with one
+additional kernel patch which adds the netlink bits. I have noted any
+modifications I did to the original patches just above my signoff line.
+Patch 5 is the iproute2 support for these bonding options. All patches
+were coded against the net-next branch of their respective projects.
 
-> >> +void skb_free_frag(void *head)
-> >> +{
-> >> +	struct page *page = virt_to_head_page(head);
-> >> +
-> >> +	if (unlikely(put_page_testzero(page))) {
-> >> +		if (likely(PageHead(page)))
-> >> +			__free_pages_ok(page, compound_order(page));
-> >> +		else
-> >> +			free_hot_cold_page(page, false);
-> >> +	}
-> >> +}
-> > Why are we testing for PageHead in here?  If the code were to simply do
-> >
-> > 	if (unlikely(put_page_testzero(page)))
-> > 		__free_pages_ok(page, compound_order(page));
-> >
-> > that would still work?
-> 
-> My assumption was that there was a performance difference between 
-> __free_pages_ok and free_hot_cold_page for order 0 pages.  From what I 
-> can tell free_hot_cold_page will do bulk cleanup via free_pcppages_bulk 
-> while __free_pages_ok just calls free_one_page.
+Kernel series:
 
-Could be.  Plus there's hopefully some performance advantage if the
-page is genuinely cache-hot.  I don't think that anyone has verified
-the benefits of the hot/cold optimisation in the last decade or two,
-and it was always pretty marginal..
+Andy Gospodarek (1):
+  bonding: add netlink support for sys prio, actor sys mac, and port
+    key
 
-Is the PageHead thing really "likely"?  We're usually dealing with
-order>0 pages here?
+Mahesh Bandewar (3):
+  bonding: Allow userspace to set actors' system_priority in AD system
+  bonding: Allow userspace to set actors' macaddr in an AD-system.
+  bonding: Implement user key part of port_key in an AD system.
+
+ Documentation/networking/bonding.txt |   84 ++++++++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_3ad.c       |   26 +++++++----
+ drivers/net/bonding/bond_main.c      |   23 ++++++++++
+ drivers/net/bonding/bond_netlink.c   |   50 ++++++++++++++++++++
+ drivers/net/bonding/bond_options.c   |   73 +++++++++++++++++++++++++++++
+ drivers/net/bonding/bond_procfs.c    |    8 ++++
+ drivers/net/bonding/bond_sysfs.c     |   69 ++++++++++++++++++++++++++++
+ include/net/bond_options.h           |    3 ++
+ include/net/bonding.h                |    3 ++
+ include/uapi/linux/if_link.h         |    3 ++
+ 10 files changed, 333 insertions(+), 9 deletions(-)
+
+iproute2 series:
+
+Jonathan Toppins (1):
+      iplink_bond: add support for ad_actor and port_key options
+
+ ip/iplink_bond.c |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 48 insertions(+)
+
+-- 
+1.7.10.4
