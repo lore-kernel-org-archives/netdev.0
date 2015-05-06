@@ -1,57 +1,87 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] switchdev: add support for fdb add/del/dump
- via switchdev_port_obj ops.
-Date: Wed, 06 May 2015 19:35:12 -0400
-Message-ID: <554AA530.7000702@mojatatu.com>
-References: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com>
+From: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
+Subject: Re: [V2 PATCH 3/5] device property: Introduces device_dma_is_coherent()
+Date: Wed, 6 May 2015 18:52:45 -0500
+Message-ID: <554AA94D.6020503@amd.com>
+References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+ <1430838729-21572-4-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Sridhar Samudrala <sridhar.samudrala@intel.com>, sfeldma@gmail.com,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:33200 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbbEFXfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 19:35:14 -0400
-Received: by iepj10 with SMTP id j10so23867422iep.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 16:35:13 -0700 (PDT)
-In-Reply-To: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <msalter@redhat.com>, <hanjun.guo@linaro.org>,
+	<al.stone@linaro.org>, <grant.likely@linaro.org>, <arnd@arndb.de>,
+	<leo.duran@amd.com>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
+	<linux-crypto@vger.kernel.org>
+To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
+	<herbert@gondor.apana.org.au>, <davem@davemloft.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1430838729-21572-4-git-send-email-Suravee.Suthikulpanit@amd.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/06/15 17:54, Sridhar Samudrala wrote:
-> - introduce port fdb obj and generic switchdev_port_fdb_add/del/dump()
-> - use switchdev_port_fdb_add/del/dump in rocker/team/bonding ndo ops.
-> - add support for fdb obj in switchdev_port_obj_add/del/dump()
-> - switch rocker to implement fdb ops via switchdev_ops
+Rafael,
+
+Any comments on this patch?
+
+Thanks,
+
+Suravee
+
+On 5/5/2015 10:12 AM, Suravee Suthikulpanit wrote:
+> Currently, device drivers, which support both OF and ACPI,
+> need to call two separate APIs, of_dma_is_coherent() and
+> acpi_dma_is_coherent()) to determine device coherency attribute.
 >
-> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> This patch simplifies this process by introducing a new device
+> property API, device_dma_is_coherent(), which calls the appropriate
+> interface based on the booting architecture.
+>
+> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
 > ---
-
-
-
-So i raised this earlier. DaveM also chimed in - but it seems still
-in there.
-i havent been following the discussion and i may have missed
-the agreement to keep the new IDs. Could we not just have used netlink
-  IDs (as opposed to a new SWITCHDEV_OBJ_PORT_FDB id)?
-
-> +int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-> +			   struct net_device *dev, const unsigned char *addr,
-> +			   u16 vid, u16 nlm_flags)
-> +{
-> +	struct switchdev_obj obj = {
-> +		.id = SWITCHDEV_OBJ_PORT_FDB,
-> +		.fdb = {
-> +			.addr = addr,
-> +			.vid = vid,
-> +		},
-> +	};
+>   drivers/base/property.c  | 12 ++++++++++++
+>   include/linux/property.h |  2 ++
+>   2 files changed, 14 insertions(+)
+>
+> diff --git a/drivers/base/property.c b/drivers/base/property.c
+> index 1d0b116..8123c6e 100644
+> --- a/drivers/base/property.c
+> +++ b/drivers/base/property.c
+> @@ -14,6 +14,7 @@
+>   #include <linux/export.h>
+>   #include <linux/kernel.h>
+>   #include <linux/of.h>
+> +#include <linux/of_address.h>
+>   #include <linux/property.h>
+>
+>   /**
+> @@ -519,3 +520,14 @@ unsigned int device_get_child_node_count(struct device *dev)
+>   	return count;
+>   }
+>   EXPORT_SYMBOL_GPL(device_get_child_node_count);
 > +
-> +	return switchdev_port_obj_add(dev, &obj);
+> +bool device_dma_is_coherent(struct device *dev)
+> +{
+> +	if (IS_ENABLED(CONFIG_OF) && dev->of_node)
+> +		return of_dma_is_coherent(dev->of_node);
+> +	else if (has_acpi_companion(dev))
+> +		return acpi_dma_is_coherent(acpi_node(dev->fwnode));
+> +
+> +	return false;
 > +}
+> +EXPORT_SYMBOL_GPL(device_dma_is_coherent);
+> diff --git a/include/linux/property.h b/include/linux/property.h
+> index de8bdf4..76ebde9 100644
+> --- a/include/linux/property.h
+> +++ b/include/linux/property.h
+> @@ -164,4 +164,6 @@ struct property_set {
+>
+>   void device_add_property_set(struct device *dev, struct property_set *pset);
+>
+> +bool device_dma_is_coherent(struct device *dev);
+> +
+>   #endif /* _LINUX_PROPERTY_H_ */
+>
 
-cheers,
-jamal
+
