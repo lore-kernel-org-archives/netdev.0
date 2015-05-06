@@ -1,47 +1,193 @@
 From: <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 3/3] tipc: send explicit not supported error in nl compat
-Date: Wed, 6 May 2015 13:58:56 +0200
-Message-ID: <1430913536-4206-3-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 2/3] tipc: add broadcast link
+	window set/get to nl api
+Date: Wed, 6 May 2015 13:58:55 +0200
+Message-ID: <1430913536-4206-2-git-send-email-richard.alpe@ericsson.com>
 References: <1430913536-4206-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>,
-	Richard Alpe <richard.alpe@ericsson.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:65386 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764AbbEFMDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 08:03:31 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1430913536-4206-1-git-send-email-richard.alpe@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 From: Richard Alpe <richard.alpe@ericsson.com>
 
-The legacy netlink API treated EPERM (permission denied) as
-"operation not supported".
+Add the ability to get or set the broadcast link window through the
+new netlink API. The functionality was unintentionally missing from
+the new netlink API. Adding this means that we also fix the breakage
+in the old API when coming through the compat layer.
 
+Fixes: 37e2d4843f9e (tipc: convert legacy nl link prop set to nl compat)
 Reported-by: Tomi Ollila <tomi.ollila@iki.fi>
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/netlink_compat.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/tipc/bcast.c | 21 ++++++++++++++++++
+ net/tipc/bcast.h |  1 +
+ net/tipc/link.c  | 66 ++++++++++++++++++++++++++++++--------------------------
+ 3 files changed, 58 insertions(+), 30 deletions(-)
 
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index 809aaf0..53e0fee 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -1121,7 +1121,7 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
- 	}
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index c5cbdcb..3e18fc6 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -866,6 +866,27 @@ int tipc_bclink_set_queue_limits(struct net *net, u32 limit)
+ 	return 0;
+ }
  
- 	err = tipc_nl_compat_handle(&msg);
--	if (err == -EOPNOTSUPP)
-+	if ((err == -EOPNOTSUPP) || (err == -EPERM))
- 		msg.rep = tipc_get_err_tlv(TIPC_CFG_NOT_SUPPORTED);
- 	else if (err == -EINVAL)
- 		msg.rep = tipc_get_err_tlv(TIPC_CFG_TLV_ERROR);
++int tipc_nl_bc_link_set(struct net *net, struct nlattr *attrs[])
++{
++	int err;
++	u32 win;
++	struct nlattr *props[TIPC_NLA_PROP_MAX + 1];
++
++	if (!attrs[TIPC_NLA_LINK_PROP])
++		return -EINVAL;
++
++	err = tipc_nl_parse_link_prop(attrs[TIPC_NLA_LINK_PROP], props);
++	if (err)
++		return err;
++
++	if (!props[TIPC_NLA_PROP_WIN])
++		return -EOPNOTSUPP;
++
++	win = nla_get_u32(props[TIPC_NLA_PROP_WIN]);
++
++	return tipc_bclink_set_queue_limits(net, win);
++}
++
+ int tipc_bclink_init(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index 4bdc122..3c290a48 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -131,6 +131,7 @@ uint  tipc_bclink_get_mtu(void);
+ int tipc_bclink_xmit(struct net *net, struct sk_buff_head *list);
+ void tipc_bclink_wakeup_users(struct net *net);
+ int tipc_nl_add_bc_link(struct net *net, struct tipc_nl_msg *msg);
++int tipc_nl_bc_link_set(struct net *net, struct nlattr *attrs[]);
+ void tipc_bclink_input(struct net *net);
+ 
+ #endif
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 43a515d..374d523 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1893,6 +1893,9 @@ int tipc_nl_link_set(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	name = nla_data(attrs[TIPC_NLA_LINK_NAME]);
+ 
++	if (strcmp(name, tipc_bclink_name) == 0)
++		return tipc_nl_bc_link_set(net, attrs);
++
+ 	node = tipc_link_find_owner(net, name, &bearer_id);
+ 	if (!node)
+ 		return -EINVAL;
+@@ -2175,50 +2178,53 @@ out:
+ int tipc_nl_link_get(struct sk_buff *skb, struct genl_info *info)
+ {
+ 	struct net *net = genl_info_net(info);
+-	struct sk_buff *ans_skb;
+ 	struct tipc_nl_msg msg;
+-	struct tipc_link *link;
+-	struct tipc_node *node;
+ 	char *name;
+-	int bearer_id;
+ 	int err;
+ 
++	msg.portid = info->snd_portid;
++	msg.seq = info->snd_seq;
++
+ 	if (!info->attrs[TIPC_NLA_LINK_NAME])
+ 		return -EINVAL;
+-
+ 	name = nla_data(info->attrs[TIPC_NLA_LINK_NAME]);
+-	node = tipc_link_find_owner(net, name, &bearer_id);
+-	if (!node)
+-		return -EINVAL;
+ 
+-	ans_skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
+-	if (!ans_skb)
++	msg.skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!msg.skb)
+ 		return -ENOMEM;
+ 
+-	msg.skb = ans_skb;
+-	msg.portid = info->snd_portid;
+-	msg.seq = info->snd_seq;
+-
+-	tipc_node_lock(node);
+-	link = node->links[bearer_id];
+-	if (!link) {
+-		err = -EINVAL;
+-		goto err_out;
+-	}
+-
+-	err = __tipc_nl_add_link(net, &msg, link, 0);
+-	if (err)
+-		goto err_out;
++	if (strcmp(name, tipc_bclink_name) == 0) {
++		err = tipc_nl_add_bc_link(net, &msg);
++		if (err) {
++			nlmsg_free(msg.skb);
++			return err;
++		}
++	} else {
++		int bearer_id;
++		struct tipc_node *node;
++		struct tipc_link *link;
+ 
+-	tipc_node_unlock(node);
++		node = tipc_link_find_owner(net, name, &bearer_id);
++		if (!node)
++			return -EINVAL;
+ 
+-	return genlmsg_reply(ans_skb, info);
++		tipc_node_lock(node);
++		link = node->links[bearer_id];
++		if (!link) {
++			tipc_node_unlock(node);
++			nlmsg_free(msg.skb);
++			return -EINVAL;
++		}
+ 
+-err_out:
+-	tipc_node_unlock(node);
+-	nlmsg_free(ans_skb);
++		err = __tipc_nl_add_link(net, &msg, link, 0);
++		tipc_node_unlock(node);
++		if (err) {
++			nlmsg_free(msg.skb);
++			return err;
++		}
++	}
+ 
+-	return err;
++	return genlmsg_reply(msg.skb, info);
+ }
+ 
+ int tipc_nl_link_reset_stats(struct sk_buff *skb, struct genl_info *info)
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
+One dashboard for servers and applications across Physical-Virtual-Cloud 
+Widest out-of-the-box monitoring support with 50+ applications
+Performance metrics, stats and reports that give you Actionable Insights
+Deep dive visibility with transaction tracing using APM Insight.
+http://ad.doubleclick.net/ddm/clk/290420510;117567292;y
