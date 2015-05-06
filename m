@@ -1,38 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] tcp: add TCPWinProbe SNMP counter
-Date: Wed, 06 May 2015 13:00:10 -0700
-Message-ID: <1430942410.14545.86.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430916734-5051-1-git-send-email-edumazet@google.com>
-	 <1430916734-5051-3-git-send-email-edumazet@google.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net-next] tipc: allow one link per bearer to neighboring
+ nodes
+Date: Wed, 6 May 2015 19:45:18 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C3F0AC1@eusaamb103.ericsson.se>
+References: <1415986399-23874-1-git-send-email-holger.brunck@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Nandita Dukkipati <nanditad@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ying Xue <ying.xue@windriver.com>,
+	Erik Hugne <erik.hugne@ericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Holger Brunck <holger.brunck@keymile.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:34103 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250AbbEFUAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 16:00:12 -0400
-Received: by iget9 with SMTP id t9so105411475ige.1
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 13:00:11 -0700 (PDT)
-In-Reply-To: <1430916734-5051-3-git-send-email-edumazet@google.com>
+Received: from usevmg21.ericsson.net ([198.24.6.65]:47827 "EHLO
+	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751250AbbEFUAX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 16:00:23 -0400
+In-Reply-To: <1415986399-23874-1-git-send-email-holger.brunck@keymile.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-06 at 05:52 -0700, Eric Dumazet wrote:
-> Diagnosing problems related to Window Probes has been hard because
-> we lacked a counter.
+Hi Holger,
+I am trying to remember why you wanted to have this, especially since it
+didn't change anything in practice, because MAX_BEARERS is still 2.
+
+This limit has to be changed, since we may want to have e.g. dual Ethernet
+links to some nodes and single UDP links to others (but never the same)
+
+Despite this, I can find good reasons to not allow more than two links 
+between a node pair. (In particular, the failover mechanism becomes 
+much more complex)
+
+Can you please reiterate why you see a need for this?
+
+Regards
+///jon
+
+
+> -----Original Message-----
+> From: Holger Brunck [mailto:holger.brunck@keymile.com]
+> Sent: Friday, November 14, 2014 12:33 PM
+> To: davem@davemloft.net
+> Cc: Jon Maloy; Holger Brunck; Ying Xue; Erik Hugne; netdev@vger.kernel.org
+> Subject: [PATCH net-next] tipc: allow one link per bearer to neighboring
+> nodes
 > 
-> TCPWinProbe counts the number of ACK packets a sender has to transmit
-> at regular intervals to make sure a reverse ACK packet opening back
-> a zero window had not been lost.
-
-As Yuchung & Neal suggested, we'll introduce a separate TCPKeepAlive
-SNMP counter in V2
-
-Please do not apply this patch, thanks !
+> There is no reason to limit the amount of possible links to a neighboring node
+> to 2. If we have more then two bearers we can also establish more links.
+> 
+> Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
+> Reviewed-By: Jon Maloy <jon.maloy@ericsson.com>
+> cc: Ying Xue <ying.xue@windriver.com>
+> cc: Erik Hugne <erik.hugne@ericsson.com>
+> cc: netdev@vger.kernel.org
+> ---
+>  net/tipc/link.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/tipc/link.c b/net/tipc/link.c index 1db162a..7cf8004 100644
+> --- a/net/tipc/link.c
+> +++ b/net/tipc/link.c
+> @@ -224,9 +224,10 @@ struct tipc_link *tipc_link_create(struct tipc_node
+> *n_ptr,
+>  	char addr_string[16];
+>  	u32 peer = n_ptr->addr;
+> 
+> -	if (n_ptr->link_cnt >= 2) {
+> +	if (n_ptr->link_cnt >= MAX_BEARERS) {
+>  		tipc_addr_string_fill(addr_string, n_ptr->addr);
+> -		pr_err("Attempt to establish third link to %s\n", addr_string);
+> +		pr_err("Attempt to establish %uth link to %s. Max %u
+> allowed.\n",
+> +			n_ptr->link_cnt, addr_string, MAX_BEARERS);
+>  		return NULL;
+>  	}
+> 
+> --
+> 2.1.2
