@@ -1,39 +1,82 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next 6/7] packet: rollover huge flows before small flows
-Date: Wed, 6 May 2015 16:19:36 -0400
-Message-ID: <CA+FuTScaDNf2OfjbSN8aSvQz+e_USDh7EuNZDLrhGhfe1rDXrQ@mail.gmail.com>
-References: <1430936837-22655-1-git-send-email-willemb@google.com>
- <1430936837-22655-7-git-send-email-willemb@google.com> <1430940864.14545.80.camel@edumazet-glaptop2.roam.corp.google.com>
- <CA+FuTSfQ5vXQeo8FqU-hi3zTqu4hx+JqJmNbmRp95M0O3um1kA@mail.gmail.com> <1430943360.14545.89.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [net-next PATCH 1/6] net: Add skb_free_frag to replace use of
+ put_page in freeing skb->head
+Date: Wed, 06 May 2015 13:27:43 -0700
+Message-ID: <554A793F.3070001@redhat.com>
+References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>	<20150504231448.1538.84164.stgit@ahduyck-vm-fedora22> <20150506123840.312f41000e8d46f1ef9ce046@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org, davem@davemloft.net,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:36038 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751295AbbEFUUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 16:20:07 -0400
-Received: by obbkp3 with SMTP id kp3so16074604obb.3
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 13:20:06 -0700 (PDT)
-In-Reply-To: <1430943360.14545.89.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43144 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751532AbbEFU1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2015 16:27:45 -0400
+In-Reply-To: <20150506123840.312f41000e8d46f1ef9ce046@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 6, 2015 at 4:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2015-05-06 at 16:06 -0400, Willem de Bruijn wrote:
->
->> Do you suggest running lockless, similar to the rfs table?
->> I can reduce history length to make hist_idx fit in the same
->> cacheline.
->
-> I suggest not using hit_idx at all, and no lock either.
->
-> for (i = 0; i < ROLLOVER_HLEN; i++)
->       if (po->rollover->history[i] == rxhash)
->               count++;
->
-> po->rollover->history[prandom_u32() % ROLLOVER_HLEN] = rxhash;
 
-Thanks, I'll do that.
+
+On 05/06/2015 12:38 PM, Andrew Morton wrote:
+> On Mon, 04 May 2015 16:14:48 -0700 Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
+>
+>> +/**
+>> + * skb_free_frag - free a page fragment
+>> + * @head: virtual address of page fragment
+>> + *
+>> + * Frees a page fragment allocated out of either a compound or order 0 page.
+>> + * The function itself is a hybrid between free_pages and free_compound_page
+>> + * which can be found in mm/page_alloc.c
+>> + */
+>> +void skb_free_frag(void *head)
+>> +{
+>> +	struct page *page = virt_to_head_page(head);
+>> +
+>> +	if (unlikely(put_page_testzero(page))) {
+>> +		if (likely(PageHead(page)))
+>> +			__free_pages_ok(page, compound_order(page));
+>> +		else
+>> +			free_hot_cold_page(page, false);
+>> +	}
+>> +}
+> Why are we testing for PageHead in here?  If the code were to simply do
+>
+> 	if (unlikely(put_page_testzero(page)))
+> 		__free_pages_ok(page, compound_order(page));
+>
+> that would still work?
+
+My assumption was that there was a performance difference between 
+__free_pages_ok and free_hot_cold_page for order 0 pages.  From what I 
+can tell free_hot_cold_page will do bulk cleanup via free_pcppages_bulk 
+while __free_pages_ok just calls free_one_page.
+
+> There's nothing networking-specific in here.  I suggest the function be
+> renamed and moved to page_alloc.c.  Add an inlined skb_free_frag() in a
+> net header which calls it.  This way the mm developers know about it
+> and will hopefully maintain it.  It would need a comment explaining
+> when and why people should and shouldn't use it.
+
+That's true.  While I am at it I should probably pull the allocation out 
+as well just so it is all in one location.
+
+> The term "page fragment" is a net thing and isn't something we know
+> about.  What is it?  From context I'm thinking a definition would look
+> something like
+>
+>    An arbitrary-length arbitrary-offset area of memory which resides
+>    within a 0 or higher order page.  Multiple fragments within that page
+>    are individually refcounted, in the page's reference counter.
+>
+> Is that correct and complete?
+
+Yeah that is pretty complete.  I've added Eric who originally authored 
+this to the Cc in case there is something he wants to add. I'll see 
+about updating this and will likely have a v2 ready in the next couple 
+of hours.
+
+- Alex
