@@ -1,54 +1,35 @@
-From: Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: [net-next PATCH v3 1/4] devicetree: Add compatible string for Zynq Ultrascale+ MPSoC
-Date: Wed, 6 May 2015 22:27:15 +0530
-Message-ID: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	<punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	<harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH 0/4] iproute2: exit code fixes
+Date: Wed,  6 May 2015 09:57:59 -0700
+Message-ID: <1430931483-28595-1-git-send-email-stephen@networkplumber.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34124 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753114AbbEFQ6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 12:58:01 -0400
+Received: by pacyx8 with SMTP id yx8so14552609pac.1
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 09:58:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add "cdns,zynqmp-gem" to be used for Zynq Ultrascale+ MPSoC.
+The exit code for ip command has always been 0 on success,
+1 on syntax error, and 2 on kernel (netlink) error; but it isn't
+documented and there were some regressions and places it was not
+being done correctly.
 
-Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
----
+Stephen Hemminger (4):
+  ip: document exit code
+  ip: return correct exit code on route failure
+  ip: fix exit code for rule failures
+  ip: fix exit code for addrlabel
 
-v3:
-No changes
+ ip/ipaddrlabel.c | 6 +++---
+ ip/iproute.c     | 2 +-
+ ip/iprule.c      | 2 +-
+ man/man8/ip.8    | 4 ++++
+ 4 files changed, 9 insertions(+), 5 deletions(-)
 
-v2:
-Updated SoC name
-
----
- Documentation/devicetree/bindings/net/macb.txt |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index ba19d67..8ec5fdf 100644
---- a/Documentation/devicetree/bindings/net/macb.txt
-+++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -9,6 +9,7 @@ Required properties:
-   the Cadence GEM, or the generic form: "cdns,gem".
-   Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
-   Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
-+  Use "cdns,zynqmp-gem" for Zynq Ultrascale+ MPSoC.
- - reg: Address and length of the register set for the device
- - interrupts: Should contain macb interrupt
- - phy-mode: See ethernet.txt file in the same directory.
 -- 
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.1.4
