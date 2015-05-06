@@ -1,61 +1,57 @@
-From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [net-next PATCH v3 2/4] net: macb: Add compatible string for Zynq Ultrascale+ MPSoC
-Date: Wed, 6 May 2015 22:27:16 +0530
-Message-ID: <1430931438-32592-2-git-send-email-harinik@xilinx.com>
-References: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
-	<punnaia@xilinx.com>, <michals@xilinx.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<boris.brezillon@free-electrons.com>,
-	<alexandre.belloni@free-electrons.com>,
-	<harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH 4/4] ip: fix exit code for addrlabel
+Date: Wed,  6 May 2015 09:58:03 -0700
+Message-ID: <1430931483-28595-5-git-send-email-stephen@networkplumber.org>
+References: <1430931483-28595-1-git-send-email-stephen@networkplumber.org>
+Cc: Stephen Hemminger <shemming@brocade.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:32777 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753164AbbEFQ6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 12:58:06 -0400
+Received: by pdbnk13 with SMTP id nk13so15132458pdb.0
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 09:58:05 -0700 (PDT)
+In-Reply-To: <1430931483-28595-1-git-send-email-stephen@networkplumber.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add compatible string and config structure for Zynq Ultrascale+ MPSoC
+From: Stephen Hemminger <shemming@brocade.com>
 
-Signed-off-by: Harini Katakam <harinik@xilinx.com>
-Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+The exit code for ip label was not correct.
+The return from the command function is negated and turned into
+the exit code on failure.
 ---
+ ip/ipaddrlabel.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Added in v3
-
----
- drivers/net/ethernet/cadence/macb.c |    8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 4104d49..bbe5656 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2684,6 +2684,13 @@ static const struct macb_config emac_config = {
- 	.init = at91ether_init,
- };
+diff --git a/ip/ipaddrlabel.c b/ip/ipaddrlabel.c
+index f6a638b..19a9308 100644
+--- a/ip/ipaddrlabel.c
++++ b/ip/ipaddrlabel.c
+@@ -183,7 +183,7 @@ static int ipaddrlabel_modify(int cmd, int argc, char **argv)
+ 		req.ifal.ifal_family = AF_INET6;
  
-+static const struct macb_config zynqmp_config = {
-+	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
-+	.dma_burst_length = 16,
-+	.clk_init = macb_clk_init,
-+	.init = macb_init,
-+};
-+
- static const struct of_device_id macb_dt_ids[] = {
- 	{ .compatible = "cdns,at32ap7000-macb" },
- 	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
-@@ -2694,6 +2701,7 @@ static const struct of_device_id macb_dt_ids[] = {
- 	{ .compatible = "atmel,sama5d4-gem", .data = &sama5d4_config },
- 	{ .compatible = "cdns,at91rm9200-emac", .data = &emac_config },
- 	{ .compatible = "cdns,emac", .data = &emac_config },
-+	{ .compatible = "cdns,zynqmp-gem", .data = &zynqmp_config},
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, macb_dt_ids);
+ 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
+-		return 2;
++		return -2;
+ 
+ 	return 0;
+ }
+@@ -232,12 +232,12 @@ static int ipaddrlabel_flush(int argc, char **argv)
+ 
+ 	if (rtnl_wilddump_request(&rth, af, RTM_GETADDRLABEL) < 0) {
+ 		perror("Cannot send dump request");
+-		return 1;
++		return -1;
+ 	}
+ 
+ 	if (rtnl_dump_filter(&rth, flush_addrlabel, NULL) < 0) {
+ 		fprintf(stderr, "Flush terminated\n");
+-		return 1;
++		return -1;
+ 	}
+ 
+ 	return 0;
 -- 
-1.7.9.5
+2.1.4
