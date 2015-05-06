@@ -1,93 +1,101 @@
 From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
 Subject: Re: [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Tue, 5 May 2015 23:15:37 -0500
-Message-ID: <55499569.8060403@amd.com>
+Date: Tue, 5 May 2015 23:17:48 -0500
+Message-ID: <554995EC.3030601@amd.com>
 References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
  <1430838729-21572-2-git-send-email-Suravee.Suthikulpanit@amd.com>
- <3234610.3j3NfP3xpR@vostro.rjw.lan>
+ <554986D5.5010102@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <lenb@kernel.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
-	<herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<msalter@redhat.com>, <hanjun.guo@linaro.org>,
-	<al.stone@linaro.org>, <grant.likely@linaro.org>, <arnd@arndb.de>,
-	<leo.duran@amd.com>, <linux-arm-kernel@lists.infradead.org>,
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <msalter@redhat.com>, <al.stone@linaro.org>,
+	<grant.likely@linaro.org>, <arnd@arndb.de>, <leo.duran@amd.com>,
+	<linux-arm-kernel@lists.infradead.org>,
 	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
-	<linux-crypto@vger.kernel.org>,
-	Mika Westerberg <mika.westerberg@linux.intel.com>
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <3234610.3j3NfP3xpR@vostro.rjw.lan>
-Sender: linux-acpi-owner@vger.kernel.org
+	<linux-crypto@vger.kernel.org>
+To: Hanjun Guo <hanjun.guo@linaro.org>, <rjw@rjwysocki.net>,
+	<lenb@kernel.org>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
+	<herbert@gondor.apana.org.au>, <davem@davemloft.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <554986D5.5010102@linaro.org>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[RESEND]
-
-On 5/5/15 15:36, Rafael J. Wysocki wrote:
-> On Tuesday, May 05, 2015 10:12:05 AM Suravee Suthikulpanit wrote:
+On 5/5/15 22:13, Hanjun Guo wrote:
+> On 2015=E5=B9=B405=E6=9C=8805=E6=97=A5 23:12, Suravee Suthikulpanit w=
+rote:
+>> This patch implements support for ACPI _CCA object, which is
+>> introduced in
+>> ACPIv5.1, can be used for specifying device DMA coherency attribute.
+>>
+>> The parsing logic traverses device namespace to parse coherency
+>> information, and stores it in acpi_device_flags. Then uses it to cal=
+l
+>> arch_setup_dma_ops() when creating each device enumerated in DSDT
+>> during ACPI scan.
+>>
+>> This patch also introduces acpi_dma_is_coherent(), which provides
+>> an interface for device drivers to check the coherency information
+>> similarly to the of_dma_is_coherent().
+>>
+>> Signed-off-by: Mark Salter <msalter@redhat.com>
+>> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+>> ---
+>> NOTE:
+>>   * Since there seem to be conflict opinions regarding how
+>>     architecture should handle _CCA=3D0. So, I am proposing the
+>>     CONFIG_ARCH_SUPPORT_CCA_ZERO, which can be specified by
+>>     for each architecture to define behavior of the ACPI
+>>     scanning code when _CCA=3D0. Let me know if this is acceptable.
+>>
+>>   drivers/acpi/Kconfig         |  6 +++++
+>>   drivers/acpi/acpi_platform.c |  4 ++-
+>>   drivers/acpi/scan.c          | 62
+>> ++++++++++++++++++++++++++++++++++++++++++++
+>>   include/acpi/acpi_bus.h      | 11 +++++++-
+>>   include/linux/acpi.h         |  5 ++++
+>>   5 files changed, 86 insertions(+), 2 deletions(-)
+>>
 >> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
 >> index ab2cbb5..dd386e9 100644
 >> --- a/drivers/acpi/Kconfig
 >> +++ b/drivers/acpi/Kconfig
 >> @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
 >>   config ACPI_SYSTEM_POWER_STATES_SUPPORT
->>   	bool
+>>       bool
 >>
 >> +config ACPI_MUST_HAVE_CCA
->
-> ACPI_CCA_REQUIRED maybe?
-
-Sure.
-
->
->> +	bool
+>> +    bool
 >> +
 >> +config ACPI_SUPPORT_CCA_ZERO
->
-> I guess this means "we support devices that can DMA, but are not coherent".
-> right?
-
-Yes, basically when _CCA=0.
-
->> +	bool
+>> +    bool
 >> +
 >>   config ACPI_SLEEP
->>   	bool
->>   	depends on SUSPEND || HIBERNATION
->> diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platform.c
+>>       bool
+>>       depends on SUSPEND || HIBERNATION
+>> diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platfo=
+rm.c
 >> index 4bf7559..a6feca4 100644
 >> --- a/drivers/acpi/acpi_platform.c
 >> +++ b/drivers/acpi/acpi_platform.c
->> @@ -108,9 +108,11 @@ struct platform_device *acpi_create_platform_device(struct acpi_device *adev)
->>   	if (IS_ERR(pdev))
->>   		dev_err(&adev->dev, "platform device creation failed: %ld\n",
->>   			PTR_ERR(pdev));
->> -	else
->> +	else {
->
-> Please add braces to both branches when making such changes (as per CodingStyle).
->
-
-OK.
-
->> +		acpi_setup_device_dma(adev, &pdev->dev);
->
-> Why do we need to do that here (for the second time)?
-
-Because we are calling:
-   acpi_create_platform_device()
-     |--> platform_device_register_device_full()
-       |-->platform_device_alloc()
-
-This creates platform_device, which allocate a new platform_device->dev. 
-This is not the same as the original acpi_device->dev that was created 
-during acpi_add_single_object(). So, we have to set up the device 
-coherency again.
-
-
+>> @@ -108,9 +108,11 @@ struct platform_device
+>> *acpi_create_platform_device(struct acpi_device *adev)
+>>       if (IS_ERR(pdev))
+>>           dev_err(&adev->dev, "platform device creation failed: %ld\=
+n",
+>>               PTR_ERR(pdev));
+>> -    else
+>> +    else {
+>> +        acpi_setup_device_dma(adev, &pdev->dev);
+>>           dev_dbg(&adev->dev, "created platform device %s\n",
+>>               dev_name(&pdev->dev));
+>> +    }
+>>
+>>       kfree(resources);
+>>       return pdev;
 >> diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
 >> index 849b699..ac33b29 100644
 >> --- a/drivers/acpi/scan.c
@@ -100,58 +108,47 @@ coherency again.
 >>
 >>   #include <asm/pgtable.h>
 >>
->> @@ -2137,6 +2138,66 @@ void acpi_free_pnp_ids(struct acpi_device_pnp *pnp)
->>   	kfree(pnp->unique_id);
+>> @@ -2137,6 +2138,66 @@ void acpi_free_pnp_ids(struct acpi_device_pnp
+>> *pnp)
+>>       kfree(pnp->unique_id);
 >>   }
 >>
->> +void acpi_setup_device_dma(struct acpi_device *adev, struct device *dev)
+>> +void acpi_setup_device_dma(struct acpi_device *adev, struct device =
+*dev)
+>
+> I aasume adev->dev in struct *adev is the same as struct device *dev
+> passed here, so
+>
 >> +{
->> +	int coherent = acpi_dma_is_coherent(adev);
+>> +    int coherent =3D acpi_dma_is_coherent(adev);
 >> +
->> +	/**
->> +	 * Currently, we only support DMA for devices that _CCA=1
->> +	 * since this seems to be the case on most ACPI platforms.
->> +	 *
->> +	 * For the case when _CCA=0 (i.e. is_coherent=0 && cca_seen=1),
->> +	 * we would rely on arch-specific cache maintenance for
->> +	 * non-coherence DMA operations if architecture enables
->> +	 * CONFIG_ACPI_SUPPORT_CCA_ZERO.
->> +	 *
->> +	 * For the case when _CCA is missing but platform requires it
->> +	 * (i.e. is_coherent=0 && cca_seen=0), we do not call
->> +	 * arch_setup_dma_ops() and fallback to arch-specific default
->> +	 * handling.
->> +	 */
->> +	if (adev->flags.cca_seen) {
->> +		if (!coherent && !IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO))
->> +			return;
->> +		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
+>> +    /**
+>> +     * Currently, we only support DMA for devices that _CCA=3D1
+>> +     * since this seems to be the case on most ACPI platforms.
+>> +     *
+>> +     * For the case when _CCA=3D0 (i.e. is_coherent=3D0 && cca_seen=
+=3D1),
+>> +     * we would rely on arch-specific cache maintenance for
+>> +     * non-coherence DMA operations if architecture enables
+>> +     * CONFIG_ACPI_SUPPORT_CCA_ZERO.
+>> +     *
+>> +     * For the case when _CCA is missing but platform requires it
+>> +     * (i.e. is_coherent=3D0 && cca_seen=3D0), we do not call
+>> +     * arch_setup_dma_ops() and fallback to arch-specific default
+>> +     * handling.
+>> +     */
+>> +    if (adev->flags.cca_seen) {
+>> +        if (!coherent && !IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO))
+>> +            return;
+>> +        arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
 >
-> Oh dear.
+> how about using &adev->dev here, and just pass struct acpi_device *ad=
+ev
+> for this function?
 
-I made a mistake here. This logic should also call arch_setup_dma_ops() 
-when cca_seen=0 and coherent=1 (e.g. when _CCA is not required and 
-default to coherent when it is missing). The current logic doesn't do that.
-
->
-> What about
->
-> 	if (adev->flags.cca_seen && (coherent || IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO)))
-> 		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
-
-What about:
-	if (coherent ||
-	    (adev->flags.cca_seen &&
-			IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO))
-		arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
-	
-> I wonder how this is going to affect x86/ia64 too?
->
-
-This should not affect x86 since arch_setup_dma_ops() is currently not 
-implement for x86, and default to NOP (see include/linux/dma-mapping.h). 
-  Also, on x86, _CCA is not required and default to 1 if missing.
-
-Thanks,
+Actually, I was using arch_setup_device_dma() in multiple places, and=20
+adev->dev is not necessary the same as *dev.  However, I am refactoring=
+=20
+this function in V3. Anyways, thanks for reviewing.
 
 Suravee
