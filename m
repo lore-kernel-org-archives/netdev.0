@@ -1,164 +1,113 @@
-From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [net-next PATCH v3 3/4] net: macb: Add support for jumbo frames
-Date: Wed, 6 May 2015 22:27:17 +0530
-Message-ID: <1430931438-32592-3-git-send-email-harinik@xilinx.com>
-References: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 97811] New: "ip netns create" hangs forever, spamming
+ console with "unregister_netdevice: waiting for lo to become free"
+Date: Wed, 6 May 2015 10:12:03 -0700
+Message-ID: <20150506101203.3ec37196@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
-	<punnaia@xilinx.com>, <michals@xilinx.com>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<boris.brezillon@free-electrons.com>,
-	<alexandre.belloni@free-electrons.com>,
-	<harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:34858 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590AbbEFRMA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 13:12:00 -0400
+Received: by pdbqd1 with SMTP id qd1so15388951pdb.2
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 10:11:59 -0700 (PDT)
+Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
+        by mx.google.com with ESMTPSA id ge4sm2391107pbc.52.2015.05.06.10.11.59
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 06 May 2015 10:11:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enable jumbo frame support for Zynq Ultrascale+ MPSoC.
-Update the NWCFG register and descriptor length masks accordingly.
-Jumbo max length register should be set according to support in SoC; it is
-set to 10240 for Zynq Ultrascale+ MPSoC.
 
-Signed-off-by: Harini Katakam <harinik@xilinx.com>
-Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
----
 
-v3:
-Use macb_config for declaring jumbo capability and max size.
+Begin forwarded message:
 
-v2:
-Add constant definition and update SoC name
+Date: Wed, 6 May 2015 17:09:25 +0000
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+Subject: [Bug 97811] New: "ip netns create" hangs forever, spamming console with "unregister_netdevice: waiting for lo to become free"
 
----
- drivers/net/ethernet/cadence/macb.c |   22 ++++++++++++++++++----
- drivers/net/ethernet/cadence/macb.h |    9 +++++++++
- 2 files changed, 27 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index bbe5656..cb84587 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -782,7 +782,7 @@ static int gem_rx(struct macb *bp, int budget)
- 		}
- 		/* now everything is ready for receiving packet */
- 		bp->rx_skbuff[entry] = NULL;
--		len = MACB_BFEXT(RX_FRMLEN, ctrl);
-+		len = ctrl & bp->rx_frm_len_mask;
- 
- 		netdev_vdbg(bp->dev, "gem_rx %u (len %u)\n", entry, len);
- 
-@@ -828,7 +828,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	struct macb_dma_desc *desc;
- 
- 	desc = macb_rx_desc(bp, last_frag);
--	len = MACB_BFEXT(RX_FRMLEN, desc->ctrl);
-+	len = desc->ctrl & bp->rx_frm_len_mask;
- 
- 	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
- 		macb_rx_ring_wrap(first_frag),
-@@ -1633,7 +1633,10 @@ static void macb_init_hw(struct macb *bp)
- 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
- 	config |= MACB_BIT(PAE);		/* PAuse Enable */
- 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
--	config |= MACB_BIT(BIG);		/* Receive oversized frames */
-+	if (bp->caps | MACB_CAPS_JUMBO)
-+		config |= MACB_BIT(JFRAME);	/* Enable jumbo frames */
-+	else
-+		config |= MACB_BIT(BIG);	/* Receive oversized frames */
- 	if (bp->dev->flags & IFF_PROMISC)
- 		config |= MACB_BIT(CAF);	/* Copy All Frames */
- 	else if (macb_is_gem(bp) && bp->dev->features & NETIF_F_RXCSUM)
-@@ -1642,8 +1645,13 @@ static void macb_init_hw(struct macb *bp)
- 		config |= MACB_BIT(NBC);	/* No BroadCast */
- 	config |= macb_dbw(bp);
- 	macb_writel(bp, NCFGR, config);
-+	if ((bp->caps | MACB_CAPS_JUMBO) && bp->jumbo_max_len)
-+		gem_writel(bp, JML, bp->jumbo_max_len);
- 	bp->speed = SPEED_10;
- 	bp->duplex = DUPLEX_HALF;
-+	bp->rx_frm_len_mask = MACB_RX_FRMLEN_MASK;
-+	if (bp->caps | MACB_CAPS_JUMBO)
-+		bp->rx_frm_len_mask = MACB_RX_JFRMLEN_MASK;
- 
- 	macb_configure_dma(bp);
- 
-@@ -2685,10 +2693,12 @@ static const struct macb_config emac_config = {
- };
- 
- static const struct macb_config zynqmp_config = {
--	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
-+	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
-+		MACB_CAPS_JUMBO,
- 	.dma_burst_length = 16,
- 	.clk_init = macb_clk_init,
- 	.init = macb_init,
-+	.jumbo_max_len = 10240,
- };
- 
- static const struct of_device_id macb_dt_ids[] = {
-@@ -2770,6 +2780,10 @@ static int macb_probe(struct platform_device *pdev)
- 	bp->pclk = pclk;
- 	bp->hclk = hclk;
- 	bp->tx_clk = tx_clk;
-+	if (macb_config->jumbo_max_len) {
-+		bp->jumbo_max_len = macb_config->jumbo_max_len;
-+	}
-+
- 	spin_lock_init(&bp->lock);
- 
- 	/* setup capabilities */
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index eb7d76f..7d4ef51 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -71,6 +71,7 @@
- #define GEM_NCFGR		0x0004 /* Network Config */
- #define GEM_USRIO		0x000c /* User IO */
- #define GEM_DMACFG		0x0010 /* DMA Configuration */
-+#define GEM_JML			0x0048 /* Jumbo Max Length */
- #define GEM_HRB			0x0080 /* Hash Bottom */
- #define GEM_HRT			0x0084 /* Hash Top */
- #define GEM_SA1B		0x0088 /* Specific1 Bottom */
-@@ -397,6 +398,7 @@
- #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
- #define MACB_CAPS_SG_DISABLED			0x40000000
- #define MACB_CAPS_MACB_IS_GEM			0x80000000
-+#define MACB_CAPS_JUMBO				0x00000008
- 
- /* Bit manipulation macros */
- #define MACB_BIT(name)					\
-@@ -514,6 +516,9 @@ struct macb_dma_desc {
- #define MACB_RX_BROADCAST_OFFSET		31
- #define MACB_RX_BROADCAST_SIZE			1
- 
-+#define MACB_RX_FRMLEN_MASK			0xFFF
-+#define MACB_RX_JFRMLEN_MASK			0x3FFF
-+
- /* RX checksum offload disabled: bit 24 clear in NCFGR */
- #define GEM_RX_TYPEID_MATCH_OFFSET		22
- #define GEM_RX_TYPEID_MATCH_SIZE		2
-@@ -757,6 +762,7 @@ struct macb_config {
- 	int	(*clk_init)(struct platform_device *pdev, struct clk **pclk,
- 			    struct clk **hclk, struct clk **tx_clk);
- 	int	(*init)(struct platform_device *pdev);
-+	int	jumbo_max_len;
- };
- 
- struct macb_queue {
-@@ -826,6 +832,9 @@ struct macb {
- 	unsigned int		max_tx_length;
- 
- 	u64			ethtool_stats[GEM_STATS_LEN];
-+
-+	unsigned int		rx_frm_len_mask;
-+	unsigned int		jumbo_max_len;
- };
- 
- static inline bool macb_is_gem(struct macb *bp)
+https://bugzilla.kernel.org/show_bug.cgi?id=97811
+
+            Bug ID: 97811
+           Summary: "ip netns create" hangs forever, spamming console with
+                    "unregister_netdevice: waiting for lo to become free"
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.0.1
+          Hardware: All
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: shemminger@linux-foundation.org
+          Reporter: zackw@panix.com
+        Regression: No
+
+Created attachment 176051
+  --> https://bugzilla.kernel.org/attachment.cgi?id=176051&action=edit
+.config
+
+I have an application that makes heavy use of network namespaces, creating and
+destroying them on the fly during operation.  With 100% reproducibility, the
+first invocation of "ip netns create" after any "ip netns del" hangs forever in
+D-state; only rebooting the machine clears the condition.  (This used to be an
+intermittent fault, going back at least as far as 3.16, but 4.0 seems to have
+upgraded it to an every-single-time fault.)
+
+lockdep hung task detection reports:
+
+May  5 22:48:07 laguz kernel: INFO: task ip:572431 blocked for more than 120
+seconds.
+May  5 22:48:07 laguz kernel:      Not tainted 4.0.1-linode55-lockdep #2
+May  5 22:48:07 laguz kernel: "echo 0 >
+/proc/sys/kernel/hung_task_timeout_secs" disables this message.
+May  5 22:48:07 laguz kernel: ip              D ffff88000e28bda8     0 572431
+572428 0x00000000
+May  5 22:48:07 laguz kernel: ffff88000e28bda8 ffff880058b60000
+ffff8801512c6540 ffff88000e28bda8
+May  5 22:48:07 laguz kernel: ffff88000e28bfd8 ffff8800a07e6500
+ffffffff81ecee88 ffff88000e28be28
+May  5 22:48:07 laguz kernel: ffff8801512c6540 ffff88000e28bdc8
+ffffffff81964ca9 0000000000000006
+May  5 22:48:07 laguz kernel: Call Trace:
+May  5 22:48:07 laguz kernel: [<ffffffff81964ca9>] schedule+0x74/0x83
+May  5 22:48:07 laguz kernel: [<ffffffff81964cc6>]
+schedule_preempt_disabled+0xe/0x10
+May  5 22:48:07 laguz kernel: [<ffffffff81965b0f>]
+mutex_lock_nested+0x200/0x462
+May  5 22:48:07 laguz kernel: [<ffffffff8175a651>] ? copy_net_ns+0x79/0x103
+May  5 22:48:07 laguz kernel: [<ffffffff8175a61c>] ? copy_net_ns+0x44/0x103
+May  5 22:48:07 laguz kernel: [<ffffffff811139d5>] ?
+lockdep_trace_alloc+0xca/0xdc
+May  5 22:48:07 laguz kernel: [<ffffffff8175a651>] copy_net_ns+0x79/0x103
+May  5 22:48:07 laguz kernel: [<ffffffff810f4b40>]
+create_new_namespaces+0x103/0x17f
+May  5 22:48:07 laguz kernel: [<ffffffff810f4d8b>]
+unshare_nsproxy_namespaces+0x8b/0xb0
+May  5 22:48:07 laguz kernel: [<ffffffff810da7f0>] SyS_unshare+0x120/0x2aa
+May  5 22:48:07 laguz kernel: [<ffffffff8196a2c9>]
+system_call_fastpath+0x12/0x17
+May  5 22:48:07 laguz kernel: 1 lock held by ip/572431:
+May  5 22:48:07 laguz kernel: #0:  (net_mutex){+.+.+.}, at:
+[<ffffffff8175a651>] copy_net_ns+0x79/0x103
+
+When the bug manifests, there is invariably also a kworker process stuck in
+D-state, but I don't see anything related to that in this trace.  I've
+restarted the machine so I can continue collecting data, but the condition will
+recur in a few days, at which point I will provide any additional information
+that you ask me for between now and then.
+
+.config attached.  (This is Linode's latest stock 64-bit kernel + activation of
+lockdep.)
+
 -- 
-1.7.9.5
+You are receiving this mail because:
+You are the assignee for the bug.
