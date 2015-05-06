@@ -1,53 +1,92 @@
-From: "Schmitt, Phillip J" <phillip.j.schmitt@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH v2 0/3] RSS fix for ixgbe/ixgbevf
-Date: Wed, 6 May 2015 19:47:42 +0000
-Message-ID: <305E19FFAC908240AB6DEBD1E2D8C1E17F8287BF@ORSMSX108.amr.corp.intel.com>
-References: <1430276261-29821-1-git-send-email-fan.du@intel.com>
- <1430398781.2669.110.camel@jtkirshe-mobl>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH V3 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to
+ optimize signaling the host
+Date: Wed, 6 May 2015 19:55:03 +0000
+Message-ID: <BY2PR0301MB0711E7B408E3821DFCF6E365A0D00@BY2PR0301MB0711.namprd03.prod.outlook.com>
+References: <1430936436-5837-1-git-send-email-kys@microsoft.com>
+ <1430935733.14545.57.camel@edumazet-glaptop2.roam.corp.google.com>
+ <BY2PR0301MB071195898775621EBF8FA9DEA0D00@BY2PR0301MB0711.namprd03.prod.outlook.com>
+ <1430939859.14545.72.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Du, Fan" <fan.du@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:39729 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750845AbbEFTro (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 May 2015 15:47:44 -0400
-In-Reply-To: <1430398781.2669.110.camel@jtkirshe-mobl>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1430939859.14545.72.camel@edumazet-glaptop2.roam.corp.google.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSW50ZWwtd2lyZWQtbGFu
-IFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24NCj4g
-QmVoYWxmIE9mIEplZmYgS2lyc2hlcg0KPiBTZW50OiBUaHVyc2RheSwgQXByaWwgMzAsIDIwMTUg
-NjowMCBBTQ0KPiBUbzogRHUsIEZhbg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgaW50
-ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gU3ViamVjdDogUmU6IFtJbnRlbC13aXJl
-ZC1sYW5dIFtQQVRDSCB2MiAwLzNdIFJTUyBmaXggZm9yIGl4Z2JlL2l4Z2JldmYNCj4gDQo+IE9u
-IFdlZCwgMjAxNS0wNC0yOSBhdCAxMDo1NyArMDgwMCwgRmFuIER1IHdyb3RlOg0KPiA+IFRoaXMg
-cGF0Y2hzZXQgcHJvdmlkZXMgUlNTIGhhc2ggdmFsdWUgZm9yIHVwcGVyIHN0YWNrIGJ5IGluZGlj
-YXRpbmcNCj4gPiB3aGV0aGVyIGl0J3MgYSBMMyBvciBMNCBoYXNoLiBUaHVzIG90aGVyIGNvbXBv
-bmVudCBvZiBuZXR3b3JrIHN0YWNrDQo+ID4gY291bGQgdXRpbGl6ZSB0aGlzIGhhc2ggdmFsdWUg
-cHJvdmlkZWQgYnkgTklDIHdpdGhvdXQgY2FjdWxhdGluZyBieQ0KPiA+IHRoZW1zZWx2ZXMuDQo+
-ID4NCj4gPiBUZXN0Og0KPiA+ICogU2ltcGxlIGlwZXJmIHRlc3QgdXNpbmcgaXhnYmUgZm9yIDgy
-NTk5RVMNCj4gPiAqIEJ1aWxkIHRlc3Qgb25seSBmb3IgaXhnYmV2Zg0KPiA+ICogbWFrZSBDPTEg
-Q0Y9LURfX0NIRUNLX0VORElBTl9fLCBubyB3YXJuaW5ncyBpbnRyb2R1Y2VkIGJ5IHRoaXMNCj4g
-PiBwYXRjaHNldA0KPiA+DQo+ID4gQ2hhbmdlbG9nOg0KPiA+IHYyOg0KPiA+ICAgLSBBZGQgcGF0
-Y2gzIHRvIG1ha2UgYWxsIGhhc2ggdmFsdWUgZnJvbSBSU1MgcGFydC4NCj4gPiB2MToNCj4gPiAg
-IC0gQ29kZSBzdHlsZSBpc3N1ZSBzdWdnZXRlZCBieSBUYW50aWxvdiwgRW1pbCBTLg0KPiA+ICAg
-LSBJbml0aWFsIHZlcnNpb24NCj4gPg0KPiA+IEZhbiBEdSAoMyk6DQo+ID4gICBpeGdiZTogU3Bl
-Y2lmeSByeCBoYXNoIHR5cGUgd3J0IHJ4IGRlc2MgUlNTIHR5cGUNCj4gPiAgIGl4Z2JldmY6IFNl
-dCByeCBoYXNoIHR5cGUgZm9yIGluZ3Jlc3MgcGFja2V0cw0KPiA+ICAgaXhnYmU6IERvbid0IHJl
-cG9ydCBmbG93IGRpcmVjdG9yIGZpbHRlcidzIHN0YXR1cw0KPiA+DQo+ID4gIGRyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlXzgyNTk5LmMgICAgfCAgICAyIC0NCj4gPiAgZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICAgICB8ICAgMjUgKysr
-KysrKysrKysrKysrKy0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZm
-L2RlZmluZXMuaCAgICAgIHwgICAxMiArKysrKysrKysNCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYyB8ICAgMjcNCj4gKysrKysrKysrKysrKysr
-KysrKysrDQo+ID4gIDQgZmlsZXMgY2hhbmdlZCwgNjAgaW5zZXJ0aW9ucygrKSwgNiBkZWxldGlv
-bnMoLSkNCj4gPg0KPiANCj4gVGhhbmtzIEZhbiwgSSBoYXZlIGFkZGVkIHlvdXIgc2VyaWVzIHRv
-IG15IHF1ZXVlIGZvciBmdXJ0aGVyIHJldmlldyBhbmQgdGVzdGluZy4NCg0KVGVzdGVkLWJ5OiBQ
-aGlsIFNjaG1pdHQgPHBoaWxsaXAuai5zY2htaXR0QGludGVsLmNvbT4NCg==
+
+
+> -----Original Message-----
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> Sent: Wednesday, May 6, 2015 12:18 PM
+> To: KY Srinivasan
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com
+> Subject: Re: [PATCH V3 net-next 1/1] hv_netvsc: Use the xmit_more skb flag
+> to optimize signaling the host
+> 
+> On Wed, 2015-05-06 at 18:28 +0000, KY Srinivasan wrote:
+> 
+> > Ah! I too was wondering how we could get into this situation. The condition
+> you mention
+> > is already handled in the lower level - if the attempt to put the last packet
+> on vmbus were to
+> > fail because the ring is full, we will notify the host independent of kick_q
+> parameter - look
+> > at the function vmbus_sendpacket_ctl() in drivers/hv/channel.c
+> >
+> > I will resend the patch by reverting this to version 2.
+> 
+> I am not really convinced by what you are saying ;)
+> 
+> problem is not when you fail to add an additional packet.
+> 
+> Problem is :
+> 
+> You queue a packet but not kick because skb->xmit_more = 1, and _then_
+> you call netif_tx_stop_queue().
+> 
+> No further packet will be delivered to your driver, until
+> netif_tx_wake_queue() is called again from netvsc_send_completion(),
+> possibly milli seconds later.
+
+Ok; I see your point. We stop the q in our driver under two conditions:
+
+1. When the ring is full and we fail to queue. This situation is taken care of already.
+2. We fall below a certain free space in the ring buffer - this is the case you are pointing out.
+
+I will address this and resend the patch. Thanks for the review.
+
+Regards,
+
+K. Y
+> 
+> If qdisc was replaced by another one, no packet will kick again, unless
+> other traffic comes.
+> 
+> Given complexity of your driver, I have no easy way to check you made
+> this xmit_more conversion correctly, and one packet can not sit in the
+> equivalent of TX ring buffer for unbound time.
+> 
+> Better add a full explanation into your changelog.
+> 
+> 
