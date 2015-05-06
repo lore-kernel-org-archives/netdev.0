@@ -1,211 +1,182 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 5/6] netns: use a spin_lock to protect nsid management
-Date: Wed,  6 May 2015 11:58:07 +0200
-Message-ID: <1430906288-5108-6-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 6/6] netlink: allow to listen "all" netns
+Date: Wed,  6 May 2015 11:58:08 +0200
+Message-ID: <1430906288-5108-7-git-send-email-nicolas.dichtel@6wind.com>
 References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:42324 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:42323 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751036AbbEFJ6S (ORCPT
+	with ESMTP id S1751031AbbEFJ6S (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 05:58:18 -0400
 In-Reply-To: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before this patch, nsid were protected by the rtnl lock. The goal of this
-patch is to be able to find a nsid without needing to hold the rtnl lock.
+More accurately, listen all netns that have a nsid assigned into the netns
+where the netlink socket is opened.
+For this purpose, a netlink socket option is added:
+NETLINK_LISTEN_ALL_NSID. When this option is set on a netlink socket, this
+socket will receive netlink notifications from all netns that have a nsid
+assigned into the netns where the socket has been opened. The nsid is sent
+to userland via an anscillary data.
 
-The next patch will introduce a netlink socket option to listen to all
-netns that have a nsid assigned into the netns where the socket is opened.
-Thus, it's important to call rtnl_net_notifyid() outside the spinlock, to
-avoid a recursive lock (nsid are notified via rtnl). This was the main
-reason of the previous patch.
+With this patch, a daemon needs only one socket to listen many netns. This
+is useful when the number of netns is high.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/core/net_namespace.c | 58 ++++++++++++++++++++++++++++++++++++------------
- 1 file changed, 44 insertions(+), 14 deletions(-)
+ include/linux/netlink.h      |  1 +
+ include/net/net_namespace.h  |  2 ++
+ include/uapi/linux/netlink.h |  1 +
+ net/core/net_namespace.c     | 10 +++++++++-
+ net/netlink/af_netlink.c     | 39 +++++++++++++++++++++++++++++++++++++--
+ 5 files changed, 50 insertions(+), 3 deletions(-)
 
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 6835c1279df7..2e34392ddfb7 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -28,6 +28,7 @@ struct netlink_skb_parms {
+ 	__u32			dst_group;
+ 	__u32			flags;
+ 	struct sock		*sk;
++	struct net		*net;
+ };
+ 
+ #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 6d1e2eae32fb..3f850acc844e 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -272,6 +272,8 @@ static inline struct net *read_pnet(const possible_net_t *pnet)
+ #endif
+ 
+ int peernet2id_alloc(struct net *net, struct net *peer);
++int peernet2id(struct net *net, struct net *peer);
++bool peernet_has_id(struct net *net, struct net *peer);
+ struct net *get_net_ns_by_id(struct net *net, int id);
+ 
+ struct pernet_operations {
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index 1a85940f8ab7..3e34b7d702f8 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -108,6 +108,7 @@ struct nlmsgerr {
+ #define NETLINK_NO_ENOBUFS	5
+ #define NETLINK_RX_RING		6
+ #define NETLINK_TX_RING		7
++#define NETLINK_LISTEN_ALL_NSID	8
+ 
+ struct nl_pktinfo {
+ 	__u32	group;
 diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index cc4b84c944be..0b4cb3d63449 100644
+index 0b4cb3d63449..2af3cc4ecf2d 100644
 --- a/net/core/net_namespace.c
 +++ b/net/core/net_namespace.c
-@@ -28,6 +28,7 @@
- static LIST_HEAD(pernet_list);
- static struct list_head *first_device = &pernet_list;
- DEFINE_MUTEX(net_mutex);
-+static DEFINE_SPINLOCK(nsid_lock);
- 
- LIST_HEAD(net_namespace_list);
- EXPORT_SYMBOL_GPL(net_namespace_list);
-@@ -147,18 +148,17 @@ static void ops_free_list(const struct pernet_operations *ops,
- 	}
- }
- 
-+/* should be called with nsid_lock held */
- static int alloc_netid(struct net *net, struct net *peer, int reqid)
- {
- 	int min = 0, max = 0;
- 
--	ASSERT_RTNL();
--
- 	if (reqid >= 0) {
- 		min = reqid;
- 		max = reqid + 1;
- 	}
- 
--	return idr_alloc(&net->netns_ids, peer, min, max, GFP_KERNEL);
-+	return idr_alloc(&net->netns_ids, peer, min, max, GFP_ATOMIC);
- }
- 
- /* This function is used by idr_for_each(). If net is equal to peer, the
-@@ -174,13 +174,15 @@ static int net_eq_idr(int id, void *net, void *peer)
- 	return 0;
- }
- 
-+/* Should be called with nsid_lock held. If a new id is assigned, the bool alloc
-+ * is set to true, thus the caller knows that the new id must be notified via
-+ * rtnl.
-+ */
- static int __peernet2id(struct net *net, struct net *peer, bool *alloc)
- {
- 	int id = idr_for_each(&net->netns_ids, net_eq_idr, peer);
- 	bool alloc_it = *alloc;
- 
--	ASSERT_RTNL();
--
- 	*alloc = false;
- 
- 	/* Magic value for id 0. */
-@@ -204,27 +206,47 @@ static void rtnl_net_notifyid(struct net *net, int cmd, int id);
-  */
- int peernet2id_alloc(struct net *net, struct net *peer)
- {
--	bool alloc = atomic_read(&peer->count) == 0 ? false : true;
-+	unsigned long flags;
-+	bool alloc;
- 	int id;
- 
-+	spin_lock_irqsave(&nsid_lock, flags);
-+	alloc = atomic_read(&peer->count) == 0 ? false : true;
- 	id = __peernet2id(net, peer, &alloc);
-+	spin_unlock_irqrestore(&nsid_lock, flags);
- 	if (alloc && id >= 0)
- 		rtnl_net_notifyid(net, RTM_NEWNSID, id);
- 	return id;
- }
+@@ -221,7 +221,7 @@ int peernet2id_alloc(struct net *net, struct net *peer)
  EXPORT_SYMBOL(peernet2id_alloc);
  
-+/* This function returns, if assigned, the id of a peer netns. */
-+static int peernet2id(struct net *net, struct net *peer)
+ /* This function returns, if assigned, the id of a peer netns. */
+-static int peernet2id(struct net *net, struct net *peer)
++int peernet2id(struct net *net, struct net *peer)
+ {
+ 	unsigned long flags;
+ 	bool no = false;
+@@ -233,6 +233,14 @@ static int peernet2id(struct net *net, struct net *peer)
+ 	return id;
+ }
+ 
++/* This function returns true is the peer netns has an id assigned into the
++ * current netns.
++ */
++bool peernet_has_id(struct net *net, struct net *peer)
 +{
-+	unsigned long flags;
-+	bool no = false;
-+	int id;
-+
-+	spin_lock_irqsave(&nsid_lock, flags);
-+	id = __peernet2id(net, peer, &no);
-+	spin_unlock_irqrestore(&nsid_lock, flags);
-+	return id;
++	return peernet2id(net, peer) >= 0;
 +}
 +
  struct net *get_net_ns_by_id(struct net *net, int id)
  {
-+	unsigned long flags;
- 	struct net *peer;
+ 	unsigned long flags;
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index ec4adbdcb9b4..bdbde542e952 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -83,6 +83,7 @@ struct listeners {
+ #define NETLINK_RECV_PKTINFO	0x2
+ #define NETLINK_BROADCAST_SEND_ERROR	0x4
+ #define NETLINK_RECV_NO_ENOBUFS	0x8
++#define NETLINK_LISTEN_ALL	0x10
  
- 	if (id < 0)
- 		return NULL;
- 
- 	rcu_read_lock();
-+	spin_lock_irqsave(&nsid_lock, flags);
- 	peer = idr_find(&net->netns_ids, id);
- 	if (peer)
- 		get_net(peer);
-+	spin_unlock_irqrestore(&nsid_lock, flags);
- 	rcu_read_unlock();
- 
- 	return peer;
-@@ -366,14 +388,19 @@ static void cleanup_net(struct work_struct *work)
- 		list_add_tail(&net->exit_list, &net_exit_list);
- 		for_each_net(tmp) {
- 			bool no = false;
--			int id = __peernet2id(tmp, net, &no);
-+			int id;
- 
--			if (id >= 0) {
--				rtnl_net_notifyid(tmp, RTM_DELNSID, id);
-+			spin_lock_irq(&nsid_lock);
-+			id = __peernet2id(tmp, net, &no);
-+			if (id >= 0)
- 				idr_remove(&tmp->netns_ids, id);
--			}
-+			spin_unlock_irq(&nsid_lock);
-+			if (id >= 0)
-+				rtnl_net_notifyid(tmp, RTM_DELNSID, id);
- 		}
-+		spin_lock_irq(&nsid_lock);
- 		idr_destroy(&net->netns_ids);
-+		spin_unlock_irq(&nsid_lock);
- 
- 	}
- 	rtnl_unlock();
-@@ -501,6 +528,7 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh)
+ static inline int netlink_is_kernel(struct sock *sk)
  {
- 	struct net *net = sock_net(skb->sk);
- 	struct nlattr *tb[NETNSA_MAX + 1];
-+	unsigned long flags;
- 	bool no = false;
- 	struct net *peer;
- 	int nsid, err;
-@@ -522,12 +550,14 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (IS_ERR(peer))
- 		return PTR_ERR(peer);
+@@ -1931,8 +1932,18 @@ static void do_one_broadcast(struct sock *sk,
+ 	    !test_bit(p->group - 1, nlk->groups))
+ 		return;
  
-+	spin_lock_irqsave(&nsid_lock, flags);
- 	if (__peernet2id(net, peer, &no) >= 0) {
- 		err = -EEXIST;
- 		goto out;
+-	if (!net_eq(sock_net(sk), p->net))
+-		return;
++	if (!net_eq(sock_net(sk), p->net)) {
++		if (!(nlk->flags & NETLINK_LISTEN_ALL))
++			return;
++
++		if (!peernet_has_id(sock_net(sk), p->net))
++			return;
++
++		if (!file_ns_capable(sk->sk_socket->file, p->net->user_ns,
++				     CAP_NET_BROADCAST))
++			return;
++	}
++	NETLINK_CB(p->skb).net = p->net;
+ 
+ 	if (p->failure) {
+ 		netlink_overrun(sk);
+@@ -2201,6 +2212,16 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 		break;
  	}
- 
- 	err = alloc_netid(net, peer, nsid);
-+	spin_unlock_irqrestore(&nsid_lock, flags);
- 	if (err >= 0) {
- 		rtnl_net_notifyid(net, RTM_NEWNSID, err);
- 		err = 0;
-@@ -574,7 +604,6 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	struct nlattr *tb[NETNSA_MAX + 1];
- 	struct sk_buff *msg;
- 	struct net *peer;
--	bool no = false;
- 	int err, id;
- 
- 	err = nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, NETNSA_MAX,
-@@ -597,7 +626,7 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		goto out;
+ #endif /* CONFIG_NETLINK_MMAP */
++	case NETLINK_LISTEN_ALL_NSID:
++		if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_BROADCAST))
++			return -EPERM;
++
++		if (val)
++			nlk->flags |= NETLINK_LISTEN_ALL;
++		else
++			nlk->flags &= ~NETLINK_LISTEN_ALL;
++		err = 0;
++		break;
+ 	default:
+ 		err = -ENOPROTOOPT;
  	}
+@@ -2267,6 +2288,18 @@ static void netlink_cmsg_recv_pktinfo(struct msghdr *msg, struct sk_buff *skb)
+ 	put_cmsg(msg, SOL_NETLINK, NETLINK_PKTINFO, sizeof(info), &info);
+ }
  
--	id = __peernet2id(net, peer, &no);
-+	id = peernet2id(net, peer);
- 	err = rtnl_net_fill(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
- 			    RTM_GETNSID, net, id);
- 	if (err < 0)
-@@ -650,10 +679,11 @@ static int rtnl_net_dumpid(struct sk_buff *skb, struct netlink_callback *cb)
- 		.idx = 0,
- 		.s_idx = cb->args[0],
- 	};
-+	unsigned long flags;
++static void netlink_cmsg_listen_all_nsid(struct sock *sk, struct msghdr *msg,
++					 struct sk_buff *skb)
++{
++	int nsid;
++
++	if (!NETLINK_CB(skb).net)
++		return;
++
++	nsid = peernet2id(sock_net(sk), NETLINK_CB(skb).net);
++	put_cmsg(msg, SOL_NETLINK, NETLINK_LISTEN_ALL_NSID, sizeof(int), &nsid);
++}
++
+ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ {
+ 	struct sock *sk = sock->sk;
+@@ -2420,6 +2453,8 @@ static int netlink_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
  
--	ASSERT_RTNL();
--
-+	spin_lock_irqsave(&nsid_lock, flags);
- 	idr_for_each(&net->netns_ids, rtnl_net_dumpid_one, &net_cb);
-+	spin_unlock_irqrestore(&nsid_lock, flags);
+ 	if (nlk->flags & NETLINK_RECV_PKTINFO)
+ 		netlink_cmsg_recv_pktinfo(msg, skb);
++	if (nlk->flags & NETLINK_LISTEN_ALL)
++		netlink_cmsg_listen_all_nsid(sk, msg, skb);
  
- 	cb->args[0] = net_cb.idx;
- 	return skb->len;
+ 	memset(&scm, 0, sizeof(scm));
+ 	scm.creds = *NETLINK_CREDS(skb);
 -- 
 2.2.2
