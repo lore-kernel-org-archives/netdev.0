@@ -1,83 +1,164 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V3 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to optimize signaling the host
-Date: Wed,  6 May 2015 11:20:36 -0700
-Message-ID: <1430936436-5837-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+From: Harini Katakam <harini.katakam@xilinx.com>
+Subject: [net-next PATCH v3 3/4] net: macb: Add support for jumbo frames
+Date: Wed, 6 May 2015 22:27:17 +0530
+Message-ID: <1430931438-32592-3-git-send-email-harinik@xilinx.com>
+References: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
+	<punnaia@xilinx.com>, <michals@xilinx.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<harinikatakamlinux@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Based on the information given to this driver (via the xmit_more skb flag),
-we can defer signaling the host if more packets are on the way. This will help
-make the host more efficient since it can potentially process a larger batch of
-packets. Implement this optimization.
+Enable jumbo frame support for Zynq Ultrascale+ MPSoC.
+Update the NWCFG register and descriptor length masks accordingly.
+Jumbo max length register should be set according to support in SoC; it is
+set to 10240 for Zynq Ultrascale+ MPSoC.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Signed-off-by: Harini Katakam <harinik@xilinx.com>
+Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
 ---
-	v2: Fixed up indentation based on feedback from David Miller.
-	v3: If the queue is stopped, deal with that condition: Eric Dumazet <eric.dumazet@gmail.com>
- drivers/net/hyperv/netvsc.c     |   20 ++++++++++++--------
- drivers/net/hyperv/netvsc_drv.c |    2 ++
- 2 files changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index ea091bc..36fef17 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
- 	u64 req_id;
- 	int ret;
- 	struct hv_page_buffer *pgbuf;
-+	u32 vmbus_flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
+v3:
+Use macb_config for declaring jumbo capability and max size.
+
+v2:
+Add constant definition and update SoC name
+
+---
+ drivers/net/ethernet/cadence/macb.c |   22 ++++++++++++++++++----
+ drivers/net/ethernet/cadence/macb.h |    9 +++++++++
+ 2 files changed, 27 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index bbe5656..cb84587 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -782,7 +782,7 @@ static int gem_rx(struct macb *bp, int budget)
+ 		}
+ 		/* now everything is ready for receiving packet */
+ 		bp->rx_skbuff[entry] = NULL;
+-		len = MACB_BFEXT(RX_FRMLEN, ctrl);
++		len = ctrl & bp->rx_frm_len_mask;
  
- 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
- 	if (packet->is_data_pkt) {
-@@ -772,19 +773,22 @@ static inline int netvsc_send_pkt(
- 	if (packet->page_buf_cnt) {
- 		pgbuf = packet->cp_partial ? packet->page_buf +
- 			packet->rmsg_pgcnt : packet->page_buf;
--		ret = vmbus_sendpacket_pagebuffer(out_channel,
--						  pgbuf,
--						  packet->page_buf_cnt,
--						  &nvmsg,
--						  sizeof(struct nvsp_message),
--						  req_id);
-+		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
-+						      pgbuf,
-+						      packet->page_buf_cnt,
-+						      &nvmsg,
-+						      sizeof(struct
-+							     nvsp_message),
-+						      req_id,
-+						      vmbus_flags,
-+						      !packet->xmit_more);
- 	} else {
--		ret = vmbus_sendpacket(
-+		ret = vmbus_sendpacket_ctl(
- 				out_channel, &nvmsg,
- 				sizeof(struct nvsp_message),
- 				req_id,
- 				VM_PKT_DATA_INBAND,
--				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-+				vmbus_flags, !packet->xmit_more);
- 	}
+ 		netdev_vdbg(bp->dev, "gem_rx %u (len %u)\n", entry, len);
  
- 	if (ret == 0) {
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 5993c7e..4efaa6e 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -435,6 +435,8 @@ check_size:
- 	packet->page_buf = page_buf;
+@@ -828,7 +828,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	struct macb_dma_desc *desc;
  
- 	packet->q_idx = skb_get_queue_mapping(skb);
-+	if (netif_tx_queue_stopped(netdev_get_tx_queue(net, packet->q_idx)))
-+		packet->xmit_more = false;
+ 	desc = macb_rx_desc(bp, last_frag);
+-	len = MACB_BFEXT(RX_FRMLEN, desc->ctrl);
++	len = desc->ctrl & bp->rx_frm_len_mask;
  
- 	packet->is_data_pkt = true;
- 	packet->total_data_buflen = skb->len;
+ 	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
+ 		macb_rx_ring_wrap(first_frag),
+@@ -1633,7 +1633,10 @@ static void macb_init_hw(struct macb *bp)
+ 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
+ 	config |= MACB_BIT(PAE);		/* PAuse Enable */
+ 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
+-	config |= MACB_BIT(BIG);		/* Receive oversized frames */
++	if (bp->caps | MACB_CAPS_JUMBO)
++		config |= MACB_BIT(JFRAME);	/* Enable jumbo frames */
++	else
++		config |= MACB_BIT(BIG);	/* Receive oversized frames */
+ 	if (bp->dev->flags & IFF_PROMISC)
+ 		config |= MACB_BIT(CAF);	/* Copy All Frames */
+ 	else if (macb_is_gem(bp) && bp->dev->features & NETIF_F_RXCSUM)
+@@ -1642,8 +1645,13 @@ static void macb_init_hw(struct macb *bp)
+ 		config |= MACB_BIT(NBC);	/* No BroadCast */
+ 	config |= macb_dbw(bp);
+ 	macb_writel(bp, NCFGR, config);
++	if ((bp->caps | MACB_CAPS_JUMBO) && bp->jumbo_max_len)
++		gem_writel(bp, JML, bp->jumbo_max_len);
+ 	bp->speed = SPEED_10;
+ 	bp->duplex = DUPLEX_HALF;
++	bp->rx_frm_len_mask = MACB_RX_FRMLEN_MASK;
++	if (bp->caps | MACB_CAPS_JUMBO)
++		bp->rx_frm_len_mask = MACB_RX_JFRMLEN_MASK;
+ 
+ 	macb_configure_dma(bp);
+ 
+@@ -2685,10 +2693,12 @@ static const struct macb_config emac_config = {
+ };
+ 
+ static const struct macb_config zynqmp_config = {
+-	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE,
++	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
++		MACB_CAPS_JUMBO,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
++	.jumbo_max_len = 10240,
+ };
+ 
+ static const struct of_device_id macb_dt_ids[] = {
+@@ -2770,6 +2780,10 @@ static int macb_probe(struct platform_device *pdev)
+ 	bp->pclk = pclk;
+ 	bp->hclk = hclk;
+ 	bp->tx_clk = tx_clk;
++	if (macb_config->jumbo_max_len) {
++		bp->jumbo_max_len = macb_config->jumbo_max_len;
++	}
++
+ 	spin_lock_init(&bp->lock);
+ 
+ 	/* setup capabilities */
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index eb7d76f..7d4ef51 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -71,6 +71,7 @@
+ #define GEM_NCFGR		0x0004 /* Network Config */
+ #define GEM_USRIO		0x000c /* User IO */
+ #define GEM_DMACFG		0x0010 /* DMA Configuration */
++#define GEM_JML			0x0048 /* Jumbo Max Length */
+ #define GEM_HRB			0x0080 /* Hash Bottom */
+ #define GEM_HRT			0x0084 /* Hash Top */
+ #define GEM_SA1B		0x0088 /* Specific1 Bottom */
+@@ -397,6 +398,7 @@
+ #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+ #define MACB_CAPS_SG_DISABLED			0x40000000
+ #define MACB_CAPS_MACB_IS_GEM			0x80000000
++#define MACB_CAPS_JUMBO				0x00000008
+ 
+ /* Bit manipulation macros */
+ #define MACB_BIT(name)					\
+@@ -514,6 +516,9 @@ struct macb_dma_desc {
+ #define MACB_RX_BROADCAST_OFFSET		31
+ #define MACB_RX_BROADCAST_SIZE			1
+ 
++#define MACB_RX_FRMLEN_MASK			0xFFF
++#define MACB_RX_JFRMLEN_MASK			0x3FFF
++
+ /* RX checksum offload disabled: bit 24 clear in NCFGR */
+ #define GEM_RX_TYPEID_MATCH_OFFSET		22
+ #define GEM_RX_TYPEID_MATCH_SIZE		2
+@@ -757,6 +762,7 @@ struct macb_config {
+ 	int	(*clk_init)(struct platform_device *pdev, struct clk **pclk,
+ 			    struct clk **hclk, struct clk **tx_clk);
+ 	int	(*init)(struct platform_device *pdev);
++	int	jumbo_max_len;
+ };
+ 
+ struct macb_queue {
+@@ -826,6 +832,9 @@ struct macb {
+ 	unsigned int		max_tx_length;
+ 
+ 	u64			ethtool_stats[GEM_STATS_LEN];
++
++	unsigned int		rx_frm_len_mask;
++	unsigned int		jumbo_max_len;
+ };
+ 
+ static inline bool macb_is_gem(struct macb *bp)
 -- 
-1.7.4.1
+1.7.9.5
