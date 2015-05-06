@@ -1,57 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next 0/8] Convert some skb_<foo> functions to
- void
-Date: Wed, 06 May 2015 05:19:39 -0700
-Message-ID: <1430914779.14545.28.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1430769294.git.joe@perches.com>
-	 <1430771550.2872.7.camel@perches.com>
-	 <20150505.192003.2226565044238098170.davem@davemloft.net>
-	 <1430869128.9365.67.camel@perches.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 5/6] netns: use a spin_lock to protect nsid
+ management
+Date: Wed, 6 May 2015 14:23:14 +0200
+Message-ID: <20150506122314.GJ25248@pox.localdomain>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1430906288-5108-6-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ebiederm@xmission.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:33644 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751234AbbEFMTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 08:19:42 -0400
-Received: by iepj10 with SMTP id j10so8739926iep.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 05:19:41 -0700 (PDT)
-In-Reply-To: <1430869128.9365.67.camel@perches.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:35747 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023AbbEFMXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 08:23:17 -0400
+Received: by widdi4 with SMTP id di4so199686386wid.0
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 05:23:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1430906288-5108-6-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-05 at 16:38 -0700, Joe Perches wrote:
+On 05/06/15 at 11:58am, Nicolas Dichtel wrote:
+> +/* Should be called with nsid_lock held. If a new id is assigned, the bool alloc
+> + * is set to true, thus the caller knows that the new id must be notified via
+> + * rtnl.
+> + */
+>  static int __peernet2id(struct net *net, struct net *peer, bool *alloc)
+>  {
+>  	int id = idr_for_each(&net->netns_ids, net_eq_idr, peer);
+>  	bool alloc_it = *alloc;
+>  
+> -	ASSERT_RTNL();
+> -
+>  	*alloc = false;
+>  
+>  	/* Magic value for id 0. */
 
-> 
-> Another thing that's fairly common is an skb_put followed by
-> a memcpy or memset.
-> 
-> Adding a couple of functions for those like:
-> 
-> void *skb_put_memcpy(struct sk_buff *skb, void *from, size_t size);
-> void *skb_put_memset(struct sk_buff *skb, int c, size_t size);
-> 
-> would reduce code size and improve performance a little.
-> 
-> Are you OK with that too?
-
-Could we stop the API inflation and code churn, please.
-
-You have little idea of the hassle this means for people like us doing
-backports and code maintenance, preventing us from doing useful work,
-like fixing real bugs and issues.
-
-You know, even something very simple as the 'extern' removal in include
-files had consumed days of work for us because of merge conflicts, and
-reviewer time.
-
-( commit 5c9f30236f53f3fbee170e2452dfa0e5dce4727b for example)
-
-We understand the code as is, with regular memcpy() and memset()
-
-These functions are fine. They were fine 20 years ago, nothing changed.
-
-Thanks.
+If split into __peernet2id() and __peernet2id_alloc() then this could
+live with RCU protection I guess so we only take the lock when we
+actually allocate.
