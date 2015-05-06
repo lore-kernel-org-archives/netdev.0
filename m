@@ -1,93 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 6/7] packet: rollover huge flows before small
- flows
-Date: Wed, 06 May 2015 12:34:24 -0700
-Message-ID: <1430940864.14545.80.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430936837-22655-1-git-send-email-willemb@google.com>
-	 <1430936837-22655-7-git-send-email-willemb@google.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [net-next PATCH 1/6] net: Add skb_free_frag to replace use of
+ put_page in freeing skb->head
+Date: Wed, 6 May 2015 12:38:40 -0700
+Message-ID: <20150506123840.312f41000e8d46f1ef9ce046@linux-foundation.org>
+References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>
+	<20150504231448.1538.84164.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Willem de Bruijn <willemb@google.com>
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org, davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:35055 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845AbbEFTe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 15:34:26 -0400
-Received: by igbyr2 with SMTP id yr2so140584366igb.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 12:34:26 -0700 (PDT)
-In-Reply-To: <1430936837-22655-7-git-send-email-willemb@google.com>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:52929 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750808AbbEFTil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 15:38:41 -0400
+In-Reply-To: <20150504231448.1538.84164.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-06 at 14:27 -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> Migrate flows from a socket to another socket in the fanout group not
-> only when the socket is full. Start migrating huge flows early, to
-> divert possible 4-tuple attacks without affecting normal traffic.
-> 
-> Introduce fanout_flow_is_huge(). This detects huge flows, which are
-> defined as taking up more than half the load. It does so cheaply, by
-> storing the rxhashes of the N most recent packets. If over half of
-> these are the same rxhash as the current packet, then drop it. This
-> only protects against 4-tuple attacks. N is chosen to fit all data in
-> a single cache line.
-> 
-> Tested:
->   Ran bench_rollover for 10 sec with 1.5 Mpps of single flow input.
-> 
->       lpbb5:/export/hda3/willemb# ./bench_rollover -l 1000 -r -s
->       cpu        rx       rx.k     drop.k   rollover     r.huge   r.failed
->        0    1202599    1202599          0          0          0          0
->        1    1221096    1221096          0          0          0          0
->        2    1202296    1202296          0          0          0          0
->        3    1229998    1229998          0          0          0          0
->        4    1229551    1229551          0          0          0          0
->        5    1221097    1221097          0          0          0          0
->        6    1223496    1223496          0          0          0          0
->        7    1616768    1616768          0    8530027    8530027          0
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->  net/packet/af_packet.c | 30 +++++++++++++++++++++++++++---
->  net/packet/internal.h  |  4 ++++
->  2 files changed, 31 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index d0c4c95..4e54b6b 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1326,6 +1326,24 @@ static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
->  	return x;
->  }
->  
-> +static bool fanout_flow_is_huge(struct packet_sock *po, struct sk_buff *skb)
+On Mon, 04 May 2015 16:14:48 -0700 Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
+
+> +/**
+> + * skb_free_frag - free a page fragment
+> + * @head: virtual address of page fragment
+> + *
+> + * Frees a page fragment allocated out of either a compound or order 0 page.
+> + * The function itself is a hybrid between free_pages and free_compound_page
+> + * which can be found in mm/page_alloc.c
+> + */
+> +void skb_free_frag(void *head)
 > +{
-> +	u32 rxhash;
-> +	int i, count = 0;
+> +	struct page *page = virt_to_head_page(head);
 > +
-> +	rxhash = skb_get_hash(skb);
-> +	spin_lock(&po->rollover->hist_lock);
-> +	for (i = 0; i < ROLLOVER_HLEN; i++)
-> +		if (po->rollover->history[i] == rxhash)
-> +			count++;
-> +
-> +	i = po->rollover->hist_idx++ & (ROLLOVER_HLEN - 1);
-> +	po->rollover->history[i] = rxhash;
-> +	spin_unlock(&po->rollover->hist_lock);
-> +
-> +	return count > (ROLLOVER_HLEN >> 1);
+> +	if (unlikely(put_page_testzero(page))) {
+> +		if (likely(PageHead(page)))
+> +			__free_pages_ok(page, compound_order(page));
+> +		else
+> +			free_hot_cold_page(page, false);
+> +	}
 > +}
-> +
 
-I am not a huge fan of this strategy or memory placement, because of the
-spinlock that protects something which should be a hint, more than an
-ultra precise decision. At the time lock is released, the status might
-already be imprecise.
+Why are we testing for PageHead in here?  If the code were to simply do
 
-You touch 3 cache lines here, one for rollover->hist_idx++, one for
-history[i] = hash, and one for the spinlock.
+	if (unlikely(put_page_testzero(page)))
+		__free_pages_ok(page, compound_order(page));
 
-(And following patch has the atomic_long_inc() for stats)
+that would still work?
+
+
+There's nothing networking-specific in here.  I suggest the function be
+renamed and moved to page_alloc.c.  Add an inlined skb_free_frag() in a
+net header which calls it.  This way the mm developers know about it
+and will hopefully maintain it.  It would need a comment explaining
+when and why people should and shouldn't use it.
+
+The term "page fragment" is a net thing and isn't something we know
+about.  What is it?  From context I'm thinking a definition would look
+something like
+
+  An arbitrary-length arbitrary-offset area of memory which resides
+  within a 0 or higher order page.  Multiple fragments within that page
+  are individually refcounted, in the page's reference counter.
+
+Is that correct and complete?
