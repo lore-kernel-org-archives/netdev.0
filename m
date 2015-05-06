@@ -1,154 +1,139 @@
-From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: Re: [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Tue, 5 May 2015 23:17:48 -0500
-Message-ID: <554995EC.3030601@amd.com>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <1430838729-21572-2-git-send-email-Suravee.Suthikulpanit@amd.com>
- <554986D5.5010102@linaro.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 01/12] net: axienet: Support for RGMII
+Date: Tue, 05 May 2015 21:32:29 -0700
+Message-ID: <5549995D.2070407@gmail.com>
+References: <7fb84f65a61bbe0fdb4b61a871cf4d4f7910955d.1430817941.git.michal.simek@xilinx.com> <8C367E791021814DA6CAFCCCD4EFC2297C97A227@XSJ-PSEXMBX01.xlnx.xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <msalter@redhat.com>, <al.stone@linaro.org>,
-	<grant.likely@linaro.org>, <arnd@arndb.de>, <leo.duran@amd.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
-	<linux-crypto@vger.kernel.org>
-To: Hanjun Guo <hanjun.guo@linaro.org>, <rjw@rjwysocki.net>,
-	<lenb@kernel.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
-	<herbert@gondor.apana.org.au>, <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <554986D5.5010102@linaro.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Srikanth Thokala <srikanth.thokala@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"monstr@monstr.eu" <monstr@monstr.eu>,
+	Anirudha Sarangi <anirudh@xilinx.com>
+To: John Linn <john.linn@xilinx.com>,
+	Michal Simek <michals@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:35484 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753490AbbEFEcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 00:32:32 -0400
+Received: by obcux3 with SMTP id ux3so154336885obc.2
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 21:32:31 -0700 (PDT)
+In-Reply-To: <8C367E791021814DA6CAFCCCD4EFC2297C97A227@XSJ-PSEXMBX01.xlnx.xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/5/15 22:13, Hanjun Guo wrote:
-> On 2015=E5=B9=B405=E6=9C=8805=E6=97=A5 23:12, Suravee Suthikulpanit w=
-rote:
->> This patch implements support for ACPI _CCA object, which is
->> introduced in
->> ACPIv5.1, can be used for specifying device DMA coherency attribute.
->>
->> The parsing logic traverses device namespace to parse coherency
->> information, and stores it in acpi_device_flags. Then uses it to cal=
-l
->> arch_setup_dma_ops() when creating each device enumerated in DSDT
->> during ACPI scan.
->>
->> This patch also introduces acpi_dma_is_coherent(), which provides
->> an interface for device drivers to check the coherency information
->> similarly to the of_dma_is_coherent().
->>
->> Signed-off-by: Mark Salter <msalter@redhat.com>
->> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
->> ---
->> NOTE:
->>   * Since there seem to be conflict opinions regarding how
->>     architecture should handle _CCA=3D0. So, I am proposing the
->>     CONFIG_ARCH_SUPPORT_CCA_ZERO, which can be specified by
->>     for each architecture to define behavior of the ACPI
->>     scanning code when _CCA=3D0. Let me know if this is acceptable.
->>
->>   drivers/acpi/Kconfig         |  6 +++++
->>   drivers/acpi/acpi_platform.c |  4 ++-
->>   drivers/acpi/scan.c          | 62
->> ++++++++++++++++++++++++++++++++++++++++++++
->>   include/acpi/acpi_bus.h      | 11 +++++++-
->>   include/linux/acpi.h         |  5 ++++
->>   5 files changed, 86 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
->> index ab2cbb5..dd386e9 100644
->> --- a/drivers/acpi/Kconfig
->> +++ b/drivers/acpi/Kconfig
->> @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
->>   config ACPI_SYSTEM_POWER_STATES_SUPPORT
->>       bool
->>
->> +config ACPI_MUST_HAVE_CCA
->> +    bool
->> +
->> +config ACPI_SUPPORT_CCA_ZERO
->> +    bool
->> +
->>   config ACPI_SLEEP
->>       bool
->>       depends on SUSPEND || HIBERNATION
->> diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platfo=
-rm.c
->> index 4bf7559..a6feca4 100644
->> --- a/drivers/acpi/acpi_platform.c
->> +++ b/drivers/acpi/acpi_platform.c
->> @@ -108,9 +108,11 @@ struct platform_device
->> *acpi_create_platform_device(struct acpi_device *adev)
->>       if (IS_ERR(pdev))
->>           dev_err(&adev->dev, "platform device creation failed: %ld\=
-n",
->>               PTR_ERR(pdev));
->> -    else
->> +    else {
->> +        acpi_setup_device_dma(adev, &pdev->dev);
->>           dev_dbg(&adev->dev, "created platform device %s\n",
->>               dev_name(&pdev->dev));
->> +    }
->>
->>       kfree(resources);
->>       return pdev;
->> diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
->> index 849b699..ac33b29 100644
->> --- a/drivers/acpi/scan.c
->> +++ b/drivers/acpi/scan.c
->> @@ -11,6 +11,7 @@
->>   #include <linux/kthread.h>
->>   #include <linux/dmi.h>
->>   #include <linux/nls.h>
->> +#include <linux/dma-mapping.h>
->>
->>   #include <asm/pgtable.h>
->>
->> @@ -2137,6 +2138,66 @@ void acpi_free_pnp_ids(struct acpi_device_pnp
->> *pnp)
->>       kfree(pnp->unique_id);
->>   }
->>
->> +void acpi_setup_device_dma(struct acpi_device *adev, struct device =
-*dev)
->
-> I aasume adev->dev in struct *adev is the same as struct device *dev
-> passed here, so
->
->> +{
->> +    int coherent =3D acpi_dma_is_coherent(adev);
->> +
->> +    /**
->> +     * Currently, we only support DMA for devices that _CCA=3D1
->> +     * since this seems to be the case on most ACPI platforms.
->> +     *
->> +     * For the case when _CCA=3D0 (i.e. is_coherent=3D0 && cca_seen=
-=3D1),
->> +     * we would rely on arch-specific cache maintenance for
->> +     * non-coherence DMA operations if architecture enables
->> +     * CONFIG_ACPI_SUPPORT_CCA_ZERO.
->> +     *
->> +     * For the case when _CCA is missing but platform requires it
->> +     * (i.e. is_coherent=3D0 && cca_seen=3D0), we do not call
->> +     * arch_setup_dma_ops() and fallback to arch-specific default
->> +     * handling.
->> +     */
->> +    if (adev->flags.cca_seen) {
->> +        if (!coherent && !IS_ENABLED(CONFIG_ACPI_SUPPORT_CCA_ZERO))
->> +            return;
->> +        arch_setup_dma_ops(dev, 0, 0, NULL, coherent);
->
-> how about using &adev->dev here, and just pass struct acpi_device *ad=
-ev
-> for this function?
+Le 05/05/15 05:54, John Linn a =C3=A9crit :
+> Hi Michal,
+>=20
+> I removed the mailing lists.
+>=20
+> One of the issues we see in the field is that the value of PHY_INTERF=
+ACE_MODE_RGMII_ID causes a delay on the RX and TX side in the PHY to al=
+ign the clock and the data. Yet this does not work on every board such =
+that         PHY_INTERFACE_MODE_RGMII_RXID or        PHY_INTERFACE_MODE=
+_RGMII_TXID must be used.
+>=20
+> I realize that's a pain.  Sometimes the PHY driver allows register va=
+lues (like Marvell) to be setup on the PHY node which helps, but not al=
+ways.  It seems that the information in the device tree is not adequate=
+ to describe the hardware. I've not looked to see what others do as may=
+be this is a common problem, just thought I should pass on the problem.
 
-Actually, I was using arch_setup_device_dma() in multiple places, and=20
-adev->dev is not necessary the same as *dev.  However, I am refactoring=
-=20
-this function in V3. Anyways, thanks for reviewing.
+There is a standard Device Tree node property described in
+Documentation/devicetree/bindings/net/ethernet.txt: phy-mode which
+allows you to specify exactly this: whether you should have your TX dat=
+a
+and clocks aligned or shifted.
 
-Suravee
+See include/linux/phy.h in the kernel for how the string translates int=
+o
+a given PHY_INTERFACE_MODE_* value.
+
+If your concern is more about whether the fact that given PHY driver
+should support RGMII_ID, RGMII_TXID and RGMII_RXID, all of this is
+typically extremely specific to the board (PCB), Ethernet MAC and
+Ethernet PHY, so unless there is the need to configure that, it may jus=
+t
+be that people use the default values that happen to work for them
+without much research on the subject.
+
+>=20
+> Thanks
+> John
+>=20
+> -----Original Message-----
+> From: Michal Simek [mailto:monstr@monstr.eu] On Behalf Of Michal Sime=
+k
+> Sent: Tuesday, May 05, 2015 4:26 AM
+> To: netdev@vger.kernel.org
+> Cc: Srikanth Thokala; Soren Brinkmann; monstr@monstr.eu; John Linn; A=
+nirudha Sarangi; linux-kernel@vger.kernel.org; linux-arm-kernel@lists.i=
+nfradead.org
+> Subject: [PATCH 01/12] net: axienet: Support for RGMII
+>=20
+> From: Srikanth Thokala <srikanth.thokala@xilinx.com>
+>=20
+> This patch adds support for the RGMII. The h/w configuration paramete=
+r C_PHY_TYPE, which represents the interface configured in the design, =
+is used to differentiate various interfaces supported by AXI Ethernet.
+>=20
+> Signed-off-by: Srikanth Thokala <sthokal@xilinx.com>
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+> ---
+>=20
+>  drivers/net/ethernet/xilinx/xilinx_axienet_main.c | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/driv=
+ers/net/ethernet/xilinx/xilinx_axienet_main.c
+> index 28b7e7d9c272..0ab607732bb4 100644
+> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> @@ -925,9 +925,16 @@ static int axienet_open(struct net_device *ndev)
+>                 return ret;
+>=20
+>         if (lp->phy_node) {
+> -               lp->phy_dev =3D of_phy_connect(lp->ndev, lp->phy_node=
+,
+> +               if (lp->phy_type =3D=3D XAE_PHY_TYPE_GMII) {
+> +                       lp->phy_dev =3D of_phy_connect(lp->ndev, lp->=
+phy_node,
+>                                              axienet_adjust_link, 0,
+>                                              PHY_INTERFACE_MODE_GMII)=
+;
+> +               } else if (lp->phy_type =3D=3D XAE_PHY_TYPE_RGMII_2_0=
+) {
+> +                       lp->phy_dev =3D of_phy_connect(lp->ndev, lp->=
+phy_node,
+> +                                            axienet_adjust_link, 0,
+> +                                            PHY_INTERFACE_MODE_RGMII=
+_ID);
+> +               }
+> +
+>                 if (!lp->phy_dev) {
+>                         dev_err(lp->dev, "of_phy_connect() failed\n")=
+;
+>                         return -ENODEV;
+> --
+> 2.3.5
+>=20
+>=20
+>=20
+> This email and any attachments are intended for the sole use of the n=
+amed recipient(s) and contain(s) confidential information that may be p=
+roprietary, privileged or copyrighted under applicable law. If you are =
+not the intended recipient, do not read, copy, or forward this email me=
+ssage or any attachments. Delete this email message and any attachments=
+ immediately.
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+
+
+--=20
+=46lorian
