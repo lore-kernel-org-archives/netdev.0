@@ -1,119 +1,114 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH V2 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to
- optimize signaling the host
-Date: Wed, 6 May 2015 00:08:44 +0000
-Message-ID: <BN1PR0301MB070730518ED94BEFE12C2683A0D00@BN1PR0301MB0707.namprd03.prod.outlook.com>
-References: <1430436555-32729-1-git-send-email-kys@microsoft.com>
- <1430454995.3711.115.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH linux v1 net-next 4/4] bonding: add netlink support for
+ sys prio, actor sys mac, and port key
+Date: Tue, 05 May 2015 21:07:08 -0400
+Message-ID: <5549693C.9080701@cumulusnetworks.com>
+References: <cover.1430498637.git.jtoppins@cumulusnetworks.com> <73eb78d846c220d223f68a3b29f42eff011795fd.1430498637.git.jtoppins@cumulusnetworks.com> <CAF2d9jjKmYd7pVVVnsXQkGoysQy09Ro4VFA7a8etFYYTzv9+Ag@mail.gmail.com> <5547DB27.60608@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1430454995.3711.115.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:34839 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751294AbbEFBHL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 May 2015 21:07:11 -0400
+Received: by qcbgu10 with SMTP id gu10so57261351qcb.2
+        for <netdev@vger.kernel.org>; Tue, 05 May 2015 18:07:10 -0700 (PDT)
+In-Reply-To: <5547DB27.60608@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 5/4/15 4:48 PM, Jonathan Toppins wrote:
+> On 5/1/15 7:15 PM, Mahesh Bandewar wrote:
+>>>
+>>> @@ -548,6 +585,19 @@ static int bond_fill_info(struct sk_buff *skb,
+>>>                         bond->params.ad_select))
+>>>                  goto nla_put_failure;
+>>>
+>>> +       if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
+>>> +                       bond->params.ad_actor_sys_prio))
+>>> +               goto nla_put_failure;
+>>> +
+>>> +       if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
+>>> +                       bond->params.ad_user_port_key))
+>>> +               goto nla_put_failure;
+>>> +
+>>> +       if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
+>>> +                   sizeof(bond->params.ad_actor_system),
+>>> +                   &bond->params.ad_actor_system))
+>>> +               goto nla_put_failure;
+>>> +
+>> I think this does not make sense for MODE != 8023AD. Shouldn't this be
+>> inside next block which is for the 802.3ad mode?
 
+Agreed, the kernel should filter attributes not useful for that mode. 
+Will move the sending of these attributes to be inside the mode check below.
 
-> -----Original Message-----
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> Sent: Thursday, April 30, 2015 9:37 PM
-> To: KY Srinivasan
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
-> apw@canonical.com; jasowang@redhat.com
-> Subject: Re: [PATCH V2 net-next 1/1] hv_netvsc: Use the xmit_more skb flag
-> to optimize signaling the host
-> 
-> On Thu, 2015-04-30 at 16:29 -0700, K. Y. Srinivasan wrote:
-> > Based on the information given to this driver (via the xmit_more skb flag),
-> > we can defer signaling the host if more packets are on the way. This will
-> help
-> > make the host more efficient since it can potentially process a larger batch
-> of
-> > packets. Implement this optimization.
-> >
-> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > ---
-> > 	v2: Fixed up indentation based on feedback from David Miller.
-> >
-> >  drivers/net/hyperv/netvsc.c |   20 ++++++++++++--------
-> >  1 files changed, 12 insertions(+), 8 deletions(-)
-> >
-> > diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> > index 2e8ad06..5fdc5e1 100644
-> > --- a/drivers/net/hyperv/netvsc.c
-> > +++ b/drivers/net/hyperv/netvsc.c
-> > @@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
-> >  	u64 req_id;
-> >  	int ret;
-> >  	struct hv_page_buffer *pgbuf;
-> > +	u32 vmbus_flags =
-> VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
-> >
-> >  	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
-> >  	if (packet->is_data_pkt) {
-> > @@ -772,19 +773,22 @@ static inline int netvsc_send_pkt(
-> >  	if (packet->page_buf_cnt) {
-> >  		pgbuf = packet->cp_partial ? packet->page_buf +
-> >  			packet->rmsg_pgcnt : packet->page_buf;
-> > -		ret = vmbus_sendpacket_pagebuffer(out_channel,
-> > -						  pgbuf,
-> > -						  packet->page_buf_cnt,
-> > -						  &nvmsg,
-> > -						  sizeof(struct
-> nvsp_message),
-> > -						  req_id);
-> > +		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
-> > +						      pgbuf,
-> > +						      packet->page_buf_cnt,
-> > +						      &nvmsg,
-> > +						      sizeof(struct
-> > +							     nvsp_message),
-> > +						      req_id,
-> > +						      vmbus_flags,
-> > +						      !packet->xmit_more);
-> >  	} else {
-> > -		ret = vmbus_sendpacket(
-> > +		ret = vmbus_sendpacket_ctl(
-> >  				out_channel, &nvmsg,
-> >  				sizeof(struct nvsp_message),
-> >  				req_id,
-> >  				VM_PKT_DATA_INBAND,
-> > -
-> 	VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-> > +				vmbus_flags, !packet->xmit_more);
-> >  	}
-> >
-> >  	if (ret == 0) {
-> 
-> This might be problematic, if queue is stopped ( netif_tx_stop_queue())
-> 
-> You need to force a kick if we are about to stop the queue :
-> 
-> Random example : commit ddd0ca5d60b350bbfbfb60b25885a9779ce6d6c7
+>>
+>>>          if (BOND_MODE(bond) == BOND_MODE_8023AD) {
+>>>                  struct ad_info info;
+>>>
+>>> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+>>> index d9cd192..6d6e502 100644
+>>> --- a/include/uapi/linux/if_link.h
+>>> +++ b/include/uapi/linux/if_link.h
+>>> @@ -417,6 +417,9 @@ enum {
+>>>          IFLA_BOND_AD_LACP_RATE,
+>>>          IFLA_BOND_AD_SELECT,
+>>>          IFLA_BOND_AD_INFO,
+>>> +       IFLA_BOND_AD_ACTOR_SYS_PRIO,
+>>> +       IFLA_BOND_AD_USER_PORT_KEY,
+>>> +       IFLA_BOND_AD_ACTOR_SYSTEM,
+>> Even though this is available / stored in bond->param, I feel that
+>> these belong to IFLA_BOND_AD_INFO_, no?
+>
+> Can see it fitting in there. Not sure of the history of the AD_INFO_*
+> object. Evaluating implementation, will respond tomorrow with conclusion.
 
-Thanks Eric; I will fix and resend.
+So I did complete a rough implementation of this in both the kernel and 
+iproute2 [1][2].
 
-Regards,
+After having implemented the example code it became clear that we should 
+continue to divide based on write permissions. That being all current 
+bonding attributes that are writable exist in "IFLA_BOND_*" and all 
+"IFLA_BOND_AD_INFO*" attributes are read-only. By dividing this way it 
+makes consumers of the API (f.e. iprotue2) pretty straight forward to 
+implement in both the write and read cases. Also all IFLA_BOND_AD_INFO 
+attributes I do not see getting converted to writable, as they are 
+generated as a result of lacp negotiation with input from these new ad_ 
+attributes, agree?
 
-K. Y
-> 
-> 
+In the implementation code for iproute2 [2] a "submode" for defining 
+ad_info attributes was needed to keep the parsing simple. This felt 
+awkward because all other attributes just need to be listed, with no 
+special submode beyond the link type.
+
+Summary, will send a v2 with the current implementation and change 
+bond_fill_info() to only send these new ad attributes if the bond is in 
+mode 4, will not modify lacp_rate or ad_select at this time. Will post 
+v2 tomorrow if no strong disagreements.
+
+Thanks!
+
+[1] https://github.com/jtoppins/net-next/tree/ad_actor-patches-v2
+[2] https://github.com/jtoppins/iproute2/tree/ad_actor-patches-v2
+>
+>>
+>>>          __IFLA_BOND_MAX,
+>>>   };
+>>>
+>>> --
+>>> 1.7.10.4
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
