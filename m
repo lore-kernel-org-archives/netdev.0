@@ -1,66 +1,59 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [net-next PATCH 1/6] net: Add skb_free_frag to replace use of
- put_page in freeing skb->head
-Date: Wed, 6 May 2015 12:38:40 -0700
-Message-ID: <20150506123840.312f41000e8d46f1ef9ce046@linux-foundation.org>
-References: <20150504231000.1538.70520.stgit@ahduyck-vm-fedora22>
-	<20150504231448.1538.84164.stgit@ahduyck-vm-fedora22>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 4/7] packet: rollover lock contention avoidance
+Date: Wed, 06 May 2015 12:44:10 -0700
+Message-ID: <1430941450.14545.84.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430936837-22655-1-git-send-email-willemb@google.com>
+	 <1430936837-22655-5-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:52929 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750808AbbEFTil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 15:38:41 -0400
-In-Reply-To: <20150504231448.1538.84164.stgit@ahduyck-vm-fedora22>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:37550 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845AbbEFToM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 15:44:12 -0400
+Received: by igbsb11 with SMTP id sb11so4543042igb.0
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 12:44:12 -0700 (PDT)
+In-Reply-To: <1430936837-22655-5-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 04 May 2015 16:14:48 -0700 Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
+On Wed, 2015-05-06 at 14:27 -0400, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
 
-> +/**
-> + * skb_free_frag - free a page fragment
-> + * @head: virtual address of page fragment
-> + *
-> + * Frees a page fragment allocated out of either a compound or order 0 page.
-> + * The function itself is a hybrid between free_pages and free_compound_page
-> + * which can be found in mm/page_alloc.c
-> + */
-> +void skb_free_frag(void *head)
-> +{
-> +	struct page *page = virt_to_head_page(head);
+> @@ -3718,6 +3726,10 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
+>  			mask |= POLLOUT | POLLWRNORM;
+>  	}
+>  	spin_unlock_bh(&sk->sk_write_queue.lock);
 > +
-> +	if (unlikely(put_page_testzero(page))) {
-> +		if (likely(PageHead(page)))
-> +			__free_pages_ok(page, compound_order(page));
-> +		else
-> +			free_hot_cold_page(page, false);
-> +	}
-> +}
+> +	if (po->pressure && !(mask & POLLIN))
+> +		xchg(&po->pressure, 0);
+> +
+>  	return mask;
 
-Why are we testing for PageHead in here?  If the code were to simply do
+This look racy to me : several threads could run here, and a thread
+could remove pressure just set by another one.
 
-	if (unlikely(put_page_testzero(page)))
-		__free_pages_ok(page, compound_order(page));
+Also waiting for queue being completely empty before releasing pressure
+might depend on scheduling to utilize queue shortly.
 
-that would still work?
+(We usually use max_occupancy/2 thresholds)
 
+Maybe this would be better, but please check.
 
-There's nothing networking-specific in here.  I suggest the function be
-renamed and moved to page_alloc.c.  Add an inlined skb_free_frag() in a
-net header which calls it.  This way the mm developers know about it
-and will hopefully maintain it.  It would need a comment explaining
-when and why people should and shouldn't use it.
-
-The term "page fragment" is a net thing and isn't something we know
-about.  What is it?  From context I'm thinking a definition would look
-something like
-
-  An arbitrary-length arbitrary-offset area of memory which resides
-  within a 0 or higher order page.  Multiple fragments within that page
-  are individually refcounted, in the page's reference counter.
-
-Is that correct and complete?
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 5102c3cc4eec..fab59f8bb336 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -3694,6 +3694,8 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
+                        TP_STATUS_KERNEL))
+                        mask |= POLLIN | POLLRDNORM;
+        }
++       if (po->pressure && !(mask & POLLIN))
++               xchg(&po->pressure, 0);
+        spin_unlock_bh(&sk->sk_receive_queue.lock);
+        spin_lock_bh(&sk->sk_write_queue.lock);
+        if (po->tx_ring.pg_vec) {
