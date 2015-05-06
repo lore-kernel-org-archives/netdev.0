@@ -1,62 +1,93 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V3 net-next 1/1] hv_netvsc: Use the xmit_more skb flag
- to optimize signaling the host
-Date: Wed, 06 May 2015 12:17:39 -0700
-Message-ID: <1430939859.14545.72.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430936436-5837-1-git-send-email-kys@microsoft.com>
- <1430935733.14545.57.camel@edumazet-glaptop2.roam.corp.google.com>
- <BY2PR0301MB071195898775621EBF8FA9DEA0D00@BY2PR0301MB0711.namprd03.prod.outlook.com>
+Subject: Re: [PATCH net-next 6/7] packet: rollover huge flows before small
+ flows
+Date: Wed, 06 May 2015 12:34:24 -0700
+Message-ID: <1430940864.14545.80.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430936837-22655-1-git-send-email-willemb@google.com>
+	 <1430936837-22655-7-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: KY Srinivasan <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <BY2PR0301MB071195898775621EBF8FA9DEA0D00@BY2PR0301MB0711.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:35055 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845AbbEFTe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 15:34:26 -0400
+Received: by igbyr2 with SMTP id yr2so140584366igb.0
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 12:34:26 -0700 (PDT)
+In-Reply-To: <1430936837-22655-7-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-06 at 18:28 +0000, KY Srinivasan wrote:
-
-> Ah! I too was wondering how we could get into this situation. The condition you mention
-> is already handled in the lower level - if the attempt to put the last packet on vmbus were to
-> fail because the ring is full, we will notify the host independent of kick_q parameter - look
-> at the function vmbus_sendpacket_ctl() in drivers/hv/channel.c
+On Wed, 2015-05-06 at 14:27 -0400, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
 > 
-> I will resend the patch by reverting this to version 2.
+> Migrate flows from a socket to another socket in the fanout group not
+> only when the socket is full. Start migrating huge flows early, to
+> divert possible 4-tuple attacks without affecting normal traffic.
+> 
+> Introduce fanout_flow_is_huge(). This detects huge flows, which are
+> defined as taking up more than half the load. It does so cheaply, by
+> storing the rxhashes of the N most recent packets. If over half of
+> these are the same rxhash as the current packet, then drop it. This
+> only protects against 4-tuple attacks. N is chosen to fit all data in
+> a single cache line.
+> 
+> Tested:
+>   Ran bench_rollover for 10 sec with 1.5 Mpps of single flow input.
+> 
+>       lpbb5:/export/hda3/willemb# ./bench_rollover -l 1000 -r -s
+>       cpu        rx       rx.k     drop.k   rollover     r.huge   r.failed
+>        0    1202599    1202599          0          0          0          0
+>        1    1221096    1221096          0          0          0          0
+>        2    1202296    1202296          0          0          0          0
+>        3    1229998    1229998          0          0          0          0
+>        4    1229551    1229551          0          0          0          0
+>        5    1221097    1221097          0          0          0          0
+>        6    1223496    1223496          0          0          0          0
+>        7    1616768    1616768          0    8530027    8530027          0
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
+>  net/packet/af_packet.c | 30 +++++++++++++++++++++++++++---
+>  net/packet/internal.h  |  4 ++++
+>  2 files changed, 31 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index d0c4c95..4e54b6b 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1326,6 +1326,24 @@ static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
+>  	return x;
+>  }
+>  
+> +static bool fanout_flow_is_huge(struct packet_sock *po, struct sk_buff *skb)
+> +{
+> +	u32 rxhash;
+> +	int i, count = 0;
+> +
+> +	rxhash = skb_get_hash(skb);
+> +	spin_lock(&po->rollover->hist_lock);
+> +	for (i = 0; i < ROLLOVER_HLEN; i++)
+> +		if (po->rollover->history[i] == rxhash)
+> +			count++;
+> +
+> +	i = po->rollover->hist_idx++ & (ROLLOVER_HLEN - 1);
+> +	po->rollover->history[i] = rxhash;
+> +	spin_unlock(&po->rollover->hist_lock);
+> +
+> +	return count > (ROLLOVER_HLEN >> 1);
+> +}
+> +
 
-I am not really convinced by what you are saying ;)
+I am not a huge fan of this strategy or memory placement, because of the
+spinlock that protects something which should be a hint, more than an
+ultra precise decision. At the time lock is released, the status might
+already be imprecise.
 
-problem is not when you fail to add an additional packet.
+You touch 3 cache lines here, one for rollover->hist_idx++, one for
+history[i] = hash, and one for the spinlock.
 
-Problem is :
-
-You queue a packet but not kick because skb->xmit_more = 1, and _then_
-you call netif_tx_stop_queue().
-
-No further packet will be delivered to your driver, until
-netif_tx_wake_queue() is called again from netvsc_send_completion(),
-possibly milli seconds later.
-
-If qdisc was replaced by another one, no packet will kick again, unless
-other traffic comes.
-
-Given complexity of your driver, I have no easy way to check you made
-this xmit_more conversion correctly, and one packet can not sit in the
-equivalent of TX ring buffer for unbound time.
-
-Better add a full explanation into your changelog.
+(And following patch has the atomic_long_inc() for stats)
