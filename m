@@ -1,59 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 4/7] packet: rollover lock contention avoidance
-Date: Wed, 06 May 2015 12:44:10 -0700
-Message-ID: <1430941450.14545.84.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430936837-22655-1-git-send-email-willemb@google.com>
-	 <1430936837-22655-5-git-send-email-willemb@google.com>
+From: "Schmitt, Phillip J" <phillip.j.schmitt@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH v2 0/3] RSS fix for ixgbe/ixgbevf
+Date: Wed, 6 May 2015 19:47:42 +0000
+Message-ID: <305E19FFAC908240AB6DEBD1E2D8C1E17F8287BF@ORSMSX108.amr.corp.intel.com>
+References: <1430276261-29821-1-git-send-email-fan.du@intel.com>
+ <1430398781.2669.110.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Du, Fan" <fan.du@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37550 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845AbbEFToM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 15:44:12 -0400
-Received: by igbsb11 with SMTP id sb11so4543042igb.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 12:44:12 -0700 (PDT)
-In-Reply-To: <1430936837-22655-5-git-send-email-willemb@google.com>
+Received: from mga11.intel.com ([192.55.52.93]:39729 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750845AbbEFTro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 May 2015 15:47:44 -0400
+In-Reply-To: <1430398781.2669.110.camel@jtkirshe-mobl>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-06 at 14:27 -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-
-> @@ -3718,6 +3726,10 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
->  			mask |= POLLOUT | POLLWRNORM;
->  	}
->  	spin_unlock_bh(&sk->sk_write_queue.lock);
-> +
-> +	if (po->pressure && !(mask & POLLIN))
-> +		xchg(&po->pressure, 0);
-> +
->  	return mask;
-
-This look racy to me : several threads could run here, and a thread
-could remove pressure just set by another one.
-
-Also waiting for queue being completely empty before releasing pressure
-might depend on scheduling to utilize queue shortly.
-
-(We usually use max_occupancy/2 thresholds)
-
-Maybe this would be better, but please check.
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 5102c3cc4eec..fab59f8bb336 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -3694,6 +3694,8 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
-                        TP_STATUS_KERNEL))
-                        mask |= POLLIN | POLLRDNORM;
-        }
-+       if (po->pressure && !(mask & POLLIN))
-+               xchg(&po->pressure, 0);
-        spin_unlock_bh(&sk->sk_receive_queue.lock);
-        spin_lock_bh(&sk->sk_write_queue.lock);
-        if (po->tx_ring.pg_vec) {
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSW50ZWwtd2lyZWQtbGFu
+IFttYWlsdG86aW50ZWwtd2lyZWQtbGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24NCj4g
+QmVoYWxmIE9mIEplZmYgS2lyc2hlcg0KPiBTZW50OiBUaHVyc2RheSwgQXByaWwgMzAsIDIwMTUg
+NjowMCBBTQ0KPiBUbzogRHUsIEZhbg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgaW50
+ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gU3ViamVjdDogUmU6IFtJbnRlbC13aXJl
+ZC1sYW5dIFtQQVRDSCB2MiAwLzNdIFJTUyBmaXggZm9yIGl4Z2JlL2l4Z2JldmYNCj4gDQo+IE9u
+IFdlZCwgMjAxNS0wNC0yOSBhdCAxMDo1NyArMDgwMCwgRmFuIER1IHdyb3RlOg0KPiA+IFRoaXMg
+cGF0Y2hzZXQgcHJvdmlkZXMgUlNTIGhhc2ggdmFsdWUgZm9yIHVwcGVyIHN0YWNrIGJ5IGluZGlj
+YXRpbmcNCj4gPiB3aGV0aGVyIGl0J3MgYSBMMyBvciBMNCBoYXNoLiBUaHVzIG90aGVyIGNvbXBv
+bmVudCBvZiBuZXR3b3JrIHN0YWNrDQo+ID4gY291bGQgdXRpbGl6ZSB0aGlzIGhhc2ggdmFsdWUg
+cHJvdmlkZWQgYnkgTklDIHdpdGhvdXQgY2FjdWxhdGluZyBieQ0KPiA+IHRoZW1zZWx2ZXMuDQo+
+ID4NCj4gPiBUZXN0Og0KPiA+ICogU2ltcGxlIGlwZXJmIHRlc3QgdXNpbmcgaXhnYmUgZm9yIDgy
+NTk5RVMNCj4gPiAqIEJ1aWxkIHRlc3Qgb25seSBmb3IgaXhnYmV2Zg0KPiA+ICogbWFrZSBDPTEg
+Q0Y9LURfX0NIRUNLX0VORElBTl9fLCBubyB3YXJuaW5ncyBpbnRyb2R1Y2VkIGJ5IHRoaXMNCj4g
+PiBwYXRjaHNldA0KPiA+DQo+ID4gQ2hhbmdlbG9nOg0KPiA+IHYyOg0KPiA+ICAgLSBBZGQgcGF0
+Y2gzIHRvIG1ha2UgYWxsIGhhc2ggdmFsdWUgZnJvbSBSU1MgcGFydC4NCj4gPiB2MToNCj4gPiAg
+IC0gQ29kZSBzdHlsZSBpc3N1ZSBzdWdnZXRlZCBieSBUYW50aWxvdiwgRW1pbCBTLg0KPiA+ICAg
+LSBJbml0aWFsIHZlcnNpb24NCj4gPg0KPiA+IEZhbiBEdSAoMyk6DQo+ID4gICBpeGdiZTogU3Bl
+Y2lmeSByeCBoYXNoIHR5cGUgd3J0IHJ4IGRlc2MgUlNTIHR5cGUNCj4gPiAgIGl4Z2JldmY6IFNl
+dCByeCBoYXNoIHR5cGUgZm9yIGluZ3Jlc3MgcGFja2V0cw0KPiA+ICAgaXhnYmU6IERvbid0IHJl
+cG9ydCBmbG93IGRpcmVjdG9yIGZpbHRlcidzIHN0YXR1cw0KPiA+DQo+ID4gIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlXzgyNTk5LmMgICAgfCAgICAyIC0NCj4gPiAgZHJp
+dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICAgICB8ICAgMjUgKysr
+KysrKysrKysrKysrKy0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZXZm
+L2RlZmluZXMuaCAgICAgIHwgICAxMiArKysrKysrKysNCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvaXhnYmV2Zi9peGdiZXZmX21haW4uYyB8ICAgMjcNCj4gKysrKysrKysrKysrKysr
+KysrKysrDQo+ID4gIDQgZmlsZXMgY2hhbmdlZCwgNjAgaW5zZXJ0aW9ucygrKSwgNiBkZWxldGlv
+bnMoLSkNCj4gPg0KPiANCj4gVGhhbmtzIEZhbiwgSSBoYXZlIGFkZGVkIHlvdXIgc2VyaWVzIHRv
+IG15IHF1ZXVlIGZvciBmdXJ0aGVyIHJldmlldyBhbmQgdGVzdGluZy4NCg0KVGVzdGVkLWJ5OiBQ
+aGlsIFNjaG1pdHQgPHBoaWxsaXAuai5zY2htaXR0QGludGVsLmNvbT4NCg==
