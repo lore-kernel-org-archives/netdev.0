@@ -1,136 +1,125 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next 7/7] packet: rollover statistics
-Date: Wed,  6 May 2015 14:27:17 -0400
-Message-ID: <1430936837-22655-8-git-send-email-willemb@google.com>
+Subject: [PATCH net-next 6/7] packet: rollover huge flows before small flows
+Date: Wed,  6 May 2015 14:27:16 -0400
+Message-ID: <1430936837-22655-7-git-send-email-willemb@google.com>
 References: <1430936837-22655-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f49.google.com ([209.85.213.49]:35660 "EHLO
-	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752741AbbEFS12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 14:27:28 -0400
-Received: by yhda23 with SMTP id a23so4711871yhd.2
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 11:27:27 -0700 (PDT)
+Received: from mail-yh0-f45.google.com ([209.85.213.45]:35654 "EHLO
+	mail-yh0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbbEFS11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 14:27:27 -0400
+Received: by yhda23 with SMTP id a23so4711750yhd.2
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 11:27:26 -0700 (PDT)
 In-Reply-To: <1430936837-22655-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Rollover indicates exceptional conditions. Export a counter to inform
-socket owners of this state.
+Migrate flows from a socket to another socket in the fanout group not
+only when the socket is full. Start migrating huge flows early, to
+divert possible 4-tuple attacks without affecting normal traffic.
 
-If no socket with sufficient room is found, rollover fails. Also count
-these events.
-
-Finally, also count when flows are rolled over early thanks to huge
-flow detection, to validate its correctness.
+Introduce fanout_flow_is_huge(). This detects huge flows, which are
+defined as taking up more than half the load. It does so cheaply, by
+storing the rxhashes of the N most recent packets. If over half of
+these are the same rxhash as the current packet, then drop it. This
+only protects against 4-tuple attacks. N is chosen to fit all data in
+a single cache line.
 
 Tested:
-  Read counters in bench_rollover on all other tests in the patchset
+  Ran bench_rollover for 10 sec with 1.5 Mpps of single flow input.
+
+      lpbb5:/export/hda3/willemb# ./bench_rollover -l 1000 -r -s
+      cpu        rx       rx.k     drop.k   rollover     r.huge   r.failed
+       0    1202599    1202599          0          0          0          0
+       1    1221096    1221096          0          0          0          0
+       2    1202296    1202296          0          0          0          0
+       3    1229998    1229998          0          0          0          0
+       4    1229551    1229551          0          0          0          0
+       5    1221097    1221097          0          0          0          0
+       6    1223496    1223496          0          0          0          0
+       7    1616768    1616768          0    8530027    8530027          0
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/uapi/linux/if_packet.h |  7 +++++++
- net/packet/af_packet.c         | 17 +++++++++++++++++
- net/packet/internal.h          |  3 +++
- 3 files changed, 27 insertions(+)
+ net/packet/af_packet.c | 30 +++++++++++++++++++++++++++---
+ net/packet/internal.h  |  4 ++++
+ 2 files changed, 31 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index 053bd10..52b6501 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -54,6 +54,7 @@ struct sockaddr_ll {
- #define PACKET_FANOUT			18
- #define PACKET_TX_HAS_OFF		19
- #define PACKET_QDISC_BYPASS		20
-+#define PACKET_ROLLOVER_STATS		21
- 
- #define PACKET_FANOUT_HASH		0
- #define PACKET_FANOUT_LB		1
-@@ -75,6 +76,12 @@ struct tpacket_stats_v3 {
- 	unsigned int	tp_freeze_q_cnt;
- };
- 
-+struct tpacket_rollover_stats {
-+	unsigned long	tp_all;
-+	unsigned long	tp_huge;
-+	unsigned long	tp_failed;
-+};
-+
- union tpacket_stats_u {
- 	struct tpacket_stats stats1;
- 	struct tpacket_stats_v3 stats3;
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 4e54b6b..9a82196 100644
+index d0c4c95..4e54b6b 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1402,6 +1402,9 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
- 			if (i != j)
- 				po->rollover->sock = i;
-+			atomic_long_inc(&po->rollover->num);
-+			if (room == ROOM_LOW)
-+				atomic_long_inc(&po->rollover->num_huge);
- 			return i;
- 		}
- 
-@@ -1409,6 +1412,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 			i = 0;
- 	} while (i != j);
- 
-+	atomic_long_inc(&po->rollover->num_failed);
- 	return idx;
+@@ -1326,6 +1326,24 @@ static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
+ 	return x;
  }
  
-@@ -1544,6 +1548,9 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
++static bool fanout_flow_is_huge(struct packet_sock *po, struct sk_buff *skb)
++{
++	u32 rxhash;
++	int i, count = 0;
++
++	rxhash = skb_get_hash(skb);
++	spin_lock(&po->rollover->hist_lock);
++	for (i = 0; i < ROLLOVER_HLEN; i++)
++		if (po->rollover->history[i] == rxhash)
++			count++;
++
++	i = po->rollover->hist_idx++ & (ROLLOVER_HLEN - 1);
++	po->rollover->history[i] = rxhash;
++	spin_unlock(&po->rollover->hist_lock);
++
++	return count > (ROLLOVER_HLEN >> 1);
++}
++
+ static unsigned int fanout_demux_hash(struct packet_fanout *f,
+ 				      struct sk_buff *skb,
+ 				      unsigned int num)
+@@ -1366,11 +1384,16 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 					  unsigned int num)
+ {
+ 	struct packet_sock *po, *po_next;
+-	unsigned int i, j;
++	unsigned int i, j, room;
+ 
+ 	po = pkt_sk(f->arr[idx]);
+-	if (try_self && packet_rcv_has_room(po, skb) != ROOM_NONE)
+-		return idx;
++
++	if (try_self) {
++		room = packet_rcv_has_room(po, skb);
++		if (room == ROOM_NORMAL ||
++		    (room == ROOM_LOW && !fanout_flow_is_huge(po, skb)))
++			return idx;
++	}
+ 
+ 	i = j = min_t(int, po->rollover->sock, num - 1);
+ 	do {
+@@ -1520,6 +1543,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		po->rollover = kzalloc(sizeof(*po->rollover), GFP_KERNEL);
  		if (!po->rollover)
  			return -ENOMEM;
- 		spin_lock_init(&po->rollover->hist_lock);
-+		atomic_long_set(&po->rollover->num, 0);
-+		atomic_long_set(&po->rollover->num_huge, 0);
-+		atomic_long_set(&po->rollover->num_failed, 0);
++		spin_lock_init(&po->rollover->hist_lock);
  	}
  
  	mutex_lock(&fanout_mutex);
-@@ -3571,6 +3578,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 	struct packet_sock *po = pkt_sk(sk);
- 	void *data = &val;
- 	union tpacket_stats_u st;
-+	struct tpacket_rollover_stats rstats;
- 
- 	if (level != SOL_PACKET)
- 		return -ENOPROTOOPT;
-@@ -3646,6 +3654,15 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 			((u32)po->fanout->flags << 24)) :
- 		       0);
- 		break;
-+	case PACKET_ROLLOVER_STATS:
-+		if (!po->rollover)
-+			return -EINVAL;
-+		rstats.tp_all = atomic_long_read(&po->rollover->num);
-+		rstats.tp_huge = atomic_long_read(&po->rollover->num_huge);
-+		rstats.tp_failed = atomic_long_read(&po->rollover->num_failed);
-+		data = &rstats;
-+		lv = sizeof(rstats);
-+		break;
- 	case PACKET_TX_HAS_OFF:
- 		val = po->tp_tx_has_off;
- 		break;
 diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 6f479c4..5d51b7b 100644
+index 22d7d77..6f479c4 100644
 --- a/net/packet/internal.h
 +++ b/net/packet/internal.h
-@@ -89,6 +89,9 @@ struct packet_fanout {
+@@ -89,6 +89,10 @@ struct packet_fanout {
  
  struct packet_rollover {
  	int			sock;
-+	atomic_long_t		num;
-+	atomic_long_t		num_huge;
-+	atomic_long_t		num_failed;
- 	int			hist_idx;
- #define ROLLOVER_HLEN	(L1_CACHE_BYTES / sizeof(u32))
- 	u32			history[ROLLOVER_HLEN] ____cacheline_aligned;
++	int			hist_idx;
++#define ROLLOVER_HLEN	(L1_CACHE_BYTES / sizeof(u32))
++	u32			history[ROLLOVER_HLEN] ____cacheline_aligned;
++	spinlock_t		hist_lock;
+ } ____cacheline_aligned_in_smp;
+ 
+ struct packet_sock {
 -- 
 2.2.0.rc0.207.ga3a616c
