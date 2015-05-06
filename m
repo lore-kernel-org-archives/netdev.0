@@ -1,48 +1,62 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
-Date: Wed, 06 May 2015 12:10:00 -0700
-Message-ID: <1430939400.14545.65.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>
-	 <1958390.Ugr57PpLDS@h2o.as.studentenwerk.mhn.de>
-	 <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>
+Subject: Re: [PATCH V3 net-next 1/1] hv_netvsc: Use the xmit_more skb flag
+ to optimize signaling the host
+Date: Wed, 06 May 2015 12:17:39 -0700
+Message-ID: <1430939859.14545.72.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430936436-5837-1-git-send-email-kys@microsoft.com>
+ <1430935733.14545.57.camel@edumazet-glaptop2.roam.corp.google.com>
+ <BY2PR0301MB071195898775621EBF8FA9DEA0D00@BY2PR0301MB0711.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Walter <linux@stwm.de>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: KY Srinivasan <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <BY2PR0301MB071195898775621EBF8FA9DEA0D00@BY2PR0301MB0711.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2015-05-06 at 11:15 -0700, Cong Wang wrote:
-> (Cc'ing netdev.)
-> 
-> On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
-> > Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
-> >> Hello,
-> >>
-> >> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with an
-> >> isatap-tunnel.
-> >
-> > I did some further tests. To trigger the crash you need
-> >
-> > * isatap-tunnel (probably any sit-tunnel will do it)
-> > * raw-socket
-> > * udp
-> >
-> > Using icmpv6 or tcp i.e. does not trigger it.
-> >
-> 
-> Do you have a script to reproduce it?
-> 
-> 
-> Thanks for the bug report!
-> --
+On Wed, 2015-05-06 at 18:28 +0000, KY Srinivasan wrote:
 
-Please Wolfgang try to revert 32dce968dd987adfb0c00946d78dad9154f64759
-("ipv6: Allow for partial checksums on non-ufo packets")
+> Ah! I too was wondering how we could get into this situation. The condition you mention
+> is already handled in the lower level - if the attempt to put the last packet on vmbus were to
+> fail because the ring is full, we will notify the host independent of kick_q parameter - look
+> at the function vmbus_sendpacket_ctl() in drivers/hv/channel.c
+> 
+> I will resend the patch by reverting this to version 2.
+
+I am not really convinced by what you are saying ;)
+
+problem is not when you fail to add an additional packet.
+
+Problem is :
+
+You queue a packet but not kick because skb->xmit_more = 1, and _then_
+you call netif_tx_stop_queue().
+
+No further packet will be delivered to your driver, until
+netif_tx_wake_queue() is called again from netvsc_send_completion(),
+possibly milli seconds later.
+
+If qdisc was replaced by another one, no packet will kick again, unless
+other traffic comes.
+
+Given complexity of your driver, I have no easy way to check you made
+this xmit_more conversion correctly, and one packet can not sit in the
+equivalent of TX ring buffer for unbound time.
+
+Better add a full explanation into your changelog.
