@@ -1,57 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 4/4] ip: fix exit code for addrlabel
-Date: Wed,  6 May 2015 09:58:03 -0700
-Message-ID: <1430931483-28595-5-git-send-email-stephen@networkplumber.org>
-References: <1430931483-28595-1-git-send-email-stephen@networkplumber.org>
-Cc: Stephen Hemminger <shemming@brocade.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:32777 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753164AbbEFQ6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 12:58:06 -0400
-Received: by pdbnk13 with SMTP id nk13so15132458pdb.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 09:58:05 -0700 (PDT)
-In-Reply-To: <1430931483-28595-1-git-send-email-stephen@networkplumber.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Harini Katakam <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Subject: [net-next PATCH v3 1/4] devicetree: Add compatible string for Zynq Ultrascale+ MPSoC
+Date: Wed, 6 May 2015 22:27:15 +0530
+Message-ID: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	<punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+To: <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	<harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemming@brocade.com>
+Add "cdns,zynqmp-gem" to be used for Zynq Ultrascale+ MPSoC.
 
-The exit code for ip label was not correct.
-The return from the command function is negated and turned into
-the exit code on failure.
+Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
 ---
- ip/ipaddrlabel.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/ip/ipaddrlabel.c b/ip/ipaddrlabel.c
-index f6a638b..19a9308 100644
---- a/ip/ipaddrlabel.c
-+++ b/ip/ipaddrlabel.c
-@@ -183,7 +183,7 @@ static int ipaddrlabel_modify(int cmd, int argc, char **argv)
- 		req.ifal.ifal_family = AF_INET6;
- 
- 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
--		return 2;
-+		return -2;
- 
- 	return 0;
- }
-@@ -232,12 +232,12 @@ static int ipaddrlabel_flush(int argc, char **argv)
- 
- 	if (rtnl_wilddump_request(&rth, af, RTM_GETADDRLABEL) < 0) {
- 		perror("Cannot send dump request");
--		return 1;
-+		return -1;
- 	}
- 
- 	if (rtnl_dump_filter(&rth, flush_addrlabel, NULL) < 0) {
- 		fprintf(stderr, "Flush terminated\n");
--		return 1;
-+		return -1;
- 	}
- 
- 	return 0;
+v3:
+No changes
+
+v2:
+Updated SoC name
+
+---
+ Documentation/devicetree/bindings/net/macb.txt |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index ba19d67..8ec5fdf 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -9,6 +9,7 @@ Required properties:
+   the Cadence GEM, or the generic form: "cdns,gem".
+   Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5d3 SoCs.
+   Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5d4 SoCs.
++  Use "cdns,zynqmp-gem" for Zynq Ultrascale+ MPSoC.
+ - reg: Address and length of the register set for the device
+ - interrupts: Should contain macb interrupt
+ - phy-mode: See ethernet.txt file in the same directory.
 -- 
-2.1.4
+1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
