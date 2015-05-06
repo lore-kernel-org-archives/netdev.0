@@ -1,62 +1,45 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH V3 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to
- optimize signaling the host
-Date: Wed, 6 May 2015 18:28:53 +0000
-Message-ID: <BY2PR0301MB071195898775621EBF8FA9DEA0D00@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1430936436-5837-1-git-send-email-kys@microsoft.com>
- <1430935733.14545.57.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] ss: small optim in tcp_show_info()
+Date: Wed, 06 May 2015 11:33:23 -0700
+Message-ID: <1430937203.14545.62.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430935733.14545.57.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:34539 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750845AbbEFSdZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 14:33:25 -0400
+Received: by iedfl3 with SMTP id fl3so23754812ied.1
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 11:33:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBNYXkgNiwg
-MjAxNSAxMTowOSBBTQ0KPiBUbzogS1kgU3Jpbml2YXNhbg0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0
-Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5l
-bC5vcmc7IGRldmVsQGxpbnV4ZHJpdmVycHJvamVjdC5vcmc7IG9sYWZAYWVwZmxlLmRlOw0KPiBh
-cHdAY2Fub25pY2FsLmNvbTsgamFzb3dhbmdAcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW1BB
-VENIIFYzIG5ldC1uZXh0IDEvMV0gaHZfbmV0dnNjOiBVc2UgdGhlIHhtaXRfbW9yZSBza2IgZmxh
-Zw0KPiB0byBvcHRpbWl6ZSBzaWduYWxpbmcgdGhlIGhvc3QNCj4gDQo+IE9uIFdlZCwgMjAxNS0w
-NS0wNiBhdCAxMToyMCAtMDcwMCwgSy4gWS4gU3Jpbml2YXNhbiB3cm90ZToNCj4gPiBCYXNlZCBv
-biB0aGUgaW5mb3JtYXRpb24gZ2l2ZW4gdG8gdGhpcyBkcml2ZXIgKHZpYSB0aGUgeG1pdF9tb3Jl
-IHNrYiBmbGFnKSwNCj4gPiB3ZSBjYW4gZGVmZXIgc2lnbmFsaW5nIHRoZSBob3N0IGlmIG1vcmUg
-cGFja2V0cyBhcmUgb24gdGhlIHdheS4gVGhpcyB3aWxsDQo+IGhlbHANCj4gPiBtYWtlIHRoZSBo
-b3N0IG1vcmUgZWZmaWNpZW50IHNpbmNlIGl0IGNhbiBwb3RlbnRpYWxseSBwcm9jZXNzIGEgbGFy
-Z2VyIGJhdGNoDQo+IG9mDQo+ID4gcGFja2V0cy4gSW1wbGVtZW50IHRoaXMgb3B0aW1pemF0aW9u
-Lg0KPiANCj4gDQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2
-LmMNCj4gYi9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jDQo+ID4gaW5kZXggNTk5M2M3
-ZS4uNGVmYWE2ZSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Ry
-di5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiA+IEBAIC00
-MzUsNiArNDM1LDggQEAgY2hlY2tfc2l6ZToNCj4gPiAgCXBhY2tldC0+cGFnZV9idWYgPSBwYWdl
-X2J1ZjsNCj4gPg0KPiA+ICAJcGFja2V0LT5xX2lkeCA9IHNrYl9nZXRfcXVldWVfbWFwcGluZyhz
-a2IpOw0KPiA+ICsJaWYgKG5ldGlmX3R4X3F1ZXVlX3N0b3BwZWQobmV0ZGV2X2dldF90eF9xdWV1
-ZShuZXQsIHBhY2tldC0NCj4gPnFfaWR4KSkpDQo+ID4gKwkJcGFja2V0LT54bWl0X21vcmUgPSBm
-YWxzZTsNCj4gDQo+IEhhdmUgeW91IHRlc3RlZCB0aGlzIGNvbmRpdGlvbiBldmVyIHRyaWdnZXJz
-ID8NCj4gDQo+IEl0IHNob3VsZCBub3QuDQo+IA0KPiBuZXR2c2Nfc3RhcnRfeG1pdCgpIHNob3Vs
-ZCBub3QgYmUgY2FsbGVkIGlmIHRoZSBxdWV1ZSBpcyBzdG9wcGVkLg0KPiANCj4gVGhlIHByb2Js
-ZW0gaXMgdGhlIGZvbGxvd2luZyA6DQo+IA0KPiBuZXR2c2Nfc3RhcnRfeG1pdCgpIGlzIGNhbGxl
-ZCB3aXRoIHRoZSBwYWNrZXQgdGhhdCBpcyBnb2luZyB0byBzdG9wIHRoZQ0KPiBxdWV1ZSwgZmls
-bGluZyBsYXN0IHNsb3QsIGJ1dCB3aXRoIHNrYi0+eG1pdF9tb3JlID0gMTsNCj4gDQo+IFNvIHlv
-dSBuZWVkIHRvIGRvIHNvbWV0aGluZyBhYm91dCB4bWl0X21vcmUsIGFmdGVyIGNhbGxpbmcNCj4g
-bmV0aWZfdHhfc3RvcF9xdWV1ZSgpLCBub3QgYmVmb3JlLg0KQWghIEkgdG9vIHdhcyB3b25kZXJp
-bmcgaG93IHdlIGNvdWxkIGdldCBpbnRvIHRoaXMgc2l0dWF0aW9uLiBUaGUgY29uZGl0aW9uIHlv
-dSBtZW50aW9uDQppcyBhbHJlYWR5IGhhbmRsZWQgaW4gdGhlIGxvd2VyIGxldmVsIC0gaWYgdGhl
-IGF0dGVtcHQgdG8gcHV0IHRoZSBsYXN0IHBhY2tldCBvbiB2bWJ1cyB3ZXJlIHRvDQpmYWlsIGJl
-Y2F1c2UgdGhlIHJpbmcgaXMgZnVsbCwgd2Ugd2lsbCBub3RpZnkgdGhlIGhvc3QgaW5kZXBlbmRl
-bnQgb2Yga2lja19xIHBhcmFtZXRlciAtIGxvb2sNCmF0IHRoZSBmdW5jdGlvbiB2bWJ1c19zZW5k
-cGFja2V0X2N0bCgpIGluIGRyaXZlcnMvaHYvY2hhbm5lbC5jDQoNCkkgd2lsbCByZXNlbmQgdGhl
-IHBhdGNoIGJ5IHJldmVydGluZyB0aGlzIHRvIHZlcnNpb24gMi4NCg0KUmVnYXJkcywNCg0KSy4g
-WQ0KPiANCj4gDQoNCg==
+From: Eric Dumazet <edumazet@google.com>
+
+Kernel can give us smaller tcp_info than our.
+
+We copy the kernel provided structure and fill with 0
+the remaining part.
+
+Lets clear only the missing part to save some cycles, as we intend to
+slightly increase tcp_info size in the future.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+diff --git a/misc/ss.c b/misc/ss.c
+index 46dbb39..68961fc 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1893,8 +1893,8 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		/* workaround for older kernels with less fields */
+ 		if (len < sizeof(*info)) {
+ 			info = alloca(sizeof(*info));
+-			memset(info, 0, sizeof(*info));
+ 			memcpy(info, RTA_DATA(tb[INET_DIAG_INFO]), len);
++			memset((char *)info + len, 0, sizeof(*info) - len);
+ 		} else
+ 			info = RTA_DATA(tb[INET_DIAG_INFO]);
+ 
