@@ -1,35 +1,49 @@
 From: Sathya Perla <sathya.perla@avagotech.com>
-Subject: [PATCH v2 net-next 9/9] be2net: update the driver version to 10.6.0.2
-Date: Wed,  6 May 2015 05:30:40 -0400
-Message-ID: <1430904640-31918-10-git-send-email-sathya.perla@avagotech.com>
+Subject: [PATCH v2 net-next 5/9] be2net: post full RXQ on interface enable
+Date: Wed,  6 May 2015 05:30:36 -0400
+Message-ID: <1430904640-31918-6-git-send-email-sathya.perla@avagotech.com>
 References: <1430904640-31918-1-git-send-email-sathya.perla@avagotech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmrelayp1.emulex.com ([138.239.112.140]:51843 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752523AbbEFJmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 05:42:49 -0400
+	by vger.kernel.org with ESMTP id S1752523AbbEFJmo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 05:42:44 -0400
 In-Reply-To: <1430904640-31918-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Suresh Reddy <Suresh.Reddy@avagotech.com>
+
+When an RXQ is created in be_open(), the driver currently posts only
+64 buffers. This sometimes results in packet drops when there is a traffic
+burst as soon as the interface is enabled.
+This patch fixes this problem by posting the full RXQ on interface enable.
+
+Signed-off-by: Suresh Reddy <Suresh.Reddy@avagotech.com>
 Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/emulex/benet/be_main.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 3e37b59..1eafc07 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -35,7 +35,7 @@
- #include "be_hw.h"
- #include "be_roce.h"
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index b25c509..5611466 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3324,9 +3324,12 @@ static int be_rx_qs_create(struct be_adapter *adapter)
  
--#define DRV_VER			"10.6.0.1"
-+#define DRV_VER			"10.6.0.2"
- #define DRV_NAME		"be2net"
- #define BE_NAME			"Emulex BladeEngine2"
- #define BE3_NAME		"Emulex BladeEngine3"
+ 	memcpy(rss->rss_hkey, rss_key, RSS_HASH_KEY_LEN);
+ 
+-	/* First time posting */
++	/* Post 1 less than RXQ-len to avoid head being equal to tail,
++	 * which is a queue empty condition
++	 */
+ 	for_all_rx_queues(adapter, rxo, i)
+-		be_post_rx_frags(rxo, GFP_KERNEL, MAX_RX_POST);
++		be_post_rx_frags(rxo, GFP_KERNEL, RX_Q_LEN - 1);
++
+ 	return 0;
+ }
+ 
 -- 
 2.2.0
