@@ -1,83 +1,47 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: [PATCH v1 net-next 1/2] igb: add PHY support for Broadcom 5461S
-Date: Thu, 7 May 2015 09:18:00 -0700
-Message-ID: <CAJ+vNU0NP4Lmc2=y_j9NN0AxK1pUTPs8rSNJ78SCp4CBQ6wtMg@mail.gmail.com>
-References: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] ARM: net: delegate filter to kernel interpreter when
+ imm_offset() return value can't fit into 12bits.
+Date: Thu, 07 May 2015 18:18:08 +0200
+Message-ID: <554B9040.50802@iogearbox.net>
+References: <1431011661-10277-1-git-send-email-nschichan@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, matthew.vick@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
-	gospo@cumulusnetworks.com, shm@cumulusnetworks.com,
-	Alan Liebthal <alanl@cumulusnetworks.com>
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:34916 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750876AbbEGQSC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 12:18:02 -0400
-Received: by qcbgu10 with SMTP id gu10so23641763qcb.2
-        for <netdev@vger.kernel.org>; Thu, 07 May 2015 09:18:01 -0700 (PDT)
-In-Reply-To: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Nicolas Schichan <nschichan@freebox.fr>,
+	Russell King <linux@arm.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431011661-10277-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 17, 2015 at 1:23 PM, Jonathan Toppins
-<jtoppins@cumulusnetworks.com> wrote:
-> From: Alan Liebthal <alanl@cumulusnetworks.com>
+On 05/07/2015 05:14 PM, Nicolas Schichan wrote:
+> The ARM JIT code emits "ldr rX, [pc, #offset]" to access the literal
+> pool. #offset maximum value is 4095 and if the generated code is too
+> large, the #offset value can overflow and not point to the expected
+> slot in the literal pool. Additionally, when overflow occurs, bits of
+> the overflow can end up changing the destination register of the ldr
+> instruction.
 >
-> The Quanta LY8 Ethernet management port uses a Broadcom 5461S chip for
-> the PHY layer. This adds support for this PHY to the Intel igb driver.
+> Fix that by detecting the overflow in imm_offset() and setting a flag
+> that is checked for each BPF instructions converted in
+> build_body(). As of now it can only be detected in the second pass. As
+> a result the second build_body() call can now fail, so add the
+> corresponding cleanup code in that case.
 >
-> Signed-off-by: Alan Liebthal <alanl@cumulusnetworks.com>
-> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-> ---
-<snip>
-> --- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-> +++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-> @@ -148,6 +148,13 @@ s32 igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
->          * Control register.  The MAC will take care of interfacing with the
->          * PHY to retrieve the desired data.
->          */
-> +       if (phy->type == e1000_phy_bcm5461s) {
-> +               mdic = rd32(E1000_MDICNFG);
-> +               mdic &= ~E1000_MDICNFG_PHY_MASK;
-> +               mdic |= (phy->addr << E1000_MDICNFG_PHY_SHIFT);
-> +               wr32(E1000_MDICNFG, mdic);
-> +       }
-> +
->         mdic = ((offset << E1000_MDIC_REG_SHIFT) |
->                 (phy->addr << E1000_MDIC_PHY_SHIFT) |
->                 (E1000_MDIC_OP_READ));
-> @@ -204,6 +211,13 @@ s32 igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
->          * Control register.  The MAC will take care of interfacing with the
->          * PHY to retrieve the desired data.
->          */
-> +       if (phy->type == e1000_phy_bcm5461s) {
-> +               mdic = rd32(E1000_MDICNFG);
-> +               mdic &= ~E1000_MDICNFG_PHY_MASK;
-> +               mdic |= (phy->addr << E1000_MDICNFG_PHY_SHIFT);
-> +               wr32(E1000_MDICNFG, mdic);
-> +       }
-> +
->         mdic = (((u32)data) |
->                 (offset << E1000_MDIC_REG_SHIFT) |
->                 (phy->addr << E1000_MDIC_PHY_SHIFT) |
-> @@ -2509,3 +2523,68 @@ static s32 igb_set_master_slave_mode(struct e1000_hw *hw)
+> Using multiple literal pools in the JITed code is going to require
+> lots of intrusive changes to the JIT code (which would better be done
+> as a feature instead of fix), just delegating to the kernel BPF
+> interpreter in that case is a more straight forward, minimal fix and
+> easy to backport.
 >
->         return hw->phy.ops.write_reg(hw, PHY_1000T_CTRL, phy_data);
->  }
+> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
 
-Jonathan,
+Fix looks good to me.
 
-Is this bcm5461s attached to an i210/i211? These changes look a lot
-like some changes I'm trying to upstream to add support for i210/i211
-which require the phy address in the MDICNFG register. If this is the
-case, then I think the right approach is to check for hw->mac.type =
-e1000_i210/e1000_i211 and I can submit my patch for review.
-
-Regards,
-
-Tim
+Fixes: ddecdfcea0ae ("ARM: 7259/3: net: JIT compiler for packet filters")
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
