@@ -1,96 +1,21 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [net-next 07/11] if_link: Add VF multicast promiscuous control
-Date: Thu, 7 May 2015 05:55:25 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E9A253@BPXM14GP.gisp.nec.co.jp>
-References: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1430563358-113833-8-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMjtZOTkwXXk-EcSniYe99Rjz-BUTcyoZwKXpwh4DsPy+A@mail.gmail.com>
- <F6FB0E698C9B3143BDF729DF22286646912ED354@ORSMSX110.amr.corp.intel.com>
+From: sainath grandhi <saiallforums@gmail.com>
+Subject: packet tracing
+Date: Wed, 6 May 2015 23:16:32 -0700
+Message-ID: <CABqzqi5f7JMY7MLXxeUn1_vdO9j0uL3-_eZ8fdp349rX1Kz7cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([210.143.35.51]:63430 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbbEGF4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 01:56:52 -0400
-In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912ED354@ORSMSX110.amr.corp.intel.com>
-Content-Language: ja-JP
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:35204 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750784AbbEGGQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 02:16:33 -0400
+Received: by qgej70 with SMTP id j70so16250157qge.2
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 23:16:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogT3IgR2VybGl0eiBbbWFp
-bHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiA+IFNlbnQ6IFN1bmRheSwgTWF5IDAzLCAyMDE1
-IDc6MTYgQU0NCj4gPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+ID4gQ2M6IERhdmlkIE1pbGxl
-cjsgSGlyb3NoaSBTaGltYW1vdG87IExpbnV4IE5ldGRldiBMaXN0Ow0KPiA+IG5ob3JtYW5AcmVk
-aGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsNCj4gPiBD
-aG9pLCBTeSBKb25nOyBFZHdhcmQgQ3JlZTsgU2tpZG1vcmUsIERvbmFsZCBDOyBSb255IEVmcmFp
-bQ0KPiA+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDcvMTFdIGlmX2xpbms6IEFkZCBWRiBtdWx0
-aWNhc3QgcHJvbWlzY3VvdXMgY29udHJvbA0KPiA+DQo+ID4gT24gU2F0LCBNYXkgMiwgMjAxNSBh
-dCAxOjQyIFBNLCBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4g
-PiB3cm90ZToNCj4gPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIDxoLXNoaW1hbW90b0BjdC5q
-cC5uZWMuY29tPg0KPiA+ID4NCj4gPiA+IEFkZCBuZXRsaW5rIGRpcmVjdGl2ZXMgYW5kIG5kbyBl
-bnRyeSB0byBhbGxvdyBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMNCj4gPiBtb2RlLg0KPiA+ID4N
-Cj4gPiA+IFRoaXMgY29udHJvbHMgdGhlIHBlcm1pc3Npb24gdG8gZW50ZXIgVkYgbXVsdGljYXN0
-IHByb21pc2N1b3VzIG1vZGUuDQo+ID4gPiBUaGUgYWRtaW5pc3RyYXRvciB3aWxsIGRlZGljYXRl
-ZGx5IGFsbG93IG11bHRpY2FzdCBwcm9taXNjdW91cyBwZXIgVkYuDQo+ID4gPg0KPiA+ID4gV2hl
-biB0aGUgVkYgaXMgdW5kZXIgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUsIGFsbCBtdWx0aWNh
-c3QgcGFja2V0cw0KPiA+ID4gYXJlIHNlbnQgdG8gdGhlIFZGLg0KPiA+ID4NCj4gPiA+IERvbid0
-IGFsbG93IFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBpZiB0aGUgVk0gaXNuJ3QgZnVsbHkgdHJ1
-c3RlZC4NCj4gPg0KPiA+IEd1eXMsDQo+ID4NCj4gPiBJIGRvbid0IHRoaW5rIHRoZSBkaXNjdXNz
-aW9uIHdlIGhlbGQgaW4gdGhlIHBhc3QgWzFdIG9uIHRoZSBtYXR0ZXIgYWN0dWFsbHkNCj4gPiBj
-b252ZXJnZWQuIEZldyBvcGVuIHBvaW50cyB0aGF0IGNhbWUgdXAgd2hpbGUgZGViYXRpbmcgaXQg
-aW50ZXJuYWxseSB3aXRoDQo+ID4gUm9ueToNCj4gPg0KPiA+IDEuIG1heWJlIHdoYXQgd2Ugd2Ug
-YWN0dWFsbHkgd2FudCBoZXJlIGFuIEFQSSB0aGF0IHN0YXRlcyBhIFZGIHRvIGJlDQo+ID4gcHJp
-dmlsZWdlZC90cnVzdGVkIGFuZCB0aGVuIHdlIGNhbiBvdmVyIGxvYWQgdGhlIGZlYXR1cmUgc2V0
-IG9mIGJlaW5nIHN1Y2g/DQo+IA0KPiBJIHN1Z2dlc3RlZCB0aGlzIG9yaWdpbmFsbHksIGJ1dCB0
-aGVyZSB3YXMgcHVzaCBiYWNrIGFzIGl0IHdhcyB0aG91Z2h0IHRvbyBnZW5lcmljIGFzIHRoZSBk
-ZWZpbml0aW9uIG9mIHdoYXQgYmVpbmcgYSAidHJ1c3RlZCINCj4gdmVuZG9yIHdvdWxkIGRpZmZl
-ciBmcm9tIGRyaXZlciB0byBkcml2ZXIuICBQZXJzb25hbGx5IEkgc3RpbGwgbGlrZSB0aGUgaWRl
-YSBvZiBoYXZpbmcgb25lIG1vZGUgc2F5aW5nIHRoYXQgd2UgInRydXN0Ig0KPiBhIGdpdmVuIFZG
-LiAgVGhlbiB0aGF0IFZGIGNhbiByZXF1ZXN0IHdoYXRldmVyIGl0IHN1cHBvcnQgaXQgd2FudHMg
-ZnJvbSB0aGUgUEYgcmVnYXJkbGVzcyBvZiBwb3NzaWJsZSBuZWdhdGl2ZSBpbXBhY3QNCj4gb24g
-b3RoZXIgVkYncy4gIFdoYXQgaXMgcG9zc2libGUgdG8gc3VwcG9ydCB3b3VsZCB0aGVuIGJlIGxl
-ZnQgdG8gdGhlIGludGVyZmFjZSBiZXR3ZWVuIHRoZSBWRiBhbmQgUEYuICBUaGlzIG9mIGNvdXJz
-ZQ0KPiB3b3VsZCBiZSBkZXBlbmRlbnQgb24gd2hhdCB0aGUgZ2l2ZW4gSFcgY291bGQgc3VwcG9y
-dCBhbmQgd291bGQgbWVhbiB0aGlzIG1vZGUgd291bGQgbWVhbiBkaWZmZXJlbnQgdGhpbmdzIGZv
-ciBkaWZmZXJlbnQNCj4gYWRhcHRlcnMgYW5kIEkgZG8gc2VlIHdoeSBzb21lIG1pZ2h0IHNlZSB0
-aGlzIGFzIGEgY29uY2Vybi4NCg0KVGhlIHBvaW50IGlzIGdyYW51bGFyaXR5LCByaWdodD8NCkFs
-bG93IGV2ZXJ5dGhpbmcgb3IgYWxsb3cgc3Vic2V0IG9mIGZlYXR1cmVzLg0KDQo+IA0KPiA+DQo+
-ID4gMi4gdGhlIHN1Z2dlc3RlZCBBUEkgb25seSBhbGxvd3MgZWl0aGVyIHVubGltaXRlZCBudW1i
-ZXIgb2YgbXVsaWNhc3QgZ3JvdXBzDQo+ID4gcGVyIFZGIG9yIGxpbWl0ZWQgbnVtYmVyLCBib3Ro
-IG51bWJlcnMgYXJlIHZlbmRvciBkZXBlbmRlbnQsIHJpZ2h0Pw0KPiA+IG1heWJlIHdoYXQgd2Ug
-bmVlZCBmb3IgdGhpcyBzcGVjaWZpYyBtYXR0ZXIgaXMgc3BlY2lmeWluZyBob3cgbWFueQ0KPiA+
-IG11bHRpY2FzdCBncm91cHMgYXJlIGFsbG93ZWQgZm9yIGEgVkY/DQo+IA0KPiBJIGJlbGlldmUg
-dGhlIGlkZWEgYmVoaW5kIHRoaXMgaW50ZXJmYWNlIHdhcyB0aGF0IGl0IHdvdWxkIGFsbG93IFZG
-J3MgdG8gcmVxdWVzdCB1bmxpbWl0ZWQgbXVsdGljYXN0IGdyb3VwIGFzIG9wcG9zZWQNCj4gdG8g
-dGhlIGN1cnJlbnQgYmVoYXZpb3Igb2YgZWFjaCBhZGFwdGVyIG9mZmVyaW5nIHNvbWUgbGltaXRl
-ZCBudW1iZXIuICBUaGlzIGxpbWl0IGlzIG9mIGNvdXJzZSBkZWZpbmVkIGJ5IGEgZ2l2ZW4gYWRh
-cHRlcnMNCj4gSFcvU1cgbGltaXRhdGlvbnMuICBVcCB1bnRpbCBub3cgeW91IGNvdWxkIGtlZXAg
-YXNraW5nIGZvciBuZXcgbXVsdGljYXN0IHVudGlsIHRoZSBQRiByZXBsaWVkIHdpdGggYW4gZXJy
-b3IuICBTbyB3ZSBuZXZlcg0KPiByZWFsbHkgZXhwb3J0ZWQgdGhpcyBpbmZvcm1hdGlvbiBiZWZv
-cmUuICBUaGlzIG5ldyBtb2RlIGp1c3QgYWxsb3dzIHVzIHRvIG5ldmVyIHJlYWNoIHRoZSBwb2lu
-dCB0aGF0IHRoZSBQRiB3b3VsZCBkZW55DQo+IGEgVkYgcmVxdWVzdCB0byBqb2luIGEgTUMgZ3Jv
-dXAuICBTZWVtcyB0byBtZSB0aGF0IGFuIGFkZGl0aW9uYWwgaW50ZXJmYWNlIHRvIHByb3ZpZGUg
-dGhlIG1heCBudW1iZXIgb2Ygc3VwcG9ydGVkIG11bHRpY2FzdA0KPiBncm91cHMgd291bGQgYmUg
-bmV3IGZ1bmN0aW9uYWxpdHkgdGhhdCBjb3VsZCBiZSBpbmRlcGVuZGVudCBvZiB0aGlzIHBhdGNo
-IGFuZCBpbiBmYWN0IGNvdWxkIGV4aXN0IGV2ZW4gd2l0aG91dCB0aGlzIHBhdGNoLg0KPiBPciBh
-bSBJIG1pc3Npbmcgd2hhdCB5b3UncmUgYXNraW5nIGZvciBoZXJlLiA6KQ0KDQpJIHRoaW5rIHRo
-YXQgdGhlIGN1cnJlbnQgbGltaXRhdGlvbiBvZiBtdWx0aWNhc3Qgb24gaXhnYmV2ZiBjb21lcyBm
-cm9tIHRoZQ0KaW1wbGVtZW50YXRpb24gb2YgbWFpbGJveCBBUEkgYmV0d2VlbiBWRiBhbmQgUEYg
-d2hpY2ggaGFzIDMyIHdvcmRzLg0KDQpCeSB0aGUgd2F5LCBvdXIgcmVxdWlyZW1lbnQgaXMgdG8g
-bWFrZSBWRiBwcm9taXNjdW91cyBtb2RlIGZvciBTRE4vTkZWIHVzYWdlLg0KQW5kIHRoZXJlIGlz
-IGEgZmVhdHVyZSB0byBlbmFibGUgaW4gSFcsIHdlJ2QgbGlrZSB0byB1c2UgaXQuDQpJIGtub3cg
-dGhlcmUgaXMgYSBwb3NzaWJpbGl0eSBvZiBwZXJmb3JtYW5jZSBkZWdyYWRhdGlvbi4NCg0KdGhh
-bmtzLA0KSGlyb3NoaQ0KDQo=
+Hello,
+    Is there any debug message framework in place for tracking a
+network packet as it passes through different kernel stack layers
+(layer 3, layer 2, bridge devices, drivers etc)?
