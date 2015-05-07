@@ -1,77 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 00/11] netns: don't switch namespace while creating kernel sockets
-Date: Thu, 07 May 2015 15:01:06 -0500
-Message-ID: <87lhh0b1j1.fsf@x220.int.ebiederm.org>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
-	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
-	<CAHA+R7NuxGDnCSfVXJ4tcqYNZGu6RetYLvtrMo4SSqRFHKCFPg@mail.gmail.com>
-	<871tisckgr.fsf@x220.int.ebiederm.org>
-	<CAHA+R7POE-X0Tbn6XEGSta=tDZQ_+EDg0ruSxy3qMFNm9Rd0oQ@mail.gmail.com>
-	<87twvob4fe.fsf@x220.int.ebiederm.org>
-	<CAHA+R7N9BuJGnA1r_K886pr45EP6ry85T2pbr2u8neJs-ROrYw@mail.gmail.com>
+From: Andy Zhou <azhou@nicira.com>
+Subject: Re: [net-next fragmenation icmp v2 1/2] bridge_netfilter: No ICMP
+ packet on IPv4 defragmentation timeout
+Date: Thu, 7 May 2015 13:09:06 -0700
+Message-ID: <CACzMAJ+qG0AuWnKDSsRtmq1L2AWoHxvwnDXa6qozMUFdLkrpxg@mail.gmail.com>
+References: <1430962033-16141-1-git-send-email-azhou@nicira.com>
+	<1430962033-16141-2-git-send-email-azhou@nicira.com>
+	<20150507020719.GG21713@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ying Xue <ying.xue@windriver.com>, netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, maxk@qti.qualcomm.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Tom Herbert <tom@herbertland.com>,
-	James Chapman <jchapman@katalix.com>,
-	Erik Hugne <erik.hugne@ericsson.com>, jon.maloy@ericsson.com,
-	Simon Horman <horms@verge.net.au>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:59202 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbbEGUFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 16:05:41 -0400
-In-Reply-To: <CAHA+R7N9BuJGnA1r_K886pr45EP6ry85T2pbr2u8neJs-ROrYw@mail.gmail.com>
-	(Cong Wang's message of "Thu, 7 May 2015 12:29:55 -0700")
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:38757 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751365AbbEGUJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 16:09:07 -0400
+Received: by mail-ob0-f180.google.com with SMTP id e9so40264204obf.1
+        for <netdev@vger.kernel.org>; Thu, 07 May 2015 13:09:06 -0700 (PDT)
+In-Reply-To: <20150507020719.GG21713@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <cwang@twopensource.com> writes:
-
-> On Thu, May 7, 2015 at 11:58 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->> Cong Wang <cwang@twopensource.com> writes:
+On Wed, May 6, 2015 at 7:07 PM, Florian Westphal <fw@strlen.de> wrote:
+> Andy Zhou <azhou@nicira.com> wrote:
+>> Currently, on defragmentation timeout error, ICMP error message
+>> will be generated. This is fine when they are used in a routing context,
+>> but does not make sense in the context of bridging netfilter.
 >>
->>> On Thu, May 7, 2015 at 11:26 AM, Eric W. Biederman
->>> <ebiederm@xmission.com> wrote:
->>>> Cong Wang <cwang@twopensource.com> writes:
->>>>
->>>>>
->>>>> Why does this have to be so complicated? We can simply avoid
->>>>> calling ops_init() by skipping those in cleanup_list, no?
->>>>
->>>> The problem is that there is a single list of methods to call and if you
->>>> simply skip calling the initialization methods for a struct net and add
->>>> yourself to the list cleanup_net will then call the cleanup methods
->>>> without calling the cleanup methods.
->>>
->>> If you mean pernet_list, ops->list has been already added before
->>> for_each_net().
->>>
->>>>
->>>> Simply limiting new network namespace registrations to a point when
->>>> network namespaces are not being registered or unregisted seems like
->>>> the simplest way to achieve this effect.
->>>>
->>>
->>> Literally, any point before ops_init().
->>
->> Think about what that what it means to add a set of operations to the
->> pernet_list and then to skip a network namespace with a count of 0 and
->> then to have that network namespace exit with those methods on
->> pernet_list.
->>
+>> This patch adds a bit (IPSKB_NO_FRAG_ICMP) in IPCB to control
+>> whether ICMP error message should be generated. br_netfiler sets
+>> this bit.
 >
-> That is easy to solve, isn't it?
+> Why not use qp->user to make this decision for bridge too?
+>
+O.K. Will do
 
-Nope.  That doesn't work.
+>> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+>> index cc1da6d..447d9ec 100644
+>> --- a/net/ipv4/ip_fragment.c
+>> +++ b/net/ipv4/ip_fragment.c
+>> @@ -217,7 +217,8 @@ static void ip_expire(unsigned long arg)
+>>               /* Only an end host needs to send an ICMP
+>>                * "Fragment Reassembly Timeout" message, per RFC792.
+>>                */
+>> -             if (qp->user == IP_DEFRAG_AF_PACKET ||
+>>                   ((qp->user >= IP_DEFRAG_CONNTRACK_IN) &&
+>>                    (qp->user <= __IP_DEFRAG_CONNTRACK_IN_END) ||
+>
+>                     ((qp->user >= IP_DEFRAG_CONNTRACK_BRIDGE_IN) &&
+>                      (qp->user <= __IP_DEFRAG_CONNTRACK_BRIDGE_IN) &&
+>
+>
+> [ This if cascade is getting silly, might make sense to add
+>  'static bool should_send_icmp(enum ip_defrag_users users)', move if
+>  tests there and then just
+>
+> if (should_send_icmp(qp->user) && skb_rtable( ...)
 
-Eric
+Good idea, will do.
