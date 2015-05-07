@@ -1,16 +1,14 @@
 From: Derrick Pallas <pallas@meraki.com>
 Subject: [PATCH] tcp: expose listen socket backlog via SIOCGBACKLOG
-Date: Wed,  6 May 2015 19:21:15 -0700
-Message-ID: <1430965275-50606-1-git-send-email-pallas@meraki.com>
+Date: Wed,  6 May 2015 19:07:24 -0700
+Message-ID: <1430964444-11970-1-git-send-email-pallas@meraki.com>
 Cc: Derrick Pallas <pallas@meraki.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:58152 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751292AbbEGC1f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 22:27:35 -0400
-Received: by pdbnk13 with SMTP id nk13so27236571pdb.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 19:27:24 -0700 (PDT)
+Received: from 184-23-135-132.dedicated.static.sonic.net ([184.23.135.132]:38777
+	"EHLO sf100.meraki.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbbEGCmT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 22:42:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
