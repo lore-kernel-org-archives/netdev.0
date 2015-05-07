@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [RFC PATCH net-next 07/11] l2tp: avoid to switch namespace for l2tp tunnel socket
-Date: Thu, 7 May 2015 16:52:46 +0800
-Message-ID: <1430988770-28907-8-git-send-email-ying.xue@windriver.com>
+Subject: [RFC PATCH net-next 09/11] tipc: fix net leak issue
+Date: Thu, 7 May 2015 16:52:48 +0800
+Message-ID: <1430988770-28907-10-git-send-email-ying.xue@windriver.com>
 References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,79 +15,56 @@ Cc: <cwang@twopensource.com>, <herbert@gondor.apana.org.au>,
 	<horms@verge.net.au>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:35580 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:35592 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926AbbEGIxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 04:53:52 -0400
+	with ESMTP id S1751025AbbEGIx7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 04:53:59 -0400
 In-Reply-To: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As there is no the race between put_net() and kernel socket creation,
-it's unnecessary to switch namespace for a kernel tunnel socket from
-init_net to its desirable one.
+After tipc internal server kernel socket is created with __sock_create(),
+the reference counter to a namespace of the socket is held in sk_alloc().
+This causes what the nemespace is never destroyed as the kernel socket is
+released on namespace's shutdown. So, after the kernel socket's creation,
+we should immediately put the net's reference counter.
 
-Cc: James Chapman <jchapman@katalix.com>
+Cc: Erik Hugne <erik.hugne@ericsson.com>
+Cc: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/l2tp/l2tp_core.c |   18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ net/tipc/server.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index a29a504..aa01daac 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1336,7 +1336,8 @@ static void l2tp_tunnel_del_work(struct work_struct *work)
- 	} else {
- 		if (sock)
- 			kernel_sock_shutdown(sock, SHUT_RDWR);
--		sk_release_kernel(sk);
-+		get_net(sock_net(sk));
-+		sock_release(sock);
- 	}
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index a91a2f7..29d9695 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -99,6 +99,7 @@ static void tipc_conn_kref_release(struct kref *kref)
+ 		if (test_bit(CF_SERVER, &con->flags)) {
+ 			__module_get(sock->ops->owner);
+ 			__module_get(sk->sk_prot_creator->owner);
++			get_net(sock_net(sock->sk));
+ 		}
+ 		saddr->scope = -TIPC_NODE_SCOPE;
+ 		kernel_bind(sock, (struct sockaddr *)saddr, sizeof(*saddr));
+@@ -332,6 +333,9 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
+ 				(char *)&s->imp, sizeof(s->imp));
+ 	if (ret < 0)
+ 		goto create_err;
++
++	put_net(sock_net(sock->sk));
++
+ 	ret = kernel_bind(sock, (struct sockaddr *)s->saddr, sizeof(*s->saddr));
+ 	if (ret < 0)
+ 		goto create_err;
+@@ -377,6 +381,7 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
  
- 	l2tp_tunnel_sock_put(sk);
-@@ -1399,12 +1400,12 @@ static int l2tp_tunnel_sock_create(struct net *net,
- 		if (cfg->local_ip6 && cfg->peer_ip6) {
- 			struct sockaddr_l2tpip6 ip6_addr = {0};
- 
--			err = sock_create_kern(AF_INET6, SOCK_DGRAM,
--					  IPPROTO_L2TP, &sock);
-+			err = __sock_create(net, AF_INET6, SOCK_DGRAM,
-+					    IPPROTO_L2TP, &sock, 1);
- 			if (err < 0)
- 				goto out;
- 
--			sk_change_net(sock->sk, net);
-+			put_net(sock_net(sock->sk));
- 
- 			ip6_addr.l2tp_family = AF_INET6;
- 			memcpy(&ip6_addr.l2tp_addr, cfg->local_ip6,
-@@ -1429,12 +1430,12 @@ static int l2tp_tunnel_sock_create(struct net *net,
- 		{
- 			struct sockaddr_l2tpip ip_addr = {0};
- 
--			err = sock_create_kern(AF_INET, SOCK_DGRAM,
--					  IPPROTO_L2TP, &sock);
-+			err = __sock_create(net, AF_INET, SOCK_DGRAM,
-+					    IPPROTO_L2TP, &sock, 1);
- 			if (err < 0)
- 				goto out;
- 
--			sk_change_net(sock->sk, net);
-+			put_net(sock_net(sock->sk));
- 
- 			ip_addr.l2tp_family = AF_INET;
- 			ip_addr.l2tp_addr = cfg->local_ip;
-@@ -1462,7 +1463,8 @@ out:
- 	*sockp = sock;
- 	if ((err < 0) && sock) {
- 		kernel_sock_shutdown(sock, SHUT_RDWR);
--		sk_release_kernel(sock->sk);
-+		get_net(sock_net(sock->sk));
-+		sock_release(sock);
- 		*sockp = NULL;
- 	}
- 
+ create_err:
+ 	kernel_sock_shutdown(sock, SHUT_RDWR);
++	get_net(sock_net(sock->sk));
+ 	sock_release(sock);
+ 	return NULL;
+ }
 -- 
 1.7.9.5
