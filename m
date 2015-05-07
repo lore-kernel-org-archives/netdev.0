@@ -1,44 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: deinline netif_tx_stop_queue() and
- netif_tx_stop_all_queues()
-Date: Thu, 07 May 2015 11:44:37 -0700
-Message-ID: <1431024277.18597.11.camel@perches.com>
-References: <1430998870-1453-1-git-send-email-dvlasenk@redhat.com>
-	 <554B9D82.80101@gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC PATCH net-next 00/11] netns: don't switch namespace while
+ creating kernel sockets
+Date: Thu, 7 May 2015 11:53:32 -0700
+Message-ID: <CAHA+R7POE-X0Tbn6XEGSta=tDZQ_+EDg0ruSxy3qMFNm9Rd0oQ@mail.gmail.com>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
+	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
+	<CAHA+R7NuxGDnCSfVXJ4tcqYNZGu6RetYLvtrMo4SSqRFHKCFPg@mail.gmail.com>
+	<871tisckgr.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Denys Vlasenko <dvlasenk@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <554B9D82.80101@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Ying Xue <ying.xue@windriver.com>, netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, maxk@qti.qualcomm.com,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Tom Herbert <tom@herbertland.com>,
+	James Chapman <jchapman@katalix.com>,
+	Erik Hugne <erik.hugne@ericsson.com>, jon.maloy@ericsson.com,
+	Simon Horman <horms@verge.net.au>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:34790 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246AbbEGSxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 14:53:33 -0400
+Received: by wgic8 with SMTP id c8so26035426wgi.1
+        for <netdev@vger.kernel.org>; Thu, 07 May 2015 11:53:32 -0700 (PDT)
+In-Reply-To: <871tisckgr.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-07 at 10:14 -0700, Alexander Duyck wrote:
-> On 05/07/2015 04:41 AM, Denys Vlasenko wrote:
-> > These functions compile to ~60 bytes of machine code each.
-> >
-> > With this .config: http://busybox.net/~vda/kernel_config
-> > there are 617 calls to netif_tx_stop_queue()
-> > and 49 calls to netif_tx_stop_all_queues() in vmlinux.
-> >
-> > Code size is reduced by 27 kbytes:
+On Thu, May 7, 2015 at 11:26 AM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> Cong Wang <cwang@twopensource.com> writes:
+>
+>>
+>> Why does this have to be so complicated? We can simply avoid
+>> calling ops_init() by skipping those in cleanup_list, no?
+>
+> The problem is that there is a single list of methods to call and if you
+> simply skip calling the initialization methods for a struct net and add
+> yourself to the list cleanup_net will then call the cleanup methods
+> without calling the cleanup methods.
 
-[]
+If you mean pernet_list, ops->list has been already added before
+for_each_net().
 
-> This is the WARN_ON action.  One thing you might try doing is moving 
-> this to a function of its own instead of moving the entire thing out of 
-> being an inline.  You may find you still get most of the space savings 
-> as I wonder if the string for the printk isn't being duplicated for each 
-> caller.
+>
+> Simply limiting new network namespace registrations to a point when
+> network namespaces are not being registered or unregisted seems like
+> the simplest way to achieve this effect.
+>
 
-It is effectively duplicated (with different prefixes) if there is a
-#define pr_fmt(fmt) "some_prefix: " fmt
-before this code is reached.  That's most callers now.
-
-The code that doesn't have a pr_fmt should get symbol deduplicated
-at link time.
+Literally, any point before ops_init().
