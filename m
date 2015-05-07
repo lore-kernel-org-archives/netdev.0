@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [RFC PATCH net-next 09/11] tipc: fix net leak issue
-Date: Thu, 7 May 2015 16:52:48 +0800
-Message-ID: <1430988770-28907-10-git-send-email-ying.xue@windriver.com>
+Subject: [RFC PATCH net-next 08/11] ipvs: avoid to switch namespace for ipvs kernel socket
+Date: Thu, 7 May 2015 16:52:47 +0800
+Message-ID: <1430988770-28907-9-git-send-email-ying.xue@windriver.com>
 References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,56 +15,127 @@ Cc: <cwang@twopensource.com>, <herbert@gondor.apana.org.au>,
 	<horms@verge.net.au>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:35592 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025AbbEGIx7 (ORCPT
+Received: from mail.windriver.com ([147.11.1.11]:40665 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900AbbEGIx7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 04:53:59 -0400
 In-Reply-To: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After tipc internal server kernel socket is created with __sock_create(),
-the reference counter to a namespace of the socket is held in sk_alloc().
-This causes what the nemespace is never destroyed as the kernel socket is
-released on namespace's shutdown. So, after the kernel socket's creation,
-we should immediately put the net's reference counter.
+The race between put_net() and kernel socket creation is gone, so
+it's unnecessary to change namespace from init_net to a desirable
+one.
 
-Cc: Erik Hugne <erik.hugne@ericsson.com>
-Cc: Jon Maloy <jon.maloy@ericsson.com>
+Cc: Simon Horman <horms@verge.net.au>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/server.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ net/netfilter/ipvs/ip_vs_sync.c |   32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index a91a2f7..29d9695 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -99,6 +99,7 @@ static void tipc_conn_kref_release(struct kref *kref)
- 		if (test_bit(CF_SERVER, &con->flags)) {
- 			__module_get(sock->ops->owner);
- 			__module_get(sk->sk_prot_creator->owner);
-+			get_net(sock_net(sock->sk));
- 		}
- 		saddr->scope = -TIPC_NODE_SCOPE;
- 		kernel_bind(sock, (struct sockaddr *)saddr, sizeof(*saddr));
-@@ -332,6 +333,9 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
- 				(char *)&s->imp, sizeof(s->imp));
- 	if (ret < 0)
- 		goto create_err;
-+
-+	put_net(sock_net(sock->sk));
-+
- 	ret = kernel_bind(sock, (struct sockaddr *)s->saddr, sizeof(*s->saddr));
- 	if (ret < 0)
- 		goto create_err;
-@@ -377,6 +381,7 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 19b9cce..4472fa0 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1458,7 +1458,7 @@ static struct socket *make_send_sock(struct net *net, int id)
+ 	int result;
  
- create_err:
- 	kernel_sock_shutdown(sock, SHUT_RDWR);
+ 	/* First create a socket move it to right name space later */
+-	result = sock_create_kern(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
++	result = __sock_create(net, PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock, 1);
+ 	if (result < 0) {
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
+@@ -1466,9 +1466,10 @@ static struct socket *make_send_sock(struct net *net, int id)
+ 	/*
+ 	 * Kernel sockets that are a part of a namespace, should not
+ 	 * hold a reference to a namespace in order to allow to stop it.
+-	 * After sk_change_net should be released using sk_release_kernel.
++	 * After the reference is decreased here with put_net(), it should
++	 * be increased again using get_net() before the socket is released.
+ 	 */
+-	sk_change_net(sock->sk, net);
++	put_net(sock_net(sock->sk));
+ 	result = set_mcast_if(sock->sk, ipvs->master_mcast_ifn);
+ 	if (result < 0) {
+ 		pr_err("Error setting outbound mcast interface\n");
+@@ -1497,7 +1498,8 @@ static struct socket *make_send_sock(struct net *net, int id)
+ 	return sock;
+ 
+ error:
+-	sk_release_kernel(sock->sk);
 +	get_net(sock_net(sock->sk));
- 	sock_release(sock);
- 	return NULL;
++	sock_release(sock);
+ 	return ERR_PTR(result);
  }
+ 
+@@ -1518,7 +1520,7 @@ static struct socket *make_receive_sock(struct net *net, int id)
+ 	int result;
+ 
+ 	/* First create a socket */
+-	result = sock_create_kern(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
++	result = __sock_create(net, PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock, 1);
+ 	if (result < 0) {
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
+@@ -1526,9 +1528,10 @@ static struct socket *make_receive_sock(struct net *net, int id)
+ 	/*
+ 	 * Kernel sockets that are a part of a namespace, should not
+ 	 * hold a reference to a namespace in order to allow to stop it.
+-	 * After sk_change_net should be released using sk_release_kernel.
++	 * After the reference is decreased here with put_net(), it should
++	 * be increased again using get_net() before the socket is released.
+ 	 */
+-	sk_change_net(sock->sk, net);
++	put_net(sock_net(sock->sk));
+ 	/* it is equivalent to the REUSEADDR option in user-space */
+ 	sock->sk->sk_reuse = SK_CAN_REUSE;
+ 	result = sysctl_sync_sock_size(ipvs);
+@@ -1554,7 +1557,8 @@ static struct socket *make_receive_sock(struct net *net, int id)
+ 	return sock;
+ 
+ error:
+-	sk_release_kernel(sock->sk);
++	get_net(sock_net(sock->sk));
++	sock_release(sock);
+ 	return ERR_PTR(result);
+ }
+ 
+@@ -1692,7 +1696,8 @@ done:
+ 		ip_vs_sync_buff_release(sb);
+ 
+ 	/* release the sending multicast socket */
+-	sk_release_kernel(tinfo->sock->sk);
++	get_net(sock_net(tinfo->sock->sk));
++	sock_release(tinfo->sock);
+ 	kfree(tinfo);
+ 
+ 	return 0;
+@@ -1729,7 +1734,8 @@ static int sync_thread_backup(void *data)
+ 	}
+ 
+ 	/* release the sending multicast socket */
+-	sk_release_kernel(tinfo->sock->sk);
++	get_net(sock_net(tinfo->sock->sk));
++	sock_release(tinfo->sock);
+ 	kfree(tinfo->buf);
+ 	kfree(tinfo);
+ 
+@@ -1854,11 +1860,13 @@ int start_sync_thread(struct net *net, int state, char *mcast_ifn, __u8 syncid)
+ 	return 0;
+ 
+ outsocket:
+-	sk_release_kernel(sock->sk);
++	get_net(sock_net(sock->sk));
++	sock_release(sock);
+ 
+ outtinfo:
+ 	if (tinfo) {
+-		sk_release_kernel(tinfo->sock->sk);
++		get_net(sock_net(tinfo->sock->sk));
++		sock_release(tinfo->sock);
+ 		kfree(tinfo->buf);
+ 		kfree(tinfo);
+ 	}
 -- 
 1.7.9.5
