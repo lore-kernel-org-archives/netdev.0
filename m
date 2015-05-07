@@ -1,2971 +1,2189 @@
-From: <richard.alpe@ericsson.com>
-Subject: [PATCH iproute2] tipc: add new TIPC configuration tool
-Date: Thu, 7 May 2015 15:07:36 +0200
-Message-ID: <1431004056-6282-2-git-send-email-richard.alpe@ericsson.com>
-References: <1431004056-6282-1-git-send-email-richard.alpe@ericsson.com>
+From: Madalin Bucur <madalin.bucur@freescale.com>
+Subject: [RFC,v3 05/12] fsl/fman: Add the FMan MAC FLIB headers
+Date: Thu, 7 May 2015 16:05:36 +0300
+Message-ID: <1431003943-14906-5-git-send-email-madalin.bucur@freescale.com>
+References: <1431003943-14906-1-git-send-email-madalin.bucur@freescale.com>
+ <1431003943-14906-2-git-send-email-madalin.bucur@freescale.com>
+ <1431003943-14906-3-git-send-email-madalin.bucur@freescale.com>
+ <1431003943-14906-4-git-send-email-madalin.bucur@freescale.com>
+Reply-To: <madalin.bucur@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>,
-	Richard Alpe <richard.alpe@ericsson.com>
+Cc: Igal Liberman <Igal.Liberman@freescale.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:59974 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbbEGNLf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 09:11:35 -0400
-In-Reply-To: <1431004056-6282-1-git-send-email-richard.alpe@ericsson.com>
+Received: from mail-bn1bon0135.outbound.protection.outlook.com ([157.56.111.135]:39552
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750900AbbEGNVL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2015 09:21:11 -0400
+In-Reply-To: <1431003943-14906-4-git-send-email-madalin.bucur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Alpe <richard.alpe@ericsson.com>
+From: Igal Liberman <Igal.Liberman@freescale.com>
 
-tipc is a user-space configuration tool for TIPC (Transparent
-Inter-process Communication). It utilizes the TIPC netlink API in the
-kernel to fetch data or perform actions.
+The FMan MAC FLib provides basic API used by the drivers to
+configure and control the FMan MAC hardware.
 
-The tipc tool has somewhat similar syntax to the ip tool meaning that
-users of the ip tool should not feel that unfamiliar with this tool.
-
-Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Igal Liberman <Igal.Liberman@freescale.com>
 ---
- Makefile         |   2 +-
- tipc/.gitignore  |   1 +
- tipc/Makefile    |  19 ++
- tipc/README      |  63 +++++
- tipc/bearer.c    | 725 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- tipc/bearer.h    |  22 ++
- tipc/cmdl.c      | 127 ++++++++++
- tipc/cmdl.h      |  46 ++++
- tipc/link.c      | 520 +++++++++++++++++++++++++++++++++++++++
- tipc/link.h      |  21 ++
- tipc/media.c     | 260 ++++++++++++++++++++
- tipc/media.h     |  21 ++
- tipc/misc.c      |  35 +++
- tipc/misc.h      |  19 ++
- tipc/msg.c       | 170 +++++++++++++
- tipc/msg.h       |  20 ++
- tipc/nametable.c | 109 +++++++++
- tipc/nametable.h |  21 ++
- tipc/node.c      | 267 ++++++++++++++++++++
- tipc/node.h      |  21 ++
- tipc/socket.c    | 140 +++++++++++
- tipc/socket.h    |  21 ++
- tipc/tipc.c      |  96 ++++++++
- 23 files changed, 2745 insertions(+), 1 deletion(-)
- create mode 100644 tipc/.gitignore
- create mode 100644 tipc/Makefile
- create mode 100644 tipc/README
- create mode 100644 tipc/bearer.c
- create mode 100644 tipc/bearer.h
- create mode 100644 tipc/cmdl.c
- create mode 100644 tipc/cmdl.h
- create mode 100644 tipc/link.c
- create mode 100644 tipc/link.h
- create mode 100644 tipc/media.c
- create mode 100644 tipc/media.h
- create mode 100644 tipc/misc.c
- create mode 100644 tipc/misc.h
- create mode 100644 tipc/msg.c
- create mode 100644 tipc/msg.h
- create mode 100644 tipc/nametable.c
- create mode 100644 tipc/nametable.h
- create mode 100644 tipc/node.c
- create mode 100644 tipc/node.h
- create mode 100644 tipc/socket.c
- create mode 100644 tipc/socket.h
- create mode 100644 tipc/tipc.c
+ .../net/ethernet/freescale/fman/flib/fsl_enet.h    | 275 +++++++
+ .../ethernet/freescale/fman/flib/fsl_fman_dtsec.h  | 791 +++++++++++++++++++++
+ .../freescale/fman/flib/fsl_fman_dtsec_mii_acc.h   | 103 +++
+ .../ethernet/freescale/fman/flib/fsl_fman_memac.h  | 453 ++++++++++++
+ .../freescale/fman/flib/fsl_fman_memac_mii_acc.h   |  76 ++
+ .../ethernet/freescale/fman/flib/fsl_fman_tgec.h   | 409 +++++++++++
+ 6 files changed, 2107 insertions(+)
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_enet.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec_mii_acc.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac_mii_acc.h
+ create mode 100644 drivers/net/ethernet/freescale/fman/flib/fsl_fman_tgec.h
 
-diff --git a/Makefile b/Makefile
-index b794f08..2e91c32 100644
---- a/Makefile
-+++ b/Makefile
-@@ -39,7 +39,7 @@ WFLAGS += -Wmissing-declarations -Wold-style-definition -Wformat=2
- CFLAGS := $(WFLAGS) $(CCOPTS) -I../include $(DEFINES) $(CFLAGS)
- YACCFLAGS = -d -t -v
- 
--SUBDIRS=lib ip tc bridge misc netem genl man
-+SUBDIRS=lib ip tc bridge misc netem genl tipc man
- 
- LIBNETLINK=../lib/libnetlink.a ../lib/libutil.a
- LDLIBS += $(LIBNETLINK)
-diff --git a/tipc/.gitignore b/tipc/.gitignore
+diff --git a/drivers/net/ethernet/freescale/fman/flib/fsl_enet.h b/drivers/net/ethernet/freescale/fman/flib/fsl_enet.h
 new file mode 100644
-index 0000000..39ed83d
+index 0000000..78e7d04
 --- /dev/null
-+++ b/tipc/.gitignore
-@@ -0,0 +1 @@
-+tipc
-diff --git a/tipc/Makefile b/tipc/Makefile
-new file mode 100644
-index 0000000..4bda8c5
---- /dev/null
-+++ b/tipc/Makefile
-@@ -0,0 +1,19 @@
-+TIPCOBJ=bearer.o \
-+    cmdl.o link.o \
-+    media.o misc.o \
-+    msg.o nametable.o \
-+    node.o socket.o \
-+    tipc.o
-+
-+TARGETS=tipc
-+LDLIBS += -lmnl
-+
-+all: $(TARGETS) $(LIBS)
-+
-+tipc: $(TIPCOBJ)
-+
-+install: all
-+	install -m 0755 $(TARGETS) $(DESTDIR)$(SBINDIR)
-+
-+clean:
-+	rm -f $(TIPCOBJ) $(TARGETS)
-diff --git a/tipc/README b/tipc/README
-new file mode 100644
-index 0000000..578a0b7
---- /dev/null
-+++ b/tipc/README
-@@ -0,0 +1,63 @@
-+DESIGN DECISIONS
-+----------------
-+
-+HELP
-+~~~~
-+--help or -h is used for help. We do not reserve the bare word "help", which
-+for example the ip command does. Reserving a bare word like help quickly
-+becomes cumbersome to handle in the code. It might be simple to handle
-+when it's passed early in the command chain like "ip addr help". But when
-+the user tries to pass "help" further down this requires manual checks and
-+special treatment. For example, at the time of writing this tool, it's
-+possible to create a vlan named "help" with the ip tool, but it's impossible
-+to remove it, the command just shows help. This is an effect of treating
-+bare words specially.
-+
-+Help texts are not dynamically generated. That is, we do not pass datastructures
-+like command list or option lists and print them dynamically. This is
-+intentional. There is always that exception and when it comes to help texts
-+these exceptions are normally neglected at the expence of usability.
-+
-+KEY-VALUE
-+~~~~~~~~~
-+All options are key-values. There are both drawbacks and benefits to this.
-+The main drawback is that it becomes more to write for the user and
-+information might seem redundant. The main benefits is scalability and code
-+simplification. Consistency is important.
-+
-+Consider this.
-+1. tipc link set priority PRIO link LINK
-+2. tipc link set LINK priority PRIO
-+
-+Link might seem redundant in (1). However, if the command should live for many
-+years and be able to evolve example (2) limits the set command to only work on a
-+single link with no ability to extend. As an example, lets say we introduce
-+grouping on the kernel side.
-+
-+1. tipc link set priority PRIO group GROUP
-+2. tipc link set ??? priority PRIO group GROUP
-+
-+2. breaks, we can't extend the command to cover a group.
-+
-+PARSING
-+~~~~~~~
-+Commands are single words. As an example, all words in "tipc link list" are
-+commands. Options are key-values that can be given in any order. In
-+"tipc link set priority PRIO link LINK" "tipc link set" are commands while
-+priority and link are options. Meaning that they can be given like
-+"tipc link set link LINK priority PRIO".
-+
-+Abbreviation matching works for both command and options. Meaning that
-+"tipc link set priority PRIO link LINK" could be given as
-+"tipc l s p PRIO l LINK" and "tipc link list" as "tipc l l".
-+
-+MEMORY
-+~~~~~~
-+The tool strives to avoid allocating memory on the heap. Most (if not all)
-+memory allocations are on the stack.
-+
-+RETURNING
-+~~~~~~~~~
-+The tool could throw exit() deep down in functions but doing so always seems
-+to limit the program in the long run. So we output the error and return an
-+appropriate error code upon failure.
-diff --git a/tipc/bearer.c b/tipc/bearer.c
-new file mode 100644
-index 0000000..33295f9
---- /dev/null
-+++ b/tipc/bearer.c
-@@ -0,0 +1,725 @@
++++ b/drivers/net/ethernet/freescale/fman/flib/fsl_enet.h
+@@ -0,0 +1,275 @@
 +/*
-+ * bearer.c	TIPC bearer functionality.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <netdb.h>
-+#include <errno.h>
-+
-+#include <linux/tipc_netlink.h>
-+#include <linux/tipc.h>
-+#include <linux/genetlink.h>
-+
-+#include <libmnl/libmnl.h>
-+#include <sys/socket.h>
-+
-+#include "cmdl.h"
-+#include "msg.h"
-+#include "bearer.h"
-+
-+static void _print_bearer_opts(void)
-+{
-+	fprintf(stderr,
-+		"\nOPTIONS\n"
-+		" priority              - Bearer link priority\n"
-+		" tolerance             - Bearer link tolerance\n"
-+		" window                - Bearer link window\n");
-+}
-+
-+static void _print_bearer_media(void)
-+{
-+	fprintf(stderr,
-+		"\nMEDIA\n"
-+		" udp                   - User Datagram Protocol\n"
-+		" ib                    - Infiniband\n"
-+		" eth                   - Ethernet\n");
-+}
-+
-+static void cmd_bearer_enable_l2_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s bearer enable media MEDIA device DEVICE [OPTIONS]\n"
-+		"\nOPTIONS\n"
-+		" domain DOMAIN         - Discovery domain\n"
-+		" priority PRIORITY     - Bearer priority\n",
-+		cmdl->argv[0]);
-+}
-+
-+static void cmd_bearer_enable_udp_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s bearer enable media udp name NAME localip IP [OPTIONS]\n"
-+		"\nOPTIONS\n"
-+		" domain DOMAIN         - Discovery domain\n"
-+		" priority PRIORITY     - Bearer priority\n"
-+		" localport PORT        - Local UDP port (default 6118)\n"
-+		" remoteip IP           - Remote IP address\n"
-+		" remoteport IP         - Remote UDP port (default 6118)\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int enable_l2_bearer(struct nlmsghdr *nlh, struct opt *opts,
-+			    struct cmdl *cmdl)
-+{
-+	struct opt *opt;
-+	char id[TIPC_MAX_BEARER_NAME];
-+
-+	if (!(opt = get_opt(opts, "device"))) {
-+		fprintf(stderr, "error: missing bearer device\n");
-+		return -EINVAL;
-+	}
-+	snprintf(id, sizeof(id), "eth:%s", opt->val);
-+	mnl_attr_put_strz(nlh, TIPC_NLA_BEARER_NAME, id);
-+
-+	return 0;
-+}
-+
-+static int get_netid_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_NET_MAX + 1] = {};
-+	int *netid = (int*)data;
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_NET])
-+		return MNL_CB_ERROR;
-+	mnl_attr_parse_nested(info[TIPC_NLA_NET], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_NET_ID])
-+		return MNL_CB_ERROR;
-+	*netid = mnl_attr_get_u32(attrs[TIPC_NLA_NET_ID]);
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int generate_multicast(short af, char *buf, int bufsize)
-+{
-+	int netid;
-+	char mnl_msg[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlmsghdr *nlh;
-+
-+	if (!(nlh = msg_init(mnl_msg, TIPC_NL_NET_GET))) {
-+		fprintf(stderr, "error, message initialization failed\n");
-+		return -1;
-+	}
-+	if (msg_dumpit(nlh, get_netid_cb, &netid)) {
-+		fprintf(stderr, "error, failed to fetch TIPC network id from kernel\n");
-+		return -EINVAL;
-+	}
-+	if (af == AF_INET)
-+		snprintf(buf, bufsize, "228.0.%u.%u", (netid>>8) & 0xFF, netid & 0xFF);
-+	else
-+		snprintf(buf, bufsize, "ff02::%u", netid);
-+
-+	return 0;
-+}
-+
-+static int enable_udp_bearer(struct nlmsghdr *nlh, struct opt *opts,
-+			     struct cmdl *cmdl)
-+{
-+	int err;
-+	struct opt *opt;
-+	struct nlattr *nest;
-+	char buf[INET6_ADDRSTRLEN];
-+	char *locport = "6118";
-+	char *remport = "6118";
-+	char *locip = NULL;
-+	char *remip = NULL;
-+	char name[TIPC_MAX_BEARER_NAME];
-+	struct addrinfo *loc = NULL;
-+	struct addrinfo *rem = NULL;
-+	struct addrinfo hints = {
-+		.ai_family = AF_UNSPEC,
-+		.ai_socktype = SOCK_DGRAM
-+	};
-+
-+	if (help_flag) {
-+		cmd_bearer_enable_udp_help(cmdl);
-+		/* TODO find a better error code? */
-+		return -EINVAL;
-+	}
-+
-+	if (!(opt = get_opt(opts, "name"))) {
-+		fprintf(stderr, "error, udp bearer name missing\n");
-+		cmd_bearer_enable_udp_help(cmdl);
-+		return -EINVAL;
-+	}
-+	snprintf(name, sizeof(name), "udp:%s", opt->val);
-+
-+	if (!(opt = get_opt(opts, "localip"))) {
-+		fprintf(stderr, "error, udp bearer localip missing\n");
-+		cmd_bearer_enable_udp_help(cmdl);
-+		return -EINVAL;
-+	}
-+	locip = opt->val;
-+
-+	if ((opt = get_opt(opts, "remoteip")))
-+		remip = opt->val;
-+
-+	if ((opt = get_opt(opts, "localport")))
-+		locport = opt->val;
-+
-+	if ((opt = get_opt(opts, "remoteport")))
-+		remport = opt->val;
-+
-+	if ((err = getaddrinfo(locip, locport, &hints, &loc))) {
-+		fprintf(stderr, "UDP local address error: %s\n",
-+			gai_strerror(err));
-+		return err;
-+	}
-+
-+	if (!remip) {
-+		if (generate_multicast(loc->ai_family, buf, sizeof(buf))) {
-+			fprintf(stderr, "Failed to generate multicast address\n");
-+			return -EINVAL;
-+		}
-+		remip = buf;
-+	}
-+
-+	if ((err = getaddrinfo(remip, remport, &hints, &rem))) {
-+		fprintf(stderr, "UDP remote address error: %s\n",
-+			gai_strerror(err));
-+		freeaddrinfo(loc);
-+		return err;
-+	}
-+
-+	if (rem->ai_family != loc->ai_family) {
-+		fprintf(stderr, "UDP local and remote AF mismatch\n");
-+		return -EINVAL;
-+	}
-+
-+	mnl_attr_put_strz(nlh, TIPC_NLA_BEARER_NAME, name);
-+
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_BEARER_UDP_OPTS);
-+	mnl_attr_put(nlh, TIPC_NLA_UDP_LOCAL, loc->ai_addrlen, loc->ai_addr);
-+	mnl_attr_put(nlh, TIPC_NLA_UDP_REMOTE, rem->ai_addrlen, rem->ai_addr);
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	freeaddrinfo(rem);
-+	freeaddrinfo(loc);
-+
-+	return 0;
-+}
-+
-+static void cmd_bearer_enable_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s bearer enable [OPTIONS] media MEDIA ARGS...\n\n"
-+		"OPTIONS\n"
-+		" domain DOMAIN         - Discovery domain\n"
-+		" priority PRIORITY     - Bearer priority\n",
-+		cmdl->argv[0]);
-+	_print_bearer_media();
-+}
-+
-+static int cmd_bearer_enable(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			     struct cmdl *cmdl, void *data)
-+{
-+	int err;
-+	struct opt *opt;
-+	struct nlattr *nest;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	char *media;
-+	struct opt opts[] = {
-+		{ "device",		NULL },
-+		{ "domain",		NULL },
-+		{ "localip",		NULL },
-+		{ "localport",		NULL },
-+		{ "media",		NULL },
-+		{ "name",		NULL },
-+		{ "priority",		NULL },
-+		{ "remoteip",		NULL },
-+		{ "remoteport",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (parse_opts(opts, cmdl) < 0) {
-+		if (help_flag)
-+			(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (!(opt = get_opt(opts, "media"))) {
-+		if (help_flag)
-+			(cmd->help)(cmdl);
-+		else
-+			fprintf(stderr, "error, missing bearer media\n");
-+		return -EINVAL;
-+	}
-+	media = opt->val;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_BEARER_ENABLE))) {
-+		fprintf(stderr, "error: message initialisation failed\n");
-+		return -1;
-+	}
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_BEARER);
-+
-+	if ((opt = get_opt(opts, "domain")))
-+		mnl_attr_put_u32(nlh, TIPC_NLA_BEARER_DOMAIN, atoi(opt->val));
-+
-+	if ((opt = get_opt(opts, "priority"))) {
-+		struct nlattr *props;
-+
-+		props = mnl_attr_nest_start(nlh, TIPC_NLA_BEARER_PROP);
-+		mnl_attr_put_u32(nlh, TIPC_NLA_PROP_PRIO, atoi(opt->val));
-+		mnl_attr_nest_end(nlh, props);
-+	}
-+
-+	if (strcmp(media, "udp") == 0) {
-+		if (help_flag) {
-+			cmd_bearer_enable_udp_help(cmdl);
-+			return -EINVAL;
-+		}
-+		if ((err = enable_udp_bearer(nlh, opts, cmdl)))
-+			return err;
-+	} else if ((strcmp(media, "eth") == 0) || (strcmp(media, "udp") == 0)) {
-+		if (help_flag) {
-+			cmd_bearer_enable_l2_help(cmdl);
-+			return -EINVAL;
-+		}
-+		if ((err = enable_l2_bearer(nlh, opts, cmdl)))
-+			return err;
-+	} else {
-+		fprintf(stderr, "error, invalid media type \"%s\"\n", media);
-+		return -EINVAL;
-+	}
-+
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	return msg_doit(nlh, NULL, NULL);
-+}
-+
-+static int add_l2_bearer(struct nlmsghdr *nlh, struct opt *opts)
-+{
-+	struct opt *opt;
-+	char id[TIPC_MAX_BEARER_NAME];
-+
-+	if (!(opt = get_opt(opts, "device"))) {
-+		fprintf(stderr, "error: missing bearer device\n");
-+		return -EINVAL;
-+	}
-+	snprintf(id, sizeof(id), "eth:%s", opt->val);
-+
-+	mnl_attr_put_strz(nlh, TIPC_NLA_BEARER_NAME, id);
-+
-+	return 0;
-+}
-+
-+static int add_udp_bearer(struct nlmsghdr *nlh, struct opt *opts)
-+{
-+	struct opt *opt;
-+	char id[TIPC_MAX_BEARER_NAME];
-+
-+	if (!(opt = get_opt(opts, "name"))) {
-+		fprintf(stderr, "error: missing bearer name\n");
-+		return -EINVAL;
-+	}
-+	snprintf(id, sizeof(id), "udp:%s", opt->val);
-+
-+	mnl_attr_put_strz(nlh, TIPC_NLA_BEARER_NAME, id);
-+
-+	return 0;
-+}
-+
-+static void cmd_bearer_disable_l2_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s bearer disable media udp device DEVICE\n",
-+		cmdl->argv[0]);
-+}
-+
-+static void cmd_bearer_disable_udp_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s bearer disable media udp name NAME\n",
-+		cmdl->argv[0]);
-+}
-+
-+static void cmd_bearer_disable_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s bearer disable media MEDIA ARGS...\n",
-+		cmdl->argv[0]);
-+	_print_bearer_media();
-+}
-+
-+static int cmd_bearer_disable(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			      struct cmdl *cmdl, void *data)
-+{
-+	int err;
-+	char *media;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *nest;
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "device",		NULL },
-+		{ "name",		NULL },
-+		{ "media",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (parse_opts(opts, cmdl) < 0) {
-+		if (help_flag)
-+			(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (!(opt = get_opt(opts, "media"))) {
-+		if (help_flag)
-+			(cmd->help)(cmdl);
-+		else
-+			fprintf(stderr, "error, missing bearer media\n");
-+		return -EINVAL;
-+	}
-+	media = opt->val;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_BEARER_DISABLE))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_BEARER);
-+
-+	if (strcmp(media, "udp") == 0) {
-+		if (help_flag) {
-+			cmd_bearer_disable_udp_help(cmdl);
-+			return -EINVAL;
-+		}
-+		if ((err = add_udp_bearer(nlh, opts)))
-+			return err;
-+	} else if ((strcmp(media, "eth") == 0) || (strcmp(media, "udp") == 0)) {
-+		if (help_flag) {
-+			cmd_bearer_disable_l2_help(cmdl);
-+			return -EINVAL;
-+		}
-+		if ((err = add_l2_bearer(nlh, opts)))
-+			return err;
-+	} else {
-+		fprintf(stderr, "error, invalid media type \"%s\"\n", media);
-+		return -EINVAL;
-+	}
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	return msg_doit(nlh, NULL, NULL);
-+
-+}
-+
-+static void cmd_bearer_set_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s bearer set [OPTIONS] media MEDIA ARGS...\n",
-+		cmdl->argv[0]);
-+	_print_bearer_opts();
-+	_print_bearer_media();
-+}
-+
-+static void cmd_bearer_set_udp_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s bearer set [OPTIONS] media udp name NAME\n\n",
-+		cmdl->argv[0]);
-+	_print_bearer_opts();
-+}
-+
-+static void cmd_bearer_set_l2_help(struct cmdl *cmdl, char *media)
-+{
-+	fprintf(stderr,
-+		"Usage: %s bearer set [OPTION]... media %s device DEVICE\n",
-+		cmdl->argv[0], media);
-+	_print_bearer_opts();
-+}
-+
-+static int cmd_bearer_set_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			 struct cmdl *cmdl, void *data)
-+{
-+	int err;
-+	int val;
-+	int prop;
-+	char *media;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *props;
-+	struct nlattr *attrs;
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "device",		NULL },
-+		{ "media",		NULL },
-+		{ "name",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (strcmp(cmd->cmd, "priority") == 0)
-+		prop = TIPC_NLA_PROP_PRIO;
-+	else if ((strcmp(cmd->cmd, "tolerance") == 0))
-+		prop = TIPC_NLA_PROP_TOL;
-+	else if ((strcmp(cmd->cmd, "window") == 0))
-+		prop = TIPC_NLA_PROP_WIN;
-+	else
-+		return -EINVAL;
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (cmdl->optind >= cmdl->argc) {
-+		fprintf(stderr, "error, missing value\n");
-+		return -EINVAL;
-+	}
-+	val = atoi(shift_cmdl(cmdl));
-+
-+	if (parse_opts(opts, cmdl) < 0)
-+		return -EINVAL;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_BEARER_SET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+	attrs = mnl_attr_nest_start(nlh, TIPC_NLA_BEARER);
-+
-+	props = mnl_attr_nest_start(nlh, TIPC_NLA_BEARER_PROP);
-+	mnl_attr_put_u32(nlh, prop, val);
-+	mnl_attr_nest_end(nlh, props);
-+
-+	if (!(opt = get_opt(opts, "media"))) {
-+		fprintf(stderr, "error, missing media\n");
-+		return -EINVAL;
-+	}
-+	media = opt->val;
-+
-+	if (strcmp(media, "udp") == 0) {
-+		if (help_flag) {
-+			cmd_bearer_set_udp_help(cmdl);
-+			return -EINVAL;
-+		}
-+		if ((err = add_udp_bearer(nlh, opts)))
-+			return err;
-+	} else if ((strcmp(media, "eth") == 0) || (strcmp(media, "udp") == 0)) {
-+		if (help_flag) {
-+			cmd_bearer_set_l2_help(cmdl, media);
-+			return -EINVAL;
-+		}
-+		if ((err = add_l2_bearer(nlh, opts)))
-+			return err;
-+	} else {
-+		fprintf(stderr, "error, invalid media type \"%s\"\n", media);
-+		return -EINVAL;
-+	}
-+	mnl_attr_nest_end(nlh, attrs);
-+
-+	return msg_doit(nlh, NULL, NULL);
-+}
-+
-+static int cmd_bearer_set(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			  struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "priority",	cmd_bearer_set_prop,	cmd_bearer_set_help },
-+		{ "tolerance",	cmd_bearer_set_prop,	cmd_bearer_set_help },
-+		{ "window",	cmd_bearer_set_prop,	cmd_bearer_set_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+static void cmd_bearer_get_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s bearer get [OPTIONS] media MEDIA ARGS...\n",
-+		cmdl->argv[0]);
-+	_print_bearer_opts();
-+	_print_bearer_media();
-+}
-+
-+static void cmd_bearer_get_udp_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s bearer get [OPTIONS] media udp name NAME\n\n",
-+		cmdl->argv[0]);
-+	_print_bearer_opts();
-+}
-+
-+static void cmd_bearer_get_l2_help(struct cmdl *cmdl, char *media)
-+{
-+	fprintf(stderr,
-+		"Usage: %s bearer get [OPTION]... media %s device DEVICE\n",
-+		cmdl->argv[0], media);
-+	_print_bearer_opts();
-+}
-+
-+static int bearer_get_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	int *prop = data;
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1] = {};
-+	struct nlattr *props[TIPC_NLA_PROP_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_BEARER])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_BEARER], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_BEARER_PROP])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(attrs[TIPC_NLA_BEARER_PROP], parse_attrs, props);
-+	if (!props[*prop])
-+		return MNL_CB_ERROR;
-+
-+	printf("%u\n", mnl_attr_get_u32(props[*prop]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_bearer_get_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			       struct cmdl *cmdl, void *data)
-+{
-+	int err;
-+	int prop;
-+	char *media;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *attrs;
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "device",		NULL },
-+		{ "media",		NULL },
-+		{ "name",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (strcmp(cmd->cmd, "priority") == 0)
-+		prop = TIPC_NLA_PROP_PRIO;
-+	else if ((strcmp(cmd->cmd, "tolerance") == 0))
-+		prop = TIPC_NLA_PROP_TOL;
-+	else if ((strcmp(cmd->cmd, "window") == 0))
-+		prop = TIPC_NLA_PROP_WIN;
-+	else
-+		return -EINVAL;
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (parse_opts(opts, cmdl) < 0)
-+		return -EINVAL;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_BEARER_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	if (!(opt = get_opt(opts, "media"))) {
-+		fprintf(stderr, "error, missing media\n");
-+		return -EINVAL;
-+	}
-+	media = opt->val;
-+
-+	attrs = mnl_attr_nest_start(nlh, TIPC_NLA_BEARER);
-+	if (strcmp(media, "udp") == 0) {
-+		if (help_flag) {
-+			cmd_bearer_get_udp_help(cmdl);
-+			return -EINVAL;
-+		}
-+		if ((err = add_udp_bearer(nlh, opts)))
-+			return err;
-+	} else if ((strcmp(media, "eth") == 0) || (strcmp(media, "udp") == 0)) {
-+		if (help_flag) {
-+			cmd_bearer_get_l2_help(cmdl, media);
-+			return -EINVAL;
-+		}
-+		if ((err = add_l2_bearer(nlh, opts)))
-+			return err;
-+	} else {
-+		fprintf(stderr, "error, invalid media type \"%s\"\n", media);
-+		return -EINVAL;
-+	}
-+	mnl_attr_nest_end(nlh, attrs);
-+
-+	return msg_doit(nlh, bearer_get_cb, &prop);
-+}
-+
-+static int cmd_bearer_get(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			  struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "priority",	cmd_bearer_get_prop,	cmd_bearer_get_help },
-+		{ "tolerance",	cmd_bearer_get_prop,	cmd_bearer_get_help },
-+		{ "window",	cmd_bearer_get_prop,	cmd_bearer_get_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+static int bearer_list_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_BEARER]) {
-+		fprintf(stderr, "No bearer in netlink response\n");
-+		return MNL_CB_ERROR;
-+	}
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_BEARER], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_BEARER_NAME]) {
-+		fprintf(stderr, "Bearer name missing in netlink response\n");
-+		return MNL_CB_ERROR;
-+	}
-+
-+	printf("%s\n", mnl_attr_get_str(attrs[TIPC_NLA_BEARER_NAME]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_bearer_list(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			   struct cmdl *cmdl, void *data)
-+{
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		fprintf(stderr, "Usage: %s bearer list\n", cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_BEARER_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	return msg_dumpit(nlh, bearer_list_cb, NULL);
-+}
-+
-+void cmd_bearer_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s bearer COMMAND [ARGS] ...\n"
-+		"\n"
-+		"COMMANDS\n"
-+		" enable                - Enable a bearer\n"
-+		" disable               - Disable a bearer\n"
-+		" set                   - Set various bearer properties\n"
-+		" get                   - Get various bearer properties\n"
-+		" list                  - List bearers\n", cmdl->argv[0]);
-+}
-+
-+int cmd_bearer(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+	       void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "disable",	cmd_bearer_disable,	cmd_bearer_disable_help },
-+		{ "enable",	cmd_bearer_enable,	cmd_bearer_enable_help },
-+		{ "get",	cmd_bearer_get,		cmd_bearer_get_help },
-+		{ "list",	cmd_bearer_list,	NULL },
-+		{ "set",	cmd_bearer_set,		cmd_bearer_set_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-diff --git a/tipc/bearer.h b/tipc/bearer.h
-new file mode 100644
-index 0000000..9459d65
---- /dev/null
-+++ b/tipc/bearer.h
-@@ -0,0 +1,22 @@
-+/*
-+ * bearer.h	TIPC bearer functionality.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
-+ */
-+
-+#ifndef _TIPC_BEARER_H
-+#define _TIPC_BEARER_H
-+
-+#include "cmdl.h"
-+
-+extern int help_flag;
-+
-+int cmd_bearer(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl, void *data);
-+void cmd_bearer_help(struct cmdl *cmdl);
-+
-+#endif
-diff --git a/tipc/cmdl.c b/tipc/cmdl.c
-new file mode 100644
-index 0000000..b816f7d
---- /dev/null
-+++ b/tipc/cmdl.c
-@@ -0,0 +1,127 @@
-+/*
-+ * cmdl.c	Framework for handling command line options.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
-+ */
-+
-+#include <stdio.h>
-+#include <string.h>
-+#include <errno.h>
-+
-+#include <libmnl/libmnl.h>
-+
-+#include "cmdl.h"
-+
-+const struct cmd *find_cmd(const struct cmd *cmds, char *str)
-+{
-+	const struct cmd *c;
-+	const struct cmd *match = NULL;
-+
-+	for (c = cmds; c->cmd; c++) {
-+		if (strstr(c->cmd, str) != c->cmd)
-+			continue;
-+		if (match)
-+			return NULL;
-+		match = c;
-+	}
-+
-+	return match;
-+}
-+
-+static struct opt *find_opt(struct opt *opts, char *str)
-+{
-+	struct opt *o;
-+	struct opt *match = NULL;
-+
-+	for (o = opts; o->key; o++) {
-+		if (strstr(o->key, str) != o->key)
-+			continue;
-+		if (match)
-+			return NULL;
-+
-+		match = o;
-+	}
-+
-+	return match;
-+}
-+
-+struct opt *get_opt(struct opt *opts, char *key)
-+{
-+	struct opt *o;
-+
-+	for (o = opts; o->key; o++) {
-+		if (strcmp(o->key, key) == 0 && o->val)
-+			return o;
-+	}
-+
-+	return NULL;
-+}
-+
-+char *shift_cmdl(struct cmdl *cmdl)
-+{
-+	int next;
-+
-+	if (cmdl->optind < cmdl->argc)
-+		next = (cmdl->optind)++;
-+	else
-+		next = cmdl->argc;
-+
-+	return cmdl->argv[next];
-+}
-+
-+/* Returns the number of options parsed or a negative error code upon failure */
-+int parse_opts(struct opt *opts, struct cmdl *cmdl)
-+{
-+	int i;
-+	int cnt = 0;
-+
-+	for (i = cmdl->optind; i < cmdl->argc; i += 2) {
-+		struct opt *o;
-+
-+		o = find_opt(opts, cmdl->argv[i]);
-+		if (!o) {
-+			fprintf(stderr, "error, invalid option \"%s\"\n",
-+					cmdl->argv[i]);
-+			return -EINVAL;
-+		}
-+		cnt++;
-+		o->val = cmdl->argv[i + 1];
-+		cmdl->optind += 2;
-+	}
-+
-+	return cnt;
-+}
-+
-+int run_cmd(struct nlmsghdr *nlh, const struct cmd *caller,
-+	    const struct cmd *cmds, struct cmdl *cmdl, void *data)
-+{
-+	char *name;
-+	const struct cmd *cmd;
-+
-+	if ((cmdl->optind) >= cmdl->argc) {
-+		if (caller->help)
-+			(caller->help)(cmdl);
-+		return -EINVAL;
-+	}
-+	name = cmdl->argv[cmdl->optind];
-+	(cmdl->optind)++;
-+
-+	cmd = find_cmd(cmds, name);
-+	if (!cmd) {
-+		/* Show help about last command if we don't find this one */
-+		if (help_flag && caller->help) {
-+			(caller->help)(cmdl);
-+		} else {
-+			fprintf(stderr, "error, invalid command \"%s\"\n", name);
-+			fprintf(stderr, "use --help for command help\n");
-+		}
-+		return -EINVAL;
-+	}
-+
-+	return (cmd->func)(nlh, cmd, cmdl, data);
-+}
-diff --git a/tipc/cmdl.h b/tipc/cmdl.h
-new file mode 100644
-index 0000000..9f2666f
---- /dev/null
-+++ b/tipc/cmdl.h
-@@ -0,0 +1,46 @@
-+/*
-+ * cmdl.h	Framework for handling command line options.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
-+ */
-+
-+#ifndef _TIPC_CMDL_H
-+#define _TIPC_CMDL_H
-+
-+#include <libmnl/libmnl.h>
-+
-+extern int help_flag;
-+
-+struct cmdl {
-+	int optind;
-+	int argc;
-+	char **argv;
++#ifndef __FSL_ENET_H
++#define __FSL_ENET_H
++
++/*Ethernet MAC-PHY Interface */
++
++enum enet_interface {
++	E_ENET_IF_MII = 0x00010000,	      /* MII interface */
++	E_ENET_IF_RMII = 0x00020000,	      /* RMII interface */
++	E_ENET_IF_SMII = 0x00030000,	      /* SMII interface */
++	E_ENET_IF_GMII = 0x00040000,	      /* GMII interface */
++	E_ENET_IF_RGMII = 0x00050000,	      /* RGMII interface */
++	E_ENET_IF_TBI = 0x00060000,	      /* TBI interface */
++	E_ENET_IF_RTBI = 0x00070000,	      /* RTBI interface */
++	E_ENET_IF_SGMII = 0x00080000,	      /* SGMII interface */
++	E_ENET_IF_XGMII = 0x00090000,	      /* XGMII interface */
++	E_ENET_IF_QSGMII = 0x000a0000,	      /* QSGMII interface */
++	E_ENET_IF_XFI = 0x000b0000	      /* XFI interface */
 +};
 +
-+struct cmd {
-+	const char *cmd;
-+	int (*func)(struct nlmsghdr *nlh, const struct cmd *cmd,
-+		    struct cmdl *cmdl, void *data);
-+	void (*help)(struct cmdl *cmdl);
++/* Ethernet Speed (nominal data rate) */
++enum enet_speed {
++	E_ENET_SPEED_10 = 10,		/* 10 Mbps */
++	E_ENET_SPEED_100 = 100,		/* 100 Mbps */
++	E_ENET_SPEED_1000 = 1000,	/* 1000 Mbps = 1 Gbps */
++	E_ENET_SPEED_10000 = 10000	/* 10000 Mbps = 10 Gbps */
 +};
 +
-+struct opt {
-+	const char *key;
-+	char *val;
++enum mac_type {
++	E_MAC_DTSEC,
++	E_MAC_TGEC,
++	E_MAC_MEMAC
 +};
 +
-+struct opt *get_opt(struct opt *opts, char *key);
-+int parse_opts(struct opt *opts, struct cmdl *cmdl);
-+char *shift_cmdl(struct cmdl *cmdl);
++/* Enum for inter-module interrupts registration */
++enum fman_event_modules {
++	E_FMAN_MOD_PRS,			  /* Parser event */
++	E_FMAN_MOD_KG,			  /* Keygen event */
++	E_FMAN_MOD_PLCR,		  /* Policer event */
++	E_FMAN_MOD_10G_MAC,		  /* 10G MAC event */
++	E_FMAN_MOD_1G_MAC,		  /* 1G MAC event */
++	E_FMAN_MOD_TMR,			  /* Timer event */
++	E_FMAN_MOD_FMAN_CTRL,		  /* FMAN Controller  Timer event */
++	E_FMAN_MOD_MACSEC,
++	E_FMAN_MOD_DUMMY_LAST
++};
 +
-+int run_cmd(struct nlmsghdr *nlh, const struct cmd *caller,
-+	    const struct cmd *cmds, struct cmdl *cmdl, void *data);
++/* Enum for interrupts types */
++enum fman_intr_type {
++	E_FMAN_INTR_TYPE_ERR,
++	E_FMAN_INTR_TYPE_NORMAL
++};
 +
-+const struct cmd *find_cmd(const struct cmd *cmds, char *str);
++/* enum for defining MAC types */
++enum fman_mac_type {
++	E_FMAN_MAC_10G = 0,		  /* 10G MAC */
++	E_FMAN_MAC_1G			  /* 1G MAC */
++};
 +
-+#endif
-diff --git a/tipc/link.c b/tipc/link.c
++enum fman_mac_exceptions {
++	E_FMAN_MAC_EX_10G_MDIO_SCAN_EVENTMDIO = 0,
++		/* 10GEC MDIO scan event interrupt */
++	E_FMAN_MAC_EX_10G_MDIO_CMD_CMPL,
++		/* 10GEC MDIO command completion interrupt */
++	E_FMAN_MAC_EX_10G_REM_FAULT,
++		/* 10GEC, mEMAC Remote fault interrupt */
++	E_FMAN_MAC_EX_10G_LOC_FAULT,
++		/* 10GEC, mEMAC Local fault interrupt */
++	E_FMAN_MAC_EX_10G_1TX_ECC_ER,
++		/* 10GEC, mEMAC Transmit frame ECC error interrupt */
++	E_FMAN_MAC_EX_10G_TX_FIFO_UNFL,
++		/* 10GEC, mEMAC Transmit FIFO underflow interrupt */
++	E_FMAN_MAC_EX_10G_TX_FIFO_OVFL,
++		/* 10GEC, mEMAC Transmit FIFO overflow interrupt */
++	E_FMAN_MAC_EX_10G_TX_ER,
++		/* 10GEC Transmit frame error interrupt */
++	E_FMAN_MAC_EX_10G_RX_FIFO_OVFL,
++		/* 10GEC, mEMAC Receive FIFO overflow interrupt */
++	E_FMAN_MAC_EX_10G_RX_ECC_ER,
++		/* 10GEC, mEMAC Receive frame ECC error interrupt */
++	E_FMAN_MAC_EX_10G_RX_JAB_FRM,
++		/* 10GEC Receive jabber frame interrupt */
++	E_FMAN_MAC_EX_10G_RX_OVRSZ_FRM,
++		/* 10GEC Receive oversized frame interrupt */
++	E_FMAN_MAC_EX_10G_RX_RUNT_FRM,
++		/* 10GEC Receive runt frame interrupt */
++	E_FMAN_MAC_EX_10G_RX_FRAG_FRM,
++		/* 10GEC Receive fragment frame interrupt */
++	E_FMAN_MAC_EX_10G_RX_LEN_ER,
++		/* 10GEC Receive payload length error interrupt */
++	E_FMAN_MAC_EX_10G_RX_CRC_ER,
++		/* 10GEC Receive CRC error interrupt */
++	E_FMAN_MAC_EX_10G_RX_ALIGN_ER,
++		/* 10GEC Receive alignment error interrupt */
++	E_FMAN_MAC_EX_1G_BAB_RX,
++		/* dTSEC Babbling receive error */
++	E_FMAN_MAC_EX_1G_RX_CTL,
++		/* dTSEC Receive control (pause frame) interrupt */
++	E_FMAN_MAC_EX_1G_GRATEFUL_TX_STP_COMPLET,
++		/* dTSEC Graceful transmit stop complete */
++	E_FMAN_MAC_EX_1G_BAB_TX,
++		/* dTSEC Babbling transmit error */
++	E_FMAN_MAC_EX_1G_TX_CTL,
++		/* dTSEC Transmit control (pause frame) interrupt */
++	E_FMAN_MAC_EX_1G_TX_ERR,
++		/* dTSEC Transmit error */
++	E_FMAN_MAC_EX_1G_LATE_COL,
++		/* dTSEC Late collision */
++	E_FMAN_MAC_EX_1G_COL_RET_LMT,
++		/* dTSEC Collision retry limit */
++	E_FMAN_MAC_EX_1G_TX_FIFO_UNDRN,
++		/* dTSEC Transmit FIFO underrun */
++	E_FMAN_MAC_EX_1G_MAG_PCKT,
++		/* dTSEC Magic Packet detection */
++	E_FMAN_MAC_EX_1G_MII_MNG_RD_COMPLET,
++		/* dTSEC MII management read completion */
++	E_FMAN_MAC_EX_1G_MII_MNG_WR_COMPLET,
++		/* dTSEC MII management write completion */
++	E_FMAN_MAC_EX_1G_GRATEFUL_RX_STP_COMPLET,
++		/* dTSEC Graceful receive stop complete */
++	E_FMAN_MAC_EX_1G_TX_DATA_ERR,
++		/* dTSEC Internal data error on transmit */
++	E_FMAN_MAC_EX_1G_RX_DATA_ERR,
++		/* dTSEC Internal data error on receive */
++	E_FMAN_MAC_EX_1G_1588_TS_RX_ERR,
++		/* dTSEC Time-Stamp Receive Error */
++	E_FMAN_MAC_EX_1G_RX_MIB_CNT_OVFL,
++		/* dTSEC MIB counter overflow */
++	E_FMAN_MAC_EX_TS_FIFO_ECC_ERR,
++		/* < mEMAC Time-stamp FIFO ECC error interrupt;
++		 * not supported on T4240/B4860 rev1 chips
++		 */
++};
++
++/* SGMII/QSGII interface with 1000BaseX auto-negotiation between MAC
++ * and phy or backplane;
++ * Note: 1000BaseX auto-negotiation relates only to interface between MAC
++ * and phy/backplane, SGMII phy can still synchronize with far-end phy at
++ * 10Mbps, 100Mbps or 1000Mbps
++ */
++#define ENET_IF_SGMII_BASEX 0x80000000
++
++enum enet_mode {
++	E_ENET_MODE_INVALID = 0,
++		/* Invalid Ethernet mode */
++	E_ENET_MODE_MII_10 = (E_ENET_IF_MII | E_ENET_SPEED_10),
++		/*    10 Mbps MII   */
++	E_ENET_MODE_MII_100 = (E_ENET_IF_MII | E_ENET_SPEED_100),
++		/*   100 Mbps MII   */
++	E_ENET_MODE_RMII_10 = (E_ENET_IF_RMII | E_ENET_SPEED_10),
++		/*    10 Mbps RMII  */
++	E_ENET_MODE_RMII_100 = (E_ENET_IF_RMII | E_ENET_SPEED_100),
++		/*   100 Mbps RMII  */
++	E_ENET_MODE_SMII_10 = (E_ENET_IF_SMII | E_ENET_SPEED_10),
++		/*    10 Mbps SMII  */
++	E_ENET_MODE_SMII_100 = (E_ENET_IF_SMII | E_ENET_SPEED_100),
++		/*   100 Mbps SMII  */
++	E_ENET_MODE_GMII_1000 = (E_ENET_IF_GMII | E_ENET_SPEED_1000),
++		/*  1000 Mbps GMII  */
++	E_ENET_MODE_RGMII_10 = (E_ENET_IF_RGMII | E_ENET_SPEED_10),
++		/*    10 Mbps RGMII */
++	E_ENET_MODE_RGMII_100 = (E_ENET_IF_RGMII | E_ENET_SPEED_100),
++		/*   100 Mbps RGMII */
++	E_ENET_MODE_RGMII_1000 = (E_ENET_IF_RGMII | E_ENET_SPEED_1000),
++		/*  1000 Mbps RGMII */
++	E_ENET_MODE_TBI_1000 = (E_ENET_IF_TBI | E_ENET_SPEED_1000),
++		/*  1000 Mbps TBI   */
++	E_ENET_MODE_RTBI_1000 = (E_ENET_IF_RTBI | E_ENET_SPEED_1000),
++		/*  1000 Mbps RTBI  */
++	E_ENET_MODE_SGMII_10 = (E_ENET_IF_SGMII | E_ENET_SPEED_10),
++		/* 10 Mbps SGMII with auto-negotiation between MAC and
++		 * SGMII phy according to Cisco SGMII specification
++		 */
++	E_ENET_MODE_SGMII_100 = (E_ENET_IF_SGMII | E_ENET_SPEED_100),
++		/* 100 Mbps SGMII with auto-negotiation between MAC and
++		 * SGMII phy according to Cisco SGMII specification
++		 */
++	E_ENET_MODE_SGMII_1000 = (E_ENET_IF_SGMII | E_ENET_SPEED_1000),
++		/* 1000 Mbps SGMII with auto-negotiation between MAC and
++		 * SGMII phy according to Cisco SGMII specification
++		 */
++	E_ENET_MODE_SGMII_BASEX_10 = (ENET_IF_SGMII_BASEX | E_ENET_IF_SGMII
++				      | E_ENET_SPEED_10),
++		/* 10 Mbps SGMII with 1000BaseX auto-negotiation between
++		 * MAC and SGMII phy or backplane
++		 */
++	E_ENET_MODE_SGMII_BASEX_100 = (ENET_IF_SGMII_BASEX | E_ENET_IF_SGMII
++				       | E_ENET_SPEED_100),
++		/* 100 Mbps SGMII with 1000BaseX auto-negotiation between
++		 * MAC and SGMII phy or backplane
++		 */
++	E_ENET_MODE_SGMII_BASEX_1000 = (ENET_IF_SGMII_BASEX | E_ENET_IF_SGMII
++					| E_ENET_SPEED_1000),
++		/* 1000 Mbps SGMII with 1000BaseX auto-negotiation between
++		 * MAC and SGMII phy or backplane
++		 */
++	E_ENET_MODE_QSGMII_1000 = (E_ENET_IF_QSGMII | E_ENET_SPEED_1000),
++		/* 1000 Mbps QSGMII with auto-negotiation between MAC and
++		 * QSGMII phy according to Cisco QSGMII specification
++		 */
++	E_ENET_MODE_QSGMII_BASEX_1000 = (ENET_IF_SGMII_BASEX | E_ENET_IF_QSGMII
++					 | E_ENET_SPEED_1000),
++		/* 1000 Mbps QSGMII with 1000BaseX auto-negotiation between
++		 * MAC and QSGMII phy or backplane
++		 */
++	E_ENET_MODE_XGMII_10000 = (E_ENET_IF_XGMII | E_ENET_SPEED_10000),
++		/* 10000 Mbps XGMII */
++	E_ENET_MODE_XFI_10000 = (E_ENET_IF_XFI | E_ENET_SPEED_10000)
++		/* 10000 Mbps XFI */
++};
++
++enum fmam_mac_statistics_level {
++	E_FMAN_MAC_NONE_STATISTICS,	/* No statistics */
++	E_FMAN_MAC_PARTIAL_STATISTICS,	/* Only error counters are available;
++					 * Optimized for performance
++					 */
++	E_FMAN_MAC_FULL_STATISTICS	/* All counters available; Not
++					 * optimized for performance
++					 */
++};
++
++#define _MAKE_ENET_MODE(_interface, _speed) (enum enet_mode)((_interface) \
++	| (_speed))
++
++#define _ENET_INTERFACE_FROM_MODE(mode) \
++	((enum enet_interface)((mode) & 0x0FFF0000))
++
++#define _ENET_SPEED_FROM_MODE(mode) (enum enet_speed)((mode) & 0x0000FFFF)
++#define _ENET_ADDR_TO_UINT64(_enet_addr)		\
++	(uint64_t)(((uint64_t)(_enet_addr)[0] << 40) |	\
++		((uint64_t)(_enet_addr)[1] << 32) |	\
++		((uint64_t)(_enet_addr)[2] << 24) |	\
++		((uint64_t)(_enet_addr)[3] << 16) |	\
++		((uint64_t)(_enet_addr)[4] << 8) |	\
++		((uint64_t)(_enet_addr)[5]))
++
++#define _MAKE_ENET_ADDR_FROM_UINT64(_addr64, _enet_addr)		\
++	do {								\
++		int i;							\
++		for (i = 0; i < ENET_NUM_OCTETS_PER_ADDRESS; i++)	\
++			(_enet_addr)[i] =				\
++				(uint8_t)((_addr64) >> ((5 - i) * 8));	\
++	} while (0)
++
++#endif	/* __FSL_ENET_H */
+diff --git a/drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec.h b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec.h
 new file mode 100644
-index 0000000..89fb4ff
+index 0000000..ef753b3
 --- /dev/null
-+++ b/tipc/link.c
-@@ -0,0 +1,520 @@
++++ b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec.h
+@@ -0,0 +1,791 @@
 +/*
-+ * link.c	TIPC link functionality.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <errno.h>
-+
-+#include <linux/tipc_netlink.h>
-+#include <linux/tipc.h>
-+#include <linux/genetlink.h>
-+#include <libmnl/libmnl.h>
-+
-+#include "cmdl.h"
-+#include "msg.h"
-+#include "link.h"
-+
-+static int link_list_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_LINK])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_LINK], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_LINK_NAME])
-+		return MNL_CB_ERROR;
-+
-+	printf("%s: ", mnl_attr_get_str(attrs[TIPC_NLA_LINK_NAME]));
-+
-+	if (attrs[TIPC_NLA_LINK_UP])
-+		printf("up\n");
-+	else
-+		printf("down\n");
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_link_list(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			 struct cmdl *cmdl, void *data)
-+{
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		fprintf(stderr, "Usage: %s link list\n", cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_LINK_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	return msg_dumpit(nlh, link_list_cb, NULL);
-+}
-+
-+static int link_get_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	int *prop = data;
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1] = {};
-+	struct nlattr *props[TIPC_NLA_PROP_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_LINK])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_LINK], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_LINK_PROP])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(attrs[TIPC_NLA_LINK_PROP], parse_attrs, props);
-+	if (!props[*prop])
-+		return MNL_CB_ERROR;
-+
-+	printf("%u\n", mnl_attr_get_u32(props[*prop]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+
-+static int cmd_link_get_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			     struct cmdl *cmdl, void *data)
-+{
-+	int prop;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "link",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (strcmp(cmd->cmd, "priority") == 0)
-+		prop = TIPC_NLA_PROP_PRIO;
-+	else if ((strcmp(cmd->cmd, "tolerance") == 0))
-+		prop = TIPC_NLA_PROP_TOL;
-+	else if ((strcmp(cmd->cmd, "window") == 0))
-+		prop = TIPC_NLA_PROP_WIN;
-+	else
-+		return -EINVAL;
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (parse_opts(opts, cmdl) < 0)
-+		return -EINVAL;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_LINK_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	if (!(opt = get_opt(opts, "link"))) {
-+		fprintf(stderr, "error, missing link\n");
-+		return -EINVAL;
-+	}
-+	mnl_attr_put_strz(nlh, TIPC_NLA_LINK_NAME, opt->val);
-+
-+	return msg_doit(nlh, link_get_cb, &prop);
-+}
-+
-+static void cmd_link_get_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s link get PPROPERTY link LINK\n\n"
-+		"PROPERTIES\n"
-+		" tolerance             - Get link tolerance\n"
-+		" priority              - Get link priority\n"
-+		" window                - Get link window\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_link_get(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "priority",	cmd_link_get_prop,	cmd_link_get_help },
-+		{ "tolerance",	cmd_link_get_prop,	cmd_link_get_help },
-+		{ "window",	cmd_link_get_prop,	cmd_link_get_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+static void cmd_link_stat_reset_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s link stat reset link LINK\n\n", cmdl->argv[0]);
-+}
-+
-+static int cmd_link_stat_reset(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			       struct cmdl *cmdl, void *data)
-+{
-+	char *link;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct opt *opt;
-+	struct nlattr *nest;
-+	struct opt opts[] = {
-+		{ "link",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (parse_opts(opts, cmdl) != 1) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_LINK_RESET_STATS))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	if (!(opt = get_opt(opts, "link"))) {
-+		fprintf(stderr, "error, missing link\n");
-+		return -EINVAL;
-+	}
-+	link = opt->val;
-+
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_LINK);
-+	mnl_attr_put_strz(nlh, TIPC_NLA_LINK_NAME, link);
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	return msg_doit(nlh, NULL, NULL);
-+}
-+
-+static uint32_t perc(uint32_t count, uint32_t total)
-+{
-+	return (count * 100 + (total / 2)) / total;
-+}
-+
-+static int _show_link_stat(struct nlattr *attrs[], struct nlattr *prop[],
-+			   struct nlattr *stats[])
-+{
-+	uint32_t proft;
-+
-+	if (attrs[TIPC_NLA_LINK_ACTIVE])
-+		printf("  ACTIVE");
-+	else if (attrs[TIPC_NLA_LINK_UP])
-+		printf("  STANDBY");
-+	else
-+		printf("  DEFUNCT");
-+
-+	printf("  MTU:%u  Priority:%u  Tolerance:%u ms  Window:%u packets\n",
-+	       mnl_attr_get_u32(attrs[TIPC_NLA_LINK_MTU]),
-+	       mnl_attr_get_u32(prop[TIPC_NLA_PROP_PRIO]),
-+	       mnl_attr_get_u32(prop[TIPC_NLA_PROP_TOL]),
-+	       mnl_attr_get_u32(prop[TIPC_NLA_PROP_WIN]));
-+
-+	printf("  RX packets:%u fragments:%u/%u bundles:%u/%u\n",
-+	       mnl_attr_get_u32(attrs[TIPC_NLA_LINK_RX]) -
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_INFO]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_FRAGMENTS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_FRAGMENTED]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_BUNDLES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_BUNDLED]));
-+
-+	printf("  TX packets:%u fragments:%u/%u bundles:%u/%u\n",
-+	       mnl_attr_get_u32(attrs[TIPC_NLA_LINK_TX]) -
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_INFO]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_FRAGMENTS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_FRAGMENTED]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_BUNDLES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_BUNDLED]));
-+
-+	proft = mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_PROF_TOT]);
-+	printf("  TX profile sample:%u packets  average:%u octets\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_CNT]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_TOT]) / proft);
-+
-+	printf("  0-64:%u%% -256:%u%% -1024:%u%% -4096:%u%% "
-+	       "-16384:%u%% -32768:%u%% -66000:%u%%\n",
-+	       perc(mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_P0]), proft),
-+	       perc(mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_P1]), proft),
-+	       perc(mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_P2]), proft),
-+	       perc(mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_P3]), proft),
-+	       perc(mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_P4]), proft),
-+	       perc(mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_P5]), proft),
-+	       perc(mnl_attr_get_u32(stats[TIPC_NLA_STATS_MSG_LEN_P6]), proft));
-+
-+	printf("  RX states:%u probes:%u naks:%u defs:%u dups:%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_STATES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_PROBES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_NACKS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_DEFERRED]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_DUPLICATES]));
-+
-+	printf("  TX states:%u probes:%u naks:%u acks:%u dups:%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_STATES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_PROBES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_NACKS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_ACKS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RETRANSMITTED]));
-+
-+	printf("  Congestion link:%u  Send queue max:%u avg:%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_LINK_CONGS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_MAX_QUEUE]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_AVG_QUEUE]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int _show_bc_link_stat(struct nlattr *prop[], struct nlattr *stats[])
-+{
-+	printf("  Window:%u packets\n",
-+	       mnl_attr_get_u32(prop[TIPC_NLA_PROP_WIN]));
-+
-+	printf("  RX packets:%u fragments:%u/%u bundles:%u/%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_INFO]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_FRAGMENTS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_FRAGMENTED]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_BUNDLES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_BUNDLED]));
-+
-+	printf("  TX packets:%u fragments:%u/%u bundles:%u/%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_INFO]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_FRAGMENTS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_FRAGMENTED]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_BUNDLES]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_BUNDLED]));
-+
-+	printf("  RX naks:%u defs:%u dups:%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_NACKS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RX_DEFERRED]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_DUPLICATES]));
-+
-+	printf("  TX naks:%u acks:%u dups:%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_NACKS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_TX_ACKS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_RETRANSMITTED]));
-+
-+	printf("  Congestion link:%u  Send queue max:%u avg:%u\n",
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_LINK_CONGS]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_MAX_QUEUE]),
-+	       mnl_attr_get_u32(stats[TIPC_NLA_STATS_AVG_QUEUE]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int link_stat_show_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	const char *name;
-+	const char *link = data;
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_LINK_MAX + 1] = {};
-+	struct nlattr *prop[TIPC_NLA_PROP_MAX + 1] = {};
-+	struct nlattr *stats[TIPC_NLA_STATS_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_LINK])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_LINK], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_LINK_NAME] || !attrs[TIPC_NLA_LINK_PROP] ||
-+	    !attrs[TIPC_NLA_LINK_STATS])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(attrs[TIPC_NLA_LINK_PROP], parse_attrs, prop);
-+	mnl_attr_parse_nested(attrs[TIPC_NLA_LINK_STATS], parse_attrs, stats);
-+
-+	name = mnl_attr_get_str(attrs[TIPC_NLA_LINK_NAME]);
-+
-+	/* If a link is passed, skip all but that link */
-+	if (link && (strcmp(name, link) != 0))
-+		return MNL_CB_OK;
-+
-+	if (attrs[TIPC_NLA_LINK_BROADCAST]) {
-+		printf("Link <%s>\n", name);
-+		return _show_bc_link_stat(prop, stats);
-+	}
-+
-+	printf("\nLink <%s>\n", name);
-+
-+	return _show_link_stat(attrs, prop, stats);
-+}
-+
-+static void cmd_link_stat_show_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s link stat show [ link LINK ]\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_link_stat_show(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			      struct cmdl *cmdl, void *data)
-+{
-+	char *link = NULL;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "link",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_LINK_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	if (parse_opts(opts, cmdl) < 0)
-+		return -EINVAL;
-+
-+	if ((opt = get_opt(opts, "link")))
-+		link = opt->val;
-+
-+	return msg_dumpit(nlh, link_stat_show_cb, link);
-+}
-+
-+static void cmd_link_stat_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s link stat COMMAND [ARGS]\n\n"
-+		"COMMANDS:\n"
-+		" reset                 - Reset link statistics for link\n"
-+		" show                  - Get link priority\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_link_stat(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			 struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "reset",	cmd_link_stat_reset,	cmd_link_stat_reset_help },
-+		{ "show",	cmd_link_stat_show,	cmd_link_stat_show_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+static void cmd_link_set_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s link set PPROPERTY link LINK\n\n"
-+		"PROPERTIES\n"
-+		" tolerance TOLERANCE   - Set link tolerance\n"
-+		" priority PRIORITY     - Set link priority\n"
-+		" window WINDOW         - Set link window\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_link_set_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			     struct cmdl *cmdl, void *data)
-+{
-+	int val;
-+	int prop;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *props;
-+	struct nlattr *attrs;
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "link",	NULL },
-+		{ NULL }
-+	};
-+
-+	if (strcmp(cmd->cmd, "priority") == 0)
-+		prop = TIPC_NLA_PROP_PRIO;
-+	else if ((strcmp(cmd->cmd, "tolerance") == 0))
-+		prop = TIPC_NLA_PROP_TOL;
-+	else if ((strcmp(cmd->cmd, "window") == 0))
-+		prop = TIPC_NLA_PROP_WIN;
-+	else
-+		return -EINVAL;
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (cmdl->optind >= cmdl->argc) {
-+		fprintf(stderr, "error, missing value\n");
-+		return -EINVAL;
-+	}
-+	val = atoi(shift_cmdl(cmdl));
-+
-+	if (parse_opts(opts, cmdl) < 0)
-+		return -EINVAL;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_LINK_SET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+	attrs = mnl_attr_nest_start(nlh, TIPC_NLA_LINK);
-+
-+	if (!(opt = get_opt(opts, "link"))) {
-+		fprintf(stderr, "error, missing link\n");
-+		return -EINVAL;
-+	}
-+	mnl_attr_put_strz(nlh, TIPC_NLA_LINK_NAME, opt->val);
-+
-+	props = mnl_attr_nest_start(nlh, TIPC_NLA_LINK_PROP);
-+	mnl_attr_put_u32(nlh, prop, val);
-+	mnl_attr_nest_end(nlh, props);
-+
-+	mnl_attr_nest_end(nlh, attrs);
-+
-+	return msg_doit(nlh, link_get_cb, &prop);
-+
-+	return 0;
-+}
-+
-+static int cmd_link_set(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "priority",	cmd_link_set_prop,	cmd_link_set_help },
-+		{ "tolerance",	cmd_link_set_prop,	cmd_link_set_help },
-+		{ "window",	cmd_link_set_prop,	cmd_link_set_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+void cmd_link_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s link COMMAND [ARGS] ...\n"
-+		"\n"
-+		"COMMANDS\n"
-+		" list                  - List links\n"
-+		" get                   - Get various link properties\n"
-+		" set                   - Set various link properties\n"
-+		" statistics            - Show or reset statistics\n",
-+		cmdl->argv[0]);
-+}
-+
-+int cmd_link(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+	     void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "get",	cmd_link_get,	cmd_link_get_help },
-+		{ "list",	cmd_link_list,	NULL },
-+		{ "set",	cmd_link_set,	cmd_link_set_help },
-+		{ "statistics", cmd_link_stat,	cmd_link_stat_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-diff --git a/tipc/link.h b/tipc/link.h
-new file mode 100644
-index 0000000..6dc95e5
---- /dev/null
-+++ b/tipc/link.h
-@@ -0,0 +1,21 @@
-+/*
-+ * link.c	TIPC link functionality.
++#ifndef __FSL_FMAN_DTSEC_H
++#define __FSL_FMAN_DTSEC_H
++
++#include "common/general.h"
++#include "fsl_enet.h"
++
++/* dTSEC Init sequence
++ *To prepare dTSEC block for transfer use the following call sequence:
++ *- fman_dtsec_defconfig() - This step is optional and yet recommended. Its
++ *use is to obtain the default dTSEC configuration parameters.
++ *- Change dtsec configuration in &dtsec_cfg. This structure will be used
++ *to customize the dTSEC behavior.
++ *- fman_dtsec_init() - Applies the configuration on dTSEC hardware.  Note that
++ *dTSEC is initialized while both Tx and Rx are disabled.
++ *- fman_dtsec_set_mac_address() - Set the station address (mac address).
++ *This is used by dTSEC to match against received packets.
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ *- fman_dtsec_adjust_link() - Set the link speed and duplex parameters
++ *after the PHY establishes the link.
++ *- dtsec_enable_tx() and dtsec_enable_rx() to enable transmission and
++ *reception.
 + */
 +
-+#ifndef _TIPC_LINK_H
-+#define _TIPC_LINK_H
-+
-+extern int help_flag;
-+
-+int cmd_link(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+	     void *data);
-+void cmd_link_help(struct cmdl *cmdl);
-+
-+#endif
-diff --git a/tipc/media.c b/tipc/media.c
-new file mode 100644
-index 0000000..a902ab7
---- /dev/null
-+++ b/tipc/media.c
-@@ -0,0 +1,260 @@
-+/*
-+ * media.c	TIPC link functionality.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++/*  dTSEC Graceful stop
++ *To temporary stop dTSEC activity use fman_dtsec_stop_tx() and
++ *fman_dtsec_stop_rx(). Note that these functions request dTSEC graceful stop
++ *but return before this stop is complete.  To query for graceful stop
++ *completion use fman_dtsec_get_event() and check DTSEC_IEVENT_GTSC and
++ *DTSEC_IEVENT_GRSC bits. Alternatively the dTSEC interrupt mask can be set to
++ *enable graceful stop interrupts.
++ *To resume operation after graceful stop use fman_dtsec_start_tx() and
++ *fman_dtsec_start_rx().
 + */
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <errno.h>
-+
-+#include <linux/tipc_netlink.h>
-+#include <linux/tipc.h>
-+#include <linux/genetlink.h>
-+#include <libmnl/libmnl.h>
-+
-+#include "cmdl.h"
-+#include "msg.h"
-+#include "media.h"
-+
-+static int media_list_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_MEDIA_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_MEDIA])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_MEDIA], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_MEDIA_NAME])
-+		return MNL_CB_ERROR;
-+
-+	printf("%s\n", mnl_attr_get_str(attrs[TIPC_NLA_MEDIA_NAME]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_media_list(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			 struct cmdl *cmdl, void *data)
-+{
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		fprintf(stderr, "Usage: %s media list\n", cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_MEDIA_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	return msg_dumpit(nlh, media_list_cb, NULL);
-+}
-+
-+static int media_get_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	int *prop = data;
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_MEDIA_MAX + 1] = {};
-+	struct nlattr *props[TIPC_NLA_PROP_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_MEDIA])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_MEDIA], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_MEDIA_PROP])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(attrs[TIPC_NLA_MEDIA_PROP], parse_attrs, props);
-+	if (!props[*prop])
-+		return MNL_CB_ERROR;
-+
-+	printf("%u\n", mnl_attr_get_u32(props[*prop]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_media_get_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			      struct cmdl *cmdl, void *data)
-+{
-+	int prop;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *nest;
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "media",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (strcmp(cmd->cmd, "priority") == 0)
-+		prop = TIPC_NLA_PROP_PRIO;
-+	else if ((strcmp(cmd->cmd, "tolerance") == 0))
-+		prop = TIPC_NLA_PROP_TOL;
-+	else if ((strcmp(cmd->cmd, "window") == 0))
-+		prop = TIPC_NLA_PROP_WIN;
-+	else
-+		return -EINVAL;
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (parse_opts(opts, cmdl) < 0)
-+		return -EINVAL;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_MEDIA_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	if (!(opt = get_opt(opts, "media"))) {
-+		fprintf(stderr, "error, missing media\n");
-+		return -EINVAL;
-+	}
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_MEDIA);
-+	mnl_attr_put_strz(nlh, TIPC_NLA_MEDIA_NAME, opt->val);
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	return msg_doit(nlh, media_get_cb, &prop);
-+}
-+
-+static void cmd_media_get_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s media get PPROPERTY media MEDIA\n\n"
-+		"PROPERTIES\n"
-+		" tolerance             - Get media tolerance\n"
-+		" priority              - Get media priority\n"
-+		" window                - Get media window\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_media_get(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "priority",	cmd_media_get_prop,	cmd_media_get_help },
-+		{ "tolerance",	cmd_media_get_prop,	cmd_media_get_help },
-+		{ "window",	cmd_media_get_prop,	cmd_media_get_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+static void cmd_media_set_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr, "Usage: %s media set PPROPERTY media MEDIA\n\n"
-+		"PROPERTIES\n"
-+		" tolerance TOLERANCE   - Set media tolerance\n"
-+		" priority PRIORITY     - Set media priority\n"
-+		" window WINDOW         - Set media window\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_media_set_prop(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			 struct cmdl *cmdl, void *data)
-+{
-+	int val;
-+	int prop;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *props;
-+	struct nlattr *attrs;
-+	struct opt *opt;
-+	struct opt opts[] = {
-+		{ "media",		NULL },
-+		{ NULL }
-+	};
-+
-+	if (strcmp(cmd->cmd, "priority") == 0)
-+		prop = TIPC_NLA_PROP_PRIO;
-+	else if ((strcmp(cmd->cmd, "tolerance") == 0))
-+		prop = TIPC_NLA_PROP_TOL;
-+	else if ((strcmp(cmd->cmd, "window") == 0))
-+		prop = TIPC_NLA_PROP_WIN;
-+	else
-+		return -EINVAL;
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (cmdl->optind >= cmdl->argc) {
-+		fprintf(stderr, "error, missing value\n");
-+		return -EINVAL;
-+	}
-+	val = atoi(shift_cmdl(cmdl));
-+
-+	if (parse_opts(opts, cmdl) < 0)
-+		return -EINVAL;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_MEDIA_SET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+	attrs = mnl_attr_nest_start(nlh, TIPC_NLA_MEDIA);
-+
-+	if (!(opt = get_opt(opts, "media"))) {
-+		fprintf(stderr, "error, missing media\n");
-+		return -EINVAL;
-+	}
-+	mnl_attr_put_strz(nlh, TIPC_NLA_MEDIA_NAME, opt->val);
-+
-+	props = mnl_attr_nest_start(nlh, TIPC_NLA_MEDIA_PROP);
-+	mnl_attr_put_u32(nlh, prop, val);
-+	mnl_attr_nest_end(nlh, props);
-+
-+	mnl_attr_nest_end(nlh, attrs);
-+
-+	return msg_doit(nlh, NULL, NULL);
-+}
-+
-+static int cmd_media_set(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			 struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "priority",	cmd_media_set_prop,	cmd_media_set_help },
-+		{ "tolerance",	cmd_media_set_prop,	cmd_media_set_help },
-+		{ "window",	cmd_media_set_prop,	cmd_media_set_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+void cmd_media_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s media COMMAND [ARGS] ...\n"
-+		"\n"
-+		"Commands:\n"
-+		" list                  - List active media types\n"
-+		" get                   - Get various media properties\n"
-+		" set                   - Set various media properties\n",
-+		cmdl->argv[0]);
-+}
-+
-+int cmd_media(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+	     void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "get",	cmd_media_get,	cmd_media_get_help },
-+		{ "list",	cmd_media_list,	NULL },
-+		{ "set",	cmd_media_set,	cmd_media_set_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-diff --git a/tipc/media.h b/tipc/media.h
-new file mode 100644
-index 0000000..8584af7
---- /dev/null
-+++ b/tipc/media.h
-@@ -0,0 +1,21 @@
-+/*
-+ * media.h	TIPC link functionality.
++/* dTSEC interrupt handling
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ *This code does not provide an interrupt handler for dTSEC.  Instead this
++ *handler should be implemented and registered to the operating system by the
++ *caller.  Some primitives for accessing the event status and mask registers
++ *are provided.
++ *See "dTSEC Events" section for a list of events that dTSEC can generate.
 + */
 +
-+#ifndef _TIPC_MEDIA_H
-+#define _TIPC_MEDIA_H
++/*dTSEC Events
++ *Interrupt events cause dTSEC event bits to be set.  Software may poll the
++ *event register at any time to check for pending interrupts.  If an event
++ *occurs and its corresponding enable bit is set in the interrupt mask
++ *register, the event also causes a hardware interrupt at the PIC.
++ *To poll for event status use the fman_dtsec_get_event() function.
++ *To configure the interrupt mask use fman_dtsec_enable_interrupt() and
++ *fman_dtsec_disable_interrupt() functions.
++ *After servicing a dTSEC interrupt use fman_dtsec_ack_event to reset the
++ *serviced event bit.
++ *The following events may be signaled by dTSEC hardware:
++ *%DTSEC_IEVENT_BABR - Babbling receive error.	This bit indicates that
++ *a frame was received with length in excess of the MAC's maximum frame length
++ *register.
++ *%DTSEC_IEVENT_RXC - Receive control (pause frame) interrupt.	A pause
++ *control frame was received while Rx pause frame handling is enabled.
++ *Also see fman_dtsec_handle_rx_pause().
++ *%DTSEC_IEVENT_MSRO - MIB counter overflow.  The count for one of the MIB
++ *counters has exceeded the size of its register.
++ *%DTSEC_IEVENT_GTSC - Graceful transmit stop complete.	 Graceful stop is now
++ *complete. The transmitter is in a stopped state, in which only pause frames
++ *can be transmitted.
++ *Also see fman_dtsec_stop_tx().
++ *%DTSEC_IEVENT_BABT - Babbling transmit error.	 The transmitted frame length
++ *has exceeded the value in the MAC's Maximum Frame Length register.
++ *%DTSEC_IEVENT_TXC - Transmit control (pause frame) interrupt.	 his bit
++ *indicates that a control frame was transmitted.
++ *%DTSEC_IEVENT_TXE - Transmit error.  This bit indicates that an error
++ *occurred on the transmitted channel.	This bit is set whenever any transmit
++ *error occurs which causes the dTSEC to discard all or part of a frame
++ *(LC, CRL, XFUN).
++ *%DTSEC_IEVENT_LC - Late collision.  This bit indicates that a collision
++ *occurred beyond the collision window (slot time) in half-duplex mode.
++ *The frame is truncated with a bad CRC and the remainder of the frame
++ *is discarded.
++ *%DTSEC_IEVENT_CRL - Collision retry limit.  is bit indicates that the number
++ *of successive transmission collisions has exceeded the MAC's half-duplex
++ *register's retransmission maximum count.  The frame is discarded without
++ *being transmitted and transmission of the next frame commences.  This only
++ *occurs while in half-duplex mode.
++ *The number of retransmit attempts can be set in
++ *&dtsec_halfdup_cfg.retransmit before calling fman_dtsec_init().
++ *%DTSEC_IEVENT_XFUN - Transmit FIFO underrun.	This bit indicates that the
++ *transmit FIFO became empty before the complete frame was transmitted.
++ *The frame is truncated with a bad CRC and the remainder of the frame is
++ *discarded.
++ *%DTSEC_IEVENT_MAG - TBD
++ *%DTSEC_IEVENT_MMRD - MII management read completion.
++ *%DTSEC_IEVENT_MMWR - MII management write completion.
++ *%DTSEC_IEVENT_GRSC - Graceful receive stop complete.	It allows the user to
++ *know if the system has completed the stop and it is safe to write to receive
++ *registers (status, control or configuration registers) that are used by the
++ *system during normal operation.
++ *%DTSEC_IEVENT_TDPE - Internal data error on transmit.	 This bit indicates
++ *that the dTSEC has detected a parity error on its stored transmit data, which
++ *is likely to compromise the validity of recently transferred frames.
++ *%DTSEC_IEVENT_RDPE - Internal data error on receive.	This bit indicates that
++ *the dTSEC has detected a parity error on its stored receive data, which is
++ *likely to compromise the validity of recently transferred frames.
++ */
++/* Interrupt Mask Register (IMASK) */
++#define DTSEC_IMASK_BREN	0x80000000
++#define DTSEC_IMASK_RXCEN	0x40000000
++#define DTSEC_IMASK_MSROEN	0x04000000
++#define DTSEC_IMASK_GTSCEN	0x02000000
++#define DTSEC_IMASK_BTEN	0x01000000
++#define DTSEC_IMASK_TXCEN	0x00800000
++#define DTSEC_IMASK_TXEEN	0x00400000
++#define DTSEC_IMASK_LCEN	0x00040000
++#define DTSEC_IMASK_CRLEN	0x00020000
++#define DTSEC_IMASK_XFUNEN	0x00010000
++#define DTSEC_IMASK_ABRTEN	0x00008000
++#define DTSEC_IMASK_IFERREN	0x00004000
++#define DTSEC_IMASK_MAGEN	0x00000800
++#define DTSEC_IMASK_MMRDEN	0x00000400
++#define DTSEC_IMASK_MMWREN	0x00000200
++#define DTSEC_IMASK_GRSCEN	0x00000100
++#define DTSEC_IMASK_TDPEEN	0x00000002
++#define DTSEC_IMASK_RDPEEN	0x00000001
 +
-+extern int help_flag;
++#define DTSEC_EVENTS_MASK				\
++	((uint32_t)(DTSEC_IMASK_BREN	| \
++				DTSEC_IMASK_RXCEN   | \
++				DTSEC_IMASK_BTEN    | \
++				DTSEC_IMASK_TXCEN   | \
++				DTSEC_IMASK_TXEEN   | \
++				DTSEC_IMASK_ABRTEN  | \
++				DTSEC_IMASK_LCEN    | \
++				DTSEC_IMASK_CRLEN   | \
++				DTSEC_IMASK_XFUNEN  | \
++				DTSEC_IMASK_IFERREN | \
++				DTSEC_IMASK_MAGEN   | \
++				DTSEC_IMASK_TDPEEN  | \
++				DTSEC_IMASK_RDPEEN))
 +
-+int cmd_media(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+	     void *data);
-+void cmd_media_help(struct cmdl *cmdl);
++/* dtsec timestamp event bits */
++#define TMR_PEMASK_TSREEN	0x00010000
++#define TMR_PEVENT_TSRE		0x00010000
 +
-+#endif
-diff --git a/tipc/misc.c b/tipc/misc.c
++/* Group address bit indication */
++#define MAC_GROUP_ADDRESS	0x0000010000000000ULL
++/* size in bytes of L2 address */
++#define MAC_ADDRLEN		6
++
++#define DEFAULT_HALFDUP_ON		false
++#define DEFAULT_HALFDUP_RETRANSMIT	0xf
++#define DEFAULT_HALFDUP_COLL_WINDOW	0x37
++#define DEFAULT_HALFDUP_EXCESS_DEFER	true
++#define DEFAULT_HALFDUP_NO_BACKOFF	false
++#define DEFAULT_HALFDUP_BP_NO_BACKOFF	false
++#define DEFAULT_HALFDUP_ALT_BACKOFF_VAL	0x0A
++#define DEFAULT_HALFDUP_ALT_BACKOFF_EN	false
++#define DEFAULT_RX_DROP_BCAST		false
++#define DEFAULT_RX_SHORT_FRM		true
++#define DEFAULT_RX_LEN_CHECK		false
++#define DEFAULT_TX_PAD_CRC		true
++#define DEFAULT_TX_CRC			false
++#define DEFAULT_RX_CTRL_ACC		false
++#define DEFAULT_TX_PAUSE_TIME		0xf000
++#define DEFAULT_TBIPA			5
++#define DEFAULT_RX_PREPEND		0
++#define DEFAULT_PTP_TSU_EN		true
++#define DEFAULT_PTP_EXCEPTION_EN	true
++#define DEFAULT_PREAMBLE_LEN		7
++#define DEFAULT_RX_PREAMBLE		false
++#define DEFAULT_TX_PREAMBLE		false
++#define DEFAULT_LOOPBACK		false
++#define DEFAULT_RX_TIME_STAMP_EN	false
++#define DEFAULT_TX_TIME_STAMP_EN	false
++#define DEFAULT_RX_FLOW			true
++#define DEFAULT_TX_FLOW			true
++#define DEFAULT_RX_GROUP_HASH_EXD	false
++#define DEFAULT_TX_PAUSE_TIME_EXTD	0
++#define DEFAULT_RX_PROMISC		false
++#define DEFAULT_NON_BACK_TO_BACK_IPG1	0x40
++#define DEFAULT_NON_BACK_TO_BACK_IPG2	0x60
++#define DEFAULT_MIN_IFG_ENFORCEMENT	0x50
++#define DEFAULT_BACK_TO_BACK_IPG	0x60
++#define DEFAULT_MAXIMUM_FRAME		0x600
++#define DEFAULT_TBI_PHY_ADDR		5
++#define DEFAULT_WAKE_ON_LAN		false
++
++/* register related defines (bits, field offsets..) */
++#define DTSEC_ID1_ID			0xffff0000
++#define DTSEC_ID1_REV_MJ		0x0000FF00
++#define DTSEC_ID1_REV_MN		0x000000ff
++
++#define DTSEC_ID2_INT_REDUCED_OFF	0x00010000
++#define DTSEC_ID2_INT_NORMAL_OFF	0x00020000
++
++#define DTSEC_ECNTRL_CLRCNT		0x00004000
++#define DTSEC_ECNTRL_AUTOZ		0x00002000
++#define DTSEC_ECNTRL_STEN		0x00001000
++#define DTSEC_ECNTRL_CFG_RO		0x80000000
++#define DTSEC_ECNTRL_GMIIM		0x00000040
++#define DTSEC_ECNTRL_TBIM		0x00000020
++#define DTSEC_ECNTRL_SGMIIM		0x00000002
++#define DTSEC_ECNTRL_RPM		0x00000010
++#define DTSEC_ECNTRL_R100M		0x00000008
++#define DTSEC_ECNTRL_RMM		0x00000004
++#define DTSEC_ECNTRL_QSGMIIM		0x00000001
++
++#define DTSEC_TCTRL_THDF		0x00000800
++#define DTSEC_TCTRL_TTSE		0x00000040
++#define DTSEC_TCTRL_GTS			0x00000020
++#define DTSEC_TCTRL_TFC_PAUSE		0x00000010
++
++/* PTV offsets */
++#define PTV_PTE_OFST		16
++
++#define RCTRL_CFA		0x00008000
++#define RCTRL_GHTX		0x00000400
++#define RCTRL_RTSE		0x00000040
++#define RCTRL_GRS		0x00000020
++#define RCTRL_BC_REJ		0x00000010
++#define RCTRL_MPROM		0x00000008
++#define RCTRL_RSF		0x00000004
++#define RCTRL_UPROM		0x00000001
++#define RCTRL_PROM		(RCTRL_UPROM | RCTRL_MPROM)
++
++#define TMR_CTL_ESFDP		0x00000800
++#define TMR_CTL_ESFDE		0x00000400
++
++#define MACCFG1_SOFT_RESET	0x80000000
++#define MACCFG1_LOOPBACK	0x00000100
++#define MACCFG1_RX_FLOW		0x00000020
++#define MACCFG1_TX_FLOW		0x00000010
++#define MACCFG1_TX_EN		0x00000001
++#define MACCFG1_RX_EN		0x00000004
++
++#define MACCFG2_NIBBLE_MODE	0x00000100
++#define MACCFG2_BYTE_MODE	0x00000200
++#define MACCFG2_PRE_AM_RX_EN	0x00000080
++#define MACCFG2_PRE_AM_TX_EN	0x00000040
++#define MACCFG2_LENGTH_CHECK	0x00000010
++#define MACCFG2_MAGIC_PACKET_EN	0x00000008
++#define MACCFG2_PAD_CRC_EN	0x00000004
++#define MACCFG2_CRC_EN		0x00000002
++#define MACCFG2_FULL_DUPLEX	0x00000001
++
++#define PREAMBLE_LENGTH_SHIFT	12
++
++#define IPGIFG_NON_BACK_TO_BACK_IPG_1_SHIFT	24
++#define IPGIFG_NON_BACK_TO_BACK_IPG_2_SHIFT	16
++#define IPGIFG_MIN_IFG_ENFORCEMENT_SHIFT	8
++
++#define IPGIFG_NON_BACK_TO_BACK_IPG_1	0x7F000000
++#define IPGIFG_NON_BACK_TO_BACK_IPG_2	0x007F0000
++#define IPGIFG_MIN_IFG_ENFORCEMENT	0x0000FF00
++#define IPGIFG_BACK_TO_BACK_IPG		0x0000007F
++
++#define HAFDUP_ALT_BEB			0x00080000
++#define HAFDUP_BP_NO_BACKOFF		0x00040000
++#define HAFDUP_NO_BACKOFF		0x00020000
++#define HAFDUP_EXCESS_DEFER		0x00010000
++#define HAFDUP_COLLISION_WINDOW		0x000003ff
++
++#define HAFDUP_ALTERNATE_BEB_TRUNCATION_SHIFT	20
++#define HAFDUP_RETRANSMISSION_MAX_SHIFT		12
++#define HAFDUP_RETRANSMISSION_MAX		0x0000f000
++
++#define NUM_OF_HASH_REGS	8	/* Number of hash table registers */
++
++/* CAR1/2 bits */
++#define DTSEC_CAR1_TR64		0x80000000
++#define DTSEC_CAR1_TR127	0x40000000
++#define DTSEC_CAR1_TR255	0x20000000
++#define DTSEC_CAR1_TR511	0x10000000
++#define DTSEC_CAR1_TRK1		0x08000000
++#define DTSEC_CAR1_TRMAX	0x04000000
++#define DTSEC_CAR1_TRMGV	0x02000000
++
++#define DTSEC_CAR1_RBYT		0x00010000
++#define DTSEC_CAR1_RPKT		0x00008000
++#define DTSEC_CAR1_RFCS		0x00004000
++#define DTSEC_CAR1_RMCA		0x00002000
++#define DTSEC_CAR1_RBCA		0x00001000
++#define DTSEC_CAR1_RXCF		0x00000800
++#define DTSEC_CAR1_RXPF		0x00000400
++#define DTSEC_CAR1_RXUO		0x00000200
++#define DTSEC_CAR1_RALN		0x00000100
++#define DTSEC_CAR1_RFLR		0x00000080
++#define DTSEC_CAR1_RCDE		0x00000040
++#define DTSEC_CAR1_RCSE		0x00000020
++#define DTSEC_CAR1_RUND		0x00000010
++#define DTSEC_CAR1_ROVR		0x00000008
++#define DTSEC_CAR1_RFRG		0x00000004
++#define DTSEC_CAR1_RJBR		0x00000002
++#define DTSEC_CAR1_RDRP		0x00000001
++
++#define DTSEC_CAR2_TJBR		0x00080000
++#define DTSEC_CAR2_TFCS		0x00040000
++#define DTSEC_CAR2_TXCF		0x00020000
++#define DTSEC_CAR2_TOVR		0x00010000
++#define DTSEC_CAR2_TUND		0x00008000
++#define DTSEC_CAR2_TFRG		0x00004000
++#define DTSEC_CAR2_TBYT		0x00002000
++#define DTSEC_CAR2_TPKT		0x00001000
++#define DTSEC_CAR2_TMCA		0x00000800
++#define DTSEC_CAR2_TBCA		0x00000400
++#define DTSEC_CAR2_TXPF		0x00000200
++#define DTSEC_CAR2_TDFR		0x00000100
++#define DTSEC_CAR2_TEDF		0x00000080
++#define DTSEC_CAR2_TSCL		0x00000040
++#define DTSEC_CAR2_TMCL		0x00000020
++#define DTSEC_CAR2_TLCL		0x00000010
++#define DTSEC_CAR2_TXCL		0x00000008
++#define DTSEC_CAR2_TNCL		0x00000004
++#define DTSEC_CAR2_TDRP		0x00000001
++
++/* memory map */
++
++struct dtsec_regs {
++	/* dTSEC General Control and Status Registers */
++	uint32_t tsec_id;	/* 0x000 ETSEC_ID register */
++	uint32_t tsec_id2;	/* 0x004 ETSEC_ID2 register */
++	uint32_t ievent;	/* 0x008 Interrupt event register */
++	uint32_t imask;		/* 0x00C Interrupt mask register */
++	uint32_t reserved0010[1];
++	uint32_t ecntrl;	/* 0x014 E control register */
++	uint32_t ptv;		/* 0x018 Pause time value register */
++	uint32_t tbipa;		/* 0x01C TBI PHY address register */
++	uint32_t tmr_ctrl;	/* 0x020 Time-stamp Control register */
++	uint32_t tmr_pevent;	/* 0x024 Time-stamp event register */
++	uint32_t tmr_pemask;	/* 0x028 Timer event mask register */
++	uint32_t reserved002c[5];
++	uint32_t tctrl;		/* 0x040 Transmit control register */
++	uint32_t reserved0044[3];
++	uint32_t rctrl;		/* 0x050 Receive control register */
++	uint32_t reserved0054[11];
++	uint32_t igaddr[8];	/* 0x080-0x09C Individual/group address */
++	uint32_t gaddr[8];	/* 0x0A0-0x0BC Group address registers 0-7 */
++	uint32_t reserved00c0[16];
++	uint32_t maccfg1;	/* 0x100 MAC configuration #1 */
++	uint32_t maccfg2;	/* 0x104 MAC configuration #2 */
++	uint32_t ipgifg;	/* 0x108 IPG/IFG */
++	uint32_t hafdup;	/* 0x10C Half-duplex */
++	uint32_t maxfrm;	/* 0x110 Maximum frame */
++	uint32_t reserved0114[10];
++	uint32_t ifstat;	/* 0x13C Interface status */
++	uint32_t macstnaddr1;	/* 0x140 Station Address,part 1 */
++	uint32_t macstnaddr2;	/* 0x144 Station Address,part 2	 */
++	struct {
++		uint32_t exact_match1;	/* octets 1-4 */
++		uint32_t exact_match2;	/* octets 5-6 */
++	} macaddr[15];		/* 0x148-0x1BC mac exact match addresses 1-15 */
++	uint32_t reserved01c0[16];
++	/* 0x200 transmit and receive 64 byte frame counter */
++	uint32_t tr64;
++	/* 0x204 transmit and receive 65 to 127 byte frame counter */
++	uint32_t tr127;
++	/* 0x208 transmit and receive 128 to 255 byte frame counter */
++	uint32_t tr255;
++	/* 0x20C transmit and receive 256 to 511 byte frame counter */
++	uint32_t tr511;
++	/* 0x210 transmit and receive 512 to 1023 byte frame counter */
++	uint32_t tr1k;
++	/* 0x214 transmit and receive 1024 to 1518 byte frame counter */
++	uint32_t trmax;
++	/* 0x218 transmit and receive 1519 to 1522 byte good VLAN frame count*/
++	uint32_t trmgv;
++	uint32_t rbyt;		/* 0x21C receive byte counter */
++	uint32_t rpkt;		/* 0x220 receive packet counter */
++	uint32_t rfcs;		/* 0x224 receive FCS error counter */
++	/* 0x228 RMCA receive multicast packet counter */
++	uint32_t rmca;
++	uint32_t rbca;		/* 0x22C receive broadcast packet counter */
++	uint32_t rxcf;		/* 0x230 receive control frame packet counter */
++	uint32_t rxpf;		/* 0x234 receive pause frame packet counter */
++	uint32_t rxuo;		/* 0x238 receive unknown OP code counter */
++	uint32_t raln;		/* 0x23C receive alignment error counter */
++	uint32_t rflr;		/* 0x240 receive frame length error counter */
++	uint32_t rcde;		/* 0x244 receive code error counter */
++	uint32_t rcse;		/* 0x248 receive carrier sense error counter */
++	uint32_t rund;		/* 0x24C receive undersize packet counter */
++	uint32_t rovr;		/* 0x250 receive oversize packet counter */
++	uint32_t rfrg;		/* 0x254 receive fragments counter */
++	uint32_t rjbr;		/* 0x258 receive jabber counter */
++	uint32_t rdrp;		/* 0x25C receive drop */
++	uint32_t tbyt;		/* 0x260 transmit byte counter */
++	uint32_t tpkt;		/* 0x264 transmit packet counter */
++	uint32_t tmca;		/* 0x268 transmit multicast packet counter */
++	uint32_t tbca;		/* 0x26C transmit broadcast packet counter */
++	uint32_t txpf;		/* 0x270 transmit pause control frame counter */
++	uint32_t tdfr;		/* 0x274 transmit deferral packet counter */
++	/* 0x278 transmit excessive deferral packet counter */
++	uint32_t tedf;
++	/* 0x27C transmit single collision packet counter */
++	uint32_t tscl;
++	/* 0x280 transmit multiple collision packet counter */
++	uint32_t tmcl;
++	/* 0x284 transmit late collision packet counter */
++	uint32_t tlcl;
++	/* 0x288 transmit excessive collision packet counter */
++	uint32_t txcl;
++	uint32_t tncl;		/* 0x28C transmit total collision counter */
++	uint32_t reserved0290[1];
++	uint32_t tdrp;		/* 0x294 transmit drop frame counter */
++	uint32_t tjbr;		/* 0x298 transmit jabber frame counter */
++	uint32_t tfcs;		/* 0x29C transmit FCS error counter */
++	uint32_t txcf;		/* 0x2A0 transmit control frame counter */
++	uint32_t tovr;		/* 0x2A4 transmit oversize frame counter */
++	uint32_t tund;		/* 0x2A8 transmit undersize frame counter */
++	uint32_t tfrg;		/* 0x2AC transmit fragments frame counter */
++	uint32_t car1;		/* 0x2B0 carry register one register* */
++	uint32_t car2;		/* 0x2B4 carry register two register* */
++	uint32_t cam1;		/* 0x2B8 carry register one mask register */
++	uint32_t cam2;		/* 0x2BC carry register two mask register */
++	uint32_t reserved02c0[848];
++};
++
++/* struct dtsec_cfg - dTSEC configuration
++ * Transmit half-duplex flow control, under software
++ * control for 10/100-Mbps half-duplex media. If set,
++ * back pressure is applied to media by raising carrier.
++ * halfdup_retransmit:
++ * Number of retransmission attempts following a collision.
++ * If this is exceeded dTSEC aborts transmission due to
++ * excessive collisions. The standard specifies the
++ * attempt limit to be 15.
++ * halfdup_coll_window:
++ * The number of bytes of the frame during which
++ * collisions may occur. The default value of 55
++ * corresponds to the frame byte at the end of the
++ * standard 512-bit slot time window. If collisions are
++ * detected after this byte, the late collision event is
++ * asserted and transmission of current frame is aborted.
++ * rx_drop_bcast:
++ * Discard broadcast frames.  If set, all broadcast frames
++ * will be discarded by dTSEC.
++ * rx_short_frm:
++ * Accept short frames.	 If set, dTSEC will accept frames
++ * of length 14..63 bytes.
++ * rx_len_check:
++ * Length check for received frames.  If set, the MAC
++ * checks the frame's length field on receive to ensure it
++ * matches the actual data field length. This only works
++ * for received frames with length field less than 1500.
++ * No check is performed for larger frames.
++ * tx_pad_crc:
++ * Pad and append CRC.	If set, the MAC pads all
++ * transmitted short frames and appends a CRC to every
++ * frame regardless of padding requirement.
++ * tx_crc:
++ * Transmission CRC enable.  If set, the MAC appends a CRC
++ * to all frames.  If frames presented to the MAC have a
++ * valid length and contain a valid CRC, tx_crc should be
++ * reset.
++ * This field is ignored if tx_pad_crc is set.
++ * rx_ctrl_acc:
++ * Control frame accept.  If set, this overrides 802.3
++ * standard control frame behavior, and all Ethernet frames
++ * that have an ethertype of 0x8808 are treated as normal
++ * Ethernet frames and passed up to the packet interface on
++ * a DA match.	Received pause control frames are passed to
++ * the packet interface only if Rx flow control is also
++ * disabled.  See fman_dtsec_handle_rx_pause() function.
++ * tx_pause_time:
++ * Transmit pause time value.  This pause value is used as
++ * part of the pause frame to be sent when a transmit pause
++ * frame is initiated.	If set to 0 this disables
++ * transmission of pause frames.
++ * rx_preamble:
++ * Receive preamble enable.  If set, the MAC recovers the
++ * received Ethernet 7-byte preamble and passes it to the
++ * packet interface at the start of each received frame.
++ * This field should be reset for internal MAC loop-back
++ * mode.
++ * tx_preamble:	User defined preamble enable for transmitted frames.
++ * If set, a user-defined preamble must passed to the MAC
++ * and it is transmitted instead of the standard preamble.
++ * preamble_len:
++ * Length, in bytes, of the preamble field preceding each
++ * Ethernet start-of-frame delimiter byte.  The default
++ * value of 0x7 should be used in order to guarantee
++ * reliable operation with IEEE 802.3 compliant hardware.
++ * rx_prepend:
++ * Packet alignment padding length.  The specified number
++ * of bytes (1-31) of zero padding are inserted before the
++ * start of each received frame.  For Ethernet, where
++ * optional preamble extraction is enabled, the padding
++ * appears before the preamble, otherwise the padding
++ * precedes the layer 2 header.
++ *
++ * This structure contains basic dTSEC configuration and must be passed to
++ * fman_dtsec_init() function.	A default set of configuration values can be
++ * obtained by calling fman_dtsec_defconfig().
++ */
++struct dtsec_cfg {
++	bool halfdup_on;
++	bool halfdup_alt_backoff_en;
++	bool halfdup_excess_defer;
++	bool halfdup_no_backoff;
++	bool halfdup_bp_no_backoff;
++	uint8_t halfdup_alt_backoff_val;
++	uint16_t halfdup_retransmit;
++	uint16_t halfdup_coll_window;
++	bool rx_drop_bcast;
++	bool rx_short_frm;
++	bool rx_len_check;
++	bool tx_pad_crc;
++	bool tx_crc;
++	bool rx_ctrl_acc;
++	unsigned short tx_pause_time;
++	unsigned short tbipa;
++	bool ptp_tsu_en;
++	bool ptp_exception_en;
++	bool rx_preamble;
++	bool tx_preamble;
++	unsigned char preamble_len;
++	unsigned char rx_prepend;
++	bool loopback;
++	bool rx_time_stamp_en;
++	bool tx_time_stamp_en;
++	bool rx_flow;
++	bool tx_flow;
++	bool rx_group_hash_exd;
++	bool rx_promisc;
++	uint8_t tbi_phy_addr;
++	uint16_t tx_pause_time_extd;
++	uint16_t maximum_frame;
++	uint32_t non_back_to_back_ipg1;
++	uint32_t non_back_to_back_ipg2;
++	uint32_t min_ifg_enforcement;
++	uint32_t back_to_back_ipg;
++	bool wake_on_lan;
++};
++
++/*fman_dtsec_defconfig() - Get default dTSEC configuration
++ *cfg:	pointer to configuration structure.
++ *
++ *Call this function to obtain a default set of configuration values for
++ *initializing dTSEC.  The user can overwrite any of the values before calling
++ *fman_dtsec_init(), if specific configuration needs to be applied.
++ */
++void fman_dtsec_defconfig(struct dtsec_cfg *cfg);
++
++/*fman_dtsec_init() - Init dTSEC hardware block
++ *regs:		Pointer to dTSEC register block
++ *cfg:		dTSEC configuration data
++ *iface_mode:		dTSEC interface mode, the type of MAC - PHY interface.
++ *iface_speed:	1G or 10G
++ *macaddr:		MAC station address to be assigned to the device
++ *fm_rev_maj:		major rev number
++ *fm_rev_min:		minor rev number
++ *exceptions_mask:	initial exceptions mask
++ *This function initializes dTSEC and applies basic configuration.
++ *
++ *dTSEC initialization sequence:
++ *Before enabling Rx/Tx call dtsec_set_address() to set MAC address,
++ *fman_dtsec_adjust_link() to configure interface speed and duplex and finally
++ *dtsec_enable_tx()/dtsec_enable_rx() to start transmission and reception.
++ *
++ *Returns: 0 if successful, an error code otherwise.
++ */
++int fman_dtsec_init(struct dtsec_regs __iomem *regs, struct dtsec_cfg *cfg,
++		    enum enet_interface iface_mode,
++		    enum enet_speed iface_speed,
++		    uint8_t *macaddr, uint8_t fm_rev_maj,
++		    uint8_t fm_rev_min, uint32_t exception_mask);
++
++/*fman_dtsec_enable() - Enable dTSEC Tx and Tx
++ *regs:	Pointer to dTSEC register block
++ *apply_rx:	enable rx side
++ *apply_tx:	enable tx side
++ *This function resets Tx and Rx graceful stop bit and enables dTSEC Tx and Rx.
++ */
++void fman_dtsec_enable(struct dtsec_regs __iomem *regs, bool apply_rx,
++		       bool apply_tx);
++
++/*fman_dtsec_disable() - Disable dTSEC Tx and Rx
++ *regs:	Pointer to dTSEC register block
++ *apply_rx:	disable rx side
++ *apply_tx:	disable tx side
++ *This function disables Tx and Rx in dTSEC.
++ */
++void fman_dtsec_disable(struct dtsec_regs __iomem *regs, bool apply_rx,
++			bool apply_tx);
++
++/*fman_dtsec_get_revision() - Get dTSEC hardware revision
++ *regs:	  Pointer to dTSEC register block
++ *Returns dtsec_id content
++ *Call this function to obtain the dTSEC hardware version.
++ */
++uint32_t fman_dtsec_get_revision(struct dtsec_regs __iomem *regs);
++
++/*fman_dtsec_set_mac_address() - Set MAC station address
++ *regs:	  Pointer to dTSEC register block
++ *macaddr:    MAC address array
++ *This function sets MAC station address.  To enable unicast reception call
++ *this after fman_dtsec_init().	 While promiscuous mode is disabled dTSEC will
++ *match the destination address of received unicast frames against this
++ *address.
++ */
++void fman_dtsec_set_mac_address(struct dtsec_regs __iomem *regs,
++				uint8_t *macaddr);
++
++/*fman_dtsec_get_mac_address() - Query MAC station address
++ *regs:	  Pointer to dTSEC register block
++ *macaddr:    MAC address array
++ */
++void fman_dtsec_get_mac_address(struct dtsec_regs __iomem *regs,
++				uint8_t *macaddr);
++
++/*fman_dtsec_set_uc_promisc() - Sets unicast promiscuous mode
++ *regs:	Pointer to dTSEC register block
++ *enable:	Enable unicast promiscuous mode
++ *Use this function to enable/disable dTSEC L2 address filtering.  If the
++ *address filtering is disabled all unicast packets are accepted.
++ *To set dTSEC in promiscuous mode call both fman_dtsec_set_uc_promisc() and
++ *fman_dtsec_set_mc_promisc() to disable filtering for both unicast and
++ *multicast addresses.
++ */
++void fman_dtsec_set_uc_promisc(struct dtsec_regs __iomem *regs, bool enable);
++
++/*fman_dtsec_adjust_link() - Adjust dTSEC speed/duplex settings
++ *regs:	Pointer to dTSEC register block
++ *iface_mode: dTSEC interface mode
++ *speed:	Link speed
++ *full_dx:	True for full-duplex, false for half-duplex.
++ *This function configures the MAC to function and the desired rates.  Use it
++ *to configure dTSEC after fman_dtsec_init() and whenever the link speed
++ *changes (for instance following PHY auto-negociation).
++ *Returns: 0 if successful, an error code otherwise.
++ */
++int fman_dtsec_adjust_link(struct dtsec_regs __iomem *regs,
++			   enum enet_interface iface_mode,
++			   enum enet_speed speed, bool full_dx);
++
++/*fman_dtsec_set_max_frame_len() - Set max frame length
++ *regs:	Pointer to dTSEC register block
++ *length:	Max frame length.
++ *Sets maximum frame length for received and transmitted frames.  Frames that
++ *exceeds this length are truncated.
++ */
++void fman_dtsec_set_max_frame_len(struct dtsec_regs __iomem *regs,
++				  uint16_t length);
++
++/*fman_dtsec_get_max_frame_len() - Query max frame length
++ *regs:	Pointer to dTSEC register block
++ *Returns: the current value of the maximum frame length.
++ */
++uint16_t fman_dtsec_get_max_frame_len(struct dtsec_regs __iomem *regs);
++
++/*fman_dtsec_handle_rx_pause() - Configure pause frame handling
++ *regs:	Pointer to dTSEC register block
++ *en:		Enable pause frame handling in dTSEC
++ *If enabled, dTSEC will handle pause frames internally.  This must be disabled
++ *if dTSEC is set in half-duplex mode.
++ *If pause frame handling is disabled and &dtsec_cfg.rx_ctrl_acc is set, pause
++ *frames will be transferred to the packet interface just like regular Ethernet
++ *frames.
++ */
++void fman_dtsec_handle_rx_pause(struct dtsec_regs __iomem *regs, bool en);
++
++/*fman_dtsec_set_tx_pause_frames() - Configure Tx pause time
++ *regs:	Pointer to dTSEC register block
++ *time:	Time value included in pause frames
++ *Call this function to set the time value used in transmitted pause frames.
++ *If time is 0, transmission of pause frames is disabled
++ */
++void fman_dtsec_set_tx_pause_frames(struct dtsec_regs __iomem *regs,
++				    uint16_t time);
++
++/*fman_dtsec_ack_event() - Acknowledge handled events
++ *regs:	Pointer to dTSEC register block
++ *ev_mask:	Events to acknowledge
++ *After handling events signaled by dTSEC in either polling or interrupt mode,
++ *call this function to reset the associated status bits in dTSEC event
++ *register.
++ */
++void fman_dtsec_ack_event(struct dtsec_regs __iomem *regs, uint32_t ev_mask);
++
++/*fman_dtsec_get_event() - Returns currently asserted events
++ *regs:	Pointer to dTSEC register block
++ *ev_mask:	Mask of relevant events
++ *Call this function to obtain a bit-mask of events that are currently asserted
++ *in dTSEC, taken from IEVENT register.
++ *Returns: a bit-mask of events asserted in dTSEC.
++ */
++uint32_t fman_dtsec_get_event(struct dtsec_regs __iomem *regs,
++			      uint32_t ev_mask);
++
++/*fman_dtsec_get_interrupt_mask() - Returns a bit-mask of enabled interrupts
++ *regs:	  Pointer to dTSEC register block
++ *Call this function to obtain a bit-mask of enabled interrupts
++ *in dTSEC, taken from IMASK register.
++ *Returns: a bit-mask of enabled interrupts in dTSEC.
++ */
++uint32_t fman_dtsec_get_interrupt_mask(struct dtsec_regs __iomem *regs);
++
++void fman_dtsec_enable_tmr_interrupt(struct dtsec_regs __iomem *regs);
++
++void fman_dtsec_disable_tmr_interrupt(struct dtsec_regs __iomem *regs);
++
++/*fman_dtsec_disable_interrupt() - Disables interrupts for the specified events
++ *regs:	Pointer to dTSEC register block
++ *ev_mask:	Mask of relevant events
++ *Call this function to disable interrupts in dTSEC for the specified events.
++ *To enable interrupts use fman_dtsec_enable_interrupt().
++ */
++void fman_dtsec_disable_interrupt(struct dtsec_regs __iomem *regs,
++				  uint32_t ev_mask);
++
++/*fman_dtsec_enable_interrupt() - Enable interrupts for the specified events
++ *regs:	Pointer to dTSEC register block
++ *ev_mask:	Mask of relevant events
++ *Call this function to enable interrupts in dTSEC for the specified events.
++ *To disable interrupts use fman_dtsec_disable_interrupt().
++ */
++void fman_dtsec_enable_interrupt(struct dtsec_regs __iomem *regs,
++				 uint32_t ev_mask);
++
++/*fman_dtsec_set_bucket() - Enables/disables a filter bucket
++ *regs:	  Pointer to dTSEC register block
++ *bucket: Bucket index
++ *enable: true/false to enable/disable this bucket
++ *This function enables or disables the specified bucket.  Enabling a bucket
++ *associated with an address configures dTSEC to accept received packets
++ *with that destination address.
++ *Multiple addresses may be associated with the same bucket.  Disabling a
++ *bucket will affect all addresses associated with that bucket. A bucket that
++ *is enabled requires further filtering and verification in the upper layers
++ */
++void fman_dtsec_set_bucket(struct dtsec_regs __iomem *regs, int bucket,
++			   bool enable);
++
++/*fman_dtsec_set_mc_promisc() - Set multicast promiscuous mode
++ *regs:	Pointer to dTSEC register block
++ *enable:	Enable multicast promiscuous mode
++ *Call this to enable/disable L2 address filtering for multicast packets.
++ */
++void fman_dtsec_set_mc_promisc(struct dtsec_regs __iomem *regs, bool enable);
++
++/*fman_dtsec_get_clear_carry_regs() - Read and clear carry bits
++ * (CAR1-2 registers)
++ *regs:	Pointer to dTSEC register block
++ *car1:	car1 register value
++ *car2:	car2 register value
++ *When set, the carry bits signal that an overflow occurred on the
++ *corresponding counters.
++ *Note that the carry bits (CAR1-2 registers) will assert the
++ *%DTSEC_IEVENT_MSRO interrupt if unmasked (via CAM1-2 regs).
++ *Returns: true if overflow occurred, otherwise - false
++ */
++bool fman_dtsec_get_clear_carry_regs(struct dtsec_regs __iomem *regs,
++				     uint32_t *car1, uint32_t *car2);
++
++uint32_t fman_dtsec_check_and_clear_tmr_event(struct dtsec_regs __iomem *regs);
++
++void fman_dtsec_start_tx(struct dtsec_regs __iomem *regs);
++void fman_dtsec_start_rx(struct dtsec_regs __iomem *regs);
++void fman_dtsec_stop_tx(struct dtsec_regs __iomem *regs);
++void fman_dtsec_stop_rx(struct dtsec_regs __iomem *regs);
++uint32_t fman_dtsec_get_rctrl(struct dtsec_regs __iomem *regs);
++
++#endif	/* __FSL_FMAN_DTSEC_H */
+diff --git a/drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec_mii_acc.h b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec_mii_acc.h
 new file mode 100644
-index 0000000..8091222
+index 0000000..4425910
 --- /dev/null
-+++ b/tipc/misc.c
-@@ -0,0 +1,35 @@
++++ b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_dtsec_mii_acc.h
+@@ -0,0 +1,103 @@
 +/*
-+ * misc.c	Miscellaneous TIPC helper functions.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <stdio.h>
-+#include <stdint.h>
-+#include <linux/tipc.h>
++#ifndef __FSL_FMAN_DTSEC_MII_ACC_H
++#define __FSL_FMAN_DTSEC_MII_ACC_H
 +
-+#include "misc.h"
++#include "common/general.h"
 +
-+#define IN_RANGE(val, low, high) ((val) <= (high) && (val) >= (low))
++/* MII Management Configuration Register */
++#define MIIMCFG_RESET_MGMT		0x80000000
++#define MIIMCFG_MGNTCLK_MASK		0x00000007
++#define MIIMCFG_MGNTCLK_SHIFT		0
 +
-+uint32_t str2addr(char *str)
-+{
-+	unsigned int z, c, n;
-+	char dummy;
++/* MII	Management Command Register */
++#define MIIMCOM_SCAN_CYCLE		0x00000002
++#define MIIMCOM_READ_CYCLE		0x00000001
 +
-+	if (sscanf(str, "%u.%u.%u%c", &z, &c, &n, &dummy) != 3) {
-+		fprintf(stderr, "invalid network address, syntax: Z.C.N\n");
-+		return 0;
-+	}
++/* MII	Management Address Register */
++#define MIIMADD_PHY_ADDR_SHIFT		8
++#define MIIMADD_PHY_ADDR_MASK		0x00001f00
 +
-+	if (IN_RANGE(z, 0, 255) && IN_RANGE(c, 0, 4095) && IN_RANGE(n, 0, 4095))
-+		return tipc_addr(z, c, n);
++#define MIIMADD_REG_ADDR_SHIFT		0
++#define MIIMADD_REG_ADDR_MASK		0x0000001f
 +
-+	fprintf(stderr, "invalid network address \"%s\"\n", str);
-+	return 0;
-+}
-diff --git a/tipc/misc.h b/tipc/misc.h
++/* MII Management Indicator Register */
++#define MIIMIND_BUSY			0x00000001
++
++/* PHY Control Register */
++#define PHY_CR_PHY_RESET    0x8000
++#define PHY_CR_LOOPBACK	    0x4000
++#define PHY_CR_SPEED0	    0x2000
++#define PHY_CR_ANE	    0x1000
++#define PHY_CR_RESET_AN	    0x0200
++#define PHY_CR_FULLDUPLEX   0x0100
++#define PHY_CR_SPEED1	    0x0040
++
++#define PHY_TBICON_SRESET   0x8000
++#define PHY_TBICON_SPEED2   0x0020
++#define PHY_TBICON_CLK_SEL  0x0020
++#define PHY_TBIANA_SGMII    0x4001
++#define PHY_TBIANA_1000X    0x01a0
++/* register map */
++
++/* MII Configuration Control Memory Map Registers */
++struct dtsec_mii_reg {
++	uint32_t reserved1[72];
++	uint32_t miimcfg;	/* MII Mgmt:configuration */
++	uint32_t miimcom;	/* MII Mgmt:command	  */
++	uint32_t miimadd;	/* MII Mgmt:address	  */
++	uint32_t miimcon;	/* MII Mgmt:control 3	  */
++	uint32_t miimstat;	/* MII Mgmt:status	  */
++	uint32_t miimind;	/* MII Mgmt:indicators	  */
++};
++
++/* dTSEC MII API */
++
++/* functions to access the mii registers for phy configuration.
++ * this functionality may not be available for all dtsecs in the system.
++ * consult the reference manual for details
++ **/
++void fman_dtsec_mii_reset(struct dtsec_mii_reg __iomem *regs);
++/* frequency is in MHz.
++ * note that dtsec clock is 1/2 of fman clock
++ **/
++void fman_dtsec_mii_init(struct dtsec_mii_reg __iomem *regs,
++			 uint16_t dtsec_freq);
++int fman_dtsec_mii_write_reg(struct dtsec_mii_reg __iomem *regs,
++			     uint8_t addr,
++			     uint8_t reg, uint16_t data, uint16_t dtsec_freq);
++
++int fman_dtsec_mii_read_reg(struct dtsec_mii_reg __iomem *regs,
++			    uint8_t addr,
++			    uint8_t reg, uint16_t *data, uint16_t dtsec_freq);
++
++#endif	/* __FSL_FMAN_DTSEC_MII_ACC_H */
+diff --git a/drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac.h b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac.h
 new file mode 100644
-index 0000000..585df74
+index 0000000..c589025
 --- /dev/null
-+++ b/tipc/misc.h
-@@ -0,0 +1,19 @@
++++ b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac.h
+@@ -0,0 +1,453 @@
 +/*
-+ * misc.h	Miscellaneous TIPC helper functions.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#ifndef _TIPC_MISC_H
-+#define _TIPC_MISC_H
++#ifndef __FSL_FMAN_MEMAC_H
++#define __FSL_FMAN_MEMAC_H
 +
-+#include <stdint.h>
++#include "common/general.h"
++#include "fsl_enet.h"
++/* Num of additional exact match MAC adr regs */
++#define MEMAC_NUM_OF_PADDRS 7
 +
-+uint32_t str2addr(char *str);
++/* Control and Configuration Register (COMMAND_CONFIG) */
++/* 00 Magic Packet detection */
++#define CMD_CFG_MG		0x80000000
++/* 07 Rx low power indication */
++#define CMD_CFG_REG_LOWP_RXETY	0x01000000
++/* 08 Tx Low Power Idle Enable */
++#define CMD_CFG_TX_LOWP_ENA	0x00800000
++/* 10 Disable SFD check */
++#define CMD_CFG_SFD_ANY		0x00200000
++/* 12 Enable PFC */
++#define CMD_CFG_PFC_MODE	0x00080000
++/* 14 Payload length check disable */
++#define CMD_CFG_NO_LEN_CHK	0x00020000
++/* 15 Force idle generation */
++#define CMD_CFG_SEND_IDLE	0x00010000
++/* 18 Control frame rx enable */
++#define CMD_CFG_CNT_FRM_EN	0x00002000
++/* 19 S/W Reset, self clearing bit */
++#define CMD_CFG_SW_RESET	0x00001000
++/* 20 Enable Tx padding of frames */
++#define CMD_CFG_TX_PAD_EN	0x00000800
++/* 21 XGMII/GMII loopback enable */
++#define CMD_CFG_LOOPBACK_EN	0x00000400
++/* 22 Tx source MAC addr insertion */
++#define CMD_CFG_TX_ADDR_INS	0x00000200
++/* 23 Ignore Pause frame quanta */
++#define CMD_CFG_PAUSE_IGNORE	0x00000100
++/* 24 Terminate/frwd Pause frames */
++#define CMD_CFG_PAUSE_FWD	0x00000080
++/* 25 Terminate/frwd CRC of frames */
++#define CMD_CFG_CRC_FWD		0x00000040
++/* 26 Frame padding removal */
++#define CMD_CFG_PAD_EN		0x00000020
++/* 27 Promiscuous operation enable */
++#define CMD_CFG_PROMIS_EN	0x00000010
++/* 28 WAN mode enable */
++#define CMD_CFG_WAN_MODE	0x00000008
++/* 30 MAC receive path enable */
++#define CMD_CFG_RX_EN		0x00000002
++/* 31 MAC transmit path enable */
++#define CMD_CFG_TX_EN		0x00000001
 +
-+#endif
-diff --git a/tipc/msg.c b/tipc/msg.c
++/* Transmit FIFO Sections Register (TX_FIFO_SECTIONS) */
++#define TX_FIFO_SECTIONS_TX_EMPTY_MASK			0xFFFF0000
++#define TX_FIFO_SECTIONS_TX_AVAIL_MASK			0x0000FFFF
++#define TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_10G		0x00400000
++#define TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_1G		0x00100000
++#define TX_FIFO_SECTIONS_TX_EMPTY_PFC_10G		0x00360000
++#define TX_FIFO_SECTIONS_TX_EMPTY_PFC_1G		0x00040000
++#define TX_FIFO_SECTIONS_TX_AVAIL_10G			0x00000019
++#define TX_FIFO_SECTIONS_TX_AVAIL_1G			0x00000020
++#define TX_FIFO_SECTIONS_TX_AVAIL_SLOW_10G		0x00000060
++
++#define GET_TX_EMPTY_DEFAULT_VALUE(_val)				\
++do {									\
++	_val &= ~TX_FIFO_SECTIONS_TX_EMPTY_MASK;			\
++	((_val == TX_FIFO_SECTIONS_TX_AVAIL_10G) ?			\
++			(_val |= TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_10G) :\
++			(_val |= TX_FIFO_SECTIONS_TX_EMPTY_DEFAULT_1G));\
++} while (0)
++
++#define GET_TX_EMPTY_PFC_VALUE(_val)					\
++do {									\
++	_val &= ~TX_FIFO_SECTIONS_TX_EMPTY_MASK;			\
++	((_val == TX_FIFO_SECTIONS_TX_AVAIL_10G) ?			\
++			(_val |= TX_FIFO_SECTIONS_TX_EMPTY_PFC_10G) :	\
++			(_val |= TX_FIFO_SECTIONS_TX_EMPTY_PFC_1G));	\
++} while (0)
++
++/* Interface Mode Register (IF_MODE) */
++/* 30-31 Mask on i/f mode bits */
++#define IF_MODE_MASK		0x00000003
++/* 30-31 XGMII (10G) interface */
++#define IF_MODE_XGMII		0x00000000
++/* 30-31 GMII (1G) interface */
++#define IF_MODE_GMII		0x00000002
++#define IF_MODE_RGMII		0x00000004
++#define IF_MODE_RGMII_AUTO	0x00008000
++#define IF_MODE_RGMII_1000  0x00004000	/* 10 - 1000Mbps RGMII */
++#define IF_MODE_RGMII_100   0x00000000	/* 00 - 100Mbps RGMII */
++#define IF_MODE_RGMII_10    0x00002000	/* 01 - 10Mbps RGMII */
++#define IF_MODE_RGMII_SP_MASK 0x00006000	/* Setsp mask bits */
++#define IF_MODE_RGMII_FD    0x00001000	/* Full duplex RGMII */
++#define IF_MODE_HD	    0x00000040	/* Half duplex operation */
++
++/* Hash table Control Register (HASHTABLE_CTRL) */
++#define HASH_CTRL_MCAST_SHIFT	26
++/* 23 Mcast frame rx for hash */
++#define HASH_CTRL_MCAST_EN	0x00000100
++/* 26-31 Hash table address code */
++#define HASH_CTRL_ADDR_MASK	0x0000003F
++/* MAC mcast indication */
++#define GROUP_ADDRESS		0x0000010000000000LL
++#define HASH_TABLE_SIZE		64	/* Hash tbl size */
++
++/* Transmit Inter-Packet Gap Length Register (TX_IPG_LENGTH) */
++#define MEMAC_TX_IPG_LENGTH_MASK	0x0000003F
++
++/* Statistics Configuration Register (STATN_CONFIG) */
++#define STATS_CFG_CLR		0x00000004	/* 29 Reset all counters */
++#define STATS_CFG_CLR_ON_RD	0x00000002	/* 30 Clear on read */
++/* 31 Saturate at the maximum val */
++#define STATS_CFG_SATURATE	0x00000001
++
++/* Interrupt Mask Register (IMASK) */
++/* 1 Magic pkt detect indication */
++#define MEMAC_IMASK_MGI		0x40000000
++/* 2 Timestamp FIFO ECC error evnt */
++#define MEMAC_IMASK_TSECC_ER 0x20000000
++/* 6 Transmit frame ECC error evnt */
++#define MEMAC_IMASK_TECC_ER	0x02000000
++/* 7 Receive frame ECC error evnt */
++#define MEMAC_IMASK_RECC_ER	0x01000000
++
++#define MEMAC_ALL_ERRS_IMASK					\
++		((uint32_t)(MEMAC_IMASK_TSECC_ER	|	\
++			MEMAC_IMASK_TECC_ER		|	\
++			MEMAC_IMASK_RECC_ER		|	\
++			MEMAC_IMASK_MGI))
++
++/* PCS (XG). Link sync (G) */
++#define MEMAC_IEVNT_PCS			0x80000000
++/* Auto-negotiation */
++#define MEMAC_IEVNT_AN			0x40000000
++/* Link Training/New page */
++#define MEMAC_IEVNT_LT			0x20000000
++/* Magic pkt detection */
++#define MEMAC_IEVNT_MGI			0x00004000
++/* Timestamp FIFO ECC error */
++#define MEMAC_IEVNT_TS_ECC_ER		0x00002000
++/* Rx FIFO overflow */
++#define MEMAC_IEVNT_RX_FIFO_OVFL	0x00001000
++/* Tx FIFO underflow */
++#define MEMAC_IEVNT_TX_FIFO_UNFL	0x00000800
++/* Tx FIFO overflow */
++#define MEMAC_IEVNT_TX_FIFO_OVFL	0x00000400
++/* Tx frame ECC error */
++#define MEMAC_IEVNT_TX_ECC_ER		0x00000200
++/* Rx frame ECC error */
++#define MEMAC_IEVNT_RX_ECC_ER		0x00000100
++/* Link Interruption flt */
++#define MEMAC_IEVNT_LI_FAULT		0x00000080
++/* Rx FIFO empty */
++#define MEMAC_IEVNT_RX_EMPTY		0x00000040
++/* Tx FIFO empty */
++#define MEMAC_IEVNT_TX_EMPTY		0x00000020
++/* Low Power Idle */
++#define MEMAC_IEVNT_RX_LOWP		0x00000010
++/* Phy loss of signal */
++#define MEMAC_IEVNT_PHY_LOS		0x00000004
++/* Remote fault (XGMII) */
++#define MEMAC_IEVNT_REM_FAULT		0x00000002
++/* Local fault (XGMII) */
++#define MEMAC_IEVNT_LOC_FAULT		0x00000001
++
++#define DEFAULT_PAUSE_QUANTA	0xf000
++#define DEFAULT_FRAME_LENGTH	0x600
++#define DEFAULT_TX_IPG_LENGTH	12
++
++/**
++ * memory map
++ **/
++
++struct mac_addr {
++	/* Lower 32 bits of 48-bit MAC address */
++	uint32_t mac_addr_l;
++	/* Upper 16 bits of 48-bit MAC address */
++	uint32_t mac_addr_u;
++};
++
++struct memac_regs {
++	/* General Control and Status */
++	uint32_t res0000[2];
++	/* 0x008 Ctrl and cfg */
++	uint32_t command_config;
++	/* 0x00C-0x010 MAC_ADDR_0...1 */
++	struct mac_addr mac_addr0;
++	/* 0x014 Max frame length */
++	uint32_t maxfrm;
++	uint32_t res0018[1];
++	/* Receive FIFO configuration reg */
++	uint32_t rx_fifo_sections;
++	/* Transmit FIFO configuration reg */
++	uint32_t tx_fifo_sections;
++	uint32_t res0024[2];
++	/* 0x02C Hash table control */
++	uint32_t hashtable_ctrl;
++	uint32_t res0030[4];
++	/* 0x040 Interrupt event */
++	uint32_t ievent;
++	/* 0x044 Transmitter inter-packet-gap */
++	uint32_t tx_ipg_length;
++	uint32_t res0048;
++	/* 0x04C Interrupt mask */
++	uint32_t imask;
++	uint32_t res0050;
++	/* 0x054 Pause quanta */
++	uint32_t pause_quanta[4];
++	/* 0x064 Pause quanta threshold */
++	uint32_t pause_thresh[4];
++	/* 0x074 Receive pause status */
++	uint32_t rx_pause_status;
++	uint32_t res0078[2];
++	/* 0x80-0x0B4 mac padr */
++	struct mac_addr mac_addr[MEMAC_NUM_OF_PADDRS];
++	/* 0x0B8 Low Power Wakeup Timer */
++	uint32_t lpwake_timer;
++	/* 0x0BC Transmit EEE Low Power Timer */
++	uint32_t sleep_timer;
++	uint32_t res00c0[8];
++	/* 0x0E0 Statistics configuration */
++	uint32_t statn_config;
++	uint32_t res00e4[7];
++	/* Rx Statistics Counter */
++	uint32_t reoct_l;
++	uint32_t reoct_u;
++	uint32_t roct_l;
++	uint32_t roct_u;
++	uint32_t raln_l;
++	uint32_t raln_u;
++	uint32_t rxpf_l;
++	uint32_t rxpf_u;
++	uint32_t rfrm_l;
++	uint32_t rfrm_u;
++	uint32_t rfcs_l;
++	uint32_t rfcs_u;
++	uint32_t rvlan_l;
++	uint32_t rvlan_u;
++	uint32_t rerr_l;
++	uint32_t rerr_u;
++	uint32_t ruca_l;
++	uint32_t ruca_u;
++	uint32_t rmca_l;
++	uint32_t rmca_u;
++	uint32_t rbca_l;
++	uint32_t rbca_u;
++	uint32_t rdrp_l;
++	uint32_t rdrp_u;
++	uint32_t rpkt_l;
++	uint32_t rpkt_u;
++	uint32_t rund_l;
++	uint32_t rund_u;
++	uint32_t r64_l;
++	uint32_t r64_u;
++	uint32_t r127_l;
++	uint32_t r127_u;
++	uint32_t r255_l;
++	uint32_t r255_u;
++	uint32_t r511_l;
++	uint32_t r511_u;
++	uint32_t r1023_l;
++	uint32_t r1023_u;
++	uint32_t r1518_l;
++	uint32_t r1518_u;
++	uint32_t r1519x_l;
++	uint32_t r1519x_u;
++	uint32_t rovr_l;
++	uint32_t rovr_u;
++	uint32_t rjbr_l;
++	uint32_t rjbr_u;
++	uint32_t rfrg_l;
++	uint32_t rfrg_u;
++	uint32_t rcnp_l;
++	uint32_t rcnp_u;
++	uint32_t rdrntp_l;
++	uint32_t rdrntp_u;
++	uint32_t res01d0[12];
++	/* Tx Statistics Counter */
++	uint32_t teoct_l;
++	uint32_t teoct_u;
++	uint32_t toct_l;
++	uint32_t toct_u;
++	uint32_t res0210[2];
++	uint32_t txpf_l;
++	uint32_t txpf_u;
++	uint32_t tfrm_l;
++	uint32_t tfrm_u;
++	uint32_t tfcs_l;
++	uint32_t tfcs_u;
++	uint32_t tvlan_l;
++	uint32_t tvlan_u;
++	uint32_t terr_l;
++	uint32_t terr_u;
++	uint32_t tuca_l;
++	uint32_t tuca_u;
++	uint32_t tmca_l;
++	uint32_t tmca_u;
++	uint32_t tbca_l;
++	uint32_t tbca_u;
++	uint32_t res0258[2];
++	uint32_t tpkt_l;
++	uint32_t tpkt_u;
++	uint32_t tund_l;
++	uint32_t tund_u;
++	uint32_t t64_l;
++	uint32_t t64_u;
++	uint32_t t127_l;
++	uint32_t t127_u;
++	uint32_t t255_l;
++	uint32_t t255_u;
++	uint32_t t511_l;
++	uint32_t t511_u;
++	uint32_t t1023_l;
++	uint32_t t1023_u;
++	uint32_t t1518_l;
++	uint32_t t1518_u;
++	uint32_t t1519x_l;
++	uint32_t t1519x_u;
++	uint32_t res02a8[6];
++	uint32_t tcnp_l;
++	uint32_t tcnp_u;
++	uint32_t res02c8[14];
++	/* Line Interface Control */
++	uint32_t if_mode;	/* 0x300 Interface Mode Control */
++	uint32_t if_status;	/* 0x304 Interface Status */
++	uint32_t res0308[14];
++	/* HiGig/2 */
++	uint32_t hg_config;	/* 0x340 Control and cfg */
++	uint32_t res0344[3];
++	uint32_t hg_pause_quanta;	/* 0x350 Pause quanta */
++	uint32_t res0354[3];
++	uint32_t hg_pause_thresh;	/* 0x360 Pause quanta threshold */
++	uint32_t res0364[3];
++	uint32_t hgrx_pause_status;	/* 0x370 Receive pause status */
++	uint32_t hg_fifos_status;	/* 0x374 fifos status */
++	uint32_t rhm;		/* 0x378 rx messages counter */
++	uint32_t thm;		/* 0x37C tx messages counter */
++};
++
++struct memac_cfg {
++	bool reset_on_init;
++	bool rx_error_discard;
++	bool pause_ignore;
++	bool pause_forward_enable;
++	bool no_length_check_enable;
++	bool cmd_frame_enable;
++	bool send_idle_enable;
++	bool wan_mode_enable;
++	bool promiscuous_mode_enable;
++	bool tx_addr_ins_enable;
++	bool loopback_enable;
++	bool lgth_check_nostdr;
++	bool time_stamp_enable;
++	bool pad_enable;
++	bool phy_tx_ena_on;
++	bool rx_sfd_any;
++	bool rx_pbl_fwd;
++	bool tx_pbl_fwd;
++	bool debug_mode;
++	bool wake_on_lan;
++	uint16_t max_frame_length;
++	uint16_t pause_quanta;
++	uint32_t tx_ipg_length;
++};
++
++/**
++*fman_memac_defconfig() - Get default MEMAC configuration
++*@cfg:	  pointer to configuration structure.
++ *
++*Call this function to obtain a default set of configuration values for
++*initializing MEMAC. The user can overwrite any of the values before calling
++*fman_memac_init(), if specific configuration needs to be applied.
++ */
++void fman_memac_defconfig(struct memac_cfg *cfg);
++
++int fman_memac_init(struct memac_regs __iomem *regs,
++		    struct memac_cfg *cfg,
++		    enum enet_interface enet_interface,
++		    enum enet_speed enet_speed,
++		    bool slow_10g_if,
++		    uint32_t exceptions);
++
++void fman_memac_enable(struct memac_regs __iomem *regs, bool apply_rx,
++		       bool apply_tx);
++
++void fman_memac_disable(struct memac_regs __iomem *regs, bool apply_rx,
++			bool apply_tx);
++
++void fman_memac_set_promiscuous(struct memac_regs __iomem *regs, bool val);
++
++void fman_memac_add_addr_in_paddr(struct memac_regs __iomem *regs,
++				  uint8_t *adr, uint8_t paddr_num);
++
++void fman_memac_clear_addr_in_paddr(struct memac_regs __iomem *regs,
++				    uint8_t paddr_num);
++
++void fman_memac_set_tx_pause_frames(struct memac_regs __iomem *regs,
++				    uint8_t priority, uint16_t pause_time,
++				    uint16_t thresh_time);
++
++uint16_t fman_memac_get_max_frame_len(struct memac_regs __iomem *regs);
++
++void fman_memac_set_exception(struct memac_regs __iomem *regs, uint32_t val,
++			      bool enable);
++
++void fman_memac_reset(struct memac_regs __iomem *regs);
++
++void fman_memac_set_hash_table(struct memac_regs __iomem *regs, uint32_t val);
++
++void fman_memac_set_rx_ignore_pause_frames(struct memac_regs __iomem *regs,
++					   bool enable);
++
++uint32_t fman_memac_get_event(struct memac_regs __iomem *regs,
++			      uint32_t ev_mask);
++
++void fman_memac_ack_event(struct memac_regs __iomem *regs, uint32_t ev_mask);
++
++uint32_t fman_memac_get_interrupt_mask(struct memac_regs __iomem *regs);
++
++void fman_memac_adjust_link(struct memac_regs __iomem *regs,
++			    enum enet_interface iface_mode,
++			    enum enet_speed speed, bool full_dx);
++
++#endif	/*__FSL_FMAN_MEMAC_H*/
+diff --git a/drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac_mii_acc.h b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac_mii_acc.h
 new file mode 100644
-index 0000000..22c2222
+index 0000000..ad18d6f
 --- /dev/null
-+++ b/tipc/msg.c
-@@ -0,0 +1,170 @@
++++ b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_memac_mii_acc.h
+@@ -0,0 +1,76 @@
 +/*
-+ * msg.c	Messaging (netlink) helper functions.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#include <stdio.h>
-+#include <time.h>
-+#include <errno.h>
++#ifndef __FSL_FMAN_MEMAC_MII_ACC_H
++#define __FSL_FMAN_MEMAC_MII_ACC_H
 +
-+#include <linux/tipc_netlink.h>
-+#include <linux/tipc.h>
-+#include <linux/genetlink.h>
-+#include <libmnl/libmnl.h>
++#include "common/general.h"
++#include "fsl_enet.h"
++/* MII Management Registers */
++#define MDIO_CFG_CLK_DIV_MASK	    0x0080ff80
++#define MDIO_CFG_HOLD_MASK	    0x0000001c
++#define MDIO_CFG_ENC45		    0x00000040
++#define MDIO_CFG_READ_ERR	    0x00000002
++#define MDIO_CFG_BSY		    0x00000001
 +
-+#include "msg.h"
++#define MDIO_CTL_PHY_ADDR_SHIFT	    5
++#define MDIO_CTL_READ		    0x00008000
 +
-+int parse_attrs(const struct nlattr *attr, void *data)
-+{
-+	const struct nlattr **tb = data;
-+	int type = mnl_attr_get_type(attr);
++#define MDIO_DATA_BSY		    0x80000000
 +
-+	tb[type] = attr;
++/*MEMAC Internal PHY Registers - SGMII */
++#define PHY_SGMII_CR_PHY_RESET		0x8000
++#define PHY_SGMII_CR_RESET_AN		0x0200
++#define PHY_SGMII_CR_DEF_VAL		0x1140
++#define PHY_SGMII_DEV_ABILITY_SGMII	0x4001
++#define PHY_SGMII_DEV_ABILITY_1000X	0x01A0
++#define PHY_SGMII_IF_MODE_AN		0x0002
++#define PHY_SGMII_IF_MODE_SGMII		0x0001
++#define PHY_SGMII_IF_MODE_1000X		0x0000
 +
-+	return MNL_CB_OK;
-+}
++/*----------------------------------------------------*/
++/* MII Configuration Control Memory Map Registers     */
++/*----------------------------------------------------*/
++struct memac_mii_access_mem_map {
++	uint32_t mdio_cfg;	/* 0x030  */
++	uint32_t mdio_ctrl;	/* 0x034  */
++	uint32_t mdio_data;	/* 0x038  */
++	uint32_t mdio_addr;	/* 0x03c  */
++};
 +
-+static int family_id_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct nlattr *tb[CTRL_ATTR_MAX + 1] = {};
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	int *id = data;
++int fman_memac_mii_read_phy_reg(struct memac_mii_access_mem_map __iomem
++				*mii_regs, uint8_t phy_addr, uint8_t reg,
++				uint16_t *data, enum enet_speed enet_speed);
++int fman_memac_mii_write_phy_reg(struct memac_mii_access_mem_map __iomem
++				 *mii_regs, uint8_t phy_addr, uint8_t reg,
++				 uint16_t data, enum enet_speed enet_speed);
 +
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, tb);
-+	if (!tb[CTRL_ATTR_FAMILY_ID])
-+		return MNL_CB_ERROR;
-+
-+	*id = mnl_attr_get_u16(tb[CTRL_ATTR_FAMILY_ID]);
-+
-+	return MNL_CB_OK;
-+}
-+
-+static struct mnl_socket *msg_send(struct nlmsghdr *nlh)
-+{
-+	int ret;
-+	struct mnl_socket *nl;
-+
-+	nl = mnl_socket_open(NETLINK_GENERIC);
-+	if (nl == NULL) {
-+		perror("mnl_socket_open");
-+		return NULL;
-+	}
-+
-+	ret = mnl_socket_bind(nl, 0, MNL_SOCKET_AUTOPID);
-+	if (ret < 0) {
-+		perror("mnl_socket_bind");
-+		return NULL;
-+	}
-+
-+	ret = mnl_socket_sendto(nl, nlh, nlh->nlmsg_len);
-+	if (ret < 0) {
-+		perror("mnl_socket_send");
-+		return NULL;
-+	}
-+
-+	return nl;
-+}
-+
-+static int msg_recv(struct mnl_socket *nl, mnl_cb_t callback, void *data, int seq)
-+{
-+	int ret;
-+	unsigned int portid;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	portid = mnl_socket_get_portid(nl);
-+
-+	ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
-+	while (ret > 0) {
-+		ret = mnl_cb_run(buf, ret, seq, portid, callback, data);
-+		if (ret <= 0)
-+			break;
-+		ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
-+	}
-+	if (ret == -1)
-+		perror("error");
-+
-+	mnl_socket_close(nl);
-+
-+	return ret;
-+}
-+
-+static int msg_query(struct nlmsghdr *nlh, mnl_cb_t callback, void *data)
-+{
-+	unsigned int seq;
-+	struct mnl_socket *nl;
-+
-+	seq = time(NULL);
-+	nlh->nlmsg_seq = seq;
-+
-+	nl = msg_send(nlh);
-+	if (!nl)
-+		return -ENOTSUP;
-+
-+	return msg_recv(nl, callback, data, seq);
-+}
-+
-+static int get_family(void)
-+{
-+	int err;
-+	int nl_family;
-+	struct nlmsghdr *nlh;
-+	struct genlmsghdr *genl;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	nlh = mnl_nlmsg_put_header(buf);
-+	nlh->nlmsg_type	= GENL_ID_CTRL;
-+	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-+
-+	genl = mnl_nlmsg_put_extra_header(nlh, sizeof(struct genlmsghdr));
-+	genl->cmd = CTRL_CMD_GETFAMILY;
-+	genl->version = 1;
-+
-+	mnl_attr_put_u32(nlh, CTRL_ATTR_FAMILY_ID, GENL_ID_CTRL);
-+	mnl_attr_put_strz(nlh, CTRL_ATTR_FAMILY_NAME, TIPC_GENL_V2_NAME);
-+
-+	if ((err = msg_query(nlh, family_id_cb, &nl_family)))
-+		return err;
-+
-+	return nl_family;
-+}
-+
-+int msg_doit(struct nlmsghdr *nlh, mnl_cb_t callback, void *data)
-+{
-+	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-+	return msg_query(nlh, callback, data);
-+}
-+
-+int msg_dumpit(struct nlmsghdr *nlh, mnl_cb_t callback, void *data)
-+{
-+	nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-+	return msg_query(nlh, callback, data);
-+}
-+
-+struct nlmsghdr *msg_init(char *buf, int cmd)
-+{
-+	int family;
-+	struct nlmsghdr *nlh;
-+	struct genlmsghdr *genl;
-+
-+	family = get_family();
-+	if (family <= 0) {
-+		fprintf(stderr,
-+			"Unable to get TIPC nl family id (module loaded?)\n");
-+		return NULL;
-+	}
-+
-+	nlh = mnl_nlmsg_put_header(buf);
-+	nlh->nlmsg_type	= family;
-+
-+	genl = mnl_nlmsg_put_extra_header(nlh, sizeof(struct genlmsghdr));
-+	genl->cmd = cmd;
-+	genl->version = 1;
-+
-+	return nlh;
-+}
-diff --git a/tipc/msg.h b/tipc/msg.h
++#endif	/* __MAC_API_MEMAC_MII_ACC_H */
+diff --git a/drivers/net/ethernet/freescale/fman/flib/fsl_fman_tgec.h b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_tgec.h
 new file mode 100644
-index 0000000..41fd1ad
+index 0000000..6f8d440
 --- /dev/null
-+++ b/tipc/msg.h
-@@ -0,0 +1,20 @@
++++ b/drivers/net/ethernet/freescale/fman/flib/fsl_fman_tgec.h
+@@ -0,0 +1,409 @@
 +/*
-+ * msg.h	Messaging (netlink) helper functions.
++ * Copyright 2008 - 2015 Freescale Semiconductor Inc.
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *     * Redistributions of source code must retain the above copyright
++ *	 notice, this list of conditions and the following disclaimer.
++ *     * Redistributions in binary form must reproduce the above copyright
++ *	 notice, this list of conditions and the following disclaimer in the
++ *	 documentation and/or other materials provided with the distribution.
++ *     * Neither the name of Freescale Semiconductor nor the
++ *	 names of its contributors may be used to endorse or promote products
++ *	 derived from this software without specific prior written permission.
 + *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++ * ALTERNATIVELY, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") as published by the Free Software
++ * Foundation, either version 2 of that License or (at your option) any
++ * later version.
++ *
++ * THIS SOFTWARE IS PROVIDED BY Freescale Semiconductor ``AS IS'' AND ANY
++ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL Freescale Semiconductor BE LIABLE FOR ANY
++ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
++ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 + */
 +
-+#ifndef _TIPC_MSG_H
-+#define _TIPC_MSG_H
++#ifndef __FSL_FMAN_TGEC_H
++#define __FSL_FMAN_TGEC_H
 +
-+struct nlmsghdr *msg_init(char *buf, int cmd);
-+int msg_doit(struct nlmsghdr *nlh, mnl_cb_t callback, void *data);
-+int msg_dumpit(struct nlmsghdr *nlh, mnl_cb_t callback, void *data);
-+int parse_attrs(const struct nlattr *attr, void *data);
++#include "common/general.h"
++#include "fsl_enet.h"
 +
-+#endif
-diff --git a/tipc/nametable.c b/tipc/nametable.c
-new file mode 100644
-index 0000000..770a644
---- /dev/null
-+++ b/tipc/nametable.c
-@@ -0,0 +1,109 @@
-+/*
-+ * nametable.c	TIPC nametable functionality.
++/* Transmit Inter-Packet Gap Length Register (TX_IPG_LENGTH) */
++#define TGEC_TX_IPG_LENGTH_MASK	0x000003ff
++
++/* Command and Configuration Register (COMMAND_CONFIG) */
++#define CMD_CFG_EN_TIMESTAMP	0x00100000
++#define CMD_CFG_TX_ADDR_INS_SEL	0x00080000
++#define CMD_CFG_NO_LEN_CHK	0x00020000
++#define CMD_CFG_SEND_IDLE	0x00010000
++#define CMD_CFG_RX_ER_DISC	0x00004000
++#define CMD_CFG_CMD_FRM_EN	0x00002000
++#define CMD_CFG_STAT_CLR	0x00001000
++#define CMD_CFG_LOOPBACK_EN	0x00000400
++#define CMD_CFG_TX_ADDR_INS	0x00000200
++#define CMD_CFG_PAUSE_IGNORE	0x00000100
++#define CMD_CFG_PAUSE_FWD	0x00000080
++#define CMD_CFG_PROMIS_EN	0x00000010
++#define CMD_CFG_WAN_MODE	0x00000008
++#define CMD_CFG_RX_EN		0x00000002
++#define CMD_CFG_TX_EN		0x00000001
++
++/* Interrupt Mask Register (IMASK) */
++#define TGEC_IMASK_MDIO_SCAN_EVENT	0x00010000
++#define TGEC_IMASK_MDIO_CMD_CMPL	0x00008000
++#define TGEC_IMASK_REM_FAULT		0x00004000
++#define TGEC_IMASK_LOC_FAULT		0x00002000
++#define TGEC_IMASK_TX_ECC_ER		0x00001000
++#define TGEC_IMASK_TX_FIFO_UNFL		0x00000800
++#define TGEC_IMASK_TX_FIFO_OVFL		0x00000400
++#define TGEC_IMASK_TX_ER			0x00000200
++#define TGEC_IMASK_RX_FIFO_OVFL		0x00000100
++#define TGEC_IMASK_RX_ECC_ER		0x00000080
++#define TGEC_IMASK_RX_JAB_FRM		0x00000040
++#define TGEC_IMASK_RX_OVRSZ_FRM		0x00000020
++#define TGEC_IMASK_RX_RUNT_FRM		0x00000010
++#define TGEC_IMASK_RX_FRAG_FRM		0x00000008
++#define TGEC_IMASK_RX_LEN_ER		0x00000004
++#define TGEC_IMASK_RX_CRC_ER		0x00000002
++#define TGEC_IMASK_RX_ALIGN_ER		0x00000001
++
++#define TGEC_EVENTS_MASK					\
++	((uint32_t)(TGEC_IMASK_MDIO_SCAN_EVENT			| \
++				TGEC_IMASK_MDIO_CMD_CMPL	| \
++				TGEC_IMASK_REM_FAULT		| \
++				TGEC_IMASK_LOC_FAULT		| \
++				TGEC_IMASK_TX_ECC_ER		| \
++				TGEC_IMASK_TX_FIFO_UNFL		| \
++				TGEC_IMASK_TX_FIFO_OVFL		| \
++				TGEC_IMASK_TX_ER		| \
++				TGEC_IMASK_RX_FIFO_OVFL		| \
++				TGEC_IMASK_RX_ECC_ER		| \
++				TGEC_IMASK_RX_JAB_FRM		| \
++				TGEC_IMASK_RX_OVRSZ_FRM		| \
++				TGEC_IMASK_RX_RUNT_FRM		| \
++				TGEC_IMASK_RX_FRAG_FRM		| \
++				TGEC_IMASK_RX_LEN_ER		| \
++				TGEC_IMASK_RX_CRC_ER		| \
++				TGEC_IMASK_RX_ALIGN_ER))
++
++/* Hashtable Control Register (HASHTABLE_CTRL) */
++#define TGEC_HASH_MCAST_SHIFT	23
++#define TGEC_HASH_MCAST_EN	0x00000200
++#define TGEC_HASH_ADR_MSK	0x000001ff
++
++#define DEFAULT_WAN_MODE_ENABLE		false
++#define DEFAULT_PROMISCUOUS_MODE_ENABLE	false
++#define DEFAULT_PAUSE_FORWARD_ENABLE	false
++#define DEFAULT_PAUSE_IGNORE		false
++#define DEFAULT_TX_ADDR_INS_ENABLE	false
++#define DEFAULT_LOOPBACK_ENABLE		false
++#define DEFAULT_CMD_FRAME_ENABLE	false
++#define DEFAULT_RX_ERROR_DISCARD	false
++#define DEFAULT_SEND_IDLE_ENABLE	false
++#define DEFAULT_NO_LENGTH_CHECK_ENABLE	true
++#define DEFAULT_LGTH_CHECK_NOSTDR	false
++#define DEFAULT_TIME_STAMP_ENABLE	false
++#define DEFAULT_TX_IPG_LENGTH		12
++#define DEFAULT_MAX_FRAME_LENGTH	0x600
++#define DEFAULT_PAUSE_QUANT		0xf000
++
++/**
++ * 10G memory map
++ **/
++struct tgec_regs {
++	uint32_t tgec_id;	/* 0x000 Controller ID */
++	uint32_t reserved001[1];	/* 0x004 */
++	uint32_t command_config;	/* 0x008 Control and configuration */
++	uint32_t mac_addr_0;	/* 0x00c Lower 32 bits of the MAC adr */
++	uint32_t mac_addr_1;	/* 0x010 Upper 16 bits of the MAC adr */
++	uint32_t maxfrm;	/* 0x014 Maximum frame length */
++	uint32_t pause_quant;	/* 0x018 Pause quanta */
++	uint32_t rx_fifo_sections;	/* 0x01c  */
++	uint32_t tx_fifo_sections;	/* 0x020  */
++	uint32_t rx_fifo_almost_f_e;	/* 0x024  */
++	uint32_t tx_fifo_almost_f_e;	/* 0x028  */
++	uint32_t hashtable_ctrl;	/* 0x02c Hash table control */
++	uint32_t mdio_cfg_status;	/* 0x030  */
++	uint32_t mdio_command;	/* 0x034  */
++	uint32_t mdio_data;	/* 0x038  */
++	uint32_t mdio_regaddr;	/* 0x03c  */
++	uint32_t status;	/* 0x040  */
++	uint32_t tx_ipg_len;	/* 0x044 Transmitter inter-packet-gap */
++	uint32_t mac_addr_2;	/* 0x048 Lower 32 bits of 2nd MAC adr */
++	uint32_t mac_addr_3;	/* 0x04c Upper 16 bits of 2nd MAC adr */
++	uint32_t rx_fifo_ptr_rd;	/* 0x050  */
++	uint32_t rx_fifo_ptr_wr;	/* 0x054  */
++	uint32_t tx_fifo_ptr_rd;	/* 0x058  */
++	uint32_t tx_fifo_ptr_wr;	/* 0x05c  */
++	uint32_t imask;		/* 0x060 Interrupt mask */
++	uint32_t ievent;	/* 0x064 Interrupt event */
++	uint32_t udp_port;	/* 0x068 Defines a UDP Port number */
++	uint32_t type_1588v2;	/* 0x06c Type field for 1588v2 */
++	uint32_t reserved070[4];	/* 0x070 */
++	/*10Ge Statistics Counter */
++	uint32_t tfrm_u;	/* 80 aFramesTransmittedOK */
++	uint32_t tfrm_l;	/* 84 aFramesTransmittedOK */
++	uint32_t rfrm_u;	/* 88 aFramesReceivedOK */
++	uint32_t rfrm_l;	/* 8c aFramesReceivedOK */
++	uint32_t rfcs_u;	/* 90 aFrameCheckSequenceErrors */
++	uint32_t rfcs_l;	/* 94 aFrameCheckSequenceErrors */
++	uint32_t raln_u;	/* 98 aAlignmentErrors */
++	uint32_t raln_l;	/* 9c aAlignmentErrors */
++	uint32_t txpf_u;	/* A0 aPAUSEMACCtrlFramesTransmitted */
++	uint32_t txpf_l;	/* A4 aPAUSEMACCtrlFramesTransmitted */
++	uint32_t rxpf_u;	/* A8 aPAUSEMACCtrlFramesReceived */
++	uint32_t rxpf_l;	/* Ac aPAUSEMACCtrlFramesReceived */
++	uint32_t rlong_u;	/* B0 aFrameTooLongErrors */
++	uint32_t rlong_l;	/* B4 aFrameTooLongErrors */
++	uint32_t rflr_u;	/* B8 aInRangeLengthErrors */
++	uint32_t rflr_l;	/* Bc aInRangeLengthErrors */
++	uint32_t tvlan_u;	/* C0 VLANTransmittedOK */
++	uint32_t tvlan_l;	/* C4 VLANTransmittedOK */
++	uint32_t rvlan_u;	/* C8 VLANReceivedOK */
++	uint32_t rvlan_l;	/* Cc VLANReceivedOK */
++	uint32_t toct_u;	/* D0 if_out_octets */
++	uint32_t toct_l;	/* D4 if_out_octets */
++	uint32_t roct_u;	/* D8 if_in_octets */
++	uint32_t roct_l;	/* Dc if_in_octets */
++	uint32_t ruca_u;	/* E0 if_in_ucast_pkts */
++	uint32_t ruca_l;	/* E4 if_in_ucast_pkts */
++	uint32_t rmca_u;	/* E8 ifInMulticastPkts */
++	uint32_t rmca_l;	/* Ec ifInMulticastPkts */
++	uint32_t rbca_u;	/* F0 ifInBroadcastPkts */
++	uint32_t rbca_l;	/* F4 ifInBroadcastPkts */
++	uint32_t terr_u;	/* F8 if_out_errors */
++	uint32_t terr_l;	/* Fc if_out_errors */
++	uint32_t reserved100[2];	/* 100-108 */
++	uint32_t tuca_u;	/* 108 if_out_ucast_pkts */
++	uint32_t tuca_l;	/* 10c if_out_ucast_pkts */
++	uint32_t tmca_u;	/* 110 ifOutMulticastPkts */
++	uint32_t tmca_l;	/* 114 ifOutMulticastPkts */
++	uint32_t tbca_u;	/* 118 ifOutBroadcastPkts */
++	uint32_t tbca_l;	/* 11c ifOutBroadcastPkts */
++	uint32_t rdrp_u;	/* 120 etherStatsDropEvents */
++	uint32_t rdrp_l;	/* 124 etherStatsDropEvents */
++	uint32_t reoct_u;	/* 128 etherStatsOctets */
++	uint32_t reoct_l;	/* 12c etherStatsOctets */
++	uint32_t rpkt_u;	/* 130 etherStatsPkts */
++	uint32_t rpkt_l;	/* 134 etherStatsPkts */
++	uint32_t trund_u;	/* 138 etherStatsUndersizePkts */
++	uint32_t trund_l;	/* 13c etherStatsUndersizePkts */
++	uint32_t r64_u;		/* 140 etherStatsPkts64Octets */
++	uint32_t r64_l;		/* 144 etherStatsPkts64Octets */
++	uint32_t r127_u;	/* 148 etherStatsPkts65to127Octets */
++	uint32_t r127_l;	/* 14c etherStatsPkts65to127Octets */
++	uint32_t r255_u;	/* 150 etherStatsPkts128to255Octets */
++	uint32_t r255_l;	/* 154 etherStatsPkts128to255Octets */
++	uint32_t r511_u;	/* 158 etherStatsPkts256to511Octets */
++	uint32_t r511_l;	/* 15c etherStatsPkts256to511Octets */
++	uint32_t r1023_u;	/* 160 etherStatsPkts512to1023Octets */
++	uint32_t r1023_l;	/* 164 etherStatsPkts512to1023Octets */
++	uint32_t r1518_u;	/* 168 etherStatsPkts1024to1518Octets */
++	uint32_t r1518_l;	/* 16c etherStatsPkts1024to1518Octets */
++	uint32_t r1519x_u;	/* 170 etherStatsPkts1519toX */
++	uint32_t r1519x_l;	/* 174 etherStatsPkts1519toX */
++	uint32_t trovr_u;	/* 178 etherStatsOversizePkts */
++	uint32_t trovr_l;	/* 17c etherStatsOversizePkts */
++	uint32_t trjbr_u;	/* 180 etherStatsJabbers */
++	uint32_t trjbr_l;	/* 184 etherStatsJabbers */
++	uint32_t trfrg_u;	/* 188 etherStatsFragments */
++	uint32_t trfrg_l;	/* 18C etherStatsFragments */
++	uint32_t rerr_u;	/* 190 if_in_errors */
++	uint32_t rerr_l;	/* 194 if_in_errors */
++};
++
++/**
++*struct tgec_cfg - TGEC configuration
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
++*@rx_error_discard:    Receive Erroneous Frame Discard Enable. When set to 1
++*	    any frame received with an error is discarded in the
++*	    Core and not forwarded to the Client interface.
++*	    When set to 0 (Reset value), erroneous Frames are
++*	    forwarded to the Client interface with ff_rx_err
++*	    asserted.
++*@pause_ignore:	   Ignore Pause Frame Quanta. If set to 1 received pause
++*	    frames are ignored by the MAC. When set to 0
++*	    (Reset value) the transmit process is stopped for the
++*	    amount of time specified in the pause quanta received
++*	    within a pause frame.
++*@pause_forward_enable:
++*	    Terminate / Forward Pause Frames. If set to 1 pause
++*	    frames are forwarded to the user application. When set
++*	    to 0 (Reset value) pause frames are terminated and
++*	    discarded within the MAC.
++*@no_length_check_enable:
++*	    Payload Length Check Disable. When set to 0
++*	    (Reset value), the Core checks the frame's payload
++*	    length with the Frame Length/Type field, when set to 1
++*	    the payload length check is disabled.
++*@cmd_frame_enable:    Enables reception of all command frames. When set to 1
++*	    all Command Frames are accepted, when set to 0
++*	    (Reset Value) only Pause Frames are accepted and all
++*	    other Command Frames are rejected.
++*@send_idle_enable:    Force Idle Generation. When set to 1, the MAC
++*	    permanently sends XGMII Idle sequences even when faults
++*	    are received.
++*@wan_mode_enable:    WAN Mode Enable. Sets WAN mode (1) or LAN mode
++*	    (0, default) of operation.
++*@promiscuous_mode_enable:
++*	    Enables MAC promiscuous operation. When set to 1, all
++*	    frames are received without any MAC address filtering,
++*	    when set to 0 (Reset value) Unicast Frames with a
++*	    destination address not matching the Core MAC Address
++*	    (MAC Address programmed in Registers MAC_ADDR_0 and
++*	    MAC_ADDR_1 or the MAC address programmed in Registers
++*	    MAC_ADDR_2 and MAC_ADDR_3) are rejected.
++*@tx_addr_ins_enable:	 Set Source MAC Address on Transmit. If set to 1 the
++*	    MAC overwrites the source MAC address received from the
++*	    Client Interface with one of the MAC addresses. If set
++*	    to 0 (Reset value), the source MAC address from the
++*	    Client Interface is transmitted unmodified to the line.
++*@loopback_enable:    PHY Interface Loopback. When set to 1, the signal
++*	    loop_ena is set to '1', when set to 0 (Reset value)
++*	    the signal loop_ena is set to 0.
++*@lgth_check_nostdr:	The Core interprets the Length/Type field differently
++*	    depending on the value of this Bit
++*@time_stamp_enable:	This bit selects between enabling and disabling the
++*	    IEEE 1588 functionality. 1: IEEE 1588 is enabled
++*	    0: IEEE 1588 is disabled
++*@max_frame_length:    Maximum supported received frame length.
++*	    The 10GEC MAC supports reception of any frame size up
++*	    to 16,352 bytes (0x3FE0). Typical settings are
++*	    0x05EE (1,518 bytes) for standard frames.
++*	    Default setting is 0x0600 (1,536 bytes).
++*	    Received frames that exceed this stated maximum
++*	    are truncated.
++*@pause_quant:	  Pause quanta value used with transmitted pause frames.
++*	    Each quanta represents a 512 bit-times.
++*@tx_ipg_length:    Transmit Inter-Packet-Gap (IPG) value. A 6-bit value:
++*	    Depending on LAN or WAN mode of operation the value has
++*	    the following meaning: - LAN Mode: Number of octets in
++*	    steps of 4. Valid values are 8, 12, 16, ... 100. DIC is
++*	    fully supported (see 10.6.1 page 49) for any setting. A
++*	    default of 12 (reset value) must be set to conform to
++*	    IEEE802.3ae. Warning: When set to 8, PCS layers may not
++*	    be able to perform clock rate compensation. - WAN Mode:
++*	    Stretch factor. Valid values are 4..15. The stretch
++*	    factor is calculated as (value+1)*8. A default of 12
++*	    (reset value) must be set to conform to IEEE 802.3ae
++*	    (i.e. 13*8=104). A larger value shrinks the IPG
++*	    (increasing bandwidth).
 + *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++*This structure contains basic TGEC configuration and must be passed to
++*fman_tgec_init() function.  A default set of configuration values can be
++*obtained by calling fman_tgec_defconfig().
++ */
++struct tgec_cfg {
++	bool rx_error_discard;
++	bool pause_ignore;
++	bool pause_forward_enable;
++	bool no_length_check_enable;
++	bool cmd_frame_enable;
++	bool send_idle_enable;
++	bool wan_mode_enable;
++	bool promiscuous_mode_enable;
++	bool tx_addr_ins_enable;
++	bool loopback_enable;
++	bool lgth_check_nostdr;
++	bool time_stamp_enable;
++	uint16_t max_frame_length;
++	uint16_t pause_quant;
++	uint32_t tx_ipg_length;
++	bool skip_fman11_workaround;
++};
++
++void fman_tgec_defconfig(struct tgec_cfg *cfg);
++
++/**
++*fman_tgec_init() - Init tgec hardware block
++*@regs:	       Pointer to tgec register block
++*@cfg:	      tgec configuration data
++*@exceptions_mask:    initial exceptions mask
++ *
++*This function initializes the tgec controller and applies its
++*basic configuration.
++ *
++*Returns: 0 if successful, an error code otherwise.
 + */
 +
-+#include <stdio.h>
-+#include <errno.h>
++int fman_tgec_init(struct tgec_regs __iomem *regs, struct tgec_cfg *cfg,
++		   uint32_t exception_mask);
 +
-+#include <linux/tipc_netlink.h>
-+#include <linux/tipc.h>
-+#include <linux/genetlink.h>
-+#include <libmnl/libmnl.h>
++void fman_tgec_enable(struct tgec_regs __iomem *regs, bool apply_rx,
++		      bool apply_tx);
 +
-+#include "cmdl.h"
-+#include "msg.h"
-+#include "nametable.h"
++void fman_tgec_disable(struct tgec_regs __iomem *regs, bool apply_rx,
++		       bool apply_tx);
 +
-+#define PORTID_STR_LEN 45 /* Four u32 and five delimiter chars */
++uint32_t fman_tgec_get_revision(struct tgec_regs __iomem *regs);
 +
-+static int nametable_show_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	int *iteration = data;
-+	char port_id[PORTID_STR_LEN];
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_NAME_TABLE_MAX + 1] = {};
-+	struct nlattr *publ[TIPC_NLA_PUBL_MAX + 1] = {};
-+	const char *scope[] = { "", "zone", "cluster", "node" };
++void fman_tgec_set_mac_address(struct tgec_regs __iomem *regs,
++			       uint8_t *macaddr);
 +
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_NAME_TABLE])
-+		return MNL_CB_ERROR;
++void fman_tgec_set_promiscuous(struct tgec_regs __iomem *regs, bool val);
 +
-+	mnl_attr_parse_nested(info[TIPC_NLA_NAME_TABLE], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_NAME_TABLE_PUBL])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(attrs[TIPC_NLA_NAME_TABLE_PUBL], parse_attrs, publ);
-+	if (!publ[TIPC_NLA_NAME_TABLE_PUBL])
-+		return MNL_CB_ERROR;
-+
-+	if (!*iteration)
-+		printf("%-10s %-10s %-10s %-26s %-10s\n",
-+		       "Type", "Lower", "Upper", "Port Identity",
-+		       "Publication Scope");
-+	(*iteration)++;
-+
-+	snprintf(port_id, sizeof(port_id), "<%u.%u.%u:%u>",
-+		 tipc_zone(mnl_attr_get_u32(publ[TIPC_NLA_PUBL_NODE])),
-+		 tipc_cluster(mnl_attr_get_u32(publ[TIPC_NLA_PUBL_NODE])),
-+		 tipc_node(mnl_attr_get_u32(publ[TIPC_NLA_PUBL_NODE])),
-+		 mnl_attr_get_u32(publ[TIPC_NLA_PUBL_REF]));
-+
-+	printf("%-10u %-10u %-10u %-26s %-12u",
-+	       mnl_attr_get_u32(publ[TIPC_NLA_PUBL_TYPE]),
-+	       mnl_attr_get_u32(publ[TIPC_NLA_PUBL_LOWER]),
-+	       mnl_attr_get_u32(publ[TIPC_NLA_PUBL_UPPER]),
-+	       port_id,
-+	       mnl_attr_get_u32(publ[TIPC_NLA_PUBL_KEY]));
-+
-+	printf("%s\n", scope[mnl_attr_get_u32(publ[TIPC_NLA_PUBL_SCOPE])]);
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_nametable_show(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			      struct cmdl *cmdl, void *data)
-+{
-+	int iteration = 0;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		fprintf(stderr, "Usage: %s nametable show\n", cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_NAME_TABLE_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	return msg_dumpit(nlh, nametable_show_cb, &iteration);
-+}
-+
-+void cmd_nametable_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s nametable COMMAND\n\n"
-+		"COMMANDS\n"
-+		" show                  - Show nametable\n",
-+		cmdl->argv[0]);
-+}
-+
-+int cmd_nametable(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+		  void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "show",	cmd_nametable_show,	NULL },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-diff --git a/tipc/nametable.h b/tipc/nametable.h
-new file mode 100644
-index 0000000..e0473e1
---- /dev/null
-+++ b/tipc/nametable.h
-@@ -0,0 +1,21 @@
-+/*
-+ * nametable.h	TIPC nametable functionality.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++/**
++*fman_tgec_set_hash_table() - Sets the Hashtable Control Register
++*@regs:	   Pointer to TGEC register block
++*@value:    Value to be written in Hashtable Control Register
 + */
++void fman_tgec_set_hash_table(struct tgec_regs __iomem *regs, uint32_t value);
 +
-+#ifndef _TIPC_NAMETABLE_H
-+#define _TIPC_NAMETABLE_H
-+
-+extern int help_flag;
-+
-+void cmd_nametable_help(struct cmdl *cmdl);
-+int cmd_nametable(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+		  void *data);
-+
-+#endif
-diff --git a/tipc/node.c b/tipc/node.c
-new file mode 100644
-index 0000000..163fb74
---- /dev/null
-+++ b/tipc/node.c
-@@ -0,0 +1,267 @@
-+/*
-+ * node.c	TIPC node functionality.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++/**
++*fman_tgec_set_tx_pause_frames() - Sets the Pause Quanta Register
++*@regs:	   Pointer to TGEC register block
++*@pause_time:	 Pause quanta value used with transmitted pause frames.
++*	Each quanta represents a 512 bit-times
 + */
++void fman_tgec_set_tx_pause_frames(struct tgec_regs __iomem *regs,
++				   uint16_t pause_time);
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <errno.h>
-+
-+#include <linux/tipc_netlink.h>
-+#include <linux/tipc.h>
-+#include <linux/genetlink.h>
-+#include <libmnl/libmnl.h>
-+
-+#include "cmdl.h"
-+#include "msg.h"
-+#include "misc.h"
-+#include "node.h"
-+
-+static int node_list_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	uint32_t addr;
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_NODE_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_NODE])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_NODE], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_NODE_ADDR])
-+		return MNL_CB_ERROR;
-+
-+	addr = mnl_attr_get_u32(attrs[TIPC_NLA_NODE_ADDR]);
-+	printf("<%u.%u.%u>: ",
-+		tipc_zone(addr),
-+		tipc_cluster(addr),
-+		tipc_node(addr));
-+
-+	if (attrs[TIPC_NLA_NODE_UP])
-+		printf("up\n");
-+	else
-+		printf("down\n");
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_node_list(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			 struct cmdl *cmdl, void *data)
-+{
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		fprintf(stderr, "Usage: %s node list\n", cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_NODE_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	return msg_dumpit(nlh, node_list_cb, NULL);
-+}
-+
-+static int cmd_node_set_addr(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			     struct cmdl *cmdl, void *data)
-+{
-+	char *str;
-+	uint32_t addr;
-+	struct nlattr *nest;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (cmdl->argc != cmdl->optind + 1) {
-+		fprintf(stderr, "Usage: %s node set address ADDRESS\n",
-+			cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+
-+	str = shift_cmdl(cmdl);
-+	addr = str2addr(str);
-+	if (!addr)
-+		return -1;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_NET_SET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_NET);
-+	mnl_attr_put_u32(nlh, TIPC_NLA_NET_ADDR, addr);
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	return msg_doit(nlh, NULL, NULL);
-+}
-+
-+static int cmd_node_get_addr(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			     struct cmdl *cmdl, void *data)
-+{
-+	int sk;
-+	socklen_t sz = sizeof(struct sockaddr_tipc);
-+	struct sockaddr_tipc addr;
-+
-+	if (!(sk = socket(AF_TIPC, SOCK_RDM, 0))) {
-+		fprintf(stderr, "opening TIPC socket: %s\n", strerror(errno));
-+		return -1;
-+	}
-+
-+	if (getsockname(sk, (struct sockaddr *)&addr, &sz) < 0) {
-+		fprintf(stderr, "getting TIPC socket address: %s\n",
-+			strerror(errno));
-+		close(sk);
-+		return -1;
-+	}
-+	close(sk);
-+
-+	printf("<%u.%u.%u>\n",
-+		tipc_zone(addr.addr.id.node),
-+		tipc_cluster(addr.addr.id.node),
-+		tipc_node(addr.addr.id.node));
-+
-+	return 0;
-+}
-+
-+static int netid_get_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_NET_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_NET])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_NET], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_NET_ID])
-+		return MNL_CB_ERROR;
-+
-+	printf("%u\n", mnl_attr_get_u32(attrs[TIPC_NLA_NET_ID]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_node_get_netid(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			      struct cmdl *cmdl, void *data)
-+{
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_NET_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	return msg_dumpit(nlh, netid_get_cb, NULL);
-+}
-+
-+static int cmd_node_set_netid(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			      struct cmdl *cmdl, void *data)
-+{
-+	int netid;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *nest;
-+
-+	if (help_flag) {
-+		(cmd->help)(cmdl);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_NET_SET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	if (cmdl->argc != cmdl->optind + 1) {
-+		fprintf(stderr, "Usage: %s node set netid NETID\n",
-+			cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+	netid = atoi(shift_cmdl(cmdl));
-+
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_NET);
-+	mnl_attr_put_u32(nlh, TIPC_NLA_NET_ID, netid);
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	return msg_doit(nlh, NULL, NULL);
-+}
-+
-+static void cmd_node_set_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s node set PROPERTY\n\n"
-+		"PROPERTIES\n"
-+		" address ADDRESS       - Set local address\n"
-+		" netid NETID           - Set local netid\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_node_set(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "address",	cmd_node_set_addr,	NULL },
-+		{ "netid",	cmd_node_set_netid,	NULL },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+static void cmd_node_get_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s node get PROPERTY\n\n"
-+		"PROPERTIES\n"
-+		" address               - Get local address\n"
-+		" netid                 - Get local netid\n",
-+		cmdl->argv[0]);
-+}
-+
-+static int cmd_node_get(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			struct cmdl *cmdl, void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "address",	cmd_node_get_addr,	NULL },
-+		{ "netid",	cmd_node_get_netid,	NULL },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-+
-+void cmd_node_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s media COMMAND [ARGS] ...\n\n"
-+		"COMMANDS\n"
-+		" list                  - List remote nodes\n"
-+		" get                   - Get local node parameters\n"
-+		" set                   - Set local node parameters\n",
-+		cmdl->argv[0]);
-+}
-+
-+int cmd_node(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+	     void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "list",	cmd_node_list,	NULL },
-+		{ "get",	cmd_node_get,	cmd_node_get_help },
-+		{ "set",	cmd_node_set,	cmd_node_set_help },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-diff --git a/tipc/node.h b/tipc/node.h
-new file mode 100644
-index 0000000..afee1fd
---- /dev/null
-+++ b/tipc/node.h
-@@ -0,0 +1,21 @@
-+/*
-+ * node.h	TIPC node functionality.
++/**
++*fman_tgec_set_rx_ignore_pause_frames() - Changes the policy WRT pause frames
++*@regs:	   Pointer to TGEC register block
++*@en:	     Ignore/Respond to pause frame quanta
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++*Sets the value of PAUSE_IGNORE field in the COMMAND_CONFIG Register
++*0 - MAC stops transmit process for the duration specified
++*in the Pause frame quanta of a received Pause frame.
++*1 - MAC ignores received Pause frames.
 + */
++void fman_tgec_set_rx_ignore_pause_frames(struct tgec_regs __iomem *regs,
++					  bool en);
 +
-+#ifndef _TIPC_NODE_H
-+#define _TIPC_NODE_H
++uint32_t fman_tgec_get_event(struct tgec_regs __iomem *regs, uint32_t ev_mask);
 +
-+extern int help_flag;
++void fman_tgec_ack_event(struct tgec_regs __iomem *regs, uint32_t ev_mask);
 +
-+int cmd_node(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+	     void *data);
-+void cmd_node_help(struct cmdl *cmdl);
++uint32_t fman_tgec_get_interrupt_mask(struct tgec_regs __iomem *regs);
 +
-+#endif
-diff --git a/tipc/socket.c b/tipc/socket.c
-new file mode 100644
-index 0000000..48ba821
---- /dev/null
-+++ b/tipc/socket.c
-@@ -0,0 +1,140 @@
-+/*
-+ * socket.c	TIPC socket functionality.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++void fman_tgec_enable_interrupt(struct tgec_regs __iomem *regs,
++				uint32_t ev_mask);
++
++void fman_tgec_disable_interrupt(struct tgec_regs __iomem *regs,
++				 uint32_t ev_mask);
++
++/**
++*fman_tgec_get_max_frame_len() - Returns the maximum frame length value
++*@regs:	   Pointer to TGEC register block
 + */
++uint16_t fman_tgec_get_max_frame_len(struct tgec_regs __iomem *regs);
 +
-+#include <stdio.h>
-+#include <errno.h>
-+
-+#include <linux/tipc.h>
-+#include <linux/tipc_netlink.h>
-+#include <linux/genetlink.h>
-+#include <libmnl/libmnl.h>
-+
-+#include "cmdl.h"
-+#include "msg.h"
-+#include "socket.h"
-+
-+#define PORTID_STR_LEN 45 /* Four u32 and five delimiter chars */
-+
-+static int publ_list_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_SOCK_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_PUBL])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_PUBL], parse_attrs, attrs);
-+
-+	printf("  bound to {%u,%u,%u}\n",
-+	       mnl_attr_get_u32(attrs[TIPC_NLA_PUBL_TYPE]),
-+	       mnl_attr_get_u32(attrs[TIPC_NLA_PUBL_LOWER]),
-+	       mnl_attr_get_u32(attrs[TIPC_NLA_PUBL_UPPER]));
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int publ_list(uint32_t sock)
-+{
-+	struct nlmsghdr *nlh;
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+	struct nlattr *nest;
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_PUBL_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	nest = mnl_attr_nest_start(nlh, TIPC_NLA_SOCK);
-+	mnl_attr_put_u32(nlh, TIPC_NLA_SOCK_REF, sock);
-+	mnl_attr_nest_end(nlh, nest);
-+
-+	return msg_dumpit(nlh, publ_list_cb, NULL);
-+}
-+
-+static int sock_list_cb(const struct nlmsghdr *nlh, void *data)
-+{
-+	struct genlmsghdr *genl = mnl_nlmsg_get_payload(nlh);
-+	struct nlattr *info[TIPC_NLA_MAX + 1] = {};
-+	struct nlattr *attrs[TIPC_NLA_SOCK_MAX + 1] = {};
-+
-+	mnl_attr_parse(nlh, sizeof(*genl), parse_attrs, info);
-+	if (!info[TIPC_NLA_SOCK])
-+		return MNL_CB_ERROR;
-+
-+	mnl_attr_parse_nested(info[TIPC_NLA_SOCK], parse_attrs, attrs);
-+	if (!attrs[TIPC_NLA_SOCK_REF])
-+		return MNL_CB_ERROR;
-+
-+	printf("socket %u\n", mnl_attr_get_u32(attrs[TIPC_NLA_SOCK_REF]));
-+
-+	if (attrs[TIPC_NLA_SOCK_CON]) {
-+		uint32_t node;
-+		struct nlattr *con[TIPC_NLA_CON_MAX + 1] = {};
-+
-+		mnl_attr_parse_nested(attrs[TIPC_NLA_SOCK_CON], parse_attrs, con);
-+		node = mnl_attr_get_u32(con[TIPC_NLA_CON_NODE]);
-+
-+		printf("  connected to <%u.%u.%u:%u>", tipc_zone(node),
-+			tipc_cluster(node), tipc_node(node),
-+			mnl_attr_get_u32(con[TIPC_NLA_CON_SOCK]));
-+
-+		if (con[TIPC_NLA_CON_FLAG])
-+			printf(" via {%u,%u}\n",
-+				mnl_attr_get_u32(con[TIPC_NLA_CON_TYPE]),
-+				mnl_attr_get_u32(con[TIPC_NLA_CON_INST]));
-+		else
-+			printf("\n");
-+	} else if (attrs[TIPC_NLA_SOCK_HAS_PUBL]) {
-+		publ_list(mnl_attr_get_u32(attrs[TIPC_NLA_SOCK_REF]));
-+	}
-+
-+	return MNL_CB_OK;
-+}
-+
-+static int cmd_socket_list(struct nlmsghdr *nlh, const struct cmd *cmd,
-+			   struct cmdl *cmdl, void *data)
-+{
-+	char buf[MNL_SOCKET_BUFFER_SIZE];
-+
-+	if (help_flag) {
-+		fprintf(stderr, "Usage: %s socket list\n", cmdl->argv[0]);
-+		return -EINVAL;
-+	}
-+
-+	if (!(nlh = msg_init(buf, TIPC_NL_SOCK_GET))) {
-+		fprintf(stderr, "error, message initialisation failed\n");
-+		return -1;
-+	}
-+
-+	return msg_dumpit(nlh, sock_list_cb, NULL);
-+}
-+
-+void cmd_socket_help(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Usage: %s socket COMMAND\n\n"
-+		"Commands:\n"
-+		" list                  - List sockets (ports)\n",
-+		cmdl->argv[0]);
-+}
-+
-+int cmd_socket(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+		  void *data)
-+{
-+	const struct cmd cmds[] = {
-+		{ "list",	cmd_socket_list,	NULL },
-+		{ NULL }
-+	};
-+
-+	return run_cmd(nlh, cmd, cmds, cmdl, NULL);
-+}
-diff --git a/tipc/socket.h b/tipc/socket.h
-new file mode 100644
-index 0000000..9d1b648
---- /dev/null
-+++ b/tipc/socket.h
-@@ -0,0 +1,21 @@
-+/*
-+ * socket.h	TIPC socket functionality.
++/**
++*fman_tgec_set_erratum_tx_fifo_corruption_10gmac_a007() - Initialize the
++*main tgec configuration parameters
++*@regs:	   Pointer to TGEC register block
 + *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
++*TODO
 + */
++void fman_tgec_set_erratum_tx_fifo_corruption_10gmac_a007(struct tgec_regs
++							  __iomem *regs);
 +
-+#ifndef _TIPC_SOCKET_H
-+#define _TIPC_SOCKET_H
-+
-+extern int help_flag;
-+
-+void cmd_socket_help(struct cmdl *cmdl);
-+int cmd_socket(struct nlmsghdr *nlh, const struct cmd *cmd, struct cmdl *cmdl,
-+		  void *data);
-+
-+#endif
-diff --git a/tipc/tipc.c b/tipc/tipc.c
-new file mode 100644
-index 0000000..4439805
---- /dev/null
-+++ b/tipc/tipc.c
-@@ -0,0 +1,96 @@
-+/*
-+ * tipc.	TIPC utility frontend.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Richard Alpe <richard.alpe@ericsson.com>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <getopt.h>
-+#include <unistd.h>
-+
-+#include "bearer.h"
-+#include "link.h"
-+#include "nametable.h"
-+#include "socket.h"
-+#include "media.h"
-+#include "node.h"
-+#include "cmdl.h"
-+
-+int help_flag;
-+
-+static void about(struct cmdl *cmdl)
-+{
-+	fprintf(stderr,
-+		"Transparent Inter-Process Communication Protocol\n"
-+		"Usage: %s [OPTIONS] COMMAND [ARGS] ...\n"
-+		"\n"
-+		"Options:\n"
-+		" -h, --help \t\tPrint help for last given command\n"
-+		"\n"
-+		"Commands:\n"
-+		" bearer                - Show or modify bearers\n"
-+		" link                  - Show or modify links\n"
-+		" media                 - Show or modify media\n"
-+		" nametable             - Show nametable\n"
-+		" node                  - Show or modify node related parameters\n"
-+		" socket                - Show sockets\n",
-+		cmdl->argv[0]);
-+}
-+
-+int main(int argc, char *argv[])
-+{
-+	int i;
-+	int res;
-+	struct cmdl cmdl;
-+	const struct cmd cmd = {"tipc", NULL, about};
-+	struct option long_options[] = {
-+		{"help", no_argument, 0, 'h'},
-+		{0, 0, 0, 0}
-+	};
-+	const struct cmd cmds[] = {
-+		{ "bearer",	cmd_bearer,	cmd_bearer_help},
-+		{ "link",	cmd_link,	cmd_link_help},
-+		{ "media",	cmd_media,	cmd_media_help},
-+		{ "nametable",	cmd_nametable,	cmd_nametable_help},
-+		{ "node",	cmd_node,	cmd_node_help},
-+		{ "socket",	cmd_socket,	cmd_socket_help},
-+		{ NULL }
-+	};
-+
-+	do {
-+		int option_index = 0;
-+
-+		i = getopt_long(argc, argv, "h", long_options, &option_index);
-+
-+		switch (i) {
-+		case 'h':
-+			/*
-+			 * We want the help for the last command, so we flag
-+			 * here in order to print later.
-+			 */
-+			help_flag = 1;
-+			break;
-+		case -1:
-+			/* End of options */
-+			break;
-+		default:
-+			/* Invalid option, error msg is printed by getopts */
-+			return 1;
-+		}
-+	} while (i != -1);
-+
-+	cmdl.optind = optind;
-+	cmdl.argc = argc;
-+	cmdl.argv = argv;
-+
-+	if ((res = run_cmd(NULL, &cmd, cmds, &cmdl, NULL)) != 0)
-+		return 1;
-+
-+	return 0;
-+}
++#endif	/* __FSL_FMAN_TGEC_H */
 -- 
-2.1.4
+1.7.11.7
