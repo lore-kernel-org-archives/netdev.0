@@ -1,106 +1,85 @@
-From: "Rafael J. Wysocki" <rafael@kernel.org>
-Subject: Re: [V2 PATCH 3/5] device property: Introduces device_dma_is_coherent()
-Date: Thu, 7 May 2015 01:58:53 +0200
-Message-ID: <CAJZ5v0gbSFrjce0oZwxOiGYVwx+bp3hJ+YghgO75dyf3iuiWYA@mail.gmail.com>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-	<1430838729-21572-4-git-send-email-Suravee.Suthikulpanit@amd.com>
-	<554AA94D.6020503@amd.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
+Date: Thu, 07 May 2015 02:04:46 +0200
+Message-ID: <357742496.VPxjz4tqdT@h2o.as.studentenwerk.mhn.de>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de> <2723870.nq54KKjWkm@h2o.as.studentenwerk.mhn.de> <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Len Brown <lenb@kernel.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>, thomas.lendacky@amd.com,
-	herbert@gondor.apana.org.au, David Miller <davem@davemloft.net>,
-	msalter@redhat.com, Hanjun Guo <hanjun.guo@linaro.org>,
-	Al Stone <al.stone@linaro.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	Arnd Bergmann <arnd@arndb.de>, leo.duran@amd.com,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"linaro-acpi@lists.linaro.org" <linaro-acpi@lists.linaro.org>,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <554AA94D.6020503@amd.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 7, 2015 at 1:52 AM, Suravee Suthikulanit
-<suravee.suthikulpanit@amd.com> wrote:
-> Rafael,
->
-> Any comments on this patch?
+Am Mittwoch, 6. Mai 2015, 15:42:38 schrieben Sie:
+> On Thu, 2015-05-07 at 00:04 +0200, Wolfgang Walter wrote:
+> > Am Mittwoch, 6. Mai 2015, 12:10:00 schrieb Eric Dumazet:
+> > > On Wed, 2015-05-06 at 11:15 -0700, Cong Wang wrote:
+> > > > (Cc'ing netdev.)
+> > > >=20
+> > > > On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de>=
+ wrote:
+> > > > > Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
+> > > > >> Hello,
+> > > > >>=20
+> > > > >> kernel 4.0 (and 4.0.1) crashes immediately when I use tracer=
+oute6
+> > > > >> with
+> > > > >> an
+> > > > >> isatap-tunnel.
+> > > > >=20
+> > > > > I did some further tests. To trigger the crash you need
+> > > > >=20
+> > > > > * isatap-tunnel (probably any sit-tunnel will do it)
+> > > > > * raw-socket
+> > > > > * udp
+> > > > >=20
+> > > > > Using icmpv6 or tcp i.e. does not trigger it.
+> > > >=20
+> > > > Do you have a script to reproduce it?
+> > > >=20
+> > > >=20
+> > > > Thanks for the bug report!
+> > > > --
+> > >=20
+> > > Please Wolfgang try to revert 32dce968dd987adfb0c00946d78dad9154f=
+64759
+> > > ("ipv6: Allow for partial checksums on non-ufo packets")
+> >=20
+> > Indeed, that fixes the problem.
+>=20
+> Yes, setting skb->csum to 0 is clearly wrong for CHECKSUM_PARTIAL
+>=20
+> Would you try :
+>=20
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index
+> 7fde1f265c90e90f16291e6c861b6e242111c25b..694ae630e1ca67e25ab1e5f6dd0=
+b3597d
+> b3669b0 100644 --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -1416,6 +1416,10 @@ alloc_new_skb:
+>  			data +=3D fragheaderlen;
+>  			skb->transport_header =3D (skb->network_header +
+>  						 fragheaderlen);
+> +			if (csummode =3D=3D CHECKSUM_PARTIAL) {
+> +				skb->csum_start =3D skb_transport_header(skb) - skb->head;
+> +				skb->csum_offset =3D offsetof(struct udphdr, check);
+> +			}
+>  			if (fraggap) {
+>  				skb->csum =3D skb_copy_and_csum_bits(
+>  					skb_prev, maxfraglen,
 
-Well, as long as acpi_dma_is_coherent() does the right thing on all
-architectures, I have no objections.
+This patch fixes 4.0.1 (and 4.0.2).
 
-Thanks,
-Rafael
-
-
-> On 5/5/2015 10:12 AM, Suravee Suthikulpanit wrote:
->>
->> Currently, device drivers, which support both OF and ACPI,
->> need to call two separate APIs, of_dma_is_coherent() and
->> acpi_dma_is_coherent()) to determine device coherency attribute.
->>
->> This patch simplifies this process by introducing a new device
->> property API, device_dma_is_coherent(), which calls the appropriate
->> interface based on the booting architecture.
->>
->> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
->> ---
->>   drivers/base/property.c  | 12 ++++++++++++
->>   include/linux/property.h |  2 ++
->>   2 files changed, 14 insertions(+)
->>
->> diff --git a/drivers/base/property.c b/drivers/base/property.c
->> index 1d0b116..8123c6e 100644
->> --- a/drivers/base/property.c
->> +++ b/drivers/base/property.c
->> @@ -14,6 +14,7 @@
->>   #include <linux/export.h>
->>   #include <linux/kernel.h>
->>   #include <linux/of.h>
->> +#include <linux/of_address.h>
->>   #include <linux/property.h>
->>
->>   /**
->> @@ -519,3 +520,14 @@ unsigned int device_get_child_node_count(struct
->> device *dev)
->>         return count;
->>   }
->>   EXPORT_SYMBOL_GPL(device_get_child_node_count);
->> +
->> +bool device_dma_is_coherent(struct device *dev)
->> +{
->> +       if (IS_ENABLED(CONFIG_OF) && dev->of_node)
->> +               return of_dma_is_coherent(dev->of_node);
->> +       else if (has_acpi_companion(dev))
->> +               return acpi_dma_is_coherent(acpi_node(dev->fwnode));
->> +
->> +       return false;
->> +}
->> +EXPORT_SYMBOL_GPL(device_dma_is_coherent);
->> diff --git a/include/linux/property.h b/include/linux/property.h
->> index de8bdf4..76ebde9 100644
->> --- a/include/linux/property.h
->> +++ b/include/linux/property.h
->> @@ -164,4 +164,6 @@ struct property_set {
->>
->>   void device_add_property_set(struct device *dev, struct property_set
->> *pset);
->>
->> +bool device_dma_is_coherent(struct device *dev);
->> +
->>   #endif /* _LINUX_PROPERTY_H_ */
->>
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks Eric,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
