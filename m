@@ -1,45 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [Linaro-acpi] [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Thu, 07 May 2015 11:07:08 +0200
-Message-ID: <2842267.oTDe4myPcU@wuerfel>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com> <4573209.dHyztuCFMt@vostro.rjw.lan> <554A92C3.7060606@amd.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	herbert@gondor.apana.org.au, catalin.marinas@arm.com,
-	will.deacon@arm.com, linux-kernel@vger.kernel.org,
-	linux-crypto@vger.kernel.org, linux-acpi@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	lenb@kernel.org
-To: linaro-acpi@lists.linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <554A92C3.7060606@amd.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ruslan Bilovol <ruslan.bilovol@gmail.com>
+Subject: [PATCH] net: usb: allow MTU that is a multiple of USB packet size
+Date: Thu,  7 May 2015 12:49:18 +0300
+Message-ID: <1430992159-27783-1-git-send-email-ruslan.bilovol@gmail.com>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: oneukum@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:36569 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752770AbbEGJtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 05:49:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 06 May 2015 17:16:35 Suravee Suthikulanit wrote:
-> On 5/6/2015 5:21 PM, Rafael J. Wysocki wrote:
-> >>>> > >>+      bool
-> >>>> > >>+
-> >>>> > >>+config ACPI_SUPPORT_CCA_ZERO
-> >>> > >
-> >>> > >I guess this means "we support devices that can DMA, but are not coherent".
-> >>> > >right?
-> >> >
-> >> >Yes, basically when _CCA=0.
-> > So what about
-> >
-> >       ARCH_SUPPORT_CACHE_INCOHERENT_DMA
-> 
-> Since this is specific to ACPI _CCA, I just want to be clear with the 
-> naming.
+Current usbnet driver rejects setting MTU that is a multiple
+of USB endpoint's wMaxPacketSize size. However, it may only
+lead to possible performance degradation but is not so
+critical that its using should be prohibited. So allow it
+but also warn user about possible issue.
 
-How about directly using the architecture names here, this is inherently
-architecture specific, and it's more likely that if another architecture
-gets added in the future that it will have other requirements.
+Signed-off-by: Ruslan Bilovol <ruslan.bilovol@gmail.com>
+---
+ drivers/net/usb/usbnet.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-	Arnd
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 733f4fe..09dc848 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -382,9 +382,11 @@ int usbnet_change_mtu (struct net_device *net, int new_mtu)
+ 
+ 	if (new_mtu <= 0)
+ 		return -EINVAL;
+-	// no second zero-length packet read wanted after mtu-sized packets
++	/* warn about second zero-length packet read after mtu-sized packets */
+ 	if ((ll_mtu % dev->maxpacket) == 0)
+-		return -EDOM;
++		netdev_warn(dev->net, "MTU %d is a multiple of USB wMaxPacketSize (%d),"
++				" consider possible performance degradation\n",
++				ll_mtu, dev->maxpacket);
+ 	net->mtu = new_mtu;
+ 
+ 	dev->hard_mtu = net->mtu + net->hard_header_len;
+-- 
+1.7.9.5
