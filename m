@@ -1,48 +1,53 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH] net: ll_temac: Use one return statement instead of two
-Date: Thu,  7 May 2015 15:29:17 +0200
-Message-ID: <b10b8e1e696a09152b9df535a8bd37e6500ac1c7.1431005352.git.michal.simek@xilinx.com>
-Cc: Michal Simek <monstr@monstr.eu>,
-	=?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
-	Fabian Frederick <fabf@skynet.be>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>,
-	Julia Lawall <julia.lawall@lip6.fr>,
-	Markus Elfring <elfring@users.sourceforge.net>,
-	Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
-	linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 3/7] packet: rollover prepare: single return in
+ packet_rcv_has_room
+Date: Thu, 7 May 2015 13:49:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB2F5E7@AcuExch.aculab.com>
+References: <1430936837-22655-1-git-send-email-willemb@google.com>
+ <1430936837-22655-4-git-send-email-willemb@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>
+To: 'Willem de Bruijn' <willemb@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.192]:60808 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbbEGNup convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 09:50:45 -0400
+In-Reply-To: <1430936837-22655-4-git-send-email-willemb@google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Simek <monstr@monstr.eu>
+From: Willem de Bruijn
+> Sent: 06 May 2015 19:27
+> Convert
+> 
+>   if (x) {
+>     A;
+>     return y;
+>   }
+>   B;
+>   return y;
+> 
+> Into
+> 
+>   if (x) {
+>     A;
+>   } else {
+>     B;
+>   }
+> 
+>   return y;
+> 
+> No other changes.
 
-Use one return statement instead of two to simplify the code.
-Both are returning the same value.
+...
 
-Signed-off-by: Michal Simek <michal.simek@xilinx.com>
----
+IMHO there is little benefit in the 'single return from function' style.
+In general it just makes scan-reading of code more difficult (once you
+see a 'return' you know then is no more relevant code) and hits the RH margin.
 
- drivers/net/ethernet/xilinx/ll_temac_main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 690a4c36b316..ca640d04fd93 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -688,10 +688,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	cur_p = &lp->tx_bd_v[lp->tx_bd_tail];
- 
- 	if (temac_check_tx_bd_space(lp, num_frag)) {
--		if (!netif_queue_stopped(ndev)) {
-+		if (!netif_queue_stopped(ndev))
- 			netif_stop_queue(ndev);
--			return NETDEV_TX_BUSY;
--		}
- 		return NETDEV_TX_BUSY;
- 	}
- 
--- 
-2.3.5
+	David
