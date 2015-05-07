@@ -1,52 +1,65 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH net] bnx2x: limit fw delay in kdump to 5s after boot
-Date: Thu,  7 May 2015 20:37:10 +0200
-Message-ID: <1431023830-445-1-git-send-email-mschmidt@redhat.com>
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50154 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751086AbbEGSgn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2015 14:36:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: [PATCH v2] net: macb: Handle the RXUBR interrupt on all devices
+Date: Thu, 7 May 2015 13:41:52 -0500
+Message-ID: <1431024112-11868-1-git-send-email-nathan.sullivan@ni.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nathan Sullivan <nathan.sullivan@ni.com>
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 12a8541d5c82 "bnx2x: Delay during kdump load" added a 5 seconds
-delay to bnx2x's probe function in the kdump case to let the firmware
-realize the old driver is gone.
+There is a hardware issue under heavy load where DMA can stop.  This
+causes endless "used buffer descriptor read" interrupts, but it can be
+cleared by re-enabling RX. See the at91 manual section 41.3.1, or the
+Zynq manual section 16.7.4, for details.
 
-The problem with the delay is that it is per-device, so if you have
-several bnx2x NICs in NPAR mode, the delays can accumulate to minutes.
+The at91 driver already works around this hardware issue, and the same
+workaround applies to at least the Zynq Ethernet (and possibly more
+devices), so apply it here as well.  In addition, handle the RXUBR
+interrupt, since the driver turns it on with MACB_RX_INT_FLAGS anyway.
 
-Fix it by adjusting the delay so that we do not wait more than
-necessary, i.e. no more delaying after 5 seconds of kernel boot time.
-
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+Reviewied-by: Josh Cartwright <joshc@ni.com>
+Reviewied-by: Ben Shelton <ben.shelton@ni.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cadence/macb.c |   17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 556dcc1..fd52ce9 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13371,8 +13371,13 @@ static int bnx2x_init_one(struct pci_dev *pdev,
- 	/* Management FW 'remembers' living interfaces. Allow it some time
- 	 * to forget previously living interfaces, allowing a proper re-load.
- 	 */
--	if (is_kdump_kernel())
--		msleep(5000);
-+	if (is_kdump_kernel()) {
-+		ktime_t now = ktime_get_boottime();
-+		ktime_t fw_ready_time = ktime_set(5, 0);
-+
-+		if (ktime_before(now, fw_ready_time))
-+			msleep(ktime_ms_delta(fw_ready_time, now));
-+	}
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4104d49..5f10dfc 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -981,7 +981,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 	struct macb_queue *queue = dev_id;
+ 	struct macb *bp = queue->bp;
+ 	struct net_device *dev = bp->dev;
+-	u32 status;
++	u32 status, ctrl;
  
- 	/* An estimated maximum supported CoS number according to the chip
- 	 * version.
+ 	status = queue_readl(queue, ISR);
+ 
+@@ -1037,6 +1037,21 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 		 * add that if/when we get our hands on a full-blown MII PHY.
+ 		 */
+ 
++		/* There is a hardware issue under heavy load where DMA can
++		 * stop, this causes endless "used buffer descriptor read"
++		 * interrupts but it can be cleared by re-enabling RX. See
++		 * the at91 manual, section 41.3.1 or the Zynq manual
++		 * section 16.7.4 for details.
++		 */
++		if (status & MACB_BIT(RXUBR)) {
++			ctrl = macb_readl(bp, NCR);
++			macb_writel(bp, NCR, ctrl & ~MACB_BIT(RE));
++			macb_writel(bp, NCR, ctrl | MACB_BIT(RE));
++
++			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++				macb_writel(bp, ISR, MACB_BIT(RXUBR));
++		}
++
+ 		if (status & MACB_BIT(ISR_ROVR)) {
+ 			/* We missed at least one packet */
+ 			if (macb_is_gem(bp))
 -- 
-2.4.0
+1.7.10.4
