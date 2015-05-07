@@ -1,41 +1,53 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH net] bnx2x: limit fw delay in kdump to 5s after boot
-Date: Thu, 07 May 2015 23:19:57 +0200
-Message-ID: <554BD6FD.80308@redhat.com>
-References: <1431023830-445-1-git-send-email-mschmidt@redhat.com> <B5657A6538887040AD3A81F1008BEC63D7C945@AVMB1.qlogic.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3] Renesas Ethernet AVB driver
+Date: Fri, 08 May 2015 00:25:36 +0300
+Message-ID: <554BD850.8040601@cogentembedded.com>
+References: <32501816.HtkLenWQpn@wasted.cogentembedded.com> <552C4554.2070608@gmail.com> <552D8898.3060905@cogentembedded.com> <55382D4E.5070708@gmail.com> <553A9123.3010906@cogentembedded.com> <554BD4CC.3020308@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55446 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068AbbEGVTb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2015 17:19:31 -0400
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63D7C945@AVMB1.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-sh@vger.kernel.org,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Ben Hutchings <ben.hutchings@codethink.co.uk>
+To: Florian Fainelli <f.fainelli@gmail.com>, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	richardcochran@gmail.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <554BD4CC.3020308@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dne 7.5.2015 v 21:03 Yuval Mintz napsal(a):
->> +       if (is_kdump_kernel()) {
->> +               ktime_t now = ktime_get_boottime();
->> +               ktime_t fw_ready_time = ktime_set(5, 0);
->> +
->> +               if (ktime_before(now, fw_ready_time))
->> +                       msleep(ktime_ms_delta(fw_ready_time, now));
->
-> Can't really say I'm familiar with these APIs , but what about the lower
-> msleep limit (is 20 or 50 milliseconds today?)?
-> Shouldn't there be an msleep variant that's good for such cases?
-> [Or is it a non-issue, since at most msleep will be inaccurate]
+On 05/08/2015 12:10 AM, Sergei Shtylyov wrote:
 
-msleep(<small_number>) may sleep for a couple of jiffies more than one 
-would expect. I think that's what you mean by "the lower msleep limit". 
-It does not matter. It's not like we have to hit the 5 seconds mark exactly.
+[...]
 
-> Regardless, the patch itself looks good.
+>>>>>> +    desc->ds = skb->len;
+>>>>>> +    desc->dptr = dma_map_single(&ndev->dev, buffer, skb->len,
+>>>>>> +                    DMA_TO_DEVICE);
+>>>>>> +    if (dma_mapping_error(&ndev->dev, desc->dptr)) {
+>>>>>> +        dev_kfree_skb_any(skb);
+>>>>>> +        priv->tx_skb[q][entry] = NULL;
 
-Thanks,
-Michal
+>>>>> Don't you need to make sure this NULL is properly seen by ravb_tx_free()?
+
+>>>>     You mean doing this before releasing the spinlock? Or what?
+
+>>> Yes, the locking your transmit function seems to open windows during
+>>> which it is possible for the interrupt handler running on another CPU to
+>>> mess up with the data you are using here.
+
+>>     Will look into that too...
+
+>     I have looked into the code and I must admit I don't understand how the
+> data can be messed up with. ravb_tx_free() only advances 'priv->dirty_tx' and
+> doesn't go beyond (or change) 'priv->cur_tx' which is used here...
+
+    Nevermind, now I'm seeing the race. :-(
+
+>>> --
+>>> Florian
+
+WBR, Sergei
+
