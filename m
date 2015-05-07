@@ -1,138 +1,95 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [RFC PATCH v2 net-next] netlink: avoid namespace change while
- creating socket
-Date: Thu, 7 May 2015 16:57:24 +0800
-Message-ID: <554B28F4.8060301@windriver.com>
-References: <1430892526-2446-1-git-send-email-ying.xue@windriver.com> <CAHA+R7N4R4-=XKTpRzT1zvR61MZuwiQgk-+SgHiCvACq58fzSw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>, <xemul@openvz.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Cong Wang <cwang@twopensource.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v2 3/7] netns: rename peernet2id() to peernet2id_alloc()
+Date: Thu,  7 May 2015 11:02:49 +0200
+Message-ID: <1430989373-4515-4-git-send-email-nicolas.dichtel@6wind.com>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+ <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: tgraf@suug.ch, davem@davemloft.net, ebiederm@xmission.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:35658 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725AbbEGI67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 04:58:59 -0400
-In-Reply-To: <CAHA+R7N4R4-=XKTpRzT1zvR61MZuwiQgk-+SgHiCvACq58fzSw@mail.gmail.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:43499 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353AbbEGJDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 05:03:04 -0400
+In-Reply-To: <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/07/2015 07:03 AM, Cong Wang wrote:
-> On Tue, May 5, 2015 at 11:08 PM, Ying Xue <ying.xue@windriver.com> wrote:
->> Commit 23fe18669e7f ("[NETNS]: Fix race between put_net() and
->> netlink_kernel_create().") attempts to fix the following race
->> scenario:
->>
->> put_net()
->>   if (atomic_dec_and_test(&net->refcnt))
->>     /* true */
->>       __put_net(net);
->>         queue_work(...);
->>
->> /*
->>  * note: the net now has refcnt 0, but still in
->>  * the global list of net namespaces
->>  */
->>
->> == re-schedule ==
->>
->> register_pernet_subsys(&some_ops);
->>   register_pernet_operations(&some_ops);
->>     (*some_ops)->init(net);
->>       /*
->>        * we call netlink_kernel_create() here
->>        * in some places
->>        */
->>       netlink_kernel_create();
->>          sk_alloc();
->>             get_net(net); /* refcnt = 1 */
->>          /*
->>           * now we drop the net refcount not to
->>           * block the net namespace exit in the
->>           * future (or this can be done on the
->>           * error path)
->>           */
->>          put_net(sk->sk_net);
->>              if (atomic_dec_and_test(&...))
->>                    /*
->>                     * true. BOOOM! The net is
->>                     * scheduled for release twice
->>                     */
->>
->> In order to prevent the race from happening, the commit adopted the
->> following solution: create netlink socket inside init_net namespace
->> and then re-attach it to the desired one right after the socket is
->> created; similarly, when close the socket, move back its namespace
->> to init_net so that the socket can be destroyed in the context which
->> is same as the socket creation.
->>
->> Actually the proposal artificially makes the whole thing complex.
->> Instead there exists a simpler solution to avoid the risk of net
->> double release: if we find that the net reference counter reaches
->> zero before the reference counter will be increased in sk_alloc(),
->> we can identify that the process of the net namespace exit happening
->> in workqueue is not finished yet. At the moment, we should immediately
->> exit from sk_alloc() to avoid the risk. This is because once refcount
->> reaches zero, the net will be definetely destroyed later in workqueue
->> whatever we take its refcount or not. This solution is not only simple
->> and easily understandable, but also it can help to avoid the redundant
->> namespace change.
->>
-> 
-> Hmm, why does the caller have to handle some race condition of the callee?
-> Isn't this solvable at netns API layer?
-> 
-> How about the following patch (PoC ONLY) ? __put_net() should be able
-> to detect a pending cleanup work, shouldn't it?
-> 
+In a following commit, a new function will be introduced to only lookup for
+a nsid (no allocation if the nsid doesn't exist). To avoid confusion, the
+existing function is renamed.
 
-Thanks to Cong! Your below idea is absolutely better than mine.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+---
 
-I have created a whole series based on the idea. Please review them.
-In addition, I am not sure whether I should use your "Suggested-by" or
-"Signed-off-by" tag in the first patch. But I finally selected the
-"Suggested-by". If you think the tag is inappropriate, please let me know. I
-will replace it with "Signed-off-by" tag in next version.
+v2: no change
 
-Thanks,
-Ying
+ drivers/net/vxlan.c         | 2 +-
+ include/net/net_namespace.h | 2 +-
+ net/core/net_namespace.c    | 4 ++--
+ net/core/rtnetlink.c        | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-> index 78fc04a..ded15a7 100644
-> --- a/net/core/net_namespace.c
-> +++ b/net/core/net_namespace.c
-> @@ -242,6 +242,7 @@ static __net_init int setup_net(struct net *net,
-> struct user_namespace *user_ns)
->         net->dev_base_seq = 1;
->         net->user_ns = user_ns;
->         idr_init(&net->netns_ids);
-> +       LIST_HEAD_INIT(&net->cleanup_list);
-> 
->         list_for_each_entry(ops, &pernet_list, list) {
->                 error = ops_init(ops, net);
-> @@ -409,12 +410,17 @@ void __put_net(struct net *net)
->  {
->         /* Cleanup the network namespace in process context */
->         unsigned long flags;
-> +       bool added = false;
-> 
->         spin_lock_irqsave(&cleanup_list_lock, flags);
-> -       list_add(&net->cleanup_list, &cleanup_list);
-> +       if (list_empty(&net->cleanup_list)) {
-> +               list_add(&net->cleanup_list, &cleanup_list);
-> +               added = true;
-> +       }
->         spin_unlock_irqrestore(&cleanup_list_lock, flags);
-> 
-> -       queue_work(netns_wq, &net_cleanup_work);
-> +       if (added)
-> +               queue_work(netns_wq, &net_cleanup_work);
->  }
->  EXPORT_SYMBOL_GPL(__put_net);
-> 
-> 
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 3517ab0aa803..48341ae49012 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -336,7 +336,7 @@ static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
+ 
+ 	if (!net_eq(dev_net(vxlan->dev), vxlan->net) &&
+ 	    nla_put_s32(skb, NDA_LINK_NETNSID,
+-			peernet2id(dev_net(vxlan->dev), vxlan->net)))
++			peernet2id_alloc(dev_net(vxlan->dev), vxlan->net)))
+ 		goto nla_put_failure;
+ 
+ 	if (send_eth && nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->eth_addr))
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index f733656404de..6d1e2eae32fb 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -271,7 +271,7 @@ static inline struct net *read_pnet(const possible_net_t *pnet)
+ #define __net_initconst	__initconst
+ #endif
+ 
+-int peernet2id(struct net *net, struct net *peer);
++int peernet2id_alloc(struct net *net, struct net *peer);
+ struct net *get_net_ns_by_id(struct net *net, int id);
+ 
+ struct pernet_operations {
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 37c68bb72db3..9c806ac569f9 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -202,13 +202,13 @@ static int __peernet2id(struct net *net, struct net *peer, bool alloc)
+ /* This function returns the id of a peer netns. If no id is assigned, one will
+  * be allocated and returned.
+  */
+-int peernet2id(struct net *net, struct net *peer)
++int peernet2id_alloc(struct net *net, struct net *peer)
+ {
+ 	bool alloc = atomic_read(&peer->count) == 0 ? false : true;
+ 
+ 	return __peernet2id(net, peer, alloc);
+ }
+-EXPORT_SYMBOL(peernet2id);
++EXPORT_SYMBOL(peernet2id_alloc);
+ 
+ struct net *get_net_ns_by_id(struct net *net, int id)
+ {
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 666e0928ba40..83e08323fdcd 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1204,7 +1204,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		struct net *link_net = dev->rtnl_link_ops->get_link_net(dev);
+ 
+ 		if (!net_eq(dev_net(dev), link_net)) {
+-			int id = peernet2id(dev_net(dev), link_net);
++			int id = peernet2id_alloc(dev_net(dev), link_net);
+ 
+ 			if (nla_put_s32(skb, IFLA_LINK_NETNSID, id))
+ 				goto nla_put_failure;
+-- 
+2.2.2
