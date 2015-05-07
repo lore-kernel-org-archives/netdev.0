@@ -1,176 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 00/11] netns: don't switch namespace while creating kernel sockets
-Date: Thu, 07 May 2015 11:14:13 -0500
-Message-ID: <87wq0kcqlm.fsf@x220.int.ebiederm.org>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: usb: allow MTU that is a multiple of USB packet
+ size
+Date: Thu, 7 May 2015 16:19:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB2F70B@AcuExch.aculab.com>
+References: <1430992159-27783-1-git-send-email-ruslan.bilovol@gmail.com>
+ <1430993477.30151.6.camel@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <cwang@twopensource.com>,
-	<herbert@gondor.apana.org.au>, <xemul@openvz.org>,
-	<davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<maxk@qti.qualcomm.com>, <stephen@networkplumber.org>,
-	<tgraf@suug.ch>, <nicolas.dichtel@6wind.com>,
-	<tom@herbertland.com>, <jchapman@katalix.com>,
-	<erik.hugne@ericsson.com>, <jon.maloy@ericsson.com>,
-	<horms@verge.net.au>
-To: Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Oliver Neukum' <oneukum@suse.de>,
+	Ruslan Bilovol <ruslan.bilovol@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:51133 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751735AbbEGQSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 12:18:47 -0400
-In-Reply-To: <1430988770-28907-1-git-send-email-ying.xue@windriver.com> (Ying
-	Xue's message of "Thu, 7 May 2015 16:52:39 +0800")
+Received: from smtp-out6.electric.net ([192.162.217.181]:51186 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751923AbbEGQVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 12:21:04 -0400
+In-Reply-To: <1430993477.30151.6.camel@suse.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ying Xue <ying.xue@windriver.com> writes:
-
-> When commit 23fe18669e7f ("[NETNS]: Fix race between put_net() and
-> netlink_kernel_create().") attempted to fix the race between put_net()
-> and kernel socket's creation, it adopted a complex solution: create
-> netlink socket inside init_net namespace and then re-attach it to the
-> desired one right after the socket is created; similarly, when close
-> the socket, move back its namespace to init_net so that the socket can
-> be destroyed in the context which is same as the socket creation.
->
-> But the solution artificially makes the whole thing complex as its
-> design is not only weird, but also it causes a bad consequence that
-> when all kernel modules create kernel sockets, they have to follow
-> the model of namespace switch. More importantly, with the way kernel
-> sockets are created in init_net namespace, but they are released in
-> another new ones. This inconsistent namespace brings some modules many
-> inconvenience. For example, what tipc socket is inserted to rhashtable
-> happens in socket's creation, and different namespace has different
-> rhashtable for tipc socket. With the approach, a tipc kernel socket
-> will be inserted into the rhashtable of init_net. But as releasing
-> the socket happens in another one, it causes what the socket cannot
-> be found from the rhashtable of the new namespace.
->
-> Therefore, we propose a simpler solution to avoid the race: if we
-> find there is still pending a cleanup work in __put_net(), we don't
-> queue a new cleanup work to stop the cleanup process. The new proposal
-> not only successfully solves the race, but also it can help us to
-> avoid unnecessary namespace switches when creating kernel sockets.
-> Moreover, it can guarantee that both creation and release of kernel
-> sockets happen in the same namespace at all time.
->
-> In the series, we first resolve the race with patch #1, and then
-> prevent namespace switches from happening in all relevant kernel
-> modules one by one from patch #2 to patch #9. Until now, as all
-> dependencies on sk_change_net() are killed, we can delete the
-> interface completely in patch #10. Lastly, we simplify the code of
-> creating kernel sockets through changing the original behaviours
-> of sock_create_kern() and sk_release_kernel(). If a kernel socket
-> is created within a namespace which is different with init_net,
-> we must put the reference counter of the namespace once the socket
-> is successfully allocated in sk_alloc(), otherwise, the namespace
-> is probably unable to be shut down finally. Therefore, we decrease
-> namespace's reference counter once a kernel socket is created
-> successfully by sock_create_kern() within a namespace which is
-> different with init_net. Similarly, namespace's reference counter
-> must be increased back before the socket is destroyed in
-> sk_release_kernel().
->
-> Welcome to any comments.
-
-I agree that commit 23fe18669e7f ("[NETNS]: Fix race between put_net()
-and netlink_kernel_create()."  was a hack.
-
-However it is not appropriate to call get_net on a network namespace
-whose count might be zero.  I believe all of your patches rely on that
-currently.  Instead we need to build something like sk_release_kernel
-that does not increase the network namespace reference count if you are
-going to avoid changing the network namespace on a socket (a worthy
-goal).
-
-The following change shows how it is possible to always know that your
-network namespace has a non-zero reference count in the network
-namespace initialization methods.  My implementation of
-lock_network_namespaces is problematic in that it does not sleep
-while network namespaces are unregistering.  But it is enough to show
-how the locking and reference counting can be fixed.
-
-Eric
-
-
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index a3abb719221f..81c53ccc5764 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -822,6 +822,49 @@ static void unregister_pernet_operations(struct pernet_operations *ops)
- 		ida_remove(&net_generic_ids, *ops->id);
- }
- 
-+static void unlock_network_namespaces(void)
-+{
-+	/* Drop the reference count to every network namespace
-+	 * and then release the net_mutex.
-+	 */
-+	struct net *net;
-+
-+	for_each_net(net)
-+		put_net(net);
-+
-+	mutex_unlock(&net_mutex);
-+}
-+
-+static void lock_network_namespaces(void)
-+{
-+	/* Take the mutex lock ensuring no new network namespaces
-+	 * and take a reference on all existing network namespaces
-+	 * allowing network namespace initialization code to take
-+	 * further references
-+	 */
-+	for (;;) {
-+		struct net *net, *stop;
-+
-+		mutex_lock(&net_mutex);
-+		for_each_net(net) {
-+			if (!maybe_get_net(net))
-+				goto undo;
-+		}
-+		return;
-+undo:
-+		/* Remember the network namespace whose reference
-+		 * count was not acquired. */
-+		stop = net;
-+		for_each_net(net) {
-+			if (net_eq(net, stop))
-+				goto undone;
-+			put_net(net);
-+		}
-+undone:
-+		mutex_unlock(&net_mutex);
-+	}
-+}
-+
- /**
-  *      register_pernet_subsys - register a network namespace subsystem
-  *	@ops:  pernet operations structure for the subsystem
-@@ -844,9 +887,9 @@ static void unregister_pernet_operations(struct pernet_operations *ops)
- int register_pernet_subsys(struct pernet_operations *ops)
- {
- 	int error;
--	mutex_lock(&net_mutex);
-+	lock_network_namespaces();
- 	error =  register_pernet_operations(first_device, ops);
--	mutex_unlock(&net_mutex);
-+	unlock_network_namespaces();
- 	return error;
- }
- EXPORT_SYMBOL_GPL(register_pernet_subsys);
-@@ -890,11 +933,11 @@ EXPORT_SYMBOL_GPL(unregister_pernet_subsys);
- int register_pernet_device(struct pernet_operations *ops)
- {
- 	int error;
--	mutex_lock(&net_mutex);
-+	lock_network_namespaces();
- 	error = register_pernet_operations(&pernet_list, ops);
- 	if (!error && (first_device == &pernet_list))
- 		first_device = &ops->list;
--	mutex_unlock(&net_mutex);
-+	unlock_network_namespaces();
- 	return error;
- }
- EXPORT_SYMBOL_GPL(register_pernet_device);
+RnJvbTogT2xpdmVyIE5ldWt1bQ0KPiBTZW50OiAwNyBNYXkgMjAxNSAxMToxMQ0KPiBPbiBUaHUs
+IDIwMTUtMDUtMDcgYXQgMTI6NDkgKzAzMDAsIFJ1c2xhbiBCaWxvdm9sIHdyb3RlOg0KPiA+IEN1
+cnJlbnQgdXNibmV0IGRyaXZlciByZWplY3RzIHNldHRpbmcgTVRVIHRoYXQgaXMgYSBtdWx0aXBs
+ZQ0KPiA+IG9mIFVTQiBlbmRwb2ludCdzIHdNYXhQYWNrZXRTaXplIHNpemUuIEhvd2V2ZXIsIGl0
+IG1heSBvbmx5DQo+ID4gbGVhZCB0byBwb3NzaWJsZSBwZXJmb3JtYW5jZSBkZWdyYWRhdGlvbiBi
+dXQgaXMgbm90IHNvDQo+ID4gY3JpdGljYWwgdGhhdCBpdHMgdXNpbmcgc2hvdWxkIGJlIHByb2hp
+Yml0ZWQuIFNvIGFsbG93IGl0DQo+ID4gYnV0IGFsc28gd2FybiB1c2VyIGFib3V0IHBvc3NpYmxl
+IGlzc3VlLg0KPiANCj4gV2UgaGF2ZSByZXBvcnRzIGFib3V0IGRldmljZXMgcmVhY3RpbmcgYmFk
+bHkgdG8gWkxQcy4NCj4gVW5sZXNzIHlvdSBoYXZlIGEgY29tcGVsbGluZyByZWFzb25zIGZvciB0
+aGlzIGNoYW5nZQ0KPiBJIGhhdmUgdG8gcmVqZWN0IGl0Lg0KDQpJIGRvbid0IHJlbWVtYmVyIHNl
+ZWluZyBhIGZpeCBmb3IgeGhjaSB0byBldmVuIHNlbmQgWkxQIGdvIHRocm91Z2guDQpJZiB0aGUg
+WkxQIGFyZSBzZW50IHRoZW4gdGhlIGRldmljZSB3aWxsIGJlaGF2ZSBiYWRseS4NCg0KVGhlIHJl
+Y2VpdmUgc2lkZSBjb2RlIGluIHVzYm5ldCBhbHNvIG5lZWRzIGEgbG90IG9mIFRMQy4NCihJIGRv
+bid0IHJlbWVtYmVyIGFueXRoaW5nIG1ham9yIGhhcHBlbmluZyB0byBpdCBpbiB0aGUgbGFzdCBj
+b3VwbGUNCm9mIHllYXJzLikNCkkgdGhpbmsgaXQgd291bGQgYmUgYmV0dGVyIGlmIGl0IGRpZG4n
+dCB0cnkgdG8gdXNlIHNrYiBmb3IgcmVjZWl2ZSBVUkIuDQpJbnN0ZWFkIGl0IHNob3VsZCBzdXBw
+bHkgVVJCIHRoYXQgYXJlIGFsd2F5cyBtdWx0aXBsZXMgb2YgdGhlIFVTQg0KYnVmZmVyIHNpemUg
+YW5kIHRoZW4gZ2VuZXJhdGUgcmVjZWl2ZSBza2IgZnJvbSB0aGUgcmVjZWl2ZSBVU0IgZGF0YS4N
+ClRoaXMgd291bGQgcmVxdWlyZSBjb2RlIHRoYXQgY29ycmVjdGx5IHByb2Nlc3NlcyBldGhlcm5l
+dCBmcmFtZXMgdGhhdA0Kc3BhbiBVUkIgYm91bmRhcmllcy4NClRoaXMgd291bGQgcmVtb3ZlIHRo
+ZSBuZWVkIGZvciB0aGUgMTZrKyBzaXplZCBza2IgdXNlZCBieSBzb21lIG9mIHRoZQ0Kc3ViLWRy
+aXZlcnMgYW5kIHRoZSB0eXBpY2FsIGx5aW5nIGFib3V0IHRoZSAndHJ1ZSBzaXplJy4NCg0KRm9y
+IHhoY2kgaXQgcmVhbGx5IG91Z2h0IHRvIGJlIHBvc3NpYmxlIHRvIHJlbW92ZSBhIGxvdCBvZiBj
+b2RlIGZyb20gdGhlDQp0eCBhbmQgcnggZGF0YSBwYXRocyBhbmQganVzdCB3cml0ZSB0aGUgYnVm
+ZmVyIGRlc2NyaXB0b3JzIGRpcmVjdGx5IGludG8NCnRoZSByaW5nIGVudHJpZXMgKGFzIGlzIGEg
+dHlwaWNhbCBldGhlcm5ldCBkcml2ZXIpLg0KVGhhdCBtaWdodCBnZXQgdGhlIHBlcmZvcm1hbmNl
+IChhbmQgc29mdHdhcmUgb3ZlcmhlYWQpIG9mIFVTQjMgR2UgbXVjaA0KbmVhcmVyIHRoYXQgb2Yg
+YSBub3JtYWwgZXRoZXJuZXQgZGV2aWNlLg0KDQoJRGF2aWQNCg0K
