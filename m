@@ -1,127 +1,137 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [RFC PATCH net-next 00/11] netns: don't switch namespace while
- creating kernel sockets
-Date: Thu, 7 May 2015 11:19:05 -0700
-Message-ID: <CAHA+R7NuxGDnCSfVXJ4tcqYNZGu6RetYLvtrMo4SSqRFHKCFPg@mail.gmail.com>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
-	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ying Xue <ying.xue@windriver.com>, netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>, xemul@openvz.org,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, maxk@qti.qualcomm.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Tom Herbert <tom@herbertland.com>,
-	James Chapman <jchapman@katalix.com>,
-	Erik Hugne <erik.hugne@ericsson.com>, jon.maloy@ericsson.com,
-	horms@verge.net.au
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [PATCH RFC 1/2] stmac: support standalone platform drivers
+Date: Thu,  7 May 2015 20:19:24 +0200
+Message-ID: <1431022765-30715-2-git-send-email-manabian@gmail.com>
+References: <1431022765-30715-1-git-send-email-manabian@gmail.com>
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+	Joachim Eastwood <manabian@gmail.com>
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:34324 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752122AbbEGSTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 14:19:07 -0400
-Received: by laat2 with SMTP id t2so36760536laa.1
-        for <netdev@vger.kernel.org>; Thu, 07 May 2015 11:19:05 -0700 (PDT)
-In-Reply-To: <87wq0kcqlm.fsf@x220.int.ebiederm.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:36591 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238AbbEGSTe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 14:19:34 -0400
+Received: by lagv1 with SMTP id v1so36763054lag.3
+        for <netdev@vger.kernel.org>; Thu, 07 May 2015 11:19:32 -0700 (PDT)
+In-Reply-To: <1431022765-30715-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 7, 2015 at 9:14 AM, Eric W. Biederman <ebiederm@xmission.com> wrote:
-> Ying Xue <ying.xue@windriver.com> writes:
->
->> When commit 23fe18669e7f ("[NETNS]: Fix race between put_net() and
->> netlink_kernel_create().") attempted to fix the race between put_net()
->> and kernel socket's creation, it adopted a complex solution: create
->> netlink socket inside init_net namespace and then re-attach it to the
->> desired one right after the socket is created; similarly, when close
->> the socket, move back its namespace to init_net so that the socket can
->> be destroyed in the context which is same as the socket creation.
->>
->> But the solution artificially makes the whole thing complex as its
->> design is not only weird, but also it causes a bad consequence that
->> when all kernel modules create kernel sockets, they have to follow
->> the model of namespace switch. More importantly, with the way kernel
->> sockets are created in init_net namespace, but they are released in
->> another new ones. This inconsistent namespace brings some modules many
->> inconvenience. For example, what tipc socket is inserted to rhashtable
->> happens in socket's creation, and different namespace has different
->> rhashtable for tipc socket. With the approach, a tipc kernel socket
->> will be inserted into the rhashtable of init_net. But as releasing
->> the socket happens in another one, it causes what the socket cannot
->> be found from the rhashtable of the new namespace.
->>
->> Therefore, we propose a simpler solution to avoid the race: if we
->> find there is still pending a cleanup work in __put_net(), we don't
->> queue a new cleanup work to stop the cleanup process. The new proposal
->> not only successfully solves the race, but also it can help us to
->> avoid unnecessary namespace switches when creating kernel sockets.
->> Moreover, it can guarantee that both creation and release of kernel
->> sockets happen in the same namespace at all time.
->>
->> In the series, we first resolve the race with patch #1, and then
->> prevent namespace switches from happening in all relevant kernel
->> modules one by one from patch #2 to patch #9. Until now, as all
->> dependencies on sk_change_net() are killed, we can delete the
->> interface completely in patch #10. Lastly, we simplify the code of
->> creating kernel sockets through changing the original behaviours
->> of sock_create_kern() and sk_release_kernel(). If a kernel socket
->> is created within a namespace which is different with init_net,
->> we must put the reference counter of the namespace once the socket
->> is successfully allocated in sk_alloc(), otherwise, the namespace
->> is probably unable to be shut down finally. Therefore, we decrease
->> namespace's reference counter once a kernel socket is created
->> successfully by sock_create_kern() within a namespace which is
->> different with init_net. Similarly, namespace's reference counter
->> must be increased back before the socket is destroyed in
->> sk_release_kernel().
->>
->> Welcome to any comments.
->
-> I agree that commit 23fe18669e7f ("[NETNS]: Fix race between put_net()
-> and netlink_kernel_create()."  was a hack.
->
-> However it is not appropriate to call get_net on a network namespace
-> whose count might be zero.  I believe all of your patches rely on that
-> currently.  Instead we need to build something like sk_release_kernel
-> that does not increase the network namespace reference count if you are
-> going to avoid changing the network namespace on a socket (a worthy
-> goal).
->
-> The following change shows how it is possible to always know that your
-> network namespace has a non-zero reference count in the network
-> namespace initialization methods.  My implementation of
-> lock_network_namespaces is problematic in that it does not sleep
-> while network namespaces are unregistering.  But it is enough to show
-> how the locking and reference counting can be fixed.
+Prepare the stmmac platform code to support standalone drivers
+by exporting the need functions and having of_match_device use
+the match table reference already present in the driver struct.
 
-Why does this have to be so complicated? We can simply avoid
-calling ops_init() by skipping those in cleanup_list, no?
+Reorder the build order so that the most specific drivers are
+built and registered first.
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 78fc04a..c7cbd5a 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -242,6 +242,7 @@ static __net_init int setup_net(struct net *net,
-struct user_namespace *user_ns)
-        net->dev_base_seq = 1;
-        net->user_ns = user_ns;
-        idr_init(&net->netns_ids);
-+       INIT_LIST_HEAD(&net->cleanup_list);
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/Makefile          | 10 ++++++++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 14 +++++++++-----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h |  4 ++++
+ 3 files changed, 21 insertions(+), 7 deletions(-)
 
-        list_for_each_entry(ops, &pernet_list, list) {
-                error = ops_init(ops, net);
-@@ -737,6 +738,8 @@ static int __register_pernet_operations(struct
-list_head *list,
-        list_add_tail(&ops->list, list);
-        if (ops->init || (ops->id && ops->size)) {
-                for_each_net(net) {
-+                       if (!list_empty(net->cleanup_list)) // <---
-Need a big comment here;
-+                               continue;
-                        error = ops_init(ops, net);
-                        if (error)
-                                goto out_undo;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index 73c2715a27f3..f35e2bcde55f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -4,9 +4,15 @@ stmmac-objs:= stmmac_main.o stmmac_ethtool.o stmmac_mdio.o ring_mode.o	\
+ 	      dwmac100_core.o dwmac100_dma.o enh_desc.o norm_desc.o	\
+ 	      mmc_core.o stmmac_hwtstamp.o stmmac_ptp.o $(stmmac-y)
+ 
++# ordering matters; keep stmmac_platform.o at the bottom
+ obj-$(CONFIG_STMMAC_PLATFORM) += stmmac-platform.o
+-stmmac-platform-objs:= stmmac_platform.o dwmac-meson.o dwmac-sunxi.o	\
+-		       dwmac-sti.o dwmac-socfpga.o dwmac-rk.o
++stmmac-platform-objs:= \
++		dwmac-meson.o		\
++		dwmac-rk.o		\
++		dwmac-socfpga.o		\
++		dwmac-sti.o		\
++		dwmac-sunxi.o		\
++		stmmac_platform.o
+ 
+ obj-$(CONFIG_STMMAC_PCI) += stmmac-pci.o
+ stmmac-pci-objs:= stmmac_pci.o
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 705bbdf93940..3263d40e00a7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -128,11 +128,12 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct stmmac_dma_cfg *dma_cfg;
+ 	const struct of_device_id *device;
++	struct device *dev = &pdev->dev;
+ 
+ 	if (!np)
+ 		return -ENODEV;
+ 
+-	device = of_match_device(stmmac_dt_ids, &pdev->dev);
++	device = of_match_device(dev->driver->of_match_table, dev);
+ 	if (!device)
+ 		return -ENODEV;
+ 
+@@ -267,7 +268,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+  * the necessary platform resources, invoke custom helper (if required) and
+  * invoke the main probe function.
+  */
+-static int stmmac_pltfr_probe(struct platform_device *pdev)
++int stmmac_pltfr_probe(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+ 	struct resource *res;
+@@ -373,6 +374,7 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(stmmac_pltfr_probe);
+ 
+ /**
+  * stmmac_pltfr_remove
+@@ -380,7 +382,7 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+  * Description: this function calls the main to free the net resources
+  * and calls the platforms hook and release the resources (e.g. mem).
+  */
+-static int stmmac_pltfr_remove(struct platform_device *pdev)
++int stmmac_pltfr_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+@@ -394,6 +396,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(stmmac_pltfr_remove);
+ 
+ #ifdef CONFIG_PM_SLEEP
+ /**
+@@ -437,8 +440,9 @@ static int stmmac_pltfr_resume(struct device *dev)
+ }
+ #endif /* CONFIG_PM_SLEEP */
+ 
+-static SIMPLE_DEV_PM_OPS(stmmac_pltfr_pm_ops,
+-			 stmmac_pltfr_suspend, stmmac_pltfr_resume);
++SIMPLE_DEV_PM_OPS(stmmac_pltfr_pm_ops, stmmac_pltfr_suspend,
++				       stmmac_pltfr_resume);
++EXPORT_SYMBOL_GPL(stmmac_pltfr_pm_ops);
+ 
+ static struct platform_driver stmmac_pltfr_driver = {
+ 	.probe = stmmac_pltfr_probe,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+index 093eb99e5ffd..23d10f6e8846 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
+@@ -19,6 +19,10 @@
+ #ifndef __STMMAC_PLATFORM_H__
+ #define __STMMAC_PLATFORM_H__
+ 
++int stmmac_pltfr_probe(struct platform_device *pdev);
++int stmmac_pltfr_remove(struct platform_device *pdev);
++extern const struct dev_pm_ops stmmac_pltfr_pm_ops;
++
+ extern const struct stmmac_of_data meson6_dwmac_data;
+ extern const struct stmmac_of_data sun7i_gmac_data;
+ extern const struct stmmac_of_data stih4xx_dwmac_data;
+-- 
+1.8.0
