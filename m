@@ -1,53 +1,50 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: usb: allow MTU that is a multiple of USB packet
- size
-Date: Thu, 7 May 2015 16:19:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB2F70B@AcuExch.aculab.com>
-References: <1430992159-27783-1-git-send-email-ruslan.bilovol@gmail.com>
- <1430993477.30151.6.camel@suse.de>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v5 2/2] pktgen: introduce xmit_mode '<start_xmit|netif_receive>'
+Date: Thu, 07 May 2015 09:28:03 -0700
+Message-ID: <554B9293.2070702@plumgrid.com>
+References: <20150507143329.8534.49710.stgit@ivy> <20150507143500.8534.4435.stgit@ivy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Oliver Neukum' <oneukum@suse.de>,
-	Ruslan Bilovol <ruslan.bilovol@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:51186 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751923AbbEGQVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 12:21:04 -0400
-In-Reply-To: <1430993477.30151.6.camel@suse.de>
-Content-Language: en-US
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:33684 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135AbbEGQ2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 12:28:06 -0400
+Received: by iepj10 with SMTP id j10so40439416iep.0
+        for <netdev@vger.kernel.org>; Thu, 07 May 2015 09:28:06 -0700 (PDT)
+In-Reply-To: <20150507143500.8534.4435.stgit@ivy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogT2xpdmVyIE5ldWt1bQ0KPiBTZW50OiAwNyBNYXkgMjAxNSAxMToxMQ0KPiBPbiBUaHUs
-IDIwMTUtMDUtMDcgYXQgMTI6NDkgKzAzMDAsIFJ1c2xhbiBCaWxvdm9sIHdyb3RlOg0KPiA+IEN1
-cnJlbnQgdXNibmV0IGRyaXZlciByZWplY3RzIHNldHRpbmcgTVRVIHRoYXQgaXMgYSBtdWx0aXBs
-ZQ0KPiA+IG9mIFVTQiBlbmRwb2ludCdzIHdNYXhQYWNrZXRTaXplIHNpemUuIEhvd2V2ZXIsIGl0
-IG1heSBvbmx5DQo+ID4gbGVhZCB0byBwb3NzaWJsZSBwZXJmb3JtYW5jZSBkZWdyYWRhdGlvbiBi
-dXQgaXMgbm90IHNvDQo+ID4gY3JpdGljYWwgdGhhdCBpdHMgdXNpbmcgc2hvdWxkIGJlIHByb2hp
-Yml0ZWQuIFNvIGFsbG93IGl0DQo+ID4gYnV0IGFsc28gd2FybiB1c2VyIGFib3V0IHBvc3NpYmxl
-IGlzc3VlLg0KPiANCj4gV2UgaGF2ZSByZXBvcnRzIGFib3V0IGRldmljZXMgcmVhY3RpbmcgYmFk
-bHkgdG8gWkxQcy4NCj4gVW5sZXNzIHlvdSBoYXZlIGEgY29tcGVsbGluZyByZWFzb25zIGZvciB0
-aGlzIGNoYW5nZQ0KPiBJIGhhdmUgdG8gcmVqZWN0IGl0Lg0KDQpJIGRvbid0IHJlbWVtYmVyIHNl
-ZWluZyBhIGZpeCBmb3IgeGhjaSB0byBldmVuIHNlbmQgWkxQIGdvIHRocm91Z2guDQpJZiB0aGUg
-WkxQIGFyZSBzZW50IHRoZW4gdGhlIGRldmljZSB3aWxsIGJlaGF2ZSBiYWRseS4NCg0KVGhlIHJl
-Y2VpdmUgc2lkZSBjb2RlIGluIHVzYm5ldCBhbHNvIG5lZWRzIGEgbG90IG9mIFRMQy4NCihJIGRv
-bid0IHJlbWVtYmVyIGFueXRoaW5nIG1ham9yIGhhcHBlbmluZyB0byBpdCBpbiB0aGUgbGFzdCBj
-b3VwbGUNCm9mIHllYXJzLikNCkkgdGhpbmsgaXQgd291bGQgYmUgYmV0dGVyIGlmIGl0IGRpZG4n
-dCB0cnkgdG8gdXNlIHNrYiBmb3IgcmVjZWl2ZSBVUkIuDQpJbnN0ZWFkIGl0IHNob3VsZCBzdXBw
-bHkgVVJCIHRoYXQgYXJlIGFsd2F5cyBtdWx0aXBsZXMgb2YgdGhlIFVTQg0KYnVmZmVyIHNpemUg
-YW5kIHRoZW4gZ2VuZXJhdGUgcmVjZWl2ZSBza2IgZnJvbSB0aGUgcmVjZWl2ZSBVU0IgZGF0YS4N
-ClRoaXMgd291bGQgcmVxdWlyZSBjb2RlIHRoYXQgY29ycmVjdGx5IHByb2Nlc3NlcyBldGhlcm5l
-dCBmcmFtZXMgdGhhdA0Kc3BhbiBVUkIgYm91bmRhcmllcy4NClRoaXMgd291bGQgcmVtb3ZlIHRo
-ZSBuZWVkIGZvciB0aGUgMTZrKyBzaXplZCBza2IgdXNlZCBieSBzb21lIG9mIHRoZQ0Kc3ViLWRy
-aXZlcnMgYW5kIHRoZSB0eXBpY2FsIGx5aW5nIGFib3V0IHRoZSAndHJ1ZSBzaXplJy4NCg0KRm9y
-IHhoY2kgaXQgcmVhbGx5IG91Z2h0IHRvIGJlIHBvc3NpYmxlIHRvIHJlbW92ZSBhIGxvdCBvZiBj
-b2RlIGZyb20gdGhlDQp0eCBhbmQgcnggZGF0YSBwYXRocyBhbmQganVzdCB3cml0ZSB0aGUgYnVm
-ZmVyIGRlc2NyaXB0b3JzIGRpcmVjdGx5IGludG8NCnRoZSByaW5nIGVudHJpZXMgKGFzIGlzIGEg
-dHlwaWNhbCBldGhlcm5ldCBkcml2ZXIpLg0KVGhhdCBtaWdodCBnZXQgdGhlIHBlcmZvcm1hbmNl
-IChhbmQgc29mdHdhcmUgb3ZlcmhlYWQpIG9mIFVTQjMgR2UgbXVjaA0KbmVhcmVyIHRoYXQgb2Yg
-YSBub3JtYWwgZXRoZXJuZXQgZGV2aWNlLg0KDQoJRGF2aWQNCg0K
+On 5/7/15 7:35 AM, Jesper Dangaard Brouer wrote:
+> From: Alexei Starovoitov <ast@plumgrid.com>
+>
+> Introduce xmit_mode 'netif_receive' for pktgen which generates the
+> packets using familiar pktgen commands, but feeds them into
+> netif_receive_skb() instead of ndo_start_xmit().
+>
+> Default mode is called 'start_xmit'.
+...
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>
+> ---
+> v4->v5:
+> - Rename xmit_mode's <start_xmit|netif_receive>
+> - Save one branch when calling eth_type_trans(), noticed by Alex Duyck
+
+looks good to me. Thanks a lot.
+
+btw, I've started to work on a patch on top of this one that allows
+multiple pktgen threads to submit into the same netdev.
+I've used it to stress test removal of spin_lock in ingress qdisc.
+The idea is to add another 'name' parameter to command:
+'add_device name dev'
+'name' will be used to identify this pktgen thread in /proc
+and 'dev' used as target net_device.
+I think it will be useful for start_xmit testing as well.
+I wonder why it wasn't done earlier? The queue configuration is
+already supported.
