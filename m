@@ -1,130 +1,135 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH iproute2 v2 net-next] iplink_bond: add support for
- ad_actor and port_key options
-Date: Thu, 7 May 2015 15:58:03 -0700
-Message-ID: <CAF2d9jhOBccE+00BYBjcjC_r8wuEHLczpzAvFSxfVgeGb8KcJg@mail.gmail.com>
-References: <cover.1430892486.git.jtoppins@cumulusnetworks.com> <80ff1219ebfdde06cc807bc70461f4ccc4c8fb7f.1430892268.git.jtoppins@cumulusnetworks.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: Request for advice on where to put Root Complex "fix up" code
+ for downstream device
+Date: Thu, 7 May 2015 18:04:26 -0500
+Message-ID: <20150507230426.GO24643@google.com>
+References: <4985EFDD773FCB459EF7915D2A3621ADBC7408@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	shm@cumulusnetworks.com,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:36266 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404AbbEGW6Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 18:58:24 -0400
-Received: by oift201 with SMTP id t201so45885687oif.3
-        for <netdev@vger.kernel.org>; Thu, 07 May 2015 15:58:24 -0700 (PDT)
-In-Reply-To: <80ff1219ebfdde06cc807bc70461f4ccc4c8fb7f.1430892268.git.jtoppins@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4985EFDD773FCB459EF7915D2A3621ADBC7408@nice.asicdesigners.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 6, 2015 at 1:41 PM, Jonathan Toppins
-<jtoppins@cumulusnetworks.com> wrote:
-> This adds support for setting and displaying the following bonding
-> options:
-> * ad_user_port_key
-> * ad_actor_sys_prio
-> * ad_actor_system
->
-> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Acked-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  v2:
->    * rebased
->
->  ip/iplink_bond.c |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 48 insertions(+)
->
-> diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
-> index a573f92..989e642 100644
-> --- a/ip/iplink_bond.c
-> +++ b/ip/iplink_bond.c
-> @@ -135,6 +135,9 @@ static void print_explain(FILE *f)
->                 "                [ packets_per_slave PACKETS_PER_SLAVE ]\n"
->                 "                [ lacp_rate LACP_RATE ]\n"
->                 "                [ ad_select AD_SELECT ]\n"
-> +               "                [ ad_user_port_key PORTKEY ]\n"
-> +               "                [ ad_actor_sys_prio SYSPRIO ]\n"
-> +               "                [ ad_actor_system LLADDR ]\n"
->                 "\n"
->                 "BONDMODE := balance-rr|active-backup|balance-xor|broadcast|802.3ad|balance-tlb|balance-alb\n"
->                 "ARP_VALIDATE := none|active|backup|all\n"
-> @@ -158,6 +161,7 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
->         __u8 mode, use_carrier, primary_reselect, fail_over_mac;
->         __u8 xmit_hash_policy, num_peer_notif, all_slaves_active;
->         __u8 lacp_rate, ad_select;
-> +       __u16 ad_user_port_key, ad_actor_sys_prio;
->         __u32 miimon, updelay, downdelay, arp_interval, arp_validate;
->         __u32 arp_all_targets, resend_igmp, min_links, lp_interval;
->         __u32 packets_per_slave;
-> @@ -344,6 +348,31 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
->                         }
->                         ad_select = get_index(ad_select_tbl, *argv);
->                         addattr8(n, 1024, IFLA_BOND_AD_SELECT, ad_select);
-> +               } else if (matches(*argv, "ad_user_port_key") == 0) {
-> +                       NEXT_ARG();
-> +                       if (get_u16(&ad_user_port_key, *argv, 0)) {
-> +                               invarg("invalid ad_user_port_key", *argv);
-> +                               return -1;
-> +                       }
-> +                       addattr16(n, 1024, IFLA_BOND_AD_USER_PORT_KEY,
-> +                                 ad_user_port_key);
-> +               } else if (matches(*argv, "ad_actor_sys_prio") == 0) {
-> +                       NEXT_ARG();
-> +                       if (get_u16(&ad_actor_sys_prio, *argv, 0)) {
-> +                               invarg("invalid ad_actor_sys_prio", *argv);
-> +                               return -1;
-> +                       }
-> +                       addattr16(n, 1024, IFLA_BOND_AD_ACTOR_SYS_PRIO,
-> +                                 ad_actor_sys_prio);
-> +               } else if (matches(*argv, "ad_actor_system") == 0) {
-> +                       int len;
-> +                       char abuf[32];
-> +
-> +                       NEXT_ARG();
-> +                       len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-> +                       if (len < 0)
-> +                               return -1;
-> +                       addattr_l(n, 1024, IFLA_BOND_AD_ACTOR_SYSTEM, abuf, len);
->                 } else if (matches(*argv, "help") == 0) {
->                         explain();
->                         return -1;
-> @@ -534,6 +563,25 @@ static void bond_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
->                                 ll_addr_n2a(p, ETH_ALEN, 0, b, sizeof(b)));
->                 }
->         }
-> +
-> +       if (tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]) {
-> +               fprintf(f, "ad_actor_sys_prio %u ",
-> +                       rta_getattr_u16(tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]));
-> +       }
-> +
-> +       if (tb[IFLA_BOND_AD_USER_PORT_KEY]) {
-> +               fprintf(f, "ad_user_port_key %u ",
-> +                       rta_getattr_u16(tb[IFLA_BOND_AD_USER_PORT_KEY]));
-> +       }
-> +
-> +       if (tb[IFLA_BOND_AD_ACTOR_SYSTEM]) {
-> +               /* We assume the l2 address is an Ethernet MAC address */
-> +               SPRINT_BUF(b1);
-> +               fprintf(f, "ad_actor_system %s ",
-> +                       ll_addr_n2a(RTA_DATA(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
-> +                                   RTA_PAYLOAD(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
-> +                                   1 /*ARPHDR_ETHER*/, b1, sizeof(b1)));
-> +       }
+Hi Casey,
+
+On Thu, May 07, 2015 at 12:34:51AM +0000, Casey Leedom wrote:
+> Hello,
+> 
+>   I've included both the Network and PCI Development mailing lists because this crosses both domains.  If this violates protocols, I apologise in advance.  I believe that this ~probably~ will be a "PCI Development" issue but since it affects a Network Device, I figured input from that quarter should be solicited as well.
+> 
+>   We have a Network Device, T5, which unfortunately has a PCI Compliance bug in it[1].  Doubly unfortunately, the PCI SIG 3.0 Compliance Tests which we dutifully ranb before releasing the silicon two years ago didn't include a vector for this, so it wasn't discovered till very recently.  In order to solve this bug, we need to modify the Root Complex's PCI Express Capability Device Control register in order to turn off the Enable No Snoop and Enable Relaxed Ordering features.
+> 
+>   I've cons'ed up demonstration code within the Device Driver for T5, cxgb4, to traverse the PCI graph to the Root Complex for the T5 Device and perform this modification[2].  This demonstrates the "workability" of doing the operation, but I'm betting that this is _not_ where either the Network or PCI Development teams would like such code to go.  My expectation is that this code needs to go into drivers/pci/quirks.c.
+> 
+>   So, this mail is a request for advice on how the Network and PCI Development teams would like this handled.  Once I receive this input, I will submit a patch to the correct team for inclusion in the kernel.  Thank you for your time and attention.
+
+There are a lot of fixups in drivers/pci/quirks.c.  For things that have to
+be worked around either before a driver claims the device or if there is no
+driver at all, the fixup *has* to go in drivers/pci/quirks.c
+
+But for things like this, where the problem can only occur after a driver
+claims the device, I think it makes more sense to put the fixup in the
+driver itself.  The only wrinkle here is that the fixup has to be done on a
+separate device, not the device claimed by the driver.  But I think it
+probably still makes sense to put this fixup in the driver.
+
+> Casey
+> 
+> [1] Chelsio T5 PCI-E Compliance Bug:
+> 
+>     The bug is that when the Root Complex send a Transaction Layer Packet (TLP)
+>     Request downstream to a Device,the TLP may contain Attributes.  The PCI
+>     Specification states that two of these Attributes, No Snoop and Relaxed
+>     Ordering, must be included in the Device's TLP Response.  Further, the PCI
+>     Specification "encourages" Root Complexes to drop TLP Responses which
+>     are out of compliance with this rule.
+
+Can you include a pointer to the relevant part of the spec?
+
+> [2] Demonstration Code for clearing Root Complex No Snoop and Relaxed Ordering:
+> 
+> --- a/drivers/net/ethernet/chelsio/cxgb4_main.c	Mon Apr 06 09:27:21 2015 -0700
+> +++ b/drivers/net/ethernet/chelsio/cxgb4_main.c	Tue Apr 07 13:39:05 2015 -0700
+> @@ -9956,6 +9956,36 @@ static void enable_pcie_relaxed_ordering
+>  	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
 >  }
->
->  static void bond_print_help(struct link_util *lu, int argc, char **argv,
-> --
-> 1.7.10.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  
+> +/*
+> + * Find the highest PCI-Express bridge above a PCI Device.  If found, that's
+> + * the Root Complex PCI-PCI Bridge for the PCI Device.  If we find the Root
+> + * Comples, clear the Enable Relaxed Ordering and Enable No Snoop bits in that
+
+s/Comples/Complex/, but the Root Complex itself does not appear as a PCI
+device, so we'll never actually find *it*.  But I think we should *always*
+find a Root Port.  Your code and text suggests that it's possible we
+wouldn't (since you say "*If* found, ...").  Is there a case you're
+thinking of where we wouldn't find a Root Port?
+
+> + * bridge's PCI-E Capability Device Control register.  This will prevent the
+> + * Root Complex from setting those attributes in the Transaction Layer Packets
+> + * of the Requests which it sends down stream to the PCI Device.
+> + */
+> +static void clear_root_complex_tlp_attributes(struct pci_dev *pdev)
+> +{
+> +	struct pci_bus *bus = pdev->bus;
+> +	struct pci_dev *highest_pcie_bridge = NULL;
+> +
+> +	while (bus) {
+> +		struct pci_dev *bridge = bus->self;
+> +
+> +		if (!bridge || !bridge->pcie_cap)
+> +			break;
+> +		highest_pcie_bridge = bridge;
+> +		bus = bus->parent;
+> +	}
+
+Can you use pci_upstream_bridge() here?  There are a couple places where we
+want to find the Root Port, so we might factor that out someday.  It'll be
+easier to find all those places if they use with pci_upstream_bridge().
+
+> +
+> +	if (highest_pcie_bridge)
+> +		pcie_capability_clear_and_set_word(highest_pcie_bridge,
+> +						   PCI_EXP_DEVCTL,
+> +						   PCI_EXP_DEVCTL_RELAX_EN |
+> +						   PCI_EXP_DEVCTL_NOSNOOP_EN,
+> +						   0);
+
+Please include a dmesg note here, especially since the driver is changing
+the config of a device other than its own.
+
+> +}
+> +
+>  static int init_one(struct pci_dev *pdev,
+>  			      const struct pci_device_id *ent)
+>  {
+> @@ -9973,6 +10003,19 @@ static int init_one(struct pci_dev *pdev
+>  		++version_printed;
+>  	}
+>  
+> +	/*
+> +	 * T5 has a PCI-E Compliance bug in it where it doesn't copy the
+> +	 * Transaction Layer Packet Attributes from downstream Requests into
+> +	 * it's upstream Responses.  Most Root Complexes are fine with this
+
+s/it's/its/
+
+> +	 * but a few get prissy and drop the non-compliant T5 Responses
+> +	 * leading to endless Device Timeouts when TLP Attributes are set.  So
+> +	 * if we're a T5, attempt to clear our Root Complex's enable bits for
+> +	 * TLP Attributes ...
+> +	 */
+> +	if (CHELSIO_PCI_ID_VER(pdev->device) == CHELSIO_T5 ||
+> +	    CHELSIO_PCI_ID_VER(pdev->device) == CHELSIO_T5_FPGA)
+> +		clear_root_complex_tlp_attributes(pdev);
+> +
+>  	err = pci_request_regions(pdev, KBUILD_MODNAME);
+>  	if (err) {
+>  		/* Just info, some other driver may have claimed the device. */--
+
+Bjorn
