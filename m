@@ -1,143 +1,57 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v2 2/7] netns: always provide the id to rtnl_net_fill()
-Date: Thu,  7 May 2015 11:02:48 +0200
-Message-ID: <1430989373-4515-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
- <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: tgraf@suug.ch, davem@davemloft.net, ebiederm@xmission.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH net-next 01/11] netns: Fix race between put_net() and
+ netlink_kernel_create()
+Date: Thu, 7 May 2015 17:04:50 +0800
+Message-ID: <20150507090450.GA31792@gondor.apana.org.au>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
+ <1430988770-28907-2-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, cwang@twopensource.com, xemul@openvz.org,
+	davem@davemloft.net, eric.dumazet@gmail.com, ebiederm@xmission.com,
+	maxk@qti.qualcomm.com, stephen@networkplumber.org, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com, tom@herbertland.com,
+	jchapman@katalix.com, erik.hugne@ericsson.com,
+	jon.maloy@ericsson.com, horms@verge.net.au
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:43493 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751348AbbEGJDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 05:03:04 -0400
-In-Reply-To: <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:46756 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751755AbbEGJFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 05:05:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1430988770-28907-2-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of this commit is to prepare the rework of the locking of nsnid
-protection.
-After this patch, rtnl_net_notifyid() will not call anymore __peernet2id(),
-ie no idr_* operation into this function.
+On Thu, May 07, 2015 at 04:52:40PM +0800, Ying Xue wrote:
+>
+> @@ -409,12 +410,17 @@ void __put_net(struct net *net)
+>  {
+>  	/* Cleanup the network namespace in process context */
+>  	unsigned long flags;
+> +	bool added = false;
+>  
+>  	spin_lock_irqsave(&cleanup_list_lock, flags);
+> -	list_add(&net->cleanup_list, &cleanup_list);
+> +	if (list_empty(&net->cleanup_list)) {
+> +		list_add(&net->cleanup_list, &cleanup_list);
+> +		added = true;
+> +	}
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
----
+Stop right there.  If a ref count is hitting zero twice you've
+got big problems.  Because it means that after hitting zero the
+first time it'll become positive again (if only briefly) which
+opens you up to a race against the cleanup.
 
-v2: no change
+So this idea is a non-starter.
 
- net/core/net_namespace.c | 31 +++++++++++--------------------
- 1 file changed, 11 insertions(+), 20 deletions(-)
+The rules for ref counts are really simple, if you hit zero then
+you're dead.  Can someone explain to me in simple terms why this
+ref count is special and needs to hit zero twice?
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 294d38742e2a..37c68bb72db3 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -147,8 +147,7 @@ static void ops_free_list(const struct pernet_operations *ops,
- 	}
- }
- 
--static void rtnl_net_notifyid(struct net *net, struct net *peer, int cmd,
--			      int id);
-+static void rtnl_net_notifyid(struct net *net, int cmd, int id);
- static int alloc_netid(struct net *net, struct net *peer, int reqid)
- {
- 	int min = 0, max = 0, id;
-@@ -162,7 +161,7 @@ static int alloc_netid(struct net *net, struct net *peer, int reqid)
- 
- 	id = idr_alloc(&net->netns_ids, peer, min, max, GFP_KERNEL);
- 	if (id >= 0)
--		rtnl_net_notifyid(net, peer, RTM_NEWNSID, id);
-+		rtnl_net_notifyid(net, RTM_NEWNSID, id);
- 
- 	return id;
- }
-@@ -365,7 +364,7 @@ static void cleanup_net(struct work_struct *work)
- 			int id = __peernet2id(tmp, net, false);
- 
- 			if (id >= 0) {
--				rtnl_net_notifyid(tmp, net, RTM_DELNSID, id);
-+				rtnl_net_notifyid(tmp, RTM_DELNSID, id);
- 				idr_remove(&tmp->netns_ids, id);
- 			}
- 		}
-@@ -538,14 +537,10 @@ static int rtnl_net_get_size(void)
- }
- 
- static int rtnl_net_fill(struct sk_buff *skb, u32 portid, u32 seq, int flags,
--			 int cmd, struct net *net, struct net *peer,
--			 int nsid)
-+			 int cmd, struct net *net, int nsid)
- {
- 	struct nlmsghdr *nlh;
- 	struct rtgenmsg *rth;
--	int id;
--
--	ASSERT_RTNL();
- 
- 	nlh = nlmsg_put(skb, portid, seq, cmd, sizeof(*rth), flags);
- 	if (!nlh)
-@@ -554,11 +549,7 @@ static int rtnl_net_fill(struct sk_buff *skb, u32 portid, u32 seq, int flags,
- 	rth = nlmsg_data(nlh);
- 	rth->rtgen_family = AF_UNSPEC;
- 
--	if (nsid >= 0)
--		id = nsid;
--	else
--		id = __peernet2id(net, peer, false);
--	if (nla_put_s32(skb, NETNSA_NSID, id))
-+	if (nla_put_s32(skb, NETNSA_NSID, nsid))
- 		goto nla_put_failure;
- 
- 	nlmsg_end(skb, nlh);
-@@ -575,7 +566,7 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	struct nlattr *tb[NETNSA_MAX + 1];
- 	struct sk_buff *msg;
- 	struct net *peer;
--	int err;
-+	int err, id;
- 
- 	err = nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, NETNSA_MAX,
- 			  rtnl_net_policy);
-@@ -597,8 +588,9 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		goto out;
- 	}
- 
-+	id = __peernet2id(net, peer, false);
- 	err = rtnl_net_fill(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
--			    RTM_GETNSID, net, peer, -1);
-+			    RTM_GETNSID, net, id);
- 	if (err < 0)
- 		goto err_out;
- 
-@@ -630,7 +622,7 @@ static int rtnl_net_dumpid_one(int id, void *peer, void *data)
- 
- 	ret = rtnl_net_fill(net_cb->skb, NETLINK_CB(net_cb->cb->skb).portid,
- 			    net_cb->cb->nlh->nlmsg_seq, NLM_F_MULTI,
--			    RTM_NEWNSID, net_cb->net, peer, id);
-+			    RTM_NEWNSID, net_cb->net, id);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -658,8 +650,7 @@ static int rtnl_net_dumpid(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--static void rtnl_net_notifyid(struct net *net, struct net *peer, int cmd,
--			      int id)
-+static void rtnl_net_notifyid(struct net *net, int cmd, int id)
- {
- 	struct sk_buff *msg;
- 	int err = -ENOMEM;
-@@ -668,7 +659,7 @@ static void rtnl_net_notifyid(struct net *net, struct net *peer, int cmd,
- 	if (!msg)
- 		goto out;
- 
--	err = rtnl_net_fill(msg, 0, 0, 0, cmd, net, peer, id);
-+	err = rtnl_net_fill(msg, 0, 0, 0, cmd, net, id);
- 	if (err < 0)
- 		goto err_out;
- 
+Cheers,
 -- 
-2.2.2
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
