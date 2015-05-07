@@ -1,85 +1,101 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
-Date: Thu, 07 May 2015 02:04:46 +0200
-Message-ID: <357742496.VPxjz4tqdT@h2o.as.studentenwerk.mhn.de>
-References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de> <2723870.nq54KKjWkm@h2o.as.studentenwerk.mhn.de> <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Request for advice on where to put Root Complex "fix up" code for
+ downstream device
+Date: Thu, 7 May 2015 00:34:51 +0000
+Message-ID: <4985EFDD773FCB459EF7915D2A3621ADBC7408@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:25304 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751158AbbEGAey convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 20:34:54 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 6. Mai 2015, 15:42:38 schrieben Sie:
-> On Thu, 2015-05-07 at 00:04 +0200, Wolfgang Walter wrote:
-> > Am Mittwoch, 6. Mai 2015, 12:10:00 schrieb Eric Dumazet:
-> > > On Wed, 2015-05-06 at 11:15 -0700, Cong Wang wrote:
-> > > > (Cc'ing netdev.)
-> > > >=20
-> > > > On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de>=
- wrote:
-> > > > > Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
-> > > > >> Hello,
-> > > > >>=20
-> > > > >> kernel 4.0 (and 4.0.1) crashes immediately when I use tracer=
-oute6
-> > > > >> with
-> > > > >> an
-> > > > >> isatap-tunnel.
-> > > > >=20
-> > > > > I did some further tests. To trigger the crash you need
-> > > > >=20
-> > > > > * isatap-tunnel (probably any sit-tunnel will do it)
-> > > > > * raw-socket
-> > > > > * udp
-> > > > >=20
-> > > > > Using icmpv6 or tcp i.e. does not trigger it.
-> > > >=20
-> > > > Do you have a script to reproduce it?
-> > > >=20
-> > > >=20
-> > > > Thanks for the bug report!
-> > > > --
-> > >=20
-> > > Please Wolfgang try to revert 32dce968dd987adfb0c00946d78dad9154f=
-64759
-> > > ("ipv6: Allow for partial checksums on non-ufo packets")
-> >=20
-> > Indeed, that fixes the problem.
->=20
-> Yes, setting skb->csum to 0 is clearly wrong for CHECKSUM_PARTIAL
->=20
-> Would you try :
->=20
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index
-> 7fde1f265c90e90f16291e6c861b6e242111c25b..694ae630e1ca67e25ab1e5f6dd0=
-b3597d
-> b3669b0 100644 --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1416,6 +1416,10 @@ alloc_new_skb:
->  			data +=3D fragheaderlen;
->  			skb->transport_header =3D (skb->network_header +
->  						 fragheaderlen);
-> +			if (csummode =3D=3D CHECKSUM_PARTIAL) {
-> +				skb->csum_start =3D skb_transport_header(skb) - skb->head;
-> +				skb->csum_offset =3D offsetof(struct udphdr, check);
-> +			}
->  			if (fraggap) {
->  				skb->csum =3D skb_copy_and_csum_bits(
->  					skb_prev, maxfraglen,
+Hello,
 
-This patch fixes 4.0.1 (and 4.0.2).
+  I've included both the Network and PCI Development mailing lists because this crosses both domains.  If this violates protocols, I apologise in advance.  I believe that this ~probably~ will be a "PCI Development" issue but since it affects a Network Device, I figured input from that quarter should be solicited as well.
 
-Thanks Eric,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+  We have a Network Device, T5, which unfortunately has a PCI Compliance bug in it[1].  Doubly unfortunately, the PCI SIG 3.0 Compliance Tests which we dutifully ranb before releasing the silicon two years ago didn't include a vector for this, so it wasn't discovered till very recently.  In order to solve this bug, we need to modify the Root Complex's PCI Express Capability Device Control register in order to turn off the Enable No Snoop and Enable Relaxed Ordering features.
+
+  I've cons'ed up demonstration code within the Device Driver for T5, cxgb4, to traverse the PCI graph to the Root Complex for the T5 Device and perform this modification[2].  This demonstrates the "workability" of doing the operation, but I'm betting that this is _not_ where either the Network or PCI Development teams would like such code to go.  My expectation is that this code needs to go into drivers/pci/quirks.c.
+
+  So, this mail is a request for advice on how the Network and PCI Development teams would like this handled.  Once I receive this input, I will submit a patch to the correct team for inclusion in the kernel.  Thank you for your time and attention.
+
+Casey
+
+[1] Chelsio T5 PCI-E Compliance Bug:
+
+    The bug is that when the Root Complex send a Transaction Layer Packet (TLP)
+    Request downstream to a Device,the TLP may contain Attributes.  The PCI
+    Specification states that two of these Attributes, No Snoop and Relaxed
+    Ordering, must be included in the Device's TLP Response.  Further, the PCI
+    Specification "encourages" Root Complexes to drop TLP Responses which
+    are out of compliance with this rule.
+
+[2] Demonstration Code for clearing Root Complex No Snoop and Relaxed Ordering:
+
+--- a/drivers/net/ethernet/chelsio/cxgb4_main.c	Mon Apr 06 09:27:21 2015 -0700
++++ b/drivers/net/ethernet/chelsio/cxgb4_main.c	Tue Apr 07 13:39:05 2015 -0700
+@@ -9956,6 +9956,36 @@ static void enable_pcie_relaxed_ordering
+ 	pcie_capability_set_word(dev, PCI_EXP_DEVCTL, PCI_EXP_DEVCTL_RELAX_EN);
+ }
+ 
++/*
++ * Find the highest PCI-Express bridge above a PCI Device.  If found, that's
++ * the Root Complex PCI-PCI Bridge for the PCI Device.  If we find the Root
++ * Comples, clear the Enable Relaxed Ordering and Enable No Snoop bits in that
++ * bridge's PCI-E Capability Device Control register.  This will prevent the
++ * Root Complex from setting those attributes in the Transaction Layer Packets
++ * of the Requests which it sends down stream to the PCI Device.
++ */
++static void clear_root_complex_tlp_attributes(struct pci_dev *pdev)
++{
++	struct pci_bus *bus = pdev->bus;
++	struct pci_dev *highest_pcie_bridge = NULL;
++
++	while (bus) {
++		struct pci_dev *bridge = bus->self;
++
++		if (!bridge || !bridge->pcie_cap)
++			break;
++		highest_pcie_bridge = bridge;
++		bus = bus->parent;
++	}
++
++	if (highest_pcie_bridge)
++		pcie_capability_clear_and_set_word(highest_pcie_bridge,
++						   PCI_EXP_DEVCTL,
++						   PCI_EXP_DEVCTL_RELAX_EN |
++						   PCI_EXP_DEVCTL_NOSNOOP_EN,
++						   0);
++}
++
+ static int init_one(struct pci_dev *pdev,
+ 			      const struct pci_device_id *ent)
+ {
+@@ -9973,6 +10003,19 @@ static int init_one(struct pci_dev *pdev
+ 		++version_printed;
+ 	}
+ 
++	/*
++	 * T5 has a PCI-E Compliance bug in it where it doesn't copy the
++	 * Transaction Layer Packet Attributes from downstream Requests into
++	 * it's upstream Responses.  Most Root Complexes are fine with this
++	 * but a few get prissy and drop the non-compliant T5 Responses
++	 * leading to endless Device Timeouts when TLP Attributes are set.  So
++	 * if we're a T5, attempt to clear our Root Complex's enable bits for
++	 * TLP Attributes ...
++	 */
++	if (CHELSIO_PCI_ID_VER(pdev->device) == CHELSIO_T5 ||
++	    CHELSIO_PCI_ID_VER(pdev->device) == CHELSIO_T5_FPGA)
++		clear_root_complex_tlp_attributes(pdev);
++
+ 	err = pci_request_regions(pdev, KBUILD_MODNAME);
+ 	if (err) {
+ 		/* Just info, some other driver may have claimed the device. */
