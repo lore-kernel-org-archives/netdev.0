@@ -1,48 +1,77 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [Linaro-acpi] [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Thu, 07 May 2015 22:18:44 +0200
-Message-ID: <4260574.bvpyYkBNGq@vostro.rjw.lan>
-References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com> <554A92C3.7060606@amd.com> <2842267.oTDe4myPcU@wuerfel>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH net-next 00/11] netns: don't switch namespace while creating kernel sockets
+Date: Thu, 07 May 2015 15:01:06 -0500
+Message-ID: <87lhh0b1j1.fsf@x220.int.ebiederm.org>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
+	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
+	<CAHA+R7NuxGDnCSfVXJ4tcqYNZGu6RetYLvtrMo4SSqRFHKCFPg@mail.gmail.com>
+	<871tisckgr.fsf@x220.int.ebiederm.org>
+	<CAHA+R7POE-X0Tbn6XEGSta=tDZQ_+EDg0ruSxy3qMFNm9Rd0oQ@mail.gmail.com>
+	<87twvob4fe.fsf@x220.int.ebiederm.org>
+	<CAHA+R7N9BuJGnA1r_K886pr45EP6ry85T2pbr2u8neJs-ROrYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: linaro-acpi@lists.linaro.org,
-	Suravee Suthikulanit <suravee.suthikulpanit@amd.com>,
-	herbert@gondor.apana.org.au, catalin.marinas@arm.com,
-	will.deacon@arm.com, linux-kernel@vger.kernel.org,
-	linux-crypto@vger.kernel.org, linux-acpi@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Mika Westerberg <mika.westerberg@linux.intel.com>,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	lenb@kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2842267.oTDe4myPcU@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Ying Xue <ying.xue@windriver.com>, netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, maxk@qti.qualcomm.com,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Tom Herbert <tom@herbertland.com>,
+	James Chapman <jchapman@katalix.com>,
+	Erik Hugne <erik.hugne@ericsson.com>, jon.maloy@ericsson.com,
+	Simon Horman <horms@verge.net.au>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:59202 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060AbbEGUFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 16:05:41 -0400
+In-Reply-To: <CAHA+R7N9BuJGnA1r_K886pr45EP6ry85T2pbr2u8neJs-ROrYw@mail.gmail.com>
+	(Cong Wang's message of "Thu, 7 May 2015 12:29:55 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, May 07, 2015 11:07:08 AM Arnd Bergmann wrote:
-> On Wednesday 06 May 2015 17:16:35 Suravee Suthikulanit wrote:
-> > On 5/6/2015 5:21 PM, Rafael J. Wysocki wrote:
-> > >>>> > >>+      bool
-> > >>>> > >>+
-> > >>>> > >>+config ACPI_SUPPORT_CCA_ZERO
-> > >>> > >
-> > >>> > >I guess this means "we support devices that can DMA, but are not coherent".
-> > >>> > >right?
-> > >> >
-> > >> >Yes, basically when _CCA=0.
-> > > So what about
-> > >
-> > >       ARCH_SUPPORT_CACHE_INCOHERENT_DMA
-> > 
-> > Since this is specific to ACPI _CCA, I just want to be clear with the 
-> > naming.
-> 
-> How about directly using the architecture names here, this is inherently
-> architecture specific, and it's more likely that if another architecture
-> gets added in the future that it will have other requirements.
+Cong Wang <cwang@twopensource.com> writes:
 
-Sounds reasonable to me.
+> On Thu, May 7, 2015 at 11:58 AM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+>> Cong Wang <cwang@twopensource.com> writes:
+>>
+>>> On Thu, May 7, 2015 at 11:26 AM, Eric W. Biederman
+>>> <ebiederm@xmission.com> wrote:
+>>>> Cong Wang <cwang@twopensource.com> writes:
+>>>>
+>>>>>
+>>>>> Why does this have to be so complicated? We can simply avoid
+>>>>> calling ops_init() by skipping those in cleanup_list, no?
+>>>>
+>>>> The problem is that there is a single list of methods to call and if you
+>>>> simply skip calling the initialization methods for a struct net and add
+>>>> yourself to the list cleanup_net will then call the cleanup methods
+>>>> without calling the cleanup methods.
+>>>
+>>> If you mean pernet_list, ops->list has been already added before
+>>> for_each_net().
+>>>
+>>>>
+>>>> Simply limiting new network namespace registrations to a point when
+>>>> network namespaces are not being registered or unregisted seems like
+>>>> the simplest way to achieve this effect.
+>>>>
+>>>
+>>> Literally, any point before ops_init().
+>>
+>> Think about what that what it means to add a set of operations to the
+>> pernet_list and then to skip a network namespace with a count of 0 and
+>> then to have that network namespace exit with those methods on
+>> pernet_list.
+>>
+>
+> That is easy to solve, isn't it?
 
-Rafael
+Nope.  That doesn't work.
+
+Eric
