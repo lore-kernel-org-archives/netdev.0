@@ -1,132 +1,194 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [net-next 07/11] if_link: Add VF multicast promiscuous control
-Date: Thu, 7 May 2015 16:44:05 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646912EE34B@ORSMSX110.amr.corp.intel.com>
-References: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1430563358-113833-8-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMjtZOTkwXXk-EcSniYe99Rjz-BUTcyoZwKXpwh4DsPy+A@mail.gmail.com>
- <F6FB0E698C9B3143BDF729DF22286646912ED354@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E9A253@BPXM14GP.gisp.nec.co.jp>
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Subject: Re: [PATCH v1 net-next 1/2] igb: add PHY support for Broadcom 5461S
+Date: Thu, 07 May 2015 12:57:46 -0400
+Message-ID: <554B998A.9010001@cumulusnetworks.com>
+References: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com> <CAJ+vNU0NP4Lmc2=y_j9NN0AxK1pUTPs8rSNJ78SCp4CBQ6wtMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, matthew.vick@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
+	gospo@cumulusnetworks.com, shm@cumulusnetworks.com,
+	Alan Liebthal <alanl@cumulusnetworks.com>
+To: Tim Harvey <tharvey@gateworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:2953 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751135AbbEGQoG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2015 12:44:06 -0400
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05E9A253@BPXM14GP.gisp.nec.co.jp>
-Content-Language: en-US
+Received: from mail-qc0-f178.google.com ([209.85.216.178]:35531 "EHLO
+	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbbEGQ5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 12:57:48 -0400
+Received: by qcbgu10 with SMTP id gu10so24244675qcb.2
+        for <netdev@vger.kernel.org>; Thu, 07 May 2015 09:57:48 -0700 (PDT)
+In-Reply-To: <CAJ+vNU0NP4Lmc2=y_j9NN0AxK1pUTPs8rSNJ78SCp4CBQ6wtMg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGlyb3NoaSBTaGltYW1v
-dG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXks
-IE1heSAwNiwgMjAxNSAxMDo1NSBQTQ0KPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBPciBHZXJs
-aXR6OyBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IERhdmlkIE1pbGxlcjsgTGludXggTmV0ZGV2
-IExpc3Q7IG5ob3JtYW5AcmVkaGF0LmNvbTsNCj4gc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVl
-bmVAcmVkaGF0LmNvbTsgQ2hvaSwgU3kgSm9uZzsgRWR3YXJkIENyZWU7DQo+IFJvbnkgRWZyYWlt
-DQo+IFN1YmplY3Q6IFJFOiBbbmV0LW5leHQgMDcvMTFdIGlmX2xpbms6IEFkZCBWRiBtdWx0aWNh
-c3QgcHJvbWlzY3VvdXMgY29udHJvbA0KPiANCj4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
-LS0tDQo+ID4gPiBGcm9tOiBPciBHZXJsaXR6IFttYWlsdG86Z2VybGl0ei5vckBnbWFpbC5jb21d
-DQo+ID4gPiBTZW50OiBTdW5kYXksIE1heSAwMywgMjAxNSA3OjE2IEFNDQo+ID4gPiBUbzogS2ly
-c2hlciwgSmVmZnJleSBUDQo+ID4gPiBDYzogRGF2aWQgTWlsbGVyOyBIaXJvc2hpIFNoaW1hbW90
-bzsgTGludXggTmV0ZGV2IExpc3Q7DQo+ID4gPiBuaG9ybWFuQHJlZGhhdC5jb207IHNhc3NtYW5u
-QHJlZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb207DQo+IENob2ksDQo+ID4gPiBTeSBKb25n
-OyBFZHdhcmQgQ3JlZTsgU2tpZG1vcmUsIERvbmFsZCBDOyBSb255IEVmcmFpbQ0KPiA+ID4gU3Vi
-amVjdDogUmU6IFtuZXQtbmV4dCAwNy8xMV0gaWZfbGluazogQWRkIFZGIG11bHRpY2FzdCBwcm9t
-aXNjdW91cw0KPiA+ID4gY29udHJvbA0KPiA+ID4NCj4gPiA+IE9uIFNhdCwgTWF5IDIsIDIwMTUg
-YXQgMTo0MiBQTSwgSmVmZiBLaXJzaGVyDQo+ID4gPiA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwu
-Y29tPg0KPiA+ID4gd3JvdGU6DQo+ID4gPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIDxoLXNo
-aW1hbW90b0BjdC5qcC5uZWMuY29tPg0KPiA+ID4gPg0KPiA+ID4gPiBBZGQgbmV0bGluayBkaXJl
-Y3RpdmVzIGFuZCBuZG8gZW50cnkgdG8gYWxsb3cgVkYgbXVsdGljYXN0DQo+ID4gPiA+IHByb21p
-c2N1b3VzDQo+ID4gPiBtb2RlLg0KPiA+ID4gPg0KPiA+ID4gPiBUaGlzIGNvbnRyb2xzIHRoZSBw
-ZXJtaXNzaW9uIHRvIGVudGVyIFZGIG11bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlLg0KPiA+ID4g
-PiBUaGUgYWRtaW5pc3RyYXRvciB3aWxsIGRlZGljYXRlZGx5IGFsbG93IG11bHRpY2FzdCBwcm9t
-aXNjdW91cyBwZXIgVkYuDQo+ID4gPiA+DQo+ID4gPiA+IFdoZW4gdGhlIFZGIGlzIHVuZGVyIG11
-bHRpY2FzdCBwcm9taXNjdW91cyBtb2RlLCBhbGwgbXVsdGljYXN0DQo+ID4gPiA+IHBhY2tldHMg
-YXJlIHNlbnQgdG8gdGhlIFZGLg0KPiA+ID4gPg0KPiA+ID4gPiBEb24ndCBhbGxvdyBWRiBtdWx0
-aWNhc3QgcHJvbWlzY3VvdXMgaWYgdGhlIFZNIGlzbid0IGZ1bGx5IHRydXN0ZWQuDQo+ID4gPg0K
-PiA+ID4gR3V5cywNCj4gPiA+DQo+ID4gPiBJIGRvbid0IHRoaW5rIHRoZSBkaXNjdXNzaW9uIHdl
-IGhlbGQgaW4gdGhlIHBhc3QgWzFdIG9uIHRoZSBtYXR0ZXINCj4gPiA+IGFjdHVhbGx5IGNvbnZl
-cmdlZC4gRmV3IG9wZW4gcG9pbnRzIHRoYXQgY2FtZSB1cCB3aGlsZSBkZWJhdGluZyBpdA0KPiA+
-ID4gaW50ZXJuYWxseSB3aXRoDQo+ID4gPiBSb255Og0KPiA+ID4NCj4gPiA+IDEuIG1heWJlIHdo
-YXQgd2Ugd2UgYWN0dWFsbHkgd2FudCBoZXJlIGFuIEFQSSB0aGF0IHN0YXRlcyBhIFZGIHRvIGJl
-DQo+ID4gPiBwcml2aWxlZ2VkL3RydXN0ZWQgYW5kIHRoZW4gd2UgY2FuIG92ZXIgbG9hZCB0aGUg
-ZmVhdHVyZSBzZXQgb2YgYmVpbmcNCj4gc3VjaD8NCj4gPg0KPiA+IEkgc3VnZ2VzdGVkIHRoaXMg
-b3JpZ2luYWxseSwgYnV0IHRoZXJlIHdhcyBwdXNoIGJhY2sgYXMgaXQgd2FzIHRob3VnaHQgdG9v
-DQo+IGdlbmVyaWMgYXMgdGhlIGRlZmluaXRpb24gb2Ygd2hhdCBiZWluZyBhICJ0cnVzdGVkIg0K
-PiA+IHZlbmRvciB3b3VsZCBkaWZmZXIgZnJvbSBkcml2ZXIgdG8gZHJpdmVyLiAgUGVyc29uYWxs
-eSBJIHN0aWxsIGxpa2UgdGhlIGlkZWEgb2YNCj4gaGF2aW5nIG9uZSBtb2RlIHNheWluZyB0aGF0
-IHdlICJ0cnVzdCINCj4gPiBhIGdpdmVuIFZGLiAgVGhlbiB0aGF0IFZGIGNhbiByZXF1ZXN0IHdo
-YXRldmVyIGl0IHN1cHBvcnQgaXQgd2FudHMNCj4gPiBmcm9tIHRoZSBQRiByZWdhcmRsZXNzIG9m
-IHBvc3NpYmxlIG5lZ2F0aXZlIGltcGFjdCBvbiBvdGhlciBWRidzLg0KPiA+IFdoYXQgaXMgcG9z
-c2libGUgdG8gc3VwcG9ydCB3b3VsZCB0aGVuIGJlIGxlZnQgdG8gdGhlIGludGVyZmFjZQ0KPiA+
-IGJldHdlZW4gdGhlIFZGIGFuZCBQRi4gIFRoaXMgb2YgY291cnNlIHdvdWxkIGJlIGRlcGVuZGVu
-dCBvbiB3aGF0IHRoZQ0KPiBnaXZlbiBIVyBjb3VsZCBzdXBwb3J0IGFuZCB3b3VsZCBtZWFuIHRo
-aXMgbW9kZSB3b3VsZCBtZWFuIGRpZmZlcmVudA0KPiB0aGluZ3MgZm9yIGRpZmZlcmVudCBhZGFw
-dGVycyBhbmQgSSBkbyBzZWUgd2h5IHNvbWUgbWlnaHQgc2VlIHRoaXMgYXMgYQ0KPiBjb25jZXJu
-Lg0KPiANCj4gVGhlIHBvaW50IGlzIGdyYW51bGFyaXR5LCByaWdodD8NCj4gQWxsb3cgZXZlcnl0
-aGluZyBvciBhbGxvdyBzdWJzZXQgb2YgZmVhdHVyZXMuDQoNCk5pY2Ugd2F5IHRvIHN1bSBpdCB1
-cC4gIFRoZSB0cmljayBiZWluZyB3aXRoIHRoZSBzdWJzZXQgb2YgZmVhdHVyZXMgcGF0aCBpcyBu
-b3QgYWxsIGhhcmR3YXJlIGNhbi93aWxsIHN1cHBvcnQgZXZlcnl0aGluZy4gIEFsc28gSSB3b3Jy
-eSBhYm91dCB3b3JyeSBhYm91dCB0aGUgZmVhdHVyZSBsaXN0IGdyb3dpbmcgcmVxdWlyaW5nIG1v
-cmUgYW5kIG1vcmUgbm9icyBvbiB0aGUgUEYgdG8gYWxsb3cvZGlzYWxsb3cgZ3JhbnVsYXIgYmVo
-YXZpb3IgdGhhdCBjb3VsZCBicmFrZSBWRiBpc29sYXRpb24uICBXaXRoIGEgc2ltcGxlIGhpbnQg
-dG8gdGhlIFBGIHRoYXQgYSBnaXZlbiBWRiBpcyAidHJ1c3RlZCIgd291bGQgYWxsb3cgYWxsIHRo
-YXQgY29tcGxleGl0eSB0byBiZSBjb250YWluZWQgaW4gdGhlIG1haWxib3ggcHJvdG9jb2wgYmV0
-d2VlbiB0aGUgUEYvVkYuDQoNCkFsbCB0aGF0IHNhaWQgSSByZWFsaXplIG90aGVycyBhcmUgY29u
-Y2VybmVkIHdpdGggdGhlIGFtYmlndW91c25lc3Mgb2Ygc3VjaCBhIGZpZWxkIGFuZCBjYW4gY2Vy
-dGFpbmx5IGxpdmUgd2l0aCB5b3VyIGltcGxlbWVudGF0aW9uLg0KDQo+IA0KPiA+DQo+ID4gPg0K
-PiA+ID4gMi4gdGhlIHN1Z2dlc3RlZCBBUEkgb25seSBhbGxvd3MgZWl0aGVyIHVubGltaXRlZCBu
-dW1iZXIgb2YgbXVsaWNhc3QNCj4gPiA+IGdyb3VwcyBwZXIgVkYgb3IgbGltaXRlZCBudW1iZXIs
-IGJvdGggbnVtYmVycyBhcmUgdmVuZG9yIGRlcGVuZGVudCwNCj4gcmlnaHQ/DQo+ID4gPiBtYXli
-ZSB3aGF0IHdlIG5lZWQgZm9yIHRoaXMgc3BlY2lmaWMgbWF0dGVyIGlzIHNwZWNpZnlpbmcgaG93
-IG1hbnkNCj4gPiA+IG11bHRpY2FzdCBncm91cHMgYXJlIGFsbG93ZWQgZm9yIGEgVkY/DQo+ID4N
-Cj4gPiBJIGJlbGlldmUgdGhlIGlkZWEgYmVoaW5kIHRoaXMgaW50ZXJmYWNlIHdhcyB0aGF0IGl0
-IHdvdWxkIGFsbG93IFZGJ3MNCj4gPiB0byByZXF1ZXN0IHVubGltaXRlZCBtdWx0aWNhc3QgZ3Jv
-dXAgYXMgb3Bwb3NlZCB0byB0aGUgY3VycmVudA0KPiA+IGJlaGF2aW9yIG9mIGVhY2ggYWRhcHRl
-ciBvZmZlcmluZyBzb21lIGxpbWl0ZWQgbnVtYmVyLiAgVGhpcyBsaW1pdCBpcw0KPiA+IG9mIGNv
-dXJzZSBkZWZpbmVkIGJ5IGEgZ2l2ZW4gYWRhcHRlcnMgSFcvU1cgbGltaXRhdGlvbnMuICBVcCB1
-bnRpbCBub3cNCj4gPiB5b3UgY291bGQga2VlcCBhc2tpbmcgZm9yIG5ldyBtdWx0aWNhc3QgdW50
-aWwgdGhlIFBGIHJlcGxpZWQgd2l0aCBhbg0KPiA+IGVycm9yLiAgU28gd2UgbmV2ZXIgcmVhbGx5
-IGV4cG9ydGVkIHRoaXMgaW5mb3JtYXRpb24gYmVmb3JlLiAgVGhpcyBuZXcNCj4gbW9kZSBqdXN0
-IGFsbG93cyB1cyB0byBuZXZlciByZWFjaCB0aGUgcG9pbnQgdGhhdCB0aGUgUEYgd291bGQgZGVu
-eSBhIFZGDQo+IHJlcXVlc3QgdG8gam9pbiBhIE1DIGdyb3VwLiAgU2VlbXMgdG8gbWUgdGhhdCBh
-biBhZGRpdGlvbmFsIGludGVyZmFjZSB0bw0KPiBwcm92aWRlIHRoZSBtYXggbnVtYmVyIG9mIHN1
-cHBvcnRlZCBtdWx0aWNhc3QgZ3JvdXBzIHdvdWxkIGJlIG5ldw0KPiBmdW5jdGlvbmFsaXR5IHRo
-YXQgY291bGQgYmUgaW5kZXBlbmRlbnQgb2YgdGhpcyBwYXRjaCBhbmQgaW4gZmFjdCBjb3VsZCBl
-eGlzdA0KPiBldmVuIHdpdGhvdXQgdGhpcyBwYXRjaC4NCj4gPiBPciBhbSBJIG1pc3Npbmcgd2hh
-dCB5b3UncmUgYXNraW5nIGZvciBoZXJlLiA6KQ0KPiANCj4gSSB0aGluayB0aGF0IHRoZSBjdXJy
-ZW50IGxpbWl0YXRpb24gb2YgbXVsdGljYXN0IG9uIGl4Z2JldmYgY29tZXMgZnJvbSB0aGUNCj4g
-aW1wbGVtZW50YXRpb24gb2YgbWFpbGJveCBBUEkgYmV0d2VlbiBWRiBhbmQgUEYgd2hpY2ggaGFz
-IDMyIHdvcmRzLg0KPiANCg0KSW4gdGhlIGVuZCB0aGUgbGltaXQgb24gbnVtYmVyIG9mIE1DIGdy
-b3VwcywgaWYgeW91IGRvbid0IHVzZSBwcm9taXNjdW91cyBtb2RlLCBpcyB0aGUgc2l6ZSBvZiB0
-aGUgbXVsdGljYXN0IHRhYmxlIGFycmF5LiAgV2UgY291bGQgYmUgc2hhcmluZyB0aGlzIHRhYmxl
-IGJldHRlciBiZXR3ZWVuIGFsbCB1c2VycyByYXRoZXIgdGhhbiB0aGUgYXJiaXRyYXJ5IGxpbWl0
-LCBidXQgeW91IHdvdWxkIGhpdCBhIGhhcmQgbGltaXQgZHVlIHRvIHRoZSBzaXplIG9mIHRoZSB0
-YWJsZS4NCg0KPiBCeSB0aGUgd2F5LCBvdXIgcmVxdWlyZW1lbnQgaXMgdG8gbWFrZSBWRiBwcm9t
-aXNjdW91cyBtb2RlIGZvciBTRE4vTkZWDQo+IHVzYWdlLg0KPiBBbmQgdGhlcmUgaXMgYSBmZWF0
-dXJlIHRvIGVuYWJsZSBpbiBIVywgd2UnZCBsaWtlIHRvIHVzZSBpdC4NCj4gSSBrbm93IHRoZXJl
-IGlzIGEgcG9zc2liaWxpdHkgb2YgcGVyZm9ybWFuY2UgZGVncmFkYXRpb24uDQo+IA0KPiB0aGFu
-a3MsDQo+IEhpcm9zaGkNCg0KSSB0aGluayB5b3VyIG1ldGhvZCBpcyB0aGUgd2F5IHRvIGdvLCBp
-biB0aGF0IGlmIHlvdSBhc2sgZm9yIG1vcmUgdGhhbiB3ZSBhbGxvdyBwZXIgVkYgYW5kIHRoZSBQ
-RiBoYXMgdGhpcyBhYmlsaXR5IGVuYWJsZWQgd2UganVzdCBwdXQgdGhlIFZGIGludG8gbXVsdGlj
-YXN0IHByb21pc2N1b3VzIG1vZGUuICBIb3dldmVyIEkgZG9uJ3Qgc2VlIHRoZSBhZHZhbnRhZ2Ug
-b2YgaGF2aW5nIGFuIGludGVyZmFjZSB0byB0ZWxsIGhvdyBtYW55IGdyb3VwcyBuZWVkIHRvIGJl
-IHJlcXVlc3RlZCBiZWZvcmUgdGhpcyBoYXBwZW5zLiAgSWYgeW91IHdlcmUgd29ycmllZCBhYm91
-dCB0aGUgcGVyZm9ybWFuY2UgZGVncmFkYXRpb24gb2YgZW50ZXJpbmcgcHJvbWlzY3VvdXMgbXVs
-dGljYXN0IGRvbid0IGFsbG93IGl0IGluIHRoZSBQRiwgd2hpY2ggb2YgY291cnNlIHdpbGwgYmUg
-dGhlIGRlZmF1bHQuDQoNClRoYW5rcywNCi1Eb24gU2tpZG1vcmUgPGRvbmFsZC5jLnNraWRtb3Jl
-QGludGVsLmNvbT4NCg0KDQoNCg==
+On 5/7/15 12:18 PM, Tim Harvey wrote:
+> On Fri, Apr 17, 2015 at 1:23 PM, Jonathan Toppins
+> <jtoppins@cumulusnetworks.com> wrote:
+>> From: Alan Liebthal <alanl@cumulusnetworks.com>
+>>
+>> The Quanta LY8 Ethernet management port uses a Broadcom 5461S chip for
+>> the PHY layer. This adds support for this PHY to the Intel igb driver.
+>>
+>> Signed-off-by: Alan Liebthal <alanl@cumulusnetworks.com>
+>> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+>> ---
+> <snip>
+>> --- a/drivers/net/ethernet/intel/igb/e1000_phy.c
+>> +++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+>> @@ -148,6 +148,13 @@ s32 igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+>>           * Control register.  The MAC will take care of interfacing with the
+>>           * PHY to retrieve the desired data.
+>>           */
+>> +       if (phy->type == e1000_phy_bcm5461s) {
+>> +               mdic = rd32(E1000_MDICNFG);
+>> +               mdic &= ~E1000_MDICNFG_PHY_MASK;
+>> +               mdic |= (phy->addr << E1000_MDICNFG_PHY_SHIFT);
+>> +               wr32(E1000_MDICNFG, mdic);
+>> +       }
+>> +
+>>          mdic = ((offset << E1000_MDIC_REG_SHIFT) |
+>>                  (phy->addr << E1000_MDIC_PHY_SHIFT) |
+>>                  (E1000_MDIC_OP_READ));
+>> @@ -204,6 +211,13 @@ s32 igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+>>           * Control register.  The MAC will take care of interfacing with the
+>>           * PHY to retrieve the desired data.
+>>           */
+>> +       if (phy->type == e1000_phy_bcm5461s) {
+>> +               mdic = rd32(E1000_MDICNFG);
+>> +               mdic &= ~E1000_MDICNFG_PHY_MASK;
+>> +               mdic |= (phy->addr << E1000_MDICNFG_PHY_SHIFT);
+>> +               wr32(E1000_MDICNFG, mdic);
+>> +       }
+>> +
+>>          mdic = (((u32)data) |
+>>                  (offset << E1000_MDIC_REG_SHIFT) |
+>>                  (phy->addr << E1000_MDIC_PHY_SHIFT) |
+>> @@ -2509,3 +2523,68 @@ static s32 igb_set_master_slave_mode(struct e1000_hw *hw)
+>>
+>>          return hw->phy.ops.write_reg(hw, PHY_1000T_CTRL, phy_data);
+>>   }
+>
+> Jonathan,
+>
+> Is this bcm5461s attached to an i210/i211? These changes look a lot
+> like some changes I'm trying to upstream to add support for i210/i211
+> which require the phy address in the MDICNFG register. If this is the
+> case, then I think the right approach is to check for hw->mac.type =
+> e1000_i210/e1000_i211 and I can submit my patch for review.
+>
+> Regards,
+>
+> Tim
+>
+
+Hi Tim,
+
+The MAC in question are the ones integrated with Intel's Atom processor, 
+I don't recall the series off hand, output of lspci and /proc/cpuinfo 
+below. If you think your change may apply to this controller as well I 
+would be more than happy to apply your change and test.
+
+Thanks,
+-Jon
+
+Supplementary Information.
+
+Processor info (8 processors total):
+root@qct-ly8-01:~# uname -a
+Linux qct-ly8-01 3.2.60-1+deb7u1+cl2.5+1 #3.2.60-1+deb7u1+cl2.5+1 SMP 
+Mon Apr 13 23:18:31 PDT 2015 x86_64 GNU/Linux
+
+root@qct-ly8-01:~# cat /proc/cpuinfo  | grep "processor" | wc -l
+8
+
+root@qct-ly8-01:~# cat /proc/cpuinfo
+processor	: 0
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 77
+model name	: Intel(R) Atom(TM) CPU  C2758  @ 2.40GHz
+stepping	: 8
+microcode	: 0x11d
+cpu MHz		: 2400.191
+cache size	: 1024 KB
+physical id	: 0
+siblings	: 8
+core id		: 0
+cpu cores	: 8
+apicid		: 0
+initial apicid	: 0
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 11
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
+pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx 
+rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology 
+nonstop_tsc aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 
+ssse3 cx16 xtpr pdcm sse4_1 sse4_2 movbe popcnt tsc_deadline_timer aes 
+rdrand lahf_lm 3dnowprefetch arat epb dtherm tpr_shadow vnmi 
+flexpriority ept vpid smep erms
+bogomips	: 4800.38
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 36 bits physical, 48 bits virtual
+power management:
+
+...trimmed...
+
+
+The PCI info for the controller:
+root@qct-ly8-01:~# lspci -vvx -s 00:14.0
+00:14.0 Ethernet controller: Intel Corporation Device 1f41 (rev 03)
+	Subsystem: Intel Corporation Device 1f41
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
+<MAbort- >SERR- <PERR- INTx-
+	Latency: 0, Cache Line Size: 64 bytes
+	Interrupt: pin A routed to IRQ 20
+	Region 0: Memory at dff60000 (64-bit, non-prefetchable) [size=128K]
+	Region 2: I/O ports at 1000 [size=32]
+	Region 4: Memory at dff84000 (64-bit, non-prefetchable) [size=16K]
+	Capabilities: [40] Power Management version 3
+		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=1 PME-
+	Capabilities: [50] MSI: Enable- Count=1/1 Maskable+ 64bit+
+		Address: 0000000000000000  Data: 0000
+		Masking: 00000000  Pending: 00000000
+	Capabilities: [70] MSI-X: Enable+ Count=10 Masked-
+		Vector table: BAR=4 offset=00000000
+		PBA: BAR=4 offset=00002000
+	Capabilities: [a0] Express (v2) Root Complex Integrated Endpoint, MSI 00
+		DevCap:	MaxPayload 512 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+			ExtTag- RBE+ FLReset+
+		DevCtl:	Report errors: Correctable- Non-Fatal- Fatal- Unsupported-
+			RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+			MaxPayload 128 bytes, MaxReadReq 512 bytes
+		DevSta:	CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
+		LnkCap:	Port #0, Speed unknown, Width x0, ASPM unknown, Latency L0 
+<64ns, L1 <1us
+			ClockPM- Surprise- LLActRep- BwNot-
+		LnkCtl:	ASPM Disabled; Disabled- Retrain- CommClk-
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed unknown, Width x0, TrErr- Train- SlotClk- DLActive- 
+BWMgmt- ABWMgmt-
+		DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
+		DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-
+		LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-, 
+Selectable De-emphasis: -6dB
+			 Transmit Margin: Normal Operating Range, EnterModifiedCompliance- 
+ComplianceSOS-
+			 Compliance De-emphasis: -6dB
+		LnkSta2: Current De-emphasis Level: -6dB, EqualizationComplete-, 
+EqualizationPhase1-
+			 EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
+	Kernel driver in use: igb
+00: 86 80 41 1f 07 04 10 00 03 00 00 02 10 00 00 00
+10: 04 00 f6 df 00 00 00 00 01 10 00 00 00 00 00 00
+20: 04 40 f8 df 00 00 00 00 00 00 00 00 86 80 41 1f
+30: 00 00 00 00 40 00 00 00 00 00 00 00 0b 01 00 00
