@@ -1,40 +1,31 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: expose listen socket backlog via SIOCGBACKLOG
-Date: Wed, 06 May 2015 19:45:51 -0700
-Message-ID: <1430966751.14545.101.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430965275-50606-1-git-send-email-pallas@meraki.com>
+Subject: Re: Is veth in net-next reordering traffic?
+Date: Wed, 06 May 2015 20:16:57 -0700
+Message-ID: <1430968617.14545.103.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <554AC83F.7070609@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Derrick Pallas <pallas@meraki.com>
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:37726 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751403AbbEGCpx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 22:45:53 -0400
-Received: by igbsb11 with SMTP id sb11so12122876igb.0
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 19:45:53 -0700 (PDT)
-In-Reply-To: <1430965275-50606-1-git-send-email-pallas@meraki.com>
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:34770 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750900AbbEGDQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 23:16:59 -0400
+Received: by iget9 with SMTP id t9so3581222ige.1
+        for <netdev@vger.kernel.org>; Wed, 06 May 2015 20:16:58 -0700 (PDT)
+In-Reply-To: <554AC83F.7070609@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-06 at 19:21 -0700, Derrick Pallas wrote:
-> This IOCTL exposes the current backlog for a listen socket.  This value can
-> be useful in userland, e.g. in an overloaded transparent proxy that would
-> rather push new connections into bypass than have then hang waiting for
-> accept.  Knowing the current backlog allows this process to make that
-> decision and then begin intercepting connections again once the backlog
-> falls to a reasonable level.
-> 
-> Signed-off-by: Derrick Pallas <pallas@meraki.com>
-> ---
+On Wed, 2015-05-06 at 19:04 -0700, Rick Jones wrote:
+> I've been messing about with a setup approximating what an OpenStack 
+> Nova Compute node creates for the private networking plumbing when using 
+> OVX+VxLAN.  Just without the VM.  So, I have a linux bridge (named qbr), 
+> a veth pair (named qvb and qvo) joining that to an OVS switch (called 
+> br-int) which then has a patch pair joining that OVS bridge to another 
+> OVS bridge (br-tun) which has a vxlan tunnel defined.
 
-No, we do not add new ioctl() anymore.
-
-Note that getsockopt(fd, SOL_TCP, TCP_INFO, &info, sizeof(info)) already
-provides the information you need in info.tcpi_unacked
-
-(and info.tcpi_sacked contains sk_max_ack_backlog)
-
-http://lxr.free-electrons.com/source/net/ipv4/tcp.c#L2630
+veth can certainly reorder traffic, unless you use cpu binding with your
+netperf (sender side)
