@@ -1,128 +1,88 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] net: preserve geometry of fragment sizes when forwarding
-Date: Thu,  7 May 2015 23:04:24 +0200
-Message-ID: <1431032664-6478-1-git-send-email-fw@strlen.de>
-Cc: hannes@stressinduktion.org, Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <edumazet@google.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56522 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751545AbbEGVEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 17:04:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3] Renesas Ethernet AVB driver
+Date: Fri, 08 May 2015 00:10:36 +0300
+Message-ID: <554BD4CC.3020308@cogentembedded.com>
+References: <32501816.HtkLenWQpn@wasted.cogentembedded.com> <552C4554.2070608@gmail.com> <552D8898.3060905@cogentembedded.com> <55382D4E.5070708@gmail.com> <553A9123.3010906@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sh@vger.kernel.org,
+	Mitsuhiro Kimura <mitsuhiro.kimura.kc@renesas.com>,
+	Ben Hutchings <ben.hutchings@codethink.co.uk>
+To: Florian Fainelli <f.fainelli@gmail.com>, robh+dt@kernel.org,
+	pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, devicetree@vger.kernel.org,
+	galak@codeaurora.org, netdev@vger.kernel.org,
+	richardcochran@gmail.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <553A9123.3010906@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There was interest in keeping geometry of original fragments on forward.
+Hello.
 
-This (re)enables this feature.
+On 04/24/2015 09:53 PM, Sergei Shtylyov wrote:
 
-on router with mtu 1500 on all interfaces and netfilter conntrack enabled:
+[...]
 
-incoming packet on router:
-IP (ttl 64, offset 0, flags [+], ICMP, length 1276) 192.168.7.1 > 10.0.0.2: ICMP echo request, length 1256
-IP (ttl 64, offset 1256, flags [+], ICMP, length 1276) 192.168.7.1 > 10.0.0.2: ip-proto-1
-IP (ttl 64, offset 2512, flags [none], ICMP, length 516) 192.168.7.1 > 10.0.0.2: ip-proto-1
+>>>>> +static int ravb_start_xmit(struct sk_buff *skb, struct net_device
+>>>>> *ndev)
+>>>>> +{
+>>>>> +    struct ravb_private *priv = netdev_priv(ndev);
+>>>>> +    struct ravb_tstamp_skb *ts_skb = NULL;
+>>>>> +    struct ravb_tx_desc *desc;
+>>>>> +    unsigned long flags;
+>>>>> +    void *buffer;
+>>>>> +    u32 entry;
+>>>>> +    u32 tccr;
+>>>>> +    int q;
+>>>>> +
+>>>>> +    /* If skb needs TX timestamp, it is handled in network control
+>>>>> queue */
+>>>>> +    q = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? RAVB_NC :
+>>>>> RAVB_BE;
+>>>>> +
+>>>>> +    spin_lock_irqsave(&priv->lock, flags);
+>>>>> +    if (priv->cur_tx[q] - priv->dirty_tx[q] >= priv->num_tx_ring[q]
+>>>>> - 4) {
 
-Without patch, refragmentation uses device mtu. incoming packet on destination host:
-IP (ttl 63, offset 0, flags [+], ICMP, length 1500) 192.168.7.1 > 10.0.0.2: ICMP echo request, length 1480
-IP (ttl 63, offset 1480, flags [+], ICMP, length 1500) 192.168.7.1 > 10.0.0.2: ip-proto-1
-IP (ttl 63, offset 2960, flags [none], ICMP, length 68) 192.168.7.1 > 10.0.0.2: ip-proto-1
+>>>> What's so special about 4 here, you don't seem to be using 4 descriptors
 
-With patch, ip_fragment skb_has_frag_list fastpath gets used:
-IP (ttl 63, offset 0, flags [+], ICMP, length 1276) 192.168.7.1 > 10.0.0.2: ICMP echo request, length 1256
-IP (ttl 63, offset 1256, flags [+], ICMP, length 1276) 192.168.7.1 > 10.0.0.2: ip-proto-1
-IP (ttl 63, offset 2512, flags [none], ICMP, length 516) 192.168.7.1 > 10.0.0.2: ip-proto-1
+>>>     Not sure, this was clearly copied from sh_eth.c. Perhaps it's just a
+>>> threshold for calling ravb_tx_free()...
+>
+>> Then 1 inclusive or 0 exclusive is probably what you should be comparing
+>> to, otherwise you may just stop the tx queue earlier than needed.
 
-Caveat:
-This disables the optimization made in commit
-3cc4949269e01f39443d0 ("ipv4: use skb coalescing in defragmentation") for
-everyone as soon as nf_defrag_ipv4 modules are loaded (conntrack defrag
-hooks earlier than ipv4 stacks own defragmentation for local delivery),
-and there is no way to easily determine if we will forward the skb at that
-stage.
+>     Will look into this...
 
-ip_fragment checks the size of the frag skbs vs. the outgoing device mtu
-before using them so if device mtu is smaller than the frag skb length
-the device mtu will be used instead for refragmentation.
+     OK, I've fixed this.
 
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv4/ip_fragment.c | 19 +++++++++++++------
- 1 file changed, 13 insertions(+), 6 deletions(-)
+[...]
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index cc1da6d..31fbb18 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -93,7 +93,7 @@ int ip_frag_mem(struct net *net)
- }
- 
- static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
--			 struct net_device *dev);
-+			 struct net_device *dev, bool preserve_frags);
- 
- struct ip4_create_arg {
- 	struct iphdr *iph;
-@@ -315,7 +315,8 @@ static int ip_frag_reinit(struct ipq *qp)
- }
- 
- /* Add new segment to existing queue. */
--static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
-+static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb,
-+			 bool preserve_frags)
- {
- 	struct sk_buff *prev, *next;
- 	struct net_device *dev;
-@@ -483,7 +484,7 @@ found:
- 		unsigned long orefdst = skb->_skb_refdst;
- 
- 		skb->_skb_refdst = 0UL;
--		err = ip_frag_reasm(qp, prev, dev);
-+		err = ip_frag_reasm(qp, prev, dev, preserve_frags);
- 		skb->_skb_refdst = orefdst;
- 		return err;
- 	}
-@@ -500,7 +501,7 @@ err:
- /* Build a new IP datagram from all its fragments. */
- 
- static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
--			 struct net_device *dev)
-+			 struct net_device *dev, bool preserve_frags)
- {
- 	struct net *net = container_of(qp->q.net, struct net, ipv4.frags);
- 	struct iphdr *iph;
-@@ -590,7 +591,8 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 		else if (head->ip_summed == CHECKSUM_COMPLETE)
- 			head->csum = csum_add(head->csum, fp->csum);
- 
--		if (skb_try_coalesce(head, fp, &headstolen, &delta)) {
-+		if (!preserve_frags &&
-+		    skb_try_coalesce(head, fp, &headstolen, &delta)) {
- 			kfree_skb_partial(fp, headstolen);
- 		} else {
- 			if (!skb_shinfo(head)->frag_list)
-@@ -629,6 +631,11 @@ out_fail:
- 	return err;
- }
- 
-+static bool preserve_fraglist(u32 user)
-+{
-+	return user != IP_DEFRAG_LOCAL_DELIVER;
-+}
-+
- /* Process an incoming IP datagram fragment. */
- int ip_defrag(struct sk_buff *skb, u32 user)
- {
-@@ -645,7 +652,7 @@ int ip_defrag(struct sk_buff *skb, u32 user)
- 
- 		spin_lock(&qp->q.lock);
- 
--		ret = ip_frag_queue(qp, skb);
-+		ret = ip_frag_queue(qp, skb, preserve_fraglist(user));
- 
- 		spin_unlock(&qp->q.lock);
- 		ipq_put(qp);
--- 
-2.0.5
+>>>>> +    desc->ds = skb->len;
+>>>>> +    desc->dptr = dma_map_single(&ndev->dev, buffer, skb->len,
+>>>>> +                    DMA_TO_DEVICE);
+>>>>> +    if (dma_mapping_error(&ndev->dev, desc->dptr)) {
+>>>>> +        dev_kfree_skb_any(skb);
+>>>>> +        priv->tx_skb[q][entry] = NULL;
+
+>>>> Don't you need to make sure this NULL is properly seen by ravb_tx_free()?
+
+>>>     You mean doing this before releasing the spinlock? Or what?
+
+>> Yes, the locking your transmit function seems to open windows during
+>> which it is possible for the interrupt handler running on another CPU to
+>> mess up with the data you are using here.
+
+>     Will look into that too...
+
+    I have looked into the code and I must admit I don't understand how the 
+data can be messed up with. ravb_tx_free() only advances 'priv->dirty_tx' and 
+doesn't go beyond (or change) 'priv->cur_tx' which is used here...
+
+>> --
+>> Florian
+
+WBR, Sergei
+
