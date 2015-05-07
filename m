@@ -1,101 +1,63 @@
-From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: [PATCH] ARM: net: delegate filter to kernel interpreter when imm_offset() return value can't fit into 12bits.
-Date: Thu,  7 May 2015 17:14:21 +0200
-Message-ID: <1431011661-10277-1-git-send-email-nschichan@freebox.fr>
-To: Russell King <linux@arm.linux.org.uk>,
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH] net: ll_temac: Use one return statement instead of two
+Date: Thu, 7 May 2015 17:30:52 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1505071730090.2462@hadrien>
+References: <b10b8e1e696a09152b9df535a8bd37e6500ac1c7.1431005352.git.michal.simek@xilinx.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	=?ISO-8859-15?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
+	Fabian Frederick <fabf@skynet.be>,
+	linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Schichan <nschichan@freebox.fr>,
-	Mircea Gherzan <mgherzan@gmail.com>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+	=?ISO-8859-15?Q?Manuel_Sch=F6lling?= <manuel.schoelling@gmx.de>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Markus Elfring <elfring@users.sourceforge.net>,
+	Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Michal Simek <michal.simek@xilinx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b10b8e1e696a09152b9df535a8bd37e6500ac1c7.1431005352.git.michal.simek@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ARM JIT code emits "ldr rX, [pc, #offset]" to access the literal
-pool. #offset maximum value is 4095 and if the generated code is too
-large, the #offset value can overflow and not point to the expected
-slot in the literal pool. Additionally, when overflow occurs, bits of
-the overflow can end up changing the destination register of the ldr
-instruction.
+On Thu, 7 May 2015, Michal Simek wrote:
 
-Fix that by detecting the overflow in imm_offset() and setting a flag
-that is checked for each BPF instructions converted in
-build_body(). As of now it can only be detected in the second pass. As
-a result the second build_body() call can now fail, so add the
-corresponding cleanup code in that case.
+> From: Michal Simek <monstr@monstr.eu>
+>
+> Use one return statement instead of two to simplify the code.
+> Both are returning the same value.
+>
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 
-Using multiple literal pools in the JITed code is going to require
-lots of intrusive changes to the JIT code (which would better be done
-as a feature instead of fix), just delegating to the kernel BPF
-interpreter in that case is a more straight forward, minimal fix and
-easy to backport.
+The from should be the same as the signed off.  You need From if you want
+something different than what is naturally put by your mailer.  But that
+doesn't see to be the case.
 
-Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
----
- arch/arm/net/bpf_jit_32.c | 27 ++++++++++++++++++++++++++-
- 1 file changed, 26 insertions(+), 1 deletion(-)
+julia
 
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index 6bda637..bb8ffcd 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -54,6 +54,7 @@
- #define SEEN_DATA		(1 << (BPF_MEMWORDS + 3))
- 
- #define FLAG_NEED_X_RESET	(1 << 0)
-+#define FLAG_IMM_OVERFLOW	(1 << 1)
- 
- struct jit_ctx {
- 	const struct bpf_prog *skf;
-@@ -293,6 +294,15 @@ static u16 imm_offset(u32 k, struct jit_ctx *ctx)
- 	/* PC in ARM mode == address of the instruction + 8 */
- 	imm = offset - (8 + ctx->idx * 4);
- 
-+	if (imm & ~0xfff) {
-+		/*
-+		 * literal pool is too far, signal it into flags. we
-+		 * can only detect it on the second pass unfortunately.
-+		 */
-+		ctx->flags |= FLAG_IMM_OVERFLOW;
-+		return 0;
-+	}
-+
- 	return imm;
- }
- 
-@@ -876,6 +886,14 @@ b_epilogue:
- 		default:
- 			return -1;
- 		}
-+
-+		if (ctx->flags & FLAG_IMM_OVERFLOW)
-+			/*
-+			 * this instruction generated an overflow when
-+			 * trying to access the literal pool, so
-+			 * delegate this filter to the kernel interpreter.
-+			 */
-+			return -1;
- 	}
- 
- 	/* compute offsets only during the first pass */
-@@ -938,7 +956,14 @@ void bpf_jit_compile(struct bpf_prog *fp)
- 	ctx.idx = 0;
- 
- 	build_prologue(&ctx);
--	build_body(&ctx);
-+	if (build_body(&ctx) < 0) {
-+#if __LINUX_ARM_ARCH__ < 7
-+		if (ctx.imm_count)
-+			kfree(ctx.imms);
-+#endif
-+		bpf_jit_binary_free(header);
-+		goto out;
-+	}
- 	build_epilogue(&ctx);
- 
- 	flush_icache_range((u32)ctx.target, (u32)(ctx.target + ctx.idx));
--- 
-1.9.1
+> ---
+>
+>  drivers/net/ethernet/xilinx/ll_temac_main.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+> index 690a4c36b316..ca640d04fd93 100644
+> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
+> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+> @@ -688,10 +688,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	cur_p = &lp->tx_bd_v[lp->tx_bd_tail];
+>
+>  	if (temac_check_tx_bd_space(lp, num_frag)) {
+> -		if (!netif_queue_stopped(ndev)) {
+> +		if (!netif_queue_stopped(ndev))
+>  			netif_stop_queue(ndev);
+> -			return NETDEV_TX_BUSY;
+> -		}
+>  		return NETDEV_TX_BUSY;
+>  	}
+>
+> --
+> 2.3.5
+>
+>
