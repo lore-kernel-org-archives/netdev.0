@@ -1,66 +1,88 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [PATCH net-next] switchdev: add support for fdb add/del/dump
- via switchdev_port_obj ops.
-Date: Wed, 06 May 2015 21:42:23 -0700
-Message-ID: <554AED2F.80006@intel.com>
-References: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com> <554AA530.7000702@mojatatu.com>
+From: Maninder Singh <maninder1.s@samsung.com>
+Subject: [EDT][Patch 1/1] socket family check in netlabel APIs
+Date: Thu, 07 May 2015 05:53:51 +0000 (GMT)
+Message-ID: <612771736.621921430978030389.JavaMail.weblogic@epmlwas01d>
+Reply-To: maninder1.s@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jamal Hadi Salim <jhs@mojatatu.com>, sfeldma@gmail.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Vaneet Narang <v.narang@samsung.com>,
+	AJEET YADAV <ajeet.y@samsung.com>
+To: Paul Moore <paul@paul-moore.com>,
+	Maninder Singh <maninder1.s@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:8494 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750733AbbEGEmZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2015 00:42:25 -0400
-In-Reply-To: <554AA530.7000702@mojatatu.com>
+Received: from mailout4.samsung.com ([203.254.224.34]:10228 "EHLO
+	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865AbbEGFxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 01:53:55 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout4.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0NNY00E3GTPTH3A0@mailout4.samsung.com> for
+ netdev@vger.kernel.org; Thu, 07 May 2015 14:53:53 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 5/6/2015 4:35 PM, Jamal Hadi Salim wrote:
-> On 05/06/15 17:54, Sridhar Samudrala wrote:
->> - introduce port fdb obj and generic switchdev_port_fdb_add/del/dump()
->> - use switchdev_port_fdb_add/del/dump in rocker/team/bonding ndo ops.
->> - add support for fdb obj in switchdev_port_obj_add/del/dump()
->> - switch rocker to implement fdb ops via switchdev_ops
->>
->> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
->> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->> ---
->
-> So i raised this earlier. DaveM also chimed in - but it seems still
-> in there.
-> i havent been following the discussion and i may have missed
-> the agreement to keep the new IDs. Could we not just have used netlink
->  IDs (as opposed to a new SWITCHDEV_OBJ_PORT_FDB id)?
-
-I think you are referring to switch port attributes.  See Scott's 
-response here on
-using netlink IDs for attributes.
-http://thread.gmane.org/gmane.linux.network/357694/focus=357921
-
-This patch is adding 'fdb' as new switch port object.  It is similar to 
-other
-objects like 'VLAN' and 'FIB' that are added by Scott's patches.
-
->
->> +int switchdev_port_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
->> +               struct net_device *dev, const unsigned char *addr,
->> +               u16 vid, u16 nlm_flags)
->> +{
->> +    struct switchdev_obj obj = {
->> +        .id = SWITCHDEV_OBJ_PORT_FDB,
->> +        .fdb = {
->> +            .addr = addr,
->> +            .vid = vid,
->> +        },
->> +    };
->> +
->> +    return switchdev_port_obj_add(dev, &obj);
->> +}
->
-> cheers,
-> jamal
+RVAtRTY4RDVFMjQ1NDg1NDVDOUJCQjYwN0E5OEFERDYxRTYNCg0KSGkgUGF1bCwNCg0KPk9uIE1v
+bmRheSwgTWFyY2ggMzAsIDIwMTUgMTE6MDk6MDAgQU0gTWFuaW5kZXIgU2luZ2ggd3JvdGU6DQo+
+PiBEZWFyIEFsbCwNCj4+IHdlIGZvdW5kIE9uZSBLZXJuZWwgQ3Jhc2ggaXNzdWUgaW4gY2lwc29f
+djRfc29ja19kZWxhdHRyIDotDQo+PiBBcyBDaXBzbyBzdXBwb3J0cyBvbmx5IGluZXQgc29ja2V0
+cyBzbyBjaXBzb192NF9zb2NrX2RlbGF0dHIgd2lsbCBjcmFzaCB3aGVuDQo+PiB0cnkgdG8gYWNj
+ZXNzIGFueSBvdGhlciBzb2NrZXQgdHlwZS4gIGNpcHNvX3Y0X3NvY2tfZGVsYXR0ciBhY2Nlc3MN
+Cj4+IHNrX2luZXQtPmluZXRfb3B0IHdoaWNoIG1heSBjb250YWluIG5vdCBOVUxMIGJ1dCBpbnZh
+bGlkIGFkZHJlc3MuIHdlIGZvdW5kDQo+PiB0aGlzIGlzc3VlIHdpdGggbmV0bGluayBzb2NrZXQu
+KHJlcHJvZHVjaWJsZSBieSB0cmluaXR5IHVzaW5nIHNlbmR0byBzeXN0ZW0NCj4+IGNhbGwgLikg
+DQoNCj5IZWxsbywNCg0KPkZpcnN0LCBwbGVhc2UgZ28gcmVhZCB0aGUgRG9jdW1lbnRhdGlvbi9T
+dWJtaXR0aW5nUGF0Y2hlcyBmcm9tIHRoZSBrZXJuZWwgDQo+c291cmNlczsgeW91ciBwYXRjaCBu
+ZWVkcyB0byBiZSByZXN1Ym1pdHRlZCBhbmQgdGhlIGluc3RydWN0aW9ucyBpbiB0aGF0IGZpbGUg
+DQo+d2lsbCBzaG93IHlvdSBob3cgdG8gZG8gaXQgY29ycmVjdGx5IG5leHQgdGltZS4NCg0KPlNl
+Y29uZCwgdGhpcyBhcHBlYXJzIHRvIG9ubHkgYWZmZWN0IFNtYWNrIGJhc2VkIHN5c3RlbXMsIHll
+cz8gIFNFTGludXggYmFzZWQgDQo+c3lzdGVtcyBzaG91bGQgaGF2ZSB0aGUgcHJvcGVyIGNoZWNr
+aW5nIGluIHBsYWNlIHRvIHByZXZlbnQgdGhpcyAodGhlIGNoZWNrcyANCj5hcmUgaGFuZGxlZCBp
+biB0aGUgTFNNKS4gIFRoYXQgc2FpZCwgaXQgcHJvYmFibHkgd291bGRuJ3QgaHVydCB0byBhZGQg
+dGhlIA0KPmV4dHJhIGNoZWNraW5nIHRvIG5ldGxibF9zb2NrX2RlbGF0dHIoKS4gIElmIHlvdSBw
+cm9wZXJseSByZXN1Ym1pdCB5b3VyIHBhdGNoIA0KPkknbGwgQUNLIGl0Lg0KDQo+LVBhdWwNCg0K
+Pi0tIA0KPnBhdWwgbW9vcmUNCj53d3cucGF1bC1tb29yZS5jb20NCg0KQXMgc3VnZ2VzdGVkIHJl
+c3VibWl0dGluZyB0aGUgcGF0Y2ggLg0KDQpTdWJqZWN0IDogc29ja2V0IGZhbWlseSBjaGVjayBp
+biBuZXRsYWJlbCBBUElzDQoNCkFkZGluZyBjaGVjayBmb3Igc29ja2V0IGZhbWlseSBpbiBuZXRs
+Ymxfc29ja19kZWxhdHRyIGFuZCBuZXRsYmxfcmVxX2RlbGF0dHIgYXMgY2hlY2sgcHJlc2VudA0K
+IGluIG5ldGxibF9zb2NrX3NldGF0dHIgYW5kIG5ldGxibF9yZXFfc2V0YXR0ciByZXNwZWN0aXZl
+bHkuDQoNCmFzIHdlIGZhY2VkIGNyYXNoIGluIGNpcHNvX3Y0X3NvY2tfZGVsYXR0ciBkdWUgdG8g
+b3RoZXIgc29ja2V0IHR5cGUuDQpDcmFzaCBMb2dzIDoNClswLTE4Mi4yNDAwXSBbPGMwNGM3ZmE0
+Pl0gKGNpcHNvX3Y0X3NvY2tfZGVsYXR0cisweDAvMHg3NCkgZnJvbSBbPGMwNTE3YjY0Pl0gKG5l
+dGxibF9zb2NrX2RlbGF0dHIrMHgxOC8weDFjKQ0KWzAtMTgyLjI0OTddICByNDowMDAwMDAwMCBy
+MzpjMDc4NzJmOA0KWzAtMTgyLjI1MzFdIFs8YzA1MTdiNGM+XSAobmV0bGJsX3NvY2tfZGVsYXR0
+cisweDAvMHgxYykgZnJvbSBbPGMwMjdiMmZjPl0gKHNtYWNrX25ldGxhYmVsKzB4ODgvMHg5YykN
+ClswLTE4Mi4yNjIyXSBbPGMwMjdiMjc0Pl0gKHNtYWNrX25ldGxhYmVsKzB4MC8weDljKSBmcm9t
+IFs8YzAyN2I0M2M+XSAoc21hY2tfbmV0bGFiZWxfc2VuZCsweDEyYy8weDE0NCkNClswLTE4Mi4y
+NzE0XSAgcjcgOWNlOTUwMCByNiA3YjY3ZWY0IHI1OmMwNzZmNDA4IHI0IDg5MDNkYzANClswLTE4
+Mi4yNzcwXSBbPGMwMjdiMzEwPl0gKHNtYWNrX25ldGxhYmVsX3NlbmQrMHgwLzB4MTQ0KSBmcm9t
+IFs8YzAyN2I0YTg+XSAoc21hY2tfc29ja2V0X3NlbmRtc2crMHg1NC8weDYwKQ0KWzAtMTgyLjI4
+NjZdIFs8YzAyN2I0NTQ+XSAoc21hY2tfc29ja2V0X3NlbmRtc2crMHgwLzB4NjApIGZyb20gWzxj
+MDI3ODllYz5dIChzZWN1cml0eV9zb2NrZXRfc2VuZG1zZysweDI4LzB4MmMpDQpbMC0xODIuMjk2
+Nl0gWzxjMDI3ODljND5dIChzZWN1cml0eV9zb2NrZXRfc2VuZG1zZysweDAvMHgyYykgZnJvbSBb
+PGMwNDM0M2IwPl0gKHNvY2tfc2VuZG1zZysweDY4LzB4YzApDQpbMC0xODIuMzA1OF0gWzxjMDQz
+NDM0OD5dIChzb2NrX3NlbmRtc2crMHgwLzB4YzApIGZyb20gWzxjMDQzNjllOD5dIChTeVNfc2Vu
+ZHRvKzB4ZDgvMHgxMTApDQoNClNpZ25lZC1vZmYtYnk6IFZhbmVldCBOYXJhbmcgPHYubmFyYW5n
+QHNhbXN1bmcuY29tPg0KU2lnbmVkLW9mZi1ieTogTWFuaW5kZXIgU2luZ2ggPG1hbmluZGVyMS5z
+QHNhbXN1bmcuY29tPg0KUmV2aWV3ZWQtYnkgOiBBamVldCBZYWRhdiA8YWplZXQueUBzYW1zdW5n
+LmNvbT4NCi0tLQ0KIG5ldC9uZXRsYWJlbC9uZXRsYWJlbF9rYXBpLmMgfCAgIDE2ICsrKysrKysr
+KysrKysrLS0NCiAxIGZpbGVzIGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25z
+KC0pDQoNCmRpZmYgLS1naXQgYS9uZXQvbmV0bGFiZWwvbmV0bGFiZWxfa2FwaS5jIGIvbmV0L25l
+dGxhYmVsL25ldGxhYmVsX2thcGkuYw0KaW5kZXggMjhjZGRjOC4uNjA2YTVjZSAxMDA2NDQNCi0t
+LSBhL25ldC9uZXRsYWJlbC9uZXRsYWJlbF9rYXBpLmMNCisrKyBiL25ldC9uZXRsYWJlbC9uZXRs
+YWJlbF9rYXBpLmMNCkBAIC04MjQsNyArODI0LDEzIEBAIHNvY2tldF9zZXRhdHRyX3JldHVybjoN
+CiAgKi8NCiB2b2lkIG5ldGxibF9zb2NrX2RlbGF0dHIoc3RydWN0IHNvY2sgKnNrKQ0KIHsNCi0J
+Y2lwc29fdjRfc29ja19kZWxhdHRyKHNrKTsNCisJc3dpdGNoIChzay0+c2tfZmFtaWx5KSB7DQor
+CWNhc2UgQUZfSU5FVDoNCisJCWNpcHNvX3Y0X3NvY2tfZGVsYXR0cihzayk7DQorCQlicmVhazsN
+CisJZGVmYXVsdDoNCisJfQ0KKwlyZXR1cm47DQogfQ0KIA0KIC8qKg0KQEAgLTk4Nyw3ICs5OTMs
+MTMgQEAgcmVxX3NldGF0dHJfcmV0dXJuOg0KICovDQogdm9pZCBuZXRsYmxfcmVxX2RlbGF0dHIo
+c3RydWN0IHJlcXVlc3Rfc29jayAqcmVxKQ0KIHsNCi0JY2lwc29fdjRfcmVxX2RlbGF0dHIocmVx
+KTsNCisJc3dpdGNoIChyZXEtPnJza19vcHMtPmZhbWlseSkgew0KKwljYXNlIEFGX0lORVQ6DQor
+CQljaXBzb192NF9yZXFfZGVsYXR0cihyZXEpOw0KKwkJYnJlYWs7DQorCWRlZmF1bHQ6DQorCX0N
+CisJcmV0dXJuOw0KIH0NCiANCiAvKioNCi0tIA0KMS43LjE=
