@@ -1,289 +1,115 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH v5 2/2] pktgen: introduce xmit_mode
-	'<start_xmit|netif_receive>'
-Date: Thu, 07 May 2015 16:35:32 +0200
-Message-ID: <20150507143500.8534.4435.stgit@ivy>
-References: <20150507143329.8534.49710.stgit@ivy>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net] mpls: Change reserved label names to be consistent with netbsd
+Date: Thu, 7 May 2015 08:08:51 -0700
+Message-ID: <1431011331-1863736-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <ebiederm@xmission.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30021 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751608AbbEGOmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2015 10:42:13 -0400
-In-Reply-To: <20150507143329.8534.49710.stgit@ivy>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41959 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750755AbbEGPJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 11:09:03 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t47F8YoX017306
+	for <netdev@vger.kernel.org>; Thu, 7 May 2015 08:09:02 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0b-00082601.pphosted.com with ESMTP id 1u8999r81r-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 07 May 2015 08:09:02 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.232.59) with ESMTP	id
+ fd5fbc40f4ca11e49c760002c991e86a-9a7de1e0 for <netdev@vger.kernel.org>;	Thu,
+ 07 May 2015 08:09:00 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
+Since these are now visible to userspace it is nice to be consistent
+with BSD (sys/netmpls/mpls.h in netBSD).
 
-Introduce xmit_mode 'netif_receive' for pktgen which generates the
-packets using familiar pktgen commands, but feeds them into
-netif_receive_skb() instead of ndo_start_xmit().
-
-Default mode is called 'start_xmit'.
-
-It is designed to test netif_receive_skb and ingress qdisc
-performace only. Make sure to understand how it works before
-using it for other rx benchmarking.
-
-Sample script 'pktgen.sh':
-\#!/bin/bash
-function pgset() {
-  local result
-
-  echo $1 > $PGDEV
-
-  result=`cat $PGDEV | fgrep "Result: OK:"`
-  if [ "$result" = "" ]; then
-    cat $PGDEV | fgrep Result:
-  fi
-}
-
-[ -z "$1" ] && echo "Usage: $0 DEV" && exit 1
-ETH=$1
-
-PGDEV=/proc/net/pktgen/kpktgend_0
-pgset "rem_device_all"
-pgset "add_device $ETH"
-
-PGDEV=/proc/net/pktgen/$ETH
-pgset "xmit_mode netif_receive"
-pgset "pkt_size 60"
-pgset "dst 198.18.0.1"
-pgset "dst_mac 90:e2:ba:ff:ff:ff"
-pgset "count 10000000"
-pgset "burst 32"
-
-PGDEV=/proc/net/pktgen/pgctrl
-echo "Running... ctrl^C to stop"
-pgset "start"
-echo "Done"
-cat /proc/net/pktgen/$ETH
-
-Usage:
-$ sudo ./pktgen.sh eth2
-...
-Result: OK: 232376(c232372+d3) usec, 10000000 (60byte,0frags)
-  43033682pps 20656Mb/sec (20656167360bps) errors: 10000000
-
-Raw netif_receive_skb speed should be ~43 million packet
-per second on 3.7Ghz x86 and 'perf report' should look like:
-  37.69%  kpktgend_0   [kernel.vmlinux]  [k] __netif_receive_skb_core
-  25.81%  kpktgend_0   [kernel.vmlinux]  [k] kfree_skb
-   7.22%  kpktgend_0   [kernel.vmlinux]  [k] ip_rcv
-   5.68%  kpktgend_0   [pktgen]          [k] pktgen_thread_worker
-
-If fib_table_lookup is seen on top, it means skb was processed
-by the stack. To benchmark netif_receive_skb only make sure
-that 'dst_mac' of your pktgen script is different from
-receiving device mac and it will be dropped by ip_rcv
-
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
+Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
-v4->v5:
-- Rename xmit_mode's <start_xmit|netif_receive>
-- Save one branch when calling eth_type_trans(), noticed by Alex Duyck
+ include/uapi/linux/mpls.h | 12 ++++++------
+ net/mpls/af_mpls.c        | 18 +++++++++---------
+ 2 files changed, 15 insertions(+), 15 deletions(-)
 
-v3->v4: Jesper address his own concerns
-- User interface intro xmit_mode
-- Mention xmit_mode in doc
-- Make sure skb_clone cannot be used together with this mode
-
-v2->v3: addressed more Eric comments. Thanks!
-
-v1->v2: as suggested by Eric:
-- dropped 'clone_skb' flag, now it will return enotsupp
-- fix rps/rfs bug by checking skb->users after every netif_receive_skb
-- tested with RPS/RFS, taps, veth, physical devs, various tc cls/act
-
----
-
- Documentation/networking/pktgen.txt |    7 +++
- net/core/pktgen.c                   |   82 +++++++++++++++++++++++++++++++++--
- 2 files changed, 84 insertions(+), 5 deletions(-)
-
-diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
-index 6199ee6..747facc 100644
---- a/Documentation/networking/pktgen.txt
-+++ b/Documentation/networking/pktgen.txt
-@@ -193,6 +193,10 @@ Examples:
-  pgset "rate 300M"        set rate to 300 Mb/s
-  pgset "ratep 1000000"    set rate to 1Mpps
+diff --git a/include/uapi/linux/mpls.h b/include/uapi/linux/mpls.h
+index 0fe6ea5..139d4dd 100644
+--- a/include/uapi/linux/mpls.h
++++ b/include/uapi/linux/mpls.h
+@@ -32,13 +32,13 @@ struct mpls_label {
+ #define MPLS_LS_TTL_SHIFT       0
  
-+ pgset "xmit_mode netif_receive"  RX inject into stack netif_receive_skb()
-+				  Works with "burst" but not with "clone_skb".
-+				  Default xmit_mode is "start_xmit".
-+
- Sample scripts
- ==============
+ /* Reserved labels */
+-#define MPLS_LABEL_IPV4_EXPLICIT_NULL	0 /* RFC3032 */
+-#define MPLS_LABEL_ROUTER_ALERT		1 /* RFC3032 */
+-#define MPLS_LABEL_IPV6_EXPLICIT_NULL	2 /* RFC3032 */
+-#define MPLS_LABEL_IMPLICIT_NULL	3 /* RFC3032 */
+-#define MPLS_LABEL_ENTROPY_INDICATOR	7 /* RFC6790 */
++#define MPLS_LABEL_IPV4NULL		0 /* RFC3032 */
++#define MPLS_LABEL_RTALERT		1 /* RFC3032 */
++#define MPLS_LABEL_IPV6NULL		2 /* RFC3032 */
++#define MPLS_LABEL_IMPLNULL		3 /* RFC3032 */
++#define MPLS_LABEL_ENTROPY		7 /* RFC6790 */
+ #define MPLS_LABEL_GAL			13 /* RFC5586 */
+-#define MPLS_LABEL_OAM_ALERT		14 /* RFC3429 */
++#define MPLS_LABEL_OAMALERT		14 /* RFC3429 */
+ #define MPLS_LABEL_EXTENSION		15 /* RFC7274 */
  
-@@ -310,6 +314,9 @@ flowlen
- rate
- ratep
+ #endif /* _UAPI_MPLS_H */
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index b6eb761..7b3f732 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -647,7 +647,7 @@ int nla_get_labels(const struct nlattr *nla,
+ 			return -EINVAL;
  
-+xmit_mode <start_xmit|netif_receive>
-+
-+
- References:
- ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/
- ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 43bb215..8f2687d 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -210,6 +210,10 @@
- #define T_REMDEVALL   (1<<2)	/* Remove all devs */
- #define T_REMDEV      (1<<3)	/* Remove one dev */
- 
-+/* Xmit modes */
-+#define M_START_XMIT		0	/* Default normal TX */
-+#define M_NETIF_RECEIVE 	1	/* Inject packets into stack */
-+
- /* If lock -- protects updating of if_list */
- #define   if_lock(t)           spin_lock(&(t->if_lock));
- #define   if_unlock(t)           spin_unlock(&(t->if_lock));
-@@ -251,13 +255,14 @@ struct pktgen_dev {
- 	 * we will do a random selection from within the range.
- 	 */
- 	__u32 flags;
--	int removal_mark;	/* non-zero => the device is marked for
--				 * removal by worker thread */
--
-+	int xmit_mode;
- 	int min_pkt_size;
- 	int max_pkt_size;
- 	int pkt_overhead;	/* overhead for MPLS, VLANs, IPSEC etc */
- 	int nfrags;
-+	int removal_mark;	/* non-zero => the device is marked for
-+				 * removal by worker thread */
-+
- 	struct page *page;
- 	u64 delay;		/* nano-seconds */
- 
-@@ -620,6 +625,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	if (pkt_dev->node >= 0)
- 		seq_printf(seq, "     node: %d\n", pkt_dev->node);
- 
-+	if (pkt_dev->xmit_mode == M_NETIF_RECEIVE)
-+		seq_puts(seq, "     xmit_mode: netif_receive\n");
-+
- 	seq_puts(seq, "     Flags: ");
- 
- 	if (pkt_dev->flags & F_IPV6)
-@@ -1081,7 +1089,8 @@ static ssize_t pktgen_if_write(struct file *file,
- 		if (len < 0)
- 			return len;
- 		if ((value > 0) &&
--		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
-+		    ((pkt_dev->xmit_mode == M_NETIF_RECEIVE) ||
-+		     !(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
- 			return -ENOTSUPP;
- 		i += len;
- 		pkt_dev->clone_skb = value;
-@@ -1134,7 +1143,7 @@ static ssize_t pktgen_if_write(struct file *file,
- 			return len;
- 
- 		i += len;
--		if ((value > 1) &&
-+		if ((value > 1) && (pkt_dev->xmit_mode == M_START_XMIT) &&
- 		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
- 			return -ENOTSUPP;
- 		pkt_dev->burst = value < 1 ? 1 : value;
-@@ -1160,6 +1169,35 @@ static ssize_t pktgen_if_write(struct file *file,
- 			sprintf(pg_result, "ERROR: node not possible");
- 		return count;
+ 		switch (dec.label) {
+-		case MPLS_LABEL_IMPLICIT_NULL:
++		case MPLS_LABEL_IMPLNULL:
+ 			/* RFC3032: This is a label that an LSR may
+ 			 * assign and distribute, but which never
+ 			 * actually appears in the encapsulation.
+@@ -935,7 +935,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
  	}
-+	if (!strcmp(name, "xmit_mode")) {
-+		char f[32];
-+
-+		memset(f, 0, 32);
-+		len = strn_len(&user_buffer[i], sizeof(f) - 1);
-+		if (len < 0)
-+			return len;
-+
-+		if (copy_from_user(f, &user_buffer[i], len))
-+			return -EFAULT;
-+		i += len;
-+
-+		if (strcmp(f, "start_xmit") == 0) {
-+			pkt_dev->xmit_mode = M_START_XMIT;
-+		} else if (strcmp(f, "netif_receive") == 0) {
-+			/* clone_skb set earlier, not supported in this mode */
-+			if (pkt_dev->clone_skb > 0)
-+				return -ENOTSUPP;
-+
-+			pkt_dev->xmit_mode = M_NETIF_RECEIVE;
-+		} else {
-+			sprintf(pg_result,
-+				"xmit_mode -:%s:- unknown\nAvailable modes: %s",
-+				f, "start_xmit, netif_receive\n");
-+			return count;
-+		}
-+		sprintf(pg_result, "OK: xmit_mode=%s", f);
-+		return count;
-+	}
- 	if (!strcmp(name, "flag")) {
- 		char f[32];
- 		memset(f, 0, 32);
-@@ -3320,6 +3358,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 	unsigned int burst = ACCESS_ONCE(pkt_dev->burst);
- 	struct net_device *odev = pkt_dev->odev;
- 	struct netdev_queue *txq;
-+	struct sk_buff *skb;
- 	int ret;
  
- 	/* If device is offline, then don't send */
-@@ -3357,6 +3396,38 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 	if (pkt_dev->delay && pkt_dev->last_ok)
- 		spin(pkt_dev, pkt_dev->next_tx);
+ 	/* In case the predefined labels need to be populated */
+-	if (limit > MPLS_LABEL_IPV4_EXPLICIT_NULL) {
++	if (limit > MPLS_LABEL_IPV4NULL) {
+ 		struct net_device *lo = net->loopback_dev;
+ 		rt0 = mpls_rt_alloc(lo->addr_len);
+ 		if (!rt0)
+@@ -945,7 +945,7 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 		rt0->rt_via_table = NEIGH_LINK_TABLE;
+ 		memcpy(rt0->rt_via, lo->dev_addr, lo->addr_len);
+ 	}
+-	if (limit > MPLS_LABEL_IPV6_EXPLICIT_NULL) {
++	if (limit > MPLS_LABEL_IPV6NULL) {
+ 		struct net_device *lo = net->loopback_dev;
+ 		rt2 = mpls_rt_alloc(lo->addr_len);
+ 		if (!rt2)
+@@ -973,15 +973,15 @@ static int resize_platform_label_table(struct net *net, size_t limit)
+ 	memcpy(labels, old, cp_size);
  
-+	if (pkt_dev->xmit_mode == M_NETIF_RECEIVE) {
-+		skb = pkt_dev->skb;
-+		skb->protocol = eth_type_trans(skb, skb->dev);
-+		atomic_add(burst, &skb->users);
-+		local_bh_disable();
-+		do {
-+			ret = netif_receive_skb(skb);
-+			if (ret == NET_RX_DROP)
-+				pkt_dev->errors++;
-+			pkt_dev->sofar++;
-+			pkt_dev->seq_num++;
-+			if (atomic_read(&skb->users) != burst) {
-+				/* skb was queued by rps/rfs or taps,
-+				 * so cannot reuse this skb
-+				 */
-+				atomic_sub(burst - 1, &skb->users);
-+				/* get out of the loop and wait
-+				 * until skb is consumed
-+				 */
-+				pkt_dev->last_ok = 1;
-+				break;
-+			}
-+			/* skb was 'freed' by stack, so clean few
-+			 * bits and reuse it
-+			 */
-+#ifdef CONFIG_NET_CLS_ACT
-+			skb->tc_verd = 0; /* reset reclass/redir ttl */
-+#endif
-+		} while (--burst > 0);
-+		goto out; /* Skips xmit_mode M_START_XMIT */
-+	}
-+
- 	txq = skb_get_tx_queue(odev, pkt_dev->skb);
+ 	/* If needed set the predefined labels */
+-	if ((old_limit <= MPLS_LABEL_IPV6_EXPLICIT_NULL) &&
+-	    (limit > MPLS_LABEL_IPV6_EXPLICIT_NULL)) {
+-		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV6_EXPLICIT_NULL], rt2);
++	if ((old_limit <= MPLS_LABEL_IPV6NULL) &&
++	    (limit > MPLS_LABEL_IPV6NULL)) {
++		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV6NULL], rt2);
+ 		rt2 = NULL;
+ 	}
  
- 	local_bh_disable();
-@@ -3404,6 +3475,7 @@ xmit_more:
- unlock:
- 	HARD_TX_UNLOCK(odev, txq);
+-	if ((old_limit <= MPLS_LABEL_IPV4_EXPLICIT_NULL) &&
+-	    (limit > MPLS_LABEL_IPV4_EXPLICIT_NULL)) {
+-		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV4_EXPLICIT_NULL], rt0);
++	if ((old_limit <= MPLS_LABEL_IPV4NULL) &&
++	    (limit > MPLS_LABEL_IPV4NULL)) {
++		RCU_INIT_POINTER(labels[MPLS_LABEL_IPV4NULL], rt0);
+ 		rt0 = NULL;
+ 	}
  
-+out:
- 	local_bh_enable();
- 
- 	/* If pkt_dev->count is zero, then run forever */
+-- 
+1.8.1
