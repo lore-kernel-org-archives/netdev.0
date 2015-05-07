@@ -1,8 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [PATCH net-next v5 12/21] switchdev: remove old
  switchdev_port_bridge_setlink
-Date: Thu, 7 May 2015 17:33:40 +0200
-Message-ID: <20150507153340.GA2121@nanopsycho>
+Date: Thu, 7 May 2015 17:36:38 +0200
+Message-ID: <20150507153637.GB2121@nanopsycho>
 References: <1430847297-15728-1-git-send-email-sfeldma@gmail.com>
  <1430847297-15728-13-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
@@ -13,12 +13,12 @@ Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	simon.horman@netronome.com
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:33305 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbbEGPdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 11:33:44 -0400
-Received: by wgin8 with SMTP id n8so47446017wgi.0
-        for <netdev@vger.kernel.org>; Thu, 07 May 2015 08:33:43 -0700 (PDT)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:37584 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752067AbbEGPgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 11:36:41 -0400
+Received: by widdi4 with SMTP id di4so64688584wid.0
+        for <netdev@vger.kernel.org>; Thu, 07 May 2015 08:36:40 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <1430847297-15728-13-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
@@ -32,24 +32,23 @@ Tue, May 05, 2015 at 07:34:48PM CEST, sfeldma@gmail.com wrote:
 >call into SELF port driver.  rtnetlink.c:bridge_setlink already does a call
 >into port driver for SELF.
 >
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+>---
+> include/net/switchdev.h   |   17 -----------------
+> net/bridge/br_netlink.c   |   11 +----------
+> net/switchdev/switchdev.c |   30 ------------------------------
+> 3 files changed, 1 insertion(+), 57 deletions(-)
+>
+>diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+>index aa6c370..ce5ceb2 100644
+>--- a/include/net/switchdev.h
+>+++ b/include/net/switchdev.h
+>@@ -122,8 +122,6 @@ int switchdev_port_attr_set(struct net_device *dev,
+> 			    struct switchdev_attr *attr);
+> int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj);
+> int switchdev_port_obj_del(struct net_device *dev, struct switchdev_obj *obj);
+>-int switchdev_port_bridge_setlink(struct net_device *dev, struct nlmsghdr *nlh,
+>-			      u16 flags);
 
-Although the patch description does not say so, this patch really
-removes "ndo_dflt_switchdev_port_bridge_setlink".
-
-....
-
-
-> 	}
-> 
->-	if (p && !(flags & BRIDGE_FLAGS_SELF)) {
->-		/* set bridge attributes in hardware if supported
->-		 */
->-		ret_offload = switchdev_port_bridge_setlink(dev, nlh, flags);
->-		if (ret_offload && ret_offload != -EOPNOTSUPP)
->-			br_warn(p->br, "error setting attrs on port %u(%s)\n",
->-				(unsigned int)p->port_no, p->dev->name);
->-	}
->-
-
-Also, I think that this hunk should be as a separate patch as I really
-don't see direct relation with the rest of the patch.
+I don't understand why you remove this. Would for example bond compile
+after this? 
