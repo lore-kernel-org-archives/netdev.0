@@ -1,86 +1,39 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [PATCH 05/10] net: Add skb_free_frag to replace use of put_page in
- freeing skb->head
-Date: Wed, 06 May 2015 21:12:03 -0700
-Message-ID: <20150507041203.1873.67584.stgit@ahduyck-vm-fedora22>
+Subject: [PATCH 06/10] netcp: Replace put_page(virt_to_head_page(ptr)) w/
+ skb_free_frag
+Date: Wed, 06 May 2015 21:12:08 -0700
+Message-ID: <20150507041208.1873.92668.stgit@ahduyck-vm-fedora22>
 References: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, davem@davemloft.net, eric.dumazet@gmail.com
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	eric.dumazet@gmail.com
 To: netdev@vger.kernel.org, linux-mm@kvack.org
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52419 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751292AbbEGEMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2015 00:12:09 -0400
 In-Reply-To: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-This change adds a function called skb_free_frag which is meant to
-compliment the function netdev_alloc_frag.  The general idea is to enable a
-more lightweight version of page freeing since we don't actually need all
-the overhead of a put_page, and we don't quite fit the model of __free_pages.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 ---
- include/linux/skbuff.h |    5 +++++
- net/core/skbuff.c      |   10 ++++++----
- 2 files changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/ti/netcp_core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0039fcc45b3b..c0b574a414e7 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2182,6 +2182,11 @@ static inline struct sk_buff *netdev_alloc_skb_ip_align(struct net_device *dev,
- 	return __netdev_alloc_skb_ip_align(dev, length, GFP_ATOMIC);
- }
- 
-+static inline void skb_free_frag(void *addr)
-+{
-+	__free_page_frag(addr);
-+}
-+
- void *napi_alloc_frag(unsigned int fragsz);
- struct sk_buff *__napi_alloc_skb(struct napi_struct *napi,
- 				 unsigned int length, gfp_t gfp_mask);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index dcc0e07abf47..d67e612bf0ef 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -436,7 +436,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
- 
- 	skb = __build_skb(data, len);
- 	if (unlikely(!skb)) {
--		put_page(virt_to_head_page(data));
-+		skb_free_frag(data);
- 		return NULL;
- 	}
- 
-@@ -490,7 +490,7 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 
- 	skb = __build_skb(data, len);
- 	if (unlikely(!skb)) {
--		put_page(virt_to_head_page(data));
-+		skb_free_frag(data);
- 		return NULL;
- 	}
- 
-@@ -549,10 +549,12 @@ static void skb_clone_fraglist(struct sk_buff *skb)
- 
- static void skb_free_head(struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 43efc3a0cda5..0a28c07361cf 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -537,7 +537,7 @@ int netcp_unregister_rxhook(struct netcp_intf *netcp_priv, int order,
+ static void netcp_frag_free(bool is_frag, void *ptr)
  {
-+	unsigned char *head = skb->head;
-+
- 	if (skb->head_frag)
--		put_page(virt_to_head_page(skb->head));
-+		skb_free_frag(head);
+ 	if (is_frag)
+-		put_page(virt_to_head_page(ptr));
++		skb_free_frag(ptr);
  	else
--		kfree(skb->head);
-+		kfree(head);
+ 		kfree(ptr);
  }
- 
- static void skb_release_data(struct sk_buff *skb)
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
