@@ -1,61 +1,112 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [net-next fragmenation icmp v2 1/2] bridge_netfilter: No ICMP
- packet on IPv4 defragmentation timeout
-Date: Thu, 7 May 2015 13:09:06 -0700
-Message-ID: <CACzMAJ+qG0AuWnKDSsRtmq1L2AWoHxvwnDXa6qozMUFdLkrpxg@mail.gmail.com>
-References: <1430962033-16141-1-git-send-email-azhou@nicira.com>
-	<1430962033-16141-2-git-send-email-azhou@nicira.com>
-	<20150507020719.GG21713@breakpoint.cc>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH v1 net-next 2/2] igb: support SIOCSMIIREG
+Date: Thu, 7 May 2015 20:46:15 +0000
+Message-ID: <93C443E7-4209-45A3-A54F-949A4ECDD508@intel.com>
+References: <1429302240-654-1-git-send-email-jtoppins@cumulusnetworks.com>
+ <1429302240-654-2-git-send-email-jtoppins@cumulusnetworks.com>
+ <554BA646.1060000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_F7A7C139-75B3-4867-B127-46EC277C1966";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Nelson, Shannon" <shannon.nelson@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Vick, Matthew" <matthew.vick@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"shm@cumulusnetworks.com" <shm@cumulusnetworks.com>,
+	Alan Liebthal <alanl@cumulusnetworks.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:38757 "HELO
-	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751365AbbEGUJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 16:09:07 -0400
-Received: by mail-ob0-f180.google.com with SMTP id e9so40264204obf.1
-        for <netdev@vger.kernel.org>; Thu, 07 May 2015 13:09:06 -0700 (PDT)
-In-Reply-To: <20150507020719.GG21713@breakpoint.cc>
+Received: from mga09.intel.com ([134.134.136.24]:7745 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751663AbbEGUqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2015 16:46:19 -0400
+In-Reply-To: <554BA646.1060000@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 6, 2015 at 7:07 PM, Florian Westphal <fw@strlen.de> wrote:
-> Andy Zhou <azhou@nicira.com> wrote:
->> Currently, on defragmentation timeout error, ICMP error message
->> will be generated. This is fine when they are used in a routing context,
->> but does not make sense in the context of bridging netfilter.
->>
->> This patch adds a bit (IPSKB_NO_FRAG_ICMP) in IPCB to control
->> whether ICMP error message should be generated. br_netfiler sets
->> this bit.
->
-> Why not use qp->user to make this decision for bridge too?
->
-O.K. Will do
+--Apple-Mail=_F7A7C139-75B3-4867-B127-46EC277C1966
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=windows-1252
 
->> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
->> index cc1da6d..447d9ec 100644
->> --- a/net/ipv4/ip_fragment.c
->> +++ b/net/ipv4/ip_fragment.c
->> @@ -217,7 +217,8 @@ static void ip_expire(unsigned long arg)
->>               /* Only an end host needs to send an ICMP
->>                * "Fragment Reassembly Timeout" message, per RFC792.
->>                */
->> -             if (qp->user == IP_DEFRAG_AF_PACKET ||
->>                   ((qp->user >= IP_DEFRAG_CONNTRACK_IN) &&
->>                    (qp->user <= __IP_DEFRAG_CONNTRACK_IN_END) ||
->
->                     ((qp->user >= IP_DEFRAG_CONNTRACK_BRIDGE_IN) &&
->                      (qp->user <= __IP_DEFRAG_CONNTRACK_BRIDGE_IN) &&
->
->
-> [ This if cascade is getting silly, might make sense to add
->  'static bool should_send_icmp(enum ip_defrag_users users)', move if
->  tests there and then just
->
-> if (should_send_icmp(qp->user) && skb_rtable( ...)
+> On May 7, 2015, at 10:52 AM, Alexander Duyck =
+<alexander.duyck@gmail.com> wrote:
+>=20
+>> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c =
+b/drivers/net/ethernet/intel/igb/igb_main.c
+>> index 720b785..1071a71 100644
+>> --- a/drivers/net/ethernet/intel/igb/igb_main.c
+>> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
+>> @@ -7141,6 +7141,11 @@ static int igb_mii_ioctl(struct net_device =
+*netdev, struct ifreq *ifr, int cmd)
+>>  			return -EIO;
+>>  		break;
+>>  	case SIOCSMIIREG:
+>> +		adapter->hw.phy.addr =3D data->phy_id;
+>> +		if (igb_write_phy_reg(&adapter->hw, data->reg_num & =
+0x1F,
+>> +				      data->val_in))
+>> +			return -EIO;
+>> +		break;
+>>  	default:
+>>  		return -EOPNOTSUPP;
+>>  	}
+>=20
+> How and why is this being used?  =46rom what I can tell it looks like =
+it is an easy way to break any of the existing interfaces if it is =
+misused since all you would need to do is specify a phy address that =
+doesn't match the existing PHY in the system and then you would likely =
+lose link, or possibly mess up the configuration on the system =
+requiring.
+>=20
+> I suspect this is a back door for some piece of user space code that =
+is being given far more permission than it should be.
 
-Good idea, will do.
+I don't know about a back door, but the real problem is that it has a
+side-effect of changing the saved value of the phy addr. That is clearly
+a problem and can't be allowed.
+
+For the phylib stuff to really work as intended, the igb_write_phy_reg
+really should take the phy address as a parameter instead of getting
+the value from the structure itself. Or a new function should be
+defined that has that interface.
+
+--
+Mark Rustad, Networking Division, Intel Corporation
+
+
+--Apple-Mail=_F7A7C139-75B3-4867-B127-46EC277C1966
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJVS88WAAoJEDwO/+eO4+5uVDMP/jDDV33fSzCYfHmr5H5AbiZB
+k7DNfhxEVUOTfZxxKzxI2uTjPLtamL7y3yBsrqc5t/NBesuAzYIQmce/OSaWQUAI
+Jyyj8FxuVkPyrFOwZst0F86wO6zdNuYQ0A32Nw3AHylL5nLnnjqy8FXHWlHEKzQh
+vOIFlkshlG7Lr3yAvYka5Y8wjAkVmrQuzkPpY77N5qRBF3ijAqn0ajBPOZscys7N
+Gb7WArg2ESb9Omg7qx4LvwzWB17xi5hGhg7Mu7ihwhJylYD7ypDqDCmdhNm5u+9n
+xwLl+5Dbu64iRnXbpKkNnmKKTIpK6C/hRNN/zbs9NyfStWXpGB70a3Rjw25MHsN2
+qmTnOWnemZ//L9ebRh8Haes+L9WxJUkKunwnCSa8fjlK5Pxq/JuQ4lYvFIxoL8nH
+yUfvEUx+KQNBKM8L+LxrNZuWOaiMj2l2OQ+xuTe4hCv2baQjvdUirWn3Jfvn/4pk
+Xrf4HoZ4S9InVGOzaEjcqW2PDbSbnkXAK3MJcBV15AnPj5Ma8tC5eEyulTHhRCOp
+WBoBNvOEJMAp/VpTTigAnKCO0xrvBFmIqxULPRFuKYEwdP39QZ5Myluu3kqpmNpm
+veqp+nTYxfQFs+M7I2aMm5aAYRWYo0e3JBCHsZnje7TiClvmEBJZIOYOkWfp/hmD
+xV7Etxv3MwZ1aGEs7Dz7
+=plcV
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_F7A7C139-75B3-4867-B127-46EC277C1966--
