@@ -1,34 +1,34 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v2 4/7] netns: notify new nsid outside
- __peernet2id()
-Date: Thu, 7 May 2015 13:47:33 +0200
-Message-ID: <20150507114733.GA16619@pox.localdomain>
+Subject: Re: [PATCH net-next v2 6/7] netlink: rename private flags and states
+Date: Thu, 7 May 2015 13:49:56 +0200
+Message-ID: <20150507114956.GB16619@pox.localdomain>
 References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
  <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
- <1430989373-4515-5-git-send-email-nicolas.dichtel@6wind.com>
+ <1430989373-4515-7-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, davem@davemloft.net, ebiederm@xmission.com
 To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f194.google.com ([209.85.212.194]:33981 "EHLO
-	mail-wi0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbbEGLrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 07:47:42 -0400
-Received: by wivr20 with SMTP id r20so5345155wiv.1
-        for <netdev@vger.kernel.org>; Thu, 07 May 2015 04:47:41 -0700 (PDT)
+Received: from mail-wg0-f65.google.com ([74.125.82.65]:35802 "EHLO
+	mail-wg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751643AbbEGLt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 07:49:59 -0400
+Received: by wggy19 with SMTP id y19so1384901wgg.2
+        for <netdev@vger.kernel.org>; Thu, 07 May 2015 04:49:58 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1430989373-4515-5-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <1430989373-4515-7-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 05/07/15 at 11:02am, Nicolas Dichtel wrote:
-> There is no functional change with this patch. It will ease the refactoring
-> of the locking system that protects nsids and the support of the netlink
-> socket option NETLINK_LISTEN_ALL_NSID.
+> These flags and states have the same prefix (NETLINK_) that netlink socket
+> options. To avoid confusion and to be able to name a flag like a socket
+> option, let's use an other prefix: NETLINK_[S|F]_.
+> 
+> Note: a comment has been fixed, it was talking about
+> NETLINK_RECV_NO_ENOBUFS socket option instead of NETLINK_NO_ENOBUFS.
 > 
 > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-
-Looks much cleaner this way, thanks.
 
 Acked-by: Thomas Graf <tgraf@suug.ch>
