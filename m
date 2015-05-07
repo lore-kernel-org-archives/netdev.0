@@ -1,169 +1,75 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: [PATCH net-next] ethernet: qualcomm: use spi instead of spi_device
-Date: Thu,  7 May 2015 09:17:48 +0530
-Message-ID: <1430970468-4636-1-git-send-email-varkab@cdac.in>
-Cc: Varka Bhadram <varkab@cdac.in>
-To: netdev@vger.kernel.org
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [PATCH 00/10] Refactor netdev page frags and move them into mm/
+Date: Wed, 06 May 2015 21:11:34 -0700
+Message-ID: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	eric.dumazet@gmail.com
+To: netdev@vger.kernel.org, linux-mm@kvack.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:34329 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078AbbEGDsZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 May 2015 23:48:25 -0400
-Received: by pdbqa5 with SMTP id qa5so28931277pdb.1
-        for <netdev@vger.kernel.org>; Wed, 06 May 2015 20:48:24 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:35922 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750725AbbEGELo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2015 00:11:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All spi based drivers have an instance of struct spi_device
-as spi. This patch renames spi_device to spi to synchronize
-with all the drivers.
+This patch series addresses several things.
 
-Signed-off-by: Varka Bhadram <varkab@cdac.in>
+First I found an issue in the performance of the pfmemalloc check from
+build_skb.  To work around it I have provided a cached copy of pfmemalloc
+to be used in __netdev_alloc_skb and __napi_alloc_skb.
+
+Second I moved the page fragment allocation logic into the mm tree and
+added functionality for freeing page fragments.  I had to fix igb before I
+could do this as it was using a reference to NETDEV_FRAG_PAGE_MAX_SIZE
+incorrectly.
+
+Finally I went through and replaced all of the duplicate code that was
+calling put_page and replaced it with calls to skb_free_frag.
+
+With these changes in place a simple receive and drop test increased from a
+packet rate of 8.9Mpps to 9.8Mpps.  The gains breakdown as follows:
+
+8.9Mpps	Before			9.8Mpps	After
+------------------------	------------------------
+7.8%	put_compound_page	9.1%	__free_page_frag
+3.9%	skb_free_head
+1.1%	put_page
+
+4.9%	build_skb		3.8%	__napi_alloc_skb
+2.5%	__alloc_rx_skb
+1.9%	__napi_alloc_skb
+
 ---
- drivers/net/ethernet/qualcomm/qca_spi.c |   46 +++++++++++++++----------------
- 1 file changed, 23 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/qca_spi.c b/drivers/net/ethernet/qualcomm/qca_spi.c
-index f66641d..c6b7498 100644
---- a/drivers/net/ethernet/qualcomm/qca_spi.c
-+++ b/drivers/net/ethernet/qualcomm/qca_spi.c
-@@ -839,7 +839,7 @@ static const struct of_device_id qca_spi_of_match[] = {
- MODULE_DEVICE_TABLE(of, qca_spi_of_match);
- 
- static int
--qca_spi_probe(struct spi_device *spi_device)
-+qca_spi_probe(struct spi_device *spi)
- {
- 	struct qcaspi *qca = NULL;
- 	struct net_device *qcaspi_devs = NULL;
-@@ -847,52 +847,52 @@ qca_spi_probe(struct spi_device *spi_device)
- 	u16 signature;
- 	const char *mac;
- 
--	if (!spi_device->dev.of_node) {
--		dev_err(&spi_device->dev, "Missing device tree\n");
-+	if (!spi->dev.of_node) {
-+		dev_err(&spi->dev, "Missing device tree\n");
- 		return -EINVAL;
- 	}
- 
--	legacy_mode = of_property_read_bool(spi_device->dev.of_node,
-+	legacy_mode = of_property_read_bool(spi->dev.of_node,
- 					    "qca,legacy-mode");
- 
- 	if (qcaspi_clkspeed == 0) {
--		if (spi_device->max_speed_hz)
--			qcaspi_clkspeed = spi_device->max_speed_hz;
-+		if (spi->max_speed_hz)
-+			qcaspi_clkspeed = spi->max_speed_hz;
- 		else
- 			qcaspi_clkspeed = QCASPI_CLK_SPEED;
- 	}
- 
- 	if ((qcaspi_clkspeed < QCASPI_CLK_SPEED_MIN) ||
- 	    (qcaspi_clkspeed > QCASPI_CLK_SPEED_MAX)) {
--		dev_info(&spi_device->dev, "Invalid clkspeed: %d\n",
-+		dev_info(&spi->dev, "Invalid clkspeed: %d\n",
- 			 qcaspi_clkspeed);
- 		return -EINVAL;
- 	}
- 
- 	if ((qcaspi_burst_len < QCASPI_BURST_LEN_MIN) ||
- 	    (qcaspi_burst_len > QCASPI_BURST_LEN_MAX)) {
--		dev_info(&spi_device->dev, "Invalid burst len: %d\n",
-+		dev_info(&spi->dev, "Invalid burst len: %d\n",
- 			 qcaspi_burst_len);
- 		return -EINVAL;
- 	}
- 
- 	if ((qcaspi_pluggable < QCASPI_PLUGGABLE_MIN) ||
- 	    (qcaspi_pluggable > QCASPI_PLUGGABLE_MAX)) {
--		dev_info(&spi_device->dev, "Invalid pluggable: %d\n",
-+		dev_info(&spi->dev, "Invalid pluggable: %d\n",
- 			 qcaspi_pluggable);
- 		return -EINVAL;
- 	}
- 
--	dev_info(&spi_device->dev, "ver=%s, clkspeed=%d, burst_len=%d, pluggable=%d\n",
-+	dev_info(&spi->dev, "ver=%s, clkspeed=%d, burst_len=%d, pluggable=%d\n",
- 		 QCASPI_DRV_VERSION,
- 		 qcaspi_clkspeed,
- 		 qcaspi_burst_len,
- 		 qcaspi_pluggable);
- 
--	spi_device->mode = SPI_MODE_3;
--	spi_device->max_speed_hz = qcaspi_clkspeed;
--	if (spi_setup(spi_device) < 0) {
--		dev_err(&spi_device->dev, "Unable to setup SPI device\n");
-+	spi->mode = SPI_MODE_3;
-+	spi->max_speed_hz = qcaspi_clkspeed;
-+	if (spi_setup(spi) < 0) {
-+		dev_err(&spi->dev, "Unable to setup SPI device\n");
- 		return -EFAULT;
- 	}
- 
-@@ -905,21 +905,21 @@ qca_spi_probe(struct spi_device *spi_device)
- 	qca = netdev_priv(qcaspi_devs);
- 	if (!qca) {
- 		free_netdev(qcaspi_devs);
--		dev_err(&spi_device->dev, "Fail to retrieve private structure\n");
-+		dev_err(&spi->dev, "Fail to retrieve private structure\n");
- 		return -ENOMEM;
- 	}
- 	qca->net_dev = qcaspi_devs;
--	qca->spi_dev = spi_device;
-+	qca->spi_dev = spi;
- 	qca->legacy_mode = legacy_mode;
- 
--	mac = of_get_mac_address(spi_device->dev.of_node);
-+	mac = of_get_mac_address(spi->dev.of_node);
- 
- 	if (mac)
- 		ether_addr_copy(qca->net_dev->dev_addr, mac);
- 
- 	if (!is_valid_ether_addr(qca->net_dev->dev_addr)) {
- 		eth_hw_addr_random(qca->net_dev);
--		dev_info(&spi_device->dev, "Using random MAC address: %pM\n",
-+		dev_info(&spi->dev, "Using random MAC address: %pM\n",
- 			 qca->net_dev->dev_addr);
- 	}
- 
-@@ -930,7 +930,7 @@ qca_spi_probe(struct spi_device *spi_device)
- 		qcaspi_read_register(qca, SPI_REG_SIGNATURE, &signature);
- 
- 		if (signature != QCASPI_GOOD_SIGNATURE) {
--			dev_err(&spi_device->dev, "Invalid signature (0x%04X)\n",
-+			dev_err(&spi->dev, "Invalid signature (0x%04X)\n",
- 				signature);
- 			free_netdev(qcaspi_devs);
- 			return -EFAULT;
-@@ -938,13 +938,13 @@ qca_spi_probe(struct spi_device *spi_device)
- 	}
- 
- 	if (register_netdev(qcaspi_devs)) {
--		dev_info(&spi_device->dev, "Unable to register net device %s\n",
-+		dev_info(&spi->dev, "Unable to register net device %s\n",
- 			 qcaspi_devs->name);
- 		free_netdev(qcaspi_devs);
- 		return -EFAULT;
- 	}
- 
--	spi_set_drvdata(spi_device, qcaspi_devs);
-+	spi_set_drvdata(spi, qcaspi_devs);
- 
- 	qcaspi_init_device_debugfs(qca);
- 
-@@ -952,9 +952,9 @@ qca_spi_probe(struct spi_device *spi_device)
- }
- 
- static int
--qca_spi_remove(struct spi_device *spi_device)
-+qca_spi_remove(struct spi_device *spi)
- {
--	struct net_device *qcaspi_devs = spi_get_drvdata(spi_device);
-+	struct net_device *qcaspi_devs = spi_get_drvdata(spi);
- 	struct qcaspi *qca = netdev_priv(qcaspi_devs);
- 
- 	qcaspi_remove_device_debugfs(qca);
--- 
-1.7.9.5
+Alexander Duyck (10):
+      net: Use cached copy of pfmemalloc to avoid accessing page
+      igb: Don't use NETDEV_FRAG_PAGE_MAX_SIZE in descriptor calculation
+      net: Store virtual address instead of page in netdev_alloc_cache
+      mm/net: Rename and move page fragment handling from net/ to mm/
+      net: Add skb_free_frag to replace use of put_page in freeing skb->head
+      netcp: Replace put_page(virt_to_head_page(ptr)) w/ skb_free_frag
+      mvneta: Replace put_page(virt_to_head_page(ptr)) w/ skb_free_frag
+      e1000: Replace e1000_free_frag with skb_free_frag
+      hisilicon: Replace put_page(virt_to_head_page()) with skb_free_frag()
+      bnx2x, tg3: Replace put_page(virt_to_head_page()) with skb_free_frag()
+
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 
+ drivers/net/ethernet/broadcom/tg3.c             |    2 
+ drivers/net/ethernet/hisilicon/hip04_eth.c      |    2 
+ drivers/net/ethernet/intel/e1000/e1000_main.c   |   19 +-
+ drivers/net/ethernet/intel/igb/igb_main.c       |   11 -
+ drivers/net/ethernet/marvell/mvneta.c           |    2 
+ drivers/net/ethernet/ti/netcp_core.c            |    2 
+ include/linux/gfp.h                             |    5 +
+ include/linux/mm_types.h                        |   18 ++
+ include/linux/skbuff.h                          |    9 +
+ mm/page_alloc.c                                 |   98 ++++++++++
+ net/core/skbuff.c                               |  224 ++++++++---------------
+ 12 files changed, 223 insertions(+), 171 deletions(-)
+
+--
