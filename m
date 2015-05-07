@@ -1,57 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH net-next 01/11] netns: Fix race between put_net() and
- netlink_kernel_create()
-Date: Thu, 7 May 2015 17:04:50 +0800
-Message-ID: <20150507090450.GA31792@gondor.apana.org.au>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
- <1430988770-28907-2-git-send-email-ying.xue@windriver.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [Linaro-acpi] [V2 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
+Date: Thu, 07 May 2015 11:07:08 +0200
+Message-ID: <2842267.oTDe4myPcU@wuerfel>
+References: <1430838729-21572-1-git-send-email-Suravee.Suthikulpanit@amd.com> <4573209.dHyztuCFMt@vostro.rjw.lan> <554A92C3.7060606@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cwang@twopensource.com, xemul@openvz.org,
-	davem@davemloft.net, eric.dumazet@gmail.com, ebiederm@xmission.com,
-	maxk@qti.qualcomm.com, stephen@networkplumber.org, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com, tom@herbertland.com,
-	jchapman@katalix.com, erik.hugne@ericsson.com,
-	jon.maloy@ericsson.com, horms@verge.net.au
-To: Ying Xue <ying.xue@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:46756 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751755AbbEGJFN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 05:05:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1430988770-28907-2-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	herbert@gondor.apana.org.au, catalin.marinas@arm.com,
+	will.deacon@arm.com, linux-kernel@vger.kernel.org,
+	linux-crypto@vger.kernel.org, linux-acpi@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Mika Westerberg <mika.westerberg@linux.intel.com>,
+	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+	lenb@kernel.org
+To: linaro-acpi@lists.linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <554A92C3.7060606@amd.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 07, 2015 at 04:52:40PM +0800, Ying Xue wrote:
->
-> @@ -409,12 +410,17 @@ void __put_net(struct net *net)
->  {
->  	/* Cleanup the network namespace in process context */
->  	unsigned long flags;
-> +	bool added = false;
->  
->  	spin_lock_irqsave(&cleanup_list_lock, flags);
-> -	list_add(&net->cleanup_list, &cleanup_list);
-> +	if (list_empty(&net->cleanup_list)) {
-> +		list_add(&net->cleanup_list, &cleanup_list);
-> +		added = true;
-> +	}
+On Wednesday 06 May 2015 17:16:35 Suravee Suthikulanit wrote:
+> On 5/6/2015 5:21 PM, Rafael J. Wysocki wrote:
+> >>>> > >>+      bool
+> >>>> > >>+
+> >>>> > >>+config ACPI_SUPPORT_CCA_ZERO
+> >>> > >
+> >>> > >I guess this means "we support devices that can DMA, but are not coherent".
+> >>> > >right?
+> >> >
+> >> >Yes, basically when _CCA=0.
+> > So what about
+> >
+> >       ARCH_SUPPORT_CACHE_INCOHERENT_DMA
+> 
+> Since this is specific to ACPI _CCA, I just want to be clear with the 
+> naming.
 
-Stop right there.  If a ref count is hitting zero twice you've
-got big problems.  Because it means that after hitting zero the
-first time it'll become positive again (if only briefly) which
-opens you up to a race against the cleanup.
+How about directly using the architecture names here, this is inherently
+architecture specific, and it's more likely that if another architecture
+gets added in the future that it will have other requirements.
 
-So this idea is a non-starter.
-
-The rules for ref counts are really simple, if you hit zero then
-you're dead.  Can someone explain to me in simple terms why this
-ref count is special and needs to hit zero twice?
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Arnd
