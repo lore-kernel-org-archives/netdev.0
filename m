@@ -1,8 +1,9 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH v5 0/2] pktgen changes
-Date: Thu, 07 May 2015 16:34:29 +0200
-Message-ID: <20150507143329.8534.49710.stgit@ivy>
-References: <554A26A4.1000505@plumgrid.com>
+Subject: [PATCH v5 1/2] pktgen: adjust flag NO_TIMESTAMP to be more pktgen
+	compliant
+Date: Thu, 07 May 2015 16:34:51 +0200
+Message-ID: <20150507143438.8534.89881.stgit@ivy>
+References: <20150507143329.8534.49710.stgit@ivy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,44 +11,58 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Alexei Starovoitov <ast@plumgrid.com>
 To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47585 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55737 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751911AbbEGOlM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 May 2015 10:41:12 -0400
-In-Reply-To: <554A26A4.1000505@plumgrid.com>
+	id S1751818AbbEGOlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 May 2015 10:41:31 -0400
+In-Reply-To: <20150507143329.8534.49710.stgit@ivy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series introduce some pktgen changes
+Allow flag NO_TIMESTAMP to turn timestamping on again, like other flags,
+with a negation of the flag like !NO_TIMESTAMP.
 
-Patch01:
- Cleanup my own work when I introduced NO_TIMESTAMP.
+Also document the option flag NO_TIMESTAMP.
 
-Patch02:
- Took over patch from Alexei, and addressed my own concerns, as Alexie
- is too busy with other work, and this will provide an easy tool for
- measuring ingress path performance, which is a hot topic ATM.
-
- Changes were primarily user interface related.  Introduced a separate
- "xmit_mode" setting, instead of stealing one of the dev flags like
- Alexei did.
-
+Fixes: afb84b626184 ("pktgen: add flag NO_TIMESTAMP to disable timestamping")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
-Alexei Starovoitov (1):
-      pktgen: introduce xmit_mode '<start_xmit|netif_receive>'
+ Documentation/networking/pktgen.txt |    2 ++
+ net/core/pktgen.c                   |    3 +++
+ 2 files changed, 5 insertions(+), 0 deletions(-)
 
-Jesper Dangaard Brouer (1):
-      pktgen: adjust flag NO_TIMESTAMP to be more pktgen compliant
-
-
- Documentation/networking/pktgen.txt |    9 ++++
- net/core/pktgen.c                   |   85 +++++++++++++++++++++++++++++++++--
- 2 files changed, 89 insertions(+), 5 deletions(-)
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
+index 0344f1d..6199ee6 100644
+--- a/Documentation/networking/pktgen.txt
++++ b/Documentation/networking/pktgen.txt
+@@ -145,6 +145,7 @@ Examples:
+                               UDPCSUM,
+                               IPSEC # IPsec encapsulation (needs CONFIG_XFRM)
+                               NODE_ALLOC # node specific memory allocation
++                              NO_TIMESTAMP # disable timestamping
+ 
+  pgset spi SPI_VALUE     Set specific SA used to transform packet.
+ 
+@@ -287,6 +288,7 @@ flag
+   UDPCSUM
+   IPSEC
+   NODE_ALLOC
++  NO_TIMESTAMP
+ 
+ dst_min
+ dst_max
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 508155b..43bb215 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1267,6 +1267,9 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		else if (strcmp(f, "NO_TIMESTAMP") == 0)
+ 			pkt_dev->flags |= F_NO_TIMESTAMP;
+ 
++		else if (strcmp(f, "!NO_TIMESTAMP") == 0)
++			pkt_dev->flags &= ~F_NO_TIMESTAMP;
++
+ 		else {
+ 			sprintf(pg_result,
+ 				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
