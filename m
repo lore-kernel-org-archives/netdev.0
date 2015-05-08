@@ -1,74 +1,81 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [net-next fragmentation icmp v3 1/4] ipv4: introduce frag_expire_skip_icmp()
-Date: Fri, 08 May 2015 15:03:39 +0300
-Message-ID: <554CA61B.50501@cogentembedded.com>
-References: <1431059199-7139-1-git-send-email-azhou@nicira.com> <1431059199-7139-2-git-send-email-azhou@nicira.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] switchdev: add support for fdb add/del/dump
+ via switchdev_port_obj ops.
+Date: Fri, 08 May 2015 08:05:08 -0400
+Message-ID: <554CA674.8040905@mojatatu.com>
+References: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com> <554AA530.7000702@mojatatu.com> <554AED2F.80006@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andy Zhou <azhou@nicira.com>, davem@davemloft.net
+To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	sfeldma@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:35690 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932175AbbEHMDn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 08:03:43 -0400
-Received: by labbd9 with SMTP id bd9so51110513lab.2
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 05:03:42 -0700 (PDT)
-In-Reply-To: <1431059199-7139-2-git-send-email-azhou@nicira.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:35726 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752666AbbEHMFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 08:05:11 -0400
+Received: by ieczm2 with SMTP id zm2so61469442iec.2
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 05:05:11 -0700 (PDT)
+In-Reply-To: <554AED2F.80006@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 5/8/2015 7:26 AM, Andy Zhou wrote:
-
-> Improve readability of skip ICMP for de-fragmentation expiration logic.
-> This change will also make the logic easier to maintain when the
-> following patches in this series are applied.
-
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
-> ---
->   include/net/ip.h       | 10 ++++++++++
->   net/ipv4/ip_fragment.c | 13 +++++++++----
->   2 files changed, 19 insertions(+), 4 deletions(-)
-
-> diff --git a/include/net/ip.h b/include/net/ip.h
-> index d14af7e..f79193a 100644
-> --- a/include/net/ip.h
-> +++ b/include/net/ip.h
-> @@ -478,6 +478,16 @@ enum ip_defrag_users {
->   	IP_DEFRAG_MACVLAN,
->   };
+On 05/07/15 00:42, Samudrala, Sridhar wrote:
 >
-> +/* Return true if the value of 'user' is between 'lower_bond'
-> + * and 'upper_bond' inclusively.
-> + */
-> +static inline bool ip_defrag_user_in_between(u32 user,
-> +					     enum ip_defrag_users lower_bond,
-> +					     enum ip_defrag_users upper_bond)
-> +{
-> +	return (user >= lower_bond && user <= upper_bond);
-
-    Don't need parens around the *return* expression.
-
-[...]
-> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-> index cc1da6d..429cefa 100644
-> --- a/net/ipv4/ip_fragment.c
-> +++ b/net/ipv4/ip_fragment.c
-> @@ -173,6 +173,13 @@ static void ipq_kill(struct ipq *ipq)
->   	inet_frag_kill(&ipq->q, &ip4_frags);
->   }
 >
-> +static bool frag_expire_skip_icmp(u32 user)
-> +{
-> +	return (user == IP_DEFRAG_AF_PACKET ||
-> +		ip_defrag_user_in_between(user, IP_DEFRAG_CONNTRACK_IN,
-> +					  __IP_DEFRAG_CONNTRACK_IN_END));
+> On 5/6/2015 4:35 PM, Jamal Hadi Salim wrote:
+>> On 05/06/15 17:54, Sridhar Samudrala wrote:
 
-    Likewise.
+>> So i raised this earlier. DaveM also chimed in - but it seems still
+>> in there.
+>> i havent been following the discussion and i may have missed
+>> the agreement to keep the new IDs. Could we not just have used netlink
+>>  IDs (as opposed to a new SWITCHDEV_OBJ_PORT_FDB id)?
+>
+> I think you are referring to switch port attributes.  See Scott's
+> response here on
+> using netlink IDs for attributes.
+> http://thread.gmane.org/gmane.linux.network/357694/focus=357921
+>
+> This patch is adding 'fdb' as new switch port object.  It is similar to
+> other
+> objects like 'VLAN' and 'FIB' that are added by Scott's patches.
 
-[...]
+Sorry I missed it - but I am not making sense of Scott's answer.
+The danger of adding these visible APIs is it would be too late
+to take them out once they hit the wild (Dave's famous "the horse
+has left the barn" or look at Jiri's netconf presentation). I hate
+to do this but taking longer to discuss these issues is important.
 
-WBR, Sergei
+I will agree that we need some common id to represent the grouping
+of the fdb entries - i will contend using netlink verb-nouns is
+sufficient. Example: RTM_NEWNEIGH is clearly refering to a
+modify or create on an fdb.
+The other issue is how to define optionality.
+So lets start with the fdb object:
+While i would agree they are common, Vlans are optional in an fdb
+entry. The only two items that must be present for an fdb entry are a
+dstmac address and an egress port.
+some low end switches dont do vlans. Therefore there are two IDs
+that must always be present:
+
+The object id for a port is the ifindex.
+The object id for a mac address is NDA_LLADDR
+
+The object id for a vlan is NDA_VLAN
+Then there are of course a gazillion other features which may
+be one-of such as the fdb partition id in the netgear switch Ben was
+playing.
+
+I understand the earlier arguement of not needing to have
+multiple parsings of the same thing. But providing parseable
+options means never having to change what the object struct
+looks like. Just provide a scatter list of pointers to the
+different netlink attr-val pairs so it doesnt need to be
+re-parsed.
+
+Otherwise we are re-inventing things and start to look like
+vendor SDKs.
+
+cheers,
+jamal
