@@ -1,154 +1,96 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [net-next 07/11] if_link: Add VF multicast promiscuous control
-Date: Fri, 8 May 2015 00:23:47 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05E9AE59@BPXM14GP.gisp.nec.co.jp>
-References: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1430563358-113833-8-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAJ3xEMjtZOTkwXXk-EcSniYe99Rjz-BUTcyoZwKXpwh4DsPy+A@mail.gmail.com>
- <F6FB0E698C9B3143BDF729DF22286646912ED354@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05E9A253@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912EE34B@ORSMSX110.amr.corp.intel.com>
+From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+Subject: [V3 PATCH 0/5] ACPI: Introduce support for _CCA object
+Date: Thu, 7 May 2015 19:37:11 -0500
+Message-ID: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:35302 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751398AbbEHAY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 May 2015 20:24:29 -0400
-In-Reply-To: <F6FB0E698C9B3143BDF729DF22286646912EE34B@ORSMSX110.amr.corp.intel.com>
-Content-Language: ja-JP
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <msalter@redhat.com>, <hanjun.guo@linaro.org>,
+	<al.stone@linaro.org>, <grant.likely@linaro.org>,
+	<leo.duran@amd.com>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
+	<linux-crypto@vger.kernel.org>,
+	"Suravee Suthikulpanit" <Suravee.Suthikulpanit@amd.com>
+To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
+	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
+	<herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+	<arnd@arndb.de>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogSGlyb3NoaSBTaGltYW1v
-dG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tXQ0KPiA+IFNlbnQ6IFdlZG5lc2Rh
-eSwgTWF5IDA2LCAyMDE1IDEwOjU1IFBNDQo+ID4gVG86IFNraWRtb3JlLCBEb25hbGQgQzsgT3Ig
-R2VybGl0ejsgS2lyc2hlciwgSmVmZnJleSBUDQo+ID4gQ2M6IERhdmlkIE1pbGxlcjsgTGludXgg
-TmV0ZGV2IExpc3Q7IG5ob3JtYW5AcmVkaGF0LmNvbTsNCj4gPiBzYXNzbWFubkByZWRoYXQuY29t
-OyBqb2dyZWVuZUByZWRoYXQuY29tOyBDaG9pLCBTeSBKb25nOyBFZHdhcmQgQ3JlZTsNCj4gPiBS
-b255IEVmcmFpbQ0KPiA+IFN1YmplY3Q6IFJFOiBbbmV0LW5leHQgMDcvMTFdIGlmX2xpbms6IEFk
-ZCBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgY29udHJvbA0KPiA+DQo+ID4gPiA+IC0tLS0tT3Jp
-Z2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gPiA+IEZyb206IE9yIEdlcmxpdHogW21haWx0bzpnZXJs
-aXR6Lm9yQGdtYWlsLmNvbV0NCj4gPiA+ID4gU2VudDogU3VuZGF5LCBNYXkgMDMsIDIwMTUgNzox
-NiBBTQ0KPiA+ID4gPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+ID4gPiA+IENjOiBEYXZpZCBN
-aWxsZXI7IEhpcm9zaGkgU2hpbWFtb3RvOyBMaW51eCBOZXRkZXYgTGlzdDsNCj4gPiA+ID4gbmhv
-cm1hbkByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOyBqb2dyZWVuZUByZWRoYXQuY29t
-Ow0KPiA+IENob2ksDQo+ID4gPiA+IFN5IEpvbmc7IEVkd2FyZCBDcmVlOyBTa2lkbW9yZSwgRG9u
-YWxkIEM7IFJvbnkgRWZyYWltDQo+ID4gPiA+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDcvMTFd
-IGlmX2xpbms6IEFkZCBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMNCj4gPiA+ID4gY29udHJvbA0K
-PiA+ID4gPg0KPiA+ID4gPiBPbiBTYXQsIE1heSAyLCAyMDE1IGF0IDE6NDIgUE0sIEplZmYgS2ly
-c2hlcg0KPiA+ID4gPiA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiA+ID4gPiB3cm90
-ZToNCj4gPiA+ID4gPiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAu
-bmVjLmNvbT4NCj4gPiA+ID4gPg0KPiA+ID4gPiA+IEFkZCBuZXRsaW5rIGRpcmVjdGl2ZXMgYW5k
-IG5kbyBlbnRyeSB0byBhbGxvdyBWRiBtdWx0aWNhc3QNCj4gPiA+ID4gPiBwcm9taXNjdW91cw0K
-PiA+ID4gPiBtb2RlLg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gVGhpcyBjb250cm9scyB0aGUgcGVy
-bWlzc2lvbiB0byBlbnRlciBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZS4NCj4gPiA+ID4g
-PiBUaGUgYWRtaW5pc3RyYXRvciB3aWxsIGRlZGljYXRlZGx5IGFsbG93IG11bHRpY2FzdCBwcm9t
-aXNjdW91cyBwZXIgVkYuDQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBXaGVuIHRoZSBWRiBpcyB1bmRl
-ciBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSwgYWxsIG11bHRpY2FzdA0KPiA+ID4gPiA+IHBh
-Y2tldHMgYXJlIHNlbnQgdG8gdGhlIFZGLg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gRG9uJ3QgYWxs
-b3cgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIGlmIHRoZSBWTSBpc24ndCBmdWxseSB0cnVzdGVk
-Lg0KPiA+ID4gPg0KPiA+ID4gPiBHdXlzLA0KPiA+ID4gPg0KPiA+ID4gPiBJIGRvbid0IHRoaW5r
-IHRoZSBkaXNjdXNzaW9uIHdlIGhlbGQgaW4gdGhlIHBhc3QgWzFdIG9uIHRoZSBtYXR0ZXINCj4g
-PiA+ID4gYWN0dWFsbHkgY29udmVyZ2VkLiBGZXcgb3BlbiBwb2ludHMgdGhhdCBjYW1lIHVwIHdo
-aWxlIGRlYmF0aW5nIGl0DQo+ID4gPiA+IGludGVybmFsbHkgd2l0aA0KPiA+ID4gPiBSb255Og0K
-PiA+ID4gPg0KPiA+ID4gPiAxLiBtYXliZSB3aGF0IHdlIHdlIGFjdHVhbGx5IHdhbnQgaGVyZSBh
-biBBUEkgdGhhdCBzdGF0ZXMgYSBWRiB0byBiZQ0KPiA+ID4gPiBwcml2aWxlZ2VkL3RydXN0ZWQg
-YW5kIHRoZW4gd2UgY2FuIG92ZXIgbG9hZCB0aGUgZmVhdHVyZSBzZXQgb2YgYmVpbmcNCj4gPiBz
-dWNoPw0KPiA+ID4NCj4gPiA+IEkgc3VnZ2VzdGVkIHRoaXMgb3JpZ2luYWxseSwgYnV0IHRoZXJl
-IHdhcyBwdXNoIGJhY2sgYXMgaXQgd2FzIHRob3VnaHQgdG9vDQo+ID4gZ2VuZXJpYyBhcyB0aGUg
-ZGVmaW5pdGlvbiBvZiB3aGF0IGJlaW5nIGEgInRydXN0ZWQiDQo+ID4gPiB2ZW5kb3Igd291bGQg
-ZGlmZmVyIGZyb20gZHJpdmVyIHRvIGRyaXZlci4gIFBlcnNvbmFsbHkgSSBzdGlsbCBsaWtlIHRo
-ZSBpZGVhIG9mDQo+ID4gaGF2aW5nIG9uZSBtb2RlIHNheWluZyB0aGF0IHdlICJ0cnVzdCINCj4g
-PiA+IGEgZ2l2ZW4gVkYuICBUaGVuIHRoYXQgVkYgY2FuIHJlcXVlc3Qgd2hhdGV2ZXIgaXQgc3Vw
-cG9ydCBpdCB3YW50cw0KPiA+ID4gZnJvbSB0aGUgUEYgcmVnYXJkbGVzcyBvZiBwb3NzaWJsZSBu
-ZWdhdGl2ZSBpbXBhY3Qgb24gb3RoZXIgVkYncy4NCj4gPiA+IFdoYXQgaXMgcG9zc2libGUgdG8g
-c3VwcG9ydCB3b3VsZCB0aGVuIGJlIGxlZnQgdG8gdGhlIGludGVyZmFjZQ0KPiA+ID4gYmV0d2Vl
-biB0aGUgVkYgYW5kIFBGLiAgVGhpcyBvZiBjb3Vyc2Ugd291bGQgYmUgZGVwZW5kZW50IG9uIHdo
-YXQgdGhlDQo+ID4gZ2l2ZW4gSFcgY291bGQgc3VwcG9ydCBhbmQgd291bGQgbWVhbiB0aGlzIG1v
-ZGUgd291bGQgbWVhbiBkaWZmZXJlbnQNCj4gPiB0aGluZ3MgZm9yIGRpZmZlcmVudCBhZGFwdGVy
-cyBhbmQgSSBkbyBzZWUgd2h5IHNvbWUgbWlnaHQgc2VlIHRoaXMgYXMgYQ0KPiA+IGNvbmNlcm4u
-DQo+ID4NCj4gPiBUaGUgcG9pbnQgaXMgZ3JhbnVsYXJpdHksIHJpZ2h0Pw0KPiA+IEFsbG93IGV2
-ZXJ5dGhpbmcgb3IgYWxsb3cgc3Vic2V0IG9mIGZlYXR1cmVzLg0KPiANCj4gTmljZSB3YXkgdG8g
-c3VtIGl0IHVwLiAgVGhlIHRyaWNrIGJlaW5nIHdpdGggdGhlIHN1YnNldCBvZiBmZWF0dXJlcyBw
-YXRoIGlzIG5vdCBhbGwgaGFyZHdhcmUgY2FuL3dpbGwgc3VwcG9ydCBldmVyeXRoaW5nLg0KPiBB
-bHNvIEkgd29ycnkgYWJvdXQgd29ycnkgYWJvdXQgdGhlIGZlYXR1cmUgbGlzdCBncm93aW5nIHJl
-cXVpcmluZyBtb3JlIGFuZCBtb3JlIG5vYnMgb24gdGhlIFBGIHRvIGFsbG93L2Rpc2FsbG93IGdy
-YW51bGFyDQo+IGJlaGF2aW9yIHRoYXQgY291bGQgYnJha2UgVkYgaXNvbGF0aW9uLiAgV2l0aCBh
-IHNpbXBsZSBoaW50IHRvIHRoZSBQRiB0aGF0IGEgZ2l2ZW4gVkYgaXMgInRydXN0ZWQiIHdvdWxk
-IGFsbG93IGFsbCB0aGF0DQo+IGNvbXBsZXhpdHkgdG8gYmUgY29udGFpbmVkIGluIHRoZSBtYWls
-Ym94IHByb3RvY29sIGJldHdlZW4gdGhlIFBGL1ZGLg0KPiANCj4gQWxsIHRoYXQgc2FpZCBJIHJl
-YWxpemUgb3RoZXJzIGFyZSBjb25jZXJuZWQgd2l0aCB0aGUgYW1iaWd1b3VzbmVzcyBvZiBzdWNo
-IGEgZmllbGQgYW5kIGNhbiBjZXJ0YWlubHkgbGl2ZSB3aXRoIHlvdXINCj4gaW1wbGVtZW50YXRp
-b24uDQoNCkkgc2VlLCBpdCBzZWVtcyBiZXR0ZXIgdG8gaGF2ZSBhIHNpbmdsZSBrbm9iIHdoaWNo
-IGluZGljYXRlcyAidHJ1c3QgdGhpcyBWRiIgYW5kIFBGIHdpbGwgYWxsb3cgcmVxdWVzdHMgd2hp
-Y2gNCm1pZ2h0IGh1cnQgcGVyZm9ybWFuY2Ugb3Igc2VjdXJpdHkgZnJvbSB0cnVzdGVkIFZGLCBp
-bnN0ZWFkIG9mIGNyZWF0aW5nIGEga25vYiBmb3IgbXVsdGljYXN0IHByb21pc2N1b3VzLA0KYSBr
-bm9iIGZvciBmZWF0dXJlIFggYW5kIHNvIG9uLg0KDQpJIHdpbGwgbWFrZSBhIHBhdGNoIHRvIGlt
-cGxlbWVudCB0aGF0ICJ0cnVzdGVkIGtub2IiIGluc3RlYWQgb2YgYWxsb3dpbmcgTUMgcHJvbWlz
-Y3VvdXMuDQpJcyB0aGVyZSBhbnkgY29tbWVudD8NCg0KPiANCj4gPg0KPiA+ID4NCj4gPiA+ID4N
-Cj4gPiA+ID4gMi4gdGhlIHN1Z2dlc3RlZCBBUEkgb25seSBhbGxvd3MgZWl0aGVyIHVubGltaXRl
-ZCBudW1iZXIgb2YgbXVsaWNhc3QNCj4gPiA+ID4gZ3JvdXBzIHBlciBWRiBvciBsaW1pdGVkIG51
-bWJlciwgYm90aCBudW1iZXJzIGFyZSB2ZW5kb3IgZGVwZW5kZW50LA0KPiA+IHJpZ2h0Pw0KPiA+
-ID4gPiBtYXliZSB3aGF0IHdlIG5lZWQgZm9yIHRoaXMgc3BlY2lmaWMgbWF0dGVyIGlzIHNwZWNp
-ZnlpbmcgaG93IG1hbnkNCj4gPiA+ID4gbXVsdGljYXN0IGdyb3VwcyBhcmUgYWxsb3dlZCBmb3Ig
-YSBWRj8NCj4gPiA+DQo+ID4gPiBJIGJlbGlldmUgdGhlIGlkZWEgYmVoaW5kIHRoaXMgaW50ZXJm
-YWNlIHdhcyB0aGF0IGl0IHdvdWxkIGFsbG93IFZGJ3MNCj4gPiA+IHRvIHJlcXVlc3QgdW5saW1p
-dGVkIG11bHRpY2FzdCBncm91cCBhcyBvcHBvc2VkIHRvIHRoZSBjdXJyZW50DQo+ID4gPiBiZWhh
-dmlvciBvZiBlYWNoIGFkYXB0ZXIgb2ZmZXJpbmcgc29tZSBsaW1pdGVkIG51bWJlci4gIFRoaXMg
-bGltaXQgaXMNCj4gPiA+IG9mIGNvdXJzZSBkZWZpbmVkIGJ5IGEgZ2l2ZW4gYWRhcHRlcnMgSFcv
-U1cgbGltaXRhdGlvbnMuICBVcCB1bnRpbCBub3cNCj4gPiA+IHlvdSBjb3VsZCBrZWVwIGFza2lu
-ZyBmb3IgbmV3IG11bHRpY2FzdCB1bnRpbCB0aGUgUEYgcmVwbGllZCB3aXRoIGFuDQo+ID4gPiBl
-cnJvci4gIFNvIHdlIG5ldmVyIHJlYWxseSBleHBvcnRlZCB0aGlzIGluZm9ybWF0aW9uIGJlZm9y
-ZS4gIFRoaXMgbmV3DQo+ID4gbW9kZSBqdXN0IGFsbG93cyB1cyB0byBuZXZlciByZWFjaCB0aGUg
-cG9pbnQgdGhhdCB0aGUgUEYgd291bGQgZGVueSBhIFZGDQo+ID4gcmVxdWVzdCB0byBqb2luIGEg
-TUMgZ3JvdXAuICBTZWVtcyB0byBtZSB0aGF0IGFuIGFkZGl0aW9uYWwgaW50ZXJmYWNlIHRvDQo+
-ID4gcHJvdmlkZSB0aGUgbWF4IG51bWJlciBvZiBzdXBwb3J0ZWQgbXVsdGljYXN0IGdyb3VwcyB3
-b3VsZCBiZSBuZXcNCj4gPiBmdW5jdGlvbmFsaXR5IHRoYXQgY291bGQgYmUgaW5kZXBlbmRlbnQg
-b2YgdGhpcyBwYXRjaCBhbmQgaW4gZmFjdCBjb3VsZCBleGlzdA0KPiA+IGV2ZW4gd2l0aG91dCB0
-aGlzIHBhdGNoLg0KPiA+ID4gT3IgYW0gSSBtaXNzaW5nIHdoYXQgeW91J3JlIGFza2luZyBmb3Ig
-aGVyZS4gOikNCj4gPg0KPiA+IEkgdGhpbmsgdGhhdCB0aGUgY3VycmVudCBsaW1pdGF0aW9uIG9m
-IG11bHRpY2FzdCBvbiBpeGdiZXZmIGNvbWVzIGZyb20gdGhlDQo+ID4gaW1wbGVtZW50YXRpb24g
-b2YgbWFpbGJveCBBUEkgYmV0d2VlbiBWRiBhbmQgUEYgd2hpY2ggaGFzIDMyIHdvcmRzLg0KPiA+
-DQo+IA0KPiBJbiB0aGUgZW5kIHRoZSBsaW1pdCBvbiBudW1iZXIgb2YgTUMgZ3JvdXBzLCBpZiB5
-b3UgZG9uJ3QgdXNlIHByb21pc2N1b3VzIG1vZGUsIGlzIHRoZSBzaXplIG9mIHRoZSBtdWx0aWNh
-c3QgdGFibGUgYXJyYXkuDQo+IFdlIGNvdWxkIGJlIHNoYXJpbmcgdGhpcyB0YWJsZSBiZXR0ZXIg
-YmV0d2VlbiBhbGwgdXNlcnMgcmF0aGVyIHRoYW4gdGhlIGFyYml0cmFyeSBsaW1pdCwgYnV0IHlv
-dSB3b3VsZCBoaXQgYSBoYXJkIGxpbWl0DQo+IGR1ZSB0byB0aGUgc2l6ZSBvZiB0aGUgdGFibGUu
-DQoNCkp1c3QgdG8gY2xhcmlmeSB0aGUgY3VycmVudCBpbXBsZW1lbnRhdGlvbiwgSSB0aGluayB0
-aGVyZSBpcyBubyBoYXJkIGxpbWl0IG9mIE1DIGFkZHJlc3MuDQpUaGUgaXhnYmUgZHJpdmVyIHVz
-ZXMgdGhlIE1UQSAobXVsdGljYXN0IHRhYmxlIGFycmF5KSBhbmQgdGhlIE1UQSBpcyBzaGFyZWQg
-YW1vbmcgYWxsIFZGcy4gVkYgcmVxdWVzdHMNCnRvIHJlZ2lzdGVyIDMwIG11bHRpY2FzdCBhZGRy
-ZXNzIGhhc2ggdmFsdWVzIGF0IG1vc3QgYW5kIFBGIHdpbGwgc2V0IHRoZSBjb3JyZXNwb25kaW5n
-IGJpdCBpbiB0aGUgTVRBLg0KV2hlbiBtdWx0aWNhc3QgcGFja2V0IGNvbWVzIGluLCBOSUMgY2hl
-Y2tzIHRoZSBNVEEgYml0IGFuZCB0cmFuc21pdCB0aGUgcGFja2V0IGV2ZXJ5IFZGLiA4MjU5OSB1
-c2VzIHRoZQ0KMTIgYml0cyBoYXNoIHZhbHVlIG9mIE1DIGFkZHJlc3MgYW5kIHRoZXJlIGlzIHRo
-ZSBNVEEgd2hpY2ggaXMgNDA5NiBiaXRzIGFycmF5LCB0aGUgTVRBIGNvdmVycyBhbGwgTUMNCmFk
-ZHJlc3MgdG8gZmlsdGVyLiBJIHRoaW5rIGlmIGFsbCBiaXRzIG9uIGluIHRoZSBNVEEsIGl0IG1l
-YW5zIHRoYXQgbm8gTUMgcGFja2V0IGlzIGRyb3BwZWQuDQoNCnRoYW5rcywNCkhpcm9zaGkNCg0K
-PiANCj4gPiBCeSB0aGUgd2F5LCBvdXIgcmVxdWlyZW1lbnQgaXMgdG8gbWFrZSBWRiBwcm9taXNj
-dW91cyBtb2RlIGZvciBTRE4vTkZWDQo+ID4gdXNhZ2UuDQo+ID4gQW5kIHRoZXJlIGlzIGEgZmVh
-dHVyZSB0byBlbmFibGUgaW4gSFcsIHdlJ2QgbGlrZSB0byB1c2UgaXQuDQo+ID4gSSBrbm93IHRo
-ZXJlIGlzIGEgcG9zc2liaWxpdHkgb2YgcGVyZm9ybWFuY2UgZGVncmFkYXRpb24uDQo+ID4NCj4g
-PiB0aGFua3MsDQo+ID4gSGlyb3NoaQ0KPiANCj4gSSB0aGluayB5b3VyIG1ldGhvZCBpcyB0aGUg
-d2F5IHRvIGdvLCBpbiB0aGF0IGlmIHlvdSBhc2sgZm9yIG1vcmUgdGhhbiB3ZSBhbGxvdyBwZXIg
-VkYgYW5kIHRoZSBQRiBoYXMgdGhpcyBhYmlsaXR5IGVuYWJsZWQNCj4gd2UganVzdCBwdXQgdGhl
-IFZGIGludG8gbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUuICBIb3dldmVyIEkgZG9uJ3Qgc2Vl
-IHRoZSBhZHZhbnRhZ2Ugb2YgaGF2aW5nIGFuIGludGVyZmFjZSB0byB0ZWxsDQo+IGhvdyBtYW55
-IGdyb3VwcyBuZWVkIHRvIGJlIHJlcXVlc3RlZCBiZWZvcmUgdGhpcyBoYXBwZW5zLiAgSWYgeW91
-IHdlcmUgd29ycmllZCBhYm91dCB0aGUgcGVyZm9ybWFuY2UgZGVncmFkYXRpb24gb2YgZW50ZXJp
-bmcNCj4gcHJvbWlzY3VvdXMgbXVsdGljYXN0IGRvbid0IGFsbG93IGl0IGluIHRoZSBQRiwgd2hp
-Y2ggb2YgY291cnNlIHdpbGwgYmUgdGhlIGRlZmF1bHQuDQo+IA0KPiBUaGFua3MsDQo+IC1Eb24g
-U2tpZG1vcmUgPGRvbmFsZC5jLnNraWRtb3JlQGludGVsLmNvbT4NCj4gDQo+IA0KDQo=
+This patch series introduce support for _CCA object, which is currently
+used mainly by ARM64 platform to specify DMA coherency attribute for
+devices when booting with ACPI.
+
+A copy of ACPIv6 can be found here:
+    http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf
+
+This patch also introduces 2 new APIS:
+    1. acpi_dma_is_coherent() as part of ACPI API.
+    2. device_dma_is_coherent() as part of unified device property API.
+
+This simplifies the logic in device drivers to determine device coherency
+attribute regardless of booting with DT vs ACPI.
+
+This has been tested on AMD-Seattle platform, which implements _CCA 
+object as described in the AMD Opteron A1100 Series Processor ACPI Porting Guide:
+
+http://amd-dev.wpengine.netdna-cdn.com/wordpress/media/2012/10/Seattle_ACPI_Guide.pdf
+
+Changes from V2 (https://lkml.org/lkml/2015/5/5/510):
+    * Reword ACPI_MUST_HAVE_CCA to ACPI_CCA_REQUIRED (per Rafael)
+    * Reword ACPI_SUPPORT_CCA_ZERO to ARCH64_SUPPORT_ACPI_CCA_ZERO
+      (per Rafael and Arnd)
+    * Misc code styling clean up (per Rafael)
+    * Only print missing _CCA warning message in debug mode.
+    * Refactor logic in acpi_setup_device_dma() into
+      if acpi_dma_is_supported() then call arch_setup_dma_ops().
+    * Do not allocate device dma_mask if !acpi_dma_is_supported()
+      (per Arnd).
+    * Re-use the dummy functions with the same signature.
+
+Changes from V1 (https://lkml.org/lkml/2015/4/29/290):
+    * Remove supports for 32-bit ARM since doesn't currently
+      supporting ACPI (Per Catalin suggestions.)
+    * Do not call arch_setup_dma_ops() and when _CCA is missing.
+      (per Arnd suggestion)
+    * Add CONFIG_ACPI_SUPPORT_CCA_ZERO kernel config flag to
+      allow architectures to specify the behavior when _CCA=0.
+    * Add dummy_dma_ops for ARM64 (per Catalin suggestions).
+    * Fixed build error when ACPI is not configured by defining
+      acpi_dma_is_coherent() for when CONFIG_ACPI is not set.
+    * Introduce device_dma_is_coherent().
+    * Use device_dma_is_coherent in crypto/ccp and amd-xgbe driver.
+
+Changes from RFC: (https://lkml.org/lkml/2015/4/1/389)
+    * New logic for deriving and propagating coherent attribute from
+      parent devices. (by Mark)
+    * Introducing acpi_dma_is_coherent() API (Per Tom suggestion)
+    * Introducing CONFIG_ACPI_MUST_HAVE_CCA kernel configuration.
+    * Rebased to linux-4.1-rc1
+
+Suravee Suthikulpanit (5):
+  ACPI / scan: Parse _CCA and setup device coherency
+  arm64 : Introduce support for ACPI _CCA object
+  device property: Introduces device_dma_is_coherent()
+  crypto: ccp - Unify coherency checking logic with
+    device_dma_is_coherent()
+  amd-xgbe: Unify coherency checking logic with device_dma_is_coherent()
+
+ arch/arm64/Kconfig                        |  2 +
+ arch/arm64/include/asm/dma-mapping.h      | 18 +++++-
+ arch/arm64/mm/dma-mapping.c               | 92 +++++++++++++++++++++++++++++++
+ drivers/acpi/Kconfig                      |  6 ++
+ drivers/acpi/acpi_platform.c              | 10 +++-
+ drivers/acpi/scan.c                       | 42 ++++++++++++++
+ drivers/base/property.c                   | 12 ++++
+ drivers/crypto/ccp/ccp-platform.c         | 60 +-------------------
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c | 27 +--------
+ include/acpi/acpi_bus.h                   | 32 ++++++++++-
+ include/linux/acpi.h                      | 10 ++++
+ include/linux/property.h                  |  2 +
+ 12 files changed, 222 insertions(+), 91 deletions(-)
+
+-- 
+2.1.0
