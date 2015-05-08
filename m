@@ -1,147 +1,110 @@
-From: Ulf Samuelsson <ulf.samuelsson@ericsson.com>
-Subject: Re: [PATCH] neighbour.c: Avoid GC directly after state change
-Date: Fri, 8 May 2015 11:39:40 +0200
-Message-ID: <554C845C.2040901@ericsson.com>
-References: <1426107673-45049-1-git-send-email-netdev@emagii.com> <20150312.142621.1128728353472907283.davem@davemloft.net> <5527892D.4020608@ericsson.com> <552F45AA.6010906@miraclelinux.com> <5530BE40.1000504@ericsson.com> <55346580.6060801@miraclelinux.com> <5534F5B8.1030405@ericsson.com> <5535CB00.4060209@miraclelinux.com> <553750CC.8010003@ericsson.com> <55377C23.1010400@miraclelinux.com> <55378AE1.4010005@ericsson.com>
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Subject: Re: [PATCH] net: deinline netif_tx_stop_queue() and netif_tx_stop_all_queues()
+Date: Fri, 08 May 2015 11:45:22 +0200
+Message-ID: <554C85B2.1010605@redhat.com>
+References: <1430998870-1453-1-git-send-email-dvlasenk@redhat.com> <554B9D82.80101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-	<netdev@emagii.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:57897 "EHLO
-	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbbEHJjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 05:39:54 -0400
-In-Reply-To: <55378AE1.4010005@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <554B9D82.80101@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In order to meet our goal, not to garbage collect neighbour entries 
-which are still online,
-even if they have not communicated in a while,
-we have tested what happens if the "timer_handler" always changes
-to DELAY state when the REACHABLE timeout has expired.
-
-While this change is not acceptable to you guys, it seems mostly to work.
-
-We have seen one problem which might affect an unpatched kernel.
-
-The current kernel can move into DELAY state inside the timer_handler
-or when executing "__neigh_event_send" while in STALE state,
-
-If you are in DELAY or PROBE state, and receive an ARP request,
-"arp_process" may call "neigh_event_ns" which calls "neigh_update" 
-requesting STALE state.
-
-All the tests to change to something else fails, so the neighbour state 
-becomes STALE.
-
-Is this intentional, or a bug?
-
-Best Regards,
-Ulf Samuelsson
-
-On 04/22/2015 01:49 PM, Ulf Samuelsson wrote:
->
-> On 04/22/2015 12:46 PM, YOSHIFUJI Hideaki wrote:
->> Ulf Samuelsson wrote:
->>> On 04/21/2015 05:58 AM, YOSHIFUJI Hideaki wrote:
->>>> Ulf Samuelsson wrote:
->>>>>> How many neighbors do you want to maintain?
->>>>>> I guess you have to increase the number of gc_thresh1.
->>>>> The current use cases have up to 2048 entries.
->>>>> This is expected to grow in the future.
->>>>> The 3.4 kernel used in the system today is limited to 1024,
->>>>> but that has been raised to about 10k.
->>>>>
->>>>> The gc_thresh1 test is not implemented in 3.4 but can be backported,
->>>>> but still not convinced it is a good idea.
->>>> Why?
->>>>
->>> A good solution makes sure that:
->>> * equipment which is connected NEVER IS garbage collected
->>> * equipment which is disconnected IS garbage collected.
->>>
->>> The threshold idea does not meet the criteria for a good solution.
->> We try providing "good solution" if you have less than gc_thresh1
->> entries only.  Otherwise, we try hard to protect ourselves.
->
-> Protect against what?
->
->
+On 05/07/2015 07:14 PM, Alexander Duyck wrote:
+> On 05/07/2015 04:41 AM, Denys Vlasenko wrote:
+>> These functions compile to ~60 bytes of machine code each.
 >>
->>> With this solution you keep unnecessary entries in the table.
->>> If you ever pass the limit, then equipment which should not
->>> be garbage collected may be.
->>> It relies on someone keeping track of traffic loss,
->>> so needs more maintenance by the SysOp.try pr
->>>
->>> The ARP probes should be considered to be NECESSARY traffic
->>> to maintain a quality link.
->>> Obviously not everyone would want to make this trade-off.
->>>
->>>
->>>>> To complicate things, one requirement is that for some interfaces
->>>>> you always want to keep things alive, if connected, but
->>>>> for other interfaces you want things to be removed
->>>>> to conserve memory.
->>>>> Actually you would want to do this selection on a subnet level.
->>>> If you want to introduce per-interface parameter, I am okay with it.
->>>>
->>>>> Internal discussions resulted in a proposal to change the patch,
->>>>> so that you have a "keepalive" flag which is tested after
->>>>> it has been decided to exit the REACHABLE state.
->>>>>
->>>>> if the "keepalive" flag is set, you always go to DELAY state from 
->>>>> REACHABLE.
->>>> No.
->>>>
->>> And why is it a bad idea to have a high quality connection?
->> We reclaim neighbor entries as much as possible to protect
->> ourselves if the number is below gc_thresh1.  We could stop
->> purging entries, but the idea was rejected AFAIK.  That is
->> our design.
-> No you keep disconnected entries which can be removed
-> in the table as long as you are below gc_tresh1, so you waste memory.
->
-> This is a trade-off to reduce communication over the wire
-> at the expense of quality of service.
->
-> If you can live with the drawback of extra bandwidth usage,
-> then doing probes before you remove an entry will reduce
-> memory usage and improve the quality of the communication.
->
-> Why do you want to decide which trade-off is best?
-> Why not let the system designer make that decision?
->
-> I am not asking to stop purging entries.
-> Entries which are not needed *should* be purged.
-> But entries which are needed should not be purged,
-> because that means traffic loss.
-> This design does not differentiate between the two
-> providing unnecessary risks and wastes memory.
->
-> We know beforehand that if a neighbour is connected
-> to a certain interface, it should always be present in the table.
-> You do not want us to use that knowledge when configuring the kernel.
->
-> I think that the idea that was rejected must have been something 
-> different.
+>> With this .config: http://busybox.net/~vda/kernel_config
+>> there are 617 calls to netif_tx_stop_queue()
+>> and 49 calls to netif_tx_stop_all_queues() in vmlinux.
 >>
->> Again, you should increase gc_thresh1, first.
+>> Code size is reduced by 27 kbytes:
 >>
-> To what number?
-> When equipment is delivered from a factory, it is not known
-> how many entries are needed, and if it becomes known, it can later grow.
-> Why add extra maintenance to the system?
->
->
-> Best Regards,
-> Ulf Samuelsson
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>      text     data      bss       dec     hex filename
+>> 82426986 22255416 20627456 125309858 77813a2 vmlinux.before
+>> 82399481 22255416 20627456 125282353 777a831 vmlinux
+>>
+>> It may seem strange that a seemingly simple code like one in
+>> netif_tx_stop_queue() compiles to ~60 bytes of code.
+>> Well, it's true. Here's its disassembly:
+>>
+>>      netif_tx_stop_queue:
+...
+>>         55                      push   %rbp
+>>         be 7a 18 00 00          mov    $0x187a,%esi
+>>         48 c7 c7 50 59 d8 85    mov    $.rodata+0x1d85950,%rdi
+>>         48 89 e5                mov    %rsp,%rbp
+>>         e8 54 5a 7d fd          callq  <warn_slowpath_null>
+>>         48 c7 c7 5f 59 d8 85    mov    $.rodata+0x1d8595f,%rdi
+>>         31 c0                   xor    %eax,%eax
+>>         e8 b0 47 48 00          callq  <printk>
+>>         eb 09                   jmp    <netif_tx_stop_queue+0x38>
+> 
+> This is the WARN_ON action.  One thing you might try doing is moving
+> this to a function of its own instead of moving the entire thing
+> out of being an inline.
+
+If WARN_ON check would be moved into a function, the call overhead
+would still be there, while each callsite will be larder than with
+this patch.
+
+> You may find you still get most
+> of the space savings as I wonder if the string for the printk
+> isn't being duplicated for each caller.
+
+Yes, strings are duplicated:
+
+$ strings vmlinux0  | grep 'cannot be called before register_netdev'
+6netif_stop_queue() cannot be called before register_netdev()
+6tun: netif_stop_queue() cannot be called before register_netdev()
+6cc770: netif_stop_queue() cannot be called before register_netdev()
+63c589_cs: netif_stop_queue() cannot be called before register_netdev()
+63c574_cs: netif_stop_queue() cannot be called before register_netdev()
+6typhoon netif_stop_queue() cannot be called before register_netdev()
+6axnet_cs: netif_stop_queue() cannot be called before register_netdev()
+6pcnet_cs: netif_stop_queue() cannot be called before register_netdev()
+...
+
+However, they amount only to ~5.7k out of 27k:
+
+$ strings vmlinux0  | grep 'cannot be called before register_netdev' | wc -c
+5731
+
+
+>>         f0 80 8f e0 01 00 00 01 lock orb $0x1,0x1e0(%rdi)
+> 
+> This is your set bit operation.  If you were to drop the whole WARN_ON
+> then this is the only thing you would be inlining.
+
+It's up to networking people to decide. I would happily send a patch which drops
+WARN_ON if they say that's ok with them. Davem?
+
+
+> That is only 8 bytes in size which would probably be comparable to the callq
+> and register sorting needed for a function call.
+
+"lock or" in my tests takes 21 cycles even on exclusively cached
+L1 data cache line. Added "call+ret" is 4-5 cycles.
+
+> Have you done any performance testing on this change?
+
+No.
+
+> I suspect there will likely be a noticeable impact some some tests.
+
+(1) It's *transmit off* operation. Usually it means that we have to turn
+transmit off because hw TX queue is full. So the bottleneck is likely
+the network, not the CPU.
+
+(2) It was auto-deinlined by gcc anyway. We already were unknownigly
+using the uninlined version for some time. Apparently, it wasn't noticed.
+
+
+-- 
+vda
+
