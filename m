@@ -1,80 +1,92 @@
-From: santosh shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [V3 PATCH 3/5] device property: Introduces device_dma_is_coherent()
-Date: Fri, 08 May 2015 13:36:06 -0700
-Message-ID: <554D1E36.1030607@oracle.com>
-References: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com> <4329505.9FeAdJdNVY@vostro.rjw.lan> <554D1C14.8080406@oracle.com> <6693356.eSISHsdLqF@vostro.rjw.lan>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [PATCH net-next] switchdev: add support for fdb add/del/dump
+ via switchdev_port_obj ops.
+Date: Fri, 08 May 2015 13:44:26 -0700
+Message-ID: <554D202A.5090207@intel.com>
+References: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com> <554AA530.7000702@mojatatu.com> <554AED2F.80006@intel.com> <554CA674.8040905@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-	lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	thomas.lendacky@amd.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net, arnd@arndb.de, msalter@redhat.com,
-	hanjun.guo@linaro.org, al.stone@linaro.org,
-	grant.likely@linaro.org, leo.duran@amd.com,
-	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
-	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <6693356.eSISHsdLqF@vostro.rjw.lan>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>, sfeldma@gmail.com,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:19786 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753101AbbEHUo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 May 2015 16:44:27 -0400
+In-Reply-To: <554CA674.8040905@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/8/2015 1:58 PM, Rafael J. Wysocki wrote:
-> On Friday, May 08, 2015 01:27:00 PM santosh shilimkar wrote:
->> On 5/8/2015 1:49 PM, Rafael J. Wysocki wrote:
->>> On Thursday, May 07, 2015 09:12:00 PM santosh.shilimkar@oracle.com wrote:
->>>> On 5/7/15 5:37 PM, Suravee Suthikulpanit wrote:
->>>>> Currently, device drivers, which support both OF and ACPI,
->>>>> need to call two separate APIs, of_dma_is_coherent() and
->>>>> acpi_dma_is_coherent()) to determine device coherency attribute.
->>>>>
->>>>> This patch simplifies this process by introducing a new device
->>>>> property API, device_dma_is_coherent(), which calls the appropriate
->>>>> interface based on the booting architecture.
->>>>>
->>>>> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
->>>>> ---
->>>>>     drivers/base/property.c  | 12 ++++++++++++
->>>>>     include/linux/property.h |  2 ++
->>>>>     2 files changed, 14 insertions(+)
->>>>>
->>>>> diff --git a/drivers/base/property.c b/drivers/base/property.c
->>>>> index 1d0b116..8123c6e 100644
->>>>> --- a/drivers/base/property.c
->>>>> +++ b/drivers/base/property.c
->>>>> @@ -14,6 +14,7 @@
->>>>>     #include <linux/export.h>
->>>>>     #include <linux/kernel.h>
->>>>>     #include <linux/of.h>
->>>>> +#include <linux/of_address.h>
->>>>>     #include <linux/property.h>
->>>>>
->>>>>     /**
->>>>> @@ -519,3 +520,14 @@ unsigned int device_get_child_node_count(struct device *dev)
->>>>>     	return count;
->>>>>     }
->>>>>     EXPORT_SYMBOL_GPL(device_get_child_node_count);
->>>>> +
->>>>> +bool device_dma_is_coherent(struct device *dev)
->>>>> +{
->>>>> +	if (IS_ENABLED(CONFIG_OF) && dev->of_node)
->>>>
->>>> Do you really need that IS_ENABLED(CONFIG_OF) ?
->>>> In other words, dev->of_node should be null for !CONFIG_OF
->>>
->>> Yes, but IS_ENABLED(CONFIG_OF) causes the check to be optimized away by the
->>> compiler if CONFIG_OF is not enabled.
->>>
->> Sure but my point was why you need it when just 'dev->of_node' check
->> is enough. May be I missed something.
+On 5/8/2015 5:05 AM, Jamal Hadi Salim wrote:
+> On 05/07/15 00:42, Samudrala, Sridhar wrote:
+>>
+>>
+>> On 5/6/2015 4:35 PM, Jamal Hadi Salim wrote:
+>>> On 05/06/15 17:54, Sridhar Samudrala wrote:
 >
-> dev->of_node is present when CONFIG_OF is not enabled too.  Without the
-> IS_ENABLED(CONFIG_OF) this becomes a pointless pointer check that will
-> always evaluate to 'false' on systems without CONFIG_OF, AFAICS.
+>>> So i raised this earlier. DaveM also chimed in - but it seems still
+>>> in there.
+>>> i havent been following the discussion and i may have missed
+>>> the agreement to keep the new IDs. Could we not just have used netlink
+>>>  IDs (as opposed to a new SWITCHDEV_OBJ_PORT_FDB id)?
+>>
+>> I think you are referring to switch port attributes.  See Scott's
+>> response here on
+>> using netlink IDs for attributes.
+>> http://thread.gmane.org/gmane.linux.network/357694/focus=357921
+>>
+>> This patch is adding 'fdb' as new switch port object.  It is similar to
+>> other
+>> objects like 'VLAN' and 'FIB' that are added by Scott's patches.
 >
-Got it now. Thanks for expanding it.
+> Sorry I missed it - but I am not making sense of Scott's answer.
+> The danger of adding these visible APIs is it would be too late
+> to take them out once they hit the wild (Dave's famous "the horse
+> has left the barn" or look at Jiri's netconf presentation). I hate
+> to do this but taking longer to discuss these issues is important.
+>
+> I will agree that we need some common id to represent the grouping
+> of the fdb entries - i will contend using netlink verb-nouns is
+> sufficient. Example: RTM_NEWNEIGH is clearly refering to a
+> modify or create on an fdb.
+> The other issue is how to define optionality.
+> So lets start with the fdb object:
+> While i would agree they are common, Vlans are optional in an fdb
+> entry. The only two items that must be present for an fdb entry are a
+> dstmac address and an egress port.
+> some low end switches dont do vlans. Therefore there are two IDs
+> that must always be present:
+>
+> The object id for a port is the ifindex.
+> The object id for a mac address is NDA_LLADDR
+An fdb object is tied to a particular switch port and is associated with a
+netdev. So we don't need a port in the fdb object.
 
-Regards,
-Santosh
+>
+> The object id for a vlan is NDA_VLAN
+> Then there are of course a gazillion other features which may
+> be one-of such as the fdb partition id in the netgear switch Ben was
+> playing.
+>
+> I understand the earlier arguement of not needing to have
+> multiple parsings of the same thing. But providing parseable
+> options means never having to change what the object struct
+> looks like. Just provide a scatter list of pointers to the
+> different netlink attr-val pairs so it doesnt need to be
+> re-parsed.
+
+I think Scott introduced switchdev object abstraction to make the 
+switchdev code simpler
+and also to enable direct calls to add/delete objects without having to 
+create dummy netlink
+messages with attributes.
+Scott should be able to provide better reasoning behind this abstraction.
+
+>
+> Otherwise we are re-inventing things and start to look like
+> vendor SDKs.
+>
+> cheers,
+> jamal
+>
