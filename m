@@ -1,46 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: mdio-gpio: Allow for unspecified bus id
-Date: Fri, 8 May 2015 17:48:16 +0200
-Message-ID: <20150508154816.GJ18496@lunn.ch>
-References: <1431094729-21775-1-git-send-email-bert@biot.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Multiqueue pktgen and ingress path (Was: [PATCH v5 2/2] pktgen:
+ introduce xmit_mode '<start_xmit|netif_receive>')
+Date: Fri, 08 May 2015 08:56:09 -0700
+Message-ID: <1431100569.22756.12.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150507143329.8534.49710.stgit@ivy>
+	 <20150507143500.8534.4435.stgit@ivy> <554B9293.2070702@plumgrid.com>
+	 <554B9CDE.1050703@iogearbox.net> <20150508173900.3fcf78de@redhat.com>
+	 <20150508174927.5b1ecdd1@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bert Vermeulen <bert@biot.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1431094729-21775-1-git-send-email-bert@biot.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:36773 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353AbbEHP4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 11:56:11 -0400
+Received: by igbpi8 with SMTP id pi8so24433132igb.1
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 08:56:11 -0700 (PDT)
+In-Reply-To: <20150508174927.5b1ecdd1@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 08, 2015 at 04:18:49PM +0200, Bert Vermeulen wrote:
-> When the bus id was supplied via a struct platform_device, the driver wasn't
-> handling -1 to mean an unspecified id of the only instance of this driver,
-> as the platform spec requires.
-> 
-> Signed-off-by: Bert Vermeulen <bert@biot.com>
-> ---
->  drivers/net/phy/mdio-gpio.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-> index f5cddf5..7bd90db 100644
-> --- a/drivers/net/phy/mdio-gpio.c
-> +++ b/drivers/net/phy/mdio-gpio.c
-> @@ -165,7 +165,10 @@ static struct mii_bus *mdio_gpio_bus_init(struct device *dev,
->  		if (!new_bus->irq[i])
->  			new_bus->irq[i] = PHY_POLL;
->  
-> -	snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
-> +	if (bus_id != -1)
-> +		snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
-> +	else
-> +		strncpy(new_bus->id, "gpio", MII_BUS_ID_SIZE);
+On Fri, 2015-05-08 at 17:49 +0200, Jesper Dangaard Brouer wrote:
 
-Hi Bert
+> I'm quite puzzled why a single atomic op could "freeze" my system from
+> scaling beyond 24Mpps.
 
-What happens if there are multiple platform_device's with -1?  You
-should probably be using use idr_alloc().
-
-    Andrew
+Law of physics, since this cache line has to constantly fly among your
+cpus.
