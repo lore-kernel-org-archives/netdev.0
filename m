@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 5/5] geneve: add initial netdev driver for GENEVE tunnels
-Date: Fri, 8 May 2015 16:19:28 -0700
-Message-ID: <CAEP_g=-=GEZn+Q48=OdWVNHSONf9EVfcz3PGE2qR4ynWXbsHeQ@mail.gmail.com>
-References: <1431105657-25492-1-git-send-email-linville@tuxdriver.com> <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
+Subject: Re: [PATCH] iproute2: GENEVE support
+Date: Fri, 8 May 2015 16:27:56 -0700
+Message-ID: <CAEP_g=_-3K7O3MA=nCBjO7PZUGAj0HQd8=YchQ89jq-U3mUwtg@mail.gmail.com>
+References: <1431105657-25492-1-git-send-email-linville@tuxdriver.com> <1431106028-5643-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
@@ -12,53 +12,47 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Alexander Duyck <alexander.h.duyck@redhat.com>
 To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:47760 "HELO
-	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751378AbbEHXTt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 19:19:49 -0400
-Received: by mail-yk0-f180.google.com with SMTP id c202so24296392yke.2
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 16:19:48 -0700 (PDT)
-In-Reply-To: <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:60583 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751307AbbEHX2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 19:28:17 -0400
+Received: by mail-yh0-f48.google.com with SMTP id b70so23442070yhc.0
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 16:28:16 -0700 (PDT)
+In-Reply-To: <1431106028-5643-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 8, 2015 at 10:20 AM, John W. Linville
+On Fri, May 8, 2015 at 10:27 AM, John W. Linville
 <linville@tuxdriver.com> wrote:
-> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+> diff --git a/ip/iplink_geneve.c b/ip/iplink_geneve.c
 > new file mode 100644
-> index 000000000000..102030de1d45
+> index 000000000000..74703e1ee156
 > --- /dev/null
-> +++ b/drivers/net/geneve.c
-> +/* geneve receive/decap routine */
-> +static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
-[...]
-> +       /* Find the device for this VNI */
-> +       hash = geneve_net_vni_hash(gnvh->vni);
-> +       vni_list_head = &gn->vni_list[hash];
-> +       hlist_for_each_entry_rcu(dummy, vni_list_head, hlist) {
-> +               if (!memcmp(gnvh->vni, dummy->vni, sizeof(dummy->vni)) &&
-> +                   iph->saddr == dummy->remote.sin_addr.s_addr)
-> +                       geneve = dummy;
-
-I guess we might as well break out of the loop at this point rather
-than keep searching.
-
-> +static int geneve_newlink(struct net *net, struct net_device *dev,
-> +                        struct nlattr *tb[], struct nlattr *data[])
+> +++ b/ip/iplink_geneve.c
+> +static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
+> +                         struct nlmsghdr *n)
 > +{
 [...]
-> +       if (!data[IFLA_GENEVE_ID])
-> +               return -EINVAL;
+> +               } else if (!matches(*argv, "remote")) {
+> +                       NEXT_ARG();
+> +                       if (!inet_get_addr(*argv, &daddr, &daddr6)) {
+> +                               fprintf(stderr, "Invalid address \"%s\"\n", *argv);
+> +                               return -1;
+> +                       }
+> +                       if (IN_MULTICAST(ntohl(daddr)))
+> +                               invarg("invalid remote address", *argv);
 
-Should we enforce that IFLA_GENEVE_REMOTE is present? Otherwise, it's
-not clear what we would do without it.
+We should probably validate the no multicast check in the kernel as
+well since it won't do the right thing anyways.
 
 [...]
-> +       list_add(&geneve->next, &gn->geneve_list);
-> +
-> +       geneve_net_vni_add(gn, hash, geneve);
+> +       if (!daddr) {
+> +               fprintf(stderr, "geneve: remove link partner not specified\n");
+> +               return -1;
+> +       }
+> +       if (memcmp(&daddr6, &in6addr_any, sizeof(daddr6)) != 0) {
+> +               fprintf(stderr, "geneve: remove link over IPv6 not supported\n");
+> +               return -1;
+> +       }
 
-The locking seems a bit inconsistent for these two pieces - they are
-accessed in the same places but one has a special lock and the other
-doesn't. I think the answer is that neither needs a lock because they
-are both protected by RTNL but it made me pause.
+Two typos in the above strings - "remove" instead of "remote".
