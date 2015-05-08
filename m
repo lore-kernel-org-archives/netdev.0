@@ -1,129 +1,46 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] net: deinline netif_tx_stop_queue() and netif_tx_stop_all_queues()
-Date: Fri, 08 May 2015 08:50:37 -0700
-Message-ID: <554CDB4D.5050108@gmail.com>
-References: <1430998870-1453-1-git-send-email-dvlasenk@redhat.com> <554B9D82.80101@gmail.com> <554C85B2.1010605@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: mdio-gpio: Allow for unspecified bus id
+Date: Fri, 8 May 2015 17:48:16 +0200
+Message-ID: <20150508154816.GJ18496@lunn.ch>
+References: <1431094729-21775-1-git-send-email-bert@biot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Denys Vlasenko <dvlasenk@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bert Vermeulen <bert@biot.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <554C85B2.1010605@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1431094729-21775-1-git-send-email-bert@biot.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/08/2015 02:45 AM, Denys Vlasenko wrote:
-> On 05/07/2015 07:14 PM, Alexander Duyck wrote:
->> On 05/07/2015 04:41 AM, Denys Vlasenko wrote:
->>> These functions compile to ~60 bytes of machine code each.
->>>
->>> With this .config: http://busybox.net/~vda/kernel_config
->>> there are 617 calls to netif_tx_stop_queue()
->>> and 49 calls to netif_tx_stop_all_queues() in vmlinux.
->>>
->>> Code size is reduced by 27 kbytes:
->>>
->>>       text     data      bss       dec     hex filename
->>> 82426986 22255416 20627456 125309858 77813a2 vmlinux.before
->>> 82399481 22255416 20627456 125282353 777a831 vmlinux
->>>
->>> It may seem strange that a seemingly simple code like one in
->>> netif_tx_stop_queue() compiles to ~60 bytes of code.
->>> Well, it's true. Here's its disassembly:
->>>
->>>       netif_tx_stop_queue:
-> ...
->>>          55                      push   %rbp
->>>          be 7a 18 00 00          mov    $0x187a,%esi
->>>          48 c7 c7 50 59 d8 85    mov    $.rodata+0x1d85950,%rdi
->>>          48 89 e5                mov    %rsp,%rbp
->>>          e8 54 5a 7d fd          callq  <warn_slowpath_null>
->>>          48 c7 c7 5f 59 d8 85    mov    $.rodata+0x1d8595f,%rdi
->>>          31 c0                   xor    %eax,%eax
->>>          e8 b0 47 48 00          callq  <printk>
->>>          eb 09                   jmp    <netif_tx_stop_queue+0x38>
->> This is the WARN_ON action.  One thing you might try doing is moving
->> this to a function of its own instead of moving the entire thing
->> out of being an inline.
-> If WARN_ON check would be moved into a function, the call overhead
-> would still be there, while each callsite will be larder than with
-> this patch.
->
->> You may find you still get most
->> of the space savings as I wonder if the string for the printk
->> isn't being duplicated for each caller.
-> Yes, strings are duplicated:
->
-> $ strings vmlinux0  | grep 'cannot be called before register_netdev'
-> 6netif_stop_queue() cannot be called before register_netdev()
-> 6tun: netif_stop_queue() cannot be called before register_netdev()
-> 6cc770: netif_stop_queue() cannot be called before register_netdev()
-> 63c589_cs: netif_stop_queue() cannot be called before register_netdev()
-> 63c574_cs: netif_stop_queue() cannot be called before register_netdev()
-> 6typhoon netif_stop_queue() cannot be called before register_netdev()
-> 6axnet_cs: netif_stop_queue() cannot be called before register_netdev()
-> 6pcnet_cs: netif_stop_queue() cannot be called before register_netdev()
-> ...
->
-> However, they amount only to ~5.7k out of 27k:
->
-> $ strings vmlinux0  | grep 'cannot be called before register_netdev' | wc -c
-> 5731
->
+On Fri, May 08, 2015 at 04:18:49PM +0200, Bert Vermeulen wrote:
+> When the bus id was supplied via a struct platform_device, the driver wasn't
+> handling -1 to mean an unspecified id of the only instance of this driver,
+> as the platform spec requires.
+> 
+> Signed-off-by: Bert Vermeulen <bert@biot.com>
+> ---
+>  drivers/net/phy/mdio-gpio.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+> index f5cddf5..7bd90db 100644
+> --- a/drivers/net/phy/mdio-gpio.c
+> +++ b/drivers/net/phy/mdio-gpio.c
+> @@ -165,7 +165,10 @@ static struct mii_bus *mdio_gpio_bus_init(struct device *dev,
+>  		if (!new_bus->irq[i])
+>  			new_bus->irq[i] = PHY_POLL;
+>  
+> -	snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
+> +	if (bus_id != -1)
+> +		snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
+> +	else
+> +		strncpy(new_bus->id, "gpio", MII_BUS_ID_SIZE);
 
-Yeah, they are probably coalesced per .c file since the compiler cannot 
-span files.  The average driver probably calls it 2 or more times which 
-is why it is only about 1/5 instead of 1/2 of the total bytecount.  Also 
-the count above excludes carriage returns and NULL characters.
+Hi Bert
 
->>>          f0 80 8f e0 01 00 00 01 lock orb $0x1,0x1e0(%rdi)
->> This is your set bit operation.  If you were to drop the whole WARN_ON
->> then this is the only thing you would be inlining.
-> It's up to networking people to decide. I would happily send a patch which drops
-> WARN_ON if they say that's ok with them. Davem?
+What happens if there are multiple platform_device's with -1?  You
+should probably be using use idr_alloc().
 
-This was added under commit 18543a643fae6 ("net: Detect and ignore 
-netif_stop_queue() calls before register_netdev()").  I think the time 
-for allowing drivers to ignore the WARN_ON has passed and at this point 
-they should be strongly encouraged to fix the issue via a NULL pointer 
-dereference if they still haven't gotten the issue resolved so we can 
-track them down and fix them.  I'd say add a comment here in case 
-someone triggers this and does some debugging, but the WARN_ON at this 
-point has proven it is too expensive.
-
->> That is only 8 bytes in size which would probably be comparable to the callq
->> and register sorting needed for a function call.
-> "lock or" in my tests takes 21 cycles even on exclusively cached
-> L1 data cache line. Added "call+ret" is 4-5 cycles.
-
-It is an expensive instruction, but pushing it out into a separate 
-function just adds that much more overhead.
-
->> Have you done any performance testing on this change?
-> No.
-
-The most likely thing to exercise this would probably be something like 
-a standard pktgen test.  It should be able to put enough stress on a 
-single queue for the function to be called frequently.
-
->> I suspect there will likely be a noticeable impact some some tests.
-> (1) It's *transmit off* operation. Usually it means that we have to turn
-> transmit off because hw TX queue is full. So the bottleneck is likely
-> the network, not the CPU.
-
-That is true.  However there are still scenarios such as pktgen where we 
-would be triggering this often and I would prefer to keep it as fast as 
-possible since it is still kind of hard to maintain line rate 10Gb/s for 
-some of my traffic generator setups.
-
->
-> (2) It was auto-deinlined by gcc anyway. We already were unknownigly
-> using the uninlined version for some time. Apparently, it wasn't noticed.
-
-Depends on what cases where uninlined.  I believe the compiler is making 
-the decision per .c file so each driver is handling it differently.  For 
-example it looks like the ixgbe driver was still inlining this in my -O2 
-build, so that is one case that was not.
+    Andrew
