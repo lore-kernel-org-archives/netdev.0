@@ -1,136 +1,129 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Multiqueue pktgen and ingress path (Was: [PATCH v5 2/2] pktgen:
- introduce xmit_mode '<start_xmit|netif_receive>')
-Date: Fri, 8 May 2015 17:49:27 +0200
-Message-ID: <20150508174927.5b1ecdd1@redhat.com>
-References: <20150507143329.8534.49710.stgit@ivy>
-	<20150507143500.8534.4435.stgit@ivy>
-	<554B9293.2070702@plumgrid.com>
-	<554B9CDE.1050703@iogearbox.net>
-	<20150508173900.3fcf78de@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] net: deinline netif_tx_stop_queue() and netif_tx_stop_all_queues()
+Date: Fri, 08 May 2015 08:50:37 -0700
+Message-ID: <554CDB4D.5050108@gmail.com>
+References: <1430998870-1453-1-git-send-email-dvlasenk@redhat.com> <554B9D82.80101@gmail.com> <554C85B2.1010605@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/bGREVsug60aBlvyjqtYX5fI"
-Cc: Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39347 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752699AbbEHPty (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 May 2015 11:49:54 -0400
-In-Reply-To: <20150508173900.3fcf78de@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---MP_/bGREVsug60aBlvyjqtYX5fI
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Denys Vlasenko <dvlasenk@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <554C85B2.1010605@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 8 May 2015 17:39:00 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+On 05/08/2015 02:45 AM, Denys Vlasenko wrote:
+> On 05/07/2015 07:14 PM, Alexander Duyck wrote:
+>> On 05/07/2015 04:41 AM, Denys Vlasenko wrote:
+>>> These functions compile to ~60 bytes of machine code each.
+>>>
+>>> With this .config: http://busybox.net/~vda/kernel_config
+>>> there are 617 calls to netif_tx_stop_queue()
+>>> and 49 calls to netif_tx_stop_all_queues() in vmlinux.
+>>>
+>>> Code size is reduced by 27 kbytes:
+>>>
+>>>       text     data      bss       dec     hex filename
+>>> 82426986 22255416 20627456 125309858 77813a2 vmlinux.before
+>>> 82399481 22255416 20627456 125282353 777a831 vmlinux
+>>>
+>>> It may seem strange that a seemingly simple code like one in
+>>> netif_tx_stop_queue() compiles to ~60 bytes of code.
+>>> Well, it's true. Here's its disassembly:
+>>>
+>>>       netif_tx_stop_queue:
+> ...
+>>>          55                      push   %rbp
+>>>          be 7a 18 00 00          mov    $0x187a,%esi
+>>>          48 c7 c7 50 59 d8 85    mov    $.rodata+0x1d85950,%rdi
+>>>          48 89 e5                mov    %rsp,%rbp
+>>>          e8 54 5a 7d fd          callq  <warn_slowpath_null>
+>>>          48 c7 c7 5f 59 d8 85    mov    $.rodata+0x1d8595f,%rdi
+>>>          31 c0                   xor    %eax,%eax
+>>>          e8 b0 47 48 00          callq  <printk>
+>>>          eb 09                   jmp    <netif_tx_stop_queue+0x38>
+>> This is the WARN_ON action.  One thing you might try doing is moving
+>> this to a function of its own instead of moving the entire thing
+>> out of being an inline.
+> If WARN_ON check would be moved into a function, the call overhead
+> would still be there, while each callsite will be larder than with
+> this patch.
+>
+>> You may find you still get most
+>> of the space savings as I wonder if the string for the printk
+>> isn't being duplicated for each caller.
+> Yes, strings are duplicated:
+>
+> $ strings vmlinux0  | grep 'cannot be called before register_netdev'
+> 6netif_stop_queue() cannot be called before register_netdev()
+> 6tun: netif_stop_queue() cannot be called before register_netdev()
+> 6cc770: netif_stop_queue() cannot be called before register_netdev()
+> 63c589_cs: netif_stop_queue() cannot be called before register_netdev()
+> 63c574_cs: netif_stop_queue() cannot be called before register_netdev()
+> 6typhoon netif_stop_queue() cannot be called before register_netdev()
+> 6axnet_cs: netif_stop_queue() cannot be called before register_netdev()
+> 6pcnet_cs: netif_stop_queue() cannot be called before register_netdev()
+> ...
+>
+> However, they amount only to ~5.7k out of 27k:
+>
+> $ strings vmlinux0  | grep 'cannot be called before register_netdev' | wc -c
+> 5731
+>
 
-> On Thu, 07 May 2015 19:11:58 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
-> 
-> > On 05/07/2015 06:28 PM, Alexei Starovoitov wrote:  
-> > > On 5/7/15 7:35 AM, Jesper Dangaard Brouer wrote:  
-> > >> From: Alexei Starovoitov <ast@plumgrid.com>
-> > >>  
-> [...snip...]
-> 
-> > > btw, I've started to work on a patch on top of this one that allows
-> > > multiple pktgen threads to submit into the same netdev.
-> > > I've used it to stress test removal of spin_lock in ingress qdisc.
-> > > The idea is to add another 'name' parameter to command:
-> > > 'add_device name dev'
-> > > 'name' will be used to identify this pktgen thread in /proc
-> > > and 'dev' used as target net_device.
-> > > I think it will be useful for start_xmit testing as well.
-> > > I wonder why it wasn't done earlier? The queue configuration is
-> > > already supported.  
-> > 
-> > You mean other than below commit (iow independant of queue mapping)?
-> > 
-> > commit e6fce5b916cd7f7f79b2b3e53ba74bbfc1d7cf8b
-> > Author: Robert Olsson <robert.olsson@its.uu.se>
-> > Date:   Thu Aug 7 02:23:01 2008 -0700
-> > 
-> >      pktgen: multiqueue etc.  
-> 
-> For completeness and others reading this threads...
-> 
-> Pktgen multiqueue is already supported via mentioned commit, which adds
-> the device naming scheme: "add_device dev@number"
-> 
-> And yes, the documentation does not seem to mention this.  I've been
-> using it for years now... My scripts[1] take param "-t" for "threads".
-> [1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
-> 
-> I've added a more plain version of a script, based on yours, below my
-> signature.
+Yeah, they are probably coalesced per .c file since the compiler cannot 
+span files.  The average driver probably calls it 2 or more times which 
+is why it is only about 1/5 instead of 1/2 of the total bytecount.  Also 
+the count above excludes carriage returns and NULL characters.
 
-Now attached.
+>>>          f0 80 8f e0 01 00 00 01 lock orb $0x1,0x1e0(%rdi)
+>> This is your set bit operation.  If you were to drop the whole WARN_ON
+>> then this is the only thing you would be inlining.
+> It's up to networking people to decide. I would happily send a patch which drops
+> WARN_ON if they say that's ok with them. Davem?
 
-> The funny thing now is that scaling does not "happen" as we stall on:
->    atomic_long_inc(&skb->dev->rx_dropped);
+This was added under commit 18543a643fae6 ("net: Detect and ignore 
+netif_stop_queue() calls before register_netdev()").  I think the time 
+for allowing drivers to ignore the WARN_ON has passed and at this point 
+they should be strongly encouraged to fix the issue via a NULL pointer 
+dereference if they still haven't gotten the issue resolved so we can 
+track them down and fix them.  I'd say add a comment here in case 
+someone triggers this and does some debugging, but the WARN_ON at this 
+point has proven it is too expensive.
 
-More interesting observations with the mentioned script (now attached).
+>> That is only 8 bytes in size which would probably be comparable to the callq
+>> and register sorting needed for a function call.
+> "lock or" in my tests takes 21 cycles even on exclusively cached
+> L1 data cache line. Added "call+ret" is 4-5 cycles.
 
-On my system the scaling stopped a 24Mpps, when I increased the number
-of threads the collective scaling was stuck at 24Mpps.
+It is an expensive instruction, but pushing it out into a separate 
+function just adds that much more overhead.
 
-Then I simply removed/compiled-out the:
- atomic_long_inc(&skb->dev->rx_dropped);
+>> Have you done any performance testing on this change?
+> No.
 
-And after that change, the scaling is basically infinite/perfect.
+The most likely thing to exercise this would probably be something like 
+a standard pktgen test.  It should be able to put enough stress on a 
+single queue for the function to be called frequently.
 
-Single thread performance increased from 24.7Mpps to 31.1Mpps, which
-corresponds perfectly with the cost of an atomic operation on this HW
-(8.25ns).
+>> I suspect there will likely be a noticeable impact some some tests.
+> (1) It's *transmit off* operation. Usually it means that we have to turn
+> transmit off because hw TX queue is full. So the bottleneck is likely
+> the network, not the CPU.
 
-Diff to before:
- * (1/24700988*10^9)-(1/31170819*10^9) = 8.40292328196 ns
+That is true.  However there are still scenarios such as pktgen where we 
+would be triggering this often and I would prefer to keep it as fast as 
+possible since it is still kind of hard to maintain line rate 10Gb/s for 
+some of my traffic generator setups.
 
-When increasing the threads now, they all basically run at 31Mpps.
-Tried it upto 12 threads.
+>
+> (2) It was auto-deinlined by gcc anyway. We already were unknownigly
+> using the uninlined version for some time. Apparently, it wasn't noticed.
 
-
-I'm quite puzzled why a single atomic op could "freeze" my system from
-scaling beyond 24Mpps.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---MP_/bGREVsug60aBlvyjqtYX5fI
-Content-Type: application/x-shellscript
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename=pktgen_multiqueue01_xmit_mode.sh
-
-IyEvYmluL2Jhc2gKZnVuY3Rpb24gcGdzZXQoKSB7CiAgICBsb2NhbCByZXN1bHQKCiAgICBlY2hv
-ICQxID4gJFBHREVWCgogICAgcmVzdWx0PWBjYXQgJFBHREVWIHwgZmdyZXAgIlJlc3VsdDogT0s6
-ImAKICAgIGlmIFsgIiRyZXN1bHQiID0gIiIgXTsgdGhlbgogICAgICAgIGNhdCAkUEdERVYgfCBm
-Z3JlcCBSZXN1bHQ6CiAgICBmaQp9CgpbIC16ICIkMiIgXSAmJiBlY2hvICJVc2FnZTogJDAgREVW
-IG51bV90aHJlYWRzIiAmJiBleGl0IDEKRVRIPSQxCk5VTV9USFJFQURTPSQyCmxldCAiTlVNX1RI
-UkVBRFMgLT0gMSIKZWNobyAiTnVtYmVyIG9mIHRocmVhZHMgdG8gc3RhcnQ6ICQyICgwIHRvICRO
-VU1fVEhSRUFEUykiCgojIEdlbmVyYWwgY2xlYW51cCBldmVyeXRoaW5nIHNpbmNlIGxhc3QgcnVu
-ClBHREVWPS9wcm9jL25ldC9wa3RnZW4vcGdjdHJsCnBnc2V0ICJyZXNldCIKCiMgQWRkIGRldmlj
-ZXMgdG8gdGhyZWFkcwojICBOb3RpY2UgdGhlIG5hbWluZyBzY2hlbWUgRVRIQE5VTQpmb3IgTlVN
-IGluIGBzZXEgMCAkTlVNX1RIUkVBRFNgOyBkbwogICAgUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9r
-cGt0Z2VuZF8ke05VTX0KICAgIHBnc2V0ICJyZW1fZGV2aWNlX2FsbCIKICAgIHBnc2V0ICJhZGRf
-ZGV2aWNlICR7RVRIfUAke05VTX0iCmRvbmUKCiMgQ29uZmlnIGVhY2ggZGV2aWNlCmZvciBOVU0g
-aW4gYHNlcSAwICROVU1fVEhSRUFEU2A7IGRvCiAgICBQR0RFVj0vcHJvYy9uZXQvcGt0Z2VuLyR7
-RVRIfUAke05VTX0KICAgIHBnc2V0ICJmbGFnIFFVRVVFX01BUF9DUFUiCiAgICBwZ3NldCAieG1p
-dF9tb2RlIG5ldGlmX3JlY2VpdmUiCiAgICBwZ3NldCAicGt0X3NpemUgNjAiCiAgICBwZ3NldCAi
-ZHN0IDE5OC4xOC4wLjQyIgogICAgcGdzZXQgImRzdF9tYWMgOTA6ZTI6YmE6NmU6YTg6ZTUiCiMg
-ICAgcGdzZXQgImNvdW50IDEwMDAwMDAwMCIKICAgIHBnc2V0ICJjb3VudCAxMDAwMDAwMCIKICAg
-IHBnc2V0ICJidXJzdCAzMiIKZG9uZQoKUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9wZ2N0cmwKZWNo
-byAiUnVubmluZy4uLiBjdHJsXkMgdG8gc3RvcCIKcGdzZXQgInN0YXJ0IgplY2hvICJEb25lIgoK
-Zm9yIE5VTSBpbiBgc2VxIDAgJE5VTV9USFJFQURTYDsgZG8KICAgIGVjaG8gIkRldmljZTogJHtF
-VEh9QCR7TlVNfSIKICAgIGNhdCAvcHJvYy9uZXQvcGt0Z2VuLyR7RVRIfUAke05VTX0gfCBncmVw
-IC1BMiAiUmVzdWx0OiIKZG9uZQo=
-
---MP_/bGREVsug60aBlvyjqtYX5fI--
+Depends on what cases where uninlined.  I believe the compiler is making 
+the decision per .c file so each driver is handling it differently.  For 
+example it looks like the ixgbe driver was still inlining this in my -O2 
+build, so that is one case that was not.
