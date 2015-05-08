@@ -1,57 +1,43 @@
-From: Bert Vermeulen <bert@biot.com>
-Subject: Re: [PATCH] net: mdio-gpio: Allow for unspecified bus id
-Date: Fri, 08 May 2015 18:01:22 +0200
-Message-ID: <554CDDD2.6050104@biot.com>
-References: <1431094729-21775-1-git-send-email-bert@biot.com> <20150508154816.GJ18496@lunn.ch>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [RFC PATCH net-next 00/11] netns: don't switch namespace while
+ creating kernel sockets
+Date: Fri, 8 May 2015 09:33:26 -0700
+Message-ID: <CAHA+R7MKra6U4ESu9LvE2f9YGXaD5CZ-DLziNHfWhej+AKH6tg@mail.gmail.com>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
+	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
+	<554C78BE.100@windriver.com>
+	<87a8xfba44.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150508154816.GJ18496@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Ying Xue <ying.xue@windriver.com>, netdev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Pavel Emelyanov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, maxk@qti.qualcomm.com,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Tom Herbert <tom@herbertland.com>,
+	James Chapman <jchapman@katalix.com>,
+	Erik Hugne <erik.hugne@ericsson.com>, jon.maloy@ericsson.com,
+	Simon Horman <horms@verge.net.au>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:33554 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753631AbbEHQd1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 12:33:27 -0400
+Received: by wgin8 with SMTP id n8so77458986wgi.0
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 09:33:26 -0700 (PDT)
+In-Reply-To: <87a8xfba44.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/08/2015 05:48 PM, Andrew Lunn wrote:
-> On Fri, May 08, 2015 at 04:18:49PM +0200, Bert Vermeulen wrote:
->> When the bus id was supplied via a struct platform_device, the driver wasn't
->> handling -1 to mean an unspecified id of the only instance of this driver,
->> as the platform spec requires.
->>
->> Signed-off-by: Bert Vermeulen <bert@biot.com>
->> ---
->>  drivers/net/phy/mdio-gpio.c | 5 ++++-
->>  1 file changed, 4 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
->> index f5cddf5..7bd90db 100644
->> --- a/drivers/net/phy/mdio-gpio.c
->> +++ b/drivers/net/phy/mdio-gpio.c
->> @@ -165,7 +165,10 @@ static struct mii_bus *mdio_gpio_bus_init(struct device *dev,
->>  		if (!new_bus->irq[i])
->>  			new_bus->irq[i] = PHY_POLL;
->>  
->> -	snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
->> +	if (bus_id != -1)
->> +		snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
->> +	else
->> +		strncpy(new_bus->id, "gpio", MII_BUS_ID_SIZE);
-> 
-> Hi Bert
-> 
-> What happens if there are multiple platform_device's with -1?  You
-> should probably be using use idr_alloc().
+On Fri, May 8, 2015 at 4:07 AM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+>
+> I agree which is why my implementation of lock_network_namespaces below
+> loops until there are no exiting network namespaces.
+>
 
-It's an instance id per driver, not globally, and -1 specifically means it's
-the only instance. From Documentation/driver-model/platform.txt:
-
-> These are concatenated, so name/id "serial"/0 indicates bus_id "serial.0", and
-> "serial/3" indicates bus_id "serial.3"; both would use the platform_driver
-> named "serial".  While "my_rtc"/-1 would be bus_id "my_rtc" (no instance id)
-> and use the platform_driver called "my_rtc".
-
-
--- 
-Bert Vermeulen        bert@biot.com          email/xmpp
+It is easy to have live lock since you keep dropping and acquire netns mutex
+in a loop.
