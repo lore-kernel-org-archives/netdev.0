@@ -1,77 +1,74 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 01/11] netns: Fix race between put_net() and netlink_kernel_create()
-Date: Fri, 08 May 2015 06:20:10 -0500
-Message-ID: <87bnhv9uz9.fsf@x220.int.ebiederm.org>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
-	<1430988770-28907-2-git-send-email-ying.xue@windriver.com>
-	<20150507090450.GA31792@gondor.apana.org.au>
-	<CAHA+R7Mc==jHi-vtyNwboYW-ysacgbA-yAG+tetx8HJFUrrf9Q@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next fragmentation icmp v3 1/4] ipv4: introduce frag_expire_skip_icmp()
+Date: Fri, 08 May 2015 15:03:39 +0300
+Message-ID: <554CA61B.50501@cogentembedded.com>
+References: <1431059199-7139-1-git-send-email-azhou@nicira.com> <1431059199-7139-2-git-send-email-azhou@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ying Xue <ying.xue@windriver.com>,
-	netdev <netdev@vger.kernel.org>, xemul@openvz.org,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, maxk@qti.qualcomm.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Tom Herbert <tom@herbertland.com>,
-	James Chapman <jchapman@katalix.com>,
-	Erik Hugne <erik.hugne@ericsson.com>, jon.maloy@ericsson.com,
-	horms@verge.net.au
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andy Zhou <azhou@nicira.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:51344 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129AbbEHLYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 07:24:43 -0400
-In-Reply-To: <CAHA+R7Mc==jHi-vtyNwboYW-ysacgbA-yAG+tetx8HJFUrrf9Q@mail.gmail.com>
-	(Cong Wang's message of "Thu, 7 May 2015 10:19:12 -0700")
+Received: from mail-la0-f53.google.com ([209.85.215.53]:35690 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932175AbbEHMDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 08:03:43 -0400
+Received: by labbd9 with SMTP id bd9so51110513lab.2
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 05:03:42 -0700 (PDT)
+In-Reply-To: <1431059199-7139-2-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <cwang@twopensource.com> writes:
+Hello.
 
-> On Thu, May 7, 2015 at 2:04 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
->> On Thu, May 07, 2015 at 04:52:40PM +0800, Ying Xue wrote:
->>>
->>> @@ -409,12 +410,17 @@ void __put_net(struct net *net)
->>>  {
->>>       /* Cleanup the network namespace in process context */
->>>       unsigned long flags;
->>> +     bool added = false;
->>>
->>>       spin_lock_irqsave(&cleanup_list_lock, flags);
->>> -     list_add(&net->cleanup_list, &cleanup_list);
->>> +     if (list_empty(&net->cleanup_list)) {
->>> +             list_add(&net->cleanup_list, &cleanup_list);
->>> +             added = true;
->>> +     }
->>
->> Stop right there.  If a ref count is hitting zero twice you've
->> got big problems.  Because it means that after hitting zero the
->> first time it'll become positive again (if only briefly) which
->> opens you up to a race against the cleanup.
+On 5/8/2015 7:26 AM, Andy Zhou wrote:
+
+> Improve readability of skip ICMP for de-fragmentation expiration logic.
+> This change will also make the logic easier to maintain when the
+> following patches in this series are applied.
+
+> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> ---
+>   include/net/ip.h       | 10 ++++++++++
+>   net/ipv4/ip_fragment.c | 13 +++++++++----
+>   2 files changed, 19 insertions(+), 4 deletions(-)
+
+> diff --git a/include/net/ip.h b/include/net/ip.h
+> index d14af7e..f79193a 100644
+> --- a/include/net/ip.h
+> +++ b/include/net/ip.h
+> @@ -478,6 +478,16 @@ enum ip_defrag_users {
+>   	IP_DEFRAG_MACVLAN,
+>   };
 >
-> That is true.
+> +/* Return true if the value of 'user' is between 'lower_bond'
+> + * and 'upper_bond' inclusively.
+> + */
+> +static inline bool ip_defrag_user_in_between(u32 user,
+> +					     enum ip_defrag_users lower_bond,
+> +					     enum ip_defrag_users upper_bond)
+> +{
+> +	return (user >= lower_bond && user <= upper_bond);
+
+    Don't need parens around the *return* expression.
+
+[...]
+> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+> index cc1da6d..429cefa 100644
+> --- a/net/ipv4/ip_fragment.c
+> +++ b/net/ipv4/ip_fragment.c
+> @@ -173,6 +173,13 @@ static void ipq_kill(struct ipq *ipq)
+>   	inet_frag_kill(&ipq->q, &ip4_frags);
+>   }
 >
->>
->> So this idea is a non-starter.
->>
->> The rules for ref counts are really simple, if you hit zero then
->> you're dead.  Can someone explain to me in simple terms why this
->> ref count is special and needs to hit zero twice?
->
-> Because after it hits zero, it queues the final cleanup to a workqueue,
-> which could be delayed (depends on when the worker will be scheduled),
-> therefore there is a small window that new ->init() could come in.
+> +static bool frag_expire_skip_icmp(u32 user)
+> +{
+> +	return (user == IP_DEFRAG_AF_PACKET ||
+> +		ip_defrag_user_in_between(user, IP_DEFRAG_CONNTRACK_IN,
+> +					  __IP_DEFRAG_CONNTRACK_IN_END));
 
-The bad case in all of this is if we hit that window and increment the
-count.  The namespace could be removed from the lists ->exit() methods
-could run.  Then the reference count could drop to zero again.
+    Likewise.
 
-Having a network namespace alive with cleanup methods having already run
-is too nasty to think about.  We really don't want to do that.
+[...]
 
-Eric
+WBR, Sergei
