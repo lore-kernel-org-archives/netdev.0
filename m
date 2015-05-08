@@ -1,128 +1,53 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Multiqueue pktgen (was: [PATCH v5 2/2] pktgen: introduce xmit_mode
- '<start_xmit|netif_receive>')
-Date: Fri, 8 May 2015 15:40:33 +0200
-Message-ID: <20150508154033.382344e9@redhat.com>
-References: <20150507143329.8534.49710.stgit@ivy>
-	<20150507143500.8534.4435.stgit@ivy>
-	<554B9293.2070702@plumgrid.com>
-	<554B9CDE.1050703@iogearbox.net>
+From: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+Subject: [PATCH-net] af_packet / TX_RING not fully non-blocking (w/ MSG_DONTWAIT).
+Date: Fri, 8 May 2015 15:44:37 +0200
+Message-ID: <1431092677-19853-1-git-send-email-mathias.kretschmer@fokus.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33063 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752495AbbEHNlA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 May 2015 09:41:00 -0400
-In-Reply-To: <554B9CDE.1050703@iogearbox.net>
+Received: from mx-relay37-dus.antispameurope.com ([94.100.134.237]:56896 "EHLO
+	mx-relay37-dus.antispameurope.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751319AbbEHNoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 09:44:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch fixes an issue where the send(MSG_DONTWAIT) call
+on a TX_RING is not fully non-blocking in cases where the device's sndBuf is
+full. We pass nonblock=true to sock_alloc_send_skb() and return any possibly
+occuring error code (most likely EGAIN) to the caller. As the fast-path stays
+as it is, we keep the unlikely() around skb == NULL. 
 
-On Thu, 07 May 2015 19:11:58 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
+Signed-off-by: Mathias Kretschmer <mathias.kretschmer@fokus.fraunhofer.de>
 
-> On 05/07/2015 06:28 PM, Alexei Starovoitov wrote:
-> > On 5/7/15 7:35 AM, Jesper Dangaard Brouer wrote:
-> >> From: Alexei Starovoitov <ast@plumgrid.com>
-> >>
-[...snip...]
+---
+ net/packet/af_packet.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-> > btw, I've started to work on a patch on top of this one that allows
-> > multiple pktgen threads to submit into the same netdev.
-> > I've used it to stress test removal of spin_lock in ingress qdisc.
-> > The idea is to add another 'name' parameter to command:
-> > 'add_device name dev'
-> > 'name' will be used to identify this pktgen thread in /proc
-> > and 'dev' used as target net_device.
-> > I think it will be useful for start_xmit testing as well.
-> > I wonder why it wasn't done earlier? The queue configuration is
-> > already supported.
-> 
-> You mean other than below commit (iow independant of queue mapping)?
-> 
-> commit e6fce5b916cd7f7f79b2b3e53ba74bbfc1d7cf8b
-> Author: Robert Olsson <robert.olsson@its.uu.se>
-> Date:   Thu Aug 7 02:23:01 2008 -0700
-> 
->      pktgen: multiqueue etc.
-
-For completeness and others reading this threads...
-
-Pktgen multiqueue is already supported via mentioned commit, which adds
-the device naming scheme: "add_device dev@number"
-
-And yes, the documentation does not seem to mention this.  I've been
-using it for years now... My scripts[1] take param "-t" for "threads".
-
-I've added a more plain version of a script, based on yours, below my
-signature.
-
-The funny thing now is that scaling does not "happen" as we stall on:
-   atomic_long_inc(&skb->dev->rx_dropped);
-
-[1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
-- - 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-multiqueue pktgen script:
-
-
-#!/bin/bash
-function pgset() {
-    local result
-
-    echo $1 > $PGDEV
-
-    result=`cat $PGDEV | fgrep "Result: OK:"`
-    if [ "$result" = "" ]; then
-        cat $PGDEV | fgrep Result:
-    fi
-}
-
-[ -z "$2" ] && echo "Usage: $0 DEV num_threads" && exit 1
-ETH=$1
-NUM_THREADS=$2
-let "NUM_THREADS -= 1"
-echo "Number of threads to start: $2 (0 to $NUM_THREADS)"
-
-# General cleanup everything since last run
-PGDEV=/proc/net/pktgen/pgctrl
-pgset "reset"
-
-# Add devices to threads
-#  Notice the naming scheme ETH@NUM
-for NUM in `seq 0 $NUM_THREADS`; do
-    PGDEV=/proc/net/pktgen/kpktgend_${NUM}
-    pgset "rem_device_all"
-    pgset "add_device ${ETH}@${NUM}"
-done
-
-# Config each device
-for NUM in `seq 0 $NUM_THREADS`; do
-    PGDEV=/proc/net/pktgen/${ETH}@${NUM}
-    pgset "flag QUEUE_MAP_CPU"
-    pgset "xmit_mode netif_receive"
-    pgset "pkt_size 60"
-    pgset "dst 198.18.0.42"
-    pgset "dst_mac 90:e2:ba:ff:ff:ff"
-    pgset "count 10000000"
-    pgset "burst 32"
-done
-
-PGDEV=/proc/net/pktgen/pgctrl
-echo "Running... ctrl^C to stop"
-pgset "start"
-echo "Done"
-
-for NUM in `seq 0 $NUM_THREADS`; do
-    echo "Device: ${ETH}@${NUM}"
-    cat /proc/net/pktgen/${ETH}@${NUM} | grep -A2 "Result:"
-done
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 5102c3c..b5989c6 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2311,11 +2311,14 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 		tlen = dev->needed_tailroom;
+ 		skb = sock_alloc_send_skb(&po->sk,
+ 				hlen + tlen + sizeof(struct sockaddr_ll),
+-				0, &err);
++				!need_wait, &err);
+ 
+-		if (unlikely(skb == NULL))
++		if (unlikely(skb == NULL)) {
++			/* we assume the socket was initially writeable ... */
++			if (likely(len_sum > 0))
++				err = len_sum;
+ 			goto out_status;
+-
++		}
+ 		tp_len = tpacket_fill_skb(po, skb, ph, dev, size_max, proto,
+ 					  addr, hlen);
+ 		if (tp_len > dev->mtu + dev->hard_header_len) {
+-- 
+1.9.1
