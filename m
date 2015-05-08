@@ -1,37 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5 2/2] pktgen: introduce xmit_mode
- '<start_xmit|netif_receive>'
-Date: Fri, 08 May 2015 08:57:01 -0700
-Message-ID: <1431100621.22756.13.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150507143329.8534.49710.stgit@ivy>
-	 <20150507143500.8534.4435.stgit@ivy> <554B9293.2070702@plumgrid.com>
-	 <554B9CDE.1050703@iogearbox.net> <20150508173900.3fcf78de@redhat.com>
+From: Bert Vermeulen <bert@biot.com>
+Subject: Re: [PATCH] net: mdio-gpio: Allow for unspecified bus id
+Date: Fri, 08 May 2015 18:01:22 +0200
+Message-ID: <554CDDD2.6050104@biot.com>
+References: <1431094729-21775-1-git-send-email-bert@biot.com> <20150508154816.GJ18496@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:38806 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752544AbbEHP5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 11:57:03 -0400
-Received: by igbhj9 with SMTP id hj9so24958673igb.1
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 08:57:03 -0700 (PDT)
-In-Reply-To: <20150508173900.3fcf78de@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150508154816.GJ18496@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-05-08 at 17:39 +0200, Jesper Dangaard Brouer wrote:
+On 05/08/2015 05:48 PM, Andrew Lunn wrote:
+> On Fri, May 08, 2015 at 04:18:49PM +0200, Bert Vermeulen wrote:
+>> When the bus id was supplied via a struct platform_device, the driver wasn't
+>> handling -1 to mean an unspecified id of the only instance of this driver,
+>> as the platform spec requires.
+>>
+>> Signed-off-by: Bert Vermeulen <bert@biot.com>
+>> ---
+>>  drivers/net/phy/mdio-gpio.c | 5 ++++-
+>>  1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+>> index f5cddf5..7bd90db 100644
+>> --- a/drivers/net/phy/mdio-gpio.c
+>> +++ b/drivers/net/phy/mdio-gpio.c
+>> @@ -165,7 +165,10 @@ static struct mii_bus *mdio_gpio_bus_init(struct device *dev,
+>>  		if (!new_bus->irq[i])
+>>  			new_bus->irq[i] = PHY_POLL;
+>>  
+>> -	snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
+>> +	if (bus_id != -1)
+>> +		snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
+>> +	else
+>> +		strncpy(new_bus->id, "gpio", MII_BUS_ID_SIZE);
+> 
+> Hi Bert
+> 
+> What happens if there are multiple platform_device's with -1?  You
+> should probably be using use idr_alloc().
 
-> The funny thing now is that scaling does not "happen" as we stall on:
->    atomic_long_inc(&skb->dev->rx_dropped);
+It's an instance id per driver, not globally, and -1 specifically means it's
+the only instance. From Documentation/driver-model/platform.txt:
 
-Note we already have percpu device refcnt.
+> These are concatenated, so name/id "serial"/0 indicates bus_id "serial.0", and
+> "serial/3" indicates bus_id "serial.3"; both would use the platform_driver
+> named "serial".  While "my_rtc"/-1 would be bus_id "my_rtc" (no instance id)
+> and use the platform_driver called "my_rtc".
 
-We could extend this to contain a per cpu rx_dropped, but I guess only
-these tests hit this path, so I simply used one atomic_long_t here.
 
-I guess an ingress action can do better, by stealing the packet before
-hitting this point.
+-- 
+Bert Vermeulen        bert@biot.com          email/xmpp
