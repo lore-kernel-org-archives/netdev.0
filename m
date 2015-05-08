@@ -1,63 +1,55 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: Multiqueue pktgen and ingress path (Was: [PATCH v5 2/2] pktgen:
- introduce xmit_mode '<start_xmit|netif_receive>')
-Date: Fri, 08 May 2015 11:21:18 -0700
-Message-ID: <554CFE9E.8070204@gmail.com>
-References: <20150507143329.8534.49710.stgit@ivy>	<20150507143500.8534.4435.stgit@ivy>	<554B9293.2070702@plumgrid.com>	<554B9CDE.1050703@iogearbox.net>	<20150508173900.3fcf78de@redhat.com> <20150508174927.5b1ecdd1@redhat.com> <554CEBB2.8040908@plumgrid.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] add GENEVE netdev tunnel driver
+Date: Fri, 8 May 2015 12:32:48 -0700
+Message-ID: <20150508123248.69994aa1@urahara>
+References: <1431105657-25492-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:36062 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752479AbbEHSVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 14:21:21 -0400
-Received: by pdea3 with SMTP id a3so95472057pde.3
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 11:21:21 -0700 (PDT)
-In-Reply-To: <554CEBB2.8040908@plumgrid.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33972 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932230AbbEHTco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 15:32:44 -0400
+Received: by pacyx8 with SMTP id yx8so57461649pac.1
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 12:32:43 -0700 (PDT)
+In-Reply-To: <1431105657-25492-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/08/2015 10:00 AM, Alexei Starovoitov wrote:
-> On 5/8/15 8:49 AM, Jesper Dangaard Brouer wrote:
->>>
->>> I've added a more plain version of a script, based on yours, below my
->>> signature.
->>
->> Now attached.
->
-> thanks for the script! Really useful.
-> Could you add it to samples/pktgen/ and remove useless and confusing
-> pktgen.conf-2-1 ?
->
->>> The funny thing now is that scaling does not "happen" as we stall on:
->>>     atomic_long_inc(&skb->dev->rx_dropped);
->>
->> More interesting observations with the mentioned script (now attached).
->>
->> On my system the scaling stopped a 24Mpps, when I increased the number
->> of threads the collective scaling was stuck at 24Mpps.
->
-> what was your config to start hitting that drop counter?
-> We can convert it to per_cpu, but I'm not sure it's worth doing.
-> If I send normal ip packets they don't go this path. Only
-> unknown protocol packets suppose to hit it ?
+On Fri,  8 May 2015 13:20:52 -0400
+"John W. Linville" <linville@tuxdriver.com> wrote:
 
-I'm assuming it just has to be a packet that isn't claimed by any 
-sockets or interfaces registered on top of the device.  After all it 
-isn't as if pktgen sends an unknown protocol so I would assume just 
-enabling promiscuous mode on an interface without a bridge or raw socket 
-would probably be enough to trigger this.  The overhead itself would 
-show up in __netif_receive_skb_core in perf since the atomic_inc would 
-be inlined.
+> This 5-patch kernel series adds a netdev implementation of a GENEVE
+> tunnel driver, and the single iproute2 patch enables creation and
+> such for those netdevs.  This makes use of the existing GENEVE
+> infrastructure already used by the OVS code.  The net/ipv4/geneve.c
+> file is renamed as net/ipv4/geneve_core.c as part of these changes.
+> 
+>  drivers/net/Kconfig            |   14 +
+>  drivers/net/Makefile           |    1 
+>  drivers/net/geneve.c           |  550 +++++++++++++++++++++++++++++++++++++++++
+>  include/net/geneve.h           |    5 
+>  include/uapi/linux/if_link.h   |    9 
+>  net/ipv4/Kconfig               |    4 
+>  net/ipv4/Makefile              |    2 
+>  net/ipv4/geneve.c              |    6 
+>  net/ipv4/geneve_core.c         |    4 
+>  net/openvswitch/Kconfig        |    2 
+>  net/openvswitch/vport-geneve.c |    5 
+>  11 files changed, 585 insertions(+), 17 deletions(-)
+> 
+> The overall structure of the GENEVE netdev driver is strongly
+> influenced by the VXLAN netdev driver.  This is not surprising, as the
+> two drivers are intended to serve similar purposes.  As development of
+> the GENEVE driver continues, it is likely that those similarities will
+> grow stronger.  This will include both simple configuration options
+> (e.g. TOS and TTL settings) and new control plane support.
 
-I would think a common case where something like this might be seen 
-would be if you registered enough macvlan interfaces to force a device 
-to switch into promiscuous mode and then received traffic that wasn't 
-meant for any of the other interfaces.
+Look good. Thanks.
 
-- Alex
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
