@@ -1,89 +1,127 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH] net: phy: micrel: support !CONFIG_HAVE_CLK
-Date: Fri, 8 May 2015 16:32:18 +0200
-Message-ID: <20150508143218.GH1942@localhost>
-References: <1430132450-4496-1-git-send-email-niklass@axis.com>
- <CAOMZO5Dg9FkGkSS7mygv3OdfdF4jOK_nbTvx8eUTGD+EMmRs0g@mail.gmail.com>
- <55475872.8020004@axis.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v5 2/2] pktgen: introduce xmit_mode
+ '<start_xmit|netif_receive>'
+Date: Fri, 8 May 2015 17:39:00 +0200
+Message-ID: <20150508173900.3fcf78de@redhat.com>
+References: <20150507143329.8534.49710.stgit@ivy>
+	<20150507143500.8534.4435.stgit@ivy>
+	<554B9293.2070702@plumgrid.com>
+	<554B9CDE.1050703@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fabio Estevam <festevam@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"johan@kernel.org" <johan@kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55475872.8020004@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>, brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42442 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751117AbbEHPjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 May 2015 11:39:25 -0400
+In-Reply-To: <554B9CDE.1050703@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 04, 2015 at 01:30:58PM +0200, Niklas Cassel wrote:
-> On 04/27/2015 07:59 PM, Fabio Estevam wrote:
-> > On Mon, Apr 27, 2015 at 8:00 AM, Niklas Cassel <niklas.cassel@axis.com> wrote:
-> > 
-> >> Since NULL is a valid clock, we shouldn't use
-> >> IS_ERR_OR_NULL.
-> > 
-> > Yes, but this code is not using IS_ERR_OR_NULL.
-> > 
-> > It seems that you are not describing the problem you are trying to solve.
-> > 
-> > What is the exact issue you are seeing?
-> > 
-> >>         clk = devm_clk_get(&phydev->dev, "rmii-ref");
-> > 
-> > You need to provide the 'rmii-ref' in your board file or dts.
-> > 
-> > Are you doing this?
-> > 
-> 
-> I'm sorry, my commit message didn't really describe the problem properly.
-> 
-> When you compile your kernel without the clk.h API (CONFIG_HAVE_CLK),
-> devm_clk_get returns NULL (which also happens to be a valid clock in the clk.h API).
-> So it's not a matter of DT or board-files. This is on a mips platform without DT support.
-> 
-> I simply want the drivers/net/phy/micrel.c driver to also work without CONFIG_HAVE_CLK,
-> like it did before commit
-> 
-> 63f44b2bfccdd98193bbd602747f780c0fae0f02
-> net: phy: micrel: add generic clock-mode-select support
-> 
-> Now I get an error every time I boot with "Clock rate out of range: 0",
-> since clk_get_rate returns 0 when compiling with !CONFIG_HAVE_CLK.
+On Thu, 07 May 2015 19:11:58 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-You should include this information in the commit message when you
-send the next version of the patch (and remember to include the patch
-revision in the subject, that is, PATCH v3).
+> On 05/07/2015 06:28 PM, Alexei Starovoitov wrote:  
+> > On 5/7/15 7:35 AM, Jesper Dangaard Brouer wrote:  
+> >> From: Alexei Starovoitov <ast@plumgrid.com>
+> >>  
+[...snip...]
 
-As this is a regression that prevents the device from being probed
-(mention this in the commit message as well) we should address this
-promptly.
-
-Add a Fixes and CC-stable tag as well as the offending commit went into 3.18.
-
-> It is confusing that devm_clk_get returns a valid clock in the clk.h API (NULL),
-> when compiling with !CONFIG_HAVE_CLK, but according to Russell King in:
+> > btw, I've started to work on a patch on top of this one that allows
+> > multiple pktgen threads to submit into the same netdev.
+> > I've used it to stress test removal of spin_lock in ingress qdisc.
+> > The idea is to add another 'name' parameter to command:
+> > 'add_device name dev'
+> > 'name' will be used to identify this pktgen thread in /proc
+> > and 'dev' used as target net_device.
+> > I think it will be useful for start_xmit testing as well.
+> > I wonder why it wasn't done earlier? The queue configuration is
+> > already supported.  
 > 
-> http://lkml.kernel.org/r/20150207172949.GE8656@n2100.arm.linux.org.uk
+> You mean other than below commit (iow independant of queue mapping)?
 > 
-> this was intentional. (explained in the lkml mail above.)
+> commit e6fce5b916cd7f7f79b2b3e53ba74bbfc1d7cf8b
+> Author: Robert Olsson <robert.olsson@its.uu.se>
+> Date:   Thu Aug 7 02:23:01 2008 -0700
 > 
-> In the same mail Russell King also suggests how a driver can support both
-> !CONFIG_HAVE_CLK and CONFIG_HAVE_CLK.
-> 
-> This is the suggestion I followed when writing my patch.
+>      pktgen: multiqueue etc.  
 
-I'm actually leaning towards using !IS_ERR_OR_NULL as you did in your
-first patch and to add a comment explaining why it's there (rather than
-skipping the ref_clk configuration if the clock rate is 0).
+For completeness and others reading this threads...
 
-The rmii-ref clock is already optional and is only used to set one
-configuration bit when present. We should of course continue to support
-board-file configuration as well.
+Pktgen multiqueue is already supported via mentioned commit, which adds
+the device naming scheme: "add_device dev@number"
 
-Thanks,
-Johan
+And yes, the documentation does not seem to mention this.  I've been
+using it for years now... My scripts[1] take param "-t" for "threads".
+
+I've added a more plain version of a script, based on yours, below my
+signature.
+
+The funny thing now is that scaling does not "happen" as we stall on:
+   atomic_long_inc(&skb->dev->rx_dropped);
+
+[1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
+- - 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+multiqueue pktgen script:
+
+
+#!/bin/bash
+function pgset() {
+    local result
+
+    echo $1 > $PGDEV
+
+    result=`cat $PGDEV | fgrep "Result: OK:"`
+    if [ "$result" = "" ]; then
+        cat $PGDEV | fgrep Result:
+    fi
+}
+
+[ -z "$2" ] && echo "Usage: $0 DEV num_threads" && exit 1
+ETH=$1
+NUM_THREADS=$2
+let "NUM_THREADS -= 1"
+echo "Number of threads to start: $2 (0 to $NUM_THREADS)"
+
+# General cleanup everything since last run
+PGDEV=/proc/net/pktgen/pgctrl
+pgset "reset"
+
+# Add devices to threads
+#  Notice the naming scheme ETH@NUM
+for NUM in `seq 0 $NUM_THREADS`; do
+    PGDEV=/proc/net/pktgen/kpktgend_${NUM}
+    pgset "rem_device_all"
+    pgset "add_device ${ETH}@${NUM}"
+done
+
+# Config each device
+for NUM in `seq 0 $NUM_THREADS`; do
+    PGDEV=/proc/net/pktgen/${ETH}@${NUM}
+    pgset "flag QUEUE_MAP_CPU"
+    pgset "xmit_mode netif_receive"
+    pgset "pkt_size 60"
+    pgset "dst 198.18.0.42"
+    pgset "dst_mac 90:e2:ba:ff:ff:ff"
+    pgset "count 10000000"
+    pgset "burst 32"
+done
+
+PGDEV=/proc/net/pktgen/pgctrl
+echo "Running... ctrl^C to stop"
+pgset "start"
+echo "Done"
+
+for NUM in `seq 0 $NUM_THREADS`; do
+    echo "Device: ${ETH}@${NUM}"
+    cat /proc/net/pktgen/${ETH}@${NUM} | grep -A2 "Result:"
+done
