@@ -1,81 +1,90 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] switchdev: add support for fdb add/del/dump
- via switchdev_port_obj ops.
-Date: Fri, 08 May 2015 08:05:08 -0400
-Message-ID: <554CA674.8040905@mojatatu.com>
-References: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com> <554AA530.7000702@mojatatu.com> <554AED2F.80006@intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of netns
+Date: Fri, 08 May 2015 07:02:17 -0500
+Message-ID: <874mnn9t12.fsf@x220.int.ebiederm.org>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	sfeldma@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:35726 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752666AbbEHMFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 08:05:11 -0400
-Received: by ieczm2 with SMTP id zm2so61469442iec.2
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 05:05:11 -0700 (PDT)
-In-Reply-To: <554AED2F.80006@intel.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:35817 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbbEHMGu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 08:06:50 -0400
+In-Reply-To: <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
+	(Nicolas Dichtel's message of "Thu, 7 May 2015 11:02:46 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/07/15 00:42, Samudrala, Sridhar wrote:
+
+So I am dense.  I have read through the patches and I don't see where
+you tag packets from other network namespaces with a network namespace
+id.
+
+In fact I don't even see an attribute that is approrpriate for such
+tagging.
+
+Your comment below indicates such tagging is taking place but I am dense
+and I am not seeing it.
+
+Eric
+
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+
+> This idea was informally discussed in Ottawa / netdev0.1. The goal is to
+> ease the use/scalability of netns, from a userland point of view.
+> Today, users need to open one netlink socket per family and per netns.
+> Thus, when the number of netns inscreases (for example 5K or more), the
+> number of sockets needed to manage them grows a lot.
+>
+> The goal of this series is to be able to monitor netlink events, for a
+> specified family, for a set of netns, with only one netlink socket. For
+> this purpose, a netlink socket option is added: NETLINK_LISTEN_ALL_NSID.
+> When this option is set on a netlink socket, this socket will receive
+> netlink notifications from all netns that have a nsid assigned into the
+> netns where the socket has been opened.
+> The nsid is sent to userland via an anscillary data.
+>
+> Here is an example with a patched iproute2. vxlan10 is created in the
+> current netns (netns0, nsid 0) and then moved to another netns (netns1,
+> nsid 1):
+>
+> $ ip netns exec netns0 ip monitor all-nsid label
+> [nsid 0][NSID]nsid 1 (iproute2 netns name: netns1)
+> [nsid 0][NEIGH]??? lladdr 00:00:00:00:00:00 REACHABLE,PERMANENT
+> [nsid 0][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
+>     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff
+> [nsid 0][LINK]Deleted 5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
+>     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff
+> [nsid 1][NSID]nsid 0 (iproute2 netns name: netns0)
+> [nsid 1][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
+>     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+> [nsid 1][ADDR]5: vxlan10    inet 192.168.0.249/24 brd 192.168.0.255 scope global vxlan10
+>        valid_lft forever preferred_lft forever
+> [nsid 1][ROUTE]local 192.168.0.249 dev vxlan10  table local  proto kernel  scope host  src 192.168.0.249 
+> [nsid 1][ROUTE]ff00::/8 dev vxlan10  table local  metric 256  pref medium
+> [nsid 1][ROUTE]2001:123::/64 dev vxlan10  proto kernel  metric 256  pref medium
+> [nsid 1][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default 
+>     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff link-netnsid 0
+> [nsid 1][ROUTE]broadcast 192.168.0.255 dev vxlan10  table local  proto kernel  scope link  src 192.168.0.249 
+> [nsid 1][ROUTE]192.168.0.0/24 dev vxlan10  proto kernel  scope link  src 192.168.0.249 
+> [nsid 1][ROUTE]broadcast 192.168.0.0 dev vxlan10  table local  proto kernel  scope link  src 192.168.0.249 
+> [nsid 1][ROUTE]fe80::/64 dev vxlan10  proto kernel  metric 256  pref medium
 >
 >
-> On 5/6/2015 4:35 PM, Jamal Hadi Salim wrote:
->> On 05/06/15 17:54, Sridhar Samudrala wrote:
-
->> So i raised this earlier. DaveM also chimed in - but it seems still
->> in there.
->> i havent been following the discussion and i may have missed
->> the agreement to keep the new IDs. Could we not just have used netlink
->>  IDs (as opposed to a new SWITCHDEV_OBJ_PORT_FDB id)?
+>  drivers/net/vxlan.c          |   2 +-
+>  include/linux/netlink.h      |   2 +
+>  include/net/net_namespace.h  |   2 +
+>  include/uapi/linux/netlink.h |   1 +
+>  net/core/net_namespace.c     | 132 ++++++++++++++++++++++++++++---------------
+>  net/core/rtnetlink.c         |   2 +-
+>  net/netlink/af_netlink.c     | 111 +++++++++++++++++++++++++-----------
+>  7 files changed, 170 insertions(+), 82 deletions(-)
 >
-> I think you are referring to switch port attributes.  See Scott's
-> response here on
-> using netlink IDs for attributes.
-> http://thread.gmane.org/gmane.linux.network/357694/focus=357921
 >
-> This patch is adding 'fdb' as new switch port object.  It is similar to
-> other
-> objects like 'VLAN' and 'FIB' that are added by Scott's patches.
-
-Sorry I missed it - but I am not making sense of Scott's answer.
-The danger of adding these visible APIs is it would be too late
-to take them out once they hit the wild (Dave's famous "the horse
-has left the barn" or look at Jiri's netconf presentation). I hate
-to do this but taking longer to discuss these issues is important.
-
-I will agree that we need some common id to represent the grouping
-of the fdb entries - i will contend using netlink verb-nouns is
-sufficient. Example: RTM_NEWNEIGH is clearly refering to a
-modify or create on an fdb.
-The other issue is how to define optionality.
-So lets start with the fdb object:
-While i would agree they are common, Vlans are optional in an fdb
-entry. The only two items that must be present for an fdb entry are a
-dstmac address and an egress port.
-some low end switches dont do vlans. Therefore there are two IDs
-that must always be present:
-
-The object id for a port is the ifindex.
-The object id for a mac address is NDA_LLADDR
-
-The object id for a vlan is NDA_VLAN
-Then there are of course a gazillion other features which may
-be one-of such as the fdb partition id in the netgear switch Ben was
-playing.
-
-I understand the earlier arguement of not needing to have
-multiple parsings of the same thing. But providing parseable
-options means never having to change what the object struct
-looks like. Just provide a scatter list of pointers to the
-different netlink attr-val pairs so it doesnt need to be
-re-parsed.
-
-Otherwise we are re-inventing things and start to look like
-vendor SDKs.
-
-cheers,
-jamal
+> Comments are welcome.
+>
+> Regards,
+> Nicolas
