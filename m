@@ -1,84 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] Revert "ipv6: Allow for partial checksums on non-ufo
- packets"
-Date: Fri, 08 May 2015 15:22:45 -0700
-Message-ID: <1431123765.22756.51.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>
-	 <1431002384.22756.0.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <12346713.ZyFExCo3ux@h2o.as.studentenwerk.mhn.de>
-	 <2088438.42IY8hjjd5@h2o.as.studentenwerk.mhn.de>
-	 <1431122268.22756.41.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH 5/5] geneve: add initial netdev driver for GENEVE tunnels
+Date: Fri, 8 May 2015 16:19:28 -0700
+Message-ID: <CAEP_g=-=GEZn+Q48=OdWVNHSONf9EVfcz3PGE2qR4ynWXbsHeQ@mail.gmail.com>
+References: <1431105657-25492-1-git-send-email-linville@tuxdriver.com> <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Wolfgang Walter <linux@stwm.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Zhou <azhou@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:37060 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540AbbEHWWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 18:22:47 -0400
-Received: by igbsb11 with SMTP id sb11so33236615igb.0
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 15:22:46 -0700 (PDT)
-In-Reply-To: <1431122268.22756.41.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:47760 "HELO
+	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751378AbbEHXTt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 19:19:49 -0400
+Received: by mail-yk0-f180.google.com with SMTP id c202so24296392yke.2
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 16:19:48 -0700 (PDT)
+In-Reply-To: <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, May 8, 2015 at 10:20 AM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+> new file mode 100644
+> index 000000000000..102030de1d45
+> --- /dev/null
+> +++ b/drivers/net/geneve.c
+> +/* geneve receive/decap routine */
+> +static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
+[...]
+> +       /* Find the device for this VNI */
+> +       hash = geneve_net_vni_hash(gnvh->vni);
+> +       vni_list_head = &gn->vni_list[hash];
+> +       hlist_for_each_entry_rcu(dummy, vni_list_head, hlist) {
+> +               if (!memcmp(gnvh->vni, dummy->vni, sizeof(dummy->vni)) &&
+> +                   iph->saddr == dummy->remote.sin_addr.s_addr)
+> +                       geneve = dummy;
 
-Wolfgang Walter reported crashes using traceroute6, root caused to this
-commit.
+I guess we might as well break out of the loop at this point rather
+than keep searching.
 
-UDP packets can be sent from RAW sockets.
+> +static int geneve_newlink(struct net *net, struct net_device *dev,
+> +                        struct nlattr *tb[], struct nlattr *data[])
+> +{
+[...]
+> +       if (!data[IFLA_GENEVE_ID])
+> +               return -EINVAL;
 
-Note that the faulty commit addressed a non problem, as normal
-UDP v6 packets use udp_v6_send_skb() which correctly setup
-CHECKSUM_PARTIAL properly if device has the correct feature.
+Should we enforce that IFLA_GENEVE_REMOTE is present? Otherwise, it's
+not clear what we would do without it.
 
-It seems not worth trying to 'fix' the raw path.
+[...]
+> +       list_add(&geneve->next, &gn->geneve_list);
+> +
+> +       geneve_net_vni_add(gn, hash, geneve);
 
-Fixes: 32dce968dd98 ("ipv6: Allow for partial checksums on non-ufo packets")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Wolfgang Walter <linux@stwm.de>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
----
- net/ipv6/ip6_output.c |   11 +----------
- 1 file changed, 1 insertion(+), 10 deletions(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 7fde1f265c90..1fe5c687328e 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1218,7 +1218,6 @@ static int __ip6_append_data(struct sock *sk,
- 	u32 tskey = 0;
- 	struct rt6_info *rt = (struct rt6_info *)cork->dst;
- 	struct ipv6_txoptions *opt = v6_cork->opt;
--	int csummode = CHECKSUM_NONE;
- 
- 	skb = skb_peek_tail(queue);
- 	if (!skb) {
-@@ -1275,14 +1274,6 @@ emsgsize:
- 			tskey = sk->sk_tskey++;
- 	}
- 
--	/* If this is the first and only packet and device
--	 * supports checksum offloading, let's use it.
--	 */
--	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
--	    length + fragheaderlen < mtu &&
--	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
--	    !exthdrlen)
--		csummode = CHECKSUM_PARTIAL;
- 	/*
- 	 * Let's try using as much space as possible.
- 	 * Use MTU if total length of the message fits into the MTU.
-@@ -1396,7 +1387,7 @@ alloc_new_skb:
- 			 *	Fill in the control structures
- 			 */
- 			skb->protocol = htons(ETH_P_IPV6);
--			skb->ip_summed = csummode;
-+			skb->ip_summed = CHECKSUM_NONE;
- 			skb->csum = 0;
- 			/* reserve for fragmentation and ipsec header */
- 			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
+The locking seems a bit inconsistent for these two pieces - they are
+accessed in the same places but one has a special lock and the other
+doesn't. I think the answer is that neither needs a lock because they
+are both protected by RTNL but it made me pause.
