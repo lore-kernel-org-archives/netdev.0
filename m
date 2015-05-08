@@ -1,90 +1,64 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of netns
-Date: Fri, 08 May 2015 07:02:17 -0500
-Message-ID: <874mnn9t12.fsf@x220.int.ebiederm.org>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RFC 0/2] stmmac: stand alone platform drivers
+Date: Fri, 08 May 2015 15:30:50 +0200
+Message-ID: <5987007.lq0DjS0tE0@wuerfel>
+References: <1431022765-30715-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:35817 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968AbbEHMGu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 08:06:50 -0400
-In-Reply-To: <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
-	(Nicolas Dichtel's message of "Thu, 7 May 2015 11:02:46 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, Joachim Eastwood <manabian@gmail.com>,
+ davem@davemloft.net, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1431022765-30715-1-git-send-email-manabian@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
+On Thursday 07 May 2015 20:19:23 Joachim Eastwood wrote:
+> Hi Arnd,
+> 
+> I ran into some issue using a separate platform driver[1] for lpc1850-dwmac.
+> 
+> My dts files looks like this.
+> mac: ethernet@40010000 {
+>         compatible = "nxp,lpc1850-dwmac", "snps,dwmac-3.611", "snps,dwmac";
+>         ...
+> }
+> 
+> On boot the generic driver in stmmac_platform.c would grab the
+> device, matching on one of generic compat strings and thus blocking
+> the lpc1850-dwmac driver.
+> 
+> By changing the build order in the Makefile (see patch 1) I managed
+> to get it working, but I am not sure that is a good solution(?).
 
-So I am dense.  I have read through the patches and I don't see where
-you tag packets from other network namespaces with a network namespace
-id.
+Changing the link order in the Makefile is an acceptable solution
+for managing initialization order in general, but I think it won't
+work here, because if your driver is a loadable module, the base
+driver would always be attached first.
+ 
+> Another fix would be to remove the generic compat strings from the
+> match table in stmmac_platform but there are some dts-files that
+> only have these compat strings.
+> See abilis_tb10x.dtsi and exynos5440.dtsi.
 
-In fact I don't even see an attribute that is approrpriate for such
-tagging.
+Yes, that has a high risk of causing regressions.
 
-Your comment below indicates such tagging is taking place but I am dense
-and I am not seeing it.
+> I could also remove the generic compat strings from my dts file but
+> I am not sure that is good solution either. If more glue is
+> converted this would then be need in those dts files also.
 
-Eric
+I think it would work if you move the generic strings into a separate
+module that is not the one providing the base support. In that case,
+the kernel should first try to use the driver that matches the first
+compatible string. Can you try that?
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
-
-> This idea was informally discussed in Ottawa / netdev0.1. The goal is to
-> ease the use/scalability of netns, from a userland point of view.
-> Today, users need to open one netlink socket per family and per netns.
-> Thus, when the number of netns inscreases (for example 5K or more), the
-> number of sockets needed to manage them grows a lot.
->
-> The goal of this series is to be able to monitor netlink events, for a
-> specified family, for a set of netns, with only one netlink socket. For
-> this purpose, a netlink socket option is added: NETLINK_LISTEN_ALL_NSID.
-> When this option is set on a netlink socket, this socket will receive
-> netlink notifications from all netns that have a nsid assigned into the
-> netns where the socket has been opened.
-> The nsid is sent to userland via an anscillary data.
->
-> Here is an example with a patched iproute2. vxlan10 is created in the
-> current netns (netns0, nsid 0) and then moved to another netns (netns1,
-> nsid 1):
->
-> $ ip netns exec netns0 ip monitor all-nsid label
-> [nsid 0][NSID]nsid 1 (iproute2 netns name: netns1)
-> [nsid 0][NEIGH]??? lladdr 00:00:00:00:00:00 REACHABLE,PERMANENT
-> [nsid 0][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
->     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff
-> [nsid 0][LINK]Deleted 5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
->     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff
-> [nsid 1][NSID]nsid 0 (iproute2 netns name: netns0)
-> [nsid 1][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST> mtu 1450 qdisc noop state DOWN group default 
->     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff link-netnsid 0
-> [nsid 1][ADDR]5: vxlan10    inet 192.168.0.249/24 brd 192.168.0.255 scope global vxlan10
->        valid_lft forever preferred_lft forever
-> [nsid 1][ROUTE]local 192.168.0.249 dev vxlan10  table local  proto kernel  scope host  src 192.168.0.249 
-> [nsid 1][ROUTE]ff00::/8 dev vxlan10  table local  metric 256  pref medium
-> [nsid 1][ROUTE]2001:123::/64 dev vxlan10  proto kernel  metric 256  pref medium
-> [nsid 1][LINK]5: vxlan10@NONE: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UNKNOWN group default 
->     link/ether 92:33:17:e6:e7:1d brd ff:ff:ff:ff:ff:ff link-netnsid 0
-> [nsid 1][ROUTE]broadcast 192.168.0.255 dev vxlan10  table local  proto kernel  scope link  src 192.168.0.249 
-> [nsid 1][ROUTE]192.168.0.0/24 dev vxlan10  proto kernel  scope link  src 192.168.0.249 
-> [nsid 1][ROUTE]broadcast 192.168.0.0 dev vxlan10  table local  proto kernel  scope link  src 192.168.0.249 
-> [nsid 1][ROUTE]fe80::/64 dev vxlan10  proto kernel  metric 256  pref medium
->
->
->  drivers/net/vxlan.c          |   2 +-
->  include/linux/netlink.h      |   2 +
->  include/net/net_namespace.h  |   2 +
->  include/uapi/linux/netlink.h |   1 +
->  net/core/net_namespace.c     | 132 ++++++++++++++++++++++++++++---------------
->  net/core/rtnetlink.c         |   2 +-
->  net/netlink/af_netlink.c     | 111 +++++++++++++++++++++++++-----------
->  7 files changed, 170 insertions(+), 82 deletions(-)
->
->
-> Comments are welcome.
->
-> Regards,
-> Nicolas
+	Arnd
