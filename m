@@ -1,95 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 97961] New: macvtap does not transport IPv4 multicast
- packets
-Date: Fri, 8 May 2015 12:51:42 -0700
-Message-ID: <20150508125142.5dadf9e7@urahara>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: Re: [V3 PATCH 3/5] device property: Introduces device_dma_is_coherent()
+Date: Fri, 08 May 2015 22:49:09 +0200
+Message-ID: <4329505.9FeAdJdNVY@vostro.rjw.lan>
+References: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1431045436-8690-4-git-send-email-Suravee.Suthikulpanit@amd.com> <554C3790.4010407@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:33120 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751435AbbEHTvi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 15:51:38 -0400
-Received: by pdbnk13 with SMTP id nk13so95863203pdb.0
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 12:51:37 -0700 (PDT)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id b10sm6008995pdj.0.2015.05.08.12.51.37
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 08 May 2015 12:51:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+	lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
+	thomas.lendacky@amd.com, herbert@gondor.apana.org.au,
+	davem@davemloft.net, arnd@arndb.de, msalter@redhat.com,
+	hanjun.guo@linaro.org, al.stone@linaro.org,
+	grant.likely@linaro.org, leo.duran@amd.com,
+	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+To: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <554C3790.4010407@oracle.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thursday, May 07, 2015 09:12:00 PM santosh.shilimkar@oracle.com wrote:
+> On 5/7/15 5:37 PM, Suravee Suthikulpanit wrote:
+> > Currently, device drivers, which support both OF and ACPI,
+> > need to call two separate APIs, of_dma_is_coherent() and
+> > acpi_dma_is_coherent()) to determine device coherency attribute.
+> >
+> > This patch simplifies this process by introducing a new device
+> > property API, device_dma_is_coherent(), which calls the appropriate
+> > interface based on the booting architecture.
+> >
+> > Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+> > ---
+> >   drivers/base/property.c  | 12 ++++++++++++
+> >   include/linux/property.h |  2 ++
+> >   2 files changed, 14 insertions(+)
+> >
+> > diff --git a/drivers/base/property.c b/drivers/base/property.c
+> > index 1d0b116..8123c6e 100644
+> > --- a/drivers/base/property.c
+> > +++ b/drivers/base/property.c
+> > @@ -14,6 +14,7 @@
+> >   #include <linux/export.h>
+> >   #include <linux/kernel.h>
+> >   #include <linux/of.h>
+> > +#include <linux/of_address.h>
+> >   #include <linux/property.h>
+> >
+> >   /**
+> > @@ -519,3 +520,14 @@ unsigned int device_get_child_node_count(struct device *dev)
+> >   	return count;
+> >   }
+> >   EXPORT_SYMBOL_GPL(device_get_child_node_count);
+> > +
+> > +bool device_dma_is_coherent(struct device *dev)
+> > +{
+> > +	if (IS_ENABLED(CONFIG_OF) && dev->of_node)
+> 
+> Do you really need that IS_ENABLED(CONFIG_OF) ?
+> In other words, dev->of_node should be null for !CONFIG_OF
 
+Yes, but IS_ENABLED(CONFIG_OF) causes the check to be optimized away by the
+compiler if CONFIG_OF is not enabled.
 
-Begin forwarded message:
-
-Date: Fri, 8 May 2015 19:50:20 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 97961] New: macvtap does not transport IPv4 multicast packets
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=97961
-
-            Bug ID: 97961
-           Summary: macvtap does not transport IPv4 multicast packets
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.0.2
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: mh+kernel-bugzilla@zugschlus.de
-        Regression: No
-
-Hi,
-
-I have a system running Debian Jessie and kernel 4.0.2 (self-built). When I
-start a VM (also Debian Jessie) in kvm which has its network connected via
-macvtap, IPv4 multicast packets do not show up on the macvtap interface and
-also not inside the VM. This can easily be observed when avahi is in use.
-
-tcpdump on enp3s0:
-21:44:24.855171 IP6 2a01:238:4071:321e:224:d7ff:fed0:5adc.5353 > ff02::fb.5353:
-0 A (QM)? parada.local. (30)
-21:44:24.855242 IP 192.168.251.21.5353 > 224.0.0.251.5353: 0 A (QM)?
-parada.local. (30)
-21:44:25.856546 IP6 2a01:238:4071:321e:224:d7ff:fed0:5adc.5353 > ff02::fb.5353:
-0 A (QM)? parada.local. (30)
-21:44:25.856617 IP 192.168.251.21.5353 > 224.0.0.251.5353: 0 A (QM)?
-parada.local. (30)
-21:44:27.858923 IP6 2a01:238:4071:321e:224:d7ff:fed0:5adc.5353 > ff02::fb.5353:
-0 A (QM)? parada.local. (30)
-21:44:27.858995 IP 192.168.251.21.5353 > 224.0.0.251.5353: 0 A (QM)?
-parada.local. (30)
-
-tcpdump on macvtap0:
-21:44:40.113076 IP6 2a01:238:4071:321e:224:d7ff:fed0:5adc.5353 > ff02::fb.5353:
-0 A (QM)? parada.local. (30)
-21:44:41.114809 IP6 2a01:238:4071:321e:224:d7ff:fed0:5adc.5353 > ff02::fb.5353:
-0 A (QM)? parada.local. (30)
-21:44:43.117490 IP6 2a01:238:4071:321e:224:d7ff:fed0:5adc.5353 > ff02::fb.5353:
-0 A (QM)? parada.local. (30)
-
-The avahid on the VM does not answer the IPv6 packets since it is configured
-not to answer A queries over IPv6.
-
-Using a regular bridge to connect the VM via the shared device model works.
-
-I do not know whether this is a regression since I never tried with older
-kernels, I have never tried macvtap before.
-
-Greetings
-Marc
 
 -- 
-You are receiving this mail because:
-You are the assignee for the bug.
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
