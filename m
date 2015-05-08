@@ -1,28 +1,49 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] xfrm: fix a possible policy leak
-Date: Fri, 8 May 2015 17:33:52 +0800
-Message-ID: <CAJFZqHzd4w3ydps7PdZ849rR0utyDxEb992hBrxqESgcUPLwAg@mail.gmail.com>
-References: <1431069215-31916-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Eric Paris <eparis@redhat.com>
-To: netdev <netdev@vger.kernel.org>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] xfrm: fix a possible policy leak
+Date: Fri,  8 May 2015 17:39:39 +0800
+Message-ID: <1431077979-1606-1-git-send-email-roy.qing.li@gmail.com>
+Cc: steffen.klassert@secunet.com, eparis@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:36836 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750968AbbEHJdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 05:33:53 -0400
-Received: by qgeb100 with SMTP id b100so33672971qge.3
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 02:33:52 -0700 (PDT)
-In-Reply-To: <1431069215-31916-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:44788 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbbEHJjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 05:39:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 8, 2015 at 3:13 PM,  <roy.qing.li@gmail.com> wrote:
-> From: "Signed-off-by: Li RongQing" <roy.qing.li@gmail.com>
+From: Li RongQing <roy.qing.li@gmail.com>
 
+policy should be put if exit xfrm_policy_bysel_ctx() due to the
+failure of calling security_xfrm_policy_delete. since policy has
+been hold before
 
-sorry, Please drop it, it has error in From
+Fixes: ef41aaa0b7 [IPSEC]: xfrm_policy delete security check misplaced
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Cc: Eric Paris <eparis@redhat.com>
+---
+ net/xfrm/xfrm_policy.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
--Roy
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 3d264e5..66450c3 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -824,6 +824,7 @@ struct xfrm_policy *xfrm_policy_bysel_ctx(struct net *net, u32 mark, u8 type,
+ 				*err = security_xfrm_policy_delete(
+ 								pol->security);
+ 				if (*err) {
++					xfrm_pol_put(pol);
+ 					write_unlock_bh(&net->xfrm.xfrm_policy_lock);
+ 					return pol;
+ 				}
+@@ -863,6 +864,7 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u32 mark, u8 type,
+ 				*err = security_xfrm_policy_delete(
+ 								pol->security);
+ 				if (*err) {
++					xfrm_pol_put(pol);
+ 					write_unlock_bh(&net->xfrm.xfrm_policy_lock);
+ 					return pol;
+ 				}
+-- 
+2.1.0
