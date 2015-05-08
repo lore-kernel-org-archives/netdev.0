@@ -1,7 +1,7 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH 5/5] geneve: add initial netdev driver for GENEVE tunnels
-Date: Fri,  8 May 2015 13:20:57 -0400
-Message-ID: <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
+Subject: [PATCH] iproute2: GENEVE support
+Date: Fri,  8 May 2015 13:27:08 -0400
+Message-ID: <1431106028-5643-1-git-send-email-linville@tuxdriver.com>
 References: <1431105657-25492-1-git-send-email-linville@tuxdriver.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
@@ -10,626 +10,31 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	"John W. Linville" <linville@tuxdriver.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49270 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49370 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932471AbbEHRWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 13:22:14 -0400
+	with ESMTP id S932299AbbEHR1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 13:27:35 -0400
 In-Reply-To: <1431105657-25492-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an initial implementation of a netdev driver for GENEVE
-tunnels.  This implementation uses a fixed UDP port, and only supports
-point-to-point links with specific partner endpoints.  Only IPv4
-links are supported at this time.
-
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
- drivers/net/Kconfig          |  14 ++
- drivers/net/Makefile         |   1 +
- drivers/net/geneve.c         | 550 +++++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/if_link.h |   9 +
- 4 files changed, 574 insertions(+)
- create mode 100644 drivers/net/geneve.c
+This includes the include/linux/if_link.h bits, that will need to be
+dropped after iproute2 does the 4.1 update for that file...
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index df51d6025a90..019fceffc9e5 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -179,6 +179,20 @@ config VXLAN
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called vxlan.
- 
-+config GENEVE
-+       tristate "Generic Network Virtualization Encapsulation netdev"
-+       depends on INET && GENEVE_CORE
-+       select NET_IP_TUNNEL
-+       ---help---
-+	  This allows one to create geneve virtual interfaces that provide
-+	  Layer 2 Networks over Layer 3 Networks. GENEVE is often used
-+	  to tunnel virtual network infrastructure in virtualized environments.
-+	  For more information see:
-+	    http://tools.ietf.org/html/draft-gross-geneve-02
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called geneve.
-+
- config NETCONSOLE
- 	tristate "Network console logging support"
- 	---help---
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index e25fdd7d905e..c12cb22478a7 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -23,6 +23,7 @@ obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_VXLAN) += vxlan.o
-+obj-$(CONFIG_GENEVE) += geneve.o
- obj-$(CONFIG_NLMON) += nlmon.o
- 
- #
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-new file mode 100644
-index 000000000000..102030de1d45
---- /dev/null
-+++ b/drivers/net/geneve.c
-@@ -0,0 +1,550 @@
-+/*
-+ * GENEVE: Generic Network Virtualization Encapsulation
-+ *
-+ * Copyright (c) 2015 Red Hat, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/hash.h>
-+#include <net/rtnetlink.h>
-+#include <net/geneve.h>
-+
-+#define GENEVE_NETDEV_VER	"0.6"
-+
-+#define GENEVE_UDP_PORT		6081
-+
-+#define GENEVE_N_VID		(1u << 24)
-+#define GENEVE_VID_MASK		(GENEVE_N_VID - 1)
-+
-+#define VNI_HASH_BITS		10
-+#define VNI_HASH_SIZE		(1<<VNI_HASH_BITS)
-+
-+static bool log_ecn_error = true;
-+module_param(log_ecn_error, bool, 0644);
-+MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
-+
-+/* per-network namespace private data for this module */
-+struct geneve_net {
-+	struct list_head  geneve_list;
-+	struct hlist_head vni_list[VNI_HASH_SIZE];
-+	spinlock_t        vni_lock;
-+};
-+
-+/* Pseudo network device */
-+struct geneve_dev {
-+	struct hlist_node  hlist;	/* vni hash table */
-+	struct net	   *net;	/* netns for packet i/o */
-+	struct net_device  *dev;	/* netdev for geneve tunnel */
-+	struct geneve_sock *sock;	/* socket used for geneve tunnel */
-+	u8 vni[3];			/* virtual network ID for tunnel */
-+	struct sockaddr_in remote;	/* IPv4 address for link partner */
-+	struct work_struct sock_work;	/* work item for binding socket */
-+	struct list_head   next;	/* geneve's per namespace list */
-+};
-+
-+static void geneve_sock_work(struct work_struct *work);
-+
-+static struct workqueue_struct *geneve_wq;
-+
-+static int geneve_net_id;
-+
-+static inline __u32 geneve_net_vni_hash(u8 vni[3])
-+{
-+	__u32 vnid;
-+
-+	vnid = (vni[0] << 16) | (vni[1] << 8) | vni[2];
-+	return hash_32(vnid, VNI_HASH_BITS);
-+}
-+
-+static void geneve_net_vni_add(struct geneve_net *gn, __u32 hash,
-+                               struct geneve_dev *geneve)
-+{
-+	spin_lock(&gn->vni_lock);
-+	hlist_add_head_rcu(&geneve->hlist, &gn->vni_list[hash]);
-+	spin_unlock(&gn->vni_lock);
-+}
-+
-+static void geneve_net_vni_del(struct geneve_dev *geneve)
-+{
-+	struct geneve_net *gn = net_generic(geneve->net, geneve_net_id);
-+
-+	spin_lock(&gn->vni_lock);
-+	if (!hlist_unhashed(&geneve->hlist))
-+		hlist_del_rcu(&geneve->hlist);
-+	spin_unlock(&gn->vni_lock);
-+}
-+
-+/* geneve receive/decap routine */
-+static void geneve_rx(struct geneve_sock *gs, struct sk_buff *skb)
-+{
-+	struct genevehdr *gnvh = geneve_hdr(skb);
-+	struct geneve_dev *dummy, *geneve = NULL;
-+	struct geneve_net *gn;
-+	struct iphdr *iph = NULL;
-+	struct pcpu_sw_netstats *stats;
-+	struct hlist_head *vni_list_head;
-+	int err = 0;
-+	__u32 hash;
-+
-+	iph = ip_hdr(skb); /* Still outer IP header... */
-+
-+	gn = gs->rcv_data;
-+
-+	/* Find the device for this VNI */
-+	hash = geneve_net_vni_hash(gnvh->vni);
-+	vni_list_head = &gn->vni_list[hash];
-+	hlist_for_each_entry_rcu(dummy, vni_list_head, hlist) {
-+		if (!memcmp(gnvh->vni, dummy->vni, sizeof(dummy->vni)) &&
-+		    iph->saddr == dummy->remote.sin_addr.s_addr)
-+			geneve = dummy;
-+	}
-+	if (!geneve)
-+		goto drop;
-+
-+	/* Drop packets w/ critical options,
-+	 * since we don't support any...
-+	 */
-+	if (gnvh->critical)
-+		goto drop;
-+
-+	skb_reset_mac_header(skb);
-+	skb_scrub_packet(skb, !net_eq(geneve->net, dev_net(geneve->dev)));
-+	skb->protocol = eth_type_trans(skb, geneve->dev);
-+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
-+
-+	/* Ignore packet loops (and multicast echo) */
-+	if (ether_addr_equal(eth_hdr(skb)->h_source, geneve->dev->dev_addr))
-+		goto drop;
-+
-+	skb_reset_network_header(skb);
-+
-+	iph = ip_hdr(skb); /* Now inner IP header... */
-+	err = IP_ECN_decapsulate(iph, skb);
-+
-+	if (unlikely(err)) {
-+		if (log_ecn_error)
-+			net_info_ratelimited("non-ECT from %pI4 with TOS=%#x\n",
-+					     &iph->saddr, iph->tos);
-+		if (err > 1) {
-+			++geneve->dev->stats.rx_frame_errors;
-+			++geneve->dev->stats.rx_errors;
-+			goto drop;
-+		}
-+	}
-+
-+	stats = this_cpu_ptr(geneve->dev->tstats);
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_packets++;
-+	stats->rx_bytes += skb->len;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	netif_rx(skb);
-+
-+	return;
-+drop:
-+	/* Consume bad packet */
-+	kfree_skb(skb);
-+}
-+
-+/* Scheduled at device creation to bind to a socket */
-+static void geneve_sock_work(struct work_struct *work)
-+{
-+	struct geneve_dev *geneve = container_of(work, struct geneve_dev,
-+	                                         sock_work);
-+	struct net *net = geneve->net;
-+	struct geneve_net *gn = net_generic(geneve->net, geneve_net_id);
-+	struct geneve_sock *gs;
-+
-+	gs = geneve_sock_add(net, htons(GENEVE_UDP_PORT), geneve_rx, gn,
-+	                     false, false);
-+	if (!IS_ERR(gs))
-+		geneve->sock = gs;
-+
-+	dev_put(geneve->dev);
-+}
-+
-+/* Setup stats when device is created */
-+static int geneve_init(struct net_device *dev)
-+{
-+	struct geneve_dev *geneve = netdev_priv(dev);
-+
-+	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-+	if (!dev->tstats)
-+		return -ENOMEM;
-+
-+	/* make new socket outside of RTNL */
-+	dev_hold(dev);
-+	queue_work(geneve_wq, &geneve->sock_work);
-+
-+	return 0;
-+}
-+
-+static void geneve_uninit(struct net_device *dev)
-+{
-+	struct geneve_dev *geneve = netdev_priv(dev);
-+	struct geneve_sock *gs = geneve->sock;
-+
-+	if (gs)
-+		geneve_sock_release(gs);
-+	free_percpu(dev->tstats);
-+}
-+
-+static int geneve_open(struct net_device *dev)
-+{
-+	struct geneve_dev *geneve = netdev_priv(dev);
-+	struct geneve_sock *gs = geneve->sock;
-+
-+	/* socket hasn't been created */
-+	if (!gs)
-+		return -ENOTCONN;
-+
-+	return 0;
-+}
-+
-+static int geneve_stop(struct net_device *dev)
-+{
-+	return 0;
-+}
-+
-+static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct geneve_dev *geneve = netdev_priv(dev);
-+	struct geneve_sock *gs = geneve->sock;
-+	struct rtable *rt = NULL;
-+	const struct iphdr *iip; /* interior IP header */
-+	struct flowi4 fl4;
-+	int err;
-+	__be16 sport;
-+	__u8 tos, ttl = 0;
-+
-+	iip = ip_hdr(skb);
-+
-+	skb_reset_mac_header(skb);
-+
-+	/* TODO: port min/max limits should be configurable */
-+	sport = udp_flow_src_port(dev_net(dev), skb, 0, 0, true);
-+
-+	memset(&fl4, 0, sizeof(fl4));
-+	fl4.daddr = geneve->remote.sin_addr.s_addr;
-+	rt = ip_route_output_key(geneve->net, &fl4);
-+	if (IS_ERR(rt)) {
-+		netdev_dbg(dev, "no route to %pI4\n", &fl4.daddr);
-+		dev->stats.tx_carrier_errors++;
-+		goto tx_error;
-+	}
-+	if (rt->dst.dev == dev) { /* is this necessary? */
-+		netdev_dbg(dev, "circular route to %pI4\n", &fl4.daddr);
-+		dev->stats.collisions++;
-+		goto rt_tx_error;
-+	}
-+
-+	/* TODO: tos and ttl should be configurable */
-+
-+	tos = ip_tunnel_ecn_encap(0, iip, skb);
-+
-+	if (IN_MULTICAST(ntohl(fl4.daddr)))
-+		ttl = 1;
-+
-+	ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
-+
-+	/* no need to handle local destination and encap bypass...yet... */
-+
-+	err = geneve_xmit_skb(gs, rt, skb, fl4.saddr, fl4.daddr,
-+	                      tos, ttl, 0, sport, htons(GENEVE_UDP_PORT), 0,
-+	                      geneve->vni, 0, NULL, false,
-+	                      !net_eq(geneve->net, dev_net(geneve->dev)));
-+	if (err < 0)
-+		ip_rt_put(rt);
-+
-+	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-+
-+	return NETDEV_TX_OK;
-+
-+rt_tx_error:
-+	ip_rt_put(rt);
-+tx_error:
-+	dev->stats.tx_errors++;
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+}
-+
-+static const struct net_device_ops geneve_netdev_ops = {
-+	.ndo_init		= geneve_init,
-+	.ndo_uninit		= geneve_uninit,
-+	.ndo_open		= geneve_open,
-+	.ndo_stop		= geneve_stop,
-+	.ndo_start_xmit		= geneve_xmit,
-+	.ndo_get_stats64	= ip_tunnel_get_stats64,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address	= eth_mac_addr,
-+};
-+
-+static void geneve_get_drvinfo(struct net_device *dev,
-+			       struct ethtool_drvinfo *drvinfo)
-+{
-+	strlcpy(drvinfo->version, GENEVE_NETDEV_VER, sizeof(drvinfo->version));
-+	strlcpy(drvinfo->driver, "geneve", sizeof(drvinfo->driver));
-+}
-+
-+static const struct ethtool_ops geneve_ethtool_ops = {
-+	.get_drvinfo	= geneve_get_drvinfo,
-+	.get_link	= ethtool_op_get_link,
-+};
-+
-+/* Info for udev, that this is a virtual tunnel endpoint */
-+static struct device_type geneve_type = {
-+	.name = "geneve",
-+};
-+
-+/* Initialize the device structure. */
-+static void geneve_setup(struct net_device *dev)
-+{
-+	ether_setup(dev);
-+
-+	dev->netdev_ops = &geneve_netdev_ops;
-+	dev->ethtool_ops = &geneve_ethtool_ops;
-+	dev->destructor = free_netdev;
-+
-+	SET_NETDEV_DEVTYPE(dev, &geneve_type);
-+
-+	dev->tx_queue_len = 0;
-+	dev->features    |= NETIF_F_LLTX;
-+	dev->features    |= NETIF_F_SG | NETIF_F_HW_CSUM;
-+	dev->features    |= NETIF_F_RXCSUM;
-+	dev->features    |= NETIF_F_GSO_SOFTWARE;
-+
-+	dev->vlan_features = dev->features;
-+	dev->features    |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
-+
-+	dev->hw_features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
-+	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
-+	dev->hw_features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
-+
-+	netif_keep_dst(dev);
-+	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
-+}
-+
-+static const struct nla_policy geneve_policy[IFLA_GENEVE_MAX + 1] = {
-+	[IFLA_GENEVE_ID]		= { .type = NLA_U32 },
-+	[IFLA_GENEVE_REMOTE]		= { .len = FIELD_SIZEOF(struct iphdr, daddr) },
-+};
-+
-+static int geneve_validate(struct nlattr *tb[], struct nlattr *data[])
-+{
-+	if (tb[IFLA_ADDRESS]) {
-+		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN)
-+			return -EINVAL;
-+
-+		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
-+			return -EADDRNOTAVAIL;
-+	}
-+
-+	if (!data)
-+		return -EINVAL;
-+
-+	if (data[IFLA_GENEVE_ID]) {
-+		__u32 vni =  nla_get_u32(data[IFLA_GENEVE_ID]);
-+
-+		if (vni >= GENEVE_VID_MASK)
-+			return -ERANGE;
-+	}
-+
-+	return 0;
-+}
-+
-+static int geneve_newlink(struct net *net, struct net_device *dev,
-+			 struct nlattr *tb[], struct nlattr *data[])
-+{
-+	struct geneve_net *gn = net_generic(net, geneve_net_id);
-+	struct geneve_dev *dummy, *geneve = netdev_priv(dev);
-+	struct hlist_head *vni_list_head;
-+	struct sockaddr_in remote;	/* IPv4 address for link partner */
-+	__u32 vni, hash;
-+	int err;
-+
-+	if (!data[IFLA_GENEVE_ID])
-+		return -EINVAL;
-+
-+	geneve->net = net;
-+	geneve->dev = dev;
-+
-+	INIT_WORK(&geneve->sock_work, geneve_sock_work);
-+
-+	vni = nla_get_u32(data[IFLA_GENEVE_ID]);
-+	geneve->vni[0] = (vni & 0x00ff0000) >> 16;
-+	geneve->vni[1] = (vni & 0x0000ff00) >> 8;
-+	geneve->vni[2] =  vni & 0x000000ff;
-+
-+	if (data[IFLA_GENEVE_REMOTE])
-+		geneve->remote.sin_addr.s_addr =
-+			nla_get_be32(data[IFLA_GENEVE_REMOTE]);
-+
-+	remote = geneve->remote;
-+	hash = geneve_net_vni_hash(geneve->vni);
-+	vni_list_head = &gn->vni_list[hash];
-+	hlist_for_each_entry_rcu(dummy, vni_list_head, hlist) {
-+		if (!memcmp(geneve->vni, dummy->vni, sizeof(dummy->vni)) &&
-+		    !memcmp(&remote, &dummy->remote, sizeof(dummy->remote)))
-+			return -EBUSY;
-+	}
-+
-+	if (tb[IFLA_ADDRESS] == NULL)
-+		eth_hw_addr_random(dev);
-+
-+	err = register_netdevice(dev);
-+	if (err)
-+		return err;
-+
-+	list_add(&geneve->next, &gn->geneve_list);
-+
-+	geneve_net_vni_add(gn, hash, geneve);
-+
-+	return 0;
-+}
-+
-+static void geneve_dellink(struct net_device *dev, struct list_head *head)
-+{
-+	struct geneve_dev *geneve = netdev_priv(dev);
-+
-+	geneve_net_vni_del(geneve);
-+
-+	list_del(&geneve->next);
-+	unregister_netdevice_queue(dev, head);
-+}
-+
-+static size_t geneve_get_size(const struct net_device *dev)
-+{
-+	return nla_total_size(sizeof(__u32)) +	/* IFLA_GENEVE_ID */
-+		nla_total_size(sizeof(struct in_addr)) + /* IFLA_GENEVE_REMOTE */
-+		0;
-+}
-+
-+static int geneve_fill_info(struct sk_buff *skb, const struct net_device *dev)
-+{
-+	struct geneve_dev *geneve = netdev_priv(dev);
-+	__u32 vni;
-+
-+	vni = (geneve->vni[0] << 16) | (geneve->vni[1] << 8) | geneve->vni[2];
-+	if (nla_put_u32(skb, IFLA_GENEVE_ID, vni))
-+		goto nla_put_failure;
-+
-+	if (nla_put_be32(skb, IFLA_GENEVE_REMOTE,
-+			 geneve->remote.sin_addr.s_addr))
-+		goto nla_put_failure;
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static struct rtnl_link_ops geneve_link_ops __read_mostly = {
-+	.kind		= "geneve",
-+	.maxtype	= IFLA_GENEVE_MAX,
-+	.policy		= geneve_policy,
-+	.priv_size	= sizeof(struct geneve_dev),
-+	.setup		= geneve_setup,
-+	.validate	= geneve_validate,
-+	.newlink	= geneve_newlink,
-+	.dellink	= geneve_dellink,
-+	.get_size	= geneve_get_size,
-+	.fill_info	= geneve_fill_info,
-+};
-+
-+static __net_init int geneve_init_net(struct net *net)
-+{
-+	struct geneve_net *gn = net_generic(net, geneve_net_id);
-+	unsigned int h;
-+
-+	INIT_LIST_HEAD(&gn->geneve_list);
-+	spin_lock_init(&gn->vni_lock);
-+
-+	for (h = 0; h < VNI_HASH_SIZE; ++h)
-+		INIT_HLIST_HEAD(&gn->vni_list[h]);
-+
-+	return 0;
-+}
-+
-+static void __net_exit geneve_exit_net(struct net *net)
-+{
-+	struct geneve_net *gn = net_generic(net, geneve_net_id);
-+	struct geneve_dev *geneve, *next;
-+	struct net_device *dev, *aux;
-+	LIST_HEAD(list);
-+
-+	rtnl_lock();
-+
-+	/* gather any geneve devices that were moved into this ns */
-+	for_each_netdev_safe(net, dev, aux)
-+		if (dev->rtnl_link_ops == &geneve_link_ops)
-+			unregister_netdevice_queue(dev, &list);
-+
-+	/* now gather any other geneve devices that were created in this ns */
-+	list_for_each_entry_safe(geneve, next, &gn->geneve_list, next) {
-+		/* If geneve->dev is in the same netns, it was already added
-+		 * to the list by the previous loop.
-+		 */
-+		if (!net_eq(dev_net(geneve->dev), net))
-+			unregister_netdevice_queue(geneve->dev, &list);
-+	}
-+
-+	/* unregister the devices gathered above */
-+	unregister_netdevice_many(&list);
-+	rtnl_unlock();
-+}
-+
-+static struct pernet_operations geneve_net_ops = {
-+	.init = geneve_init_net,
-+	.exit = geneve_exit_net,
-+	.id   = &geneve_net_id,
-+	.size = sizeof(struct geneve_net),
-+};
-+
-+static int __init geneve_init_module(void)
-+{
-+	int rc;
-+
-+	geneve_wq = alloc_workqueue("geneve", 0, 0);
-+	if (!geneve_wq)
-+		return -ENOMEM;
-+
-+	rc = register_pernet_subsys(&geneve_net_ops);
-+	if (rc)
-+		goto out1;
-+
-+	rc = rtnl_link_register(&geneve_link_ops);
-+	if (rc)
-+		goto out2;
-+
-+	return 0;
-+out2:
-+	unregister_pernet_subsys(&geneve_net_ops);
-+out1:
-+	destroy_workqueue(geneve_wq);
-+	return rc;
-+}
-+late_initcall(geneve_init_module);
-+
-+static void __exit geneve_cleanup_module(void)
-+{
-+	rtnl_link_unregister(&geneve_link_ops);
-+	destroy_workqueue(geneve_wq);
-+	unregister_pernet_subsys(&geneve_net_ops);
-+}
-+module_exit(geneve_cleanup_module);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_VERSION(GENEVE_NETDEV_VER);
-+MODULE_AUTHOR("John W. Linville <linville@tuxdriver.com>");
-+MODULE_DESCRIPTION("Interface driver for GENEVE encapsulated traffic");
-+MODULE_ALIAS_RTNL_LINK("geneve");
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index d9cd19214b98..2ca17d1cff3f 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -390,6 +390,15 @@ struct ifla_vxlan_port_range {
+ include/linux/if_link.h |   9 ++++
+ ip/Makefile             |   3 +-
+ ip/iplink.c             |   2 +-
+ ip/iplink_geneve.c      | 122 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 134 insertions(+), 2 deletions(-)
+ create mode 100644 ip/iplink_geneve.c
+
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 3d0d61317733..86058638c4d9 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -388,6 +388,15 @@ struct ifla_vxlan_port_range {
  	__be16	high;
  };
  
@@ -645,5 +50,160 @@ index d9cd19214b98..2ca17d1cff3f 100644
  /* Bonding section */
  
  enum {
+diff --git a/ip/Makefile b/ip/Makefile
+index 2c742f305fef..77653ecc5785 100644
+--- a/ip/Makefile
++++ b/ip/Makefile
+@@ -6,7 +6,8 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
+     iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_vti.o link_vti6.o \
+     iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o \
+     link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
+-    iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o
++    iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
++    iplink_geneve.o
+ 
+ RTMONOBJ=rtmon.o
+ 
+diff --git a/ip/iplink.c b/ip/iplink.c
+index bb437b96239a..39c76e778020 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -93,7 +93,7 @@ void iplink_usage(void)
+ 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
+ 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
+ 		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon |\n");
+-		fprintf(stderr, "          bond_slave | ipvlan }\n");
++		fprintf(stderr, "          bond_slave | ipvlan | geneve }\n");
+ 	}
+ 	exit(-1);
+ }
+diff --git a/ip/iplink_geneve.c b/ip/iplink_geneve.c
+new file mode 100644
+index 000000000000..74703e1ee156
+--- /dev/null
++++ b/ip/iplink_geneve.c
+@@ -0,0 +1,122 @@
++/*
++ * iplink_geneve.c	GENEVE device support
++ *
++ *              This program is free software; you can redistribute it and/or
++ *              modify it under the terms of the GNU General Public License
++ *              as published by the Free Software Foundation; either version
++ *              2 of the License, or (at your option) any later version.
++ *
++ * Authors:     John W. Linville <linville@tuxdriver.com>
++ */
++
++#include <stdio.h>
++
++#include "utils.h"
++#include "ip_common.h"
++
++static void print_explain(FILE *f)
++{
++	fprintf(f, "Usage: ... geneve id VNI remote ADDR\n");
++	fprintf(f, "\n");
++	fprintf(f, "Where: VNI  := 0-16777215\n");
++	fprintf(f, "       ADDR := IP_ADDRESS\n");
++}
++
++static void explain(void)
++{
++	print_explain(stderr);
++}
++
++static int geneve_parse_opt(struct link_util *lu, int argc, char **argv,
++			  struct nlmsghdr *n)
++{
++	__u32 vni = 0;
++	int vni_set = 0;
++	__u32 daddr = 0;
++	struct in6_addr daddr6 = IN6ADDR_ANY_INIT;
++
++
++	while (argc > 0) {
++		if (!matches(*argv, "id") ||
++		    !matches(*argv, "vni")) {
++			NEXT_ARG();
++			if (get_u32(&vni, *argv, 0) ||
++			    vni >= 1u << 24)
++				invarg("invalid id", *argv);
++			vni_set = 1;
++		} else if (!matches(*argv, "remote")) {
++			NEXT_ARG();
++			if (!inet_get_addr(*argv, &daddr, &daddr6)) {
++				fprintf(stderr, "Invalid address \"%s\"\n", *argv);
++				return -1;
++			}
++			if (IN_MULTICAST(ntohl(daddr)))
++				invarg("invalid remote address", *argv);
++		} else if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "geneve: unknown command \"%s\"?\n", *argv);
++			explain();
++			return -1;
++		}
++		argc--, argv++;
++	}
++
++	if (!vni_set) {
++		fprintf(stderr, "geneve: missing virtual network identifier\n");
++		return -1;
++	}
++
++	if (!daddr) {
++		fprintf(stderr, "geneve: remove link partner not specified\n");
++		return -1;
++	}
++	if (memcmp(&daddr6, &in6addr_any, sizeof(daddr6)) != 0) {
++		fprintf(stderr, "geneve: remove link over IPv6 not supported\n");
++		return -1;
++	}
++
++	addattr32(n, 1024, IFLA_GENEVE_ID, vni);
++	if (daddr)
++		addattr_l(n, 1024, IFLA_GENEVE_REMOTE, &daddr, 4);
++
++	return 0;
++}
++
++static void geneve_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
++{
++	__u32 vni;
++	char s1[1024];
++
++	if (!tb)
++		return;
++
++	if (!tb[IFLA_GENEVE_ID] ||
++	    RTA_PAYLOAD(tb[IFLA_GENEVE_ID]) < sizeof(__u32))
++		return;
++
++	vni = rta_getattr_u32(tb[IFLA_GENEVE_ID]);
++	fprintf(f, "id %u ", vni);
++
++	if (tb[IFLA_GENEVE_REMOTE]) {
++		__be32 addr = rta_getattr_u32(tb[IFLA_GENEVE_REMOTE]);
++		if (addr)
++			fprintf(f, "remote %s ",
++				format_host(AF_INET, 4, &addr, s1, sizeof(s1)));
++	}
++}
++
++static void geneve_print_help(struct link_util *lu, int argc, char **argv,
++	FILE *f)
++{
++	print_explain(f);
++}
++
++struct link_util geneve_link_util = {
++	.id		= "geneve",
++	.maxattr	= IFLA_GENEVE_MAX,
++	.parse_opt	= geneve_parse_opt,
++	.print_opt	= geneve_print_opt,
++	.print_help	= geneve_print_help,
++};
 -- 
 2.1.0
