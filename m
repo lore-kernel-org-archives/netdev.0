@@ -1,31 +1,37 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v5 2/2] pktgen: introduce xmit_mode '<start_xmit|netif_receive>'
-Date: Fri, 08 May 2015 09:50:05 -0700
-Message-ID: <554CE93D.3090200@plumgrid.com>
-References: <20150507143329.8534.49710.stgit@ivy>	 <20150507143500.8534.4435.stgit@ivy> <554B9293.2070702@plumgrid.com>	 <554B9CDE.1050703@iogearbox.net> <20150508173900.3fcf78de@redhat.com> <1431100621.22756.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: mdio-gpio: Allow for unspecified bus id
+Date: Fri, 8 May 2015 18:46:47 +0200
+Message-ID: <20150508164647.GK18496@lunn.ch>
+References: <1431094729-21775-1-git-send-email-bert@biot.com>
+ <20150508154816.GJ18496@lunn.ch>
+ <554CDDD2.6050104@biot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f173.google.com ([209.85.213.173]:38754 "EHLO
-	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753689AbbEHQuE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 12:50:04 -0400
-Received: by igbhj9 with SMTP id hj9so26279149igb.1
-        for <netdev@vger.kernel.org>; Fri, 08 May 2015 09:50:04 -0700 (PDT)
-In-Reply-To: <1431100621.22756.13.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bert Vermeulen <bert@biot.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <554CDDD2.6050104@biot.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/8/15 8:57 AM, Eric Dumazet wrote:
->
-> I guess an ingress action can do better, by stealing the packet before
-> hitting this point.
+> >> -	snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
+> >> +	if (bus_id != -1)
+> >> +		snprintf(new_bus->id, MII_BUS_ID_SIZE, "gpio-%x", bus_id);
+> >> +	else
+> >> +		strncpy(new_bus->id, "gpio", MII_BUS_ID_SIZE);
+> > 
+> > Hi Bert
+> > 
+> > What happens if there are multiple platform_device's with -1?  You
+> > should probably be using use idr_alloc().
+> 
+> It's an instance id per driver, not globally, and -1 specifically means it's
+> the only instance. From Documentation/driver-model/platform.txt:
 
-unfortunately not yet :(
-We have spin_lock(&gact->tcf_lock); in tcf_gact,
-so simple 'action drop' doesn't scale.
-Shouldn't be hard to fix though.
+Ah, did not know there can only be one with -1. I've used i2c where
+this does not apply when registering adaptors. It will allocate a
+unique id to each added with id = -1.
+
+       Andrew
