@@ -1,73 +1,84 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 00/11] netns: don't switch namespace while creating kernel sockets
-Date: Fri, 08 May 2015 17:08:59 -0500
-Message-ID: <87d22a4t8k.fsf@x220.int.ebiederm.org>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
-	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
-	<20150508140733.GA13325@gondor.apana.org.au>
-	<87sib76kef.fsf@x220.int.ebiederm.org>
-	<CAHA+R7N4w4B_2GZfNfxinqPAHPqHEQo__TKt3m88fyHzerEj2g@mail.gmail.com>
-	<CAHA+R7NOrqhOv=ki22Dd8BTdaswp_Mvkz75XkahQSfh73c6a1w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] Revert "ipv6: Allow for partial checksums on non-ufo
+ packets"
+Date: Fri, 08 May 2015 15:22:45 -0700
+Message-ID: <1431123765.22756.51.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>
+	 <1431002384.22756.0.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <12346713.ZyFExCo3ux@h2o.as.studentenwerk.mhn.de>
+	 <2088438.42IY8hjjd5@h2o.as.studentenwerk.mhn.de>
+	 <1431122268.22756.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Ying Xue <ying.xue@windriver.com>,
-	netdev <netdev@vger.kernel.org>,
-	Pavel Emelyanov <xemul@openvz.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, maxk@qti.qualcomm.com,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Tom Herbert <tom@herbertland.com>,
-	James Chapman <jchapman@katalix.com>,
-	Erik Hugne <erik.hugne@ericsson.com>, jon.maloy@ericsson.com,
-	Simon Horman <horms@verge.net.au>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Wolfgang Walter <linux@stwm.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:55612 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932079AbbEHWNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 18:13:35 -0400
-In-Reply-To: <CAHA+R7NOrqhOv=ki22Dd8BTdaswp_Mvkz75XkahQSfh73c6a1w@mail.gmail.com>
-	(Cong Wang's message of "Fri, 8 May 2015 14:13:27 -0700")
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:37060 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751540AbbEHWWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 18:22:47 -0400
+Received: by igbsb11 with SMTP id sb11so33236615igb.0
+        for <netdev@vger.kernel.org>; Fri, 08 May 2015 15:22:46 -0700 (PDT)
+In-Reply-To: <1431122268.22756.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <cwang@twopensource.com> writes:
+From: Eric Dumazet <edumazet@google.com>
 
-> On Fri, May 8, 2015 at 1:27 PM, Cong Wang <cwang@twopensource.com> wrote:
->> On Fri, May 8, 2015 at 10:36 AM, Eric W. Biederman
->> <ebiederm@xmission.com> wrote:
->>>
->>> It really is invalid for a network namespace init routine to grab the
->>> reference count of it's network namespace (thus making the network
->>> namespace unfreeable).  So I am wondering if perhaps all we need to do
->>> is find a clean refactoring of the socket code so this case does not
->>> come up at all.
->>
->>
->> Good point!
->>
->> I _guess_ the reason is these kernel sockets have to exist longer than
->> netns' life-time, it could be due to on-flying skb's?
->>
->> On the other hand, we do create some fb_tunnel netdevice in netns init
->> too, but we don't take a refcnt there, probably because we wait
->> for netdevice refcnt goes to zero when unregistering.
->
-> Answer myself, it looks like we don't need to hold the refcnt at all,
-> since we create the socket at init and release it at uninit, so they
-> should have the same life-time?
->
-> The reason why user-space sockets need this refcnt is they
-> could have longer life-time than the netns?
+Wolfgang Walter reported crashes using traceroute6, root caused to this
+commit.
 
-User space sockets by design keep the network namespace alive.
+UDP packets can be sent from RAW sockets.
 
-> This seems the right direction to solve this problem for me,
-> I am going to try this way to see how far I can go. ;)
+Note that the faulty commit addressed a non problem, as normal
+UDP v6 packets use udp_v6_send_skb() which correctly setup
+CHECKSUM_PARTIAL properly if device has the correct feature.
 
-I will be interested to see what you come up with.
+It seems not worth trying to 'fix' the raw path.
 
-Eric
+Fixes: 32dce968dd98 ("ipv6: Allow for partial checksums on non-ufo packets")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Wolfgang Walter <linux@stwm.de>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+---
+ net/ipv6/ip6_output.c |   11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7fde1f265c90..1fe5c687328e 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1218,7 +1218,6 @@ static int __ip6_append_data(struct sock *sk,
+ 	u32 tskey = 0;
+ 	struct rt6_info *rt = (struct rt6_info *)cork->dst;
+ 	struct ipv6_txoptions *opt = v6_cork->opt;
+-	int csummode = CHECKSUM_NONE;
+ 
+ 	skb = skb_peek_tail(queue);
+ 	if (!skb) {
+@@ -1275,14 +1274,6 @@ emsgsize:
+ 			tskey = sk->sk_tskey++;
+ 	}
+ 
+-	/* If this is the first and only packet and device
+-	 * supports checksum offloading, let's use it.
+-	 */
+-	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
+-	    length + fragheaderlen < mtu &&
+-	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+-	    !exthdrlen)
+-		csummode = CHECKSUM_PARTIAL;
+ 	/*
+ 	 * Let's try using as much space as possible.
+ 	 * Use MTU if total length of the message fits into the MTU.
+@@ -1396,7 +1387,7 @@ alloc_new_skb:
+ 			 *	Fill in the control structures
+ 			 */
+ 			skb->protocol = htons(ETH_P_IPV6);
+-			skb->ip_summed = csummode;
++			skb->ip_summed = CHECKSUM_NONE;
+ 			skb->csum = 0;
+ 			/* reserve for fragmentation and ipsec header */
+ 			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
