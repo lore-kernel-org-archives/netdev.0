@@ -1,8 +1,8 @@
 From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [V3 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Fri, 08 May 2015 22:53:59 +0200
-Message-ID: <3684853.vaQGhc4jR5@vostro.rjw.lan>
-References: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1431045436-8690-2-git-send-email-Suravee.Suthikulpanit@amd.com>
+Subject: Re: [V3 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
+Date: Fri, 08 May 2015 22:55:02 +0200
+Message-ID: <2525460.a0fQVdHbTU@vostro.rjw.lan>
+References: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1431045436-8690-3-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7Bit
@@ -15,234 +15,201 @@ Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
 	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
 	netdev@vger.kernel.org, linux-crypto@vger.kernel.org
 To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1431045436-8690-2-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1431045436-8690-3-git-send-email-Suravee.Suthikulpanit@amd.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, May 07, 2015 07:37:12 PM Suravee Suthikulpanit wrote:
-> This patch implements support for ACPI _CCA object, which is introduced in
-> ACPIv5.1, can be used for specifying device DMA coherency attribute.
+On Thursday, May 07, 2015 07:37:13 PM Suravee Suthikulpanit wrote:
+> From http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf,
+> section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
+> object to be specified for DMA-cabpable devices. This patch introduces
+> ACPI_MUST_HAVE_CCA in arm64 Kconfig to specify such requirement.
 > 
-> The parsing logic traverses device namespace to parse coherency
-> information, and stores it in acpi_device_flags. Then uses it to call
-> arch_setup_dma_ops() when creating each device enumerated in DSDT
-> during ACPI scan.
-> 
-> This patch also introduces acpi_dma_is_coherent(), which provides
-> an interface for device drivers to check the coherency information
-> similarly to the of_dma_is_coherent().
+> In case _CCA is missing, arm64 would assign dummy_dma_ops
+> to disable DMA capability of the device.
 > 
 > Signed-off-by: Mark Salter <msalter@redhat.com>
 > Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+
+This won't go in without any ACKs from the ARM64 maintainers.
+
 > ---
->  drivers/acpi/Kconfig         |  6 ++++++
->  drivers/acpi/acpi_platform.c | 10 +++++++---
->  drivers/acpi/scan.c          | 42 ++++++++++++++++++++++++++++++++++++++++++
->  include/acpi/acpi_bus.h      | 32 +++++++++++++++++++++++++++++++-
->  include/linux/acpi.h         | 10 ++++++++++
->  5 files changed, 96 insertions(+), 4 deletions(-)
+>  arch/arm64/Kconfig                   |  2 +
+>  arch/arm64/include/asm/dma-mapping.h | 18 ++++++-
+>  arch/arm64/mm/dma-mapping.c          | 92 ++++++++++++++++++++++++++++++++++++
+>  3 files changed, 110 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-> index ab2cbb5..7822149 100644
-> --- a/drivers/acpi/Kconfig
-> +++ b/drivers/acpi/Kconfig
-> @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
->  config ACPI_SYSTEM_POWER_STATES_SUPPORT
->  	bool
+> diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+> index 4269dba..c7227e8 100644
+> --- a/arch/arm64/Kconfig
+> +++ b/arch/arm64/Kconfig
+> @@ -1,5 +1,6 @@
+>  config ARM64
+>  	def_bool y
+> +	select ACPI_CCA_REQUIRED if ACPI
+>  	select ACPI_GENERIC_GSI if ACPI
+>  	select ACPI_REDUCED_HARDWARE_ONLY if ACPI
+>  	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
+> @@ -19,6 +20,7 @@ config ARM64
+>  	select ARM_GIC_V2M if PCI_MSI
+>  	select ARM_GIC_V3
+>  	select ARM_GIC_V3_ITS if PCI_MSI
+> +	select ARM64_SUPPORT_ACPI_CCA_ZERO if ACPI
+>  	select BUILDTIME_EXTABLE_SORT
+>  	select CLONE_BACKWARDS
+>  	select COMMON_CLK
+> diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/include/asm/dma-mapping.h
+> index 9437e3d..f0d6d0b 100644
+> --- a/arch/arm64/include/asm/dma-mapping.h
+> +++ b/arch/arm64/include/asm/dma-mapping.h
+> @@ -18,6 +18,7 @@
 >  
-> +config ACPI_CCA_REQUIRED
-> +	bool
-> +
-> +config ARM64_SUPPORT_ACPI_CCA_ZERO
-
-Hmm.  I guess the Arnd's idea what to simply use CONFIG_ARM64 directly instead
-of adding this new option.
-
-> +	bool
-> +
->  config ACPI_SLEEP
->  	bool
->  	depends on SUSPEND || HIBERNATION
-> diff --git a/drivers/acpi/acpi_platform.c b/drivers/acpi/acpi_platform.c
-> index 4bf7559..a084ea0 100644
-> --- a/drivers/acpi/acpi_platform.c
-> +++ b/drivers/acpi/acpi_platform.c
-> @@ -103,14 +103,18 @@ struct platform_device *acpi_create_platform_device(struct acpi_device *adev)
->  	pdevinfo.res = resources;
->  	pdevinfo.num_res = count;
->  	pdevinfo.fwnode = acpi_fwnode_handle(adev);
-> -	pdevinfo.dma_mask = DMA_BIT_MASK(32);
-> +	pdevinfo.dma_mask = acpi_dma_is_supported(adev)? DMA_BIT_MASK(32): 0;
-
-Spaces before the "?" and ":", please.
-
->  	pdev = platform_device_register_full(&pdevinfo);
-> -	if (IS_ERR(pdev))
-> +	if (IS_ERR(pdev)) {
->  		dev_err(&adev->dev, "platform device creation failed: %ld\n",
->  			PTR_ERR(pdev));
+>  #ifdef __KERNEL__
+>  
+> +#include <linux/acpi.h>
+>  #include <linux/types.h>
+>  #include <linux/vmalloc.h>
+>  
+> @@ -28,13 +29,23 @@
+>  
+>  #define DMA_ERROR_CODE	(~(dma_addr_t)0)
+>  extern struct dma_map_ops *dma_ops;
+> +extern struct dma_map_ops dummy_dma_ops;
+>  
+>  static inline struct dma_map_ops *__generic_dma_ops(struct device *dev)
+>  {
+> -	if (unlikely(!dev) || !dev->archdata.dma_ops)
+> +	if (unlikely(!dev))
+>  		return dma_ops;
 > -	else
-> +	} else {
-> +		if (acpi_dma_is_supported(adev))
-> +			arch_setup_dma_ops(&pdev->dev, 0, 0, NULL,
-> +					   acpi_dma_is_coherent(adev));
-
-OK, so I understand why this is needed, but ->
-
->  		dev_dbg(&adev->dev, "created platform device %s\n",
->  			dev_name(&pdev->dev));
-> +	}
->  
->  	kfree(resources);
->  	return pdev;
-> diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
-> index 849b699..0976dc2 100644
-> --- a/drivers/acpi/scan.c
-> +++ b/drivers/acpi/scan.c
-> @@ -11,6 +11,7 @@
->  #include <linux/kthread.h>
->  #include <linux/dmi.h>
->  #include <linux/nls.h>
-> +#include <linux/dma-mapping.h>
->  
->  #include <asm/pgtable.h>
->  
-> @@ -2137,6 +2138,46 @@ void acpi_free_pnp_ids(struct acpi_device_pnp *pnp)
->  	kfree(pnp->unique_id);
->  }
->  
-> +static void acpi_init_coherency(struct acpi_device *adev)
-> +{
-> +	unsigned long long cca = 0;
-> +	acpi_status status;
-> +	struct acpi_device *parent = adev->parent;
-> +	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+> +	else if (dev->archdata.dma_ops)
+>  		return dev->archdata.dma_ops;
+> +	else if (acpi_disabled)
+> +		return dma_ops;
 > +
-> +	if (parent && parent->flags.cca_seen) {
-> +		/*
-> +		 * From ACPI spec, OSPM will ignore _CCA if an ancestor
-> +		 * already saw one.
-> +		 */
-> +		adev->flags.cca_seen = 1;
-> +		cca = acpi_dma_is_coherent(parent);
-> +	} else {
-> +		status = acpi_evaluate_integer(adev->handle, "_CCA",
-> +					       NULL, &cca);
-> +		if (ACPI_SUCCESS(status)) {
-> +			adev->flags.cca_seen = 1;
-> +		} else if (!IS_ENABLED(CONFIG_ACPI_CCA_REQUIRED)) {
-> +			/*
-> +			 * If architecture does not specify that _CCA is
-> +			 * required for DMA-able devices (e.g. x86),
-> +			 * we default to _CCA=1.
-> +			 */
-> +			cca = 1;
-> +		} else {
-> +			acpi_get_name(adev->handle, ACPI_FULL_PATHNAME, &buffer);
-> +			pr_debug("ACPI device %s is missing _CCA.\n",
-> +				(char *) buffer.pointer);
-> +			kfree(buffer.pointer);
-> +		}
-> +	}
-> +
-> +	adev->flags.is_coherent = cca;
-> +	if (acpi_dma_is_supported(adev))
-> +		arch_setup_dma_ops(&adev->dev, 0, 0, NULL,
-> +				   acpi_dma_is_coherent(adev));
-
-Why do we need this one?  adev->dev is not a device, it is an ACPI namespace
-node representation.  Why do you want to set up DMA ops for it?
-
-Would you set up DMA ops for a struct device_node?
-
-> +}
-> +
->  void acpi_init_device_object(struct acpi_device *device, acpi_handle handle,
->  			     int type, unsigned long long sta)
->  {
-> @@ -2155,6 +2196,7 @@ void acpi_init_device_object(struct acpi_device *device, acpi_handle handle,
->  	device->flags.visited = false;
->  	device_initialize(&device->dev);
->  	dev_set_uevent_suppress(&device->dev, true);
-> +	acpi_init_coherency(device);
->  }
->  
->  void acpi_device_add_finalize(struct acpi_device *device)
-> diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
-> index 8de4fa9..17fb630 100644
-> --- a/include/acpi/acpi_bus.h
-> +++ b/include/acpi/acpi_bus.h
-> @@ -208,7 +208,9 @@ struct acpi_device_flags {
->  	u32 visited:1;
->  	u32 hotplug_notify:1;
->  	u32 is_dock_station:1;
-> -	u32 reserved:23;
-> +	u32 is_coherent:1;
-> +	u32 cca_seen:1;
-> +	u32 reserved:21;
->  };
->  
->  /* File System */
-> @@ -380,6 +382,34 @@ struct acpi_device {
->  	void (*remove)(struct acpi_device *);
->  };
->  
-> +static inline bool acpi_dma_is_supported(struct acpi_device *adev)
-> +{
-> +	/**
-> +	 * Currently, we mainly support _CCA=1 (i.e. is_coherent=1)
-> +	 * This should be equivalent to specifyig dma-coherent for
-> +	 * a device in OF.
-> +	 *
-> +	 * For the case when _CCA=0 (i.e. is_coherent=0 && cca_seen=1),
-> +	 * we would rely on arch-specific cache maintenance for
-> +	 * non-coherence DMA operations if architecture specifies
-> +	 * _XXX_SUPPORT_CCA_ZERO. Otherwise, we do not support
-> +	 * DMA on this device and fallback to arch-specific default
-> +	 * handling.
-> +	 *
-> +	 * For the case when _CCA is missing (i.e. cca_seen=0) but
-> +	 * platform specifies ACPI_CCA_REQUIRED, we do not support DMA,
-> +	 * and fallback to arch-specific default handling.
+> +	/*
+> +	 * When ACPI is enabled, if arch_set_dma_ops is not called,
+> +	 * we will disable device DMA capability by setting it
+> +	 * to dummy_dma_ops.
 > +	 */
-> +	return adev && (adev->flags.is_coherent ||
-> +			(adev->flags.cca_seen &&
-> +			 IS_ENABLED(CONFIG_ARM64_SUPPORT_ACPI_CCA_ZERO)));
-
-So what exactly would be wrong with using IS_ENABLED(CONFIG_ARM64) here?
-
-> +}
-> +
-> +static inline bool acpi_dma_is_coherent(struct acpi_device *adev)
-> +{
-> +	return adev && adev->flags.is_coherent;
-> +}
-> +
->  static inline bool is_acpi_node(struct fwnode_handle *fwnode)
->  {
->  	return fwnode && fwnode->type == FWNODE_ACPI;
-> diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-> index b10c4a6..baccf3b 100644
-> --- a/include/linux/acpi.h
-> +++ b/include/linux/acpi.h
-> @@ -583,6 +583,16 @@ static inline int acpi_device_modalias(struct device *dev,
->  	return -ENODEV;
+> +	return &dummy_dma_ops;
 >  }
 >  
-> +static inline bool acpi_dma_is_supported(struct acpi_device *adev)
-> +{
-> +	return false;
-> +}
+>  static inline struct dma_map_ops *get_dma_ops(struct device *dev)
+> @@ -48,6 +59,9 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
+>  static inline void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
+>  				      struct iommu_ops *iommu, bool coherent)
+>  {
+> +	if (!acpi_disabled && !dev->archdata.dma_ops)
+> +		dev->archdata.dma_ops = dma_ops;
 > +
-> +static inline bool acpi_dma_is_coherent(struct acpi_device *adev)
-> +{
-> +	return false;
-> +}
-> +
->  #define ACPI_PTR(_ptr)	(NULL)
+>  	dev->archdata.dma_coherent = coherent;
+>  }
+>  #define arch_setup_dma_ops	arch_setup_dma_ops
+> diff --git a/arch/arm64/mm/dma-mapping.c b/arch/arm64/mm/dma-mapping.c
+> index ef7d112..6e6d6ad 100644
+> --- a/arch/arm64/mm/dma-mapping.c
+> +++ b/arch/arm64/mm/dma-mapping.c
+> @@ -415,6 +415,98 @@ out:
+>  	return -ENOMEM;
+>  }
 >  
->  #endif	/* !CONFIG_ACPI */
+> +/********************************************
+> + * The following APIs are for dummy DMA ops *
+> + ********************************************/
+> +
+> +static void *__dummy_alloc(struct device *dev, size_t size,
+> +			   dma_addr_t *dma_handle, gfp_t flags,
+> +			   struct dma_attrs *attrs)
+> +{
+> +	return NULL;
+> +}
+> +
+> +static void __dummy_free(struct device *dev, size_t size,
+> +			 void *vaddr, dma_addr_t dma_handle,
+> +			 struct dma_attrs *attrs)
+> +{
+> +}
+> +
+> +static int __dummy_mmap(struct device *dev,
+> +			struct vm_area_struct *vma,
+> +			void *cpu_addr, dma_addr_t dma_addr, size_t size,
+> +			struct dma_attrs *attrs)
+> +{
+> +	return -ENXIO;
+> +}
+> +
+> +static dma_addr_t __dummy_map_page(struct device *dev, struct page *page,
+> +				   unsigned long offset, size_t size,
+> +				   enum dma_data_direction dir,
+> +				   struct dma_attrs *attrs)
+> +{
+> +	return DMA_ERROR_CODE;
+> +}
+> +
+> +static void __dummy_unmap_page(struct device *dev, dma_addr_t dev_addr,
+> +			       size_t size, enum dma_data_direction dir,
+> +			       struct dma_attrs *attrs)
+> +{
+> +}
+> +
+> +static int __dummy_map_sg(struct device *dev, struct scatterlist *sgl,
+> +			  int nelems, enum dma_data_direction dir,
+> +			  struct dma_attrs *attrs)
+> +{
+> +	return 0;
+> +}
+> +
+> +static void __dummy_unmap_sg(struct device *dev,
+> +			     struct scatterlist *sgl, int nelems,
+> +			     enum dma_data_direction dir,
+> +			     struct dma_attrs *attrs)
+> +{
+> +}
+> +
+> +static void __dummy_sync_single(struct device *dev,
+> +				dma_addr_t dev_addr, size_t size,
+> +				enum dma_data_direction dir)
+> +{
+> +}
+> +
+> +static void __dummy_sync_sg(struct device *dev,
+> +			    struct scatterlist *sgl, int nelems,
+> +			    enum dma_data_direction dir)
+> +{
+> +}
+> +
+> +static int __dummy_mapping_error(struct device *hwdev, dma_addr_t dma_addr)
+> +{
+> +	return 1;
+> +}
+> +
+> +static int __dummy_dma_supported(struct device *hwdev, u64 mask)
+> +{
+> +	return 0;
+> +}
+> +
+> +struct dma_map_ops dummy_dma_ops = {
+> +	.alloc                  = __dummy_alloc,
+> +	.free                   = __dummy_free,
+> +	.mmap                   = __dummy_mmap,
+> +	.map_page               = __dummy_map_page,
+> +	.unmap_page             = __dummy_unmap_page,
+> +	.map_sg                 = __dummy_map_sg,
+> +	.unmap_sg               = __dummy_unmap_sg,
+> +	.sync_single_for_cpu    = __dummy_sync_single,
+> +	.sync_single_for_device = __dummy_sync_single,
+> +	.sync_sg_for_cpu        = __dummy_sync_sg,
+> +	.sync_sg_for_device     = __dummy_sync_sg,
+> +	.mapping_error          = __dummy_mapping_error,
+> +	.dma_supported          = __dummy_dma_supported,
+> +};
+> +EXPORT_SYMBOL(dummy_dma_ops);
+> +
+>  static int __init arm64_dma_init(void)
+>  {
+>  	int ret;
 > 
 
 -- 
