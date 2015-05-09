@@ -1,65 +1,45 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2] tc: minor cleanup on ingress
-Date: Sat,  9 May 2015 22:59:17 +0200
-Message-ID: <03841b5cf59f51cffe7cd6ccced1c8426b484ea9.1431204884.git.daniel@iogearbox.net>
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of
+ netns
+Date: Sat, 09 May 2015 23:07:17 +0200
+Message-ID: <554E7705.2070707@6wind.com>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com> <874mnn9t12.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, davem@davemloft.net
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44652 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbbEIU7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:59:21 -0400
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:36572 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129AbbEIVHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:07:20 -0400
+Received: by wgiu9 with SMTP id u9so98546576wgi.3
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 14:07:18 -0700 (PDT)
+In-Reply-To: <874mnn9t12.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix whitespacing and remove the unnecessary condition.
+Le 08/05/2015 14:02, Eric W. Biederman a =C3=A9crit :
+>
+> So I am dense.  I have read through the patches and I don't see where
+> you tag packets from other network namespaces with a network namespac=
+e
+> id.
+In patch #7, the netns id is put in the skb cb (NETLINK_CB) in the func=
+tion
+do_one_broadcast().
+The function netlink_cmsg_listen_all_nsid() will send this information =
+to the
+userland via a cmsg data. This function is called by netlink_recvmsg().
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- tc/q_ingress.c | 23 +++++++++--------------
- 1 file changed, 9 insertions(+), 14 deletions(-)
+> In fact I don't even see an attribute that is approrpriate for such
+> tagging.
+The netns id is the same attribute that allows to identify a peer netns
+via rtnetlink.
 
-diff --git a/tc/q_ingress.c b/tc/q_ingress.c
-index ba58e72..30b24e7 100644
---- a/tc/q_ingress.c
-+++ b/tc/q_ingress.c
-@@ -34,18 +34,14 @@ static void explain(void)
- 
- static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
- {
--
--	if (argc > 0) {
--		while (argc > 0) {
--
--			if (strcmp(*argv, "handle") == 0) {
--				NEXT_ARG();
--				argc--; argv++;
--			} else {
--				fprintf(stderr, "What is \"%s\"?\n", *argv);
--				explain();
--				return -1;
--			}
-+	while (argc > 0) {
-+		if (strcmp(*argv, "handle") == 0) {
-+			NEXT_ARG();
-+			argc--; argv++;
-+		} else {
-+			fprintf(stderr, "What is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
- 		}
- 	}
- 
-@@ -55,8 +51,7 @@ static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struc
- 
- static int ingress_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- {
--
--		fprintf(f, "---------------- ");
-+	fprintf(f, "---------------- ");
- 	return 0;
- }
- 
--- 
-1.9.3
+
+Regards,
+Nicolas
