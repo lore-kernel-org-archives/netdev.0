@@ -1,65 +1,65 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: fec: add support of ethtool get_regs
-Date: Sat,  9 May 2015 22:52:08 +0200
-Message-ID: <1431204728-16754-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, B38611@freescale.com,
-	rmk+kernel@arm.linux.org.uk, Frank.Li@freescale.com,
-	LW@KARO-electronics.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH iproute2] tc: minor cleanup on ingress
+Date: Sat,  9 May 2015 22:59:17 +0200
+Message-ID: <03841b5cf59f51cffe7cd6ccced1c8426b484ea9.1431204884.git.daniel@iogearbox.net>
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:44652 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751168AbbEIU7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:59:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This enables the ethtool's "-d" and "--register-dump"
-options for fec devices.
+Fix whitespacing and remove the unnecessary condition.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   24 ++++++++++++++++++++++++
- 1 files changed, 24 insertions(+), 0 deletions(-)
+ tc/q_ingress.c | 23 +++++++++--------------
+ 1 file changed, 9 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 66d47e4..07aee1f 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2118,6 +2118,28 @@ static void fec_enet_get_drvinfo(struct net_device *ndev,
- 	strlcpy(info->bus_info, dev_name(&ndev->dev), sizeof(info->bus_info));
+diff --git a/tc/q_ingress.c b/tc/q_ingress.c
+index ba58e72..30b24e7 100644
+--- a/tc/q_ingress.c
++++ b/tc/q_ingress.c
+@@ -34,18 +34,14 @@ static void explain(void)
+ 
+ static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
+ {
+-
+-	if (argc > 0) {
+-		while (argc > 0) {
+-
+-			if (strcmp(*argv, "handle") == 0) {
+-				NEXT_ARG();
+-				argc--; argv++;
+-			} else {
+-				fprintf(stderr, "What is \"%s\"?\n", *argv);
+-				explain();
+-				return -1;
+-			}
++	while (argc > 0) {
++		if (strcmp(*argv, "handle") == 0) {
++			NEXT_ARG();
++			argc--; argv++;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
+ 		}
+ 	}
+ 
+@@ -55,8 +51,7 @@ static int ingress_parse_opt(struct qdisc_util *qu, int argc, char **argv, struc
+ 
+ static int ingress_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ {
+-
+-		fprintf(f, "---------------- ");
++	fprintf(f, "---------------- ");
+ 	return 0;
  }
  
-+static int fec_enet_get_regs_len(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	struct resource *r;
-+	int s = 0;
-+
-+	r = platform_get_resource(fep->pdev, IORESOURCE_MEM, 0);
-+	if (r) {
-+		s = resource_size(r);
-+	}
-+
-+	return s;
-+}
-+
-+static void fec_enet_get_regs(struct net_device *ndev,
-+			      struct ethtool_regs *regs, void *regbuf)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	memcpy_fromio(regbuf, fep->hwp, regs->len);
-+}
-+
- static int fec_enet_get_ts_info(struct net_device *ndev,
- 				struct ethtool_ts_info *info)
- {
-@@ -2515,6 +2537,8 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_settings		= fec_enet_get_settings,
- 	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
-+	.get_regs_len		= fec_enet_get_regs_len,
-+	.get_regs		= fec_enet_get_regs,
- 	.nway_reset		= fec_enet_nway_reset,
- 	.get_link		= ethtool_op_get_link,
- 	.get_coalesce		= fec_enet_get_coalesce,
 -- 
-1.7.4.4
+1.9.3
