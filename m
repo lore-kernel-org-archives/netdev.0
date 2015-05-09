@@ -1,104 +1,101 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v6 18/23] switchdev: add new switchdev_port_bridge_getlink
-Date: Sat,  9 May 2015 10:40:20 -0700
-Message-ID: <1431193225-807-19-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v6 13/23] switchdev: remove old switchdev_port_bridge_setlink
+Date: Sat,  9 May 2015 10:40:15 -0700
+Message-ID: <1431193225-807-14-git-send-email-sfeldma@gmail.com>
 References: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
 	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:35598 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734AbbEIRng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 13:43:36 -0400
-Received: by pdbqd1 with SMTP id qd1so113064728pdb.2
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 10:43:36 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:34110 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751350AbbEIRna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 13:43:30 -0400
+Received: by pacyx8 with SMTP id yx8so75718600pac.1
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 10:43:30 -0700 (PDT)
 In-Reply-To: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Like bridge_setlink, add switchdev wrapper to handle bridge_getlink and
-call into port driver to get port attrs.  For now, only BR_LEARNING and
-BR_LEARNING_SYNC are returned.  To add more, we'll probably want to break
-away from ndo_dflt_bridge_getlink() and build the netlink skb directly in
-the switchdev code.
+New attr-based bridge_setlink can recurse lower devs and recover on err, so
+remove old wrapper (including ndo_dflt_switchdev_port_bridge_setlink).
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/switchdev.h   |   10 ++++++++++
- net/switchdev/switchdev.c |   28 ++++++++++++++++++++++++++++
- 2 files changed, 38 insertions(+)
+ include/net/switchdev.h   |    9 ---------
+ net/switchdev/switchdev.c |   30 ------------------------------
+ 2 files changed, 39 deletions(-)
 
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 397b1e6..e081d67 100644
+index 6cf6de1..ce5ceb2 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -126,6 +126,9 @@ int register_switchdev_notifier(struct notifier_block *nb);
- int unregister_switchdev_notifier(struct notifier_block *nb);
- int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- 			     struct switchdev_notifier_info *info);
-+int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				  struct net_device *dev, u32 filter_mask,
-+				  int nlflags);
- int switchdev_port_bridge_setlink(struct net_device *dev,
+@@ -132,8 +132,6 @@ int switchdev_port_bridge_dellink(struct net_device *dev,
  				  struct nlmsghdr *nlh, u16 flags);
- int switchdev_port_bridge_dellink(struct net_device *dev,
-@@ -179,6 +182,13 @@ static inline int call_switchdev_notifiers(unsigned long val,
- 	return NOTIFY_DONE;
+ int ndo_dflt_switchdev_port_bridge_dellink(struct net_device *dev,
+ 					   struct nlmsghdr *nlh, u16 flags);
+-int ndo_dflt_switchdev_port_bridge_setlink(struct net_device *dev,
+-					   struct nlmsghdr *nlh, u16 flags);
+ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 			   u8 tos, u8 type, u32 nlflags, u32 tb_id);
+ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+@@ -204,13 +202,6 @@ static inline int ndo_dflt_switchdev_port_bridge_dellink(struct net_device *dev,
+ 	return 0;
  }
  
-+static inline int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
-+					    u32 seq, struct net_device *dev,
-+					    u32 filter_mask, int nlflags)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- static inline int switchdev_port_bridge_setlink(struct net_device *dev,
- 						struct nlmsghdr *nlh,
- 						u16 flags)
+-static inline int ndo_dflt_switchdev_port_bridge_setlink(struct net_device *dev,
+-							 struct nlmsghdr *nlh,
+-							 u16 flags)
+-{
+-	return 0;
+-}
+-
+ static inline int switchdev_fib_ipv4_add(u32 dst, int dst_len,
+ 					 struct fib_info *fi,
+ 					 u8 tos, u8 type,
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 0e15b6f..9210355 100644
+index b01791a..dcdec9d 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -358,6 +358,34 @@ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- }
- EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
+@@ -537,36 +537,6 @@ int switchdev_port_bridge_dellink(struct net_device *dev,
+ EXPORT_SYMBOL_GPL(switchdev_port_bridge_dellink);
  
-+/**
-+ *	switchdev_port_bridge_getlink - Get bridge port attributes
-+ *
-+ *	@dev: port device
-+ *
-+ *	Called for SELF on rtnl_bridge_getlink to get bridge port
-+ *	attributes.
-+ */
-+int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				  struct net_device *dev, u32 filter_mask,
-+				  int nlflags)
-+{
-+	struct switchdev_attr attr = {
-+		.id = SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS,
-+	};
-+	u16 mode = BRIDGE_MODE_UNDEF;
-+	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
-+	int err;
-+
-+	err = switchdev_port_attr_get(dev, &attr);
-+	if (err)
-+		return err;
-+
-+	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
-+				       attr.brport_flags, mask, nlflags);
-+}
-+EXPORT_SYMBOL_GPL(switchdev_port_bridge_getlink);
-+
- static int switchdev_port_br_setflag(struct net_device *dev,
- 				     struct nlattr *nlattr,
- 				     unsigned long brport_flag)
+ /**
+- *	ndo_dflt_switchdev_port_bridge_setlink - default ndo bridge setlink
+- *						 op for master devices
+- *
+- *	@dev: port device
+- *	@nlh: netlink msg with bridge port attributes
+- *	@flags: bridge setlink flags
+- *
+- *	Notify master device slaves of bridge port attributes
+- */
+-int ndo_dflt_switchdev_port_bridge_setlink(struct net_device *dev,
+-					   struct nlmsghdr *nlh, u16 flags)
+-{
+-	struct net_device *lower_dev;
+-	struct list_head *iter;
+-	int ret = 0, err = 0;
+-
+-	if (!(dev->features & NETIF_F_HW_SWITCH_OFFLOAD))
+-		return ret;
+-
+-	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+-		err = switchdev_port_bridge_setlink(lower_dev, nlh, flags);
+-		if (err && err != -EOPNOTSUPP)
+-			ret = err;
+-	}
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(ndo_dflt_switchdev_port_bridge_setlink);
+-
+-/**
+  *	ndo_dflt_switchdev_port_bridge_dellink - default ndo bridge dellink
+  *						 op for master devices
+  *
 -- 
 1.7.10.4
