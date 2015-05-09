@@ -1,32 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] tcp: more reliable window probes
-Date: Sat, 09 May 2015 16:42:54 -0400 (EDT)
-Message-ID: <20150509.164254.1317151052707636957.davem@davemloft.net>
-References: <1430947585-2375-1-git-send-email-edumazet@google.com>
+Subject: Re: [PATCH] netxen_nic: use spin_[un]lock_bh around tx_clean_lock
+ (2)
+Date: Sat, 09 May 2015 16:45:12 -0400 (EDT)
+Message-ID: <20150509.164512.2163013950829969411.davem@davemloft.net>
+References: <1430917758-45028-1-git-send-email-tcamuso@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
-	nanditad@google.com, eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45321 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411AbbEIUnH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:43:07 -0400
-In-Reply-To: <1430947585-2375-1-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	manish.chopra@qlogic.com, sony.chacko@qlogic.com,
+	rajesh.borundia@qlogic.com, nhorman@redhat.com
+To: tcamuso@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430917758-45028-1-git-send-email-tcamuso@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Wed,  6 May 2015 14:26:23 -0700
+From: Tony Camuso <tcamuso@redhat.com>
+Date: Wed,  6 May 2015 09:09:18 -0400
 
-> This series address a problem caused by small rto_min timers in DC,
-> leading to either timer storms or early flow terminations.
+> This patch should have been part of the previous patch having the
+> same summary. See  http://marc.info/?l=linux-kernel&m=143039470103795&w=2
+> Unfortunately, I didn't check to see where else this lock was used before
+> submitting that patch. This should take care of it for netxen_nic, as I
+> did a thorough search this time.
 > 
-> We also add two new SNMP counters for proper monitoring :
-> TCPWinProbe and TCPKeepAlive
+> To recap from the original patch; although testing this driver with
+> DEBUG_LOCKDEP and DEBUG_SPINLOCK enabled did not produce any traces,
+> it would be more prudent in the case of tx_clean_lock to use _bh
+> versions of spin_[un]lock, since this lock is manipulated in both
+> the process and softirq contexts.
 > 
-> v2: added TCPKeepAlive counter, as suggested by Yuchung & Neal
+> This patch was tested for functionality and regressions with netperf
+> and DEBUG_LOCKDEP and DEBUG_SPINLOCK enabled.
+> 
+> Signed-off-by: Tony Camuso <tcamuso@redhat.com>
 
-Series applied, thanks Eric.
+Applied, thanks.
