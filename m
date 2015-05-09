@@ -1,10 +1,10 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v6 17/23] switchdev: remove unused
- switchdev_port_bridge_dellink
-Date: Sat, 9 May 2015 20:54:18 +0200
-Message-ID: <20150509185418.GF2290@nanopsycho>
+Subject: Re: [PATCH net-next v6 14/23] bridge: restore br_setlink back to
+ original
+Date: Sat, 9 May 2015 21:00:32 +0200
+Message-ID: <20150509190031.GG2290@nanopsycho>
 References: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
- <1431193225-807-18-git-send-email-sfeldma@gmail.com>
+ <1431193225-807-15-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
@@ -13,57 +13,57 @@ Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:35331 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303AbbEISyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 14:54:24 -0400
-Received: by wgyo15 with SMTP id o15so97425919wgy.2
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 11:54:23 -0700 (PDT)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:35771 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751066AbbEITAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 15:00:38 -0400
+Received: by widdi4 with SMTP id di4so63924962wid.0
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 12:00:37 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1431193225-807-18-git-send-email-sfeldma@gmail.com>
+In-Reply-To: <1431193225-807-15-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, May 09, 2015 at 07:40:19PM CEST, sfeldma@gmail.com wrote:
+Sat, May 09, 2015 at 07:40:16PM CEST, sfeldma@gmail.com wrote:
 >From: Scott Feldman <sfeldma@gmail.com>
 >
->Now we can remove old wrappers for dellink.
+>Restore br_setlink back to original and don't call into SELF port driver.
+>rtnetlink.c:bridge_setlink() already does a call into port driver for SELF.
 >
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->---
-> include/net/switchdev.h   |   15 ---------------
-> net/bridge/br_netlink.c   |   11 +----------
-> net/switchdev/switchdev.c |   30 ------------------------------
-> 3 files changed, 1 insertion(+), 55 deletions(-)
+>bridge set link cmd defaults to MASTER.  From man page for bridge link set
+>cmd:
 >
+>       self   link setting is configured on specified physical device
+>
+>       master link setting is configured on the software bridge (default)
+>
+>The link setting has two values: the device-side value and the software
+>bridge-side value.  These are independent and settable using the bridge
+>link set cmd by specifying some combination of [master] | [self].
+>Futhermore, the device-side and bridge-side settings have their own initial
+>value, viewable from bridge -d link show cmd.
+>
+>Restoring br_setlink back to original makes rocker (the only in-kernel user
+>of SELF link settings) work as first implement: two-sided values.
+>
+>It's true that when both MASTER and SELF are specified from the command,
+>two netlink notifications are generated, one for each side of the settings.
+>The user-space app can distiquish between the two notifications by
+>observing the MASTER or SELF flag.
 
-...
+This is revert of:
 
->diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->index e9b9435..6b67ed3 100644
->--- a/net/bridge/br_netlink.c
->+++ b/net/bridge/br_netlink.c
->@@ -639,7 +639,7 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
-> {
-> 	struct nlattr *afspec;
-> 	struct net_bridge_port *p;
->-	int err = 0, ret_offload = 0;
->+	int err = 0;
-> 
-> 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-> 	if (!afspec)
->@@ -658,15 +658,6 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
-> 		 */
-> 		br_ifinfo_notify(RTM_NEWLINK, p);
-> 
->-	if (p && !(flags & BRIDGE_FLAGS_SELF)) {
->-		/* del bridge attributes in hardware
->-		 */
->-		ret_offload = switchdev_port_bridge_dellink(dev, nlh, flags);
->-		if (ret_offload && ret_offload != -EOPNOTSUPP)
->-			br_warn(p->br, "error deleting attrs on port %u (%s)\n",
->-				(unsigned int)p->port_no, p->dev->name);
->-	}
->-
+commit 68e331c785b85b78f4155e2ab6f90e976b609dc1
+Author: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date:   Thu Jan 29 22:40:14 2015 -0800
 
-You should put this into a separate patch as you did for set part.
+    bridge: offload bridge port attributes to switch asic if feature flag set
+
+Noting that because I want to make sure everybody is ok with new
+behaviour. I tend to like it more.
+
+Maybe you can include del part into this patch and mark is clearly as a
+revert.
+
+anyway:
+Acked-by: Jiri Pirko <jiri@resnulli.us>
