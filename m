@@ -1,128 +1,146 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v2 2/6] packet: rollover prepare: per-socket state
-Date: Sat,  9 May 2015 17:24:57 -0400
-Message-ID: <1431206701-5019-3-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v2 6/6] packet: rollover statistics
+Date: Sat,  9 May 2015 17:25:01 -0400
+Message-ID: <1431206701-5019-7-git-send-email-willemb@google.com>
 References: <1431206701-5019-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	david.laight@aculab.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f41.google.com ([209.85.213.41]:35867 "EHLO
-	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752583AbbEIVZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:25:07 -0400
-Received: by yhrr66 with SMTP id r66so27625613yhr.3
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 14:25:06 -0700 (PDT)
+Received: from mail-yk0-f169.google.com ([209.85.160.169]:36301 "EHLO
+	mail-yk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbbEIVZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:25:12 -0400
+Received: by ykep21 with SMTP id p21so28568091yke.3
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 14:25:11 -0700 (PDT)
 In-Reply-To: <1431206701-5019-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Replace rollover state per fanout group with state per socket. Future
-patches will add fields to the new structure.
+Rollover indicates exceptional conditions. Export a counter to inform
+socket owners of this state.
+
+If no socket with sufficient room is found, rollover fails. Also count
+these events.
+
+Finally, also count when flows are rolled over early thanks to huge
+flow detection, to validate its correctness.
+
+Tested:
+  Read counters in bench_rollover on all other tests in the patchset
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/packet/af_packet.c | 21 ++++++++++++++++++---
- net/packet/internal.h  |  6 +++++-
- 2 files changed, 23 insertions(+), 4 deletions(-)
+ include/uapi/linux/if_packet.h |  7 +++++++
+ net/packet/af_packet.c         | 19 ++++++++++++++++++-
+ net/packet/internal.h          |  3 +++
+ 3 files changed, 28 insertions(+), 1 deletion(-)
 
+diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+index 053bd10..52b6501 100644
+--- a/include/uapi/linux/if_packet.h
++++ b/include/uapi/linux/if_packet.h
+@@ -54,6 +54,7 @@ struct sockaddr_ll {
+ #define PACKET_FANOUT			18
+ #define PACKET_TX_HAS_OFF		19
+ #define PACKET_QDISC_BYPASS		20
++#define PACKET_ROLLOVER_STATS		21
+ 
+ #define PACKET_FANOUT_HASH		0
+ #define PACKET_FANOUT_LB		1
+@@ -75,6 +76,12 @@ struct tpacket_stats_v3 {
+ 	unsigned int	tp_freeze_q_cnt;
+ };
+ 
++struct tpacket_rollover_stats {
++	unsigned long	tp_all;
++	unsigned long	tp_huge;
++	unsigned long	tp_failed;
++};
++
+ union tpacket_stats_u {
+ 	struct tpacket_stats stats1;
+ 	struct tpacket_stats_v3 stats3;
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 56f9c52..f8ec909 100644
+index 0755203..727409c 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1321,16 +1321,18 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 					  unsigned int idx, bool try_self,
+@@ -1395,7 +1395,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
  					  unsigned int num)
  {
-+	struct packet_sock *po;
- 	unsigned int i, j;
+ 	struct packet_sock *po, *po_next;
+-	unsigned int i, j, room;
++	unsigned int i, j, room = ROOM_NONE;
  
--	if (try_self && packet_rcv_has_room(pkt_sk(f->arr[idx]), skb))
-+	po = pkt_sk(f->arr[idx]);
-+	if (try_self && packet_rcv_has_room(po, skb))
- 		return idx;
+ 	po = pkt_sk(f->arr[idx]);
  
--	i = j = min_t(int, f->next[idx], num - 1);
-+	i = j = min_t(int, po->rollover->sock, num - 1);
- 	do {
- 		if (i != idx && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
+@@ -1413,6 +1413,9 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
  			if (i != j)
--				f->next[idx] = i;
-+				po->rollover->sock = i;
+ 				po->rollover->sock = i;
++			atomic_long_inc(&po->rollover->num);
++			if (room == ROOM_LOW)
++				atomic_long_inc(&po->rollover->num_huge);
  			return i;
  		}
  
-@@ -1468,6 +1470,12 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	if (po->fanout)
- 		return -EALREADY;
+@@ -1420,6 +1423,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 			i = 0;
+ 	} while (i != j);
  
-+	if (type_flags & PACKET_FANOUT_FLAG_ROLLOVER) {
-+		po->rollover = kzalloc(sizeof(*po->rollover), GFP_KERNEL);
-+		if (!po->rollover)
-+			return -ENOMEM;
-+	}
-+
++	atomic_long_inc(&po->rollover->num_failed);
+ 	return idx;
+ }
+ 
+@@ -1554,6 +1558,9 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		po->rollover = kzalloc(sizeof(*po->rollover), GFP_KERNEL);
+ 		if (!po->rollover)
+ 			return -ENOMEM;
++		atomic_long_set(&po->rollover->num, 0);
++		atomic_long_set(&po->rollover->num_huge, 0);
++		atomic_long_set(&po->rollover->num_failed, 0);
+ 	}
+ 
  	mutex_lock(&fanout_mutex);
- 	match = NULL;
- 	list_for_each_entry(f, &fanout_list, list) {
-@@ -1516,6 +1524,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 	}
- out:
- 	mutex_unlock(&fanout_mutex);
-+	if (err) {
-+		kfree(po->rollover);
-+		po->rollover = NULL;
-+	}
- 	return err;
- }
+@@ -3581,6 +3588,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	void *data = &val;
+ 	union tpacket_stats_u st;
++	struct tpacket_rollover_stats rstats;
  
-@@ -1537,6 +1549,8 @@ static void fanout_release(struct sock *sk)
- 		kfree(f);
- 	}
- 	mutex_unlock(&fanout_mutex);
-+
-+	kfree(po->rollover);
- }
- 
- static const struct proto_ops packet_ops;
-@@ -2863,6 +2877,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
- 
- 	spin_lock_init(&po->bind_lock);
- 	mutex_init(&po->pg_vec_lock);
-+	po->rollover = NULL;
- 	po->prot_hook.func = packet_rcv;
- 
- 	if (sock->type == SOCK_PACKET)
+ 	if (level != SOL_PACKET)
+ 		return -ENOPROTOOPT;
+@@ -3656,6 +3664,15 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 			((u32)po->fanout->flags << 24)) :
+ 		       0);
+ 		break;
++	case PACKET_ROLLOVER_STATS:
++		if (!po->rollover)
++			return -EINVAL;
++		rstats.tp_all = atomic_long_read(&po->rollover->num);
++		rstats.tp_huge = atomic_long_read(&po->rollover->num_huge);
++		rstats.tp_failed = atomic_long_read(&po->rollover->num_failed);
++		data = &rstats;
++		lv = sizeof(rstats);
++		break;
+ 	case PACKET_TX_HAS_OFF:
+ 		val = po->tp_tx_has_off;
+ 		break;
 diff --git a/net/packet/internal.h b/net/packet/internal.h
-index fe6e20c..a9d33a2 100644
+index a9d30a1..c035d26 100644
 --- a/net/packet/internal.h
 +++ b/net/packet/internal.h
-@@ -82,12 +82,15 @@ struct packet_fanout {
- 	atomic_t		rr_cur;
- 	struct list_head	list;
- 	struct sock		*arr[PACKET_FANOUT_MAX];
--	int			next[PACKET_FANOUT_MAX];
- 	spinlock_t		lock;
- 	atomic_t		sk_ref;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
- };
+@@ -89,6 +89,9 @@ struct packet_fanout {
  
-+struct packet_rollover {
-+	int			sock;
-+} ____cacheline_aligned_in_smp;
-+
- struct packet_sock {
- 	/* struct sock has to be the first member of packet_sock */
- 	struct sock		sk;
-@@ -104,6 +107,7 @@ struct packet_sock {
- 				has_vnet_hdr:1;
- 	int			ifindex;	/* bound device		*/
- 	__be16			num;
-+	struct packet_rollover	*rollover;
- 	struct packet_mclist	*mclist;
- 	atomic_t		mapped;
- 	enum tpacket_versions	tp_version;
+ struct packet_rollover {
+ 	int			sock;
++	atomic_long_t		num;
++	atomic_long_t		num_huge;
++	atomic_long_t		num_failed;
+ #define ROLLOVER_HLEN	(L1_CACHE_BYTES / sizeof(u32))
+ 	u32			history[ROLLOVER_HLEN] ____cacheline_aligned;
+ } ____cacheline_aligned_in_smp;
 -- 
 2.2.0.rc0.207.ga3a616c
