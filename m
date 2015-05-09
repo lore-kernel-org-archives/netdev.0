@@ -1,45 +1,48 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: Re: [PATCH] net: fec: add support of ethtool get_regs
-Date: Sun, 10 May 2015 00:16:21 +0200
-Message-ID: <554E8735.302@gmail.com>
-References: <1431204728-16754-1-git-send-email-tremyfr@gmail.com> <20150509211746.GY2067@n2100.arm.linux.org.uk> <CAOMZO5A2POPCYHzotc5SEhtmCuBrXiK7bdjF=UeiXZEqcnGMag@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Duan Fugang-B38611 <B38611@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	=?UTF-8?B?TG90aGFyIFdhw59tYW5u?= <LW@karo-electronics.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOMZO5A2POPCYHzotc5SEhtmCuBrXiK7bdjF=UeiXZEqcnGMag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH] net: Remove remaining remnants of pm_qos from netdevice.h
+Date: Sat,  9 May 2015 16:21:43 -0600
+Message-ID: <1431210103-18683-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>, Thomas Graf <tgraf@suug.ch>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:36485 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751185AbbEIWWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 18:22:04 -0400
+Received: by iecmd7 with SMTP id md7so8344659iec.3
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 15:22:03 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Fabio,
+Commit e2c6544829f removed pm_qos from struct net_device but left the
+comment above header file. Remove those.
 
-On 09/05/15 23:59, Fabio Estevam wrote:
-> Philippe,
->
-> On Sat, May 9, 2015 at 6:17 PM, Russell King - ARM Linux
-> <linux@arm.linux.org.uk>  wrote:
->
->> Using memcpy_fromio() to copy device registers is not a good idea -
->> it can use a variable access size which can cause bus faults.
->
-> An example on how memcpy_fromio() can be avoided in get_regs:
-> drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+---
+ include/linux/netdevice.h | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Thanks for pointing me this example. I've already send a patch,
-and I've used drivers/net/ethernet/freescale/gianfar_ethtool.c
-as example. I hope it's a good example too.
-
-> Regards,
->
-> Fabio Estevam
-
-Regards,
-Philippe
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1899c74a7127..05b9a694e213 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -25,7 +25,6 @@
+ #ifndef _LINUX_NETDEVICE_H
+ #define _LINUX_NETDEVICE_H
+ 
+-#include <linux/pm_qos.h>
+ #include <linux/timer.h>
+ #include <linux/bug.h>
+ #include <linux/delay.h>
+@@ -1499,8 +1498,6 @@ enum netdev_priv_flags {
+  *
+  *	@qdisc_tx_busylock:	XXX: need comments on this one
+  *
+- *	@pm_qos_req:	Power Management QoS object
+- *
+  *	FIXME: cleanup struct net_device such that network protocol info
+  *	moves out.
+  */
+-- 
+2.2.1
