@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: Handle the RXUBR interrupt on all devices
-Date: Sat, 09 May 2015 16:04:54 -0400 (EDT)
-Message-ID: <20150509.160454.1045911244389894144.davem@davemloft.net>
-References: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com>
+Subject: Re: [PATCH net-next 00/10] More Marvell DSA refactring and fixup
+Date: Sat, 09 May 2015 16:07:32 -0400 (EDT)
+Message-ID: <20150509.160732.2021108082689156727.davem@davemloft.net>
+References: <1430867396-2268-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nathan.sullivan@ni.com
+Cc: linux@roeck-us.net, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45054 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45095 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751581AbbEIUEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:04:55 -0400
-In-Reply-To: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com>
+	with ESMTP id S1751846AbbEIUHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:07:34 -0400
+In-Reply-To: <1430867396-2268-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Date: Tue, 5 May 2015 15:00:25 -0500
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed,  6 May 2015 01:09:46 +0200
 
-> The same hardware issue the at91 must work around applies to at least the
-> Zynq ethernet, and possibly more devices.  The driver also needs to handle
-> the RXUBR interrupt since it turns it on with MACB_RX_INT_FLAGS anyway.
-> 
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+> This patch setup continues the refactoring and cleanup of the Marvell
+> DSA drivers.
+ ...
 
-Applied, thank you.
+Series applied to net-next, thanks Andrew.
