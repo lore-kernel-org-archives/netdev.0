@@ -1,207 +1,120 @@
 From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH linux v3 net-next 4/4] bonding: add netlink support for sys prio, actor sys mac, and port key
-Date: Sat,  9 May 2015 00:01:58 -0700
-Message-ID: <c26a9459226784190a8503418c1375bfe1f90cae.1431150701.git.jtoppins@cumulusnetworks.com>
+Subject: [PATCH iproute2 v3 net-next] iplink_bond: add support for ad_actor and port_key options
+Date: Sat,  9 May 2015 00:01:59 -0700
+Message-ID: <e389fe24551b2c94286545fd91e7018cb29f4467.1431153512.git.jtoppins@cumulusnetworks.com>
 References: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
 To: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	Andy Gospodarek <gospo@cumulusnetworks.com>,
 	shm@cumulusnetworks.com, razor@blackwall.org,
-	David Miller <davem@davemloft.net>
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:35832 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753607AbbEIHCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 03:02:47 -0400
-Received: by pdbqd1 with SMTP id qd1so105323614pdb.2
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 00:02:46 -0700 (PDT)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:34836 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753613AbbEIHCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 03:02:49 -0400
+Received: by pdbqd1 with SMTP id qd1so105324114pdb.2
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 00:02:48 -0700 (PDT)
 In-Reply-To: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
-In-Reply-To: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
-References: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
+This adds support for setting and displaying the following bonding
+options:
+* ad_user_port_key
+* ad_actor_sys_prio
+* ad_actor_system
 
-Adds netlink support for the following bonding options:
-* BOND_OPT_AD_ACTOR_SYS_PRIO
-* BOND_OPT_AD_ACTOR_SYSTEM
-* BOND_OPT_AD_USER_PORT_KEY
-
-When setting the actor system mac address we assume the netlink message
-contains a binary mac and not a string representation of a mac.
-
-Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-[jt: completed the setting side of the netlink attributes]
 Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 ---
  v2:
     * rebased
  v3:
-    * removed parenthesis from around values in the netdev_info calls in
-      bond_option_ad_actor_sys_prio_set() and
-      bond_option_ad_user_port_key_set()
-    * fixed up bond_option_ad_actor_system_set() to support handling both
-      string and value setting as Nik suggested
+    * fixed a checkpatch line length warning
 
- drivers/net/bonding/bond_netlink.c |   50 ++++++++++++++++++++++++++++++++++++
- drivers/net/bonding/bond_options.c |   30 +++++++++++++++-------
- include/uapi/linux/if_link.h       |    3 +++
- 3 files changed, 74 insertions(+), 9 deletions(-)
+ ip/iplink_bond.c |   49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index 7b11243..f7015eb 100644
---- a/drivers/net/bonding/bond_netlink.c
-+++ b/drivers/net/bonding/bond_netlink.c
-@@ -94,6 +94,10 @@ static const struct nla_policy bond_policy[IFLA_BOND_MAX + 1] = {
- 	[IFLA_BOND_AD_LACP_RATE]	= { .type = NLA_U8 },
- 	[IFLA_BOND_AD_SELECT]		= { .type = NLA_U8 },
- 	[IFLA_BOND_AD_INFO]		= { .type = NLA_NESTED },
-+	[IFLA_BOND_AD_ACTOR_SYS_PRIO]	= { .type = NLA_U16 },
-+	[IFLA_BOND_AD_USER_PORT_KEY]	= { .type = NLA_U16 },
-+	[IFLA_BOND_AD_ACTOR_SYSTEM]	= { .type = NLA_BINARY,
-+					    .len  = ETH_ALEN },
- };
- 
- static const struct nla_policy bond_slave_policy[IFLA_BOND_SLAVE_MAX + 1] = {
-@@ -379,6 +383,36 @@ static int bond_changelink(struct net_device *bond_dev,
- 		if (err)
- 			return err;
+diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
+index a573f92..2a9783e 100644
+--- a/ip/iplink_bond.c
++++ b/ip/iplink_bond.c
+@@ -135,6 +135,9 @@ static void print_explain(FILE *f)
+ 		"                [ packets_per_slave PACKETS_PER_SLAVE ]\n"
+ 		"                [ lacp_rate LACP_RATE ]\n"
+ 		"                [ ad_select AD_SELECT ]\n"
++		"                [ ad_user_port_key PORTKEY ]\n"
++		"                [ ad_actor_sys_prio SYSPRIO ]\n"
++		"                [ ad_actor_system LLADDR ]\n"
+ 		"\n"
+ 		"BONDMODE := balance-rr|active-backup|balance-xor|broadcast|802.3ad|balance-tlb|balance-alb\n"
+ 		"ARP_VALIDATE := none|active|backup|all\n"
+@@ -158,6 +161,7 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
+ 	__u8 mode, use_carrier, primary_reselect, fail_over_mac;
+ 	__u8 xmit_hash_policy, num_peer_notif, all_slaves_active;
+ 	__u8 lacp_rate, ad_select;
++	__u16 ad_user_port_key, ad_actor_sys_prio;
+ 	__u32 miimon, updelay, downdelay, arp_interval, arp_validate;
+ 	__u32 arp_all_targets, resend_igmp, min_links, lp_interval;
+ 	__u32 packets_per_slave;
+@@ -344,6 +348,32 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			}
+ 			ad_select = get_index(ad_select_tbl, *argv);
+ 			addattr8(n, 1024, IFLA_BOND_AD_SELECT, ad_select);
++		} else if (matches(*argv, "ad_user_port_key") == 0) {
++			NEXT_ARG();
++			if (get_u16(&ad_user_port_key, *argv, 0)) {
++				invarg("invalid ad_user_port_key", *argv);
++				return -1;
++			}
++			addattr16(n, 1024, IFLA_BOND_AD_USER_PORT_KEY,
++				  ad_user_port_key);
++		} else if (matches(*argv, "ad_actor_sys_prio") == 0) {
++			NEXT_ARG();
++			if (get_u16(&ad_actor_sys_prio, *argv, 0)) {
++				invarg("invalid ad_actor_sys_prio", *argv);
++				return -1;
++			}
++			addattr16(n, 1024, IFLA_BOND_AD_ACTOR_SYS_PRIO,
++				  ad_actor_sys_prio);
++		} else if (matches(*argv, "ad_actor_system") == 0) {
++			int len;
++			char abuf[32];
++
++			NEXT_ARG();
++			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
++			if (len < 0)
++				return -1;
++			addattr_l(n, 1024, IFLA_BOND_AD_ACTOR_SYSTEM,
++				  abuf, len);
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+@@ -534,6 +564,25 @@ static void bond_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+ 				ll_addr_n2a(p, ETH_ALEN, 0, b, sizeof(b)));
+ 		}
  	}
-+	if (data[IFLA_BOND_AD_ACTOR_SYS_PRIO]) {
-+		int actor_sys_prio =
-+			nla_get_u16(data[IFLA_BOND_AD_ACTOR_SYS_PRIO]);
 +
-+		bond_opt_initval(&newval, actor_sys_prio);
-+		err = __bond_opt_set(bond, BOND_OPT_AD_ACTOR_SYS_PRIO, &newval);
-+		if (err)
-+			return err;
++	if (tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]) {
++		fprintf(f, "ad_actor_sys_prio %u ",
++			rta_getattr_u16(tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]));
 +	}
 +
-+	if (data[IFLA_BOND_AD_USER_PORT_KEY]) {
-+		int port_key =
-+			nla_get_u16(data[IFLA_BOND_AD_USER_PORT_KEY]);
-+
-+		bond_opt_initval(&newval, port_key);
-+		err = __bond_opt_set(bond, BOND_OPT_AD_USER_PORT_KEY, &newval);
-+		if (err)
-+			return err;
++	if (tb[IFLA_BOND_AD_USER_PORT_KEY]) {
++		fprintf(f, "ad_user_port_key %u ",
++			rta_getattr_u16(tb[IFLA_BOND_AD_USER_PORT_KEY]));
 +	}
 +
-+	if (data[IFLA_BOND_AD_ACTOR_SYSTEM]) {
-+		if (nla_len(data[IFLA_BOND_AD_ACTOR_SYSTEM]) != ETH_ALEN)
-+			return -EINVAL;
-+
-+		bond_opt_initval(&newval,
-+				 nla_get_be64(data[IFLA_BOND_AD_ACTOR_SYSTEM]));
-+		err = __bond_opt_set(bond, BOND_OPT_AD_ACTOR_SYSTEM, &newval);
-+		if (err)
-+			return err;
++	if (tb[IFLA_BOND_AD_ACTOR_SYSTEM]) {
++		/* We assume the l2 address is an Ethernet MAC address */
++		SPRINT_BUF(b1);
++		fprintf(f, "ad_actor_system %s ",
++			ll_addr_n2a(RTA_DATA(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
++				    RTA_PAYLOAD(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
++				    1 /*ARPHDR_ETHER*/, b1, sizeof(b1)));
 +	}
- 	return 0;
  }
  
-@@ -426,6 +460,9 @@ static size_t bond_get_size(const struct net_device *bond_dev)
- 		nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_INFO_ACTOR_KEY */
- 		nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_INFO_PARTNER_KEY*/
- 		nla_total_size(ETH_ALEN) +    /* IFLA_BOND_AD_INFO_PARTNER_MAC*/
-+		nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_ACTOR_SYS_PRIO */
-+		nla_total_size(sizeof(u16)) + /* IFLA_BOND_AD_USER_PORT_KEY */
-+		nla_total_size(ETH_ALEN) + /* IFLA_BOND_AD_ACTOR_SYSTEM */
- 		0;
- }
- 
-@@ -551,6 +588,19 @@ static int bond_fill_info(struct sk_buff *skb,
- 	if (BOND_MODE(bond) == BOND_MODE_8023AD) {
- 		struct ad_info info;
- 
-+		if (nla_put_u16(skb, IFLA_BOND_AD_ACTOR_SYS_PRIO,
-+				bond->params.ad_actor_sys_prio))
-+			goto nla_put_failure;
-+
-+		if (nla_put_u16(skb, IFLA_BOND_AD_USER_PORT_KEY,
-+				bond->params.ad_user_port_key))
-+			goto nla_put_failure;
-+
-+		if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
-+			    sizeof(bond->params.ad_actor_system),
-+			    &bond->params.ad_actor_system))
-+			goto nla_put_failure;
-+
- 		if (!bond_3ad_get_active_agg_info(bond, &info)) {
- 			struct nlattr *nest;
- 
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index c85da05..9a32bbd77 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -1394,7 +1394,7 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
- static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
- 					     const struct bond_opt_value *newval)
- {
--	netdev_info(bond->dev, "Setting ad_actor_sys_prio to (%llu)\n",
-+	netdev_info(bond->dev, "Setting ad_actor_sys_prio to %llu\n",
- 		    newval->value);
- 
- 	bond->params.ad_actor_sys_prio = newval->value;
-@@ -1405,24 +1405,36 @@ static int bond_option_ad_actor_system_set(struct bonding *bond,
- 					   const struct bond_opt_value *newval)
- {
- 	u8 macaddr[ETH_ALEN];
-+	u8 *mac;
- 	int i;
- 
--	i = sscanf(newval->string, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
--		   &macaddr[0], &macaddr[1], &macaddr[2],
--		   &macaddr[3], &macaddr[4], &macaddr[5]);
--	if (i != ETH_ALEN || !is_valid_ether_addr(macaddr)) {
--		netdev_err(bond->dev, "Invalid MAC address.\n");
--		return -EINVAL;
-+	if (newval->string) {
-+		i = sscanf(newval->string, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-+			   &macaddr[0], &macaddr[1], &macaddr[2],
-+			   &macaddr[3], &macaddr[4], &macaddr[5]);
-+		if (i != ETH_ALEN)
-+			goto err;
-+		mac = macaddr;
-+	} else {
-+		mac = (u8 *)&newval->value;
- 	}
- 
--	ether_addr_copy(bond->params.ad_actor_system, macaddr);
-+	if (!is_valid_ether_addr(mac))
-+		goto err;
-+
-+	netdev_info(bond->dev, "Setting ad_actor_system to %pM\n", mac);
-+	ether_addr_copy(bond->params.ad_actor_system, mac);
- 	return 0;
-+
-+err:
-+	netdev_err(bond->dev, "Invalid MAC address.\n");
-+	return -EINVAL;
- }
- 
- static int bond_option_ad_user_port_key_set(struct bonding *bond,
- 					    const struct bond_opt_value *newval)
- {
--	netdev_info(bond->dev, "Setting ad_user_port_key to (%llu)\n",
-+	netdev_info(bond->dev, "Setting ad_user_port_key to %llu\n",
- 		    newval->value);
- 
- 	bond->params.ad_user_port_key = newval->value;
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index d9cd192..6d6e502 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -417,6 +417,9 @@ enum {
- 	IFLA_BOND_AD_LACP_RATE,
- 	IFLA_BOND_AD_SELECT,
- 	IFLA_BOND_AD_INFO,
-+	IFLA_BOND_AD_ACTOR_SYS_PRIO,
-+	IFLA_BOND_AD_USER_PORT_KEY,
-+	IFLA_BOND_AD_ACTOR_SYSTEM,
- 	__IFLA_BOND_MAX,
- };
- 
+ static void bond_print_help(struct link_util *lu, int argc, char **argv,
 -- 
 1.7.10.4
