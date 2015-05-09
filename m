@@ -1,120 +1,267 @@
 From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: [PATCH iproute2 v3 net-next] iplink_bond: add support for ad_actor and port_key options
-Date: Sat,  9 May 2015 00:01:59 -0700
-Message-ID: <e389fe24551b2c94286545fd91e7018cb29f4467.1431153512.git.jtoppins@cumulusnetworks.com>
+Subject: [PATCH linux v3 net-next 2/4] bonding: Allow userspace to set actors' macaddr in an AD-system.
+Date: Sat,  9 May 2015 00:01:56 -0700
+Message-ID: <532dbe87ffa4e7c4e2ff82f357a0201810bcfd37.1431150701.git.jtoppins@cumulusnetworks.com>
 References: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
 To: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	Andy Gospodarek <gospo@cumulusnetworks.com>,
 	shm@cumulusnetworks.com, razor@blackwall.org,
-	Stephen Hemminger <stephen@networkplumber.org>
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:34836 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753613AbbEIHCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 03:02:49 -0400
-Received: by pdbqd1 with SMTP id qd1so105324114pdb.2
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 00:02:48 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:34629 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751575AbbEIHCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 03:02:41 -0400
+Received: by pacyx8 with SMTP id yx8so67727779pac.1
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 00:02:40 -0700 (PDT)
 In-Reply-To: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
+In-Reply-To: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
+References: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for setting and displaying the following bonding
-options:
-* ad_user_port_key
-* ad_actor_sys_prio
-* ad_actor_system
+From: Mahesh Bandewar <maheshb@google.com>
 
+In an AD system, the communication between actor and partner is the
+business between these two entities. In the current setup anyone on the
+same L2 can "guess" the LACPDU contents and then possibly send the
+spoofed LACPDUs and trick the partner causing connectivity issues for
+the AD system. This patch allows to use a random mac-address obscuring
+it's identity making it harder for someone in the L2 is do the same thing.
+
+This patch allows user-space to choose the mac-address for the AD-system.
+This mac-address can not be NULL or a Multicast. If the mac-address is set
+from user-space; kernel will honor it and will not overwrite it. In the
+absence (value from user space); the logic will default to using the
+masters' mac as the mac-address for the AD-system.
+
+It can be set using example code below -
+
+   # modprobe bonding mode=4
+   # sys_mac_addr=$(printf '%02x:%02x:%02x:%02x:%02x:%02x' \
+                    $(( (RANDOM & 0xFE) | 0x02 )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )) \
+                    $(( RANDOM & 0xFF )))
+   # echo $sys_mac_addr > /sys/class/net/bond0/bonding/ad_actor_system
+   # echo +eth1 > /sys/class/net/bond0/bonding/slaves
+   ...
+   # ip link set bond0 up
+
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
+[jt: fixed up style issues reported by checkpatch]
 Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
 ---
  v2:
     * rebased
  v3:
-    * fixed a checkpatch line length warning
+    * reverted changes to bond_option_ad_actor_system_set() from v1
 
- ip/iplink_bond.c |   49 +++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 49 insertions(+)
+ Documentation/networking/bonding.txt |   12 ++++++++++++
+ drivers/net/bonding/bond_3ad.c       |    7 ++++++-
+ drivers/net/bonding/bond_main.c      |    1 +
+ drivers/net/bonding/bond_options.c   |   27 +++++++++++++++++++++++++++
+ drivers/net/bonding/bond_procfs.c    |    6 ++++++
+ drivers/net/bonding/bond_sysfs.c     |   16 ++++++++++++++++
+ include/net/bond_options.h           |    1 +
+ include/net/bonding.h                |    1 +
+ 8 files changed, 70 insertions(+), 1 deletion(-)
 
-diff --git a/ip/iplink_bond.c b/ip/iplink_bond.c
-index a573f92..2a9783e 100644
---- a/ip/iplink_bond.c
-+++ b/ip/iplink_bond.c
-@@ -135,6 +135,9 @@ static void print_explain(FILE *f)
- 		"                [ packets_per_slave PACKETS_PER_SLAVE ]\n"
- 		"                [ lacp_rate LACP_RATE ]\n"
- 		"                [ ad_select AD_SELECT ]\n"
-+		"                [ ad_user_port_key PORTKEY ]\n"
-+		"                [ ad_actor_sys_prio SYSPRIO ]\n"
-+		"                [ ad_actor_system LLADDR ]\n"
- 		"\n"
- 		"BONDMODE := balance-rr|active-backup|balance-xor|broadcast|802.3ad|balance-tlb|balance-alb\n"
- 		"ARP_VALIDATE := none|active|backup|all\n"
-@@ -158,6 +161,7 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 mode, use_carrier, primary_reselect, fail_over_mac;
- 	__u8 xmit_hash_policy, num_peer_notif, all_slaves_active;
- 	__u8 lacp_rate, ad_select;
-+	__u16 ad_user_port_key, ad_actor_sys_prio;
- 	__u32 miimon, updelay, downdelay, arp_interval, arp_validate;
- 	__u32 arp_all_targets, resend_igmp, min_links, lp_interval;
- 	__u32 packets_per_slave;
-@@ -344,6 +348,32 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
- 			}
- 			ad_select = get_index(ad_select_tbl, *argv);
- 			addattr8(n, 1024, IFLA_BOND_AD_SELECT, ad_select);
-+		} else if (matches(*argv, "ad_user_port_key") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&ad_user_port_key, *argv, 0)) {
-+				invarg("invalid ad_user_port_key", *argv);
-+				return -1;
-+			}
-+			addattr16(n, 1024, IFLA_BOND_AD_USER_PORT_KEY,
-+				  ad_user_port_key);
-+		} else if (matches(*argv, "ad_actor_sys_prio") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&ad_actor_sys_prio, *argv, 0)) {
-+				invarg("invalid ad_actor_sys_prio", *argv);
-+				return -1;
-+			}
-+			addattr16(n, 1024, IFLA_BOND_AD_ACTOR_SYS_PRIO,
-+				  ad_actor_sys_prio);
-+		} else if (matches(*argv, "ad_actor_system") == 0) {
-+			int len;
-+			char abuf[32];
-+
-+			NEXT_ARG();
-+			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-+			if (len < 0)
-+				return -1;
-+			addattr_l(n, 1024, IFLA_BOND_AD_ACTOR_SYSTEM,
-+				  abuf, len);
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -534,6 +564,25 @@ static void bond_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 				ll_addr_n2a(p, ETH_ALEN, 0, b, sizeof(b)));
- 		}
- 	}
-+
-+	if (tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]) {
-+		fprintf(f, "ad_actor_sys_prio %u ",
-+			rta_getattr_u16(tb[IFLA_BOND_AD_ACTOR_SYS_PRIO]));
-+	}
-+
-+	if (tb[IFLA_BOND_AD_USER_PORT_KEY]) {
-+		fprintf(f, "ad_user_port_key %u ",
-+			rta_getattr_u16(tb[IFLA_BOND_AD_USER_PORT_KEY]));
-+	}
-+
-+	if (tb[IFLA_BOND_AD_ACTOR_SYSTEM]) {
-+		/* We assume the l2 address is an Ethernet MAC address */
-+		SPRINT_BUF(b1);
-+		fprintf(f, "ad_actor_system %s ",
-+			ll_addr_n2a(RTA_DATA(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
-+				    RTA_PAYLOAD(tb[IFLA_BOND_AD_ACTOR_SYSTEM]),
-+				    1 /*ARPHDR_ETHER*/, b1, sizeof(b1)));
-+	}
- }
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 3494611..2c197b6 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -187,6 +187,18 @@ ad_actor_sys_prio
+ 	This parameter has effect only in 802.3ad mode and is available through
+ 	SysFs interface.
  
- static void bond_print_help(struct link_util *lu, int argc, char **argv,
++ad_actor_system
++
++	In an AD system, this specifies the mac-address for the actor in
++	protocol packet exchanges (LACPDUs). The value cannot be NULL or
++	multicast. It is preferred to have the local-admin bit set for this
++	mac but driver does not enforce it. If the value is not given then
++	system defaults to using the masters' mac address as actors' system
++	address.
++
++	This parameter has effect only in 802.3ad mode and is available through
++	SysFs interface.
++
+ ad_select
+ 
+ 	Specifies the 802.3ad aggregation selection logic to use.  The
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 4c003bc..012f7bc 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -1910,7 +1910,12 @@ void bond_3ad_initialize(struct bonding *bond, u16 tick_resolution)
+ 
+ 		BOND_AD_INFO(bond).system.sys_priority =
+ 			bond->params.ad_actor_sys_prio;
+-		BOND_AD_INFO(bond).system.sys_mac_addr = *((struct mac_addr *)bond->dev->dev_addr);
++		if (is_zero_ether_addr(bond->params.ad_actor_system))
++			BOND_AD_INFO(bond).system.sys_mac_addr =
++			    *((struct mac_addr *)bond->dev->dev_addr);
++		else
++			BOND_AD_INFO(bond).system.sys_mac_addr =
++			    *((struct mac_addr *)bond->params.ad_actor_system);
+ 
+ 		/* initialize how many times this module is called in one
+ 		 * second (should be about every 100ms)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 5f2f28f..a4e2f27 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4474,6 +4474,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->packets_per_slave = packets_per_slave;
+ 	params->tlb_dynamic_lb = 1; /* Default value */
+ 	params->ad_actor_sys_prio = ad_actor_sys_prio;
++	eth_zero_addr(params->ad_actor_system);
+ 	if (packets_per_slave > 0) {
+ 		params->reciprocal_packets_per_slave =
+ 			reciprocal_value(packets_per_slave);
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index d2b47e5..cdcef21 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -72,6 +72,8 @@ static int bond_option_tlb_dynamic_lb_set(struct bonding *bond,
+ 				  const struct bond_opt_value *newval);
+ static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
+ 					     const struct bond_opt_value *newval);
++static int bond_option_ad_actor_system_set(struct bonding *bond,
++					   const struct bond_opt_value *newval);
+ 
+ 
+ static const struct bond_opt_value bond_mode_tbl[] = {
+@@ -396,6 +398,13 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 		.values = bond_ad_actor_sys_prio_tbl,
+ 		.set = bond_option_ad_actor_sys_prio_set,
+ 	},
++	[BOND_OPT_AD_ACTOR_SYSTEM] = {
++		.id = BOND_OPT_AD_ACTOR_SYSTEM,
++		.name = "ad_actor_system",
++		.unsuppmodes = BOND_MODE_ALL_EX(BIT(BOND_MODE_8023AD)),
++		.flags = BOND_OPTFLAG_RAWVAL | BOND_OPTFLAG_IFDOWN,
++		.set = bond_option_ad_actor_system_set,
++	},
+ };
+ 
+ /* Searches for an option by name */
+@@ -1375,3 +1384,21 @@ static int bond_option_ad_actor_sys_prio_set(struct bonding *bond,
+ 	bond->params.ad_actor_sys_prio = newval->value;
+ 	return 0;
+ }
++
++static int bond_option_ad_actor_system_set(struct bonding *bond,
++					   const struct bond_opt_value *newval)
++{
++	u8 macaddr[ETH_ALEN];
++	int i;
++
++	i = sscanf(newval->string, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
++		   &macaddr[0], &macaddr[1], &macaddr[2],
++		   &macaddr[3], &macaddr[4], &macaddr[5]);
++	if (i != ETH_ALEN || !is_valid_ether_addr(macaddr)) {
++		netdev_err(bond->dev, "Invalid MAC address.\n");
++		return -EINVAL;
++	}
++
++	ether_addr_copy(bond->params.ad_actor_system, macaddr);
++	return 0;
++}
+diff --git a/drivers/net/bonding/bond_procfs.c b/drivers/net/bonding/bond_procfs.c
+index 1136929..e7f3047 100644
+--- a/drivers/net/bonding/bond_procfs.c
++++ b/drivers/net/bonding/bond_procfs.c
+@@ -137,6 +137,8 @@ static void bond_info_show_master(struct seq_file *seq)
+ 			   optval->string);
+ 		seq_printf(seq, "System priority: %d\n",
+ 			   BOND_AD_INFO(bond).system.sys_priority);
++		seq_printf(seq, "System MAC address: %pM\n",
++			   &BOND_AD_INFO(bond).system.sys_mac_addr);
+ 
+ 		if (__bond_3ad_get_active_agg_info(bond, &ad_info)) {
+ 			seq_printf(seq, "bond %s has no active aggregator\n",
+@@ -200,6 +202,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_puts(seq, "details actor lacp pdu:\n");
+ 			seq_printf(seq, "    system priority: %d\n",
+ 				   port->actor_system_priority);
++			seq_printf(seq, "    system mac address: %pM\n",
++				   &port->actor_system);
+ 			seq_printf(seq, "    port key: %d\n",
+ 				   port->actor_oper_port_key);
+ 			seq_printf(seq, "    port priority: %d\n",
+@@ -212,6 +216,8 @@ static void bond_info_show_slave(struct seq_file *seq,
+ 			seq_puts(seq, "details partner lacp pdu:\n");
+ 			seq_printf(seq, "    system priority: %d\n",
+ 				   port->partner_oper.system_priority);
++			seq_printf(seq, "    system mac address: %pM\n",
++				   &port->partner_oper.system);
+ 			seq_printf(seq, "    oper key: %d\n",
+ 				   port->partner_oper.key);
+ 			seq_printf(seq, "    port priority: %d\n",
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 4a76266..09fefa5 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -706,6 +706,21 @@ static ssize_t bonding_show_ad_actor_sys_prio(struct device *d,
+ static DEVICE_ATTR(ad_actor_sys_prio, S_IRUGO | S_IWUSR,
+ 		   bonding_show_ad_actor_sys_prio, bonding_sysfs_store_option);
+ 
++static ssize_t bonding_show_ad_actor_system(struct device *d,
++					    struct device_attribute *attr,
++					    char *buf)
++{
++	struct bonding *bond = to_bond(d);
++
++	if (BOND_MODE(bond) == BOND_MODE_8023AD)
++		return sprintf(buf, "%pM\n", bond->params.ad_actor_system);
++
++	return 0;
++}
++
++static DEVICE_ATTR(ad_actor_system, S_IRUGO | S_IWUSR,
++		   bonding_show_ad_actor_system, bonding_sysfs_store_option);
++
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+ 	&dev_attr_mode.attr,
+@@ -740,6 +755,7 @@ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_packets_per_slave.attr,
+ 	&dev_attr_tlb_dynamic_lb.attr,
+ 	&dev_attr_ad_actor_sys_prio.attr,
++	&dev_attr_ad_actor_system.attr,
+ 	NULL,
+ };
+ 
+diff --git a/include/net/bond_options.h b/include/net/bond_options.h
+index 894002a..eeeefa1 100644
+--- a/include/net/bond_options.h
++++ b/include/net/bond_options.h
+@@ -64,6 +64,7 @@ enum {
+ 	BOND_OPT_SLAVES,
+ 	BOND_OPT_TLB_DYNAMIC_LB,
+ 	BOND_OPT_AD_ACTOR_SYS_PRIO,
++	BOND_OPT_AD_ACTOR_SYSTEM,
+ 	BOND_OPT_LAST
+ };
+ 
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index 405cf87..650f386 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -137,6 +137,7 @@ struct bond_params {
+ 	int tlb_dynamic_lb;
+ 	struct reciprocal_value reciprocal_packets_per_slave;
+ 	u16 ad_actor_sys_prio;
++	u8 ad_actor_system[ETH_ALEN];
+ };
+ 
+ struct bond_parm_tbl {
 -- 
 1.7.10.4
