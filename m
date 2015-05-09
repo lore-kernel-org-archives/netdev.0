@@ -1,43 +1,49 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: [PATCH net-next] test: bpf: extend "load 64-bit immediate" testcase
-Date: Sat,  9 May 2015 04:14:30 -0400
-Message-ID: <1431159270-2960-1-git-send-email-xi.wang@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Xi Wang <xi.wang@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Will Deacon <will.deacon@arm.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH][next] xfrm: optimise xfrm_policy_lookup_bytype
+Date: Sat,  9 May 2015 19:17:37 +0800
+Message-ID: <1431170257-18242-1-git-send-email-roy.qing.li@gmail.com>
+Cc: steffen.klassert@secunet.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:57575 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753017AbbEILRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 07:17:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Extend the testcase to catch a signedness bug in the arm64 JIT:
+From: Li RongQing <roy.qing.li@gmail.com>
 
-test_bpf: #58 load 64-bit immediate jited:1 ret -1 != 1 FAIL (1 times)
+It is unnecessary to continue to loop the policy if the priority
+of current looped police is larger than priority which is from
+the policy_bydst list.
 
-This is useful to ensure other JITs won't have a similar bug.
-
-Link: https://lkml.org/lkml/2015/5/8/458
-Cc: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Will Deacon <will.deacon@arm.com>
-Signed-off-by: Xi Wang <xi.wang@gmail.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- lib/test_bpf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/xfrm/xfrm_policy.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index f2c23ffaa6d7..3c41049d72d8 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -1755,7 +1755,8 @@ static struct bpf_test tests[] = {
- 			BPF_EXIT_INSN(),
- 			BPF_JMP_IMM(BPF_JEQ, R3, 0x1234, 1),
- 			BPF_EXIT_INSN(),
--			BPF_ALU64_IMM(BPF_MOV, R0, 1),
-+			BPF_LD_IMM64(R0, 0x1ffffffffLL),
-+			BPF_ALU64_IMM(BPF_RSH, R0, 32), /* R0 = 1 */
- 			BPF_EXIT_INSN(),
- 		},
- 		INTERNAL,
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 66450c3..4adee12 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1116,6 +1116,8 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 	}
+ 	chain = &net->xfrm.policy_inexact[dir];
+ 	hlist_for_each_entry(pol, chain, bydst) {
++		if (pol->priority >= priority)
++			break;
+ 		err = xfrm_policy_match(pol, fl, type, family, dir);
+ 		if (err) {
+ 			if (err == -ESRCH)
+@@ -1124,7 +1126,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 				ret = ERR_PTR(err);
+ 				goto fail;
+ 			}
+-		} else if (pol->priority < priority) {
++		} else {
+ 			ret = pol;
+ 			break;
+ 		}
 -- 
-1.9.1
+2.1.0
