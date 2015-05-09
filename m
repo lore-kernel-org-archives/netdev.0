@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/15] flow_dissector: remove unused function flow_get_hlen declaration
-Date: Sat,  9 May 2015 15:10:25 +0200
-Message-ID: <1431177038-11555-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 05/15] net: move __skb_get_hash function declaration to flow_dissector.h
+Date: Sat,  9 May 2015 15:10:28 +0200
+Message-ID: <1431177038-11555-6-git-send-email-jiri@resnulli.us>
 References: <1431177038-11555-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	jesse@nicira.com, kaber@trash.net, therbert@google.com,
@@ -11,38 +11,48 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:35962 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396AbbEINKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 09:10:50 -0400
-Received: by wizk4 with SMTP id k4so58411735wiz.1
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 06:10:49 -0700 (PDT)
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:35815 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751404AbbEINLC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 09:11:02 -0400
+Received: by wgyo15 with SMTP id o15so93555804wgy.2
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 06:11:01 -0700 (PDT)
 In-Reply-To: <1431177038-11555-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 56193d1bce ("net: Add function for parsing the header length out
-of linear ethernet frames") added this function declaration but it is
-defined nowhere.
+Since the definition of the function is in flow_dissector.c, it makes
+sense to have the declaration in flow_dissector.h
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/flow_dissector.h | 3 ---
- 1 file changed, 3 deletions(-)
+ include/linux/skbuff.h       | 1 -
+ include/net/flow_dissector.h | 1 +
+ 2 files changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 8616bfe..55677e9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -918,7 +918,6 @@ skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
+ 	skb->hash = hash;
+ }
+ 
+-void __skb_get_hash(struct sk_buff *skb);
+ static inline __u32 skb_get_hash(struct sk_buff *skb)
+ {
+ 	if (!skb->l4_hash && !skb->sw_hash)
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 5e99a7b..118ae69 100644
+index 4570cca..e4ee761 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -47,9 +47,6 @@ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb,
+@@ -46,6 +46,7 @@ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb,
+ }
  
  u32 flow_hash_from_keys(struct flow_keys *keys);
- 
--unsigned int flow_get_hlen(const unsigned char *data, unsigned int max_len,
--			   __be16 protocol);
--
- /* struct flow_keys_digest:
-  *
-  * This structure is used to hold a digest of the full flow keys. This is a
++void __skb_get_hash(struct sk_buff *skb);
+ u32 skb_get_poff(const struct sk_buff *skb);
+ u32 __skb_get_poff(const struct sk_buff *skb, void *data,
+ 		   const struct flow_keys *keys, int hlen);
 -- 
 1.9.3
