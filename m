@@ -1,31 +1,31 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] test: bpf: extend "load 64-bit immediate" testcase
-Date: Sat, 09 May 2015 23:12:23 +0200
-Message-ID: <554E7837.6060002@iogearbox.net>
-References: <1431159270-2960-1-git-send-email-xi.wang@gmail.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH] net: fec: add support of ethtool get_regs
+Date: Sat, 9 May 2015 22:17:46 +0100
+Message-ID: <20150509211746.GY2067@n2100.arm.linux.org.uk>
+References: <1431204728-16754-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Will Deacon <will.deacon@arm.com>
-To: Xi Wang <xi.wang@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, B38611@freescale.com, Frank.Li@freescale.com,
+	LW@KARO-electronics.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431159270-2960-1-git-send-email-xi.wang@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1431204728-16754-1-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/09/2015 10:14 AM, Xi Wang wrote:
-> Extend the testcase to catch a signedness bug in the arm64 JIT:
->
-> test_bpf: #58 load 64-bit immediate jited:1 ret -1 != 1 FAIL (1 times)
->
-> This is useful to ensure other JITs won't have a similar bug.
->
-> Link: https://lkml.org/lkml/2015/5/8/458
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Will Deacon <will.deacon@arm.com>
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+On Sat, May 09, 2015 at 10:52:08PM +0200, Philippe Reynes wrote:
+> +static void fec_enet_get_regs(struct net_device *ndev,
+> +			      struct ethtool_regs *regs, void *regbuf)
+> +{
+> +	struct fec_enet_private *fep = netdev_priv(ndev);
+> +
+> +	memcpy_fromio(regbuf, fep->hwp, regs->len);
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Using memcpy_fromio() to copy device registers is not a good idea -
+it can use a variable access size which can cause bus faults.
+
+-- 
+FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
+according to speedtest.net.
