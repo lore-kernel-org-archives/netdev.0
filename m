@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 1/6] tun: Utilize the normal socket network namespace refcounting.
-Date: Fri, 08 May 2015 21:07:08 -0500
-Message-ID: <87vbg21p2r.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
+Date: Fri, 08 May 2015 21:08:05 -0500
+Message-ID: <87oalu1p16.fsf_-_@x220.int.ebiederm.org>
 References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
 	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
 	<20150508140733.GA13325@gondor.apana.org.au>
@@ -19,159 +19,273 @@ Cc: Ying Xue <ying.xue@windriver.com>, netdev@vger.kernel.org,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:37601 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753250AbbEICLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 22:11:42 -0400
+Received: from out03.mta.xmission.com ([166.70.13.233]:42613 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751604AbbEICMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 22:12:40 -0400
 In-Reply-To: <87383633pu.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Fri, 08 May 2015 21:05:33 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-There is no need for tun to do the weird network namespace refcounting.
-The existing network namespace refcounting in tfile has almost exactly
-the same lifetime.  So rewrite the code to use the struct sock network
-namespace refcounting and remove the unnecessary hand rolled network
-namespace refcounting and the unncesary tfile->net.
-
-This change allows the tun code to directly call sock_put bypassing
-sock_release and making SOCK_EXTERNALLY_ALLOCATED unnecessary.
-
-Remove the now unncessary tun_release so that if anything tries to use
-the sock_release code path the kernel will oops, and let us know about
-the bug.
-
-The macvtap code already uses it's internal socket this way.
+This is long overdue, and is part of cleaning up how we allocate kernel
+sockets that don't reference count struct net.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- drivers/net/tun.c   | 24 ++++--------------------
- include/linux/net.h |  1 -
- net/socket.c        |  3 ---
- 3 files changed, 4 insertions(+), 24 deletions(-)
+ drivers/block/drbd/drbd_receiver.c |  4 ++--
+ fs/afs/rxrpc.c                     |  2 +-
+ fs/dlm/lowcomms.c                  | 16 ++++++++--------
+ include/linux/net.h                |  2 +-
+ net/bluetooth/rfcomm/core.c        |  2 +-
+ net/ceph/messenger.c               |  4 ++--
+ net/ipv4/af_inet.c                 |  2 +-
+ net/ipv4/udp_tunnel.c              |  2 +-
+ net/ipv6/ip6_udp_tunnel.c          |  2 +-
+ net/l2tp/l2tp_core.c               |  4 ++--
+ net/netfilter/ipvs/ip_vs_sync.c    |  4 ++--
+ net/rxrpc/ar-local.c               |  4 ++--
+ net/socket.c                       |  4 ++--
+ 13 files changed, 26 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index e470ae59d405..3262f3e2b8b2 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -146,7 +146,6 @@ struct tun_file {
- 	struct socket socket;
- 	struct socket_wq wq;
- 	struct tun_struct __rcu *tun;
--	struct net *net;
- 	struct fasync_struct *fasync;
- 	/* only used for fasnyc */
- 	unsigned int flags;
-@@ -493,10 +492,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 			    tun->dev->reg_state == NETREG_REGISTERED)
- 				unregister_netdevice(tun->dev);
- 		}
--
--		BUG_ON(!test_bit(SOCK_EXTERNALLY_ALLOCATED,
--				 &tfile->socket.flags));
--		sk_release_kernel(&tfile->sk);
-+		sock_put(&tfile->sk);
- 	}
- }
+diff --git a/drivers/block/drbd/drbd_receiver.c b/drivers/block/drbd/drbd_receiver.c
+index cee20354ac37..c097909c589c 100644
+--- a/drivers/block/drbd/drbd_receiver.c
++++ b/drivers/block/drbd/drbd_receiver.c
+@@ -598,7 +598,7 @@ static struct socket *drbd_try_connect(struct drbd_connection *connection)
+ 	memcpy(&peer_in6, &connection->peer_addr, peer_addr_len);
  
-@@ -1492,18 +1488,10 @@ out:
- 	return ret;
- }
+ 	what = "sock_create_kern";
+-	err = sock_create_kern(((struct sockaddr *)&src_in6)->sa_family,
++	err = sock_create_kern(&init_net, ((struct sockaddr *)&src_in6)->sa_family,
+ 			       SOCK_STREAM, IPPROTO_TCP, &sock);
+ 	if (err < 0) {
+ 		sock = NULL;
+@@ -693,7 +693,7 @@ static int prepare_listen_socket(struct drbd_connection *connection, struct acce
+ 	memcpy(&my_addr, &connection->my_addr, my_addr_len);
  
--static int tun_release(struct socket *sock)
--{
--	if (sock->sk)
--		sock_put(sock->sk);
--	return 0;
--}
--
- /* Ops structure to mimic raw sockets with tun */
- static const struct proto_ops tun_socket_ops = {
- 	.sendmsg = tun_sendmsg,
- 	.recvmsg = tun_recvmsg,
--	.release = tun_release,
- };
- 
- static struct proto tun_proto = {
-@@ -1865,7 +1853,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	if (cmd == TUNSETIFF && !tun) {
- 		ifr.ifr_name[IFNAMSIZ-1] = '\0';
- 
--		ret = tun_set_iff(tfile->net, file, &ifr);
-+		ret = tun_set_iff(sock_net(&tfile->sk), file, &ifr);
- 
- 		if (ret)
- 			goto unlock;
-@@ -2154,16 +2142,16 @@ out:
- 
- static int tun_chr_open(struct inode *inode, struct file * file)
- {
-+	struct net *net = current->nsproxy->net_ns;
- 	struct tun_file *tfile;
- 
- 	DBG1(KERN_INFO, "tunX: tun_chr_open\n");
- 
--	tfile = (struct tun_file *)sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL,
-+	tfile = (struct tun_file *)sk_alloc(net, AF_UNSPEC, GFP_KERNEL,
- 					    &tun_proto);
- 	if (!tfile)
+ 	what = "sock_create_kern";
+-	err = sock_create_kern(((struct sockaddr *)&my_addr)->sa_family,
++	err = sock_create_kern(&init_net, ((struct sockaddr *)&my_addr)->sa_family,
+ 			       SOCK_STREAM, IPPROTO_TCP, &s_listen);
+ 	if (err) {
+ 		s_listen = NULL;
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index 3a57a1b0fb51..b50642870a43 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -85,7 +85,7 @@ int afs_open_socket(void)
  		return -ENOMEM;
- 	RCU_INIT_POINTER(tfile->tun, NULL);
--	tfile->net = get_net(current->nsproxy->net_ns);
- 	tfile->flags = 0;
- 	tfile->ifindex = 0;
+ 	}
  
-@@ -2174,13 +2162,11 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- 	tfile->socket.ops = &tun_socket_ops;
+-	ret = sock_create_kern(AF_RXRPC, SOCK_DGRAM, PF_INET, &socket);
++	ret = sock_create_kern(&init_net, AF_RXRPC, SOCK_DGRAM, PF_INET, &socket);
+ 	if (ret < 0) {
+ 		destroy_workqueue(afs_async_calls);
+ 		_leave(" = %d [socket]", ret);
+diff --git a/fs/dlm/lowcomms.c b/fs/dlm/lowcomms.c
+index d08e079ea5d3..754fd6c0b747 100644
+--- a/fs/dlm/lowcomms.c
++++ b/fs/dlm/lowcomms.c
+@@ -921,8 +921,8 @@ static int tcp_accept_from_sock(struct connection *con)
+ 	mutex_unlock(&connections_lock);
  
- 	sock_init_data(&tfile->socket, &tfile->sk);
--	sk_change_net(&tfile->sk, tfile->net);
+ 	memset(&peeraddr, 0, sizeof(peeraddr));
+-	result = sock_create_kern(dlm_local_addr[0]->ss_family, SOCK_STREAM,
+-				  IPPROTO_TCP, &newsock);
++	result = sock_create_kern(&init_net, dlm_local_addr[0]->ss_family,
++				  SOCK_STREAM, IPPROTO_TCP, &newsock);
+ 	if (result < 0)
+ 		return -ENOMEM;
  
- 	tfile->sk.sk_write_space = tun_sock_write_space;
- 	tfile->sk.sk_sndbuf = INT_MAX;
+@@ -1173,8 +1173,8 @@ static void tcp_connect_to_sock(struct connection *con)
+ 		goto out;
  
- 	file->private_data = tfile;
--	set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
- 	INIT_LIST_HEAD(&tfile->next);
+ 	/* Create a socket to communicate with */
+-	result = sock_create_kern(dlm_local_addr[0]->ss_family, SOCK_STREAM,
+-				  IPPROTO_TCP, &sock);
++	result = sock_create_kern(&init_net, dlm_local_addr[0]->ss_family,
++				  SOCK_STREAM, IPPROTO_TCP, &sock);
+ 	if (result < 0)
+ 		goto out_err;
  
- 	sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
-@@ -2191,10 +2177,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- static int tun_chr_close(struct inode *inode, struct file *file)
- {
- 	struct tun_file *tfile = file->private_data;
--	struct net *net = tfile->net;
+@@ -1258,8 +1258,8 @@ static struct socket *tcp_create_listen_sock(struct connection *con,
+ 		addr_len = sizeof(struct sockaddr_in6);
  
- 	tun_detach(tfile, true);
--	put_net(net);
+ 	/* Create a socket to communicate with */
+-	result = sock_create_kern(dlm_local_addr[0]->ss_family, SOCK_STREAM,
+-				  IPPROTO_TCP, &sock);
++	result = sock_create_kern(&init_net, dlm_local_addr[0]->ss_family,
++				  SOCK_STREAM, IPPROTO_TCP, &sock);
+ 	if (result < 0) {
+ 		log_print("Can't create listening comms socket");
+ 		goto create_out;
+@@ -1365,8 +1365,8 @@ static int sctp_listen_for_all(void)
  
- 	return 0;
- }
+ 	log_print("Using SCTP for communications");
+ 
+-	result = sock_create_kern(dlm_local_addr[0]->ss_family, SOCK_SEQPACKET,
+-				  IPPROTO_SCTP, &sock);
++	result = sock_create_kern(&init_net, dlm_local_addr[0]->ss_family,
++				  SOCK_SEQPACKET, IPPROTO_SCTP, &sock);
+ 	if (result < 0) {
+ 		log_print("Can't create comms socket, check SCTP is loaded");
+ 		goto out;
 diff --git a/include/linux/net.h b/include/linux/net.h
-index 738ea48be889..8a5e81d2bdf7 100644
+index 8a5e81d2bdf7..04aa06852771 100644
 --- a/include/linux/net.h
 +++ b/include/linux/net.h
-@@ -38,7 +38,6 @@ struct net;
- #define SOCK_NOSPACE		2
- #define SOCK_PASSCRED		3
- #define SOCK_PASSSEC		4
--#define SOCK_EXTERNALLY_ALLOCATED 5
+@@ -207,7 +207,7 @@ void sock_unregister(int family);
+ int __sock_create(struct net *net, int family, int type, int proto,
+ 		  struct socket **res, int kern);
+ int sock_create(int family, int type, int proto, struct socket **res);
+-int sock_create_kern(int family, int type, int proto, struct socket **res);
++int sock_create_kern(struct net *net, int family, int type, int proto, struct socket **res);
+ int sock_create_lite(int family, int type, int proto, struct socket **res);
+ void sock_release(struct socket *sock);
+ int sock_sendmsg(struct socket *sock, struct msghdr *msg);
+diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
+index 4fea24275b17..29709fbfd1f5 100644
+--- a/net/bluetooth/rfcomm/core.c
++++ b/net/bluetooth/rfcomm/core.c
+@@ -200,7 +200,7 @@ static int rfcomm_l2sock_create(struct socket **sock)
  
- #ifndef ARCH_HAS_SOCKET_TYPES
- /**
+ 	BT_DBG("");
+ 
+-	err = sock_create_kern(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP, sock);
++	err = sock_create_kern(&init_net, PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP, sock);
+ 	if (!err) {
+ 		struct sock *sk = (*sock)->sk;
+ 		sk->sk_data_ready   = rfcomm_l2data_ready;
+diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+index 967080a9f043..073262fea6dd 100644
+--- a/net/ceph/messenger.c
++++ b/net/ceph/messenger.c
+@@ -480,8 +480,8 @@ static int ceph_tcp_connect(struct ceph_connection *con)
+ 	int ret;
+ 
+ 	BUG_ON(con->sock);
+-	ret = sock_create_kern(con->peer_addr.in_addr.ss_family, SOCK_STREAM,
+-			       IPPROTO_TCP, &sock);
++	ret = sock_create_kern(&init_net, con->peer_addr.in_addr.ss_family,
++			       SOCK_STREAM, IPPROTO_TCP, &sock);
+ 	if (ret)
+ 		return ret;
+ 	sock->sk->sk_allocation = GFP_NOFS;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 8b47a4d79d04..09f4d024dfe5 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1430,7 +1430,7 @@ int inet_ctl_sock_create(struct sock **sk, unsigned short family,
+ 			 struct net *net)
+ {
+ 	struct socket *sock;
+-	int rc = sock_create_kern(family, type, protocol, &sock);
++	int rc = sock_create_kern(&init_net, family, type, protocol, &sock);
+ 
+ 	if (rc == 0) {
+ 		*sk = sock->sk;
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index 6bb98cc193c9..4e2837476967 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -15,7 +15,7 @@ int udp_sock_create4(struct net *net, struct udp_port_cfg *cfg,
+ 	struct socket *sock = NULL;
+ 	struct sockaddr_in udp_addr;
+ 
+-	err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, &sock);
++	err = sock_create_kern(&init_net, AF_INET, SOCK_DGRAM, 0, &sock);
+ 	if (err < 0)
+ 		goto error;
+ 
+diff --git a/net/ipv6/ip6_udp_tunnel.c b/net/ipv6/ip6_udp_tunnel.c
+index bba8903e871f..478576b61214 100644
+--- a/net/ipv6/ip6_udp_tunnel.c
++++ b/net/ipv6/ip6_udp_tunnel.c
+@@ -19,7 +19,7 @@ int udp_sock_create6(struct net *net, struct udp_port_cfg *cfg,
+ 	int err;
+ 	struct socket *sock = NULL;
+ 
+-	err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
++	err = sock_create_kern(&init_net, AF_INET6, SOCK_DGRAM, 0, &sock);
+ 	if (err < 0)
+ 		goto error;
+ 
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index a29a504492af..ae513a2fe7f3 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1399,7 +1399,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 		if (cfg->local_ip6 && cfg->peer_ip6) {
+ 			struct sockaddr_l2tpip6 ip6_addr = {0};
+ 
+-			err = sock_create_kern(AF_INET6, SOCK_DGRAM,
++			err = sock_create_kern(&init_net, AF_INET6, SOCK_DGRAM,
+ 					  IPPROTO_L2TP, &sock);
+ 			if (err < 0)
+ 				goto out;
+@@ -1429,7 +1429,7 @@ static int l2tp_tunnel_sock_create(struct net *net,
+ 		{
+ 			struct sockaddr_l2tpip ip_addr = {0};
+ 
+-			err = sock_create_kern(AF_INET, SOCK_DGRAM,
++			err = sock_create_kern(&init_net, AF_INET, SOCK_DGRAM,
+ 					  IPPROTO_L2TP, &sock);
+ 			if (err < 0)
+ 				goto out;
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 19b9cce6c210..2e9a5b5d1239 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1458,7 +1458,7 @@ static struct socket *make_send_sock(struct net *net, int id)
+ 	int result;
+ 
+ 	/* First create a socket move it to right name space later */
+-	result = sock_create_kern(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
++	result = sock_create_kern(&init_net, PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
+ 	if (result < 0) {
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
+@@ -1518,7 +1518,7 @@ static struct socket *make_receive_sock(struct net *net, int id)
+ 	int result;
+ 
+ 	/* First create a socket */
+-	result = sock_create_kern(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
++	result = sock_create_kern(&init_net, PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
+ 	if (result < 0) {
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
+diff --git a/net/rxrpc/ar-local.c b/net/rxrpc/ar-local.c
+index ca904ed5400a..78483b4602bf 100644
+--- a/net/rxrpc/ar-local.c
++++ b/net/rxrpc/ar-local.c
+@@ -73,8 +73,8 @@ static int rxrpc_create_local(struct rxrpc_local *local)
+ 	_enter("%p{%d}", local, local->srx.transport_type);
+ 
+ 	/* create a socket to represent the local endpoint */
+-	ret = sock_create_kern(PF_INET, local->srx.transport_type, IPPROTO_UDP,
+-			       &local->socket);
++	ret = sock_create_kern(&init_net, PF_INET, local->srx.transport_type,
++			       IPPROTO_UDP, &local->socket);
+ 	if (ret < 0) {
+ 		_leave(" = %d [socket]", ret);
+ 		return ret;
 diff --git a/net/socket.c b/net/socket.c
-index 884e32997698..b5f1f43ed8f4 100644
+index b5f1f43ed8f4..9963a0b53a64 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -576,9 +576,6 @@ void sock_release(struct socket *sock)
- 	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
- 		pr_err("%s: fasync list not empty!\n", __func__);
+@@ -1210,9 +1210,9 @@ int sock_create(int family, int type, int protocol, struct socket **res)
+ }
+ EXPORT_SYMBOL(sock_create);
  
--	if (test_bit(SOCK_EXTERNALLY_ALLOCATED, &sock->flags))
--		return;
--
- 	this_cpu_sub(sockets_in_use, 1);
- 	if (!sock->file) {
- 		iput(SOCK_INODE(sock));
+-int sock_create_kern(int family, int type, int protocol, struct socket **res)
++int sock_create_kern(struct net *net, int family, int type, int protocol, struct socket **res)
+ {
+-	return __sock_create(&init_net, family, type, protocol, res, 1);
++	return __sock_create(net, family, type, protocol, res, 1);
+ }
+ EXPORT_SYMBOL(sock_create_kern);
+ 
 -- 
 2.2.1
