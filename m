@@ -1,32 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: bluetooth-next 2015-05-04
-Date: Sat, 09 May 2015 15:51:45 -0400 (EDT)
-Message-ID: <20150509.155145.527774516378951132.davem@davemloft.net>
-References: <20150504093436.GB9096@t440s.lan>
-	<20150504.153627.768616765733905013.davem@davemloft.net>
-	<20150506182102.GA16001@t440s>
+Subject: Re: [PATCH] ipv6: Fixed source specific default route handling.
+Date: Sat, 09 May 2015 15:59:33 -0400 (EDT)
+Message-ID: <20150509.155933.1142748159005050614.davem@davemloft.net>
+References: <7922B483-7EA7-4B50-BF1C-7681EB7CC454@iki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-bluetooth@vger.kernel.org
-To: johan.hedberg@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44971 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751530AbbEITvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 15:51:48 -0400
-In-Reply-To: <20150506182102.GA16001@t440s>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: markus.stenberg@iki.fi
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7922B483-7EA7-4B50-BF1C-7681EB7CC454@iki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Date: Wed, 6 May 2015 20:21:02 +0200
+From: Markus Stenberg <markus.stenberg@iki.fi>
+Date: Tue, 5 May 2015 13:36:59 +0300
 
-> Seems you pulled this into net.git and not net-next.git?
+> If there are only IPv6 source specific default routes present, the
+> host gets -ENETUNREACH on e.g. connect() because ip6_dst_lookup_tail
+> calls ip6_route_output first, and given source address any, it fails,
+> and ip6_route_get_saddr is never called.
+> 
+> The change is to use the ip6_route_get_saddr, even if the initial
+> ip6_route_output fails, and then doing ip6_route_output _again_ after
+> we have appropriate source address available.
+> 
+> Note that this is '99% fix' to the problem; a correct fix would be to
+> do route lookups only within addrconf.c when picking a source address,
+> and never call ip6_route_output before source address has been
+> populated.
+> 
+> Signed-off-by: Markus Stenberg <markus.stenberg@iki.fi>
 
-Ooops, an accident.  I'm going to leave it for now.
-
-> Meanwhile, the bluetooth.git request I also made on the 4th is still
-> untouched.
-
-I pulled in that May 4th pull request, thanks.
+Applied, but would like to see the more complete fix at some
+point.
