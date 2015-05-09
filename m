@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netxen_nic: use spin_[un]lock_bh around tx_clean_lock
- (2)
-Date: Sat, 09 May 2015 16:45:12 -0400 (EDT)
-Message-ID: <20150509.164512.2163013950829969411.davem@davemloft.net>
-References: <1430917758-45028-1-git-send-email-tcamuso@redhat.com>
+Subject: Re: [PATCH] usbnet: avoid integer overflow in start_xmit
+Date: Sat, 09 May 2015 16:46:35 -0400 (EDT)
+Message-ID: <20150509.164635.1141216772229266057.davem@davemloft.net>
+References: <1430917780-12431-1-git-send-email-Jason@zx2c4.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	manish.chopra@qlogic.com, sony.chacko@qlogic.com,
-	rajesh.borundia@qlogic.com, nhorman@redhat.com
-To: tcamuso@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430917758-45028-1-git-send-email-tcamuso@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: oneukum@suse.de, netdev@vger.kernel.org
+To: Jason@zx2c4.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736AbbEIUqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:46:36 -0400
+In-Reply-To: <1430917780-12431-1-git-send-email-Jason@zx2c4.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tony Camuso <tcamuso@redhat.com>
-Date: Wed,  6 May 2015 09:09:18 -0400
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Wed,  6 May 2015 15:09:40 +0200
 
-> This patch should have been part of the previous patch having the
-> same summary. See  http://marc.info/?l=linux-kernel&m=143039470103795&w=2
-> Unfortunately, I didn't check to see where else this lock was used before
-> submitting that patch. This should take care of it for netxen_nic, as I
-> did a thorough search this time.
+> transfer_buffer_length is of type u32. It's therefore wrong to assign it
+> to a signed integer. This patch avoids the overflow.
 > 
-> To recap from the original patch; although testing this driver with
-> DEBUG_LOCKDEP and DEBUG_SPINLOCK enabled did not produce any traces,
-> it would be more prudent in the case of tx_clean_lock to use _bh
-> versions of spin_[un]lock, since this lock is manipulated in both
-> the process and softirq contexts.
+> It's worth noting that entry->length here is a long; perhaps it would be
+> beneficial at somepoint to change this to be unsigned as well, if
+> nothing else relies on its signedness for error conditions or the like.
 > 
-> This patch was tested for functionality and regressions with netperf
-> and DEBUG_LOCKDEP and DEBUG_SPINLOCK enabled.
-> 
-> Signed-off-by: Tony Camuso <tcamuso@redhat.com>
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 
 Applied, thanks.
