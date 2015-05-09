@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] tipc: send explicit not supported error
- in nl compat
-Date: Sat, 09 May 2015 16:40:26 -0400 (EDT)
-Message-ID: <20150509.164026.1654492293159176489.davem@davemloft.net>
-References: <1430913536-4206-1-git-send-email-richard.alpe@ericsson.com>
-	<1430913536-4206-3-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: [PATCH v2 net-next 0/2] tcp: more reliable window probes
+Date: Sat, 09 May 2015 16:42:54 -0400 (EDT)
+Message-ID: <20150509.164254.1317151052707636957.davem@davemloft.net>
+References: <1430947585-2375-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: richard.alpe@ericsson.com
+Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com,
+	nanditad@google.com, eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45282 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45321 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751973AbbEIUk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:40:28 -0400
-In-Reply-To: <1430913536-4206-3-git-send-email-richard.alpe@ericsson.com>
+	with ESMTP id S1752411AbbEIUnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:43:07 -0400
+In-Reply-To: <1430947585-2375-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <richard.alpe@ericsson.com>
-Date: Wed, 6 May 2015 13:58:56 +0200
+From: Eric Dumazet <edumazet@google.com>
+Date: Wed,  6 May 2015 14:26:23 -0700
 
-> From: Richard Alpe <richard.alpe@ericsson.com>
+> This series address a problem caused by small rto_min timers in DC,
+> leading to either timer storms or early flow terminations.
 > 
-> The legacy netlink API treated EPERM (permission denied) as
-> "operation not supported".
+> We also add two new SNMP counters for proper monitoring :
+> TCPWinProbe and TCPKeepAlive
 > 
-> Reported-by: Tomi Ollila <tomi.ollila@iki.fi>
-> Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-> Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Ying Xue <ying.xue@windriver.com>
+> v2: added TCPKeepAlive counter, as suggested by Yuchung & Neal
 
-Applied.
+Series applied, thanks Eric.
