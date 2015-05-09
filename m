@@ -1,312 +1,315 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v6 04/23] switchdev: convert parent_id_get to switchdev attr get
-Date: Sat,  9 May 2015 10:40:06 -0700
-Message-ID: <1431193225-807-5-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v6 03/23] switchdev: introduce get/set attrs ops
+Date: Sat,  9 May 2015 10:40:05 -0700
+Message-ID: <1431193225-807-4-git-send-email-sfeldma@gmail.com>
 References: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
 	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36406 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342AbbEIRnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 13:43:21 -0400
-Received: by pabsx10 with SMTP id sx10so75733968pab.3
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 10:43:20 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33997 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751324AbbEIRnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 13:43:19 -0400
+Received: by pacyx8 with SMTP id yx8so75716394pac.1
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 10:43:19 -0700 (PDT)
 In-Reply-To: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Switch ID is just a gettable port attribute.  Convert switchdev op
-switchdev_parent_id_get to a switchdev attr.
+Add two new swdev ops for get/set switch port attributes.  Most swdev
+interactions on a port are gets or sets on port attributes, so rather than
+adding ops for each attribute, let's define clean get/set ops for all
+attributes, and then we can have clear, consistent rules on how attributes
+propagate on stacked devs.
 
-Note: for sysfs and netlink interfaces, SWITCHDEV_ATTR_PORT_PARENT_ID is
-called with SWITCHDEV_F_NO_RECUSE to limit switch ID user-visiblity to only
-port netdevs.  So when a port is stacked under bond/bridge, the user can
-only query switch id via the switch ports, but not via the upper devices
+Add the basic algorithms for get/set attr ops.  Use the same recusive algo
+to walk lower devs we've used for STP updates, for example.  For get,
+compare attr value for each lower dev and only return success if attr
+values match across all lower devs.  For sets, set the same attr value for
+all lower devs.  We'll use a two-phase prepare-commit transaction model for
+sets.  In the first phase, the driver(s) are asked if attr set is OK.  If
+all OK, the commit attr set in second phase.  A driver would NACK the
+prepare phase if it can't set the attr due to lack of resources or support,
+within it's control.  RTNL lock must be held across both phases because
+we'll recurse all lower devs first in prepare phase, and then recurse all
+lower devs again in commit phase.  If any lower dev fails the prepare
+phase, we need to abort the transaction for all lower devs.
+
+If lower dev recusion isn't desired, allow a flag SWITCHDEV_F_NO_RECURSE to
+indicate get/set only work on port (lowest) device.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/rocker/rocker.c |   17 ++++++++++-----
- include/net/switchdev.h              |   18 ++++------------
- net/core/net-sysfs.c                 |   10 ++++++---
- net/core/rtnetlink.c                 |    9 +++++---
- net/dsa/slave.c                      |   16 +++++++++-----
- net/switchdev/switchdev.c            |   38 ++++++++++------------------------
- 6 files changed, 51 insertions(+), 57 deletions(-)
+ include/net/switchdev.h   |   43 ++++++++++++
+ net/switchdev/switchdev.c |  169 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 212 insertions(+)
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 7473874..2428299 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4221,14 +4221,21 @@ static const struct net_device_ops rocker_port_netdev_ops = {
-  * swdev interface
-  ********************/
- 
--static int rocker_port_switchdev_parent_id_get(struct net_device *dev,
--					       struct netdev_phys_item_id *psid)
-+static int rocker_port_attr_get(struct net_device *dev,
-+				struct switchdev_attr *attr)
- {
- 	struct rocker_port *rocker_port = netdev_priv(dev);
- 	struct rocker *rocker = rocker_port->rocker;
- 
--	psid->id_len = sizeof(rocker->hw.id);
--	memcpy(&psid->id, &rocker->hw.id, psid->id_len);
-+	switch (attr->id) {
-+	case SWITCHDEV_ATTR_PORT_PARENT_ID:
-+		attr->ppid.id_len = sizeof(rocker->hw.id);
-+		memcpy(&attr->ppid.id, &rocker->hw.id, attr->ppid.id_len);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
- 	return 0;
- }
- 
-@@ -4266,7 +4273,7 @@ static int rocker_port_switchdev_fib_ipv4_del(struct net_device *dev,
- }
- 
- static const struct switchdev_ops rocker_port_switchdev_ops = {
--	.switchdev_parent_id_get	= rocker_port_switchdev_parent_id_get,
-+	.switchdev_port_attr_get	= rocker_port_attr_get,
- 	.switchdev_port_stp_update	= rocker_port_switchdev_port_stp_update,
- 	.switchdev_fib_ipv4_add		= rocker_port_switchdev_fib_ipv4_add,
- 	.switchdev_fib_ipv4_del		= rocker_port_switchdev_fib_ipv4_del,
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 2820438..93316e7 100644
+index 97b556d..2820438 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -25,12 +25,16 @@ enum switchdev_trans {
+@@ -14,6 +14,25 @@
+ #include <linux/netdevice.h>
+ #include <linux/notifier.h>
  
- enum switchdev_attr_id {
- 	SWITCHDEV_ATTR_UNDEFINED,
-+	SWITCHDEV_ATTR_PORT_PARENT_ID,
- };
- 
- struct switchdev_attr {
- 	enum switchdev_attr_id id;
- 	enum switchdev_trans trans;
- 	u32 flags;
-+	union {
-+		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
-+	};
- };
- 
++#define SWITCHDEV_F_NO_RECURSE		BIT(0)
++
++enum switchdev_trans {
++	SWITCHDEV_TRANS_NONE,
++	SWITCHDEV_TRANS_PREPARE,
++	SWITCHDEV_TRANS_ABORT,
++	SWITCHDEV_TRANS_COMMIT,
++};
++
++enum switchdev_attr_id {
++	SWITCHDEV_ATTR_UNDEFINED,
++};
++
++struct switchdev_attr {
++	enum switchdev_attr_id id;
++	enum switchdev_trans trans;
++	u32 flags;
++};
++
  struct fib_info;
-@@ -38,10 +42,6 @@ struct fib_info;
+ 
  /**
-  * struct switchdev_ops - switchdev operations
+@@ -23,6 +42,10 @@ struct fib_info;
+  *   is part of.  If driver implements this, it indicates that it
+  *   represents a port of a switch chip.
   *
-- * @switchdev_parent_id_get: Called to get an ID of the switch chip this port
-- *   is part of.  If driver implements this, it indicates that it
-- *   represents a port of a switch chip.
-- *
-  * @switchdev_port_attr_get: Get a port attribute (see switchdev_attr).
++ * @switchdev_port_attr_get: Get a port attribute (see switchdev_attr).
++ *
++ * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).
++ *
+  * @switchdev_port_stp_update: Called to notify switch device port of bridge
+  *   port STP state change.
   *
-  * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).
-@@ -54,8 +54,6 @@ struct fib_info;
-  * @switchdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
-  */
+@@ -33,6 +56,10 @@ struct fib_info;
  struct switchdev_ops {
--	int	(*switchdev_parent_id_get)(struct net_device *dev,
--					   struct netdev_phys_item_id *psid);
- 	int	(*switchdev_port_attr_get)(struct net_device *dev,
- 					   struct switchdev_attr *attr);
- 	int	(*switchdev_port_attr_set)(struct net_device *dev,
-@@ -93,8 +91,6 @@ switchdev_notifier_info_to_dev(const struct switchdev_notifier_info *info)
+ 	int	(*switchdev_parent_id_get)(struct net_device *dev,
+ 					   struct netdev_phys_item_id *psid);
++	int	(*switchdev_port_attr_get)(struct net_device *dev,
++					   struct switchdev_attr *attr);
++	int	(*switchdev_port_attr_set)(struct net_device *dev,
++					   struct switchdev_attr *attr);
+ 	int	(*switchdev_port_stp_update)(struct net_device *dev, u8 state);
+ 	int	(*switchdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
+ 					  int dst_len, struct fib_info *fi,
+@@ -68,6 +95,10 @@ switchdev_notifier_info_to_dev(const struct switchdev_notifier_info *info)
  
- #ifdef CONFIG_NET_SWITCHDEV
- 
--int switchdev_parent_id_get(struct net_device *dev,
--			    struct netdev_phys_item_id *psid);
- int switchdev_port_attr_get(struct net_device *dev,
- 			    struct switchdev_attr *attr);
- int switchdev_port_attr_set(struct net_device *dev,
-@@ -120,12 +116,6 @@ void switchdev_fib_ipv4_abort(struct fib_info *fi);
- 
- #else
- 
--static inline int switchdev_parent_id_get(struct net_device *dev,
--					  struct netdev_phys_item_id *psid)
--{
--	return -EOPNOTSUPP;
--}
--
- static inline int switchdev_port_attr_get(struct net_device *dev,
- 					  struct switchdev_attr *attr)
- {
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index be86a7c..5a9ce96 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -458,11 +458,15 @@ static ssize_t phys_switch_id_show(struct device *dev,
- 		return restart_syscall();
- 
- 	if (dev_isalive(netdev)) {
--		struct netdev_phys_item_id ppid;
-+		struct switchdev_attr attr = {
-+			.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
-+			.flags = SWITCHDEV_F_NO_RECURSE,
-+		};
- 
--		ret = switchdev_parent_id_get(netdev, &ppid);
-+		ret = switchdev_port_attr_get(netdev, &attr);
- 		if (!ret)
--			ret = sprintf(buf, "%*phN\n", ppid.id_len, ppid.id);
-+			ret = sprintf(buf, "%*phN\n", attr.ppid.id_len,
-+				      attr.ppid.id);
- 	}
- 	rtnl_unlock();
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 81f074b..96ee907 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1004,16 +1004,19 @@ static int rtnl_phys_port_name_fill(struct sk_buff *skb, struct net_device *dev)
- static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
- {
- 	int err;
--	struct netdev_phys_item_id psid;
-+	struct switchdev_attr attr = {
-+		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
-+		.flags = SWITCHDEV_F_NO_RECURSE,
-+	};
- 
--	err = switchdev_parent_id_get(dev, &psid);
-+	err = switchdev_port_attr_get(dev, &attr);
- 	if (err) {
- 		if (err == -EOPNOTSUPP)
- 			return 0;
- 		return err;
- 	}
- 
--	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, psid.id_len, psid.id))
-+	if (nla_put(skb, IFLA_PHYS_SWITCH_ID, attr.ppid.id_len, attr.ppid.id))
- 		return -EMSGSIZE;
- 
- 	return 0;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index aee5877..b465d7c 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -382,14 +382,20 @@ static int dsa_slave_bridge_port_leave(struct net_device *dev)
- 	return ret;
+ int switchdev_parent_id_get(struct net_device *dev,
+ 			    struct netdev_phys_item_id *psid);
++int switchdev_port_attr_get(struct net_device *dev,
++			    struct switchdev_attr *attr);
++int switchdev_port_attr_set(struct net_device *dev,
++			    struct switchdev_attr *attr);
+ int switchdev_port_stp_update(struct net_device *dev, u8 state);
+ int register_switchdev_notifier(struct notifier_block *nb);
+ int unregister_switchdev_notifier(struct notifier_block *nb);
+@@ -95,6 +126,18 @@ static inline int switchdev_parent_id_get(struct net_device *dev,
+ 	return -EOPNOTSUPP;
  }
  
--static int dsa_slave_parent_id_get(struct net_device *dev,
--				   struct netdev_phys_item_id *psid)
-+static int dsa_slave_port_attr_get(struct net_device *dev,
-+				   struct switchdev_attr *attr)
++static inline int switchdev_port_attr_get(struct net_device *dev,
++					  struct switchdev_attr *attr)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int switchdev_port_attr_set(struct net_device *dev,
++					  struct switchdev_attr *attr)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int switchdev_port_stp_update(struct net_device *dev,
+ 					    u8 state)
  {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_switch *ds = p->parent;
- 
--	psid->id_len = sizeof(ds->index);
--	memcpy(&psid->id, &ds->index, psid->id_len);
-+	switch (attr->id) {
-+	case SWITCHDEV_ATTR_PORT_PARENT_ID:
-+		attr->ppid.id_len = sizeof(ds->index);
-+		memcpy(&attr->ppid.id, &ds->index, attr->ppid.id_len);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
- 
- 	return 0;
- }
-@@ -676,7 +682,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- };
- 
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
--	.switchdev_parent_id_get	= dsa_slave_parent_id_get,
-+	.switchdev_port_attr_get	= dsa_slave_port_attr_get,
- 	.switchdev_port_stp_update	= dsa_slave_stp_update,
- };
- 
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 8f47187..117fd07 100644
+index b7f44a2..8f47187 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -19,24 +19,6 @@
- #include <net/switchdev.h>
+@@ -37,6 +37,175 @@ int switchdev_parent_id_get(struct net_device *dev,
+ EXPORT_SYMBOL_GPL(switchdev_parent_id_get);
  
  /**
-- *	switchdev_parent_id_get - Get ID of a switch
-- *	@dev: port device
-- *	@psid: switch ID
-- *
-- *	Get ID of a switch this port is part of.
-- */
--int switchdev_parent_id_get(struct net_device *dev,
--			    struct netdev_phys_item_id *psid)
--{
--	const struct switchdev_ops *ops = dev->switchdev_ops;
--
--	if (!ops || !ops->switchdev_parent_id_get)
--		return -EOPNOTSUPP;
--	return ops->switchdev_parent_id_get(dev, psid);
--}
--EXPORT_SYMBOL_GPL(switchdev_parent_id_get);
--
--/**
-  *	switchdev_port_attr_get - Get port attribute
-  *
-  *	@dev: port device
-@@ -414,11 +396,10 @@ static struct net_device *switchdev_get_lowest_dev(struct net_device *dev)
- 	struct list_head *iter;
- 
- 	/* Recusively search down until we find a sw port dev.
--	 * (A sw port dev supports switchdev_parent_id_get).
-+	 * (A sw port dev supports switchdev_port_attr_get).
- 	 */
- 
--	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD &&
--	    ops && ops->switchdev_parent_id_get)
-+	if (ops && ops->switchdev_port_attr_get)
- 		return dev;
- 
- 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-@@ -432,8 +413,10 @@ static struct net_device *switchdev_get_lowest_dev(struct net_device *dev)
- 
- static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
- {
--	struct netdev_phys_item_id psid;
--	struct netdev_phys_item_id prev_psid;
-+	struct switchdev_attr attr = {
-+		.id = SWITCHDEV_ATTR_PORT_PARENT_ID,
++ *	switchdev_port_attr_get - Get port attribute
++ *
++ *	@dev: port device
++ *	@attr: attribute to get
++ */
++int switchdev_port_attr_get(struct net_device *dev, struct switchdev_attr *attr)
++{
++	const struct switchdev_ops *ops = dev->switchdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	struct switchdev_attr first = {
++		.id = SWITCHDEV_ATTR_UNDEFINED
 +	};
-+	struct switchdev_attr prev_attr;
- 	struct net_device *dev = NULL;
- 	int nhsel;
- 
-@@ -449,17 +432,18 @@ static struct net_device *switchdev_get_dev_by_nhs(struct fib_info *fi)
- 		if (!dev)
- 			return NULL;
- 
--		if (switchdev_parent_id_get(dev, &psid))
-+		if (switchdev_port_attr_get(dev, &attr))
- 			return NULL;
- 
- 		if (nhsel > 0) {
--			if (prev_psid.id_len != psid.id_len)
-+			if (prev_attr.ppid.id_len != attr.ppid.id_len)
- 				return NULL;
--			if (memcmp(prev_psid.id, psid.id, psid.id_len))
-+			if (memcmp(prev_attr.ppid.id, attr.ppid.id,
-+				   attr.ppid.id_len))
- 				return NULL;
- 		}
- 
--		prev_psid = psid;
-+		prev_attr = attr;
- 	}
- 
- 	return dev;
++	int err = -EOPNOTSUPP;
++
++	if (ops && ops->switchdev_port_attr_get)
++		return ops->switchdev_port_attr_get(dev, attr);
++
++	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
++		return err;
++
++	/* Switch device port(s) may be stacked under
++	 * bond/team/vlan dev, so recurse down to get attr on
++	 * each port.  Return -ENODATA if attr values don't
++	 * compare across ports.
++	 */
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = switchdev_port_attr_get(lower_dev, attr);
++		if (err)
++			break;
++		if (first.id == SWITCHDEV_ATTR_UNDEFINED)
++			first = *attr;
++		else if (memcmp(&first, attr, sizeof(*attr)))
++			return -ENODATA;
++	}
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(switchdev_port_attr_get);
++
++static int __switchdev_port_attr_set(struct net_device *dev,
++				     struct switchdev_attr *attr)
++{
++	const struct switchdev_ops *ops = dev->switchdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	int err = -EOPNOTSUPP;
++
++	if (ops && ops->switchdev_port_attr_set)
++		return ops->switchdev_port_attr_set(dev, attr);
++
++	if (attr->flags & SWITCHDEV_F_NO_RECURSE)
++		return err;
++
++	/* Switch device port(s) may be stacked under
++	 * bond/team/vlan dev, so recurse down to set attr on
++	 * each port.
++	 */
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = __switchdev_port_attr_set(lower_dev, attr);
++		if (err)
++			break;
++	}
++
++	return err;
++}
++
++struct switchdev_attr_set_work {
++	struct work_struct work;
++	struct net_device *dev;
++	struct switchdev_attr attr;
++};
++
++static void switchdev_port_attr_set_work(struct work_struct *work)
++{
++	struct switchdev_attr_set_work *asw =
++		container_of(work, struct switchdev_attr_set_work, work);
++	int err;
++
++	rtnl_lock();
++	err = switchdev_port_attr_set(asw->dev, &asw->attr);
++	BUG_ON(err);
++	rtnl_unlock();
++
++	dev_put(asw->dev);
++	kfree(work);
++}
++
++static int switchdev_port_attr_set_defer(struct net_device *dev,
++					 struct switchdev_attr *attr)
++{
++	struct switchdev_attr_set_work *asw;
++
++	asw = kmalloc(sizeof(*asw), GFP_ATOMIC);
++	if (!asw)
++		return -ENOMEM;
++
++	INIT_WORK(&asw->work, switchdev_port_attr_set_work);
++
++	dev_hold(dev);
++	asw->dev = dev;
++	memcpy(&asw->attr, attr, sizeof(asw->attr));
++
++	schedule_work(&asw->work);
++
++	return 0;
++}
++
++/**
++ *	switchdev_port_attr_set - Set port attribute
++ *
++ *	@dev: port device
++ *	@attr: attribute to set
++ *
++ *	Use a 2-phase prepare-commit transaction model to ensure
++ *	system is not left in a partially updated state due to
++ *	failure from driver/device.
++ */
++int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
++{
++	int err;
++
++	if (!rtnl_is_locked()) {
++		/* Running prepare-commit transaction across stacked
++		 * devices requires nothing moves, so if rtnl_lock is
++		 * not held, schedule a worker thread to hold rtnl_lock
++		 * while setting attr.
++		 */
++
++		return switchdev_port_attr_set_defer(dev, attr);
++	}
++
++	/* Phase I: prepare for attr set. Driver/device should fail
++	 * here if there are going to be issues in the commit phase,
++	 * such as lack of resources or support.  The driver/device
++	 * should reserve resources needed for the commit phase here,
++	 * but should not commit the attr.
++	 */
++
++	attr->trans = SWITCHDEV_TRANS_PREPARE;
++	err = __switchdev_port_attr_set(dev, attr);
++	if (err) {
++		/* Prepare phase failed: abort the transaction.  Any
++		 * resources reserved in the prepare phase are
++		 * released.
++		 */
++
++		attr->trans = SWITCHDEV_TRANS_ABORT;
++		__switchdev_port_attr_set(dev, attr);
++
++		return err;
++	}
++
++	/* Phase II: commit attr set.  This cannot fail as a fault
++	 * of driver/device.  If it does, it's a bug in the driver/device
++	 * because the driver said everythings was OK in phase I.
++	 */
++
++	attr->trans = SWITCHDEV_TRANS_COMMIT;
++	err = __switchdev_port_attr_set(dev, attr);
++	BUG_ON(err);
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
++
++/**
+  *	switchdev_port_stp_update - Notify switch device port of STP
+  *					state change
+  *	@dev: port device
 -- 
 1.7.10.4
