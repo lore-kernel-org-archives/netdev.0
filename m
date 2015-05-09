@@ -1,32 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net_sched: fix a use-after-free in tc_ctl_tfilter()
-Date: Sat, 09 May 2015 16:14:29 -0400 (EDT)
-Message-ID: <20150509.161429.1861093639473391686.davem@davemloft.net>
-References: <1430864522-15691-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 00/14] sfc: Enabling EF10 Vf's, set up
+ vswitching and bind the SFC driver to the VF's
+Date: Sat, 09 May 2015 16:18:10 -0400 (EDT)
+Message-ID: <20150509.161810.1475575394219926340.davem@davemloft.net>
+References: <554957DF.2010307@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: sshah@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45120 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45142 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750959AbbEIUOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:14:30 -0400
-In-Reply-To: <1430864522-15691-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1750842AbbEIUSM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:18:12 -0400
+In-Reply-To: <554957DF.2010307@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue,  5 May 2015 15:22:02 -0700
+From: Shradha Shah <sshah@solarflare.com>
+Date: Wed, 6 May 2015 00:53:03 +0100
 
-> When tcf_destroy() returns true, tp could be already destroyed,
-> we should not use tp->next after that.
+> This set of patches makes way for the implementation of EF10
+> SR-IOV driver starting with some cleanup code.
+> NIC specific SR-IOV functions are moved to their own header
+> and netdev_ops are made generic instead of being NIC specific
 > 
-> For long term, we probably should move tp list to list_head.
+> Next in line comes the patch to enable VF's using sriov_configure.
+> VEB vswitching hierarchy is set up next followed by patches to
+> prepare sfc driver to bind to enabled VF's
 > 
-> Fixes: 1e052be69d04 ("net_sched: destroy proto tp when all filters are gone")
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> This is followed by patch to support use of shared RSS contexts
+> which makes VF's use shared RSS contexts in all cases.
+> 
+> Patch series ends with a patch to bind the sfc driver to the
+> enabled VF's which creates network interfaces corresponding to
+> the VF's.
+> 
+> Coming up soon are the patches to set_vf_mac, set_vf_config,
+> set_vf_vlan, vf_spoofcheck, etc.
+> 
+> These patches have been tested with and without CONFIG_SFC_SRIOV.
+> In the case of CONFIG_SFC_SRIOV=y enabling of VF's using
+> sriov_configure is also tested. The enabled VF's bind to the
+> installed sfc driver succesfully to create network interfaces.
+> In the case of CONFIG_SFC_SRIOV=n enabling of VF's using
+> sriov_configure returns the correct error message:
+> "Function not implemented".
 
-Applied, thank you.
+Series applied, thanks.
