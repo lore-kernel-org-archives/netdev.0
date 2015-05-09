@@ -1,12 +1,13 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 0/6] Cleanup the kernel sockets.
-Date: Fri, 08 May 2015 21:05:33 -0500
-Message-ID: <87383633pu.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH 1/6] tun: Utilize the normal socket network namespace refcounting.
+Date: Fri, 08 May 2015 21:07:08 -0500
+Message-ID: <87vbg21p2r.fsf_-_@x220.int.ebiederm.org>
 References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
 	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
 	<20150508140733.GA13325@gondor.apana.org.au>
 	<87sib76kef.fsf@x220.int.ebiederm.org>
 	<20150509011339.GA19116@gondor.apana.org.au>
+	<87383633pu.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Ying Xue <ying.xue@windriver.com>, netdev@vger.kernel.org,
@@ -18,125 +19,159 @@ Cc: Ying Xue <ying.xue@windriver.com>, netdev@vger.kernel.org,
 	Herbert Xu <herbert@gondor.apana.org.au>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:37291 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:37601 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbbEICKI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 22:10:08 -0400
-In-Reply-To: <20150509011339.GA19116@gondor.apana.org.au> (Herbert Xu's
-	message of "Sat, 9 May 2015 09:13:39 +0800")
+	with ESMTP id S1753250AbbEICLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 May 2015 22:11:42 -0400
+In-Reply-To: <87383633pu.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Fri, 08 May 2015 21:05:33 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Right now the situtation for allocating kernel sockets is a mess.
-- sock_create_kern does not take a namespace parameter.
-- kernel sockets must not reference count a network namespace and keep
-  it alive or else we will have a reference counting loop.
-- The way we avoid the reference counting loop with sk_change_net
-  and sk_release_kernel are major hacks.
+There is no need for tun to do the weird network namespace refcounting.
+The existing network namespace refcounting in tfile has almost exactly
+the same lifetime.  So rewrite the code to use the struct sock network
+namespace refcounting and remove the unnecessary hand rolled network
+namespace refcounting and the unncesary tfile->net.
 
-This patchset addresses this mess by fixing sock_create_kern to do
-everything necessary to create a kernel socket.  None of the current
-users of kernel sockets need the network namespace reference counted.
-Either kernel sockets are network namespace aware (and using the current
-hacks) or kernel sockets are limited to the initial network namespace
-in which case it does not matter.
+This change allows the tun code to directly call sock_put bypassing
+sock_release and making SOCK_EXTERNALLY_ALLOCATED unnecessary.
 
-This patchset starts by addressing tun which should be using normal
-userspace sockets like macvtap.
+Remove the now unncessary tun_release so that if anything tries to use
+the sock_release code path the kernel will oops, and let us know about
+the bug.
 
-Then sock_create_kern is fixed to take a network namespace.
-Then the in kernel status of sockets are passed through to sk_alloc.
-Then sk_alloc is fixed to not reference count the network namespace
-     of kernel sockets.
-Then the callers of sock_create_kern are fixed up to stop using hacks.
-Then netlink which uses it's own flavor of sock_create_kern is fixed.
+The macvtap code already uses it's internal socket this way.
 
-Finally the hacks that are sk_change_net and sk_release_kernel are removed.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ drivers/net/tun.c   | 24 ++++--------------------
+ include/linux/net.h |  1 -
+ net/socket.c        |  3 ---
+ 3 files changed, 4 insertions(+), 24 deletions(-)
 
-When it is all done the code is easier to follow, easier to use, easier
-to maintain and shorter by about 70 lines.
-
-Reported-by: Ying Xue <ying.xue@windriver.com>
-
-Eric W. Biederman (6):
-      tun: Utilize the normal socket network namespace refcounting.
-      net: Add a struct net parameter to sock_create_kern
-      net: Pass kern from net_proto_family.create to sk_alloc
-      net: Modify sk_alloc to not reference count the netns of kernel sockets.
-      netlink: Create kernel netlink sockets in the proper network namespace
-      net: kill sk_change_net and sk_release_kernel
-
- crypto/af_alg.c                    |  4 ++--
- drivers/block/drbd/drbd_receiver.c |  4 ++--
- drivers/isdn/mISDN/socket.c        | 12 ++++++------
- drivers/net/macvtap.c              |  2 +-
- drivers/net/ppp/pppoe.c            |  4 ++--
- drivers/net/ppp/pppox.c            |  2 +-
- drivers/net/ppp/pptp.c             |  4 ++--
- drivers/net/tun.c                  | 26 +++++---------------------
- fs/afs/rxrpc.c                     |  2 +-
- fs/dlm/lowcomms.c                  | 16 ++++++++--------
- include/linux/if_pppox.h           |  2 +-
- include/linux/net.h                |  3 +--
- include/net/af_vsock.h             |  2 +-
- include/net/inet_common.h          |  2 +-
- include/net/llc_conn.h             |  2 +-
- include/net/sock.h                 | 21 +++------------------
- net/appletalk/ddp.c                |  2 +-
- net/atm/common.c                   |  4 ++--
- net/atm/common.h                   |  2 +-
- net/atm/pvc.c                      |  2 +-
- net/atm/svc.c                      |  2 +-
- net/ax25/af_ax25.c                 |  4 ++--
- net/bluetooth/bnep/sock.c          |  2 +-
- net/bluetooth/cmtp/sock.c          |  2 +-
- net/bluetooth/hci_sock.c           |  2 +-
- net/bluetooth/hidp/sock.c          |  2 +-
- net/bluetooth/l2cap_sock.c         | 10 +++++-----
- net/bluetooth/rfcomm/core.c        |  2 +-
- net/bluetooth/rfcomm/sock.c        |  8 ++++----
- net/bluetooth/sco.c                |  8 ++++----
- net/caif/caif_socket.c             |  2 +-
- net/can/af_can.c                   |  2 +-
- net/ceph/messenger.c               |  4 ++--
- net/core/sock.c                    | 30 ++++++++----------------------
- net/decnet/af_decnet.c             |  8 ++++----
- net/ieee802154/socket.c            |  2 +-
- net/ipv4/af_inet.c                 |  6 ++----
- net/ipv4/udp_tunnel.c              |  8 +++-----
- net/ipv6/af_inet6.c                |  2 +-
- net/ipv6/ip6_udp_tunnel.c          |  6 ++----
- net/ipx/af_ipx.c                   |  2 +-
- net/irda/af_irda.c                 |  2 +-
- net/iucv/af_iucv.c                 | 10 +++++-----
- net/key/af_key.c                   |  2 +-
- net/l2tp/l2tp_core.c               | 15 ++++++---------
- net/l2tp/l2tp_ppp.c                |  4 ++--
- net/llc/af_llc.c                   |  2 +-
- net/llc/llc_conn.c                 |  6 +++---
- net/netfilter/ipvs/ip_vs_sync.c    | 30 +++++++++---------------------
- net/netlink/af_netlink.c           | 21 +++++++++------------
- net/netrom/af_netrom.c             |  4 ++--
- net/nfc/af_nfc.c                   |  2 +-
- net/nfc/llcp.h                     |  2 +-
- net/nfc/llcp_core.c                |  2 +-
- net/nfc/llcp_sock.c                |  8 ++++----
- net/nfc/nfc.h                      |  2 +-
- net/nfc/rawsock.c                  |  4 ++--
- net/packet/af_packet.c             |  2 +-
- net/phonet/af_phonet.c             |  2 +-
- net/phonet/pep.c                   |  2 +-
- net/rds/af_rds.c                   |  2 +-
- net/rose/af_rose.c                 |  4 ++--
- net/rxrpc/af_rxrpc.c               |  2 +-
- net/rxrpc/ar-local.c               |  4 ++--
- net/sctp/ipv6.c                    |  2 +-
- net/sctp/protocol.c                |  2 +-
- net/socket.c                       |  7 ++-----
- net/tipc/socket.c                  |  2 +-
- net/unix/af_unix.c                 |  8 ++++----
- net/vmw_vsock/af_vsock.c           |  7 ++++---
- net/vmw_vsock/vmci_transport.c     |  2 +-
- net/x25/af_x25.c                   |  8 ++++----
- 72 files changed, 166 insertions(+), 238 deletions(-)
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index e470ae59d405..3262f3e2b8b2 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -146,7 +146,6 @@ struct tun_file {
+ 	struct socket socket;
+ 	struct socket_wq wq;
+ 	struct tun_struct __rcu *tun;
+-	struct net *net;
+ 	struct fasync_struct *fasync;
+ 	/* only used for fasnyc */
+ 	unsigned int flags;
+@@ -493,10 +492,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+ 			    tun->dev->reg_state == NETREG_REGISTERED)
+ 				unregister_netdevice(tun->dev);
+ 		}
+-
+-		BUG_ON(!test_bit(SOCK_EXTERNALLY_ALLOCATED,
+-				 &tfile->socket.flags));
+-		sk_release_kernel(&tfile->sk);
++		sock_put(&tfile->sk);
+ 	}
+ }
+ 
+@@ -1492,18 +1488,10 @@ out:
+ 	return ret;
+ }
+ 
+-static int tun_release(struct socket *sock)
+-{
+-	if (sock->sk)
+-		sock_put(sock->sk);
+-	return 0;
+-}
+-
+ /* Ops structure to mimic raw sockets with tun */
+ static const struct proto_ops tun_socket_ops = {
+ 	.sendmsg = tun_sendmsg,
+ 	.recvmsg = tun_recvmsg,
+-	.release = tun_release,
+ };
+ 
+ static struct proto tun_proto = {
+@@ -1865,7 +1853,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 	if (cmd == TUNSETIFF && !tun) {
+ 		ifr.ifr_name[IFNAMSIZ-1] = '\0';
+ 
+-		ret = tun_set_iff(tfile->net, file, &ifr);
++		ret = tun_set_iff(sock_net(&tfile->sk), file, &ifr);
+ 
+ 		if (ret)
+ 			goto unlock;
+@@ -2154,16 +2142,16 @@ out:
+ 
+ static int tun_chr_open(struct inode *inode, struct file * file)
+ {
++	struct net *net = current->nsproxy->net_ns;
+ 	struct tun_file *tfile;
+ 
+ 	DBG1(KERN_INFO, "tunX: tun_chr_open\n");
+ 
+-	tfile = (struct tun_file *)sk_alloc(&init_net, AF_UNSPEC, GFP_KERNEL,
++	tfile = (struct tun_file *)sk_alloc(net, AF_UNSPEC, GFP_KERNEL,
+ 					    &tun_proto);
+ 	if (!tfile)
+ 		return -ENOMEM;
+ 	RCU_INIT_POINTER(tfile->tun, NULL);
+-	tfile->net = get_net(current->nsproxy->net_ns);
+ 	tfile->flags = 0;
+ 	tfile->ifindex = 0;
+ 
+@@ -2174,13 +2162,11 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+ 	tfile->socket.ops = &tun_socket_ops;
+ 
+ 	sock_init_data(&tfile->socket, &tfile->sk);
+-	sk_change_net(&tfile->sk, tfile->net);
+ 
+ 	tfile->sk.sk_write_space = tun_sock_write_space;
+ 	tfile->sk.sk_sndbuf = INT_MAX;
+ 
+ 	file->private_data = tfile;
+-	set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
+ 	INIT_LIST_HEAD(&tfile->next);
+ 
+ 	sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
+@@ -2191,10 +2177,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+ static int tun_chr_close(struct inode *inode, struct file *file)
+ {
+ 	struct tun_file *tfile = file->private_data;
+-	struct net *net = tfile->net;
+ 
+ 	tun_detach(tfile, true);
+-	put_net(net);
+ 
+ 	return 0;
+ }
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 738ea48be889..8a5e81d2bdf7 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -38,7 +38,6 @@ struct net;
+ #define SOCK_NOSPACE		2
+ #define SOCK_PASSCRED		3
+ #define SOCK_PASSSEC		4
+-#define SOCK_EXTERNALLY_ALLOCATED 5
+ 
+ #ifndef ARCH_HAS_SOCKET_TYPES
+ /**
+diff --git a/net/socket.c b/net/socket.c
+index 884e32997698..b5f1f43ed8f4 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -576,9 +576,6 @@ void sock_release(struct socket *sock)
+ 	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
+ 		pr_err("%s: fasync list not empty!\n", __func__);
+ 
+-	if (test_bit(SOCK_EXTERNALLY_ALLOCATED, &sock->flags))
+-		return;
+-
+ 	this_cpu_sub(sockets_in_use, 1);
+ 	if (!sock->file) {
+ 		iput(SOCK_INODE(sock));
+-- 
+2.2.1
