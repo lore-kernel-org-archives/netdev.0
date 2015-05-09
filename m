@@ -1,161 +1,128 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v2 3/6] packet: rollover only to socket with headroom
-Date: Sat,  9 May 2015 17:24:58 -0400
-Message-ID: <1431206701-5019-4-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v2 2/6] packet: rollover prepare: per-socket state
+Date: Sat,  9 May 2015 17:24:57 -0400
+Message-ID: <1431206701-5019-3-git-send-email-willemb@google.com>
 References: <1431206701-5019-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	david.laight@aculab.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f51.google.com ([209.85.213.51]:35868 "EHLO
-	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752602AbbEIVZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:25:08 -0400
-Received: by yhrr66 with SMTP id r66so27625646yhr.3
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 14:25:07 -0700 (PDT)
+Received: from mail-yh0-f41.google.com ([209.85.213.41]:35867 "EHLO
+	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752583AbbEIVZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:25:07 -0400
+Received: by yhrr66 with SMTP id r66so27625613yhr.3
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 14:25:06 -0700 (PDT)
 In-Reply-To: <1431206701-5019-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Only migrate flows to sockets that have sufficient headroom, where
-sufficient is defined as having at least 25% empty space.
-
-The kernel has three different buffer types: a regular socket, a ring
-with frames (TPACKET_V[12]) or a ring with blocks (TPACKET_V3). The
-latter two do not expose a read pointer to the kernel, so headroom is
-not computed easily. All three needs a different implementation to
-estimate free space.
-
-Tested:
-  Ran bench_rollover for 10 sec with 1.5 Mpps of single flow input.
-
-  bench_rollover has as many sockets as there are NIC receive queues
-  in the system. Each socket is owned by a process that is pinned to
-  one of the receive cpus. RFS is disabled. RPS is enabled with an
-  identity mapping (cpu x -> cpu x), to count drops with softnettop.
-
-    lpbb5:/export/hda3/willemb# ./bench_rollover -r -l 1000 -s
-    Press [Enter] to exit
-
-    cpu         rx       rx.k     drop.k   rollover     r.huge   r.failed
-      0         16         16          0          0          0          0
-      1         21         21          0          0          0          0
-      2    5227502    5227502          0          0          0          0
-      3         18         18          0          0          0          0
-      4    6083289    6083289          0    5227496          0          0
-      5         22         22          0          0          0          0
-      6         21         21          0          0          0          0
-      7          9          9          0          0          0          0
+Replace rollover state per fanout group with state per socket. Future
+patches will add fields to the new structure.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/packet/af_packet.c | 74 +++++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 58 insertions(+), 16 deletions(-)
+ net/packet/af_packet.c | 21 ++++++++++++++++++---
+ net/packet/internal.h  |  6 +++++-
+ 2 files changed, 23 insertions(+), 4 deletions(-)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index f8ec909..fb421a8 100644
+index 56f9c52..f8ec909 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1234,27 +1234,68 @@ static void packet_free_pending(struct packet_sock *po)
- 	free_percpu(po->tx_ring.pending_refcnt);
- }
- 
--static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
-+#define ROOM_POW_OFF	2
-+#define ROOM_NONE	0x0
-+#define ROOM_LOW	0x1
-+#define ROOM_NORMAL	0x2
-+
-+static bool __tpacket_has_room(struct packet_sock *po, int pow_off)
-+{
-+	int idx, len;
-+
-+	len = po->rx_ring.frame_max + 1;
-+	idx = po->rx_ring.head;
-+	if (pow_off)
-+		idx += len >> pow_off;
-+	if (idx >= len)
-+		idx -= len;
-+	return packet_lookup_frame(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
-+}
-+
-+static bool __tpacket_v3_has_room(struct packet_sock *po, int pow_off)
-+{
-+	int idx, len;
-+
-+	len = po->rx_ring.prb_bdqc.knum_blocks;
-+	idx = po->rx_ring.prb_bdqc.kactive_blk_num;
-+	if (pow_off)
-+		idx += len >> pow_off;
-+	if (idx >= len)
-+		idx -= len;
-+	return prb_lookup_block(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
-+}
-+
-+static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+@@ -1321,16 +1321,18 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 					  unsigned int idx, bool try_self,
+ 					  unsigned int num)
  {
- 	struct sock *sk = &po->sk;
--	bool has_room;
-+	int ret = ROOM_NONE;
- 
--	if (po->prot_hook.func != tpacket_rcv)
--		return (atomic_read(&sk->sk_rmem_alloc) + skb->truesize)
--			<= sk->sk_rcvbuf;
-+	if (po->prot_hook.func != tpacket_rcv) {
-+		int avail = sk->sk_rcvbuf - atomic_read(&sk->sk_rmem_alloc)
-+					  - skb->truesize;
-+		if (avail > (sk->sk_rcvbuf >> ROOM_POW_OFF))
-+			return ROOM_NORMAL;
-+		else if (avail > 0)
-+			return ROOM_LOW;
-+		else
-+			return ROOM_NONE;
-+	}
- 
- 	spin_lock(&sk->sk_receive_queue.lock);
--	if (po->tp_version == TPACKET_V3)
--		has_room = prb_lookup_block(po, &po->rx_ring,
--					    po->rx_ring.prb_bdqc.kactive_blk_num,
--					    TP_STATUS_KERNEL);
--	else
--		has_room = packet_lookup_frame(po, &po->rx_ring,
--					       po->rx_ring.head,
--					       TP_STATUS_KERNEL);
-+	if (po->tp_version == TPACKET_V3) {
-+		if (__tpacket_v3_has_room(po, ROOM_POW_OFF))
-+			ret = ROOM_NORMAL;
-+		else if (__tpacket_v3_has_room(po, 0))
-+			ret = ROOM_LOW;
-+	} else {
-+		if (__tpacket_has_room(po, ROOM_POW_OFF))
-+			ret = ROOM_NORMAL;
-+		else if (__tpacket_has_room(po, 0))
-+			ret = ROOM_LOW;
-+	}
- 	spin_unlock(&sk->sk_receive_queue.lock);
- 
--	return has_room;
-+	return ret;
- }
- 
- static void packet_sock_destruct(struct sock *sk)
-@@ -1325,12 +1366,13 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
++	struct packet_sock *po;
  	unsigned int i, j;
  
- 	po = pkt_sk(f->arr[idx]);
--	if (try_self && packet_rcv_has_room(po, skb))
-+	if (try_self && packet_rcv_has_room(po, skb) != ROOM_NONE)
+-	if (try_self && packet_rcv_has_room(pkt_sk(f->arr[idx]), skb))
++	po = pkt_sk(f->arr[idx]);
++	if (try_self && packet_rcv_has_room(po, skb))
  		return idx;
  
- 	i = j = min_t(int, po->rollover->sock, num - 1);
+-	i = j = min_t(int, f->next[idx], num - 1);
++	i = j = min_t(int, po->rollover->sock, num - 1);
  	do {
--		if (i != idx && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
-+		if (i != idx &&
-+		    packet_rcv_has_room(pkt_sk(f->arr[i]), skb) == ROOM_NORMAL) {
+ 		if (i != idx && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
  			if (i != j)
- 				po->rollover->sock = i;
+-				f->next[idx] = i;
++				po->rollover->sock = i;
  			return i;
+ 		}
+ 
+@@ -1468,6 +1470,12 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 	if (po->fanout)
+ 		return -EALREADY;
+ 
++	if (type_flags & PACKET_FANOUT_FLAG_ROLLOVER) {
++		po->rollover = kzalloc(sizeof(*po->rollover), GFP_KERNEL);
++		if (!po->rollover)
++			return -ENOMEM;
++	}
++
+ 	mutex_lock(&fanout_mutex);
+ 	match = NULL;
+ 	list_for_each_entry(f, &fanout_list, list) {
+@@ -1516,6 +1524,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 	}
+ out:
+ 	mutex_unlock(&fanout_mutex);
++	if (err) {
++		kfree(po->rollover);
++		po->rollover = NULL;
++	}
+ 	return err;
+ }
+ 
+@@ -1537,6 +1549,8 @@ static void fanout_release(struct sock *sk)
+ 		kfree(f);
+ 	}
+ 	mutex_unlock(&fanout_mutex);
++
++	kfree(po->rollover);
+ }
+ 
+ static const struct proto_ops packet_ops;
+@@ -2863,6 +2877,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
+ 
+ 	spin_lock_init(&po->bind_lock);
+ 	mutex_init(&po->pg_vec_lock);
++	po->rollover = NULL;
+ 	po->prot_hook.func = packet_rcv;
+ 
+ 	if (sock->type == SOCK_PACKET)
+diff --git a/net/packet/internal.h b/net/packet/internal.h
+index fe6e20c..a9d33a2 100644
+--- a/net/packet/internal.h
++++ b/net/packet/internal.h
+@@ -82,12 +82,15 @@ struct packet_fanout {
+ 	atomic_t		rr_cur;
+ 	struct list_head	list;
+ 	struct sock		*arr[PACKET_FANOUT_MAX];
+-	int			next[PACKET_FANOUT_MAX];
+ 	spinlock_t		lock;
+ 	atomic_t		sk_ref;
+ 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
+ };
+ 
++struct packet_rollover {
++	int			sock;
++} ____cacheline_aligned_in_smp;
++
+ struct packet_sock {
+ 	/* struct sock has to be the first member of packet_sock */
+ 	struct sock		sk;
+@@ -104,6 +107,7 @@ struct packet_sock {
+ 				has_vnet_hdr:1;
+ 	int			ifindex;	/* bound device		*/
+ 	__be16			num;
++	struct packet_rollover	*rollover;
+ 	struct packet_mclist	*mclist;
+ 	atomic_t		mapped;
+ 	enum tpacket_versions	tp_version;
 -- 
 2.2.0.rc0.207.ga3a616c
