@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/15] flow_dissector: fix doc for skb_get_poff
-Date: Sat,  9 May 2015 15:10:31 +0200
-Message-ID: <1431177038-11555-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 06/15] net: move __skb_tx_hash to skbuff.c
+Date: Sat,  9 May 2015 15:10:29 +0200
+Message-ID: <1431177038-11555-7-git-send-email-jiri@resnulli.us>
 References: <1431177038-11555-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	jesse@nicira.com, kaber@trash.net, therbert@google.com,
@@ -11,39 +11,99 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:36194 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751490AbbEINLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 09:11:12 -0400
-Received: by wizk4 with SMTP id k4so58418621wiz.1
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 06:11:11 -0700 (PDT)
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:36131 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751490AbbEINLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 09:11:06 -0400
+Received: by wizk4 with SMTP id k4so58416755wiz.1
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 06:11:05 -0700 (PDT)
 In-Reply-To: <1431177038-11555-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+__skb_tx_hash function has no relation to flow_dissect so just muve it
+to skbuff.c (it is declared in skbuff.h)
+
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/core/flow_dissector.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/core/flow_dissector.c | 28 ----------------------------
+ net/core/skbuff.c         | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+), 28 deletions(-)
 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 04f8723..d885e28 100644
+index 0d9bc3a..07ca11d 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -417,8 +417,12 @@ u32 __skb_get_poff(const struct sk_buff *skb, void *data,
- 	return poff;
+@@ -371,34 +371,6 @@ __u32 skb_get_hash_perturb(const struct sk_buff *skb, u32 perturb)
  }
+ EXPORT_SYMBOL(skb_get_hash_perturb);
  
--/* skb_get_poff() returns the offset to the payload as far as it could
-- * be dissected. The main user is currently BPF, so that we can dynamically
-+/**
-+ * skb_get_poff - get the offset to the payload
-+ * @skb: sk_buff to get the payload offset from
-+ *
-+ * The function will get the offset to the payload as far as it could
-+ * be dissected.  The main user is currently BPF, so that we can dynamically
-  * truncate packets without needing to push actual payload to the user
-  * space and can analyze headers only, instead.
-  */
+-/*
+- * Returns a Tx hash based on the given packet descriptor a Tx queues' number
+- * to be used as a distribution range.
+- */
+-u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
+-		  unsigned int num_tx_queues)
+-{
+-	u32 hash;
+-	u16 qoffset = 0;
+-	u16 qcount = num_tx_queues;
+-
+-	if (skb_rx_queue_recorded(skb)) {
+-		hash = skb_get_rx_queue(skb);
+-		while (unlikely(hash >= num_tx_queues))
+-			hash -= num_tx_queues;
+-		return hash;
+-	}
+-
+-	if (dev->num_tc) {
+-		u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
+-		qoffset = dev->tc_to_txq[tc].offset;
+-		qcount = dev->tc_to_txq[tc].count;
+-	}
+-
+-	return (u16) reciprocal_scale(skb_get_hash(skb), qcount) + qoffset;
+-}
+-EXPORT_SYMBOL(__skb_tx_hash);
+-
+ u32 __skb_get_poff(const struct sk_buff *skb, void *data,
+ 		   const struct flow_keys *keys, int hlen)
+ {
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index b9eb90b..76d0aad 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -4515,3 +4515,31 @@ failure:
+ 	return NULL;
+ }
+ EXPORT_SYMBOL(alloc_skb_with_frags);
++
++/*
++ * Returns a Tx hash based on the given packet descriptor a Tx queues' number
++ * to be used as a distribution range.
++ */
++u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
++		  unsigned int num_tx_queues)
++{
++	u32 hash;
++	u16 qoffset = 0;
++	u16 qcount = num_tx_queues;
++
++	if (skb_rx_queue_recorded(skb)) {
++		hash = skb_get_rx_queue(skb);
++		while (unlikely(hash >= num_tx_queues))
++			hash -= num_tx_queues;
++		return hash;
++	}
++
++	if (dev->num_tc) {
++		u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
++		qoffset = dev->tc_to_txq[tc].offset;
++		qcount = dev->tc_to_txq[tc].count;
++	}
++
++	return (u16) reciprocal_scale(skb_get_hash(skb), qcount) + qoffset;
++}
++EXPORT_SYMBOL(__skb_tx_hash);
 -- 
 1.9.3
