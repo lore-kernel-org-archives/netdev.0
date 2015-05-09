@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] net/rds: RDS-TCP robustness fixes
-Date: Sat, 09 May 2015 16:03:52 -0400 (EDT)
-Message-ID: <20150509.160352.619521748833984114.davem@davemloft.net>
-References: <cover.1430843646.git.sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH] net: macb: Handle the RXUBR interrupt on all devices
+Date: Sat, 09 May 2015 16:04:54 -0400 (EDT)
+Message-ID: <20150509.160454.1045911244389894144.davem@davemloft.net>
+References: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chien.yen@oracle.com, rds-devel@oss.oracle.com,
-	ajaykumar.hotchandani@oracle.com
-To: sowmini.varadhan@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1430843646.git.sowmini.varadhan@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nathan.sullivan@ni.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45054 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751581AbbEIUEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 16:04:55 -0400
+In-Reply-To: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Tue,  5 May 2015 15:20:50 -0400
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Date: Tue, 5 May 2015 15:00:25 -0500
 
+> The same hardware issue the at91 must work around applies to at least the
+> Zynq ethernet, and possibly more devices.  The driver also needs to handle
+> the RXUBR interrupt since it turns it on with MACB_RX_INT_FLAGS anyway.
 > 
-> This patch-set contains bug fixes for state-recovery at the RDS 
-> layer when the underlying transport is TCP and the TCP state at one 
-> of the endpoints is reset
-> 
-> V2 changes: DaveM comments to reduce memory footprint, follow 
->             NFS/RPC model where possible. Added test-case #3
-> 
-> Without the changes in this set, when one of the endpoints is reset,
-> the existing code does not correctly clean up RDS socket state for stale
-> connections, resulting in some unstable, timing-dependant behavior on
-> the wire, including an infinite exchange of 3WHs back-and-forth, and a
-> resulting potential to never converge RDS state. 
- ...
+> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
 
-Yeah this looks a lot better, series applied, thanks.
+Applied, thank you.
