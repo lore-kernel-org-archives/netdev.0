@@ -1,45 +1,37 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of
- netns
-Date: Sat, 09 May 2015 23:07:17 +0200
-Message-ID: <554E7705.2070707@6wind.com>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com> <874mnn9t12.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 1/2] net: sched: consolidate handle_ing and ing_filter
+Date: Sat, 09 May 2015 14:07:16 -0700
+Message-ID: <554E7704.90306@plumgrid.com>
+References: <cover.1431203900.git.daniel@iogearbox.net> <1ce9def551699476aabe0d592825bf530c9a3e75.1431203900.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, tgraf@suug.ch, davem@davemloft.net
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:36572 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751129AbbEIVHU (ORCPT
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:32905 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977AbbEIVHU (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:07:20 -0400
-Received: by wgiu9 with SMTP id u9so98546576wgi.3
+Received: by iepj10 with SMTP id j10so82168601iep.0
         for <netdev@vger.kernel.org>; Sat, 09 May 2015 14:07:18 -0700 (PDT)
-In-Reply-To: <874mnn9t12.fsf@x220.int.ebiederm.org>
+In-Reply-To: <1ce9def551699476aabe0d592825bf530c9a3e75.1431203900.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/05/2015 14:02, Eric W. Biederman a =C3=A9crit :
+On 5/9/15 1:51 PM, Daniel Borkmann wrote:
+> Given quite some code has been removed from ing_filter(), we can just
+> consolidate that function into handle_ing() and get rid of a few
+> instructions at the same time.
 >
-> So I am dense.  I have read through the patches and I don't see where
-> you tag packets from other network namespaces with a network namespac=
-e
-> id.
-In patch #7, the netns id is put in the skb cb (NETLINK_CB) in the func=
-tion
-do_one_broadcast().
-The function netlink_cmsg_listen_all_nsid() will send this information =
-to the
-userland via a cmsg data. This function is called by netlink_recvmsg().
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>   net/core/dev.c | 46 ++++++++++++++++------------------------------
+>   1 file changed, 16 insertions(+), 30 deletions(-)
 
-> In fact I don't even see an attribute that is approrpriate for such
-> tagging.
-The netns id is the same attribute that allows to identify a peer netns
-via rtnetlink.
+lovely diffstat :)
 
+2nd patch is even better:
+  3 files changed, 31 insertions(+), 61 deletions(-)
 
-Regards,
-Nicolas
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
