@@ -1,82 +1,88 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] codel: add ce_threshold attribute
-Date: Sat, 09 May 2015 23:21:35 +0200
-Message-ID: <554E7A5F.9070805@iogearbox.net>
-References: <1431122712.22756.43.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
-	Glenn Judd <glenn.judd@morganstanley.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next v2 1/6] packet: rollover prepare: move code out of callsites
+Date: Sat,  9 May 2015 17:24:56 -0400
+Message-ID: <1431206701-5019-2-git-send-email-willemb@google.com>
+References: <1431206701-5019-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	david.laight@aculab.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46216 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752209AbbEIVVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:21:39 -0400
-In-Reply-To: <1431122712.22756.43.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-yh0-f49.google.com ([209.85.213.49]:33763 "EHLO
+	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752272AbbEIVZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 17:25:07 -0400
+Received: by yhcb70 with SMTP id b70so27640133yhc.0
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 14:25:05 -0700 (PDT)
+In-Reply-To: <1431206701-5019-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/09/2015 12:05 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> For DCTCP or similar ECN based deployments on fabrics with shallow
-> buffers, hosts are responsible for a good part of the buffering.
->
-> This patch adds an optional ce_threshold to codel & fq_codel qdiscs,
-> so that DCTCP can have feedback from queuing in the host.
->
-> A DCTCP enabled egress port simply have a queue occupancy threshold
-> above which ECT packets get CE mark.
->
-> In codel language this translates to a sojourn time, so that one doesn't
-> have to worry about bytes or bandwidth but delays.
->
-> This makes the host an active participant in the health of the whole
-> network.
->
-> This also helps experimenting DCTCP in a setup without DCTCP compliant
-> fabric.
->
-> On following example, ce_threshold is set to 1ms, and we can see from
-> 'ldelay xxx us' that TCP is not trying to go around the 5ms codel
-> target.
->
-> Queue has more capacity to absorb inelastic bursts (say from UDP
-> traffic), as queues are maintained to an optimal level.
->
-> lpaa23:~# ./tc -s -d qd sh dev eth1
-> qdisc mq 1: dev eth1 root
->   Sent 87910654696 bytes 58065331 pkt (dropped 0, overlimits 0 requeues 42961)
->   backlog 3108242b 364p requeues 42961
-> qdisc codel 8063: dev eth1 parent 1:1 limit 1000p target 5.0ms ce_threshold 1.0ms interval 100.0ms
->   Sent 7363778701 bytes 4863809 pkt (dropped 0, overlimits 0 requeues 5503)
->   rate 2348Mbit 193919pps backlog 255866b 46p requeues 5503
->    count 0 lastcount 0 ldelay 1.0ms drop_next 0us
->    maxpacket 68130 ecn_mark 0 drop_overlimit 0 ce_mark 72384
-> qdisc codel 8064: dev eth1 parent 1:2 limit 1000p target 5.0ms ce_threshold 1.0ms interval 100.0ms
->   Sent 7636486190 bytes 5043942 pkt (dropped 0, overlimits 0 requeues 5186)
->   rate 2319Mbit 191538pps backlog 207418b 64p requeues 5186
->    count 0 lastcount 0 ldelay 694us drop_next 0us
->    maxpacket 68130 ecn_mark 0 drop_overlimit 0 ce_mark 69873
-> qdisc codel 8065: dev eth1 parent 1:3 limit 1000p target 5.0ms ce_threshold 1.0ms interval 100.0ms
->   Sent 11569360142 bytes 7641602 pkt (dropped 0, overlimits 0 requeues 5554)
->   rate 3041Mbit 251096pps backlog 210446b 59p requeues 5554
->    count 0 lastcount 0 ldelay 889us drop_next 0us
->    maxpacket 68130 ecn_mark 0 drop_overlimit 0 ce_mark 37780
-> ...
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Florian Westphal <fw@strlen.de>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Glenn Judd <glenn.judd@morganstanley.com>
-> Cc: Nandita Dukkipati <nanditad@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
+From: Willem de Bruijn <willemb@google.com>
 
-Great work Eric, this looks very useful!
+packet_rcv_fanout calls fanout_demux_rollover twice. Move all rollover
+logic into the callee to simplify these callsites, especially with
+upcoming changes.
+
+The main differences between the two callsites is that the FLAG
+variant tests whether the socket previously selected by another
+mode (RR, RND, HASH, ..) has room before migrating flows, whereas the
+rollover mode has no original socket to test.
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 5102c3c..56f9c52 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1318,18 +1318,22 @@ static unsigned int fanout_demux_rnd(struct packet_fanout *f,
+ 
+ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 					  struct sk_buff *skb,
+-					  unsigned int idx, unsigned int skip,
++					  unsigned int idx, bool try_self,
+ 					  unsigned int num)
+ {
+ 	unsigned int i, j;
+ 
++	if (try_self && packet_rcv_has_room(pkt_sk(f->arr[idx]), skb))
++		return idx;
++
+ 	i = j = min_t(int, f->next[idx], num - 1);
+ 	do {
+-		if (i != skip && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
++		if (i != idx && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
+ 			if (i != j)
+ 				f->next[idx] = i;
+ 			return i;
+ 		}
++
+ 		if (++i == num)
+ 			i = 0;
+ 	} while (i != j);
+@@ -1386,17 +1390,14 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
+ 		idx = fanout_demux_qm(f, skb, num);
+ 		break;
+ 	case PACKET_FANOUT_ROLLOVER:
+-		idx = fanout_demux_rollover(f, skb, 0, (unsigned int) -1, num);
++		idx = fanout_demux_rollover(f, skb, 0, false, num);
+ 		break;
+ 	}
+ 
+-	po = pkt_sk(f->arr[idx]);
+-	if (fanout_has_flag(f, PACKET_FANOUT_FLAG_ROLLOVER) &&
+-	    unlikely(!packet_rcv_has_room(po, skb))) {
+-		idx = fanout_demux_rollover(f, skb, idx, idx, num);
+-		po = pkt_sk(f->arr[idx]);
+-	}
++	if (fanout_has_flag(f, PACKET_FANOUT_FLAG_ROLLOVER))
++		idx = fanout_demux_rollover(f, skb, idx, true, num);
+ 
++	po = pkt_sk(f->arr[idx]);
+ 	return po->prot_hook.func(skb, dev, &po->prot_hook, orig_dev);
+ }
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
