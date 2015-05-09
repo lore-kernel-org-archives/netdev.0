@@ -1,236 +1,317 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v6 06/23] switchdev: convert STP update to switchdev attr set
-Date: Sat,  9 May 2015 10:40:08 -0700
-Message-ID: <1431193225-807-7-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v6 02/23] switchdev: s/swdev_/switchdev_/
+Date: Sat,  9 May 2015 10:40:04 -0700
+Message-ID: <1431193225-807-3-git-send-email-sfeldma@gmail.com>
 References: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
 	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33493 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751525AbbEIRnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 13:43:23 -0400
-Received: by pacwv17 with SMTP id wv17so75782182pac.0
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 10:43:22 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35748 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045AbbEIRnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 13:43:18 -0400
+Received: by pabtp1 with SMTP id tp1so75741069pab.2
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 10:43:17 -0700 (PDT)
 In-Reply-To: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
 
-STP update is just a settable port attribute, so convert
-switchdev_port_stp_update to an attr set.
+Turned out that "switchdev" sticks. So just unify all related terms to use
+this prefix.
 
-For DSA, the prepare phase is skipped and STP updates are only done in the
-commit phase.  This is because currently the DSA drivers don't need to
-allocate any memory for STP updates and the STP update will not fail to HW
-(unless something horrible goes wrong on the MDIO bus, in which case the
-prepare phase wouldn't have been able to predict anyway).
-
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Acked-by: Andy Gospodarek <gospo@cumulusnetworks.com>
 ---
- drivers/net/ethernet/rocker/rocker.c |   13 ++++---------
- include/net/switchdev.h              |   13 ++-----------
- net/bridge/br_stp.c                  |    6 +++++-
- net/dsa/slave.c                      |   20 +++++++++++++++++++-
- net/switchdev/switchdev.c            |   28 ----------------------------
- 5 files changed, 30 insertions(+), 50 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c |   37 ++++++++++++++++---------------
+ include/linux/netdevice.h            |    2 +-
+ include/net/switchdev.h              |   30 ++++++++++++-------------
+ net/dsa/slave.c                      |    8 +++----
+ net/switchdev/switchdev.c            |   40 +++++++++++++++++-----------------
+ 5 files changed, 59 insertions(+), 58 deletions(-)
 
 diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index dc471c0..d260837 100644
+index 418f62b..7473874 100644
 --- a/drivers/net/ethernet/rocker/rocker.c
 +++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4347,14 +4347,6 @@ static int rocker_port_attr_get(struct net_device *dev,
+@@ -4221,8 +4221,8 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+  * swdev interface
+  ********************/
+ 
+-static int rocker_port_swdev_parent_id_get(struct net_device *dev,
+-					   struct netdev_phys_item_id *psid)
++static int rocker_port_switchdev_parent_id_get(struct net_device *dev,
++					       struct netdev_phys_item_id *psid)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	struct rocker *rocker = rocker_port->rocker;
+@@ -4232,18 +4232,19 @@ static int rocker_port_swdev_parent_id_get(struct net_device *dev,
  	return 0;
  }
  
--static int rocker_port_switchdev_port_stp_update(struct net_device *dev,
--						 u8 state)
--{
--	struct rocker_port *rocker_port = netdev_priv(dev);
--
--	return rocker_port_stp_update(rocker_port, state);
--}
--
- static void rocker_port_trans_abort(struct rocker_port *rocker_port)
+-static int rocker_port_swdev_port_stp_update(struct net_device *dev, u8 state)
++static int rocker_port_switchdev_port_stp_update(struct net_device *dev,
++						 u8 state)
  {
- 	struct list_head *mem, *tmp;
-@@ -4385,6 +4377,9 @@ static int rocker_port_attr_set(struct net_device *dev,
- 	}
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
  
- 	switch (attr->id) {
-+	case SWITCHDEV_ATTR_PORT_STP_STATE:
-+		err = rocker_port_stp_update(rocker_port, attr->stp_state);
-+		break;
- 	default:
- 		err = -EOPNOTSUPP;
- 		break;
-@@ -4422,7 +4417,7 @@ static int rocker_port_switchdev_fib_ipv4_del(struct net_device *dev,
+ 	return rocker_port_stp_update(rocker_port, state);
+ }
  
- static const struct switchdev_ops rocker_port_switchdev_ops = {
- 	.switchdev_port_attr_get	= rocker_port_attr_get,
--	.switchdev_port_stp_update	= rocker_port_switchdev_port_stp_update,
-+	.switchdev_port_attr_set	= rocker_port_attr_set,
- 	.switchdev_fib_ipv4_add		= rocker_port_switchdev_fib_ipv4_add,
- 	.switchdev_fib_ipv4_del		= rocker_port_switchdev_fib_ipv4_del,
+-static int rocker_port_swdev_fib_ipv4_add(struct net_device *dev,
+-					  __be32 dst, int dst_len,
+-					  struct fib_info *fi,
+-					  u8 tos, u8 type,
+-					  u32 nlflags, u32 tb_id)
++static int rocker_port_switchdev_fib_ipv4_add(struct net_device *dev,
++					      __be32 dst, int dst_len,
++					      struct fib_info *fi,
++					      u8 tos, u8 type,
++					      u32 nlflags, u32 tb_id)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	int flags = 0;
+@@ -4252,10 +4253,10 @@ static int rocker_port_swdev_fib_ipv4_add(struct net_device *dev,
+ 				    fi, tb_id, flags);
+ }
+ 
+-static int rocker_port_swdev_fib_ipv4_del(struct net_device *dev,
+-					  __be32 dst, int dst_len,
+-					  struct fib_info *fi,
+-					  u8 tos, u8 type, u32 tb_id)
++static int rocker_port_switchdev_fib_ipv4_del(struct net_device *dev,
++					      __be32 dst, int dst_len,
++					      struct fib_info *fi,
++					      u8 tos, u8 type, u32 tb_id)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(dev);
+ 	int flags = ROCKER_OP_FLAG_REMOVE;
+@@ -4264,11 +4265,11 @@ static int rocker_port_swdev_fib_ipv4_del(struct net_device *dev,
+ 				    fi, tb_id, flags);
+ }
+ 
+-static const struct swdev_ops rocker_port_swdev_ops = {
+-	.swdev_parent_id_get		= rocker_port_swdev_parent_id_get,
+-	.swdev_port_stp_update		= rocker_port_swdev_port_stp_update,
+-	.swdev_fib_ipv4_add		= rocker_port_swdev_fib_ipv4_add,
+-	.swdev_fib_ipv4_del		= rocker_port_swdev_fib_ipv4_del,
++static const struct switchdev_ops rocker_port_switchdev_ops = {
++	.switchdev_parent_id_get	= rocker_port_switchdev_parent_id_get,
++	.switchdev_port_stp_update	= rocker_port_switchdev_port_stp_update,
++	.switchdev_fib_ipv4_add		= rocker_port_switchdev_fib_ipv4_add,
++	.switchdev_fib_ipv4_del		= rocker_port_switchdev_fib_ipv4_del,
  };
+ 
+ /********************
+@@ -4623,7 +4624,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
+ 	rocker_port_dev_addr_init(rocker, rocker_port);
+ 	dev->netdev_ops = &rocker_port_netdev_ops;
+ 	dev->ethtool_ops = &rocker_port_ethtool_ops;
+-	dev->swdev_ops = &rocker_port_swdev_ops;
++	dev->switchdev_ops = &rocker_port_switchdev_ops;
+ 	netif_napi_add(dev, &rocker_port->napi_tx, rocker_port_poll_tx,
+ 		       NAPI_POLL_WEIGHT);
+ 	netif_napi_add(dev, &rocker_port->napi_rx, rocker_port_poll_rx,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 1899c74..6ead211 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1567,7 +1567,7 @@ struct net_device {
+ 	const struct net_device_ops *netdev_ops;
+ 	const struct ethtool_ops *ethtool_ops;
+ #ifdef CONFIG_NET_SWITCHDEV
+-	const struct swdev_ops *swdev_ops;
++	const struct switchdev_ops *switchdev_ops;
+ #endif
+ 
+ 	const struct header_ops *header_ops;
 diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 93316e7..aec5e49 100644
+index cd921fa..97b556d 100644
 --- a/include/net/switchdev.h
 +++ b/include/net/switchdev.h
-@@ -26,6 +26,7 @@ enum switchdev_trans {
- enum switchdev_attr_id {
- 	SWITCHDEV_ATTR_UNDEFINED,
- 	SWITCHDEV_ATTR_PORT_PARENT_ID,
-+	SWITCHDEV_ATTR_PORT_STP_STATE,
+@@ -19,28 +19,28 @@ struct fib_info;
+ /**
+  * struct switchdev_ops - switchdev operations
+  *
+- * @swdev_parent_id_get: Called to get an ID of the switch chip this port
++ * @switchdev_parent_id_get: Called to get an ID of the switch chip this port
+  *   is part of.  If driver implements this, it indicates that it
+  *   represents a port of a switch chip.
+  *
+- * @swdev_port_stp_update: Called to notify switch device port of bridge
++ * @switchdev_port_stp_update: Called to notify switch device port of bridge
+  *   port STP state change.
+  *
+- * @swdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
++ * @switchdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
+  *
+- * @swdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
++ * @switchdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
+  */
+-struct swdev_ops {
+-	int	(*swdev_parent_id_get)(struct net_device *dev,
+-				       struct netdev_phys_item_id *psid);
+-	int	(*swdev_port_stp_update)(struct net_device *dev, u8 state);
+-	int	(*swdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
+-				      int dst_len, struct fib_info *fi,
+-				      u8 tos, u8 type, u32 nlflags,
+-				      u32 tb_id);
+-	int	(*swdev_fib_ipv4_del)(struct net_device *dev, __be32 dst,
+-				      int dst_len, struct fib_info *fi,
+-				      u8 tos, u8 type, u32 tb_id);
++struct switchdev_ops {
++	int	(*switchdev_parent_id_get)(struct net_device *dev,
++					   struct netdev_phys_item_id *psid);
++	int	(*switchdev_port_stp_update)(struct net_device *dev, u8 state);
++	int	(*switchdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
++					  int dst_len, struct fib_info *fi,
++					  u8 tos, u8 type, u32 nlflags,
++					  u32 tb_id);
++	int	(*switchdev_fib_ipv4_del)(struct net_device *dev, __be32 dst,
++					  int dst_len, struct fib_info *fi,
++					  u8 tos, u8 type, u32 tb_id);
  };
  
- struct switchdev_attr {
-@@ -34,6 +35,7 @@ struct switchdev_attr {
- 	u32 flags;
- 	union {
- 		struct netdev_phys_item_id ppid;	/* PORT_PARENT_ID */
-+		u8 stp_state;				/* PORT_STP_STATE */
- 	};
- };
- 
-@@ -46,9 +48,6 @@ struct fib_info;
-  *
-  * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).
-  *
-- * @switchdev_port_stp_update: Called to notify switch device port of bridge
-- *   port STP state change.
-- *
-  * @switchdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
-  *
-  * @switchdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
-@@ -58,7 +57,6 @@ struct switchdev_ops {
- 					   struct switchdev_attr *attr);
- 	int	(*switchdev_port_attr_set)(struct net_device *dev,
- 					   struct switchdev_attr *attr);
--	int	(*switchdev_port_stp_update)(struct net_device *dev, u8 state);
- 	int	(*switchdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
- 					  int dst_len, struct fib_info *fi,
- 					  u8 tos, u8 type, u32 nlflags,
-@@ -95,7 +93,6 @@ int switchdev_port_attr_get(struct net_device *dev,
- 			    struct switchdev_attr *attr);
- int switchdev_port_attr_set(struct net_device *dev,
- 			    struct switchdev_attr *attr);
--int switchdev_port_stp_update(struct net_device *dev, u8 state);
- int register_switchdev_notifier(struct notifier_block *nb);
- int unregister_switchdev_notifier(struct notifier_block *nb);
- int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
-@@ -128,12 +125,6 @@ static inline int switchdev_port_attr_set(struct net_device *dev,
- 	return -EOPNOTSUPP;
- }
- 
--static inline int switchdev_port_stp_update(struct net_device *dev,
--					    u8 state)
--{
--	return -EOPNOTSUPP;
--}
--
- static inline int register_switchdev_notifier(struct notifier_block *nb)
- {
- 	return 0;
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 28e3f4b..b9300da 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -39,10 +39,14 @@ void br_log_state(const struct net_bridge_port *p)
- 
- void br_set_state(struct net_bridge_port *p, unsigned int state)
- {
-+	struct switchdev_attr attr = {
-+		.id = SWITCHDEV_ATTR_PORT_STP_STATE,
-+		.stp_state = state,
-+	};
- 	int err;
- 
- 	p->state = state;
--	err = switchdev_port_stp_update(p->dev, state);
-+	err = switchdev_port_attr_set(p->dev, &attr);
- 	if (err && err != -EOPNOTSUPP)
- 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
- 				(unsigned int) p->port_no, p->dev->name);
+ enum switchdev_notifier_type {
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index b465d7c..1546d9e 100644
+index 827cda56..aee5877 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -345,6 +345,24 @@ static int dsa_slave_stp_update(struct net_device *dev, u8 state)
- 	return ret;
- }
+@@ -675,9 +675,9 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_get_iflink		= dsa_slave_get_iflink,
+ };
  
-+static int dsa_slave_port_attr_set(struct net_device *dev,
-+				   struct switchdev_attr *attr)
-+{
-+	int ret = 0;
-+
-+	switch (attr->id) {
-+	case SWITCHDEV_ATTR_PORT_STP_STATE:
-+		if (attr->trans == SWITCHDEV_TRANS_COMMIT)
-+			ret = dsa_slave_stp_update(dev, attr->stp_state);
-+		break;
-+	default:
-+		ret = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static int dsa_slave_bridge_port_join(struct net_device *dev,
- 				      struct net_device *br)
- {
-@@ -683,7 +701,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
- 	.switchdev_port_attr_get	= dsa_slave_port_attr_get,
--	.switchdev_port_stp_update	= dsa_slave_stp_update,
-+	.switchdev_port_attr_set	= dsa_slave_port_attr_set,
+-static const struct swdev_ops dsa_slave_swdev_ops = {
+-	.swdev_parent_id_get = dsa_slave_parent_id_get,
+-	.swdev_port_stp_update = dsa_slave_stp_update,
++static const struct switchdev_ops dsa_slave_switchdev_ops = {
++	.switchdev_parent_id_get	= dsa_slave_parent_id_get,
++	.switchdev_port_stp_update	= dsa_slave_stp_update,
  };
  
  static void dsa_slave_adjust_link(struct net_device *dev)
+@@ -859,7 +859,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	eth_hw_addr_inherit(slave_dev, master);
+ 	slave_dev->tx_queue_len = 0;
+ 	slave_dev->netdev_ops = &dsa_slave_netdev_ops;
+-	slave_dev->swdev_ops = &dsa_slave_swdev_ops;
++	slave_dev->switchdev_ops = &dsa_slave_switchdev_ops;
+ 
+ 	SET_NETDEV_DEV(slave_dev, parent);
+ 	slave_dev->dev.of_node = ds->pd->port_dn[port];
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 117fd07..a3c3590 100644
+index 52613ed..b7f44a2 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -187,34 +187,6 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
+@@ -28,11 +28,11 @@
+ int switchdev_parent_id_get(struct net_device *dev,
+ 			    struct netdev_phys_item_id *psid)
+ {
+-	const struct swdev_ops *ops = dev->swdev_ops;
++	const struct switchdev_ops *ops = dev->switchdev_ops;
+ 
+-	if (!ops || !ops->swdev_parent_id_get)
++	if (!ops || !ops->switchdev_parent_id_get)
+ 		return -EOPNOTSUPP;
+-	return ops->swdev_parent_id_get(dev, psid);
++	return ops->switchdev_parent_id_get(dev, psid);
  }
- EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
+ EXPORT_SYMBOL_GPL(switchdev_parent_id_get);
  
--/**
-- *	switchdev_port_stp_update - Notify switch device port of STP
-- *					state change
-- *	@dev: port device
-- *	@state: port STP state
-- *
-- *	Notify switch device port of bridge port STP state change.
-- */
--int switchdev_port_stp_update(struct net_device *dev, u8 state)
--{
--	const struct switchdev_ops *ops = dev->switchdev_ops;
--	struct net_device *lower_dev;
--	struct list_head *iter;
--	int err = -EOPNOTSUPP;
--
--	if (ops && ops->switchdev_port_stp_update)
--		return ops->switchdev_port_stp_update(dev, state);
--
--	netdev_for_each_lower_dev(dev, lower_dev, iter) {
--		err = switchdev_port_stp_update(lower_dev, state);
--		if (err && err != -EOPNOTSUPP)
--			return err;
--	}
--
--	return err;
--}
--EXPORT_SYMBOL_GPL(switchdev_port_stp_update);
--
- static DEFINE_MUTEX(switchdev_mutex);
- static RAW_NOTIFIER_HEAD(switchdev_notif_chain);
+@@ -46,13 +46,13 @@ EXPORT_SYMBOL_GPL(switchdev_parent_id_get);
+  */
+ int switchdev_port_stp_update(struct net_device *dev, u8 state)
+ {
+-	const struct swdev_ops *ops = dev->swdev_ops;
++	const struct switchdev_ops *ops = dev->switchdev_ops;
+ 	struct net_device *lower_dev;
+ 	struct list_head *iter;
+ 	int err = -EOPNOTSUPP;
  
+-	if (ops && ops->swdev_port_stp_update)
+-		return ops->swdev_port_stp_update(dev, state);
++	if (ops && ops->switchdev_port_stp_update)
++		return ops->switchdev_port_stp_update(dev, state);
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+ 		err = switchdev_port_stp_update(lower_dev, state);
+@@ -239,17 +239,17 @@ EXPORT_SYMBOL_GPL(ndo_dflt_switchdev_port_bridge_dellink);
+ 
+ static struct net_device *switchdev_get_lowest_dev(struct net_device *dev)
+ {
+-	const struct swdev_ops *ops = dev->swdev_ops;
++	const struct switchdev_ops *ops = dev->switchdev_ops;
+ 	struct net_device *lower_dev;
+ 	struct net_device *port_dev;
+ 	struct list_head *iter;
+ 
+ 	/* Recusively search down until we find a sw port dev.
+-	 * (A sw port dev supports swdev_parent_id_get).
++	 * (A sw port dev supports switchdev_parent_id_get).
+ 	 */
+ 
+ 	if (dev->features & NETIF_F_HW_SWITCH_OFFLOAD &&
+-	    ops && ops->swdev_parent_id_get)
++	    ops && ops->switchdev_parent_id_get)
+ 		return dev;
+ 
+ 	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+@@ -313,7 +313,7 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 			   u8 tos, u8 type, u32 nlflags, u32 tb_id)
+ {
+ 	struct net_device *dev;
+-	const struct swdev_ops *ops;
++	const struct switchdev_ops *ops;
+ 	int err = 0;
+ 
+ 	/* Don't offload route if using custom ip rules or if
+@@ -331,12 +331,12 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 	dev = switchdev_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+-	ops = dev->swdev_ops;
++	ops = dev->switchdev_ops;
+ 
+-	if (ops->swdev_fib_ipv4_add) {
+-		err = ops->swdev_fib_ipv4_add(dev, htonl(dst), dst_len,
+-					      fi, tos, type, nlflags,
+-					      tb_id);
++	if (ops->switchdev_fib_ipv4_add) {
++		err = ops->switchdev_fib_ipv4_add(dev, htonl(dst), dst_len,
++						  fi, tos, type, nlflags,
++						  tb_id);
+ 		if (!err)
+ 			fi->fib_flags |= RTNH_F_EXTERNAL;
+ 	}
+@@ -361,7 +361,7 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 			   u8 tos, u8 type, u32 tb_id)
+ {
+ 	struct net_device *dev;
+-	const struct swdev_ops *ops;
++	const struct switchdev_ops *ops;
+ 	int err = 0;
+ 
+ 	if (!(fi->fib_flags & RTNH_F_EXTERNAL))
+@@ -370,11 +370,11 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 	dev = switchdev_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+-	ops = dev->swdev_ops;
++	ops = dev->switchdev_ops;
+ 
+-	if (ops->swdev_fib_ipv4_del) {
+-		err = ops->swdev_fib_ipv4_del(dev, htonl(dst), dst_len,
+-					      fi, tos, type, tb_id);
++	if (ops->switchdev_fib_ipv4_del) {
++		err = ops->switchdev_fib_ipv4_del(dev, htonl(dst), dst_len,
++						  fi, tos, type, tb_id);
+ 		if (!err)
+ 			fi->fib_flags &= ~RTNH_F_EXTERNAL;
+ 	}
 -- 
 1.7.10.4
