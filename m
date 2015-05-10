@@ -1,46 +1,62 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code
- where it belongs
-Date: Sun, 10 May 2015 19:59:34 +0200
-Message-ID: <20150510175934.GA3799@salvia>
-References: <1431277170-4618-1-git-send-email-pablo@netfilter.org>
- <1431277170-4618-3-git-send-email-pablo@netfilter.org>
- <554F9946.9040707@plumgrid.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 0/2] handle_ing update
+Date: Sun, 10 May 2015 10:55:23 -0700
+Message-ID: <554F9B8B.30306@plumgrid.com>
+References: <cover.1431203900.git.daniel@iogearbox.net> <20150510170550.GA4442@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-	daniel@iogearbox.net
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jhs@mojatatu.com, netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44420 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751549AbbEJRyy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 May 2015 13:54:54 -0400
-Content-Disposition: inline
-In-Reply-To: <554F9946.9040707@plumgrid.com>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:35300 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751372AbbEJRz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 13:55:26 -0400
+Received: by ieczm2 with SMTP id zm2so93952450iec.2
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 10:55:26 -0700 (PDT)
+In-Reply-To: <20150510170550.GA4442@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 10, 2015 at 10:45:42AM -0700, Alexei Starovoitov wrote:
-> On 5/10/15 9:59 AM, Pablo Neira Ayuso wrote:
-> >The qdisc ingress filtering code is embedded into the core most likely because
-> >at that time we had no RCU in place to define a hook. This is semantically
-> >wrong as this violates the most basic rules of encapsulation.
-> 
-> Yet another attempt to sneak in 'qdisc_ingress_hook' to kill TC ?
-> Just add another hook for netfilter. Seriously. Enough of these
-> politics.
+On 5/10/15 10:05 AM, Pablo Neira Ayuso wrote:
+> On Sat, May 09, 2015 at 10:51:30PM +0200, Daniel Borkmann wrote:
+>> These are a couple of cleanups to make ingress a bit more lightweight.
+>
+> This is plain wrong at many levels.
+>
+> You're persisting on embedding the ingress code into the core, and you
+> have to remember that most users don't need this. Modules allows
+> people to get the code that they need into the core, with this
+> approach, they have no other choice other than disable from .config
+> this if they don't need it.
 
-Absolutely not. I will not kill TC because people like jamal likes it,
-and that's more than an argument to me to keep it there.
+I think you're misreading the patch set. Where do you see that this is
+pushed on all users?
+if (static_key_false(&ingress_needed))
+still protects all of these bits.
+When ingress qdisc is added, the key gets enabled and it only needs
+one deref to not go any further. Much faster than it is today.
 
-I have to ask you to stop harassing me all over with non-technical
-comments: "evil", "funny", ...
+> This has to be done the other way around. I just sent a patchset to
+> clean up this that in exactly the other direction, as a result,
+> performance is improved for users that don't need this.
 
-I'm getting quite enough of this, you stop that.
+you're doing exactly the same in your patch set, but with added extra
+overhead for netfilter hook.
 
-> Again, Daniel's patch accelerates super-critical ingress path even more.
-> Care to carefully read it first?
+> We should do things to make users aware that when they request
+> features, they have to pay a performance cost, and that happens by
+> when you invoke:
+>
+>          tc qdisc add dev eth0 handle ffff: ingress
+>
+> David already stated before that ingress path is performance critical,
+> but you insist on trying to get qdisc ingress faster *at any cost*.
 
-No, Daniel is *not* benchmarking the netif_received_core() with no
-filtering at all.
+Nope. We're cleaning up ingress qdisc path _without_ affecting anything
+else, whereas your netfilter hook creates binary choice for users
+whether they want nft or tc.
+Please just add your own netfilter hook to netif_receive_skb and
+let's be done with this back and forth arguments.
