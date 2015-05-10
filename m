@@ -1,104 +1,88 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v7 19/24] switchdev: add new switchdev_port_bridge_getlink
-Date: Sun, 10 May 2015 09:48:04 -0700
-Message-ID: <1431276489-64199-20-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v7 14/24] bridge: restore br_setlink back to original
+Date: Sun, 10 May 2015 09:47:59 -0700
+Message-ID: <1431276489-64199-15-git-send-email-sfeldma@gmail.com>
 References: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
 	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34993 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751803AbbEJQrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:21 -0400
-Received: by pabtp1 with SMTP id tp1so90834202pab.2
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:20 -0700 (PDT)
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:34941 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751818AbbEJQrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:15 -0400
+Received: by pabtp1 with SMTP id tp1so90833117pab.2
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:15 -0700 (PDT)
 In-Reply-To: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Like bridge_setlink, add switchdev wrapper to handle bridge_getlink and
-call into port driver to get port attrs.  For now, only BR_LEARNING and
-BR_LEARNING_SYNC are returned.  To add more, we'll probably want to break
-away from ndo_dflt_bridge_getlink() and build the netlink skb directly in
-the switchdev code.
+This is revert of:
+
+commit 68e331c785b8 ("bridge: offload bridge port attributes to switch asic
+if feature flag set")
+
+Restore br_setlink back to original and don't call into SELF port driver.
+rtnetlink.c:bridge_setlink() already does a call into port driver for SELF.
+
+bridge set link cmd defaults to MASTER.  From man page for bridge link set
+cmd:
+
+       self   link setting is configured on specified physical device
+
+       master link setting is configured on the software bridge (default)
+
+The link setting has two values: the device-side value and the software
+bridge-side value.  These are independent and settable using the bridge
+link set cmd by specifying some combination of [master] | [self].
+Furthermore, the device-side and bridge-side settings have their own
+initial value, viewable from bridge -d link show cmd.
+
+Restoring br_setlink back to original makes rocker (the only in-kernel user
+of SELF link settings) work as first implement: two-sided values.
+
+It's true that when both MASTER and SELF are specified from the command,
+two netlink notifications are generated, one for each side of the settings.
+The user-space app can distiquish between the two notifications by
+observing the MASTER or SELF flag.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/switchdev.h   |   10 ++++++++++
- net/switchdev/switchdev.c |   28 ++++++++++++++++++++++++++++
- 2 files changed, 38 insertions(+)
+ net/bridge/br_netlink.c |   11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index 397b1e6..e081d67 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -126,6 +126,9 @@ int register_switchdev_notifier(struct notifier_block *nb);
- int unregister_switchdev_notifier(struct notifier_block *nb);
- int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- 			     struct switchdev_notifier_info *info);
-+int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				  struct net_device *dev, u32 filter_mask,
-+				  int nlflags);
- int switchdev_port_bridge_setlink(struct net_device *dev,
- 				  struct nlmsghdr *nlh, u16 flags);
- int switchdev_port_bridge_dellink(struct net_device *dev,
-@@ -179,6 +182,13 @@ static inline int call_switchdev_notifiers(unsigned long val,
- 	return NOTIFY_DONE;
- }
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index dc23453..e9b9435 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -586,7 +586,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
+ 	struct nlattr *afspec;
+ 	struct net_bridge_port *p;
+ 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
+-	int err = 0, ret_offload = 0;
++	int err = 0;
  
-+static inline int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
-+					    u32 seq, struct net_device *dev,
-+					    u32 filter_mask, int nlflags)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- static inline int switchdev_port_bridge_setlink(struct net_device *dev,
- 						struct nlmsghdr *nlh,
- 						u16 flags)
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 0e15b6f..9210355 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -358,6 +358,34 @@ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- }
- EXPORT_SYMBOL_GPL(call_switchdev_notifiers);
+ 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
+ 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
+@@ -628,15 +628,6 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
+ 				afspec, RTM_SETLINK);
+ 	}
  
-+/**
-+ *	switchdev_port_bridge_getlink - Get bridge port attributes
-+ *
-+ *	@dev: port device
-+ *
-+ *	Called for SELF on rtnl_bridge_getlink to get bridge port
-+ *	attributes.
-+ */
-+int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				  struct net_device *dev, u32 filter_mask,
-+				  int nlflags)
-+{
-+	struct switchdev_attr attr = {
-+		.id = SWITCHDEV_ATTR_PORT_BRIDGE_FLAGS,
-+	};
-+	u16 mode = BRIDGE_MODE_UNDEF;
-+	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
-+	int err;
-+
-+	err = switchdev_port_attr_get(dev, &attr);
-+	if (err)
-+		return err;
-+
-+	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
-+				       attr.brport_flags, mask, nlflags);
-+}
-+EXPORT_SYMBOL_GPL(switchdev_port_bridge_getlink);
-+
- static int switchdev_port_br_setflag(struct net_device *dev,
- 				     struct nlattr *nlattr,
- 				     unsigned long brport_flag)
+-	if (p && !(flags & BRIDGE_FLAGS_SELF)) {
+-		/* set bridge attributes in hardware if supported
+-		 */
+-		ret_offload = switchdev_port_bridge_setlink(dev, nlh, flags);
+-		if (ret_offload && ret_offload != -EOPNOTSUPP)
+-			br_warn(p->br, "error setting attrs on port %u(%s)\n",
+-				(unsigned int)p->port_no, p->dev->name);
+-	}
+-
+ 	if (err == 0)
+ 		br_ifinfo_notify(RTM_NEWLINK, p);
+ out:
 -- 
 1.7.10.4
