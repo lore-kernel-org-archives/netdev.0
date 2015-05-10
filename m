@@ -1,77 +1,57 @@
-From: Eric Leblond <eric@regit.org>
-Subject: [ANNOUNCE] ulogd 2.0.5 release
-Date: Sun, 10 May 2015 21:40:35 +0200
-Message-ID: <1431286835.21627.3.camel@regit.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code
+ where it belongs
+Date: Sun, 10 May 2015 21:50:18 +0200
+Message-ID: <20150510195018.GA7877@salvia>
+References: <1431277170-4618-3-git-send-email-pablo@netfilter.org>
+ <554F9946.9040707@plumgrid.com>
+ <20150510175934.GA3799@salvia>
+ <554F9DE8.3000507@plumgrid.com>
+ <20150510182414.GA4198@salvia>
+ <554FA7A5.5020400@plumgrid.com>
+ <20150510190039.GA4938@salvia>
+ <554FAC3A.40701@plumgrid.com>
+ <20150510192044.GA7173@salvia>
+ <554FB366.7080509@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
-	boundary="=-j3PVfRiGTQbNzXmJyRnT"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: Netfilter Devel <netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+	daniel@iogearbox.net
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:53337 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751571AbbEJTpe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 May 2015 15:45:34 -0400
+Content-Disposition: inline
+In-Reply-To: <554FB366.7080509@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sun, May 10, 2015 at 12:37:10PM -0700, Alexei Starovoitov wrote:
+> On 5/10/15 12:20 PM, Pablo Neira Ayuso wrote:
+[...]
+> Another non-technical 'guess' ?
+> 
+> baseline with Daniel's two patches:
+>    text	   data	    bss	    dec	    hex	filename
+> 10605509	1885208	1400832	13891549	 d3f7dd	vmlinux
+> 
+> then with:
+> -static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+> +static noinline struct sk_buff *handle_ing(struct sk_buff *skb,
+> 
+>    text	   data	    bss	    dec	    hex	filename
+> 10605572	1885208	1400832	13891612	 d3f81c	vmlinux
+> 
+> so not inlining handle_ing() actually may have an impact on everyone,
+> because .text gets bigger. Though only marginally.
+> 
+> btw, after removing 'inline' keyword gcc still inlines it automatically
+> and looking at the above numbers gcc is doing the right call.
 
---=-j3PVfRiGTQbNzXmJyRnT
-Content-Type: multipart/mixed; boundary="=-cee/EmCTJ/vU7XRMMarL"
+Please, stop this.
 
-
---=-cee/EmCTJ/vU7XRMMarL
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-Hi!
-
-The Netfilter project proudly presents:
-
-	ulogd 2.0.5
-
-This release fixes build on recent systems where Linux headers don't
-contain anymore ULOG header files. It also fixes JSON output on big
-endian system.
-
-A big thanks to Jimmy Jones, Vincent Bernat for their contributions. See
-ChangeLog that comes attached to this email for more details.
-
-You can download it from:
-
-http://www.netfilter.org/projects/ulogd/downloads.html
-ftp://ftp.netfilter.org/pub/ulogd/
-
-Have fun!
---=20
-Eric Leblond <eric@regit.org>
-Blog: https://home.regit.org/
-
---=-cee/EmCTJ/vU7XRMMarL
-Content-Disposition: attachment; filename="changes-ulogd-2.0.5.txt"
-Content-Type: text/plain; name="changes-ulogd-2.0.5.txt"; charset="UTF-8"
-Content-Transfer-Encoding: base64
-
-RXJpYyBMZWJsb25kICg0KToKICAgICAgZ2l0aWdub3JlOiBhZGQgbWFucGFnZQogICAgICBTZXQg
-cmVsZWFzZSBudW1iZXIgdG8gMi4wLjUuCiAgICAgIEFkZCBmbGFnIHRvIGRpc2FibGUgVUxPRyBp
-bnB1dCBwbHVnaW4KICAgICAgQWRkIG1pc3NpbmcgZW5hYmxldmFsIHRvIGNvbmZpZ3VyZQoKSmlt
-bXkgSm9uZXMgKDEpOgogICAgICBGaXggSlNPTiBvdXRwdXQgb24gYmlnIGVuZGlhbiBzeXN0ZW1z
-CgpQYWJsbyBOZWlyYSBBeXVzbyAoMSk6CiAgICAgIGluY2x1ZGU6IGtlZXAgYSBjb3B5IG9mIGxp
-bnV4L25ldGZpbHRlcl9pcHY0L2lwdF9VTE9HLmgKClZpbmNlbnQgQmVybmF0ICgxKToKICAgICAg
-Z2l0aWdub3JlOiBpZ25vcmUgZ2VuZXJhdGVkIGRvY3VtZW50YXRpb24KCg==
-
-
---=-cee/EmCTJ/vU7XRMMarL--
-
---=-j3PVfRiGTQbNzXmJyRnT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iEYEABECAAYFAlVPtDgACgkQnxA7CdMWjzJF3QCcCXab7R7495m2aDNKwcTtGr2u
-7BEAnR2l8irddUK20I/eMKYEMm7Hleox
-=d1Pp
------END PGP SIGNATURE-----
-
---=-j3PVfRiGTQbNzXmJyRnT--
-
+The numbers show that the existing approach and your approach results
+in less performance for everyone that don't need to filter from
+ingress. We have to move ingress to where it belongs.
