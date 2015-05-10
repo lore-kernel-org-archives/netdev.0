@@ -1,90 +1,226 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v7 20/24] switchdev: cut over to new switchdev_port_bridge_getlink
-Date: Sun, 10 May 2015 09:48:05 -0700
-Message-ID: <1431276489-64199-21-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v7 07/24] switchdev: introduce switchdev add/del obj ops
+Date: Sun, 10 May 2015 09:47:52 -0700
+Message-ID: <1431276489-64199-8-git-send-email-sfeldma@gmail.com>
 References: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
 	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36451 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751865AbbEJQrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:22 -0400
-Received: by pabsx10 with SMTP id sx10so90823002pab.3
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:22 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34872 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751442AbbEJQrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:08 -0400
+Received: by pabtp1 with SMTP id tp1so90831708pab.2
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:07 -0700 (PDT)
 In-Reply-To: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
+Like switchdev attr get/set, add new switchdev obj add/del.  switchdev objs
+will be things like VLANs or FIB entries, so add/del fits better for
+objects than get/set used for attributes.
+
+Use same two-phase prepare-commit transaction model as in attr set.
+
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/bonding/bond_main.c      |    1 +
- drivers/net/ethernet/rocker/rocker.c |   15 +--------------
- drivers/net/team/team.c              |    1 +
- 3 files changed, 3 insertions(+), 14 deletions(-)
+ include/net/switchdev.h   |   31 +++++++++++++
+ net/switchdev/switchdev.c |  107 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 138 insertions(+)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index bb47661..b361d8c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4040,6 +4040,7 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_del_slave		= bond_release,
- 	.ndo_fix_features	= bond_fix_features,
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
-+	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
- 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- 	.ndo_features_check	= passthru_features_check,
- };
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 17a4c55..56ee316 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4295,19 +4295,6 @@ skip:
- 	return idx;
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index aec5e49..4f43300 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -41,6 +41,15 @@ struct switchdev_attr {
+ 
+ struct fib_info;
+ 
++enum switchdev_obj_id {
++	SWITCHDEV_OBJ_UNDEFINED,
++};
++
++struct switchdev_obj {
++	enum switchdev_obj_id id;
++	enum switchdev_trans trans;
++};
++
+ /**
+  * struct switchdev_ops - switchdev operations
+  *
+@@ -48,6 +57,10 @@ struct fib_info;
+  *
+  * @switchdev_port_attr_set: Set a port attribute (see switchdev_attr).
+  *
++ * @switchdev_port_obj_add: Add an object to port (see switchdev_obj).
++ *
++ * @switchdev_port_obj_del: Delete an object from port (see switchdev_obj).
++ *
+  * @switchdev_fib_ipv4_add: Called to add/modify IPv4 route to switch device.
+  *
+  * @switchdev_fib_ipv4_del: Called to delete IPv4 route from switch device.
+@@ -57,6 +70,10 @@ struct switchdev_ops {
+ 					   struct switchdev_attr *attr);
+ 	int	(*switchdev_port_attr_set)(struct net_device *dev,
+ 					   struct switchdev_attr *attr);
++	int	(*switchdev_port_obj_add)(struct net_device *dev,
++					  struct switchdev_obj *obj);
++	int	(*switchdev_port_obj_del)(struct net_device *dev,
++					  struct switchdev_obj *obj);
+ 	int	(*switchdev_fib_ipv4_add)(struct net_device *dev, __be32 dst,
+ 					  int dst_len, struct fib_info *fi,
+ 					  u8 tos, u8 type, u32 nlflags,
+@@ -93,6 +110,8 @@ int switchdev_port_attr_get(struct net_device *dev,
+ 			    struct switchdev_attr *attr);
+ int switchdev_port_attr_set(struct net_device *dev,
+ 			    struct switchdev_attr *attr);
++int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj);
++int switchdev_port_obj_del(struct net_device *dev, struct switchdev_obj *obj);
+ int register_switchdev_notifier(struct notifier_block *nb);
+ int unregister_switchdev_notifier(struct notifier_block *nb);
+ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
+@@ -125,6 +144,18 @@ static inline int switchdev_port_attr_set(struct net_device *dev,
+ 	return -EOPNOTSUPP;
  }
  
--static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--				      struct net_device *dev,
--				      u32 filter_mask, int nlflags)
--{
--	struct rocker_port *rocker_port = netdev_priv(dev);
--	u16 mode = BRIDGE_MODE_UNDEF;
--	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
--
--	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
--				       rocker_port->brport_flags, mask,
--				       nlflags);
--}
--
- static int rocker_port_get_phys_port_name(struct net_device *dev,
- 					  char *buf, size_t len)
++static inline int switchdev_port_obj_add(struct net_device *dev,
++					 struct switchdev_obj *obj)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int switchdev_port_obj_del(struct net_device *dev,
++					 struct switchdev_obj *obj)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int register_switchdev_notifier(struct notifier_block *nb)
  {
-@@ -4334,8 +4321,8 @@ static const struct net_device_ops rocker_port_netdev_ops = {
- 	.ndo_fdb_add			= rocker_port_fdb_add,
- 	.ndo_fdb_del			= rocker_port_fdb_del,
- 	.ndo_fdb_dump			= rocker_port_fdb_dump,
-+	.ndo_bridge_getlink		= switchdev_port_bridge_getlink,
- 	.ndo_bridge_setlink		= switchdev_port_bridge_setlink,
--	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
- 	.ndo_bridge_dellink		= switchdev_port_bridge_dellink,
- 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
- };
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 0283753..bda32be 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1978,6 +1978,7 @@ static const struct net_device_ops team_netdev_ops = {
- 	.ndo_fix_features	= team_fix_features,
- 	.ndo_change_carrier     = team_change_carrier,
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
-+	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
- 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
- 	.ndo_features_check	= passthru_features_check,
- };
+ 	return 0;
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index a3c3590..3d4d99a 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -187,6 +187,113 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
+ }
+ EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
+ 
++int __switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
++{
++	const struct switchdev_ops *ops = dev->switchdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	int err = -EOPNOTSUPP;
++
++	if (ops && ops->switchdev_port_obj_add)
++		return ops->switchdev_port_obj_add(dev, obj);
++
++	/* Switch device port(s) may be stacked under
++	 * bond/team/vlan dev, so recurse down to add object on
++	 * each port.
++	 */
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = __switchdev_port_obj_add(lower_dev, obj);
++		if (err)
++			break;
++	}
++
++	return err;
++}
++
++/**
++ *	switchdev_port_obj_add - Add port object
++ *
++ *	@dev: port device
++ *	@obj: object to add
++ *
++ *	Use a 2-phase prepare-commit transaction model to ensure
++ *	system is not left in a partially updated state due to
++ *	failure from driver/device.
++ *
++ *	rtnl_lock must be held.
++ */
++int switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
++{
++	int err;
++
++	ASSERT_RTNL();
++
++	/* Phase I: prepare for obj add. Driver/device should fail
++	 * here if there are going to be issues in the commit phase,
++	 * such as lack of resources or support.  The driver/device
++	 * should reserve resources needed for the commit phase here,
++	 * but should not commit the obj.
++	 */
++
++	obj->trans = SWITCHDEV_TRANS_PREPARE;
++	err = __switchdev_port_obj_add(dev, obj);
++	if (err) {
++		/* Prepare phase failed: abort the transaction.  Any
++		 * resources reserved in the prepare phase are
++		 * released.
++		 */
++
++		obj->trans = SWITCHDEV_TRANS_ABORT;
++		__switchdev_port_obj_add(dev, obj);
++
++		return err;
++	}
++
++	/* Phase II: commit obj add.  This cannot fail as a fault
++	 * of driver/device.  If it does, it's a bug in the driver/device
++	 * because the driver said everythings was OK in phase I.
++	 */
++
++	obj->trans = SWITCHDEV_TRANS_COMMIT;
++	err = __switchdev_port_obj_add(dev, obj);
++	WARN(err, "%s: Commit of object (id=%d) failed.\n", dev->name, obj->id);
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(switchdev_port_obj_add);
++
++/**
++ *	switchdev_port_obj_del - Delete port object
++ *
++ *	@dev: port device
++ *	@obj: object to delete
++ */
++int switchdev_port_obj_del(struct net_device *dev, struct switchdev_obj *obj)
++{
++	const struct switchdev_ops *ops = dev->switchdev_ops;
++	struct net_device *lower_dev;
++	struct list_head *iter;
++	int err = -EOPNOTSUPP;
++
++	if (ops && ops->switchdev_port_obj_del)
++		return ops->switchdev_port_obj_del(dev, obj);
++
++	/* Switch device port(s) may be stacked under
++	 * bond/team/vlan dev, so recurse down to delete object on
++	 * each port.
++	 */
++
++	netdev_for_each_lower_dev(dev, lower_dev, iter) {
++		err = switchdev_port_obj_del(lower_dev, obj);
++		if (err)
++			break;
++	}
++
++	return err;
++}
++EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
++
+ static DEFINE_MUTEX(switchdev_mutex);
+ static RAW_NOTIFIER_HEAD(switchdev_notif_chain);
+ 
 -- 
 1.7.10.4
