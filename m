@@ -1,209 +1,238 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v3 for-next 04/13] IB/ipoib: Return IPoIB devices matching connection parameters
-Date: Sun, 10 May 2015 13:26:35 +0300
-Message-ID: <1431253604-9214-5-git-send-email-haggaie@mellanox.com>
+From: Haggai Eran <haggaie@mellanox.com>
+Subject: [PATCH v3 for-next 01/13] IB/core: Use SRCU when reading client_list or device_list
+Date: Sun, 10 May 2015 13:26:32 +0300
+Message-ID: <1431253604-9214-2-git-send-email-haggaie@mellanox.com>
 References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1431253604-9214-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>,
+	Haggai Eran <haggaie@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+To: Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1327.ztomy.com ([193.47.165.129]:49304 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752199AbbEJK1N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 May 2015 06:27:13 -0400
+In-Reply-To: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Currently the RDMA subsystem's device list and client list are protected by
+a single mutex. This prevents adding user-facing APIs that iterate these
+lists, since using them may cause a deadlock. The patch attempts to solve
+this problem by adding an SRCU to protect the lists. Readers now don't need
+the mutex, and are safe just by using srcu_read_lock/unlock.
 
-Implement the get_net_device_by_port_pkey_ip callback that returns network
-device to ib_core according to connection parameters. Check the ipoib
-device and iterate over all child devices to look for a match.
+The ib_register_device, ib_register_client, and ib_unregister_client
+functions are modified to only lock the device_mutex during their
+respective list modification, and use the SRCU for iteration on the other
+list. In ib_unregister_device, the client list iteration remains in the
+mutex critical section as it is done in reverse order.
 
-For each ipoib device we iterate through all upper devices when searching
-for a matching IP, in order to support bonding.
+This patch attempts to solve a similar need [1] that was seen in the RoCE
+v2 patch series.
 
-Signed-off-by: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+[1] http://www.spinics.net/lists/linux-rdma/msg24733.html
+
+Cc: Matan Barak <matanb@mellanox.com>
+Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Signed-off-by: Haggai Eran <haggaie@mellanox.com>
 ---
- drivers/infiniband/ulp/ipoib/ipoib_main.c | 139 +++++++++++++++++++++++++++++-
- 1 file changed, 138 insertions(+), 1 deletion(-)
+ drivers/infiniband/core/device.c | 75 ++++++++++++++++++++++++++++++----------
+ 1 file changed, 56 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 3421e42870c3..75def39a4271 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -48,6 +48,9 @@
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index b360350a0b20..7d90b2ca2eba 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -58,12 +58,11 @@ EXPORT_SYMBOL_GPL(ib_wq);
+ static LIST_HEAD(device_list);
+ static LIST_HEAD(client_list);
  
- #include <linux/jhash.h>
- #include <net/arp.h>
-+#include <net/addrconf.h>
-+#include <linux/inetdevice.h>
-+#include <rdma/ib_cache.h>
++/* device_srcu protects access to both device_list and client_list. */
++static struct srcu_struct device_srcu;
++
+ /*
+- * device_mutex protects access to both device_list and client_list.
+- * There's no real point to using multiple locks or something fancier
+- * like an rwsem: we always access both lists, and we're always
+- * modifying one list or the other list.  In any case this is not a
+- * hot path so there's no point in trying to optimize.
++ * device_mutex protects writer access to both device_list and client_list.
+  */
+ static DEFINE_MUTEX(device_mutex);
  
- #define DRV_VERSION "1.0.0"
+@@ -276,6 +275,7 @@ int ib_register_device(struct ib_device *device,
+ 					    u8, struct kobject *))
+ {
+ 	int ret;
++	int id;
  
-@@ -91,11 +94,15 @@ struct ib_sa_client ipoib_sa_client;
- static void ipoib_add_one(struct ib_device *device);
- static void ipoib_remove_one(struct ib_device *device);
- static void ipoib_neigh_reclaim(struct rcu_head *rp);
-+static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
-+		struct ib_device *dev, u8 port, u16 pkey,
-+		struct sockaddr *addr);
+ 	mutex_lock(&device_mutex);
  
- static struct ib_client ipoib_client = {
- 	.name   = "ipoib",
- 	.add    = ipoib_add_one,
--	.remove = ipoib_remove_one
-+	.remove = ipoib_remove_one,
-+	.get_net_device_by_port_pkey_ip = ipoib_get_net_device_by_port_pkey_ip,
- };
+@@ -315,13 +315,19 @@ int ib_register_device(struct ib_device *device,
  
- int ipoib_open(struct net_device *dev)
-@@ -222,6 +229,136 @@ static int ipoib_change_mtu(struct net_device *dev, int new_mtu)
+ 	device->reg_state = IB_DEV_REGISTERED;
+ 
++	mutex_unlock(&device_mutex);
++
++	id = srcu_read_lock(&device_srcu);
+ 	{
+ 		struct ib_client *client;
+ 
+-		list_for_each_entry(client, &client_list, list)
++		list_for_each_entry_rcu(client, &client_list, list)
+ 			if (client->add && !add_client_context(device, client))
+ 				client->add(device);
+ 	}
++	srcu_read_unlock(&device_srcu, id);
++
++	return 0;
+ 
+  out:
+ 	mutex_unlock(&device_mutex);
+@@ -338,6 +344,7 @@ EXPORT_SYMBOL(ib_register_device);
+ void ib_unregister_device(struct ib_device *device)
+ {
+ 	struct ib_client *client;
++	LIST_HEAD(contexts);
+ 	struct ib_client_data *context, *tmp;
+ 	unsigned long flags;
+ 
+@@ -347,21 +354,26 @@ void ib_unregister_device(struct ib_device *device)
+ 		if (client->remove)
+ 			client->remove(device);
+ 
+-	list_del(&device->core_list);
++	list_del_rcu(&device->core_list);
++
++	mutex_unlock(&device_mutex);
++
++	synchronize_srcu(&device_srcu);
+ 
+ 	kfree(device->gid_tbl_len);
+ 	kfree(device->pkey_tbl_len);
+ 
+-	mutex_unlock(&device_mutex);
+-
+ 	ib_device_unregister_sysfs(device);
+ 
+ 	spin_lock_irqsave(&device->client_data_lock, flags);
+-	list_for_each_entry_safe(context, tmp, &device->client_data_list, list)
+-		kfree(context);
++	list_cut_position(&contexts, &device->client_data_list,
++			  device->client_data_list.prev);
+ 	spin_unlock_irqrestore(&device->client_data_lock, flags);
+ 
+ 	device->reg_state = IB_DEV_UNREGISTERED;
++
++	list_for_each_entry_safe(context, tmp, &contexts, list)
++		kfree(context);
+ }
+ EXPORT_SYMBOL(ib_unregister_device);
+ 
+@@ -381,15 +393,19 @@ EXPORT_SYMBOL(ib_unregister_device);
+ int ib_register_client(struct ib_client *client)
+ {
+ 	struct ib_device *device;
++	int id;
+ 
+ 	mutex_lock(&device_mutex);
++	list_add_tail_rcu(&client->list, &client_list);
++	mutex_unlock(&device_mutex);
+ 
+-	list_add_tail(&client->list, &client_list);
+-	list_for_each_entry(device, &device_list, core_list)
++	id = srcu_read_lock(&device_srcu);
++
++	list_for_each_entry_rcu(device, &device_list, core_list)
+ 		if (client->add && !add_client_context(device, client))
+ 			client->add(device);
+ 
+-	mutex_unlock(&device_mutex);
++	srcu_read_unlock(&device_srcu, id);
+ 
  	return 0;
  }
- 
-+/* Called with an RCU read lock taken */
-+static bool ipoib_is_dev_match_addr(struct sockaddr *addr,
-+				    struct net_device *dev)
-+{
-+	struct net *net = dev_net(dev);
-+	struct in_device *in_dev;
-+	struct sockaddr_in *addr_in = (struct sockaddr_in *)addr;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
-+#endif
-+	__be32 ret_addr;
-+
-+	switch (addr->sa_family) {
-+	case AF_INET:
-+		in_dev = in_dev_get(dev);
-+		if (!in_dev)
-+			return false;
-+
-+		ret_addr = inet_confirm_addr(net, in_dev, 0,
-+					     addr_in->sin_addr.s_addr,
-+					     RT_SCOPE_HOST);
-+		in_dev_put(in_dev);
-+		if (ret_addr)
-+			return true;
-+
-+		break;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	case AF_INET6:
-+		if (ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
-+			return true;
-+
-+		break;
-+#endif
-+	}
-+	return false;
-+}
-+
-+/**
-+ * Find a net_device matching the given address, which is an upper device of
-+ * the given net_device.
-+ * @addr: IP address to look for.
-+ * @dev: base IPoIB net_device
-+ *
-+ * If found, returns the net_device with a reference held. Otherwise return
-+ * NULL.
-+ */
-+static struct net_device *ipoib_get_net_dev_match_addr(struct sockaddr *addr,
-+						       struct net_device *dev)
-+{
-+	struct net_device *upper,
-+			  *result = NULL;
-+	struct list_head *iter;
-+
-+	rcu_read_lock();
-+	if (ipoib_is_dev_match_addr(addr, dev)) {
-+		dev_hold(dev);
-+		result = dev;
-+		goto out;
-+	}
-+
-+	netdev_for_each_all_upper_dev_rcu(dev, upper, iter) {
-+		if (ipoib_is_dev_match_addr(addr, upper)) {
-+			dev_hold(upper);
-+			result = upper;
-+			break;
-+		}
-+	}
-+out:
-+	rcu_read_unlock();
-+	return result;
-+}
-+
-+/* returns an IPoIB netdev on top a given ipoib device matching a pkey_index
-+ * and address, if one exists. */
-+static struct net_device *ipoib_match_pkey_addr(struct ipoib_dev_priv *priv,
-+						u16 pkey_index,
-+						struct sockaddr *addr)
-+{
-+	struct ipoib_dev_priv *child_priv;
-+	struct net_device *net_dev = NULL;
-+
-+	if (priv->pkey_index == pkey_index) {
-+		net_dev = ipoib_get_net_dev_match_addr(addr, priv->dev);
-+		if (net_dev)
-+			return net_dev;
-+	}
-+
-+	/* Check child interfaces */
-+	down_read(&priv->vlan_rwsem);
-+	list_for_each_entry(child_priv, &priv->child_intfs, list) {
-+		net_dev = ipoib_match_pkey_addr(child_priv, pkey_index, addr);
-+		if (net_dev)
-+			break;
-+	}
-+	up_read(&priv->vlan_rwsem);
-+
-+	return net_dev;
-+}
-+
-+static struct net_device *ipoib_get_net_device_by_port_pkey_ip(
-+		struct ib_device *dev, u8 port, u16 pkey, struct sockaddr *addr)
-+{
-+	struct ipoib_dev_priv *priv;
-+	struct list_head *dev_list;
-+	struct net_device *net_dev;
-+	u16 pkey_index;
-+	int ret;
-+
-+	ret = ib_find_cached_pkey(dev, port, pkey, &pkey_index);
-+	if (ret)
-+		return NULL;
-+
-+	if (!rdma_protocol_ib(dev, port))
-+		return NULL;
-+
-+	dev_list = ib_get_client_data(dev, &ipoib_client);
-+	if (!dev_list)
-+		return NULL;
-+
-+	list_for_each_entry(priv, dev_list, list) {
-+		if (priv->port != port)
-+			continue;
-+
-+		net_dev = ipoib_match_pkey_addr(priv, pkey_index, addr);
-+		if (net_dev)
-+			return net_dev;
-+	}
-+	return NULL;
-+}
-+
- int ipoib_set_mode(struct net_device *dev, const char *buf)
+@@ -407,11 +423,13 @@ void ib_unregister_client(struct ib_client *client)
  {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
+ 	struct ib_client_data *context, *tmp;
+ 	struct ib_device *device;
++	LIST_HEAD(contexts);
+ 	unsigned long flags;
++	int id;
+ 
+-	mutex_lock(&device_mutex);
++	id = srcu_read_lock(&device_srcu);
+ 
+-	list_for_each_entry(device, &device_list, core_list) {
++	list_for_each_entry_rcu(device, &device_list, core_list) {
+ 		if (client->remove)
+ 			client->remove(device);
+ 
+@@ -419,13 +437,21 @@ void ib_unregister_client(struct ib_client *client)
+ 		list_for_each_entry_safe(context, tmp, &device->client_data_list, list)
+ 			if (context->client == client) {
+ 				list_del(&context->list);
+-				kfree(context);
++				list_add(&context->list, &contexts);
+ 			}
+ 		spin_unlock_irqrestore(&device->client_data_lock, flags);
+ 	}
+-	list_del(&client->list);
+ 
++	srcu_read_unlock(&device_srcu, id);
++
++	mutex_lock(&device_mutex);
++	list_del_rcu(&client->list);
+ 	mutex_unlock(&device_mutex);
++
++	synchronize_srcu(&device_srcu);
++
++	list_for_each_entry_safe(context, tmp, &contexts, list)
++		kfree(context);
+ }
+ EXPORT_SYMBOL(ib_unregister_client);
+ 
+@@ -738,9 +764,15 @@ static int __init ib_core_init(void)
+ {
+ 	int ret;
+ 
++	ret = init_srcu_struct(&device_srcu);
++	if (ret) {
++		pr_warn("Couldn't initialize SRCU\n");
++		return ret;
++	}
++
+ 	ib_wq = alloc_workqueue("infiniband", 0, 0);
+ 	if (!ib_wq)
+-		return -ENOMEM;
++		goto err_srcu;
+ 
+ 	ret = ib_sysfs_setup();
+ 	if (ret) {
+@@ -770,6 +802,9 @@ err_sysfs:
+ 
+ err:
+ 	destroy_workqueue(ib_wq);
++err_srcu:
++	cleanup_srcu_struct(&device_srcu);
++
+ 	return ret;
+ }
+ 
+@@ -780,6 +815,8 @@ static void __exit ib_core_cleanup(void)
+ 	ib_sysfs_cleanup();
+ 	/* Make sure that any pending umem accounting work is done. */
+ 	destroy_workqueue(ib_wq);
++	srcu_barrier(&device_srcu);
++	cleanup_srcu_struct(&device_srcu);
+ }
+ 
+ module_init(ib_core_init);
 -- 
 1.7.11.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
