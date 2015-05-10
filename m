@@ -1,68 +1,186 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next V3 08/11] net/mlx5_core: Set/Query port MTU commands
-Date: Sun, 10 May 2015 19:32:11 +0300
-Message-ID: <554F880B.8060203@cogentembedded.com>
-References: <1431250746-11941-1-git-send-email-amirv@mellanox.com> <1431250746-11941-9-git-send-email-amirv@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: sfeldma@gmail.com
+Subject: [PATCH net-next v7 00/24] switchdev: spring cleanup
+Date: Sun, 10 May 2015 09:47:45 -0700
+Message-ID: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
+	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
+	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:35336 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbbEJQcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:32:15 -0400
-Received: by lbbuc2 with SMTP id uc2so79948900lbb.2
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:32:13 -0700 (PDT)
-In-Reply-To: <1431250746-11941-9-git-send-email-amirv@mellanox.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:36236 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431AbbEJQq7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:46:59 -0400
+Received: by pabsx10 with SMTP id sx10so90818593pab.3
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:46:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Scott Feldman <sfeldma@gmail.com>
 
-On 5/10/2015 12:39 PM, Amir Vadai wrote:
+v7:
 
-> From: Saeed Mahameed <saeedm@mellanox.com>
+Address review comments:
 
-> Introduce set/Query low level functions to access MTU in hardware. To be
-> used by the netdev.
+ - [Jiri] split the br_setlink and br_dellink reverts into their own patches
+ - [Jiri] some parameter cleanup of rocker's memory allocators
+ - [Jiri] pass trans mode as formal parameter rather than hanging off of
+     rocker_port.
 
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx5/core/port.c | 56 ++++++++++++++++++++++++++
->   include/linux/mlx5/driver.h                    |  4 ++
->   2 files changed, 60 insertions(+)
+v6:
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-> index 742a6fb..e56a0b6 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-> @@ -211,3 +211,59 @@ int mlx5_query_port_status(struct mlx5_core_dev *dev, u8 *status)
-[...]
-> +int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu)
-> +{
-> +	u32 in[MLX5_ST_SZ_DW(pmtu_reg)];
-> +	u32 out[MLX5_ST_SZ_DW(pmtu_reg)];
-> +	int err;
-> +
-> +	memset(in, 0, sizeof(in));
-> +
-> +	MLX5_SET(pmtu_reg, in, admin_mtu, mtu);
-> +	MLX5_SET(pmtu_reg, in, local_port, 1);
-> +
-> +	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
-> +				   sizeof(out), MLX5_REG_PMTU, 0, 1);
-> +
-> +	return err;
+Address review comments:
 
-    Why not just return directly?
+ - [Jiri] split a couple of patches into one-logical-change per patch
+ - [Joe Perches] revert checkpatch -f changes for wrapped lines with long
+     symbols.
 
-[...]
+v5:
 
-WBR, Sergei
+Address review comments:
+
+ - [Jiri] include Jiri's s/swdev/switchdev rename patches up front.
+ - [Jiri] squash some patches.  Now setlink/dellink/getlink patches are in
+     three parts: new implementation, convert drivers to new, delete old impl.
+ - [Jiri] some minor variable renames
+ - [Jiri] use BUG_ON rather than WARN when COMMIT phase fails when PREPARE
+     phase said it was safe to come into the water.
+ - [Simon] rocker: fix a few transaction prepare-commit cases that were wrong.
+     This was the bulk of the changes in v5.
+
+v4:
+
+Well, it was a lot of work, but now prepare-commit transaction model is how
+davem advises: if prepare fails, abort the transaction.  The driver must do
+resource reservations up front in prepare phase and return those resources if
+aborting.  Commit phase would use reserved resources.  The good news is the
+driver code (for rocker) now handles resource allocation failures better by not
+leaving partially device or driver states.  This is a side-effect of the
+prepare phase where state isn't modified; only validation of inputs and
+resource reservations happen in the prepare phase.  Since we're supporting
+setting attrs and add objs across lower devs in the stacked case, we need to
+hold rtnl_lock (or ensure rtnl_lock is held) so lower devs don't move on us
+during the prepare-commit transaction.  DSA driver code skips the prepare phase
+and goes straight for the commit phase since no up-front allocations are done
+and no device failures (that could be detected in the prepare phase) can
+happen.
+
+Remove NETIF_F_HW_SWITCH_OFFLOAD from rocker and the swdev_attr_set/get
+wrappers.  DSA doesn't set NETIF_F_HW_SWITCH_OFFLOAD, so it can't be in
+swdev_attr_set/get.  rocker doesn't need it; or rather can't support
+NETIF_F_HW_SWITCH_OFFLOAD being set/cleared at run-time after the device
+port is already up and offloading L2/L3.  NETIF_F_HW_SWITCH_OFFLOAD is still
+left as a feature flag for drivers that can use it.
+
+Drop the renaming patch for netdev_switch_notifier.  Other renames are a
+result of moving to the attr get/set or obj add/del model.  Everything
+but the netdev_switch_notifier is still prefixed with "swdev_".
+
+v3:
+
+Move to two-phase prepare-commit transaction model for attr set and obj add.
+Driver gets a change in prepare phase to NACK transaction if lack of resources
+or support in device.
+
+v2:
+
+Address review comments:
+
+ - [Jiri] squash a few related patches
+ - [Roopa] don't remove NETIF_F_HW_SWITCH_OFFLOAD
+ - [Roopa] address VLAN setlink/dellink
+ - [Ronen] print warning is attr set revert fails
+
+Not address:
+
+ - Using something other than "swdev_" prefix
+ - Vendor extentions
+
+The patch set grew a bit to not only support port attr get/set but also add
+support for port obj add/del.  Example of port objs are VLAN, FDB entries, and
+FIB entries.  The VLAN support now allows the swdev driver to get VLAN ranges
+and flags like PVID and "untagged".  Sridhar will be adding FDB obj support
+in follow-on patch.
+
+
+v1:
+
+The main theme of this patch set is to cleanup swdev in preparation for
+new features or fixes to be added soon.  We have a pretty good idea now how
+to handle stacked drivers in swdev, but there where some loose ends.  For
+example, if a set failed in the middle of walking the lower devs, we would
+leave the system in an undefined state...there was no way to recover back to
+the previous state.  Speaking of sets, also recognize a pattern that most
+swdev API accesses are gets or sets of port attributes, so go ahead and make
+port attr get/set the central swdev API, and convert everything that is
+set-ish/get-ish to this new API.
+
+Features/fixes that should follow from this cleanup:
+
+ - solve the duplicate pkt forwarding issue
+ - get/set bridge attrs, like ageing_time, from/to device
+ - get/set more bridge port attrs from/to device
+
+There are some rename cleanups tagging along at the end, to give swdev
+consistent naming.
+
+And finally, some much needed updates to the switchdev.txt documentation to
+hopefully capture the state-of-the-art of swdev.  Hopefully, we can do a better
+job keeping this document up-to-date.
+
+Tested with rocker, of course, to make sure nothing functional broke.  There
+are a couple minor tweaks to DSA code for getting switch ID and setting STP
+updates to use new API, but not expecting amy breakage there.
+
+
+Jiri Pirko (2):
+  switchdev: s/netdev_switch_/switchdev_/ and
+    s/NETDEV_SWITCH_/SWITCHDEV_/
+  switchdev: s/swdev_/switchdev_/
+
+Scott Feldman (22):
+  switchdev: introduce get/set attrs ops
+  switchdev: convert parent_id_get to switchdev attr get
+  rocker: support prepare-commit transaction model
+  switchdev: convert STP update to switchdev attr set
+  switchdev: introduce switchdev add/del obj ops
+  switchdev: add port vlan obj
+  rocker: use switchdev add/del obj for bridge port vlans
+  switchdev: add bridge port flags attr
+  switchdev: add new switchdev bridge setlink
+  switchdev: cut over to new switchdev_port_bridge_setlink
+  switchdev: remove old switchdev_port_bridge_setlink
+  bridge: restore br_setlink back to original
+  switchdev: add new switchdev_port_bridge_dellink
+  switchdev: cut over to new switchdev_port_bridge_dellink
+  switchdev: remove unused switchdev_port_bridge_dellink
+  bridge: revert br_dellink change back to original
+  switchdev: add new switchdev_port_bridge_getlink
+  switchdev: cut over to new switchdev_port_bridge_getlink
+  switchdev: convert fib_ipv4_add/del over to
+    switchdev_port_obj_add/del
+  switchdev: remove NETIF_F_HW_SWITCH_OFFLOAD feature flag
+  rocker: make checkpatch -f clean
+  switchdev: bring documentation up-to-date
+
+ Documentation/networking/switchdev.txt |  414 ++++++++++++--
+ drivers/net/bonding/bond_main.c        |   10 +-
+ drivers/net/ethernet/rocker/rocker.c   |  972 ++++++++++++++++++++------------
+ drivers/net/ethernet/rocker/rocker.h   |   28 +-
+ drivers/net/team/team.c                |    7 +-
+ include/linux/netdev_features.h        |    5 +-
+ include/linux/netdevice.h              |    2 +-
+ include/net/switchdev.h                |  213 ++++---
+ net/bridge/br.c                        |   22 +-
+ net/bridge/br_netlink.c                |   24 +-
+ net/bridge/br_stp.c                    |    6 +-
+ net/core/ethtool.c                     |    1 -
+ net/core/net-sysfs.c                   |   10 +-
+ net/core/rtnetlink.c                   |    9 +-
+ net/dsa/slave.c                        |   40 +-
+ net/ipv4/fib_trie.c                    |   40 +-
+ net/switchdev/switchdev.c              |  662 ++++++++++++++++------
+ 17 files changed, 1723 insertions(+), 742 deletions(-)
+
+-- 
+1.7.10.4
