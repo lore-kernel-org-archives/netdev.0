@@ -1,10 +1,10 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v7 05/24] rocker: support prepare-commit
- transaction model
-Date: Sun, 10 May 2015 21:20:19 +0200
-Message-ID: <20150510192019.GA2022@nanopsycho>
+Subject: Re: [PATCH net-next v7 06/24] switchdev: convert STP update to
+ switchdev attr set
+Date: Sun, 10 May 2015 21:29:31 +0200
+Message-ID: <20150510192931.GB2022@nanopsycho>
 References: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
- <1431276489-64199-6-git-send-email-sfeldma@gmail.com>
+ <1431276489-64199-7-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
@@ -13,36 +13,28 @@ Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
 	sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:34990 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238AbbEJTUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 15:20:25 -0400
-Received: by wgbhc8 with SMTP id hc8so10695202wgb.2
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 12:20:24 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:37866 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751372AbbEJT3i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 15:29:38 -0400
+Received: by widdi4 with SMTP id di4so75258309wid.0
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 12:29:37 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1431276489-64199-6-git-send-email-sfeldma@gmail.com>
+In-Reply-To: <1431276489-64199-7-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, May 10, 2015 at 06:47:50PM CEST, sfeldma@gmail.com wrote:
+Sun, May 10, 2015 at 06:47:51PM CEST, sfeldma@gmail.com wrote:
 >From: Scott Feldman <sfeldma@gmail.com>
 >
->For rocker, support prepare-commit transaction model for setting attributes
->(and for adding objects).  This requires rocker to preallocate memory
->needed for the commit up front in the prepare phase.  Since rtnl_lock is
->held between prepare-commit, store the allocated memory on a queue hanging
->off of the rocker_port.  Also, in prepare phase, do everything right up to
->calling into HW.  The same code paths are tranversed in the driver for both
->prepare and commit phases.  In some cases, any state modified in the
->prepare phase must be reverted before returning so the commit phase makes
->the same decisions.
+>STP update is just a settable port attribute, so convert
+>switchdev_port_stp_update to an attr set.
 >
->As a consequence of holding rtnl_lock in process context for all attr sets
->(and obj adds), all memory is GFP_KERNEL allocated and we don't need to
->busy spin waiting for the device to complete the command.  So the bulk of
->this patch is simplifying the memory allocations to only use GFP_KERNEL and
->to remove the nowait flag and busy spin loop.
+>For DSA, the prepare phase is skipped and STP updates are only done in the
+>commit phase.  This is because currently the DSA drivers don't need to
+>allocate any memory for STP updates and the STP update will not fail to HW
+>(unless something horrible goes wrong on the MDIO bus, in which case the
+>prepare phase wouldn't have been able to predict anyway).
 >
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
 Acked-by: Jiri Pirko <jiri@resnulli.us>
