@@ -1,46 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code
- where it belongs
-Date: Sun, 10 May 2015 21:20:44 +0200
-Message-ID: <20150510192044.GA7173@salvia>
-References: <1431277170-4618-1-git-send-email-pablo@netfilter.org>
- <1431277170-4618-3-git-send-email-pablo@netfilter.org>
- <554F9946.9040707@plumgrid.com>
- <20150510175934.GA3799@salvia>
- <554F9DE8.3000507@plumgrid.com>
- <20150510182414.GA4198@salvia>
- <554FA7A5.5020400@plumgrid.com>
- <20150510190039.GA4938@salvia>
- <554FAC3A.40701@plumgrid.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v7 05/24] rocker: support prepare-commit
+ transaction model
+Date: Sun, 10 May 2015 21:20:19 +0200
+Message-ID: <20150510192019.GA2022@nanopsycho>
+References: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
+ <1431276489-64199-6-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-	daniel@iogearbox.net
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	linux@roeck-us.net, f.fainelli@gmail.com, andrew@lunn.ch,
+	simon.horman@netronome.com, joe@perches.com,
+	sridhar.samudrala@intel.com, ronen.arad@intel.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51638 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751743AbbEJTP7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 May 2015 15:15:59 -0400
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:34990 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751238AbbEJTUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 15:20:25 -0400
+Received: by wgbhc8 with SMTP id hc8so10695202wgb.2
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 12:20:24 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <554FAC3A.40701@plumgrid.com>
+In-Reply-To: <1431276489-64199-6-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 10, 2015 at 12:06:34PM -0700, Alexei Starovoitov wrote:
-> On 5/10/15 12:00 PM, Pablo Neira Ayuso wrote:
-> >
-> >The inlined code into the ingress core path seems to have an impact to
-> >people that don't need this, even with the static key.
-> 
-> two emails ago you've accused me of non-technical comments and
-> now I've posted real numbers that show no impact on users that don't
-> enable ingress and you still say 'seems to have an impact' ?!
-> I'm speechless.
+Sun, May 10, 2015 at 06:47:50PM CEST, sfeldma@gmail.com wrote:
+>From: Scott Feldman <sfeldma@gmail.com>
+>
+>For rocker, support prepare-commit transaction model for setting attributes
+>(and for adding objects).  This requires rocker to preallocate memory
+>needed for the commit up front in the prepare phase.  Since rtnl_lock is
+>held between prepare-commit, store the allocated memory on a queue hanging
+>off of the rocker_port.  Also, in prepare phase, do everything right up to
+>calling into HW.  The same code paths are tranversed in the driver for both
+>prepare and commit phases.  In some cases, any state modified in the
+>prepare phase must be reverted before returning so the commit phase makes
+>the same decisions.
+>
+>As a consequence of holding rtnl_lock in process context for all attr sets
+>(and obj adds), all memory is GFP_KERNEL allocated and we don't need to
+>busy spin waiting for the device to complete the command.  So the bulk of
+>this patch is simplifying the memory allocations to only use GFP_KERNEL and
+>to remove the nowait flag and busy spin loop.
+>
+>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 
-No. On the danger of repeating myself: The existing approach that
-inlines handle_ing() into __netif_receive_skb_core(), and your
-approach since it's persists on that, has an impact in performance on
-everyone in the earth.
-
-It's quite clear from my patchset description.
+Acked-by: Jiri Pirko <jiri@resnulli.us>
