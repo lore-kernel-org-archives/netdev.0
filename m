@@ -1,122 +1,90 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v7 22/24] switchdev: remove NETIF_F_HW_SWITCH_OFFLOAD feature flag
-Date: Sun, 10 May 2015 09:48:07 -0700
-Message-ID: <1431276489-64199-23-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v7 20/24] switchdev: cut over to new switchdev_port_bridge_getlink
+Date: Sun, 10 May 2015 09:48:05 -0700
+Message-ID: <1431276489-64199-21-git-send-email-sfeldma@gmail.com>
 References: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
 	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35024 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894AbbEJQrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:24 -0400
-Received: by pabtp1 with SMTP id tp1so90834786pab.2
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:24 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36451 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751865AbbEJQrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:22 -0400
+Received: by pabsx10 with SMTP id sx10so90823002pab.3
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:22 -0700 (PDT)
 In-Reply-To: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Roopa said remove the feature flag for this series and she'll work on
-bringing it back if needed at a later date.
-
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/bonding/bond_main.c      |    5 +----
- drivers/net/ethernet/rocker/rocker.c |    3 +--
- drivers/net/team/team.c              |    2 +-
- include/linux/netdev_features.h      |    5 +----
- net/core/ethtool.c                   |    1 -
- 5 files changed, 4 insertions(+), 12 deletions(-)
+ drivers/net/bonding/bond_main.c      |    1 +
+ drivers/net/ethernet/rocker/rocker.c |   15 +--------------
+ drivers/net/team/team.c              |    1 +
+ 3 files changed, 3 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b361d8c..5215e63 100644
+index bb47661..b361d8c 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1015,10 +1015,7 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
- 	netdev_features_t mask;
- 	struct slave *slave;
- 
--	/* If any slave has the offload feature flag set,
--	 * set the offload flag on the bond.
--	 */
--	mask = features | NETIF_F_HW_SWITCH_OFFLOAD;
-+	mask = features;
- 
- 	features &= ~NETIF_F_ONE_FOR_ALL;
- 	features |= NETIF_F_ALL_FOR_ALL;
+@@ -4040,6 +4040,7 @@ static const struct net_device_ops bond_netdev_ops = {
+ 	.ndo_del_slave		= bond_release,
+ 	.ndo_fix_features	= bond_fix_features,
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
++	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+ 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
+ };
 diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 1c90650..9715e33 100644
+index 17a4c55..56ee316 100644
 --- a/drivers/net/ethernet/rocker/rocker.c
 +++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4906,8 +4906,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 	rocker_carrier_init(rocker_port);
+@@ -4295,19 +4295,6 @@ skip:
+ 	return idx;
+ }
  
- 	dev->features |= NETIF_F_NETNS_LOCAL |
--			 NETIF_F_HW_VLAN_CTAG_FILTER |
--			 NETIF_F_HW_SWITCH_OFFLOAD;
-+			 NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	err = register_netdev(dev);
- 	if (err) {
+-static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+-				      struct net_device *dev,
+-				      u32 filter_mask, int nlflags)
+-{
+-	struct rocker_port *rocker_port = netdev_priv(dev);
+-	u16 mode = BRIDGE_MODE_UNDEF;
+-	u32 mask = BR_LEARNING | BR_LEARNING_SYNC;
+-
+-	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
+-				       rocker_port->brport_flags, mask,
+-				       nlflags);
+-}
+-
+ static int rocker_port_get_phys_port_name(struct net_device *dev,
+ 					  char *buf, size_t len)
+ {
+@@ -4334,8 +4321,8 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_fdb_add			= rocker_port_fdb_add,
+ 	.ndo_fdb_del			= rocker_port_fdb_del,
+ 	.ndo_fdb_dump			= rocker_port_fdb_dump,
++	.ndo_bridge_getlink		= switchdev_port_bridge_getlink,
+ 	.ndo_bridge_setlink		= switchdev_port_bridge_setlink,
+-	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
+ 	.ndo_bridge_dellink		= switchdev_port_bridge_dellink,
+ 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
+ };
 diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index bda32be..1ec035a 100644
+index 0283753..bda32be 100644
 --- a/drivers/net/team/team.c
 +++ b/drivers/net/team/team.c
-@@ -1924,7 +1924,7 @@ static netdev_features_t team_fix_features(struct net_device *dev,
- 	struct team *team = netdev_priv(dev);
- 	netdev_features_t mask;
- 
--	mask = features | NETIF_F_HW_SWITCH_OFFLOAD;
-+	mask = features;
- 	features &= ~NETIF_F_ONE_FOR_ALL;
- 	features |= NETIF_F_ALL_FOR_ALL;
- 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index 7d59dc6..9672781 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -66,7 +66,6 @@ enum {
- 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
- 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
- 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
--	NETIF_F_HW_SWITCH_OFFLOAD_BIT,  /* HW switch offload */
- 
- 	/*
- 	 * Add your fresh new feature above and remember to update
-@@ -125,7 +124,6 @@ enum {
- #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
- #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
- #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
--#define NETIF_F_HW_SWITCH_OFFLOAD	__NETIF_F(HW_SWITCH_OFFLOAD)
- 
- /* Features valid for ethtool to change */
- /* = all defined minus driver/device-class-related */
-@@ -161,8 +159,7 @@ enum {
-  */
- #define NETIF_F_ONE_FOR_ALL	(NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ROBUST | \
- 				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
--				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED | \
--				 NETIF_F_HW_SWITCH_OFFLOAD)
-+				 NETIF_F_FRAGLIST | NETIF_F_VLAN_CHALLENGED)
- 
- /*
-  * If one device doesn't support one of these features, then disable it
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 1d00b89..eb0c3ac 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -98,7 +98,6 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
- 	[NETIF_F_RXALL_BIT] =            "rx-all",
- 	[NETIF_F_HW_L2FW_DOFFLOAD_BIT] = "l2-fwd-offload",
- 	[NETIF_F_BUSY_POLL_BIT] =        "busy-poll",
--	[NETIF_F_HW_SWITCH_OFFLOAD_BIT] = "hw-switch-offload",
+@@ -1978,6 +1978,7 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_fix_features	= team_fix_features,
+ 	.ndo_change_carrier     = team_change_carrier,
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
++	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+ 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
  };
- 
- static const char
 -- 
 1.7.10.4
