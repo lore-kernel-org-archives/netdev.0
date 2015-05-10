@@ -1,88 +1,121 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next v7 14/24] bridge: restore br_setlink back to original
-Date: Sun, 10 May 2015 09:47:59 -0700
-Message-ID: <1431276489-64199-15-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next v7 12/24] switchdev: cut over to new switchdev_port_bridge_setlink
+Date: Sun, 10 May 2015 09:47:57 -0700
+Message-ID: <1431276489-64199-13-git-send-email-sfeldma@gmail.com>
 References: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, roopa@cumulusnetworks.com, linux@roeck-us.net,
 	f.fainelli@gmail.com, andrew@lunn.ch, simon.horman@netronome.com,
 	joe@perches.com, sridhar.samudrala@intel.com, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34941 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818AbbEJQrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:15 -0400
-Received: by pabtp1 with SMTP id tp1so90833117pab.2
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:15 -0700 (PDT)
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:32841 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795AbbEJQrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:47:13 -0400
+Received: by pdbnk13 with SMTP id nk13so127783436pdb.0
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:47:13 -0700 (PDT)
 In-Reply-To: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-This is revert of:
-
-commit 68e331c785b8 ("bridge: offload bridge port attributes to switch asic
-if feature flag set")
-
-Restore br_setlink back to original and don't call into SELF port driver.
-rtnetlink.c:bridge_setlink() already does a call into port driver for SELF.
-
-bridge set link cmd defaults to MASTER.  From man page for bridge link set
-cmd:
-
-       self   link setting is configured on specified physical device
-
-       master link setting is configured on the software bridge (default)
-
-The link setting has two values: the device-side value and the software
-bridge-side value.  These are independent and settable using the bridge
-link set cmd by specifying some combination of [master] | [self].
-Furthermore, the device-side and bridge-side settings have their own
-initial value, viewable from bridge -d link show cmd.
-
-Restoring br_setlink back to original makes rocker (the only in-kernel user
-of SELF link settings) work as first implement: two-sided values.
-
-It's true that when both MASTER and SELF are specified from the command,
-two netlink notifications are generated, one for each side of the settings.
-The user-space app can distiquish between the two notifications by
-observing the MASTER or SELF flag.
+Rocker, bonding, and team can now use the switchdev bridge setlink to parse
+raw netlink; no need to duplicate this code in each driver.
 
 Signed-off-by: Scott Feldman <sfeldma@gmail.com>
 Acked-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/bridge/br_netlink.c |   11 +----------
- 1 file changed, 1 insertion(+), 10 deletions(-)
+ drivers/net/bonding/bond_main.c      |    2 +-
+ drivers/net/ethernet/rocker/rocker.c |   42 +---------------------------------
+ drivers/net/team/team.c              |    2 +-
+ 3 files changed, 3 insertions(+), 43 deletions(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index dc23453..e9b9435 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -586,7 +586,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 	struct nlattr *afspec;
- 	struct net_bridge_port *p;
- 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
--	int err = 0, ret_offload = 0;
-+	int err = 0;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8e62180..e1d8a03 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4039,7 +4039,7 @@ static const struct net_device_ops bond_netdev_ops = {
+ 	.ndo_add_slave		= bond_enslave,
+ 	.ndo_del_slave		= bond_release,
+ 	.ndo_fix_features	= bond_fix_features,
+-	.ndo_bridge_setlink	= ndo_dflt_switchdev_port_bridge_setlink,
++	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+ 	.ndo_bridge_dellink	= ndo_dflt_switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
+ };
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index ceb6a64..e94089e 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -4295,46 +4295,6 @@ skip:
+ 	return idx;
+ }
  
- 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
- 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-@@ -628,15 +628,6 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 				afspec, RTM_SETLINK);
- 	}
- 
--	if (p && !(flags & BRIDGE_FLAGS_SELF)) {
--		/* set bridge attributes in hardware if supported
--		 */
--		ret_offload = switchdev_port_bridge_setlink(dev, nlh, flags);
--		if (ret_offload && ret_offload != -EOPNOTSUPP)
--			br_warn(p->br, "error setting attrs on port %u(%s)\n",
--				(unsigned int)p->port_no, p->dev->name);
+-static int rocker_port_bridge_setlink(struct net_device *dev,
+-				      struct nlmsghdr *nlh, u16 flags)
+-{
+-	struct rocker_port *rocker_port = netdev_priv(dev);
+-	struct nlattr *protinfo;
+-	struct nlattr *attr;
+-	int err;
+-
+-	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg),
+-				   IFLA_PROTINFO);
+-	if (protinfo) {
+-		attr = nla_find_nested(protinfo, IFLA_BRPORT_LEARNING);
+-		if (attr) {
+-			if (nla_len(attr) < sizeof(u8))
+-				return -EINVAL;
+-
+-			if (nla_get_u8(attr))
+-				rocker_port->brport_flags |= BR_LEARNING;
+-			else
+-				rocker_port->brport_flags &= ~BR_LEARNING;
+-			err = rocker_port_set_learning(rocker_port,
+-						       SWITCHDEV_TRANS_NONE);
+-			if (err)
+-				return err;
+-		}
+-		attr = nla_find_nested(protinfo, IFLA_BRPORT_LEARNING_SYNC);
+-		if (attr) {
+-			if (nla_len(attr) < sizeof(u8))
+-				return -EINVAL;
+-
+-			if (nla_get_u8(attr))
+-				rocker_port->brport_flags |= BR_LEARNING_SYNC;
+-			else
+-				rocker_port->brport_flags &= ~BR_LEARNING_SYNC;
+-		}
 -	}
 -
- 	if (err == 0)
- 		br_ifinfo_notify(RTM_NEWLINK, p);
- out:
+-	return 0;
+-}
+-
+ static int rocker_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 				      struct net_device *dev,
+ 				      u32 filter_mask, int nlflags)
+@@ -4374,7 +4334,7 @@ static const struct net_device_ops rocker_port_netdev_ops = {
+ 	.ndo_fdb_add			= rocker_port_fdb_add,
+ 	.ndo_fdb_del			= rocker_port_fdb_del,
+ 	.ndo_fdb_dump			= rocker_port_fdb_dump,
+-	.ndo_bridge_setlink		= rocker_port_bridge_setlink,
++	.ndo_bridge_setlink		= switchdev_port_bridge_setlink,
+ 	.ndo_bridge_getlink		= rocker_port_bridge_getlink,
+ 	.ndo_get_phys_port_name		= rocker_port_get_phys_port_name,
+ };
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index cfe8496..e6c4df2 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1977,7 +1977,7 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_del_slave		= team_del_slave,
+ 	.ndo_fix_features	= team_fix_features,
+ 	.ndo_change_carrier     = team_change_carrier,
+-	.ndo_bridge_setlink     = ndo_dflt_switchdev_port_bridge_setlink,
++	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+ 	.ndo_bridge_dellink     = ndo_dflt_switchdev_port_bridge_dellink,
+ 	.ndo_features_check	= passthru_features_check,
+ };
 -- 
 1.7.10.4
