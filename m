@@ -1,58 +1,77 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH v2] ARM: net: add JIT support for loads from struct
- seccomp_data.
-Date: Sun, 10 May 2015 20:40:28 +0100
-Message-ID: <20150510194028.GA2067@n2100.arm.linux.org.uk>
-References: <1431003613-16554-1-git-send-email-nschichan@freebox.fr>
- <20150509.222858.26253293963482182.davem@davemloft.net>
+From: Eric Leblond <eric@regit.org>
+Subject: [ANNOUNCE] ulogd 2.0.5 release
+Date: Sun, 10 May 2015 21:40:35 +0200
+Message-ID: <1431286835.21627.3.camel@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nschichan@freebox.fr, dborkman@redhat.com, ast@plumgrid.com,
-	mgherzan@gmail.com, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.arm.linux.org.uk ([78.32.30.218]:35509 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbbEJTkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 15:40:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20150509.222858.26253293963482182.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature";
+	boundary="=-j3PVfRiGTQbNzXmJyRnT"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: Netfilter Devel <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 09, 2015 at 10:28:58PM -0400, David Miller wrote:
-> From: Nicolas Schichan <nschichan@freebox.fr>
-> Date: Thu,  7 May 2015 15:00:13 +0200
-> 
-> > Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
-> > ---
-> > 
-> > This patch was first sent as part of a serie modifying the core
-> > seccomp code to allow the use of the classic BPF JIT. As the core
-> > changes have been submitted to netdev by Daniel Borkmann, it is now
-> > time to re-submit this patch separately.
-> > 
-> > While not physically dependent of the core seccomp changes they are
-> > needed for the code added in this patch to be triggered.
-> 
-> Where would you like this to be applied, my tree?
-> 
-> This is an ongoing situation, where people have traditionally not
-> consistently wanted bpf JIT patches to go into the networking tree.
-> 
-> So I beg everyone posting such things to netdev to be _clear_
-> and _explicit_ about whether you expect me to integrate the patch
-> or not.
 
-I think you have taken previous ARM net JIT patches, so I think it
-makes sense if you continue to do so.  I'm not knowledgable of the
-JIT interface myself, all I can say about many of these patches is
-that they look okay to me on a superficial basis.
+--=-j3PVfRiGTQbNzXmJyRnT
+Content-Type: multipart/mixed; boundary="=-cee/EmCTJ/vU7XRMMarL"
 
-I suspect you're doing more or less the same, but from a slightly
-different perspective (presumably through not knowing ARM assembly.)
 
--- 
-FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
-according to speedtest.net.
+--=-cee/EmCTJ/vU7XRMMarL
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hi!
+
+The Netfilter project proudly presents:
+
+	ulogd 2.0.5
+
+This release fixes build on recent systems where Linux headers don't
+contain anymore ULOG header files. It also fixes JSON output on big
+endian system.
+
+A big thanks to Jimmy Jones, Vincent Bernat for their contributions. See
+ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/ulogd/downloads.html
+ftp://ftp.netfilter.org/pub/ulogd/
+
+Have fun!
+--=20
+Eric Leblond <eric@regit.org>
+Blog: https://home.regit.org/
+
+--=-cee/EmCTJ/vU7XRMMarL
+Content-Disposition: attachment; filename="changes-ulogd-2.0.5.txt"
+Content-Type: text/plain; name="changes-ulogd-2.0.5.txt"; charset="UTF-8"
+Content-Transfer-Encoding: base64
+
+RXJpYyBMZWJsb25kICg0KToKICAgICAgZ2l0aWdub3JlOiBhZGQgbWFucGFnZQogICAgICBTZXQg
+cmVsZWFzZSBudW1iZXIgdG8gMi4wLjUuCiAgICAgIEFkZCBmbGFnIHRvIGRpc2FibGUgVUxPRyBp
+bnB1dCBwbHVnaW4KICAgICAgQWRkIG1pc3NpbmcgZW5hYmxldmFsIHRvIGNvbmZpZ3VyZQoKSmlt
+bXkgSm9uZXMgKDEpOgogICAgICBGaXggSlNPTiBvdXRwdXQgb24gYmlnIGVuZGlhbiBzeXN0ZW1z
+CgpQYWJsbyBOZWlyYSBBeXVzbyAoMSk6CiAgICAgIGluY2x1ZGU6IGtlZXAgYSBjb3B5IG9mIGxp
+bnV4L25ldGZpbHRlcl9pcHY0L2lwdF9VTE9HLmgKClZpbmNlbnQgQmVybmF0ICgxKToKICAgICAg
+Z2l0aWdub3JlOiBpZ25vcmUgZ2VuZXJhdGVkIGRvY3VtZW50YXRpb24KCg==
+
+
+--=-cee/EmCTJ/vU7XRMMarL--
+
+--=-j3PVfRiGTQbNzXmJyRnT
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iEYEABECAAYFAlVPtDgACgkQnxA7CdMWjzJF3QCcCXab7R7495m2aDNKwcTtGr2u
+7BEAnR2l8irddUK20I/eMKYEMm7Hleox
+=d1Pp
+-----END PGP SIGNATURE-----
+
+--=-j3PVfRiGTQbNzXmJyRnT--
+
