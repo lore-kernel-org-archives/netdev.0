@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/10] net: Use cached copy of pfmemalloc to avoid
- accessing page
-Date: Sun, 10 May 2015 19:18:51 -0400 (EDT)
-Message-ID: <20150510.191851.414324528131774160.davem@davemloft.net>
-References: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
-	<20150507041140.1873.58533.stgit@ahduyck-vm-fedora22>
+Subject: Re: [PATCH v2] ARM: net: add JIT support for loads from struct
+ seccomp_data.
+Date: Sun, 10 May 2015 19:20:14 -0400 (EDT)
+Message-ID: <20150510.192014.1958300550338396860.davem@davemloft.net>
+References: <1431003613-16554-1-git-send-email-nschichan@freebox.fr>
+	<20150509.222858.26253293963482182.davem@davemloft.net>
+	<20150510194028.GA2067@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mm@kvack.org, akpm@linux-foundation.org,
- eric.dumazet@gmail.com
-To: alexander.h.duyck@redhat.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150507041140.1873.58533.stgit@ahduyck-vm-fedora22>
-Sender: owner-linux-mm@kvack.org
+Cc: nschichan@freebox.fr, dborkman@redhat.com, ast@plumgrid.com,
+	mgherzan@gmail.com, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150510194028.GA2067@n2100.arm.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Date: Wed, 06 May 2015 21:11:40 -0700
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Sun, 10 May 2015 20:40:28 +0100
 
-> +	/* use OR instead of assignment to avoid clearing of bits in mask */
-> +	if (pfmemalloc)
-> +		skb->pfmemalloc = 1;
-> +	skb->head_frag = 1;
- ...
-> +	/* use OR instead of assignment to avoid clearing of bits in mask */
-> +	if (nc->pfmemalloc)
-> +		skb->pfmemalloc = 1;
-> +	skb->head_frag = 1;
+> I think you have taken previous ARM net JIT patches, so I think it
+> makes sense if you continue to do so.  I'm not knowledgable of the
+> JIT interface myself, all I can say about many of these patches is
+> that they look okay to me on a superficial basis.
+> 
+> I suspect you're doing more or less the same, but from a slightly
+> different perspective (presumably through not knowing ARM assembly.)
 
-Maybe make these two cases more consistent by either accessing
-nc->pfmemalloc or using a local variable in both cases.
+Ok, I'll flow the ARM JIT patches through my tree then.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks Russell.
