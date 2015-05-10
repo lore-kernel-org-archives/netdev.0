@@ -1,155 +1,61 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v6 05/23] rocker: support prepare-commit
- transaction model
-Date: Sat, 9 May 2015 23:14:00 -0700
-Message-ID: <CAE4R7bByr2tMv56DHFyee0KRz0dGtoZgjcxfLtefh2rH_-H7bA@mail.gmail.com>
-References: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
-	<1431193225-807-6-git-send-email-sfeldma@gmail.com>
-	<20150509181824.GA2290@nanopsycho>
+From: Nikolay Aleksandrov <razor@blackwall.org>
+Subject: Re: [PATCH linux v3 net-next 4/4] bonding: add netlink support for
+ sys prio, actor sys mac, and port key
+Date: Sun, 10 May 2015 09:54:15 +0200
+Message-ID: <554F0EA7.4060000@blackwall.org>
+References: <cover.1431150701.git.jtoppins@cumulusnetworks.com> <c26a9459226784190a8503418c1375bfe1f90cae.1431150701.git.jtoppins@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Joe Perches <joe@perches.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
+	netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	shm@cumulusnetworks.com, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:33754 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751845AbbEJGOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 02:14:02 -0400
-Received: by qcvo8 with SMTP id o8so31663449qcv.0
-        for <netdev@vger.kernel.org>; Sat, 09 May 2015 23:14:00 -0700 (PDT)
-In-Reply-To: <20150509181824.GA2290@nanopsycho>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:33071 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150AbbEJHyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 03:54:33 -0400
+Received: by wief7 with SMTP id f7so63987156wie.0
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 00:54:32 -0700 (PDT)
+In-Reply-To: <c26a9459226784190a8503418c1375bfe1f90cae.1431150701.git.jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 9, 2015 at 11:18 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Sat, May 09, 2015 at 07:40:07PM CEST, sfeldma@gmail.com wrote:
->>From: Scott Feldman <sfeldma@gmail.com>
->>
->>For rocker, support prepare-commit transaction model for setting attributes
->>(and for adding objects).  This requires rocker to preallocate memory
->>needed for the commit up front in the prepare phase.  Since rtnl_lock is
->>held between prepare-commit, store the allocated memory on a queue hanging
->>off of the rocker_port.  Also, in prepare phase, do everything right up to
->>calling into HW.  The same code paths are tranversed in the driver for both
->>prepare and commit phases.  In some cases, any state modified in the
->>prepare phase must be reverted before returning so the commit phase makes
->>the same decisions.
->>
->>As a consequence of holding rtnl_lock in process context for all attr sets
->>(and obj adds), all memory is GFP_KERNEL allocated and we don't need to
->>busy spin waiting for the device to complete the command.  So the bulk of
->>this patch is simplifying the memory allocations to only use GFP_KERNEL and
->>to remove the nowait flag and busy spin loop.
->>
->>Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->>---
->> drivers/net/ethernet/rocker/rocker.c |  393 +++++++++++++++++++++++-----------
->> 1 file changed, 271 insertions(+), 122 deletions(-)
->>
+On 09/05/15 09:01, Jonathan Toppins wrote:
+> From: Andy Gospodarek <gospo@cumulusnetworks.com>
 >
-> ...
+> Adds netlink support for the following bonding options:
+> * BOND_OPT_AD_ACTOR_SYS_PRIO
+> * BOND_OPT_AD_ACTOR_SYSTEM
+> * BOND_OPT_AD_USER_PORT_KEY
 >
->>+static void *__rocker_port_alloc(struct rocker_port *rocker_port,
->>+                               size_t size, gfp_t flags,
->>+                               void *(*alloc)(size_t size, gfp_t flags))
->>+{
+> When setting the actor system mac address we assume the netlink message
+> contains a binary mac and not a string representation of a mac.
 >
-> you can omit alloc param here, since __rocker_port_alloc is called
-> always with kzalloc. Also, flags is always GFP_KERNEL, but I have no
-> problem in having that.
+> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+> [jt: completed the setting side of the netlink attributes]
+> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+> ---
+>  v2:
+>     * rebased
+>  v3:
+>     * removed parenthesis from around values in the netdev_info calls in
+>       bond_option_ad_actor_sys_prio_set() and
+>       bond_option_ad_user_port_key_set()
+>     * fixed up bond_option_ad_actor_system_set() to support handling both
+>       string and value setting as Nik suggested
+>
+>  drivers/net/bonding/bond_netlink.c |   50 ++++++++++++++++++++++++++++++++++++
+>  drivers/net/bonding/bond_options.c |   30 +++++++++++++++-------
+>  include/uapi/linux/if_link.h       |    3 +++
+>  3 files changed, 74 insertions(+), 9 deletions(-)
+>
+>
 
-fixed for v7
+Thank you for re-working this, it actually looks better than I thought it
+would. I'm traveling right now and can't test it, but I went over the patch
+and it looks good to me.
 
-> also, __rocker_port_alloc sond to me like it allocates actual port.
-> Maybe "__rocker_per_port_alloc" or something like that?
-> (same goes to other functions of similar name)
-
-It's now __rocker_port_mem_alloc.
-
->>+      struct list_head *elem = NULL;
->>+
->>+      /* If in transaction prepare phase, allocate the memory
->>+       * and enqueue it on a per-port list.  If in transaction
->>+       * commit phase, dequeue the memory from the per-port list
->>+       * rather than re-allocating the memory.  The idea is the
->>+       * driver code paths for prepare and commit are identical
->>+       * so the memory allocated in the prepare phase is the
->>+       * memory used in the commit phase.
->>+       */
->>+
->>+      switch (rocker_port->trans) {
->>+      case SWITCHDEV_TRANS_PREPARE:
->>+              elem = alloc(size + sizeof(*elem), flags);
->>+              if (!elem)
->>+                      return NULL;
->>+              list_add_tail(elem, &rocker_port->trans_mem);
->>+              break;
->>+      case SWITCHDEV_TRANS_COMMIT:
->>+              BUG_ON(list_empty(&rocker_port->trans_mem));
->>+              elem = rocker_port->trans_mem.next;
->>+              list_del_init(elem);
->>+              break;
->>+      case SWITCHDEV_TRANS_NONE:
->>+              elem = alloc(size + sizeof(*elem), flags);
->>+              if (elem)
->>+                      INIT_LIST_HEAD(elem);
->>+              break;
->
-> I must say I don't like propagating SWITCHDEV_TRANS_* this deep into
-> driver. Also I don't like storing it in rocker_port->trans. I believe
-> that is should be seen only by rocker_port_attr_set. Then functions with
-> proper params should be called inside driver.
-
-Ok, switched to passing it as param for v7
-
->
->
-> ...
->
->> static int rocker_cmd_exec(struct rocker *rocker,
->>                          struct rocker_port *rocker_port,
->>                          rocker_cmd_cb_t prepare, void *prepare_priv,
->>-                         rocker_cmd_cb_t process, void *process_priv,
->>-                         bool nowait)
->>+                         rocker_cmd_cb_t process, void *process_priv)
->> {
->>       struct rocker_desc_info *desc_info;
->>       struct rocker_wait *wait;
->>       unsigned long flags;
->>       int err;
->>
->>-      wait = rocker_wait_create(nowait ? GFP_ATOMIC : GFP_KERNEL);
->>+      wait = rocker_wait_create(rocker_port);
->>       if (!wait)
->>               return -ENOMEM;
->>-      wait->nowait = nowait;
->>
->>       spin_lock_irqsave(&rocker->cmd_ring_lock, flags);
->>+
->   ^^^
->>       desc_info = rocker_desc_head_get(&rocker->cmd_ring);
->>       if (!desc_info) {
->>               spin_unlock_irqrestore(&rocker->cmd_ring_lock, flags);
->>               err = -EAGAIN;
->>               goto out;
->>       }
->>+
->   ^^^
->
->>       err = prepare(rocker, rocker_port, desc_info, prepare_priv);
->>       if (err) {
->>               spin_unlock_irqrestore(&rocker->cmd_ring_lock, flags);
->>               goto out;
->>       }
->>+
->   ^^^ not sure why you adding these lines.
-
-Readability: put some white space between logical chunks.
+Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
