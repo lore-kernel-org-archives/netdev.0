@@ -1,61 +1,68 @@
-From: Nikolay Aleksandrov <razor@blackwall.org>
-Subject: Re: [PATCH linux v3 net-next 4/4] bonding: add netlink support for
- sys prio, actor sys mac, and port key
-Date: Sun, 10 May 2015 09:54:15 +0200
-Message-ID: <554F0EA7.4060000@blackwall.org>
-References: <cover.1431150701.git.jtoppins@cumulusnetworks.com> <c26a9459226784190a8503418c1375bfe1f90cae.1431150701.git.jtoppins@cumulusnetworks.com>
+From: Justin Cormack <justin@myriabit.com>
+Subject: [PATCH v2] macvtap add missing ioctls
+Date: Sun, 10 May 2015 10:15:59 +0100
+Message-ID: <1431249359.669.5.camel@myriabit.com>
+References: <1430927775.669.2.camel@myriabit.com>
+	 <20150509.174017.6956415471104971.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>,
-	netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	shm@cumulusnetworks.com, David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:33071 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbbEJHyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 03:54:33 -0400
-Received: by wief7 with SMTP id f7so63987156wie.0
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 00:54:32 -0700 (PDT)
-In-Reply-To: <c26a9459226784190a8503418c1375bfe1f90cae.1431150701.git.jtoppins@cumulusnetworks.com>
+Received: from aibo.runbox.com ([91.220.196.211]:49090 "EHLO aibo.runbox.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752123AbbEJJQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 May 2015 05:16:21 -0400
+In-Reply-To: <20150509.174017.6956415471104971.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/05/15 09:01, Jonathan Toppins wrote:
-> From: Andy Gospodarek <gospo@cumulusnetworks.com>
->
-> Adds netlink support for the following bonding options:
-> * BOND_OPT_AD_ACTOR_SYS_PRIO
-> * BOND_OPT_AD_ACTOR_SYSTEM
-> * BOND_OPT_AD_USER_PORT_KEY
->
-> When setting the actor system mac address we assume the netlink message
-> contains a binary mac and not a string representation of a mac.
->
-> Signed-off-by: Andy Gospodarek <gospo@cumulusnetworks.com>
-> [jt: completed the setting side of the netlink attributes]
-> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-> ---
->  v2:
->     * rebased
->  v3:
->     * removed parenthesis from around values in the netdev_info calls in
->       bond_option_ad_actor_sys_prio_set() and
->       bond_option_ad_user_port_key_set()
->     * fixed up bond_option_ad_actor_system_set() to support handling both
->       string and value setting as Nik suggested
->
->  drivers/net/bonding/bond_netlink.c |   50 ++++++++++++++++++++++++++++++++++++
->  drivers/net/bonding/bond_options.c |   30 +++++++++++++++-------
->  include/uapi/linux/if_link.h       |    3 +++
->  3 files changed, 74 insertions(+), 9 deletions(-)
->
->
+The macvtap driver tries to emulate all the ioctls supported by a normal
+tun/tap driver, however it was missing the generic SIOCGIFHWADDR and
+SIOCSIFHWADDR ioctls to get and set the mac address that are supported
+by tun/tap. This patch adds these.
 
-Thank you for re-working this, it actually looks better than I thought it
-would. I'm traveling right now and can't test it, but I went over the patch
-and it looks good to me.
+Signed-off-by: Justin Cormack <justin@netbsd.org>
 
-Signed-off-by: Nikolay Aleksandrov <razor@blackwall.org>
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 8c350c5..f37e8f9 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -1101,6 +1101,35 @@ static long macvtap_ioctl(struct file *file,
+unsigned int cmd,
+ 		rtnl_unlock();
+ 		return ret;
+ 
++	case SIOCGIFHWADDR:
++		rtnl_lock();
++		vlan = macvtap_get_vlan(q);
++		if (!vlan) {
++			rtnl_unlock();
++			return -ENOLINK;
++		}
++		ret = 0;
++		u = vlan->dev->type;
++		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
++			copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr,
+ETH_ALEN) ||
++			put_user(u, &ifr->ifr_hwaddr.sa_family))
++			ret = -EFAULT;
++		macvtap_put_vlan(vlan);
++		rtnl_unlock();
++		return ret;
++
++	case SIOCSIFHWADDR:
++		rtnl_lock();
++		vlan = macvtap_get_vlan(q);
++		if (!vlan) {
++			rtnl_unlock();
++			return -ENOLINK;
++		}
++		ret = dev_set_mac_address(vlan->dev, &ifr->ifr_hwaddr);
++		macvtap_put_vlan(vlan);
++		rtnl_unlock();
++		return ret;
++
+ 	default:
+ 		return -EINVAL;
+ 	}
