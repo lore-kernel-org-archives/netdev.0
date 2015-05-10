@@ -1,40 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2 net-next] net: kill useless net_*_ingress_queue()
- definitions when NET_CLS_ACT is unset
-Date: Sun, 10 May 2015 19:58:30 +0300
-Message-ID: <554F8E36.1040401@cogentembedded.com>
-References: <1431277170-4618-1-git-send-email-pablo@netfilter.org> <1431277170-4618-2-git-send-email-pablo@netfilter.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next 0/2] handle_ing update
+Date: Sun, 10 May 2015 19:05:50 +0200
+Message-ID: <20150510170550.GA4442@salvia>
+References: <cover.1431203900.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, ast@plumgrid.com, jhs@mojatatu.com,
-	daniel@iogearbox.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:34602 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751679AbbEJQ6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 12:58:35 -0400
-Received: by laat2 with SMTP id t2so79660504laa.1
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 09:58:34 -0700 (PDT)
-In-Reply-To: <1431277170-4618-2-git-send-email-pablo@netfilter.org>
+Received: from mail.us.es ([193.147.175.20]:40647 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751479AbbEJRBK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 May 2015 13:01:10 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1431203900.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Sat, May 09, 2015 at 10:51:30PM +0200, Daniel Borkmann wrote:
+> These are a couple of cleanups to make ingress a bit more lightweight.
 
-On 5/10/2015 7:59 PM, Pablo Neira Ayuso wrote:
+This is plain wrong at many levels.
 
-> This fixes 4577139 ("net: use jump label patching for ingress qdisc in
-> __netif_receive_skb_core").
+You're persisting on embedding the ingress code into the core, and you
+have to remember that most users don't need this. Modules allows
+people to get the code that they need into the core, with this
+approach, they have no other choice other than disable from .config
+this if they don't need it.
 
-> The only client of this is sch_ingress and it depends on NET_CLS_ACT. So
-> there is no way these definition can be of any use at all.
+This has to be done the other way around. I just sent a patchset to
+clean up this that in exactly the other direction, as a result,
+performance is improved for users that don't need this.
 
-> Fixes: 4577139 ("net: use jump label patching for ingress qdisc in __netif_receive_skb_core")
+We should do things to make users aware that when they request
+features, they have to pay a performance cost, and that happens by
+when you invoke:
 
-    The commit ID is supposed to have 12 digits for this tag.
+        tc qdisc add dev eth0 handle ffff: ingress
 
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-
-WBR, Sergei
+David already stated before that ingress path is performance critical,
+but you insist on trying to get qdisc ingress faster *at any cost*.
