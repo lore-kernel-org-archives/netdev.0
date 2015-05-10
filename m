@@ -1,58 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V4 net-next 1/1] hv_netvsc: Use the xmit_more skb flag
- to optimize signaling the host
-Date: Sun, 10 May 2015 17:50:57 -0400 (EDT)
-Message-ID: <20150510.175057.1320510115648828229.davem@davemloft.net>
-References: <1430951345-7767-1-git-send-email-kys@microsoft.com>
+Subject: Re: [PATCH net-next] ethernet: qualcomm: use spi instead of
+ spi_device
+Date: Sun, 10 May 2015 17:53:43 -0400 (EDT)
+Message-ID: <20150510.175343.1962085087540222405.davem@davemloft.net>
+References: <1430970468-4636-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1430951345-7767-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, varkab@cdac.in
+To: varkabhadram@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56159 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751571AbbEJVxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 17:53:45 -0400
+In-Reply-To: <1430970468-4636-1-git-send-email-varkab@cdac.in>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Wed,  6 May 2015 15:29:05 -0700
+From: Varka Bhadram <varkabhadram@gmail.com>
+Date: Thu,  7 May 2015 09:17:48 +0530
 
-> -		ret = vmbus_sendpacket_pagebuffer(out_channel,
-> -						  pgbuf,
-> -						  packet->page_buf_cnt,
-> -						  &nvmsg,
-> -						  sizeof(struct nvsp_message),
-> -						  req_id);
-> +		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
-> +						      pgbuf,
-> +						      packet->page_buf_cnt,
-> +						      &nvmsg,
-> +						      sizeof(struct
-> +							     nvsp_message),
-> +						      req_id,
-> +						      vmbus_flags,
-> +						      !packet->xmit_more);
->  	} else {
-> -		ret = vmbus_sendpacket(
-> +		ret = vmbus_sendpacket_ctl(
->  				out_channel, &nvmsg,
->  				sizeof(struct nvsp_message),
->  				req_id,
->  				VM_PKT_DATA_INBAND,
-> -				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-> +				vmbus_flags, !packet->xmit_more);
+> All spi based drivers have an instance of struct spi_device
+> as spi. This patch renames spi_device to spi to synchronize
+> with all the drivers.
+> 
+> Signed-off-by: Varka Bhadram <varkab@cdac.in>
 
-Just as you did for the vmbus_sendpacket_pagebuffer_ctl() call above,
-you'll need to reindent the arguments for the vmbus_sendpacket_ctl()
-call since the openning parenthesis is now at a different column.
-
-Thanks.
+Applied, thank you.
