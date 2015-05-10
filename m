@@ -1,130 +1,54 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH v3] net: fec: add support of ethtool get_regs
-Date: Mon, 11 May 2015 00:01:42 +0200
-Message-ID: <1431295302-11738-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, B38611@freescale.com,
-	rmk+kernel@arm.linux.org.uk, Frank.Li@freescale.com,
-	LW@KARO-electronics.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:35559 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582AbbEJWB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 18:01:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/10] Refactor netdev page frags and move them into mm/
+Date: Sun, 10 May 2015 19:17:58 -0400 (EDT)
+Message-ID: <20150510.191758.2130017622255857830.davem@davemloft.net>
+References: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mm@kvack.org, akpm@linux-foundation.org,
+ eric.dumazet@gmail.com
+To: alexander.h.duyck@redhat.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-This enables the ethtool's "-d" and "--register-dump"
-options for fec devices.
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Wed, 06 May 2015 21:11:34 -0700
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/freescale/fec_main.c |   78 +++++++++++++++++++++++++++++
- 1 files changed, 78 insertions(+), 0 deletions(-)
+> This patch series addresses several things.
+> 
+> First I found an issue in the performance of the pfmemalloc check from
+> build_skb.  To work around it I have provided a cached copy of pfmemalloc
+> to be used in __netdev_alloc_skb and __napi_alloc_skb.
+> 
+> Second I moved the page fragment allocation logic into the mm tree and
+> added functionality for freeing page fragments.  I had to fix igb before I
+> could do this as it was using a reference to NETDEV_FRAG_PAGE_MAX_SIZE
+> incorrectly.
+> 
+> Finally I went through and replaced all of the duplicate code that was
+> calling put_page and replaced it with calls to skb_free_frag.
+> 
+> With these changes in place a simple receive and drop test increased from a
+> packet rate of 8.9Mpps to 9.8Mpps.  The gains breakdown as follows:
+> 
+> 8.9Mpps	Before			9.8Mpps	After
+> ------------------------	------------------------
+> 7.8%	put_compound_page	9.1%	__free_page_frag
+> 3.9%	skb_free_head
+> 1.1%	put_page
+> 
+> 4.9%	build_skb		3.8%	__napi_alloc_skb
+> 2.5%	__alloc_rx_skb
+> 1.9%	__napi_alloc_skb
 
-Changelog:
-v2: (thanks Russell King and David Miller for the feedback)
-- don't use memcpy_fromio to copy registers
-v3: (thanks David Miller for the feedback)
-- only copy defined registers
-- fix warning reported by checkpatch.pl
+I like this series, but again I need to see feedback from some
+mm folks before I can consider applying it.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 66d47e4..bf4cf3f 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2118,6 +2118,82 @@ static void fec_enet_get_drvinfo(struct net_device *ndev,
- 	strlcpy(info->bus_info, dev_name(&ndev->dev), sizeof(info->bus_info));
- }
- 
-+static int fec_enet_get_regs_len(struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	struct resource *r;
-+	int s = 0;
-+
-+	r = platform_get_resource(fep->pdev, IORESOURCE_MEM, 0);
-+	if (r)
-+		s = resource_size(r);
-+
-+	return s;
-+}
-+
-+/* List of registers that can be safety be read to dump them with ethtool */
-+#if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
-+	defined(CONFIG_M520x) || defined(CONFIG_M532x) ||		\
-+	defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
-+static u32 fec_enet_register_offset[] = {
-+	FEC_IEVENT, FEC_IMASK, FEC_R_DES_ACTIVE_0, FEC_X_DES_ACTIVE_0,
-+	FEC_ECNTRL, FEC_MII_DATA, FEC_MII_SPEED, FEC_MIB_CTRLSTAT, FEC_R_CNTRL,
-+	FEC_X_CNTRL, FEC_ADDR_LOW, FEC_ADDR_HIGH, FEC_OPD, FEC_TXIC0, FEC_TXIC1,
-+	FEC_TXIC2, FEC_RXIC0, FEC_RXIC1, FEC_RXIC2, FEC_HASH_TABLE_HIGH,
-+	FEC_HASH_TABLE_LOW, FEC_GRP_HASH_TABLE_HIGH, FEC_GRP_HASH_TABLE_LOW,
-+	FEC_X_WMRK, FEC_R_BOUND, FEC_R_FSTART, FEC_R_DES_START_1,
-+	FEC_X_DES_START_1, FEC_R_BUFF_SIZE_1, FEC_R_DES_START_2,
-+	FEC_X_DES_START_2, FEC_R_BUFF_SIZE_2, FEC_R_DES_START_0,
-+	FEC_X_DES_START_0, FEC_R_BUFF_SIZE_0, FEC_R_FIFO_RSFL, FEC_R_FIFO_RSEM,
-+	FEC_R_FIFO_RAEM, FEC_R_FIFO_RAFL, FEC_RACC, FEC_RCMR_1, FEC_RCMR_2,
-+	FEC_DMA_CFG_1, FEC_DMA_CFG_2, FEC_R_DES_ACTIVE_1, FEC_X_DES_ACTIVE_1,
-+	FEC_R_DES_ACTIVE_2, FEC_X_DES_ACTIVE_2, FEC_QOS_SCHEME,
-+	RMON_T_DROP, RMON_T_PACKETS, RMON_T_BC_PKT, RMON_T_MC_PKT,
-+	RMON_T_CRC_ALIGN, RMON_T_UNDERSIZE, RMON_T_OVERSIZE, RMON_T_FRAG,
-+	RMON_T_JAB, RMON_T_COL, RMON_T_P64, RMON_T_P65TO127, RMON_T_P128TO255,
-+	RMON_T_P256TO511, RMON_T_P512TO1023, RMON_T_P1024TO2047,
-+	RMON_T_P_GTE2048, RMON_T_OCTETS,
-+	IEEE_T_DROP, IEEE_T_FRAME_OK, IEEE_T_1COL, IEEE_T_MCOL, IEEE_T_DEF,
-+	IEEE_T_LCOL, IEEE_T_EXCOL, IEEE_T_MACERR, IEEE_T_CSERR, IEEE_T_SQE,
-+	IEEE_T_FDXFC, IEEE_T_OCTETS_OK,
-+	RMON_R_PACKETS, RMON_R_BC_PKT, RMON_R_MC_PKT, RMON_R_CRC_ALIGN,
-+	RMON_R_UNDERSIZE, RMON_R_OVERSIZE, RMON_R_FRAG, RMON_R_JAB,
-+	RMON_R_RESVD_O, RMON_R_P64, RMON_R_P65TO127, RMON_R_P128TO255,
-+	RMON_R_P256TO511, RMON_R_P512TO1023, RMON_R_P1024TO2047,
-+	RMON_R_P_GTE2048, RMON_R_OCTETS,
-+	IEEE_R_DROP, IEEE_R_FRAME_OK, IEEE_R_CRC, IEEE_R_ALIGN, IEEE_R_MACERR,
-+	IEEE_R_FDXFC, IEEE_R_OCTETS_OK
-+};
-+#else
-+static u32 fec_enet_register_offset[] = {
-+	FEC_ECNTRL, FEC_IEVENT, FEC_IMASK, FEC_IVEC, FEC_R_DES_ACTIVE_0,
-+	FEC_R_DES_ACTIVE_1, FEC_R_DES_ACTIVE_2, FEC_X_DES_ACTIVE_0,
-+	FEC_X_DES_ACTIVE_1, FEC_X_DES_ACTIVE_2, FEC_MII_DATA, FEC_MII_SPEED,
-+	FEC_R_BOUND, FEC_R_FSTART, FEC_X_WMRK, FEC_X_FSTART, FEC_R_CNTRL,
-+	FEC_MAX_FRM_LEN, FEC_X_CNTRL, FEC_ADDR_LOW, FEC_ADDR_HIGH,
-+	FEC_GRP_HASH_TABLE_HIGH, FEC_GRP_HASH_TABLE_LOW, FEC_R_DES_START_0,
-+	FEC_R_DES_START_1, FEC_R_DES_START_2, FEC_X_DES_START_0,
-+	FEC_X_DES_START_1, FEC_X_DES_START_2, FEC_R_BUFF_SIZE_0,
-+	FEC_R_BUFF_SIZE_1, FEC_R_BUFF_SIZE_2
-+};
-+#endif
-+
-+static void fec_enet_get_regs(struct net_device *ndev,
-+			      struct ethtool_regs *regs, void *regbuf)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	u32 __iomem *theregs = (u32 __iomem *)fep->hwp;
-+	u32 *buf = (u32 *)regbuf;
-+	u32 i, off;
-+
-+	memset(buf, 0, regs->len);
-+
-+	for (i = 0; i < ARRAY_SIZE(fec_enet_register_offset); i++) {
-+		off = fec_enet_register_offset[i] / 4;
-+		buf[off] = readl(&theregs[off]);
-+	}
-+}
-+
- static int fec_enet_get_ts_info(struct net_device *ndev,
- 				struct ethtool_ts_info *info)
- {
-@@ -2515,6 +2591,8 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_settings		= fec_enet_get_settings,
- 	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
-+	.get_regs_len		= fec_enet_get_regs_len,
-+	.get_regs		= fec_enet_get_regs,
- 	.nway_reset		= fec_enet_nway_reset,
- 	.get_link		= ethtool_op_get_link,
- 	.get_coalesce		= fec_enet_get_coalesce,
--- 
-1.7.4.4
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
