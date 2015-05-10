@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2015-05-06
-Date: Sat, 09 May 2015 22:13:05 -0400 (EDT)
-Message-ID: <20150509.221305.276159515012607255.davem@davemloft.net>
-References: <554A85C2.1020700@pengutronix.de>
+Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of
+ netns
+Date: Sat, 09 May 2015 22:15:54 -0400 (EDT)
+Message-ID: <20150509.221554.38834063932093195.davem@davemloft.net>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	linux-can@vger.kernel.org, david@protonic.nl
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <554A85C2.1020700@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, ebiederm@xmission.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47454 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054AbbEJCP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 22:15:56 -0400
+In-Reply-To: <1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 6 May 2015 23:21:06 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu,  7 May 2015 11:02:46 +0200
 
-> this is a pull request of a seven patches for net-next/master.
->=20
-> Andreas Gr=F6ger contributes two patches for the janz-ican3 driver. I=
-n
-> the first patch, the documentation for already existing sysfs entries
-> is added, the second patch adds support for another module/firmware
-> variant. A patch by Shawn Landden makes the padding in the struct
-> can_frame explicit. The next 4 patches target the flexcan driver, the
-> first one is by David Jander adding some documentation, the reaming
-> three by me add more documentation and two small code cleanups.
+> This idea was informally discussed in Ottawa / netdev0.1. The goal is to
+> ease the use/scalability of netns, from a userland point of view.
+> Today, users need to open one netlink socket per family and per netns.
+> Thus, when the number of netns inscreases (for example 5K or more), the
+> number of sockets needed to manage them grows a lot.
+> 
+> The goal of this series is to be able to monitor netlink events, for a
+> specified family, for a set of netns, with only one netlink socket. For
+> this purpose, a netlink socket option is added: NETLINK_LISTEN_ALL_NSID.
+> When this option is set on a netlink socket, this socket will receive
+> netlink notifications from all netns that have a nsid assigned into the
+> netns where the socket has been opened.
+> The nsid is sent to userland via an anscillary data.
 
-Pulled, thanks Marc.
+Series applied, thanks Nicolas.
