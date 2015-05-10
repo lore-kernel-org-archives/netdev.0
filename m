@@ -1,50 +1,64 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code where
- it belongs
-Date: Sun, 10 May 2015 23:31:16 +0200
-Message-ID: <554FCE24.8020904@iogearbox.net>
-References: <1431277170-4618-3-git-send-email-pablo@netfilter.org> <554F9946.9040707@plumgrid.com> <20150510175934.GA3799@salvia> <554F9DE8.3000507@plumgrid.com> <20150510182414.GA4198@salvia> <554FA7A5.5020400@plumgrid.com> <20150510190039.GA4938@salvia> <554FAC3A.40701@plumgrid.com> <20150510192044.GA7173@salvia> <554FB366.7080509@plumgrid.com> <20150510195018.GA7877@salvia>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: Re: [PATCH] net: fec: add support of ethtool get_regs
+Date: Sun, 10 May 2015 23:43:02 +0200
+Message-ID: <554FD0E6.6050701@gmail.com>
+References: <20150509211746.GY2067@n2100.arm.linux.org.uk> <CAOMZO5A2POPCYHzotc5SEhtmCuBrXiK7bdjF=UeiXZEqcnGMag@mail.gmail.com> <554E8735.302@gmail.com> <20150509.210128.2284066611245510581.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47582 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599AbbEJVbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 17:31:19 -0400
-In-Reply-To: <20150510195018.GA7877@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: festevam@gmail.com, linux@arm.linux.org.uk, B38611@freescale.com,
+	Frank.Li@freescale.com, LW@karo-electronics.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150509.210128.2284066611245510581.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/10/2015 09:50 PM, Pablo Neira Ayuso wrote:
-...
-> The numbers show that the existing approach and your approach results
-> in less performance for everyone that don't need to filter from
-> ingress. We have to move ingress to where it belongs.
 
-Your cleanup in patch 1 is okay, thanks for spotting it Pablo.
+Hi david,
 
-I agree with you on the qdisc_enqueue_root(), it's not needed, which I
-removed in my set as well. Please note that my set doesn't introduce a
-regression, it improves ingress performance however.
+On 10/05/15 03:01, David Miller wrote:
+> From: Philippe Reynes<tremyfr@gmail.com>
+> Date: Sun, 10 May 2015 00:16:21 +0200
+>
+>> Hi Fabio,
+>>
+>> On 09/05/15 23:59, Fabio Estevam wrote:
+>>> Philippe,
+>>>
+>>> On Sat, May 9, 2015 at 6:17 PM, Russell King - ARM Linux
+>>> <linux@arm.linux.org.uk>   wrote:
+>>>
+>>>> Using memcpy_fromio() to copy device registers is not a good idea -
+>>>> it can use a variable access size which can cause bus faults.
+>>>
+>>> An example on how memcpy_fromio() can be avoided in get_regs:
+>>> drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+>>
+>> Thanks for pointing me this example. I've already send a patch,
+>> and I've used drivers/net/ethernet/freescale/gianfar_ethtool.c
+>> as example. I hope it's a good example too.
+>
+> I think you need to be much more careful and conservative in your
+> implementation.
+>
+> You should skip I/O addresses that don't have defined registers
+> at those offsets for the chip in question.
 
-If there's no ingress user than that code path is simply *nop*'ed out.
-If there's one ingress present on one device but not on others, it also
-doesn't make anything slower to the current state. And you can also always
-compile out CONFIG_NET_CLS_ACT (which we actually could make more fine
-grained), if you really care.
+Ok, I've added an array with all register, so I only read defined registers.
 
-A next possible step would be to get rid of the ingress netdev queue so
-we can also reduce memory overhead. The only thing that is needed is
-the classifier list, which is then being invoked, we all have stated
-that many times previously.
+> Also, you should _very_ carefully evaluate each and every register you
+> dump and potentially skip certain registers which have strong negative
+> side effects if read arbitrarily.
+>
+> For example, dumping the interrupt status register could cause pending
+> interrupt status to be cleared, and thus cause the driver to lose
+> interrupts and subsequently packet processing will hang.
 
-My other concern is, if we export qdisc_ingress_hook function pointer,
-out of tree modules can simply do rcu_assign_pointer(qdisc_ingress_hook,
-my_own_handler) to transparently implement their own hook, hm.
+Thanks for the feedback. I've read all the register, and all registers
+can be read without negative side effect. Even interrupt status register,
+interrupt are cleared when the register EIR is written (not read).
 
-Best,
-Daniel
+Regards,
+Philippe
