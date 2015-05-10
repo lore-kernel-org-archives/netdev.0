@@ -1,57 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: add support of ethtool get_regs
-Date: Sat, 09 May 2015 21:01:28 -0400 (EDT)
-Message-ID: <20150509.210128.2284066611245510581.davem@davemloft.net>
-References: <20150509211746.GY2067@n2100.arm.linux.org.uk>
-	<CAOMZO5A2POPCYHzotc5SEhtmCuBrXiK7bdjF=UeiXZEqcnGMag@mail.gmail.com>
-	<554E8735.302@gmail.com>
+From: mrs nicole marois <m.nicole1961@gmail.com>
+Subject: FROM MRS NICOLE MAROIS
+Date: Sat, 9 May 2015 17:53:28 -0700
+Message-ID: <CAPuUCEna_hvdnqMU=m4u8QMMYw12S2RYV+YoCTGS+-vz_o=pjQ@mail.gmail.com>
+Reply-To: madamnicole1960@yahoo.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: festevam@gmail.com, linux@arm.linux.org.uk, B38611@freescale.com,
-	Frank.Li@freescale.com, LW@karo-electronics.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47037 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751962AbbEJBBc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 21:01:32 -0400
-In-Reply-To: <554E8735.302@gmail.com>
+Received: from mail-vn0-f45.google.com ([209.85.216.45]:45557 "EHLO
+	mail-vn0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864AbbEJBIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 May 2015 21:08:46 -0400
+Received: by vnbg190 with SMTP id g190so7579248vnb.12
+        for <netdev@vger.kernel.org>; Sat, 09 May 2015 18:08:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sun, 10 May 2015 00:16:21 +0200
+Dear friend,
 
-> Hi Fabio,
-> 
-> On 09/05/15 23:59, Fabio Estevam wrote:
->> Philippe,
->>
->> On Sat, May 9, 2015 at 6:17 PM, Russell King - ARM Linux
->> <linux@arm.linux.org.uk>  wrote:
->>
->>> Using memcpy_fromio() to copy device registers is not a good idea -
->>> it can use a variable access size which can cause bus faults.
->>
->> An example on how memcpy_fromio() can be avoided in get_regs:
->> drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-> 
-> Thanks for pointing me this example. I've already send a patch,
-> and I've used drivers/net/ethernet/freescale/gianfar_ethtool.c
-> as example. I hope it's a good example too.
+I am Mrs Nicole Marois, and i have been surffering from ovarian cancer
+disease and the doctor says that i have just two days to leave.I am
+from (Paris) France but based in Africa Burkina Faso since eight years
+ago as a business woman dealing with gold exportation.
 
-I think you need to be much more careful and conservative in your
-implementation.
+Now that i am about to end the race like this,without any family
+members and no child, I have $3 Million US DOLLARS in Africa
+Development Bank(ADB)Burkina Faso which i instructed the bank to give
+(St Andrews Missionary Home) in Burkina Faso, But my mind is not at
+rest because i am writting this letter now through the help of my
+computer beside my sick bed.
 
-You should skip I/O addresses that don't have defined registers
-at those offsets for the chip in question.
+I also have $4.5 Million US Dollars at (ECO BANK PLC) here in Burkina
+Faso and i instructed the bank to transfer the money to the first
+foreigner that will apply to the bank after i have gone that they
+should release the fund to him/her,but you will assure me that you
+will take 50% of the money and give 50% to the orphanages home in your
+country for my heart to rest with GOD.
 
-Also, you should _very_ carefully evaluate each and every register you
-dump and potentially skip certain registers which have strong negative
-side effects if read arbitrarily.
+Return back to me immidetly if you can handle this transfer project on
+my behalf before dealth cross my way so that i will send to you a copy
+my international passport which you will show to the bank to make the
+bank know that i instructed you to contact them for the transfer of my
+fund with them to you, and also give to you the bank contact
+information so that you will contact them for the transfer of the fund
+and to fufill my dream of biuding orphanage home in your country,
+waiting to hear from you through  my private email address,
+(madamnicole1960@yahoo.com)
 
-For example, dumping the interrupt status register could cause pending
-interrupt status to be cleared, and thus cause the driver to lose
-interrupts and subsequently packet processing will hang.
+Yours fairly friend,
+Mrs Nicole Marois
