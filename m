@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ARM: net: delegate filter to kernel interpreter when
- imm_offset() return value can't fit into 12bits.
-Date: Sun, 10 May 2015 19:22:17 -0400 (EDT)
-Message-ID: <20150510.192217.1306037281172187835.davem@davemloft.net>
-References: <1431011661-10277-1-git-send-email-nschichan@freebox.fr>
+Subject: Re: [PATCH net] bnx2x: limit fw delay in kdump to 5s after boot
+Date: Sun, 10 May 2015 19:23:48 -0400 (EDT)
+Message-ID: <20150510.192348.2013892438337765373.davem@davemloft.net>
+References: <1431023830-445-1-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux@arm.linux.org.uk, ast@plumgrid.com, daniel@iogearbox.net,
-	mgherzan@gmail.com, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: nschichan@freebox.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431011661-10277-1-git-send-email-nschichan@freebox.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
+To: mschmidt@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56686 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751679AbbEJXXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 19:23:50 -0400
+In-Reply-To: <1431023830-445-1-git-send-email-mschmidt@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Schichan <nschichan@freebox.fr>
-Date: Thu,  7 May 2015 17:14:21 +0200
+From: Michal Schmidt <mschmidt@redhat.com>
+Date: Thu,  7 May 2015 20:37:10 +0200
 
-> The ARM JIT code emits "ldr rX, [pc, #offset]" to access the literal
-> pool. #offset maximum value is 4095 and if the generated code is too
-> large, the #offset value can overflow and not point to the expected
-> slot in the literal pool. Additionally, when overflow occurs, bits of
-> the overflow can end up changing the destination register of the ldr
-> instruction.
+> Commit 12a8541d5c82 "bnx2x: Delay during kdump load" added a 5 seconds
+> delay to bnx2x's probe function in the kdump case to let the firmware
+> realize the old driver is gone.
 > 
-> Fix that by detecting the overflow in imm_offset() and setting a flag
-> that is checked for each BPF instructions converted in
-> build_body(). As of now it can only be detected in the second pass. As
-> a result the second build_body() call can now fail, so add the
-> corresponding cleanup code in that case.
+> The problem with the delay is that it is per-device, so if you have
+> several bnx2x NICs in NPAR mode, the delays can accumulate to minutes.
 > 
-> Using multiple literal pools in the JITed code is going to require
-> lots of intrusive changes to the JIT code (which would better be done
-> as a feature instead of fix), just delegating to the kernel BPF
-> interpreter in that case is a more straight forward, minimal fix and
-> easy to backport.
+> Fix it by adjusting the delay so that we do not wait more than
+> necessary, i.e. no more delaying after 5 seconds of kernel boot time.
 > 
-> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 
-Applied, thanks Nicolas.
+Applied, thanks.
