@@ -1,57 +1,104 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: fix a possible policy leak
-Date: Mon, 11 May 2015 13:03:13 +0200
-Message-ID: <20150511110310.GR8928@secunet.com>
-References: <1431077979-1606-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <eparis@redhat.com>
-To: <roy.qing.li@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:60249 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753618AbbEKLDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 May 2015 07:03:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1431077979-1606-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: [PATCH v3 00/22] Convert the posix_clock_operations and k_clock structure to ready for 2038
+Date: Mon, 11 May 2015 19:06:25 +0800
+Message-ID: <1431342385-29319-1-git-send-email-baolin.wang@linaro.org>
+Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
+	pang.xunlei@linaro.org, peterz@infradead.org,
+	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
+	richardcochran@gmail.com, benh@kernel.crashing.org,
+	paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, linux390@de.ibm.com, rth@twiddle.net,
+	riel@redhat.com, cl@linux.com, tj@kernel.org, fweisbec@gmail.com,
+	ahh@google.com, pjt@google.com, linuxppc-dev@lists.ozlabs.org,
+	linux-s390@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	baolin.wang@linaro.org, y2038@lists.linaro.org
+To: tglx@linutronix.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 08, 2015 at 05:39:39PM +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> policy should be put if exit xfrm_policy_bysel_ctx() due to the
-> failure of calling security_xfrm_policy_delete. since policy has
-> been hold before
-> 
-> Fixes: ef41aaa0b7 [IPSEC]: xfrm_policy delete security check misplaced
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> Cc: Eric Paris <eparis@redhat.com>
-> ---
->  net/xfrm/xfrm_policy.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index 3d264e5..66450c3 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -824,6 +824,7 @@ struct xfrm_policy *xfrm_policy_bysel_ctx(struct net *net, u32 mark, u8 type,
->  				*err = security_xfrm_policy_delete(
->  								pol->security);
->  				if (*err) {
-> +					xfrm_pol_put(pol);
->  					write_unlock_bh(&net->xfrm.xfrm_policy_lock);
->  					return pol;
->  				}
-> @@ -863,6 +864,7 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u32 mark, u8 type,
->  				*err = security_xfrm_policy_delete(
->  								pol->security);
->  				if (*err) {
-> +					xfrm_pol_put(pol);
->  					write_unlock_bh(&net->xfrm.xfrm_policy_lock);
->  					return pol;
->  				}
+This patch series changes the 32-bit time type (timespec/itimerspec) to the 64-bit one
+(timespec64/itimerspec64), since 32-bit time types will break in the year 2038.
 
-We return this policy to the caller, so we better keep
-the refcount here. The caller is responsible to drop
-the refount.
+This patch series introduces new methods with timespec64/itimerspec64 type,
+and removes the old ones with timespec/itimerspec type for posix_clock_operations
+and k_clock structure.
+
+Also introduces some new functions with timespec64/itimerspec64 type, like current_kernel_time64(),
+hrtimer_get_res64(), cputime_to_timespec64() and timespec64_to_cputime().
+
+Changes since v2:
+     	-Split the syscall conversion patch into small some patches.
+
+*** BLURB HERE ***
+
+Baolin Wang (22):
+  linux/time64.h:Introduce the 'struct itimerspec64' for 64bit
+  timekeeping:Introduce the current_kernel_time64() function with
+    timespec64 type
+  time/hrtimer:Introduce hrtimer_get_res64() with timespec64 type for
+    getting the timer resolution
+  posix-timers:Split out the guts of the syscall and change the
+    implementation for timer_gettime
+  posix-timers:Convert to the 64bit methods for the timer_gettime
+    syscall function
+  posix-timers:Split out the guts of the syscall and change the
+    implementation for timer_settime
+  posix-timers:Convert to the 64bit methods for the timer_settime
+    syscall function
+  posix-timers:Split out the guts of the syscall and change the
+    implementation for clock_settime
+  posix-timers:Convert to the 64bit methods for the clock_settime
+    syscall function
+  posix-timers:Split out the guts of the syscall and change the
+    implementation for clock_gettime
+  posix-timers:Convert to the 64bit methods for the clock_gettime
+    syscall function
+  posix-timers:Split out the guts of the syscall and change the
+    implementation for clock_getres
+  posix-timers:Convert to the 64bit methods for the clock_getres
+    syscall function
+  time:Introduce the do_sys_settimeofday64() function with timespec64
+    type
+  time/posix-timers:Convert to the 64bit methods for k_clock callback
+    functions
+  char/mmtimer:Convert to the 64bit methods for k_clock callback
+    function
+  time/alarmtimer:Convert to the new 64bit methods for k_clock
+    structure
+  time/posix-clock:Convert to the 64bit methods for k_clock and
+    posix_clock_operations structure
+  time/time:Introduce the timespec64_to_jiffies/jiffies_to_timespec64
+    function
+  cputime:Introduce the cputime_to_timespec64/timespec64_to_cputime
+    function
+  time/posix-cpu-timers:Convert to the 64bit methods for k_clock
+    structure
+  k_clock:Remove the 32bit methods with timespec/itimerspec type
+
+ arch/powerpc/include/asm/cputime.h    |    6 +-
+ arch/s390/include/asm/cputime.h       |    8 +-
+ drivers/char/mmtimer.c                |   36 +++--
+ drivers/ptp/ptp_clock.c               |   26 +---
+ include/asm-generic/cputime_jiffies.h |   10 +-
+ include/asm-generic/cputime_nsecs.h   |    4 +-
+ include/linux/cputime.h               |   15 ++
+ include/linux/hrtimer.h               |   12 +-
+ include/linux/jiffies.h               |   21 ++-
+ include/linux/posix-clock.h           |   10 +-
+ include/linux/posix-timers.h          |   18 +--
+ include/linux/time64.h                |   35 +++++
+ include/linux/timekeeping.h           |   26 +++-
+ kernel/time/alarmtimer.c              |   43 +++---
+ kernel/time/hrtimer.c                 |   10 +-
+ kernel/time/posix-clock.c             |   20 +--
+ kernel/time/posix-cpu-timers.c        |   83 +++++-----
+ kernel/time/posix-timers.c            |  269 ++++++++++++++++++++++-----------
+ kernel/time/time.c                    |   22 +--
+ kernel/time/timekeeping.c             |    6 +-
+ kernel/time/timekeeping.h             |    2 +-
+ 21 files changed, 428 insertions(+), 254 deletions(-)
+
+-- 
+1.7.9.5
