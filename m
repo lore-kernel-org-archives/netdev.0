@@ -1,53 +1,41 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH] net: Remove remaining remnants of pm_qos from netdevice.h
-Date: Mon, 11 May 2015 11:27:22 -0600
-Message-ID: <5550E67A.4070907@gmail.com>
-References: <1431210103-18683-1-git-send-email-dsahern@gmail.com>	<20150511.131106.1902675173206646881.davem@davemloft.net> <20150511.132611.701878238281798138.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-7;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] net: sched: fix typo in net_device ifdef
+Date: Mon, 11 May 2015 19:28:49 +0200
+Message-ID: <45ab7891f81f127f688ac20fdac86d5c13afed57.1431364704.git.daniel@iogearbox.net>
+Cc: fengguang.wu@intel.com, ast@plumgrid.com, jhs@mojatatu.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:33310 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751373AbbEKR1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:27:23 -0400
-Received: by iepj10 with SMTP id j10so110514090iep.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 10:27:23 -0700 (PDT)
-In-Reply-To: <20150511.132611.701878238281798138.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:60146 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752233AbbEKR3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:29:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/11/15 11:26 AM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 11 May 2015 13:11:06 -0400 (EDT)
->
->> From: David Ahern <dsahern@gmail.com>
->> Date: Sat,  9 May 2015 16:21:43 -0600
->>
->>> Commit e2c6544829f removed pm_qos from struct net_device but left t=
-he
->>> comment above header file. Remove those.
->>>
->>> Signed-off-by: David Ahern <dsahern@gmail.com>
->>
->> Applied, thanks David.
->
-> Actually I had to revert as this breaks the build.
->
-> You will need to submit another patch with this one, one that adds an
-> include of <linux/pm_qos.h> to drivers/net/ethernet/intel/e1000e/e100=
-0.h
->
-> In file included from drivers/net/ethernet/intel/e1000e/82571.c:38:0:
-> drivers/net/ethernet/intel/e1000e/e1000.h:346:24: error: field =A1pm_=
-qos_req=A2 has incomplete type
->    struct pm_qos_request pm_qos_req;
->                          ^
->
+This should have been #ifdef not #if.
 
-crap. I did a VM build with virtio only. Will redo.
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ Very sorry for the typo.
 
-David
+ include/linux/netdevice.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c4e1caf..a6d706b 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1655,7 +1655,7 @@ struct net_device {
+ 	rx_handler_func_t __rcu	*rx_handler;
+ 	void __rcu		*rx_handler_data;
+ 
+-#if CONFIG_NET_CLS_ACT
++#ifdef CONFIG_NET_CLS_ACT
+ 	struct tcf_proto __rcu  *ingress_cl_list;
+ #endif
+ 	struct netdev_queue __rcu *ingress_queue;
+-- 
+1.9.3
