@@ -1,37 +1,57 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH 2/2] adm8211: fix the possible pci cache line sizes inside switch-case
-Date: Mon, 11 May 2015 13:38:58 +0300
-Message-ID: <87vbfzjt4t.fsf@kamboji.qca.qualcomm.com>
-References: <20150505224020.GA3805@bytefire-computer>
-	<87wq0ms3mv.fsf@kamboji.qca.qualcomm.com>
-	<20150506063241.GA3042@bytefire-computer>
-	<87k2wflj7p.fsf@kamboji.qca.qualcomm.com>
-	<2CBE2DDF-92E5-45C9-95F8-C5CF918D12D9@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: fix a possible policy leak
+Date: Mon, 11 May 2015 13:03:13 +0200
+Message-ID: <20150511110310.GR8928@secunet.com>
+References: <1431077979-1606-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "joe\@perches.com" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2CBE2DDF-92E5-45C9-95F8-C5CF918D12D9-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Okash Khawaja's
-	message of "Mon, 11 May 2015 09:48:54 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <eparis@redhat.com>
+To: <roy.qing.li@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:60249 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753618AbbEKLDU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2015 07:03:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1431077979-1606-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+On Fri, May 08, 2015 at 05:39:39PM +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> policy should be put if exit xfrm_policy_bysel_ctx() due to the
+> failure of calling security_xfrm_policy_delete. since policy has
+> been hold before
+> 
+> Fixes: ef41aaa0b7 [IPSEC]: xfrm_policy delete security check misplaced
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Cc: Eric Paris <eparis@redhat.com>
+> ---
+>  net/xfrm/xfrm_policy.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index 3d264e5..66450c3 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -824,6 +824,7 @@ struct xfrm_policy *xfrm_policy_bysel_ctx(struct net *net, u32 mark, u8 type,
+>  				*err = security_xfrm_policy_delete(
+>  								pol->security);
+>  				if (*err) {
+> +					xfrm_pol_put(pol);
+>  					write_unlock_bh(&net->xfrm.xfrm_policy_lock);
+>  					return pol;
+>  				}
+> @@ -863,6 +864,7 @@ struct xfrm_policy *xfrm_policy_byid(struct net *net, u32 mark, u8 type,
+>  				*err = security_xfrm_policy_delete(
+>  								pol->security);
+>  				if (*err) {
+> +					xfrm_pol_put(pol);
+>  					write_unlock_bh(&net->xfrm.xfrm_policy_lock);
+>  					return pol;
+>  				}
 
-> Sure, I'll create v2 of the patch with updated commit log. 
->
-> Since it's part of a patch set, do you want me to send both the
-> patches in the patch set together as v2 or just this patch?
-
-Please resend the whole patchset as v2, less problems that way.
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We return this policy to the caller, so we better keep
+the refcount here. The caller is responsible to drop
+the refount.
