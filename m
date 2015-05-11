@@ -1,36 +1,35 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute2: Fix typo in get_prefix_1()
-Date: Mon, 11 May 2015 09:12:19 -0700
-Message-ID: <20150511091219.2afc962b@urahara>
-References: <1051c439b96abe2cf554720d5f7b456c48ebd838.1430784770.git.tgraf@suug.ch>
+Subject: Re: [Patch iproute2] tc: fill in handle before checking argc
+Date: Mon, 11 May 2015 09:13:56 -0700
+Message-ID: <20150511091356.252613d5@urahara>
+References: <1430865020-16509-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:32920 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751023AbbEKQMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 12:12:17 -0400
-Received: by pdbnk13 with SMTP id nk13so149933266pdb.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 09:12:16 -0700 (PDT)
-In-Reply-To: <1051c439b96abe2cf554720d5f7b456c48ebd838.1430784770.git.tgraf@suug.ch>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:33347 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337AbbEKQNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 12:13:53 -0400
+Received: by pacwv17 with SMTP id wv17so113550070pac.0
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 09:13:53 -0700 (PDT)
+In-Reply-To: <1430865020-16509-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  5 May 2015 02:14:16 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Tue,  5 May 2015 15:30:20 -0700
+Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-> Fixes a typo in get_prefix_1() which broke the prefix default
-> names { default | any | all }.
+> When deleting a specific basic filter with handle,
+> tc command always ignores the 'handle' option, so
+> tcm_handle is always 0 and kernel deletes all filters
+> in the selected group. This is wrong, we should respect
+> 'handle' in cmdline.
 > 
-> The most obvious fallout from this bug was:
-> 
-> 	$ ip route add default via 1.1.1.1
-> 	Error: an inet prefix is expected rather than "default".
-> 
-> Fixes: dacc5d4197c1 ("add basic mpls support to iproute")
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied thanks
+Applied
