@@ -1,32 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: sched: fix typo in net_device ifdef
-Date: Mon, 11 May 2015 13:37:53 -0400 (EDT)
-Message-ID: <20150511.133753.865439786568159663.davem@davemloft.net>
-References: <45ab7891f81f127f688ac20fdac86d5c13afed57.1431364704.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next V3 02/11] net/mlx5_core: Add EQ renaming
+ mechanism
+Date: Mon, 11 May 2015 13:40:08 -0400 (EDT)
+Message-ID: <20150511.134008.7539040783838247.davem@davemloft.net>
+References: <1431250746-11941-1-git-send-email-amirv@mellanox.com>
+	<1431250746-11941-3-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, ast@plumgrid.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, talal@mellanox.com,
+	achiad@mellanox.com, saeedm@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35905 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35915 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751527AbbEKRh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:37:56 -0400
-In-Reply-To: <45ab7891f81f127f688ac20fdac86d5c13afed57.1431364704.git.daniel@iogearbox.net>
+	with ESMTP id S1751013AbbEKRkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:40:10 -0400
+In-Reply-To: <1431250746-11941-3-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon, 11 May 2015 19:28:49 +0200
+From: Amir Vadai <amirv@mellanox.com>
+Date: Sun, 10 May 2015 12:38:57 +0300
 
-> This should have been #ifdef not #if.
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  Very sorry for the typo.
+> +int mlx5_rename_eq(struct mlx5_core_dev *dev, int eq_ix, char *name)
+> +{
+> +	struct mlx5_priv *priv = &dev->priv;
+> +	struct mlx5_eq_table *table = &priv->eq_table;
+> +	struct mlx5_eq *eq;
+> +	int err = -ENOENT;
+> +
+> +	spin_lock(&table->lock);
+> +	list_for_each_entry(eq, &table->comp_eqs_list, list) {
+> +		if (eq->index == eq_ix) {
+> +			snprintf(priv->irq_info[eq_ix].name, MLX5_MAX_IRQ_NAME,
+> +				 "%s-%d", name, eq_ix);
+> +			err = 0;
+> +			break;
+> +		}
+> +	}
+> +	spin_unlock(&table->lock);
+> +
+> +	return err;
+> +}
 
-Applied, thanks Daniel.
+You have to be very careful with this.
+
+If you change these names after the request_irq() call(s), the new name string
+will not propagate to /proc/interrupts output etc.
+
+Looking at your later patches, this seems to be invoked very late in
+mlx5e_open_locked(), so I am concerned.
