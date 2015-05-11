@@ -1,51 +1,51 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] rtnl: don't send rtnl msg for unregistered iface
-Date: Mon, 11 May 2015 16:25:46 +0200
-Message-ID: <1431354346-4476-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	gospo@cumulusnetworks.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Jiri Pirko <jiri@resnulli.us>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: macb: Handle the RXUBR interrupt on all devices
+Date: Mon, 11 May 2015 10:28:15 -0400 (EDT)
+Message-ID: <20150511.102815.1978586728654404293.davem@davemloft.net>
+References: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com>
+	<20150509.160454.1045911244389894144.davem@davemloft.net>
+	<5550802E.6040900@atmel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nathan.sullivan@ni.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nicolas.ferre@atmel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:46881 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750967AbbEKO0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 10:26:09 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:34346 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750992AbbEKO2V convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 10:28:21 -0400
+In-Reply-To: <5550802E.6040900@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before the patch, the command 'ip link add bond2 type bond mode 802.3ad'
-causes the kernel to send a rtnl message for the bond2 interface, with an
-ifindex 0.
+=46rom: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Mon, 11 May 2015 12:10:54 +0200
 
-'ip monitor' shows:
-0: bond2: <BROADCAST,MULTICAST,MASTER> mtu 1500 state DOWN group default
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
-9: bond2@NONE: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN group default
-    link/ether ea:3e:1f:53:92:7b brd ff:ff:ff:ff:ff:ff
-[snip]
+> Le 09/05/2015 22:04, David Miller a =E9crit :
+>> From: Nathan Sullivan <nathan.sullivan@ni.com>
+>> Date: Tue, 5 May 2015 15:00:25 -0500
+>>=20
+>>> The same hardware issue the at91 must work around applies to at lea=
+st the
+>>> Zynq ethernet, and possibly more devices.  The driver also needs to=
+ handle
+>>> the RXUBR interrupt since it turns it on with MACB_RX_INT_FLAGS any=
+way.
+>>>
+>>> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+>>=20
+>> Applied, thank you.
+>=20
+> A v2 of this patch with more explanation in both the commit message a=
+nd
+> in code comments had been sent. Not a big deal (I suspect you can't u=
+se
+> the v2 one, now that it's applied in your tree, can you?).
 
-Fixes: d4261e565000 ("bonding: create netlink event when bonding option is changed")
-CC: Jiri Pirko <jiri@resnulli.us>
-Reported-by: Julien Meunier <julien.meunier@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/core/rtnetlink.c | 2 ++
- 1 file changed, 2 insertions(+)
+Sorry, yes I see there was a v2.  If you want to send me a relative pat=
+ch that
+corrects things, I can apply that.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 837d30b5ffed..721ca1b0e734 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3273,6 +3273,8 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	case NETDEV_BONDING_INFO:
- 		break;
- 	default:
-+		if (!dev->ifindex)
-+			break;
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
- 		break;
- 	}
--- 
-2.2.2
+Thanks.
