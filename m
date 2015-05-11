@@ -1,41 +1,100 @@
-From: "Rosen, Rami" <rami.rosen@intel.com>
-Subject: RE: [PATCH net-next v7 24/24] switchdev: bring documentation
- up-to-date
-Date: Mon, 11 May 2015 21:02:16 +0000
-Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F9193B7848@HASMSX110.ger.corp.intel.com>
-References: <1431276489-64199-1-git-send-email-sfeldma@gmail.com>
- <1431276489-64199-25-git-send-email-sfeldma@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"linux@roeck-us.net" <linux@roeck-us.net>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	"joe@perches.com" <joe@perches.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: "sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:45743 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752345AbbEKVCr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 May 2015 17:02:47 -0400
-In-Reply-To: <1431276489-64199-25-git-send-email-sfeldma@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH V6 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to optimize signaling the host
+Date: Mon, 11 May 2015 15:39:46 -0700
+Message-ID: <1431383986-30850-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-VGhhbmtzIGZvciB0aGUgZ29vZCB3b3JrLg0KDQpNaW5vciBjb21tZW50czoNCj4rCWJyaWRnZSBm
-ZGIgYWRkIEFERFIgZGV2IERFViBbdmxhbiBWSURdIFtzZWxmXQ0KDQpJIHN1Z2dlc3QgY29uc2lk
-ZXIgYWRkaW5nIGluIHRoaXMgc2VjdGlvbjogDQogWFhYOiB3aGF0IHNob3VsZCBiZSBkb25lIGlm
-IG9mZmxvYWRpbmcgdGhpcyBydWxlIHRvIGhhcmR3YXJlIGZhaWxzIChmb3IgZXhhbXBsZSwgZHVl
-IHRvIGZ1bGwgY2FwYWNpdHkgaW4gaGFyZHdhcmUgdGFibGVzKSA/IA0KDQpBcGFydCBmcm9tIGl0
-LCB0d28gdHlwb3M6DQoNCj5wYXJ0aWN1bGFybHkgdXNlZnVsIGZvciBkeW5pY2FsbHktbmFtZWQg
-cG9ydHMgd2hlcmUgdGhlIGRldmljZSBuYW1lcw0KU2hvdWxkIGJlOiBkeW5hbWljYWxseS1uYW1l
-ZCBwb3J0cy4NCg0KPiByZXNwb3NpYmxlIGZvciBwYXJ0aXRpb25pbmcgaGFyZHdhcmUgdG8gcHJl
-c2VydmUgbmV0bnMgY29udGFpbm1lbnQNClNob3VsZCBiZTogcmVzcG9uc2libGUuDQoNClJlZ2Fy
-ZHMsDQpSYW1pIFJvc2VuDQpJbnRlbCBDb3Jwb3JhdGlvbg0K
+Based on the information given to this driver (via the xmit_more skb flag),
+we can defer signaling the host if more packets are on the way. This will help
+make the host more efficient since it can potentially process a larger batch of
+packets. Implement this optimization.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+        v2: Fixed up indentation based on feedback from David Miller.
+        v3,v4: If the queue could be stopped, deal with that condition: Eric Dumazet <eric.dumazet@gmail.com>
+        v5: Fixed up indentation based on feedback from David Miller.
+        V6: Fixed additional indentation/formatting: Joe Perches <joe@perches.com>
+
+ drivers/net/hyperv/netvsc.c |   43 +++++++++++++++++++++++++++----------------
+ 1 files changed, 27 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index ea091bc..b024968 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
+ 	u64 req_id;
+ 	int ret;
+ 	struct hv_page_buffer *pgbuf;
++	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
+ 
+ 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
+ 	if (packet->is_data_pkt) {
+@@ -769,32 +770,42 @@ static inline int netvsc_send_pkt(
+ 	if (out_channel->rescind)
+ 		return -ENODEV;
+ 
++	/*
++	 * It is possible that once we successfully place this packet
++	 * on the ringbuffer, we may stop the queue. In that case, we want
++	 * to notify the host independent of the xmit_more flag. We don't
++	 * need to be precise here; in the worst case we may signal the host
++	 * unnecessarily.
++	 */
++	if (ring_avail < (RING_AVAIL_PERCENT_LOWATER + 1))
++		packet->xmit_more = false;
++
+ 	if (packet->page_buf_cnt) {
+ 		pgbuf = packet->cp_partial ? packet->page_buf +
+ 			packet->rmsg_pgcnt : packet->page_buf;
+-		ret = vmbus_sendpacket_pagebuffer(out_channel,
+-						  pgbuf,
+-						  packet->page_buf_cnt,
+-						  &nvmsg,
+-						  sizeof(struct nvsp_message),
+-						  req_id);
++		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
++						      pgbuf,
++						      packet->page_buf_cnt,
++						      &nvmsg,
++						      sizeof(struct nvsp_message),
++						      req_id,
++						      VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
++						      !packet->xmit_more);
+ 	} else {
+-		ret = vmbus_sendpacket(
+-				out_channel, &nvmsg,
+-				sizeof(struct nvsp_message),
+-				req_id,
+-				VM_PKT_DATA_INBAND,
+-				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
++		ret = vmbus_sendpacket_ctl(out_channel, &nvmsg,
++					   sizeof(struct nvsp_message),
++					   req_id,
++					   VM_PKT_DATA_INBAND,
++					   VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
++					   !packet->xmit_more);
+ 	}
+ 
+ 	if (ret == 0) {
+ 		atomic_inc(&net_device->num_outstanding_sends);
+ 		atomic_inc(&net_device->queue_sends[q_idx]);
+ 
+-		if (hv_ringbuf_avail_percent(&out_channel->outbound) <
+-			RING_AVAIL_PERCENT_LOWATER) {
+-			netif_tx_stop_queue(netdev_get_tx_queue(
+-					    ndev, q_idx));
++		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
++			netif_tx_stop_queue(netdev_get_tx_queue(ndev, q_idx));
+ 
+ 			if (atomic_read(&net_device->
+ 				queue_sends[q_idx]) < 1)
+-- 
+1.7.4.1
