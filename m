@@ -1,42 +1,48 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] netns: return RTM_NEWNSID instead of RTM_GETNSID on a get
-Date: Mon, 11 May 2015 15:57:31 +0200
-Message-ID: <1431352651-31921-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:46837 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754131AbbEKN5i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 09:57:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH v2] net: ll_temac: Use one return statement instead of two
+Date: Mon, 11 May 2015 16:05:02 +0200
+Message-ID: <3a0fa74dd703db5dac4816ef15b6a512ef0f2ec0.1431353091.git.michal.simek@xilinx.com>
+Cc: =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+	monstr@monstr.eu, Fabian Frederick <fabf@skynet.be>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Markus Elfring <elfring@users.sourceforge.net>,
+	Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
+	linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Usually, RTM_NEWxxx is returned on a get (same as a dump).
+Use one return statement instead of two to simplify the code.
+Both are returning the same value.
 
-Fixes: 0c7aecd4bde4 ("netns: add rtnl cmd to add and get peer netns ids")
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
 
-David, FYI, this patch will conflict with my last series on net-next.
-The prototype of rtnl_net_fill() has changed. In any problem, please let me
-know.
+Changes in v2:
+- Use the same SoB as sender address - Reported-by: Julia Lawall
 
- net/core/net_namespace.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/xilinx/ll_temac_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 78fc04ad36fc..572af0011997 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -601,7 +601,7 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index 062483f334a5..cfb6bdb37fdc 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -688,10 +688,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	cur_p = &lp->tx_bd_v[lp->tx_bd_tail];
+ 
+ 	if (temac_check_tx_bd_space(lp, num_frag)) {
+-		if (!netif_queue_stopped(ndev)) {
++		if (!netif_queue_stopped(ndev))
+ 			netif_stop_queue(ndev);
+-			return NETDEV_TX_BUSY;
+-		}
+ 		return NETDEV_TX_BUSY;
  	}
  
- 	err = rtnl_net_fill(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
--			    RTM_GETNSID, net, peer, -1);
-+			    RTM_NEWNSID, net, peer, -1);
- 	if (err < 0)
- 		goto err_out;
- 
 -- 
-2.2.2
+2.3.5
