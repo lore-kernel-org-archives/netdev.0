@@ -1,47 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211-next 2015-05-06
-Date: Mon, 11 May 2015 10:41:02 -0400 (EDT)
-Message-ID: <20150511.104102.520345911968274714.davem@davemloft.net>
-References: <20150509.172803.2129151083625591640.davem@davemloft.net>
-	<20150509.173446.1826713590855601099.davem@davemloft.net>
-	<1431333103.1964.4.camel@sipsolutions.net>
+Subject: Re: [PATCH V5 1/1] hv_netvsc: Use the xmit_more skb flag to
+ optimize signaling the host
+Date: Mon, 11 May 2015 10:41:21 -0400 (EDT)
+Message-ID: <20150511.104121.111988027007099988.davem@davemloft.net>
+References: <1431317294-16442-1-git-send-email-kys@microsoft.com>
+	<1431323894.2884.4.camel@perches.com>
+	<BY2PR0301MB0711C1248DF6677217A310BCA0DB0@BY2PR0301MB0711.namprd03.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34507 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208AbbEKOlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 10:41:07 -0400
-In-Reply-To: <1431333103.1964.4.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+To: kys@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BY2PR0301MB0711C1248DF6677217A310BCA0DB0@BY2PR0301MB0711.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 11 May 2015 10:31:43 +0200
+From: KY Srinivasan <kys@microsoft.com>
+Date: Mon, 11 May 2015 08:59:53 +0000
 
-> On Sat, 2015-05-09 at 17:34 -0400, David Miller wrote:
 > 
->> Johhannes, the hash table size Kconfig entry absolutely not appropriate.
+> 
+>> -----Original Message-----
+>> From: Joe Perches [mailto:joe@perches.com]
+>> Sent: Sunday, May 10, 2015 10:58 PM
+>> To: KY Srinivasan
+>> Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
+>> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+>> apw@canonical.com; jasowang@redhat.com
+>> Subject: Re: [PATCH V5 1/1] hv_netvsc: Use the xmit_more skb flag to
+>> optimize signaling the host
 >> 
->> If anything, it should be hidden behind the strongest possible "DEBUG
->> ONLY" type dependencies, so that the user is never prompted for this
->> confusing option.
+>> On Sun, 2015-05-10 at 21:08 -0700, K. Y. Srinivasan wrote:
+>> > Based on the information given to this driver (via the xmit_more skb flag),
+>> > we can defer signaling the host if more packets are on the way. This will
+>> help
+>> > make the host more efficient since it can potentially process a larger batch
+>> of
+>> > packets. Implement this optimization.
+>> 
+>> trivia:
+>> 
+>> I think that indirecting
+>> VMBUS_DATA_PACKET_FLAG_COMPLETTION_REQUESTED
+>> into a non-const temporary isn't very useful.
+>> 
+>> Whenever overly long identifiers like VMBUS_<FOO> is used,
+>> I think that it'd be better to use it directly and ignore
+>> 80 column warnings.
 > 
-> Hmm. It's hidden behind "MAC80211_DEBUG_MENU", which already should be
-> discouragement, there's nothing in there that the user should ever
-> select unless they're developing/debugging on this.
-> 
-> I can word the help text more strongly, perhaps? Or make the debug menu
-> also depend on CONFIG_EXPERT (but most people seem to set that
-> anyway ...)?
-> 
-> I'm happy to change this, but am not entirely sure how to discourage its
-> use any further than we already do. Any suggestions?
+> Thanks Joe; if Dave agrees, I can send v6 of this patch out.
 
-Ok, this is actually my bad.
-
-I keep forgetting that by doing allmodconfig builds all the time, I get
-the debug options too. :-)
+Sure, respin a v6.
