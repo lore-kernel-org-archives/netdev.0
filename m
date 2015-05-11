@@ -1,57 +1,139 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 15/15] tc: introduce Flower classifier
-Date: Mon, 11 May 2015 14:39:58 +0200
-Message-ID: <20150511123958.GB2245@nanopsycho>
-References: <1431177038-11555-1-git-send-email-jiri@resnulli.us>
- <1431177038-11555-16-git-send-email-jiri@resnulli.us>
- <55509BC2.2090702@mojatatu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code where
+ it belongs
+Date: Mon, 11 May 2015 08:49:03 -0400
+Message-ID: <5550A53F.80604@mojatatu.com>
+References: <554F9DE8.3000507@plumgrid.com> <20150510182414.GA4198@salvia> <554FA7A5.5020400@plumgrid.com> <20150510190039.GA4938@salvia> <554FAC3A.40701@plumgrid.com> <20150510192044.GA7173@salvia> <554FB366.7080509@plumgrid.com> <20150510195018.GA7877@salvia> <554FCE24.8020904@iogearbox.net> <554FD12F.2020607@iogearbox.net> <20150510234313.GA3176@salvia> <555044D8.3080606@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
-	jesse@nicira.com, kaber@trash.net, therbert@google.com,
-	edumazet@google.com, alexander.h.duyck@redhat.com,
-	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
-	herbert@gondor.apana.org.au, cwang@twopensource.com,
-	john.fastabend@gmail.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:37877 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058AbbEKMkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 08:40:06 -0400
-Received: by widdi4 with SMTP id di4so94704130wid.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 05:40:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55509BC2.2090702@mojatatu.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:37761 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753888AbbEKMtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 08:49:06 -0400
+Received: by igbsb11 with SMTP id sb11so68921220igb.0
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 05:49:06 -0700 (PDT)
+In-Reply-To: <555044D8.3080606@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, May 11, 2015 at 02:08:34PM CEST, jhs@mojatatu.com wrote:
->On 05/09/15 09:10, Jiri Pirko wrote:
->>This patch introduces a flow-based filter. So far, the very essential
->>packet fields are supported.
+
+we need to agree on what the benchmark is. The metrics below are
+fine, whoever is doing measurements (expecting different kernels
+and hardware to behave differently, so a kernel config will help):
+
+1)no ingress (if drop is in ip_rcv, does it look at some header?)
+2)ingress on other dev (this should mean still #1 drop applies)
+3)ingress on this dev (#1 drop in effect)
+4)ingress on this dev (#1 drop in effect)
+5)ingress on this dev + drop at u32 classifier/action.
+
+Variations of above:
+A) Current kernel
+B) ingress static key introduced
+C)Pablo's vs Daniel's settings
+
+The one thing i see in Pablo's comments is extra code will slow
+down things. I see Alexei refuting it below since that code is
+not being executed.
+So some variation with extra code to see what happens.
+
+It is hard, but please stay calm and carry on - we all want
+whats best.
+
+cheers,
+jamal
+
+On 05/11/15 01:57, Alexei Starovoitov wrote:
+> On 5/10/15 4:43 PM, Pablo Neira Ayuso wrote:
 >>
->>This patch is only the first step. There is a lot of potential performance
->>improvements possible to implement. Also a lot of features are missing
->>now. They will be addressed in follow-up patches.
+>> The noop is patched to an unconditional branch to skip that code, but
+>> the code is still there in that path, even if it's dormant.
 >>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> What the numbers show is rather simple: The more code is in the path,
+>> the less performance you get, and the qdisc ingress specific code
+>> embedded there is reducing performance for people that are not using
+>> qdisc ingress, hence it should go where it belongs. The static key
+>> cannot save you from that.
 >
->I have a question Jiri: What kind of flower is this? ;->
-
-Just a generic flower :)
-
->Very nice - Glad Dave pushed you to go this direction.
->For a usable classifier that performs reasonably well, i think
->this one is going to look good.
+> hmm, did I miss these numbers ?
 >
->My suggestion is to not add TCA_FLOWER_POLICE attribute.
->Policers can be added via TCA_FLOWER_ACT (which is the modern
->way to do it). Infact i would suggest even in your iproute2
->code, please kill the conditional that tries to parse for
->TCA_FLOWER_POLICE
+> My numbers are showing the opposite. There is no degradation whatsoever.
+> To recap, here are the numbers from my box:
+> no ingress - 37.6
+> ingress on other dev - 36.5
+> ingress on this dev - 28.8
+> ingress on this dev + u32 - 24.1
 >
->Other than that:
->Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-Okay, thanks. Will send v2 without TCA_FLOWER_POLICE.
+> after Daniel's two patches:
+> no ingress - 37.6
+> ingress on other dev - 36.5
+> ingress on this dev - 36.5
+> ingress on this dev + u32 - 25.2
+>
+> Explanation of the first lines:
+> 'no ingress' means pure netif_receive_skb with drop in ip_rcv.
+> This is the case when ingress qdisc is not attached to any of the
+> devices.
+> Here static_key is off, so:
+>          if (static_key_false(&ingress_needed)) {
+>                  ... never reaches here ...
+>                  skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
+>
+> So the code path is the same and numbers before and after are
+> proving it is the case.
+>
+> 'ingress on other dev' means that ingress qdisc is attached to
+> some other device. Meaning that static_key is now on and
+> handle_ing() after two patches does:
+> cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
+> if (!cl)
+>    return skb; ... returns here ...
+>
+> Prior to two Daniel's patches handle_ing() does:
+>   rxq = rcu_dereference(skb->dev->ingress_queue);
+>   if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
+>      return skb; ... returns here ...
+>
+> so the number of instructions is the same for 'ingress on other dev'
+> case too.
+> Not surprisingly before and after numbers for 'no ingress' and
+> 'ingress on other dev' are exactly the same.
+>
+> It sounds like you're saying that code that not even being executed
+> is somehow affecting the speed? How is that possible ?
+> What kind of benchmark do you run? I really want to get to the bottom
+> of it. We cannot use 'drive-by reviewing' and 'gut feel' to make
+> decisions. If you think my numbers are wrong, please rerun them.
+> I'm using pktgen with 'xmit_mode netif_receive'. If there is some
+> other benchmark please bring it on. Everyone will benefit.
+> If you think pktgen as a test is not representative of real numbers,
+> sure, that's a different discussion. Let's talk what is the right
+> test to use. Just claiming that inline of a function into
+> netif_receive_skb is hurting performance is bogus. Inlining hurts
+> when size of executed code increases beyond I-cache size. That's
+> clearly not the case here. Compilers moves inlined handle_ing()
+> into cold path of netif_receive_skb. So for anyone who doesn't
+> enable ingress qdisc there is no difference, since that code doesn't
+> even get into I-cache.
+> Here is snippet from net/core/dev.s:
+>      /* below is line 3696: if (static_key_false(&ingress_needed)) */
+>          1:.byte 0x0f,0x1f,0x44,0x00,0
+>          .pushsection __jump_table,  "aw"
+>           .balign 8
+>           .quad 1b, .L1756, ingress_needed       #,
+>          .popsection
+>      /* below is line 3702: skb->tc_verd = 0; */
+>      movw    $0, 150(%rbx)   #, skb_310->tc_verd
+>
+> As you can see the inlined handle_ing() is not in fall through path
+> and it's placed by gcc at the end of netif_receive_skb_core at the label
+> L1756. So I cannot possible see how it can affect performance.
+> Even if we make handle_ing() twice as big, there is still won't be
+> any difference for users that don't use ingress qdisc.
+>
