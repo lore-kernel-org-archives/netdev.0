@@ -1,40 +1,38 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH -next] net: sched: use counter to break reclassify loops
-Date: Mon, 11 May 2015 13:30:07 -0700
-Message-ID: <20150511203006.GA2914@Alexeis-MacBook-Pro.local>
-References: <1431366641-24735-1-git-send-email-fw@strlen.de>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH 00/10] Refactor netdev page frags and move them into mm/
+Date: Mon, 11 May 2015 13:36:52 -0700
+Message-ID: <20150511133652.cd885d654213fe4161da0d87@linux-foundation.org>
+References: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
+	<20150510.191758.2130017622255857830.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:34748 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752628AbbEKUaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 16:30:11 -0400
-Received: by pdbqa5 with SMTP id qa5so152649847pdb.1
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 13:30:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1431366641-24735-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
+ linux-mm@kvack.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150510.191758.2130017622255857830.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 11, 2015 at 07:50:41PM +0200, Florian Westphal wrote:
-> Seems all we want here is to avoid endless 'goto reclassify' loop.
-> tc_classify_compat even resets this counter when something other
-> than TC_ACT_RECLASSIFY is returned, so this skb-counter doesn't
-> break hypothetical loops induced by something other than perpetual
-> TC_ACT_RECLASSIFY return values.
-> 
-> skb_act_clone is now identical to skb_clone, so just use that.
-> 
-> Tested with following (bogus) filter:
-> tc filter add dev eth0 parent ffff: \
->  protocol ip u32 match u32 0 0 police rate 10Kbit burst \
->  64000 mtu 1500 action reclassify
-> 
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+On Sun, 10 May 2015 19:17:58 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
 
-agree. that's my reading of the code as well.
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> > 4.9%	build_skb		3.8%	__napi_alloc_skb
+> > 2.5%	__alloc_rx_skb
+> > 1.9%	__napi_alloc_skb
+> 
+> I like this series, but again I need to see feedback from some
+> mm folks before I can consider applying it.
+
+The MM part looks OK to me - it's largely moving code out of net/ into
+mm/.  It's a bit weird and it's unclear whether the code will gain
+other callers, but putting it in mm/ increase the likelihood that some other
+subsystem will use it.
+
+Please merge it via a net tree when ready.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
