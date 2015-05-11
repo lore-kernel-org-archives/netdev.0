@@ -1,36 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Remove remaining remnants of pm_qos from
- netdevice.h
-Date: Mon, 11 May 2015 13:26:11 -0400 (EDT)
-Message-ID: <20150511.132611.701878238281798138.davem@davemloft.net>
-References: <1431210103-18683-1-git-send-email-dsahern@gmail.com>
-	<20150511.131106.1902675173206646881.davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH] net: Remove remaining remnants of pm_qos from netdevice.h
+Date: Mon, 11 May 2015 11:27:22 -0600
+Message-ID: <5550E67A.4070907@gmail.com>
+References: <1431210103-18683-1-git-send-email-dsahern@gmail.com>	<20150511.131106.1902675173206646881.davem@davemloft.net> <20150511.132611.701878238281798138.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=iso-8859-7;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: dsahern@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35778 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbbEKR0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:26:14 -0400
-In-Reply-To: <20150511.131106.1902675173206646881.davem@davemloft.net>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:33310 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751373AbbEKR1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:27:23 -0400
+Received: by iepj10 with SMTP id j10so110514090iep.0
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 10:27:23 -0700 (PDT)
+In-Reply-To: <20150511.132611.701878238281798138.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxMSBN
-YXkgMjAxNSAxMzoxMTowNiAtMDQwMCAoRURUKQ0KDQo+IEZyb206IERhdmlkIEFoZXJuIDxkc2Fo
-ZXJuQGdtYWlsLmNvbT4NCj4gRGF0ZTogU2F0LCAgOSBNYXkgMjAxNSAxNjoyMTo0MyAtMDYwMA0K
-PiANCj4+IENvbW1pdCBlMmM2NTQ0ODI5ZiByZW1vdmVkIHBtX3FvcyBmcm9tIHN0cnVjdCBuZXRf
-ZGV2aWNlIGJ1dCBsZWZ0IHRoZQ0KPj4gY29tbWVudCBhYm92ZSBoZWFkZXIgZmlsZS4gUmVtb3Zl
-IHRob3NlLg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBBaGVybiA8ZHNhaGVybkBnbWFp
-bC5jb20+DQo+IA0KPiBBcHBsaWVkLCB0aGFua3MgRGF2aWQuDQoNCkFjdHVhbGx5IEkgaGFkIHRv
-IHJldmVydCBhcyB0aGlzIGJyZWFrcyB0aGUgYnVpbGQuDQoNCllvdSB3aWxsIG5lZWQgdG8gc3Vi
-bWl0IGFub3RoZXIgcGF0Y2ggd2l0aCB0aGlzIG9uZSwgb25lIHRoYXQgYWRkcyBhbg0KaW5jbHVk
-ZSBvZiA8bGludXgvcG1fcW9zLmg+IHRvIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAw
-ZS9lMTAwMC5oDQoNCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
-bnRlbC9lMTAwMGUvODI1NzEuYzozODowOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEw
-MDBlL2UxMDAwLmg6MzQ2OjI0OiBlcnJvcjogZmllbGQgoXBtX3Fvc19yZXGiIGhhcyBpbmNvbXBs
-ZXRlIHR5cGUNCiAgc3RydWN0IHBtX3Fvc19yZXF1ZXN0IHBtX3Fvc19yZXE7DQogICAgICAgICAg
-ICAgICAgICAgICAgICBeDQo=
+On 5/11/15 11:26 AM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 11 May 2015 13:11:06 -0400 (EDT)
+>
+>> From: David Ahern <dsahern@gmail.com>
+>> Date: Sat,  9 May 2015 16:21:43 -0600
+>>
+>>> Commit e2c6544829f removed pm_qos from struct net_device but left t=
+he
+>>> comment above header file. Remove those.
+>>>
+>>> Signed-off-by: David Ahern <dsahern@gmail.com>
+>>
+>> Applied, thanks David.
+>
+> Actually I had to revert as this breaks the build.
+>
+> You will need to submit another patch with this one, one that adds an
+> include of <linux/pm_qos.h> to drivers/net/ethernet/intel/e1000e/e100=
+0.h
+>
+> In file included from drivers/net/ethernet/intel/e1000e/82571.c:38:0:
+> drivers/net/ethernet/intel/e1000e/e1000.h:346:24: error: field =A1pm_=
+qos_req=A2 has incomplete type
+>    struct pm_qos_request pm_qos_req;
+>                          ^
+>
+
+crap. I did a VM build with virtio only. Will redo.
+
+David
