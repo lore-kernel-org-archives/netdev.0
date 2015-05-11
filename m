@@ -1,77 +1,34 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [V3 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Mon, 11 May 2015 17:16:27 +0100
-Message-ID: <20150511161626.GI18655@e104818-lin.cambridge.arm.com>
-References: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <1431045436-8690-2-git-send-email-Suravee.Suthikulpanit@amd.com>
- <3684853.vaQGhc4jR5@vostro.rjw.lan>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: dctcp changes
+Date: Mon, 11 May 2015 09:17:08 -0700
+Message-ID: <20150511091708.52b8dc4e@urahara>
+References: <1431116920.22756.18.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-	thomas.lendacky@amd.com, linux-crypto@vger.kernel.org,
-	herbert@gondor.apana.org.au, arnd@arndb.de,
-	linaro-acpi@lists.linaro.org, will.deacon@arm.com,
-	linux-kernel@vger.kernel.org, al.stone@linaro.org,
-	linux-acpi@vger.kernel.org, netdev@vger.kernel.org,
-	leo.duran@amd.com, hanjun.guo@linaro.org, msalter@redhat.com,
-	grant.likely@linaro.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, lenb@kernel.org
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3684853.vaQGhc4jR5@vostro.rjw.lan>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:35458 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753569AbbEKQRE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 12:17:04 -0400
+Received: by pabtp1 with SMTP id tp1so113604015pab.2
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 09:17:04 -0700 (PDT)
+In-Reply-To: <1431116920.22756.18.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 08, 2015 at 10:53:59PM +0200, Rafael J. Wysocki wrote:
-> On Thursday, May 07, 2015 07:37:12 PM Suravee Suthikulpanit wrote:
-> > diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-> > index ab2cbb5..7822149 100644
-> > --- a/drivers/acpi/Kconfig
-> > +++ b/drivers/acpi/Kconfig
-> > @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
-> >  config ACPI_SYSTEM_POWER_STATES_SUPPORT
-> >  	bool
-> >  
-> > +config ACPI_CCA_REQUIRED
-> > +	bool
-> > +
-> > +config ARM64_SUPPORT_ACPI_CCA_ZERO
+On Fri, 08 May 2015 13:28:40 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Hmm.  I guess the Arnd's idea what to simply use CONFIG_ARM64 directly instead
-> of adding this new option.
-
-I agree.
-
-> > +static inline bool acpi_dma_is_supported(struct acpi_device *adev)
-> > +{
-> > +	/**
-> > +	 * Currently, we mainly support _CCA=1 (i.e. is_coherent=1)
-> > +	 * This should be equivalent to specifyig dma-coherent for
-> > +	 * a device in OF.
-> > +	 *
-> > +	 * For the case when _CCA=0 (i.e. is_coherent=0 && cca_seen=1),
-> > +	 * we would rely on arch-specific cache maintenance for
-> > +	 * non-coherence DMA operations if architecture specifies
-> > +	 * _XXX_SUPPORT_CCA_ZERO. Otherwise, we do not support
-> > +	 * DMA on this device and fallback to arch-specific default
-> > +	 * handling.
-> > +	 *
-> > +	 * For the case when _CCA is missing (i.e. cca_seen=0) but
-> > +	 * platform specifies ACPI_CCA_REQUIRED, we do not support DMA,
-> > +	 * and fallback to arch-specific default handling.
-> > +	 */
-> > +	return adev && (adev->flags.is_coherent ||
-> > +			(adev->flags.cca_seen &&
-> > +			 IS_ENABLED(CONFIG_ARM64_SUPPORT_ACPI_CCA_ZERO)));
+> Missing space before dctcp: markers.
 > 
-> So what exactly would be wrong with using IS_ENABLED(CONFIG_ARM64) here?
+> With dctcp, cwnd=2 is pretty common, just display cwnd value even
+> if cwnd has this value, it makes parsing easier.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-I'm not sure I follow why we need to check for ARM64 here at all. Can we
-not just have something like:
-
-	return adev && (!IS_ENABLED(CONFIG_ACPI_CCA_REQUIRED) ||
-			adev->flags.cca_seen)
-
--- 
-Catalin
+Applied, thanks
