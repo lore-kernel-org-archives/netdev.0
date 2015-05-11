@@ -1,60 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] macvtap add missing ioctls - fix wrapping
-Date: Mon, 11 May 2015 13:49:01 -0400 (EDT)
-Message-ID: <20150511.134901.959375179450827063.davem@davemloft.net>
-References: <20150509.174017.6956415471104971.davem@davemloft.net>
-	<1431249359.669.5.camel@myriabit.com>
-	<1431262215.3278.2.camel@myriabit.com>
+From: =?ISO-8859-15?Q?Pavel_=A6imerda?= <pavlix@pavlix.net>
+Subject: Re: [PATCH 5/7] ip-route: don't hide routes with RTM_F_CLONED by
+ default
+Date: Mon, 11 May 2015 19:48:28 +0200
+Message-ID: <5550EB6C.9070607@pavlix.net>
+References: <1428933661-8193-2-git-send-email-pavlix@pavlix.net>	<1428933661-8193-5-git-send-email-pavlix@pavlix.net>	<20150504083751.7c38626b@urahara> <20150504.143708.1105742826058228400.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: justin@myriabit.com
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, psimerda@redhat.com
+To: David Miller <davem@davemloft.net>, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35984 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853AbbEKRtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:49:03 -0400
-In-Reply-To: <1431262215.3278.2.camel@myriabit.com>
+Received: from fox.pavlix.net ([84.246.161.104]:56695 "EHLO fox.pavlix.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751474AbbEKRuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2015 13:50:09 -0400
+In-Reply-To: <20150504.143708.1105742826058228400.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Justin Cormack <justin@myriabit.com>
-Date: Sun, 10 May 2015 13:50:15 +0100
+On 05/04/2015 08:37 PM, David Miller wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Mon, 4 May 2015 08:37:51 -0700
+>=20
+>> On Mon, 13 Apr 2015 16:00:59 +0200
+>> Pavel =A6imerda <pavlix@pavlix.net> wrote:
+>>
+>>> From: Pavel =A6imerda <psimerda@redhat.com>
+>>>
+>>> Signed-off-by: Pavel =A6imerda <psimerda@redhat.com>
+>>> ---
+>>>  ip/iproute.c | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> I understand your concern, and it probably was a poor design choice =
+initially.
+>>
+>> Since this will change the output for the default case, it will upse=
+t some
+>> peoples expectations and potentially break scripts that screen scrap=
+e the output
+>> of ip commands. Therefore I can't accept it at this time.
+>>
+>> Sorry for the delay, but I thought someone else would add more comme=
+nts.
+>> Perhaps if you explained in more detail the motivation of why this i=
+s an
+>> important problem I would reconsider change the behavior.
 
-> The macvtap driver tries to emulate all the ioctls supported by a normal
-> tun/tap driver, however it was missing the generic SIOCGIFHWADDR and
-> SIOCSIFHWADDR ioctls to get and set the mac address that are supported
-> by tun/tap. This patch adds these.
-> 
-> Signed-off-by: Justin Cormack <justin@netbsd.org>
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 8c350c5..f37e8f9 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -1101,6 +1101,35 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  		rtnl_unlock();
->  		return ret;
->  
-> +	case SIOCGIFHWADDR:
-> +		rtnl_lock();
-> +		vlan = macvtap_get_vlan(q);
-> +		if (!vlan) {
-> +			rtnl_unlock();
-> +			return -ENOLINK;
-> +		}
-> +		ret = 0;
-> +		u = vlan->dev->type;
-> +		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
-> +			copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
-> +			put_user(u, &ifr->ifr_hwaddr.sa_family))
+Hi,
 
-This is not indented correctly.
+I have no specific concern right now.
 
-When an if() statement spans multiple lines, the second and subsequent lines
-should start exactly at the first column following the openning parenthesis
-of the first line.  You should use the appropriate number of TAB then
-SPACE characters necessary to achieve this.
+> We definitely need to report routes created by caching/cloning separa=
+tely
+> from the main FIB entries.
+>=20
+> And I agree that even if we wanted to change behavior, the horse has
+> already left the barn on this one and therefore there is no way we ca=
+n
+> change this now.
 
-Thanks.
+=46or now I treat the patch as rejected by upstream and as I'm not awar=
+e
+of a specific concern for Fedora, I'm also dropping the patch from the
+development branch[1]. Thank you for accepting other patches.
+
+My plan is to submit new patches for requests coming from Fedora and
+RHEL distributions and also resubmit the manpage patches with new
+changes and split by command/subcommand.
+
+Cheers,
+
+Pavel
+
+[1]:
+http://pkgs.fedoraproject.org/cgit/iproute.git/commit/?id=3Df0557f39740=
+b5c18f07b2caf634eb073ba19484f
