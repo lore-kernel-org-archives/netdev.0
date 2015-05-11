@@ -1,139 +1,289 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
 Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code where
  it belongs
-Date: Mon, 11 May 2015 08:49:03 -0400
-Message-ID: <5550A53F.80604@mojatatu.com>
+Date: Mon, 11 May 2015 14:58:03 +0200
+Message-ID: <5550A75B.3010003@iogearbox.net>
 References: <554F9DE8.3000507@plumgrid.com> <20150510182414.GA4198@salvia> <554FA7A5.5020400@plumgrid.com> <20150510190039.GA4938@salvia> <554FAC3A.40701@plumgrid.com> <20150510192044.GA7173@salvia> <554FB366.7080509@plumgrid.com> <20150510195018.GA7877@salvia> <554FCE24.8020904@iogearbox.net> <554FD12F.2020607@iogearbox.net> <20150510234313.GA3176@salvia> <555044D8.3080606@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
 To: Alexei Starovoitov <ast@plumgrid.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
+	Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37761 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753888AbbEKMtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 08:49:06 -0400
-Received: by igbsb11 with SMTP id sb11so68921220igb.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 05:49:06 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:35076 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197AbbEKM6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 08:58:07 -0400
 In-Reply-To: <555044D8.3080606@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-we need to agree on what the benchmark is. The metrics below are
-fine, whoever is doing measurements (expecting different kernels
-and hardware to behave differently, so a kernel config will help):
-
-1)no ingress (if drop is in ip_rcv, does it look at some header?)
-2)ingress on other dev (this should mean still #1 drop applies)
-3)ingress on this dev (#1 drop in effect)
-4)ingress on this dev (#1 drop in effect)
-5)ingress on this dev + drop at u32 classifier/action.
-
-Variations of above:
-A) Current kernel
-B) ingress static key introduced
-C)Pablo's vs Daniel's settings
-
-The one thing i see in Pablo's comments is extra code will slow
-down things. I see Alexei refuting it below since that code is
-not being executed.
-So some variation with extra code to see what happens.
-
-It is hard, but please stay calm and carry on - we all want
-whats best.
-
-cheers,
-jamal
-
-On 05/11/15 01:57, Alexei Starovoitov wrote:
-> On 5/10/15 4:43 PM, Pablo Neira Ayuso wrote:
->>
->> The noop is patched to an unconditional branch to skip that code, but
->> the code is still there in that path, even if it's dormant.
->>
->> What the numbers show is rather simple: The more code is in the path,
->> the less performance you get, and the qdisc ingress specific code
->> embedded there is reducing performance for people that are not using
->> qdisc ingress, hence it should go where it belongs. The static key
->> cannot save you from that.
->
-> hmm, did I miss these numbers ?
->
-> My numbers are showing the opposite. There is no degradation whatsoever.
-> To recap, here are the numbers from my box:
-> no ingress - 37.6
-> ingress on other dev - 36.5
-> ingress on this dev - 28.8
-> ingress on this dev + u32 - 24.1
->
-> after Daniel's two patches:
-> no ingress - 37.6
-> ingress on other dev - 36.5
-> ingress on this dev - 36.5
-> ingress on this dev + u32 - 25.2
->
-> Explanation of the first lines:
-> 'no ingress' means pure netif_receive_skb with drop in ip_rcv.
-> This is the case when ingress qdisc is not attached to any of the
-> devices.
-> Here static_key is off, so:
->          if (static_key_false(&ingress_needed)) {
->                  ... never reaches here ...
->                  skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
->
-> So the code path is the same and numbers before and after are
-> proving it is the case.
->
-> 'ingress on other dev' means that ingress qdisc is attached to
-> some other device. Meaning that static_key is now on and
-> handle_ing() after two patches does:
-> cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
-> if (!cl)
->    return skb; ... returns here ...
->
-> Prior to two Daniel's patches handle_ing() does:
->   rxq = rcu_dereference(skb->dev->ingress_queue);
->   if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
->      return skb; ... returns here ...
->
-> so the number of instructions is the same for 'ingress on other dev'
-> case too.
-> Not surprisingly before and after numbers for 'no ingress' and
-> 'ingress on other dev' are exactly the same.
->
+On 05/11/2015 07:57 AM, Alexei Starovoitov wrote:
+...
 > It sounds like you're saying that code that not even being executed
 > is somehow affecting the speed? How is that possible ?
 > What kind of benchmark do you run? I really want to get to the bottom
-> of it. We cannot use 'drive-by reviewing' and 'gut feel' to make
-> decisions. If you think my numbers are wrong, please rerun them.
-> I'm using pktgen with 'xmit_mode netif_receive'. If there is some
-> other benchmark please bring it on. Everyone will benefit.
-> If you think pktgen as a test is not representative of real numbers,
-> sure, that's a different discussion. Let's talk what is the right
-> test to use. Just claiming that inline of a function into
-> netif_receive_skb is hurting performance is bogus. Inlining hurts
-> when size of executed code increases beyond I-cache size. That's
-> clearly not the case here. Compilers moves inlined handle_ing()
-> into cold path of netif_receive_skb. So for anyone who doesn't
-> enable ingress qdisc there is no difference, since that code doesn't
-> even get into I-cache.
-> Here is snippet from net/core/dev.s:
->      /* below is line 3696: if (static_key_false(&ingress_needed)) */
->          1:.byte 0x0f,0x1f,0x44,0x00,0
->          .pushsection __jump_table,  "aw"
->           .balign 8
->           .quad 1b, .L1756, ingress_needed       #,
->          .popsection
->      /* below is line 3702: skb->tc_verd = 0; */
->      movw    $0, 150(%rbx)   #, skb_310->tc_verd
->
-> As you can see the inlined handle_ing() is not in fall through path
-> and it's placed by gcc at the end of netif_receive_skb_core at the label
-> L1756. So I cannot possible see how it can affect performance.
-> Even if we make handle_ing() twice as big, there is still won't be
-> any difference for users that don't use ingress qdisc.
->
+> of it.
+
+I'm also curious and would like to get it clarified, so I've added the
+below silly test patch.
+
+Since ingress path is *not* executed by the static key, it just bloats up
+the handle_ing code, which is the whole purpose of this test.
+
+The claim is : since handle_ing() is inlined it adds up on run time
+performance *even* if static keys prevents execution of it.
+
+ From the disassembly, I've verified that the below printk's are not
+optimized out and that handle_ing() is inlined.
+
+The *disabled* code path gets added below the normal execution path of
+__netif_receive_skb_core(), in other words, after the return location
+of 'expected' execution.
+
+    text	   data	    bss	    dec	    hex	filename
+   57036	   2204	   2858	  62098	   f292	net/core/dev.o.before-printk
+   60180	   2204	   2858	  65242	   feda	net/core/dev.o.after-printk
+
+Before printk change:
+
+Samples: 50K of event 'cycles:k', Event count (approx.): 45068616248
++   40.51%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb_core
++   31.28%   kpktgend_0  [kernel.kallsyms]  [k] kfree_skb
++    6.79%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_internal
++    6.65%   kpktgend_0  [pktgen]           [k] pktgen_thread_worker
++    6.62%   kpktgend_0  [kernel.kallsyms]  [k] ip_rcv
++    3.41%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb
++    3.21%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_sk
++    0.95%   kpktgend_0  [kernel.kallsyms]  [k] __local_bh_enable_ip
++    0.40%   kpktgend_0  [kernel.kallsyms]  [k] kthread_should_stop
++    0.02%   kpktgend_0  [kernel.kallsyms]  [k] _cond_resched
+
+After printk-change:
+
+Samples: 50K of event 'cycles:k', Event count (approx.): 45200368743
++   40.11%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb_core
++   31.09%   kpktgend_0  [kernel.kallsyms]  [k] kfree_skb
++    6.93%   kpktgend_0  [pktgen]           [k] pktgen_thread_worker
++    6.75%   kpktgend_0  [kernel.kallsyms]  [k] ip_rcv
++    6.58%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_internal
++    3.49%   kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb
++    3.39%   kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_sk
++    0.96%   kpktgend_0  [kernel.kallsyms]  [k] __local_bh_enable_ip
++    0.49%   kpktgend_0  [kernel.kallsyms]  [k] kthread_should_stop
++    0.04%   kpktgend_0  [kernel.kallsyms]  [k] _cond_resched
+
+I would consider the stuff after comma as noise.
+
+After your patch set:
+
+Samples: 50K of event 'cycles:k', Event count (approx.): 45160667741
++   40.49%  kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb_core
++   31.21%  kpktgend_0  [kernel.kallsyms]  [k] kfree_skb
++    6.94%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
++    6.63%  kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_internal
++    6.63%  kpktgend_0  [kernel.kallsyms]  [k] ip_rcv
++    3.30%  kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_sk
++    3.30%  kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb
++    0.96%  kpktgend_0  [kernel.kallsyms]  [k] __local_bh_enable_ip
++    0.37%  kpktgend_0  [kernel.kallsyms]  [k] kthread_should_stop
++    0.03%  kpktgend_0  [kernel.kallsyms]  [k] _cond_resched
+
+For *all* three, I reliably get ~40.0 Mpps with the benchmark.
+
+In your perf report I see in addition ...
+
+     18.46%  kpktgend_0  [kernel.kallsyms]  [k] atomic_dec_and_test
+     15.87%  kpktgend_0  [kernel.kallsyms]  [k] deliver_ptype_list_skb
+
+... so I have no idea how/where that possibly interferes to your before/after
+numbers.
+
+Best & thanks,
+Daniel
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 862875e..7ec18fd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3545,11 +3545,178 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
+  	return result;
+  }
+
+-static inline struct sk_buff *handle_ing(struct sk_buff *skb,
++static __always_inline struct sk_buff *handle_ing(struct sk_buff *skb,
+  					 struct packet_type **pt_prev,
+  					 int *ret, struct net_device *orig_dev)
+  {
+  	struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
++	int i = 0;
++
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
++	printk("XXX %d\n", i++);
+
+  	if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
+  		return skb;
