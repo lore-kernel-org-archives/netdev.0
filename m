@@ -1,100 +1,49 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V6 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to optimize signaling the host
-Date: Mon, 11 May 2015 15:39:46 -0700
-Message-ID: <1431383986-30850-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 0/2] handle_ing update
+Date: Mon, 11 May 2015 15:03:51 -0700
+Message-ID: <CAHA+R7Od3WWS+sM0cr7=4YEB4qMiY61dfrfH_+Eeayi=LxzEsw@mail.gmail.com>
+References: <cover.1431203900.git.daniel@iogearbox.net>
+	<20150510170550.GA4442@salvia>
+	<20150511.110949.1369224056076525434.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:37486 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751423AbbEKWDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 18:03:52 -0400
+Received: by widdi4 with SMTP id di4so114790918wid.0
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 15:03:51 -0700 (PDT)
+In-Reply-To: <20150511.110949.1369224056076525434.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Based on the information given to this driver (via the xmit_more skb flag),
-we can defer signaling the host if more packets are on the way. This will help
-make the host more efficient since it can potentially process a larger batch of
-packets. Implement this optimization.
+On Mon, May 11, 2015 at 8:09 AM, David Miller <davem@davemloft.net> wrote:
+> There is no difference between having ingress qdisc hanging off of
+> netdevice vs. the classifier list.  They both serve the same purpose
+> and the change to use the classifier list merely removes one level
+> of indirection.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
-        v2: Fixed up indentation based on feedback from David Miller.
-        v3,v4: If the queue could be stopped, deal with that condition: Eric Dumazet <eric.dumazet@gmail.com>
-        v5: Fixed up indentation based on feedback from David Miller.
-        V6: Fixed additional indentation/formatting: Joe Perches <joe@perches.com>
+With adding 8 bytes to each of the netdevice even when it doesn't
+have ingress qdisc attached at all...
 
- drivers/net/hyperv/netvsc.c |   43 +++++++++++++++++++++++++++----------------
- 1 files changed, 27 insertions(+), 16 deletions(-)
+Also breaks the abstraction of Qdisc's which potentially breaks
+existing or future code, since now we have two different *layers* to
+hold tp_proto.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index ea091bc..b024968 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -743,6 +743,7 @@ static inline int netvsc_send_pkt(
- 	u64 req_id;
- 	int ret;
- 	struct hv_page_buffer *pgbuf;
-+	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
- 
- 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
- 	if (packet->is_data_pkt) {
-@@ -769,32 +770,42 @@ static inline int netvsc_send_pkt(
- 	if (out_channel->rescind)
- 		return -ENODEV;
- 
-+	/*
-+	 * It is possible that once we successfully place this packet
-+	 * on the ringbuffer, we may stop the queue. In that case, we want
-+	 * to notify the host independent of the xmit_more flag. We don't
-+	 * need to be precise here; in the worst case we may signal the host
-+	 * unnecessarily.
-+	 */
-+	if (ring_avail < (RING_AVAIL_PERCENT_LOWATER + 1))
-+		packet->xmit_more = false;
-+
- 	if (packet->page_buf_cnt) {
- 		pgbuf = packet->cp_partial ? packet->page_buf +
- 			packet->rmsg_pgcnt : packet->page_buf;
--		ret = vmbus_sendpacket_pagebuffer(out_channel,
--						  pgbuf,
--						  packet->page_buf_cnt,
--						  &nvmsg,
--						  sizeof(struct nvsp_message),
--						  req_id);
-+		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
-+						      pgbuf,
-+						      packet->page_buf_cnt,
-+						      &nvmsg,
-+						      sizeof(struct nvsp_message),
-+						      req_id,
-+						      VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
-+						      !packet->xmit_more);
- 	} else {
--		ret = vmbus_sendpacket(
--				out_channel, &nvmsg,
--				sizeof(struct nvsp_message),
--				req_id,
--				VM_PKT_DATA_INBAND,
--				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-+		ret = vmbus_sendpacket_ctl(out_channel, &nvmsg,
-+					   sizeof(struct nvsp_message),
-+					   req_id,
-+					   VM_PKT_DATA_INBAND,
-+					   VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED,
-+					   !packet->xmit_more);
- 	}
- 
- 	if (ret == 0) {
- 		atomic_inc(&net_device->num_outstanding_sends);
- 		atomic_inc(&net_device->queue_sends[q_idx]);
- 
--		if (hv_ringbuf_avail_percent(&out_channel->outbound) <
--			RING_AVAIL_PERCENT_LOWATER) {
--			netif_tx_stop_queue(netdev_get_tx_queue(
--					    ndev, q_idx));
-+		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
-+			netif_tx_stop_queue(netdev_get_tx_queue(ndev, q_idx));
- 
- 			if (atomic_read(&net_device->
- 				queue_sends[q_idx]) < 1)
--- 
-1.7.4.1
+BTW, it should be protected by CONFIG_NET_SCH_INGRESS
+rather than CONFIG_NET_CLS_ACT.
+
+>
+> I also am confident that the cost for non-users is equivalent before
+> and after this patch series.  Or at least, it very much should be.
+
+If people really cared about ingress qdisc, that spinlock should have
+gone much earlier than in 4.x release, rather than waiting for me to
+remind.
