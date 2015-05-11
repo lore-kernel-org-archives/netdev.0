@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qca_spi: Fix possible race during probe
-Date: Mon, 11 May 2015 11:01:40 -0400 (EDT)
-Message-ID: <20150511.110140.524130793207607787.davem@davemloft.net>
-References: <1431158289-27946-1-git-send-email-stefan.wahren@i2se.com>
+Subject: Re: [PATCH net-next] test: bpf: extend "load 64-bit immediate"
+ testcase
+Date: Mon, 11 May 2015 11:02:43 -0400 (EDT)
+Message-ID: <20150511.110243.2159872075854721566.davem@davemloft.net>
+References: <1431159270-2960-1-git-send-email-xi.wang@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.heimpold@i2se.com
-To: stefan.wahren@i2se.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34689 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754529AbbEKPBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 11:01:42 -0400
-In-Reply-To: <1431158289-27946-1-git-send-email-stefan.wahren@i2se.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ast@plumgrid.com, will.deacon@arm.com
+To: xi.wang@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431159270-2960-1-git-send-email-xi.wang@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Date: Sat,  9 May 2015 07:58:09 +0000
+From: Xi Wang <xi.wang@gmail.com>
+Date: Sat,  9 May 2015 04:14:30 -0400
 
-> Registering the netdev before setting the priv data is unsafe.
-> So fix this possible race by setting the priv data first.
+> Extend the testcase to catch a signedness bug in the arm64 JIT:
 > 
-> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
-> Cc: <stable@vger.kernel.org> # v3.18+
-> Fixes: 291ab06e (net: qualcomm: new Ethernet over SPI driver for QCA7000)
+> test_bpf: #58 load 64-bit immediate jited:1 ret -1 != 1 FAIL (1 times)
+> 
+> This is useful to ensure other JITs won't have a similar bug.
+> 
+> Link: https://lkml.org/lkml/2015/5/8/458
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Will Deacon <will.deacon@arm.com>
+> Signed-off-by: Xi Wang <xi.wang@gmail.com>
 
-Applied, thanks.
+Applied, thank you.
