@@ -1,101 +1,68 @@
-From: Holger Brunck <holger.brunck@keymile.com>
-Subject: Re: [PATCH net-next] tipc: allow one link per bearer to neighboring
- nodes
-Date: Mon, 11 May 2015 10:26:33 +0200
-Message-ID: <555067B9.2040306@keymile.com>
-References: <1415986399-23874-1-git-send-email-holger.brunck@keymile.com> <A2BAEFC30C8FD34388F02C9B3121859D1C3F0AC1@eusaamb103.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Ying Xue <ying.xue@windriver.com>,
-	Erik Hugne <erik.hugne@ericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:46745 "EHLO
-	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264AbbEKIcB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 04:32:01 -0400
-In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D1C3F0AC1@eusaamb103.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Okash Khawaja <okash.khawaja@gmail.com>
+Subject: Re: [PATCH 2/2] adm8211: fix the possible pci cache line sizes inside switch-case
+Date: Mon, 11 May 2015 09:48:54 +0100
+Message-ID: <2CBE2DDF-92E5-45C9-95F8-C5CF918D12D9@gmail.com>
+References: <20150505224020.GA3805@bytefire-computer> <87wq0ms3mv.fsf@kamboji.qca.qualcomm.com> <20150506063241.GA3042@bytefire-computer> <87k2wflj7p.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "joe@perches.com" <joe@perches.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87k2wflj7p.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi John,
 
-On 05/06/2015 09:45 PM, Jon Maloy wrote:
-> Hi Holger,
-> I am trying to remember why you wanted to have this, especially since it
-> didn't change anything in practice, because MAX_BEARERS is still 2.
+> On 11 May 2015, at 07:30, Kalle Valo <kvalo@codeaurora.org> wrote:
 > 
-
-yes thats true for the mainline tree. We have on our side an additional bearer
-for HDLC wich is not mainlined and therefore we have a different value for
-MAX_BEARERS.
-
-> This limit has to be changed, since we may want to have e.g. dual Ethernet
-> links to some nodes and single UDP links to others (but never the same)
+> Okash Khawaja <okash.khawaja@gmail.com> writes:
 > 
-> Despite this, I can find good reasons to not allow more than two links 
-> between a node pair. (In particular, the failover mechanism becomes 
-> much more complex)
->
-
-on our side we already have two ethernet links between two nodes and in addition
-a hdlc link between the nodes and therefore we get three links. The HDLC link is
-not used for these two nodes, but the HDLC connection is a bus to other entities
-in our TIPC network and due to the fact that TIPC is full meshed we get the HDLC
-link automatically even if we don't need it for the two nodes in question.
-
-But there is no possibility to break the full-meshed principle to say don't
-create a link to a specific node via a specific bearer correct? Because in
-general I agree with you two possible usable links between nodes should be enough.
-
-Regards
-Holger Brunck
-
-> Regards
-> ///jon
+>>> On Wed, May 06, 2015 at 07:59:04AM +0300, Kalle Valo wrote:
+>>> Okash Khawaja <okash.khawaja@gmail.com> writes:
+>>> 
+>>>> The PCI cache line size value was being compared against decimal
+>>>> values prefixed with 0x.
+>>>> Fixed the literals to use the correct hex values.
+>>>> 
+>>>> Signed-off-by: Okash Khawaja <okash.khawaja@gmail.com>
+>>> [...]
+>>> 
+>>>> @@ -1101,10 +1101,10 @@ static void adm8211_hw_init(struct
+>>>> ieee80211_hw *dev) case 0x8: reg |= (0x1 << 14); break; - case
+>>>> 0x16: + case 0x10: reg |= (0x2 << 14); break; - case 0x32: + case
+>>>> 0x20: reg |= (0x3 << 14); break; default:
+>>> Did you test this? How certain can we be that this doesn't break
+>>> anything?
+>> 
+>> I didn't test it as that would require the hardware that I don't have
+>> at the moment. However, the value in `cline` is PCI cache line size,
+>> which is the CPU's cache line size. It is less likely for cache line
+>> sizes to be 22 or 50, and more likely for them to be 16 or 32. Also,
+>> as far as I understand (and I might be wrong here), cache line size is
+>> used for things like aligning DMA requests with CPU cache line, which
+>> improve performance but wouldn't break anything if the value doesn't
+>> match. In this case, we will fall through to the default case which
+>> leaves `reg` unchanged.
+>> 
+>> If there is a way to test it with a mock set up or if you still think
+>> we need to test this on real board, I'll be happy to try get the
+>> hardware. But I will need some guidance around that. Thanks.
 > 
+> I don't have any ideas how to test this as I think the hardware is
+> pretty rare nowadays but I think this is safe to commit, thanks for
+> clearing this up. BTW, what you wrote about would have been perferct in
+> the commit log itself.
 > 
->> -----Original Message-----
->> From: Holger Brunck [mailto:holger.brunck@keymile.com]
->> Sent: Friday, November 14, 2014 12:33 PM
->> To: davem@davemloft.net
->> Cc: Jon Maloy; Holger Brunck; Ying Xue; Erik Hugne; netdev@vger.kernel.org
->> Subject: [PATCH net-next] tipc: allow one link per bearer to neighboring
->> nodes
->>
->> There is no reason to limit the amount of possible links to a neighboring node
->> to 2. If we have more then two bearers we can also establish more links.
->>
->> Signed-off-by: Holger Brunck <holger.brunck@keymile.com>
->> Reviewed-By: Jon Maloy <jon.maloy@ericsson.com>
->> cc: Ying Xue <ying.xue@windriver.com>
->> cc: Erik Hugne <erik.hugne@ericsson.com>
->> cc: netdev@vger.kernel.org
->> ---
->>  net/tipc/link.c | 5 +++--
->>  1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/tipc/link.c b/net/tipc/link.c index 1db162a..7cf8004 100644
->> --- a/net/tipc/link.c
->> +++ b/net/tipc/link.c
->> @@ -224,9 +224,10 @@ struct tipc_link *tipc_link_create(struct tipc_node
->> *n_ptr,
->>  	char addr_string[16];
->>  	u32 peer = n_ptr->addr;
->>
->> -	if (n_ptr->link_cnt >= 2) {
->> +	if (n_ptr->link_cnt >= MAX_BEARERS) {
->>  		tipc_addr_string_fill(addr_string, n_ptr->addr);
->> -		pr_err("Attempt to establish third link to %s\n", addr_string);
->> +		pr_err("Attempt to establish %uth link to %s. Max %u
->> allowed.\n",
->> +			n_ptr->link_cnt, addr_string, MAX_BEARERS);
->>  		return NULL;
->>  	}
->>
->> --
->> 2.1.2
-> 
+> -- 
+> Kalle Valo
+
+Sure, I'll create v2 of the patch with updated commit log. 
+
+Since it's part of a patch set, do you want me to send both the patches in the patch set together as v2 or just this patch? 
+
+Thanks
