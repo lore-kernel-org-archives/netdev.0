@@ -1,50 +1,40 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH] net: Fix ifdef typo in net_device definition
-Date: Mon, 11 May 2015 12:52:43 -0700
-Message-ID: <5551088B.3000700@gmail.com>
-References: <20150511183152.13432.73713.stgit@ahduyck-vm-fedora22> <5550F74B.6030301@iogearbox.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH -next] net: sched: use counter to break reclassify loops
+Date: Mon, 11 May 2015 13:30:07 -0700
+Message-ID: <20150511203006.GA2914@Alexeis-MacBook-Pro.local>
+References: <1431366641-24735-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36366 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754041AbbEKTwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 15:52:45 -0400
-Received: by pabsx10 with SMTP id sx10so117753977pab.3
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 12:52:44 -0700 (PDT)
-In-Reply-To: <5550F74B.6030301@iogearbox.net>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:34748 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752628AbbEKUaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 16:30:11 -0400
+Received: by pdbqa5 with SMTP id qa5so152649847pdb.1
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 13:30:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1431366641-24735-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/11/2015 11:39 AM, Daniel Borkmann wrote:
-> On 05/11/2015 08:31 PM, Alexander Duyck wrote:
->> While trying to build for some performance testing I received the error
->> message below multiple times:
->>
->> include/linux/netdevice.h:1658:5: warning: "CONFIG_NET_CLS_ACT" is 
->> not defined [-Wundef]
->>   #if CONFIG_NET_CLS_ACT
->>
->> It looks like this was just a typo and should have been "#ifdef" 
->> instead of
->> "#if".
->>
->> Fixes: d2788d34885d4 ("net: sched: further simplify handle_ing")
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
->
-> It's already here, sorry for that:
->
-> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=4cda01e86f68dacc758b2daf6e8809f2ce915b85
->
-> Best,
-> Daniel
+On Mon, May 11, 2015 at 07:50:41PM +0200, Florian Westphal wrote:
+> Seems all we want here is to avoid endless 'goto reclassify' loop.
+> tc_classify_compat even resets this counter when something other
+> than TC_ACT_RECLASSIFY is returned, so this skb-counter doesn't
+> break hypothetical loops induced by something other than perpetual
+> TC_ACT_RECLASSIFY return values.
+> 
+> skb_act_clone is now identical to skb_clone, so just use that.
+> 
+> Tested with following (bogus) filter:
+> tc filter add dev eth0 parent ffff: \
+>  protocol ip u32 match u32 0 0 police rate 10Kbit burst \
+>  64000 mtu 1500 action reclassify
+> 
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-No problem.  Just as long as it is fixed I am happy since it is one less 
-patch to carry in my tree.
-
-- Alex
+agree. that's my reading of the code as well.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
