@@ -1,38 +1,79 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH 00/10] Refactor netdev page frags and move them into mm/
-Date: Mon, 11 May 2015 13:36:52 -0700
-Message-ID: <20150511133652.cd885d654213fe4161da0d87@linux-foundation.org>
-References: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
-	<20150510.191758.2130017622255857830.davem@davemloft.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 4/4] netconsole: implement extended console support
+Date: Mon, 11 May 2015 16:37:45 -0400
+Message-ID: <20150511203745.GI11388@htj.duckdns.org>
+References: <1431362494-9874-1-git-send-email-tj@kernel.org>
+ <1431362494-9874-5-git-send-email-tj@kernel.org>
+ <20150511.132339.403868463230045095.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
- linux-mm@kvack.org, eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
+	sd@queasysnail.net
 To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20150510.191758.2130017622255857830.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150511.132339.403868463230045095.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 10 May 2015 19:17:58 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
+Hello,
 
-> > 4.9%	build_skb		3.8%	__napi_alloc_skb
-> > 2.5%	__alloc_rx_skb
-> > 1.9%	__napi_alloc_skb
+On Mon, May 11, 2015 at 01:23:39PM -0400, David Miller wrote:
+> From: Tejun Heo <tj@kernel.org>
+> Date: Mon, 11 May 2015 12:41:34 -0400
 > 
-> I like this series, but again I need to see feedback from some
-> mm folks before I can consider applying it.
+> > +	/* need to insert extra header fields, detect header and body */
+> > +	header = msg;
+> > +	body = memchr(msg, ';', msg_len);
+> > +	if (WARN_ON_ONCE(!body))
+> > +		return;
+> > +
+> > +	header_len = body - header;
+> > +	body_len = msg_len - header_len - 1;
+> > +	body++;
+> > +
+> > +	/*
+> > +	 * Transfer multiple chunks with the following extra header.
+> > +	 * "ncfrag=<byte-offset>/<total-bytes>"
+> > +	 */
+> > +	memcpy(buf, header, header_len);
+> > +
+> > +	while (offset < body_len) {
+> > +		int this_header = header_len;
+> > +		int this_chunk;
+> > +
+> > +		this_header += scnprintf(buf + this_header,
+> > +					 sizeof(buf) - this_header,
+> > +					 ",ncfrag=%d/%d;", offset, body_len);
+> > +
+> 
+> Hmmm, do you intend ncfrag= to be amongst the other metadata in the first
+> fragment?  The way I read the code above it's going to be:
+> 
+> 	<level>,<sequnum>,<timestamp>,<contflag>;,ncfrag=x/y;
+> 
+> If you intend to keep all the metadata, including the ncfrag bit,
+> together, you probably need to clip off the initial semicolon, so
+> that it looks like:
+> 
+> 	<level>,<sequnum>,<timestamp>,<contflag>,ncfrag=x/y;
 
-The MM part looks OK to me - it's largely moving code out of net/ into
-mm/.  It's a bit weird and it's unclear whether the code will gain
-other callers, but putting it in mm/ increase the likelihood that some other
-subsystem will use it.
+The current code does produce the latter outcome.
 
-Please merge it via a net tree when ready.
+	header = msg;
+	body = memchr(msg, ';', msg_len);
+	if (WARN_ON_ONCE(!body))
+		return;
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	header_len = body - header;
+	body_len = msg_len - header_len - 1;
+	body++;
+
+@body points to ';' after memchr(), so @header_len doesn't include
+';'.  @body is incremented after calculating @header_len.
+
+Thanks.
+
+-- 
+tejun
