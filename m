@@ -1,50 +1,68 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH NEXT] rtlwifi: btcoexist: Fix interference between rtl8723be and Bluetooth
-Date: Mon, 11 May 2015 14:00:27 -0500
-Message-ID: <1431370827-13324-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org, Daniel Drake <drake@endlessm.com>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Shao Fu <shaofu@realtek.com>
-To: kvalo@codeaurora.org, netdev@vger.kernel.org
+From: Justin Cormack <justin@myriabit.com>
+Subject: [PATCH v4] macvtap add missing ioctls - fix wrapping
+Date: Mon, 11 May 2015 20:00:10 +0100
+Message-ID: <1431370810.3278.4.camel@myriabit.com>
+References: <20150509.174017.6956415471104971.davem@davemloft.net>
+	 <1431249359.669.5.camel@myriabit.com>
+	 <1431262215.3278.2.camel@myriabit.com>
+	 <20150511.134901.959375179450827063.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:34833 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753671AbbEKTAq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 15:00:46 -0400
+Received: from aibo.runbox.com ([91.220.196.211]:58262 "EHLO aibo.runbox.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753628AbbEKTAp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2015 15:00:45 -0400
+In-Reply-To: <20150511.134901.959375179450827063.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Drake <drake@endlessm.com>
+The macvtap driver tries to emulate all the ioctls supported by a normal
+tun/tap driver, however it was missing the generic SIOCGIFHWADDR and
+SIOCSIFHWADDR ioctls to get and set the mac address that are supported
+by tun/tap. This patch adds these.
 
-During usage of the new Bluetooth driver for Realtek devices, it was found
-that BT scans were inhibited for the RTL8723BE when wireless was active. The
-exact cause of this interference is not known yet, but a satisfactory work
-around has been found that does not seem to have any visible side effects.
+Signed-off-by: Justin Cormack <justin@netbsd.org>
 
-Signed-off-by: Daniel Drake <drake@endlessm.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Shao Fu <shaofu@realtek.com>
----
- drivers/net/wireless/rtlwifi/btcoexist/halbtc8723b2ant.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtc8723b2ant.c b/drivers/net/wireless/rtlwifi/btcoexist/halbtc8723b2ant.c
-index cefe269..f2b9d11 100644
---- a/drivers/net/wireless/rtlwifi/btcoexist/halbtc8723b2ant.c
-+++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtc8723b2ant.c
-@@ -1286,8 +1286,11 @@ static void btc8723b2ant_ps_tdma(struct btc_coexist *btcoexist, bool force_exec,
- 						    0x12, 0xe1, 0x90);
- 			break;
- 		case 3:
--			btc8723b2ant_set_fw_ps_tdma(btcoexist, 0xe3, 0x1c,
--						    0x3, 0xf1, 0x90);
-+			/* This call breaks BT when wireless is active -
-+			 * comment it out for now until a better fix is found:
-+			 * btc8723b2ant_set_fw_ps_tdma(btcoexist, 0xe3, 0x1c,
-+			 *			    0x3, 0xf1, 0x90);
-+			 */
- 			break;
- 		case 4:
- 			btc8723b2ant_set_fw_ps_tdma(btcoexist, 0xe3, 0x10,
--- 
-2.1.4
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 8c350c5..5f98b34 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -1101,6 +1101,35 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		rtnl_unlock();
+ 		return ret;
+ 
++	case SIOCGIFHWADDR:
++		rtnl_lock();
++		vlan = macvtap_get_vlan(q);
++		if (!vlan) {
++			rtnl_unlock();
++			return -ENOLINK;
++		}
++		ret = 0;
++		u = vlan->dev->type;
++		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
++		    copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
++		    put_user(u, &ifr->ifr_hwaddr.sa_family))
++			ret = -EFAULT;
++		macvtap_put_vlan(vlan);
++		rtnl_unlock();
++		return ret;
++
++	case SIOCSIFHWADDR:
++		rtnl_lock();
++		vlan = macvtap_get_vlan(q);
++		if (!vlan) {
++			rtnl_unlock();
++			return -ENOLINK;
++		}
++		ret = dev_set_mac_address(vlan->dev, &ifr->ifr_hwaddr);
++		macvtap_put_vlan(vlan);
++		rtnl_unlock();
++		return ret;
++
+ 	default:
+ 		return -EINVAL;
+ 	}
