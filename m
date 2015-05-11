@@ -1,54 +1,36 @@
-From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-Subject: Re: [PATCH linux v3 net-next 0/5] add netlink support for new lacp
- bonding parameters
-Date: Mon, 11 May 2015 11:50:20 -0400
-Message-ID: <5550CFBC.9050805@cumulusnetworks.com>
-References: <cover.1431150701.git.jtoppins@cumulusnetworks.com> <20150511.110004.649964826481502303.davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [patch net-next 06/15] net: move __skb_tx_hash to skbuff.c
+Date: Mon, 11 May 2015 08:55:11 -0700
+Message-ID: <5550D0DF.7090806@redhat.com>
+References: <1431177038-11555-1-git-send-email-jiri@resnulli.us> <1431177038-11555-7-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	gospo@cumulusnetworks.com, shm@cumulusnetworks.com,
-	razor@blackwall.org
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
+	jesse@nicira.com, kaber@trash.net, therbert@google.com,
+	edumazet@google.com, hannes@stressinduktion.org, ast@plumgrid.com,
+	daniel@iogearbox.net, herbert@gondor.apana.org.au,
+	cwang@twopensource.com, john.fastabend@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:33011 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753729AbbEKPuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 11:50:22 -0400
-Received: by qcvo8 with SMTP id o8so47254614qcv.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 08:50:22 -0700 (PDT)
-In-Reply-To: <20150511.110004.649964826481502303.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:57783 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932300AbbEKPzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 May 2015 11:55:15 -0400
+In-Reply-To: <1431177038-11555-7-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/11/15 11:00 AM, David Miller wrote:
-> From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
-> Date: Sat,  9 May 2015 00:01:54 -0700
+On 05/09/2015 06:10 AM, Jiri Pirko wrote:
+> __skb_tx_hash function has no relation to flow_dissect so just muve it
+> to skbuff.c (it is declared in skbuff.h)
 >
->> This is a resubmit of Mahesh's last 3 bonding patches from this series
->> (http://marc.info/?l=linux-netdev&m=142432864626179&w=2) with one
->> additional kernel patch which adds the netlink bits. I have noted any
->> modifications I did to the original patches just above my signoff line.
->> Patch 5 is the iproute2 support for these bonding options. All patches
->> were coded against the net-next branch of their respective projects.
->>
->> v2:
->>    * rebased
->>    * only send these new parameters via netlink when bond is in mode 4
->>    * fixed ad_actor_sys_prio to be 0xFFFF by default even when the bond
->>      is initially created in mode 0 and switched to mode 4
->>
->> v3:
->>    * reverted changes to bond_option_ad_actor_system_set() from v1 in Mahesh's
->>      patch "bonding: Allow userspace to set actors' macaddr in an AD-system."
->>      Instead implementing all setting in the option specific set function as
->>      Nik suggested.
->
-> Series applied, thanks.
->
-> There are actually 4 patches in this series, so this subject should have
-> said "0/4" instead of "0/5" :-)
->
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Thanks David, noted for next time, apologies for confusion.
+Minor nit, move is spelled with an o, not a u.
+
+Also any reason for moving this to skbuff.c instead of dev.c?  It seems 
+like this might be better placed there since the only caller is in 
+netdevice.h.
+
+- Alex
