@@ -1,7 +1,7 @@
 From: Baolin Wang <baolin.wang@linaro.org>
 Subject: [PATCH v3 00/22] Convert the posix_clock_operations and k_clock structure to ready for 2038
-Date: Mon, 11 May 2015 19:06:25 +0800
-Message-ID: <1431342385-29319-1-git-send-email-baolin.wang@linaro.org>
+Date: Mon, 11 May 2015 19:08:38 +0800
+Message-ID: <1431342518-29362-1-git-send-email-baolin.wang@linaro.org>
 Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
 	pang.xunlei@linaro.org, peterz@infradead.org,
 	rafael.j.wysocki@intel.com, gregkh@linuxfoundation.org,
@@ -14,8 +14,8 @@ Cc: arnd@arndb.de, john.stultz@linaro.org, heenasirwani@gmail.com,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	baolin.wang@linaro.org, y2038@lists.linaro.org
 To: tglx@linutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <linux-arch-owner@vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This patch series changes the 32-bit time type (timespec/itimerspec) to the 64-bit one
@@ -31,7 +31,6 @@ hrtimer_get_res64(), cputime_to_timespec64() and timespec64_to_cputime().
 Changes since v2:
      	-Split the syscall conversion patch into small some patches.
 
-*** BLURB HERE ***
 
 Baolin Wang (22):
   linux/time64.h:Introduce the 'struct itimerspec64' for 64bit
