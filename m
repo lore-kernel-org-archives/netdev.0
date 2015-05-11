@@ -1,65 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] handle_ing update
-Date: Mon, 11 May 2015 11:09:49 -0400 (EDT)
-Message-ID: <20150511.110949.1369224056076525434.davem@davemloft.net>
-References: <cover.1431203900.git.daniel@iogearbox.net>
-	<20150510170550.GA4442@salvia>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] xen-netfront sets partial checksum at wrong offset
+Date: Mon, 11 May 2015 11:08:27 -0400
+Message-ID: <20150511150827.GA23561@l.oracle.com>
+References: <ee74926e-deb3-4cbc-9798-42c19f4fe219@default>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, ast@plumgrid.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org
-To: pablo@netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
+	ian.campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34790 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288AbbEKPJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 11:09:51 -0400
-In-Reply-To: <20150510170550.GA4442@salvia>
+Received: from userp1040.oracle.com ([156.151.31.81]:16684 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753530AbbEKPIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 11:08:34 -0400
+Content-Disposition: inline
+In-Reply-To: <ee74926e-deb3-4cbc-9798-42c19f4fe219@default>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 10 May 2015 19:05:50 +0200
-
-> On Sat, May 09, 2015 at 10:51:30PM +0200, Daniel Borkmann wrote:
->> These are a couple of cleanups to make ingress a bit more lightweight.
+On Thu, May 07, 2015 at 12:44:24PM -0700, Venkat Venkatsubra wrote:
+> Hello All,
 > 
-> This is plain wrong at many levels.
+> When handle_incoming_queue (xen-netfront.c) calls checksum_setup()
+> the transport header didn't seem to be initialized yet.
+> skb_checksum_setup_ipv4 ends up initializing the checksum at incorrect offset. 
+>         if (recalculate)
+>                 *csum = ~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+>                                            ip_hdr(skb)->daddr,
+>                                            skb->len - off,
+>                                            ip_hdr(skb)->protocol, 0);
 > 
-> You're persisting on embedding the ingress code into the core, and you
-> have to remember that most users don't need this. Modules allows
-> people to get the code that they need into the core, with this
-> approach, they have no other choice other than disable from .config
-> this if they don't need it.
+> where csum is &tcp_hdr(skb)->check.
 > 
-> This has to be done the other way around. I just sent a patchset to
-> clean up this that in exactly the other direction, as a result,
-> performance is improved for users that don't need this.
+> This problem got exposed when LRO was ON on the host.
+> It hits this case in checksum_setup().
+>         /*
+>          * A GSO SKB must be CHECKSUM_PARTIAL. However some buggy
+>          * peers can fail to set NETRXF_csum_blank when sending a GSO
+>          * frame. In this case force the SKB to CHECKSUM_PARTIAL and
+>          * recalculate the partial checksum.
+>          */
 > 
-> We should do things to make users aware that when they request
-> features, they have to pay a performance cost, and that happens by
-> when you invoke:
+> skb->ip_summed was CHECKSUM_UNNECESSARY. 
+> The guest was at 3.8.13 kernel.
 > 
->         tc qdisc add dev eth0 handle ffff: ingress
+> I can send a patch if you think the problem exists in current releases too.
+
+Please CC the maintainers of the driver. You can get that from 'scripts/get_maintainer.pl'
+
+I've done that for you.
 > 
-> David already stated before that ingress path is performance critical,
-> but you insist on trying to get qdisc ingress faster *at any cost*.
-
-Pablo I think you are overreacting here.
-
-What Daniel and Alexei are doing here is quite reasonable.
-
-There is no difference between having ingress qdisc hanging off of
-netdevice vs. the classifier list.  They both serve the same purpose
-and the change to use the classifier list merely removes one level
-of indirection.
-
-I also am confident that the cost for non-users is equivalent before
-and after this patch series.  Or at least, it very much should be.
-
-Therefore I am going to apply these patches, and I wish you would work
-more closely with Daniel and Alexei because I am more than convinced
-that you share the same exact goals.
-
-Thanks.
+> Thanks.
+> 
+> Venkat
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
