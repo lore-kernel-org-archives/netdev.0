@@ -1,97 +1,84 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V5 1/1] hv_netvsc: Use the xmit_more skb flag to optimize signaling the host
-Date: Sun, 10 May 2015 21:08:14 -0700
-Message-ID: <1431317294-16442-1-git-send-email-kys@microsoft.com>
-Cc: "K. Y. Srinivasan" <kys@microsoft.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
-	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH V4 net-next 1/1] hv_netvsc: Use the xmit_more skb flag to
+ optimize signaling the host
+Date: Mon, 11 May 2015 02:48:59 +0000
+Message-ID: <BY2PR0301MB07110581F43CA51C45883272A0DB0@BY2PR0301MB0711.namprd03.prod.outlook.com>
+References: <1430951345-7767-1-git-send-email-kys@microsoft.com>
+ <20150510.175057.1320510115648828229.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20150510.175057.1320510115648828229.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Based on the information given to this driver (via the xmit_more skb flag),
-we can defer signaling the host if more packets are on the way. This will help
-make the host more efficient since it can potentially process a larger batch of
-packets. Implement this optimization.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
-	v2: Fixed up indentation based on feedback from David Miller.
-	v3,v4: If the queue could be stopped, deal with that condition: Eric Dumazet <eric.dumazet@gmail.com>
-	v5: Fixed up indentation based on feedback from David Miller.
 
- drivers/net/hyperv/netvsc.c |   41 +++++++++++++++++++++++++++--------------
- 1 files changed, 27 insertions(+), 14 deletions(-)
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Sunday, May 10, 2015 2:51 PM
+> To: KY Srinivasan
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> jasowang@redhat.com
+> Subject: Re: [PATCH V4 net-next 1/1] hv_netvsc: Use the xmit_more skb flag
+> to optimize signaling the host
+> 
+> From: "K. Y. Srinivasan" <kys@microsoft.com>
+> Date: Wed,  6 May 2015 15:29:05 -0700
+> 
+> > -		ret = vmbus_sendpacket_pagebuffer(out_channel,
+> > -						  pgbuf,
+> > -						  packet->page_buf_cnt,
+> > -						  &nvmsg,
+> > -						  sizeof(struct
+> nvsp_message),
+> > -						  req_id);
+> > +		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
+> > +						      pgbuf,
+> > +						      packet->page_buf_cnt,
+> > +						      &nvmsg,
+> > +						      sizeof(struct
+> > +							     nvsp_message),
+> > +						      req_id,
+> > +						      vmbus_flags,
+> > +						      !packet->xmit_more);
+> >  	} else {
+> > -		ret = vmbus_sendpacket(
+> > +		ret = vmbus_sendpacket_ctl(
+> >  				out_channel, &nvmsg,
+> >  				sizeof(struct nvsp_message),
+> >  				req_id,
+> >  				VM_PKT_DATA_INBAND,
+> > -
+> 	VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+> > +				vmbus_flags, !packet->xmit_more);
+> 
+> Just as you did for the vmbus_sendpacket_pagebuffer_ctl() call above,
+> you'll need to reindent the arguments for the vmbus_sendpacket_ctl()
+> call since the openning parenthesis is now at a different column.
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index ea091bc..7fdf3e8 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -743,6 +743,8 @@ static inline int netvsc_send_pkt(
- 	u64 req_id;
- 	int ret;
- 	struct hv_page_buffer *pgbuf;
-+	u32 vmbus_flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
-+	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
- 
- 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
- 	if (packet->is_data_pkt) {
-@@ -769,30 +771,41 @@ static inline int netvsc_send_pkt(
- 	if (out_channel->rescind)
- 		return -ENODEV;
- 
-+	/*
-+	 * It is possible that once we successfully place this packet
-+	 * on the ringbuffer, we may stop the queue. In that case, we want
-+	 * to notify the host independent of the xmit_more flag. We don't
-+	 * need to be precise here; in the worst case we may signal the host
-+	 * unnecessarily.
-+	 */
-+	if (ring_avail < (RING_AVAIL_PERCENT_LOWATER + 1))
-+		packet->xmit_more = false;
-+
- 	if (packet->page_buf_cnt) {
- 		pgbuf = packet->cp_partial ? packet->page_buf +
- 			packet->rmsg_pgcnt : packet->page_buf;
--		ret = vmbus_sendpacket_pagebuffer(out_channel,
--						  pgbuf,
--						  packet->page_buf_cnt,
--						  &nvmsg,
--						  sizeof(struct nvsp_message),
--						  req_id);
-+		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
-+						      pgbuf,
-+						      packet->page_buf_cnt,
-+						      &nvmsg,
-+						      sizeof(struct
-+							     nvsp_message),
-+						      req_id,
-+						      vmbus_flags,
-+						      !packet->xmit_more);
- 	} else {
--		ret = vmbus_sendpacket(
--				out_channel, &nvmsg,
--				sizeof(struct nvsp_message),
--				req_id,
--				VM_PKT_DATA_INBAND,
--				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-+		ret = vmbus_sendpacket_ctl(out_channel, &nvmsg,
-+					   sizeof(struct nvsp_message),
-+					   req_id,
-+					   VM_PKT_DATA_INBAND,
-+					   vmbus_flags, !packet->xmit_more);
- 	}
- 
- 	if (ret == 0) {
- 		atomic_inc(&net_device->num_outstanding_sends);
- 		atomic_inc(&net_device->queue_sends[q_idx]);
- 
--		if (hv_ringbuf_avail_percent(&out_channel->outbound) <
--			RING_AVAIL_PERCENT_LOWATER) {
-+		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
- 			netif_tx_stop_queue(netdev_get_tx_queue(
- 					    ndev, q_idx));
- 
--- 
-1.7.4.1
+Done.
+
+Regards,
+
+K. Y
+> 
+> Thanks.
