@@ -1,99 +1,69 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH iproute2] man ip-link: Add missing lowpan link type
-Date: Mon, 11 May 2015 10:17:14 +0300
-Message-ID: <20150511071714.GP11014@wantstofly.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [net-next PATCH v3 1/4] devicetree: Add compatible string for
+ Zynq Ultrascale+ MPSoC
+Date: Mon, 11 May 2015 09:41:50 +0200
+Message-ID: <55505D3E.2050303@atmel.com>
+References: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hmm.wantstofly.org ([148.251.232.15]:42374 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192AbbEKHZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 03:25:55 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <harinik@xilinx.com>,
+	<punnaia@xilinx.com>, <michals@xilinx.com>
+To: Harini Katakam <harini.katakam@xilinx.com>, <davem@davemloft.net>,
+	<robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>,
+	<harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430931438-32592-1-git-send-email-harinik@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
----
-These man pages don't use .nh when describing command invocation syntax=
-,
-so we end up with things like this (on 80 character terminals):
+Le 06/05/2015 18:57, Harini Katakam a =E9crit :
+> Add "cdns,zynqmp-gem" to be used for Zynq Ultrascale+ MPSoC.
+>=20
+> Signed-off-by: Harini Katakam <harinik@xilinx.com>
+> Reviewed-by: Punnaiah Choudary Kalluri <punnaia@xilinx.com>
 
-              ip link add DEVICE type vxlan id ID [ dev PHYS_DEV  ] [ {=
- group
-              | remote } IPADDR ] [ local IPADDR ] [ ttl TTL ] [ tos TO=
-S ] [
-              port MIN MAX ] [ [no]learning ] [ [no]proxy ] [ [no]rsc ]=
- [
-              [no]l2miss ] [ [no]l3miss ] [ ageing SECONDS ] [ maxaddre=
-ss NUM=E2=80=90
-              BER ] [ gbp ]
+I know it's too late, but for the record:
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-and:
+Thanks for having re-spinned this series Harini.
 
-              ip link add DEVICE type { gre | ipip | sit }  remote ADDR=
- local
-              ADDR [ encap { fou | gue | none } ] [ encap-sport { PORT =
-| auto
-              } ] [ encap-dport PORT ] [  [no]encap-csum ] [  [no]encap=
--remc=E2=80=90
-              sum ]
+Bye,
 
-and this affects this addition as well:
 
-       TYPE :=3D [ bridge | bond | can | dummy | hsr | ifb | ipoib | ma=
-cvlan |
-               macvtap | vcan | veth | vlan | vxlan | ip6tnl | ipip | s=
-it |
-               gre | gretap | ip6gre | ip6gretap | vti | nlmon | ipvlan=
- | low=E2=80=90
-               pan ]
+> ---
+>=20
+> v3:
+> No changes
+>=20
+> v2:
+> Updated SoC name
+>=20
+> ---
+>  Documentation/devicetree/bindings/net/macb.txt |    1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documen=
+tation/devicetree/bindings/net/macb.txt
+> index ba19d67..8ec5fdf 100644
+> --- a/Documentation/devicetree/bindings/net/macb.txt
+> +++ b/Documentation/devicetree/bindings/net/macb.txt
+> @@ -9,6 +9,7 @@ Required properties:
+>    the Cadence GEM, or the generic form: "cdns,gem".
+>    Use "cdns,sama5d3-gem" for the Gigabit IP available on Atmel sama5=
+d3 SoCs.
+>    Use "cdns,sama5d4-gem" for the Gigabit IP available on Atmel sama5=
+d4 SoCs.
+> +  Use "cdns,zynqmp-gem" for Zynq Ultrascale+ MPSoC.
+>  - reg: Address and length of the register set for the device
+>  - interrupts: Should contain macb interrupt
+>  - phy-mode: See ethernet.txt file in the same directory.
+>=20
 
-A possible fix for this would be to put these descriptions in an
-environment with hyphenation mode zero.
 
- man/man8/ip-link.8.in | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 0dfcb2e..823246f 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -75,7 +75,8 @@ ip-link \- network device configuration
- .BR ip6gretap " |"
- .BR vti " |"
- .BR nlmon " |"
--.BR ipvlan " ]"
-+.BR ipvlan " |"
-+.BR lowpan " ]"
-=20
- .ti -8
- .BR "ip link delete " {
-@@ -243,6 +244,9 @@ Link types:
- .sp
- .BR ipvlan
- - Interface for L3 (IPv6/IPv4) based VLANs
-+.sp
-+.BR lowpan
-+- Interface for 6LoWPAN (IPv6) over IEEE 802.15.4 / Bluetooth
- .in -8
-=20
- .TP
-@@ -916,6 +920,12 @@ Creates an IPIP that is encapsulated with Generic =
-UDP Encapsulation,
- and the outer UDP checksum and remote checksum offload are enabled.
-=20
- .RE
-+.PP
-+ip link add link wpan0 lowpan0 type lowpan
-+.RS 4
-+Creates a 6LoWPAN interface named lowpan0 on the underlying
-+IEEE 802.15.4 device wpan0.
-+.RE
-=20
- .SH SEE ALSO
- .br
 --=20
-2.1.0
+Nicolas Ferre
