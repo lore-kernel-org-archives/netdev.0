@@ -1,46 +1,60 @@
-From: Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 2/2] adm8211: fix the possible pci cache line sizes inside switch-case
-Date: Mon, 11 May 2015 18:48:11 +0100
-Message-ID: <4C95B6D2-3A68-4360-BE3C-5264DD0ED8DF@gmail.com>
-References: <20150505224020.GA3805@bytefire-computer> <87wq0ms3mv.fsf@kamboji.qca.qualcomm.com> <20150506063241.GA3042@bytefire-computer> <87k2wflj7p.fsf@kamboji.qca.qualcomm.com> <2CBE2DDF-92E5-45C9-95F8-C5CF918D12D9@gmail.com> <87vbfzjt4t.fsf@kamboji.qca.qualcomm.com> <CAOiHx=kzSsFenqPSNeAX6P5wJK8Hr-q+s+rJoQQMPbSGmE50xw@mail.gmail.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jonas Gorski <jogo-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAOiHx=kzSsFenqPSNeAX6P5wJK8Hr-q+s+rJoQQMPbSGmE50xw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] macvtap add missing ioctls - fix wrapping
+Date: Mon, 11 May 2015 13:49:01 -0400 (EDT)
+Message-ID: <20150511.134901.959375179450827063.davem@davemloft.net>
+References: <20150509.174017.6956415471104971.davem@davemloft.net>
+	<1431249359.669.5.camel@myriabit.com>
+	<1431262215.3278.2.camel@myriabit.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: justin@myriabit.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751853AbbEKRtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:49:03 -0400
+In-Reply-To: <1431262215.3278.2.camel@myriabit.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On 11 May 2015, at 14:24, Jonas Gorski <jogo-p3rKhJxN3npAfugRpC6u6w@public.gmane.org> wrote:
-> 
-> Hi,
-> 
->> On Mon, May 11, 2015 at 12:38 PM, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
->> Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->> 
->>> Sure, I'll create v2 of the patch with updated commit log.
->>> 
->>> Since it's part of a patch set, do you want me to send both the
->>> patches in the patch set together as v2 or just this patch?
->> 
->> Please resend the whole patchset as v2, less problems that way.
-> 
-> If you are sending a v2 anyway, I'd suggest using decimal values for
-> the cases, as cache line sizes are usually given in decimal anyway. So
-> just drop the "0x" instead of converting the values ;-)
-> 
-> 
-> Jonas
+From: Justin Cormack <justin@myriabit.com>
+Date: Sun, 10 May 2015 13:50:15 +0100
 
-Jonas, I had already sent the updated patch by the time I received your email. Is there a convention around this?
-Thanks--
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> The macvtap driver tries to emulate all the ioctls supported by a normal
+> tun/tap driver, however it was missing the generic SIOCGIFHWADDR and
+> SIOCSIFHWADDR ioctls to get and set the mac address that are supported
+> by tun/tap. This patch adds these.
+> 
+> Signed-off-by: Justin Cormack <justin@netbsd.org>
+> 
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 8c350c5..f37e8f9 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -1101,6 +1101,35 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  		rtnl_unlock();
+>  		return ret;
+>  
+> +	case SIOCGIFHWADDR:
+> +		rtnl_lock();
+> +		vlan = macvtap_get_vlan(q);
+> +		if (!vlan) {
+> +			rtnl_unlock();
+> +			return -ENOLINK;
+> +		}
+> +		ret = 0;
+> +		u = vlan->dev->type;
+> +		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
+> +			copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
+> +			put_user(u, &ifr->ifr_hwaddr.sa_family))
+
+This is not indented correctly.
+
+When an if() statement spans multiple lines, the second and subsequent lines
+should start exactly at the first column following the openning parenthesis
+of the first line.  You should use the appropriate number of TAB then
+SPACE characters necessary to achieve this.
+
+Thanks.
