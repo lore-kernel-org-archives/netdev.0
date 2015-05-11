@@ -1,66 +1,36 @@
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-Subject: RE: [Xen-devel] xen-netfront sets partial checksum at wrong offset
-Date: Mon, 11 May 2015 10:25:58 -0700 (PDT)
-Message-ID: <3a08e270-3a70-417b-9ab8-439c7cdc1eb2@default>
-References: <ee74926e-deb3-4cbc-9798-42c19f4fe219@default>
- <20150511150827.GA23561@l.oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Remove remaining remnants of pm_qos from
+ netdevice.h
+Date: Mon, 11 May 2015 13:26:11 -0400 (EDT)
+Message-ID: <20150511.132611.701878238281798138.davem@davemloft.net>
+References: <1431210103-18683-1-git-send-email-dsahern@gmail.com>
+	<20150511.131106.1902675173206646881.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: Konrad Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	david.vrabel@citrix.com, ian.campbell@citrix.com,
-	wei.liu2@citrix.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:42430 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbbEKR0G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:26:06 -0400
-In-Reply-To: <20150511150827.GA23561@l.oracle.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35778 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbbEKR0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:26:14 -0400
+In-Reply-To: <20150511.131106.1902675173206646881.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> Please CC the maintainers of the driver. You can get that from
-> 'scripts/get_maintainer.pl'
-> 
-> I've done that for you.
-
-Thanks, Konrad.
-
-I am copying Wei too who had fixed the below problem earlier.
-It fixed the incorrect ip_hdr(). tcp_hdr() still needs to fixed.
-
-commit d554f73df6bc35ac8f6a65e5560bf1d31dfebed9
-Author: Wei Liu <wei.liu2@citrix.com>
-Date:   Wed Feb 19 18:48:34 2014 +0000
-
-    xen-netfront: reset skb network header before checksum
-
-    In ed1f50c3a ("net: add skb_checksum_setup") we introduced some checksum
-    functions in core driver. Subsequent change b5cf66cd1 ("xen-netfront:
-    use new skb_checksum_setup function") made use of those functions to
-    replace its own implementation.
-
-    However with that change netfront is broken. It sees a lot of checksum
-    error. That's because its own implementation of checksum function was a
-    bit hacky (dereferencing skb->data directly) while the new function was
-    implemented using ip_hdr(). The network header is not reset before skb
-    is passed to the new function. When the new function tries to do its
-    job, it's confused and reports error.
-
-    The fix is simple, we need to reset network header before passing skb to
-    checksum function. Netback is not affected as it already does the right
-    thing.
-
-    Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
-    Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-    Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-    Cc: Paul Durrant <paul.durrant@citrix.com>
-    Tested-By: Sander Eikelenboom <linux@eikelenboom.it>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Thanks.
-
-Venkat
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAxMSBN
+YXkgMjAxNSAxMzoxMTowNiAtMDQwMCAoRURUKQ0KDQo+IEZyb206IERhdmlkIEFoZXJuIDxkc2Fo
+ZXJuQGdtYWlsLmNvbT4NCj4gRGF0ZTogU2F0LCAgOSBNYXkgMjAxNSAxNjoyMTo0MyAtMDYwMA0K
+PiANCj4+IENvbW1pdCBlMmM2NTQ0ODI5ZiByZW1vdmVkIHBtX3FvcyBmcm9tIHN0cnVjdCBuZXRf
+ZGV2aWNlIGJ1dCBsZWZ0IHRoZQ0KPj4gY29tbWVudCBhYm92ZSBoZWFkZXIgZmlsZS4gUmVtb3Zl
+IHRob3NlLg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBBaGVybiA8ZHNhaGVybkBnbWFp
+bC5jb20+DQo+IA0KPiBBcHBsaWVkLCB0aGFua3MgRGF2aWQuDQoNCkFjdHVhbGx5IEkgaGFkIHRv
+IHJldmVydCBhcyB0aGlzIGJyZWFrcyB0aGUgYnVpbGQuDQoNCllvdSB3aWxsIG5lZWQgdG8gc3Vi
+bWl0IGFub3RoZXIgcGF0Y2ggd2l0aCB0aGlzIG9uZSwgb25lIHRoYXQgYWRkcyBhbg0KaW5jbHVk
+ZSBvZiA8bGludXgvcG1fcW9zLmg+IHRvIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAw
+ZS9lMTAwMC5oDQoNCkluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9lMTAwMGUvODI1NzEuYzozODowOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEw
+MDBlL2UxMDAwLmg6MzQ2OjI0OiBlcnJvcjogZmllbGQgoXBtX3Fvc19yZXGiIGhhcyBpbmNvbXBs
+ZXRlIHR5cGUNCiAgc3RydWN0IHBtX3Fvc19yZXF1ZXN0IHBtX3Fvc19yZXE7DQogICAgICAgICAg
+ICAgICAgICAgICAgICBeDQo=
