@@ -1,98 +1,160 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v6 14/23] bridge: restore br_setlink back to
- original
-Date: Sun, 10 May 2015 17:55:18 -0700
-Message-ID: <554FFDF6.4040105@cumulusnetworks.com>
-References: <1431193225-807-1-git-send-email-sfeldma@gmail.com> <1431193225-807-15-git-send-email-sfeldma@gmail.com> <20150509190031.GG2290@nanopsycho> <554F8300.5070709@cumulusnetworks.com> <CAE4R7bBQw+GJ0APt57tf+JBnbE7vyCRmbTozcVxRV3QP8ZNe+w@mail.gmail.com>
+From: Tina Ruchandani <ruchandani.tina@gmail.com>
+Subject: [PATCH] isdn: Use ktime_t instead of 'struct timeval'
+Date: Mon, 11 May 2015 08:02:57 +0530
+Message-ID: <20150511023257.GA2612@tinar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Joe Perches <joe@perches.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	y2038@lists.linaro.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:34344 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653AbbEKAzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 20:55:39 -0400
-Received: by pdbqa5 with SMTP id qa5so130915574pdb.1
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 17:55:38 -0700 (PDT)
-In-Reply-To: <CAE4R7bBQw+GJ0APt57tf+JBnbE7vyCRmbTozcVxRV3QP8ZNe+w@mail.gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35086 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751833AbbEKCdD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 22:33:03 -0400
+Received: by pabtp1 with SMTP id tp1so98049182pab.2
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 19:33:02 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/10/15, 4:55 PM, Scott Feldman wrote:
-> On Sun, May 10, 2015 at 9:10 AM, roopa <roopa@cumulusnetworks.com> wrote:
->> On 5/9/15, 12:00 PM, Jiri Pirko wrote:
->>> Sat, May 09, 2015 at 07:40:16PM CEST, sfeldma@gmail.com wrote:
->>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>
->>>> Restore br_setlink back to original and don't call into SELF port driver.
->>>> rtnetlink.c:bridge_setlink() already does a call into port driver for
->>>> SELF.
->>>>
->>>> bridge set link cmd defaults to MASTER.  From man page for bridge link
->>>> set
->>>> cmd:
->>>>
->>>>         self   link setting is configured on specified physical device
->>>>
->>>>         master link setting is configured on the software bridge (default)
->>>>
->>>> The link setting has two values: the device-side value and the software
->>>> bridge-side value.  These are independent and settable using the bridge
->>>> link set cmd by specifying some combination of [master] | [self].
->>>> Futhermore, the device-side and bridge-side settings have their own
->>>> initial
->>>> value, viewable from bridge -d link show cmd.
->>>>
->>>> Restoring br_setlink back to original makes rocker (the only in-kernel
->>>> user
->>>> of SELF link settings) work as first implement: two-sided values.
->>>>
->>>> It's true that when both MASTER and SELF are specified from the command,
->>>> two netlink notifications are generated, one for each side of the
->>>> settings.
->>>> The user-space app can distiquish between the two notifications by
->>>> observing the MASTER or SELF flag.
->>> This is revert of:
->>>
->>> commit 68e331c785b85b78f4155e2ab6f90e976b609dc1
->>> Author: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> Date:   Thu Jan 29 22:40:14 2015 -0800
->>>
->>>       bridge: offload bridge port attributes to switch asic if feature flag
->>> set
->>>
->>> Noting that because I want to make sure everybody is ok with new
->>> behaviour. I tend to like it more.
->>>
->> I am not ok with it. I have raised this earlier. same argument as the fib
->> code, app now has to remember to call with both master and self. I do
->> however feel that this code needs some rework..,.add to hardware first and
->> then software
->> just like fib and rollback hardware on failure. In which case, i am ok with
->> submitting a new patch to do it differently.
-> The problem with your patch to br_setlink/br_dellink is it hard-coded
-> a default in the kernel bridge driver, inconsistent with the default
-> of the application (iproute2/bridge).  Reverting it keeps the kernel
-> out of the default decision and lets the application define a default
-> that suits it.
-sorry, I am not understanding how this is different from how we do 
-offload for fib and stp.
-just like stp offload from the bridge driver, i am hoping we can also 
-offload vlans (current patch under discussion)
-and fdb entries. The switch driver can decide if it is only interested 
-in calls with flags set to 'self' (rocker for example).
+'struct timeval' uses 32-bit representation for seconds which will
+overflow in year 2038 and beyond. mISDN/clock.c needs to compute and
+store elapsed time in intervals of 125 microseconds. This patch replaces
+the usage of 'struct timeval' with 64-bit ktime_t which is y2038 safe.
+The patch also replaces use of wall-clock time (do_gettimeofday) with 
+monotonic time (ktime_get) since we only care about elapsed time here.
 
-another example: mstp daemon running in userspace will use bridge 
-setlink to propagate stp states to the in-kernel bridge driver. If the 
-current patch is removed, mstp daemon will now have to make sure it 
-calls bridge setlink with self and master flags to hit both the bridge 
-driver and hardware.
+Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
+---
+ drivers/isdn/mISDN/clock.c | 53 +++++++++++++++++-----------------------------
+ include/linux/mISDNif.h    |  2 +-
+ 2 files changed, 21 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/isdn/mISDN/clock.c b/drivers/isdn/mISDN/clock.c
+index 693fb7c..7550f2e 100644
+--- a/drivers/isdn/mISDN/clock.c
++++ b/drivers/isdn/mISDN/clock.c
+@@ -37,6 +37,7 @@
+ #include <linux/types.h>
+ #include <linux/stddef.h>
+ #include <linux/spinlock.h>
++#include <linux/ktime.h>
+ #include <linux/mISDNif.h>
+ #include <linux/export.h>
+ #include "core.h"
+@@ -45,7 +46,7 @@ static u_int *debug;
+ static LIST_HEAD(iclock_list);
+ static DEFINE_RWLOCK(iclock_lock);
+ static u16 iclock_count;		/* counter of last clock */
+-static struct timeval iclock_tv;	/* time stamp of last clock */
++static ktime_t iclock_tv;		/* time stamp of last clock */
+ static int iclock_tv_valid;		/* already received one timestamp */
+ static struct mISDNclock *iclock_current;
+ 
+@@ -53,7 +54,7 @@ void
+ mISDN_init_clock(u_int *dp)
+ {
+ 	debug = dp;
+-	do_gettimeofday(&iclock_tv);
++	iclock_tv = ktime_get();
+ }
+ 
+ static void
+@@ -139,12 +140,11 @@ mISDN_unregister_clock(struct mISDNclock *iclock)
+ EXPORT_SYMBOL(mISDN_unregister_clock);
+ 
+ void
+-mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
++mISDN_clock_update(struct mISDNclock *iclock, int samples, ktime_t *tv)
+ {
+ 	u_long		flags;
+-	struct timeval	tv_now;
+-	time_t		elapsed_sec;
+-	int		elapsed_8000th;
++	ktime_t		tv_now;
++	u16		delta;
+ 
+ 	write_lock_irqsave(&iclock_lock, flags);
+ 	if (iclock_current != iclock) {
+@@ -160,28 +160,20 @@ mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
+ 		/* increment sample counter by given samples */
+ 		iclock_count += samples;
+ 		if (tv) { /* tv must be set, if function call is delayed */
+-			iclock_tv.tv_sec = tv->tv_sec;
+-			iclock_tv.tv_usec = tv->tv_usec;
++			iclock_tv = *tv;
+ 		} else
+-			do_gettimeofday(&iclock_tv);
++			iclock_tv = ktime_get();
+ 	} else {
+ 		/* calc elapsed time by system clock */
+ 		if (tv) { /* tv must be set, if function call is delayed */
+-			tv_now.tv_sec = tv->tv_sec;
+-			tv_now.tv_usec = tv->tv_usec;
++			tv_now = *tv;
+ 		} else
+-			do_gettimeofday(&tv_now);
+-		elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
+-		elapsed_8000th = (tv_now.tv_usec / 125)
+-			- (iclock_tv.tv_usec / 125);
+-		if (elapsed_8000th < 0) {
+-			elapsed_sec -= 1;
+-			elapsed_8000th += 8000;
+-		}
++			tv_now = ktime_get();
++		delta = ktime_to_us(ktime_sub(tv_now, iclock_tv));
++		delta = delta / 125;
+ 		/* add elapsed time to counter and set new timestamp */
+-		iclock_count += elapsed_sec * 8000 + elapsed_8000th;
+-		iclock_tv.tv_sec = tv_now.tv_sec;
+-		iclock_tv.tv_usec = tv_now.tv_usec;
++		iclock_count += delta;
++		iclock_tv = tv_now;
+ 		iclock_tv_valid = 1;
+ 		if (*debug & DEBUG_CLOCK)
+ 			printk("Received first clock from source '%s'.\n",
+@@ -195,22 +187,17 @@ unsigned short
+ mISDN_clock_get(void)
+ {
+ 	u_long		flags;
+-	struct timeval	tv_now;
+-	time_t		elapsed_sec;
+-	int		elapsed_8000th;
++	ktime_t		tv_now;
++	u16		delta;
+ 	u16		count;
+ 
+ 	read_lock_irqsave(&iclock_lock, flags);
+ 	/* calc elapsed time by system clock */
+-	do_gettimeofday(&tv_now);
+-	elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
+-	elapsed_8000th = (tv_now.tv_usec / 125) - (iclock_tv.tv_usec / 125);
+-	if (elapsed_8000th < 0) {
+-		elapsed_sec -= 1;
+-		elapsed_8000th += 8000;
+-	}
++	tv_now = ktime_get();
++	delta = ktime_to_us(ktime_sub(tv_now, iclock_tv));
++	delta = delta / 125;
+ 	/* add elapsed time to counter */
+-	count =	iclock_count + elapsed_sec * 8000 + elapsed_8000th;
++	count =	iclock_count + delta;
+ 	read_unlock_irqrestore(&iclock_lock, flags);
+ 	return count;
+ }
+diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
+index 246a352..ac02c54 100644
+--- a/include/linux/mISDNif.h
++++ b/include/linux/mISDNif.h
+@@ -596,7 +596,7 @@ static inline struct mISDNdevice *dev_to_mISDN(struct device *dev)
+ }
+ 
+ extern void	set_channel_address(struct mISDNchannel *, u_int, u_int);
+-extern void	mISDN_clock_update(struct mISDNclock *, int, struct timeval *);
++extern void	mISDN_clock_update(struct mISDNclock *, int, ktime_t *);
+ extern unsigned short mISDN_clock_get(void);
+ extern const char *mISDNDevName4ch(struct mISDNchannel *);
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
