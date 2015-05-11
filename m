@@ -1,104 +1,56 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code where
- it belongs
-Date: Mon, 11 May 2015 10:15:53 -0700
-Message-ID: <5550E3C9.1030306@plumgrid.com>
-References: <554F9DE8.3000507@plumgrid.com> <20150510182414.GA4198@salvia> <554FA7A5.5020400@plumgrid.com> <20150510190039.GA4938@salvia> <554FAC3A.40701@plumgrid.com> <20150510192044.GA7173@salvia> <554FB366.7080509@plumgrid.com> <20150510195018.GA7877@salvia> <554FCE24.8020904@iogearbox.net> <554FD12F.2020607@iogearbox.net> <20150510234313.GA3176@salvia> <555044D8.3080606@plumgrid.com> <5550A75B.3010003@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 4/4] netconsole: implement extended console support
+Date: Mon, 11 May 2015 13:23:39 -0400 (EDT)
+Message-ID: <20150511.132339.403868463230045095.davem@davemloft.net>
+References: <1431362494-9874-1-git-send-email-tj@kernel.org>
+	<1431362494-9874-5-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:34218 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245AbbEKRPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 13:15:54 -0400
-Received: by iedfl3 with SMTP id fl3so127507015ied.1
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 10:15:54 -0700 (PDT)
-In-Reply-To: <5550A75B.3010003@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
+	sd@queasysnail.net
+To: tj@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431362494-9874-5-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/11/15 5:58 AM, Daniel Borkmann wrote:
-> diff --git a/net/core/dev.c b/net/core/dev.c
->
-> -static inline struct sk_buff *handle_ing(struct sk_buff *skb,
-> +static __always_inline struct sk_buff *handle_ing(struct sk_buff *skb,
->                        struct packet_type **pt_prev,
->                        int *ret, struct net_device *orig_dev)
->   {
->       struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
-> +    int i = 0;
+From: Tejun Heo <tj@kernel.org>
+Date: Mon, 11 May 2015 12:41:34 -0400
+
+> +	/* need to insert extra header fields, detect header and body */
+> +	header = msg;
+> +	body = memchr(msg, ';', msg_len);
+> +	if (WARN_ON_ONCE(!body))
+> +		return;
 > +
-> +    printk("XXX %d\n", i++);
-> +    printk("XXX %d\n", i++);
-   .. lots of printk...
+> +	header_len = body - header;
+> +	body_len = msg_len - header_len - 1;
+> +	body++;
+> +
+> +	/*
+> +	 * Transfer multiple chunks with the following extra header.
+> +	 * "ncfrag=<byte-offset>/<total-bytes>"
+> +	 */
+> +	memcpy(buf, header, header_len);
+> +
+> +	while (offset < body_len) {
+> +		int this_header = header_len;
+> +		int this_chunk;
+> +
+> +		this_header += scnprintf(buf + this_header,
+> +					 sizeof(buf) - this_header,
+> +					 ",ncfrag=%d/%d;", offset, body_len);
+> +
 
-that an interesting test! Tried it out as well:
+Hmmm, do you intend ncfrag= to be amongst the other metadata in the first
+fragment?  The way I read the code above it's going to be:
 
-current baseline:
-37711847pps 18101Mb/sec (18101686560bps) errors: 10000000
-37776912pps 18132Mb/sec (18132917760bps) errors: 10000000
-37700180pps 18096Mb/sec (18096086400bps) errors: 10000000
-37730169pps 18110Mb/sec (18110481120bps) errors: 10000000
+	<level>,<sequnum>,<timestamp>,<contflag>;,ncfrag=x/y;
 
-with massive printk bloating in _inlined_ handle_ing:
-37744223pps 18117Mb/sec (18117227040bps) errors: 10000000
-37718786pps 18105Mb/sec (18105017280bps) errors: 10000000
-37742087pps 18116Mb/sec (18116201760bps) errors: 10000000
-37727777pps 18109Mb/sec (18109332960bps) errors: 10000000
+If you intend to keep all the metadata, including the ncfrag bit,
+together, you probably need to clip off the initial semicolon, so
+that it looks like:
 
-no performance difference as expected and matches what Daniel is seeing.
-
-Then I've tried to do 'noinline' for handle_ing():
-36818072pps 17672Mb/sec (17672674560bps) errors: 10000000
-36828761pps 17677Mb/sec (17677805280bps) errors: 10000000
-36840106pps 17683Mb/sec (17683250880bps) errors: 10000000
-36885403pps 17704Mb/sec (17704993440bps) errors: 10000000
-
-this drop when static_key suppose to protect handle_ing()
-was totally unexpected.
-So I started digging into assembler before and after.
-Turned out that with inlined handle_ing GCC can see what is
-happening with pt_prev and ret pointers, so with handle_ing
-inlined the asm looks like:
-movl    $1, %r15d       #, ret
-xorl    %r12d, %r12d    # pt_prev
-
-when handle_ing is not inlined, the asm of netif_receive_skb has:
-movl    $1, -68(%rbp)   #, ret
-movq    $0, -64(%rbp)   #, pt_prev
-
-To test it further I've tried:
-+static noinline struct sk_buff *handle_ing_finish(struct sk_buff *skb,
-+                                                 struct tcf_proto *cl)
-...
-static inline struct sk_buff *handle_ing(struct sk_buff *skb,
-+                                        struct packet_type **pt_prev,
-+                                        int *ret, struct net_device 
-*orig_dev)
-+{
-+       struct tcf_proto *cl = 
-rcu_dereference_bh(skb->dev->ingress_cl_list);
-+
-+       if (!cl)
-+               return skb;
-+       if (*pt_prev) {
-+               *ret = deliver_skb(skb, *pt_prev, orig_dev);
-+               *pt_prev = NULL;
-+       }
-+       return handle_ing_finish(skb, cl);
-+}
-
-so tc ingress part would not be inlined, but deliver_skb bits are.
-The performance went back to normal:
-37701570pps 18096Mb/sec (18096753600bps) errors: 10000000
-37752444pps 18121Mb/sec (18121173120bps) errors: 10000000
-37719331pps 18105Mb/sec (18105278880bps) errors: 10000000
-
-Unfortunately this last experiment hurts ingress+u32 case
-that dropped from 25.2 Mpps to 24.5 Mpps.
-
-Will keep digging into it more. Stay tuned.
+	<level>,<sequnum>,<timestamp>,<contflag>,ncfrag=x/y;
