@@ -1,65 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Suspicious RCU usage in bridge with Linux
- v4.0-9362-g1fc149933fd4
-Date: Mon, 11 May 2015 07:53:06 -0700
-Message-ID: <1431355986.566.18.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
-	 <20150504133943.GA17043@x131e>
-	 <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-	 <20150504132714.55dca5b0@urahara>
-	 <CAHA+R7PVpNdqrOHQgHXYRM8io9GZpeucZ_Gk8YNHqQC=f9+egw@mail.gmail.com>
-	 <20150511131516.GC10375@x131e>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] Cleanup the kernel sockets.
+Date: Mon, 11 May 2015 10:53:08 -0400 (EDT)
+Message-ID: <20150511.105308.148715905895080014.davem@davemloft.net>
+References: <87sib76kef.fsf@x220.int.ebiederm.org>
+	<20150509011339.GA19116@gondor.apana.org.au>
+	<87383633pu.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dominick Grift <dac.override@gmail.com>
+Cc: ying.xue@windriver.com, netdev@vger.kernel.org,
+	cwang@twopensource.com, xemul@openvz.org, eric.dumazet@gmail.com,
+	maxk@qti.qualcomm.com, stephen@networkplumber.org, tgraf@suug.ch,
+	nicolas.dichtel@6wind.com, tom@herbertland.com,
+	jchapman@katalix.com, erik.hugne@ericsson.com,
+	jon.maloy@ericsson.com, horms@verge.net.au,
+	herbert@gondor.apana.org.au
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:33124 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751184AbbEKOxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 10:53:08 -0400
-Received: by igbpi8 with SMTP id pi8so73537995igb.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 07:53:08 -0700 (PDT)
-In-Reply-To: <20150511131516.GC10375@x131e>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34620 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246AbbEKOxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 10:53:13 -0400
+In-Reply-To: <87383633pu.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-05-11 at 15:15 +0200, Dominick Grift wrote:
-> On Mon, May 04, 2015 at 02:35:27PM -0700, Cong Wang wrote:
-> 
-> <snip>
-> 
-> > It _looks like_ we only retrieve vlan info to fill netlink
-> > messages in timer context, so it doesn't seem we need to
-> > hold br->lock here.
-> > 
-> > But I never look into br vlan code of course.
-> 
-> This is just a friendly reminder that this issue still exits in: 4.1.0-0.rc2.git3.1
-> 
-> Ignore me if you are aware of the above
-> 
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 08 May 2015 21:05:33 -0500
 
-Hi Dominick
+> Right now the situtation for allocating kernel sockets is a mess.
+> - sock_create_kern does not take a namespace parameter.
+> - kernel sockets must not reference count a network namespace and keep
+>   it alive or else we will have a reference counting loop.
+> - The way we avoid the reference counting loop with sk_change_net
+>   and sk_release_kernel are major hacks.
+> 
+> This patchset addresses this mess by fixing sock_create_kern to do
+> everything necessary to create a kernel socket.  None of the current
+> users of kernel sockets need the network namespace reference counted.
+> Either kernel sockets are network namespace aware (and using the current
+> hacks) or kernel sockets are limited to the initial network namespace
+> in which case it does not matter.
+> 
+> This patchset starts by addressing tun which should be using normal
+> userspace sockets like macvtap.
+> 
+> Then sock_create_kern is fixed to take a network namespace.
+> Then the in kernel status of sockets are passed through to sk_alloc.
+> Then sk_alloc is fixed to not reference count the network namespace
+>      of kernel sockets.
+> Then the callers of sock_create_kern are fixed up to stop using hacks.
+> Then netlink which uses it's own flavor of sock_create_kern is fixed.
+> 
+> Finally the hacks that are sk_change_net and sk_release_kernel are removed.
+> 
+> When it is all done the code is easier to follow, easier to use, easier
+> to maintain and shorter by about 70 lines.
+> 
+> Reported-by: Ying Xue <ying.xue@windriver.com>
 
-Have you tried this patch I sent last monday ?
-
-I will submit formally when I get a test result.
-
-Thanks
-
-diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
-index 4fcaa67750fda845ad0a180332c4cd96a9524086..7caf7fae2d5b8aa369b924e1c87a47c343fb8954 100644
---- a/net/bridge/br_stp_timer.c
-+++ b/net/bridge/br_stp_timer.c
-@@ -97,7 +97,9 @@ static void br_forward_delay_timer_expired(unsigned long arg)
- 		netif_carrier_on(br->dev);
- 	}
- 	br_log_state(p);
-+	rcu_read_lock();
- 	br_ifinfo_notify(RTM_NEWLINK, p);
-+	rcu_read_unlock();
- 	spin_unlock(&br->lock);
- }
- 
+Looks good, applied to net-next, thanks Eric.
