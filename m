@@ -1,147 +1,97 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next v6 14/23] bridge: restore br_setlink back to original
-Date: Sun, 10 May 2015 19:46:49 -0700
-Message-ID: <CAE4R7bAhOzJT-bE-o8K83h6EwwNF5ceAfnH4_poGYa2qv9rLdw@mail.gmail.com>
-References: <1431193225-807-1-git-send-email-sfeldma@gmail.com>
-	<1431193225-807-15-git-send-email-sfeldma@gmail.com>
-	<20150509190031.GG2290@nanopsycho>
-	<554F8300.5070709@cumulusnetworks.com>
-	<CAE4R7bBQw+GJ0APt57tf+JBnbE7vyCRmbTozcVxRV3QP8ZNe+w@mail.gmail.com>
-	<554FFDF6.4040105@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Joe Perches <joe@perches.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:33017 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378AbbEKCqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 22:46:50 -0400
-Received: by qcvo8 with SMTP id o8so39058044qcv.0
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 19:46:49 -0700 (PDT)
-In-Reply-To: <554FFDF6.4040105@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH V5 1/1] hv_netvsc: Use the xmit_more skb flag to optimize signaling the host
+Date: Sun, 10 May 2015 21:08:14 -0700
+Message-ID: <1431317294-16442-1-git-send-email-kys@microsoft.com>
+Cc: "K. Y. Srinivasan" <kys@microsoft.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 10, 2015 at 5:55 PM, roopa <roopa@cumulusnetworks.com> wrote:
-> On 5/10/15, 4:55 PM, Scott Feldman wrote:
->>
->> On Sun, May 10, 2015 at 9:10 AM, roopa <roopa@cumulusnetworks.com> wrote:
->>>
->>> On 5/9/15, 12:00 PM, Jiri Pirko wrote:
->>>>
->>>> Sat, May 09, 2015 at 07:40:16PM CEST, sfeldma@gmail.com wrote:
->>>>>
->>>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>>
->>>>> Restore br_setlink back to original and don't call into SELF port
->>>>> driver.
->>>>> rtnetlink.c:bridge_setlink() already does a call into port driver for
->>>>> SELF.
->>>>>
->>>>> bridge set link cmd defaults to MASTER.  From man page for bridge link
->>>>> set
->>>>> cmd:
->>>>>
->>>>>         self   link setting is configured on specified physical device
->>>>>
->>>>>         master link setting is configured on the software bridge
->>>>> (default)
->>>>>
->>>>> The link setting has two values: the device-side value and the software
->>>>> bridge-side value.  These are independent and settable using the bridge
->>>>> link set cmd by specifying some combination of [master] | [self].
->>>>> Futhermore, the device-side and bridge-side settings have their own
->>>>> initial
->>>>> value, viewable from bridge -d link show cmd.
->>>>>
->>>>> Restoring br_setlink back to original makes rocker (the only in-kernel
->>>>> user
->>>>> of SELF link settings) work as first implement: two-sided values.
->>>>>
->>>>> It's true that when both MASTER and SELF are specified from the
->>>>> command,
->>>>> two netlink notifications are generated, one for each side of the
->>>>> settings.
->>>>> The user-space app can distiquish between the two notifications by
->>>>> observing the MASTER or SELF flag.
->>>>
->>>> This is revert of:
->>>>
->>>> commit 68e331c785b85b78f4155e2ab6f90e976b609dc1
->>>> Author: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>> Date:   Thu Jan 29 22:40:14 2015 -0800
->>>>
->>>>       bridge: offload bridge port attributes to switch asic if feature
->>>> flag
->>>> set
->>>>
->>>> Noting that because I want to make sure everybody is ok with new
->>>> behaviour. I tend to like it more.
->>>>
->>> I am not ok with it. I have raised this earlier. same argument as the fib
->>> code, app now has to remember to call with both master and self. I do
->>> however feel that this code needs some rework..,.add to hardware first
->>> and
->>> then software
->>> just like fib and rollback hardware on failure. In which case, i am ok
->>> with
->>> submitting a new patch to do it differently.
->>
->> The problem with your patch to br_setlink/br_dellink is it hard-coded
->> a default in the kernel bridge driver, inconsistent with the default
->> of the application (iproute2/bridge).  Reverting it keeps the kernel
->> out of the default decision and lets the application define a default
->> that suits it.
->
-> sorry, I am not understanding how this is different from how we do offload
-> for fib and stp.
-> just like stp offload from the bridge driver, i am hoping we can also
-> offload vlans (current patch under discussion)
-> and fdb entries. The switch driver can decide if it is only interested in
-> calls with flags set to 'self' (rocker for example).
->
-> another example: mstp daemon running in userspace will use bridge setlink to
-> propagate stp states to the in-kernel bridge driver. If the current patch is
-> removed, mstp daemon will now have to make sure it calls bridge setlink with
-> self and master flags to hit both the bridge driver and hardware.
+Based on the information given to this driver (via the xmit_more skb flag),
+we can defer signaling the host if more packets are on the way. This will help
+make the host more efficient since it can potentially process a larger batch of
+packets. Implement this optimization.
 
-You're making my point with this example: let the application set the
-flags it wants, and let the kernel provide the mechanism.
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+	v2: Fixed up indentation based on feedback from David Miller.
+	v3,v4: If the queue could be stopped, deal with that condition: Eric Dumazet <eric.dumazet@gmail.com>
+	v5: Fixed up indentation based on feedback from David Miller.
 
-The kernel mechanism for both FDB (rtnl_fdb_add) and bridge settings
-(rtnl_bridge_setlink) are the same: they both have this basic logic to
-handle MASTER and SELF flags:
+ drivers/net/hyperv/netvsc.c |   41 +++++++++++++++++++++++++++--------------
+ 1 files changed, 27 insertions(+), 14 deletions(-)
 
-if (!flags || flags & MASTER)
-    if (master->ops->ndo_xxx)
-        master->ops->ndo_xxx(...);
-if (flags & SELF)
-    if (port->ops->ndo_xxx)
-        port->ops->ndo_xxx(...);
-
-That's all the kernel should do.  What is the default flags when
-explicit flags aren't specified by the user is up to the application.
-Current example apps:
-
-iproute2/bridge/fbd app passes SELF when no flags are given by user.
-iproute2/bridge/vlan app passes no flags when no flags are given by user.
-iproute2/bridge/link set app passes SELF if setting hwmode, otherwise
-passes no flags when no flags are given by user.
-mstp app passes no flags (I assume, based on what you wrote above).
-
-So if you want different app defaults than above, we need to change
-the app, not the kernel.
-
-(FIB isn't part of this discussion because there is (currently) no
-MASTER|SELF flags for FIB entries, so I'm not sure why you're bringing
-up FIB).
-
--scott
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index ea091bc..7fdf3e8 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -743,6 +743,8 @@ static inline int netvsc_send_pkt(
+ 	u64 req_id;
+ 	int ret;
+ 	struct hv_page_buffer *pgbuf;
++	u32 vmbus_flags = VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED;
++	u32 ring_avail = hv_ringbuf_avail_percent(&out_channel->outbound);
+ 
+ 	nvmsg.hdr.msg_type = NVSP_MSG1_TYPE_SEND_RNDIS_PKT;
+ 	if (packet->is_data_pkt) {
+@@ -769,30 +771,41 @@ static inline int netvsc_send_pkt(
+ 	if (out_channel->rescind)
+ 		return -ENODEV;
+ 
++	/*
++	 * It is possible that once we successfully place this packet
++	 * on the ringbuffer, we may stop the queue. In that case, we want
++	 * to notify the host independent of the xmit_more flag. We don't
++	 * need to be precise here; in the worst case we may signal the host
++	 * unnecessarily.
++	 */
++	if (ring_avail < (RING_AVAIL_PERCENT_LOWATER + 1))
++		packet->xmit_more = false;
++
+ 	if (packet->page_buf_cnt) {
+ 		pgbuf = packet->cp_partial ? packet->page_buf +
+ 			packet->rmsg_pgcnt : packet->page_buf;
+-		ret = vmbus_sendpacket_pagebuffer(out_channel,
+-						  pgbuf,
+-						  packet->page_buf_cnt,
+-						  &nvmsg,
+-						  sizeof(struct nvsp_message),
+-						  req_id);
++		ret = vmbus_sendpacket_pagebuffer_ctl(out_channel,
++						      pgbuf,
++						      packet->page_buf_cnt,
++						      &nvmsg,
++						      sizeof(struct
++							     nvsp_message),
++						      req_id,
++						      vmbus_flags,
++						      !packet->xmit_more);
+ 	} else {
+-		ret = vmbus_sendpacket(
+-				out_channel, &nvmsg,
+-				sizeof(struct nvsp_message),
+-				req_id,
+-				VM_PKT_DATA_INBAND,
+-				VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
++		ret = vmbus_sendpacket_ctl(out_channel, &nvmsg,
++					   sizeof(struct nvsp_message),
++					   req_id,
++					   VM_PKT_DATA_INBAND,
++					   vmbus_flags, !packet->xmit_more);
+ 	}
+ 
+ 	if (ret == 0) {
+ 		atomic_inc(&net_device->num_outstanding_sends);
+ 		atomic_inc(&net_device->queue_sends[q_idx]);
+ 
+-		if (hv_ringbuf_avail_percent(&out_channel->outbound) <
+-			RING_AVAIL_PERCENT_LOWATER) {
++		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
+ 			netif_tx_stop_queue(netdev_get_tx_queue(
+ 					    ndev, q_idx));
+ 
+-- 
+1.7.4.1
