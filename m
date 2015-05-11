@@ -1,47 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 06/15] net: move __skb_tx_hash to skbuff.c
-Date: Mon, 11 May 2015 18:01:28 +0200
-Message-ID: <20150511160128.GC2222@nanopsycho.mtl.com>
-References: <1431177038-11555-1-git-send-email-jiri@resnulli.us>
- <1431177038-11555-7-git-send-email-jiri@resnulli.us>
- <5550D0DF.7090806@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] rtnl: don't send rtnl msg for unregistered iface
+Date: Mon, 11 May 2015 18:04:01 +0200
+Message-ID: <5550D2F1.5030100@6wind.com>
+References: <1431354346-4476-1-git-send-email-nicolas.dichtel@6wind.com> <20150511153741.GB2222@nanopsycho.mtl.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-	tgraf@suug.ch, jesse@nicira.com, kaber@trash.net,
-	therbert@google.com, edumazet@google.com,
-	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
-	herbert@gondor.apana.org.au, cwang@twopensource.com,
-	john.fastabend@gmail.com
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:37409 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614AbbEKQBe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 12:01:34 -0400
-Received: by widdi4 with SMTP id di4so102135789wid.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 09:01:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5550D0DF.7090806@redhat.com>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:33810 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751200AbbEKQEE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 12:04:04 -0400
+Received: by wgic8 with SMTP id c8so106415550wgi.1
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 09:04:03 -0700 (PDT)
+In-Reply-To: <20150511153741.GB2222@nanopsycho.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, May 11, 2015 at 05:55:11PM CEST, alexander.h.duyck@redhat.com wrote:
->On 05/09/2015 06:10 AM, Jiri Pirko wrote:
->>__skb_tx_hash function has no relation to flow_dissect so just muve it
->>to skbuff.c (it is declared in skbuff.h)
->>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Le 11/05/2015 17:37, Jiri Pirko a =E9crit :
+[snip]
 >
->Minor nit, move is spelled with an o, not a u.
-
-Noted.
-
+> I don't think this is the correct way to fix this.
 >
->Also any reason for moving this to skbuff.c instead of dev.c?  It seems like
->this might be better placed there since the only caller is in netdevice.h.
+> How ifindex can be 0 here? Ifindex is set in register_netdevice and
+> looking at bond_create, I don't see any call to __bond_opt_set before
+> that. But since it apparently is, the ordering should be changed so
+> register_netdevice is called first.
+bond_newlink =3D> bond_changelink =3D> __bond_opt_set
+and then back to bond_newlink =3D> register_netdevice
 
-Okay.
 
->
->- Alex
+Regards,
+Nicolas
