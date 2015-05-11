@@ -1,62 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] Cleanup the kernel sockets.
-Date: Mon, 11 May 2015 10:53:08 -0400 (EDT)
-Message-ID: <20150511.105308.148715905895080014.davem@davemloft.net>
-References: <87sib76kef.fsf@x220.int.ebiederm.org>
-	<20150509011339.GA19116@gondor.apana.org.au>
-	<87383633pu.fsf_-_@x220.int.ebiederm.org>
+Subject: Re: [PATCH linux v3 net-next 0/5] add netlink support for new lacp
+ bonding parameters
+Date: Mon, 11 May 2015 11:00:04 -0400 (EDT)
+Message-ID: <20150511.110004.649964826481502303.davem@davemloft.net>
+References: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, netdev@vger.kernel.org,
-	cwang@twopensource.com, xemul@openvz.org, eric.dumazet@gmail.com,
-	maxk@qti.qualcomm.com, stephen@networkplumber.org, tgraf@suug.ch,
-	nicolas.dichtel@6wind.com, tom@herbertland.com,
-	jchapman@katalix.com, erik.hugne@ericsson.com,
-	jon.maloy@ericsson.com, horms@verge.net.au,
-	herbert@gondor.apana.org.au
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	gospo@cumulusnetworks.com, shm@cumulusnetworks.com,
+	razor@blackwall.org
+To: jtoppins@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34620 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34670 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751246AbbEKOxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 10:53:13 -0400
-In-Reply-To: <87383633pu.fsf_-_@x220.int.ebiederm.org>
+	with ESMTP id S1751350AbbEKPAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 11:00:07 -0400
+In-Reply-To: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 08 May 2015 21:05:33 -0500
+From: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Date: Sat,  9 May 2015 00:01:54 -0700
 
-> Right now the situtation for allocating kernel sockets is a mess.
-> - sock_create_kern does not take a namespace parameter.
-> - kernel sockets must not reference count a network namespace and keep
->   it alive or else we will have a reference counting loop.
-> - The way we avoid the reference counting loop with sk_change_net
->   and sk_release_kernel are major hacks.
+> This is a resubmit of Mahesh's last 3 bonding patches from this series
+> (http://marc.info/?l=linux-netdev&m=142432864626179&w=2) with one
+> additional kernel patch which adds the netlink bits. I have noted any
+> modifications I did to the original patches just above my signoff line.
+> Patch 5 is the iproute2 support for these bonding options. All patches
+> were coded against the net-next branch of their respective projects.
 > 
-> This patchset addresses this mess by fixing sock_create_kern to do
-> everything necessary to create a kernel socket.  None of the current
-> users of kernel sockets need the network namespace reference counted.
-> Either kernel sockets are network namespace aware (and using the current
-> hacks) or kernel sockets are limited to the initial network namespace
-> in which case it does not matter.
+> v2:
+>   * rebased
+>   * only send these new parameters via netlink when bond is in mode 4
+>   * fixed ad_actor_sys_prio to be 0xFFFF by default even when the bond
+>     is initially created in mode 0 and switched to mode 4
 > 
-> This patchset starts by addressing tun which should be using normal
-> userspace sockets like macvtap.
-> 
-> Then sock_create_kern is fixed to take a network namespace.
-> Then the in kernel status of sockets are passed through to sk_alloc.
-> Then sk_alloc is fixed to not reference count the network namespace
->      of kernel sockets.
-> Then the callers of sock_create_kern are fixed up to stop using hacks.
-> Then netlink which uses it's own flavor of sock_create_kern is fixed.
-> 
-> Finally the hacks that are sk_change_net and sk_release_kernel are removed.
-> 
-> When it is all done the code is easier to follow, easier to use, easier
-> to maintain and shorter by about 70 lines.
-> 
-> Reported-by: Ying Xue <ying.xue@windriver.com>
+> v3:
+>   * reverted changes to bond_option_ad_actor_system_set() from v1 in Mahesh's
+>     patch "bonding: Allow userspace to set actors' macaddr in an AD-system."
+>     Instead implementing all setting in the option specific set function as
+>     Nik suggested.
 
-Looks good, applied to net-next, thanks Eric.
+Series applied, thanks.
+
+There are actually 4 patches in this series, so this subject should have
+said "0/4" instead of "0/5" :-)
