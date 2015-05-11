@@ -1,49 +1,82 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH v4] net: phy: micrel: Fix regression in kszphy_probe
-Date: Mon, 11 May 2015 17:21:06 +0200
-Message-ID: <1431357666-6808-1-git-send-email-niklass@axis.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 5/5] geneve: add initial netdev driver for GENEVE tunnels
+Date: Mon, 11 May 2015 11:17:28 -0400
+Message-ID: <20150511151728.GB2838@tuxdriver.com>
+References: <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
+ <CAHA+R7MqO2te-OR7mZqdy=TDkrcgyGhb-A4DvbQ07JAaKu49-Q@mail.gmail.com>
+ <20150508232236.GO14981@tuxdriver.com>
+ <20150510.194830.600095174408470043.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <festevam@gmail.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<johan@kernel.org>, Niklas Cassel <niklass@axis.com>,
-	stable <stable@vger.kernel.org>
-To: <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: cwang@twopensource.com, netdev@vger.kernel.org, jesse@nicira.com,
+	azhou@nicira.com, stephen@networkplumber.org,
+	alexander.h.duyck@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49206 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469AbbEKPaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 11:30:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20150510.194830.600095174408470043.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Don't do clock-mode-select if clk == NULL,
-since when building without CONFIG_HAVE_CLK,
-clk_get returns NULL and clk_get_rate returns 0.
+On Sun, May 10, 2015 at 07:48:30PM -0400, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Fri, 8 May 2015 19:22:36 -0400
+> 
+> > On Fri, May 08, 2015 at 01:55:15PM -0700, Cong Wang wrote:
+> >> On Fri, May 8, 2015 at 10:20 AM, John W. Linville
+> >> <linville@tuxdriver.com> wrote:
+> >> > +
+> >> > +/* Setup stats when device is created */
+> >> > +static int geneve_init(struct net_device *dev)
+> >> > +{
+> >> > +       struct geneve_dev *geneve = netdev_priv(dev);
+> >> > +
+> >> > +       dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+> >> > +       if (!dev->tstats)
+> >> > +               return -ENOMEM;
+> >> > +
+> >> > +       /* make new socket outside of RTNL */
+> >> > +       dev_hold(dev);
+> >> > +       queue_work(geneve_wq, &geneve->sock_work);
+> >> > +
+> >> 
+> >> 
+> >> Any reason to create socket in this init() rather than in ndo_open()?
+> > 
+> > The socket can be created asynchronously and ndo_open can fail if
+> > the socket creation hasn't succeeded.
+> 
+> In what manner is the socket creation asynchronous here?  It
+> synchronously returns success or failure as far as I can tell.
 
-Doing clock-mode-select in this cause causes kszphy_probe to
-return -EINVAL and thus prevents the device from being probed.
-
-The original code (before regression) would return 0
-when building without CONFIG_HAVE_CLK.
-
-Cc: stable <stable@vger.kernel.org> # 3.18+
-1fadee0c3645 ("net/phy: micrel: Add clock support for
-KSZ8021/KSZ8031")
-Signed-off-by: Niklas Cassel <niklass@axis.com>
----
- drivers/net/phy/micrel.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 1190fd8..ebdc357 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -548,7 +548,8 @@ static int kszphy_probe(struct phy_device *phydev)
- 	}
+Well, I misspoke -- I meant to indicate "outside of RTNL".  But, I
+have been bitten again by copying (an older version of) vxlan a bit
+too closely.  I don't think I need to worry about the RTNL stuff at
+socket open time for this driver.
  
- 	clk = devm_clk_get(&phydev->dev, "rmii-ref");
--	if (!IS_ERR(clk)) {
-+	/* NOTE: clk may be NULL if building without CONFIG_HAVE_CLK */
-+	if (!IS_ERR_OR_NULL(clk)) {
- 		unsigned long rate = clk_get_rate(clk);
- 		bool rmii_ref_clk_sel_25_mhz;
- 
+> >> Ditto, ndo_stop().
+> > 
+> > I really don't see the point of the ndo_open/ndo_stop inquiry.
+> > The socket creation seems analagous to device initialization to me.
+> 
+> It's about resource allocation.
+> 
+> Even in ethernet drivers, memory allocations such as those done for
+> RX and TX rings are done at ->ndo_open and released at ->ndo_stop()
+> time.
+> 
+> Therefore it's sort of reasonable to stretch that idea to how you
+> will handle sockets here in the geneve driver.
+
+Sure, thanks for laying it out for me!  I'll rework this bit, and
+address some of the other comments raised by Cong Wang and Jesse
+Gross and spin a v2.
+
+John
 -- 
-2.1.4
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
