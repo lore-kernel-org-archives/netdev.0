@@ -1,144 +1,109 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v6 14/23] bridge: restore br_setlink back to
- original
-Date: Sun, 10 May 2015 20:03:13 -0700
-Message-ID: <55501BF1.10202@cumulusnetworks.com>
-References: <1431193225-807-1-git-send-email-sfeldma@gmail.com> <1431193225-807-15-git-send-email-sfeldma@gmail.com> <20150509190031.GG2290@nanopsycho> <554F8300.5070709@cumulusnetworks.com> <CAE4R7bBQw+GJ0APt57tf+JBnbE7vyCRmbTozcVxRV3QP8ZNe+w@mail.gmail.com> <554FFDF6.4040105@cumulusnetworks.com> <CAE4R7bAhOzJT-bE-o8K83h6EwwNF5ceAfnH4_poGYa2qv9rLdw@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code where
+ it belongs
+Date: Sun, 10 May 2015 22:57:44 -0700
+Message-ID: <555044D8.3080606@plumgrid.com>
+References: <554F9DE8.3000507@plumgrid.com> <20150510182414.GA4198@salvia> <554FA7A5.5020400@plumgrid.com> <20150510190039.GA4938@salvia> <554FAC3A.40701@plumgrid.com> <20150510192044.GA7173@salvia> <554FB366.7080509@plumgrid.com> <20150510195018.GA7877@salvia> <554FCE24.8020904@iogearbox.net> <554FD12F.2020607@iogearbox.net> <20150510234313.GA3176@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, Netdev <netdev@vger.kernel.org>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"simon.horman@netronome.com" <simon.horman@netronome.com>,
-	Joe Perches <joe@perches.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	"Arad, Ronen" <ronen.arad@intel.com>
-To: Scott Feldman <sfeldma@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:35519 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751378AbbEKDDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 May 2015 23:03:15 -0400
-Received: by pdbqd1 with SMTP id qd1so135108127pdb.2
-        for <netdev@vger.kernel.org>; Sun, 10 May 2015 20:03:14 -0700 (PDT)
-In-Reply-To: <CAE4R7bAhOzJT-bE-o8K83h6EwwNF5ceAfnH4_poGYa2qv9rLdw@mail.gmail.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:32852 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870AbbEKF5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 01:57:47 -0400
+Received: by igbpi8 with SMTP id pi8so65824716igb.0
+        for <netdev@vger.kernel.org>; Sun, 10 May 2015 22:57:46 -0700 (PDT)
+In-Reply-To: <20150510234313.GA3176@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/10/15, 7:46 PM, Scott Feldman wrote:
-> On Sun, May 10, 2015 at 5:55 PM, roopa <roopa@cumulusnetworks.com> wrote:
->> On 5/10/15, 4:55 PM, Scott Feldman wrote:
->>> On Sun, May 10, 2015 at 9:10 AM, roopa <roopa@cumulusnetworks.com> wrote:
->>>> On 5/9/15, 12:00 PM, Jiri Pirko wrote:
->>>>> Sat, May 09, 2015 at 07:40:16PM CEST, sfeldma@gmail.com wrote:
->>>>>> From: Scott Feldman <sfeldma@gmail.com>
->>>>>>
->>>>>> Restore br_setlink back to original and don't call into SELF port
->>>>>> driver.
->>>>>> rtnetlink.c:bridge_setlink() already does a call into port driver for
->>>>>> SELF.
->>>>>>
->>>>>> bridge set link cmd defaults to MASTER.  From man page for bridge link
->>>>>> set
->>>>>> cmd:
->>>>>>
->>>>>>          self   link setting is configured on specified physical device
->>>>>>
->>>>>>          master link setting is configured on the software bridge
->>>>>> (default)
->>>>>>
->>>>>> The link setting has two values: the device-side value and the software
->>>>>> bridge-side value.  These are independent and settable using the bridge
->>>>>> link set cmd by specifying some combination of [master] | [self].
->>>>>> Futhermore, the device-side and bridge-side settings have their own
->>>>>> initial
->>>>>> value, viewable from bridge -d link show cmd.
->>>>>>
->>>>>> Restoring br_setlink back to original makes rocker (the only in-kernel
->>>>>> user
->>>>>> of SELF link settings) work as first implement: two-sided values.
->>>>>>
->>>>>> It's true that when both MASTER and SELF are specified from the
->>>>>> command,
->>>>>> two netlink notifications are generated, one for each side of the
->>>>>> settings.
->>>>>> The user-space app can distiquish between the two notifications by
->>>>>> observing the MASTER or SELF flag.
->>>>> This is revert of:
->>>>>
->>>>> commit 68e331c785b85b78f4155e2ab6f90e976b609dc1
->>>>> Author: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>>> Date:   Thu Jan 29 22:40:14 2015 -0800
->>>>>
->>>>>        bridge: offload bridge port attributes to switch asic if feature
->>>>> flag
->>>>> set
->>>>>
->>>>> Noting that because I want to make sure everybody is ok with new
->>>>> behaviour. I tend to like it more.
->>>>>
->>>> I am not ok with it. I have raised this earlier. same argument as the fib
->>>> code, app now has to remember to call with both master and self. I do
->>>> however feel that this code needs some rework..,.add to hardware first
->>>> and
->>>> then software
->>>> just like fib and rollback hardware on failure. In which case, i am ok
->>>> with
->>>> submitting a new patch to do it differently.
->>> The problem with your patch to br_setlink/br_dellink is it hard-coded
->>> a default in the kernel bridge driver, inconsistent with the default
->>> of the application (iproute2/bridge).  Reverting it keeps the kernel
->>> out of the default decision and lets the application define a default
->>> that suits it.
->> sorry, I am not understanding how this is different from how we do offload
->> for fib and stp.
->> just like stp offload from the bridge driver, i am hoping we can also
->> offload vlans (current patch under discussion)
->> and fdb entries. The switch driver can decide if it is only interested in
->> calls with flags set to 'self' (rocker for example).
->>
->> another example: mstp daemon running in userspace will use bridge setlink to
->> propagate stp states to the in-kernel bridge driver. If the current patch is
->> removed, mstp daemon will now have to make sure it calls bridge setlink with
->> self and master flags to hit both the bridge driver and hardware.
-> You're making my point with this example: let the application set the
-> flags it wants, and let the kernel provide the mechanism.
+On 5/10/15 4:43 PM, Pablo Neira Ayuso wrote:
 >
-> The kernel mechanism for both FDB (rtnl_fdb_add) and bridge settings
-> (rtnl_bridge_setlink) are the same: they both have this basic logic to
-> handle MASTER and SELF flags:
+> The noop is patched to an unconditional branch to skip that code, but
+> the code is still there in that path, even if it's dormant.
 >
-> if (!flags || flags & MASTER)
->      if (master->ops->ndo_xxx)
->          master->ops->ndo_xxx(...);
-> if (flags & SELF)
->      if (port->ops->ndo_xxx)
->          port->ops->ndo_xxx(...);
->
-> That's all the kernel should do.  What is the default flags when
-> explicit flags aren't specified by the user is up to the application.
-> Current example apps:
->
-> iproute2/bridge/fbd app passes SELF when no flags are given by user.
-> iproute2/bridge/vlan app passes no flags when no flags are given by user.
-> iproute2/bridge/link set app passes SELF if setting hwmode, otherwise
-> passes no flags when no flags are given by user.
-> mstp app passes no flags (I assume, based on what you wrote above).
->
-> So if you want different app defaults than above, we need to change
-> the app, not the kernel.
-yes, I understand your point... and this is where we have a difference 
-of opinion. I have only been saying that
-the kernel defaults should be in favor of existing apps (for easier 
-migration of these
-apps to switch-devices).
->
-> (FIB isn't part of this discussion because there is (currently) no
-> MASTER|SELF flags for FIB entries, so I'm not sure why you're bringing
-> up FIB).
->
-I brought up FIB because you and I had a similar thread last week for 
-FIB on the use of RTNH_F_EXTERNAL
-by apps. RTNH_F_EXTERNAL is analogous to NTF_SELF in the FIB context IMO.
+> What the numbers show is rather simple: The more code is in the path,
+> the less performance you get, and the qdisc ingress specific code
+> embedded there is reducing performance for people that are not using
+> qdisc ingress, hence it should go where it belongs. The static key
+> cannot save you from that.
+
+hmm, did I miss these numbers ?
+
+My numbers are showing the opposite. There is no degradation whatsoever.
+To recap, here are the numbers from my box:
+no ingress - 37.6
+ingress on other dev - 36.5
+ingress on this dev - 28.8
+ingress on this dev + u32 - 24.1
+
+after Daniel's two patches:
+no ingress - 37.6
+ingress on other dev - 36.5
+ingress on this dev - 36.5
+ingress on this dev + u32 - 25.2
+
+Explanation of the first lines:
+'no ingress' means pure netif_receive_skb with drop in ip_rcv.
+This is the case when ingress qdisc is not attached to any of the
+devices.
+Here static_key is off, so:
+         if (static_key_false(&ingress_needed)) {
+                 ... never reaches here ...
+                 skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
+
+So the code path is the same and numbers before and after are
+proving it is the case.
+
+'ingress on other dev' means that ingress qdisc is attached to
+some other device. Meaning that static_key is now on and
+handle_ing() after two patches does:
+cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
+if (!cl)
+   return skb; ... returns here ...
+
+Prior to two Daniel's patches handle_ing() does:
+  rxq = rcu_dereference(skb->dev->ingress_queue);
+  if (!rxq || rcu_access_pointer(rxq->qdisc) == &noop_qdisc)
+     return skb; ... returns here ...
+
+so the number of instructions is the same for 'ingress on other dev'
+case too.
+Not surprisingly before and after numbers for 'no ingress' and
+'ingress on other dev' are exactly the same.
+
+It sounds like you're saying that code that not even being executed
+is somehow affecting the speed? How is that possible ?
+What kind of benchmark do you run? I really want to get to the bottom
+of it. We cannot use 'drive-by reviewing' and 'gut feel' to make
+decisions. If you think my numbers are wrong, please rerun them.
+I'm using pktgen with 'xmit_mode netif_receive'. If there is some
+other benchmark please bring it on. Everyone will benefit.
+If you think pktgen as a test is not representative of real numbers,
+sure, that's a different discussion. Let's talk what is the right
+test to use. Just claiming that inline of a function into
+netif_receive_skb is hurting performance is bogus. Inlining hurts
+when size of executed code increases beyond I-cache size. That's
+clearly not the case here. Compilers moves inlined handle_ing()
+into cold path of netif_receive_skb. So for anyone who doesn't
+enable ingress qdisc there is no difference, since that code doesn't
+even get into I-cache.
+Here is snippet from net/core/dev.s:
+	/* below is line 3696: if (static_key_false(&ingress_needed)) */
+         1:.byte 0x0f,0x1f,0x44,0x00,0
+         .pushsection __jump_table,  "aw"
+          .balign 8
+          .quad 1b, .L1756, ingress_needed       #,
+         .popsection
+	/* below is line 3702: skb->tc_verd = 0; */
+	movw    $0, 150(%rbx)   #, skb_310->tc_verd
+
+As you can see the inlined handle_ing() is not in fall through path
+and it's placed by gcc at the end of netif_receive_skb_core at the label
+L1756. So I cannot possible see how it can affect performance.
+Even if we make handle_ing() twice as big, there is still won't be
+any difference for users that don't use ingress qdisc.
