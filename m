@@ -1,59 +1,99 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 2/2] adm8211: fix the possible pci cache line sizes inside switch-case
-Date: Mon, 11 May 2015 09:30:18 +0300
-Message-ID: <87k2wflj7p.fsf@kamboji.qca.qualcomm.com>
-References: <20150505224020.GA3805@bytefire-computer>
-	<87wq0ms3mv.fsf@kamboji.qca.qualcomm.com>
-	<20150506063241.GA3042@bytefire-computer>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH iproute2] man ip-link: Add missing lowpan link type
+Date: Mon, 11 May 2015 10:17:14 +0300
+Message-ID: <20150511071714.GP11014@wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: joe@perches.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Okash Khawaja <okash.khawaja@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150506063241.GA3042@bytefire-computer> (Okash Khawaja's
-	message of "Wed, 6 May 2015 07:32:42 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hmm.wantstofly.org ([148.251.232.15]:42374 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752192AbbEKHZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 03:25:55 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Okash Khawaja <okash.khawaja@gmail.com> writes:
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+---
+These man pages don't use .nh when describing command invocation syntax=
+,
+so we end up with things like this (on 80 character terminals):
 
-> On Wed, May 06, 2015 at 07:59:04AM +0300, Kalle Valo wrote:
->> Okash Khawaja <okash.khawaja@gmail.com> writes:
->> 
->> > The PCI cache line size value was being compared against decimal
->> > values prefixed with 0x.
->> > Fixed the literals to use the correct hex values.
->> >
->> > Signed-off-by: Okash Khawaja <okash.khawaja@gmail.com>
->>  [...]
->> 
->> > @@ -1101,10 +1101,10 @@ static void adm8211_hw_init(struct
->> > ieee80211_hw *dev) case 0x8: reg |= (0x1 << 14); break; - case
->> > 0x16: + case 0x10: reg |= (0x2 << 14); break; - case 0x32: + case
->> > 0x20: reg |= (0x3 << 14); break; default:
->>  Did you test this? How certain can we be that this doesn't break
->> anything?
->> 
->
-> I didn't test it as that would require the hardware that I don't have
-> at the moment. However, the value in `cline` is PCI cache line size,
-> which is the CPU's cache line size. It is less likely for cache line
-> sizes to be 22 or 50, and more likely for them to be 16 or 32. Also,
-> as far as I understand (and I might be wrong here), cache line size is
-> used for things like aligning DMA requests with CPU cache line, which
-> improve performance but wouldn't break anything if the value doesn't
-> match. In this case, we will fall through to the default case which
-> leaves `reg` unchanged.
->
-> If there is a way to test it with a mock set up or if you still think
-> we need to test this on real board, I'll be happy to try get the
-> hardware. But I will need some guidance around that. Thanks.
+              ip link add DEVICE type vxlan id ID [ dev PHYS_DEV  ] [ {=
+ group
+              | remote } IPADDR ] [ local IPADDR ] [ ttl TTL ] [ tos TO=
+S ] [
+              port MIN MAX ] [ [no]learning ] [ [no]proxy ] [ [no]rsc ]=
+ [
+              [no]l2miss ] [ [no]l3miss ] [ ageing SECONDS ] [ maxaddre=
+ss NUM=E2=80=90
+              BER ] [ gbp ]
 
-I don't have any ideas how to test this as I think the hardware is
-pretty rare nowadays but I think this is safe to commit, thanks for
-clearing this up. BTW, what you wrote about would have been perferct in
-the commit log itself.
+and:
 
--- 
-Kalle Valo
+              ip link add DEVICE type { gre | ipip | sit }  remote ADDR=
+ local
+              ADDR [ encap { fou | gue | none } ] [ encap-sport { PORT =
+| auto
+              } ] [ encap-dport PORT ] [  [no]encap-csum ] [  [no]encap=
+-remc=E2=80=90
+              sum ]
+
+and this affects this addition as well:
+
+       TYPE :=3D [ bridge | bond | can | dummy | hsr | ifb | ipoib | ma=
+cvlan |
+               macvtap | vcan | veth | vlan | vxlan | ip6tnl | ipip | s=
+it |
+               gre | gretap | ip6gre | ip6gretap | vti | nlmon | ipvlan=
+ | low=E2=80=90
+               pan ]
+
+A possible fix for this would be to put these descriptions in an
+environment with hyphenation mode zero.
+
+ man/man8/ip-link.8.in | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 0dfcb2e..823246f 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -75,7 +75,8 @@ ip-link \- network device configuration
+ .BR ip6gretap " |"
+ .BR vti " |"
+ .BR nlmon " |"
+-.BR ipvlan " ]"
++.BR ipvlan " |"
++.BR lowpan " ]"
+=20
+ .ti -8
+ .BR "ip link delete " {
+@@ -243,6 +244,9 @@ Link types:
+ .sp
+ .BR ipvlan
+ - Interface for L3 (IPv6/IPv4) based VLANs
++.sp
++.BR lowpan
++- Interface for 6LoWPAN (IPv6) over IEEE 802.15.4 / Bluetooth
+ .in -8
+=20
+ .TP
+@@ -916,6 +920,12 @@ Creates an IPIP that is encapsulated with Generic =
+UDP Encapsulation,
+ and the outer UDP checksum and remote checksum offload are enabled.
+=20
+ .RE
++.PP
++ip link add link wpan0 lowpan0 type lowpan
++.RS 4
++Creates a 6LoWPAN interface named lowpan0 on the underlying
++IEEE 802.15.4 device wpan0.
++.RE
+=20
+ .SH SEE ALSO
+ .br
+--=20
+2.1.0
