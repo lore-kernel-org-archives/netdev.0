@@ -1,61 +1,79 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net] rtnl: don't send rtnl msg for unregistered iface
-Date: Mon, 11 May 2015 18:15:37 -0400
-Message-ID: <20150511221536.GB9559@gospo.home.greyhouse.net>
-References: <1431354346-4476-1-git-send-email-nicolas.dichtel@6wind.com>
- <20150511153741.GB2222@nanopsycho.mtl.com>
- <5550D2F1.5030100@6wind.com>
- <5550D584.9010703@6wind.com>
- <20150511175355.GA3130@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] pktgen: fix packet generation
+Date: Mon, 11 May 2015 15:19:48 -0700
+Message-ID: <1431382788-6051-1-git-send-email-ast@plumgrid.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:34086 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752687AbbEKWPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 18:15:40 -0400
-Received: by qgfi89 with SMTP id i89so75691114qgf.1
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 15:15:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150511175355.GA3130@nanopsycho>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:36780 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245AbbEKWT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 18:19:57 -0400
+Received: by pdea3 with SMTP id a3so158342956pde.3
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 15:19:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 11, 2015 at 07:53:55PM +0200, Jiri Pirko wrote:
-> Mon, May 11, 2015 at 06:15:00PM CEST, nicolas.dichtel@6wind.com wrote=
-:
-> >Le 11/05/2015 18:04, Nicolas Dichtel a =E9crit :
-> >>Le 11/05/2015 17:37, Jiri Pirko a =E9crit :
-> >>[snip]
-> >>>
-> >>>I don't think this is the correct way to fix this.
-> >>>
-> >>>How ifindex can be 0 here? Ifindex is set in register_netdevice an=
-d
-> >>>looking at bond_create, I don't see any call to __bond_opt_set bef=
-ore
-> >>>that. But since it apparently is, the ordering should be changed s=
-o
-> >>>register_netdevice is called first.
-> >I also don't see why we would prevent to register a bonding interfac=
-e directly
-> >with the right mode.
-> >
-> >>bond_newlink =3D> bond_changelink =3D> __bond_opt_set
-> >>and then back to bond_newlink =3D> register_netdevice
->=20
-> I see it now. Why not to do register first, changelink later?
-> Or, change __bond_opt_set to call call_netdevice_notifiers only in ca=
-se
-> dev->reg_state =3D=3D NETREG_REGISTERED? Looking at the other places =
-this
+pkt_gen->last_ok was not set properly, so after the first burst
+pktgen instead of allocating new packet, will reuse old one, advance
+eth_type_trans further, which would mean the stack will be seeing very
+short bogus packets.
 
-This is probably an excellent approach.
+Fixes: 62f64aed622b ("pktgen: introduce xmit_mode '<start_xmit|netif_receive>'")
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+This bug slipped through due to all code refactoring and can be seen
+after clean reboot. If taps, rps or tx mode was used at least once,
+the bug will be hidden.
 
-> check happens, looks like a little helper like "netdev_check_register=
-ed"
-> might be convenient.
+Note to users: if you don't see ip_rcv() in your perf profile, it means
+you were hitting this.
+As commit log of 62f64aed622b is saying, the baseline perf profile
+should look like:
+   37.69%  kpktgend_0   [kernel.vmlinux]  [k] __netif_receive_skb_core
+   25.81%  kpktgend_0   [kernel.vmlinux]  [k] kfree_skb
+    7.22%  kpktgend_0   [kernel.vmlinux]  [k] ip_rcv
+    5.68%  kpktgend_0   [pktgen]          [k] pktgen_thread_worker
+
+Jesper, that explains why you were seeing hot:
+atomic_long_inc(&skb->dev->rx_dropped);
+
+Only my V1 version was correct in this regard. V2 and above had this
+latent bug. Sorry about that.
+
+ net/core/pktgen.c |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 8f2687da058e..62f979984a23 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1189,6 +1189,16 @@ static ssize_t pktgen_if_write(struct file *file,
+ 				return -ENOTSUPP;
+ 
+ 			pkt_dev->xmit_mode = M_NETIF_RECEIVE;
++
++			/* make sure new packet is allocated every time
++			 * pktgen_xmit() is called
++			 */
++			pkt_dev->last_ok = 1;
++
++			/* override clone_skb if user passed default value
++			 * at module loading time
++			 */
++			pkt_dev->clone_skb = 0;
+ 		} else {
+ 			sprintf(pg_result,
+ 				"xmit_mode -:%s:- unknown\nAvailable modes: %s",
+@@ -3415,7 +3425,6 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 				/* get out of the loop and wait
+ 				 * until skb is consumed
+ 				 */
+-				pkt_dev->last_ok = 1;
+ 				break;
+ 			}
+ 			/* skb was 'freed' by stack, so clean few
+-- 
+1.7.9.5
