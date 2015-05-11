@@ -1,38 +1,37 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net: macb: Handle the RXUBR interrupt on all devices
-Date: Mon, 11 May 2015 12:10:54 +0200
-Message-ID: <5550802E.6040900@atmel.com>
-References: <1430856025-1066-1-git-send-email-nathan.sullivan@ni.com> <20150509.160454.1045911244389894144.davem@davemloft.net>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH 2/2] adm8211: fix the possible pci cache line sizes inside switch-case
+Date: Mon, 11 May 2015 13:38:58 +0300
+Message-ID: <87vbfzjt4t.fsf@kamboji.qca.qualcomm.com>
+References: <20150505224020.GA3805@bytefire-computer>
+	<87wq0ms3mv.fsf@kamboji.qca.qualcomm.com>
+	<20150506063241.GA3042@bytefire-computer>
+	<87k2wflj7p.fsf@kamboji.qca.qualcomm.com>
+	<2CBE2DDF-92E5-45C9-95F8-C5CF918D12D9@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <nathan.sullivan@ni.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150509.160454.1045911244389894144.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "joe\@perches.com" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2CBE2DDF-92E5-45C9-95F8-C5CF918D12D9-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Okash Khawaja's
+	message of "Mon, 11 May 2015 09:48:54 +0100")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 09/05/2015 22:04, David Miller a =E9crit :
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
-> Date: Tue, 5 May 2015 15:00:25 -0500
->=20
->> The same hardware issue the at91 must work around applies to at leas=
-t the
->> Zynq ethernet, and possibly more devices.  The driver also needs to =
-handle
->> the RXUBR interrupt since it turns it on with MACB_RX_INT_FLAGS anyw=
-ay.
->>
->> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
->=20
-> Applied, thank you.
+Okash Khawaja <okash.khawaja-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-A v2 of this patch with more explanation in both the commit message and
-in code comments had been sent. Not a big deal (I suspect you can't use
-the v2 one, now that it's applied in your tree, can you?).
+> Sure, I'll create v2 of the patch with updated commit log. 
+>
+> Since it's part of a patch set, do you want me to send both the
+> patches in the patch set together as v2 or just this patch?
 
-Bye,
---=20
-Nicolas Ferre
+Please resend the whole patchset as v2, less problems that way.
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
