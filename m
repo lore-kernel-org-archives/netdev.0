@@ -1,37 +1,77 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: small optim in tcp_show_info()
-Date: Mon, 11 May 2015 09:16:12 -0700
-Message-ID: <20150511091612.2cf9e971@urahara>
-References: <1430937203.14545.62.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [V3 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
+Date: Mon, 11 May 2015 17:16:27 +0100
+Message-ID: <20150511161626.GI18655@e104818-lin.cambridge.arm.com>
+References: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+ <1431045436-8690-2-git-send-email-Suravee.Suthikulpanit@amd.com>
+ <3684853.vaQGhc4jR5@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:33777 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753144AbbEKQQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 12:16:09 -0400
-Received: by pdbnk13 with SMTP id nk13so150013856pdb.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 09:16:09 -0700 (PDT)
-In-Reply-To: <1430937203.14545.62.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
+	thomas.lendacky@amd.com, linux-crypto@vger.kernel.org,
+	herbert@gondor.apana.org.au, arnd@arndb.de,
+	linaro-acpi@lists.linaro.org, will.deacon@arm.com,
+	linux-kernel@vger.kernel.org, al.stone@linaro.org,
+	linux-acpi@vger.kernel.org, netdev@vger.kernel.org,
+	leo.duran@amd.com, hanjun.guo@linaro.org, msalter@redhat.com,
+	grant.likely@linaro.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, lenb@kernel.org
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3684853.vaQGhc4jR5@vostro.rjw.lan>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 06 May 2015 11:33:23 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, May 08, 2015 at 10:53:59PM +0200, Rafael J. Wysocki wrote:
+> On Thursday, May 07, 2015 07:37:12 PM Suravee Suthikulpanit wrote:
+> > diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+> > index ab2cbb5..7822149 100644
+> > --- a/drivers/acpi/Kconfig
+> > +++ b/drivers/acpi/Kconfig
+> > @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
+> >  config ACPI_SYSTEM_POWER_STATES_SUPPORT
+> >  	bool
+> >  
+> > +config ACPI_CCA_REQUIRED
+> > +	bool
+> > +
+> > +config ARM64_SUPPORT_ACPI_CCA_ZERO
+> 
+> Hmm.  I guess the Arnd's idea what to simply use CONFIG_ARM64 directly instead
+> of adding this new option.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Kernel can give us smaller tcp_info than our.
-> 
-> We copy the kernel provided structure and fill with 0
-> the remaining part.
-> 
-> Lets clear only the missing part to save some cycles, as we intend to
-> slightly increase tcp_info size in the future.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+I agree.
 
-Applied, I don't think other people will have enough sockets to notice the difference :-)
+> > +static inline bool acpi_dma_is_supported(struct acpi_device *adev)
+> > +{
+> > +	/**
+> > +	 * Currently, we mainly support _CCA=1 (i.e. is_coherent=1)
+> > +	 * This should be equivalent to specifyig dma-coherent for
+> > +	 * a device in OF.
+> > +	 *
+> > +	 * For the case when _CCA=0 (i.e. is_coherent=0 && cca_seen=1),
+> > +	 * we would rely on arch-specific cache maintenance for
+> > +	 * non-coherence DMA operations if architecture specifies
+> > +	 * _XXX_SUPPORT_CCA_ZERO. Otherwise, we do not support
+> > +	 * DMA on this device and fallback to arch-specific default
+> > +	 * handling.
+> > +	 *
+> > +	 * For the case when _CCA is missing (i.e. cca_seen=0) but
+> > +	 * platform specifies ACPI_CCA_REQUIRED, we do not support DMA,
+> > +	 * and fallback to arch-specific default handling.
+> > +	 */
+> > +	return adev && (adev->flags.is_coherent ||
+> > +			(adev->flags.cca_seen &&
+> > +			 IS_ENABLED(CONFIG_ARM64_SUPPORT_ACPI_CCA_ZERO)));
+> 
+> So what exactly would be wrong with using IS_ENABLED(CONFIG_ARM64) here?
+
+I'm not sure I follow why we need to check for ARM64 here at all. Can we
+not just have something like:
+
+	return adev && (!IS_ENABLED(CONFIG_ACPI_CCA_REQUIRED) ||
+			adev->flags.cca_seen)
+
+-- 
+Catalin
