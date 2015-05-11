@@ -1,7 +1,7 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 3/4] netconsole: make all dynamic netconsoles share a mutex
-Date: Mon, 11 May 2015 12:41:33 -0400
-Message-ID: <1431362494-9874-4-git-send-email-tj@kernel.org>
+Subject: [PATCH 2/4] netconsole: make netconsole_target->enabled a bool
+Date: Mon, 11 May 2015 12:41:32 -0400
+Message-ID: <1431362494-9874-3-git-send-email-tj@kernel.org>
 References: <1431362494-9874-1-git-send-email-tj@kernel.org>
 Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
@@ -12,67 +12,87 @@ In-Reply-To: <1431362494-9874-1-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, each dynamic netconsole_target uses its own separate mutex
-to synchronize the configuration operations.  This patch replaces the
-per-netconsole_target mutexes with a single mutex -
-dynamic_netconsole_mutex.  The reduced granularity doesn't hurt
-anything, the code is minutely simpler and this'd allow adding
-operations which should be synchronized across all dynamic
-netconsoles.
+netconsole uses both bool and int for boolean values.  Let's convert
+nt->enabled to bool for consistency.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: David Miller <davem@davemloft.net>
 ---
- drivers/net/netconsole.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/netconsole.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 8dd1e55..9b0c81e 100644
+index 30c0524..8dd1e55 100644
 --- a/drivers/net/netconsole.c
 +++ b/drivers/net/netconsole.c
-@@ -105,13 +105,13 @@ struct netconsole_target {
+@@ -104,7 +104,7 @@ struct netconsole_target {
+ #ifdef	CONFIG_NETCONSOLE_DYNAMIC
  	struct config_item	item;
  #endif
- 	bool			enabled;
--	struct mutex		mutex;
+-	int			enabled;
++	bool			enabled;
+ 	struct mutex		mutex;
  	struct netpoll		np;
  };
+@@ -197,7 +197,7 @@ static struct netconsole_target *alloc_param_target(char *target_config)
+ 	if (err)
+ 		goto fail;
  
- #ifdef	CONFIG_NETCONSOLE_DYNAMIC
+-	nt->enabled = 1;
++	nt->enabled = true;
  
- static struct configfs_subsystem netconsole_subsys;
-+static DEFINE_MUTEX(dynamic_netconsole_mutex);
+ 	return nt;
  
- static int __init dynamic_netconsole_init(void)
- {
-@@ -185,7 +185,6 @@ static struct netconsole_target *alloc_param_target(char *target_config)
- 	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
- 	nt->np.local_port = 6665;
- 	nt->np.remote_port = 6666;
--	mutex_init(&nt->mutex);
- 	eth_broadcast_addr(nt->np.remote_mac);
+@@ -322,13 +322,13 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 		return err;
+ 	if (enabled < 0 || enabled > 1)
+ 		return -EINVAL;
+-	if (enabled == nt->enabled) {
++	if ((bool)enabled == nt->enabled) {
+ 		pr_info("network logging has already %s\n",
+ 			nt->enabled ? "started" : "stopped");
+ 		return -EINVAL;
+ 	}
  
- 	/* Parse parameters and setup netpoll */
-@@ -562,10 +561,10 @@ static ssize_t netconsole_target_attr_store(struct config_item *item,
- 	struct netconsole_target_attr *na =
- 		container_of(attr, struct netconsole_target_attr, attr);
+-	if (enabled) {	/* 1 */
++	if (enabled) {	/* true */
+ 		/*
+ 		 * Skip netpoll_parse_options() -- all the attributes are
+ 		 * already configured via configfs. Just print them out.
+@@ -340,13 +340,13 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 			return err;
  
--	mutex_lock(&nt->mutex);
-+	mutex_lock(&dynamic_netconsole_mutex);
- 	if (na->store)
- 		ret = na->store(nt, buf, count);
--	mutex_unlock(&nt->mutex);
-+	mutex_unlock(&dynamic_netconsole_mutex);
+ 		pr_info("netconsole: network logging started\n");
+-	} else {	/* 0 */
++	} else {	/* false */
+ 		/* We need to disable the netconsole before cleaning it up
+ 		 * otherwise we might end up in write_msg() with
+-		 * nt->np.dev == NULL and nt->enabled == 1
++		 * nt->np.dev == NULL and nt->enabled == true
+ 		 */
+ 		spin_lock_irqsave(&target_list_lock, flags);
+-		nt->enabled = 0;
++		nt->enabled = false;
+ 		spin_unlock_irqrestore(&target_list_lock, flags);
+ 		netpoll_cleanup(&nt->np);
+ 	}
+@@ -594,7 +594,7 @@ static struct config_item *make_netconsole_target(struct config_group *group,
  
- 	return ret;
- }
-@@ -604,7 +603,6 @@ static struct config_item *make_netconsole_target(struct config_group *group,
- 	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
- 	nt->np.local_port = 6665;
- 	nt->np.remote_port = 6666;
--	mutex_init(&nt->mutex);
- 	eth_broadcast_addr(nt->np.remote_mac);
- 
- 	/* Initialize the config_item member */
+ 	/*
+ 	 * Allocate and initialize with defaults.
+-	 * Target is disabled at creation (enabled == 0).
++	 * Target is disabled at creation (!enabled).
+ 	 */
+ 	nt = kzalloc(sizeof(*nt), GFP_KERNEL);
+ 	if (!nt)
+@@ -695,7 +695,7 @@ restart:
+ 				spin_lock_irqsave(&target_list_lock, flags);
+ 				dev_put(nt->np.dev);
+ 				nt->np.dev = NULL;
+-				nt->enabled = 0;
++				nt->enabled = false;
+ 				stopped = true;
+ 				netconsole_target_put(nt);
+ 				goto restart;
 -- 
 2.1.0
