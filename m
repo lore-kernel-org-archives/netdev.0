@@ -1,51 +1,87 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/2] tcp: tcp_info extensions
-Date: Tue, 12 May 2015 13:31:53 -0700
-Message-ID: <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430260098-14127-1-git-send-email-edumazet@google.com>
-	 <20150512130855.GA29412@localhost.localdomain>
+Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
+Date: Tue, 12 May 2015 13:36:31 -0700
+Message-ID: <1431462991.566.97.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>
+	 <1958390.Ugr57PpLDS@h2o.as.studentenwerk.mhn.de>
+	 <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>
+	 <1489362.AtetvSCXN1@h2o.as.studentenwerk.mhn.de>
+	 <5552602E.3060300@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
-	Chris Rapier <rapier@psc.edu>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Cc: Wolfgang Walter <linux@stwm.de>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:34564 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752621AbbELUb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 16:31:56 -0400
-Received: by iget9 with SMTP id t9so102973415ige.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 13:31:55 -0700 (PDT)
-In-Reply-To: <20150512130855.GA29412@localhost.localdomain>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:35367 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753927AbbELUge (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 16:36:34 -0400
+In-Reply-To: <5552602E.3060300@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-12 at 10:08 -0300, Marcelo Ricardo Leitner wrote:
-> On Tue, Apr 28, 2015 at 03:28:16PM -0700, Eric Dumazet wrote:
-> > As discussed during Chris Rapier presentation in Ottawa / netdev0.1,
-> > we add to tcp_info the first two fields are highly wanted.
-> > 
-> > Each field is added into a single patch for easy code review.
-> > 
-> > (Corresponding iproute2/ss patches will be sent)
-> > 
-> > Next fields will follow once consensus is reached.
+On Tue, 2015-05-12 at 16:18 -0400, Vlad Yasevich wrote:
+> On 05/06/2015 06:11 PM, Wolfgang Walter wrote:
+> > Am Mittwoch, 6. Mai 2015, 11:15:18 schrieben Sie:
+> >> (Cc'ing netdev.)
+> >>
+> >> On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
+> >>> Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
+> >>>> Hello,
+> >>>>
+> >>>> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with an
+> >>>> isatap-tunnel.
+> >>>
+> >>> I did some further tests. To trigger the crash you need
+> >>>
+> >>> * isatap-tunnel (probably any sit-tunnel will do it)
+> >>> * raw-socket
+> >>> * udp
+> >>>
+> >>> Using icmpv6 or tcp i.e. does not trigger it.
+> >>
+> >> Do you have a script to reproduce it?
+> >>
+> >>
+> >> Thanks for the bug report!
+> >
+> > You need a isatap-server with say ipv4-address $X
+> >
+> > Then, on host with 4.0, start isatapd: isatapd --mtu 1280 $X
+> >
+> > then do
+> >
+> > 	traceroute6 www.google.de
+> >
+> > Regards,
+> >
 > 
-> Is tcpEStatsPerfSegsOut amongst them? I have a need for this one and can
-> submit a patch if you're not tracking it already.
+> Hi Walter
+> 
+> Could you try this patch.  Looks like raw passes transhdrlen
+> of 0 on the first packet and that makes IPv4 behave correctly,
+> but not IPv6.
+> 
+> 
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 7fde1f2..fd9c079 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -1278,7 +1278,7 @@ emsgsize:
+>  	/* If this is the first and only packet and device
+>  	 * supports checksum offloading, let's use it.
+>  	 */
+> -	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
+> +	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
+>  	    length + fragheaderlen < mtu &&
+>  	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+>  	    !exthdrlen)
 
-Yes, along with tcpEStatsPerfSegsIn
+And make sure the checksum is correct ;)
 
-Because tcp_info is aligned to 64bits, we cannot cook a patch simply
-adding tcpEStatsPerfSegsOut (u32), otherwise we would introduce a hole.
-
-If you can cook the patch adding tcpEStatsPerfSegsOut and
-tcpEStatsPerfSegsIn, I would be very happy to review it.
-
-Thanks !
+Vlad, can you tell where skb->cum_start and skb->csum_offset are set ?
