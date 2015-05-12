@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 2/7] amd-xgbe: Add netif_msg_* support for
- driver messages
-Date: Tue, 12 May 2015 14:22:42 -0500
-Message-ID: <20150512192242.14091.56225.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 5/7] amd-xgbe: Support defining PHY resources in
+ ETH device node
+Date: Tue, 12 May 2015 14:23:00 -0500
+Message-ID: <20150512192300.14091.82056.stgit@tlendack-t1.amdoffice.net>
 References: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,870 +10,176 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0141.outbound.protection.outlook.com ([157.56.111.141]:37280
+Received: from mail-bn1bon0117.outbound.protection.outlook.com ([157.56.111.117]:65460
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753261AbbELThg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 15:37:36 -0400
+	id S933893AbbELTic (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 15:38:32 -0400
 In-Reply-To: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the network interface message level settings for
-determining whether to issue some of the driver messages.
+Simplify the device tree support of the amd-xgbe driver by defining
+the PHY-related resources within the ethernet device node. The support
+provides backwards compatibility with the original way.
+
+Update the driver version to 1.0.2.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dcb.c  |   20 ++++-
- drivers/net/ethernet/amd/xgbe/xgbe-desc.c |   39 +++++++---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c  |   86 +++++++++++++++-------
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c  |  111 +++++++++++++++++------------
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |   15 +++-
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c |   83 +++++++++++-----------
- drivers/net/ethernet/amd/xgbe/xgbe.h      |   23 ++----
- 7 files changed, 225 insertions(+), 152 deletions(-)
+ Documentation/devicetree/bindings/net/amd-xgbe.txt |   41 ++++++--------------
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c          |   23 +++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe.h               |    2 -
+ 3 files changed, 29 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c b/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c
-index 8a50b01..754b21d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c
-@@ -150,9 +150,14 @@ static int xgbe_dcb_ieee_setets(struct net_device *netdev,
- 	tc_ets = 0;
- 	tc_ets_weight = 0;
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
--		DBGPR("  TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n", i,
--		      ets->tc_tx_bw[i], ets->tc_rx_bw[i], ets->tc_tsa[i]);
--		DBGPR("  PRIO%u: TC=%hhu\n", i, ets->prio_tc[i]);
-+		if (netif_msg_drv(pdata)) {
-+			netdev_dbg(netdev,
-+				   "TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n",
-+				   i, ets->tc_tx_bw[i], ets->tc_rx_bw[i],
-+				   ets->tc_tsa[i]);
-+			netdev_dbg(netdev, "PRIO%u: TC=%hhu\n", i,
-+				   ets->prio_tc[i]);
-+		}
+diff --git a/Documentation/devicetree/bindings/net/amd-xgbe.txt b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+index 5dbc55a..4bb624a 100644
+--- a/Documentation/devicetree/bindings/net/amd-xgbe.txt
++++ b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+@@ -1,16 +1,20 @@
+ * AMD 10GbE driver (amd-xgbe)
  
- 		if ((ets->tc_tx_bw[i] || ets->tc_tsa[i]) &&
- 		    (i >= pdata->hw_feat.tc_cnt))
-@@ -214,8 +219,9 @@ static int xgbe_dcb_ieee_setpfc(struct net_device *netdev,
- {
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
+-Required properties (ethernet device):
++Required properties:
+ - compatible: Should be "amd,xgbe-seattle-v1a"
+ - reg: Address and length of the register sets for the device
+    - MAC registers
+    - PCS registers
++   - SerDes Rx/Tx registers
++   - SerDes integration registers (1/2)
++   - SerDes integration registers (2/2)
+ - interrupt-parent: Should be the phandle for the interrupt controller
+   that services interrupts for this device
+ - interrupts: Should contain the amd-xgbe interrupt(s). The first interrupt
+   listed is required and is the general device interrupt. If the optional
+   amd,per-channel-interrupt property is specified, then one additional
+-  interrupt for each DMA channel supported by the device should be specified
++  interrupt for each DMA channel supported by the device should be specified.
++  The last interrupt listed should be the PCS auto-negotiation interrupt.
+ - clocks:
+    - DMA clock for the amd-xgbe device (used for calculating the
+      correct Rx interrupt watchdog timer value on a DMA channel
+@@ -19,28 +23,15 @@ Required properties (ethernet device):
+ - clock-names: Should be the names of the clocks
+    - "dma_clk" for the DMA clock
+    - "ptp_clk" for the PTP clock
+-- phy-handle: See ethernet.txt file in the same directory
+ - phy-mode: See ethernet.txt file in the same directory
  
--	DBGPR("  cap=%hhu, en=%hhx, mbc=%hhu, delay=%hhu\n",
--	      pfc->pfc_cap, pfc->pfc_en, pfc->mbc, pfc->delay);
-+	if (netif_msg_drv(pdata))
-+		netdev_dbg(netdev, "cap=%hhu, en=%#hhx, mbc=%hhu, delay=%hhu\n",
-+			   pfc->pfc_cap, pfc->pfc_en, pfc->mbc, pfc->delay);
- 
- 	if (!pdata->pfc) {
- 		pdata->pfc = devm_kzalloc(pdata->dev, sizeof(*pdata->pfc),
-@@ -238,9 +244,11 @@ static u8 xgbe_dcb_getdcbx(struct net_device *netdev)
- 
- static u8 xgbe_dcb_setdcbx(struct net_device *netdev, u8 dcbx)
- {
-+	struct xgbe_prv_data *pdata = netdev_priv(netdev);
- 	u8 support = xgbe_dcb_getdcbx(netdev);
- 
--	DBGPR("  DCBX=%#hhx\n", dcbx);
-+	if (netif_msg_drv(pdata))
-+		netdev_dbg(netdev, "DCBX=%#hhx\n", dcbx);
- 
- 	if (dcbx & ~support)
- 		return 1;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-index d81fc6b..6f2a914 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
-@@ -208,8 +208,10 @@ static int xgbe_init_ring(struct xgbe_prv_data *pdata,
- 	if (!ring->rdata)
- 		return -ENOMEM;
- 
--	DBGPR("    rdesc=0x%p, rdesc_dma=0x%llx, rdata=0x%p\n",
--	      ring->rdesc, ring->rdesc_dma, ring->rdata);
-+	if (netif_msg_drv(pdata))
-+		netdev_dbg(pdata->netdev,
-+			   "rdesc=%p, rdesc_dma=%pad, rdata=%p\n",
-+			   ring->rdesc, &ring->rdesc_dma, ring->rdata);
- 
- 	DBGPR("<--xgbe_init_ring\n");
- 
-@@ -226,7 +228,10 @@ static int xgbe_alloc_ring_resources(struct xgbe_prv_data *pdata)
- 
- 	channel = pdata->channel;
- 	for (i = 0; i < pdata->channel_count; i++, channel++) {
--		DBGPR("  %s - tx_ring:\n", channel->name);
-+		if (netif_msg_drv(pdata))
-+			netdev_dbg(pdata->netdev, "%s - Tx ring:\n",
-+				   channel->name);
-+
- 		ret = xgbe_init_ring(pdata, channel->tx_ring,
- 				     pdata->tx_desc_count);
- 		if (ret) {
-@@ -235,12 +240,15 @@ static int xgbe_alloc_ring_resources(struct xgbe_prv_data *pdata)
- 			goto err_ring;
- 		}
- 
--		DBGPR("  %s - rx_ring:\n", channel->name);
-+		if (netif_msg_drv(pdata))
-+			netdev_dbg(pdata->netdev, "%s - Rx ring:\n",
-+				   channel->name);
-+
- 		ret = xgbe_init_ring(pdata, channel->rx_ring,
- 				     pdata->rx_desc_count);
- 		if (ret) {
- 			netdev_alert(pdata->netdev,
--				     "error initializing Tx ring\n");
-+				     "error initializing Rx ring\n");
- 			goto err_ring;
- 		}
- 	}
-@@ -518,8 +526,6 @@ static int xgbe_map_tx_skb(struct xgbe_channel *channel, struct sk_buff *skb)
- 	rdata = XGBE_GET_DESC_DATA(ring, cur_index);
- 
- 	if (tso) {
--		DBGPR("  TSO packet\n");
+-Optional properties (ethernet device):
++Optional properties:
+ - mac-address: mac address to be assigned to the device. Can be overridden
+   by UEFI.
+ - dma-coherent: Present if dma operations are coherent
+ - amd,per-channel-interrupt: Indicates that Rx and Tx complete will generate
+   a unique interrupt for each DMA channel - this requires an additional
+   interrupt be configured for each DMA channel
 -
- 		/* Map the TSO header */
- 		skb_dma = dma_map_single(pdata->dev, skb->data,
- 					 packet->header_len, DMA_TO_DEVICE);
-@@ -529,6 +535,10 @@ static int xgbe_map_tx_skb(struct xgbe_channel *channel, struct sk_buff *skb)
- 		}
- 		rdata->skb_dma = skb_dma;
- 		rdata->skb_dma_len = packet->header_len;
-+		if (netif_msg_tx_queued(pdata))
-+			netdev_dbg(pdata->netdev,
-+				   "skb header: index=%u, dma=%pad, len=%u\n",
-+				   cur_index, &skb_dma, packet->header_len);
- 
- 		offset = packet->header_len;
- 
-@@ -550,8 +560,10 @@ static int xgbe_map_tx_skb(struct xgbe_channel *channel, struct sk_buff *skb)
- 		}
- 		rdata->skb_dma = skb_dma;
- 		rdata->skb_dma_len = len;
--		DBGPR("  skb data: index=%u, dma=0x%llx, len=%u\n",
--		      cur_index, skb_dma, len);
-+		if (netif_msg_tx_queued(pdata))
-+			netdev_dbg(pdata->netdev,
-+				   "skb data: index=%u, dma=%pad, len=%u\n",
-+				   cur_index, &skb_dma, len);
- 
- 		datalen -= len;
- 		offset += len;
-@@ -563,7 +575,8 @@ static int xgbe_map_tx_skb(struct xgbe_channel *channel, struct sk_buff *skb)
- 	}
- 
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
--		DBGPR("  mapping frag %u\n", i);
-+		if (netif_msg_tx_queued(pdata))
-+			netdev_dbg(pdata->netdev, "mapping frag %u\n", i);
- 
- 		frag = &skb_shinfo(skb)->frags[i];
- 		offset = 0;
-@@ -582,8 +595,10 @@ static int xgbe_map_tx_skb(struct xgbe_channel *channel, struct sk_buff *skb)
- 			rdata->skb_dma = skb_dma;
- 			rdata->skb_dma_len = len;
- 			rdata->mapped_as_page = 1;
--			DBGPR("  skb data: index=%u, dma=0x%llx, len=%u\n",
--			      cur_index, skb_dma, len);
-+			if (netif_msg_tx_queued(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "skb frag: index=%u, dma=%pad, len=%u\n",
-+					   cur_index, &skb_dma, len);
- 
- 			datalen -= len;
- 			offset += len;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 6f593a5..35fad1a 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -710,7 +710,9 @@ static int xgbe_set_promiscuous_mode(struct xgbe_prv_data *pdata,
- 	if (XGMAC_IOREAD_BITS(pdata, MAC_PFR, PR) == val)
- 		return 0;
- 
--	DBGPR("  %s promiscuous mode\n", enable ? "entering" : "leaving");
-+	if (netif_msg_drv(pdata))
-+		netdev_dbg(pdata->netdev, "%s promiscuous mode\n",
-+			   enable ? "entering" : "leaving");
- 	XGMAC_IOWRITE_BITS(pdata, MAC_PFR, PR, val);
- 
- 	return 0;
-@@ -724,7 +726,9 @@ static int xgbe_set_all_multicast_mode(struct xgbe_prv_data *pdata,
- 	if (XGMAC_IOREAD_BITS(pdata, MAC_PFR, PM) == val)
- 		return 0;
- 
--	DBGPR("  %s allmulti mode\n", enable ? "entering" : "leaving");
-+	if (netif_msg_drv(pdata))
-+		netdev_dbg(pdata->netdev, "%s allmulti mode\n",
-+			   enable ? "entering" : "leaving");
- 	XGMAC_IOWRITE_BITS(pdata, MAC_PFR, PM, val);
- 
- 	return 0;
-@@ -749,8 +753,10 @@ static void xgbe_set_mac_reg(struct xgbe_prv_data *pdata,
- 		mac_addr[0] = ha->addr[4];
- 		mac_addr[1] = ha->addr[5];
- 
--		DBGPR("  adding mac address %pM at 0x%04x\n", ha->addr,
--		      *mac_reg);
-+		if (netif_msg_drv(pdata))
-+			netdev_dbg(pdata->netdev,
-+				   "adding mac address %pM at %#x\n",
-+				   ha->addr, *mac_reg);
- 
- 		XGMAC_SET_BITS(mac_addr_hi, MAC_MACA1HR, AE, 1);
- 	}
-@@ -1322,7 +1328,8 @@ static void xgbe_config_dcb_tc(struct xgbe_prv_data *pdata)
- 	for (i = 0; i < pdata->hw_feat.tc_cnt; i++) {
- 		switch (ets->tc_tsa[i]) {
- 		case IEEE_8021QAZ_TSA_STRICT:
--			DBGPR("  TC%u using SP\n", i);
-+			if (netif_msg_drv(pdata))
-+				netdev_dbg(pdata->netdev, "TC%u using SP\n", i);
- 			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_ETSCR, TSA,
- 					       MTL_TSA_SP);
- 			break;
-@@ -1330,7 +1337,10 @@ static void xgbe_config_dcb_tc(struct xgbe_prv_data *pdata)
- 			weight = total_weight * ets->tc_tx_bw[i] / 100;
- 			weight = clamp(weight, min_weight, total_weight);
- 
--			DBGPR("  TC%u using DWRR (weight %u)\n", i, weight);
-+			if (netif_msg_drv(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "TC%u using DWRR (weight %u)\n", i,
-+					   weight);
- 			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_ETSCR, TSA,
- 					       MTL_TSA_ETS);
- 			XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_TC_QWR, QW,
-@@ -1359,7 +1369,9 @@ static void xgbe_config_dcb_pfc(struct xgbe_prv_data *pdata)
- 		}
- 		mask &= 0xff;
- 
--		DBGPR("  TC%u PFC mask=%#x\n", tc, mask);
-+		if (netif_msg_drv(pdata))
-+			netdev_dbg(pdata->netdev, "TC%u PFC mask=%#x\n", tc,
-+				   mask);
- 		reg = MTL_TCPM0R + (MTL_TCPM_INC * (tc / MTL_TCPM_TC_PER_REG));
- 		reg_val = XGMAC_IOREAD(pdata, reg);
- 
-@@ -1457,8 +1469,10 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	/* Create a context descriptor if this is a TSO packet */
- 	if (tso_context || vlan_context) {
- 		if (tso_context) {
--			DBGPR("  TSO context descriptor, mss=%u\n",
--			      packet->mss);
-+			if (netif_msg_tx_queued(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "TSO context descriptor, mss=%u\n",
-+					   packet->mss);
- 
- 			/* Set the MSS size */
- 			XGMAC_SET_BITS_LE(rdesc->desc2, TX_CONTEXT_DESC2,
-@@ -1476,8 +1490,10 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 		}
- 
- 		if (vlan_context) {
--			DBGPR("  VLAN context descriptor, ctag=%u\n",
--			      packet->vlan_ctag);
-+			if (netif_msg_tx_queued(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "VLAN context descriptor, ctag=%u\n",
-+					   packet->vlan_ctag);
- 
- 			/* Mark it as a CONTEXT descriptor */
- 			XGMAC_SET_BITS_LE(rdesc->desc3, TX_CONTEXT_DESC3,
-@@ -1596,9 +1612,9 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 	rdesc = rdata->rdesc;
- 	XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, OWN, 1);
- 
--#ifdef XGMAC_ENABLE_TX_DESC_DUMP
--	xgbe_dump_tx_desc(ring, start_index, packet->rdesc_count, 1);
--#endif
-+	if (netif_msg_tx_queued(pdata))
-+		xgbe_dump_tx_desc(pdata, ring, start_index,
-+				  packet->rdesc_count, 1);
- 
- 	/* Make sure ownership is written to the descriptor */
- 	dma_wmb();
-@@ -1640,9 +1656,8 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 	/* Make sure descriptor fields are read after reading the OWN bit */
- 	dma_rmb();
- 
--#ifdef XGMAC_ENABLE_RX_DESC_DUMP
--	xgbe_dump_rx_desc(ring, rdesc, ring->cur);
--#endif
-+	if (netif_msg_rx_status(pdata))
-+		xgbe_dump_rx_desc(pdata, ring, ring->cur);
- 
- 	if (XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, CTXT)) {
- 		/* Timestamp Context Descriptor */
-@@ -1713,7 +1728,8 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 	/* Check for errors (only valid in last descriptor) */
- 	err = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, ES);
- 	etlt = XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, ETLT);
--	DBGPR("  err=%u, etlt=%#x\n", err, etlt);
-+	if (netif_msg_rx_status(pdata))
-+		netdev_dbg(netdev, "err=%u, etlt=%#x\n", err, etlt);
- 
- 	if (!err || !etlt) {
- 		/* No error if err is 0 or etlt is 0 */
-@@ -1724,7 +1740,9 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 			packet->vlan_ctag = XGMAC_GET_BITS_LE(rdesc->desc0,
- 							      RX_NORMAL_DESC0,
- 							      OVT);
--			DBGPR("  vlan-ctag=0x%04x\n", packet->vlan_ctag);
-+			if (netif_msg_rx_status(pdata))
-+				netdev_dbg(netdev, "vlan-ctag=%#06x\n",
-+					   packet->vlan_ctag);
- 		}
- 	} else {
- 		if ((etlt == 0x05) || (etlt == 0x06))
-@@ -2032,9 +2050,10 @@ static void xgbe_config_tx_fifo_size(struct xgbe_prv_data *pdata)
- 	for (i = 0; i < pdata->tx_q_count; i++)
- 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_TQOMR, TQS, fifo_size);
- 
--	netdev_notice(pdata->netdev,
--		      "%d Tx hardware queues, %d byte fifo per queue\n",
--		      pdata->tx_q_count, ((fifo_size + 1) * 256));
-+	if (netif_msg_drv(pdata))
-+		netdev_info(pdata->netdev,
-+			    "%d Tx hardware queues, %d byte fifo per queue\n",
-+			    pdata->tx_q_count, ((fifo_size + 1) * 256));
- }
- 
- static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
-@@ -2048,9 +2067,10 @@ static void xgbe_config_rx_fifo_size(struct xgbe_prv_data *pdata)
- 	for (i = 0; i < pdata->rx_q_count; i++)
- 		XGMAC_MTL_IOWRITE_BITS(pdata, i, MTL_Q_RQOMR, RQS, fifo_size);
- 
--	netdev_notice(pdata->netdev,
--		      "%d Rx hardware queues, %d byte fifo per queue\n",
--		      pdata->rx_q_count, ((fifo_size + 1) * 256));
-+	if (netif_msg_drv(pdata))
-+		netdev_info(pdata->netdev,
-+			    "%d Rx hardware queues, %d byte fifo per queue\n",
-+			    pdata->rx_q_count, ((fifo_size + 1) * 256));
- }
- 
- static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
-@@ -2069,14 +2089,18 @@ static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
- 
- 	for (i = 0, queue = 0; i < pdata->hw_feat.tc_cnt; i++) {
- 		for (j = 0; j < qptc; j++) {
--			DBGPR("  TXq%u mapped to TC%u\n", queue, i);
-+			if (netif_msg_drv(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "TXq%u mapped to TC%u\n", queue, i);
- 			XGMAC_MTL_IOWRITE_BITS(pdata, queue, MTL_Q_TQOMR,
- 					       Q2TCMAP, i);
- 			pdata->q2tc_map[queue++] = i;
- 		}
- 
- 		if (i < qptc_extra) {
--			DBGPR("  TXq%u mapped to TC%u\n", queue, i);
-+			if (netif_msg_drv(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "TXq%u mapped to TC%u\n", queue, i);
- 			XGMAC_MTL_IOWRITE_BITS(pdata, queue, MTL_Q_TQOMR,
- 					       Q2TCMAP, i);
- 			pdata->q2tc_map[queue++] = i;
-@@ -2094,13 +2118,17 @@ static void xgbe_config_queue_mapping(struct xgbe_prv_data *pdata)
- 	for (i = 0, prio = 0; i < prio_queues;) {
- 		mask = 0;
- 		for (j = 0; j < ppq; j++) {
--			DBGPR("  PRIO%u mapped to RXq%u\n", prio, i);
-+			if (netif_msg_drv(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "PRIO%u mapped to RXq%u\n", prio, i);
- 			mask |= (1 << prio);
- 			pdata->prio2q_map[prio++] = i;
- 		}
- 
- 		if (i < ppq_extra) {
--			DBGPR("  PRIO%u mapped to RXq%u\n", prio, i);
-+			if (netif_msg_drv(pdata))
-+				netdev_dbg(pdata->netdev,
-+					   "PRIO%u mapped to RXq%u\n", prio, i);
- 			mask |= (1 << prio);
- 			pdata->prio2q_map[prio++] = i;
- 		}
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index db84ddc..a93bbc6 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -183,9 +183,12 @@ static int xgbe_alloc_channels(struct xgbe_prv_data *pdata)
- 			channel->rx_ring = rx_ring++;
- 		}
- 
--		DBGPR("  %s: queue=%u, dma_regs=%p, dma_irq=%d, tx=%p, rx=%p\n",
--		      channel->name, channel->queue_index, channel->dma_regs,
--		      channel->dma_irq, channel->tx_ring, channel->rx_ring);
-+		if (netif_msg_drv(pdata))
-+			netdev_dbg(pdata->netdev,
-+				   "%s: dma_regs=%p, dma_irq=%d, tx=%p, rx=%p\n",
-+				   channel->name, channel->dma_regs,
-+				   channel->dma_irq, channel->tx_ring,
-+				   channel->rx_ring);
- 	}
- 
- 	pdata->channel = channel_mem;
-@@ -235,7 +238,9 @@ static int xgbe_maybe_stop_tx_queue(struct xgbe_channel *channel,
- 	struct xgbe_prv_data *pdata = channel->pdata;
- 
- 	if (count > xgbe_tx_avail_desc(ring)) {
--		DBGPR("  Tx queue stopped, not enough descriptors available\n");
-+		if (netif_msg_drv(pdata))
-+			netdev_info(pdata->netdev,
-+				    "Tx queue stopped, not enough descriptors available\n");
- 		netif_stop_subqueue(pdata->netdev, channel->queue_index);
- 		ring->tx.queue_stopped = 1;
- 
-@@ -330,7 +335,8 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 	if (!dma_isr)
- 		goto isr_done;
- 
--	DBGPR("  DMA_ISR = %08x\n", dma_isr);
-+	if (netif_msg_intr(pdata))
-+		netdev_dbg(pdata->netdev, "DMA_ISR=%#010x\n", dma_isr);
- 
- 	for (i = 0; i < pdata->channel_count; i++) {
- 		if (!(dma_isr & (1 << i)))
-@@ -339,7 +345,9 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 		channel = pdata->channel + i;
- 
- 		dma_ch_isr = XGMAC_DMA_IOREAD(channel, DMA_CH_SR);
--		DBGPR("  DMA_CH%u_ISR = %08x\n", i, dma_ch_isr);
-+		if (netif_msg_intr(pdata))
-+			netdev_dbg(pdata->netdev, "DMA_CH%u_ISR=%#010x\n", i,
-+				   dma_ch_isr);
- 
- 		/* The TI or RI interrupt bits may still be set even if using
- 		 * per channel DMA interrupts. Check to be sure those are not
-@@ -386,8 +394,6 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 		}
- 	}
- 
--	DBGPR("  DMA_ISR = %08x\n", XGMAC_IOREAD(pdata, DMA_ISR));
+-Required properties (phy device):
+-- compatible: Should be "amd,xgbe-phy-seattle-v1a"
+-- reg: Address and length of the register sets for the device
+-   - SerDes Rx/Tx registers
+-   - SerDes integration registers (1/2)
+-   - SerDes integration registers (2/2)
+-- interrupt-parent: Should be the phandle for the interrupt controller
+-  that services interrupts for this device
+-- interrupts: Should contain the amd-xgbe-phy interrupt.
 -
- isr_done:
- 	return IRQ_HANDLED;
- }
-@@ -448,7 +454,6 @@ static void xgbe_init_tx_timers(struct xgbe_prv_data *pdata)
- 		if (!channel->tx_ring)
- 			break;
- 
--		DBGPR("  %s adding tx timer\n", channel->name);
- 		setup_timer(&channel->tx_timer, xgbe_tx_timer,
- 			    (unsigned long)channel);
- 	}
-@@ -468,7 +473,6 @@ static void xgbe_stop_tx_timers(struct xgbe_prv_data *pdata)
- 		if (!channel->tx_ring)
- 			break;
- 
--		DBGPR("  %s deleting tx timer\n", channel->name);
- 		del_timer_sync(&channel->tx_timer);
- 	}
- 
-@@ -848,8 +852,10 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
- 		ret = -ENODEV;
- 		goto err_phy_connect;
- 	}
--	DBGPR("  phy_connect_direct succeeded for PHY %s, link=%d\n",
--	      dev_name(&phydev->dev), phydev->link);
-+	if (netif_msg_ifup(pdata))
-+		netdev_dbg(pdata->netdev,
-+			   "phy_connect_direct succeeded for PHY %s\n",
-+			   dev_name(&phydev->dev));
- 
- 	return 0;
- 
-@@ -1478,7 +1484,8 @@ static int xgbe_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	ret = NETDEV_TX_OK;
- 
- 	if (skb->len == 0) {
--		netdev_err(netdev, "empty skb received from stack\n");
-+		if (netif_msg_tx_err(pdata))
-+			netdev_err(netdev, "empty skb received from stack\n");
- 		dev_kfree_skb_any(skb);
- 		goto tx_netdev_return;
- 	}
-@@ -1494,7 +1501,8 @@ static int xgbe_xmit(struct sk_buff *skb, struct net_device *netdev)
- 
- 	ret = xgbe_prep_tso(skb, packet);
- 	if (ret) {
--		netdev_err(netdev, "error processing TSO packet\n");
-+		if (netif_msg_tx_err(pdata))
-+			netdev_err(netdev, "error processing TSO packet\n");
- 		dev_kfree_skb_any(skb);
- 		goto tx_netdev_return;
- 	}
-@@ -1513,9 +1521,8 @@ static int xgbe_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	/* Configure required descriptor fields for transmission */
- 	hw_if->dev_xmit(channel);
- 
--#ifdef XGMAC_ENABLE_TX_PKT_DUMP
--	xgbe_print_pkt(netdev, skb, true);
--#endif
-+	if (netif_msg_pktdata(pdata))
-+		xgbe_print_pkt(netdev, skb, true);
- 
- 	/* Stop the queue in advance if there may not be enough descriptors */
- 	xgbe_maybe_stop_tx_queue(channel, ring, XGBE_TX_MAX_DESCS);
-@@ -1710,7 +1717,9 @@ static int xgbe_setup_tc(struct net_device *netdev, u8 tc)
- 			       (pdata->q2tc_map[queue] == i))
- 				queue++;
- 
--			DBGPR("  TC%u using TXq%u-%u\n", i, offset, queue - 1);
-+			if (netif_msg_drv(pdata))
-+				netdev_dbg(netdev, "TC%u using TXq%u-%u\n", i,
-+					   offset, queue - 1);
- 			netdev_set_tc_queue(netdev, i, queue - offset, offset);
- 			offset = queue;
- 		}
-@@ -1877,9 +1886,8 @@ static int xgbe_tx_poll(struct xgbe_channel *channel)
- 		 * bit */
- 		dma_rmb();
- 
--#ifdef XGMAC_ENABLE_TX_DESC_DUMP
--		xgbe_dump_tx_desc(ring, ring->dirty, 1, 0);
--#endif
-+		if (netif_msg_tx_done(pdata))
-+			xgbe_dump_tx_desc(pdata, ring, ring->dirty, 1, 0);
- 
- 		if (hw_if->is_last_desc(rdesc)) {
- 			tx_packets += rdata->tx.packets;
-@@ -1982,8 +1990,9 @@ read_again:
- 			goto read_again;
- 
- 		if (error || packet->errors) {
--			if (packet->errors)
--				DBGPR("Error in received packet\n");
-+			if (packet->errors && netif_msg_rx_err(pdata))
-+				netdev_err(netdev,
-+					   "error in received packet\n");
- 			dev_kfree_skb(skb);
- 			goto next_packet;
- 		}
-@@ -2033,14 +2042,15 @@ skip_data:
- 			max_len += VLAN_HLEN;
- 
- 		if (skb->len > max_len) {
--			DBGPR("packet length exceeds configured MTU\n");
-+			if (netif_msg_rx_err(pdata))
-+				netdev_err(netdev,
-+					   "packet length exceeds configured MTU\n");
- 			dev_kfree_skb(skb);
- 			goto next_packet;
- 		}
- 
--#ifdef XGMAC_ENABLE_RX_PKT_DUMP
--		xgbe_print_pkt(netdev, skb, false);
--#endif
-+		if (netif_msg_pktdata(pdata))
-+			xgbe_print_pkt(netdev, skb, false);
- 
- 		skb_checksum_none_assert(skb);
- 		if (XGMAC_GET_BITS(packet->attributes,
-@@ -2165,8 +2175,8 @@ static int xgbe_all_poll(struct napi_struct *napi, int budget)
- 	return processed;
- }
- 
--void xgbe_dump_tx_desc(struct xgbe_ring *ring, unsigned int idx,
--		       unsigned int count, unsigned int flag)
-+void xgbe_dump_tx_desc(struct xgbe_prv_data *pdata, struct xgbe_ring *ring,
-+		       unsigned int idx, unsigned int count, unsigned int flag)
- {
- 	struct xgbe_ring_data *rdata;
- 	struct xgbe_ring_desc *rdesc;
-@@ -2174,20 +2184,29 @@ void xgbe_dump_tx_desc(struct xgbe_ring *ring, unsigned int idx,
- 	while (count--) {
- 		rdata = XGBE_GET_DESC_DATA(ring, idx);
- 		rdesc = rdata->rdesc;
--		pr_alert("TX_NORMAL_DESC[%d %s] = %08x:%08x:%08x:%08x\n", idx,
--			 (flag == 1) ? "QUEUED FOR TX" : "TX BY DEVICE",
--			 le32_to_cpu(rdesc->desc0), le32_to_cpu(rdesc->desc1),
--			 le32_to_cpu(rdesc->desc2), le32_to_cpu(rdesc->desc3));
-+		netdev_dbg(pdata->netdev,
-+			   "TX_NORMAL_DESC[%d %s] = %08x:%08x:%08x:%08x\n", idx,
-+			   (flag == 1) ? "QUEUED FOR TX" : "TX BY DEVICE",
-+			   le32_to_cpu(rdesc->desc0),
-+			   le32_to_cpu(rdesc->desc1),
-+			   le32_to_cpu(rdesc->desc2),
-+			   le32_to_cpu(rdesc->desc3));
- 		idx++;
- 	}
- }
- 
--void xgbe_dump_rx_desc(struct xgbe_ring *ring, struct xgbe_ring_desc *desc,
-+void xgbe_dump_rx_desc(struct xgbe_prv_data *pdata, struct xgbe_ring *ring,
- 		       unsigned int idx)
- {
--	pr_alert("RX_NORMAL_DESC[%d RX BY DEVICE] = %08x:%08x:%08x:%08x\n", idx,
--		 le32_to_cpu(desc->desc0), le32_to_cpu(desc->desc1),
--		 le32_to_cpu(desc->desc2), le32_to_cpu(desc->desc3));
-+	struct xgbe_ring_data *rdata;
-+	struct xgbe_ring_desc *rdesc;
-+
-+	rdata = XGBE_GET_DESC_DATA(ring, idx);
-+	rdesc = rdata->rdesc;
-+	netdev_dbg(pdata->netdev,
-+		   "RX_NORMAL_DESC[%d RX BY DEVICE] = %08x:%08x:%08x:%08x\n",
-+		   idx, le32_to_cpu(rdesc->desc0), le32_to_cpu(rdesc->desc1),
-+		   le32_to_cpu(rdesc->desc2), le32_to_cpu(rdesc->desc3));
- }
- 
- void xgbe_print_pkt(struct net_device *netdev, struct sk_buff *skb, bool tx_rx)
-@@ -2197,21 +2216,21 @@ void xgbe_print_pkt(struct net_device *netdev, struct sk_buff *skb, bool tx_rx)
- 	unsigned char buffer[128];
- 	unsigned int i, j;
- 
--	netdev_alert(netdev, "\n************** SKB dump ****************\n");
-+	netdev_dbg(netdev, "\n************** SKB dump ****************\n");
- 
--	netdev_alert(netdev, "%s packet of %d bytes\n",
--		     (tx_rx ? "TX" : "RX"), skb->len);
-+	netdev_dbg(netdev, "%s packet of %d bytes\n",
-+		   (tx_rx ? "TX" : "RX"), skb->len);
- 
--	netdev_alert(netdev, "Dst MAC addr: %pM\n", eth->h_dest);
--	netdev_alert(netdev, "Src MAC addr: %pM\n", eth->h_source);
--	netdev_alert(netdev, "Protocol: 0x%04hx\n", ntohs(eth->h_proto));
-+	netdev_dbg(netdev, "Dst MAC addr: %pM\n", eth->h_dest);
-+	netdev_dbg(netdev, "Src MAC addr: %pM\n", eth->h_source);
-+	netdev_dbg(netdev, "Protocol: %#06hx\n", ntohs(eth->h_proto));
- 
- 	for (i = 0, j = 0; i < skb->len;) {
- 		j += snprintf(buffer + j, sizeof(buffer) - j, "%02hhx",
- 			      buf[i++]);
- 
- 		if ((i % 32) == 0) {
--			netdev_alert(netdev, "  0x%04x: %s\n", i - 32, buffer);
-+			netdev_dbg(netdev, "  %#06x: %s\n", i - 32, buffer);
- 			j = 0;
- 		} else if ((i % 16) == 0) {
- 			buffer[j++] = ' ';
-@@ -2221,7 +2240,7 @@ void xgbe_print_pkt(struct net_device *netdev, struct sk_buff *skb, bool tx_rx)
- 		}
- 	}
- 	if (i % 32)
--		netdev_alert(netdev, "  0x%04x: %s\n", i - (i % 32), buffer);
-+		netdev_dbg(netdev, "  %#06x: %s\n", i - (i % 32), buffer);
- 
--	netdev_alert(netdev, "\n************** SKB dump ****************\n");
-+	netdev_dbg(netdev, "\n************** SKB dump ****************\n");
- }
+-Optional properties (phy device):
+ - amd,speed-set: Speed capabilities of the device
+     0 - 1GbE and 10GbE (default)
+     1 - 2.5GbE and 10GbE
+@@ -63,25 +54,19 @@ Example:
+ 	xgbe@e0700000 {
+ 		compatible = "amd,xgbe-seattle-v1a";
+ 		reg = <0 0xe0700000 0 0x80000>,
+-		      <0 0xe0780000 0 0x80000>;
++		      <0 0xe0780000 0 0x80000>,
++		      <0 0xe1240800 0 0x00400>,
++		      <0 0xe1250000 0 0x00060>,
++		      <0 0xe1250080 0 0x00004>;
+ 		interrupt-parent = <&gic>;
+ 		interrupts = <0 325 4>,
+-			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>;
++			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>,
++			     <0 323 4>;
+ 		amd,per-channel-interrupt;
+ 		clocks = <&xgbe_dma_clk>, <&xgbe_ptp_clk>;
+ 		clock-names = "dma_clk", "ptp_clk";
+-		phy-handle = <&xgbe_phy>;
+ 		phy-mode = "xgmii";
+ 		mac-address = [ 02 a1 a2 a3 a4 a5 ];
+-	};
+-
+-	xgbe_phy@e1240800 {
+-		compatible = "amd,xgbe-phy-seattle-v1a";
+-		reg = <0 0xe1240800 0 0x00400>,
+-		      <0 0xe1250000 0 0x00060>,
+-		      <0 0xe1250080 0 0x00004>;
+-		interrupt-parent = <&gic>;
+-		interrupts = <0 323 4>;
+ 		amd,speed-set = <0>;
+ 		amd,serdes-blwc = <1>, <1>, <0>;
+ 		amd,serdes-cdr-rate = <2>, <2>, <7>;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 7149053..ae869d4 100644
+index 0c219b3..34c521d 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -136,6 +136,13 @@ MODULE_LICENSE("Dual BSD/GPL");
- MODULE_VERSION(XGBE_DRV_VERSION);
- MODULE_DESCRIPTION(XGBE_DRV_DESC);
+@@ -300,14 +300,21 @@ static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
+ 	struct platform_device *phy_pdev;
  
-+static int debug = -1;
-+module_param(debug, int, S_IWUSR | S_IRUGO);
-+MODULE_PARM_DESC(debug, " Network interface message level setting");
-+
-+static const u32 default_msg_level = (NETIF_MSG_LINK | NETIF_MSG_IFDOWN |
-+				      NETIF_MSG_IFUP);
-+
- static void xgbe_default_config(struct xgbe_prv_data *pdata)
- {
- 	DBGPR("-->xgbe_default_config\n");
-@@ -289,6 +296,8 @@ static int xgbe_probe(struct platform_device *pdev)
- 	mutex_init(&pdata->rss_mutex);
- 	spin_lock_init(&pdata->tstamp_lock);
- 
-+	pdata->msg_enable = netif_msg_init(debug, default_msg_level);
-+
- 	/* Check if we should use ACPI or DT */
- 	pdata->use_acpi = (!pdata->adev || acpi_disabled) ? 0 : 1;
- 
-@@ -318,7 +327,8 @@ static int xgbe_probe(struct platform_device *pdev)
- 		ret = PTR_ERR(pdata->xgmac_regs);
- 		goto err_io;
+ 	phy_node = of_parse_phandle(dev->of_node, "phy-handle", 0);
+-	if (!phy_node) {
+-		dev_err(dev, "unable to locate phy device\n");
+-		return NULL;
++	if (phy_node) {
++		/* Old style device tree:
++		 *   The XGBE and PHY resources are separate
++		 */
++		phy_pdev = of_find_device_by_node(phy_node);
++		of_node_put(phy_node);
++	} else {
++		/* New style device tree:
++		 *   The XGBE and PHY resources are grouped together with
++		 *   the PHY resources listed last
++		 */
++		get_device(dev);
++		phy_pdev = pdata->pdev;
  	}
--	DBGPR("  xgmac_regs = %p\n", pdata->xgmac_regs);
-+	if (netif_msg_probe(pdata))
-+		dev_dbg(dev, "xgmac_regs = %p\n", pdata->xgmac_regs);
  
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
- 	pdata->xpcs_regs = devm_ioremap_resource(dev, res);
-@@ -327,7 +337,8 @@ static int xgbe_probe(struct platform_device *pdev)
- 		ret = PTR_ERR(pdata->xpcs_regs);
- 		goto err_io;
- 	}
--	DBGPR("  xpcs_regs  = %p\n", pdata->xpcs_regs);
-+	if (netif_msg_probe(pdata))
-+		dev_dbg(dev, "xpcs_regs  = %p\n", pdata->xpcs_regs);
- 
- 	/* Retrieve the MAC address */
- 	ret = device_property_read_u8_array(dev, XGBE_MAC_ADDR_PROPERTY,
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 59e267f..532a67f 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -159,48 +159,48 @@ static int xgbe_mdio_write(struct mii_bus *mii, int prtad, int mmd_reg,
- void xgbe_dump_phy_registers(struct xgbe_prv_data *pdata)
- {
- 	struct device *dev = pdata->dev;
--	struct phy_device *phydev = pdata->mii->phy_map[XGBE_PRTAD];
-+	struct phy_device *phydev = pdata->phydev;
- 	int i;
- 
--	dev_alert(dev, "\n************* PHY Reg dump **********************\n");
+-	phy_pdev = of_find_device_by_node(phy_node);
+-	of_node_put(phy_node);
 -
--	dev_alert(dev, "PCS Control Reg (%#04x) = %#04x\n", MDIO_CTRL1,
--		  XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_CTRL1));
--	dev_alert(dev, "PCS Status Reg (%#04x) = %#04x\n", MDIO_STAT1,
--		  XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_STAT1));
--	dev_alert(dev, "Phy Id (PHYS ID 1 %#04x)= %#04x\n", MDIO_DEVID1,
--		  XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVID1));
--	dev_alert(dev, "Phy Id (PHYS ID 2 %#04x)= %#04x\n", MDIO_DEVID2,
--		  XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVID2));
--	dev_alert(dev, "Devices in Package (%#04x)= %#04x\n", MDIO_DEVS1,
--		  XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVS1));
--	dev_alert(dev, "Devices in Package (%#04x)= %#04x\n", MDIO_DEVS2,
--		  XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVS2));
--
--	dev_alert(dev, "Auto-Neg Control Reg (%#04x) = %#04x\n", MDIO_CTRL1,
--		  XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_CTRL1));
--	dev_alert(dev, "Auto-Neg Status Reg (%#04x) = %#04x\n", MDIO_STAT1,
--		  XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_STAT1));
--	dev_alert(dev, "Auto-Neg Ad Reg 1 (%#04x) = %#04x\n",
--		  MDIO_AN_ADVERTISE,
--		  XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE));
--	dev_alert(dev, "Auto-Neg Ad Reg 2 (%#04x) = %#04x\n",
--		  MDIO_AN_ADVERTISE + 1,
--		  XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1));
--	dev_alert(dev, "Auto-Neg Ad Reg 3 (%#04x) = %#04x\n",
--		  MDIO_AN_ADVERTISE + 2,
--		  XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2));
--	dev_alert(dev, "Auto-Neg Completion Reg (%#04x) = %#04x\n",
--		  MDIO_AN_COMP_STAT,
--		  XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_COMP_STAT));
--
--	dev_alert(dev, "MMD Device Mask = %#x\n",
--		  phydev->c45_ids.devices_in_package);
-+	dev_dbg(dev, "\n************* PHY Reg dump **********************\n");
-+
-+	dev_dbg(dev, "PCS Control Reg (%#04x) = %#04x\n", MDIO_CTRL1,
-+		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_CTRL1));
-+	dev_dbg(dev, "PCS Status Reg (%#04x) = %#04x\n", MDIO_STAT1,
-+		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_STAT1));
-+	dev_dbg(dev, "Phy Id (PHYS ID 1 %#04x)= %#04x\n", MDIO_DEVID1,
-+		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVID1));
-+	dev_dbg(dev, "Phy Id (PHYS ID 2 %#04x)= %#04x\n", MDIO_DEVID2,
-+		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVID2));
-+	dev_dbg(dev, "Devices in Package (%#04x)= %#04x\n", MDIO_DEVS1,
-+		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVS1));
-+	dev_dbg(dev, "Devices in Package (%#04x)= %#04x\n", MDIO_DEVS2,
-+		XMDIO_READ(pdata, MDIO_MMD_PCS, MDIO_DEVS2));
-+
-+	dev_dbg(dev, "Auto-Neg Control Reg (%#04x) = %#04x\n", MDIO_CTRL1,
-+		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_CTRL1));
-+	dev_dbg(dev, "Auto-Neg Status Reg (%#04x) = %#04x\n", MDIO_STAT1,
-+		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_STAT1));
-+	dev_dbg(dev, "Auto-Neg Ad Reg 1 (%#04x) = %#04x\n",
-+		MDIO_AN_ADVERTISE,
-+		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE));
-+	dev_dbg(dev, "Auto-Neg Ad Reg 2 (%#04x) = %#04x\n",
-+		MDIO_AN_ADVERTISE + 1,
-+		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1));
-+	dev_dbg(dev, "Auto-Neg Ad Reg 3 (%#04x) = %#04x\n",
-+		MDIO_AN_ADVERTISE + 2,
-+		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 2));
-+	dev_dbg(dev, "Auto-Neg Completion Reg (%#04x) = %#04x\n",
-+		MDIO_AN_COMP_STAT,
-+		XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_COMP_STAT));
-+
-+	dev_dbg(dev, "MMD Device Mask = %#x\n",
-+		phydev->c45_ids.devices_in_package);
- 	for (i = 0; i < ARRAY_SIZE(phydev->c45_ids.device_ids); i++)
--		dev_alert(dev, "  MMD %d: ID = %#08x\n", i,
--			  phydev->c45_ids.device_ids[i]);
-+		dev_dbg(dev, "  MMD %d: ID = %#08x\n", i,
-+			phydev->c45_ids.device_ids[i]);
- 
--	dev_alert(dev, "\n*************************************************\n");
-+	dev_dbg(dev, "\n*************************************************\n");
+ 	return phy_pdev;
  }
+ #else   /* CONFIG_OF */
+@@ -401,14 +408,14 @@ static int xgbe_probe(struct platform_device *pdev)
+ 	phy_dev = &phy_pdev->dev;
  
- int xgbe_mdio_register(struct xgbe_prv_data *pdata)
-@@ -230,7 +230,9 @@ int xgbe_mdio_register(struct xgbe_prv_data *pdata)
- 		dev_err(pdata->dev, "mdiobus_register failed\n");
- 		goto err_mdiobus_alloc;
- 	}
--	DBGPR("  mdiobus_register succeeded for %s\n", pdata->mii_bus_id);
-+	if (netif_msg_drv(pdata))
-+		dev_dbg(pdata->dev, "mdiobus_register succeeded for %s\n",
-+			pdata->mii_bus_id);
- 
- 	/* Probe the PCS using Clause 45 */
- 	phydev = get_phy_device(mii, XGBE_PRTAD, true);
-@@ -275,7 +277,8 @@ int xgbe_mdio_register(struct xgbe_prv_data *pdata)
- 
- 	pdata->phydev = phydev;
- 
--	DBGPHY_REGS(pdata);
-+	if (netif_msg_drv(pdata))
-+		xgbe_dump_phy_registers(pdata);
- 
- 	DBGPR("<--xgbe_mdio_register\n");
- 
+ 	if (pdev == phy_pdev) {
+-		/* ACPI:
++		/* New style device tree or ACPI:
+ 		 *   The XGBE and PHY resources are grouped together with
+ 		 *   the PHY resources listed last
+ 		 */
+ 		phy_memnum = xgbe_resource_count(pdev, IORESOURCE_MEM) - 3;
+ 		phy_irqnum = xgbe_resource_count(pdev, IORESOURCE_IRQ) - 1;
+ 	} else {
+-		/* Device tree:
++		/* Old style device tree:
+ 		 *   The XGBE and PHY resources are separate
+ 		 */
+ 		phy_memnum = 0;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index ef3d1e5..8313b07 100644
+index b6aecc9..f535d19 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -793,6 +793,9 @@ struct xgbe_prv_data {
- 	/* Keeps track of power mode */
- 	unsigned int power_down;
+@@ -129,7 +129,7 @@
+ #include <net/dcbnl.h>
  
-+	/* Network interface message level setting */
-+	u32 msg_enable;
-+
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *xgbe_debugfs;
+ #define XGBE_DRV_NAME		"amd-xgbe"
+-#define XGBE_DRV_VERSION	"1.0.1"
++#define XGBE_DRV_VERSION	"1.0.2"
+ #define XGBE_DRV_DESC		"AMD 10 Gigabit Ethernet Driver"
  
-@@ -818,9 +821,9 @@ void xgbe_mdio_unregister(struct xgbe_prv_data *);
- void xgbe_dump_phy_registers(struct xgbe_prv_data *);
- void xgbe_ptp_register(struct xgbe_prv_data *);
- void xgbe_ptp_unregister(struct xgbe_prv_data *);
--void xgbe_dump_tx_desc(struct xgbe_ring *, unsigned int, unsigned int,
--		       unsigned int);
--void xgbe_dump_rx_desc(struct xgbe_ring *, struct xgbe_ring_desc *,
-+void xgbe_dump_tx_desc(struct xgbe_prv_data *, struct xgbe_ring *,
-+		       unsigned int, unsigned int, unsigned int);
-+void xgbe_dump_rx_desc(struct xgbe_prv_data *, struct xgbe_ring *,
- 		       unsigned int);
- void xgbe_print_pkt(struct net_device *, struct sk_buff *, bool);
- void xgbe_get_all_hw_features(struct xgbe_prv_data *);
-@@ -837,18 +840,6 @@ static inline void xgbe_debugfs_init(struct xgbe_prv_data *pdata) {}
- static inline void xgbe_debugfs_exit(struct xgbe_prv_data *pdata) {}
- #endif /* CONFIG_DEBUG_FS */
- 
--/* NOTE: Uncomment for TX and RX DESCRIPTOR DUMP in KERNEL LOG */
--#if 0
--#define XGMAC_ENABLE_TX_DESC_DUMP
--#define XGMAC_ENABLE_RX_DESC_DUMP
--#endif
--
--/* NOTE: Uncomment for TX and RX PACKET DUMP in KERNEL LOG */
--#if 0
--#define XGMAC_ENABLE_TX_PKT_DUMP
--#define XGMAC_ENABLE_RX_PKT_DUMP
--#endif
--
- /* NOTE: Uncomment for function trace log messages in KERNEL LOG */
- #if 0
- #define YDEBUG
-@@ -858,10 +849,8 @@ static inline void xgbe_debugfs_exit(struct xgbe_prv_data *pdata) {}
- /* For debug prints */
- #ifdef YDEBUG
- #define DBGPR(x...) pr_alert(x)
--#define DBGPHY_REGS(x...) xgbe_dump_phy_registers(x)
- #else
- #define DBGPR(x...) do { } while (0)
--#define DBGPHY_REGS(x...) do { } while (0)
- #endif
- 
- #ifdef YDEBUG_MDIO
+ /* Descriptor related defines */
