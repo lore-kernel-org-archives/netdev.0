@@ -1,98 +1,39 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net v3] rtnl/bond: don't send rtnl msg for unregistered iface
-Date: Tue, 12 May 2015 17:17:45 +0200
-Message-ID: <1431443865-4327-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <555216DA.3020105@6wind.com>
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	gospo@cumulusnetworks.com, jiri@resnulli.us,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] test_bpf: add 173 new testcases for eBPF
+Date: Tue, 12 May 2015 08:22:14 -0700
+Message-ID: <55521AA6.7010000@plumgrid.com>
+References: <1431408164-4524-1-git-send-email-ast@plumgrid.com> <5551B289.4020400@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34988 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753400AbbELPRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:17:53 -0400
-In-Reply-To: <555216DA.3020105@6wind.com>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:37084 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932817AbbELPWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:22:17 -0400
+Received: by igbsb11 with SMTP id sb11so17560197igb.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:22:17 -0700 (PDT)
+In-Reply-To: <5551B289.4020400@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before the patch, the command 'ip link add bond2 type bond mode 802.3ad'
-causes the kernel to send a rtnl message for the bond2 interface, with an
-ifindex 0.
+On 5/12/15 12:58 AM, Daniel Borkmann wrote:
+> On 05/12/2015 07:22 AM, Alexei Starovoitov wrote:
+>> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+>>
+>> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+>
+> 'From' tag somehow slipped in twice for some reason. Downloading
+> the mbox and applying it shows the second on in the git log.
 
-'ip monitor' shows:
-0: bond2: <BROADCAST,MULTICAST,MASTER> mtu 1500 state DOWN group default
-    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
-9: bond2@NONE: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN group default
-    link/ether ea:3e:1f:53:92:7b brd ff:ff:ff:ff:ff:ff
-[snip]
-
-First, nobody seems to care about NETDEV_CHANGEINFODATA (commit
-d4261e565000 says that it was put only to notify userspace). Hence, we can
-call directly rtmsg_ifinfo().
-Secondly, prevent in rtmsg_ifinfo() to send notifications to userspace
-about unregistered interfaces.
-
-Fixes: d4261e565000 ("bonding: create netlink event when bonding option is changed")
-CC: Jiri Pirko <jiri@resnulli.us>
-Reported-by: Julien Meunier <julien.meunier@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
-
-v3: move reg_state check in rtmsg_ifinfo()
-
-v2: check dev->reg_state instead of ifindex
-    call rtmsg_ifinfo() directly in __bond_opt_set()
-
-There is about 20 occurences of "dev->reg_state .= NETREG_REGISTERED".
-I will send a patch on net-next to introduce an helper for this when net
-will be merged with this patch in net-next.
-
- drivers/net/bonding/bond_options.c | 2 +-
- include/linux/netdevice.h          | 3 +--
- net/core/rtnetlink.c               | 3 +++
- 3 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 4df28943d222..a2b72cc0e3e8 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -625,7 +625,7 @@ out:
- 	if (ret)
- 		bond_opt_error_interpret(bond, opt, ret, val);
- 	else
--		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
-+		rtmsg_ifinfo(RTM_NEWLINK, bond->dev, 0, GFP_KERNEL);
- 
- 	return ret;
- }
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1899c74a7127..c040d48925fd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2069,8 +2069,7 @@ struct pcpu_sw_netstats {
- #define NETDEV_CHANGEUPPER	0x0015
- #define NETDEV_RESEND_IGMP	0x0016
- #define NETDEV_PRECHANGEMTU	0x0017 /* notify before mtu change happened */
--#define NETDEV_CHANGEINFODATA	0x0018
--#define NETDEV_BONDING_INFO	0x0019
-+#define NETDEV_BONDING_INFO	0x0018
- 
- int register_netdevice_notifier(struct notifier_block *nb);
- int unregister_netdevice_notifier(struct notifier_block *nb);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 837d30b5ffed..7b25f1ef3d75 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2415,6 +2415,9 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
- {
- 	struct sk_buff *skb;
- 
-+	if (dev->reg_state != NETREG_REGISTERED)
-+		return;
-+
- 	skb = rtmsg_ifinfo_build_skb(type, dev, change, flags);
- 	if (skb)
- 		rtmsg_ifinfo_send(skb, dev, flags);
--- 
-2.2.2
+hmm, that's odd.
+I've actually tried to manually 'git am' the patch before sending
+and it applied without extra 'From'.
+But now I did 'pwclient git-am 471127' and indeed I see
+an extra 'From' line.
+Strange.
+Sure, will respin.
