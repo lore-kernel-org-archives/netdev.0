@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 13/15] flow_dissector: introduce support for Ethernet addresses
-Date: Tue, 12 May 2015 14:56:19 +0200
-Message-ID: <1431435381-7164-14-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 14/15] flow_dissector: change port array into src,dst tuple
+Date: Tue, 12 May 2015 14:56:20 +0200
+Message-ID: <1431435381-7164-15-git-send-email-jiri@resnulli.us>
 References: <1431435381-7164-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	jesse@nicira.com, kaber@trash.net, tom@herbertland.com,
@@ -11,88 +11,150 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:37872 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933069AbbELM52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 08:57:28 -0400
-Received: by widdi4 with SMTP id di4so14251176wid.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 05:57:26 -0700 (PDT)
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:34552 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932778AbbELM5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 08:57:32 -0400
+Received: by wicmc15 with SMTP id mc15so53449769wic.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 05:57:30 -0700 (PDT)
 In-Reply-To: <1431435381-7164-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/flow_dissector.h | 13 +++++++++++++
- net/core/flow_dissector.c    | 12 ++++++++++++
- 2 files changed, 25 insertions(+)
+ drivers/net/ethernet/cisco/enic/enic_clsf.c    | 4 ++--
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 4 ++--
+ include/net/flow_dissector.h                   | 9 ++++++---
+ include/net/ip.h                               | 4 ++--
+ include/net/ipv6.h                             | 4 ++--
+ net/core/flow_dissector.c                      | 4 ++--
+ net/sched/cls_flow.c                           | 4 ++--
+ 7 files changed, 18 insertions(+), 15 deletions(-)
 
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+index d3d25c7..6739ebc 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.c
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+@@ -35,8 +35,8 @@ int enic_addfltr_5t(struct enic *enic, struct flow_keys *keys, u16 rq)
+ 	data.type = FILTER_IPV4_5TUPLE;
+ 	data.u.ipv4.src_addr = ntohl(keys->addrs.src);
+ 	data.u.ipv4.dst_addr = ntohl(keys->addrs.dst);
+-	data.u.ipv4.src_port = ntohs(keys->ports.port16[0]);
+-	data.u.ipv4.dst_port = ntohs(keys->ports.port16[1]);
++	data.u.ipv4.src_port = ntohs(keys->ports.src);
++	data.u.ipv4.dst_port = ntohs(keys->ports.dst);
+ 	data.u.ipv4.flags = FILTER_FIELDS_IPV4_5TUPLE;
+ 
+ 	spin_lock_bh(&enic->devcmd_lock);
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index 7588f8d..117c096 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -352,10 +352,10 @@ static int enic_grxclsrule(struct enic *enic, struct ethtool_rxnfc *cmd)
+ 	fsp->h_u.tcp_ip4_spec.ip4dst = n->keys.addrs.dst;
+ 	fsp->m_u.tcp_ip4_spec.ip4dst = (__u32)~0;
+ 
+-	fsp->h_u.tcp_ip4_spec.psrc = n->keys.ports.port16[0];
++	fsp->h_u.tcp_ip4_spec.psrc = n->keys.ports.src;
+ 	fsp->m_u.tcp_ip4_spec.psrc = (__u16)~0;
+ 
+-	fsp->h_u.tcp_ip4_spec.pdst = n->keys.ports.port16[1];
++	fsp->h_u.tcp_ip4_spec.pdst = n->keys.ports.dst;
+ 	fsp->m_u.tcp_ip4_spec.pdst = (__u16)~0;
+ 
+ 	fsp->ring_cookie = n->rq_id;
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 586b123..5eac987 100644
+index 5eac987..bac9c14 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -4,6 +4,7 @@
- #include <linux/types.h>
- #include <linux/skbuff.h>
- #include <linux/in6.h>
-+#include <uapi/linux/if_ether.h>
- 
+@@ -34,13 +34,16 @@ struct flow_dissector_key_addrs {
  /**
-  * struct flow_dissector_key_basic:
-@@ -54,12 +55,24 @@ struct flow_dissector_key_ipv6_addrs {
- 	struct in6_addr dst;
+  * flow_dissector_key_tp_ports:
+  *	@ports: port numbers of Transport header
+- *		port16[0]: src port number
+- *		port16[1]: dst port number
++ *		src: source port number
++ *		dst: destination port number
+  */
+ struct flow_dissector_key_ports {
+ 	union {
+ 		__be32 ports;
+-		__be16 port16[2];
++		struct {
++			__be16 src;
++			__be16 dst;
++		};
+ 	};
  };
  
-+/**
-+ * struct flow_dissector_key_eth_addrs:
-+ * @src: source Ethernet address
-+ * @dst: destination Ethernet address
-+ */
-+struct flow_dissector_key_eth_addrs {
-+	/* (dst,src) must be grouped, in the same way than in ETH header */
-+	unsigned char dst[ETH_ALEN];
-+	unsigned char src[ETH_ALEN];
-+};
-+
- enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
- 	FLOW_DISSECTOR_KEY_IPV4_ADDRS, /* struct flow_dissector_key_addrs */
- 	FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS, /* struct flow_dissector_key_addrs */
- 	FLOW_DISSECTOR_KEY_PORTS, /* struct flow_dissector_key_ports */
- 	FLOW_DISSECTOR_KEY_IPV6_ADDRS, /* struct flow_dissector_key_ipv6_addrs */
-+	FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
+diff --git a/include/net/ip.h b/include/net/ip.h
+index b0443d4..0ed6d76 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -362,8 +362,8 @@ static inline void inet_set_txhash(struct sock *sk)
  
- 	FLOW_DISSECTOR_KEY_MAX,
- };
+ 	keys.addrs.src = inet->inet_saddr;
+ 	keys.addrs.dst = inet->inet_daddr;
+-	keys.ports.port16[0] = inet->inet_sport;
+-	keys.ports.port16[1] = inet->inet_dport;
++	keys.ports.src = inet->inet_sport;
++	keys.ports.dst = inet->inet_dport;
+ 
+ 	sk->sk_txhash = flow_hash_from_keys(&keys);
+ }
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 9eed976..aab8190 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -700,8 +700,8 @@ static inline void ip6_set_txhash(struct sock *sk)
+ 
+ 	keys.addrs.src = (__force __be32)ipv6_addr_hash(&np->saddr);
+ 	keys.addrs.dst = (__force __be32)ipv6_addr_hash(&sk->sk_v6_daddr);
+-	keys.ports.port16[0] = inet->inet_sport;
+-	keys.ports.port16[1] = inet->inet_dport;
++	keys.ports.src = inet->inet_sport;
++	keys.ports.dst = inet->inet_dport;
+ 
+ 	sk->sk_txhash = flow_hash_from_keys(&keys);
+ }
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 1b95d5c..7a0b391 100644
+index 7a0b391..204d09c 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -14,6 +14,7 @@
- #include <linux/if_pppox.h>
- #include <linux/ppp_defs.h>
- #include <linux/stddef.h>
-+#include <linux/if_ether.h>
- #include <net/flow_dissector.h>
- #include <scsi/fc/fc_fcoe.h>
+@@ -385,9 +385,9 @@ static inline u32 __flow_hash_from_keys(struct flow_keys *keys, u32 keyval)
+ 	/* get a consistent hash (same value on both flow directions) */
+ 	if (((__force u32)keys->addrs.dst < (__force u32)keys->addrs.src) ||
+ 	    (((__force u32)keys->addrs.dst == (__force u32)keys->addrs.src) &&
+-	     ((__force u16)keys->ports.port16[1] < (__force u16)keys->ports.port16[0]))) {
++	     ((__force u16)keys->ports.dst < (__force u16)keys->ports.src))) {
+ 		swap(keys->addrs.dst, keys->addrs.src);
+-		swap(keys->ports.port16[0], keys->ports.port16[1]);
++		swap(keys->ports.src, keys->ports.dst);
+ 	}
  
-@@ -138,6 +139,17 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 					      FLOW_DISSECTOR_KEY_BASIC,
- 					      target_container);
+ 	hash = __flow_hash_3words((__force u32)keys->addrs.dst,
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 4b3e3e3..b435992 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -88,7 +88,7 @@ static u32 flow_get_proto(const struct sk_buff *skb, const struct flow_keys *flo
+ static u32 flow_get_proto_src(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+ 	if (flow->ports.ports)
+-		return ntohs(flow->ports.port16[0]);
++		return ntohs(flow->ports.src);
  
-+	if (skb_flow_dissector_uses_key(flow_dissector,
-+					FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
-+		struct ethhdr *eth = eth_hdr(skb);
-+		struct flow_dissector_key_eth_addrs *key_eth_addrs;
-+
-+		key_eth_addrs = skb_flow_dissector_target(flow_dissector,
-+							  FLOW_DISSECTOR_KEY_ETH_ADDRS,
-+							  target_container);
-+		memcpy(key_eth_addrs, &eth->h_dest, sizeof(*key_eth_addrs));
-+	}
-+
- again:
- 	switch (proto) {
- 	case htons(ETH_P_IP): {
+ 	return addr_fold(skb->sk);
+ }
+@@ -96,7 +96,7 @@ static u32 flow_get_proto_src(const struct sk_buff *skb, const struct flow_keys
+ static u32 flow_get_proto_dst(const struct sk_buff *skb, const struct flow_keys *flow)
+ {
+ 	if (flow->ports.ports)
+-		return ntohs(flow->ports.port16[1]);
++		return ntohs(flow->ports.dst);
+ 
+ 	return addr_fold(skb_dst(skb)) ^ (__force u16) tc_skb_protocol(skb);
+ }
 -- 
 2.4.0
