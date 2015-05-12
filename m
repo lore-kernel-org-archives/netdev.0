@@ -1,72 +1,73 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v3 00/22] Convert the posix_clock_operations and
-	k_clock structure to ready for 2038
-Date: Tue, 12 May 2015 11:39:36 +0200
-Message-ID: <2293496.0Ycckx2zYU@wuerfel>
-References: <1431342518-29362-1-git-send-email-baolin.wang@linaro.org>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] net: make skb_dst_pop routine static
+Date: Tue, 12 May 2015 18:29:44 +0800
+Message-ID: <1431426584-13603-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: pang.xunlei@linaro.org, peterz@infradead.org, fweisbec@gmail.com,
- heiko.carstens@de.ibm.com, paulus@samba.org, cl@linux.com,
- heenasirwani@gmail.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
- y2038@lists.linaro.org, rafael.j.wysocki@intel.com, ahh@google.com,
- pjt@google.com, riel@redhat.com, richardcochran@gmail.com, tj@kernel.org,
- john.stultz@linaro.org, tglx@linutronix.de, rth@twiddle.net,
- Baolin Wang <baolin.wang@linaro.org>, gregkh@linuxfoundation.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org, schwidefsky@de.ibm.com,
- linux390@de.ibm.com
-To: linuxppc-dev@lists.ozlabs.org
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <1431342518-29362-1-git-send-email-baolin.wang@linaro.org>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:40791 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752790AbbELKbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 06:31:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uZGF5IDExIE1heSAyMDE1IDE5OjA4OjM4IEJhb2xpbiBXYW5nIHdyb3RlOgo+IFRoaXMg
-cGF0Y2ggc2VyaWVzIGNoYW5nZXMgdGhlIDMyLWJpdCB0aW1lIHR5cGUgKHRpbWVzcGVjL2l0aW1l
-cnNwZWMpIHRvIHRoZSA2NC1iaXQgb25lCj4gKHRpbWVzcGVjNjQvaXRpbWVyc3BlYzY0KSwgc2lu
-Y2UgMzItYml0IHRpbWUgdHlwZXMgd2lsbCBicmVhayBpbiB0aGUgeWVhciAyMDM4Lgo+IAo+IFRo
-aXMgcGF0Y2ggc2VyaWVzIGludHJvZHVjZXMgbmV3IG1ldGhvZHMgd2l0aCB0aW1lc3BlYzY0L2l0
-aW1lcnNwZWM2NCB0eXBlLAo+IGFuZCByZW1vdmVzIHRoZSBvbGQgb25lcyB3aXRoIHRpbWVzcGVj
-L2l0aW1lcnNwZWMgdHlwZSBmb3IgcG9zaXhfY2xvY2tfb3BlcmF0aW9ucwo+IGFuZCBrX2Nsb2Nr
-IHN0cnVjdHVyZS4KPiAKPiBBbHNvIGludHJvZHVjZXMgc29tZSBuZXcgZnVuY3Rpb25zIHdpdGgg
-dGltZXNwZWM2NC9pdGltZXJzcGVjNjQgdHlwZSwgbGlrZSBjdXJyZW50X2tlcm5lbF90aW1lNjQo
-KSwKPiBocnRpbWVyX2dldF9yZXM2NCgpLCBjcHV0aW1lX3RvX3RpbWVzcGVjNjQoKSBhbmQgdGlt
-ZXNwZWM2NF90b19jcHV0aW1lKCkuCj4gCj4gQ2hhbmdlcyBzaW5jZSB2MjoKPiAgICAgIAktU3Bs
-aXQgdGhlIHN5c2NhbGwgY29udmVyc2lvbiBwYXRjaCBpbnRvIHNtYWxsIHNvbWUgcGF0Y2hlcy4K
-PiAKPiAKPiBCYW9saW4gV2FuZyAoMjIpOgo+ICAgbGludXgvdGltZTY0Lmg6SW50cm9kdWNlIHRo
-ZSAnc3RydWN0IGl0aW1lcnNwZWM2NCcgZm9yIDY0Yml0Cj4gICB0aW1la2VlcGluZzpJbnRyb2R1
-Y2UgdGhlIGN1cnJlbnRfa2VybmVsX3RpbWU2NCgpIGZ1bmN0aW9uIHdpdGgKPiAgICAgdGltZXNw
-ZWM2NCB0eXBlCj4gICB0aW1lL2hydGltZXI6SW50cm9kdWNlIGhydGltZXJfZ2V0X3JlczY0KCkg
-d2l0aCB0aW1lc3BlYzY0IHR5cGUgZm9yCj4gICAgIGdldHRpbmcgdGhlIHRpbWVyIHJlc29sdXRp
-b24KPiAgIHBvc2l4LXRpbWVyczpTcGxpdCBvdXQgdGhlIGd1dHMgb2YgdGhlIHN5c2NhbGwgYW5k
-IGNoYW5nZSB0aGUKPiAgICAgaW1wbGVtZW50YXRpb24gZm9yIHRpbWVyX2dldHRpbWUKPiAgIHBv
-c2l4LXRpbWVyczpDb252ZXJ0IHRvIHRoZSA2NGJpdCBtZXRob2RzIGZvciB0aGUgdGltZXJfZ2V0
-dGltZQo+ICAgICBzeXNjYWxsIGZ1bmN0aW9uCgpJIGhhdmUgdHdvIG1vcmUgdmVyeSBnZW5lcmFs
-IGNvbW1lbnRzIGFib3V0IHRoZSBzZXJpZXM6CgphKSBzb21ldGhpbmcgaGFzIGdvbmUgd3Jvbmcg
-d2l0aCB5b3VyIHN1Ym1pc3Npb24gaW4gdjIgYW5kIHYzIGJ1dCB3YXMKICAgd29ya2luZyBlYXJs
-aWVyOiBub3JtYWxseSBhbGwgZW1haWxzIHNob3VsZCBiZSBzZW50IGJ5IGdpdC1zZW5kLWVtYWls
-CiAgIGFzIHJlcGxpZXMgdG8gdGhlIFtwYXRjaCAwMC8yMl0gbWFpbC4gVGhpcyBpcyB0aGUgZGVm
-YXVsdCwgYW5kIGl0CiAgIGlzIGVuYWJsZWQgYnkgdGhlICctLXRocmVhZCAtLW5vLWNoYWluLXJl
-cGx5JyBvcHRpb25zLiBQbGVhc2UgdHJ5CiAgIHRvIGdldCB0aGlzIHRvIHdvcmsgYWdhaW4uCgpi
-KSBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gaGF2ZSBhIGxpdHRsZSBzaG9ydGVyIHN1YmplY3QgbGlu
-ZXMsIHRvIGF2b2lkCiAgIGxpbmUtd3JhcHBpbmcgaW4gdGhlIGxpc3QgYWJvdmUuIEhlcmUgYXJl
-IHNvbWUgZXhhbXBsZXMgd2hhdCB5b3UgY291bGQKICAgdXNlIHRvIHJlcGxhY2UgdGhlIGxpbmVz
-IGFib3ZlOgoKICAgdGltZWtlZXBpbmc6IGludHJvZHVjZSBzdHJ1Y3QgaXRpbWVyc3BlYzY0CiAg
-IHRpbWVrZWVwaW5nOiBpbnRyb2R1Y2UgY3VycmVudF9rZXJuZWxfdGltZTY0KCkKICAgaHJ0aW1l
-cjogaW50cm9kdWNlIGhydGltZXJfZ2V0X3JlczY0KCkgCiAgIHBvc2l4LXRpbWVyczogc3BsaXQg
-dXAgc3lzX3RpbWVyX2dldHRpbWUoKQogICBwb3NpeC10aW1lcnM6IGNvbnZlcnQgdGltZXJfZ2V0
-dGltZSgpIHRvIHRpbWVzcGVjNjQKCiAgIEluIGdlbmVyYWwsIHRyeSB0byBjb21lIHVwIHdpdGgg
-dGhlIHNob3J0ZXN0IGRlc2NyaXB0aW9uIHRoYXQKICAgdW5pcXVlbHkgZGVzY3JpYmVzIHdoYXQg
-eW91ciBwYXRjaCBkb2VzLCBhbmQgbW92ZSBhbnkgZGV0YWlscyBpbnRvCiAgIHRoZSBsb25nZXIg
-cGF0Y2ggZGVzY3JpcHRpb24uCgoJQXJuZApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9y
-ZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
+As xfrm_output_one() is the only caller of skb_dst_pop(), we should
+make skb_dst_pop() localized.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ include/net/dst.h      |   12 ------------
+ net/xfrm/xfrm_output.c |   12 ++++++++++++
+ 2 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 22aa93f..2bc73f8a 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -349,18 +349,6 @@ static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev,
+ 	__skb_tunnel_rx(skb, dev, net);
+ }
+ 
+-/* Children define the path of the packet through the
+- * Linux networking.  Thus, destinations are stackable.
+- */
+-
+-static inline struct dst_entry *skb_dst_pop(struct sk_buff *skb)
+-{
+-	struct dst_entry *child = dst_clone(skb_dst(skb)->child);
+-
+-	skb_dst_drop(skb);
+-	return child;
+-}
+-
+ int dst_discard_sk(struct sock *sk, struct sk_buff *skb);
+ static inline int dst_discard(struct sk_buff *skb)
+ {
+diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
+index fbcedbe..68ada2c 100644
+--- a/net/xfrm/xfrm_output.c
++++ b/net/xfrm/xfrm_output.c
+@@ -38,6 +38,18 @@ static int xfrm_skb_check_space(struct sk_buff *skb)
+ 	return pskb_expand_head(skb, nhead, ntail, GFP_ATOMIC);
+ }
+ 
++/* Children define the path of the packet through the
++ * Linux networking.  Thus, destinations are stackable.
++ */
++
++static struct dst_entry *skb_dst_pop(struct sk_buff *skb)
++{
++	struct dst_entry *child = dst_clone(skb_dst(skb)->child);
++
++	skb_dst_drop(skb);
++	return child;
++}
++
+ static int xfrm_output_one(struct sk_buff *skb, int err)
+ {
+ 	struct dst_entry *dst = skb_dst(skb);
+-- 
+1.7.9.5
