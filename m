@@ -1,40 +1,39 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v2 6/6] packet: rollover statistics
-Date: Tue, 12 May 2015 11:04:19 -0400
-Message-ID: <CA+FuTSc5AJA7_p_mAT9DXqsBDd-D=HSZ=yJnofFnQLisFNom9Q@mail.gmail.com>
-References: <1431206701-5019-1-git-send-email-willemb@google.com>
- <1431206701-5019-7-git-send-email-willemb@google.com> <20150511.130950.1321194163068727654.davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net v2] rtnl/bond: don't send rtnl msg for unregistered
+ iface
+Date: Tue, 12 May 2015 17:06:02 +0200
+Message-ID: <555216DA.3020105@6wind.com>
+References: <20150511175355.GA3130@nanopsycho> <1431443035-4265-1-git-send-email-nicolas.dichtel@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Laight <david.laight@aculab.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:33750 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933312AbbELPEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:04:50 -0400
-Received: by oica37 with SMTP id a37so8247719oic.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:04:49 -0700 (PDT)
-In-Reply-To: <20150511.130950.1321194163068727654.davem@davemloft.net>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:38251 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932761AbbELPGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:06:06 -0400
+Received: by wicnf17 with SMTP id nf17so19786499wic.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:06:05 -0700 (PDT)
+In-Reply-To: <1431443035-4265-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>
->> +struct tpacket_rollover_stats {
->> +     unsigned long   tp_all;
->> +     unsigned long   tp_huge;
->> +     unsigned long   tp_failed;
->> +};
->
-> Please do not use variably sized types, especially "long" for user exported
-> interfaces.  Otherwise you will need to add a compat layer to translate
-> the data into userspace for 32-bit tasks running on a 64-bit kernel.
->
-> If a 32-bit value really is not sufficient, use __aligned_u64.
-
-Thanks for catching that. I converted them to __aligned_u64. The
-internal counters remain atomic_long_t.
-
-I'll push v3 of the patchset with only this change.
+Le 12/05/2015 17:03, Nicolas Dichtel a =C3=A9crit :
+[snip]
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -3273,7 +3273,8 @@ static int rtnetlink_event(struct notifier_bloc=
+k *this, unsigned long event, voi
+>   	case NETDEV_BONDING_INFO:
+>   		break;
+>   	default:
+> -		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
+> +		if (dev->reg_state =3D=3D NETREG_REGISTERED)
+> +			rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
+In fact, it's probably better to put this in rtmsg_ifinfo().
+Will send a v3, sorry for the noise.
