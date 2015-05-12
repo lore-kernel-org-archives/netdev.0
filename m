@@ -1,161 +1,85 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v3 3/6] packet: rollover only to socket with headroom
-Date: Tue, 12 May 2015 11:56:47 -0400
-Message-ID: <1431446210-13286-4-git-send-email-willemb@google.com>
-References: <1431446210-13286-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	david.laight@aculab.com, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: RE: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
+Date: Tue, 12 May 2015 10:58:19 -0500
+Message-ID: <006C93D3-B9F6-44C9-8D1E-DA95E38BD0A6@xmission.com>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com> <87wq0kcqlm.fsf@x220.int.ebiederm.org> <20150508140733.GA13325@gondor.apana.org.au> <87sib76kef.fsf@x220.int.ebiederm.org> <20150509011339.GA19116@gondor.apana.org.au> <87383633pu.fsf_-_@x220.int.ebiederm.org> <87oalu1p16.fsf_-_@x220.int.ebiederm.org> <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com> <110296A8-1CC9-456C-B126-50C90D4E3E17@xmission.com> <063D6719AE5E284EB5DD2968C1650D6D1CB33707@AcuExch.aculab.com> <5551F205.1080707@6wind.com> <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ying Xue <ying.xue@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"cwang@twopensource.com" <cwang@twopensource.com>,
+	"xemul@openvz.org" <xemul@openvz.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"tom@herbertland.com" <tom@herbertland.com>,
+	"jchapman@katalix.com" <jchapman@katalix.com>,
+	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
+	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
+	"horms@verge.net.au" <horms@verge.net.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"'nicolas.dichtel@6wind.com'" <nicolas.dichtel@6wind.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f41.google.com ([209.85.213.41]:33513 "EHLO
-	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753175AbbELP46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:56:58 -0400
-Received: by yhcb70 with SMTP id b70so4382423yhc.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:56:57 -0700 (PDT)
-In-Reply-To: <1431446210-13286-1-git-send-email-willemb@google.com>
+Received: from out03.mta.xmission.com ([166.70.13.233]:55060 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753454AbbELP6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:58:31 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
 
-Only migrate flows to sockets that have sufficient headroom, where
-sufficient is defined as having at least 25% empty space.
 
-The kernel has three different buffer types: a regular socket, a ring
-with frames (TPACKET_V[12]) or a ring with blocks (TPACKET_V3). The
-latter two do not expose a read pointer to the kernel, so headroom is
-not computed easily. All three needs a different implementation to
-estimate free space.
+On May 12, 2015 8:16:23 AM CDT, David Laight <David.Laight@ACULAB.COM> =
+wrote:
+>From: Nicolas Dichtel [mailto:nicolas.dichtel@6wind.com]
+>> Sent: 12 May 2015 13:29
+>> Le 12/05/2015 13:48, David Laight a =C3=A9crit :
+>> > From: Eric W. Biederman
+>> >> Sent: 12 May 2015 09:55
+>> >>
+>> >> On May 12, 2015 3:24:11 AM CDT, David Laight
+><David.Laight@ACULAB.COM> wrote:
+>> > ...
+>> >>> Wouldn't it involve far less churn to add a new function that
+>uses a
+>> >>> non-default namespace?
+>> >>
+>> >> The goal is comprehensible and maintainable kernel code.
+>> >>
+>> >> Which network namespace your socket is in, is an important
+>property and something you probably care
+>> >> about if you are creating kernel sockets.
+>> >
+>> > That rather depends on whether you've anywhere to get a namespace
+>from.
+>> > eg something like ceph/messenger.c
+>> sk_net(con->sock->sk)?
+>
+>What if you don't already have a socket?
+>Just an IP(v6) address ?
+>
+>> This parameter is essential, hiding it will just hides bugs.
+>> Having this parameter forces the developer to ask himself what is th=
+e
+>best
+>> value.
+>
+>What if the answer is 'NFI'?
+>Which requires the answer be pushed back to the 'application'
+>configuration?
+>Most users will have no idea either.
 
-Tested:
-  Ran bench_rollover for 10 sec with 1.5 Mpps of single flow input.
+current->nsproxy->netns.
 
-  bench_rollover has as many sockets as there are NIC receive queues
-  in the system. Each socket is owned by a process that is pinned to
-  one of the receive cpus. RFS is disabled. RPS is enabled with an
-  identity mapping (cpu x -> cpu x), to count drops with softnettop.
+Capture it at mount time.  Call get_net then and put_net after you have=
+ cleaned up during unmount.
 
-    lpbb5:/export/hda3/willemb# ./bench_rollover -r -l 1000 -s
-    Press [Enter] to exit
+Not hard, and the parameter is doing what it is supposed to be doing ge=
+tting you to ask the question, and realize there is an unhandled issue.
 
-    cpu         rx       rx.k     drop.k   rollover     r.huge   r.failed
-      0         16         16          0          0          0          0
-      1         21         21          0          0          0          0
-      2    5227502    5227502          0          0          0          0
-      3         18         18          0          0          0          0
-      4    6083289    6083289          0    5227496          0          0
-      5         22         22          0          0          0          0
-      6         21         21          0          0          0          0
-      7          9          9          0          0          0          0
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 74 +++++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 58 insertions(+), 16 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 6f1b939..7c046d7 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1234,27 +1234,68 @@ static void packet_free_pending(struct packet_sock *po)
- 	free_percpu(po->tx_ring.pending_refcnt);
- }
- 
--static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
-+#define ROOM_POW_OFF	2
-+#define ROOM_NONE	0x0
-+#define ROOM_LOW	0x1
-+#define ROOM_NORMAL	0x2
-+
-+static bool __tpacket_has_room(struct packet_sock *po, int pow_off)
-+{
-+	int idx, len;
-+
-+	len = po->rx_ring.frame_max + 1;
-+	idx = po->rx_ring.head;
-+	if (pow_off)
-+		idx += len >> pow_off;
-+	if (idx >= len)
-+		idx -= len;
-+	return packet_lookup_frame(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
-+}
-+
-+static bool __tpacket_v3_has_room(struct packet_sock *po, int pow_off)
-+{
-+	int idx, len;
-+
-+	len = po->rx_ring.prb_bdqc.knum_blocks;
-+	idx = po->rx_ring.prb_bdqc.kactive_blk_num;
-+	if (pow_off)
-+		idx += len >> pow_off;
-+	if (idx >= len)
-+		idx -= len;
-+	return prb_lookup_block(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
-+}
-+
-+static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- {
- 	struct sock *sk = &po->sk;
--	bool has_room;
-+	int ret = ROOM_NONE;
- 
--	if (po->prot_hook.func != tpacket_rcv)
--		return (atomic_read(&sk->sk_rmem_alloc) + skb->truesize)
--			<= sk->sk_rcvbuf;
-+	if (po->prot_hook.func != tpacket_rcv) {
-+		int avail = sk->sk_rcvbuf - atomic_read(&sk->sk_rmem_alloc)
-+					  - skb->truesize;
-+		if (avail > (sk->sk_rcvbuf >> ROOM_POW_OFF))
-+			return ROOM_NORMAL;
-+		else if (avail > 0)
-+			return ROOM_LOW;
-+		else
-+			return ROOM_NONE;
-+	}
- 
- 	spin_lock(&sk->sk_receive_queue.lock);
--	if (po->tp_version == TPACKET_V3)
--		has_room = prb_lookup_block(po, &po->rx_ring,
--					    po->rx_ring.prb_bdqc.kactive_blk_num,
--					    TP_STATUS_KERNEL);
--	else
--		has_room = packet_lookup_frame(po, &po->rx_ring,
--					       po->rx_ring.head,
--					       TP_STATUS_KERNEL);
-+	if (po->tp_version == TPACKET_V3) {
-+		if (__tpacket_v3_has_room(po, ROOM_POW_OFF))
-+			ret = ROOM_NORMAL;
-+		else if (__tpacket_v3_has_room(po, 0))
-+			ret = ROOM_LOW;
-+	} else {
-+		if (__tpacket_has_room(po, ROOM_POW_OFF))
-+			ret = ROOM_NORMAL;
-+		else if (__tpacket_has_room(po, 0))
-+			ret = ROOM_LOW;
-+	}
- 	spin_unlock(&sk->sk_receive_queue.lock);
- 
--	return has_room;
-+	return ret;
- }
- 
- static void packet_sock_destruct(struct sock *sk)
-@@ -1325,12 +1366,13 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 	unsigned int i, j;
- 
- 	po = pkt_sk(f->arr[idx]);
--	if (try_self && packet_rcv_has_room(po, skb))
-+	if (try_self && packet_rcv_has_room(po, skb) != ROOM_NONE)
- 		return idx;
- 
- 	i = j = min_t(int, po->rollover->sock, num - 1);
- 	do {
--		if (i != idx && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
-+		if (i != idx &&
-+		    packet_rcv_has_room(pkt_sk(f->arr[i]), skb) == ROOM_NORMAL) {
- 			if (i != j)
- 				po->rollover->sock = i;
- 			return i;
--- 
-2.2.0.rc0.207.ga3a616c
+Eric
