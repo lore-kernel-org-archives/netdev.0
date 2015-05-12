@@ -1,52 +1,68 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v1 2/7] amd-xgbe: Add netif_msg_* support for
- driver messages
-Date: Tue, 12 May 2015 12:44:48 -0700
-Message-ID: <1431459888.2884.87.camel@perches.com>
-References: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
-	 <20150512192242.14091.56225.stgit@tlendack-t1.amdoffice.net>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v1 0/7] amd-xgbe: AMD XGBE driver updates 2015-05-12
+Date: Tue, 12 May 2015 14:22:30 -0500
+Message-ID: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Tom Lendacky <thomas.lendacky@amd.com>
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0030.hostedemail.com ([216.40.44.30]:47278 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933400AbbELTov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 15:44:51 -0400
-In-Reply-To: <20150512192242.14091.56225.stgit@tlendack-t1.amdoffice.net>
+Received: from mail-bn1bon0145.outbound.protection.outlook.com ([157.56.111.145]:39857
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933462AbbELThy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 15:37:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-12 at 14:22 -0500, Tom Lendacky wrote:
-> Add support for the network interface message level settings for
-> determining whether to issue some of the driver messages.
+The following series of patches includes functional updates and changes
+to the driver.
 
-[]
+- Add additional statistics to be collected and reported
+- Use the netif_msg_* functions for issuing some debug and informational
+  driver messages
+- Rx path SKB allocation cleanup/simplification
+- Remove stand-alone phylib driver and incorporate function into the nic
+  driver
+- Simplify device tree support while maintaining backwards compatibility
+- Fix the flow control negotiation logic to properly configure flow
+  control
+- Remove the checking and setting of the device dma_mask field
 
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c b/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c
-[]
-> @@ -150,9 +150,14 @@ static int xgbe_dcb_ieee_setets(struct net_device *netdev,
->  	tc_ets = 0;
->  	tc_ets_weight = 0;
->  	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-> -		DBGPR("  TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n", i,
-> -		      ets->tc_tx_bw[i], ets->tc_rx_bw[i], ets->tc_tsa[i]);
-> -		DBGPR("  PRIO%u: TC=%hhu\n", i, ets->prio_tc[i]);
-> +		if (netif_msg_drv(pdata)) {
-> +			netdev_dbg(netdev,
-> +				   "TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n",
-> +				   i, ets->tc_tx_bw[i], ets->tc_rx_bw[i],
-> +				   ets->tc_tsa[i]);
+This patch series is based on net-next.
 
-These might be more concise and work a bit easier
-with dynamic_debug using
+---
 
-	netif_dbg(priv, type, netdev, fmt, ...)
+Tom Lendacky (7):
+      amd-xgbe: Add additional stats to be reported via ethtool
+      amd-xgbe: Add netif_msg_* support for driver messages
+      amd-xgbe: Rework the Rx path SKB allocation
+      amd-xgbe: Move the PHY support into amd-xgbe
+      amd-xgbe: Support defining PHY resources in ETH device node
+      amd-xgbe: Fix flow control setting logic
+      amd-xgbe: Remove manual check and set of dma_mask pointer
 
-like:
 
-		netif_dbg(pdata, drv, netdev,
-			  "TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n",
-			  i, ets->tc_tx_bw[i], ets->tc_rx_bw[i], ets->tc_tsa[i]);
+ .../devicetree/bindings/net/amd-xgbe-phy.txt       |   48 -
+ Documentation/devicetree/bindings/net/amd-xgbe.txt |   40 
+ MAINTAINERS                                        |    1 
+ drivers/net/ethernet/amd/Kconfig                   |    4 
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h        |  155 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-dcb.c           |   20 
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c          |   41 
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c           |  115 +
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  348 ++--
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c       |   79 +
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c          |  384 ++++
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c          | 1237 ++++++++++++-
+ drivers/net/ethernet/amd/xgbe/xgbe.h               |  236 ++-
+ drivers/net/phy/Kconfig                            |    6 
+ drivers/net/phy/Makefile                           |    1 
+ drivers/net/phy/amd-xgbe-phy.c                     | 1862 --------------------
+ 16 files changed, 2125 insertions(+), 2452 deletions(-)
+ delete mode 100644 Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+ delete mode 100644 drivers/net/phy/amd-xgbe-phy.c
+
+-- 
+Tom Lendacky
