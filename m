@@ -1,8 +1,8 @@
 From: Joao Martins <joao.martins@neclab.eu>
-Subject: [RFC PATCH 08/13] xen-netback: clone skb if
-	skb->xmit_more is set
-Date: Tue, 12 May 2015 19:18:32 +0200
-Message-ID: <1431451117-70051-9-git-send-email-joao.martins@neclab.eu>
+Subject: [RFC PATCH 09/13] xen-netfront: move grant_{ref,
+	page} to struct grant
+Date: Tue, 12 May 2015 19:18:33 +0200
+Message-ID: <1431451117-70051-10-git-send-email-joao.martins@neclab.eu>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,87 +23,177 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-On xenvif_start_xmit() we have an additional queue to the netback RX
-kthread that will sends the packet. When using burst>1 pktgen sets
-skb->xmit_more to tell the driver that there more skbs in the queue.
-However, pktgen transmits the same skb <burst> times, which leads to
-the BUG below. Long story short adding the same skb in the rx_queue
-queue leads to crash. Specifically, having pktgen running with burst=2
-what happens is: when we queue the second skb (that is the same as
-the first queued skb), the list will have the tail element with skb->prev
-which is the skb itself. On skb_unlink (i.e. when dequeueing the skb)
-skb->prev will become NULL, but still having list->next pointing to the
-unlinked skb. Because of this skb_peek will still return an skb, which
-will redo the skb_unlink trying to set (skb->prev)->next where skb->prev
-is now NULL, thus leading to the crash (trace below).
-
-I'm not sure what the best way to fix this but since it's only happening
-when we use pktgen with burst>1: I chose doing an skb_clone when we don't
-use persistent grants and skb->xmit_more flag is set, and when
-CONFIG_NET_PKTGEN is compiled builtin.
-
-BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-IP: [<ffffffffa01dbcdc>] xenvif_rx_dequeue+0x7c/0x120 [xen_netback]
-PGD 0
-Oops: 0002 [#1] SMP
-CPU: 1 PID: 10391 Comm: vif510.1-q0-gue Not tainted 4.0.0-rc2-net-next+
-task: ffff88003b0ce400 ti: ffff880008538000 task.ti: ffff880008538000
-RIP: e030:[<ffffffffa01dbcdc>]  [<ffffffffa01dbcdc>]
-xenvif_rx_dequeue+0x7c/0x120 [xen_netback]
-RSP: e02b:ffff88000853bde8  EFLAGS: 00010006
-RAX: 0000000000000000 RBX: ffffc9000212e000 RCX: 00000000000000e4
-RDX: 0000000000000000 RSI: ffff88003b0c0200 RDI: ffffc90002139a24
-RBP: ffff88000853bdf8 R08: ffff880008538000 R09: 0000000000000000
-R10: aaaaaaaaaaaaaaaa R11: 0000000000000000 R12: ffff8800089a6400
-R13: ffffc9000212e000 R14: ffffc90002139a10 R15: 0000000000000000
-FS:  0000000000000000(0000) GS:ffff88003f700000(0000)
-knlGS:ffff88003f700000
-CS:  e033 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000000000008 CR3: 000000000260b000 CR4: 0000000000042660
-Stack:
- ffff88000853be48 ffff88000853be30 ffff88000853beb8 ffffffffa01e19ea
- ffff88000853be60 ffff88003b0ce400 ffff88003ba418c0 ffffc900021399c0
- 0000000000000000 ffff88000853be30 ffff88000853be30 ffff000000000000
-Call Trace:
- [<ffffffffa01e19ea>] xenvif_kthread_guest_rx+0x26a/0x6e0 [xen_netback]
- [<ffffffffa01e1780>] ? xenvif_map_frontend_rings+0x110/0x110 [xen_netback]
- [<ffffffff8111ae9b>] kthread+0x11b/0x150
- [<ffffffff81120000>] ? clean_sort_range+0x170/0x2f0
- [<ffffffff8111ad80>] ? kthread_stop+0x230/0x230
- [<ffffffff81d6957c>] ret_from_fork+0x7c/0xb0
- [<ffffffff8111ad80>] ? kthread_stop+0x230/0x230
-Code: 01 48 83 05 9e f5 00 00 01 49 8b 44 24 08 49 8b 14 24 49 c7 44 24 08
-00 00 00 00 49 c7 04 24 00 00 00 00 48 83 05 84 f5 00 00 01 <48> 89 42 08
-48 89 10 41 8b 84 24 80 00 00 00 29 83 2c ba 00 00
-RIP  [<ffffffffa01dbcdc>] xenvif_rx_dequeue+0x7c/0x120 [xen_netback]
- RSP <ffff88000853bde8>
-CR2: 0000000000000008
----[ end trace b3caaf6875c8a975 ]---
+Refactors a little bit how grants are stored by moving
+grant_rx_ref/grant_tx_ref and grant_tx_page to its
+own structure, namely struct grant.
 
 Signed-off-by: Joao Martins <joao.martins@neclab.eu>
 ---
- drivers/net/xen-netback/interface.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/xen-netfront.c | 56 ++++++++++++++++++++++++++--------------------
+ 1 file changed, 32 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index dfe2b7b..5748ba5 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -170,6 +170,15 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	cb->expires = jiffies + vif->drain_timeout;
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 3f45afd..8f49ed4 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -87,6 +87,11 @@ struct netfront_cb {
+ /* IRQ name is queue name with "-tx" or "-rx" appended */
+ #define IRQ_NAME_SIZE (QUEUE_NAME_SIZE + 3)
  
- 	if (!queue->vif->persistent_grants) {
-+#ifdef CONFIG_NET_PKTGEN
-+		if (skb->xmit_more) {
-+			struct sk_buff *nskb;
++struct grant {
++	grant_ref_t ref;
++	struct page *page;
++};
 +
-+			nskb = skb_clone(skb, GFP_ATOMIC | __GFP_NOWARN);
-+			dev_kfree_skb(skb);
-+			skb = nskb;
-+		}
-+#endif
- 		xenvif_rx_queue_tail(queue, skb);
- 		xenvif_kick_thread(queue);
- 	} else if (xenvif_rx_map(queue, skb)) {
+ struct netfront_stats {
+ 	u64			packets;
+ 	u64			bytes;
+@@ -129,8 +134,7 @@ struct netfront_queue {
+ 		unsigned long link;
+ 	} tx_skbs[NET_TX_RING_SIZE];
+ 	grant_ref_t gref_tx_head;
+-	grant_ref_t grant_tx_ref[NET_TX_RING_SIZE];
+-	struct page *grant_tx_page[NET_TX_RING_SIZE];
++	struct grant grant_tx[NET_TX_RING_SIZE];
+ 	unsigned tx_skb_freelist;
+ 
+ 	spinlock_t   rx_lock ____cacheline_aligned_in_smp;
+@@ -141,7 +145,7 @@ struct netfront_queue {
+ 
+ 	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
+ 	grant_ref_t gref_rx_head;
+-	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
++	struct grant grant_rx[NET_RX_RING_SIZE];
+ };
+ 
+ struct netfront_info {
+@@ -213,8 +217,9 @@ static grant_ref_t xennet_get_rx_ref(struct netfront_queue *queue,
+ 					    RING_IDX ri)
+ {
+ 	int i = xennet_rxidx(ri);
+-	grant_ref_t ref = queue->grant_rx_ref[i];
+-	queue->grant_rx_ref[i] = GRANT_INVALID_REF;
++	grant_ref_t ref = queue->grant_rx[i].ref;
++
++	queue->grant_rx[i].ref = GRANT_INVALID_REF;
+ 	return ref;
+ }
+ 
+@@ -306,7 +311,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 
+ 		ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
+ 		BUG_ON((signed short)ref < 0);
+-		queue->grant_rx_ref[id] = ref;
++		queue->grant_rx[id].ref = ref;
+ 
+ 		pfn = page_to_pfn(skb_frag_page(&skb_shinfo(skb)->frags[0]));
+ 
+@@ -383,17 +388,17 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
+ 			id  = txrsp->id;
+ 			skb = queue->tx_skbs[id].skb;
+ 			if (unlikely(gnttab_query_foreign_access(
+-				queue->grant_tx_ref[id]) != 0)) {
++				queue->grant_tx[id].ref) != 0)) {
+ 				pr_alert("%s: warning -- grant still in use by backend domain\n",
+ 					 __func__);
+ 				BUG();
+ 			}
+ 			gnttab_end_foreign_access_ref(
+-				queue->grant_tx_ref[id], GNTMAP_readonly);
++				queue->grant_tx[id].ref, GNTMAP_readonly);
+ 			gnttab_release_grant_reference(
+-				&queue->gref_tx_head, queue->grant_tx_ref[id]);
+-			queue->grant_tx_ref[id] = GRANT_INVALID_REF;
+-			queue->grant_tx_page[id] = NULL;
++				&queue->gref_tx_head, queue->grant_tx[id].ref);
++			queue->grant_tx[id].ref = GRANT_INVALID_REF;
++			queue->grant_tx[id].page = NULL;
+ 			add_id_to_freelist(&queue->tx_skb_freelist, queue->tx_skbs, id);
+ 			dev_kfree_skb_irq(skb);
+ 		}
+@@ -435,8 +440,8 @@ static struct xen_netif_tx_request *xennet_make_one_txreq(
+ 					page_to_mfn(page), GNTMAP_readonly);
+ 
+ 	queue->tx_skbs[id].skb = skb;
+-	queue->grant_tx_page[id] = page;
+-	queue->grant_tx_ref[id] = ref;
++	queue->grant_tx[id].page = page;
++	queue->grant_tx[id].ref = ref;
+ 
+ 	tx->id = id;
+ 	tx->gref = ref;
+@@ -659,7 +664,7 @@ static void xennet_move_rx_slot(struct netfront_queue *queue, struct sk_buff *sk
+ 
+ 	BUG_ON(queue->rx_skbs[new]);
+ 	queue->rx_skbs[new] = skb;
+-	queue->grant_rx_ref[new] = ref;
++	queue->grant_rx[new].ref = ref;
+ 	RING_GET_REQUEST(&queue->rx, queue->rx.req_prod_pvt)->id = new;
+ 	RING_GET_REQUEST(&queue->rx, queue->rx.req_prod_pvt)->gref = ref;
+ 	queue->rx.req_prod_pvt++;
+@@ -1055,6 +1060,7 @@ static struct rtnl_link_stats64 *xennet_get_stats64(struct net_device *dev,
+ static void xennet_release_tx_bufs(struct netfront_queue *queue)
+ {
+ 	struct sk_buff *skb;
++	struct page *page;
+ 	int i;
+ 
+ 	for (i = 0; i < NET_TX_RING_SIZE; i++) {
+@@ -1063,12 +1069,13 @@ static void xennet_release_tx_bufs(struct netfront_queue *queue)
+ 			continue;
+ 
+ 		skb = queue->tx_skbs[i].skb;
+-		get_page(queue->grant_tx_page[i]);
+-		gnttab_end_foreign_access(queue->grant_tx_ref[i],
++		page = queue->grant_tx[i].page;
++		get_page(page);
++		gnttab_end_foreign_access(queue->grant_tx[i].ref,
+ 					  GNTMAP_readonly,
+-					  (unsigned long)page_address(queue->grant_tx_page[i]));
+-		queue->grant_tx_page[i] = NULL;
+-		queue->grant_tx_ref[i] = GRANT_INVALID_REF;
++					  (unsigned long)page_address(page));
++		queue->grant_tx[i].page = NULL;
++		queue->grant_tx[i].ref = GRANT_INVALID_REF;
+ 		add_id_to_freelist(&queue->tx_skb_freelist, queue->tx_skbs, i);
+ 		dev_kfree_skb_irq(skb);
+ 	}
+@@ -1088,7 +1095,7 @@ static void xennet_release_rx_bufs(struct netfront_queue *queue)
+ 		if (!skb)
+ 			continue;
+ 
+-		ref = queue->grant_rx_ref[id];
++		ref = queue->grant_rx[id].ref;
+ 		if (ref == GRANT_INVALID_REF)
+ 			continue;
+ 
+@@ -1100,7 +1107,7 @@ static void xennet_release_rx_bufs(struct netfront_queue *queue)
+ 		get_page(page);
+ 		gnttab_end_foreign_access(ref, 0,
+ 					  (unsigned long)page_address(page));
+-		queue->grant_rx_ref[id] = GRANT_INVALID_REF;
++		queue->grant_rx[id].ref = GRANT_INVALID_REF;
+ 
+ 		kfree_skb(skb);
+ 	}
+@@ -1571,14 +1578,15 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 	queue->tx_skb_freelist = 0;
+ 	for (i = 0; i < NET_TX_RING_SIZE; i++) {
+ 		skb_entry_set_link(&queue->tx_skbs[i], i+1);
+-		queue->grant_tx_ref[i] = GRANT_INVALID_REF;
+-		queue->grant_tx_page[i] = NULL;
++		queue->grant_tx[i].ref = GRANT_INVALID_REF;
++		queue->grant_tx[i].page = NULL;
+ 	}
+ 
+ 	/* Clear out rx_skbs */
+ 	for (i = 0; i < NET_RX_RING_SIZE; i++) {
+ 		queue->rx_skbs[i] = NULL;
+-		queue->grant_rx_ref[i] = GRANT_INVALID_REF;
++		queue->grant_rx[i].ref = GRANT_INVALID_REF;
++		queue->grant_rx[i].page = NULL;
+ 	}
+ 
+ 	/* A grant for every tx ring slot */
 -- 
 2.1.3
