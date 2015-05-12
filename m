@@ -1,39 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] net: sched: use counter to break reclassify loops
-Date: Tue, 12 May 2015 15:00:29 +0200
-Message-ID: <20150512130029.GA22387@breakpoint.cc>
-References: <1431366641-24735-1-git-send-email-fw@strlen.de>
- <5551E62D.5040507@mojatatu.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/2] tcp: tcp_info extensions
+Date: Tue, 12 May 2015 10:08:55 -0300
+Message-ID: <20150512130855.GA29412@localhost.localdomain>
+References: <1430260098-14127-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Eric Salo <salo@google.com>, Martin Lau <kafai@fb.com>,
+	Chris Rapier <rapier@psc.edu>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:39970 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932789AbbELNAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 09:00:32 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:42695 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932339AbbELNJA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 09:09:00 -0400
 Content-Disposition: inline
-In-Reply-To: <5551E62D.5040507@mojatatu.com>
+In-Reply-To: <1430260098-14127-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> Florian,
-> In general i am in support of removing this - since the use case never
-> materialized as being useful. However, this is not the same logic that
-> was there before. To get equivalency you need to pass the limit into
-> tc_classify_compat() so i can be reset.
+On Tue, Apr 28, 2015 at 03:28:16PM -0700, Eric Dumazet wrote:
+> As discussed during Chris Rapier presentation in Ottawa / netdev0.1,
+> we add to tcp_info the first two fields are highly wanted.
+> 
+> Each field is added into a single patch for easy code review.
+> 
+> (Corresponding iproute2/ss patches will be sent)
+> 
+> Next fields will follow once consensus is reached.
 
-AFAICS this re-set only happens when we return something other
-than RECLASSIFY which means the caller will not check the limit.
+Is tcpEStatsPerfSegsOut amongst them? I have a need for this one and can
+submit a patch if you're not tracking it already.
 
-So in fact it should be ok to remove this since the counter will always
-start from 0 on next tc_classify() invocation.
-
-> BTW, a faster way to recreate
-> tc filter add dev eth0 parent ffff: \
->   protocol ip u32 match u32 0 0 \
-> action reclassify
-
-Indeed, thanks for the hint.
+  Marcelo
