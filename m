@@ -1,33 +1,50 @@
-From: poma <pomidorabelisima@gmail.com>
-Subject: Re: Suspicious RCU usage in bridge with Linux v4.0-9362-g1fc149933fd4
-Date: Tue, 12 May 2015 03:33:20 +0200
-Message-ID: <55515860.1070606@gmail.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>	 <20150504133943.GA17043@x131e>	 <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>	 <20150504132714.55dca5b0@urahara>	 <CAHA+R7PVpNdqrOHQgHXYRM8io9GZpeucZ_Gk8YNHqQC=f9+egw@mail.gmail.com>	 <20150511131516.GC10375@x131e>	 <1431355986.566.18.camel@edumazet-glaptop2.roam.corp.google.com>	 <555145A8.8010003@gmail.com> <1431391057.566.51.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: [PATCH] xen-netfront: reset skb transport header before checksum
+Date: Mon, 11 May 2015 18:34:24 -0700
+Message-ID: <20150512013424.GA7960@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Dominick Grift <dac.override@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, david.vrabel@citrix.com,
+	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	wei.liu2@citrix.com, paul.durrant@citrix.com
+To: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:32834 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751587AbbELBdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 21:33:24 -0400
-Received: by wief7 with SMTP id f7so99567320wie.0
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 18:33:23 -0700 (PDT)
-In-Reply-To: <1431391057.566.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:46495 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752196AbbELBeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 21:34:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12.05.2015 02:37, Eric Dumazet wrote:
-> On Tue, 2015-05-12 at 02:13 +0200, poma wrote:
-> 
->> https://bugzilla.kernel.org/show_bug.cgi?id=98081#c2
-> 
-> Reported panic has nothing to do with this RCU issue.
-> 
-> I would say your test is non conclusive.
-> 
-> 
+In ed1f50c3a ("net: add skb_checksum_setup") some checksum functions
+were introduced in core. Subsequent change b5cf66cd1 ("xen-netfront:
+use new skb_checksum_setup function") made use of those functions to
+replace its own implementation. With that change ip_hdr() and tcp_hdr()
+were not pointing at the right place. d554f73df ("xen-netfront: reset
+skb network header before checksum") fixed the ip_hdr().
 
-Awesome, I'm closing it.
+This patch fixes tcp_hdr().
+
+We saw this problem when LRO was enabled on the host and it results in
+netfront setting skb->ip_summed to CHECKSUM_UNNECESSARY.
+
+Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+---
+ drivers/net/xen-netfront.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 3f45afd..ed5c242 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -889,6 +889,7 @@ static int handle_incoming_queue(struct netfront_queue *queue,
+ 		/* Ethernet work: Delayed to here as it peeks the header. */
+ 		skb->protocol = eth_type_trans(skb, queue->info->netdev);
+ 		skb_reset_network_header(skb);
++		skb_set_transport_header(skb, ip_hdrlen(skb));
+ 
+ 		if (checksum_setup(queue->info->netdev, skb)) {
+ 			kfree_skb(skb);
+-- 
+1.8.2.1
