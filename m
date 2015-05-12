@@ -1,185 +1,52 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 5/7] amd-xgbe: Support defining PHY resources in
- ETH device node
-Date: Tue, 12 May 2015 14:23:00 -0500
-Message-ID: <20150512192300.14091.82056.stgit@tlendack-t1.amdoffice.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v1 2/7] amd-xgbe: Add netif_msg_* support for
+ driver messages
+Date: Tue, 12 May 2015 12:44:48 -0700
+Message-ID: <1431459888.2884.87.camel@perches.com>
 References: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
+	 <20150512192242.14091.56225.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0117.outbound.protection.outlook.com ([157.56.111.117]:65460
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933893AbbELTic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 15:38:32 -0400
-In-Reply-To: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
+Received: from smtprelay0030.hostedemail.com ([216.40.44.30]:47278 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933400AbbELTov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 15:44:51 -0400
+In-Reply-To: <20150512192242.14091.56225.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simplify the device tree support of the amd-xgbe driver by defining
-the PHY-related resources within the ethernet device node. The support
-provides backwards compatibility with the original way.
+On Tue, 2015-05-12 at 14:22 -0500, Tom Lendacky wrote:
+> Add support for the network interface message level settings for
+> determining whether to issue some of the driver messages.
 
-Update the driver version to 1.0.2.
+[]
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- Documentation/devicetree/bindings/net/amd-xgbe.txt |   41 ++++++--------------
- drivers/net/ethernet/amd/xgbe/xgbe-main.c          |   23 +++++++----
- drivers/net/ethernet/amd/xgbe/xgbe.h               |    2 -
- 3 files changed, 29 insertions(+), 37 deletions(-)
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c b/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c
+[]
+> @@ -150,9 +150,14 @@ static int xgbe_dcb_ieee_setets(struct net_device *netdev,
+>  	tc_ets = 0;
+>  	tc_ets_weight = 0;
+>  	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
+> -		DBGPR("  TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n", i,
+> -		      ets->tc_tx_bw[i], ets->tc_rx_bw[i], ets->tc_tsa[i]);
+> -		DBGPR("  PRIO%u: TC=%hhu\n", i, ets->prio_tc[i]);
+> +		if (netif_msg_drv(pdata)) {
+> +			netdev_dbg(netdev,
+> +				   "TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n",
+> +				   i, ets->tc_tx_bw[i], ets->tc_rx_bw[i],
+> +				   ets->tc_tsa[i]);
 
-diff --git a/Documentation/devicetree/bindings/net/amd-xgbe.txt b/Documentation/devicetree/bindings/net/amd-xgbe.txt
-index 5dbc55a..4bb624a 100644
---- a/Documentation/devicetree/bindings/net/amd-xgbe.txt
-+++ b/Documentation/devicetree/bindings/net/amd-xgbe.txt
-@@ -1,16 +1,20 @@
- * AMD 10GbE driver (amd-xgbe)
- 
--Required properties (ethernet device):
-+Required properties:
- - compatible: Should be "amd,xgbe-seattle-v1a"
- - reg: Address and length of the register sets for the device
-    - MAC registers
-    - PCS registers
-+   - SerDes Rx/Tx registers
-+   - SerDes integration registers (1/2)
-+   - SerDes integration registers (2/2)
- - interrupt-parent: Should be the phandle for the interrupt controller
-   that services interrupts for this device
- - interrupts: Should contain the amd-xgbe interrupt(s). The first interrupt
-   listed is required and is the general device interrupt. If the optional
-   amd,per-channel-interrupt property is specified, then one additional
--  interrupt for each DMA channel supported by the device should be specified
-+  interrupt for each DMA channel supported by the device should be specified.
-+  The last interrupt listed should be the PCS auto-negotiation interrupt.
- - clocks:
-    - DMA clock for the amd-xgbe device (used for calculating the
-      correct Rx interrupt watchdog timer value on a DMA channel
-@@ -19,28 +23,15 @@ Required properties (ethernet device):
- - clock-names: Should be the names of the clocks
-    - "dma_clk" for the DMA clock
-    - "ptp_clk" for the PTP clock
--- phy-handle: See ethernet.txt file in the same directory
- - phy-mode: See ethernet.txt file in the same directory
- 
--Optional properties (ethernet device):
-+Optional properties:
- - mac-address: mac address to be assigned to the device. Can be overridden
-   by UEFI.
- - dma-coherent: Present if dma operations are coherent
- - amd,per-channel-interrupt: Indicates that Rx and Tx complete will generate
-   a unique interrupt for each DMA channel - this requires an additional
-   interrupt be configured for each DMA channel
--
--Required properties (phy device):
--- compatible: Should be "amd,xgbe-phy-seattle-v1a"
--- reg: Address and length of the register sets for the device
--   - SerDes Rx/Tx registers
--   - SerDes integration registers (1/2)
--   - SerDes integration registers (2/2)
--- interrupt-parent: Should be the phandle for the interrupt controller
--  that services interrupts for this device
--- interrupts: Should contain the amd-xgbe-phy interrupt.
--
--Optional properties (phy device):
- - amd,speed-set: Speed capabilities of the device
-     0 - 1GbE and 10GbE (default)
-     1 - 2.5GbE and 10GbE
-@@ -63,25 +54,19 @@ Example:
- 	xgbe@e0700000 {
- 		compatible = "amd,xgbe-seattle-v1a";
- 		reg = <0 0xe0700000 0 0x80000>,
--		      <0 0xe0780000 0 0x80000>;
-+		      <0 0xe0780000 0 0x80000>,
-+		      <0 0xe1240800 0 0x00400>,
-+		      <0 0xe1250000 0 0x00060>,
-+		      <0 0xe1250080 0 0x00004>;
- 		interrupt-parent = <&gic>;
- 		interrupts = <0 325 4>,
--			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>;
-+			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>,
-+			     <0 323 4>;
- 		amd,per-channel-interrupt;
- 		clocks = <&xgbe_dma_clk>, <&xgbe_ptp_clk>;
- 		clock-names = "dma_clk", "ptp_clk";
--		phy-handle = <&xgbe_phy>;
- 		phy-mode = "xgmii";
- 		mac-address = [ 02 a1 a2 a3 a4 a5 ];
--	};
--
--	xgbe_phy@e1240800 {
--		compatible = "amd,xgbe-phy-seattle-v1a";
--		reg = <0 0xe1240800 0 0x00400>,
--		      <0 0xe1250000 0 0x00060>,
--		      <0 0xe1250080 0 0x00004>;
--		interrupt-parent = <&gic>;
--		interrupts = <0 323 4>;
- 		amd,speed-set = <0>;
- 		amd,serdes-blwc = <1>, <1>, <0>;
- 		amd,serdes-cdr-rate = <2>, <2>, <7>;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 0c219b3..34c521d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -300,14 +300,21 @@ static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
- 	struct platform_device *phy_pdev;
- 
- 	phy_node = of_parse_phandle(dev->of_node, "phy-handle", 0);
--	if (!phy_node) {
--		dev_err(dev, "unable to locate phy device\n");
--		return NULL;
-+	if (phy_node) {
-+		/* Old style device tree:
-+		 *   The XGBE and PHY resources are separate
-+		 */
-+		phy_pdev = of_find_device_by_node(phy_node);
-+		of_node_put(phy_node);
-+	} else {
-+		/* New style device tree:
-+		 *   The XGBE and PHY resources are grouped together with
-+		 *   the PHY resources listed last
-+		 */
-+		get_device(dev);
-+		phy_pdev = pdata->pdev;
- 	}
- 
--	phy_pdev = of_find_device_by_node(phy_node);
--	of_node_put(phy_node);
--
- 	return phy_pdev;
- }
- #else   /* CONFIG_OF */
-@@ -401,14 +408,14 @@ static int xgbe_probe(struct platform_device *pdev)
- 	phy_dev = &phy_pdev->dev;
- 
- 	if (pdev == phy_pdev) {
--		/* ACPI:
-+		/* New style device tree or ACPI:
- 		 *   The XGBE and PHY resources are grouped together with
- 		 *   the PHY resources listed last
- 		 */
- 		phy_memnum = xgbe_resource_count(pdev, IORESOURCE_MEM) - 3;
- 		phy_irqnum = xgbe_resource_count(pdev, IORESOURCE_IRQ) - 1;
- 	} else {
--		/* Device tree:
-+		/* Old style device tree:
- 		 *   The XGBE and PHY resources are separate
- 		 */
- 		phy_memnum = 0;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index b6aecc9..f535d19 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -129,7 +129,7 @@
- #include <net/dcbnl.h>
- 
- #define XGBE_DRV_NAME		"amd-xgbe"
--#define XGBE_DRV_VERSION	"1.0.1"
-+#define XGBE_DRV_VERSION	"1.0.2"
- #define XGBE_DRV_DESC		"AMD 10 Gigabit Ethernet Driver"
- 
- /* Descriptor related defines */
+These might be more concise and work a bit easier
+with dynamic_debug using
+
+	netif_dbg(priv, type, netdev, fmt, ...)
+
+like:
+
+		netif_dbg(pdata, drv, netdev,
+			  "TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n",
+			  i, ets->tc_tx_bw[i], ets->tc_rx_bw[i], ets->tc_tsa[i]);
