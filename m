@@ -1,7 +1,8 @@
 From: Joao Martins <joao.martins@neclab.eu>
-Subject: [RFC PATCH 05/13] xen-netback: refactor xenvif_rx_action
-Date: Tue, 12 May 2015 19:18:29 +0200
-Message-ID: <1431451117-70051-6-git-send-email-joao.martins@neclab.eu>
+Subject: [RFC PATCH 06/13] xen-netback: copy buffer on
+	xenvif_start_xmit()
+Date: Tue, 12 May 2015 19:18:30 +0200
+Message-ID: <1431451117-70051-7-git-send-email-joao.martins@neclab.eu>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,232 +23,189 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-Refactor xenvif_rx_action by dividing it into build_gops and
-submit, similar to what xenvif_tx_action looks like.
+By introducing persistent grants we speed up the RX thread with the
+decreased copy cost, that leads to a throughput decrease of 20%.
+It is observed that the rx_queue stays mostly at 10% of its capacity,
+as opposed to full capacity when using grant copy. And a finer measure
+with lock_stat (below with pkt_size 64, burst 1) shows much higher wait
+queue contention on queue->wq, which hints that the RX kthread is
+waits/wake_up more often, that is actually doing work.
+
+Without persistent grants:
+
+class name    con-bounces    contentions   waittime-min   waittime-max
+waittime-total   waittime-avg    acq-bounces   acquisitions   holdtime-min
+holdtime-max holdtime-total   holdtime-avg
+--------------------------------------------------------------------------
+&queue->wq:   792            792           0.36          24.36
+1140.30           1.44           4208        1002671           0.00
+46.75      538164.02           0.54
+----------
+&queue->wq    326          [<ffffffff8115949f>] __wake_up+0x2f/0x80
+&queue->wq    410          [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+&queue->wq     56          [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+----------
+&queue->wq    202          [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+&queue->wq    467          [<ffffffff8115949f>] __wake_up+0x2f/0x80
+&queue->wq    123          [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+
+With persistent grants:
+
+&queue->wq:   61834          61836           0.32          30.12
+99710.27           1.61         241400        1125308           0.00
+75.61     1106578.82           0.98
+----------
+&queue->wq     5079        [<ffffffff8115949f>] __wake_up+0x2f/0x80
+&queue->wq    56280        [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+&queue->wq      479        [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+----------
+&queue->wq     1005        [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+&queue->wq    56761        [<ffffffff8115949f>] __wake_up+0x2f/0x80
+&queue->wq     4072        [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+
+Also, with persistent grants, we don't require batching grant copy ops
+(besides the initial copy+map) which makes me believe that deferring
+the skb to the RX kthread just adds up unnecessary overhead (for this
+particular case). This patch proposes copying the buffer on
+xenvif_start_xmit(), which lets us both remove the contention on
+queue->wq and lock on rx_queue. Here, an alternative to
+xenvif_rx_action routine is added namely xenvif_rx_map() that maps
+and copies the buffer to the guest. This is only used when persistent
+grants are used, since it would otherwise mean an hypercall per
+packet.
+
+Improvements are up to a factor of 2.14 with a single queue getting us
+from 1.04 Mpps to 1.7 Mpps (burst 1, pkt_size 64) and 1.5 to 2.6 Mpps
+(burst 2, pkt_size 64) compared to using the kthread. Maximum with grant
+copy is 1.2 Mpps, irrespective of the burst. All of this, measured on
+an Intel(R) Xeon(R) CPU E5-1650 v2 @ 3.50GHz.
 
 Signed-off-by: Joao Martins <joao.martins@neclab.eu>
 ---
- drivers/net/xen-netback/netback.c | 180 ++++++++++++++++++++------------------
- 1 file changed, 96 insertions(+), 84 deletions(-)
+ drivers/net/xen-netback/common.h    |  2 ++
+ drivers/net/xen-netback/interface.c | 11 +++++---
+ drivers/net/xen-netback/netback.c   | 52 +++++++++++++++++++++++++++++--------
+ 3 files changed, 51 insertions(+), 14 deletions(-)
 
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 23deb6a..f3ece12 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -363,6 +363,8 @@ void xenvif_kick_thread(struct xenvif_queue *queue);
+ 
+ int xenvif_dealloc_kthread(void *data);
+ 
++int xenvif_rx_map(struct xenvif_queue *queue, struct sk_buff *skb);
++
+ void xenvif_rx_queue_tail(struct xenvif_queue *queue, struct sk_buff *skb);
+ 
+ /* Determine whether the needed number of slots (req) are available,
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 1103568..dfe2b7b 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -109,7 +109,8 @@ static irqreturn_t xenvif_rx_interrupt(int irq, void *dev_id)
+ {
+ 	struct xenvif_queue *queue = dev_id;
+ 
+-	xenvif_kick_thread(queue);
++	if (!queue->vif->persistent_grants)
++		xenvif_kick_thread(queue);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -168,8 +169,12 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	cb = XENVIF_RX_CB(skb);
+ 	cb->expires = jiffies + vif->drain_timeout;
+ 
+-	xenvif_rx_queue_tail(queue, skb);
+-	xenvif_kick_thread(queue);
++	if (!queue->vif->persistent_grants) {
++		xenvif_rx_queue_tail(queue, skb);
++		xenvif_kick_thread(queue);
++	} else if (xenvif_rx_map(queue, skb)) {
++		return NETDEV_TX_BUSY;
++	}
+ 
+ 	return NETDEV_TX_OK;
+ 
 diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 738b6ee..c4f57d7 100644
+index c4f57d7..228df92 100644
 --- a/drivers/net/xen-netback/netback.c
 +++ b/drivers/net/xen-netback/netback.c
-@@ -789,16 +789,105 @@ void xenvif_kick_thread(struct xenvif_queue *queue)
- 	wake_up(&queue->wq);
+@@ -883,9 +883,48 @@ static bool xenvif_rx_submit(struct xenvif_queue *queue,
+ 	return !!ret;
  }
  
--static void xenvif_rx_action(struct xenvif_queue *queue)
-+static void xenvif_rx_build_gops(struct xenvif_queue *queue,
-+				 struct netrx_pending_operations *npo,
-+				 struct sk_buff *skb)
++int xenvif_rx_map(struct xenvif_queue *queue, struct sk_buff *skb)
 +{
-+	RING_IDX old_req_cons;
-+	RING_IDX ring_slots_used;
++	int ret = -EBUSY;
++	struct netrx_pending_operations npo = {
++		.copy  = queue->grant_copy_op,
++		.meta  = queue->meta
++	};
 +
-+	queue->last_rx_time = jiffies;
++	if (!xenvif_rx_ring_slots_available(queue, XEN_NETBK_LEGACY_SLOTS_MAX))
++		goto done;
 +
-+	old_req_cons = queue->rx.req_cons;
-+	XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, npo, queue);
-+	ring_slots_used = queue->rx.req_cons - old_req_cons;
++	xenvif_rx_build_gops(queue, &npo, skb);
++
++	BUG_ON(npo.meta_prod > ARRAY_SIZE(queue->meta));
++	if (!npo.copy_done && !npo.copy_prod)
++		goto done;
++
++	BUG_ON(npo.map_prod > MAX_GRANT_COPY_OPS);
++	if (npo.map_prod) {
++		ret = gnttab_map_refs(queue->rx_map_ops,
++				      NULL,
++				      queue->rx_pages_to_map,
++				      npo.map_prod);
++		BUG_ON(ret);
++	}
++
++	BUG_ON(npo.copy_prod > MAX_GRANT_COPY_OPS);
++	if (npo.copy_prod)
++		gnttab_batch_copy(npo.copy, npo.copy_prod);
++
++	if (xenvif_rx_submit(queue, &npo, skb))
++		notify_remote_via_irq(queue->rx_irq);
++
++	ret = 0; /* clear error */
++done:
++	if (xenvif_queue_stopped(queue))
++		xenvif_wake_queue(queue);
++	return ret;
 +}
 +
-+static bool xenvif_rx_submit(struct xenvif_queue *queue,
-+			     struct netrx_pending_operations *npo,
-+			     struct sk_buff *skb)
+ static void xenvif_rx_action(struct xenvif_queue *queue)
  {
- 	s8 status;
- 	u16 flags;
- 	struct xen_netif_rx_response *resp;
--	struct sk_buff_head rxq;
--	struct sk_buff *skb;
- 	LIST_HEAD(notify);
- 	int ret;
- 	unsigned long offset;
-+
-+	if ((1 << queue->meta[npo->meta_cons].gso_type) &
-+	    queue->vif->gso_prefix_mask) {
-+		resp = RING_GET_RESPONSE(&queue->rx,
-+					 queue->rx.rsp_prod_pvt++);
-+
-+		resp->flags = XEN_NETRXF_gso_prefix | XEN_NETRXF_more_data;
-+
-+		resp->offset = queue->meta[npo->meta_cons].gso_size;
-+		resp->id = queue->meta[npo->meta_cons].id;
-+		resp->status = XENVIF_RX_CB(skb)->meta_slots_used;
-+
-+		npo->meta_cons++;
-+		XENVIF_RX_CB(skb)->meta_slots_used--;
-+	}
-+
-+	queue->stats.tx_bytes += skb->len;
-+	queue->stats.tx_packets++;
-+
-+	status = xenvif_check_gop(queue,
-+				  XENVIF_RX_CB(skb)->meta_slots_used,
-+				  npo);
-+
-+	if (XENVIF_RX_CB(skb)->meta_slots_used == 1)
-+		flags = 0;
-+	else
-+		flags = XEN_NETRXF_more_data;
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) /* local packet? */
-+		flags |= XEN_NETRXF_csum_blank | XEN_NETRXF_data_validated;
-+	else if (skb->ip_summed == CHECKSUM_UNNECESSARY)
-+		/* remote but checksummed. */
-+		flags |= XEN_NETRXF_data_validated;
-+
-+	offset = 0;
-+	resp = make_rx_response(queue, queue->meta[npo->meta_cons].id,
-+				status, offset,
-+				queue->meta[npo->meta_cons].size,
-+				flags);
-+
-+	if ((1 << queue->meta[npo->meta_cons].gso_type) &
-+	    queue->vif->gso_mask) {
-+		struct xen_netif_extra_info *gso =
-+			(struct xen_netif_extra_info *)
-+			RING_GET_RESPONSE(&queue->rx,
-+					  queue->rx.rsp_prod_pvt++);
-+
-+		resp->flags |= XEN_NETRXF_extra_info;
-+
-+		gso->u.gso.type = queue->meta[npo->meta_cons].gso_type;
-+		gso->u.gso.size = queue->meta[npo->meta_cons].gso_size;
-+		gso->u.gso.pad = 0;
-+		gso->u.gso.features = 0;
-+
-+		gso->type = XEN_NETIF_EXTRA_TYPE_GSO;
-+		gso->flags = 0;
-+	}
-+
-+	xenvif_add_frag_responses(queue, status,
-+				  queue->meta + npo->meta_cons + 1,
-+				  XENVIF_RX_CB(skb)->meta_slots_used);
-+
-+	RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->rx, ret);
-+
-+	npo->meta_cons += XENVIF_RX_CB(skb)->meta_slots_used;
-+	dev_kfree_skb(skb);
-+
-+	return !!ret;
-+}
-+
-+static void xenvif_rx_action(struct xenvif_queue *queue)
-+{
-+	int ret;
-+	struct sk_buff *skb;
-+	struct sk_buff_head rxq;
+-	int ret;
+ 	struct sk_buff *skb;
+ 	struct sk_buff_head rxq;
  	bool need_to_notify = false;
- 
- 	struct netrx_pending_operations npo = {
-@@ -810,21 +899,14 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 
- 	while (xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX)
- 	       && (skb = xenvif_rx_dequeue(queue)) != NULL) {
--		RING_IDX old_req_cons;
--		RING_IDX ring_slots_used;
--
--		queue->last_rx_time = jiffies;
--
--		old_req_cons = queue->rx.req_cons;
--		XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, &npo, queue);
--		ring_slots_used = queue->rx.req_cons - old_req_cons;
- 
-+		xenvif_rx_build_gops(queue, &npo, skb);
- 		__skb_queue_tail(&rxq, skb);
+@@ -905,22 +944,13 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
  	}
  
  	BUG_ON(npo.meta_prod > XEN_NETIF_RX_RING_SIZE);
- 	if (!npo.copy_done && !npo.copy_prod)
--		goto done;
-+		return;
+-	if (!npo.copy_done && !npo.copy_prod)
++	if (!npo.copy_prod)
+ 		return;
  
  	BUG_ON(npo.copy_prod > MAX_GRANT_COPY_OPS);
  	if (npo.copy_prod)
-@@ -839,79 +921,9 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 		BUG_ON(ret);
- 	}
+ 		gnttab_batch_copy(npo.copy, npo.copy_prod);
  
--	while ((skb = __skb_dequeue(&rxq)) != NULL) {
--
--		if ((1 << queue->meta[npo.meta_cons].gso_type) &
--		    queue->vif->gso_prefix_mask) {
--			resp = RING_GET_RESPONSE(&queue->rx,
--						 queue->rx.rsp_prod_pvt++);
--
--			resp->flags = XEN_NETRXF_gso_prefix | XEN_NETRXF_more_data;
--
--			resp->offset = queue->meta[npo.meta_cons].gso_size;
--			resp->id = queue->meta[npo.meta_cons].id;
--			resp->status = XENVIF_RX_CB(skb)->meta_slots_used;
--
--			npo.meta_cons++;
--			XENVIF_RX_CB(skb)->meta_slots_used--;
--		}
--
--
--		queue->stats.tx_bytes += skb->len;
--		queue->stats.tx_packets++;
--
--		status = xenvif_check_gop(queue,
--					  XENVIF_RX_CB(skb)->meta_slots_used,
--					  &npo);
--
--		if (XENVIF_RX_CB(skb)->meta_slots_used == 1)
--			flags = 0;
--		else
--			flags = XEN_NETRXF_more_data;
--
--		if (skb->ip_summed == CHECKSUM_PARTIAL) /* local packet? */
--			flags |= XEN_NETRXF_csum_blank | XEN_NETRXF_data_validated;
--		else if (skb->ip_summed == CHECKSUM_UNNECESSARY)
--			/* remote but checksummed. */
--			flags |= XEN_NETRXF_data_validated;
--
--		offset = 0;
--		resp = make_rx_response(queue, queue->meta[npo.meta_cons].id,
--					status, offset,
--					queue->meta[npo.meta_cons].size,
--					flags);
--
--		if ((1 << queue->meta[npo.meta_cons].gso_type) &
--		    queue->vif->gso_mask) {
--			struct xen_netif_extra_info *gso =
--				(struct xen_netif_extra_info *)
--				RING_GET_RESPONSE(&queue->rx,
--						  queue->rx.rsp_prod_pvt++);
--
--			resp->flags |= XEN_NETRXF_extra_info;
--
--			gso->u.gso.type = queue->meta[npo.meta_cons].gso_type;
--			gso->u.gso.size = queue->meta[npo.meta_cons].gso_size;
--			gso->u.gso.pad = 0;
--			gso->u.gso.features = 0;
--
--			gso->type = XEN_NETIF_EXTRA_TYPE_GSO;
--			gso->flags = 0;
--		}
--
--		xenvif_add_frag_responses(queue, status,
--					  queue->meta + npo.meta_cons + 1,
--					  XENVIF_RX_CB(skb)->meta_slots_used);
--
--		RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(&queue->rx, ret);
--
--		need_to_notify |= !!ret;
--
--		npo.meta_cons += XENVIF_RX_CB(skb)->meta_slots_used;
--		dev_kfree_skb(skb);
+-	BUG_ON(npo.map_prod > MAX_GRANT_COPY_OPS);
+-	if (npo.map_prod) {
+-		ret = gnttab_map_refs(queue->rx_map_ops,
+-				      NULL,
+-				      queue->rx_pages_to_map,
+-				      npo.map_prod);
+-		BUG_ON(ret);
 -	}
-+	while ((skb = __skb_dequeue(&rxq)) != NULL)
-+		need_to_notify |= xenvif_rx_submit(queue, &npo, skb);
+-
+ 	while ((skb = __skb_dequeue(&rxq)) != NULL)
+ 		need_to_notify |= xenvif_rx_submit(queue, &npo, skb);
  
--done:
- 	if (need_to_notify)
- 		notify_remote_via_irq(queue->rx_irq);
- }
 -- 
 2.1.3
