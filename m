@@ -1,81 +1,50 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: Re: [PATCH v3 00/22] Convert the posix_clock_operations and
- k_clock structure to ready for 2038
-Date: Tue, 12 May 2015 22:16:07 +0800
-Message-ID: <CAMz4kuLeoPsV_HHv+6Rjr-3pQbC+scFEZSz=OJ+2rUxD6uhLkA@mail.gmail.com>
-References: <1431342518-29362-1-git-send-email-baolin.wang@linaro.org>
- <2293496.0Ycckx2zYU@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next] net: core: set qdisc pkt len before tc_classify
+Date: Tue, 12 May 2015 07:22:27 -0700
+Message-ID: <1431440547.566.84.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431437838-5478-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Xunlei Pang <pang.xunlei@linaro.org>, peterz@infradead.org,
- =?UTF-8?B?RnLDqWTDqXJpYyBXZWlzYmVja2Vy?= <fweisbec@gmail.com>,
- heiko.carstens@de.ibm.com, paulus@samba.org, cl@linux.com,
- Heena Sirwani <heenasirwani@gmail.com>, linux-arch@vger.kernel.org,
- linux-s390@vger.kernel.org, y2038 Mailman List <y2038@lists.linaro.org>,
- rafael.j.wysocki@intel.com, Andrew Hunter <ahh@google.com>,
- Paul Turner <pjt@google.com>, riel@redhat.com,
- Richard Cochran <richardcochran@gmail.com>, tj@kernel.org,
- John Stultz <john.stultz@linaro.org>, Thomas Gleixner <tglx@linutronix.de>,
- rth@twiddle.net, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, schwidefsky@de.ibm.com, linux390@de.ibm.com,
- linuxppc-dev@lists.ozlabs.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <2293496.0Ycckx2zYU@wuerfel>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:38653 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932553AbbELOW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 10:22:29 -0400
+Received: by igbhj9 with SMTP id hj9so15621690igb.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 07:22:28 -0700 (PDT)
+In-Reply-To: <1431437838-5478-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTIgTWF5IDIwMTUgYXQgMTc6MzksIEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+IHdy
-b3RlOgoKPiBPbiBNb25kYXkgMTEgTWF5IDIwMTUgMTk6MDg6MzggQmFvbGluIFdhbmcgd3JvdGU6
-Cj4gPiBUaGlzIHBhdGNoIHNlcmllcyBjaGFuZ2VzIHRoZSAzMi1iaXQgdGltZSB0eXBlICh0aW1l
-c3BlYy9pdGltZXJzcGVjKSB0bwo+IHRoZSA2NC1iaXQgb25lCj4gPiAodGltZXNwZWM2NC9pdGlt
-ZXJzcGVjNjQpLCBzaW5jZSAzMi1iaXQgdGltZSB0eXBlcyB3aWxsIGJyZWFrIGluIHRoZQo+IHll
-YXIgMjAzOC4KPiA+Cj4gPiBUaGlzIHBhdGNoIHNlcmllcyBpbnRyb2R1Y2VzIG5ldyBtZXRob2Rz
-IHdpdGggdGltZXNwZWM2NC9pdGltZXJzcGVjNjQKPiB0eXBlLAo+ID4gYW5kIHJlbW92ZXMgdGhl
-IG9sZCBvbmVzIHdpdGggdGltZXNwZWMvaXRpbWVyc3BlYyB0eXBlIGZvcgo+IHBvc2l4X2Nsb2Nr
-X29wZXJhdGlvbnMKPiA+IGFuZCBrX2Nsb2NrIHN0cnVjdHVyZS4KPiA+Cj4gPiBBbHNvIGludHJv
-ZHVjZXMgc29tZSBuZXcgZnVuY3Rpb25zIHdpdGggdGltZXNwZWM2NC9pdGltZXJzcGVjNjQgdHlw
-ZSwKPiBsaWtlIGN1cnJlbnRfa2VybmVsX3RpbWU2NCgpLAo+ID4gaHJ0aW1lcl9nZXRfcmVzNjQo
-KSwgY3B1dGltZV90b190aW1lc3BlYzY0KCkgYW5kIHRpbWVzcGVjNjRfdG9fY3B1dGltZSgpLgo+
-ID4KPiA+IENoYW5nZXMgc2luY2UgdjI6Cj4gPiAgICAgICAtU3BsaXQgdGhlIHN5c2NhbGwgY29u
-dmVyc2lvbiBwYXRjaCBpbnRvIHNtYWxsIHNvbWUgcGF0Y2hlcy4KPiA+Cj4gPgo+ID4gQmFvbGlu
-IFdhbmcgKDIyKToKPiA+ICAgbGludXgvdGltZTY0Lmg6SW50cm9kdWNlIHRoZSAnc3RydWN0IGl0
-aW1lcnNwZWM2NCcgZm9yIDY0Yml0Cj4gPiAgIHRpbWVrZWVwaW5nOkludHJvZHVjZSB0aGUgY3Vy
-cmVudF9rZXJuZWxfdGltZTY0KCkgZnVuY3Rpb24gd2l0aAo+ID4gICAgIHRpbWVzcGVjNjQgdHlw
-ZQo+ID4gICB0aW1lL2hydGltZXI6SW50cm9kdWNlIGhydGltZXJfZ2V0X3JlczY0KCkgd2l0aCB0
-aW1lc3BlYzY0IHR5cGUgZm9yCj4gPiAgICAgZ2V0dGluZyB0aGUgdGltZXIgcmVzb2x1dGlvbgo+
-ID4gICBwb3NpeC10aW1lcnM6U3BsaXQgb3V0IHRoZSBndXRzIG9mIHRoZSBzeXNjYWxsIGFuZCBj
-aGFuZ2UgdGhlCj4gPiAgICAgaW1wbGVtZW50YXRpb24gZm9yIHRpbWVyX2dldHRpbWUKPiA+ICAg
-cG9zaXgtdGltZXJzOkNvbnZlcnQgdG8gdGhlIDY0Yml0IG1ldGhvZHMgZm9yIHRoZSB0aW1lcl9n
-ZXR0aW1lCj4gPiAgICAgc3lzY2FsbCBmdW5jdGlvbgo+Cj4gSSBoYXZlIHR3byBtb3JlIHZlcnkg
-Z2VuZXJhbCBjb21tZW50cyBhYm91dCB0aGUgc2VyaWVzOgo+Cj4gYSkgc29tZXRoaW5nIGhhcyBn
-b25lIHdyb25nIHdpdGggeW91ciBzdWJtaXNzaW9uIGluIHYyIGFuZCB2MyBidXQgd2FzCj4gICAg
-d29ya2luZyBlYXJsaWVyOiBub3JtYWxseSBhbGwgZW1haWxzIHNob3VsZCBiZSBzZW50IGJ5IGdp
-dC1zZW5kLWVtYWlsCj4gICAgYXMgcmVwbGllcyB0byB0aGUgW3BhdGNoIDAwLzIyXSBtYWlsLiBU
-aGlzIGlzIHRoZSBkZWZhdWx0LCBhbmQgaXQKPiAgICBpcyBlbmFibGVkIGJ5IHRoZSAnLS10aHJl
-YWQgLS1uby1jaGFpbi1yZXBseScgb3B0aW9ucy4gUGxlYXNlIHRyeQo+ICAgIHRvIGdldCB0aGlz
-IHRvIHdvcmsgYWdhaW4uCj4KPiBiKSBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gaGF2ZSBhIGxpdHRs
-ZSBzaG9ydGVyIHN1YmplY3QgbGluZXMsIHRvIGF2b2lkCj4gICAgbGluZS13cmFwcGluZyBpbiB0
-aGUgbGlzdCBhYm92ZS4gSGVyZSBhcmUgc29tZSBleGFtcGxlcyB3aGF0IHlvdSBjb3VsZAo+ICAg
-IHVzZSB0byByZXBsYWNlIHRoZSBsaW5lcyBhYm92ZToKPgo+ICAgIHRpbWVrZWVwaW5nOiBpbnRy
-b2R1Y2Ugc3RydWN0IGl0aW1lcnNwZWM2NAo+ICAgIHRpbWVrZWVwaW5nOiBpbnRyb2R1Y2UgY3Vy
-cmVudF9rZXJuZWxfdGltZTY0KCkKPiAgICBocnRpbWVyOiBpbnRyb2R1Y2UgaHJ0aW1lcl9nZXRf
-cmVzNjQoKQo+ICAgIHBvc2l4LXRpbWVyczogc3BsaXQgdXAgc3lzX3RpbWVyX2dldHRpbWUoKQo+
-ICAgIHBvc2l4LXRpbWVyczogY29udmVydCB0aW1lcl9nZXR0aW1lKCkgdG8gdGltZXNwZWM2NAo+
-Cj4gICAgSW4gZ2VuZXJhbCwgdHJ5IHRvIGNvbWUgdXAgd2l0aCB0aGUgc2hvcnRlc3QgZGVzY3Jp
-cHRpb24gdGhhdAo+ICAgIHVuaXF1ZWx5IGRlc2NyaWJlcyB3aGF0IHlvdXIgcGF0Y2ggZG9lcywg
-YW5kIG1vdmUgYW55IGRldGFpbHMgaW50bwo+ICAgIHRoZSBsb25nZXIgcGF0Y2ggZGVzY3JpcHRp
-b24uCj4KPiAgICAgICAgIEFybmQKPgoKT0ssIGknbGwgZml4IHRoZXNlIGluIG5leHQgcGF0Y2gg
-c2VyaWVzLlRoYW5rcyBmb3IgeW91ciBjb21tZW50cy4KCgotLSAKQmFvbGluLndhbmcKQmVzdCBS
-ZWdhcmRzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClky
-MDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGlu
-YXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
+On Tue, 2015-05-12 at 15:37 +0200, Florian Westphal wrote:
+
+> 
+> Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  net/core/dev.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index e5f77c4..871181a 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3540,8 +3540,9 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+>  		*pt_prev = NULL;
+>  	}
+>  
+> -	qdisc_bstats_update_cpu(cl->q, skb);
+> +	qdisc_skb_cb(skb)->pkt_len = skb->len;
+
+
+A qdisc might have a stab (cf qdisc_calculate_pkt_len() )
+
+>  	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
+> +	qdisc_bstats_update_cpu(cl->q, skb);
+>  
+>  	switch (tc_classify(skb, cl, &cl_res)) {
+>  	case TC_ACT_OK:
