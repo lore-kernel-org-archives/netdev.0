@@ -1,84 +1,50 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 2/2] net/ibm/emac: fix size of emac dump memory areas
-Date: Wed, 13 May 2015 06:49:54 +1000
-Message-ID: <1431463794.20218.58.camel@kernel.crashing.org>
-References: <20150512171200.207dfd7b@fr-ThinkPad-W520>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/3] net: phy: broken turn-around support
+Date: Tue, 12 May 2015 13:56:24 -0700
+Message-ID: <555268F8.4030109@gmail.com>
+References: <1431442563-10218-1-git-send-email-bert@biot.com> <1431452006-3219-1-git-send-email-f.fainelli@gmail.com> <555265EE.9000009@biot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Ivan Mikhaylov <ivan@ru.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150512171200.207dfd7b@fr-ThinkPad-W520>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jogo@openwrt.org
+To: Bert Vermeulen <bert@biot.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:36134 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753691AbbELU4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 16:56:45 -0400
+Received: by pdea3 with SMTP id a3so26640605pde.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 13:56:45 -0700 (PDT)
+In-Reply-To: <555265EE.9000009@biot.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-12 at 17:12 +0400, Ivan Mikhaylov wrote:
-> Fix in send of emac regs dump to ethtool which
-> causing wrong data interpretation on ethtool
-> layer for MII and EMAC.
-
-Please provide a better explanation. You removed the difference
-in register space size between EMAC and EMAC4, why ? You also changed a
-test regarding which version of the structure to use from EMAC4 to
-EMAC4SYNC, why ?
-
-> Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
-> ---
->  drivers/net/ethernet/ibm/emac/core.c |   14 ++++----------
->  drivers/net/ethernet/ibm/emac/core.h |    4 ----
->  2 files changed, 4 insertions(+), 14 deletions(-)
+On 12/05/15 13:43, Bert Vermeulen wrote:
+> On 05/12/2015 07:33 PM, Florian Fainelli wrote:
+>> Hi all,
+>>
+>> This is an attempt at solving the broken turn-around problem in a way that
+>> is not specific to the mdio-gpio driver, since it affects different kinds of
+>> platforms.
+>>
+>> We cannot make that localized to PHY device drivers because probing the PHY
+>> device which has a broken turn-around can fail as early as in get_phy_id(),
+>> therefore we need a bit of help from Device Tree/platform_data.
 > 
-> diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-> index de79193..3dc6534 100644
-> --- a/drivers/net/ethernet/ibm/emac/core.c
-> +++ b/drivers/net/ethernet/ibm/emac/core.c
-> @@ -2084,12 +2084,8 @@ static void emac_ethtool_get_pauseparam(struct net_device *ndev,
->  
->  static int emac_get_regs_len(struct emac_instance *dev)
->  {
-> -	if (emac_has_feature(dev, EMAC_FTR_EMAC4))
-> -		return sizeof(struct emac_ethtool_regs_subhdr) +
-> -			EMAC4_ETHTOOL_REGS_SIZE(dev);
-> -	else
->  		return sizeof(struct emac_ethtool_regs_subhdr) +
-> -			EMAC_ETHTOOL_REGS_SIZE(dev);
-> +			sizeof(struct emac_regs);
->  }
->  
->  static int emac_ethtool_get_regs_len(struct net_device *ndev)
-> @@ -2114,15 +2110,13 @@ static void *emac_dump_regs(struct emac_instance *dev, void *buf)
->  	struct emac_ethtool_regs_subhdr *hdr = buf;
->  
->  	hdr->index = dev->cell_index;
-> -	if (emac_has_feature(dev, EMAC_FTR_EMAC4)) {
-> +	if (emac_has_feature(dev, EMAC_FTR_EMAC4SYNC)) {
->  		hdr->version = EMAC4_ETHTOOL_REGS_VER;
-> -		memcpy_fromio(hdr + 1, dev->emacp, EMAC4_ETHTOOL_REGS_SIZE(dev));
-> -		return (void *)(hdr + 1) + EMAC4_ETHTOOL_REGS_SIZE(dev);
->  	} else {
->  		hdr->version = EMAC_ETHTOOL_REGS_VER;
-> -		memcpy_fromio(hdr + 1, dev->emacp, EMAC_ETHTOOL_REGS_SIZE(dev));
-> -		return (void *)(hdr + 1) + EMAC_ETHTOOL_REGS_SIZE(dev);
->  	}
-> +	memcpy_fromio(hdr + 1, dev->emacp, sizeof(struct emac_regs));
-> +	return (void *)(hdr + 1) + sizeof(struct emac_regs);
->  }
->  
->  static void emac_ethtool_get_regs(struct net_device *ndev,
-> diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
-> index 67f342a..db90819 100644
-> --- a/drivers/net/ethernet/ibm/emac/core.h
-> +++ b/drivers/net/ethernet/ibm/emac/core.h
-> @@ -461,10 +461,6 @@ struct emac_ethtool_regs_subhdr {
->  };
->  
->  #define EMAC_ETHTOOL_REGS_VER		0
-> -#define EMAC_ETHTOOL_REGS_SIZE(dev) 	((dev)->rsrc_regs.end - \
-> -					 (dev)->rsrc_regs.start + 1)
->  #define EMAC4_ETHTOOL_REGS_VER      	1
-> -#define EMAC4_ETHTOOL_REGS_SIZE(dev)	((dev)->rsrc_regs.end -	\
-> -					 (dev)->rsrc_regs.start + 1)
->  
->  #endif /* __IBM_NEWEMAC_CORE_H */
+> That is indeed a better place to put that ignore-ta flag, and the device
+> tree support is of course a big improvement over the previous patch as well.
+> 
+> But it's still too big a hammer to hit the AR8316 problem with, I think.
+> Just like the previous patch, this disables checking TA on _all_ reads, but
+> I really only need it disabled on the first read.
+> 
+> Are you saying you've seen other systems with this TA problem? Did those
+> have problems after more than just the first read?
+
+Yes, I have a bunch of boards here that use a Broadcom BCM53125 switch
+which is known not to release the line during turn-around time, and that
+is for all reads. A workaround is to discard the read failure indication
+from the MDIO controller, but to selectively do that, I would be keen on
+using the patches I just posted.
+-- 
+Florian
