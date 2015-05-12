@@ -1,63 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] xen-netfront: reset skb transport header before checksum
-Date: Mon, 11 May 2015 18:51:33 -0700
-Message-ID: <1431395493.566.54.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150512013424.GA7960@oracle.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code where
+ it belongs
+Date: Mon, 11 May 2015 20:21:51 -0700
+Message-ID: <555171CF.70106@plumgrid.com>
+References: <554FA7A5.5020400@plumgrid.com> <20150510190039.GA4938@salvia>	 <554FAC3A.40701@plumgrid.com> <20150510192044.GA7173@salvia>	 <554FB366.7080509@plumgrid.com> <20150510195018.GA7877@salvia>	 <554FCE24.8020904@iogearbox.net> <554FD12F.2020607@iogearbox.net>	 <20150510234313.GA3176@salvia> <555044D8.3080606@plumgrid.com>	 <20150511133245.GA4430@salvia>	 <1431354912.566.15.camel@edumazet-glaptop2.roam.corp.google.com>	 <555134F4.80007@plumgrid.com> <1431387038.566.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	davem@davemloft.net, david.vrabel@citrix.com,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	wei.liu2@citrix.com, paul.durrant@citrix.com
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	davem@davemloft.net, jhs@mojatatu.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:34672 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021AbbELBvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 21:51:35 -0400
-Received: by iedfl3 with SMTP id fl3so139596924ied.1
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 18:51:35 -0700 (PDT)
-In-Reply-To: <20150512013424.GA7960@oracle.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:36625 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752149AbbELDVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 23:21:52 -0400
+Received: by pdea3 with SMTP id a3so166346309pde.3
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:21:52 -0700 (PDT)
+In-Reply-To: <1431387038.566.47.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-05-11 at 18:34 -0700, Venkat Venkatsubra wrote:
-> In ed1f50c3a ("net: add skb_checksum_setup") some checksum functions
-> were introduced in core. Subsequent change b5cf66cd1 ("xen-netfront:
-> use new skb_checksum_setup function") made use of those functions to
-> replace its own implementation. With that change ip_hdr() and tcp_hdr()
-> were not pointing at the right place. d554f73df ("xen-netfront: reset
-> skb network header before checksum") fixed the ip_hdr().
-> 
-> This patch fixes tcp_hdr().
-> 
-> We saw this problem when LRO was enabled on the host and it results in
-> netfront setting skb->ip_summed to CHECKSUM_UNNECESSARY.
-> 
-> Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-> ---
->  drivers/net/xen-netfront.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 3f45afd..ed5c242 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -889,6 +889,7 @@ static int handle_incoming_queue(struct netfront_queue *queue,
->  		/* Ethernet work: Delayed to here as it peeks the header. */
->  		skb->protocol = eth_type_trans(skb, queue->info->netdev);
->  		skb_reset_network_header(skb);
-> +		skb_set_transport_header(skb, ip_hdrlen(skb));
->  
->  		if (checksum_setup(queue->info->netdev, skb)) {
->  			kfree_skb(skb);
+On 5/11/15 4:30 PM, Eric Dumazet wrote:
+>
+> For example , commit 7866a621043fbaca3d7389e9b9f69dd1a2e5a855
+> helped a given workload, but probably made things slower for most common
+> cases.
 
-This looks bogus for IPv6.
+yes, indeed. reverting it improves netif_receive + drop in ip_rcv
+from 41.1 to 42.6. I've been trying to come up with a simple way
+to roll global ptype_all into skb->dev->ptype_all, but registering
+device notifier seems overkill to remove one loop from netif_receive.
+Also tried to partially remove pt_prev logic from the first half
+of netif_receive and keep it only for deliver_ptype_list_skb() part,
+but that didn't help.
+Then tried this:
+-static int __netif_receive_skb(struct sk_buff *skb)
++static inline int __netif_receive_skb(struct sk_buff *skb)
+...
+-static int netif_receive_skb_internal(struct sk_buff *skb)
++static inline int netif_receive_skb_internal(struct sk_buff *skb)
 
-I would rather fix skb_checksum_setup_ip() and
-skb_checksum_setup_ipv6(), since you already use correctly
-skb_maybe_pull_tail() there.
+it helped to go from 41.1 to 43.1, but size increase not negligible:
+    text	   data	    bss	    dec	    hex	filename
+   55990	   1667	   2856	  60513	   ec61	dev.o.base
+   56403	   1907	   2856	  61166	   eeee	dev.o.inline
 
-In general, setting network and transport header at this point seems
-extra work.
+inlining only one of them (either __netif_receive_skb or
+netif_receive_skb_internal) gives minimal gain.
+Still exploring...
