@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 11/15] flow_dissector: add missing header includes
-Date: Tue, 12 May 2015 09:39:19 +0200
-Message-ID: <1431416363-5675-12-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 12/15] flow_dissector: introduce support for ipv6 addressses
+Date: Tue, 12 May 2015 09:39:20 +0200
+Message-ID: <1431416363-5675-13-git-send-email-jiri@resnulli.us>
 References: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	jesse@nicira.com, kaber@trash.net, tom@herbertland.com,
@@ -11,34 +11,102 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36406 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932066AbbELHkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:40:14 -0400
-Received: by wizk4 with SMTP id k4so139654064wiz.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 00:40:13 -0700 (PDT)
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:36505 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753310AbbELHkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:40:18 -0400
+Received: by wizk4 with SMTP id k4so139656186wiz.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 00:40:17 -0700 (PDT)
 In-Reply-To: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+So far, only hashes made out of ipv6 addresses could be dissected. This
+patch introduces support for dissection of full ipv6 addresses.
+
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/flow_dissector.h | 3 +++
- 1 file changed, 3 insertions(+)
+ include/net/flow_dissector.h | 13 +++++++++++++
+ net/core/flow_dissector.c    | 29 +++++++++++++++++++++--------
+ 2 files changed, 34 insertions(+), 8 deletions(-)
 
 diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index 0c8d406..1add891 100644
+index 1add891..586b123 100644
 --- a/include/net/flow_dissector.h
 +++ b/include/net/flow_dissector.h
-@@ -1,6 +1,9 @@
- #ifndef _NET_FLOW_DISSECTOR_H
- #define _NET_FLOW_DISSECTOR_H
+@@ -3,6 +3,7 @@
  
-+#include <linux/types.h>
-+#include <linux/skbuff.h>
-+
+ #include <linux/types.h>
+ #include <linux/skbuff.h>
++#include <linux/in6.h>
+ 
  /**
   * struct flow_dissector_key_basic:
-  * @thoff: Transport header offset
+@@ -42,11 +43,23 @@ struct flow_dissector_key_ports {
+ 	};
+ };
+ 
++/**
++ * struct flow_dissector_key_ipv6_addrs:
++ * @src: source ip address
++ * @dst: destination ip address
++ */
++struct flow_dissector_key_ipv6_addrs {
++	/* (src,dst) must be grouped, in the same way than in IP header */
++	struct in6_addr src;
++	struct in6_addr dst;
++};
++
+ enum flow_dissector_key_id {
+ 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
+ 	FLOW_DISSECTOR_KEY_IPV4_ADDRS, /* struct flow_dissector_key_addrs */
+ 	FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS, /* struct flow_dissector_key_addrs */
+ 	FLOW_DISSECTOR_KEY_PORTS, /* struct flow_dissector_key_ports */
++	FLOW_DISSECTOR_KEY_IPV6_ADDRS, /* struct flow_dissector_key_ipv6_addrs */
+ 
+ 	FLOW_DISSECTOR_KEY_MAX,
+ };
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 6a49aca..1b95d5c 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -175,16 +175,29 @@ ipv6:
+ 		ip_proto = iph->nexthdr;
+ 		nhoff += sizeof(struct ipv6hdr);
+ 
+-		if (!skb_flow_dissector_uses_key(flow_dissector,
+-						 FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS))
+-			break;
+-		key_addrs = skb_flow_dissector_target(flow_dissector,
+-						      FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS,
+-						      target_container);
++		if (skb_flow_dissector_uses_key(flow_dissector,
++						FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS)) {
++			key_addrs = skb_flow_dissector_target(flow_dissector,
++							      FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS,
++							      target_container);
+ 
+-		key_addrs->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
+-		key_addrs->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
++			key_addrs->src = (__force __be32)ipv6_addr_hash(&iph->saddr);
++			key_addrs->dst = (__force __be32)ipv6_addr_hash(&iph->daddr);
++			goto flow_label;
++		}
++		if (skb_flow_dissector_uses_key(flow_dissector,
++						FLOW_DISSECTOR_KEY_IPV6_ADDRS)) {
++			struct flow_dissector_key_ipv6_addrs *key_ipv6_addrs;
+ 
++			key_ipv6_addrs = skb_flow_dissector_target(flow_dissector,
++								   FLOW_DISSECTOR_KEY_IPV6_ADDRS,
++								   target_container);
++
++			memcpy(key_ipv6_addrs, &iph->saddr, sizeof(*key_ipv6_addrs));
++			goto flow_label;
++		}
++		break;
++flow_label:
+ 		flow_label = ip6_flowlabel(iph);
+ 		if (flow_label) {
+ 			/* Awesome, IPv6 packet has a flow label so we can
 -- 
 1.9.3
