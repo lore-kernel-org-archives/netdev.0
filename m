@@ -1,66 +1,48 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/3] of: mdio: Add a "broken-turn-around" property
-Date: Tue, 12 May 2015 10:33:25 -0700
-Message-ID: <1431452006-3219-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 3/3] net: phy: mdio-gpio: Handle phy_ignore_ta_mask
+Date: Tue, 12 May 2015 10:33:26 -0700
+Message-ID: <1431452006-3219-4-git-send-email-f.fainelli@gmail.com>
 References: <1431442563-10218-1-git-send-email-bert@biot.com>
  <1431452006-3219-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, jogo@openwrt.org, bert@biot.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:32911 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933492AbbELRdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 13:33:53 -0400
-Received: by pacwv17 with SMTP id wv17so20333378pac.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 10:33:52 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36137 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933250AbbELRdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 13:33:54 -0400
+Received: by pabsx10 with SMTP id sx10so20176037pab.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 10:33:54 -0700 (PDT)
 In-Reply-To: <1431452006-3219-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some Ethernet PHY devices/switches may not properly release the MDIO bus
-during turn-around time, and fail to drive it low, which can be seen by
-some controllers as a read failure, while the data clocked in is still
-correct.
-
-Add a boolean property "broken-turn-around" which is parsed by the
-generic MDIO bus probing code and will set the corresponding bit in the
-MDIO bus phy_ignore_ta_mask bitmask for MDIO bus drivers to utilize that
-information.
+Update mdiobb_read() to read whether the PHY has a broken turn-around,
+and if it does, ignore it to make the read succeeed.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- Documentation/devicetree/bindings/net/phy.txt | 3 +++
- drivers/of/of_mdio.c                          | 3 +++
- 2 files changed, 6 insertions(+)
+ drivers/net/phy/mdio-bitbang.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index 40831fbaff72..525e1658f2da 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -30,6 +30,9 @@ Optional Properties:
+diff --git a/drivers/net/phy/mdio-bitbang.c b/drivers/net/phy/mdio-bitbang.c
+index daec9b05d168..61a543c788cc 100644
+--- a/drivers/net/phy/mdio-bitbang.c
++++ b/drivers/net/phy/mdio-bitbang.c
+@@ -165,8 +165,11 @@ static int mdiobb_read(struct mii_bus *bus, int phy, int reg)
  
- - max-speed: Maximum PHY supported speed (10, 100, 1000...)
+ 	ctrl->ops->set_mdio_dir(ctrl, 0);
  
-+- broken-turn-around: If set, indicates the PHY device does not correctly
-+  release the turn around line low at the end of a MDIO transaction.
-+
- Example:
- 
- ethernet-phy@0 {
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 0c064485d1c2..fdc60db60829 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -68,6 +68,9 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio, struct device_node *chi
- 			phy->irq = mdio->irq[addr];
- 	}
- 
-+	if (of_property_read_bool(child, "broken-turn-around"))
-+		mdio->phy_ignore_ta_mask |= 1 << addr;
-+
- 	/* Associate the OF node with the device structure so it
- 	 * can be looked up later */
- 	of_node_get(child);
+-	/* check the turnaround bit: the PHY should be driving it to zero */
+-	if (mdiobb_get_bit(ctrl) != 0) {
++	/* check the turnaround bit: the PHY should be driving it to zero, if this
++	 * PHY is listed in phy_ignore_ta_mask as having broken TA, skip that
++	 */
++	if (mdiobb_get_bit(ctrl) != 0 &&
++	    !(bus->phy_ignore_ta_mask & (1 << phy))) {
+ 		/* PHY didn't drive TA low -- flush any bits it
+ 		 * may be trying to send.
+ 		 */
 -- 
 2.1.0
