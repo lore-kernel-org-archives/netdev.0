@@ -1,38 +1,93 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] test_bpf: add 173 new testcases for eBPF
-Date: Tue, 12 May 2015 09:58:01 +0200
-Message-ID: <5551B289.4020400@iogearbox.net>
-References: <1431408164-4524-1-git-send-email-ast@plumgrid.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next V3 08/11] net/mlx5_core: Set/Query port MTU commands
+Date: Tue, 12 May 2015 11:19:46 +0300
+Message-ID: <CAPcc5Pje2c-bEgm+VCXCf6aXp7yV94UKUOw1e0HNO1WTUx0=dw@mail.gmail.com>
+References: <1431250746-11941-1-git-send-email-amirv@mellanox.com>
+	<1431250746-11941-9-git-send-email-amirv@mellanox.com>
+	<554F880B.8060203@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38202 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752752AbbELH6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:58:20 -0400
-In-Reply-To: <1431408164-4524-1-git-send-email-ast@plumgrid.com>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:35523 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752681AbbELITr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:19:47 -0400
+Received: by labbd9 with SMTP id bd9so111462222lab.2
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 01:19:46 -0700 (PDT)
+In-Reply-To: <554F880B.8060203@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2015 07:22 AM, Alexei Starovoitov wrote:
-> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+On Sun, May 10, 2015 at 7:32 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
 >
-> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-
-'From' tag somehow slipped in twice for some reason. Downloading
-the mbox and applying it shows the second on in the git log.
-
-> add an exhaustive set of eBPF tests bringing total to:
-> test_bpf: Summary: 233 PASSED, 0 FAILED, [0/226 JIT'ed]
+> On 5/10/2015 12:39 PM, Amir Vadai wrote:
 >
-> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> From: Saeed Mahameed <saeedm@mellanox.com>
+>
+>
+>> Introduce set/Query low level functions to access MTU in hardware. To be
+>> used by the netdev.
+>
+>
+>> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>   drivers/net/ethernet/mellanox/mlx5/core/port.c | 56
+>> ++++++++++++++++++++++++++
+>>   include/linux/mlx5/driver.h                    |  4 ++
+>>   2 files changed, 60 insertions(+)
+>
+>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c
+>> b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+>> index 742a6fb..e56a0b6 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+>> @@ -211,3 +211,59 @@ int mlx5_query_port_status(struct mlx5_core_dev *dev,
+>> u8 *status)
+>
+> [...]
+>>
+>> +int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu)
+>> +{
+>> +       u32 in[MLX5_ST_SZ_DW(pmtu_reg)];
+>> +       u32 out[MLX5_ST_SZ_DW(pmtu_reg)];
+>> +       int err;
+>> +
+>> +       memset(in, 0, sizeof(in));
+>> +
+>> +       MLX5_SET(pmtu_reg, in, admin_mtu, mtu);
+>> +       MLX5_SET(pmtu_reg, in, local_port, 1);
+>> +
+>> +       err = mlx5_core_access_reg(dev, in, sizeof(in), out,
+>> +                                  sizeof(out), MLX5_REG_PMTU, 0, 1);
+>> +
+>> +       return err;
+>
+>
+>    Why not just return directly?
+Will be fixed in V4
 
-Other than that, very nice to see this getting further extended!
+Thanks,
+Amir
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>
+> [...]
+>
+> WBR, Sergei
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
