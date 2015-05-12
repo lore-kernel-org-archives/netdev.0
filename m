@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 06/15] net: move __skb_tx_hash to dev.c
-Date: Tue, 12 May 2015 14:56:12 +0200
-Message-ID: <1431435381-7164-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 09/15] flow_dissector: introduce programable flow_dissector
+Date: Tue, 12 May 2015 14:56:15 +0200
+Message-ID: <1431435381-7164-10-git-send-email-jiri@resnulli.us>
 References: <1431435381-7164-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	jesse@nicira.com, kaber@trash.net, tom@herbertland.com,
@@ -11,132 +11,166 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:36799 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932892AbbELM45 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 08:56:57 -0400
-Received: by wizk4 with SMTP id k4so152367998wiz.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 05:56:56 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:36196 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932992AbbELM5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 08:57:11 -0400
+Received: by wizk4 with SMTP id k4so152377487wiz.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 05:57:09 -0700 (PDT)
 In-Reply-To: <1431435381-7164-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-__skb_tx_hash function has no relation to flow_dissect so just move it
-to dev.c
+Introduce dissector infrastructure which allows user to specify which
+parts of skb he wants to dissect.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h |  3 +++
- include/linux/skbuff.h    |  3 ---
- net/core/dev.c            | 28 ++++++++++++++++++++++++++++
- net/core/flow_dissector.c | 28 ----------------------------
- 4 files changed, 31 insertions(+), 31 deletions(-)
+ include/net/flow_dissector.h | 61 ++++++++++++++++++++++++++++++++++++++++++++
+ net/core/flow_dissector.c    | 48 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 109 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a6d706b..662b55f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2847,6 +2847,9 @@ static inline int netif_set_xps_queue(struct net_device *dev,
- }
- #endif
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index e4ee761..20239e8 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -1,6 +1,64 @@
+ #ifndef _NET_FLOW_DISSECTOR_H
+ #define _NET_FLOW_DISSECTOR_H
  
-+u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
-+		  unsigned int num_tx_queues);
-+
- /*
-  * Returns a Tx hash for the given packet when dev->real_num_tx_queues is used
-  * as a distribution range limit for the returned value.
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 55677e9..bc207d4 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3298,9 +3298,6 @@ static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
- 	return skb->queue_mapping != 0;
- }
- 
--u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
--		  unsigned int num_tx_queues);
--
- static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
- {
- #ifdef CONFIG_XFRM
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e5f77c4..3e7838f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2350,6 +2350,34 @@ void netif_device_attach(struct net_device *dev)
- }
- EXPORT_SYMBOL(netif_device_attach);
- 
-+/*
-+ * Returns a Tx hash based on the given packet descriptor a Tx queues' number
-+ * to be used as a distribution range.
++/**
++ * struct flow_dissector_key_basic:
++ * @thoff: Transport header offset
++ * @n_proto: Network header protocol (eg. IPv4/IPv6)
++ * @ip_proto: Transport header protocol (eg. TCP/UDP)
 + */
-+u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
-+		  unsigned int num_tx_queues)
-+{
-+	u32 hash;
-+	u16 qoffset = 0;
-+	u16 qcount = num_tx_queues;
++struct flow_dissector_key_basic {
++	u16	thoff;
++	__be16	n_proto;
++	u8	ip_proto;
++};
 +
-+	if (skb_rx_queue_recorded(skb)) {
-+		hash = skb_get_rx_queue(skb);
-+		while (unlikely(hash >= num_tx_queues))
-+			hash -= num_tx_queues;
-+		return hash;
-+	}
++/**
++ * struct flow_dissector_key_addrs:
++ * @src: source ip address in case of IPv4
++ *	 For IPv6 it contains 32bit hash of src address
++ * @dst: destination ip address in case of IPv4
++ *	 For IPv6 it contains 32bit hash of dst address
++ */
++struct flow_dissector_key_addrs {
++	/* (src,dst) must be grouped, in the same way than in IP header */
++	__be32 src;
++	__be32 dst;
++};
 +
-+	if (dev->num_tc) {
-+		u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
-+		qoffset = dev->tc_to_txq[tc].offset;
-+		qcount = dev->tc_to_txq[tc].count;
-+	}
++/**
++ * flow_dissector_key_tp_ports:
++ *	@ports: port numbers of Transport header
++ *		port16[0]: src port number
++ *		port16[1]: dst port number
++ */
++struct flow_dissector_key_ports {
++	union {
++		__be32 ports;
++		__be16 port16[2];
++	};
++};
 +
-+	return (u16) reciprocal_scale(skb_get_hash(skb), qcount) + qoffset;
-+}
-+EXPORT_SYMBOL(__skb_tx_hash);
++enum flow_dissector_key_id {
++	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
++	FLOW_DISSECTOR_KEY_IPV4_ADDRS, /* struct flow_dissector_key_addrs */
++	FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS, /* struct flow_dissector_key_addrs */
++	FLOW_DISSECTOR_KEY_PORTS, /* struct flow_dissector_key_ports */
 +
- static void skb_warn_bad_offload(const struct sk_buff *skb)
- {
- 	static const netdev_features_t null_features = 0;
++	FLOW_DISSECTOR_KEY_MAX,
++};
++
++struct flow_dissector_key {
++	enum flow_dissector_key_id key_id;
++	size_t offset; /* offset of struct flow_dissector_key_*
++			  in target the struct */
++};
++
++struct flow_dissector {
++	unsigned int used_keys; /* each bit repesents presence of one key id */
++	unsigned short int offset[FLOW_DISSECTOR_KEY_MAX];
++};
++
+ /* struct flow_keys:
+  *	@src: source ip address in case of IPv4
+  *	      For IPv6 it contains 32bit hash of src address
+@@ -27,6 +85,9 @@ struct flow_keys {
+ 	u8	ip_proto;
+ };
+ 
++void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
++			     const struct flow_dissector_key *key,
++			     unsigned int key_count);
+ bool __skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow,
+ 			void *data, __be16 proto, int nhoff, int hlen);
+ 
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 0d9bc3a..07ca11d 100644
+index d885e28..6883e22 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -371,34 +371,6 @@ __u32 skb_get_hash_perturb(const struct sk_buff *skb, u32 perturb)
- }
- EXPORT_SYMBOL(skb_get_hash_perturb);
+@@ -1,3 +1,4 @@
++#include <linux/kernel.h>
+ #include <linux/skbuff.h>
+ #include <linux/export.h>
+ #include <linux/ip.h>
+@@ -15,6 +16,53 @@
+ #include <net/flow_dissector.h>
+ #include <scsi/fc/fc_fcoe.h>
  
--/*
-- * Returns a Tx hash based on the given packet descriptor a Tx queues' number
-- * to be used as a distribution range.
-- */
--u16 __skb_tx_hash(const struct net_device *dev, struct sk_buff *skb,
--		  unsigned int num_tx_queues)
--{
--	u32 hash;
--	u16 qoffset = 0;
--	u16 qcount = num_tx_queues;
--
--	if (skb_rx_queue_recorded(skb)) {
--		hash = skb_get_rx_queue(skb);
--		while (unlikely(hash >= num_tx_queues))
--			hash -= num_tx_queues;
--		return hash;
--	}
--
--	if (dev->num_tc) {
--		u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
--		qoffset = dev->tc_to_txq[tc].offset;
--		qcount = dev->tc_to_txq[tc].count;
--	}
--
--	return (u16) reciprocal_scale(skb_get_hash(skb), qcount) + qoffset;
--}
--EXPORT_SYMBOL(__skb_tx_hash);
--
- u32 __skb_get_poff(const struct sk_buff *skb, void *data,
- 		   const struct flow_keys *keys, int hlen)
- {
++static bool skb_flow_dissector_uses_key(struct flow_dissector *flow_dissector,
++					enum flow_dissector_key_id key_id)
++{
++	return flow_dissector->used_keys & (1 << key_id);
++}
++
++static void skb_flow_dissector_set_key(struct flow_dissector *flow_dissector,
++				       enum flow_dissector_key_id key_id)
++{
++	flow_dissector->used_keys |= (1 << key_id);
++}
++
++static void *skb_flow_dissector_target(struct flow_dissector *flow_dissector,
++				       enum flow_dissector_key_id key_id,
++				       void *target_container)
++{
++	return ((char *) target_container) + flow_dissector->offset[key_id];
++}
++
++void skb_flow_dissector_init(struct flow_dissector *flow_dissector,
++			     const struct flow_dissector_key *key,
++			     unsigned int key_count)
++{
++	unsigned int i;
++
++	memset(flow_dissector, 0, sizeof(*flow_dissector));
++
++	for (i = 0; i < key_count; i++, key++) {
++		/* User should make sure that every key target offset is withing
++		 * boundaries of unsigned short.
++		 */
++		BUG_ON(key->offset > USHRT_MAX);
++		BUG_ON(skb_flow_dissector_uses_key(flow_dissector,
++						   key->key_id));
++
++		skb_flow_dissector_set_key(flow_dissector, key->key_id);
++		flow_dissector->offset[key->key_id] = key->offset;
++	}
++
++	/* Ensure that the dissector always includes basic key. That way
++	 * we are able to avoid handling lack of it in fast path.
++	 */
++	BUG_ON(!skb_flow_dissector_uses_key(flow_dissector,
++					    FLOW_DISSECTOR_KEY_BASIC));
++}
++EXPORT_SYMBOL(skb_flow_dissector_init);
++
+ /* copy saddr & daddr, possibly using 64bit load/store
+  * Equivalent to :	flow->src = iph->saddr;
+  *			flow->dst = iph->daddr;
 -- 
 2.4.0
