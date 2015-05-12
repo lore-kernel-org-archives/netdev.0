@@ -1,8 +1,8 @@
 From: Joao Martins <joao.martins@neclab.eu>
-Subject: [RFC PATCH 11/13] xen-netfront: feature-persistent
-	xenbus support
-Date: Tue, 12 May 2015 19:18:35 +0200
-Message-ID: <1431451117-70051-12-git-send-email-joao.martins@neclab.eu>
+Subject: [RFC PATCH 12/13] xen-netfront: implement TX persistent
+	grants
+Date: Tue, 12 May 2015 19:18:36 +0200
+Message-ID: <1431451117-70051-13-git-send-email-joao.martins@neclab.eu>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,61 +23,106 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-"feature-persistent" check on xenbus for persistent grants
-support on the backend.
+Instead of grant/revoking the buffer related to the skb, it will use
+an already granted page and memcpy  to it. The grants will be mapped
+by xen-netback and reused overtime, but only unmapped when the vif
+disconnects, as opposed to every packet.
+
+This only happens if the backend supports persistent grants since it
+would, otherwise, introduce the overhead of a memcpy on top of the
+grant map.
 
 Signed-off-by: Joao Martins <joao.martins@neclab.eu>
 ---
- drivers/net/xen-netfront.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ drivers/net/xen-netfront.c | 45 ++++++++++++++++++++++++++++++---------------
+ 1 file changed, 30 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 99c17c9..7f44cc7 100644
+index 7f44cc7..ae0a13b 100644
 --- a/drivers/net/xen-netfront.c
 +++ b/drivers/net/xen-netfront.c
-@@ -162,6 +162,8 @@ struct netfront_info {
- 	struct netfront_stats __percpu *tx_stats;
+@@ -408,6 +408,7 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
+ 	RING_IDX cons, prod;
+ 	unsigned short id;
+ 	struct sk_buff *skb;
++	unsigned use_persistent_gnts = queue->info->feature_persistent;
  
- 	atomic_t rx_gso_checksum_fixup;
+ 	BUG_ON(!netif_carrier_ok(queue->info->netdev));
+ 
+@@ -425,13 +426,16 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
+ 			id  = txrsp->id;
+ 			skb = queue->tx_skbs[id].skb;
+ 
+-			release_grant(queue->grant_tx[id].ref,
+-				      &queue->gref_tx_head,
+-				      queue->info->xbdev->otherend_id,
+-				      GNTMAP_readonly);
++			if (!use_persistent_gnts) {
++				release_grant(queue->grant_tx[id].ref,
++					      &queue->gref_tx_head,
++					      queue->info->xbdev->otherend_id,
++					      GNTMAP_readonly);
 +
-+	unsigned int feature_persistent:1;
- };
++				queue->grant_tx[id].ref = GRANT_INVALID_REF;
++				queue->grant_tx[id].page = NULL;
++			}
  
- struct netfront_rx_info {
-@@ -1919,6 +1921,12 @@ again:
- 		goto abort_transaction;
+-			queue->grant_tx[id].ref = GRANT_INVALID_REF;
+-			queue->grant_tx[id].page = NULL;
+ 			add_id_to_freelist(&queue->tx_skb_freelist, queue->tx_skbs, id);
+ 			dev_kfree_skb_irq(skb);
+ 		}
+@@ -460,23 +464,31 @@ static struct xen_netif_tx_request *xennet_make_one_txreq(
+ {
+ 	unsigned int id;
+ 	struct xen_netif_tx_request *tx;
+-	grant_ref_t ref;
++	struct grant *gnt;
+ 
+ 	len = min_t(unsigned int, PAGE_SIZE - offset, len);
+ 
+ 	id = get_id_from_freelist(&queue->tx_skb_freelist, queue->tx_skbs);
+ 	tx = RING_GET_REQUEST(&queue->tx, queue->tx.req_prod_pvt++);
+-	ref = claim_grant(page,
+-			  &queue->gref_tx_head,
+-			  queue->info->xbdev->otherend_id,
+-			  GNTMAP_readonly);
++	gnt = &queue->grant_tx[id];
++
++	if (queue->info->feature_persistent)
++		memcpy(pfn_to_kaddr(page_to_pfn(gnt->page)) + offset,
++		       pfn_to_kaddr(page_to_pfn(page)) + offset,
++		       len);
++	else
++		gnt->page = page;
++
++	if (gnt->ref == GRANT_INVALID_REF)
++		gnt->ref = claim_grant(gnt->page,
++				       &queue->gref_tx_head,
++				       queue->info->xbdev->otherend_id,
++				       GNTMAP_readonly);
+ 
+ 	queue->tx_skbs[id].skb = skb;
+-	queue->grant_tx[id].page = page;
+-	queue->grant_tx[id].ref = ref;
+ 
+ 	tx->id = id;
+-	tx->gref = ref;
++	tx->gref = gnt->ref;
+ 	tx->offset = offset;
+ 	tx->size = len;
+ 	tx->flags = 0;
+@@ -1610,7 +1622,10 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 	for (i = 0; i < NET_TX_RING_SIZE; i++) {
+ 		skb_entry_set_link(&queue->tx_skbs[i], i+1);
+ 		queue->grant_tx[i].ref = GRANT_INVALID_REF;
+-		queue->grant_tx[i].page = NULL;
++		if (queue->info->feature_persistent)
++			queue->grant_tx[i].page = alloc_page(GFP_NOIO);
++		else
++			queue->grant_tx[i].page = NULL;
  	}
  
-+	err = xenbus_write(xbt, dev->nodename, "feature-persistent", "1");
-+	if (err) {
-+		message = "writing feature-persistent";
-+		goto abort_transaction;
-+	}
-+
- 	err = xenbus_transaction_end(xbt, 0);
- 	if (err) {
- 		if (err == -EAGAIN)
-@@ -1950,6 +1958,7 @@ static int xennet_connect(struct net_device *dev)
- 	unsigned int num_queues = 0;
- 	int err;
- 	unsigned int feature_rx_copy;
-+	unsigned int feature_persistent;
- 	unsigned int j = 0;
- 	struct netfront_queue *queue = NULL;
- 
-@@ -1964,6 +1973,13 @@ static int xennet_connect(struct net_device *dev)
- 		return -ENODEV;
- 	}
- 
-+	err = xenbus_gather(XBT_NIL, np->xbdev->otherend,
-+			    "feature-persistent", "%u", &feature_persistent,
-+			    NULL);
-+	if (err)
-+		feature_persistent = 0;
-+	np->feature_persistent = !!feature_persistent;
-+
- 	err = talk_to_netback(np->xbdev, np);
- 	if (err)
- 		return err;
+ 	/* Clear out rx_skbs */
 -- 
 2.1.3
