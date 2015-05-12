@@ -1,37 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netns: return RTM_NEWNSID instead of RTM_GETNSID
- on a get
-Date: Tue, 12 May 2015 18:54:15 -0400 (EDT)
-Message-ID: <20150512.185415.1721060646638002254.davem@davemloft.net>
-References: <1431352651-31921-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 4/4] netconsole: implement extended console support
+Date: Tue, 12 May 2015 19:23:22 -0400 (EDT)
+Message-ID: <20150512.192322.2233784105592482987.davem@davemloft.net>
+References: <1431362494-9874-5-git-send-email-tj@kernel.org>
+	<20150511.132339.403868463230045095.davem@davemloft.net>
+	<20150511203745.GI11388@htj.duckdns.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47756 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751379AbbELWyQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 18:54:16 -0400
-In-Reply-To: <1431352651-31921-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
+	sd@queasysnail.net
+To: tj@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150511203745.GI11388@htj.duckdns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Mon, 11 May 2015 15:57:31 +0200
+From: Tejun Heo <tj@kernel.org>
+Date: Mon, 11 May 2015 16:37:45 -0400
 
-> Usually, RTM_NEWxxx is returned on a get (same as a dump).
+> The current code does produce the latter outcome.
 > 
-> Fixes: 0c7aecd4bde4 ("netns: add rtnl cmd to add and get peer netns ids")
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
+> 	header = msg;
+> 	body = memchr(msg, ';', msg_len);
+> 	if (WARN_ON_ONCE(!body))
+> 		return;
 > 
-> David, FYI, this patch will conflict with my last series on net-next.
-> The prototype of rtnl_net_fill() has changed. In any problem, please let me
-> know.
+> 	header_len = body - header;
+> 	body_len = msg_len - header_len - 1;
+> 	body++;
+> 
+> @body points to ';' after memchr(), so @header_len doesn't include
+> ';'.  @body is incremented after calculating @header_len.
 
-Applied, thanks Nicolas.
+Ok, thanks for explaining, it is clear to me now.
 
-I'll sort out the conflict when I next do a merge, thanks for the heads
-up.
+Second question, is there an upper bound on this header size?
+
+Because if there is, it seems to me that there is no reason why we
+can't just avoid the fragmentation support altogether.
+
+The current code limits to 1000 bytes, and that limit seems arbitrary.
+Obviously this code is meant to work on interfaces with an ethernet
+MTU or larger.  So you could bump the limit enough to accomodate the
+new header size, yet still be within the real constraints.
+
+What do you think?
