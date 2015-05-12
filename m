@@ -1,62 +1,88 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 3/5] net: Add VLAN ID to flow_keys
-Date: Mon, 11 May 2015 20:26:42 -0700
-Message-ID: <1431401204-731380-4-git-send-email-tom@herbertland.com>
+Subject: [PATCH v2 net-next 4/5] net: Add IPv6 flow label to flow_keys
+Date: Mon, 11 May 2015 20:26:43 -0700
+Message-ID: <1431401204-731380-5-git-send-email-tom@herbertland.com>
 References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58766 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752415AbbELD1w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 23:27:52 -0400
-Received: from pps.filterd (m0044010 [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4C3Oruh009037
-	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:52 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:17142 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752463AbbELD1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 23:27:55 -0400
+Received: from pps.filterd (m0004003 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4C3OCCr005772
+	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:54 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 1ub428gh62-1
+	by mx0b-00082601.pphosted.com with ESMTP id 1ub5fsgp7j-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:51 -0700
+	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:54 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
  mx-out.facebook.com (10.212.236.87) with ESMTP	id
- ddda056cf85611e4bf310002c9521c9e-cbade1e0 for <netdev@vger.kernel.org>;	Mon,
- 11 May 2015 20:27:50 -0700
+ df62142ef85611e4bf310002c9521c9e-cbade1e0 for <netdev@vger.kernel.org>;	Mon,
+ 11 May 2015 20:27:52 -0700
 In-Reply-To: <1431401204-731380-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In flow_dissector set vlan_id in flow_keys when VLAN is found.
+In flow_dissector set the flow label in flow_keys for IPv6. This also
+removes the shortcircuiting of flow dissection when a non-zero label
+is present, the flow label can be considered to provide additional
+entropy for a hash.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/flow_keys.h   | 1 +
- net/core/flow_dissector.c | 1 +
- 2 files changed, 2 insertions(+)
+ include/net/flow_keys.h   |  3 ++-
+ net/core/flow_dissector.c | 15 +--------------
+ 2 files changed, 3 insertions(+), 15 deletions(-)
 
 diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index c8bc6aa..14298e2 100644
+index 14298e2..906d47a 100644
 --- a/include/net/flow_keys.h
 +++ b/include/net/flow_keys.h
-@@ -26,6 +26,7 @@ struct flow_keys {
+@@ -26,7 +26,8 @@ struct flow_keys {
  	__be16	n_proto;
  	u8	ip_proto;
  	u8	padding;
-+	u32	vlan_id:12;
+-	u32	vlan_id:12;
++	u32	vlan_id:12,
++		flow_label:20;
  
  	union {
  		__be32 ports;
 diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 69fbaf9..148b989 100644
+index 148b989..de71e42 100644
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -143,6 +143,7 @@ ipv6:
- 		if (!vlan)
- 			return false;
+@@ -102,7 +102,6 @@ ip:
+ 	case htons(ETH_P_IPV6): {
+ 		const struct ipv6hdr *iph;
+ 		struct ipv6hdr _iph;
+-		__be32 flow_label;
  
-+		flow->vlan_id = skb_vlan_tag_get_id(skb);
- 		proto = vlan->h_vlan_encapsulated_proto;
- 		nhoff += sizeof(*vlan);
- 		goto again;
+ ipv6:
+ 		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
+@@ -118,19 +117,7 @@ ipv6:
+ 
+ 		iph_to_flow_copy_v6addrs(flow, iph);
+ 
+-		flow_label = ip6_flowlabel(iph);
+-		if (flow_label) {
+-			/* Awesome, IPv6 packet has a flow label so we can
+-			 * use that to represent the ports without any
+-			 * further dissection.
+-			 */
+-			flow->n_proto = proto;
+-			flow->ip_proto = ip_proto;
+-			flow->ports = flow_label;
+-			flow->thoff = (u16)nhoff;
+-
+-			return true;
+-		}
++		flow->flow_label = ntohl(ip6_flowlabel(iph));
+ 
+ 		break;
+ 	}
 -- 
 1.8.1
