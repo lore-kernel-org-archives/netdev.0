@@ -1,53 +1,34 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: [PATCH] brcmfmac: avoid gcc-5.1 warning
-Date: Tue, 12 May 2015 23:54:25 +0200
-Message-ID: <2201884.BixNBcLJhn@wuerfel>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v1 4/7] amd-xgbe: Move the PHY support into amd-xgbe
+Date: Tue, 12 May 2015 15:19:55 -0700
+Message-ID: <55527C8B.1040105@gmail.com>
+References: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net> <20150512192254.14091.4167.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arend Van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:34800 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753915AbbELWUQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 18:20:16 -0400
+Received: by pdbqa5 with SMTP id qa5so28986076pdb.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 15:20:16 -0700 (PDT)
+In-Reply-To: <20150512192254.14091.4167.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-gcc-5.0 gained a new warning in the fwsignal portion of the brcmfmac
-driver:
+On 12/05/15 12:22, Tom Lendacky wrote:
+> The AMD XGBE device is intended to work with a specific integrated PHY
+> and that PHY is not meant to be a standalone PHY for use by other
+> devices. As such this patch removes the phylib driver and implements
+> the PHY support in the amd-xgbe driver (the majority of the logic from
+> the phylib driver is moved into the amd-xgbe driver).
 
-drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c: In function 'brcmf_fws_txs_process':
-drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c:1478:8: warning: 'skb' may be used uninitialized in this function [-Wmaybe-uninitialized]
-
-This is a false positive, and marking the brcmf_fws_hanger_poppkt function
-as 'static inline' makes the warning go away. I have checked the object
-file output and while a little code gets moved around, the size of
-the binary remains identical.
-
-Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
----
-Found while building the ARM imx_v6_v7_defconfig configuration with gcc-5.
-We try to get all ARM defconfigs to build without warnings normally.
-
-diff --git a/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c b/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c
-index f0dda0ecd23b..5017eaa4af45 100644
---- a/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c
-+++ b/drivers/net/wireless/brcm80211/brcmfmac/fwsignal.c
-@@ -635,7 +635,7 @@ static int brcmf_fws_hanger_pushpkt(struct brcmf_fws_hanger *h,
- 	return 0;
- }
- 
--static int brcmf_fws_hanger_poppkt(struct brcmf_fws_hanger *h,
-+static inline int brcmf_fws_hanger_poppkt(struct brcmf_fws_hanger *h,
- 					  u32 slot_id, struct sk_buff **pktout,
- 					  bool remove_item)
- {
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Did not you submit a similar patch a while ago and David asked to keep
+the PHY driver separate? Even though the internal PHY driver might not
+be reusable on another platform, having your Ethernet driver implement a
+PHY library driver seems like a potential layering issue.
+-- 
+Florian
