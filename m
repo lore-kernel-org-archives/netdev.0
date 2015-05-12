@@ -1,57 +1,81 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] net: macb: OR vs AND typos
-Date: Tue, 12 May 2015 21:15:24 +0300
-Message-ID: <20150512181524.GE5672@mwanda>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v3 for-next 01/13] IB/core: Use SRCU when reading
+ client_list or device_list
+Date: Tue, 12 May 2015 12:23:32 -0600
+Message-ID: <20150512182332.GD15891@obsidianresearch.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-2-git-send-email-haggaie@mellanox.com>
+ <20150511181824.GA25405@obsidianresearch.com>
+ <555198B7.40302@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Harini Katakam <harini.katakam@xilinx.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+To: Haggai Eran <haggaie@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:37316 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933003AbbELSXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 14:23:34 -0400
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <555198B7.40302@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The bitwise tests are always true here because it uses '|' where '&' is
-intended.
+On Tue, May 12, 2015 at 09:07:51AM +0300, Haggai Eran wrote:
+> > I'm not sure RCU is the right way to approach this. The driver core
+> > has the same basic task to perform, maybe review it's locking
+> > arrangment between the device list and driver list.
+> > 
+> > [Actually we probably should be using the driver core here, with IB
+> >  clients as device drivers, but that is way beyond scope of this..]
+> 
+> So, I'm not very familiar with that code, but it seems that the main
+> difference is that in the core a single driver can be attached to a
+> device. 
 
-Fixes: 98b5a0f4a228 ('net: macb: Add support for jumbo frames')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Roughly, a bus (IB would be a bus) has devices attached to it, and
+devices have drivers attached to them. Bus:Device is 1:N,
+Device:Drvier is 1:1. 
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index e7c10b0..5fca309 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1644,7 +1644,7 @@ static void macb_init_hw(struct macb *bp)
- 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
- 	config |= MACB_BIT(PAE);		/* PAuse Enable */
- 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
--	if (bp->caps | MACB_CAPS_JUMBO)
-+	if (bp->caps & MACB_CAPS_JUMBO)
- 		config |= MACB_BIT(JFRAME);	/* Enable jumbo frames */
- 	else
- 		config |= MACB_BIT(BIG);	/* Receive oversized frames */
-@@ -1656,12 +1656,12 @@ static void macb_init_hw(struct macb *bp)
- 		config |= MACB_BIT(NBC);	/* No BroadCast */
- 	config |= macb_dbw(bp);
- 	macb_writel(bp, NCFGR, config);
--	if ((bp->caps | MACB_CAPS_JUMBO) && bp->jumbo_max_len)
-+	if ((bp->caps & MACB_CAPS_JUMBO) && bp->jumbo_max_len)
- 		gem_writel(bp, JML, bp->jumbo_max_len);
- 	bp->speed = SPEED_10;
- 	bp->duplex = DUPLEX_HALF;
- 	bp->rx_frm_len_mask = MACB_RX_FRMLEN_MASK;
--	if (bp->caps | MACB_CAPS_JUMBO)
-+	if (bp->caps & MACB_CAPS_JUMBO)
- 		bp->rx_frm_len_mask = MACB_RX_JFRMLEN_MASK;
- 
- 	macb_configure_dma(bp);
-@@ -1875,7 +1875,7 @@ static int macb_change_mtu(struct net_device *dev, int new_mtu)
- 		return -EBUSY;
- 
- 	max_mtu = ETH_DATA_LEN;
--	if (bp->caps | MACB_CAPS_JUMBO)
-+	if (bp->caps & MACB_CAPS_JUMBO)
- 		max_mtu = gem_readl(bp, JML) - ETH_HLEN - ETH_FCS_LEN;
- 
- 	if ((new_mtu > max_mtu) || (new_mtu < GEM_MTU_MIN_SIZE))
+There a a couple of reasons to be interested in re-using the driver
+core, perhaps the best is that it has all the infrastructure to let us
+auto-load client modules...
+
+> I guess a similar thing we can do is to rely on the context we associate
+> with a pair of a client and a device. If such a context exist, we don't
+> need to call client->add again. What do you think?
+
+I didn't look closely, isn't this enough?
+
+device_register:
+ mutex_lock(client_mutex);
+ down_write(devices_rwsem);
+ list_add(device_list,dev,..);
+ up_write(devices_rwsem);
+
+ /* Caller must prevent device_register/unregister concurrancy on the
+    same dev */
+
+ foreach(client_list)
+   .. client->add(dev,...) .. 
+
+ mutex_unlock(client_mutex)
+
+client_register:
+ mutex_lock(client_mutex)
+ list_add(client_list,new_client..)
+ down_read(devices_rwsem);
+ foreach(device_list)
+   .. client->add(dev,new_client,..) ..
+ up_read(devices_rwsem);
+ mutex_unlock(client_mutex)
+
+[Note, I didn't check this carefully, just intuitively seems like a
+ sane starting point]
+
+Jason
