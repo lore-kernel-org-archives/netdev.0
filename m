@@ -1,41 +1,44 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH iproute2] ip route: should show the hoplimit value what kernel returns
-Date: Tue, 12 May 2015 13:32:47 +0800
-Message-ID: <1431408767-15917-1-git-send-email-liuhangbin@gmail.com>
-Cc: Ulrich Weber <uweber@astaro.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Hangbin Liu <liuhangbin@gmail.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: [PATCH] net: ll_temac: Fix DMA map size bug
+Date: Tue, 12 May 2015 07:58:22 +0200
+Message-ID: <d76f13c52ce740544e8fac27f2a5904b9537a226.1431410298.git.michal.simek@xilinx.com>
+Cc: =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+	monstr@monstr.eu, Fabian Frederick <fabf@skynet.be>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>,
+	Julia Lawall <julia.lawall@lip6.fr>,
+	Markus Elfring <elfring@users.sourceforge.net>,
+	Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
+	linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53695 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752521AbbELFdC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 01:33:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-1. Kernel commit a02e4b7 set the default hoplimit as zero.
-2. Kernel should return the correct values and iproute should show what kernel
-returns, not invent magic transformations.
+DMA allocates skb->len instead of headlen
+which is used for DMA.
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
- ip/iproute.c | 3 ---
- 1 file changed, 3 deletions(-)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 670a4c6..569bff9 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -579,9 +579,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 				print_rtax_features(fp, val);
- 				break;
- 			case RTAX_HOPLIMIT:
--				if ((int)val == -1)
--					val = 0;
--				/* fall through */
- 			default:
- 				fprintf(fp, " %u", val);
- 				break;
+ drivers/net/ethernet/xilinx/ll_temac_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index ca640d04fd93..cfb6bdb37fdc 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -705,8 +705,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	cur_p->app0 |= STS_CTRL_APP0_SOP;
+ 	cur_p->len = skb_headlen(skb);
+-	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data, skb->len,
+-				     DMA_TO_DEVICE);
++	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data,
++				skb_headlen(skb), DMA_TO_DEVICE);
+ 	cur_p->app4 = (unsigned long)skb;
+ 
+ 	for (ii = 0; ii < num_frag; ii++) {
 -- 
-1.9.3
+2.3.5
