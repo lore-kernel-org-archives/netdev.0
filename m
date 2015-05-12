@@ -1,85 +1,117 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: RE: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
-Date: Tue, 12 May 2015 10:58:19 -0500
-Message-ID: <006C93D3-B9F6-44C9-8D1E-DA95E38BD0A6@xmission.com>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com> <87wq0kcqlm.fsf@x220.int.ebiederm.org> <20150508140733.GA13325@gondor.apana.org.au> <87sib76kef.fsf@x220.int.ebiederm.org> <20150509011339.GA19116@gondor.apana.org.au> <87383633pu.fsf_-_@x220.int.ebiederm.org> <87oalu1p16.fsf_-_@x220.int.ebiederm.org> <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com> <110296A8-1CC9-456C-B126-50C90D4E3E17@xmission.com> <063D6719AE5E284EB5DD2968C1650D6D1CB33707@AcuExch.aculab.com> <5551F205.1080707@6wind.com> <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net v3] rtnl/bond: don't send rtnl msg for unregistered
+ iface
+Date: Tue, 12 May 2015 17:58:42 +0200
+Message-ID: <20150512155842.GA2081@nanopsycho>
+References: <555216DA.3020105@6wind.com>
+ <1431443865-4327-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ying Xue <ying.xue@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"cwang@twopensource.com" <cwang@twopensource.com>,
-	"xemul@openvz.org" <xemul@openvz.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"tom@herbertland.com" <tom@herbertland.com>,
-	"jchapman@katalix.com" <jchapman@katalix.com>,
-	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
-	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
-	"horms@verge.net.au" <horms@verge.net.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"'nicolas.dichtel@6wind.com'" <nicolas.dichtel@6wind.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:55060 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753454AbbELP6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:58:31 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:36149 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753175AbbELP6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:58:49 -0400
+Received: by wggj6 with SMTP id j6so15121371wgg.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:58:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1431443865-4327-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On May 12, 2015 8:16:23 AM CDT, David Laight <David.Laight@ACULAB.COM> =
-wrote:
->From: Nicolas Dichtel [mailto:nicolas.dichtel@6wind.com]
->> Sent: 12 May 2015 13:29
->> Le 12/05/2015 13:48, David Laight a =C3=A9crit :
->> > From: Eric W. Biederman
->> >> Sent: 12 May 2015 09:55
->> >>
->> >> On May 12, 2015 3:24:11 AM CDT, David Laight
-><David.Laight@ACULAB.COM> wrote:
->> > ...
->> >>> Wouldn't it involve far less churn to add a new function that
->uses a
->> >>> non-default namespace?
->> >>
->> >> The goal is comprehensible and maintainable kernel code.
->> >>
->> >> Which network namespace your socket is in, is an important
->property and something you probably care
->> >> about if you are creating kernel sockets.
->> >
->> > That rather depends on whether you've anywhere to get a namespace
->from.
->> > eg something like ceph/messenger.c
->> sk_net(con->sock->sk)?
+Tue, May 12, 2015 at 05:17:45PM CEST, nicolas.dichtel@6wind.com wrote:
+>Before the patch, the command 'ip link add bond2 type bond mode 802.3ad'
+>causes the kernel to send a rtnl message for the bond2 interface, with an
+>ifindex 0.
 >
->What if you don't already have a socket?
->Just an IP(v6) address ?
+>'ip monitor' shows:
+>0: bond2: <BROADCAST,MULTICAST,MASTER> mtu 1500 state DOWN group default
+>    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+>9: bond2@NONE: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN group default
+>    link/ether ea:3e:1f:53:92:7b brd ff:ff:ff:ff:ff:ff
+>[snip]
 >
->> This parameter is essential, hiding it will just hides bugs.
->> Having this parameter forces the developer to ask himself what is th=
-e
->best
->> value.
+>First, nobody seems to care about NETDEV_CHANGEINFODATA (commit
+>d4261e565000 says that it was put only to notify userspace). Hence, we can
+>call directly rtmsg_ifinfo().
+
+Please leave this notifier here. Will be needed in very near future for
+LAG offloading purposes.
+
+
+
+>Secondly, prevent in rtmsg_ifinfo() to send notifications to userspace
+>about unregistered interfaces.
+
+I'm not sure about this. Why caller of rtmsg_ifinfo don't take care of
+it? Seems more logical to me.
+
+
 >
->What if the answer is 'NFI'?
->Which requires the answer be pushed back to the 'application'
->configuration?
->Most users will have no idea either.
-
-current->nsproxy->netns.
-
-Capture it at mount time.  Call get_net then and put_net after you have=
- cleaned up during unmount.
-
-Not hard, and the parameter is doing what it is supposed to be doing ge=
-tting you to ask the question, and realize there is an unhandled issue.
-
-Eric
+>Fixes: d4261e565000 ("bonding: create netlink event when bonding option is changed")
+>CC: Jiri Pirko <jiri@resnulli.us>
+>Reported-by: Julien Meunier <julien.meunier@6wind.com>
+>Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>---
+>
+>v3: move reg_state check in rtmsg_ifinfo()
+>
+>v2: check dev->reg_state instead of ifindex
+>    call rtmsg_ifinfo() directly in __bond_opt_set()
+>
+>There is about 20 occurences of "dev->reg_state .= NETREG_REGISTERED".
+>I will send a patch on net-next to introduce an helper for this when net
+>will be merged with this patch in net-next.
+>
+> drivers/net/bonding/bond_options.c | 2 +-
+> include/linux/netdevice.h          | 3 +--
+> net/core/rtnetlink.c               | 3 +++
+> 3 files changed, 5 insertions(+), 3 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+>index 4df28943d222..a2b72cc0e3e8 100644
+>--- a/drivers/net/bonding/bond_options.c
+>+++ b/drivers/net/bonding/bond_options.c
+>@@ -625,7 +625,7 @@ out:
+> 	if (ret)
+> 		bond_opt_error_interpret(bond, opt, ret, val);
+> 	else
+>-		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
+>+		rtmsg_ifinfo(RTM_NEWLINK, bond->dev, 0, GFP_KERNEL);
+> 
+> 	return ret;
+> }
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 1899c74a7127..c040d48925fd 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -2069,8 +2069,7 @@ struct pcpu_sw_netstats {
+> #define NETDEV_CHANGEUPPER	0x0015
+> #define NETDEV_RESEND_IGMP	0x0016
+> #define NETDEV_PRECHANGEMTU	0x0017 /* notify before mtu change happened */
+>-#define NETDEV_CHANGEINFODATA	0x0018
+>-#define NETDEV_BONDING_INFO	0x0019
+>+#define NETDEV_BONDING_INFO	0x0018
+> 
+> int register_netdevice_notifier(struct notifier_block *nb);
+> int unregister_netdevice_notifier(struct notifier_block *nb);
+>diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>index 837d30b5ffed..7b25f1ef3d75 100644
+>--- a/net/core/rtnetlink.c
+>+++ b/net/core/rtnetlink.c
+>@@ -2415,6 +2415,9 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
+> {
+> 	struct sk_buff *skb;
+> 
+>+	if (dev->reg_state != NETREG_REGISTERED)
+>+		return;
+>+
+> 	skb = rtmsg_ifinfo_build_skb(type, dev, change, flags);
+> 	if (skb)
+> 		rtmsg_ifinfo_send(skb, dev, flags);
+>-- 
+>2.2.2
+>
