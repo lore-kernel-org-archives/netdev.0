@@ -1,47 +1,91 @@
-From: Bert Vermeulen <bert@biot.com>
-Subject: Re: [PATCH net-next 0/3] net: phy: broken turn-around support
-Date: Tue, 12 May 2015 22:43:26 +0200
-Message-ID: <555265EE.9000009@biot.com>
-References: <1431442563-10218-1-git-send-email-bert@biot.com> <1431452006-3219-1-git-send-email-f.fainelli@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
+Date: Tue, 12 May 2015 16:46:31 -0400
+Message-ID: <555266A7.8060706@gmail.com>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>	 <1958390.Ugr57PpLDS@h2o.as.studentenwerk.mhn.de>	 <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>	 <1489362.AtetvSCXN1@h2o.as.studentenwerk.mhn.de>	 <5552602E.3060300@gmail.com> <1431462991.566.97.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jogo@openwrt.org
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kiutl.biot.com ([31.172.244.210]:36996 "EHLO kiutl.biot.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932574AbbELUnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 16:43:51 -0400
-Received: from spamd by kiutl.biot.com with sa-checked (Exim 4.83)
-	(envelope-from <bert@biot.com>)
-	id 1YsH1i-0007Ww-A2
-	for netdev@vger.kernel.org; Tue, 12 May 2015 22:43:42 +0200
-In-Reply-To: <1431452006-3219-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Wolfgang Walter <linux@stwm.de>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431462991.566.97.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/12/2015 07:33 PM, Florian Fainelli wrote:
-> Hi all,
+On 05/12/2015 04:36 PM, Eric Dumazet wrote:
+> On Tue, 2015-05-12 at 16:18 -0400, Vlad Yasevich wrote:
+>> On 05/06/2015 06:11 PM, Wolfgang Walter wrote:
+>>> Am Mittwoch, 6. Mai 2015, 11:15:18 schrieben Sie:
+>>>> (Cc'ing netdev.)
+>>>>
+>>>> On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
+>>>>> Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
+>>>>>> Hello,
+>>>>>>
+>>>>>> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with an
+>>>>>> isatap-tunnel.
+>>>>>
+>>>>> I did some further tests. To trigger the crash you need
+>>>>>
+>>>>> * isatap-tunnel (probably any sit-tunnel will do it)
+>>>>> * raw-socket
+>>>>> * udp
+>>>>>
+>>>>> Using icmpv6 or tcp i.e. does not trigger it.
+>>>>
+>>>> Do you have a script to reproduce it?
+>>>>
+>>>>
+>>>> Thanks for the bug report!
+>>>
+>>> You need a isatap-server with say ipv4-address $X
+>>>
+>>> Then, on host with 4.0, start isatapd: isatapd --mtu 1280 $X
+>>>
+>>> then do
+>>>
+>>> 	traceroute6 www.google.de
+>>>
+>>> Regards,
+>>>
+>>
+>> Hi Walter
+>>
+>> Could you try this patch.  Looks like raw passes transhdrlen
+>> of 0 on the first packet and that makes IPv4 behave correctly,
+>> but not IPv6.
+>>
+>>
+>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>> index 7fde1f2..fd9c079 100644
+>> --- a/net/ipv6/ip6_output.c
+>> +++ b/net/ipv6/ip6_output.c
+>> @@ -1278,7 +1278,7 @@ emsgsize:
+>>  	/* If this is the first and only packet and device
+>>  	 * supports checksum offloading, let's use it.
+>>  	 */
+>> -	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
+>> +	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
+>>  	    length + fragheaderlen < mtu &&
+>>  	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+>>  	    !exthdrlen)
 > 
-> This is an attempt at solving the broken turn-around problem in a way that
-> is not specific to the mdio-gpio driver, since it affects different kinds of
-> platforms.
+> And make sure the checksum is correct ;)
 > 
-> We cannot make that localized to PHY device drivers because probing the PHY
-> device which has a broken turn-around can fail as early as in get_phy_id(),
-> therefore we need a bit of help from Device Tree/platform_data.
+> Vlad, can you tell where skb->cum_start and skb->csum_offset are set ?
+> 
+> 
 
-That is indeed a better place to put that ignore-ta flag, and the device
-tree support is of course a big improvement over the previous patch as well.
+For udp, udp6_hwcsum_outgoing(), but with the above patch, the check above will return
+false, and we'll fallback to using CHECKSUM_NONE.
 
-But it's still too big a hammer to hit the AR8316 problem with, I think.
-Just like the previous patch, this disables checking TA on _all_ reads, but
-I really only need it disabled on the first read.
+Before, the !skb was true since there there was no skb on the queue.  Now, that
+we are checking transhdr and raw passing in 0, the check will be false.  This
+is what's making IPv4 work correctly in this case.
 
-Are you saying you've seen other systems with this TA problem? Did those
-have problems after more than just the first read?
-
-
--- 
-Bert Vermeulen        bert@biot.com          email/xmpp
+-vlad
