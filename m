@@ -1,64 +1,51 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [PATCH RFC 0/2] stmmac: stand alone platform drivers
-Date: Tue, 12 May 2015 22:31:11 +0200
-Message-ID: <CAGhQ9Vxx+uLx=EDdHJog3G4RXE-1MJf=Ra2h1TAtaXQtmms_UQ@mail.gmail.com>
-References: <1431022765-30715-1-git-send-email-manabian@gmail.com>
-	<5987007.lq0DjS0tE0@wuerfel>
-	<CAGhQ9Vx0DQf-HcqEiohFLrBJPBe5qYjLgXiH3qGx85fAruh8UQ@mail.gmail.com>
-	<5948526.xNXlKiLpxq@wuerfel>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/2] tcp: tcp_info extensions
+Date: Tue, 12 May 2015 13:31:53 -0700
+Message-ID: <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430260098-14127-1-git-send-email-edumazet@google.com>
+	 <20150512130855.GA29412@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"peppe.cavallaro" <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
+	Chris Rapier <rapier@psc.edu>
+To: Marcelo Ricardo Leitner <mleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:35868 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752621AbbELUbN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 16:31:13 -0400
-Received: by lagv1 with SMTP id v1so14787155lag.3
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 13:31:11 -0700 (PDT)
-In-Reply-To: <5948526.xNXlKiLpxq@wuerfel>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:34564 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752621AbbELUb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 16:31:56 -0400
+Received: by iget9 with SMTP id t9so102973415ige.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 13:31:55 -0700 (PDT)
+In-Reply-To: <20150512130855.GA29412@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12 May 2015 at 21:49, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Tuesday 12 May 2015 19:20:45 Joachim Eastwood wrote:
->>
->> I have now created a generic dt dwmac driver which contain all compat
->> strings that doesn't have any match data. As long as this driver is
->> linked last this works for my built-in drivers configuration. I am not
->> able to test using modules because of my very limited rootfs. This is
->> a Cortex-M system after all.
->>
->> I also converted all the other DT dwmac drivers and the entire patch
->> set can be found on:
->> https://github.com/manabian/linux-lpc
->>
->> After I have done some more cleanups and added proper commit messages
->> I will put them on netdev again.
->>
->>
->
-> Yes, this looks really nice (with the cleanup bits that are obviously
-> missing applied), thanks a lot!
->
-> We should probably try to keep existing defconfig files working,
-> which could be done e.g. like
->
->  config DWMAC_ROCKCHIP
->         tristate "Rockchip dwmac support"
-> +       default ARCH_ROCKCHIP
->         depends on OF
->         select MFD_SYSCON
->
-> so that any configuration that currently has ARCH_ROCKCHIP and DW_MAC
-> enabled ends up with DWMAC_ROCKCHIP enabled as well.
+On Tue, 2015-05-12 at 10:08 -0300, Marcelo Ricardo Leitner wrote:
+> On Tue, Apr 28, 2015 at 03:28:16PM -0700, Eric Dumazet wrote:
+> > As discussed during Chris Rapier presentation in Ottawa / netdev0.1,
+> > we add to tcp_info the first two fields are highly wanted.
+> > 
+> > Each field is added into a single patch for easy code review.
+> > 
+> > (Corresponding iproute2/ss patches will be sent)
+> > 
+> > Next fields will follow once consensus is reached.
+> 
+> Is tcpEStatsPerfSegsOut amongst them? I have a need for this one and can
+> submit a patch if you're not tracking it already.
 
-Ah, yes, indeed. I will add a default statement in the Kconfig of the
-converted drivers.
+Yes, along with tcpEStatsPerfSegsIn
 
-regards,
-Joachim Eastwood
+Because tcp_info is aligned to 64bits, we cannot cook a patch simply
+adding tcpEStatsPerfSegsOut (u32), otherwise we would introduce a hole.
+
+If you can cook the patch adding tcpEStatsPerfSegsOut and
+tcpEStatsPerfSegsIn, I would be very happy to review it.
+
+Thanks !
