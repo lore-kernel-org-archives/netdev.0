@@ -1,73 +1,58 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v3 for-next 05/13] IB/cm: Reference count ib_cm_ids
-Date: Tue, 12 May 2015 12:54:47 -0600
-Message-ID: <20150512185447.GA3503@obsidianresearch.com>
-References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
- <1431253604-9214-6-git-send-email-haggaie@mellanox.com>
- <20150511183459.GB25405@obsidianresearch.com>
- <5551A2CB.1010407@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] Revert "ipv6: Allow for partial checksums on
+ non-ufo packets"
+Date: Tue, 12 May 2015 12:07:38 -0700
+Message-ID: <1431457658.566.91.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>
+	 <1431002384.22756.0.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <12346713.ZyFExCo3ux@h2o.as.studentenwerk.mhn.de>
+	 <2088438.42IY8hjjd5@h2o.as.studentenwerk.mhn.de>
+	 <1431122268.22756.41.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1431123765.22756.51.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <555240F4.4070406@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5551A2CB.1010407-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wolfgang Walter <linux@stwm.de>, netdev <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35150 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751470AbbELTHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 15:07:40 -0400
+Received: by igbyr2 with SMTP id yr2so117743743igb.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 12:07:40 -0700 (PDT)
+In-Reply-To: <555240F4.4070406@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 09:50:51AM +0300, Haggai Eran wrote:
-> >> -void ib_destroy_cm_id(struct ib_cm_id *cm_id)
-> >> +static void __ib_destroy_cm_id(struct kref *ref)
-> >>  {
-> >> +	struct ib_cm_id *cm_id = container_of(ref, struct ib_cm_id, ref);
-> >> +
-> >>  	cm_destroy_id(cm_id, 0);
-> >>  }
+On Tue, 2015-05-12 at 14:05 -0400, Vlad Yasevich wrote:
+> On 05/08/2015 06:22 PM, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
 > > 
-> > Hum, this is quite a heavy free function. Did you check that this is
-> > safe to do asynchronously, that there are no implicit kref's being
-> > held by the caller?
+> > Wolfgang Walter reported crashes using traceroute6, root caused to this
+> > commit.
+> > 
+> > UDP packets can be sent from RAW sockets.
+> > 
+> > Note that the faulty commit addressed a non problem, as normal
+> > UDP v6 packets use udp_v6_send_skb() which correctly setup
+> > CHECKSUM_PARTIAL properly if device has the correct feature.
 > 
-> I'm not sure what you mean. The function is called by the last kref_put,
-> and destroys the ID synchronously.
+> Actually, they didn't.  udp_v6_send_skb() uses ip_summed from
+> the skb, which is populated by __ip6_append_data.  That in turn
+> always set it CHECKSUM_NONE.
+> 
+> The code in question looks identically to that of __ip_append_data().
+> The problem is similar in both places.
 
-Sorry, I was thinking about kobjects and CONFIG_DEBUG_KOBJECT_RELEASE
-when I wrote that.
+Well, one is crashing the host. IPv4 raw must have been OK, not IPv6.
 
+As I explained in the changelog, you can try to fix
+rawv6_push_pending_frames()
 
-> Looking at the code though, I now notice that the other call site to
-> cm_destroy_id, from within the error path of cm_process_work could now
-> theoretically destroy an ID with existing references. Is that what you
-> meant?
+My opinion is that a reasonable strategy is to revert for stable
+kernels.
 
-No, but that is certainly a problem.
- 
-> Since only listening CM IDs are now shared in RDMA CM, this should not
-> happen in this patch-set, but perhaps the code can be changed to
-> make
-
-I think you need to enforce those semantics..
-
-Firstly, it looks to me like we, again, have two krefs, the one you
-added and the 'ref_count'  in the priv structure which is 99% of a
-kref. So, again, don't do that.
-
-If you want to share listening CM IDs, then do exactly and only
-that. Use the existing ref count scheme for keeping track of the
-kfree/etc, and add some kind of sharable listen ref count. Early exit
-from cm_destroy_id when the there are still people listening.
-
-That sounds like it keeps the basic rule of cm_destroy_id being
-properly paired with the alloc, and allows listen sharing without the
-confusion of what does multiple destroy mean.
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Then if you can fix rawv6_push_pending_frames() for net-next, I will be
+happy to review your patch.
