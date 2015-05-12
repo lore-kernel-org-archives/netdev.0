@@ -1,141 +1,57 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
-Date: Mon, 11 May 2015 18:46:19 -0700
-Message-ID: <55515B6B.7000100@redhat.com>
-References: <1431391928-30732-1-git-send-email-labbott@fedoraproject.org> <66909EC2-B923-4A1D-8622-4DAB2BB37BC3@holtmann.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 12 May 2015 11:49:40 +1000
+Message-ID: <20150512114940.3f8f35c6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
-	<linux-bluetooth@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Ming Lei <ming.lei@canonical.com>,
-	Takashi Iwai <tiwai@suse.de>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	Laura Abbott <labbott@fedoraproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <66909EC2-B923-4A1D-8622-4DAB2BB37BC3@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/IDVcQwFQeeQokdNpOVyrrTX"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/11/2015 06:07 PM, Marcel Holtmann wrote:
-> Hi Laura,
->
->> We've received a number of reports of warnings when coming
->> out of suspend with certain bluetooth firmware configurations:
->>
->> WARNING: CPU: 3 PID: 3280 at drivers/base/firmware_class.c:1126
->> _request_firmware+0x558/0x810()
->> Modules linked in: ccm ip6t_rpfilter ip6t_REJECT nf_reject_ipv6
->> xt_conntrack ebtable_nat ebtable_broute bridge stp llc ebtable_filter
->> ebtables ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6
->> ip6table_mangle ip6table_security ip6table_raw ip6table_filter
->> ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4
->> nf_nat nf_conntrack iptable_mangle iptable_security iptable_raw
->> binfmt_misc bnep intel_rapl iosf_mbi arc4 x86_pkg_temp_thermal
->> snd_hda_codec_hdmi coretemp kvm_intel joydev snd_hda_codec_realtek
->> iwldvm snd_hda_codec_generic kvm iTCO_wdt mac80211 iTCO_vendor_support
->> snd_hda_intel snd_hda_controller snd_hda_codec crct10dif_pclmul
->> snd_hwdep crc32_pclmul snd_seq crc32c_intel ghash_clmulni_intel uvcvideo
->> snd_seq_device iwlwifi btusb videobuf2_vmalloc snd_pcm videobuf2_core
->> serio_raw bluetooth cfg80211 videobuf2_memops sdhci_pci v4l2_common
->> videodev thinkpad_acpi sdhci i2c_i801 lpc_ich mfd_core wacom mmc_core
->> media snd_timer tpm_tis hid_logitech_hidpp wmi tpm rfkill snd mei_me mei
->> shpchp soundcore nfsd auth_rpcgss nfs_acl lockd grace sunrpc i915
->> i2c_algo_bit drm_kms_helper e1000e drm hid_logitech_dj ptp pps_core
->> video
->> CPU: 3 PID: 3280 Comm: kworker/u17:0 Not tainted 3.19.3-200.fc21.x86_64
->> Hardware name: LENOVO 343522U/343522U, BIOS GCET96WW (2.56 ) 10/22/2013
->> Workqueue: hci0 hci_power_on [bluetooth]
->> 0000000000000000 0000000089944328 ffff88040acffb78 ffffffff8176e215
->> 0000000000000000 0000000000000000 ffff88040acffbb8 ffffffff8109bc1a
->> 0000000000000000 ffff88040acffcd0 00000000fffffff5 ffff8804076bac40
->> Call Trace:
->> [<ffffffff8176e215>] dump_stack+0x45/0x57
->> [<ffffffff8109bc1a>] warn_slowpath_common+0x8a/0xc0
->> [<ffffffff8109bd4a>] warn_slowpath_null+0x1a/0x20
->> [<ffffffff814dbe78>] _request_firmware+0x558/0x810
->> [<ffffffff814dc165>] request_firmware+0x35/0x50
->> [<ffffffffa03a7886>] btusb_setup_bcm_patchram+0x86/0x590 [btusb]
->> [<ffffffff814d40e6>] ? rpm_idle+0xd6/0x230
->> [<ffffffffa04d4801>] hci_dev_do_open+0xe1/0xa90 [bluetooth]
->> [<ffffffff810c51dd>] ? ttwu_do_activate.constprop.90+0x5d/0x70
->> [<ffffffffa04d5980>] hci_power_on+0x40/0x200 [bluetooth]
->> [<ffffffff810b487c>] process_one_work+0x14c/0x3f0
->> [<ffffffff810b52f3>] worker_thread+0x53/0x470
->> [<ffffffff810b52a0>] ? rescuer_thread+0x300/0x300
->> [<ffffffff810ba548>] kthread+0xd8/0xf0
->> [<ffffffff810ba470>] ? kthread_create_on_node+0x1b0/0x1b0
->> [<ffffffff81774958>] ret_from_fork+0x58/0x90
->> [<ffffffff810ba470>] ? kthread_create_on_node+0x1b0/0x1b0
->>
->> This occurs after every resume.
->>
->> When resuming, the bluetooth stack calls hci_register_dev,
->> allocates a new workqueue, and immediately schedules the
->> power_on on the newly created workqueue. Since the new
->> workqueue is not freezable, the work runs immediately and
->> triggers the warning since resume is still happening and
->> usermodehelper has not yet been re-enabled. Fix this by
->> making the request workqueue freezable. This ensures
->> the work will not run until unfreezing occurs and usermodehelper
->> is re-enabled.
->>
->> Signed-off-by: Laura Abbott <labbott@fedoraproject.org>
->> ---
->> Resend because I think this got lost in the thread.
->> This should be fixing the actual root cause of the warnings.
->
-> so I am not convinced that it actually fixes the root cause. This is just papering over it.
->
-> The problem is pretty clear, the firmware for some of the Bluetooth controllers is optional and that means during the original hotplug event it will not be found and the controller keeps operating. However for some reason instead of actually suspending and resuming the Bluetooth controller, we see a unplug + replug (since we are going through probe) and that is causing this funny behaviour.
->
+--Sig_/IDVcQwFQeeQokdNpOVyrrTX
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Fundamentally the issue is the request_firmware is being called at the
-wrong time. From Documentation/workqueue.txt:
+Hi all,
 
-   WQ_FREEZABLE
+Today's linux-next merge of the net-next tree got a conflict in
+net/core/sock.c between commit 2e70aedd3d52 ("Revert "net: kernel
+socket should be released in init_net namespace"") from the net tree
+and commit affb9792f1d9 ("net: kill sk_change_net and
+sk_release_kernel") from the net-next tree.
 
-         A freezable wq participates in the freeze phase of the system
-         suspend operations.  Work items on the wq are drained and no
-         new work item starts execution until thawed.
+I fixed it up (the latter removed a function updated by the former) and
+can carry the fix as necessary (no action is required).
 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-By making the request workqueue freezable, any work that gets scheduled
-will not run until the time for tasks to unthaw.
-4320f6b1d9db4ca912c5eb6ecb328b2e090e1586
-("PM / sleep: Fix request_firmware() error at resume") fixed the resume
-path such that before all tasks are unthawed, calls to
-usermodehelper_read_trylock will block until usermodehelper is fully
-resumed. This means that any task which is frozen and then woken up
-again should have the right sequencing for usermodehelper. The workqueue
-which handled the bluetooth power on was never being frozen properly so
-there was never any guarantee of when it would run. This patch gives
-it the necessary sequence.
+--Sig_/IDVcQwFQeeQokdNpOVyrrTX
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
 
-> So how does making one of the core workqueues freezable fixes this the right way. I do not even know how many other side effects that might have. That hdev->req_workqueue is a Bluetooth core internal workqueue that we are using for multiple tasks.
->
-> Rather tell me on why we are probing the USB devices that might need firmware without having userspace ready. It sounds to me that the USB driver probe callback should be delayed if we can not guarantee that it can request firmware. As I explained many times, the call path that causes this is going through probe callback of the driver itself.
->
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-I agree that if the driver probe function was requesting firmware
-directly there would be a problem. The power_on function is already
-  being called asynchronously on a workqueue. Making that workqueue 
-freezable does exactly the delay you describe.
+iQIcBAEBCAAGBQJVUVw4AAoJEMDTa8Ir7ZwVgO4P/2XGgrQx6pW9VsuKjYDHvgOq
+ZByJeUrgxBp04THxQM46rQhUBRnTed3T9KH+qwq0WihjGRQvzcEMJHrOCoGMMiz5
+Mqvwx83u7DAqlPvqH+6+bYmDgdwnP2w8MW+2emAXaj0t+d2tTlt01f/sVnr+9AnQ
+7Yy0CXCeW37ArKCaxXIjjhhhbciGE2oEhVadJXKJ9UgawfLbDVHVYsLdApQJ+GAp
+GmU4C4ubG+QGELGs6a20Mls3DkMa8ErrjNUA0XFN3kk4yjQEoZ9zfTjYOGbUSyfS
+LFKxRgyCH9j9m1rI4AKqLuWAa0TNuyL32OZXhfgQx6diEXP/jFXW5Bt0Jahv05e8
+bbKTm5Z/YQUP3G+qlRdS7qjLAxaHTrxZiabFyUKIspVgfouHGV+/QZoS9Oxf7vuN
+oNTYPi/b3oJGYVDLTDfr1yzI4uad6djIskCG4FAxgiRSy+tSqP7cqgc6SpmnPHxs
+Fhod2oEpUVkjp+FJmlMXW8ixhRjfshSchNXw2kjlKJ5OTAUDHlV/Kar0ZcqWWQtw
+5/EDfVt4cFc/C4Xw85vM16gehPvoCdnGgxFbCqz1M1+zgaKiGQy59QRj04FhFtBO
+0LW5YzNm6/G/NEEQGkLYnXSDndNsUoFRTwvDpqUN/bAB+u/gGnn8AL5kkU6vUlk0
+AS5w4TXZZNpgGgPOYTsF
+=Y9ut
+-----END PGP SIGNATURE-----
 
-The side effects should be limited to the change in behavior of
-draining all work items at freeze time and then not running
-again until task thaw. Do you know of any limitations where
-draining the workqueue at freeze time could not happen or would
-block indefinitely?
-
-> Regards
->
-> Marcel
->
-
-Thanks,
-Laura
+--Sig_/IDVcQwFQeeQokdNpOVyrrTX--
