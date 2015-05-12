@@ -1,84 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] pktgen: fix packet generation
-Date: Tue, 12 May 2015 10:19:52 +0200
-Message-ID: <20150512101952.29e2b4af@redhat.com>
-References: <1431382788-6051-1-git-send-email-ast@plumgrid.com>
+From: Li RongQing <roy.qing.li@gmail.com>
+Subject: Re: [PATCH][next] xfrm: optimise xfrm_policy_lookup_bytype
+Date: Tue, 12 May 2015 16:25:07 +0800
+Message-ID: <CAJFZqHywcxDx1vLTtTqVfVe6hoG1M8PYH4a-7HZ9XrFJPAM-Gw@mail.gmail.com>
+References: <1431170257-18242-1-git-send-email-roy.qing.li@gmail.com>
+	<20150511120616.GS8928@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	brouer@redhat.com
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57660 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752653AbbELIUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 04:20:37 -0400
-In-Reply-To: <1431382788-6051-1-git-send-email-ast@plumgrid.com>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:36814 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752681AbbELIZI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:25:08 -0400
+Received: by qgeb100 with SMTP id b100so81428770qge.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 01:25:07 -0700 (PDT)
+In-Reply-To: <20150511120616.GS8928@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 May 2015 15:19:48 -0700
-Alexei Starovoitov <ast@plumgrid.com> wrote:
+On Mon, May 11, 2015 at 8:06 PM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> Please explain why it is unnecessary to continue with the
+> loop here. In general a commit message should explain why
+> this code is changed.
+>
+Ok, I will add
 
-> pkt_gen->last_ok was not set properly, so after the first burst
-> pktgen instead of allocating new packet, will reuse old one, advance
-> eth_type_trans further, which would mean the stack will be seeing very
-> short bogus packets.
-> 
-> Fixes: 62f64aed622b ("pktgen: introduce xmit_mode '<start_xmit|netif_receive>'")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> This bug slipped through due to all code refactoring and can be seen
-> after clean reboot. If taps, rps or tx mode was used at least once,
-> the bug will be hidden.
-> 
-> Note to users: if you don't see ip_rcv() in your perf profile, it means
-> you were hitting this.
-> As commit log of 62f64aed622b is saying, the baseline perf profile
-> should look like:
->    37.69%  kpktgend_0   [kernel.vmlinux]  [k] __netif_receive_skb_core
->    25.81%  kpktgend_0   [kernel.vmlinux]  [k] kfree_skb
->     7.22%  kpktgend_0   [kernel.vmlinux]  [k] ip_rcv
->     5.68%  kpktgend_0   [pktgen]          [k] pktgen_thread_worker
-> 
-> Jesper, that explains why you were seeing hot:
-> atomic_long_inc(&skb->dev->rx_dropped);
 
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>> +                     break;
+>
+> priority is initialized with ~0U at the beginning of this function.
+> What if someone has an inexact policy with priority ~0U configured?
+> With your change, this policy will never match because we don't even
+> try to search for it.
 
-Yes, just confirmed that this problem is gone. E.g. the multiqueue
-script now scales without hitting this "skb->dev->rx_dropped".
+The original code can not handle this kind of policy whose priority is ~0U,
+I will fix it when resubmit this patch.
 
- Device: eth4@0
-  21127682pps 10141Mb/sec (10141287360bps) errors: 10000000
- Device: eth4@1
-  22170175pps 10641Mb/sec (10641684000bps) errors: 10000000
- Device: eth4@2
-  22230977pps 10670Mb/sec (10670868960bps) errors: 10000000
- Device: eth4@3
-  22269033pps 10689Mb/sec (10689135840bps) errors: 10000000
-
-I was also a little puzzled that I was not seeing kmem_cache_{alloc/free}
-in my previous perf reports, but I just assumed burst was very efficient.
-
-Good this got fixed, as my plan is to use this to profile the memory
-allocators fast path for SKB alloc/free. 
-
-Setting "burst = 0" (and flag NO_TIMESTAMP):
- Device: eth4@0
-  3938513pps 1890Mb/sec (1890486240bps) errors: 10000000
-
-Thus, performance hit from 22.1Mpps to 3.9Mpps, thus 209 nanosec more
-expensive.  20% is the cost of pktgen itself, still I'm surprised that
-the hit is this big, as this should hit the most optimal cache-hot case
-of SKB alloc/free.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1121         chain = &net->xfrm.policy_inexact[dir];
+1122         hlist_for_each_entry(pol, chain, bydst) {
+1123                 err = xfrm_policy_match(pol, fl, type, family, dir);
+1124                 if (err) {
+1125                         if (err == -ESRCH)
+1126                                 continue;
+1127                         else {
+1128                                 ret = ERR_PTR(err);
+1129                                 goto fail;
+1130                         }
+1131                 } else if (pol->priority < priority) {
+1132                         ret = pol;
+1133                         break;
+1134                 }
+1135         }
