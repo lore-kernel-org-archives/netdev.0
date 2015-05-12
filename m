@@ -1,79 +1,41 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v3 net-next 5/5] net: Add GRE keyid in flow_keys
-Date: Tue, 12 May 2015 08:23:02 -0700
-Message-ID: <1431444182-3935169-6-git-send-email-tom@herbertland.com>
-References: <1431444182-3935169-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH 1/2] e1000e: Add pm_qos header
+Date: Tue, 12 May 2015 09:36:59 -0600
+Message-ID: <1431445020-25235-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>, Thomas Graf <tgraf@suug.ch>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:25799 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932996AbbELPXm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:23:42 -0400
-Received: from pps.filterd (m0004060 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4CFKOe4020503
-	for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:23:42 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1ubjcc0dev-4
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:23:42 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- d4409520f8ba11e4a7720002c991e86a-9bfe11e0 for <netdev@vger.kernel.org>;	Tue,
- 12 May 2015 08:23:23 -0700
-In-Reply-To: <1431444182-3935169-1-git-send-email-tom@herbertland.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:35278 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583AbbELPhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:37:18 -0400
+Received: by iebpz10 with SMTP id pz10so4722759ieb.2
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:37:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In flow dissector if a GRE header contains a keyid this is saved in the
-new extra entropy field of flow_keys. The GRE keyid is then represented
-in the flow hash function input.
+Commit e2c6544829f moved pm_qos_req to e1000_adapter. Add the header file
+that defines the struct.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/net/flow_keys.h   |  1 +
- net/core/flow_dissector.c | 15 ++++++++++++++-
- 2 files changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index 906d47a..779e42f 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -28,6 +28,7 @@ struct flow_keys {
- 	u8	padding;
- 	u32	vlan_id:12,
- 		flow_label:20;
-+	u32	extra_entropy;
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 5d9ceb17b4cb..0abc942c966e 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -40,6 +40,7 @@
+ #include <linux/ptp_classify.h>
+ #include <linux/mii.h>
+ #include <linux/mdio.h>
++#include <linux/pm_qos.h>
+ #include "hw.h"
  
- 	union {
- 		__be32 ports;
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index f1fb7a5..1b204ed 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -195,8 +195,21 @@ ipv6:
- 			nhoff += 4;
- 			if (hdr->flags & GRE_CSUM)
- 				nhoff += 4;
--			if (hdr->flags & GRE_KEY)
-+			if (hdr->flags & GRE_KEY) {
-+				const __be32 *keyid;
-+				__be32 _keyid;
-+
-+				keyid = __skb_header_pointer(skb, nhoff,
-+							     sizeof(_keyid),
-+							     data, hlen,
-+							     &_keyid);
-+				if (!keyid)
-+					return false;
-+
-+				flow->extra_entropy ^= ntohl(*keyid);
-+
- 				nhoff += 4;
-+			}
- 			if (hdr->flags & GRE_SEQ)
- 				nhoff += 4;
- 			if (proto == htons(ETH_P_TEB)) {
+ struct e1000_info;
 -- 
-1.8.1
+2.2.1
