@@ -1,91 +1,64 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 2/2] sfc: suppress some MCDI error messages in PTP
-Date: Tue, 12 May 2015 13:05:09 +0100
-Message-ID: <5551EC75.9090108@solarflare.com>
-References: <5551EC0F.2080607@solarflare.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
+Date: Tue, 12 May 2015 14:28:53 +0200
+Message-ID: <5551F205.1080707@6wind.com>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com> <87wq0kcqlm.fsf@x220.int.ebiederm.org> <20150508140733.GA13325@gondor.apana.org.au> <87sib76kef.fsf@x220.int.ebiederm.org> <20150509011339.GA19116@gondor.apana.org.au> <87383633pu.fsf_-_@x220.int.ebiederm.org> <87oalu1p16.fsf_-_@x220.int.ebiederm.org> <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com> <110296A8-1CC9-456C-B126-50C90D4E3E17@xmission.com> <063D6719AE5E284EB5DD2968C1650D6D1CB33707@AcuExch.aculab.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ying Xue <ying.xue@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"cwang@twopensource.com" <cwang@twopensource.com>,
+	"xemul@openvz.org" <xemul@openvz.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"tom@herbertland.com" <tom@herbertland.com>,
+	"jchapman@katalix.com" <jchapman@katalix.com>,
+	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
+	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
+	"horms@verge.net.au" <horms@verge.net.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"'Eric W. Biederman'" <ebiederm@xmission.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:45402 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932312AbbELMFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 08:05:18 -0400
-In-Reply-To: <5551EC0F.2080607@solarflare.com>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:35441 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932314AbbELM25 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 08:28:57 -0400
+Received: by widdi4 with SMTP id di4so151023941wid.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 05:28:56 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB33707@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, remove a needless netif_err() from efx_ptp_update_stats() - if the
- MCDI fails it'll print its own error message, we don't need another that
- adds no information.
+Le 12/05/2015 13:48, David Laight a =C3=A9crit :
+> From: Eric W. Biederman
+>> Sent: 12 May 2015 09:55
+>>
+>> On May 12, 2015 3:24:11 AM CDT, David Laight <David.Laight@ACULAB.CO=
+M> wrote:
+> ...
+>>> Wouldn't it involve far less churn to add a new function that uses =
+a
+>>> non-default namespace?
+>>
+>> The goal is comprehensible and maintainable kernel code.
+>>
+>> Which network namespace your socket is in, is an important property =
+and something you probably care
+>> about if you are creating kernel sockets.
+>
+> That rather depends on whether you've anywhere to get a namespace fro=
+m.
+> eg something like ceph/messenger.c
+sk_net(con->sock->sk)?
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ptp.c | 27 ++++++++++++++++-----------
- 1 file changed, 16 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index 8c5c96a..5578c54 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -389,11 +389,8 @@ size_t efx_ptp_update_stats(struct efx_nic *efx, u64 *stats)
- 	MCDI_SET_DWORD(inbuf, PTP_IN_PERIPH_ID, 0);
- 	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, inbuf, sizeof(inbuf),
- 			  outbuf, sizeof(outbuf), NULL);
--	if (rc) {
--		netif_err(efx, hw, efx->net_dev,
--			  "MC_CMD_PTP_OP_STATUS failed (%d)\n", rc);
-+	if (rc)
- 		memset(outbuf, 0, sizeof(outbuf));
--	}
- 	efx_nic_update_stats(efx_ptp_stat_desc, PTP_STAT_COUNT,
- 			     efx_ptp_stat_mask,
- 			     stats, _MCDI_PTR(outbuf, 0), false);
-@@ -490,14 +487,20 @@ static int efx_ptp_get_attributes(struct efx_nic *efx)
- 	 */
- 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_GET_ATTRIBUTES);
- 	MCDI_SET_DWORD(inbuf, PTP_IN_PERIPH_ID, 0);
--	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, inbuf, sizeof(inbuf),
--			  outbuf, sizeof(outbuf), &out_len);
--	if (rc == 0)
-+	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_PTP, inbuf, sizeof(inbuf),
-+				outbuf, sizeof(outbuf), &out_len);
-+	if (rc == 0) {
- 		fmt = MCDI_DWORD(outbuf, PTP_OUT_GET_ATTRIBUTES_TIME_FORMAT);
--	else if (rc == -EINVAL)
-+	} else if (rc == -EINVAL) {
- 		fmt = MC_CMD_PTP_OUT_GET_ATTRIBUTES_SECONDS_NANOSECONDS;
--	else
-+	} else if (rc == -EPERM) {
-+		netif_info(efx, probe, efx->net_dev, "no PTP support\n");
- 		return rc;
-+	} else {
-+		efx_mcdi_display_error(efx, MC_CMD_PTP, sizeof(inbuf),
-+				       outbuf, sizeof(outbuf), rc);
-+		return rc;
-+	}
- 
- 	if (fmt == MC_CMD_PTP_OUT_GET_ATTRIBUTES_SECONDS_27FRACTION) {
- 		ptp->ns_to_nic_time = efx_ptp_ns_to_s27;
-@@ -541,8 +544,8 @@ static int efx_ptp_get_timestamp_corrections(struct efx_nic *efx)
- 		       MC_CMD_PTP_OP_GET_TIMESTAMP_CORRECTIONS);
- 	MCDI_SET_DWORD(inbuf, PTP_IN_PERIPH_ID, 0);
- 
--	rc = efx_mcdi_rpc(efx, MC_CMD_PTP, inbuf, sizeof(inbuf),
--			  outbuf, sizeof(outbuf), NULL);
-+	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_PTP, inbuf, sizeof(inbuf),
-+				outbuf, sizeof(outbuf), NULL);
- 	if (rc == 0) {
- 		efx->ptp_data->ts_corrections.tx = MCDI_DWORD(outbuf,
- 			PTP_OUT_GET_TIMESTAMP_CORRECTIONS_TRANSMIT);
-@@ -558,6 +561,8 @@ static int efx_ptp_get_timestamp_corrections(struct efx_nic *efx)
- 		efx->ptp_data->ts_corrections.pps_out = 0;
- 		efx->ptp_data->ts_corrections.pps_in = 0;
- 	} else {
-+		efx_mcdi_display_error(efx, MC_CMD_PTP, sizeof(inbuf), outbuf,
-+				       sizeof(outbuf), rc);
- 		return rc;
- 	}
- 
+This parameter is essential, hiding it will just hides bugs.
+Having this parameter forces the developer to ask himself what is the b=
+est
+value.
