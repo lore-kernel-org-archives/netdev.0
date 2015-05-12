@@ -1,62 +1,73 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v1 2/7] amd-xgbe: Add netif_msg_* support for
- driver messages
-Date: Tue, 12 May 2015 15:03:14 -0500
-Message-ID: <55525C82.9090009@amd.com>
-References: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
-	 <20150512192242.14091.56225.stgit@tlendack-t1.amdoffice.net>
- <1431459888.2884.87.camel@perches.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
+Date: Tue, 12 May 2015 16:18:54 -0400
+Message-ID: <5552602E.3060300@gmail.com>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de> <1958390.Ugr57PpLDS@h2o.as.studentenwerk.mhn.de> <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com> <1489362.AtetvSCXN1@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0101.outbound.protection.outlook.com ([157.56.111.101]:38400
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751726AbbELUD0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 16:03:26 -0400
-In-Reply-To: <1431459888.2884.87.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Wolfgang Walter <linux@stwm.de>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1489362.AtetvSCXN1@h2o.as.studentenwerk.mhn.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/12/2015 02:44 PM, Joe Perches wrote:
-> On Tue, 2015-05-12 at 14:22 -0500, Tom Lendacky wrote:
->> Add support for the network interface message level settings for
->> determining whether to issue some of the driver messages.
+On 05/06/2015 06:11 PM, Wolfgang Walter wrote:
+> Am Mittwoch, 6. Mai 2015, 11:15:18 schrieben Sie:
+>> (Cc'ing netdev.)
+>>
+>> On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
+>>> Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
+>>>> Hello,
+>>>>
+>>>> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with an
+>>>> isatap-tunnel.
+>>>
+>>> I did some further tests. To trigger the crash you need
+>>>
+>>> * isatap-tunnel (probably any sit-tunnel will do it)
+>>> * raw-socket
+>>> * udp
+>>>
+>>> Using icmpv6 or tcp i.e. does not trigger it.
+>>
+>> Do you have a script to reproduce it?
+>>
+>>
+>> Thanks for the bug report!
 >
-> []
+> You need a isatap-server with say ipv4-address $X
 >
->> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c b/drivers/net/ethernet/amd/xgbe/xgbe-dcb.c
-> []
->> @@ -150,9 +150,14 @@ static int xgbe_dcb_ieee_setets(struct net_device *netdev,
->>   	tc_ets = 0;
->>   	tc_ets_weight = 0;
->>   	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
->> -		DBGPR("  TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n", i,
->> -		      ets->tc_tx_bw[i], ets->tc_rx_bw[i], ets->tc_tsa[i]);
->> -		DBGPR("  PRIO%u: TC=%hhu\n", i, ets->prio_tc[i]);
->> +		if (netif_msg_drv(pdata)) {
->> +			netdev_dbg(netdev,
->> +				   "TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n",
->> +				   i, ets->tc_tx_bw[i], ets->tc_rx_bw[i],
->> +				   ets->tc_tsa[i]);
+> Then, on host with 4.0, start isatapd: isatapd --mtu 1280 $X
 >
-> These might be more concise and work a bit easier
-> with dynamic_debug using
+> then do
 >
-> 	netif_dbg(priv, type, netdev, fmt, ...)
+> 	traceroute6 www.google.de
 >
-> like:
->
-> 		netif_dbg(pdata, drv, netdev,
-> 			  "TC%u: tx_bw=%hhu, rx_bw=%hhu, tsa=%hhu\n",
-> 			  i, ets->tc_tx_bw[i], ets->tc_rx_bw[i], ets->tc_tsa[i]);
->
+> Regards,
 >
 
-I didn't realize that interface was there.  I'll convert them over
-over to the netif_ format.  Thanks for the pointer.
+Hi Walter
 
-Tom
+Could you try this patch.  Looks like raw passes transhdrlen
+of 0 on the first packet and that makes IPv4 behave correctly,
+but not IPv6.
+
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7fde1f2..fd9c079 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1278,7 +1278,7 @@ emsgsize:
+ 	/* If this is the first and only packet and device
+ 	 * supports checksum offloading, let's use it.
+ 	 */
+-	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
++	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
+ 	    length + fragheaderlen < mtu &&
+ 	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+ 	    !exthdrlen)
