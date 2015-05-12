@@ -1,34 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] switchdev: add support for fdb add/del/dump
- via switchdev_port_obj ops.
-Date: Tue, 12 May 2015 18:20:13 -0400 (EDT)
-Message-ID: <20150512.182013.447321071616691313.davem@davemloft.net>
-References: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com>
+Subject: Re: [PATCH v2] ARM: net: add JIT support for loads from struct
+ seccomp_data.
+Date: Tue, 12 May 2015 18:20:57 -0400 (EDT)
+Message-ID: <20150512.182057.1460551671013176759.davem@davemloft.net>
+References: <1431003613-16554-1-git-send-email-nschichan@freebox.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfeldma@gmail.com, netdev@vger.kernel.org
-To: sridhar.samudrala@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47502 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753953AbbELWUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 18:20:37 -0400
-In-Reply-To: <1430949253-6358-1-git-send-email-sridhar.samudrala@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux@arm.linux.org.uk, dborkman@redhat.com, ast@plumgrid.com,
+	mgherzan@gmail.com, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: nschichan@freebox.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431003613-16554-1-git-send-email-nschichan@freebox.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Date: Wed,  6 May 2015 14:54:13 -0700
+From: Nicolas Schichan <nschichan@freebox.fr>
+Date: Thu,  7 May 2015 15:00:13 +0200
 
-> - introduce port fdb obj and generic switchdev_port_fdb_add/del/dump()
-> - use switchdev_port_fdb_add/del/dump in rocker/team/bonding ndo ops.
-> - add support for fdb obj in switchdev_port_obj_add/del/dump()
-> - switch rocker to implement fdb ops via switchdev_ops
-> 
-> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Signed-off-by: Nicolas Schichan <nschichan@freebox.fr>
 
-What is this patch even against?  I don't see switchdev_port_obj_add()
-in any tree I maintain, yet this patch's context shows references to
-it which should exist already.
+Applied, thanks.
