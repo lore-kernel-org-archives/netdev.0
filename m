@@ -1,68 +1,256 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 0/7] amd-xgbe: AMD XGBE driver updates 2015-05-12
-Date: Tue, 12 May 2015 14:22:30 -0500
-Message-ID: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v1 6/7] amd-xgbe: Fix flow control setting logic
+Date: Tue, 12 May 2015 14:23:07 -0500
+Message-ID: <20150512192307.14091.14343.stgit@tlendack-t1.amdoffice.net>
+References: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0145.outbound.protection.outlook.com ([157.56.111.145]:39857
+Received: from mail-bn1on0131.outbound.protection.outlook.com ([157.56.110.131]:3296
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933462AbbELThy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 15:37:54 -0400
+	id S933456AbbELThw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 15:37:52 -0400
+In-Reply-To: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series of patches includes functional updates and changes
-to the driver.
+The flow control negotiation logic is flawed and does not properly
+advertise and process auto-negotiation of the flow control settings.
+Update the flow control support to properly set the flow control
+auto-negotiation settings and process the results approrpriately.
 
-- Add additional statistics to be collected and reported
-- Use the netif_msg_* functions for issuing some debug and informational
-  driver messages
-- Rx path SKB allocation cleanup/simplification
-- Remove stand-alone phylib driver and incorporate function into the nic
-  driver
-- Simplify device tree support while maintaining backwards compatibility
-- Fix the flow control negotiation logic to properly configure flow
-  control
-- Remove the checking and setting of the device dma_mask field
-
-This patch series is based on net-next.
-
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |    2 -
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   29 ++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |   73 ++++++++++++++++++--------
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |    8 +--
+ 4 files changed, 72 insertions(+), 40 deletions(-)
 
-Tom Lendacky (7):
-      amd-xgbe: Add additional stats to be reported via ethtool
-      amd-xgbe: Add netif_msg_* support for driver messages
-      amd-xgbe: Rework the Rx path SKB allocation
-      amd-xgbe: Move the PHY support into amd-xgbe
-      amd-xgbe: Support defining PHY resources in ETH device node
-      amd-xgbe: Fix flow control setting logic
-      amd-xgbe: Remove manual check and set of dma_mask pointer
-
-
- .../devicetree/bindings/net/amd-xgbe-phy.txt       |   48 -
- Documentation/devicetree/bindings/net/amd-xgbe.txt |   40 
- MAINTAINERS                                        |    1 
- drivers/net/ethernet/amd/Kconfig                   |    4 
- drivers/net/ethernet/amd/xgbe/xgbe-common.h        |  155 ++
- drivers/net/ethernet/amd/xgbe/xgbe-dcb.c           |   20 
- drivers/net/ethernet/amd/xgbe/xgbe-desc.c          |   41 
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c           |  115 +
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  348 ++--
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c       |   79 +
- drivers/net/ethernet/amd/xgbe/xgbe-main.c          |  384 ++++
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c          | 1237 ++++++++++++-
- drivers/net/ethernet/amd/xgbe/xgbe.h               |  236 ++-
- drivers/net/phy/Kconfig                            |    6 
- drivers/net/phy/Makefile                           |    1 
- drivers/net/phy/amd-xgbe-phy.c                     | 1862 --------------------
- 16 files changed, 2125 insertions(+), 2452 deletions(-)
- delete mode 100644 Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
- delete mode 100644 drivers/net/phy/amd-xgbe-phy.c
-
--- 
-Tom Lendacky
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 637b6c9..99a4c12 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -787,8 +787,6 @@ static int xgbe_phy_init(struct xgbe_prv_data *pdata)
+ {
+ 	pdata->phy_link = -1;
+ 	pdata->phy_speed = SPEED_UNKNOWN;
+-	pdata->phy_tx_pause = pdata->tx_pause;
+-	pdata->phy_rx_pause = pdata->rx_pause;
+ 
+ 	return pdata->phy_if.phy_reset(pdata);
+ }
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index b24a78c3..59e090e 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -247,9 +247,9 @@ static void xgbe_get_pauseparam(struct net_device *netdev,
+ 
+ 	DBGPR("-->xgbe_get_pauseparam\n");
+ 
+-	pause->autoneg = pdata->pause_autoneg;
+-	pause->tx_pause = pdata->tx_pause;
+-	pause->rx_pause = pdata->rx_pause;
++	pause->autoneg = pdata->phy.pause_autoneg;
++	pause->tx_pause = pdata->phy.tx_pause;
++	pause->rx_pause = pdata->phy.rx_pause;
+ 
+ 	DBGPR("<--xgbe_get_pauseparam\n");
+ }
+@@ -265,19 +265,24 @@ static int xgbe_set_pauseparam(struct net_device *netdev,
+ 	DBGPR("  autoneg = %d, tx_pause = %d, rx_pause = %d\n",
+ 	      pause->autoneg, pause->tx_pause, pause->rx_pause);
+ 
+-	pdata->pause_autoneg = pause->autoneg;
+-	if (pause->autoneg) {
+-		pdata->phy.advertising |= ADVERTISED_Pause;
+-		pdata->phy.advertising |= ADVERTISED_Asym_Pause;
++	if (pause->autoneg && (pdata->phy.autoneg != AUTONEG_ENABLE))
++		return -EINVAL;
++
++	pdata->phy.pause_autoneg = pause->autoneg;
++	pdata->phy.tx_pause = pause->tx_pause;
++	pdata->phy.rx_pause = pause->rx_pause;
+ 
+-	} else {
+-		pdata->phy.advertising &= ~ADVERTISED_Pause;
+-		pdata->phy.advertising &= ~ADVERTISED_Asym_Pause;
++	pdata->phy.advertising &= ~ADVERTISED_Pause;
++	pdata->phy.advertising &= ~ADVERTISED_Asym_Pause;
+ 
+-		pdata->tx_pause = pause->tx_pause;
+-		pdata->rx_pause = pause->rx_pause;
++	if (pause->rx_pause) {
++		pdata->phy.advertising |= ADVERTISED_Pause;
++		pdata->phy.advertising |= ADVERTISED_Asym_Pause;
+ 	}
+ 
++	if (pause->tx_pause)
++		pdata->phy.advertising ^= ADVERTISED_Asym_Pause;
++
+ 	if (netif_running(netdev))
+ 		ret = pdata->phy_if.phy_config_aneg(pdata);
+ 
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+index 1ae4bfb..cea19a3 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+@@ -737,6 +737,18 @@ static void xgbe_an_init(struct xgbe_prv_data *pdata)
+ 	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
+ }
+ 
++static const char *xgbe_phy_fc_string(struct xgbe_prv_data *pdata)
++{
++	if (pdata->tx_pause && pdata->rx_pause)
++		return "rx/tx";
++	else if (pdata->rx_pause)
++		return "rx";
++	else if (pdata->tx_pause)
++		return "tx";
++	else
++		return "off";
++}
++
+ static const char *xgbe_phy_speed_string(int speed)
+ {
+ 	switch (speed) {
+@@ -760,7 +772,7 @@ static void xgbe_phy_print_status(struct xgbe_prv_data *pdata)
+ 			    "Link is Up - %s/%s - flow control %s\n",
+ 			    xgbe_phy_speed_string(pdata->phy.speed),
+ 			    pdata->phy.duplex == DUPLEX_FULL ? "Full" : "Half",
+-			    pdata->phy.pause ? "rx/tx" : "off");
++			    xgbe_phy_fc_string(pdata));
+ 	else
+ 		netdev_info(pdata->netdev, "Link is Down\n");
+ }
+@@ -771,24 +783,18 @@ static void xgbe_phy_adjust_link(struct xgbe_prv_data *pdata)
+ 
+ 	if (pdata->phy.link) {
+ 		/* Flow control support */
+-		if (pdata->pause_autoneg) {
+-			if (pdata->phy.pause || pdata->phy.asym_pause) {
+-				pdata->tx_pause = 1;
+-				pdata->rx_pause = 1;
+-			} else {
+-				pdata->tx_pause = 0;
+-				pdata->rx_pause = 0;
+-			}
+-		}
++		pdata->pause_autoneg = pdata->phy.pause_autoneg;
+ 
+-		if (pdata->tx_pause != pdata->phy_tx_pause) {
++		if (pdata->tx_pause != pdata->phy.tx_pause) {
++			new_state = 1;
+ 			pdata->hw_if.config_tx_flow_control(pdata);
+-			pdata->phy_tx_pause = pdata->tx_pause;
++			pdata->tx_pause = pdata->phy.tx_pause;
+ 		}
+ 
+-		if (pdata->rx_pause != pdata->phy_rx_pause) {
++		if (pdata->rx_pause != pdata->phy.rx_pause) {
++			new_state = 1;
+ 			pdata->hw_if.config_rx_flow_control(pdata);
+-			pdata->phy_rx_pause = pdata->rx_pause;
++			pdata->rx_pause = pdata->phy.rx_pause;
+ 		}
+ 
+ 		/* Speed support */
+@@ -835,9 +841,6 @@ static int xgbe_phy_config_fixed(struct xgbe_prv_data *pdata)
+ 	if (pdata->phy.duplex != DUPLEX_FULL)
+ 		return -EINVAL;
+ 
+-	pdata->phy.pause = 0;
+-	pdata->phy.asym_pause = 0;
+-
+ 	return 0;
+ }
+ 
+@@ -933,8 +936,6 @@ static void xgbe_phy_status_force(struct xgbe_prv_data *pdata)
+ 		}
+ 	}
+ 	pdata->phy.duplex = DUPLEX_FULL;
+-	pdata->phy.pause = 0;
+-	pdata->phy.asym_pause = 0;
+ }
+ 
+ static void xgbe_phy_status_aneg(struct xgbe_prv_data *pdata)
+@@ -957,9 +958,21 @@ static void xgbe_phy_status_aneg(struct xgbe_prv_data *pdata)
+ 	if (lp_reg & 0x800)
+ 		pdata->phy.lp_advertising |= ADVERTISED_Asym_Pause;
+ 
+-	ad_reg &= lp_reg;
+-	pdata->phy.pause = (ad_reg & 0x400) ? 1 : 0;
+-	pdata->phy.asym_pause = (ad_reg & 0x800) ? 1 : 0;
++	if (pdata->phy.pause_autoneg) {
++		/* Set flow control based on auto-negotiation result */
++		pdata->phy.tx_pause = 0;
++		pdata->phy.rx_pause = 0;
++
++		if (ad_reg & lp_reg & 0x400) {
++			pdata->phy.tx_pause = 1;
++			pdata->phy.rx_pause = 1;
++		} else if (ad_reg & lp_reg & 0x800) {
++			if (ad_reg & 0x400)
++				pdata->phy.rx_pause = 1;
++			else if (lp_reg & 0x400)
++				pdata->phy.tx_pause = 1;
++		}
++	}
+ 
+ 	/* Compare Advertisement and Link Partner register 2 */
+ 	ad_reg = XMDIO_READ(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE + 1);
+@@ -1223,6 +1236,22 @@ static void xgbe_phy_init(struct xgbe_prv_data *pdata)
+ 
+ 	pdata->phy.link = 0;
+ 
++	pdata->phy.pause_autoneg = pdata->pause_autoneg;
++	pdata->phy.tx_pause = pdata->tx_pause;
++	pdata->phy.rx_pause = pdata->rx_pause;
++
++	/* Fix up Flow Control advertising */
++	pdata->phy.advertising &= ~ADVERTISED_Pause;
++	pdata->phy.advertising &= ~ADVERTISED_Asym_Pause;
++
++	if (pdata->rx_pause) {
++		pdata->phy.advertising |= ADVERTISED_Pause;
++		pdata->phy.advertising |= ADVERTISED_Asym_Pause;
++	}
++
++	if (pdata->tx_pause)
++		pdata->phy.advertising ^= ADVERTISED_Asym_Pause;
++
+ 	if (netif_msg_drv(pdata))
+ 		xgbe_dump_phy_registers(pdata);
+ }
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
+index f535d19..63d72a1 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe.h
++++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
+@@ -539,10 +539,12 @@ struct xgbe_phy {
+ 	int autoneg;
+ 	int speed;
+ 	int duplex;
+-	int pause;
+-	int asym_pause;
+ 
+ 	int link;
++
++	int pause_autoneg;
++	int tx_pause;
++	int rx_pause;
+ };
+ 
+ struct xgbe_mmc_stats {
+@@ -910,8 +912,6 @@ struct xgbe_prv_data {
+ 	phy_interface_t phy_mode;
+ 	int phy_link;
+ 	int phy_speed;
+-	unsigned int phy_tx_pause;
+-	unsigned int phy_rx_pause;
+ 
+ 	/* MDIO/PHY related settings */
+ 	struct xgbe_phy phy;
