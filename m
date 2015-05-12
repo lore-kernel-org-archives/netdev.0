@@ -1,78 +1,86 @@
-From: Ivan Mikhaylov <ivan@ru.ibm.com>
-Subject: [PATCH 2/2] net/ibm/emac: fix size of emac dump memory areas
-Date: Tue, 12 May 2015 17:12:00 +0400
-Message-ID: <20150512171200.207dfd7b@fr-ThinkPad-W520>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
+Date: Tue, 12 May 2015 16:15:08 +0200
+Message-ID: <55520AEC.4090500@6wind.com>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com> <87wq0kcqlm.fsf@x220.int.ebiederm.org> <20150508140733.GA13325@gondor.apana.org.au> <87sib76kef.fsf@x220.int.ebiederm.org> <20150509011339.GA19116@gondor.apana.org.au> <87383633pu.fsf_-_@x220.int.ebiederm.org> <87oalu1p16.fsf_-_@x220.int.ebiederm.org> <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com> <110296A8-1CC9-456C-B126-50C90D4E3E17@xmission.com> <063D6719AE5E284EB5DD2968C1650D6D1CB33707@AcuExch.aculab.com> <5551F205.1080707@6wind.com> <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ying Xue <ying.xue@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"cwang@twopensource.com" <cwang@twopensource.com>,
+	"xemul@openvz.org" <xemul@openvz.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"tom@herbertland.com" <tom@herbertland.com>,
+	"jchapman@katalix.com" <jchapman@katalix.com>,
+	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
+	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
+	"horms@verge.net.au" <horms@verge.net.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"'Eric W. Biederman'" <ebiederm@xmission.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:35543 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933179AbbELOPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 10:15:11 -0400
+Received: by wgnd10 with SMTP id d10so9171470wgn.2
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 07:15:10 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix in send of emac regs dump to ethtool which
-causing wrong data interpretation on ethtool
-layer for MII and EMAC.
+Le 12/05/2015 15:16, David Laight a =C3=A9crit :
+> From: Nicolas Dichtel [mailto:nicolas.dichtel@6wind.com]
+>> Sent: 12 May 2015 13:29
+>> Le 12/05/2015 13:48, David Laight a =C3=A9crit :
+>>> From: Eric W. Biederman
+>>>> Sent: 12 May 2015 09:55
+>>>>
+>>>> On May 12, 2015 3:24:11 AM CDT, David Laight <David.Laight@ACULAB.=
+COM> wrote:
+>>> ...
+>>>>> Wouldn't it involve far less churn to add a new function that use=
+s a
+>>>>> non-default namespace?
+>>>>
+>>>> The goal is comprehensible and maintainable kernel code.
+>>>>
+>>>> Which network namespace your socket is in, is an important propert=
+y and something you probably care
+>>>> about if you are creating kernel sockets.
+>>>
+>>> That rather depends on whether you've anywhere to get a namespace f=
+rom.
+>>> eg something like ceph/messenger.c
+>> sk_net(con->sock->sk)?
+>
+> What if you don't already have a socket?
+> Just an IP(v6) address ?
+So you have an IPv6 address and you don't know on which netns this addr=
+ess
+belongs? I can't imagine how it can work.
 
-Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
----
- drivers/net/ethernet/ibm/emac/core.c |   14 ++++----------
- drivers/net/ethernet/ibm/emac/core.h |    4 ----
- 2 files changed, 4 insertions(+), 14 deletions(-)
+>
+>> This parameter is essential, hiding it will just hides bugs.
+>> Having this parameter forces the developer to ask himself what is th=
+e best
+>> value.
+>
+> What if the answer is 'NFI'?
+> Which requires the answer be pushed back to the 'application' configu=
+ration?
+Your application is bound to a netns.
 
-diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-index de79193..3dc6534 100644
---- a/drivers/net/ethernet/ibm/emac/core.c
-+++ b/drivers/net/ethernet/ibm/emac/core.c
-@@ -2084,12 +2084,8 @@ static void emac_ethtool_get_pauseparam(struct net_device *ndev,
- 
- static int emac_get_regs_len(struct emac_instance *dev)
- {
--	if (emac_has_feature(dev, EMAC_FTR_EMAC4))
--		return sizeof(struct emac_ethtool_regs_subhdr) +
--			EMAC4_ETHTOOL_REGS_SIZE(dev);
--	else
- 		return sizeof(struct emac_ethtool_regs_subhdr) +
--			EMAC_ETHTOOL_REGS_SIZE(dev);
-+			sizeof(struct emac_regs);
- }
- 
- static int emac_ethtool_get_regs_len(struct net_device *ndev)
-@@ -2114,15 +2110,13 @@ static void *emac_dump_regs(struct emac_instance *dev, void *buf)
- 	struct emac_ethtool_regs_subhdr *hdr = buf;
- 
- 	hdr->index = dev->cell_index;
--	if (emac_has_feature(dev, EMAC_FTR_EMAC4)) {
-+	if (emac_has_feature(dev, EMAC_FTR_EMAC4SYNC)) {
- 		hdr->version = EMAC4_ETHTOOL_REGS_VER;
--		memcpy_fromio(hdr + 1, dev->emacp, EMAC4_ETHTOOL_REGS_SIZE(dev));
--		return (void *)(hdr + 1) + EMAC4_ETHTOOL_REGS_SIZE(dev);
- 	} else {
- 		hdr->version = EMAC_ETHTOOL_REGS_VER;
--		memcpy_fromio(hdr + 1, dev->emacp, EMAC_ETHTOOL_REGS_SIZE(dev));
--		return (void *)(hdr + 1) + EMAC_ETHTOOL_REGS_SIZE(dev);
- 	}
-+	memcpy_fromio(hdr + 1, dev->emacp, sizeof(struct emac_regs));
-+	return (void *)(hdr + 1) + sizeof(struct emac_regs);
- }
- 
- static void emac_ethtool_get_regs(struct net_device *ndev,
-diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
-index 67f342a..db90819 100644
---- a/drivers/net/ethernet/ibm/emac/core.h
-+++ b/drivers/net/ethernet/ibm/emac/core.h
-@@ -461,10 +461,6 @@ struct emac_ethtool_regs_subhdr {
- };
- 
- #define EMAC_ETHTOOL_REGS_VER		0
--#define EMAC_ETHTOOL_REGS_SIZE(dev) 	((dev)->rsrc_regs.end - \
--					 (dev)->rsrc_regs.start + 1)
- #define EMAC4_ETHTOOL_REGS_VER      	1
--#define EMAC4_ETHTOOL_REGS_SIZE(dev)	((dev)->rsrc_regs.end -	\
--					 (dev)->rsrc_regs.start + 1)
- 
- #endif /* __IBM_NEWEMAC_CORE_H */
--- 
-1.7.9.5
+> Most users will have no idea either.
+If you support netns, you *have to know*.
+
+
+Regards,
+Nicolas
