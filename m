@@ -1,81 +1,47 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v3 for-next 01/13] IB/core: Use SRCU when reading
- client_list or device_list
-Date: Tue, 12 May 2015 12:23:32 -0600
-Message-ID: <20150512182332.GD15891@obsidianresearch.com>
-References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
- <1431253604-9214-2-git-send-email-haggaie@mellanox.com>
- <20150511181824.GA25405@obsidianresearch.com>
- <555198B7.40302@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>
-To: Haggai Eran <haggaie@mellanox.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH net-next] net: kill useless net_*_ingress_queue() definitions when NET_CLS_ACT is unset
+Date: Tue, 12 May 2015 20:28:07 +0200
+Message-ID: <1431455287-4925-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, daniel@iogearbox.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:37316 "EHLO quartz.orcorp.ca"
+Received: from mail.us.es ([193.147.175.20]:45930 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933003AbbELSXe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 14:23:34 -0400
-Content-Disposition: inline
-In-Reply-To: <555198B7.40302@mellanox.com>
+	id S932809AbbELSXd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 14:23:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 09:07:51AM +0300, Haggai Eran wrote:
-> > I'm not sure RCU is the right way to approach this. The driver core
-> > has the same basic task to perform, maybe review it's locking
-> > arrangment between the device list and driver list.
-> > 
-> > [Actually we probably should be using the driver core here, with IB
-> >  clients as device drivers, but that is way beyond scope of this..]
-> 
-> So, I'm not very familiar with that code, but it seems that the main
-> difference is that in the core a single driver can be attached to a
-> device. 
+This fixes 4577139b2dabf589 ("net: use jump label patching for ingress qdisc in
+__netif_receive_skb_core").
 
-Roughly, a bus (IB would be a bus) has devices attached to it, and
-devices have drivers attached to them. Bus:Device is 1:N,
-Device:Drvier is 1:1. 
+The only client of this is sch_ingress and it depends on NET_CLS_ACT. So
+there is no way these definition can be of any help.
 
-There a a couple of reasons to be interested in re-using the driver
-core, perhaps the best is that it has all the infrastructure to let us
-auto-load client modules...
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/linux/rtnetlink.h |    8 --------
+ 1 file changed, 8 deletions(-)
 
-> I guess a similar thing we can do is to rely on the context we associate
-> with a pair of a client and a device. If such a context exist, we don't
-> need to call client->add again. What do you think?
-
-I didn't look closely, isn't this enough?
-
-device_register:
- mutex_lock(client_mutex);
- down_write(devices_rwsem);
- list_add(device_list,dev,..);
- up_write(devices_rwsem);
-
- /* Caller must prevent device_register/unregister concurrancy on the
-    same dev */
-
- foreach(client_list)
-   .. client->add(dev,...) .. 
-
- mutex_unlock(client_mutex)
-
-client_register:
- mutex_lock(client_mutex)
- list_add(client_list,new_client..)
- down_read(devices_rwsem);
- foreach(device_list)
-   .. client->add(dev,new_client,..) ..
- up_read(devices_rwsem);
- mutex_unlock(client_mutex)
-
-[Note, I didn't check this carefully, just intuitively seems like a
- sane starting point]
-
-Jason
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 7b8e260..bd29ab4 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -82,14 +82,6 @@ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev);
+ #ifdef CONFIG_NET_CLS_ACT
+ void net_inc_ingress_queue(void);
+ void net_dec_ingress_queue(void);
+-#else
+-static inline void net_inc_ingress_queue(void)
+-{
+-}
+-
+-static inline void net_dec_ingress_queue(void)
+-{
+-}
+ #endif
+ 
+ extern void rtnetlink_init(void);
+-- 
+1.7.10.4
