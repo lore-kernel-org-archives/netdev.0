@@ -1,42 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/5] net: Get skb hash over flow_keys
- structure
-Date: Tue, 12 May 2015 10:30:46 -0400 (EDT)
-Message-ID: <20150512.103046.1807865055959150687.davem@davemloft.net>
-References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
-	<1431401204-731380-2-git-send-email-tom@herbertland.com>
-	<1431406606.566.62.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH 00/10] Refactor netdev page frags and move them into mm/
+Date: Tue, 12 May 2015 10:39:37 -0400 (EDT)
+Message-ID: <20150512.103937.434422170476918731.davem@davemloft.net>
+References: <20150507035558.1873.52664.stgit@ahduyck-vm-fedora22>
+	<20150510.191758.2130017622255857830.davem@davemloft.net>
+	<20150511133652.cd885d654213fe4161da0d87@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43920 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932632AbbELOau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 10:30:50 -0400
-In-Reply-To: <1431406606.566.62.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
+ linux-mm@kvack.org, eric.dumazet@gmail.com
+To: akpm@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20150511133652.cd885d654213fe4161da0d87@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 11 May 2015 21:56:46 -0700
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 11 May 2015 13:36:52 -0700
 
-> On Mon, 2015-05-11 at 20:26 -0700, Tom Herbert wrote:
- ...
-> This (2) is not a multiple of 4, so some arches will have unaligned word
-> accesses ?
- ...
->> -static __always_inline u32 __flow_hash_3words(u32 a, u32 b, u32 c, u32 keyval)
->> +static __always_inline u32 __flow_hash_words(u32 *words, u32 length, u32 keyval)
->>  {
->> -	return jhash_3words(a, b, c, keyval);
->> +	return jhash2(words, length, keyval);
->> +}
->> +
+> On Sun, 10 May 2015 19:17:58 -0400 (EDT) David Miller <davem@davemloft.net> wrote:
 > 
-> -> crash or very slow on MIPS.
+>> > 4.9%	build_skb		3.8%	__napi_alloc_skb
+>> > 2.5%	__alloc_rx_skb
+>> > 1.9%	__napi_alloc_skb
+>> 
+>> I like this series, but again I need to see feedback from some
+>> mm folks before I can consider applying it.
+> 
+> The MM part looks OK to me - it's largely moving code out of net/ into
+> mm/.  It's a bit weird and it's unclear whether the code will gain
+> other callers, but putting it in mm/ increase the likelihood that some other
+> subsystem will use it.
+> 
+> Please merge it via a net tree when ready.
 
-Yeah you really can't do this.  You must only pass 4-byte aligned items
-into the hash function.
+Ok, will do that now, thanks Andrew!
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
