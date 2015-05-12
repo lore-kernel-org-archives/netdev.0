@@ -1,85 +1,84 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code
- where it belongs
-Date: Tue, 12 May 2015 14:55:26 +0200
-Message-ID: <20150512125526.GA3822@salvia>
-References: <554FB366.7080509@plumgrid.com>
- <20150510195018.GA7877@salvia>
- <554FCE24.8020904@iogearbox.net>
- <554FD12F.2020607@iogearbox.net>
- <20150510234313.GA3176@salvia>
- <555044D8.3080606@plumgrid.com>
- <20150511133245.GA4430@salvia>
- <1431354912.566.15.camel@edumazet-glaptop2.roam.corp.google.com>
- <555134F4.80007@plumgrid.com>
- <1431387038.566.47.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, jhs@mojatatu.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v3 00/15] introduce programable flow dissector and cls_flower
+Date: Tue, 12 May 2015 14:56:06 +0200
+Message-ID: <1431435381-7164-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
+	jesse@nicira.com, kaber@trash.net, tom@herbertland.com,
+	edumazet@google.com, alexander.h.duyck@redhat.com,
+	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
+	herbert@gondor.apana.org.au, cwang@twopensource.com,
+	john.fastabend@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34994 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932467AbbELMun (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 08:50:43 -0400
-Content-Disposition: inline
-In-Reply-To: <1431387038.566.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:35899 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932639AbbELM43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 08:56:29 -0400
+Received: by wggj6 with SMTP id j6so8669412wgg.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 05:56:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Per Davem's request, I prepared this patchset which introduces programmable
+flow dissector. For current users of flow_keys, there is a wrapper
+skb_flow_dissect_flow_keys which maintains the previous behaviour.
+For purposes of cls_flower, couple of new dissection keys were introduced.
 
-On Mon, May 11, 2015 at 04:30:38PM -0700, Eric Dumazet wrote:
-> On Mon, 2015-05-11 at 16:02 -0700, Alexei Starovoitov wrote:
-> > On 5/11/15 7:35 AM, Eric Dumazet wrote:
-> > >
-> > > -static inline int deliver_skb(struct sk_buff *skb,
-> > > +static noinline int deliver_skb(struct sk_buff *skb,
-> > >   			      struct packet_type *pt_prev,
-> > >   			      struct net_device *orig_dev)
-> > 
-> > have tried the above only and didn't see any difference
-> > for simple 'netif_receive + drop in ip_rcv' test.
-> > Not sure whether it's actually worth doing. I would leave it as-is.
-> 
-> Yes, this was probably too aggressive.
+Note that this dissector can be also eventually used by openvswitch code.
 
-I tested this noinline patch and I got a bit less performance here in
-my 32K i-cache testbed.
+Also, as a next step, I plan to get rid of *skb_flow_get_ports(export)
+and *__skb_get_poff as their functionality can be now implemented by
+skb_flow_dissect as well.
 
-> unlikely() or static_key_false() are no moving code away enough, whole
-> function including unused code pollutes icache.
->
-> Code size increased a lot, while L1/L2 caches on cpu are about the same
-> than 6 years ago.
+v2->v3:
+- remove TCA_FLOWER_POLICE attr suggested by Jamal
 
-OK, so that explains why I'm getting more performance with the patch
-that move the qdisc ingress code using the indirection, since that
-helped to move code away, right?
+v1->v2:
+- move __skb_tx_hash rather to dev.c as suggested by Alex
 
-BTW, looking at the emails, Daniel said:
+Jiri Pirko (15):
+  net: change name of flow_dissector header to match the .c file name
+  flow_dissector: remove unused function flow_get_hlen declaration
+  net: move *skb_get_poff declarations into correct header
+  flow_dissector: fix doc for __skb_get_hash and remove couple of empty
+    lines
+  net: move __skb_get_hash function declaration to flow_dissector.h
+  net: move __skb_tx_hash to dev.c
+  net: move netdev_pick_tx and dependencies to net/core/dev.c
+  flow_dissector: fix doc for skb_get_poff
+  flow_dissector: introduce programable flow_dissector
+  flow_dissect: use programable dissector in skb_flow_dissect and
+    friends
+  flow_dissector: add missing header includes
+  flow_dissector: introduce support for ipv6 addressses
+  flow_dissector: introduce support for Ethernet addresses
+  flow_dissector: change port array into src,dst tuple
+  tc: introduce Flower classifier
 
-[...]
-> After your patch set:
->
-> Samples: 50K of event 'cycles:k', Event count (approx.): 45160667741
-> +   40.49%  kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb_core
-> +   31.21%  kpktgend_0  [kernel.kallsyms]  [k] kfree_skb
-> +    6.94%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
-> +    6.63%  kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_internal
-> +    6.63%  kpktgend_0  [kernel.kallsyms]  [k] ip_rcv
-> +    3.30%  kpktgend_0  [kernel.kallsyms]  [k] netif_receive_skb_sk
-> +    3.30%  kpktgend_0  [kernel.kallsyms]  [k] __netif_receive_skb
-> +    0.96%  kpktgend_0  [kernel.kallsyms]  [k] __local_bh_enable_ip
-> +    0.37%  kpktgend_0  [kernel.kallsyms]  [k] kthread_should_stop
-> +    0.03%  kpktgend_0  [kernel.kallsyms]  [k] _cond_resched
->
-> For *all* three, I reliably get ~40.0 Mpps with the benchmark.
+ drivers/net/bonding/bond_main.c                |  20 +-
+ drivers/net/ethernet/cisco/enic/enic_clsf.c    |  29 +-
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |  10 +-
+ drivers/net/hyperv/netvsc_drv.c                |   8 +-
+ include/linux/netdevice.h                      |   3 +
+ include/linux/skbuff.h                         |  14 +-
+ include/net/flow_dissector.h                   | 167 ++++++
+ include/net/flow_keys.h                        |  61 ---
+ include/net/ip.h                               |  10 +-
+ include/net/ipv6.h                             |  10 +-
+ include/uapi/linux/pkt_cls.h                   |  30 ++
+ net/core/dev.c                                 | 106 ++++
+ net/core/filter.c                              |   1 +
+ net/core/flow_dissector.c                      | 380 ++++++++------
+ net/ethernet/eth.c                             |   7 +-
+ net/sched/Kconfig                              |  10 +
+ net/sched/Makefile                             |   1 +
+ net/sched/cls_flow.c                           |  22 +-
+ net/sched/cls_flower.c                         | 688 +++++++++++++++++++++++++
+ net/sched/sch_choke.c                          |   6 +-
+ 20 files changed, 1285 insertions(+), 298 deletions(-)
+ create mode 100644 include/net/flow_dissector.h
+ delete mode 100644 include/net/flow_keys.h
+ create mode 100644 net/sched/cls_flower.c
 
-@Daniel, Alexei: Are you getting the same numbers with the indirection?
-
-What's the i-cache size in your testbed?
-
-Thanks.
+-- 
+2.4.0
