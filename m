@@ -1,52 +1,62 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH 2/2 net-next] net: move qdisc ingress filtering code where
- it belongs
-Date: Mon, 11 May 2015 20:21:51 -0700
-Message-ID: <555171CF.70106@plumgrid.com>
-References: <554FA7A5.5020400@plumgrid.com> <20150510190039.GA4938@salvia>	 <554FAC3A.40701@plumgrid.com> <20150510192044.GA7173@salvia>	 <554FB366.7080509@plumgrid.com> <20150510195018.GA7877@salvia>	 <554FCE24.8020904@iogearbox.net> <554FD12F.2020607@iogearbox.net>	 <20150510234313.GA3176@salvia> <555044D8.3080606@plumgrid.com>	 <20150511133245.GA4430@salvia>	 <1431354912.566.15.camel@edumazet-glaptop2.roam.corp.google.com>	 <555134F4.80007@plumgrid.com> <1431387038.566.47.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH v2 net-next 3/5] net: Add VLAN ID to flow_keys
+Date: Mon, 11 May 2015 20:26:42 -0700
+Message-ID: <1431401204-731380-4-git-send-email-tom@herbertland.com>
+References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, jhs@mojatatu.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36625 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149AbbELDVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 23:21:52 -0400
-Received: by pdea3 with SMTP id a3so166346309pde.3
-        for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:21:52 -0700 (PDT)
-In-Reply-To: <1431387038.566.47.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58766 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752415AbbELD1w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 23:27:52 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4C3Oruh009037
+	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:52 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1ub428gh62-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:51 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ ddda056cf85611e4bf310002c9521c9e-cbade1e0 for <netdev@vger.kernel.org>;	Mon,
+ 11 May 2015 20:27:50 -0700
+In-Reply-To: <1431401204-731380-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/11/15 4:30 PM, Eric Dumazet wrote:
->
-> For example , commit 7866a621043fbaca3d7389e9b9f69dd1a2e5a855
-> helped a given workload, but probably made things slower for most common
-> cases.
+In flow_dissector set vlan_id in flow_keys when VLAN is found.
 
-yes, indeed. reverting it improves netif_receive + drop in ip_rcv
-from 41.1 to 42.6. I've been trying to come up with a simple way
-to roll global ptype_all into skb->dev->ptype_all, but registering
-device notifier seems overkill to remove one loop from netif_receive.
-Also tried to partially remove pt_prev logic from the first half
-of netif_receive and keep it only for deliver_ptype_list_skb() part,
-but that didn't help.
-Then tried this:
--static int __netif_receive_skb(struct sk_buff *skb)
-+static inline int __netif_receive_skb(struct sk_buff *skb)
-...
--static int netif_receive_skb_internal(struct sk_buff *skb)
-+static inline int netif_receive_skb_internal(struct sk_buff *skb)
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ include/net/flow_keys.h   | 1 +
+ net/core/flow_dissector.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-it helped to go from 41.1 to 43.1, but size increase not negligible:
-    text	   data	    bss	    dec	    hex	filename
-   55990	   1667	   2856	  60513	   ec61	dev.o.base
-   56403	   1907	   2856	  61166	   eeee	dev.o.inline
-
-inlining only one of them (either __netif_receive_skb or
-netif_receive_skb_internal) gives minimal gain.
-Still exploring...
+diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+index c8bc6aa..14298e2 100644
+--- a/include/net/flow_keys.h
++++ b/include/net/flow_keys.h
+@@ -26,6 +26,7 @@ struct flow_keys {
+ 	__be16	n_proto;
+ 	u8	ip_proto;
+ 	u8	padding;
++	u32	vlan_id:12;
+ 
+ 	union {
+ 		__be32 ports;
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 69fbaf9..148b989 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -143,6 +143,7 @@ ipv6:
+ 		if (!vlan)
+ 			return false;
+ 
++		flow->vlan_id = skb_vlan_tag_get_id(skb);
+ 		proto = vlan->h_vlan_encapsulated_proto;
+ 		nhoff += sizeof(*vlan);
+ 		goto again;
+-- 
+1.8.1
