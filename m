@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 08/15] flow_dissector: fix doc for skb_get_poff
-Date: Tue, 12 May 2015 09:39:16 +0200
-Message-ID: <1431416363-5675-9-git-send-email-jiri@resnulli.us>
-References: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 00/15] introduce programable flow dissector and cls_flower
+Date: Tue, 12 May 2015 09:39:08 +0200
+Message-ID: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	jesse@nicira.com, kaber@trash.net, tom@herbertland.com,
 	edumazet@google.com, alexander.h.duyck@redhat.com,
@@ -11,39 +10,72 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:36057 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753037AbbELHkC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:40:02 -0400
-Received: by wizk4 with SMTP id k4so139646253wiz.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 00:40:01 -0700 (PDT)
-In-Reply-To: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:34040 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752932AbbELHj2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:39:28 -0400
+Received: by wicmc15 with SMTP id mc15so46589248wic.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 00:39:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/core/flow_dissector.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Per Davem's request, I prepared this patchset which introduces programmable
+flow dissector. For current users of flow_keys, there is a wrapper
+skb_flow_dissect_flow_keys which maintains the previous behaviour.
+For purposes of cls_flower, couple of new dissection keys were introduced.
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 04f8723..d885e28 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -417,8 +417,12 @@ u32 __skb_get_poff(const struct sk_buff *skb, void *data,
- 	return poff;
- }
- 
--/* skb_get_poff() returns the offset to the payload as far as it could
-- * be dissected. The main user is currently BPF, so that we can dynamically
-+/**
-+ * skb_get_poff - get the offset to the payload
-+ * @skb: sk_buff to get the payload offset from
-+ *
-+ * The function will get the offset to the payload as far as it could
-+ * be dissected.  The main user is currently BPF, so that we can dynamically
-  * truncate packets without needing to push actual payload to the user
-  * space and can analyze headers only, instead.
-  */
+Note that this dissector can be also eventually used by openvswitch code.
+
+Also, as a next step, I plan to get rid of *skb_flow_get_ports(export)
+and *__skb_get_poff as their functionality can be now implemented by
+skb_flow_dissect as well.
+
+v1->v2:
+- move __skb_tx_hash rather to dev.c as suggested by Alex
+
+Jiri Pirko (15):
+  net: change name of flow_dissector header to match the .c file name
+  flow_dissector: remove unused function flow_get_hlen declaration
+  net: move *skb_get_poff declarations into correct header
+  flow_dissector: fix doc for __skb_get_hash and remove couple of empty
+    lines
+  net: move __skb_get_hash function declaration to flow_dissector.h
+  net: move __skb_tx_hash to dev.c
+  net: move netdev_pick_tx and dependencies to net/core/dev.c
+  flow_dissector: fix doc for skb_get_poff
+  flow_dissector: introduce programable flow_dissector
+  flow_dissect: use programable dissector in skb_flow_dissect and
+    friends
+  flow_dissector: add missing header includes
+  flow_dissector: introduce support for ipv6 addressses
+  flow_dissector: introduce support for Ethernet addresses
+  flow_dissector: change port array into src,dst tuple
+  tc: introduce Flower classifier
+
+ drivers/net/bonding/bond_main.c                |  20 +-
+ drivers/net/ethernet/cisco/enic/enic_clsf.c    |  29 +-
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |  10 +-
+ drivers/net/hyperv/netvsc_drv.c                |   8 +-
+ include/linux/netdevice.h                      |   3 +
+ include/linux/skbuff.h                         |  14 +-
+ include/net/flow_dissector.h                   | 167 ++++++
+ include/net/flow_keys.h                        |  61 ---
+ include/net/ip.h                               |  10 +-
+ include/net/ipv6.h                             |  10 +-
+ include/uapi/linux/pkt_cls.h                   |  31 ++
+ net/core/dev.c                                 | 106 ++++
+ net/core/filter.c                              |   1 +
+ net/core/flow_dissector.c                      | 380 ++++++++------
+ net/ethernet/eth.c                             |   7 +-
+ net/sched/Kconfig                              |  10 +
+ net/sched/Makefile                             |   1 +
+ net/sched/cls_flow.c                           |  22 +-
+ net/sched/cls_flower.c                         | 688 +++++++++++++++++++++++++
+ net/sched/sch_choke.c                          |   6 +-
+ 20 files changed, 1286 insertions(+), 298 deletions(-)
+ create mode 100644 include/net/flow_dissector.h
+ delete mode 100644 include/net/flow_keys.h
+ create mode 100644 net/sched/cls_flower.c
+
 -- 
 1.9.3
