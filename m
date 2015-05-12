@@ -1,8 +1,8 @@
 From: Joao Martins <joao.martins@neclab.eu>
-Subject: [RFC PATCH 09/13] xen-netfront: move grant_{ref,
-	page} to struct grant
-Date: Tue, 12 May 2015 19:18:33 +0200
-Message-ID: <1431451117-70051-10-git-send-email-joao.martins@neclab.eu>
+Subject: [RFC PATCH 10/13] xen-netfront: refactor claim/release
+	grant
+Date: Tue, 12 May 2015 19:18:34 +0200
+Message-ID: <1431451117-70051-11-git-send-email-joao.martins@neclab.eu>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,177 +23,157 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-Refactors a little bit how grants are stored by moving
-grant_rx_ref/grant_tx_ref and grant_tx_page to its
-own structure, namely struct grant.
+Refactors how grants are claimed/released/revoked by moving that code
+into claim_grant and release_grant helpers routines that can be shared
+in both TX/RX path.
 
 Signed-off-by: Joao Martins <joao.martins@neclab.eu>
 ---
- drivers/net/xen-netfront.c | 56 ++++++++++++++++++++++++++--------------------
- 1 file changed, 32 insertions(+), 24 deletions(-)
+ drivers/net/xen-netfront.c | 87 ++++++++++++++++++++++++++++++----------------
+ 1 file changed, 58 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 3f45afd..8f49ed4 100644
+index 8f49ed4..99c17c9 100644
 --- a/drivers/net/xen-netfront.c
 +++ b/drivers/net/xen-netfront.c
-@@ -87,6 +87,11 @@ struct netfront_cb {
- /* IRQ name is queue name with "-tx" or "-rx" appended */
- #define IRQ_NAME_SIZE (QUEUE_NAME_SIZE + 3)
- 
-+struct grant {
-+	grant_ref_t ref;
-+	struct page *page;
-+};
-+
- struct netfront_stats {
- 	u64			packets;
- 	u64			bytes;
-@@ -129,8 +134,7 @@ struct netfront_queue {
- 		unsigned long link;
- 	} tx_skbs[NET_TX_RING_SIZE];
- 	grant_ref_t gref_tx_head;
--	grant_ref_t grant_tx_ref[NET_TX_RING_SIZE];
--	struct page *grant_tx_page[NET_TX_RING_SIZE];
-+	struct grant grant_tx[NET_TX_RING_SIZE];
- 	unsigned tx_skb_freelist;
- 
- 	spinlock_t   rx_lock ____cacheline_aligned_in_smp;
-@@ -141,7 +145,7 @@ struct netfront_queue {
- 
- 	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
- 	grant_ref_t gref_rx_head;
--	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
-+	struct grant grant_rx[NET_RX_RING_SIZE];
- };
- 
- struct netfront_info {
-@@ -213,8 +217,9 @@ static grant_ref_t xennet_get_rx_ref(struct netfront_queue *queue,
- 					    RING_IDX ri)
- {
- 	int i = xennet_rxidx(ri);
--	grant_ref_t ref = queue->grant_rx_ref[i];
--	queue->grant_rx_ref[i] = GRANT_INVALID_REF;
-+	grant_ref_t ref = queue->grant_rx[i].ref;
-+
-+	queue->grant_rx[i].ref = GRANT_INVALID_REF;
- 	return ref;
+@@ -256,6 +256,43 @@ static void xennet_maybe_wake_tx(struct netfront_queue *queue)
+ 		netif_tx_wake_queue(netdev_get_tx_queue(dev, queue->id));
  }
  
-@@ -306,7 +311,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
++static grant_ref_t claim_grant(struct page *page,
++			       grant_ref_t *gref_head,
++			       int otherend_id,
++			       int flags)
++{
++	grant_ref_t ref;
++	unsigned long mfn;
++
++	ref = gnttab_claim_grant_reference(gref_head);
++	BUG_ON(ref < 0);
++
++	mfn = pfn_to_mfn(page_to_pfn(page));
++	gnttab_grant_foreign_access_ref(
++		ref, otherend_id, mfn, flags);
++
++	return ref;
++}
++
++static void release_grant(grant_ref_t ref,
++			  grant_ref_t *gref_head,
++			  int otherend_id,
++			  int flags)
++{
++	int ret;
++
++	if (unlikely(gnttab_query_foreign_access(
++		ref) != 0)) {
++		pr_alert("%s: warning -- grant still in use by backend domain\n",
++			 __func__);
++		BUG();
++	}
++
++	ret = gnttab_end_foreign_access_ref(ref, flags);
++	BUG_ON(!ret);
++
++	gnttab_release_grant_reference(gref_head, ref);
++}
  
- 		ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
- 		BUG_ON((signed short)ref < 0);
--		queue->grant_rx_ref[id] = ref;
+ static struct sk_buff *xennet_alloc_one_rx_buffer(struct netfront_queue *queue)
+ {
+@@ -297,7 +334,7 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 		struct sk_buff *skb;
+ 		unsigned short id;
+ 		grant_ref_t ref;
+-		unsigned long pfn;
++		struct page *page;
+ 		struct xen_netif_rx_request *req;
+ 
+ 		skb = xennet_alloc_one_rx_buffer(queue);
+@@ -309,17 +346,15 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 		BUG_ON(queue->rx_skbs[id]);
+ 		queue->rx_skbs[id] = skb;
+ 
+-		ref = gnttab_claim_grant_reference(&queue->gref_rx_head);
+-		BUG_ON((signed short)ref < 0);
+-		queue->grant_rx[id].ref = ref;
++		page = skb_frag_page(&skb_shinfo(skb)->frags[0]);
++		ref = claim_grant(page,
++				  &queue->gref_rx_head,
++				  queue->info->xbdev->otherend_id,
++				  0);
+ 
+-		pfn = page_to_pfn(skb_frag_page(&skb_shinfo(skb)->frags[0]));
 +		queue->grant_rx[id].ref = ref;
  
- 		pfn = page_to_pfn(skb_frag_page(&skb_shinfo(skb)->frags[0]));
+ 		req = RING_GET_REQUEST(&queue->rx, req_prod);
+-		gnttab_grant_foreign_access_ref(ref,
+-						queue->info->xbdev->otherend_id,
+-						pfn_to_mfn(pfn),
+-						0);
  
-@@ -383,17 +388,17 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
+ 		req->id = id;
+ 		req->gref = ref;
+@@ -387,16 +422,12 @@ static void xennet_tx_buf_gc(struct netfront_queue *queue)
+ 
  			id  = txrsp->id;
  			skb = queue->tx_skbs[id].skb;
- 			if (unlikely(gnttab_query_foreign_access(
--				queue->grant_tx_ref[id]) != 0)) {
-+				queue->grant_tx[id].ref) != 0)) {
- 				pr_alert("%s: warning -- grant still in use by backend domain\n",
- 					 __func__);
- 				BUG();
- 			}
- 			gnttab_end_foreign_access_ref(
--				queue->grant_tx_ref[id], GNTMAP_readonly);
-+				queue->grant_tx[id].ref, GNTMAP_readonly);
- 			gnttab_release_grant_reference(
--				&queue->gref_tx_head, queue->grant_tx_ref[id]);
--			queue->grant_tx_ref[id] = GRANT_INVALID_REF;
--			queue->grant_tx_page[id] = NULL;
-+				&queue->gref_tx_head, queue->grant_tx[id].ref);
-+			queue->grant_tx[id].ref = GRANT_INVALID_REF;
-+			queue->grant_tx[id].page = NULL;
+-			if (unlikely(gnttab_query_foreign_access(
+-				queue->grant_tx[id].ref) != 0)) {
+-				pr_alert("%s: warning -- grant still in use by backend domain\n",
+-					 __func__);
+-				BUG();
+-			}
+-			gnttab_end_foreign_access_ref(
+-				queue->grant_tx[id].ref, GNTMAP_readonly);
+-			gnttab_release_grant_reference(
+-				&queue->gref_tx_head, queue->grant_tx[id].ref);
++
++			release_grant(queue->grant_tx[id].ref,
++				      &queue->gref_tx_head,
++				      queue->info->xbdev->otherend_id,
++				      GNTMAP_readonly);
++
+ 			queue->grant_tx[id].ref = GRANT_INVALID_REF;
+ 			queue->grant_tx[id].page = NULL;
  			add_id_to_freelist(&queue->tx_skb_freelist, queue->tx_skbs, id);
- 			dev_kfree_skb_irq(skb);
- 		}
-@@ -435,8 +440,8 @@ static struct xen_netif_tx_request *xennet_make_one_txreq(
- 					page_to_mfn(page), GNTMAP_readonly);
+@@ -433,11 +464,10 @@ static struct xen_netif_tx_request *xennet_make_one_txreq(
+ 
+ 	id = get_id_from_freelist(&queue->tx_skb_freelist, queue->tx_skbs);
+ 	tx = RING_GET_REQUEST(&queue->tx, queue->tx.req_prod_pvt++);
+-	ref = gnttab_claim_grant_reference(&queue->gref_tx_head);
+-	BUG_ON((signed short)ref < 0);
+-
+-	gnttab_grant_foreign_access_ref(ref, queue->info->xbdev->otherend_id,
+-					page_to_mfn(page), GNTMAP_readonly);
++	ref = claim_grant(page,
++			  &queue->gref_tx_head,
++			  queue->info->xbdev->otherend_id,
++			  GNTMAP_readonly);
  
  	queue->tx_skbs[id].skb = skb;
--	queue->grant_tx_page[id] = page;
--	queue->grant_tx_ref[id] = ref;
-+	queue->grant_tx[id].page = page;
-+	queue->grant_tx[id].ref = ref;
+ 	queue->grant_tx[id].page = page;
+@@ -727,7 +757,6 @@ static int xennet_get_responses(struct netfront_queue *queue,
+ 	int max = MAX_SKB_FRAGS + (rx->status <= RX_COPY_THRESHOLD);
+ 	int slots = 1;
+ 	int err = 0;
+-	unsigned long ret;
  
- 	tx->id = id;
- 	tx->gref = ref;
-@@ -659,7 +664,7 @@ static void xennet_move_rx_slot(struct netfront_queue *queue, struct sk_buff *sk
+ 	if (rx->flags & XEN_NETRXF_extra_info) {
+ 		err = xennet_get_extras(queue, extras, rp);
+@@ -758,10 +787,10 @@ static int xennet_get_responses(struct netfront_queue *queue,
+ 			goto next;
+ 		}
  
- 	BUG_ON(queue->rx_skbs[new]);
- 	queue->rx_skbs[new] = skb;
--	queue->grant_rx_ref[new] = ref;
-+	queue->grant_rx[new].ref = ref;
- 	RING_GET_REQUEST(&queue->rx, queue->rx.req_prod_pvt)->id = new;
- 	RING_GET_REQUEST(&queue->rx, queue->rx.req_prod_pvt)->gref = ref;
- 	queue->rx.req_prod_pvt++;
-@@ -1055,6 +1060,7 @@ static struct rtnl_link_stats64 *xennet_get_stats64(struct net_device *dev,
- static void xennet_release_tx_bufs(struct netfront_queue *queue)
- {
- 	struct sk_buff *skb;
-+	struct page *page;
- 	int i;
+-		ret = gnttab_end_foreign_access_ref(ref, 0);
+-		BUG_ON(!ret);
+-
+-		gnttab_release_grant_reference(&queue->gref_rx_head, ref);
++		release_grant(ref,
++			      &queue->gref_rx_head,
++			      queue->info->xbdev->otherend_id,
++			      0);
  
- 	for (i = 0; i < NET_TX_RING_SIZE; i++) {
-@@ -1063,12 +1069,13 @@ static void xennet_release_tx_bufs(struct netfront_queue *queue)
- 			continue;
+ 		__skb_queue_tail(list, skb);
  
- 		skb = queue->tx_skbs[i].skb;
--		get_page(queue->grant_tx_page[i]);
--		gnttab_end_foreign_access(queue->grant_tx_ref[i],
-+		page = queue->grant_tx[i].page;
-+		get_page(page);
-+		gnttab_end_foreign_access(queue->grant_tx[i].ref,
- 					  GNTMAP_readonly,
--					  (unsigned long)page_address(queue->grant_tx_page[i]));
--		queue->grant_tx_page[i] = NULL;
--		queue->grant_tx_ref[i] = GRANT_INVALID_REF;
-+					  (unsigned long)page_address(page));
-+		queue->grant_tx[i].page = NULL;
-+		queue->grant_tx[i].ref = GRANT_INVALID_REF;
- 		add_id_to_freelist(&queue->tx_skb_freelist, queue->tx_skbs, i);
- 		dev_kfree_skb_irq(skb);
- 	}
-@@ -1088,7 +1095,7 @@ static void xennet_release_rx_bufs(struct netfront_queue *queue)
- 		if (!skb)
- 			continue;
- 
--		ref = queue->grant_rx_ref[id];
-+		ref = queue->grant_rx[id].ref;
- 		if (ref == GRANT_INVALID_REF)
- 			continue;
- 
-@@ -1100,7 +1107,7 @@ static void xennet_release_rx_bufs(struct netfront_queue *queue)
- 		get_page(page);
- 		gnttab_end_foreign_access(ref, 0,
- 					  (unsigned long)page_address(page));
--		queue->grant_rx_ref[id] = GRANT_INVALID_REF;
-+		queue->grant_rx[id].ref = GRANT_INVALID_REF;
- 
- 		kfree_skb(skb);
- 	}
-@@ -1571,14 +1578,15 @@ static int xennet_init_queue(struct netfront_queue *queue)
- 	queue->tx_skb_freelist = 0;
- 	for (i = 0; i < NET_TX_RING_SIZE; i++) {
- 		skb_entry_set_link(&queue->tx_skbs[i], i+1);
--		queue->grant_tx_ref[i] = GRANT_INVALID_REF;
--		queue->grant_tx_page[i] = NULL;
-+		queue->grant_tx[i].ref = GRANT_INVALID_REF;
-+		queue->grant_tx[i].page = NULL;
- 	}
- 
- 	/* Clear out rx_skbs */
- 	for (i = 0; i < NET_RX_RING_SIZE; i++) {
- 		queue->rx_skbs[i] = NULL;
--		queue->grant_rx_ref[i] = GRANT_INVALID_REF;
-+		queue->grant_rx[i].ref = GRANT_INVALID_REF;
-+		queue->grant_rx[i].page = NULL;
- 	}
- 
- 	/* A grant for every tx ring slot */
 -- 
 2.1.3
