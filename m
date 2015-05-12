@@ -1,46 +1,31 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2 2/2] tests: Add test for 'ip route add default'
-Date: Tue, 12 May 2015 17:40:16 +0300
-Message-ID: <1431441616-25174-3-git-send-email-vadim4j@gmail.com>
-References: <1431441616-25174-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Update be2net maintainers' email addresses
+Date: Tue, 12 May 2015 10:42:05 -0400 (EDT)
+Message-ID: <20150512.104205.2066236658782878484.davem@davemloft.net>
+References: <1431411230-3492-1-git-send-email-sathya.perla@avagotech.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@avagotech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:34675 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932804AbbELOk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 10:40:58 -0400
-Received: by wicmc15 with SMTP id mc15so55918987wic.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 07:40:57 -0700 (PDT)
-In-Reply-To: <1431441616-25174-1-git-send-email-vadim4j@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44034 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933223AbbELOmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 10:42:07 -0400
+In-Reply-To: <1431411230-3492-1-git-send-email-sathya.perla@avagotech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Kochan <vadim4j@gmail.com>
+From: Sathya Perla <sathya.perla@avagotech.com>
+Date: Tue, 12 May 2015 02:13:50 -0400
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- testsuite/tests/ip/route/add_default_route.t | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
- create mode 100755 testsuite/tests/ip/route/add_default_route.t
+> Emulex developers' email addresses are now "@avagotech" instead of
+> "@emulex". I'm also replacing Subbu with Padmanabh and Sriharsha in the
+> maintainers list. The driver's heading was outdated and did not include
+> some of the chip types (BE3, Lancer and Skyhawk) that the driver has
+> been supporting for a longtime. I've updated this too.
+> 
+> Signed-off-by: Sathya Perla <sathya.perla@avagotech.com>
 
-diff --git a/testsuite/tests/ip/route/add_default_route.t b/testsuite/tests/ip/route/add_default_route.t
-new file mode 100755
-index 0000000..2908528
---- /dev/null
-+++ b/testsuite/tests/ip/route/add_default_route.t
-@@ -0,0 +1,12 @@
-+#!/bin/sh
-+
-+source lib/generic.sh
-+
-+ts_log "[Testing add default route]"
-+
-+DEV=dummy0
-+
-+ts_ip "$0" "Add new interface $DEV" link add $DEV type dummy
-+ts_ip "$0" "Set $DEV into UP state" link set up dev $DEV
-+ts_ip "$0" "Add 1.1.1.1/24 addr on $DEV" addr add 1.1.1.1/24 dev $DEV
-+ts_ip "$0" "Add default route via 1.1.1.1" route add default via 1.1.1.1
--- 
-2.3.1
+Applied, thank you.
