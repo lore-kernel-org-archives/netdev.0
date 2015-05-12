@@ -1,93 +1,84 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next V3 08/11] net/mlx5_core: Set/Query port MTU commands
-Date: Tue, 12 May 2015 11:19:46 +0300
-Message-ID: <CAPcc5Pje2c-bEgm+VCXCf6aXp7yV94UKUOw1e0HNO1WTUx0=dw@mail.gmail.com>
-References: <1431250746-11941-1-git-send-email-amirv@mellanox.com>
-	<1431250746-11941-9-git-send-email-amirv@mellanox.com>
-	<554F880B.8060203@cogentembedded.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] pktgen: fix packet generation
+Date: Tue, 12 May 2015 10:19:52 +0200
+Message-ID: <20150512101952.29e2b4af@redhat.com>
+References: <1431382788-6051-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org,
+	brouer@redhat.com
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:35523 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681AbbELITr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:19:47 -0400
-Received: by labbd9 with SMTP id bd9so111462222lab.2
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 01:19:46 -0700 (PDT)
-In-Reply-To: <554F880B.8060203@cogentembedded.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57660 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752653AbbELIUh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 04:20:37 -0400
+In-Reply-To: <1431382788-6051-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 10, 2015 at 7:32 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
-> On 5/10/2015 12:39 PM, Amir Vadai wrote:
->
->> From: Saeed Mahameed <saeedm@mellanox.com>
->
->
->> Introduce set/Query low level functions to access MTU in hardware. To be
->> used by the netdev.
->
->
->> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx5/core/port.c | 56
->> ++++++++++++++++++++++++++
->>   include/linux/mlx5/driver.h                    |  4 ++
->>   2 files changed, 60 insertions(+)
->
->
->> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c
->> b/drivers/net/ethernet/mellanox/mlx5/core/port.c
->> index 742a6fb..e56a0b6 100644
->> --- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
->> +++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
->> @@ -211,3 +211,59 @@ int mlx5_query_port_status(struct mlx5_core_dev *dev,
->> u8 *status)
->
-> [...]
->>
->> +int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu)
->> +{
->> +       u32 in[MLX5_ST_SZ_DW(pmtu_reg)];
->> +       u32 out[MLX5_ST_SZ_DW(pmtu_reg)];
->> +       int err;
->> +
->> +       memset(in, 0, sizeof(in));
->> +
->> +       MLX5_SET(pmtu_reg, in, admin_mtu, mtu);
->> +       MLX5_SET(pmtu_reg, in, local_port, 1);
->> +
->> +       err = mlx5_core_access_reg(dev, in, sizeof(in), out,
->> +                                  sizeof(out), MLX5_REG_PMTU, 0, 1);
->> +
->> +       return err;
->
->
->    Why not just return directly?
-Will be fixed in V4
+On Mon, 11 May 2015 15:19:48 -0700
+Alexei Starovoitov <ast@plumgrid.com> wrote:
 
-Thanks,
-Amir
+> pkt_gen->last_ok was not set properly, so after the first burst
+> pktgen instead of allocating new packet, will reuse old one, advance
+> eth_type_trans further, which would mean the stack will be seeing very
+> short bogus packets.
+> 
+> Fixes: 62f64aed622b ("pktgen: introduce xmit_mode '<start_xmit|netif_receive>'")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> This bug slipped through due to all code refactoring and can be seen
+> after clean reboot. If taps, rps or tx mode was used at least once,
+> the bug will be hidden.
+> 
+> Note to users: if you don't see ip_rcv() in your perf profile, it means
+> you were hitting this.
+> As commit log of 62f64aed622b is saying, the baseline perf profile
+> should look like:
+>    37.69%  kpktgend_0   [kernel.vmlinux]  [k] __netif_receive_skb_core
+>    25.81%  kpktgend_0   [kernel.vmlinux]  [k] kfree_skb
+>     7.22%  kpktgend_0   [kernel.vmlinux]  [k] ip_rcv
+>     5.68%  kpktgend_0   [pktgen]          [k] pktgen_thread_worker
+> 
+> Jesper, that explains why you were seeing hot:
+> atomic_long_inc(&skb->dev->rx_dropped);
 
->
-> [...]
->
-> WBR, Sergei
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+Yes, just confirmed that this problem is gone. E.g. the multiqueue
+script now scales without hitting this "skb->dev->rx_dropped".
+
+ Device: eth4@0
+  21127682pps 10141Mb/sec (10141287360bps) errors: 10000000
+ Device: eth4@1
+  22170175pps 10641Mb/sec (10641684000bps) errors: 10000000
+ Device: eth4@2
+  22230977pps 10670Mb/sec (10670868960bps) errors: 10000000
+ Device: eth4@3
+  22269033pps 10689Mb/sec (10689135840bps) errors: 10000000
+
+I was also a little puzzled that I was not seeing kmem_cache_{alloc/free}
+in my previous perf reports, but I just assumed burst was very efficient.
+
+Good this got fixed, as my plan is to use this to profile the memory
+allocators fast path for SKB alloc/free. 
+
+Setting "burst = 0" (and flag NO_TIMESTAMP):
+ Device: eth4@0
+  3938513pps 1890Mb/sec (1890486240bps) errors: 10000000
+
+Thus, performance hit from 22.1Mpps to 3.9Mpps, thus 209 nanosec more
+expensive.  20% is the cost of pktgen itself, still I'm surprised that
+the hit is this big, as this should hit the most optimal cache-hot case
+of SKB alloc/free.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
