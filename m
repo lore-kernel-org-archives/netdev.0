@@ -1,86 +1,72 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: RE: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
-Date: Tue, 12 May 2015 03:55:19 -0500
-Message-ID: <110296A8-1CC9-456C-B126-50C90D4E3E17@xmission.com>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com> <87wq0kcqlm.fsf@x220.int.ebiederm.org> <20150508140733.GA13325@gondor.apana.org.au> <87sib76kef.fsf@x220.int.ebiederm.org> <20150509011339.GA19116@gondor.apana.org.au> <87383633pu.fsf_-_@x220.int.ebiederm.org> <87oalu1p16.fsf_-_@x220.int.ebiederm.org> <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v3 00/22] Convert the posix_clock_operations and
+	k_clock structure to ready for 2038
+Date: Tue, 12 May 2015 11:39:36 +0200
+Message-ID: <2293496.0Ycckx2zYU@wuerfel>
+References: <1431342518-29362-1-git-send-email-baolin.wang@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Ying Xue <ying.xue@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"cwang@twopensource.com" <cwang@twopensource.com>,
-	"xemul@openvz.org" <xemul@openvz.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
-	"tom@herbertland.com" <tom@herbertland.com>,
-	"jchapman@katalix.com" <jchapman@katalix.com>,
-	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
-	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
-	"horms@verge.net.au" <horms@verge.net.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:53759 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932131AbbELIze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:55:34 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: pang.xunlei@linaro.org, peterz@infradead.org, fweisbec@gmail.com,
+ heiko.carstens@de.ibm.com, paulus@samba.org, cl@linux.com,
+ heenasirwani@gmail.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
+ y2038@lists.linaro.org, rafael.j.wysocki@intel.com, ahh@google.com,
+ pjt@google.com, riel@redhat.com, richardcochran@gmail.com, tj@kernel.org,
+ john.stultz@linaro.org, tglx@linutronix.de, rth@twiddle.net,
+ Baolin Wang <baolin.wang@linaro.org>, gregkh@linuxfoundation.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org, schwidefsky@de.ibm.com,
+ linux390@de.ibm.com
+To: linuxppc-dev@lists.ozlabs.org
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <1431342518-29362-1-git-send-email-baolin.wang@linaro.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-
-
-On May 12, 2015 3:24:11 AM CDT, David Laight <David.Laight@ACULAB.COM> wrote:
->From: Eric W. Biederman
->> Sent: 09 May 2015 03:08
->>
->> This is long overdue, and is part of cleaning up how we allocate
->kernel
->> sockets that don't reference count struct net.
->...
->> diff --git a/net/socket.c b/net/socket.c
->> index b5f1f43ed8f4..9963a0b53a64 100644
->> --- a/net/socket.c
->> +++ b/net/socket.c
->> @@ -1210,9 +1210,9 @@ int sock_create(int family, int type, int
->protocol, struct socket **res)
->>  }
->>  EXPORT_SYMBOL(sock_create);
->> 
->> -int sock_create_kern(int family, int type, int protocol, struct
->socket **res)
->> +int sock_create_kern(struct net *net, int family, int type, int
->protocol, struct socket **res)
->>  {
->> -	return __sock_create(&init_net, family, type, protocol, res, 1);
->> +	return __sock_create(net, family, type, protocol, res, 1);
->>  }
->>  EXPORT_SYMBOL(sock_create_kern);
->
->Wouldn't it involve far less churn to add a new function that uses a
->non-default
->namespace?
-
-The goal is comprehensible and maintainable kernel code.
-
-Which network namespace your socket is in, is an important property and something you probably care about if you are creating kernel sockets.
-
-Having a second function is more maintenance and results in harder to understand code.  A major fraction of the callers even before this change wanted to be outside the initial network namespace.
-
-This change should have been made years ago, but unfortunately it was not.
-
->Changing the function prototype will a PITA for anyone doing back-ports
->of fixes.
->(And more so for anyone trying to get a driver to build against kernels
->that might have this change back-ported.)
-
-Yep dealing with backports sucks, my sympathies.
-
-Eric
-
- 
+T24gTW9uZGF5IDExIE1heSAyMDE1IDE5OjA4OjM4IEJhb2xpbiBXYW5nIHdyb3RlOgo+IFRoaXMg
+cGF0Y2ggc2VyaWVzIGNoYW5nZXMgdGhlIDMyLWJpdCB0aW1lIHR5cGUgKHRpbWVzcGVjL2l0aW1l
+cnNwZWMpIHRvIHRoZSA2NC1iaXQgb25lCj4gKHRpbWVzcGVjNjQvaXRpbWVyc3BlYzY0KSwgc2lu
+Y2UgMzItYml0IHRpbWUgdHlwZXMgd2lsbCBicmVhayBpbiB0aGUgeWVhciAyMDM4Lgo+IAo+IFRo
+aXMgcGF0Y2ggc2VyaWVzIGludHJvZHVjZXMgbmV3IG1ldGhvZHMgd2l0aCB0aW1lc3BlYzY0L2l0
+aW1lcnNwZWM2NCB0eXBlLAo+IGFuZCByZW1vdmVzIHRoZSBvbGQgb25lcyB3aXRoIHRpbWVzcGVj
+L2l0aW1lcnNwZWMgdHlwZSBmb3IgcG9zaXhfY2xvY2tfb3BlcmF0aW9ucwo+IGFuZCBrX2Nsb2Nr
+IHN0cnVjdHVyZS4KPiAKPiBBbHNvIGludHJvZHVjZXMgc29tZSBuZXcgZnVuY3Rpb25zIHdpdGgg
+dGltZXNwZWM2NC9pdGltZXJzcGVjNjQgdHlwZSwgbGlrZSBjdXJyZW50X2tlcm5lbF90aW1lNjQo
+KSwKPiBocnRpbWVyX2dldF9yZXM2NCgpLCBjcHV0aW1lX3RvX3RpbWVzcGVjNjQoKSBhbmQgdGlt
+ZXNwZWM2NF90b19jcHV0aW1lKCkuCj4gCj4gQ2hhbmdlcyBzaW5jZSB2MjoKPiAgICAgIAktU3Bs
+aXQgdGhlIHN5c2NhbGwgY29udmVyc2lvbiBwYXRjaCBpbnRvIHNtYWxsIHNvbWUgcGF0Y2hlcy4K
+PiAKPiAKPiBCYW9saW4gV2FuZyAoMjIpOgo+ICAgbGludXgvdGltZTY0Lmg6SW50cm9kdWNlIHRo
+ZSAnc3RydWN0IGl0aW1lcnNwZWM2NCcgZm9yIDY0Yml0Cj4gICB0aW1la2VlcGluZzpJbnRyb2R1
+Y2UgdGhlIGN1cnJlbnRfa2VybmVsX3RpbWU2NCgpIGZ1bmN0aW9uIHdpdGgKPiAgICAgdGltZXNw
+ZWM2NCB0eXBlCj4gICB0aW1lL2hydGltZXI6SW50cm9kdWNlIGhydGltZXJfZ2V0X3JlczY0KCkg
+d2l0aCB0aW1lc3BlYzY0IHR5cGUgZm9yCj4gICAgIGdldHRpbmcgdGhlIHRpbWVyIHJlc29sdXRp
+b24KPiAgIHBvc2l4LXRpbWVyczpTcGxpdCBvdXQgdGhlIGd1dHMgb2YgdGhlIHN5c2NhbGwgYW5k
+IGNoYW5nZSB0aGUKPiAgICAgaW1wbGVtZW50YXRpb24gZm9yIHRpbWVyX2dldHRpbWUKPiAgIHBv
+c2l4LXRpbWVyczpDb252ZXJ0IHRvIHRoZSA2NGJpdCBtZXRob2RzIGZvciB0aGUgdGltZXJfZ2V0
+dGltZQo+ICAgICBzeXNjYWxsIGZ1bmN0aW9uCgpJIGhhdmUgdHdvIG1vcmUgdmVyeSBnZW5lcmFs
+IGNvbW1lbnRzIGFib3V0IHRoZSBzZXJpZXM6CgphKSBzb21ldGhpbmcgaGFzIGdvbmUgd3Jvbmcg
+d2l0aCB5b3VyIHN1Ym1pc3Npb24gaW4gdjIgYW5kIHYzIGJ1dCB3YXMKICAgd29ya2luZyBlYXJs
+aWVyOiBub3JtYWxseSBhbGwgZW1haWxzIHNob3VsZCBiZSBzZW50IGJ5IGdpdC1zZW5kLWVtYWls
+CiAgIGFzIHJlcGxpZXMgdG8gdGhlIFtwYXRjaCAwMC8yMl0gbWFpbC4gVGhpcyBpcyB0aGUgZGVm
+YXVsdCwgYW5kIGl0CiAgIGlzIGVuYWJsZWQgYnkgdGhlICctLXRocmVhZCAtLW5vLWNoYWluLXJl
+cGx5JyBvcHRpb25zLiBQbGVhc2UgdHJ5CiAgIHRvIGdldCB0aGlzIHRvIHdvcmsgYWdhaW4uCgpi
+KSBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gaGF2ZSBhIGxpdHRsZSBzaG9ydGVyIHN1YmplY3QgbGlu
+ZXMsIHRvIGF2b2lkCiAgIGxpbmUtd3JhcHBpbmcgaW4gdGhlIGxpc3QgYWJvdmUuIEhlcmUgYXJl
+IHNvbWUgZXhhbXBsZXMgd2hhdCB5b3UgY291bGQKICAgdXNlIHRvIHJlcGxhY2UgdGhlIGxpbmVz
+IGFib3ZlOgoKICAgdGltZWtlZXBpbmc6IGludHJvZHVjZSBzdHJ1Y3QgaXRpbWVyc3BlYzY0CiAg
+IHRpbWVrZWVwaW5nOiBpbnRyb2R1Y2UgY3VycmVudF9rZXJuZWxfdGltZTY0KCkKICAgaHJ0aW1l
+cjogaW50cm9kdWNlIGhydGltZXJfZ2V0X3JlczY0KCkgCiAgIHBvc2l4LXRpbWVyczogc3BsaXQg
+dXAgc3lzX3RpbWVyX2dldHRpbWUoKQogICBwb3NpeC10aW1lcnM6IGNvbnZlcnQgdGltZXJfZ2V0
+dGltZSgpIHRvIHRpbWVzcGVjNjQKCiAgIEluIGdlbmVyYWwsIHRyeSB0byBjb21lIHVwIHdpdGgg
+dGhlIHNob3J0ZXN0IGRlc2NyaXB0aW9uIHRoYXQKICAgdW5pcXVlbHkgZGVzY3JpYmVzIHdoYXQg
+eW91ciBwYXRjaCBkb2VzLCBhbmQgbW92ZSBhbnkgZGV0YWlscyBpbnRvCiAgIHRoZSBsb25nZXIg
+cGF0Y2ggZGVzY3JpcHRpb24uCgoJQXJuZApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9y
+ZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
