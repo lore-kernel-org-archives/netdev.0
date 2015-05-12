@@ -1,91 +1,84 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
-Date: Tue, 12 May 2015 16:46:31 -0400
-Message-ID: <555266A7.8060706@gmail.com>
-References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>	 <1958390.Ugr57PpLDS@h2o.as.studentenwerk.mhn.de>	 <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>	 <1489362.AtetvSCXN1@h2o.as.studentenwerk.mhn.de>	 <5552602E.3060300@gmail.com> <1431462991.566.97.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 2/2] net/ibm/emac: fix size of emac dump memory areas
+Date: Wed, 13 May 2015 06:49:54 +1000
+Message-ID: <1431463794.20218.58.camel@kernel.crashing.org>
+References: <20150512171200.207dfd7b@fr-ThinkPad-W520>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Walter <linux@stwm.de>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Ivan Mikhaylov <ivan@ru.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431462991.566.97.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <20150512171200.207dfd7b@fr-ThinkPad-W520>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/12/2015 04:36 PM, Eric Dumazet wrote:
-> On Tue, 2015-05-12 at 16:18 -0400, Vlad Yasevich wrote:
->> On 05/06/2015 06:11 PM, Wolfgang Walter wrote:
->>> Am Mittwoch, 6. Mai 2015, 11:15:18 schrieben Sie:
->>>> (Cc'ing netdev.)
->>>>
->>>> On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
->>>>> Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
->>>>>> Hello,
->>>>>>
->>>>>> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with an
->>>>>> isatap-tunnel.
->>>>>
->>>>> I did some further tests. To trigger the crash you need
->>>>>
->>>>> * isatap-tunnel (probably any sit-tunnel will do it)
->>>>> * raw-socket
->>>>> * udp
->>>>>
->>>>> Using icmpv6 or tcp i.e. does not trigger it.
->>>>
->>>> Do you have a script to reproduce it?
->>>>
->>>>
->>>> Thanks for the bug report!
->>>
->>> You need a isatap-server with say ipv4-address $X
->>>
->>> Then, on host with 4.0, start isatapd: isatapd --mtu 1280 $X
->>>
->>> then do
->>>
->>> 	traceroute6 www.google.de
->>>
->>> Regards,
->>>
->>
->> Hi Walter
->>
->> Could you try this patch.  Looks like raw passes transhdrlen
->> of 0 on the first packet and that makes IPv4 behave correctly,
->> but not IPv6.
->>
->>
->> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
->> index 7fde1f2..fd9c079 100644
->> --- a/net/ipv6/ip6_output.c
->> +++ b/net/ipv6/ip6_output.c
->> @@ -1278,7 +1278,7 @@ emsgsize:
->>  	/* If this is the first and only packet and device
->>  	 * supports checksum offloading, let's use it.
->>  	 */
->> -	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
->> +	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
->>  	    length + fragheaderlen < mtu &&
->>  	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
->>  	    !exthdrlen)
-> 
-> And make sure the checksum is correct ;)
-> 
-> Vlad, can you tell where skb->cum_start and skb->csum_offset are set ?
-> 
-> 
+On Tue, 2015-05-12 at 17:12 +0400, Ivan Mikhaylov wrote:
+> Fix in send of emac regs dump to ethtool which
+> causing wrong data interpretation on ethtool
+> layer for MII and EMAC.
 
-For udp, udp6_hwcsum_outgoing(), but with the above patch, the check above will return
-false, and we'll fallback to using CHECKSUM_NONE.
+Please provide a better explanation. You removed the difference
+in register space size between EMAC and EMAC4, why ? You also changed a
+test regarding which version of the structure to use from EMAC4 to
+EMAC4SYNC, why ?
 
-Before, the !skb was true since there there was no skb on the queue.  Now, that
-we are checking transhdr and raw passing in 0, the check will be false.  This
-is what's making IPv4 work correctly in this case.
-
--vlad
+> Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
+> ---
+>  drivers/net/ethernet/ibm/emac/core.c |   14 ++++----------
+>  drivers/net/ethernet/ibm/emac/core.h |    4 ----
+>  2 files changed, 4 insertions(+), 14 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+> index de79193..3dc6534 100644
+> --- a/drivers/net/ethernet/ibm/emac/core.c
+> +++ b/drivers/net/ethernet/ibm/emac/core.c
+> @@ -2084,12 +2084,8 @@ static void emac_ethtool_get_pauseparam(struct net_device *ndev,
+>  
+>  static int emac_get_regs_len(struct emac_instance *dev)
+>  {
+> -	if (emac_has_feature(dev, EMAC_FTR_EMAC4))
+> -		return sizeof(struct emac_ethtool_regs_subhdr) +
+> -			EMAC4_ETHTOOL_REGS_SIZE(dev);
+> -	else
+>  		return sizeof(struct emac_ethtool_regs_subhdr) +
+> -			EMAC_ETHTOOL_REGS_SIZE(dev);
+> +			sizeof(struct emac_regs);
+>  }
+>  
+>  static int emac_ethtool_get_regs_len(struct net_device *ndev)
+> @@ -2114,15 +2110,13 @@ static void *emac_dump_regs(struct emac_instance *dev, void *buf)
+>  	struct emac_ethtool_regs_subhdr *hdr = buf;
+>  
+>  	hdr->index = dev->cell_index;
+> -	if (emac_has_feature(dev, EMAC_FTR_EMAC4)) {
+> +	if (emac_has_feature(dev, EMAC_FTR_EMAC4SYNC)) {
+>  		hdr->version = EMAC4_ETHTOOL_REGS_VER;
+> -		memcpy_fromio(hdr + 1, dev->emacp, EMAC4_ETHTOOL_REGS_SIZE(dev));
+> -		return (void *)(hdr + 1) + EMAC4_ETHTOOL_REGS_SIZE(dev);
+>  	} else {
+>  		hdr->version = EMAC_ETHTOOL_REGS_VER;
+> -		memcpy_fromio(hdr + 1, dev->emacp, EMAC_ETHTOOL_REGS_SIZE(dev));
+> -		return (void *)(hdr + 1) + EMAC_ETHTOOL_REGS_SIZE(dev);
+>  	}
+> +	memcpy_fromio(hdr + 1, dev->emacp, sizeof(struct emac_regs));
+> +	return (void *)(hdr + 1) + sizeof(struct emac_regs);
+>  }
+>  
+>  static void emac_ethtool_get_regs(struct net_device *ndev,
+> diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
+> index 67f342a..db90819 100644
+> --- a/drivers/net/ethernet/ibm/emac/core.h
+> +++ b/drivers/net/ethernet/ibm/emac/core.h
+> @@ -461,10 +461,6 @@ struct emac_ethtool_regs_subhdr {
+>  };
+>  
+>  #define EMAC_ETHTOOL_REGS_VER		0
+> -#define EMAC_ETHTOOL_REGS_SIZE(dev) 	((dev)->rsrc_regs.end - \
+> -					 (dev)->rsrc_regs.start + 1)
+>  #define EMAC4_ETHTOOL_REGS_VER      	1
+> -#define EMAC4_ETHTOOL_REGS_SIZE(dev)	((dev)->rsrc_regs.end -	\
+> -					 (dev)->rsrc_regs.start + 1)
+>  
+>  #endif /* __IBM_NEWEMAC_CORE_H */
