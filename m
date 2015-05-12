@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 04/15] flow_dissector: fix doc for __skb_get_hash and remove couple of empty lines
-Date: Tue, 12 May 2015 09:39:12 +0200
-Message-ID: <1431416363-5675-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 05/15] net: move __skb_get_hash function declaration to flow_dissector.h
+Date: Tue, 12 May 2015 09:39:13 +0200
+Message-ID: <1431416363-5675-6-git-send-email-jiri@resnulli.us>
 References: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	jesse@nicira.com, kaber@trash.net, tom@herbertland.com,
@@ -11,51 +11,48 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
 	john.fastabend@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:35728 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752631AbbELHjp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:39:45 -0400
-Received: by wgbhc8 with SMTP id hc8so55158029wgb.2
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 00:39:44 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:36756 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753155AbbELHjt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:39:49 -0400
+Received: by wizk4 with SMTP id k4so139639031wiz.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 00:39:48 -0700 (PDT)
 In-Reply-To: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Since the definition of the function is in flow_dissector.c, it makes
+sense to have the declaration in flow_dissector.h
+
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/core/flow_dissector.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ include/linux/skbuff.h       | 1 -
+ include/net/flow_dissector.h | 1 +
+ 2 files changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index eaa86b5..0d9bc3a 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -337,8 +337,11 @@ void make_flow_keys_digest(struct flow_keys_digest *digest,
- }
- EXPORT_SYMBOL(make_flow_keys_digest);
- 
--/*
-- * __skb_get_hash: calculate a flow hash based on src/dst addresses
-+/**
-+ * __skb_get_hash: calculate a flow hash
-+ * @skb: sk_buff to calculate flow hash from
-+ *
-+ * This function calculates a flow hash based on src/dst addresses
-  * and src/dst port numbers.  Sets hash in skb to non-zero hash value
-  * on success, zero indicates no valid hash.  Also, sets l4_hash in skb
-  * if hash is a canonical 4-tuple hash over transport ports.
-@@ -353,12 +356,9 @@ void __skb_get_hash(struct sk_buff *skb)
- 	hash = ___skb_get_hash(skb, &keys, hashrnd);
- 	if (!hash)
- 		return;
--
- 	if (keys.ports)
- 		skb->l4_hash = 1;
--
- 	skb->sw_hash = 1;
--
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 8616bfe..55677e9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -918,7 +918,6 @@ skb_set_hash(struct sk_buff *skb, __u32 hash, enum pkt_hash_types type)
  	skb->hash = hash;
  }
- EXPORT_SYMBOL(__skb_get_hash);
+ 
+-void __skb_get_hash(struct sk_buff *skb);
+ static inline __u32 skb_get_hash(struct sk_buff *skb)
+ {
+ 	if (!skb->l4_hash && !skb->sw_hash)
+diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+index 4570cca..e4ee761 100644
+--- a/include/net/flow_dissector.h
++++ b/include/net/flow_dissector.h
+@@ -46,6 +46,7 @@ static inline __be32 skb_flow_get_ports(const struct sk_buff *skb,
+ }
+ 
+ u32 flow_hash_from_keys(struct flow_keys *keys);
++void __skb_get_hash(struct sk_buff *skb);
+ u32 skb_get_poff(const struct sk_buff *skb);
+ u32 __skb_get_poff(const struct sk_buff *skb, void *data,
+ 		   const struct flow_keys *keys, int hlen);
 -- 
 1.9.3
