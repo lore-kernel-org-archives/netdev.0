@@ -1,86 +1,188 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [PATCH RFC 0/2] stmmac: stand alone platform drivers
-Date: Tue, 12 May 2015 19:20:45 +0200
-Message-ID: <CAGhQ9Vx0DQf-HcqEiohFLrBJPBe5qYjLgXiH3qGx85fAruh8UQ@mail.gmail.com>
-References: <1431022765-30715-1-git-send-email-manabian@gmail.com>
-	<5987007.lq0DjS0tE0@wuerfel>
+From: Joao Martins <joao.martins@neclab.eu>
+Subject: [RFC PATCH 00/13] Persistent grant maps for xen net
+	drivers
+Date: Tue, 12 May 2015 19:18:24 +0200
+Message-ID: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"peppe.cavallaro" <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:32976 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932776AbbELRUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 13:20:47 -0400
-Received: by lbbzk7 with SMTP id zk7so11246127lbb.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 10:20:45 -0700 (PDT)
-In-Reply-To: <5987007.lq0DjS0tE0@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
+	Joao Martins <joao.martins@neclab.eu>, david.vrabel@citrix.com,
+	boris.ostrovsky@oracle.com
+To: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-On 8 May 2015 at 15:30, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Thursday 07 May 2015 20:19:23 Joachim Eastwood wrote:
->> Hi Arnd,
->>
->> I ran into some issue using a separate platform driver[1] for lpc1850-dwmac.
->>
->> My dts files looks like this.
->> mac: ethernet@40010000 {
->>         compatible = "nxp,lpc1850-dwmac", "snps,dwmac-3.611", "snps,dwmac";
->>         ...
->> }
->>
->> On boot the generic driver in stmmac_platform.c would grab the
->> device, matching on one of generic compat strings and thus blocking
->> the lpc1850-dwmac driver.
->>
->> By changing the build order in the Makefile (see patch 1) I managed
->> to get it working, but I am not sure that is a good solution(?).
->
-> Changing the link order in the Makefile is an acceptable solution
-> for managing initialization order in general, but I think it won't
-> work here, because if your driver is a loadable module, the base
-> driver would always be attached first.
+This patch implements persistent grants for xen-net{back,front}. There has
+been work on persistent grants in the past[1], but the one here
+described is a bit different: 1) using zerocopy skbs for RX path in
+xen-netfront as opposed to memcpy every packet; 2) using a tree to store
+the grants (and doing so using same interfaces as blkback/blkfront, to
+hopefully share a common layer) 3) reusing TX map/unmap paths for handling
+persistent grants case 4) sending the buffer on ndo_start_xmit as opposed
+to bouncing them through the RX kthread.
 
-That is true.
+Intrahost performance increases significantly between 16-78% (depending on
+the host), and performance per-queue (tested with up to 6 queues) scales
+nicely all the way to ~30 Gbits, specially on TX path. Rates for small
+packet sizes increase up to 1.82 Mpps TX (1.2 Gbit/s on wire, 64 pkt_size)
+and 2.78 Mpps RX (1.8 Gbit/s on wire, 64 pkt_size). This is around 1.5x to
+2x improvement compared with grant copy/map. On bigger packet sizes the
+improvement is even more noticeable. The only problem though, is that
+performance seems to decrease for RX path on 1 queue (and 2 queues with
+slower CPUs). This is because of the extra memcpy on xen-netfront (in
+skb_copy_ubufs, frags > 0) for pkt len > RX_COPY_THRESHOLD.
 
-The setup/configuration I am testing doesn't use modules though and
-the only way I can get the lpc1850-dwmac driver to probe the device is
-to link the generic driver last.
+This series are organized as follows: Patch 1 defines the routines for
+managing the tree, Patch 2,11 implements feature detection, Patch 3-4 the
+actual implementation of TX/RX grants on the backend, Patch 5 proposes
+copying the buffer on ndo_start_xmit, Patch 7 fixes a bug when using pktgen
+with burst >1 without persistent grants. Patches 12-13 implements the
+frontend part. Patches 5,9,10 are only structural before introducing the
+main changes. Overall, it works as the following:
 
->> Another fix would be to remove the generic compat strings from the
->> match table in stmmac_platform but there are some dts-files that
->> only have these compat strings.
->> See abilis_tb10x.dtsi and exynos5440.dtsi.
->
-> Yes, that has a high risk of causing regressions.
->
->> I could also remove the generic compat strings from my dts file but
->> I am not sure that is good solution either. If more glue is
->> converted this would then be need in those dts files also.
->
-> I think it would work if you move the generic strings into a separate
-> module that is not the one providing the base support. In that case,
-> the kernel should first try to use the driver that matches the first
-> compatible string. Can you try that?
+On transmit path, xen-netfront will grant a new page and memcpy the skb to
+it.  On netback NAPI poll, we will check for a persistent grant available
+for header and frags grefs. If none is found in the tree, it will resort to
+grant copy (only for the header) but still preparing the grant map and
+adding them to the tree.  The frags are handled the same as before with the
+exception of having to add the grant map to the tree and not having to
+unmap it in the skb callback (when freeing).
 
-I have now created a generic dt dwmac driver which contain all compat
-strings that doesn't have any match data. As long as this driver is
-linked last this works for my built-in drivers configuration. I am not
-able to test using modules because of my very limited rootfs. This is
-a Cortex-M system after all.
+On receive path we lookup for a page mapped for guest gref. If it exists in
+the tree, it does a memcpy and reverting to grant copy in case of the first
+failed lookup, or in case we don't have free pages to create mappings. On
+xen-netfront RX we then grab responses and use zerocopy skbs to be able to
+reuse the same pages for future requests, and to avoid an extra copy for
+packets smaller <= RX_COPY_THRESHOLD.  Additionally I also propose copying
+the buffer on ndo_start_xmit to avoid wait queue and rx_queue contention
+and because no grant table batching is required with persistent grants
+(besides the initial map/copy). The latter improved the pkt rates
+(by ~2x) specially for smaller packet sizes, and for pkt
+len <= RX_COPY_THRESHOLD in RX path.
 
-I also converted all the other DT dwmac drivers and the entire patch
-set can be found on:
-https://github.com/manabian/linux-lpc
+Packet I/O Tests:
 
-After I have done some more cleanups and added proper commit messages
-I will put them on netdev again.
+Measured on a Intel Xeon E5-1650 v2, Xen 4.5, no HT. Used pktgen "burst 1"
+and "clone_skbs 100000" (to avoid alloc skb overheads) with various pkt
+sizes. All tests are DomU <-> Dom0, unless specified otherwise.
+Graphs:
+http://cnp.neclab.eu/images/pgntperf/udprx_hostA.png
+http://cnp.neclab.eu/images/pgntperf/udptx_hostA.png
 
+                             | Baseline  | Pers. Grants       |
+---------------------------------------------------------------
+1q DomU TX (pkt_size 64)     | 1.24 Mpps | 1.82  Mpps (+ 46%) |
+1q DomU TX (pkt_size 1496)   | 518  Kpps | 1.48  Mpps (+150%) |
+1q DomU TX (pkt_size 65535)  | 66.4 Kpps | 205.1 Kpps         |
+---------------------------------------------------------------
+1q DomU RX (pkt_size 64)     | 1.33 Mpps | 2.78  Mpps (+109%) |
+1q DomU RX (pkt_size 1496)   | 1.03 Mpps | 1.66  Mpps (+ 60%) |
+1q DomU RX (pkt_size 65535)  | 52.5 Kpps | 97.8  Kpps         |
+---------------------------------------------------------------
 
-regards,
-Joachim Eastwood
+I also made a micro-benchmark with a MiniOS-based guest and it was able
+to reach up to 4.17 Mpps (with pktgen burst 8, pkt_size 64) hinting that
+the throughput grows with bigger batches when using xmit_more. In
+this case, the guest netfront was busy looping, and not setting the ring
+rsp_event which would (only) lead to not triggering the notification by
+the backend. Note that my purpose with this experiment was just to see if
+copying the buffer on xenvif_start_xmit was indeed performing better.
+
+Bulk Transfer Tests A:
+
+Measured on a Intel Xeon E5-1650 v2 @ 3.5 Ghz, Xen 4.5, no HT. Used
+iperf (TCP)  with an increased number of flows following similar
+methodology explained in [2]. All vif irqs are balanced across cores
+in both Dom0 and DomU. Tests are between DomU <-> Dom0, unless
+specified otherwise.
+Graph:
+http://cnp.neclab.eu/images/pgntperf/tcprx_hostA.png
+http://cnp.neclab.eu/images/pgntperf/tcptx_hostA.png
+http://cnp.neclab.eu/images/pgntperf/tcpintra_hostA.png
+
+                | Baseline  | Pers. Grants      |
+-------------------------------------------------
+1q DomU TX      | 14.5 Gbit | 21.6 Gbit (+ 48%) |
+2q DomU TX      | 17.6 Gbit | 27.4 Gbit         |
+3q DomU TX      | 17.2 Gbit | 29.3 Gbit (+ 70%) |
+-------------------------------------------------
+1q DomU RX      | 20.9 Gbit | 17.8 Gbit (- 15%) |
+2q DomU RX      | 21.1 Gbit | 24.9 Gbit         |
+3q DomU RX      | 22.1 Gbit | 31.0 Gbit (+ 40%) |
+-------------------------------------------------
+1q DomU-to-DomU | 12.4 Gbit | 18.9 Gbit (+ 52%) |
+
+Bulk Transfer Tests B: 
+
+Same as before, but measured on a Intel Xeon E5-2697 v2 @ 2.7 Ghz,
+to test guests with a higher number of queues (>3).
+Graph:
+http://cnp.neclab.eu/images/pgntperf/tcprx_hostB.png
+http://cnp.neclab.eu/images/pgntperf/tcptx_hostB.png
+http://cnp.neclab.eu/images/pgntperf/tcpintra_hostB.png
+
+                | Baseline  | Pers. Grants      |
+-------------------------------------------------
+1q DomU TX      | 10.5 Gbit | 15.9 Gbit (+ 51%) |
+2q DomU TX      | 14.0 Gbit | 20.1 Gbit         |
+3q DomU TX      | 15.7 Gbit | 23.5 Gbit         |
+4q DomU TX      | 15.0 Gbit | 25.9 Gbit         |
+6q DomU TX      | 15.9 Gbit | 30.0 Gbit (+ 88%) |
+-------------------------------------------------
+1q DomU RX      | 15.1 Gbit | 13.3 Gbit (- 11%) |
+2q DomU RX      | 19.5 Gbit | 18.1 Gbit (-  7%) |
+3q DomU RX      | 22.2 Gbit | 22.7 Gbit         |
+4q DomU RX      | 23.7 Gbit | 25.8 Gbit         |
+6q DomU RX      | 24.0 Gbit | 29.8 Gbit (+ 24%) |
+-------------------------------------------------
+1q DomU-to-DomU | 12.5 Gbit | 14.5 Gbit (+ 16%) |
+2q DomU-to-DomU | 12.6 Gbit | 20.6 Gbit (+ 63%) |
+3q DomU-to-DomU | 13.7 Gbit | 24.5 Gbit (+ 78%) |
+
+There have been recently[3] some discussions and issues raised on
+persistent grants for the block layer, though the numbers above
+show some significant improvements specially on more network intensive
+workloads and provide a margin for comparison against future map/unmap
+improvements.
+
+Any comments or suggestions are welcome,
+Thanks!
+Joao
+
+[1] http://article.gmane.org/gmane.linux.network/249383
+[2] http://bit.ly/1IhJfXD
+[3] http://lists.xen.org/archives/html/xen-devel/2015-02/msg02292.html
+
+Joao Martins (13):
+  xen-netback: add persistent grant tree ops
+  xen-netback: xenbus feature persistent support
+  xen-netback: implement TX persistent grants
+  xen-netback: implement RX persistent grants
+  xen-netback: refactor xenvif_rx_action
+  xen-netback: copy buffer on xenvif_start_xmit()
+  xen-netback: add persistent tree counters to debugfs
+  xen-netback: clone skb if skb->xmit_more is set
+  xen-netfront: move grant_{ref,page} to struct grant
+  xen-netfront: refactor claim/release grant
+  xen-netfront: feature-persistent xenbus support
+  xen-netfront: implement TX persistent grants
+  xen-netfront: implement RX persistent grants
+
+ drivers/net/xen-netback/common.h    |  79 ++++
+ drivers/net/xen-netback/interface.c |  78 +++-
+ drivers/net/xen-netback/netback.c   | 873 ++++++++++++++++++++++++++++++------
+ drivers/net/xen-netback/xenbus.c    |  24 +
+ drivers/net/xen-netfront.c          | 362 ++++++++++++---
+ 5 files changed, 1216 insertions(+), 200 deletions(-)
+
+-- 
+2.1.3
