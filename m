@@ -1,71 +1,33 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
-Date: Tue, 12 May 2015 08:24:11 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
-	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
-	<20150508140733.GA13325@gondor.apana.org.au>
-	<87sib76kef.fsf@x220.int.ebiederm.org>
-	<20150509011339.GA19116@gondor.apana.org.au>
-	<87383633pu.fsf_-_@x220.int.ebiederm.org>
- <87oalu1p16.fsf_-_@x220.int.ebiederm.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] rtnl: don't send rtnl msg for unregistered iface
+Date: Tue, 12 May 2015 10:43:16 +0200
+Message-ID: <5551BD24.4070600@6wind.com>
+References: <1431354346-4476-1-git-send-email-nicolas.dichtel@6wind.com> <20150511153741.GB2222@nanopsycho.mtl.com> <5550D2F1.5030100@6wind.com> <5550D584.9010703@6wind.com> <20150511175355.GA3130@nanopsycho>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Ying Xue <ying.xue@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"cwang@twopensource.com" <cwang@twopensource.com>,
-	"xemul@openvz.org" <xemul@openvz.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
-	"tom@herbertland.com" <tom@herbertland.com>,
-	"jchapman@katalix.com" <jchapman@katalix.com>,
-	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
-	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
-	"horms@verge.net.au" <horms@verge.net.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "'Eric W. Biederman'" <ebiederm@xmission.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
+	vfalico@gmail.com, gospo@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.195]:58046 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932106AbbELIZx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:25:53 -0400
-In-Reply-To: <87oalu1p16.fsf_-_@x220.int.ebiederm.org>
-Content-Language: en-US
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:35613 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932227AbbELInU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:43:20 -0400
+Received: by widdi4 with SMTP id di4so141888928wid.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 01:43:18 -0700 (PDT)
+In-Reply-To: <20150511175355.GA3130@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric W. Biederman
-> Sent: 09 May 2015 03:08
->
-> This is long overdue, and is part of cleaning up how we allocate kernel
-> sockets that don't reference count struct net.
-...
-> diff --git a/net/socket.c b/net/socket.c
-> index b5f1f43ed8f4..9963a0b53a64 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1210,9 +1210,9 @@ int sock_create(int family, int type, int protocol, struct socket **res)
->  }
->  EXPORT_SYMBOL(sock_create);
-> 
-> -int sock_create_kern(int family, int type, int protocol, struct socket **res)
-> +int sock_create_kern(struct net *net, int family, int type, int protocol, struct socket **res)
->  {
-> -	return __sock_create(&init_net, family, type, protocol, res, 1);
-> +	return __sock_create(net, family, type, protocol, res, 1);
->  }
->  EXPORT_SYMBOL(sock_create_kern);
-
-Wouldn't it involve far less churn to add a new function that uses a non-default
-namespace?
-
-Changing the function prototype will a PITA for anyone doing back-ports of fixes.
-(And more so for anyone trying to get a driver to build against kernels
-that might have this change back-ported.)
-
-	David
+Le 11/05/2015 19:53, Jiri Pirko a =E9crit :
+[snip]
+> Or, change __bond_opt_set to call call_netdevice_notifiers only in ca=
+se
+> dev->reg_state =3D=3D NETREG_REGISTERED? Looking at the other places =
+this
+Why not. It will fix this bug, but I tend to put something more general=
+ in
+rtnetlink to avoid such bug in the future.
