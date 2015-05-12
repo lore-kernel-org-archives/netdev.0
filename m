@@ -1,78 +1,63 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
-Date: Tue, 12 May 2015 12:34:00 -0400
-Message-ID: <55522B78.3090908@gmail.com>
-References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>	 <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>	 <1430939400.14545.65.camel@edumazet-glaptop2.roam.corp.google.com>	 <2723870.nq54KKjWkm@h2o.as.studentenwerk.mhn.de> <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH -next] net: core: set qdisc pkt len before tc_classify
+Date: Tue, 12 May 2015 10:03:23 -0700
+Message-ID: <20150512170322.GA3524@Alexeis-MBP.westell.com>
+References: <1431437838-5478-1-git-send-email-fw@strlen.de>
+ <1431440547.566.84.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150512151646.GB22387@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Wolfgang Walter <linux@stwm.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	daniel@iogearbox.net, jhs@mojatatu.com
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:35089 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751488AbbELRD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 13:03:27 -0400
+Received: by igbyr2 with SMTP id yr2so114359020igb.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 10:03:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150512151646.GB22387@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/06/2015 06:42 PM, Eric Dumazet wrote:
-> On Thu, 2015-05-07 at 00:04 +0200, Wolfgang Walter wrote:
->> Am Mittwoch, 6. Mai 2015, 12:10:00 schrieb Eric Dumazet:
->>> On Wed, 2015-05-06 at 11:15 -0700, Cong Wang wrote:
->>>> (Cc'ing netdev.)
->>>>
->>>> On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
->>>>> Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
->>>>>> Hello,
->>>>>>
->>>>>> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with
->>>>>> an
->>>>>> isatap-tunnel.
->>>>>
->>>>> I did some further tests. To trigger the crash you need
->>>>>
->>>>> * isatap-tunnel (probably any sit-tunnel will do it)
->>>>> * raw-socket
->>>>> * udp
->>>>>
->>>>> Using icmpv6 or tcp i.e. does not trigger it.
->>>>
->>>> Do you have a script to reproduce it?
->>>>
->>>>
->>>> Thanks for the bug report!
->>>> --
->>>
->>> Please Wolfgang try to revert 32dce968dd987adfb0c00946d78dad9154f64759
->>> ("ipv6: Allow for partial checksums on non-ufo packets")
->>
->> Indeed, that fixes the problem.
+On Tue, May 12, 2015 at 05:16:46PM +0200, Florian Westphal wrote:
+> > 
+> > A qdisc might have a stab (cf qdisc_calculate_pkt_len() )
 > 
-> Yes, setting skb->csum to 0 is clearly wrong for CHECKSUM_PARTIAL
-> 
-> Would you try :
-> 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 7fde1f265c90e90f16291e6c861b6e242111c25b..694ae630e1ca67e25ab1e5f6dd0b3597db3669b0 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1416,6 +1416,10 @@ alloc_new_skb:
->  			data += fragheaderlen;
->  			skb->transport_header = (skb->network_header +
->  						 fragheaderlen);
-> +			if (csummode == CHECKSUM_PARTIAL) {
-> +				skb->csum_start = skb_transport_header(skb) - skb->head;
-> +				skb->csum_offset = offsetof(struct udphdr, check);
-> +			}
->  			if (fraggap) {
->  				skb->csum = skb_copy_and_csum_bits(
->  					skb_prev, maxfraglen,
-> 
-> 
-> 
+> Thanks for pointing this out Eric.
 
-So why is this not an issue in __ip_append_data()?
+Indeed. Thanks Eric!
 
--vlad
+> I was under impression that stab was only useful for egress but in
+> fact tc did support ingress stab too.
+
+That was my impression as well. Though it was allowed to add
+qdisc_size_table to ingress, it's useless. Nothing takes advantage
+of recomputed qdisc_pkt_len. It can only mess with stats, which
+seems to be already broken:
+- egress qdiscs do qdisc_bstats_update() only at dequeue, whereas
+  ingress double counts dropped packets
+- qdisc_bstats_update() does:
+  bstats->bytes += qdisc_pkt_len(skb);
+  bstats->packets += skb_is_gso(skb) ? skb_shinfo(skb)->gso_segs : 1;
+  but nothing on ingress does qdisc_pkt_len_init().
+  So when we see gso packet on ingress the stats are very wrong.
+
+I think we should fix ingress stats as a whole.
+Option 1:
+ do qdisc_pkt_len_init() + optional call into size_table
+ to update stats only after classifers returned TC_ACT_OK.
+ Cons: extra overhead per packet only to update ingress qdisc stats.
+Option 2:
+ use byte and packet counts from underlying netdev, when
+ reporting stats via ingress qdisc.
+ Pros: No arithmetic in the fast path.
+
+I think option 2 is much preferred, since it's faster and
+equally accurate.
+
+Jamal, what's your take?
+
+Thanks!
