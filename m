@@ -1,214 +1,146 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v3 4/6] packet: rollover lock contention avoidance
-Date: Tue, 12 May 2015 11:56:48 -0400
-Message-ID: <1431446210-13286-5-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v3 6/6] packet: rollover statistics
+Date: Tue, 12 May 2015 11:56:50 -0400
+Message-ID: <1431446210-13286-7-git-send-email-willemb@google.com>
 References: <1431446210-13286-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	david.laight@aculab.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f54.google.com ([209.85.213.54]:36838 "EHLO
-	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753394AbbELP5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:57:00 -0400
-Received: by yhrr66 with SMTP id r66so4339557yhr.3
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:56:58 -0700 (PDT)
+Received: from mail-yk0-f175.google.com ([209.85.160.175]:34786 "EHLO
+	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753078AbbELP5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:57:01 -0400
+Received: by ykft189 with SMTP id t189so4649463ykf.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:57:00 -0700 (PDT)
 In-Reply-To: <1431446210-13286-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Rollover has to call packet_rcv_has_room on sockets in the fanout
-group to find a socket to migrate to. This operation is expensive
-especially if the packet sockets use rings, when a lock has to be
-acquired.
+Rollover indicates exceptional conditions. Export a counter to inform
+socket owners of this state.
 
-Avoid pounding on the lock by all sockets by temporarily marking a
-socket as "under memory pressure" when such pressure is detected.
-While set, only the socket owner may call packet_rcv_has_room on the
-socket. Once it detects normal conditions, it clears the flag. The
-socket is not used as a victim by any other socket in the meantime.
+If no socket with sufficient room is found, rollover fails. Also count
+these events.
 
-Under reasonably balanced load, each socket writer frequently calls
-packet_rcv_has_room and clears its own pressure field. As a backup
-for when the socket is rarely written to, also clear the flag on
-reading (packet_recvmsg, packet_poll) if this can be done cheaply
-(i.e., without calling packet_rcv_has_room). This is only for
-edge cases.
+Finally, also count when flows are rolled over early thanks to huge
+flow detection, to validate its correctness.
 
 Tested:
-  Ran bench_rollover: a process with 8 sockets in a single fanout
-  group, each pinned to a single cpu that receives one nic recv
-  interrupt. RPS and RFS are disabled. The benchmark uses packet
-  rx_ring, which has to take a lock when determining whether a
-  socket has room.
-
-  Sent 3.5 Mpps of UDP traffic with sufficient entropy to spread
-  uniformly across the packet sockets (and inserted an iptables
-  rule to drop in PREROUTING to avoid protocol stack processing).
-
-  Without this patch, all sockets try to migrate traffic to
-  neighbors, causing lock contention when searching for a non-
-  empty neighbor. The lock is the top 9 entries.
-
-    perf record -a -g sleep 5
-
-    -  17.82%   bench_rollover  [kernel.kallsyms]    [k] _raw_spin_lock
-       - _raw_spin_lock
-          - 99.00% spin_lock
-    	 + 81.77% packet_rcv_has_room.isra.41
-    	 + 18.23% tpacket_rcv
-          + 0.84% packet_rcv_has_room.isra.41
-    +   5.20%      ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   5.15%      ksoftirqd/1  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   5.14%      ksoftirqd/2  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   5.12%      ksoftirqd/7  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   5.12%      ksoftirqd/5  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   5.10%      ksoftirqd/4  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   4.66%      ksoftirqd/0  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   4.45%      ksoftirqd/3  [kernel.kallsyms]    [k] _raw_spin_lock
-    +   1.55%   bench_rollover  [kernel.kallsyms]    [k] packet_rcv_has_room.isra.41
-
-  On net-next with this patch, this lock contention is no longer a
-  top entry. Most time is spent in the actual read function. Next up
-  are other locks:
-
-    +  15.52%  bench_rollover  bench_rollover     [.] reader
-    +   4.68%         swapper  [kernel.kallsyms]  [k] memcpy_erms
-    +   2.77%         swapper  [kernel.kallsyms]  [k] packet_lookup_frame.isra.51
-    +   2.56%     ksoftirqd/1  [kernel.kallsyms]  [k] memcpy_erms
-    +   2.16%         swapper  [kernel.kallsyms]  [k] tpacket_rcv
-    +   1.93%         swapper  [kernel.kallsyms]  [k] mlx4_en_process_rx_cq
-
-  Looking closer at the remaining _raw_spin_lock, the cost of probing
-  in rollover is now comparable to the cost of taking the lock later
-  in tpacket_rcv.
-
-    -   1.51%         swapper  [kernel.kallsyms]  [k] _raw_spin_lock
-       - _raw_spin_lock
-          + 33.41% packet_rcv_has_room
-          + 28.15% tpacket_rcv
-          + 19.54% enqueue_to_backlog
-          + 6.45% __free_pages_ok
-          + 2.78% packet_rcv_fanout
-          + 2.13% fanout_demux_rollover
-          + 2.01% netif_receive_skb_internal
+  Read counters in bench_rollover on all other tests in the patchset
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/packet/af_packet.c | 38 +++++++++++++++++++++++++++++++-------
- net/packet/internal.h  |  1 +
- 2 files changed, 32 insertions(+), 7 deletions(-)
+ include/uapi/linux/if_packet.h |  7 +++++++
+ net/packet/af_packet.c         | 19 ++++++++++++++++++-
+ net/packet/internal.h          |  3 +++
+ 3 files changed, 28 insertions(+), 1 deletion(-)
 
+diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
+index 053bd10..d3d715f8c 100644
+--- a/include/uapi/linux/if_packet.h
++++ b/include/uapi/linux/if_packet.h
+@@ -54,6 +54,7 @@ struct sockaddr_ll {
+ #define PACKET_FANOUT			18
+ #define PACKET_TX_HAS_OFF		19
+ #define PACKET_QDISC_BYPASS		20
++#define PACKET_ROLLOVER_STATS		21
+ 
+ #define PACKET_FANOUT_HASH		0
+ #define PACKET_FANOUT_LB		1
+@@ -75,6 +76,12 @@ struct tpacket_stats_v3 {
+ 	unsigned int	tp_freeze_q_cnt;
+ };
+ 
++struct tpacket_rollover_stats {
++	__aligned_u64	tp_all;
++	__aligned_u64	tp_huge;
++	__aligned_u64	tp_failed;
++};
++
+ union tpacket_stats_u {
+ 	struct tpacket_stats stats1;
+ 	struct tpacket_stats_v3 stats3;
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 7c046d7..5f5fe1a 100644
+index 1425600..67dfdab 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1265,14 +1265,14 @@ static bool __tpacket_v3_has_room(struct packet_sock *po, int pow_off)
- 	return prb_lookup_block(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
- }
- 
--static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
-+static int __packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- {
- 	struct sock *sk = &po->sk;
- 	int ret = ROOM_NONE;
- 
- 	if (po->prot_hook.func != tpacket_rcv) {
- 		int avail = sk->sk_rcvbuf - atomic_read(&sk->sk_rmem_alloc)
--					  - skb->truesize;
-+					  - (skb ? skb->truesize : 0);
- 		if (avail > (sk->sk_rcvbuf >> ROOM_POW_OFF))
- 			return ROOM_NORMAL;
- 		else if (avail > 0)
-@@ -1281,7 +1281,6 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- 			return ROOM_NONE;
- 	}
- 
--	spin_lock(&sk->sk_receive_queue.lock);
- 	if (po->tp_version == TPACKET_V3) {
- 		if (__tpacket_v3_has_room(po, ROOM_POW_OFF))
- 			ret = ROOM_NORMAL;
-@@ -1293,7 +1292,26 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- 		else if (__tpacket_has_room(po, 0))
- 			ret = ROOM_LOW;
- 	}
--	spin_unlock(&sk->sk_receive_queue.lock);
-+
-+	return ret;
-+}
-+
-+static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
-+{
-+	int ret;
-+	bool has_room;
-+
-+	if (po->prot_hook.func == tpacket_rcv) {
-+		spin_lock(&po->sk.sk_receive_queue.lock);
-+		ret = __packet_rcv_has_room(po, skb);
-+		spin_unlock(&po->sk.sk_receive_queue.lock);
-+	} else {
-+		ret = __packet_rcv_has_room(po, skb);
-+	}
-+
-+	has_room = ret == ROOM_NORMAL;
-+	if (po->pressure == has_room)
-+		xchg(&po->pressure, !has_room);
- 
- 	return ret;
- }
-@@ -1362,7 +1380,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 					  unsigned int idx, bool try_self,
+@@ -1395,7 +1395,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
  					  unsigned int num)
  {
--	struct packet_sock *po;
-+	struct packet_sock *po, *po_next;
- 	unsigned int i, j;
+ 	struct packet_sock *po, *po_next;
+-	unsigned int i, j, room;
++	unsigned int i, j, room = ROOM_NONE;
  
  	po = pkt_sk(f->arr[idx]);
-@@ -1371,8 +1389,9 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
  
- 	i = j = min_t(int, po->rollover->sock, num - 1);
- 	do {
--		if (i != idx &&
--		    packet_rcv_has_room(pkt_sk(f->arr[i]), skb) == ROOM_NORMAL) {
-+		po_next = pkt_sk(f->arr[i]);
-+		if (po_next != po && !po_next->pressure &&
-+		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
+@@ -1413,6 +1413,9 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
  			if (i != j)
  				po->rollover->sock = i;
++			atomic_long_inc(&po->rollover->num);
++			if (room == ROOM_LOW)
++				atomic_long_inc(&po->rollover->num_huge);
  			return i;
-@@ -2997,6 +3016,9 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	if (skb == NULL)
- 		goto out;
+ 		}
  
-+	if (pkt_sk(sk)->pressure)
-+		packet_rcv_has_room(pkt_sk(sk), NULL);
-+
- 	if (pkt_sk(sk)->has_vnet_hdr) {
- 		struct virtio_net_hdr vnet_hdr = { 0 };
+@@ -1420,6 +1423,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 			i = 0;
+ 	} while (i != j);
  
-@@ -3752,6 +3774,8 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
- 			TP_STATUS_KERNEL))
- 			mask |= POLLIN | POLLRDNORM;
++	atomic_long_inc(&po->rollover->num_failed);
+ 	return idx;
+ }
+ 
+@@ -1554,6 +1558,9 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		po->rollover = kzalloc(sizeof(*po->rollover), GFP_KERNEL);
+ 		if (!po->rollover)
+ 			return -ENOMEM;
++		atomic_long_set(&po->rollover->num, 0);
++		atomic_long_set(&po->rollover->num_huge, 0);
++		atomic_long_set(&po->rollover->num_failed, 0);
  	}
-+	if (po->pressure && __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
-+		xchg(&po->pressure, 0);
- 	spin_unlock_bh(&sk->sk_receive_queue.lock);
- 	spin_lock_bh(&sk->sk_write_queue.lock);
- 	if (po->tx_ring.pg_vec) {
+ 
+ 	mutex_lock(&fanout_mutex);
+@@ -3581,6 +3588,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 	struct packet_sock *po = pkt_sk(sk);
+ 	void *data = &val;
+ 	union tpacket_stats_u st;
++	struct tpacket_rollover_stats rstats;
+ 
+ 	if (level != SOL_PACKET)
+ 		return -ENOPROTOOPT;
+@@ -3656,6 +3664,15 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
+ 			((u32)po->fanout->flags << 24)) :
+ 		       0);
+ 		break;
++	case PACKET_ROLLOVER_STATS:
++		if (!po->rollover)
++			return -EINVAL;
++		rstats.tp_all = atomic_long_read(&po->rollover->num);
++		rstats.tp_huge = atomic_long_read(&po->rollover->num_huge);
++		rstats.tp_failed = atomic_long_read(&po->rollover->num_failed);
++		data = &rstats;
++		lv = sizeof(rstats);
++		break;
+ 	case PACKET_TX_HAS_OFF:
+ 		val = po->tp_tx_has_off;
+ 		break;
 diff --git a/net/packet/internal.h b/net/packet/internal.h
-index a9d33a2..22d7d77 100644
+index a9d30a1..c035d26 100644
 --- a/net/packet/internal.h
 +++ b/net/packet/internal.h
-@@ -105,6 +105,7 @@ struct packet_sock {
- 				auxdata:1,
- 				origdev:1,
- 				has_vnet_hdr:1;
-+	int			pressure;
- 	int			ifindex;	/* bound device		*/
- 	__be16			num;
- 	struct packet_rollover	*rollover;
+@@ -89,6 +89,9 @@ struct packet_fanout {
+ 
+ struct packet_rollover {
+ 	int			sock;
++	atomic_long_t		num;
++	atomic_long_t		num_huge;
++	atomic_long_t		num_failed;
+ #define ROLLOVER_HLEN	(L1_CACHE_BYTES / sizeof(u32))
+ 	u32			history[ROLLOVER_HLEN] ____cacheline_aligned;
+ } ____cacheline_aligned_in_smp;
 -- 
 2.2.0.rc0.207.ga3a616c
