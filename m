@@ -1,86 +1,81 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
-Date: Tue, 12 May 2015 16:15:08 +0200
-Message-ID: <55520AEC.4090500@6wind.com>
-References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com> <87wq0kcqlm.fsf@x220.int.ebiederm.org> <20150508140733.GA13325@gondor.apana.org.au> <87sib76kef.fsf@x220.int.ebiederm.org> <20150509011339.GA19116@gondor.apana.org.au> <87383633pu.fsf_-_@x220.int.ebiederm.org> <87oalu1p16.fsf_-_@x220.int.ebiederm.org> <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com> <110296A8-1CC9-456C-B126-50C90D4E3E17@xmission.com> <063D6719AE5E284EB5DD2968C1650D6D1CB33707@AcuExch.aculab.com> <5551F205.1080707@6wind.com> <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Baolin Wang <baolin.wang@linaro.org>
+Subject: Re: [PATCH v3 00/22] Convert the posix_clock_operations and
+ k_clock structure to ready for 2038
+Date: Tue, 12 May 2015 22:16:07 +0800
+Message-ID: <CAMz4kuLeoPsV_HHv+6Rjr-3pQbC+scFEZSz=OJ+2rUxD6uhLkA@mail.gmail.com>
+References: <1431342518-29362-1-git-send-email-baolin.wang@linaro.org>
+ <2293496.0Ycckx2zYU@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ying Xue <ying.xue@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"cwang@twopensource.com" <cwang@twopensource.com>,
-	"xemul@openvz.org" <xemul@openvz.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"tom@herbertland.com" <tom@herbertland.com>,
-	"jchapman@katalix.com" <jchapman@katalix.com>,
-	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
-	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
-	"horms@verge.net.au" <horms@verge.net.au>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"'Eric W. Biederman'" <ebiederm@xmission.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:35543 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933179AbbELOPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 10:15:11 -0400
-Received: by wgnd10 with SMTP id d10so9171470wgn.2
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 07:15:10 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB338CF@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Xunlei Pang <pang.xunlei@linaro.org>, peterz@infradead.org,
+ =?UTF-8?B?RnLDqWTDqXJpYyBXZWlzYmVja2Vy?= <fweisbec@gmail.com>,
+ heiko.carstens@de.ibm.com, paulus@samba.org, cl@linux.com,
+ Heena Sirwani <heenasirwani@gmail.com>, linux-arch@vger.kernel.org,
+ linux-s390@vger.kernel.org, y2038 Mailman List <y2038@lists.linaro.org>,
+ rafael.j.wysocki@intel.com, Andrew Hunter <ahh@google.com>,
+ Paul Turner <pjt@google.com>, riel@redhat.com,
+ Richard Cochran <richardcochran@gmail.com>, tj@kernel.org,
+ John Stultz <john.stultz@linaro.org>, Thomas Gleixner <tglx@linutronix.de>,
+ rth@twiddle.net, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, schwidefsky@de.ibm.com, linux390@de.ibm.com,
+ linuxppc-dev@lists.ozlabs.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <y2038-bounces@lists.linaro.org>
+In-Reply-To: <2293496.0Ycckx2zYU@wuerfel>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+List-Id: netdev.vger.kernel.org
 
-Le 12/05/2015 15:16, David Laight a =C3=A9crit :
-> From: Nicolas Dichtel [mailto:nicolas.dichtel@6wind.com]
->> Sent: 12 May 2015 13:29
->> Le 12/05/2015 13:48, David Laight a =C3=A9crit :
->>> From: Eric W. Biederman
->>>> Sent: 12 May 2015 09:55
->>>>
->>>> On May 12, 2015 3:24:11 AM CDT, David Laight <David.Laight@ACULAB.=
-COM> wrote:
->>> ...
->>>>> Wouldn't it involve far less churn to add a new function that use=
-s a
->>>>> non-default namespace?
->>>>
->>>> The goal is comprehensible and maintainable kernel code.
->>>>
->>>> Which network namespace your socket is in, is an important propert=
-y and something you probably care
->>>> about if you are creating kernel sockets.
->>>
->>> That rather depends on whether you've anywhere to get a namespace f=
-rom.
->>> eg something like ceph/messenger.c
->> sk_net(con->sock->sk)?
->
-> What if you don't already have a socket?
-> Just an IP(v6) address ?
-So you have an IPv6 address and you don't know on which netns this addr=
-ess
-belongs? I can't imagine how it can work.
-
->
->> This parameter is essential, hiding it will just hides bugs.
->> Having this parameter forces the developer to ask himself what is th=
-e best
->> value.
->
-> What if the answer is 'NFI'?
-> Which requires the answer be pushed back to the 'application' configu=
-ration?
-Your application is bound to a netns.
-
-> Most users will have no idea either.
-If you support netns, you *have to know*.
-
-
-Regards,
-Nicolas
+T24gMTIgTWF5IDIwMTUgYXQgMTc6MzksIEFybmQgQmVyZ21hbm4gPGFybmRAYXJuZGIuZGU+IHdy
+b3RlOgoKPiBPbiBNb25kYXkgMTEgTWF5IDIwMTUgMTk6MDg6MzggQmFvbGluIFdhbmcgd3JvdGU6
+Cj4gPiBUaGlzIHBhdGNoIHNlcmllcyBjaGFuZ2VzIHRoZSAzMi1iaXQgdGltZSB0eXBlICh0aW1l
+c3BlYy9pdGltZXJzcGVjKSB0bwo+IHRoZSA2NC1iaXQgb25lCj4gPiAodGltZXNwZWM2NC9pdGlt
+ZXJzcGVjNjQpLCBzaW5jZSAzMi1iaXQgdGltZSB0eXBlcyB3aWxsIGJyZWFrIGluIHRoZQo+IHll
+YXIgMjAzOC4KPiA+Cj4gPiBUaGlzIHBhdGNoIHNlcmllcyBpbnRyb2R1Y2VzIG5ldyBtZXRob2Rz
+IHdpdGggdGltZXNwZWM2NC9pdGltZXJzcGVjNjQKPiB0eXBlLAo+ID4gYW5kIHJlbW92ZXMgdGhl
+IG9sZCBvbmVzIHdpdGggdGltZXNwZWMvaXRpbWVyc3BlYyB0eXBlIGZvcgo+IHBvc2l4X2Nsb2Nr
+X29wZXJhdGlvbnMKPiA+IGFuZCBrX2Nsb2NrIHN0cnVjdHVyZS4KPiA+Cj4gPiBBbHNvIGludHJv
+ZHVjZXMgc29tZSBuZXcgZnVuY3Rpb25zIHdpdGggdGltZXNwZWM2NC9pdGltZXJzcGVjNjQgdHlw
+ZSwKPiBsaWtlIGN1cnJlbnRfa2VybmVsX3RpbWU2NCgpLAo+ID4gaHJ0aW1lcl9nZXRfcmVzNjQo
+KSwgY3B1dGltZV90b190aW1lc3BlYzY0KCkgYW5kIHRpbWVzcGVjNjRfdG9fY3B1dGltZSgpLgo+
+ID4KPiA+IENoYW5nZXMgc2luY2UgdjI6Cj4gPiAgICAgICAtU3BsaXQgdGhlIHN5c2NhbGwgY29u
+dmVyc2lvbiBwYXRjaCBpbnRvIHNtYWxsIHNvbWUgcGF0Y2hlcy4KPiA+Cj4gPgo+ID4gQmFvbGlu
+IFdhbmcgKDIyKToKPiA+ICAgbGludXgvdGltZTY0Lmg6SW50cm9kdWNlIHRoZSAnc3RydWN0IGl0
+aW1lcnNwZWM2NCcgZm9yIDY0Yml0Cj4gPiAgIHRpbWVrZWVwaW5nOkludHJvZHVjZSB0aGUgY3Vy
+cmVudF9rZXJuZWxfdGltZTY0KCkgZnVuY3Rpb24gd2l0aAo+ID4gICAgIHRpbWVzcGVjNjQgdHlw
+ZQo+ID4gICB0aW1lL2hydGltZXI6SW50cm9kdWNlIGhydGltZXJfZ2V0X3JlczY0KCkgd2l0aCB0
+aW1lc3BlYzY0IHR5cGUgZm9yCj4gPiAgICAgZ2V0dGluZyB0aGUgdGltZXIgcmVzb2x1dGlvbgo+
+ID4gICBwb3NpeC10aW1lcnM6U3BsaXQgb3V0IHRoZSBndXRzIG9mIHRoZSBzeXNjYWxsIGFuZCBj
+aGFuZ2UgdGhlCj4gPiAgICAgaW1wbGVtZW50YXRpb24gZm9yIHRpbWVyX2dldHRpbWUKPiA+ICAg
+cG9zaXgtdGltZXJzOkNvbnZlcnQgdG8gdGhlIDY0Yml0IG1ldGhvZHMgZm9yIHRoZSB0aW1lcl9n
+ZXR0aW1lCj4gPiAgICAgc3lzY2FsbCBmdW5jdGlvbgo+Cj4gSSBoYXZlIHR3byBtb3JlIHZlcnkg
+Z2VuZXJhbCBjb21tZW50cyBhYm91dCB0aGUgc2VyaWVzOgo+Cj4gYSkgc29tZXRoaW5nIGhhcyBn
+b25lIHdyb25nIHdpdGggeW91ciBzdWJtaXNzaW9uIGluIHYyIGFuZCB2MyBidXQgd2FzCj4gICAg
+d29ya2luZyBlYXJsaWVyOiBub3JtYWxseSBhbGwgZW1haWxzIHNob3VsZCBiZSBzZW50IGJ5IGdp
+dC1zZW5kLWVtYWlsCj4gICAgYXMgcmVwbGllcyB0byB0aGUgW3BhdGNoIDAwLzIyXSBtYWlsLiBU
+aGlzIGlzIHRoZSBkZWZhdWx0LCBhbmQgaXQKPiAgICBpcyBlbmFibGVkIGJ5IHRoZSAnLS10aHJl
+YWQgLS1uby1jaGFpbi1yZXBseScgb3B0aW9ucy4gUGxlYXNlIHRyeQo+ICAgIHRvIGdldCB0aGlz
+IHRvIHdvcmsgYWdhaW4uCj4KPiBiKSBpdCB3b3VsZCBiZSBiZXR0ZXIgdG8gaGF2ZSBhIGxpdHRs
+ZSBzaG9ydGVyIHN1YmplY3QgbGluZXMsIHRvIGF2b2lkCj4gICAgbGluZS13cmFwcGluZyBpbiB0
+aGUgbGlzdCBhYm92ZS4gSGVyZSBhcmUgc29tZSBleGFtcGxlcyB3aGF0IHlvdSBjb3VsZAo+ICAg
+IHVzZSB0byByZXBsYWNlIHRoZSBsaW5lcyBhYm92ZToKPgo+ICAgIHRpbWVrZWVwaW5nOiBpbnRy
+b2R1Y2Ugc3RydWN0IGl0aW1lcnNwZWM2NAo+ICAgIHRpbWVrZWVwaW5nOiBpbnRyb2R1Y2UgY3Vy
+cmVudF9rZXJuZWxfdGltZTY0KCkKPiAgICBocnRpbWVyOiBpbnRyb2R1Y2UgaHJ0aW1lcl9nZXRf
+cmVzNjQoKQo+ICAgIHBvc2l4LXRpbWVyczogc3BsaXQgdXAgc3lzX3RpbWVyX2dldHRpbWUoKQo+
+ICAgIHBvc2l4LXRpbWVyczogY29udmVydCB0aW1lcl9nZXR0aW1lKCkgdG8gdGltZXNwZWM2NAo+
+Cj4gICAgSW4gZ2VuZXJhbCwgdHJ5IHRvIGNvbWUgdXAgd2l0aCB0aGUgc2hvcnRlc3QgZGVzY3Jp
+cHRpb24gdGhhdAo+ICAgIHVuaXF1ZWx5IGRlc2NyaWJlcyB3aGF0IHlvdXIgcGF0Y2ggZG9lcywg
+YW5kIG1vdmUgYW55IGRldGFpbHMgaW50bwo+ICAgIHRoZSBsb25nZXIgcGF0Y2ggZGVzY3JpcHRp
+b24uCj4KPiAgICAgICAgIEFybmQKPgoKT0ssIGknbGwgZml4IHRoZXNlIGluIG5leHQgcGF0Y2gg
+c2VyaWVzLlRoYW5rcyBmb3IgeW91ciBjb21tZW50cy4KCgotLSAKQmFvbGluLndhbmcKQmVzdCBS
+ZWdhcmRzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClky
+MDM4IG1haWxpbmcgbGlzdApZMjAzOEBsaXN0cy5saW5hcm8ub3JnCmh0dHBzOi8vbGlzdHMubGlu
+YXJvLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3kyMDM4Cg==
