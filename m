@@ -1,8 +1,9 @@
 From: Joao Martins <joao.martins@neclab.eu>
-Subject: [RFC PATCH 00/13] Persistent grant maps for xen net
-	drivers
-Date: Tue, 12 May 2015 19:18:24 +0200
-Message-ID: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+Subject: [RFC PATCH 01/13] xen-netback: add persistent grant
+	tree ops
+Date: Tue, 12 May 2015 19:18:25 +0200
+Message-ID: <1431451117-70051-2-git-send-email-joao.martins@neclab.eu>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +12,7 @@ Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
 	boris.ostrovsky@oracle.com
 To: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
 Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
 	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
 List-Post: <mailto:xen-devel@lists.xen.org>
@@ -21,168 +23,266 @@ Sender: xen-devel-bounces@lists.xen.org
 Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-This patch implements persistent grants for xen-net{back,front}. There has
-been work on persistent grants in the past[1], but the one here
-described is a bit different: 1) using zerocopy skbs for RX path in
-xen-netfront as opposed to memcpy every packet; 2) using a tree to store
-the grants (and doing so using same interfaces as blkback/blkfront, to
-hopefully share a common layer) 3) reusing TX map/unmap paths for handling
-persistent grants case 4) sending the buffer on ndo_start_xmit as opposed
-to bouncing them through the RX kthread.
+Implement the necessary routines for managing the grant tree. These
+routines are ported from blkback driver and slightly modified to be
+more generic. This patch is separated because it relates to code that
+could be shared with other drivers, in case persistent grants are adopted.
 
-Intrahost performance increases significantly between 16-78% (depending on
-the host), and performance per-queue (tested with up to 6 queues) scales
-nicely all the way to ~30 Gbits, specially on TX path. Rates for small
-packet sizes increase up to 1.82 Mpps TX (1.2 Gbit/s on wire, 64 pkt_size)
-and 2.78 Mpps RX (1.8 Gbit/s on wire, 64 pkt_size). This is around 1.5x to
-2x improvement compared with grant copy/map. On bigger packet sizes the
-improvement is even more noticeable. The only problem though, is that
-performance seems to decrease for RX path on 1 queue (and 2 queues with
-slower CPUs). This is because of the extra memcpy on xen-netfront (in
-skb_copy_ubufs, frags > 0) for pkt len > RX_COPY_THRESHOLD.
+The changes compared to blkback are: declaring a struct persistent_gnt_tree
+to store grant tree info so that these routines are called with a tree
+argument rather than a driver private data structure. It has a pool of
+free pages that should be used for grant maps to be added to the tree.
+We can't sleep on xenvif_tx_action/xenvif_start_xmit, so this pool is
+prefilled with xen ballooned pages when initializing the tree.
 
-This series are organized as follows: Patch 1 defines the routines for
-managing the tree, Patch 2,11 implements feature detection, Patch 3-4 the
-actual implementation of TX/RX grants on the backend, Patch 5 proposes
-copying the buffer on ndo_start_xmit, Patch 7 fixes a bug when using pktgen
-with burst >1 without persistent grants. Patches 12-13 implements the
-frontend part. Patches 5,9,10 are only structural before introducing the
-main changes. Overall, it works as the following:
+Regarding *_persistent_gnt API changes: get_persistent_gnt() will return
+ERR_PTR(-EBUSY) if we try to fetch an already in use grant ref. This is
+useful on netback case so that we fallback to map/unmap in case we try to
+fetch an already  in use grant. This way we save a map (plus unmap on
+error) and prevent the error on add_persistent_gnt that would also lead
+towards dropping the packet.
 
-On transmit path, xen-netfront will grant a new page and memcpy the skb to
-it.  On netback NAPI poll, we will check for a persistent grant available
-for header and frags grefs. If none is found in the tree, it will resort to
-grant copy (only for the header) but still preparing the grant map and
-adding them to the tree.  The frags are handled the same as before with the
-exception of having to add the grant map to the tree and not having to
-unmap it in the skb callback (when freeing).
+Signed-off-by: Joao Martins <joao.martins@neclab.eu>
+---
+ drivers/net/xen-netback/common.h  |  57 +++++++++++++++
+ drivers/net/xen-netback/netback.c | 145 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 202 insertions(+)
 
-On receive path we lookup for a page mapped for guest gref. If it exists in
-the tree, it does a memcpy and reverting to grant copy in case of the first
-failed lookup, or in case we don't have free pages to create mappings. On
-xen-netfront RX we then grab responses and use zerocopy skbs to be able to
-reuse the same pages for future requests, and to avoid an extra copy for
-packets smaller <= RX_COPY_THRESHOLD.  Additionally I also propose copying
-the buffer on ndo_start_xmit to avoid wait queue and rx_queue contention
-and because no grant table batching is required with persistent grants
-(besides the initial map/copy). The latter improved the pkt rates
-(by ~2x) specially for smaller packet sizes, and for pkt
-len <= RX_COPY_THRESHOLD in RX path.
-
-Packet I/O Tests:
-
-Measured on a Intel Xeon E5-1650 v2, Xen 4.5, no HT. Used pktgen "burst 1"
-and "clone_skbs 100000" (to avoid alloc skb overheads) with various pkt
-sizes. All tests are DomU <-> Dom0, unless specified otherwise.
-Graphs:
-http://cnp.neclab.eu/images/pgntperf/udprx_hostA.png
-http://cnp.neclab.eu/images/pgntperf/udptx_hostA.png
-
-                             | Baseline  | Pers. Grants       |
----------------------------------------------------------------
-1q DomU TX (pkt_size 64)     | 1.24 Mpps | 1.82  Mpps (+ 46%) |
-1q DomU TX (pkt_size 1496)   | 518  Kpps | 1.48  Mpps (+150%) |
-1q DomU TX (pkt_size 65535)  | 66.4 Kpps | 205.1 Kpps         |
----------------------------------------------------------------
-1q DomU RX (pkt_size 64)     | 1.33 Mpps | 2.78  Mpps (+109%) |
-1q DomU RX (pkt_size 1496)   | 1.03 Mpps | 1.66  Mpps (+ 60%) |
-1q DomU RX (pkt_size 65535)  | 52.5 Kpps | 97.8  Kpps         |
----------------------------------------------------------------
-
-I also made a micro-benchmark with a MiniOS-based guest and it was able
-to reach up to 4.17 Mpps (with pktgen burst 8, pkt_size 64) hinting that
-the throughput grows with bigger batches when using xmit_more. In
-this case, the guest netfront was busy looping, and not setting the ring
-rsp_event which would (only) lead to not triggering the notification by
-the backend. Note that my purpose with this experiment was just to see if
-copying the buffer on xenvif_start_xmit was indeed performing better.
-
-Bulk Transfer Tests A:
-
-Measured on a Intel Xeon E5-1650 v2 @ 3.5 Ghz, Xen 4.5, no HT. Used
-iperf (TCP)  with an increased number of flows following similar
-methodology explained in [2]. All vif irqs are balanced across cores
-in both Dom0 and DomU. Tests are between DomU <-> Dom0, unless
-specified otherwise.
-Graph:
-http://cnp.neclab.eu/images/pgntperf/tcprx_hostA.png
-http://cnp.neclab.eu/images/pgntperf/tcptx_hostA.png
-http://cnp.neclab.eu/images/pgntperf/tcpintra_hostA.png
-
-                | Baseline  | Pers. Grants      |
--------------------------------------------------
-1q DomU TX      | 14.5 Gbit | 21.6 Gbit (+ 48%) |
-2q DomU TX      | 17.6 Gbit | 27.4 Gbit         |
-3q DomU TX      | 17.2 Gbit | 29.3 Gbit (+ 70%) |
--------------------------------------------------
-1q DomU RX      | 20.9 Gbit | 17.8 Gbit (- 15%) |
-2q DomU RX      | 21.1 Gbit | 24.9 Gbit         |
-3q DomU RX      | 22.1 Gbit | 31.0 Gbit (+ 40%) |
--------------------------------------------------
-1q DomU-to-DomU | 12.4 Gbit | 18.9 Gbit (+ 52%) |
-
-Bulk Transfer Tests B: 
-
-Same as before, but measured on a Intel Xeon E5-2697 v2 @ 2.7 Ghz,
-to test guests with a higher number of queues (>3).
-Graph:
-http://cnp.neclab.eu/images/pgntperf/tcprx_hostB.png
-http://cnp.neclab.eu/images/pgntperf/tcptx_hostB.png
-http://cnp.neclab.eu/images/pgntperf/tcpintra_hostB.png
-
-                | Baseline  | Pers. Grants      |
--------------------------------------------------
-1q DomU TX      | 10.5 Gbit | 15.9 Gbit (+ 51%) |
-2q DomU TX      | 14.0 Gbit | 20.1 Gbit         |
-3q DomU TX      | 15.7 Gbit | 23.5 Gbit         |
-4q DomU TX      | 15.0 Gbit | 25.9 Gbit         |
-6q DomU TX      | 15.9 Gbit | 30.0 Gbit (+ 88%) |
--------------------------------------------------
-1q DomU RX      | 15.1 Gbit | 13.3 Gbit (- 11%) |
-2q DomU RX      | 19.5 Gbit | 18.1 Gbit (-  7%) |
-3q DomU RX      | 22.2 Gbit | 22.7 Gbit         |
-4q DomU RX      | 23.7 Gbit | 25.8 Gbit         |
-6q DomU RX      | 24.0 Gbit | 29.8 Gbit (+ 24%) |
--------------------------------------------------
-1q DomU-to-DomU | 12.5 Gbit | 14.5 Gbit (+ 16%) |
-2q DomU-to-DomU | 12.6 Gbit | 20.6 Gbit (+ 63%) |
-3q DomU-to-DomU | 13.7 Gbit | 24.5 Gbit (+ 78%) |
-
-There have been recently[3] some discussions and issues raised on
-persistent grants for the block layer, though the numbers above
-show some significant improvements specially on more network intensive
-workloads and provide a margin for comparison against future map/unmap
-improvements.
-
-Any comments or suggestions are welcome,
-Thanks!
-Joao
-
-[1] http://article.gmane.org/gmane.linux.network/249383
-[2] http://bit.ly/1IhJfXD
-[3] http://lists.xen.org/archives/html/xen-devel/2015-02/msg02292.html
-
-Joao Martins (13):
-  xen-netback: add persistent grant tree ops
-  xen-netback: xenbus feature persistent support
-  xen-netback: implement TX persistent grants
-  xen-netback: implement RX persistent grants
-  xen-netback: refactor xenvif_rx_action
-  xen-netback: copy buffer on xenvif_start_xmit()
-  xen-netback: add persistent tree counters to debugfs
-  xen-netback: clone skb if skb->xmit_more is set
-  xen-netfront: move grant_{ref,page} to struct grant
-  xen-netfront: refactor claim/release grant
-  xen-netfront: feature-persistent xenbus support
-  xen-netfront: implement TX persistent grants
-  xen-netfront: implement RX persistent grants
-
- drivers/net/xen-netback/common.h    |  79 ++++
- drivers/net/xen-netback/interface.c |  78 +++-
- drivers/net/xen-netback/netback.c   | 873 ++++++++++++++++++++++++++++++------
- drivers/net/xen-netback/xenbus.c    |  24 +
- drivers/net/xen-netfront.c          | 362 ++++++++++++---
- 5 files changed, 1216 insertions(+), 200 deletions(-)
-
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 8a495b3..dd02386 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -106,6 +106,48 @@ struct xenvif_rx_meta {
+ /* IRQ name is queue name with "-tx" or "-rx" appended */
+ #define IRQ_NAME_SIZE (QUEUE_NAME_SIZE + 3)
+ 
++/* Number of available flags */
++#define PERSISTENT_GNT_FLAGS_SIZE      2
++/* This persistent grant is currently in use */
++#define PERSISTENT_GNT_ACTIVE          0
++/* This persistent grant has been used, this flag is set when we remove the
++ * PERSISTENT_GNT_ACTIVE, to know that this grant has been used recently.
++ */
++#define PERSISTENT_GNT_WAS_ACTIVE      1
++
++struct persistent_gnt {
++	struct page *page; /* mapped page */
++	grant_ref_t gnt;
++	grant_handle_t handle;
++	DECLARE_BITMAP(flags, PERSISTENT_GNT_FLAGS_SIZE);
++	struct rb_node node;
++};
++
++struct persistent_gnt_tree {
++	/* Tree to store persistent grants */
++	struct rb_root root;
++
++	/* Number of grants in use */
++	atomic_t gnt_in_use;
++
++	/* Number of grants in the tree */
++	unsigned int gnt_c;
++
++	/* Maximum number of grants in the tree */
++	unsigned int gnt_max;
++
++	/* True if we reached maximum number of
++	 * persistent grants in the tree
++	 */
++	bool overflow;
++
++	/* Free pages for grant maps */
++	struct list_head free_pages;
++
++	/* Initialized with <gnt_max> pages */
++	unsigned int free_pages_num;
++};
++
+ struct xenvif;
+ 
+ struct xenvif_stats {
+@@ -224,6 +266,7 @@ struct xenvif {
+ 	u8 can_sg:1;
+ 	u8 ip_csum:1;
+ 	u8 ipv6_csum:1;
++	u8 persistent_grants:1;
+ 
+ 	/* Is this interface disabled? True when backend discovers
+ 	 * frontend is rogue.
+@@ -344,4 +387,18 @@ void xenvif_skb_zerocopy_prepare(struct xenvif_queue *queue,
+ 				 struct sk_buff *skb);
+ void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue);
+ 
++/* tree ops for persistent grants */
++struct persistent_gnt *get_persistent_gnt(struct persistent_gnt_tree *tree,
++					  grant_ref_t gref);
++int add_persistent_gnt(struct persistent_gnt_tree *tree,
++		       struct persistent_gnt *persistent_gnt);
++void put_persistent_gnt(struct persistent_gnt_tree *tree,
++			struct persistent_gnt *persistent_gnt);
++void free_persistent_gnts(struct persistent_gnt_tree *tree, unsigned int num);
++/* Gets one page from the free pool in the tree */
++int get_free_page(struct persistent_gnt_tree *tree, struct page **page);
++/* Adds pages to the free pool in the tree */
++void put_free_pages(struct persistent_gnt_tree *tree, struct page **page,
++		    int num);
++
+ #endif /* __XEN_NETBACK__COMMON_H__ */
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 4de46aa..8df0a73 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -107,6 +107,151 @@ static struct xen_netif_rx_response *make_rx_response(struct xenvif_queue *queue
+ 					     u16      size,
+ 					     u16      flags);
+ 
++#define foreach_grant_safe(pos, n, rbtree, node) \
++	for ((pos) = container_of(rb_first((rbtree)), typeof(*(pos)), node), \
++	     (n) = (&(pos)->node) ? rb_next(&(pos)->node) : NULL; \
++	     &(pos)->node; \
++	     (pos) = container_of(n, typeof(*(pos)), node), \
++	     (n) = (&(pos)->node) ? rb_next(&(pos)->node) : NULL)
++
++int add_persistent_gnt(struct persistent_gnt_tree *tree,
++		       struct persistent_gnt *persistent_gnt)
++{
++	struct rb_node **new = NULL, *parent = NULL;
++	struct persistent_gnt *this;
++
++	if (tree->gnt_c >= tree->gnt_max) {
++		pr_err("Using maximum number of peristent grants\n");
++		tree->overflow = true;
++		return -EBUSY;
++	}
++	/* Figure out where to put new node */
++	new = &tree->root.rb_node;
++	while (*new) {
++		this = container_of(*new, struct persistent_gnt, node);
++
++		parent = *new;
++		if (persistent_gnt->gnt < this->gnt) {
++			new = &((*new)->rb_left);
++		} else if (persistent_gnt->gnt > this->gnt) {
++			new = &((*new)->rb_right);
++		} else {
++			pr_err("Trying to add a gref that's already in the tree\n");
++			return -EINVAL;
++		}
++	}
++
++	bitmap_zero(persistent_gnt->flags, PERSISTENT_GNT_FLAGS_SIZE);
++	set_bit(PERSISTENT_GNT_ACTIVE, persistent_gnt->flags);
++	/* Add new node and rebalance tree. */
++	rb_link_node(&persistent_gnt->node, parent, new);
++	rb_insert_color(&persistent_gnt->node, &tree->root);
++	tree->gnt_c++;
++	atomic_inc(&tree->gnt_in_use);
++	return 0;
++}
++
++struct persistent_gnt *get_persistent_gnt(struct persistent_gnt_tree *tree,
++					  grant_ref_t gref)
++{
++	struct persistent_gnt *data;
++	struct rb_node *node = NULL;
++
++	node = tree->root.rb_node;
++	while (node) {
++		data = container_of(node, struct persistent_gnt, node);
++
++		if (gref < data->gnt) {
++			node = node->rb_left;
++		} else if (gref > data->gnt) {
++			node = node->rb_right;
++		} else {
++			if (test_bit(PERSISTENT_GNT_ACTIVE, data->flags)) {
++				pr_err("Requesting a grant already in use\n");
++				return ERR_PTR(-EBUSY);
++			}
++			set_bit(PERSISTENT_GNT_ACTIVE, data->flags);
++			atomic_inc(&tree->gnt_in_use);
++			return data;
++		}
++	}
++	return NULL;
++}
++
++void put_persistent_gnt(struct persistent_gnt_tree *tree,
++			struct persistent_gnt *persistent_gnt)
++{
++	if (!test_bit(PERSISTENT_GNT_ACTIVE, persistent_gnt->flags))
++		pr_alert("Freeing a grant already unused\n");
++	set_bit(PERSISTENT_GNT_WAS_ACTIVE, persistent_gnt->flags);
++	clear_bit(PERSISTENT_GNT_ACTIVE, persistent_gnt->flags);
++	atomic_dec(&tree->gnt_in_use);
++}
++
++void free_persistent_gnts(struct persistent_gnt_tree *tree, unsigned int num)
++
++{
++	struct gnttab_unmap_grant_ref unmap[FATAL_SKB_SLOTS_DEFAULT];
++	struct page *pages[FATAL_SKB_SLOTS_DEFAULT];
++	struct persistent_gnt *persistent_gnt;
++	struct rb_root *root = &tree->root;
++	struct rb_node *n;
++	int ret = 0;
++	int pages_to_unmap = 0;
++	void *addr;
++
++	foreach_grant_safe(persistent_gnt, n, root, node) {
++		BUG_ON(persistent_gnt->handle ==
++			NETBACK_INVALID_HANDLE);
++
++		addr = pfn_to_kaddr(page_to_pfn(persistent_gnt->page));
++		gnttab_set_unmap_op(&unmap[pages_to_unmap],
++				    (unsigned long)addr,
++				    GNTMAP_host_map | GNTMAP_readonly,
++				    persistent_gnt->handle);
++
++		pages[pages_to_unmap] = persistent_gnt->page;
++
++		if (++pages_to_unmap == FATAL_SKB_SLOTS_DEFAULT ||
++		    !rb_next(&persistent_gnt->node)) {
++			ret = gnttab_unmap_refs(unmap, NULL, pages,
++						pages_to_unmap);
++			BUG_ON(ret);
++			put_free_pages(tree, pages, pages_to_unmap);
++			pages_to_unmap = 0;
++		}
++
++		rb_erase(&persistent_gnt->node, root);
++		kfree(persistent_gnt);
++		num--;
++	}
++	BUG_ON(num != 0);
++}
++
++int get_free_page(struct persistent_gnt_tree *tree,
++		  struct page **page)
++{
++	if (list_empty(&tree->free_pages)) {
++		BUG_ON(tree->free_pages_num != 0);
++		return 1;
++	}
++	BUG_ON(tree->free_pages_num == 0);
++	page[0] = list_first_entry(&tree->free_pages, struct page, lru);
++	list_del(&page[0]->lru);
++	tree->free_pages_num--;
++	return 0;
++}
++
++void put_free_pages(struct persistent_gnt_tree *tree,
++		    struct page **page, int num)
++{
++	int i;
++
++	for (i = 0; i < num; i++)
++		list_add(&page[i]->lru, &tree->free_pages);
++	tree->free_pages_num += num;
++}
++
+ static inline unsigned long idx_to_pfn(struct xenvif_queue *queue,
+ 				       u16 idx)
+ {
 -- 
 2.1.3
