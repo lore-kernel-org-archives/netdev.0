@@ -1,79 +1,47 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v2 net-next 5/5] net: Add GRE keyid in flow_keys
-Date: Mon, 11 May 2015 20:26:44 -0700
-Message-ID: <1431401204-731380-6-git-send-email-tom@herbertland.com>
-References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next] samples/bpf: fix in-source build of samples with clang
+Date: Mon, 11 May 2015 21:25:51 -0700
+Message-ID: <1431404751-18298-1-git-send-email-ast@plumgrid.com>
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:26846 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752495AbbELD15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 May 2015 23:27:57 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4C3RXGJ006777
-	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:56 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1ub9j300cd-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 11 May 2015 20:27:56 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- e0cbe06af85611e4bc110002c992ebde-678ab1e0 for <netdev@vger.kernel.org>;	Mon,
- 11 May 2015 20:27:55 -0700
-In-Reply-To: <1431401204-731380-1-git-send-email-tom@herbertland.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:36754 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbbELE0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 00:26:00 -0400
+Received: by pdea3 with SMTP id a3so168639855pde.3
+        for <netdev@vger.kernel.org>; Mon, 11 May 2015 21:26:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In flow dissector if a GRE header contains a keyid this is saved in the
-new extra entropy field of flow_keys. The GRE keyid is then represented
-in the flow hash function input.
+From: Brenden Blanco <bblanco@plumgrid.com>
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+in-source build of 'make samples/bpf/' was incorrectly
+using default compiler instead of invoking clang/llvm.
+out-of-source build was ok.
+
+Fixes: a80857822b0c ("samples: bpf: trivial eBPF program in C")
+Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/net/flow_keys.h   |  1 +
- net/core/flow_dissector.c | 15 ++++++++++++++-
- 2 files changed, 15 insertions(+), 1 deletion(-)
+It's a minor fix and not strictly necessary for stable.
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index 906d47a..779e42f 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -28,6 +28,7 @@ struct flow_keys {
- 	u8	padding;
- 	u32	vlan_id:12,
- 		flow_label:20;
-+	u32	extra_entropy;
+ samples/bpf/Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 76e3458a5419..8fdbd73429dd 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -44,7 +44,7 @@ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ # point this to your LLVM backend with bpf support
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
  
- 	union {
- 		__be32 ports;
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index de71e42..025b91f 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -195,8 +195,21 @@ ipv6:
- 			nhoff += 4;
- 			if (hdr->flags & GRE_CSUM)
- 				nhoff += 4;
--			if (hdr->flags & GRE_KEY)
-+			if (hdr->flags & GRE_KEY) {
-+				const __be32 *keyid;
-+				__be32 _keyid;
-+
-+				keyid = __skb_header_pointer(skb, nhoff,
-+							     sizeof(_keyid),
-+							     data, hlen,
-+							     &_keyid);
-+				if (!keyid)
-+					return false;
-+
-+				flow->extra_entropy ^= *keyid;
-+
- 				nhoff += 4;
-+			}
- 			if (hdr->flags & GRE_SEQ)
- 				nhoff += 4;
- 			if (proto == htons(ETH_P_TEB)) {
+-%.o: %.c
++$(obj)/%.o: $(src)/%.c
+ 	clang $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+ 		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
+ 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
 -- 
-1.8.1
+1.7.9.5
