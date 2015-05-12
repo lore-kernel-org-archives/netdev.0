@@ -1,81 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 00/15] introduce programable flow dissector and cls_flower
-Date: Tue, 12 May 2015 09:39:08 +0200
-Message-ID: <1431416363-5675-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, tgraf@suug.ch,
-	jesse@nicira.com, kaber@trash.net, tom@herbertland.com,
-	edumazet@google.com, alexander.h.duyck@redhat.com,
-	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
-	herbert@gondor.apana.org.au, cwang@twopensource.com,
-	john.fastabend@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:34040 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752932AbbELHj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 03:39:28 -0400
-Received: by wicmc15 with SMTP id mc15so46589248wic.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 00:39:27 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: [PATCH v5] net: phy: micrel: Fix regression in kszphy_probe
+Date: Tue, 12 May 2015 09:43:14 +0200
+Message-ID: <1431416594-7758-1-git-send-email-niklass@axis.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <festevam@gmail.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<johan@kernel.org>, Niklas Cassel <niklass@axis.com>,
+	stable <stable@vger.kernel.org>
+To: <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Per Davem's request, I prepared this patchset which introduces programmable
-flow dissector. For current users of flow_keys, there is a wrapper
-skb_flow_dissect_flow_keys which maintains the previous behaviour.
-For purposes of cls_flower, couple of new dissection keys were introduced.
+Don't do clock-mode-select if clk == NULL,
+since when building without CONFIG_HAVE_CLK,
+clk_get returns NULL and clk_get_rate returns 0.
 
-Note that this dissector can be also eventually used by openvswitch code.
+Doing clock-mode-select in this cause causes kszphy_probe to
+return -EINVAL and thus prevents the device from being probed.
 
-Also, as a next step, I plan to get rid of *skb_flow_get_ports(export)
-and *__skb_get_poff as their functionality can be now implemented by
-skb_flow_dissect as well.
+The original code (before regression) would return 0
+when building without CONFIG_HAVE_CLK.
 
-v1->v2:
-- move __skb_tx_hash rather to dev.c as suggested by Alex
+Cc: stable <stable@vger.kernel.org> # 3.18+
+Fixes: 1fadee0c3645 ("net/phy: micrel: Add clock support for
+KSZ8021/KSZ8031")
+Reviewed-by: Fabio Estevam <fabio.estevam@freescale.com>
+Reviewed-by: Johan Hovold <johan@kernel.org>
+Signed-off-by: Niklas Cassel <niklass@axis.com>
+---
+ drivers/net/phy/micrel.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Jiri Pirko (15):
-  net: change name of flow_dissector header to match the .c file name
-  flow_dissector: remove unused function flow_get_hlen declaration
-  net: move *skb_get_poff declarations into correct header
-  flow_dissector: fix doc for __skb_get_hash and remove couple of empty
-    lines
-  net: move __skb_get_hash function declaration to flow_dissector.h
-  net: move __skb_tx_hash to dev.c
-  net: move netdev_pick_tx and dependencies to net/core/dev.c
-  flow_dissector: fix doc for skb_get_poff
-  flow_dissector: introduce programable flow_dissector
-  flow_dissect: use programable dissector in skb_flow_dissect and
-    friends
-  flow_dissector: add missing header includes
-  flow_dissector: introduce support for ipv6 addressses
-  flow_dissector: introduce support for Ethernet addresses
-  flow_dissector: change port array into src,dst tuple
-  tc: introduce Flower classifier
-
- drivers/net/bonding/bond_main.c                |  20 +-
- drivers/net/ethernet/cisco/enic/enic_clsf.c    |  29 +-
- drivers/net/ethernet/cisco/enic/enic_ethtool.c |  10 +-
- drivers/net/hyperv/netvsc_drv.c                |   8 +-
- include/linux/netdevice.h                      |   3 +
- include/linux/skbuff.h                         |  14 +-
- include/net/flow_dissector.h                   | 167 ++++++
- include/net/flow_keys.h                        |  61 ---
- include/net/ip.h                               |  10 +-
- include/net/ipv6.h                             |  10 +-
- include/uapi/linux/pkt_cls.h                   |  31 ++
- net/core/dev.c                                 | 106 ++++
- net/core/filter.c                              |   1 +
- net/core/flow_dissector.c                      | 380 ++++++++------
- net/ethernet/eth.c                             |   7 +-
- net/sched/Kconfig                              |  10 +
- net/sched/Makefile                             |   1 +
- net/sched/cls_flow.c                           |  22 +-
- net/sched/cls_flower.c                         | 688 +++++++++++++++++++++++++
- net/sched/sch_choke.c                          |   6 +-
- 20 files changed, 1286 insertions(+), 298 deletions(-)
- create mode 100644 include/net/flow_dissector.h
- delete mode 100644 include/net/flow_keys.h
- create mode 100644 net/sched/cls_flower.c
-
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 1190fd8..ebdc357 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -548,7 +548,8 @@ static int kszphy_probe(struct phy_device *phydev)
+ 	}
+ 
+ 	clk = devm_clk_get(&phydev->dev, "rmii-ref");
+-	if (!IS_ERR(clk)) {
++	/* NOTE: clk may be NULL if building without CONFIG_HAVE_CLK */
++	if (!IS_ERR_OR_NULL(clk)) {
+ 		unsigned long rate = clk_get_rate(clk);
+ 		bool rmii_ref_clk_sel_25_mhz;
+ 
 -- 
-1.9.3
+2.1.4
