@@ -1,112 +1,214 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v3 5/6] packet: rollover huge flows before small flows
-Date: Tue, 12 May 2015 11:56:49 -0400
-Message-ID: <1431446210-13286-6-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v3 4/6] packet: rollover lock contention avoidance
+Date: Tue, 12 May 2015 11:56:48 -0400
+Message-ID: <1431446210-13286-5-git-send-email-willemb@google.com>
 References: <1431446210-13286-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	david.laight@aculab.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f170.google.com ([209.85.160.170]:34779 "EHLO
-	mail-yk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753377AbbELP5A (ORCPT
+Received: from mail-yh0-f54.google.com ([209.85.213.54]:36838 "EHLO
+	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753394AbbELP5A (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:57:00 -0400
-Received: by ykft189 with SMTP id t189so4649321ykf.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:56:59 -0700 (PDT)
+Received: by yhrr66 with SMTP id r66so4339557yhr.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:56:58 -0700 (PDT)
 In-Reply-To: <1431446210-13286-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Migrate flows from a socket to another socket in the fanout group not
-only when the socket is full. Start migrating huge flows early, to
-divert possible 4-tuple attacks without affecting normal traffic.
+Rollover has to call packet_rcv_has_room on sockets in the fanout
+group to find a socket to migrate to. This operation is expensive
+especially if the packet sockets use rings, when a lock has to be
+acquired.
 
-Introduce fanout_flow_is_huge(). This detects huge flows, which are
-defined as taking up more than half the load. It does so cheaply, by
-storing the rxhashes of the N most recent packets. If over half of
-these are the same rxhash as the current packet, then drop it. This
-only protects against 4-tuple attacks. N is chosen to fit all data in
-a single cache line.
+Avoid pounding on the lock by all sockets by temporarily marking a
+socket as "under memory pressure" when such pressure is detected.
+While set, only the socket owner may call packet_rcv_has_room on the
+socket. Once it detects normal conditions, it clears the flag. The
+socket is not used as a victim by any other socket in the meantime.
+
+Under reasonably balanced load, each socket writer frequently calls
+packet_rcv_has_room and clears its own pressure field. As a backup
+for when the socket is rarely written to, also clear the flag on
+reading (packet_recvmsg, packet_poll) if this can be done cheaply
+(i.e., without calling packet_rcv_has_room). This is only for
+edge cases.
 
 Tested:
-  Ran bench_rollover for 10 sec with 1.5 Mpps of single flow input.
+  Ran bench_rollover: a process with 8 sockets in a single fanout
+  group, each pinned to a single cpu that receives one nic recv
+  interrupt. RPS and RFS are disabled. The benchmark uses packet
+  rx_ring, which has to take a lock when determining whether a
+  socket has room.
 
-    lpbb5:/export/hda3/willemb# ./bench_rollover -l 1000 -r -s
-    cpu         rx       rx.k     drop.k   rollover     r.huge   r.failed
-      0         14         14          0          0          0          0
-      1         20         20          0          0          0          0
-      2         16         16          0          0          0          0
-      3    6168824    6168824          0    4867721    4867721          0
-      4    4867741    4867741          0          0          0          0
-      5         12         12          0          0          0          0
-      6         15         15          0          0          0          0
-      7         17         17          0          0          0          0
+  Sent 3.5 Mpps of UDP traffic with sufficient entropy to spread
+  uniformly across the packet sockets (and inserted an iptables
+  rule to drop in PREROUTING to avoid protocol stack processing).
+
+  Without this patch, all sockets try to migrate traffic to
+  neighbors, causing lock contention when searching for a non-
+  empty neighbor. The lock is the top 9 entries.
+
+    perf record -a -g sleep 5
+
+    -  17.82%   bench_rollover  [kernel.kallsyms]    [k] _raw_spin_lock
+       - _raw_spin_lock
+          - 99.00% spin_lock
+    	 + 81.77% packet_rcv_has_room.isra.41
+    	 + 18.23% tpacket_rcv
+          + 0.84% packet_rcv_has_room.isra.41
+    +   5.20%      ksoftirqd/6  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   5.15%      ksoftirqd/1  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   5.14%      ksoftirqd/2  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   5.12%      ksoftirqd/7  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   5.12%      ksoftirqd/5  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   5.10%      ksoftirqd/4  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   4.66%      ksoftirqd/0  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   4.45%      ksoftirqd/3  [kernel.kallsyms]    [k] _raw_spin_lock
+    +   1.55%   bench_rollover  [kernel.kallsyms]    [k] packet_rcv_has_room.isra.41
+
+  On net-next with this patch, this lock contention is no longer a
+  top entry. Most time is spent in the actual read function. Next up
+  are other locks:
+
+    +  15.52%  bench_rollover  bench_rollover     [.] reader
+    +   4.68%         swapper  [kernel.kallsyms]  [k] memcpy_erms
+    +   2.77%         swapper  [kernel.kallsyms]  [k] packet_lookup_frame.isra.51
+    +   2.56%     ksoftirqd/1  [kernel.kallsyms]  [k] memcpy_erms
+    +   2.16%         swapper  [kernel.kallsyms]  [k] tpacket_rcv
+    +   1.93%         swapper  [kernel.kallsyms]  [k] mlx4_en_process_rx_cq
+
+  Looking closer at the remaining _raw_spin_lock, the cost of probing
+  in rollover is now comparable to the cost of taking the lock later
+  in tpacket_rcv.
+
+    -   1.51%         swapper  [kernel.kallsyms]  [k] _raw_spin_lock
+       - _raw_spin_lock
+          + 33.41% packet_rcv_has_room
+          + 28.15% tpacket_rcv
+          + 19.54% enqueue_to_backlog
+          + 6.45% __free_pages_ok
+          + 2.78% packet_rcv_fanout
+          + 2.13% fanout_demux_rollover
+          + 2.01% netif_receive_skb_internal
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/packet/af_packet.c | 25 ++++++++++++++++++++++---
- net/packet/internal.h  |  2 ++
- 2 files changed, 24 insertions(+), 3 deletions(-)
+ net/packet/af_packet.c | 38 +++++++++++++++++++++++++++++++-------
+ net/packet/internal.h  |  1 +
+ 2 files changed, 32 insertions(+), 7 deletions(-)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 5f5fe1a..1425600 100644
+index 7c046d7..5f5fe1a 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1341,6 +1341,20 @@ static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
- 	return x;
+@@ -1265,14 +1265,14 @@ static bool __tpacket_v3_has_room(struct packet_sock *po, int pow_off)
+ 	return prb_lookup_block(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
  }
  
-+static bool fanout_flow_is_huge(struct packet_sock *po, struct sk_buff *skb)
-+{
-+	u32 rxhash;
-+	int i, count = 0;
+-static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
++static int __packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+ {
+ 	struct sock *sk = &po->sk;
+ 	int ret = ROOM_NONE;
+ 
+ 	if (po->prot_hook.func != tpacket_rcv) {
+ 		int avail = sk->sk_rcvbuf - atomic_read(&sk->sk_rmem_alloc)
+-					  - skb->truesize;
++					  - (skb ? skb->truesize : 0);
+ 		if (avail > (sk->sk_rcvbuf >> ROOM_POW_OFF))
+ 			return ROOM_NORMAL;
+ 		else if (avail > 0)
+@@ -1281,7 +1281,6 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+ 			return ROOM_NONE;
+ 	}
+ 
+-	spin_lock(&sk->sk_receive_queue.lock);
+ 	if (po->tp_version == TPACKET_V3) {
+ 		if (__tpacket_v3_has_room(po, ROOM_POW_OFF))
+ 			ret = ROOM_NORMAL;
+@@ -1293,7 +1292,26 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+ 		else if (__tpacket_has_room(po, 0))
+ 			ret = ROOM_LOW;
+ 	}
+-	spin_unlock(&sk->sk_receive_queue.lock);
 +
-+	rxhash = skb_get_hash(skb);
-+	for (i = 0; i < ROLLOVER_HLEN; i++)
-+		if (po->rollover->history[i] == rxhash)
-+			count++;
-+
-+	po->rollover->history[prandom_u32() % ROLLOVER_HLEN] = rxhash;
-+	return count > (ROLLOVER_HLEN >> 1);
++	return ret;
 +}
 +
- static unsigned int fanout_demux_hash(struct packet_fanout *f,
- 				      struct sk_buff *skb,
- 				      unsigned int num)
-@@ -1381,11 +1395,16 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
++static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
++{
++	int ret;
++	bool has_room;
++
++	if (po->prot_hook.func == tpacket_rcv) {
++		spin_lock(&po->sk.sk_receive_queue.lock);
++		ret = __packet_rcv_has_room(po, skb);
++		spin_unlock(&po->sk.sk_receive_queue.lock);
++	} else {
++		ret = __packet_rcv_has_room(po, skb);
++	}
++
++	has_room = ret == ROOM_NORMAL;
++	if (po->pressure == has_room)
++		xchg(&po->pressure, !has_room);
+ 
+ 	return ret;
+ }
+@@ -1362,7 +1380,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 					  unsigned int idx, bool try_self,
  					  unsigned int num)
  {
- 	struct packet_sock *po, *po_next;
--	unsigned int i, j;
-+	unsigned int i, j, room;
+-	struct packet_sock *po;
++	struct packet_sock *po, *po_next;
+ 	unsigned int i, j;
  
  	po = pkt_sk(f->arr[idx]);
--	if (try_self && packet_rcv_has_room(po, skb) != ROOM_NONE)
--		return idx;
-+
-+	if (try_self) {
-+		room = packet_rcv_has_room(po, skb);
-+		if (room == ROOM_NORMAL ||
-+		    (room == ROOM_LOW && !fanout_flow_is_huge(po, skb)))
-+			return idx;
-+	}
+@@ -1371,8 +1389,9 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
  
  	i = j = min_t(int, po->rollover->sock, num - 1);
  	do {
+-		if (i != idx &&
+-		    packet_rcv_has_room(pkt_sk(f->arr[i]), skb) == ROOM_NORMAL) {
++		po_next = pkt_sk(f->arr[i]);
++		if (po_next != po && !po_next->pressure &&
++		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
+ 			if (i != j)
+ 				po->rollover->sock = i;
+ 			return i;
+@@ -2997,6 +3016,9 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	if (skb == NULL)
+ 		goto out;
+ 
++	if (pkt_sk(sk)->pressure)
++		packet_rcv_has_room(pkt_sk(sk), NULL);
++
+ 	if (pkt_sk(sk)->has_vnet_hdr) {
+ 		struct virtio_net_hdr vnet_hdr = { 0 };
+ 
+@@ -3752,6 +3774,8 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
+ 			TP_STATUS_KERNEL))
+ 			mask |= POLLIN | POLLRDNORM;
+ 	}
++	if (po->pressure && __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
++		xchg(&po->pressure, 0);
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 	spin_lock_bh(&sk->sk_write_queue.lock);
+ 	if (po->tx_ring.pg_vec) {
 diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 22d7d77..a9d30a1 100644
+index a9d33a2..22d7d77 100644
 --- a/net/packet/internal.h
 +++ b/net/packet/internal.h
-@@ -89,6 +89,8 @@ struct packet_fanout {
- 
- struct packet_rollover {
- 	int			sock;
-+#define ROLLOVER_HLEN	(L1_CACHE_BYTES / sizeof(u32))
-+	u32			history[ROLLOVER_HLEN] ____cacheline_aligned;
- } ____cacheline_aligned_in_smp;
- 
- struct packet_sock {
+@@ -105,6 +105,7 @@ struct packet_sock {
+ 				auxdata:1,
+ 				origdev:1,
+ 				has_vnet_hdr:1;
++	int			pressure;
+ 	int			ifindex;	/* bound device		*/
+ 	__be16			num;
+ 	struct packet_rollover	*rollover;
 -- 
 2.2.0.rc0.207.ga3a616c
