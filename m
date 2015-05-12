@@ -1,98 +1,87 @@
-From: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
-Subject: Re: [V3 PATCH 1/5] ACPI / scan: Parse _CCA and setup device coherency
-Date: Tue, 12 May 2015 10:06:01 -0500
-Message-ID: <555216D9.30506@amd.com>
-References: <1431045436-8690-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <3684853.vaQGhc4jR5@vostro.rjw.lan>
- <20150511161626.GI18655@e104818-lin.cambridge.arm.com>
- <1664523.WMm4AqWTY5@vostro.rjw.lan>
+From: Andy Zhou <azhou@nicira.com>
+Subject: Re: [net-next fragmentation icmp v3 1/4] ipv4: introduce frag_expire_skip_icmp()
+Date: Tue, 12 May 2015 08:13:32 -0700
+Message-ID: <CACzMAJ+DrD2KOMLp+U_Ddj57b946kdut70oL5y8tLXpSDMnFfQ@mail.gmail.com>
+References: <1431059199-7139-1-git-send-email-azhou@nicira.com>
+	<1431059199-7139-2-git-send-email-azhou@nicira.com>
+	<554CA61B.50501@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <thomas.lendacky@amd.com>, <linux-crypto@vger.kernel.org>,
-	<herbert@gondor.apana.org.au>, <arnd@arndb.de>,
-	<linaro-acpi@lists.linaro.org>, <will.deacon@arm.com>,
-	<linux-kernel@vger.kernel.org>, <al.stone@linaro.org>,
-	<linux-acpi@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<leo.duran@amd.com>, <hanjun.guo@linaro.org>, <msalter@redhat.com>,
-	<grant.likely@linaro.org>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>, <lenb@kernel.org>
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Catalin Marinas <catalin.marinas@arm.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1664523.WMm4AqWTY5@vostro.rjw.lan>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:47268 "HELO
+	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751416AbbELPNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:13:33 -0400
+Received: by mail-oi0-f52.google.com with SMTP id a37so8395817oic.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:13:33 -0700 (PDT)
+In-Reply-To: <554CA61B.50501@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/11/2015 8:20 PM, Rafael J. Wysocki wrote:
-> On Monday, May 11, 2015 05:16:27 PM Catalin Marinas wrote:
->> On Fri, May 08, 2015 at 10:53:59PM +0200, Rafael J. Wysocki wrote:
->>> On Thursday, May 07, 2015 07:37:12 PM Suravee Suthikulpanit wrote:
->>>> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
->>>> index ab2cbb5..7822149 100644
->>>> --- a/drivers/acpi/Kconfig
->>>> +++ b/drivers/acpi/Kconfig
->>>> @@ -54,6 +54,12 @@ config ACPI_GENERIC_GSI
->>>>   config ACPI_SYSTEM_POWER_STATES_SUPPORT
->>>>   	bool
->>>>
->>>> +config ACPI_CCA_REQUIRED
->>>> +	bool
->>>> +
->>>> +config ARM64_SUPPORT_ACPI_CCA_ZERO
->>>
->>> Hmm.  I guess the Arnd's idea what to simply use CONFIG_ARM64 directly instead
->>> of adding this new option.
->>
->> I agree.
->>
->>>> +static inline bool acpi_dma_is_supported(struct acpi_device *adev)
->>>> +{
->>>> +	/**
->>>> +	 * Currently, we mainly support _CCA=1 (i.e. is_coherent=1)
->>>> +	 * This should be equivalent to specifyig dma-coherent for
->>>> +	 * a device in OF.
->>>> +	 *
->>>> +	 * For the case when _CCA=0 (i.e. is_coherent=0 && cca_seen=1),
->>>> +	 * we would rely on arch-specific cache maintenance for
->>>> +	 * non-coherence DMA operations if architecture specifies
->>>> +	 * _XXX_SUPPORT_CCA_ZERO. Otherwise, we do not support
->>>> +	 * DMA on this device and fallback to arch-specific default
->>>> +	 * handling.
->>>> +	 *
->>>> +	 * For the case when _CCA is missing (i.e. cca_seen=0) but
->>>> +	 * platform specifies ACPI_CCA_REQUIRED, we do not support DMA,
->>>> +	 * and fallback to arch-specific default handling.
->>>> +	 */
->>>> +	return adev && (adev->flags.is_coherent ||
->>>> +			(adev->flags.cca_seen &&
->>>> +			 IS_ENABLED(CONFIG_ARM64_SUPPORT_ACPI_CCA_ZERO)));
->>>
->>> So what exactly would be wrong with using IS_ENABLED(CONFIG_ARM64) here?
->>
->> I'm not sure I follow why we need to check for ARM64 here at all. Can we
->> not just have something like:
->>
->> 	return adev && (!IS_ENABLED(CONFIG_ACPI_CCA_REQUIRED) ||
->> 			adev->flags.cca_seen)
+On Fri, May 8, 2015 at 5:03 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
 >
-> If _CCA returns 0 on non-ARM64, DMA is not supported for this device, so
-> in that case the function should return 'false' while the above check will
-> make it return 'true'.
+> On 5/8/2015 7:26 AM, Andy Zhou wrote:
 >
-
-The main idea is basically to allow architecture to decide if it wants 
-to specify if it wants to support _CCA=0. Currently, there are two 
-approaches.
-1. Do not support and disable DMA
-2. Support and default to what architecture would normally do for 
-non-coherent DMA.
-
-Since, ARM64 being the only platform, which supports ACPI and would 
-support _CCA=0. I can just put CONFIG_ARM64 then as Arnd and Rafael 
-mentioned.
-
-Thanks,
-Suravee
-
-
+>> Improve readability of skip ICMP for de-fragmentation expiration logic.
+>> This change will also make the logic easier to maintain when the
+>> following patches in this series are applied.
+>
+>
+>> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>> ---
+>>   include/net/ip.h       | 10 ++++++++++
+>>   net/ipv4/ip_fragment.c | 13 +++++++++----
+>>   2 files changed, 19 insertions(+), 4 deletions(-)
+>
+>
+>> diff --git a/include/net/ip.h b/include/net/ip.h
+>> index d14af7e..f79193a 100644
+>> --- a/include/net/ip.h
+>> +++ b/include/net/ip.h
+>> @@ -478,6 +478,16 @@ enum ip_defrag_users {
+>>         IP_DEFRAG_MACVLAN,
+>>   };
+>>
+>> +/* Return true if the value of 'user' is between 'lower_bond'
+>> + * and 'upper_bond' inclusively.
+>> + */
+>> +static inline bool ip_defrag_user_in_between(u32 user,
+>> +                                            enum ip_defrag_users
+>> lower_bond,
+>> +                                            enum ip_defrag_users
+>> upper_bond)
+>> +{
+>> +       return (user >= lower_bond && user <= upper_bond);
+>
+>
+>    Don't need parens around the *return* expression.
+Thanks, I will fix this and the following site in the next version.
+>
+> [...]
+>>
+>> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+>> index cc1da6d..429cefa 100644
+>> --- a/net/ipv4/ip_fragment.c
+>> +++ b/net/ipv4/ip_fragment.c
+>> @@ -173,6 +173,13 @@ static void ipq_kill(struct ipq *ipq)
+>>         inet_frag_kill(&ipq->q, &ip4_frags);
+>>   }
+>>
+>> +static bool frag_expire_skip_icmp(u32 user)
+>> +{
+>> +       return (user == IP_DEFRAG_AF_PACKET ||
+>> +               ip_defrag_user_in_between(user, IP_DEFRAG_CONNTRACK_IN,
+>> +                                         __IP_DEFRAG_CONNTRACK_IN_END));
+>
+>
+>    Likewise.
+>
+> [...]
+>
+> WBR, Sergei
+>
