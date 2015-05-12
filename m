@@ -1,48 +1,35 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] net: core: set qdisc pkt len before tc_classify
-Date: Tue, 12 May 2015 15:37:18 +0200
-Message-ID: <1431437838-5478-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] about "ipv6: tcp: fix flowlabel value in ACK messages send
+ from TIME_WAIT"
+Date: Tue, 12 May 2015 06:47:09 -0700
+Message-ID: <1431438429.566.79.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:40087 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932641AbbELNh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 09:37:27 -0400
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:36670 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932851AbbELNrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 09:47:11 -0400
+Received: by iebix4 with SMTP id ix4so1036110ieb.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 06:47:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit d2788d34885d4ce5ba ("net: sched: further simplify handle_ing")
-removed the call to qdisc_enqueue_root().
+Hi Florent 
 
-However, after this removal we no longer set qdisc pkt length.
-This breaks traffic policing on ingress.
+make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/tcp_minisocks.o
+...
+net/ipv4/tcp_minisocks.c:303:46: warning: restricted __be32 degrades to integer
 
-Daniel re-ran his test with this patch applied and reports that
-while there is a small performance hit the total gain vs. before
-d2788d34885d4ce5ba is still consistently higher than 1Mpps.
+            tw->tw_flowlabel = np->flow_label >> 12;
 
-Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/core/dev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e5f77c4..871181a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3540,8 +3540,9 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
- 		*pt_prev = NULL;
- 	}
- 
--	qdisc_bstats_update_cpu(cl->q, skb);
-+	qdisc_skb_cb(skb)->pkt_len = skb->len;
- 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
-+	qdisc_bstats_update_cpu(cl->q, skb);
- 
- 	switch (tc_classify(skb, cl, &cl_res)) {
- 	case TC_ACT_OK:
--- 
-2.0.5
+np->flow_label is a __be32 (network byte order)
+
+Not sure what is expected from this shift on a BE machine, I am guessing
+this is not giving the expected result.
+
+Thanks
