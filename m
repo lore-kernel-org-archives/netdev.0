@@ -1,57 +1,83 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH] net: ll_temac: Fix DMA map size bug
-Date: Tue, 12 May 2015 08:06:31 +0200
-Message-ID: <55519867.2090205@xilinx.com>
-References: <d76f13c52ce740544e8fac27f2a5904b9537a226.1431410298.git.michal.simek@xilinx.com>
- <alpine.DEB.2.02.1505120801390.2075@localhost6.localdomain6>
+From: Haggai Eran <haggaie@mellanox.com>
+Subject: Re: [PATCH v3 for-next 01/13] IB/core: Use SRCU when reading client_list
+ or device_list
+Date: Tue, 12 May 2015 09:07:51 +0300
+Message-ID: <555198B7.40302@mellanox.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-2-git-send-email-haggaie@mellanox.com>
+ <20150511181824.GA25405@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	=?windows-1252?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>,
-	<monstr@monstr.eu>, Fabian Frederick <fabf@skynet.be>,
-	<linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	=?windows-1252?Q?Manuel_Sch=F6lling?= <manuel.schoelling@gmx.de>,
-	Markus Elfring <elfring@users.sourceforge.net>,
-	Subbaraya Sundeep Bhatta <subbaraya.sundeep.bhatta@xilinx.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Julia Lawall <julia.lawall@lip6.fr>,
-	Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1505120801390.2075@localhost6.localdomain6>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Doug Ledford <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0069.outbound.protection.outlook.com ([157.55.234.69]:59347
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752326AbbELGIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 02:08:39 -0400
+In-Reply-To: <20150511181824.GA25405@obsidianresearch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2015 08:03 AM, Julia Lawall wrote:
-> On Tue, 12 May 2015, Michal Simek wrote:
+On 11/05/2015 21:18, Jason Gunthorpe wrote:
+> So at first blush this looked reasonable, but, no it is racy:
 > 
->> DMA allocates skb->len instead of headlen
->> which is used for DMA.
->>
->> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
->> ---
->>
->>  drivers/net/ethernet/xilinx/ll_temac_main.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
->> index ca640d04fd93..cfb6bdb37fdc 100644
->> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
->> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
->> @@ -705,8 +705,8 @@ static int temac_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->>  
->>  	cur_p->app0 |= STS_CTRL_APP0_SOP;
->>  	cur_p->len = skb_headlen(skb);
->> -	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data, skb->len,
->> -				     DMA_TO_DEVICE);
->> +	cur_p->phys = dma_map_single(ndev->dev.parent, skb->data,
->> +				skb_headlen(skb), DMA_TO_DEVICE);
+> ib_register_client:
+>  mutex_lock(&device_mutex);
+>  list_add_tail_rcu(&client->list, &client_list);
+>  mutex_unlock(&device_mutex);
 > 
-> I think you could align the later arguments with the right side of the 
-> parenthesis, as done in the original code.
+>  id = srcu_read_lock(&device_srcu);
+>  list_for_each_entry_rcu(device, &device_list, core_list)
+>                         client->add(device);
+> 
+> ib_register_device:
+>   mutex_lock(&device_mutex);
+>   list_add_tail(&device->core_list, &device_list);
+>   mutex_unlock(&device_mutex);
+> 
+>   id = srcu_read_lock(&device_srcu);
+>   list_for_each_entry_rcu(client, &client_list, list)
+>        client->add(device);
+> 
+> So, if two threads call the two registers then the new client will
+> have it's add called twice on the same device.
+> 
+> There are similar problems with removal.
 
-Fixed and send v2.
+Right. Sorry I missed that. Our first draft just kept the addition and
+removal of elements to the device or client list under the mutex,
+thinking that only the new code in this patchset that does traversal of
+the lists would use the SRCU read lock. We then changed it thinking that
+it would be better to make some use of this SRCU in this patch as well.
 
-Thanks,
-Michal
+> 
+> I'm not sure RCU is the right way to approach this. The driver core
+> has the same basic task to perform, maybe review it's locking
+> arrangment between the device list and driver list.
+> 
+> [Actually we probably should be using the driver core here, with IB
+>  clients as device drivers, but that is way beyond scope of this..]
+
+So, I'm not very familiar with that code, but it seems that the main
+difference is that in the core a single driver can be attached to a
+device. The device_add function calls bus_add_device to add it to the
+bus's list, and and later calls bus_probe_device to find a driver,
+without any lock between these calls. And bus_add_driver adds a new
+driver to the bus's driver list and then calls driver_attach without any
+lock between them. The only thing I see that makes sure a driver won't
+be attached twice to a device is the dev->driver field which is updated
+under the device lock during the probing process.
+
+I guess a similar thing we can do is to rely on the context we associate
+with a pair of a client and a device. If such a context exist, we don't
+need to call client->add again. What do you think?
+
+Haggai
