@@ -1,146 +1,161 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v3 6/6] packet: rollover statistics
-Date: Tue, 12 May 2015 11:56:50 -0400
-Message-ID: <1431446210-13286-7-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v3 3/6] packet: rollover only to socket with headroom
+Date: Tue, 12 May 2015 11:56:47 -0400
+Message-ID: <1431446210-13286-4-git-send-email-willemb@google.com>
 References: <1431446210-13286-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	david.laight@aculab.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f175.google.com ([209.85.160.175]:34786 "EHLO
-	mail-yk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753078AbbELP5B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:57:01 -0400
-Received: by ykft189 with SMTP id t189so4649463ykf.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:57:00 -0700 (PDT)
+Received: from mail-yh0-f41.google.com ([209.85.213.41]:33513 "EHLO
+	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753175AbbELP46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 11:56:58 -0400
+Received: by yhcb70 with SMTP id b70so4382423yhc.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 08:56:57 -0700 (PDT)
 In-Reply-To: <1431446210-13286-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Rollover indicates exceptional conditions. Export a counter to inform
-socket owners of this state.
+Only migrate flows to sockets that have sufficient headroom, where
+sufficient is defined as having at least 25% empty space.
 
-If no socket with sufficient room is found, rollover fails. Also count
-these events.
-
-Finally, also count when flows are rolled over early thanks to huge
-flow detection, to validate its correctness.
+The kernel has three different buffer types: a regular socket, a ring
+with frames (TPACKET_V[12]) or a ring with blocks (TPACKET_V3). The
+latter two do not expose a read pointer to the kernel, so headroom is
+not computed easily. All three needs a different implementation to
+estimate free space.
 
 Tested:
-  Read counters in bench_rollover on all other tests in the patchset
+  Ran bench_rollover for 10 sec with 1.5 Mpps of single flow input.
+
+  bench_rollover has as many sockets as there are NIC receive queues
+  in the system. Each socket is owned by a process that is pinned to
+  one of the receive cpus. RFS is disabled. RPS is enabled with an
+  identity mapping (cpu x -> cpu x), to count drops with softnettop.
+
+    lpbb5:/export/hda3/willemb# ./bench_rollover -r -l 1000 -s
+    Press [Enter] to exit
+
+    cpu         rx       rx.k     drop.k   rollover     r.huge   r.failed
+      0         16         16          0          0          0          0
+      1         21         21          0          0          0          0
+      2    5227502    5227502          0          0          0          0
+      3         18         18          0          0          0          0
+      4    6083289    6083289          0    5227496          0          0
+      5         22         22          0          0          0          0
+      6         21         21          0          0          0          0
+      7          9          9          0          0          0          0
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/uapi/linux/if_packet.h |  7 +++++++
- net/packet/af_packet.c         | 19 ++++++++++++++++++-
- net/packet/internal.h          |  3 +++
- 3 files changed, 28 insertions(+), 1 deletion(-)
+ net/packet/af_packet.c | 74 +++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 58 insertions(+), 16 deletions(-)
 
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index 053bd10..d3d715f8c 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -54,6 +54,7 @@ struct sockaddr_ll {
- #define PACKET_FANOUT			18
- #define PACKET_TX_HAS_OFF		19
- #define PACKET_QDISC_BYPASS		20
-+#define PACKET_ROLLOVER_STATS		21
- 
- #define PACKET_FANOUT_HASH		0
- #define PACKET_FANOUT_LB		1
-@@ -75,6 +76,12 @@ struct tpacket_stats_v3 {
- 	unsigned int	tp_freeze_q_cnt;
- };
- 
-+struct tpacket_rollover_stats {
-+	__aligned_u64	tp_all;
-+	__aligned_u64	tp_huge;
-+	__aligned_u64	tp_failed;
-+};
-+
- union tpacket_stats_u {
- 	struct tpacket_stats stats1;
- 	struct tpacket_stats_v3 stats3;
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1425600..67dfdab 100644
+index 6f1b939..7c046d7 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -1395,7 +1395,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 					  unsigned int num)
- {
- 	struct packet_sock *po, *po_next;
--	unsigned int i, j, room;
-+	unsigned int i, j, room = ROOM_NONE;
- 
- 	po = pkt_sk(f->arr[idx]);
- 
-@@ -1413,6 +1413,9 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
- 			if (i != j)
- 				po->rollover->sock = i;
-+			atomic_long_inc(&po->rollover->num);
-+			if (room == ROOM_LOW)
-+				atomic_long_inc(&po->rollover->num_huge);
- 			return i;
- 		}
- 
-@@ -1420,6 +1423,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 			i = 0;
- 	} while (i != j);
- 
-+	atomic_long_inc(&po->rollover->num_failed);
- 	return idx;
+@@ -1234,27 +1234,68 @@ static void packet_free_pending(struct packet_sock *po)
+ 	free_percpu(po->tx_ring.pending_refcnt);
  }
  
-@@ -1554,6 +1558,9 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
- 		po->rollover = kzalloc(sizeof(*po->rollover), GFP_KERNEL);
- 		if (!po->rollover)
- 			return -ENOMEM;
-+		atomic_long_set(&po->rollover->num, 0);
-+		atomic_long_set(&po->rollover->num_huge, 0);
-+		atomic_long_set(&po->rollover->num_failed, 0);
- 	}
+-static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
++#define ROOM_POW_OFF	2
++#define ROOM_NONE	0x0
++#define ROOM_LOW	0x1
++#define ROOM_NORMAL	0x2
++
++static bool __tpacket_has_room(struct packet_sock *po, int pow_off)
++{
++	int idx, len;
++
++	len = po->rx_ring.frame_max + 1;
++	idx = po->rx_ring.head;
++	if (pow_off)
++		idx += len >> pow_off;
++	if (idx >= len)
++		idx -= len;
++	return packet_lookup_frame(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
++}
++
++static bool __tpacket_v3_has_room(struct packet_sock *po, int pow_off)
++{
++	int idx, len;
++
++	len = po->rx_ring.prb_bdqc.knum_blocks;
++	idx = po->rx_ring.prb_bdqc.kactive_blk_num;
++	if (pow_off)
++		idx += len >> pow_off;
++	if (idx >= len)
++		idx -= len;
++	return prb_lookup_block(po, &po->rx_ring, idx, TP_STATUS_KERNEL);
++}
++
++static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+ {
+ 	struct sock *sk = &po->sk;
+-	bool has_room;
++	int ret = ROOM_NONE;
  
- 	mutex_lock(&fanout_mutex);
-@@ -3581,6 +3588,7 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 	struct packet_sock *po = pkt_sk(sk);
- 	void *data = &val;
- 	union tpacket_stats_u st;
-+	struct tpacket_rollover_stats rstats;
+-	if (po->prot_hook.func != tpacket_rcv)
+-		return (atomic_read(&sk->sk_rmem_alloc) + skb->truesize)
+-			<= sk->sk_rcvbuf;
++	if (po->prot_hook.func != tpacket_rcv) {
++		int avail = sk->sk_rcvbuf - atomic_read(&sk->sk_rmem_alloc)
++					  - skb->truesize;
++		if (avail > (sk->sk_rcvbuf >> ROOM_POW_OFF))
++			return ROOM_NORMAL;
++		else if (avail > 0)
++			return ROOM_LOW;
++		else
++			return ROOM_NONE;
++	}
  
- 	if (level != SOL_PACKET)
- 		return -ENOPROTOOPT;
-@@ -3656,6 +3664,15 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 			((u32)po->fanout->flags << 24)) :
- 		       0);
- 		break;
-+	case PACKET_ROLLOVER_STATS:
-+		if (!po->rollover)
-+			return -EINVAL;
-+		rstats.tp_all = atomic_long_read(&po->rollover->num);
-+		rstats.tp_huge = atomic_long_read(&po->rollover->num_huge);
-+		rstats.tp_failed = atomic_long_read(&po->rollover->num_failed);
-+		data = &rstats;
-+		lv = sizeof(rstats);
-+		break;
- 	case PACKET_TX_HAS_OFF:
- 		val = po->tp_tx_has_off;
- 		break;
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index a9d30a1..c035d26 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -89,6 +89,9 @@ struct packet_fanout {
+ 	spin_lock(&sk->sk_receive_queue.lock);
+-	if (po->tp_version == TPACKET_V3)
+-		has_room = prb_lookup_block(po, &po->rx_ring,
+-					    po->rx_ring.prb_bdqc.kactive_blk_num,
+-					    TP_STATUS_KERNEL);
+-	else
+-		has_room = packet_lookup_frame(po, &po->rx_ring,
+-					       po->rx_ring.head,
+-					       TP_STATUS_KERNEL);
++	if (po->tp_version == TPACKET_V3) {
++		if (__tpacket_v3_has_room(po, ROOM_POW_OFF))
++			ret = ROOM_NORMAL;
++		else if (__tpacket_v3_has_room(po, 0))
++			ret = ROOM_LOW;
++	} else {
++		if (__tpacket_has_room(po, ROOM_POW_OFF))
++			ret = ROOM_NORMAL;
++		else if (__tpacket_has_room(po, 0))
++			ret = ROOM_LOW;
++	}
+ 	spin_unlock(&sk->sk_receive_queue.lock);
  
- struct packet_rollover {
- 	int			sock;
-+	atomic_long_t		num;
-+	atomic_long_t		num_huge;
-+	atomic_long_t		num_failed;
- #define ROLLOVER_HLEN	(L1_CACHE_BYTES / sizeof(u32))
- 	u32			history[ROLLOVER_HLEN] ____cacheline_aligned;
- } ____cacheline_aligned_in_smp;
+-	return has_room;
++	return ret;
+ }
+ 
+ static void packet_sock_destruct(struct sock *sk)
+@@ -1325,12 +1366,13 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 	unsigned int i, j;
+ 
+ 	po = pkt_sk(f->arr[idx]);
+-	if (try_self && packet_rcv_has_room(po, skb))
++	if (try_self && packet_rcv_has_room(po, skb) != ROOM_NONE)
+ 		return idx;
+ 
+ 	i = j = min_t(int, po->rollover->sock, num - 1);
+ 	do {
+-		if (i != idx && packet_rcv_has_room(pkt_sk(f->arr[i]), skb)) {
++		if (i != idx &&
++		    packet_rcv_has_room(pkt_sk(f->arr[i]), skb) == ROOM_NORMAL) {
+ 			if (i != j)
+ 				po->rollover->sock = i;
+ 			return i;
 -- 
 2.2.0.rc0.207.ga3a616c
