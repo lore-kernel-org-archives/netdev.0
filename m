@@ -1,55 +1,71 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: [PATCH][next] xfrm: optimise xfrm_policy_lookup_bytype
-Date: Tue, 12 May 2015 16:25:07 +0800
-Message-ID: <CAJFZqHywcxDx1vLTtTqVfVe6hoG1M8PYH4a-7HZ9XrFJPAM-Gw@mail.gmail.com>
-References: <1431170257-18242-1-git-send-email-roy.qing.li@gmail.com>
-	<20150511120616.GS8928@secunet.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 2/6] net: Add a struct net parameter to sock_create_kern
+Date: Tue, 12 May 2015 08:24:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB33641@AcuExch.aculab.com>
+References: <1430988770-28907-1-git-send-email-ying.xue@windriver.com>
+	<87wq0kcqlm.fsf@x220.int.ebiederm.org>
+	<20150508140733.GA13325@gondor.apana.org.au>
+	<87sib76kef.fsf@x220.int.ebiederm.org>
+	<20150509011339.GA19116@gondor.apana.org.au>
+	<87383633pu.fsf_-_@x220.int.ebiederm.org>
+ <87oalu1p16.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Ying Xue <ying.xue@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"cwang@twopensource.com" <cwang@twopensource.com>,
+	"xemul@openvz.org" <xemul@openvz.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"maxk@qti.qualcomm.com" <maxk@qti.qualcomm.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"tgraf@suug.ch" <tgraf@suug.ch>,
+	"nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	"tom@herbertland.com" <tom@herbertland.com>,
+	"jchapman@katalix.com" <jchapman@katalix.com>,
+	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
+	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
+	"horms@verge.net.au" <horms@verge.net.au>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "'Eric W. Biederman'" <ebiederm@xmission.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:36814 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681AbbELIZI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:25:08 -0400
-Received: by qgeb100 with SMTP id b100so81428770qge.3
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 01:25:07 -0700 (PDT)
-In-Reply-To: <20150511120616.GS8928@secunet.com>
+Received: from smtp-out6.electric.net ([192.162.217.195]:58046 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932106AbbELIZx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 04:25:53 -0400
+In-Reply-To: <87oalu1p16.fsf_-_@x220.int.ebiederm.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 11, 2015 at 8:06 PM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> Please explain why it is unnecessary to continue with the
-> loop here. In general a commit message should explain why
-> this code is changed.
+From: Eric W. Biederman
+> Sent: 09 May 2015 03:08
 >
-Ok, I will add
+> This is long overdue, and is part of cleaning up how we allocate kernel
+> sockets that don't reference count struct net.
+...
+> diff --git a/net/socket.c b/net/socket.c
+> index b5f1f43ed8f4..9963a0b53a64 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -1210,9 +1210,9 @@ int sock_create(int family, int type, int protocol, struct socket **res)
+>  }
+>  EXPORT_SYMBOL(sock_create);
+> 
+> -int sock_create_kern(int family, int type, int protocol, struct socket **res)
+> +int sock_create_kern(struct net *net, int family, int type, int protocol, struct socket **res)
+>  {
+> -	return __sock_create(&init_net, family, type, protocol, res, 1);
+> +	return __sock_create(net, family, type, protocol, res, 1);
+>  }
+>  EXPORT_SYMBOL(sock_create_kern);
 
+Wouldn't it involve far less churn to add a new function that uses a non-default
+namespace?
 
->> +                     break;
->
-> priority is initialized with ~0U at the beginning of this function.
-> What if someone has an inexact policy with priority ~0U configured?
-> With your change, this policy will never match because we don't even
-> try to search for it.
+Changing the function prototype will a PITA for anyone doing back-ports of fixes.
+(And more so for anyone trying to get a driver to build against kernels
+that might have this change back-ported.)
 
-The original code can not handle this kind of policy whose priority is ~0U,
-I will fix it when resubmit this patch.
-
-1121         chain = &net->xfrm.policy_inexact[dir];
-1122         hlist_for_each_entry(pol, chain, bydst) {
-1123                 err = xfrm_policy_match(pol, fl, type, family, dir);
-1124                 if (err) {
-1125                         if (err == -ESRCH)
-1126                                 continue;
-1127                         else {
-1128                                 ret = ERR_PTR(err);
-1129                                 goto fail;
-1130                         }
-1131                 } else if (pol->priority < priority) {
-1132                         ret = pol;
-1133                         break;
-1134                 }
-1135         }
+	David
