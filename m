@@ -1,55 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net v3] rtnl/bond: don't send rtnl msg for unregistered
- iface
-Date: Tue, 12 May 2015 18:14:02 +0200
-Message-ID: <20150512161402.GC2081@nanopsycho>
-References: <555216DA.3020105@6wind.com>
- <1431443865-4327-1-git-send-email-nicolas.dichtel@6wind.com>
- <20150512155842.GA2081@nanopsycho>
- <55522610.6090907@6wind.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: kernel >= 4.0: crashes when using traceroute6 with isatap
+Date: Tue, 12 May 2015 12:34:00 -0400
+Message-ID: <55522B78.3090908@gmail.com>
+References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>	 <CAM_iQpWei83_pEoiDWKvHHaj02_D6WGEUHYfEJWM05-RuN3CEw@mail.gmail.com>	 <1430939400.14545.65.camel@edumazet-glaptop2.roam.corp.google.com>	 <2723870.nq54KKjWkm@h2o.as.studentenwerk.mhn.de> <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:37303 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753194AbbELQOI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 12:14:08 -0400
-Received: by widdi4 with SMTP id di4so22428540wid.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 09:14:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <55522610.6090907@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Wolfgang Walter <linux@stwm.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1430952158.14545.97.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, May 12, 2015 at 06:10:56PM CEST, nicolas.dichtel@6wind.com wrote:
->Le 12/05/2015 17:58, Jiri Pirko a =E9crit :
->>Tue, May 12, 2015 at 05:17:45PM CEST, nicolas.dichtel@6wind.com wrote=
-:
->[snip]
->>>First, nobody seems to care about NETDEV_CHANGEINFODATA (commit
->>>d4261e565000 says that it was put only to notify userspace). Hence, =
-we can
->>>call directly rtmsg_ifinfo().
+On 05/06/2015 06:42 PM, Eric Dumazet wrote:
+> On Thu, 2015-05-07 at 00:04 +0200, Wolfgang Walter wrote:
+>> Am Mittwoch, 6. Mai 2015, 12:10:00 schrieb Eric Dumazet:
+>>> On Wed, 2015-05-06 at 11:15 -0700, Cong Wang wrote:
+>>>> (Cc'ing netdev.)
+>>>>
+>>>> On Sat, May 2, 2015 at 5:29 AM, Wolfgang Walter <linux@stwm.de> wrote:
+>>>>> Am Samstag, 2. Mai 2015, 02:16:36 schrieb Wolfgang Walter:
+>>>>>> Hello,
+>>>>>>
+>>>>>> kernel 4.0 (and 4.0.1) crashes immediately when I use traceroute6 with
+>>>>>> an
+>>>>>> isatap-tunnel.
+>>>>>
+>>>>> I did some further tests. To trigger the crash you need
+>>>>>
+>>>>> * isatap-tunnel (probably any sit-tunnel will do it)
+>>>>> * raw-socket
+>>>>> * udp
+>>>>>
+>>>>> Using icmpv6 or tcp i.e. does not trigger it.
+>>>>
+>>>> Do you have a script to reproduce it?
+>>>>
+>>>>
+>>>> Thanks for the bug report!
+>>>> --
+>>>
+>>> Please Wolfgang try to revert 32dce968dd987adfb0c00946d78dad9154f64759
+>>> ("ipv6: Allow for partial checksums on non-ufo packets")
 >>
->>Please leave this notifier here. Will be needed in very near future f=
-or
->>LAG offloading purposes.
->Ok.
->
->>
->>>Secondly, prevent in rtmsg_ifinfo() to send notifications to userspa=
-ce
->>>about unregistered interfaces.
->>
->>I'm not sure about this. Why caller of rtmsg_ifinfo don't take care o=
-f
->>it? Seems more logical to me.
->Simply to avoid code duplication and ensure the bug will not show up i=
-n the
->future. The existing bug shows that it's easy to forget that check.
+>> Indeed, that fixes the problem.
+> 
+> Yes, setting skb->csum to 0 is clearly wrong for CHECKSUM_PARTIAL
+> 
+> Would you try :
+> 
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index 7fde1f265c90e90f16291e6c861b6e242111c25b..694ae630e1ca67e25ab1e5f6dd0b3597db3669b0 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -1416,6 +1416,10 @@ alloc_new_skb:
+>  			data += fragheaderlen;
+>  			skb->transport_header = (skb->network_header +
+>  						 fragheaderlen);
+> +			if (csummode == CHECKSUM_PARTIAL) {
+> +				skb->csum_start = skb_transport_header(skb) - skb->head;
+> +				skb->csum_offset = offsetof(struct udphdr, check);
+> +			}
+>  			if (fraggap) {
+>  				skb->csum = skb_copy_and_csum_bits(
+>  					skb_prev, maxfraglen,
+> 
+> 
+> 
 
-I don't know, seems to me more like curing consequence, not the cause.
+So why is this not an issue in __ip_append_data()?
+
+-vlad
