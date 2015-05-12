@@ -1,73 +1,44 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] net: make skb_dst_pop routine static
-Date: Tue, 12 May 2015 18:29:44 +0800
-Message-ID: <1431426584-13603-1-git-send-email-ying.xue@windriver.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 15/15] tc: introduce Flower classifier
+Date: Tue, 12 May 2015 07:31:51 -0400
+Message-ID: <5551E4A7.7020800@mojatatu.com>
+References: <1431177038-11555-1-git-send-email-jiri@resnulli.us> <1431177038-11555-16-git-send-email-jiri@resnulli.us> <55509BC2.2090702@mojatatu.com> <20150511153047.GA2222@nanopsycho.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, tgraf@suug.ch,
+	jesse@nicira.com, kaber@trash.net, therbert@google.com,
+	edumazet@google.com, alexander.h.duyck@redhat.com,
+	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
+	herbert@gondor.apana.org.au, cwang@twopensource.com,
+	john.fastabend@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40791 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752790AbbELKbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 06:31:08 -0400
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:35337 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932192AbbELLcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 07:32:03 -0400
+Received: by igbyr2 with SMTP id yr2so102101446igb.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 04:32:02 -0700 (PDT)
+In-Reply-To: <20150511153047.GA2222@nanopsycho.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As xfrm_output_one() is the only caller of skb_dst_pop(), we should
-make skb_dst_pop() localized.
+On 05/11/15 11:30, Jiri Pirko wrote:
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- include/net/dst.h      |   12 ------------
- net/xfrm/xfrm_output.c |   12 ++++++++++++
- 2 files changed, 12 insertions(+), 12 deletions(-)
+> Hmm, wait. How I should call tcf_exts_init then? Every cls has this POLICE
+> attr.
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 22aa93f..2bc73f8a 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -349,18 +349,6 @@ static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev,
- 	__skb_tunnel_rx(skb, dev, net);
- }
- 
--/* Children define the path of the packet through the
-- * Linux networking.  Thus, destinations are stackable.
-- */
--
--static inline struct dst_entry *skb_dst_pop(struct sk_buff *skb)
--{
--	struct dst_entry *child = dst_clone(skb_dst(skb)->child);
--
--	skb_dst_drop(skb);
--	return child;
--}
--
- int dst_discard_sk(struct sock *sk, struct sk_buff *skb);
- static inline int dst_discard(struct sk_buff *skb)
- {
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index fbcedbe..68ada2c 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -38,6 +38,18 @@ static int xfrm_skb_check_space(struct sk_buff *skb)
- 	return pskb_expand_head(skb, nhead, ntail, GFP_ATOMIC);
- }
- 
-+/* Children define the path of the packet through the
-+ * Linux networking.  Thus, destinations are stackable.
-+ */
-+
-+static struct dst_entry *skb_dst_pop(struct sk_buff *skb)
-+{
-+	struct dst_entry *child = dst_clone(skb_dst(skb)->child);
-+
-+	skb_dst_drop(skb);
-+	return child;
-+}
-+
- static int xfrm_output_one(struct sk_buff *skb, int err)
- {
- 	struct dst_entry *dst = skb_dst(skb);
--- 
-1.7.9.5
+call it as so:
+tcf_exts_init(&e, TCA_FLOWER_ACT, 0);
+
+I thought Cong had submitted a patch to kill some of this.
+Basically old tc that may still have some policer stuff will
+still continue to use the old syntax but new additions should not
+continue to propagate it.
+In user space you will no longer be able to say "police" without
+the keyword action (look at iproute2 around commit 
+863ecb04b4f7bd49fb40e4914ea22096be6db6bf)
+
+cheers,
+jamal
