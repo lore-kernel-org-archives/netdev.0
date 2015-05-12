@@ -1,92 +1,57 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] Revert "ipv6: Allow for partial checksums on non-ufo
- packets"
-Date: Tue, 12 May 2015 14:05:40 -0400
-Message-ID: <555240F4.4070406@gmail.com>
-References: <1770409.aMESoOv08f@h2o.as.studentenwerk.mhn.de>	 <1431002384.22756.0.camel@edumazet-glaptop2.roam.corp.google.com>	 <12346713.ZyFExCo3ux@h2o.as.studentenwerk.mhn.de>	 <2088438.42IY8hjjd5@h2o.as.studentenwerk.mhn.de>	 <1431122268.22756.41.camel@edumazet-glaptop2.roam.corp.google.com> <1431123765.22756.51.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch -next] net: macb: OR vs AND typos
+Date: Tue, 12 May 2015 21:15:24 +0300
+Message-ID: <20150512181524.GE5672@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Wolfgang Walter <linux@stwm.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:36627 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932776AbbELSFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 14:05:43 -0400
-Received: by qgeb100 with SMTP id b100so8615365qge.3
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 11:05:42 -0700 (PDT)
-In-Reply-To: <1431123765.22756.51.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Harini Katakam <harini.katakam@xilinx.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/08/2015 06:22 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Wolfgang Walter reported crashes using traceroute6, root caused to this
-> commit.
-> 
-> UDP packets can be sent from RAW sockets.
-> 
-> Note that the faulty commit addressed a non problem, as normal
-> UDP v6 packets use udp_v6_send_skb() which correctly setup
-> CHECKSUM_PARTIAL properly if device has the correct feature.
+The bitwise tests are always true here because it uses '|' where '&' is
+intended.
 
-Actually, they didn't.  udp_v6_send_skb() uses ip_summed from
-the skb, which is populated by __ip6_append_data.  That in turn
-always set it CHECKSUM_NONE.
+Fixes: 98b5a0f4a228 ('net: macb: Add support for jumbo frames')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-The code in question looks identically to that of __ip_append_data().
-The problem is similar in both places.
-
--vlad
-> 
-> It seems not worth trying to 'fix' the raw path.
-> 
-> Fixes: 32dce968dd98 ("ipv6: Allow for partial checksums on non-ufo packets")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Wolfgang Walter <linux@stwm.de>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> ---
->  net/ipv6/ip6_output.c |   11 +----------
->  1 file changed, 1 insertion(+), 10 deletions(-)
-> 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 7fde1f265c90..1fe5c687328e 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -1218,7 +1218,6 @@ static int __ip6_append_data(struct sock *sk,
->  	u32 tskey = 0;
->  	struct rt6_info *rt = (struct rt6_info *)cork->dst;
->  	struct ipv6_txoptions *opt = v6_cork->opt;
-> -	int csummode = CHECKSUM_NONE;
->  
->  	skb = skb_peek_tail(queue);
->  	if (!skb) {
-> @@ -1275,14 +1274,6 @@ emsgsize:
->  			tskey = sk->sk_tskey++;
->  	}
->  
-> -	/* If this is the first and only packet and device
-> -	 * supports checksum offloading, let's use it.
-> -	 */
-> -	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
-> -	    length + fragheaderlen < mtu &&
-> -	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
-> -	    !exthdrlen)
-> -		csummode = CHECKSUM_PARTIAL;
->  	/*
->  	 * Let's try using as much space as possible.
->  	 * Use MTU if total length of the message fits into the MTU.
-> @@ -1396,7 +1387,7 @@ alloc_new_skb:
->  			 *	Fill in the control structures
->  			 */
->  			skb->protocol = htons(ETH_P_IPV6);
-> -			skb->ip_summed = csummode;
-> +			skb->ip_summed = CHECKSUM_NONE;
->  			skb->csum = 0;
->  			/* reserve for fragmentation and ipsec header */
->  			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
-> 
-> 
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index e7c10b0..5fca309 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1644,7 +1644,7 @@ static void macb_init_hw(struct macb *bp)
+ 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
+ 	config |= MACB_BIT(PAE);		/* PAuse Enable */
+ 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
+-	if (bp->caps | MACB_CAPS_JUMBO)
++	if (bp->caps & MACB_CAPS_JUMBO)
+ 		config |= MACB_BIT(JFRAME);	/* Enable jumbo frames */
+ 	else
+ 		config |= MACB_BIT(BIG);	/* Receive oversized frames */
+@@ -1656,12 +1656,12 @@ static void macb_init_hw(struct macb *bp)
+ 		config |= MACB_BIT(NBC);	/* No BroadCast */
+ 	config |= macb_dbw(bp);
+ 	macb_writel(bp, NCFGR, config);
+-	if ((bp->caps | MACB_CAPS_JUMBO) && bp->jumbo_max_len)
++	if ((bp->caps & MACB_CAPS_JUMBO) && bp->jumbo_max_len)
+ 		gem_writel(bp, JML, bp->jumbo_max_len);
+ 	bp->speed = SPEED_10;
+ 	bp->duplex = DUPLEX_HALF;
+ 	bp->rx_frm_len_mask = MACB_RX_FRMLEN_MASK;
+-	if (bp->caps | MACB_CAPS_JUMBO)
++	if (bp->caps & MACB_CAPS_JUMBO)
+ 		bp->rx_frm_len_mask = MACB_RX_JFRMLEN_MASK;
+ 
+ 	macb_configure_dma(bp);
+@@ -1875,7 +1875,7 @@ static int macb_change_mtu(struct net_device *dev, int new_mtu)
+ 		return -EBUSY;
+ 
+ 	max_mtu = ETH_DATA_LEN;
+-	if (bp->caps | MACB_CAPS_JUMBO)
++	if (bp->caps & MACB_CAPS_JUMBO)
+ 		max_mtu = gem_readl(bp, JML) - ETH_HLEN - ETH_FCS_LEN;
+ 
+ 	if ((new_mtu > max_mtu) || (new_mtu < GEM_MTU_MIN_SIZE))
