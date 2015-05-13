@@ -1,77 +1,98 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next 2/4] switchdev: sparse warning: pass ipv4 fib dst as network-byte order
-Date: Tue, 12 May 2015 23:03:52 -0700
-Message-ID: <1431497034-22153-3-git-send-email-sfeldma@gmail.com>
-References: <1431497034-22153-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, ronen.arad@intel.com
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: netlink & rhashtable status
+Date: Tue, 12 May 2015 23:15:40 -0700
+Message-ID: <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150513054037.GA26595@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:33121 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752663AbbEMGCw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:02:52 -0400
-Received: by pdbnk13 with SMTP id nk13so40685126pdb.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 23:02:52 -0700 (PDT)
-In-Reply-To: <1431497034-22153-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:34002 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519AbbEMGPn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:15:43 -0400
+Received: by iecmd7 with SMTP id md7so23004571iec.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 23:15:42 -0700 (PDT)
+In-Reply-To: <20150513054037.GA26595@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <sfeldma@gmail.com>
+On Wed, 2015-05-13 at 13:40 +0800, Herbert Xu wrote:
+> On Tue, May 12, 2015 at 10:30:36PM -0700, Eric Dumazet wrote:
+> > 
+> > linux-3.17, 3.18, 3.19 and 4.0.2 have issues with netlink/rhashtable,
+> > making things like getaddrinfo() not working after a while :
+> 
+> Do you use namespaces?
+> 
+> Cheers,
 
-And let driver convert it to host-byte order as needed.
+No.
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- drivers/net/ethernet/rocker/rocker.c |    7 ++++---
- net/switchdev/switchdev.c            |    4 ++--
- 2 files changed, 6 insertions(+), 5 deletions(-)
+Trick is to start about 200 threads using getaddrinfo()
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 1fc006b..ca53393 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -4471,7 +4471,7 @@ static int rocker_port_obj_add(struct net_device *dev,
- 	case SWITCHDEV_OBJ_IPV4_FIB:
- 		fib4 = &obj->ipv4_fib;
- 		err = rocker_port_fib_ipv4(rocker_port, obj->trans,
--					   fib4->dst, fib4->dst_len,
-+					   htonl(fib4->dst), fib4->dst_len,
- 					   fib4->fi, fib4->tb_id, 0);
- 		break;
- 	default:
-@@ -4525,8 +4525,9 @@ static int rocker_port_obj_del(struct net_device *dev,
- 	case SWITCHDEV_OBJ_IPV4_FIB:
- 		fib4 = &obj->ipv4_fib;
- 		err = rocker_port_fib_ipv4(rocker_port, SWITCHDEV_TRANS_NONE,
--					   fib4->dst, fib4->dst_len, fib4->fi,
--					   fib4->tb_id, ROCKER_OP_FLAG_REMOVE);
-+					   htonl(fib4->dst), fib4->dst_len,
-+					   fib4->fi, fib4->tb_id,
-+					   ROCKER_OP_FLAG_REMOVE);
- 		break;
- 	default:
- 		err = -EOPNOTSUPP;
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index a267f77..77f1b6e 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -645,7 +645,7 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 	struct switchdev_obj fib_obj = {
- 		.id = SWITCHDEV_OBJ_IPV4_FIB,
- 		.ipv4_fib = {
--			.dst = htonl(dst),
-+			.dst = dst,
- 			.dst_len = dst_len,
- 			.fi = fi,
- 			.tos = tos,
-@@ -699,7 +699,7 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 	struct switchdev_obj fib_obj = {
- 		.id = SWITCHDEV_OBJ_IPV4_FIB,
- 		.ipv4_fib = {
--			.dst = htonl(dst),
-+			.dst = dst,
- 			.dst_len = dst_len,
- 			.fi = fi,
- 			.tos = tos,
--- 
-1.7.10.4
+This was spotted using netperf, but you probably can use something like
+this program.
+
+Thanks.
+
+
+
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+struct addrinfo *resolve_host(const char *hostname, const char *port,
+                              int family)
+{
+  struct addrinfo hints;
+  struct addrinfo *ai;
+  int count;
+  int error;
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = family;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_flags = AI_CANONNAME | AI_ADDRCONFIG;
+  count = 0;
+  do {
+    error = getaddrinfo(hostname, port, &hints, &ai);
+    count += 1;
+    if (error == EAI_AGAIN) {
+      sleep(1);
+    }
+  } while ((error == EAI_AGAIN) && (count <= 5));
+
+  if (error) {
+    printf("error\n");
+    return (NULL);
+  }
+
+  return (ai);
+}
+
+int main(int argc, char **argv)
+{
+  const char host[] = "127.0.0.1";
+  const char *port = NULL;
+  const int family = 0;
+  unsigned long iterations, i;
+
+  if (argc != 2) {
+    printf("Expected one arg.\n");
+    return -1;
+  }
+  iterations = atol(argv[1]);
+  for (i = 0; i < iterations; ++i) {
+    resolve_host(host, port, family);
+  }
+  return 0;
+}
