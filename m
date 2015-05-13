@@ -1,45 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: qla3xxx: Odd likely incorrect use of test_bit in qla3xxx.c
-Date: Wed, 13 May 2015 10:34:51 -0700
-Message-ID: <1431538491.2912.14.camel@perches.com>
-References: <1431456145.2884.75.camel@perches.com>
-	 <20150513131908.GB8431@mwanda>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Looking for a lost patch
+Date: Wed, 13 May 2015 10:47:11 -0700
+Message-ID: <55538E1F.2020505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
-	netdev <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+To: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0251.hostedemail.com ([216.40.44.251]:39778 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752521AbbEMRey (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:34:54 -0400
-In-Reply-To: <20150513131908.GB8431@mwanda>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:35417 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754636AbbEMRrN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:47:13 -0400
+Received: by iebpz10 with SMTP id pz10so39234549ieb.2
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 10:47:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-13 at 16:19 +0300, Dan Carpenter wrote:
-> Good eye, Joe.
-> 
-> I wrote a Smatch check to find similar bugs.  Te rhey weren't any other
-> places which tried to do bitwise OR.  The bug that happens occasionally
-> is:
-> 
-> #define MY_FLAG BIT(1)
-> 
-> 	if (test_bit(MY_FLAG, &map)) {
-> 		...
-> 
-> It's not normally harmful if it's used consistently, but ath9k had
-> memory corruption because they do:
-> 
-> 	set_bit(BIT(6), &some_unsigned_long);
-> 
-> Anyway, I'll send patches for the bugs I found and push the Smatch
-> check. Thanks!
+So I am in the process of trying to do some work on VTI6 and in the 
+process of doing so I am trying to setup an IPv4 VTI tunnel and I have 
+come across what appears to be a lost patch.
 
-In case the patches you found weren't of this type,
-there are other possibly suspicious uses with & like:
+So in commit a32452366b72 ("vti4: Don't count header length twice.") the 
+following change was made:
 
-drivers/usb/host/ehci-tegra.c:		set_bit((wIndex & 0xff) - 1, &ehci->suspended_ports);
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 687ddef..cd62596 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -349,7 +349,6 @@ static int vti_tunnel_init(struct net_device *dev)
+  	memcpy(dev->broadcast, &iph->daddr, 4);
+
+  	dev->type		= ARPHRD_TUNNEL;
+-	dev->hard_header_len	= LL_MAX_HEADER + sizeof(struct iphdr);
+  	dev->mtu		= ETH_DATA_LEN;
+  	dev->flags		= IFF_NOARP;
+  	dev->iflink		= 0;
+
+However in commit f895f0cfbb77 ("Merge branch 'master' of 
+git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec") the 
+change appears to have been undone as a result of a merge commit.
+
+I'm just wondering which is correct.  Should the hard_header_len be set 
+or unset in vti_tunnel_init?  I ask because I have two kernels and one 
+has the patch and one does not and I am seeing an MTU of 1332 for a VTI 
+tunnel without, and 1480 for a VTI tunnel with.
+
+- Alex
