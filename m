@@ -1,42 +1,66 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v2] net: core: set and refine qdisc pkt len before
- tc_classify
-Date: Wed, 13 May 2015 15:27:09 -0700
-Message-ID: <5553CFBD.1070204@plumgrid.com>
-References: <1431550209-3498-1-git-send-email-daniel@iogearbox.net>	 <1431552055.27831.17.camel@edumazet-glaptop2.roam.corp.google.com>	 <20150513213348.GC6179@breakpoint.cc> <1431553132.27831.22.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	jhs@mojatatu.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Florian Westphal <fw@strlen.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next v3] net: core: set qdisc pkt len before tc_classify
+Date: Thu, 14 May 2015 00:36:28 +0200
+Message-ID: <1431556588-4859-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:35377 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965624AbbEMW1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 18:27:11 -0400
-Received: by pabtp1 with SMTP id tp1so63697719pab.2
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 15:27:10 -0700 (PDT)
-In-Reply-To: <1431553132.27831.22.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44704 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965319AbbEMWgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 18:36:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/13/15 2:38 PM, Eric Dumazet wrote:
->
-> One possibility would be to set it in GRO engine.
->
-> But then we would have to set qdisc_skb_cb(skb)->pkt_len = skb->len for
-> non GRO packets.
->
-> Also note the DODGY thing might be not needed for ingress,
-> and I am not sure we can currently deliver UDP aggregated packets.
+commit d2788d34885d4ce5ba ("net: sched: further simplify handle_ing")
+removed the call to qdisc_enqueue_root().
 
-yeah, current qdisc_pkt_len_init() is certainly TX oriented.
-I'm not sure we can use tcp_hdrlen(skb) on RX which is called as
-part of qdisc_pkt_len_init().
-I think it's probably better to take Florian's V1 with:
-qdisc_skb_cb(skb)->pkt_len = skb->len;
-to fix immediate breakage of act police and then proceed further?
-Like doing qdisc_skb_cb(skb)->pkt_len = skb->len inside GRO engine
-is probably not possible, since cb is used by napi_gro_cb ?
+However, after this removal we no longer set qdisc pkt length.
+This breaks traffic policing on ingress.
+
+This is the minimum fix: set qdisc pkt length before tc_classify.
+
+Only setting the length does remove support for 'stab' on ingress, but
+as Alexei pointed out:
+ "Though it was allowed to add qdisc_size_table to ingress, it's useless.
+  Nothing takes advantage of recomputed qdisc_pkt_len".
+
+Jamal suggested to use qdisc_pkt_len_init(), but as Eric mentioned that
+would result in qdisc_pkt_len_init to no longer get inlined due to the
+additional 2nd call site.
+
+ingress policing is rare and GRO doesn't really work that well with police
+on ingress, as we see packets > mtu and drop skbs that  -- without
+aggregation -- would still have fitted the policier budget.
+Thus to have reliable/smooth ingress policing GRO has to be turned off.
+
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+Changes since v2: identical to v1: just use skb->len
+Changes since v1: use qdisc_pkt_len_init instead of simply using skb->len
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index af54906..b3a92d6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3646,8 +3646,9 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+ 		*pt_prev = NULL;
+ 	}
+ 
+-	qdisc_bstats_update_cpu(cl->q, skb);
++	qdisc_skb_cb(skb)->pkt_len = skb->len;
+ 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
++	qdisc_bstats_update_cpu(cl->q, skb);
+ 
+ 	switch (tc_classify(skb, cl, &cl_res)) {
+ 	case TC_ACT_OK:
+-- 
+2.0.5
