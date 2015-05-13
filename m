@@ -1,55 +1,56 @@
-From: Bruce Allan <bruce.w.allan@intel.com>
-Subject: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when PCI
- device is assigned
-Date: Tue, 12 May 2015 18:35:50 -0700
-Message-ID: <20150513013550.10328.1416.stgit@bwallan-smackover2.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: kvm@vger.kernel.org
+From: Tim Beale <tim.beale@alliedtelesis.co.nz>
+Subject: [PATCH] net: phy: Make sure PHY_RESUMING state change is always processed
+Date: Wed, 13 May 2015 13:55:04 +1200
+Message-ID: <1431482104-1030-1-git-send-email-tim.beale@alliedtelesis.co.nz>
+Cc: netdev@vger.kernel.org, Tim Beale <tim.beale@alliedtelesis.co.nz>
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5399 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965002AbbEMBfw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 May 2015 21:35:52 -0400
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:40789 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964909AbbEMBzb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 21:55:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A number of PCI device drivers supporting SR-IOV use pci_vfs_assigned() to
-check if there are any VF devices assigned by a VMM prior to disabling
-SR-IOV (i.e. bnx2x, be2net, fm10k, i40e, igb, ixgbe, qlcnic).  This check
-works fine with the legacy device assignment (pci-stub enables the device)
-which calls pci_set_dev_assigned().  The newer VFIO-based assignment
-(vfio-pci enables device) doesn't call pci_set_dev_assigned() potentially
-leading to issues in those drivers when disabling SR-IOV with VFs assigned.
+If phy_start_aneg() was called while the phydev is in the PHY_RESUMING
+state, then its state would immediately transition to PHY_AN (or
+PHY_FORCING). This meant the phy_state_machine() never processed the
+PHY_RESUMING state change, which meant interrupts weren't enabled for the
+PHY. If the PHY used low-power mode (i.e. using BMCR_PDOWN), then the
+physical link wouldn't get powered up again.
 
-Add calls to pci_[set|clear]_dev_assigned() to set the flag as expected.
+There seems no point for phy_start_aneg() to make the PHY_RESUMING -->
+PHY_AN transition, as the state machine will do this anyway. I'm not sure
+about the case where autoneg is disabled, as my patch will change
+behaviour so that the PHY goes to PHY_NOLINK instead of PHY_FORCING. An
+alternative solution would be to move the phy_config_interrupt() and
+phy_resume() work out of the state machine and into phy_start().
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+The background behind this: we're running linux v3.16.7 and from user-space
+we want to enable the eth port (i.e. do a SIOCSIFFLAGS ioctl with the
+IFF_UP flag) and immediately afterward set the interface's speed/duplex.
+Enabling the interface calls .ndo_open() then phy_start() and the PHY
+transitions PHY_HALTED --> PHY_RESUMING. Setting the speed/duplex ends up
+calling phy_ethtool_sset(), which calls phy_start_aneg() (meanwhile the
+phy_state_machine() hasn't processed the PHY_RESUMING state change yet).
+
+Signed-off-by: Tim Beale <tim.beale@alliedtelesis.co.nz>
 ---
- drivers/vfio/pci/vfio_pci.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/phy/phy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/vfio/pci/vfio_pci.c b/drivers/vfio/pci/vfio_pci.c
-index 69fab0f..3f368ce 100644
---- a/drivers/vfio/pci/vfio_pci.c
-+++ b/drivers/vfio/pci/vfio_pci.c
-@@ -956,6 +956,8 @@ static int vfio_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 		return ret;
- 	}
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 52cd8db..9855b96 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -465,7 +465,7 @@ int phy_start_aneg(struct phy_device *phydev)
+ 	if (err < 0)
+ 		goto out_unlock;
  
-+	pci_set_dev_assigned(pdev);
-+
- 	if (vfio_pci_is_vga(pdev)) {
- 		vga_client_register(pdev, vdev, NULL, vfio_pci_set_vga_decode);
- 		vga_set_legacy_decoding(pdev,
-@@ -990,6 +992,8 @@ static void vfio_pci_remove(struct pci_dev *pdev)
- 	iommu_group_put(pdev->dev.iommu_group);
- 	kfree(vdev);
- 
-+	pci_clear_dev_assigned(pdev);
-+
- 	if (vfio_pci_is_vga(pdev)) {
- 		vga_client_register(pdev, NULL, NULL, NULL);
- 		vga_set_legacy_decoding(pdev,
+-	if (phydev->state != PHY_HALTED) {
++	if (phydev->state != PHY_HALTED && phydev->state != PHY_RESUMING) {
+ 		if (AUTONEG_ENABLE == phydev->autoneg) {
+ 			phydev->state = PHY_AN;
+ 			phydev->link_timeout = PHY_AN_TIMEOUT;
+-- 
+1.9.1
