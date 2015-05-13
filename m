@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] test_bpf: add 173 new testcases for eBPF
-Date: Tue, 12 May 2015 23:15:49 -0400 (EDT)
-Message-ID: <20150512.231549.2194601813528775490.davem@davemloft.net>
-References: <1431408164-4524-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH v2] net: ll_temac: Fix DMA map size bug
+Date: Tue, 12 May 2015 23:18:14 -0400 (EDT)
+Message-ID: <20150512.231814.973421258533609463.davem@davemloft.net>
+References: <66b8efd7a63674220d55a03d0220897bd8b8712b.1431410769.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: holzheu@linux.vnet.ibm.com, daniel@iogearbox.net,
-	netdev@vger.kernel.org
-To: ast@plumgrid.com
+Cc: netdev@vger.kernel.org, soren.brinkmann@xilinx.com,
+	monstr@monstr.eu, fabf@skynet.be, linux-kernel@vger.kernel.org,
+	manuel.schoelling@gmx.de, julia.lawall@lip6.fr,
+	elfring@users.sourceforge.net, subbaraya.sundeep.bhatta@xilinx.com,
+	linux-arm-kernel@lists.infradead.org
+To: michal.simek@xilinx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49103 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49111 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934280AbbEMDPv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:15:51 -0400
-In-Reply-To: <1431408164-4524-1-git-send-email-ast@plumgrid.com>
+	with ESMTP id S934319AbbEMDSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:18:16 -0400
+In-Reply-To: <66b8efd7a63674220d55a03d0220897bd8b8712b.1431410769.git.michal.simek@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 11 May 2015 22:22:44 -0700
+From: Michal Simek <michal.simek@xilinx.com>
+Date: Tue, 12 May 2015 08:06:15 +0200
 
-> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> DMA allocates skb->len instead of headlen
+> which is used for DMA.
 > 
-> add an exhaustive set of eBPF tests bringing total to:
-> test_bpf: Summary: 233 PASSED, 0 FAILED, [0/226 JIT'ed]
-> 
-> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 
-Applied.
+Applied, thank you.
