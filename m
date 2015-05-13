@@ -1,90 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net v4] rtnl/bond: don't send rtnl msg for unregistered
- iface
-Date: Wed, 13 May 2015 14:24:18 +0200
-Message-ID: <20150513122418.GA2138@nanopsycho.mtl.com>
-References: <20150512161402.GC2081@nanopsycho>
- <1431519582-4219-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net 1/2] ipv6: do not delete previously existing ECMP
+ routes if add fails
+Date: Wed, 13 May 2015 14:28:57 +0200
+Message-ID: <55534389.8070307@6wind.com>
+References: <cover.1431500953.git.mkubecek@suse.cz> <4e3d075f2be93d9655bc1372a107584368a29eab.1431500953.git.mkubecek@suse.cz>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
-	vfalico@gmail.com, gospo@cumulusnetworks.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:36586 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934103AbbEMMY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 08:24:26 -0400
-Received: by wgbhc8 with SMTP id hc8so8124231wgb.3
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 05:24:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1431519582-4219-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Michal Kubecek <mkubecek@suse.cz>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4e3d075f2be93d9655bc1372a107584368a29eab.1431500953.git.mkubecek@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, May 13, 2015 at 02:19:42PM CEST, nicolas.dichtel@6wind.com wrote:
->Before the patch, the command 'ip link add bond2 type bond mode 802.3ad'
->causes the kernel to send a rtnl message for the bond2 interface, with an
->ifindex 0.
+Le 13/05/2015 11:50, Michal Kubecek a =C3=A9crit :
+> If adding a nexthop of an IPv6 multipath route fails, comment in
+> ip6_route_multipath() says we are going to delete all nexthops alread=
+y
+> added. However, current implementation deletes even the routes it
+> hasn't even tried to add yet. For example, running
 >
->'ip monitor' shows:
->0: bond2: <BROADCAST,MULTICAST,MASTER> mtu 1500 state DOWN group default
->    link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
->9: bond2@NONE: <BROADCAST,MULTICAST,MASTER> mtu 1500 qdisc noop state DOWN group default
->    link/ether ea:3e:1f:53:92:7b brd ff:ff:ff:ff:ff:ff
->[snip]
+>    ip route add 1234:5678::/64 \
+>        nexthop via fe80::aa dev dummy1 \
+>        nexthop via fe80::bb dev dummy1 \
+>        nexthop via fe80::cc dev dummy1
 >
->The patch fixes the spotted bug by checking in bond driver if the interface
->is registered before calling the notifier chain.
->It also adds a check in rtmsg_ifinfo() to prevent this kind of bug in the
->future.
+> twice results in removing all routes first command added.
 >
->Fixes: d4261e565000 ("bonding: create netlink event when bonding option is changed")
->CC: Jiri Pirko <jiri@resnulli.us>
->Reported-by: Julien Meunier <julien.meunier@6wind.com>
->Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->---
+> Limit the second (delete) run to nexthops that succeeded in the first
+> (add) run.
 >
->v4: keep the call to the notifier chain
+> Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP=
+)")
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> ---
+>   net/ipv6/route.c | 1 +
+>   1 file changed, 1 insertion(+)
 >
->v3: move reg_state check in rtmsg_ifinfo()
->
->v2: check dev->reg_state instead of ifindex
->    call rtmsg_ifinfo() directly in __bond_opt_set()
->
->There is about 20 occurences of "dev->reg_state .= NETREG_REGISTERED".
->I will send a patch on net-next to introduce an helper for this when net
->will be merged with this patch in net-next.
->
-> drivers/net/bonding/bond_options.c | 2 +-
-> net/core/rtnetlink.c               | 3 +++
-> 2 files changed, 4 insertions(+), 1 deletion(-)
->
->diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
->index 4df28943d222..e8d3c1d35453 100644
->--- a/drivers/net/bonding/bond_options.c
->+++ b/drivers/net/bonding/bond_options.c
->@@ -624,7 +624,7 @@ int __bond_opt_set(struct bonding *bond,
-> out:
-> 	if (ret)
-> 		bond_opt_error_interpret(bond, opt, ret, val);
->-	else
->+	else if (bond->dev->reg_state == NETREG_REGISTERED)
-> 		call_netdevice_notifiers(NETDEV_CHANGEINFODATA, bond->dev);
-> 
-> 	return ret;
->diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->index 837d30b5ffed..7b25f1ef3d75 100644
->--- a/net/core/rtnetlink.c
->+++ b/net/core/rtnetlink.c
->@@ -2415,6 +2415,9 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
-> {
-> 	struct sk_buff *skb;
-> 
->+	if (dev->reg_state != NETREG_REGISTERED)
->+		return;
->+
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index d3588885f097..18b92c05b541 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -2536,6 +2536,7 @@ beginning:
+>   				 * next hops that have been already added.
+>   				 */
+>   				add =3D 0;
+> +				remaining =3D cfg->fc_mp_len - remaining;
+>   				goto beginning;
+Not sure to understand your fix. At the label beginning, the code is:
 
-This is redundant now that you check it in __bond_opt_set.
+beginning:
+         rtnh =3D (struct rtnexthop *)cfg->fc_mp;
+         remaining =3D cfg->fc_mp_len;
 
-Sorry to be a pain Nicolas :/
+Hence, 'remaining' will be overridden. How does your patch work?
