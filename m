@@ -1,54 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: deinline netif_tx_stop_all_queues(), remove
- WARN_ON in netif_tx_stop_queue()
-Date: Tue, 12 May 2015 23:05:58 -0400 (EDT)
-Message-ID: <20150512.230558.437567720437090973.davem@davemloft.net>
-References: <1431371873-26969-1-git-send-email-dvlasenk@redhat.com>
+Subject: Re: [PATCH v2 5/5] geneve: add initial netdev driver for GENEVE
+ tunnels
+Date: Tue, 12 May 2015 23:06:28 -0400 (EDT)
+Message-ID: <20150512.230628.1787617651802981793.davem@davemloft.net>
+References: <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
+	<1431377466-6676-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, alexander.duyck@gmail.com,
-	joe@perches.com, jpirko@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: dvlasenk@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431371873-26969-1-git-send-email-dvlasenk@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jesse@nicira.com, azhou@nicira.com,
+	stephen@networkplumber.org, alexander.h.duyck@redhat.com
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49034 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934006AbbEMDGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:06:30 -0400
+In-Reply-To: <1431377466-6676-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Denys Vlasenko <dvlasenk@redhat.com>
-Date: Mon, 11 May 2015 21:17:53 +0200
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 11 May 2015 16:51:06 -0400
 
-> These functions compile to 60 bytes of machine code each.
-> With this .config: http://busybox.net/~vda/kernel_config
-> there are 617 calls of netif_tx_stop_queue()
-> and 49 calls of netif_tx_stop_all_queues() in vmlinux.
+> This is an initial implementation of a netdev driver for GENEVE
+> tunnels.  This implementation uses a fixed UDP port, and only supports
+> point-to-point links with specific partner endpoints.  Only IPv4
+> links are supported at this time.
 > 
-> To fix this, remove WARN_ON in netif_tx_stop_queue()
-> as suggested by davem, and deinline netif_tx_stop_all_queues().
-> 
-> Change in code size is about 20k:
-> 
->    text      data      bss       dec     hex filename
-> 82426986 22255416 20627456 125309858 77813a2 vmlinux.before
-> 82406248 22255416 20627456 125289120 777c2a0 vmlinux
-> 
-> gcc-4.7.2 still creates deinlined version of netif_tx_stop_queue
-> sometimes:
-> 
-> $ nm --size-sort vmlinux | grep netif_tx_stop_queue | wc -l
-> 190
-> 
-> ffffffff81b558a8 <netif_tx_stop_queue>:
-> ffffffff81b558a8:       55                      push   %rbp
-> ffffffff81b558a9:       48 89 e5                mov    %rsp,%rbp
-> ffffffff81b558ac:       f0 80 8f e0 01 00 00    lock orb $0x1,0x1e0(%rdi)
-> ffffffff81b558b3:       01
-> ffffffff81b558b4:       5d                      pop    %rbp
-> ffffffff81b558b5:       c3                      retq
-> 
-> This needs additional fixing.
-> 
-> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+> ---
+> Changes in v2:
+>  - removal of unneeded special lock for vni_list
+>  - removal of geneve_net_vni_add/del (replaced by open code)
+>  - break out of vni search loop in geneve_rx after match found
+>  - no longer deferring socket open at ndo_init(), now doing it in ndo_open()
+>  - check for non-multicast, non-zero remote link partner in newlink()
+>  - remove now unused workqueue stuff
 
-Applied, thank you.
+John, could you please repost the full series when you make changes
+based upon feedback?  That helps me a lot.
+
+Thanks!
