@@ -1,54 +1,45 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH v3 for-next 00/13] Add network namespace support in the
- RDMA-CM
-Date: Wed, 13 May 2015 17:30:01 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FDA1AB@ORSMSX109.amr.corp.intel.com>
-References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FD7B85@ORSMSX109.amr.corp.intel.com>
- <55531073.1000305@mellanox.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FDA13B@ORSMSX109.amr.corp.intel.com>
- <20150513171823.GB20343@obsidianresearch.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: qla3xxx: Odd likely incorrect use of test_bit in qla3xxx.c
+Date: Wed, 13 May 2015 10:34:51 -0700
+Message-ID: <1431538491.2912.14.camel@perches.com>
+References: <1431456145.2884.75.camel@perches.com>
+	 <20150513131908.GB8431@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150513171823.GB20343-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
+	netdev <netdev@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0251.hostedemail.com ([216.40.44.251]:39778 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752521AbbEMRey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:34:54 -0400
+In-Reply-To: <20150513131908.GB8431@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > > How does network namespace support work with iWarp?
-> > >
-> > > We did not implement network namespace support for iWarp. Only for
-> > > InfiniBand. The iWarp code continues to use &init_net whenever a
-> network
-> > > namespace is needed, as it does today.
-> >
-> > We need a solution that supports both.  It's odd for the RDMA CM to
-> > support a feature only for some devices, when the solution should be
-> > general.
+On Wed, 2015-05-13 at 16:19 +0300, Dan Carpenter wrote:
+> Good eye, Joe.
 > 
-> Yes, it is not optimal, but given that every protocol uses a
-> completely different scheme to interact with netdev, I'm not sure
-> there is another option but to do them piecemeal?
+> I wrote a Smatch check to find similar bugs.  Te rhey weren't any other
+> places which tried to do bitwise OR.  The bug that happens occasionally
+> is:
+> 
+> #define MY_FLAG BIT(1)
+> 
+> 	if (test_bit(MY_FLAG, &map)) {
+> 		...
+> 
+> It's not normally harmful if it's used consistently, but ath9k had
+> memory corruption because they do:
+> 
+> 	set_bit(BIT(6), &some_unsigned_long);
+> 
+> Anyway, I'll send patches for the bugs I found and push the Smatch
+> check. Thanks!
 
-Piecemeal isn't necessarily the problem.  No thought appears to have been given to how this scheme supports iWarp at all.  My concern is around whether any changes should be made to the ib_cm, versus keeping everything contained in the rdma_cm.  I.e. do we want the same kref schemed added to the iw_cm, or keep reference counts only in the rdma_cm?
+In case the patches you found weren't of this type,
+there are other possibly suspicious uses with & like:
 
-> I'm happy to see this patch much smaller and without the vestigial
-> half-roce support that the prior version included.
-
-agreed
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+drivers/usb/host/ehci-tegra.c:		set_bit((wIndex & 0xff) - 1, &ehci->suspended_ports);
