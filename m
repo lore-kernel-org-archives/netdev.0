@@ -1,92 +1,63 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 4/4] netconsole: implement extended console support
-Date: Wed, 13 May 2015 11:32:32 -0400
-Message-ID: <20150513153232.GW11388@htj.duckdns.org>
-References: <1431362494-9874-1-git-send-email-tj@kernel.org>
- <1431362494-9874-5-git-send-email-tj@kernel.org>
- <20150512163602.ba6c83e3056702cbd840edef@linux-foundation.org>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] net/bridge: Enable bridge also when switchdev
+ can't be built
+Date: Wed, 13 May 2015 08:44:11 -0700
+Message-ID: <CAE4R7bCO3Zs=NzZDz9WTKRJznU7BMOkNNZFewNttUXqYsYUq0A@mail.gmail.com>
+References: <1431511723-26323-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
-	sd@queasysnail.net
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150512163602.ba6c83e3056702cbd840edef@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:34235 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964937AbbEMPoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 11:44:12 -0400
+Received: by qgfi89 with SMTP id i89so23475829qgf.1
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 08:44:11 -0700 (PDT)
+In-Reply-To: <1431511723-26323-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Andrew.
+On Wed, May 13, 2015 at 3:08 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+> Currently switchdev doesn't build on older gcc version such as 4.4.6
+>
+> The reason for the compile error is such that it causes a failure
+> to build the bridge too, even when switchdev isn't configured (the
+> stub isn't enough), fix it.
+>
+> CC [M]  net/bridge/br_stp.o
+> net/bridge/br_stp.c: In function 'br_set_state':
+> net/bridge/br_stp.c:44: error: unknown field 'stp_state' specified in initializer
+>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+>  net/bridge/br_stp.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+> index b9300da..752783a 100644
+> --- a/net/bridge/br_stp.c
+> +++ b/net/bridge/br_stp.c
+> @@ -39,17 +39,19 @@ void br_log_state(const struct net_bridge_port *p)
+>
+>  void br_set_state(struct net_bridge_port *p, unsigned int state)
+>  {
+> +#ifdef CONFIG_NET_SWITCHDEV
+>         struct switchdev_attr attr = {
+>                 .id = SWITCHDEV_ATTR_PORT_STP_STATE,
+>                 .stp_state = state,
+>         };
+>         int err;
+>
+> -       p->state = state;
+>         err = switchdev_port_attr_set(p->dev, &attr);
+>         if (err && err != -EOPNOTSUPP)
+>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+>                                 (unsigned int) p->port_no, p->dev->name);
+> +#endif
+> +       p->state = state;
+>  }
 
-On Tue, May 12, 2015 at 04:36:02PM -0700, Andrew Morton wrote:
-> > printk recently added extended console support which can be selected
-> > by setting CON_EXTENDED flag.
-> 
-> There's no such thing as CON_EXTENDED.  Not sure what this is trying to
-> say.
-
-Yeah, I ended up splitting the original patchset into two.  One
-implementing CON_EXTENDED and this set updating netconsole to use it.
-The patchset head message contains the link to the prerequisite
-patchset.
-
- http://article.gmane.org/gmane.linux.kernel/1940567
-
-> > +static ssize_t store_extended(struct netconsole_target *nt,
-> > +			      const char *buf,
-> > +			      size_t count)
-> > +{
-> > +	int extended;
-> > +	int err;
-> > +
-> > +	if (nt->enabled) {
-> > +		pr_err("target (%s) is enabled, disable to update parameters\n",
-> > +		       config_item_name(&nt->item));
-> > +		return -EINVAL;
-> > +	}
-> 
-> What's the reason for the above?
-> 
-> It's unclear (to me, at least ;)) what "disable" means?  Specifically
-> what steps must the operator take to successfully perform this
-> operation?  A sentence detailing those steps in netconsole.txt would be
-> nice.
-
-So, there are configfs dynamic netconsole targets which is created by
-mkdir, configured through interface files there and enabled by echoing
-1 to the enable file.  The parameters can't be changed while the
-target is enabled.  This is the standard warning used for all other
-knobs and I think what the warning message means is pretty clear given
-the context.  Right?
-
-> What protects `buf'?  console_sem, I assume?
-> 
-> -	static char buf[MAX_PRINT_CHUNK];
-> +	static char buf[MAX_PRINT_CHUNK];	/* Protected by console_sem */
-> 
-> wouldn't hurt.
-
-Yeah, the whole send path is serialized by console_sem and
-target_list_lock.  I'll add the comment.
-
-> > +}
-> > +
-> > +static void write_ext_msg(struct console *con, const char *msg,
-> 
-> 
-> I've forgotten what's happening with this patchset.  There were a few
-> design-level issues raised against an earlier version.  What were those
-> and how have they been addressed?
-
-The retransmission part was the most contentious point and Dave
-pointed out that there isn't much to be gained by doing that from the
-kernel side, so that part got dropped from the patchset and will
-become a separate userland program, so the only remaining parts are
-support for sending out extended messages from netconsole which
-shouldn't be too controversial.
-
-Thanks.
-
--- 
-tejun
+Isn't this the same issue with anonymous unions and older gcc?
