@@ -1,50 +1,32 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH -next] net: sched: use counter to break reclassify loops
-Date: Wed, 13 May 2015 07:18:57 -0400
-Message-ID: <55533321.302@mojatatu.com>
-References: <1431366641-24735-1-git-send-email-fw@strlen.de> <5551E62D.5040507@mojatatu.com> <20150512130029.GA22387@breakpoint.cc>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: gone with the spring cleanup..
+Date: Wed, 13 May 2015 13:26:34 +0200
+Message-ID: <555334EA.4000404@iogearbox.net>
+References: <5553158D.7000108@mellanox.com> <20150513103812.GA2136@nanopsycho.mtl.com> <20150513104249.GB2136@nanopsycho.mtl.com> <55532DBD.1080901@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Cc: Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:35207 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933242AbbEMLS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 07:18:59 -0400
-Received: by iebpz10 with SMTP id pz10so28655614ieb.2
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 04:18:58 -0700 (PDT)
-In-Reply-To: <20150512130029.GA22387@breakpoint.cc>
+Received: from www62.your-server.de ([213.133.104.62]:59173 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754506AbbEML0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 07:26:42 -0400
+In-Reply-To: <55532DBD.1080901@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/12/15 09:00, Florian Westphal wrote:
-> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> Florian,
->> In general i am in support of removing this - since the use case never
->> materialized as being useful. However, this is not the same logic that
->> was there before. To get equivalency you need to pass the limit into
->> tc_classify_compat() so i can be reset.
+On 05/13/2015 12:55 PM, Or Gerlitz wrote:
+> On 5/13/2015 1:42 PM, Jiri Pirko wrote:
+>>> Looks like the problem might be in named structures which suppose to be
+>>> >anonymous. Would you try following patch:
+>> oh, switchdev_obj_vlan and switchdev_obj_ipv4_fib is used in rocker..
+>> So better:
 >
-> AFAICS this re-set only happens when we return something other
-> than RECLASSIFY which means the caller will not check the limit.
->
-> So in fact it should be ok to remove this since the counter will always
-> start from 0 on next tc_classify() invocation.
->
+> nope, fails.. if I remove the union (it is struct switchdev_obj has strict vlan and ipv4_fib fields) it works. Seems there's some problem also with anonymous unions.
 
-Florian, consider the following scenario:
-Assume X is the max allowed reclassified before bells start ringing.
-If we see upto X back-to-back reclassify - we are very much likely in
-a loop. We should see fire trucks arrive and bail out.
-If we see X-1  "reclassify" followed by a "pipe" followed by
-X-1 "reclassify" followed by "ok" then that looks like a healthy
-policy. But that is a a total of 2X-2 reclassifies. You will
-bail out at X reclassifies; what i am saying is you shouldnt.
-And existing logic doesnt. Does that make sense?
-Pass the &limit and reset it as before to 0 when you see something
-other than reclassify.
+Yes, we once had such an issue here btw:
 
-cheers,
-jamal
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/lib/test_bpf.c?id=ece80490e2c1cefda018b2e5b96d4f39083d9096
