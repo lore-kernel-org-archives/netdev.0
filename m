@@ -1,54 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] add GENEVE netdev tunnel driver
-Date: Wed, 13 May 2015 15:59:59 -0400 (EDT)
-Message-ID: <20150513.155959.2157726077545160055.davem@davemloft.net>
-References: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
+Subject: Re: [patch net-next v3 00/15] introduce programable flow dissector
+ and cls_flower
+Date: Wed, 13 May 2015 16:01:48 -0400 (EDT)
+Message-ID: <20150513.160148.993178492595324237.davem@davemloft.net>
+References: <1431435381-7164-1-git-send-email-jiri@resnulli.us>
+	<20150513.152102.606157874586561609.davem@davemloft.net>
+	<CALx6S36XpD7VjygyfG1mRpX3xgHyXjDQQYU8tBRCjuRgckQasQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com, azhou@nicira.com,
-	stephen@networkplumber.org, alexander.h.duyck@redhat.com
-To: linville@tuxdriver.com
+Cc: jiri@resnulli.us, netdev@vger.kernel.org, jhs@mojatatu.com,
+	tgraf@suug.ch, jesse@nicira.com, kaber@trash.net,
+	edumazet@google.com, alexander.h.duyck@redhat.com,
+	hannes@stressinduktion.org, ast@plumgrid.com, daniel@iogearbox.net,
+	herbert@gondor.apana.org.au, cwang@twopensource.com,
+	john.fastabend@gmail.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56561 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56589 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030234AbbEMUAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 16:00:02 -0400
-In-Reply-To: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
+	with ESMTP id S965321AbbEMUBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 16:01:53 -0400
+In-Reply-To: <CALx6S36XpD7VjygyfG1mRpX3xgHyXjDQQYU8tBRCjuRgckQasQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 13 May 2015 12:57:25 -0400
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 13 May 2015 15:27:59 -0400
 
-> This 5-patch kernel series adds a netdev implementation of a GENEVE
-> tunnel driver, and the single iproute2 patch enables creation and
-> such for those netdevs.  This makes use of the existing GENEVE
-> infrastructure already used by the OVS code.  The net/ipv4/geneve.c
-> file is renamed as net/ipv4/geneve_core.c as part of these changes.
+>> I'm sure there will be some performance improvements possible, and I
+>> hope you will look into making sure this new programmable classifier
+>> is as light weight as possible.
  ...
-> The overall structure of the GENEVE netdev driver is strongly
-> influenced by the VXLAN netdev driver.  This is not surprising, as the
-> two drivers are intended to serve similar purposes.  As development of
-> the GENEVE driver continues, it is likely that those similarities will
-> grow stronger.  This will include both simple configuration options
-> (e.g. TOS and TTL settings) and new control plane support.
-> 
-> The current implementation is very simple, restricting itself to point
-> to point links over IPv4.  This is due only to the simplicity of the
-> implementation, and no such limit is inherent to GENEVE in any way.
-> Support for IPv6 links and more sophisticated control plane options
-> are predictable enhancements.
-> 
-> Using the included iproute2 patch, a GENEVE tunnel is created thusly:
-> 
->         ip link add dev gnv0 type geneve remote 192.168.22.1 vni 1234
->         ip link set gnv0 up
->         ip addr add 10.1.1.1/24 dev gnv0
-> 
-> After a corresponding tunnel interface is created at the link partner,
-> traffic should proceed as expected.
-> 
-> Please let me know if anyone has problems...thanks!
 
-Looks good, series applied, thanks John!
+> I still have concerns about making flow_dissector more complex like
+> this. This still seems like it should this programmable logic be done
+> in a separate function. We call flow_dissector at least once per
+> packet via skb_get_hash, it is in the critical path, and adding
+> several conditionals can only slow it down and provides no new value
+> to skb_get_hash. At the very least can we at least get some
+> performance numbers to show impact of this?
+
+The part of what I said to Jiri above is meant exactly to ensure that
+he handles this.
+
+If we need a specialized fast path for the skb_get_hash() code paths,
+so be it.
+
+But I'm not going to denouce his entire efforts for something that
+hasn't even been shown to be an issue yet.  And if it is, I'm sure
+Jiri will work to address it.
