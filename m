@@ -1,100 +1,54 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v2 2/2] ipv6: fix ECMP route replacement
-Date: Wed, 13 May 2015 21:59:51 +0200 (CEST)
-Message-ID: <c1fd1b1527dc2a6905d4eeff04f1e4ed3f93964e.1431546602.git.mkubecek@suse.cz>
-References: <cover.1431546602.git.mkubecek@suse.cz>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	roopa <roopa@cumulusnetworks.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1431546602.git.mkubecek@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] add GENEVE netdev tunnel driver
+Date: Wed, 13 May 2015 15:59:59 -0400 (EDT)
+Message-ID: <20150513.155959.2157726077545160055.davem@davemloft.net>
+References: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jesse@nicira.com, azhou@nicira.com,
+	stephen@networkplumber.org, alexander.h.duyck@redhat.com
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56561 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030234AbbEMUAC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 16:00:02 -0400
+In-Reply-To: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When replacing an IPv6 multipath route with "ip route replace", i.e.
-NLM_F_CREATE | NLM_F_REPLACE, fib6_add_rt2node() replaces only first
-matching route without fixing its siblings, resulting in corrupted
-siblings linked list; removing one of the siblings can then end in an
-infinite loop.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 13 May 2015 12:57:25 -0400
 
-Replacing the whole set of nexthops does IMHO make more sense than
-replacing a random one. We also need to remove the NLM_F_REPLACE flag
-after replacing old nexthops by first new so that each subsequent
-nexthop does not replace previous one.
+> This 5-patch kernel series adds a netdev implementation of a GENEVE
+> tunnel driver, and the single iproute2 patch enables creation and
+> such for those netdevs.  This makes use of the existing GENEVE
+> infrastructure already used by the OVS code.  The net/ipv4/geneve.c
+> file is renamed as net/ipv4/geneve_core.c as part of these changes.
+ ...
+> The overall structure of the GENEVE netdev driver is strongly
+> influenced by the VXLAN netdev driver.  This is not surprising, as the
+> two drivers are intended to serve similar purposes.  As development of
+> the GENEVE driver continues, it is likely that those similarities will
+> grow stronger.  This will include both simple configuration options
+> (e.g. TOS and TTL settings) and new control plane support.
+> 
+> The current implementation is very simple, restricting itself to point
+> to point links over IPv4.  This is due only to the simplicity of the
+> implementation, and no such limit is inherent to GENEVE in any way.
+> Support for IPv6 links and more sophisticated control plane options
+> are predictable enhancements.
+> 
+> Using the included iproute2 patch, a GENEVE tunnel is created thusly:
+> 
+>         ip link add dev gnv0 type geneve remote 192.168.22.1 vni 1234
+>         ip link set gnv0 up
+>         ip addr add 10.1.1.1/24 dev gnv0
+> 
+> After a corresponding tunnel interface is created at the link partner,
+> traffic should proceed as expected.
+> 
+> Please let me know if anyone has problems...thanks!
 
-Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP)")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv6/ip6_fib.c | 17 ++++++++++++++---
- net/ipv6/route.c   |  8 +++++---
- 2 files changed, 19 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 96dbffff5a24..abf4e4e5bdab 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -815,6 +815,8 @@ add:
- 		}
- 
- 	} else {
-+		struct rt6_info *next;
-+
- 		if (!found) {
- 			if (add)
- 				goto add;
-@@ -828,15 +830,24 @@ add:
- 
- 		*ins = rt;
- 		rt->rt6i_node = fn;
--		rt->dst.rt6_next = iter->dst.rt6_next;
-+
-+		/* skip potential siblings */
-+		next = iter->dst.rt6_next;
-+		while (next && next->rt6i_metric == rt->rt6i_metric)
-+			next = next->dst.rt6_next;
-+		rt->dst.rt6_next = next;
-+
- 		atomic_inc(&rt->rt6i_ref);
- 		inet6_rt_notify(RTM_NEWROUTE, rt, info);
- 		if (!(fn->fn_flags & RTN_RTINFO)) {
- 			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
- 			fn->fn_flags |= RTN_RTINFO;
- 		}
--		fib6_purge_rt(iter, fn, info->nl_net);
--		rt6_release(iter);
-+		while (iter != next) {
-+			fib6_purge_rt(iter, fn, info->nl_net);
-+			rt6_release(iter);
-+			iter = iter->dst.rt6_next;
-+		}
- 	}
- 
- 	return 0;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 3821a3517478..cf842cb92b2f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2541,11 +2541,13 @@ beginning:
- 			}
- 		}
- 		/* Because each route is added like a single route we remove
--		 * this flag after the first nexthop (if there is a collision,
-+		 * these flags after the first nexthop: if there is a collision,
- 		 * we have already fail to add the first nexthop:
--		 * fib6_add_rt2node() has reject it).
-+		 * fib6_add_rt2node() has reject it; when replacing, old
-+		 * nexthops are removed by first new, the rest is added to it.
- 		 */
--		cfg->fc_nlinfo.nlh->nlmsg_flags &= ~NLM_F_EXCL;
-+		cfg->fc_nlinfo.nlh->nlmsg_flags &= ~(NLM_F_EXCL |
-+						     NLM_F_REPLACE);
- 		rtnh = rtnh_next(rtnh, &remaining);
- 	}
- 
--- 
-2.3.7
+Looks good, series applied, thanks John!
