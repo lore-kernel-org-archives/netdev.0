@@ -1,49 +1,68 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Looking for a lost patch
-Date: Wed, 13 May 2015 10:47:11 -0700
-Message-ID: <55538E1F.2020505@gmail.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when PCI
+ device is assigned
+Date: Wed, 13 May 2015 17:50:12 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1846BBD2E63@ORSMSX105.amr.corp.intel.com>
+References: <20150513013550.10328.1416.stgit@bwallan-smackover2.jf.intel.com>
+ <1431484908.3625.10.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Alex Williamson <alex.williamson@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:35417 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754636AbbEMRrN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:47:13 -0400
-Received: by iebpz10 with SMTP id pz10so39234549ieb.2
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 10:47:13 -0700 (PDT)
+Received: from mga01.intel.com ([192.55.52.88]:36890 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751648AbbEMRuO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 13:50:14 -0400
+In-Reply-To: <1431484908.3625.10.camel@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So I am in the process of trying to do some work on VTI6 and in the 
-process of doing so I am trying to setup an IPv4 VTI tunnel and I have 
-come across what appears to be a lost patch.
-
-So in commit a32452366b72 ("vti4: Don't count header length twice.") the 
-following change was made:
-
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 687ddef..cd62596 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -349,7 +349,6 @@ static int vti_tunnel_init(struct net_device *dev)
-  	memcpy(dev->broadcast, &iph->daddr, 4);
-
-  	dev->type		= ARPHRD_TUNNEL;
--	dev->hard_header_len	= LL_MAX_HEADER + sizeof(struct iphdr);
-  	dev->mtu		= ETH_DATA_LEN;
-  	dev->flags		= IFF_NOARP;
-  	dev->iflink		= 0;
-
-However in commit f895f0cfbb77 ("Merge branch 'master' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec") the 
-change appears to have been undone as a result of a merge commit.
-
-I'm just wondering which is correct.  Should the hard_header_len be set 
-or unset in vti_tunnel_init?  I ask because I have two kernels and one 
-has the patch and one does not and I am seeing an MTU of 1332 for a VTI 
-tunnel without, and 1480 for a VTI tunnel with.
-
-- Alex
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbGV4IFdpbGxpYW1zb24gW21h
+aWx0bzphbGV4LndpbGxpYW1zb25AcmVkaGF0LmNvbV0NCj4gU2VudDogVHVlc2RheSwgTWF5IDEy
+LCAyMDE1IDc6NDIgUE0NCj4gVG86IEFsbGFuLCBCcnVjZSBXDQo+IENjOiBrdm1Admdlci5rZXJu
+ZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBpbnRlbC13aXJlZC0NCj4gbGFuQGxpc3Rz
+Lm9zdW9zbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gdmZpby1wY2k6IFBDSV9ERVZfRkxB
+R1NfQVNTSUdORUQgZmxhZyBub3Qgc2V0IHdoZW4NCj4gUENJIGRldmljZSBpcyBhc3NpZ25lZA0K
+PiANCj4gT24gVHVlLCAyMDE1LTA1LTEyIGF0IDE4OjM1IC0wNzAwLCBCcnVjZSBBbGxhbiB3cm90
+ZToNCj4gPiBBIG51bWJlciBvZiBQQ0kgZGV2aWNlIGRyaXZlcnMgc3VwcG9ydGluZyBTUi1JT1Yg
+dXNlIHBjaV92ZnNfYXNzaWduZWQoKQ0KPiB0bw0KPiA+IGNoZWNrIGlmIHRoZXJlIGFyZSBhbnkg
+VkYgZGV2aWNlcyBhc3NpZ25lZCBieSBhIFZNTSBwcmlvciB0byBkaXNhYmxpbmcNCj4gPiBTUi1J
+T1YgKGkuZS4gYm54MngsIGJlMm5ldCwgZm0xMGssIGk0MGUsIGlnYiwgaXhnYmUsIHFsY25pYyku
+ICBUaGlzIGNoZWNrDQo+ID4gd29ya3MgZmluZSB3aXRoIHRoZSBsZWdhY3kgZGV2aWNlIGFzc2ln
+bm1lbnQgKHBjaS1zdHViIGVuYWJsZXMgdGhlDQo+IGRldmljZSkNCj4gPiB3aGljaCBjYWxscyBw
+Y2lfc2V0X2Rldl9hc3NpZ25lZCgpLiAgVGhlIG5ld2VyIFZGSU8tYmFzZWQgYXNzaWdubWVudA0K
+PiA+ICh2ZmlvLXBjaSBlbmFibGVzIGRldmljZSkgZG9lc24ndCBjYWxsIHBjaV9zZXRfZGV2X2Fz
+c2lnbmVkKCkgcG90ZW50aWFsbHkNCj4gPiBsZWFkaW5nIHRvIGlzc3VlcyBpbiB0aG9zZSBkcml2
+ZXJzIHdoZW4gZGlzYWJsaW5nIFNSLUlPViB3aXRoIFZGcyBhc3NpZ25lZC4NCj4gPg0KPiA+IEFk
+ZCBjYWxscyB0byBwY2lfW3NldHxjbGVhcl1fZGV2X2Fzc2lnbmVkKCkgdG8gc2V0IHRoZSBmbGFn
+IGFzIGV4cGVjdGVkLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogQnJ1Y2UgQWxsYW4gPGJydWNl
+LncuYWxsYW5AaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL3ZmaW8vcGNpL3ZmaW9f
+cGNpLmMgfCAgICA0ICsrKysNCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQ0K
+PiANCj4gDQo+IFdoeSBzaG91bGQgYSBkZXZpY2UgZXhwb3NlZCB0byB0aGUgdXNlciBiZSBoYW5k
+bGVkIGRpZmZlcmVudGx5IHRoYW4gYQ0KPiBkZXZpY2UgdXNlZCBieSBhIGhvc3QgZHJpdmVyPyAg
+VGhlIHJlYXNvbiB0aGUgYXNzaWduZWQgZmxhZyBleGlzdHMgaXMNCj4gYmVjYXVzZSBsZWdhY3kg
+S1ZNIGRldmljZSBhc3NpZ25tZW50IGRvZXNuJ3QgYWN0dWFsbHkgY2xhaW0gdGhlIGRldmljZQ0K
+PiB1c2luZyB0aGUgZHJpdmVyIG1vZGVsLCBpdCByZWxpZXMgb24gcGNpLXN0dWIgdG8gYWN0IGFz
+IGEgcGxhY2Vob2xkZXIgdG8NCj4gcHJldmVudCBvdGhlciBkcml2ZXJzIGZyb20gYmluZGluZyB0
+byB0aGUgZGV2aWNlLCBidXQgcGNpLXN0dWIgaGFzIG5vDQo+IHZpc2liaWxpdHkgdG8gdGhlIGRl
+dmljZSB1c2FnZSBhbmQgd2lsbCBpbW1lZGlhdGVseSByZWxlYXNlIGl0DQo+IHJlZ2FyZGxlc3Mg
+b2YgaXQgYmVpbmcgaW4gdXNlLiAgdmZpby1wY2kgcGFydGljaXBhdGVzIGluIHRoZSBkcml2ZXIN
+Cj4gbW9kZWwsIHNpZ25hbHMgdGhlIHVzZXIgZm9yIHRoZSBkZXZpY2UgdG8gYmUgcmVsZWFzZWQg
+YW5kIGJsb2NrcyB1bnRpbA0KPiBpdCBpcyByZWxlYXNlZC4gIEJleW9uZCB0aGF0LCB0aGUgYXNz
+aWduZWQgZmxhZyBpcyBhIHJhY3kgaGFjay4gIFRoZXJlJ3MNCj4gbm8gbG9ja2luZyB3aGF0c29l
+dmVyIHRvIGltcGx5IHRoYXQgdGhlIGZsYWcgYXMgYW55IG1lYW5pbmcgYmV5b25kIHRoZQ0KPiBp
+bnN0YW50IHRoYXQgaXQncyB0ZXN0ZWQuICBJJ2QgbGlrZSB0byBzZWUgdGhlIGFzc2lnbmVkIGZs
+YWcgZGVwcmVjYXRlZA0KPiBhbG9uZyB3aXRoIGxlZ2FjeSBLVk0gZGV2aWNlIGFzc2lnbm1lbnQs
+IG5vdCBwZXJwZXR1YXRlZCBpbiBuZXdlcg0KPiBkcml2ZXJzLiAgVGhlIHBhdGNoIGlzIGFsc28g
+d3JvbmcgYmVjYXVzZSB3ZSBjYW4gdGVsbCB3aGVuIHRoZSBkZXZpY2UgaXMNCj4gYWN0dWFsbHkg
+b3BlbmVkIGJ5IHRoZSB1c2VyLCBub3QganVzdCBib3VuZCB0byB0aGUgdmZpby1wY2kgZHJpdmVy
+Lg0KPiBUaGFua3MsDQo+IA0KPiBBbGV4DQoNClNvIGZvciBjbGFyaWZpY2F0aW9uLCBpbiB0aGUg
+ZHJpdmVycyBtZW50aW9uZWQgYWJvdmUgd291bGQgeW91IHJlY29tbWVuZA0KcmF0aGVyIHRoYW4g
+Y2hlY2tpbmcgcGNpX3Zmc19hc3NpZ25lZCgpIGJlZm9yZSBkaXNhYmxpbmcgU1ItSU9WIHRoZSBk
+cml2ZXJzDQpzaG91bGQgaW5zdGVhZCBjaGVjayBpZiBhbnkgb2YgdGhlIFZGIGRldmljZXMgYXJl
+IGJvdW5kL29wZW5lZCBieSBhbm90aGVyDQpkcml2ZXI/DQoNClRoYW5rcywNCkJydWNlLg0KDQo=
