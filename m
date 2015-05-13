@@ -1,57 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] neigh: fix a possible leak issue of neigh entry
-Date: Tue, 12 May 2015 23:20:48 -0700
-Message-ID: <1431498048.566.131.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1431495814-22759-1-git-send-email-ying.xue@windriver.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: netlink & rhashtable status
+Date: Wed, 13 May 2015 14:20:39 +0800
+Message-ID: <20150513062038.GA26944@gondor.apana.org.au>
+References: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150513054037.GA26595@gondor.apana.org.au>
+ <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Ying Xue <ying.xue@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:34680 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753812AbbEMGUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:20:50 -0400
-Received: by iecmd7 with SMTP id md7so23089005iec.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 23:20:49 -0700 (PDT)
-In-Reply-To: <1431495814-22759-1-git-send-email-ying.xue@windriver.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:46729 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753807AbbEMGUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:20:46 -0400
+Content-Disposition: inline
+In-Reply-To: <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-13 at 13:43 +0800, Ying Xue wrote:
-> Once modifying a pending timer of a neighbour, it's insufficient to
-> post a warning message. Instead we should not take the neighbour's
-> reference count at the same time, otherwise, it causes an issue that
-> the neighbour cannot be freed forever.
+On Tue, May 12, 2015 at 11:15:40PM -0700, Eric Dumazet wrote:
 > 
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> ---
->  net/core/neighbour.c |    9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 3de6542..5595db3 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -164,10 +164,11 @@ static int neigh_forced_gc(struct neigh_table *tbl)
->  
->  static void neigh_add_timer(struct neighbour *n, unsigned long when)
->  {
-> -	neigh_hold(n);
-> -	if (unlikely(mod_timer(&n->timer, when))) {
-> -		printk("NEIGH: BUG, double timer add, state is %x\n",
-> -		       n->nud_state);
-> +	if (likely(!mod_timer(&n->timer, when))) {
-> +		neigh_hold(n);
-> +	} else {
-> +		pr_warn("NEIGH: BUG, double timer add, state is %x\n",
-> +			n->nud_state);
->  		dump_stack();
->  	}
->  }
+> Trick is to start about 200 threads using getaddrinfo()
 
-Have you hit this condition ?
+When it loses the kernel socket, is it permanent or intermittent?
 
-If yes, there is a bug elsewhere and we need to fix it, not trying to
-recover.
+I'm trying to figure out whether it's the hashtable reader missing
+an entry that's there or whether the hashtable has been corrupted
+and an entry is gone forever.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
