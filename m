@@ -1,47 +1,88 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net 1/2] ipv6: do not delete previously existing ECMP
- routes if add fails
-Date: Wed, 13 May 2015 22:06:56 +0200
-Message-ID: <20150513200656.GA31076@unicorn.suse.cz>
-References: <cover.1431500953.git.mkubecek@suse.cz>
- <4e3d075f2be93d9655bc1372a107584368a29eab.1431500953.git.mkubecek@suse.cz>
- <55534389.8070307@6wind.com>
- <20150513124940.GB27366@unicorn.suse.cz>
- <555351EC.9050805@cumulusnetworks.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net-next PATCH] net: Reserve skb headroom and set skb->dev even if
+ using __alloc_skb
+Date: Wed, 13 May 2015 13:34:13 -0700
+Message-ID: <20150513203413.8252.98057.stgit@ahduyck-vm-fedora22>
+References: <20150513182738.GA28201@saruman.tx.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: roopa <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48064 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753207AbbEMUG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 16:06:58 -0400
-Content-Disposition: inline
-In-Reply-To: <555351EC.9050805@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: tony@atomide.com, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: linux-kernel@vger.kernel.org, balbi@ti.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150513182738.GA28201@saruman.tx.rr.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 13, 2015 at 06:30:20AM -0700, roopa wrote:
-> >
-> This looks like a similar bug i was trying to fix some time back:
-> http://patchwork.ozlabs.org/patch/362296/
-> 
-> (I am not sure if my full patch is still valid. I was thinking of
-> re-spining it sometime soon. If you are interested in trying it out,
-> please do)
+When I had inlined __alloc_rx_skb into __netdev_alloc_skb and
+__napi_alloc_skb I had overlooked the fact that there was a return in the
+__alloc_rx_skb.  As a result we weren't reserving headroom or setting the
+skb->dev in certain cases.  This change corrects that by adding a couple of
+jump labels to jump to depending on __alloc_skb either succeeding or failing.
 
-It's essentially the same idea but I prefer to use variable remaining
-which is already there and is needed anyway rather than introduce
-three extra variables for the cleanup (which is quite similar to the
-suggestion from Hannes' reply).
+Fixes: 9451980a6646 ("net: Use cached copy of pfmemalloc to avoid accessing page")
+Reported-by: Felipe Balbi <balbi@ti.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
+ net/core/skbuff.c |   20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
-I've sent v2 few minutes ago.
-
-                                                       Michal Kubecek
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d67e612bf0ef..f3fe9bd9e672 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -414,8 +414,12 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
+ 	len += NET_SKB_PAD;
+ 
+ 	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
+-	    (gfp_mask & (__GFP_WAIT | GFP_DMA)))
+-		return __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
++	    (gfp_mask & (__GFP_WAIT | GFP_DMA))) {
++		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
++		if (!skb)
++			goto skb_fail;
++		goto skb_success;
++	}
+ 
+ 	len += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 	len = SKB_DATA_ALIGN(len);
+@@ -445,9 +449,11 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
+ 		skb->pfmemalloc = 1;
+ 	skb->head_frag = 1;
+ 
++skb_success:
+ 	skb_reserve(skb, NET_SKB_PAD);
+ 	skb->dev = dev;
+ 
++skb_fail:
+ 	return skb;
+ }
+ EXPORT_SYMBOL(__netdev_alloc_skb);
+@@ -475,8 +481,12 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+ 	len += NET_SKB_PAD + NET_IP_ALIGN;
+ 
+ 	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
+-	    (gfp_mask & (__GFP_WAIT | GFP_DMA)))
+-		return __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
++	    (gfp_mask & (__GFP_WAIT | GFP_DMA))) {
++		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
++		if (!skb)
++			goto skb_fail;
++		goto skb_success;
++	}
+ 
+ 	len += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 	len = SKB_DATA_ALIGN(len);
+@@ -499,9 +509,11 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
+ 		skb->pfmemalloc = 1;
+ 	skb->head_frag = 1;
+ 
++skb_success:
+ 	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
+ 	skb->dev = napi->dev;
+ 
++skb_fail:
+ 	return skb;
+ }
+ EXPORT_SYMBOL(__napi_alloc_skb);
