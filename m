@@ -1,42 +1,51 @@
-From: Kevin Hilman <khilman@kernel.org>
-Subject: Re: [net-next PATCH] net: Reserve skb headroom and set skb->dev even if using __alloc_skb
-Date: Wed, 13 May 2015 14:35:51 -0700
-Message-ID: <7h8ucs6tzc.fsf@deeprootsystems.com>
-References: <20150513182738.GA28201@saruman.tx.rr.com>
-	<20150513203413.8252.98057.stgit@ahduyck-vm-fedora22>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v2] net: core: set and refine qdisc pkt len before
+ tc_classify
+Date: Wed, 13 May 2015 23:36:49 +0200
+Message-ID: <5553C3F1.4070208@iogearbox.net>
+References: <1431550209-3498-1-git-send-email-daniel@iogearbox.net> <1431552055.27831.17.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, balbi@ti.com, davem@davemloft.net,
-	tony@atomide.com, netdev@vger.kernel.org,
-	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, fw@strlen.de, ast@plumgrid.com,
+	jhs@mojatatu.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:36738 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965006AbbEMVfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 17:35:55 -0400
-Received: by pdea3 with SMTP id a3so63442687pde.3
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 14:35:54 -0700 (PDT)
-In-Reply-To: <20150513203413.8252.98057.stgit@ahduyck-vm-fedora22> (Alexander
-	Duyck's message of "Wed, 13 May 2015 13:34:13 -0700")
+Received: from www62.your-server.de ([213.133.104.62]:53959 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965321AbbEMVg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 17:36:58 -0400
+In-Reply-To: <1431552055.27831.17.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck <alexander.h.duyck@redhat.com> writes:
-
-> When I had inlined __alloc_rx_skb into __netdev_alloc_skb and
-> __napi_alloc_skb I had overlooked the fact that there was a return in the
-> __alloc_rx_skb.  As a result we weren't reserving headroom or setting the
-> skb->dev in certain cases.  This change corrects that by adding a couple of
-> jump labels to jump to depending on __alloc_skb either succeeding or failing.
+On 05/13/2015 11:20 PM, Eric Dumazet wrote:
+...
+> Is qdisc_pkt_len_init() still inlined, now it has 2 callers ?
 >
-> Fixes: 9451980a6646 ("net: Use cached copy of pfmemalloc to avoid accessing page")
-> Reported-by: Felipe Balbi <balbi@ti.com>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> People using policers on ingress are very often disabling GRO for
+> various historical reasons.
 
-Tested this on top of next-20150513 on an ARM/OMAP
-(am335x-boneblack.dts) an it fixes the boot problem for me.
+Yes, tested policer and for getting it working on my side, GRO needs
+to be off.
 
-Tested-by: Kevin Hilman <khilman@linaro.org>
+> Since handle_ing() is very uncommon, I would prefer not slowing down tx
+> just so that GRO ~5% error in ingress is fixed.
 
-Kevin
+I see a callq dc0 <qdisc_pkt_len_init> now. Ok, in that case Florian's
+original version is fine:
+
+   http://patchwork.ozlabs.org/patch/471346/
+
+> I noticed you did not CC me, don't be afraid to include me next time one
+> of my commit is referred in a changelog ;)
+
+Hmm, I did Cc you. ;)
+
+To:	davem@davemloft.net
+Cc:	fw@strlen.de, ast@plumgrid.com, jhs@mojatatu.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	daniel@iogearbox.net
+
+Thanks,
+Daniel
