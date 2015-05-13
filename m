@@ -1,45 +1,38 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next v1 4/7] amd-xgbe: Move the PHY support into amd-xgbe
-Date: Wed, 13 May 2015 09:01:36 -0500
-Message-ID: <55535940.1040300@amd.com>
-References: <20150512192229.14091.34354.stgit@tlendack-t1.amdoffice.net>
- <20150512192254.14091.4167.stgit@tlendack-t1.amdoffice.net>
- <55527C8B.1040105@gmail.com>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH] carl9170: match wait_for_completion_timeout return type
+Date: Wed, 13 May 2015 16:40:41 +0200
+Message-ID: <CAAd0S9D_5QrKJWcwGYHSvg3jJRpBFG1mRdHDrUOMcOM9+PXLyg@mail.gmail.com>
+References: <1431454718-23701-1-git-send-email-hofrat@osadl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Nicholas Mc Guire <hofrat@osadl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0124.outbound.protection.outlook.com ([207.46.100.124]:11808
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933657AbbEMOBr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 10:01:47 -0400
-In-Reply-To: <55527C8B.1040105@gmail.com>
+Received: from mail-ie0-f172.google.com ([209.85.223.172]:33334 "EHLO
+	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933442AbbEMOkm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 10:40:42 -0400
+In-Reply-To: <1431454718-23701-1-git-send-email-hofrat@osadl.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2015 05:19 PM, Florian Fainelli wrote:
-> On 12/05/15 12:22, Tom Lendacky wrote:
->> The AMD XGBE device is intended to work with a specific integrated PHY
->> and that PHY is not meant to be a standalone PHY for use by other
->> devices. As such this patch removes the phylib driver and implements
->> the PHY support in the amd-xgbe driver (the majority of the logic from
->> the phylib driver is moved into the amd-xgbe driver).
+On Tue, May 12, 2015 at 8:18 PM, Nicholas Mc Guire <hofrat@osadl.org> wrote:
+> Return type of wait_for_completion_timeout is unsigned long not int.
+> An appropriately named unsigned long is added, and the assignments
+> as well as error checking fixed up.
 >
-> Did not you submit a similar patch a while ago and David asked to keep
-> the PHY driver separate? Even though the internal PHY driver might not
-> be reusable on another platform, having your Ethernet driver implement a
-> PHY library driver seems like a potential layering issue.
-
-I interpreted what David said was that he asked to keep it separate
-because I was still using the phy_device structure and calling into the
-phy library API. This patch does not use the phy library API. I believe
-what I'm doing now is no different than what other NIC drivers do that
-manage their PHY(s) on integrated cards (e.g. ixgbe).
-
-Thanks,
-Tom
-
+> API conformance testing for completions with coccinelle spatches are being
+> used to locate API usage inconsistencies:
+> ./drivers/net/wireless/ath/carl9170/usb.c:675
+>         int return assigned to unsigned long
 >
+> Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+> CONFIG_CARL9170=m
+>
+> Patch is against 4.1-rc3 (localversion-next is -next-20150512)
+>
+> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+Acked-by: Christian Lamparter <chunkeey@googlemail.com>
