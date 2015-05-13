@@ -1,55 +1,33 @@
-From: Justin Cormack <justin@myriabit.com>
-Subject: [PATCH net-next] fix missing copy_from_user in macvtap
-Date: Wed, 13 May 2015 19:19:02 +0100
-Message-ID: <1431541142.3278.10.camel@myriabit.com>
-References: <1431370810.3278.4.camel@myriabit.com>
-	 <20150512.230121.330638562727327262.davem@davemloft.net>
-	 <1431516916.3278.8.camel@myriabit.com>
-	 <20150513.120956.970928701180963590.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] switchdev: don't use anonymous union on
+ switchdev attr/obj structs
+Date: Wed, 13 May 2015 14:21:11 -0400 (EDT)
+Message-ID: <20150513.142111.2017464915353018530.davem@davemloft.net>
+References: <1431541011-53025-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, ogerlitz@mellanox.com
+To: sfeldma@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aibo.runbox.com ([91.220.196.211]:37943 "EHLO aibo.runbox.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752183AbbEMSTf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 14:19:35 -0400
-In-Reply-To: <20150513.120956.970928701180963590.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55808 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753692AbbEMSVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 14:21:16 -0400
+In-Reply-To: <1431541011-53025-1-git-send-email-sfeldma@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix missing copy_from_user in macvtap SIOCSIFHWADDR ioctl.
+From: sfeldma@gmail.com
+Date: Wed, 13 May 2015 11:16:50 -0700
 
-Signed-off-by: Justin Cormack <justin@netbsd.org>
+> From: Scott Feldman <sfeldma@gmail.com>
+> 
+> Older gcc versions (e.g.  gcc version 4.4.6) don't like anonymous unions
+> which was causing build issues on the newly added switchdev attr/obj
+> structs.  Fix this by using named union on structs.
+> 
+> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index c8a2389..483afb1 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -1006,6 +1006,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 	unsigned int __user *up = argp;
- 	unsigned short u;
- 	int __user *sp = argp;
-+	struct sockaddr sa;
- 	int s;
- 	int ret;
- 
-@@ -1119,13 +1120,15 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		return ret;
- 
- 	case SIOCSIFHWADDR:
-+		if (copy_from_user(&sa, &ifr->ifr_hwaddr, sizeof(sa)))
-+			return -EFAULT;
- 		rtnl_lock();
- 		vlan = macvtap_get_vlan(q);
- 		if (!vlan) {
- 			rtnl_unlock();
- 			return -ENOLINK;
- 		}
--		ret = dev_set_mac_address(vlan->dev, &ifr->ifr_hwaddr);
-+		ret = dev_set_mac_address(vlan->dev, &sa);
- 		macvtap_put_vlan(vlan);
- 		rtnl_unlock();
- 		return ret;
+Applied, thanks.
