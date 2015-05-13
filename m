@@ -1,73 +1,53 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net 1/2] ipv6: do not delete previously existing ECMP
- routes if add fails
-Date: Wed, 13 May 2015 14:49:40 +0200
-Message-ID: <20150513124940.GB27366@unicorn.suse.cz>
-References: <cover.1431500953.git.mkubecek@suse.cz>
- <4e3d075f2be93d9655bc1372a107584368a29eab.1431500953.git.mkubecek@suse.cz>
- <55534389.8070307@6wind.com>
+From: Joao Martins <Joao.Martins@neclab.eu>
+Subject: Re: [Xen-devel] [RFC PATCH 00/13] Persistent grant maps for xen net
+ drivers
+Date: Wed, 13 May 2015 13:01:51 +0000
+Message-ID: <88CC54BC-E6CB-4938-8810-3D371FE07493@neclab.eu>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <55532C86.8020409@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <55534389.8070307@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wei.liu2@citrix.com" <wei.liu2@citrix.com>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.neclab.eu ([195.37.70.40]:56086 "EHLO mailer1.neclab.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933410AbbEMNCG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 09:02:06 -0400
+In-Reply-To: <55532C86.8020409@citrix.com>
+Content-Language: en-US
+Content-ID: <1A42655685B24944B70E95712D858EDA@office.hd>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 13, 2015 at 02:28:57PM +0200, Nicolas Dichtel wrote:
-> Le 13/05/2015 11:50, Michal Kubecek a =E9crit :
-> >If adding a nexthop of an IPv6 multipath route fails, comment in
-> >ip6_route_multipath() says we are going to delete all nexthops alrea=
-dy
-> >added. However, current implementation deletes even the routes it
-> >hasn't even tried to add yet. For example, running
-> >
-> >   ip route add 1234:5678::/64 \
-> >       nexthop via fe80::aa dev dummy1 \
-> >       nexthop via fe80::bb dev dummy1 \
-> >       nexthop via fe80::cc dev dummy1
-> >
-> >twice results in removing all routes first command added.
-> >
-> >Limit the second (delete) run to nexthops that succeeded in the firs=
-t
-> >(add) run.
-> >
-> >Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECM=
-P)")
-> >Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> >---
-> >  net/ipv6/route.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> >diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> >index d3588885f097..18b92c05b541 100644
-> >--- a/net/ipv6/route.c
-> >+++ b/net/ipv6/route.c
-> >@@ -2536,6 +2536,7 @@ beginning:
-> >  				 * next hops that have been already added.
-> >  				 */
-> >  				add =3D 0;
-> >+				remaining =3D cfg->fc_mp_len - remaining;
-> >  				goto beginning;
-> Not sure to understand your fix. At the label beginning, the code is:
->=20
-> beginning:
->         rtnh =3D (struct rtnexthop *)cfg->fc_mp;
->         remaining =3D cfg->fc_mp_len;
->=20
-> Hence, 'remaining' will be overridden. How does your patch work?
 
-It does not, sorry. I'm still trying to find out what did I wrong while
-testing. I'll need to move the initialization of remaining above the
-label.
+On 13 May 2015, at 12:50, David Vrabel <david.vrabel@citrix.com> wrote:
 
-                                                         Michal Kubecek
+> On 12/05/15 18:18, Joao Martins wrote:
+>> 
+>> Packet I/O Tests:
+>> 
+>> Measured on a Intel Xeon E5-1650 v2, Xen 4.5, no HT. Used pktgen "burst 1"
+>> and "clone_skbs 100000" (to avoid alloc skb overheads) with various pkt
+>> sizes. All tests are DomU <-> Dom0, unless specified otherwise.
+> 
+> Are all these measurements with a single domU with a single VIF?
+> 
+> The biggest problem with a persistent grant method is the amount of
+> grant table and maptrack resources it requires.  How well does this
+> scale to 1000s of VIFs?
+
+Correct. I was more focused on throughput benefits with persistent grants,
+as opposed to scalability with a large number of guests. I will do more tests
+with more guests and provide you the numbers. Most likely it won't scale to
+that numbers of VIFs, given that the maptrack size increases much quicker 
+(nr_vifs * 512 * nr_queues grants mapped) thus I also added the option of not
+exposing "feature-persistent" if xen-netback.max_persistent_gnts module param is
+set to 0. I am aware of these issues with persistent grants, but the case I had
+in mind, was fewer VMs with higher throughput, which I believe to be the compromise
+with persistent grants.
