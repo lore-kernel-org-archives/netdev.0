@@ -1,24 +1,22 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 3/4] ozwpan: divide-by-zero leading to panic
-Date: Wed, 13 May 2015 20:33:33 +0200
-Message-ID: <1431542014-3239-4-git-send-email-Jason@zx2c4.com>
+Subject: [PATCH 4/4] ozwpan: unchecked signed subtraction leads to DoS
+Date: Wed, 13 May 2015 20:33:34 +0200
+Message-ID: <1431542014-3239-5-git-send-email-Jason@zx2c4.com>
 References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
 To: shigekatsu.tateno@atmel.com, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, oss-security@lists.openwall.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:55022 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932862AbbEMSec (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 14:34:32 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A network supplied parameter was not checked before division, leading to
-a divide-by-zero. Since this happens in the softirq path, it leads to a
-crash. A PoC follows below, which requires the ozprotocol.h file from
-this module.
+The subtraction here was using a signed integer and did not have any
+bounds checking at all. This commit adds proper bounds checking, made
+easy by use of an unsigned integer. This way, a single packet won't be
+able to remotely trigger a massive loop, locking up the system for a
+considerable amount of time. A PoC follows below, which requires
+ozprotocol.h from this module.
 
 =-=-=-=-=-=
 
@@ -139,7 +137,7 @@ int main(int argc, char *argv[])
 		},
 		.oz_elt2 = {
 			.type = OZ_ELT_APP_DATA,
-			.length = sizeof(struct oz_multiple_fixed)
+			.length = sizeof(struct oz_multiple_fixed) - 3
 		},
 		.oz_multiple_fixed = {
 			.app_id = OZ_APPID_USB,
@@ -147,7 +145,7 @@ int main(int argc, char *argv[])
 			.type = OZ_USB_ENDPOINT_DATA,
 			.endpoint = 0,
 			.format = OZ_DATA_F_MULTIPLE_FIXED,
-			.unit_size = 0,
+			.unit_size = 1,
 			.data = {0}
 		}
 	};
@@ -167,24 +165,27 @@ int main(int argc, char *argv[])
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 ---
- drivers/staging/ozwpan/ozusbsvc1.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/staging/ozwpan/ozusbsvc1.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/staging/ozwpan/ozusbsvc1.c b/drivers/staging/ozwpan/ozusbsvc1.c
-index cd6c63e..2e67956 100644
+index 2e67956..934a571 100644
 --- a/drivers/staging/ozwpan/ozusbsvc1.c
 +++ b/drivers/staging/ozwpan/ozusbsvc1.c
-@@ -326,7 +326,10 @@ static void oz_usb_handle_ep_data(struct oz_usb_ctx *usb_ctx,
+@@ -326,11 +326,13 @@ static void oz_usb_handle_ep_data(struct oz_usb_ctx *usb_ctx,
  			struct oz_multiple_fixed *body =
  				(struct oz_multiple_fixed *)data_hdr;
  			u8 *data = body->data;
--			int n = (len - sizeof(struct oz_multiple_fixed)+1)
-+			int n;
-+			if (!body->unit_size)
-+				break;
-+			n = (len - sizeof(struct oz_multiple_fixed)+1)
+-			int n;
++			unsigned int n;
+ 			if (!body->unit_size)
+ 				break;
+ 			n = (len - sizeof(struct oz_multiple_fixed)+1)
  				/ body->unit_size;
++			if (n > len / body->unit_size)
++				break;
  			while (n--) {
  				oz_hcd_data_ind(usb_ctx->hport, body->endpoint,
+ 					data, body->unit_size);
 -- 
 2.3.6
