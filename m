@@ -1,56 +1,104 @@
-From: Tim Beale <tim.beale@alliedtelesis.co.nz>
-Subject: [PATCH] net: phy: Make sure PHY_RESUMING state change is always processed
-Date: Wed, 13 May 2015 13:55:04 +1200
-Message-ID: <1431482104-1030-1-git-send-email-tim.beale@alliedtelesis.co.nz>
-Cc: netdev@vger.kernel.org, Tim Beale <tim.beale@alliedtelesis.co.nz>
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:40789 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964909AbbEMBzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 21:55:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Wong <normalperson-rMlxZR9MS24@public.gmane.org>
+Subject: [RFC] net: support SOCK_DONTWAIT for non-blocking accept4
+Date: Wed, 13 May 2015 02:37:12 +0000
+Message-ID: <20150513023712.GA4206@dcvr.yhbt.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If phy_start_aneg() was called while the phydev is in the PHY_RESUMING
-state, then its state would immediately transition to PHY_AN (or
-PHY_FORCING). This meant the phy_state_machine() never processed the
-PHY_RESUMING state change, which meant interrupts weren't enabled for the
-PHY. If the PHY used low-power mode (i.e. using BMCR_PDOWN), then the
-physical link wouldn't get powered up again.
+It may occasionally be useful to share a listen socket between two
+or more tasks with different processing models (blocking and
+non-blocking).
 
-There seems no point for phy_start_aneg() to make the PHY_RESUMING -->
-PHY_AN transition, as the state machine will do this anyway. I'm not sure
-about the case where autoneg is disabled, as my patch will change
-behaviour so that the PHY goes to PHY_NOLINK instead of PHY_FORCING. An
-alternative solution would be to move the phy_config_interrupt() and
-phy_resume() work out of the state machine and into phy_start().
+This may happen during a software upgrade when an older process
+(using blocking I/O) shares the listen socket with a new process
+which wants to use non-blocking I/O, but still provides a path for
+the old process to fall back to blocking I/O and avoiding poll()
+for exclusive wakeup if the upgrade does not work out.
 
-The background behind this: we're running linux v3.16.7 and from user-space
-we want to enable the eth port (i.e. do a SIOCSIFFLAGS ioctl with the
-IFF_UP flag) and immediately afterward set the interface's speed/duplex.
-Enabling the interface calls .ndo_open() then phy_start() and the PHY
-transitions PHY_HALTED --> PHY_RESUMING. Setting the speed/duplex ends up
-calling phy_ethtool_sset(), which calls phy_start_aneg() (meanwhile the
-phy_state_machine() hasn't processed the PHY_RESUMING state change yet).
+Proposed manpage addtion:
 
-Signed-off-by: Tim Beale <tim.beale@alliedtelesis.co.nz>
+  SOCK_DONTWAIT
+
+  Enable non-blocking operation on the listen socket for this call only.
+  Unlike SOCK_NONBLOCK, this does not affect the accepted socket, nor does
+  it change the file status flag of the listen socket for other calls.
+
+Signed-off-by: Eric Wong <normalperson-rMlxZR9MS24@public.gmane.org>
 ---
- drivers/net/phy/phy.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  RFC since this seems a bit esoteric, and I'm not sure if it'd be
+  useful to others.  I've certainly wished I've had it a few times
+  along with an opposite SOCK_MUSTWAIT flag to ignore O_NONBLOCK on
+  a listen socket.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 52cd8db..9855b96 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -465,7 +465,7 @@ int phy_start_aneg(struct phy_device *phydev)
- 	if (err < 0)
- 		goto out_unlock;
+ include/linux/net.h |  3 +++
+ net/socket.c        | 10 ++++++++--
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 17d8339..9a71654 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -76,6 +76,9 @@ enum sock_type {
+ #ifndef SOCK_NONBLOCK
+ #define SOCK_NONBLOCK	O_NONBLOCK
+ #endif
++#ifndef SOCK_DONTWAIT
++#define SOCK_DONTWAIT	MSG_DONTWAIT
++#endif
  
--	if (phydev->state != PHY_HALTED) {
-+	if (phydev->state != PHY_HALTED && phydev->state != PHY_RESUMING) {
- 		if (AUTONEG_ENABLE == phydev->autoneg) {
- 			phydev->state = PHY_AN;
- 			phydev->link_timeout = PHY_AN_TIMEOUT;
+ #endif /* ARCH_HAS_SOCKET_TYPES */
+ 
+diff --git a/net/socket.c b/net/socket.c
+index 245330c..52395df 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1294,6 +1294,7 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
+ 	BUILD_BUG_ON((SOCK_MAX | SOCK_TYPE_MASK) != SOCK_TYPE_MASK);
+ 	BUILD_BUG_ON(SOCK_CLOEXEC & SOCK_TYPE_MASK);
+ 	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
++	BUILD_BUG_ON(SOCK_DONTWAIT & SOCK_TYPE_MASK);
+ 
+ 	flags = type & ~SOCK_TYPE_MASK;
+ 	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+@@ -1502,8 +1503,9 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 	struct file *newfile;
+ 	int err, len, newfd, fput_needed;
+ 	struct sockaddr_storage address;
++	int f_flags;
+ 
+-	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
++	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK | SOCK_DONTWAIT))
+ 		return -EINVAL;
+ 
+ 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
+@@ -1513,6 +1515,10 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 	if (!sock)
+ 		goto out;
+ 
++	f_flags = sock->file->f_flags;
++	if (flags & SOCK_DONTWAIT)
++		f_flags |= O_NONBLOCK;
++
+ 	err = -ENFILE;
+ 	newsock = sock_alloc();
+ 	if (!newsock)
+@@ -1545,7 +1551,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
+ 	if (err)
+ 		goto out_fd;
+ 
+-	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
++	err = sock->ops->accept(sock, newsock, f_flags);
+ 	if (err < 0)
+ 		goto out_fd;
+ 
 -- 
-1.9.1
+EW
