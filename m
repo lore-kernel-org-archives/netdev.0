@@ -1,73 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 13 May 2015 13:05:23 +1000
-Message-ID: <20150513130523.714f64a6@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: deinline netif_tx_stop_all_queues(), remove
+ WARN_ON in netif_tx_stop_queue()
+Date: Tue, 12 May 2015 23:05:58 -0400 (EDT)
+Message-ID: <20150512.230558.437567720437090973.davem@davemloft.net>
+References: <1431371873-26969-1-git-send-email-dvlasenk@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/9GVYvmhXQXJ5d/UViK6uq7J"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, alexander.duyck@gmail.com,
+	joe@perches.com, jpirko@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: dvlasenk@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431371873-26969-1-git-send-email-dvlasenk@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/9GVYvmhXQXJ5d/UViK6uq7J
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+From: Denys Vlasenko <dvlasenk@redhat.com>
+Date: Mon, 11 May 2015 21:17:53 +0200
 
-Hi all,
+> These functions compile to 60 bytes of machine code each.
+> With this .config: http://busybox.net/~vda/kernel_config
+> there are 617 calls of netif_tx_stop_queue()
+> and 49 calls of netif_tx_stop_all_queues() in vmlinux.
+> 
+> To fix this, remove WARN_ON in netif_tx_stop_queue()
+> as suggested by davem, and deinline netif_tx_stop_all_queues().
+> 
+> Change in code size is about 20k:
+> 
+>    text      data      bss       dec     hex filename
+> 82426986 22255416 20627456 125309858 77813a2 vmlinux.before
+> 82406248 22255416 20627456 125289120 777c2a0 vmlinux
+> 
+> gcc-4.7.2 still creates deinlined version of netif_tx_stop_queue
+> sometimes:
+> 
+> $ nm --size-sort vmlinux | grep netif_tx_stop_queue | wc -l
+> 190
+> 
+> ffffffff81b558a8 <netif_tx_stop_queue>:
+> ffffffff81b558a8:       55                      push   %rbp
+> ffffffff81b558a9:       48 89 e5                mov    %rsp,%rbp
+> ffffffff81b558ac:       f0 80 8f e0 01 00 00    lock orb $0x1,0x1e0(%rdi)
+> ffffffff81b558b3:       01
+> ffffffff81b558b4:       5d                      pop    %rbp
+> ffffffff81b558b5:       c3                      retq
+> 
+> This needs additional fixing.
+> 
+> Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/core/net_namespace.c between commit e3d8ecb70e16 ("netns: return
-RTM_NEWNSID instead of RTM_GETNSID on a get") from the net tree and
-commit cab3c8ec8d57 ("netns: always provide the id to rtnl_net_fill()")
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc net/core/net_namespace.c
-index 572af0011997,a665bf490c88..000000000000
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@@ -600,8 -639,9 +639,9 @@@ static int rtnl_net_getid(struct sk_buf
-  		goto out;
-  	}
- =20
-+ 	id =3D peernet2id(net, peer);
-  	err =3D rtnl_net_fill(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq, 0,
-- 			    RTM_NEWNSID, net, peer, -1);
- -			    RTM_GETNSID, net, id);
-++			    RTM_NEWNSID, net, id);
-  	if (err < 0)
-  		goto err_out;
- =20
-
---Sig_/9GVYvmhXQXJ5d/UViK6uq7J
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJVUr94AAoJEMDTa8Ir7ZwVeLkP/0aOKs10PWv0SVofj54XK2jF
-uGwjDZ7IvXg8h7Y2pdXiMDLtzzzWV/907WbM3r+ei4gE5N3dIiV/RDmBRFts8lXC
-rD2GjeRV6zHSQeZZGX3Tz2MxnyP2kt02WfbSmkZ5bJ0jaFTfEdjt/OhGm7U+IRlQ
-r/jOy0Qb2+DTY5W5kbRkSRgysCKZCFRtZS/1a/erIuw2yyp2K0AJS+ir5Xa2aV0s
-t3EbGuXvBpc20U/SRGsJccVowsiV3tcsh0oUAXyRvwvsuGbDLiiL8HkI2RiZ8LC4
-JxsVEaXIl24TafJFd3WhV3uBqCuGgtSC2TQF9TW3p2Jw1pjntlQGuGa2E0YIaEo4
-vjCeiz5R9pM9dzWfV3iYpIgX4zxNgQhRXz61ZiV8hMNHb/4290vzSYs45VOdlUQZ
-txjqDpNxjg0E/Jn0LIenLDoRib297KVF0hbjlsLWizxkxNbYTSVIbtXmQOH//ace
-eUeRyR0srC5afT7L1126PjFfGKTSnO49XoBbgpIjUoD7aD5/1XyOP/M2ZALDKTvC
-mKXxAde31bdzJmysH0qqrGGa7V3L03H3drT2iwz5RhJHYjDEsvec+Dwf8AxA9ZG/
-thTqEQz5sR1r/cbs1gsK/iCiAiC/RBLFTjG9QChpLJdN8iUyoWykLfhkwRp0FH9l
-fouUetnODoEopRkSp06z
-=r3AZ
------END PGP SIGNATURE-----
-
---Sig_/9GVYvmhXQXJ5d/UViK6uq7J--
+Applied, thank you.
