@@ -1,116 +1,153 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: gone with the spring cleanup..
-Date: Wed, 13 May 2015 12:12:45 +0300
-Message-ID: <5553158D.7000108@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Scott Feldman <sfeldma@gmail.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: [PATCH iproute2] ss: Show more info (ring,fanout) for packet socks
+Date: Wed, 13 May 2015 12:39:26 +0300
+Message-ID: <1431509966-5054-1-git-send-email-vadim4j@gmail.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0058.outbound.protection.outlook.com ([157.55.234.58]:58560
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754341AbbEMJN3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 05:13:29 -0400
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:33215 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933372AbbEMJkH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 05:40:07 -0400
+Received: by wgin8 with SMTP id n8so37410169wgi.0
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 02:40:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Scott, Jiri
+From: Vadim Kochan <vadim4j@gmail.com>
 
-So, following the spring cleanup, my builder (which turns to have pretty 
-old GCC 4.4.6) isn't functional anymore w.r.t net-next... I checked on 
-different station and it works on GCC 4.9.2.
+Print such info like version, tx/rx ring, fanout for
+packet sockets when '-e' option was specified.
 
-I would love us to get this fixed, please let me know if you need more 
-info, below is the build verbose command line build error.
+Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
+---
+Would it be problematic for parsers as it uses '-e' option? Or
+may be it would be better to use '-e -e' ?
 
-Few more pieces of info, changing -std=gnu89to -std=gnu99didn't help. 
-Also the command line where it does work (4.9.2) uses -std=gnu89
+ misc/ss.c | 81 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 79 insertions(+), 2 deletions(-)
 
-Or.
-
-
-
-gcc -Wp,-MD,net/switchdev/.switchdev.o.d  -nostdinc -isystem 
-/usr/lib/gcc/x86_64-redhat-linux/4.4.6/include -I./arch/x86/include 
--Iarch/x86/include/generated/uapi -Iarch/x86/include/generated  
--Iinclude -I./arch/x86/include/uapi -Iarch/x86/include/generated/uapi 
--I./include/uapi -Iinclude/generated/uapi -include 
-./include/linux/kconfig.h -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes 
--Wno-trigraphs -fno-strict-aliasing -fno-common 
--Werror-implicit-function-declaration -Wno-format-security -std=gnu89 
--m64 -mno-80387 -mno-fp-ret-in-387 -mtune=generic -mno-red-zone 
--mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args 
--DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1 
--DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_SSSE3=1 
--DCONFIG_AS_CRC32=1 -DCONFIG_AS_AVX=1 -pipe -Wno-sign-compare 
--fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-sse2 -mno-3dnow 
--mno-avx -fno-delete-null-pointer-checks -Os -Wframe-larger-than=2048 
--fno-stack-protector -Wno-unused-but-set-variable 
--fno-omit-frame-pointer -fno-optimize-sibling-calls 
--fno-var-tracking-assignments -g -Wdeclaration-after-statement 
--Wno-pointer-sign -fno-strict-overflow -fconserve-stack 
--Werror=implicit-int -Werror=strict-prototypes -DCC_HAVE_ASM_GOTO 
--D"KBUILD_STR(s)=#s" -D"KBUILD_BASENAME=KBUILD_STR(switchdev)" 
--D"KBUILD_MODNAME=KBUILD_STR(switchdev)" -c -o 
-net/switchdev/.tmp_switchdev.o net/switchdev/switchdev.c
-net/switchdev/switchdev.c: In function 'switchdev_fib_ipv4_add':
-net/switchdev/switchdev.c:646: error: unknown field 'ipv4_fib' specified 
-in initializer
-net/switchdev/switchdev.c:646: warning: braces around scalar initializer
-net/switchdev/switchdev.c:646: warning: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:647: error: field name not in record or union 
-initializer
-net/switchdev/switchdev.c:647: error: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:648: error: field name not in record or union 
-initializer
-net/switchdev/switchdev.c:648: error: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:648: warning: excess elements in scalar 
-initializer
-net/switchdev/switchdev.c:648: warning: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:649: error: field name not in record or union 
-initializer
-net/switchdev/switchdev.c:649: error: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:649: warning: excess elements in scalar 
-initializer
-net/switchdev/switchdev.c:649: warning: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:650: error: field name not in record or union 
-initializer
-net/switchdev/switchdev.c:650: error: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:650: warning: excess elements in scalar 
-initializer
-net/switchdev/switchdev.c:650: warning: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:651: error: field name not in record or union 
-initializer
-net/switchdev/switchdev.c:651: error: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:651: warning: excess elements in scalar 
-initializer
-net/switchdev/switchdev.c:651: warning: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:652: error: field name not in record or union 
-initializer
-net/switchdev/switchdev.c:652: error: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:652: warning: excess elements in scalar 
-initializer
-net/switchdev/switchdev.c:652: warning: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:653: error: field name not in record or union 
-initializer
-net/switchdev/switchdev.c:653: error: (near initialization for 
-'fib_obj.trans')
-net/switchdev/switchdev.c:653: warning: excess elements in scalar 
-initializer
-net/switchdev/switchdev.c:653: warning: (near initialization for 
-'fib_obj.trans')
+diff --git a/misc/ss.c b/misc/ss.c
+index 870cad1..74797a8 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2834,13 +2834,27 @@ static int packet_stats_print(struct sockstat *s, const struct filter *f)
+ 	return 0;
+ }
+ 
++static void packet_show_ring(struct packet_diag_ring *ring)
++{
++	printf("blk_size:%d", ring->pdr_block_size);
++	printf(",blk_nr:%d", ring->pdr_block_nr);
++	printf(",frm_size:%d", ring->pdr_frame_size);
++	printf(",frm_nr:%d", ring->pdr_frame_nr);
++	printf(",tmo:%d", ring->pdr_retire_tmo);
++	printf(",features:0x%x", ring->pdr_features);
++}
++
+ static int packet_show_sock(const struct sockaddr_nl *addr,
+ 		struct nlmsghdr *nlh, void *arg)
+ {
+ 	const struct filter *f = arg;
+ 	struct packet_diag_msg *r = NLMSG_DATA(nlh);
++	struct packet_diag_info *pinfo = NULL;
++	struct packet_diag_ring *ring_rx = NULL, *ring_tx = NULL;
+ 	struct rtattr *tb[PACKET_DIAG_MAX+1];
+ 	struct sockstat stat = {};
++	uint32_t fanout = 0;
++	bool has_fanout = false;
+ 
+ 	parse_rtattr(tb, PACKET_DIAG_MAX, (struct rtattr*)(r+1),
+ 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+@@ -2861,16 +2875,78 @@ static int packet_show_sock(const struct sockaddr_nl *addr,
+ 	}
+ 
+ 	if (tb[PACKET_DIAG_INFO]) {
+-		struct packet_diag_info *pinfo = RTA_DATA(tb[PACKET_DIAG_INFO]);
++		pinfo = RTA_DATA(tb[PACKET_DIAG_INFO]);
+ 		stat.lport = stat.iface = pinfo->pdi_index;
+ 	}
+ 
+ 	if (tb[PACKET_DIAG_UID])
+ 		stat.uid = *(__u32 *)RTA_DATA(tb[PACKET_DIAG_UID]);
+ 
++	if (tb[PACKET_DIAG_RX_RING])
++		ring_rx = RTA_DATA(tb[PACKET_DIAG_RX_RING]);
++
++	if (tb[PACKET_DIAG_TX_RING])
++		ring_tx = RTA_DATA(tb[PACKET_DIAG_TX_RING]);
++
++	if (tb[PACKET_DIAG_FANOUT]) {
++		has_fanout = true;
++		fanout = *(uint32_t *)RTA_DATA(tb[PACKET_DIAG_FANOUT]);
++	}
++
+ 	if (packet_stats_print(&stat, f))
+ 		return 0;
+ 
++	if (show_details) {
++		if (pinfo) {
++			printf("\n\tver:%d", pinfo->pdi_version);
++			printf(" cpy_thresh:%d", pinfo->pdi_copy_thresh);
++			printf(" flags( ");
++			if (pinfo->pdi_flags & PDI_RUNNING)
++				printf("running");
++			if (pinfo->pdi_flags & PDI_AUXDATA)
++				printf(" auxdata");
++			if (pinfo->pdi_flags & PDI_ORIGDEV)
++				printf(" origdev");
++			if (pinfo->pdi_flags & PDI_VNETHDR)
++				printf(" vnethdr");
++			if (pinfo->pdi_flags & PDI_LOSS)
++				printf(" loss");
++			if (!pinfo->pdi_flags)
++				printf("0");
++			printf(" )");
++		}
++		if (ring_rx) {
++			printf("\n\tring_rx(");
++			packet_show_ring(ring_rx);
++			printf(")");
++		}
++		if (ring_tx) {
++			printf("\n\tring_tx(");
++			packet_show_ring(ring_tx);
++			printf(")");
++		}
++		if (has_fanout) {
++			uint16_t type = (fanout >> 16) & 0xffff;
++
++			printf("\n\tfanout(");
++			printf("id:%d,", fanout & 0xff);
++			printf("type:0x%x", type);
++			if (type == 0)
++				printf("(hash)");
++			else if (type == 1)
++				printf("(lb)");
++			else if (type == 2)
++				printf("(cpu)");
++			else if (type == 3)
++				printf("(rollover)");
++			else if (type == 4)
++				printf("(random)");
++			else if (type == 5)
++				printf("(qm)");
++			printf(")");
++		}
++	}
++
+ 	if (show_bpf && tb[PACKET_DIAG_FILTER]) {
+ 		struct sock_filter *fil =
+ 		       RTA_DATA(tb[PACKET_DIAG_FILTER]);
+@@ -2894,7 +2970,8 @@ static int packet_show_netlink(struct filter *f)
+ 	DIAG_REQUEST(req, struct packet_diag_req r);
+ 
+ 	req.r.sdiag_family = AF_PACKET;
+-	req.r.pdiag_show = PACKET_SHOW_INFO | PACKET_SHOW_MEMINFO | PACKET_SHOW_FILTER;
++	req.r.pdiag_show = PACKET_SHOW_INFO | PACKET_SHOW_MEMINFO |
++		PACKET_SHOW_FILTER | PACKET_SHOW_RING_CFG | PACKET_SHOW_FANOUT;
+ 
+ 	return handle_netlink_request(f, &req.nlh, sizeof(req), packet_show_sock);
+ }
+-- 
+2.3.1
