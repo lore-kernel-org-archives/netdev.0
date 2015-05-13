@@ -1,53 +1,47 @@
-From: Joao Martins <Joao.Martins@neclab.eu>
-Subject: Re: [Xen-devel] [RFC PATCH 00/13] Persistent grant maps for xen net
- drivers
-Date: Wed, 13 May 2015 13:01:51 +0000
-Message-ID: <88CC54BC-E6CB-4938-8810-3D371FE07493@neclab.eu>
-References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <55532C86.8020409@citrix.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: pktgen scripts
+Date: Wed, 13 May 2015 15:02:37 +0200
+Message-ID: <20150513150237.0abf3628@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wei.liu2@citrix.com" <wei.liu2@citrix.com>,
-	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Robert Olsson <robert@herjulf.net>,
+	Ben Greear <greearb@candelatech.com>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.neclab.eu ([195.37.70.40]:56086 "EHLO mailer1.neclab.eu"
+Received: from mx1.redhat.com ([209.132.183.28]:36827 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933410AbbEMNCG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 09:02:06 -0400
-In-Reply-To: <55532C86.8020409@citrix.com>
-Content-Language: en-US
-Content-ID: <1A42655685B24944B70E95712D858EDA@office.hd>
+	id S933410AbbEMNDS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 09:03:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Alexei,
 
-On 13 May 2015, at 12:50, David Vrabel <david.vrabel@citrix.com> wrote:
+I've cleaned up my pktgen scripts[1].  Do you think we should add them
+instead of the sample scripts in "samples/pktgen/pktgen.conf-*" ?
 
-> On 12/05/15 18:18, Joao Martins wrote:
->> 
->> Packet I/O Tests:
->> 
->> Measured on a Intel Xeon E5-1650 v2, Xen 4.5, no HT. Used pktgen "burst 1"
->> and "clone_skbs 100000" (to avoid alloc skb overheads) with various pkt
->> sizes. All tests are DomU <-> Dom0, unless specified otherwise.
-> 
-> Are all these measurements with a single domU with a single VIF?
-> 
-> The biggest problem with a persistent grant method is the amount of
-> grant table and maptrack resources it requires.  How well does this
-> scale to 1000s of VIFs?
+The main difference is I'm replacing the "pgset" with functions not
+needing global variable $PGDEV.  Three new functions reflect pktgen's
+different components:
+ * pg_ctrl()   control "pgctrl" (/proc/net/pktgen/pgctrl)
+ * pg_thread() control the kernel threads and binding to devices
+ * pg_set()    control setup of individual devices
 
-Correct. I was more focused on throughput benefits with persistent grants,
-as opposed to scalability with a large number of guests. I will do more tests
-with more guests and provide you the numbers. Most likely it won't scale to
-that numbers of VIFs, given that the maptrack size increases much quicker 
-(nr_vifs * 512 * nr_queues grants mapped) thus I also added the option of not
-exposing "feature-persistent" if xen-netback.max_persistent_gnts module param is
-set to 0. I am aware of these issues with persistent grants, but the case I had
-in mind, was fewer VMs with higher throughput, which I believe to be the compromise
-with persistent grants.
+I've named the sample scripts: "pktgen_sample{01,02,03}_desc.sh" in-order
+to suggest a reading order.
+I've also added a script named: "pktgen_bench_xmit_mode_netif_receive.sh"
+which is basically your ingress benchmarking script.
+
+[1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
