@@ -1,104 +1,83 @@
-From: Eric Wong <normalperson-rMlxZR9MS24@public.gmane.org>
-Subject: [RFC] net: support SOCK_DONTWAIT for non-blocking accept4
-Date: Wed, 13 May 2015 02:37:12 +0000
-Message-ID: <20150513023712.GA4206@dcvr.yhbt.net>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when PCI
+ device is assigned
+Date: Tue, 12 May 2015 20:41:48 -0600
+Message-ID: <1431484908.3625.10.camel@redhat.com>
+References: <20150513013550.10328.1416.stgit@bwallan-smackover2.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org
+To: Bruce Allan <bruce.w.allan@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37615 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933300AbbEMClx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 May 2015 22:41:53 -0400
+In-Reply-To: <20150513013550.10328.1416.stgit@bwallan-smackover2.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It may occasionally be useful to share a listen socket between two
-or more tasks with different processing models (blocking and
-non-blocking).
+On Tue, 2015-05-12 at 18:35 -0700, Bruce Allan wrote:
+> A number of PCI device drivers supporting SR-IOV use pci_vfs_assigned() to
+> check if there are any VF devices assigned by a VMM prior to disabling
+> SR-IOV (i.e. bnx2x, be2net, fm10k, i40e, igb, ixgbe, qlcnic).  This check
+> works fine with the legacy device assignment (pci-stub enables the device)
+> which calls pci_set_dev_assigned().  The newer VFIO-based assignment
+> (vfio-pci enables device) doesn't call pci_set_dev_assigned() potentially
+> leading to issues in those drivers when disabling SR-IOV with VFs assigned.
+> 
+> Add calls to pci_[set|clear]_dev_assigned() to set the flag as expected.
+> 
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> ---
+>  drivers/vfio/pci/vfio_pci.c |    4 ++++
+>  1 file changed, 4 insertions(+)
 
-This may happen during a software upgrade when an older process
-(using blocking I/O) shares the listen socket with a new process
-which wants to use non-blocking I/O, but still provides a path for
-the old process to fall back to blocking I/O and avoiding poll()
-for exclusive wakeup if the upgrade does not work out.
 
-Proposed manpage addtion:
+Why should a device exposed to the user be handled differently than a
+device used by a host driver?  The reason the assigned flag exists is
+because legacy KVM device assignment doesn't actually claim the device
+using the driver model, it relies on pci-stub to act as a placeholder to
+prevent other drivers from binding to the device, but pci-stub has no
+visibility to the device usage and will immediately release it
+regardless of it being in use.  vfio-pci participates in the driver
+model, signals the user for the device to be released and blocks until
+it is released.  Beyond that, the assigned flag is a racy hack.  There's
+no locking whatsoever to imply that the flag as any meaning beyond the
+instant that it's tested.  I'd like to see the assigned flag deprecated
+along with legacy KVM device assignment, not perpetuated in newer
+drivers.  The patch is also wrong because we can tell when the device is
+actually opened by the user, not just bound to the vfio-pci driver.
+Thanks,
 
-  SOCK_DONTWAIT
+Alex
 
-  Enable non-blocking operation on the listen socket for this call only.
-  Unlike SOCK_NONBLOCK, this does not affect the accepted socket, nor does
-  it change the file status flag of the listen socket for other calls.
-
-Signed-off-by: Eric Wong <normalperson-rMlxZR9MS24@public.gmane.org>
----
-  RFC since this seems a bit esoteric, and I'm not sure if it'd be
-  useful to others.  I've certainly wished I've had it a few times
-  along with an opposite SOCK_MUSTWAIT flag to ignore O_NONBLOCK on
-  a listen socket.
-
- include/linux/net.h |  3 +++
- net/socket.c        | 10 ++++++++--
- 2 files changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 17d8339..9a71654 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -76,6 +76,9 @@ enum sock_type {
- #ifndef SOCK_NONBLOCK
- #define SOCK_NONBLOCK	O_NONBLOCK
- #endif
-+#ifndef SOCK_DONTWAIT
-+#define SOCK_DONTWAIT	MSG_DONTWAIT
-+#endif
- 
- #endif /* ARCH_HAS_SOCKET_TYPES */
- 
-diff --git a/net/socket.c b/net/socket.c
-index 245330c..52395df 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1294,6 +1294,7 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
- 	BUILD_BUG_ON((SOCK_MAX | SOCK_TYPE_MASK) != SOCK_TYPE_MASK);
- 	BUILD_BUG_ON(SOCK_CLOEXEC & SOCK_TYPE_MASK);
- 	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
-+	BUILD_BUG_ON(SOCK_DONTWAIT & SOCK_TYPE_MASK);
- 
- 	flags = type & ~SOCK_TYPE_MASK;
- 	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
-@@ -1502,8 +1503,9 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 	struct file *newfile;
- 	int err, len, newfd, fput_needed;
- 	struct sockaddr_storage address;
-+	int f_flags;
- 
--	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
-+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK | SOCK_DONTWAIT))
- 		return -EINVAL;
- 
- 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
-@@ -1513,6 +1515,10 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 	if (!sock)
- 		goto out;
- 
-+	f_flags = sock->file->f_flags;
-+	if (flags & SOCK_DONTWAIT)
-+		f_flags |= O_NONBLOCK;
-+
- 	err = -ENFILE;
- 	newsock = sock_alloc();
- 	if (!newsock)
-@@ -1545,7 +1551,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 	if (err)
- 		goto out_fd;
- 
--	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
-+	err = sock->ops->accept(sock, newsock, f_flags);
- 	if (err < 0)
- 		goto out_fd;
- 
--- 
-EW
+> diff --git a/drivers/vfio/pci/vfio_pci.c b/drivers/vfio/pci/vfio_pci.c
+> index 69fab0f..3f368ce 100644
+> --- a/drivers/vfio/pci/vfio_pci.c
+> +++ b/drivers/vfio/pci/vfio_pci.c
+> @@ -956,6 +956,8 @@ static int vfio_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+>  		return ret;
+>  	}
+>  
+> +	pci_set_dev_assigned(pdev);
+> +
+>  	if (vfio_pci_is_vga(pdev)) {
+>  		vga_client_register(pdev, vdev, NULL, vfio_pci_set_vga_decode);
+>  		vga_set_legacy_decoding(pdev,
+> @@ -990,6 +992,8 @@ static void vfio_pci_remove(struct pci_dev *pdev)
+>  	iommu_group_put(pdev->dev.iommu_group);
+>  	kfree(vdev);
+>  
+> +	pci_clear_dev_assigned(pdev);
+> +
+>  	if (vfio_pci_is_vga(pdev)) {
+>  		vga_client_register(pdev, NULL, NULL, NULL);
+>  		vga_set_legacy_decoding(pdev,
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
