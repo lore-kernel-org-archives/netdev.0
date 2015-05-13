@@ -1,32 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netlink & rhashtable status
-Date: Wed, 13 May 2015 13:40:37 +0800
-Message-ID: <20150513054037.GA26595@gondor.apana.org.au>
-References: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
+Date: Wed, 13 May 2015 07:42:50 +0200
+Message-ID: <20150513054250.GA2126@nanopsycho>
+References: <1431494830-4284-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, sfeldma@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:38437 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750909AbbEMFkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 01:40:46 -0400
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:35593 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbbEMFnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 01:43:03 -0400
+Received: by widdi4 with SMTP id di4so182723530wid.0
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 22:43:02 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <1431494830-4284-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 10:30:36PM -0700, Eric Dumazet wrote:
-> 
-> linux-3.17, 3.18, 3.19 and 4.0.2 have issues with netlink/rhashtable,
-> making things like getaddrinfo() not working after a while :
+Wed, May 13, 2015 at 07:27:10AM CEST, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+>RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
+>
+>This patch renames the flag to be consistent with what the user sees.
+>
+>(I will post iproute2 patch if this gets accepted)
+>
+>Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>---
+> include/uapi/linux/rtnetlink.h |    2 +-
+> net/ipv4/fib_trie.c            |    2 +-
+> net/switchdev/switchdev.c      |    6 +++---
+> 3 files changed, 5 insertions(+), 5 deletions(-)
+>
+>diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+>index 974db03..17fb02f 100644
+>--- a/include/uapi/linux/rtnetlink.h
+>+++ b/include/uapi/linux/rtnetlink.h
+>@@ -337,7 +337,7 @@ struct rtnexthop {
+> #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
+> #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
+> #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
+>-#define RTNH_F_EXTERNAL		8	/* Route installed externally	*/
+>+#define RTNH_F_OFFLOAD		8	/* offloaded route */
 
-Do you use namespaces?
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Since this is part of uapi, I believe this is not doable :/
