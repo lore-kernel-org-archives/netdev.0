@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] switchdev: don't use anonymous union on
- switchdev attr/obj structs
-Date: Wed, 13 May 2015 14:21:11 -0400 (EDT)
-Message-ID: <20150513.142111.2017464915353018530.davem@davemloft.net>
-References: <1431541011-53025-1-git-send-email-sfeldma@gmail.com>
+Subject: Re: [PATCH net-next] fix missing copy_from_user in macvtap
+Date: Wed, 13 May 2015 14:21:49 -0400 (EDT)
+Message-ID: <20150513.142149.1845378380922329394.davem@davemloft.net>
+References: <1431516916.3278.8.camel@myriabit.com>
+	<20150513.120956.970928701180963590.davem@davemloft.net>
+	<1431541142.3278.10.camel@myriabit.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, ogerlitz@mellanox.com
-To: sfeldma@gmail.com
+Cc: netdev@vger.kernel.org
+To: justin@myriabit.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55808 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55813 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753692AbbEMSVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 14:21:16 -0400
-In-Reply-To: <1431541011-53025-1-git-send-email-sfeldma@gmail.com>
+	with ESMTP id S1753446AbbEMSVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 14:21:51 -0400
+In-Reply-To: <1431541142.3278.10.camel@myriabit.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: sfeldma@gmail.com
-Date: Wed, 13 May 2015 11:16:50 -0700
+From: Justin Cormack <justin@myriabit.com>
+Date: Wed, 13 May 2015 19:19:02 +0100
 
-> From: Scott Feldman <sfeldma@gmail.com>
+> Fix missing copy_from_user in macvtap SIOCSIFHWADDR ioctl.
 > 
-> Older gcc versions (e.g.  gcc version 4.4.6) don't like anonymous unions
-> which was causing build issues on the newly added switchdev attr/obj
-> structs.  Fix this by using named union on structs.
-> 
-> Signed-off-by: Scott Feldman <sfeldma@gmail.com>
-> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Justin Cormack <justin@netbsd.org>
 
-Applied, thanks.
+Applied.
