@@ -1,74 +1,46 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [patch net-next v3 00/15] introduce programable flow dissector
- and cls_flower
-Date: Wed, 13 May 2015 15:27:59 -0400
-Message-ID: <CALx6S36XpD7VjygyfG1mRpX3xgHyXjDQQYU8tBRCjuRgckQasQ@mail.gmail.com>
-References: <1431435381-7164-1-git-send-email-jiri@resnulli.us>
-	<20150513.152102.606157874586561609.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 1/5] net: Get skb hash over flow_keys
+ structure
+Date: Wed, 13 May 2015 15:30:07 -0400 (EDT)
+Message-ID: <20150513.153007.1923480989811217786.davem@davemloft.net>
+References: <1431444182-3935169-1-git-send-email-tom@herbertland.com>
+	<1431444182-3935169-2-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Thomas Graf <tgraf@suug.ch>, jesse@nicira.com,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	alexander.h.duyck@redhat.com,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Alexei Starovoitov <ast@plumgrid.com>, daniel@iogearbox.net,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	cwang@twopensource.com, john fastabend <john.fastabend@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:35589 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753207AbbEMT17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 15:27:59 -0400
-Received: by igbyr2 with SMTP id yr2so148350644igb.0
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 12:27:59 -0700 (PDT)
-In-Reply-To: <20150513.152102.606157874586561609.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56273 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965125AbbEMTaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 15:30:10 -0400
+In-Reply-To: <1431444182-3935169-2-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 13, 2015 at 3:21 PM, David Miller <davem@davemloft.net> wrote:
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Tue, 12 May 2015 14:56:06 +0200
->
->> Per Davem's request, I prepared this patchset which introduces programmable
->> flow dissector. For current users of flow_keys, there is a wrapper
->> skb_flow_dissect_flow_keys which maintains the previous behaviour.
->> For purposes of cls_flower, couple of new dissection keys were introduced.
->>
->> Note that this dissector can be also eventually used by openvswitch code.
->>
->> Also, as a next step, I plan to get rid of *skb_flow_get_ports(export)
->> and *__skb_get_poff as their functionality can be now implemented by
->> skb_flow_dissect as well.
->>
->> v2->v3:
->> - remove TCA_FLOWER_POLICE attr suggested by Jamal
->>
->> v1->v2:
->> - move __skb_tx_hash rather to dev.c as suggested by Alex
->
-> Ok, assuming this passes all of my build tests, I'll push this into
-> net-next.
->
-> I'm sure there will be some performance improvements possible, and I
-> hope you will look into making sure this new programmable classifier
-> is as light weight as possible.
->
-> Anyways, thanks a lot.
+From: Tom Herbert <tom@herbertland.com>
+Date: Tue, 12 May 2015 08:22:58 -0700
 
-David,
+> @@ -15,6 +15,13 @@
+>   * All the members, except thoff, are in network byte order.
+>   */
+>  struct flow_keys {
+> +	u16	thoff;
+> +	u16	padding1;
+> +#define FLOW_KEYS_HASH_START_FIELD	n_proto
+> +	__be16	n_proto;
+> +	u8	ip_proto;
+> +	u8	padding;
+> +
 
-I still have concerns about making flow_dissector more complex like
-this. This still seems like it should this programmable logic be done
-in a separate function. We call flow_dissector at least once per
-packet via skb_get_hash, it is in the critical path, and adding
-several conditionals can only slow it down and provides no new value
-to skb_get_hash. At the very least can we at least get some
-performance numbers to show impact of this?
+This padding works if everyone consistently zero initializes the whole
+key structure, but for whatever reason (performance, unintentional
+oversight, etc.) not all paths do.
 
-Thanks,
-Tom
+So, for example, inet_set_txhash() is going to have random crap in
+keys.padding, so the hashes computed are not stable for a given flow
+key tuple.
+
+That's just the first code path I found with this issue, there are
+probably several others.
