@@ -1,56 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 1/5] net: Get skb hash over flow_keys
- structure
-Date: Wed, 13 May 2015 16:02:20 -0400 (EDT)
-Message-ID: <20150513.160220.46676209141435421.davem@davemloft.net>
-References: <1431444182-3935169-2-git-send-email-tom@herbertland.com>
-	<20150513.153007.1923480989811217786.davem@davemloft.net>
-	<CALx6S36JxtWZP+b=UGhuyBpgNvi4B9YggZ_+s1zSRrk74cGNdw@mail.gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net 1/2] ipv6: do not delete previously existing ECMP
+ routes if add fails
+Date: Wed, 13 May 2015 22:06:56 +0200
+Message-ID: <20150513200656.GA31076@unicorn.suse.cz>
+References: <cover.1431500953.git.mkubecek@suse.cz>
+ <4e3d075f2be93d9655bc1372a107584368a29eab.1431500953.git.mkubecek@suse.cz>
+ <55534389.8070307@6wind.com>
+ <20150513124940.GB27366@unicorn.suse.cz>
+ <555351EC.9050805@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tom@herbertland.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: roopa <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56593 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965321AbbEMUCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 16:02:22 -0400
-In-Reply-To: <CALx6S36JxtWZP+b=UGhuyBpgNvi4B9YggZ_+s1zSRrk74cGNdw@mail.gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:48064 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753207AbbEMUG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 16:06:58 -0400
+Content-Disposition: inline
+In-Reply-To: <555351EC.9050805@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Wed, 13 May 2015 15:37:50 -0400
-
-> On Wed, May 13, 2015 at 3:30 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <tom@herbertland.com>
->> Date: Tue, 12 May 2015 08:22:58 -0700
->>
->>> @@ -15,6 +15,13 @@
->>>   * All the members, except thoff, are in network byte order.
->>>   */
->>>  struct flow_keys {
->>> +     u16     thoff;
->>> +     u16     padding1;
->>> +#define FLOW_KEYS_HASH_START_FIELD   n_proto
->>> +     __be16  n_proto;
->>> +     u8      ip_proto;
->>> +     u8      padding;
->>> +
->>
->> This padding works if everyone consistently zero initializes the whole
->> key structure, but for whatever reason (performance, unintentional
->> oversight, etc.) not all paths do.
->>
->> So, for example, inet_set_txhash() is going to have random crap in
->> keys.padding, so the hashes computed are not stable for a given flow
->> key tuple.
->>
->> That's just the first code path I found with this issue, there are
->> probably several others.
+On Wed, May 13, 2015 at 06:30:20AM -0700, roopa wrote:
+> >
+> This looks like a similar bug i was trying to fix some time back:
+> http://patchwork.ozlabs.org/patch/362296/
 > 
-> memset zero is in the second patch for inet_set_txhash and
-> ip6_set_txhash. I can respin so those are in the first patch.
+> (I am not sure if my full patch is still valid. I was thinking of
+> re-spining it sometime soon. If you are interested in trying it out,
+> please do)
 
-Yes, for bisectability you should probably do that.
+It's essentially the same idea but I prefer to use variable remaining
+which is already there and is needed anyway rather than introduce
+three extra variables for the cleanup (which is quite similar to the
+suggestion from Hannes' reply).
+
+I've sent v2 few minutes ago.
+
+                                                       Michal Kubecek
