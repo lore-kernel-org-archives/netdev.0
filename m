@@ -1,61 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: netlink & rhashtable status
-Date: Wed, 13 May 2015 12:35:20 -0400 (EDT)
-Message-ID: <20150513.123520.1301797535605779844.davem@davemloft.net>
-References: <20150513062038.GA26944@gondor.apana.org.au>
-	<1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: dma_alloc_coherent() to use memory close to cpu
+Date: Wed, 13 May 2015 08:49:51 -0700
+Message-ID: <5553729F.3020205@redhat.com>
+References: <55534659.9000606@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, tgraf@suug.ch, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: achiad@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54832 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965101AbbEMQfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 12:35:23 -0400
-In-Reply-To: <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57977 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933026AbbEMQpW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 12:45:22 -0400
+In-Reply-To: <55534659.9000606@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 13 May 2015 09:18:04 -0700
+On 05/13/2015 05:40 AM, Amir Vadai wrote:
+> Hi Alex,
+>
+> dma_alloc_coherent() is allocating memory close to the device -
+> according to dev_to_node(dev). Sometimes it is better to use memory
+> close to the CPU. e.g. when it is a buffer that NIC writes and CPU reads.
 
-> On Wed, 2015-05-13 at 06:04 -0700, Eric Dumazet wrote:
->> On Wed, 2015-05-13 at 14:20 +0800, Herbert Xu wrote:
->> > On Tue, May 12, 2015 at 11:15:40PM -0700, Eric Dumazet wrote:
->> > > 
->> > > Trick is to start about 200 threads using getaddrinfo()
->> > 
->> > When it loses the kernel socket, is it permanent or intermittent?
->> > 
->> > I'm trying to figure out whether it's the hashtable reader missing
->> > an entry that's there or whether the hashtable has been corrupted
->> > and an entry is gone forever.
->> > 
->> > Cheers,
->> 
->> This is permanent. We have to reboot the host.
->> 
-> 
-> For 4.0.3 I replaced the two rhashtable files by current Linus version,
-> and problem is gone, so the fix is not in net/netlink
-> 
->  include/linux/rhashtable.h |   10 
->  lib/rhashtable.c           |  582 ++++++++++++-----------------------
->  2 files changed, 215 insertions(+), 377 deletions(-)
-> 
-> I did a bisection but ended to 
-> 
-> 393619474ec0 rhashtable: Fix read-side crash during rehash
-> 
-> And simply backporting it does not solve the problem
+Yes, the easiest way to visualize this is do you want to have this 
+operator under a push or pull model.  Either you can have the hardware 
+push the data to where the interrupt will be processed, or the interrupt 
+will have to pull the data to the CPU it is being processed on.  As long 
+as there are enough PCIe credits to keep the PCIe link fully utilized 
+you are usually better off pushing the data to the CPU the interrupt is 
+on as the reads/writes are usually batched by the hardware.
 
-Backporting all of the rhashtable bits is going to be really painful
-and potentially quite risky.  However, if someone is confident enough,
-I'm willing to entertain this idea.
+> It seems that you thought that too, and added a commit to ixgbe driver
+> that follows that logic [1].
+> You added calls to set_dev_node() before and after the allocation.
+> This seems to be prone to races in case multiple process want to alloc
+> in parallel. The proper fix seems to be to extend the
+> dma_alloc_coherent() to accept a NUMA node as an argument (if device's
+> node is not good enough).
 
-Alternatively, we could consider reverting the rhashtable conversion
-of netlink in the interim.  It might be the safest solution for
--stable.
+I'm not sure how racy it would be since you can really only have one 
+driver per device and the function that does this is protected by the 
+RTNL lock as I recall.
+
+> I looked for, but couldn't find any discussion about that - is there a
+> special reason not to extend dma_alloc_coherent()?
+
+I think most of that is due to the fact that it is buried in multiple 
+levels of abstraction and at the time I wrote that code I had only been 
+working in the kernel drivers for a year or so.  I had to revert similar 
+code from igb as it was buggy so I wasn't really in a place to be 
+modifying that at that time.
+
+If you are planning to give it a try I would say go for it.  The fact is 
+there are models where you want to have the device memory spread around 
+since the DMA writes usually are much less expensive to a remote node, 
+than accessing a remote node from the interrupt handler.
+
+- Alex
