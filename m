@@ -1,49 +1,64 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH v3 4/5] geneve_core: identify as driver library in modules description
-Date: Wed, 13 May 2015 12:57:29 -0400
-Message-ID: <1431536250-14760-5-git-send-email-linville@tuxdriver.com>
-References: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
+Subject: [PATCH v3] add GENEVE netdev tunnel driver
+Date: Wed, 13 May 2015 12:57:25 -0400
+Message-ID: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
 	Stephen Hemminger <stephen@networkplumber.org>,
-	Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36519 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36516 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934205AbbEMRAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:00:19 -0400
-In-Reply-To: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
+	with ESMTP id S934145AbbEMRAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:00:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
-v2: skipped
-v3: repost complete series for clarity
+This 5-patch kernel series adds a netdev implementation of a GENEVE
+tunnel driver, and the single iproute2 patch enables creation and
+such for those netdevs.  This makes use of the existing GENEVE
+infrastructure already used by the OVS code.  The net/ipv4/geneve.c
+file is renamed as net/ipv4/geneve_core.c as part of these changes.
 
- net/ipv4/geneve_core.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/Kconfig            |   14 +
+ drivers/net/Makefile           |    1 
+ drivers/net/geneve.c           |  503 +++++++++++++++++++++++++++++++++++++++++
+ include/net/geneve.h           |    5 
+ include/uapi/linux/if_link.h   |    9 
+ net/ipv4/Kconfig               |    4 
+ net/ipv4/Makefile              |    2 
+ net/ipv4/geneve.c              |    6 
+ net/ipv4/geneve_core.c         |    4 
+ net/openvswitch/Kconfig        |    2 
+ net/openvswitch/vport-geneve.c |    5 
+ 11 files changed, 538 insertions(+), 17 deletions(-)
 
-diff --git a/net/ipv4/geneve_core.c b/net/ipv4/geneve_core.c
-index 001843d41135..311a4ba6950a 100644
---- a/net/ipv4/geneve_core.c
-+++ b/net/ipv4/geneve_core.c
-@@ -430,7 +430,7 @@ static int __init geneve_init_module(void)
- 	if (rc)
- 		return rc;
- 
--	pr_info("Geneve driver\n");
-+	pr_info("Geneve core logic\n");
- 
- 	return 0;
- }
-@@ -444,4 +444,4 @@ module_exit(geneve_cleanup_module);
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Jesse Gross <jesse@nicira.com>");
--MODULE_DESCRIPTION("Driver for GENEVE encapsulated traffic");
-+MODULE_DESCRIPTION("Driver library for GENEVE encapsulated traffic");
--- 
-2.1.0
+The overall structure of the GENEVE netdev driver is strongly
+influenced by the VXLAN netdev driver.  This is not surprising, as the
+two drivers are intended to serve similar purposes.  As development of
+the GENEVE driver continues, it is likely that those similarities will
+grow stronger.  This will include both simple configuration options
+(e.g. TOS and TTL settings) and new control plane support.
+
+The current implementation is very simple, restricting itself to point
+to point links over IPv4.  This is due only to the simplicity of the
+implementation, and no such limit is inherent to GENEVE in any way.
+Support for IPv6 links and more sophisticated control plane options
+are predictable enhancements.
+
+Using the included iproute2 patch, a GENEVE tunnel is created thusly:
+
+        ip link add dev gnv0 type geneve remote 192.168.22.1 vni 1234
+        ip link set gnv0 up
+        ip addr add 10.1.1.1/24 dev gnv0
+
+After a corresponding tunnel interface is created at the link partner,
+traffic should proceed as expected.
+
+Please let me know if anyone has problems...thanks!
+
+John
+--
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
