@@ -1,68 +1,70 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when PCI
- device is assigned
-Date: Wed, 13 May 2015 17:50:12 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1846BBD2E63@ORSMSX105.amr.corp.intel.com>
-References: <20150513013550.10328.1416.stgit@bwallan-smackover2.jf.intel.com>
- <1431484908.3625.10.camel@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 5/5] netfilter: add netfilter ingress hook after
+ handle_ing() under unique static key
+Date: Wed, 13 May 2015 19:56:59 +0200
+Message-ID: <20150513175659.GA27999@salvia>
+References: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
+ <1431533978-26901-6-git-send-email-pablo@netfilter.org>
+ <55538302.5080702@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: Alex Williamson <alex.williamson@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, jhs@mojatatu.com, daniel@iogearbox.net,
+	eric.dumazet@gmail.com, kaber@trash.net
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:36890 "EHLO mga01.intel.com"
+Received: from mail.us.es ([193.147.175.20]:53334 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751648AbbEMRuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 13:50:14 -0400
-In-Reply-To: <1431484908.3625.10.camel@redhat.com>
-Content-Language: en-US
+	id S1751921AbbEMRwS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 13:52:18 -0400
+Content-Disposition: inline
+In-Reply-To: <55538302.5080702@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbGV4IFdpbGxpYW1zb24gW21h
-aWx0bzphbGV4LndpbGxpYW1zb25AcmVkaGF0LmNvbV0NCj4gU2VudDogVHVlc2RheSwgTWF5IDEy
-LCAyMDE1IDc6NDIgUE0NCj4gVG86IEFsbGFuLCBCcnVjZSBXDQo+IENjOiBrdm1Admdlci5rZXJu
-ZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBpbnRlbC13aXJlZC0NCj4gbGFuQGxpc3Rz
-Lm9zdW9zbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gdmZpby1wY2k6IFBDSV9ERVZfRkxB
-R1NfQVNTSUdORUQgZmxhZyBub3Qgc2V0IHdoZW4NCj4gUENJIGRldmljZSBpcyBhc3NpZ25lZA0K
-PiANCj4gT24gVHVlLCAyMDE1LTA1LTEyIGF0IDE4OjM1IC0wNzAwLCBCcnVjZSBBbGxhbiB3cm90
-ZToNCj4gPiBBIG51bWJlciBvZiBQQ0kgZGV2aWNlIGRyaXZlcnMgc3VwcG9ydGluZyBTUi1JT1Yg
-dXNlIHBjaV92ZnNfYXNzaWduZWQoKQ0KPiB0bw0KPiA+IGNoZWNrIGlmIHRoZXJlIGFyZSBhbnkg
-VkYgZGV2aWNlcyBhc3NpZ25lZCBieSBhIFZNTSBwcmlvciB0byBkaXNhYmxpbmcNCj4gPiBTUi1J
-T1YgKGkuZS4gYm54MngsIGJlMm5ldCwgZm0xMGssIGk0MGUsIGlnYiwgaXhnYmUsIHFsY25pYyku
-ICBUaGlzIGNoZWNrDQo+ID4gd29ya3MgZmluZSB3aXRoIHRoZSBsZWdhY3kgZGV2aWNlIGFzc2ln
-bm1lbnQgKHBjaS1zdHViIGVuYWJsZXMgdGhlDQo+IGRldmljZSkNCj4gPiB3aGljaCBjYWxscyBw
-Y2lfc2V0X2Rldl9hc3NpZ25lZCgpLiAgVGhlIG5ld2VyIFZGSU8tYmFzZWQgYXNzaWdubWVudA0K
-PiA+ICh2ZmlvLXBjaSBlbmFibGVzIGRldmljZSkgZG9lc24ndCBjYWxsIHBjaV9zZXRfZGV2X2Fz
-c2lnbmVkKCkgcG90ZW50aWFsbHkNCj4gPiBsZWFkaW5nIHRvIGlzc3VlcyBpbiB0aG9zZSBkcml2
-ZXJzIHdoZW4gZGlzYWJsaW5nIFNSLUlPViB3aXRoIFZGcyBhc3NpZ25lZC4NCj4gPg0KPiA+IEFk
-ZCBjYWxscyB0byBwY2lfW3NldHxjbGVhcl1fZGV2X2Fzc2lnbmVkKCkgdG8gc2V0IHRoZSBmbGFn
-IGFzIGV4cGVjdGVkLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogQnJ1Y2UgQWxsYW4gPGJydWNl
-LncuYWxsYW5AaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL3ZmaW8vcGNpL3ZmaW9f
-cGNpLmMgfCAgICA0ICsrKysNCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQ0K
-PiANCj4gDQo+IFdoeSBzaG91bGQgYSBkZXZpY2UgZXhwb3NlZCB0byB0aGUgdXNlciBiZSBoYW5k
-bGVkIGRpZmZlcmVudGx5IHRoYW4gYQ0KPiBkZXZpY2UgdXNlZCBieSBhIGhvc3QgZHJpdmVyPyAg
-VGhlIHJlYXNvbiB0aGUgYXNzaWduZWQgZmxhZyBleGlzdHMgaXMNCj4gYmVjYXVzZSBsZWdhY3kg
-S1ZNIGRldmljZSBhc3NpZ25tZW50IGRvZXNuJ3QgYWN0dWFsbHkgY2xhaW0gdGhlIGRldmljZQ0K
-PiB1c2luZyB0aGUgZHJpdmVyIG1vZGVsLCBpdCByZWxpZXMgb24gcGNpLXN0dWIgdG8gYWN0IGFz
-IGEgcGxhY2Vob2xkZXIgdG8NCj4gcHJldmVudCBvdGhlciBkcml2ZXJzIGZyb20gYmluZGluZyB0
-byB0aGUgZGV2aWNlLCBidXQgcGNpLXN0dWIgaGFzIG5vDQo+IHZpc2liaWxpdHkgdG8gdGhlIGRl
-dmljZSB1c2FnZSBhbmQgd2lsbCBpbW1lZGlhdGVseSByZWxlYXNlIGl0DQo+IHJlZ2FyZGxlc3Mg
-b2YgaXQgYmVpbmcgaW4gdXNlLiAgdmZpby1wY2kgcGFydGljaXBhdGVzIGluIHRoZSBkcml2ZXIN
-Cj4gbW9kZWwsIHNpZ25hbHMgdGhlIHVzZXIgZm9yIHRoZSBkZXZpY2UgdG8gYmUgcmVsZWFzZWQg
-YW5kIGJsb2NrcyB1bnRpbA0KPiBpdCBpcyByZWxlYXNlZC4gIEJleW9uZCB0aGF0LCB0aGUgYXNz
-aWduZWQgZmxhZyBpcyBhIHJhY3kgaGFjay4gIFRoZXJlJ3MNCj4gbm8gbG9ja2luZyB3aGF0c29l
-dmVyIHRvIGltcGx5IHRoYXQgdGhlIGZsYWcgYXMgYW55IG1lYW5pbmcgYmV5b25kIHRoZQ0KPiBp
-bnN0YW50IHRoYXQgaXQncyB0ZXN0ZWQuICBJJ2QgbGlrZSB0byBzZWUgdGhlIGFzc2lnbmVkIGZs
-YWcgZGVwcmVjYXRlZA0KPiBhbG9uZyB3aXRoIGxlZ2FjeSBLVk0gZGV2aWNlIGFzc2lnbm1lbnQs
-IG5vdCBwZXJwZXR1YXRlZCBpbiBuZXdlcg0KPiBkcml2ZXJzLiAgVGhlIHBhdGNoIGlzIGFsc28g
-d3JvbmcgYmVjYXVzZSB3ZSBjYW4gdGVsbCB3aGVuIHRoZSBkZXZpY2UgaXMNCj4gYWN0dWFsbHkg
-b3BlbmVkIGJ5IHRoZSB1c2VyLCBub3QganVzdCBib3VuZCB0byB0aGUgdmZpby1wY2kgZHJpdmVy
-Lg0KPiBUaGFua3MsDQo+IA0KPiBBbGV4DQoNClNvIGZvciBjbGFyaWZpY2F0aW9uLCBpbiB0aGUg
-ZHJpdmVycyBtZW50aW9uZWQgYWJvdmUgd291bGQgeW91IHJlY29tbWVuZA0KcmF0aGVyIHRoYW4g
-Y2hlY2tpbmcgcGNpX3Zmc19hc3NpZ25lZCgpIGJlZm9yZSBkaXNhYmxpbmcgU1ItSU9WIHRoZSBk
-cml2ZXJzDQpzaG91bGQgaW5zdGVhZCBjaGVjayBpZiBhbnkgb2YgdGhlIFZGIGRldmljZXMgYXJl
-IGJvdW5kL29wZW5lZCBieSBhbm90aGVyDQpkcml2ZXI/DQoNClRoYW5rcywNCkJydWNlLg0KDQo=
+On Wed, May 13, 2015 at 09:59:46AM -0700, Alexei Starovoitov wrote:
+> On 5/13/15 9:19 AM, Pablo Neira Ayuso wrote:
+> >This patch adds the Netfilter ingress hook just after the existing tc ingress
+> >hook, that seems to be the consensus solution for this.
+> 
+> Looks good to me.
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> 
+> >diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> >index 2b39235..6c256f8 100644
+> >--- a/include/linux/netdevice.h
+> >+++ b/include/linux/netdevice.h
+> >@@ -1659,6 +1659,9 @@ struct net_device {
+> >  	struct tcf_proto __rcu  *ingress_cl_list;
+> >  #endif
+> >  	struct netdev_queue __rcu *ingress_queue;
+> >+#ifdef CONFIG_NETFILTER_INGRESS
+> >+	struct list_head	nf_hooks_ingress;
+> >+#endif
+> ...
+> >diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+> >index f70e34a..db1c674 100644
+> >--- a/net/netfilter/Kconfig
+> >+++ b/net/netfilter/Kconfig
+> >@@ -1,6 +1,13 @@
+> >  menu "Core Netfilter Configuration"
+> >  	depends on NET && INET && NETFILTER
+> >
+> >+config NETFILTER_INGRESS
+> >+	bool "Netfilter ingress support"
+> >+	select NET_INGRESS
+> >+	help
+> >+	  This allows you to classify packets from ingress using the Netfilter
+> >+	  infrastructure.
+> >+
+> 
+> should be some default hint as well?
+> not sure why you want to do it under another config flag.
+> Just makes it harder to test all config combinations.
+> I think under global CONFIG_NETFILTER it would be fine as well.
+
+Yes, that default can be added there. And I agree, since this depends
+on CONFIG_NETFILTER should be fine. I have more patches following up,
+I can queue one small for this.
+
+Thanks.
