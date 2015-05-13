@@ -1,61 +1,58 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net-next] neigh: fix a possible leak issue of neigh entry
-Date: Wed, 13 May 2015 18:32:37 +0800
-Message-ID: <55532845.8010709@windriver.com>
-References: <1431495814-22759-1-git-send-email-ying.xue@windriver.com> <1431498048.566.131.camel@edumazet-glaptop2.roam.corp.google.com> <5552FC4D.3060200@windriver.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: gone with the spring cleanup..
+Date: Wed, 13 May 2015 12:38:12 +0200
+Message-ID: <20150513103812.GA2136@nanopsycho.mtl.com>
+References: <5553158D.7000108@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:50536 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933479AbbEMKeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 06:34:03 -0400
-In-Reply-To: <5552FC4D.3060200@windriver.com>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:34755 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933665AbbEMKiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 06:38:18 -0400
+Received: by wicmc15 with SMTP id mc15so75256445wic.1
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 03:38:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5553158D.7000108@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/13/2015 03:25 PM, Ying Xue wrote:
-> On 05/13/2015 02:20 PM, Eric Dumazet wrote:
->> Have you hit this condition ?
->>
-> 
-> No, I just found the issue when I was reading the code.
-> 
->> If yes, there is a bug elsewhere and we need to fix it, not trying to
->> recover.
->>
+Wed, May 13, 2015 at 11:12:45AM CEST, ogerlitz@mellanox.com wrote:
+>Hi Scott, Jiri
+>
+>So, following the spring cleanup, my builder (which turns to have pretty old
+>GCC 4.4.6) isn't functional anymore w.r.t net-next... I checked on different
+>station and it works on GCC 4.9.2.
+>
+>I would love us to get this fixed, please let me know if you need more info,
+>below is the build verbose command line build error.
+>
+>Few more pieces of info, changing -std=gnu89to -std=gnu99didn't help. Also
+>the command line where it does work (4.9.2) uses -std=gnu89
 
-After a search, it's found your mentioned bug probably should be:
+Looks like the problem might be in named structures which suppose to be
+anonymous. Would you try following patch:
 
-https://patchwork.ozlabs.org/patch/458112/
 
-But I think the bug should be a different issue that the patch is to be
-resolved. When the bug happened, neigh_add_timer() would take a reference on an
-object that already had a refcount of zero, which means somebody already
-decreased the refcount to zero before neigh_add_timer() was called. So, the bug
-should be unrelated to neigh_add_timer() although the bug really needs to be
-fixed. But the issue the patch tries to fix is wrong because it obviously
-violates the generic usage of how to take an object refcount in the object's
-timer handler as well as when its timer is started or deleted. Specially when a
-neighbour's timer to be modified is in pending state, we should not take its
-refcount, otherwise, the neighbour is leaked forever.
-
-Therefore, the patch is needed for us even if your mentioned bug is not fixed.
-
-Regards,
-Ying
-
-> 
-> Sorry, I don't know its relevant story, so can you please give some hints?
-> 
-> Thanks,
-> Ying
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 3b217b4..12848b3 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -53,12 +53,12 @@ struct switchdev_obj {
+ 	enum switchdev_obj_id id;
+ 	enum switchdev_trans trans;
+ 	union {
+-		struct switchdev_obj_vlan {			/* PORT_VLAN */
++		struct{			/* PORT_VLAN */
+ 			u16 flags;
+ 			u16 vid_start;
+ 			u16 vid_end;
+ 		} vlan;
+-		struct switchdev_obj_ipv4_fib {		/* IPV4_FIB */
++		struct {		/* IPV4_FIB */
+ 			u32 dst;
+ 			int dst_len;
+ 			struct fib_info *fi;
