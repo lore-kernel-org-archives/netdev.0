@@ -1,50 +1,48 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
-Date: Wed, 13 May 2015 07:42:50 +0200
-Message-ID: <20150513054250.GA2126@nanopsycho>
-References: <1431494830-4284-1-git-send-email-roopa@cumulusnetworks.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] neigh: fix a possible leak issue of neigh entry
+Date: Wed, 13 May 2015 13:43:34 +0800
+Message-ID: <1431495814-22759-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, sfeldma@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: roopa@cumulusnetworks.com
+Content-Type: text/plain
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:35593 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbbEMFnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 01:43:03 -0400
-Received: by widdi4 with SMTP id di4so182723530wid.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 22:43:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1431494830-4284-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail.windriver.com ([147.11.1.11]:32859 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbbEMFni (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 01:43:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, May 13, 2015 at 07:27:10AM CEST, roopa@cumulusnetworks.com wrote:
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
->RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
->
->This patch renames the flag to be consistent with what the user sees.
->
->(I will post iproute2 patch if this gets accepted)
->
->Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->---
-> include/uapi/linux/rtnetlink.h |    2 +-
-> net/ipv4/fib_trie.c            |    2 +-
-> net/switchdev/switchdev.c      |    6 +++---
-> 3 files changed, 5 insertions(+), 5 deletions(-)
->
->diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
->index 974db03..17fb02f 100644
->--- a/include/uapi/linux/rtnetlink.h
->+++ b/include/uapi/linux/rtnetlink.h
->@@ -337,7 +337,7 @@ struct rtnexthop {
-> #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
-> #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
-> #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
->-#define RTNH_F_EXTERNAL		8	/* Route installed externally	*/
->+#define RTNH_F_OFFLOAD		8	/* offloaded route */
+Once modifying a pending timer of a neighbour, it's insufficient to
+post a warning message. Instead we should not take the neighbour's
+reference count at the same time, otherwise, it causes an issue that
+the neighbour cannot be freed forever.
 
-Since this is part of uapi, I believe this is not doable :/
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/core/neighbour.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 3de6542..5595db3 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -164,10 +164,11 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+ 
+ static void neigh_add_timer(struct neighbour *n, unsigned long when)
+ {
+-	neigh_hold(n);
+-	if (unlikely(mod_timer(&n->timer, when))) {
+-		printk("NEIGH: BUG, double timer add, state is %x\n",
+-		       n->nud_state);
++	if (likely(!mod_timer(&n->timer, when))) {
++		neigh_hold(n);
++	} else {
++		pr_warn("NEIGH: BUG, double timer add, state is %x\n",
++			n->nud_state);
+ 		dump_stack();
+ 	}
+ }
+-- 
+1.7.9.5
