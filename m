@@ -1,41 +1,28 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] tipc: use sock_create_kern interface to create kernel socket
-Date: Wed, 13 May 2015 11:20:38 +0800
-Message-ID: <1431487238-17050-1-git-send-email-ying.xue@windriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] e1000e: Add pm_qos header
+Date: Tue, 12 May 2015 23:22:29 -0400 (EDT)
+Message-ID: <20150512.232229.1979995423254165727.davem@davemloft.net>
+References: <1431445020-25235-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jon.maloy@ericsson.com>, <erik.hugne@ericsson.com>,
-	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch, jeffrey.t.kirsher@intel.com
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40566 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934004AbbEMDUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:20:54 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:49151 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934292AbbEMDWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:22:31 -0400
+In-Reply-To: <1431445020-25235-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After commit eeb1bd5c40ed ("net: Add a struct net parameter to
-sock_create_kern"), we should use sock_create_kern() to create kernel
-socket as the interface doesn't reference count struct net any more.
+From: David Ahern <dsahern@gmail.com>
+Date: Tue, 12 May 2015 09:36:59 -0600
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/server.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Commit e2c6544829f moved pm_qos_req to e1000_adapter. Add the header file
+> that defines the struct.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-diff --git a/net/tipc/server.c b/net/tipc/server.c
-index a91a2f7..922e04a 100644
---- a/net/tipc/server.c
-+++ b/net/tipc/server.c
-@@ -325,7 +325,7 @@ static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
- 	struct socket *sock = NULL;
- 	int ret;
- 
--	ret = __sock_create(s->net, AF_TIPC, SOCK_SEQPACKET, 0, &sock, 1);
-+	ret = sock_create_kern(s->net, AF_TIPC, SOCK_SEQPACKET, 0, &sock);
- 	if (ret < 0)
- 		return NULL;
- 	ret = kernel_setsockopt(sock, SOL_TIPC, TIPC_IMPORTANCE,
--- 
-1.7.9.5
+Applied.
