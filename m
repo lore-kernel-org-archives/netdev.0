@@ -1,29 +1,33 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [oss-security] [PATCH 0/4] ozwpan: Four remote packet-of-death vulnerabilities
-Date: Wed, 13 May 2015 20:48:31 +0200
-Message-ID: <CAHmME9pL6kU5D9YNZdDMHXc0harTZ_oDo9xEpmojEN9_qs+qpQ@mail.gmail.com>
-References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
-	<20150513184331.GA1847@kroah.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: inet netconf support for send_redirects
+Date: Wed, 13 May 2015 20:51:14 +0200
+Message-ID: <55539D22.90401@6wind.com>
+References: <20150506163746.38d75537@vostro>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: oss-security <oss-security@lists.openwall.com>,
-	shigekatsu.tateno@atmel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150513184331.GA1847@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:33205 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753283AbbEMSvQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 14:51:16 -0400
+Received: by wgin8 with SMTP id n8so52950332wgi.0
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 11:51:15 -0700 (PDT)
+In-Reply-To: <20150506163746.38d75537@vostro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 13, 2015 at 8:43 PM, Greg KH <greg@kroah.com> wrote:
-> Any reason you didn't cc: the maintainer who could actually apply these
-> to the kernel tree?
+Le 06/05/2015 15:37, Timo Teras a =E9crit :
+> Hi,
+>
+> I'm wondering if inet netconf support is planned or known will-not-ad=
+d
+> for send_redirects (or the other missing proc/sys/ipv4/<if>/ knobs)?
+Nobody has made such announce. Feel free to send a patch.
 
-I did, look at the email again: the first recipient is
-<shigekatsu.tateno@atmel.com>.
 
->From the MAINTAINERS file:
-    STAGING - OZMO DEVICES USB OVER WIFI DRIVER
-    M:      Shigekatsu Tateno <shigekatsu.tateno@atmel.com>
-    S:      Maintained
-    F:      drivers/staging/ozwpan/
+Regards,
+Nicolas
