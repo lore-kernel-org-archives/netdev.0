@@ -1,145 +1,99 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: rhashtable: Add cap on number of elements in hash table
-Date: Wed, 13 May 2015 16:06:40 +0800
-Message-ID: <20150513080640.GA27800@gondor.apana.org.au>
-References: <1429799923-28122-1-git-send-email-johannes@sipsolutions.net>
- <20150423.115919.1353583175267783165.davem@davemloft.net>
- <20150424005729.GA27075@gondor.apana.org.au>
+From: Haggai Eran <haggaie@mellanox.com>
+Subject: Re: [PATCH v3 for-next 01/13] IB/core: Use SRCU when reading client_list
+ or device_list
+Date: Wed, 13 May 2015 11:10:15 +0300
+Message-ID: <555306E7.9020000@mellanox.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-2-git-send-email-haggaie@mellanox.com>
+ <20150511181824.GA25405@obsidianresearch.com> <555198B7.40302@mellanox.com>
+ <20150512182332.GD15891@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org, kaber@trash.net,
-	tgraf@suug.ch, johannes.berg@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:54354 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752925AbbEMIGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 04:06:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20150424005729.GA27075@gondor.apana.org.au>
+Received: from mail-db3on0076.outbound.protection.outlook.com ([157.55.234.76]:15791
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933039AbbEMIKa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 04:10:30 -0400
+In-Reply-To: <20150512182332.GD15891@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently have no limit on the number of elements in a hash table.
-This is a problem because some users (tipc) set a ceiling on the
-maximum table size and when that is reached the hash table may
-degenerate.  Others may encounter OOM when growing and if we allow
-insertions when that happens the hash table perofrmance may also
-suffer.
+On 12/05/2015 21:23, Jason Gunthorpe wrote:
+> On Tue, May 12, 2015 at 09:07:51AM +0300, Haggai Eran wrote:
+>>> I'm not sure RCU is the right way to approach this. The driver core
+>>> has the same basic task to perform, maybe review it's locking
+>>> arrangment between the device list and driver list.
+>>>
+>>> [Actually we probably should be using the driver core here, with IB
+>>>  clients as device drivers, but that is way beyond scope of this..]
+>>
+>> So, I'm not very familiar with that code, but it seems that the main
+>> difference is that in the core a single driver can be attached to a
+>> device. 
+> 
+> Roughly, a bus (IB would be a bus) has devices attached to it, and
+> devices have drivers attached to them. Bus:Device is 1:N,
+> Device:Drvier is 1:1. 
+> 
+> There a a couple of reasons to be interested in re-using the driver
+> core, perhaps the best is that it has all the infrastructure to let us
+> auto-load client modules...
 
-This patch adds a new paramater insecure_max_entries which becomes
-the cap on the table.  If unset it defaults to max_size.  If it is
-also zero it means that there is no cap on the number of elements
-in the table.  However, the table will grow whenever the utilisation
-hits 100% and if that growth fails, you will get ENOMEM on insertion.
+So you want an ib_core bus and each client is a "device" or a driver on
+that bus? But this doesn't get you the relation between clients and ib
+devices.
 
-As allowing >100% utilisation is potentially dangerous, the name
-contains the word insecure.
+> 
+>> I guess a similar thing we can do is to rely on the context we associate
+>> with a pair of a client and a device. If such a context exist, we don't
+>> need to call client->add again. What do you think?
+> 
+> I didn't look closely, isn't this enough?
+> 
+> device_register:
+>  mutex_lock(client_mutex);
+>  down_write(devices_rwsem);
+>  list_add(device_list,dev,..);
+>  up_write(devices_rwsem);
+> 
+>  /* Caller must prevent device_register/unregister concurrancy on the
+>     same dev */
+> 
+>  foreach(client_list)
+>    .. client->add(dev,...) .. 
+> 
+>  mutex_unlock(client_mutex)
+> 
+> client_register:
+>  mutex_lock(client_mutex)
+>  list_add(client_list,new_client..)
+>  down_read(devices_rwsem);
+>  foreach(device_list)
+>    .. client->add(dev,new_client,..) ..
+>  up_read(devices_rwsem);
+>  mutex_unlock(client_mutex)
+> 
+> [Note, I didn't check this carefully, just intuitively seems like a
+>  sane starting point]
 
-Note that the cap is not a hard limit.  This is done for performance
-reasons as enforcing a hard limit will result in use of atomic ops
-that are heavier than the ones we currently use.
+That could perhaps work for the RoCEv2 patch-set, as their deadlock
+relates to iterating the device list. This patch set however does an
+iteration on the client list (patch 3). Because a client remove could
+block on this iteration, you can still get a deadlock.
 
-The reasoning is that we're only guarding against a gross over-
-subscription of the table, rather than a small breach of the limit.
+I think I prefer keeping the single device_mutex and the SRCU, but
+keeping the device_mutex locked as it is today, covering all of the
+registration and unregistration code. Only the new code that reads the
+client list or the device list without modification to the other list
+will use the SRCU read lock.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index dbcbcc5..f3deeaa 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -17,6 +17,7 @@
- #ifndef _LINUX_RHASHTABLE_H
- #define _LINUX_RHASHTABLE_H
- 
-+#include <linux/atomic.h>
- #include <linux/compiler.h>
- #include <linux/errno.h>
- #include <linux/jhash.h>
-@@ -100,6 +101,7 @@ struct rhashtable;
-  * @key_len: Length of key
-  * @key_offset: Offset of key in struct to be hashed
-  * @head_offset: Offset of rhash_head in struct to be hashed
-+ * @insecure_max_entries: Maximum number of entries (may be exceeded)
-  * @max_size: Maximum size while expanding
-  * @min_size: Minimum size while shrinking
-  * @nulls_base: Base value to generate nulls marker
-@@ -115,6 +117,7 @@ struct rhashtable_params {
- 	size_t			key_len;
- 	size_t			key_offset;
- 	size_t			head_offset;
-+	unsigned int		insecure_max_entries;
- 	unsigned int		max_size;
- 	unsigned int		min_size;
- 	u32			nulls_base;
-@@ -286,6 +289,18 @@ static inline bool rht_grow_above_100(const struct rhashtable *ht,
- 		(!ht->p.max_size || tbl->size < ht->p.max_size);
- }
- 
-+/**
-+ * rht_grow_above_max - returns true if table is above maximum
-+ * @ht:		hash table
-+ * @tbl:	current table
-+ */
-+static inline bool rht_grow_above_max(const struct rhashtable *ht,
-+				      const struct bucket_table *tbl)
-+{
-+	return ht->p.insecure_max_entries &&
-+	       atomic_read(&ht->nelems) >= ht->p.insecure_max_entries;
-+}
-+
- /* The bucket lock is selected based on the hash and protects mutations
-  * on a group of hash buckets.
-  *
-@@ -612,6 +627,10 @@ slow_path:
- 			goto slow_path;
- 	}
- 
-+	err = -E2BIG;
-+	if (unlikely(rht_grow_above_max(ht, tbl)))
-+		goto out;
-+
- 	err = 0;
- 
- 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 4936fc4..cfd3408 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -14,6 +14,7 @@
-  * published by the Free Software Foundation.
-  */
- 
-+#include <linux/atomic.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/log2.h>
-@@ -451,6 +452,10 @@ int rhashtable_insert_slow(struct rhashtable *ht, const void *key,
- 	    rht_grow_above_100(ht, tbl))
- 		goto exit;
- 
-+	err = -E2BIG;
-+	if (unlikely(rht_grow_above_max(ht, tbl)))
-+		goto exit;
-+
- 	err = 0;
- 
- 	head = rht_dereference_bucket(tbl->buckets[hash], tbl, hash);
-@@ -734,6 +739,12 @@ int rhashtable_init(struct rhashtable *ht,
- 	if (params->max_size)
- 		ht->p.max_size = rounddown_pow_of_two(params->max_size);
- 
-+	if (params->insecure_max_entries)
-+		ht->p.insecure_max_entries =
-+			rounddown_pow_of_two(params->insecure_max_entries);
-+	else
-+		ht->p.insecure_max_entries = ht->p.max_size;
-+
- 	ht->p.min_size = max(ht->p.min_size, HASH_MIN_SIZE);
- 
- 	/* The maximum (not average) chain length grows with the
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Haggai
