@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/5] net: add CONFIG_NET_INGRESS to enable ingress filtering
-Date: Wed, 13 May 2015 18:19:37 +0200
-Message-ID: <1431533978-26901-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/5] netfilter: add hook list to nf_hook_state
+Date: Wed, 13 May 2015 18:19:35 +0200
+Message-ID: <1431533978-26901-3-git-send-email-pablo@netfilter.org>
 References: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org, jhs@mojatatu.com,
 	daniel@iogearbox.net, eric.dumazet@gmail.com, kaber@trash.net,
@@ -12,91 +12,66 @@ In-Reply-To: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This new config switch enables the ingress filtering infrastructure that is
-controlled through the ingress_needed static key. This prepares the
-introduction of the Netfilter ingress hook that resides under this unique
-static key.
-
-Note that CONFIG_SCH_INGRESS automatically selects this, that should be no
-problem since this also depends on CONFIG_NET_CLS_ACT.
-
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/rtnetlink.h |    2 +-
- net/Kconfig               |    3 +++
- net/core/dev.c            |    7 ++++---
- net/sched/Kconfig         |    1 +
- 4 files changed, 9 insertions(+), 4 deletions(-)
+ include/linux/netfilter.h |    7 +++++--
+ net/netfilter/core.c      |    6 ++----
+ 2 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index bd29ab4..a2324fb 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -79,7 +79,7 @@ static inline struct netdev_queue *dev_ingress_queue(struct net_device *dev)
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 83be4a3..388ed19 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -54,10 +54,12 @@ struct nf_hook_state {
+ 	struct net_device *in;
+ 	struct net_device *out;
+ 	struct sock *sk;
++	struct list_head *hook_list;
+ 	int (*okfn)(struct sock *, struct sk_buff *);
+ };
  
- struct netdev_queue *dev_ingress_queue_create(struct net_device *dev);
- 
--#ifdef CONFIG_NET_CLS_ACT
-+#ifdef CONFIG_NET_INGRESS
- void net_inc_ingress_queue(void);
- void net_dec_ingress_queue(void);
- #endif
-diff --git a/net/Kconfig b/net/Kconfig
-index 44dd578..57a7c5a 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -45,6 +45,9 @@ config COMPAT_NETLINK_MESSAGES
- 	  Newly written code should NEVER need this option but do
- 	  compat-independent messages instead!
- 
-+config NET_INGRESS
-+	bool
-+
- menu "Networking options"
- 
- source "net/packet/Kconfig"
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e5f77c4..5b3dc5c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1630,7 +1630,7 @@ int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
+ static inline void nf_hook_state_init(struct nf_hook_state *p,
++				      struct list_head *hook_list,
+ 				      unsigned int hook,
+ 				      int thresh, u_int8_t pf,
+ 				      struct net_device *indev,
+@@ -71,6 +73,7 @@ static inline void nf_hook_state_init(struct nf_hook_state *p,
+ 	p->in = indev;
+ 	p->out = outdev;
+ 	p->sk = sk;
++	p->hook_list = hook_list;
+ 	p->okfn = okfn;
  }
- EXPORT_SYMBOL(call_netdevice_notifiers);
  
--#ifdef CONFIG_NET_CLS_ACT
-+#ifdef CONFIG_NET_INGRESS
- static struct static_key ingress_needed __read_mostly;
+@@ -166,8 +169,8 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
+ 	if (nf_hooks_active(pf, hook)) {
+ 		struct nf_hook_state state;
  
- void net_inc_ingress_queue(void)
-@@ -3692,13 +3692,14 @@ another_round:
+-		nf_hook_state_init(&state, hook, thresh, pf,
+-				   indev, outdev, sk, okfn);
++		nf_hook_state_init(&state, &nf_hooks[pf][hook], hook, thresh,
++				   pf, indev, outdev, sk, okfn);
+ 		return nf_hook_slow(skb, &state);
  	}
+ 	return 1;
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e616301..e418cfd 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -166,11 +166,9 @@ int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state)
+ 	/* We may already have this, but read-locks nest anyway */
+ 	rcu_read_lock();
  
- skip_taps:
--#ifdef CONFIG_NET_CLS_ACT
-+#ifdef CONFIG_NET_INGRESS
- 	if (static_key_false(&ingress_needed)) {
- 		skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
- 		if (!skb)
- 			goto unlock;
- 	}
--
-+#endif
-+#ifdef CONFIG_NET_CLS_ACT
- 	skb->tc_verd = 0;
- ncls:
- #endif
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index 2274e72..36700d8 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -312,6 +312,7 @@ config NET_SCH_PIE
- config NET_SCH_INGRESS
- 	tristate "Ingress Qdisc"
- 	depends on NET_CLS_ACT
-+	select NET_INGRESS
- 	---help---
- 	  Say Y here if you want to use classifiers for incoming packets.
- 	  If unsure, say Y.
+-	elem = list_entry_rcu(&nf_hooks[state->pf][state->hook],
+-			      struct nf_hook_ops, list);
++	elem = list_entry_rcu(state->hook_list, struct nf_hook_ops, list);
+ next_hook:
+-	verdict = nf_iterate(&nf_hooks[state->pf][state->hook], skb, state,
+-			     &elem);
++	verdict = nf_iterate(state->hook_list, skb, state, &elem);
+ 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
+ 		ret = 1;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_DROP) {
 -- 
 1.7.10.4
 
