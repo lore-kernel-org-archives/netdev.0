@@ -1,79 +1,57 @@
-From: Justin Cormack <justin@myriabit.com>
-Subject: [PATCH v5] macvtap add missing ioctls
-Date: Wed, 13 May 2015 12:35:16 +0100
-Message-ID: <1431516916.3278.8.camel@myriabit.com>
-References: <1431262215.3278.2.camel@myriabit.com>
-	 <20150511.134901.959375179450827063.davem@davemloft.net>
-	 <1431370810.3278.4.camel@myriabit.com>
-	 <20150512.230121.330638562727327262.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Bert Vermeulen <bert@biot.com>
+Subject: [PATCH] mdio-gpio: Propagate mii_bus.phy_ignore_ta_mask
+Date: Wed, 13 May 2015 13:35:39 +0200
+Message-ID: <1431516939-16589-1-git-send-email-bert@biot.com>
+Cc: Bert Vermeulen <bert@biot.com>
+To: f.fainelli@gmail.com, netdev@vger.kernel.org, jogo@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aibo.runbox.com ([91.220.196.211]:45844 "EHLO aibo.runbox.com"
+Received: from kiutl.biot.com ([31.172.244.210]:37875 "EHLO kiutl.biot.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754067AbbEMLfe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 07:35:34 -0400
-In-Reply-To: <20150512.230121.330638562727327262.davem@davemloft.net>
+	id S1751459AbbEMLfs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 07:35:48 -0400
+Received: from spamd by kiutl.biot.com with sa-checked (Exim 4.83)
+	(envelope-from <bert@biot.com>)
+	id 1YsUwz-0003wm-VB
+	for netdev@vger.kernel.org; Wed, 13 May 2015 13:35:46 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The macvtap driver tries to emulate all the ioctls supported by a normal
-tun/tap driver, however it was missing the generic SIOCGIFHWADDR and
-SIOCSIFHWADDR ioctls to get and set the mac address that are supported
-by tun/tap. This patch adds these.
+This also changes mii_bus.phy_mask to u32 for consistency.
 
-Signed-off-by: Justin Cormack <justin@netbsd.org>
+Signed-off-by: Bert Vermeulen <bert@biot.com>
+---
+This goes on top of Florian Fainelli's patch:
+	net: phy: Add phy_ignore_ta_mask to account for broken turn-around
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 8c350c5..d2a7783 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -1006,6 +1006,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 	unsigned int __user *up = argp;
- 	unsigned short u;
- 	int __user *sp = argp;
-+	struct sockaddr sa;
- 	int s;
- 	int ret;
+ drivers/net/phy/mdio-gpio.c | 1 +
+ include/linux/mdio-gpio.h   | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index c0b7c56..859866a 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -154,6 +154,7 @@ static struct mii_bus *mdio_gpio_bus_init(struct device *dev,
+ 	new_bus->name = "GPIO Bitbanged MDIO",
  
-@@ -1101,6 +1102,37 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		rtnl_unlock();
- 		return ret;
+ 	new_bus->phy_mask = pdata->phy_mask;
++	new_bus->phy_ignore_ta_mask = pdata->phy_ignore_ta_mask;
+ 	new_bus->irq = pdata->irqs;
+ 	new_bus->parent = dev;
  
-+	case SIOCGIFHWADDR:
-+		rtnl_lock();
-+		vlan = macvtap_get_vlan(q);
-+		if (!vlan) {
-+			rtnl_unlock();
-+			return -ENOLINK;
-+		}
-+		ret = 0;
-+		u = vlan->dev->type;
-+		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
-+		    copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
-+		    put_user(u, &ifr->ifr_hwaddr.sa_family))
-+			ret = -EFAULT;
-+		macvtap_put_vlan(vlan);
-+		rtnl_unlock();
-+		return ret;
-+
-+	case SIOCSIFHWADDR:
-+		if (copy_from_user(&sa, &ifr->ifr_hwaddr, sizeof(sa)))
-+			return -EFAULT;
-+		rtnl_lock();
-+		vlan = macvtap_get_vlan(q);
-+		if (!vlan) {
-+			rtnl_unlock();
-+			return -ENOLINK;
-+		}
-+		ret = dev_set_mac_address(vlan->dev, &sa);
-+		macvtap_put_vlan(vlan);
-+		rtnl_unlock();
-+		return ret;
-+
- 	default:
- 		return -EINVAL;
- 	}
+diff --git a/include/linux/mdio-gpio.h b/include/linux/mdio-gpio.h
+index 66c30a7..11f00cd 100644
+--- a/include/linux/mdio-gpio.h
++++ b/include/linux/mdio-gpio.h
+@@ -23,7 +23,8 @@ struct mdio_gpio_platform_data {
+ 	bool mdio_active_low;
+ 	bool mdo_active_low;
+ 
+-	unsigned int phy_mask;
++	u32 phy_mask;
++	u32 phy_ignore_ta_mask;
+ 	int irqs[PHY_MAX_ADDR];
+ 	/* reset callback */
+ 	int (*reset)(struct mii_bus *bus);
+-- 
+1.9.1
