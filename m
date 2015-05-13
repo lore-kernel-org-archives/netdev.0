@@ -1,52 +1,82 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH v2 5/5] geneve: add initial netdev driver for GENEVE
- tunnels
-Date: Wed, 13 May 2015 12:53:40 -0400
-Message-ID: <20150513165339.GA3471@tuxdriver.com>
-References: <1431105657-25492-6-git-send-email-linville@tuxdriver.com>
- <1431377466-6676-1-git-send-email-linville@tuxdriver.com>
- <20150512.230628.1787617651802981793.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jesse@nicira.com, azhou@nicira.com,
-	stephen@networkplumber.org, alexander.h.duyck@redhat.com
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH v3 2/5] geneve: move definition of geneve_hdr() to geneve.h
+Date: Wed, 13 May 2015 12:57:27 -0400
+Message-ID: <1431536250-14760-3-git-send-email-linville@tuxdriver.com>
+References: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36511 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36515 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934143AbbEMRAR (ORCPT
+	with ESMTP id S934137AbbEMRAR (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:00:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20150512.230628.1787617651802981793.davem@davemloft.net>
+In-Reply-To: <1431536250-14760-1-git-send-email-linville@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 11:06:28PM -0400, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Mon, 11 May 2015 16:51:06 -0400
-> 
-> > This is an initial implementation of a netdev driver for GENEVE
-> > tunnels.  This implementation uses a fixed UDP port, and only supports
-> > point-to-point links with specific partner endpoints.  Only IPv4
-> > links are supported at this time.
-> > 
-> > Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> > ---
-> > Changes in v2:
-> >  - removal of unneeded special lock for vni_list
-> >  - removal of geneve_net_vni_add/del (replaced by open code)
-> >  - break out of vni search loop in geneve_rx after match found
-> >  - no longer deferring socket open at ndo_init(), now doing it in ndo_open()
-> >  - check for non-multicast, non-zero remote link partner in newlink()
-> >  - remove now unused workqueue stuff
-> 
-> John, could you please repost the full series when you make changes
-> based upon feedback?  That helps me a lot.
-> 
-> Thanks!
+This is a static inline with identical definitions in multiple places...
 
-Sure, no problem... :-)
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+v2: skipped
+v3: repost complete series for clarity
 
+ include/net/geneve.h           | 5 +++++
+ net/ipv4/geneve.c              | 5 -----
+ net/openvswitch/vport-geneve.c | 5 -----
+ 3 files changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/geneve.h b/include/net/geneve.h
+index 14fb8d3390b4..2a0543a1899d 100644
+--- a/include/net/geneve.h
++++ b/include/net/geneve.h
+@@ -62,6 +62,11 @@ struct genevehdr {
+ 	struct geneve_opt options[];
+ };
+ 
++static inline struct genevehdr *geneve_hdr(const struct sk_buff *skb)
++{
++	return (struct genevehdr *)(udp_hdr(skb) + 1);
++}
++
+ #ifdef CONFIG_INET
+ struct geneve_sock;
+ 
+diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+index 8e6a7fe27a4c..001843d41135 100644
+--- a/net/ipv4/geneve.c
++++ b/net/ipv4/geneve.c
+@@ -60,11 +60,6 @@ struct geneve_net {
+ 
+ static int geneve_net_id;
+ 
+-static inline struct genevehdr *geneve_hdr(const struct sk_buff *skb)
+-{
+-	return (struct genevehdr *)(udp_hdr(skb) + 1);
+-}
+-
+ static struct geneve_sock *geneve_find_sock(struct net *net,
+ 					    sa_family_t family, __be16 port)
+ {
+diff --git a/net/openvswitch/vport-geneve.c b/net/openvswitch/vport-geneve.c
+index bf02fd5808c9..208c576bd1b6 100644
+--- a/net/openvswitch/vport-geneve.c
++++ b/net/openvswitch/vport-geneve.c
+@@ -46,11 +46,6 @@ static inline struct geneve_port *geneve_vport(const struct vport *vport)
+ 	return vport_priv(vport);
+ }
+ 
+-static inline struct genevehdr *geneve_hdr(const struct sk_buff *skb)
+-{
+-	return (struct genevehdr *)(udp_hdr(skb) + 1);
+-}
+-
+ /* Convert 64 bit tunnel ID to 24 bit VNI. */
+ static void tunnel_id_to_vni(__be64 tun_id, __u8 *vni)
+ {
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+2.1.0
