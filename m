@@ -1,47 +1,69 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 4/4] netconsole: implement extended console support
-Date: Wed, 13 May 2015 11:46:20 -0400
-Message-ID: <20150513154620.GX11388@htj.duckdns.org>
-References: <1431362494-9874-5-git-send-email-tj@kernel.org>
- <20150511.132339.403868463230045095.davem@davemloft.net>
- <20150511203745.GI11388@htj.duckdns.org>
- <20150512.192322.2233784105592482987.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] net/bridge: Enable bridge also when switchdev
+ can't be built
+Date: Wed, 13 May 2015 17:47:44 +0200
+Message-ID: <20150513154743.GA2773@nanopsycho>
+References: <1431511723-26323-1-git-send-email-ogerlitz@mellanox.com>
+ <CAE4R7bCO3Zs=NzZDz9WTKRJznU7BMOkNNZFewNttUXqYsYUq0A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
-	sd@queasysnail.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:36010 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965109AbbEMPrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 11:47:49 -0400
+Received: by wizk4 with SMTP id k4so204673673wiz.1
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 08:47:48 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20150512.192322.2233784105592482987.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAE4R7bCO3Zs=NzZDz9WTKRJznU7BMOkNNZFewNttUXqYsYUq0A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, David.
-
-On Tue, May 12, 2015 at 07:23:22PM -0400, David Miller wrote:
-> Second question, is there an upper bound on this header size?
-> Because if there is, it seems to me that there is no reason why we
-> can't just avoid the fragmentation support altogether.
+Wed, May 13, 2015 at 05:44:11PM CEST, sfeldma@gmail.com wrote:
+>On Wed, May 13, 2015 at 3:08 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
+>> Currently switchdev doesn't build on older gcc version such as 4.4.6
+>>
+>> The reason for the compile error is such that it causes a failure
+>> to build the bridge too, even when switchdev isn't configured (the
+>> stub isn't enough), fix it.
+>>
+>> CC [M]  net/bridge/br_stp.o
+>> net/bridge/br_stp.c: In function 'br_set_state':
+>> net/bridge/br_stp.c:44: error: unknown field 'stp_state' specified in initializer
+>>
+>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>> ---
+>>  net/bridge/br_stp.c |    4 +++-
+>>  1 files changed, 3 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+>> index b9300da..752783a 100644
+>> --- a/net/bridge/br_stp.c
+>> +++ b/net/bridge/br_stp.c
+>> @@ -39,17 +39,19 @@ void br_log_state(const struct net_bridge_port *p)
+>>
+>>  void br_set_state(struct net_bridge_port *p, unsigned int state)
+>>  {
+>> +#ifdef CONFIG_NET_SWITCHDEV
+>>         struct switchdev_attr attr = {
+>>                 .id = SWITCHDEV_ATTR_PORT_STP_STATE,
+>>                 .stp_state = state,
+>>         };
+>>         int err;
+>>
+>> -       p->state = state;
+>>         err = switchdev_port_attr_set(p->dev, &attr);
+>>         if (err && err != -EOPNOTSUPP)
+>>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+>>                                 (unsigned int) p->port_no, p->dev->name);
+>> +#endif
+>> +       p->state = state;
+>>  }
 >
-> The current code limits to 1000 bytes, and that limit seems arbitrary.
-> Obviously this code is meant to work on interfaces with an ethernet
-> MTU or larger.  So you could bump the limit enough to accomodate the
-> new header size, yet still be within the real constraints.
-> 
-> What do you think?
+>Isn't this the same issue with anonymous unions and older gcc?
 
-Yeah, if we can bump the tx size enough to accomodate all messages,
-it'd be great.  It can get fairly large tho.  The absolute maximum
-right now is 8k.  While regular prink message bodies are capped
-slightly below 1k, the dictionary printed through vprintk_emit()
-doesn't have such length limit.  Another factor is that non-printables
-are escaped using \xXX and vprintk_emit() is supposed to be useable
-with transmitting binary data (like low level device error
-descriptors) although I'm not sure anybody is doing that yet.
-
-Thanks.
-
--- 
-tejun
+I believe it is
