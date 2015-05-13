@@ -1,33 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: kill useless net_*_ingress_queue()
- definitions when NET_CLS_ACT is unset
-Date: Wed, 13 May 2015 15:45:05 -0400 (EDT)
-Message-ID: <20150513.154505.120630567766890421.davem@davemloft.net>
-References: <1431455287-4925-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56428 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965254AbbEMTpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 15:45:07 -0400
-In-Reply-To: <1431455287-4925-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net v2 1/2] ipv6: do not delete previously existing ECMP
+ routes if add fails
+Date: Wed, 13 May 2015 21:59:46 +0200 (CEST)
+Message-ID: <bb3d4b3ef28339bbf863a42e569bbdc1078565ee.1431546602.git.mkubecek@suse.cz>
+References: <cover.1431546602.git.mkubecek@suse.cz>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	roopa <roopa@cumulusnetworks.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1431546602.git.mkubecek@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 12 May 2015 20:28:07 +0200
+If adding a nexthop of an IPv6 multipath route fails, comment in
+ip6_route_multipath() says we are going to delete all nexthops already
+added. However, current implementation deletes even the routes it
+hasn't even tried to add yet. For example, running
 
-> This fixes 4577139b2dabf589 ("net: use jump label patching for ingress qdisc in
-> __netif_receive_skb_core").
-> 
-> The only client of this is sch_ingress and it depends on NET_CLS_ACT. So
-> there is no way these definition can be of any help.
-> 
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+  ip route add 1234:5678::/64 \
+      nexthop via fe80::aa dev dummy1 \
+      nexthop via fe80::bb dev dummy1 \
+      nexthop via fe80::cc dev dummy1
 
-Applied, thanks Pablo.
+twice results in removing all routes first command added.
+
+Limit the second (delete) run to nexthops that succeeded in the first
+(add) run.
+
+Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP)")
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/ipv6/route.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index d3588885f097..3821a3517478 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2504,9 +2504,9 @@ static int ip6_route_multipath(struct fib6_config *cfg, int add)
+ 	int attrlen;
+ 	int err = 0, last_err = 0;
+ 
++	remaining = cfg->fc_mp_len;
+ beginning:
+ 	rtnh = (struct rtnexthop *)cfg->fc_mp;
+-	remaining = cfg->fc_mp_len;
+ 
+ 	/* Parse a Multipath Entry */
+ 	while (rtnh_ok(rtnh, remaining)) {
+@@ -2536,6 +2536,7 @@ beginning:
+ 				 * next hops that have been already added.
+ 				 */
+ 				add = 0;
++				remaining = cfg->fc_mp_len - remaining;
+ 				goto beginning;
+ 			}
+ 		}
+-- 
+2.3.7
