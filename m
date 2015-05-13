@@ -1,87 +1,88 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when PCI
- device is assigned
-Date: Wed, 13 May 2015 12:39:17 -0600
-Message-ID: <1431542357.3625.62.camel@redhat.com>
-References: <20150513013550.10328.1416.stgit@bwallan-smackover2.jf.intel.com>
-	 <1431484908.3625.10.camel@redhat.com>
-	 <804857E1F29AAC47BF68C404FC60A1846BBD2E63@ORSMSX105.amr.corp.intel.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [oss-security] [PATCH 0/4] ozwpan: Four remote packet-of-death
+ vulnerabilities
+Date: Wed, 13 May 2015 11:43:31 -0700
+Message-ID: <20150513184331.GA1847@kroah.com>
+References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shigekatsu.tateno@atmel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: oss-security@lists.openwall.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38506 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965001AbbEMSjV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 14:39:21 -0400
-In-Reply-To: <804857E1F29AAC47BF68C404FC60A1846BBD2E63@ORSMSX105.amr.corp.intel.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:48288 "EHLO
+	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932346AbbEMSne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 14:43:34 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by mailout.nyi.internal (Postfix) with ESMTP id 24EE820DF1
+	for <netdev@vger.kernel.org>; Wed, 13 May 2015 14:43:34 -0400 (EDT)
+Content-Disposition: inline
+In-Reply-To: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-13 at 17:50 +0000, Allan, Bruce W wrote:
-> > -----Original Message-----
-> > From: Alex Williamson [mailto:alex.williamson@redhat.com]
-> > Sent: Tuesday, May 12, 2015 7:42 PM
-> > To: Allan, Bruce W
-> > Cc: kvm@vger.kernel.org; netdev@vger.kernel.org; intel-wired-
-> > lan@lists.osuosl.org
-> > Subject: Re: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when
-> > PCI device is assigned
-> > 
-> > On Tue, 2015-05-12 at 18:35 -0700, Bruce Allan wrote:
-> > > A number of PCI device drivers supporting SR-IOV use pci_vfs_assigned()
-> > to
-> > > check if there are any VF devices assigned by a VMM prior to disabling
-> > > SR-IOV (i.e. bnx2x, be2net, fm10k, i40e, igb, ixgbe, qlcnic).  This check
-> > > works fine with the legacy device assignment (pci-stub enables the
-> > device)
-> > > which calls pci_set_dev_assigned().  The newer VFIO-based assignment
-> > > (vfio-pci enables device) doesn't call pci_set_dev_assigned() potentially
-> > > leading to issues in those drivers when disabling SR-IOV with VFs assigned.
-> > >
-> > > Add calls to pci_[set|clear]_dev_assigned() to set the flag as expected.
-> > >
-> > > Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> > > ---
-> > >  drivers/vfio/pci/vfio_pci.c |    4 ++++
-> > >  1 file changed, 4 insertions(+)
-> > 
-> > 
-> > Why should a device exposed to the user be handled differently than a
-> > device used by a host driver?  The reason the assigned flag exists is
-> > because legacy KVM device assignment doesn't actually claim the device
-> > using the driver model, it relies on pci-stub to act as a placeholder to
-> > prevent other drivers from binding to the device, but pci-stub has no
-> > visibility to the device usage and will immediately release it
-> > regardless of it being in use.  vfio-pci participates in the driver
-> > model, signals the user for the device to be released and blocks until
-> > it is released.  Beyond that, the assigned flag is a racy hack.  There's
-> > no locking whatsoever to imply that the flag as any meaning beyond the
-> > instant that it's tested.  I'd like to see the assigned flag deprecated
-> > along with legacy KVM device assignment, not perpetuated in newer
-> > drivers.  The patch is also wrong because we can tell when the device is
-> > actually opened by the user, not just bound to the vfio-pci driver.
-> > Thanks,
-> > 
-> > Alex
+On Wed, May 13, 2015 at 08:33:30PM +0200, Jason A. Donenfeld wrote:
+> The ozwpan driver accepts network packets, parses them, and converts
+> them into various USB functionality. There are numerous security
+> vulnerabilities in the handling of these packets. Two of them result in
+> a memcpy(kernel_buffer, network_packet, -length), one of them is a
+> divide-by-zero, and one of them is a loop that decrements -1 until it's
+> zero.
 > 
-> So for clarification, in the drivers mentioned above would you recommend
-> rather than checking pci_vfs_assigned() before disabling SR-IOV the drivers
-> should instead check if any of the VF devices are bound/opened by another
-> driver?
+> I've written a very simple proof-of-concept for each one of these
+> vulnerabilities to aid with detecting and fixing them. The general
+> operation of each proof-of-concept code is:
+> 
+>   - Load the module with:
+>     # insmod ozwpan.ko g_net_dev=eth0
+>   - Compile the PoC with ozprotocol.h from the kernel tree:
+>     $ cp /path/to/linux/drivers/staging/ozwpan/ozprotocol.h ./
+>     $ gcc ./poc.c -o ./poc
+>   - Run the PoC:
+>     # ./poc eth0 [mac-address]
+> 
+> These PoCs should also be useful to the maintainers for testing out
+> constructing and sending various other types of malformed packets against
+> which this driver should be hardened.
+> 
+> Please assign CVEs for these vulnerabilities. I believe the first two
+> patches of this set can receive one CVE for both, and the remaining two
+> can receive one CVE each.
+> 
+> 
+> On a slightly related note, there are several other vulnerabilities in
+> this driver that are worth looking into. When ozwpan receives a packet,
+> it casts the packet into a variety of different structs, based on the
+> value of type and length parameters inside the packet. When making these
+> casts, and when reading bytes based on this length parameter, the actual
+> length of the packet in the socket buffer is never actually consulted. As
+> such, it's very likely that a packet could be sent that results in the
+> kernel reading memory in adjacent buffers, resulting in an information
+> leak, or from unpaged addresses, resulting in a crash. In the former case,
+> it may be possible with certain message types to actually send these
+> leaked adjacent bytes back to the sender of the packet. So, I'd highly
+> recommend the maintainers of this driver go branch-by-branch from the
+> initial rx function, adding checks to ensure all reads and casts are
+> within the bounds of the socket buffer.
+> 
+> Jason A. Donenfeld (4):
+>   ozwpan: Use proper check to prevent heap overflow
+>   ozwpan: Use unsigned ints to prevent heap overflow
+>   ozwpan: divide-by-zero leading to panic
+>   ozwpan: unchecked signed subtraction leads to DoS
+> 
+>  drivers/staging/ozwpan/ozhcd.c     |  8 ++++----
+>  drivers/staging/ozwpan/ozusbif.h   |  4 ++--
+>  drivers/staging/ozwpan/ozusbsvc1.c | 11 +++++++++--
+>  3 files changed, 15 insertions(+), 8 deletions(-)
 
-That would also be racy, it could be unbound at your test point and
-bound immediately after.  Driver binding also doesn't necessarily imply
-that the device is in use; vfio-pci will immediately release an unused
-device.  Again, why are we trying to handle this as a special case?
-vfio-pci is just another driver.  If it can release the device, it will.
-It will even try to signal the user to release it.  Beyond that, we're
-bound by the driver model.  If we want drivers to be able to return
--EBUSY if the device is in use, fix the driver model, don't hack around
-it with racy tests like the assigned flag.  Thanks,
+Any reason you didn't cc: the maintainer who could actually apply these
+to the kernel tree?
 
-Alex
+Please use scripts/get_maintainer.pl to properly notify the correct
+people.
+
+thanks,
+
+greg k-h
