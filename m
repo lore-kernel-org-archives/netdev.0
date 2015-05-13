@@ -1,81 +1,76 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: gone with the spring cleanup..
-Date: Wed, 13 May 2015 13:55:57 +0300
-Message-ID: <55532DBD.1080901@mellanox.com>
-References: <5553158D.7000108@mellanox.com>
- <20150513103812.GA2136@nanopsycho.mtl.com>
- <20150513104249.GB2136@nanopsycho.mtl.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH -next] net: core: set qdisc pkt len before tc_classify
+Date: Wed, 13 May 2015 07:02:50 -0400
+Message-ID: <55532F5A.5070007@mojatatu.com>
+References: <1431437838-5478-1-git-send-email-fw@strlen.de> <1431440547.566.84.camel@edumazet-glaptop2.roam.corp.google.com> <20150512151646.GB22387@breakpoint.cc> <20150512170322.GA3524@Alexeis-MBP.westell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	daniel@iogearbox.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0067.outbound.protection.outlook.com ([157.56.112.67]:60410
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751459AbbEMK40 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 06:56:26 -0400
-In-Reply-To: <20150513104249.GB2136@nanopsycho.mtl.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:34972 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753963AbbEMLCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 07:02:53 -0400
+Received: by igbyr2 with SMTP id yr2so135091563igb.0
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 04:02:52 -0700 (PDT)
+In-Reply-To: <20150512170322.GA3524@Alexeis-MBP.westell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/13/2015 1:42 PM, Jiri Pirko wrote:
->> Looks like the problem might be in named structures which suppose to be
->> >anonymous. Would you try following patch:
-> oh, switchdev_obj_vlan and switchdev_obj_ipv4_fib is used in rocker..
-> So better:
-
-nope, fails.. if I remove the union (it is struct switchdev_obj has 
-strict vlan and ipv4_fib fields) it works. Seems there's some problem 
-also with anonymous unions.
-
+On 05/12/15 13:03, Alexei Starovoitov wrote:
+> On Tue, May 12, 2015 at 05:16:46PM +0200, Florian Westphal wrote:
+>>>
+>>> A qdisc might have a stab (cf qdisc_calculate_pkt_len() )
+>>
+>> Thanks for pointing this out Eric.
 >
-> diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-> index 3b217b4..32ce31d 100644
-> --- a/include/net/switchdev.h
-> +++ b/include/net/switchdev.h
-> @@ -49,24 +49,28 @@ enum switchdev_obj_id {
->   	SWITCHDEV_OBJ_IPV4_FIB,
->   };
->   
-> +struct switchdev_obj_vlan {
-> +	u16 flags;
-> +	u16 vid_start;
-> +	u16 vid_end;
-> +};
-> +
-> +struct switchdev_obj_ipv4_fib {
-> +	u32 dst;
-> +	int dst_len;
-> +	struct fib_info *fi;
-> +	u8 tos;
-> +	u8 type;
-> +	u32 nlflags;
-> +	u32 tb_id;
-> +};
-> +
->   struct switchdev_obj {
->   	enum switchdev_obj_id id;
->   	enum switchdev_trans trans;
->   	union {
-> -		struct switchdev_obj_vlan {			/* PORT_VLAN */
-> -			u16 flags;
-> -			u16 vid_start;
-> -			u16 vid_end;
-> -		} vlan;
-> -		struct switchdev_obj_ipv4_fib {		/* IPV4_FIB */
-> -			u32 dst;
-> -			int dst_len;
-> -			struct fib_info *fi;
-> -			u8 tos;
-> -			u8 type;
-> -			u32 nlflags;
-> -			u32 tb_id;
-> -		} ipv4_fib;
-> +		struct switchdev_obj_vlan vlan;
-> +		struct switchdev_obj_ipv4_fib ipv4_fib;
->   	};
->   };
->   
+> Indeed. Thanks Eric!
+>
+>> I was under impression that stab was only useful for egress but in
+>> fact tc did support ingress stab too.
+>
+> That was my impression as well. Though it was allowed to add
+> qdisc_size_table to ingress, it's useless. Nothing takes advantage
+> of recomputed qdisc_pkt_len. It can only mess with stats, which
+> seems to be already broken:
+> - egress qdiscs do qdisc_bstats_update() only at dequeue, whereas
+>    ingress double counts dropped packets
+> - qdisc_bstats_update() does:
+>    bstats->bytes += qdisc_pkt_len(skb);
+>    bstats->packets += skb_is_gso(skb) ? skb_shinfo(skb)->gso_segs : 1;
+>    but nothing on ingress does qdisc_pkt_len_init().
+>    So when we see gso packet on ingress the stats are very wrong.
+>
+> I think we should fix ingress stats as a whole.
+> Option 1:
+>   do qdisc_pkt_len_init() + optional call into size_table
+>   to update stats only after classifers returned TC_ACT_OK.
+>   Cons: extra overhead per packet only to update ingress qdisc stats.
+> Option 2:
+>   use byte and packet counts from underlying netdev, when
+>   reporting stats via ingress qdisc.
+>   Pros: No arithmetic in the fast path.
+>
+> I think option 2 is much preferred, since it's faster and
+> equally accurate.
+>
+> Jamal, what's your take?
+>
+
+I dont think we need the stab on the ingress but we do need to account
+for gso. So option #1 with qdisc_pkt_len_init() alone is the only thing
+needed. i.e Florian's change becomes:
+
+-	qdisc_bstats_update_cpu(cl->q, skb);
++	qdisc_pkt_len_init(skb)
+  	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
++	qdisc_bstats_update_cpu(cl->q, skb);
+
+Alexei, why do you say this option will have overhead?
+
+cheers,
+jamal
