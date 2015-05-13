@@ -1,41 +1,35 @@
 From: sfeldma@gmail.com
-Subject: [PATCH net-next 1/4] switchdev: sparse warning: make __switchdev_port_obj_add static
-Date: Tue, 12 May 2015 23:03:51 -0700
-Message-ID: <1431497034-22153-2-git-send-email-sfeldma@gmail.com>
-References: <1431497034-22153-1-git-send-email-sfeldma@gmail.com>
+Subject: [PATCH net-next 0/4] switchdev: more (minor) cleanups
+Date: Tue, 12 May 2015 23:03:50 -0700
+Message-ID: <1431497034-22153-1-git-send-email-sfeldma@gmail.com>
 Cc: jiri@resnulli.us, ronen.arad@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36507 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752644AbbEMGCv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:02:51 -0400
-Received: by pabsx10 with SMTP id sx10so39731978pab.3
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 23:02:51 -0700 (PDT)
-In-Reply-To: <1431497034-22153-1-git-send-email-sfeldma@gmail.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:36108 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752642AbbEMGCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:02:50 -0400
+Received: by pdea3 with SMTP id a3so40549999pde.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 23:02:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <sfeldma@gmail.com>
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- net/switchdev/switchdev.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Fix some sparse warnings and include some documentation review comments that
+didn't get picked up in the switchdev Spring Cleanup series.
 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 65d49d4..a267f77 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -188,7 +188,8 @@ int switchdev_port_attr_set(struct net_device *dev, struct switchdev_attr *attr)
- }
- EXPORT_SYMBOL_GPL(switchdev_port_attr_set);
- 
--int __switchdev_port_obj_add(struct net_device *dev, struct switchdev_obj *obj)
-+static int __switchdev_port_obj_add(struct net_device *dev,
-+				    struct switchdev_obj *obj)
- {
- 	const struct switchdev_ops *ops = dev->switchdev_ops;
- 	struct net_device *lower_dev;
+Scott Feldman (4):
+  switchdev: sparse warning: make __switchdev_port_obj_add static
+  switchdev: sparse warning: pass ipv4 fib dst as network-byte order
+  switchdev: align comment with other comments in block
+  switchdev: apply review comments on documentation
+
+ Documentation/networking/switchdev.txt |    7 +++++--
+ drivers/net/ethernet/rocker/rocker.c   |    7 ++++---
+ include/net/switchdev.h                |    2 +-
+ net/switchdev/switchdev.c              |    7 ++++---
+ 4 files changed, 14 insertions(+), 9 deletions(-)
+
 -- 
 1.7.10.4
