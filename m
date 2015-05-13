@@ -1,14 +1,14 @@
 From: Chris Leech <cleech-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH 1/4] iscsi: create per-net iscsi nl kernel sockets
-Date: Wed, 13 May 2015 15:12:44 -0700
-Message-ID: <1431555167-23995-2-git-send-email-cleech@redhat.com>
+Subject: [RFC PATCH 2/4] iscsi: sysfs filtering by network namespace
+Date: Wed, 13 May 2015 15:12:45 -0700
+Message-ID: <1431555167-23995-3-git-send-email-cleech@redhat.com>
 References: <1431555167-23995-1-git-send-email-cleech@redhat.com>
 Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 To: <open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>, <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
         netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <open-iscsi+bncBCYMVIPVXQMBB7MYZ6VAKGQENSDBHUA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <open-iscsi+bncBCYMVIPVXQMBB7UYZ6VAKGQEKHITVFA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 In-Reply-To: <1431555167-23995-1-git-send-email-cleech-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 List-Post: <http://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Help: <http://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -19,144 +19,169 @@ List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39U
  <http://groups.google.com/group/open-iscsi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Prepare iSCSI netlink to operate in multiple namespaces.
+This makes the iscsi_host, iscsi_session, iscsi_connection, and
+iscsi_endpoint transport class devices only visible in sysfs under a
+matching network namespace.  The network namespace for all of these
+objects is tracked in the iscsi_cls_host structure.
 ---
- drivers/scsi/scsi_transport_iscsi.c | 67 +++++++++++++++++++++++++++++++------
- 1 file changed, 57 insertions(+), 10 deletions(-)
+ drivers/scsi/scsi_transport_iscsi.c | 114 ++++++++++++++++++++++++++++++------
+ include/scsi/scsi_transport_iscsi.h |   1 +
+ 2 files changed, 98 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
-index 67d43e3..88a3347 100644
+index 88a3347..2b146cb 100644
 --- a/drivers/scsi/scsi_transport_iscsi.c
 +++ b/drivers/scsi/scsi_transport_iscsi.c
-@@ -26,6 +26,8 @@
- #include <linux/bsg-lib.h>
- #include <linux/idr.h>
- #include <net/tcp.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
- #include <scsi/scsi.h>
- #include <scsi/scsi_host.h>
- #include <scsi/scsi_device.h>
-@@ -1606,7 +1608,11 @@ static DECLARE_TRANSPORT_CLASS(iscsi_connection_class,
- 			       NULL,
- 			       NULL);
- 
--static struct sock *nls;
-+struct iscsi_net {
-+	struct sock *nls;
-+};
-+
-+static int iscsi_net_id __read_mostly;
- static DEFINE_MUTEX(rx_queue_mutex);
- 
- static LIST_HEAD(sesslist);
-@@ -2338,11 +2344,23 @@ iscsi_if_transport_lookup(struct iscsi_transport *tt)
+@@ -161,9 +161,33 @@ static void iscsi_endpoint_release(struct device *dev)
+ 	kfree(ep);
  }
  
- static int
--iscsi_multicast_skb(struct sk_buff *skb, uint32_t group, gfp_t gfp)
-+iscsi_multicast_netns(struct net *net, struct sk_buff *skb,
-+		      uint32_t group, gfp_t gfp)
- {
-+	struct sock *nls;
-+	struct iscsi_net *isn;
-+
-+	isn = net_generic(net, iscsi_net_id);
-+	nls = isn->nls;
- 	return nlmsg_multicast(nls, skb, 0, group, gfp);
- }
- 
-+static int
-+iscsi_multicast_skb(struct sk_buff *skb, uint32_t group, gfp_t gfp)
++static const struct net *iscsi_host_net(struct iscsi_cls_host *ihost)
 +{
-+	return iscsi_multicast_netns(&init_net, skb, group, gfp);
++	return ihost->netns;
 +}
 +
- int iscsi_recv_pdu(struct iscsi_cls_conn *conn, struct iscsi_hdr *hdr,
- 		   char *data, uint32_t data_size)
- {
-@@ -4505,13 +4523,42 @@ int iscsi_unregister_transport(struct iscsi_transport *tt)
- }
- EXPORT_SYMBOL_GPL(iscsi_unregister_transport);
- 
--static __init int iscsi_transport_init(void)
-+static int __net_init iscsi_net_init(struct net *net)
- {
--	int err;
-+	struct sock *nls;
-+	struct iscsi_net *isn;
- 	struct netlink_kernel_cfg cfg = {
- 		.groups	= 1,
- 		.input	= iscsi_if_rx,
- 	};
++static const struct net *iscsi_endpoint_net(struct iscsi_endpoint *ep)
++{
++	struct iscsi_cls_conn *cls_conn = ep->conn;
++	struct iscsi_cls_session *cls_session = iscsi_conn_to_session(cls_conn);
++	struct Scsi_Host *shost = iscsi_session_to_shost(cls_session);
++	struct iscsi_cls_host *ihost = shost->shost_data;
 +
-+	nls = netlink_kernel_create(net, NETLINK_ISCSI, &cfg);
-+	if (!nls)
-+		return -ENOMEM;
-+	isn = net_generic(net, iscsi_net_id);
-+	isn->nls = nls;
-+	return 0;
++	return iscsi_host_net(ihost);
 +}
 +
-+static void __net_exit iscsi_net_exit(struct net *net)
++static const void *iscsi_endpoint_namespace(struct device *dev)
 +{
-+	struct iscsi_net *isn;
++	struct iscsi_endpoint *ep = iscsi_dev_to_endpoint(dev);
 +
-+	isn = net_generic(net, iscsi_net_id);
-+	netlink_kernel_release(isn->nls);
-+	isn->nls = NULL;
++	return iscsi_endpoint_net(ep);
 +}
 +
-+static struct pernet_operations iscsi_net_ops = {
-+	.init = iscsi_net_init,
-+	.exit = iscsi_net_exit,
-+	.id   = &iscsi_net_id,
-+	.size = sizeof(struct iscsi_net),
-+};
-+
-+static __init int iscsi_transport_init(void)
-+{
-+	int err;
- 	printk(KERN_INFO "Loading iSCSI transport class v%s.\n",
- 		ISCSI_TRANSPORT_VERSION);
+ static struct class iscsi_endpoint_class = {
+ 	.name = "iscsi_endpoint",
+ 	.dev_release = iscsi_endpoint_release,
++	.ns_type = &net_ns_type_operations,
++	.namespace = iscsi_endpoint_namespace,
+ };
  
-@@ -4545,8 +4592,8 @@ static __init int iscsi_transport_init(void)
- 	if (err)
- 		goto unregister_session_class;
+ static ssize_t
+@@ -1570,6 +1594,7 @@ static int iscsi_setup_host(struct transport_container *tc, struct device *dev,
+ 	memset(ihost, 0, sizeof(*ihost));
+ 	atomic_set(&ihost->nr_scans, 0);
+ 	mutex_init(&ihost->mutex);
++	ihost->netns = &init_net;
  
--	nls = netlink_kernel_create(&init_net, NETLINK_ISCSI, &cfg);
--	if (!nls) {
-+	err = register_pernet_subsys(&iscsi_net_ops);
-+	if (err) {
- 		err = -ENOBUFS;
- 		goto unregister_flashnode_bus;
- 	}
-@@ -4554,13 +4601,13 @@ static __init int iscsi_transport_init(void)
- 	iscsi_eh_timer_workq = create_singlethread_workqueue("iscsi_eh");
- 	if (!iscsi_eh_timer_workq) {
- 		err = -ENOMEM;
--		goto release_nls;
-+		goto unregister_pernet_subsys;
- 	}
- 
+ 	iscsi_bsg_host_add(shost, ihost);
+ 	/* ignore any bsg add error - we just can't do sgio */
+@@ -1590,23 +1615,78 @@ static int iscsi_remove_host(struct transport_container *tc,
  	return 0;
+ }
  
--release_nls:
--	netlink_kernel_release(nls);
-+unregister_pernet_subsys:
-+	unregister_pernet_subsys(&iscsi_net_ops);
- unregister_flashnode_bus:
- 	bus_unregister(&iscsi_flashnode_bus);
- unregister_session_class:
-@@ -4581,7 +4628,7 @@ unregister_transport_class:
- static void __exit iscsi_transport_exit(void)
- {
- 	destroy_workqueue(iscsi_eh_timer_workq);
--	netlink_kernel_release(nls);
-+	unregister_pernet_subsys(&iscsi_net_ops);
- 	bus_unregister(&iscsi_flashnode_bus);
- 	transport_class_unregister(&iscsi_connection_class);
- 	transport_class_unregister(&iscsi_session_class);
+-static DECLARE_TRANSPORT_CLASS(iscsi_host_class,
+-			       "iscsi_host",
+-			       iscsi_setup_host,
+-			       iscsi_remove_host,
+-			       NULL);
+-
+-static DECLARE_TRANSPORT_CLASS(iscsi_session_class,
+-			       "iscsi_session",
+-			       NULL,
+-			       NULL,
+-			       NULL);
+-
+-static DECLARE_TRANSPORT_CLASS(iscsi_connection_class,
+-			       "iscsi_connection",
+-			       NULL,
+-			       NULL,
+-			       NULL);
++#define DECLARE_TRANSPORT_CLASS_NS(cls, nm, su, rm, cfg, ns, nslookup)	\
++struct transport_class cls = {						\
++	.class = {							\
++		.name = nm,						\
++		.ns_type = ns,						\
++		.namespace = nslookup,					\
++	},								\
++	.setup = su,							\
++	.remove = rm,							\
++	.configure = cfg,						\
++}
++
++static const void *iscsi_host_namespace(struct device *dev)
++{
++	struct Scsi_Host *shost = transport_class_to_shost(dev);
++	struct iscsi_cls_host *ihost = shost->shost_data;
++
++	return iscsi_host_net(ihost);
++}
++
++static DECLARE_TRANSPORT_CLASS_NS(iscsi_host_class,
++				  "iscsi_host",
++				  iscsi_setup_host,
++				  iscsi_remove_host,
++				  NULL,
++				  &net_ns_type_operations,
++				  iscsi_host_namespace);
++
++static const struct net *iscsi_sess_net(struct iscsi_cls_session *cls_session)
++{
++	struct Scsi_Host *shost = iscsi_session_to_shost(cls_session);
++	struct iscsi_cls_host *ihost = shost->shost_data;
++
++	return iscsi_host_net(ihost);
++}
++
++static const void *iscsi_sess_namespace(struct device *dev)
++{
++	struct iscsi_cls_session *cls_session = transport_class_to_session(dev);
++
++	return iscsi_sess_net(cls_session);
++}
++
++static DECLARE_TRANSPORT_CLASS_NS(iscsi_session_class,
++				  "iscsi_session",
++				  NULL,
++				  NULL,
++				  NULL,
++				  &net_ns_type_operations,
++				  iscsi_sess_namespace);
++
++static const struct net *iscsi_conn_net(struct iscsi_cls_conn *cls_conn)
++{
++	struct iscsi_cls_session *cls_session = iscsi_conn_to_session(cls_conn);
++
++	return iscsi_sess_net(cls_session);
++}
++
++static const void *iscsi_conn_namespace(struct device *dev)
++{
++	struct iscsi_cls_conn *cls_conn = transport_class_to_conn(dev);
++
++	return iscsi_conn_net(cls_conn);
++}
++
++static DECLARE_TRANSPORT_CLASS_NS(iscsi_connection_class,
++				  "iscsi_connection",
++				  NULL,
++				  NULL,
++				  NULL,
++				  &net_ns_type_operations,
++				  iscsi_conn_namespace);
+ 
+ struct iscsi_net {
+ 	struct sock *nls;
+diff --git a/include/scsi/scsi_transport_iscsi.h b/include/scsi/scsi_transport_iscsi.h
+index 2555ee5..860ac0c 100644
+--- a/include/scsi/scsi_transport_iscsi.h
++++ b/include/scsi/scsi_transport_iscsi.h
+@@ -275,6 +275,7 @@ struct iscsi_cls_host {
+ 	struct request_queue *bsg_q;
+ 	uint32_t port_speed;
+ 	uint32_t port_state;
++	struct net *netns;
+ };
+ 
+ #define iscsi_job_to_shost(_job) \
 -- 
 2.1.0
 
