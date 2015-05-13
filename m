@@ -1,69 +1,79 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] net: sched: use counter to break reclassify loops
-Date: Wed, 13 May 2015 13:29:58 +0200
-Message-ID: <20150513112958.GA6179@breakpoint.cc>
-References: <1431366641-24735-1-git-send-email-fw@strlen.de>
- <5551E62D.5040507@mojatatu.com>
- <20150512130029.GA22387@breakpoint.cc>
- <55533321.302@mojatatu.com>
+From: Justin Cormack <justin@myriabit.com>
+Subject: [PATCH v5] macvtap add missing ioctls
+Date: Wed, 13 May 2015 12:35:16 +0100
+Message-ID: <1431516916.3278.8.camel@myriabit.com>
+References: <1431262215.3278.2.camel@myriabit.com>
+	 <20150511.134901.959375179450827063.davem@davemloft.net>
+	 <1431370810.3278.4.camel@myriabit.com>
+	 <20150512.230121.330638562727327262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42868 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753955AbbEMLaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 07:30:00 -0400
-Content-Disposition: inline
-In-Reply-To: <55533321.302@mojatatu.com>
+Received: from aibo.runbox.com ([91.220.196.211]:45844 "EHLO aibo.runbox.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754067AbbEMLfe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 07:35:34 -0400
+In-Reply-To: <20150512.230121.330638562727327262.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 05/12/15 09:00, Florian Westphal wrote:
-> >Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> >>Florian,
-> >>In general i am in support of removing this - since the use case never
-> >>materialized as being useful. However, this is not the same logic that
-> >>was there before. To get equivalency you need to pass the limit into
-> >>tc_classify_compat() so i can be reset.
-> >
-> >AFAICS this re-set only happens when we return something other
-> >than RECLASSIFY which means the caller will not check the limit.
-> >
-> >So in fact it should be ok to remove this since the counter will always
-> >start from 0 on next tc_classify() invocation.
-> >
-> 
-> Florian, consider the following scenario:
-> Assume X is the max allowed reclassified before bells start ringing.
-> If we see upto X back-to-back reclassify - we are very much likely in
-> a loop. We should see fire trucks arrive and bail out.
-> If we see X-1  "reclassify" followed by a "pipe" followed by
-> X-1 "reclassify" followed by "ok" then that looks like a healthy
-> policy. But that is a a total of 2X-2 reclassifies. You will
-> bail out at X reclassifies; what i am saying is you shouldnt.
-> And existing logic doesnt. Does that make sense?
+The macvtap driver tries to emulate all the ioctls supported by a normal
+tun/tap driver, however it was missing the generic SIOCGIFHWADDR and
+SIOCSIFHWADDR ioctls to get and set the mac address that are supported
+by tun/tap. This patch adds these.
 
-Yes, but, if we use your example above then:
+Signed-off-by: Justin Cormack <justin@netbsd.org>
 
-tc_classify called
-  limit 0
-    tc_classify_compat called, ret RECLASSIFY
-  limit 1
-    tc_classify_compat called, ret RECLASSIFY
-  limit 2
-    tc_classify_compat called, ret PIPE (== 3)
-  tc_classify returns 3
-tc_classify called
-  limit 0
-  ...
-
-So we don't toss skb since any return value other than RECLASSIFY
-will make tc_classify() return to its caller, and when caller invokes
-tc_classify again the limit variable is set to 0 again.
-
-Does that make sense to you?
-
-Thanks Jamal.
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 8c350c5..d2a7783 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -1006,6 +1006,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 	unsigned int __user *up = argp;
+ 	unsigned short u;
+ 	int __user *sp = argp;
++	struct sockaddr sa;
+ 	int s;
+ 	int ret;
+ 
+@@ -1101,6 +1102,37 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		rtnl_unlock();
+ 		return ret;
+ 
++	case SIOCGIFHWADDR:
++		rtnl_lock();
++		vlan = macvtap_get_vlan(q);
++		if (!vlan) {
++			rtnl_unlock();
++			return -ENOLINK;
++		}
++		ret = 0;
++		u = vlan->dev->type;
++		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
++		    copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
++		    put_user(u, &ifr->ifr_hwaddr.sa_family))
++			ret = -EFAULT;
++		macvtap_put_vlan(vlan);
++		rtnl_unlock();
++		return ret;
++
++	case SIOCSIFHWADDR:
++		if (copy_from_user(&sa, &ifr->ifr_hwaddr, sizeof(sa)))
++			return -EFAULT;
++		rtnl_lock();
++		vlan = macvtap_get_vlan(q);
++		if (!vlan) {
++			rtnl_unlock();
++			return -ENOLINK;
++		}
++		ret = dev_set_mac_address(vlan->dev, &sa);
++		macvtap_put_vlan(vlan);
++		rtnl_unlock();
++		return ret;
++
+ 	default:
+ 		return -EINVAL;
+ 	}
