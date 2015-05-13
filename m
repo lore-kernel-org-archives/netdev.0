@@ -1,66 +1,45 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2] net: core: set and refine qdisc pkt len before tc_classify
-Date: Wed, 13 May 2015 22:50:09 +0200
-Message-ID: <1431550209-3498-1-git-send-email-daniel@iogearbox.net>
-Cc: fw@strlen.de, ast@plumgrid.com, jhs@mojatatu.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next v2] net: core: set and refine qdisc pkt len before
+ tc_classify
+Date: Wed, 13 May 2015 14:07:00 -0700
+Message-ID: <5553BCF4.601@plumgrid.com>
+References: <1431550209-3498-1-git-send-email-daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: fw@strlen.de, jhs@mojatatu.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50791 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965239AbbEMUu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 16:50:29 -0400
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36442 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964810AbbEMVHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 17:07:01 -0400
+Received: by pabsx10 with SMTP id sx10so61910228pab.3
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 14:07:01 -0700 (PDT)
+In-Reply-To: <1431550209-3498-1-git-send-email-daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+On 5/13/15 1:50 PM, Daniel Borkmann wrote:
+> From: Florian Westphal <fw@strlen.de>
+>
+> Commit d2788d34885d4ce5ba ("net: sched: further simplify handle_ing")
+> removed the call to qdisc_enqueue_root(). However, after this removal
+> we no longer set qdisc pkt length, which this patch fixes. We make use
+> of qdisc_pkt_len_init() from 1def9238d4aa ("net_sched: more precise
+> pkt_len computation"), which was suggested as the current approach so
+> far does not take into account when GRO builds up GSO packets.
+>
+> Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
+> Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
 
-Commit d2788d34885d4ce5ba ("net: sched: further simplify handle_ing")
-removed the call to qdisc_enqueue_root(). However, after this removal
-we no longer set qdisc pkt length, which this patch fixes. We make use
-of qdisc_pkt_len_init() from 1def9238d4aa ("net_sched: more precise
-pkt_len computation"), which was suggested as the current approach so
-far does not take into account when GRO builds up GSO packets.
+Looks good as quick fix for now. Long term I still want to try to reuse
+stats from underlying netdev ;)
+For TX we don't have this option and have to do qdisc_pkt_len_init(),
+but for RX we should be able to do something smarter.
 
-Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
-Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- v1->v2:
-  - use qdisc_pkt_len_init() as suggested, thanks!
-
- net/core/dev.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 15e51a9..6e19521 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2787,8 +2787,8 @@ static void qdisc_pkt_len_init(struct sk_buff *skb)
- 
- 	qdisc_skb_cb(skb)->pkt_len = skb->len;
- 
--	/* To get more precise estimation of bytes sent on wire,
--	 * we add to pkt_len the headers size of all segments
-+	/* To get more precise estimation of bytes sent/received on
-+	 * wire, we add to pkt_len the headers size of all segments.
- 	 */
- 	if (shinfo->gso_size)  {
- 		unsigned int hdr_len;
-@@ -3541,9 +3541,11 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
- 		*pt_prev = NULL;
- 	}
- 
--	qdisc_bstats_update_cpu(cl->q, skb);
-+	qdisc_pkt_len_init(skb);
- 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
- 
-+	qdisc_bstats_update_cpu(cl->q, skb);
-+
- 	switch (tc_classify(skb, cl, &cl_res)) {
- 	case TC_ACT_OK:
- 	case TC_ACT_RECLASSIFY:
--- 
-1.9.3
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
