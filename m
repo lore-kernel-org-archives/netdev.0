@@ -1,80 +1,70 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/5 net-next] Netfilter ingress support (v4)
-Date: Wed, 13 May 2015 18:19:33 +0200
-Message-ID: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/5] netfilter: add nf_hook_list_active()
+Date: Wed, 13 May 2015 18:19:36 +0200
+Message-ID: <1431533978-26901-4-git-send-email-pablo@netfilter.org>
+References: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org, jhs@mojatatu.com,
 	daniel@iogearbox.net, eric.dumazet@gmail.com, kaber@trash.net,
 	ast@plumgrid.com
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:34158 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965574AbbEMQPM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 12:15:12 -0400
+In-Reply-To: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+In preparation to have netfilter ingress per-device hook list.
 
-This is the v4 round of patches to add the Netfilter ingress hook, it basically
-comes in two steps:
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/linux/netfilter.h |   17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
-1) Add the CONFIG_NET_INGRESS switch to wrap the ingress static key around it.
-   The idea is to use the same global static key to avoid adding more code to
-   the hot path.
-
-2) Add the Netfilter ingress hook after the tc ingress hook, under the global
-   ingress_needed static key. As I said, the netfilter ingress hook also has
-   its own static key, that is nested under the global static key. Please, see
-   patch 5/5 for performance numbers and more information.
-
-I originally started this next round, as it was suggested, exploring the
-independent static key for netfilter ingress just after tc ingress, but the
-results that I gathered from that patch are not good for non-users:
-
-Result: OK: 6425927(c6425843+d83) usec, 100000000 (60byte,0frags)
-  15561955pps 7469Mb/sec (7469738400bps) errors: 100000000
-
-this roughly means 500Kpps less performance wrt. the base numbers, so that's
-the reason why I discarded that approach and I focused on this.
-
-The idea of this patchset is to open the window to nf_tables, which comes with
-features that will work out-of-the-box (once the boiler plate code to support
-the 'netdev' table family is in place), to avoid repeating myself [1], the most
-relevant features are:
-
-1) Multi-dimensional key dictionary lookups.
-2) Arbitrary stateful flow tables.
-3) Transactions and good support for dynamic updates.
-
-But there are also interest aspects to consider from userspace, such as the
-ability to support new layer 2 protocols without kernel updates, a well-defined
-netlink interface, userspace libraries and utilities for third party
-applications, among others.
-
-I hope we can be happy with this approach.
-
-Please, apply. Thanks.
-
-[1] http://marc.info/?l=netfilter-devel&m=143033337020328&w=2
-
-Pablo Neira Ayuso (5):
-  netfilter: cleanup struct nf_hook_ops indentation
-  netfilter: add hook list to nf_hook_state
-  netfilter: add nf_hook_list_active()
-  net: add CONFIG_NET_INGRESS to enable ingress filtering
-  netfilter: add netfilter ingress hook after handle_ing() under unique
-    static key
-
- include/linux/netdevice.h         |    3 +++
- include/linux/netfilter.h         |   39 +++++++++++++++++++++------------
- include/linux/netfilter_ingress.h |   41 +++++++++++++++++++++++++++++++++++
- include/linux/rtnetlink.h         |    2 +-
- include/uapi/linux/netfilter.h    |    6 ++++++
- net/Kconfig                       |    3 +++
- net/core/dev.c                    |   43 ++++++++++++++++++++++++++++++++++---
- net/netfilter/Kconfig             |    7 ++++++
- net/netfilter/core.c              |   37 ++++++++++++++++++++++++++-----
- net/sched/Kconfig                 |    1 +
- 10 files changed, 159 insertions(+), 23 deletions(-)
- create mode 100644 include/linux/netfilter_ingress.h
-
---
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 388ed19..49d0063 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -134,26 +134,33 @@ extern struct list_head nf_hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ #ifdef HAVE_JUMP_LABEL
+ extern struct static_key nf_hooks_needed[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
+ 
+-static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
++static inline bool nf_hook_list_active(struct list_head *nf_hook_list,
++				       u_int8_t pf, unsigned int hook)
+ {
+ 	if (__builtin_constant_p(pf) &&
+ 	    __builtin_constant_p(hook))
+ 		return static_key_false(&nf_hooks_needed[pf][hook]);
+ 
+-	return !list_empty(&nf_hooks[pf][hook]);
++	return !list_empty(nf_hook_list);
+ }
+ #else
+-static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
++static inline bool nf_hook_list_active(struct list_head *nf_hook_list,
++				       u_int8_t pf, unsigned int hook)
+ {
+-	return !list_empty(&nf_hooks[pf][hook]);
++	return !list_empty(nf_hook_list);
+ }
+ #endif
+ 
++static inline bool nf_hooks_active(u_int8_t pf, unsigned int hook)
++{
++	return nf_hook_list_active(&nf_hooks[pf][hook], pf, hook);
++}
++
+ int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state);
+ 
+ /**
+  *	nf_hook_thresh - call a netfilter hook
+- *	
++ *
+  *	Returns 1 if the hook has allowed the packet to pass.  The function
+  *	okfn must be invoked by the caller in this case.  Any other return
+  *	value indicates the packet has been consumed by the hook.
+-- 
 1.7.10.4
-
