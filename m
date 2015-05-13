@@ -1,88 +1,53 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net-next PATCH] net: Reserve skb headroom and set skb->dev even if
- using __alloc_skb
-Date: Wed, 13 May 2015 13:34:13 -0700
-Message-ID: <20150513203413.8252.98057.stgit@ahduyck-vm-fedora22>
-References: <20150513182738.GA28201@saruman.tx.rr.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] test_bpf: add tests related to BPF_MAXINSNS
+Date: Wed, 13 May 2015 13:36:29 -0700
+Message-ID: <5553B5CD.6050106@plumgrid.com>
+References: <f35ca0ee7ba9a7a934dc6131a32fafa941d8dcad.1431515140.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tony@atomide.com, netdev@vger.kernel.org,
-	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: linux-kernel@vger.kernel.org, balbi@ti.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150513182738.GA28201@saruman.tx.rr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Nicolas Schichan <nschichan@freebox.fr>
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:33352 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965275AbbEMUgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 16:36:31 -0400
+Received: by pdbnk13 with SMTP id nk13so62303434pdb.0
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 13:36:30 -0700 (PDT)
+In-Reply-To: <f35ca0ee7ba9a7a934dc6131a32fafa941d8dcad.1431515140.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When I had inlined __alloc_rx_skb into __netdev_alloc_skb and
-__napi_alloc_skb I had overlooked the fact that there was a return in the
-__alloc_rx_skb.  As a result we weren't reserving headroom or setting the
-skb->dev in certain cases.  This change corrects that by adding a couple of
-jump labels to jump to depending on __alloc_skb either succeeding or failing.
+On 5/13/15 4:12 AM, Daniel Borkmann wrote:
+> Couple of torture test cases related to the bug fixed in 0b59d8806a31
+> ("ARM: net: delegate filter to kernel interpreter when imm_offset()
+> return value can't fit into 12bits.").
+>
+> I've added a helper to allocate and fill the insn space. Output on
+> x86_64 from my laptop:
+>
+> test_bpf: #233 BPF_MAXINSNS: Maximum possible literals jited:0 7 PASS
+> test_bpf: #234 BPF_MAXINSNS: Single literal jited:0 8 PASS
+> test_bpf: #235 BPF_MAXINSNS: Run/add until end jited:0 11553 PASS
+> test_bpf: #236 BPF_MAXINSNS: Too many instructions PASS
+> test_bpf: #237 BPF_MAXINSNS: Very long jump jited:0 9 PASS
+> test_bpf: #238 BPF_MAXINSNS: Ctx heavy transformations jited:0 20329 20398 PASS
+> test_bpf: #239 BPF_MAXINSNS: Call heavy transformations jited:0 32178 32475 PASS
+> test_bpf: #240 BPF_MAXINSNS: Jump heavy test jited:0 10518 PASS
+>
+> test_bpf: #233 BPF_MAXINSNS: Maximum possible literals jited:1 4 PASS
+> test_bpf: #234 BPF_MAXINSNS: Single literal jited:1 4 PASS
+> test_bpf: #235 BPF_MAXINSNS: Run/add until end jited:1 1625 PASS
+> test_bpf: #236 BPF_MAXINSNS: Too many instructions PASS
+> test_bpf: #237 BPF_MAXINSNS: Very long jump jited:1 8 PASS
+> test_bpf: #238 BPF_MAXINSNS: Ctx heavy transformations jited:1 3301 3174 PASS
+> test_bpf: #239 BPF_MAXINSNS: Call heavy transformations jited:1 24107 23491 PASS
+> test_bpf: #240 BPF_MAXINSNS: Jump heavy test jited:1 8651 PASS
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: Nicolas Schichan <nschichan@freebox.fr>
 
-Fixes: 9451980a6646 ("net: Use cached copy of pfmemalloc to avoid accessing page")
-Reported-by: Felipe Balbi <balbi@ti.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
----
- net/core/skbuff.c |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d67e612bf0ef..f3fe9bd9e672 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -414,8 +414,12 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
- 	len += NET_SKB_PAD;
- 
- 	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
--	    (gfp_mask & (__GFP_WAIT | GFP_DMA)))
--		return __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
-+	    (gfp_mask & (__GFP_WAIT | GFP_DMA))) {
-+		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
-+		if (!skb)
-+			goto skb_fail;
-+		goto skb_success;
-+	}
- 
- 	len += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 	len = SKB_DATA_ALIGN(len);
-@@ -445,9 +449,11 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
- 		skb->pfmemalloc = 1;
- 	skb->head_frag = 1;
- 
-+skb_success:
- 	skb_reserve(skb, NET_SKB_PAD);
- 	skb->dev = dev;
- 
-+skb_fail:
- 	return skb;
- }
- EXPORT_SYMBOL(__netdev_alloc_skb);
-@@ -475,8 +481,12 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 	len += NET_SKB_PAD + NET_IP_ALIGN;
- 
- 	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
--	    (gfp_mask & (__GFP_WAIT | GFP_DMA)))
--		return __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
-+	    (gfp_mask & (__GFP_WAIT | GFP_DMA))) {
-+		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
-+		if (!skb)
-+			goto skb_fail;
-+		goto skb_success;
-+	}
- 
- 	len += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 	len = SKB_DATA_ALIGN(len);
-@@ -499,9 +509,11 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
- 		skb->pfmemalloc = 1;
- 	skb->head_frag = 1;
- 
-+skb_success:
- 	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
- 	skb->dev = napi->dev;
- 
-+skb_fail:
- 	return skb;
- }
- EXPORT_SYMBOL(__napi_alloc_skb);
+Nice tests!
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
