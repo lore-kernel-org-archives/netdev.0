@@ -1,41 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: esp4: Use high-order sequence number bits for IV generation
-Date: Wed, 13 May 2015 15:26:10 +0800
-Message-ID: <20150513072610.GA27424@gondor.apana.org.au>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next] neigh: fix a possible leak issue of neigh entry
+Date: Wed, 13 May 2015 15:25:01 +0800
+Message-ID: <5552FC4D.3060200@windriver.com>
+References: <1431495814-22759-1-git-send-email-ying.xue@windriver.com> <1431498048.566.131.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:44345 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754075AbbEMH0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 03:26:16 -0400
-Content-Disposition: inline
+Received: from mail1.windriver.com ([147.11.146.13]:52854 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752543AbbEMH01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 03:26:27 -0400
+In-Reply-To: <1431498048.566.131.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed we were only using the low-order bits for IV generation
-when ESN is enabled.  This is very bad because it means that the
-IV can repeat.  We must use the full 64 bits.
+On 05/13/2015 02:20 PM, Eric Dumazet wrote:
+> Have you hit this condition ?
+> 
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+No, I just found the issue when I was reading the code.
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 421a80b..30b544f 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -256,7 +256,8 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	aead_givcrypt_set_crypt(req, sg, sg, clen, iv);
- 	aead_givcrypt_set_assoc(req, asg, assoclen);
- 	aead_givcrypt_set_giv(req, esph->enc_data,
--			      XFRM_SKB_CB(skb)->seq.output.low);
-+			      XFRM_SKB_CB(skb)->seq.output.low +
-+			      ((u64)XFRM_SKB_CB(skb)->seq.output.hi << 32));
- 
- 	ESP_SKB_CB(skb)->tmp = tmp;
- 	err = crypto_aead_givencrypt(req);
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> If yes, there is a bug elsewhere and we need to fix it, not trying to
+> recover.
+> 
+
+Sorry, I don't know its relevant story, so can you please give some hints?
+
+Thanks,
+Ying
