@@ -1,43 +1,67 @@
 From: Thomas F Herbert <thomasfherbert@gmail.com>
-Subject: [PATCH net-next V9 0/2] openvswitch: Add support for 802.1AD
-Date: Tue, 12 May 2015 20:06:34 -0400
-Message-ID: <1431475596-16780-1-git-send-email-thomasfherbert@gmail.com>
+Subject: [PATCH net-next V9 1/2] openvswitch: 802.1ad uapi changes.
+Date: Tue, 12 May 2015 20:06:35 -0400
+Message-ID: <1431475596-16780-2-git-send-email-thomasfherbert@gmail.com>
+References: <1431475596-16780-1-git-send-email-thomasfherbert@gmail.com>
 Cc: therbert@redhat.com, ccp@atcnet.net, dev@openvswitch.org,
 	Thomas F Herbert <thomasfherbert@gmail.com>
 To: netdev@vger.kernel.org, pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:33077 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933877AbbEMAGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 20:06:55 -0400
-Received: by qgdy78 with SMTP id y78so13478995qgd.0
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 17:06:54 -0700 (PDT)
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:36134 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964810AbbEMAHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 20:07:07 -0400
+Received: by qcbgy10 with SMTP id gy10so14043794qcb.3
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 17:07:06 -0700 (PDT)
+In-Reply-To: <1431475596-16780-1-git-send-email-thomasfherbert@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for 802.1AD to the openvswitch kernel module.
+openvswitch: Add support for 8021.AD
 
-V9 includes changes suggested by reviewers
+Change the description of the VLAN tpid field.
 
-Although the Open Flow specification specified support for 802.1AD (qinq)
-as well as push and pop vlan headers,  So far Open vSwitch has only
-supported a single tag header.
+Signed-off-by: Thomas F Herbert <thomasfherbert@gmail.com>
+---
+ include/uapi/linux/openvswitch.h | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-This patch accompanies version 7 of the patch submitted to openvswitch
-dev list.
-
-For discussion, history  and previous versions, of the kernel patch,
-see the OVS dev mailing list, openvswitch.org/pipermail/dev/..
-
-Thomas F Herbert (2):
-  openvswitch: 802.1ad uapi changes
-  Flow handling, actions, and parsing
-
- include/uapi/linux/openvswitch.h |  17 ++--
- net/openvswitch/flow.c           |  82 ++++++++++++---
- net/openvswitch/flow.h           |   3 +
- net/openvswitch/flow_netlink.c   | 212 +++++++++++++++++++++++++++++++++------
- 4 files changed, 265 insertions(+), 49 deletions(-)
-
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index bbd49a0..f2ccdef 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -559,13 +559,13 @@ struct ovs_action_push_mpls {
+  * @vlan_tci: Tag control identifier (TCI) to push.  The CFI bit must be set
+  * (but it will not be set in the 802.1Q header that is pushed).
+  *
+- * The @vlan_tpid value is typically %ETH_P_8021Q.  The only acceptable TPID
+- * values are those that the kernel module also parses as 802.1Q headers, to
+- * prevent %OVS_ACTION_ATTR_PUSH_VLAN followed by %OVS_ACTION_ATTR_POP_VLAN
+- * from having surprising results.
++ * The @vlan_tpid value is typically %ETH_P_8021Q or %ETH_P_8021AD.
++ * The only acceptable TPID values are those that the kernel module also parses
++ * as 802.1Q or 802.1AD headers, to prevent %OVS_ACTION_ATTR_PUSH_VLAN followed
++ * by %OVS_ACTION_ATTR_POP_VLAN from having surprising results.
+  */
+ struct ovs_action_push_vlan {
+-	__be16 vlan_tpid;	/* 802.1Q TPID. */
++	__be16 vlan_tpid;	/* 802.1Q or 802.1ad TPID. */
+ 	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
+ };
+ 
+@@ -605,9 +605,10 @@ struct ovs_action_hash {
+  * is copied from the value to the packet header field, rest of the bits are
+  * left unchanged.  The non-masked value bits must be passed in as zeroes.
+  * Masking is not supported for the %OVS_KEY_ATTR_TUNNEL attribute.
+- * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
+- * packet.
+- * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
++ * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q or 802.1ad header
++ * onto the packet.
++ * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q or 802.1ad header
++ * from the packet.
+  * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
+  * the nested %OVS_SAMPLE_ATTR_* attributes.
+  * @OVS_ACTION_ATTR_PUSH_MPLS: Push a new MPLS label stack entry onto the
 -- 
 2.1.0
