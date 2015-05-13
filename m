@@ -1,53 +1,92 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: [PATCH iproute2] man ip-link: Remove extra GROUP explanation
-Date: Wed, 13 May 2015 18:03:51 +0300
-Message-ID: <1431529431-23916-1-git-send-email-vadim4j@gmail.com>
-Cc: Vadim Kochan <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:33533 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964925AbbEMPEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 11:04:32 -0400
-Received: by wicmx19 with SMTP id mx19so13081092wic.0
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 08:04:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 4/4] netconsole: implement extended console support
+Date: Wed, 13 May 2015 11:32:32 -0400
+Message-ID: <20150513153232.GW11388@htj.duckdns.org>
+References: <1431362494-9874-1-git-send-email-tj@kernel.org>
+ <1431362494-9874-5-git-send-email-tj@kernel.org>
+ <20150512163602.ba6c83e3056702cbd840edef@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
+	sd@queasysnail.net
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20150512163602.ba6c83e3056702cbd840edef@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vadim Kochan <vadim4j@gmail.com>
+Hello, Andrew.
 
-Remove double explanation of GROUP option from 'ip link set' section.
+On Tue, May 12, 2015 at 04:36:02PM -0700, Andrew Morton wrote:
+> > printk recently added extended console support which can be selected
+> > by setting CON_EXTENDED flag.
+> 
+> There's no such thing as CON_EXTENDED.  Not sure what this is trying to
+> say.
 
-Signed-off-by: Vadim Kochan <vadim4j@gmail.com>
----
- man/man8/ip-link.8.in | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+Yeah, I ended up splitting the original patchset into two.  One
+implementing CON_EXTENDED and this set updating netconsole to use it.
+The patchset head message contains the link to the prerequisite
+patchset.
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 823246f..714aab4 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -714,12 +714,6 @@ tool can be used. But it allows to change network namespace only for physical de
- give the device a symbolic name for easy reference.
- 
- .TP
--.BI group " GROUP"
--specify the group the device belongs to.
--The available groups are listed in file
--.BR "@SYSCONFDIR@/group" .
--
--.TP
- .BI vf " NUM"
- specify a Virtual Function device to be configured. The associated PF device
- must be specified using the
-@@ -867,7 +861,7 @@ specifies which help of link type to dislpay.
- .SS
- .I GROUP
- may be a number or a string from the file
--.B /etc/iproute2/group
-+.B @SYSCONFDIR@/group
- which can be manually filled.
- 
- .SH "EXAMPLES"
+ http://article.gmane.org/gmane.linux.kernel/1940567
+
+> > +static ssize_t store_extended(struct netconsole_target *nt,
+> > +			      const char *buf,
+> > +			      size_t count)
+> > +{
+> > +	int extended;
+> > +	int err;
+> > +
+> > +	if (nt->enabled) {
+> > +		pr_err("target (%s) is enabled, disable to update parameters\n",
+> > +		       config_item_name(&nt->item));
+> > +		return -EINVAL;
+> > +	}
+> 
+> What's the reason for the above?
+> 
+> It's unclear (to me, at least ;)) what "disable" means?  Specifically
+> what steps must the operator take to successfully perform this
+> operation?  A sentence detailing those steps in netconsole.txt would be
+> nice.
+
+So, there are configfs dynamic netconsole targets which is created by
+mkdir, configured through interface files there and enabled by echoing
+1 to the enable file.  The parameters can't be changed while the
+target is enabled.  This is the standard warning used for all other
+knobs and I think what the warning message means is pretty clear given
+the context.  Right?
+
+> What protects `buf'?  console_sem, I assume?
+> 
+> -	static char buf[MAX_PRINT_CHUNK];
+> +	static char buf[MAX_PRINT_CHUNK];	/* Protected by console_sem */
+> 
+> wouldn't hurt.
+
+Yeah, the whole send path is serialized by console_sem and
+target_list_lock.  I'll add the comment.
+
+> > +}
+> > +
+> > +static void write_ext_msg(struct console *con, const char *msg,
+> 
+> 
+> I've forgotten what's happening with this patchset.  There were a few
+> design-level issues raised against an earlier version.  What were those
+> and how have they been addressed?
+
+The retransmission part was the most contentious point and Dave
+pointed out that there isn't much to be gained by doing that from the
+kernel side, so that part got dropped from the patchset and will
+become a separate userland program, so the only remaining parts are
+support for sending out extended messages from netconsole which
+shouldn't be too controversial.
+
+Thanks.
+
 -- 
-2.3.1
+tejun
