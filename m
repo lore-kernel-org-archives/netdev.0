@@ -1,53 +1,57 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: pktgen scripts
-Date: Wed, 13 May 2015 10:14:13 -0700
-Message-ID: <55538665.4020201@plumgrid.com>
-References: <20150513150237.0abf3628@redhat.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v3 for-next 00/13] Add network namespace support in the
+ RDMA-CM
+Date: Wed, 13 May 2015 11:18:23 -0600
+Message-ID: <20150513171823.GB20343@obsidianresearch.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FD7B85@ORSMSX109.amr.corp.intel.com>
+ <55531073.1000305@mellanox.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDA13B@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Robert Olsson <robert@herjulf.net>,
-	Ben Greear <greearb@candelatech.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:34627 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965027AbbEMROQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 13:14:16 -0400
-Received: by igblo3 with SMTP id lo3so5797555igb.1
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 10:14:15 -0700 (PDT)
-In-Reply-To: <20150513150237.0abf3628@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FDA13B-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 5/13/15 6:02 AM, Jesper Dangaard Brouer wrote:
-> Hi Alexei,
->
-> I've cleaned up my pktgen scripts[1].  Do you think we should add them
-> instead of the sample scripts in "samples/pktgen/pktgen.conf-*" ?
+On Wed, May 13, 2015 at 04:45:59PM +0000, Hefty, Sean wrote:
+> > > How does network namespace support work with iWarp?
+> > 
+> > We did not implement network namespace support for iWarp. Only for
+> > InfiniBand. The iWarp code continues to use &init_net whenever a network
+> > namespace is needed, as it does today.
+> 
+> We need a solution that supports both.  It's odd for the RDMA CM to
+> support a feature only for some devices, when the solution should be
+> general.
 
-+1
+Yes, it is not optimal, but given that every protocol uses a
+completely different scheme to interact with netdev, I'm not sure
+there is another option but to do them piecemeal?
 
-> The main difference is I'm replacing the "pgset" with functions not
-> needing global variable $PGDEV.  Three new functions reflect pktgen's
-> different components:
->   * pg_ctrl()   control "pgctrl" (/proc/net/pktgen/pgctrl)
->   * pg_thread() control the kernel threads and binding to devices
->   * pg_set()    control setup of individual devices
->
-> I've named the sample scripts: "pktgen_sample{01,02,03}_desc.sh" in-order
-> to suggest a reading order.
-> I've also added a script named: "pktgen_bench_xmit_mode_netif_receive.sh"
-> which is basically your ingress benchmarking script.
->
-> [1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
+I'm happy to see this patch much smaller and without the vestigial
+half-roce support that the prior version included.
 
-Looks great!! Much better than old samples/pktgen/.
-Could you add a readme file as well with few command line examples?
-It wasn't obvious how '-b' and other flags are working. I guess if
-somebody just tries to run them, the 'usage' function will explain
-things too.
+This should be a good starting point for someone to do iWarp, it is
+pretty simple since there is no UD component. roce will be much
+harder, I think.
+
+Should we inhibit the RDMA uapi on non-init namespaces? At least
+that way iWarp/etc won't work at all, instead of leaking through the
+container.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
