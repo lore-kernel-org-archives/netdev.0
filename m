@@ -1,98 +1,57 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink & rhashtable status
-Date: Tue, 12 May 2015 23:15:40 -0700
-Message-ID: <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150513054037.GA26595@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] neigh: fix a possible leak issue of neigh entry
+Date: Tue, 12 May 2015 23:20:48 -0700
+Message-ID: <1431498048.566.131.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431495814-22759-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:34002 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751519AbbEMGPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:15:43 -0400
-Received: by iecmd7 with SMTP id md7so23004571iec.1
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 23:15:42 -0700 (PDT)
-In-Reply-To: <20150513054037.GA26595@gondor.apana.org.au>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:34680 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753812AbbEMGUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 02:20:50 -0400
+Received: by iecmd7 with SMTP id md7so23089005iec.1
+        for <netdev@vger.kernel.org>; Tue, 12 May 2015 23:20:49 -0700 (PDT)
+In-Reply-To: <1431495814-22759-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-13 at 13:40 +0800, Herbert Xu wrote:
-> On Tue, May 12, 2015 at 10:30:36PM -0700, Eric Dumazet wrote:
-> > 
-> > linux-3.17, 3.18, 3.19 and 4.0.2 have issues with netlink/rhashtable,
-> > making things like getaddrinfo() not working after a while :
+On Wed, 2015-05-13 at 13:43 +0800, Ying Xue wrote:
+> Once modifying a pending timer of a neighbour, it's insufficient to
+> post a warning message. Instead we should not take the neighbour's
+> reference count at the same time, otherwise, it causes an issue that
+> the neighbour cannot be freed forever.
 > 
-> Do you use namespaces?
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> ---
+>  net/core/neighbour.c |    9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
 > 
-> Cheers,
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 3de6542..5595db3 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -164,10 +164,11 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+>  
+>  static void neigh_add_timer(struct neighbour *n, unsigned long when)
+>  {
+> -	neigh_hold(n);
+> -	if (unlikely(mod_timer(&n->timer, when))) {
+> -		printk("NEIGH: BUG, double timer add, state is %x\n",
+> -		       n->nud_state);
+> +	if (likely(!mod_timer(&n->timer, when))) {
+> +		neigh_hold(n);
+> +	} else {
+> +		pr_warn("NEIGH: BUG, double timer add, state is %x\n",
+> +			n->nud_state);
+>  		dump_stack();
+>  	}
+>  }
 
-No.
+Have you hit this condition ?
 
-Trick is to start about 200 threads using getaddrinfo()
-
-This was spotted using netperf, but you probably can use something like
-this program.
-
-Thanks.
-
-
-
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-struct addrinfo *resolve_host(const char *hostname, const char *port,
-                              int family)
-{
-  struct addrinfo hints;
-  struct addrinfo *ai;
-  int count;
-  int error;
-
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = family;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_protocol = IPPROTO_TCP;
-  hints.ai_flags = AI_CANONNAME | AI_ADDRCONFIG;
-  count = 0;
-  do {
-    error = getaddrinfo(hostname, port, &hints, &ai);
-    count += 1;
-    if (error == EAI_AGAIN) {
-      sleep(1);
-    }
-  } while ((error == EAI_AGAIN) && (count <= 5));
-
-  if (error) {
-    printf("error\n");
-    return (NULL);
-  }
-
-  return (ai);
-}
-
-int main(int argc, char **argv)
-{
-  const char host[] = "127.0.0.1";
-  const char *port = NULL;
-  const int family = 0;
-  unsigned long iterations, i;
-
-  if (argc != 2) {
-    printf("Expected one arg.\n");
-    return -1;
-  }
-  iterations = atol(argv[1]);
-  for (i = 0; i < iterations; ++i) {
-    resolve_host(host, port, family);
-  }
-  return 0;
-}
+If yes, there is a bug elsewhere and we need to fix it, not trying to
+recover.
