@@ -1,40 +1,58 @@
-From: Justin Cormack <justin@myriabit.com>
-Subject: Re: [PATCH v4] macvtap add missing ioctls - fix wrapping
-Date: Wed, 13 May 2015 11:06:01 +0100
-Message-ID: <1431511561.3278.6.camel@myriabit.com>
-References: <1431262215.3278.2.camel@myriabit.com>
-	 <20150511.134901.959375179450827063.davem@davemloft.net>
-	 <1431370810.3278.4.camel@myriabit.com>
-	 <20150512.230121.330638562727327262.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next] net/bridge: Enable bridge also when switchdev can't be built
+Date: Wed, 13 May 2015 13:08:43 +0300
+Message-ID: <1431511723-26323-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Scott Feldman <sfeldma@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aibo.runbox.com ([91.220.196.211]:57567 "EHLO aibo.runbox.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933431AbbEMKGU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 06:06:20 -0400
-In-Reply-To: <20150512.230121.330638562727327262.davem@davemloft.net>
+Received: from ns1327.ztomy.com ([193.47.165.129]:54952 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933306AbbEMKJK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 06:09:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2015-05-12 at 23:01 -0400, David Miller wrote:
-> From: Justin Cormack <justin@myriabit.com>
-> Date: Mon, 11 May 2015 20:00:10 +0100
-> 
-> > The macvtap driver tries to emulate all the ioctls supported by a normal
-> > tun/tap driver, however it was missing the generic SIOCGIFHWADDR and
-> > SIOCSIFHWADDR ioctls to get and set the mac address that are supported
-> > by tun/tap. This patch adds these.
-> > 
-> > Signed-off-by: Justin Cormack <justin@netbsd.org>
-> 
-> Applied to net-next, thanks.
-> 
+Currently switchdev doesn't build on older gcc version such as 4.4.6
 
-The kbuild test picked up a stupid error, should I send a new patch
-version, or a patch against net-next?
+The reason for the compile error is such that it causes a failure
+to build the bridge too, even when switchdev isn't configured (the
+stub isn't enough), fix it.
 
-Justin
+CC [M]  net/bridge/br_stp.o
+net/bridge/br_stp.c: In function 'br_set_state':
+net/bridge/br_stp.c:44: error: unknown field 'stp_state' specified in initializer
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ net/bridge/br_stp.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index b9300da..752783a 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -39,17 +39,19 @@ void br_log_state(const struct net_bridge_port *p)
+ 
+ void br_set_state(struct net_bridge_port *p, unsigned int state)
+ {
++#ifdef CONFIG_NET_SWITCHDEV
+ 	struct switchdev_attr attr = {
+ 		.id = SWITCHDEV_ATTR_PORT_STP_STATE,
+ 		.stp_state = state,
+ 	};
+ 	int err;
+ 
+-	p->state = state;
+ 	err = switchdev_port_attr_set(p->dev, &attr);
+ 	if (err && err != -EOPNOTSUPP)
+ 		br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
+ 				(unsigned int) p->port_no, p->dev->name);
++#endif
++	p->state = state;
+ }
+ 
+ /* called under bridge lock */
+-- 
+1.7.1
