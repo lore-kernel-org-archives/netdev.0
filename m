@@ -1,72 +1,124 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next] net/bridge: Enable bridge also when switchdev
- can't be built
-Date: Wed, 13 May 2015 08:54:25 -0700
-Message-ID: <CAE4R7bCY8UocUR7yqn2LTFe6Hu6BxDRuu5PAbeZ+q-JxoP6sxQ@mail.gmail.com>
-References: <1431511723-26323-1-git-send-email-ogerlitz@mellanox.com>
-	<CAE4R7bCO3Zs=NzZDz9WTKRJznU7BMOkNNZFewNttUXqYsYUq0A@mail.gmail.com>
-	<20150513154743.GA2773@nanopsycho>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v3 for-next 01/13] IB/core: Use SRCU when reading
+ client_list or device_list
+Date: Wed, 13 May 2015 09:57:37 -0600
+Message-ID: <20150513155737.GA16941@obsidianresearch.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-2-git-send-email-haggaie@mellanox.com>
+ <20150511181824.GA25405@obsidianresearch.com>
+ <555198B7.40302@mellanox.com>
+ <20150512182332.GD15891@obsidianresearch.com>
+ <555306E7.9020000@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:36438 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965261AbbEMPy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 11:54:28 -0400
-Received: by qku63 with SMTP id 63so31057741qku.3
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 08:54:26 -0700 (PDT)
-In-Reply-To: <20150513154743.GA2773@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <555306E7.9020000-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 13, 2015 at 8:47 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Wed, May 13, 2015 at 05:44:11PM CEST, sfeldma@gmail.com wrote:
->>On Wed, May 13, 2015 at 3:08 AM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
->>> Currently switchdev doesn't build on older gcc version such as 4.4.6
->>>
->>> The reason for the compile error is such that it causes a failure
->>> to build the bridge too, even when switchdev isn't configured (the
->>> stub isn't enough), fix it.
->>>
->>> CC [M]  net/bridge/br_stp.o
->>> net/bridge/br_stp.c: In function 'br_set_state':
->>> net/bridge/br_stp.c:44: error: unknown field 'stp_state' specified in initializer
->>>
->>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
->>> ---
->>>  net/bridge/br_stp.c |    4 +++-
->>>  1 files changed, 3 insertions(+), 1 deletions(-)
->>>
->>> diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
->>> index b9300da..752783a 100644
->>> --- a/net/bridge/br_stp.c
->>> +++ b/net/bridge/br_stp.c
->>> @@ -39,17 +39,19 @@ void br_log_state(const struct net_bridge_port *p)
->>>
->>>  void br_set_state(struct net_bridge_port *p, unsigned int state)
->>>  {
->>> +#ifdef CONFIG_NET_SWITCHDEV
->>>         struct switchdev_attr attr = {
->>>                 .id = SWITCHDEV_ATTR_PORT_STP_STATE,
->>>                 .stp_state = state,
->>>         };
->>>         int err;
->>>
->>> -       p->state = state;
->>>         err = switchdev_port_attr_set(p->dev, &attr);
->>>         if (err && err != -EOPNOTSUPP)
->>>                 br_warn(p->br, "error setting offload STP state on port %u(%s)\n",
->>>                                 (unsigned int) p->port_no, p->dev->name);
->>> +#endif
->>> +       p->state = state;
->>>  }
->>
->>Isn't this the same issue with anonymous unions and older gcc?
->
-> I believe it is
+On Wed, May 13, 2015 at 11:10:15AM +0300, Haggai Eran wrote:
 
-Ok, I'll have a patch shortly to add ".u"...
+> >> I guess a similar thing we can do is to rely on the context we associate
+> >> with a pair of a client and a device. If such a context exist, we don't
+> >> need to call client->add again. What do you think?
+> > 
+> > I didn't look closely, isn't this enough?
+> > 
+> > device_register:
+> >  mutex_lock(client_mutex);
+> >  down_write(devices_rwsem);
+> >  list_add(device_list,dev,..);
+> >  up_write(devices_rwsem);
+> > 
+> >  /* Caller must prevent device_register/unregister concurrancy on the
+> >     same dev */
+> > 
+> >  foreach(client_list)
+> >    .. client->add(dev,...) .. 
+> > 
+> >  mutex_unlock(client_mutex)
+> > 
+> > client_register:
+> >  mutex_lock(client_mutex)
+> >  list_add(client_list,new_client..)
+> >  down_read(devices_rwsem);
+> >  foreach(device_list)
+> >    .. client->add(dev,new_client,..) ..
+> >  up_read(devices_rwsem);
+> >  mutex_unlock(client_mutex)
+> > 
+> > [Note, I didn't check this carefully, just intuitively seems like a
+> >  sane starting point]
+> 
+> That could perhaps work for the RoCEv2 patch-set, as their deadlock
+> relates to iterating the device list. This patch set however does an
+> iteration on the client list (patch 3). Because a client remove could
+> block on this iteration, you can still get a deadlock.
+
+Really? Gross.
+
+Still, I think you got it right in your analysis, but we don't need RCU:
+
+device_register:
+ mutex_lock(modify_mutex);
+ down_write(lists_rwsem);
+ list_add(device_list,dev,..);
+ up_write(lists_rwsem);
+
+ // implied by modify_mutex: down_read(lists_rwsem)
+ foreach(client_list)
+    .. client->add(dev,...) ..
+ mutex_unlock(modify_mutex)
+
+client_register:
+ mutex_lock(modify_mutex);
+ // implied by modify_mutex: down_read(lists_rwsem)
+ foreach(device_list)
+    .. client->add(dev,new_client...) ..
+
+ down_write(lists_rwsem);
+ list_add(client_list,new_client..);
+ up_write(lists_rwsem);
+
+ mutex_unlock(modify_mutex)
+
+client_unregister:
+ mutex_lock(modify_mutex);
+ down_write(lists_rwsem);
+ list_cut(client_list,..rm_client..);
+ up_write(lists_rwsem);
+
+ // implied by modify_mutex: down_read(lists_rwsem)
+ foreach(device_list)
+    .. client->remove(dev,rm_client...) ..
+
+ mutex_unlock(modify_mutex)
+
+etc. Notice the ordering.
+
+> I think I prefer keeping the single device_mutex and the SRCU, but
+> keeping the device_mutex locked as it is today, covering all of the
+> registration and unregistration code. Only the new code that reads the
+> client list or the device list without modification to the other list
+> will use the SRCU read lock.
+
+In this case, I don't see a justification to use RCU, we'd need a
+high read load before optimizing the rwsem into RCU would make
+sense.
+
+I'm not sure you should ever use RCU until you've designed the locking
+using traditional means.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
