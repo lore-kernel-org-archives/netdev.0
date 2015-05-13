@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Remove remaining remnants of pm_qos from
- netdevice.h
-Date: Tue, 12 May 2015 23:22:37 -0400 (EDT)
-Message-ID: <20150512.232237.904920326552005422.davem@davemloft.net>
-References: <1431445020-25235-1-git-send-email-dsahern@gmail.com>
-	<1431445020-25235-2-git-send-email-dsahern@gmail.com>
+Subject: Re: [PATCH v2 net-next] test_bpf: add 173 new testcases for eBPF
+Date: Tue, 12 May 2015 23:23:10 -0400 (EDT)
+Message-ID: <20150512.232310.389605215659991765.davem@davemloft.net>
+References: <1431445096-13698-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: dsahern@gmail.com
+Cc: holzheu@linux.vnet.ibm.com, daniel@iogearbox.net,
+	netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49157 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49163 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934418AbbEMDWi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:22:38 -0400
-In-Reply-To: <1431445020-25235-2-git-send-email-dsahern@gmail.com>
+	with ESMTP id S934246AbbEMDXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:23:12 -0400
+In-Reply-To: <1431445096-13698-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsahern@gmail.com>
-Date: Tue, 12 May 2015 09:37:00 -0600
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 12 May 2015 08:38:16 -0700
 
-> Commit e2c6544829f removed pm_qos from struct net_device but left the
-> comment and header file. Remove those.
+> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 > 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+> add an exhaustive set of eBPF tests bringing total to:
+> test_bpf: Summary: 233 PASSED, 0 FAILED, [0/226 JIT'ed]
+> 
+> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net> 
+> ---
+> V1->V2: removed double 'From', added 'Ack'
+> 
+> these tests found div64 bug in interpreter (already fixed)
+> and another cpu_to_be16 bug in x64 JIT (fix is being worked on).
 
-Applied.
+Sorry, I applied V1 of this, and in fact I removed the double From:
+when I applied it.
+
+I hope this is ok.
