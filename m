@@ -1,46 +1,56 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net v3] rtnl/bond: don't send rtnl msg for unregistered
- iface
-Date: Wed, 13 May 2015 14:01:05 +0200
-Message-ID: <55533D01.6070207@6wind.com>
-References: <555216DA.3020105@6wind.com> <1431443865-4327-1-git-send-email-nicolas.dichtel@6wind.com> <20150512155842.GA2081@nanopsycho> <20150512171248.GD9559@gospo.home.greyhouse.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH -next] net: sched: use counter to break reclassify loops
+Date: Wed, 13 May 2015 08:04:27 -0400
+Message-ID: <55533DCB.2070703@mojatatu.com>
+References: <1431366641-24735-1-git-send-email-fw@strlen.de> <5551E62D.5040507@mojatatu.com> <20150512130029.GA22387@breakpoint.cc> <55533321.302@mojatatu.com> <20150513112958.GA6179@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org, j.vosburgh@gmail.com,
-	vfalico@gmail.com
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:34061 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933870AbbEMMBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 08:01:08 -0400
-Received: by wicmc15 with SMTP id mc15so76933724wic.1
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 05:01:07 -0700 (PDT)
-In-Reply-To: <20150512171248.GD9559@gospo.home.greyhouse.net>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:33520 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965081AbbEMME3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 08:04:29 -0400
+Received: by iebgx4 with SMTP id gx4so29426761ieb.0
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 05:04:29 -0700 (PDT)
+In-Reply-To: <20150513112958.GA6179@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 12/05/2015 19:12, Andy Gospodarek a =E9crit :
-> On Tue, May 12, 2015 at 05:58:42PM +0200, Jiri Pirko wrote:
->> Tue, May 12, 2015 at 05:17:45PM CEST, nicolas.dichtel@6wind.com wrot=
-e:
-[snip]
->>> First, nobody seems to care about NETDEV_CHANGEINFODATA (commit
->>> d4261e565000 says that it was put only to notify userspace). Hence,=
- we can
->>> call directly rtmsg_ifinfo().
->>
->> Please leave this notifier here. Will be needed in very near future =
-for
->> LAG offloading purposes.
->
-> I agree with this.  It is extremely useful for a variety of reasons (=
-not
-> just the offload case), so please to do not remove it.
-No problem, I will keep it.
+On 05/13/15 07:29, Florian Westphal wrote:
+> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-=46or my knowledge, can you explain these "variety of reasons"?
+> Yes, but, if we use your example above then:
+>
+> tc_classify called
+>    limit 0
+>      tc_classify_compat called, ret RECLASSIFY
+>    limit 1
+>      tc_classify_compat called, ret RECLASSIFY
+>    limit 2
+>      tc_classify_compat called, ret PIPE (== 3)
+>    tc_classify returns 3
+> tc_classify called
+>    limit 0
+>    ...
+>
+> So we don't toss skb since any return value other than RECLASSIFY
+> will make tc_classify() return to its caller, and when caller invokes
+> tc_classify again the limit variable is set to 0 again.
+>
+> Does that make sense to you?
+>
+
+I think you are right.
+
+I am probably conflating the inner action loop execution with this
+outer one. I will think some more about it and if i can come up with
+other scenario.
+In any case, lets not slow this down; please add my acked-by and if
+i can think of something i will post. I have to take off, so i will go
+quiet for a while.
+
+cheers,
+jamal
