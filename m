@@ -1,91 +1,292 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
-Date: Tue, 12 May 2015 22:27:10 -0700
-Message-ID: <1431494830-4284-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, sfeldma@gmail.com, jiri@resnulli.us,
-	gospo@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35961 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbbEMF1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 01:27:17 -0400
-Received: by pabsx10 with SMTP id sx10so38852144pab.3
-        for <netdev@vger.kernel.org>; Tue, 12 May 2015 22:27:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hajime Tazaki <tazaki@sfc.wide.ad.jp>
+Subject: [PATCH v5 00/10] an introduction of Linux library operating system (LibOS)
+Date: Wed, 13 May 2015 07:28:31 +0200
+Message-ID: <1431494921-24746-1-git-send-email-tazaki@sfc.wide.ad.jp>
+References: <1430103618-10832-1-git-send-email-tazaki@sfc.wide.ad.jp>
+Cc: Hajime Tazaki <tazaki@sfc.wide.ad.jp>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Christoph Lameter <cl@linux.com>,
+	Jekka Enberg <penberg@kernel.org>,
+	Javid Rientjes <rientjes@google.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Jndrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org, linux-mm@kvack.org,
+	Jeff Dike <jdike@addtoit.com>,
+	Richard Weinberger <richard@nod.at>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Ryo Nakamura <upa@haeena.net>,
+	Christoph Paasch <christoph.paasch@gmail.com>,
+	Mathieu Lacage <mathieu.lacage@gmail.com>,
+	libos-nuse@googlegroups.com
+To: linux-arch@vger.kernel.org
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1430103618-10832-1-git-send-email-tazaki@sfc.wide.ad.jp>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+This is the 5th version of Linux LibOS patchset which reflects a
+couple of comments received from people.
 
-RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
+changes from v4:
+- Patch 09/10 ("lib: libos build scripts and documentation")
+1) lib: fix dependency detection of kernel/time/timeconst.h
+   (commented by Richard Weinberger)
+- Overall
+2) rebased to Linux 4.1-rc3 (4cfceaf0c087f47033f5e61a801f4136d6fb68c6)
 
-This patch renames the flag to be consistent with what the user sees.
+changes from v3:
+- Patch 09/10 ("lib: libos build scripts and documentation")
+1) Remove RFC (now it's a proposal)
+2) build environment cleanup (commented by Paul Bolle)
+- Overall
+3) change based tree from arnd/asm-generic to torvalds/linux.git
+   (commented by Richard Weinberger)
+4) rebased to Linux 4.1-rc1 (b787f68c36d49bb1d9236f403813641efa74a031)
+5) change the title of cover letter a bit
 
-(I will post iproute2 patch if this gets accepted)
+changes from v2:
+- Patch 02/11 ("slab: add private memory allocator header for arch/lib")
+1) add new allocator named SLIB (Library Allocator): Patch 04/11 is integrated
+   to 02 (commented by Christoph Lameter)
+- Overall
+2) rewrite commit log messages
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- include/uapi/linux/rtnetlink.h |    2 +-
- net/ipv4/fib_trie.c            |    2 +-
- net/switchdev/switchdev.c      |    6 +++---
- 3 files changed, 5 insertions(+), 5 deletions(-)
+changes from v1:
+- Patch 01/11 ("sysctl: make some functions unstatic to access by arch/lib"):
+1) add prefix ctl_table_ to newly publiced functions (commented by Joe Perches)
+- Patch 08/11 ("lib: other kernel glue layer code"):
+2) significantly reduce glue codes (stubs) (commented by Richard Weinberger)
+- Others
+3) adapt to linux-4.0.0
+4) detect make dependency by Kbuild .cmd files
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 974db03..17fb02f 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -337,7 +337,7 @@ struct rtnexthop {
- #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
- #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
- #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
--#define RTNH_F_EXTERNAL		8	/* Route installed externally	*/
-+#define RTNH_F_OFFLOAD		8	/* offloaded route */
- 
- /* Macros to handle hexthops */
- 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 03444c6..d38aa7a 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1762,7 +1762,7 @@ void fib_table_flush_external(struct fib_table *tb)
- 			/* record local slen */
- 			slen = fa->fa_slen;
- 
--			if (!fi || !(fi->fib_flags & RTNH_F_EXTERNAL))
-+			if (!fi || !(fi->fib_flags & RTNH_F_OFFLOAD))
- 				continue;
- 
- 			switchdev_fib_ipv4_del(n->key, KEYLENGTH - fa->fa_slen,
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 65d49d4..0457af7 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -674,7 +674,7 @@ int switchdev_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
- 
- 	err = switchdev_port_obj_add(dev, &fib_obj);
- 	if (!err)
--		fi->fib_flags |= RTNH_F_EXTERNAL;
-+		fi->fib_flags |= RTNH_F_OFFLOAD;
- 
- 	return err;
- }
-@@ -710,7 +710,7 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 	struct net_device *dev;
- 	int err = 0;
- 
--	if (!(fi->fib_flags & RTNH_F_EXTERNAL))
-+	if (!(fi->fib_flags & RTNH_F_OFFLOAD))
- 		return 0;
- 
- 	dev = switchdev_get_dev_by_nhs(fi);
-@@ -719,7 +719,7 @@ int switchdev_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
- 
- 	err = switchdev_port_obj_del(dev, &fib_obj);
- 	if (!err)
--		fi->fib_flags &= ~RTNH_F_EXTERNAL;
-+		fi->fib_flags &= ~RTNH_F_OFFLOAD;
- 
- 	return err;
- }
+patchset history
+-----------------
+[v4] : https://lkml.org/lkml/2015/4/26/279
+[v3] : https://lkml.org/lkml/2015/4/19/63
+[v2] : https://lkml.org/lkml/2015/4/17/140
+[v1] : https://lkml.org/lkml/2015/3/24/254
+
+This is an introduction of Linux library operating system (LibOS).
+
+Our objective is to build the kernel network stack as a shared library
+that can be linked to by userspace programs to provide network stack
+personalization and testing facilities, and allow researchers to more
+easily simulate complex network topologies of linux routers/hosts.
+
+Although the architecture itself can virtualize various things, the
+current design only focuses on the network stack. You can benefit
+network stack feature such as TCP, UDP, SCTP, DCCP (IPv4 and IPv6),
+Mobie IPv6, Multipath TCP (IPv4/IPv6, out-of-tree at the present
+moment), and netlink with various userspace applications (quagga,
+iproute2, iperf, wget, and thttpd).
+
+== What is LibOS ? ==
+
+The library exposes an entry point as API, which is lib_init(), in
+order to connect userspace applications to the (userspace-version)
+kernel network stack. The clock source, virtual struct net_device, and
+scheduler are provided by caller while kernel resource like system
+calls is provided by callee.
+
+Once the LibOS is initialized via the API, userspace applications with
+POSIX socket can use the system calls defined in LibOS by replacing
+from the original socket-related symbols to the LibOS-specific
+one. Then application can benefit the network stack of LibOS without
+involving the host network stack.
+
+Currently, there are two users of LibOS: Network Stack in Userspace
+(NUSE) and ns-3 network simulatior with Direct Code Execution
+(DCE). These codes are managed at an external repository(*1).
+
+
+== How to use it ? ==
+
+to build the library,
+% make {defconfig,menuconfig} ARCH=lib
+
+then, build it.
+% make library ARCH=lib
+
+You will see liblinux-$(KERNELVERSION).so in the top directory.
+
+== More information ==
+
+The crucial difference between UML (user-mode linux) and this approach
+is that we allow multiple network stack instances to co-exist within a
+single process with dlmopen(3) like linking for easy debugging.
+
+
+These patches are also available on this branch:
+
+git://github.com/libos-nuse/net-next-nuse.git for-linus-upstream-libos-v5
+
+
+For further information, here is a slideset presented at the last
+netdev0.1 conference.
+
+http://www.slideshare.net/hajimetazaki/library-operating-system-for-linux-netdev01
+
+I would appreciate any kind of your feedback regarding to upstream
+this feature.
+
+*1 https://github.com/libos-nuse/linux-libos-tools
+
+
+Hajime Tazaki (10):
+  sysctl: make some functions unstatic to access by arch/lib
+  slab: add SLIB (Library memory allocator) for  arch/lib
+  lib: public headers and API implementations for userspace programs
+  lib: time handling (kernel glue code)
+  lib: context and scheduling functions (kernel glue code) for libos
+  lib: sysctl handling (kernel glue code)
+  lib: other kernel glue layer code
+  lib: auxiliary files for auto-generated asm-generic files of libos
+  lib: libos build scripts and documentation
+  lib: tools used for test scripts
+
+ Documentation/virtual/libos-howto.txt | 144 ++++++++
+ MAINTAINERS                           |   9 +
+ arch/lib/.gitignore                   |   3 +
+ arch/lib/Kconfig                      | 124 +++++++
+ arch/lib/Makefile                     | 224 ++++++++++++
+ arch/lib/Makefile.print               |  45 +++
+ arch/lib/capability.c                 |  25 ++
+ arch/lib/defconfig                    | 653 ++++++++++++++++++++++++++++++++++
+ arch/lib/filemap.c                    |  32 ++
+ arch/lib/fs.c                         |  70 ++++
+ arch/lib/generate-linker-script.py    |  50 +++
+ arch/lib/glue.c                       | 289 +++++++++++++++
+ arch/lib/hrtimer.c                    | 122 +++++++
+ arch/lib/include/asm/Kbuild           |  57 +++
+ arch/lib/include/asm/atomic.h         |  59 +++
+ arch/lib/include/asm/barrier.h        |   8 +
+ arch/lib/include/asm/bitsperlong.h    |  16 +
+ arch/lib/include/asm/current.h        |   7 +
+ arch/lib/include/asm/elf.h            |  10 +
+ arch/lib/include/asm/hardirq.h        |   8 +
+ arch/lib/include/asm/page.h           |  14 +
+ arch/lib/include/asm/pgtable.h        |  30 ++
+ arch/lib/include/asm/processor.h      |  19 +
+ arch/lib/include/asm/ptrace.h         |   4 +
+ arch/lib/include/asm/segment.h        |   6 +
+ arch/lib/include/asm/sembuf.h         |   4 +
+ arch/lib/include/asm/shmbuf.h         |   4 +
+ arch/lib/include/asm/shmparam.h       |   4 +
+ arch/lib/include/asm/sigcontext.h     |   6 +
+ arch/lib/include/asm/stat.h           |   4 +
+ arch/lib/include/asm/statfs.h         |   4 +
+ arch/lib/include/asm/swab.h           |   7 +
+ arch/lib/include/asm/thread_info.h    |  36 ++
+ arch/lib/include/asm/uaccess.h        |  14 +
+ arch/lib/include/asm/unistd.h         |   4 +
+ arch/lib/include/sim-assert.h         |  23 ++
+ arch/lib/include/sim-init.h           | 134 +++++++
+ arch/lib/include/sim-printf.h         |  13 +
+ arch/lib/include/sim-types.h          |  53 +++
+ arch/lib/include/sim.h                |  51 +++
+ arch/lib/include/uapi/asm/byteorder.h |   6 +
+ arch/lib/lib-device.c                 | 187 ++++++++++
+ arch/lib/lib-socket.c                 | 410 +++++++++++++++++++++
+ arch/lib/lib.c                        | 294 +++++++++++++++
+ arch/lib/lib.h                        |  21 ++
+ arch/lib/modules.c                    |  36 ++
+ arch/lib/pid.c                        |  29 ++
+ arch/lib/print.c                      |  56 +++
+ arch/lib/proc.c                       |  34 ++
+ arch/lib/random.c                     |  53 +++
+ arch/lib/sched.c                      | 406 +++++++++++++++++++++
+ arch/lib/softirq.c                    | 108 ++++++
+ arch/lib/sysctl.c                     | 270 ++++++++++++++
+ arch/lib/sysfs.c                      |  83 +++++
+ arch/lib/tasklet-hrtimer.c            |  57 +++
+ arch/lib/tasklet.c                    |  76 ++++
+ arch/lib/time.c                       | 144 ++++++++
+ arch/lib/timer.c                      | 238 +++++++++++++
+ arch/lib/vmscan.c                     |  26 ++
+ arch/lib/workqueue.c                  | 242 +++++++++++++
+ fs/proc/proc_sysctl.c                 |  36 +-
+ include/linux/slab.h                  |   6 +-
+ include/linux/slib_def.h              |  21 ++
+ mm/Makefile                           |   1 +
+ mm/slab.h                             |   4 +
+ mm/slib.c                             | 205 +++++++++++
+ tools/testing/libos/.gitignore        |   6 +
+ tools/testing/libos/Makefile          |  38 ++
+ tools/testing/libos/README            |  15 +
+ tools/testing/libos/bisect.sh         |  10 +
+ tools/testing/libos/dce-test.sh       |  23 ++
+ tools/testing/libos/nuse-test.sh      |  57 +++
+ 72 files changed, 5569 insertions(+), 18 deletions(-)
+ create mode 100644 Documentation/virtual/libos-howto.txt
+ create mode 100644 arch/lib/.gitignore
+ create mode 100644 arch/lib/Kconfig
+ create mode 100644 arch/lib/Makefile
+ create mode 100644 arch/lib/Makefile.print
+ create mode 100644 arch/lib/capability.c
+ create mode 100644 arch/lib/defconfig
+ create mode 100644 arch/lib/filemap.c
+ create mode 100644 arch/lib/fs.c
+ create mode 100755 arch/lib/generate-linker-script.py
+ create mode 100644 arch/lib/glue.c
+ create mode 100644 arch/lib/hrtimer.c
+ create mode 100644 arch/lib/include/asm/Kbuild
+ create mode 100644 arch/lib/include/asm/atomic.h
+ create mode 100644 arch/lib/include/asm/barrier.h
+ create mode 100644 arch/lib/include/asm/bitsperlong.h
+ create mode 100644 arch/lib/include/asm/current.h
+ create mode 100644 arch/lib/include/asm/elf.h
+ create mode 100644 arch/lib/include/asm/hardirq.h
+ create mode 100644 arch/lib/include/asm/page.h
+ create mode 100644 arch/lib/include/asm/pgtable.h
+ create mode 100644 arch/lib/include/asm/processor.h
+ create mode 100644 arch/lib/include/asm/ptrace.h
+ create mode 100644 arch/lib/include/asm/segment.h
+ create mode 100644 arch/lib/include/asm/sembuf.h
+ create mode 100644 arch/lib/include/asm/shmbuf.h
+ create mode 100644 arch/lib/include/asm/shmparam.h
+ create mode 100644 arch/lib/include/asm/sigcontext.h
+ create mode 100644 arch/lib/include/asm/stat.h
+ create mode 100644 arch/lib/include/asm/statfs.h
+ create mode 100644 arch/lib/include/asm/swab.h
+ create mode 100644 arch/lib/include/asm/thread_info.h
+ create mode 100644 arch/lib/include/asm/uaccess.h
+ create mode 100644 arch/lib/include/asm/unistd.h
+ create mode 100644 arch/lib/include/sim-assert.h
+ create mode 100644 arch/lib/include/sim-init.h
+ create mode 100644 arch/lib/include/sim-printf.h
+ create mode 100644 arch/lib/include/sim-types.h
+ create mode 100644 arch/lib/include/sim.h
+ create mode 100644 arch/lib/include/uapi/asm/byteorder.h
+ create mode 100644 arch/lib/lib-device.c
+ create mode 100644 arch/lib/lib-socket.c
+ create mode 100644 arch/lib/lib.c
+ create mode 100644 arch/lib/lib.h
+ create mode 100644 arch/lib/modules.c
+ create mode 100644 arch/lib/pid.c
+ create mode 100644 arch/lib/print.c
+ create mode 100644 arch/lib/proc.c
+ create mode 100644 arch/lib/random.c
+ create mode 100644 arch/lib/sched.c
+ create mode 100644 arch/lib/softirq.c
+ create mode 100644 arch/lib/sysctl.c
+ create mode 100644 arch/lib/sysfs.c
+ create mode 100644 arch/lib/tasklet-hrtimer.c
+ create mode 100644 arch/lib/tasklet.c
+ create mode 100644 arch/lib/time.c
+ create mode 100644 arch/lib/timer.c
+ create mode 100644 arch/lib/vmscan.c
+ create mode 100644 arch/lib/workqueue.c
+ create mode 100644 include/linux/slib_def.h
+ create mode 100644 mm/slib.c
+ create mode 100644 tools/testing/libos/.gitignore
+ create mode 100644 tools/testing/libos/Makefile
+ create mode 100644 tools/testing/libos/README
+ create mode 100755 tools/testing/libos/bisect.sh
+ create mode 100755 tools/testing/libos/dce-test.sh
+ create mode 100755 tools/testing/libos/nuse-test.sh
+
 -- 
-1.7.10.4
+2.1.0
