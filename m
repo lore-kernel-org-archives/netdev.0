@@ -1,79 +1,68 @@
 From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net 1/2] ipv6: do not delete previously existing ECMP
- routes if add fails
-Date: Wed, 13 May 2015 06:30:20 -0700
-Message-ID: <555351EC.9050805@cumulusnetworks.com>
-References: <cover.1431500953.git.mkubecek@suse.cz> <4e3d075f2be93d9655bc1372a107584368a29eab.1431500953.git.mkubecek@suse.cz> <55534389.8070307@6wind.com> <20150513124940.GB27366@unicorn.suse.cz>
+Subject: Re: [PATCH net-next] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
+Date: Wed, 13 May 2015 06:38:02 -0700
+Message-ID: <555353BA.5010103@cumulusnetworks.com>
+References: <1431494830-4284-1-git-send-email-roopa@cumulusnetworks.com> <20150513054250.GA2126@nanopsycho> <55530ABE.8040503@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150513124940.GB27366@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net,
+	sfeldma@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:36298 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933809AbbEMNiE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 09:38:04 -0400
+Received: by pdea3 with SMTP id a3so51960159pde.3
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 06:38:04 -0700 (PDT)
+In-Reply-To: <55530ABE.8040503@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/13/15, 5:49 AM, Michal Kubecek wrote:
-> On Wed, May 13, 2015 at 02:28:57PM +0200, Nicolas Dichtel wrote:
->> Le 13/05/2015 11:50, Michal Kubecek a =E9crit :
->>> If adding a nexthop of an IPv6 multipath route fails, comment in
->>> ip6_route_multipath() says we are going to delete all nexthops alre=
-ady
->>> added. However, current implementation deletes even the routes it
->>> hasn't even tried to add yet. For example, running
+On 5/13/15, 1:26 AM, Daniel Borkmann wrote:
+> On 05/13/2015 07:42 AM, Jiri Pirko wrote:
+>> Wed, May 13, 2015 at 07:27:10AM CEST, roopa@cumulusnetworks.com wrote:
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>>
->>>    ip route add 1234:5678::/64 \
->>>        nexthop via fe80::aa dev dummy1 \
->>>        nexthop via fe80::bb dev dummy1 \
->>>        nexthop via fe80::cc dev dummy1
+>>> RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
 >>>
->>> twice results in removing all routes first command added.
+>>> This patch renames the flag to be consistent with what the user sees.
 >>>
->>> Limit the second (delete) run to nexthops that succeeded in the fir=
-st
->>> (add) run.
+>>> (I will post iproute2 patch if this gets accepted)
 >>>
->>> Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (EC=
-MP)")
->>> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>> ---
->>>   net/ipv6/route.c | 1 +
->>>   1 file changed, 1 insertion(+)
+>>> include/uapi/linux/rtnetlink.h |    2 +-
+>>> net/ipv4/fib_trie.c            |    2 +-
+>>> net/switchdev/switchdev.c      |    6 +++---
+>>> 3 files changed, 5 insertions(+), 5 deletions(-)
 >>>
->>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->>> index d3588885f097..18b92c05b541 100644
->>> --- a/net/ipv6/route.c
->>> +++ b/net/ipv6/route.c
->>> @@ -2536,6 +2536,7 @@ beginning:
->>>   				 * next hops that have been already added.
->>>   				 */
->>>   				add =3D 0;
->>> +				remaining =3D cfg->fc_mp_len - remaining;
->>>   				goto beginning;
->> Not sure to understand your fix. At the label beginning, the code is=
-:
+>>> diff --git a/include/uapi/linux/rtnetlink.h 
+>>> b/include/uapi/linux/rtnetlink.h
+>>> index 974db03..17fb02f 100644
+>>> --- a/include/uapi/linux/rtnetlink.h
+>>> +++ b/include/uapi/linux/rtnetlink.h
+>>> @@ -337,7 +337,7 @@ struct rtnexthop {
+>>> #define RTNH_F_DEAD        1    /* Nexthop is dead (used by 
+>>> multipath)    */
+>>> #define RTNH_F_PERVASIVE    2    /* Do recursive gateway lookup    */
+>>> #define RTNH_F_ONLINK        4    /* Gateway is forced on link    */
+>>> -#define RTNH_F_EXTERNAL        8    /* Route installed 
+>>> externally    */
+>>> +#define RTNH_F_OFFLOAD        8    /* offloaded route */
 >>
->> beginning:
->>          rtnh =3D (struct rtnexthop *)cfg->fc_mp;
->>          remaining =3D cfg->fc_mp_len;
->>
->> Hence, 'remaining' will be overridden. How does your patch work?
-> It does not, sorry. I'm still trying to find out what did I wrong whi=
-le
-> testing. I'll need to move the initialization of remaining above the
-> label.
+>> Since this is part of uapi, I believe this is not doable :/
+i thought it was not too late :) and besides i wasn't changing the value 
+and just the name.
+current iproute2 would still build for example.
 >
-This looks like a similar bug i was trying to fix some time back:
-http://patchwork.ozlabs.org/patch/362296/
+> You could still alias it if necessary:
+>
+>   #define RTNH_F_OFFLOAD    RTNH_F_EXTERNAL
+that is an option. hmm...wondering if it is worth creating an alias or 
+we should live with it.
+If i get more votes, i will resubmit.
 
-(I am not sure if my full patch is still valid. I was thinking of=20
-re-spining it sometime soon. If you are interested in trying it out,=20
-please do)
+thanks!.
