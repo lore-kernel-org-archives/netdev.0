@@ -1,77 +1,83 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] Bluetooth: Pre-initialize variables in read_local_oob_ext_data_complete()
-Date: Wed, 13 May 2015 23:11:56 +0200
-Message-ID: <0F69C638-5050-4603-A3FE-12FD8E9B27DD@holtmann.org>
-References: <1429212265-26750-1-git-send-email-geert@linux-m68k.org> <A962A040-4EB5-4AE6-A790-A8767185172B@holtmann.org> <CAMuHMdUxnrg1BVoFpKExzGHKj2aOmYGp+wChhMbPfmWvMzQT=Q@mail.gmail.com> <8684664B-22C2-45E8-B547-48F173B3CA7A@holtmann.org> <CAMuHMdUXcAYe4KCqG9wV3O5QYzK9RGt+QZz7E_jk7v9yhtrkRQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 8.2 \(2098\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdUXcAYe4KCqG9wV3O5QYzK9RGt+QZz7E_jk7v9yhtrkRQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] net: core: set and refine qdisc pkt len
+ before tc_classify
+Date: Wed, 13 May 2015 14:20:55 -0700
+Message-ID: <1431552055.27831.17.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431550209-3498-1-git-send-email-daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, fw@strlen.de, ast@plumgrid.com,
+	jhs@mojatatu.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:35442 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933957AbbEMVU5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 17:20:57 -0400
+Received: by iebpz10 with SMTP id pz10so44415184ieb.2
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 14:20:56 -0700 (PDT)
+In-Reply-To: <1431550209-3498-1-git-send-email-daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Geert,
+On Wed, 2015-05-13 at 22:50 +0200, Daniel Borkmann wrote:
+> From: Florian Westphal <fw@strlen.de>
+> 
+> Commit d2788d34885d4ce5ba ("net: sched: further simplify handle_ing")
+> removed the call to qdisc_enqueue_root(). However, after this removal
+> we no longer set qdisc pkt length, which this patch fixes. We make use
+> of qdisc_pkt_len_init() from 1def9238d4aa ("net_sched: more precise
+> pkt_len computation"), which was suggested as the current approach so
+> far does not take into account when GRO builds up GSO packets.
+> 
+> Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
+> Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  v1->v2:
+>   - use qdisc_pkt_len_init() as suggested, thanks!
+> 
+>  net/core/dev.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 15e51a9..6e19521 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2787,8 +2787,8 @@ static void qdisc_pkt_len_init(struct sk_buff *skb)
+>  
+>  	qdisc_skb_cb(skb)->pkt_len = skb->len;
+>  
+> -	/* To get more precise estimation of bytes sent on wire,
+> -	 * we add to pkt_len the headers size of all segments
+> +	/* To get more precise estimation of bytes sent/received on
+> +	 * wire, we add to pkt_len the headers size of all segments.
+>  	 */
+>  	if (shinfo->gso_size)  {
+>  		unsigned int hdr_len;
+> @@ -3541,9 +3541,11 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+>  		*pt_prev = NULL;
+>  	}
+>  
+> -	qdisc_bstats_update_cpu(cl->q, skb);
+> +	qdisc_pkt_len_init(skb);
+>  	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_INGRESS);
+>  
+> +	qdisc_bstats_update_cpu(cl->q, skb);
+> +
+>  	switch (tc_classify(skb, cl, &cl_res)) {
+>  	case TC_ACT_OK:
+>  	case TC_ACT_RECLASSIFY:
 
->>>>> net/bluetooth/mgmt.c: In function =E2=80=98read_local_oob_ext_dat=
-a_complete=E2=80=99:
->>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r256=E2=80=99 may be=
- used uninitialized in this function
->>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h256=E2=80=99 may be=
- used uninitialized in this function
->>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98r192=E2=80=99 may be=
- used uninitialized in this function
->>>>> net/bluetooth/mgmt.c:6474: warning: =E2=80=98h192=E2=80=99 may be=
- used uninitialized in this function
->>>>>=20
->>>>> While these are false positives, the code can be shortened by
->>>>> pre-initializing the hash table pointers and eir_len. This has th=
-e side
->>>>> effect of killing the compiler warnings.
->>>>=20
->>>> can you be a bit specific on which compiler version is this. I fix=
-ed one occurrence that seemed valid. However in this case the compiler =
-seems to be just plain stupid. On a gcc 4.9, I am not seeing these for =
-example.
->>>=20
->>> gcc 4.1.2. As there were too many false positives, these warnings w=
-ere
->>> disabled in later versions (throwing away the children with the bad=
- water).
->>>=20
->>> If you don't like my patch, just drop it. I only look at newly
->>> introduced warnings
->>> of this kind anyway.
->>=20
->> I really do not know what is the best solution here. This is a false=
- positive. And I have been looking at this particular code for a warnin=
-g that was valid, but we missed initially. But these warnings that you =
-are fixing are clearly false positive.
->=20
-> I only sent patches to fix false positives if I think the patches imp=
-rove the
-> code. As this is a subjective matter, it's up to you as the maintaine=
-r to
-> decide.
->=20
->> If this only happens with an old compiler version, I would tend to l=
-eave the code as is. Then again, what is the general preferred approach=
- here?
->=20
-> As this is a false positive, it's clearly up to the maintainer to
-> decide if the patch
-> improves the code or not.
+Is qdisc_pkt_len_init() still inlined, now it has 2 callers ?
 
-and in this case, I have no idea if I want to bother or not. I really j=
-ust don=E2=80=99t. Since nobody else complained, I might just leave it =
-as is since it really is a false positive.
+People using policers on ingress are very often disabling GRO for
+various historical reasons.
 
-Regards
+Since handle_ing() is very uncommon, I would prefer not slowing down tx
+just so that GRO ~5% error in ingress is fixed.
 
-Marcel
+I noticed you did not CC me, don't be afraid to include me next time one
+of my commit is referred in a changelog ;)
