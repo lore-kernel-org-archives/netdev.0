@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] net: phy: micrel: Fix regression in kszphy_probe
-Date: Tue, 12 May 2015 23:19:09 -0400 (EDT)
-Message-ID: <20150512.231909.896139778564783277.davem@davemloft.net>
-References: <1431416594-7758-1-git-send-email-niklass@axis.com>
+Subject: Re: [PATCH net-next] net: make skb_dst_pop routine static
+Date: Tue, 12 May 2015 23:20:04 -0400 (EDT)
+Message-ID: <20150512.232004.1920587220759628519.davem@davemloft.net>
+References: <1431426584-13603-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, festevam@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, johan@kernel.org, niklass@axis.com,
-	stable@vger.kernel.org
-To: niklas.cassel@axis.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431416594-7758-1-git-send-email-niklass@axis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ying.xue@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49131 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934004AbbEMDUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 May 2015 23:20:05 -0400
+In-Reply-To: <1431426584-13603-1-git-send-email-ying.xue@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Niklas Cassel <niklas.cassel@axis.com>
-Date: Tue, 12 May 2015 09:43:14 +0200
+From: Ying Xue <ying.xue@windriver.com>
+Date: Tue, 12 May 2015 18:29:44 +0800
 
-> Don't do clock-mode-select if clk == NULL,
-> since when building without CONFIG_HAVE_CLK,
-> clk_get returns NULL and clk_get_rate returns 0.
+> As xfrm_output_one() is the only caller of skb_dst_pop(), we should
+> make skb_dst_pop() localized.
 > 
-> Doing clock-mode-select in this cause causes kszphy_probe to
-> return -EINVAL and thus prevents the device from being probed.
-> 
-> The original code (before regression) would return 0
-> when building without CONFIG_HAVE_CLK.
-> 
-> Cc: stable <stable@vger.kernel.org> # 3.18+
-> Fixes: 1fadee0c3645 ("net/phy: micrel: Add clock support for
-> KSZ8021/KSZ8031")
-> Reviewed-by: Fabio Estevam <fabio.estevam@freescale.com>
-> Reviewed-by: Johan Hovold <johan@kernel.org>
-> Signed-off-by: Niklas Cassel <niklass@axis.com>
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
 
-Applied, thank you.
+Applied, thanks.
