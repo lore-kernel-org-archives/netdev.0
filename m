@@ -1,99 +1,53 @@
-From: Haggai Eran <haggaie@mellanox.com>
-Subject: Re: [PATCH v3 for-next 01/13] IB/core: Use SRCU when reading client_list
- or device_list
-Date: Wed, 13 May 2015 11:10:15 +0300
-Message-ID: <555306E7.9020000@mellanox.com>
-References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
- <1431253604-9214-2-git-send-email-haggaie@mellanox.com>
- <20150511181824.GA25405@obsidianresearch.com> <555198B7.40302@mellanox.com>
- <20150512182332.GD15891@obsidianresearch.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
+Date: Wed, 13 May 2015 10:26:38 +0200
+Message-ID: <55530ABE.8040503@iogearbox.net>
+References: <1431494830-4284-1-git-send-email-roopa@cumulusnetworks.com> <20150513054250.GA2126@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Cc: davem@davemloft.net, sfeldma@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>, roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0076.outbound.protection.outlook.com ([157.55.234.76]:15791
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933039AbbEMIKa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 04:10:30 -0400
-In-Reply-To: <20150512182332.GD15891@obsidianresearch.com>
+Received: from www62.your-server.de ([213.133.104.62]:42613 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753404AbbEMI0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 04:26:42 -0400
+In-Reply-To: <20150513054250.GA2126@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/2015 21:23, Jason Gunthorpe wrote:
-> On Tue, May 12, 2015 at 09:07:51AM +0300, Haggai Eran wrote:
->>> I'm not sure RCU is the right way to approach this. The driver core
->>> has the same basic task to perform, maybe review it's locking
->>> arrangment between the device list and driver list.
->>>
->>> [Actually we probably should be using the driver core here, with IB
->>>  clients as device drivers, but that is way beyond scope of this..]
+On 05/13/2015 07:42 AM, Jiri Pirko wrote:
+> Wed, May 13, 2015 at 07:27:10AM CEST, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 >>
->> So, I'm not very familiar with that code, but it seems that the main
->> difference is that in the core a single driver can be attached to a
->> device. 
-> 
-> Roughly, a bus (IB would be a bus) has devices attached to it, and
-> devices have drivers attached to them. Bus:Device is 1:N,
-> Device:Drvier is 1:1. 
-> 
-> There a a couple of reasons to be interested in re-using the driver
-> core, perhaps the best is that it has all the infrastructure to let us
-> auto-load client modules...
+>> RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
+>>
+>> This patch renames the flag to be consistent with what the user sees.
+>>
+>> (I will post iproute2 patch if this gets accepted)
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>> include/uapi/linux/rtnetlink.h |    2 +-
+>> net/ipv4/fib_trie.c            |    2 +-
+>> net/switchdev/switchdev.c      |    6 +++---
+>> 3 files changed, 5 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+>> index 974db03..17fb02f 100644
+>> --- a/include/uapi/linux/rtnetlink.h
+>> +++ b/include/uapi/linux/rtnetlink.h
+>> @@ -337,7 +337,7 @@ struct rtnexthop {
+>> #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
+>> #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
+>> #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
+>> -#define RTNH_F_EXTERNAL		8	/* Route installed externally	*/
+>> +#define RTNH_F_OFFLOAD		8	/* offloaded route */
+>
+> Since this is part of uapi, I believe this is not doable :/
 
-So you want an ib_core bus and each client is a "device" or a driver on
-that bus? But this doesn't get you the relation between clients and ib
-devices.
+You could still alias it if necessary:
 
-> 
->> I guess a similar thing we can do is to rely on the context we associate
->> with a pair of a client and a device. If such a context exist, we don't
->> need to call client->add again. What do you think?
-> 
-> I didn't look closely, isn't this enough?
-> 
-> device_register:
->  mutex_lock(client_mutex);
->  down_write(devices_rwsem);
->  list_add(device_list,dev,..);
->  up_write(devices_rwsem);
-> 
->  /* Caller must prevent device_register/unregister concurrancy on the
->     same dev */
-> 
->  foreach(client_list)
->    .. client->add(dev,...) .. 
-> 
->  mutex_unlock(client_mutex)
-> 
-> client_register:
->  mutex_lock(client_mutex)
->  list_add(client_list,new_client..)
->  down_read(devices_rwsem);
->  foreach(device_list)
->    .. client->add(dev,new_client,..) ..
->  up_read(devices_rwsem);
->  mutex_unlock(client_mutex)
-> 
-> [Note, I didn't check this carefully, just intuitively seems like a
->  sane starting point]
-
-That could perhaps work for the RoCEv2 patch-set, as their deadlock
-relates to iterating the device list. This patch set however does an
-iteration on the client list (patch 3). Because a client remove could
-block on this iteration, you can still get a deadlock.
-
-I think I prefer keeping the single device_mutex and the SRCU, but
-keeping the device_mutex locked as it is today, covering all of the
-registration and unregistration code. Only the new code that reads the
-client list or the device list without modification to the other list
-will use the SRCU read lock.
-
-Haggai
+   #define RTNH_F_OFFLOAD	RTNH_F_EXTERNAL
