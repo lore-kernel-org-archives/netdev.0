@@ -1,71 +1,42 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next v2] net: core: set and refine qdisc pkt len
- before tc_classify
-Date: Wed, 13 May 2015 23:33:48 +0200
-Message-ID: <20150513213348.GC6179@breakpoint.cc>
-References: <1431550209-3498-1-git-send-email-daniel@iogearbox.net>
- <1431552055.27831.17.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Kevin Hilman <khilman@kernel.org>
+Subject: Re: [net-next PATCH] net: Reserve skb headroom and set skb->dev even if using __alloc_skb
+Date: Wed, 13 May 2015 14:35:51 -0700
+Message-ID: <7h8ucs6tzc.fsf@deeprootsystems.com>
+References: <20150513182738.GA28201@saruman.tx.rr.com>
+	<20150513203413.8252.98057.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-	fw@strlen.de, ast@plumgrid.com, jhs@mojatatu.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, balbi@ti.com, davem@davemloft.net,
+	tony@atomide.com, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44546 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933957AbbEMVd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 17:33:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1431552055.27831.17.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:36738 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965006AbbEMVfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 17:35:55 -0400
+Received: by pdea3 with SMTP id a3so63442687pde.3
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 14:35:54 -0700 (PDT)
+In-Reply-To: <20150513203413.8252.98057.stgit@ahduyck-vm-fedora22> (Alexander
+	Duyck's message of "Wed, 13 May 2015 13:34:13 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > Commit d2788d34885d4ce5ba ("net: sched: further simplify handle_ing")
-> > removed the call to qdisc_enqueue_root(). However, after this removal
-> > we no longer set qdisc pkt length, which this patch fixes. We make use
-> > of qdisc_pkt_len_init() from 1def9238d4aa ("net_sched: more precise
-> > pkt_len computation"), which was suggested as the current approach so
-> > far does not take into account when GRO builds up GSO packets.
-> > 
-> > Fixes: d2788d34885d ("net: sched: further simplify handle_ing")
-> > Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> > Signed-off-by: Florian Westphal <fw@strlen.de>
-> > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> > ---
-> >  v1->v2:
-> >   - use qdisc_pkt_len_init() as suggested, thanks!
-> >
-> > @@ -3541,9 +3541,11 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
-> >  		*pt_prev = NULL;
-> >  	}
-> >  
-> > -	qdisc_bstats_update_cpu(cl->q, skb);
-> > +	qdisc_pkt_len_init(skb);
-[..]
-> 
-> Is qdisc_pkt_len_init() still inlined, now it has 2 callers ?
+Alexander Duyck <alexander.h.duyck@redhat.com> writes:
 
-gcc 4.8.4, OPTIMIZE_FOR_SIZE=n: nope, callq.
+> When I had inlined __alloc_rx_skb into __netdev_alloc_skb and
+> __napi_alloc_skb I had overlooked the fact that there was a return in the
+> __alloc_rx_skb.  As a result we weren't reserving headroom or setting the
+> skb->dev in certain cases.  This change corrects that by adding a couple of
+> jump labels to jump to depending on __alloc_skb either succeeding or failing.
+>
+> Fixes: 9451980a6646 ("net: Use cached copy of pfmemalloc to avoid accessing page")
+> Reported-by: Felipe Balbi <balbi@ti.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-> People using policers on ingress are very often disabling GRO for
-> various historical reasons.
+Tested this on top of next-20150513 on an ARM/OMAP
+(am335x-boneblack.dts) an it fixes the boot problem for me.
 
-right, ingress policing is rather poor with GRO (or you need to set mtu 64000
-on the tc police cmd line).
+Tested-by: Kevin Hilman <khilman@linaro.org>
 
-> Since handle_ing() is very uncommon, I would prefer not slowing down tx
-> just so that GRO ~5% error in ingress is fixed.
-
-Hmm, so whats you suggestion?  Just use
-
-qdisc_skb_cb(skb)->pkt_len = skb->len;
-
-like in v1 of the patch set?
-resurrect qdisc_enqueue_root?
-set always_inline (i'd prefer not, its not very small)?
-
-Any other idea?
-
-Thanks!
+Kevin
