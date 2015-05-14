@@ -1,50 +1,58 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: Re: [net-next fragmentation icmp v4 3/4] bridge_netfilter: No ICMP
- packet on IPv4 defragmentation timeout
-Date: Thu, 14 May 2015 12:54:23 -0700
-Message-ID: <CACzMAJ+J3QGFZa976_M=_ZKjgEPiJszyYrqeqeGj=9rjCBZJ7A@mail.gmail.com>
-References: <1431570482-9236-1-git-send-email-azhou@nicira.com>
-	<1431570482-9236-4-git-send-email-azhou@nicira.com>
-	<20150514085940.GD6179@breakpoint.cc>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH iproute2] ss: Show more info (ring,fanout) for packet socks
+Date: Thu, 14 May 2015 15:54:41 -0400
+Message-ID: <CA+FuTSditeDHFKD-NLUJsZ=Cgyzca3RZysecRAx=whzpg+E6cg@mail.gmail.com>
+References: <1431509966-5054-1-git-send-email-vadim4j@gmail.com>
+ <CA+FuTSeM_FQBRToXCBix9ns3_07ivfqxYHB4nGHcSqqp31fX5A@mail.gmail.com> <20150514110900.GA28582@angus-think.wlc.globallogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Cc: Network Development <netdev@vger.kernel.org>
+To: Vadim Kochan <vadim4j@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:60310 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965007AbbENTyZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 15:54:25 -0400
-Received: by mail-qg0-f44.google.com with SMTP id 2so1373036qgf.0
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 12:54:24 -0700 (PDT)
-In-Reply-To: <20150514085940.GD6179@breakpoint.cc>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:36795 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161038AbbENTzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 15:55:12 -0400
+Received: by obbkp3 with SMTP id kp3so61050353obb.3
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 12:55:12 -0700 (PDT)
+In-Reply-To: <20150514110900.GA28582@angus-think.wlc.globallogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 14, 2015 at 1:59 AM, Florian Westphal <fw@strlen.de> wrote:
-> Andy Zhou <azhou@nicira.com> wrote:
->> Currently, on defragmentation timeout error, ICMP error message
->> will be generated. This is fine when they are used in a routing context,
->> but does not make sense in the context of bridging netfilter.
+On Thu, May 14, 2015 at 7:09 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
+> On Wed, May 13, 2015 at 05:10:38PM -0400, Willem de Bruijn wrote:
+>> > +               }
+>> > +               if (has_fanout) {
+>> > +                       uint16_t type = (fanout >> 16) & 0xffff;
 >>
->> This patch adds a bit (IPSKB_NO_FRAG_ICMP) in IPCB to control
->> whether ICMP error message should be generated. br_netfiler sets
->> this bit.
->
-> Could you please explain why we need this patch?
-> After the previous change (patch 2 in your series), we will already
-> bail out before hitting
->
-> /* Send an ICMP "Fragment Reassembly Timeout" message. */
-> icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
->
-> in ip_expire() based on qp->user value test?
+>> type can be modified by flags in the upper 8 bits. Better
+>> mask those out and report them separately.
+> Kernel puts only id & type in diag message, flags are stored in separated
+> member of 'struct packet_sock'.
 
-Letting caller making the decision seems to be a better design choice
-rather than implicit
-logic embedded within the function.  It is also more flexible and
-robust when we need to extend 'user'
-range down the road.
+I don't mean pdi_flags, but
+
+  PACKET_FANOUT_FLAG_ROLLOVER
+  PACKET_FANOUT_FLAG_DEFRAG
+
+which are passed as part of this u32 by the process during setsockopt
+PACKET_FANOUT.
 
 >
+>>
+>> > +
+>> > +                       printf("\n\tfanout(");
+>> > +                       printf("id:%d,", fanout & 0xff);
+>> > +                       printf("type:0x%x", type);
+>> > +                       if (type == 0)
+>> > +                               printf("(hash)");
+>> > +                       else if (type == 1)
+>> > +                               printf("(lb)");
+>> > +                       else if (type == 2)
+>> > +                               printf("(cpu)");
+>> > +                       else if (type == 3)
+>> > +                               printf("(rollover)");
+>> > +                       else if (type == 4)
+>> > +                               printf("(random)");
+>> > +                       else if (type == 5)
+>> > +                               printf("(qm)");
