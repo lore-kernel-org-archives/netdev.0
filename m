@@ -1,50 +1,41 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: [RFC 08/23] net/xen-netback: Remove unused code in xenvif_rx_action
-Date: Thu, 14 May 2015 18:00:48 +0100
-Message-ID: <1431622863-28575-9-git-send-email-julien.grall@citrix.com>
-References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] cls_flower: Fix compile error
+Date: Thu, 14 May 2015 13:02:30 -0400 (EDT)
+Message-ID: <20150514.130230.1692424946326313157.davem@davemloft.net>
+References: <5554D249.6080204@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
-	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
-	<tim@xen.org>, Julien Grall <julien.grall@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>
-To: <xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: brian.haley@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40151 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932997AbbENRCc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 13:02:32 -0400
+In-Reply-To: <5554D249.6080204@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The variables old_req_cons and ring_slots_used are assigned but never
-used since commit 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b "xen-netback:
-always fully coalesce guest Rx packets".
-
-Signed-off-by: Julien Grall <julien.grall@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: netdev@vger.kernel.org
----
- drivers/net/xen-netback/netback.c | 5 -----
- 1 file changed, 5 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 9c6a504..9ae1d43 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -515,14 +515,9 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
- 
- 	while (xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX)
- 	       && (skb = xenvif_rx_dequeue(queue)) != NULL) {
--		RING_IDX old_req_cons;
--		RING_IDX ring_slots_used;
--
- 		queue->last_rx_time = jiffies;
- 
--		old_req_cons = queue->rx.req_cons;
- 		XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, &npo, queue);
--		ring_slots_used = queue->rx.req_cons - old_req_cons;
- 
- 		__skb_queue_tail(&rxq, skb);
- 	}
--- 
-2.1.4
+RnJvbTogQnJpYW4gSGFsZXkgPGJyaWFuLmhhbGV5QGhwLmNvbT4NCkRhdGU6IFRodSwgMTQgTWF5
+IDIwMTUgMTI6NTA6MTcgLTA0MDANCg0KPiBGaXggY29tcGlsZSBlcnJvciBpbiBuZXQvc2NoZWQv
+Y2xzX2Zsb3dlci5jDQo+IA0KPiAgICAgbmV0L3NjaGVkL2Nsc19mbG93ZXIuYzogSW4gZnVuY3Rp
+b24goWZsX3NldF9rZXmiOg0KPiAgICAgbmV0L3NjaGVkL2Nsc19mbG93ZXIuYzoyNDA6MzogZXJy
+b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uDQo+ICAgICChdGNmX2NoYW5nZV9p
+bmRldqIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQo+ICAgICAgICBl
+cnIgPSB0Y2ZfY2hhbmdlX2luZGV2KG5ldCwgdGJbVENBX0ZMT1dFUl9JTkRFVl0pOw0KPiANCj4g
+SW50cm9kdWNlZCBpbiA3N2I5OTAwZWY1M2FlMDQ3ZTM2YTM3ZDEzYTJhYTMzYmIyZDYwNjQxDQo+
+IA0KPiBTaWduZWQtb2ZmLWJ5OiBCcmlhbiBIYWxleSA8YnJpYW4uaGFsZXlAaHAuY29tPg0KPiAN
+Cj4gZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9jbHNfZmxvd2VyLmMgYi9uZXQvc2NoZWQvY2xzX2Zs
+b3dlci5jDQo+IGluZGV4IDliYzY1NGMuLjhjOGYzNGUgMTAwNjQ0DQo+IC0tLSBhL25ldC9zY2hl
+ZC9jbHNfZmxvd2VyLmMNCj4gKysrIGIvbmV0L3NjaGVkL2Nsc19mbG93ZXIuYw0KPiBAQCAtMjM0
+LDE1ICsyMzQsMTUgQEAgc3RhdGljIHZvaWQgZmxfc2V0X2tleV92YWwoc3RydWN0IG5sYXR0ciAq
+KnRiLA0KPiAgc3RhdGljIGludCBmbF9zZXRfa2V5KHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IG5s
+YXR0ciAqKnRiLA0KPiAgCQkgICAgICBzdHJ1Y3QgZmxfZmxvd19rZXkgKmtleSwgc3RydWN0IGZs
+X2Zsb3dfa2V5ICptYXNrKQ0KPiAgew0KPiAtCWludCBlcnI7DQo+IC0NCg0KVGhpcyBwYXRjaCBp
+cyBjb3JydXB0ZWQgYnkgeW91ciBlbWFpbCBjbGllbnQuDQoNCkFsc28sIHJlZmVycmluZyB0byBh
+IGd1aWx0eSBwYXRjaCBpcyBkb25lIHVzaW5nIHRoZSAiRml4ZXM6ICIgdGFnDQp3aGljaCBzaG91
+bGQgYXBwZWFyIHJpZ2h0IGJlZm9yZSB5b3VyIHNpZ25vZmYuICBJdCBpcyB0byBiZSBvZg0KdGhl
+IGZvcm06DQoNCkZpeGVzOiAkKFNIQTFfSUQpICgiQ29tbWl0IHN1bW1hcnkgbGluZSB0ZXh0IikN
+Cg0KVGhlIFNIQTFfSUQgc2hvdWxkIGJlIG9mIDEyIGNoYXJhY3RlcnMgb2Ygc2lnbmlmaWNhbmNl
+Lg0K
