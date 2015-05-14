@@ -1,86 +1,33 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net v2 2/2] ipv6: fix ECMP route replacement
-Date: Thu, 14 May 2015 20:58:59 +0200
-Message-ID: <5554F073.4080501@6wind.com>
-References: <cover.1431546602.git.mkubecek@suse.cz> <c1fd1b1527dc2a6905d4eeff04f1e4ed3f93964e.1431546602.git.mkubecek@suse.cz>
-Reply-To: nicolas.dichtel@6wind.com
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next] packet: fix warnings in rollover lock contention
+Date: Thu, 14 May 2015 14:59:29 -0400
+Message-ID: <CA+FuTSfU1ZTxUwTGTsbed8zMNdtNHw7uAkr3AA_PY9sbEPSNCA@mail.gmail.com>
+References: <1431620686.27831.63.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514.125922.1722914809373007896.davem@davemloft.net> <CA+FuTSesrSiC84pDVR=0r9uhsM5UHuQpJ=hYLvBjafOtTGUfLQ@mail.gmail.com>
+ <20150514.144632.514885310313332490.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	roopa <roopa@cumulusnetworks.com>
-To: Michal Kubecek <mkubecek@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c1fd1b1527dc2a6905d4eeff04f1e4ed3f93964e.1431546602.git.mkubecek@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:33026 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932807AbbENTAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 15:00:00 -0400
+Received: by obblk2 with SMTP id lk2so60154396obb.0
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 11:59:59 -0700 (PDT)
+In-Reply-To: <20150514.144632.514885310313332490.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 13/05/2015 21:59, Michal Kubecek a =C3=A9crit :
-> When replacing an IPv6 multipath route with "ip route replace", i.e.
-> NLM_F_CREATE | NLM_F_REPLACE, fib6_add_rt2node() replaces only first
-> matching route without fixing its siblings, resulting in corrupted
-> siblings linked list; removing one of the siblings can then end in an
-> infinite loop.
+On Thu, May 14, 2015 at 2:46 PM, David Miller <davem@davemloft.net> wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> Date: Thu, 14 May 2015 14:35:57 -0400
 >
-> Replacing the whole set of nexthops does IMHO make more sense than
-> replacing a random one. We also need to remove the NLM_F_REPLACE flag
-> after replacing old nexthops by first new so that each subsequent
-> nexthop does not replace previous one.
+>> This looks great, thanks. I can submit it, but it is essentially your fix.
 >
-> Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP=
-)")
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> ---
->   net/ipv6/ip6_fib.c | 17 ++++++++++++++---
->   net/ipv6/route.c   |  8 +++++---
->   2 files changed, 19 insertions(+), 6 deletions(-)
->
-> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-> index 96dbffff5a24..abf4e4e5bdab 100644
-> --- a/net/ipv6/ip6_fib.c
-> +++ b/net/ipv6/ip6_fib.c
-> @@ -815,6 +815,8 @@ add:
->   		}
->
->   	} else {
-> +		struct rt6_info *next;
-> +
->   		if (!found) {
->   			if (add)
->   				goto add;
-> @@ -828,15 +830,24 @@ add:
->
->   		*ins =3D rt;
->   		rt->rt6i_node =3D fn;
-> -		rt->dst.rt6_next =3D iter->dst.rt6_next;
-> +
-> +		/* skip potential siblings */
-> +		next =3D iter->dst.rt6_next;
-> +		while (next && next->rt6i_metric =3D=3D rt->rt6i_metric)
-> +			next =3D next->dst.rt6_next;
-I wonder if we should not loop over the siblings list here (rt->rt6i_si=
-blings).
-Only routes that match 'rt6_qualify_for_ecmp()' are siblings.
+> Just give me your Acked-by: and I'll apply my patch then.
 
-> +		rt->dst.rt6_next =3D next;
-> +
->   		atomic_inc(&rt->rt6i_ref);
->   		inet6_rt_notify(RTM_NEWROUTE, rt, info);
->   		if (!(fn->fn_flags & RTN_RTINFO)) {
->   			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
->   			fn->fn_flags |=3D RTN_RTINFO;
->   		}
-> -		fib6_purge_rt(iter, fn, info->nl_net);
-> -		rt6_release(iter);
-> +		while (iter !=3D next) {
-> +			fib6_purge_rt(iter, fn, info->nl_net);
-> +			rt6_release(iter);
-> +			iter =3D iter->dst.rt6_next;
-> +		}
-Same here.
+Actually, I just observed a soft lockup in testing. I guess we would
+need spin_lock_irqsave. I'll verify and send it.
