@@ -1,51 +1,48 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] ss: Show more info (ring,fanout) for packet
- socks
-Date: Thu, 14 May 2015 14:09:00 +0300
-Message-ID: <20150514110900.GA28582@angus-think.wlc.globallogic.com>
-References: <1431509966-5054-1-git-send-email-vadim4j@gmail.com>
- <CA+FuTSeM_FQBRToXCBix9ns3_07ivfqxYHB4nGHcSqqp31fX5A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:33268 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbbENLJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 07:09:42 -0400
-Received: by wicmx19 with SMTP id mx19so12505764wic.0
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 04:09:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CA+FuTSeM_FQBRToXCBix9ns3_07ivfqxYHB4nGHcSqqp31fX5A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] wil6210: match wait_for_completion_timeout return type
+Date: Thu, 14 May 2015 13:41:26 +0200
+Message-ID: <1431603686-24029-1-git-send-email-hofrat@osadl.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicholas Mc Guire <hofrat@osadl.org>
+To: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 13, 2015 at 05:10:38PM -0400, Willem de Bruijn wrote:
-> > +               }
-> > +               if (has_fanout) {
-> > +                       uint16_t type = (fanout >> 16) & 0xffff;
-> 
-> type can be modified by flags in the upper 8 bits. Better
-> mask those out and report them separately.
-Kernel puts only id & type in diag message, flags are stored in separated
-member of 'struct packet_sock'.
+Return type of wait_for_completion_timeout is unsigned long not int.
+As remain is exclusively used for wait_for_completion_timeout here its
+type is simply changed to unsigned long.
 
-> 
-> > +
-> > +                       printf("\n\tfanout(");
-> > +                       printf("id:%d,", fanout & 0xff);
-> > +                       printf("type:0x%x", type);
-> > +                       if (type == 0)
-> > +                               printf("(hash)");
-> > +                       else if (type == 1)
-> > +                               printf("(lb)");
-> > +                       else if (type == 2)
-> > +                               printf("(cpu)");
-> > +                       else if (type == 3)
-> > +                               printf("(rollover)");
-> > +                       else if (type == 4)
-> > +                               printf("(random)");
-> > +                       else if (type == 5)
-> > +                               printf("(qm)");
+
+API conformance testing for completions with coccinelle spatches are being
+used to locate API usage inconsistencies:
+./drivers/net/wireless/ath/wil6210/wmi.c:827 
+	int return assigned to unsigned long
+
+Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+CONFIG_WIL6210=m
+
+Patch is against 4.1-rc3 (localversion-next is -next-20150514)
+
+
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
+ drivers/net/wireless/ath/wil6210/wmi.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/wil6210/wmi.c b/drivers/net/wireless/ath/wil6210/wmi.c
+index 9fe2085..e8d5335 100644
+--- a/drivers/net/wireless/ath/wil6210/wmi.c
++++ b/drivers/net/wireless/ath/wil6210/wmi.c
+@@ -805,7 +805,7 @@ int wmi_call(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len,
+ 	     u16 reply_id, void *reply, u8 reply_size, int to_msec)
+ {
+ 	int rc;
+-	int remain;
++	unsigned long remain;
+ 
+ 	mutex_lock(&wil->wmi_mutex);
+ 
+-- 
+1.7.10.4
