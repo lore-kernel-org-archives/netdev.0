@@ -1,54 +1,50 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH] fix net/sched compile error
-Date: Thu, 14 May 2015 12:33:11 -0400
-Message-ID: <5554CE47.8070709@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] ath9k_htc: drv_init: match wait_for_completion_timeout return type
+Date: Thu, 14 May 2015 18:25:26 +0200
+Message-ID: <1431620726-31680-1-git-send-email-hofrat@osadl.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	ath9k-devel@venema.h4ckr.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2353.austin.hp.com ([15.217.128.52]:37322 "EHLO
-	g2t2353.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932562AbbENQdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 12:33:16 -0400
+Received: from www.osadl.org ([62.245.132.105]:36545 "EHLO www.osadl.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933104AbbENQdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2015 12:33:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ix compile error in net/sched/cls_flower.c
+Return type of wait_for_completion_timeout is unsigned long not int.
+As time_left is exclusively used for wait_for_completion_timeout here its
+type is simply changed to unsigned long.
 
-     net/sched/cls_flower.c: In function =E2=80=98fl_set_key=E2=80=99:
-     net/sched/cls_flower.c:240:3: error: implicit declaration of funct=
-ion=20
-=E2=80=98tcf_change_indev=E2=80=99 [-Werror=3Dimplicit-function-declara=
-tion]
-        err =3D tcf_change_indev(net, tb[TCA_FLOWER_INDEV]);
+API conformance testing for completions with coccinelle spatches are being
+used to locate API usage inconsistencies:
+./drivers/net/wireless/ath/ath9k/htc_drv_init.c:81
+	int return assigned to unsigned long
 
-Introduced in 77b9900ef53ae047e36a37d13a2aa33bb2d60641
+Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+CONFIG_ATH9K_HTC=m
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
+Patch is against 4.1-rc3 (localversion-next is -next-20150514)
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 9bc654c..8c8f34e 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -234,15 +234,15 @@ static void fl_set_key_val(struct nlattr **tb,
-  static int fl_set_key(struct net *net, struct nlattr **tb,
-  		      struct fl_flow_key *key, struct fl_flow_key *mask)
-  {
--	int err;
--
-+#ifdef CONFIG_NET_CLS_IND
-  	if (tb[TCA_FLOWER_INDEV]) {
--		err =3D tcf_change_indev(net, tb[TCA_FLOWER_INDEV]);
-+		int err =3D tcf_change_indev(net, tb[TCA_FLOWER_INDEV]);
-  		if (err < 0)
-  			return err;
-  		key->indev_ifindex =3D err;
-  		mask->indev_ifindex =3D 0xffffffff;
-  	}
-+#endif
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
+ drivers/net/wireless/ath/ath9k/htc_drv_init.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  	fl_set_key_val(tb, key->eth.dst, TCA_FLOWER_KEY_ETH_DST,
-  		       mask->eth.dst, TCA_FLOWER_KEY_ETH_DST_MASK,
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+index 7468562..6c001b8 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
+@@ -74,7 +74,7 @@ static struct ath_ps_ops ath9k_htc_ps_ops = {
+ 
+ static int ath9k_htc_wait_for_target(struct ath9k_htc_priv *priv)
+ {
+-	int time_left;
++	unsigned long time_left;
+ 
+ 	if (atomic_read(&priv->htc->tgt_ready) > 0) {
+ 		atomic_dec(&priv->htc->tgt_ready);
+-- 
+1.7.10.4
