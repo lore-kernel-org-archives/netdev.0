@@ -1,30 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] packet: fix warnings in rollover lock
- contention
-Date: Thu, 14 May 2015 14:46:32 -0400 (EDT)
-Message-ID: <20150514.144632.514885310313332490.davem@davemloft.net>
-References: <1431620686.27831.63.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150514.125922.1722914809373007896.davem@davemloft.net>
-	<CA+FuTSesrSiC84pDVR=0r9uhsM5UHuQpJ=hYLvBjafOtTGUfLQ@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net v2 1/2] ipv6: do not delete previously existing ECMP
+ routes if add fails
+Date: Thu, 14 May 2015 20:54:05 +0200
+Message-ID: <5554EF4D.9030803@6wind.com>
+References: <cover.1431546602.git.mkubecek@suse.cz> <bb3d4b3ef28339bbf863a42e569bbdc1078565ee.1431546602.git.mkubecek@suse.cz>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: willemb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40996 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933129AbbENSqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 14:46:35 -0400
-In-Reply-To: <CA+FuTSesrSiC84pDVR=0r9uhsM5UHuQpJ=hYLvBjafOtTGUfLQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	roopa <roopa@cumulusnetworks.com>
+To: Michal Kubecek <mkubecek@suse.cz>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <bb3d4b3ef28339bbf863a42e569bbdc1078565ee.1431546602.git.mkubecek@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Thu, 14 May 2015 14:35:57 -0400
-
-> This looks great, thanks. I can submit it, but it is essentially your fix.
-
-Just give me your Acked-by: and I'll apply my patch then.
-
-Thanks.
+Le 13/05/2015 21:59, Michal Kubecek a =C3=A9crit :
+> If adding a nexthop of an IPv6 multipath route fails, comment in
+> ip6_route_multipath() says we are going to delete all nexthops alread=
+y
+> added. However, current implementation deletes even the routes it
+> hasn't even tried to add yet. For example, running
+>
+>    ip route add 1234:5678::/64 \
+>        nexthop via fe80::aa dev dummy1 \
+>        nexthop via fe80::bb dev dummy1 \
+>        nexthop via fe80::cc dev dummy1
+>
+> twice results in removing all routes first command added.
+>
+> Limit the second (delete) run to nexthops that succeeded in the first
+> (add) run.
+>
+> Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP=
+)")
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
