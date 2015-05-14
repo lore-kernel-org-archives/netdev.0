@@ -1,104 +1,181 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next] packet: fix warnings in rollover lock contention
-Date: Thu, 14 May 2015 10:42:40 -0400
-Message-ID: <1431614560-8866-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/8] tipc: simplify resetting and disabling of bearers
+Date: Thu, 14 May 2015 10:46:11 -0400
+Message-ID: <1431614778-17582-2-git-send-email-jon.maloy@ericsson.com>
+References: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:34455 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932428AbbENOmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:42:47 -0400
-Received: by yhom41 with SMTP id m41so22923467yho.1
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 07:42:47 -0700 (PDT)
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:30747 "EHLO
+	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933022AbbENOqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:46:30 -0400
+In-Reply-To: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+Since commit 4b475e3f2f8e4e241de101c8240f1d74d0470494
+("tipc: eliminate delayed link deletion at link failover") the extra
+boolean parameter "shutting_down" is not any longer needed for the
+functions bearer_disable() and tipc_link_delete_list().
 
-Avoid two xchg calls whose return values were unused, causing this
-warning on some architectures:
+Furhermore, the function tipc_link_reset_links(), called from
+bearer_reset()  is now unnecessary. We can just as well delete
+all the links, as we do in bearer_disable(), and start over with
+creating new links.
 
-    warning: value computed is not used [-Wunused-value]
-    #define xchg(ptr,x) ((__typeof__(*(ptr)))\
-        __xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
-                       ^
-    net/packet/af_packet.c:1314:3: note: in expansion of macro 'xchg'
-    xchg(&po->pressure, !has_room);
+This commit introduces those changes.
 
-The relevant variable is a hint to avoid lock contention. It is
-allowed to be imprecise (race).
-
-Still, when rewriting this, also convert to use explicit atomic ops
-and remove a race by switching to atomic_cmpxchg. A rerun of the
-experiment from the original patch did not show this to cause
-significant cache line contention. Another non-atomic conditional
-clear remains in packet_poll, and is safe.
-
-Fixes: 2ccdbaa6d55b ("packet: rollover lock contention avoidance")
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/packet/af_packet.c | 12 ++++++------
- net/packet/internal.h  |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ net/tipc/bearer.c | 18 ++++++++----------
+ net/tipc/link.c   | 20 +-------------------
+ net/tipc/link.h   |  4 +---
+ 3 files changed, 10 insertions(+), 32 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 31d5856..ac1a589 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1310,8 +1310,7 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- 	}
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 99c0bd4..00bc0e6 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -71,8 +71,7 @@ static const struct nla_policy tipc_nl_media_policy[TIPC_NLA_MEDIA_MAX + 1] = {
+ 	[TIPC_NLA_MEDIA_PROP]		= { .type = NLA_NESTED }
+ };
  
- 	has_room = ret == ROOM_NORMAL;
--	if (po->pressure == has_room)
--		xchg(&po->pressure, !has_room);
-+	if (atomic_cmpxchg(&po->pressure, has_room, !has_room)) {}
+-static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr,
+-			   bool shutting_down);
++static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr);
  
- 	return ret;
+ /**
+  * tipc_media_find - locates specified media object by name
+@@ -324,7 +323,7 @@ restart:
+ 
+ 	res = tipc_disc_create(net, b_ptr, &b_ptr->bcast_addr);
+ 	if (res) {
+-		bearer_disable(net, b_ptr, false);
++		bearer_disable(net, b_ptr);
+ 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
+ 			name);
+ 		return -EINVAL;
+@@ -344,7 +343,7 @@ restart:
+ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b_ptr)
+ {
+ 	pr_info("Resetting bearer <%s>\n", b_ptr->name);
+-	tipc_link_reset_list(net, b_ptr->identity);
++	tipc_link_delete_list(net, b_ptr->identity);
+ 	tipc_disc_reset(net, b_ptr);
+ 	return 0;
  }
-@@ -1409,7 +1408,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
- 	i = j = min_t(int, po->rollover->sock, num - 1);
- 	do {
- 		po_next = pkt_sk(f->arr[i]);
--		if (po_next != po && !po_next->pressure &&
-+		if (po_next != po && !atomic_read(&po_next->pressure) &&
- 		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
- 			if (i != j)
- 				po->rollover->sock = i;
-@@ -3045,7 +3044,7 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
- 	if (skb == NULL)
- 		goto out;
+@@ -354,8 +353,7 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b_ptr)
+  *
+  * Note: This routine assumes caller holds RTNL lock.
+  */
+-static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr,
+-			   bool shutting_down)
++static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	u32 i;
+@@ -363,7 +361,7 @@ static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr,
+ 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
+ 	b_ptr->media->disable_media(b_ptr);
  
--	if (pkt_sk(sk)->pressure)
-+	if (atomic_read(&pkt_sk(sk)->pressure))
- 		packet_rcv_has_room(pkt_sk(sk), NULL);
+-	tipc_link_delete_list(net, b_ptr->identity, shutting_down);
++	tipc_link_delete_list(net, b_ptr->identity);
+ 	if (b_ptr->link_req)
+ 		tipc_disc_delete(b_ptr->link_req);
  
- 	if (pkt_sk(sk)->has_vnet_hdr) {
-@@ -3813,8 +3812,9 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
- 			TP_STATUS_KERNEL))
- 			mask |= POLLIN | POLLRDNORM;
+@@ -541,7 +539,7 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 		break;
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_CHANGENAME:
+-		bearer_disable(dev_net(dev), b_ptr, false);
++		bearer_disable(dev_net(dev), b_ptr);
+ 		break;
  	}
--	if (po->pressure && __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
--		xchg(&po->pressure, 0);
-+	if (atomic_read(&po->pressure) &&
-+	    __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
-+		atomic_set(&po->pressure, 0);
- 	spin_unlock_bh(&sk->sk_receive_queue.lock);
- 	spin_lock_bh(&sk->sk_write_queue.lock);
- 	if (po->tx_ring.pg_vec) {
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index c035d26..f96cf54 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -110,7 +110,7 @@ struct packet_sock {
- 				auxdata:1,
- 				origdev:1,
- 				has_vnet_hdr:1;
--	int			pressure;
-+	atomic_t		pressure;
- 	int			ifindex;	/* bound device		*/
- 	__be16			num;
- 	struct packet_rollover	*rollover;
+ 	return NOTIFY_OK;
+@@ -583,7 +581,7 @@ void tipc_bearer_stop(struct net *net)
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+ 		b_ptr = rtnl_dereference(tn->bearer_list[i]);
+ 		if (b_ptr) {
+-			bearer_disable(net, b_ptr, true);
++			bearer_disable(net, b_ptr);
+ 			tn->bearer_list[i] = NULL;
+ 		}
+ 	}
+@@ -747,7 +745,7 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info)
+ 		return -EINVAL;
+ 	}
+ 
+-	bearer_disable(net, bearer, false);
++	bearer_disable(net, bearer);
+ 	rtnl_unlock();
+ 
+ 	return 0;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 374d523..266dbc6 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -311,8 +311,7 @@ void tipc_link_delete(struct tipc_link *l)
+ 	tipc_link_put(l);
+ }
+ 
+-void tipc_link_delete_list(struct net *net, unsigned int bearer_id,
+-			   bool shutting_down)
++void tipc_link_delete_list(struct net *net, unsigned int bearer_id)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct tipc_link *link;
+@@ -476,23 +475,6 @@ void tipc_link_reset(struct tipc_link *l_ptr)
+ 	link_reset_statistics(l_ptr);
+ }
+ 
+-void tipc_link_reset_list(struct net *net, unsigned int bearer_id)
+-{
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+-	struct tipc_link *l_ptr;
+-	struct tipc_node *n_ptr;
+-
+-	rcu_read_lock();
+-	list_for_each_entry_rcu(n_ptr, &tn->node_list, list) {
+-		tipc_node_lock(n_ptr);
+-		l_ptr = n_ptr->links[bearer_id];
+-		if (l_ptr)
+-			tipc_link_reset(l_ptr);
+-		tipc_node_unlock(n_ptr);
+-	}
+-	rcu_read_unlock();
+-}
+-
+ static void link_activate(struct tipc_link *link)
+ {
+ 	struct tipc_node *node = link->owner;
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index b5b4e35..dc27bb6 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -213,8 +213,7 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
+ 			      struct tipc_bearer *b_ptr,
+ 			      const struct tipc_media_addr *media_addr);
+ void tipc_link_delete(struct tipc_link *link);
+-void tipc_link_delete_list(struct net *net, unsigned int bearer_id,
+-			   bool shutting_down);
++void tipc_link_delete_list(struct net *net, unsigned int bearer_id);
+ void tipc_link_failover_send_queue(struct tipc_link *l_ptr);
+ void tipc_link_dup_queue_xmit(struct tipc_link *l_ptr, struct tipc_link *dest);
+ void tipc_link_reset_fragments(struct tipc_link *l_ptr);
+@@ -223,7 +222,6 @@ int tipc_link_is_active(struct tipc_link *l_ptr);
+ void tipc_link_purge_queues(struct tipc_link *l_ptr);
+ void tipc_link_reset_all(struct tipc_node *node);
+ void tipc_link_reset(struct tipc_link *l_ptr);
+-void tipc_link_reset_list(struct net *net, unsigned int bearer_id);
+ int tipc_link_xmit_skb(struct net *net, struct sk_buff *skb, u32 dest,
+ 		       u32 selector);
+ int tipc_link_xmit(struct net *net, struct sk_buff_head *list, u32 dest,
 -- 
-2.2.0.rc0.207.ga3a616c
+1.9.1
