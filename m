@@ -1,127 +1,53 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: [PATCH iproute2] ss: Show more info (ring,fanout) for packet
- socks
-Date: Thu, 14 May 2015 23:44:08 +0300
-Message-ID: <20150514204408.GA25513@angus-think.lan>
-References: <1431509966-5054-1-git-send-email-vadim4j@gmail.com>
- <CA+FuTSeM_FQBRToXCBix9ns3_07ivfqxYHB4nGHcSqqp31fX5A@mail.gmail.com>
- <20150514110900.GA28582@angus-think.wlc.globallogic.com>
- <CA+FuTSditeDHFKD-NLUJsZ=Cgyzca3RZysecRAx=whzpg+E6cg@mail.gmail.com>
- <20150514202143.GA22330@angus-think.lan>
- <CA+FuTSfzZCwz-FAiq_K3Sq2ALR7rnziWaXq_27Q8OKBAyGJ0gA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH] ip_tunnel: Report Rx dropped in
+ ip_tunnel_get_stats64
+Date: Thu, 14 May 2015 13:56:34 -0700
+Message-ID: <1431636994.27831.64.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150514200454.1537.43655.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Kochan <vadim4j@gmail.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:38558 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932953AbbENUot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 16:44:49 -0400
-Received: by wicnf17 with SMTP id nf17so109336534wic.1
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 13:44:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CA+FuTSfzZCwz-FAiq_K3Sq2ALR7rnziWaXq_27Q8OKBAyGJ0gA@mail.gmail.com>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:34449 "EHLO
+	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932953AbbENU4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 16:56:37 -0400
+Received: by qkgx75 with SMTP id x75so58140050qkg.1
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 13:56:36 -0700 (PDT)
+In-Reply-To: <20150514200454.1537.43655.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 14, 2015 at 04:39:01PM -0400, Willem de Bruijn wrote:
-> On Thu, May 14, 2015 at 4:21 PM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> > On Thu, May 14, 2015 at 03:54:41PM -0400, Willem de Bruijn wrote:
-> >> On Thu, May 14, 2015 at 7:09 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
-> >> > On Wed, May 13, 2015 at 05:10:38PM -0400, Willem de Bruijn wrote:
-> >> >> > +               }
-> >> >> > +               if (has_fanout) {
-> >> >> > +                       uint16_t type = (fanout >> 16) & 0xffff;
-> >> >>
-> >> >> type can be modified by flags in the upper 8 bits. Better
-> >> >> mask those out and report them separately.
-> >> > Kernel puts only id & type in diag message, flags are stored in separated
-> >> > member of 'struct packet_sock'.
-> >>
-> >> I don't mean pdi_flags, but
-> >>
-> >>   PACKET_FANOUT_FLAG_ROLLOVER
-> >>   PACKET_FANOUT_FLAG_DEFRAG
-> > sure, I understood what you meant.
-> >>
-> >> which are passed as part of this u32 by the process during setsockopt
-> >> PACKET_FANOUT.
-> >>
-> > OK, its better to look into the kernel:
-> >
-> > net/packet/af_packet.c
-> >
-> > static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
-> > {
-> >         struct packet_fanout *f, *match;
-> >         u8 type = type_flags & 0xff;
-> >         u8 flags = type_flags >> 8;
-> >
-> >         ...
-> >
-> >         match->id = id;
-> >         match->type = type;
-> >         match->flags = flags;
-> >
-> >         ...
-> > }
-> >
-> > As I see this function is called from setsockopt, takes type_flags and splits it into type & flags
-> > and store them separately in struct packet_fanout.
-> >
-> > Then what I see in:
-> >
-> > net/packet/diag.c:
-> >
-> >
-> > static int pdiag_put_fanout(struct packet_sock *po, struct sk_buff *nlskb)
-> > {
-> >         int ret = 0;
-> >
-> >         mutex_lock(&fanout_mutex);
-> >         if (po->fanout) {
-> >                 u32 val;
-> >
-> >                 val = (u32)po->fanout->id | ((u32)po->fanout->type << 16);
-> >                 ret = nla_put_u32(nlskb, PACKET_DIAG_FANOUT, val);
-> >         }
-> >         mutex_unlock(&fanout_mutex);
-> >
-> >         return ret;
-> > }
-> >
-> > I see that to put flags here it needs to use po->fanout->flags and mix
-> > them into u32 val, but instead I see that it uses only id & type.
-> >
-> > Please correct me if I am wrong.
+On Thu, 2015-05-14 at 13:04 -0700, Alexander Duyck wrote:
+> The rx_dropped stat wasn't being reported when ip_tunnel_get_stats64 was
+> called.  This was leading to some confusing results in my debug as I was
+> seeing rx_errors increment but no other value which pointed me toward the
+> type of error being seen.
 > 
-> Thanks for the details. You are correct. Flags are not mixed in, like
-> are in the getsockopt case. In that case, type can only be 8 bits.
+> This change corrects that by copying the value over from
+> dev->stats.rx_dropped inot tot->rx_dropped.
 > 
-> >
-> > Thanks,
-> >> >
-> >> >>
-> >> >> > +
-> >> >> > +                       printf("\n\tfanout(");
-> >> >> > +                       printf("id:%d,", fanout & 0xff);
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> ---
+>  net/ipv4/ip_tunnel_core.c |    1 +
+>  1 file changed, 1 insertion(+)
 > 
-> ID can be 16 bits.
-Right, will fix it in v2, thanks!
+> diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+> index 3998b1822d85..a6a980680b8a 100644
+> --- a/net/ipv4/ip_tunnel_core.c
+> +++ b/net/ipv4/ip_tunnel_core.c
+> @@ -191,6 +191,7 @@ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
+>  	tot->rx_fifo_errors = dev->stats.rx_fifo_errors;
+>  	tot->rx_length_errors = dev->stats.rx_length_errors;
+>  	tot->rx_frame_errors = dev->stats.rx_frame_errors;
+> +	tot->rx_dropped = dev->stats.rx_dropped;
+>  	tot->rx_errors = dev->stats.rx_errors;
+>  
+>  	tot->tx_fifo_errors = dev->stats.tx_fifo_errors;
 
-> 
-> >> >> > +                       printf("type:0x%x", type);
-> >> >> > +                       if (type == 0)
-> >> >> > +                               printf("(hash)");
-> >> >> > +                       else if (type == 1)
-> >> >> > +                               printf("(lb)");
-> >> >> > +                       else if (type == 2)
-> >> >> > +                               printf("(cpu)");
-> >> >> > +                       else if (type == 3)
-> >> >> > +                               printf("(rollover)");
-> >> >> > +                       else if (type == 4)
-> >> >> > +                               printf("(random)");
-> >> >> > +                       else if (type == 5)
-> >> >> > +                               printf("(qm)");
+Or use netdev_stats_to_stats64() to remove all these copies, as we
+obviously can miss some of them.
+
+-> reduce code size.
