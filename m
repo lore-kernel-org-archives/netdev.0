@@ -1,9 +1,8 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net v2 1/2] ipv6: do not delete previously existing ECMP
- routes if add fails
-Date: Thu, 14 May 2015 20:54:05 +0200
-Message-ID: <5554EF4D.9030803@6wind.com>
-References: <cover.1431546602.git.mkubecek@suse.cz> <bb3d4b3ef28339bbf863a42e569bbdc1078565ee.1431546602.git.mkubecek@suse.cz>
+Subject: Re: [PATCH net v2 2/2] ipv6: fix ECMP route replacement
+Date: Thu, 14 May 2015 20:58:59 +0200
+Message-ID: <5554F073.4080501@6wind.com>
+References: <cover.1431546602.git.mkubecek@suse.cz> <c1fd1b1527dc2a6905d4eeff04f1e4ed3f93964e.1431546602.git.mkubecek@suse.cz>
 Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8;
@@ -18,28 +17,70 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Michal Kubecek <mkubecek@suse.cz>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <bb3d4b3ef28339bbf863a42e569bbdc1078565ee.1431546602.git.mkubecek@suse.cz>
+In-Reply-To: <c1fd1b1527dc2a6905d4eeff04f1e4ed3f93964e.1431546602.git.mkubecek@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Le 13/05/2015 21:59, Michal Kubecek a =C3=A9crit :
-> If adding a nexthop of an IPv6 multipath route fails, comment in
-> ip6_route_multipath() says we are going to delete all nexthops alread=
-y
-> added. However, current implementation deletes even the routes it
-> hasn't even tried to add yet. For example, running
+> When replacing an IPv6 multipath route with "ip route replace", i.e.
+> NLM_F_CREATE | NLM_F_REPLACE, fib6_add_rt2node() replaces only first
+> matching route without fixing its siblings, resulting in corrupted
+> siblings linked list; removing one of the siblings can then end in an
+> infinite loop.
 >
->    ip route add 1234:5678::/64 \
->        nexthop via fe80::aa dev dummy1 \
->        nexthop via fe80::bb dev dummy1 \
->        nexthop via fe80::cc dev dummy1
->
-> twice results in removing all routes first command added.
->
-> Limit the second (delete) run to nexthops that succeeded in the first
-> (add) run.
+> Replacing the whole set of nexthops does IMHO make more sense than
+> replacing a random one. We also need to remove the NLM_F_REPLACE flag
+> after replacing old nexthops by first new so that each subsequent
+> nexthop does not replace previous one.
 >
 > Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP=
 )")
 > Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>   net/ipv6/ip6_fib.c | 17 ++++++++++++++---
+>   net/ipv6/route.c   |  8 +++++---
+>   2 files changed, 19 insertions(+), 6 deletions(-)
+>
+> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+> index 96dbffff5a24..abf4e4e5bdab 100644
+> --- a/net/ipv6/ip6_fib.c
+> +++ b/net/ipv6/ip6_fib.c
+> @@ -815,6 +815,8 @@ add:
+>   		}
+>
+>   	} else {
+> +		struct rt6_info *next;
+> +
+>   		if (!found) {
+>   			if (add)
+>   				goto add;
+> @@ -828,15 +830,24 @@ add:
+>
+>   		*ins =3D rt;
+>   		rt->rt6i_node =3D fn;
+> -		rt->dst.rt6_next =3D iter->dst.rt6_next;
+> +
+> +		/* skip potential siblings */
+> +		next =3D iter->dst.rt6_next;
+> +		while (next && next->rt6i_metric =3D=3D rt->rt6i_metric)
+> +			next =3D next->dst.rt6_next;
+I wonder if we should not loop over the siblings list here (rt->rt6i_si=
+blings).
+Only routes that match 'rt6_qualify_for_ecmp()' are siblings.
+
+> +		rt->dst.rt6_next =3D next;
+> +
+>   		atomic_inc(&rt->rt6i_ref);
+>   		inet6_rt_notify(RTM_NEWROUTE, rt, info);
+>   		if (!(fn->fn_flags & RTN_RTINFO)) {
+>   			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
+>   			fn->fn_flags |=3D RTN_RTINFO;
+>   		}
+> -		fib6_purge_rt(iter, fn, info->nl_net);
+> -		rt6_release(iter);
+> +		while (iter !=3D next) {
+> +			fib6_purge_rt(iter, fn, info->nl_net);
+> +			rt6_release(iter);
+> +			iter =3D iter->dst.rt6_next;
+> +		}
+Same here.
