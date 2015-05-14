@@ -1,85 +1,68 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace instances
-Date: Thu, 14 May 2015 15:19:33 -0400
-Message-ID: <12675437.ssZNCck7zG@sifl>
-References: <cover.1429252659.git.rgb@redhat.com> <20150512195759.GA9832@madcap2.tricolour.ca> <2918460.dpKocsKt4o@x2>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: containers@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
-	eparis@parisplace.org, arozansk@redhat.com, serge@hallyn.com,
-	zohar@linux.vnet.ibm.com, viro@zeniv.linux.org.uk,
-	linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Steve Grubb <sgrubb@redhat.com>,
-	Richard Guy Briggs <rgb@redhat.com>, ebiederm@xmission.com
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <2918460.dpKocsKt4o@x2>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next v2] packet: fix warnings in rollover lock contention
+Date: Thu, 14 May 2015 15:25:02 -0400
+Message-ID: <1431631502-19417-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f48.google.com ([209.85.213.48]:35863 "EHLO
+	mail-yh0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964795AbbENTZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 15:25:06 -0400
+Received: by yhrr66 with SMTP id r66so26138021yhr.3
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 12:25:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, May 14, 2015 10:57:14 AM Steve Grubb wrote:
-> On Tuesday, May 12, 2015 03:57:59 PM Richard Guy Briggs wrote:
-> > On 15/05/05, Steve Grubb wrote:
-> > > I think there needs to be some more discussion around this. It seems
-> > > like this is not exactly recording things that are useful for audit.
-> > 
-> > It seems to me that either audit has to assemble that information, or
-> > the kernel has to do so.  The kernel doesn't know about containers
-> > (yet?).
-> 
-> Auditing is something that has a lot of requirements imposed on it by
-> security standards. There was no requirement to have an auid until audit
-> came along and said that uid is not good enough to know who is issuing
-> commands because of su or sudo. There was no requirement for sessionid
-> until we had to track each action back to a login so we could see if the
-> login came from the expected place.
-> 
-> What I am saying is we have the same situation. Audit needs to track a
-> container and we need an ID. The information that is being logged is not
-> useful for auditing. Maybe someone wants that info in syslog, but I doubt
-> it. The audit trail's purpose is to allow a security officer to reconstruct
-> the events to determine what happened during some security incident.
+From: Willem de Bruijn <willemb@google.com>
 
-As Eric, and others, have stated, the container concept is a userspace idea, 
-not a kernel idea; the kernel only knows, and cares about, namespaces.  This 
-is unlikely to change.
+Avoid two xchg calls whose return values were unused, causing a
+warning on some architectures.
 
-However, as Steve points out, there is precedence for the kernel to record 
-userspace tokens for the sake of audit.  Personally I'm not a big fan of this 
-in general, but I do recognize that it does satisfy a legitimate need.  Think 
-of things like auid and the sessionid as necessary evils; audit is already 
-chock full of evilness I doubt one more will doom us all to hell.
+The relevant variable is a hint and read without mutual exclusion.
+This fix makes all writers hold the receive_queue lock.
 
-Moving forward, I'd like to see the following:
+Suggested-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
 
-* Record the creation/removal/mgmt of the individual namespaces as Richard's 
-patchset currently does.  However, I'd suggest using an explicit namespace 
-value for the init namespace instead of the "unset" value in the V6 patchset 
-(my apologies if you've already changed this Richard, I haven't looked at V7 
-yet).
-
-* Create a container ID token (unsigned 32-bit integer?), similar to 
-auid/sessionid, that is set by userspace and carried by the kernel to be used 
-in audit records.  I'd like to see some discussion on how we manage this, e.g. 
-how do handle container ID inheritance, how do we handle nested containers 
-(setting the containerid when it is already set), do we care if multiple 
-different containers share the same namespace config, etc.?
-
-* When userspace sets the container ID, emit a new audit record with the 
-associated namespace tokens and the container ID.
-
-* Look at our existing audit records to determine which records should have 
-namespace and container ID tokens added.  We may only want to add the 
-additional fields in the case where the namespace/container ID tokens are not 
-the init namespace.
-
-Can we all live with this?  If not, please suggest some alternate ideas; 
-simply shouting "IT'S ALL CRAP!" isn't helpful for anyone ... it may be true, 
-but it doesn't help us solve the problem ;)
-
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 31d5856..c30d147 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1301,17 +1301,12 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+ 	int ret;
+ 	bool has_room;
+ 
+-	if (po->prot_hook.func == tpacket_rcv) {
+-		spin_lock(&po->sk.sk_receive_queue.lock);
+-		ret = __packet_rcv_has_room(po, skb);
+-		spin_unlock(&po->sk.sk_receive_queue.lock);
+-	} else {
+-		ret = __packet_rcv_has_room(po, skb);
+-	}
+-
++	spin_lock_bh(&po->sk.sk_receive_queue.lock);
++	ret = __packet_rcv_has_room(po, skb);
+ 	has_room = ret == ROOM_NORMAL;
+ 	if (po->pressure == has_room)
+-		xchg(&po->pressure, !has_room);
++		po->pressure = !has_room;
++	spin_unlock_bh(&po->sk.sk_receive_queue.lock);
+ 
+ 	return ret;
+ }
+@@ -3814,7 +3809,7 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
+ 			mask |= POLLIN | POLLRDNORM;
+ 	}
+ 	if (po->pressure && __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
+-		xchg(&po->pressure, 0);
++		po->pressure = 0;
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 	spin_lock_bh(&sk->sk_write_queue.lock);
+ 	if (po->tx_ring.pg_vec) {
 -- 
-paul moore
-security @ redhat
-
+2.2.0.rc0.207.ga3a616c
