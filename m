@@ -1,190 +1,63 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 3/8] tipc: simplify include dependencies
-Date: Thu, 14 May 2015 10:46:13 -0400
-Message-ID: <1431614778-17582-4-git-send-email-jon.maloy@ericsson.com>
-References: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
+Subject: [PATCH net-next 0/8] tipc: some link layer
+	improvements
+Date: Thu, 14 May 2015 10:46:10 -0400
+Message-ID: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:30779 "EHLO
-	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933134AbbENOqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:46:36 -0400
-In-Reply-To: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-When we try to add new inline functions in the code, we sometimes
-run into circular include dependencies.
+We continue eliminating redundant complexity at the link layer, and
+add a couple of improvements to the packet sending functionality.
 
-The main problem is that the file core.h, which really should be at
-the root of the dependency chain, instead is a leaf. I.e., core.h
-includes a number of header files that themselves should be allowed
-to include core.h. In reality this is unnecessary, because core.h does
-not need to know the full signature of any of the structs it refers to,
-only their type declaration.
 
-In this commit, we remove all dependencies from core.h towards any
-other tipc header file.
+Jon Maloy (8):
+  tipc: simplify resetting and disabling of bearers
+  tipc: simplify link timer handling
+  tipc: simplify include dependencies
+  tipc: simplify packet sequence number handling
+  tipc: rename fields in struct tipc_link
+  tipc: simplify link supervision checkpointing
+  tipc: improve link congestion algorithm
+  tipc: add packet sequence number at instant of transmission
 
-As a consequence of this change, we can now move the function
-tipc_own_addr(net) from addr.c to addr.h, and make it inline.
+ net/tipc/addr.c   |   7 --
+ net/tipc/addr.h   |   8 ++
+ net/tipc/bcast.c  |  20 ++---
+ net/tipc/bearer.c |  18 ++--
+ net/tipc/bearer.h |   2 +-
+ net/tipc/core.h   |  37 +++++++--
+ net/tipc/link.c   | 243 +++++++++++++++++++++++-------------------------------
+ net/tipc/link.h   |  59 +++----------
+ net/tipc/msg.c    |  51 ++++++------
+ net/tipc/msg.h    |  37 +++++----
+ net/tipc/net.c    |   1 +
+ net/tipc/node.c   |   3 +-
+ net/tipc/node.h   |   2 -
+ net/tipc/socket.c |   1 +
+ 14 files changed, 225 insertions(+), 264 deletions(-)
 
-There are no functional changes in this commit.
-
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/addr.c   |  7 -------
- net/tipc/addr.h   |  8 ++++++++
- net/tipc/bearer.h |  2 +-
- net/tipc/core.h   | 17 ++++++++++-------
- net/tipc/net.c    |  1 +
- net/tipc/node.c   |  1 +
- net/tipc/node.h   |  2 --
- net/tipc/socket.c |  1 +
- 8 files changed, 22 insertions(+), 17 deletions(-)
-
-diff --git a/net/tipc/addr.c b/net/tipc/addr.c
-index ba7daa8..48fd3b5 100644
---- a/net/tipc/addr.c
-+++ b/net/tipc/addr.c
-@@ -38,13 +38,6 @@
- #include "addr.h"
- #include "core.h"
- 
--u32 tipc_own_addr(struct net *net)
--{
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
--
--	return tn->own_addr;
--}
--
- /**
-  * in_own_cluster - test for cluster inclusion; <0.0.0> always matches
-  */
-diff --git a/net/tipc/addr.h b/net/tipc/addr.h
-index 7ba6d5c..93f7c98 100644
---- a/net/tipc/addr.h
-+++ b/net/tipc/addr.h
-@@ -41,10 +41,18 @@
- #include <linux/tipc.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
-+#include "core.h"
- 
- #define TIPC_ZONE_MASK		0xff000000u
- #define TIPC_CLUSTER_MASK	0xfffff000u
- 
-+static inline u32 tipc_own_addr(struct net *net)
-+{
-+	struct tipc_net *tn = net_generic(net, tipc_net_id);
-+
-+	return tn->own_addr;
-+}
-+
- static inline u32 tipc_zone_mask(u32 addr)
- {
- 	return addr & TIPC_ZONE_MASK;
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 5cad243..dc714d9 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -38,9 +38,9 @@
- #define _TIPC_BEARER_H
- 
- #include "netlink.h"
-+#include "core.h"
- #include <net/genetlink.h>
- 
--#define MAX_BEARERS	2
- #define MAX_MEDIA	3
- #define MAX_NODES	4096
- #define WSIZE		32
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 3dc68c7..53e8146 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -60,16 +60,19 @@
- #include <net/netns/generic.h>
- #include <linux/rhashtable.h>
- 
--#include "node.h"
--#include "bearer.h"
--#include "bcast.h"
--#include "netlink.h"
--#include "link.h"
--#include "node.h"
--#include "msg.h"
-+struct tipc_node;
-+struct tipc_bearer;
-+struct tipc_bcbearer;
-+struct tipc_bclink;
-+struct tipc_link;
-+struct tipc_name_table;
-+struct tipc_server;
- 
- #define TIPC_MOD_VER "2.0.0"
- 
-+#define NODE_HTABLE_SIZE   512
-+#define MAX_BEARERS	   3
-+
- extern int tipc_net_id __read_mostly;
- extern int sysctl_tipc_rmem[3] __read_mostly;
- extern int sysctl_tipc_named_timeout __read_mostly;
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index a54f3cb..d6d1399 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -40,6 +40,7 @@
- #include "subscr.h"
- #include "socket.h"
- #include "node.h"
-+#include "bcast.h"
- 
- static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
- 	[TIPC_NLA_NET_UNSPEC]	= { .type = NLA_UNSPEC },
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 22c059a..eb3856b 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -39,6 +39,7 @@
- #include "node.h"
- #include "name_distr.h"
- #include "socket.h"
-+#include "bcast.h"
- 
- static void node_lost_contact(struct tipc_node *n_ptr);
- static void node_established_contact(struct tipc_node *n_ptr);
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 02d5c20..5a834cf 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -45,8 +45,6 @@
- /* Out-of-range value for node signature */
- #define INVALID_NODE_SIG	0x10000
- 
--#define NODE_HTABLE_SIZE	512
--
- /* Flags used to take different actions according to flag type
-  * TIPC_WAIT_PEER_LINKS_DOWN: wait to see that peer's links are down
-  * TIPC_WAIT_OWN_LINKS_DOWN: wait until peer node is declared down
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 8f3c8e2..9370f95 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -41,6 +41,7 @@
- #include "link.h"
- #include "name_distr.h"
- #include "socket.h"
-+#include "bcast.h"
- 
- #define SS_LISTENING		-1	/* socket is listening */
- #define SS_READY		-2	/* socket is connectionless */
 -- 
 1.9.1
+
+
+------------------------------------------------------------------------------
+One dashboard for servers and applications across Physical-Virtual-Cloud 
+Widest out-of-the-box monitoring support with 50+ applications
+Performance metrics, stats and reports that give you Actionable Insights
+Deep dive visibility with transaction tracing using APM Insight.
+http://ad.doubleclick.net/ddm/clk/290420510;117567292;y
