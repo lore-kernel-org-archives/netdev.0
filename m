@@ -1,47 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: Correctly propagate promisc|allmulti flags in
- notifier.
-Date: Thu, 14 May 2015 00:55:40 -0400 (EDT)
-Message-ID: <20150514.005540.60193741590743501.davem@davemloft.net>
-References: <1431478394-8257-1-git-send-email-vyasevic@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: netlink & rhashtable status
+Date: Thu, 14 May 2015 13:03:25 +0800
+Message-ID: <20150514050325.GA5754@gondor.apana.org.au>
+References: <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514025333.GA3853@gondor.apana.org.au>
+ <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514033448.GA5080@gondor.apana.org.au>
+ <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514041628.GA5428@gondor.apana.org.au>
+ <20150514042151.GA5482@gondor.apana.org.au>
+ <1431578321.27831.43.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, vyasevic@redhat.com
-To: vyasevich@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60284 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713AbbENEzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 00:55:43 -0400
-In-Reply-To: <1431478394-8257-1-git-send-email-vyasevic@redhat.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:47041 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625AbbENFDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 01:03:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1431578321.27831.43.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vladislav Yasevich <vyasevich@gmail.com>
-Date: Tue, 12 May 2015 20:53:14 -0400
-
-> Currently vlan notifier handler will try to update all vlans
-> for a device when that device comes up.  A problem occurs,
-> however, when the vlan device was set to promiscuous, but not
-> by the user (ex: a bridge).  In that case, dev->gflags are
-> not updated.  What results is that the lower device ends
-> up with an extra promiscuity count.  Here are the
-> backtraces that prove this:
- ...
-> The above comes from the setting the vlan device to IFF_UP state.
- ...
-> And this one comes from the notification code.  What we end
-> up with is a vlan with promiscuity count of 1 and and a physical
-> device with a promiscuity count of 2.  They should both have
-> a count 1.
+On Wed, May 13, 2015 at 09:38:41PM -0700, Eric Dumazet wrote:
+>
+> And only one of the socket is listed twice (ffff881f6eceb000)
 > 
-> To resolve this issue, vlan code can use dev_get_flags() api
-> which correctly masks promiscuity and allmulti flags.
+> Apparently this is the one _after_ kernel socket.
+> 
+> Does it ring a bell ?
 
-Applied, thanks Vlad.
+No that's just a walker bug.  In netlink_seq_next when we come
+around the loop after ++i, we fail to refresh the ht pointer so
+we walk the previous table again.
 
-> Sign-off-by: Vlad Yasevich <vyasevic@redhat.com>
+This bug was introduced in 3.18:
 
-Note, it's "Signed-off-by:" not "Sign-off-by:" I fixed this for
-you.
+commit 78fd1d0ab072d4d9b5f0b7c14a1516665170b565
+Author: Thomas Graf <tgraf@suug.ch>
+Date:   Tue Oct 21 22:05:38 2014 +0200
+
+    netlink: Re-add locking to netlink_lookup() and seq walker
+
+This should have zero impact on functionality though.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
