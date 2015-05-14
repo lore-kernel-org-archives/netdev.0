@@ -1,70 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] packet: fix warnings in rollover lock
- contention
-Date: Thu, 14 May 2015 08:33:54 -0700
-Message-ID: <1431617634.27831.60.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1431614560-8866-1-git-send-email-willemb@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:33676 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932997AbbENPd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 11:33:57 -0400
-Received: by pdbnk13 with SMTP id nk13so90667575pdb.0
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 08:33:56 -0700 (PDT)
-In-Reply-To: <1431614560-8866-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH] ath9k_htc: match wait_for_completion_timeout return type
+Date: Thu, 14 May 2015 17:29:54 +0200
+Message-ID: <1431617394-30725-1-git-send-email-hofrat@osadl.org>
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	ath9k-devel@venema.h4ckr.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-05-14 at 10:42 -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> Avoid two xchg calls whose return values were unused, causing this
-> warning on some architectures:
-> 
->     warning: value computed is not used [-Wunused-value]
->     #define xchg(ptr,x) ((__typeof__(*(ptr)))\
->         __xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
->                        ^
->     net/packet/af_packet.c:1314:3: note: in expansion of macro 'xchg'
->     xchg(&po->pressure, !has_room);
-> 
-> The relevant variable is a hint to avoid lock contention. It is
-> allowed to be imprecise (race).
-> 
-> Still, when rewriting this, also convert to use explicit atomic ops
-> and remove a race by switching to atomic_cmpxchg. A rerun of the
-> experiment from the original patch did not show this to cause
-> significant cache line contention. Another non-atomic conditional
-> clear remains in packet_poll, and is safe.
-> 
-> Fixes: 2ccdbaa6d55b ("packet: rollover lock contention avoidance")
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->  net/packet/af_packet.c | 12 ++++++------
->  net/packet/internal.h  |  2 +-
->  2 files changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 31d5856..ac1a589 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1310,8 +1310,7 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
->  	}
->  
->  	has_room = ret == ROOM_NORMAL;
-> -	if (po->pressure == has_room)
-> -		xchg(&po->pressure, !has_room);
-> +	if (atomic_cmpxchg(&po->pressure, has_room, !has_room)) {}
->  
+Return type of wait_for_completion_timeout is unsigned long not int.
+As time_left is exclusively used for wait_for_completion_timeout here its
+type is simply changed to unsigned long.
 
-This makes no sense to me.
+API conformance testing for completions with coccinelle spatches are being
+used to locate API usage inconsistencies:
+./drivers/net/wireless/ath/ath9k/htc_hst.c:171
+	int return assigned to unsigned long
+./drivers/net/wireless/ath/ath9k/htc_hst.c:277
+	int return assigned to unsigned long
+./drivers/net/wireless/ath/ath9k/htc_hst.c:206
+	int return assigned to unsigned long
 
-I thought you wanted to avoid dirtying the cache line.
+Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
+CONFIG_ATH9K_HTC=m
 
-No atomic op can help the race here.
+Patch is against 4.1-rc3 (localversion-next is -next-20150514)
+
+
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
+ drivers/net/wireless/ath/ath9k/htc_hst.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/htc_hst.c b/drivers/net/wireless/ath/ath9k/htc_hst.c
+index d2408da..2294709 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_hst.c
++++ b/drivers/net/wireless/ath/ath9k/htc_hst.c
+@@ -146,7 +146,8 @@ static int htc_config_pipe_credits(struct htc_target *target)
+ {
+ 	struct sk_buff *skb;
+ 	struct htc_config_pipe_msg *cp_msg;
+-	int ret, time_left;
++	int ret;
++	unsigned long time_left;
+ 
+ 	skb = alloc_skb(50 + sizeof(struct htc_frame_hdr), GFP_ATOMIC);
+ 	if (!skb) {
+@@ -184,7 +185,8 @@ static int htc_setup_complete(struct htc_target *target)
+ {
+ 	struct sk_buff *skb;
+ 	struct htc_comp_msg *comp_msg;
+-	int ret = 0, time_left;
++	int ret = 0;
++	unsigned long time_left;
+ 
+ 	skb = alloc_skb(50 + sizeof(struct htc_frame_hdr), GFP_ATOMIC);
+ 	if (!skb) {
+@@ -236,7 +238,8 @@ int htc_connect_service(struct htc_target *target,
+ 	struct sk_buff *skb;
+ 	struct htc_endpoint *endpoint;
+ 	struct htc_conn_svc_msg *conn_msg;
+-	int ret, time_left;
++	int ret;
++	unsigned long time_left;
+ 
+ 	/* Find an available endpoint */
+ 	endpoint = get_next_avail_ep(target->endpoint);
+-- 
+1.7.10.4
