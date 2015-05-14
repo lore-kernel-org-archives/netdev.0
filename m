@@ -1,82 +1,61 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [net-next PATCH] net: Reserve skb headroom and set skb->dev even
- if using __alloc_skb
-Date: Wed, 13 May 2015 20:43:20 -0500
-Message-ID: <20150514014320.GA20006@saruman.tx.rr.com>
-References: <20150513182738.GA28201@saruman.tx.rr.com>
- <20150513203413.8252.98057.stgit@ahduyck-vm-fedora22>
- <7h8ucs6tzc.fsf@deeprootsystems.com>
-Reply-To: <balbi@ti.com>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting skb->dev
+ in receive path
+Date: Wed, 13 May 2015 19:04:28 -0700
+Message-ID: <20150514020316.1635.50870.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gKMricLos+KVdGMg"
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	<linux-kernel@vger.kernel.org>, <balbi@ti.com>,
-	<davem@davemloft.net>, <tony@atomide.com>,
-	<netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Kevin Hilman <khilman@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7h8ucs6tzc.fsf@deeprootsystems.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, tgraf@suug.ch,
+	herbert@gondor.apana.org.au, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44725 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753289AbbENCEc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 May 2015 22:04:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---gKMricLos+KVdGMg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This change makes it so that we clear the skb->mark field when we pass
+through the receive path of the IPv4 or IPv6 virtual tunnel interface.  The
+reason for clearing these fields is to resolve an apparent regression for
+the behavior before skb_scrub_packet was modified.  Without this patch I
+have to set disable_policy for the vti tunnel endpoint in order to be able
+to receive traffic.
 
-On Wed, May 13, 2015 at 02:35:51PM -0700, Kevin Hilman wrote:
-> Alexander Duyck <alexander.h.duyck@redhat.com> writes:
->=20
-> > When I had inlined __alloc_rx_skb into __netdev_alloc_skb and
-> > __napi_alloc_skb I had overlooked the fact that there was a return in t=
-he
-> > __alloc_rx_skb.  As a result we weren't reserving headroom or setting t=
-he
-> > skb->dev in certain cases.  This change corrects that by adding a coupl=
-e of
-> > jump labels to jump to depending on __alloc_skb either succeeding or fa=
-iling.
-> >
-> > Fixes: 9451980a6646 ("net: Use cached copy of pfmemalloc to avoid acces=
-sing page")
-> > Reported-by: Felipe Balbi <balbi@ti.com>
-> > Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
->=20
-> Tested this on top of next-20150513 on an ARM/OMAP
-> (am335x-boneblack.dts) an it fixes the boot problem for me.
->=20
-> Tested-by: Kevin Hilman <khilman@linaro.org>
+Fixes: 213dd74aee76 ("skbuff: Do not scrub skb mark within the same name space")
+Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+---
 
-Yeah, I know it's too late, but I also tested on my AM437x SK.
+I have only tested the ipv4 side of this patch as I have yet to be able to
+get a message to successfully pass between to ipv6 vti endpoints.
 
-Tested-by: Felipe Balbi <balbi@ti.com>
+ net/ipv4/ip_vti.c  |    1 +
+ net/ipv6/ip6_vti.c |    1 +
+ 2 files changed, 2 insertions(+)
 
---=20
-balbi
-
---gKMricLos+KVdGMg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJVU/24AAoJEIaOsuA1yqREyq8P/3WlkGcKeWdhNASUDUkXm0vL
-A2WWN5/aiG8V4UXa4oTEcSfE0M3Ugt8Pxn4bjKEfMYvi6b85ik2fSB+i2UBEj3+i
-6BmSveeESRehncfLCymelrE8FCnBdX5hHGNEpBWsfDq5M6Si6il1AUyiEldtVA9y
-+GmeTPOe4UpIfqdtclg0dDoNjJZkbeI/uGUt9gYMsddpBAo6Y49qV2KCy5YO+SM0
-OMEIMYrdEdk2aVuY8grmvmvUYCbxur1OYvlUYD5oMf9/SuaB0fXnnH6kUYYkEnP1
-lmP2mqNsOD5fwLW6/94/gbS34bSwkKjm1QKBMxerNpTLsVqUq5LOf+bB9DhfioFg
-347wUgGiuvB5cejVJuI9WdeM29DzgPH/8sGQweKpSAG+A8Cdbm4OXLU+eSU6XX+T
-LQ5z3RtkAHgDX87EVLj76Da+IVraqZWY0gg4jsKuBSOqOTRWCF83LZV3Dvp9P7//
-qQ0Ki/GmwQzrwvEafFDIBZUhskY0RJHZdcFyTCD0mRXKw7uRVS9WkfejJy/UitlQ
-gf6afnMt0m9IKBXscJXye5DYZqeuptRbF/wfBQt8cDLiUVVhho5UgmASVqfQc4cw
-ZJRWrTr7GXjGdUMf6ogyb2OgroGVQa5cGaYgCChX+9UxXPHGCvKjKA96Gf6PYmup
-uG+f3rWXoczo8j4bqhMr
-=v4wa
------END PGP SIGNATURE-----
-
---gKMricLos+KVdGMg--
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index ee479495f5a3..d853e78742d3 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -112,6 +112,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
+ 
+ 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(skb->dev)));
+ 	skb->dev = dev;
++	skb->mark = 0;
+ 
+ 	tstats = this_cpu_ptr(dev->tstats);
+ 
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index ed9d681207fa..c245fb8298e5 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -363,6 +363,7 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
+ 
+ 	skb_scrub_packet(skb, !net_eq(t->net, dev_net(skb->dev)));
+ 	skb->dev = dev;
++	skb->mark = 0;
+ 
+ 	tstats = this_cpu_ptr(dev->tstats);
+ 	u64_stats_update_begin(&tstats->syncp);
