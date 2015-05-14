@@ -1,324 +1,163 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 6/8] tipc: simplify link
-	supervision checkpointing
-Date: Thu, 14 May 2015 10:46:16 -0400
-Message-ID: <1431614778-17582-7-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 7/8] tipc: improve link congestion algorithm
+Date: Thu, 14 May 2015 10:46:17 -0400
+Message-ID: <1431614778-17582-8-git-send-email-jon.maloy@ericsson.com>
 References: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:30877 "EHLO
+	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933169AbbENOqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:46:47 -0400
 In-Reply-To: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We change the sequence number checkpointing that is performed
-by the timer in order to discover if the peer is active. Currently,
-we store a checkpoint of the next expected sequence number "rcv_nxt"
-at each timer expiration, and compare it to the current expected
-number at next timeout expiration. Instead, we now use the already
-existing field "silent_intv_cnt" for this task. We step the counter
-at each timeout expiration, and zero it at each valid received packet.
-If no valid packet has been received from the peer after "abort_limit"
-number of silent timer intervals, the link is declared faulty and reset.
+The link congestion algorithm used until now implies two problems.
 
-We also remove the multiple instances of timer activation from inside
-the FSM function "link_state_event()", and now do it at only one place;
-at the end of the timer function itself.
+- It is too generous towards lower-level messages in situations of high
+  load by giving "absolute" bandwidth guarantees to the different
+  priority levels. LOW traffic is guaranteed 10%, MEDIUM is guaranted
+  20%, HIGH is guaranteed 30%, and CRITICAL is guaranteed 40% of the
+  available bandwidth. But, in the absence of higher level traffic, the
+  ratio between two distinct levels becomes unreasonable. E.g. if there
+  is only LOW and MEDIUM traffic on a system, the former is guaranteed
+  1/3 of the bandwidth, and the latter 2/3. This again means that if
+  there is e.g. one LOW user and 10 MEDIUM users, the  former will have
+  33.3% of the bandwidth, and the others will have to compete for the
+  remainder, i.e. each will end up with 6.7% of the capacity.
 
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+- Packets of type MSG_BUNDLER are created at SYSTEM importance level,
+  but only after the packets bundled into it have passed the congestion
+  test for their own respective levels. Since bundled packets don't
+  result in incrementing the level counter for their own importance,
+  only occasionally for the SYSTEM level counter, they do in practice
+  obtain SYSTEM level importance. Hence, the current implementation
+  provides a gap in the congestion algorithm that in the worst case
+  may lead to a link reset.
+
+We now refine the congestion algorithm as follows:
+
+- A message is accepted to the link backlog only if its own level
+  counter, and all superior level counters, permit it.
+
+- The importance of a created bundle packet is set according to its
+  contents. A bundle packet created from messges at levels LOW to
+  CRITICAL is given importance level CRITICAL, while a bundle created
+  from a SYSTEM level message is given importance SYSTEM. In the latter
+  case only subsequent SYSTEM level messages are allowed to be bundled
+  into it.
+
+This solves the first problem described above, by making the bandwidth
+guarantee relative to the total number of users at all levels; only
+the upper limit for each level remains absolute. In the example
+described above, the single LOW user would use 1/11th of the bandwidth,
+the same as each of the ten MEDIUM users, but he still has the same
+guarantee against starvation as the latter ones.
+
+The fix also solves the second problem. If the CRITICAL level is filled
+up by bundle packets of that level, no lower level packets will be
+accepted any more.
+
+Suggested-by: Gergely Kiss <gergely.kiss@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c | 81 ++++++++++++++++-----------------------------------------
- net/tipc/link.h |  2 --
- 2 files changed, 22 insertions(+), 61 deletions(-)
+ net/tipc/link.c | 11 ++++++-----
+ net/tipc/msg.c  |  7 +++++++
+ net/tipc/msg.h  | 14 +++++++++-----
+ 3 files changed, 22 insertions(+), 10 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index c39543e..a5ea19e 100644
+index a5ea19e..c1aba69 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -86,7 +86,7 @@ static const struct nla_policy tipc_nl_prop_policy[TIPC_NLA_PROP_MAX + 1] = {
-  */
- #define  STARTING_EVT    856384768	/* link processing trigger */
- #define  TRAFFIC_MSG_EVT 560815u	/* rx'd ??? */
--#define  TIMEOUT_EVT     560817u	/* link timer expired */
-+#define  SILENCE_EVT     560817u	/* timer dicovered silence from peer */
+@@ -645,7 +645,7 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
+ {
+ 	struct tipc_msg *msg = buf_msg(skb_peek(list));
+ 	unsigned int maxwin = link->window;
+-	unsigned int imp = msg_importance(msg);
++	unsigned int i, imp = msg_importance(msg);
+ 	uint mtu = link->mtu;
+ 	u16 ack = mod(link->rcv_nxt - 1);
+ 	u16 seqno = link->snd_nxt;
+@@ -655,10 +655,11 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
+ 	struct sk_buff_head *backlogq = &link->backlogq;
+ 	struct sk_buff *skb, *tmp;
  
- /*
-  * State value stored in 'failover_pkts'
-@@ -106,6 +106,7 @@ static void tipc_link_sync_rcv(struct tipc_node *n, struct sk_buff *buf);
- static void tipc_link_input(struct tipc_link *l, struct sk_buff *skb);
- static bool tipc_data_input(struct tipc_link *l, struct sk_buff *skb);
- static bool tipc_link_failover_rcv(struct tipc_link *l, struct sk_buff **skb);
-+static void link_set_timer(struct tipc_link *link, unsigned long time);
- /*
-  *  Simple link routines
-  */
-@@ -197,11 +198,12 @@ static void link_timeout(unsigned long data)
- 	}
- 
- 	/* do all other link processing performed on a periodic basis */
--	link_state_event(l_ptr, TIMEOUT_EVT);
+-	/* Match backlog limit against msg importance: */
+-	if (unlikely(link->backlog[imp].len >= link->backlog[imp].limit))
+-		return link_schedule_user(link, list);
 -
-+	if (l_ptr->silent_intv_cnt || tipc_bclink_acks_missing(l_ptr->owner))
-+		link_state_event(l_ptr, SILENCE_EVT);
-+	l_ptr->silent_intv_cnt++;
- 	if (skb_queue_len(&l_ptr->backlogq))
- 		tipc_link_push_packets(l_ptr);
--
-+	link_set_timer(l_ptr, l_ptr->keepalive_intv);
- 	tipc_node_unlock(l_ptr->owner);
- 	tipc_link_put(l_ptr);
- }
-@@ -261,7 +263,6 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- 		/* note: peer i/f name is updated by reset/activate message */
- 	memcpy(&l_ptr->media_addr, media_addr, sizeof(*media_addr));
- 	l_ptr->owner = n_ptr;
--	l_ptr->checkpoint = 1;
- 	l_ptr->peer_session = INVALID_SESSION;
- 	l_ptr->bearer_id = b_ptr->identity;
- 	link_set_supervision_props(l_ptr, b_ptr->tolerance);
-@@ -468,7 +469,6 @@ void tipc_link_reset(struct tipc_link *l_ptr)
- 	tipc_link_purge_backlog(l_ptr);
- 	l_ptr->reasm_buf = NULL;
- 	l_ptr->rcv_unacked = 0;
--	l_ptr->checkpoint = 1;
- 	l_ptr->snd_nxt = 1;
- 	l_ptr->silent_intv_cnt = 0;
- 	l_ptr->stale_count = 0;
-@@ -481,6 +481,7 @@ static void link_activate(struct tipc_link *link)
++	/* Match msg importance against this and all higher backlog limits: */
++	for (i = imp; i <= TIPC_SYSTEM_IMPORTANCE; i++) {
++		if (unlikely(link->backlog[i].len >= link->backlog[i].limit))
++			return link_schedule_user(link, list);
++	}
+ 	if (unlikely(msg_size(msg) > mtu)) {
+ 		__skb_queue_purge(list);
+ 		return -EMSGSIZE;
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index c3e96e8..ff7362d 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -365,6 +365,9 @@ bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu)
+ 		return false;
+ 	if (unlikely(max < (start + msz)))
+ 		return false;
++	if ((msg_importance(msg) < TIPC_SYSTEM_IMPORTANCE) &&
++	    (msg_importance(bmsg) == TIPC_SYSTEM_IMPORTANCE))
++		return false;
  
- 	link->rcv_nxt = 1;
- 	link->stats.recv_info = 1;
-+	link->silent_intv_cnt = 0;
- 	tipc_node_link_up(node, link);
- 	tipc_bearer_add_dest(node->net, link->bearer_id, link->addr);
- }
-@@ -501,45 +502,33 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 	if (!(l_ptr->flags & LINK_STARTED) && (event != STARTING_EVT))
- 		return;		/* Not yet. */
- 
--	if (l_ptr->flags & LINK_FAILINGOVER) {
--		if (event == TIMEOUT_EVT)
--			link_set_timer(l_ptr, timer_intv);
-+	if (l_ptr->flags & LINK_FAILINGOVER)
- 		return;
--	}
- 
- 	switch (l_ptr->state) {
- 	case WORKING_WORKING:
- 		switch (event) {
- 		case TRAFFIC_MSG_EVT:
- 		case ACTIVATE_MSG:
-+			l_ptr->silent_intv_cnt = 0;
- 			break;
--		case TIMEOUT_EVT:
--			if (l_ptr->rcv_nxt != l_ptr->checkpoint) {
--				l_ptr->checkpoint = l_ptr->rcv_nxt;
--				if (tipc_bclink_acks_missing(l_ptr->owner)) {
-+		case SILENCE_EVT:
-+			if (!l_ptr->silent_intv_cnt) {
-+				if (tipc_bclink_acks_missing(l_ptr->owner))
- 					tipc_link_proto_xmit(l_ptr, STATE_MSG,
- 							     0, 0, 0, 0);
--					l_ptr->silent_intv_cnt++;
--				}
--				link_set_timer(l_ptr, timer_intv);
- 				break;
- 			}
- 			l_ptr->state = WORKING_UNKNOWN;
--			l_ptr->silent_intv_cnt = 0;
- 			tipc_link_proto_xmit(l_ptr, STATE_MSG, 1, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		case RESET_MSG:
- 			pr_debug("%s<%s>, requested by peer\n",
- 				 link_rst_msg, l_ptr->name);
- 			tipc_link_reset(l_ptr);
- 			l_ptr->state = RESET_RESET;
--			l_ptr->silent_intv_cnt = 0;
- 			tipc_link_proto_xmit(l_ptr, ACTIVATE_MSG,
- 					     0, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		default:
- 			pr_debug("%s%u in WW state\n", link_unk_evt, event);
-@@ -551,46 +540,32 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 		case ACTIVATE_MSG:
- 			l_ptr->state = WORKING_WORKING;
- 			l_ptr->silent_intv_cnt = 0;
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		case RESET_MSG:
- 			pr_debug("%s<%s>, requested by peer while probing\n",
- 				 link_rst_msg, l_ptr->name);
- 			tipc_link_reset(l_ptr);
- 			l_ptr->state = RESET_RESET;
--			l_ptr->silent_intv_cnt = 0;
- 			tipc_link_proto_xmit(l_ptr, ACTIVATE_MSG,
- 					     0, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
--			link_set_timer(l_ptr, timer_intv);
- 			break;
--		case TIMEOUT_EVT:
--			if (l_ptr->rcv_nxt != l_ptr->checkpoint) {
-+		case SILENCE_EVT:
-+			if (!l_ptr->silent_intv_cnt) {
- 				l_ptr->state = WORKING_WORKING;
--				l_ptr->silent_intv_cnt = 0;
--				l_ptr->checkpoint = l_ptr->rcv_nxt;
--				if (tipc_bclink_acks_missing(l_ptr->owner)) {
-+				if (tipc_bclink_acks_missing(l_ptr->owner))
- 					tipc_link_proto_xmit(l_ptr, STATE_MSG,
- 							     0, 0, 0, 0);
--					l_ptr->silent_intv_cnt++;
--				}
--				link_set_timer(l_ptr, timer_intv);
- 			} else if (l_ptr->silent_intv_cnt <
- 				   l_ptr->abort_limit) {
- 				tipc_link_proto_xmit(l_ptr, STATE_MSG,
- 						     1, 0, 0, 0);
--				l_ptr->silent_intv_cnt++;
--				link_set_timer(l_ptr, timer_intv);
- 			} else {	/* Link has failed */
- 				pr_debug("%s<%s>, peer not responding\n",
- 					 link_rst_msg, l_ptr->name);
- 				tipc_link_reset(l_ptr);
- 				l_ptr->state = RESET_UNKNOWN;
--				l_ptr->silent_intv_cnt = 0;
- 				tipc_link_proto_xmit(l_ptr, RESET_MSG,
- 						     0, 0, 0, 0);
--				l_ptr->silent_intv_cnt++;
--				link_set_timer(l_ptr, timer_intv);
- 			}
- 			break;
- 		default:
-@@ -606,31 +581,22 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 			if (other && link_working_unknown(other))
- 				break;
- 			l_ptr->state = WORKING_WORKING;
--			l_ptr->silent_intv_cnt = 0;
- 			link_activate(l_ptr);
- 			tipc_link_proto_xmit(l_ptr, STATE_MSG, 1, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
- 			if (l_ptr->owner->working_links == 1)
- 				tipc_link_sync_xmit(l_ptr);
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		case RESET_MSG:
- 			l_ptr->state = RESET_RESET;
--			l_ptr->silent_intv_cnt = 0;
- 			tipc_link_proto_xmit(l_ptr, ACTIVATE_MSG,
- 					     1, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		case STARTING_EVT:
- 			l_ptr->flags |= LINK_STARTED;
--			l_ptr->silent_intv_cnt++;
- 			link_set_timer(l_ptr, timer_intv);
- 			break;
--		case TIMEOUT_EVT:
-+		case SILENCE_EVT:
- 			tipc_link_proto_xmit(l_ptr, RESET_MSG, 0, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		default:
- 			pr_err("%s%u in RU state\n", link_unk_evt, event);
-@@ -644,21 +610,16 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
- 			if (other && link_working_unknown(other))
- 				break;
- 			l_ptr->state = WORKING_WORKING;
--			l_ptr->silent_intv_cnt = 0;
- 			link_activate(l_ptr);
- 			tipc_link_proto_xmit(l_ptr, STATE_MSG, 1, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
- 			if (l_ptr->owner->working_links == 1)
- 				tipc_link_sync_xmit(l_ptr);
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		case RESET_MSG:
- 			break;
--		case TIMEOUT_EVT:
-+		case SILENCE_EVT:
- 			tipc_link_proto_xmit(l_ptr, ACTIVATE_MSG,
- 					     0, 0, 0, 0);
--			l_ptr->silent_intv_cnt++;
--			link_set_timer(l_ptr, timer_intv);
- 			break;
- 		default:
- 			pr_err("%s%u in RR state\n", link_unk_evt, event);
-@@ -1126,6 +1087,8 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b_ptr)
- 			skb = NULL;
- 			goto unlock;
- 		}
-+		l_ptr->silent_intv_cnt = 0;
+ 	skb_put(bskb, pad + msz);
+ 	skb_copy_to_linear_data_offset(bskb, start, skb->data, msz);
+@@ -448,6 +451,10 @@ bool tipc_msg_make_bundle(struct sk_buff **skb, u32 mtu, u32 dnode)
+ 	bmsg = buf_msg(bskb);
+ 	tipc_msg_init(msg_prevnode(msg), bmsg, MSG_BUNDLER, 0,
+ 		      INT_H_SIZE, dnode);
++	if (msg_isdata(msg))
++		msg_set_importance(bmsg, TIPC_CRITICAL_IMPORTANCE);
++	else
++		msg_set_importance(bmsg, TIPC_SYSTEM_IMPORTANCE);
+ 	msg_set_seqno(bmsg, msg_seqno(msg));
+ 	msg_set_ack(bmsg, msg_ack(msg));
+ 	msg_set_bcast_ack(bmsg, msg_bcast_ack(msg));
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 6ca2366..6caf16c 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -352,18 +352,22 @@ static inline void msg_set_seqno(struct tipc_msg *m, u16 n)
+  */
+ static inline u32 msg_importance(struct tipc_msg *m)
+ {
+-	if (unlikely(msg_user(m) == MSG_FRAGMENTER))
++	int usr = msg_user(m);
 +
- 		/* Synchronize with parallel link if applicable */
- 		if (unlikely((l_ptr->flags & LINK_SYNCHING) && !msg_dup(msg))) {
- 			if (!link_synch(l_ptr))
-@@ -1295,8 +1258,8 @@ static void link_handle_out_of_seq_msg(struct tipc_link *l_ptr,
- 		return;
- 	}
++	if (likely((usr <= TIPC_CRITICAL_IMPORTANCE) && !msg_errcode(m)))
++		return usr;
++	if ((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER))
+ 		return msg_bits(m, 5, 13, 0x7);
+-	if (likely(msg_isdata(m) && !msg_errcode(m)))
+-		return msg_user(m);
+ 	return TIPC_SYSTEM_IMPORTANCE;
+ }
  
--	/* Record OOS packet arrival (force mismatch on next timeout) */
--	l_ptr->checkpoint--;
-+	/* Record OOS packet arrival */
-+	l_ptr->silent_intv_cnt = 0;
- 
- 	/*
- 	 * Discard packet if a duplicate; otherwise add it to deferred queue
-@@ -1480,7 +1443,7 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr,
- 		}
- 
- 		/* Record reception; force mismatch at next timeout: */
--		l_ptr->checkpoint--;
-+		l_ptr->silent_intv_cnt = 0;
- 
- 		link_state_event(l_ptr, TRAFFIC_MSG_EVT);
- 		l_ptr->stats.recv_states++;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 74d2d12..0c02c97 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -107,7 +107,6 @@ struct tipc_stats {
-  * @owner: pointer to peer node
-  * @refcnt: reference counter for permanent references (owner node & timer)
-  * @flags: execution state flags for link endpoint instance
-- * @checkpoint: reference point for triggering link continuity checking
-  * @peer_session: link session # being used by peer end of link
-  * @peer_bearer_id: bearer id used by link's peer endpoint
-  * @bearer_id: local bearer id used by link
-@@ -151,7 +150,6 @@ struct tipc_link {
- 
- 	/* Management and link supervision data */
- 	unsigned int flags;
--	u16 checkpoint;
- 	u32 peer_session;
- 	u32 peer_bearer_id;
- 	u32 bearer_id;
+ static inline void msg_set_importance(struct tipc_msg *m, u32 i)
+ {
+-	if (unlikely(msg_user(m) == MSG_FRAGMENTER))
++	int usr = msg_user(m);
++
++	if (likely((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER)))
+ 		msg_set_bits(m, 5, 13, 0x7, i);
+-	else if (likely(i < TIPC_SYSTEM_IMPORTANCE))
++	else if (i < TIPC_SYSTEM_IMPORTANCE)
+ 		msg_set_user(m, i);
+ 	else
+ 		pr_warn("Trying to set illegal importance in message\n");
 -- 
 1.9.1
-
-
-------------------------------------------------------------------------------
-One dashboard for servers and applications across Physical-Virtual-Cloud 
-Widest out-of-the-box monitoring support with 50+ applications
-Performance metrics, stats and reports that give you Actionable Insights
-Deep dive visibility with transaction tracing using APM Insight.
-http://ad.doubleclick.net/ddm/clk/290420510;117567292;y
