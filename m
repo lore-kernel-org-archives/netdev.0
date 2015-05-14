@@ -1,8 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 5/7] amd-xgbe: Support defining PHY resources in
- ETH device node
-Date: Thu, 14 May 2015 11:44:21 -0500
-Message-ID: <20150514164421.10220.64659.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 3/7] amd-xgbe: Rework the Rx path SKB allocation
+Date: Thu, 14 May 2015 11:44:09 -0500
+Message-ID: <20150514164409.10220.86236.stgit@tlendack-t1.amdoffice.net>
 References: <20150514164351.10220.89584.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,176 +9,197 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0146.outbound.protection.outlook.com ([157.56.110.146]:61792
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0112.outbound.protection.outlook.com ([65.55.169.112]:49822
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933340AbbENQo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933541AbbENQo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 14 May 2015 12:44:26 -0400
 In-Reply-To: <20150514164351.10220.89584.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Simplify the device tree support of the amd-xgbe driver by defining
-the PHY-related resources within the ethernet device node. The support
-provides backwards compatibility with the original way.
-
-Update the driver version to 1.0.2.
+Rework the SKB allocation so that all of the buffers of the first
+descriptor are handled in the SKB allocation routine. After copying the
+data in the header buffer (which can be just the header if split header
+processing succeeded for header plus data if split header processing did
+not succeed) into the SKB, check for remaining data in the receive
+buffer. If there is data remaining in the receive buffer, add that as a
+frag to the SKB. Once an SKB has been allocated, all other descriptors
+are added as frags to the SKB.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- Documentation/devicetree/bindings/net/amd-xgbe.txt |   41 ++++++--------------
- drivers/net/ethernet/amd/xgbe/xgbe-main.c          |   23 +++++++----
- drivers/net/ethernet/amd/xgbe/xgbe.h               |    2 -
- 3 files changed, 29 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c |    2 -
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c  |   66 ++++++++++++++++-------------
+ drivers/net/ethernet/amd/xgbe/xgbe.h      |    2 -
+ 3 files changed, 37 insertions(+), 33 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/amd-xgbe.txt b/Documentation/devicetree/bindings/net/amd-xgbe.txt
-index 5dbc55a..4bb624a 100644
---- a/Documentation/devicetree/bindings/net/amd-xgbe.txt
-+++ b/Documentation/devicetree/bindings/net/amd-xgbe.txt
-@@ -1,16 +1,20 @@
- * AMD 10GbE driver (amd-xgbe)
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+index 87b73d4..dd03ad8 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-desc.c
+@@ -481,8 +481,6 @@ static void xgbe_unmap_rdata(struct xgbe_prv_data *pdata,
  
--Required properties (ethernet device):
-+Required properties:
- - compatible: Should be "amd,xgbe-seattle-v1a"
- - reg: Address and length of the register sets for the device
-    - MAC registers
-    - PCS registers
-+   - SerDes Rx/Tx registers
-+   - SerDes integration registers (1/2)
-+   - SerDes integration registers (2/2)
- - interrupt-parent: Should be the phandle for the interrupt controller
-   that services interrupts for this device
- - interrupts: Should contain the amd-xgbe interrupt(s). The first interrupt
-   listed is required and is the general device interrupt. If the optional
-   amd,per-channel-interrupt property is specified, then one additional
--  interrupt for each DMA channel supported by the device should be specified
-+  interrupt for each DMA channel supported by the device should be specified.
-+  The last interrupt listed should be the PCS auto-negotiation interrupt.
- - clocks:
-    - DMA clock for the amd-xgbe device (used for calculating the
-      correct Rx interrupt watchdog timer value on a DMA channel
-@@ -19,28 +23,15 @@ Required properties (ethernet device):
- - clock-names: Should be the names of the clocks
-    - "dma_clk" for the DMA clock
-    - "ptp_clk" for the PTP clock
--- phy-handle: See ethernet.txt file in the same directory
- - phy-mode: See ethernet.txt file in the same directory
- 
--Optional properties (ethernet device):
-+Optional properties:
- - mac-address: mac address to be assigned to the device. Can be overridden
-   by UEFI.
- - dma-coherent: Present if dma operations are coherent
- - amd,per-channel-interrupt: Indicates that Rx and Tx complete will generate
-   a unique interrupt for each DMA channel - this requires an additional
-   interrupt be configured for each DMA channel
--
--Required properties (phy device):
--- compatible: Should be "amd,xgbe-phy-seattle-v1a"
--- reg: Address and length of the register sets for the device
--   - SerDes Rx/Tx registers
--   - SerDes integration registers (1/2)
--   - SerDes integration registers (2/2)
--- interrupt-parent: Should be the phandle for the interrupt controller
--  that services interrupts for this device
--- interrupts: Should contain the amd-xgbe-phy interrupt.
--
--Optional properties (phy device):
- - amd,speed-set: Speed capabilities of the device
-     0 - 1GbE and 10GbE (default)
-     1 - 2.5GbE and 10GbE
-@@ -63,25 +54,19 @@ Example:
- 	xgbe@e0700000 {
- 		compatible = "amd,xgbe-seattle-v1a";
- 		reg = <0 0xe0700000 0 0x80000>,
--		      <0 0xe0780000 0 0x80000>;
-+		      <0 0xe0780000 0 0x80000>,
-+		      <0 0xe1240800 0 0x00400>,
-+		      <0 0xe1250000 0 0x00060>,
-+		      <0 0xe1250080 0 0x00004>;
- 		interrupt-parent = <&gic>;
- 		interrupts = <0 325 4>,
--			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>;
-+			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>,
-+			     <0 323 4>;
- 		amd,per-channel-interrupt;
- 		clocks = <&xgbe_dma_clk>, <&xgbe_ptp_clk>;
- 		clock-names = "dma_clk", "ptp_clk";
--		phy-handle = <&xgbe_phy>;
- 		phy-mode = "xgmii";
- 		mac-address = [ 02 a1 a2 a3 a4 a5 ];
--	};
--
--	xgbe_phy@e1240800 {
--		compatible = "amd,xgbe-phy-seattle-v1a";
--		reg = <0 0xe1240800 0 0x00400>,
--		      <0 0xe1250000 0 0x00060>,
--		      <0 0xe1250080 0 0x00004>;
--		interrupt-parent = <&gic>;
--		interrupts = <0 323 4>;
- 		amd,speed-set = <0>;
- 		amd,serdes-blwc = <1>, <1>, <0>;
- 		amd,serdes-cdr-rate = <2>, <2>, <7>;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 0c219b3..34c521d 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -300,14 +300,21 @@ static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
- 	struct platform_device *phy_pdev;
- 
- 	phy_node = of_parse_phandle(dev->of_node, "phy-handle", 0);
--	if (!phy_node) {
--		dev_err(dev, "unable to locate phy device\n");
--		return NULL;
-+	if (phy_node) {
-+		/* Old style device tree:
-+		 *   The XGBE and PHY resources are separate
-+		 */
-+		phy_pdev = of_find_device_by_node(phy_node);
-+		of_node_put(phy_node);
-+	} else {
-+		/* New style device tree:
-+		 *   The XGBE and PHY resources are grouped together with
-+		 *   the PHY resources listed last
-+		 */
-+		get_device(dev);
-+		phy_pdev = pdata->pdev;
- 	}
- 
--	phy_pdev = of_find_device_by_node(phy_node);
--	of_node_put(phy_node);
--
- 	return phy_pdev;
+ 	if (rdata->state_saved) {
+ 		rdata->state_saved = 0;
+-		rdata->state.incomplete = 0;
+-		rdata->state.context_next = 0;
+ 		rdata->state.skb = NULL;
+ 		rdata->state.len = 0;
+ 		rdata->state.error = 0;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+index 7f67d2f..b9e9a73 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
+@@ -1822,9 +1822,10 @@ static void xgbe_rx_refresh(struct xgbe_channel *channel)
+ 			  lower_32_bits(rdata->rdesc_dma));
  }
- #else   /* CONFIG_OF */
-@@ -401,14 +408,14 @@ static int xgbe_probe(struct platform_device *pdev)
- 	phy_dev = &phy_pdev->dev;
  
- 	if (pdev == phy_pdev) {
--		/* ACPI:
-+		/* New style device tree or ACPI:
- 		 *   The XGBE and PHY resources are grouped together with
- 		 *   the PHY resources listed last
- 		 */
- 		phy_memnum = xgbe_resource_count(pdev, IORESOURCE_MEM) - 3;
- 		phy_irqnum = xgbe_resource_count(pdev, IORESOURCE_IRQ) - 1;
- 	} else {
--		/* Device tree:
-+		/* Old style device tree:
- 		 *   The XGBE and PHY resources are separate
- 		 */
- 		phy_memnum = 0;
+-static struct sk_buff *xgbe_create_skb(struct napi_struct *napi,
++static struct sk_buff *xgbe_create_skb(struct xgbe_prv_data *pdata,
++				       struct napi_struct *napi,
+ 				       struct xgbe_ring_data *rdata,
+-				       unsigned int *len)
++				       unsigned int len)
+ {
+ 	struct sk_buff *skb;
+ 	u8 *packet;
+@@ -1834,14 +1835,31 @@ static struct sk_buff *xgbe_create_skb(struct napi_struct *napi,
+ 	if (!skb)
+ 		return NULL;
+ 
++	/* Start with the header buffer which may contain just the header
++	 * or the header plus data
++	 */
++	dma_sync_single_for_cpu(pdata->dev, rdata->rx.hdr.dma,
++				rdata->rx.hdr.dma_len, DMA_FROM_DEVICE);
++
+ 	packet = page_address(rdata->rx.hdr.pa.pages) +
+ 		 rdata->rx.hdr.pa.pages_offset;
+-	copy_len = (rdata->rx.hdr_len) ? rdata->rx.hdr_len : *len;
++	copy_len = (rdata->rx.hdr_len) ? rdata->rx.hdr_len : len;
+ 	copy_len = min(rdata->rx.hdr.dma_len, copy_len);
+ 	skb_copy_to_linear_data(skb, packet, copy_len);
+ 	skb_put(skb, copy_len);
+ 
+-	*len -= copy_len;
++	len -= copy_len;
++	if (len) {
++		/* Add the remaining data as a frag */
++		dma_sync_single_for_cpu(pdata->dev, rdata->rx.buf.dma,
++					rdata->rx.buf.dma_len, DMA_FROM_DEVICE);
++
++		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
++				rdata->rx.buf.pa.pages,
++				rdata->rx.buf.pa.pages_offset,
++				len, rdata->rx.buf.dma_len);
++		rdata->rx.buf.pa.pages = NULL;
++	}
+ 
+ 	return skb;
+ }
+@@ -1923,7 +1941,7 @@ static int xgbe_rx_poll(struct xgbe_channel *channel, int budget)
+ 	struct sk_buff *skb;
+ 	struct skb_shared_hwtstamps *hwtstamps;
+ 	unsigned int incomplete, error, context_next, context;
+-	unsigned int len, put_len, max_len;
++	unsigned int len, rdesc_len, max_len;
+ 	unsigned int received = 0;
+ 	int packet_count = 0;
+ 
+@@ -1933,6 +1951,9 @@ static int xgbe_rx_poll(struct xgbe_channel *channel, int budget)
+ 	if (!ring)
+ 		return 0;
+ 
++	incomplete = 0;
++	context_next = 0;
++
+ 	napi = (pdata->per_channel_irq) ? &channel->napi : &pdata->napi;
+ 
+ 	rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
+@@ -1942,15 +1963,11 @@ static int xgbe_rx_poll(struct xgbe_channel *channel, int budget)
+ 
+ 		/* First time in loop see if we need to restore state */
+ 		if (!received && rdata->state_saved) {
+-			incomplete = rdata->state.incomplete;
+-			context_next = rdata->state.context_next;
+ 			skb = rdata->state.skb;
+ 			error = rdata->state.error;
+ 			len = rdata->state.len;
+ 		} else {
+ 			memset(packet, 0, sizeof(*packet));
+-			incomplete = 0;
+-			context_next = 0;
+ 			skb = NULL;
+ 			error = 0;
+ 			len = 0;
+@@ -1991,23 +2008,16 @@ read_again:
+ 		}
+ 
+ 		if (!context) {
+-			put_len = rdata->rx.len - len;
+-			len += put_len;
+-
+-			if (!skb) {
+-				dma_sync_single_for_cpu(pdata->dev,
+-							rdata->rx.hdr.dma,
+-							rdata->rx.hdr.dma_len,
+-							DMA_FROM_DEVICE);
+-
+-				skb = xgbe_create_skb(napi, rdata, &put_len);
+-				if (!skb) {
++			/* Length is cumulative, get this descriptor's length */
++			rdesc_len = rdata->rx.len - len;
++			len += rdesc_len;
++
++			if (rdesc_len && !skb) {
++				skb = xgbe_create_skb(pdata, napi, rdata,
++						      rdesc_len);
++				if (!skb)
+ 					error = 1;
+-					goto skip_data;
+-				}
+-			}
+-
+-			if (put_len) {
++			} else if (rdesc_len) {
+ 				dma_sync_single_for_cpu(pdata->dev,
+ 							rdata->rx.buf.dma,
+ 							rdata->rx.buf.dma_len,
+@@ -2016,12 +2026,12 @@ read_again:
+ 				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
+ 						rdata->rx.buf.pa.pages,
+ 						rdata->rx.buf.pa.pages_offset,
+-						put_len, rdata->rx.buf.dma_len);
++						rdesc_len,
++						rdata->rx.buf.dma_len);
+ 				rdata->rx.buf.pa.pages = NULL;
+ 			}
+ 		}
+ 
+-skip_data:
+ 		if (incomplete || context_next)
+ 			goto read_again;
+ 
+@@ -2085,8 +2095,6 @@ next_packet:
+ 	if (received && (incomplete || context_next)) {
+ 		rdata = XGBE_GET_DESC_DATA(ring, ring->cur);
+ 		rdata->state_saved = 1;
+-		rdata->state.incomplete = incomplete;
+-		rdata->state.context_next = context_next;
+ 		rdata->state.skb = skb;
+ 		rdata->state.len = len;
+ 		rdata->state.error = error;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index b6aecc9..f535d19 100644
+index 8313b07..e182b25 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -129,7 +129,7 @@
- #include <net/dcbnl.h>
- 
- #define XGBE_DRV_NAME		"amd-xgbe"
--#define XGBE_DRV_VERSION	"1.0.1"
-+#define XGBE_DRV_VERSION	"1.0.2"
- #define XGBE_DRV_DESC		"AMD 10 Gigabit Ethernet Driver"
- 
- /* Descriptor related defines */
+@@ -334,8 +334,6 @@ struct xgbe_ring_data {
+ 	 */
+ 	unsigned int state_saved;
+ 	struct {
+-		unsigned int incomplete;
+-		unsigned int context_next;
+ 		struct sk_buff *skb;
+ 		unsigned int len;
+ 		unsigned int error;
