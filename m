@@ -1,62 +1,49 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH iproute2] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
-Date: Wed, 13 May 2015 21:20:38 -0700
-Message-ID: <1431577238-12604-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org, sfeldma@gmail.com, jiri@resnulli.us,
-	gospo@cumulusnetworks.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: netlink & rhashtable status
+Date: Thu, 14 May 2015 12:21:51 +0800
+Message-ID: <20150514042151.GA5482@gondor.apana.org.au>
+References: <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150513062038.GA26944@gondor.apana.org.au>
+ <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514025333.GA3853@gondor.apana.org.au>
+ <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514033448.GA5080@gondor.apana.org.au>
+ <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514041628.GA5428@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:34941 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbbENEUs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 00:20:48 -0400
-Received: by pdbqd1 with SMTP id qd1so72351699pdb.2
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 21:20:47 -0700 (PDT)
+Received: from helcar.hengli.com.au ([209.40.204.226]:53779 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbbENEV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 00:21:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20150514041628.GA5428@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Thu, May 14, 2015 at 12:16:28PM +0800, Herbert Xu wrote:
+> On Wed, May 13, 2015 at 09:13:38PM -0700, Eric Dumazet wrote:
+> >
+> > So it looks like we lost an skb or something....
+> 
+> OK that sounds reasonable.  So my plan is to disable dynamic
+> rehashing and then hunt down this lookup bug.
 
-RTNH_F_EXTERNAL is printed as "offload" in iproute2 output.
+Oh wait this isn't even a lookup failure since that should return
+ECONNREFUSED.  Could it be that this hang is a separate bug that's
+not related to rhashtable?
 
-This patch renames the flag to be consistent with what the user sees.
+If that was the case then we simply need to get rid of dynamic
+rehashing.
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
-RTNH_F_EXTERNAL was introduced in 4.1 and is not out in 4.0 kernel.
-
-This patch follows kernel patch with the same title
-"rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD"
-
- include/linux/rtnetlink.h |    2 +-
- ip/iproute.c              |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 702b19b..90eeb4f 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -337,7 +337,7 @@ struct rtnexthop {
- #define RTNH_F_DEAD		1	/* Nexthop is dead (used by multipath)	*/
- #define RTNH_F_PERVASIVE	2	/* Do recursive gateway lookup	*/
- #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
--#define RTNH_F_EXTERNAL		8	/* Route installed externally	*/
-+#define RTNH_F_OFFLOAD		8	/* Offloaded route */
- 
- /* Macros to handle hexthops */
- 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 670a4c6..262d3a1 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -447,7 +447,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		fprintf(fp, "onlink ");
- 	if (r->rtm_flags & RTNH_F_PERVASIVE)
- 		fprintf(fp, "pervasive ");
--	if (r->rtm_flags & RTNH_F_EXTERNAL)
-+	if (r->rtm_flags & RTNH_F_OFFLOAD)
- 		fprintf(fp, "offload ");
- 	if (r->rtm_flags & RTM_F_NOTIFY)
- 		fprintf(fp, "notify ");
+Cheers,
 -- 
-1.7.10.4
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
