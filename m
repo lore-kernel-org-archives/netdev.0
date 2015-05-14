@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/8] tipc: simplify resetting and disabling of bearers
-Date: Thu, 14 May 2015 10:46:11 -0400
-Message-ID: <1431614778-17582-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/8] tipc: simplify include dependencies
+Date: Thu, 14 May 2015 10:46:13 -0400
+Message-ID: <1431614778-17582-4-git-send-email-jon.maloy@ericsson.com>
 References: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,172 +10,181 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:30747 "EHLO
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:30779 "EHLO
 	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933022AbbENOqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:46:30 -0400
+	by vger.kernel.org with ESMTP id S933134AbbENOqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:46:36 -0400
 In-Reply-To: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 4b475e3f2f8e4e241de101c8240f1d74d0470494
-("tipc: eliminate delayed link deletion at link failover") the extra
-boolean parameter "shutting_down" is not any longer needed for the
-functions bearer_disable() and tipc_link_delete_list().
+When we try to add new inline functions in the code, we sometimes
+run into circular include dependencies.
 
-Furhermore, the function tipc_link_reset_links(), called from
-bearer_reset()  is now unnecessary. We can just as well delete
-all the links, as we do in bearer_disable(), and start over with
-creating new links.
+The main problem is that the file core.h, which really should be at
+the root of the dependency chain, instead is a leaf. I.e., core.h
+includes a number of header files that themselves should be allowed
+to include core.h. In reality this is unnecessary, because core.h does
+not need to know the full signature of any of the structs it refers to,
+only their type declaration.
 
-This commit introduces those changes.
+In this commit, we remove all dependencies from core.h towards any
+other tipc header file.
+
+As a consequence of this change, we can now move the function
+tipc_own_addr(net) from addr.c to addr.h, and make it inline.
+
+There are no functional changes in this commit.
 
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/bearer.c | 18 ++++++++----------
- net/tipc/link.c   | 20 +-------------------
- net/tipc/link.h   |  4 +---
- 3 files changed, 10 insertions(+), 32 deletions(-)
+ net/tipc/addr.c   |  7 -------
+ net/tipc/addr.h   |  8 ++++++++
+ net/tipc/bearer.h |  2 +-
+ net/tipc/core.h   | 17 ++++++++++-------
+ net/tipc/net.c    |  1 +
+ net/tipc/node.c   |  1 +
+ net/tipc/node.h   |  2 --
+ net/tipc/socket.c |  1 +
+ 8 files changed, 22 insertions(+), 17 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 99c0bd4..00bc0e6 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -71,8 +71,7 @@ static const struct nla_policy tipc_nl_media_policy[TIPC_NLA_MEDIA_MAX + 1] = {
- 	[TIPC_NLA_MEDIA_PROP]		= { .type = NLA_NESTED }
- };
+diff --git a/net/tipc/addr.c b/net/tipc/addr.c
+index ba7daa8..48fd3b5 100644
+--- a/net/tipc/addr.c
++++ b/net/tipc/addr.c
+@@ -38,13 +38,6 @@
+ #include "addr.h"
+ #include "core.h"
  
--static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr,
--			   bool shutting_down);
-+static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr);
- 
- /**
-  * tipc_media_find - locates specified media object by name
-@@ -324,7 +323,7 @@ restart:
- 
- 	res = tipc_disc_create(net, b_ptr, &b_ptr->bcast_addr);
- 	if (res) {
--		bearer_disable(net, b_ptr, false);
-+		bearer_disable(net, b_ptr);
- 		pr_warn("Bearer <%s> rejected, discovery object creation failed\n",
- 			name);
- 		return -EINVAL;
-@@ -344,7 +343,7 @@ restart:
- static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b_ptr)
- {
- 	pr_info("Resetting bearer <%s>\n", b_ptr->name);
--	tipc_link_reset_list(net, b_ptr->identity);
-+	tipc_link_delete_list(net, b_ptr->identity);
- 	tipc_disc_reset(net, b_ptr);
- 	return 0;
- }
-@@ -354,8 +353,7 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b_ptr)
-  *
-  * Note: This routine assumes caller holds RTNL lock.
-  */
--static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr,
--			   bool shutting_down)
-+static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	u32 i;
-@@ -363,7 +361,7 @@ static void bearer_disable(struct net *net, struct tipc_bearer *b_ptr,
- 	pr_info("Disabling bearer <%s>\n", b_ptr->name);
- 	b_ptr->media->disable_media(b_ptr);
- 
--	tipc_link_delete_list(net, b_ptr->identity, shutting_down);
-+	tipc_link_delete_list(net, b_ptr->identity);
- 	if (b_ptr->link_req)
- 		tipc_disc_delete(b_ptr->link_req);
- 
-@@ -541,7 +539,7 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 		break;
- 	case NETDEV_UNREGISTER:
- 	case NETDEV_CHANGENAME:
--		bearer_disable(dev_net(dev), b_ptr, false);
-+		bearer_disable(dev_net(dev), b_ptr);
- 		break;
- 	}
- 	return NOTIFY_OK;
-@@ -583,7 +581,7 @@ void tipc_bearer_stop(struct net *net)
- 	for (i = 0; i < MAX_BEARERS; i++) {
- 		b_ptr = rtnl_dereference(tn->bearer_list[i]);
- 		if (b_ptr) {
--			bearer_disable(net, b_ptr, true);
-+			bearer_disable(net, b_ptr);
- 			tn->bearer_list[i] = NULL;
- 		}
- 	}
-@@ -747,7 +745,7 @@ int tipc_nl_bearer_disable(struct sk_buff *skb, struct genl_info *info)
- 		return -EINVAL;
- 	}
- 
--	bearer_disable(net, bearer, false);
-+	bearer_disable(net, bearer);
- 	rtnl_unlock();
- 
- 	return 0;
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 374d523..266dbc6 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -311,8 +311,7 @@ void tipc_link_delete(struct tipc_link *l)
- 	tipc_link_put(l);
- }
- 
--void tipc_link_delete_list(struct net *net, unsigned int bearer_id,
--			   bool shutting_down)
-+void tipc_link_delete_list(struct net *net, unsigned int bearer_id)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	struct tipc_link *link;
-@@ -476,23 +475,6 @@ void tipc_link_reset(struct tipc_link *l_ptr)
- 	link_reset_statistics(l_ptr);
- }
- 
--void tipc_link_reset_list(struct net *net, unsigned int bearer_id)
+-u32 tipc_own_addr(struct net *net)
 -{
 -	struct tipc_net *tn = net_generic(net, tipc_net_id);
--	struct tipc_link *l_ptr;
--	struct tipc_node *n_ptr;
 -
--	rcu_read_lock();
--	list_for_each_entry_rcu(n_ptr, &tn->node_list, list) {
--		tipc_node_lock(n_ptr);
--		l_ptr = n_ptr->links[bearer_id];
--		if (l_ptr)
--			tipc_link_reset(l_ptr);
--		tipc_node_unlock(n_ptr);
--	}
--	rcu_read_unlock();
+-	return tn->own_addr;
 -}
 -
- static void link_activate(struct tipc_link *link)
+ /**
+  * in_own_cluster - test for cluster inclusion; <0.0.0> always matches
+  */
+diff --git a/net/tipc/addr.h b/net/tipc/addr.h
+index 7ba6d5c..93f7c98 100644
+--- a/net/tipc/addr.h
++++ b/net/tipc/addr.h
+@@ -41,10 +41,18 @@
+ #include <linux/tipc.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
++#include "core.h"
+ 
+ #define TIPC_ZONE_MASK		0xff000000u
+ #define TIPC_CLUSTER_MASK	0xfffff000u
+ 
++static inline u32 tipc_own_addr(struct net *net)
++{
++	struct tipc_net *tn = net_generic(net, tipc_net_id);
++
++	return tn->own_addr;
++}
++
+ static inline u32 tipc_zone_mask(u32 addr)
  {
- 	struct tipc_node *node = link->owner;
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index b5b4e35..dc27bb6 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -213,8 +213,7 @@ struct tipc_link *tipc_link_create(struct tipc_node *n_ptr,
- 			      struct tipc_bearer *b_ptr,
- 			      const struct tipc_media_addr *media_addr);
- void tipc_link_delete(struct tipc_link *link);
--void tipc_link_delete_list(struct net *net, unsigned int bearer_id,
--			   bool shutting_down);
-+void tipc_link_delete_list(struct net *net, unsigned int bearer_id);
- void tipc_link_failover_send_queue(struct tipc_link *l_ptr);
- void tipc_link_dup_queue_xmit(struct tipc_link *l_ptr, struct tipc_link *dest);
- void tipc_link_reset_fragments(struct tipc_link *l_ptr);
-@@ -223,7 +222,6 @@ int tipc_link_is_active(struct tipc_link *l_ptr);
- void tipc_link_purge_queues(struct tipc_link *l_ptr);
- void tipc_link_reset_all(struct tipc_node *node);
- void tipc_link_reset(struct tipc_link *l_ptr);
--void tipc_link_reset_list(struct net *net, unsigned int bearer_id);
- int tipc_link_xmit_skb(struct net *net, struct sk_buff *skb, u32 dest,
- 		       u32 selector);
- int tipc_link_xmit(struct net *net, struct sk_buff_head *list, u32 dest,
+ 	return addr & TIPC_ZONE_MASK;
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 5cad243..dc714d9 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -38,9 +38,9 @@
+ #define _TIPC_BEARER_H
+ 
+ #include "netlink.h"
++#include "core.h"
+ #include <net/genetlink.h>
+ 
+-#define MAX_BEARERS	2
+ #define MAX_MEDIA	3
+ #define MAX_NODES	4096
+ #define WSIZE		32
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 3dc68c7..53e8146 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -60,16 +60,19 @@
+ #include <net/netns/generic.h>
+ #include <linux/rhashtable.h>
+ 
+-#include "node.h"
+-#include "bearer.h"
+-#include "bcast.h"
+-#include "netlink.h"
+-#include "link.h"
+-#include "node.h"
+-#include "msg.h"
++struct tipc_node;
++struct tipc_bearer;
++struct tipc_bcbearer;
++struct tipc_bclink;
++struct tipc_link;
++struct tipc_name_table;
++struct tipc_server;
+ 
+ #define TIPC_MOD_VER "2.0.0"
+ 
++#define NODE_HTABLE_SIZE   512
++#define MAX_BEARERS	   3
++
+ extern int tipc_net_id __read_mostly;
+ extern int sysctl_tipc_rmem[3] __read_mostly;
+ extern int sysctl_tipc_named_timeout __read_mostly;
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index a54f3cb..d6d1399 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -40,6 +40,7 @@
+ #include "subscr.h"
+ #include "socket.h"
+ #include "node.h"
++#include "bcast.h"
+ 
+ static const struct nla_policy tipc_nl_net_policy[TIPC_NLA_NET_MAX + 1] = {
+ 	[TIPC_NLA_NET_UNSPEC]	= { .type = NLA_UNSPEC },
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 22c059a..eb3856b 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -39,6 +39,7 @@
+ #include "node.h"
+ #include "name_distr.h"
+ #include "socket.h"
++#include "bcast.h"
+ 
+ static void node_lost_contact(struct tipc_node *n_ptr);
+ static void node_established_contact(struct tipc_node *n_ptr);
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 02d5c20..5a834cf 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -45,8 +45,6 @@
+ /* Out-of-range value for node signature */
+ #define INVALID_NODE_SIG	0x10000
+ 
+-#define NODE_HTABLE_SIZE	512
+-
+ /* Flags used to take different actions according to flag type
+  * TIPC_WAIT_PEER_LINKS_DOWN: wait to see that peer's links are down
+  * TIPC_WAIT_OWN_LINKS_DOWN: wait until peer node is declared down
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 8f3c8e2..9370f95 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -41,6 +41,7 @@
+ #include "link.h"
+ #include "name_distr.h"
+ #include "socket.h"
++#include "bcast.h"
+ 
+ #define SS_LISTENING		-1	/* socket is listening */
+ #define SS_READY		-2	/* socket is connectionless */
 -- 
 1.9.1
