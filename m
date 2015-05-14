@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5 net-next] Netfilter ingress support (v4)
-Date: Thu, 14 May 2015 01:10:51 -0400 (EDT)
-Message-ID: <20150514.011051.1385525621142527385.davem@davemloft.net>
+Subject: Re: [PATCH 5/5] netfilter: add netfilter ingress hook after
+ handle_ing() under unique static key
+Date: Thu, 14 May 2015 01:11:07 -0400 (EDT)
+Message-ID: <20150514.011107.2098064573628886880.davem@davemloft.net>
 References: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
+	<1431533978-26901-6-git-send-email-pablo@netfilter.org>
+	<5553A7B9.7030203@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	jhs@mojatatu.com, daniel@iogearbox.net, eric.dumazet@gmail.com,
-	kaber@trash.net, ast@plumgrid.com
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933966AbbENFKy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 01:10:54 -0400
-In-Reply-To: <1431533978-26901-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, jhs@mojatatu.com, daniel@iogearbox.net,
+	eric.dumazet@gmail.com, kaber@trash.net, ast@plumgrid.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <5553A7B9.7030203@6wind.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Wed, 13 May 2015 18:19:33 +0200
+=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 13 May 2015 21:36:25 +0200
 
-> This is the v4 round of patches to add the Netfilter ingress hook, it basically
-> comes in two steps:
- ...
-> Please, apply. Thanks.
+> Le 13/05/2015 18:19, Pablo Neira Ayuso a =E9crit :
+> [snip]
+>> --- /dev/null
+>> +++ b/include/linux/netfilter_ingress.h
+> [snip]
+>> +static inline void nf_hook_ingress_init(struct net_device *dev)
+>> +{
+>> +        INIT_LIST_HEAD(&dev->nf_hooks_ingress);
+> nit: this line is indented with spaces instead of a tab.
 
-Series applied, thanks Pablo.
+I took care of this when I applied Pablo's series.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
