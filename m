@@ -1,91 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink: Disable insertions/removals during rehash
-Date: Thu, 14 May 2015 07:37:56 -0700
-Message-ID: <1431614276.27831.57.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150513062038.GA26944@gondor.apana.org.au>
-	 <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150514025333.GA3853@gondor.apana.org.au>
-	 <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150514033448.GA5080@gondor.apana.org.au>
-	 <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150514041628.GA5428@gondor.apana.org.au>
-	 <20150514042151.GA5482@gondor.apana.org.au>
-	 <20150514055824.GB6058@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next] packet: fix warnings in rollover lock contention
+Date: Thu, 14 May 2015 10:42:40 -0400
+Message-ID: <1431614560-8866-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:36534 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbbENOh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:37:58 -0400
-Received: by igbpi8 with SMTP id pi8so168696049igb.1
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 07:37:57 -0700 (PDT)
-In-Reply-To: <20150514055824.GB6058@gondor.apana.org.au>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:34455 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932428AbbENOmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:42:47 -0400
+Received: by yhom41 with SMTP id m41so22923467yho.1
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 07:42:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-14 at 13:58 +0800, Herbert Xu wrote:
-> Resend with fixed subject.
-> 
-> On Thu, May 14, 2015 at 12:21:51PM +0800, Herbert Xu wrote:
-> > 
-> > If that was the case then we simply need to get rid of dynamic
-> > rehashing.
-> 
-> Here is a totally untested patch against 4.0.
+From: Willem de Bruijn <willemb@google.com>
 
-This solves the corruption thanks Herbert.
+Avoid two xchg calls whose return values were unused, causing this
+warning on some architectures:
 
-But wasn't rhashtable meant to be faster ? ;)
+    warning: value computed is not used [-Wunused-value]
+    #define xchg(ptr,x) ((__typeof__(*(ptr)))\
+        __xchg((unsigned long)(x),(ptr),sizeof(*(ptr))))
+                       ^
+    net/packet/af_packet.c:1314:3: note: in expansion of macro 'xchg'
+    xchg(&po->pressure, !has_room);
 
-Before rhashtable (3.15) :
+The relevant variable is a hint to avoid lock contention. It is
+allowed to be imprecise (race).
 
-$ ./getaddrinfo_many.sh 
-TPS: 143884.892086  Seconds Elapsed: 1  Current time: Thu May 14 07:36:09 PDT 2015
-TPS: 144300.1443  Seconds Elapsed: 2  Current time: Thu May 14 07:36:10 PDT 2015
-TPS: 143884.892086  Seconds Elapsed: 2  Current time: Thu May 14 07:36:10 PDT 2015
-TPS: 143472.022956  Seconds Elapsed: 3  Current time: Thu May 14 07:36:11 PDT 2015
-TPS: 144300.1443  Seconds Elapsed: 4  Current time: Thu May 14 07:36:12 PDT 2015
-TPS: 144300.1443  Seconds Elapsed: 4  Current time: Thu May 14 07:36:12 PDT 2015
-TPS: 144508.67052  Seconds Elapsed: 5  Current time: Thu May 14 07:36:13 PDT 2015
-TPS: 144300.1443  Seconds Elapsed: 6  Current time: Thu May 14 07:36:14 PDT 2015
-TPS: 143884.892086  Seconds Elapsed: 7  Current time: Thu May 14 07:36:15 PDT 2015
-TPS: 143884.892086  Seconds Elapsed: 7  Current time: Thu May 14 07:36:15 PDT 2015
-TPS: 143884.892086  Seconds Elapsed: 8  Current time: Thu May 14 07:36:16 PDT 2015
-TPS: 144300.1443  Seconds Elapsed: 9  Current time: Thu May 14 07:36:17 PDT 2015
-TPS: 144092.21902  Seconds Elapsed: 9  Current time: Thu May 14 07:36:17 PDT 2015
+Still, when rewriting this, also convert to use explicit atomic ops
+and remove a race by switching to atomic_cmpxchg. A rerun of the
+experiment from the original patch did not show this to cause
+significant cache line contention. Another non-atomic conditional
+clear remains in packet_poll, and is safe.
 
-With rhashtable (4.0.3 + your fix)
+Fixes: 2ccdbaa6d55b ("packet: rollover lock contention avoidance")
 
-$ ./getaddrinfo_many.sh 
-TPS: 80450.5229284  Seconds Elapsed: 1  Current time: Thu May 14 06:51:39 PDT 2015
-TPS: 85106.3829787  Seconds Elapsed: 2  Current time: Thu May 14 06:51:40 PDT 2015
-TPS: 85763.2933105  Seconds Elapsed: 4  Current time: Thu May 14 06:51:42 PDT 2015
-TPS: 84530.8537616  Seconds Elapsed: 5  Current time: Thu May 14 06:51:43 PDT 2015
-TPS: 85689.8029135  Seconds Elapsed: 6  Current time: Thu May 14 06:51:44 PDT 2015
-TPS: 82712.9859388  Seconds Elapsed: 7  Current time: Thu May 14 06:51:45 PDT 2015
-TPS: 83472.4540902  Seconds Elapsed: 8  Current time: Thu May 14 06:51:46 PDT 2015
-TPS: 86505.1903114  Seconds Elapsed: 10  Current time: Thu May 14 06:51:48 PDT 2015
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 12 ++++++------
+ net/packet/internal.h  |  2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-Current tree is still slower than 3.15 :(
-
-$ ./getaddrinfo_many.sh 
-TPS: 123152.70936  Seconds Elapsed: 0  Current time: Thu May 14 07:36:52 PDT 2015
-TPS: 123304.562269  Seconds Elapsed: 1  Current time: Thu May 14 07:36:53 PDT 2015
-TPS: 123915.737299  Seconds Elapsed: 2  Current time: Thu May 14 07:36:54 PDT 2015
-TPS: 123456.790123  Seconds Elapsed: 3  Current time: Thu May 14 07:36:55 PDT 2015
-TPS: 124843.945069  Seconds Elapsed: 4  Current time: Thu May 14 07:36:56 PDT 2015
-TPS: 122850.12285  Seconds Elapsed: 4  Current time: Thu May 14 07:36:56 PDT 2015
-TPS: 123001.230012  Seconds Elapsed: 5  Current time: Thu May 14 07:36:57 PDT 2015
-TPS: 123001.230012  Seconds Elapsed: 6  Current time: Thu May 14 07:36:58 PDT 2015
-TPS: 122549.019608  Seconds Elapsed: 7  Current time: Thu May 14 07:36:59 PDT 2015
-TPS: 123762.376238  Seconds Elapsed: 8  Current time: Thu May 14 07:37:00 PDT 2015
-TPS: 123304.562269  Seconds Elapsed: 9  Current time: Thu May 14 07:37:01 PDT 2015
-TPS: 123152.70936  Seconds Elapsed: 9  Current time: Thu May 14 07:37:01 PDT 2015
-TPS: 123001.230012  Seconds Elapsed: 10  Current time: Thu May 14 07:37:02 PDT 2015
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 31d5856..ac1a589 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1310,8 +1310,7 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+ 	}
+ 
+ 	has_room = ret == ROOM_NORMAL;
+-	if (po->pressure == has_room)
+-		xchg(&po->pressure, !has_room);
++	if (atomic_cmpxchg(&po->pressure, has_room, !has_room)) {}
+ 
+ 	return ret;
+ }
+@@ -1409,7 +1408,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
+ 	i = j = min_t(int, po->rollover->sock, num - 1);
+ 	do {
+ 		po_next = pkt_sk(f->arr[i]);
+-		if (po_next != po && !po_next->pressure &&
++		if (po_next != po && !atomic_read(&po_next->pressure) &&
+ 		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
+ 			if (i != j)
+ 				po->rollover->sock = i;
+@@ -3045,7 +3044,7 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	if (skb == NULL)
+ 		goto out;
+ 
+-	if (pkt_sk(sk)->pressure)
++	if (atomic_read(&pkt_sk(sk)->pressure))
+ 		packet_rcv_has_room(pkt_sk(sk), NULL);
+ 
+ 	if (pkt_sk(sk)->has_vnet_hdr) {
+@@ -3813,8 +3812,9 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
+ 			TP_STATUS_KERNEL))
+ 			mask |= POLLIN | POLLRDNORM;
+ 	}
+-	if (po->pressure && __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
+-		xchg(&po->pressure, 0);
++	if (atomic_read(&po->pressure) &&
++	    __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
++		atomic_set(&po->pressure, 0);
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 	spin_lock_bh(&sk->sk_write_queue.lock);
+ 	if (po->tx_ring.pg_vec) {
+diff --git a/net/packet/internal.h b/net/packet/internal.h
+index c035d26..f96cf54 100644
+--- a/net/packet/internal.h
++++ b/net/packet/internal.h
+@@ -110,7 +110,7 @@ struct packet_sock {
+ 				auxdata:1,
+ 				origdev:1,
+ 				has_vnet_hdr:1;
+-	int			pressure;
++	atomic_t		pressure;
+ 	int			ifindex;	/* bound device		*/
+ 	__be16			num;
+ 	struct packet_rollover	*rollover;
+-- 
+2.2.0.rc0.207.ga3a616c
