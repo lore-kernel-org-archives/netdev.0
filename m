@@ -1,8 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 1/7] amd-xgbe: Add additional stats to be
- reported via ethtool
-Date: Thu, 14 May 2015 11:43:57 -0500
-Message-ID: <20150514164357.10220.23108.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next v2 5/7] amd-xgbe: Support defining PHY resources in
+ ETH device node
+Date: Thu, 14 May 2015 11:44:21 -0500
+Message-ID: <20150514164421.10220.64659.stgit@tlendack-t1.amdoffice.net>
 References: <20150514164351.10220.89584.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,130 +10,176 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bon0136.outbound.protection.outlook.com ([157.56.111.136]:3272
+Received: from mail-bn1on0146.outbound.protection.outlook.com ([157.56.110.146]:61792
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932807AbbENQoC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2015 12:44:02 -0400
+	id S933340AbbENQo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2015 12:44:26 -0400
 In-Reply-To: <20150514164351.10220.89584.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add additional/extended statistics beyond what is provided by the
-hardware to be reported via ethtool. The new stats focus on the
-calls into ndo_start_xmit and the napi_poll routine.
+Simplify the device tree support of the amd-xgbe driver by defining
+the PHY-related resources within the ethernet device node. The support
+provides backwards compatibility with the original way.
+
+Update the driver version to 1.0.2.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |   12 +++++++++---
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |    8 ++++++++
- drivers/net/ethernet/amd/xgbe/xgbe.h         |    6 ++++++
- 3 files changed, 23 insertions(+), 3 deletions(-)
+ Documentation/devicetree/bindings/net/amd-xgbe.txt |   41 ++++++--------------
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c          |   23 +++++++----
+ drivers/net/ethernet/amd/xgbe/xgbe.h               |    2 -
+ 3 files changed, 29 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 21d9497..6f593a5 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -1533,6 +1533,8 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
- 				  packet->tcp_payload_len);
- 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, TCPHDRLEN,
- 				  packet->tcp_header_len / 4);
-+
-+		pdata->ext_stats.tx_tso_packets++;
- 	} else {
- 		/* Enable CRC and Pad Insertion */
- 		XGMAC_SET_BITS_LE(rdesc->desc3, TX_NORMAL_DESC3, CPC, 0);
-@@ -1618,11 +1620,12 @@ static void xgbe_dev_xmit(struct xgbe_channel *channel)
+diff --git a/Documentation/devicetree/bindings/net/amd-xgbe.txt b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+index 5dbc55a..4bb624a 100644
+--- a/Documentation/devicetree/bindings/net/amd-xgbe.txt
++++ b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+@@ -1,16 +1,20 @@
+ * AMD 10GbE driver (amd-xgbe)
  
- static int xgbe_dev_read(struct xgbe_channel *channel)
- {
-+	struct xgbe_prv_data *pdata = channel->pdata;
- 	struct xgbe_ring *ring = channel->rx_ring;
- 	struct xgbe_ring_data *rdata;
- 	struct xgbe_ring_desc *rdesc;
- 	struct xgbe_packet_data *packet = &ring->packet_data;
--	struct net_device *netdev = channel->pdata->netdev;
-+	struct net_device *netdev = pdata->netdev;
- 	unsigned int err, etlt, l34t;
+-Required properties (ethernet device):
++Required properties:
+ - compatible: Should be "amd,xgbe-seattle-v1a"
+ - reg: Address and length of the register sets for the device
+    - MAC registers
+    - PCS registers
++   - SerDes Rx/Tx registers
++   - SerDes integration registers (1/2)
++   - SerDes integration registers (2/2)
+ - interrupt-parent: Should be the phandle for the interrupt controller
+   that services interrupts for this device
+ - interrupts: Should contain the amd-xgbe interrupt(s). The first interrupt
+   listed is required and is the general device interrupt. If the optional
+   amd,per-channel-interrupt property is specified, then one additional
+-  interrupt for each DMA channel supported by the device should be specified
++  interrupt for each DMA channel supported by the device should be specified.
++  The last interrupt listed should be the PCS auto-negotiation interrupt.
+ - clocks:
+    - DMA clock for the amd-xgbe device (used for calculating the
+      correct Rx interrupt watchdog timer value on a DMA channel
+@@ -19,28 +23,15 @@ Required properties (ethernet device):
+ - clock-names: Should be the names of the clocks
+    - "dma_clk" for the DMA clock
+    - "ptp_clk" for the PTP clock
+-- phy-handle: See ethernet.txt file in the same directory
+ - phy-mode: See ethernet.txt file in the same directory
  
- 	DBGPR("-->xgbe_dev_read: cur = %d\n", ring->cur);
-@@ -1661,9 +1664,12 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 			       CONTEXT_NEXT, 1);
+-Optional properties (ethernet device):
++Optional properties:
+ - mac-address: mac address to be assigned to the device. Can be overridden
+   by UEFI.
+ - dma-coherent: Present if dma operations are coherent
+ - amd,per-channel-interrupt: Indicates that Rx and Tx complete will generate
+   a unique interrupt for each DMA channel - this requires an additional
+   interrupt be configured for each DMA channel
+-
+-Required properties (phy device):
+-- compatible: Should be "amd,xgbe-phy-seattle-v1a"
+-- reg: Address and length of the register sets for the device
+-   - SerDes Rx/Tx registers
+-   - SerDes integration registers (1/2)
+-   - SerDes integration registers (2/2)
+-- interrupt-parent: Should be the phandle for the interrupt controller
+-  that services interrupts for this device
+-- interrupts: Should contain the amd-xgbe-phy interrupt.
+-
+-Optional properties (phy device):
+ - amd,speed-set: Speed capabilities of the device
+     0 - 1GbE and 10GbE (default)
+     1 - 2.5GbE and 10GbE
+@@ -63,25 +54,19 @@ Example:
+ 	xgbe@e0700000 {
+ 		compatible = "amd,xgbe-seattle-v1a";
+ 		reg = <0 0xe0700000 0 0x80000>,
+-		      <0 0xe0780000 0 0x80000>;
++		      <0 0xe0780000 0 0x80000>,
++		      <0 0xe1240800 0 0x00400>,
++		      <0 0xe1250000 0 0x00060>,
++		      <0 0xe1250080 0 0x00004>;
+ 		interrupt-parent = <&gic>;
+ 		interrupts = <0 325 4>,
+-			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>;
++			     <0 326 1>, <0 327 1>, <0 328 1>, <0 329 1>,
++			     <0 323 4>;
+ 		amd,per-channel-interrupt;
+ 		clocks = <&xgbe_dma_clk>, <&xgbe_ptp_clk>;
+ 		clock-names = "dma_clk", "ptp_clk";
+-		phy-handle = <&xgbe_phy>;
+ 		phy-mode = "xgmii";
+ 		mac-address = [ 02 a1 a2 a3 a4 a5 ];
+-	};
+-
+-	xgbe_phy@e1240800 {
+-		compatible = "amd,xgbe-phy-seattle-v1a";
+-		reg = <0 0xe1240800 0 0x00400>,
+-		      <0 0xe1250000 0 0x00060>,
+-		      <0 0xe1250080 0 0x00004>;
+-		interrupt-parent = <&gic>;
+-		interrupts = <0 323 4>;
+ 		amd,speed-set = <0>;
+ 		amd,serdes-blwc = <1>, <1>, <0>;
+ 		amd,serdes-cdr-rate = <2>, <2>, <7>;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index 0c219b3..34c521d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -300,14 +300,21 @@ static struct platform_device *xgbe_of_get_phy_pdev(struct xgbe_prv_data *pdata)
+ 	struct platform_device *phy_pdev;
  
- 	/* Get the header length */
--	if (XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, FD))
-+	if (XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, FD)) {
- 		rdata->rx.hdr_len = XGMAC_GET_BITS_LE(rdesc->desc2,
- 						      RX_NORMAL_DESC2, HL);
-+		if (rdata->rx.hdr_len)
-+			pdata->ext_stats.rx_split_header_packets++;
-+	}
- 
- 	/* Get the RSS hash */
- 	if (XGMAC_GET_BITS_LE(rdesc->desc3, RX_NORMAL_DESC3, RSV)) {
-@@ -1700,7 +1706,7 @@ static int xgbe_dev_read(struct xgbe_channel *channel)
- 		       INCOMPLETE, 0);
- 
- 	/* Set checksum done indicator as appropriate */
--	if (channel->pdata->netdev->features & NETIF_F_RXCSUM)
-+	if (netdev->features & NETIF_F_RXCSUM)
- 		XGMAC_SET_BITS(packet->attributes, RX_PACKET_ATTRIBUTES,
- 			       CSUM_DONE, 1);
- 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 5f149e8..95baa86 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -133,6 +133,12 @@ struct xgbe_stats {
- 	  offsetof(struct xgbe_prv_data, mmc_stats._var),	\
+ 	phy_node = of_parse_phandle(dev->of_node, "phy-handle", 0);
+-	if (!phy_node) {
+-		dev_err(dev, "unable to locate phy device\n");
+-		return NULL;
++	if (phy_node) {
++		/* Old style device tree:
++		 *   The XGBE and PHY resources are separate
++		 */
++		phy_pdev = of_find_device_by_node(phy_node);
++		of_node_put(phy_node);
++	} else {
++		/* New style device tree:
++		 *   The XGBE and PHY resources are grouped together with
++		 *   the PHY resources listed last
++		 */
++		get_device(dev);
++		phy_pdev = pdata->pdev;
  	}
  
-+#define XGMAC_EXT_STAT(_string, _var)				\
-+	{ _string,						\
-+	  FIELD_SIZEOF(struct xgbe_ext_stats, _var),		\
-+	  offsetof(struct xgbe_prv_data, ext_stats._var),	\
-+	}
-+
- static const struct xgbe_stats xgbe_gstring_stats[] = {
- 	XGMAC_MMC_STAT("tx_bytes", txoctetcount_gb),
- 	XGMAC_MMC_STAT("tx_packets", txframecount_gb),
-@@ -140,6 +146,7 @@ static const struct xgbe_stats xgbe_gstring_stats[] = {
- 	XGMAC_MMC_STAT("tx_broadcast_packets", txbroadcastframes_gb),
- 	XGMAC_MMC_STAT("tx_multicast_packets", txmulticastframes_gb),
- 	XGMAC_MMC_STAT("tx_vlan_packets", txvlanframes_g),
-+	XGMAC_EXT_STAT("tx_tso_packets", tx_tso_packets),
- 	XGMAC_MMC_STAT("tx_64_byte_packets", tx64octets_gb),
- 	XGMAC_MMC_STAT("tx_65_to_127_byte_packets", tx65to127octets_gb),
- 	XGMAC_MMC_STAT("tx_128_to_255_byte_packets", tx128to255octets_gb),
-@@ -171,6 +178,7 @@ static const struct xgbe_stats xgbe_gstring_stats[] = {
- 	XGMAC_MMC_STAT("rx_fifo_overflow_errors", rxfifooverflow),
- 	XGMAC_MMC_STAT("rx_watchdog_errors", rxwatchdogerror),
- 	XGMAC_MMC_STAT("rx_pause_frames", rxpauseframes),
-+	XGMAC_EXT_STAT("rx_split_header_packets", rx_split_header_packets),
- };
+-	phy_pdev = of_find_device_by_node(phy_node);
+-	of_node_put(phy_node);
+-
+ 	return phy_pdev;
+ }
+ #else   /* CONFIG_OF */
+@@ -401,14 +408,14 @@ static int xgbe_probe(struct platform_device *pdev)
+ 	phy_dev = &phy_pdev->dev;
  
- #define XGBE_STATS_COUNT	ARRAY_SIZE(xgbe_gstring_stats)
+ 	if (pdev == phy_pdev) {
+-		/* ACPI:
++		/* New style device tree or ACPI:
+ 		 *   The XGBE and PHY resources are grouped together with
+ 		 *   the PHY resources listed last
+ 		 */
+ 		phy_memnum = xgbe_resource_count(pdev, IORESOURCE_MEM) - 3;
+ 		phy_irqnum = xgbe_resource_count(pdev, IORESOURCE_IRQ) - 1;
+ 	} else {
+-		/* Device tree:
++		/* Old style device tree:
+ 		 *   The XGBE and PHY resources are separate
+ 		 */
+ 		phy_memnum = 0;
 diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index e62dfa2..ef3d1e5 100644
+index b6aecc9..f535d19 100644
 --- a/drivers/net/ethernet/amd/xgbe/xgbe.h
 +++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -492,6 +492,11 @@ struct xgbe_mmc_stats {
- 	u64 rxwatchdogerror;
- };
+@@ -129,7 +129,7 @@
+ #include <net/dcbnl.h>
  
-+struct xgbe_ext_stats {
-+	u64 tx_tso_packets;
-+	u64 rx_split_header_packets;
-+};
-+
- struct xgbe_hw_if {
- 	int (*tx_complete)(struct xgbe_ring_desc *);
+ #define XGBE_DRV_NAME		"amd-xgbe"
+-#define XGBE_DRV_VERSION	"1.0.1"
++#define XGBE_DRV_VERSION	"1.0.2"
+ #define XGBE_DRV_DESC		"AMD 10 Gigabit Ethernet Driver"
  
-@@ -750,6 +755,7 @@ struct xgbe_prv_data {
- 	netdev_features_t netdev_features;
- 	struct napi_struct napi;
- 	struct xgbe_mmc_stats mmc_stats;
-+	struct xgbe_ext_stats ext_stats;
- 
- 	/* Filtering support */
- 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ /* Descriptor related defines */
