@@ -1,48 +1,43 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] wil6210: match wait_for_completion_timeout return type
-Date: Thu, 14 May 2015 13:41:26 +0200
-Message-ID: <1431603686-24029-1-git-send-email-hofrat@osadl.org>
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicholas Mc Guire <hofrat@osadl.org>
-To: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+From: Ivan Mikhaylov <ivan@ru.ibm.com>
+Subject: Re: [PATCH 2/2] net/ibm/emac: fix size of emac dump memory areas
+Date: Thu, 14 May 2015 16:04:34 +0400
+Message-ID: <20150514160434.29ea2603@fr-ThinkPad-W520>
+References: <20150512171200.207dfd7b@fr-ThinkPad-W520>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150512171200.207dfd7b@fr-ThinkPad-W520>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Return type of wait_for_completion_timeout is unsigned long not int.
-As remain is exclusively used for wait_for_completion_timeout here its
-type is simply changed to unsigned long.
+On Tue, 12 May 2015 17:12:00 +0400
+Ivan Mikhaylov <ivan@ru.ibm.com> wrote:
+>>On Tue, 2015-05-12 at 17:12 +0400, Ivan Mikhaylov wrote:
+>> Fix in send of emac regs dump to ethtool which
+>> causing wrong data interpretation on ethtool
+>> layer for MII and EMAC.
+>
+>Please provide a better explanation. You removed the difference
+>in register space size between EMAC and EMAC4, why ? You also changed a
+>test regarding which version of the structure to use from EMAC4 to
+>EMAC4SYNC, why ?
 
+So, as I understand right, we have EMAC, EMAC4, EMAC4SYNC chips right now?
+But within driver structure there are only EMAC4/EMAC4SYNC that I'm seeing or 
+is it include and EMAC? I thought that only EMAC4/EMAC4SYNC we have. 
 
-API conformance testing for completions with coccinelle spatches are being
-used to locate API usage inconsistencies:
-./drivers/net/wireless/ath/wil6210/wmi.c:827 
-	int return assigned to unsigned long
+Anyway we have bug in ethtool, there size of emac_regs is defined and if we
+will provide wrong size of emac_regs structure that will cause problems in
+showing of some emac_regs fields for emac4sync + MII layer. Plus size of 
+register space can be different on different platforms so because of this 
+I removed macroses which doing this right from it. So just for example 
+we have 0x100 for emac4sync in dts file, sizeof on ethtool is 152 always for 
+emac_regs and we're reading MII values from emac area where is no data for
+MII.
 
-Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-CONFIG_WIL6210=m
-
-Patch is against 4.1-rc3 (localversion-next is -next-20150514)
-
-
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
- drivers/net/wireless/ath/wil6210/wmi.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/wil6210/wmi.c b/drivers/net/wireless/ath/wil6210/wmi.c
-index 9fe2085..e8d5335 100644
---- a/drivers/net/wireless/ath/wil6210/wmi.c
-+++ b/drivers/net/wireless/ath/wil6210/wmi.c
-@@ -805,7 +805,7 @@ int wmi_call(struct wil6210_priv *wil, u16 cmdid, void *buf, u16 len,
- 	     u16 reply_id, void *reply, u8 reply_size, int to_msec)
- {
- 	int rc;
--	int remain;
-+	unsigned long remain;
- 
- 	mutex_lock(&wil->wmi_mutex);
- 
--- 
-1.7.10.4
+I have to add emac4sync support to ethtool regdump as I see in plus to
+EMAC/EMAC4. What your opinion on this?
