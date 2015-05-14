@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 7/8] tipc: improve link congestion algorithm
-Date: Thu, 14 May 2015 10:46:17 -0400
-Message-ID: <1431614778-17582-8-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 8/8] tipc: add packet sequence number at instant of transmission
+Date: Thu, 14 May 2015 10:46:18 -0400
+Message-ID: <1431614778-17582-9-git-send-email-jon.maloy@ericsson.com>
 References: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,154 +10,314 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:30877 "EHLO
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:30889 "EHLO
 	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933169AbbENOqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:46:47 -0400
+	by vger.kernel.org with ESMTP id S933249AbbENOqu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 10:46:50 -0400
 In-Reply-To: <1431614778-17582-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The link congestion algorithm used until now implies two problems.
+Currently, the packet sequence number is updated and added to each
+packet at the moment a packet is added to the link backlog queue.
+This is wasteful, since it forces the code to traverse the send
+packet list packet by packet when adding them to the backlog queue.
+It would be better to just splice the whole packet list into the
+backlog queue when that is the right action to do.
 
-- It is too generous towards lower-level messages in situations of high
-  load by giving "absolute" bandwidth guarantees to the different
-  priority levels. LOW traffic is guaranteed 10%, MEDIUM is guaranted
-  20%, HIGH is guaranteed 30%, and CRITICAL is guaranteed 40% of the
-  available bandwidth. But, in the absence of higher level traffic, the
-  ratio between two distinct levels becomes unreasonable. E.g. if there
-  is only LOW and MEDIUM traffic on a system, the former is guaranteed
-  1/3 of the bandwidth, and the latter 2/3. This again means that if
-  there is e.g. one LOW user and 10 MEDIUM users, the  former will have
-  33.3% of the bandwidth, and the others will have to compete for the
-  remainder, i.e. each will end up with 6.7% of the capacity.
+In this commit, we do this change. Also, since the sequence numbers
+cannot now be assigned to the packets at the moment they are added
+the backlog queue, we do instead calculate and add them at the moment
+of transmission, when the backlog queue has to be traversed anyway.
+We do this in the function tipc_link_push_packet().
 
-- Packets of type MSG_BUNDLER are created at SYSTEM importance level,
-  but only after the packets bundled into it have passed the congestion
-  test for their own respective levels. Since bundled packets don't
-  result in incrementing the level counter for their own importance,
-  only occasionally for the SYSTEM level counter, they do in practice
-  obtain SYSTEM level importance. Hence, the current implementation
-  provides a gap in the congestion algorithm that in the worst case
-  may lead to a link reset.
-
-We now refine the congestion algorithm as follows:
-
-- A message is accepted to the link backlog only if its own level
-  counter, and all superior level counters, permit it.
-
-- The importance of a created bundle packet is set according to its
-  contents. A bundle packet created from messges at levels LOW to
-  CRITICAL is given importance level CRITICAL, while a bundle created
-  from a SYSTEM level message is given importance SYSTEM. In the latter
-  case only subsequent SYSTEM level messages are allowed to be bundled
-  into it.
-
-This solves the first problem described above, by making the bandwidth
-guarantee relative to the total number of users at all levels; only
-the upper limit for each level remains absolute. In the example
-described above, the single LOW user would use 1/11th of the bandwidth,
-the same as each of the ten MEDIUM users, but he still has the same
-guarantee against starvation as the latter ones.
-
-The fix also solves the second problem. If the CRITICAL level is filled
-up by bundle packets of that level, no lower level packets will be
-accepted any more.
-
-Suggested-by: Gergely Kiss <gergely.kiss@ericsson.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c | 11 ++++++-----
- net/tipc/msg.c  |  7 +++++++
- net/tipc/msg.h  | 14 +++++++++-----
- 3 files changed, 22 insertions(+), 10 deletions(-)
+ net/tipc/bcast.c |  6 +-----
+ net/tipc/link.c  | 37 ++++++++++++++++++++++++++++---------
+ net/tipc/msg.c   | 44 +++++++++++++++++++++-----------------------
+ net/tipc/msg.h   |  6 +++---
+ net/tipc/node.c  |  2 +-
+ 5 files changed, 54 insertions(+), 41 deletions(-)
 
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 842e19f..4906ca3 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -115,12 +115,8 @@ static void bclink_set_last_sent(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct tipc_link *bcl = tn->bcl;
+-	struct sk_buff *skb = skb_peek(&bcl->backlogq);
+ 
+-	if (skb)
+-		bcl->silent_intv_cnt = mod(buf_seqno(skb) - 1);
+-	else
+-		bcl->silent_intv_cnt = mod(bcl->snd_nxt - 1);
++	bcl->silent_intv_cnt = mod(bcl->snd_nxt - 1);
+ }
+ 
+ u32 tipc_bclink_get_last_sent(struct net *net)
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index a5ea19e..c1aba69 100644
+index c1aba69..fb2a003 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -645,7 +645,7 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
- {
- 	struct tipc_msg *msg = buf_msg(skb_peek(list));
- 	unsigned int maxwin = link->window;
--	unsigned int imp = msg_importance(msg);
-+	unsigned int i, imp = msg_importance(msg);
- 	uint mtu = link->mtu;
- 	u16 ack = mod(link->rcv_nxt - 1);
- 	u16 seqno = link->snd_nxt;
-@@ -655,10 +655,11 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
+@@ -653,7 +653,7 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
+ 	struct tipc_media_addr *addr = &link->media_addr;
+ 	struct sk_buff_head *transmq = &link->transmq;
  	struct sk_buff_head *backlogq = &link->backlogq;
- 	struct sk_buff *skb, *tmp;
+-	struct sk_buff *skb, *tmp;
++	struct sk_buff *skb, *bskb;
  
--	/* Match backlog limit against msg importance: */
--	if (unlikely(link->backlog[imp].len >= link->backlog[imp].limit))
--		return link_schedule_user(link, list);
--
-+	/* Match msg importance against this and all higher backlog limits: */
-+	for (i = imp; i <= TIPC_SYSTEM_IMPORTANCE; i++) {
-+		if (unlikely(link->backlog[i].len >= link->backlog[i].limit))
-+			return link_schedule_user(link, list);
-+	}
- 	if (unlikely(msg_size(msg) > mtu)) {
- 		__skb_queue_purge(list);
+ 	/* Match msg importance against this and all higher backlog limits: */
+ 	for (i = imp; i <= TIPC_SYSTEM_IMPORTANCE; i++) {
+@@ -665,32 +665,36 @@ int __tipc_link_xmit(struct net *net, struct tipc_link *link,
  		return -EMSGSIZE;
+ 	}
+ 	/* Prepare each packet for sending, and add to relevant queue: */
+-	skb_queue_walk_safe(list, skb, tmp) {
+-		__skb_unlink(skb, list);
++	while (skb_queue_len(list)) {
++		skb = skb_peek(list);
+ 		msg = buf_msg(skb);
+ 		msg_set_seqno(msg, seqno);
+ 		msg_set_ack(msg, ack);
+ 		msg_set_bcast_ack(msg, bc_last_in);
+ 
+ 		if (likely(skb_queue_len(transmq) < maxwin)) {
++			__skb_dequeue(list);
+ 			__skb_queue_tail(transmq, skb);
+ 			tipc_bearer_send(net, link->bearer_id, skb, addr);
+ 			link->rcv_unacked = 0;
+ 			seqno++;
+ 			continue;
+ 		}
+-		if (tipc_msg_bundle(skb_peek_tail(backlogq), skb, mtu)) {
++		if (tipc_msg_bundle(skb_peek_tail(backlogq), msg, mtu)) {
++			kfree_skb(__skb_dequeue(list));
+ 			link->stats.sent_bundled++;
+ 			continue;
+ 		}
+-		if (tipc_msg_make_bundle(&skb, mtu, link->addr)) {
++		if (tipc_msg_make_bundle(&bskb, msg, mtu, link->addr)) {
++			kfree_skb(__skb_dequeue(list));
++			__skb_queue_tail(backlogq, bskb);
++			link->backlog[msg_importance(buf_msg(bskb))].len++;
+ 			link->stats.sent_bundled++;
+ 			link->stats.sent_bundles++;
+-			imp = msg_importance(buf_msg(skb));
++			continue;
+ 		}
+-		__skb_queue_tail(backlogq, skb);
+-		link->backlog[imp].len++;
+-		seqno++;
++		link->backlog[imp].len += skb_queue_len(list);
++		skb_queue_splice_tail_init(list, backlogq);
+ 	}
+ 	link->snd_nxt = seqno;
+ 	return 0;
+@@ -822,6 +826,7 @@ void tipc_link_push_packets(struct tipc_link *link)
+ {
+ 	struct sk_buff *skb;
+ 	struct tipc_msg *msg;
++	u16 seqno = link->snd_nxt;
+ 	u16 ack = mod(link->rcv_nxt - 1);
+ 
+ 	while (skb_queue_len(&link->transmq) < link->window) {
+@@ -831,12 +836,15 @@ void tipc_link_push_packets(struct tipc_link *link)
+ 		msg = buf_msg(skb);
+ 		link->backlog[msg_importance(msg)].len--;
+ 		msg_set_ack(msg, ack);
++		msg_set_seqno(msg, seqno);
++		seqno = mod(seqno + 1);
+ 		msg_set_bcast_ack(msg, link->owner->bclink.last_in);
+ 		link->rcv_unacked = 0;
+ 		__skb_queue_tail(&link->transmq, skb);
+ 		tipc_bearer_send(link->owner->net, link->bearer_id,
+ 				 skb, &link->media_addr);
+ 	}
++	link->snd_nxt = seqno;
+ }
+ 
+ void tipc_link_reset_all(struct tipc_node *node)
+@@ -1526,6 +1534,11 @@ void tipc_link_failover_send_queue(struct tipc_link *l_ptr)
+ 
+ 	tipc_msg_init(link_own_addr(l_ptr), &tunnel_hdr, TUNNEL_PROTOCOL,
+ 		      FAILOVER_MSG, INT_H_SIZE, l_ptr->addr);
++
++	skb_queue_walk(&l_ptr->backlogq, skb) {
++		msg_set_seqno(buf_msg(skb), l_ptr->snd_nxt);
++		l_ptr->snd_nxt = mod(l_ptr->snd_nxt + 1);
++	}
+ 	skb_queue_splice_tail_init(&l_ptr->backlogq, &l_ptr->transmq);
+ 	tipc_link_purge_backlog(l_ptr);
+ 	msgcount = skb_queue_len(&l_ptr->transmq);
+@@ -1586,6 +1599,7 @@ void tipc_link_dup_queue_xmit(struct tipc_link *link,
+ 	struct tipc_msg tnl_hdr;
+ 	struct sk_buff_head *queue = &link->transmq;
+ 	int mcnt;
++	u16 seqno;
+ 
+ 	tipc_msg_init(link_own_addr(link), &tnl_hdr, TUNNEL_PROTOCOL,
+ 		      SYNCH_MSG, INT_H_SIZE, link->addr);
+@@ -1617,6 +1631,11 @@ tunnel_queue:
+ 	}
+ 	if (queue == &link->backlogq)
+ 		return;
++	seqno = link->snd_nxt;
++	skb_queue_walk(&link->backlogq, skb) {
++		msg_set_seqno(buf_msg(skb), seqno);
++		seqno = mod(seqno + 1);
++	}
+ 	queue = &link->backlogq;
+ 	goto tunnel_queue;
+ }
 diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index c3e96e8..ff7362d 100644
+index ff7362d..08b4cc7 100644
 --- a/net/tipc/msg.c
 +++ b/net/tipc/msg.c
-@@ -365,6 +365,9 @@ bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu)
+@@ -331,16 +331,15 @@ error:
+ 
+ /**
+  * tipc_msg_bundle(): Append contents of a buffer to tail of an existing one
+- * @bskb: the buffer to append to ("bundle")
+- * @skb:  buffer to be appended
++ * @skb: the buffer to append to ("bundle")
++ * @msg:  message to be appended
+  * @mtu:  max allowable size for the bundle buffer
+  * Consumes buffer if successful
+  * Returns true if bundling could be performed, otherwise false
+  */
+-bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu)
++bool tipc_msg_bundle(struct sk_buff *skb, struct tipc_msg *msg, u32 mtu)
+ {
+ 	struct tipc_msg *bmsg;
+-	struct tipc_msg *msg = buf_msg(skb);
+ 	unsigned int bsz;
+ 	unsigned int msz = msg_size(msg);
+ 	u32 start, pad;
+@@ -348,9 +347,9 @@ bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu)
+ 
+ 	if (likely(msg_user(msg) == MSG_FRAGMENTER))
+ 		return false;
+-	if (!bskb)
++	if (!skb)
+ 		return false;
+-	bmsg = buf_msg(bskb);
++	bmsg = buf_msg(skb);
+ 	bsz = msg_size(bmsg);
+ 	start = align(bsz);
+ 	pad = start - bsz;
+@@ -359,9 +358,9 @@ bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu)
+ 		return false;
+ 	if (unlikely(msg_user(msg) == BCAST_PROTOCOL))
+ 		return false;
+-	if (likely(msg_user(bmsg) != MSG_BUNDLER))
++	if (unlikely(msg_user(bmsg) != MSG_BUNDLER))
+ 		return false;
+-	if (unlikely(skb_tailroom(bskb) < (pad + msz)))
++	if (unlikely(skb_tailroom(skb) < (pad + msz)))
  		return false;
  	if (unlikely(max < (start + msz)))
  		return false;
-+	if ((msg_importance(msg) < TIPC_SYSTEM_IMPORTANCE) &&
-+	    (msg_importance(bmsg) == TIPC_SYSTEM_IMPORTANCE))
-+		return false;
+@@ -369,11 +368,10 @@ bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu)
+ 	    (msg_importance(bmsg) == TIPC_SYSTEM_IMPORTANCE))
+ 		return false;
  
- 	skb_put(bskb, pad + msz);
- 	skb_copy_to_linear_data_offset(bskb, start, skb->data, msz);
-@@ -448,6 +451,10 @@ bool tipc_msg_make_bundle(struct sk_buff **skb, u32 mtu, u32 dnode)
- 	bmsg = buf_msg(bskb);
+-	skb_put(bskb, pad + msz);
+-	skb_copy_to_linear_data_offset(bskb, start, skb->data, msz);
++	skb_put(skb, pad + msz);
++	skb_copy_to_linear_data_offset(skb, start, msg, msz);
+ 	msg_set_size(bmsg, start + msz);
+ 	msg_set_msgcnt(bmsg, msg_msgcnt(bmsg) + 1);
+-	kfree_skb(skb);
+ 	return true;
+ }
+ 
+@@ -419,18 +417,18 @@ none:
+ 
+ /**
+  * tipc_msg_make_bundle(): Create bundle buf and append message to its tail
+- * @list: the buffer chain
+- * @skb: buffer to be appended and replaced
++ * @list: the buffer chain, where head is the buffer to replace/append
++ * @skb: buffer to be created, appended to and returned in case of success
++ * @msg: message to be appended
+  * @mtu: max allowable size for the bundle buffer, inclusive header
+  * @dnode: destination node for message. (Not always present in header)
+- * Replaces buffer if successful
+  * Returns true if success, otherwise false
+  */
+-bool tipc_msg_make_bundle(struct sk_buff **skb, u32 mtu, u32 dnode)
++bool tipc_msg_make_bundle(struct sk_buff **skb,  struct tipc_msg *msg,
++			  u32 mtu, u32 dnode)
+ {
+-	struct sk_buff *bskb;
++	struct sk_buff *_skb;
+ 	struct tipc_msg *bmsg;
+-	struct tipc_msg *msg = buf_msg(*skb);
+ 	u32 msz = msg_size(msg);
+ 	u32 max = mtu - INT_H_SIZE;
+ 
+@@ -443,12 +441,12 @@ bool tipc_msg_make_bundle(struct sk_buff **skb, u32 mtu, u32 dnode)
+ 	if (msz > (max / 2))
+ 		return false;
+ 
+-	bskb = tipc_buf_acquire(max);
+-	if (!bskb)
++	_skb = tipc_buf_acquire(max);
++	if (!_skb)
+ 		return false;
+ 
+-	skb_trim(bskb, INT_H_SIZE);
+-	bmsg = buf_msg(bskb);
++	skb_trim(_skb, INT_H_SIZE);
++	bmsg = buf_msg(_skb);
  	tipc_msg_init(msg_prevnode(msg), bmsg, MSG_BUNDLER, 0,
  		      INT_H_SIZE, dnode);
-+	if (msg_isdata(msg))
-+		msg_set_importance(bmsg, TIPC_CRITICAL_IMPORTANCE);
-+	else
-+		msg_set_importance(bmsg, TIPC_SYSTEM_IMPORTANCE);
+ 	if (msg_isdata(msg))
+@@ -458,8 +456,8 @@ bool tipc_msg_make_bundle(struct sk_buff **skb, u32 mtu, u32 dnode)
  	msg_set_seqno(bmsg, msg_seqno(msg));
  	msg_set_ack(bmsg, msg_ack(msg));
  	msg_set_bcast_ack(bmsg, msg_bcast_ack(msg));
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 6ca2366..6caf16c 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -352,18 +352,22 @@ static inline void msg_set_seqno(struct tipc_msg *m, u16 n)
-  */
- static inline u32 msg_importance(struct tipc_msg *m)
- {
--	if (unlikely(msg_user(m) == MSG_FRAGMENTER))
-+	int usr = msg_user(m);
-+
-+	if (likely((usr <= TIPC_CRITICAL_IMPORTANCE) && !msg_errcode(m)))
-+		return usr;
-+	if ((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER))
- 		return msg_bits(m, 5, 13, 0x7);
--	if (likely(msg_isdata(m) && !msg_errcode(m)))
--		return msg_user(m);
- 	return TIPC_SYSTEM_IMPORTANCE;
+-	tipc_msg_bundle(bskb, *skb, mtu);
+-	*skb = bskb;
++	tipc_msg_bundle(_skb, msg, mtu);
++	*skb = _skb;
+ 	return true;
  }
  
- static inline void msg_set_importance(struct tipc_msg *m, u32 i)
- {
--	if (unlikely(msg_user(m) == MSG_FRAGMENTER))
-+	int usr = msg_user(m);
-+
-+	if (likely((usr == MSG_FRAGMENTER) || (usr == MSG_BUNDLER)))
- 		msg_set_bits(m, 5, 13, 0x7, i);
--	else if (likely(i < TIPC_SYSTEM_IMPORTANCE))
-+	else if (i < TIPC_SYSTEM_IMPORTANCE)
- 		msg_set_user(m, i);
- 	else
- 		pr_warn("Trying to set illegal importance in message\n");
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 6caf16c..19c45fb 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -776,9 +776,9 @@ struct sk_buff *tipc_msg_create(uint user, uint type, uint hdr_sz,
+ 				uint data_sz, u32 dnode, u32 onode,
+ 				u32 dport, u32 oport, int errcode);
+ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf);
+-bool tipc_msg_bundle(struct sk_buff *bskb, struct sk_buff *skb, u32 mtu);
+-
+-bool tipc_msg_make_bundle(struct sk_buff **skb, u32 mtu, u32 dnode);
++bool tipc_msg_bundle(struct sk_buff *skb, struct tipc_msg *msg, u32 mtu);
++bool tipc_msg_make_bundle(struct sk_buff **skb, struct tipc_msg *msg,
++			  u32 mtu, u32 dnode);
+ bool tipc_msg_extract(struct sk_buff *skb, struct sk_buff **iskb, int *pos);
+ int tipc_msg_build(struct tipc_msg *mhdr, struct msghdr *m,
+ 		   int offset, int dsz, int mtu, struct sk_buff_head *list);
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index eb3856b..0b1d61a 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/node.c: TIPC node management routines
+  *
+- * Copyright (c) 2000-2006, 2012-2014, Ericsson AB
++ * Copyright (c) 2000-2006, 2012-2015, Ericsson AB
+  * Copyright (c) 2005-2006, 2010-2014, Wind River Systems
+  * All rights reserved.
+  *
 -- 
 1.9.1
