@@ -1,82 +1,128 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next fragmentation icmp v4 1/4] ipv4: introduce frag_expire_skip_icmp()
-Date: Wed, 13 May 2015 19:27:59 -0700
-Message-ID: <1431570482-9236-2-git-send-email-azhou@nicira.com>
+Subject: [net-next fragmentation icmp v4 3/4] bridge_netfilter: No ICMP packet on IPv4 defragmentation timeout
+Date: Wed, 13 May 2015 19:28:01 -0700
+Message-ID: <1431570482-9236-4-git-send-email-azhou@nicira.com>
 References: <1431570482-9236-1-git-send-email-azhou@nicira.com>
 Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:57692 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933345AbbENCtd (ORCPT
+Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:44028 "HELO
+	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933740AbbENCtd (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 22:49:33 -0400
-Received: by mail-pa0-f53.google.com with SMTP id tp1so69279619pab.2
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 19:49:30 -0700 (PDT)
+Received: by mail-pa0-f45.google.com with SMTP id tp1so69279626pab.2
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 19:49:32 -0700 (PDT)
 In-Reply-To: <1431570482-9236-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Improve readability of skip ICMP for de-fragmentation expiration logic.
-This change will also make the logic easier to maintain when the
-following patches in this series are applied.
+Currently, on defragmentation timeout error, ICMP error message
+will be generated. This is fine when they are used in a routing context,
+but does not make sense in the context of bridging netfilter.
+
+This patch adds a bit (IPSKB_NO_FRAG_ICMP) in IPCB to control
+whether ICMP error message should be generated. br_netfiler sets
+this bit.
 
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 ---
- include/net/ip.h       | 10 ++++++++++
- net/ipv4/ip_fragment.c | 13 +++++++++----
- 2 files changed, 19 insertions(+), 4 deletions(-)
+ include/net/inet_frag.h   |  4 +++-
+ include/net/ip.h          |  1 +
+ net/bridge/br_netfilter.c |  5 +++++
+ net/ipv4/ip_fragment.c    | 12 ++++++++++--
+ 4 files changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 0ed6d76..43f6f39 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -478,6 +478,16 @@ enum ip_defrag_users {
- 	IP_DEFRAG_MACVLAN,
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 8d17655..e3c8840 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -22,12 +22,14 @@ struct netns_frags {
+  * @INET_FRAG_LAST_IN: final fragment has arrived
+  * @INET_FRAG_COMPLETE: frag queue has been processed and is due for destruction
+  * @INET_FRAG_EVICTED: frag queue is being evicted
++ * @INET_FRAG_NO_ICMP: Do not send icmp message on incomplete defrag
+  */
+ enum {
+ 	INET_FRAG_FIRST_IN	= BIT(0),
+ 	INET_FRAG_LAST_IN	= BIT(1),
+ 	INET_FRAG_COMPLETE	= BIT(2),
+-	INET_FRAG_EVICTED	= BIT(3)
++	INET_FRAG_EVICTED	= BIT(3),
++	INET_FRAG_NO_ICMP	= BIT(4)
  };
  
-+/* Return true if the value of 'user' is between 'lower_bond'
-+ * and 'upper_bond' inclusively.
-+ */
-+static inline bool ip_defrag_user_in_between(u32 user,
-+					     enum ip_defrag_users lower_bond,
-+					     enum ip_defrag_users upper_bond)
-+{
-+	return user >= lower_bond && user <= upper_bond;
-+}
+ /**
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 43f6f39..af44c9f 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -45,6 +45,7 @@ struct inet_skb_parm {
+ #define IPSKB_FRAG_COMPLETE	BIT(3)
+ #define IPSKB_REROUTED		BIT(4)
+ #define IPSKB_DOREDIRECT	BIT(5)
++#define IPSKB_NO_FRAG_ICMP	BIT(6)
+ 
+ 	u16			frag_max_size;
+ };
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index ab55e24..6a2adba 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -663,6 +663,11 @@ static unsigned int br_nf_pre_routing(const struct nf_hook_ops *ops,
+ 	if (br_parse_ip_options(skb))
+ 		return NF_DROP;
+ 
++	/* In case this is a fragmented packet, do not send icmp packet on
++	 * defragmentation error
++	 */
++	IPCB(skb)->flags |= IPSKB_NO_FRAG_ICMP;
 +
- int ip_defrag(struct sk_buff *skb, u32 user);
- #ifdef CONFIG_INET
- struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32 user);
+ 	nf_bridge_put(skb->nf_bridge);
+ 	if (!nf_bridge_alloc(skb))
+ 		return NF_DROP;
 diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index cc1da6d..83424f1 100644
+index 47fa64e..60afaa7 100644
 --- a/net/ipv4/ip_fragment.c
 +++ b/net/ipv4/ip_fragment.c
-@@ -173,6 +173,13 @@ static void ipq_kill(struct ipq *ipq)
- 	inet_frag_kill(&ipq->q, &ip4_frags);
- }
- 
-+static bool frag_expire_skip_icmp(u32 user)
-+{
-+	return user == IP_DEFRAG_AF_PACKET ||
-+	       ip_defrag_user_in_between(user, IP_DEFRAG_CONNTRACK_IN,
-+					 __IP_DEFRAG_CONNTRACK_IN_END);
-+}
-+
- /*
-  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
-  */
-@@ -217,10 +224,8 @@ static void ip_expire(unsigned long arg)
+@@ -226,7 +226,8 @@ static void ip_expire(unsigned long arg)
  		/* Only an end host needs to send an ICMP
  		 * "Fragment Reassembly Timeout" message, per RFC792.
  		 */
--		if (qp->user == IP_DEFRAG_AF_PACKET ||
--		    ((qp->user >= IP_DEFRAG_CONNTRACK_IN) &&
--		     (qp->user <= __IP_DEFRAG_CONNTRACK_IN_END) &&
--		     (skb_rtable(head)->rt_type != RTN_LOCAL)))
-+		if (frag_expire_skip_icmp(qp->user) &&
-+		    (skb_rtable(head)->rt_type != RTN_LOCAL))
+-		if (frag_expire_skip_icmp(qp->user) &&
++		if ((qp->q.flags & INET_FRAG_NO_ICMP) ||
++		    frag_expire_skip_icmp(qp->user) ||
+ 		    (skb_rtable(head)->rt_type != RTN_LOCAL))
  			goto out_rcu_unlock;
  
- 		/* Send an ICMP "Fragment Reassembly Timeout" message. */
+@@ -330,6 +331,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 	int ihl, end;
+ 	int err = -ENOENT;
+ 	u8 ecn;
++	bool no_icmp;
+ 
+ 	if (qp->q.flags & INET_FRAG_COMPLETE)
+ 		goto err;
+@@ -347,6 +349,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 	offset &= IP_OFFSET;
+ 	offset <<= 3;		/* offset is in 8-byte chunks */
+ 	ihl = ip_hdrlen(skb);
++	no_icmp = IPCB(skb)->flags & IPSKB_NO_FRAG_ICMP;
+ 
+ 	/* Determine the position of this fragment. */
+ 	end = offset + skb->len - ihl;
+@@ -485,7 +488,12 @@ found:
+ 	    skb->len + ihl > qp->q.max_size)
+ 		qp->q.max_size = skb->len + ihl;
+ 
+-	if (qp->q.flags == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
++	if (no_icmp) {
++		qp->q.flags |= INET_FRAG_NO_ICMP;
++	}
++
++	if (((qp->q.flags & ~INET_FRAG_NO_ICMP) ==
++		(INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN)) &&
+ 	    qp->q.meat == qp->q.len) {
+ 		unsigned long orefdst = skb->_skb_refdst;
+ 
 -- 
 1.9.1
