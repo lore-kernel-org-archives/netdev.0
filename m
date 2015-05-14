@@ -1,47 +1,102 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] ath9k_htc: wmi: match wait_for_completion_timeout return type
-Date: Thu, 14 May 2015 18:43:41 +0200
-Message-ID: <1431621821-8173-1-git-send-email-hofrat@osadl.org>
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	ath9k-devel@venema.h4ckr.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
-To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] packet: fix warnings in rollover lock
+ contention
+Date: Thu, 14 May 2015 12:59:22 -0400 (EDT)
+Message-ID: <20150514.125922.1722914809373007896.davem@davemloft.net>
+References: <1431617634.27831.60.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+FuTSfQ3xuTjJk-oSDvT0o67vY34Y68zVjuTByhNaGfaNPagg@mail.gmail.com>
+	<1431620686.27831.63.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: willemb@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40127 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750777AbbENQ7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 12:59:24 -0400
+In-Reply-To: <1431620686.27831.63.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Return type of wait_for_completion_timeout is unsigned long not int.
-As time_left is exclusively used for wait_for_completion_timeout here its
-type is simply changed to unsigned long.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 14 May 2015 09:24:46 -0700
 
-API conformance testing for completions with coccinelle spatches are being
-used to locate API usage inconsistencies:
-./drivers/net/wireless/ath/ath9k/wmi.c:331
-	int return assigned to unsigned long
+> On Thu, 2015-05-14 at 11:53 -0400, Willem de Bruijn wrote:
+> 
+>> I principally want to avoid the lock contention on sk_receive_queue.lock,
+>> which is held for a lot longer while probing frames. But yes, I'd prefer to
+>> avoid the cacheline contention as well.
+>> 
+>> The alternative is to keep the race and just replace the xchg with a
+>> straight assignment.
+> 
+> Please describe the race. It seems quite innocent at first look.
+> 
+> Clearly putting xchg() gives a false sense of security in this context.
+> 
+> Atomic ops should be reserved for cases we cannot avoid them,
+> not to give false hopes ;)
 
-Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-CONFIG_ATH9K_HTC=m
+Basically, ->pressure seems to exist merely to optimize the scanner
+in fanout_demux_rollover().  It makes it so that we don't check
+sockets we already know lack space.
 
-Patch is against 4.1-rc3 (localversion-next is -next-20150514)
+It is set (in an unlocked context) by packet_rcv_has_room() calls
+which calculate that the socket lacks space.
 
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
- drivers/net/wireless/ath/ath9k/wmi.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+It is cleared either in non-tpacket recvmsg() or poll(), the latter
+of which holds the socket receive queue spinlock.
 
-diff --git a/drivers/net/wireless/ath/ath9k/wmi.c b/drivers/net/wireless/ath/ath9k/wmi.c
-index ca533b4..a1458db 100644
---- a/drivers/net/wireless/ath/ath9k/wmi.c
-+++ b/drivers/net/wireless/ath/ath9k/wmi.c
-@@ -299,7 +299,8 @@ int ath9k_wmi_cmd(struct wmi *wmi, enum wmi_cmd_id cmd_id,
- 		       sizeof(struct wmi_cmd_hdr);
- 	struct sk_buff *skb;
- 	u8 *data;
--	int time_left, ret = 0;
-+	unsigned long time_left;
-+	int ret = 0;
+This kind of variable and conditional locking is crummy, at best.
+
+Since non-tpacket recvmsg already has to hold the receive queue lock
+to pull out the SKB (via skb_recv_datagram()), there is no value to
+the conditional locking done by packet_rcv_has_room().
+
+Just take the receive queue lock always, and then you can guarantee
+that all ->pressure updates occur under that lock.
+
+Tests can be done asynchronously without locking in the
+fanout_demux_rollover() code, and that's fine.  It's a heuristic
+after all.
+
+Like this:
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 31d5856..0947895 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1301,17 +1301,14 @@ static int packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
+ 	int ret;
+ 	bool has_room;
  
- 	if (ah->ah_flags & AH_UNPLUGGED)
- 		return 0;
--- 
-1.7.10.4
+-	if (po->prot_hook.func == tpacket_rcv) {
+-		spin_lock(&po->sk.sk_receive_queue.lock);
+-		ret = __packet_rcv_has_room(po, skb);
+-		spin_unlock(&po->sk.sk_receive_queue.lock);
+-	} else {
+-		ret = __packet_rcv_has_room(po, skb);
+-	}
++	spin_lock(&po->sk.sk_receive_queue.lock);
+ 
++	ret = __packet_rcv_has_room(po, skb);
+ 	has_room = ret == ROOM_NORMAL;
+ 	if (po->pressure == has_room)
+-		xchg(&po->pressure, !has_room);
++		po->pressure = !has_room;
++
++	spin_unlock(&po->sk.sk_receive_queue.lock);
+ 
+ 	return ret;
+ }
+@@ -3814,7 +3811,7 @@ static unsigned int packet_poll(struct file *file, struct socket *sock,
+ 			mask |= POLLIN | POLLRDNORM;
+ 	}
+ 	if (po->pressure && __packet_rcv_has_room(po, NULL) == ROOM_NORMAL)
+-		xchg(&po->pressure, 0);
++		po->pressure = 0;
+ 	spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 	spin_lock_bh(&sk->sk_write_queue.lock);
+ 	if (po->tx_ring.pg_vec) {
