@@ -1,40 +1,82 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] rocker: fix a neigh entry leak issue
-Date: Thu, 14 May 2015 15:06:30 +0800
-Message-ID: <1431587190-28901-1-git-send-email-ying.xue@windriver.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warnings after merge of the net-next tree
+Date: Thu, 14 May 2015 17:12:06 +1000
+Message-ID: <20150514171206.2fe660ec@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <jiri@resnulli.us>, <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:51080 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713AbbENHGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 03:06:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/NRSwGq3r=QpARwCuys5DYij"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Once we get a neighbour through looking up arp cache or creating a
-new one in rocker_port_ipv4_resolve(), the neighbour's refcount is
-already taken. But we don't put the refcount again after it's used,
-which make the neighbour entry leaked.
+--Sig_/NRSwGq3r=QpARwCuys5DYij
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- drivers/net/ethernet/rocker/rocker.c |    1 +
- 1 file changed, 1 insertion(+)
+Hi all,
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 1fc006b..7504540 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3053,6 +3053,7 @@ static int rocker_port_ipv4_resolve(struct rocker_port *rocker_port,
- 	else
- 		neigh_event_send(n, NULL);
- 
-+	neigh_release(n);
- 	return err;
- }
- 
--- 
-1.7.9.5
+After merging the net-next tree, today's linux-next build (sparc64 defconfi=
+g)
+produced these warnings:
+
+In file included from arch/sparc/include/asm/cmpxchg.h:4:0,
+                 from arch/sparc/include/asm/atomic_64.h:11,
+                 from arch/sparc/include/asm/atomic.h:4,
+                 from include/linux/atomic.h:4,
+                 from include/linux/spinlock.h:416,
+                 from include/linux/mmzone.h:7,
+                 from include/linux/gfp.h:5,
+                 from include/linux/mm.h:9,
+                 from net/packet/af_packet.c:56:
+net/packet/af_packet.c: In function 'packet_rcv_has_room':
+arch/sparc/include/asm/cmpxchg_64.h:43:22: warning: value computed is not u=
+sed [-Wunused-value]
+ #define xchg(ptr,x) ((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),s=
+izeof(*(ptr))))
+                      ^
+net/packet/af_packet.c:1314:3: note: in expansion of macro 'xchg'
+   xchg(&po->pressure, !has_room);
+   ^
+net/packet/af_packet.c: In function 'packet_poll':
+arch/sparc/include/asm/cmpxchg_64.h:43:22: warning: value computed is not u=
+sed [-Wunused-value]
+ #define xchg(ptr,x) ((__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),s=
+izeof(*(ptr))))
+                      ^
+net/packet/af_packet.c:3817:3: note: in expansion of macro 'xchg'
+   xchg(&po->pressure, 0);
+   ^
+
+Introduced by commit 2ccdbaa6d55b ("packet: rollover lock contention
+avoidance").
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/NRSwGq3r=QpARwCuys5DYij
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJVVErMAAoJEMDTa8Ir7ZwVm1IP/jskvbLwZRYzlmBsHznhl2lS
+znmNmPOKI3JTcfj6a/wBUvK/yobCyh025wy7Y8OzNu+mf8y1/bz7yCJN013kmMe2
+ViZwr+/U4WqSgEEwoZrHl/ab/R9v8TfJA/6beTNVBJcu4fekRnYJJQk0ukwYASc6
+hhYfjmQozNiDgTw6bTnnJEv8Z9UhZQgNjwlXwvvN/jzHeqCnf9NYoPsoX70DTWsv
+LLURF6lrSL2NzKbPDuaOSVOHm7r7ib0e3t4G7RxifC400p5LIXxOmKrgFJCaJAnc
+Bt36eVLEWDYctBE31Tf/CtrUPEznh7uAb6D7e6Wd7+l8M9zO22Mc39ndfdz7wbn6
+RKrv9dnJGBiPer2Cxp6WBe88DCwDZweqvJPDV/41RKGp4E+3SfnKKmeFvwImN6re
+lrrA4rE0lOa9cwtNqXD1VAF7ma1D+gfl6bKed2PM8bKIoG6N2cBRDu/p4OE/FATU
+Ecxx7cvOwH5i+r5hqd07RdEzjhyswZwKqOsGzqlVYx+OJrxgnVk4NACurOIDcznl
+EcLOdNcGY2IXRYoLYwKxuXdeWOohg1vTNAOY+z0ibFbz2Um/DBT12L5jYaDKnbyx
+vct2rrIn2DVYH7LGNBov3LoeRj/2yXzuZLcl9HMYsEgLiisdilGDgS19vBEQizEF
+hJPXOeNI4VMggfFj/lvw
+=HjIS
+-----END PGP SIGNATURE-----
+
+--Sig_/NRSwGq3r=QpARwCuys5DYij--
