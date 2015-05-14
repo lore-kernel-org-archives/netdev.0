@@ -1,7 +1,8 @@
 From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH 2/3] ipvlan: grab rcu_read_lock on xmit path
-Date: Thu, 14 May 2015 16:56:19 +0300
-Message-ID: <20150514135619.14062.97774.stgit@buzz>
+Subject: [PATCH 1/3] ipv6: make inet6addr_chain blocking and always call
+ with rtnl locked
+Date: Thu, 14 May 2015 16:56:18 +0300
+Message-ID: <20150514135618.14062.1969.stgit@buzz>
 References: <20150514134657.14062.87579.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,103 +11,138 @@ Cc: Mahesh Bandewar <maheshb@google.com>, Jiri Benc <jbenc@redhat.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1g.mail.yandex.net ([95.108.253.251]:44673 "EHLO
-	forward-corp1g.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933247AbbENN4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 09:56:23 -0400
+Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:44699 "EHLO
+	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933073AbbENN4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 09:56:24 -0400
 In-Reply-To: <20150514134657.14062.87579.stgit@buzz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipvlan_start_xmit() is called with rcu_read_lock_bh() while its internal
-structures requre normal rcu_read_lock().
+Unlike to inetaddr_chain inet6addr_chain is atomic and called from bh
+context without rtnl when ipv6 receives router advertisement packet.
+
+Several drivers don't know about that: ipvlan thinks that it has rtnl
+here, ocrdma locks mutex inside callback. Probably there is more.
+
+This patch makes it blocking and calls from first stage of DAD work.
+Looks like this is completely safe and rtnl already locked here.
 
 Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 
 ---
 
-[  802.945151] ===============================
-[  802.945160] [ INFO: suspicious RCU usage. ]
-[  802.945164] 4.1.0-rc3+ #71 Not tainted
-[  802.945165] -------------------------------
-[  802.945167] drivers/net/ipvlan/ipvlan.h:103 suspicious rcu_dereference_check() usage!
-[  802.945168]
-[  802.945168] other info that might help us debug this:
-[  802.945168]
-[  802.945170]
-[  802.945170] rcu_scheduler_active = 1, debug_locks = 1
-[  802.945173] 3 locks held by ping6/3813:
-[  802.945174]  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff81880f72>] rawv6_sendmsg+0x512/0xbb0
-[  802.945197]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff8185e577>] ip6_finish_output2+0x57/0x790
-[  802.945205]  #2:  (rcu_read_lock_bh){......}, at: [<ffffffff8177a68b>] __dev_queue_xmit+0x4b/0x930
-[  802.945218]
-[  802.945218] stack backtrace:
-[  802.945221] CPU: 2 PID: 3813 Comm: ping6 Not tainted 4.1.0-rc3+ #71
-[  802.945222] Hardware name: OpenStack Foundation OpenStack Nova, BIOS Bochs 01/01/2011
-[  802.945224]  0000000000000001 ffff8800db7b7888 ffffffff819de6f8 0000000000000007
-[  802.945226]  ffff8800db738000 ffff8800db7b78b8 ffffffff810a7f92 ffff880214fc8c00
-[  802.945229]  ffff88021595b000 ffff88021595a000 ffff880214adf800 ffff8800db7b7968
-[  802.945232] Call Trace:
-[  802.945248]  [<ffffffff819de6f8>] dump_stack+0x4c/0x65
-[  802.945253]  [<ffffffff810a7f92>] lockdep_rcu_suspicious+0xe2/0x130
-[  802.945265]  [<ffffffff815e24ac>] ipvlan_queue_xmit+0x17c/0x5a0
-[  802.945268]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
-[  802.945271]  [<ffffffff815e300c>] ipvlan_start_xmit+0x1c/0x50
-[  802.945272]  [<ffffffff8177a117>] dev_hard_start_xmit+0x2f7/0x820
-[  802.945274]  [<ffffffff817797b6>] ? netif_skb_features+0xf6/0x1d0
-[  802.945276]  [<ffffffff81779b84>] ? validate_xmit_skb.isra.99.part.100+0x24/0x2c0
-[  802.945278]  [<ffffffff8177ad04>] __dev_queue_xmit+0x6c4/0x930
-[  802.945280]  [<ffffffff8177a68b>] ? __dev_queue_xmit+0x4b/0x930
-[  802.945281]  [<ffffffff810a963a>] ? mark_held_locks+0x6a/0x90
-[  802.945283]  [<ffffffff8177af8e>] dev_queue_xmit_sk+0xe/0x10
-[  802.945285]  [<ffffffff8185e824>] ip6_finish_output2+0x304/0x790
-[  802.945287]  [<ffffffff81860dde>] ? ip6_finish_output+0x9e/0x1e0
-[  802.945288]  [<ffffffff81860dde>] ip6_finish_output+0x9e/0x1e0
-[  802.945290]  [<ffffffff81860fdb>] ip6_output+0xbb/0x180
-[  802.945302]  [<ffffffff818a7d0a>] ? ip6_find_1stfragopt+0x9a/0xa0
-[  802.945304]  [<ffffffff81860d40>] ? ip6_fragment+0xe80/0xe80
-[  802.945306]  [<ffffffff818a805c>] ip6_local_out_sk+0x2c/0x70
-[  802.945308]  [<ffffffff818a80b0>] ip6_local_out+0x10/0x20
-[  802.945309]  [<ffffffff81861571>] ip6_send_skb+0x31/0xd0
-[  802.945311]  [<ffffffff81861644>] ip6_push_pending_frames+0x34/0x40
-[  802.945313]  [<ffffffff81881368>] rawv6_sendmsg+0x908/0xbb0
-[  802.945328]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
-[  802.945340]  [<ffffffff81817e9e>] inet_sendmsg+0x10e/0x1f0
-[  802.945343]  [<ffffffff81817d90>] ? inet_recvmsg+0x200/0x200
-[  802.945351]  [<ffffffff81758275>] sock_sendmsg+0x45/0x50
-[  802.945354]  [<ffffffff8175a719>] SYSC_sendto+0xd9/0x110
-[  802.945357]  [<ffffffff8175ac99>] SyS_sendto+0x9/0x10
-[  802.945362]  [<ffffffff819ebfae>] system_call_fastpath+0x12/0x76
----
- drivers/net/ipvlan/ipvlan_main.c |    4 ++++
- 1 file changed, 4 insertions(+)
+Splash in ipvlan when ipv6 addrconf got RA:
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 77b92a0fe557..0cafd3e6f02d 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -173,6 +173,7 @@ static int ipvlan_stop(struct net_device *dev)
- 	return 0;
- }
+[   44.673784] RTNL: assertion failed at drivers/net/ipvlan/ipvlan_core.c (114)
+[   44.674761] CPU: 0 PID: 3 Comm: ksoftirqd/0 Not tainted 4.1.0-rc3+ #69
+[   44.674763] Hardware name: OpenStack Foundation OpenStack Nova, BIOS Bochs 01/01/2011
+[   44.674765]  ffff880216273000 ffff88021613b7e8 ffffffff818c6054 ffff88021fc10c10
+[   44.674767]  0000000000000000 ffff88021613b818 ffffffff815544e8 0000000000000000
+[   44.674769]  ffff8800db5d0000 ffff880216270000 ffff8802162707c0 ffff88021613b848
+[   44.674771] Call Trace:
+[   44.674787]  [<ffffffff818c6054>] dump_stack+0x45/0x57
+[   44.674800]  [<ffffffff815544e8>] ipvlan_addr_busy+0x98/0xa0
+[   44.674802]  [<ffffffff81555755>] ipvlan_addr6_event+0x115/0x200
+[   44.674810]  [<ffffffff810733fd>] notifier_call_chain+0x4d/0x70
+[   44.674812]  [<ffffffff81073445>] atomic_notifier_call_chain+0x15/0x20
+[   44.674829]  [<ffffffff817dbb16>] inet6addr_notifier_call_chain+0x16/0x20
+[   44.674836]  [<ffffffff817a46c0>] ipv6_add_addr+0xa0/0x420
+[   44.674838]  [<ffffffff817aa058>] addrconf_prefix_rcv+0x568/0x7d0
+[   44.674842]  [<ffffffff817b7bad>] ndisc_rcv+0x8ad/0xf40
+[   44.674845]  [<ffffffff817bec10>] icmpv6_rcv+0x430/0x870
+[   44.674847]  [<ffffffff817dbd56>] ? ipv6_skip_exthdr+0x46/0x170
+[   44.674850]  [<ffffffff818cfe79>] ? _raw_read_unlock_bh+0x19/0x20
+[   44.674852]  [<ffffffff817c33f0>] ? ipv6_chk_mcast_addr+0x110/0x130
+[   44.674854]  [<ffffffff817a1ffb>] ip6_input_finish+0x11b/0x3e0
+[   44.674855]  [<ffffffff817a281a>] ip6_input+0x6a/0x80
+[   44.674857]  [<ffffffff817c330a>] ? ipv6_chk_mcast_addr+0x2a/0x130
+[   44.674859]  [<ffffffff817a1ee0>] ? ip6_rcv_finish+0xa0/0xa0
+[   44.674860]  [<ffffffff817a28c0>] ip6_mc_input+0x90/0xb0
+[   44.674861]  [<ffffffff817a1edd>] ip6_rcv_finish+0x9d/0xa0
+[   44.674863]  [<ffffffff817a2602>] ipv6_rcv+0x342/0x4f0
+[   44.674864]  [<ffffffff817a1e40>] ? ip6_make_skb+0x1a0/0x1a0
+[   44.674873]  [<ffffffff816dc876>] __netif_receive_skb_core+0x216/0x900
+[   44.674877]  [<ffffffff8155ce00>] ? virtnet_receive+0x170/0x750
+[   44.674879]  [<ffffffff816dcf81>] __netif_receive_skb+0x21/0x70
+[   44.674880]  [<ffffffff816dd06d>] process_backlog+0x9d/0x140
+[   44.674882]  [<ffffffff816dd896>] net_rx_action+0x146/0x330
+[   44.674884]  [<ffffffff81089baa>] ? pick_next_task_fair+0x47a/0x490
+[   44.674887]  [<ffffffff81059e37>] __do_softirq+0xe7/0x2e0
+[   44.674888]  [<ffffffff8105a04b>] run_ksoftirqd+0x1b/0x60
+[   44.674890]  [<ffffffff810758c6>] smpboot_thread_fn+0x116/0x170
+[   44.674891]  [<ffffffff810757b0>] ? sort_range+0x20/0x20
+[   44.674893]  [<ffffffff81072924>] kthread+0xc4/0xe0
+[   44.674895]  [<ffffffff81000303>] ? do_one_initcall+0xb3/0x1c0
+[   44.674897]  [<ffffffff81072860>] ? flush_kthread_worker+0x90/0x90
+[   44.674899]  [<ffffffff818d07e2>] ret_from_fork+0x42/0x70
+[   44.674901]  [<ffffffff81072860>] ? flush_kthread_worker+0x90/0x90
+---
+ net/ipv6/addrconf.c      |    7 ++++---
+ net/ipv6/addrconf_core.c |    8 ++++----
+ 2 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 37b70e82bff8..61512e10ec92 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -910,9 +910,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ out2:
+ 	rcu_read_unlock_bh();
  
-+/* called with rcu_read_lock_bh. */
- static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
- 				     struct net_device *dev)
- {
-@@ -180,6 +181,7 @@ static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
- 	int skblen = skb->len;
- 	int ret;
- 
-+	rcu_read_lock();
- 	ret = ipvlan_queue_xmit(skb, dev);
- 	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
- 		struct ipvl_pcpu_stats *pcptr;
-@@ -193,6 +195,8 @@ static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
- 	} else {
- 		this_cpu_inc(ipvlan->pcpu_stats->tx_drps);
+-	if (likely(err == 0))
+-		inet6addr_notifier_call_chain(NETDEV_UP, ifa);
+-	else {
++	if (err) {
+ 		kfree(ifa);
+ 		ifa = ERR_PTR(err);
  	}
-+	rcu_read_unlock();
+@@ -2735,6 +2733,7 @@ static void add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		spin_lock_bh(&ifp->lock);
+ 		ifp->flags &= ~IFA_F_TENTATIVE;
+ 		spin_unlock_bh(&ifp->lock);
++		inet6addr_notifier_call_chain(NETDEV_UP, ifp);
+ 		ipv6_ifa_notify(RTM_NEWADDR, ifp);
+ 		in6_ifa_put(ifp);
+ 	}
+@@ -3415,6 +3414,8 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
+ 	struct inet6_dev *idev = ifp->idev;
+ 	struct net_device *dev = idev->dev;
+ 
++	inet6addr_notifier_call_chain(NETDEV_UP, ifp);
 +
- 	return ret;
+ 	addrconf_join_solict(dev, &ifp->addr);
+ 
+ 	prandom_seed((__force u32) ifp->addr.s6_addr32[3]);
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index d873ceea86e6..6997bd7946d3 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -87,23 +87,23 @@ int __ipv6_addr_type(const struct in6_addr *addr)
  }
+ EXPORT_SYMBOL(__ipv6_addr_type);
+ 
+-static ATOMIC_NOTIFIER_HEAD(inet6addr_chain);
++static BLOCKING_NOTIFIER_HEAD(inet6addr_chain);
+ 
+ int register_inet6addr_notifier(struct notifier_block *nb)
+ {
+-	return atomic_notifier_chain_register(&inet6addr_chain, nb);
++	return blocking_notifier_chain_register(&inet6addr_chain, nb);
+ }
+ EXPORT_SYMBOL(register_inet6addr_notifier);
+ 
+ int unregister_inet6addr_notifier(struct notifier_block *nb)
+ {
+-	return atomic_notifier_chain_unregister(&inet6addr_chain, nb);
++	return blocking_notifier_chain_unregister(&inet6addr_chain, nb);
+ }
+ EXPORT_SYMBOL(unregister_inet6addr_notifier);
+ 
+ int inet6addr_notifier_call_chain(unsigned long val, void *v)
+ {
+-	return atomic_notifier_call_chain(&inet6addr_chain, val, v);
++	return blocking_notifier_call_chain(&inet6addr_chain, val, v);
+ }
+ EXPORT_SYMBOL(inet6addr_notifier_call_chain);
  
