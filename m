@@ -1,34 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fix net/sched compile error
-Date: Thu, 14 May 2015 12:40:41 -0400 (EDT)
-Message-ID: <20150514.124041.1245041571104549683.davem@davemloft.net>
-References: <5554CE47.8070709@hp.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v2 0/7] amd-xgbe: AMD XGBE driver updates 2015-05-12
+Date: Thu, 14 May 2015 11:43:51 -0500
+Message-ID: <20150514164351.10220.89584.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, jiri@resnulli.us
-To: brian.haley@hp.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39961 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932871AbbENQkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 12:40:43 -0400
-In-Reply-To: <5554CE47.8070709@hp.com>
+Received: from mail-bn1on0143.outbound.protection.outlook.com ([157.56.110.143]:30720
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932807AbbENQn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2015 12:43:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQnJpYW4gSGFsZXkgPGJyaWFuLmhhbGV5QGhwLmNvbT4NCkRhdGU6IFRodSwgMTQgTWF5
-IDIwMTUgMTI6MzM6MTEgLTA0MDANCg0KPiBGaXggY29tcGlsZSBlcnJvciBpbiBuZXQvc2NoZWQv
-Y2xzX2Zsb3dlci5jDQo+IA0KPiAgICAgbmV0L3NjaGVkL2Nsc19mbG93ZXIuYzogSW4gZnVuY3Rp
-b24goWZsX3NldF9rZXmiOg0KPiAgICAgbmV0L3NjaGVkL2Nsc19mbG93ZXIuYzoyNDA6MzogZXJy
-b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uDQo+ICAgICChdGNmX2NoYW5nZV9p
-bmRldqIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQo+ICAgICAgICBl
-cnIgPSB0Y2ZfY2hhbmdlX2luZGV2KG5ldCwgdGJbVENBX0ZMT1dFUl9JTkRFVl0pOw0KPiANCj4g
-SW50cm9kdWNlZCBpbiA3N2I5OTAwZWY1M2FlMDQ3ZTM2YTM3ZDEzYTJhYTMzYmIyZDYwNjQxDQo+
-IA0KPiBTaWduZWQtb2ZmLWJ5OiBCcmlhbiBIYWxleSA8YnJpYW4uaGFsZXlAaHAuY29tPg0KDQpQ
-bGVhc2UgZm9ybWF0IHlvdXIgU3ViamVjdCBsaW5lIGNvcnJlY3RseS4NCg0KQWZ0ZXIgJ1tQQVRD
-SF0gJyBvciBzaW1pbGFyLCB5b3Ugc2hvdWxkIGJlZ2luIHdpdGggYSBzdWJzeXN0ZW0gb3INCmRy
-aXZlciBuYW1lIHByZWZpeCwgZm9sbG93aW5nIGJ5IGEgY29sb24gY2hhcmFjdGVyIGFuZCBhIHNw
-YWNlLg0KDQpJbiB0aGlzIGNhc2UsICJjbHNfZmxvd2VyOiAiIHdvdWxkIGJlIGFwcHJvcHJpYXRl
-Lg0KDQpTbyBzb21ldGhpbmcgbGlrZSAiW1BBVENIXSBjbHNfZmxvd2VyOiBGaXggY29tcGlsZSBl
-cnJvci4iDQo=
+The following series of patches includes functional updates and changes
+to the driver.
+
+- Add additional statistics to be collected and reported
+- Use the netif_* functions for issuing some debug and informational
+  driver messages
+- Rx path SKB allocation cleanup/simplification
+- Remove stand-alone phylib driver and incorporate function into the nic
+  driver
+- Simplify device tree support while maintaining backwards compatibility
+- Fix the flow control negotiation logic to properly configure flow
+  control
+- Remove the checking and setting of the device dma_mask field
+
+This patch series is based on net-next.
+
+---
+Changes in v2:
+- Change from using the netif_msg_*/netdev_* combination for issuing
+  messages to the more concise netif_*
+
+Tom Lendacky (7):
+      amd-xgbe: Add additional stats to be reported via ethtool
+      amd-xgbe: Add netif_* message support to the driver
+      amd-xgbe: Rework the Rx path SKB allocation
+      amd-xgbe: Move the PHY support into amd-xgbe
+      amd-xgbe: Support defining PHY resources in ETH device node
+      amd-xgbe: Fix flow control setting logic
+      amd-xgbe: Remove manual check and set of dma_mask pointer
+
+
+ .../devicetree/bindings/net/amd-xgbe-phy.txt       |   48 -
+ Documentation/devicetree/bindings/net/amd-xgbe.txt |   40 
+ MAINTAINERS                                        |    1 
+ drivers/net/ethernet/amd/Kconfig                   |    4 
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h        |  155 ++
+ drivers/net/ethernet/amd/xgbe/xgbe-dcb.c           |   17 
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c          |   35 
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c           |   99 +
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  339 ++--
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c       |   79 +
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c          |  384 ++++
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c          | 1237 ++++++++++++-
+ drivers/net/ethernet/amd/xgbe/xgbe.h               |  236 ++-
+ drivers/net/phy/Kconfig                            |    7 
+ drivers/net/phy/Makefile                           |    1 
+ drivers/net/phy/amd-xgbe-phy.c                     | 1862 --------------------
+ 16 files changed, 2092 insertions(+), 2452 deletions(-)
+ delete mode 100644 Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+ delete mode 100644 drivers/net/phy/amd-xgbe-phy.c
+
+-- 
+Tom Lendacky
