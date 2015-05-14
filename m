@@ -1,128 +1,41 @@
-From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next fragmentation icmp v4 3/4] bridge_netfilter: No ICMP packet on IPv4 defragmentation timeout
-Date: Wed, 13 May 2015 19:28:01 -0700
-Message-ID: <1431570482-9236-4-git-send-email-azhou@nicira.com>
-References: <1431570482-9236-1-git-send-email-azhou@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: davem@davemloft.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: netlink & rhashtable status
+Date: Thu, 14 May 2015 10:53:33 +0800
+Message-ID: <20150514025333.GA3853@gondor.apana.org.au>
+References: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150513054037.GA26595@gondor.apana.org.au>
+ <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150513062038.GA26944@gondor.apana.org.au>
+ <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:44028 "HELO
-	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933740AbbENCtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 22:49:33 -0400
-Received: by mail-pa0-f45.google.com with SMTP id tp1so69279626pab.2
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 19:49:32 -0700 (PDT)
-In-Reply-To: <1431570482-9236-1-git-send-email-azhou@nicira.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:36380 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933345AbbENCxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 22:53:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, on defragmentation timeout error, ICMP error message
-will be generated. This is fine when they are used in a routing context,
-but does not make sense in the context of bridging netfilter.
+On Wed, May 13, 2015 at 09:18:04AM -0700, Eric Dumazet wrote:
+>
+> For 4.0.3 I replaced the two rhashtable files by current Linus version,
+> and problem is gone, so the fix is not in net/netlink
 
-This patch adds a bit (IPSKB_NO_FRAG_ICMP) in IPCB to control
-whether ICMP error message should be generated. br_netfiler sets
-this bit.
+Are you sure the same bug happens in 3.17 too? I can certainly see
+this happening after the dynamic rehashing code went in.
 
-Signed-off-by: Andy Zhou <azhou@nicira.com>
----
- include/net/inet_frag.h   |  4 +++-
- include/net/ip.h          |  1 +
- net/bridge/br_netfilter.c |  5 +++++
- net/ipv4/ip_fragment.c    | 12 ++++++++++--
- 4 files changed, 19 insertions(+), 3 deletions(-)
+But in 3.17 it was doing everything under one single lock so I can't
+really see how things can go wrong.
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 8d17655..e3c8840 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -22,12 +22,14 @@ struct netns_frags {
-  * @INET_FRAG_LAST_IN: final fragment has arrived
-  * @INET_FRAG_COMPLETE: frag queue has been processed and is due for destruction
-  * @INET_FRAG_EVICTED: frag queue is being evicted
-+ * @INET_FRAG_NO_ICMP: Do not send icmp message on incomplete defrag
-  */
- enum {
- 	INET_FRAG_FIRST_IN	= BIT(0),
- 	INET_FRAG_LAST_IN	= BIT(1),
- 	INET_FRAG_COMPLETE	= BIT(2),
--	INET_FRAG_EVICTED	= BIT(3)
-+	INET_FRAG_EVICTED	= BIT(3),
-+	INET_FRAG_NO_ICMP	= BIT(4)
- };
- 
- /**
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 43f6f39..af44c9f 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -45,6 +45,7 @@ struct inet_skb_parm {
- #define IPSKB_FRAG_COMPLETE	BIT(3)
- #define IPSKB_REROUTED		BIT(4)
- #define IPSKB_DOREDIRECT	BIT(5)
-+#define IPSKB_NO_FRAG_ICMP	BIT(6)
- 
- 	u16			frag_max_size;
- };
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index ab55e24..6a2adba 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -663,6 +663,11 @@ static unsigned int br_nf_pre_routing(const struct nf_hook_ops *ops,
- 	if (br_parse_ip_options(skb))
- 		return NF_DROP;
- 
-+	/* In case this is a fragmented packet, do not send icmp packet on
-+	 * defragmentation error
-+	 */
-+	IPCB(skb)->flags |= IPSKB_NO_FRAG_ICMP;
-+
- 	nf_bridge_put(skb->nf_bridge);
- 	if (!nf_bridge_alloc(skb))
- 		return NF_DROP;
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 47fa64e..60afaa7 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -226,7 +226,8 @@ static void ip_expire(unsigned long arg)
- 		/* Only an end host needs to send an ICMP
- 		 * "Fragment Reassembly Timeout" message, per RFC792.
- 		 */
--		if (frag_expire_skip_icmp(qp->user) &&
-+		if ((qp->q.flags & INET_FRAG_NO_ICMP) ||
-+		    frag_expire_skip_icmp(qp->user) ||
- 		    (skb_rtable(head)->rt_type != RTN_LOCAL))
- 			goto out_rcu_unlock;
- 
-@@ -330,6 +331,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
- 	int ihl, end;
- 	int err = -ENOENT;
- 	u8 ecn;
-+	bool no_icmp;
- 
- 	if (qp->q.flags & INET_FRAG_COMPLETE)
- 		goto err;
-@@ -347,6 +349,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
- 	offset &= IP_OFFSET;
- 	offset <<= 3;		/* offset is in 8-byte chunks */
- 	ihl = ip_hdrlen(skb);
-+	no_icmp = IPCB(skb)->flags & IPSKB_NO_FRAG_ICMP;
- 
- 	/* Determine the position of this fragment. */
- 	end = offset + skb->len - ihl;
-@@ -485,7 +488,12 @@ found:
- 	    skb->len + ihl > qp->q.max_size)
- 		qp->q.max_size = skb->len + ihl;
- 
--	if (qp->q.flags == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
-+	if (no_icmp) {
-+		qp->q.flags |= INET_FRAG_NO_ICMP;
-+	}
-+
-+	if (((qp->q.flags & ~INET_FRAG_NO_ICMP) ==
-+		(INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN)) &&
- 	    qp->q.meat == qp->q.len) {
- 		unsigned long orefdst = skb->_skb_refdst;
- 
+Cheers,
 -- 
-1.9.1
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
