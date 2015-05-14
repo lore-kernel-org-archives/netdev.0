@@ -1,41 +1,45 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
- skb->dev in receive path
-Date: Thu, 14 May 2015 11:28:33 +0800
-Message-ID: <20150514032833.GF3853@gondor.apana.org.au>
-References: <20150514020316.1635.50870.stgit@ahduyck-vm-fedora22>
+Subject: Re: netlink & rhashtable status
+Date: Thu, 14 May 2015 11:34:48 +0800
+Message-ID: <20150514033448.GA5080@gondor.apana.org.au>
+References: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150513054037.GA26595@gondor.apana.org.au>
+ <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150513062038.GA26944@gondor.apana.org.au>
+ <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514025333.GA3853@gondor.apana.org.au>
+ <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	tgraf@suug.ch, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@redhat.com>
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:43672 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:57955 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753170AbbEND2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 23:28:39 -0400
+	with ESMTP id S1753839AbbENDe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 23:34:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20150514020316.1635.50870.stgit@ahduyck-vm-fedora22>
+In-Reply-To: <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 13, 2015 at 07:04:28PM -0700, Alexander Duyck wrote:
-> This change makes it so that we clear the skb->mark field when we pass
-> through the receive path of the IPv4 or IPv6 virtual tunnel interface.  The
-> reason for clearing these fields is to resolve an apparent regression for
-> the behavior before skb_scrub_packet was modified.  Without this patch I
-> have to set disable_policy for the vti tunnel endpoint in order to be able
-> to receive traffic.
+On Wed, May 13, 2015 at 08:17:43PM -0700, Eric Dumazet wrote:
+>
+> The initial bug report was on 3.18 for sure.
 > 
-> Fixes: 213dd74aee76 ("skbuff: Do not scrub skb mark within the same name space")
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> (Tester had to leave the program run ~8 hours to get the problem, on a 8
+> vCPU VM)
+> 
+> I can reproduce the bug quite easily (in a few seconds) on 4.0.3, I did
+> not spent lot of time trying 3.18, but it seems a bit harder.
 
-This patch makes no sense.  Please explain your problem more
-clearly and tell us why the mark changes the way your packet
-is dealt with and why this isn't a policy decision that should
-be made in user-space.
+No what I'm asking is on 3.18 was it permanent? I can imagine
+there being a lookup bug in 3.18 that triggers during a rehash
+but I cannot find any permanent corruption issues.
 
-Cheers,
+Thanks,
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
