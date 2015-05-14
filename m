@@ -1,57 +1,50 @@
-From: John Whitmore <arigead@gmail.com>
-Subject: GSM Modem management?
-Date: Thu, 14 May 2015 20:44:43 +0100
-Message-ID: <20150514194442.GA21972@bamboo.electronicsoup>
+From: Andy Zhou <azhou@nicira.com>
+Subject: Re: [net-next fragmentation icmp v4 3/4] bridge_netfilter: No ICMP
+ packet on IPv4 defragmentation timeout
+Date: Thu, 14 May 2015 12:54:23 -0700
+Message-ID: <CACzMAJ+J3QGFZa976_M=_ZKjgEPiJszyYrqeqeGj=9rjCBZJ7A@mail.gmail.com>
+References: <1431570482-9236-1-git-send-email-azhou@nicira.com>
+	<1431570482-9236-4-git-send-email-azhou@nicira.com>
+	<20150514085940.GD6179@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:34851 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964992AbbENTrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 15:47:40 -0400
-Received: by wgnd10 with SMTP id d10so84585566wgn.2
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 12:47:39 -0700 (PDT)
-Received: from bamboo.electronicsoup (86-44-189-100-dynamic.agg2.cty.lmk-pgs.eircom.net. [86.44.189.100])
-        by mx.google.com with ESMTPSA id ng5sm14767321wic.24.2015.05.14.12.47.37
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Thu, 14 May 2015 12:47:37 -0700 (PDT)
-Content-Disposition: inline
+Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:60310 "HELO
+	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965007AbbENTyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 15:54:25 -0400
+Received: by mail-qg0-f44.google.com with SMTP id 2so1373036qgf.0
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 12:54:24 -0700 (PDT)
+In-Reply-To: <20150514085940.GD6179@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chances are that I'm in the wrong place here, "Linux" networking having so many
-parts, many of which aren't in the kernel, that being said this might be
-considered the centre of it all, so I thought I'd start here and see if
-somebody would point me in a direction that was better placed to answer some
-of my queries.
+On Thu, May 14, 2015 at 1:59 AM, Florian Westphal <fw@strlen.de> wrote:
+> Andy Zhou <azhou@nicira.com> wrote:
+>> Currently, on defragmentation timeout error, ICMP error message
+>> will be generated. This is fine when they are used in a routing context,
+>> but does not make sense in the context of bridging netfilter.
+>>
+>> This patch adds a bit (IPSKB_NO_FRAG_ICMP) in IPCB to control
+>> whether ICMP error message should be generated. br_netfiler sets
+>> this bit.
+>
+> Could you please explain why we need this patch?
+> After the previous change (patch 2 in your series), we will already
+> bail out before hitting
+>
+> /* Send an ICMP "Fragment Reassembly Timeout" message. */
+> icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+>
+> in ip_expire() based on qp->user value test?
 
-I'm working on a mobile system, RaspberryPi based, which has two 4G USB
-Dongles for communications to the Internet. Both dongles are the same make and
-model but have different service provider sims. The idea being that if one has
-no coverage hopefully the other does have some degree of connectivity. I
-started by connecting up to the internet using network-manager-gnome for a
-single dongle. Unfortunately when I started a ping test after a couple of ping
-messages it crashed the whole raspbian system without any message going to
-/var/log/messages. Totally locked up. 
+Letting caller making the decision seems to be a better design choice
+rather than implicit
+logic embedded within the function.  It is also more flexible and
+robust when we need to extend 'user'
+range down the road.
 
-Having failed with the Network-manager I used wvdial to establish a connection
-and that is as happy as larry, pinging away. 
-
-My questions are to do with how to manage two identical Dongles. At present
-when usb-modeswitch ejects them, from CD Drive, into modem configuration, when
-"qmi_wwan" assignes a network name. I'd like to assign udev rules to assign
-carrier based names to the network interfaces. I'm not sure if udev will
-interfere with qmi_wwan? 
-
-That is possibly the easy part. I then want to attach some logic to manage the
-connections in a very basic manner and perhaps display connectivity
-information to the user on the desktop. Could somebody tell me where this
-functionality would be added? I assume that ppp has no idea about GSM signal
-strength. It'd be great if a simple user space program could monitor DBus and
-bring up or drop the connections as conditions change, but I guess that might
-be asking for a little bit much. So if not ppp what sub-system controls the
-Modem? 
-
-Thanks for any help.
+>
