@@ -1,63 +1,91 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v3 for-next 00/13] Add network namespace support in the
- RDMA-CM
-Date: Thu, 14 May 2015 08:35:48 +0300
-Message-ID: <55543434.4060401@mellanox.com>
-References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FD7B85@ORSMSX109.amr.corp.intel.com>
- <55531073.1000305@mellanox.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FDA13B@ORSMSX109.amr.corp.intel.com>
- <20150513171823.GB20343@obsidianresearch.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FDA1AB@ORSMSX109.amr.corp.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Red Hat INTERNAL-ONLY kernel discussion list
+ <rhkernel-list@redhat.com>
+Date: Thu, 14 May 2015 13:56:34 +0800
+Message-ID: <20150514055634.GA6058@gondor.apana.org.au>
+References: <20150513062038.GA26944@gondor.apana.org.au>
+ <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514025333.GA3853@gondor.apana.org.au>
+ <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514033448.GA5080@gondor.apana.org.au>
+ <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514041628.GA5428@gondor.apana.org.au>
+ <20150514042151.GA5482@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FDA1AB-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>,
+	Ying Xue <ying.xue@windriver.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:38124 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934163AbbENF4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 01:56:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20150514042151.GA5482@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/05/2015 20:30, Hefty, Sean wrote:
->>>>> How does network namespace support work with iWarp?
->>>>
->>>> We did not implement network namespace support for iWarp. Only for
->>>> InfiniBand. The iWarp code continues to use &init_net whenever a
->> network
->>>> namespace is needed, as it does today.
->>>
->>> We need a solution that supports both.  It's odd for the RDMA CM to
->>> support a feature only for some devices, when the solution should be
->>> general.
->>
->> Yes, it is not optimal, but given that every protocol uses a
->> completely different scheme to interact with netdev, I'm not sure
->> there is another option but to do them piecemeal?
+On Thu, May 14, 2015 at 12:21:51PM +0800, Herbert Xu wrote:
 > 
-> Piecemeal isn't necessarily the problem.  No thought appears to have been given to how this scheme supports iWarp at all.  My concern is around whether any changes should be made to the ib_cm, versus keeping everything contained in the rdma_cm.  I.e. do we want the same kref schemed added to the iw_cm, or keep reference counts only in the rdma_cm?
+> If that was the case then we simply need to get rid of dynamic
+> rehashing.
 
-I'm not sure iWarp should use the exact same solution we use for IB. I'm
-not very familiar with iWarp CM code, but intuitively I think because
-iWarp is defined on top of TCP/IP, it would make sense to attach
-iw_cm_ids to namespaces, even while for ib_cm_ids you can't always do that.
+Here is a totally untested patch against 4.0.
 
-The problem in IB is that ib_cm doesn't care about IP addresses so there
-are cases where it cannot resolve the namespace, but in iWarp you don't
-have that problem, right?
+---8<---
+The current rhashtable rehash code is buggy and can't deal with
+parallel insertions/removals without corrupting the hash table.
 
-In any case, the RDMA CM code handling CM events is naturally separate
-between iWarp and IB, so they don't need to use the same solution.
+This patch disables it by partially reverting
+c5adde9468b0714a051eac7f9666f23eb10b61f7 ("netlink: eliminate
+nl_sk_hash_lock").
 
-Haggai
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch also removes a bogus socket lock introduced by that
+very same patch.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 05919bf..322fe03 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1052,7 +1052,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 	struct netlink_table *table = &nl_table[sk->sk_protocol];
+ 	int err;
+ 
+-	lock_sock(sk);
++	mutex_lock(&table->hash.mutex);
+ 
+ 	err = -EBUSY;
+ 	if (nlk_sk(sk)->portid)
+@@ -1073,7 +1073,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ 	}
+ 
+ err:
+-	release_sock(sk);
++	mutex_unlock(&table->hash.mutex);
+ 	return err;
+ }
+ 
+@@ -1082,10 +1082,12 @@ static void netlink_remove(struct sock *sk)
+ 	struct netlink_table *table;
+ 
+ 	table = &nl_table[sk->sk_protocol];
++	mutex_lock(&table->hash.mutex);
+ 	if (rhashtable_remove(&table->hash, &nlk_sk(sk)->node)) {
+ 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
+ 		__sock_put(sk);
+ 	}
++	mutex_unlock(&table->hash.mutex);
+ 
+ 	netlink_table_grab();
+ 	if (nlk_sk(sk)->subscriptions) {
+
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
