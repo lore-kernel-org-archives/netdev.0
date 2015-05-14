@@ -1,8 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Red Hat INTERNAL-ONLY kernel discussion list
- <rhkernel-list@redhat.com>
-Date: Thu, 14 May 2015 13:56:34 +0800
-Message-ID: <20150514055634.GA6058@gondor.apana.org.au>
+Subject: netlink: Disable insertions/removals during rehash
+Date: Thu, 14 May 2015 13:58:24 +0800
+Message-ID: <20150514055824.GB6058@gondor.apana.org.au>
 References: <20150513062038.GA26944@gondor.apana.org.au>
  <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
  <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
@@ -16,18 +15,19 @@ References: <20150513062038.GA26944@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>,
-	Ying Xue <ying.xue@windriver.com>
+	netdev <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:38124 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:39515 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934163AbbENF4p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 01:56:45 -0400
+	with ESMTP id S1751815AbbENF6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 01:58:30 -0400
 Content-Disposition: inline
 In-Reply-To: <20150514042151.GA5482@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Resend with fixed subject.
 
 On Thu, May 14, 2015 at 12:21:51PM +0800, Herbert Xu wrote:
 > 
