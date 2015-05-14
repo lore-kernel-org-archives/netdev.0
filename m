@@ -1,212 +1,51 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 2/7] printk: factor out message formatting from devkmsg_read()
-Date: Thu, 14 May 2015 12:06:21 -0400
-Message-ID: <1431619586-29187-3-git-send-email-tj@kernel.org>
-References: <1431619586-29187-1-git-send-email-tj@kernel.org>
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Kay Sievers <kay@vrfy.org>, Petr Mladek <pmladek@suse.cz>
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431619586-29187-1-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] test_bpf: fix sparse warnings
+Date: Thu, 14 May 2015 18:10:31 +0200
+Message-ID: <5554C8F7.5080002@iogearbox.net>
+References: <1431574839-7099-1-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>,
+	Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:44191 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964872AbbENQKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 12:10:40 -0400
+In-Reply-To: <1431574839-7099-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The extended message formatting used for /dev/kmsg will be used
-implement extended consoles.  Factor out msg_print_ext_header() and
-msg_print_ext_body() from devkmsg_read().
+On 05/14/2015 05:40 AM, Alexei Starovoitov wrote:
+> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+>
+> Fix several sparse warnings like:
+> lib/test_bpf.c:1824:25: sparse: constant 4294967295 is so big it is long
+> lib/test_bpf.c:1878:25: sparse: constant 0x0000ffffffff0000 is so big it is long
+>
+> Fixes: cffc642d93f9 ("test_bpf: add 173 new testcases for eBPF")
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+>   lib/test_bpf.c |  122 ++++++++++++++++++++++++++++----------------------------
+>   1 file changed, 61 insertions(+), 61 deletions(-)
+>
+...
+>   	{
+>   		"ALU_MOV_K: 0x0000ffffffff0000 = 0x00000000ffffffff",
+>   		.u.insns_int = {
+> -			BPF_LD_IMM64(R2, 0x0000ffffffff0000),
+> -			BPF_LD_IMM64(R3, 0x00000000ffffffff),
+> +			BPF_LD_IMM64(R2, 0x0000ffffffff0000LL),
+> +			BPF_LD_IMM64(R3, 0x00000000ffffffffLL),
 
-This is pure restructuring.
+Should have been ULL, no? Anyway, the BPF_LD_IMM64() macro will cast it
+correctly anyway.
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Kay Sievers <kay@vrfy.org>
-Cc: Petr Mladek <pmladek@suse.cz>
----
- kernel/printk/printk.c | 146 +++++++++++++++++++++++++++----------------------
- 1 file changed, 80 insertions(+), 66 deletions(-)
+Other than that:
 
-diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index a115490..51ce4f1 100644
---- a/kernel/printk/printk.c
-+++ b/kernel/printk/printk.c
-@@ -511,6 +511,81 @@ static void append_char(char **pp, char *e, char c)
- 		*(*pp)++ = c;
- }
- 
-+static ssize_t msg_print_ext_header(char *buf, size_t size,
-+				    struct printk_log *msg, u64 seq,
-+				    enum log_flags prev_flags)
-+{
-+	u64 ts_usec = msg->ts_nsec;
-+	char cont = '-';
-+
-+	do_div(ts_usec, 1000);
-+
-+	/*
-+	 * If we couldn't merge continuation line fragments during the print,
-+	 * export the stored flags to allow an optional external merge of the
-+	 * records. Merging the records isn't always neccessarily correct, like
-+	 * when we hit a race during printing. In most cases though, it produces
-+	 * better readable output. 'c' in the record flags mark the first
-+	 * fragment of a line, '+' the following.
-+	 */
-+	if (msg->flags & LOG_CONT && !(prev_flags & LOG_CONT))
-+		cont = 'c';
-+	else if ((msg->flags & LOG_CONT) ||
-+		 ((prev_flags & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
-+		cont = '+';
-+
-+	return scnprintf(buf, size, "%u,%llu,%llu,%c;",
-+		       (msg->facility << 3) | msg->level, seq, ts_usec, cont);
-+}
-+
-+static ssize_t msg_print_ext_body(char *buf, size_t size,
-+				  char *dict, size_t dict_len,
-+				  char *text, size_t text_len)
-+{
-+	char *p = buf, *e = buf + size;
-+	size_t i;
-+
-+	/* escape non-printable characters */
-+	for (i = 0; i < text_len; i++) {
-+		unsigned char c = text[i];
-+
-+		if (c < ' ' || c >= 127 || c == '\\')
-+			p += scnprintf(p, e - p, "\\x%02x", c);
-+		else
-+			append_char(&p, e, c);
-+	}
-+	append_char(&p, e, '\n');
-+
-+	if (dict_len) {
-+		bool line = true;
-+
-+		for (i = 0; i < dict_len; i++) {
-+			unsigned char c = dict[i];
-+
-+			if (line) {
-+				append_char(&p, e, ' ');
-+				line = false;
-+			}
-+
-+			if (c == '\0') {
-+				append_char(&p, e, '\n');
-+				line = true;
-+				continue;
-+			}
-+
-+			if (c < ' ' || c >= 127 || c == '\\') {
-+				p += scnprintf(p, e - p, "\\x%02x", c);
-+				continue;
-+			}
-+
-+			append_char(&p, e, c);
-+		}
-+		append_char(&p, e, '\n');
-+	}
-+
-+	return p - buf;
-+}
-+
- /* /dev/kmsg - userspace message inject/listen interface */
- struct devkmsg_user {
- 	u64 seq;
-@@ -575,19 +650,12 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- {
- 	struct devkmsg_user *user = file->private_data;
- 	struct printk_log *msg;
--	char *p, *e;
--	u64 ts_usec;
--	size_t i;
--	char cont = '-';
- 	size_t len;
- 	ssize_t ret;
- 
- 	if (!user)
- 		return -EBADF;
- 
--	p = user->buf;
--	e = user->buf + sizeof(user->buf);
--
- 	ret = mutex_lock_interruptible(&user->lock);
- 	if (ret)
- 		return ret;
-@@ -617,71 +685,17 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 	}
- 
- 	msg = log_from_idx(user->idx);
--	ts_usec = msg->ts_nsec;
--	do_div(ts_usec, 1000);
-+	len = msg_print_ext_header(user->buf, sizeof(user->buf),
-+				   msg, user->seq, user->prev);
-+	len += msg_print_ext_body(user->buf + len, sizeof(user->buf) - len,
-+				  log_dict(msg), msg->dict_len,
-+				  log_text(msg), msg->text_len);
- 
--	/*
--	 * If we couldn't merge continuation line fragments during the print,
--	 * export the stored flags to allow an optional external merge of the
--	 * records. Merging the records isn't always neccessarily correct, like
--	 * when we hit a race during printing. In most cases though, it produces
--	 * better readable output. 'c' in the record flags mark the first
--	 * fragment of a line, '+' the following.
--	 */
--	if (msg->flags & LOG_CONT && !(user->prev & LOG_CONT))
--		cont = 'c';
--	else if ((msg->flags & LOG_CONT) ||
--		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
--		cont = '+';
--
--	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
--		       (msg->facility << 3) | msg->level,
--		       user->seq, ts_usec, cont);
- 	user->prev = msg->flags;
--
--	/* escape non-printable characters */
--	for (i = 0; i < msg->text_len; i++) {
--		unsigned char c = log_text(msg)[i];
--
--		if (c < ' ' || c >= 127 || c == '\\')
--			p += scnprintf(p, e - p, "\\x%02x", c);
--		else
--			append_char(&p, e, c);
--	}
--	append_char(&p, e, '\n');
--
--	if (msg->dict_len) {
--		bool line = true;
--
--		for (i = 0; i < msg->dict_len; i++) {
--			unsigned char c = log_dict(msg)[i];
--
--			if (line) {
--				append_char(&p, e, ' ');
--				line = false;
--			}
--
--			if (c == '\0') {
--				append_char(&p, e, '\n');
--				line = true;
--				continue;
--			}
--
--			if (c < ' ' || c >= 127 || c == '\\') {
--				p += scnprintf(p, e - p, "\\x%02x", c);
--				continue;
--			}
--
--			append_char(&p, e, c);
--		}
--		append_char(&p, e, '\n');
--	}
--
- 	user->idx = log_next(user->idx);
- 	user->seq++;
- 	raw_spin_unlock_irq(&logbuf_lock);
- 
--	len = p - user->buf;
- 	if (len > count) {
- 		ret = -EINVAL;
- 		goto out;
--- 
-2.1.0
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
