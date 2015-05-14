@@ -1,130 +1,113 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH net-next 08/11] stmmac: convert dwmac-socfpga to platform driver
-Date: Thu, 14 May 2015 12:11:03 +0200
-Message-ID: <1431598266-25736-9-git-send-email-manabian@gmail.com>
+Subject: [PATCH net-next 03/11] stmmac: prepare stmmac platform to support stand alone drivers
+Date: Thu, 14 May 2015 12:10:58 +0200
+Message-ID: <1431598266-25736-4-git-send-email-manabian@gmail.com>
 References: <1431598266-25736-1-git-send-email-manabian@gmail.com>
 Cc: Joachim Eastwood <manabian@gmail.com>, netdev@vger.kernel.org,
 	davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: arnd@arndb.de, peppe.cavallaro@st.com,
-	dinguyen@opensource.altera.com
+To: arnd@arndb.de, peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:35289 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932490AbbENKLt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 06:11:49 -0400
-Received: by labbd9 with SMTP id bd9so60510589lab.2
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 03:11:47 -0700 (PDT)
+Received: from mail-la0-f49.google.com ([209.85.215.49]:36585 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932828AbbENKLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 06:11:43 -0400
+Received: by lagv1 with SMTP id v1so60437401lag.3
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 03:11:42 -0700 (PDT)
 In-Reply-To: <1431598266-25736-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert platform glue layer into a proper platform
-driver and add it to the build system.
+Prepare the stmmac platform code to support standalone drivers
+by exporting the need functions and having of_match_device use
+the match table reference already present in the driver struct.
+
+This will allow us to reuse the platform driver functions from
+this code easily in other stand alone platform drivers.
 
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/Kconfig         | 12 ++++++++++++
- drivers/net/ethernet/stmicro/stmmac/Makefile        |  3 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 21 ++++++++++++++++++++-
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c   |  1 -
- .../net/ethernet/stmicro/stmmac/stmmac_platform.h   |  1 -
- 5 files changed, 34 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 14 +++++++++-----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h |  4 ++++
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index cb984606a819..f103e57e3ac0 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -66,6 +66,18 @@ config DWMAC_ROCKCHIP
- 	  This selects the Rockchip RK3288 SoC glue layer support for
- 	  the stmmac device driver.
- 
-+config DWMAC_SOCFPGA
-+	tristate "SOCFPGA dwmac support"
-+	default ARCH_SOCFPGA
-+	depends on OF
-+	select MFD_SYSCON
-+	help
-+	  Support for ethernet controller on Altera SOCFPGA
-+
-+	  This selects the Altera SOCFPGA SoC glue layer support
-+	  for the stmmac device driver. This driver is used for
-+	  arria5 and cyclone5 FPGA SoCs.
-+
- endif
- 
- config STMMAC_PCI
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-index e67dea423324..690741d6fc10 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-+++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-@@ -9,9 +9,10 @@ obj-$(CONFIG_STMMAC_PLATFORM)	+= stmmac-platform.o
- obj-$(CONFIG_DWMAC_LPC18XX)	+= dwmac-lpc18xx.o
- obj-$(CONFIG_DWMAC_MESON)	+= dwmac-meson.o
- obj-$(CONFIG_DWMAC_ROCKCHIP)	+= dwmac-rk.o
-+obj-$(CONFIG_DWMAC_SOCFPGA)	+= dwmac-socfpga.o
- obj-$(CONFIG_DWMAC_GENERIC)	+= dwmac-generic.o
- stmmac-platform-objs:= stmmac_platform.o dwmac-sunxi.o \
--		       dwmac-sti.o dwmac-socfpga.o
-+		       dwmac-sti.o
- 
- obj-$(CONFIG_STMMAC_PCI) += stmmac-pci.o
- stmmac-pci-objs:= stmmac_pci.o
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 5a36bd2c7837..8141c5b844ae 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -257,9 +257,28 @@ static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
- 	return ret;
- }
- 
--const struct stmmac_of_data socfpga_gmac_data = {
-+static const struct stmmac_of_data socfpga_gmac_data = {
- 	.setup = socfpga_dwmac_probe,
- 	.init = socfpga_dwmac_init,
- 	.exit = socfpga_dwmac_exit,
- 	.fix_mac_speed = socfpga_dwmac_fix_mac_speed,
- };
-+
-+static const struct of_device_id socfpga_dwmac_match[] = {
-+	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, socfpga_dwmac_match);
-+
-+static struct platform_driver socfpga_dwmac_driver = {
-+	.probe  = stmmac_pltfr_probe,
-+	.remove = stmmac_pltfr_remove,
-+	.driver = {
-+		.name           = "socfpga-dwmac",
-+		.pm		= &stmmac_pltfr_pm_ops,
-+		.of_match_table = socfpga_dwmac_match,
-+	},
-+};
-+module_platform_driver(socfpga_dwmac_driver);
-+
-+MODULE_LICENSE("GPL v2");
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 674f7bd1641a..4553b50833ea 100644
+index 1ac7c8a2c631..0d1f1ec96bc0 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -39,7 +39,6 @@ static const struct of_device_id stmmac_dt_ids[] = {
- 	{ .compatible = "st,stih416-dwmac", .data = &stih4xx_dwmac_data},
- 	{ .compatible = "st,stid127-dwmac", .data = &stid127_dwmac_data},
- 	{ .compatible = "st,stih407-dwmac", .data = &stih4xx_dwmac_data},
--	{ .compatible = "altr,socfpga-stmmac", .data = &socfpga_gmac_data },
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, stmmac_dt_ids);
+@@ -130,11 +130,12 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct stmmac_dma_cfg *dma_cfg;
+ 	const struct of_device_id *device;
++	struct device *dev = &pdev->dev;
+ 
+ 	if (!np)
+ 		return -ENODEV;
+ 
+-	device = of_match_device(stmmac_dt_ids, &pdev->dev);
++	device = of_match_device(dev->driver->of_match_table, dev);
+ 	if (!device)
+ 		return -ENODEV;
+ 
+@@ -269,7 +270,7 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
+  * the necessary platform resources, invoke custom helper (if required) and
+  * invoke the main probe function.
+  */
+-static int stmmac_pltfr_probe(struct platform_device *pdev)
++int stmmac_pltfr_probe(struct platform_device *pdev)
+ {
+ 	int ret = 0;
+ 	struct resource *res;
+@@ -375,6 +376,7 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(stmmac_pltfr_probe);
+ 
+ /**
+  * stmmac_pltfr_remove
+@@ -382,7 +384,7 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+  * Description: this function calls the main to free the net resources
+  * and calls the platforms hook and release the resources (e.g. mem).
+  */
+-static int stmmac_pltfr_remove(struct platform_device *pdev)
++int stmmac_pltfr_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct stmmac_priv *priv = netdev_priv(ndev);
+@@ -396,6 +398,7 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(stmmac_pltfr_remove);
+ 
+ #ifdef CONFIG_PM_SLEEP
+ /**
+@@ -439,8 +442,9 @@ static int stmmac_pltfr_resume(struct device *dev)
+ }
+ #endif /* CONFIG_PM_SLEEP */
+ 
+-static SIMPLE_DEV_PM_OPS(stmmac_pltfr_pm_ops,
+-			 stmmac_pltfr_suspend, stmmac_pltfr_resume);
++SIMPLE_DEV_PM_OPS(stmmac_pltfr_pm_ops, stmmac_pltfr_suspend,
++				       stmmac_pltfr_resume);
++EXPORT_SYMBOL_GPL(stmmac_pltfr_pm_ops);
+ 
+ static struct platform_driver stmmac_pltfr_driver = {
+ 	.probe = stmmac_pltfr_probe,
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-index fff2a885ffd8..3c8d7088361f 100644
+index 59fe8fb46a48..5be0b101bffd 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.h
-@@ -26,6 +26,5 @@ extern const struct dev_pm_ops stmmac_pltfr_pm_ops;
- extern const struct stmmac_of_data sun7i_gmac_data;
- extern const struct stmmac_of_data stih4xx_dwmac_data;
- extern const struct stmmac_of_data stid127_dwmac_data;
--extern const struct stmmac_of_data socfpga_gmac_data;
+@@ -19,6 +19,10 @@
+ #ifndef __STMMAC_PLATFORM_H__
+ #define __STMMAC_PLATFORM_H__
  
- #endif /* __STMMAC_PLATFORM_H__ */
++int stmmac_pltfr_probe(struct platform_device *pdev);
++int stmmac_pltfr_remove(struct platform_device *pdev);
++extern const struct dev_pm_ops stmmac_pltfr_pm_ops;
++
+ extern const struct stmmac_of_data lpc18xx_dwmac_data;
+ extern const struct stmmac_of_data meson6_dwmac_data;
+ extern const struct stmmac_of_data sun7i_gmac_data;
 -- 
 1.8.0
