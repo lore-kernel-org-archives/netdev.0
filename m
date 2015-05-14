@@ -1,50 +1,34 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] ath9k_htc: drv_init: match wait_for_completion_timeout return type
-Date: Thu, 14 May 2015 18:25:26 +0200
-Message-ID: <1431620726-31680-1-git-send-email-hofrat@osadl.org>
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	ath9k-devel@venema.h4ckr.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Nicholas Mc Guire <hofrat@osadl.org>
-To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fix net/sched compile error
+Date: Thu, 14 May 2015 12:40:41 -0400 (EDT)
+Message-ID: <20150514.124041.1245041571104549683.davem@davemloft.net>
+References: <5554CE47.8070709@hp.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([62.245.132.105]:36545 "EHLO www.osadl.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933104AbbENQdm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2015 12:33:42 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:39961 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932871AbbENQkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 12:40:43 -0400
+In-Reply-To: <5554CE47.8070709@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return type of wait_for_completion_timeout is unsigned long not int.
-As time_left is exclusively used for wait_for_completion_timeout here its
-type is simply changed to unsigned long.
-
-API conformance testing for completions with coccinelle spatches are being
-used to locate API usage inconsistencies:
-./drivers/net/wireless/ath/ath9k/htc_drv_init.c:81
-	int return assigned to unsigned long
-
-Patch was compile tested with x86_64_defconfig + CONFIG_ATH_CARDS=m,
-CONFIG_ATH9K_HTC=m
-
-Patch is against 4.1-rc3 (localversion-next is -next-20150514)
-
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
- drivers/net/wireless/ath/ath9k/htc_drv_init.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-index 7468562..6c001b8 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-@@ -74,7 +74,7 @@ static struct ath_ps_ops ath9k_htc_ps_ops = {
- 
- static int ath9k_htc_wait_for_target(struct ath9k_htc_priv *priv)
- {
--	int time_left;
-+	unsigned long time_left;
- 
- 	if (atomic_read(&priv->htc->tgt_ready) > 0) {
- 		atomic_dec(&priv->htc->tgt_ready);
--- 
-1.7.10.4
+RnJvbTogQnJpYW4gSGFsZXkgPGJyaWFuLmhhbGV5QGhwLmNvbT4NCkRhdGU6IFRodSwgMTQgTWF5
+IDIwMTUgMTI6MzM6MTEgLTA0MDANCg0KPiBGaXggY29tcGlsZSBlcnJvciBpbiBuZXQvc2NoZWQv
+Y2xzX2Zsb3dlci5jDQo+IA0KPiAgICAgbmV0L3NjaGVkL2Nsc19mbG93ZXIuYzogSW4gZnVuY3Rp
+b24goWZsX3NldF9rZXmiOg0KPiAgICAgbmV0L3NjaGVkL2Nsc19mbG93ZXIuYzoyNDA6MzogZXJy
+b3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uDQo+ICAgICChdGNmX2NoYW5nZV9p
+bmRldqIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQo+ICAgICAgICBl
+cnIgPSB0Y2ZfY2hhbmdlX2luZGV2KG5ldCwgdGJbVENBX0ZMT1dFUl9JTkRFVl0pOw0KPiANCj4g
+SW50cm9kdWNlZCBpbiA3N2I5OTAwZWY1M2FlMDQ3ZTM2YTM3ZDEzYTJhYTMzYmIyZDYwNjQxDQo+
+IA0KPiBTaWduZWQtb2ZmLWJ5OiBCcmlhbiBIYWxleSA8YnJpYW4uaGFsZXlAaHAuY29tPg0KDQpQ
+bGVhc2UgZm9ybWF0IHlvdXIgU3ViamVjdCBsaW5lIGNvcnJlY3RseS4NCg0KQWZ0ZXIgJ1tQQVRD
+SF0gJyBvciBzaW1pbGFyLCB5b3Ugc2hvdWxkIGJlZ2luIHdpdGggYSBzdWJzeXN0ZW0gb3INCmRy
+aXZlciBuYW1lIHByZWZpeCwgZm9sbG93aW5nIGJ5IGEgY29sb24gY2hhcmFjdGVyIGFuZCBhIHNw
+YWNlLg0KDQpJbiB0aGlzIGNhc2UsICJjbHNfZmxvd2VyOiAiIHdvdWxkIGJlIGFwcHJvcHJpYXRl
+Lg0KDQpTbyBzb21ldGhpbmcgbGlrZSAiW1BBVENIXSBjbHNfZmxvd2VyOiBGaXggY29tcGlsZSBl
+cnJvci4iDQo=
