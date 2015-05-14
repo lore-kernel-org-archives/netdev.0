@@ -1,51 +1,53 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] test_bpf: fix sparse warnings
-Date: Thu, 14 May 2015 18:10:31 +0200
-Message-ID: <5554C8F7.5080002@iogearbox.net>
-References: <1431574839-7099-1-git-send-email-ast@plumgrid.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] rocker: fix a neigh entry leak issue
+Date: Thu, 14 May 2015 12:17:51 -0400 (EDT)
+Message-ID: <20150514.121751.1894390478989103661.davem@davemloft.net>
+References: <1431587190-28901-1-git-send-email-ying.xue@windriver.com>
+	<1431612382.27831.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>,
-	Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: ying.xue@windriver.com, jiri@resnulli.us, sfeldma@gmail.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44191 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964872AbbENQKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 12:10:40 -0400
-In-Reply-To: <1431574839-7099-1-git-send-email-ast@plumgrid.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39762 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933239AbbENQR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 12:17:56 -0400
+In-Reply-To: <1431612382.27831.52.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/14/2015 05:40 AM, Alexei Starovoitov wrote:
-> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
->
-> Fix several sparse warnings like:
-> lib/test_bpf.c:1824:25: sparse: constant 4294967295 is so big it is long
-> lib/test_bpf.c:1878:25: sparse: constant 0x0000ffffffff0000 is so big it is long
->
-> Fixes: cffc642d93f9 ("test_bpf: add 173 new testcases for eBPF")
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
->   lib/test_bpf.c |  122 ++++++++++++++++++++++++++++----------------------------
->   1 file changed, 61 insertions(+), 61 deletions(-)
->
-...
->   	{
->   		"ALU_MOV_K: 0x0000ffffffff0000 = 0x00000000ffffffff",
->   		.u.insns_int = {
-> -			BPF_LD_IMM64(R2, 0x0000ffffffff0000),
-> -			BPF_LD_IMM64(R3, 0x00000000ffffffff),
-> +			BPF_LD_IMM64(R2, 0x0000ffffffff0000LL),
-> +			BPF_LD_IMM64(R3, 0x00000000ffffffffLL),
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 14 May 2015 07:06:22 -0700
 
-Should have been ULL, no? Anyway, the BPF_LD_IMM64() macro will cast it
-correctly anyway.
+> On Thu, 2015-05-14 at 15:06 +0800, Ying Xue wrote:
+>> Once we get a neighbour through looking up arp cache or creating a
+>> new one in rocker_port_ipv4_resolve(), the neighbour's refcount is
+>> already taken. But we don't put the refcount again after it's used,
+>> which make the neighbour entry leaked.
+>> 
+>> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+>> ---
+>>  drivers/net/ethernet/rocker/rocker.c |    1 +
+>>  1 file changed, 1 insertion(+)
+>> 
+>> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+>> index 1fc006b..7504540 100644
+>> --- a/drivers/net/ethernet/rocker/rocker.c
+>> +++ b/drivers/net/ethernet/rocker/rocker.c
+>> @@ -3053,6 +3053,7 @@ static int rocker_port_ipv4_resolve(struct rocker_port *rocker_port,
+>>  	else
+>>  		neigh_event_send(n, NULL);
+>>  
+>> +	neigh_release(n);
+>>  	return err;
+>>  }
+>>  
+> 
+> I do not think this fix is complete.
+> 
+> neigh_create() can return an error, and we'll crash.
 
-Other than that:
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Correct, neigh_create() return values must be checked with IS_ERR().
