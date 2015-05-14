@@ -1,61 +1,58 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting skb->dev
- in receive path
-Date: Wed, 13 May 2015 19:04:28 -0700
-Message-ID: <20150514020316.1635.50870.stgit@ahduyck-vm-fedora22>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, tgraf@suug.ch,
-	herbert@gondor.apana.org.au, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Andy Zhou <azhou@nicira.com>
+Subject: [net-next fragmentation icmp v4 0/4] fragmentation ICMP
+Date: Wed, 13 May 2015 19:27:58 -0700
+Message-ID: <1431570482-9236-1-git-send-email-azhou@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44725 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753289AbbENCEc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 May 2015 22:04:32 -0400
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:53893 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933232AbbENCtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 22:49:31 -0400
+Received: by mail-pa0-f41.google.com with SMTP id tp1so69228017pab.2
+        for <netdev@vger.kernel.org>; Wed, 13 May 2015 19:49:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change makes it so that we clear the skb->mark field when we pass
-through the receive path of the IPv4 or IPv6 virtual tunnel interface.  The
-reason for clearing these fields is to resolve an apparent regression for
-the behavior before skb_scrub_packet was modified.  Without this patch I
-have to set disable_policy for the vti tunnel endpoint in order to be able
-to receive traffic.
+Currently, we send ICMP packets when errors occur during fragmentation or
+de-fragmentation.  However, it is a bug when sending those ICMP packets
+in the context of using netfilter for bridging.
 
-Fixes: 213dd74aee76 ("skbuff: Do not scrub skb mark within the same name space")
-Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Those ICMP packets are only expected in the context of routing, not in
+bridging mode.
+
+The local stack is not involved in bridging forward decisions, thus
+should be not used for deciding the reverse path for those ICMP messages.
+
+This bug only affects IPV4, not in IPv6.
+
 ---
+v1->v2:  restructure the patches into two patches that fix defragmentation and
+         fragmentation respectively. 
 
-I have only tested the ipv4 side of this patch as I have yet to be able to
-get a message to successfully pass between to ipv6 vti endpoints.
+	 A bit is add in IPCB to control whether ICMP packet should be
+	 generated for defragmentation.
 
- net/ipv4/ip_vti.c  |    1 +
- net/ipv6/ip6_vti.c |    1 +
- 2 files changed, 2 insertions(+)
+	 Fragmentation ICMP is now removed by restructuring the
+	 ip_fragment() API.
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index ee479495f5a3..d853e78742d3 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -112,6 +112,7 @@ static int vti_rcv_cb(struct sk_buff *skb, int err)
- 
- 	skb_scrub_packet(skb, !net_eq(tunnel->net, dev_net(skb->dev)));
- 	skb->dev = dev;
-+	skb->mark = 0;
- 
- 	tstats = this_cpu_ptr(dev->tstats);
- 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index ed9d681207fa..c245fb8298e5 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -363,6 +363,7 @@ static int vti6_rcv_cb(struct sk_buff *skb, int err)
- 
- 	skb_scrub_packet(skb, !net_eq(t->net, dev_net(skb->dev)));
- 	skb->dev = dev;
-+	skb->mark = 0;
- 
- 	tstats = this_cpu_ptr(dev->tstats);
- 	u64_stats_update_begin(&tstats->syncp);
+v2->v3:  Add droping icmp for bridging contrack users
+         drop exporting ip_fragment() API.
+
+v3->v4:  Remove unnecessary parentheses in 'return' statements
+
+Andy Zhou (4):
+  ipv4: introduce frag_expire_skip_icmp()
+  IPv4: skip ICMP for bridge contrack users when defrag expires
+  bridge_netfilter: No ICMP packet on IPv4 defragmentation timeout
+  bridge_netfilter: No ICMP packet on IPv4 fragmentation error
+
+ include/net/inet_frag.h   |  4 +++-
+ include/net/ip.h          | 15 +++++++++++++--
+ net/bridge/br_netfilter.c | 26 +++++++++++++++++++++++++-
+ net/ipv4/ip_fragment.c    | 25 ++++++++++++++++++++-----
+ net/ipv4/ip_output.c      | 40 ++++++++++++++++++++++++++++------------
+ 5 files changed, 89 insertions(+), 21 deletions(-)
+
+-- 
+1.9.1
