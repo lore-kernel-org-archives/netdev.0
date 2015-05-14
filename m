@@ -1,47 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink & rhashtable status
-Date: Wed, 13 May 2015 20:17:43 -0700
-Message-ID: <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1431495036.566.126.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150513054037.GA26595@gondor.apana.org.au>
-	 <1431497740.566.129.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150513062038.GA26944@gondor.apana.org.au>
-	 <1431522271.566.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150514025333.GA3853@gondor.apana.org.au>
+From: <rongqing.li@windriver.com>
+Subject: [PATCH] xfrm: optimise to search the inexact policy list
+Date: Thu, 14 May 2015 11:16:59 +0800
+Message-ID: <1431573419-31253-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:34578 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753170AbbENDRq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 23:17:46 -0400
-Received: by pacyx8 with SMTP id yx8so69909649pac.1
-        for <netdev@vger.kernel.org>; Wed, 13 May 2015 20:17:45 -0700 (PDT)
-In-Reply-To: <20150514025333.GA3853@gondor.apana.org.au>
+Received: from mail1.windriver.com ([147.11.146.13]:47606 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753170AbbENDSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 May 2015 23:18:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-14 at 10:53 +0800, Herbert Xu wrote:
-> On Wed, May 13, 2015 at 09:18:04AM -0700, Eric Dumazet wrote:
-> >
-> > For 4.0.3 I replaced the two rhashtable files by current Linus version,
-> > and problem is gone, so the fix is not in net/netlink
-> 
-> Are you sure the same bug happens in 3.17 too? I can certainly see
-> this happening after the dynamic rehashing code went in.
-> 
-> But in 3.17 it was doing everything under one single lock so I can't
-> really see how things can go wrong.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-The initial bug report was on 3.18 for sure.
+The policies are organized into list by priority ascent of policy,
+so it is unnecessary to continue to loop the policy if the priority
+of current looped police is larger than or equal priority which is
+from the policy_bydst list.
 
-(Tester had to leave the program run ~8 hours to get the problem, on a 8
-vCPU VM)
+This allows to match policy with ~0U priority in inexact list too.
 
-I can reproduce the bug quite easily (in a few seconds) on 4.0.3, I did
-not spent lot of time trying 3.18, but it seems a bit harder.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/xfrm/xfrm_policy.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 3d264e5..18cead7 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1114,6 +1114,9 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 	}
+ 	chain = &net->xfrm.policy_inexact[dir];
+ 	hlist_for_each_entry(pol, chain, bydst) {
++		if ((pol->priority >= priority) && ret)
++			break;
++
+ 		err = xfrm_policy_match(pol, fl, type, family, dir);
+ 		if (err) {
+ 			if (err == -ESRCH)
+@@ -1122,7 +1125,7 @@ static struct xfrm_policy *xfrm_policy_lookup_bytype(struct net *net, u8 type,
+ 				ret = ERR_PTR(err);
+ 				goto fail;
+ 			}
+-		} else if (pol->priority < priority) {
++		} else {
+ 			ret = pol;
+ 			break;
+ 		}
+@@ -3203,9 +3206,11 @@ static struct xfrm_policy *xfrm_migrate_policy_find(const struct xfrm_selector *
+ 	}
+ 	chain = &net->xfrm.policy_inexact[dir];
+ 	hlist_for_each_entry(pol, chain, bydst) {
++		if ((pol->priority >= priority) && ret)
++			break;
++
+ 		if (xfrm_migrate_selector_match(sel, &pol->selector) &&
+-		    pol->type == type &&
+-		    pol->priority < priority) {
++		    pol->type == type) {
+ 			ret = pol;
+ 			break;
+ 		}
+-- 
+2.1.4
