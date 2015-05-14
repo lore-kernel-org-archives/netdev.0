@@ -1,74 +1,94 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next V3 02/11] net/mlx5_core: Add EQ renaming mechanism
-Date: Thu, 14 May 2015 18:19:48 +0300
-Message-ID: <CAJ3xEMhtuAcAJREH8gK2Py0vCcu3zttXqrxCfUw1urMg3xmuCQ@mail.gmail.com>
-References: <1431250746-11941-1-git-send-email-amirv@mellanox.com>
-	<1431250746-11941-3-git-send-email-amirv@mellanox.com>
-	<20150511.134008.7539040783838247.davem@davemloft.net>
-	<CAPcc5Pijfg+799kG=gA-3w9RhsVnuOeRWYrX5qFh=SB6CABxGg@mail.gmail.com>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH net-next 00/11] convert stmmac glue layers into platform drivers
+Date: Thu, 14 May 2015 23:24:48 +0800
+Message-ID: <CAGb2v663efjkwgRjPdxV4CQxeesiu7jxkMf9j_oPU_bSHbNNiA@mail.gmail.com>
+References: <1431598266-25736-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tal Alon <talal@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Roger <roger.chen@rock-chips.com>, Chen-Yu Tsai <wens@csie.org>,
+	Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
+	dinguyen@opensource.altera.com, b.galvani@gmail.com,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	linux-rockchip@lists.infradead.org
+To: Joachim Eastwood <manabian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:34213 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932382AbbENPTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 11:19:50 -0400
-Received: by oiko83 with SMTP id o83so58098305oik.1
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 08:19:49 -0700 (PDT)
-In-Reply-To: <CAPcc5Pijfg+799kG=gA-3w9RhsVnuOeRWYrX5qFh=SB6CABxGg@mail.gmail.com>
+Received: from smtp.csie.ntu.edu.tw ([140.112.30.61]:43552 "EHLO
+	smtp.csie.ntu.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932640AbbENPZP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 11:25:15 -0400
+Received: from mail-ig0-f170.google.com (mail-ig0-f170.google.com [209.85.213.170])
+	(Authenticated sender: b93043)
+	by smtp.csie.ntu.edu.tw (Postfix) with ESMTPSA id 32B50202BB
+	for <netdev@vger.kernel.org>; Thu, 14 May 2015 23:25:11 +0800 (CST)
+Received: by igbsb11 with SMTP id sb11so75811099igb.0
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 08:25:09 -0700 (PDT)
+In-Reply-To: <1431598266-25736-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 2:55 PM, Amir Vadai <amirv@mellanox.com> wrote:
-> On Mon, May 11, 2015 at 8:40 PM, David Miller <davem@davemloft.net> wrote:
->> From: Amir Vadai <amirv@mellanox.com>
->> Date: Sun, 10 May 2015 12:38:57 +0300
->>
->>> +int mlx5_rename_eq(struct mlx5_core_dev *dev, int eq_ix, char *name)
->>> +{
->>> +     struct mlx5_priv *priv = &dev->priv;
->>> +     struct mlx5_eq_table *table = &priv->eq_table;
->>> +     struct mlx5_eq *eq;
->>> +     int err = -ENOENT;
->>> +
->>> +     spin_lock(&table->lock);
->>> +     list_for_each_entry(eq, &table->comp_eqs_list, list) {
->>> +             if (eq->index == eq_ix) {
->>> +                     snprintf(priv->irq_info[eq_ix].name, MLX5_MAX_IRQ_NAME,
->>> +                              "%s-%d", name, eq_ix);
->>> +                     err = 0;
->>> +                     break;
->>> +             }
->>> +     }
->>> +     spin_unlock(&table->lock);
->>> +
->>> +     return err;
->>> +}
->>
->> You have to be very careful with this.
->>
->> If you change these names after the request_irq() call(s), the new name string
->> will not propagate to /proc/interrupts output etc.
->>
->> Looking at your later patches, this seems to be invoked very late in
->> mlx5e_open_locked(), so I am concerned.
-> It is true. We call request_irq() when driver is loaded (and we don't
-> know yet if the ports types are Infiniband or Ethernet). Only later
-> on, we rename the name when interface is up and we know its name.
+On Thu, May 14, 2015 at 6:10 PM, Joachim Eastwood <manabian@gmail.com> wrote:
+> This patch set aims to convert the current dwmac glue layers into
+> proper platform drivers as request by Arnd[1]. These changes start
+> from patch 3 and onwards.
 >
-> But, empirically /proc/interrupts is propagated with the new name
-> (according to latest net-next). Also, in the code, I don't see why
-> shouldn't it be updated. When calling request_irq(), name is not
-> copied, but irq_desc->action->name is pointing to it. This same
-> pointer is being used by show_interrupts() when /proc/interrupts is
-> queried.
-> So don't see why when modifying the string pointed by it, it wouldn't
-> shown on /proc/interrupts.
+> Overview:
+> Platform driver functions like probe and remove are exported from
+> the stmmac platform and then used in subsequent glue later
+> conversions. The conversion involes adding the platform driver
+> boiler plate code and adding it to the build system. The last patch
+> removes the driver from the stmmac platform code thus making it into
+> a library for common platform driver functions.
+>
+> The two first patches adds glue layer for my platform. I chose to
+> first add old style glue layer and then convert it. The churn this
+> creates is just 3 lines.
+>
+> I would be very nice if people could test this patch set on their
+> respective platform. My testing has been limited to compiling and
+> testing on my (LPC18xx) platform. Thanks!
 
-Dave, does this makes sense to you?
+Tested-by: Chen-Yu Tsai <wens@csie.org>
+
+on sunxi boards Cubietruck and Hummingbird A31.
+
+> Next I will look into cleaning up the stmmac platform code.
+>
+> [1] http://marc.info/?l=linux-arm-kernel&m=143059524606459&w=2
+>
+> Joachim Eastwood (11):
+>   stmmac: add dwmac glue for NXP 18xx/43xx family
+>   doc: dt: add documentation for nxp,lpc1850-dwmac
+>   stmmac: prepare stmmac platform to support stand alone drivers
+>   stmmac: add a generic dwmac driver
+>   stmmac: convert dwmac-lpc18xx to a platform driver
+>   stmmac: convert dwmac-meson to platform driver
+>   stmmac: convert dwmac-rk to platform driver
+>   stmmac: convert dwmac-socfpga to platform driver
+>   stmmac: convert dwmac-sti to platform driver
+>   stmmac: convert dwmac-sunxi to platform driver
+>   stmmac: drop driver from stmmac platform code
+>
+>  .../devicetree/bindings/net/nxp,lpc1850-dwmac.txt  | 20 +++++
+>  drivers/net/ethernet/stmicro/stmmac/Kconfig        | 76 +++++++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/Makefile       | 13 ++-
+>  .../net/ethernet/stmicro/stmmac/dwmac-generic.c    | 41 +++++++++
+>  .../net/ethernet/stmicro/stmmac/dwmac-lpc18xx.c    | 99 ++++++++++++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-meson.c  | 24 +++++-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 27 +++++-
+>  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 21 ++++-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c    | 29 ++++++-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-sunxi.c  | 25 +++++-
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 49 ++---------
+>  .../net/ethernet/stmicro/stmmac/stmmac_platform.h  |  9 +-
+>  12 files changed, 378 insertions(+), 55 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/nxp,lpc1850-dwmac.txt
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-generic.c
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-lpc18xx.c
+>
+> --
+> 1.8.0
+>
