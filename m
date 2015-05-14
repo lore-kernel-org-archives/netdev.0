@@ -1,36 +1,32 @@
-From: Nicholas Mc Guire <der.herr@hofr.at>
-Subject: Re: [PATCH] ath9k_htc: wmi: match wait_for_completion_timeout
-	return type
-Date: Thu, 14 May 2015 19:40:25 +0200
-Message-ID: <20150514174025.GA22524@opentech.at>
-References: <1431621821-8173-1-git-send-email-hofrat@osadl.org> <87fv6zccny.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: phy: broken turn-around support
+Date: Thu, 14 May 2015 13:41:18 -0400 (EDT)
+Message-ID: <20150514.134118.660863138802455644.davem@davemloft.net>
+References: <1431442563-10218-1-git-send-email-bert@biot.com>
+	<1431452006-3219-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nicholas Mc Guire <hofrat@osadl.org>,
-	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-	linux-wireless@vger.kernel.org, ath9k-devel@venema.h4ckr.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87fv6zccny.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jogo@openwrt.org, bert@biot.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40502 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161085AbbENRlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 13:41:19 -0400
+In-Reply-To: <1431452006-3219-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 May 2015, Kalle Valo wrote:
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 12 May 2015 10:33:23 -0700
 
-> Nicholas Mc Guire <hofrat@osadl.org> writes:
+> This is an attempt at solving the broken turn-around problem in a way that
+> is not specific to the mdio-gpio driver, since it affects different kinds of
+> platforms.
 > 
-> > Patch is against 4.1-rc3 (localversion-next is -next-20150514)
-> 
-> BTW, this info should be under "---" line so that it doesn't get stored
-> to the actual commit log.
->
-that is where I had been putting it until ask by Josh Triplett and 
-Steven Rostedt to put it above the "---" line explicitly
-see: http://lkml.org/lkml/2015/5/11/552 
+> We cannot make that localized to PHY device drivers because probing the PHY
+> device which has a broken turn-around can fail as early as in get_phy_id(),
+> therefore we need a bit of help from Device Tree/platform_data.
 
-So now I'm a bit lost where to actually put this buildtest info ?
-
-thx!
-hofrat
+Series applied, thanks Florian.
