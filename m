@@ -1,154 +1,60 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 1/7] printk: guard the amount written per line by devkmsg_read()
-Date: Thu, 14 May 2015 12:06:20 -0400
-Message-ID: <1431619586-29187-2-git-send-email-tj@kernel.org>
-References: <1431619586-29187-1-git-send-email-tj@kernel.org>
+Subject: [PATCHSET REPOST] printk, netconsole: implement extended console support
+Date: Thu, 14 May 2015 12:06:19 -0400
+Message-ID: <1431619586-29187-1-git-send-email-tj@kernel.org>
 Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Kay Sievers <kay@vrfy.org>, Petr Mladek <pmladek@suse.cz>
+	netdev@vger.kernel.org
 To: akpm@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431619586-29187-1-git-send-email-tj@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-devkmsg_read() uses 8k buffer and assumes that the formatted output
-message won't overrun which seems safe given LOG_LINE_MAX, the current
-use of dict and the escaping method being used; however, we're
-planning to use devkmsg formatting wider and accounting for the buffer
-size properly isn't that complicated.
+This is the combined repost of the following two patches with only
+minor updates - warning message and comments added as suggested by
+Andrew.  I think it'd be best to route the changes through -mm.
 
-This patch defines CONSOLE_EXT_LOG_MAX as 8192 and updates
-devkmsg_read() so that it limits output accordingly.
+[1] [PATCHSET] printk: implement extended console support
+[2] [PATCHSET v3] netconsole: implement extended console support
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Kay Sievers <kay@vrfy.org>
-Cc: Petr Mladek <pmladek@suse.cz>
----
- include/linux/printk.h |  2 ++
- kernel/printk/printk.c | 34 ++++++++++++++++++++++------------
- 2 files changed, 24 insertions(+), 12 deletions(-)
+The netconsole part has been reviewed by David[3].
 
-diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 9b30871..58b1fec 100644
---- a/include/linux/printk.h
-+++ b/include/linux/printk.h
-@@ -30,6 +30,8 @@ static inline const char *printk_skip_level(const char *buffer)
- 	return buffer;
- }
- 
-+#define CONSOLE_EXT_LOG_MAX	8192
-+
- /* printk's without a loglevel use this.. */
- #define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
- 
-diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index c099b08..a115490 100644
---- a/kernel/printk/printk.c
-+++ b/kernel/printk/printk.c
-@@ -505,6 +505,11 @@ int check_syslog_permissions(int type, bool from_file)
- 	return security_syslog(type);
- }
- 
-+static void append_char(char **pp, char *e, char c)
-+{
-+	if (*pp < e)
-+		*(*pp)++ = c;
-+}
- 
- /* /dev/kmsg - userspace message inject/listen interface */
- struct devkmsg_user {
-@@ -512,7 +517,7 @@ struct devkmsg_user {
- 	u32 idx;
- 	enum log_flags prev;
- 	struct mutex lock;
--	char buf[8192];
-+	char buf[CONSOLE_EXT_LOG_MAX];
- };
- 
- static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
-@@ -570,6 +575,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- {
- 	struct devkmsg_user *user = file->private_data;
- 	struct printk_log *msg;
-+	char *p, *e;
- 	u64 ts_usec;
- 	size_t i;
- 	char cont = '-';
-@@ -579,6 +585,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 	if (!user)
- 		return -EBADF;
- 
-+	p = user->buf;
-+	e = user->buf + sizeof(user->buf);
-+
- 	ret = mutex_lock_interruptible(&user->lock);
- 	if (ret)
- 		return ret;
-@@ -625,9 +634,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
- 		cont = '+';
- 
--	len = sprintf(user->buf, "%u,%llu,%llu,%c;",
--		      (msg->facility << 3) | msg->level,
--		      user->seq, ts_usec, cont);
-+	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
-+		       (msg->facility << 3) | msg->level,
-+		       user->seq, ts_usec, cont);
- 	user->prev = msg->flags;
- 
- 	/* escape non-printable characters */
-@@ -635,11 +644,11 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 		unsigned char c = log_text(msg)[i];
- 
- 		if (c < ' ' || c >= 127 || c == '\\')
--			len += sprintf(user->buf + len, "\\x%02x", c);
-+			p += scnprintf(p, e - p, "\\x%02x", c);
- 		else
--			user->buf[len++] = c;
-+			append_char(&p, e, c);
- 	}
--	user->buf[len++] = '\n';
-+	append_char(&p, e, '\n');
- 
- 	if (msg->dict_len) {
- 		bool line = true;
-@@ -648,30 +657,31 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
- 			unsigned char c = log_dict(msg)[i];
- 
- 			if (line) {
--				user->buf[len++] = ' ';
-+				append_char(&p, e, ' ');
- 				line = false;
- 			}
- 
- 			if (c == '\0') {
--				user->buf[len++] = '\n';
-+				append_char(&p, e, '\n');
- 				line = true;
- 				continue;
- 			}
- 
- 			if (c < ' ' || c >= 127 || c == '\\') {
--				len += sprintf(user->buf + len, "\\x%02x", c);
-+				p += scnprintf(p, e - p, "\\x%02x", c);
- 				continue;
- 			}
- 
--			user->buf[len++] = c;
-+			append_char(&p, e, c);
- 		}
--		user->buf[len++] = '\n';
-+		append_char(&p, e, '\n');
- 	}
- 
- 	user->idx = log_next(user->idx);
- 	user->seq++;
- 	raw_spin_unlock_irq(&logbuf_lock);
- 
-+	len = p - user->buf;
- 	if (len > count) {
- 		ret = -EINVAL;
- 		goto out;
--- 
-2.1.0
+This patchset updates netconsole so that it can emit messages with the
+same header as used in /dev/kmsg which gives neconsole receiver full
+log information which enables things like structured logging and
+detection of lost messages.
+
+Please see the head messages of the original postings for more
+detailed info.
+
+ 0001-printk-guard-the-amount-written-per-line-by-devkmsg_.patch
+ 0002-printk-factor-out-message-formatting-from-devkmsg_re.patch
+ 0003-printk-implement-support-for-extended-console-driver.patch
+ 0004-netconsole-remove-unnecessary-netconsole_target_get-.patch
+ 0005-netconsole-make-netconsole_target-enabled-a-bool.patch
+ 0006-netconsole-make-all-dynamic-netconsoles-share-a-mute.patch
+ 0007-netconsole-implement-extended-console-support.patch
+
+0001-0003 implement extended console support in printk.
+
+0004-0007 update netconsole to support extended console.
+
+The patchset is also available in the following git branch.
+
+ git://git.kernel.org/pub/scm/linux/kernel/git/tj/misc.git review-netconsole-ext-console
+
+diffstat follows.  Thanks.
+
+ Documentation/ABI/testing/dev-kmsg      |    9 +
+ Documentation/networking/netconsole.txt |   35 +++++
+ drivers/net/netconsole.c                |  169 ++++++++++++++++++++++---
+ include/linux/console.h                 |    1 
+ include/linux/printk.h                  |    2 
+ kernel/printk/printk.c                  |  214 +++++++++++++++++++++-----------
+ 6 files changed, 341 insertions(+), 89 deletions(-)
+
+--
+tejun
+
+[1] http://lkml.kernel.org/g/1430318704-32374-1-git-send-email-tj@kernel.org
+[2] http://lkml.kernel.org/g/1431362494-9874-1-git-send-email-tj@kernel.org
+[3] http://lkml.kernel.org/g/20150514.003917.1450039994643712704.davem@davemloft.net
