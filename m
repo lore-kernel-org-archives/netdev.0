@@ -1,81 +1,114 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: GSM Modem management?
-Date: Thu, 14 May 2015 15:20:36 -0500
-Message-ID: <1431634836.10190.7.camel@redhat.com>
-References: <20150514194442.GA21972@bamboo.electronicsoup>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Show more info (ring,fanout) for packet
+ socks
+Date: Thu, 14 May 2015 23:21:43 +0300
+Message-ID: <20150514202143.GA22330@angus-think.lan>
+References: <1431509966-5054-1-git-send-email-vadim4j@gmail.com>
+ <CA+FuTSeM_FQBRToXCBix9ns3_07ivfqxYHB4nGHcSqqp31fX5A@mail.gmail.com>
+ <20150514110900.GA28582@angus-think.wlc.globallogic.com>
+ <CA+FuTSditeDHFKD-NLUJsZ=Cgyzca3RZysecRAx=whzpg+E6cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Whitmore <arigead@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Kochan <vadim4j@gmail.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58830 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161074AbbENUUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2015 16:20:37 -0400
-In-Reply-To: <20150514194442.GA21972@bamboo.electronicsoup>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:36822 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161099AbbENUWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 16:22:25 -0400
+Received: by wgbhc8 with SMTP id hc8so54365180wgb.3
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 13:22:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CA+FuTSditeDHFKD-NLUJsZ=Cgyzca3RZysecRAx=whzpg+E6cg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-14 at 20:44 +0100, John Whitmore wrote:
-> Chances are that I'm in the wrong place here, "Linux" networking having so many
-> parts, many of which aren't in the kernel, that being said this might be
-> considered the centre of it all, so I thought I'd start here and see if
-> somebody would point me in a direction that was better placed to answer some
-> of my queries.
+On Thu, May 14, 2015 at 03:54:41PM -0400, Willem de Bruijn wrote:
+> On Thu, May 14, 2015 at 7:09 AM, Vadim Kochan <vadim4j@gmail.com> wrote:
+> > On Wed, May 13, 2015 at 05:10:38PM -0400, Willem de Bruijn wrote:
+> >> > +               }
+> >> > +               if (has_fanout) {
+> >> > +                       uint16_t type = (fanout >> 16) & 0xffff;
+> >>
+> >> type can be modified by flags in the upper 8 bits. Better
+> >> mask those out and report them separately.
+> > Kernel puts only id & type in diag message, flags are stored in separated
+> > member of 'struct packet_sock'.
 > 
-> I'm working on a mobile system, RaspberryPi based, which has two 4G USB
-> Dongles for communications to the Internet. Both dongles are the same make and
-> model but have different service provider sims. The idea being that if one has
-> no coverage hopefully the other does have some degree of connectivity. I
-> started by connecting up to the internet using network-manager-gnome for a
-> single dongle. Unfortunately when I started a ping test after a couple of ping
-> messages it crashed the whole raspbian system without any message going to
-> /var/log/messages. Totally locked up. 
+> I don't mean pdi_flags, but
+> 
+>   PACKET_FANOUT_FLAG_ROLLOVER
+>   PACKET_FANOUT_FLAG_DEFRAG
+sure, I understood what you meant.
+> 
+> which are passed as part of this u32 by the process during setsockopt
+> PACKET_FANOUT.
+> 
+OK, its better to look into the kernel:
 
-Odd, are these dongles using AT commands or are they using one of the
-proprietary protocols like QMI, MBIM, or QCDM?  It's highly unlikely
-that NetworkManager + ModemManager would be crashing your system when
-using plain AT commands, but there have in the past been driver problems
-with QMI and MBIM.  Can you give specifics on the dongles?
+net/packet/af_packet.c
 
-> Having failed with the Network-manager I used wvdial to establish a connection
-> and that is as happy as larry, pinging away. 
+static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+{
+	struct packet_fanout *f, *match;
+	u8 type = type_flags & 0xff;
+	u8 flags = type_flags >> 8;
 
-Are you using PPP as the mechanism here?  Unless you have very low
-bandwidth requirements I'd recommend using the pseudo-ethernet interface
-provided by the modem (which often also requires using a proprietary
-protocol like QMI or MBIM to control it) since this gives much higher
-throughput especially with HSPA+ and LTE.
+	...
 
-> My questions are to do with how to manage two identical Dongles. At present
-> when usb-modeswitch ejects them, from CD Drive, into modem configuration, when
-> "qmi_wwan" assignes a network name. I'd like to assign udev rules to assign
-> carrier based names to the network interfaces. I'm not sure if udev will
-> interfere with qmi_wwan? 
+	match->id = id;
+	match->type = type;
+	match->flags = flags;
 
-Aha, so you are using Qualcomm-based dongles :)  So NetworkManager +
-ModemManager will natively try to use QMI + ethernet on these dongles
-just like Windows does, because that provides the most flexibility and
-speed.  So the crashes/hangs you were experiencing may be due to driver
-issues in the qmi_wwan and cdc_wdm modules.  What kernel version are you
-using here too?
+	...
+}
 
-> That is possibly the easy part. I then want to attach some logic to manage the
-> connections in a very basic manner and perhaps display connectivity
-> information to the user on the desktop. Could somebody tell me where this
-> functionality would be added? I assume that ppp has no idea about GSM signal
-> strength. It'd be great if a simple user space program could monitor DBus and
-> bring up or drop the connections as conditions change, but I guess that might
-> be asking for a little bit much. So if not ppp what sub-system controls the
-> Modem? 
+As I see this function is called from setsockopt, takes type_flags and splits it into type & flags
+and store them separately in struct packet_fanout.
 
-It all depends on the modem itself and what it supports.  We've tried to
-develop ModemManager as single system service that works with all kinds
-of modems and insulates you from these kind of issues.  The end result
-is that nothing in the Linux kernel itself provides this kind of
-management; the kernel only provides interfaces to the modem's firmware
-and its up to userspace to figure out what protocols the modem speaks
-(AT, QMI, MBIM, QCDM, etc) and to talk those protocols to the modem.
+Then what I see in:
 
-Dan
+net/packet/diag.c:
+
+
+static int pdiag_put_fanout(struct packet_sock *po, struct sk_buff *nlskb)
+{
+	int ret = 0;
+
+	mutex_lock(&fanout_mutex);
+	if (po->fanout) {
+		u32 val;
+
+		val = (u32)po->fanout->id | ((u32)po->fanout->type << 16);
+		ret = nla_put_u32(nlskb, PACKET_DIAG_FANOUT, val);
+	}
+	mutex_unlock(&fanout_mutex);
+
+	return ret;
+}
+
+I see that to put flags here it needs to use po->fanout->flags and mix
+them into u32 val, but instead I see that it uses only id & type.
+
+Please correct me if I am wrong.
+
+Thanks,
+> >
+> >>
+> >> > +
+> >> > +                       printf("\n\tfanout(");
+> >> > +                       printf("id:%d,", fanout & 0xff);
+> >> > +                       printf("type:0x%x", type);
+> >> > +                       if (type == 0)
+> >> > +                               printf("(hash)");
+> >> > +                       else if (type == 1)
+> >> > +                               printf("(lb)");
+> >> > +                       else if (type == 2)
+> >> > +                               printf("(cpu)");
+> >> > +                       else if (type == 3)
+> >> > +                               printf("(rollover)");
+> >> > +                       else if (type == 4)
+> >> > +                               printf("(random)");
+> >> > +                       else if (type == 5)
+> >> > +                               printf("(qm)");
