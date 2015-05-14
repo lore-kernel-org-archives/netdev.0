@@ -1,41 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: move nl_table in read_mostly section
-Date: Thu, 14 May 2015 17:49:35 -0400 (EDT)
-Message-ID: <20150514.174935.933671221344067206.davem@davemloft.net>
-References: <1431476690.566.107.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH v3] ip_tunnel: Report Rx dropped in
+ ip_tunnel_get_stats64
+Date: Thu, 14 May 2015 14:55:22 -0700
+Message-ID: <1431640522.27831.81.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150514212855.1301.93235.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42341 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161106AbbENVti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 17:49:38 -0400
-In-Reply-To: <1431476690.566.107.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:36221 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933547AbbENVzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 17:55:24 -0400
+Received: by iepk2 with SMTP id k2so71469899iep.3
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 14:55:23 -0700 (PDT)
+In-Reply-To: <20150514212855.1301.93235.stgit@ahduyck-vm-fedora22>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 12 May 2015 17:24:50 -0700
+On Thu, 2015-05-14 at 14:31 -0700, Alexander Duyck wrote:
+> The rx_dropped stat wasn't being reported when ip_tunnel_get_stats64 was
+> called.  This was leading to some confusing results in my debug as I was
+> seeing rx_errors increment but no other value which pointed me toward the
+> type of error being seen.
+> 
+> This change corrects that by using netdev_stats_to_stats64 to copy all
+> available dev stats instead of just the few that were hand picked.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+> ---
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> netlink sockets creation and deletion heavily modify nl_table_users
-> and nl_table_lock.
-> 
-> If nl_table is sharing one cache line with one of them, netlink
-> performance is really bad on SMP.
-> 
-> ffffffff81ff5f00 B nl_table
-> ffffffff81ff5f0c b nl_table_users
-> 
-> Putting nl_table in read_mostly section increased performance
-> of my open/delete netlink sockets test by about 80 %
-> 
-> This came up while diagnosing a getaddrinfo() problem.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied, thanks Eric.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
