@@ -1,40 +1,51 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: ipset: deinline ip_set_put_extensions()
-Date: Thu, 14 May 2015 12:56:05 +0200
-Message-ID: <20150514105605.GA4852@salvia>
-References: <1430922537-28428-1-git-send-email-dvlasenk@redhat.com>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: Re: [PATCH iproute2] ss: Show more info (ring,fanout) for packet
+ socks
+Date: Thu, 14 May 2015 14:09:00 +0300
+Message-ID: <20150514110900.GA28582@angus-think.wlc.globallogic.com>
+References: <1431509966-5054-1-git-send-email-vadim4j@gmail.com>
+ <CA+FuTSeM_FQBRToXCBix9ns3_07ivfqxYHB4nGHcSqqp31fX5A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Denys Vlasenko <dvlasenk@redhat.com>
+Cc: Vadim Kochan <vadim4j@gmail.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36326 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932578AbbENKvW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 May 2015 06:51:22 -0400
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:33268 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbbENLJm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 07:09:42 -0400
+Received: by wicmx19 with SMTP id mx19so12505764wic.0
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 04:09:41 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1430922537-28428-1-git-send-email-dvlasenk@redhat.com>
+In-Reply-To: <CA+FuTSeM_FQBRToXCBix9ns3_07ivfqxYHB4nGHcSqqp31fX5A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 06, 2015 at 04:28:57PM +0200, Denys Vlasenko wrote:
-> On x86 allyesconfig build:
-> The function compiles to 489 bytes of machine code.
-> It has 25 callsites.
+On Wed, May 13, 2015 at 05:10:38PM -0400, Willem de Bruijn wrote:
+> > +               }
+> > +               if (has_fanout) {
+> > +                       uint16_t type = (fanout >> 16) & 0xffff;
 > 
->     text    data       bss       dec     hex filename
-> 82441375 22255384 20627456 125324215 7784bb7 vmlinux.before
-> 82434909 22255384 20627456 125317749 7783275 vmlinux
+> type can be modified by flags in the upper 8 bits. Better
+> mask those out and report them separately.
+Kernel puts only id & type in diag message, flags are stored in separated
+member of 'struct packet_sock'.
 
-Jozsef, I'm going to applied this patch to nf-next.
-
-I think that things like ip_set_put_skbinfo() can be also deinlined
-and move to the core as exported symbol as this run from the control
-plane path (ie. netlink).
-
-Thanks.
+> 
+> > +
+> > +                       printf("\n\tfanout(");
+> > +                       printf("id:%d,", fanout & 0xff);
+> > +                       printf("type:0x%x", type);
+> > +                       if (type == 0)
+> > +                               printf("(hash)");
+> > +                       else if (type == 1)
+> > +                               printf("(lb)");
+> > +                       else if (type == 2)
+> > +                               printf("(cpu)");
+> > +                       else if (type == 3)
+> > +                               printf("(rollover)");
+> > +                       else if (type == 4)
+> > +                               printf("(random)");
+> > +                       else if (type == 5)
+> > +                               printf("(qm)");
