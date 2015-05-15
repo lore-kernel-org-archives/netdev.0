@@ -1,90 +1,68 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: phy: Add state machine state transitions debug prints
-Date: Fri, 15 May 2015 14:18:42 -0700
-Message-ID: <1431724722-14737-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH v2 net-next 0/6] tcp: better handling of memory pressure
+Date: Fri, 15 May 2015 17:20:22 -0400
+Message-ID: <55566316.5020800@akamai.com>
+References: <1431718770-3815-1-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:36845 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422770AbbEOVTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 17:19:10 -0400
-Received: by pdfh10 with SMTP id h10so28162398pdf.3
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 14:19:10 -0700 (PDT)
+Received: from prod-mail-xrelay02.akamai.com ([72.246.2.14]:57519 "EHLO
+	prod-mail-xrelay02.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1423084AbbEOVUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 17:20:23 -0400
+In-Reply-To: <1431718770-3815-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It can be useful to debug the PHY state machine, add dynamic debug
-prints of the old and new PHY devices state under a friendly format.
+Ok, feel free to add:
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy.c |  6 ++++++
- include/linux/phy.h   | 24 ++++++++++++++++++++++++
- 2 files changed, 30 insertions(+)
+Acked-by: Jason Baron <jbaron@akamai.com>
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 52cd8db2c57d..976e7952a131 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -770,10 +770,13 @@ void phy_state_machine(struct work_struct *work)
- 	struct phy_device *phydev =
- 			container_of(dwork, struct phy_device, state_queue);
- 	bool needs_aneg = false, do_suspend = false, do_resume = false;
-+	enum phy_state old_state;
- 	int err = 0;
- 
- 	mutex_lock(&phydev->lock);
- 
-+	old_state = phydev->state;
-+
- 	if (phydev->drv->link_change_notify)
- 		phydev->drv->link_change_notify(phydev);
- 
-@@ -949,6 +952,9 @@ void phy_state_machine(struct work_struct *work)
- 	if (err < 0)
- 		phy_error(phydev);
- 
-+	dev_dbg(&phydev->dev, "PHY state change %s -> %s\n",
-+		phy_state_to_str(old_state), phy_state_to_str(phydev->state));
-+
- 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue,
- 			   PHY_STATE_TIME * HZ);
- }
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 701c7a3946e0..c2b14d8c5ddc 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -311,6 +311,30 @@ enum phy_state {
- 	PHY_RESUMING
- };
- 
-+#define PHY_STATE_STR(_state)			\
-+	case PHY_##_state:			\
-+		return __stringify(_state);	\
-+
-+static inline const char *phy_state_to_str(enum phy_state st)
-+{
-+	switch (st) {
-+	PHY_STATE_STR(DOWN)
-+	PHY_STATE_STR(STARTING)
-+	PHY_STATE_STR(READY)
-+	PHY_STATE_STR(PENDING)
-+	PHY_STATE_STR(UP)
-+	PHY_STATE_STR(AN)
-+	PHY_STATE_STR(RUNNING)
-+	PHY_STATE_STR(NOLINK)
-+	PHY_STATE_STR(FORCING)
-+	PHY_STATE_STR(CHANGELINK)
-+	PHY_STATE_STR(HALTED)
-+	PHY_STATE_STR(RESUMING)
-+	}
-+
-+	return NULL;
-+}
-+
- /**
-  * struct phy_c45_device_ids - 802.3-c45 Device Identifiers
-  * @devices_in_package: Bit vector of devices present.
--- 
-2.1.0
+Also, I sent as a separate patch:
+
+Subject: [PATCH] tcp: ensure epoll edge trigger wakeup when out of memory
+
+This does the wakeup in the case where we really can't allocate the
+memory to see what you think of that idea. I didn't test it, but wanted
+to see what you thought.
+
+Thanks,
+
+-Jason
+
+On 05/15/2015 03:39 PM, Eric Dumazet wrote:
+> When testing commit 790ba4566c1a ("tcp: set SOCK_NOSPACE under memory
+> pressure") using edge triggered epoll applications, I found various
+> issues under memory pressure and thousands of active sockets.
+>
+> This patch series is a first round to solve these issues, in send
+> and receive paths. There are probably other fixes needed, but
+> with this series, my tests now all succeed.
+>
+> v2: fix typo in "allow one skb to be received per socket under memory pressure",
+> as spotted by Jason Baron.
+>
+> Eric Dumazet (6):
+>   net: fix sk_mem_reclaim_partial()
+>   tcp: rename sk_forced_wmem_schedule() to sk_forced_mem_schedule()
+>   tcp: introduce tcp_under_memory_pressure()
+>   tcp: fix behavior for epoll edge trigger
+>   tcp: allow one skb to be received per socket under memory pressure
+>   tcp: halves tcp_mem[] limits
+>
+>  include/net/sock.h    |  6 +++---
+>  include/net/tcp.h     | 10 ++++++++++
+>  net/core/sock.c       |  9 +++++----
+>  net/ipv4/tcp.c        | 24 ++++++++++++++++++------
+>  net/ipv4/tcp_input.c  | 18 ++++++++++--------
+>  net/ipv4/tcp_output.c | 10 ++++++----
+>  net/ipv4/tcp_timer.c  |  2 +-
+>  7 files changed, 53 insertions(+), 26 deletions(-)
+>
