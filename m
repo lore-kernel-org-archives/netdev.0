@@ -1,67 +1,174 @@
-From: Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
-	instances
-Date: Fri, 15 May 2015 08:38:04 -0400
-Message-ID: <4153072.0EnVzNaVVH@x2>
-References: <cover.1429252659.git.rgb@redhat.com>
-	<20150515023221.GC965@madcap2.tricolour.ca>
-	<CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw@mail.gmail.com>
+From: Petr Mladek <pmladek@suse.cz>
+Subject: Re: [PATCH 1/7] printk: guard the amount written per line by
+ devkmsg_read()
+Date: Fri, 15 May 2015 14:44:11 +0200
+Message-ID: <20150515124411.GB8222@pathway.suse.cz>
+References: <1431619586-29187-1-git-send-email-tj@kernel.org>
+ <1431619586-29187-2-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Kay Sievers <kay@vrfy.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:58353 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030185AbbEOMl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 May 2015 08:41:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1431619586-29187-2-git-send-email-tj@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, May 14, 2015 11:23:09 PM Andy Lutomirski wrote:
-> On Thu, May 14, 2015 at 7:32 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > On 15/05/14, Paul Moore wrote:
-> >> * Look at our existing audit records to determine which records should
-> >> have
-> >> namespace and container ID tokens added.  We may only want to add the
-> >> additional fields in the case where the namespace/container ID tokens are
-> >> not the init namespace.
-> > 
-> > If we have a record that ties a set of namespace IDs with a container
-> > ID, then I expect we only need to list the containerID along with auid
-> > and sessionID.
+On Thu 2015-05-14 12:06:20, Tejun Heo wrote:
+> devkmsg_read() uses 8k buffer and assumes that the formatted output
+> message won't overrun which seems safe given LOG_LINE_MAX, the current
+> use of dict and the escaping method being used; however, we're
+> planning to use devkmsg formatting wider and accounting for the buffer
+> size properly isn't that complicated.
 > 
-> The problem here is that the kernel has no concept of a "container", and I
-> don't think it makes any sense to add one just for audit.  "Container" is a
-> marketing term used by some userspace tools.
+> This patch defines CONSOLE_EXT_LOG_MAX as 8192 and updates
+> devkmsg_read() so that it limits output accordingly.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
 
-No, its a real thing just like a login. Does the kernel have any concept of a 
-login? Yet it happens. And it causes us to generate events describing who, 
-where from, role, success, and time of day. :-)
+Reviewed-by: Petr Mladek <pmladek@suse.cz>
+
+It is more secure now.
+
+Best Regards,
+Petr
 
 
-> I can imagine that both audit could benefit from a concept of a
-> namespace *path* that understands nesting (e.g. root/2/5/1 or
-> something along those lines).  Mapping these to "containers" belongs
-> in userspace, I think.
-
-I don't doubt that just as user space sequences the actions that are a login. 
-I just need the kernel to do some book keeping and associate the necessary 
-attributes in the event record to be able to reconstruct what is actually 
-happening.
-
--Steve
+> Cc: Kay Sievers <kay@vrfy.org>
+> Cc: Petr Mladek <pmladek@suse.cz>
+> ---
+>  include/linux/printk.h |  2 ++
+>  kernel/printk/printk.c | 34 ++++++++++++++++++++++------------
+>  2 files changed, 24 insertions(+), 12 deletions(-)
+> 
+> diff --git a/include/linux/printk.h b/include/linux/printk.h
+> index 9b30871..58b1fec 100644
+> --- a/include/linux/printk.h
+> +++ b/include/linux/printk.h
+> @@ -30,6 +30,8 @@ static inline const char *printk_skip_level(const char *buffer)
+>  	return buffer;
+>  }
+>  
+> +#define CONSOLE_EXT_LOG_MAX	8192
+> +
+>  /* printk's without a loglevel use this.. */
+>  #define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
+>  
+> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+> index c099b08..a115490 100644
+> --- a/kernel/printk/printk.c
+> +++ b/kernel/printk/printk.c
+> @@ -505,6 +505,11 @@ int check_syslog_permissions(int type, bool from_file)
+>  	return security_syslog(type);
+>  }
+>  
+> +static void append_char(char **pp, char *e, char c)
+> +{
+> +	if (*pp < e)
+> +		*(*pp)++ = c;
+> +}
+>  
+>  /* /dev/kmsg - userspace message inject/listen interface */
+>  struct devkmsg_user {
+> @@ -512,7 +517,7 @@ struct devkmsg_user {
+>  	u32 idx;
+>  	enum log_flags prev;
+>  	struct mutex lock;
+> -	char buf[8192];
+> +	char buf[CONSOLE_EXT_LOG_MAX];
+>  };
+>  
+>  static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
+> @@ -570,6 +575,7 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  {
+>  	struct devkmsg_user *user = file->private_data;
+>  	struct printk_log *msg;
+> +	char *p, *e;
+>  	u64 ts_usec;
+>  	size_t i;
+>  	char cont = '-';
+> @@ -579,6 +585,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  	if (!user)
+>  		return -EBADF;
+>  
+> +	p = user->buf;
+> +	e = user->buf + sizeof(user->buf);
+> +
+>  	ret = mutex_lock_interruptible(&user->lock);
+>  	if (ret)
+>  		return ret;
+> @@ -625,9 +634,9 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
+>  		cont = '+';
+>  
+> -	len = sprintf(user->buf, "%u,%llu,%llu,%c;",
+> -		      (msg->facility << 3) | msg->level,
+> -		      user->seq, ts_usec, cont);
+> +	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
+> +		       (msg->facility << 3) | msg->level,
+> +		       user->seq, ts_usec, cont);
+>  	user->prev = msg->flags;
+>  
+>  	/* escape non-printable characters */
+> @@ -635,11 +644,11 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  		unsigned char c = log_text(msg)[i];
+>  
+>  		if (c < ' ' || c >= 127 || c == '\\')
+> -			len += sprintf(user->buf + len, "\\x%02x", c);
+> +			p += scnprintf(p, e - p, "\\x%02x", c);
+>  		else
+> -			user->buf[len++] = c;
+> +			append_char(&p, e, c);
+>  	}
+> -	user->buf[len++] = '\n';
+> +	append_char(&p, e, '\n');
+>  
+>  	if (msg->dict_len) {
+>  		bool line = true;
+> @@ -648,30 +657,31 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
+>  			unsigned char c = log_dict(msg)[i];
+>  
+>  			if (line) {
+> -				user->buf[len++] = ' ';
+> +				append_char(&p, e, ' ');
+>  				line = false;
+>  			}
+>  
+>  			if (c == '\0') {
+> -				user->buf[len++] = '\n';
+> +				append_char(&p, e, '\n');
+>  				line = true;
+>  				continue;
+>  			}
+>  
+>  			if (c < ' ' || c >= 127 || c == '\\') {
+> -				len += sprintf(user->buf + len, "\\x%02x", c);
+> +				p += scnprintf(p, e - p, "\\x%02x", c);
+>  				continue;
+>  			}
+>  
+> -			user->buf[len++] = c;
+> +			append_char(&p, e, c);
+>  		}
+> -		user->buf[len++] = '\n';
+> +		append_char(&p, e, '\n');
+>  	}
+>  
+>  	user->idx = log_next(user->idx);
+>  	user->seq++;
+>  	raw_spin_unlock_irq(&logbuf_lock);
+>  
+> +	len = p - user->buf;
+>  	if (len > count) {
+>  		ret = -EINVAL;
+>  		goto out;
+> -- 
+> 2.1.0
+> 
