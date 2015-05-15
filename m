@@ -1,90 +1,78 @@
-From: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
- instances
-Date: Thu, 14 May 2015 22:11:26 -0400
-Message-ID: <20150515021126.GA965@madcap2.tricolour.ca>
-References: <cover.1429252659.git.rgb@redhat.com>
- <2487286.y6vyJ9A3er@x2>
- <20150512195759.GA9832@madcap2.tricolour.ca>
- <2918460.dpKocsKt4o@x2>
- <20150515004855.GB10526@madcap2.tricolour.ca>
- <CAA4jN2bgynVTwF+owtXgq06JMLQJpy_qokpD0mAguNYeDxmh1A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: rhashtable: Add cap on number of elements in hash table
+Date: Thu, 14 May 2015 22:22:17 -0400 (EDT)
+Message-ID: <20150514.222217.1991822787577994078.davem@davemloft.net>
+References: <20150423.115919.1353583175267783165.davem@davemloft.net>
+	<20150424005729.GA27075@gondor.apana.org.au>
+	<20150513080640.GA27800@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org, zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Oren Laadan <orenl-3AfRa/s5aFdBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAA4jN2bgynVTwF+owtXgq06JMLQJpy_qokpD0mAguNYeDxmh1A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org, kaber@trash.net,
+	tgraf@suug.ch, johannes.berg@intel.com
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43968 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423401AbbEOCWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 22:22:24 -0400
+In-Reply-To: <20150513080640.GA27800@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/05/14, Oren Laadan wrote:
-> On Thu, May 14, 2015 at 8:48 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 13 May 2015 16:06:40 +0800
+
+> We currently have no limit on the number of elements in a hash table.
+> This is a problem because some users (tipc) set a ceiling on the
+> maximum table size and when that is reached the hash table may
+> degenerate.  Others may encounter OOM when growing and if we allow
+> insertions when that happens the hash table perofrmance may also
+> suffer.
 > 
-> >
-> > > > > Recording each instance of a name space is giving me something that I
-> > > > > cannot use to do queries required by the security target. Given these
-> > > > > events, how do I locate a web server event where it accesses a
-> > watched
-> > > > > file? That authentication failed? That an update within the container
-> > > > > failed?
-> > > > >
-> > > > > The requirements are that we have to log the creation, suspension,
-> > > > > migration, and termination of a container. The requirements are not
-> > on
-> > > > > the individual name space.
-> > > >
-> > > > Ok.  Do we have a robust definition of a container?
-> > >
-> > > We call the combination of name spaces, cgroups, and seccomp rules a
-> > > container.
-> >
-> > Can you detail what information is required from each?
-> >
-> > > > Where is that definition managed?
-> > >
-> > > In the thing that invokes a container.
-> >
-> > I was looking for a reference to a standards document rather than an
-> > application...
-> >
-> >
-> [focusing on "containers id" - snipped the rest away]
+> This patch adds a new paramater insecure_max_entries which becomes
+> the cap on the table.  If unset it defaults to max_size.  If it is
+> also zero it means that there is no cap on the number of elements
+> in the table.  However, the table will grow whenever the utilisation
+> hits 100% and if that growth fails, you will get ENOMEM on insertion.
 > 
-> I am unfamiliar with the audit subsystem, but work with namespaces in other
-> contexts. Perhaps the term "container" is overloaded here. The definition
-> suggested by Steve in this thread makes sense to me: "a combination of
-> namespaces". I imagine people may want to audit subsets of namespaces.
-
-I assume it would be a bit more than that, including cgroup and seccomp info.
-
-> For namespaces, can use a string like "A:B:C:D:E:F" as an identifier for a
-> particular combination, where A-F are respective namespaces identifiers.
-> (Can be taken for example from /proc/PID/ns/{mnt,uts,ipc,user,pid,net}).
->  That will even be grep-able to locate records related to a particular
-> subset
-> of namespaces. So a "container" in the classic meaning would have all A-F
-> unique and different from the init process, but processes separated only by
-> e.g. mnt-ns and net-ns will differ from the init process in  A and F.
+> As allowing >100% utilisation is potentially dangerous, the name
+> contains the word insecure.
 > 
-> (If a string is a no go, then perhaps combine the IDs in a unique way into a
-> super ID).
+> Note that the cap is not a hard limit.  This is done for performance
+> reasons as enforcing a hard limit will result in use of atomic ops
+> that are heavier than the ones we currently use.
+> 
+> The reasoning is that we're only guarding against a gross over-
+> subscription of the table, rather than a small breach of the limit.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I'd be fine with either, even including the nsfs deviceID.
+I'm not so sure I can get behind this change.
 
-> Oren.
+For the default case where we propagate max_size into this new limt,
+if we grow the hash table to it's maximum size, and then just go one
+past the limit, we're going to start failing inserts.
 
-- RGB
+In my opinion, up to at least 2 X max_size, it's safe to allow the
+insert.  Assuming a well choosen hash function and a roughly even
+distribution.
 
---
-Richard Guy Briggs <rbriggs-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
+A two entry deep hash chain is not a reason to fail a hash insertion.
+
+Failures on hash insertions we would not do in pretty much any other
+hash implementation in the kernel.  I'd seriously would rather have
+3 entry deep hash chains than no new connections at all.
+
+If an administrator has to analyze some situation where this is
+happening and they see -E2BIG propagating into their applications,
+this is going to be surprising.  And when they do all of the work
+to figure out what is causing it, I am pretty sure they will be
+somewhat upset that we considered it OK to do this.
+
+So I'd like you to take some time to reconsider hash insert failures,
+and only do them when it's going to create an unnaceptable, _massive_
+hardship for the machine.  And I do not think that 2 or 3 entry deep
+hash chains quality.
+
+Thanks.
