@@ -1,153 +1,61 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] netns: make nsid_lock per net
-Date: Fri, 15 May 2015 14:47:32 -0700
-Message-ID: <1431726452-13111-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next 2/3] net: sched: remove AT INGRESS/EGRESS
+Date: Sat, 16 May 2015 00:22:54 +0200
+Message-ID: <20150515222254.GL6179@breakpoint.cc>
+References: <1431679850-31896-1-git-send-email-fw@strlen.de>
+ <1431679850-31896-3-git-send-email-fw@strlen.de>
+ <20150515162319.GA8234@Alexeis-MBP.westell.com>
+ <20150515172115.GK6179@breakpoint.cc>
+ <20150515200944.GA8527@Alexeis-MacBook-Pro.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	jhs@mojatatu.com, daniel@iogearbox.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:33089 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934172AbbEOVrj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 17:47:39 -0400
-Received: by pdbqa5 with SMTP id qa5so29326427pdb.0
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 14:47:38 -0700 (PDT)
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:49635 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964787AbbEOWW5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 18:22:57 -0400
+Content-Disposition: inline
+In-Reply-To: <20150515200944.GA8527@Alexeis-MacBook-Pro.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The spinlock is used to protect netns_ids which is per net,
-so there is no need to use a global spinlock.
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+> On Fri, May 15, 2015 at 07:21:15PM +0200, Florian Westphal wrote:
+> > So, from ifb point of view it makes no difference, G_TC_FROM+AT_STACK
+> > causes skb to be dropped and IFB doesn't care about G_TC_AT() at all.
+> 
+> yes. your change is technically correct. It's not causing ifb regression,
 
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/net_namespace.h |  1 +
- net/core/net_namespace.c    | 32 ++++++++++++++++----------------
- 2 files changed, 17 insertions(+), 16 deletions(-)
+Thanks.
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 3f850ac..72eb237 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -58,6 +58,7 @@ struct net {
- 	struct list_head	exit_list;	/* Use only net_mutex */
- 
- 	struct user_namespace   *user_ns;	/* Owning user namespace */
-+	spinlock_t		nsid_lock;
- 	struct idr		netns_ids;
- 
- 	struct ns_common	ns;
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index d2f42da..2c2eb1b 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -28,7 +28,6 @@
- static LIST_HEAD(pernet_list);
- static struct list_head *first_device = &pernet_list;
- DEFINE_MUTEX(net_mutex);
--static DEFINE_SPINLOCK(nsid_lock);
- 
- LIST_HEAD(net_namespace_list);
- EXPORT_SYMBOL_GPL(net_namespace_list);
-@@ -218,10 +217,10 @@ int peernet2id_alloc(struct net *net, struct net *peer)
- 	bool alloc;
- 	int id;
- 
--	spin_lock_irqsave(&nsid_lock, flags);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	alloc = atomic_read(&peer->count) == 0 ? false : true;
- 	id = __peernet2id_alloc(net, peer, &alloc);
--	spin_unlock_irqrestore(&nsid_lock, flags);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	if (alloc && id >= 0)
- 		rtnl_net_notifyid(net, RTM_NEWNSID, id);
- 	return id;
-@@ -234,9 +233,9 @@ int peernet2id(struct net *net, struct net *peer)
- 	unsigned long flags;
- 	int id;
- 
--	spin_lock_irqsave(&nsid_lock, flags);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	id = __peernet2id(net, peer);
--	spin_unlock_irqrestore(&nsid_lock, flags);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	return id;
- }
- 
-@@ -257,11 +256,11 @@ struct net *get_net_ns_by_id(struct net *net, int id)
- 		return NULL;
- 
- 	rcu_read_lock();
--	spin_lock_irqsave(&nsid_lock, flags);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	peer = idr_find(&net->netns_ids, id);
- 	if (peer)
- 		get_net(peer);
--	spin_unlock_irqrestore(&nsid_lock, flags);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	rcu_read_unlock();
- 
- 	return peer;
-@@ -282,6 +281,7 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
- 	net->dev_base_seq = 1;
- 	net->user_ns = user_ns;
- 	idr_init(&net->netns_ids);
-+	spin_lock_init(&net->nsid_lock);
- 
- 	list_for_each_entry(ops, &pernet_list, list) {
- 		error = ops_init(ops, net);
-@@ -404,17 +404,17 @@ static void cleanup_net(struct work_struct *work)
- 		for_each_net(tmp) {
- 			int id;
- 
--			spin_lock_irq(&nsid_lock);
-+			spin_lock_irq(&tmp->nsid_lock);
- 			id = __peernet2id(tmp, net);
- 			if (id >= 0)
- 				idr_remove(&tmp->netns_ids, id);
--			spin_unlock_irq(&nsid_lock);
-+			spin_unlock_irq(&tmp->nsid_lock);
- 			if (id >= 0)
- 				rtnl_net_notifyid(tmp, RTM_DELNSID, id);
- 		}
--		spin_lock_irq(&nsid_lock);
-+		spin_lock_irq(&net->nsid_lock);
- 		idr_destroy(&net->netns_ids);
--		spin_unlock_irq(&nsid_lock);
-+		spin_unlock_irq(&net->nsid_lock);
- 
- 	}
- 	rtnl_unlock();
-@@ -563,15 +563,15 @@ static int rtnl_net_newid(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (IS_ERR(peer))
- 		return PTR_ERR(peer);
- 
--	spin_lock_irqsave(&nsid_lock, flags);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	if (__peernet2id(net, peer) >= 0) {
--		spin_unlock_irqrestore(&nsid_lock, flags);
-+		spin_unlock_irqrestore(&net->nsid_lock, flags);
- 		err = -EEXIST;
- 		goto out;
- 	}
- 
- 	err = alloc_netid(net, peer, nsid);
--	spin_unlock_irqrestore(&nsid_lock, flags);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 	if (err >= 0) {
- 		rtnl_net_notifyid(net, RTM_NEWNSID, err);
- 		err = 0;
-@@ -695,9 +695,9 @@ static int rtnl_net_dumpid(struct sk_buff *skb, struct netlink_callback *cb)
- 	};
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&nsid_lock, flags);
-+	spin_lock_irqsave(&net->nsid_lock, flags);
- 	idr_for_each(&net->netns_ids, rtnl_net_dumpid_one, &net_cb);
--	spin_unlock_irqrestore(&nsid_lock, flags);
-+	spin_unlock_irqrestore(&net->nsid_lock, flags);
- 
- 	cb->args[0] = net_cb.idx;
- 	return skb->len;
--- 
-1.8.3.1
+> but it removes information in a way that will be very hard to add it later.
+
+Are you sure?  Would you mind elaborating a bit?
+
+> > AT_STACK cannot even happen for the G_TC_AT case from looking at the
+> > code since dev_queue_xmit forces AT_EGRESS & rx sets AT_INGRESS.
+> 
+> yes, if we only consider ingress and egress hooks.
+> I want to use this stack/ingress/egress indication with socket filters.
+
+Hmm... I'm sorry, I fail to understand where problem is.
+
+> If we make stack==egress, I would need to refactor this code all over again.
+
+If you mean "skb was not forwarded", you could just check for
+skb->skb_iif = 0?
+
+If not, what info do you need, and why could we not extend proposed enum
+if absolutely required?
+
+> It's not broken today. You're doing this aliasing only two squeeze a bit.
+
+Yep, but its was also to minimize the state machinery down to whats
+required.
+
+Sorry Alexei, I'm just trying to find out what exactly is needed,
+perhaps if you can clarify/explain I might be able to re-spin this in a
+way that will meet your requirements.
