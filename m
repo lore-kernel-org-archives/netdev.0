@@ -1,231 +1,90 @@
-From: Petr Mladek <pmladek@suse.cz>
-Subject: Re: [PATCH 2/7] printk: factor out message formatting from
- devkmsg_read()
-Date: Fri, 15 May 2015 14:45:19 +0200
-Message-ID: <20150515124518.GC8222@pathway.suse.cz>
-References: <1431619586-29187-1-git-send-email-tj@kernel.org>
- <1431619586-29187-3-git-send-email-tj@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: fix two sparse errors
+Date: Fri, 15 May 2015 05:48:07 -0700
+Message-ID: <1431694087.27831.99.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
+	 <1431401204-731380-6-git-send-email-tom@herbertland.com>
+	 <1431405215.566.56.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1431406237.566.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CALx6S36nVmVxo2QADh-Qmyk7+TU=Zo4vAmRtU1qtDtRqFWGAJg@mail.gmail.com>
+	 <1431446777.566.87.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Kay Sievers <kay@vrfy.org>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:58432 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422649AbbEOMmf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2015 08:42:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1431619586-29187-3-git-send-email-tj@kernel.org>
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:36540 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161018AbbEOMsJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 08:48:09 -0400
+Received: by igbpi8 with SMTP id pi8so217448078igb.1
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 05:48:08 -0700 (PDT)
+In-Reply-To: <1431446777.566.87.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu 2015-05-14 12:06:21, Tejun Heo wrote:
-> The extended message formatting used for /dev/kmsg will be used
-> implement extended consoles.  Factor out msg_print_ext_header() and
-> msg_print_ext_body() from devkmsg_read().
-> 
-> This is pure restructuring.
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
+From: Eric Dumazet <edumazet@google.com>
 
-Reviewed-by: Petr Mladek <pmladek@suse.cz>
+First one in __skb_checksum_validate_complete() fixes the following
+(and other callers)
 
-I like the split of the long function.
+make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/tcp_ipv4.o
+  CHECK   net/ipv4/tcp_ipv4.c
+include/linux/skbuff.h:3052:24: warning: incorrect type in return expression (different base types)
+include/linux/skbuff.h:3052:24:    expected restricted __sum16
+include/linux/skbuff.h:3052:24:    got int
 
-Best Regards,
-Petr
+Second is fixing gso_make_checksum() :
 
-> Cc: Kay Sievers <kay@vrfy.org>
-> Cc: Petr Mladek <pmladek@suse.cz>
-> ---
->  kernel/printk/printk.c | 146 +++++++++++++++++++++++++++----------------------
->  1 file changed, 80 insertions(+), 66 deletions(-)
-> 
-> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-> index a115490..51ce4f1 100644
-> --- a/kernel/printk/printk.c
-> +++ b/kernel/printk/printk.c
-> @@ -511,6 +511,81 @@ static void append_char(char **pp, char *e, char c)
->  		*(*pp)++ = c;
->  }
->  
-> +static ssize_t msg_print_ext_header(char *buf, size_t size,
-> +				    struct printk_log *msg, u64 seq,
-> +				    enum log_flags prev_flags)
-> +{
-> +	u64 ts_usec = msg->ts_nsec;
-> +	char cont = '-';
-> +
-> +	do_div(ts_usec, 1000);
-> +
-> +	/*
-> +	 * If we couldn't merge continuation line fragments during the print,
-> +	 * export the stored flags to allow an optional external merge of the
-> +	 * records. Merging the records isn't always neccessarily correct, like
-> +	 * when we hit a race during printing. In most cases though, it produces
-> +	 * better readable output. 'c' in the record flags mark the first
-> +	 * fragment of a line, '+' the following.
-> +	 */
-> +	if (msg->flags & LOG_CONT && !(prev_flags & LOG_CONT))
-> +		cont = 'c';
-> +	else if ((msg->flags & LOG_CONT) ||
-> +		 ((prev_flags & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
-> +		cont = '+';
-> +
-> +	return scnprintf(buf, size, "%u,%llu,%llu,%c;",
-> +		       (msg->facility << 3) | msg->level, seq, ts_usec, cont);
-> +}
-> +
-> +static ssize_t msg_print_ext_body(char *buf, size_t size,
-> +				  char *dict, size_t dict_len,
-> +				  char *text, size_t text_len)
-> +{
-> +	char *p = buf, *e = buf + size;
-> +	size_t i;
-> +
-> +	/* escape non-printable characters */
-> +	for (i = 0; i < text_len; i++) {
-> +		unsigned char c = text[i];
-> +
-> +		if (c < ' ' || c >= 127 || c == '\\')
-> +			p += scnprintf(p, e - p, "\\x%02x", c);
-> +		else
-> +			append_char(&p, e, c);
-> +	}
-> +	append_char(&p, e, '\n');
-> +
-> +	if (dict_len) {
-> +		bool line = true;
-> +
-> +		for (i = 0; i < dict_len; i++) {
-> +			unsigned char c = dict[i];
-> +
-> +			if (line) {
-> +				append_char(&p, e, ' ');
-> +				line = false;
-> +			}
-> +
-> +			if (c == '\0') {
-> +				append_char(&p, e, '\n');
-> +				line = true;
-> +				continue;
-> +			}
-> +
-> +			if (c < ' ' || c >= 127 || c == '\\') {
-> +				p += scnprintf(p, e - p, "\\x%02x", c);
-> +				continue;
-> +			}
-> +
-> +			append_char(&p, e, c);
-> +		}
-> +		append_char(&p, e, '\n');
-> +	}
-> +
-> +	return p - buf;
-> +}
-> +
->  /* /dev/kmsg - userspace message inject/listen interface */
->  struct devkmsg_user {
->  	u64 seq;
-> @@ -575,19 +650,12 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
->  {
->  	struct devkmsg_user *user = file->private_data;
->  	struct printk_log *msg;
-> -	char *p, *e;
-> -	u64 ts_usec;
-> -	size_t i;
-> -	char cont = '-';
->  	size_t len;
->  	ssize_t ret;
->  
->  	if (!user)
->  		return -EBADF;
->  
-> -	p = user->buf;
-> -	e = user->buf + sizeof(user->buf);
-> -
->  	ret = mutex_lock_interruptible(&user->lock);
->  	if (ret)
->  		return ret;
-> @@ -617,71 +685,17 @@ static ssize_t devkmsg_read(struct file *file, char __user *buf,
->  	}
->  
->  	msg = log_from_idx(user->idx);
-> -	ts_usec = msg->ts_nsec;
-> -	do_div(ts_usec, 1000);
-> +	len = msg_print_ext_header(user->buf, sizeof(user->buf),
-> +				   msg, user->seq, user->prev);
-> +	len += msg_print_ext_body(user->buf + len, sizeof(user->buf) - len,
-> +				  log_dict(msg), msg->dict_len,
-> +				  log_text(msg), msg->text_len);
->  
-> -	/*
-> -	 * If we couldn't merge continuation line fragments during the print,
-> -	 * export the stored flags to allow an optional external merge of the
-> -	 * records. Merging the records isn't always neccessarily correct, like
-> -	 * when we hit a race during printing. In most cases though, it produces
-> -	 * better readable output. 'c' in the record flags mark the first
-> -	 * fragment of a line, '+' the following.
-> -	 */
-> -	if (msg->flags & LOG_CONT && !(user->prev & LOG_CONT))
-> -		cont = 'c';
-> -	else if ((msg->flags & LOG_CONT) ||
-> -		 ((user->prev & LOG_CONT) && !(msg->flags & LOG_PREFIX)))
-> -		cont = '+';
-> -
-> -	p += scnprintf(p, e - p, "%u,%llu,%llu,%c;",
-> -		       (msg->facility << 3) | msg->level,
-> -		       user->seq, ts_usec, cont);
->  	user->prev = msg->flags;
-> -
-> -	/* escape non-printable characters */
-> -	for (i = 0; i < msg->text_len; i++) {
-> -		unsigned char c = log_text(msg)[i];
-> -
-> -		if (c < ' ' || c >= 127 || c == '\\')
-> -			p += scnprintf(p, e - p, "\\x%02x", c);
-> -		else
-> -			append_char(&p, e, c);
-> -	}
-> -	append_char(&p, e, '\n');
-> -
-> -	if (msg->dict_len) {
-> -		bool line = true;
-> -
-> -		for (i = 0; i < msg->dict_len; i++) {
-> -			unsigned char c = log_dict(msg)[i];
-> -
-> -			if (line) {
-> -				append_char(&p, e, ' ');
-> -				line = false;
-> -			}
-> -
-> -			if (c == '\0') {
-> -				append_char(&p, e, '\n');
-> -				line = true;
-> -				continue;
-> -			}
-> -
-> -			if (c < ' ' || c >= 127 || c == '\\') {
-> -				p += scnprintf(p, e - p, "\\x%02x", c);
-> -				continue;
-> -			}
-> -
-> -			append_char(&p, e, c);
-> -		}
-> -		append_char(&p, e, '\n');
-> -	}
-> -
->  	user->idx = log_next(user->idx);
->  	user->seq++;
->  	raw_spin_unlock_irq(&logbuf_lock);
->  
-> -	len = p - user->buf;
->  	if (len > count) {
->  		ret = -EINVAL;
->  		goto out;
-> -- 
-> 2.1.0
-> 
+  CHECK   net/ipv4/gre_offload.c
+include/linux/skbuff.h:3360:14: warning: incorrect type in assignment (different base types)
+include/linux/skbuff.h:3360:14:    expected unsigned short [unsigned] [usertype] csum
+include/linux/skbuff.h:3360:14:    got restricted __sum16
+include/linux/skbuff.h:3365:16: warning: incorrect type in return expression (different base types)
+include/linux/skbuff.h:3365:16:    expected restricted __sum16
+include/linux/skbuff.h:3365:16:    got unsigned short [unsigned] [usertype] csum
+
+
+Fixes: 5a21232983aa7 ("net: Support for csum_bad in skbuff")
+Fixes: 7e2b10c1e52ca ("net: Support for multiple checksums with gso")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+CC: Tom Herbert <tom@herbertland.com>
+---
+ include/linux/skbuff.h |   11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f83aa6568cbf5e1794fdb1a8da28642ea417cc76..b57eebfb67e06dc90addfe5f2fea9d913b2121cc 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3051,7 +3051,7 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
+ 		}
+ 	} else if (skb->csum_bad) {
+ 		/* ip_summed == CHECKSUM_NONE in this case */
+-		return 1;
++		return (__force __sum16)1;
+ 	}
+ 
+ 	skb->csum = psum;
+@@ -3353,15 +3353,14 @@ static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
+ static inline __sum16 gso_make_checksum(struct sk_buff *skb, __wsum res)
+ {
+ 	int plen = SKB_GSO_CB(skb)->csum_start - skb_headroom(skb) -
+-	    skb_transport_offset(skb);
+-	__u16 csum;
++		   skb_transport_offset(skb);
++	__wsum partial;
+ 
+-	csum = csum_fold(csum_partial(skb_transport_header(skb),
+-				      plen, skb->csum));
++	partial = csum_partial(skb_transport_header(skb), plen, skb->csum);
+ 	skb->csum = res;
+ 	SKB_GSO_CB(skb)->csum_start -= plen;
+ 
+-	return csum;
++	return csum_fold(partial);
+ }
+ 
+ static inline bool skb_is_gso(const struct sk_buff *skb)
