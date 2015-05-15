@@ -1,8 +1,7 @@
 From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V4 PATCH 3/6] pci: Generic function for setting up PCI device DMA coherency
-Date: Fri, 15 May 2015 16:23:11 -0500
-Message-ID: <1431724994-21601-4-git-send-email-Suravee.Suthikulpanit@amd.com>
-References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+Subject: [V4 PATCH 0/6] ACPI: Introduce support for _CCA object
+Date: Fri, 15 May 2015 16:23:08 -0500
+Message-ID: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <msalter@redhat.com>, <hanjun.guo@linaro.org>,
@@ -11,153 +10,107 @@ Cc: <msalter@redhat.com>, <hanjun.guo@linaro.org>,
 	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
 	<linux-crypto@vger.kernel.org>,
-	"Suravee Suthikulpanit" <Suravee.Suthikulpanit@amd.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Murali Karicheri <m-karicheri2@ti.com>
+	"Suravee Suthikulpanit" <Suravee.Suthikulpanit@amd.com>
 To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
 	<will.deacon@arm.com>, <bhelgaas@google.com>,
 	<thomas.lendacky@amd.com>, <herbert@gondor.apana.org.au>,
 	<davem@davemloft.net>, <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2on0123.outbound.protection.outlook.com ([207.46.100.123]:17536
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1946141AbbEOVX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 May 2015 17:23:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch refactors of_pci_dma_configure() into a more generic
-pci_dma_configure(), which can be reused by non-OF code.
-Then, it adds support for setting up PCI device DMA coherency from
-ACPI _CCA object that should normally be specified in the DSDT node
-of its PCI host bridge..
+This patch series introduce support for _CCA object, which is currently
+used mainly by ARM64 platform to specify DMA coherency attribute for
+devices when booting with ACPI.
 
-Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-CC: Bjorn Helgaas <bhelgaas@google.com>
-CC: Catalin Marinas <catalin.marinas@arm.com>
-CC: Rob Herring <robh+dt@kernel.org>
-CC: Will Deacon <will.deacon@arm.com>
-CC: Rafael J. Wysocki <rjw@rjwysocki.net>
-CC: Murali Karicheri <m-karicheri2@ti.com>
----
- drivers/of/of_pci.c    | 20 --------------------
- drivers/pci/probe.c    | 35 +++++++++++++++++++++++++++++++++--
- include/linux/of_pci.h |  3 ---
- 3 files changed, 33 insertions(+), 25 deletions(-)
+A copy of ACPIv6 can be found here:
+    http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf
 
-diff --git a/drivers/of/of_pci.c b/drivers/of/of_pci.c
-index 5751dc5..b66ee4e 100644
---- a/drivers/of/of_pci.c
-+++ b/drivers/of/of_pci.c
-@@ -117,26 +117,6 @@ int of_get_pci_domain_nr(struct device_node *node)
- }
- EXPORT_SYMBOL_GPL(of_get_pci_domain_nr);
- 
--/**
-- * of_pci_dma_configure - Setup DMA configuration
-- * @dev: ptr to pci_dev struct of the PCI device
-- *
-- * Function to update PCI devices's DMA configuration using the same
-- * info from the OF node of host bridge's parent (if any).
-- */
--void of_pci_dma_configure(struct pci_dev *pci_dev)
--{
--	struct device *dev = &pci_dev->dev;
--	struct device *bridge = pci_get_host_bridge_device(pci_dev);
--
--	if (!bridge->parent)
--		return;
--
--	of_dma_configure(dev, bridge->parent->of_node);
--	pci_put_host_bridge_device(bridge);
--}
--EXPORT_SYMBOL_GPL(of_pci_dma_configure);
--
- #if defined(CONFIG_OF_ADDRESS)
- /**
-  * of_pci_get_host_bridge_resources - Parse PCI host bridge resources from DT
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 6675a7a..3c6f2e5 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -6,12 +6,14 @@
- #include <linux/delay.h>
- #include <linux/init.h>
- #include <linux/pci.h>
--#include <linux/of_pci.h>
-+#include <linux/of_device.h>
- #include <linux/pci_hotplug.h>
- #include <linux/slab.h>
- #include <linux/module.h>
- #include <linux/cpumask.h>
- #include <linux/pci-aspm.h>
-+#include <linux/acpi.h>
-+#include <linux/property.h>
- #include <asm-generic/pci-bridge.h>
- #include "pci.h"
- 
-@@ -1508,6 +1510,35 @@ static void pci_init_capabilities(struct pci_dev *dev)
- 	pci_enable_acs(dev);
- }
- 
-+/**
-+ * pci_dma_configure - Setup DMA configuration
-+ * @pci_dev: ptr to pci_dev struct of the PCI device
-+ *
-+ * Function to update PCI devices's DMA configuration using the same
-+ * info from the OF node or ACPI node of host bridge's parent (if any).
-+ */
-+static void pci_dma_configure(struct pci_dev *pci_dev)
-+{
-+	struct device *dev = &pci_dev->dev;
-+	struct device *bridge = pci_get_host_bridge_device(pci_dev);
-+	struct device *host = bridge->parent;
-+	struct acpi_device *adev;
-+
-+	if (!host)
-+		return;
-+
-+	if (acpi_disabled) {
-+		of_dma_configure(dev, host->of_node);
-+	} else if (has_acpi_companion(host)) {
-+		adev = acpi_node(host->fwnode);
-+		if (acpi_dma_is_supported(adev))
-+			arch_setup_dma_ops(dev, 0, 0, NULL,
-+					   acpi_dma_is_coherent(adev));
-+	}
-+
-+	pci_put_host_bridge_device(bridge);
-+}
-+
- void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
- {
- 	int ret;
-@@ -1521,7 +1552,7 @@ void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
- 	dev->dev.dma_mask = &dev->dma_mask;
- 	dev->dev.dma_parms = &dev->dma_parms;
- 	dev->dev.coherent_dma_mask = 0xffffffffull;
--	of_pci_dma_configure(dev);
-+	pci_dma_configure(dev);
- 
- 	pci_set_dma_max_seg_size(dev, 65536);
- 	pci_set_dma_seg_boundary(dev, 0xffffffff);
-diff --git a/include/linux/of_pci.h b/include/linux/of_pci.h
-index 29fd3fe..ce0e5ab 100644
---- a/include/linux/of_pci.h
-+++ b/include/linux/of_pci.h
-@@ -16,7 +16,6 @@ int of_pci_get_devfn(struct device_node *np);
- int of_irq_parse_and_map_pci(const struct pci_dev *dev, u8 slot, u8 pin);
- int of_pci_parse_bus_range(struct device_node *node, struct resource *res);
- int of_get_pci_domain_nr(struct device_node *node);
--void of_pci_dma_configure(struct pci_dev *pci_dev);
- #else
- static inline int of_irq_parse_pci(const struct pci_dev *pdev, struct of_phandle_args *out_irq)
- {
-@@ -51,8 +50,6 @@ of_get_pci_domain_nr(struct device_node *node)
- {
- 	return -1;
- }
--
--static inline void of_pci_dma_configure(struct pci_dev *pci_dev) { }
- #endif
- 
- #if defined(CONFIG_OF_ADDRESS)
+This patch also introduces 2 new APIS:
+    1. acpi_dma_is_coherent() as part of ACPI API.
+    2. device_dma_is_coherent() as part of unified device property API.
+
+This simplifies the logic in device drivers to determine device coherency
+attribute regardless of booting with DT vs ACPI.
+
+This has been tested on AMD-Seattle platform, which implements _CCA 
+object as described in the AMD Opteron A1100 Series Processor ACPI Porting Guide:
+
+http://amd-dev.wpengine.netdna-cdn.com/wordpress/media/2012/10/Seattle_ACPI_Guide.pdf
+
+Changes from V3 (https://lkml.org/lkml/2015/5/7/1004):
+    * Remove ARCH64_SUPPORT_ACPI_CCA_ZERO and just use CONFIG_ARM64.
+      (per Catalin and Rafael)
+    * Do not need to call arch_setup_dma_ops() for acpi_device->dev.
+      (per Rafael)
+    * [3/6] (New) We also need to call arch_setup_dma_ops() for pci
+      devices and check the CCA of the host bridge. Similar logic
+      exists for OF. So, I refactor of_pci_dma_configure() to
+      the more generic version pci_dma_configure(), and add support
+      for ACPI.
+
+Changes from V2 (https://lkml.org/lkml/2015/5/5/510):
+    * Reword ACPI_MUST_HAVE_CCA to ACPI_CCA_REQUIRED (per Rafael)
+    * Reword ACPI_SUPPORT_CCA_ZERO to ARCH64_SUPPORT_ACPI_CCA_ZERO
+      (per Rafael and Arnd)
+    * Misc code styling clean up (per Rafael)
+    * Only print missing _CCA warning message in debug mode.
+    * Refactor logic in acpi_setup_device_dma() into
+      if acpi_dma_is_supported() then call arch_setup_dma_ops().
+    * Do not allocate device dma_mask if !acpi_dma_is_supported()
+      (per Arnd).
+    * Re-use the dummy functions with the same signature.
+
+Changes from V1 (https://lkml.org/lkml/2015/4/29/290):
+    * Remove supports for 32-bit ARM since doesn't currently
+      supporting ACPI (Per Catalin suggestions.)
+    * Do not call arch_setup_dma_ops() and when _CCA is missing.
+      (per Arnd suggestion)
+    * Add CONFIG_ACPI_SUPPORT_CCA_ZERO kernel config flag to
+      allow architectures to specify the behavior when _CCA=0.
+    * Add dummy_dma_ops for ARM64 (per Catalin suggestions).
+    * Fixed build error when ACPI is not configured by defining
+      acpi_dma_is_coherent() for when CONFIG_ACPI is not set.
+    * Introduce device_dma_is_coherent().
+    * Use device_dma_is_coherent in crypto/ccp and amd-xgbe driver.
+
+Changes from RFC: (https://lkml.org/lkml/2015/4/1/389)
+    * New logic for deriving and propagating coherent attribute from
+      parent devices. (by Mark)
+    * Introducing acpi_dma_is_coherent() API (Per Tom suggestion)
+    * Introducing CONFIG_ACPI_MUST_HAVE_CCA kernel configuration.
+    * Rebased to linux-4.1-rc1
+
+Suravee Suthikulpanit (6):
+  ACPI / scan: Parse _CCA and setup device coherency
+  arm64 : Introduce support for ACPI _CCA object
+  pci: Generic function for setting up PCI device DMA coherency
+  device property: Introduces device_dma_is_coherent()
+  crypto: ccp - Unify coherency checking logic with
+    device_dma_is_coherent()
+  amd-xgbe: Unify coherency checking logic with device_dma_is_coherent()
+
+ arch/arm64/Kconfig                        |  1 +
+ arch/arm64/include/asm/dma-mapping.h      | 18 +++++-
+ arch/arm64/mm/dma-mapping.c               | 92 +++++++++++++++++++++++++++++++
+ drivers/acpi/Kconfig                      |  3 +
+ drivers/acpi/acpi_platform.c              | 10 +++-
+ drivers/acpi/scan.c                       | 40 ++++++++++++++
+ drivers/base/property.c                   | 12 ++++
+ drivers/crypto/ccp/ccp-platform.c         | 60 +-------------------
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c | 27 +--------
+ drivers/of/of_pci.c                       | 20 -------
+ drivers/pci/probe.c                       | 35 +++++++++++-
+ include/acpi/acpi_bus.h                   | 32 ++++++++++-
+ include/linux/acpi.h                      | 10 ++++
+ include/linux/of_pci.h                    |  3 -
+ include/linux/property.h                  |  2 +
+ 15 files changed, 249 insertions(+), 116 deletions(-)
+
 -- 
 2.1.0
