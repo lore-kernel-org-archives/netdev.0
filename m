@@ -1,78 +1,115 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: rhashtable: Add cap on number of elements in hash table
-Date: Thu, 14 May 2015 22:22:17 -0400 (EDT)
-Message-ID: <20150514.222217.1991822787577994078.davem@davemloft.net>
-References: <20150423.115919.1353583175267783165.davem@davemloft.net>
-	<20150424005729.GA27075@gondor.apana.org.au>
-	<20150513080640.GA27800@gondor.apana.org.au>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
+ instances
+Date: Thu, 14 May 2015 22:25:27 -0400
+Message-ID: <20150515022527.GB965@madcap2.tricolour.ca>
+References: <cover.1429252659.git.rgb@redhat.com>
+ <20150512195759.GA9832@madcap2.tricolour.ca>
+ <2918460.dpKocsKt4o@x2>
+ <12675437.ssZNCck7zG@sifl>
+ <87bnhmbp8e.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org, kaber@trash.net,
-	tgraf@suug.ch, johannes.berg@intel.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <pmoore@redhat.com>, Steve Grubb <sgrubb@redhat.com>,
+	containers@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
+	eparis@parisplace.org, arozansk@redhat.com, serge@hallyn.com,
+	zohar@linux.vnet.ibm.com, viro@zeniv.linux.org.uk,
+	linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43968 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423401AbbEOCWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 22:22:24 -0400
-In-Reply-To: <20150513080640.GA27800@gondor.apana.org.au>
+Received: from mx1.redhat.com ([209.132.183.28]:44669 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1423217AbbEOCZb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 May 2015 22:25:31 -0400
+Content-Disposition: inline
+In-Reply-To: <87bnhmbp8e.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 13 May 2015 16:06:40 +0800
-
-> We currently have no limit on the number of elements in a hash table.
-> This is a problem because some users (tipc) set a ceiling on the
-> maximum table size and when that is reached the hash table may
-> degenerate.  Others may encounter OOM when growing and if we allow
-> insertions when that happens the hash table perofrmance may also
-> suffer.
+On 15/05/14, Eric W. Biederman wrote:
+> Paul Moore <pmoore@redhat.com> writes:
+> > As Eric, and others, have stated, the container concept is a userspace idea, 
+> > not a kernel idea; the kernel only knows, and cares about, namespaces.  This 
+> > is unlikely to change.
+> >
+> > However, as Steve points out, there is precedence for the kernel to record 
+> > userspace tokens for the sake of audit.  Personally I'm not a big fan of this 
+> > in general, but I do recognize that it does satisfy a legitimate need.  Think 
+> > of things like auid and the sessionid as necessary evils; audit is already 
+> > chock full of evilness I doubt one more will doom us all to hell.
+> >
+> > Moving forward, I'd like to see the following:
 > 
-> This patch adds a new paramater insecure_max_entries which becomes
-> the cap on the table.  If unset it defaults to max_size.  If it is
-> also zero it means that there is no cap on the number of elements
-> in the table.  However, the table will grow whenever the utilisation
-> hits 100% and if that growth fails, you will get ENOMEM on insertion.
+> > * Create a container ID token (unsigned 32-bit integer?), similar to 
+> > auid/sessionid, that is set by userspace and carried by the kernel to be used 
+> > in audit records.  I'd like to see some discussion on how we manage this, e.g. 
+> > how do handle container ID inheritance, how do we handle nested containers 
+> > (setting the containerid when it is already set), do we care if multiple 
+> > different containers share the same namespace config, etc.?
 > 
-> As allowing >100% utilisation is potentially dangerous, the name
-> contains the word insecure.
 > 
-> Note that the cap is not a hard limit.  This is done for performance
-> reasons as enforcing a hard limit will result in use of atomic ops
-> that are heavier than the ones we currently use.
+> > Can we all live with this?  If not, please suggest some alternate ideas; 
+> > simply shouting "IT'S ALL CRAP!" isn't helpful for anyone ... it may be true, 
+> > but it doesn't help us solve the problem ;)
 > 
-> The reasoning is that we're only guarding against a gross over-
-> subscription of the table, rather than a small breach of the limit.
+> Without stopping and defining what someone means by container I think it
+> is pretty much nonsense.
+
+Not complete, but this is why I'm asking for a standards document...
+
+> Should every vsftp connection get a container every?  Every chrome tab?
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> At some of the connections per second numbers I have seen we might
+> exhaust a 32bit number in an hour or two.  Will any of that make sense
+> to someone reading the audit logs?
 
-I'm not so sure I can get behind this change.
+So making it 64bits buys us some time, but sure...  I think your
+definition of a container may be a bit more liberal than what we're
+trying to understand...
 
-For the default case where we propagate max_size into this new limt,
-if we grow the hash table to it's maximum size, and then just go one
-past the limit, we're going to start failing inserts.
+> Without considerning that container creation is an unprivileged
+> operation I think it is pretty much nonsense.  Do I get to say I am any
+> container I want?  That would seem to invalidate the concept of
+> userspace setting a container id.
 
-In my opinion, up to at least 2 X max_size, it's safe to allow the
-insert.  Assuming a well choosen hash function and a roughly even
-distribution.
+Ok, my impression was that we're dealing with a privileged application
+as I alluded with the need to create a new CAP_AUDIT_CONTAINER_ID or
+something...
 
-A two entry deep hash chain is not a reason to fail a hash insertion.
+> How does any of this interact with setns?  AKA entering a container?
 
-Failures on hash insertions we would not do in pretty much any other
-hash implementation in the kernel.  I'd seriously would rather have
-3 entry deep hash chains than no new connections at all.
+You mean entering another namespace that might all be part of one
+container?  Or an an application attempting to enter the namespace of
+another container?
 
-If an administrator has to analyze some situation where this is
-happening and they see -E2BIG propagating into their applications,
-this is going to be surprising.  And when they do all of the work
-to figure out what is causing it, I am pretty sure they will be
-somewhat upset that we considered it OK to do this.
+> I will go as far as looking at patches.  If someone comes up with
+> a mission statement about what they are actually trying to achieve and a
+> mechanism that actually achieves that, and that allows for containers to
+> nest we can talk about doing something like that.
 
-So I'd like you to take some time to reconsider hash insert failures,
-and only do them when it's going to create an unnaceptable, _massive_
-hardship for the machine.  And I do not think that 2 or 3 entry deep
-hash chains quality.
+I don't pretend these patches are anywhere near finished or ready for
+upstream.
 
-Thanks.
+> But for right now I just hear proposals for things that make no sense
+> and can not possibly work.  Not least because it will require modifying
+> every program that creates a container and who knows how many of them
+> there are.  Especially since you don't need to be root.  Modifying
+> /usr/bin/unshare seems a little far out to me.
+
+My understanding is that just spawning or changing namespace doesn't
+imply spawning or changing containers.  I also don't necessarily assume
+that creating a container is an atomic operation, though that concept
+might make some sense to understand or predict the boundaries of
+actions...
+
+> Eric
+
+- RGB
+
+--
+Richard Guy Briggs <rbriggs@redhat.com>
+Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
