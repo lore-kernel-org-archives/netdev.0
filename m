@@ -1,86 +1,270 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
-	instances
-Date: Fri, 15 May 2015 06:17:31 -0700
-Message-ID: <CALCETrVb0J8JgxOgKi1cR2jfRBU5f7SVe9hQb4GMrMvjwWxDOQ@mail.gmail.com>
-References: <cover.1429252659.git.rgb@redhat.com>
-	<20150515023221.GC965@madcap2.tricolour.ca>
-	<CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw@mail.gmail.com>
-	<4153072.0EnVzNaVVH@x2>
+From: Petr Mladek <pmladek@suse.cz>
+Subject: Re: [PATCH 3/7] printk: implement support for extended console
+ drivers
+Date: Fri, 15 May 2015 15:20:20 +0200
+Message-ID: <20150515132019.GD8222@pathway.suse.cz>
+References: <1431619586-29187-1-git-send-email-tj@kernel.org>
+ <1431619586-29187-4-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <4153072.0EnVzNaVVH@x2>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Kay Sievers <kay@vrfy.org>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1431619586-29187-4-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On May 15, 2015 9:38 PM, "Steve Grubb" <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->
-> On Thursday, May 14, 2015 11:23:09 PM Andy Lutomirski wrote:
-> > On Thu, May 14, 2015 at 7:32 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> > > On 15/05/14, Paul Moore wrote:
-> > >> * Look at our existing audit records to determine which records should
-> > >> have
-> > >> namespace and container ID tokens added.  We may only want to add the
-> > >> additional fields in the case where the namespace/container ID tokens are
-> > >> not the init namespace.
-> > >
-> > > If we have a record that ties a set of namespace IDs with a container
-> > > ID, then I expect we only need to list the containerID along with auid
-> > > and sessionID.
-> >
-> > The problem here is that the kernel has no concept of a "container", and I
-> > don't think it makes any sense to add one just for audit.  "Container" is a
-> > marketing term used by some userspace tools.
->
-> No, its a real thing just like a login. Does the kernel have any concept of a
-> login? Yet it happens. And it causes us to generate events describing who,
-> where from, role, success, and time of day. :-)
->
+On Thu 2015-05-14 12:06:22, Tejun Heo wrote:
+> printk log_buf keeps various metadata for each message including its
+> sequence number and timestamp.  The metadata is currently available
+> only through /dev/kmsg and stripped out before passed onto console
+> drivers.  We want this metadata to be available to console drivers too
+> so that console consumers can get full information including the
+> metadata and dictionary, which among other things can be used to
+> detect whether messages got lost in transit.
+> 
+> This patch implements support for extended console drivers.  Consoles
+> can indicate that they want extended messages by setting the new
+> CON_EXTENDED flag and they'll be fed messages formatted the same way
+> as /dev/kmsg.
+> 
+>  "<level>,<sequnum>,<timestamp>,<contflag>;<message text>\n"
+> 
+> If extended consoles exist, in-kernel fragment assembly is disabled.
+> This ensures that all messages emitted to consoles have full metadata
+> including sequence number.  The contflag carries enough information to
+> reassemble the fragments from the reader side trivially.  Note that
+> this only affects /dev/kmsg.  Regular console and /proc/kmsg outputs
+> are not affected by this change.
+> 
+> * Extended message formatting for console drivers is enabled iff there
+>   are registered extended consoles.
+> 
+> * Comment describing /dev/kmsg message format updated to add missing
+>   contflag field and help distinguishing variable from verbatim terms.
+> 
+> v3: Added pr_info() to inform the user to expect more fragments when
+>     ext console is enabled.  Also, Documentation/ABI/testing/dev-kmsg
+>     is updated accordingly as suggested by Andrew.
+> 
+> v2: Disable in-kernel cont buffer if extended consoles are present
+>     which simplifies things quite a bit.  Hinted by Petr.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
 
-I really hope those records come from userspace, not the kernel.  I
-also wonder what happens when a user logs in and types "sudo agetty
-/dev/ttyS0 115200".  If a user does that and then someone logs in on
-/dev/ttyS0, which login are they?
+Reviewed-by: Petr Mladek <pmladek@suse.cz>
 
->
-> > I can imagine that both audit could benefit from a concept of a
-> > namespace *path* that understands nesting (e.g. root/2/5/1 or
-> > something along those lines).  Mapping these to "containers" belongs
-> > in userspace, I think.
->
-> I don't doubt that just as user space sequences the actions that are a login.
-> I just need the kernel to do some book keeping and associate the necessary
-> attributes in the event record to be able to reconstruct what is actually
-> happening.
+It is much easier than the previous approach and pretty
+straightforward. If there are any bugs in the LOG_CONT flag usage,
+it will make them more visible but they should get fixed anyway.
 
-A precondition for that is having those records have some
-correspondence to what is actually happening.  Since the kernel has no
-concept of a container, and since the same kernel mechanisms could be
-used for things that are probably not whatever the Common Criteria
-rules think a container is, this could be quite difficult to define in
-a meaningful manner.
+Best Regards,
+Petr
 
-Hence my suggestion to add only minimal support in the kernel and to
-do this in userspace.
-
---Andy
+> Cc: Kay Sievers <kay@vrfy.org>
+> Cc: Petr Mladek <pmladek@suse.cz>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> ---
+>  Documentation/ABI/testing/dev-kmsg |  9 ++++++
+>  include/linux/console.h            |  1 +
+>  kernel/printk/printk.c             | 66 +++++++++++++++++++++++++++++++++-----
+>  3 files changed, 68 insertions(+), 8 deletions(-)
+> 
+> diff --git a/Documentation/ABI/testing/dev-kmsg b/Documentation/ABI/testing/dev-kmsg
+> index bb820be..fff817e 100644
+> --- a/Documentation/ABI/testing/dev-kmsg
+> +++ b/Documentation/ABI/testing/dev-kmsg
+> @@ -98,4 +98,13 @@ Description:	The /dev/kmsg character device node provides userspace access
+>  		logic is used internally when messages are printed to the
+>  		console, /proc/kmsg or the syslog() syscall.
+>  
+> +		By default, kernel tries to avoid fragments by concatenating
+> +		when it can and fragments are rare; however, when extended
+> +		console support is enabled, the in-kernel concatenation is
+> +		disabled and /dev/kmsg output will contain more fragments. If
+> +		the log consumer performs concatenation, the end result
+> +		should be the same. In the future, the in-kernel concatenation
+> +		may be removed entirely and /dev/kmsg users are recommended to
+> +		implement fragment handling.
+> +
+>  Users:		dmesg(1), userspace kernel log consumers
+> diff --git a/include/linux/console.h b/include/linux/console.h
+> index 9f50fb4..bd19434 100644
+> --- a/include/linux/console.h
+> +++ b/include/linux/console.h
+> @@ -115,6 +115,7 @@ static inline int con_debug_leave(void)
+>  #define CON_BOOT	(8)
+>  #define CON_ANYTIME	(16) /* Safe to call when cpu is offline */
+>  #define CON_BRL		(32) /* Used for a braille device */
+> +#define CON_EXTENDED	(64) /* Use the extended output format a la /dev/kmsg */
+>  
+>  struct console {
+>  	char	name[16];
+> diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+> index 51ce4f1..ae980dc 100644
+> --- a/kernel/printk/printk.c
+> +++ b/kernel/printk/printk.c
+> @@ -85,6 +85,18 @@ static struct lockdep_map console_lock_dep_map = {
+>  #endif
+>  
+>  /*
+> + * Number of registered extended console drivers.
+> + *
+> + * If extended consoles are present, in-kernel cont reassembly is disabled
+> + * and each fragment is stored as a separate log entry with proper
+> + * continuation flag so that every emitted message has full metadata.  This
+> + * doesn't change the result for regular consoles or /proc/kmsg.  For
+> + * /dev/kmsg, as long as the reader concatenates messages according to
+> + * consecutive continuation flags, the end result should be the same too.
+> + */
+> +static int nr_ext_console_drivers;
+> +
+> +/*
+>   * Helper macros to handle lockdep when locking/unlocking console_sem. We use
+>   * macros instead of functions so that _RET_IP_ contains useful information.
+>   */
+> @@ -195,7 +207,7 @@ static int console_may_schedule;
+>   * need to be changed in the future, when the requirements change.
+>   *
+>   * /dev/kmsg exports the structured data in the following line format:
+> - *   "level,sequnum,timestamp;<message text>\n"
+> + *   "<level>,<sequnum>,<timestamp>,<contflag>;<message text>\n"
+>   *
+>   * The optional key/value pairs are attached as continuation lines starting
+>   * with a space character and terminated by a newline. All possible
+> @@ -1417,7 +1429,9 @@ SYSCALL_DEFINE3(syslog, int, type, char __user *, buf, int, len)
+>   * log_buf[start] to log_buf[end - 1].
+>   * The console_lock must be held.
+>   */
+> -static void call_console_drivers(int level, const char *text, size_t len)
+> +static void call_console_drivers(int level,
+> +				 const char *ext_text, size_t ext_len,
+> +				 const char *text, size_t len)
+>  {
+>  	struct console *con;
+>  
+> @@ -1438,7 +1452,10 @@ static void call_console_drivers(int level, const char *text, size_t len)
+>  		if (!cpu_online(smp_processor_id()) &&
+>  		    !(con->flags & CON_ANYTIME))
+>  			continue;
+> -		con->write(con, text, len);
+> +		if (con->flags & CON_EXTENDED)
+> +			con->write(con, ext_text, ext_len);
+> +		else
+> +			con->write(con, text, len);
+>  	}
+>  }
+>  
+> @@ -1581,8 +1598,12 @@ static bool cont_add(int facility, int level, const char *text, size_t len)
+>  	if (cont.len && cont.flushed)
+>  		return false;
+>  
+> -	if (cont.len + len > sizeof(cont.buf)) {
+> -		/* the line gets too long, split it up in separate records */
+> +	/*
+> +	 * If ext consoles are present, flush and skip in-kernel
+> +	 * continuation.  See nr_ext_console_drivers definition.  Also, if
+> +	 * the line gets too long, split it up in separate records.
+> +	 */
+> +	if (nr_ext_console_drivers || cont.len + len > sizeof(cont.buf)) {
+>  		cont_flush(LOG_CONT);
+>  		return false;
+>  	}
+> @@ -1917,9 +1938,19 @@ static struct cont {
+>  	u8 level;
+>  	bool flushed:1;
+>  } cont;
+> +static char *log_text(const struct printk_log *msg) { return NULL; }
+> +static char *log_dict(const struct printk_log *msg) { return NULL; }
+>  static struct printk_log *log_from_idx(u32 idx) { return NULL; }
+>  static u32 log_next(u32 idx) { return 0; }
+> -static void call_console_drivers(int level, const char *text, size_t len) {}
+> +static ssize_t msg_print_ext_header(char *buf, size_t size,
+> +				    struct printk_log *msg, u64 seq,
+> +				    enum log_flags prev_flags) { return 0; }
+> +static ssize_t msg_print_ext_body(char *buf, size_t size,
+> +				  char *dict, size_t dict_len,
+> +				  char *text, size_t text_len) { return 0; }
+> +static void call_console_drivers(int level,
+> +				 const char *ext_text, size_t ext_len,
+> +				 const char *text, size_t len) {}
+>  static size_t msg_print_text(const struct printk_log *msg, enum log_flags prev,
+>  			     bool syslog, char *buf, size_t size) { return 0; }
+>  static size_t cont_print_text(char *text, size_t size) { return 0; }
+> @@ -2172,7 +2203,7 @@ static void console_cont_flush(char *text, size_t size)
+>  	len = cont_print_text(text, size);
+>  	raw_spin_unlock(&logbuf_lock);
+>  	stop_critical_timings();
+> -	call_console_drivers(cont.level, text, len);
+> +	call_console_drivers(cont.level, NULL, 0, text, len);
+>  	start_critical_timings();
+>  	local_irq_restore(flags);
+>  	return;
+> @@ -2196,6 +2227,7 @@ out:
+>   */
+>  void console_unlock(void)
+>  {
+> +	static char ext_text[CONSOLE_EXT_LOG_MAX];
+>  	static char text[LOG_LINE_MAX + PREFIX_MAX];
+>  	static u64 seen_seq;
+>  	unsigned long flags;
+> @@ -2214,6 +2246,7 @@ void console_unlock(void)
+>  again:
+>  	for (;;) {
+>  		struct printk_log *msg;
+> +		size_t ext_len = 0;
+>  		size_t len;
+>  		int level;
+>  
+> @@ -2259,13 +2292,22 @@ skip:
+>  		level = msg->level;
+>  		len += msg_print_text(msg, console_prev, false,
+>  				      text + len, sizeof(text) - len);
+> +		if (nr_ext_console_drivers) {
+> +			ext_len = msg_print_ext_header(ext_text,
+> +						sizeof(ext_text),
+> +						msg, console_seq, console_prev);
+> +			ext_len += msg_print_ext_body(ext_text + ext_len,
+> +						sizeof(ext_text) - ext_len,
+> +						log_dict(msg), msg->dict_len,
+> +						log_text(msg), msg->text_len);
+> +		}
+>  		console_idx = log_next(console_idx);
+>  		console_seq++;
+>  		console_prev = msg->flags;
+>  		raw_spin_unlock(&logbuf_lock);
+>  
+>  		stop_critical_timings();	/* don't trace print latency */
+> -		call_console_drivers(level, text, len);
+> +		call_console_drivers(level, ext_text, ext_len, text, len);
+>  		start_critical_timings();
+>  		local_irq_restore(flags);
+>  	}
+> @@ -2521,6 +2563,11 @@ void register_console(struct console *newcon)
+>  		newcon->next = console_drivers->next;
+>  		console_drivers->next = newcon;
+>  	}
+> +
+> +	if (newcon->flags & CON_EXTENDED)
+> +		if (!nr_ext_console_drivers++)
+> +			pr_info("printk: continuation disabled due to ext consoles, expect more fragments in /dev/kmsg\n");
+> +
+>  	if (newcon->flags & CON_PRINTBUFFER) {
+>  		/*
+>  		 * console_unlock(); will print out the buffered messages
+> @@ -2593,6 +2640,9 @@ int unregister_console(struct console *console)
+>  		}
+>  	}
+>  
+> +	if (!res && (console->flags & CON_EXTENDED))
+> +		nr_ext_console_drivers--;
+> +
+>  	/*
+>  	 * If this isn't the last console and it has CON_CONSDEV set, we
+>  	 * need to set it on the next preferred console.
+> -- 
+> 2.1.0
+> 
