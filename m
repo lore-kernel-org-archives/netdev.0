@@ -1,60 +1,184 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: phy: Allow EEE for all RGMII variants
-Date: Fri, 15 May 2015 16:30:41 -0700
-Message-ID: <1431732641-17683-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, linux@roeck-us.net, peppe.cavallaro@st.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:34225 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423264AbbEOXbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 19:31:04 -0400
-Received: by pdeq5 with SMTP id q5so32379173pde.1
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 16:31:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: Re: [V4 PATCH 3/6] pci: Generic function for setting up PCI device DMA coherency
+Date: Sat, 16 May 2015 01:59 +0200
+Message-ID: <3954735.qeaTp8qOcM@vostro.rjw.lan>
+References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1431724994-21601-4-git-send-email-Suravee.Suthikulpanit@amd.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com,
+	bhelgaas@google.com, thomas.lendacky@amd.com,
+	herbert@gondor.apana.org.au, davem@davemloft.net, arnd@arndb.de,
+	msalter@redhat.com, hanjun.guo@linaro.org, al.stone@linaro.org,
+	grant.likely@linaro.org, leo.duran@amd.com,
+	linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org,
+	netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>,
+	Murali Karicheri <m-karicheri2@ti.com>,
+	David Woodhouse <dwmw2@infradead.org>
+To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431724994-21601-4-git-send-email-Suravee.Suthikulpanit@amd.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RGMII interfaces come in multiple flavors: RGMII with transmit or
-receive internal delay, no delays at all, or delays in both direction.
+On Friday, May 15, 2015 04:23:11 PM Suravee Suthikulpanit wrote:
+> This patch refactors of_pci_dma_configure() into a more generic
+> pci_dma_configure(), which can be reused by non-OF code.
+> Then, it adds support for setting up PCI device DMA coherency from
+> ACPI _CCA object that should normally be specified in the DSDT node
+> of its PCI host bridge..
+> 
+> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+> CC: Bjorn Helgaas <bhelgaas@google.com>
+> CC: Catalin Marinas <catalin.marinas@arm.com>
+> CC: Rob Herring <robh+dt@kernel.org>
+> CC: Will Deacon <will.deacon@arm.com>
+> CC: Rafael J. Wysocki <rjw@rjwysocki.net>
+> CC: Murali Karicheri <m-karicheri2@ti.com>
+> ---
+>  drivers/of/of_pci.c    | 20 --------------------
+>  drivers/pci/probe.c    | 35 +++++++++++++++++++++++++++++++++--
+>  include/linux/of_pci.h |  3 ---
+>  3 files changed, 33 insertions(+), 25 deletions(-)
+> 
+> diff --git a/drivers/of/of_pci.c b/drivers/of/of_pci.c
+> index 5751dc5..b66ee4e 100644
+> --- a/drivers/of/of_pci.c
+> +++ b/drivers/of/of_pci.c
+> @@ -117,26 +117,6 @@ int of_get_pci_domain_nr(struct device_node *node)
+>  }
+>  EXPORT_SYMBOL_GPL(of_get_pci_domain_nr);
+>  
+> -/**
+> - * of_pci_dma_configure - Setup DMA configuration
+> - * @dev: ptr to pci_dev struct of the PCI device
+> - *
+> - * Function to update PCI devices's DMA configuration using the same
+> - * info from the OF node of host bridge's parent (if any).
+> - */
+> -void of_pci_dma_configure(struct pci_dev *pci_dev)
+> -{
+> -	struct device *dev = &pci_dev->dev;
+> -	struct device *bridge = pci_get_host_bridge_device(pci_dev);
+> -
+> -	if (!bridge->parent)
+> -		return;
+> -
+> -	of_dma_configure(dev, bridge->parent->of_node);
+> -	pci_put_host_bridge_device(bridge);
+> -}
+> -EXPORT_SYMBOL_GPL(of_pci_dma_configure);
+> -
+>  #if defined(CONFIG_OF_ADDRESS)
+>  /**
+>   * of_pci_get_host_bridge_resources - Parse PCI host bridge resources from DT
+> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+> index 6675a7a..3c6f2e5 100644
+> --- a/drivers/pci/probe.c
+> +++ b/drivers/pci/probe.c
+> @@ -6,12 +6,14 @@
+>  #include <linux/delay.h>
+>  #include <linux/init.h>
+>  #include <linux/pci.h>
+> -#include <linux/of_pci.h>
+> +#include <linux/of_device.h>
+>  #include <linux/pci_hotplug.h>
+>  #include <linux/slab.h>
+>  #include <linux/module.h>
+>  #include <linux/cpumask.h>
+>  #include <linux/pci-aspm.h>
+> +#include <linux/acpi.h>
+> +#include <linux/property.h>
+>  #include <asm-generic/pci-bridge.h>
+>  #include "pci.h"
+>  
+> @@ -1508,6 +1510,35 @@ static void pci_init_capabilities(struct pci_dev *dev)
+>  	pci_enable_acs(dev);
+>  }
+>  
+> +/**
+> + * pci_dma_configure - Setup DMA configuration
+> + * @pci_dev: ptr to pci_dev struct of the PCI device
+> + *
+> + * Function to update PCI devices's DMA configuration using the same
+> + * info from the OF node or ACPI node of host bridge's parent (if any).
+> + */
+> +static void pci_dma_configure(struct pci_dev *pci_dev)
+> +{
+> +	struct device *dev = &pci_dev->dev;
+> +	struct device *bridge = pci_get_host_bridge_device(pci_dev);
+> +	struct device *host = bridge->parent;
+> +	struct acpi_device *adev;
+> +
+> +	if (!host)
+> +		return;
+> +
+> +	if (acpi_disabled) {
+> +		of_dma_configure(dev, host->of_node);
 
-This change extends the initial check for PHY_INTERFACE_MODE_RGMII to
-cover all of these variants since EEE should be allowed for any of these
-modes, since it is a property of the RGMII, hence Gigabit PHY capability
-more than the RGMII electrical interface and its delays.
+I'd rather do
 
-Fixes: a59a4d192166 ("phy: add the EEE support and the way to access to the MMD registers")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-David this change dates back to 3.6, however the comment update will depend on
-a9f6309585cbefa4a7f08c9017ca482c3222323a ("net: phy: allow phy_init_eee() to
-work with internal PHYs") to be included, which is only 3.18, nobody but me
-really complained about that so I guess 3.18+ is reasonable.
+	if (IS_ENABLED(CONFIG_OF) && host->of_node) {
+		of_dma_configure(dev, host->of_node);
+	} else {
+		struct acpi_device *adev = ACPI_COMPANION(host);
 
- drivers/net/phy/phy.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+		if (adev && acpi_dma_is_supported(adev)) {
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 52cd8db2c57d..757f28a4284c 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1053,13 +1053,14 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- {
- 	/* According to 802.3az,the EEE is supported only in full duplex-mode.
- 	 * Also EEE feature is active when core is operating with MII, GMII
--	 * or RGMII. Internal PHYs are also allowed to proceed and should
--	 * return an error if they do not support EEE.
-+	 * or RGMII (all kinds). Internal PHYs are also allowed to proceed and
-+	 * should return an error if they do not support EEE.
- 	 */
- 	if ((phydev->duplex == DUPLEX_FULL) &&
- 	    ((phydev->interface == PHY_INTERFACE_MODE_MII) ||
- 	    (phydev->interface == PHY_INTERFACE_MODE_GMII) ||
--	    (phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
-+	    (phydev->interface >= PHY_INTERFACE_MODE_RGMII &&
-+	     phydev->interface <= PHY_INTERFACE_MODE_RGMII_TXID) ||
- 	     phy_is_internal(phydev))) {
- 		int eee_lp, eee_cap, eee_adv;
- 		u32 lp, cap, adv;
+
+> +	} else if (has_acpi_companion(host)) {
+> +		adev = acpi_node(host->fwnode);
+> +		if (acpi_dma_is_supported(adev))
+> +			arch_setup_dma_ops(dev, 0, 0, NULL,
+> +					   acpi_dma_is_coherent(adev));
+> +	}
+> +
+> +	pci_put_host_bridge_device(bridge);
+> +}
+> +
+>  void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
+>  {
+>  	int ret;
+> @@ -1521,7 +1552,7 @@ void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
+>  	dev->dev.dma_mask = &dev->dma_mask;
+>  	dev->dev.dma_parms = &dev->dma_parms;
+>  	dev->dev.coherent_dma_mask = 0xffffffffull;
+> -	of_pci_dma_configure(dev);
+> +	pci_dma_configure(dev);
+
+Also I'm not quite sure if that's actually OK.
+
+We should be handling the DMA setup on x86 in the ACPI case already without it.
+Or is this a NOP on x86?
+
+>  
+>  	pci_set_dma_max_seg_size(dev, 65536);
+>  	pci_set_dma_seg_boundary(dev, 0xffffffff);
+> diff --git a/include/linux/of_pci.h b/include/linux/of_pci.h
+> index 29fd3fe..ce0e5ab 100644
+> --- a/include/linux/of_pci.h
+> +++ b/include/linux/of_pci.h
+> @@ -16,7 +16,6 @@ int of_pci_get_devfn(struct device_node *np);
+>  int of_irq_parse_and_map_pci(const struct pci_dev *dev, u8 slot, u8 pin);
+>  int of_pci_parse_bus_range(struct device_node *node, struct resource *res);
+>  int of_get_pci_domain_nr(struct device_node *node);
+> -void of_pci_dma_configure(struct pci_dev *pci_dev);
+>  #else
+>  static inline int of_irq_parse_pci(const struct pci_dev *pdev, struct of_phandle_args *out_irq)
+>  {
+> @@ -51,8 +50,6 @@ of_get_pci_domain_nr(struct device_node *node)
+>  {
+>  	return -1;
+>  }
+> -
+> -static inline void of_pci_dma_configure(struct pci_dev *pci_dev) { }
+>  #endif
+>  
+>  #if defined(CONFIG_OF_ADDRESS)
+> 
+
 -- 
-2.1.0
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
