@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2,1/1] hv_netvsc: use per_cpu stats to
- calculate TX/RX data
-Date: Thu, 14 May 2015 22:49:58 -0400 (EDT)
-Message-ID: <20150514.224958.144644873953606975.davem@davemloft.net>
-References: <1431590425-23889-1-git-send-email-sixiao@microsoft.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: Fix udp checksums with raw sockets
+Date: Thu, 14 May 2015 20:04:49 -0700
+Message-ID: <1431659089.27831.87.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431650048-16189-1-git-send-email-vyasevic@redhat.com>
+	 <20150514.222732.1628575030241731130.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com,
-	devel@linuxdriverproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sixiao@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431590425-23889-1-git-send-email-sixiao@microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, netdev@vger.kernel.org, vyasevic@redhat.com,
+	linux@stwm.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:33161 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423143AbbEODEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 23:04:51 -0400
+Received: by igbpi8 with SMTP id pi8so25385659igb.0
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 20:04:51 -0700 (PDT)
+In-Reply-To: <20150514.222732.1628575030241731130.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Xiao <sixiao@microsoft.com>
-Date: Thu, 14 May 2015 01:00:25 -0700
+On Thu, 2015-05-14 at 22:27 -0400, David Miller wrote:
+> From: Vladislav Yasevich <vyasevich@gmail.com>
+> Date: Thu, 14 May 2015 20:34:08 -0400
+> 
+> > It was reported that trancerout6 would cause
+> > a kernel to crash when trying to compute checksums
+> > on raw UDP packets.  The cause was the check in
+> > __ip6_append_data that would attempt to use
+> > partial checksums on the packet.  However,
+> > raw sockets do not initialize partial checksum
+> > fields so partial checksums can't be used.
+> > 
+> > Solve this the same way IPv4 does it.  raw sockets
+> > pass transhdrlen value of 0 to ip_append_data which
+> > causes the checksum to be computed in software.  Use
+> > the same check in ip6_append_data (check transhdrlen).
+> > 
+> > Reported-by: Wolfgang Walter <linux@stwm.de>
+> > CC: Wolfgang Walter <linux@stwm.de>
+> > CC: Eric Dumazet <eric.dumazet@gmail.com>
+> > Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+> 
+> Applied.... This seems like -stable material?  If so, how far
+> back?
 
-> Current code does not lock anything when calculating the TX and RX stats.
-> As a result, the RX and TX data reported by ifconfig are not accuracy in a
-> system with high network throughput and multiple CPUs (in my test,
-> RX/TX = 83% between 2 HyperV VM nodes which have 8 vCPUs and 40G Ethernet).
-> 
-> This patch fixed the above issue by using per_cpu stats.
-> netvsc_get_stats64() summarizes TX and RX data by iterating over all CPUs
-> to get their respective stats.
-> 
-> This v2 patch addressed David's comments on the cleanup path when
-> netdev_alloc_pcpu_stats() failed.
-> 
-> Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Arg, the Fixes: tag is missing :(
 
-Applied, thanks.
+Fixes: 32dce968dd98 ("ipv6: Allow for partial checksums on non-ufo packets")
