@@ -1,58 +1,97 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/4] ozwpan: Use proper check to prevent heap overflow
-Date: Fri, 15 May 2015 15:02:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB36893@AcuExch.aculab.com>
-References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
- <1431542014-3239-2-git-send-email-Jason@zx2c4.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next] net: fix two sparse errors
+Date: Fri, 15 May 2015 11:11:58 -0400
+Message-ID: <CALx6S34ETTapmY7nBTohfs0Cu03PQuBteLXPVC7sSrvSJ5CdLQ@mail.gmail.com>
+References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
+	<1431401204-731380-6-git-send-email-tom@herbertland.com>
+	<1431405215.566.56.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1431406237.566.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CALx6S36nVmVxo2QADh-Qmyk7+TU=Zo4vAmRtU1qtDtRqFWGAJg@mail.gmail.com>
+	<1431446777.566.87.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1431694087.27831.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
-	"shigekatsu.tateno@atmel.com" <shigekatsu.tateno@atmel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"oss-security@lists.openwall.com" <oss-security@lists.openwall.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431542014-3239-2-git-send-email-Jason@zx2c4.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:34720 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754693AbbEOPL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 11:11:59 -0400
+Received: by igblo3 with SMTP id lo3so41349476igb.1
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 08:11:58 -0700 (PDT)
+In-Reply-To: <1431694087.27831.99.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason A. Donenfeld
-> Sent: 13 May 2015 19:34
-> Since elt->length is a u8, we can make this variable a u8. Then we can
-> do proper bounds checking more easily. Without this, a potentially
-> negative value is passed to the memcpy inside oz_hcd_get_desc_cnf,
-> resulting in a remotely exploitable heap overflow with network
-> supplied data.
-...
-> diff --git a/drivers/staging/ozwpan/ozusbsvc1.c b/drivers/staging/ozwpan/ozusbsvc1.c
-> index d434d8c..cd6c63e 100644
-> --- a/drivers/staging/ozwpan/ozusbsvc1.c
-> +++ b/drivers/staging/ozwpan/ozusbsvc1.c
-> @@ -390,8 +390,10 @@ void oz_usb_rx(struct oz_pd *pd, struct oz_elt *elt)
->  	case OZ_GET_DESC_RSP: {
->  			struct oz_get_desc_rsp *body =
->  				(struct oz_get_desc_rsp *)usb_hdr;
-> -			int data_len = elt->length -
-> +			u8 data_len = elt->length -
->  					sizeof(struct oz_get_desc_rsp) + 1;
-> +			if (data_len > elt->length)
-> +				break;
+On Fri, May 15, 2015 at 8:48 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> First one in __skb_checksum_validate_complete() fixes the following
+> (and other callers)
+>
+> make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/tcp_ipv4.o
+>   CHECK   net/ipv4/tcp_ipv4.c
+> include/linux/skbuff.h:3052:24: warning: incorrect type in return expression (different base types)
+> include/linux/skbuff.h:3052:24:    expected restricted __sum16
+> include/linux/skbuff.h:3052:24:    got int
+>
+> Second is fixing gso_make_checksum() :
+>
+>   CHECK   net/ipv4/gre_offload.c
+> include/linux/skbuff.h:3360:14: warning: incorrect type in assignment (different base types)
+> include/linux/skbuff.h:3360:14:    expected unsigned short [unsigned] [usertype] csum
+> include/linux/skbuff.h:3360:14:    got restricted __sum16
+> include/linux/skbuff.h:3365:16: warning: incorrect type in return expression (different base types)
+> include/linux/skbuff.h:3365:16:    expected restricted __sum16
+> include/linux/skbuff.h:3365:16:    got unsigned short [unsigned] [usertype] csum
+>
+>
+> Fixes: 5a21232983aa7 ("net: Support for csum_bad in skbuff")
+> Fixes: 7e2b10c1e52ca ("net: Support for multiple checksums with gso")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> CC: Tom Herbert <tom@herbertland.com>
 
-Why not just check the length. eg:
-			unsigned int data_len = elt->length;
-			if (data_len < sizeof(struct oz_get_desc_rsp) + 1)
-				break;
 
->  			u16 offs = le16_to_cpu(get_unaligned(&body->offset));
->  			u16 total_size =
->  				le16_to_cpu(get_unaligned(&body->total_size));
+Acked-by: Tom Herbert <tom@herbertland.com>
 
-Don't put variable definitions after code.
-
-You don't really want to do arithmetic on local variables that are
-smaller than a machine word (eg u8 and u16), doing so can require
-the compiler generate a lot more code.
-
-	David
+> ---
+>  include/linux/skbuff.h |   11 +++++------
+>  1 file changed, 5 insertions(+), 6 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index f83aa6568cbf5e1794fdb1a8da28642ea417cc76..b57eebfb67e06dc90addfe5f2fea9d913b2121cc 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -3051,7 +3051,7 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
+>                 }
+>         } else if (skb->csum_bad) {
+>                 /* ip_summed == CHECKSUM_NONE in this case */
+> -               return 1;
+> +               return (__force __sum16)1;
+>         }
+>
+>         skb->csum = psum;
+> @@ -3353,15 +3353,14 @@ static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
+>  static inline __sum16 gso_make_checksum(struct sk_buff *skb, __wsum res)
+>  {
+>         int plen = SKB_GSO_CB(skb)->csum_start - skb_headroom(skb) -
+> -           skb_transport_offset(skb);
+> -       __u16 csum;
+> +                  skb_transport_offset(skb);
+> +       __wsum partial;
+>
+> -       csum = csum_fold(csum_partial(skb_transport_header(skb),
+> -                                     plen, skb->csum));
+> +       partial = csum_partial(skb_transport_header(skb), plen, skb->csum);
+>         skb->csum = res;
+>         SKB_GSO_CB(skb)->csum_start -= plen;
+>
+> -       return csum;
+> +       return csum_fold(partial);
+>  }
+>
+>  static inline bool skb_is_gso(const struct sk_buff *skb)
+>
+>
