@@ -1,104 +1,79 @@
-From: Simon Xiao <sixiao@microsoft.com>
-Subject: [PATCH net-next,
- 1/1] hv_netvsc: change member name of struct netvsc_stats
-Date: Fri, 15 May 2015 02:33:03 -0700
-Message-ID: <1431682383-31240-1-git-send-email-sixiao@microsoft.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH net-next 00/11] convert stmmac glue layers into platform
+ drivers
+Date: Fri, 15 May 2015 10:44:06 +0200
+Message-ID: <5463867.jjPLKQomlR@wuerfel>
+References: <1431598266-25736-1-git-send-email-manabian@gmail.com>
+ <CAGb2v663efjkwgRjPdxV4CQxeesiu7jxkMf9j_oPU_bSHbNNiA@mail.gmail.com>
+ <5555A42B.3040205@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Simon Xiao <sixiao@microsoft.com>
-To: kys@microsoft.com, haiyangz@microsoft.com, devel@linuxdriverproject.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ b.galvani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Roger <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+ dinguyen-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5555A42B.3040205-qxv4g6HH51o@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Currently the struct netvsc_stats has a member s_sync
-of type u64_stats_sync.
-This definition will break kernel build as the macro
-netdev_alloc_pcpu_stats requires this member name to be syncp.
-(see netdev_alloc_pcpu_stats definition in ./include/linux/netdevice.h)
+On Friday 15 May 2015 09:45:47 Giuseppe CAVALLARO wrote:
+> Hello
+> 
+> On 5/14/2015 5:24 PM, Chen-Yu Tsai wrote:
+> > On Thu, May 14, 2015 at 6:10 PM, Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> >> This patch set aims to convert the current dwmac glue layers into
+> >> proper platform drivers as request by Arnd[1]. These changes start
+> >> from patch 3 and onwards.
+> >>
+> >> Overview:
+> >> Platform driver functions like probe and remove are exported from
+> >> the stmmac platform and then used in subsequent glue later
+> >> conversions. The conversion involes adding the platform driver
+> >> boiler plate code and adding it to the build system. The last patch
+> >> removes the driver from the stmmac platform code thus making it into
+> >> a library for common platform driver functions.
+> >>
+> >> The two first patches adds glue layer for my platform. I chose to
+> >> first add old style glue layer and then convert it. The churn this
+> >> creates is just 3 lines.
+> >>
+> >> I would be very nice if people could test this patch set on their
+> >> respective platform. My testing has been limited to compiling and
+> >> testing on my (LPC18xx) platform. Thanks!
+> 
+> I wonder if this will make the compatibility with old
+> platforms (like SH4) not based on DT, where there was not used
+> any glue-logic around the driver and just the platform was the
+> reference.
 
-This patch changes netvsc_stats's member name from s_sync to syncp to fix
-the build break.
+With patch 11, this gets handled by the dwmac-generic driver.
 
-Signed-off-by: Simon Xiao <sixiao@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |  2 +-
- drivers/net/hyperv/netvsc_drv.c | 16 ++++++++--------
- 2 files changed, 9 insertions(+), 9 deletions(-)
+> To be honest, I prefer to not have the Kconfig options.
+> The device-tree compatibility will select the glue-logic
+> needed and we will just pay some bytes when compile.
+>
+> In my opinion, the Koption(s) introduce a problem when touch
+> the driver and we want to guarantee that, at least,
+> all its parts build fine on all the platforms.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 5a92b36..ddcc7f8 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -614,7 +614,7 @@ struct multi_send_data {
- struct netvsc_stats {
- 	u64 packets;
- 	u64 bytes;
--	struct u64_stats_sync s_sync;
-+	struct u64_stats_sync syncp;
- };
- 
- /* The context of the netvsc device  */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 0c858724..d9c88bc 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -580,10 +580,10 @@ do_send:
- 
- drop:
- 	if (ret == 0) {
--		u64_stats_update_begin(&tx_stats->s_sync);
-+		u64_stats_update_begin(&tx_stats->syncp);
- 		tx_stats->packets++;
- 		tx_stats->bytes += skb_length;
--		u64_stats_update_end(&tx_stats->s_sync);
-+		u64_stats_update_end(&tx_stats->syncp);
- 	} else {
- 		if (ret != -EAGAIN) {
- 			dev_kfree_skb_any(skb);
-@@ -692,10 +692,10 @@ int netvsc_recv_callback(struct hv_device *device_obj,
- 	skb_record_rx_queue(skb, packet->channel->
- 			    offermsg.offer.sub_channel_index);
- 
--	u64_stats_update_begin(&rx_stats->s_sync);
-+	u64_stats_update_begin(&rx_stats->syncp);
- 	rx_stats->packets++;
- 	rx_stats->bytes += packet->total_data_buflen;
--	u64_stats_update_end(&rx_stats->s_sync);
-+	u64_stats_update_end(&rx_stats->syncp);
- 
- 	/*
- 	 * Pass the skb back up. Network stack will deallocate the skb when it
-@@ -776,16 +776,16 @@ static struct rtnl_link_stats64 *netvsc_get_stats64(struct net_device *net,
- 		unsigned int start;
- 
- 		do {
--			start = u64_stats_fetch_begin_irq(&tx_stats->s_sync);
-+			start = u64_stats_fetch_begin_irq(&tx_stats->syncp);
- 			tx_packets = tx_stats->packets;
- 			tx_bytes = tx_stats->bytes;
--		} while (u64_stats_fetch_retry_irq(&tx_stats->s_sync, start));
-+		} while (u64_stats_fetch_retry_irq(&tx_stats->syncp, start));
- 
- 		do {
--			start = u64_stats_fetch_begin_irq(&rx_stats->s_sync);
-+			start = u64_stats_fetch_begin_irq(&rx_stats->syncp);
- 			rx_packets = rx_stats->packets;
- 			rx_bytes = rx_stats->bytes;
--		} while (u64_stats_fetch_retry_irq(&rx_stats->s_sync, start));
-+		} while (u64_stats_fetch_retry_irq(&rx_stats->syncp, start));
- 
- 		t->tx_bytes	+= tx_bytes;
- 		t->tx_packets	+= tx_packets;
--- 
-1.8.5.2
+The current model is not scalable and requires modifying the base
+driver for each variation, and the change brings the driver
+in line with how we do things for other platform drivers.
+
+We should always be able to build all soc-specific glue drivers
+with 'allmodconfig' for build testing, and a lot of us run that
+frequently to find regressions.
+
+	Arnd
