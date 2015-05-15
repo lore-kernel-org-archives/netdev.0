@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netns: fix unbalanced spin_lock on error
-Date: Thu, 14 May 2015 22:36:46 -0400 (EDT)
-Message-ID: <20150514.223646.1372201078149333495.davem@davemloft.net>
-References: <55533771.6080406@6wind.com>
-	<1431517389-19937-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
+Date: Thu, 14 May 2015 22:45:54 -0400 (EDT)
+Message-ID: <20150514.224554.1382655632305683978.davem@davemloft.net>
+References: <1431577061-12517-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1431517389-19937-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sfeldma@gmail.com, jiri@resnulli.us, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
+To: roopa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44163 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422886AbbEOCp5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 22:45:57 -0400
+In-Reply-To: <1431577061-12517-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 13 May 2015 13:43:09 +0200
+From: roopa@cumulusnetworks.com
+Date: Wed, 13 May 2015 21:17:41 -0700
 
-> Unlock was missing on error path.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> Fixes: 95f38411df05 ("netns: use a spin_lock to protect nsid management")
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
+> 
+> This patch renames the flag to be consistent with what the user sees.
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Applied.
+Applied, thanks.
