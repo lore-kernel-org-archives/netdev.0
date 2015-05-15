@@ -1,154 +1,241 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net: fix two sparse errors
-Date: Fri, 15 May 2015 11:27:25 -0400
-Message-ID: <CALx6S35tiLs=RU9t9XriakDgD-66N4F2FKrpQYe6--XhBn=_Ng@mail.gmail.com>
-References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
-	<1431401204-731380-6-git-send-email-tom@herbertland.com>
-	<1431405215.566.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1431406237.566.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CALx6S36nVmVxo2QADh-Qmyk7+TU=Zo4vAmRtU1qtDtRqFWGAJg@mail.gmail.com>
-	<1431446777.566.87.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1431694087.27831.99.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150515143506.GA5019@via.ecp.fr>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [RFC 21/23] net/xen-netback: Make it running on 64KB
+ page granularity
+Date: Fri, 15 May 2015 16:31:43 +0100
+Message-ID: <20150515153143.GA8521@zion.uk.xensource.com>
+References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
+ <1431622863-28575-22-git-send-email-julien.grall@citrix.com>
+ <20150515023534.GE19352@zion.uk.xensource.com> <5555E81E.8070803@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:33866 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934515AbbEOP10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 11:27:26 -0400
-Received: by ieczm2 with SMTP id zm2so44621442iec.1
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 08:27:25 -0700 (PDT)
-In-Reply-To: <20150515143506.GA5019@via.ecp.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<stefano.stabellini@eu.citrix.com>, <netdev@vger.kernel.org>,
+	<tim@xen.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Julien Grall <julien.grall@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5555E81E.8070803@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 15, 2015 at 10:35 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> Hi Eric,
->
-> 2015-05-15, 05:48:07 -0700, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> First one in __skb_checksum_validate_complete() fixes the following
->> (and other callers)
->>
->> make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/tcp_ipv4.o
->>   CHECK   net/ipv4/tcp_ipv4.c
->> include/linux/skbuff.h:3052:24: warning: incorrect type in return expression (different base types)
->> include/linux/skbuff.h:3052:24:    expected restricted __sum16
->> include/linux/skbuff.h:3052:24:    got int
->>
->> Second is fixing gso_make_checksum() :
->>
->>   CHECK   net/ipv4/gre_offload.c
->> include/linux/skbuff.h:3360:14: warning: incorrect type in assignment (different base types)
->> include/linux/skbuff.h:3360:14:    expected unsigned short [unsigned] [usertype] csum
->> include/linux/skbuff.h:3360:14:    got restricted __sum16
->> include/linux/skbuff.h:3365:16: warning: incorrect type in return expression (different base types)
->> include/linux/skbuff.h:3365:16:    expected restricted __sum16
->> include/linux/skbuff.h:3365:16:    got unsigned short [unsigned] [usertype] csum
->>
->>
->> Fixes: 5a21232983aa7 ("net: Support for csum_bad in skbuff")
->> Fixes: 7e2b10c1e52ca ("net: Support for multiple checksums with gso")
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> CC: Tom Herbert <tom@herbertland.com>
->> ---
->
-> That's very similar to what I submitted in February:
-> https://patchwork.ozlabs.org/patch/437332/
->
-> I have a patch to make __skb_checksum_validate_complete return a bool,
-> since that's all the callers care about (it also needs modifications
-> at some call sites, not included here).
->
-> After that, maybe we should also reverse the logic so that "validate"
-> functions return true when the csum is valid.
->
->
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index f83aa6568cbf..23dc1ccb28f0 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -3034,24 +3034,23 @@ static inline void skb_checksum_complete_unset(struct sk_buff *skb)
->  /* Validate (init) checksum based on checksum complete.
->   *
->   * Return values:
-> - *   0: checksum is validated or try to in skb_checksum_complete. In the latter
-> - *     case the ip_summed will not be CHECKSUM_UNNECESSARY and the pseudo
-> - *     checksum is stored in skb->csum for use in __skb_checksum_complete
-> - *   non-zero: value of invalid checksum
-> - *
-> + *   false: checksum is validated or try to in skb_checksum_complete. In the
-> + *     latter case the ip_summed will not be CHECKSUM_UNNECESSARY and the
-> + *     pseudo checksum is stored in skb->csum for use in __skb_checksum_complete
-> + *   true: invalid checksum
->   */
-> -static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
-> -                                                      bool complete,
-> -                                                      __wsum psum)
-> +static inline bool __skb_checksum_validate_complete(struct sk_buff *skb,
-> +                                                   bool complete,
-> +                                                   __wsum psum)
->  {
->         if (skb->ip_summed == CHECKSUM_COMPLETE) {
->                 if (!csum_fold(csum_add(psum, skb->csum))) {
->                         skb->csum_valid = 1;
-> -                       return 0;
-> +                       return false;
->                 }
->         } else if (skb->csum_bad) {
->                 /* ip_summed == CHECKSUM_NONE in this case */
-> -               return 1;
-> +               return true;
->         }
->
->         skb->csum = psum;
-> @@ -3061,10 +3060,10 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
->
->                 csum = __skb_checksum_complete(skb);
->                 skb->csum_valid = !csum;
-> -               return csum;
-> +               return !!csum;
->         }
->
-> -       return 0;
-> +       return false;
+On Fri, May 15, 2015 at 01:35:42PM +0100, Julien Grall wrote:
+> Hi Wei,
+> 
+> Thanks you for the review.
+> 
+> On 15/05/15 03:35, Wei Liu wrote:
+> > On Thu, May 14, 2015 at 06:01:01PM +0100, Julien Grall wrote:
+> >> The PV network protocol is using 4KB page granularity. The goal of this
+> >> patch is to allow a Linux using 64KB page granularity working as a
+> >> network backend on a non-modified Xen.
+> >>
+> >> It's only necessary to adapt the ring size and break skb data in small
+> >> chunk of 4KB. The rest of the code is relying on the grant table code.
+> >>
+> >> Although only simple workload is working (dhcp request, ping). If I try
+> >> to use wget in the guest, it will stall until a tcpdump is started on
+> >> the vif interface in DOM0. I wasn't able to find why.
+> >>
+> > 
+> > I think in wget workload you're more likely to break down 64K pages to
+> > 4K pages. Some of your calculation of mfn, offset might be wrong.
+> 
+> If so, why tcpdump on the vif interface would make wget suddenly
+> working? Does it make netback use a different path?
 
-Hi Sabrina,
+No, but if might make core network component behave differently, this is
+only my suspicion.
 
-We returned the checksum value since that may be of interest to the
-caller at some point.
+Do you see malformed packets with tcpdump?
 
+> 
+> >> I have not modified XEN_NETBK_RX_SLOTS_MAX because I wasn't sure what
+> >> it's used for (I have limited knowledge on the network driver).
+> >>
+> > 
+> > This is the maximum slots a guest packet can use. AIUI the protocol
+> > still works on 4K granularity (you break 64K page to a bunch of 4K
+> > pages), you don't need to change this.
+> 
+> 1 slot = 1 grant right? If so, XEN_NETBK_RX_SLOTS_MAX is based on the
+> number of Linux page. So we would have to get the number for Xen page.
+> 
 
->  }
->
->  static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
-> @@ -3079,13 +3078,13 @@ static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
->   * pseudo header.
->   *
->   * Return values:
-> - *   0: checksum is validated or try to in skb_checksum_complete
-> - *   non-zero: value of invalid checksum
-> + *   false: checksum is validated or try to in skb_checksum_complete
-> + *   true: invalid checksum
->   */
->  #define __skb_checksum_validate(skb, proto, complete,                  \
->                                 zero_okay, check, compute_pseudo)       \
->  ({                                                                     \
-> -       __sum16 __ret = 0;                                              \
-> +       bool __ret = false;                                             \
->         skb->csum_valid = 0;                                            \
->         if (__skb_checksum_validate_needed(skb, zero_okay, check))      \
->                 __ret = __skb_checksum_validate_complete(skb,           \
->
->
->
->
-> --
-> Sabrina
+Yes, 1 slot = 1 grant. I see what you're up to now. Yes, you need to
+change this constant to match underlying HV page.
+
+> Although, I gave a try to multiple by XEN_PFN_PER_PAGE (4KB/64KB = 16)
+> but it get stuck in the loop.
+> 
+
+I don't follow. What is the new #define? Which loop does it get stuck?
+
+> >> ---
+> >>  drivers/net/xen-netback/common.h  |  7 ++++---
+> >>  drivers/net/xen-netback/netback.c | 27 ++++++++++++++-------------
+> >>  2 files changed, 18 insertions(+), 16 deletions(-)
+> >>
+> >> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> >> index 8a495b3..0eda6e9 100644
+> >> --- a/drivers/net/xen-netback/common.h
+> >> +++ b/drivers/net/xen-netback/common.h
+> >> @@ -44,6 +44,7 @@
+> >>  #include <xen/interface/grant_table.h>
+> >>  #include <xen/grant_table.h>
+> >>  #include <xen/xenbus.h>
+> >> +#include <xen/page.h>
+> >>  #include <linux/debugfs.h>
+> >>  
+> >>  typedef unsigned int pending_ring_idx_t;
+> >> @@ -64,8 +65,8 @@ struct pending_tx_info {
+> >>  	struct ubuf_info callback_struct;
+> >>  };
+> >>  
+> >> -#define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
+> >> -#define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
+> >> +#define XEN_NETIF_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, XEN_PAGE_SIZE)
+> >> +#define XEN_NETIF_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, XEN_PAGE_SIZE)
+> >>  
+> >>  struct xenvif_rx_meta {
+> >>  	int id;
+> >> @@ -80,7 +81,7 @@ struct xenvif_rx_meta {
+> >>  /* Discriminate from any valid pending_idx value. */
+> >>  #define INVALID_PENDING_IDX 0xFFFF
+> >>  
+> >> -#define MAX_BUFFER_OFFSET PAGE_SIZE
+> >> +#define MAX_BUFFER_OFFSET XEN_PAGE_SIZE
+> >>  
+> >>  #define MAX_PENDING_REQS XEN_NETIF_TX_RING_SIZE
+> >>  
+> >> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> >> index 9ae1d43..ea5ce84 100644
+> >> --- a/drivers/net/xen-netback/netback.c
+> >> +++ b/drivers/net/xen-netback/netback.c
+> >> @@ -274,7 +274,7 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
+> >>  {
+> >>  	struct gnttab_copy *copy_gop;
+> >>  	struct xenvif_rx_meta *meta;
+> >> -	unsigned long bytes;
+> >> +	unsigned long bytes, off_grant;
+> >>  	int gso_type = XEN_NETIF_GSO_TYPE_NONE;
+> >>  
+> >>  	/* Data must not cross a page boundary. */
+> >> @@ -295,7 +295,8 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
+> >>  		if (npo->copy_off == MAX_BUFFER_OFFSET)
+> >>  			meta = get_next_rx_buffer(queue, npo);
+> >>  
+> >> -		bytes = PAGE_SIZE - offset;
+> >> +		off_grant = offset & ~XEN_PAGE_MASK;
+> >> +		bytes = XEN_PAGE_SIZE - off_grant;
+> >>  		if (bytes > size)
+> >>  			bytes = size;
+> >>  
+> >> @@ -314,9 +315,9 @@ static void xenvif_gop_frag_copy(struct xenvif_queue *queue, struct sk_buff *skb
+> >>  		} else {
+> >>  			copy_gop->source.domid = DOMID_SELF;
+> >>  			copy_gop->source.u.gmfn =
+> >> -				virt_to_mfn(page_address(page));
+> >> +				virt_to_mfn(page_address(page) + offset);
+> >>  		}
+> >> -		copy_gop->source.offset = offset;
+> >> +		copy_gop->source.offset = off_grant;
+> >>  
+> >>  		copy_gop->dest.domid = queue->vif->domid;
+> >>  		copy_gop->dest.offset = npo->copy_off;
+> >> @@ -747,7 +748,7 @@ static int xenvif_count_requests(struct xenvif_queue *queue,
+> >>  		first->size -= txp->size;
+> >>  		slots++;
+> >>  
+> >> -		if (unlikely((txp->offset + txp->size) > PAGE_SIZE)) {
+> >> +		if (unlikely((txp->offset + txp->size) > XEN_PAGE_SIZE)) {
+> >>  			netdev_err(queue->vif->dev, "Cross page boundary, txp->offset: %x, size: %u\n",
+> >>  				 txp->offset, txp->size);
+> >>  			xenvif_fatal_tx_err(queue->vif);
+> >> @@ -1241,11 +1242,11 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+> >>  		}
+> >>  
+> >>  		/* No crossing a page as the payload mustn't fragment. */
+> >> -		if (unlikely((txreq.offset + txreq.size) > PAGE_SIZE)) {
+> >> +		if (unlikely((txreq.offset + txreq.size) > XEN_PAGE_SIZE)) {
+> >>  			netdev_err(queue->vif->dev,
+> >>  				   "txreq.offset: %x, size: %u, end: %lu\n",
+> >>  				   txreq.offset, txreq.size,
+> >> -				   (txreq.offset&~PAGE_MASK) + txreq.size);
+> >> +				   (txreq.offset&~XEN_PAGE_MASK) + txreq.size);
+> >>  			xenvif_fatal_tx_err(queue->vif);
+> >>  			break;
+> >>  		}
+> >> @@ -1287,7 +1288,7 @@ static void xenvif_tx_build_gops(struct xenvif_queue *queue,
+> >>  			virt_to_mfn(skb->data);
+> > 
+> > You didn't change the calculation of MFN here. I think it returns the
+> > MFN of the first 4K sub-page of that 64K page.  Do I miss anything?
+> 
+> There is no change required. On ARM virt_to_mfn is implemented with:
+> 
+> pfn_to_mfn(virt_to_phys(v) >> XEN_PAGE_SHIFT)
+> 
+> which will return a 4KB PFN (see patch #23).
+> 
+
+OK. I missed that patch.
+
+> > 
+> >>  		queue->tx_copy_ops[*copy_ops].dest.domid = DOMID_SELF;
+> >>  		queue->tx_copy_ops[*copy_ops].dest.offset =
+> >> -			offset_in_page(skb->data);
+> >> +			offset_in_page(skb->data) & ~XEN_PAGE_MASK;
+> >>  
+> >>  		queue->tx_copy_ops[*copy_ops].len = data_len;
+> >>  		queue->tx_copy_ops[*copy_ops].flags = GNTCOPY_source_gref;
+> >> @@ -1366,8 +1367,8 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
+> > 
+> > This function is to coalesce frag_list to a new SKB. It's completely
+> > fine to use the natural granularity of backend domain. The way you
+> > modified it can lead to waste of memory, i.e. you only use first 4K of a
+> > 64K page.
+> 
+> Thanks for explaining. I wasn't sure how the function works so I change
+> it for safety. I will redo the change.
+> 
+> FWIW, I'm sure there is other place in netback where we waste memory
+> with 64KB page granularity (such as grant table). I need to track them.
+> 
+> Let me know if you have some place in mind where the memory usage can be
+> improved.
+> 
+
+I was about to say the mmap_pages array is an array of pages. But that
+probably belongs to grant table driver.
+
+Wei.
+
+> >>  			return -ENOMEM;
+> >>  		}
+> >>  
+> >> -		if (offset + PAGE_SIZE < skb->len)
+> >> -			len = PAGE_SIZE;
+> >> +		if (offset + XEN_PAGE_SIZE < skb->len)
+> >> +			len = XEN_PAGE_SIZE;
+> >>  		else
+> >>  			len = skb->len - offset;
+> >>  		if (skb_copy_bits(skb, offset, page_address(page), len))
+> >> @@ -1396,7 +1397,7 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
+> >>  	/* Fill the skb with the new (local) frags. */
+> >>  	memcpy(skb_shinfo(skb)->frags, frags, i * sizeof(skb_frag_t));
+> >>  	skb_shinfo(skb)->nr_frags = i;
+> >> -	skb->truesize += i * PAGE_SIZE;
+> >> +	skb->truesize += i * XEN_PAGE_SIZE;
+> > 
+> > The true size accounts for the actual memory occupied by this SKB. Since
+> > the page is allocated with alloc_page, the granularity should be
+> > PAGE_SIZE not XEN_PAGE_SIZE.
+> 
+> Ok. I will replace with PAGE_SIZE.
+> 
+> Regards,
+> 
+> -- 
+> Julien Grall
