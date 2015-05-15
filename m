@@ -1,54 +1,43 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf] conntrack: RFC5961 challenge ACK confuse conntrack
- LAST-ACK transition
-Date: Fri, 15 May 2015 21:06:33 +0200
-Message-ID: <20150515190633.GA11015@salvia>
-References: <20150507125416.29956.24745.stgit@dragon>
- <alpine.DEB.2.10.1505111155120.30455@blackhole.kfki.hu>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v3 for-next 05/13] IB/cm: Reference count ib_cm_ids
+Date: Fri, 15 May 2015 19:11:10 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FDC0C3@ORSMSX109.amr.corp.intel.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-6-git-send-email-haggaie@mellanox.com>
+ <20150511183459.GB25405@obsidianresearch.com>
+ <5551A2CB.1010407@mellanox.com> <20150512185447.GA3503@obsidianresearch.com>
+ <55532566.9040105@mellanox.com> <20150513165823.GA20343@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34325 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753705AbbEOTBs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2015 15:01:48 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.10.1505111155120.30455@blackhole.kfki.hu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150513165823.GA20343-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 11, 2015 at 12:02:17PM +0200, Jozsef Kadlecsik wrote:
-> Hi,
+> The lifetime if each cm_id is clearly defined:
 > 
-> On Thu, 7 May 2015, Jesper Dangaard Brouer wrote:
+> cm_create_cm_id()
+> cm_ref_id() / cm_deref_id()
+> cm_destroy_id()
 > 
-> > In compliance with RFC5961, the network stack send challenge ACK in
-> > response to spurious SYN packets, since commit 0c228e833c88 ("tcp:
-> > Restore RFC5961-compliant behavior for SYN packets").
-> > 
-> > This pose a problem for netfilter conntrack in state LAST_ACK, because
-> > this challenge ACK is (falsely) seen as ACKing last FIN, causing a
-> > false state transition (into TIME_WAIT).
-> > 
-> > The challenge ACK is hard to distinguish from real last ACK.  Thus,
-> > solution introduce a flag that tracks the potential for seeing a
-> > challenge ACK, in case a SYN packet is let through and current state
-> > is LAST_ACK.
-> > 
-> > When conntrack transition LAST_ACK to TIME_WAIT happens, this flag is
-> > used for determining if we are expecting a challenge ACK.
-> > 
-> > Scapy based reproducer script avail here:
-> >  https://github.com/netoptimizer/network-testing/blob/master/scapy/tcp_hacks_3WHS_LAST_ACK.py
-> > 
-> > Fixes: 0c228e833c88 ("tcp: Restore RFC5961-compliant behavior for SYN packets")
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> 
-> The patch looks OK to me, thanks Jesper.
-> 
-> Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> The fact the CM might share a listen (and only a listen) ID behind the
+> scenes is not the caller's problem. That is an implementation choice,
+> each caller stands alone and uses the API properly, assuming it is the
+> only user of the returned cm_id.
 
-Applied, thanks.
+Actually, I seriously question why the ib_cm should be modified at all for any of this.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
