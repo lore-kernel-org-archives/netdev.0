@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/6] net: fix sk_mem_reclaim_partial()
-Date: Fri, 15 May 2015 07:53:53 -0700
-Message-ID: <1431701638-24451-2-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 4/6] tcp: fix behavior for epoll edge trigger
+Date: Fri, 15 May 2015 07:53:56 -0700
+Message-ID: <1431701638-24451-5-git-send-email-edumazet@google.com>
 References: <1431701638-24451-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
 	Neal Cardwell <ncardwell@google.com>,
@@ -10,82 +10,58 @@ Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
 	Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:33530 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932948AbbEOOyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 10:54:12 -0400
-Received: by pdjg10 with SMTP id g10so8046832pdj.0
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 07:54:11 -0700 (PDT)
+Received: from mail-ig0-f201.google.com ([209.85.213.201]:32923 "EHLO
+	mail-ig0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754802AbbEOOy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 10:54:26 -0400
+Received: by igdh15 with SMTP id h15so4968302igd.0
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 07:54:26 -0700 (PDT)
 In-Reply-To: <1431701638-24451-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sk_mem_reclaim_partial() goal is to ensure each socket has
-one SK_MEM_QUANTUM forward allocation. This is needed both for
-performance and better handling of memory pressure situations in
-follow up patches.
+Under memory pressure, tcp_sendmsg() can fail to queue a packet
+while no packet is present in write queue. If we return -EAGAIN
+with no packet in write queue, no ACK packet will ever come
+to raise EPOLLOUT.
 
-SK_MEM_QUANTUM is currently a page, but might be reduced to 4096 bytes
-as some arches have 64KB pages.
+We need to allow one skb per TCP socket, and make sure that
+tcp sockets can release their forward allocations under pressure.
+
+This is a followup to commit 790ba4566c1a ("tcp: set SOCK_NOSPACE
+under memory pressure")
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/sock.h | 6 +++---
- net/core/sock.c    | 9 +++++----
- 2 files changed, 8 insertions(+), 7 deletions(-)
+ net/ipv4/tcp.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index d882f4c8e438..4581a60636f8 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1368,7 +1368,7 @@ static inline struct inode *SOCK_INODE(struct socket *socket)
-  * Functions for memory accounting
-  */
- int __sk_mem_schedule(struct sock *sk, int size, int kind);
--void __sk_mem_reclaim(struct sock *sk);
-+void __sk_mem_reclaim(struct sock *sk, int amount);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index ecccfdc50d76..9eabfd3e0925 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -815,9 +815,20 @@ struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp)
+ 	/* The TCP header must be at least 32-bit aligned.  */
+ 	size = ALIGN(size, 4);
  
- #define SK_MEM_QUANTUM ((int)PAGE_SIZE)
- #define SK_MEM_QUANTUM_SHIFT ilog2(SK_MEM_QUANTUM)
-@@ -1409,7 +1409,7 @@ static inline void sk_mem_reclaim(struct sock *sk)
- 	if (!sk_has_account(sk))
- 		return;
- 	if (sk->sk_forward_alloc >= SK_MEM_QUANTUM)
--		__sk_mem_reclaim(sk);
-+		__sk_mem_reclaim(sk, sk->sk_forward_alloc);
- }
- 
- static inline void sk_mem_reclaim_partial(struct sock *sk)
-@@ -1417,7 +1417,7 @@ static inline void sk_mem_reclaim_partial(struct sock *sk)
- 	if (!sk_has_account(sk))
- 		return;
- 	if (sk->sk_forward_alloc > SK_MEM_QUANTUM)
--		__sk_mem_reclaim(sk);
-+		__sk_mem_reclaim(sk, sk->sk_forward_alloc - 1);
- }
- 
- static inline void sk_mem_charge(struct sock *sk, int size)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index c18738a795b0..29124fcdc42a 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2069,12 +2069,13 @@ EXPORT_SYMBOL(__sk_mem_schedule);
- /**
-  *	__sk_reclaim - reclaim memory_allocated
-  *	@sk: socket
-+ *	@amount: number of bytes (rounded down to a SK_MEM_QUANTUM multiple)
-  */
--void __sk_mem_reclaim(struct sock *sk)
-+void __sk_mem_reclaim(struct sock *sk, int amount)
- {
--	sk_memory_allocated_sub(sk,
--				sk->sk_forward_alloc >> SK_MEM_QUANTUM_SHIFT);
--	sk->sk_forward_alloc &= SK_MEM_QUANTUM - 1;
-+	amount >>= SK_MEM_QUANTUM_SHIFT;
-+	sk_memory_allocated_sub(sk, amount);
-+	sk->sk_forward_alloc -= amount << SK_MEM_QUANTUM_SHIFT;
- 
- 	if (sk_under_memory_pressure(sk) &&
- 	    (sk_memory_allocated(sk) < sk_prot_mem_limits(sk, 0)))
++	if (unlikely(tcp_under_memory_pressure(sk)))
++		sk_mem_reclaim_partial(sk);
++
+ 	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
+-	if (skb) {
+-		if (sk_wmem_schedule(sk, skb->truesize)) {
++	if (likely(skb)) {
++		bool mem_schedule;
++
++		if (skb_queue_len(&sk->sk_write_queue) == 0) {
++			mem_schedule = true;
++			sk_forced_mem_schedule(sk, skb->truesize);
++		} else {
++			mem_schedule = sk_wmem_schedule(sk, skb->truesize);
++		}
++		if (likely(mem_schedule)) {
+ 			skb_reserve(skb, sk->sk_prot->max_header);
+ 			/*
+ 			 * Make sure that we have exactly size bytes
 -- 
 2.2.0.rc0.207.ga3a616c
