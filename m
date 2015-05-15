@@ -1,132 +1,92 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net v2 2/2] ipv6: fix ECMP route replacement
-Date: Fri, 15 May 2015 10:51:52 +0200
-Message-ID: <20150515085151.GA32190@unicorn.suse.cz>
-References: <cover.1431546602.git.mkubecek@suse.cz>
- <c1fd1b1527dc2a6905d4eeff04f1e4ed3f93964e.1431546602.git.mkubecek@suse.cz>
- <5554F073.4080501@6wind.com>
- <20150514214907.GA20301@lion>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH net-next 00/11] convert stmmac glue layers into platform
+ drivers
+Date: Fri, 15 May 2015 11:11:14 +0200
+Message-ID: <5555B832.3080708@st.com>
+References: <1431598266-25736-1-git-send-email-manabian@gmail.com>
+ <CAGb2v663efjkwgRjPdxV4CQxeesiu7jxkMf9j_oPU_bSHbNNiA@mail.gmail.com>
+ <5555A42B.3040205@st.com> <5463867.jjPLKQomlR@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	roopa <roopa@cumulusnetworks.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150514214907.GA20301@lion>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ b.galvani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Roger <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>,
+ dinguyen-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5463867.jjPLKQomlR@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 14, 2015 at 11:49:07PM +0200, Michal Kubecek wrote:
-> On Thu, May 14, 2015 at 08:58:59PM +0200, Nicolas Dichtel wrote:
-> > Le 13/05/2015 21:59, Michal Kubecek a =E9crit :
-> > >When replacing an IPv6 multipath route with "ip route replace", i.=
-e.
-> > >NLM_F_CREATE | NLM_F_REPLACE, fib6_add_rt2node() replaces only fir=
-st
-> > >matching route without fixing its siblings, resulting in corrupted
-> > >siblings linked list; removing one of the siblings can then end in=
- an
-> > >infinite loop.
-> > >
-> > >Replacing the whole set of nexthops does IMHO make more sense than
-> > >replacing a random one. We also need to remove the NLM_F_REPLACE f=
-lag
-> > >after replacing old nexthops by first new so that each subsequent
-> > >nexthop does not replace previous one.
-> > >
-> > >Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (E=
-CMP)")
-> > >Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> > >---
-> > >  net/ipv6/ip6_fib.c | 17 ++++++++++++++---
-> > >  net/ipv6/route.c   |  8 +++++---
-> > >  2 files changed, 19 insertions(+), 6 deletions(-)
-> > >
-> > >diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-> > >index 96dbffff5a24..abf4e4e5bdab 100644
-> > >--- a/net/ipv6/ip6_fib.c
-> > >+++ b/net/ipv6/ip6_fib.c
-> > >@@ -815,6 +815,8 @@ add:
-> > >  		}
-> > >
-> > >  	} else {
-> > >+		struct rt6_info *next;
-> > >+
-> > >  		if (!found) {
-> > >  			if (add)
-> > >  				goto add;
-> > >@@ -828,15 +830,24 @@ add:
-> > >
-> > >  		*ins =3D rt;
-> > >  		rt->rt6i_node =3D fn;
-> > >-		rt->dst.rt6_next =3D iter->dst.rt6_next;
-> > >+
-> > >+		/* skip potential siblings */
-> > >+		next =3D iter->dst.rt6_next;
-> > >+		while (next && next->rt6i_metric =3D=3D rt->rt6i_metric)
-> > >+			next =3D next->dst.rt6_next;
-> > I wonder if we should not loop over the siblings list here
-> > (rt->rt6i_siblings).  Only routes that match 'rt6_qualify_for_ecmp(=
-)'
-> > are siblings.
->=20
-> Problem with looping over the siblings list is that then we would hav=
-e
-> to find each of them in the (unidirectional) list linked by dst.rt6_n=
-ext
-> to be able to delete them from this list.  Do we at least know that a=
-ll
-> routes in this list with matching metric and rt6_qualify_for_ecmp() a=
-re
-> siblings? If so, we could still do the cleanup on one pass over the
-> dst.rt6_next list.
+Hi Arnd
 
-Hm... it's still a bit more complicated. In the "replace" case, we brea=
-k
-the loop once we find any route with matching metric, i.e. we can find =
-a
-non-ECMP one even if there are some ECMP siblings farther in the chain.
-As far as I can see, replacing such route would cause an inconsistency
-as nsiblings would no longer match the number of ECMP-able routes in th=
-e
-chain.
+On 5/15/2015 10:44 AM, Arnd Bergmann wrote:
+> On Friday 15 May 2015 09:45:47 Giuseppe CAVALLARO wrote:
+>> Hello
+>>
+>> On 5/14/2015 5:24 PM, Chen-Yu Tsai wrote:
+>>> On Thu, May 14, 2015 at 6:10 PM, Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>>> This patch set aims to convert the current dwmac glue layers into
+>>>> proper platform drivers as request by Arnd[1]. These changes start
+>>>> from patch 3 and onwards.
+>>>>
+>>>> Overview:
+>>>> Platform driver functions like probe and remove are exported from
+>>>> the stmmac platform and then used in subsequent glue later
+>>>> conversions. The conversion involes adding the platform driver
+>>>> boiler plate code and adding it to the build system. The last patch
+>>>> removes the driver from the stmmac platform code thus making it into
+>>>> a library for common platform driver functions.
+>>>>
+>>>> The two first patches adds glue layer for my platform. I chose to
+>>>> first add old style glue layer and then convert it. The churn this
+>>>> creates is just 3 lines.
+>>>>
+>>>> I would be very nice if people could test this patch set on their
+>>>> respective platform. My testing has been limited to compiling and
+>>>> testing on my (LPC18xx) platform. Thanks!
+>>
+>> I wonder if this will make the compatibility with old
+>> platforms (like SH4) not based on DT, where there was not used
+>> any glue-logic around the driver and just the platform was the
+>> reference.
+>
+> With patch 11, this gets handled by the dwmac-generic driver.
 
-IMHO it's not completely clear what the "replace" semantics should be
-for multiple routes (and, worse, for a mix of non-ECMP and ECMP ones).
-One possible approach would be
+ok
 
-  - when new route is ECMP-able, try to find an ECMP-able route and
-    replace it with all its siblings
-  - if there is none, fall back to replacing first matching non-ECMP
-    route (or just add if creating is allowed)
-  - when new route is not ECMP-able (can this really happen with
-    NLM_F_REPLACE?), replace first matching non-ECMP or insert new one
+>
+>> To be honest, I prefer to not have the Kconfig options.
+>> The device-tree compatibility will select the glue-logic
+>> needed and we will just pay some bytes when compile.
+>>
+>> In my opinion, the Koption(s) introduce a problem when touch
+>> the driver and we want to guarantee that, at least,
+>> all its parts build fine on all the platforms.
+>
+> The current model is not scalable and requires modifying the base
+> driver for each variation, and the change brings the driver
+> in line with how we do things for other platform drivers.
+>
+> We should always be able to build all soc-specific glue drivers
+> with 'allmodconfig' for build testing, and a lot of us run that
+> frequently to find regressions.
 
-But I still rather feel like replacing all existing matching routes
-would better reflect what I expect "replace" to do.
+thx for your prompt feedback
 
-                                                        Michal Kubecek
+Peppe
 
-> > >+		rt->dst.rt6_next =3D next;
-> > >+
-> > >  		atomic_inc(&rt->rt6i_ref);
-> > >  		inet6_rt_notify(RTM_NEWROUTE, rt, info);
-> > >  		if (!(fn->fn_flags & RTN_RTINFO)) {
-> > >  			info->nl_net->ipv6.rt6_stats->fib_route_nodes++;
-> > >  			fn->fn_flags |=3D RTN_RTINFO;
-> > >  		}
-> > >-		fib6_purge_rt(iter, fn, info->nl_net);
-> > >-		rt6_release(iter);
-> > >+		while (iter !=3D next) {
-> > >+			fib6_purge_rt(iter, fn, info->nl_net);
-> > >+			rt6_release(iter);
-> > >+			iter =3D iter->dst.rt6_next;
-> > >+		}
-> > Same here.
+>
+> 	Arnd
+>
+>
