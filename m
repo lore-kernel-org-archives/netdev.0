@@ -1,97 +1,58 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next 0/3] tc state machinery cleanups
-Date: Fri, 15 May 2015 13:59:59 +0200
-Message-ID: <20150515115959.GG6179@breakpoint.cc>
-References: <1431679850-31896-1-git-send-email-fw@strlen.de>
- <5555DA48.6010208@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/6] neigh: fix a possible leak issue of neigh
+ entry
+Date: Fri, 15 May 2015 05:12:42 -0700
+Message-ID: <1431691962.27831.90.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431672946-300-1-git-send-email-ying.xue@windriver.com>
+	 <1431672946-300-3-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexei@purestorage.com,
+	joern@purestorage.com, ja@ssi.bg, davem@davemloft.net
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:48444 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934130AbbEOMAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 08:00:02 -0400
-Content-Disposition: inline
-In-Reply-To: <5555DA48.6010208@mojatatu.com>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:35898 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934130AbbEOMMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 08:12:44 -0400
+Received: by igbpi8 with SMTP id pi8so215920066igb.1
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 05:12:44 -0700 (PDT)
+In-Reply-To: <1431672946-300-3-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 05/15/15 04:50, Florian Westphal wrote:
-> >This series prepares removal of tc_verd member from sk_buff.
-> >
-> >It simplifies tc state machinery to what is required to keep current
-> >mirred/ifb combinations working.
-> >
-> >I tested a few scenarios, namely:
-> >
-> >1 - htb based shaping on egress
-> >2 - netem attached to ifb with mirred redirect from ingress qdisc
-> >3 - mirred to different egress device
-> >4 - mirred to ifb egress device with qdiscs set up on ifb
-> >     to provide illusion of 'single' transmit interface for traffic shaping
-> >
-> >After this series tc_verd is only used by ifb to skip actions on egress.
-> >
-> >Part #2 of this series will remove tc_verd completely.
+On Fri, 2015-05-15 at 14:55 +0800, Ying Xue wrote:
+> Once modifying a pending timer of a neighbour, it's insufficient to
+> post a warning message. Instead we should not take the neighbour's
+> reference count at the same time, otherwise, it causes an issue that
+> the neighbour cannot be freed forever.
 > 
-> The major goal here is to release some of the bits that are
-> no longer in use. I am for that but struggling with the unintended
-> consequence of changing readability or subtle meanings.
-> I brought this up last time when you removed the 1-bit macro.
-> Think of someone who read the code 6  months ago.
-> It would be useful to keep readability for the rest of the code the
-> way it was - change the definition of the macros.
-> This sounds doable because 8 contigous bits are going to be available.
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> ---
+>  net/core/neighbour.c |    9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 3de6542..5595db3 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -164,10 +164,11 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+>  
+>  static void neigh_add_timer(struct neighbour *n, unsigned long when)
+>  {
+> -	neigh_hold(n);
+> -	if (unlikely(mod_timer(&n->timer, when))) {
+> -		printk("NEIGH: BUG, double timer add, state is %x\n",
+> -		       n->nud_state);
+> +	if (likely(!mod_timer(&n->timer, when))) {
+> +		neigh_hold(n);
+> +	} else {
+> +		pr_warn("NEIGH: BUG, double timer add, state is %x\n",
+> +			n->nud_state);
+>  		dump_stack();
+>  	}
+>  }
 
-Yes, its doable.  But I specifically wanted to have one "skb state", i.e.
-no combinations of bit indicators.
 
-> Therefore, I suggest the initial effort should be to find ways to
-> co-locate the bits and save the 8  bits and unless necessary keep
-> the code readability.
-
-I could add that as an intermediate step, but see no real gain.
-
-> More on readability and subtle meanings:
-> A noun like "skb_tc_state" is not a good choice. Those two bits
-> carry location indicators and are intended to define source
-> and destination endpoints.
-
-Not anymore.  Its really a processing state, overlaps are not possible.
-If its FROM_INGRESS then it means mirred wants ifb to return it to
-ingress.
-
-If its FROM_EGRESS then it means mirred wants ifb to transmit it to
-device the mirred action was attached to.
-
-If its AT_INGRESS, then it means skb is being processed during rx
-processing (sch_ingress), so mirred needs to push back l2 header.
-
-If its 0, its normal egress path.
-No other states are possible.
-
-I named it tc_state initially but that is "git grep" unfriendly, hence
-skb_ prefix.
-
-I'm open to a better name instead of skb_tc_state.
-
-> Also note: ifb and mirred are using the location metadata
-> bits - they are _not_ the owners of those bits or the only
-> potential users.
-
-Hmm, afaics they are the only users.
-
-> Any of the blocks can consume or produce the metadatum
-> in order to aid policy traversal. You can use those two as examples
-> of existing blocks that do so - but annotating the code as such is
-> inaccurate.
-
-It documents what they're being used for.
-And there haven't been any other users so far.
-
-I'll have a stab at keeping all of the macros intact, but I don't
-see (yet?) what the gain is.
+NACK
