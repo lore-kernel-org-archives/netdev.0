@@ -1,46 +1,57 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace instances
-Date: Thu, 14 May 2015 23:23:09 -0700
-Message-ID: <CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw@mail.gmail.com>
-References: <cover.1429252659.git.rgb@redhat.com> <20150512195759.GA9832@madcap2.tricolour.ca>
- <2918460.dpKocsKt4o@x2> <12675437.ssZNCck7zG@sifl> <20150515023221.GC965@madcap2.tricolour.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rhashtable: Add cap on number of elements in hash table
+Date: Fri, 15 May 2015 14:30:57 +0800
+Message-ID: <20150515063057.GA16440@gondor.apana.org.au>
+References: <20150513080640.GA27800@gondor.apana.org.au>
+ <20150514.222217.1991822787577994078.davem@davemloft.net>
+ <20150515030623.GA14994@gondor.apana.org.au>
+ <20150514.234615.235930228362522399.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
-	arozansk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-	Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150515023221.GC965-bcJWsdo4jJjeVoXN4CMphl7TgLCtbB0G@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org, kaber@trash.net,
+	tgraf@suug.ch, johannes.berg@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:54310 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753503AbbEOGbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 02:31:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20150514.234615.235930228362522399.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 14, 2015 at 7:32 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On 15/05/14, Paul Moore wrote:
->> * Look at our existing audit records to determine which records should have
->> namespace and container ID tokens added.  We may only want to add the
->> additional fields in the case where the namespace/container ID tokens are not
->> the init namespace.
->
-> If we have a record that ties a set of namespace IDs with a container
-> ID, then I expect we only need to list the containerID along with auid
-> and sessionID.
+On Thu, May 14, 2015 at 11:46:15PM -0400, David Miller wrote:
+> 
+> We wouldn't fail these inserts in any other hash table in the kernel.
+> 
+> Would we stop making new TCP sockets if the TCP ehash chains are 3
+> entries deep?  4?  5?  The answer to all of those is of course no
+> for any hash chain length of N whatsoever.
 
-The problem here is that the kernel has no concept of a "container", and I
-don't think it makes any sense to add one just for audit.  "Container" is a
-marketing term used by some userspace tools.
+I would agree with you if this was a fixed sized table.  If your
+table grows with you (which is the whole point of rhashtable) then
+we should never hit this until you run out of memory.
 
-I can imagine that both audit could benefit from a concept of a
-namespace *path* that understands nesting (e.g. root/2/5/1 or
-something along those lines).  Mapping these to "containers" belongs
-in userspace, I think.
+When you are running out of memory whether you fail when the table
+growth fails or later when you can't even allocate an entry is
+immaterial because failure is inevitable.
 
---Andy
+In my view everybody should be using rhashtable without a maximum
+size.  The only place where it would make sense to have a maximum
+size limit is if you also had a limit on the number of entries.
+In which cas you might as well make that the limit on the hash table
+size.
+
+> Should there perhaps be hard protections for _extremely_ long hash
+> chains?  Sure, I'm willing to entertain that kind of idea.  But I
+> would do so at the very far end of the spectrum.  To the point where
+> the hash table is degenerating into a linked list.
+
+Do you have any suggestions of what such a limit should be?
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
