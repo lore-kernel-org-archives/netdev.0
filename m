@@ -1,66 +1,48 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting skb->dev
- in receive path
-Date: Fri, 15 May 2015 12:14:43 -0700
-Message-ID: <555645A3.6010509@gmail.com>
-References: <20150514032833.GF3853@gondor.apana.org.au>	<55543D4F.8050306@gmail.com>	<20150514062614.GA6320@gondor.apana.org.au> <20150515.123726.1298734930500737780.davem@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/7] amd-xgbe: AMD XGBE driver updates
+ 2015-05-12
+Date: Fri, 15 May 2015 15:22:40 -0400 (EDT)
+Message-ID: <20150515.152240.2196567854221782278.davem@davemloft.net>
+References: <20150514164351.10220.89584.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
-	steffen.klassert@secunet.com, tgraf@suug.ch
-To: David Miller <davem@redhat.com>, herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f180.google.com ([209.85.214.180]:34241 "EHLO
-	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754135AbbEOTOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:14:45 -0400
-Received: by obfe9 with SMTP id e9so85079267obf.1
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:14:45 -0700 (PDT)
-In-Reply-To: <20150515.123726.1298734930500737780.davem@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51642 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753507AbbEOTWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:22:45 -0400
+In-Reply-To: <20150514164351.10220.89584.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/15/2015 09:37 AM, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Thu, 14 May 2015 14:26:14 +0800
->
->> On Wed, May 13, 2015 at 11:14:39PM -0700, Alexander Duyck wrote:
->>> The fact is I am not all that familiar with the vti code and just
->>> started crawling through it a few days ago, but it seems like it is
->>> overwriting the skb->mark value with the i_key to determine which
->>> policy to use.  The code prior to commit df3893c176e9 ("vti: Update
->>> the ipv4 side to use it's own receive hook.") was saving the old
->>> skb->mark, overwriting it, and then restoring it after a call to
->>> xfrm4_policy_check.  After that commit it was letting
->>> skb_scrub_packet in vti_rcv_cb clear the mark and it was just
->>> dropped.
->> Steffen, why is vti touching skb->mark at all? This is supposed
->> to be a field used by user-space to control a packet as it moves
->> inside the kernel.  Seconding it for other purposes looks very
->> wrong.
-> If anything, the skb_scrub_packet() call right above the skb->mark
-> clears should be taking care of this.
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Thu, 14 May 2015 11:43:51 -0500
 
-That only applies if you are crossing namespaces which we are not in 
-this case.
+> The following series of patches includes functional updates and changes
+> to the driver.
+> 
+> - Add additional statistics to be collected and reported
+> - Use the netif_* functions for issuing some debug and informational
+>   driver messages
+> - Rx path SKB allocation cleanup/simplification
+> - Remove stand-alone phylib driver and incorporate function into the nic
+>   driver
+> - Simplify device tree support while maintaining backwards compatibility
+> - Fix the flow control negotiation logic to properly configure flow
+>   control
+> - Remove the checking and setting of the device dma_mask field
+> 
+> This patch series is based on net-next.
+> 
+> Changes in v2:
+> - Change from using the netif_msg_*/netdev_* combination for issuing
+>   messages to the more concise netif_*
 
-> The only case where mark should be cleared is if we are changing
-> namespaces, and that's exactly the policy implemented by
-> skb_scrub_packet() currently.
+Series applied, thanks.
 
-Right.  The problem is it looks like vti and vti6 are using the mark to 
-signal to the policy that is meant to be used for either end of the 
-tunnel.  From what I can tell at some point there was a pre-routing hook 
-that was used but later it was replaced with the i_key for input, and 
-o_key for output.
-
-> Yeah, this mark handling via tunnel->parms.o_key looks not so good.
-
-So is there any recommendations for an alternative to make it so that 
-the ipsec endpoint is identified as needing to be encrypted or 
-decrypted?  If needed I could probably take a day or two to try and 
-address it as I still have a few other minor things I want to try and 
-fix such as the MTU configuration for vti/vti6.
-
-- Alex
+But I hope we don't regret this down the road if this PHY actually is
+used in some other application in the future and we need to
+reinstantiate the phylib driver again.
