@@ -1,50 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: rhashtable: Add cap on number of elements in hash table
-Date: Thu, 14 May 2015 23:46:15 -0400 (EDT)
-Message-ID: <20150514.234615.235930228362522399.davem@davemloft.net>
-References: <20150513080640.GA27800@gondor.apana.org.au>
-	<20150514.222217.1991822787577994078.davem@davemloft.net>
-	<20150515030623.GA14994@gondor.apana.org.au>
+From: Andy Zhou <azhou@nicira.com>
+Subject: Re: [net-next fragmentation icmp v4 3/4] bridge_netfilter: No ICMP
+ packet on IPv4 defragmentation timeout
+Date: Thu, 14 May 2015 21:21:20 -0700
+Message-ID: <CACzMAJ+tr5scCOqSYFVRFhpAbHKSp21bzTDHdx8JSLzMLQS+ug@mail.gmail.com>
+References: <1431570482-9236-4-git-send-email-azhou@nicira.com>
+	<20150514085940.GD6179@breakpoint.cc>
+	<CACzMAJ+J3QGFZa976_M=_ZKjgEPiJszyYrqeqeGj=9rjCBZJ7A@mail.gmail.com>
+	<20150514.174249.797773651224323358.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org, kaber@trash.net,
-	tgraf@suug.ch, johannes.berg@intel.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44539 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422675AbbEODqT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 23:46:19 -0400
-In-Reply-To: <20150515030623.GA14994@gondor.apana.org.au>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:54141 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750953AbbEOEVW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 00:21:22 -0400
+Received: by qcbgy10 with SMTP id gy10so51072086qcb.3
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 21:21:20 -0700 (PDT)
+In-Reply-To: <20150514.174249.797773651224323358.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 15 May 2015 11:06:23 +0800
+O.K. I will drop this patch in the next Rev.
 
-> On Thu, May 14, 2015 at 10:22:17PM -0400, David Miller wrote:
+On Thu, May 14, 2015 at 2:42 PM, David Miller <davem@davemloft.net> wrote:
+> From: Andy Zhou <azhou@nicira.com>
+> Date: Thu, 14 May 2015 12:54:23 -0700
+>
+>> On Thu, May 14, 2015 at 1:59 AM, Florian Westphal <fw@strlen.de> wrote:
+>>> Andy Zhou <azhou@nicira.com> wrote:
+>>>> Currently, on defragmentation timeout error, ICMP error message
+>>>> will be generated. This is fine when they are used in a routing context,
+>>>> but does not make sense in the context of bridging netfilter.
+>>>>
+>>>> This patch adds a bit (IPSKB_NO_FRAG_ICMP) in IPCB to control
+>>>> whether ICMP error message should be generated. br_netfiler sets
+>>>> this bit.
+>>>
+>>> Could you please explain why we need this patch?
+>>> After the previous change (patch 2 in your series), we will already
+>>> bail out before hitting
+>>>
+>>> /* Send an ICMP "Fragment Reassembly Timeout" message. */
+>>> icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+>>>
+>>> in ip_expire() based on qp->user value test?
 >>
->> In my opinion, up to at least 2 X max_size, it's safe to allow the
->> insert.  Assuming a well choosen hash function and a roughly even
->> distribution.
-> 
-> OK I can make it 2 x max_size/table size.
-
-The rest of my email after what you quoted was intended to get one
-to consider this issue generally.  :-)
-
-We wouldn't fail these inserts in any other hash table in the kernel.
-
-Would we stop making new TCP sockets if the TCP ehash chains are 3
-entries deep?  4?  5?  The answer to all of those is of course no
-for any hash chain length of N whatsoever.
-
-This new rhashtable behavior would be the default, and I seriously
-doubt that's a behavior people who use a hash table, generally
-speaking, desire or want.
-
-Should there perhaps be hard protections for _extremely_ long hash
-chains?  Sure, I'm willing to entertain that kind of idea.  But I
-would do so at the very far end of the spectrum.  To the point where
-the hash table is degenerating into a linked list.
+>> Letting caller making the decision seems to be a better design choice
+>> rather than implicit
+>> logic embedded within the function.  It is also more flexible and
+>> robust when we need to extend 'user'
+>> range down the road.
+>
+> You're doing useless testing for a hypothetical situation which may
+> never come to fruitation at all.
+>
+> I don't think that ever qualifies as a legitimate objection.
