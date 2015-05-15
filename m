@@ -1,83 +1,63 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: [PATCH] net/mlx4: Avoid 'may be used uninitialized' warnings
-Date: Thu, 14 May 2015 18:17:08 -0500
-Message-ID: <20150514231708.13594.13610.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: netlink: Disable insertions/removals during rehash
+Date: Fri, 15 May 2015 08:06:48 +0800
+Message-ID: <20150515000647.GA13821@gondor.apana.org.au>
+References: <1431533884.566.148.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514025333.GA3853@gondor.apana.org.au>
+ <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514033448.GA5080@gondor.apana.org.au>
+ <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514041628.GA5428@gondor.apana.org.au>
+ <20150514042151.GA5482@gondor.apana.org.au>
+ <20150514055824.GB6058@gondor.apana.org.au>
+ <1431614276.27831.57.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ido Shamay <idos@mellanox.com>, netdev@vger.kernel.org,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, linux-kernel@vger.kernel.org,
-	Roland Dreier <roland@purestorage.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Matan Barak <matanb@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:33242 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933134AbbENXRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 19:17:11 -0400
-Received: by iebgx4 with SMTP id gx4so74788287ieb.0
-        for <netdev@vger.kernel.org>; Thu, 14 May 2015 16:17:10 -0700 (PDT)
+Received: from helcar.hengli.com.au ([209.40.204.226]:40988 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423125AbbEOAG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 20:06:57 -0400
+Content-Disposition: inline
+In-Reply-To: <1431614276.27831.57.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With a cross-compiler based on gcc-4.9, I see warnings like the following:
+On Thu, May 14, 2015 at 07:37:56AM -0700, Eric Dumazet wrote:
+>
+> This solves the corruption thanks Herbert.
 
-  drivers/net/ethernet/mellanox/mlx4/resource_tracker.c: In function 'mlx4_SW2HW_CQ_wrapper':
-  drivers/net/ethernet/mellanox/mlx4/resource_tracker.c:3048:10: error: 'cq' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-    cq->mtt = mtt;
+Great.
 
-I think the warning is spurious because we only use cq when
-cq_res_start_move_to() returns zero, and it always initializes *cq in that
-case.  The srq case is similar.  But maybe gcc isn't smart enough to figure
-that out.
+> But wasn't rhashtable meant to be faster ? ;)
 
-Initialize cq and srq explicitly to avoid the warnings.
+Is it, that's news to me :)
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> Current tree is still slower than 3.15 :(
+> 
+> $ ./getaddrinfo_many.sh 
+> TPS: 123152.70936  Seconds Elapsed: 0  Current time: Thu May 14 07:36:52 PDT 2015
+> TPS: 123304.562269  Seconds Elapsed: 1  Current time: Thu May 14 07:36:53 PDT 2015
+> TPS: 123915.737299  Seconds Elapsed: 2  Current time: Thu May 14 07:36:54 PDT 2015
+> TPS: 123456.790123  Seconds Elapsed: 3  Current time: Thu May 14 07:36:55 PDT 2015
+> TPS: 124843.945069  Seconds Elapsed: 4  Current time: Thu May 14 07:36:56 PDT 2015
+> TPS: 122850.12285  Seconds Elapsed: 4  Current time: Thu May 14 07:36:56 PDT 2015
+> TPS: 123001.230012  Seconds Elapsed: 5  Current time: Thu May 14 07:36:57 PDT 2015
+> TPS: 123001.230012  Seconds Elapsed: 6  Current time: Thu May 14 07:36:58 PDT 2015
+> TPS: 122549.019608  Seconds Elapsed: 7  Current time: Thu May 14 07:36:59 PDT 2015
+> TPS: 123762.376238  Seconds Elapsed: 8  Current time: Thu May 14 07:37:00 PDT 2015
+> TPS: 123304.562269  Seconds Elapsed: 9  Current time: Thu May 14 07:37:01 PDT 2015
+> TPS: 123152.70936  Seconds Elapsed: 9  Current time: Thu May 14 07:37:01 PDT 2015
+> TPS: 123001.230012  Seconds Elapsed: 10  Current time: Thu May 14 07:37:02 PDT 2015
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index c7f28bf..cdd32f4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -3187,7 +3187,7 @@ int mlx4_SW2HW_CQ_wrapper(struct mlx4_dev *dev, int slave,
- 	int cqn = vhcr->in_modifier;
- 	struct mlx4_cq_context *cqc = inbox->buf;
- 	int mtt_base = cq_get_mtt_addr(cqc) / dev->caps.mtt_entry_sz;
--	struct res_cq *cq;
-+	struct res_cq *cq = NULL;
- 	struct res_mtt *mtt;
- 
- 	err = cq_res_start_move_to(dev, slave, cqn, RES_CQ_HW, &cq);
-@@ -3223,7 +3223,7 @@ int mlx4_HW2SW_CQ_wrapper(struct mlx4_dev *dev, int slave,
- {
- 	int err;
- 	int cqn = vhcr->in_modifier;
--	struct res_cq *cq;
-+	struct res_cq *cq = NULL;
- 
- 	err = cq_res_start_move_to(dev, slave, cqn, RES_CQ_ALLOCATED, &cq);
- 	if (err)
-@@ -3362,7 +3362,7 @@ int mlx4_SW2HW_SRQ_wrapper(struct mlx4_dev *dev, int slave,
- 	int err;
- 	int srqn = vhcr->in_modifier;
- 	struct res_mtt *mtt;
--	struct res_srq *srq;
-+	struct res_srq *srq = NULL;
- 	struct mlx4_srq_context *srqc = inbox->buf;
- 	int mtt_base = srq_get_mtt_addr(srqc) / dev->caps.mtt_entry_sz;
- 
-@@ -3406,7 +3406,7 @@ int mlx4_HW2SW_SRQ_wrapper(struct mlx4_dev *dev, int slave,
- {
- 	int err;
- 	int srqn = vhcr->in_modifier;
--	struct res_srq *srq;
-+	struct res_srq *srq = NULL;
- 
- 	err = srq_res_start_move_to(dev, slave, srqn, RES_SRQ_ALLOCATED, &srq);
- 	if (err)
+OK I'll try to see if we can make this faster.
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
