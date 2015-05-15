@@ -1,58 +1,50 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 6/6] tcp: halves tcp_mem[] limits
-Date: Fri, 15 May 2015 12:39:30 -0700
-Message-ID: <1431718770-3815-7-git-send-email-edumazet@google.com>
-References: <1431718770-3815-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next] sfc: nicer log message on Siena SR-IOV probe fail
+Date: Fri, 15 May 2015 20:56:35 +0100
+Message-ID: <55564F73.6010308@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f74.google.com ([209.85.192.74]:33649 "EHLO
-	mail-qg0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934599AbbEOTkz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:40:55 -0400
-Received: by qgdq107 with SMTP id q107so550409qgd.0
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:40:54 -0700 (PDT)
-In-Reply-To: <1431718770-3815-1-git-send-email-edumazet@google.com>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:31160 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933913AbbEOT5P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:57:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allowing tcp to use ~19% of physical memory is way too much,
-and allowed bugs to be hidden. Add to this that some drivers use a full
-page per incoming frame, so real cost can be twice the advertized one.
-
-Reduce tcp_mem by 50 % as a first step to sanity.
-
-tcp_mem[0,1,2] defaults are now 4.68%, 6.25%, 9.37% of physical memory.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+We expect that MC_CMD_SRIOV will fail if the card has no VFs configured.
+So output a readable message instead of a cryptic MCDI error.
 ---
- net/ipv4/tcp.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/sfc/siena_sriov.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 9eabfd3e0925..c724195e5862 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3068,11 +3068,12 @@ __setup("thash_entries=", set_thash_entries);
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
+index caf701a..2a5f352 100644
+--- a/drivers/net/ethernet/sfc/siena_sriov.c
++++ b/drivers/net/ethernet/sfc/siena_sriov.c
+@@ -208,8 +208,8 @@ static int efx_siena_sriov_cmd(struct efx_nic *efx, bool enable,
+ 	MCDI_SET_DWORD(inbuf, SRIOV_IN_VI_BASE, EFX_VI_BASE);
+ 	MCDI_SET_DWORD(inbuf, SRIOV_IN_VF_COUNT, efx->vf_count);
  
- static void __init tcp_init_mem(void)
- {
--	unsigned long limit = nr_free_buffer_pages() / 8;
-+	unsigned long limit = nr_free_buffer_pages() / 16;
-+
- 	limit = max(limit, 128UL);
--	sysctl_tcp_mem[0] = limit / 4 * 3;
--	sysctl_tcp_mem[1] = limit;
--	sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;
-+	sysctl_tcp_mem[0] = limit / 4 * 3;		/* 4.68 % */
-+	sysctl_tcp_mem[1] = limit;			/* 6.25 % */
-+	sysctl_tcp_mem[2] = sysctl_tcp_mem[0] * 2;	/* 9.37 % */
- }
+-	rc = efx_mcdi_rpc(efx, MC_CMD_SRIOV, inbuf, MC_CMD_SRIOV_IN_LEN,
+-			  outbuf, MC_CMD_SRIOV_OUT_LEN, &outlen);
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_SRIOV, inbuf, MC_CMD_SRIOV_IN_LEN,
++				outbuf, MC_CMD_SRIOV_OUT_LEN, &outlen);
+ 	if (rc)
+ 		return rc;
+ 	if (outlen < MC_CMD_SRIOV_OUT_LEN)
+@@ -1058,8 +1058,10 @@ void efx_siena_sriov_probe(struct efx_nic *efx)
+ 	if (!max_vfs)
+ 		return;
  
- void __init tcp_init(void)
--- 
-2.2.0.rc0.207.ga3a616c
+-	if (efx_siena_sriov_cmd(efx, false, &efx->vi_scale, &count))
++	if (efx_siena_sriov_cmd(efx, false, &efx->vi_scale, &count)) {
++		netif_info(efx, probe, efx->net_dev, "no SR-IOV VFs probed\n");
+ 		return;
++	}
+ 	if (count > 0 && count > max_vfs)
+ 		count = max_vfs;
+ 
