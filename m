@@ -1,86 +1,66 @@
-From: roopa <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: Fix setting a flag in br_fill_ifvlaninfo_range().
-Date: Fri, 15 May 2015 12:11:00 -0700
-Message-ID: <555644C4.8000401@cumulusnetworks.com>
-References: <1431700047-22560-1-git-send-email-rami.rosen@intel.com> <E4CD12F19ABA0C4D8729E087A761DC35068365EC@ORSMSX101.amr.corp.intel.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting skb->dev
+ in receive path
+Date: Fri, 15 May 2015 12:14:43 -0700
+Message-ID: <555645A3.6010509@gmail.com>
+References: <20150514032833.GF3853@gondor.apana.org.au>	<55543D4F.8050306@gmail.com>	<20150514062614.GA6320@gondor.apana.org.au> <20150515.123726.1298734930500737780.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Rosen, Rami" <rami.rosen@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Arad, Ronen" <ronen.arad@intel.com>
+Cc: alexander.h.duyck@redhat.com, netdev@vger.kernel.org,
+	steffen.klassert@secunet.com, tgraf@suug.ch
+To: David Miller <davem@redhat.com>, herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36200 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753391AbbEOTLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:11:02 -0400
-Received: by pabts4 with SMTP id ts4so23668245pab.3
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:11:02 -0700 (PDT)
-In-Reply-To: <E4CD12F19ABA0C4D8729E087A761DC35068365EC@ORSMSX101.amr.corp.intel.com>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:34241 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754135AbbEOTOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:14:45 -0400
+Received: by obfe9 with SMTP id e9so85079267obf.1
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:14:45 -0700 (PDT)
+In-Reply-To: <20150515.123726.1298734930500737780.davem@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/15/15, 11:45 AM, Arad, Ronen wrote:
+On 05/15/2015 09:37 AM, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 14 May 2015 14:26:14 +0800
 >
->> -----Original Message-----
->> From: Rosen, Rami
->> Sent: Friday, May 15, 2015 7:27 AM
->> To: davem@davemloft.net
->> Cc: netdev@vger.kernel.org; roopa@cumulusnetworks.com; Arad, Ronen; Rosen,
->> Rami
->> Subject: [PATCH net-next] bridge: Fix setting a flag in
->> br_fill_ifvlaninfo_range().
->>
->> This patch fixes setting of vinfo.flags in the br_fill_ifvlaninfo_range(). The
->> assignment of vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN has no effect
->> without
->> this patch, as vinfo.flags value is overriden by the
->> vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END assignement,  which follows
->> it immedialtely.
->>
->> Signed-off-by: Rami Rosen <rami.rosen@intel.com>
->> ---
->> net/bridge/br_netlink.c | 2 +-
->> 1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index 6b67ed3..fec65bb 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -167,7 +167,7 @@ static int br_fill_ifvlaninfo_range(struct sk_buff *skb,
->> u16 vid_start,
->> 		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
->>
->> 		vinfo.vid = vid_end;
->> -		vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END;
->> +		vinfo.flags &= flags | BRIDGE_VLAN_INFO_RANGE_END;
->> 		if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
->> 			    sizeof(vinfo), &vinfo))
->> 			goto nla_put_failure;
->
-> The first part of " &= flags " has no impact as it reverts vinfo.flags to
-> just the bits set in the flags argument. This is exactly what
-> "vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN" does.
->
-> If original code was intended to indicate that the same flags are used for
-> both start and end attributes except for the RANGE_BEGIN/RANGE_END flags
-> it would be sufficient to keep the line that clears RANGE_BEGIN bit and
-> OR vinfo.flags with RANGE_END for the end attribute:
->
-> vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
->
-> If we want the code to show what is actually been written into each
-> attribute, the fix should be to just delete the line which clears
-> RANGE_BEGIN flag.
-I would prefer the fix to just delete the line that clears RANGE_BEGIN 
-because as you and this patch points out that it is a no-op.
+>> On Wed, May 13, 2015 at 11:14:39PM -0700, Alexander Duyck wrote:
+>>> The fact is I am not all that familiar with the vti code and just
+>>> started crawling through it a few days ago, but it seems like it is
+>>> overwriting the skb->mark value with the i_key to determine which
+>>> policy to use.  The code prior to commit df3893c176e9 ("vti: Update
+>>> the ipv4 side to use it's own receive hook.") was saving the old
+>>> skb->mark, overwriting it, and then restoring it after a call to
+>>> xfrm4_policy_check.  After that commit it was letting
+>>> skb_scrub_packet in vti_rcv_cb clear the mark and it was just
+>>> dropped.
+>> Steffen, why is vti touching skb->mark at all? This is supposed
+>> to be a field used by user-space to control a packet as it moves
+>> inside the kernel.  Seconding it for other purposes looks very
+>> wrong.
+> If anything, the skb_scrub_packet() call right above the skb->mark
+> clears should be taking care of this.
 
->
-> In either case the code as exists today is working as expected. A fix is
-> only needed to improve readability.
-agreed.
+That only applies if you are crossing namespaces which we are not in 
+this case.
 
-In any case Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> The only case where mark should be cleared is if we are changing
+> namespaces, and that's exactly the policy implemented by
+> skb_scrub_packet() currently.
 
-thanks!
+Right.  The problem is it looks like vti and vti6 are using the mark to 
+signal to the policy that is meant to be used for either end of the 
+tunnel.  From what I can tell at some point there was a pre-routing hook 
+that was used but later it was replaced with the i_key for input, and 
+o_key for output.
+
+> Yeah, this mark handling via tunnel->parms.o_key looks not so good.
+
+So is there any recommendations for an alternative to make it so that 
+the ipsec endpoint is identified as needing to be encrypted or 
+decrypted?  If needed I could probably take a day or two to try and 
+address it as I still have a few other minor things I want to try and 
+fix such as the MTU configuration for vti/vti6.
+
+- Alex
