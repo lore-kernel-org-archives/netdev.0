@@ -1,47 +1,58 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 0/6] tcp: better handling of memory pressure
-Date: Fri, 15 May 2015 07:53:52 -0700
-Message-ID: <1431701638-24451-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f201.google.com ([209.85.160.201]:33743 "EHLO
-	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754101AbbEOPCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 11:02:06 -0400
-Received: by ykp9 with SMTP id 9so3220957ykp.0
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 08:02:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/4] ozwpan: Use proper check to prevent heap overflow
+Date: Fri, 15 May 2015 15:02:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB36893@AcuExch.aculab.com>
+References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
+ <1431542014-3239-2-git-send-email-Jason@zx2c4.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
+	"shigekatsu.tateno@atmel.com" <shigekatsu.tateno@atmel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"oss-security@lists.openwall.com" <oss-security@lists.openwall.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431542014-3239-2-git-send-email-Jason@zx2c4.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When testing commit 790ba4566c1a ("tcp: set SOCK_NOSPACE under memory
-pressure") using edge triggered epoll applications, I found various
-issues under memory pressure and thousands of active sockets.
+From: Jason A. Donenfeld
+> Sent: 13 May 2015 19:34
+> Since elt->length is a u8, we can make this variable a u8. Then we can
+> do proper bounds checking more easily. Without this, a potentially
+> negative value is passed to the memcpy inside oz_hcd_get_desc_cnf,
+> resulting in a remotely exploitable heap overflow with network
+> supplied data.
+...
+> diff --git a/drivers/staging/ozwpan/ozusbsvc1.c b/drivers/staging/ozwpan/ozusbsvc1.c
+> index d434d8c..cd6c63e 100644
+> --- a/drivers/staging/ozwpan/ozusbsvc1.c
+> +++ b/drivers/staging/ozwpan/ozusbsvc1.c
+> @@ -390,8 +390,10 @@ void oz_usb_rx(struct oz_pd *pd, struct oz_elt *elt)
+>  	case OZ_GET_DESC_RSP: {
+>  			struct oz_get_desc_rsp *body =
+>  				(struct oz_get_desc_rsp *)usb_hdr;
+> -			int data_len = elt->length -
+> +			u8 data_len = elt->length -
+>  					sizeof(struct oz_get_desc_rsp) + 1;
+> +			if (data_len > elt->length)
+> +				break;
 
-This patch series is a first round to solve these issues, in send
-and receive paths. There are probably other fixes needed, but
-with this series, my tests now all succeed.
+Why not just check the length. eg:
+			unsigned int data_len = elt->length;
+			if (data_len < sizeof(struct oz_get_desc_rsp) + 1)
+				break;
 
-Eric Dumazet (6):
-  net: fix sk_mem_reclaim_partial()
-  tcp: rename sk_forced_wmem_schedule() to sk_forced_mem_schedule()
-  tcp: introduce tcp_under_memory_pressure()
-  tcp: fix behavior for epoll edge trigger
-  tcp: allow one skb to be received per socket under memory pressure
-  tcp: halves tcp_mem[] limits
+>  			u16 offs = le16_to_cpu(get_unaligned(&body->offset));
+>  			u16 total_size =
+>  				le16_to_cpu(get_unaligned(&body->total_size));
 
- include/net/sock.h    |  6 +++---
- include/net/tcp.h     | 10 ++++++++++
- net/core/sock.c       |  9 +++++----
- net/ipv4/tcp.c        | 24 ++++++++++++++++++------
- net/ipv4/tcp_input.c  | 18 ++++++++++--------
- net/ipv4/tcp_output.c | 10 ++++++----
- net/ipv4/tcp_timer.c  |  2 +-
- 7 files changed, 53 insertions(+), 26 deletions(-)
+Don't put variable definitions after code.
 
--- 
-2.2.0.rc0.207.ga3a616c
+You don't really want to do arithmetic on local variables that are
+smaller than a machine word (eg u8 and u16), doing so can require
+the compiler generate a lot more code.
+
+	David
