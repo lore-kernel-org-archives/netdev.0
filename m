@@ -1,125 +1,144 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: GSM Modem management?
-Date: Fri, 15 May 2015 09:27:30 -0500
-Message-ID: <1431700050.12788.13.camel@redhat.com>
-References: <20150514194442.GA21972@bamboo.electronicsoup>
-	 <1431634836.10190.7.camel@redhat.com>
-	 <20150514213443.GA23715@bamboo.electronicsoup>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net-next] net: fix two sparse errors
+Date: Fri, 15 May 2015 16:35:06 +0200
+Message-ID: <20150515143506.GA5019@via.ecp.fr>
+References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
+ <1431401204-731380-6-git-send-email-tom@herbertland.com>
+ <1431405215.566.56.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431406237.566.59.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CALx6S36nVmVxo2QADh-Qmyk7+TU=Zo4vAmRtU1qtDtRqFWGAJg@mail.gmail.com>
+ <1431446777.566.87.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431694087.27831.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Whitmore <arigead@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Tom Herbert <tom@herbertland.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49831 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933865AbbEOO1d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2015 10:27:33 -0400
-In-Reply-To: <20150514213443.GA23715@bamboo.electronicsoup>
+Received: from artikodin.via.ecp.fr ([138.195.130.75]:56424 "EHLO
+	artikodin.via.ecp.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754101AbbEOOfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 10:35:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1431694087.27831.99.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-14 at 22:34 +0100, John Whitmore wrote:
-> On Thu, May 14, 2015 at 03:20:36PM -0500, Dan Williams wrote:
-> > On Thu, 2015-05-14 at 20:44 +0100, John Whitmore wrote:
-> > > Chances are that I'm in the wrong place here, "Linux" networking having so many
-> > > parts, many of which aren't in the kernel, that being said this might be
-> > > considered the centre of it all, so I thought I'd start here and see if
-> > > somebody would point me in a direction that was better placed to answer some
-> > > of my queries.
-> > > 
-> > > I'm working on a mobile system, RaspberryPi based, which has two 4G USB
-> > > Dongles for communications to the Internet. Both dongles are the same make and
-> > > model but have different service provider sims. The idea being that if one has
-> > > no coverage hopefully the other does have some degree of connectivity. I
-> > > started by connecting up to the internet using network-manager-gnome for a
-> > > single dongle. Unfortunately when I started a ping test after a couple of ping
-> > > messages it crashed the whole raspbian system without any message going to
-> > > /var/log/messages. Totally locked up. 
-> > 
-> > Odd, are these dongles using AT commands or are they using one of the
-> > proprietary protocols like QMI, MBIM, or QCDM?  It's highly unlikely
-> > that NetworkManager + ModemManager would be crashing your system when
-> > using plain AT commands, but there have in the past been driver problems
-> > with QMI and MBIM.  Can you give specifics on the dongles?
-> >
+Hi Eric,
+
+2015-05-15, 05:48:07 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Thanks a million for that! I've never played with GSM Dongles before, so I'd
-> never heard of anything but AT being used. That is a great help. Dongle is a
-> Huawei E398. It's a LTE/UMTS/GSM Modem/Networkcard according to "lsusb" and
-> comes in as 12d1:1505 and then after usb_modeswitch 12d1:1506. Given that
-> "Networkcard" all those protocols you mentioned are probably what's being used.
+> First one in __skb_checksum_validate_complete() fixes the following
+> (and other callers)
+> 
+> make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/tcp_ipv4.o
+>   CHECK   net/ipv4/tcp_ipv4.c
+> include/linux/skbuff.h:3052:24: warning: incorrect type in return expression (different base types)
+> include/linux/skbuff.h:3052:24:    expected restricted __sum16
+> include/linux/skbuff.h:3052:24:    got int
+> 
+> Second is fixing gso_make_checksum() :
+> 
+>   CHECK   net/ipv4/gre_offload.c
+> include/linux/skbuff.h:3360:14: warning: incorrect type in assignment (different base types)
+> include/linux/skbuff.h:3360:14:    expected unsigned short [unsigned] [usertype] csum
+> include/linux/skbuff.h:3360:14:    got restricted __sum16
+> include/linux/skbuff.h:3365:16: warning: incorrect type in return expression (different base types)
+> include/linux/skbuff.h:3365:16:    expected restricted __sum16
+> include/linux/skbuff.h:3365:16:    got unsigned short [unsigned] [usertype] csum
+> 
+> 
+> Fixes: 5a21232983aa7 ("net: Support for csum_bad in skbuff")
+> Fixes: 7e2b10c1e52ca ("net: Support for multiple checksums with gso")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> CC: Tom Herbert <tom@herbertland.com>
+> ---
 
-I got your mail on ModemManager-devel and responded there too, just a
-quick follow-up here.
+That's very similar to what I submitted in February:
+https://patchwork.ozlabs.org/patch/437332/
 
-So you're actually using a QMI-native device, but using it in PPP mode
-with wvdial.  It looks from your logs like the modem is crashing and
-dropping off the USB bus.  We should try QMI+net to see if that will
-work better than PPP.
+I have a patch to make __skb_checksum_validate_complete return a bool,
+since that's all the callers care about (it also needs modifications
+at some call sites, not included here).
+
+After that, maybe we should also reverse the logic so that "validate"
+functions return true when the csum is valid.
+
+
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f83aa6568cbf..23dc1ccb28f0 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3034,24 +3034,23 @@ static inline void skb_checksum_complete_unset(struct sk_buff *skb)
+ /* Validate (init) checksum based on checksum complete.
+  *
+  * Return values:
+- *   0: checksum is validated or try to in skb_checksum_complete. In the latter
+- *	case the ip_summed will not be CHECKSUM_UNNECESSARY and the pseudo
+- *	checksum is stored in skb->csum for use in __skb_checksum_complete
+- *   non-zero: value of invalid checksum
+- *
++ *   false: checksum is validated or try to in skb_checksum_complete. In the
++ *     latter case the ip_summed will not be CHECKSUM_UNNECESSARY and the
++ *     pseudo checksum is stored in skb->csum for use in __skb_checksum_complete
++ *   true: invalid checksum
+  */
+-static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
+-						       bool complete,
+-						       __wsum psum)
++static inline bool __skb_checksum_validate_complete(struct sk_buff *skb,
++						    bool complete,
++						    __wsum psum)
+ {
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+ 		if (!csum_fold(csum_add(psum, skb->csum))) {
+ 			skb->csum_valid = 1;
+-			return 0;
++			return false;
+ 		}
+ 	} else if (skb->csum_bad) {
+ 		/* ip_summed == CHECKSUM_NONE in this case */
+-		return 1;
++		return true;
+ 	}
  
-> > > Having failed with the Network-manager I used wvdial to establish a connection
-> > > and that is as happy as larry, pinging away. 
-> > 
-> > Are you using PPP as the mechanism here?  Unless you have very low
-> > bandwidth requirements I'd recommend using the pseudo-ethernet interface
-> > provided by the modem (which often also requires using a proprietary
-> > protocol like QMI or MBIM to control it) since this gives much higher
-> > throughput especially with HSPA+ and LTE.
-> >
-> 
-> Yes when I use wvdial it brings them up using a ppp0 interface. I should go
-> back to the network-manager and keep an eye on the modem manager. Didn't
-> realise that service was in there so again thanks a million.
->  
-> > > My questions are to do with how to manage two identical Dongles. At present
-> > > when usb-modeswitch ejects them, from CD Drive, into modem configuration, when
-> > > "qmi_wwan" assignes a network name. I'd like to assign udev rules to assign
-> > > carrier based names to the network interfaces. I'm not sure if udev will
-> > > interfere with qmi_wwan? 
-> > 
-> > Aha, so you are using Qualcomm-based dongles :)  So NetworkManager +
-> > ModemManager will natively try to use QMI + ethernet on these dongles
-> > just like Windows does, because that provides the most flexibility and
-> > speed.  So the crashes/hangs you were experiencing may be due to driver
-> > issues in the qmi_wwan and cdc_wdm modules.  What kernel version are you
-> > using here too?
-> 
-> Latest for the RaspberryPi, I think, 3.18.13 on a RPi Vesion 2. It's not what
-> came with raspbian but I built the latest.
+ 	skb->csum = psum;
+@@ -3061,10 +3060,10 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
+ 
+ 		csum = __skb_checksum_complete(skb);
+ 		skb->csum_valid = !csum;
+-		return csum;
++		return !!csum;
+ 	}
+ 
+-	return 0;
++	return false;
+ }
+ 
+ static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
+@@ -3079,13 +3078,13 @@ static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
+  * pseudo header.
+  *
+  * Return values:
+- *   0: checksum is validated or try to in skb_checksum_complete
+- *   non-zero: value of invalid checksum
++ *   false: checksum is validated or try to in skb_checksum_complete
++ *   true: invalid checksum
+  */
+ #define __skb_checksum_validate(skb, proto, complete,			\
+ 				zero_okay, check, compute_pseudo)	\
+ ({									\
+-	__sum16 __ret = 0;						\
++	bool __ret = false;						\
+ 	skb->csum_valid = 0;						\
+ 	if (__skb_checksum_validate_needed(skb, zero_okay, check))	\
+ 		__ret = __skb_checksum_validate_complete(skb,		\
 
-Given that you're using ModemManager 0.5 (without QMI) or wvdial, kernel
-version and driver issues in qmi_wwan or cdc-wdm won't be the cause of
-the problems here and could be the solution :)
 
-Anyway, lets follow up on ModemManager-devel.
 
-Thanks!
-Dan
 
-> > 
-> > > That is possibly the easy part. I then want to attach some logic to manage the
-> > > connections in a very basic manner and perhaps display connectivity
-> > > information to the user on the desktop. Could somebody tell me where this
-> > > functionality would be added? I assume that ppp has no idea about GSM signal
-> > > strength. It'd be great if a simple user space program could monitor DBus and
-> > > bring up or drop the connections as conditions change, but I guess that might
-> > > be asking for a little bit much. So if not ppp what sub-system controls the
-> > > Modem? 
-> > 
-> > It all depends on the modem itself and what it supports.  We've tried to
-> > develop ModemManager as single system service that works with all kinds
-> > of modems and insulates you from these kind of issues.  The end result
-> > is that nothing in the Linux kernel itself provides this kind of
-> > management; the kernel only provides interfaces to the modem's firmware
-> > and its up to userspace to figure out what protocols the modem speaks
-> > (AT, QMI, MBIM, QCDM, etc) and to talk those protocols to the modem.
-> > 
-> > Dan
-> > 
-> 
-> Thanks so much for taking the time to educate me! I have to look into all this
-> and more protocols then I knew existed. I'll have a look into the modem
-> manager as that's probably something I've done incorrectly.
-> 
-> John
+-- 
+Sabrina
