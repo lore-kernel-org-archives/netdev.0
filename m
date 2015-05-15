@@ -1,67 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: fix two sparse errors
-Date: Fri, 15 May 2015 07:52:37 -0700
-Message-ID: <1431701557.27831.103.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1431401204-731380-1-git-send-email-tom@herbertland.com>
-	 <1431401204-731380-6-git-send-email-tom@herbertland.com>
-	 <1431405215.566.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1431406237.566.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CALx6S36nVmVxo2QADh-Qmyk7+TU=Zo4vAmRtU1qtDtRqFWGAJg@mail.gmail.com>
-	 <1431446777.566.87.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1431694087.27831.99.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150515143506.GA5019@via.ecp.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 2/6] tcp: rename sk_forced_wmem_schedule() to sk_forced_mem_schedule()
+Date: Fri, 15 May 2015 07:53:54 -0700
+Message-ID: <1431701638-24451-3-git-send-email-edumazet@google.com>
+References: <1431701638-24451-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:36430 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932526AbbEOOwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 10:52:38 -0400
-Received: by iepk2 with SMTP id k2so114820781iep.3
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 07:52:38 -0700 (PDT)
-In-Reply-To: <20150515143506.GA5019@via.ecp.fr>
+Received: from mail-oi0-f74.google.com ([209.85.218.74]:33075 "EHLO
+	mail-oi0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752854AbbEOOyR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 10:54:17 -0400
+Received: by oiax69 with SMTP id x69so6310632oia.0
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 07:54:16 -0700 (PDT)
+In-Reply-To: <1431701638-24451-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-05-15 at 16:35 +0200, Sabrina Dubroca wrote:
-> Hi Eric,
-> 
-> 2015-05-15, 05:48:07 -0700, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > First one in __skb_checksum_validate_complete() fixes the following
-> > (and other callers)
-> > 
-> > make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/tcp_ipv4.o
-> >   CHECK   net/ipv4/tcp_ipv4.c
-> > include/linux/skbuff.h:3052:24: warning: incorrect type in return expression (different base types)
-> > include/linux/skbuff.h:3052:24:    expected restricted __sum16
-> > include/linux/skbuff.h:3052:24:    got int
-> > 
-> > Second is fixing gso_make_checksum() :
-> > 
-> >   CHECK   net/ipv4/gre_offload.c
-> > include/linux/skbuff.h:3360:14: warning: incorrect type in assignment (different base types)
-> > include/linux/skbuff.h:3360:14:    expected unsigned short [unsigned] [usertype] csum
-> > include/linux/skbuff.h:3360:14:    got restricted __sum16
-> > include/linux/skbuff.h:3365:16: warning: incorrect type in return expression (different base types)
-> > include/linux/skbuff.h:3365:16:    expected restricted __sum16
-> > include/linux/skbuff.h:3365:16:    got unsigned short [unsigned] [usertype] csum
-> > 
-> > 
-> > Fixes: 5a21232983aa7 ("net: Support for csum_bad in skbuff")
-> > Fixes: 7e2b10c1e52ca ("net: Support for multiple checksums with gso")
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > CC: Tom Herbert <tom@herbertland.com>
-> > ---
-> 
-> That's very similar to what I submitted in February:
-> https://patchwork.ozlabs.org/patch/437332/
+We plan to use sk_forced_wmem_schedule() in input path as well,
+so make it non static and rename it.
 
-Well, given you did not address David concerns, and Tom apparently does
-not know how to use sparse, I finally gave up.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/tcp.h     | 2 ++
+ net/ipv4/tcp_output.c | 6 ++++--
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 7ace6acbf5fd..841691a296dc 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -311,6 +311,8 @@ static inline bool tcp_out_of_memory(struct sock *sk)
+ 	return false;
+ }
+ 
++void sk_forced_mem_schedule(struct sock *sk, int size);
++
+ static inline bool tcp_too_many_orphans(struct sock *sk, int shift)
+ {
+ 	struct percpu_counter *ocp = sk->sk_prot->orphan_count;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7386d32cd670..bac1a950d087 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2816,8 +2816,10 @@ begin_fwd:
+  * connection tear down and (memory) recovery.
+  * Otherwise tcp_send_fin() could be tempted to either delay FIN
+  * or even be forced to close flow without any FIN.
++ * In general, we want to allow one skb per socket to avoid hangs
++ * with edge trigger epoll()
+  */
+-static void sk_forced_wmem_schedule(struct sock *sk, int size)
++void sk_forced_mem_schedule(struct sock *sk, int size)
+ {
+ 	int amt, status;
+ 
+@@ -2864,7 +2866,7 @@ coalesce:
+ 			return;
+ 		}
+ 		skb_reserve(skb, MAX_TCP_HEADER);
+-		sk_forced_wmem_schedule(sk, skb->truesize);
++		sk_forced_mem_schedule(sk, skb->truesize);
+ 		/* FIN eats a sequence byte, write_seq advanced by tcp_queue_skb(). */
+ 		tcp_init_nondata_skb(skb, tp->write_seq,
+ 				     TCPHDR_ACK | TCPHDR_FIN);
+-- 
+2.2.0.rc0.207.ga3a616c
