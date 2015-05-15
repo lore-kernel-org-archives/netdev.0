@@ -1,67 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 5/6] tcp: allow one skb to be received per
- socket under memory pressure
-Date: Fri, 15 May 2015 11:22:50 -0700
-Message-ID: <1431714170.27831.118.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1431701638-24451-1-git-send-email-edumazet@google.com>
-	 <1431701638-24451-6-git-send-email-edumazet@google.com>
-	 <55563902.402@akamai.com>
+From: "Arad, Ronen" <ronen.arad@intel.com>
+Subject: RE: [PATCH net-next] bridge: Fix setting a flag in
+ br_fill_ifvlaninfo_range().
+Date: Fri, 15 May 2015 18:45:43 +0000
+Message-ID: <E4CD12F19ABA0C4D8729E087A761DC35068365EC@ORSMSX101.amr.corp.intel.com>
+References: <1431700047-22560-1-git-send-email-rami.rosen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Jason Baron <jbaron@akamai.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>
+To: "Rosen, Rami" <rami.rosen@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36405 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752893AbbEOSWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 14:22:53 -0400
-Received: by pabts4 with SMTP id ts4so21633076pab.3
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 11:22:52 -0700 (PDT)
-In-Reply-To: <55563902.402@akamai.com>
+Received: from mga03.intel.com ([134.134.136.65]:54161 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753391AbbEOSqF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 14:46:05 -0400
+In-Reply-To: <1431700047-22560-1-git-send-email-rami.rosen@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2015-05-15 at 14:20 -0400, Jason Baron wrote:
-> On 05/15/2015 10:53 AM, Eric Dumazet wrote:
-> > While testing tight tcp_mem settings, I found tcp sessions could be
-> > stuck because we do not allow even one skb to be received on them.
-> >
-> > By allowing one skb to be received, we introduce fairness and
-> > eventuallu force memory hogs to release their allocation.
-> >
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > ---
-> >  net/ipv4/tcp_input.c | 10 ++++++----
-> >  1 file changed, 6 insertions(+), 4 deletions(-)
-> >
-> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > index 093779f7e893..f6763faf0a60 100644
-> > --- a/net/ipv4/tcp_input.c
-> > +++ b/net/ipv4/tcp_input.c
-> > @@ -4507,10 +4507,12 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
-> >  
-> >  		if (eaten <= 0) {
-> >  queue_and_out:
-> > -			if (eaten < 0 &&
-> > -			    tcp_try_rmem_schedule(sk, skb, skb->truesize))
-> > -				goto drop;
-> > -
-> > +			if (eaten < 0) {
-> > +				if (skb_queue_len(&sk->sk_write_queue) == 0)
-> 
-> I'm confused here. Isn't this about the sk->sk_receive_queue being
-> empty? Maybe a comment to help clarify?
 
-Arg you are right of course !
 
-I'll use the proper queue in v2.
+>-----Original Message-----
+>From: Rosen, Rami
+>Sent: Friday, May 15, 2015 7:27 AM
+>To: davem@davemloft.net
+>Cc: netdev@vger.kernel.org; roopa@cumulusnetworks.com; Arad, Ronen; Rosen,
+>Rami
+>Subject: [PATCH net-next] bridge: Fix setting a flag in
+>br_fill_ifvlaninfo_range().
+>
+>This patch fixes setting of vinfo.flags in the br_fill_ifvlaninfo_range(). The
+>assignment of vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN has no effect
+>without
+>this patch, as vinfo.flags value is overriden by the
+>vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END assignement,  which follows
+>it immedialtely.
+>
+>Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+>---
+> net/bridge/br_netlink.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>index 6b67ed3..fec65bb 100644
+>--- a/net/bridge/br_netlink.c
+>+++ b/net/bridge/br_netlink.c
+>@@ -167,7 +167,7 @@ static int br_fill_ifvlaninfo_range(struct sk_buff *skb,
+>u16 vid_start,
+> 		vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
+>
+> 		vinfo.vid = vid_end;
+>-		vinfo.flags = flags | BRIDGE_VLAN_INFO_RANGE_END;
+>+		vinfo.flags &= flags | BRIDGE_VLAN_INFO_RANGE_END;
+> 		if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
+> 			    sizeof(vinfo), &vinfo))
+> 			goto nla_put_failure;
 
-Note that only in order packets are going to use this, not out of order
-ones.
 
-Thanks
+The first part of " &= flags " has no impact as it reverts vinfo.flags to
+just the bits set in the flags argument. This is exactly what
+"vinfo.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN" does.
+
+If original code was intended to indicate that the same flags are used for 
+both start and end attributes except for the RANGE_BEGIN/RANGE_END flags
+it would be sufficient to keep the line that clears RANGE_BEGIN bit and 
+OR vinfo.flags with RANGE_END for the end attribute:
+
+vinfo.flags |= BRIDGE_VLAN_INFO_RANGE_END;
+
+If we want the code to show what is actually been written into each
+attribute, the fix should be to just delete the line which clears 
+RANGE_BEGIN flag.
+
+In either case the code as exists today is working as expected. A fix is
+only needed to improve readability.
+ 
+>--
+>1.9.3
