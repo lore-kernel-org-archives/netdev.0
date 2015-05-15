@@ -1,51 +1,57 @@
-From: Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace instances
-Date: Fri, 15 May 2015 16:42:38 -0400
-Message-ID: <2697338.ReFgH43Z0x@sifl>
-References: <cover.1429252659.git.rgb@redhat.com> <20150515004855.GB10526@madcap2.tricolour.ca> <CAA4jN2bgynVTwF+owtXgq06JMLQJpy_qokpD0mAguNYeDxmh1A@mail.gmail.com>
+From: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
+Subject: Re: [PATCH v3] bnx2x: Alloc 4k fragment for each rx ring buffer element
+Date: Fri, 15 May 2015 17:43:23 -0300
+Message-ID: <87egmhlggk.fsf@dhcp-9-18-235-171.br.ibm.com>
+References: <553AD097.4020209@gmx.de>
+	<87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
+	<B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>
+	<20150430.160537.232956261880122754.davem@davemloft.net>
+	<874mnsxhnm.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
+	<B5657A6538887040AD3A81F1008BEC63D6F990@AVMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org, zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-	Eric Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Oren Laadan <orenl-3AfRa/s5aFdBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAA4jN2bgynVTwF+owtXgq06JMLQJpy_qokpD0mAguNYeDxmh1A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	"LinoSanfilippo\@gmx.de" <LinoSanfilippo@gmx.de>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"cascardo\@cascardo.eti.br" <cascardo@cascardo.eti.br>,
+	"brking\@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:59548 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422661AbbEOUna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 16:43:30 -0400
+Received: from /spool/local
+	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krisman@linux.vnet.ibm.com>;
+	Fri, 15 May 2015 17:43:28 -0300
+Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id BB0A43520068
+	for <netdev@vger.kernel.org>; Fri, 15 May 2015 16:42:22 -0400 (EDT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay02.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t4FKgF8S5964256
+	for <netdev@vger.kernel.org>; Fri, 15 May 2015 17:42:15 -0300
+Received: from d24av04.br.ibm.com (localhost [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t4FKhN2N012683
+	for <netdev@vger.kernel.org>; Fri, 15 May 2015 17:43:24 -0300
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63D6F990@AVMB1.qlogic.org> (Yuval
+	Mintz's message of "Mon, 4 May 2015 19:58:06 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, May 14, 2015 09:10:56 PM Oren Laadan wrote:
-> [focusing on "containers id" - snipped the rest away]
-> 
-> I am unfamiliar with the audit subsystem, but work with namespaces in other
-> contexts. Perhaps the term "container" is overloaded here. The definition
-> suggested by Steve in this thread makes sense to me: "a combination of
-> namespaces". I imagine people may want to audit subsets of namespaces.
-> 
-> For namespaces, can use a string like "A:B:C:D:E:F" as an identifier for a
-> particular combination, where A-F are respective namespaces identifiers.
-> (Can be taken for example from /proc/PID/ns/{mnt,uts,ipc,user,pid,net}).
->  That will even be grep-able to locate records related to a particular
-> subset
-> of namespaces. So a "container" in the classic meaning would have all A-F
-> unique and different from the init process, but processes separated only by
-> e.g. mnt-ns and net-ns will differ from the init process in  A and F.
-> 
-> (If a string is a no go, then perhaps combine the IDs in a unique way into a
-> super ID).
+Yuval Mintz <Yuval.Mintz@qlogic.com> writes:
 
-As has been mentioned in every other email in this thread, the kernel has no 
-concept of a container, it is a userspace idea and trying to generate a 
-meaningful value in the kernel is a mistake in my opinion.  My current opinion 
-is that we allow userspace to set a container ID token as it sees fit and the 
-kernel will just use the value provided by userspace.
+> Regardless, I'll give it a more thorough review tomorrow.
+> [If those are all the "problems" we'll find with it, I don't think we'll
+> need to re-spin this once more; that is, unless Dave insists]
+
+Hi Yuval,  thanks for your suggestion.
+
+Just pinging this patch.  Did you have a chance to make another review
+on this one?  Looking forward to see this merged in.
+
+Thanks!
 
 -- 
-paul moore
-security @ redhat
+Gabriel Krisman Bertazi
