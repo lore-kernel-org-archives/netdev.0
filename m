@@ -1,110 +1,34 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
- instances
-Date: Thu, 14 May 2015 22:32:21 -0400
-Message-ID: <20150515023221.GC965@madcap2.tricolour.ca>
-References: <cover.1429252659.git.rgb@redhat.com>
- <20150512195759.GA9832@madcap2.tricolour.ca>
- <2918460.dpKocsKt4o@x2>
- <12675437.ssZNCck7zG@sifl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v3] ip_tunnel: Report Rx dropped in
+ ip_tunnel_get_stats64
+Date: Thu, 14 May 2015 22:33:13 -0400 (EDT)
+Message-ID: <20150514.223313.2022997448767456512.davem@davemloft.net>
+References: <20150514212855.1301.93235.stgit@ahduyck-vm-fedora22>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Grubb <sgrubb@redhat.com>, ebiederm@xmission.com,
-	containers@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
-	eparis@parisplace.org, arozansk@redhat.com, serge@hallyn.com,
-	zohar@linux.vnet.ibm.com, viro@zeniv.linux.org.uk,
-	linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <12675437.ssZNCck7zG@sifl>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: alexander.h.duyck@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44075 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423545AbbEOCdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 22:33:15 -0400
+In-Reply-To: <20150514212855.1301.93235.stgit@ahduyck-vm-fedora22>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/05/14, Paul Moore wrote:
-> On Thursday, May 14, 2015 10:57:14 AM Steve Grubb wrote:
-> > On Tuesday, May 12, 2015 03:57:59 PM Richard Guy Briggs wrote:
-> > > On 15/05/05, Steve Grubb wrote:
-> > > > I think there needs to be some more discussion around this. It seems
-> > > > like this is not exactly recording things that are useful for audit.
-> > > 
-> > > It seems to me that either audit has to assemble that information, or
-> > > the kernel has to do so.  The kernel doesn't know about containers
-> > > (yet?).
-> > 
-> > Auditing is something that has a lot of requirements imposed on it by
-> > security standards. There was no requirement to have an auid until audit
-> > came along and said that uid is not good enough to know who is issuing
-> > commands because of su or sudo. There was no requirement for sessionid
-> > until we had to track each action back to a login so we could see if the
-> > login came from the expected place.
-> > 
-> > What I am saying is we have the same situation. Audit needs to track a
-> > container and we need an ID. The information that is being logged is not
-> > useful for auditing. Maybe someone wants that info in syslog, but I doubt
-> > it. The audit trail's purpose is to allow a security officer to reconstruct
-> > the events to determine what happened during some security incident.
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Date: Thu, 14 May 2015 14:31:28 -0700
+
+> The rx_dropped stat wasn't being reported when ip_tunnel_get_stats64 was
+> called.  This was leading to some confusing results in my debug as I was
+> seeing rx_errors increment but no other value which pointed me toward the
+> type of error being seen.
 > 
-> As Eric, and others, have stated, the container concept is a userspace idea, 
-> not a kernel idea; the kernel only knows, and cares about, namespaces.  This 
-> is unlikely to change.
+> This change corrects that by using netdev_stats_to_stats64 to copy all
+> available dev stats instead of just the few that were hand picked.
 > 
-> However, as Steve points out, there is precedence for the kernel to record 
-> userspace tokens for the sake of audit.  Personally I'm not a big fan of this 
-> in general, but I do recognize that it does satisfy a legitimate need.  Think 
-> of things like auid and the sessionid as necessary evils; audit is already 
-> chock full of evilness I doubt one more will doom us all to hell.
-> 
-> Moving forward, I'd like to see the following:
-> 
-> * Record the creation/removal/mgmt of the individual namespaces as Richard's 
-> patchset currently does.  However, I'd suggest using an explicit namespace 
-> value for the init namespace instead of the "unset" value in the V6 patchset 
-> (my apologies if you've already changed this Richard, I haven't looked at V7 
-> yet).
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@redhat.com>
 
-The "unset" (none) value is only there before the first namespaces have
-been created.  After that, any new ones are created relative to the init
-namespace of that type.
-
-> * Create a container ID token (unsigned 32-bit integer?), similar to 
-> auid/sessionid, that is set by userspace and carried by the kernel to be used 
-> in audit records.  I'd like to see some discussion on how we manage this, e.g. 
-> how do handle container ID inheritance, how do we handle nested containers 
-> (setting the containerid when it is already set), do we care if multiple 
-> different containers share the same namespace config, etc.?
-
-(Addressed in another reply.)  Nested will need some careful thought...
-
-> * When userspace sets the container ID, emit a new audit record with the 
-> associated namespace tokens and the container ID.
-
-That was the goal of AUDIT_VIRT_CONTROL or AUDIT_NS_INFO messages from
-userspace into the kernel.
-
-> * Look at our existing audit records to determine which records should have 
-> namespace and container ID tokens added.  We may only want to add the 
-> additional fields in the case where the namespace/container ID tokens are not 
-> the init namespace.
-
-If we have a record that ties a set of namespace IDs with a container
-ID, then I expect we only need to list the containerID along with auid
-and sessionID.
-
-> Can we all live with this?  If not, please suggest some alternate ideas; 
-> simply shouting "IT'S ALL CRAP!" isn't helpful for anyone ... it may be true, 
-> but it doesn't help us solve the problem ;)
-
-Thanks Paul.
-
-> paul moore
-
-- RGB
-
---
-Richard Guy Briggs <rbriggs@redhat.com>
-Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
+Applied, thanks Alexander.
