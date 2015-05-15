@@ -1,58 +1,57 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC 08/23] net/xen-netback: Remove unused code in
- xenvif_rx_action
-Date: Fri, 15 May 2015 01:26:37 +0100
-Message-ID: <20150515002637.GD19352@zion.uk.xensource.com>
-References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
- <1431622863-28575-9-git-send-email-julien.grall@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xenproject.org>,
-	<linux-arm-kernel@lists.infradead.org>, <ian.campbell@citrix.com>,
-	<stefano.stabellini@eu.citrix.com>, <linux-kernel@vger.kernel.org>,
-	<tim@xen.org>, Wei Liu <wei.liu2@citrix.com>,
-	<netdev@vger.kernel.org>
-To: Julien Grall <julien.grall@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1431622863-28575-9-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vladislav Yasevich <vyasevich@gmail.com>
+Subject: [PATCH] ipv6: Fix udp checksums with raw sockets
+Date: Thu, 14 May 2015 20:34:08 -0400
+Message-ID: <1431650048-16189-1-git-send-email-vyasevic@redhat.com>
+Cc: Vladislav Yasevich <vyasevic@redhat.com>,
+	Wolfgang Walter <linux@stwm.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:33457 "EHLO
+	mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423286AbbEOAeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 May 2015 20:34:20 -0400
+Received: by qkp63 with SMTP id 63so23824064qkp.0
+        for <netdev@vger.kernel.org>; Thu, 14 May 2015 17:34:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 14, 2015 at 06:00:48PM +0100, Julien Grall wrote:
-> The variables old_req_cons and ring_slots_used are assigned but never
-> used since commit 1650d5455bd2dc6b5ee134bd6fc1a3236c266b5b "xen-netback:
-> always fully coalesce guest Rx packets".
-> 
-> Signed-off-by: Julien Grall <julien.grall@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Wei Liu <wei.liu2@citrix.com>
-> Cc: netdev@vger.kernel.org
+It was reported that trancerout6 would cause
+a kernel to crash when trying to compute checksums
+on raw UDP packets.  The cause was the check in
+__ip6_append_data that would attempt to use
+partial checksums on the packet.  However,
+raw sockets do not initialize partial checksum
+fields so partial checksums can't be used.
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+Solve this the same way IPv4 does it.  raw sockets
+pass transhdrlen value of 0 to ip_append_data which
+causes the checksum to be computed in software.  Use
+the same check in ip6_append_data (check transhdrlen).
 
-> ---
->  drivers/net/xen-netback/netback.c | 5 -----
->  1 file changed, 5 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 9c6a504..9ae1d43 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -515,14 +515,9 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
->  
->  	while (xenvif_rx_ring_slots_available(queue, XEN_NETBK_RX_SLOTS_MAX)
->  	       && (skb = xenvif_rx_dequeue(queue)) != NULL) {
-> -		RING_IDX old_req_cons;
-> -		RING_IDX ring_slots_used;
-> -
->  		queue->last_rx_time = jiffies;
->  
-> -		old_req_cons = queue->rx.req_cons;
->  		XENVIF_RX_CB(skb)->meta_slots_used = xenvif_gop_skb(skb, &npo, queue);
-> -		ring_slots_used = queue->rx.req_cons - old_req_cons;
->  
->  		__skb_queue_tail(&rxq, skb);
->  	}
-> -- 
-> 2.1.4
+Reported-by: Wolfgang Walter <linux@stwm.de>
+CC: Wolfgang Walter <linux@stwm.de>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
+---
+ net/ipv6/ip6_output.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 7fde1f2..2a7c537 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1277,8 +1277,10 @@ emsgsize:
+ 
+ 	/* If this is the first and only packet and device
+ 	 * supports checksum offloading, let's use it.
++	 * Use transhdrlen, same as IPv4, because partial
++	 * sums only work when transhdrlen is set.
+ 	 */
+-	if (!skb && sk->sk_protocol == IPPROTO_UDP &&
++	if (transhdrlen && sk->sk_protocol == IPPROTO_UDP &&
+ 	    length + fragheaderlen < mtu &&
+ 	    rt->dst.dev->features & NETIF_F_V6_CSUM &&
+ 	    !exthdrlen)
+-- 
+1.9.3
