@@ -1,51 +1,39 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] netfilter: ipset: deinline ip_set_put_extensions()
-Date: Fri, 15 May 2015 22:05:44 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1505152204330.29442@blackhole.kfki.hu>
-References: <1430922537-28428-1-git-send-email-dvlasenk@redhat.com> <20150514105605.GA4852@salvia>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH -next 2/3] net: sched: remove AT INGRESS/EGRESS
+Date: Fri, 15 May 2015 13:09:45 -0700
+Message-ID: <20150515200944.GA8527@Alexeis-MacBook-Pro.local>
+References: <1431679850-31896-1-git-send-email-fw@strlen.de>
+ <1431679850-31896-3-git-send-email-fw@strlen.de>
+ <20150515162319.GA8234@Alexeis-MBP.westell.com>
+ <20150515172115.GK6179@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Denys Vlasenko <dvlasenk@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Jiri Pirko <jpirko@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, daniel@iogearbox.net
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp0.kfki.hu ([148.6.0.25]:58275 "EHLO smtp0.kfki.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934539AbbEOUFK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2015 16:05:10 -0400
-In-Reply-To: <20150514105605.GA4852@salvia>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:36335 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934056AbbEOUJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 16:09:49 -0400
+Received: by igbpi8 with SMTP id pi8so4279323igb.1
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 13:09:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150515172115.GK6179@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 May 2015, Pablo Neira Ayuso wrote:
+On Fri, May 15, 2015 at 07:21:15PM +0200, Florian Westphal wrote:
+> So, from ifb point of view it makes no difference, G_TC_FROM+AT_STACK
+> causes skb to be dropped and IFB doesn't care about G_TC_AT() at all.
 
-> On Wed, May 06, 2015 at 04:28:57PM +0200, Denys Vlasenko wrote:
-> > On x86 allyesconfig build:
-> > The function compiles to 489 bytes of machine code.
-> > It has 25 callsites.
-> > 
-> >     text    data       bss       dec     hex filename
-> > 82441375 22255384 20627456 125324215 7784bb7 vmlinux.before
-> > 82434909 22255384 20627456 125317749 7783275 vmlinux
-> 
-> Jozsef, I'm going to applied this patch to nf-next.
+yes. your change is technically correct. It's not causing ifb regression,
+but it removes information in a way that will be very hard to add it later.
 
-Thanks!
+> AT_STACK cannot even happen for the G_TC_AT case from looking at the
+> code since dev_queue_xmit forces AT_EGRESS & rx sets AT_INGRESS.
 
-> I think that things like ip_set_put_skbinfo() can be also deinlined
-> and move to the core as exported symbol as this run from the control
-> plane path (ie. netlink).
-
-I'll add the patch for that to the next round of the ipset patches.
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+yes, if we only consider ingress and egress hooks.
+I want to use this stack/ingress/egress indication with socket filters.
+If we make stack==egress, I would need to refactor this code all over again.
+It's not broken today. You're doing this aliasing only two squeeze a bit.
+That's why I'm saying keep the stack/ingress/egress flag as-is. It's useful.
