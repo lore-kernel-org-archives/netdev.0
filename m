@@ -1,43 +1,51 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net-next] net: fix two sparse errors
-Date: Fri, 15 May 2015 18:26:02 +0200
-Message-ID: <20150515162602.GA1757@via.ecp.fr>
-References: <20150515143506.GA5019@via.ecp.fr>
- <CALx6S35tiLs=RU9t9XriakDgD-66N4F2FKrpQYe6--XhBn=_Ng@mail.gmail.com>
- <20150515155441.GA24669@via.ecp.fr>
- <20150515.121942.697185533705459189.davem@redhat.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
+ skb->dev in receive path
+Date: Fri, 15 May 2015 12:37:26 -0400 (EDT)
+Message-ID: <20150515.123726.1298734930500737780.davem@redhat.com>
+References: <20150514032833.GF3853@gondor.apana.org.au>
+	<55543D4F.8050306@gmail.com>
+	<20150514062614.GA6320@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: tom@herbertland.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.duyck@gmail.com, alexander.h.duyck@redhat.com,
+	netdev@vger.kernel.org, steffen.klassert@secunet.com, tgraf@suug.ch
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from artikodin.via.ecp.fr ([138.195.130.75]:58936 "EHLO
-	artikodin.via.ecp.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934533AbbEOQ0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 12:26:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20150515.121942.697185533705459189.davem@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39916 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753441AbbEOQhj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 May 2015 12:37:39 -0400
+In-Reply-To: <20150514062614.GA6320@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2015-05-15, 12:19:42 -0400, David Miller wrote:
-> From: Sabrina Dubroca <sd@queasysnail.net>
-> Date: Fri, 15 May 2015 17:54:41 +0200
-> 
-> > Hi Tom,
-> > 
-> > 2015-05-15, 11:27:25 -0400, Tom Herbert wrote:
-> >> Hi Sabrina,
-> >> 
-> >> We returned the checksum value since that may be of interest to the
-> >> caller at some point.
-> > 
-> > Hmm, I thought "we may need that some day" was not a valid argument?
-> 
-> I think Tom's time frame for "some day" is really small and he
-> should be accomodated.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 14 May 2015 14:26:14 +0800
 
-Okay. Sorry again.
+> On Wed, May 13, 2015 at 11:14:39PM -0700, Alexander Duyck wrote:
+>> 
+>> The fact is I am not all that familiar with the vti code and just
+>> started crawling through it a few days ago, but it seems like it is
+>> overwriting the skb->mark value with the i_key to determine which
+>> policy to use.  The code prior to commit df3893c176e9 ("vti: Update
+>> the ipv4 side to use it's own receive hook.") was saving the old
+>> skb->mark, overwriting it, and then restoring it after a call to
+>> xfrm4_policy_check.  After that commit it was letting
+>> skb_scrub_packet in vti_rcv_cb clear the mark and it was just
+>> dropped.
+> 
+> Steffen, why is vti touching skb->mark at all? This is supposed
+> to be a field used by user-space to control a packet as it moves
+> inside the kernel.  Seconding it for other purposes looks very
+> wrong.
 
--- 
-Sabrina
+If anything, the skb_scrub_packet() call right above the skb->mark
+clears should be taking care of this.
+
+The only case where mark should be cleared is if we are changing
+namespaces, and that's exactly the policy implemented by
+skb_scrub_packet() currently.
+
+Yeah, this mark handling via tunnel->parms.o_key looks not so good.
