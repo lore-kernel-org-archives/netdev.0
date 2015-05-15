@@ -1,39 +1,42 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH -next 2/3] net: sched: remove AT INGRESS/EGRESS
-Date: Fri, 15 May 2015 13:09:45 -0700
-Message-ID: <20150515200944.GA8527@Alexeis-MacBook-Pro.local>
-References: <1431679850-31896-1-git-send-email-fw@strlen.de>
- <1431679850-31896-3-git-send-email-fw@strlen.de>
- <20150515162319.GA8234@Alexeis-MBP.westell.com>
- <20150515172115.GK6179@breakpoint.cc>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace instances
+Date: Fri, 15 May 2015 16:26:41 -0400
+Message-ID: <2152640.VCSTRrx26A@sifl>
+References: <cover.1429252659.git.rgb@redhat.com> <2918460.dpKocsKt4o@x2> <20150515004855.GB10526@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, daniel@iogearbox.net
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:36335 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934056AbbEOUJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 16:09:49 -0400
-Received: by igbpi8 with SMTP id pi8so4279323igb.1
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 13:09:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150515172115.GK6179@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Steve Grubb <sgrubb@redhat.com>,
+	containers@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
+	eparis@parisplace.org, arozansk@redhat.com, ebiederm@xmission.com,
+	serge@hallyn.com, zohar@linux.vnet.ibm.com,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150515004855.GB10526@madcap2.tricolour.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 15, 2015 at 07:21:15PM +0200, Florian Westphal wrote:
-> So, from ifb point of view it makes no difference, G_TC_FROM+AT_STACK
-> causes skb to be dropped and IFB doesn't care about G_TC_AT() at all.
+On Thursday, May 14, 2015 08:48:55 PM Richard Guy Briggs wrote:
+> On 15/05/14, Steve Grubb wrote:
+> > What they would want to know is what resources were assigned; if two
+> > containers shared a resource, what resource and container was it shared
+> > with; if two containers can communicate, we need to see or control
+> > information flow when necessary; and we need to see termination and
+> > release of resources.
+>
+> So, namespaces are a big part of this.  I understand how they are
+> spawned and potentially shared.  I have a more vague idea about how
+> cgroups contribute to this concept of a container.  So far, I have very
+> little idea how seccomp contributes, but I assume that it will also need
+> to be part of this tracking.
 
-yes. your change is technically correct. It's not causing ifb regression,
-but it removes information in a way that will be very hard to add it later.
+It doesn't, really.  We shouldn't worry about seccomp from a 
+namespace/container auditing perspective.  The normal seccomp auditing should 
+be sufficient for namespaces/containers.
 
-> AT_STACK cannot even happen for the G_TC_AT case from looking at the
-> code since dev_queue_xmit forces AT_EGRESS & rx sets AT_INGRESS.
-
-yes, if we only consider ingress and egress hooks.
-I want to use this stack/ingress/egress indication with socket filters.
-If we make stack==egress, I would need to refactor this code all over again.
-It's not broken today. You're doing this aliasing only two squeeze a bit.
-That's why I'm saying keep the stack/ingress/egress flag as-is. It's useful.
+-- 
+paul moore
+security @ redhat
