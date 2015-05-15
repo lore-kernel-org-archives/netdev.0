@@ -1,51 +1,52 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
- skb->dev in receive path
-Date: Fri, 15 May 2015 12:37:26 -0400 (EDT)
-Message-ID: <20150515.123726.1298734930500737780.davem@redhat.com>
-References: <20150514032833.GF3853@gondor.apana.org.au>
-	<55543D4F.8050306@gmail.com>
-	<20150514062614.GA6320@gondor.apana.org.au>
+Subject: Re: [PATCH net-next 00/11] convert stmmac glue layers into
+ platform drivers
+Date: Fri, 15 May 2015 12:44:46 -0400 (EDT)
+Message-ID: <20150515.124446.727849098381931716.davem@redhat.com>
+References: <1431598266-25736-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexander.duyck@gmail.com, alexander.h.duyck@redhat.com,
-	netdev@vger.kernel.org, steffen.klassert@secunet.com, tgraf@suug.ch
-To: herbert@gondor.apana.org.au
+Cc: arnd@arndb.de, peppe.cavallaro@st.com, roger.chen@rock-chips.com,
+	wens@csie.org, srinivas.kandagatla@st.com,
+	dinguyen@opensource.altera.com, b.galvani@gmail.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-rockchip@lists.infradead.org
+To: manabian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39916 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43482 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753441AbbEOQhj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 May 2015 12:37:39 -0400
-In-Reply-To: <20150514062614.GA6320@gondor.apana.org.au>
+	id S1752701AbbEOQov (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 May 2015 12:44:51 -0400
+In-Reply-To: <1431598266-25736-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 14 May 2015 14:26:14 +0800
+From: Joachim Eastwood <manabian@gmail.com>
+Date: Thu, 14 May 2015 12:10:55 +0200
 
-> On Wed, May 13, 2015 at 11:14:39PM -0700, Alexander Duyck wrote:
->> 
->> The fact is I am not all that familiar with the vti code and just
->> started crawling through it a few days ago, but it seems like it is
->> overwriting the skb->mark value with the i_key to determine which
->> policy to use.  The code prior to commit df3893c176e9 ("vti: Update
->> the ipv4 side to use it's own receive hook.") was saving the old
->> skb->mark, overwriting it, and then restoring it after a call to
->> xfrm4_policy_check.  After that commit it was letting
->> skb_scrub_packet in vti_rcv_cb clear the mark and it was just
->> dropped.
+> This patch set aims to convert the current dwmac glue layers into
+> proper platform drivers as request by Arnd[1]. These changes start
+> from patch 3 and onwards.
 > 
-> Steffen, why is vti touching skb->mark at all? This is supposed
-> to be a field used by user-space to control a packet as it moves
-> inside the kernel.  Seconding it for other purposes looks very
-> wrong.
+> Overview:
+> Platform driver functions like probe and remove are exported from
+> the stmmac platform and then used in subsequent glue later
+> conversions. The conversion involes adding the platform driver
+> boiler plate code and adding it to the build system. The last patch
+> removes the driver from the stmmac platform code thus making it into
+> a library for common platform driver functions.
+> 
+> The two first patches adds glue layer for my platform. I chose to
+> first add old style glue layer and then convert it. The churn this
+> creates is just 3 lines.
+> 
+> I would be very nice if people could test this patch set on their
+> respective platform. My testing has been limited to compiling and
+> testing on my (LPC18xx) platform. Thanks!
+> 
+> Next I will look into cleaning up the stmmac platform code.
+> 
+> [1] http://marc.info/?l=linux-arm-kernel&m=143059524606459&w=2
 
-If anything, the skb_scrub_packet() call right above the skb->mark
-clears should be taking care of this.
-
-The only case where mark should be cleared is if we are changing
-namespaces, and that's exactly the policy implemented by
-skb_scrub_packet() currently.
-
-Yeah, this mark handling via tunnel->parms.o_key looks not so good.
+Series applied, thanks Joachim.
