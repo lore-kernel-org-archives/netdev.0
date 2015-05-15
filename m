@@ -1,122 +1,45 @@
-From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V4 PATCH 5/6] crypto: ccp - Unify coherency checking logic with
- device_dma_is_coherent()
-Date: Fri, 15 May 2015 16:23:13 -0500
-Message-ID: <1431724994-21601-6-git-send-email-Suravee.Suthikulpanit@amd.com>
-References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: al.stone@linaro.org, linaro-acpi@lists.linaro.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, leo.duran@amd.com,
- hanjun.guo@linaro.org, Suravee
- Suthikulpanit <Suravee.Suthikulpanit@amd.com>, msalter@redhat.com,
- grant.likely@linaro.org, linux-arm-kernel@lists.infradead.org,
- linux-crypto@vger.kernel.org
-To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
- <will.deacon@arm.com>, <bhelgaas@google.com>, <thomas.lendacky@amd.com>,
- <herbert@gondor.apana.org.au>, <davem@davemloft.net>, <arnd@arndb.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH 2/5] rtlwifi: rtl8188ee: Apply the new regulatory information
+Date: Fri, 15 May 2015 16:33:00 -0500
+Message-ID: <1431725583-7324-3-git-send-email-Larry.Finger@lwfinger.net>
+References: <1431725583-7324-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org, Shao Fu <shaofu@realtek.com>,
+	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>
+To: kvalo@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:34335 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932217AbbEOVdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 17:33:15 -0400
+In-Reply-To: <1431725583-7324-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, the driver has separate logic to determine device coherency
-for DT vs ACPI.  This patch simplifies the code with a call to
-device_dma_is_coherent().
+From: Shao Fu <shaofu@realtek.com>
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
-Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-CC: Herbert Xu <herbert@gondor.apana.org.au>
+The driver was setting a channel plan for the world. Now it reads it from
+EEPROM.
+
+Signed-off-by: Shao Fu <shaofu@realtek.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/crypto/ccp/ccp-platform.c | 60 +--------------------------------------
- 1 file changed, 1 insertion(+), 59 deletions(-)
+ drivers/net/wireless/rtlwifi/rtl8188ee/hw.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/crypto/ccp/ccp-platform.c b/drivers/crypto/ccp/ccp-platform.c
-index b1c20b2..e446781 100644
---- a/drivers/crypto/ccp/ccp-platform.c
-+++ b/drivers/crypto/ccp/ccp-platform.c
-@@ -90,58 +90,6 @@ static struct resource *ccp_find_mmio_area(struct ccp_device *ccp)
- 	return NULL;
- }
- 
--#ifdef CONFIG_ACPI
--static int ccp_acpi_support(struct ccp_device *ccp)
--{
--	struct ccp_platform *ccp_platform = ccp->dev_specific;
--	struct acpi_device *adev = ACPI_COMPANION(ccp->dev);
--	acpi_handle handle;
--	acpi_status status;
--	unsigned long long data;
--	int cca;
--
--	/* Retrieve the device cache coherency value */
--	handle = adev->handle;
--	do {
--		status = acpi_evaluate_integer(handle, "_CCA", NULL, &data);
--		if (!ACPI_FAILURE(status)) {
--			cca = data;
--			break;
--		}
--	} while (!ACPI_FAILURE(status));
--
--	if (ACPI_FAILURE(status)) {
--		dev_err(ccp->dev, "error obtaining acpi coherency value\n");
--		return -EINVAL;
--	}
--
--	ccp_platform->coherent = !!cca;
--
--	return 0;
--}
--#else	/* CONFIG_ACPI */
--static int ccp_acpi_support(struct ccp_device *ccp)
--{
--	return -EINVAL;
--}
--#endif
--
--#ifdef CONFIG_OF
--static int ccp_of_support(struct ccp_device *ccp)
--{
--	struct ccp_platform *ccp_platform = ccp->dev_specific;
--
--	ccp_platform->coherent = of_dma_is_coherent(ccp->dev->of_node);
--
--	return 0;
--}
--#else
--static int ccp_of_support(struct ccp_device *ccp)
--{
--	return -EINVAL;
--}
--#endif
--
- static int ccp_platform_probe(struct platform_device *pdev)
- {
- 	struct ccp_device *ccp;
-@@ -182,13 +130,7 @@ static int ccp_platform_probe(struct platform_device *pdev)
- 		goto e_err;
- 	}
- 
--	if (ccp_platform->use_acpi)
--		ret = ccp_acpi_support(ccp);
--	else
--		ret = ccp_of_support(ccp);
--	if (ret)
--		goto e_err;
--
-+	ccp_platform->coherent = device_dma_is_coherent(ccp->dev);
- 	if (ccp_platform->coherent)
- 		ccp->axcache = CACHE_WB_NO_ALLOC;
- 	else
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
+index 86ce5b1..40c65b7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
+@@ -1919,8 +1919,8 @@ static void _rtl88ee_read_adapter_info(struct ieee80211_hw *hw)
+ 		 "dev_addr: %pM\n", rtlefuse->dev_addr);
+ 	/*channel plan */
+ 	rtlefuse->eeprom_channelplan = hwinfo[EEPROM_CHANNELPLAN];
+-	/* set channel paln to world wide 13 */
+-	rtlefuse->channel_plan = COUNTRY_CODE_WORLD_WIDE_13;
++	/* set channel plan from efuse */
++	rtlefuse->channel_plan = rtlefuse->eeprom_channelplan;
+ 	/*tx power*/
+ 	_rtl88ee_read_txpower_info_from_hwpg(hw,
+ 					     rtlefuse->autoload_failflag,
 -- 
-2.1.0
+2.1.4
