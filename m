@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 4/6] tcp: fix behavior for epoll edge trigger
-Date: Fri, 15 May 2015 12:39:28 -0700
-Message-ID: <1431718770-3815-5-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 5/6] tcp: allow one skb to be received per socket under memory pressure
+Date: Fri, 15 May 2015 12:39:29 -0700
+Message-ID: <1431718770-3815-6-git-send-email-edumazet@google.com>
 References: <1431718770-3815-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
 	Neal Cardwell <ncardwell@google.com>,
@@ -10,58 +10,47 @@ Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
 	Eric Dumazet <edumazet@google.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f201.google.com ([209.85.213.201]:33070 "EHLO
-	mail-ig0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934138AbbEOTkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:40:37 -0400
-Received: by igdh15 with SMTP id h15so88467igd.0
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:40:37 -0700 (PDT)
+Received: from mail-vn0-f74.google.com ([209.85.216.74]:33239 "EHLO
+	mail-vn0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934138AbbEOTkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:40:46 -0400
+Received: by vnbg1 with SMTP id g1so1788566vnb.0
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:40:46 -0700 (PDT)
 In-Reply-To: <1431718770-3815-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under memory pressure, tcp_sendmsg() can fail to queue a packet
-while no packet is present in write queue. If we return -EAGAIN
-with no packet in write queue, no ACK packet will ever come
-to raise EPOLLOUT.
+While testing tight tcp_mem settings, I found tcp sessions could be
+stuck because we do not allow even one skb to be received on them.
 
-We need to allow one skb per TCP socket, and make sure that
-tcp sockets can release their forward allocations under pressure.
-
-This is a followup to commit 790ba4566c1a ("tcp: set SOCK_NOSPACE
-under memory pressure")
+By allowing one skb to be received, we introduce fairness and
+eventuallu force memory hogs to release their allocation.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+ net/ipv4/tcp_input.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index ecccfdc50d76..9eabfd3e0925 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -815,9 +815,20 @@ struct sk_buff *sk_stream_alloc_skb(struct sock *sk, int size, gfp_t gfp)
- 	/* The TCP header must be at least 32-bit aligned.  */
- 	size = ALIGN(size, 4);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 093779f7e893..40c435997e54 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4507,10 +4507,12 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
  
-+	if (unlikely(tcp_under_memory_pressure(sk)))
-+		sk_mem_reclaim_partial(sk);
-+
- 	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
--	if (skb) {
--		if (sk_wmem_schedule(sk, skb->truesize)) {
-+	if (likely(skb)) {
-+		bool mem_schedule;
-+
-+		if (skb_queue_len(&sk->sk_write_queue) == 0) {
-+			mem_schedule = true;
-+			sk_forced_mem_schedule(sk, skb->truesize);
-+		} else {
-+			mem_schedule = sk_wmem_schedule(sk, skb->truesize);
-+		}
-+		if (likely(mem_schedule)) {
- 			skb_reserve(skb, sk->sk_prot->max_header);
- 			/*
- 			 * Make sure that we have exactly size bytes
+ 		if (eaten <= 0) {
+ queue_and_out:
+-			if (eaten < 0 &&
+-			    tcp_try_rmem_schedule(sk, skb, skb->truesize))
+-				goto drop;
+-
++			if (eaten < 0) {
++				if (skb_queue_len(&sk->sk_receive_queue) == 0)
++					sk_forced_mem_schedule(sk, skb->truesize);
++				else if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
++					goto drop;
++			}
+ 			eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
+ 		}
+ 		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
 -- 
 2.2.0.rc0.207.ga3a616c
