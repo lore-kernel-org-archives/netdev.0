@@ -1,66 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: bcm_sf2: properly propagate carrier down state for MoCA
-Date: Fri, 15 May 2015 12:38:01 -0700
-Message-ID: <1431718681-8925-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, pgynther@google.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/6] tcp: better handling of memory pressure
+Date: Fri, 15 May 2015 12:39:24 -0700
+Message-ID: <1431718770-3815-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>, Jason Baron <jbaron@akamai.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:37847 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932810AbbEOTi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:38:26 -0400
-Received: by igbsb11 with SMTP id sb11so3189947igb.0
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:38:25 -0700 (PDT)
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:32923 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934138AbbEOTj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 15:39:56 -0400
+Received: by pablj1 with SMTP id lj1so8629361pab.0
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 12:39:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MoCA interfaces require the use of an user-space daemon (mocad) which
-will typically use cmd->autoneg to force the link. This is causing other
-network manager applications not to get proper carrier down
-notifications because of the following sequence of events:
+When testing commit 790ba4566c1a ("tcp: set SOCK_NOSPACE under memory
+pressure") using edge triggered epoll applications, I found various
+issues under memory pressure and thousands of active sockets.
 
-- link down interrupt is received, link is set to 0 by the interrupt
-  handler
-- fixed_link update callback runs and updates the BMSR register
-  accordingly
-- PHY library polls the PHY for link status, sees the link is down,
-  proceeds with reporting that
-- mocad gets notified of the link state and call phy_ethtool_sset()
-  with cmd->autoneg set to the link status (0)
-- phy_start_aneg() is called at the end of phy_ethtool_sset() and sets
-  the PHY state to PHY_FORCING
+This patch series is a first round to solve these issues, in send
+and receive paths. There are probably other fixes needed, but
+with this series, my tests now all succeed.
 
-Just make sure we notify the interface carrier appropriately when we
-detect that the link is down in our fixed_link update callback. This is
-made local to the bcm_sf2 driver as the PHY library does the right thing
-in any case. This is similar to the GENET change introduced in
-54d7c01d3ed699cfc213115eaecfe1175cfaff8f ("net: bcmgenet: enable MoCA
-link state change detection").
+v2: fix typo in "allow one skb to be received per socket under memory pressure",
+as spotted by Jason Baron.
 
-Fixes: 246d7f773c13 ("net: dsa: add Broadcom SF2 switch driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+Eric Dumazet (6):
+  net: fix sk_mem_reclaim_partial()
+  tcp: rename sk_forced_wmem_schedule() to sk_forced_mem_schedule()
+  tcp: introduce tcp_under_memory_pressure()
+  tcp: fix behavior for epoll edge trigger
+  tcp: allow one skb to be received per socket under memory pressure
+  tcp: halves tcp_mem[] limits
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index cedb572bf25a..103fde3da476 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -911,6 +911,13 @@ static void bcm_sf2_sw_fixed_link_update(struct dsa_switch *ds, int port,
- 	 */
- 	if (port == 7) {
- 		status->link = priv->port_sts[port].link;
-+		/* For MoCA interfaces, also force a link down notification
-+		 * since some version of the user-space daemon (mocad) use
-+		 * cmd->autoneg to force the link, which messes up the PHY
-+		 * state machine and make it go in PHY_FORCING state instead.
-+		 */
-+		if (!status->link)
-+			netif_carrier_off(ds->ports[port]);
- 		status->duplex = 1;
- 	} else {
- 		status->link = 1;
+ include/net/sock.h    |  6 +++---
+ include/net/tcp.h     | 10 ++++++++++
+ net/core/sock.c       |  9 +++++----
+ net/ipv4/tcp.c        | 24 ++++++++++++++++++------
+ net/ipv4/tcp_input.c  | 18 ++++++++++--------
+ net/ipv4/tcp_output.c | 10 ++++++----
+ net/ipv4/tcp_timer.c  |  2 +-
+ 7 files changed, 53 insertions(+), 26 deletions(-)
+
 -- 
-2.1.0
+2.2.0.rc0.207.ga3a616c
