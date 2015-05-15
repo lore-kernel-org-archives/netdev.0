@@ -1,7 +1,7 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 2/6] neigh: fix a possible leak issue of neigh entry
-Date: Fri, 15 May 2015 14:55:42 +0800
-Message-ID: <1431672946-300-3-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH net-next 5/6] neigh: neigh dead and timer variables should be protected under its lock
+Date: Fri, 15 May 2015 14:55:45 +0800
+Message-ID: <1431672946-300-6-git-send-email-ying.xue@windriver.com>
 References: <1431672946-300-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,43 +9,46 @@ Cc: <eric.dumazet@gmail.com>, <alexei@purestorage.com>,
 	<joern@purestorage.com>, <ja@ssi.bg>, <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:48101 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754184AbbEOG4G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 02:56:06 -0400
+Received: from mail.windriver.com ([147.11.1.11]:35267 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754179AbbEOG5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 02:57:25 -0400
 In-Reply-To: <1431672946-300-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Once modifying a pending timer of a neighbour, it's insufficient to
-post a warning message. Instead we should not take the neighbour's
-reference count at the same time, otherwise, it causes an issue that
-the neighbour cannot be freed forever.
+As neigh lock is not taken before its variables like dead and timer
+are used in neigh_destroy(), this is unsafe for us. The commit allows
+neigh lock to cover all area of using them.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/core/neighbour.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ net/core/neighbour.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 3de6542..5595db3 100644
+index 8a438fc..67a0e42 100644
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
-@@ -164,10 +164,11 @@ static int neigh_forced_gc(struct neigh_table *tbl)
+@@ -687,9 +687,11 @@ void neigh_destroy(struct neighbour *neigh)
  
- static void neigh_add_timer(struct neighbour *n, unsigned long when)
- {
--	neigh_hold(n);
--	if (unlikely(mod_timer(&n->timer, when))) {
--		printk("NEIGH: BUG, double timer add, state is %x\n",
--		       n->nud_state);
-+	if (likely(!mod_timer(&n->timer, when))) {
-+		neigh_hold(n);
-+	} else {
-+		pr_warn("NEIGH: BUG, double timer add, state is %x\n",
-+			n->nud_state);
+ 	NEIGH_CACHE_STAT_INC(neigh->tbl, destroys);
+ 
++	write_lock_bh(&neigh->lock);
+ 	if (!neigh->dead) {
+ 		pr_warn("Destroying alive neighbour %p\n", neigh);
+ 		dump_stack();
++		write_unlock_bh(&neigh->lock);
+ 		return;
+ 	}
+ 
+@@ -698,7 +700,6 @@ void neigh_destroy(struct neighbour *neigh)
  		dump_stack();
  	}
- }
+ 
+-	write_lock_bh(&neigh->lock);
+ 	__skb_queue_purge(&neigh->arp_queue);
+ 	write_unlock_bh(&neigh->lock);
+ 	neigh->arp_queue_len_bytes = 0;
 -- 
 1.7.9.5
