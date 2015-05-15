@@ -1,47 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipip: fix one sparse error
-Date: Fri, 15 May 2015 08:58:45 -0700
-Message-ID: <1431705525.27831.109.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: [PATCH net-next] netfilter: synproxy: fix sparse errors
+Date: Fri, 15 May 2015 09:07:31 -0700
+Message-ID: <1431706051.27831.113.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:37958 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754698AbbEOP6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 11:58:46 -0400
-Received: by igcau1 with SMTP id au1so31879381igc.1
-        for <netdev@vger.kernel.org>; Fri, 15 May 2015 08:58:46 -0700 (PDT)
+Received: from mail-ig0-f175.google.com ([209.85.213.175]:36334 "EHLO
+	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934839AbbEOQHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 May 2015 12:07:34 -0400
+Received: by igbpi8 with SMTP id pi8so226817729igb.1
+        for <netdev@vger.kernel.org>; Fri, 15 May 2015 09:07:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/ipip.o
-  CHECK   net/ipv4/ipip.c
-net/ipv4/ipip.c:254:27: warning: incorrect type in assignment (different base types)
-net/ipv4/ipip.c:254:27:    expected restricted __be32 [addressable] [usertype] o_key
-net/ipv4/ipip.c:254:27:    got restricted __be16 [addressable] [usertype] i_flags
+Fix verbose sparse errors :
 
-Fixes: 3b7b514f44bf ("ipip: fix a regression in ioctl")
+make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/netfilter/ipt_SYNPROXY.o
+
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/ipip.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Trivial errors, please David merge this directly into your tree.
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index ff96396ebec5bdf794cf84776f21505d0b7de737..254238daf58bd9f6e398609b67ca6a0b946600d2 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -251,7 +251,8 @@ ipip_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			return -EINVAL;
- 	}
+ net/ipv4/netfilter/ipt_SYNPROXY.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+index e9e67793055fce9b20ee836275a3eb4a9437592a..fe8cc183411e052f6e0ba4afefbeaef1e77313cd 100644
+--- a/net/ipv4/netfilter/ipt_SYNPROXY.c
++++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+@@ -18,7 +18,7 @@
+ #include <net/netfilter/nf_conntrack_synproxy.h>
  
--	p.i_key = p.o_key = p.i_flags = p.o_flags = 0;
-+	p.i_key = p.o_key = 0;
-+	p.i_flags = p.o_flags = 0;
- 	if (p.iph.ttl)
- 		p.iph.frag_off |= htons(IP_DF);
+ static struct iphdr *
+-synproxy_build_ip(struct sk_buff *skb, u32 saddr, u32 daddr)
++synproxy_build_ip(struct sk_buff *skb, __be32 saddr, __be32 daddr)
+ {
+ 	struct iphdr *iph;
+ 
+@@ -220,7 +220,7 @@ synproxy_send_client_ack(const struct synproxy_net *snet,
+ 	nth->ack_seq	= th->ack_seq;
+ 	tcp_flag_word(nth) = TCP_FLAG_ACK;
+ 	nth->doff	= tcp_hdr_size / 4;
+-	nth->window	= ntohs(htons(th->window) >> opts->wscale);
++	nth->window	= htons(ntohs(th->window) >> opts->wscale);
+ 	nth->check	= 0;
+ 	nth->urg_ptr	= 0;
  
