@@ -1,99 +1,82 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netlink: Disable insertions/removals during rehash
-Date: Sat, 16 May 2015 21:16:28 +0800
-Message-ID: <20150516131628.GA981@gondor.apana.org.au>
-References: <20150514041628.GA5428@gondor.apana.org.au>
- <20150514042151.GA5482@gondor.apana.org.au>
+Subject: [net] netlink: Make autobind rover an atomic_t
+Date: Sat, 16 May 2015 21:40:07 +0800
+Message-ID: <20150516134007.GA1152@gondor.apana.org.au>
+References: <20150514042151.GA5482@gondor.apana.org.au>
  <20150514055824.GB6058@gondor.apana.org.au>
- <20150515.130257.1322224469755323983.davem@redhat.com>
+ <20150514060230.GD6058@gondor.apana.org.au>
+ <20150515.130219.331336809636676892.davem@redhat.com>
+ <20150516123242.GA683@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org
+Cc: eric.dumazet@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	ying.xue@windriver.com
 To: David Miller <davem@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:50185 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:34314 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362AbbEPNQh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 09:16:37 -0400
+	with ESMTP id S1750972AbbEPNkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 09:40:20 -0400
 Content-Disposition: inline
-In-Reply-To: <20150515.130257.1322224469755323983.davem@redhat.com>
+In-Reply-To: <20150516123242.GA683@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 15, 2015 at 01:02:57PM -0400, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Thu, 14 May 2015 13:58:24 +0800
-> 
-> > The current rhashtable rehash code is buggy and can't deal with
-> > parallel insertions/removals without corrupting the hash table.
-> > 
-> > This patch disables it by partially reverting
-> > c5adde9468b0714a051eac7f9666f23eb10b61f7 ("netlink: eliminate
-> > nl_sk_hash_lock").
-> > 
-> > This patch also removes a bogus socket lock introduced by that
-> > very same patch.
-> > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Herbert, if you agree with me in the other thread that the lock_sock()
-> or something like it has to remain, you'll need to respin this.
+The commit 21e4902aea80ef35afc00ee8d2abdea4f519b7f7 ("netlink:
+Lockless lookup with RCU grace period in socket release") removed
+the locks around the autobind rover without making the rover itself
+safe for use by multiple threads.
 
-Actually I think this one is OK because I'm replacing it with the
-hash table mutex which is just like the previous global lock except
-that it is per-family.  As you cannot change the family on a netlink
-socket this should be good enough.
-
-But the changelog message is wrong so here is an updated version.
-
-Cheers,
-
----8<---
-The current rhashtable rehash code is buggy and can't deal with
-parallel insertions/removals without corrupting the hash table.
-
-This patch disables it by partially reverting
-c5adde9468b0714a051eac7f9666f23eb10b61f7 ("netlink: eliminate
-nl_sk_hash_lock").
+This patch converts rover to an atomic_t to make it at least
+somewhat safe to use locklessly.  The tricky bit is when the
+rover wraps around.  This patch simply deals with it by blindly
+doing an atomic_set.  So if many threads encounter the wraparound
+simultaneously then they'll all step on each other's toes and
+all try to bind to -4097.  But this should eventually sort itself
+out as they loop around and try the atomic_dec_return after the
+last thread does an atomic_set.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 05919bf..322fe03 100644
+index ec4adbd..6ffce5b 100644
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
-@@ -1052,7 +1052,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+@@ -1292,24 +1292,27 @@ static int netlink_release(struct socket *sock)
+ static int netlink_autobind(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
++	struct sock *sk2;
+ 	struct net *net = sock_net(sk);
  	struct netlink_table *table = &nl_table[sk->sk_protocol];
+ 	s32 portid = task_tgid_vnr(current);
  	int err;
+-	static s32 rover = -4097;
++	static atomic_t rover = ATOMIC_INIT(-4096);
  
--	lock_sock(sk);
-+	mutex_lock(&table->hash.mutex);
- 
- 	err = -EBUSY;
- 	if (nlk_sk(sk)->portid)
-@@ -1073,7 +1073,7 @@ static int netlink_insert(struct sock *sk, u32 portid)
+ retry:
+ 	cond_resched();
+ 	rcu_read_lock();
+-	if (__netlink_lookup(table, portid, net)) {
++	sk2 = __netlink_lookup(table, portid, net);
++	rcu_read_unlock();
++	if (sk2) {
+ 		/* Bind collision, search negative portid values. */
+-		portid = rover--;
+-		if (rover > -4097)
+-			rover = -4097;
+-		rcu_read_unlock();
++		portid = atomic_dec_return(&rover);
++		if (unlikely(portid > -4097)) {
++			atomic_set(&rover, -4097);
++			portid = -4097;
++		}
+ 		goto retry;
  	}
+-	rcu_read_unlock();
  
- err:
--	release_sock(sk);
-+	mutex_unlock(&table->hash.mutex);
- 	return err;
- }
- 
-@@ -1082,10 +1082,12 @@ static void netlink_remove(struct sock *sk)
- 	struct netlink_table *table;
- 
- 	table = &nl_table[sk->sk_protocol];
-+	mutex_lock(&table->hash.mutex);
- 	if (rhashtable_remove(&table->hash, &nlk_sk(sk)->node)) {
- 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
- 		__sock_put(sk);
- 	}
-+	mutex_unlock(&table->hash.mutex);
- 
- 	netlink_table_grab();
- 	if (nlk_sk(sk)->subscriptions) {
-
+ 	err = netlink_insert(sk, portid);
+ 	if (err == -EADDRINUSE)
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
