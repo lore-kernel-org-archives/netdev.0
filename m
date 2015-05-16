@@ -1,44 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netlink: Kill bogus lock_sock in netlink_insert
-Date: Sat, 16 May 2015 20:32:42 +0800
-Message-ID: <20150516123242.GA683@gondor.apana.org.au>
-References: <20150514042151.GA5482@gondor.apana.org.au>
- <20150514055824.GB6058@gondor.apana.org.au>
- <20150514060230.GD6058@gondor.apana.org.au>
- <20150515.130219.331336809636676892.davem@redhat.com>
+Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
+ skb->dev in receive path
+Date: Sat, 16 May 2015 20:34:58 +0800
+Message-ID: <20150516123457.GB683@gondor.apana.org.au>
+References: <20150514032833.GF3853@gondor.apana.org.au>
+ <55543D4F.8050306@gmail.com>
+ <20150514062614.GA6320@gondor.apana.org.au>
+ <20150515.123726.1298734930500737780.davem@redhat.com>
+ <555645A3.6010509@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	ying.xue@windriver.com
-To: David Miller <davem@redhat.com>
+Cc: David Miller <davem@redhat.com>, alexander.h.duyck@redhat.com,
+	netdev@vger.kernel.org, steffen.klassert@secunet.com, tgraf@suug.ch
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:57794 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:38537 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755099AbbEPMcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 08:32:54 -0400
+	with ESMTP id S1755287AbbEPMfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 08:35:02 -0400
 Content-Disposition: inline
-In-Reply-To: <20150515.130219.331336809636676892.davem@redhat.com>
+In-Reply-To: <555645A3.6010509@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 15, 2015 at 01:02:19PM -0400, David Miller wrote:
+On Fri, May 15, 2015 at 12:14:43PM -0700, Alexander Duyck wrote:
 >
-> Actually, Herbert, I think this lock_sock() is needed.
+> >Yeah, this mark handling via tunnel->parms.o_key looks not so good.
 > 
-> Otherwise nothing protects nlk_sk(sk)->portid, upon which we
-> perform a non-atomic test-and-set operation here.
-> 
-> If you remove the lock_sock(), two parallel bind/inserts are
-> possible on the same socket, potentially resulting in socket
-> state corruption.
+> So is there any recommendations for an alternative to make it so
+> that the ipsec endpoint is identified as needing to be encrypted or
+> decrypted?  If needed I could probably take a day or two to try and
+> address it as I still have a few other minor things I want to try
+> and fix such as the MTU configuration for vti/vti6.
 
-You're quite right.  I forgot about that case.
-
-However, the code as is still buggy because it fails to reset
-portid when our auto-allocated portid collides with somebody
-else, resulting in a bogus bind failure.
-
-I'll fix that up too in a new patch.
+I'd like to hear from Steffen as to whether there is anything
+in userspace that relies on the mark being used in this way by
+vti.  If not it should be easy to get rid of it and use some
+field that's not exposed to user-space.  If there is then this
+would be tricky to resolve.
 
 Cheers,
 -- 
