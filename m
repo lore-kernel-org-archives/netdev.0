@@ -1,63 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: rhashtable: Add cap on number of elements in hash table
-Date: Sat, 16 May 2015 18:09:46 -0400 (EDT)
-Message-ID: <20150516.180946.2182730749654333791.davem@davemloft.net>
-References: <20150515030623.GA14994@gondor.apana.org.au>
-	<20150514.234615.235930228362522399.davem@davemloft.net>
-	<20150515063057.GA16440@gondor.apana.org.au>
+From: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
+	instances
+Date: Sat, 16 May 2015 18:49:39 -0400
+Message-ID: <CAHC9VhQs6pxFC3dvZic5XzuJr1xdJZyPjXdBoipwY3OOkng0ng@mail.gmail.com>
+References: <cover.1429252659.git.rgb@redhat.com>
+	<20150515023221.GC965@madcap2.tricolour.ca>
+	<CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw@mail.gmail.com>
+	<9125391.7ZiCneo6Xn@sifl> <555711FA.50703@redhat.com>
+	<CAHC9VhRKSK9=9qPF3dgALS=x1g3LinNeQvuhNV5TvQ=D7Szuag@mail.gmail.com>
+	<87r3qgpol6.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org, kaber@trash.net,
-	tgraf@suug.ch, johannes.berg@intel.com
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38238 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759AbbEPWJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 18:09:48 -0400
-In-Reply-To: <20150515063057.GA16440@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Daniel J Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87r3qgpol6.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 15 May 2015 14:30:57 +0800
+On Sat, May 16, 2015 at 10:46 AM, Eric W. Biederman
+<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
+> Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org> writes:
+>> On Sat, May 16, 2015 at 5:46 AM, Daniel J Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>>> On 05/15/2015 05:05 PM, Paul Moore wrote:
+>>>> On Thursday, May 14, 2015 11:23:09 PM Andy Lutomirski wrote:
+>>>>> On Thu, May 14, 2015 at 7:32 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>>>>>> On 15/05/14, Paul Moore wrote:
+>>>>>>> * Look at our existing audit records to determine which records should
+>>>>>>> have
+>>>>>>> namespace and container ID tokens added.  We may only want to add the
+>>>>>>> additional fields in the case where the namespace/container ID tokens are
+>>>>>>> not the init namespace.
+>>>>>> If we have a record that ties a set of namespace IDs with a container
+>>>>>> ID, then I expect we only need to list the containerID along with auid
+>>>>>> and sessionID.
+>>>>> The problem here is that the kernel has no concept of a "container", and I
+>>>>> don't think it makes any sense to add one just for audit.  "Container" is a
+>>>>> marketing term used by some userspace tools.
+>>>>>
+>>>>> I can imagine that both audit could benefit from a concept of a
+>>>>> namespace *path* that understands nesting (e.g. root/2/5/1 or
+>>>>> something along those lines).  Mapping these to "containers" belongs
+>>>>> in userspace, I think.
+>>>> It might be helpful to climb up a few levels in this thread ...
+>>>>
+>>>> I think we all agree that containers are not a kernel construct.  I further
+>>>> believe that the kernel has no business generating container IDs, those should
+>>>> come from userspace and will likely be different depending on how you define
+>>>> "container".  However, what is less clear to me at this point is how the
+>>>> kernel should handle the setting, reporting, and general management of this
+>>>> container ID token.
+>>>>
+>>> Wouldn't the easiest thing be to just treat add a containerid to the
+>>> process context like auid.
+>>
+>> I believe so.  At least that was the point I was trying to get across
+>> when I first jumped into this thread.
+>
+> It sounds nice but containers are not just a per process construct.
+> Sometimes you might know anamespace but not which process instigated
+> action to happen on that namespace.
 
-> On Thu, May 14, 2015 at 11:46:15PM -0400, David Miller wrote:
->> 
->> We wouldn't fail these inserts in any other hash table in the kernel.
->> 
->> Would we stop making new TCP sockets if the TCP ehash chains are 3
->> entries deep?  4?  5?  The answer to all of those is of course no
->> for any hash chain length of N whatsoever.
-> 
-> I would agree with you if this was a fixed sized table.  If your
-> table grows with you (which is the whole point of rhashtable) then
-> we should never hit this until you run out of memory.
-> 
-> When you are running out of memory whether you fail when the table
-> growth fails or later when you can't even allocate an entry is
-> immaterial because failure is inevitable.
-> 
-> In my view everybody should be using rhashtable without a maximum
-> size.  The only place where it would make sense to have a maximum
-> size limit is if you also had a limit on the number of entries.
-> In which cas you might as well make that the limit on the hash table
-> size.
+>From an auditing perspective I'm not sure we will ever hit those
+cases; did you have a particular example in mind?
 
-Ok, agreed.
-
->> Should there perhaps be hard protections for _extremely_ long hash
->> chains?  Sure, I'm willing to entertain that kind of idea.  But I
->> would do so at the very far end of the spectrum.  To the point where
->> the hash table is degenerating into a linked list.
-> 
-> Do you have any suggestions of what such a limit should be?
-
-Good question.
-
-Obviously something like 50 or 100 is too much.
-
-Perhaps something between 5 and 10.
-
-That's just my gut instinct speaking.
+-- 
+paul moore
+www.paul-moore.com
