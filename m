@@ -1,46 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
- skb->dev in receive path
-Date: Sat, 16 May 2015 20:34:58 +0800
-Message-ID: <20150516123457.GB683@gondor.apana.org.au>
-References: <20150514032833.GF3853@gondor.apana.org.au>
- <55543D4F.8050306@gmail.com>
- <20150514062614.GA6320@gondor.apana.org.au>
- <20150515.123726.1298734930500737780.davem@redhat.com>
- <555645A3.6010509@gmail.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [V4 PATCH 3/6] pci: Generic function for setting up PCI device
+ DMA coherency
+Date: Sat, 16 May 2015 07:41:14 -0500
+Message-ID: <CAErSpo7NkeXvtFH7jDNeYm6HTZO_G=r77EuJ8vOL4WUKSpQxAQ@mail.gmail.com>
+References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com> <1431724994-21601-4-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@redhat.com>, alexander.h.duyck@redhat.com,
-	netdev@vger.kernel.org, steffen.klassert@secunet.com, tgraf@suug.ch
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:38537 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755287AbbEPMfC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 08:35:02 -0400
-Content-Disposition: inline
-In-Reply-To: <555645A3.6010509@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Rafael Wysocki <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>, thomas.lendacky@amd.com,
+	herbert@gondor.apana.org.au, David Miller <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Mark Salter <msalter@redhat.com>,
+	Hanjun Guo <hanjun.guo@linaro.org>,
+	Al Stone <al.stone@linaro.org>,
+	Grant Likely <grant.likely@linaro.org>, leo.duran@amd.com,
+	linux-arm <linux-arm-kernel@lists.infradead.org>,
+	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linaro-acpi@lists.linaro.org, netdev <netdev@vger.kernel.org>,
+	linux-crypto@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+	Murali Karicheri <m-karicheri2@ti.com>
+To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1431724994-21601-4-git-send-email-Suravee.Suthikulpanit@amd.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 15, 2015 at 12:14:43PM -0700, Alexander Duyck wrote:
->
-> >Yeah, this mark handling via tunnel->parms.o_key looks not so good.
-> 
-> So is there any recommendations for an alternative to make it so
-> that the ipsec endpoint is identified as needing to be encrypted or
-> decrypted?  If needed I could probably take a day or two to try and
-> address it as I still have a few other minor things I want to try
-> and fix such as the MTU configuration for vti/vti6.
+On Fri, May 15, 2015 at 4:23 PM, Suravee Suthikulpanit
+<Suravee.Suthikulpanit@amd.com> wrote:
+> This patch refactors of_pci_dma_configure() into a more generic
+> pci_dma_configure(), which can be reused by non-OF code.
+> Then, it adds support for setting up PCI device DMA coherency from
+> ACPI _CCA object that should normally be specified in the DSDT node
+> of its PCI host bridge..
 
-I'd like to hear from Steffen as to whether there is anything
-in userspace that relies on the mark being used in this way by
-vti.  If not it should be easy to get rid of it and use some
-field that's not exposed to user-space.  If there is then this
-would be tricky to resolve.
+>From the changelog, it sounds like you might be able to split this
+into two patches:
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1) Refactor of_pci_dma_configure(), with no functional change
+2) Add support for using _CCA
+
+If that's possible, please do so to make this easier to review.
+
+Bjorn
