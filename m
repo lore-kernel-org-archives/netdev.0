@@ -1,65 +1,143 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/4] ipvs: fix memory leak in ip_vs_ctl.c
-Date: Sat, 16 May 2015 20:47:15 +0200
-Message-ID: <1431802038-4502-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/4] conntrack: RFC5961 challenge ACK confuse conntrack LAST-ACK transition
+Date: Sat, 16 May 2015 20:47:17 +0200
+Message-ID: <1431802038-4502-4-git-send-email-pablo@netfilter.org>
 References: <1431802038-4502-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42826 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:42833 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751823AbbEPSmj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 May 2015 14:42:39 -0400
+	id S1751904AbbEPSmk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 May 2015 14:42:40 -0400
 In-Reply-To: <1431802038-4502-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tommi Rantala <tt.rantala@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Fix memory leak introduced in commit a0840e2e165a ("IPVS: netns,
-ip_vs_ctl local vars moved to ipvs struct."):
+In compliance with RFC5961, the network stack send challenge ACK in
+response to spurious SYN packets, since commit 0c228e833c88 ("tcp:
+Restore RFC5961-compliant behavior for SYN packets").
 
-unreferenced object 0xffff88005785b800 (size 2048):
-  comm "(-localed)", pid 1434, jiffies 4294755650 (age 1421.089s)
-  hex dump (first 32 bytes):
-    bb 89 0b 83 ff ff ff ff b0 78 f0 4e 00 88 ff ff  .........x.N....
-    04 00 00 00 a4 01 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff8262ea8e>] kmemleak_alloc+0x4e/0xb0
-    [<ffffffff811fba74>] __kmalloc_track_caller+0x244/0x430
-    [<ffffffff811b88a0>] kmemdup+0x20/0x50
-    [<ffffffff823276b7>] ip_vs_control_net_init+0x1f7/0x510
-    [<ffffffff8231d630>] __ip_vs_init+0x100/0x250
-    [<ffffffff822363a1>] ops_init+0x41/0x190
-    [<ffffffff82236583>] setup_net+0x93/0x150
-    [<ffffffff82236cc2>] copy_net_ns+0x82/0x140
-    [<ffffffff810ab13d>] create_new_namespaces+0xfd/0x190
-    [<ffffffff810ab49a>] unshare_nsproxy_namespaces+0x5a/0xc0
-    [<ffffffff810833e3>] SyS_unshare+0x173/0x310
-    [<ffffffff8265cbd7>] system_call_fastpath+0x12/0x6f
-    [<ffffffffffffffff>] 0xffffffffffffffff
+This pose a problem for netfilter conntrack in state LAST_ACK, because
+this challenge ACK is (falsely) seen as ACKing last FIN, causing a
+false state transition (into TIME_WAIT).
 
-Fixes: a0840e2e165a ("IPVS: netns, ip_vs_ctl local vars moved to ipvs struct.")
-Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+The challenge ACK is hard to distinguish from real last ACK.  Thus,
+solution introduce a flag that tracks the potential for seeing a
+challenge ACK, in case a SYN packet is let through and current state
+is LAST_ACK.
+
+When conntrack transition LAST_ACK to TIME_WAIT happens, this flag is
+used for determining if we are expecting a challenge ACK.
+
+Scapy based reproducer script avail here:
+ https://github.com/netoptimizer/network-testing/blob/master/scapy/tcp_hacks_3WHS_LAST_ACK.py
+
+Fixes: 0c228e833c88 ("tcp: Restore RFC5961-compliant behavior for SYN packets")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    3 +++
- 1 file changed, 3 insertions(+)
+ include/uapi/linux/netfilter/nf_conntrack_tcp.h |    3 ++
+ net/netfilter/nf_conntrack_proto_tcp.c          |   35 +++++++++++++++++++++--
+ 2 files changed, 35 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 4953267..285eae3 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3823,6 +3823,9 @@ static void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net)
- 	cancel_work_sync(&ipvs->defense_work.work);
- 	unregister_net_sysctl_table(ipvs->sysctl_hdr);
- 	ip_vs_stop_estimator(net, &ipvs->tot_stats);
-+
-+	if (!net_eq(net, &init_net))
-+		kfree(ipvs->sysctl_tbl);
- }
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_tcp.h b/include/uapi/linux/netfilter/nf_conntrack_tcp.h
+index 9993a42..ef9f80f 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_tcp.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_tcp.h
+@@ -42,6 +42,9 @@ enum tcp_conntrack {
+ /* The field td_maxack has been set */
+ #define IP_CT_TCP_FLAG_MAXACK_SET		0x20
  
- #else
++/* Marks possibility for expected RFC5961 challenge ACK */
++#define IP_CT_EXP_CHALLENGE_ACK 		0x40
++
+ struct nf_ct_tcp_flags {
+ 	__u8 flags;
+ 	__u8 mask;
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 5caa0c4..70383de 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -202,7 +202,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
+  *	sES -> sES	:-)
+  *	sFW -> sCW	Normal close request answered by ACK.
+  *	sCW -> sCW
+- *	sLA -> sTW	Last ACK detected.
++ *	sLA -> sTW	Last ACK detected (RFC5961 challenged)
+  *	sTW -> sTW	Retransmitted last ACK. Remain in the same state.
+  *	sCL -> sCL
+  */
+@@ -261,7 +261,7 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
+  *	sES -> sES	:-)
+  *	sFW -> sCW	Normal close request answered by ACK.
+  *	sCW -> sCW
+- *	sLA -> sTW	Last ACK detected.
++ *	sLA -> sTW	Last ACK detected (RFC5961 challenged)
+  *	sTW -> sTW	Retransmitted last ACK.
+  *	sCL -> sCL
+  */
+@@ -906,6 +906,7 @@ static int tcp_packet(struct nf_conn *ct,
+ 					1 : ct->proto.tcp.last_win;
+ 			ct->proto.tcp.seen[ct->proto.tcp.last_dir].td_scale =
+ 				ct->proto.tcp.last_wscale;
++			ct->proto.tcp.last_flags &= ~IP_CT_EXP_CHALLENGE_ACK;
+ 			ct->proto.tcp.seen[ct->proto.tcp.last_dir].flags =
+ 				ct->proto.tcp.last_flags;
+ 			memset(&ct->proto.tcp.seen[dir], 0,
+@@ -923,7 +924,9 @@ static int tcp_packet(struct nf_conn *ct,
+ 		 * may be in sync but we are not. In that case, we annotate
+ 		 * the TCP options and let the packet go through. If it is a
+ 		 * valid SYN packet, the server will reply with a SYN/ACK, and
+-		 * then we'll get in sync. Otherwise, the server ignores it. */
++		 * then we'll get in sync. Otherwise, the server potentially
++		 * responds with a challenge ACK if implementing RFC5961.
++		 */
+ 		if (index == TCP_SYN_SET && dir == IP_CT_DIR_ORIGINAL) {
+ 			struct ip_ct_tcp_state seen = {};
+ 
+@@ -939,6 +942,13 @@ static int tcp_packet(struct nf_conn *ct,
+ 				ct->proto.tcp.last_flags |=
+ 					IP_CT_TCP_FLAG_SACK_PERM;
+ 			}
++			/* Mark the potential for RFC5961 challenge ACK,
++			 * this pose a special problem for LAST_ACK state
++			 * as ACK is intrepretated as ACKing last FIN.
++			 */
++			if (old_state == TCP_CONNTRACK_LAST_ACK)
++				ct->proto.tcp.last_flags |=
++					IP_CT_EXP_CHALLENGE_ACK;
+ 		}
+ 		spin_unlock_bh(&ct->lock);
+ 		if (LOG_INVALID(net, IPPROTO_TCP))
+@@ -970,6 +980,25 @@ static int tcp_packet(struct nf_conn *ct,
+ 			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
+ 				  "nf_ct_tcp: invalid state ");
+ 		return -NF_ACCEPT;
++	case TCP_CONNTRACK_TIME_WAIT:
++		/* RFC5961 compliance cause stack to send "challenge-ACK"
++		 * e.g. in response to spurious SYNs.  Conntrack MUST
++		 * not believe this ACK is acking last FIN.
++		 */
++		if (old_state == TCP_CONNTRACK_LAST_ACK &&
++		    index == TCP_ACK_SET &&
++		    ct->proto.tcp.last_dir != dir &&
++		    ct->proto.tcp.last_index == TCP_SYN_SET &&
++		    (ct->proto.tcp.last_flags & IP_CT_EXP_CHALLENGE_ACK)) {
++			/* Detected RFC5961 challenge ACK */
++			ct->proto.tcp.last_flags &= ~IP_CT_EXP_CHALLENGE_ACK;
++			spin_unlock_bh(&ct->lock);
++			if (LOG_INVALID(net, IPPROTO_TCP))
++				nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
++				      "nf_ct_tcp: challenge-ACK ignored ");
++			return NF_ACCEPT; /* Don't change state */
++		}
++		break;
+ 	case TCP_CONNTRACK_CLOSE:
+ 		if (index == TCP_RST_SET
+ 		    && (ct->proto.tcp.seen[!dir].flags & IP_CT_TCP_FLAG_MAXACK_SET)
 -- 
 1.7.10.4
