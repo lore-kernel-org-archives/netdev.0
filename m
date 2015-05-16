@@ -1,89 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2] net: phy: Add state machine state transitions debug prints
-Date: Sat, 16 May 2015 10:17:56 -0700
-Message-ID: <1431796676-11438-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 2/4] netfilter: avoid build error if TPROXY/SOCKET=y && NF_DEFRAG_IPV6=m
+Date: Sat, 16 May 2015 20:47:16 +0200
+Message-ID: <1431802038-4502-3-git-send-email-pablo@netfilter.org>
+References: <1431802038-4502-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:34251 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbbEPRSX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 13:18:23 -0400
-Received: by obfe9 with SMTP id e9so98062286obf.1
-        for <netdev@vger.kernel.org>; Sat, 16 May 2015 10:18:23 -0700 (PDT)
+Received: from mail.us.es ([193.147.175.20]:42827 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751818AbbEPSmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 May 2015 14:42:39 -0400
+In-Reply-To: <1431802038-4502-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It can be useful to debug the PHY state machine, add dynamic debug
-prints of the old and new PHY devices state under a friendly format.
+From: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+With TPROXY=y but DEFRAG_IPV6=m we get build failure:
+
+net/built-in.o: In function `tproxy_tg_init':
+net/netfilter/xt_TPROXY.c:588: undefined reference to `nf_defrag_ipv6_enable'
+
+If DEFRAG_IPV6 is modular, TPROXY must be too.
+(or both must be builtin).
+
+This enforces =m for both.
+
+Reported-and-tested-by: Liu Hua <liusdu@126.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
-Changes in v2:
-- keep everything in drivers/net/phy/phy.c as suggested by David
+ net/netfilter/Kconfig |    2 ++
+ 1 file changed, 2 insertions(+)
 
- drivers/net/phy/phy.c | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 52cd8db..1457ecf 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -58,6 +58,31 @@ static const char *phy_speed_to_str(int speed)
- 	}
- }
- 
-+#define PHY_STATE_STR(_state)			\
-+	case PHY_##_state:			\
-+		return __stringify(_state);	\
-+
-+static const char *phy_state_to_str(enum phy_state st)
-+{
-+	switch (st) {
-+	PHY_STATE_STR(DOWN)
-+	PHY_STATE_STR(STARTING)
-+	PHY_STATE_STR(READY)
-+	PHY_STATE_STR(PENDING)
-+	PHY_STATE_STR(UP)
-+	PHY_STATE_STR(AN)
-+	PHY_STATE_STR(RUNNING)
-+	PHY_STATE_STR(NOLINK)
-+	PHY_STATE_STR(FORCING)
-+	PHY_STATE_STR(CHANGELINK)
-+	PHY_STATE_STR(HALTED)
-+	PHY_STATE_STR(RESUMING)
-+	}
-+
-+	return NULL;
-+}
-+
-+
- /**
-  * phy_print_status - Convenience function to print out the current phy status
-  * @phydev: the phy_device struct
-@@ -770,10 +795,13 @@ void phy_state_machine(struct work_struct *work)
- 	struct phy_device *phydev =
- 			container_of(dwork, struct phy_device, state_queue);
- 	bool needs_aneg = false, do_suspend = false, do_resume = false;
-+	enum phy_state old_state;
- 	int err = 0;
- 
- 	mutex_lock(&phydev->lock);
- 
-+	old_state = phydev->state;
-+
- 	if (phydev->drv->link_change_notify)
- 		phydev->drv->link_change_notify(phydev);
- 
-@@ -949,6 +977,9 @@ void phy_state_machine(struct work_struct *work)
- 	if (err < 0)
- 		phy_error(phydev);
- 
-+	dev_dbg(&phydev->dev, "PHY state change %s -> %s\n",
-+		phy_state_to_str(old_state), phy_state_to_str(phydev->state));
-+
- 	queue_delayed_work(system_power_efficient_wq, &phydev->state_queue,
- 			   PHY_STATE_TIME * HZ);
- }
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index f70e34a..a0f3e6a3 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -863,6 +863,7 @@ config NETFILTER_XT_TARGET_TPROXY
+ 	depends on NETFILTER_XTABLES
+ 	depends on NETFILTER_ADVANCED
+ 	depends on (IPV6 || IPV6=n)
++	depends on (IP6_NF_IPTABLES || IP6_NF_IPTABLES=n)
+ 	depends on IP_NF_MANGLE
+ 	select NF_DEFRAG_IPV4
+ 	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
+@@ -1356,6 +1357,7 @@ config NETFILTER_XT_MATCH_SOCKET
+ 	depends on NETFILTER_ADVANCED
+ 	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	depends on (IPV6 || IPV6=n)
++	depends on (IP6_NF_IPTABLES || IP6_NF_IPTABLES=n)
+ 	select NF_DEFRAG_IPV4
+ 	select NF_DEFRAG_IPV6 if IP6_NF_IPTABLES
+ 	help
 -- 
-2.1.4
+1.7.10.4
