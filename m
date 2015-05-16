@@ -1,93 +1,189 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace instances
-Date: Sat, 16 May 2015 09:46:29 -0500
-Message-ID: <87r3qgpol6.fsf@x220.int.ebiederm.org>
-References: <cover.1429252659.git.rgb@redhat.com>
-	<20150515023221.GC965@madcap2.tricolour.ca>
-	<CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw@mail.gmail.com>
-	<9125391.7ZiCneo6Xn@sifl> <555711FA.50703@redhat.com>
-	<CAHC9VhRKSK9=9qPF3dgALS=x1g3LinNeQvuhNV5TvQ=D7Szuag@mail.gmail.com>
+From: "Suthikulpanit, Suravee" <Suravee.Suthikulpanit@amd.com>
+Subject: Re: [V4 PATCH 3/6] pci: Generic function for setting up PCI device
+ DMA coherency
+Date: Sat, 16 May 2015 15:12:05 +0000
+Message-ID: <D17CC7D6.1AFD3%suravee.suthikulpanit@amd.com>
+References: <3954735.qeaTp8qOcM@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel J Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	"Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-	Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>
-To: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHC9VhRKSK9=9qPF3dgALS=x1g3LinNeQvuhNV5TvQ=D7Szuag-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Paul Moore's message of "Sat, 16 May 2015 08:16:55 -0400")
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "lenb@kernel.org" <lenb@kernel.org>,
+	"catalin.marinas@arm.com" <catalin.marinas@arm.com>,
+	"will.deacon@arm.com" <will.deacon@arm.com>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"Lendacky, Thomas" <Thomas.Lendacky@amd.com>,
+	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"msalter@redhat.com" <msalter@redhat.com>,
+	"hanjun.guo@linaro.org" <hanjun.guo@linaro.org>,
+	"al.stone@linaro.org" <al.stone@linaro.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"Duran, Leo" <leo.duran@amd.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linaro-acpi@lists.linaro.org" <linaro-acpi@lists.linaro.org>,
+	"netdev@vger.kernel.org"
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <3954735.qeaTp8qOcM@vostro.rjw.lan>
+Content-Language: en-US
+Content-ID: <F556AF9FBCA1C14884A5B633B9A9723A@amd.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org> writes:
+Hi Rafael,
 
-> On Sat, May 16, 2015 at 5:46 AM, Daniel J Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->> On 05/15/2015 05:05 PM, Paul Moore wrote:
->>> On Thursday, May 14, 2015 11:23:09 PM Andy Lutomirski wrote:
->>>> On Thu, May 14, 2015 at 7:32 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->>>>> On 15/05/14, Paul Moore wrote:
->>>>>> * Look at our existing audit records to determine which records should
->>>>>> have
->>>>>> namespace and container ID tokens added.  We may only want to add the
->>>>>> additional fields in the case where the namespace/container ID tokens are
->>>>>> not the init namespace.
->>>>> If we have a record that ties a set of namespace IDs with a container
->>>>> ID, then I expect we only need to list the containerID along with auid
->>>>> and sessionID.
->>>> The problem here is that the kernel has no concept of a "container", and I
->>>> don't think it makes any sense to add one just for audit.  "Container" is a
->>>> marketing term used by some userspace tools.
->>>>
->>>> I can imagine that both audit could benefit from a concept of a
->>>> namespace *path* that understands nesting (e.g. root/2/5/1 or
->>>> something along those lines).  Mapping these to "containers" belongs
->>>> in userspace, I think.
->>> It might be helpful to climb up a few levels in this thread ...
->>>
->>> I think we all agree that containers are not a kernel construct.  I further
->>> believe that the kernel has no business generating container IDs, those should
->>> come from userspace and will likely be different depending on how you define
->>> "container".  However, what is less clear to me at this point is how the
->>> kernel should handle the setting, reporting, and general management of this
->>> container ID token.
->>>
->> Wouldn't the easiest thing be to just treat add a containerid to the
->> process context like auid.
+On 5/15/15, 18:59, "Rafael J. Wysocki" <rjw@rjwysocki.net> wrote:
+
+>On Friday, May 15, 2015 04:23:11 PM Suravee Suthikulpanit wrote:
+>> This patch refactors of_pci_dma_configure() into a more generic
+>> pci_dma_configure(), which can be reused by non-OF code.
+>> Then, it adds support for setting up PCI device DMA coherency from
+>> ACPI _CCA object that should normally be specified in the DSDT node
+>> of its PCI host bridge..
+>>=20
+>> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+>> CC: Bjorn Helgaas <bhelgaas@google.com>
+>> CC: Catalin Marinas <catalin.marinas@arm.com>
+>> CC: Rob Herring <robh+dt@kernel.org>
+>> CC: Will Deacon <will.deacon@arm.com>
+>> CC: Rafael J. Wysocki <rjw@rjwysocki.net>
+>> CC: Murali Karicheri <m-karicheri2@ti.com>
+>> ---
+>>  drivers/of/of_pci.c    | 20 --------------------
+>>  drivers/pci/probe.c    | 35 +++++++++++++++++++++++++++++++++--
+>>  include/linux/of_pci.h |  3 ---
+>>  3 files changed, 33 insertions(+), 25 deletions(-)
+>>=20
+>> diff --git a/drivers/of/of_pci.c b/drivers/of/of_pci.c
+>> index 5751dc5..b66ee4e 100644
+>> --- a/drivers/of/of_pci.c
+>> +++ b/drivers/of/of_pci.c
+>> @@ -117,26 +117,6 @@ int of_get_pci_domain_nr(struct device_node *no=
+de)
+>>  }
+>>  EXPORT_SYMBOL_GPL(of_get_pci_domain_nr);
+>> =20
+>> -/**
+>> - * of_pci_dma_configure - Setup DMA configuration
+>> - * @dev: ptr to pci_dev struct of the PCI device
+>> - *
+>> - * Function to update PCI devices's DMA configuration using the sam=
+e
+>> - * info from the OF node of host bridge's parent (if any).
+>> - */
+>> -void of_pci_dma_configure(struct pci_dev *pci_dev)
+>> -{
+>> -	struct device *dev =3D &pci_dev->dev;
+>> -	struct device *bridge =3D pci_get_host_bridge_device(pci_dev);
+>> -
+>> -	if (!bridge->parent)
+>> -		return;
+>> -
+>> -	of_dma_configure(dev, bridge->parent->of_node);
+>> -	pci_put_host_bridge_device(bridge);
+>> -}
+>> -EXPORT_SYMBOL_GPL(of_pci_dma_configure);
+>> -
+>>  #if defined(CONFIG_OF_ADDRESS)
+>>  /**
+>>   * of_pci_get_host_bridge_resources - Parse PCI host bridge resourc=
+es
+>>from DT
+>> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+>> index 6675a7a..3c6f2e5 100644
+>> --- a/drivers/pci/probe.c
+>> +++ b/drivers/pci/probe.c
+>> @@ -6,12 +6,14 @@
+>>  #include <linux/delay.h>
+>>  #include <linux/init.h>
+>>  #include <linux/pci.h>
+>> -#include <linux/of_pci.h>
+>> +#include <linux/of_device.h>
+>>  #include <linux/pci_hotplug.h>
+>>  #include <linux/slab.h>
+>>  #include <linux/module.h>
+>>  #include <linux/cpumask.h>
+>>  #include <linux/pci-aspm.h>
+>> +#include <linux/acpi.h>
+>> +#include <linux/property.h>
+>>  #include <asm-generic/pci-bridge.h>
+>>  #include "pci.h"
+>> =20
+>> @@ -1508,6 +1510,35 @@ static void pci_init_capabilities(struct pci_=
+dev
+>>*dev)
+>>  	pci_enable_acs(dev);
+>>  }
+>> =20
+>> +/**
+>> + * pci_dma_configure - Setup DMA configuration
+>> + * @pci_dev: ptr to pci_dev struct of the PCI device
+>> + *
+>> + * Function to update PCI devices's DMA configuration using the sam=
+e
+>> + * info from the OF node or ACPI node of host bridge's parent (if a=
+ny).
+>> + */
+>> +static void pci_dma_configure(struct pci_dev *pci_dev)
+>> +{
+>> +	struct device *dev =3D &pci_dev->dev;
+>> +	struct device *bridge =3D pci_get_host_bridge_device(pci_dev);
+>> +	struct device *host =3D bridge->parent;
+>> +	struct acpi_device *adev;
+>> +
+>> +	if (!host)
+>> +		return;
+>> +
+>> +	if (acpi_disabled) {
+>> +		of_dma_configure(dev, host->of_node);
 >
-> I believe so.  At least that was the point I was trying to get across
-> when I first jumped into this thread.
-
-It sounds nice but containers are not just a per process construct.
-Sometimes you might know anamespace but not which process instigated
-action to happen on that namespace.
-
->> Then make it a privileged operation to set it.  Then tools that care about
->> auditing like docker can set the ID
->> and remove the Capability from it sub processes if it cares.  All
->> processes adopt parent processes containerid.
->> Now containers can be audited and as long as userspace is written
->> correctly nested containers can either override the containerid or not
->> depending on what the audit rules are.
+>I'd rather do
 >
-> This part I'm still less certain on.  I agree that setting the
-> container ID should be privileged in some sense, but the kernel
-> shouldn't *require* privilege to create a new container (however the
-> user chooses to define it).  Simply requiring privilege to set the
-> container ID and failing silently may be sufficient.
+>	if (IS_ENABLED(CONFIG_OF) && host->of_node) {
+>		of_dma_configure(dev, host->of_node);
+>	} else {
+>		struct acpi_device *adev =3D ACPI_COMPANION(host);
+>
+>		if (adev && acpi_dma_is_supported(adev)) {
 
-My hope is as things mature fewer and fewer container things will need
-any special privilege to create.
+Ok, I=B9ll update this.
 
-I think it needs to start with a clear definition of what is wanted and
-then working backwards through which messages in which contexts you want
-to have your magic bits.
+>
+>> +	} else if (has_acpi_companion(host)) {
+>> +		adev =3D acpi_node(host->fwnode);
+>> +		if (acpi_dma_is_supported(adev))
+>> +			arch_setup_dma_ops(dev, 0, 0, NULL,
+>> +					   acpi_dma_is_coherent(adev));
+>> +	}
+>> +
+>> +	pci_put_host_bridge_device(bridge);
+>> +}
+>> +
+>>  void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
+>>  {
+>>  	int ret;
+>> @@ -1521,7 +1552,7 @@ void pci_device_add(struct pci_dev *dev, struc=
+t
+>>pci_bus *bus)
+>>  	dev->dev.dma_mask =3D &dev->dma_mask;
+>>  	dev->dev.dma_parms =3D &dev->dma_parms;
+>>  	dev->dev.coherent_dma_mask =3D 0xffffffffull;
+>> -	of_pci_dma_configure(dev);
+>> +	pci_dma_configure(dev);
+>
+>Also I'm not quite sure if that's actually OK.
+>
+>We should be handling the DMA setup on x86 in the ACPI case already
+>without it.
+>Or is this a NOP on x86?
 
-Eric
+You are correct. x86 doesn=B9t implement the arch_setup_dma_ops().
+Therefore, this is a NOP on x86.
+
+Thanks,
+
+Suravee
