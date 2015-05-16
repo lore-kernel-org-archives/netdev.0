@@ -1,74 +1,47 @@
-From: Daniel J Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
-	instances
-Date: Sat, 16 May 2015 05:46:34 -0400
-Message-ID: <555711FA.50703@redhat.com>
-References: <cover.1429252659.git.rgb@redhat.com>	<20150515023221.GC965@madcap2.tricolour.ca>	<CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw@mail.gmail.com>
-	<9125391.7ZiCneo6Xn@sifl>
+From: "Charles (Chas) Williams" <3chas3@gmail.com>
+Subject: Re: [PATCH 1/4] ozwpan: Use proper check to prevent heap overflow
+Date: Sat, 16 May 2015 06:20:15 -0400
+Message-ID: <1431771615.1844.4.camel@gmail.com>
+References: <1431542014-3239-1-git-send-email-Jason@zx2c4.com>
+	 <1431542014-3239-2-git-send-email-Jason@zx2c4.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1CB36893@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>
-To: Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <9125391.7ZiCneo6Xn@sifl>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
+	"shigekatsu.tateno@atmel.com" <shigekatsu.tateno@atmel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"oss-security@lists.openwall.com" <oss-security@lists.openwall.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB36893@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2015-05-15 at 15:02 +0000, David Laight wrote:
+> From: Jason A. Donenfeld
+> > Sent: 13 May 2015 19:34
+> > Since elt->length is a u8, we can make this variable a u8. Then we can
+> > do proper bounds checking more easily. Without this, a potentially
+> > negative value is passed to the memcpy inside oz_hcd_get_desc_cnf,
+> > resulting in a remotely exploitable heap overflow with network
+> > supplied data.
+> ...
+> > diff --git a/drivers/staging/ozwpan/ozusbsvc1.c b/drivers/staging/ozwpan/ozusbsvc1.c
+> > index d434d8c..cd6c63e 100644
+> > --- a/drivers/staging/ozwpan/ozusbsvc1.c
+> > +++ b/drivers/staging/ozwpan/ozusbsvc1.c
+> > @@ -390,8 +390,10 @@ void oz_usb_rx(struct oz_pd *pd, struct oz_elt *elt)
+> >  	case OZ_GET_DESC_RSP: {
+> >  			struct oz_get_desc_rsp *body =
+> >  				(struct oz_get_desc_rsp *)usb_hdr;
+> > -			int data_len = elt->length -
+> > +			u8 data_len = elt->length -
+> >  					sizeof(struct oz_get_desc_rsp) + 1;
+> > +			if (data_len > elt->length)
+> > +				break;
 
+This check already seems bogus?  It's really:
 
-On 05/15/2015 05:05 PM, Paul Moore wrote:
-> On Thursday, May 14, 2015 11:23:09 PM Andy Lutomirski wrote:
->> On Thu, May 14, 2015 at 7:32 PM, Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
->>> On 15/05/14, Paul Moore wrote:
->>>> * Look at our existing audit records to determine which records should
->>>> have
->>>> namespace and container ID tokens added.  We may only want to add the
->>>> additional fields in the case where the namespace/container ID tokens are
->>>> not the init namespace.
->>> If we have a record that ties a set of namespace IDs with a container
->>> ID, then I expect we only need to list the containerID along with auid
->>> and sessionID.
->> The problem here is that the kernel has no concept of a "container", and I
->> don't think it makes any sense to add one just for audit.  "Container" is a
->> marketing term used by some userspace tools.
->>
->> I can imagine that both audit could benefit from a concept of a
->> namespace *path* that understands nesting (e.g. root/2/5/1 or
->> something along those lines).  Mapping these to "containers" belongs
->> in userspace, I think.
-> It might be helpful to climb up a few levels in this thread ...
->
-> I think we all agree that containers are not a kernel construct.  I further 
-> believe that the kernel has no business generating container IDs, those should 
-> come from userspace and will likely be different depending on how you define 
-> "container".  However, what is less clear to me at this point is how the 
-> kernel should handle the setting, reporting, and general management of this 
-> container ID token.
->
-Wouldn't the easiest thing be to just treat add a containerid to the
-process context like auid.  Then
-make it a privileged operation to set it.  Then tools that care about
-auditing like docker can set the ID
-and remove the Capability from it sub processes if it cares.  All
-processes adopt parent processes containerid.
-Now containers can be audited and as long as userspace is written
-correctly nested containers can either override the containerid or not
-depending on what the audit rules are.
-
-No special handling inside of namespaces.
+	if (sizeof(struct oz_get_desc_rsp) - 1 < 0)
