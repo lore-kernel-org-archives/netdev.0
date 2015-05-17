@@ -1,94 +1,61 @@
-From: fruggeri@aristanetworks.com (Francesco Ruggeri)
-Subject: [PATCH 1/1] netfilter: Fix kernel panic in nfulnl_rcv_nl_event
-Date: Sun, 17 May 2015 14:30:31 -0700
-Message-ID: <20150517213031.4ABD2480853@fruggeri-Arora18.sjc.aristanetworks.com>
+From: roopa <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
+ on failure to program fib entry in hardware
+Date: Sun, 17 May 2015 16:41:58 -0700
+Message-ID: <55592746.6020902@cumulusnetworks.com>
+References: <1431834402-4031-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gaofeng@cn.fujitsu.com, dvlasenk@redhat.com,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	pablo@netfilter.org, fruggeri@arista.com
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, sfeldma@gmail.com, john.fastabend@gmail.com,
+	jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:36022 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770AbbEQXmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2015 19:42:00 -0400
+Received: by pdfh10 with SMTP id h10so122993773pdf.3
+        for <netdev@vger.kernel.org>; Sun, 17 May 2015 16:42:00 -0700 (PDT)
+In-Reply-To: <1431834402-4031-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-nfnetlink_log_init registers netlink callback nfulnl_rcv_nl_event before
-registering the pernet_subsys, but the callback relies on data structures
-allocated by pernet init functions.
-When nfnetlink_log is loaded, if a netlink message is received after
-the netlink callback is registered but before the pernet_subsys is
-registered, the kernel will panic in the sequence
-
-nfulnl_rcv_nl_event
-  nfnl_log_pernet
-    net_generic
-      BUG_ON(id == 0)  where id is nfnl_log_net_id.
-
-The panic can be easily reproduced in 4.0.3 by:
-
-while true ;do modprobe nfnetlink_log ; rmmod nfnetlink_log ; done &
-while true ;do ip netns add dummy ; ip netns del dummy ; done &
-
-This patch moves register_pernet_subsys to earlier in nfnetlink_log_init.
-
-Notice that the BUG_ON hit in 4.0.3 was recently removed in 2591ffd308
-["netns: remove BUG_ONs from net_generic()"].
-
-Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
----
- net/netfilter/nfnetlink_log.c | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
-
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 3ad9126..536ced5 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -1075,6 +1075,12 @@ static int __init nfnetlink_log_init(void)
- {
- 	int status = -ENOMEM;
- 
-+	status = register_pernet_subsys(&nfnl_log_net_ops);
-+	if (status < 0) {
-+		pr_err("failed to register pernet ops\n");
-+		goto out;
-+	}
-+
- 	netlink_register_notifier(&nfulnl_rtnl_notifier);
- 	status = nfnetlink_subsys_register(&nfulnl_subsys);
- 	if (status < 0) {
-@@ -1088,28 +1094,23 @@ static int __init nfnetlink_log_init(void)
- 		goto cleanup_subsys;
- 	}
- 
--	status = register_pernet_subsys(&nfnl_log_net_ops);
--	if (status < 0) {
--		pr_err("failed to register pernet ops\n");
--		goto cleanup_logger;
--	}
- 	return status;
- 
--cleanup_logger:
--	nf_log_unregister(&nfulnl_logger);
- cleanup_subsys:
- 	nfnetlink_subsys_unregister(&nfulnl_subsys);
- cleanup_netlink_notifier:
- 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
-+	unregister_pernet_subsys(&nfnl_log_net_ops);
-+out:
- 	return status;
- }
- 
- static void __exit nfnetlink_log_fini(void)
- {
--	unregister_pernet_subsys(&nfnl_log_net_ops);
- 	nf_log_unregister(&nfulnl_logger);
- 	nfnetlink_subsys_unregister(&nfulnl_subsys);
- 	netlink_unregister_notifier(&nfulnl_rtnl_notifier);
-+	unregister_pernet_subsys(&nfnl_log_net_ops);
- }
- 
- MODULE_DESCRIPTION("netfilter userspace logging");
--- 
-1.8.1.4
-
+On 5/16/15, 8:46 PM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This patch removes the calls to netdev_switch_fib_ipv4_abort when
+> there is an error in programming fib entry in hardware.
+>
+> On most systems where you can offload routes to hardware,
+> doing routing in software is not an option (the cpu limitations
+> make routing impossible in software).
+>
+> I understand that this was added to keep the first fib offload support
+> simple.
+>
+> As discussed in the RFC patch, available options:
+> a) Fail fib entry add on hardware offload failure on switch devices, and
+> return appropriate error to the user by default (this patch)
+> b) make the behaviour in a) conditional on a global flag/sysctl (a per fib
+> entry flag will not work because by default user/routing-daemons dont care
+> if they are hardware offloaded)
+> c) for users/routing-daemons interested in controlling hardware
+> offload behaviour there is always the per fib entry flag RTNH_F_OFFLOAD
+>
+> Considering the characteristics of the systems that support fib offloads,
+> this patch implements a). Also making a) the default will enable easier/faster
+> migration of existing routing apps to switch devices.
+>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> RFC to v1:
+>    - rebase to net
+>    - remove fib_offload_disabled flag and all associated code as suggested by
+>      scott feldman
+>
+> (This patch is currently against net. If there is any reason to move it to
+> net-next, I can respin)
+>
+>
+pls ignore, i will be resending v2 with missing switchdev.h cleanups.
