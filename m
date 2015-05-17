@@ -1,78 +1,19 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V4 08/12] net/mlx5_core: Modify CQ moderation parameters
-Date: Sun, 17 May 2015 16:02:19 +0300
-Message-ID: <1431867743-13149-9-git-send-email-amirv@mellanox.com>
-References: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Rana Shahout <ranas@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: "Francis Dube" <test@ctl.uniroma1.it>
+Subject: Dear sir/ Madam
+Date: Sun, 17 May 2015 07:30:32 -0700
+Message-ID: <1431873062104121145@safetynet.dicea.uniroma1.it>
+Reply-To: francaisdube001@aol.co.uk
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <test@ctl.uniroma1.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:40738 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753024AbbEQNEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 May 2015 09:04:08 -0400
-In-Reply-To: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
+Received: from SAFETYNET.dicea.uniroma1.it ([151.100.152.12]:59112 "EHLO
+	mail.ctl.uniroma1.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174AbbEQRCX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2015 13:02:23 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rana Shahout <ranas@mellanox.com>
-
-Introduce mlx5_core_modify_cq_moderation() to be used by the netdev, to
-set hardware coalescing.
-
-Signed-off-by: Rana Shahout <ranas@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/cq.c | 18 ++++++++++++++++++
- include/linux/mlx5/cq.h                      |  3 +++
- 2 files changed, 21 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cq.c b/drivers/net/ethernet/mellanox/mlx5/core/cq.c
-index eb0cf81..04ab7e4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cq.c
-@@ -219,6 +219,24 @@ int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
- }
- EXPORT_SYMBOL(mlx5_core_modify_cq);
- 
-+int mlx5_core_modify_cq_moderation(struct mlx5_core_dev *dev,
-+				   struct mlx5_core_cq *cq,
-+				   u16 cq_period,
-+				   u16 cq_max_count)
-+{
-+	struct mlx5_modify_cq_mbox_in in;
-+
-+	memset(&in, 0, sizeof(in));
-+
-+	in.cqn              = cpu_to_be32(cq->cqn);
-+	in.ctx.cq_period    = cpu_to_be16(cq_period);
-+	in.ctx.cq_max_count = cpu_to_be16(cq_max_count);
-+	in.field_select     = cpu_to_be32(MLX5_CQ_MODIFY_PERIOD |
-+					  MLX5_CQ_MODIFY_COUNT);
-+
-+	return mlx5_core_modify_cq(dev, cq, &in, sizeof(in));
-+}
-+
- int mlx5_init_cq_table(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_cq_table *table = &dev->priv.cq_table;
-diff --git a/include/linux/mlx5/cq.h b/include/linux/mlx5/cq.h
-index 2695ced..abc4767 100644
---- a/include/linux/mlx5/cq.h
-+++ b/include/linux/mlx5/cq.h
-@@ -169,6 +169,9 @@ int mlx5_core_query_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
- 		       struct mlx5_query_cq_mbox_out *out);
- int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
- 			struct mlx5_modify_cq_mbox_in *in, int in_sz);
-+int mlx5_core_modify_cq_moderation(struct mlx5_core_dev *dev,
-+				   struct mlx5_core_cq *cq, u16 cq_period,
-+				   u16 cq_max_count);
- int mlx5_debug_cq_add(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
- void mlx5_debug_cq_remove(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
- 
--- 
-1.9.3
+I have business deal woth $9.5M Contact me for details
