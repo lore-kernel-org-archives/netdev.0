@@ -1,7 +1,7 @@
 From: Haggai Eran <haggaie@mellanox.com>
-Subject: [PATCH v4 for-next 02/12] IB/addr: Pass network namespace as a parameter
-Date: Sun, 17 May 2015 08:50:58 +0300
-Message-ID: <1431841868-28063-3-git-send-email-haggaie@mellanox.com>
+Subject: [PATCH v4 for-next 03/12] IB/core: Find the network namespace matching connection parameters
+Date: Sun, 17 May 2015 08:50:59 +0300
+Message-ID: <1431841868-28063-4-git-send-email-haggaie@mellanox.com>
 References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
 	Liran Liss <liranl@mellanox.com>,
@@ -11,183 +11,165 @@ Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
 	Haggai Eran <haggaie@mellanox.com>
 To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:34444 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:34449 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751213AbbEQFve (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 May 2015 01:51:34 -0400
+	id S1751282AbbEQFvo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 May 2015 01:51:44 -0400
 In-Reply-To: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guy Shapiro <guysh@mellanox.com>
+From: Yotam Kenneth <yotamke@mellanox.com>
 
-Add network namespace support to the ib_addr module. For that, all the
-address resolution and matching should be done using the appropriate
-namespace instead of init_net.
+In the case of IPoIB, and maybe in other cases, the network device is
+managed by an upper-layer protocol (ULP). In order to expose this
+network device to other users of the IB device, let ULPs implement
+a callback that returns network device according to connection parameters.
 
-This is achieved by:
+The IB device and port, together with the P_Key and the IP address should
+be enough to uniquely identify the ULP net device.
 
-1. Adding an explicit network namespace argument to exported function that
-   require a namespace.
-2. Saving the namespace in the rdma_addr_client structure.
-3. Using it when calling networking functions.
+This function is passed to ib_core as part of the ib_client
+registration.
 
-In order to preserve the behavior of calling modules, &init_net is
-passed as the parameter in calls from other modules. This is modified as
-namespace support is added on more levels.
+Using this functionality, add a way to get the network namespace
+corresponding to a work completion. This is needed so that responses to CM
+requests can be sent from the same network namespace as the request.
 
 Signed-off-by: Haggai Eran <haggaie@mellanox.com>
 Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
 Signed-off-by: Shachar Raindel <raindel@mellanox.com>
 Signed-off-by: Guy Shapiro <guysh@mellanox.com>
 ---
- drivers/infiniband/core/addr.c | 18 ++++++++++--------
- drivers/infiniband/core/cma.c  |  1 +
- include/rdma/ib_addr.h         | 16 +++++++++++++++-
- 3 files changed, 26 insertions(+), 9 deletions(-)
+ drivers/infiniband/core/device.c | 52 ++++++++++++++++++++++++++++++++++++++++
+ include/rdma/ib_verbs.h          | 33 +++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+)
 
-diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
-index 38339d220d7f..95c0bc4190a3 100644
---- a/drivers/infiniband/core/addr.c
-+++ b/drivers/infiniband/core/addr.c
-@@ -128,7 +128,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
- 	int ret = -EADDRNOTAVAIL;
+diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
+index 3a44723c6b9d..be184f9feab2 100644
+--- a/drivers/infiniband/core/device.c
++++ b/drivers/infiniband/core/device.c
+@@ -38,6 +38,7 @@
+ #include <linux/slab.h>
+ #include <linux/init.h>
+ #include <linux/mutex.h>
++#include <linux/netdevice.h>
+ #include <rdma/rdma_netlink.h>
  
- 	if (dev_addr->bound_dev_if) {
--		dev = dev_get_by_index(&init_net, dev_addr->bound_dev_if);
-+		dev = dev_get_by_index(dev_addr->net, dev_addr->bound_dev_if);
- 		if (!dev)
- 			return -ENODEV;
- 		ret = rdma_copy_addr(dev_addr, dev, NULL);
-@@ -138,7 +138,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
- 
- 	switch (addr->sa_family) {
- 	case AF_INET:
--		dev = ip_dev_find(&init_net,
-+		dev = ip_dev_find(dev_addr->net,
- 			((struct sockaddr_in *) addr)->sin_addr.s_addr);
- 
- 		if (!dev)
-@@ -149,12 +149,11 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
- 			*vlan_id = rdma_vlan_dev_vlan_id(dev);
- 		dev_put(dev);
- 		break;
--
- #if IS_ENABLED(CONFIG_IPV6)
- 	case AF_INET6:
- 		rcu_read_lock();
--		for_each_netdev_rcu(&init_net, dev) {
--			if (ipv6_chk_addr(&init_net,
-+		for_each_netdev_rcu(dev_addr->net, dev) {
-+			if (ipv6_chk_addr(dev_addr->net,
- 					  &((struct sockaddr_in6 *) addr)->sin6_addr,
- 					  dev, 1)) {
- 				ret = rdma_copy_addr(dev_addr, dev, NULL);
-@@ -236,7 +235,7 @@ static int addr4_resolve(struct sockaddr_in *src_in,
- 	fl4.daddr = dst_ip;
- 	fl4.saddr = src_ip;
- 	fl4.flowi4_oif = addr->bound_dev_if;
--	rt = ip_route_output_key(&init_net, &fl4);
-+	rt = ip_route_output_key(addr->net, &fl4);
- 	if (IS_ERR(rt)) {
- 		ret = PTR_ERR(rt);
- 		goto out;
-@@ -278,12 +277,13 @@ static int addr6_resolve(struct sockaddr_in6 *src_in,
- 	fl6.saddr = src_in->sin6_addr;
- 	fl6.flowi6_oif = addr->bound_dev_if;
- 
--	dst = ip6_route_output(&init_net, NULL, &fl6);
-+	dst = ip6_route_output(addr->net, NULL, &fl6);
- 	if ((ret = dst->error))
- 		goto put;
- 
- 	if (ipv6_addr_any(&fl6.saddr)) {
--		ret = ipv6_dev_get_saddr(&init_net, ip6_dst_idev(dst)->dev,
-+		ret = ipv6_dev_get_saddr(addr->net,
-+					 ip6_dst_idev(dst)->dev,
- 					 &fl6.daddr, 0, &fl6.saddr);
- 		if (ret)
- 			goto put;
-@@ -476,6 +476,7 @@ int rdma_addr_find_dmac_by_grh(union ib_gid *sgid, union ib_gid *dgid, u8 *dmac,
- 	rdma_gid2ip(&dgid_addr._sockaddr, dgid);
- 
- 	memset(&dev_addr, 0, sizeof(dev_addr));
-+	dev_addr.net = &init_net;
- 
- 	ctx.addr = &dev_addr;
- 	init_completion(&ctx.comp);
-@@ -510,6 +511,7 @@ int rdma_addr_find_smac_by_sgid(union ib_gid *sgid, u8 *smac, u16 *vlan_id)
- 	rdma_gid2ip(&gid_addr._sockaddr, sgid);
- 
- 	memset(&dev_addr, 0, sizeof(dev_addr));
-+	dev_addr.net = &init_net;
- 	ret = rdma_translate_ip(&gid_addr._sockaddr, &dev_addr, vlan_id);
- 	if (ret)
- 		return ret;
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 1977f601a1ec..c957d53df666 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -524,6 +524,7 @@ struct rdma_cm_id *rdma_create_id(rdma_cm_event_handler event_handler,
- 	INIT_LIST_HEAD(&id_priv->listen_list);
- 	INIT_LIST_HEAD(&id_priv->mc_list);
- 	get_random_bytes(&id_priv->seq_num, sizeof id_priv->seq_num);
-+	id_priv->id.route.addr.dev_addr.net = &init_net;
- 
- 	return &id_priv->id;
+ #include "core_priv.h"
+@@ -748,6 +749,57 @@ int ib_find_pkey(struct ib_device *device,
  }
-diff --git a/include/rdma/ib_addr.h b/include/rdma/ib_addr.h
-index ac54c27a2bfd..445a72e1320a 100644
---- a/include/rdma/ib_addr.h
-+++ b/include/rdma/ib_addr.h
-@@ -47,6 +47,7 @@
- #include <rdma/ib_verbs.h>
- #include <rdma/ib_pack.h>
- #include <net/ipv6.h>
-+#include <net/net_namespace.h>
+ EXPORT_SYMBOL(ib_find_pkey);
  
- struct rdma_addr_client {
- 	atomic_t refcount;
-@@ -64,6 +65,16 @@ void rdma_addr_register_client(struct rdma_addr_client *client);
-  */
- void rdma_addr_unregister_client(struct rdma_addr_client *client);
++static struct net_device *ib_get_net_dev_by_port_pkey_ip(struct ib_device *dev,
++							 u8 port,
++							 u16 pkey,
++							 struct sockaddr *addr)
++{
++	struct net_device *ret = NULL;
++	struct ib_client *client;
++
++	down_read(&lists_rwsem);
++
++	list_for_each_entry_rcu(client, &client_list, list)
++		if (client->get_net_device_by_port_pkey_ip) {
++			ret = client->get_net_device_by_port_pkey_ip(dev, port,
++								     pkey,
++								     addr);
++			if (ret)
++				break;
++		}
++
++	up_read(&lists_rwsem);
++
++	return ret;
++}
++
++struct net *ib_get_net_ns_by_port_pkey_ip(struct ib_device *dev,
++					  u8 port,
++					  u16 pkey,
++					  struct sockaddr *addr)
++{
++	struct net_device *ndev = NULL;
++	struct net *ns;
++
++	if (rdma_protocol_ib(dev, port))
++		ndev = ib_get_net_dev_by_port_pkey_ip(dev, port, pkey, addr);
++
++	if (!ndev)
++		goto not_found;
++
++	rcu_read_lock();
++	ns = maybe_get_net(dev_net(ndev));
++	dev_put(ndev);
++	rcu_read_unlock();
++	if (!ns)
++		goto not_found;
++	return ns;
++
++not_found:
++	return get_net(&init_net);
++}
++EXPORT_SYMBOL(ib_get_net_ns_by_port_pkey_ip);
++
+ static int __init ib_core_init(void)
+ {
+ 	int ret;
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index 8d59479eea4d..76093a33ed46 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -48,6 +48,7 @@
+ #include <linux/rwsem.h>
+ #include <linux/scatterlist.h>
+ #include <linux/workqueue.h>
++#include <linux/socket.h>
+ #include <uapi/linux/if_ether.h>
  
-+/**
-+ * struct rdma_dev_addr - Contains resolved RDMA hardware addresses
-+ * @src_dev_addr:	Source MAC address.
-+ * @dst_dev_addr:	Destination MAC address.
-+ * @broadcast:		Broadcast address of the device.
-+ * @dev_type:		The interface hardware type of the device.
-+ * @bound_dev_if:	An optional device interface index.
-+ * @transport:		The transport type used.
-+ * @net:		Network namespace containing the bound_dev_if net_dev.
-+ */
- struct rdma_dev_addr {
- 	unsigned char src_dev_addr[MAX_ADDR_LEN];
- 	unsigned char dst_dev_addr[MAX_ADDR_LEN];
-@@ -71,11 +82,14 @@ struct rdma_dev_addr {
- 	unsigned short dev_type;
- 	int bound_dev_if;
- 	enum rdma_transport_type transport;
-+	struct net *net;
+ #include <linux/atomic.h>
+@@ -1691,6 +1692,24 @@ struct ib_client {
+ 	void (*add)   (struct ib_device *);
+ 	void (*remove)(struct ib_device *);
+ 
++	/* Returns the net_dev belonging to this ib_client and matching the
++	 * given parameters.
++	 * @dev:	An RDMA device that the net_dev use for communication.
++	 * @port:	A physical port number on the RDMA device.
++	 * @pkey:	P_Key that the net_dev uses if applicable.
++	 * @addr:	An IP address the net_dev is configured with.
++	 *
++	 * An ib_client that implements a net_dev on top of RDMA devices
++	 * (such as IP over IB) should implement this callback, allowing the
++	 * rdma_cm module to find the right net_dev for a given request.
++	 *
++	 * The caller is responsible for calling dev_put on the returned
++	 * netdev. */
++	struct net_device *(*get_net_device_by_port_pkey_ip)(
++			struct ib_device *dev,
++			u8 port,
++			u16 pkey,
++			struct sockaddr *addr);
+ 	struct list_head list;
  };
  
- /**
-  * rdma_translate_ip - Translate a local IP address to an RDMA hardware
-  *   address.
-+ *
-+ * The dev_addr->net field must be initialized.
-  */
- int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
- 		      u16 *vlan_id);
-@@ -90,7 +104,7 @@ int rdma_translate_ip(struct sockaddr *addr, struct rdma_dev_addr *dev_addr,
-  * @dst_addr: The destination address to resolve.
-  * @addr: A reference to a data location that will receive the resolved
-  *   addresses.  The data location must remain valid until the callback has
-- *   been invoked.
-+ *   been invoked. The net field of the addr struct must be valid.
-  * @timeout_ms: Amount of time to wait for the address resolution to complete.
-  * @callback: Call invoked once address resolution has completed, timed out,
-  *   or been canceled.  A status of 0 indicates success.
+@@ -2835,4 +2854,18 @@ static inline int ib_check_mr_access(int flags)
+ int ib_check_mr_status(struct ib_mr *mr, u32 check_mask,
+ 		       struct ib_mr_status *mr_status);
+ 
++/**
++ * ib_get_net_ns_by_port_pkey_ip() - Return the appropriate net namespace
++ * for a received CM request
++ * @dev:	An RDMA device on which the request has been received.
++ * @port:	Port number on the RDMA device.
++ * @pkey:	The Pkey the request came on.
++ * @addr:	Contains the IP address that the request specified as its
++ *		destination.
++ */
++struct net *ib_get_net_ns_by_port_pkey_ip(struct ib_device *dev,
++					  u8 port,
++					  u16 pkey,
++					  struct sockaddr *addr);
++
+ #endif /* IB_VERBS_H */
 -- 
 1.7.11.2
