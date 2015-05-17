@@ -1,175 +1,117 @@
-From: Haggai Eran <haggaie@mellanox.com>
-Subject: [PATCH v4 for-next 03/12] IB/core: Find the network namespace matching connection parameters
-Date: Sun, 17 May 2015 08:50:59 +0300
-Message-ID: <1431841868-28063-4-git-send-email-haggaie@mellanox.com>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v4 for-next 01/12] IB/core: Add rwsem to allow reading device list or client list
+Date: Sun, 17 May 2015 08:50:57 +0300
+Message-ID: <1431841868-28063-2-git-send-email-haggaie@mellanox.com>
 References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>
-To: Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:34449 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751282AbbEQFvo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 May 2015 01:51:44 -0400
-In-Reply-To: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1431841868-28063-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Kenneth <yotamke@mellanox.com>
+Currently the RDMA subsystem's device list and client list are protected by
+a single mutex. This prevents adding user-facing APIs that iterate these
+lists, since using them may cause a deadlock. The patch attempts to solve
+this problem by adding a read-write semaphore to protect the lists. Readers
+now don't need the mutex, and are safe just by read-locking the semaphore.
 
-In the case of IPoIB, and maybe in other cases, the network device is
-managed by an upper-layer protocol (ULP). In order to expose this
-network device to other users of the IB device, let ULPs implement
-a callback that returns network device according to connection parameters.
+The ib_register_device, ib_register_client, ib_unregister_device, and
+ib_unregister_client functions are modified to lock the semaphore for write
+during their respective list modification
 
-The IB device and port, together with the P_Key and the IP address should
-be enough to uniquely identify the ULP net device.
+This patch attempts to solve a similar need [1] that was seen in the RoCE
+v2 patch series.
 
-This function is passed to ib_core as part of the ib_client
-registration.
+[1] http://www.spinics.net/lists/linux-rdma/msg24733.html
 
-Using this functionality, add a way to get the network namespace
-corresponding to a work completion. This is needed so that responses to CM
-requests can be sent from the same network namespace as the request.
-
-Signed-off-by: Haggai Eran <haggaie@mellanox.com>
-Signed-off-by: Yotam Kenneth <yotamke@mellanox.com>
-Signed-off-by: Shachar Raindel <raindel@mellanox.com>
-Signed-off-by: Guy Shapiro <guysh@mellanox.com>
+Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/core/device.c | 52 ++++++++++++++++++++++++++++++++++++++++
- include/rdma/ib_verbs.h          | 33 +++++++++++++++++++++++++
- 2 files changed, 85 insertions(+)
+ drivers/infiniband/core/device.c | 24 +++++++++++++++++++-----
+ 1 file changed, 19 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/infiniband/core/device.c b/drivers/infiniband/core/device.c
-index 3a44723c6b9d..be184f9feab2 100644
+index b360350a0b20..3a44723c6b9d 100644
 --- a/drivers/infiniband/core/device.c
 +++ b/drivers/infiniband/core/device.c
-@@ -38,6 +38,7 @@
- #include <linux/slab.h>
- #include <linux/init.h>
- #include <linux/mutex.h>
-+#include <linux/netdevice.h>
- #include <rdma/rdma_netlink.h>
+@@ -59,13 +59,17 @@ static LIST_HEAD(device_list);
+ static LIST_HEAD(client_list);
  
- #include "core_priv.h"
-@@ -748,6 +749,57 @@ int ib_find_pkey(struct ib_device *device,
- }
- EXPORT_SYMBOL(ib_find_pkey);
+ /*
+- * device_mutex protects access to both device_list and client_list.
+- * There's no real point to using multiple locks or something fancier
+- * like an rwsem: we always access both lists, and we're always
+- * modifying one list or the other list.  In any case this is not a
+- * hot path so there's no point in trying to optimize.
++ * device_mutex and lists_rwsem protect access to both device_list and
++ * client_list.  device_mutex protects writer access by device and client
++ * registration / de-registration.  lists_rwsem protects reader access to
++ * these lists.  Iterators of these lists must lock it for read, while updates
++ * to the lists must be done with a write lock. A special case is when the
++ * device_mutex is locked. In this case locking the lists for read access as
++ * the device_mutex implies it.
+  */
+ static DEFINE_MUTEX(device_mutex);
++static DECLARE_RWSEM(lists_rwsem);
++
  
-+static struct net_device *ib_get_net_dev_by_port_pkey_ip(struct ib_device *dev,
-+							 u8 port,
-+							 u16 pkey,
-+							 struct sockaddr *addr)
-+{
-+	struct net_device *ret = NULL;
-+	struct ib_client *client;
-+
-+	down_read(&lists_rwsem);
-+
-+	list_for_each_entry_rcu(client, &client_list, list)
-+		if (client->get_net_device_by_port_pkey_ip) {
-+			ret = client->get_net_device_by_port_pkey_ip(dev, port,
-+								     pkey,
-+								     addr);
-+			if (ret)
-+				break;
-+		}
-+
-+	up_read(&lists_rwsem);
-+
-+	return ret;
-+}
-+
-+struct net *ib_get_net_ns_by_port_pkey_ip(struct ib_device *dev,
-+					  u8 port,
-+					  u16 pkey,
-+					  struct sockaddr *addr)
-+{
-+	struct net_device *ndev = NULL;
-+	struct net *ns;
-+
-+	if (rdma_protocol_ib(dev, port))
-+		ndev = ib_get_net_dev_by_port_pkey_ip(dev, port, pkey, addr);
-+
-+	if (!ndev)
-+		goto not_found;
-+
-+	rcu_read_lock();
-+	ns = maybe_get_net(dev_net(ndev));
-+	dev_put(ndev);
-+	rcu_read_unlock();
-+	if (!ns)
-+		goto not_found;
-+	return ns;
-+
-+not_found:
-+	return get_net(&init_net);
-+}
-+EXPORT_SYMBOL(ib_get_net_ns_by_port_pkey_ip);
-+
- static int __init ib_core_init(void)
+ static int ib_device_check_mandatory(struct ib_device *device)
  {
- 	int ret;
-diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
-index 8d59479eea4d..76093a33ed46 100644
---- a/include/rdma/ib_verbs.h
-+++ b/include/rdma/ib_verbs.h
-@@ -48,6 +48,7 @@
- #include <linux/rwsem.h>
- #include <linux/scatterlist.h>
- #include <linux/workqueue.h>
-+#include <linux/socket.h>
- #include <uapi/linux/if_ether.h>
+@@ -311,7 +315,9 @@ int ib_register_device(struct ib_device *device,
+ 		goto out;
+ 	}
  
- #include <linux/atomic.h>
-@@ -1691,6 +1692,24 @@ struct ib_client {
- 	void (*add)   (struct ib_device *);
- 	void (*remove)(struct ib_device *);
++	down_write(&lists_rwsem);
+ 	list_add_tail(&device->core_list, &device_list);
++	up_write(&lists_rwsem);
  
-+	/* Returns the net_dev belonging to this ib_client and matching the
-+	 * given parameters.
-+	 * @dev:	An RDMA device that the net_dev use for communication.
-+	 * @port:	A physical port number on the RDMA device.
-+	 * @pkey:	P_Key that the net_dev uses if applicable.
-+	 * @addr:	An IP address the net_dev is configured with.
-+	 *
-+	 * An ib_client that implements a net_dev on top of RDMA devices
-+	 * (such as IP over IB) should implement this callback, allowing the
-+	 * rdma_cm module to find the right net_dev for a given request.
-+	 *
-+	 * The caller is responsible for calling dev_put on the returned
-+	 * netdev. */
-+	struct net_device *(*get_net_device_by_port_pkey_ip)(
-+			struct ib_device *dev,
-+			u8 port,
-+			u16 pkey,
-+			struct sockaddr *addr);
- 	struct list_head list;
- };
+ 	device->reg_state = IB_DEV_REGISTERED;
  
-@@ -2835,4 +2854,18 @@ static inline int ib_check_mr_access(int flags)
- int ib_check_mr_status(struct ib_mr *mr, u32 check_mask,
- 		       struct ib_mr_status *mr_status);
+@@ -347,7 +353,9 @@ void ib_unregister_device(struct ib_device *device)
+ 		if (client->remove)
+ 			client->remove(device);
  
-+/**
-+ * ib_get_net_ns_by_port_pkey_ip() - Return the appropriate net namespace
-+ * for a received CM request
-+ * @dev:	An RDMA device on which the request has been received.
-+ * @port:	Port number on the RDMA device.
-+ * @pkey:	The Pkey the request came on.
-+ * @addr:	Contains the IP address that the request specified as its
-+ *		destination.
-+ */
-+struct net *ib_get_net_ns_by_port_pkey_ip(struct ib_device *dev,
-+					  u8 port,
-+					  u16 pkey,
-+					  struct sockaddr *addr);
++	down_write(&lists_rwsem);
+ 	list_del(&device->core_list);
++	up_write(&lists_rwsem);
+ 
+ 	kfree(device->gid_tbl_len);
+ 	kfree(device->pkey_tbl_len);
+@@ -384,7 +392,10 @@ int ib_register_client(struct ib_client *client)
+ 
+ 	mutex_lock(&device_mutex);
+ 
++	down_write(&lists_rwsem);
+ 	list_add_tail(&client->list, &client_list);
++	up_write(&lists_rwsem);
 +
- #endif /* IB_VERBS_H */
+ 	list_for_each_entry(device, &device_list, core_list)
+ 		if (client->add && !add_client_context(device, client))
+ 			client->add(device);
+@@ -423,7 +434,10 @@ void ib_unregister_client(struct ib_client *client)
+ 			}
+ 		spin_unlock_irqrestore(&device->client_data_lock, flags);
+ 	}
++
++	down_write(&lists_rwsem);
+ 	list_del(&client->list);
++	up_write(&lists_rwsem);
+ 
+ 	mutex_unlock(&device_mutex);
+ }
 -- 
 1.7.11.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
