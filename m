@@ -1,82 +1,109 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth 2015-05-17
-Date: Sun, 17 May 2015 15:51:36 +0300
-Message-ID: <20150517125136.GA763@t440s.P-661HNU-F1>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="vtzGhvizbBRQ85DL"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V4 09/12] net/mlx5_core: Set/Query port MTU commands
+Date: Sun, 17 May 2015 16:02:20 +0300
+Message-ID: <1431867743-13149-10-git-send-email-amirv@mellanox.com>
+References: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns1327.ztomy.com ([193.47.165.129]:40623 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753000AbbEQNDV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 May 2015 09:03:21 -0400
+In-Reply-To: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Saeed Mahameed <saeedm@mellanox.com>
 
---vtzGhvizbBRQ85DL
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Introduce set/Query low level functions to access MTU in hardware. To be
+used by the netdev.
 
-Hi Dave,
-
-A couple more Bluetooth updates for 4.1:
-
-- New USB IDs for ath3k & btusb
-- Fix for remote name resolving during device discovery
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
-The following changes since commit 110bc76729d448fdbcb5cdb63b83d9fd65ce5e26:
+ drivers/net/ethernet/mellanox/mlx5/core/port.c | 53 ++++++++++++++++++++++++++
+ include/linux/mlx5/driver.h                    |  4 ++
+ 2 files changed, 57 insertions(+)
 
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2015-05-12 21:10:38 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 177d0506a911eb60b38b172215df5325ed94fa64:
-
-  Bluetooth: Fix remote name event return directly. (2015-05-14 10:35:04 +0200)
-
-----------------------------------------------------------------
-Dmitry Tunin (1):
-      Bluetooth: ath3k: add support of 04ca:300f AR3012 device
-
-Wen-chien Jesse Sung (2):
-      Bluetooth: ath3k: Add a new ID 0cf3:e006 to ath3k list
-      Bluetooth: btusb: Add support for 0cf3:e007
-
-Wesley Kuo (1):
-      Bluetooth: Fix remote name event return directly.
-
- drivers/bluetooth/ath3k.c | 4 ++++
- drivers/bluetooth/btusb.c | 3 +++
- net/bluetooth/hci_core.c  | 6 ++++--
- 3 files changed, 11 insertions(+), 2 deletions(-)
-
-
---vtzGhvizbBRQ85DL
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJVWI7YAAoJECQj9vv5qNQSy48P/i/xjBW4S11WwJLXj6PNQ2QQ
-vLvBGMWTtfuXhGlMChli2v6BysUt35N9+0UwfCKFt/UD9ZKiUyNvC9tCmpl7g2Hb
-btIZasmZ2cjukGe4H3OL35Wi/RnfwjfAlVew0WQKYOPPACdrqy3P32/2J57dc7HA
-oJRCDkvnnZ3a5k03tkBLtEBVF+iusg5t8ftiD3m48PV4+wdNPpLRp1899Wln9Og9
-sT6Nd/bqhYLLI//Z8Jib8RSOKS/i4aVpDGFQWOpURtDeOuGKjl7M9IBcRsRo8iZT
-Fme/hGzZovAhyh0HB7mnVqZT8DR7UzfeZInMTxXr68Sgv7LuCqVBPAtTIe0M5Y9v
-3EY95AqS/8pDXtuN201IwMOX97pZpkOp2Ob69LqxtLg/0EnHYhdbD/HA4mT48DSe
-DvwRNyj/n1450d8YHYoCG4ajFpcOzxX3UFqaJXNKBJfcqeK6VwTcQ+lITkCu/dqB
-rPcNPUbem5vP2vwfrYBWwSrD5vHYnPfn4UinrxpyKyaIUgDlL9a1+fNUp/B5mdzp
-L2h4TiMRQoJv7D9OXuNBIojRaYNecCLzRJtZXKKEmUDRzKWhx3SnaCxu17GtnqbW
-PwbP6wVASV/HT2ctHSw152M0tEba6Qw32QHqq9RFcwvpHkygwm9VIJkouOpibg5H
-jMAwRpuGhZOB6K9g4kru
-=MmM5
------END PGP SIGNATURE-----
-
---vtzGhvizbBRQ85DL--
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 742a6fb..7d3d0f9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -211,3 +211,56 @@ int mlx5_query_port_status(struct mlx5_core_dev *dev, u8 *status)
+ 	*status = MLX5_GET(paos_reg, out, oper_status);
+ 	return err;
+ }
++
++static int mlx5_query_port_mtu(struct mlx5_core_dev *dev,
++			       int *admin_mtu, int *max_mtu, int *oper_mtu)
++{
++	u32 in[MLX5_ST_SZ_DW(pmtu_reg)];
++	u32 out[MLX5_ST_SZ_DW(pmtu_reg)];
++	int err;
++
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(pmtu_reg, in, local_port, 1);
++
++	err = mlx5_core_access_reg(dev, in, sizeof(in), out,
++				   sizeof(out), MLX5_REG_PMTU, 0, 0);
++	if (err)
++		return err;
++
++	if (max_mtu)
++		*max_mtu  = MLX5_GET(pmtu_reg, out, max_mtu);
++	if (oper_mtu)
++		*oper_mtu = MLX5_GET(pmtu_reg, out, oper_mtu);
++	if (admin_mtu)
++		*admin_mtu = MLX5_GET(pmtu_reg, out, admin_mtu);
++
++	return 0;
++}
++
++int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu)
++{
++	u32 in[MLX5_ST_SZ_DW(pmtu_reg)];
++	u32 out[MLX5_ST_SZ_DW(pmtu_reg)];
++
++	memset(in, 0, sizeof(in));
++
++	MLX5_SET(pmtu_reg, in, admin_mtu, mtu);
++	MLX5_SET(pmtu_reg, in, local_port, 1);
++
++	return mlx5_core_access_reg(dev, in, sizeof(in), out, sizeof(out),
++				    MLX5_REG_PMTU, 0, 1);
++}
++EXPORT_SYMBOL_GPL(mlx5_set_port_mtu);
++
++int mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, int *max_mtu)
++{
++	return mlx5_query_port_mtu(dev, NULL, max_mtu, NULL);
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_max_mtu);
++
++int mlx5_query_port_oper_mtu(struct mlx5_core_dev *dev, int *oper_mtu)
++{
++	return mlx5_query_port_mtu(dev, NULL, NULL, oper_mtu);
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_oper_mtu);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 6438444..5173847 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -710,6 +710,10 @@ int mlx5_set_port_status(struct mlx5_core_dev *dev,
+ 			 enum mlx5_port_status status);
+ int mlx5_query_port_status(struct mlx5_core_dev *dev, u8 *status);
+ 
++int mlx5_set_port_mtu(struct mlx5_core_dev *dev, int mtu);
++int mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, int *max_mtu);
++int mlx5_query_port_oper_mtu(struct mlx5_core_dev *dev, int *oper_mtu);
++
+ int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
+ int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
+-- 
+1.9.3
