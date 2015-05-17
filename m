@@ -1,19 +1,31 @@
-From: "Francis Dube" <test@ctl.uniroma1.it>
-Subject: Dear sir/ Madam
-Date: Sun, 17 May 2015 09:14:06 -0700
-Message-ID: <143187928010416761@safetynet.dicea.uniroma1.it>
-Reply-To: francaisdube001@aol.co.uk
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [Patch net-next] netns: make nsid_lock per net
+Date: Sun, 17 May 2015 21:53:32 +0200
+Message-ID: <5558F1BC.3000402@6wind.com>
+References: <1431726452-13111-1-git-send-email-xiyou.wangcong@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <test@ctl.uniroma1.it>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SAFETYNET.dicea.uniroma1.it ([151.100.152.12]:53402 "EHLO
-	mail.ctl.uniroma1.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750865AbbEQSfO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2015 14:35:14 -0400
-Content-Description: Mail message body
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:36486 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751025AbbEQTxg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2015 15:53:36 -0400
+Received: by wizk4 with SMTP id k4so54457426wiz.1
+        for <netdev@vger.kernel.org>; Sun, 17 May 2015 12:53:35 -0700 (PDT)
+In-Reply-To: <1431726452-13111-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have business deal woth $9.5M Contact me for details
+Le 15/05/2015 23:47, Cong Wang a =C3=A9crit :
+> The spinlock is used to protect netns_ids which is per net,
+> so there is no need to use a global spinlock.
+>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Nice improvement, thanks!
+
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
