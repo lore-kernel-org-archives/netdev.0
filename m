@@ -1,261 +1,190 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V4 01/12] net/mlx5_core,mlx5_ib: Do not use vmap() on coherent memory
-Date: Sun, 17 May 2015 16:02:12 +0300
-Message-ID: <1431867743-13149-2-git-send-email-amirv@mellanox.com>
-References: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V4 00/12] net/mlx5: ConnectX-4 100G Ethernet driver
+Date: Sun, 17 May 2015 16:02:11 +0300
+Message-ID: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
 	Achiad Shochat <achiad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	David Daney <david.daney@cavium.com>
+	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:40613 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:40596 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752919AbbEQNDS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 May 2015 09:03:18 -0400
-In-Reply-To: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
+	id S1752858AbbEQNDP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 May 2015 09:03:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As David Daney pointed in mlx4_core driver [1], mlx5_core is also
-misusing the DMA-API.
+Hi Dave,
 
-This patch is removing the code that vmap() memory allocated by
-dma_alloc_coherent().
+It seemst that I dropped by mistake patch 1/12 ("net/mlx5_core,mlx5_ib: Do not
+use vmap() on coherent memory"). This re-spin restores this patch + some
+changes that are detailed in the changes from V3 at the bottom.
+We didn't get a response yet regarding your comment about the irq renaming [3].
 
-After this patch, users of this drivers might fail allocating resources
-on memory fragmeneted systems.  This will be fixed later on.
+Below is the origin cover letter body:
 
-[1] - https://patchwork.ozlabs.org/patch/458531/
+This patchset extends the mlx5_core driver to support Ethernet
+functionality. The Ethernet functionality in the mlx5 driver is
+integrated into the core driver and not as separated driver. The
+IB functionality remains in the mlx5_ib driver as before.
 
-CC: David Daney <david.daney@cavium.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/infiniband/hw/mlx5/cq.c                 |  3 +-
- drivers/infiniband/hw/mlx5/qp.c                 |  2 +-
- drivers/infiniband/hw/mlx5/srq.c                |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/alloc.c | 96 +++++--------------------
- drivers/net/ethernet/mellanox/mlx5/core/eq.c    |  3 +-
- include/linux/mlx5/driver.h                     |  9 +--
- 6 files changed, 22 insertions(+), 93 deletions(-)
+This functionality will enable the Ethernet capability of Mellanox's new
+famility of cards - ConnectX-4. Due to the fact that backword
+compatability is being kept, existing Connect-IB cards that are using
+this driver are fully working with the modified driver, and no issues
+with current deployments should be seen.
 
-diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
-index 2ee6b10..4e88b18 100644
---- a/drivers/infiniband/hw/mlx5/cq.c
-+++ b/drivers/infiniband/hw/mlx5/cq.c
-@@ -590,8 +590,7 @@ static int alloc_cq_buf(struct mlx5_ib_dev *dev, struct mlx5_ib_cq_buf *buf,
- {
- 	int err;
+Like the ConnectX-3 cards, ConnectX-4 is a VPI (Virtual Port Interface -
+every port can be configured as Infiniband or Ethernet) card.
+Unlike previous generations, the ConnectX-4 has a separate PCI function
+per port.
+
+The current code has a limitation that Infiniband and Ethernet port types
+are mutually exclusive. When the driver is compiled with Ethernet
+support, the Infiniband functionality is disabled and vice versa. To
+control that we added the CONFIG_MLX5_CORE_EN config directive
+which is 'n' by default, but can be changed by the user.
+
+This limitation is short-lived and would be addressed soon.
+
+As part of this patchset, mlx5_ifc.h was heavily modified [1]. This file
+is now generated automatically from the device specification document.
+Since this patch is too big for the mail server, it might be missing in
+the mailing list, but could be pulled from an external git repository [2].
+
+Patchset was applied on top of commit 6e8a9d9 ("Merge branch 'for-davem' of
+git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs")
+
+[1] - Patch 4/11 ("net/mlx5_core: HW data structs/types definitions preparation for mlx5 ehternet driver")
+[2] - http://git.openfabrics.org/?p=~amirv/linux.git;a=shortlog;h=refs/heads/mlx5e_v1
+[3] - http://patchwork.ozlabs.org/patch/470409/
+
+Thanks to Achiad, Saeed, Yevheny, Or and the whole team for making this happen,
+Amir
+
+Changes from V3:
+- Patch 1/12: net/mlx5_core,mlx5_ib: Do not use vmap() on coherent memory
+- PATCH 9/12: net/mlx5_core: Set/Query port MTU commands
+  - Return value directly - no need for err.
+- Fixed some minor conflicts while rebasing to latest net-next  
+
+Changes from V2:
+- Improved changelogs and cover-letter
+- Added CONFIG_MLX5_EN to disable/enable the Ethernet functionality
+- Moved en.h and wq.[ch] into the patch with data-path related code
+
+Changes from V1:
+- Added patch 1/12 ("net/mlx5_core,mlx5_ib: Do not use vmap() on coherent
+  memory")
+
+Changes from V0:
+- Removed Patch 1/11 ("net/mlx5_core: Virtually extend work/completion queue
+  buffers by one page") due to misuse of DMA API. Thanks Dave.
+- Patch 1/11 ("net/mlx5_core: Set irq affinity hints"):
+  - Use kcalloc instead of kzalloc
+  - Fix build error when CONFIG_CPUMASK_OFFSTACK=n. Driver loading will fail
+    now if cpumask allocation is failing.
+  - Using dev_to_node helper. Thanks, Ido.
+- Patch 3/11 ("net/mlx5_core: HW data structs/types definitions preparation for
+  mlx5 ehternet driver")
+  - Removed Mellanox internal comment at the head of the file. Thanks Joe
+- Patch 6/11 ("net/mlx5_core: Implement get/set port status")
+  - Use direct return of function's result. Thanks Sergei.
+- Added Patch 8/11 ("net/mlx5_core: Set/Query port MTU commands")
+- Patch 9/11 ("net/mlx5: Ethernet Datapath files")
+  - Use rq->wqe_sz instead of skb_end_offset. Thanks Ido.
+  - Use dma_wmb() when possible instead of wmb(). Thanks Alex.
+  - Fix checkpatch issues
+- Patch 10/11 ("net/mlx5: ethernet resources handling")
+  - checkpatch issues
+  - Added missing include
+- Patch 11/11 ("net/mlx5: Ethernet driver")
+  - checkpatch issues
+  - fixed typo
+  - Modified use of affinity hint
+  - Using dev_to_node helper. Thanks, Ido.
+  - Use new hardware commands from Patch 8/11 ("net/mlx5_core: Set/Query port
+    MTU commands") to get/set port MTU in hardware.
+  - Removed NETIF_F_SG since hardware ring wraparound is not supported
+  - Use dma_wmb() when possible instead of wmb(). Thanks Alex.
  
--	err = mlx5_buf_alloc(dev->mdev, nent * cqe_size,
--			     PAGE_SIZE * 2, &buf->buf);
-+	err = mlx5_buf_alloc(dev->mdev, nent * cqe_size, &buf->buf);
- 	if (err)
- 		return err;
- 
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index d35f62d..426eb88 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -768,7 +768,7 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
- 	qp->sq.offset = qp->rq.wqe_cnt << qp->rq.wqe_shift;
- 	qp->buf_size = err + (qp->rq.wqe_cnt << qp->rq.wqe_shift);
- 
--	err = mlx5_buf_alloc(dev->mdev, qp->buf_size, PAGE_SIZE * 2, &qp->buf);
-+	err = mlx5_buf_alloc(dev->mdev, qp->buf_size, &qp->buf);
- 	if (err) {
- 		mlx5_ib_dbg(dev, "err %d\n", err);
- 		goto err_uuar;
-diff --git a/drivers/infiniband/hw/mlx5/srq.c b/drivers/infiniband/hw/mlx5/srq.c
-index 02d77a2..4242e1d 100644
---- a/drivers/infiniband/hw/mlx5/srq.c
-+++ b/drivers/infiniband/hw/mlx5/srq.c
-@@ -165,7 +165,7 @@ static int create_srq_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_srq *srq,
- 		return err;
- 	}
- 
--	if (mlx5_buf_alloc(dev->mdev, buf_size, PAGE_SIZE * 2, &srq->buf)) {
-+	if (mlx5_buf_alloc(dev->mdev, buf_size, &srq->buf)) {
- 		mlx5_ib_dbg(dev, "buf alloc failed\n");
- 		err = -ENOMEM;
- 		goto err_db;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-index ac0f7bf..0715b49 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-@@ -42,95 +42,36 @@
- #include "mlx5_core.h"
- 
- /* Handling for queue buffers -- we allocate a bunch of memory and
-- * register it in a memory region at HCA virtual address 0.  If the
-- * requested size is > max_direct, we split the allocation into
-- * multiple pages, so we don't require too much contiguous memory.
-+ * register it in a memory region at HCA virtual address 0.
-  */
- 
--int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
--		   struct mlx5_buf *buf)
-+int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, struct mlx5_buf *buf)
- {
- 	dma_addr_t t;
- 
- 	buf->size = size;
--	if (size <= max_direct) {
--		buf->nbufs        = 1;
--		buf->npages       = 1;
--		buf->page_shift   = (u8)get_order(size) + PAGE_SHIFT;
--		buf->direct.buf   = dma_zalloc_coherent(&dev->pdev->dev,
--							size, &t, GFP_KERNEL);
--		if (!buf->direct.buf)
--			return -ENOMEM;
--
--		buf->direct.map = t;
--
--		while (t & ((1 << buf->page_shift) - 1)) {
--			--buf->page_shift;
--			buf->npages *= 2;
--		}
--	} else {
--		int i;
--
--		buf->direct.buf  = NULL;
--		buf->nbufs       = (size + PAGE_SIZE - 1) / PAGE_SIZE;
--		buf->npages      = buf->nbufs;
--		buf->page_shift  = PAGE_SHIFT;
--		buf->page_list   = kcalloc(buf->nbufs, sizeof(*buf->page_list),
--					   GFP_KERNEL);
--		if (!buf->page_list)
--			return -ENOMEM;
--
--		for (i = 0; i < buf->nbufs; i++) {
--			buf->page_list[i].buf =
--				dma_zalloc_coherent(&dev->pdev->dev, PAGE_SIZE,
--						    &t, GFP_KERNEL);
--			if (!buf->page_list[i].buf)
--				goto err_free;
--
--			buf->page_list[i].map = t;
--		}
--
--		if (BITS_PER_LONG == 64) {
--			struct page **pages;
--			pages = kmalloc(sizeof(*pages) * buf->nbufs, GFP_KERNEL);
--			if (!pages)
--				goto err_free;
--			for (i = 0; i < buf->nbufs; i++)
--				pages[i] = virt_to_page(buf->page_list[i].buf);
--			buf->direct.buf = vmap(pages, buf->nbufs, VM_MAP, PAGE_KERNEL);
--			kfree(pages);
--			if (!buf->direct.buf)
--				goto err_free;
--		}
--	}
-+	buf->npages       = 1;
-+	buf->page_shift   = (u8)get_order(size) + PAGE_SHIFT;
-+	buf->direct.buf   = dma_zalloc_coherent(&dev->pdev->dev,
-+						size, &t, GFP_KERNEL);
-+	if (!buf->direct.buf)
-+		return -ENOMEM;
- 
--	return 0;
-+	buf->direct.map = t;
- 
--err_free:
--	mlx5_buf_free(dev, buf);
-+	while (t & ((1 << buf->page_shift) - 1)) {
-+		--buf->page_shift;
-+		buf->npages *= 2;
-+	}
- 
--	return -ENOMEM;
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx5_buf_alloc);
- 
- void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf)
- {
--	int i;
--
--	if (buf->nbufs == 1)
--		dma_free_coherent(&dev->pdev->dev, buf->size, buf->direct.buf,
--				  buf->direct.map);
--	else {
--		if (BITS_PER_LONG == 64)
--			vunmap(buf->direct.buf);
--
--		for (i = 0; i < buf->nbufs; i++)
--			if (buf->page_list[i].buf)
--				dma_free_coherent(&dev->pdev->dev, PAGE_SIZE,
--						  buf->page_list[i].buf,
--						  buf->page_list[i].map);
--		kfree(buf->page_list);
--	}
-+	dma_free_coherent(&dev->pdev->dev, buf->size, buf->direct.buf,
-+			  buf->direct.map);
- }
- EXPORT_SYMBOL_GPL(mlx5_buf_free);
- 
-@@ -230,10 +171,7 @@ void mlx5_fill_page_array(struct mlx5_buf *buf, __be64 *pas)
- 	int i;
- 
- 	for (i = 0; i < buf->npages; i++) {
--		if (buf->nbufs == 1)
--			addr = buf->direct.map + (i << buf->page_shift);
--		else
--			addr = buf->page_list[i].map;
-+		addr = buf->direct.map + (i << buf->page_shift);
- 
- 		pas[i] = cpu_to_be64(addr);
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index 58800e4..3f511bd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -346,8 +346,7 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
- 	int inlen;
- 
- 	eq->nent = roundup_pow_of_two(nent + MLX5_NUM_SPARE_EQE);
--	err = mlx5_buf_alloc(dev, eq->nent * MLX5_EQE_SIZE, 2 * PAGE_SIZE,
--			     &eq->buf);
-+	err = mlx5_buf_alloc(dev, eq->nent * MLX5_EQE_SIZE, &eq->buf);
- 	if (err)
- 		return err;
- 
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 9a90e75..c4cf25f 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -334,8 +334,6 @@ struct mlx5_buf_list {
- 
- struct mlx5_buf {
- 	struct mlx5_buf_list	direct;
--	struct mlx5_buf_list   *page_list;
--	int			nbufs;
- 	int			npages;
- 	int			size;
- 	u8			page_shift;
-@@ -586,11 +584,7 @@ struct mlx5_pas {
- 
- static inline void *mlx5_buf_offset(struct mlx5_buf *buf, int offset)
- {
--	if (likely(BITS_PER_LONG == 64 || buf->nbufs == 1))
- 		return buf->direct.buf + offset;
--	else
--		return buf->page_list[offset >> PAGE_SHIFT].buf +
--			(offset & (PAGE_SIZE - 1));
- }
- 
- extern struct workqueue_struct *mlx5_core_wq;
-@@ -669,8 +663,7 @@ void mlx5_health_cleanup(void);
- void  __init mlx5_health_init(void);
- void mlx5_start_health_poll(struct mlx5_core_dev *dev);
- void mlx5_stop_health_poll(struct mlx5_core_dev *dev);
--int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
--		   struct mlx5_buf *buf);
-+int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, struct mlx5_buf *buf);
- void mlx5_buf_free(struct mlx5_core_dev *dev, struct mlx5_buf *buf);
- struct mlx5_cmd_mailbox *mlx5_alloc_cmd_mailbox_chain(struct mlx5_core_dev *dev,
- 						      gfp_t flags, int npages);
+Amir Vadai (4):
+  net/mlx5_core,mlx5_ib: Do not use vmap() on coherent memory
+  net/mlx5: Ethernet Datapath files
+  net/mlx5: Ethernet resource handling files
+  net/mlx5: Extend mlx5_core to support ConnectX-4 Ethernet
+    functionality
+
+Rana Shahout (2):
+  net/mlx5_core: Implement get/set port status
+  net/mlx5_core: Modify CQ moderation parameters
+
+Saeed Mahameed (6):
+  net/mlx5_core: Set irq affinity hints
+  net/mlx5_core: Add EQ renaming mechanism
+  net/mlx5_core: HW data structs/types definitions cleanup
+  net/mlx5_core: New device capabilities handling
+  net/mlx5_core: Implement access functions of ptys register fields
+  net/mlx5_core: Set/Query port MTU commands
+
+ drivers/infiniband/hw/mlx5/Kconfig                 |    4 +-
+ drivers/infiniband/hw/mlx5/cq.c                    |   11 +-
+ drivers/infiniband/hw/mlx5/mad.c                   |    2 +-
+ drivers/infiniband/hw/mlx5/main.c                  |  113 +-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |    6 +-
+ drivers/infiniband/hw/mlx5/mr.c                    |    3 +-
+ drivers/infiniband/hw/mlx5/odp.c                   |   47 +-
+ drivers/infiniband/hw/mlx5/qp.c                    |   86 +-
+ drivers/infiniband/hw/mlx5/srq.c                   |    9 +-
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |   14 +-
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |    3 +
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |   96 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   36 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cq.c       |   18 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  520 ++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  679 ++
+ .../ethernet/mellanox/mlx5/core/en_flow_table.c    |  858 +++
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 1915 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  249 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  344 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |  107 +
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   23 +-
+ .../net/ethernet/mellanox/mlx5/core/flow_table.c   |  422 ++
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   90 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  365 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mcg.c      |    2 +-
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   20 +-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  162 +
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c |  169 +
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.h |   47 +
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |   44 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |   84 +
+ drivers/net/ethernet/mellanox/mlx5/core/vport.h    |   41 +
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c       |  183 +
+ drivers/net/ethernet/mellanox/mlx5/core/wq.h       |  171 +
+ include/linux/mlx5/cq.h                            |    3 +
+ include/linux/mlx5/device.h                        |  198 +-
+ include/linux/mlx5/driver.h                        |  109 +-
+ include/linux/mlx5/flow_table.h                    |   54 +
+ include/linux/mlx5/mlx5_ifc.h                      | 6608 +++++++++++++++++++-
+ include/linux/mlx5/qp.h                            |   25 +
+ 41 files changed, 13341 insertions(+), 599 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_flow_table.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/flow_table.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/transobj.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/vport.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/wq.h
+ create mode 100644 include/linux/mlx5/flow_table.h
+
 -- 
 1.9.3
