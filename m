@@ -1,7 +1,7 @@
 From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v4 for-next 08/12] IB/cma: Add compare_data checks to the RDMA CM module
-Date: Sun, 17 May 2015 08:51:04 +0300
-Message-ID: <1431841868-28063-9-git-send-email-haggaie@mellanox.com>
+Subject: [PATCH v4 for-next 06/12] IB/cm: Expose service ID in request events
+Date: Sun, 17 May 2015 08:51:02 +0300
+Message-ID: <1431841868-28063-7-git-send-email-haggaie@mellanox.com>
 References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -15,104 +15,56 @@ In-Reply-To: <1431841868-28063-1-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@p
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Previously RDMA CM relied on the CM module to check the incoming requests
-against "compare data" struct to dispatch events for different RDMA CM IDs
-based on the request parameters (IP address, address family, etc.). With
-namespace support, multiple namespaces in RDMA CM will need to share a
-single CM ID. Such an ID cannot be associated with a specific compare data,
-because that could create conflicts with other namespaces.
-
-The patch adds checks to verify that incoming requests match their RDMA CM
-ID destination inside the RDMA CM module itself.
+Expose the service ID on an incoming CM or SIDR request to the event
+handler. This will allow the RDMA CM module to de-multiplex connection
+requests based on the information encoded in the service ID.
 
 Signed-off-by: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/infiniband/core/cm.c  |  5 +++--
- drivers/infiniband/core/cma.c | 12 +++++++++---
- include/rdma/ib_cm.h          |  3 +++
- 3 files changed, 15 insertions(+), 5 deletions(-)
+ drivers/infiniband/core/cm.c | 3 +++
+ include/rdma/ib_cm.h         | 1 +
+ 2 files changed, 4 insertions(+)
 
 diff --git a/drivers/infiniband/core/cm.c b/drivers/infiniband/core/cm.c
-index 04cdc753b763..9bb1034c356f 100644
+index 4f936932dd54..04cdc753b763 100644
 --- a/drivers/infiniband/core/cm.c
 +++ b/drivers/infiniband/core/cm.c
-@@ -461,8 +461,8 @@ static int cm_compare_data(struct ib_cm_compare_data *src_data,
- 	return memcmp(src, dst, sizeof(src));
- }
+@@ -1365,6 +1365,7 @@ static void cm_format_paths_from_req(struct cm_req_msg *req_msg,
+ 	primary_path->packet_life_time =
+ 		cm_req_get_primary_local_ack_timeout(req_msg);
+ 	primary_path->packet_life_time -= (primary_path->packet_life_time > 0);
++	primary_path->service_id = req_msg->service_id;
  
--static int cm_compare_private_data(u32 *private_data,
--				   struct ib_cm_compare_data *dst_data)
-+int cm_compare_private_data(u32 *private_data,
-+			    struct ib_cm_compare_data *dst_data)
- {
- 	u32 src[IB_CM_COMPARE_SIZE];
- 
-@@ -472,6 +472,7 @@ static int cm_compare_private_data(u32 *private_data,
- 	cm_mask_copy(src, private_data, dst_data->mask);
- 	return memcmp(src, dst_data->data, sizeof(src));
- }
-+EXPORT_SYMBOL(cm_compare_private_data);
- 
- /*
-  * Trivial helpers to strip endian annotation and compare; the
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 1828903e8388..dced18975e2e 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -146,6 +146,7 @@ struct rdma_id_private {
- 	u8			tos;
- 	u8			reuseaddr;
- 	u8			afonly;
-+	struct ib_cm_compare_data compare_data;
- };
- 
- struct cma_multicast {
-@@ -1319,6 +1320,10 @@ static int cma_req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *ib_event)
- 	int offset, ret;
- 
- 	listen_id = cm_id->context;
-+	if (cm_compare_private_data(ib_event->private_data,
-+				    &listen_id->compare_data))
-+		return -EINVAL;
-+
- 	if (!cma_check_req_qp_type(&listen_id->id, ib_event))
- 		return -EINVAL;
- 
-@@ -1586,7 +1591,6 @@ out:
- 
- static int cma_ib_listen(struct rdma_id_private *id_priv)
- {
--	struct ib_cm_compare_data compare_data;
- 	struct sockaddr *addr;
- 	struct ib_cm_id	*id;
- 	__be64 svc_id;
-@@ -1603,8 +1607,10 @@ static int cma_ib_listen(struct rdma_id_private *id_priv)
- 	if (cma_any_addr(addr) && !id_priv->afonly)
- 		ret = ib_cm_listen(id_priv->cm_id.ib, svc_id, 0, NULL);
- 	else {
--		cma_set_compare_data(id_priv->id.ps, addr, &compare_data);
--		ret = ib_cm_listen(id_priv->cm_id.ib, svc_id, 0, &compare_data);
-+		cma_set_compare_data(id_priv->id.ps, addr,
-+				     &id_priv->compare_data);
-+		ret = ib_cm_listen(id_priv->cm_id.ib, svc_id, 0,
-+				   &id_priv->compare_data);
+ 	if (req_msg->alt_local_lid) {
+ 		memset(alt_path, 0, sizeof *alt_path);
+@@ -1386,6 +1387,7 @@ static void cm_format_paths_from_req(struct cm_req_msg *req_msg,
+ 		alt_path->packet_life_time =
+ 			cm_req_get_alt_local_ack_timeout(req_msg);
+ 		alt_path->packet_life_time -= (alt_path->packet_life_time > 0);
++		alt_path->service_id = req_msg->service_id;
  	}
+ }
  
- 	if (ret) {
+@@ -3089,6 +3091,7 @@ static void cm_format_sidr_req_event(struct cm_work *work,
+ 	param = &work->cm_event.param.sidr_req_rcvd;
+ 	param->pkey = __be16_to_cpu(sidr_req_msg->pkey);
+ 	param->listen_id = listen_id;
++	param->service_id = sidr_req_msg->service_id;
+ 	param->port = work->port->port_num;
+ 	work->cm_event.private_data = &sidr_req_msg->private_data;
+ }
 diff --git a/include/rdma/ib_cm.h b/include/rdma/ib_cm.h
-index 6655016b3855..1f0427310611 100644
+index 59f534b5f091..6655016b3855 100644
 --- a/include/rdma/ib_cm.h
 +++ b/include/rdma/ib_cm.h
-@@ -343,6 +343,9 @@ struct ib_cm_compare_data {
- 	u32  mask[IB_CM_COMPARE_SIZE];
- };
+@@ -223,6 +223,7 @@ struct ib_cm_apr_event_param {
  
-+int cm_compare_private_data(u32 *private_data,
-+			    struct ib_cm_compare_data *dst_data);
-+
- /**
-  * ib_cm_listen - Initiates listening on the specified service ID for
-  *   connection and service ID resolution requests.
+ struct ib_cm_sidr_req_event_param {
+ 	struct ib_cm_id		*listen_id;
++	__be64			service_id;
+ 	u8			port;
+ 	u16			pkey;
+ };
 -- 
 1.7.11.2
 
