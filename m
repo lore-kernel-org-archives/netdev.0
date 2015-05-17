@@ -1,84 +1,133 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [net-next] netlink: Use random autobind rover
-Date: Sun, 17 May 2015 10:45:34 +0800
-Message-ID: <20150517024534.GA5570@gondor.apana.org.au>
-References: <20150515.130219.331336809636676892.davem@redhat.com>
- <20150516123242.GA683@gondor.apana.org.au>
- <20150516134007.GA1152@gondor.apana.org.au>
- <20150516.170819.1082459707799000658.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	ying.xue@windriver.com
-To: David Miller <davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload on failure to program fib entry in hardware
+Date: Sat, 16 May 2015 20:46:42 -0700
+Message-ID: <1431834402-4031-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, sfeldma@gmail.com, john.fastabend@gmail.com,
+	jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:39211 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750774AbbEQCpo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 22:45:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20150516.170819.1082459707799000658.davem@davemloft.net>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:34137 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246AbbEQDqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 May 2015 23:46:49 -0400
+Received: by pdeq5 with SMTP id q5so90098151pde.1
+        for <netdev@vger.kernel.org>; Sat, 16 May 2015 20:46:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 16, 2015 at 05:08:19PM -0400, David Miller wrote:
->
-> As far as I can tell, this ought to be fine as-is.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-OK what about dropping the global rover altogether? Let's just
-start randomly like UDP.
+This patch removes the calls to netdev_switch_fib_ipv4_abort when
+there is an error in programming fib entry in hardware.
 
----8<---
-Currently we use a global rover to select a port ID that is unique.
-This used to work consistently when it was protected with a global
-lock.  However as we're now lockless, the global rover can exhibit
-pathological behaviour should multiple threads all stomp on it at
-the same time.
+On most systems where you can offload routes to hardware,
+doing routing in software is not an option (the cpu limitations
+make routing impossible in software).
 
-Granted this will eventually resolve itself but the process is
-suboptimal.
+I understand that this was added to keep the first fib offload support
+simple.
 
-This patch replaces the global rover with a pseudorandom starting
-point to avoid this issue.
+As discussed in the RFC patch, available options:
+a) Fail fib entry add on hardware offload failure on switch devices, and
+return appropriate error to the user by default (this patch)
+b) make the behaviour in a) conditional on a global flag/sysctl (a per fib
+entry flag will not work because by default user/routing-daemons dont care
+if they are hardware offloaded)
+c) for users/routing-daemons interested in controlling hardware
+offload behaviour there is always the per fib entry flag RTNH_F_OFFLOAD
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Considering the characteristics of the systems that support fib offloads,
+this patch implements a). Also making a) the default will enable easier/faster
+migration of existing routing apps to switch devices.
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index ec4adbd..716c6d2 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1296,20 +1296,24 @@ static int netlink_autobind(struct socket *sock)
- 	struct netlink_table *table = &nl_table[sk->sk_protocol];
- 	s32 portid = task_tgid_vnr(current);
- 	int err;
--	static s32 rover = -4097;
-+	s32 rover = -4096;
-+	bool ok;
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+RFC to v1:
+  - rebase to net
+  - remove fib_offload_disabled flag and all associated code as suggested by
+    scott feldman
+
+(This patch is currently against net. If there is any reason to move it to
+net-next, I can respin)
+
+ include/net/netns/ipv4.h  |    1 -
+ net/ipv4/fib_trie.c       |    5 +----
+ net/switchdev/switchdev.c |   23 -----------------------
+ 3 files changed, 1 insertion(+), 28 deletions(-)
+
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 614a49b..31919b1 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -47,7 +47,6 @@ struct netns_ipv4 {
+ 	int			fib_num_tclassid_users;
+ #endif
+ 	struct hlist_head	*fib_table_hash;
+-	bool			fib_offload_disabled;
+ 	struct sock		*fibnl;
  
- retry:
- 	cond_resched();
- 	rcu_read_lock();
--	if (__netlink_lookup(table, portid, net)) {
-+	ok = !__netlink_lookup(table, portid, net);
-+	rcu_read_unlock();
-+	if (!ok) {
- 		/* Bind collision, search negative portid values. */
--		portid = rover--;
--		if (rover > -4097)
-+		if (rover == -4096)
-+			/* rover will be in range [S32_MIN, -4097] */
-+			rover = S32_MIN + prandom_u32_max(-4096 - S32_MIN);
-+		else if (rover >= -4096)
- 			rover = -4097;
--		rcu_read_unlock();
-+		portid = rover--;
- 		goto retry;
- 	}
--	rcu_read_unlock();
+ 	struct sock  * __percpu	*icmp_sk;
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 64c2076..ef523d3 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1171,7 +1171,6 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 							 cfg->fc_nlflags,
+ 							 tb->tb_id);
+ 			if (err) {
+-				netdev_switch_fib_ipv4_abort(fi);
+ 				kmem_cache_free(fn_alias_kmem, new_fa);
+ 				goto out;
+ 			}
+@@ -1219,10 +1218,8 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
+ 					 cfg->fc_type,
+ 					 cfg->fc_nlflags,
+ 					 tb->tb_id);
+-	if (err) {
+-		netdev_switch_fib_ipv4_abort(fi);
++	if (err)
+ 		goto out_free_new_fa;
+-	}
  
- 	err = netlink_insert(sk, portid);
- 	if (err == -EADDRINUSE)
+ 	/* Insert new entry to the list. */
+ 	err = fib_insert_alias(t, tp, l, new_fa, fa, key);
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 055453d..d1269c4 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -325,9 +325,6 @@ int netdev_switch_fib_ipv4_add(u32 dst, int dst_len, struct fib_info *fi,
+ 		return 0;
+ #endif
+ 
+-	if (fi->fib_net->ipv4.fib_offload_disabled)
+-		return 0;
+-
+ 	dev = netdev_switch_get_dev_by_nhs(fi);
+ 	if (!dev)
+ 		return 0;
+@@ -382,23 +379,3 @@ int netdev_switch_fib_ipv4_del(u32 dst, int dst_len, struct fib_info *fi,
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_del);
+-
+-/**
+- *	netdev_switch_fib_ipv4_abort - Abort an IPv4 FIB operation
+- *
+- *	@fi: route FIB info structure
+- */
+-void netdev_switch_fib_ipv4_abort(struct fib_info *fi)
+-{
+-	/* There was a problem installing this route to the offload
+-	 * device.  For now, until we come up with more refined
+-	 * policy handling, abruptly end IPv4 fib offloading for
+-	 * for entire net by flushing offload device(s) of all
+-	 * IPv4 routes, and mark IPv4 fib offloading broken from
+-	 * this point forward.
+-	 */
+-
+-	fib_flush_external(fi->fib_net);
+-	fi->fib_net->ipv4.fib_offload_disabled = true;
+-}
+-EXPORT_SYMBOL_GPL(netdev_switch_fib_ipv4_abort);
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.10.4
