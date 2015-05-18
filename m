@@ -1,43 +1,41 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] vxlan: correct typo in call to unregister_netdevice_queue
-Date: Mon, 18 May 2015 13:51:24 -0400
-Message-ID: <1431971484-23467-1-git-send-email-linville@tuxdriver.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: iproute equivalent of replacing address with ifconfig?
+Date: Mon, 18 May 2015 21:13:45 +0300
+Message-ID: <555A2BD9.9000606@msgid.tls.msk.ru>
+References: <5559F139.2010801@msgid.tls.msk.ru> <CAHA+R7Phpe3-ceX=zgWttfhguGWmBx9QQBtCyaGV6C3GOSdu9w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48801 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753987AbbERSAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 14:00:16 -0400
+Received: from isrv.corpit.ru ([86.62.121.231]:50747 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752063AbbERSNr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 14:13:47 -0400
+In-Reply-To: <CAHA+R7Phpe3-ceX=zgWttfhguGWmBx9QQBtCyaGV6C3GOSdu9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By inspection, this appears to be a typo.  The gating comparison
-involves vxlan->dev rather than dev.  In fact, dev is the iterator in
-the preceding loop above but it is actually constant in the 2nd loop.
+18.05.2015 20:46, Cong Wang wrote:
+> On Mon, May 18, 2015 at 7:03 AM, Michael Tokarev <mjt@tls.msk.ru> wrote:
+>>
+>> ip addr command however does not have the ability to "replace"
+>> an address, there are two commands for that, del and add.
+>> So in order to change address, one have to delete and add,
+>> a two-step process.  Adding an address before deleting might
+>> not work as the new address should not conflict with old
+>> address in any way, or else addition fails.
+> 
+> Are you sure?
+> 
+> $ ip addr help
+> Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]
+>                                                       [ CONFFLAG-LIST ]
 
-Use of dev seems to be a bad cut-n-paste from the prior call to
-unregister_netdevice_queue.  Change dev to vxlan->dev, since that is
-what is actually being checked.
+Hm.  I looked into the manpage, where neither change nor replace are
+documented.  Wonder what these do, what's the difference etc...
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- drivers/net/vxlan.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks!
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 27a5f954f8e9..21a0fbf1ed94 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2961,7 +2961,7 @@ static void __net_exit vxlan_exit_net(struct net *net)
- 		 * to the list by the previous loop.
- 		 */
- 		if (!net_eq(dev_net(vxlan->dev), net))
--			unregister_netdevice_queue(dev, &list);
-+			unregister_netdevice_queue(vxlan->dev, &list);
- 	}
- 
- 	unregister_netdevice_many(&list);
--- 
-2.1.0
+/mjt
