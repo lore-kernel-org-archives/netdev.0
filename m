@@ -1,22 +1,28 @@
-From: <p_kosyh@factor-ts.ru>
+From: p.kosyh@gmail.com
 Subject: __assign_irq_vector (x86) and irq vectors exhaust
-Date: Mon, 18 May 2015 15:48:33 +0300
-Message-ID: <20150518124833.GA7512__27129.6461382464$1431953762$gmane$org@peter-bsd.cuba.int>
+Date: Mon, 18 May 2015 15:57:45 +0300
+Message-ID: <20150518125745.GA10966@peter-bsd.cuba.int>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
+Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dionis.factor-ts.ru ([194.154.76.131]:4979 "ehlo factor-ts.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750782AbbERMzh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2015 08:55:37 -0400
-Message-ID: <20150518124833.GA7512@peter-bsd.cuba.int>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:35092 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbbERM5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 08:57:49 -0400
+Received: by labbd9 with SMTP id bd9so218725458lab.2
+        for <netdev@vger.kernel.org>; Mon, 18 May 2015 05:57:47 -0700 (PDT)
+Received: from localhost ([83.220.32.68])
+        by mx.google.com with ESMTPSA id h3sm2690917lbj.19.2015.05.18.05.57.46
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 18 May 2015 05:57:47 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---ew6BAiZeqk4r7MaW
+--YZ5djTAD1cGYuMQK
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: inline
 
@@ -90,7 +96,7 @@ Thank you!
 -- 
 Peter Kosyh
 
---ew6BAiZeqk4r7MaW
+--YZ5djTAD1cGYuMQK
 Content-Type: text/x-diff; charset=utf-8
 Content-Disposition: attachment; filename="linux-3.10-irq-rr.patch"
 
@@ -159,4 +165,4 @@ diff -Nur linux-3.10.65/lib/cpumask.c linux-3.10.65-irq-rr/lib/cpumask.c
 +
 +EXPORT_SYMBOL(cpumask_any_and_real);
 
---ew6BAiZeqk4r7MaW--
+--YZ5djTAD1cGYuMQK--
