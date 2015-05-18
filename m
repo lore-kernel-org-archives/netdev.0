@@ -1,63 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 98521] New: bonding: kernel BUG at net/core/dev.c:2359
- when using traceroute6
-Date: Mon, 18 May 2015 10:53:01 -0700
-Message-ID: <1431971581.621.38.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150518102009.18b9c332@urahara>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, catdog2@tuxzone.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] vxlan: correct typo in call to unregister_netdevice_queue
+Date: Mon, 18 May 2015 13:51:24 -0400
+Message-ID: <1431971484-23467-1-git-send-email-linville@tuxdriver.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:35903 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751923AbbERRxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 13:53:04 -0400
-Received: by igbpi8 with SMTP id pi8so55186916igb.1
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 10:53:03 -0700 (PDT)
-In-Reply-To: <20150518102009.18b9c332@urahara>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48801 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753987AbbERSAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 14:00:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-05-18 at 10:20 -0700, Stephen Hemminger wrote:
-> 
-> Begin forwarded message:
-> 
-> Date: Sun, 17 May 2015 23:16:25 +0000
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-> Subject: [Bug 98521] New: bonding: kernel BUG at net/core/dev.c:2359 when using traceroute6
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=98521
-> 
->             Bug ID: 98521
->            Summary: bonding: kernel BUG at net/core/dev.c:2359 when using
->                     traceroute6
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 4.0.3
->           Hardware: x86-64
->                 OS: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->           Assignee: shemminger@linux-foundation.org
->           Reporter: catdog2@tuxzone.org
->         Regression: No
-> 
-> Created attachment 177171
->   --> https://bugzilla.kernel.org/attachment.cgi?id=177171&action=edit
-> Snapshot of the panic message
-> 
-> When i do a "traceroute6 google.com" the kernel panics with "kernel BUG at
-> net/core/dev.c:2359". It only seems to happen when using a bonding interface
-> (ethernet + wlan in active-backup mode in my case). 
-> A snapshot of the message printed to the console is attached.
-> 
+By inspection, this appears to be a typo.  The gating comparison
+involves vxlan->dev rather than dev.  In fact, dev is the iterator in
+the preceding loop above but it is actually constant in the 2nd loop.
 
-Fixed in
-http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=e87a468eb97da35d8dc00e8fa9828b4de4ab69d0
+Use of dev seems to be a bad cut-n-paste from the prior call to
+unregister_netdevice_queue.  Change dev to vxlan->dev, since that is
+what is actually being checked.
+
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ drivers/net/vxlan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 27a5f954f8e9..21a0fbf1ed94 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2961,7 +2961,7 @@ static void __net_exit vxlan_exit_net(struct net *net)
+ 		 * to the list by the previous loop.
+ 		 */
+ 		if (!net_eq(dev_net(vxlan->dev), net))
+-			unregister_netdevice_queue(dev, &list);
++			unregister_netdevice_queue(vxlan->dev, &list);
+ 	}
+ 
+ 	unregister_netdevice_many(&list);
+-- 
+2.1.0
