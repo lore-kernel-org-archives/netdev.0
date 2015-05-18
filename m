@@ -1,7 +1,7 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 07/16] sfc: protect filter table against use-after-free
-Date: Mon, 18 May 2015 16:29:08 +0100
-Message-ID: <555A0544.6010000@solarflare.com>
+Subject: [PATCH net-next 09/16] sfc: Initialise MCDI buffers to 0 on declaration.
+Date: Mon, 18 May 2015 16:29:36 +0100
+Message-ID: <555A0560.2050806@solarflare.com>
 References: <555A044A.4060202@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,279 +9,234 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:46148 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753035AbbERP3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:29:31 -0400
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:10358 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752844AbbERP35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:29:57 -0400
 In-Reply-To: <555A044A.4060202@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
+From: Jon Cooper <jcooper@solarflare.com>
 
-If MCDI timeouts are encountered during efx_ef10_filter_table_remove(),
-an FLR will be queued, but efx->filter_state will still be kfree()d.
-The queued FLR will then call efx_ef10_filter_table_restore(), which
-will try to use efx->filter_state. This previously caused a panic.
-This patch adds an rwsem to protect the existence of efx->filter_state,
-separately from the spinlock protecting its contents.  Users which can
-race against efx_ef10_filter_table_remove() should down_read this rwsem.
+In order to avoid MC bugs the flags field needs to be set to 0.
+Instead of explicitly clearing out the flags individually, a
+better way to do this is to memset the MCDI_BUF to 0.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c       | 19 +++++++++++++++++
- drivers/net/ethernet/sfc/efx.c        | 39 ++++++++++++++++++++++++++---------
- drivers/net/ethernet/sfc/efx.h        |  2 ++
- drivers/net/ethernet/sfc/ethtool.c    |  2 +-
- drivers/net/ethernet/sfc/net_driver.h |  5 ++++-
- 5 files changed, 55 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c | 28 +++++++++++++++-------------
+ drivers/net/ethernet/sfc/mcdi.c |  8 ++++----
+ drivers/net/ethernet/sfc/mcdi.h |  8 +++++---
+ drivers/net/ethernet/sfc/ptp.c  |  6 +++---
+ 4 files changed, 27 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 78d3236..9e2e8e1 100644
+index 4058626..e8d760c 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -3314,6 +3314,9 @@ fail:
- 	return rc;
- }
+@@ -378,7 +378,7 @@ fail1:
  
-+/* Caller must hold efx->filter_sem for read if race against
-+ * efx_ef10_filter_table_remove() is possible
-+ */
- static void efx_ef10_filter_table_restore(struct efx_nic *efx)
+ static int efx_ef10_free_vis(struct efx_nic *efx)
  {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
-@@ -3323,9 +3326,14 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
- 	bool failed = false;
- 	int rc;
- 
-+	WARN_ON(!rwsem_is_locked(&efx->filter_sem));
-+
- 	if (!nic_data->must_restore_filters)
- 		return;
- 
-+	if (!table)
-+		return;
-+
- 	spin_lock_bh(&efx->filter_lock);
- 
- 	for (filter_idx = 0; filter_idx < HUNT_FILTER_TBL_ROWS; filter_idx++) {
-@@ -3361,6 +3369,7 @@ static void efx_ef10_filter_table_restore(struct efx_nic *efx)
- 		nic_data->must_restore_filters = false;
- }
- 
-+/* Caller must hold efx->filter_sem for write */
- static void efx_ef10_filter_table_remove(struct efx_nic *efx)
+-	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
++	MCDI_DECLARE_BUF_ERR(outbuf);
+ 	size_t outlen;
+ 	int rc = efx_mcdi_rpc_quiet(efx, MC_CMD_FREE_VIS, NULL, 0,
+ 				    outbuf, sizeof(outbuf), &outlen);
+@@ -449,9 +449,9 @@ static int efx_ef10_alloc_piobufs(struct efx_nic *efx, unsigned int n)
+ static int efx_ef10_link_piobufs(struct efx_nic *efx)
  {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
-@@ -3369,6 +3378,10 @@ static void efx_ef10_filter_table_remove(struct efx_nic *efx)
- 	unsigned int filter_idx;
- 	int rc;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+-	MCDI_DECLARE_BUF(inbuf,
+-			 max(MC_CMD_LINK_PIOBUF_IN_LEN,
+-			     MC_CMD_UNLINK_PIOBUF_IN_LEN));
++	_MCDI_DECLARE_BUF(inbuf,
++			  max(MC_CMD_LINK_PIOBUF_IN_LEN,
++			      MC_CMD_UNLINK_PIOBUF_IN_LEN));
+ 	struct efx_channel *channel;
+ 	struct efx_tx_queue *tx_queue;
+ 	unsigned int offset, index;
+@@ -460,6 +460,8 @@ static int efx_ef10_link_piobufs(struct efx_nic *efx)
+ 	BUILD_BUG_ON(MC_CMD_LINK_PIOBUF_OUT_LEN != 0);
+ 	BUILD_BUG_ON(MC_CMD_UNLINK_PIOBUF_OUT_LEN != 0);
  
-+	efx->filter_state = NULL;
-+	if (!table)
-+		return;
++	memset(inbuf, 0, sizeof(inbuf));
 +
- 	for (filter_idx = 0; filter_idx < HUNT_FILTER_TBL_ROWS; filter_idx++) {
- 		spec = efx_ef10_filter_entry_spec(table, filter_idx);
- 		if (!spec)
-@@ -3394,6 +3407,9 @@ static void efx_ef10_filter_table_remove(struct efx_nic *efx)
- 	kfree(table);
- }
- 
-+/* Caller must hold efx->filter_sem for read if race against
-+ * efx_ef10_filter_table_remove() is possible
-+ */
- static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 	/* Link a buffer to each VI in the write-combining mapping */
+ 	for (index = 0; index < nic_data->n_piobufs; ++index) {
+ 		MCDI_SET_DWORD(inbuf, LINK_PIOBUF_IN_PIOBUF_HANDLE,
+@@ -1406,17 +1408,17 @@ static void efx_ef10_tx_init(struct efx_tx_queue *tx_queue)
  {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
-@@ -3408,6 +3424,9 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
- 	if (!efx_dev_registered(efx))
- 		return;
- 
-+	if (!table)
-+		return;
-+
- 	/* Mark old filters that may need to be removed */
- 	spin_lock_bh(&efx->filter_lock);
- 	n = table->dev_uc_count < 0 ? 1 : table->dev_uc_count;
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 864c337..50816cd 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -949,6 +949,16 @@ void efx_link_set_wanted_fc(struct efx_nic *efx, u8 wanted_fc)
- 
- static void efx_fini_port(struct efx_nic *efx);
- 
-+/* We assume that efx->type->reconfigure_mac will always try to sync RX
-+ * filters and therefore needs to read-lock the filter table against freeing
-+ */
-+void efx_mac_reconfigure(struct efx_nic *efx)
-+{
-+	down_read(&efx->filter_sem);
-+	efx->type->reconfigure_mac(efx);
-+	up_read(&efx->filter_sem);
-+}
-+
- /* Push loopback/power/transmit disable settings to the PHY, and reconfigure
-  * the MAC appropriately. All other PHY configuration changes are pushed
-  * through phy_op->set_settings(), and pushed asynchronously to the MAC
-@@ -1002,7 +1012,7 @@ static void efx_mac_work(struct work_struct *data)
- 
- 	mutex_lock(&efx->mac_lock);
- 	if (efx->port_enabled)
--		efx->type->reconfigure_mac(efx);
-+		efx_mac_reconfigure(efx);
- 	mutex_unlock(&efx->mac_lock);
- }
- 
-@@ -1042,7 +1052,7 @@ static int efx_init_port(struct efx_nic *efx)
- 
- 	/* Reconfigure the MAC before creating dma queues (required for
- 	 * Falcon/A1 where RX_INGR_EN/TX_DRAIN_EN isn't supported) */
--	efx->type->reconfigure_mac(efx);
-+	efx_mac_reconfigure(efx);
- 
- 	/* Ensure the PHY advertises the correct flow control settings */
- 	rc = efx->phy_op->reconfigure(efx);
-@@ -1068,7 +1078,7 @@ static void efx_start_port(struct efx_nic *efx)
- 	efx->port_enabled = true;
- 
- 	/* Ensure MAC ingress/egress is enabled */
--	efx->type->reconfigure_mac(efx);
-+	efx_mac_reconfigure(efx);
- 
- 	mutex_unlock(&efx->mac_lock);
- }
-@@ -1672,10 +1682,11 @@ static int efx_probe_filters(struct efx_nic *efx)
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_INIT_TXQ_IN_LEN(EFX_MAX_DMAQ_SIZE * 8 /
+ 						       EFX_BUF_SIZE));
+-	MCDI_DECLARE_BUF(outbuf, MC_CMD_INIT_TXQ_OUT_LEN);
+ 	bool csum_offload = tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD;
+ 	size_t entries = tx_queue->txd.buf.len / EFX_BUF_SIZE;
+ 	struct efx_channel *channel = tx_queue->channel;
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+-	size_t inlen, outlen;
++	size_t inlen;
+ 	dma_addr_t dma_addr;
+ 	efx_qword_t *txd;
  	int rc;
+ 	int i;
++	BUILD_BUG_ON(MC_CMD_INIT_TXQ_OUT_LEN != 0);
  
- 	spin_lock_init(&efx->filter_lock);
--
-+	init_rwsem(&efx->filter_sem);
-+	down_write(&efx->filter_sem);
- 	rc = efx->type->filter_table_probe(efx);
+ 	MCDI_SET_DWORD(inbuf, INIT_TXQ_IN_SIZE, tx_queue->ptr_mask + 1);
+ 	MCDI_SET_DWORD(inbuf, INIT_TXQ_IN_TARGET_EVQ, channel->channel);
+@@ -1441,7 +1443,7 @@ static void efx_ef10_tx_init(struct efx_tx_queue *tx_queue)
+ 	inlen = MC_CMD_INIT_TXQ_IN_LEN(entries);
+ 
+ 	rc = efx_mcdi_rpc(efx, MC_CMD_INIT_TXQ, inbuf, inlen,
+-			  outbuf, sizeof(outbuf), &outlen);
++			  NULL, 0, NULL);
  	if (rc)
--		return rc;
-+		goto out_unlock;
+ 		goto fail;
  
- #ifdef CONFIG_RFS_ACCEL
- 	if (efx->type->offload_features & NETIF_F_NTUPLE) {
-@@ -1684,12 +1695,14 @@ static int efx_probe_filters(struct efx_nic *efx)
- 					   GFP_KERNEL);
- 		if (!efx->rps_flow_id) {
- 			efx->type->filter_table_remove(efx);
--			return -ENOMEM;
-+			rc = -ENOMEM;
-+			goto out_unlock;
- 		}
- 	}
- #endif
--
--	return 0;
-+out_unlock:
-+	up_write(&efx->filter_sem);
-+	return rc;
- }
- 
- static void efx_remove_filters(struct efx_nic *efx)
-@@ -1697,12 +1710,16 @@ static void efx_remove_filters(struct efx_nic *efx)
- #ifdef CONFIG_RFS_ACCEL
- 	kfree(efx->rps_flow_id);
- #endif
-+	down_write(&efx->filter_sem);
- 	efx->type->filter_table_remove(efx);
-+	up_write(&efx->filter_sem);
- }
- 
- static void efx_restore_filters(struct efx_nic *efx)
+@@ -1474,7 +1476,7 @@ fail:
+ static void efx_ef10_tx_fini(struct efx_tx_queue *tx_queue)
  {
-+	down_read(&efx->filter_sem);
- 	efx->type->filter_table_restore(efx);
-+	up_read(&efx->filter_sem);
- }
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_FINI_TXQ_IN_LEN);
+-	MCDI_DECLARE_BUF(outbuf, MC_CMD_FINI_TXQ_OUT_LEN);
++	MCDI_DECLARE_BUF_ERR(outbuf);
+ 	struct efx_nic *efx = tx_queue->efx;
+ 	size_t outlen;
+ 	int rc;
+@@ -1781,15 +1783,15 @@ static void efx_ef10_rx_init(struct efx_rx_queue *rx_queue)
+ 	MCDI_DECLARE_BUF(inbuf,
+ 			 MC_CMD_INIT_RXQ_IN_LEN(EFX_MAX_DMAQ_SIZE * 8 /
+ 						EFX_BUF_SIZE));
+-	MCDI_DECLARE_BUF(outbuf, MC_CMD_INIT_RXQ_OUT_LEN);
+ 	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
+ 	size_t entries = rx_queue->rxd.buf.len / EFX_BUF_SIZE;
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+-	size_t inlen, outlen;
++	size_t inlen;
+ 	dma_addr_t dma_addr;
+ 	int rc;
+ 	int i;
++	BUILD_BUG_ON(MC_CMD_INIT_RXQ_OUT_LEN != 0);
  
- /**************************************************************************
-@@ -2183,7 +2200,7 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
+ 	rx_queue->scatter_n = 0;
+ 	rx_queue->scatter_len = 0;
+@@ -1818,7 +1820,7 @@ static void efx_ef10_rx_init(struct efx_rx_queue *rx_queue)
+ 	inlen = MC_CMD_INIT_RXQ_IN_LEN(entries);
  
- 	mutex_lock(&efx->mac_lock);
- 	net_dev->mtu = new_mtu;
--	efx->type->reconfigure_mac(efx);
-+	efx_mac_reconfigure(efx);
- 	mutex_unlock(&efx->mac_lock);
+ 	rc = efx_mcdi_rpc(efx, MC_CMD_INIT_RXQ, inbuf, inlen,
+-			  outbuf, sizeof(outbuf), &outlen);
++			  NULL, 0, NULL);
+ 	if (rc)
+ 		netdev_WARN(efx->net_dev, "failed to initialise RXQ %d\n",
+ 			    efx_rx_queue_index(rx_queue));
+@@ -1827,7 +1829,7 @@ static void efx_ef10_rx_init(struct efx_rx_queue *rx_queue)
+ static void efx_ef10_rx_fini(struct efx_rx_queue *rx_queue)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_FINI_RXQ_IN_LEN);
+-	MCDI_DECLARE_BUF(outbuf, MC_CMD_FINI_RXQ_OUT_LEN);
++	MCDI_DECLARE_BUF_ERR(outbuf);
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	size_t outlen;
+ 	int rc;
+@@ -1989,7 +1991,7 @@ static int efx_ef10_ev_init(struct efx_channel *channel)
+ static void efx_ef10_ev_fini(struct efx_channel *channel)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_FINI_EVQ_IN_LEN);
+-	MCDI_DECLARE_BUF(outbuf, MC_CMD_FINI_EVQ_OUT_LEN);
++	MCDI_DECLARE_BUF_ERR(outbuf);
+ 	struct efx_nic *efx = channel->efx;
+ 	size_t outlen;
+ 	int rc;
+diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
+index b44ee31..fcee761 100644
+--- a/drivers/net/ethernet/sfc/mcdi.c
++++ b/drivers/net/ethernet/sfc/mcdi.c
+@@ -406,7 +406,7 @@ static bool efx_mcdi_complete_async(struct efx_mcdi_iface *mcdi, bool timeout)
+ 	struct efx_mcdi_async_param *async;
+ 	size_t hdr_len, data_len, err_len;
+ 	efx_dword_t *outbuf;
+-	MCDI_DECLARE_BUF_OUT_OR_ERR(errbuf, 0);
++	MCDI_DECLARE_BUF_ERR(errbuf);
+ 	int rc;
  
- 	efx_start_all(efx);
-@@ -2219,7 +2236,7 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
+ 	if (cmpxchg(&mcdi->state,
+@@ -534,7 +534,7 @@ static int _efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
+ 				size_t *outlen_actual, bool quiet)
+ {
+ 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
+-	MCDI_DECLARE_BUF_OUT_OR_ERR(errbuf, 0);
++	MCDI_DECLARE_BUF_ERR(errbuf);
+ 	int rc;
  
- 	/* Reconfigure the MAC */
- 	mutex_lock(&efx->mac_lock);
--	efx->type->reconfigure_mac(efx);
-+	efx_mac_reconfigure(efx);
- 	mutex_unlock(&efx->mac_lock);
+ 	if (mcdi->mode == MCDI_MODE_POLL)
+@@ -1389,7 +1389,7 @@ fail1:
+ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_ASSERTS_IN_LEN);
+-	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, MC_CMD_GET_ASSERTS_OUT_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_ASSERTS_OUT_LEN);
+ 	unsigned int flags, index;
+ 	const char *reason;
+ 	size_t outlen;
+@@ -1699,7 +1699,7 @@ int efx_mcdi_set_workaround(struct efx_nic *efx, u32 type, bool enabled)
+ int efx_mcdi_get_workarounds(struct efx_nic *efx, unsigned int *impl_out,
+ 			     unsigned int *enabled_out)
+ {
+-	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, MC_CMD_GET_WORKAROUNDS_OUT_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_WORKAROUNDS_OUT_LEN);
+ 	size_t outlen;
+ 	int rc;
  
- 	return 0;
-@@ -2464,7 +2481,9 @@ int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok)
- 			   " VFs may not function\n", rc);
- #endif
+diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
+index 5df1e98..7afab2f 100644
+--- a/drivers/net/ethernet/sfc/mcdi.h
++++ b/drivers/net/ethernet/sfc/mcdi.h
+@@ -176,10 +176,12 @@ void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
+  * 32-bit-aligned.  Also, on Siena we must copy to the MC shared
+  * memory strictly 32 bits at a time, so add any necessary padding.
+  */
+-#define MCDI_DECLARE_BUF(_name, _len)					\
++#define _MCDI_DECLARE_BUF(_name, _len)					\
+ 	efx_dword_t _name[DIV_ROUND_UP(_len, 4)]
+-#define MCDI_DECLARE_BUF_OUT_OR_ERR(_name, _len)			\
+-	MCDI_DECLARE_BUF(_name, max_t(size_t, _len, 8))
++#define MCDI_DECLARE_BUF(_name, _len)					\
++	_MCDI_DECLARE_BUF(_name, _len) = {{{0}}}
++#define MCDI_DECLARE_BUF_ERR(_name)					\
++	MCDI_DECLARE_BUF(_name, 8)
+ #define _MCDI_PTR(_buf, _offset)					\
+ 	((u8 *)(_buf) + (_offset))
+ #define MCDI_PTR(_buf, _field)						\
+diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+index a2e9aee..cf8c833 100644
+--- a/drivers/net/ethernet/sfc/ptp.c
++++ b/drivers/net/ethernet/sfc/ptp.c
+@@ -306,7 +306,7 @@ struct efx_ptp_data {
+ 	struct work_struct pps_work;
+ 	struct workqueue_struct *pps_workwq;
+ 	bool nic_ts_enabled;
+-	MCDI_DECLARE_BUF(txbuf, MC_CMD_PTP_IN_TRANSMIT_LENMAX);
++	_MCDI_DECLARE_BUF(txbuf, MC_CMD_PTP_IN_TRANSMIT_LENMAX);
  
-+	down_read(&efx->filter_sem);
- 	efx_restore_filters(efx);
-+	up_read(&efx->filter_sem);
- 	if (efx->type->sriov_reset)
- 		efx->type->sriov_reset(efx);
+ 	unsigned int good_syncs;
+ 	unsigned int fast_syncs;
+@@ -568,7 +568,7 @@ static int efx_ptp_get_timestamp_corrections(struct efx_nic *efx)
+ static int efx_ptp_enable(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_ENABLE_LEN);
+-	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
++	MCDI_DECLARE_BUF_ERR(outbuf);
+ 	int rc;
  
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 9097906..46aee41 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -74,6 +74,8 @@ void efx_schedule_slow_fill(struct efx_rx_queue *rx_queue);
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_ENABLE);
+@@ -596,7 +596,7 @@ static int efx_ptp_enable(struct efx_nic *efx)
+ static int efx_ptp_disable(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_DISABLE_LEN);
+-	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
++	MCDI_DECLARE_BUF_ERR(outbuf);
+ 	int rc;
  
- /* Filters */
- 
-+void efx_mac_reconfigure(struct efx_nic *efx);
-+
- /**
-  * efx_filter_insert_filter - add or replace a filter
-  * @efx: NIC in which to insert the filter
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index 03829b4..0347976 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -734,7 +734,7 @@ static int efx_ethtool_set_pauseparam(struct net_device *net_dev,
- 	/* Reconfigure the MAC. The PHY *may* generate a link state change event
- 	 * if the user just changed the advertised capabilities, but there's no
- 	 * harm doing this twice */
--	efx->type->reconfigure_mac(efx);
-+	efx_mac_reconfigure(efx);
- 
- out:
- 	mutex_unlock(&efx->mac_lock);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 55a5f48..f6c4832 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -25,6 +25,7 @@
- #include <linux/highmem.h>
- #include <linux/workqueue.h>
- #include <linux/mutex.h>
-+#include <linux/rwsem.h>
- #include <linux/vmalloc.h>
- #include <linux/i2c.h>
- #include <linux/mtd/mtd.h>
-@@ -896,7 +897,8 @@ struct vfdi_status;
-  * @loopback_mode: Loopback status
-  * @loopback_modes: Supported loopback mode bitmask
-  * @loopback_selftest: Offline self-test private state
-- * @filter_lock: Filter table lock
-+ * @filter_sem: Filter table rw_semaphore, for freeing the table
-+ * @filter_lock: Filter table lock, for mere content changes
-  * @filter_state: Architecture-dependent filter table state
-  * @rps_flow_id: Flow IDs of filters allocated for accelerated RFS,
-  *	indexed by filter ID
-@@ -1038,6 +1040,7 @@ struct efx_nic {
- 
- 	void *loopback_selftest;
- 
-+	struct rw_semaphore filter_sem;
- 	spinlock_t filter_lock;
- 	void *filter_state;
- #ifdef CONFIG_RFS_ACCEL
+ 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_DISABLE);
