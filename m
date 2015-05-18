@@ -1,43 +1,34 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next] selftests/net: expect headroom in psock_fanout rollover
-Date: Mon, 18 May 2015 15:42:11 -0400
-Message-ID: <1431978131-30579-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/2] rocker: unused parameter and const
+ cleanups
+Date: Mon, 18 May 2015 15:47:22 -0400 (EDT)
+Message-ID: <20150518.154722.1576136891396287892.davem@davemloft.net>
+References: <1431574976-18214-1-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org
+To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f179.google.com ([209.85.160.179]:35766 "EHLO
-	mail-yk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932331AbbERTmS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 15:42:18 -0400
-Received: by ykec202 with SMTP id c202so56700857yke.2
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 12:42:17 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:59546 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754089AbbERTrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 15:47:24 -0400
+In-Reply-To: <1431574976-18214-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+From: Simon Horman <simon.horman@netronome.com>
+Date: Thu, 14 May 2015 12:42:54 +0900
 
-psock_fanout tests the various fanout modes. Change the test for
-rollover mode to expect early rollover due to socket pressure
-as implemented in 2ccdbaa6d55b ("packet: rollover lock contention
-avoidance").
+> This series provides some minor though verbose cleanup of rocker.
+> 
+> The second patch depends on the first though it could be rebased.
+> 
+> * Changes v1 -> v2
+>   - Found quite a few more variables and parameters to make const
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- tools/testing/selftests/net/psock_fanout.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+As stated, you wanted me to hold off on this series for now.
 
-diff --git a/tools/testing/selftests/net/psock_fanout.c b/tools/testing/selftests/net/psock_fanout.c
-index 6f67333..08c2a36 100644
---- a/tools/testing/selftests/net/psock_fanout.c
-+++ b/tools/testing/selftests/net/psock_fanout.c
-@@ -272,7 +272,7 @@ int main(int argc, char **argv)
- 	const int expect_hash[2][2]	= { { 15, 5 },  { 20, 5 } };
- 	const int expect_hash_rb[2][2]	= { { 15, 5 },  { 20, 15 } };
- 	const int expect_lb[2][2]	= { { 10, 10 }, { 18, 17 } };
--	const int expect_rb[2][2]	= { { 20, 0 },  { 20, 15 } };
-+	const int expect_rb[2][2]	= { { 15, 5 },  { 20, 15 } };
- 	const int expect_cpu0[2][2]	= { { 20, 0 },  { 20, 0 } };
- 	const int expect_cpu1[2][2]	= { { 0, 20 },  { 0, 20 } };
- 	int port_off = 2, tries = 5, ret;
--- 
-2.2.0.rc0.207.ga3a616c
+Please resubmit when the problems you've run into have been
+resolved, thanks!
