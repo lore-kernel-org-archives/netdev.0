@@ -1,108 +1,108 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/21] netfilter: ipset: Give a better name to a macro in ip_set_core.c
-Date: Mon, 18 May 2015 18:25:05 +0200
-Message-ID: <1431966324-4494-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/21] netfilter: ipset: Properly calculate extensions offsets and total length
+Date: Mon, 18 May 2015 18:25:07 +0200
+Message-ID: <1431966324-4494-5-git-send-email-pablo@netfilter.org>
 References: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43965 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932135AbbERQUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 12:20:40 -0400
 In-Reply-To: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Sergey Popovich <popovich_sergei@mail.ua>
 
+Offsets and total length returned by the ip_set_elem_len()
+calculated incorrectly as initial set element length (i.e.
+len parameter) is used multiple times in offset calculations,
+also affecting set element total length.
+
+Use initial set element length as start offset, do not add aligned
+extension offset to the offset. Return offset as total length of
+the set element.
+
+This reduces memory requirements on per element basic for the
+hash:* type of sets.
+
+For example output from 'ipset -terse list test-1' on 64-bit PC,
+where test-1 is generated via following script:
+
+  #!/bin/bash
+
+  set_name='test-1'
+
+  ipset create "$set_name" hash:net family inet \
+              timeout 10800 counters comment \
+              hashsize 65536 maxelem 65536
+
+  declare -i o3 o4
+  fmt="add $set_name 192.168.%u.%u\n"
+
+  for ((o3 = 0; o3 < 256; o3++)); do
+      for ((o4 = 0; o4 < 256; o4++)); do
+          printf "$fmt" $o3 $o4
+      done
+  done |ipset -exist restore
+
+BEFORE this patch is applied
+
+  # ipset -terse list test-1
+  Name: test-1
+  Type: hash:net
+  Revision: 6
+  Header: family inet hashsize 65536 maxelem 65536
+timeout 10800 counters comment
+  Size in memory: 26348440
+
+and AFTER applying patch
+
+  # ipset -terse list test-1
+  Name: test-1
+  Type: hash:net
+  Revision: 6
+  Header: family inet hashsize 65536 maxelem 65536
+timeout 10800 counters comment
+  Size in memory: 7706392
+  References: 0
+
+Signed-off-by: Sergey Popovich <popovich_sergei@mail.ua>
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_core.c |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ net/netfilter/ipset/ip_set_core.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index d259da3..ed05f1e 100644
+index ed05f1e..7f9c056 100644
 --- a/net/netfilter/ipset/ip_set_core.c
 +++ b/net/netfilter/ipset/ip_set_core.c
-@@ -42,7 +42,7 @@ static inline struct ip_set_net *ip_set_pernet(struct net *net)
+@@ -365,7 +365,7 @@ size_t
+ ip_set_elem_len(struct ip_set *set, struct nlattr *tb[], size_t len)
+ {
+ 	enum ip_set_ext_id id;
+-	size_t offset = 0;
++	size_t offset = len;
+ 	u32 cadt_flags = 0;
+ 
+ 	if (tb[IPSET_ATTR_CADT_FLAGS])
+@@ -375,12 +375,12 @@ ip_set_elem_len(struct ip_set *set, struct nlattr *tb[], size_t len)
+ 	for (id = 0; id < IPSET_EXT_ID_MAX; id++) {
+ 		if (!add_extension(id, cadt_flags, tb))
+ 			continue;
+-		offset += ALIGN(len + offset, ip_set_extensions[id].align);
++		offset = ALIGN(offset, ip_set_extensions[id].align);
+ 		set->offset[id] = offset;
+ 		set->extensions |= ip_set_extensions[id].type;
+ 		offset += ip_set_extensions[id].len;
+ 	}
+-	return len + offset;
++	return offset;
  }
+ EXPORT_SYMBOL_GPL(ip_set_elem_len);
  
- #define IP_SET_INC	64
--#define STREQ(a, b)	(strncmp(a, b, IPSET_MAXNAMELEN) == 0)
-+#define STRNCMP(a, b)	(strncmp(a, b, IPSET_MAXNAMELEN) == 0)
- 
- static unsigned int max_sets;
- 
-@@ -85,7 +85,7 @@ find_set_type(const char *name, u8 family, u8 revision)
- 	struct ip_set_type *type;
- 
- 	list_for_each_entry_rcu(type, &ip_set_type_list, list)
--		if (STREQ(type->name, name) &&
-+		if (STRNCMP(type->name, name) &&
- 		    (type->family == family ||
- 		     type->family == NFPROTO_UNSPEC) &&
- 		    revision >= type->revision_min &&
-@@ -132,7 +132,7 @@ __find_set_type_get(const char *name, u8 family, u8 revision,
- 	/* Make sure the type is already loaded
- 	 * but we don't support the revision */
- 	list_for_each_entry_rcu(type, &ip_set_type_list, list)
--		if (STREQ(type->name, name)) {
-+		if (STRNCMP(type->name, name)) {
- 			err = -IPSET_ERR_FIND_TYPE;
- 			goto unlock;
- 		}
-@@ -166,7 +166,7 @@ __find_set_type_minmax(const char *name, u8 family, u8 *min, u8 *max,
- 	*min = 255; *max = 0;
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(type, &ip_set_type_list, list)
--		if (STREQ(type->name, name) &&
-+		if (STRNCMP(type->name, name) &&
- 		    (type->family == family ||
- 		     type->family == NFPROTO_UNSPEC)) {
- 			found = true;
-@@ -581,7 +581,7 @@ ip_set_get_byname(struct net *net, const char *name, struct ip_set **set)
- 	rcu_read_lock();
- 	for (i = 0; i < inst->ip_set_max; i++) {
- 		s = rcu_dereference(inst->ip_set_list)[i];
--		if (s != NULL && STREQ(s->name, name)) {
-+		if (s != NULL && STRNCMP(s->name, name)) {
- 			__ip_set_get(s);
- 			index = i;
- 			*set = s;
-@@ -758,7 +758,7 @@ find_set_and_id(struct ip_set_net *inst, const char *name, ip_set_id_t *id)
- 	*id = IPSET_INVALID_ID;
- 	for (i = 0; i < inst->ip_set_max; i++) {
- 		set = ip_set(inst, i);
--		if (set != NULL && STREQ(set->name, name)) {
-+		if (set != NULL && STRNCMP(set->name, name)) {
- 			*id = i;
- 			break;
- 		}
-@@ -787,7 +787,7 @@ find_free_id(struct ip_set_net *inst, const char *name, ip_set_id_t *index,
- 		if (s == NULL) {
- 			if (*index == IPSET_INVALID_ID)
- 				*index = i;
--		} else if (STREQ(name, s->name)) {
-+		} else if (STRNCMP(name, s->name)) {
- 			/* Name clash */
- 			*set = s;
- 			return -EEXIST;
-@@ -887,7 +887,7 @@ ip_set_create(struct sock *ctnl, struct sk_buff *skb,
- 	if (ret == -EEXIST) {
- 		/* If this is the same set and requested, ignore error */
- 		if ((flags & IPSET_FLAG_EXIST) &&
--		    STREQ(set->type->name, clash->type->name) &&
-+		    STRNCMP(set->type->name, clash->type->name) &&
- 		    set->type->family == clash->type->family &&
- 		    set->type->revision_min == clash->type->revision_min &&
- 		    set->type->revision_max == clash->type->revision_max &&
-@@ -1098,7 +1098,7 @@ ip_set_rename(struct sock *ctnl, struct sk_buff *skb,
- 	name2 = nla_data(attr[IPSET_ATTR_SETNAME2]);
- 	for (i = 0; i < inst->ip_set_max; i++) {
- 		s = ip_set(inst, i);
--		if (s != NULL && STREQ(s->name, name2)) {
-+		if (s != NULL && STRNCMP(s->name, name2)) {
- 			ret = -IPSET_ERR_EXIST_SETNAME2;
- 			goto out;
- 		}
 -- 
 1.7.10.4
-
