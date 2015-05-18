@@ -1,65 +1,77 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 98521] New: bonding: kernel BUG at net/core/dev.c:2359
- when using traceroute6
-Date: Mon, 18 May 2015 10:20:09 -0700
-Message-ID: <20150518102009.18b9c332@urahara>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH net-next v3 1/2] pci: Add Cavium PCI vendor id
+Date: Mon, 18 May 2015 12:26:47 -0500
+Message-ID: <CAErSpo4N=B1tF-cn8K_SUYcSkoUYUM_HyTKyFKCmbNFMG=KiFw@mail.gmail.com>
+References: <CAErSpo4fLHEu_NOuy9CkrS9DOfSyCOkddPHEQz=pp6et8wa2AA@mail.gmail.com>
+ <20150516.171444.245757401088795324.davem@davemloft.net> <CAErSpo61OUg7PS-rPpAMNBUg4MNtxUig21eWe0hewKpbdDrnEA@mail.gmail.com>
+ <20150518.124152.558065488359768601.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36336 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752579AbbERRUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 13:20:06 -0400
-Received: by pabts4 with SMTP id ts4so160146393pab.3
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 10:20:06 -0700 (PDT)
-Received: from urahara (static-50-53-82-155.bvtn.or.frontiernet.net. [50.53.82.155])
-        by mx.google.com with ESMTPSA id y2sm10625306pdk.67.2015.05.18.10.20.05
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 18 May 2015 10:20:06 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Aleksey Makarov <aleksey.makarov@auriga.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Daney <david.daney@cavium.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20150518.124152.558065488359768601.davem@davemloft.net>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, May 18, 2015 at 11:41 AM, David Miller <davem@davemloft.net> wrote:
+> From: Bjorn Helgaas <bhelgaas@google.com>
+> Date: Mon, 18 May 2015 11:35:20 -0500
+>
+>> [+cc Greg]
+>>
+>> On Sat, May 16, 2015 at 4:14 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Bjorn Helgaas <bhelgaas@google.com>
+>>> Date: Sat, 16 May 2015 09:49:40 -0500
+>>>
+>>>> Hi Aleksey,
+>>>>
+>>>> On Fri, May 15, 2015 at 10:36 PM, Aleksey Makarov
+>>>> <aleksey.makarov@auriga.com> wrote:
+>>>>> Signed-off-by: Aleksey Makarov <aleksey.makarov@auriga.com>
+>>>>> ---
+>>>>>  include/linux/pci_ids.h | 2 ++
+>>>>>  1 file changed, 2 insertions(+)
+>>>>>
+>>>>> diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+>>>>> index e63c02a..3633cc6 100644
+>>>>> --- a/include/linux/pci_ids.h
+>>>>> +++ b/include/linux/pci_ids.h
+>>>>> @@ -2327,6 +2327,8 @@
+>>>>>  #define PCI_DEVICE_ID_ALTIMA_AC9100    0x03ea
+>>>>>  #define PCI_DEVICE_ID_ALTIMA_AC1003    0x03eb
+>>>>>
+>>>>> +#define PCI_VENDOR_ID_CAVIUM           0x177d
+>>>>
+>>>> Please read the note at the top of include/linux/pci_ids.h.  If this
+>>>> definition is used in two or more drivers, mention that in the
+>>>> changelog.  Otherwise, just use the bare hex value or a private
+>>>> #define in your driver.
+>>>
+>>> It is referenced from two foo.c files in the same driver.
+>>>
+>>> I don't know what policy we want for situations like that.
+>>
+>> The current policy (1d4a433fc4e9 ("PCI: Document pci_ids.h addition
+>> policy.")) predates me and I don't know the whole rationale.  I can
+>> see that it might reduce backporting pain for distros.
+>>
+>> If two foo.c files in the same driver share the PCI ID, they likely
+>> share other things as well, so there's likely a shared .h file where a
+>> private PCI_VENDOR_ID_CAVIUM could go.
+>>
+>> But this is a vendor ID (not a device ID), and it seems likely that
+>> there will be other devices from Cavium, so maybe it would make sense
+>> to apply the policy to device IDs, and go ahead and add vendor IDs to
+>> pci_ids.h.
+>
+> That makes sense to me, and therefore this change is probably fine as-is.
 
+OK.  I assume you'll take the whole series, so:
 
-Begin forwarded message:
-
-Date: Sun, 17 May 2015 23:16:25 +0000
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
-Subject: [Bug 98521] New: bonding: kernel BUG at net/core/dev.c:2359 when using traceroute6
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=98521
-
-            Bug ID: 98521
-           Summary: bonding: kernel BUG at net/core/dev.c:2359 when using
-                    traceroute6
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.0.3
-          Hardware: x86-64
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: catdog2@tuxzone.org
-        Regression: No
-
-Created attachment 177171
-  --> https://bugzilla.kernel.org/attachment.cgi?id=177171&action=edit
-Snapshot of the panic message
-
-When i do a "traceroute6 google.com" the kernel panics with "kernel BUG at
-net/core/dev.c:2359". It only seems to happen when using a bonding interface
-(ethernet + wlan in active-backup mode in my case). 
-A snapshot of the message printed to the console is attached.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
