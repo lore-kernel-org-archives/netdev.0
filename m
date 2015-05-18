@@ -1,77 +1,35 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH net-next v3 1/2] pci: Add Cavium PCI vendor id
-Date: Mon, 18 May 2015 12:26:47 -0500
-Message-ID: <CAErSpo4N=B1tF-cn8K_SUYcSkoUYUM_HyTKyFKCmbNFMG=KiFw@mail.gmail.com>
-References: <CAErSpo4fLHEu_NOuy9CkrS9DOfSyCOkddPHEQz=pp6et8wa2AA@mail.gmail.com>
- <20150516.171444.245757401088795324.davem@davemloft.net> <CAErSpo61OUg7PS-rPpAMNBUg4MNtxUig21eWe0hewKpbdDrnEA@mail.gmail.com>
- <20150518.124152.558065488359768601.davem@davemloft.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: iproute equivalent of replacing address with ifconfig?
+Date: Mon, 18 May 2015 10:46:58 -0700
+Message-ID: <CAHA+R7Phpe3-ceX=zgWttfhguGWmBx9QQBtCyaGV6C3GOSdu9w@mail.gmail.com>
+References: <5559F139.2010801@msgid.tls.msk.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Aleksey Makarov <aleksey.makarov@auriga.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Daney <david.daney@cavium.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20150518.124152.558065488359768601.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Network Development <netdev@vger.kernel.org>
+To: Michael Tokarev <mjt@tls.msk.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:33218 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752412AbbERRq7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 13:46:59 -0400
+Received: by wicmx19 with SMTP id mx19so94144796wic.0
+        for <netdev@vger.kernel.org>; Mon, 18 May 2015 10:46:58 -0700 (PDT)
+In-Reply-To: <5559F139.2010801@msgid.tls.msk.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 11:41 AM, David Miller <davem@davemloft.net> wrote:
-> From: Bjorn Helgaas <bhelgaas@google.com>
-> Date: Mon, 18 May 2015 11:35:20 -0500
+On Mon, May 18, 2015 at 7:03 AM, Michael Tokarev <mjt@tls.msk.ru> wrote:
 >
->> [+cc Greg]
->>
->> On Sat, May 16, 2015 at 4:14 PM, David Miller <davem@davemloft.net> wrote:
->>> From: Bjorn Helgaas <bhelgaas@google.com>
->>> Date: Sat, 16 May 2015 09:49:40 -0500
->>>
->>>> Hi Aleksey,
->>>>
->>>> On Fri, May 15, 2015 at 10:36 PM, Aleksey Makarov
->>>> <aleksey.makarov@auriga.com> wrote:
->>>>> Signed-off-by: Aleksey Makarov <aleksey.makarov@auriga.com>
->>>>> ---
->>>>>  include/linux/pci_ids.h | 2 ++
->>>>>  1 file changed, 2 insertions(+)
->>>>>
->>>>> diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
->>>>> index e63c02a..3633cc6 100644
->>>>> --- a/include/linux/pci_ids.h
->>>>> +++ b/include/linux/pci_ids.h
->>>>> @@ -2327,6 +2327,8 @@
->>>>>  #define PCI_DEVICE_ID_ALTIMA_AC9100    0x03ea
->>>>>  #define PCI_DEVICE_ID_ALTIMA_AC1003    0x03eb
->>>>>
->>>>> +#define PCI_VENDOR_ID_CAVIUM           0x177d
->>>>
->>>> Please read the note at the top of include/linux/pci_ids.h.  If this
->>>> definition is used in two or more drivers, mention that in the
->>>> changelog.  Otherwise, just use the bare hex value or a private
->>>> #define in your driver.
->>>
->>> It is referenced from two foo.c files in the same driver.
->>>
->>> I don't know what policy we want for situations like that.
->>
->> The current policy (1d4a433fc4e9 ("PCI: Document pci_ids.h addition
->> policy.")) predates me and I don't know the whole rationale.  I can
->> see that it might reduce backporting pain for distros.
->>
->> If two foo.c files in the same driver share the PCI ID, they likely
->> share other things as well, so there's likely a shared .h file where a
->> private PCI_VENDOR_ID_CAVIUM could go.
->>
->> But this is a vendor ID (not a device ID), and it seems likely that
->> there will be other devices from Cavium, so maybe it would make sense
->> to apply the policy to device IDs, and go ahead and add vendor IDs to
->> pci_ids.h.
->
-> That makes sense to me, and therefore this change is probably fine as-is.
+> ip addr command however does not have the ability to "replace"
+> an address, there are two commands for that, del and add.
+> So in order to change address, one have to delete and add,
+> a two-step process.  Adding an address before deleting might
+> not work as the new address should not conflict with old
+> address in any way, or else addition fails.
 
-OK.  I assume you'll take the whole series, so:
+Are you sure?
 
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+$ ip addr help
+Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]
+                                                      [ CONFFLAG-LIST ]
+[...]
