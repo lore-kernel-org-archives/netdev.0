@@ -1,92 +1,70 @@
-From: "Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH v3] brcmfmac: prohibit ACPI power management for brcmfmac
- driver
-Date: Mon, 18 May 2015 14:26:42 +0800
-Message-ID: <55598622.8060307@linux.intel.com>
-References: <555016DC.804@linux.intel.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
+ skb->dev in receive path
+Date: Mon, 18 May 2015 09:04:27 +0200
+Message-ID: <20150518070427.GC8928@secunet.com>
+References: <20150515.123726.1298734930500737780.davem@redhat.com>
+ <555645A3.6010509@gmail.com>
+ <20150516123457.GB683@gondor.apana.org.au>
+ <20150516.171328.1953881469617376252.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: "brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org" <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <555016DC.804-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <alexander.duyck@gmail.com>,
+	<alexander.h.duyck@redhat.com>, <netdev@vger.kernel.org>,
+	<tgraf@suug.ch>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:54241 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752321AbbERHEc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 03:04:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20150516.171328.1953881469617376252.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, May 16, 2015 at 05:13:28PM -0400, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Sat, 16 May 2015 20:34:58 +0800
+> 
+> > On Fri, May 15, 2015 at 12:14:43PM -0700, Alexander Duyck wrote:
+> >>
+> >> >Yeah, this mark handling via tunnel->parms.o_key looks not so good.
+> >> 
+> >> So is there any recommendations for an alternative to make it so
+> >> that the ipsec endpoint is identified as needing to be encrypted or
+> >> decrypted?  If needed I could probably take a day or two to try and
+> >> address it as I still have a few other minor things I want to try
+> >> and fix such as the MTU configuration for vti/vti6.
+> > 
+> > I'd like to hear from Steffen as to whether there is anything
+> > in userspace that relies on the mark being used in this way by
+> > vti.  If not it should be easy to get rid of it and use some
+> > field that's not exposed to user-space.  If there is then this
+> > would be tricky to resolve.
 
-Hi guys,
+The policy and state mark must match the tunnels i_key/o_key
+on lookup. It is not required to set skb->mark, but we have
+to make sure to use the tunnels gre keys as the mark when we
+do a policy or state lookup.
 
-Any comments about this patch?
+> 
+> The mark stuff comes from the commit below, and at the time I remember
+> pushing back a few times because I was uneasy about applying this
+> change:
+> 
+> ====================
+> commit 7263a5187f9e9de45fcb51349cf0e031142c19a1
+> Author: Christophe Gouault <christophe.gouault@6wind.com>
+> Date:   Tue Oct 8 17:21:22 2013 +0200
+> 
+>     vti: get rid of nf mark rule in prerouting
 
+This patch added the mark to the skb, but the matching
+of the gre keys and the mark was already in the initial
+implementation of vti. It used the i_key (instead of
+skb->mark) to do the output route lookup.
 
-
-Thanks,
-Zhonghui
-
-On 2015/5/11 10:41, Fu, Zhonghui wrote:
-> ACPI will manage WiFi chip's power state during suspend/resume
-> process on some tablet platforms(such as ASUS T100TA). This is
-> not supported by brcmfmac driver now, and the context of WiFi
-> chip will be damaged after resume. This patch informs ACPI not
-> to manage WiFi chip's power state.
->
-> Signed-off-by: Zhonghui Fu <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-> Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> ---
-> Changes in v3:
-> - Have the assignment separate for the if statement.
->
->  drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    9 +++++++++
->  1 files changed, 9 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> index 9b508bd..c960a12 100644
-> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
-> @@ -33,6 +33,7 @@
->  #include <linux/suspend.h>
->  #include <linux/errno.h>
->  #include <linux/module.h>
-> +#include <linux/acpi.h>
->  #include <net/cfg80211.h>
->  
->  #include <defs.h>
-> @@ -1114,6 +1115,8 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
->  	int err;
->  	struct brcmf_sdio_dev *sdiodev;
->  	struct brcmf_bus *bus_if;
-> +	struct device *dev;
-> +	struct acpi_device *adev;
->  
->  	brcmf_dbg(SDIO, "Enter\n");
->  	brcmf_dbg(SDIO, "Class=%x\n", func->class);
-> @@ -1121,6 +1124,12 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
->  	brcmf_dbg(SDIO, "sdio device ID: 0x%04x\n", func->device);
->  	brcmf_dbg(SDIO, "Function#: %d\n", func->num);
->  
-> +	/* prohibit ACPI power management for this device */
-> +	dev = &func->dev;
-> +	adev = ACPI_COMPANION(dev);
-> +	if (adev)
-> +		adev->flags.power_manageable = 0;
-> +
->  	/* Consume func num 1 but dont do anything with it. */
->  	if (func->num == 1)
->  		return 0;
-> -- 1.7.1
->
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I never liked this gre key/mark lookup. This should have been
+done with a separate lookup key, but I fear we can't change
+it without breaking backwards compatibility.
