@@ -1,40 +1,76 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: cpsw_ale clobbers learned addresses?
-Date: Mon, 18 May 2015 14:42:17 +0530
-Message-ID: <5559ACF1.1080903@ti.com>
-References: <20150513193816.GA11130@localhost.localdomain>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: [PATCH 1/3] ipv6: make inet6addr_chain blocking and always call
+ with rtnl locked
+Date: Mon, 18 May 2015 13:13:55 +0300
+Message-ID: <5559BB63.8000309@yandex-team.ru>
+References: <20150514134657.14062.87579.stgit@buzz>	<20150514135618.14062.1969.stgit@buzz> <20150516.172214.820543928532454603.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Richard Cochran <richardcochran@gmail.com>,
-	<netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, maheshb@google.com, jbenc@redhat.com,
+	hannes@stressinduktion.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:52627 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752813AbbERJMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2015 05:12:18 -0400
-In-Reply-To: <20150513193816.GA11130@localhost.localdomain>
+Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:33084 "EHLO
+	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752988AbbERKOA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 06:14:00 -0400
+In-Reply-To: <20150516.172214.820543928532454603.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 14 May 2015 01:08 AM, Richard Cochran wrote:
-> 
-> It appears to me that cpsw_ale.c will possibly clobber addresses
-> learned by the switch.   When adding a new entry, the code reads the
-> table until it finds an empty entry.  Then, it writes the new value to
-> that same index.  However, nothing prevents the switch from using that
-> same index between the read and the write.
-> 
-> Or am I missing something?
-> 
+On 17.05.2015 00:22, David Miller wrote:
+> From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Date: Thu, 14 May 2015 16:56:18 +0300
+>
+>> Unlike to inetaddr_chain inet6addr_chain is atomic and called from bh
+>> context without rtnl when ipv6 receives router advertisement packet.
+>>
+>> Several drivers don't know about that: ipvlan thinks that it has rtnl
+>> here, ocrdma locks mutex inside callback. Probably there is more.
+>>
+>> This patch makes it blocking and calls from first stage of DAD work.
+>> Looks like this is completely safe and rtnl already locked here.
+>>
+>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>
+> I don't see how you can make the inet6addr_chain blocking when it is
+> invoked from software interrupt context.
+>
+> You also cannot try to defer these operations to a workqueue or
+> similar to get into a blockable context, because various ipv6
+> testsuites depend upon the addressing state change happening
+> when we process the packet that triggers that change.
+>
+> Instead, I think you have to make the users of inet6addr_chain
+> aware of the context in which they execute.
+>
+> Thanks.
+>
 
-There are chances that driver might overwrite address learnt by hardware
-which was learnt between the instance getting free index and writing
-table. Though the same software overwritten mac id will be updated on
-the next packet received with same mac id.
+I've defer only calls of inet6addr_notifier_call_chain.
+Ipv6 addresses still appears right in interrupt context.
 
-Once driver updates the ALE table with valid entry hardware wont be
-updating.
+Ordering with netlink events RTM_NEWADDR/RTM_DELADDR stays the same:
 
-Regards
-Mugunthan V N
+inet6addr_notifier_call_chain(NETDEV_UP, ifp);
+ipv6_ifa_notify(RTM_NEWADDR, ifp);
+...
+ipv6_ifa_notify(RTM_DELADDR, ifp);
+inet6addr_notifier_call_chain(NETDEV_DOWN, ifp);
+
+As I see ipv6 always send RTM_NEWADDR from dad-work even for
+IFA_F_OPTIMISTIC addresses
+
+The only visible change is ordering with event RTM_NEWPREFIX.
+
+
+And another problem which my patch fixes. at this path:
+addrconf_prefix_rcv -> ipv6_add_addr -> inet6addr_notifier_call_chain
+
+inet6addr_notifier_call_chain called without any locks.
+Theoretically NETDEV_DOWN event could be delivered before NETDEV_UP
+if somebody removes that half-baked address right in that moment.
+
+-- 
+Konstantin
