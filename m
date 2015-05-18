@@ -1,35 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 10/21] netfilter: ipset: Return bool values instead of
- int
-Date: Mon, 18 May 2015 09:31:30 -0700
-Message-ID: <1431966690.2870.27.camel@perches.com>
-References: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
-	 <1431966324-4494-11-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Sergey Popovich <popovich_sergei@mail.ua>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1431966324-4494-11-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Stefan Agner <stefan@agner.ch>
+Subject: [PATCH 1/2] can: mcp251x: fix resume when device is down
+Date: Mon, 18 May 2015 18:33:27 +0200
+Message-ID: <1431966808-26213-1-git-send-email-stefan@agner.ch>
+Cc: chripell@fsfe.org, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	stefan@agner.ch
+To: wg@grandegger.com, mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2015-05-18 at 18:25 +0200, Pablo Neira Ayuso wrote:
-> From: Sergey Popovich <popovich_sergei@mail.ua>
-[]
-> diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
-[]
-> @@ -56,15 +56,15 @@ hash_ip4_data_equal(const struct hash_ip4_elem *e1,
->  	return e1->ip == e2->ip;
->  }
->  
-> -static inline bool
-> +static bool
+If a valid power regulator or a dummy regulator is used (which
+happens to be the case when no regulator is specified), restart_work
+is queued no matter whether the device was running or not at suspend
+time. Since work queues get initialized in the ndo_open callback,
+resuming leads to a NULL pointer exception.
 
-It's nicer when a change like this, which doesn't fit the
-subject description, is explained or described in the commit log.
+Reverse exactly the steps executed at suspend time:
+- Enable the power regulator in any case
+- Enable the transceiver regulator if the device was running, even in
+  case we have a power regulator
+- Queue restart_work only in case the device was running
 
+Fixes: bf66f3736a94 ("can: mcp251x: Move to threaded interrupts instead of workqueues.")
+Signed-off-by: Stefan Agner <stefan@agner.ch>
+---
+ drivers/net/can/spi/mcp251x.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/can/spi/mcp251x.c b/drivers/net/can/spi/mcp251x.c
+index bf63fee..34c625e 100644
+--- a/drivers/net/can/spi/mcp251x.c
++++ b/drivers/net/can/spi/mcp251x.c
+@@ -1221,17 +1221,16 @@ static int __maybe_unused mcp251x_can_resume(struct device *dev)
+ 	struct spi_device *spi = to_spi_device(dev);
+ 	struct mcp251x_priv *priv = spi_get_drvdata(spi);
+ 
+-	if (priv->after_suspend & AFTER_SUSPEND_POWER) {
++	if (priv->after_suspend & AFTER_SUSPEND_POWER)
+ 		mcp251x_power_enable(priv->power, 1);
++
++	if (priv->after_suspend & AFTER_SUSPEND_UP) {
++		mcp251x_power_enable(priv->transceiver, 1);
+ 		queue_work(priv->wq, &priv->restart_work);
+ 	} else {
+-		if (priv->after_suspend & AFTER_SUSPEND_UP) {
+-			mcp251x_power_enable(priv->transceiver, 1);
+-			queue_work(priv->wq, &priv->restart_work);
+-		} else {
+-			priv->after_suspend = 0;
+-		}
++		priv->after_suspend = 0;
+ 	}
++
+ 	priv->force_quit = 0;
+ 	enable_irq(spi->irq);
+ 	return 0;
+-- 
+2.4.1
 
