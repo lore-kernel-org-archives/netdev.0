@@ -1,55 +1,59 @@
-From: "'p.kosyh@gmail.com'" <p.kosyh@gmail.com>
-Subject: Re: __assign_irq_vector (x86) and irq vectors exhaust
-Date: Mon, 18 May 2015 16:53:48 +0300
-Message-ID: <20150518135348.GA14810@peter-bsd.cuba.int>
-References: <20150518125745.GA10966@peter-bsd.cuba.int>
- <063D6719AE5E284EB5DD2968C1650D6D1CB37AD1@AcuExch.aculab.com>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: iproute equivalent of replacing address with ifconfig?
+Date: Mon, 18 May 2015 17:03:37 +0300
+Message-ID: <5559F139.2010801@msgid.tls.msk.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Transfer-Encoding: 7bit
+To: Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:33348 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068AbbERNxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 09:53:52 -0400
-Received: by lagr1 with SMTP id r1so139511532lag.0
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 06:53:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1CB37AD1@AcuExch.aculab.com>
+Received: from isrv.corpit.ru ([86.62.121.231]:59577 "EHLO isrv.corpit.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750835AbbEROKq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 10:10:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes, the allocation of vectors during probing is not a problem. The
-problem is described in bottom part of my message.
+Hello.
 
-Problem is that we allocates cpu after cpu. One by pne.
-For example, we have 200 irqs and irq domain is 0xffffffff (no numa, or
-1 numa node and 32 cpus). While probing devices cpu0 will got all 200 irq slots.
-The better solution is that we randomly (or round robin) fill all cpus.
+I'm trying to find a more or less easy way to set an address of
+an "interface" (I understand an interface can have N addresses).
+Traditionally it was done by a comand
 
-Sorry for mu ugly english.
+ ifconfig $iface 1.2.3.4 mask 5.6.7.8
 
-> > For example, we have a 32 cpu system with lot of 10Gb cards (each of
-> > them has 32 msi-x irqs). Even if card is not used, it allocates an irq
-> > vector after probing (pci_enable_msix()). We have about ~200 vectors limit
-> > per cpu (on x86), and __assign_irq_vector allocates them filling cpus one
-> > by one (see at cpumask_first_and()):
-> ...
-> 
-> It might help if the kernel APIs allowed a driver to request additional
-> MSI-X interrupts after probe time.
-> 
-> If a device supports 32 interrupts the driver can say that it only
-> needs (say) interrupts 0, 1 and 16 (and only these MSIX table slots
-> get filled with interrupt 'info') - but can't later allocate the
-> MSIX info for other interrupts.
-> 
-> I can't see anything in the MSIX spec that stops things working
-> that way.
-> 
-> 	David
-> 
+What it does is effectively _replaces_ currently set address
+to a new one, or just sets a new address if it is already set.
+And it does that more or less atomically, at least in one go,
+so that if the network has been configured before it remains
+working after the command if it is successful.
 
--- 
-Peter Kosyh
+ip addr command however does not have the ability to "replace"
+an address, there are two commands for that, del and add.
+So in order to change address, one have to delete and add,
+a two-step process.  Adding an address before deleting might
+not work as the new address should not conflict with old
+address in any way, or else addition fails.
+
+What I'm thinking about is, for example, a system running
+out of a remote nfs root, with a dhcp client running.
+Initially address has been configure by the boot loader
+and is provided to the kernel/initramfs in terms of ip=
+boot option.  When the system is booted, it starts dhcpc
+which has to (re)configure the interface.  With ifconfig
+it works just fine, but with ip addr it doesn't, since once
+the old address is deleted, nfs root simple stops working,
+and there's no way anymore to run anything at all.
+
+Trying to see which addresses are already configured for
+the interface, what has changed compared to the new address
+etc, and working around various combinations and conflicts
+in shell is not really an option, it quickly becomes
+unmanageable.
+
+What's the closest equivalent of `ifconfig $iface $address'
+command to set-or-replace a (named) IP address?
+
+Thanks,
+
+/mjt
