@@ -1,52 +1,94 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/21] netfilter: ipset: Fix ext_*() macros
-Date: Mon, 18 May 2015 18:25:15 +0200
-Message-ID: <1431966324-4494-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 21/21] netfilter: Use correct return for seq_show functions
+Date: Mon, 18 May 2015 18:25:24 +0200
+Message-ID: <1431966324-4494-22-git-send-email-pablo@netfilter.org>
 References: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44022 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932399AbbERQUs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2015 12:20:48 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergey Popovich <popovich_sergei@mail.ua>
+From: Joe Perches <joe@perches.com>
 
-So pointers returned by these macros could be
-referenced with -> directly.
+Using seq_has_overflowed doesn't produce the right return value.
+Either 0 or -1 is, but 0 is much more common and works well when
+seq allocation retries.
 
-Signed-off-by: Sergey Popovich <popovich_sergei@mail.ua>
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+I believe this doesn't matter as the initial allocation is always
+sufficient, this is just a correctness patch.
+
+Miscellanea:
+
+o Don't use strlen, use *ptr to determine if a string
+  should be emitted like all the other tests here
+o Delete unnecessary return statements
+
+Signed-off-by: Joe Perches <joe@perches.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/ipset/ip_set.h |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/netfilter/nfnetlink_queue_core.c |    2 +-
+ net/netfilter/x_tables.c             |   18 ++++++------------
+ 2 files changed, 7 insertions(+), 13 deletions(-)
 
-diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
-index 34b1723..f88be72 100644
---- a/include/linux/netfilter/ipset/ip_set.h
-+++ b/include/linux/netfilter/ipset/ip_set.h
-@@ -122,13 +122,13 @@ struct ip_set_skbinfo {
- struct ip_set;
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index 0b98c74..bec7c60 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -1257,7 +1257,7 @@ static int seq_show(struct seq_file *s, void *v)
+ 		   inst->copy_mode, inst->copy_range,
+ 		   inst->queue_dropped, inst->queue_user_dropped,
+ 		   inst->id_sequence, 1);
+-	return seq_has_overflowed(s);
++	return 0;
+ }
  
- #define ext_timeout(e, s)	\
--(unsigned long *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_TIMEOUT])
-+((unsigned long *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_TIMEOUT]))
- #define ext_counter(e, s)	\
--(struct ip_set_counter *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_COUNTER])
-+((struct ip_set_counter *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_COUNTER]))
- #define ext_comment(e, s)	\
--(struct ip_set_comment *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_COMMENT])
-+((struct ip_set_comment *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_COMMENT]))
- #define ext_skbinfo(e, s)	\
--(struct ip_set_skbinfo *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_SKBINFO])
-+((struct ip_set_skbinfo *)(((void *)(e)) + (s)->offset[IPSET_EXT_ID_SKBINFO]))
+ static const struct seq_operations nfqnl_seq_ops = {
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 51a459c..8303246 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -947,11 +947,9 @@ static int xt_table_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct xt_table *table = list_entry(v, struct xt_table, list);
  
- typedef int (*ipset_adtfn)(struct ip_set *set, void *value,
- 			   const struct ip_set_ext *ext,
+-	if (strlen(table->name)) {
++	if (*table->name)
+ 		seq_printf(seq, "%s\n", table->name);
+-		return seq_has_overflowed(seq);
+-	} else
+-		return 0;
++	return 0;
+ }
+ 
+ static const struct seq_operations xt_table_seq_ops = {
+@@ -1087,10 +1085,8 @@ static int xt_match_seq_show(struct seq_file *seq, void *v)
+ 		if (trav->curr == trav->head)
+ 			return 0;
+ 		match = list_entry(trav->curr, struct xt_match, list);
+-		if (*match->name == '\0')
+-			return 0;
+-		seq_printf(seq, "%s\n", match->name);
+-		return seq_has_overflowed(seq);
++		if (*match->name)
++			seq_printf(seq, "%s\n", match->name);
+ 	}
+ 	return 0;
+ }
+@@ -1142,10 +1138,8 @@ static int xt_target_seq_show(struct seq_file *seq, void *v)
+ 		if (trav->curr == trav->head)
+ 			return 0;
+ 		target = list_entry(trav->curr, struct xt_target, list);
+-		if (*target->name == '\0')
+-			return 0;
+-		seq_printf(seq, "%s\n", target->name);
+-		return seq_has_overflowed(seq);
++		if (*target->name)
++			seq_printf(seq, "%s\n", target->name);
+ 	}
+ 	return 0;
+ }
 -- 
 1.7.10.4
+
