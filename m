@@ -1,34 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] rocker: unused parameter and const
- cleanups
-Date: Mon, 18 May 2015 15:47:22 -0400 (EDT)
-Message-ID: <20150518.154722.1576136891396287892.davem@davemloft.net>
-References: <1431574976-18214-1-git-send-email-simon.horman@netronome.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] net: preserve geometry of fragment sizes when
+ forwarding
+Date: Mon, 18 May 2015 22:06:37 +0200
+Message-ID: <20150518200637.GB20709@breakpoint.cc>
+References: <1431032664-6478-1-git-send-email-fw@strlen.de>
+ <20150518.153922.1873846748456446294.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org
-To: simon.horman@netronome.com
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org, hannes@stressinduktion.org,
+	edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59546 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754089AbbERTrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 15:47:24 -0400
-In-Reply-To: <1431574976-18214-1-git-send-email-simon.horman@netronome.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54559 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754939AbbERUGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 16:06:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20150518.153922.1873846748456446294.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Thu, 14 May 2015 12:42:54 +0900
-
-> This series provides some minor though verbose cleanup of rocker.
+David Miller <davem@davemloft.net> wrote:
+> > There was interest in keeping geometry of original fragments on forward.
+> > 
+> > This (re)enables this feature.
+> > 
+> > on router with mtu 1500 on all interfaces and netfilter conntrack enabled:
+>  ...
+> > Caveat:
+> > This disables the optimization made in commit
+> > 3cc4949269e01f39443d0 ("ipv4: use skb coalescing in defragmentation") for
+> > everyone as soon as nf_defrag_ipv4 modules are loaded (conntrack defrag
+> > hooks earlier than ipv4 stacks own defragmentation for local delivery),
+> > and there is no way to easily determine if we will forward the skb at that
+> > stage.
+> > 
+> > ip_fragment checks the size of the frag skbs vs. the outgoing device mtu
+> > before using them so if device mtu is smaller than the frag skb length
+> > the device mtu will be used instead for refragmentation.
+> > 
+> > Cc: Eric Dumazet <edumazet@google.com>
+> > Signed-off-by: Florian Westphal <fw@strlen.de>
 > 
-> The second patch depends on the first though it could be rebased.
+> Indeed, I agree that we should only modify the packet's geomtry if we
+> know it's to be locally delivered.
 > 
-> * Changes v1 -> v2
->   - Found quite a few more variables and parameters to make const
+> But paying the cost just because a netfilter module is loaded, that's
+> really heavy handed and shows really bad engineering on our part.
+> 
+> When I hear "happens when netfilter modules are loaded", it translates
+> into my head as "all the time".  And for you it should too, because
+> effectively that's how the world operates.
 
-As stated, you wanted me to hold off on this series for now.
+Yes.  This is why I don't like this patch either.
 
-Please resubmit when the problems you've run into have been
-resolved, thanks!
+But, where do I go from here?
+
+I'd like to get rid of the bridge netfilter specific hacks in
+ip_fragment.  But all my previous attempts were NAKed.
+
+solution #1: add mtu argument (most simple solution):
+http://patchwork.ozlabs.org/patch/457420/
+
+NAK: "Anything that adds
+an 'mtu' argument to ip_fragment() I am not even going to look
+at"
+
+#2: store largest frag size in IPCB and use that:
+http://patchwork.ozlabs.org/patch/467837/
+("not enough, must preserve geometry of all fragments")
+
+... and this patch was my attempt to do that.
+
+I could even tolerate the br nf legacy crap in ip_fragment and
+just pretend its not there.
+
+BUT: ipv6 conntrack on top of bridge is completely broken
+(bridge tosses all reassembled packets).
+
+And I absolutely under no circumstances will send patches
+to add the same br nf crap that we have in ipv4 to ipv6 stack.
+[ First patches to do this were sent to nf-devel a while back,
+  so this problem does hurt users ].
+
+To find something that works for ipv4 will hopefully also allow
+re-using that approach for ipv6 and fix this mess once and for all.
+
+I've even entertainted copy-pasting all of ip_fragment into
+bridge netfilter & make needed changes but thats insane too.
+
+So, please please re-evaluate your stance on any of the previous
+attempts or tell me how you would provide bridge netfilter with
+the means to transparently forward (refrag) reassembled skbs, without
+breaking PMTUD, in ipv4 and ipv6.
+
+Thank you.
