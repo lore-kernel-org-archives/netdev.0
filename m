@@ -1,39 +1,57 @@
-From: Vadim Kochan <vadim4j@gmail.com>
-Subject: Re: iproute equivalent of replacing address with ifconfig?
-Date: Mon, 18 May 2015 21:24:29 +0300
-Message-ID: <20150518182429.GA894@angus-think.lan>
-References: <5559F139.2010801@msgid.tls.msk.ru>
- <CAHA+R7Phpe3-ceX=zgWttfhguGWmBx9QQBtCyaGV6C3GOSdu9w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Tokarev <mjt@tls.msk.ru>,
-	Network Development <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:33016 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754636AbbERSZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 14:25:16 -0400
-Received: by lagr1 with SMTP id r1so150739557lag.0
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 11:25:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7Phpe3-ceX=zgWttfhguGWmBx9QQBtCyaGV6C3GOSdu9w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric B Munson <emunson@akamai.com>
+Subject: [PATCH net-next] tcp: Return error instead of partial read for saved syn headers
+Date: Mon, 18 May 2015 14:35:58 -0400
+Message-ID: <1431974158-28288-1-git-send-email-emunson@akamai.com>
+Cc: Eric B Munson <emunson@akamai.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 18, 2015 at 10:46:58AM -0700, Cong Wang wrote:
-> On Mon, May 18, 2015 at 7:03 AM, Michael Tokarev <mjt@tls.msk.ru> wrote:
-> >
-> > ip addr command however does not have the ability to "replace"
-> > an address, there are two commands for that, del and add.
-> > So in order to change address, one have to delete and add,
-> > a two-step process.  Adding an address before deleting might
-> > not work as the new address should not conflict with old
-> > address in any way, or else addition fails.
-> 
-> Are you sure?
-> 
-> $ ip addr help
-> Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]
->                                                       [ CONFFLAG-LIST ]
-Ha, but man page does not have it :)
+Currently the getsockopt() requesting the cached contents of the syn
+packet headers will fail silently if the caller uses a buffer that is
+too small to contain the requested data.  Rather than fail silently and
+discard the headers, getsockopt() should return an error and report the
+required size to hold the data.
+
+Signed-off-by: Eric B Munson <emunson@akamai.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ net/ipv4/tcp.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index c724195..bb9bb84 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2845,7 +2845,15 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+ 
+ 		lock_sock(sk);
+ 		if (tp->saved_syn) {
+-			len = min_t(unsigned int, tp->saved_syn[0], len);
++			if (len < tp->saved_syn[0]) {
++				if (put_user(tp->saved_syn[0], optlen)) {
++					release_sock(sk);
++					return -EFAULT;
++				}
++				release_sock(sk);
++				return -EINVAL;
++			}
++			len = tp->saved_syn[0];
+ 			if (put_user(len, optlen)) {
+ 				release_sock(sk);
+ 				return -EFAULT;
+-- 
+1.9.1
