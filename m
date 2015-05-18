@@ -1,7 +1,7 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 16/16] sfc: set the MAC address using MC_CMD_VADAPTOR_SET_MAC
-Date: Mon, 18 May 2015 16:31:51 +0100
-Message-ID: <555A05E7.5080708@solarflare.com>
+Subject: [PATCH net-next 13/16] sfc: add ndo_set_vf_vlan() function for EF10
+Date: Mon, 18 May 2015 16:31:07 +0100
+Message-ID: <555A05BB.1070503@solarflare.com>
 References: <555A044A.4060202@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,299 +9,286 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:60403 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753123AbbERPcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:32:13 -0400
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:61925 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753797AbbERPc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:32:57 -0400
 In-Reply-To: <555A044A.4060202@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a set_mac_address() NIC-type function for EF10 only, and
-use this to set the MAC address on the vadaptor. For Siena and
-earlier, the MAC address continues to be set by MC_CMD_SET_MAC;
-this is still called on EF10, and including a MAC address in
-this command has no effect.
-
-The sriov_mac_address_changed() NIC-type function is no longer
-needed on EF10, but it is needed for Siena where it is used to
-update the peer address of the PF for VFDI.  Change this to use
-the new set_mac_address function pointer.
-
-efx_ef10_sriov_mac_address_changed() is no longer called, as VFs
-will try to change the MAC address on their vadaptor rather than
-trying to change to the context of the PF to alter the vport.
-
-When a VF is running in direct passthrough mode with MAC spoofing
-enabled, it will be able to change the MAC address on its vadaptor.
-In this case, there is a link to the PF, so find the correct VF in
-its ef10_vf array and update the MAC address.
-
-ndo_set_mac_address() can be called during driver unload while
-bonding, and in this case the device has already been stopped, so
-don't call efx_net_open() to restart it after reconfiguration.
-
-efx->port_enabled is set to false in efx_stop_port(), so it is
-indicator of whether the device needs to be restarted.
+The max vlan tags that can be offloaded is 2, including any upstream VLAN
+aggregator. Currently there is no way for the net driver to know whether
+the upstream vswitch (if any) is using vlan tags, so there is no way to
+know how many tags we can request.
+Along with the implementation for the ndo_set_vf_vlan callback, this patch
+also adds 2 VLAN tags for the driver created VEB switch if possible, that
+way it is possible to offload as many tags as are allowed.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c       | 75 ++++++++++++++++++++++++++++++++++-
- drivers/net/ethernet/sfc/ef10_sriov.h |  4 --
- drivers/net/ethernet/sfc/efx.c        |  4 +-
- drivers/net/ethernet/sfc/mcdi_pcol.h  | 42 ++++++++++++++++++++
- drivers/net/ethernet/sfc/mcdi_port.c  |  1 +
- drivers/net/ethernet/sfc/net_driver.h |  3 +-
- drivers/net/ethernet/sfc/siena.c      |  2 +-
- 7 files changed, 122 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/sfc/ef10_sriov.c | 159 ++++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/sfc/ef10_sriov.h |  10 +--
+ 2 files changed, 157 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index e624ddd..a547ceb 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -3596,6 +3596,78 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
- 	WARN_ON(remove_failed);
+diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
+index d9c2ea4..49238fc 100644
+--- a/drivers/net/ethernet/sfc/ef10_sriov.c
++++ b/drivers/net/ethernet/sfc/ef10_sriov.c
+@@ -57,15 +57,29 @@ static int efx_ef10_vswitch_alloc(struct efx_nic *efx, unsigned int port_id,
+ 				  unsigned int vswitch_type)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_VSWITCH_ALLOC_IN_LEN);
++	int rc;
+ 
+ 	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_UPSTREAM_PORT_ID, port_id);
+ 	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_TYPE, vswitch_type);
+-	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_NUM_VLAN_TAGS, 0);
++	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_NUM_VLAN_TAGS, 2);
+ 	MCDI_POPULATE_DWORD_1(inbuf, VSWITCH_ALLOC_IN_FLAGS,
+ 			      VSWITCH_ALLOC_IN_FLAG_AUTO_PORT, 0);
+ 
+-	return efx_mcdi_rpc(efx, MC_CMD_VSWITCH_ALLOC, inbuf, sizeof(inbuf),
+-			    NULL, 0, NULL);
++	/* Quietly try to allocate 2 VLAN tags */
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_VSWITCH_ALLOC, inbuf, sizeof(inbuf),
++				NULL, 0, NULL);
++
++	/* If 2 VLAN tags is too many, revert to trying with 1 VLAN tags */
++	if (rc == -EPROTO) {
++		MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_NUM_VLAN_TAGS, 1);
++		rc = efx_mcdi_rpc(efx, MC_CMD_VSWITCH_ALLOC, inbuf,
++				  sizeof(inbuf), NULL, 0, NULL);
++	} else if (rc) {
++		efx_mcdi_display_error(efx, MC_CMD_VSWITCH_ALLOC,
++				       MC_CMD_VSWITCH_ALLOC_IN_LEN,
++				       NULL, 0, rc);
++	}
++	return rc;
  }
  
-+static int efx_ef10_set_mac_address(struct efx_nic *efx)
+ static int efx_ef10_vswitch_free(struct efx_nic *efx, unsigned int port_id)
+@@ -81,6 +95,7 @@ static int efx_ef10_vswitch_free(struct efx_nic *efx, unsigned int port_id)
+ static int efx_ef10_vport_alloc(struct efx_nic *efx,
+ 				unsigned int port_id_in,
+ 				unsigned int vport_type,
++				u16 vlan,
+ 				unsigned int *port_id_out)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_VPORT_ALLOC_IN_LEN);
+@@ -92,9 +107,13 @@ static int efx_ef10_vport_alloc(struct efx_nic *efx,
+ 
+ 	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_UPSTREAM_PORT_ID, port_id_in);
+ 	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_TYPE, vport_type);
+-	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_NUM_VLAN_TAGS, 0);
++	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_NUM_VLAN_TAGS,
++		       (vlan != EFX_EF10_NO_VLAN));
+ 	MCDI_POPULATE_DWORD_1(inbuf, VPORT_ALLOC_IN_FLAGS,
+ 			      VPORT_ALLOC_IN_FLAG_AUTO_PORT, 0);
++	if (vlan != EFX_EF10_NO_VLAN)
++		MCDI_POPULATE_DWORD_1(inbuf, VPORT_ALLOC_IN_VLAN_TAGS,
++				      VPORT_ALLOC_IN_VLAN_TAG_0, vlan);
+ 
+ 	rc = efx_mcdi_rpc(efx, MC_CMD_VPORT_ALLOC, inbuf, sizeof(inbuf),
+ 			  outbuf, sizeof(outbuf), &outlen);
+@@ -186,7 +205,7 @@ static int efx_ef10_sriov_assign_vf_vport(struct efx_nic *efx,
+ 
+ 	rc = efx_ef10_vport_alloc(efx, EVB_PORT_ID_ASSIGNED,
+ 				  MC_CMD_VPORT_ALLOC_IN_VPORT_TYPE_NORMAL,
+-				  &vf->vport_id);
++				  vf->vlan, &vf->vport_id);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -218,6 +237,7 @@ static int efx_ef10_sriov_alloc_vf_vswitching(struct efx_nic *efx)
+ 	for (i = 0; i < efx->vf_count; i++) {
+ 		random_ether_addr(nic_data->vf[i].mac);
+ 		nic_data->vf[i].efx = NULL;
++		nic_data->vf[i].vlan = EFX_EF10_NO_VLAN;
+ 
+ 		rc = efx_ef10_sriov_assign_vf_vport(efx, i);
+ 		if (rc)
+@@ -271,7 +291,7 @@ int efx_ef10_vswitching_probe_pf(struct efx_nic *efx)
+ 
+ 	rc = efx_ef10_vport_alloc(efx, EVB_PORT_ID_ASSIGNED,
+ 				  MC_CMD_VPORT_ALLOC_IN_VPORT_TYPE_NORMAL,
+-				  &nic_data->vport_id);
++				  EFX_EF10_NO_VLAN, &nic_data->vport_id);
+ 	if (rc)
+ 		goto fail2;
+ 
+@@ -522,6 +542,131 @@ fail:
+ 	return rc;
+ }
+ 
++int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i, u16 vlan,
++			       u8 qos)
 +{
-+	MCDI_DECLARE_BUF(inbuf, MC_CMD_VADAPTOR_SET_MAC_IN_LEN);
 +	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	bool was_enabled = efx->port_enabled;
-+	int rc;
++	struct ef10_vf *vf;
++	u16 old_vlan, new_vlan;
++	int rc = 0, rc2 = 0;
 +
-+	efx_device_detach_sync(efx);
-+	efx_net_stop(efx->net_dev);
-+	down_write(&efx->filter_sem);
-+	efx_ef10_filter_table_remove(efx);
++	if (vf_i >= efx->vf_count)
++		return -EINVAL;
++	if (qos != 0)
++		return -EINVAL;
 +
-+	ether_addr_copy(MCDI_PTR(inbuf, VADAPTOR_SET_MAC_IN_MACADDR),
-+			efx->net_dev->dev_addr);
-+	MCDI_SET_DWORD(inbuf, VADAPTOR_SET_MAC_IN_UPSTREAM_PORT_ID,
-+		       nic_data->vport_id);
-+	rc = efx_mcdi_rpc(efx, MC_CMD_VADAPTOR_SET_MAC, inbuf,
-+			  sizeof(inbuf), NULL, 0, NULL);
++	vf = nic_data->vf + vf_i;
 +
-+	efx_ef10_filter_table_probe(efx);
-+	up_write(&efx->filter_sem);
-+	if (was_enabled)
-+		efx_net_open(efx->net_dev);
-+	netif_device_attach(efx->net_dev);
++	new_vlan = (vlan == 0) ? EFX_EF10_NO_VLAN : vlan;
++	if (new_vlan == vf->vlan)
++		return 0;
 +
-+#if !defined(CONFIG_SFC_SRIOV)
-+	if (rc == -EPERM)
-+		netif_err(efx, drv, efx->net_dev,
-+			  "Cannot change MAC address; use sfboot to enable mac-spoofing"
-+			  " on this interface\n");
-+#else
-+	if (rc == -EPERM) {
-+		struct pci_dev *pci_dev_pf = efx->pci_dev->physfn;
++	if (vf->efx) {
++		efx_device_detach_sync(vf->efx);
++		efx_net_stop(vf->efx->net_dev);
 +
-+		/* Switch to PF and change MAC address on vport */
-+		if (efx->pci_dev->is_virtfn && pci_dev_pf) {
-+			struct efx_nic *efx_pf = pci_get_drvdata(pci_dev_pf);
++		down_write(&vf->efx->filter_sem);
++		vf->efx->type->filter_table_remove(vf->efx);
 +
-+			if (!efx_ef10_sriov_set_vf_mac(efx_pf,
-+						       nic_data->vf_index,
-+						       efx->net_dev->dev_addr))
-+				return 0;
++		rc = efx_ef10_vadaptor_free(vf->efx, EVB_PORT_ID_ASSIGNED);
++		if (rc)
++			goto restore_filters;
++	}
++
++	if (vf->vport_assigned) {
++		rc = efx_ef10_evb_port_assign(efx, EVB_PORT_ID_NULL, vf_i);
++		if (rc) {
++			netif_warn(efx, drv, efx->net_dev,
++				   "Failed to change vlan on VF %d.\n", vf_i);
++			netif_warn(efx, drv, efx->net_dev,
++				   "This is likely because the VF is bound to a driver in a VM.\n");
++			netif_warn(efx, drv, efx->net_dev,
++				   "Please unload the driver in the VM.\n");
++			goto restore_vadaptor;
 +		}
-+		netif_err(efx, drv, efx->net_dev,
-+			  "Cannot change MAC address; use sfboot to enable mac-spoofing"
-+			  " on this interface\n");
-+	} else if (efx->pci_dev->is_virtfn) {
-+		/* Successfully changed by VF (with MAC spoofing), so update the
-+		 * parent PF if possible.
-+		 */
-+		struct pci_dev *pci_dev_pf = efx->pci_dev->physfn;
++		vf->vport_assigned = 0;
++	}
 +
-+		if (pci_dev_pf) {
-+			struct efx_nic *efx_pf = pci_get_drvdata(pci_dev_pf);
-+			struct efx_ef10_nic_data *nic_data = efx_pf->nic_data;
-+			unsigned int i;
++	if (!is_zero_ether_addr(vf->mac)) {
++		rc = efx_ef10_vport_del_mac(efx, vf->vport_id, vf->mac);
++		if (rc)
++			goto restore_evb_port;
++	}
 +
-+			for (i = 0; i < efx_pf->vf_count; ++i) {
-+				struct ef10_vf *vf = nic_data->vf + i;
++	if (vf->vport_id) {
++		rc = efx_ef10_vport_free(efx, vf->vport_id);
++		if (rc)
++			goto restore_mac;
++		vf->vport_id = 0;
++	}
 +
-+				if (vf->efx == efx) {
-+					ether_addr_copy(vf->mac,
-+							efx->net_dev->dev_addr);
-+					return 0;
-+				}
-+			}
++	/* Do the actual vlan change */
++	old_vlan = vf->vlan;
++	vf->vlan = new_vlan;
++
++	/* Restore everything in reverse order */
++	rc = efx_ef10_vport_alloc(efx, EVB_PORT_ID_ASSIGNED,
++				  MC_CMD_VPORT_ALLOC_IN_VPORT_TYPE_NORMAL,
++				  vf->vlan, &vf->vport_id);
++	if (rc)
++		goto reset_nic;
++
++restore_mac:
++	if (!is_zero_ether_addr(vf->mac)) {
++		rc2 = efx_ef10_vport_add_mac(efx, vf->vport_id, vf->mac);
++		if (rc2) {
++			eth_zero_addr(vf->mac);
++			goto reset_nic;
 +		}
 +	}
-+#endif
++
++restore_evb_port:
++	rc2 = efx_ef10_evb_port_assign(efx, vf->vport_id, vf_i);
++	if (rc2)
++		goto reset_nic;
++	else
++		vf->vport_assigned = 1;
++
++restore_vadaptor:
++	if (vf->efx) {
++		rc2 = efx_ef10_vadaptor_alloc(vf->efx, EVB_PORT_ID_ASSIGNED);
++		if (rc2)
++			goto reset_nic;
++	}
++
++restore_filters:
++	if (vf->efx) {
++		rc2 = vf->efx->type->filter_table_probe(vf->efx);
++		if (rc2)
++			goto reset_nic;
++
++		up_write(&vf->efx->filter_sem);
++
++		rc2 = efx_net_open(vf->efx->net_dev);
++		if (rc2)
++			goto reset_nic;
++
++		netif_device_attach(vf->efx->net_dev);
++	}
 +	return rc;
++
++reset_nic:
++	if (vf->efx) {
++		up_write(&vf->efx->filter_sem);
++		netif_err(efx, drv, efx->net_dev,
++			  "Failed to restore VF - scheduling reset.\n");
++		efx_schedule_reset(vf->efx, RESET_TYPE_DATAPATH);
++	} else {
++		netif_err(efx, drv, efx->net_dev,
++			  "Failed to restore the VF and cannot reset the VF "
++			  "- VF is not functional.\n");
++		netif_err(efx, drv, efx->net_dev,
++			  "Please reload the driver attached to the VF.\n");
++	}
++
++	return rc ? rc : rc2;
 +}
 +
- static int efx_ef10_mac_reconfigure(struct efx_nic *efx)
+ int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf_i,
+ 				 struct ifla_vf_info *ivf)
  {
- 	efx_ef10_filter_sync_rx_mode(efx);
-@@ -4021,6 +4093,7 @@ const struct efx_nic_type efx_hunt_a0_vf_nic_type = {
- 	.vswitching_remove = efx_ef10_vswitching_remove_vf,
- #endif
- 	.get_mac_address = efx_ef10_get_mac_address_vf,
-+	.set_mac_address = efx_ef10_set_mac_address,
+@@ -540,7 +685,7 @@ int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf_i,
+ 	ivf->min_tx_rate = 0;
+ 	ivf->max_tx_rate = 0;
+ 	ether_addr_copy(ivf->mac, vf->mac);
+-	ivf->vlan = 0;
++	ivf->vlan = (vf->vlan == EFX_EF10_NO_VLAN) ? 0 : vf->vlan;
+ 	ivf->qos = 0;
  
- 	.revision = EFX_REV_HUNT_A0,
- 	.max_dma_mask = DMA_BIT_MASK(ESF_DZ_TX_KER_BUF_ADDR_WIDTH),
-@@ -4127,7 +4200,6 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
- 	.sriov_configure = efx_ef10_sriov_configure,
- 	.sriov_init = efx_ef10_sriov_init,
- 	.sriov_fini = efx_ef10_sriov_fini,
--	.sriov_mac_address_changed = efx_ef10_sriov_mac_address_changed,
- 	.sriov_wanted = efx_ef10_sriov_wanted,
- 	.sriov_reset = efx_ef10_sriov_reset,
- 	.sriov_flr = efx_ef10_sriov_flr,
-@@ -4141,6 +4213,7 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
- 	.vswitching_remove = efx_ef10_vswitching_remove_pf,
- #endif
- 	.get_mac_address = efx_ef10_get_mac_address_pf,
-+	.set_mac_address = efx_ef10_set_mac_address,
- 
- 	.revision = EFX_REV_HUNT_A0,
- 	.max_dma_mask = DMA_BIT_MASK(ESF_DZ_TX_KER_BUF_ADDR_WIDTH),
+ 	return 0;
 diff --git a/drivers/net/ethernet/sfc/ef10_sriov.h b/drivers/net/ethernet/sfc/ef10_sriov.h
-index 7171029..b985576 100644
+index 8c92a8d..0428265 100644
 --- a/drivers/net/ethernet/sfc/ef10_sriov.h
 +++ b/drivers/net/ethernet/sfc/ef10_sriov.h
-@@ -36,10 +36,6 @@ static inline bool efx_ef10_sriov_wanted(struct efx_nic *efx)
+@@ -18,12 +18,15 @@
+  * @vport_id: vport ID for the VF
+  * @vport_assigned: record whether the vport is currently assigned to the VF
+  * @mac: MAC address for the VF, zero when address is removed from the vport
++ * @vlan: Default VLAN for the VF or #EFX_EF10_NO_VLAN
+  */
+ struct ef10_vf {
+ 	struct efx_nic *efx;
+ 	unsigned int vport_id;
+ 	unsigned int vport_assigned;
+ 	u8 mac[ETH_ALEN];
++	u16 vlan;
++#define EFX_EF10_NO_VLAN       0
+ };
  
- int efx_ef10_sriov_configure(struct efx_nic *efx, int num_vfs);
- int efx_ef10_sriov_init(struct efx_nic *efx);
--static inline int efx_ef10_sriov_mac_address_changed(struct efx_nic *efx)
+ static inline bool efx_ef10_sriov_wanted(struct efx_nic *efx)
+@@ -43,11 +46,8 @@ static inline void efx_ef10_sriov_flr(struct efx_nic *efx, unsigned vf_i) {}
+ 
+ int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf, u8 *mac);
+ 
+-static inline int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf,
+-					     u16 vlan, u8 qos)
 -{
 -	return -EOPNOTSUPP;
 -}
- static inline void efx_ef10_sriov_reset(struct efx_nic *efx) {}
- void efx_ef10_sriov_fini(struct efx_nic *efx);
- static inline void efx_ef10_sriov_flr(struct efx_nic *efx, unsigned vf_i) {}
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 8cacb96..9eafa39 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2227,8 +2227,8 @@ static int efx_set_mac_address(struct net_device *net_dev, void *data)
- 	/* save old address */
- 	ether_addr_copy(old_addr, net_dev->dev_addr);
- 	ether_addr_copy(net_dev->dev_addr, new_addr);
--	if (efx->type->sriov_mac_address_changed) {
--		rc = efx->type->sriov_mac_address_changed(efx);
-+	if (efx->type->set_mac_address) {
-+		rc = efx->type->set_mac_address(efx);
- 		if (rc) {
- 			ether_addr_copy(net_dev->dev_addr, old_addr);
- 			return rc;
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index ada610a..5affe67 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -6057,6 +6057,48 @@
++int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i,
++			       u16 vlan, u8 qos);
  
- 
- /***********************************/
-+/* MC_CMD_VADAPTOR_SET_MAC
-+ * assign a new MAC address to a v-adaptor.
-+ */
-+#define MC_CMD_VADAPTOR_SET_MAC 0x5d
-+#undef MC_CMD_0x5d_PRIVILEGE_CTG
-+
-+#define MC_CMD_0x5d_PRIVILEGE_CTG SRIOV_CTG_GENERAL
-+
-+/* MC_CMD_VADAPTOR_SET_MAC_IN msgrequest */
-+#define    MC_CMD_VADAPTOR_SET_MAC_IN_LEN 10
-+/* The port to which the v-adaptor is connected. */
-+#define       MC_CMD_VADAPTOR_SET_MAC_IN_UPSTREAM_PORT_ID_OFST 0
-+/* The new MAC address to assign to this v-adaptor */
-+#define       MC_CMD_VADAPTOR_SET_MAC_IN_MACADDR_OFST 4
-+#define       MC_CMD_VADAPTOR_SET_MAC_IN_MACADDR_LEN 6
-+
-+/* MC_CMD_VADAPTOR_SET_MAC_OUT msgresponse */
-+#define    MC_CMD_VADAPTOR_SET_MAC_OUT_LEN 0
-+
-+
-+/***********************************/
-+/* MC_CMD_VADAPTOR_GET_MAC
-+ * read the MAC address assigned to a v-adaptor.
-+ */
-+#define MC_CMD_VADAPTOR_GET_MAC 0x5e
-+#undef MC_CMD_0x5e_PRIVILEGE_CTG
-+
-+#define MC_CMD_0x5e_PRIVILEGE_CTG SRIOV_CTG_GENERAL
-+
-+/* MC_CMD_VADAPTOR_GET_MAC_IN msgrequest */
-+#define    MC_CMD_VADAPTOR_GET_MAC_IN_LEN 4
-+/* The port to which the v-adaptor is connected. */
-+#define       MC_CMD_VADAPTOR_GET_MAC_IN_UPSTREAM_PORT_ID_OFST 0
-+
-+/* MC_CMD_VADAPTOR_GET_MAC_OUT msgresponse */
-+#define    MC_CMD_VADAPTOR_GET_MAC_OUT_LEN 6
-+/* The MAC address assigned to this v-adaptor */
-+#define       MC_CMD_VADAPTOR_GET_MAC_OUT_MACADDR_OFST 0
-+#define       MC_CMD_VADAPTOR_GET_MAC_OUT_MACADDR_LEN 6
-+
-+
-+/***********************************/
- /* MC_CMD_EVB_PORT_ASSIGN
-  * assign a port to a PCI function.
-  */
-diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
-index fb19b70..9bf04cb 100644
---- a/drivers/net/ethernet/sfc/mcdi_port.c
-+++ b/drivers/net/ethernet/sfc/mcdi_port.c
-@@ -865,6 +865,7 @@ int efx_mcdi_set_mac(struct efx_nic *efx)
- 
- 	BUILD_BUG_ON(MC_CMD_SET_MAC_OUT_LEN != 0);
- 
-+	/* This has no effect on EF10 */
- 	ether_addr_copy(MCDI_PTR(cmdbytes, SET_MAC_IN_ADDR),
- 			efx->net_dev->dev_addr);
- 
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index c2eabd9..a468a22 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1205,6 +1205,7 @@ struct efx_mtd_partition {
-  * @ptp_set_ts_config: Set hardware timestamp configuration.  The flags
-  *	and tx_type will already have been validated but this operation
-  *	must validate and update rx_filter.
-+ * @set_mac_address: Set the MAC address of the device
-  * @revision: Hardware architecture revision
-  * @txd_ptr_tbl_base: TX descriptor ring base address
-  * @rxd_ptr_tbl_base: RX descriptor ring base address
-@@ -1337,7 +1338,6 @@ struct efx_nic_type {
- 	int (*sriov_configure)(struct efx_nic *efx, int num_vfs);
- 	int (*sriov_init)(struct efx_nic *efx);
- 	void (*sriov_fini)(struct efx_nic *efx);
--	int (*sriov_mac_address_changed)(struct efx_nic *efx);
- 	bool (*sriov_wanted)(struct efx_nic *efx);
- 	void (*sriov_reset)(struct efx_nic *efx);
- 	void (*sriov_flr)(struct efx_nic *efx, unsigned vf_i);
-@@ -1354,6 +1354,7 @@ struct efx_nic_type {
- 	int (*vswitching_restore)(struct efx_nic *efx);
- 	void (*vswitching_remove)(struct efx_nic *efx);
- 	int (*get_mac_address)(struct efx_nic *efx, unsigned char *perm_addr);
-+	int (*set_mac_address)(struct efx_nic *efx);
- 
- 	int revision;
- 	unsigned int txd_ptr_tbl_base;
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 8b4130a..b323b91 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -1010,7 +1010,6 @@ const struct efx_nic_type siena_a0_nic_type = {
- 	.sriov_configure = efx_siena_sriov_configure,
- 	.sriov_init = efx_siena_sriov_init,
- 	.sriov_fini = efx_siena_sriov_fini,
--	.sriov_mac_address_changed = efx_siena_sriov_mac_address_changed,
- 	.sriov_wanted = efx_siena_sriov_wanted,
- 	.sriov_reset = efx_siena_sriov_reset,
- 	.sriov_flr = efx_siena_sriov_flr,
-@@ -1021,6 +1020,7 @@ const struct efx_nic_type siena_a0_nic_type = {
- 	.vswitching_probe = efx_port_dummy_op_int,
- 	.vswitching_restore = efx_port_dummy_op_int,
- 	.vswitching_remove = efx_port_dummy_op_void,
-+	.set_mac_address = efx_siena_sriov_mac_address_changed,
- #endif
- 
- 	.revision = EFX_REV_SIENA_A0,
+ static inline int efx_ef10_sriov_set_vf_spoofchk(struct efx_nic *efx, int vf,
+ 						 bool spoofchk)
