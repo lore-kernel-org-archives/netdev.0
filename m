@@ -1,91 +1,35 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH net-next v3 2/2] net: Adding support for Cavium ThunderX
- network controller
-Date: Mon, 18 May 2015 14:52:30 -0700
-Message-ID: <555A5F1E.1010509@caviumnetworks.com>
-References: <1431747401-20847-1-git-send-email-aleksey.makarov@auriga.com>
- <1431747401-20847-3-git-send-email-aleksey.makarov@auriga.com>
- <20150518.160931.2235555994068443513.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH net-next] tcp: add CDG congestion control
+Date: Mon, 18 May 2015 15:16:48 -0700
+Message-ID: <20150518151648.6d33128c@urahara>
+References: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, aleksey.makarov@auriga.com,
- rric@kernel.org, tsrinivasulu@caviumnetworks.com, david.daney@cavium.com,
- mjc@semihalf.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- tomasz.nowicki@linaro.org, rrichter@cavium.com, svangala@cavium.com,
- kamil@semihalf.com, sgoutham@cavium.com,
- ganapatrao.kulkarni@caviumnetworks.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20150518.160931.2235555994068443513.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Hayes <davihay@ifi.uio.no>,
+	Yuchung Cheng <ycheng@google.com>,
+	Andreas Petlund <apetlund@simula.no>
+To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:34398 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750858AbbERWQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 18:16:45 -0400
+Received: by pdbnk13 with SMTP id nk13so71028582pdb.1
+        for <netdev@vger.kernel.org>; Mon, 18 May 2015 15:16:45 -0700 (PDT)
+In-Reply-To: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2015 01:09 PM, David Miller wrote:
-> From: Aleksey Makarov <aleksey.makarov@auriga.com>
-> Date: Fri, 15 May 2015 20:36:39 -0700
->
->> +/* Register read/write APIs */
->> +static void nic_reg_write(struct nicpf *nic, u64 offset, u64 val)
->> +{
->> +	writeq_relaxed(val, nic->reg_base + offset);
->> +}
->> +
->> +static u64 nic_reg_read(struct nicpf *nic, u64 offset)
->> +{
->> +	return readq_relaxed(nic->reg_base + offset);
->> +}
->
-> Are you really sure it's OK to used relaxed ordering for all register
-> accesses like this?
+I am really happy to see more congestion control development.
 
-Yes.
+> +static  int window __read_mostly = 8;
+> +static bool use_shadow __read_mostly = true;
+> +static bool use_tolerance __read_mostly;
+> +static uint backoff_beta __read_mostly = 0.70 * 1024;
+> +static uint backoff_factor __read_mostly = 333;
+> +static uint ineffective_thresh __read_mostly = 5;
+> +static uint ineffective_hold __read_mostly = 5;
 
->
-> Personally, I think it's asking for trouble.
->
- > Maybe in _extremely_ specific situations in the packet processing
- > fast path where you can clearly define the ordering needs when
- > programming the mailbox registers, I'd say it's OK.
- >
- > But universally across the entire driver?  No way, no way at all.
- >
-
-I think for an ordinary NIC you would be 100% correct.  However, ...
-
-... there is something that may not be evident from the patch:
-
-The Cavium ThunderX network controller can *only* be found in SoCs 
-containing the ThunderX ARM64 CPU implementation.  So, we know quite a 
-bit (i.e. everything) about the memory ordering semantics of the system.
-
-A slightly more detailed explanation of why it is safe to use 
-writeq_relaxed/readq_relaxed is that all accesses to the device 
-registers are implicitly strongly ordered with respect to memory 
-accesses, so even though the function names imply otherwise, there is no 
-relaxed ordering.  The readq/writeq functions add explicit ordering 
-operation which in this case are redundant, and only add overhead.
-
-So this leaves us with the question:  What should we do?
-
-As I see it there are two options:
-
-1) Keep the writeq_relaxed()/readq_relaxed(), but add a comment about 
-why they are safe.
-
-2) Change the patch so that we are using writeq()/readq() and suffer a 
-decrease in performance.
-
-I/we wouldn't object to either of these, so it is really up to you. 
-Please let us know what you think the best way forward is.
-
-Thanks,
-David Daney
+Module parameters make for rather ugly tuning.
+They are ok for testing but difficult to use in real life.
