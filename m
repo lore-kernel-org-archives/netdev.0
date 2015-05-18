@@ -1,7 +1,7 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 02/16] sfc: change definition of MC_CMD_VADAPTOR_ALLOC
-Date: Mon, 18 May 2015 16:27:18 +0100
-Message-ID: <555A04D6.4000202@solarflare.com>
+Subject: [PATCH net-next 04/16] sfc: Store vf_index in nic_data for Ef10.
+Date: Mon, 18 May 2015 16:28:19 +0100
+Message-ID: <555A0513.4060702@solarflare.com>
 References: <555A044A.4060202@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,49 +9,131 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:24848 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753007AbbERP13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:27:29 -0400
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:45494 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752762AbbERP2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:28:25 -0400
 In-Reply-To: <555A044A.4060202@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Added function efx_ef10_get_vf_index to store the vf_index
+in nic_data during probe
+
+vf_index is needed in future patches to access a particular
+VF in the VF data structure.
+
+Moved efx_ef10_probe_pf and efx_ef10_probe_vf in order to
+used efx_ef10_remove
+
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi_pcol.h | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/sfc/ef10.c | 68 ++++++++++++++++++++++++++++++-----------
+ drivers/net/ethernet/sfc/nic.h  |  1 +
+ 2 files changed, 52 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index ecb1144..30c7170 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -5978,7 +5978,7 @@
- #define MC_CMD_0x98_PRIVILEGE_CTG SRIOV_CTG_GENERAL
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 70cbad3..8b6579a 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -119,6 +119,26 @@ static int efx_ef10_get_pf_index(struct efx_nic *efx)
+ 	return 0;
+ }
  
- /* MC_CMD_VADAPTOR_ALLOC_IN msgrequest */
--#define    MC_CMD_VADAPTOR_ALLOC_IN_LEN 16
-+#define    MC_CMD_VADAPTOR_ALLOC_IN_LEN 30
- /* The port to connect to the v-adaptor's port. */
- #define       MC_CMD_VADAPTOR_ALLOC_IN_UPSTREAM_PORT_ID_OFST 0
- /* Flags controlling v-adaptor creation */
-@@ -5987,6 +5987,19 @@
- #define        MC_CMD_VADAPTOR_ALLOC_IN_FLAG_AUTO_VADAPTOR_WIDTH 1
- /* The number of VLAN tags to strip on receive */
- #define       MC_CMD_VADAPTOR_ALLOC_IN_NUM_VLANS_OFST 12
-+/* The number of VLAN tags to transparently insert/remove. */
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_NUM_VLAN_TAGS_OFST 16
-+/* The actual VLAN tags to insert/remove */
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAGS_OFST 20
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_0_LBN 0
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_0_WIDTH 16
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_1_LBN 16
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_1_WIDTH 16
-+/* The MAC address to assign to this v-adaptor */
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_MACADDR_OFST 24
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_MACADDR_LEN 6
-+/* enum: Derive the MAC address from the upstream port */
-+#define          MC_CMD_VADAPTOR_ALLOC_IN_AUTO_MAC  0x0
++#ifdef CONFIG_SFC_SRIOV
++static int efx_ef10_get_vf_index(struct efx_nic *efx)
++{
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_FUNCTION_INFO_OUT_LEN);
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	size_t outlen;
++	int rc;
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_GET_FUNCTION_INFO, NULL, 0, outbuf,
++			  sizeof(outbuf), &outlen);
++	if (rc)
++		return rc;
++	if (outlen < sizeof(outbuf))
++		return -EIO;
++
++	nic_data->vf_index = MCDI_DWORD(outbuf, GET_FUNCTION_INFO_OUT_VF);
++	return 0;
++}
++#endif
++
+ static int efx_ef10_init_datapath_caps(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_CAPABILITIES_OUT_LEN);
+@@ -328,23 +348,6 @@ fail1:
+ 	return rc;
+ }
  
- /* MC_CMD_VADAPTOR_ALLOC_OUT msgresponse */
- #define    MC_CMD_VADAPTOR_ALLOC_OUT_LEN 0
+-static int efx_ef10_probe_pf(struct efx_nic *efx)
+-{
+-	return efx_ef10_probe(efx);
+-}
+-
+-#ifdef CONFIG_SFC_SRIOV
+-static int efx_ef10_probe_vf(struct efx_nic *efx)
+-{
+-	return efx_ef10_probe(efx);
+-}
+-#else
+-static int efx_ef10_probe_vf(struct efx_nic *efx __attribute__ ((unused)))
+-{
+-	return 0;
+-}
+-#endif
+-
+ static int efx_ef10_free_vis(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
+@@ -561,6 +564,37 @@ static void efx_ef10_remove(struct efx_nic *efx)
+ 	kfree(nic_data);
+ }
+ 
++static int efx_ef10_probe_pf(struct efx_nic *efx)
++{
++	return efx_ef10_probe(efx);
++}
++
++#ifdef CONFIG_SFC_SRIOV
++static int efx_ef10_probe_vf(struct efx_nic *efx)
++{
++	int rc;
++
++	rc = efx_ef10_probe(efx);
++	if (rc)
++		return rc;
++
++	rc = efx_ef10_get_vf_index(efx);
++	if (rc)
++		goto fail;
++
++	return 0;
++
++fail:
++	efx_ef10_remove(efx);
++	return rc;
++}
++#else
++static int efx_ef10_probe_vf(struct efx_nic *efx __attribute__ ((unused)))
++{
++	return 0;
++}
++#endif
++
+ static int efx_ef10_alloc_vis(struct efx_nic *efx,
+ 			      unsigned int min_vis, unsigned int max_vis)
+ {
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 2fd3055..db8562e 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -525,6 +525,7 @@ struct efx_ef10_nic_data {
+ 	bool must_probe_vswitching;
+ 	unsigned int pf_index;
+ #ifdef CONFIG_SFC_SRIOV
++	unsigned int vf_index;
+ 	struct ef10_vf *vf;
+ #endif
+ 	u8 vport_mac[ETH_ALEN];
