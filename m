@@ -1,84 +1,108 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] be2net: make hwmon interface optional
-Date: Mon, 18 May 2015 23:06:45 +0200
-Message-ID: <2638325.2pcgKkR8vC@wuerfel>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] net: preserve geometry of fragment sizes when
+ forwarding
+Date: Mon, 18 May 2015 23:33:29 +0200
+Message-ID: <20150518213329.GA2335@breakpoint.cc>
+References: <20150518200637.GB20709@breakpoint.cc>
+ <20150518.162854.1116793790405432801.davem@davemloft.net>
+ <20150518204049.GC20709@breakpoint.cc>
+ <20150518.165550.359134808190719687.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@emulex.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sathya Perla <sathya.perla@avagotech.com>,
-	Ajit Khaparde <ajit.khaparde@avagotech.com>,
-	Padmanabh Ratnakar <padmanabh.ratnakar@avagotech.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@avagotech.com>,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org, hannes@stressinduktion.org,
+	edumazet@google.com, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54836 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752016AbbERVdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 17:33:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20150518.165550.359134808190719687.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The hwmon interface in the be2net driver causes a link error when
-be2net is built-in while the hwmon subsystem is a loadable module:
+David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Mon, 18 May 2015 22:40:49 +0200
+> 
+> > But, to the best of my understanding, what you ask will push a lot of
+> > non-trivial code into the kernel for no functional gain over
+> > what has been proposed.
+> 
+> The functional gain is that we stop linearizing the packet, which
+> involves memory allocation and copying the entire packet.
 
-drivers/built-in.o: In function `be_probe':
-drivers/net/ethernet/emulex/benet/be_main.c:5761: undefined reference to `devm_hwmon_device_register_with_groups'
+AFAICS ipv4 and ipv6 defragmentations do not perform linearizations or
+reallocations?
 
-This adds a new Kconfig symbol, following the example of multiple
-other drivers that have the same problem. The new CONFIG_BE2NET_HWMON
-will not be available when (BE2NET=y && HWMON=m) to avoid this
-problem.
+> I am very confident that the performance gains would be non-trivial
+> and quite measurable.
 
-We have to also mark be_hwmon_show_temp as 'static' to ensure the
-compiler can optimize out all the unused code.
+Are fragmented packets that common?
+I don't have any real data on this, the box sending this email has
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 29e9122b3a ("be2net: Export board temperature using hwmon-sysfs interface.")
----
-Found on ARM randconfig builds in linux-next
+55965898 incoming packets delivered
+62 reassemblies required
 
-diff --git a/drivers/net/ethernet/emulex/benet/Kconfig b/drivers/net/ethernet/emulex/benet/Kconfig
-index ea94a8eb6b35..7108563260ae 100644
---- a/drivers/net/ethernet/emulex/benet/Kconfig
-+++ b/drivers/net/ethernet/emulex/benet/Kconfig
-@@ -5,6 +5,15 @@ config BE2NET
- 	  This driver implements the NIC functionality for ServerEngines'
- 	  10Gbps network adapter - BladeEngine.
- 
-+config BE2NET_HWMON
-+	bool "HWMON support for be2net driver"
-+	depends on BE2NET && HWMON
-+	depends on !(BE2NET=y && HWMON=m)
-+	default y
-+	---help---
-+	  Say Y here if you want to expose thermal sensor data on
-+	  be2net network adapter.
-+
- config BE2NET_VXLAN
-         bool "VXLAN offload support on be2net driver"
-         default y
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index dc7c0fd239f7..75696d4f9ed0 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5612,9 +5612,9 @@ static void be_remove(struct pci_dev *pdev)
- 	free_netdev(adapter->netdev);
- }
- 
--ssize_t be_hwmon_show_temp(struct device *dev,
--			   struct device_attribute *dev_attr,
--			   char *buf)
-+static ssize_t be_hwmon_show_temp(struct device *dev,
-+				  struct device_attribute *dev_attr,
-+				  char *buf)
- {
- 	struct be_adapter *adapter = dev_get_drvdata(dev);
- 
-@@ -5756,7 +5756,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 	be_schedule_err_detection(adapter);
- 
- 	/* On Die temperature not supported for VF. */
--	if (be_physfn(adapter)) {
-+	if (be_physfn(adapter) && IS_ENABLED(CONFIG_BE2NET_HWMON)) {
- 		adapter->hwmon_info.hwmon_dev =
- 			devm_hwmon_device_register_with_groups(&pdev->dev,
- 							       DRV_NAME,
+... but it is just an end host.
+
+TCP shouldn't be a problem thanks to pmtud, and for high-volume
+fragmented ipv4 flows i'd expect poor performance due to the 16 bit ID space
+limitations long before processing bottleneck.
+
+> You'd also be able to trivially respect the geometry of the original
+> incoming packet stream.
+
+True.  OTOH, the patch proposed in this thread would have done the same
+with a lot less code (I admit that removing the optimization from Eric
+once nf_defrag is loaded is not desirable; but I did not find a solution
+to this problem aside from doing route lookup or tentative 'forward is
+off') check, which I did not like.
+
+Another alternative might be to delay Erics 'coalescing' step and move
+it into the ip stack, after 'local delivery' decision was taken.
+
+I can investigate this if you think its worth it.
+
+> Every objection has been of the form "this special case" (this time
+> SIP) is not easy.
+
+Yes, but these objections are not some random hand-waving gesture.
+It presents us with certain dilemmas, e.g. single udp packet:
+
+1280 1280 1280 542
+
+sip nat helper has to do nat/pat and replaces 10.2.3.4 with 192.168.2.3
+(lets assume we'd have helpers that deal with addresses split over 2
+ fragmented skbs so we can deal with 10.2 appearing in fragment #2
+  and .3.4 in fragment #3)
+
+We can then end up with something like
+1283 1281 1282 542
+
+... and what should we do then?
+
+shuffe payload via memcpy/memmove() to only grow last frag?
+This will not be hot path or common by any means.
+But nervertheless, this can happen, and we need to deal with it.
+
+> If I were doing this, I would implement something that handles the
+> normal cases properly.  And then take it from there.
+
+What is a 'normal case'?
+And how do you propose we deal with the 'non-normal' cases?
+
+I assume you mean to e.g. linearize for edge cases + then refragment?
+
+If thats true, then we'd still need one of the proposed solutions to handle
+this to get packets we can send out without breaking geometry/growing
+fragments to a larger mtu.
+
+> If you try to imagine the totality of it and all the edge cases
+> and details from the beginning, yes it will look impossible.
+
+Hmm...  correct, but I still believe we're talking immense pain
+for very little gain.
+
+Thanks for spending time on this.
