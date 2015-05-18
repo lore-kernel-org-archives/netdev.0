@@ -1,35 +1,63 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: iproute equivalent of replacing address with ifconfig?
-Date: Mon, 18 May 2015 10:46:58 -0700
-Message-ID: <CAHA+R7Phpe3-ceX=zgWttfhguGWmBx9QQBtCyaGV6C3GOSdu9w@mail.gmail.com>
-References: <5559F139.2010801@msgid.tls.msk.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: [Bug 98521] New: bonding: kernel BUG at net/core/dev.c:2359
+ when using traceroute6
+Date: Mon, 18 May 2015 10:53:01 -0700
+Message-ID: <1431971581.621.38.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150518102009.18b9c332@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>
-To: Michael Tokarev <mjt@tls.msk.ru>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, catdog2@tuxzone.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:33218 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752412AbbERRq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 13:46:59 -0400
-Received: by wicmx19 with SMTP id mx19so94144796wic.0
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 10:46:58 -0700 (PDT)
-In-Reply-To: <5559F139.2010801@msgid.tls.msk.ru>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:35903 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751923AbbERRxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 13:53:04 -0400
+Received: by igbpi8 with SMTP id pi8so55186916igb.1
+        for <netdev@vger.kernel.org>; Mon, 18 May 2015 10:53:03 -0700 (PDT)
+In-Reply-To: <20150518102009.18b9c332@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 7:03 AM, Michael Tokarev <mjt@tls.msk.ru> wrote:
->
-> ip addr command however does not have the ability to "replace"
-> an address, there are two commands for that, del and add.
-> So in order to change address, one have to delete and add,
-> a two-step process.  Adding an address before deleting might
-> not work as the new address should not conflict with old
-> address in any way, or else addition fails.
+On Mon, 2015-05-18 at 10:20 -0700, Stephen Hemminger wrote:
+> 
+> Begin forwarded message:
+> 
+> Date: Sun, 17 May 2015 23:16:25 +0000
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>
+> Subject: [Bug 98521] New: bonding: kernel BUG at net/core/dev.c:2359 when using traceroute6
+> 
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=98521
+> 
+>             Bug ID: 98521
+>            Summary: bonding: kernel BUG at net/core/dev.c:2359 when using
+>                     traceroute6
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 4.0.3
+>           Hardware: x86-64
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: catdog2@tuxzone.org
+>         Regression: No
+> 
+> Created attachment 177171
+>   --> https://bugzilla.kernel.org/attachment.cgi?id=177171&action=edit
+> Snapshot of the panic message
+> 
+> When i do a "traceroute6 google.com" the kernel panics with "kernel BUG at
+> net/core/dev.c:2359". It only seems to happen when using a bonding interface
+> (ethernet + wlan in active-backup mode in my case). 
+> A snapshot of the message printed to the console is attached.
+> 
 
-Are you sure?
-
-$ ip addr help
-Usage: ip addr {add|change|replace} IFADDR dev STRING [ LIFETIME ]
-                                                      [ CONFFLAG-LIST ]
-[...]
+Fixed in
+http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=e87a468eb97da35d8dc00e8fa9828b4de4ab69d0
