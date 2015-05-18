@@ -1,36 +1,37 @@
 From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH iproute2 04/10] tc: red: Mark "bandwidth" parameter as optional in usage text
-Date: Mon, 18 May 2015 11:35:08 -0400
-Message-ID: <1431963314-56420-5-git-send-email-david.ward@ll.mit.edu>
-References: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
+Subject: [PATCH iproute2 00/10] RED and GRED fixes, plus TCA_GRED_LIMIT support
+Date: Mon, 18 May 2015 11:35:04 -0400
+Message-ID: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
 Cc: David Ward <david.ward@ll.mit.edu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dmz-mailsec-scanner-4.mit.edu ([18.9.25.15]:54864 "EHLO
-	dmz-mailsec-scanner-4.mit.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932251AbbERPff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:35:35 -0400
-In-Reply-To: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
+Received: from dmz-mailsec-scanner-1.mit.edu ([18.9.25.12]:45704 "EHLO
+	dmz-mailsec-scanner-1.mit.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932248AbbERPfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:35:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- tc/q_red.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Please note that the final patch in this series adds tc command support for the
+TCA_GRED_LIMIT attribute, which was accepted into net-next. However, it follows
+the other patches in this series, which are bug fixes and improvements that can
+be applied to the master branch of iproute2.
 
-diff --git a/tc/q_red.c b/tc/q_red.c
-index 1bf2bd9..abd86c7 100644
---- a/tc/q_red.c
-+++ b/tc/q_red.c
-@@ -29,7 +29,7 @@
- static void explain(void)
- {
- 	fprintf(stderr, "Usage: ... red limit BYTES [min BYTES] [max BYTES] avpkt BYTES [burst PACKETS]\n");
--	fprintf(stderr, "               [adaptive] [probability PROBABILITY] bandwidth KBPS\n");
-+	fprintf(stderr, "               [adaptive] [probability PROBABILITY] [bandwidth KBPS]\n");
- 	fprintf(stderr, "               [ecn] [harddrop]\n");
- }
- 
--- 
-1.7.1
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+
+David Ward (10):
+  tc: red, gred: Rename overloaded variable wlog
+  tc: red, gred: Fix format specifier in burst size warning
+  tc: red, gred: Notify when using the default value for "bandwidth"
+  tc: red: Mark "bandwidth" parameter as optional in usage text
+  tc: gred: Fix whitespace issues in code
+  tc: gred: Print usage text if no arguments appear after "gred"
+  tc: gred: Improve parameter/statistics output
+  tc: gred: Handle unsigned values properly in option parsing/printing
+  tc: gred: Adopt the term VQ in the command syntax and output
+  tc: gred: Add support for TCA_GRED_LIMIT attribute
+
+ include/linux/pkt_sched.h |    3 +-
+ tc/q_gred.c               |  204 +++++++++++++++++++++++++--------------------
+ tc/q_red.c                |   27 +++---
+ 3 files changed, 131 insertions(+), 103 deletions(-)
