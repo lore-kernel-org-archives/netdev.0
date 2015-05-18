@@ -1,7 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 04/16] sfc: Store vf_index in nic_data for Ef10.
-Date: Mon, 18 May 2015 16:28:19 +0100
-Message-ID: <555A0513.4060702@solarflare.com>
+Subject: [PATCH net-next 03/16] sfc: MC_CMD_SET_MAC can only be called by
+ the link control Function
+Date: Mon, 18 May 2015 16:27:35 +0100
+Message-ID: <555A04E7.2020301@solarflare.com>
 References: <555A044A.4060202@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,131 +10,49 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:45494 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752762AbbERP2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:28:25 -0400
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:34988 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754099AbbERP2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:28:35 -0400
 In-Reply-To: <555A044A.4060202@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added function efx_ef10_get_vf_index to store the vf_index
-in nic_data during probe
+MC_CMD_SET_MAC is privileged and can only by called by the link
+control function.
 
-vf_index is needed in future patches to access a particular
-VF in the VF data structure.
-
-Moved efx_ef10_probe_pf and efx_ef10_probe_vf in order to
-used efx_ef10_remove
+This patch adds efx_ef10_mac_reconfigure_vf which avoids the call
+to MC_CMD_SET_MAC by the Virtual function
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 68 ++++++++++++++++++++++++++++++-----------
- drivers/net/ethernet/sfc/nic.h  |  1 +
- 2 files changed, 52 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 70cbad3..8b6579a 100644
+index 882117a..70cbad3 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -119,6 +119,26 @@ static int efx_ef10_get_pf_index(struct efx_nic *efx)
- 	return 0;
+@@ -3480,6 +3480,13 @@ static int efx_ef10_mac_reconfigure(struct efx_nic *efx)
+ 	return efx_mcdi_set_mac(efx);
  }
  
-+#ifdef CONFIG_SFC_SRIOV
-+static int efx_ef10_get_vf_index(struct efx_nic *efx)
++static int efx_ef10_mac_reconfigure_vf(struct efx_nic *efx)
 +{
-+	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_FUNCTION_INFO_OUT_LEN);
-+	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	size_t outlen;
-+	int rc;
++	efx_ef10_filter_sync_rx_mode(efx);
 +
-+	rc = efx_mcdi_rpc(efx, MC_CMD_GET_FUNCTION_INFO, NULL, 0, outbuf,
-+			  sizeof(outbuf), &outlen);
-+	if (rc)
-+		return rc;
-+	if (outlen < sizeof(outbuf))
-+		return -EIO;
-+
-+	nic_data->vf_index = MCDI_DWORD(outbuf, GET_FUNCTION_INFO_OUT_VF);
 +	return 0;
 +}
-+#endif
 +
- static int efx_ef10_init_datapath_caps(struct efx_nic *efx)
+ static int efx_ef10_start_bist(struct efx_nic *efx, u32 bist_type)
  {
- 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_CAPABILITIES_OUT_LEN);
-@@ -328,23 +348,6 @@ fail1:
- 	return rc;
- }
- 
--static int efx_ef10_probe_pf(struct efx_nic *efx)
--{
--	return efx_ef10_probe(efx);
--}
--
--#ifdef CONFIG_SFC_SRIOV
--static int efx_ef10_probe_vf(struct efx_nic *efx)
--{
--	return efx_ef10_probe(efx);
--}
--#else
--static int efx_ef10_probe_vf(struct efx_nic *efx __attribute__ ((unused)))
--{
--	return 0;
--}
--#endif
--
- static int efx_ef10_free_vis(struct efx_nic *efx)
- {
- 	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
-@@ -561,6 +564,37 @@ static void efx_ef10_remove(struct efx_nic *efx)
- 	kfree(nic_data);
- }
- 
-+static int efx_ef10_probe_pf(struct efx_nic *efx)
-+{
-+	return efx_ef10_probe(efx);
-+}
-+
-+#ifdef CONFIG_SFC_SRIOV
-+static int efx_ef10_probe_vf(struct efx_nic *efx)
-+{
-+	int rc;
-+
-+	rc = efx_ef10_probe(efx);
-+	if (rc)
-+		return rc;
-+
-+	rc = efx_ef10_get_vf_index(efx);
-+	if (rc)
-+		goto fail;
-+
-+	return 0;
-+
-+fail:
-+	efx_ef10_remove(efx);
-+	return rc;
-+}
-+#else
-+static int efx_ef10_probe_vf(struct efx_nic *efx __attribute__ ((unused)))
-+{
-+	return 0;
-+}
-+#endif
-+
- static int efx_ef10_alloc_vis(struct efx_nic *efx,
- 			      unsigned int min_vis, unsigned int max_vis)
- {
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index 2fd3055..db8562e 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -525,6 +525,7 @@ struct efx_ef10_nic_data {
- 	bool must_probe_vswitching;
- 	unsigned int pf_index;
- #ifdef CONFIG_SFC_SRIOV
-+	unsigned int vf_index;
- 	struct ef10_vf *vf;
- #endif
- 	u8 vport_mac[ETH_ALEN];
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_START_BIST_IN_LEN);
+@@ -3833,7 +3840,7 @@ const struct efx_nic_type efx_hunt_a0_vf_nic_type = {
+ 	.stop_stats = efx_port_dummy_op_void,
+ 	.set_id_led = efx_mcdi_set_id_led,
+ 	.push_irq_moderation = efx_ef10_push_irq_moderation,
+-	.reconfigure_mac = efx_ef10_mac_reconfigure,
++	.reconfigure_mac = efx_ef10_mac_reconfigure_vf,
+ 	.check_mac_fault = efx_mcdi_mac_check_fault,
+ 	.reconfigure_port = efx_mcdi_port_reconfigure,
+ 	.get_wol = efx_ef10_get_wol_vf,
