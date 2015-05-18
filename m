@@ -1,421 +1,330 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/21] netfilter: ipset: Return ipset error instead of bool
-Date: Mon, 18 May 2015 18:25:10 +0200
-Message-ID: <1431966324-4494-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/21] netfilter: ipset: Return bool values instead of int
+Date: Mon, 18 May 2015 18:25:13 +0200
+Message-ID: <1431966324-4494-11-git-send-email-pablo@netfilter.org>
 References: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44018 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:44029 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932373AbbERQUs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2015 12:20:48 -0400
+	id S932403AbbERQUu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 12:20:50 -0400
 In-Reply-To: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sergey Popovich <popovich_sergei@mail.ua>
 
-Statement ret = func1() || func2() returns 0 when both func1()
-and func2() return 0, or 1 if func1() or func2() returns non-zero.
-
-However in our case func1() and func2() returns error code on
-failure, so it seems good to propagate such error codes, rather
-than returning 1 in case of failure.
-
 Signed-off-by: Sergey Popovich <popovich_sergei@mail.ua>
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_bitmap_ip.c       |    7 +++++--
- net/netfilter/ipset/ip_set_bitmap_ipmac.c    |    7 +++++--
- net/netfilter/ipset/ip_set_hash_ip.c         |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_ipmark.c     |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_ipport.c     |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_ipportip.c   |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_ipportnet.c  |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_net.c        |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_netiface.c   |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_netnet.c     |   24 ++++++++++++++++++------
- net/netfilter/ipset/ip_set_hash_netport.c    |   14 ++++++++++----
- net/netfilter/ipset/ip_set_hash_netportnet.c |   24 ++++++++++++++++++------
- 12 files changed, 126 insertions(+), 48 deletions(-)
+ net/netfilter/ipset/ip_set_hash_ip.c         |   10 +++++-----
+ net/netfilter/ipset/ip_set_hash_ipmark.c     |    8 ++++----
+ net/netfilter/ipset/ip_set_hash_ipport.c     |    8 ++++----
+ net/netfilter/ipset/ip_set_hash_ipportip.c   |    8 ++++----
+ net/netfilter/ipset/ip_set_hash_ipportnet.c  |    8 ++++----
+ net/netfilter/ipset/ip_set_hash_mac.c        |    7 ++++++-
+ net/netfilter/ipset/ip_set_hash_net.c        |    8 ++++----
+ net/netfilter/ipset/ip_set_hash_netiface.c   |    8 ++++----
+ net/netfilter/ipset/ip_set_hash_netport.c    |    8 ++++----
+ net/netfilter/ipset/ip_set_hash_netportnet.c |    8 ++++----
+ 10 files changed, 43 insertions(+), 38 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
-index 55b083e..306a1bf 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ip.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
-@@ -149,8 +149,11 @@ bitmap_ip_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
- 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-index 8610474..c5f6a06 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-@@ -250,8 +250,11 @@ bitmap_ipmac_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
- 
 diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
-index d21d1e6..1c469df 100644
+index 1a9ef0c..e90a82a 100644
 --- a/net/netfilter/ipset/ip_set_hash_ip.c
 +++ b/net/netfilter/ipset/ip_set_hash_ip.c
-@@ -120,8 +120,11 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -56,15 +56,15 @@ hash_ip4_data_equal(const struct hash_ip4_elem *e1,
+ 	return e1->ip == e2->ip;
+ }
  
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+-static inline bool
++static bool
+ hash_ip4_data_list(struct sk_buff *skb, const struct hash_ip4_elem *e)
+ {
+ 	if (nla_put_ipaddr4(skb, IPSET_ATTR_IP, e->ip))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
-@@ -258,8 +261,11 @@ hash_ip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ static inline void
+@@ -198,10 +198,10 @@ hash_ip6_data_list(struct sk_buff *skb, const struct hash_ip6_elem *e)
+ {
+ 	if (nla_put_ipaddr6(skb, IPSET_ATTR_IP, &e->ip.in6))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
+ 
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_ipmark.c b/net/netfilter/ipset/ip_set_hash_ipmark.c
-index e408bcf..82ef5b3 100644
+index 4499373..8584284 100644
 --- a/net/netfilter/ipset/ip_set_hash_ipmark.c
 +++ b/net/netfilter/ipset/ip_set_hash_ipmark.c
-@@ -122,8 +122,11 @@ hash_ipmark4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -63,10 +63,10 @@ hash_ipmark4_data_list(struct sk_buff *skb,
+ 	if (nla_put_ipaddr4(skb, IPSET_ATTR_IP, data->ip) ||
+ 	    nla_put_net32(skb, IPSET_ATTR_MARK, htonl(data->mark)))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-@@ -255,8 +258,11 @@ hash_ipmark6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ static inline void
+@@ -193,10 +193,10 @@ hash_ipmark6_data_list(struct sk_buff *skb,
+ 	if (nla_put_ipaddr6(skb, IPSET_ATTR_IP, &data->ip.in6) ||
+ 	    nla_put_net32(skb, IPSET_ATTR_MARK, htonl(data->mark)))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_ipport.c b/net/netfilter/ipset/ip_set_hash_ipport.c
-index c4383ad..5b36a4e 100644
+index 4ae423c..73e4d86 100644
 --- a/net/netfilter/ipset/ip_set_hash_ipport.c
 +++ b/net/netfilter/ipset/ip_set_hash_ipport.c
-@@ -131,8 +131,11 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -69,10 +69,10 @@ hash_ipport4_data_list(struct sk_buff *skb,
+ 	    nla_put_net16(skb, IPSET_ATTR_PORT, data->port) ||
+ 	    nla_put_u8(skb, IPSET_ATTR_PROTO, data->proto))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-@@ -298,8 +301,11 @@ hash_ipport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ static inline void
+@@ -230,10 +230,10 @@ hash_ipport6_data_list(struct sk_buff *skb,
+ 	    nla_put_net16(skb, IPSET_ATTR_PORT, data->port) ||
+ 	    nla_put_u8(skb, IPSET_ATTR_PROTO, data->proto))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_ipportip.c b/net/netfilter/ipset/ip_set_hash_ipportip.c
-index c48ff45..6a580e5 100644
+index fb921a5..4f8e584 100644
 --- a/net/netfilter/ipset/ip_set_hash_ipportip.c
 +++ b/net/netfilter/ipset/ip_set_hash_ipportip.c
-@@ -133,8 +133,11 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -70,10 +70,10 @@ hash_ipportip4_data_list(struct sk_buff *skb,
+ 	    nla_put_net16(skb, IPSET_ATTR_PORT, data->port) ||
+ 	    nla_put_u8(skb, IPSET_ATTR_PROTO, data->proto))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-@@ -306,8 +309,11 @@ hash_ipportip6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ static inline void
+@@ -239,10 +239,10 @@ hash_ipportip6_data_list(struct sk_buff *skb,
+ 	    nla_put_net16(skb, IPSET_ATTR_PORT, data->port) ||
+ 	    nla_put_u8(skb, IPSET_ATTR_PROTO, data->proto))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-index adc3f76..2b90a1d 100644
+index 4ae9804..4363a18 100644
 --- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
 +++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-@@ -188,8 +188,11 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -114,10 +114,10 @@ hash_ipportnet4_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
+ 
+ static inline void
+@@ -366,10 +366,10 @@ hash_ipportnet6_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
+ 
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
+ 
+ static inline void
+diff --git a/net/netfilter/ipset/ip_set_hash_mac.c b/net/netfilter/ipset/ip_set_hash_mac.c
+index 2b96234..3614683 100644
+--- a/net/netfilter/ipset/ip_set_hash_mac.c
++++ b/net/netfilter/ipset/ip_set_hash_mac.c
+@@ -52,7 +52,12 @@ hash_mac4_data_equal(const struct hash_mac4_elem *e1,
+ static inline bool
+ hash_mac4_data_list(struct sk_buff *skb, const struct hash_mac4_elem *e)
+ {
+-	return nla_put(skb, IPSET_ATTR_ETHER, ETH_ALEN, e->ether);
++	if (nla_put(skb, IPSET_ATTR_ETHER, ETH_ALEN, e->ether))
++		goto nla_put_failure;
++	return false;
 +
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
++nla_put_failure:
++	return true;
+ }
  
-@@ -445,8 +448,11 @@ hash_ipportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
- 
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
-index 1abfe74..15382e2 100644
+index 15382e2..2feaed3 100644
 --- a/net/netfilter/ipset/ip_set_hash_net.c
 +++ b/net/netfilter/ipset/ip_set_hash_net.c
-@@ -159,8 +159,11 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -95,10 +95,10 @@ hash_net4_data_list(struct sk_buff *skb, const struct hash_net4_elem *data)
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-@@ -330,8 +333,11 @@ hash_net6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ static inline void
+@@ -266,10 +266,10 @@ hash_net6_data_list(struct sk_buff *skb, const struct hash_net6_elem *data)
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index 0ba6c58..66ac8dd 100644
+index 66ac8dd..322b773 100644
 --- a/net/netfilter/ipset/ip_set_hash_netiface.c
 +++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -307,8 +307,11 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -193,10 +193,10 @@ hash_netiface4_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-@@ -543,8 +546,11 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ static inline void
+@@ -446,10 +446,10 @@ hash_netiface6_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
-index 9c6da0c..f065024 100644
---- a/net/netfilter/ipset/ip_set_hash_netnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netnet.c
-@@ -181,9 +181,15 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP2], &ip2_from) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP2], &ip2_from);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
- 
-@@ -408,9 +414,15 @@ hash_netnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
- 
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip[0]) ||
--	      ip_set_get_ipaddr6(tb[IPSET_ATTR_IP2], &e.ip[1]) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip[0]);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP2], &e.ip[1]);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
- 
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
-index f77afd4..624eb5b 100644
+index 91c901c..bd45465 100644
 --- a/net/netfilter/ipset/ip_set_hash_netport.c
 +++ b/net/netfilter/ipset/ip_set_hash_netport.c
-@@ -181,8 +181,11 @@ hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -110,10 +110,10 @@ hash_netport4_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-@@ -401,8 +404,11 @@ hash_netport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ static inline void
+@@ -325,10 +325,10 @@ hash_netport6_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
+ static inline void
 diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
-index 69e544f..7eed11b 100644
+index 1233442..dd64ba9 100644
 --- a/net/netfilter/ipset/ip_set_hash_netportnet.c
 +++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
-@@ -199,9 +199,15 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -124,10 +124,10 @@ hash_netportnet4_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip) ||
--	      ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP2], &ip2_from) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP], &ip);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP2], &ip2_from);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
-@@ -474,9 +480,15 @@ hash_netportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+ static inline void
+@@ -399,10 +399,10 @@ hash_netportnet6_data_list(struct sk_buff *skb,
+ 	    (flags &&
+ 	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS, htonl(flags))))
+ 		goto nla_put_failure;
+-	return 0;
++	return false;
  
--	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip[0]) ||
--	      ip_set_get_ipaddr6(tb[IPSET_ATTR_IP2], &e.ip[1]) ||
--	      ip_set_get_extensions(set, tb, &ext);
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &e.ip[0]);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP2], &e.ip[1]);
-+	if (ret)
-+		return ret;
-+
-+	ret = ip_set_get_extensions(set, tb, &ext);
- 	if (ret)
- 		return ret;
+ nla_put_failure:
+-	return 1;
++	return true;
+ }
  
+ static inline void
 -- 
 1.7.10.4
