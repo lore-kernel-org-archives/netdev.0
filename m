@@ -1,78 +1,131 @@
-From: "Kovalev, Sergey" <Sergey.Kovalev@emc.com>
-Subject: [PATCH] ping: ping doesn't work correctly with -m option
-Date: Mon, 18 May 2015 12:37:46 +0000
-Message-ID: <7E20C7B36969D643A89BC9AE4BF0F3A422D31D95@MX102CL01.corp.emc.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [RFC 21/23] net/xen-netback: Make it running on 64KB
+ page granularity
+Date: Mon, 18 May 2015 13:54:06 +0100
+Message-ID: <20150518125406.GA9503@zion.uk.xensource.com>
+References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
+ <1431622863-28575-22-git-send-email-julien.grall@citrix.com>
+ <20150515023534.GE19352@zion.uk.xensource.com> <5555E81E.8070803@citrix.com>
+ <20150515153143.GA8521@zion.uk.xensource.com> <5559D6EE.3030400@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Dion, Christopher" <Christopher.Dion@emc.com>,
-	"Akopyan, Alexander" <Alexander.Akopyan@emc.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<stefano.stabellini@eu.citrix.com>, <netdev@vger.kernel.org>,
+	<tim@xen.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Julien Grall <julien.grall@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailuogwdur.emc.com ([128.221.224.79]:58830 "EHLO
-	mailuogwdur.emc.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbbERMh6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 08:37:58 -0400
-Received: from maildlpprd52.lss.emc.com (maildlpprd52.lss.emc.com [10.106.48.156])
-	by mailuogwprd54.lss.emc.com (Sentrion-MTA-4.3.1/Sentrion-MTA-4.3.0) with ESMTP id t4ICbv01013234
-	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 18 May 2015 08:37:57 -0400
-Received: from mailusrhubprd02.lss.emc.com (mailusrhubprd02.lss.emc.com [10.253.24.20]) by maildlpprd52.lss.emc.com (RSA Interceptor) for <netdev@vger.kernel.org>; Mon, 18 May 2015 08:38:16 -0400
-Received: from mxhub09.corp.emc.com (mxhub09.corp.emc.com [10.254.92.104])
-	by mailusrhubprd02.lss.emc.com (Sentrion-MTA-4.3.1/Sentrion-MTA-4.3.0) with ESMTP id t4ICbl7B025988
-	(version=TLSv1 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Mon, 18 May 2015 08:37:47 -0400
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:16439 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751177AbbERMyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 08:54:13 -0400
+Content-Disposition: inline
+In-Reply-To: <5559D6EE.3030400@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The "ping" or "ping6" with parameter "-m" doesn't work when "main" and "default" table are empty (or do not have any route to destination IP).
-If we don't specify source IP address for the ping, the ping will try to determine the source IP automatically. To do so it creates the probe UDP socket, and try to connect to dst IP on that socket. The connect should make routing decision based on current Linux routing.  If connection succeeded it takes source IP (however it doesn't use it in future indeed). The issue is that PIGN doesn't specify fwmark for that probe socket as a result connection fails with "Network unreachable" error.
+On Mon, May 18, 2015 at 01:11:26PM +0100, Julien Grall wrote:
+> Hi Wei,
+> 
+> On 15/05/15 16:31, Wei Liu wrote:
+> > On Fri, May 15, 2015 at 01:35:42PM +0100, Julien Grall wrote:
+> >> On 15/05/15 03:35, Wei Liu wrote:
+> >>> On Thu, May 14, 2015 at 06:01:01PM +0100, Julien Grall wrote:
+> >>>> The PV network protocol is using 4KB page granularity. The goal of this
+> >>>> patch is to allow a Linux using 64KB page granularity working as a
+> >>>> network backend on a non-modified Xen.
+> >>>>
+> >>>> It's only necessary to adapt the ring size and break skb data in small
+> >>>> chunk of 4KB. The rest of the code is relying on the grant table code.
+> >>>>
+> >>>> Although only simple workload is working (dhcp request, ping). If I try
+> >>>> to use wget in the guest, it will stall until a tcpdump is started on
+> >>>> the vif interface in DOM0. I wasn't able to find why.
+> >>>>
+> >>>
+> >>> I think in wget workload you're more likely to break down 64K pages to
+> >>> 4K pages. Some of your calculation of mfn, offset might be wrong.
+> >>
+> >> If so, why tcpdump on the vif interface would make wget suddenly
+> >> working? Does it make netback use a different path?
+> > 
+> > No, but if might make core network component behave differently, this is
+> > only my suspicion.
+> > 
+> > Do you see malformed packets with tcpdump?
+> 
+> I don't see any malformed packets with tcpdump. The connection is stalling
+> until tcpdump is started on the vif in dom0.
+> 
 
---- ./ping.c.origin     2015-05-12 09:01:16.000000000 -0400
-+++ ./ping.c    		2015-05-13 07:34:06.000000000 -0400
-@@ -107,6 +107,7 @@
- struct sockaddr_in source;
- char *device;
- int pmtudisc = -1;
-+extern int mark;
+Hmm... Don't have immediate idea about this.
 
+Ian said skb_orphan is called with tcpdump. If I remember correct that
+would trigger the callback to release the slots in netback. It could be
+that other part of Linux is holding onto the skbs for too long.
 
- int
-@@ -305,6 +306,12 @@
-                                }
-                        }
-                }
-+        if (options & F_MARK) {
-+            if (setsockopt(probe_fd, SOL_SOCKET, SO_MARK,
-+                        &mark, sizeof(mark)) == -1) {
-+                fprintf(stderr, "Warning: Failed to set mark %d\n", mark);
-+            }
-+        }
+If you're wgetting from another host, I would suggest wgetting from Dom0
+to limit the problem between Dom0 and DomU.
 
-                if (settos &&
-                    setsockopt(probe_fd, IPPROTO_IP, IP_TOS, (char *)&settos, sizeof(int)) < 0)
---- ./ping6.c.origin    2015-05-12 09:01:16.000000000 -0400
-+++ ./ping6.c   		2015-05-13 07:33:39.000000000 -0400
-@@ -137,7 +137,7 @@
- int pmtudisc=-1;
+> >>
+> >>>> I have not modified XEN_NETBK_RX_SLOTS_MAX because I wasn't sure what
+> >>>> it's used for (I have limited knowledge on the network driver).
+> >>>>
+> >>>
+> >>> This is the maximum slots a guest packet can use. AIUI the protocol
+> >>> still works on 4K granularity (you break 64K page to a bunch of 4K
+> >>> pages), you don't need to change this.
+> >>
+> >> 1 slot = 1 grant right? If so, XEN_NETBK_RX_SLOTS_MAX is based on the
+> >> number of Linux page. So we would have to get the number for Xen page.
+> >>
+> > 
+> > Yes, 1 slot = 1 grant. I see what you're up to now. Yes, you need to
+> > change this constant to match underlying HV page.
+> > 
+> >> Although, I gave a try to multiple by XEN_PFN_PER_PAGE (4KB/64KB = 16)
+> >> but it get stuck in the loop.
+> >>
+> > 
+> > I don't follow. What is the new #define? Which loop does it get stuck?
+> 
+> 
+> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+> index 0eda6e9..c2a5402 100644
+> --- a/drivers/net/xen-netback/common.h
+> +++ b/drivers/net/xen-netback/common.h
+> @@ -204,7 +204,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
+>  /* Maximum number of Rx slots a to-guest packet may use, including the
+>   * slot needed for GSO meta-data.
+>   */
+> -#define XEN_NETBK_RX_SLOTS_MAX (MAX_SKB_FRAGS + 1)
+> +#define XEN_NETBK_RX_SLOTS_MAX ((MAX_SKB_FRAGS + 1) * XEN_PFN_PER_PAGE)
+>  
+>  enum state_bit_shift {
+>         /* This bit marks that the vif is connected */
+> 
+> The function xenvif_wait_for_rx_work never returns. I guess it's because there
+> is not enough slot available.
+> 
+> For 64KB page granularity we ask for 16 times more slots than 4KB page
+> granularity. Although, it's very unlikely that all the slot will be used.
+> 
+> FWIW I pointed out the same problem on blkfront.
+> 
 
- static int icmp_sock;
--
-+extern int mark;
+This is not going to work. The ring in netfront / netback has only 256
+slots. Now you ask for netback to reserve more than 256 slots -- (17 +
+1) * (64 / 4) = 288, which can never be fulfilled. See the call to
+xenvif_rx_ring_slots_available.
 
+I think XEN_NETBK_RX_SLOTS_MAX derived from the fact the each packet to
+the guest cannot be larger than 64K. So you might be able to
 
- static struct in6_addr in6_anyaddr;
-@@ -385,6 +385,12 @@
- #endif
-                        }
-                }
-+        if (options & F_MARK) {
-+            if (setsockopt(probe_fd, SOL_SOCKET, SO_MARK,
-+                        &mark, sizeof(mark)) == -1) {
-+                fprintf(stderr, "Warning: Failed to set mark %d\n", mark);
-+            }
-+        }
-                firsthop.sin6_port = htons(1025);
-                if (connect(probe_fd, (struct sockaddr*)&firsthop, sizeof(firsthop)) == -1) {
-                        perror("connect");
+#define XEN_NETBK_RX_SLOTS_MAX ((65536 / XEN_PAGE_SIZE) + 1)
+
+Blk driver may have a different story. But the default ring size (1
+page) yields even less slots than net (given that sizeof(union(req/rsp))
+is larger IIRC).
+
+Wei.
