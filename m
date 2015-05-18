@@ -1,131 +1,42 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [RFC 21/23] net/xen-netback: Make it running on 64KB
- page granularity
-Date: Mon, 18 May 2015 13:54:06 +0100
-Message-ID: <20150518125406.GA9503@zion.uk.xensource.com>
-References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
- <1431622863-28575-22-git-send-email-julien.grall@citrix.com>
- <20150515023534.GE19352@zion.uk.xensource.com> <5555E81E.8070803@citrix.com>
- <20150515153143.GA8521@zion.uk.xensource.com> <5559D6EE.3030400@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/6] neigh: fix a possible leak issue of neigh
+ entry
+Date: Mon, 18 May 2015 05:54:09 -0700
+Message-ID: <1431953649.621.36.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431672946-300-1-git-send-email-ying.xue@windriver.com>
+	 <1431672946-300-3-git-send-email-ying.xue@windriver.com>
+	 <1431691962.27831.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150515.113950.1408734283430265055.davem@davemloft.net>
+	 <55595B64.70702@windriver.com>
+	 <1431925082.621.31.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <55597EBD.8040002@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
-	<stefano.stabellini@eu.citrix.com>, <netdev@vger.kernel.org>,
-	<tim@xen.org>, <linux-kernel@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Julien Grall <julien.grall@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	alexei@purestorage.com, joern@purestorage.com, ja@ssi.bg
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:16439 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751177AbbERMyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 08:54:13 -0400
-Content-Disposition: inline
-In-Reply-To: <5559D6EE.3030400@citrix.com>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:36481 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751143AbbERMyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 08:54:12 -0400
+Received: by pdfh10 with SMTP id h10so148607088pdf.3
+        for <netdev@vger.kernel.org>; Mon, 18 May 2015 05:54:11 -0700 (PDT)
+In-Reply-To: <55597EBD.8040002@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 01:11:26PM +0100, Julien Grall wrote:
-> Hi Wei,
-> 
-> On 15/05/15 16:31, Wei Liu wrote:
-> > On Fri, May 15, 2015 at 01:35:42PM +0100, Julien Grall wrote:
-> >> On 15/05/15 03:35, Wei Liu wrote:
-> >>> On Thu, May 14, 2015 at 06:01:01PM +0100, Julien Grall wrote:
-> >>>> The PV network protocol is using 4KB page granularity. The goal of this
-> >>>> patch is to allow a Linux using 64KB page granularity working as a
-> >>>> network backend on a non-modified Xen.
-> >>>>
-> >>>> It's only necessary to adapt the ring size and break skb data in small
-> >>>> chunk of 4KB. The rest of the code is relying on the grant table code.
-> >>>>
-> >>>> Although only simple workload is working (dhcp request, ping). If I try
-> >>>> to use wget in the guest, it will stall until a tcpdump is started on
-> >>>> the vif interface in DOM0. I wasn't able to find why.
-> >>>>
-> >>>
-> >>> I think in wget workload you're more likely to break down 64K pages to
-> >>> 4K pages. Some of your calculation of mfn, offset might be wrong.
-> >>
-> >> If so, why tcpdump on the vif interface would make wget suddenly
-> >> working? Does it make netback use a different path?
-> > 
-> > No, but if might make core network component behave differently, this is
-> > only my suspicion.
-> > 
-> > Do you see malformed packets with tcpdump?
-> 
-> I don't see any malformed packets with tcpdump. The connection is stalling
-> until tcpdump is started on the vif in dom0.
-> 
+On Mon, 2015-05-18 at 13:55 +0800, Ying Xue wrote:
 
-Hmm... Don't have immediate idea about this.
+> So, exactly speaking, we cannot say neigh_add_timer() is completely wrong
+> regarding your mentioned above assumption that neigh timer is absolutely not
+> armed when neigh_add_timer() is called. But we can say its behaviour is not
+> designed very well. From this point, the patch seems still a bit valuable for us.
 
-Ian said skb_orphan is called with tcpdump. If I remember correct that
-would trigger the callback to release the slots in netback. It could be
-that other part of Linux is holding onto the skbs for too long.
+Its design is correct.
 
-If you're wgetting from another host, I would suggest wgetting from Dom0
-to limit the problem between Dom0 and DomU.
+We have to fix the caller that does not respect the proper convention.
 
-> >>
-> >>>> I have not modified XEN_NETBK_RX_SLOTS_MAX because I wasn't sure what
-> >>>> it's used for (I have limited knowledge on the network driver).
-> >>>>
-> >>>
-> >>> This is the maximum slots a guest packet can use. AIUI the protocol
-> >>> still works on 4K granularity (you break 64K page to a bunch of 4K
-> >>> pages), you don't need to change this.
-> >>
-> >> 1 slot = 1 grant right? If so, XEN_NETBK_RX_SLOTS_MAX is based on the
-> >> number of Linux page. So we would have to get the number for Xen page.
-> >>
-> > 
-> > Yes, 1 slot = 1 grant. I see what you're up to now. Yes, you need to
-> > change this constant to match underlying HV page.
-> > 
-> >> Although, I gave a try to multiple by XEN_PFN_PER_PAGE (4KB/64KB = 16)
-> >> but it get stuck in the loop.
-> >>
-> > 
-> > I don't follow. What is the new #define? Which loop does it get stuck?
-> 
-> 
-> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index 0eda6e9..c2a5402 100644
-> --- a/drivers/net/xen-netback/common.h
-> +++ b/drivers/net/xen-netback/common.h
-> @@ -204,7 +204,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
->  /* Maximum number of Rx slots a to-guest packet may use, including the
->   * slot needed for GSO meta-data.
->   */
-> -#define XEN_NETBK_RX_SLOTS_MAX (MAX_SKB_FRAGS + 1)
-> +#define XEN_NETBK_RX_SLOTS_MAX ((MAX_SKB_FRAGS + 1) * XEN_PFN_PER_PAGE)
->  
->  enum state_bit_shift {
->         /* This bit marks that the vif is connected */
-> 
-> The function xenvif_wait_for_rx_work never returns. I guess it's because there
-> is not enough slot available.
-> 
-> For 64KB page granularity we ask for 16 times more slots than 4KB page
-> granularity. Although, it's very unlikely that all the slot will be used.
-> 
-> FWIW I pointed out the same problem on blkfront.
-> 
-
-This is not going to work. The ring in netfront / netback has only 256
-slots. Now you ask for netback to reserve more than 256 slots -- (17 +
-1) * (64 / 4) = 288, which can never be fulfilled. See the call to
-xenvif_rx_ring_slots_available.
-
-I think XEN_NETBK_RX_SLOTS_MAX derived from the fact the each packet to
-the guest cannot be larger than 64K. So you might be able to
-
-#define XEN_NETBK_RX_SLOTS_MAX ((65536 / XEN_PAGE_SIZE) + 1)
-
-Blk driver may have a different story. But the default ring size (1
-page) yields even less slots than net (given that sizeof(union(req/rsp))
-is larger IIRC).
-
-Wei.
+So please try to understand the current logic, instead of changing
+everything, and adding another bunch of bugs.
