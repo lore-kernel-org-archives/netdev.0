@@ -1,114 +1,47 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH iproute2/net-next] tc: gred: Add support for TCA_GRED_LIMIT attribute
-Date: Mon, 18 May 2015 11:35:14 -0400
-Message-ID: <1431963314-56420-11-git-send-email-david.ward@ll.mit.edu>
-References: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
-Cc: David Ward <david.ward@ll.mit.edu>
-To: netdev@vger.kernel.org
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [RFC PATCH 09/13] xen-netfront: move grant_{ref,
+ page} to struct grant
+Date: Mon, 18 May 2015 16:44:52 +0100
+Message-ID: <555A08F4.1030202@citrix.com>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-10-git-send-email-joao.martins@neclab.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<david.vrabel@citrix.com>, <boris.ostrovsky@oracle.com>
+To: Joao Martins <joao.martins@neclab.eu>,
+	<xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dmz-mailsec-scanner-2.mit.edu ([18.9.25.13]:48541 "EHLO
-	dmz-mailsec-scanner-2.mit.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752290AbbERPfs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:35:48 -0400
-In-Reply-To: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
+Received: from smtp02.citrix.com ([66.165.176.63]:24520 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753984AbbERPql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:46:41 -0400
+In-Reply-To: <1431451117-70051-10-git-send-email-joao.martins@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the qdisc limit to be set, which is particularly useful when
-the default VQ is not configured with RED parameters.
+On 12/05/15 18:18, Joao Martins wrote:
+> Refactors a little bit how grants are stored by moving
+> grant_rx_ref/grant_tx_ref and grant_tx_page to its
+> own structure, namely struct grant.
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- include/linux/pkt_sched.h |    3 ++-
- tc/q_gred.c               |   20 +++++++++++++++++++-
- 2 files changed, 21 insertions(+), 2 deletions(-)
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 534b847..700f50a 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -268,7 +268,8 @@ enum {
-        TCA_GRED_STAB,
-        TCA_GRED_DPS,
-        TCA_GRED_MAX_P,
--	   __TCA_GRED_MAX,
-+       TCA_GRED_LIMIT,
-+       __TCA_GRED_MAX,
- };
- 
- #define TCA_GRED_MAX (__TCA_GRED_MAX - 1)
-diff --git a/tc/q_gred.c b/tc/q_gred.c
-index 463d725..f31daa3 100644
---- a/tc/q_gred.c
-+++ b/tc/q_gred.c
-@@ -38,7 +38,7 @@
- static void explain(void)
- {
- 	fprintf(stderr, "Usage: tc qdisc { add | replace | change } ... gred setup vqs NUMBER\n");
--	fprintf(stderr, "           default DEFAULT_VQ [ grio ]\n");
-+	fprintf(stderr, "           default DEFAULT_VQ [ grio ] [ limit BYTES ]\n");
- 	fprintf(stderr, "       tc qdisc change ... gred vq VQ [ prio VALUE ] limit BYTES\n");
- 	fprintf(stderr, "           min BYTES max BYTES avpkt BYTES [ burst PACKETS ]\n");
- 	fprintf(stderr, "           [ probability PROBABILITY ] [ bandwidth KBPS ]\n");
-@@ -50,6 +50,7 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
- 
- 	struct rtattr *tail;
- 	struct tc_gred_sopt opt = { 0 };
-+	__u32 limit = 0;
- 
- 	opt.def_DP = MAX_DPs;
- 
-@@ -83,6 +84,12 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
- 			}
- 		} else if (strcmp(*argv, "grio") == 0) {
- 			opt.grio = 1;
-+		} else if (strcmp(*argv, "limit") == 0) {
-+			NEXT_ARG();
-+			if (get_size(&limit, *argv)) {
-+				fprintf(stderr, "Illegal \"limit\"\n");
-+				return -1;
-+			}
- 		} else if (strcmp(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -104,6 +111,8 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
- 	tail = NLMSG_TAIL(n);
- 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
- 	addattr_l(n, 1024, TCA_GRED_DPS, &opt, sizeof(struct tc_gred_sopt));
-+	if (limit)
-+		addattr32(n, 1024, TCA_GRED_LIMIT, limit);
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
- 	return 0;
- }
-@@ -264,6 +273,7 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	struct tc_gred_sopt *sopt;
- 	struct tc_gred_qopt *qopt;
- 	__u32 *max_p = NULL;
-+	__u32 *limit = NULL;
- 	unsigned i;
- 	SPRINT_BUF(b1);
- 	SPRINT_BUF(b2);
-@@ -281,6 +291,10 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	    RTA_PAYLOAD(tb[TCA_GRED_MAX_P]) >= sizeof(__u32) * MAX_DPs)
- 		max_p = RTA_DATA(tb[TCA_GRED_MAX_P]);
- 
-+	if (tb[TCA_GRED_LIMIT] &&
-+	    RTA_PAYLOAD(tb[TCA_GRED_LIMIT]) == sizeof(__u32))
-+		limit = RTA_DATA(tb[TCA_GRED_LIMIT]);
-+
- 	sopt = RTA_DATA(tb[TCA_GRED_DPS]);
- 	qopt = RTA_DATA(tb[TCA_GRED_PARMS]);
- 	if (RTA_PAYLOAD(tb[TCA_GRED_DPS]) < sizeof(*sopt) ||
-@@ -296,6 +310,10 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 		sopt->def_DP,
- 		sopt->grio ? "grio " : "");
- 
-+	if (limit)
-+		fprintf(f, "limit %s ",
-+			sprint_size(*limit, b1));
-+
- 	for (i=0;i<MAX_DPs;i++, qopt++) {
- 		if (qopt->DP >= MAX_DPs) continue;
- 		fprintf(f, "\n vq %u prio %hhu limit %s min %s max %s ",
--- 
-1.7.1
+Although...
+
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -87,6 +87,11 @@ struct netfront_cb {
+>  /* IRQ name is queue name with "-tx" or "-rx" appended */
+>  #define IRQ_NAME_SIZE (QUEUE_NAME_SIZE + 3)
+>  
+> +struct grant {
+> +	grant_ref_t ref;
+> +	struct page *page;
+> +};
+
+Is this sort of structure (and the following patch) useful for other
+frontends?
+
+David
