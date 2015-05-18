@@ -1,35 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next fragmentation icmp v5 0/3] fragmentation ICMP
-Date: Sun, 17 May 2015 23:48:33 -0400 (EDT)
-Message-ID: <20150517.234833.1850042378148567219.davem@davemloft.net>
-References: <1431724537-1919-1-git-send-email-azhou@nicira.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/6] neigh: fix a possible leak issue of neigh
+ entry
+Date: Sun, 17 May 2015 21:58:02 -0700
+Message-ID: <1431925082.621.31.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1431672946-300-1-git-send-email-ying.xue@windriver.com>
+	 <1431672946-300-3-git-send-email-ying.xue@windriver.com>
+	 <1431691962.27831.90.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150515.113950.1408734283430265055.davem@davemloft.net>
+	 <55595B64.70702@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: azhou@nicira.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	alexei@purestorage.com, joern@purestorage.com, ja@ssi.bg
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51474 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbbERDsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 May 2015 23:48:35 -0400
-In-Reply-To: <1431724537-1919-1-git-send-email-azhou@nicira.com>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:36545 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbbERE6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 00:58:05 -0400
+Received: by igbpi8 with SMTP id pi8so38693941igb.1
+        for <netdev@vger.kernel.org>; Sun, 17 May 2015 21:58:04 -0700 (PDT)
+In-Reply-To: <55595B64.70702@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
-Date: Fri, 15 May 2015 14:15:34 -0700
+On Mon, 2015-05-18 at 11:24 +0800, Ying Xue wrote:
 
-> Currently, we send ICMP packets when errors occur during fragmentation or
-> de-fragmentation.  However, it is a bug when sending those ICMP packets
-> in the context of using netfilter for bridging.
-> 
-> Those ICMP packets are only expected in the context of routing, not in
-> bridging mode.
-> 
-> The local stack is not involved in bridging forward decisions, thus
-> should be not used for deciding the reverse path for those ICMP messages.
-> 
-> This bug only affects IPV4, not in IPv6.
+> If the issue of "neigh use-after-free" is fixed by the first patch although you
+> said the atomic_read() was not safe for us, is the patch still wrong? If it's
+> really wrong, can you please give more detailed explanation to help me
+> understand why the change is wrong and but why a similar timer usage in
+> sk_reset_timer() is not wrong?
 
-Series applied, thanks Andy.
+Why do you believe sk_reset_timer() would be wrong ?
+
+Difference between neigh_add_timer() and sk_reset_timer() is very
+simple :
+
+neigh_add_timer() must be called while the timer is not yet armed.
+
+sk_reset_timer() can be called while timer is already armed.
+
+You are changing neigh_add_timer() for no good reason, just because you
+want it to be 'like sk_reset_timer()' ?
