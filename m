@@ -1,52 +1,40 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: nicer log message on Siena SR-IOV probe fail
-Date: Mon, 18 May 2015 14:18:27 +0100
-Message-ID: <5559E6A3.1090109@solarflare.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: __assign_irq_vector (x86) and irq vectors exhaust
+Date: Mon, 18 May 2015 13:40:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1CB37AD1@AcuExch.aculab.com>
+References: <20150518125745.GA10966@peter-bsd.cuba.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "'p.kosyh@gmail.com'" <p.kosyh@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:40388 "EHLO
-	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751148AbbERNSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 09:18:35 -0400
+Received: from smtp-out6.electric.net ([192.162.217.191]:55964 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750981AbbERNmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 09:42:51 -0400
+In-Reply-To: <20150518125745.GA10966@peter-bsd.cuba.int>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We expect that MC_CMD_SRIOV will fail if the card has no VFs configured.
-So output a readable message instead of a cryptic MCDI error.
-
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/siena_sriov.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
-index caf701a..2a5f352 100644
---- a/drivers/net/ethernet/sfc/siena_sriov.c
-+++ b/drivers/net/ethernet/sfc/siena_sriov.c
-@@ -208,8 +208,8 @@ static int efx_siena_sriov_cmd(struct efx_nic *efx, bool enable,
- 	MCDI_SET_DWORD(inbuf, SRIOV_IN_VI_BASE, EFX_VI_BASE);
- 	MCDI_SET_DWORD(inbuf, SRIOV_IN_VF_COUNT, efx->vf_count);
- 
--	rc = efx_mcdi_rpc(efx, MC_CMD_SRIOV, inbuf, MC_CMD_SRIOV_IN_LEN,
--			  outbuf, MC_CMD_SRIOV_OUT_LEN, &outlen);
-+	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_SRIOV, inbuf, MC_CMD_SRIOV_IN_LEN,
-+				outbuf, MC_CMD_SRIOV_OUT_LEN, &outlen);
- 	if (rc)
- 		return rc;
- 	if (outlen < MC_CMD_SRIOV_OUT_LEN)
-@@ -1058,8 +1058,10 @@ void efx_siena_sriov_probe(struct efx_nic *efx)
- 	if (!max_vfs)
- 		return;
- 
--	if (efx_siena_sriov_cmd(efx, false, &efx->vi_scale, &count))
-+	if (efx_siena_sriov_cmd(efx, false, &efx->vi_scale, &count)) {
-+		netif_info(efx, probe, efx->net_dev, "no SR-IOV VFs probed\n");
- 		return;
-+	}
- 	if (count > 0 && count > max_vfs)
- 		count = max_vfs;
- 
+RnJvbTogcC5rb3N5aEBnbWFpbC5jb20NCj4gU2VudDogMTggTWF5IDIwMTUgMTM6NTgNCj4gUGxh
+eWluZyB3aXRoIDEwR2IgbmV0d29yayBhZGFwdGVycyBhbmQgL3Byb2MvaXJxLzxucj4vc21wX2Fm
+ZmluaXR5DQo+IHdlIGZvdW5kIHRoYXQgc29tZXRpbWVzIHdlIGNhbiBub3QgbW92ZSBpbnRlcnJ1
+cHQgb24gc2VsZWN0ZWQgY3B1Lg0KPiANCj4gQWZ0ZXIgZGlnZ2luZyBzb3VyY2UgY29kZSB3ZSBm
+b3VuZCwgdGhhdA0KPiBhcmNoL3g4Ni9rZXJuZWwvYXBpYy92ZWN0b3IuYzogX19hc3NpZ25faXJx
+X3ZlY3RvciAoNC4wIGtlcm5lbCkNCj4gYWxsb2NhdGVzIHZlY3RvcnMgaW4gbm90IG9wdGltYWwg
+d2F5Lg0KPiANCj4gRm9yIGV4YW1wbGUsIHdlIGhhdmUgYSAzMiBjcHUgc3lzdGVtIHdpdGggbG90
+IG9mIDEwR2IgY2FyZHMgKGVhY2ggb2YNCj4gdGhlbSBoYXMgMzIgbXNpLXggaXJxcykuIEV2ZW4g
+aWYgY2FyZCBpcyBub3QgdXNlZCwgaXQgYWxsb2NhdGVzIGFuIGlycQ0KPiB2ZWN0b3IgYWZ0ZXIg
+cHJvYmluZyAocGNpX2VuYWJsZV9tc2l4KCkpLiBXZSBoYXZlIGFib3V0IH4yMDAgdmVjdG9ycyBs
+aW1pdA0KPiBwZXIgY3B1IChvbiB4ODYpLCBhbmQgX19hc3NpZ25faXJxX3ZlY3RvciBhbGxvY2F0
+ZXMgdGhlbSBmaWxsaW5nIGNwdXMgb25lDQo+IGJ5IG9uZSAoc2VlIGF0IGNwdW1hc2tfZmlyc3Rf
+YW5kKCkpOg0KLi4uDQoNCkl0IG1pZ2h0IGhlbHAgaWYgdGhlIGtlcm5lbCBBUElzIGFsbG93ZWQg
+YSBkcml2ZXIgdG8gcmVxdWVzdCBhZGRpdGlvbmFsDQpNU0ktWCBpbnRlcnJ1cHRzIGFmdGVyIHBy
+b2JlIHRpbWUuDQoNCklmIGEgZGV2aWNlIHN1cHBvcnRzIDMyIGludGVycnVwdHMgdGhlIGRyaXZl
+ciBjYW4gc2F5IHRoYXQgaXQgb25seQ0KbmVlZHMgKHNheSkgaW50ZXJydXB0cyAwLCAxIGFuZCAx
+NiAoYW5kIG9ubHkgdGhlc2UgTVNJWCB0YWJsZSBzbG90cw0KZ2V0IGZpbGxlZCB3aXRoIGludGVy
+cnVwdCAnaW5mbycpIC0gYnV0IGNhbid0IGxhdGVyIGFsbG9jYXRlIHRoZQ0KTVNJWCBpbmZvIGZv
+ciBvdGhlciBpbnRlcnJ1cHRzLg0KDQpJIGNhbid0IHNlZSBhbnl0aGluZyBpbiB0aGUgTVNJWCBz
+cGVjIHRoYXQgc3RvcHMgdGhpbmdzIHdvcmtpbmcNCnRoYXQgd2F5Lg0KDQoJRGF2aWQNCg0K
