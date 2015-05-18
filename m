@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] selftests/net: expect headroom in
- psock_fanout rollover
-Date: Mon, 18 May 2015 17:04:59 -0400 (EDT)
-Message-ID: <20150518.170459.1545349559018472418.davem@davemloft.net>
-References: <1431978131-30579-1-git-send-email-willemb@google.com>
+Subject: Re: [PATCH net-next v3 1/2] pci: Add Cavium PCI vendor id
+Date: Mon, 18 May 2015 17:06:30 -0400 (EDT)
+Message-ID: <20150518.170630.196009240711632541.davem@davemloft.net>
+References: <1431747401-20847-1-git-send-email-aleksey.makarov@auriga.com>
+	<1431747401-20847-2-git-send-email-aleksey.makarov@auriga.com>
+	<555A52E6.8010408@auriga.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: willemb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60341 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750885AbbERVFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 17:05:01 -0400
-In-Reply-To: <1431978131-30579-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	david.daney@cavium.com, bhelgaas@google.com,
+	linux-pci@vger.kernel.org
+To: aleksey.makarov@auriga.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <555A52E6.8010408@auriga.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Mon, 18 May 2015 15:42:11 -0400
+From: Aleksey Makarov <aleksey.makarov@auriga.com>
+Date: Mon, 18 May 2015 14:00:22 -0700
 
-> From: Willem de Bruijn <willemb@google.com>
 > 
-> psock_fanout tests the various fanout modes. Change the test for
-> rollover mode to expect early rollover due to socket pressure
-> as implemented in 2ccdbaa6d55b ("packet: rollover lock contention
-> avoidance").
+> Author of this patch is
 > 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> Author: Sunil Goutham <sgoutham@cavium.com>
+> 
+> Sorry for this.  It will be fixed in next versions.
 
-Applied, thanks.
+You indicate this with:
+
+From: Sunil Goutham <sgoutham@cavium.com>
+
+at the top of the commit message when you post the patch.
