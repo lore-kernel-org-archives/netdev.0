@@ -1,44 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
- skb->dev in receive path
-Date: Mon, 18 May 2015 16:59:08 +0800
-Message-ID: <20150518085908.GA18381@gondor.apana.org.au>
-References: <20150515.123726.1298734930500737780.davem@redhat.com>
- <555645A3.6010509@gmail.com>
- <20150516123457.GB683@gondor.apana.org.au>
- <20150516.171328.1953881469617376252.davem@davemloft.net>
- <20150518070427.GC8928@secunet.com>
- <20150518083121.GA18195@gondor.apana.org.au>
- <20150518083843.GF8928@secunet.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: cpsw_ale clobbers learned addresses?
+Date: Mon, 18 May 2015 14:42:17 +0530
+Message-ID: <5559ACF1.1080903@ti.com>
+References: <20150513193816.GA11130@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
-	alexander.h.duyck@redhat.com, netdev@vger.kernel.org, tgraf@suug.ch
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+To: Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:39176 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752670AbbERI7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 04:59:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20150518083843.GF8928@secunet.com>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:52627 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752813AbbERJMS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 05:12:18 -0400
+In-Reply-To: <20150513193816.GA11130@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 10:38:44AM +0200, Steffen Klassert wrote:
+On Thursday 14 May 2015 01:08 AM, Richard Cochran wrote:
 > 
-> Yes, that's possible. We just did not restore it because it 
-> was cleared with skb_scrub_packet() right after the lookup.
+> It appears to me that cpsw_ale.c will possibly clobber addresses
+> learned by the switch.   When adding a new entry, the code reads the
+> table until it finds an empty entry.  Then, it writes the new value to
+> that same index.  However, nothing prevents the switch from using that
+> same index between the read and the write.
+> 
+> Or am I missing something?
+> 
 
-OK I think we can still salvage this if we do the following:
+There are chances that driver might overwrite address learnt by hardware
+which was learnt between the instance getting free index and writing
+table. Though the same software overwritten mac id will be updated on
+the next packet received with same mac id.
 
-1) Restore the mark after the lookup so the effect is minimised.
-2) Create new flow lookup field for this.
-3) Create tunnel flag that indicates new field should be used.
-4) Deprecate the use of skb->mark by vti.
+Once driver updates the ALE table with valid entry hardware wont be
+updating.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards
+Mugunthan V N
