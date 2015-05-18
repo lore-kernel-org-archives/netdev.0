@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 20/21] netfilter: x_tables: add context to know if extension runs from nft_compat
-Date: Mon, 18 May 2015 18:25:23 +0200
-Message-ID: <1431966324-4494-21-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 18/21] netfilter: ipset: deinline ip_set_put_extensions()
+Date: Mon, 18 May 2015 18:25:21 +0200
+Message-ID: <1431966324-4494-19-git-send-email-pablo@netfilter.org>
 References: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,135 +10,103 @@ In-Reply-To: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, we have four xtables extensions that cannot be used from the
-xt over nft compat layer. The problem is that they need real access to
-the full blown xt_entry to validate that the rule comes with the right
-dependencies. This check was introduced to overcome the lack of
-sufficient userspace dependency validation in iptables.
+From: Denys Vlasenko <dvlasenk@redhat.com>
 
-To resolve this problem, this patch introduces a new field to the
-xt_tgchk_param structure that tell us if the extension is run from
-nft_compat context.
+On x86 allyesconfig build:
+The function compiles to 489 bytes of machine code.
+It has 25 callsites.
 
-The three affected extensions are:
+    text    data       bss       dec     hex filename
+82441375 22255384 20627456 125324215 7784bb7 vmlinux.before
+82434909 22255384 20627456 125317749 7783275 vmlinux
 
-1) CLUSTERIP, this target has been superseded by xt_cluster. So just
-   bail out by returning -EINVAL.
-
-2) TCPMSS. Relax the checking when used from nft_compat. If used with
-   the wrong configuration, it will corrupt !syn packets by adding TCP
-   MSS option.
-
-3) ebt_stp. Relax the check to make sure it uses the reserved
-   destination MAC address for STP.
-
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+CC: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+CC: Eric W. Biederman <ebiederm@xmission.com>
+CC: David S. Miller <davem@davemloft.net>
+CC: Jan Engelhardt <jengelh@medozas.de>
+CC: Jiri Pirko <jpirko@redhat.com>
+CC: linux-kernel@vger.kernel.org
+CC: netdev@vger.kernel.org
+CC: netfilter-devel@vger.kernel.org
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Tested-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 ---
- include/linux/netfilter/x_tables.h |    2 ++
- net/bridge/netfilter/ebt_stp.c     |    6 ++++--
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    5 +++++
- net/netfilter/nft_compat.c         |    2 ++
- net/netfilter/xt_TCPMSS.c          |    6 ++++++
- 5 files changed, 19 insertions(+), 2 deletions(-)
+ include/linux/netfilter/ipset/ip_set.h |   24 ++----------------------
+ net/netfilter/ipset/ip_set_core.c      |   25 +++++++++++++++++++++++++
+ 2 files changed, 27 insertions(+), 22 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index a3e215b..09f3820 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -62,6 +62,7 @@ struct xt_mtchk_param {
- 	void *matchinfo;
- 	unsigned int hook_mask;
- 	u_int8_t family;
-+	bool nft_compat;
- };
+diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
+index f88be72..ffdfdc2 100644
+--- a/include/linux/netfilter/ipset/ip_set.h
++++ b/include/linux/netfilter/ipset/ip_set.h
+@@ -533,29 +533,9 @@ bitmap_bytes(u32 a, u32 b)
+ #include <linux/netfilter/ipset/ip_set_timeout.h>
+ #include <linux/netfilter/ipset/ip_set_comment.h>
  
- /**
-@@ -92,6 +93,7 @@ struct xt_tgchk_param {
- 	void *targinfo;
- 	unsigned int hook_mask;
- 	u_int8_t family;
-+	bool nft_compat;
- };
+-static inline int
++int
+ ip_set_put_extensions(struct sk_buff *skb, const struct ip_set *set,
+-		      const void *e, bool active)
+-{
+-	if (SET_WITH_TIMEOUT(set)) {
+-		unsigned long *timeout = ext_timeout(e, set);
+-
+-		if (nla_put_net32(skb, IPSET_ATTR_TIMEOUT,
+-			htonl(active ? ip_set_timeout_get(timeout)
+-				: *timeout)))
+-			return -EMSGSIZE;
+-	}
+-	if (SET_WITH_COUNTER(set) &&
+-	    ip_set_put_counter(skb, ext_counter(e, set)))
+-		return -EMSGSIZE;
+-	if (SET_WITH_COMMENT(set) &&
+-	    ip_set_put_comment(skb, ext_comment(e, set)))
+-		return -EMSGSIZE;
+-	if (SET_WITH_SKBINFO(set) &&
+-	    ip_set_put_skbinfo(skb, ext_skbinfo(e, set)))
+-		return -EMSGSIZE;
+-	return 0;
+-}
++		      const void *e, bool active);
  
- /* Target destructor parameters */
-diff --git a/net/bridge/netfilter/ebt_stp.c b/net/bridge/netfilter/ebt_stp.c
-index 071d872..0c40570 100644
---- a/net/bridge/netfilter/ebt_stp.c
-+++ b/net/bridge/netfilter/ebt_stp.c
-@@ -164,8 +164,10 @@ static int ebt_stp_mt_check(const struct xt_mtchk_param *par)
- 	    !(info->bitmask & EBT_STP_MASK))
- 		return -EINVAL;
- 	/* Make sure the match only receives stp frames */
--	if (!ether_addr_equal(e->destmac, bridge_ula) ||
--	    !ether_addr_equal(e->destmsk, msk) || !(e->bitmask & EBT_DESTMAC))
-+	if (!par->nft_compat &&
-+	    (!ether_addr_equal(e->destmac, bridge_ula) ||
-+	     !ether_addr_equal(e->destmsk, msk) ||
-+	     !(e->bitmask & EBT_DESTMAC)))
- 		return -EINVAL;
+ #define IP_SET_INIT_KEXT(skb, opt, set)			\
+ 	{ .bytes = (skb)->len, .packets = 1,		\
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 7f9c056..475e496 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -432,6 +432,31 @@ ip_set_get_extensions(struct ip_set *set, struct nlattr *tb[],
+ }
+ EXPORT_SYMBOL_GPL(ip_set_get_extensions);
  
- 	return 0;
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 771ab3d..45cb16a 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -367,6 +367,11 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
- 	struct clusterip_config *config;
- 	int ret;
- 
-+	if (par->nft_compat) {
-+		pr_err("cannot use CLUSTERIP target from nftables compat\n");
-+		return -EOPNOTSUPP;
++int
++ip_set_put_extensions(struct sk_buff *skb, const struct ip_set *set,
++		      const void *e, bool active)
++{
++	if (SET_WITH_TIMEOUT(set)) {
++		unsigned long *timeout = ext_timeout(e, set);
++
++		if (nla_put_net32(skb, IPSET_ATTR_TIMEOUT,
++			htonl(active ? ip_set_timeout_get(timeout)
++				: *timeout)))
++			return -EMSGSIZE;
 +	}
++	if (SET_WITH_COUNTER(set) &&
++	    ip_set_put_counter(skb, ext_counter(e, set)))
++		return -EMSGSIZE;
++	if (SET_WITH_COMMENT(set) &&
++	    ip_set_put_comment(skb, ext_comment(e, set)))
++		return -EMSGSIZE;
++	if (SET_WITH_SKBINFO(set) &&
++	    ip_set_put_skbinfo(skb, ext_skbinfo(e, set)))
++		return -EMSGSIZE;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(ip_set_put_extensions);
 +
- 	if (cipinfo->hash_mode != CLUSTERIP_HASHMODE_SIP &&
- 	    cipinfo->hash_mode != CLUSTERIP_HASHMODE_SIP_SPT &&
- 	    cipinfo->hash_mode != CLUSTERIP_HASHMODE_SIP_SPT_DPT) {
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index 7f29cfc..66def31 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -161,6 +161,7 @@ nft_target_set_tgchk_param(struct xt_tgchk_param *par,
- 		par->hook_mask = 0;
- 	}
- 	par->family	= ctx->afi->family;
-+	par->nft_compat = true;
- }
- 
- static void target_compat_from_user(struct xt_target *t, void *in, void *out)
-@@ -377,6 +378,7 @@ nft_match_set_mtchk_param(struct xt_mtchk_param *par, const struct nft_ctx *ctx,
- 		par->hook_mask = 0;
- 	}
- 	par->family	= ctx->afi->family;
-+	par->nft_compat = true;
- }
- 
- static void match_compat_from_user(struct xt_match *m, void *in, void *out)
-diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-index e762de5..8c3190e 100644
---- a/net/netfilter/xt_TCPMSS.c
-+++ b/net/netfilter/xt_TCPMSS.c
-@@ -277,6 +277,9 @@ static int tcpmss_tg4_check(const struct xt_tgchk_param *par)
- 			"FORWARD, OUTPUT and POSTROUTING hooks\n");
- 		return -EINVAL;
- 	}
-+	if (par->nft_compat)
-+		return 0;
-+
- 	xt_ematch_foreach(ematch, e)
- 		if (find_syn_match(ematch))
- 			return 0;
-@@ -299,6 +302,9 @@ static int tcpmss_tg6_check(const struct xt_tgchk_param *par)
- 			"FORWARD, OUTPUT and POSTROUTING hooks\n");
- 		return -EINVAL;
- 	}
-+	if (par->nft_compat)
-+		return 0;
-+
- 	xt_ematch_foreach(ematch, e)
- 		if (find_syn_match(ematch))
- 			return 0;
+ /*
+  * Creating/destroying/renaming/swapping affect the existence and
+  * the properties of a set. All of these can be executed from userspace
 -- 
 1.7.10.4
 
