@@ -1,48 +1,63 @@
-From: Parav Pandit <Parav.pandit@avagotech.com>
-Subject: [PATCH] ethtool: Added additional port speed macros.
-Date: Mon, 18 May 2015 16:32:43 +0530
-Message-ID: <1431946963-7852-1-git-send-email-Parav.pandit@avagotech.com>
-Cc: bwh@kernel.org, davem@davemloft.net, parav.pandit@avagotech.com,
-	Parav Pandit <Parav.pandit@avagotech.com>
-To: netdev@vger.kernel.org
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH net-next 2/6] neigh: fix a possible leak issue of neigh
+ entry
+Date: Mon, 18 May 2015 13:55:09 +0800
+Message-ID: <55597EBD.8040002@windriver.com>
+References: <1431672946-300-1-git-send-email-ying.xue@windriver.com>	 <1431672946-300-3-git-send-email-ying.xue@windriver.com>	 <1431691962.27831.90.camel@edumazet-glaptop2.roam.corp.google.com>	 <20150515.113950.1408734283430265055.davem@davemloft.net>	 <55595B64.70702@windriver.com> <1431925082.621.31.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<alexei@purestorage.com>, <joern@purestorage.com>, <ja@ssi.bg>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmrelayp1.emulex.com ([138.239.112.140]:56696 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751223AbbERFb0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 01:31:26 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:39727 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752055AbbERFza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 01:55:30 -0400
+In-Reply-To: <1431925082.621.31.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 05/18/2015 12:58 PM, Eric Dumazet wrote:
+> On Mon, 2015-05-18 at 11:24 +0800, Ying Xue wrote:
+> 
+>> If the issue of "neigh use-after-free" is fixed by the first patch although you
+>> said the atomic_read() was not safe for us, is the patch still wrong? If it's
+>> really wrong, can you please give more detailed explanation to help me
+>> understand why the change is wrong and but why a similar timer usage in
+>> sk_reset_timer() is not wrong?
+> 
+> Why do you believe sk_reset_timer() would be wrong ?
+> 
 
-Signed-off-by: Parav Pandit <Parav.pandit@avagotech.com>
----
- ethtool-copy.h |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+Sorry, I don't think sk_reset_timer() is wrong, instead I suppose
+neigh_add_timer() is wrong :)
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index d23ffc4..620dbcd 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -1264,15 +1264,19 @@ enum ethtool_sfeatures_retval_bits {
-  * it was forced up into this mode or autonegotiated.
-  */
- 
--/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|10|20|40|56]GbE. */
-+/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|5|10|20|25|40|50|56|100]GbE. */
- #define SPEED_10		10
- #define SPEED_100		100
- #define SPEED_1000		1000
- #define SPEED_2500		2500
-+#define SPEED_5000		5000
- #define SPEED_10000		10000
- #define SPEED_20000		20000
-+#define SPEED_25000		25000
- #define SPEED_40000		40000
-+#define SPEED_50000		50000
- #define SPEED_56000		56000
-+#define SPEED_100000		100000
- 
- #define SPEED_UNKNOWN		-1
- 
--- 
-1.7.1
+> Difference between neigh_add_timer() and sk_reset_timer() is very
+> simple :
+> 
+> neigh_add_timer() must be called while the timer is not yet armed.
+> 
+
+In case that the caller of neigh_add_timer() attempts to modify an active timer
+due to a bug or something wrong else, why not prevent neigh_add_timer() from
+taking neigh refcnt beside posting a warning message?
+
+So, exactly speaking, we cannot say neigh_add_timer() is completely wrong
+regarding your mentioned above assumption that neigh timer is absolutely not
+armed when neigh_add_timer() is called. But we can say its behaviour is not
+designed very well. From this point, the patch seems still a bit valuable for us.
+
+Regards,
+Ying
+
+> sk_reset_timer() can be called while timer is already armed.
+> 
+> You are changing neigh_add_timer() for no good reason, just because you
+> want it to be 'like sk_reset_timer()' ?
+> 
+> 
+> 
+> 
+> 
