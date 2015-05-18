@@ -1,95 +1,159 @@
-From: Andrey Korolyov <andrey@xdel.ru>
-Subject: Re: [PATCH] vhost: support upto 509 memory regions
-Date: Mon, 18 May 2015 19:22:34 +0300
-Message-ID: <CABYiri8WnRHz3M4JE_EJxbgpRQxNbsY653LNWGOjDLLgdYx-+w@mail.gmail.com>
-References: <1423842599-5174-1-git-send-email-imammedo@redhat.com>
- <20150217090242.GA20254@redhat.com> <54E31F24.1060705@redhat.com>
- <20150217123212.GA6362@redhat.com> <CAG7+5M1N53tXU72W1i937xZHxc7+sF=JhA6+QWmcarNnApbgiw@mail.gmail.com>
- <20150218042739.GA22891@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Northup <digitaleric@google.com>,
-	Paolo Bonzini <pbonzini@redhat.com>,
-	Igor Mammedov <imammedo@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	KVM <kvm@vger.kernel.org>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20150218042739.GA22891@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/21] Netfilter updates for net-next
+Date: Mon, 18 May 2015 18:25:03 +0200
+Message-ID: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 18, 2015 at 7:27 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Tue, Feb 17, 2015 at 04:53:45PM -0800, Eric Northup wrote:
->> On Tue, Feb 17, 2015 at 4:32 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
->> > On Tue, Feb 17, 2015 at 11:59:48AM +0100, Paolo Bonzini wrote:
->> >>
->> >>
->> >> On 17/02/2015 10:02, Michael S. Tsirkin wrote:
->> >> > > Increasing VHOST_MEMORY_MAX_NREGIONS from 65 to 509
->> >> > > to match KVM_USER_MEM_SLOTS fixes issue for vhost-net.
->> >> > >
->> >> > > Signed-off-by: Igor Mammedov <imammedo@redhat.com>
->> >> >
->> >> > This scares me a bit: each region is 32byte, we are talking
->> >> > a 16K allocation that userspace can trigger.
->> >>
->> >> What's bad with a 16K allocation?
->> >
->> > It fails when memory is fragmented.
->> >
->> >> > How does kvm handle this issue?
->> >>
->> >> It doesn't.
->> >>
->> >> Paolo
->> >
->> > I'm guessing kvm doesn't do memory scans on data path,
->> > vhost does.
->> >
->> > qemu is just doing things that kernel didn't expect it to need.
->> >
->> > Instead, I suggest reducing number of GPA<->HVA mappings:
->> >
->> > you have GPA 1,5,7
->> > map them at HVA 11,15,17
->> > then you can have 1 slot: 1->11
->> >
->> > To avoid libc reusing the memory holes, reserve them with MAP_NORESERVE
->> > or something like this.
->>
->> This works beautifully when host virtual address bits are more
->> plentiful than guest physical address bits.  Not all architectures
->> have that property, though.
->
-> AFAIK this is pretty much a requirement for both kvm and vhost,
-> as we require each guest page to also be mapped in qemu memory.
->
->> > We can discuss smarter lookup algorithms but I'd rather
->> > userspace didn't do things that we then have to
->> > work around in kernel.
->> >
->> >
->> > --
->> > MST
->> > --
->> > To unsubscribe from this list: send the line "unsubscribe kvm" in
->> > the body of a message to majordomo@vger.kernel.org
->> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi,
 
+The following patchset contains Netfilter updates for net-next. Briefly
+speaking, cleanups and minor fixes for ipset from Jozsef Kadlecsik and
+Serget Popovich, more incremental updates to make br_netfilter a better
+place from Florian Westphal, ARP support to the x_tables mark match /
+target from and context Zhang Chunyu and the addition of context to know
+that the x_tables runs through nft_compat. More specifically, they are:
 
-Hello,
+1) Fix sparse warning in ipset/ip_set_hash_ipmark.c when fetching the
+   IPSET_ATTR_MARK netlink attribute, from Jozsef Kadlecsik.
 
-any chance of getting the proposed patch in the mainline? Though it
-seems that most users will not suffer from relatively slot number
-ceiling (they can decrease slot 'granularity' for larger VMs and
-vice-versa), fine slot size, 256M or even 128M, with the large number
-of slots can be useful for a certain kind of tasks for an
-orchestration systems. I`ve made a backport series of all seemingly
-interesting memslot-related improvements to a 3.10 branch, is it worth
-to be tested with straighforward patch like one from above, with
-simulated fragmentation of allocations in host?
+2) Rename STREQ macro to STRNCMP in ipset, also from Jozsef.
+
+3) Use skb->network_header to calculate the transport offset in
+   ip_set_get_ip{4,6}_port(). From Alexander Drozdov.
+
+4) Reduce memory consumption per element due to size miscalculation,
+   this patch and follow up patches from Sergey Popovich.
+
+5) Expand nomatch field from 1 bit to 8 bits to allow to simplify
+   mtype_data_reset_flags(), also from Sergey.
+
+6) Small clean for ipset macro trickery.
+
+7) Fix error reporting when both ip_set_get_hostipaddr4() and
+   ip_set_get_extensions() from per-set uadt functions.
+
+8) Simplify IPSET_ATTR_PORT netlink attribute validation.
+
+9) Introduce HOST_MASK instead of hardcoded 32 in ipset.
+
+10) Return true/false instead of 0/1 in functions that return boolean
+    in the ipset code.
+
+11) Validate maximum length of the IPSET_ATTR_COMMENT netlink attribute.
+
+12) Allow to dereference from ext_*() ipset macros.
+
+13) Get rid of incorrect definitions of HKEY_DATALEN.
+
+14) Include linux/netfilter/ipset/ip_set.h in the x_tables set match.
+
+15) Reduce nf_bridge_info size in br_netfilter, from Florian Westphal.
+
+16) Release nf_bridge_info after POSTROUTING since this is only needed
+    from the physdev match, also from Florian.
+
+17) Reduce size of ipset code by deinlining ip_set_put_extensions(),
+    from Denys Vlasenko.
+
+18) Oneliner to add ARP support to the x_tables mark match/target, from
+    Zhang Chunyu.
+
+19) Add context to know if the x_tables extension runs from nft_compat,
+    to address minor problems with three existing extensions.
+
+20) Correct return value in several seqfile *_show() functions in the
+    netfilter tree, from Joe Perches.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 9449c3cd90472141cf081af88181a56163ff7132:
+
+  net: make skb_dst_pop routine static (2015-05-12 23:19:49 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to 861fb1078fd4ea09b442987b3e20fced0f15eb92:
+
+  netfilter: Use correct return for seq_show functions (2015-05-17 17:25:35 +0200)
+
+----------------------------------------------------------------
+Alexander Drozdov (1):
+      netfilter: ipset: make ip_set_get_ip*_port to use skb_network_offset
+
+Denys Vlasenko (1):
+      netfilter: ipset: deinline ip_set_put_extensions()
+
+Florian Westphal (2):
+      netfilter: bridge: neigh_head and physoutdev can't be used at same time
+      netfilter: bridge: free nf_bridge info on xmit
+
+Joe Perches (1):
+      netfilter: Use correct return for seq_show functions
+
+Jozsef Kadlecsik (3):
+      netfilter: ipset: Fix sparse warning
+      netfilter: ipset: Give a better name to a macro in ip_set_core.c
+      netfilter: ipset: Use better include files in xt_set.c
+
+Pablo Neira Ayuso (1):
+      netfilter: x_tables: add context to know if extension runs from nft_compat
+
+Sergey Popovich (11):
+      netfilter: ipset: Properly calculate extensions offsets and total length
+      netfilter: ipset: No need to make nomatch bitfield
+      netfilter: ipset: Preprocessor directices cleanup
+      netfilter: ipset: Return ipset error instead of bool
+      netfilter: ipset: Check IPSET_ATTR_PORT only once
+      netfilter: ipset: Use HOST_MASK literal to represent host address CIDR len
+      netfilter: ipset: Return bool values instead of int
+      netfilter: ipset: Check for comment netlink attribute length
+      netfilter: ipset: Fix ext_*() macros
+      netfilter: ipset: Fix hashing for ipv6 sets
+      netfilter: ipset: Improve preprocessor macros checks
+
+Zhang Chunyu (1):
+      netfilter: xt_MARK: Add ARP support
+
+ include/linux/netfilter/ipset/ip_set.h       |   32 +++-------------
+ include/linux/netfilter/x_tables.h           |    2 +
+ include/linux/skbuff.h                       |    8 ++--
+ net/bridge/br_netfilter.c                    |   19 +++++++++-
+ net/bridge/netfilter/ebt_stp.c               |    6 ++-
+ net/ipv4/netfilter/ipt_CLUSTERIP.c           |    5 +++
+ net/netfilter/ipset/ip_set_bitmap_ip.c       |   17 ++++++---
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c    |   13 +++++--
+ net/netfilter/ipset/ip_set_bitmap_port.c     |    3 +-
+ net/netfilter/ipset/ip_set_core.c            |   49 ++++++++++++++++++------
+ net/netfilter/ipset/ip_set_getport.c         |    6 ++-
+ net/netfilter/ipset/ip_set_hash_gen.h        |   22 +++++++++--
+ net/netfilter/ipset/ip_set_hash_ip.c         |   33 ++++++++--------
+ net/netfilter/ipset/ip_set_hash_ipmark.c     |   43 ++++++++++-----------
+ net/netfilter/ipset/ip_set_hash_ipport.c     |   49 +++++++++++-------------
+ net/netfilter/ipset/ip_set_hash_ipportip.c   |   40 ++++++++++----------
+ net/netfilter/ipset/ip_set_hash_ipportnet.c  |   40 ++++++++++----------
+ net/netfilter/ipset/ip_set_hash_mac.c        |   11 ++++--
+ net/netfilter/ipset/ip_set_hash_net.c        |   28 ++++++++------
+ net/netfilter/ipset/ip_set_hash_netiface.c   |   29 +++++++-------
+ net/netfilter/ipset/ip_set_hash_netnet.c     |   30 ++++++++++-----
+ net/netfilter/ipset/ip_set_hash_netport.c    |   38 +++++++++----------
+ net/netfilter/ipset/ip_set_hash_netportnet.c |   52 ++++++++++++++------------
+ net/netfilter/ipset/ip_set_list_set.c        |    3 +-
+ net/netfilter/nfnetlink_queue_core.c         |    2 +-
+ net/netfilter/nft_compat.c                   |    2 +
+ net/netfilter/x_tables.c                     |   18 +++------
+ net/netfilter/xt_TCPMSS.c                    |    6 +++
+ net/netfilter/xt_mark.c                      |    1 +
+ net/netfilter/xt_set.c                       |    3 +-
+ 30 files changed, 346 insertions(+), 264 deletions(-)
