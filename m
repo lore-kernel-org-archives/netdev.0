@@ -1,44 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
- skb->dev in receive path
-Date: Mon, 18 May 2015 18:33:37 +0800
-Message-ID: <20150518103337.GA19613@gondor.apana.org.au>
-References: <20150515.123726.1298734930500737780.davem@redhat.com>
- <555645A3.6010509@gmail.com>
- <20150516123457.GB683@gondor.apana.org.au>
- <20150516.171328.1953881469617376252.davem@davemloft.net>
- <20150518070427.GC8928@secunet.com>
- <20150518083121.GA18195@gondor.apana.org.au>
- <20150518083843.GF8928@secunet.com>
- <20150518085908.GA18381@gondor.apana.org.au>
- <20150518103045.GG8928@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, alexander.duyck@gmail.com,
-	alexander.h.duyck@redhat.com, netdev@vger.kernel.org, tgraf@suug.ch
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Erik Kline <ek@google.com>
+Subject: [PATCH net-next] Better handling of transition to NUD_PROBE state
+Date: Mon, 18 May 2015 19:44:41 +0900
+Message-ID: <1431945881-14707-1-git-send-email-ek@google.com>
+Cc: lorenzo@google.com, netdev@vger.kernel.org, davem@davemloft.net,
+	Erik Kline <ek@google.com>
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:52134 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752933AbbERKdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 06:33:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20150518103045.GG8928@secunet.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:34322 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752988AbbERKo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 06:44:58 -0400
+Received: by pdbnk13 with SMTP id nk13so48941956pdb.1
+        for <netdev@vger.kernel.org>; Mon, 18 May 2015 03:44:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 12:30:47PM +0200, Steffen Klassert wrote:
->
-> Or, maybe we can create new vti tunnel keys and some key
-> field in the xfrm_policy and xfrm_state. If the vti keys
-> are present at the tunnel, use the new flow lookup field
-> and match with the key field of the policy and state.
-> Otherwise, fallback to use gre keys and mark.
+[1] When entering NUD_PROBE state via neigh_update(), perhaps received
+    from userspace, correctly (re)initialize the probes count to zero.
 
-Yes that could work.
+    This is useful for forcing revalidation of a neighbor (for example
+    if the host is attempting to do DNA [IPv4 4436, IPv6 6059]).
 
-Thanks,
+[2] Notify listeners when a neighbor goes into NUD_PROBE state.
+
+    By sending notifications on entry to NUD_PROBE state listeners get
+    more timely warnings of imminent connectivity issues.
+
+    The current notifications on entry to NUD_STALE have somewhat
+    limited usefulness: NUD_STALE is a perfectly normal state, as is
+    NUD_DELAY, whereas notifications on entry to NUD_FAILURE come after
+    a neighbor reachability problem has been confirmed (typically after
+    three probes).
+
+Signed-off-by: Erik Kline <ek@google.com>
+---
+ net/core/neighbour.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 3de6542..3a74df7 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -913,6 +913,7 @@ static void neigh_timer_handler(unsigned long arg)
+ 			neigh->nud_state = NUD_PROBE;
+ 			neigh->updated = jiffies;
+ 			atomic_set(&neigh->probes, 0);
++			notify = 1;
+ 			next = now + NEIGH_VAR(neigh->parms, RETRANS_TIME);
+ 		}
+ 	} else {
+@@ -1144,6 +1145,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+ 
+ 	if (new != old) {
+ 		neigh_del_timer(neigh);
++		if (new & NUD_PROBE)
++			atomic_set(&neigh->probes, 0);
+ 		if (new & NUD_IN_TIMER)
+ 			neigh_add_timer(neigh, (jiffies +
+ 						((new & NUD_REACHABLE) ?
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.2.0.rc0.207.ga3a616c
