@@ -1,33 +1,30 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] tcp: Return error instead of partial read for
- saved syn headers
-Date: Mon, 18 May 2015 11:41:40 -0700
-Message-ID: <555A3264.3060205@hp.com>
-References: <1431974158-28288-1-git-send-email-emunson@akamai.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/21] Netfilter updates for net-next
+Date: Mon, 18 May 2015 14:48:01 -0400 (EDT)
+Message-ID: <20150518.144801.1094911523054567923.davem@davemloft.net>
+References: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric B Munson <emunson@akamai.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431974158-28288-1-git-send-email-emunson@akamai.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1431966324-4494-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/18/2015 11:35 AM, Eric B Munson wrote:
-> Currently the getsockopt() requesting the cached contents of the syn
-> packet headers will fail silently if the caller uses a buffer that is
-> too small to contain the requested data.  Rather than fail silently and
-> discard the headers, getsockopt() should return an error and report the
-> required size to hold the data.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 18 May 2015 18:25:03 +0200
 
-Is there any chapter and verse on whether a "failed" getsockopt() may 
-alter the items passed to it?
+> The following patchset contains Netfilter updates for net-next. Briefly
+> speaking, cleanups and minor fixes for ipset from Jozsef Kadlecsik and
+> Serget Popovich, more incremental updates to make br_netfilter a better
+> place from Florian Westphal, ARP support to the x_tables mark match /
+> target from and context Zhang Chunyu and the addition of context to know
+> that the x_tables runs through nft_compat. More specifically, they are:
+ ...
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
 
-rick jones
+Pulled, thanks Pablo.
