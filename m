@@ -1,8 +1,9 @@
 From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v3 0/2] IPv6 ECMP route add/replace fixes
-Date: Mon, 18 May 2015 20:53:50 +0200 (CEST)
-Message-ID: <cover.1431974706.git.mkubecek@suse.cz>
-References: <20150516.171823.1391641644498357985.davem@davemloft.net>
+Subject: [PATCH net v3 1/2] ipv6: do not delete previously existing ECMP
+ routes if add fails
+Date: Mon, 18 May 2015 20:53:55 +0200 (CEST)
+Message-ID: <424c88b76fd2470d5e8c8f74b8ea6a72b6640fab.1431974706.git.mkubecek@suse.cz>
+References: <cover.1431974706.git.mkubecek@suse.cz>
 Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -11,34 +12,59 @@ Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
 	Patrick McHardy <kaber@trash.net>,
 	roopa <roopa@cumulusnetworks.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150516.171823.1391641644498357985.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:37616 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932623AbbERSx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 14:53:57 -0400
+In-Reply-To: <cover.1431974706.git.mkubecek@suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+If adding a nexthop of an IPv6 multipath route fails, comment in
+ip6_route_multipath() says we are going to delete all nexthops already
+added. However, current implementation deletes even the routes it
+hasn't even tried to add yet. For example, running
 
-(1) When adding a nexthop of a multipath route fails (e.g. because of a
-conflict with an existing route), we are supposed to delete nexthops
-already added. However, currently we try to also delete all nexthops we
-haven't even tried to add yet so that a "ip route add" command can
-actually remove pre-existing routes if it fails.
+  ip route add 1234:5678::/64 \
+      nexthop via fe80::aa dev dummy1 \
+      nexthop via fe80::bb dev dummy1 \
+      nexthop via fe80::cc dev dummy1
 
-(2) Attempt to replace a multipath route results in a broken siblings
-linked list. Following commands (like "ip route del") can then either
-follow a link into freed memory or end in an infinite loop (if the slab
-object has been reused).
+twice results in removing all routes first command added.
 
-v2: fix an omission in first patch
+Limit the second (delete) run to nexthops that succeeded in the first
+(add) run.
 
-v3: change the semantics of replace operation to better match IPv4
+Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP)")
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/route.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Michal Kubecek (2):
-  ipv6: do not delete previously existing ECMP routes if add fails
-  ipv6: fix ECMP route replacement
-
- net/ipv6/ip6_fib.c | 39 +++++++++++++++++++++++++++++++++++++--
- net/ipv6/route.c   | 14 +++++++++-----
- 2 files changed, 46 insertions(+), 7 deletions(-)
-
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index d3588885f097..3821a3517478 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2504,9 +2504,9 @@ static int ip6_route_multipath(struct fib6_config *cfg, int add)
+ 	int attrlen;
+ 	int err = 0, last_err = 0;
+ 
++	remaining = cfg->fc_mp_len;
+ beginning:
+ 	rtnh = (struct rtnexthop *)cfg->fc_mp;
+-	remaining = cfg->fc_mp_len;
+ 
+ 	/* Parse a Multipath Entry */
+ 	while (rtnh_ok(rtnh, remaining)) {
+@@ -2536,6 +2536,7 @@ beginning:
+ 				 * next hops that have been already added.
+ 				 */
+ 				add = 0;
++				remaining = cfg->fc_mp_len - remaining;
+ 				goto beginning;
+ 			}
+ 		}
 -- 
 2.4.1
