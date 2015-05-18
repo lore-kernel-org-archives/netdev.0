@@ -1,39 +1,59 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [net PATCH] ip_vti/ip6_vti: Clear skb->mark when resetting
- skb->dev in receive path
-Date: Mon, 18 May 2015 10:38:44 +0200
-Message-ID: <20150518083843.GF8928@secunet.com>
-References: <20150515.123726.1298734930500737780.davem@redhat.com>
- <555645A3.6010509@gmail.com>
- <20150516123457.GB683@gondor.apana.org.au>
- <20150516.171328.1953881469617376252.davem@davemloft.net>
- <20150518070427.GC8928@secunet.com>
- <20150518083121.GA18195@gondor.apana.org.au>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH net-next v3 2/2] net: Adding support for Cavium ThunderX
+ network controller
+Date: Mon, 18 May 2015 10:46:37 +0200
+Message-ID: <1431938797.2204.12.camel@x220>
+References: <1431747401-20847-1-git-send-email-aleksey.makarov@auriga.com>
+	 <1431747401-20847-3-git-send-email-aleksey.makarov@auriga.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <alexander.duyck@gmail.com>,
-	<alexander.h.duyck@redhat.com>, <netdev@vger.kernel.org>,
-	<tgraf@suug.ch>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Daney <david.daney@cavium.com>,
+	Sunil Goutham <sgoutham@cavium.com>,
+	Maciej Czekaj <mjc@semihalf.com>,
+	Ganapatrao Kulkarni <ganapatrao.kulkarni@caviumnetworks.com>,
+	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
+	Robert Richter <rrichter@cavium.com>,
+	Kamil Rytarowski <kamil@semihalf.com>,
+	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
+	Sruthi Vangala <svangala@cavium.com>,
+	Robert Richter <rric@kernel.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Aleksey Makarov <aleksey.makarov@auriga.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:56290 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750988AbbERIiu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2015 04:38:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20150518083121.GA18195@gondor.apana.org.au>
+Received: from lb2-smtp-cloud6.xs4all.net ([194.109.24.28]:52955 "EHLO
+	lb2-smtp-cloud6.xs4all.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753054AbbERIqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 04:46:44 -0400
+In-Reply-To: <1431747401-20847-3-git-send-email-aleksey.makarov@auriga.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 04:31:21PM +0800, Herbert Xu wrote:
-> On Mon, May 18, 2015 at 09:04:27AM +0200, Steffen Klassert wrote:
-> >
-> > The policy and state mark must match the tunnels i_key/o_key
-> > on lookup. It is not required to set skb->mark, but we have
-> > to make sure to use the tunnels gre keys as the mark when we
-> > do a policy or state lookup.
-> 
-> So is it possible to restore the original mark after the lookups?
+Just a nit: a license mismatch.
 
-Yes, that's possible. We just did not restore it because it 
-was cleared with skb_scrub_packet() right after the lookup.
+On Fri, 2015-05-15 at 20:36 -0700, Aleksey Makarov wrote:
+> --- /dev/null
+> +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
+
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License as
+> + * published by the Free Software Foundation; either version 2 of
+> + * the License, or (at your option) any later version.
+
+This states the license is GPL v2 or later. (The other files used for
+this module contain an identical comment.)
+
+> +MODULE_LICENSE("GPL v2");
+
+And, according to include/linux/module.h, this states the license is
+just GPL v2. So I think that either the license used in the comment at
+the top of those files or the ident used in the MODULE_LICENSE() macro
+needs to change.
+
+Ditto for the thunder_bgx.ko and the nicvf.ko module.
+
+Thanks,
+
+
+Paul Bolle
