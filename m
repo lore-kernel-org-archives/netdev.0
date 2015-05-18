@@ -1,35 +1,43 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH net-next] tcp: add CDG congestion control
-Date: Mon, 18 May 2015 15:16:48 -0700
-Message-ID: <20150518151648.6d33128c@urahara>
-References: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rhashtable: Add cap on number of elements in hash table
+Date: Tue, 19 May 2015 06:35:26 +0800
+Message-ID: <20150518223526.GA25597@gondor.apana.org.au>
+References: <20150515063057.GA16440@gondor.apana.org.au>
+ <20150516.180946.2182730749654333791.davem@davemloft.net>
+ <20150517013829.GB5161@gondor.apana.org.au>
+ <20150518.161201.1959117179761854761.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Hayes <davihay@ifi.uio.no>,
-	Yuchung Cheng <ycheng@google.com>,
-	Andreas Petlund <apetlund@simula.no>
-To: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org, kaber@trash.net,
+	tgraf@suug.ch, johannes.berg@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:34398 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbbERWQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 18:16:45 -0400
-Received: by pdbnk13 with SMTP id nk13so71028582pdb.1
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 15:16:45 -0700 (PDT)
-In-Reply-To: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
+Received: from helcar.hengli.com.au ([209.40.204.226]:56700 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754579AbbERWfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 18:35:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20150518.161201.1959117179761854761.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am really happy to see more congestion control development.
+On Mon, May 18, 2015 at 04:12:01PM -0400, David Miller wrote:
+>
+> Ok, this of course depends upon the distribution of the input data
+> and the strength/suitability of the hash function.
+> 
+> I'm a little bit disappointed in what Thomas found.  I would expect
+> the distribution to be at least a little bit better.
 
-> +static  int window __read_mostly = 8;
-> +static bool use_shadow __read_mostly = true;
-> +static bool use_tolerance __read_mostly;
-> +static uint backoff_beta __read_mostly = 0.70 * 1024;
-> +static uint backoff_factor __read_mostly = 333;
-> +static uint ineffective_thresh __read_mostly = 5;
-> +static uint ineffective_hold __read_mostly = 5;
+Just to make it clear this is not a problem with uneven distribution.
+The same thing would happen with any hash function.  It's essentially
+a generalised birthday paradox.
 
-Module parameters make for rather ugly tuning.
-They are ok for testing but difficult to use in real life.
+Of course the average chain length is still what you expect it to
+be, it's only the maximum chain length that grows at logN loglogN.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
