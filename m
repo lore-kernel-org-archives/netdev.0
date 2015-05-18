@@ -1,57 +1,33 @@
-From: Eric B Munson <emunson@akamai.com>
-Subject: [PATCH net-next] tcp: Return error instead of partial read for saved syn headers
-Date: Mon, 18 May 2015 14:35:58 -0400
-Message-ID: <1431974158-28288-1-git-send-email-emunson@akamai.com>
-Cc: Eric B Munson <emunson@akamai.com>,
-	Eric Dumazet <edumazet@google.com>,
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: Return error instead of partial read for
+ saved syn headers
+Date: Mon, 18 May 2015 11:41:40 -0700
+Message-ID: <555A3264.3060205@hp.com>
+References: <1431974158-28288-1-git-send-email-emunson@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Eric B Munson <emunson@akamai.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1431974158-28288-1-git-send-email-emunson@akamai.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently the getsockopt() requesting the cached contents of the syn
-packet headers will fail silently if the caller uses a buffer that is
-too small to contain the requested data.  Rather than fail silently and
-discard the headers, getsockopt() should return an error and report the
-required size to hold the data.
+On 05/18/2015 11:35 AM, Eric B Munson wrote:
+> Currently the getsockopt() requesting the cached contents of the syn
+> packet headers will fail silently if the caller uses a buffer that is
+> too small to contain the requested data.  Rather than fail silently and
+> discard the headers, getsockopt() should return an error and report the
+> required size to hold the data.
 
-Signed-off-by: Eric B Munson <emunson@akamai.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- net/ipv4/tcp.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+Is there any chapter and verse on whether a "failed" getsockopt() may 
+alter the items passed to it?
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index c724195..bb9bb84 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2845,7 +2845,15 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 
- 		lock_sock(sk);
- 		if (tp->saved_syn) {
--			len = min_t(unsigned int, tp->saved_syn[0], len);
-+			if (len < tp->saved_syn[0]) {
-+				if (put_user(tp->saved_syn[0], optlen)) {
-+					release_sock(sk);
-+					return -EFAULT;
-+				}
-+				release_sock(sk);
-+				return -EINVAL;
-+			}
-+			len = tp->saved_syn[0];
- 			if (put_user(len, optlen)) {
- 				release_sock(sk);
- 				return -EFAULT;
--- 
-1.9.1
+rick jones
