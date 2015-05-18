@@ -1,39 +1,52 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] tcp: add rfc3168, section 6.1.1.1. fallback
-Date: Mon, 18 May 2015 14:31:29 +0200
-Message-ID: <5559DBA1.3060204@iogearbox.net>
-References: <3f31d31107081ed4755ed9731c63a60798c41703.1431892289.git.daniel@iogearbox.net> <1431910796.621.7.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next] sfc: nicer log message on Siena SR-IOV probe fail
+Date: Mon, 18 May 2015 14:18:27 +0100
+Message-ID: <5559E6A3.1090109@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>,
-	=?UTF-8?B?TWlyamEgS8O8aGxld2luZA==?=
-	<mirja.kuehlewind@tik.ee.ethz.ch>,
-	Brian Trammell <trammell@tik.ee.ethz.ch>,
-	Eric Dumazet <edumazet@google.com>,
-	Dave That <dave.taht@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43891 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074AbbERNES (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 09:04:18 -0400
-In-Reply-To: <1431910796.621.7.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:40388 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751148AbbERNSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 09:18:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2015 02:59 AM, Eric Dumazet wrote:
-...
-> If first SYNACK ECE was delayed (our SYN rtx was spurious), maybe we can
-> still keep ECN enabled ?
->
-> So maybe do not clear tp->ecn_flags here, as it should be ultimately
-> cleared in tcp_ecn_rcv_synack().
+We expect that MC_CMD_SRIOV will fail if the card has no VFs configured.
+So output a readable message instead of a cryptic MCDI error.
 
-Thanks a lot for the feedback, Eric!
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ drivers/net/ethernet/sfc/siena_sriov.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-We'll be looking into this.
-
-Best,
-Daniel
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
+index caf701a..2a5f352 100644
+--- a/drivers/net/ethernet/sfc/siena_sriov.c
++++ b/drivers/net/ethernet/sfc/siena_sriov.c
+@@ -208,8 +208,8 @@ static int efx_siena_sriov_cmd(struct efx_nic *efx, bool enable,
+ 	MCDI_SET_DWORD(inbuf, SRIOV_IN_VI_BASE, EFX_VI_BASE);
+ 	MCDI_SET_DWORD(inbuf, SRIOV_IN_VF_COUNT, efx->vf_count);
+ 
+-	rc = efx_mcdi_rpc(efx, MC_CMD_SRIOV, inbuf, MC_CMD_SRIOV_IN_LEN,
+-			  outbuf, MC_CMD_SRIOV_OUT_LEN, &outlen);
++	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_SRIOV, inbuf, MC_CMD_SRIOV_IN_LEN,
++				outbuf, MC_CMD_SRIOV_OUT_LEN, &outlen);
+ 	if (rc)
+ 		return rc;
+ 	if (outlen < MC_CMD_SRIOV_OUT_LEN)
+@@ -1058,8 +1058,10 @@ void efx_siena_sriov_probe(struct efx_nic *efx)
+ 	if (!max_vfs)
+ 		return;
+ 
+-	if (efx_siena_sriov_cmd(efx, false, &efx->vi_scale, &count))
++	if (efx_siena_sriov_cmd(efx, false, &efx->vi_scale, &count)) {
++		netif_info(efx, probe, efx->net_dev, "no SR-IOV VFs probed\n");
+ 		return;
++	}
+ 	if (count > 0 && count > max_vfs)
+ 		count = max_vfs;
+ 
