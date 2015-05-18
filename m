@@ -1,53 +1,47 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
- on failure to program fib entry in hardware
-Date: Sun, 17 May 2015 22:11:30 -0700
-Message-ID: <CAE4R7bAE_qV2ZrbUYQeU9auythE_ZEmiSkigPm=0XZnS5v-gxQ@mail.gmail.com>
-References: <1431906125-13808-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	john fastabend <john.fastabend@gmail.com>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-	Netdev <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Parav Pandit <parav.pandit@avagotech.com>
+Subject: [PATCH] net-next: ethtool: Added port speed macros.
+Date: Mon, 18 May 2015 16:31:47 +0530
+Message-ID: <1431946907-7808-1-git-send-email-parav.pandit@avagotech.com>
+Cc: bwh@kernel.org, davem@davemloft.net, parav.pandit@avagotech.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:34568 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbbERFLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 01:11:31 -0400
-Received: by qgfa7 with SMTP id a7so30152867qgf.1
-        for <netdev@vger.kernel.org>; Sun, 17 May 2015 22:11:31 -0700 (PDT)
-In-Reply-To: <1431906125-13808-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from cmrelayp1.emulex.com ([138.239.112.140]:56686 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751214AbbERFaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 01:30:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 17, 2015 at 4:42 PM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> This patch removes the calls to netdev_switch_fib_ipv4_abort when
-> there is an error in programming fib entry in hardware.
->
-> On most systems where you can offload routes to hardware,
-> doing routing in software is not an option (the cpu limitations
-> make routing impossible in software).
->
-> I understand that this was added to keep the first fib offload support
-> simple.
->
-> As discussed in the RFC patch, available options:
-> a) Fail fib entry add on hardware offload failure on switch devices, and
-> return appropriate error to the user by default (this patch)
-> b) make the behaviour in a) conditional on a global flag/sysctl (a per fib
-> entry flag will not work because by default user/routing-daemons dont care
-> if they are hardware offloaded)
-> c) for users/routing-daemons interested in controlling hardware
-> offload behaviour there is always the per fib entry flag RTNH_F_OFFLOAD
->
-> Considering the characteristics of the systems that support fib offloads,
-> this patch implements a). Also making a) the default will enable easier/faster
-> migration of existing routing apps to switch devices.
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Acked-by: Scott Feldman <sfeldma@gmail.com>
+Signed-off-by: Parav Pandit <parav.pandit@avagotech.com>
+---
+ include/uapi/linux/ethtool.h |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 2e49fc8..ae832b4 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1264,15 +1264,19 @@ enum ethtool_sfeatures_retval_bits {
+  * it was forced up into this mode or autonegotiated.
+  */
+ 
+-/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|10|20|40|56]GbE. */
++/* The forced speed, 10Mb, 100Mb, gigabit, [2.5|5|10|20|25|40|50|56|100]GbE. */
+ #define SPEED_10		10
+ #define SPEED_100		100
+ #define SPEED_1000		1000
+ #define SPEED_2500		2500
++#define SPEED_5000		5000
+ #define SPEED_10000		10000
+ #define SPEED_20000		20000
++#define SPEED_25000		25000
+ #define SPEED_40000		40000
++#define SPEED_50000		50000
+ #define SPEED_56000		56000
++#define SPEED_100000		100000
+ 
+ #define SPEED_UNKNOWN		-1
+ 
+-- 
+1.7.1
