@@ -1,140 +1,114 @@
 From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH iproute2 09/10] tc: gred: Adopt the term VQ in the command syntax and output
-Date: Mon, 18 May 2015 11:35:13 -0400
-Message-ID: <1431963314-56420-10-git-send-email-david.ward@ll.mit.edu>
+Subject: [PATCH iproute2/net-next] tc: gred: Add support for TCA_GRED_LIMIT attribute
+Date: Mon, 18 May 2015 11:35:14 -0400
+Message-ID: <1431963314-56420-11-git-send-email-david.ward@ll.mit.edu>
 References: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
 Cc: David Ward <david.ward@ll.mit.edu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dmz-mailsec-scanner-5.mit.edu ([18.7.68.34]:46437 "EHLO
-	dmz-mailsec-scanner-5.mit.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932272AbbERPfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:35:46 -0400
+Received: from dmz-mailsec-scanner-2.mit.edu ([18.9.25.13]:48541 "EHLO
+	dmz-mailsec-scanner-2.mit.edu" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752290AbbERPfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:35:48 -0400
 In-Reply-To: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the GRED kernel source code, both of the terms "drop parameters"
-(DP) and "virtual queue" (VQ) are used to refer to the same thing.
-Each "DP" is better understood as a "set of drop parameters", since
-it has values for limit, min, max, avpkt, etc. This terminology can
-result in confusion when creating a GRED qdisc having multiple DPs.
-Netlink attributes and struct members with the DP name seem to have
-been left intact for compatibility, while the term VQ was otherwise
-adopted in the code, which is more intuitive.
-
-Use the VQ term in the tc command syntax and output (but maintain
-compatibility with the old syntax).
-
-Rewrite the usage text to be concise and similar to other qdiscs.
+Allow the qdisc limit to be set, which is particularly useful when
+the default VQ is not configured with RED parameters.
 
 Signed-off-by: David Ward <david.ward@ll.mit.edu>
 ---
- tc/q_gred.c |   37 ++++++++++++++++++-------------------
- 1 files changed, 18 insertions(+), 19 deletions(-)
+ include/linux/pkt_sched.h |    3 ++-
+ tc/q_gred.c               |   20 +++++++++++++++++++-
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 534b847..700f50a 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -268,7 +268,8 @@ enum {
+        TCA_GRED_STAB,
+        TCA_GRED_DPS,
+        TCA_GRED_MAX_P,
+-	   __TCA_GRED_MAX,
++       TCA_GRED_LIMIT,
++       __TCA_GRED_MAX,
+ };
+ 
+ #define TCA_GRED_MAX (__TCA_GRED_MAX - 1)
 diff --git a/tc/q_gred.c b/tc/q_gred.c
-index 0192d9f..463d725 100644
+index 463d725..f31daa3 100644
 --- a/tc/q_gred.c
 +++ b/tc/q_gred.c
-@@ -37,14 +37,11 @@
- 
+@@ -38,7 +38,7 @@
  static void explain(void)
  {
--	fprintf(stderr, "Usage: ... gred DP drop-probability limit BYTES "
--	    "min BYTES max BYTES\n");
--	fprintf(stderr, "    avpkt BYTES burst PACKETS probability PROBABILITY "
--	    "bandwidth KBPS\n");
--	fprintf(stderr, "    [prio value]\n");
--	fprintf(stderr," OR ...\n");
--	fprintf(stderr," gred setup DPs <num of DPs> default <default DP> "
--	    "[grio]\n");
-+	fprintf(stderr, "Usage: tc qdisc { add | replace | change } ... gred setup vqs NUMBER\n");
-+	fprintf(stderr, "           default DEFAULT_VQ [ grio ]\n");
-+	fprintf(stderr, "       tc qdisc change ... gred vq VQ [ prio VALUE ] limit BYTES\n");
-+	fprintf(stderr, "           min BYTES max BYTES avpkt BYTES [ burst PACKETS ]\n");
-+	fprintf(stderr, "           [ probability PROBABILITY ] [ bandwidth KBPS ]\n");
- }
+ 	fprintf(stderr, "Usage: tc qdisc { add | replace | change } ... gred setup vqs NUMBER\n");
+-	fprintf(stderr, "           default DEFAULT_VQ [ grio ]\n");
++	fprintf(stderr, "           default DEFAULT_VQ [ grio ] [ limit BYTES ]\n");
+ 	fprintf(stderr, "       tc qdisc change ... gred vq VQ [ prio VALUE ] limit BYTES\n");
+ 	fprintf(stderr, "           min BYTES max BYTES avpkt BYTES [ burst PACKETS ]\n");
+ 	fprintf(stderr, "           [ probability PROBABILITY ] [ bandwidth KBPS ]\n");
+@@ -50,6 +50,7 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
  
- static int init_gred(struct qdisc_util *qu, int argc, char **argv,
-@@ -58,20 +55,21 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
+ 	struct rtattr *tail;
+ 	struct tc_gred_sopt opt = { 0 };
++	__u32 limit = 0;
  
- 	while (argc > 0) {
- 		DPRINTF(stderr,"init_gred: invoked with %s\n",*argv);
--		if (strcmp(*argv, "DPs") == 0) {
-+		if (strcmp(*argv, "vqs") == 0 ||
-+		    strcmp(*argv, "DPs") == 0) {
- 			NEXT_ARG();
- 			if (get_unsigned(&opt.DPs, *argv, 10)) {
--				fprintf(stderr, "Illegal \"DPs\"\n");
-+				fprintf(stderr, "Illegal \"vqs\"\n");
- 				return -1;
- 			} else if (opt.DPs > MAX_DPs) {
--				fprintf(stderr, "GRED: only %u DPs are "
-+				fprintf(stderr, "GRED: only %u VQs are "
- 					"currently supported\n", MAX_DPs);
- 				return -1;
- 			}
- 		} else if (strcmp(*argv, "default") == 0) {
- 			if (opt.DPs == 0) {
- 				fprintf(stderr, "\"default\" must be defined "
--					"after \"DPs\"\n");
-+					"after \"vqs\"\n");
- 				return -1;
- 			}
- 			NEXT_ARG();
-@@ -80,7 +78,7 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
- 				return -1;
- 			} else if (opt.def_DP >= opt.DPs) {
- 				fprintf(stderr, "\"default\" must be less than "
--					"\"DPs\"\n");
-+					"\"vqs\"\n");
- 				return -1;
+ 	opt.def_DP = MAX_DPs;
+ 
+@@ -83,6 +84,12 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
  			}
  		} else if (strcmp(*argv, "grio") == 0) {
-@@ -155,13 +153,14 @@ static int gred_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
- 				return -1;
- 			}
- 			ok++;
--		} else if (strcmp(*argv, "DP") == 0) {
-+		} else if (strcmp(*argv, "vq") == 0 ||
-+			   strcmp(*argv, "DP") == 0) {
- 			NEXT_ARG();
- 			if (get_unsigned(&opt.DP, *argv, 10)) {
--				fprintf(stderr, "Illegal \"DP\"\n");
-+				fprintf(stderr, "Illegal \"vq\"\n");
- 				return -1;
- 			} else if (opt.DP >= MAX_DPs) {
--				fprintf(stderr, "GRED: only %u DPs are "
-+				fprintf(stderr, "GRED: only %u VQs are "
- 					"currently supported\n", MAX_DPs);
- 				return -1;
- 			} /* need a better error check */
-@@ -216,7 +215,7 @@ static int gred_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct n
- 	}
- 	if (opt.DP == MAX_DPs || !opt.limit || !opt.qth_min || !opt.qth_max ||
- 	    !avpkt) {
--		fprintf(stderr, "Required parameter (DP, limit, min, max, "
-+		fprintf(stderr, "Required parameter (vq, limit, min, max, "
- 			"avpkt) is missing\n");
- 		return -1;
- 	}
-@@ -292,14 +291,14 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 			opt.grio = 1;
++		} else if (strcmp(*argv, "limit") == 0) {
++			NEXT_ARG();
++			if (get_size(&limit, *argv)) {
++				fprintf(stderr, "Illegal \"limit\"\n");
++				return -1;
++			}
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+@@ -104,6 +111,8 @@ static int init_gred(struct qdisc_util *qu, int argc, char **argv,
+ 	tail = NLMSG_TAIL(n);
+ 	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
+ 	addattr_l(n, 1024, TCA_GRED_DPS, &opt, sizeof(struct tc_gred_sopt));
++	if (limit)
++		addattr32(n, 1024, TCA_GRED_LIMIT, limit);
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+ 	return 0;
+ }
+@@ -264,6 +273,7 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	struct tc_gred_sopt *sopt;
+ 	struct tc_gred_qopt *qopt;
+ 	__u32 *max_p = NULL;
++	__u32 *limit = NULL;
+ 	unsigned i;
+ 	SPRINT_BUF(b1);
+ 	SPRINT_BUF(b2);
+@@ -281,6 +291,10 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
+ 	    RTA_PAYLOAD(tb[TCA_GRED_MAX_P]) >= sizeof(__u32) * MAX_DPs)
+ 		max_p = RTA_DATA(tb[TCA_GRED_MAX_P]);
  
- /* Bad hack! should really return a proper message as shown above*/
- 
--	fprintf(f, "DPs %u default %u %s",
-+	fprintf(f, "vqs %u default %u %s",
- 		sopt->DPs,
++	if (tb[TCA_GRED_LIMIT] &&
++	    RTA_PAYLOAD(tb[TCA_GRED_LIMIT]) == sizeof(__u32))
++		limit = RTA_DATA(tb[TCA_GRED_LIMIT]);
++
+ 	sopt = RTA_DATA(tb[TCA_GRED_DPS]);
+ 	qopt = RTA_DATA(tb[TCA_GRED_PARMS]);
+ 	if (RTA_PAYLOAD(tb[TCA_GRED_DPS]) < sizeof(*sopt) ||
+@@ -296,6 +310,10 @@ static int gred_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
  		sopt->def_DP,
  		sopt->grio ? "grio " : "");
  
++	if (limit)
++		fprintf(f, "limit %s ",
++			sprint_size(*limit, b1));
++
  	for (i=0;i<MAX_DPs;i++, qopt++) {
  		if (qopt->DP >= MAX_DPs) continue;
--		fprintf(f, "\n DP %u prio %hhu limit %s min %s max %s ",
-+		fprintf(f, "\n vq %u prio %hhu limit %s min %s max %s ",
- 			qopt->DP,
- 			qopt->prio,
- 			sprint_size(qopt->limit, b1),
+ 		fprintf(f, "\n vq %u prio %hhu limit %s min %s max %s ",
 -- 
 1.7.1
