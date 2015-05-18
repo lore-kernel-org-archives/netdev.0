@@ -1,7 +1,7 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 09/16] sfc: Initialise MCDI buffers to 0 on declaration.
-Date: Mon, 18 May 2015 16:29:36 +0100
-Message-ID: <555A0560.2050806@solarflare.com>
+Subject: [PATCH net-next 10/16] sfc: add ndo_set_vf_mac() function for EF10
+Date: Mon, 18 May 2015 16:30:12 +0100
+Message-ID: <555A0584.8040203@solarflare.com>
 References: <555A044A.4060202@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,234 +9,174 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:10358 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752844AbbERP35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:29:57 -0400
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:52356 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752844AbbERPab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 11:30:31 -0400
 In-Reply-To: <555A044A.4060202@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Cooper <jcooper@solarflare.com>
-
-In order to avoid MC bugs the flags field needs to be set to 0.
-Instead of explicitly clearing out the flags individually, a
-better way to do this is to memset the MCDI_BUF to 0.
+Implement a response to this entrypoint.
+The ndo_set_vf_mac() entrypoint is only exposed in the driver if
+CONFIG_SFC_SRIOV is defined.
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 28 +++++++++++++++-------------
- drivers/net/ethernet/sfc/mcdi.c |  8 ++++----
- drivers/net/ethernet/sfc/mcdi.h |  8 +++++---
- drivers/net/ethernet/sfc/ptp.c  |  6 +++---
- 4 files changed, 27 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/sfc/ef10_sriov.c | 90 +++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/ef10_sriov.h |  6 +--
+ drivers/net/ethernet/sfc/efx.c        |  4 +-
+ drivers/net/ethernet/sfc/efx.h        |  3 ++
+ 4 files changed, 96 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 4058626..e8d760c 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -378,7 +378,7 @@ fail1:
- 
- static int efx_ef10_free_vis(struct efx_nic *efx)
- {
--	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
-+	MCDI_DECLARE_BUF_ERR(outbuf);
- 	size_t outlen;
- 	int rc = efx_mcdi_rpc_quiet(efx, MC_CMD_FREE_VIS, NULL, 0,
- 				    outbuf, sizeof(outbuf), &outlen);
-@@ -449,9 +449,9 @@ static int efx_ef10_alloc_piobufs(struct efx_nic *efx, unsigned int n)
- static int efx_ef10_link_piobufs(struct efx_nic *efx)
- {
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
--	MCDI_DECLARE_BUF(inbuf,
--			 max(MC_CMD_LINK_PIOBUF_IN_LEN,
--			     MC_CMD_UNLINK_PIOBUF_IN_LEN));
-+	_MCDI_DECLARE_BUF(inbuf,
-+			  max(MC_CMD_LINK_PIOBUF_IN_LEN,
-+			      MC_CMD_UNLINK_PIOBUF_IN_LEN));
- 	struct efx_channel *channel;
- 	struct efx_tx_queue *tx_queue;
- 	unsigned int offset, index;
-@@ -460,6 +460,8 @@ static int efx_ef10_link_piobufs(struct efx_nic *efx)
- 	BUILD_BUG_ON(MC_CMD_LINK_PIOBUF_OUT_LEN != 0);
- 	BUILD_BUG_ON(MC_CMD_UNLINK_PIOBUF_OUT_LEN != 0);
- 
-+	memset(inbuf, 0, sizeof(inbuf));
+diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
+index 6208dd7..42a3b16 100644
+--- a/drivers/net/ethernet/sfc/ef10_sriov.c
++++ b/drivers/net/ethernet/sfc/ef10_sriov.c
+@@ -431,3 +431,93 @@ void efx_ef10_sriov_fini(struct efx_nic *efx)
+ 	else
+ 		netif_dbg(efx, drv, efx->net_dev, "SRIOV disabled\n");
+ }
 +
- 	/* Link a buffer to each VI in the write-combining mapping */
- 	for (index = 0; index < nic_data->n_piobufs; ++index) {
- 		MCDI_SET_DWORD(inbuf, LINK_PIOBUF_IN_PIOBUF_HANDLE,
-@@ -1406,17 +1408,17 @@ static void efx_ef10_tx_init(struct efx_tx_queue *tx_queue)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_INIT_TXQ_IN_LEN(EFX_MAX_DMAQ_SIZE * 8 /
- 						       EFX_BUF_SIZE));
--	MCDI_DECLARE_BUF(outbuf, MC_CMD_INIT_TXQ_OUT_LEN);
- 	bool csum_offload = tx_queue->queue & EFX_TXQ_TYPE_OFFLOAD;
- 	size_t entries = tx_queue->txd.buf.len / EFX_BUF_SIZE;
- 	struct efx_channel *channel = tx_queue->channel;
- 	struct efx_nic *efx = tx_queue->efx;
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
--	size_t inlen, outlen;
-+	size_t inlen;
- 	dma_addr_t dma_addr;
- 	efx_qword_t *txd;
- 	int rc;
- 	int i;
-+	BUILD_BUG_ON(MC_CMD_INIT_TXQ_OUT_LEN != 0);
- 
- 	MCDI_SET_DWORD(inbuf, INIT_TXQ_IN_SIZE, tx_queue->ptr_mask + 1);
- 	MCDI_SET_DWORD(inbuf, INIT_TXQ_IN_TARGET_EVQ, channel->channel);
-@@ -1441,7 +1443,7 @@ static void efx_ef10_tx_init(struct efx_tx_queue *tx_queue)
- 	inlen = MC_CMD_INIT_TXQ_IN_LEN(entries);
- 
- 	rc = efx_mcdi_rpc(efx, MC_CMD_INIT_TXQ, inbuf, inlen,
--			  outbuf, sizeof(outbuf), &outlen);
-+			  NULL, 0, NULL);
- 	if (rc)
- 		goto fail;
- 
-@@ -1474,7 +1476,7 @@ fail:
- static void efx_ef10_tx_fini(struct efx_tx_queue *tx_queue)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_FINI_TXQ_IN_LEN);
--	MCDI_DECLARE_BUF(outbuf, MC_CMD_FINI_TXQ_OUT_LEN);
++static int efx_ef10_vport_del_vf_mac(struct efx_nic *efx, unsigned int port_id,
++				     u8 *mac)
++{
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_VPORT_DEL_MAC_ADDRESS_IN_LEN);
 +	MCDI_DECLARE_BUF_ERR(outbuf);
- 	struct efx_nic *efx = tx_queue->efx;
- 	size_t outlen;
- 	int rc;
-@@ -1781,15 +1783,15 @@ static void efx_ef10_rx_init(struct efx_rx_queue *rx_queue)
- 	MCDI_DECLARE_BUF(inbuf,
- 			 MC_CMD_INIT_RXQ_IN_LEN(EFX_MAX_DMAQ_SIZE * 8 /
- 						EFX_BUF_SIZE));
--	MCDI_DECLARE_BUF(outbuf, MC_CMD_INIT_RXQ_OUT_LEN);
- 	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
- 	size_t entries = rx_queue->rxd.buf.len / EFX_BUF_SIZE;
- 	struct efx_nic *efx = rx_queue->efx;
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
--	size_t inlen, outlen;
-+	size_t inlen;
- 	dma_addr_t dma_addr;
- 	int rc;
- 	int i;
-+	BUILD_BUG_ON(MC_CMD_INIT_RXQ_OUT_LEN != 0);
++	size_t outlen;
++	int rc;
++
++	MCDI_SET_DWORD(inbuf, VPORT_DEL_MAC_ADDRESS_IN_VPORT_ID, port_id);
++	ether_addr_copy(MCDI_PTR(inbuf, VPORT_DEL_MAC_ADDRESS_IN_MACADDR), mac);
++
++	rc = efx_mcdi_rpc(efx, MC_CMD_VPORT_DEL_MAC_ADDRESS, inbuf,
++			  sizeof(inbuf), outbuf, sizeof(outbuf), &outlen);
++
++	return rc;
++}
++
++int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf_i, u8 *mac)
++{
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	struct ef10_vf *vf;
++	int rc;
++
++	if (!nic_data->vf)
++		return -EOPNOTSUPP;
++
++	if (vf_i >= efx->vf_count)
++		return -EINVAL;
++	vf = nic_data->vf + vf_i;
++
++	if (vf->efx) {
++		efx_device_detach_sync(vf->efx);
++		efx_net_stop(vf->efx->net_dev);
++
++		down_write(&vf->efx->filter_sem);
++		vf->efx->type->filter_table_remove(vf->efx);
++
++		rc = efx_ef10_vadaptor_free(vf->efx, EVB_PORT_ID_ASSIGNED);
++		if (rc) {
++			up_write(&vf->efx->filter_sem);
++			return rc;
++		}
++	}
++
++	rc = efx_ef10_evb_port_assign(efx, EVB_PORT_ID_NULL, vf_i);
++	if (rc)
++		return rc;
++
++	if (!is_zero_ether_addr(vf->mac)) {
++		rc = efx_ef10_vport_del_vf_mac(efx, vf->vport_id, vf->mac);
++		if (rc)
++			return rc;
++	}
++
++	if (!is_zero_ether_addr(mac)) {
++		rc = efx_ef10_vport_add_mac(efx, vf->vport_id, mac);
++		if (rc) {
++			eth_zero_addr(vf->mac);
++			goto fail;
++		}
++		if (vf->efx)
++			ether_addr_copy(vf->efx->net_dev->dev_addr, mac);
++	}
++
++	ether_addr_copy(vf->mac, mac);
++
++	rc = efx_ef10_evb_port_assign(efx, vf->vport_id, vf_i);
++	if (rc)
++		goto fail;
++
++	if (vf->efx) {
++		/* VF cannot use the vport_id that the PF created */
++		rc = efx_ef10_vadaptor_alloc(vf->efx, EVB_PORT_ID_ASSIGNED);
++		if (rc) {
++			up_write(&vf->efx->filter_sem);
++			return rc;
++		}
++		vf->efx->type->filter_table_probe(vf->efx);
++		up_write(&vf->efx->filter_sem);
++		efx_net_open(vf->efx->net_dev);
++		netif_device_attach(vf->efx->net_dev);
++	}
++
++	return 0;
++
++fail:
++	memset(vf->mac, 0, ETH_ALEN);
++	return rc;
++}
+diff --git a/drivers/net/ethernet/sfc/ef10_sriov.h b/drivers/net/ethernet/sfc/ef10_sriov.h
+index 6f27a0d..7f12942 100644
+--- a/drivers/net/ethernet/sfc/ef10_sriov.h
++++ b/drivers/net/ethernet/sfc/ef10_sriov.h
+@@ -41,11 +41,7 @@ static inline void efx_ef10_sriov_reset(struct efx_nic *efx) {}
+ void efx_ef10_sriov_fini(struct efx_nic *efx);
+ static inline void efx_ef10_sriov_flr(struct efx_nic *efx, unsigned vf_i) {}
  
- 	rx_queue->scatter_n = 0;
- 	rx_queue->scatter_len = 0;
-@@ -1818,7 +1820,7 @@ static void efx_ef10_rx_init(struct efx_rx_queue *rx_queue)
- 	inlen = MC_CMD_INIT_RXQ_IN_LEN(entries);
+-static inline int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf,
+-					    u8 *mac)
+-{
+-	return -EOPNOTSUPP;
+-}
++int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf, u8 *mac);
  
- 	rc = efx_mcdi_rpc(efx, MC_CMD_INIT_RXQ, inbuf, inlen,
--			  outbuf, sizeof(outbuf), &outlen);
-+			  NULL, 0, NULL);
- 	if (rc)
- 		netdev_WARN(efx->net_dev, "failed to initialise RXQ %d\n",
- 			    efx_rx_queue_index(rx_queue));
-@@ -1827,7 +1829,7 @@ static void efx_ef10_rx_init(struct efx_rx_queue *rx_queue)
- static void efx_ef10_rx_fini(struct efx_rx_queue *rx_queue)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_FINI_RXQ_IN_LEN);
--	MCDI_DECLARE_BUF(outbuf, MC_CMD_FINI_RXQ_OUT_LEN);
-+	MCDI_DECLARE_BUF_ERR(outbuf);
- 	struct efx_nic *efx = rx_queue->efx;
- 	size_t outlen;
- 	int rc;
-@@ -1989,7 +1991,7 @@ static int efx_ef10_ev_init(struct efx_channel *channel)
- static void efx_ef10_ev_fini(struct efx_channel *channel)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_FINI_EVQ_IN_LEN);
--	MCDI_DECLARE_BUF(outbuf, MC_CMD_FINI_EVQ_OUT_LEN);
-+	MCDI_DECLARE_BUF_ERR(outbuf);
- 	struct efx_nic *efx = channel->efx;
- 	size_t outlen;
- 	int rc;
-diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index b44ee31..fcee761 100644
---- a/drivers/net/ethernet/sfc/mcdi.c
-+++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -406,7 +406,7 @@ static bool efx_mcdi_complete_async(struct efx_mcdi_iface *mcdi, bool timeout)
- 	struct efx_mcdi_async_param *async;
- 	size_t hdr_len, data_len, err_len;
- 	efx_dword_t *outbuf;
--	MCDI_DECLARE_BUF_OUT_OR_ERR(errbuf, 0);
-+	MCDI_DECLARE_BUF_ERR(errbuf);
- 	int rc;
+ static inline int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf,
+ 					     u16 vlan, u8 qos)
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 50816cd..abb9c0e 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2113,7 +2113,7 @@ static int efx_busy_poll(struct napi_struct *napi)
+  *************************************************************************/
  
- 	if (cmpxchg(&mcdi->state,
-@@ -534,7 +534,7 @@ static int _efx_mcdi_rpc_finish(struct efx_nic *efx, unsigned cmd, size_t inlen,
- 				size_t *outlen_actual, bool quiet)
+ /* Context: process, rtnl_lock() held. */
+-static int efx_net_open(struct net_device *net_dev)
++int efx_net_open(struct net_device *net_dev)
  {
- 	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
--	MCDI_DECLARE_BUF_OUT_OR_ERR(errbuf, 0);
-+	MCDI_DECLARE_BUF_ERR(errbuf);
+ 	struct efx_nic *efx = netdev_priv(net_dev);
  	int rc;
- 
- 	if (mcdi->mode == MCDI_MODE_POLL)
-@@ -1389,7 +1389,7 @@ fail1:
- static int efx_mcdi_read_assertion(struct efx_nic *efx)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_ASSERTS_IN_LEN);
--	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, MC_CMD_GET_ASSERTS_OUT_LEN);
-+	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_ASSERTS_OUT_LEN);
- 	unsigned int flags, index;
- 	const char *reason;
- 	size_t outlen;
-@@ -1699,7 +1699,7 @@ int efx_mcdi_set_workaround(struct efx_nic *efx, u32 type, bool enabled)
- int efx_mcdi_get_workarounds(struct efx_nic *efx, unsigned int *impl_out,
- 			     unsigned int *enabled_out)
- {
--	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, MC_CMD_GET_WORKAROUNDS_OUT_LEN);
-+	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_WORKAROUNDS_OUT_LEN);
- 	size_t outlen;
- 	int rc;
- 
-diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index 5df1e98..7afab2f 100644
---- a/drivers/net/ethernet/sfc/mcdi.h
-+++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -176,10 +176,12 @@ void efx_mcdi_sensor_event(struct efx_nic *efx, efx_qword_t *ev);
-  * 32-bit-aligned.  Also, on Siena we must copy to the MC shared
-  * memory strictly 32 bits at a time, so add any necessary padding.
+@@ -2142,7 +2142,7 @@ static int efx_net_open(struct net_device *net_dev)
+  * Note that the kernel will ignore our return code; this method
+  * should really be a void.
   */
--#define MCDI_DECLARE_BUF(_name, _len)					\
-+#define _MCDI_DECLARE_BUF(_name, _len)					\
- 	efx_dword_t _name[DIV_ROUND_UP(_len, 4)]
--#define MCDI_DECLARE_BUF_OUT_OR_ERR(_name, _len)			\
--	MCDI_DECLARE_BUF(_name, max_t(size_t, _len, 8))
-+#define MCDI_DECLARE_BUF(_name, _len)					\
-+	_MCDI_DECLARE_BUF(_name, _len) = {{{0}}}
-+#define MCDI_DECLARE_BUF_ERR(_name)					\
-+	MCDI_DECLARE_BUF(_name, 8)
- #define _MCDI_PTR(_buf, _offset)					\
- 	((u8 *)(_buf) + (_offset))
- #define MCDI_PTR(_buf, _field)						\
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index a2e9aee..cf8c833 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -306,7 +306,7 @@ struct efx_ptp_data {
- 	struct work_struct pps_work;
- 	struct workqueue_struct *pps_workwq;
- 	bool nic_ts_enabled;
--	MCDI_DECLARE_BUF(txbuf, MC_CMD_PTP_IN_TRANSMIT_LENMAX);
-+	_MCDI_DECLARE_BUF(txbuf, MC_CMD_PTP_IN_TRANSMIT_LENMAX);
- 
- 	unsigned int good_syncs;
- 	unsigned int fast_syncs;
-@@ -568,7 +568,7 @@ static int efx_ptp_get_timestamp_corrections(struct efx_nic *efx)
- static int efx_ptp_enable(struct efx_nic *efx)
+-static int efx_net_stop(struct net_device *net_dev)
++int efx_net_stop(struct net_device *net_dev)
  {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_ENABLE_LEN);
--	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
-+	MCDI_DECLARE_BUF_ERR(outbuf);
- 	int rc;
+ 	struct efx_nic *efx = netdev_priv(net_dev);
  
- 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_ENABLE);
-@@ -596,7 +596,7 @@ static int efx_ptp_enable(struct efx_nic *efx)
- static int efx_ptp_disable(struct efx_nic *efx)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_PTP_IN_DISABLE_LEN);
--	MCDI_DECLARE_BUF_OUT_OR_ERR(outbuf, 0);
-+	MCDI_DECLARE_BUF_ERR(outbuf);
- 	int rc;
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index 46aee41..acb1e07 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -19,6 +19,9 @@
+ #define EFX_MEM_BAR 2
+ #define EFX_MEM_VF_BAR 0
  
- 	MCDI_SET_DWORD(inbuf, PTP_IN_OP, MC_CMD_PTP_OP_DISABLE);
++int efx_net_open(struct net_device *net_dev);
++int efx_net_stop(struct net_device *net_dev);
++
+ /* TX */
+ int efx_probe_tx_queue(struct efx_tx_queue *tx_queue);
+ void efx_remove_tx_queue(struct efx_tx_queue *tx_queue);
