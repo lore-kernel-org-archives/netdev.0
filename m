@@ -1,46 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-next: ethtool: Added port speed macros.
-Date: Tue, 19 May 2015 14:52:02 -0400 (EDT)
-Message-ID: <20150519.145202.617793736993996813.davem@davemloft.net>
-References: <1431946907-7808-1-git-send-email-parav.pandit@avagotech.com>
-	<20150518.114630.1938175226193925552.davem@davemloft.net>
-	<1432054835.12412.28.camel@decadent.org.uk>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH net-next 0/2] net: Add incoming CPU mask to sockets
+Date: Tue, 19 May 2015 12:01:47 -0700
+Message-ID: <1432062109-1472984-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: parav.pandit@avagotech.com, netdev@vger.kernel.org, bwh@kernel.org
-To: ben@decadent.org.uk
+Content-Type: text/plain
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46815 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751917AbbESSwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 14:52:04 -0400
-In-Reply-To: <1432054835.12412.28.camel@decadent.org.uk>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:26317 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751317AbbESTCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 15:02:04 -0400
+Received: from pps.filterd (m0004346 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4JIwThn026218
+	for <netdev@vger.kernel.org>; Tue, 19 May 2015 12:02:03 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 1ug9640a0s-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 19 May 2015 12:02:03 -0700
+Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 881fd18efe5911e4b5af0002c992ebde-9badb3a0 for <netdev@vger.kernel.org>;	Tue,
+ 19 May 2015 12:02:01 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Tue, 19 May 2015 18:00:35 +0100
+Added matching of CPU to a socket CPU mask. This is useful for TCP
+listeners and unconnected UDP. This works with SO_REUSPORT to steer
+packets to listener sockets based on CPU affinity. These patches
+allow steering packets to listeners based on numa locality. This is
+only useful for passive connections.
 
-> On Mon, 2015-05-18 at 11:46 -0400, David Miller wrote:
->> From: Parav Pandit <parav.pandit@avagotech.com>
->> Date: Mon, 18 May 2015 16:31:47 +0530
->> 
->> > Signed-off-by: Parav Pandit <parav.pandit@avagotech.com>
->> 
->> I thought we had decided that we weren't going to keep adding
->> convenience macros for new speeds, and were simply going to use
->> the appropriate constants in the future.
->> 
->> Ben?
-> 
-> That's what I thought, but you accepted commit dcf972a334dd "ethtool,
-> net/mlx4_en: Add 100M, 20G, 56G speeds ethtool reporting support" not so
-> long ago.
+Tested: 200 TCP_RR with --r 512,512 streams ran against an echo server
+with that sets both SO_REUSEPORT and SO_INCOMING_CPU_MASK. In the
+test case used taskset to pin an instance to a set of CPUs corresponding
+to a numa node and set SO_INCOMING_CPU_MASK to the same set of CPUS.
 
-Grumble... my bad.
+CPU utilization is reported from the echo server side.
 
-Given that I should probably accept this patch set as well, hopefully
-we won't get very many more of these any time soon.
+IPv4
+  No INCOMING_CPU_MASK
+    83.48% CPU utilization
+    1627173 tps
+    106/185/382 50/90/99% latencies
+  With INCOMING_CPU_MASK
+    77.61% CPU utilization
+    1669853 tps
+    103/181/378 50/90/99% latencies
+IPv6
+  No INCOMING_CPU_MASK
+    84.82% CPU utilization
+    1551730 tps
+    111/195/392 50/90/99% latencies
+  With INCOMING_CPU_MASK
+    79.25% CPU utilization
+    1571911 tps
+    110/191/381 50/90/99% latencies
 
-Sorry for creating this mess.
+Tom Herbert (2):
+  kernel: Make compat bitmap functions externally visible
+  net: Add incoming CPU mask to sockets
+
+ arch/alpha/include/uapi/asm/socket.h   |  2 +
+ arch/avr32/include/uapi/asm/socket.h   |  2 +
+ arch/cris/include/uapi/asm/socket.h    |  2 +
+ arch/frv/include/uapi/asm/socket.h     |  2 +
+ arch/ia64/include/uapi/asm/socket.h    |  2 +
+ arch/m32r/include/uapi/asm/socket.h    |  2 +
+ arch/mips/include/uapi/asm/socket.h    |  2 +
+ arch/mn10300/include/uapi/asm/socket.h |  2 +
+ arch/parisc/include/uapi/asm/socket.h  |  2 +
+ arch/powerpc/include/uapi/asm/socket.h |  2 +
+ arch/s390/include/uapi/asm/socket.h    |  2 +
+ arch/sparc/include/uapi/asm/socket.h   |  2 +
+ arch/xtensa/include/uapi/asm/socket.h  |  2 +
+ include/linux/compat.h                 |  2 +
+ include/net/sock.h                     | 27 ++++++++++++
+ include/uapi/asm-generic/socket.h      |  2 +
+ kernel/compat.c                        |  7 ++-
+ net/compat.c                           | 56 ++++++++++++++++++++++++
+ net/core/sock.c                        | 80 ++++++++++++++++++++++++++++++++++
+ net/ipv4/inet_hashtables.c             |  3 ++
+ net/ipv4/udp.c                         |  6 +++
+ net/ipv6/inet6_hashtables.c            |  3 ++
+ net/ipv6/udp.c                         |  3 ++
+ 23 files changed, 213 insertions(+), 2 deletions(-)
+
+-- 
+1.8.1
