@@ -1,482 +1,142 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next 4/4] samples/bpf: bpf_tail_call example for networking
-Date: Tue, 19 May 2015 16:59:06 -0700
-Message-ID: <1432079946-9878-5-git-send-email-ast@plumgrid.com>
-References: <1432079946-9878-1-git-send-email-ast@plumgrid.com>
-Cc: Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Michael Holzheu <holzheu@linux.vnet.ibm.com>,
-	Zi Shen Lim <zlim.lnx@gmail.com>, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432079946-9878-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH 3/3] ipvlan: set dev_id for l2 ports to generate unique
+ IPv6 addresses
+Date: Tue, 19 May 2015 16:59:45 -0700
+Message-ID: <CAF2d9jg0abaZY+w54yWTgYgOxJbJTQsf5nhgXJYhA8hOC=C2CQ@mail.gmail.com>
+References: <20150514134657.14062.87579.stgit@buzz> <20150514135620.14062.1034.stgit@buzz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Benc <jbenc@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:34290 "EHLO
+	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751816AbbETAAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 20:00:07 -0400
+Received: by oiko83 with SMTP id o83so23829387oik.1
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 17:00:05 -0700 (PDT)
+In-Reply-To: <20150514135620.14062.1034.stgit@buzz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Usage:
-$ sudo ./sockex3
-IP     src.port -> dst.port               bytes      packets
-127.0.0.1.42010 -> 127.0.0.1.12865         1568            8
-127.0.0.1.59526 -> 127.0.0.1.33778     11422636       173070
-127.0.0.1.33778 -> 127.0.0.1.59526  11260224828       341974
-127.0.0.1.12865 -> 127.0.0.1.42010         1832           12
-IP     src.port -> dst.port               bytes      packets
-127.0.0.1.42010 -> 127.0.0.1.12865         1568            8
-127.0.0.1.59526 -> 127.0.0.1.33778     23198092       351486
-127.0.0.1.33778 -> 127.0.0.1.59526  22972698518       698616
-127.0.0.1.12865 -> 127.0.0.1.42010         1832           12
+On Thu, May 14, 2015 at 6:56 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
+> All ipvlan ports use one MAC address, this way ipv6 RA tries to assign
+> one ipv6 address to all of them. This patch assigns unique dev_id to each
+> ipvlan port. This field is used instead of common FF-FE in Modified EUI-64.
+>
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> ---
+>  Documentation/networking/ipvlan.txt |   12 +++++++++++-
+>  drivers/net/ipvlan/ipvlan.h         |    1 +
+>  drivers/net/ipvlan/ipvlan_main.c    |   20 ++++++++++++++++++++
+>  3 files changed, 32 insertions(+), 1 deletion(-)
+>
+> diff --git a/Documentation/networking/ipvlan.txt b/Documentation/networking/ipvlan.txt
+> index cf996394e466..cb0b777bce58 100644
+> --- a/Documentation/networking/ipvlan.txt
+> +++ b/Documentation/networking/ipvlan.txt
+> @@ -24,7 +24,7 @@ using IProute2/ip utility.
+>
+>         ip link add link <master-dev> <slave-dev> type ipvlan mode { l2 | L3 }
+>
+> -       e.g. ip link add link ipvl0 eth0 type ipvlan mode l2
+> +       e.g. ip link add link eth0 ipvl0 type ipvlan mode l2
+>
+>
+>  4. Operating modes:
+> @@ -41,6 +41,15 @@ slave device and packets are switched and queued to the master device to send
+>  out. In this mode the slaves will RX/TX multicast and broadcast (if applicable)
+>  as well.
+>
+> +       In L2 mode slave devices receive Router Advertisements from the network
+> +and perform autoconfiguration as well as master device. Each port has unique
+> +16-bit device id which is used for filling octets 4-5 of Modified EUI-64.
+> +That gives 65533 addresses (FF-FE used by master, FF-FF/00-00 reserved/not used).
+> +
+This is nice, thanks for fixing this! However how is "unique" id
+guaranteed? Especially when multiple virtual drivers are stacked? Not
+necessarily all of them may use the dev_id, but to avoid any possible
+collision, shouldn't the device hierarchy (especially lower_dev) be
+traversed before settling on the initial value?
 
-this example is similar to sockex2 in a way that it accumulates per-flow
-statistics, but it does packet parsing differently.
-sockex2 inlines full packet parser routine into single bpf program.
-This sockex3 example have 4 independent programs that parse vlan, mpls, ip, ipv6
-and one main program that starts the process.
-bpf_tail_call() mechanism allows each program to be small and be called
-on demand potentially multiple times, so that many vlan, mpls, ip in ip,
-gre encapsulations can be parsed. These and other protocol parsers can
-be added or removed at runtime. TLVs can be parsed in similar manner.
-Note, tail_call_cnt dynamic check limits the number of tail calls to 32.
-
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- samples/bpf/Makefile       |    4 +
- samples/bpf/bpf_helpers.h  |    2 +
- samples/bpf/sockex3_kern.c |  303 ++++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/sockex3_user.c |   66 ++++++++++
- 4 files changed, 375 insertions(+)
- create mode 100644 samples/bpf/sockex3_kern.c
- create mode 100644 samples/bpf/sockex3_user.c
-
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index ded10d05617e..46c6a8cf74d3 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -6,6 +6,7 @@ hostprogs-y := test_verifier test_maps
- hostprogs-y += sock_example
- hostprogs-y += sockex1
- hostprogs-y += sockex2
-+hostprogs-y += sockex3
- hostprogs-y += tracex1
- hostprogs-y += tracex2
- hostprogs-y += tracex3
-@@ -17,6 +18,7 @@ test_maps-objs := test_maps.o libbpf.o
- sock_example-objs := sock_example.o libbpf.o
- sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
- sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
-+sockex3-objs := bpf_load.o libbpf.o sockex3_user.o
- tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
- tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
- tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
-@@ -27,6 +29,7 @@ tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
- always := $(hostprogs-y)
- always += sockex1_kern.o
- always += sockex2_kern.o
-+always += sockex3_kern.o
- always += tracex1_kern.o
- always += tracex2_kern.o
- always += tracex3_kern.o
-@@ -39,6 +42,7 @@ HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
- HOSTLOADLIBES_sockex1 += -lelf
- HOSTLOADLIBES_sockex2 += -lelf
-+HOSTLOADLIBES_sockex3 += -lelf
- HOSTLOADLIBES_tracex1 += -lelf
- HOSTLOADLIBES_tracex2 += -lelf
- HOSTLOADLIBES_tracex3 += -lelf
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 699ed8dbdd64..f531a0b3282d 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -23,6 +23,8 @@ static int (*bpf_trace_printk)(const char *fmt, int fmt_size, ...) =
- 	(void *) BPF_FUNC_trace_printk;
- static void (*bpf_tail_call)(void *ctx, void *map, int index) =
- 	(void *) BPF_FUNC_tail_call;
-+static unsigned long long (*bpf_get_smp_processor_id)(void) =
-+	(void *) BPF_FUNC_get_smp_processor_id;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
-diff --git a/samples/bpf/sockex3_kern.c b/samples/bpf/sockex3_kern.c
-new file mode 100644
-index 000000000000..f1576341daa6
---- /dev/null
-+++ b/samples/bpf/sockex3_kern.c
-@@ -0,0 +1,303 @@
-+/* Copyright (c) 2015 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <uapi/linux/bpf.h>
-+#include "bpf_helpers.h"
-+#include <uapi/linux/in.h>
-+#include <uapi/linux/if.h>
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/ip.h>
-+#include <uapi/linux/ipv6.h>
-+#include <uapi/linux/if_tunnel.h>
-+#include <uapi/linux/mpls.h>
-+#define IP_MF		0x2000
-+#define IP_OFFSET	0x1FFF
-+
-+#define PROG(F) SEC("socket/"__stringify(F)) int bpf_func_##F
-+
-+struct bpf_map_def SEC("maps") jmp_table = {
-+	.type = BPF_MAP_TYPE_PROG_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(u32),
-+	.max_entries = 8,
-+};
-+
-+#define PARSE_VLAN 1
-+#define PARSE_MPLS 2
-+#define PARSE_IP 3
-+#define PARSE_IPV6 4
-+
-+/* protocol dispatch routine.
-+ * It tail-calls next BPF program depending on eth proto
-+ * Note, we could have used:
-+ * bpf_tail_call(skb, &jmp_table, proto);
-+ * but it would need large prog_array
-+ */
-+static inline void parse_eth_proto(struct __sk_buff *skb, u32 proto)
-+{
-+	switch (proto) {
-+	case ETH_P_8021Q:
-+	case ETH_P_8021AD:
-+		bpf_tail_call(skb, &jmp_table, PARSE_VLAN);
-+		break;
-+	case ETH_P_MPLS_UC:
-+	case ETH_P_MPLS_MC:
-+		bpf_tail_call(skb, &jmp_table, PARSE_MPLS);
-+		break;
-+	case ETH_P_IP:
-+		bpf_tail_call(skb, &jmp_table, PARSE_IP);
-+		break;
-+	case ETH_P_IPV6:
-+		bpf_tail_call(skb, &jmp_table, PARSE_IPV6);
-+		break;
-+	}
-+}
-+
-+struct vlan_hdr {
-+	__be16 h_vlan_TCI;
-+	__be16 h_vlan_encapsulated_proto;
-+};
-+
-+struct flow_keys {
-+	__be32 src;
-+	__be32 dst;
-+	union {
-+		__be32 ports;
-+		__be16 port16[2];
-+	};
-+	__u32 ip_proto;
-+};
-+
-+static inline int ip_is_fragment(struct __sk_buff *ctx, __u64 nhoff)
-+{
-+	return load_half(ctx, nhoff + offsetof(struct iphdr, frag_off))
-+		& (IP_MF | IP_OFFSET);
-+}
-+
-+static inline __u32 ipv6_addr_hash(struct __sk_buff *ctx, __u64 off)
-+{
-+	__u64 w0 = load_word(ctx, off);
-+	__u64 w1 = load_word(ctx, off + 4);
-+	__u64 w2 = load_word(ctx, off + 8);
-+	__u64 w3 = load_word(ctx, off + 12);
-+
-+	return (__u32)(w0 ^ w1 ^ w2 ^ w3);
-+}
-+
-+struct globals {
-+	struct flow_keys flow;
-+	__u32 nhoff;
-+};
-+
-+struct bpf_map_def SEC("maps") percpu_map = {
-+	.type = BPF_MAP_TYPE_ARRAY,
-+	.key_size = sizeof(__u32),
-+	.value_size = sizeof(struct globals),
-+	.max_entries = 32,
-+};
-+
-+/* user poor man's per_cpu until native support is ready */
-+static struct globals *this_cpu_globals(void)
-+{
-+	u32 key = bpf_get_smp_processor_id();
-+
-+	return bpf_map_lookup_elem(&percpu_map, &key);
-+}
-+
-+/* some simple stats for user space consumption */
-+struct pair {
-+	__u64 packets;
-+	__u64 bytes;
-+};
-+
-+struct bpf_map_def SEC("maps") hash_map = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(struct flow_keys),
-+	.value_size = sizeof(struct pair),
-+	.max_entries = 1024,
-+};
-+
-+static void update_stats(struct __sk_buff *skb, struct globals *g)
-+{
-+	struct flow_keys key = g->flow;
-+	struct pair *value;
-+
-+	value = bpf_map_lookup_elem(&hash_map, &key);
-+	if (value) {
-+		__sync_fetch_and_add(&value->packets, 1);
-+		__sync_fetch_and_add(&value->bytes, skb->len);
-+	} else {
-+		struct pair val = {1, skb->len};
-+
-+		bpf_map_update_elem(&hash_map, &key, &val, BPF_ANY);
-+	}
-+}
-+
-+static __always_inline void parse_ip_proto(struct __sk_buff *skb,
-+					   struct globals *g, __u32 ip_proto)
-+{
-+	__u32 nhoff = g->nhoff;
-+	int poff;
-+
-+	switch (ip_proto) {
-+	case IPPROTO_GRE: {
-+		struct gre_hdr {
-+			__be16 flags;
-+			__be16 proto;
-+		};
-+
-+		__u32 gre_flags = load_half(skb,
-+					    nhoff + offsetof(struct gre_hdr, flags));
-+		__u32 gre_proto = load_half(skb,
-+					    nhoff + offsetof(struct gre_hdr, proto));
-+
-+		if (gre_flags & (GRE_VERSION|GRE_ROUTING))
-+			break;
-+
-+		nhoff += 4;
-+		if (gre_flags & GRE_CSUM)
-+			nhoff += 4;
-+		if (gre_flags & GRE_KEY)
-+			nhoff += 4;
-+		if (gre_flags & GRE_SEQ)
-+			nhoff += 4;
-+
-+		g->nhoff = nhoff;
-+		parse_eth_proto(skb, gre_proto);
-+		break;
-+	}
-+	case IPPROTO_IPIP:
-+		parse_eth_proto(skb, ETH_P_IP);
-+		break;
-+	case IPPROTO_IPV6:
-+		parse_eth_proto(skb, ETH_P_IPV6);
-+		break;
-+	case IPPROTO_TCP:
-+	case IPPROTO_UDP:
-+		g->flow.ports = load_word(skb, nhoff);
-+	case IPPROTO_ICMP:
-+		g->flow.ip_proto = ip_proto;
-+		update_stats(skb, g);
-+		break;
-+	default:
-+		break;
-+	}
-+}
-+
-+PROG(PARSE_IP)(struct __sk_buff *skb)
-+{
-+	struct globals *g = this_cpu_globals();
-+	__u32 nhoff, verlen, ip_proto;
-+
-+	if (!g)
-+		return 0;
-+
-+	nhoff = g->nhoff;
-+
-+	if (unlikely(ip_is_fragment(skb, nhoff)))
-+		return 0;
-+
-+	ip_proto = load_byte(skb, nhoff + offsetof(struct iphdr, protocol));
-+
-+	if (ip_proto != IPPROTO_GRE) {
-+		g->flow.src = load_word(skb, nhoff + offsetof(struct iphdr, saddr));
-+		g->flow.dst = load_word(skb, nhoff + offsetof(struct iphdr, daddr));
-+	}
-+
-+	verlen = load_byte(skb, nhoff + 0/*offsetof(struct iphdr, ihl)*/);
-+	nhoff += (verlen & 0xF) << 2;
-+
-+	g->nhoff = nhoff;
-+	parse_ip_proto(skb, g, ip_proto);
-+	return 0;
-+}
-+
-+PROG(PARSE_IPV6)(struct __sk_buff *skb)
-+{
-+	struct globals *g = this_cpu_globals();
-+	__u32 nhoff, ip_proto;
-+	
-+	if (!g)
-+		return 0;
-+
-+	nhoff = g->nhoff;
-+
-+	ip_proto = load_byte(skb,
-+			     nhoff + offsetof(struct ipv6hdr, nexthdr));
-+	g->flow.src = ipv6_addr_hash(skb,
-+				     nhoff + offsetof(struct ipv6hdr, saddr));
-+	g->flow.dst = ipv6_addr_hash(skb,
-+				     nhoff + offsetof(struct ipv6hdr, daddr));
-+	nhoff += sizeof(struct ipv6hdr);
-+
-+	g->nhoff = nhoff;
-+	parse_ip_proto(skb, g, ip_proto);
-+	return 0;
-+}
-+
-+PROG(PARSE_VLAN)(struct __sk_buff *skb)
-+{
-+	struct globals *g = this_cpu_globals();
-+	__u32 nhoff, proto;
-+	
-+	if (!g)
-+		return 0;
-+
-+	nhoff = g->nhoff;
-+
-+	proto = load_half(skb, nhoff + offsetof(struct vlan_hdr,
-+						h_vlan_encapsulated_proto));
-+	nhoff += sizeof(struct vlan_hdr);
-+	g->nhoff = nhoff;
-+
-+	parse_eth_proto(skb, proto);
-+
-+	return 0;
-+}
-+
-+PROG(PARSE_MPLS)(struct __sk_buff *skb)
-+{
-+	struct globals *g = this_cpu_globals();
-+	__u32 nhoff, label;
-+	
-+	if (!g)
-+		return 0;
-+
-+	nhoff = g->nhoff;
-+
-+	label = load_word(skb, nhoff);
-+	nhoff += sizeof(struct mpls_label);
-+	g->nhoff = nhoff;
-+
-+	if (label & MPLS_LS_S_MASK) {
-+		__u8 verlen = load_byte(skb, nhoff);
-+		if ((verlen & 0xF0) == 4)
-+			parse_eth_proto(skb, ETH_P_IP);
-+		else
-+			parse_eth_proto(skb, ETH_P_IPV6);
-+	} else {
-+		parse_eth_proto(skb, ETH_P_MPLS_UC);
-+	}
-+
-+	return 0;
-+}
-+
-+SEC("socket/0")
-+int main_prog(struct __sk_buff *skb)
-+{
-+	struct globals *g = this_cpu_globals();
-+	__u32 nhoff = ETH_HLEN;
-+	__u32 proto = load_half(skb, 12);
-+	
-+	if (!g)
-+		return 0;
-+
-+	g->nhoff = nhoff;
-+	parse_eth_proto(skb, proto);
-+	return 0;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-diff --git a/samples/bpf/sockex3_user.c b/samples/bpf/sockex3_user.c
-new file mode 100644
-index 000000000000..2617772d060d
---- /dev/null
-+++ b/samples/bpf/sockex3_user.c
-@@ -0,0 +1,66 @@
-+#include <stdio.h>
-+#include <assert.h>
-+#include <linux/bpf.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+#include <unistd.h>
-+#include <arpa/inet.h>
-+
-+struct flow_keys {
-+	__be32 src;
-+	__be32 dst;
-+	union {
-+		__be32 ports;
-+		__be16 port16[2];
-+	};
-+	__u32 ip_proto;
-+};
-+
-+struct pair {
-+	__u64 packets;
-+	__u64 bytes;
-+};
-+
-+int main(int argc, char **argv)
-+{
-+	char filename[256];
-+	FILE *f;
-+	int i, sock;
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	sock = open_raw_sock("lo");
-+
-+	assert(setsockopt(sock, SOL_SOCKET, SO_ATTACH_BPF, &prog_fd[4],
-+			  sizeof(__u32)) == 0);
-+
-+	if (argc > 1)
-+		f = popen("ping -c5 localhost", "r");
-+	else
-+		f = popen("netperf -l 4 localhost", "r");
-+	(void) f;
-+
-+	for (i = 0; i < 5; i++) {
-+		struct flow_keys key = {}, next_key;
-+		struct pair value;
-+
-+		sleep(1);
-+		printf("IP     src.port -> dst.port               bytes      packets\n");
-+		while (bpf_get_next_key(map_fd[2], &key, &next_key) == 0) {
-+			bpf_lookup_elem(map_fd[2], &next_key, &value);
-+			printf("%s.%05d -> %s.%05d %12lld %12lld\n",
-+			       inet_ntoa((struct in_addr){htonl(next_key.src)}),
-+			       next_key.port16[0],
-+			       inet_ntoa((struct in_addr){htonl(next_key.dst)}),
-+			       next_key.port16[1],
-+			       value.bytes, value.packets);
-+			key = next_key;
-+		}
-+	}
-+	return 0;
-+}
--- 
-1.7.9.5
+> +       Also lower half of IPv6 address could be set as interface token:
+> +
+> +       ip token set ::aaaa:bbbb:cccc:dddd dev ipvl0
+> +
+>  4.2 L3 mode:
+>         In this mode TX processing upto L3 happens on the stack instance attached
+>  to the slave device and packets are switched to the stack instance of the
+> @@ -105,3 +114,4 @@ namespace where L2 on the slave could be changed / misused.
+>                         (4) ip -4 addr add 127.0.0.1 dev lo
+>                         (5) ip -4 addr add $IPADDR dev ipvl1
+>                         (6) ip -4 route add default via $ROUTER dev ipvl1
+> +
+> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+> index 54549a6223dd..1ebab84e7a0e 100644
+> --- a/drivers/net/ipvlan/ipvlan.h
+> +++ b/drivers/net/ipvlan/ipvlan.h
+> @@ -95,6 +95,7 @@ struct ipvl_port {
+>         struct rcu_head         rcu;
+>         int                     count;
+>         u16                     mode;
+> +       struct ida              ida;
+>  };
+>
+>  static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
+> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> index 0cafd3e6f02d..dee0e8441150 100644
+> --- a/drivers/net/ipvlan/ipvlan_main.c
+> +++ b/drivers/net/ipvlan/ipvlan_main.c
+> @@ -53,6 +53,7 @@ static int ipvlan_port_create(struct net_device *dev)
+>         INIT_LIST_HEAD(&port->ipvlans);
+>         for (idx = 0; idx < IPVLAN_HASH_SIZE; idx++)
+>                 INIT_HLIST_HEAD(&port->hlhead[idx]);
+> +       ida_init(&port->ida);
+>
+>         err = netdev_rx_handler_register(dev, ipvlan_handle_frame, port);
+>         if (err)
+> @@ -72,6 +73,7 @@ static void ipvlan_port_destroy(struct net_device *dev)
+>
+>         dev->priv_flags &= ~IFF_IPVLAN_MASTER;
+>         netdev_rx_handler_unregister(dev);
+> +       ida_destroy(&port->ida);
+>         kfree_rcu(port, rcu);
+>  }
+>
+> @@ -484,6 +486,18 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+>          */
+>         memcpy(dev->dev_addr, phy_dev->dev_addr, ETH_ALEN);
+>
+> +       if (port->mode == IPVLAN_MODE_L2) {
+> +               /*
+> +                * IPv6 addrconf uses it to produce unique addresses,
+> +                * see function addrconf_ifid_eui48.
+> +                */
+> +               err = ida_simple_get(&port->ida, 1, 0xFFFE, GFP_KERNEL);
+> +               if (err > 0)
+> +                       dev->dev_id = err;
+> +               else if (err != -ENOSPC)
+> +                       goto ipvlan_destroy_port;
+> +       }
+> +
+>         dev->priv_flags |= IFF_IPVLAN_SLAVE;
+>
+>         port->count += 1;
+> @@ -518,6 +532,12 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+>                         list_del(&addr->anode);
+>                 }
+>         }
+> +
+> +       if (dev->dev_id) {
+> +               ida_simple_remove(&ipvlan->port->ida, dev->dev_id);
+> +               dev->dev_id = 0;
+> +       }
+> +
+>         list_del_rcu(&ipvlan->pnode);
+>         unregister_netdevice_queue(dev, head);
+>         netdev_upper_dev_unlink(ipvlan->phy_dev, dev);
+>
