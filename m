@@ -1,104 +1,51 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH net-next 2/4] rocker: do not modify fdb table in
- rocker_port_fdb() when preparing transactions
-Date: Tue, 19 May 2015 09:01:01 -0700
-Message-ID: <CAE4R7bBXiy3m3Ks3=p5Z1-9KEy1RWDbfiHZ1dBkm3Q8fa1Y+3A@mail.gmail.com>
-References: <1432016657-24231-1-git-send-email-simon.horman@netronome.com>
-	<1432016657-24231-3-git-send-email-simon.horman@netronome.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH 08/13] xen-netback: clone skb if skb->xmit_more is set
+Date: Tue, 19 May 2015 16:36:13 +0100
+Message-ID: <20150519153613.GG26335@zion.uk.xensource.com>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-9-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<david.vrabel@citrix.com>, <boris.ostrovsky@oracle.com>,
+	<konrad.wilk@oracle.com>
+To: Joao Martins <joao.martins@neclab.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f178.google.com ([209.85.220.178]:33309 "EHLO
-	mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754169AbbESQBC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 12:01:02 -0400
-Received: by qkgv12 with SMTP id v12so12844968qkg.0
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 09:01:02 -0700 (PDT)
-In-Reply-To: <1432016657-24231-3-git-send-email-simon.horman@netronome.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:5956 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755860AbbESQCD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2015 12:02:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1431451117-70051-9-git-send-email-joao.martins@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 11:24 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> rocker_port_fdb_flush() may be called be called with
-> trans == SWITCHDEV_TRANS_PREPARE and then trans == SWITCHDEV_TRANS_COMMIT from
-> switchdev_port_attr_set() via switchdev_port_obj_add().
->
-> Adding the new entry to the FDB table when trans == SWITCHDEV_TRANS_PREPARE
-> may result in a memory leak because when trans == SWITCHDEV_TRANS_PREPARE
-> rocker_flow_tbl_bridge() will allocate memory when called via
-> rocker_port_fdb_learn(). However, when trans == SWITCHDEV_TRANS_COMMIT
-> the presence of the FDB entry in the FDB table causes
-> rocker_port_fdb() to set the ROCKER_OP_FLAG_REFRESH flag which results
-> in rocker_port_fdb_learn() skipping the call to rocker_flow_tbl_bridge()
-> which would free the memory allocated by it when
-> trans == SWITCHDEV_TRANS_PREPARE.
->
-> ip link add br0 type bridge
-> ip link set up dev eth0
-> ip link set dev eth0 master br0
-> bridge fdb add 52:54:00:12:35:08 dev eth0
-> bridge fdb add 52:54:00:12:35:09 dev eth0
-> [    2.600730] ------------[ cut here ]------------
-> [    2.601002] kernel BUG at drivers/net/ethernet/rocker/rocker.c:4369!
-> [    2.601373] invalid opcode: 0000 [#1] SMP
-> [    2.601963] Modules linked in:
-> [    2.602355] CPU: 0 PID: 64 Comm: bridge Not tainted 4.1.0-rc3-01048-g6d0f50c50211-dirty #1075
-> [    2.602721] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.0-0-g4c59f5d-20150219_092859-nilsson.home.kraxel.org 04/01/2014
-> [    2.602721] task: ffff880019facef0 ti: ffff88001f96c000 task.ti: ffff88001f96c000
-> [    2.602721] RIP: 0010:[<ffffffff811f1470>]  [<ffffffff811f1470>] rocker_port_obj_add+0x150/0x160
-> [    2.602721] RSP: 0018:ffff88001f96fa98  EFLAGS: 00000212
-> [    2.602721] RAX: ffff880019d4fa68 RBX: ffff88001f96fb18 RCX: 0000000000000000
-> [    2.602721] RDX: ffff880019d4f000 RSI: ffff88001f96fb18 RDI: ffff880019d4f000
-> [    2.602721] RBP: 0000000000000001 R08: 0000000000000000 R09: ffff88001f904620
-> [    2.602721] R10: ffff88001f96fb60 R11: ffff880019e9d100 R12: ffff88001f96fb18
-> [    2.602721] R13: ffff880019d4f680 R14: ffff88001f904610 R15: ffff8800198f7b80
-> [    2.602721] FS:  00007f3eee917700(0000) GS:ffff88001b000000(0000) knlGS:0000000000000000
-> [    2.602721] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [    2.602721] CR2: 00007f3eee4a15cb CR3: 000000001f933000 CR4: 00000000000006b0
-> [    2.602721] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> [    2.602721] DR3: 0000000000000000 DR6: 0000000000000000 DR7: 0000000000000000
-> [    2.602721] Stack:
-> [    2.602721]  0000000000000000 ffff88001f96fb18 ffff880019d4f000 ffff88001f96fb18
-> [    2.602721]  ffff880019d4f000 ffffffff81332105 ffff88001f96fb50 ffffffff814464c0
-> [    2.602721]  ffff88001f96fb18 ffff88001f904600 ffff880019d4f000 ffffffff813326e5
-> [    2.602721] Call Trace:
-> [    2.602721]  [<ffffffff81332105>] ? __switchdev_port_obj_add+0x25/0x90
-> [    2.602721]  [<ffffffff813326e5>] ? switchdev_port_obj_add+0x25/0xc0
-> [    2.602721]  [<ffffffff813327b1>] ? switchdev_port_fdb_add+0x31/0x40
-> [    2.602721]  [<ffffffff8123911f>] ? rtnl_fdb_add+0xff/0x1e0
-> [    2.602721]  [<ffffffff81237d8e>] ? rtnetlink_rcv_msg+0x7e/0x250
-> [    2.602721]  [<ffffffff8121d1ce>] ? __skb_recv_datagram+0xfe/0x4b0
-> [    2.602721]  [<ffffffff81237d10>] ? rtnetlink_rcv+0x30/0x30
-> [    2.602721]  [<ffffffff81247958>] ? netlink_rcv_skb+0xa8/0xd0
-> [    2.602721]  [<ffffffff81237cff>] ? rtnetlink_rcv+0x1f/0x30
-> [    2.602721]  [<ffffffff81247220>] ? netlink_unicast+0x150/0x200
-> [    2.602721]  [<ffffffff81247714>] ? netlink_sendmsg+0x374/0x3e0
-> [    2.602721]  [<ffffffff8120f8df>] ? sock_sendmsg+0xf/0x30
-> [    2.602721]  [<ffffffff8120ffd3>] ? ___sys_sendmsg+0x1f3/0x200
-> [    2.602721]  [<ffffffff812100e5>] ? ___sys_recvmsg+0x105/0x140
-> [    2.602721]  [<ffffffff810a36f0>] ? SyS_readahead+0x90/0x90
-> [    2.602721]  [<ffffffff81098dfd>] ? filemap_map_pages+0x1ed/0x210
-> [    2.602721]  [<ffffffff810b77fc>] ? handle_mm_fault+0x5fc/0xe50
-> [    2.602721]  [<ffffffff81210ef9>] ? __sys_sendmsg+0x39/0x70
-> [    2.602721]  [<ffffffff8133ce17>] ? system_call_fastpath+0x12/0x6a
-> [    2.602721] Code: b7 8f a0 06 00 00 48 83 bf 88 06 00 00 00 74 1d 48 83 c4 08 89 ee 4c 89 ef 5b 5d 41 5c 41 5d 0f b7 c9 45 31 c0 e9 51 db ff ff 90 <0f> 0b b8 ea ff ff ff e9 cf fe ff ff 0f 1f 40 00 41 57 41 56 b9
-> [    2.602721] RIP  [<ffffffff811f1470>] rocker_port_obj_add+0x150/0x160
-> [    2.602721]  RSP <ffff88001f96fa98>
-> [    2.615848] ---[ end trace 4f7b4f1c98077108 ]---
->
-> The above is resolved by not adding the new FDB entry to the FDB table
-> if trans == SWITCHDEV_TRANS_PREPARE.
->
-> For symmetry this patch also skips deleting FDB entries from the FDB
-> table trans == SWITCHDEV_TRANS_PREPARE. However, my analysis is that
-> this never occurs as trans is always SWITCHDEV_TRANS_NONE when removing
-> FDB entries.
->
-> Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+On Tue, May 12, 2015 at 07:18:32PM +0200, Joao Martins wrote:
+> On xenvif_start_xmit() we have an additional queue to the netback RX
+> kthread that will sends the packet. When using burst>1 pktgen sets
+> skb->xmit_more to tell the driver that there more skbs in the queue.
+> However, pktgen transmits the same skb <burst> times, which leads to
+> the BUG below. Long story short adding the same skb in the rx_queue
+> queue leads to crash. Specifically, having pktgen running with burst=2
+> what happens is: when we queue the second skb (that is the same as
+> the first queued skb), the list will have the tail element with skb->prev
+> which is the skb itself. On skb_unlink (i.e. when dequeueing the skb)
+> skb->prev will become NULL, but still having list->next pointing to the
+> unlinked skb. Because of this skb_peek will still return an skb, which
+> will redo the skb_unlink trying to set (skb->prev)->next where skb->prev
+> is now NULL, thus leading to the crash (trace below).
+> 
 
-Acked-by: Scott Feldman <sfeldma@gmail.com>
+>From your description this doesn't sound Xen specific. Sounds like
+pktgen breaks in any driver that has an internal queue, which is plenty.
+
+> I'm not sure what the best way to fix this but since it's only happening
+> when we use pktgen with burst>1: I chose doing an skb_clone when we don't
+> use persistent grants and skb->xmit_more flag is set, and when
+> CONFIG_NET_PKTGEN is compiled builtin.
+> 
+
+I don't think we should do this.
+
+Wei.
