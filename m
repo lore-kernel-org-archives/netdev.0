@@ -1,154 +1,51 @@
-From: Jetchko Jekov <jetchko.jekov@nokia.com>
-Subject: stack smashing in iproute/ip
-Date: Tue, 19 May 2015 10:41:32 +0200
-Message-ID: <555AF73C.7050405@nokia.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next V4 00/12] net/mlx5: ConnectX-4 100G Ethernet driver
+Date: Tue, 19 May 2015 12:25:12 +0300
+Message-ID: <CAPcc5Pg5AqFtynB_twW3ycyH+GXtMr8XLUTWGAoHhNFqXrE6+Q@mail.gmail.com>
+References: <1431867743-13149-1-git-send-email-amirv@mellanox.com>
+	<20150517.130516.2208900458780152420.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>, netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tal Alon <talal@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from demumfd001.nsn-inter.net ([93.183.12.32]:60736 "EHLO
-	demumfd001.nsn-inter.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753310AbbESIle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 04:41:34 -0400
-Received: from demuprx017.emea.nsn-intra.net ([10.150.129.56])
-	by demumfd001.nsn-inter.net (8.15.1/8.15.1) with ESMTPS id t4J8fW9M016861
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 19 May 2015 08:41:32 GMT
-Received: from zeus.emea.nsn-net.net ([10.156.138.192])
-	by demuprx017.emea.nsn-intra.net (8.12.11.20060308/8.12.11) with ESMTP id t4J8fWoM020965
-	for <netdev@vger.kernel.org>; Tue, 19 May 2015 10:41:32 +0200
+Received: from mail-la0-f49.google.com ([209.85.215.49]:36649 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754558AbbESJZO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 05:25:14 -0400
+Received: by lagv1 with SMTP id v1so13884382lag.3
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 02:25:12 -0700 (PDT)
+In-Reply-To: <20150517.130516.2208900458780152420.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Sun, May 17, 2015 at 8:05 PM, David Miller <davem@davemloft.net> wrote:
+> From: Amir Vadai <amirv@mellanox.com>
+> Date: Sun, 17 May 2015 16:02:11 +0300
+>
+>> We didn't get a response yet regarding your comment about the irq
+>> renaming [3].
+>
+> Well then, please hold off on resubmissions of this series until you
+> do get a response and that issue is firmly resolved.
+Hi,
 
-I hope this is the right way to report a bug regarding iproute.
+I don't mean to push you, I only want to understand what is expected
+from me and what are the next steps:
+How will the issue be resolved? Do you plan to answer my question [1]
+from last week, and just too busy right now or something like that?
 
-While playing with gre[tap] tunnels I run in the following:
+Will sending the patchset with the irq renaming removed, make things
+easier? It means that at first the irq names in /proc/interrupts won't
+have the interface name in it. We can fix it later on after resolving
+the problem with the current approach of irq naming. Is this
+acceptable by you?
 
-# modprobe ip-gre
-# ip l add gre1 type gre remote 1.1.1.1
-# ip l change gre1 type gre remote 1.1.1.2
-addattr_l ERROR: message exceeded bound of 1024
-addattr_l ERROR: message exceeded bound of 1024
-addattr_l ERROR: message exceeded bound of 1024
-addattr_l ERROR: message exceeded bound of 1024
-addattr_l ERROR: message exceeded bound of 1024
-addattr_l ERROR: message exceeded bound of 1024
-addattr_l ERROR: message exceeded bound of 1024
-addattr_l ERROR: message exceeded bound of 1024
-*** stack smashing detected ***: ip terminated
-======= Backtrace: =========
-/lib64/libc.so.6[0x3754a77d9e]
-/lib64/libc.so.6(__fortify_fail+0x37)[0x3754b11db7]
-/lib64/libc.so.6(__fortify_fail+0x0)[0x3754b11d80]
-ip[0x429511]
-======= Memory map: ========
-00400000-0044b000 r-xp 00000000 fd:00 660285                             
-/usr/sbin/ip
-0064a000-0064b000 r--p 0004a000 fd:00 660285                             
-/usr/sbin/ip
-0064b000-0064f000 rw-p 0004b000 fd:00 660285                             
-/usr/sbin/ip
-0064f000-00655000 rw-p 00000000 00:00 0
-0084e000-00850000 rw-p 0004e000 fd:00 660285                             
-/usr/sbin/ip
-013c4000-013e5000 rw-p 00000000 00:00 0                                  
-[heap]
-3754600000-3754621000 r-xp 00000000 fd:00 664653                         
-/usr/lib64/ld-2.20.so
-3754821000-3754822000 r--p 00021000 fd:00 664653                         
-/usr/lib64/ld-2.20.so
-3754822000-3754823000 rw-p 00022000 fd:00 664653                         
-/usr/lib64/ld-2.20.so
-3754823000-3754824000 rw-p 00000000 00:00 0
-3754a00000-3754bb3000 r-xp 00000000 fd:00 672328                         
-/usr/lib64/libc-2.20.so
-3754bb3000-3754db3000 ---p 001b3000 fd:00 672328                         
-/usr/lib64/libc-2.20.so
-3754db3000-3754db7000 r--p 001b3000 fd:00 672328                         
-/usr/lib64/libc-2.20.so
-3754db7000-3754db9000 rw-p 001b7000 fd:00 672328                         
-/usr/lib64/libc-2.20.so
-3754db9000-3754dbd000 rw-p 00000000 00:00 0
-3754e00000-3754e03000 r-xp 00000000 fd:00 672374                         
-/usr/lib64/libdl-2.20.so
-3754e03000-3755002000 ---p 00003000 fd:00 672374                         
-/usr/lib64/libdl-2.20.so
-3755002000-3755003000 r--p 00002000 fd:00 672374                         
-/usr/lib64/libdl-2.20.so
-3755003000-3755004000 rw-p 00003000 fd:00 672374                         
-/usr/lib64/libdl-2.20.so
-3757200000-3757216000 r-xp 00000000 fd:00 672379 
-/usr/lib64/libgcc_s-4.9.2-20150212.so.1
-3757216000-3757415000 ---p 00016000 fd:00 672379 
-/usr/lib64/libgcc_s-4.9.2-20150212.so.1
-3757415000-3757416000 r--p 00015000 fd:00 672379 
-/usr/lib64/libgcc_s-4.9.2-20150212.so.1
-3757416000-3757417000 rw-p 00016000 fd:00 672379 
-/usr/lib64/libgcc_s-4.9.2-20150212.so.1
-7f7724882000-7f7724885000 rw-p 00000000 00:00 0
-7f77248b4000-7f77248b6000 rw-p 00000000 00:00 0
-7ffeccd59000-7ffeccd7a000 rw-p 00000000 00:00 0                          
-[stack]
-7ffeccd99000-7ffeccd9b000 r--p 00000000 00:00 0                          
-[vvar]
-7ffeccd9b000-7ffeccd9d000 r-xp 00000000 00:00 0                          
-[vdso]
-ffffffffff600000-ffffffffff601000 r-xp 00000000 00:00 0                  
-[vsyscall]
-Aborted (core dumped)
+[1] - http://www.spinics.net/lists/netdev/msg328556.html
 
-OS: Fedora 213.19.7-200.fc21.x86_64
-Kernel: 3.19.7-200.fc21.x86_64
-iproute-3.16.0-3.fc21.x86_64
-# ip -V
-ip utility, iproute2-ss140804
-
-I reproduced the same behavior with the latest git kernel available in 
-Gentoo ( 4.1.0-rc3 ) and iproute2 compiled from git
-# ip -V
-ip utility, iproute2-ss150413
-
-This time rung from gdb with debug info:
-
-Program received signal SIGABRT, Aborted.
-0x00007ffff7874e77 in __GI_raise (sig=sig@entry=6) at 
-../sysdeps/unix/sysv/linux/raise.c:55
-55      ../sysdeps/unix/sysv/linux/raise.c: No such file or directory.
-(gdb) bt
-#0  0x00007ffff7874e77 in __GI_raise (sig=sig@entry=6) at 
-../sysdeps/unix/sysv/linux/raise.c:55
-#1  0x00007ffff787627a in __GI_abort () at abort.c:89
-#2  0x00007ffff78b2d24 in __libc_message (do_abort=do_abort@entry=2, 
-fmt=fmt@entry=0x7ffff79a1320 "*** %s ***: %s terminated\n")
-     at ../sysdeps/posix/libc_fatal.c:175
-#3  0x00007ffff7937a67 in __GI___fortify_fail 
-(msg=msg@entry=0x7ffff79a1308 "stack smashing detected") at 
-fortify_fail.c:31
-#4  0x00007ffff7937a30 in __stack_chk_fail () at stack_chk_fail.c:28
-#5  0x000000000042c487 in gre_parse_opt (lu=<optimized out>, argc=0, 
-argv=0x7fffffffe388, n=0x7fffffffdc80) at link_gre.c:330
-#6  0x0000000000000000 in ?? ()
-
-I tried to investigate further:
-stack corruption happens on call to rtnl_talk on line 87 in ip/link_gre.c
-     87:   if (rtnl_talk(&rth, &req.n, 0, 0, &req.n) < 0)
-
-looking at  rtnl_talk in lib/libnetlink.c, I found that actual 
-corruption happens on  memcpy  call (line 401) which copies message with 
-length of 1288 in that specific example into a buffer on the stack with 
-not enough space (the struct at *answer  which is defined at 
-ip/link_gre.c as struct req  is just 1024+10+16, I believe)
-I see that in lib/libnetlink.c netlink msg buffer is 16k but in 
-gre_parse_opt it is defined as just 1k. Raising it to 16k fixes that 
-particular stack smash, but I am not familiar with the internals there 
-and I dont know is that correct fix.
-Actually I am not sure is that valid command at all, the corresponding 
-man pages are slightly(?) outdated.
-
-Best regards
-Jeka
-
-P.S. I am not subscribed to this mailing list so please CC me on replies.
+Thanks,
+Amir
