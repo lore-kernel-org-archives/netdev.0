@@ -1,79 +1,48 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [Intel-wired-lan] [PATCH] pci: Use a bus-global mutex to protect
- VPD operations
-Date: Tue, 19 May 2015 13:58:24 -0700
-Message-ID: <555BA3F0.5030001@redhat.com>
-References: <20150519000037.56109.68356.stgit@mdrustad-wks.jf.intel.com> <555B78F7.60908@redhat.com> <E9012788-257F-4C44-B7F1-789B94423924@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] irda: irda-usb: use msecs_to_jiffies for conversions
+Date: Tue, 19 May 2015 14:09:07 -0700
+Message-ID: <1432069747.2870.215.camel@perches.com>
+References: <1432032711-7020-1-git-send-email-hofrat@osadl.org>
+	 <1432045935.2870.152.camel@perches.com>
+	 <20150519.164555.1631069770118420652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <E9012788-257F-4C44-B7F1-789B94423924@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: hofrat@osadl.org, samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150519.164555.1631069770118420652.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2015-05-19 at 16:45 -0400, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Tue, 19 May 2015 07:32:15 -0700
+> 
+> > On Tue, 2015-05-19 at 12:51 +0200, Nicholas Mc Guire wrote:
+> >> Converting milliseconds to jiffies by "val * HZ / 1000" is technically
+> >> is not a clean solution as it does not handle all corner cases correctly.
+> >> By changing the conversion to use msecs_to_jiffies(val) conversion is
+> >> correct in all cases.
+> >> 
+> >> in the current code: 
+> >>   mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
+> >> for HZ < 100 (e.g. CONFIG_HZ == 64|32 in alpha) this effectively results 
+> >> in no delay at all.
+> > []
+> >> diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
+> > []
+> >> @@ -848,7 +848,9 @@ static void irda_usb_receive(struct urb *urb)
+> >>  		 * Jean II */
+> >>  		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
+> >>  		self->rx_defer_timer.data = (unsigned long) urb;
+> >> -		mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
+> >> +		mod_timer(&self->rx_defer_timer,
+> >> +			  jiffies + (msecs_to_jiffies(10)));
+> > 
+> > The unnecessary () around msecs_to_jiffies could be removed.
 
-
-On 05/19/2015 11:28 AM, Rustad, Mark D wrote:
->> On May 19, 2015, at 10:55 AM, Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
->>
->> On 05/18/2015 05:00 PM, Mark D Rustad wrote:
->>> Some devices have a problem with concurrent VPD access to different
->>> functions of the same physical device, so move the protecting mutex
->>> from the pci_vpd structure to the pci_bus structure. There are a
->>> number of reports on support sites for a variety of devices from
->>> various vendors getting the "vpd r/w failed" message. This is likely
->>> to at least fix some of them. Thanks to Shannon Nelson for helping
->>> to come up with this approach.
->>>
->>> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
->>> Acked-by: Shannon Nelson <shannon.nelson@intel.com>
->>> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Instead of moving the mutex lock around you would be much better served by simply removing the duplicate VPD entries for a given device in a PCIe quirk.  Then you can save yourself the extra pain and effort of having to deal with serialized VPD accesses for a multifunction device.
->>
->> The logic for the quirk should be fairly simple.
->>   1.  Scan for any other devices with VPD that share the same bus and device number.
->>   2.  If bdf is equal to us keep searching.
->>   3.  If bdf is less than our bdf we release our VPD area and set VPD pointer to NULL.
-> I could do that. If this issue only affected Intel devices, I would be more inclined to consider something like that. I am avoiding discussing other vendors directly, so please go and do a Google search on "vpd r/w failed" and see if you really want to quirk all those devices. It isn't just Intel and it isn't just networking.
-
-I think you are assuming too much.  Have you root caused the other 
-devices?  All the "vpd r/w failed" means is that a given read or write 
-timed out.  There are any number of possible reasons for that including 
-VPD being unimplemented in firmware, a device falling off of the bus, 
-and many others.  What you have is a common symptom, it doesn't mean it 
-is a common ailment for all the other parts.
-
-> If after doing that you still feel that this isn't the best solution, I can go and cook up something much bigger (I already had two much bigger patches that I abandoned in favor of this approach). Bear in mind that the quirk code is dead weight in all the kernels.
-
-The quirk code is there to deal with buggy hardware implementations and 
-that is what it sounds like you have in this case.  I highly doubt all 
-of the other vendors implemented the same mistake.  If they did then 
-maybe you should implement a the quirk as a new function that can be 
-used by any of the devices that implement VPD with the same limitation.
-
-> As you said in another message, VPD is not that vital. Given that, I would think that some possible needless synchronization that resolves real problems for many devices should be acceptable. If it was synchronizing all config space or something that would be different, but this is just VPD.
-
-The problem is it is needless synchronization, and it only resolves 
-problems for some very specific devices.  The extra overhead for 
-serializing what is already slow accesses can be very high so I am 
-against it.  For example it will likely have unintended consequences on 
-things like virtual machines where all direct assigned devices end up on 
-the same bus.
-
-We know that all Intel Ethernet parts to date only implement one VPD 
-area per EEPROM, and that all functions in a multi-function Ethernet 
-part share the same EEPROM, so the fix is to only present one VPD area 
-so that the data is still there, without the ability of multiple 
-access.  It seems like function 0 would be the obvious choice in that 
-case so if somebody wants to be able to do their inventory they can go 
-through and pull inventory information from function 0.  Really this is 
-how this should have probably been implemented in the hardware in the 
-first place if they couldn't support multiple accesses.
-
-- Alex
+The other thing that could be done is to use
+	max(1ul, msecs_to_jiffies())
+so that there's always some delay even if HZ <= 50
