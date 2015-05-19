@@ -1,49 +1,32 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH] irda: irda-usb: use msecs_to_jiffies for conversions
-Date: Tue, 19 May 2015 12:51:51 +0200
-Message-ID: <1432032711-7020-1-git-send-email-hofrat@osadl.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicholas Mc Guire <hofrat@osadl.org>
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: optimise to search the inexact policy list
+Date: Tue, 19 May 2015 13:14:50 +0200
+Message-ID: <20150519111448.GL8928@secunet.com>
+References: <1431573419-31253-1-git-send-email-rongqing.li@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: <rongqing.li@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:49671 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755195AbbESLO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2015 07:14:58 -0400
+Content-Disposition: inline
+In-Reply-To: <1431573419-31253-1-git-send-email-rongqing.li@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-API compliance scanning with coccinelle flagged:
+On Thu, May 14, 2015 at 11:16:59AM +0800, rongqing.li@windriver.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> The policies are organized into list by priority ascent of policy,
+> so it is unnecessary to continue to loop the policy if the priority
+> of current looped police is larger than or equal priority which is
+> from the policy_bydst list.
+> 
+> This allows to match policy with ~0U priority in inexact list too.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Converting milliseconds to jiffies by "val * HZ / 1000" is technically
-is not a clean solution as it does not handle all corner cases correctly.
-By changing the conversion to use msecs_to_jiffies(val) conversion is
-correct in all cases.
-
-in the current code: 
-  mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
-for HZ < 100 (e.g. CONFIG_HZ == 64|32 in alpha) this effectively results 
-in no delay at all.
-
-Patch was compile tested for x86_64_defconfig (implies CONFIG_USB_IRDA=m)
-
-Patch is against 4.1-rc4 (localversion-next is -next-20150519)
-
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
- drivers/net/irda/irda-usb.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-index f6c9163..f3e4563 100644
---- a/drivers/net/irda/irda-usb.c
-+++ b/drivers/net/irda/irda-usb.c
-@@ -848,7 +848,9 @@ static void irda_usb_receive(struct urb *urb)
- 		 * Jean II */
- 		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
- 		self->rx_defer_timer.data = (unsigned long) urb;
--		mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
-+		mod_timer(&self->rx_defer_timer,
-+			  jiffies + (msecs_to_jiffies(10)));
-+
- 		return;
- 	}
- 	
--- 
-1.7.10.4
+Applied to ipsec-next, thanks a lot!
