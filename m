@@ -1,103 +1,36 @@
-From: Ed Swierk <eswierk@skyportsystems.com>
-Subject: [PATCH v2 RESEND] ethtool: Include SFP serial number and date in EEPROM dump
-Date: Mon, 18 May 2015 19:46:48 -0700
-Message-ID: <1432003608-87071-1-git-send-email-eswierk@skyportsystems.com>
-Cc: Ed Swierk <eswierk@skyportsystems.com>
-To: Ben Hutchings <bwh@kernel.org>, netdev@vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH ethtool v2 2/3] ethtool: Add copybreak support
+Date: Tue, 19 May 2015 09:17:25 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1505190916040.21108@ws.cisco>
+References: <1412637141-3205-1-git-send-email-_govind@gmx.com> <1412637141-3205-3-git-send-email-_govind@gmx.com> <1418579187.3599.130.camel@decadent.org.uk> <CAJL1qvEe1FmzN7xtuuhYHM_-0Wy=dGma3aY1e6zAqUiuv5gTWg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>, yevgenyp@mellanox.com,
+	Amir Vadai <amirv@mellanox.com>
+To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33534 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751039AbbESCrP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 22:47:15 -0400
-Received: by padbw4 with SMTP id bw4so3347209pad.0
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 19:47:14 -0700 (PDT)
+Received: from mout.gmx.net ([212.227.15.15]:51435 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751039AbbESDro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 23:47:44 -0400
+In-Reply-To: <CAJL1qvEe1FmzN7xtuuhYHM_-0Wy=dGma3aY1e6zAqUiuv5gTWg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethtool -m currently omits the serial number, date code, and other useful
-EEPROM fields defined in INF-8074, which is part of the SFF-8079 standard.
-This patch adds them.
+On Wed, 13 May 2015, Hadar Hen Zion wrote:
+> Hi Govindarajulu,
+>
+> Do you have a patch that fixes Ben's comments?
+>
+> I would like to add the copybreak feature so let me know if you want
+> me to fix the patch according to Ben's comments and resend it.
+>
 
-It also trims space characters from the end of ASCII text fields.
+Hi Hadar
 
-$ ethtool -m eth0
-...
-	Option values                             : 0x00 0x10
-	Option                                    : TX_DISABLE implemented
-	BR margin, max                            : 0%
-	BR margin, min                            : 0%
-	Vendor SN                                 : AGC143953079
-	Date code                                 : 140926
+I haven't looked at this for a while. Please go ahead.
 
-Signed-off-by: Ed Swierk <eswierk@skyportsystems.com>
----
- sfpid.c | 41 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 41 insertions(+)
-
-diff --git a/sfpid.c b/sfpid.c
-index 4f88aa2..b1a5044 100644
---- a/sfpid.c
-+++ b/sfpid.c
-@@ -355,6 +355,8 @@ static void sff8079_show_ascii(const __u8 *id, unsigned int first_reg,
- 	unsigned int reg, val;
- 
- 	printf("\t%-41s : ", name);
-+	while (first_reg <= last_reg && id[last_reg] == ' ')
-+		last_reg--;
- 	for (reg = first_reg; reg <= last_reg; reg++) {
- 		val = id[reg];
- 		putchar(((val >= 32) && (val <= 126)) ? val : '_');
-@@ -362,6 +364,40 @@ static void sff8079_show_ascii(const __u8 *id, unsigned int first_reg,
- 	printf("\n");
- }
- 
-+static void sff8079_show_options(const __u8 *id)
-+{
-+	static const char *pfx =
-+		"\tOption                                    :";
-+
-+	printf("\t%-41s : 0x%02x 0x%02x\n", "Option values", id[64], id[65]);
-+	if (id[65] & (1 << 1))
-+		printf("%s RX_LOS implemented\n", pfx);
-+	if (id[65] & (1 << 2))
-+		printf("%s RX_LOS implemented, inverted\n", pfx);
-+	if (id[65] & (1 << 3))
-+		printf("%s TX_FAULT implemented\n", pfx);
-+	if (id[65] & (1 << 4))
-+		printf("%s TX_DISABLE implemented\n", pfx);
-+	if (id[65] & (1 << 5))
-+		printf("%s RATE_SELECT implemented\n", pfx);
-+	if (id[65] & (1 << 6))
-+		printf("%s Tunable transmitter technology\n", pfx);
-+	if (id[65] & (1 << 7))
-+		printf("%s Receiver decision threshold implemented\n", pfx);
-+	if (id[64] & (1 << 0))
-+		printf("%s Linear receiver output implemented\n", pfx);
-+	if (id[64] & (1 << 1))
-+		printf("%s Power level 2 requirement\n", pfx);
-+	if (id[64] & (1 << 2))
-+		printf("%s Cooled transceiver implemented\n", pfx);
-+	if (id[64] & (1 << 3))
-+		printf("%s Retimer or CDR implemented\n", pfx);
-+	if (id[64] & (1 << 4))
-+		printf("%s Paging implemented\n", pfx);
-+	if (id[64] & (1 << 5))
-+		printf("%s Power level 3 requirement\n", pfx);
-+}
-+
- void sff8079_show_all(const __u8 *id)
- {
- 	sff8079_show_identifier(id);
-@@ -385,5 +421,10 @@ void sff8079_show_all(const __u8 *id)
- 		sff8079_show_oui(id);
- 		sff8079_show_ascii(id, 40, 55, "Vendor PN");
- 		sff8079_show_ascii(id, 56, 59, "Vendor rev");
-+		sff8079_show_options(id);
-+		sff8079_show_value_with_unit(id, 66, "BR margin, max", 1, "%");
-+		sff8079_show_value_with_unit(id, 67, "BR margin, min", 1, "%");
-+		sff8079_show_ascii(id, 68, 83, "Vendor SN");
-+		sff8079_show_ascii(id, 84, 91, "Date code");
- 	}
- }
--- 
-1.9.1
+Thanks
