@@ -1,59 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib
- offload on failure to program fib entry in hardware
-Date: Mon, 18 May 2015 23:48:39 -0400 (EDT)
-Message-ID: <20150518.234839.995695850653714769.davem@davemloft.net>
-References: <1431906125-13808-1-git-send-email-roopa@cumulusnetworks.com>
-	<20150518.161916.2132217836491222672.davem@davemloft.net>
-	<555A8209.5000306@intel.com>
+Subject: Re: [PATCH] tcp: ensure epoll edge trigger wakeup when out of
+ memory
+Date: Tue, 19 May 2015 00:09:45 -0400 (EDT)
+Message-ID: <20150519.000945.697478668443801629.davem@davemloft.net>
+References: <20150515211707.D9FC480066@prod-mail-relay07.akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com,
-	john.fastabend@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org
-To: john.r.fastabend@intel.com
+Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
+	ycheng@google.com
+To: jbaron@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34884 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34973 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbbESDsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 23:48:43 -0400
-In-Reply-To: <555A8209.5000306@intel.com>
+	with ESMTP id S1750722AbbESEJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 00:09:47 -0400
+In-Reply-To: <20150515211707.D9FC480066@prod-mail-relay07.akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Mon, 18 May 2015 17:21:29 -0700
+From: Jason Baron <jbaron@akamai.com>
+Date: Fri, 15 May 2015 21:17:07 +0000 (GMT)
 
-> So how about having an error strategy sysctl field that we can set
-> at provisioning time. I think this would align to Roopa's option (b).
-> This way we can default to "transparent" mode and the users where
-> this wont work can set the error mode. This way user land software
-> stacks that work today should continue to work in both modes.
+> From: Jason Baron <jbaron@akamai.com>
+> 
+> If we really can't get an skb allocated, make sure that we let
+> userspace know. This at least gives us a chance to re-try or abort.
+> 
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
 
-Alert: This is not a switch provisioning issue.
+Applied to net-next, thanks Jason.
 
-You can frame it like that all day, and continue to talk about
-low power cpus or other things which are completely and utterly
-irrelevant.
-
-Stop looking at how some specific piece of hardware is configured,
-and think about what actually is asking the kernel to do stuff.
-
-That's because the real issue is _semantics_ and what a Linux machine
-is expected to do when you insert a route and valid reasons why a
-route insertion can fail.
-
-That is the _only_ issue.
-
-And that has to do with what semantics _applcations_ making these
-routing change requests expect.
-
-There is nothing else that matters.
-
-And since it is an issue of what semantics those application want and
-are able to handle, that is where the request of changed behavior
-belongs.
-
-If we added your suggested sysctl, we'd have to name it
-"sysctl_break_all_my_apps_please" because that is exactly what it
-would be doing. :-)
+Eric asked if we should perhaps return -ENOMEM here, and I'm not so
+sure that's a good idea.  It is in a way a temporary failure that
+should be retried.
