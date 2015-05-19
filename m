@@ -1,95 +1,158 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [PATCH V6 05/10] audit: log creation and deletion of namespace
- instances
-Date: Tue, 19 May 2015 09:09:11 -0400
-Message-ID: <20150519130911.GB20131@madcap2.tricolour.ca>
-References: <cover.1429252659.git.rgb@redhat.com>
- <20150515023221.GC965@madcap2.tricolour.ca>
- <CALCETrWzM4+Vs8OVJWBcWJfbR_DRSb+e7SmUyy6CS4sHQaTkRw@mail.gmail.com>
- <9125391.7ZiCneo6Xn@sifl>
- <555711FA.50703@redhat.com>
- <CAHC9VhRKSK9=9qPF3dgALS=x1g3LinNeQvuhNV5TvQ=D7Szuag@mail.gmail.com>
- <87r3qgpol6.fsf@x220.int.ebiederm.org>
- <CAHC9VhQs6pxFC3dvZic5XzuJr1xdJZyPjXdBoipwY3OOkng0ng@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: stack smashing in iproute/ip
+Date: Tue, 19 May 2015 06:25:39 -0700
+Message-ID: <1432041939.621.52.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <555AF73C.7050405@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Linux Containers <containers@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>, linux-audit@redhat.com,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux FS Devel <linux-fsdevel@vger.kernel.org>,
-	Eric Paris <eparis@parisplace.org>,
-	"Serge E. Hallyn" <serge@hallyn.com>
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHC9VhQs6pxFC3dvZic5XzuJr1xdJZyPjXdBoipwY3OOkng0ng@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jetchko Jekov <jetchko.jekov@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:37336 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754078AbbESNZm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 09:25:42 -0400
+Received: by igbsb11 with SMTP id sb11so13725638igb.0
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 06:25:41 -0700 (PDT)
+In-Reply-To: <555AF73C.7050405@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15/05/16, Paul Moore wrote:
-> On Sat, May 16, 2015 at 10:46 AM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
-> > Paul Moore <paul@paul-moore.com> writes:
-> >> On Sat, May 16, 2015 at 5:46 AM, Daniel J Walsh <dwalsh@redhat.com> wrote:
-> >>> On 05/15/2015 05:05 PM, Paul Moore wrote:
-> >>>> On Thursday, May 14, 2015 11:23:09 PM Andy Lutomirski wrote:
-> >>>>> On Thu, May 14, 2015 at 7:32 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> >>>>>> On 15/05/14, Paul Moore wrote:
-> >>>>>>> * Look at our existing audit records to determine which records should
-> >>>>>>> have
-> >>>>>>> namespace and container ID tokens added.  We may only want to add the
-> >>>>>>> additional fields in the case where the namespace/container ID tokens are
-> >>>>>>> not the init namespace.
-> >>>>>> If we have a record that ties a set of namespace IDs with a container
-> >>>>>> ID, then I expect we only need to list the containerID along with auid
-> >>>>>> and sessionID.
-> >>>>> The problem here is that the kernel has no concept of a "container", and I
-> >>>>> don't think it makes any sense to add one just for audit.  "Container" is a
-> >>>>> marketing term used by some userspace tools.
-> >>>>>
-> >>>>> I can imagine that both audit could benefit from a concept of a
-> >>>>> namespace *path* that understands nesting (e.g. root/2/5/1 or
-> >>>>> something along those lines).  Mapping these to "containers" belongs
-> >>>>> in userspace, I think.
-> >>>> It might be helpful to climb up a few levels in this thread ...
-> >>>>
-> >>>> I think we all agree that containers are not a kernel construct.  I further
-> >>>> believe that the kernel has no business generating container IDs, those should
-> >>>> come from userspace and will likely be different depending on how you define
-> >>>> "container".  However, what is less clear to me at this point is how the
-> >>>> kernel should handle the setting, reporting, and general management of this
-> >>>> container ID token.
-> >>>>
-> >>> Wouldn't the easiest thing be to just treat add a containerid to the
-> >>> process context like auid.
-> >>
-> >> I believe so.  At least that was the point I was trying to get across
-> >> when I first jumped into this thread.
-> >
-> > It sounds nice but containers are not just a per process construct.
-> > Sometimes you might know anamespace but not which process instigated
-> > action to happen on that namespace.
+On Tue, 2015-05-19 at 10:41 +0200, Jetchko Jekov wrote:
+> Hello,
 > 
-> >From an auditing perspective I'm not sure we will ever hit those
-> cases; did you have a particular example in mind?
+> I hope this is the right way to report a bug regarding iproute.
+> 
+> While playing with gre[tap] tunnels I run in the following:
+> 
+> # modprobe ip-gre
+> # ip l add gre1 type gre remote 1.1.1.1
+> # ip l change gre1 type gre remote 1.1.1.2
+> addattr_l ERROR: message exceeded bound of 1024
+> addattr_l ERROR: message exceeded bound of 1024
+> addattr_l ERROR: message exceeded bound of 1024
+> addattr_l ERROR: message exceeded bound of 1024
+> addattr_l ERROR: message exceeded bound of 1024
+> addattr_l ERROR: message exceeded bound of 1024
+> addattr_l ERROR: message exceeded bound of 1024
+> addattr_l ERROR: message exceeded bound of 1024
+> *** stack smashing detected ***: ip terminated
+> ======= Backtrace: =========
+> /lib64/libc.so.6[0x3754a77d9e]
+> /lib64/libc.so.6(__fortify_fail+0x37)[0x3754b11db7]
+> /lib64/libc.so.6(__fortify_fail+0x0)[0x3754b11d80]
+> ip[0x429511]
+> ======= Memory map: ========
+> 00400000-0044b000 r-xp 00000000 fd:00 660285                             
+> /usr/sbin/ip
+> 0064a000-0064b000 r--p 0004a000 fd:00 660285                             
+> /usr/sbin/ip
+> 0064b000-0064f000 rw-p 0004b000 fd:00 660285                             
+> /usr/sbin/ip
+> 0064f000-00655000 rw-p 00000000 00:00 0
+> 0084e000-00850000 rw-p 0004e000 fd:00 660285                             
+> /usr/sbin/ip
+> 013c4000-013e5000 rw-p 00000000 00:00 0                                  
+> [heap]
+> 3754600000-3754621000 r-xp 00000000 fd:00 664653                         
+> /usr/lib64/ld-2.20.so
+> 3754821000-3754822000 r--p 00021000 fd:00 664653                         
+> /usr/lib64/ld-2.20.so
+> 3754822000-3754823000 rw-p 00022000 fd:00 664653                         
+> /usr/lib64/ld-2.20.so
+> 3754823000-3754824000 rw-p 00000000 00:00 0
+> 3754a00000-3754bb3000 r-xp 00000000 fd:00 672328                         
+> /usr/lib64/libc-2.20.so
+> 3754bb3000-3754db3000 ---p 001b3000 fd:00 672328                         
+> /usr/lib64/libc-2.20.so
+> 3754db3000-3754db7000 r--p 001b3000 fd:00 672328                         
+> /usr/lib64/libc-2.20.so
+> 3754db7000-3754db9000 rw-p 001b7000 fd:00 672328                         
+> /usr/lib64/libc-2.20.so
+> 3754db9000-3754dbd000 rw-p 00000000 00:00 0
+> 3754e00000-3754e03000 r-xp 00000000 fd:00 672374                         
+> /usr/lib64/libdl-2.20.so
+> 3754e03000-3755002000 ---p 00003000 fd:00 672374                         
+> /usr/lib64/libdl-2.20.so
+> 3755002000-3755003000 r--p 00002000 fd:00 672374                         
+> /usr/lib64/libdl-2.20.so
+> 3755003000-3755004000 rw-p 00003000 fd:00 672374                         
+> /usr/lib64/libdl-2.20.so
+> 3757200000-3757216000 r-xp 00000000 fd:00 672379 
+> /usr/lib64/libgcc_s-4.9.2-20150212.so.1
+> 3757216000-3757415000 ---p 00016000 fd:00 672379 
+> /usr/lib64/libgcc_s-4.9.2-20150212.so.1
+> 3757415000-3757416000 r--p 00015000 fd:00 672379 
+> /usr/lib64/libgcc_s-4.9.2-20150212.so.1
+> 3757416000-3757417000 rw-p 00016000 fd:00 672379 
+> /usr/lib64/libgcc_s-4.9.2-20150212.so.1
+> 7f7724882000-7f7724885000 rw-p 00000000 00:00 0
+> 7f77248b4000-7f77248b6000 rw-p 00000000 00:00 0
+> 7ffeccd59000-7ffeccd7a000 rw-p 00000000 00:00 0                          
+> [stack]
+> 7ffeccd99000-7ffeccd9b000 r--p 00000000 00:00 0                          
+> [vvar]
+> 7ffeccd9b000-7ffeccd9d000 r-xp 00000000 00:00 0                          
+> [vdso]
+> ffffffffff600000-ffffffffff601000 r-xp 00000000 00:00 0                  
+> [vsyscall]
+> Aborted (core dumped)
+> 
+> OS: Fedora 213.19.7-200.fc21.x86_64
+> Kernel: 3.19.7-200.fc21.x86_64
+> iproute-3.16.0-3.fc21.x86_64
+> # ip -V
+> ip utility, iproute2-ss140804
+> 
+> I reproduced the same behavior with the latest git kernel available in 
+> Gentoo ( 4.1.0-rc3 ) and iproute2 compiled from git
+> # ip -V
+> ip utility, iproute2-ss150413
+> 
+> This time rung from gdb with debug info:
+> 
+> Program received signal SIGABRT, Aborted.
+> 0x00007ffff7874e77 in __GI_raise (sig=sig@entry=6) at 
+> ../sysdeps/unix/sysv/linux/raise.c:55
+> 55      ../sysdeps/unix/sysv/linux/raise.c: No such file or directory.
+> (gdb) bt
+> #0  0x00007ffff7874e77 in __GI_raise (sig=sig@entry=6) at 
+> ../sysdeps/unix/sysv/linux/raise.c:55
+> #1  0x00007ffff787627a in __GI_abort () at abort.c:89
+> #2  0x00007ffff78b2d24 in __libc_message (do_abort=do_abort@entry=2, 
+> fmt=fmt@entry=0x7ffff79a1320 "*** %s ***: %s terminated\n")
+>      at ../sysdeps/posix/libc_fatal.c:175
+> #3  0x00007ffff7937a67 in __GI___fortify_fail 
+> (msg=msg@entry=0x7ffff79a1308 "stack smashing detected") at 
+> fortify_fail.c:31
+> #4  0x00007ffff7937a30 in __stack_chk_fail () at stack_chk_fail.c:28
+> #5  0x000000000042c487 in gre_parse_opt (lu=<optimized out>, argc=0, 
+> argv=0x7fffffffe388, n=0x7fffffffdc80) at link_gre.c:330
+> #6  0x0000000000000000 in ?? ()
+> 
+> I tried to investigate further:
+> stack corruption happens on call to rtnl_talk on line 87 in ip/link_gre.c
+>      87:   if (rtnl_talk(&rth, &req.n, 0, 0, &req.n) < 0)
+> 
+> looking at  rtnl_talk in lib/libnetlink.c, I found that actual 
+> corruption happens on  memcpy  call (line 401) which copies message with 
+> length of 1288 in that specific example into a buffer on the stack with 
+> not enough space (the struct at *answer  which is defined at 
+> ip/link_gre.c as struct req  is just 1024+10+16, I believe)
+> I see that in lib/libnetlink.c netlink msg buffer is 16k but in 
+> gre_parse_opt it is defined as just 1k. Raising it to 16k fixes that 
+> particular stack smash, but I am not familiar with the internals there 
+> and I dont know is that correct fix.
+> Actually I am not sure is that valid command at all, the corresponding 
+> man pages are slightly(?) outdated.
+> 
+> Best regards
+> Jeka
+> 
+> P.S. I am not subscribed to this mailing list so please CC me on replies.
 
-The example that immediately came to mind when I first read Eric's
-comment was a packet coming in off a network in a particular network
-namespace.  That could narrow it down to a subset of containers based on
-which network namespace it inhabits, but since it isn't associated with
-a particular task yet (other than a kernel thread) it will not be
-possible to select the precise nsproxy, let alone the container.
+Yes, this is a long standing problem in rtnl_talk() api has no max
+length given for the answer.
 
-> paul moore
-
-- RGB
-
---
-Richard Guy Briggs <rbriggs@redhat.com>
-Senior Software Engineer, Kernel Security, AMER ENG Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635, Alt: +1.613.693.0684x3545
+:(
