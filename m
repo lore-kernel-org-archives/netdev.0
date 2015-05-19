@@ -1,79 +1,91 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next 3/4] rocker: do not make neighbour entry changes
- when preparing transactions
-Date: Wed, 20 May 2015 07:33:27 +0900
-Message-ID: <20150519223325.GA18883@penelope.isobedori.kobe.vergenet.net>
-References: <1432016657-24231-1-git-send-email-simon.horman@netronome.com>
- <1432016657-24231-4-git-send-email-simon.horman@netronome.com>
- <CAE4R7bBZTPeD4PM8xfxvEn0FSwCnWNwPt4FLAf38=7KdQn=s+Q@mail.gmail.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 05/12] IB/cm: Share listening CM IDs
+Date: Tue, 19 May 2015 16:35:02 -0600
+Message-ID: <20150519223502.GA26324@obsidianresearch.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+ <1431841868-28063-6-git-send-email-haggaie@mellanox.com>
+ <20150519183545.GH18675@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Scott Feldman <sfeldma@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:35374 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155AbbESWdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 18:33:37 -0400
-Received: by pdea3 with SMTP id a3so43160163pde.2
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 15:33:37 -0700 (PDT)
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAE4R7bBZTPeD4PM8xfxvEn0FSwCnWNwPt4FLAf38=7KdQn=s+Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20150519183545.GH18675-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 19, 2015 at 09:11:29AM -0700, Scott Feldman wrote:
-> On Mon, May 18, 2015 at 11:24 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > rocker_port_ipv4_nh() and in turn rocker_port_ipv4_neigh() may be
-> > be called with trans == SWITCHDEV_TRANS_PREPARE and then
-> > trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_obj_set() via
-> > fib_table_insert().
-> >
-> > Although I have been unable to find a scenario where a bug manifests
-> > I do see some incorrect behaviour when adding a fib entry with a gateway.
-> >
-> > The first time that rocker_port_ipv4_nh() is called, with
-> > trans == SWITCHDEV_TRANS_PREPARE, _rocker_neigh_add()
-> > adds a new entry to the neigh table.
-> >
-> > And the second time  rocker_port_ipv4_nh() is called, with
-> > trans == SWITCHDEV_TRANS_COMMIT, that entry is found and
-> > _rocker_neigh_update() is called.
-> >
-> > Assuming the transaction runs to completion this appears to be harmless.
-> > I suspect it would be not correct if the transaction was aborted.
-> >
-> > This problem does not appear to affect deletion as my analysis is
-> > that deletion is always performed with trans == SWITCHDEV_TRANS_NONE.
-> >
-> > For completeness _rocker_neigh_{add,del,prepare} are updated not
-> > to manipulate fib table entries if trans == SWITCHDEV_TRANS_PREPARE.
-> >
-> > Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> > ---
-> >  drivers/net/ethernet/rocker/rocker.c | 16 ++++++++++++----
-> >  1 file changed, 12 insertions(+), 4 deletions(-)
-> >
+On Tue, May 19, 2015 at 12:35:45PM -0600, Jason Gunthorpe wrote:
+> On Sun, May 17, 2015 at 08:51:01AM +0300, Haggai Eran wrote:
+> > @@ -212,6 +212,8 @@ struct cm_id_private {
+> >  	spinlock_t lock;	/* Do not acquire inside cm.lock */
+> >  	struct completion comp;
+> >  	atomic_t refcount;
+> > +	/* Number of clients sharing this ib_cm_id. Only valid for listeners. */
+> > +	atomic_t sharecount;
 > 
-> [cut]
+> No need for this atomic, hold the lock
 > 
-> > @@ -2928,8 +2933,11 @@ static void _rocker_neigh_del(struct rocker_port *rocker_port,
-> >  }
-> >
-> >  static void _rocker_neigh_update(struct rocker_neigh_tbl_entry *entry,
-> > +                                enum switchdev_trans trans,
-> >                                  u8 *eth_dst, bool ttl_check)
-> >  {
-> > +       if (trans == SWITCHDEV_TRANS_PREPARE)
-> > +               return;
+> The use of the atomic looks racy:
 > 
-> On this one, let move the trans==PREPARE test to the else branch, in
-> case someone down the line is dependent on eth_dst and ttl_check being
-> copied over.
+> > +	if (!atomic_dec_and_test(&cm_id_priv->sharecount)) {
+> > +		/* The id is still shared. */
+> > +		return;
+> > +	}
 > 
-> Everything else in the patch looks good.
+> Might race with this:
+> 
+> > +		if (atomic_inc_return(&cm_id_priv->sharecount) == 1) {
+> > +			/* This ID is already being destroyed */
+> > +			atomic_dec(&cm_id_priv->sharecount);
+> > +			goto new_id;
+> > +		}
+> > +
+> 
+> Resulting in use-after-free of cm_id_priv->sharecount
 
-Thanks Scott, I'll adjust things as you suggest.
+Actually, there is something else odd here.. I mentioned the above
+because there wasn't obvious ref'ing on the cm_id_priv. Looking closer
+the cm.lock should prevent use-after-free, but there is still no ref.
+
+The more I look at this, the more I think it is sketchy. Don't try and
+merge sharecount and refcount together, after cm_find_listen is called
+you have to increment the refcount before dropping cm.lock.
+
+Decrement the refcount when destroying a shared listen.
+
+I also don't see how the 'goto new_id' can work, if cm_find_listen
+succeeds then __ib_cm_listen is guarenteed to fail.
+
+Fix the locking to make that impossible, associate sharecount with the
+cm.lock and, rework how cm_destroy_id grabs the cm_id_priv->lock spinlock:
+
+	case IB_CM_LISTEN:
+		spin_lock_irq(&cm.lock);
+		if (cm_id_priv->sharecount != 0) {
+		     cm_id_prv->sharecount--;
+		     // paired with in in ib_cm_id_create_and_listen
+		     atomic_dec(&cm_id_priv->refcount);
+		     spin_unlock_irq(&cm.lock);
+		     return;
+		}
+		rb_erase(&cm_id_priv->service_node, &cm.listen_service_table);
+		spin_unlock_irq(&cm.lock);
+	
+		spin_lock_irq(&cm_id_priv->lock);
+		cm_id->state = IB_CM_IDLE;
+		spin_unlock_irq(&cm_id_priv->lock);
+		break;
+
+Now that condition is eliminated, the unneeded atomic is gone, and
+refcount still acts like a proper kref should.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
