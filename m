@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 01/10] pktgen: remove obsolete "max_before_softirq"
-	from pktgen doc
-Date: Tue, 19 May 2015 23:35:18 +0200
-Message-ID: <20150519213518.9070.37250.stgit@ivy>
+Subject: [net-next PATCH 02/10] pktgen: adjust spacing in proc file interface
+	output
+Date: Tue, 19 May 2015 23:35:28 +0200
+Message-ID: <20150519213528.9070.95767.stgit@ivy>
 References: <20150519213326.9070.18264.stgit@ivy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,82 +14,34 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
 	Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59780 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47853 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097AbbESVfX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2015 17:35:23 -0400
+	id S1751530AbbESVfs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2015 17:35:48 -0400
 In-Reply-To: <20150519213326.9070.18264.stgit@ivy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And cleanup some whitespaces in pktgen.txt.
+Too many spaces were introduced in commit 63adc6fb8ac0 ("pktgen: cleanup
+checkpatch warnings"), thus misaligning "src_min:" to other columns.
 
+Fixes: 63adc6fb8ac0 ("pktgen: cleanup checkpatch warnings")
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
- Documentation/networking/pktgen.txt |   18 ++++++++----------
- 1 files changed, 8 insertions(+), 10 deletions(-)
+ net/core/pktgen.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
-index 747facc..62f5ebb 100644
---- a/Documentation/networking/pktgen.txt
-+++ b/Documentation/networking/pktgen.txt
-@@ -1,6 +1,6 @@
- 
- 
--                  HOWTO for the linux packet generator 
-+                  HOWTO for the linux packet generator
-                   ------------------------------------
- 
- Enable CONFIG_NET_PKTGEN to compile and build pktgen either in-kernel
-@@ -52,11 +52,10 @@ For ixgbe use e.g. "30" resulting in approx 33K interrupts/sec (1/30*10^6):
- 
- Viewing threads
- ===============
--/proc/net/pktgen/kpktgend_0 
--Name: kpktgend_0  max_before_softirq: 10000
--Running: 
--Stopped: eth1 
--Result: OK: max_before_softirq=10000
-+/proc/net/pktgen/kpktgend_0
-+Running:
-+Stopped: eth1
-+Result: OK: add_device=eth1
- 
- Most important are the devices assigned to the thread.  Note that a
- device can only belong to one thread.
-@@ -69,7 +68,7 @@ The Params section holds configured information.  The Current section
- holds running statistics.  The Result is printed after a run or after
- interruption.  Example:
- 
--/proc/net/pktgen/eth1       
-+/proc/net/pktgen/eth1
- 
- Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
-      frags: 0  delay: 0  clone_skb: 1000000  ifname: eth1
-@@ -126,7 +125,7 @@ Examples:
-                          To select queue 1 of a given device,
-                          use queue_map_min=1 and queue_map_max=1
- 
-- pgset "src_mac_count 1" Sets the number of MACs we'll range through.  
-+ pgset "src_mac_count 1" Sets the number of MACs we'll range through.
-                          The 'minimum' MAC is what you set with srcmac.
- 
-  pgset "dst_mac_count 1" Sets the number of MACs we'll range through.
-@@ -247,7 +246,6 @@ stop
- 
- add_device
- rem_device_all
--max_before_softirq
- 
- 
- ** Device commands:
-@@ -262,7 +260,7 @@ delay
- src_mac_count
- dst_mac_count
- 
--pkt_size 
-+pkt_size
- min_pkt_size
- max_pkt_size
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 62f9799..167e592 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -572,7 +572,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 			   "     dst_min: %s  dst_max: %s\n",
+ 			   pkt_dev->dst_min, pkt_dev->dst_max);
+ 		seq_printf(seq,
+-			   "        src_min: %s  src_max: %s\n",
++			   "     src_min: %s  src_max: %s\n",
+ 			   pkt_dev->src_min, pkt_dev->src_max);
+ 	}
  
