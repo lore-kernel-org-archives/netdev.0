@@ -1,80 +1,112 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [Intel-wired-lan] [PATCH] pci: Limit VPD reads for all Intel
- Ethernet devices
-Date: Tue, 19 May 2015 08:54:39 -0700
-Message-ID: <555B5CBF.1090902@redhat.com>
-References: <20150519000042.56109.69779.stgit@mdrustad-wks.jf.intel.com>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH net-next 1/4] rocker: do not delete fdb entries in
+ rocker_port_fdb_flush() when preparing transactions
+Date: Tue, 19 May 2015 08:57:53 -0700
+Message-ID: <CAE4R7bAFD-yxMORgjKQfOKXFu7t53g5FpNLfijeX6+FEgc2Q-w@mail.gmail.com>
+References: <1432016657-24231-1-git-send-email-simon.horman@netronome.com>
+	<1432016657-24231-2-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-pci@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org
-To: Mark D Rustad <mark.d.rustad@intel.com>, bhelgaas@google.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20150519000042.56109.69779.stgit@mdrustad-wks.jf.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:33913 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755537AbbESP5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 11:57:54 -0400
+Received: by qgez61 with SMTP id z61so5671442qge.1
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 08:57:54 -0700 (PDT)
+In-Reply-To: <1432016657-24231-2-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2015 05:00 PM, Mark D Rustad wrote:
-> To save boot time and some memory, limit VPD size to the maximum
-> possible for all Intel Ethernet devices that have VPD, which is 1K.
+On Mon, May 18, 2015 at 11:24 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> rocker_port_fdb_flush() is called by rocker_port_stp_update() which in
+> turn may be called with trans == SWITCHDEV_TRANS_PREPARE and then
+> trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_attr_set() via
+> br_set_state().
 >
-> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/pci/quirks.c |    7 +++++--
->   1 file changed, 5 insertions(+), 2 deletions(-)
+> When rocker_port_fdb_flush() is called with trans == SWITCHDEV_TRANS_PREPARE
+> it calls rocker_port_fdb_learn() for each entry in the FDB table which in
+> turn calls rocker_flow_tbl_bridge() which will allocate memory using
+> rocker_port_kzalloc(). rocker_port_fdb_learn() will then remove the entry
+> from the FDB table.
 >
-> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-> index c6dc1dfd25d5..4fabbeda964a 100644
-> --- a/drivers/pci/quirks.c
-> +++ b/drivers/pci/quirks.c
-> @@ -1903,12 +1903,15 @@ static void quirk_netmos(struct pci_dev *dev)
->   DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID,
->   			 PCI_CLASS_COMMUNICATION_SERIAL, 8, quirk_netmos);
->   
-> -static void quirk_e100_interrupt(struct pci_dev *dev)
-> +static void quirk_intel_enet(struct pci_dev *dev)
->   {
->   	u16 command, pmcsr;
->   	u8 __iomem *csr;
->   	u8 cmd_hi;
->   
-> +	if (dev->vpd)
-> +		dev->vpd->len = 0x400;
-> +
->   	switch (dev->device) {
->   	/* PCI IDs taken from drivers/net/e100.c */
->   	case 0x1029:
-> @@ -1967,7 +1970,7 @@ static void quirk_e100_interrupt(struct pci_dev *dev)
->   	iounmap(csr);
->   }
->   DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID,
-> -			PCI_CLASS_NETWORK_ETHERNET, 8, quirk_e100_interrupt);
-> +			      PCI_CLASS_NETWORK_ETHERNET, 8, quirk_intel_enet);
->   
->   /*
->    * The 82575 and 82598 may experience data corruption issues when transitioning
+> Then when rocker_port_fdb_learn() is called with
+> trans == SWITCHDEV_TRANS_PREPARE no calls are made to rocker_port_fdb_learn()
+> because there are no longer any entries present in the FDB table. Thus the
+> memory previously allocated by rocker_port_fdb_learn() is leaked resulting
+> in the kernel BUG() below.
 >
+> Furthermore, it looks like the driver ends up with an incorrect view of the
+> fdb table as the FDB entries are purged from the driver's table but not the
+> hardware's table.
+>
+> ip link add br0 type bridge
+> ip link set up dev eth0
+> sleep 1
+> ip link set dev eth0 master br0
+> [    3.704360] ------------[ cut here ]------------
+> [    3.704611] kernel BUG at drivers/net/ethernet/rocker/rocker.c:4289!
+> [    3.704962] invalid opcode: 0000 [#1] SMP
+> [    3.705537] Modules linked in:
+> [    3.705919] CPU: 0 PID: 63 Comm: ip Not tainted 4.1.0-rc3-01046-gb9fbe709de4d #1044
+> [    3.706191] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.0-0-g4c59f5d-20150219_092859-nilsson.home.kraxel.org 04/01/2014
+> [    3.706820] task: ffff880019f70150 ti: ffff88001f92c000 task.ti: ffff88001f92c000
+> [    3.707138] RIP: 0010:[<ffffffff811f0080>]  [<ffffffff811f0080>] rocker_port_attr_set+0xe0/0xf0
+> [    3.707990] RSP: 0018:ffff88001f92f808  EFLAGS: 00000212
+> [    3.708200] RAX: ffff880019d4fa68 RBX: ffff880019d4f000 RCX: 0000000000000000
+> [    3.708471] RDX: 000000000000000c RSI: ffff88001f92f890 RDI: ffff880019d4f680
+> [    3.708740] RBP: 0000000000000001 R08: 0000000000000000 R09: 0000000000000004
+> [    3.708999] R10: ffff880000034024 R11: 0000000000000000 R12: ffff88001f92f890
+> [    3.709276] R13: ffff88001f8f1c00 R14: 000000000000000b R15: 0000000000000000
+> [    3.709303] FS:  00007f8ab66bd700(0000) GS:ffff88001b000000(0000) knlGS:0000000000000000
+> [    3.709303] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [    3.709303] CR2: 0000000000654988 CR3: 000000001f8f3000 CR4: 00000000000006b0
+> [    3.709303] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [    3.709303] DR3: 0000000000000000 DR6: 0000000000000000 DR7: 0000000000000000
+> [    3.709303] Stack:
+> [    3.709303]  ffff88001f8f1c00 000000000000000b ffff88001f92f890 ffff880019d4f000
+> [    3.709303]  ffff88001f92f890 ffffffff813332f5 ffff88001f92f880 0000000000000000
+> [    3.709303]  ffff88001f92f890 0000000000000001 ffff880019d4f000 ffffffff81333627
+> [    3.709303] Call Trace:
+> [    3.709303]  [<ffffffff813332f5>] ? __switchdev_port_attr_set+0x25/0x90
+> [    3.709303]  [<ffffffff81333627>] ? switchdev_port_attr_set+0x27/0x120
+> [    3.709303]  [<ffffffff81318e86>] ? br_set_state+0x36/0x50
+> [    3.709303]  [<ffffffff8131795c>] ? br_add_if+0x37c/0x400
+> [    3.709303]  [<ffffffff81238ce1>] ? do_setlink+0x7e1/0x800
+> [    3.709303]  [<ffffffff8111f980>] ? radix_tree_lookup_slot+0x10/0x30
+> [    3.709303]  [<ffffffff81136fba>] ? nla_parse+0xaa/0x110
+> [    3.709303]  [<ffffffff81239c98>] ? rtnl_newlink+0x548/0x870
+> [    3.709303]  [<ffffffff8111f900>] ? __radix_tree_lookup+0x40/0xb0
+> [    3.709303]  [<ffffffff81136f3e>] ? nla_parse+0x2e/0x110
+> [    3.709303]  [<ffffffff81237d7e>] ? rtnetlink_rcv_msg+0x7e/0x250
+> [    3.709303]  [<ffffffff8121d1be>] ? __skb_recv_datagram+0xfe/0x4b0
+> [    3.709303]  [<ffffffff81237d00>] ? rtnetlink_rcv+0x30/0x30
+> [    3.709303]  [<ffffffff81247948>] ? netlink_rcv_skb+0xa8/0xd0
+> [    3.709303]  [<ffffffff81237cef>] ? rtnetlink_rcv+0x1f/0x30
+> [    3.709303]  [<ffffffff81247210>] ? netlink_unicast+0x150/0x200
+> [    3.709303]  [<ffffffff81247704>] ? netlink_sendmsg+0x374/0x3e0
+> [    3.709303]  [<ffffffff8120f8cf>] ? sock_sendmsg+0xf/0x30
+> [    3.709303]  [<ffffffff8120ffc3>] ? ___sys_sendmsg+0x1f3/0x200
+> [    3.709303]  [<ffffffff812100d5>] ? ___sys_recvmsg+0x105/0x140
+> [    3.709303]  [<ffffffff812228d9>] ? dev_get_by_name_rcu+0x69/0x90
+> [    3.709303]  [<ffffffff812228d9>] ? dev_get_by_name_rcu+0x69/0x90
+> [    3.709303]  [<ffffffff81217b7d>] ? skb_dequeue+0x4d/0x60
+> [    3.709303]  [<ffffffff81217bb0>] ? skb_queue_purge+0x20/0x30
+> [    3.709303]  [<ffffffff810ebdcf>] ? __inode_wait_for_writeback+0x5f/0xb0
+> [    3.709303]  [<ffffffff810648b0>] ? autoremove_wake_function+0x30/0x30
+> [    3.709303]  [<ffffffff81210ee9>] ? __sys_sendmsg+0x39/0x70
+> [    3.709303]  [<ffffffff8133e097>] ? system_call_fastpath+0x12/0x6a
+> [    3.709303] Code: bb 90 06 00 00 48 c7 04 24 00 00 00 00 45 31 c9 45 31 c0 48 c7 c1 c0 b7 1e 81 89 ea e8 da da ff ff eb 95 0f 1f 84 00 00 00 00 00 <0f> 0b 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 48 83 fe 15 75
+> [    3.709303] RIP  [<ffffffff811f0080>] rocker_port_attr_set+0xe0/0xf0
+> [    3.709303]  RSP <ffff88001f92f808>
+> [    3.721409] ---[ end trace b7481fcb7cb032aa ]---
+> Segmentation fault
+>
+> Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-I wasn't a fan of the first VPD patch and this clinches it.  What I 
-would recommend doing is identifying all of the functions for a given 
-device that share a VPD and then eliminate the VPD structure for all but 
-the first function.  By doing that the OS should treat the other 
-functions as though their VPD areas don't exist.
-
-The way I would code it would be to scan for any other functions with 
-the same bus and device number and if one with a lower function number 
-has a VPD area we delete our own VPD area, if one with a higher function 
-number has a VPD area then we delete that ones VPD area, if the search 
-returns our function number we resume our search from there, and do 
-nothing if no other devices with VPD are found. The general idea is to 
-sort things until the device closest to function 0 is the only one with 
-a VPD area.
-
-Artificially limiting the size of the VPD does nothing but cut off 
-possibly useful data, you would be better of providing all of the data 
-on only the first function than providing only partial data on all 
-functions and adding extra lock overhead.
-
-- Alex
+Acked-by: Scott Feldman <sfeldma@gmail.com>
