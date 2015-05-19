@@ -1,43 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: make hwmon interface optional
-Date: Tue, 19 May 2015 16:40:22 -0400 (EDT)
-Message-ID: <20150519.164022.444377281915355405.davem@davemloft.net>
-References: <2638325.2pcgKkR8vC@wuerfel>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211-next 2015-05-19
+Date: Tue, 19 May 2015 16:43:44 -0400 (EDT)
+Message-ID: <20150519.164344.1114724614587176913.davem@davemloft.net>
+References: <1432020039.7437.0.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, VenkatKumar.Duvvuru@emulex.com,
-	sathya.perla@avagotech.com, ajit.khaparde@avagotech.com,
-	padmanabh.ratnakar@avagotech.com,
-	sriharsha.basavapatna@avagotech.com, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47956 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbbESUkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:40:25 -0400
-In-Reply-To: <2638325.2pcgKkR8vC@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1432020039.7437.0.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 18 May 2015 23:06:45 +0200
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Tue, 19 May 2015 09:20:39 +0200
 
-> The hwmon interface in the be2net driver causes a link error when
-> be2net is built-in while the hwmon subsystem is a loadable module:
+> Hi Dave,
+> My last pull request introduced two bugs, and we found two more that
+> were present earlier, so I have four bug fixes now.
 > 
-> drivers/built-in.o: In function `be_probe':
-> drivers/net/ethernet/emulex/benet/be_main.c:5761: undefined reference to `devm_hwmon_device_register_with_groups'
-> 
-> This adds a new Kconfig symbol, following the example of multiple
-> other drivers that have the same problem. The new CONFIG_BE2NET_HWMON
-> will not be available when (BE2NET=y && HWMON=m) to avoid this
-> problem.
-> 
-> We have to also mark be_hwmon_show_temp as 'static' to ensure the
-> compiler can optimize out all the unused code.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 29e9122b3a ("be2net: Export board temperature using hwmon-sysfs interface.")
+> Please pull.
 
-Applied, thanks.
+Pulled, thanks Johannes.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
