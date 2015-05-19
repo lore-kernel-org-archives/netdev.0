@@ -1,70 +1,80 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH 00/13] Persistent grant maps for xen net drivers
-Date: Tue, 19 May 2015 16:39:01 +0100
-Message-ID: <20150519153901.GH26335@zion.uk.xensource.com>
-References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+From: Alexander Duyck <alexander.h.duyck@redhat.com>
+Subject: Re: [Intel-wired-lan] [PATCH] pci: Limit VPD reads for all Intel
+ Ethernet devices
+Date: Tue, 19 May 2015 08:54:39 -0700
+Message-ID: <555B5CBF.1090902@redhat.com>
+References: <20150519000042.56109.69779.stgit@mdrustad-wks.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
-	<david.vrabel@citrix.com>, <boris.ostrovsky@oracle.com>,
-	<konrad.wilk@oracle.com>
-To: Joao Martins <joao.martins@neclab.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:37521 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750981AbbESPjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 11:39:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-pci@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org
+To: Mark D Rustad <mark.d.rustad@intel.com>, bhelgaas@google.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20150519000042.56109.69779.stgit@mdrustad-wks.jf.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 12, 2015 at 07:18:24PM +0200, Joao Martins wrote:
+On 05/18/2015 05:00 PM, Mark D Rustad wrote:
+> To save boot time and some memory, limit VPD size to the maximum
+> possible for all Intel Ethernet devices that have VPD, which is 1K.
+>
+> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+> Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/pci/quirks.c |    7 +++++--
+>   1 file changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+> index c6dc1dfd25d5..4fabbeda964a 100644
+> --- a/drivers/pci/quirks.c
+> +++ b/drivers/pci/quirks.c
+> @@ -1903,12 +1903,15 @@ static void quirk_netmos(struct pci_dev *dev)
+>   DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID,
+>   			 PCI_CLASS_COMMUNICATION_SERIAL, 8, quirk_netmos);
+>   
+> -static void quirk_e100_interrupt(struct pci_dev *dev)
+> +static void quirk_intel_enet(struct pci_dev *dev)
+>   {
+>   	u16 command, pmcsr;
+>   	u8 __iomem *csr;
+>   	u8 cmd_hi;
+>   
+> +	if (dev->vpd)
+> +		dev->vpd->len = 0x400;
+> +
+>   	switch (dev->device) {
+>   	/* PCI IDs taken from drivers/net/e100.c */
+>   	case 0x1029:
+> @@ -1967,7 +1970,7 @@ static void quirk_e100_interrupt(struct pci_dev *dev)
+>   	iounmap(csr);
+>   }
+>   DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID,
+> -			PCI_CLASS_NETWORK_ETHERNET, 8, quirk_e100_interrupt);
+> +			      PCI_CLASS_NETWORK_ETHERNET, 8, quirk_intel_enet);
+>   
+>   /*
+>    * The 82575 and 82598 may experience data corruption issues when transitioning
+>
 
-> There have been recently[3] some discussions and issues raised on
-> persistent grants for the block layer, though the numbers above
-> show some significant improvements specially on more network intensive
-> workloads and provide a margin for comparison against future map/unmap
-> improvements.
-> 
-> Any comments or suggestions are welcome,
-> Thanks!
+I wasn't a fan of the first VPD patch and this clinches it.  What I 
+would recommend doing is identifying all of the functions for a given 
+device that share a VPD and then eliminate the VPD structure for all but 
+the first function.  By doing that the OS should treat the other 
+functions as though their VPD areas don't exist.
 
-Thanks, the numbers certainly look interesting.
+The way I would code it would be to scan for any other functions with 
+the same bus and device number and if one with a lower function number 
+has a VPD area we delete our own VPD area, if one with a higher function 
+number has a VPD area then we delete that ones VPD area, if the search 
+returns our function number we resume our search from there, and do 
+nothing if no other devices with VPD are found. The general idea is to 
+sort things until the device closest to function 0 is the only one with 
+a VPD area.
 
-I'm just a bit concerned about the complexity of netback. I've
-commented on individual patches, we can discuss the issues there.
+Artificially limiting the size of the VPD does nothing but cut off 
+possibly useful data, you would be better of providing all of the data 
+on only the first function than providing only partial data on all 
+functions and adding extra lock overhead.
 
-Wei.
-
-> Joao
-> 
-> [1] http://article.gmane.org/gmane.linux.network/249383
-> [2] http://bit.ly/1IhJfXD
-> [3] http://lists.xen.org/archives/html/xen-devel/2015-02/msg02292.html
-> 
-> Joao Martins (13):
->   xen-netback: add persistent grant tree ops
->   xen-netback: xenbus feature persistent support
->   xen-netback: implement TX persistent grants
->   xen-netback: implement RX persistent grants
->   xen-netback: refactor xenvif_rx_action
->   xen-netback: copy buffer on xenvif_start_xmit()
->   xen-netback: add persistent tree counters to debugfs
->   xen-netback: clone skb if skb->xmit_more is set
->   xen-netfront: move grant_{ref,page} to struct grant
->   xen-netfront: refactor claim/release grant
->   xen-netfront: feature-persistent xenbus support
->   xen-netfront: implement TX persistent grants
->   xen-netfront: implement RX persistent grants
-> 
->  drivers/net/xen-netback/common.h    |  79 ++++
->  drivers/net/xen-netback/interface.c |  78 +++-
->  drivers/net/xen-netback/netback.c   | 873 ++++++++++++++++++++++++++++++------
->  drivers/net/xen-netback/xenbus.c    |  24 +
->  drivers/net/xen-netfront.c          | 362 ++++++++++++---
->  5 files changed, 1216 insertions(+), 200 deletions(-)
-> 
-> -- 
-> 2.1.3
+- Alex
