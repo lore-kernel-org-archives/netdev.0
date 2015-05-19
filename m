@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: Return error instead of partial read for
- saved syn headers
-Date: Tue, 19 May 2015 16:33:50 -0400 (EDT)
-Message-ID: <20150519.163350.407818271127074601.davem@davemloft.net>
-References: <1431974158-28288-1-git-send-email-emunson@akamai.com>
+Subject: Re: [PATCH] net/ipv6/udp: Fix ipv6 multicast socket filter
+ regression
+Date: Tue, 19 May 2015 16:35:27 -0400 (EDT)
+Message-ID: <20150519.163527.1773026813864217682.davem@davemloft.net>
+References: <1431976129-28032-1-git-send-email-hrogge@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: emunson@akamai.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431974158-28288-1-git-send-email-emunson@akamai.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hrogge@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47915 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322AbbESUf3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:35:29 -0400
+In-Reply-To: <1431976129-28032-1-git-send-email-hrogge@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric B Munson <emunson@akamai.com>
-Date: Mon, 18 May 2015 14:35:58 -0400
+From: Henning Rogge <hrogge@gmail.com>
+Date: Mon, 18 May 2015 21:08:49 +0200
 
-> Currently the getsockopt() requesting the cached contents of the syn
-> packet headers will fail silently if the caller uses a buffer that is
-> too small to contain the requested data.  Rather than fail silently and
-> discard the headers, getsockopt() should return an error and report the
-> required size to hold the data.
+> Commit <5cf3d46192fc> ("udp: Simplify__udp*_lib_mcast_deliver")
+> simplified the filter for incoming IPv6 multicast but removed
+> the check of the local socket address and the UDP destination
+> address.
 > 
-> Signed-off-by: Eric B Munson <emunson@akamai.com>
+> This patch restores the filter to prevent sockets bound to a IPv6
+> multicast IP to receive other UDP traffic link unicast.
+> 
+> Signed-off-by: Henning Rogge <hrogge@gmail.com>
+> Fixes: 5cf3d46192fc ("udp: Simplify__udp*_lib_mcast_deliver")
 
-Applied, thanks Eric.
+Applied and queued up for -stable, thanks.
