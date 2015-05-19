@@ -1,45 +1,95 @@
-From: Kyle McMartin <kyle@infradead.org>
-Subject: Re: [PATCH resend] README: clarify redistribution requirements
- covering patents
-Date: Tue, 19 May 2015 17:22:25 -0400
-Message-ID: <20150519212225.GD5093@merlin.infradead.org>
-References: <1431626160-10885-1-git-send-email-mcgrof@do-not-panic.com>
- <5554E99A.5030302@broadcom.com>
- <CAB=NE6WxMid+eNOoHZ__kbvP3BktHuYip+fQwVDydJQbQ1No_g@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 01/10] pktgen: remove obsolete "max_before_softirq"
+	from pktgen doc
+Date: Tue, 19 May 2015 23:35:18 +0200
+Message-ID: <20150519213518.9070.37250.stgit@ivy>
+References: <20150519213326.9070.18264.stgit@ivy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arend van Spriel <arend@broadcom.com>,
-	Kyle McMartin <kyle@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAB=NE6WxMid+eNOoHZ__kbvP3BktHuYip+fQwVDydJQbQ1No_g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Robert Olsson <robert@herjulf.se>,
+	Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59780 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751097AbbESVfX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2015 17:35:23 -0400
+In-Reply-To: <20150519213326.9070.18264.stgit@ivy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 01:18:14PM -0700, Luis R. Rodriguez wrote:
-> >>   Your commit should include an update to the WHENCE file clearly
-> >>   identifying the licence under which the firmware is available, and
-> >> -that it is redistributable. If the licence is long and involved, it's
-> >> +that it is redistributable. Being redistributable includes ensuring
-> >> +the firmware license provided includes an implicit or explicit
-> >> +patent grant to end users to ensure full functionality of device
-> >> +operation with the firmware. If the licence is long and involved, it's
-> >
-> >
-> > Just nitpicking here, but there is 'license' and 'licence' being used here.
-> > Better stick to one and preferably 'license'.
-> 
-> Fixed, will submit a v2.
-> 
+And cleanup some whitespaces in pktgen.txt.
 
-Heh, it doesn't help that we now have LICENSE.* and LICENCE.* in the
-tree as well. :/ I believe, at least in my Commonwealth english, that
-licence is the file, and license is the action of licensing. I should
-probably rename the LICENSE.* files in the tree to match.
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
 
---Kyle
+ Documentation/networking/pktgen.txt |   18 ++++++++----------
+ 1 files changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
+index 747facc..62f5ebb 100644
+--- a/Documentation/networking/pktgen.txt
++++ b/Documentation/networking/pktgen.txt
+@@ -1,6 +1,6 @@
+ 
+ 
+-                  HOWTO for the linux packet generator 
++                  HOWTO for the linux packet generator
+                   ------------------------------------
+ 
+ Enable CONFIG_NET_PKTGEN to compile and build pktgen either in-kernel
+@@ -52,11 +52,10 @@ For ixgbe use e.g. "30" resulting in approx 33K interrupts/sec (1/30*10^6):
+ 
+ Viewing threads
+ ===============
+-/proc/net/pktgen/kpktgend_0 
+-Name: kpktgend_0  max_before_softirq: 10000
+-Running: 
+-Stopped: eth1 
+-Result: OK: max_before_softirq=10000
++/proc/net/pktgen/kpktgend_0
++Running:
++Stopped: eth1
++Result: OK: add_device=eth1
+ 
+ Most important are the devices assigned to the thread.  Note that a
+ device can only belong to one thread.
+@@ -69,7 +68,7 @@ The Params section holds configured information.  The Current section
+ holds running statistics.  The Result is printed after a run or after
+ interruption.  Example:
+ 
+-/proc/net/pktgen/eth1       
++/proc/net/pktgen/eth1
+ 
+ Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
+      frags: 0  delay: 0  clone_skb: 1000000  ifname: eth1
+@@ -126,7 +125,7 @@ Examples:
+                          To select queue 1 of a given device,
+                          use queue_map_min=1 and queue_map_max=1
+ 
+- pgset "src_mac_count 1" Sets the number of MACs we'll range through.  
++ pgset "src_mac_count 1" Sets the number of MACs we'll range through.
+                          The 'minimum' MAC is what you set with srcmac.
+ 
+  pgset "dst_mac_count 1" Sets the number of MACs we'll range through.
+@@ -247,7 +246,6 @@ stop
+ 
+ add_device
+ rem_device_all
+-max_before_softirq
+ 
+ 
+ ** Device commands:
+@@ -262,7 +260,7 @@ delay
+ src_mac_count
+ dst_mac_count
+ 
+-pkt_size 
++pkt_size
+ min_pkt_size
+ max_pkt_size
+ 
