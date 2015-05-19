@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: irda-usb: use msecs_to_jiffies for conversions
-Date: Tue, 19 May 2015 16:45:55 -0400 (EDT)
-Message-ID: <20150519.164555.1631069770118420652.davem@davemloft.net>
-References: <1432032711-7020-1-git-send-email-hofrat@osadl.org>
-	<1432045935.2870.152.camel@perches.com>
+Subject: Re: [PATCHv2 net-next 0/2] Remove dead code and replace byte-oder
+ functions
+Date: Tue, 19 May 2015 16:47:52 -0400 (EDT)
+Message-ID: <20150519.164752.1499182180114852620.davem@davemloft.net>
+References: <1432039844-23326-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hofrat@osadl.org, samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432045935.2870.152.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48032 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751274AbbESUry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:47:54 -0400
+In-Reply-To: <1432039844-23326-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 19 May 2015 07:32:15 -0700
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue, 19 May 2015 18:20:42 +0530
 
-> On Tue, 2015-05-19 at 12:51 +0200, Nicholas Mc Guire wrote:
->> Converting milliseconds to jiffies by "val * HZ / 1000" is technically
->> is not a clean solution as it does not handle all corner cases correctly.
->> By changing the conversion to use msecs_to_jiffies(val) conversion is
->> correct in all cases.
->> 
->> in the current code: 
->>   mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
->> for HZ < 100 (e.g. CONFIG_HZ == 64|32 in alpha) this effectively results 
->> in no delay at all.
-> []
->> diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-> []
->> @@ -848,7 +848,9 @@ static void irda_usb_receive(struct urb *urb)
->>  		 * Jean II */
->>  		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
->>  		self->rx_defer_timer.data = (unsigned long) urb;
->> -		mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
->> +		mod_timer(&self->rx_defer_timer,
->> +			  jiffies + (msecs_to_jiffies(10)));
+> This series removes dead fn t4_read_edc and t4_read_mc, also replaces
+> ntoh{s,l} and hton{s,l} calls with the generic byteorder.
 > 
-> The unnecessary () around msecs_to_jiffies could be removed.
+> PATCH 2/2 was sent as a single PATCH, but had some byte-ordering issues
+> in t4_read_edc and t4_read_mc function. Found that t4_read_edc and
+> t4_read_mc is unused, so PATCH 1/2 is added to remove it.
+> 
+> This patch series is created against net-next tree and includes
+> patches on cxgb4 driver.
+> 
+> We have included all the maintainers of respective drivers. Kindly review
+> the change and let us know in case of any review comments.
 
-Agreed.
+Series applied, thanks.
