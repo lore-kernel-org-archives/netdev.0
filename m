@@ -1,87 +1,103 @@
-From: "Du, Fan" <fan.du@intel.com>
-Subject: RE: [PATCH net] inet: properly align icsk_ca_priv
-Date: Tue, 19 May 2015 02:36:48 +0000
-Message-ID: <5A90DA2E42F8AE43BC4A093BF0678848E5D166@SHSMSX104.ccr.corp.intel.com>
-References: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
-	 <20150518151648.6d33128c@urahara>
- <1431993974.621.50.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Hayes <davihay@ifi.uio.no>,
-	Yuchung Cheng <ycheng@google.com>,
-	Andreas Petlund <apetlund@simula.no>,
-	"Du, Fan" <fan.du@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>
+From: Ed Swierk <eswierk@skyportsystems.com>
+Subject: [PATCH v2 RESEND] ethtool: Include SFP serial number and date in EEPROM dump
+Date: Mon, 18 May 2015 19:46:48 -0700
+Message-ID: <1432003608-87071-1-git-send-email-eswierk@skyportsystems.com>
+Cc: Ed Swierk <eswierk@skyportsystems.com>
+To: Ben Hutchings <bwh@kernel.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19020 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751039AbbESCgy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 May 2015 22:36:54 -0400
-In-Reply-To: <1431993974.621.50.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33534 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbbESCrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 22:47:15 -0400
+Received: by padbw4 with SMTP id bw4so3347209pad.0
+        for <netdev@vger.kernel.org>; Mon, 18 May 2015 19:47:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEVyaWMgRHVtYXpldCBbbWFp
-bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+U2VudDogVHVlc2RheSwgTWF5IDE5LCAyMDE1
-IDg6MDYgQU0NCj5UbzogU3RlcGhlbiBIZW1taW5nZXI7IER1LCBGYW47IERhdmlkIE1pbGxlcg0K
-PkNjOiBLZW5uZXRoIEtsZXR0ZSBKb25hc3NlbjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRGF2
-aWQgSGF5ZXM7IFl1Y2h1bmcNCj5DaGVuZzsgQW5kcmVhcyBQZXRsdW5kDQo+U3ViamVjdDogW1BB
-VENIIG5ldF0gaW5ldDogcHJvcGVybHkgYWxpZ24gaWNza19jYV9wcml2DQo+DQo+RnJvbTogRXJp
-YyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPg0KPnRjcF9pbGxpbm9pcyBhbmQgdXBj
-b21pbmcgdGNwX2NkZyByZXF1aXJlIDY0Yml0IGFsaWdubWVudCBvZg0KPmljc2tfY2FfcHJpdg0K
-Pg0KPng4NiBkb2VzIG5vdCBjYXJlLCBidXQgb3RoZXIgYXJjaGl0ZWN0dXJlcyBtaWdodC4NCj4N
-Cj5GaXhlczogMDVjYmMwZGIwM2U4MiAoImlwdjQ6IENyZWF0ZSBwcm9iZSB0aW1lciBmb3IgdGNw
-IFBNVFUgYXMgcGVyIFJGQzQ4MjEiKQ0KDQpJZiB5b3UgbWVhbiB0aGlzOg0KQmVmb3JlIGNvbW1p
-dCAwNWNiYzBkYjAzZTgyICgiaXB2NDogQ3JlYXRlIHByb2JlIHRpbWVyIGZvciB0Y3AgUE1UVSBh
-cyBwZXIgUkZDNDgyMSIpDQogICAgICAgIHN0cnVjdCB7DQogICAgICAgICAgICAgICAgaW50ICAg
-ICAgICAgICAgICAgIGVuYWJsZWQ7ICAgICAgICAgICAgICAvKiAgMTE1MiAgICAgNCAqLw0KICAg
-ICAgICAgICAgICAgIGludCAgICAgICAgICAgICAgICBzZWFyY2hfaGlnaDsgICAgICAgICAgLyog
-IDExNTYgICAgIDQgKi8NCiAgICAgICAgICAgICAgICBpbnQgICAgICAgICAgICAgICAgc2VhcmNo
-X2xvdzsgICAgICAgICAgIC8qICAxMTYwICAgICA0ICovDQogICAgICAgICAgICAgICAgaW50ICAg
-ICAgICAgICAgICAgIHByb2JlX3NpemU7ICAgICAgICAgICAvKiAgMTE2NCAgICAgNCAqLw0KICAg
-ICAgICB9IGljc2tfbXR1cDsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLyog
-IDExNTIgICAgMTYgKi8NCiAgICAgICAgdTMyICAgICAgICAgICAgICAgICAgICAgICAgaWNza19j
-YV9wcml2WzE2XTsgICAgIC8qICAxMTY4ICAgIDY0ICovICAgICAgPC0tIDExNjgvNiA9IDE0Ng0K
-ICAgICAgICAvKiAtLS0gY2FjaGVsaW5lIDE5IGJvdW5kYXJ5ICgxMjE2IGJ5dGVzKSB3YXMgMTYg
-Ynl0ZXMgYWdvIC0tLSAqLw0KICAgICAgICB1MzIgICAgICAgICAgICAgICAgICAgICAgICBpY3Nr
-X3VzZXJfdGltZW91dDsgICAgLyogIDEyMzIgICAgIDQgKi8NCg0KICAgICAgICAvKiBzaXplOiAx
-MjQwLCBjYWNoZWxpbmVzOiAyMCwgbWVtYmVyczogMjMgKi8NCiAgICAgICAgLyogcGFkZGluZzog
-NCAqLw0KICAgICAgICAvKiBsYXN0IGNhY2hlbGluZTogMjQgYnl0ZXMgKi8NCn07DQoNCg0KQWZ0
-ZXIgY29tbWl0IDA1Y2JjMGRiMDNlODIgKCJpcHY0OiBDcmVhdGUgcHJvYmUgdGltZXIgZm9yIHRj
-cCBQTVRVIGFzIHBlciBSRkM0ODIxIikNCg0KICAgICAgICBzdHJ1Y3Qgew0KICAgICAgICAgICAg
-ICAgIGludCAgICAgICAgICAgICAgICBlbmFibGVkOyAgICAgICAgICAgICAgLyogIDExNTIgICAg
-IDQgKi8NCiAgICAgICAgICAgICAgICBpbnQgICAgICAgICAgICAgICAgc2VhcmNoX2hpZ2g7ICAg
-ICAgICAgIC8qICAxMTU2ICAgICA0ICovDQogICAgICAgICAgICAgICAgaW50ICAgICAgICAgICAg
-ICAgIHNlYXJjaF9sb3c7ICAgICAgICAgICAvKiAgMTE2MCAgICAgNCAqLw0KICAgICAgICAgICAg
-ICAgIGludCAgICAgICAgICAgICAgICBwcm9iZV9zaXplOyAgICAgICAgICAgLyogIDExNjQgICAg
-IDQgKi8NCiAgICAgICAgICAgICAgICB1MzIgICAgICAgICAgICAgICAgcHJvYmVfdGltZXN0YW1w
-OyAgICAgIC8qICAxMTY4ICAgICA0ICovDQogICAgICAgIH0gaWNza19tdHVwOyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAvKiAgMTE1MiAgICAyMCAqLw0KICAgICAgICB1MzIg
-ICAgICAgICAgICAgICAgICAgICAgICBpY3NrX2NhX3ByaXZbMTZdOyAgICAgLyogIDExNzIgICAg
-NjQgKi8gICAgICAgIDwtLSAxMTcyLzYgPSAxNDYuNQ0KICAgICAgICAvKiAtLS0gY2FjaGVsaW5l
-IDE5IGJvdW5kYXJ5ICgxMjE2IGJ5dGVzKSB3YXMgMjAgYnl0ZXMgYWdvIC0tLSAqLw0KICAgICAg
-ICB1MzIgICAgICAgICAgICAgICAgICAgICAgICBpY3NrX3VzZXJfdGltZW91dDsgICAgLyogIDEy
-MzYgICAgIDQgKi8NCg0KICAgICAgICAvKiBzaXplOiAxMjQwLCBjYWNoZWxpbmVzOiAyMCwgbWVt
-YmVyczogMjMgKi8NCiAgICAgICAgLyogbGFzdCBjYWNoZWxpbmU6IDI0IGJ5dGVzICovDQp9Ow0K
-DQpBY2tlZC1ieTogRmFuIER1IDxmYW4uZHVAaW50ZWwuY29tPg0KDQoNCj5TaWduZWQtb2ZmLWJ5
-OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+Q2M6IEZhbiBEdSA8ZmFuLmR1
-QGludGVsLmNvbT4NCj4tLS0NCj4gaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2suaCB8
-ICAgIDUgKysrLS0NCj4gMSBmaWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlv
-bnMoLSkNCj4NCj5kaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2su
-aA0KPmIvaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2suaA0KPmluZGV4DQo+NDhhODE1
-ODIzNTg3NGIxNjI1YzY1NjUxYjBiZDkyZWVkZDk5OWZlNS4uNDk3YmMxNGNkYjg1ZjRmOGIzM2Rh
-OGZiZTcNCj5hYmE5ZDQ5MWRmNTBlMiAxMDA2NDQNCj4tLS0gYS9pbmNsdWRlL25ldC9pbmV0X2Nv
-bm5lY3Rpb25fc29jay5oDQo+KysrIGIvaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2su
-aA0KPkBAIC0xMjksOSArMTI5LDEwIEBAIHN0cnVjdCBpbmV0X2Nvbm5lY3Rpb25fc29jayB7DQo+
-DQo+IAkJdTMyCQkgIHByb2JlX3RpbWVzdGFtcDsNCj4gCX0gaWNza19tdHVwOw0KPi0JdTMyCQkJ
-ICBpY3NrX2NhX3ByaXZbMTZdOw0KPiAJdTMyCQkJICBpY3NrX3VzZXJfdGltZW91dDsNCj4tI2Rl
-ZmluZSBJQ1NLX0NBX1BSSVZfU0laRQkoMTYgKiBzaXplb2YodTMyKSkNCj4rDQo+Kwl1NjQJCQkg
-IGljc2tfY2FfcHJpdls2NCAvIHNpemVvZih1NjQpXTsNCj4rI2RlZmluZSBJQ1NLX0NBX1BSSVZf
-U0laRSAgICAgICg4ICogc2l6ZW9mKHU2NCkpDQo+IH07DQo+DQo+ICNkZWZpbmUgSUNTS19USU1F
-X1JFVFJBTlMJMQkvKiBSZXRyYW5zbWl0IHRpbWVyICovDQo+DQoNCg==
+ethtool -m currently omits the serial number, date code, and other useful
+EEPROM fields defined in INF-8074, which is part of the SFF-8079 standard.
+This patch adds them.
+
+It also trims space characters from the end of ASCII text fields.
+
+$ ethtool -m eth0
+...
+	Option values                             : 0x00 0x10
+	Option                                    : TX_DISABLE implemented
+	BR margin, max                            : 0%
+	BR margin, min                            : 0%
+	Vendor SN                                 : AGC143953079
+	Date code                                 : 140926
+
+Signed-off-by: Ed Swierk <eswierk@skyportsystems.com>
+---
+ sfpid.c | 41 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/sfpid.c b/sfpid.c
+index 4f88aa2..b1a5044 100644
+--- a/sfpid.c
++++ b/sfpid.c
+@@ -355,6 +355,8 @@ static void sff8079_show_ascii(const __u8 *id, unsigned int first_reg,
+ 	unsigned int reg, val;
+ 
+ 	printf("\t%-41s : ", name);
++	while (first_reg <= last_reg && id[last_reg] == ' ')
++		last_reg--;
+ 	for (reg = first_reg; reg <= last_reg; reg++) {
+ 		val = id[reg];
+ 		putchar(((val >= 32) && (val <= 126)) ? val : '_');
+@@ -362,6 +364,40 @@ static void sff8079_show_ascii(const __u8 *id, unsigned int first_reg,
+ 	printf("\n");
+ }
+ 
++static void sff8079_show_options(const __u8 *id)
++{
++	static const char *pfx =
++		"\tOption                                    :";
++
++	printf("\t%-41s : 0x%02x 0x%02x\n", "Option values", id[64], id[65]);
++	if (id[65] & (1 << 1))
++		printf("%s RX_LOS implemented\n", pfx);
++	if (id[65] & (1 << 2))
++		printf("%s RX_LOS implemented, inverted\n", pfx);
++	if (id[65] & (1 << 3))
++		printf("%s TX_FAULT implemented\n", pfx);
++	if (id[65] & (1 << 4))
++		printf("%s TX_DISABLE implemented\n", pfx);
++	if (id[65] & (1 << 5))
++		printf("%s RATE_SELECT implemented\n", pfx);
++	if (id[65] & (1 << 6))
++		printf("%s Tunable transmitter technology\n", pfx);
++	if (id[65] & (1 << 7))
++		printf("%s Receiver decision threshold implemented\n", pfx);
++	if (id[64] & (1 << 0))
++		printf("%s Linear receiver output implemented\n", pfx);
++	if (id[64] & (1 << 1))
++		printf("%s Power level 2 requirement\n", pfx);
++	if (id[64] & (1 << 2))
++		printf("%s Cooled transceiver implemented\n", pfx);
++	if (id[64] & (1 << 3))
++		printf("%s Retimer or CDR implemented\n", pfx);
++	if (id[64] & (1 << 4))
++		printf("%s Paging implemented\n", pfx);
++	if (id[64] & (1 << 5))
++		printf("%s Power level 3 requirement\n", pfx);
++}
++
+ void sff8079_show_all(const __u8 *id)
+ {
+ 	sff8079_show_identifier(id);
+@@ -385,5 +421,10 @@ void sff8079_show_all(const __u8 *id)
+ 		sff8079_show_oui(id);
+ 		sff8079_show_ascii(id, 40, 55, "Vendor PN");
+ 		sff8079_show_ascii(id, 56, 59, "Vendor rev");
++		sff8079_show_options(id);
++		sff8079_show_value_with_unit(id, 66, "BR margin, max", 1, "%");
++		sff8079_show_value_with_unit(id, 67, "BR margin, min", 1, "%");
++		sff8079_show_ascii(id, 68, 83, "Vendor SN");
++		sff8079_show_ascii(id, 84, 91, "Date code");
+ 	}
+ }
+-- 
+1.9.1
