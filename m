@@ -1,157 +1,87 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v4 2/2] net: Adding support for Cavium ThunderX
- network controller
-Date: Mon, 18 May 2015 19:21:33 -0700
-Message-ID: <1432002093.2870.130.camel@perches.com>
-References: <1432000757-28700-1-git-send-email-aleksey.makarov@auriga.com>
-	 <1432000757-28700-3-git-send-email-aleksey.makarov@auriga.com>
+From: "Du, Fan" <fan.du@intel.com>
+Subject: RE: [PATCH net] inet: properly align icsk_ca_priv
+Date: Tue, 19 May 2015 02:36:48 +0000
+Message-ID: <5A90DA2E42F8AE43BC4A093BF0678848E5D166@SHSMSX104.ccr.corp.intel.com>
+References: <1431894670-12609-1-git-send-email-kennetkl@ifi.uio.no>
+	 <20150518151648.6d33128c@urahara>
+ <1431993974.621.50.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	David Daney <david.daney@cavium.com>,
-	Robert Richter <robert.richter@caviumnetworks.com>,
-	Sunil Goutham <sgoutham@cavium.com>,
-	Maciej Czekaj <mjc@semihalf.com>,
-	Ganapatrao Kulkarni <ganapatrao.kulkarni@caviumnetworks.com>,
-	Tomasz Nowicki <tomasz.nowicki@linaro.org>,
-	Robert Richter <rrichter@cavium.com>,
-	Kamil Rytarowski <kamil@semihalf.com>,
-	Thanneeru Srinivasulu <tsrinivasulu@caviumnetworks.com>,
-	Sruthi Vangala <svangala@cavium.com>,
-	Robert Richter <rric@kernel.org>
-To: Aleksey Makarov <aleksey.makarov@auriga.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kenneth Klette Jonassen <kennetkl@ifi.uio.no>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Hayes <davihay@ifi.uio.no>,
+	Yuchung Cheng <ycheng@google.com>,
+	Andreas Petlund <apetlund@simula.no>,
+	"Du, Fan" <fan.du@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0014.hostedemail.com ([216.40.44.14]:45914 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751039AbbESCVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 22:21:37 -0400
-In-Reply-To: <1432000757-28700-3-git-send-email-aleksey.makarov@auriga.com>
+Received: from mga03.intel.com ([134.134.136.65]:19020 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751039AbbESCgy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 22:36:54 -0400
+In-Reply-To: <1431993974.621.50.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2015-05-18 at 18:59 -0700, Aleksey Makarov wrote:
-> From: Sunil Goutham <sgoutham@cavium.com>
-
-trivial note, I didn't read the whole thing.
-
-> diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-[]
-> +/* Set Maximum frame size */
-> +struct set_frs_msg {
-> +	u8    vf_id;
-> +	u16   max_frs;
-> +};
-> +
-> +/* Set CPI algorithm type */
-> +struct cpi_cfg_msg {
-> +	u8    vf_id;
-> +	u8    rq_cnt;
-> +	u8    cpi_alg;
-> +};
-> +
-> +#ifdef VNIC_RSS_SUPPORT
-> +/* Get RSS table size */
-> +struct rss_sz_msg {
-> +	u8    vf_id;
-> +	u16   ind_tbl_size;
-> +};
-
-Are these missing __packed?
-
-> +/* Physical interface link status */
-> +struct bgx_link_status {
-> +	u8    link_up;
-> +	u8    duplex;
-> +	u32   speed;
-> +};
-
-[]
-
-> +#ifdef	NIC_DEBUG
-> +#define	nic_dbg(dev, fmt, arg...) \
-> +		dev_info(dev, fmt, ##arg)
-
-I think it's better to emit debug information at KERN_DEUG
-
-> +#else
-> +#define	nic_dbg(dev, fmt, arg...) do {} while (0)
-
-This could/should still verify the format & args with an if (0)
-#define	nic_dbg(dev, fmt, ...)				\
-do {							\
-	if (0)						\
-		dev_dbgdev, fmt, ##__VA_ARGS__);	\
-} while (0)
-
-> +/* PF -> VF mailbox communication APIs */
-> +static void nic_enable_mbx_intr(struct nicpf *nic)
-> +{
-> +	/* Enable mailbox interrupt for all 128 VFs */
-> +	nic_reg_write(nic, NIC_PF_MAILBOX_ENA_W1S, ~0x00ull);
-> +	nic_reg_write(nic, NIC_PF_MAILBOX_ENA_W1S + sizeof(u64), ~0x00ull);
-
-~0x00ull is a bit odd.  ~0ull is more common
-
-> +}
-> +
-> +static void nic_clear_mbx_intr(struct nicpf *nic, int vf, int mbx_reg)
-> +{
-> +	nic_reg_write(nic, NIC_PF_MAILBOX_INT + (mbx_reg << 3), (1ULL << vf));
-
-Maybe use BIT_ULL(vf)
-
-> +static int nic_sriov_init(struct pci_dev *pdev, struct nicpf *nic)
-> +{
-[]
-> +	dev_info(&pdev->dev, "SRIOV enabled, numer of VF available %d\n",
-
-number
-
-> diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-
-> +static void nicvf_dump_packet(struct net_device *netdev, struct sk_buff *skb)
-> +{
-> +	int i;
-> +
-> +	pr_info("%s: skb 0x%p, len=%d\n",
-> +		netdev->name, skb, skb->len);
-> +	for (i = 0; i < skb->len; i++) {
-> +		if ((i % 16) == 0)
-> +			pr_info("\n");
-> +		pr_info(" %02x", ((u8 *)skb->data)[i]);
-> +	}
-> +	pr_info("\n");
-
-This creates a mess.  Try print_hex_dump instead.
-
-> +static inline void nicvf_set_rx_frame_cnt(struct nicvf *nic,
-> +					  struct sk_buff *skb)
-> +{
-> +	if (skb->len <= 64)
-> +		nic->drv_stats.rx_frames_64++;
-> +	else if ((skb->len > 64) && (skb->len <= 127))
-
-The first condition in the subsequent "else if"s isn't necessary.
-It's already known by the preceding tests.
-
-	if (skb->len <= 64)
-		...
-	else if (skb->len <= 127)
-		...
-	else if (skb->len <= 255)
-		etc...
-
-> +		nic->drv_stats.rx_frames_127++;
-> +	else if ((skb->len > 127) && (skb->len <= 255))
-> +		nic->drv_stats.rx_frames_255++;
-> +	else if ((skb->len > 255) && (skb->len <= 511))
-> +		nic->drv_stats.rx_frames_511++;
-> +	else if ((skb->len > 511) && (skb->len <= 1023))
-> +		nic->drv_stats.rx_frames_1023++;
-> +	else if ((skb->len > 1023) && (skb->len <= 1518))
-> +		nic->drv_stats.rx_frames_1518++;
-> +	else if (skb->len > 1518)
-> +		nic->drv_stats.rx_frames_jumbo++;
-> +}
+DQoNCj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPkZyb206IEVyaWMgRHVtYXpldCBbbWFp
+bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+U2VudDogVHVlc2RheSwgTWF5IDE5LCAyMDE1
+IDg6MDYgQU0NCj5UbzogU3RlcGhlbiBIZW1taW5nZXI7IER1LCBGYW47IERhdmlkIE1pbGxlcg0K
+PkNjOiBLZW5uZXRoIEtsZXR0ZSBKb25hc3NlbjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgRGF2
+aWQgSGF5ZXM7IFl1Y2h1bmcNCj5DaGVuZzsgQW5kcmVhcyBQZXRsdW5kDQo+U3ViamVjdDogW1BB
+VENIIG5ldF0gaW5ldDogcHJvcGVybHkgYWxpZ24gaWNza19jYV9wcml2DQo+DQo+RnJvbTogRXJp
+YyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPg0KPnRjcF9pbGxpbm9pcyBhbmQgdXBj
+b21pbmcgdGNwX2NkZyByZXF1aXJlIDY0Yml0IGFsaWdubWVudCBvZg0KPmljc2tfY2FfcHJpdg0K
+Pg0KPng4NiBkb2VzIG5vdCBjYXJlLCBidXQgb3RoZXIgYXJjaGl0ZWN0dXJlcyBtaWdodC4NCj4N
+Cj5GaXhlczogMDVjYmMwZGIwM2U4MiAoImlwdjQ6IENyZWF0ZSBwcm9iZSB0aW1lciBmb3IgdGNw
+IFBNVFUgYXMgcGVyIFJGQzQ4MjEiKQ0KDQpJZiB5b3UgbWVhbiB0aGlzOg0KQmVmb3JlIGNvbW1p
+dCAwNWNiYzBkYjAzZTgyICgiaXB2NDogQ3JlYXRlIHByb2JlIHRpbWVyIGZvciB0Y3AgUE1UVSBh
+cyBwZXIgUkZDNDgyMSIpDQogICAgICAgIHN0cnVjdCB7DQogICAgICAgICAgICAgICAgaW50ICAg
+ICAgICAgICAgICAgIGVuYWJsZWQ7ICAgICAgICAgICAgICAvKiAgMTE1MiAgICAgNCAqLw0KICAg
+ICAgICAgICAgICAgIGludCAgICAgICAgICAgICAgICBzZWFyY2hfaGlnaDsgICAgICAgICAgLyog
+IDExNTYgICAgIDQgKi8NCiAgICAgICAgICAgICAgICBpbnQgICAgICAgICAgICAgICAgc2VhcmNo
+X2xvdzsgICAgICAgICAgIC8qICAxMTYwICAgICA0ICovDQogICAgICAgICAgICAgICAgaW50ICAg
+ICAgICAgICAgICAgIHByb2JlX3NpemU7ICAgICAgICAgICAvKiAgMTE2NCAgICAgNCAqLw0KICAg
+ICAgICB9IGljc2tfbXR1cDsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgLyog
+IDExNTIgICAgMTYgKi8NCiAgICAgICAgdTMyICAgICAgICAgICAgICAgICAgICAgICAgaWNza19j
+YV9wcml2WzE2XTsgICAgIC8qICAxMTY4ICAgIDY0ICovICAgICAgPC0tIDExNjgvNiA9IDE0Ng0K
+ICAgICAgICAvKiAtLS0gY2FjaGVsaW5lIDE5IGJvdW5kYXJ5ICgxMjE2IGJ5dGVzKSB3YXMgMTYg
+Ynl0ZXMgYWdvIC0tLSAqLw0KICAgICAgICB1MzIgICAgICAgICAgICAgICAgICAgICAgICBpY3Nr
+X3VzZXJfdGltZW91dDsgICAgLyogIDEyMzIgICAgIDQgKi8NCg0KICAgICAgICAvKiBzaXplOiAx
+MjQwLCBjYWNoZWxpbmVzOiAyMCwgbWVtYmVyczogMjMgKi8NCiAgICAgICAgLyogcGFkZGluZzog
+NCAqLw0KICAgICAgICAvKiBsYXN0IGNhY2hlbGluZTogMjQgYnl0ZXMgKi8NCn07DQoNCg0KQWZ0
+ZXIgY29tbWl0IDA1Y2JjMGRiMDNlODIgKCJpcHY0OiBDcmVhdGUgcHJvYmUgdGltZXIgZm9yIHRj
+cCBQTVRVIGFzIHBlciBSRkM0ODIxIikNCg0KICAgICAgICBzdHJ1Y3Qgew0KICAgICAgICAgICAg
+ICAgIGludCAgICAgICAgICAgICAgICBlbmFibGVkOyAgICAgICAgICAgICAgLyogIDExNTIgICAg
+IDQgKi8NCiAgICAgICAgICAgICAgICBpbnQgICAgICAgICAgICAgICAgc2VhcmNoX2hpZ2g7ICAg
+ICAgICAgIC8qICAxMTU2ICAgICA0ICovDQogICAgICAgICAgICAgICAgaW50ICAgICAgICAgICAg
+ICAgIHNlYXJjaF9sb3c7ICAgICAgICAgICAvKiAgMTE2MCAgICAgNCAqLw0KICAgICAgICAgICAg
+ICAgIGludCAgICAgICAgICAgICAgICBwcm9iZV9zaXplOyAgICAgICAgICAgLyogIDExNjQgICAg
+IDQgKi8NCiAgICAgICAgICAgICAgICB1MzIgICAgICAgICAgICAgICAgcHJvYmVfdGltZXN0YW1w
+OyAgICAgIC8qICAxMTY4ICAgICA0ICovDQogICAgICAgIH0gaWNza19tdHVwOyAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAvKiAgMTE1MiAgICAyMCAqLw0KICAgICAgICB1MzIg
+ICAgICAgICAgICAgICAgICAgICAgICBpY3NrX2NhX3ByaXZbMTZdOyAgICAgLyogIDExNzIgICAg
+NjQgKi8gICAgICAgIDwtLSAxMTcyLzYgPSAxNDYuNQ0KICAgICAgICAvKiAtLS0gY2FjaGVsaW5l
+IDE5IGJvdW5kYXJ5ICgxMjE2IGJ5dGVzKSB3YXMgMjAgYnl0ZXMgYWdvIC0tLSAqLw0KICAgICAg
+ICB1MzIgICAgICAgICAgICAgICAgICAgICAgICBpY3NrX3VzZXJfdGltZW91dDsgICAgLyogIDEy
+MzYgICAgIDQgKi8NCg0KICAgICAgICAvKiBzaXplOiAxMjQwLCBjYWNoZWxpbmVzOiAyMCwgbWVt
+YmVyczogMjMgKi8NCiAgICAgICAgLyogbGFzdCBjYWNoZWxpbmU6IDI0IGJ5dGVzICovDQp9Ow0K
+DQpBY2tlZC1ieTogRmFuIER1IDxmYW4uZHVAaW50ZWwuY29tPg0KDQoNCj5TaWduZWQtb2ZmLWJ5
+OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+Q2M6IEZhbiBEdSA8ZmFuLmR1
+QGludGVsLmNvbT4NCj4tLS0NCj4gaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2suaCB8
+ICAgIDUgKysrLS0NCj4gMSBmaWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlv
+bnMoLSkNCj4NCj5kaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2su
+aA0KPmIvaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2suaA0KPmluZGV4DQo+NDhhODE1
+ODIzNTg3NGIxNjI1YzY1NjUxYjBiZDkyZWVkZDk5OWZlNS4uNDk3YmMxNGNkYjg1ZjRmOGIzM2Rh
+OGZiZTcNCj5hYmE5ZDQ5MWRmNTBlMiAxMDA2NDQNCj4tLS0gYS9pbmNsdWRlL25ldC9pbmV0X2Nv
+bm5lY3Rpb25fc29jay5oDQo+KysrIGIvaW5jbHVkZS9uZXQvaW5ldF9jb25uZWN0aW9uX3NvY2su
+aA0KPkBAIC0xMjksOSArMTI5LDEwIEBAIHN0cnVjdCBpbmV0X2Nvbm5lY3Rpb25fc29jayB7DQo+
+DQo+IAkJdTMyCQkgIHByb2JlX3RpbWVzdGFtcDsNCj4gCX0gaWNza19tdHVwOw0KPi0JdTMyCQkJ
+ICBpY3NrX2NhX3ByaXZbMTZdOw0KPiAJdTMyCQkJICBpY3NrX3VzZXJfdGltZW91dDsNCj4tI2Rl
+ZmluZSBJQ1NLX0NBX1BSSVZfU0laRQkoMTYgKiBzaXplb2YodTMyKSkNCj4rDQo+Kwl1NjQJCQkg
+IGljc2tfY2FfcHJpdls2NCAvIHNpemVvZih1NjQpXTsNCj4rI2RlZmluZSBJQ1NLX0NBX1BSSVZf
+U0laRSAgICAgICg4ICogc2l6ZW9mKHU2NCkpDQo+IH07DQo+DQo+ICNkZWZpbmUgSUNTS19USU1F
+X1JFVFJBTlMJMQkvKiBSZXRyYW5zbWl0IHRpbWVyICovDQo+DQoNCg==
