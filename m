@@ -1,70 +1,108 @@
-From: Baptiste Covolato <baptiste@arista.com>
-Subject: [PATCH net-next 1/3] net: Flush all skbs related to an unregistered device
-Date: Tue, 19 May 2015 16:24:51 -0700
-Message-ID: <1432077893-4431-2-git-send-email-baptiste@arista.com>
-References: <1432077893-4431-1-git-send-email-baptiste@arista.com>
-Cc: Francesco Ruggeri <fruggeri@arista.com>,
-	Eric Mowat <mowat@arista.com>,
-	Adrien Schildknecht <adrien+dev@schischi.me>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [Patch net] ipvlan: use rcu_deference_bh() in ipvlan_queue_xmit()
+Date: Tue, 19 May 2015 16:31:49 -0700
+Message-ID: <CAF2d9jii=Yh+-Dik_Q0+XVPb_2X2krJ31dah4OzK3NAWLJycxQ@mail.gmail.com>
+References: <1431456403-20070-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:35939 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117AbbESXZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 19:25:19 -0400
-Received: by pabts4 with SMTP id ts4so43561617pab.3
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 16:25:18 -0700 (PDT)
-In-Reply-To: <1432077893-4431-1-git-send-email-baptiste@arista.com>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:36376 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751095AbbESXcK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 19:32:10 -0400
+Received: by obbkp3 with SMTP id kp3so24427034obb.3
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 16:32:10 -0700 (PDT)
+In-Reply-To: <1431456403-20070-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update flush_backlog to flush all packets in the backlog queue belonging
-to a device being unregistered. Accordingly on_each_cpu no longer needs
-to pass a device to flush_backlog since it handles any device in the
-NETREG_UNREGISTERED state.
-
-Signed-off-by: Baptiste Covolato <baptiste@arista.com>
-Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
----
- net/core/dev.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0e7afef..db59d18 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4005,13 +4005,12 @@ EXPORT_SYMBOL(netif_receive_skb_sk);
-  */
- static void flush_backlog(void *arg)
- {
--	struct net_device *dev = arg;
- 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
- 	struct sk_buff *skb, *tmp;
- 
- 	rps_lock(sd);
- 	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp) {
--		if (skb->dev == dev) {
-+		if (skb->dev->reg_state == NETREG_UNREGISTERED) {
- 			__skb_unlink(skb, &sd->input_pkt_queue);
- 			kfree_skb(skb);
- 			input_queue_head_incr(sd);
-@@ -4020,7 +4019,7 @@ static void flush_backlog(void *arg)
- 	rps_unlock(sd);
- 
- 	skb_queue_walk_safe(&sd->process_queue, skb, tmp) {
--		if (skb->dev == dev) {
-+		if (skb->dev->reg_state == NETREG_UNREGISTERED) {
- 			__skb_unlink(skb, &sd->process_queue);
- 			kfree_skb(skb);
- 			input_queue_head_incr(sd);
-@@ -6790,7 +6789,7 @@ void netdev_run_todo(void)
- 
- 		dev->reg_state = NETREG_UNREGISTERED;
- 
--		on_each_cpu(flush_backlog, dev, 1);
-+		on_each_cpu(flush_backlog, NULL, 1);
- 
- 		netdev_wait_allrefs(dev);
- 
--- 
-2.4.1
+On Tue, May 12, 2015 at 11:46 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>
+> In tx path rcu_read_lock_bh() is held, so we need rcu_deference_bh().
+> This fixes the following warning:
+>
+>  ===============================
+>  [ INFO: suspicious RCU usage. ]
+>  4.1.0-rc1+ #1007 Not tainted
+>  -------------------------------
+>  drivers/net/ipvlan/ipvlan.h:106 suspicious rcu_dereference_check() usage!
+>
+>  other info that might help us debug this:
+>
+>  rcu_scheduler_active = 1, debug_locks = 0
+>  1 lock held by dhclient/1076:
+>   #0:  (rcu_read_lock_bh){......}, at: [<ffffffff817e8d84>] rcu_lock_acquire+0x0/0x26
+>
+>  stack backtrace:
+>  CPU: 2 PID: 1076 Comm: dhclient Not tainted 4.1.0-rc1+ #1007
+>  Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+>   0000000000000001 ffff8800d381bac8 ffffffff81a4154f 000000003c1a3c19
+>   ffff8800d4d0a690 ffff8800d381baf8 ffffffff810b849f ffff880117d41148
+>   ffff880117d40000 ffff880117d40068 0000000000000156 ffff8800d381bb18
+>  Call Trace:
+>   [<ffffffff81a4154f>] dump_stack+0x4c/0x65
+>   [<ffffffff810b849f>] lockdep_rcu_suspicious+0x107/0x110
+>   [<ffffffff8165a522>] ipvlan_port_get_rcu+0x47/0x4e
+>   [<ffffffff8165ad14>] ipvlan_queue_xmit+0x35/0x450
+>   [<ffffffff817ea45d>] ? rcu_read_unlock+0x3e/0x5f
+>   [<ffffffff810a20bf>] ? local_clock+0x19/0x22
+>   [<ffffffff810b4781>] ? __lock_is_held+0x39/0x52
+>   [<ffffffff8165b64c>] ipvlan_start_xmit+0x1b/0x44
+>   [<ffffffff817edf7f>] dev_hard_start_xmit+0x2ae/0x467
+>   [<ffffffff817ee642>] __dev_queue_xmit+0x50a/0x60c
+>   [<ffffffff817ee7a7>] dev_queue_xmit_sk+0x13/0x15
+>   [<ffffffff81997596>] dev_queue_xmit+0x10/0x12
+>   [<ffffffff8199b41c>] packet_sendmsg+0xb6b/0xbdf
+>   [<ffffffff810b5ea7>] ? mark_lock+0x2e/0x226
+>   [<ffffffff810a1fcc>] ? sched_clock_cpu+0x9e/0xb7
+>   [<ffffffff817d56f9>] sock_sendmsg_nosec+0x12/0x1d
+>   [<ffffffff817d7257>] sock_sendmsg+0x29/0x2e
+>   [<ffffffff817d72cc>] sock_write_iter+0x70/0x91
+>   [<ffffffff81199563>] __vfs_write+0x7e/0xa7
+>   [<ffffffff811996bc>] vfs_write+0x92/0xe8
+>   [<ffffffff811997d7>] SyS_write+0x47/0x7e
+>   [<ffffffff81a4d517>] system_call_fastpath+0x12/0x6f
+>
+> Fixes: 2ad7bf363841 ("ipvlan: Initial check-in of the IPVLAN driver.")
+> Cc: Mahesh Bandewar <maheshb@google.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Acked-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  drivers/net/ipvlan/ipvlan.h      | 5 +++++
+>  drivers/net/ipvlan/ipvlan_core.c | 2 +-
+>  2 files changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+> index 54549a6..0799442 100644
+> --- a/drivers/net/ipvlan/ipvlan.h
+> +++ b/drivers/net/ipvlan/ipvlan.h
+> @@ -102,6 +102,11 @@ static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
+>         return rcu_dereference(d->rx_handler_data);
+>  }
+>
+> +static inline struct ipvl_port *ipvlan_port_get_rcu_bh(const struct net_device *d)
+> +{
+> +       return rcu_dereference_bh(d->rx_handler_data);
+> +}
+> +
+>  static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
+>  {
+>         return rtnl_dereference(d->rx_handler_data);
+> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+> index c30b5c3..b349dad 100644
+> --- a/drivers/net/ipvlan/ipvlan_core.c
+> +++ b/drivers/net/ipvlan/ipvlan_core.c
+> @@ -507,7 +507,7 @@ static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
+>  int ipvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+>         struct ipvl_dev *ipvlan = netdev_priv(dev);
+> -       struct ipvl_port *port = ipvlan_port_get_rcu(ipvlan->phy_dev);
+> +       struct ipvl_port *port = ipvlan_port_get_rcu_bh(ipvlan->phy_dev);
+>
+>         if (!port)
+>                 goto out;
+> --
+> 1.8.3.1
+>
