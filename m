@@ -1,37 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/2] Remove dead code and replace byte-oder
- functions
-Date: Tue, 19 May 2015 16:47:52 -0400 (EDT)
-Message-ID: <20150519.164752.1499182180114852620.davem@davemloft.net>
-References: <1432039844-23326-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: Default XPS settings in mlx4 driver
+Date: Tue, 19 May 2015 16:49:33 -0400 (EDT)
+Message-ID: <20150519.164933.532669496755991434.davem@davemloft.net>
+References: <CALx6S36qXcqhfFQVLWu2CgoJYQL6E-myvgBvDFxATA+NjX+qBA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com
-To: hariprasad@chelsio.com
+Cc: idos@mellanox.com, amirv@mellanox.com, netdev@vger.kernel.org
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48032 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48045 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274AbbESUry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:47:54 -0400
-In-Reply-To: <1432039844-23326-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1750750AbbESUtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:49:35 -0400
+In-Reply-To: <CALx6S36qXcqhfFQVLWu2CgoJYQL6E-myvgBvDFxATA+NjX+qBA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue, 19 May 2015 18:20:42 +0530
+From: Tom Herbert <tom@herbertland.com>
+Date: Tue, 19 May 2015 13:38:35 -0700
 
-> This series removes dead fn t4_read_edc and t4_read_mc, also replaces
-> ntoh{s,l} and hton{s,l} calls with the generic byteorder.
-> 
-> PATCH 2/2 was sent as a single PATCH, but had some byte-ordering issues
-> in t4_read_edc and t4_read_mc function. Found that t4_read_edc and
-> t4_read_mc is unused, so PATCH 1/2 is added to remove it.
-> 
-> This patch series is created against net-next tree and includes
-> patches on cxgb4 driver.
-> 
-> We have included all the maintainers of respective drivers. Kindly review
-> the change and let us know in case of any review comments.
+> Looks like there's a few other drivers that are setting XPS, they
+> might have similar issue.
 
-Series applied, thanks.
+We really need generic infrastructure for such configuration attempts
+so that the default policy across all such drivers is consistent.
