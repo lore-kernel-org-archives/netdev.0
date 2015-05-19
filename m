@@ -1,10 +1,10 @@
 From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 03/12] IB/core: Find the network namespace
+Subject: Re: [PATCH v4 for-next 04/12] IB/ipoib: Return IPoIB devices
  matching connection parameters
-Date: Tue, 19 May 2015 12:26:16 -0600
-Message-ID: <20150519182616.GF18675@obsidianresearch.com>
+Date: Tue, 19 May 2015 12:28:10 -0600
+Message-ID: <20150519182810.GG18675@obsidianresearch.com>
 References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
- <1431841868-28063-4-git-send-email-haggaie@mellanox.com>
+ <1431841868-28063-5-git-send-email-haggaie@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -15,26 +15,44 @@ Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-
 To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1431841868-28063-4-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+In-Reply-To: <1431841868-28063-5-git-send-email-haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> +	list_for_each_entry_rcu(client, &client_list, list)
-> +		if (client->get_net_device_by_port_pkey_ip) {
-> +			ret = client->get_net_device_by_port_pkey_ip(dev, port,
-> +								     pkey,
+On Sun, May 17, 2015 at 08:51:00AM +0300, Haggai Eran wrote:
+
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
+> +#endif
+> +	__be32 ret_addr;
 > +
-> addr);
+> +	switch (addr->sa_family) {
+> +	case AF_INET:
+> +		in_dev = in_dev_get(dev);
+> +		if (!in_dev)
+> +			return false;
+> +
+> +		ret_addr = inet_confirm_addr(net, in_dev, 0,
+> +					     addr_in->sin_addr.s_addr,
+> +					     RT_SCOPE_HOST);
+> +		in_dev_put(in_dev);
+> +		if (ret_addr)
+> +			return true;
+> +
+> +		break;
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +	case AF_INET6:
+> +		if (ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
+> +			return true;
+> +
+> +		break;
+> +#endif
 
-Considering the patch that introduced the rwsem, this doesn't look
-right.
+Can you use
 
-We can't call a client call back on a device that is unregistered, we
-can't call a client call back on a client that is unregistering.
+  if (IS_ENABLED(CONFIG_IPV6))
 
-So the ordering of the list_del/add vs call back calls in device.c is
-not right, please audit everything with an eye toward maintaing sane
-invarients.
+At the call site instead of the #if guards?
 
 Jason
 --
