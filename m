@@ -1,53 +1,49 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
- RDMA-CM
-Date: Tue, 19 May 2015 13:20:34 -0600
-Message-ID: <20150519192034.GR18675@obsidianresearch.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
- <1432045826.5304.6.camel@opteya.com>
- <555B4EBE.7010900@mellanox.com>
- <CAGgvQNRjSVcOfQB3bhXTdPoa04Hs7jc1+hXvL99EqDjbaaOw=A@mail.gmail.com>
- <20150519183843.GI18675@obsidianresearch.com>
- <CAGgvQNTXAWkQWzBBrQfk39GaCQ2ck63AhgURpYFFBPTbkpx4kg@mail.gmail.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v3 for-next 05/13] IB/cm: Reference count ib_cm_ids
+Date: Tue, 19 May 2015 13:23:53 -0600
+Message-ID: <20150519192353.GA23612@obsidianresearch.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-6-git-send-email-haggaie@mellanox.com>
+ <20150511183459.GB25405@obsidianresearch.com>
+ <5551A2CB.1010407@mellanox.com>
+ <20150512185447.GA3503@obsidianresearch.com>
+ <55532566.9040105@mellanox.com>
+ <20150513165823.GA20343@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDC0C3@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Parav Pandit <parav.pandit-1wcpHE2jlwO1Z/+hSey0Gg@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Haggai Eran <haggaie@mellanox.com>,
+	Doug Ledford <dledford@redhat.com>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: "Hefty, Sean" <sean.hefty@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:38538 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750923AbbESTX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2015 15:23:57 -0400
 Content-Disposition: inline
-In-Reply-To: <CAGgvQNTXAWkQWzBBrQfk39GaCQ2ck63AhgURpYFFBPTbkpx4kg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FDC0C3@ORSMSX109.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2015 at 12:14:10AM +0530, Parav Pandit wrote:
-> On Wed, May 20, 2015 at 12:08 AM, Jason Gunthorpe
-> <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
-> > On Tue, May 19, 2015 at 10:09:14PM +0530, Parav Pandit wrote:
-> >
-> >> A callback function registered to IP stack for IP address
-> >> assignment/removal. (it could be done possibly done for GID entry
-> >> update, instead of IP)
-> >> For each such namespace, for device supporting RoCEv2, one UDP socket
-> >> with RoCEv2 UDP port would be created and destroyed.
-> >
-> > You need to consult netdev for whatever scheme you come up with.
-> >
+On Fri, May 15, 2015 at 07:11:10PM +0000, Hefty, Sean wrote:
+> > The fact the CM might share a listen (and only a listen) ID behind the
+> > scenes is not the caller's problem. That is an implementation choice,
+> > each caller stands alone and uses the API properly, assuming it is the
+> > only user of the returned cm_id.
 > 
-> Yes. However it won't be an issue for netdev as its going to use
-> register_inetaddr_notifier and friend functions which are standard
-> set
+> Actually, I seriously question why the ib_cm should be modified at all for any of this.
 
-I was talking about your scheme to reserve a UDP port number. Make it
-clear, and ask specifically about that.
+I find Haggai's argument compelling, it is a very small amount of code
+and data to add a sharing count, and a very large amount to duplicate
+the whole service id map into cma.c.
+
+It is in-kernel after all, we should co-design module APIs to work
+efficiently.
 
 Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
