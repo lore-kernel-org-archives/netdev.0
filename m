@@ -1,108 +1,124 @@
 From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [Patch net] ipvlan: use rcu_deference_bh() in ipvlan_queue_xmit()
-Date: Tue, 19 May 2015 16:31:49 -0700
-Message-ID: <CAF2d9jii=Yh+-Dik_Q0+XVPb_2X2krJ31dah4OzK3NAWLJycxQ@mail.gmail.com>
-References: <1431456403-20070-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 2/3] ipvlan: grab rcu_read_lock on xmit path
+Date: Tue, 19 May 2015 16:33:21 -0700
+Message-ID: <CAF2d9jgKfEmAhO8_FMARirQ8DRqdhTtZ0xxOXUorry3oqNK_hA@mail.gmail.com>
+References: <20150514134657.14062.87579.stgit@buzz> <20150514135619.14062.97774.stgit@buzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Benc <jbenc@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:36376 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbbESXcK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 19:32:10 -0400
-Received: by obbkp3 with SMTP id kp3so24427034obb.3
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 16:32:10 -0700 (PDT)
-In-Reply-To: <1431456403-20070-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:36126 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751532AbbESXdn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 19:33:43 -0400
+Received: by obbkp3 with SMTP id kp3so24447531obb.3
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 16:33:42 -0700 (PDT)
+In-Reply-To: <20150514135619.14062.97774.stgit@buzz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 11:46 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Thu, May 14, 2015 at 6:56 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
 >
-> In tx path rcu_read_lock_bh() is held, so we need rcu_deference_bh().
-> This fixes the following warning:
+> ipvlan_start_xmit() is called with rcu_read_lock_bh() while its internal
+> structures requre normal rcu_read_lock().
 >
->  ===============================
->  [ INFO: suspicious RCU usage. ]
->  4.1.0-rc1+ #1007 Not tainted
->  -------------------------------
->  drivers/net/ipvlan/ipvlan.h:106 suspicious rcu_dereference_check() usage!
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
 >
->  other info that might help us debug this:
->
->  rcu_scheduler_active = 1, debug_locks = 0
->  1 lock held by dhclient/1076:
->   #0:  (rcu_read_lock_bh){......}, at: [<ffffffff817e8d84>] rcu_lock_acquire+0x0/0x26
->
->  stack backtrace:
->  CPU: 2 PID: 1076 Comm: dhclient Not tainted 4.1.0-rc1+ #1007
->  Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
->   0000000000000001 ffff8800d381bac8 ffffffff81a4154f 000000003c1a3c19
->   ffff8800d4d0a690 ffff8800d381baf8 ffffffff810b849f ffff880117d41148
->   ffff880117d40000 ffff880117d40068 0000000000000156 ffff8800d381bb18
->  Call Trace:
->   [<ffffffff81a4154f>] dump_stack+0x4c/0x65
->   [<ffffffff810b849f>] lockdep_rcu_suspicious+0x107/0x110
->   [<ffffffff8165a522>] ipvlan_port_get_rcu+0x47/0x4e
->   [<ffffffff8165ad14>] ipvlan_queue_xmit+0x35/0x450
->   [<ffffffff817ea45d>] ? rcu_read_unlock+0x3e/0x5f
->   [<ffffffff810a20bf>] ? local_clock+0x19/0x22
->   [<ffffffff810b4781>] ? __lock_is_held+0x39/0x52
->   [<ffffffff8165b64c>] ipvlan_start_xmit+0x1b/0x44
->   [<ffffffff817edf7f>] dev_hard_start_xmit+0x2ae/0x467
->   [<ffffffff817ee642>] __dev_queue_xmit+0x50a/0x60c
->   [<ffffffff817ee7a7>] dev_queue_xmit_sk+0x13/0x15
->   [<ffffffff81997596>] dev_queue_xmit+0x10/0x12
->   [<ffffffff8199b41c>] packet_sendmsg+0xb6b/0xbdf
->   [<ffffffff810b5ea7>] ? mark_lock+0x2e/0x226
->   [<ffffffff810a1fcc>] ? sched_clock_cpu+0x9e/0xb7
->   [<ffffffff817d56f9>] sock_sendmsg_nosec+0x12/0x1d
->   [<ffffffff817d7257>] sock_sendmsg+0x29/0x2e
->   [<ffffffff817d72cc>] sock_write_iter+0x70/0x91
->   [<ffffffff81199563>] __vfs_write+0x7e/0xa7
->   [<ffffffff811996bc>] vfs_write+0x92/0xe8
->   [<ffffffff811997d7>] SyS_write+0x47/0x7e
->   [<ffffffff81a4d517>] system_call_fastpath+0x12/0x6f
->
-> Fixes: 2ad7bf363841 ("ipvlan: Initial check-in of the IPVLAN driver.")
-> Cc: Mahesh Bandewar <maheshb@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Acked-by: Mahesh Bandewar <maheshb@google.com>
 > ---
->  drivers/net/ipvlan/ipvlan.h      | 5 +++++
->  drivers/net/ipvlan/ipvlan_core.c | 2 +-
->  2 files changed, 6 insertions(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-> index 54549a6..0799442 100644
-> --- a/drivers/net/ipvlan/ipvlan.h
-> +++ b/drivers/net/ipvlan/ipvlan.h
-> @@ -102,6 +102,11 @@ static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
->         return rcu_dereference(d->rx_handler_data);
+> [  802.945151] ===============================
+> [  802.945160] [ INFO: suspicious RCU usage. ]
+> [  802.945164] 4.1.0-rc3+ #71 Not tainted
+> [  802.945165] -------------------------------
+> [  802.945167] drivers/net/ipvlan/ipvlan.h:103 suspicious rcu_dereference_check() usage!
+> [  802.945168]
+> [  802.945168] other info that might help us debug this:
+> [  802.945168]
+> [  802.945170]
+> [  802.945170] rcu_scheduler_active = 1, debug_locks = 1
+> [  802.945173] 3 locks held by ping6/3813:
+> [  802.945174]  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff81880f72>] rawv6_sendmsg+0x512/0xbb0
+> [  802.945197]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff8185e577>] ip6_finish_output2+0x57/0x790
+> [  802.945205]  #2:  (rcu_read_lock_bh){......}, at: [<ffffffff8177a68b>] __dev_queue_xmit+0x4b/0x930
+> [  802.945218]
+> [  802.945218] stack backtrace:
+> [  802.945221] CPU: 2 PID: 3813 Comm: ping6 Not tainted 4.1.0-rc3+ #71
+> [  802.945222] Hardware name: OpenStack Foundation OpenStack Nova, BIOS Bochs 01/01/2011
+> [  802.945224]  0000000000000001 ffff8800db7b7888 ffffffff819de6f8 0000000000000007
+> [  802.945226]  ffff8800db738000 ffff8800db7b78b8 ffffffff810a7f92 ffff880214fc8c00
+> [  802.945229]  ffff88021595b000 ffff88021595a000 ffff880214adf800 ffff8800db7b7968
+> [  802.945232] Call Trace:
+> [  802.945248]  [<ffffffff819de6f8>] dump_stack+0x4c/0x65
+> [  802.945253]  [<ffffffff810a7f92>] lockdep_rcu_suspicious+0xe2/0x130
+> [  802.945265]  [<ffffffff815e24ac>] ipvlan_queue_xmit+0x17c/0x5a0
+> [  802.945268]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
+> [  802.945271]  [<ffffffff815e300c>] ipvlan_start_xmit+0x1c/0x50
+> [  802.945272]  [<ffffffff8177a117>] dev_hard_start_xmit+0x2f7/0x820
+> [  802.945274]  [<ffffffff817797b6>] ? netif_skb_features+0xf6/0x1d0
+> [  802.945276]  [<ffffffff81779b84>] ? validate_xmit_skb.isra.99.part.100+0x24/0x2c0
+> [  802.945278]  [<ffffffff8177ad04>] __dev_queue_xmit+0x6c4/0x930
+> [  802.945280]  [<ffffffff8177a68b>] ? __dev_queue_xmit+0x4b/0x930
+> [  802.945281]  [<ffffffff810a963a>] ? mark_held_locks+0x6a/0x90
+> [  802.945283]  [<ffffffff8177af8e>] dev_queue_xmit_sk+0xe/0x10
+> [  802.945285]  [<ffffffff8185e824>] ip6_finish_output2+0x304/0x790
+> [  802.945287]  [<ffffffff81860dde>] ? ip6_finish_output+0x9e/0x1e0
+> [  802.945288]  [<ffffffff81860dde>] ip6_finish_output+0x9e/0x1e0
+> [  802.945290]  [<ffffffff81860fdb>] ip6_output+0xbb/0x180
+> [  802.945302]  [<ffffffff818a7d0a>] ? ip6_find_1stfragopt+0x9a/0xa0
+> [  802.945304]  [<ffffffff81860d40>] ? ip6_fragment+0xe80/0xe80
+> [  802.945306]  [<ffffffff818a805c>] ip6_local_out_sk+0x2c/0x70
+> [  802.945308]  [<ffffffff818a80b0>] ip6_local_out+0x10/0x20
+> [  802.945309]  [<ffffffff81861571>] ip6_send_skb+0x31/0xd0
+> [  802.945311]  [<ffffffff81861644>] ip6_push_pending_frames+0x34/0x40
+> [  802.945313]  [<ffffffff81881368>] rawv6_sendmsg+0x908/0xbb0
+> [  802.945328]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
+> [  802.945340]  [<ffffffff81817e9e>] inet_sendmsg+0x10e/0x1f0
+> [  802.945343]  [<ffffffff81817d90>] ? inet_recvmsg+0x200/0x200
+> [  802.945351]  [<ffffffff81758275>] sock_sendmsg+0x45/0x50
+> [  802.945354]  [<ffffffff8175a719>] SYSC_sendto+0xd9/0x110
+> [  802.945357]  [<ffffffff8175ac99>] SyS_sendto+0x9/0x10
+> [  802.945362]  [<ffffffff819ebfae>] system_call_fastpath+0x12/0x76
+> ---
+>  drivers/net/ipvlan/ipvlan_main.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> index 77b92a0fe557..0cafd3e6f02d 100644
+> --- a/drivers/net/ipvlan/ipvlan_main.c
+> +++ b/drivers/net/ipvlan/ipvlan_main.c
+> @@ -173,6 +173,7 @@ static int ipvlan_stop(struct net_device *dev)
+>         return 0;
 >  }
 >
-> +static inline struct ipvl_port *ipvlan_port_get_rcu_bh(const struct net_device *d)
-> +{
-> +       return rcu_dereference_bh(d->rx_handler_data);
-> +}
-> +
->  static inline struct ipvl_port *ipvlan_port_get_rtnl(const struct net_device *d)
+> +/* called with rcu_read_lock_bh. */
+>  static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+>                                      struct net_device *dev)
 >  {
->         return rtnl_dereference(d->rx_handler_data);
-> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> index c30b5c3..b349dad 100644
-> --- a/drivers/net/ipvlan/ipvlan_core.c
-> +++ b/drivers/net/ipvlan/ipvlan_core.c
-> @@ -507,7 +507,7 @@ static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
->  int ipvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
->         struct ipvl_dev *ipvlan = netdev_priv(dev);
-> -       struct ipvl_port *port = ipvlan_port_get_rcu(ipvlan->phy_dev);
-> +       struct ipvl_port *port = ipvlan_port_get_rcu_bh(ipvlan->phy_dev);
+> @@ -180,6 +181,7 @@ static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+>         int skblen = skb->len;
+>         int ret;
 >
->         if (!port)
->                 goto out;
-> --
-> 1.8.3.1
+> +       rcu_read_lock();
+
+I don't believe this is correct. The correct way would be the way  it
+is fixed in the following patch -
+https://patchwork.ozlabs.org/patch/471481/
+
+>         ret = ipvlan_queue_xmit(skb, dev);
+>         if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
+>                 struct ipvl_pcpu_stats *pcptr;
+> @@ -193,6 +195,8 @@ static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+>         } else {
+>                 this_cpu_inc(ipvlan->pcpu_stats->tx_drps);
+>         }
+> +       rcu_read_unlock();
+> +
+>         return ret;
+>  }
+>
 >
