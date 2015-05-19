@@ -1,167 +1,161 @@
-From: Tina Ruchandani <ruchandani.tina@gmail.com>
-Subject: [PATCH v2] isdn: Use ktime_t instead of 'struct timeval'
-Date: Tue, 19 May 2015 13:03:06 +0530
-Message-ID: <20150519073306.GA28427@tinar>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 1/2] cxgb4: Remove dead function t4_read_edc and t4_read_mc
+Date: Tue, 19 May 2015 18:20:43 +0530
+Message-ID: <1432039844-23326-2-git-send-email-hariprasad@chelsio.com>
+References: <1432039844-23326-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36764 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753462AbbESHdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 03:33:12 -0400
-Received: by pabts4 with SMTP id ts4so12115657pab.3
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 00:33:11 -0700 (PDT)
-Content-Disposition: inline
+Received: from stargate.chelsio.com ([67.207.112.58]:11696 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754268AbbESHi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 03:38:26 -0400
+In-Reply-To: <1432039844-23326-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'struct timeval' uses 32-bit representation for seconds which will
-overflow in year 2038 and beyond. mISDN/clock.c needs to compute and
-store elapsed time in intervals of 125 microseconds. This patch replaces
-the usage of 'struct timeval' with 64-bit ktime_t which is y2038 safe.
-The patch also replaces do_gettimeofday() (wall-clock time) with 
-ktime_get() (monotonic time) since we only care about elapsed time here.
-
-Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
-Suggested-by: Arnd Bergmnann <arnd@arndb.de>
---
-Changes in v2:
-- Avoid possible truncation bug caused by assigning ktime_us_delta
-output to a 16-bit number.
-- Use ktime_us_delta, more concise than a combination of ktime_sub
-and ktime_to_us.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/isdn/mISDN/clock.c | 55 ++++++++++++++++++----------------------------
- include/linux/mISDNif.h    |  2 +-
- 2 files changed, 22 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |   4 --
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 110 -----------------------------
+ 2 files changed, 114 deletions(-)
 
-diff --git a/drivers/isdn/mISDN/clock.c b/drivers/isdn/mISDN/clock.c
-index 693fb7c..5fcdb5f 100644
---- a/drivers/isdn/mISDN/clock.c
-+++ b/drivers/isdn/mISDN/clock.c
-@@ -37,6 +37,7 @@
- #include <linux/types.h>
- #include <linux/stddef.h>
- #include <linux/spinlock.h>
-+#include <linux/ktime.h>
- #include <linux/mISDNif.h>
- #include <linux/export.h>
- #include "core.h"
-@@ -45,7 +46,7 @@ static u_int *debug;
- static LIST_HEAD(iclock_list);
- static DEFINE_RWLOCK(iclock_lock);
- static u16 iclock_count;		/* counter of last clock */
--static struct timeval iclock_tv;	/* time stamp of last clock */
-+static ktime_t iclock_tv;		/* time stamp of last clock */
- static int iclock_tv_valid;		/* already received one timestamp */
- static struct mISDNclock *iclock_current;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 932ab3b..7988f5e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1220,10 +1220,6 @@ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
+ u32 t4_read_rss_pf_map(struct adapter *adapter);
+ u32 t4_read_rss_pf_mask(struct adapter *adapter);
  
-@@ -53,7 +54,7 @@ void
- mISDN_init_clock(u_int *dp)
- {
- 	debug = dp;
--	do_gettimeofday(&iclock_tv);
-+	iclock_tv = ktime_get();
+-int t4_mc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
+-	       u64 *parity);
+-int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data,
+-		u64 *parity);
+ unsigned int t4_get_mps_bg_map(struct adapter *adapter, int idx);
+ void t4_pmtx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
+ void t4_pmrx_get_stats(struct adapter *adap, u32 cnt[], u64 cycles[]);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index c626252..3bde71b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -333,116 +333,6 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
  }
  
- static void
-@@ -139,12 +140,11 @@ mISDN_unregister_clock(struct mISDNclock *iclock)
- EXPORT_SYMBOL(mISDN_unregister_clock);
- 
- void
--mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
-+mISDN_clock_update(struct mISDNclock *iclock, int samples, ktime_t *tv)
- {
- 	u_long		flags;
--	struct timeval	tv_now;
--	time_t		elapsed_sec;
--	int		elapsed_8000th;
-+	ktime_t		tv_now;
-+	u16		delta;
- 
- 	write_lock_irqsave(&iclock_lock, flags);
- 	if (iclock_current != iclock) {
-@@ -160,28 +160,21 @@ mISDN_clock_update(struct mISDNclock *iclock, int samples, struct timeval *tv)
- 		/* increment sample counter by given samples */
- 		iclock_count += samples;
- 		if (tv) { /* tv must be set, if function call is delayed */
--			iclock_tv.tv_sec = tv->tv_sec;
--			iclock_tv.tv_usec = tv->tv_usec;
--		} else
--			do_gettimeofday(&iclock_tv);
-+			iclock_tv = *tv;
-+		} else {
-+			iclock_tv = ktime_get();
-+		}
- 	} else {
- 		/* calc elapsed time by system clock */
- 		if (tv) { /* tv must be set, if function call is delayed */
--			tv_now.tv_sec = tv->tv_sec;
--			tv_now.tv_usec = tv->tv_usec;
--		} else
--			do_gettimeofday(&tv_now);
--		elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
--		elapsed_8000th = (tv_now.tv_usec / 125)
--			- (iclock_tv.tv_usec / 125);
--		if (elapsed_8000th < 0) {
--			elapsed_sec -= 1;
--			elapsed_8000th += 8000;
-+			tv_now = *tv;
-+		} else {
-+			tv_now = ktime_get();
- 		}
-+		delta = ktime_us_delta(tv_now, iclock_tv) / 125;
- 		/* add elapsed time to counter and set new timestamp */
--		iclock_count += elapsed_sec * 8000 + elapsed_8000th;
--		iclock_tv.tv_sec = tv_now.tv_sec;
--		iclock_tv.tv_usec = tv_now.tv_usec;
-+		iclock_count += delta;
-+		iclock_tv = tv_now;
- 		iclock_tv_valid = 1;
- 		if (*debug & DEBUG_CLOCK)
- 			printk("Received first clock from source '%s'.\n",
-@@ -195,22 +188,16 @@ unsigned short
- mISDN_clock_get(void)
- {
- 	u_long		flags;
--	struct timeval	tv_now;
--	time_t		elapsed_sec;
--	int		elapsed_8000th;
-+	ktime_t		tv_now;
-+	u16		delta;
- 	u16		count;
- 
- 	read_lock_irqsave(&iclock_lock, flags);
- 	/* calc elapsed time by system clock */
--	do_gettimeofday(&tv_now);
--	elapsed_sec = tv_now.tv_sec - iclock_tv.tv_sec;
--	elapsed_8000th = (tv_now.tv_usec / 125) - (iclock_tv.tv_usec / 125);
--	if (elapsed_8000th < 0) {
--		elapsed_sec -= 1;
--		elapsed_8000th += 8000;
+ /**
+- *	t4_mc_read - read from MC through backdoor accesses
+- *	@adap: the adapter
+- *	@addr: address of first byte requested
+- *	@idx: which MC to access
+- *	@data: 64 bytes of data containing the requested address
+- *	@ecc: where to store the corresponding 64-bit ECC word
+- *
+- *	Read 64 bytes of data from MC starting at a 64-byte-aligned address
+- *	that covers the requested address @addr.  If @parity is not %NULL it
+- *	is assigned the 64-bit ECC word for the read data.
+- */
+-int t4_mc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+-{
+-	int i;
+-	u32 mc_bist_cmd, mc_bist_cmd_addr, mc_bist_cmd_len;
+-	u32 mc_bist_status_rdata, mc_bist_data_pattern;
+-
+-	if (is_t4(adap->params.chip)) {
+-		mc_bist_cmd = MC_BIST_CMD_A;
+-		mc_bist_cmd_addr = MC_BIST_CMD_ADDR_A;
+-		mc_bist_cmd_len = MC_BIST_CMD_LEN_A;
+-		mc_bist_status_rdata = MC_BIST_STATUS_RDATA_A;
+-		mc_bist_data_pattern = MC_BIST_DATA_PATTERN_A;
+-	} else {
+-		mc_bist_cmd = MC_REG(MC_P_BIST_CMD_A, idx);
+-		mc_bist_cmd_addr = MC_REG(MC_P_BIST_CMD_ADDR_A, idx);
+-		mc_bist_cmd_len = MC_REG(MC_P_BIST_CMD_LEN_A, idx);
+-		mc_bist_status_rdata = MC_REG(MC_P_BIST_STATUS_RDATA_A, idx);
+-		mc_bist_data_pattern = MC_REG(MC_P_BIST_DATA_PATTERN_A, idx);
 -	}
-+	tv_now = ktime_get();
-+	delta = ktime_us_delta(tv_now, iclock_tv) / 125;
- 	/* add elapsed time to counter */
--	count =	iclock_count + elapsed_sec * 8000 + elapsed_8000th;
-+	count =	iclock_count + delta;
- 	read_unlock_irqrestore(&iclock_lock, flags);
- 	return count;
- }
-diff --git a/include/linux/mISDNif.h b/include/linux/mISDNif.h
-index 246a352..ac02c54 100644
---- a/include/linux/mISDNif.h
-+++ b/include/linux/mISDNif.h
-@@ -596,7 +596,7 @@ static inline struct mISDNdevice *dev_to_mISDN(struct device *dev)
- }
- 
- extern void	set_channel_address(struct mISDNchannel *, u_int, u_int);
--extern void	mISDN_clock_update(struct mISDNclock *, int, struct timeval *);
-+extern void	mISDN_clock_update(struct mISDNclock *, int, ktime_t *);
- extern unsigned short mISDN_clock_get(void);
- extern const char *mISDNDevName4ch(struct mISDNchannel *);
- 
+-
+-	if (t4_read_reg(adap, mc_bist_cmd) & START_BIST_F)
+-		return -EBUSY;
+-	t4_write_reg(adap, mc_bist_cmd_addr, addr & ~0x3fU);
+-	t4_write_reg(adap, mc_bist_cmd_len, 64);
+-	t4_write_reg(adap, mc_bist_data_pattern, 0xc);
+-	t4_write_reg(adap, mc_bist_cmd, BIST_OPCODE_V(1) | START_BIST_F |
+-		     BIST_CMD_GAP_V(1));
+-	i = t4_wait_op_done(adap, mc_bist_cmd, START_BIST_F, 0, 10, 1);
+-	if (i)
+-		return i;
+-
+-#define MC_DATA(i) MC_BIST_STATUS_REG(mc_bist_status_rdata, i)
+-
+-	for (i = 15; i >= 0; i--)
+-		*data++ = htonl(t4_read_reg(adap, MC_DATA(i)));
+-	if (ecc)
+-		*ecc = t4_read_reg64(adap, MC_DATA(16));
+-#undef MC_DATA
+-	return 0;
+-}
+-
+-/**
+- *	t4_edc_read - read from EDC through backdoor accesses
+- *	@adap: the adapter
+- *	@idx: which EDC to access
+- *	@addr: address of first byte requested
+- *	@data: 64 bytes of data containing the requested address
+- *	@ecc: where to store the corresponding 64-bit ECC word
+- *
+- *	Read 64 bytes of data from EDC starting at a 64-byte-aligned address
+- *	that covers the requested address @addr.  If @parity is not %NULL it
+- *	is assigned the 64-bit ECC word for the read data.
+- */
+-int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+-{
+-	int i;
+-	u32 edc_bist_cmd, edc_bist_cmd_addr, edc_bist_cmd_len;
+-	u32 edc_bist_cmd_data_pattern, edc_bist_status_rdata;
+-
+-	if (is_t4(adap->params.chip)) {
+-		edc_bist_cmd = EDC_REG(EDC_BIST_CMD_A, idx);
+-		edc_bist_cmd_addr = EDC_REG(EDC_BIST_CMD_ADDR_A, idx);
+-		edc_bist_cmd_len = EDC_REG(EDC_BIST_CMD_LEN_A, idx);
+-		edc_bist_cmd_data_pattern = EDC_REG(EDC_BIST_DATA_PATTERN_A,
+-						    idx);
+-		edc_bist_status_rdata = EDC_REG(EDC_BIST_STATUS_RDATA_A,
+-						idx);
+-	} else {
+-		edc_bist_cmd = EDC_REG_T5(EDC_H_BIST_CMD_A, idx);
+-		edc_bist_cmd_addr = EDC_REG_T5(EDC_H_BIST_CMD_ADDR_A, idx);
+-		edc_bist_cmd_len = EDC_REG_T5(EDC_H_BIST_CMD_LEN_A, idx);
+-		edc_bist_cmd_data_pattern =
+-			EDC_REG_T5(EDC_H_BIST_DATA_PATTERN_A, idx);
+-		edc_bist_status_rdata =
+-			 EDC_REG_T5(EDC_H_BIST_STATUS_RDATA_A, idx);
+-	}
+-
+-	if (t4_read_reg(adap, edc_bist_cmd) & START_BIST_F)
+-		return -EBUSY;
+-	t4_write_reg(adap, edc_bist_cmd_addr, addr & ~0x3fU);
+-	t4_write_reg(adap, edc_bist_cmd_len, 64);
+-	t4_write_reg(adap, edc_bist_cmd_data_pattern, 0xc);
+-	t4_write_reg(adap, edc_bist_cmd,
+-		     BIST_OPCODE_V(1) | BIST_CMD_GAP_V(1) | START_BIST_F);
+-	i = t4_wait_op_done(adap, edc_bist_cmd, START_BIST_F, 0, 10, 1);
+-	if (i)
+-		return i;
+-
+-#define EDC_DATA(i) (EDC_BIST_STATUS_REG(edc_bist_status_rdata, i))
+-
+-	for (i = 15; i >= 0; i--)
+-		*data++ = htonl(t4_read_reg(adap, EDC_DATA(i)));
+-	if (ecc)
+-		*ecc = t4_read_reg64(adap, EDC_DATA(16));
+-#undef EDC_DATA
+-	return 0;
+-}
+-
+-/**
+  *	t4_memory_rw - read/write EDC 0, EDC 1 or MC via PCIE memory window
+  *	@adap: the adapter
+  *	@win: PCI-E Memory Window to use
 -- 
-2.2.0.rc0.207.ga3a616c
+2.3.4
