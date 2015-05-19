@@ -1,38 +1,67 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [RFC 12/23] xen: Extend page_to_mfn to take an offset
- in the page
-Date: Tue, 19 May 2015 14:57:59 +0100
-Message-ID: <555B4167.7050506@citrix.com>
-References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
- <1431622863-28575-13-git-send-email-julien.grall@citrix.com>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: [PATCH] tcp: ensure epoll edge trigger wakeup when out of memory
+Date: Tue, 19 May 2015 10:10:33 -0400
+Message-ID: <555B4459.806@akamai.com>
+References: <20150515211707.D9FC480066@prod-mail-relay07.akamai.com>	<20150519.000945.697478668443801629.davem@davemloft.net> <20150519.001045.1156234709900758412.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=iso-8859-7
 Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
-	<netdev@vger.kernel.org>, <tim@xen.org>,
-	<linux-kernel@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Julien Grall <julien.grall@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1431622863-28575-13-git-send-email-julien.grall@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
+	ycheng@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:22173 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755413AbbESOKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 10:10:34 -0400
+In-Reply-To: <20150519.001045.1156234709900758412.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14/05/15 18:00, Julien Grall wrote:
-> With 64KB page granularity support in Linux, a page will be split accross
-> multiple MFN (Xen is using 4KB page granularity). Thoses MFNs may not be
-> contiguous.
-> 
-> With the offset in the page, the helper will be able to know which MFN
-> the driver needs to retrieve.
 
-I think a gnttab_grant_foreign_access_ref()-like helper that takes a
-page would be better.
 
-You will probably want this helper able to return/fill a set of refs for
-64 KiB pages.
+On 05/19/2015 12:10 AM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 19 May 2015 00:09:45 -0400 (EDT)
+>
+>> From: Jason Baron <jbaron@akamai.com>
+>> Date: Fri, 15 May 2015 21:17:07 +0000 (GMT)
+>>
+>>> From: Jason Baron <jbaron@akamai.com>
+>>>
+>>> If we really can't get an skb allocated, make sure that we let
+>>> userspace know. This at least gives us a chance to re-try or abort.
+>>>
+>>> Signed-off-by: Jason Baron <jbaron@akamai.com>
+>> Applied to net-next, thanks Jason.
+> Nevermind, reverted, you didn't compile let alone test this:
+>
 
-David
+Hi David,
+
+This was meant as: "do you think this is a good idea? If so, I will
+go off and test it. I mentioned it was *not* tested in the separate
+thread where we were discussing it:
+
+http://marc.info/?l=linux-netdev&m=143172482802074&w=2
+
+However, I didn't make that at all clear in *this* thread. And I'm
+sorry for the inconvenience.
+
+I meant to do:
+
++       if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 && err ==
+-EAGAIN))
++               sk->sk_write_space(sk);
+
+not:
+
++       if (unlikely(sk->sk_write_queue == 0 && err == -EAGAIN))
++               sk->sk_write_space(sk);
+
+Sounds like you are ok with doing the wakeup here- so I will go
+off and test that approach, and report back my findings.
+
+Thanks,
+
+-Jason
