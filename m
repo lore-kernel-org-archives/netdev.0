@@ -1,84 +1,49 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH] pci: Limit VPD reads for all Intel
- Ethernet devices
-Date: Tue, 19 May 2015 22:43:39 +0000
-Message-ID: <46CDD500-2A1B-4457-BE17-961AFC50769E@intel.com>
-References: <20150519000042.56109.69779.stgit@mdrustad-wks.jf.intel.com>
- <555B5CBF.1090902@redhat.com>
- <4AD84211-965C-4F0B-A7F4-3E6CCE6567E3@intel.com>
- <555B77E5.5060006@redhat.com>
- <99014381-25AB-416D-8E09-C431B5CD5A6C@intel.com>
- <555B9F74.3040004@redhat.com>
- <DA06AAB6-CE9B-4A27-B60D-8F55BB52A063@intel.com> <555BA850.1090901@gmail.com>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v3 for-next 05/13] IB/cm: Reference count ib_cm_ids
+Date: Tue, 19 May 2015 22:52:59 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FDD412@ORSMSX109.amr.corp.intel.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-6-git-send-email-haggaie@mellanox.com>
+ <20150511183459.GB25405@obsidianresearch.com>
+ <5551A2CB.1010407@mellanox.com> <20150512185447.GA3503@obsidianresearch.com>
+ <55532566.9040105@mellanox.com>
+ <20150513165823.GA20343@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDC0C3@ORSMSX109.amr.corp.intel.com>
+ <20150519192353.GA23612@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <555BA850.1090901@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150519192353.GA23612-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
 Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=windows-1252
+> I find Haggai's argument compelling, it is a very small amount of code
+> and data to add a sharing count, and a very large amount to duplicate
+> the whole service id map into cma.c.
 
-> On May 19, 2015, at 2:17 PM, Alexander Duyck =
-<alexander.duyck@gmail.com> wrote:
->=20
-> Any chance you could point me toward the software in question?  Just =
-wondering because it seems like what you are fixing with this is an =
-implementation issue in the application since you really shouldn't be =
-accessing areas outside the scope of the VPD data structure, and doing =
-so is undefined in terms of what happens if you do.
+I get wanting to share the listen list, but we end up with this:
 
-I don't have it, but if you dump VPD via sysfs you will see it comes out =
-as 32k in size. The kernel just blindly provides access to the full 32K =
-space provided by the spec. I'm sure that we agree that the kernel =
-should not go parse it and find the actual size. If it is read via =
-stdio, say fread, the read access would be whatever buffer size it =
-chooses to use.
+> drivers/infiniband/core/cm.c                       | 129 +++++-
 
-If you looked at the quirks, you might have noticed that Broadcom =
-limited the VPD access for some devices for functional reasons. That is =
-what gave me the idea for limiting access to what was possibly there. =
-With the existing Intel Ethernet quirk, it seemed like a simple thing to =
-do.
+that's more code than what the ib_cm module uses to track listens, and the result is a solution that ends up being split in a weird fashion between the ib_cm, iw_cm (TBD), and rdma_cm.
 
+I wonder if the existing ib_cm interface is even what we want.  Currently, the rdma_cm pushes the private data (i.e. IP address) comparison into the ib_cm.  This is only used by the rdma_cm.  Should that instead be moved out of the ib_cm and handled in the rdma_cm?  And then update the ib_cm to support multiple listens on the same service id.
+
+For example, the ib_cm could simply queue all listen requests on the same service id.  When a REQ arrives, it just calls each listener back until one 'claims' the REQ.  The destruction of a listener could then be synced with the callback.  From what I can tell, the current proposal requires that the ib_cm user be prepared to receive a REQ callback for a listen that it has already destroyed.  If needed, a flag can be added to the ib_cm_listen to indicate if the service id is shared/exclusive.
+
+- Sean 
 --
-Mark Rustad, Networking Division, Intel Corporation
-
-
---Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJVW7yaAAoJEDwO/+eO4+5uc/8QAITb0mh4u5YVVfHMyOLMh5yw
-JA8BFJmBfP0ufBxMS7vsMJw68gqiHKnoKcPG0cOT4HiKCxgRSwdZLXY99G/VGwE1
-VkwfIHe/hhPUROHJngO3V9NQveZ7OGhv/iJBqzl1v/DfDa56xYuhzuVto24ZVixK
-RziXaQnR1ISztjK4gJM79Jr4mXyFltTiO1PdjCSiKw0DIlGVCcnvdsEk4yknBLeq
-hgQEK8mH0nFBF/3Snj3ttuMZSKTN4McHptF8BNyrkZ+E2IjivQziBK6XOOK5MQ4k
-25FtyqRnDhG9czQEFRitVuIISUnLROIaKuGk6qv3sPM7280cUEXnUok9IA8u1NN7
-+iq40BPRp3JaGR8VR2XLqTRwlCeaiCEiz3JXkBNzi6wdn40F6lx/WgpXxjxfHhLu
-mrG+QyOwy/YhlNotfXLFtIUFVM/Lu2x4RU08qmSoWeyZ/M+ABJdZSG+EVan8BQ1J
-qnYy6OcLAg1X4Gup/Tjj2VNZAcy2KD8MxZnt5ZUEgMkgPtY3nqDiAiIWobTYB5Y2
-6U0L750gRnoLtLMPdJUGYjTwSRCdhL+UjAsfLzgK8doghfJj2J2kWluAeUGM7K6m
-8/TdczdLztl6loFzrwmNr+F69u3bDr9F+GvEnFguZlAll3j7j2hUnOBPX0ecE4am
-jozxT1N0+FA0+1f7QOO4
-=1eme
------END PGP SIGNATURE-----
-
---Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
