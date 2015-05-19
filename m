@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] tcp: don't over-send F-RTO probes
-Date: Tue, 19 May 2015 16:37:26 -0400 (EDT)
-Message-ID: <20150519.163726.39558547040538869.davem@davemloft.net>
-References: <1431977505-15014-1-git-send-email-ycheng@google.com>
-	<1431977505-15014-2-git-send-email-ycheng@google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Default XPS settings in mlx4 driver
+Date: Tue, 19 May 2015 13:38:35 -0700
+Message-ID: <CALx6S36qXcqhfFQVLWu2CgoJYQL6E-myvgBvDFxATA+NjX+qBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com
-To: ycheng@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ido Shamay <idos@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47937 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751024AbbESUh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:37:27 -0400
-In-Reply-To: <1431977505-15014-2-git-send-email-ycheng@google.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:37641 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbbESUif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:38:35 -0400
+Received: by igbsb11 with SMTP id sb11so24067911igb.0
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 13:38:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon, 18 May 2015 12:31:45 -0700
+Hi Ido,
 
-> After sending the new data packets to probe (step 2), F-RTO may
-> incorrectly send more probes if the next ACK advances SND_UNA and
-> does not sack new packet. However F-RTO RFC 5682 probes at most
-> once. This bug may cause sender to always send new data instead of
-> repairing holes, inducing longer HoL blocking on the receiver for
-> the application.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+I'm looking at your patch "net/mlx4_en: Configure the XPS queue
+mapping on driver load". We're testing a 40 CPU system and it looks
+like XPS is being configured by default with forty queues 0-39 where
+each xps_cpus is (1 << i). The problem is that this does not easily
+align with RX queues and the TX completion interrupt for TX queue z
+happens in interrupt for (z % num_rx_queues). So it looks like, the
+default XPS doesn't respect the RX interrupt affinities, so we have TX
+queues that are bound to a CPU on one numa node but have their TX
+completions happen on another which is suboptimal. It would be nice if
+the default XPS could take where the completion interrupt happens into
+account somehow.
 
-Applied.
+Looks like there's a few other drivers that are setting XPS, they
+might have similar issue.
+
+Thanks,
+Tom
