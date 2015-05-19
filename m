@@ -1,91 +1,84 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 05/12] IB/cm: Share listening CM IDs
-Date: Tue, 19 May 2015 16:35:02 -0600
-Message-ID: <20150519223502.GA26324@obsidianresearch.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
- <1431841868-28063-6-git-send-email-haggaie@mellanox.com>
- <20150519183545.GH18675@obsidianresearch.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] pci: Limit VPD reads for all Intel
+ Ethernet devices
+Date: Tue, 19 May 2015 22:43:39 +0000
+Message-ID: <46CDD500-2A1B-4457-BE17-961AFC50769E@intel.com>
+References: <20150519000042.56109.69779.stgit@mdrustad-wks.jf.intel.com>
+ <555B5CBF.1090902@redhat.com>
+ <4AD84211-965C-4F0B-A7F4-3E6CCE6567E3@intel.com>
+ <555B77E5.5060006@redhat.com>
+ <99014381-25AB-416D-8E09-C431B5CD5A6C@intel.com>
+ <555B9F74.3040004@redhat.com>
+ <DA06AAB6-CE9B-4A27-B60D-8F55BB52A063@intel.com> <555BA850.1090901@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20150519183545.GH18675-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Alexander Duyck <alexander.h.duyck@redhat.com>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <555BA850.1090901@gmail.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 19, 2015 at 12:35:45PM -0600, Jason Gunthorpe wrote:
-> On Sun, May 17, 2015 at 08:51:01AM +0300, Haggai Eran wrote:
-> > @@ -212,6 +212,8 @@ struct cm_id_private {
-> >  	spinlock_t lock;	/* Do not acquire inside cm.lock */
-> >  	struct completion comp;
-> >  	atomic_t refcount;
-> > +	/* Number of clients sharing this ib_cm_id. Only valid for listeners. */
-> > +	atomic_t sharecount;
-> 
-> No need for this atomic, hold the lock
-> 
-> The use of the atomic looks racy:
-> 
-> > +	if (!atomic_dec_and_test(&cm_id_priv->sharecount)) {
-> > +		/* The id is still shared. */
-> > +		return;
-> > +	}
-> 
-> Might race with this:
-> 
-> > +		if (atomic_inc_return(&cm_id_priv->sharecount) == 1) {
-> > +			/* This ID is already being destroyed */
-> > +			atomic_dec(&cm_id_priv->sharecount);
-> > +			goto new_id;
-> > +		}
-> > +
-> 
-> Resulting in use-after-free of cm_id_priv->sharecount
+--Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=windows-1252
 
-Actually, there is something else odd here.. I mentioned the above
-because there wasn't obvious ref'ing on the cm_id_priv. Looking closer
-the cm.lock should prevent use-after-free, but there is still no ref.
+> On May 19, 2015, at 2:17 PM, Alexander Duyck =
+<alexander.duyck@gmail.com> wrote:
+>=20
+> Any chance you could point me toward the software in question?  Just =
+wondering because it seems like what you are fixing with this is an =
+implementation issue in the application since you really shouldn't be =
+accessing areas outside the scope of the VPD data structure, and doing =
+so is undefined in terms of what happens if you do.
 
-The more I look at this, the more I think it is sketchy. Don't try and
-merge sharecount and refcount together, after cm_find_listen is called
-you have to increment the refcount before dropping cm.lock.
+I don't have it, but if you dump VPD via sysfs you will see it comes out =
+as 32k in size. The kernel just blindly provides access to the full 32K =
+space provided by the spec. I'm sure that we agree that the kernel =
+should not go parse it and find the actual size. If it is read via =
+stdio, say fread, the read access would be whatever buffer size it =
+chooses to use.
 
-Decrement the refcount when destroying a shared listen.
+If you looked at the quirks, you might have noticed that Broadcom =
+limited the VPD access for some devices for functional reasons. That is =
+what gave me the idea for limiting access to what was possibly there. =
+With the existing Intel Ethernet quirk, it seemed like a simple thing to =
+do.
 
-I also don't see how the 'goto new_id' can work, if cm_find_listen
-succeeds then __ib_cm_listen is guarenteed to fail.
-
-Fix the locking to make that impossible, associate sharecount with the
-cm.lock and, rework how cm_destroy_id grabs the cm_id_priv->lock spinlock:
-
-	case IB_CM_LISTEN:
-		spin_lock_irq(&cm.lock);
-		if (cm_id_priv->sharecount != 0) {
-		     cm_id_prv->sharecount--;
-		     // paired with in in ib_cm_id_create_and_listen
-		     atomic_dec(&cm_id_priv->refcount);
-		     spin_unlock_irq(&cm.lock);
-		     return;
-		}
-		rb_erase(&cm_id_priv->service_node, &cm.listen_service_table);
-		spin_unlock_irq(&cm.lock);
-	
-		spin_lock_irq(&cm_id_priv->lock);
-		cm_id->state = IB_CM_IDLE;
-		spin_unlock_irq(&cm_id_priv->lock);
-		break;
-
-Now that condition is eliminated, the unneeded atomic is gone, and
-refcount still acts like a proper kref should.
-
-Jason
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Mark Rustad, Networking Division, Intel Corporation
+
+
+--Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJVW7yaAAoJEDwO/+eO4+5uc/8QAITb0mh4u5YVVfHMyOLMh5yw
+JA8BFJmBfP0ufBxMS7vsMJw68gqiHKnoKcPG0cOT4HiKCxgRSwdZLXY99G/VGwE1
+VkwfIHe/hhPUROHJngO3V9NQveZ7OGhv/iJBqzl1v/DfDa56xYuhzuVto24ZVixK
+RziXaQnR1ISztjK4gJM79Jr4mXyFltTiO1PdjCSiKw0DIlGVCcnvdsEk4yknBLeq
+hgQEK8mH0nFBF/3Snj3ttuMZSKTN4McHptF8BNyrkZ+E2IjivQziBK6XOOK5MQ4k
+25FtyqRnDhG9czQEFRitVuIISUnLROIaKuGk6qv3sPM7280cUEXnUok9IA8u1NN7
++iq40BPRp3JaGR8VR2XLqTRwlCeaiCEiz3JXkBNzi6wdn40F6lx/WgpXxjxfHhLu
+mrG+QyOwy/YhlNotfXLFtIUFVM/Lu2x4RU08qmSoWeyZ/M+ABJdZSG+EVan8BQ1J
+qnYy6OcLAg1X4Gup/Tjj2VNZAcy2KD8MxZnt5ZUEgMkgPtY3nqDiAiIWobTYB5Y2
+6U0L750gRnoLtLMPdJUGYjTwSRCdhL+UjAsfLzgK8doghfJj2J2kWluAeUGM7K6m
+8/TdczdLztl6loFzrwmNr+F69u3bDr9F+GvEnFguZlAll3j7j2hUnOBPX0ecE4am
+jozxT1N0+FA0+1f7QOO4
+=1eme
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_EBDC4AEE-1FD3-4877-9518-6729D4EF91F0--
