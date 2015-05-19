@@ -1,56 +1,60 @@
-From: Julien Grall <julien.grall@citrix.com>
-Subject: Re: [Xen-devel] [RFC 12/23] xen: Extend page_to_mfn to take an offset
- in the page
-Date: Tue, 19 May 2015 15:18:24 +0100
-Message-ID: <555B4630.8050304@citrix.com>
-References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
-	<1431622863-28575-13-git-send-email-julien.grall@citrix.com>
- <555B4167.7050506@citrix.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
+Date: Tue, 19 May 2015 10:26:46 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1505191017460.1453-100000@iolanthe.rowland.org>
+References: <s5hwq04zypv.wl-tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
-	<netdev@vger.kernel.org>, <tim@xen.org>,
-	<linux-kernel@vger.kernel.org>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<linux-arm-kernel@lists.infradead.org>
-To: David Vrabel <david.vrabel@citrix.com>,
-	Julien Grall <julien.grall@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:7284 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933082AbbESOV2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2015 10:21:28 -0400
-In-Reply-To: <555B4167.7050506@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Laura Abbott <labbott@redhat.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Laura Abbott <labbott@fedoraproject.org>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
+	<linux-bluetooth@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Ming Lei <ming.lei@canonical.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	<linux-usb@vger.kernel.org>
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <s5hwq04zypv.wl-tiwai@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Tue, 19 May 2015, Takashi Iwai wrote:
 
-On 19/05/15 14:57, David Vrabel wrote:
-> On 14/05/15 18:00, Julien Grall wrote:
->> With 64KB page granularity support in Linux, a page will be split accross
->> multiple MFN (Xen is using 4KB page granularity). Thoses MFNs may not be
->> contiguous.
->>
->> With the offset in the page, the helper will be able to know which MFN
->> the driver needs to retrieve.
-> 
-> I think a gnttab_grant_foreign_access_ref()-like helper that takes a
-> page would be better.
->
-> You will probably want this helper able to return/fill a set of refs for
-> 64 KiB pages.
+> > > I am not convinced. Now we are hacking the Bluetooth core layer
+> > > (which has nothing to do with the drivers suspend/resume or
+> > > probe) to do something different so that we do not see this
+> > > warning.
+> > >
+> > > I can not do anything about the platform in question choosing a
+> > > unplug/replug for suspend/resume instead of having a proper USB
+> > > suspend and resume handling. That is pretty much out of our
+> > > control.
 
-I will see what I can do.
+Actually one can do something about this.  I mean, one _can_ implement
+proper USB suspend and resume handling in the Bluetooth driver.  At
+this point the details aren't clear to me, but perhaps if the driver in
+question had a reset_resume callback then it might work better.
 
-Although, I think this patch is still valid to avoid wrong usage with
-64KB page granularity by the caller.
+> > >  I would rather have the USB subsystem delay the probe()
+> > > callback if we tell it to.
 
-The developer may think that MFN are contiguous which is not always true.
+This is possible.  I am not sure it would be the right thing to do,
+though.  What happens if the probe routine gets called early on during
+the boot-up procedure, before userspace is up and running?  The same
+thing should happen here.
 
-Regards,
+> > >  Of just have request_firmware()
+> > > actually sleep until userspace is ready. Seriously, why is
+> > > request_firmware not just sleeping for us.
 
--- 
-Julien Grall
+It won't work.  The request_firmware call is part of the probe 
+sequence, which in turn is part of the resume sequence.  Userspace 
+doesn't start running again until the resume sequence is finished.  If 
+request_firmware waited for userspace, it would hang.
+
+Alan Stern
