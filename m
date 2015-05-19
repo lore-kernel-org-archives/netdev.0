@@ -1,74 +1,148 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v3 for-next 05/13] IB/cm: Reference count ib_cm_ids
-Date: Tue, 19 May 2015 17:46:54 -0600
-Message-ID: <20150519234654.GA26634@obsidianresearch.com>
-References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
- <1431253604-9214-6-git-send-email-haggaie@mellanox.com>
- <20150511183459.GB25405@obsidianresearch.com>
- <5551A2CB.1010407@mellanox.com>
- <20150512185447.GA3503@obsidianresearch.com>
- <55532566.9040105@mellanox.com>
- <20150513165823.GA20343@obsidianresearch.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FDC0C3@ORSMSX109.amr.corp.intel.com>
- <20150519192353.GA23612@obsidianresearch.com>
- <1828884A29C6694DAF28B7E6B8A82373A8FDD412@ORSMSX109.amr.corp.intel.com>
+From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Subject: RE: [net-next 07/11] if_link: Add VF multicast promiscuous control
+Date: Tue, 19 May 2015 23:52:00 +0000
+Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB284A@BPXM14GP.gisp.nec.co.jp>
+References: <1430563358-113833-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1430563358-113833-8-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <CAJ3xEMjtZOTkwXXk-EcSniYe99Rjz-BUTcyoZwKXpwh4DsPy+A@mail.gmail.com>
+	 <F6FB0E698C9B3143BDF729DF22286646912ED354@ORSMSX110.amr.corp.intel.com>
+	 <7F861DC0615E0C47A872E6F3C5FCDDBD05E9A253@BPXM14GP.gisp.nec.co.jp>
+	 <F6FB0E698C9B3143BDF729DF22286646912EE34B@ORSMSX110.amr.corp.intel.com>
+	 <7F861DC0615E0C47A872E6F3C5FCDDBD05E9DD71@BPXM14GP.gisp.nec.co.jp>
+	 <F6FB0E698C9B3143BDF729DF22286646912EFEC4@ORSMSX110.amr.corp.intel.com>
+	 <7F861DC0615E0C47A872E6F3C5FCDDBD05E9DDE9@BPXM14GP.gisp.nec.co.jp>
+ <1431777375.32618.81.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FDD412-P5GAC/sN6hkd3b2yrw5b5LfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Rony Efraim <ronye@mellanox.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from TYO201.gate.nec.co.jp ([210.143.35.51]:51528 "EHLO
+	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750832AbbESXxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 19:53:05 -0400
+In-Reply-To: <1431777375.32618.81.camel@jtkirshe-mobl>
+Content-Language: ja-JP
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 10:52:59PM +0000, Hefty, Sean wrote:
-> > I find Haggai's argument compelling, it is a very small amount of code
-> > and data to add a sharing count, and a very large amount to duplicate
-> > the whole service id map into cma.c.
-> 
-> I get wanting to share the listen list, but we end up with this:
-> 
-> > drivers/infiniband/core/cm.c                       | 129 +++++-
-> 
-> that's more code than what the ib_cm module uses to track listens,
-> and the result is a solution that ends up being split in a weird
-> fashion between the ib_cm, iw_cm (TBD), and rdma_cm.
-
-I was mostly thinking about data overheads with a second rbtree, but I
-do wonder if the overhead is already in the rdma_cm between the
-listen_list, bind_list, etc. So maybe that should be used instead..
-
-> I wonder if the existing ib_cm interface is even what we want.
-> Currently, the rdma_cm pushes the private data (i.e. IP address)
-> comparison into the ib_cm.  This is only used by the rdma_cm.
-> Should that instead be moved out of the ib_cm and handled in the
-> rdma_cm?  And then update the ib_cm to support multiple listens on
-> the same service id.
-
-Well, that really is the problem here, the private data compare
-doesn't really do enough because rdma cm wildcard's the IP address and
-does it's own check anyhow. So I see all of this as different
-proposals on how to fix that. rdma_cm basically already does most of
-the private data compare itself.
-
-It is hard to make the private data compare more fancy and still
-provide EBUSY semantics..
-
-On one hand, we don't really need the cm to maintain a list of
-listeners and iterate over them for the rdma cm, that state is already
-kept and tracked in rdma_cm when it goes to find the device the IP is
-associated with..
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+PiBTdWJqZWN0OiBSZTogW25ldC1uZXh0IDA3LzExXSBpZl9saW5rOiBBZGQgVkYgbXVsdGljYXN0
+IHByb21pc2N1b3VzIGNvbnRyb2wNCj4gDQo+IE9uIFR1ZSwgMjAxNS0wNS0xMiBhdCAwMDozMyAr
+MDAwMCwgSGlyb3NoaSBTaGltYW1vdG8gd3JvdGU6DQo+ID4gPiA+IC0tLS0tT3JpZ2luYWwgTWVz
+c2FnZS0tLS0tDQo+ID4gPiA+IEZyb206IEhpcm9zaGkgU2hpbWFtb3RvIFttYWlsdG86aC1zaGlt
+YW1vdG9AY3QuanAubmVjLmNvbV0NCj4gPiA+ID4gU2VudDogTW9uZGF5LCBNYXkgMTEsIDIwMTUg
+NDo1NSBQTQ0KPiA+ID4gPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBPciBHZXJsaXR6OyBLaXJz
+aGVyLCBKZWZmcmV5IFQNCj4gPiA+ID4gQ2M6IERhdmlkIE1pbGxlcjsgTGludXggTmV0ZGV2IExp
+c3Q7IG5ob3JtYW5AcmVkaGF0LmNvbTsNCj4gPiA+ID4gc2Fzc21hbm5AcmVkaGF0LmNvbTsgam9n
+cmVlbmVAcmVkaGF0LmNvbTsgQ2hvaSwgU3kgSm9uZzsgRWR3YXJkDQo+ID4gQ3JlZTsNCj4gPiA+
+ID4gUm9ueSBFZnJhaW0NCj4gPiA+ID4gU3ViamVjdDogUkU6IFtuZXQtbmV4dCAwNy8xMV0gaWZf
+bGluazogQWRkIFZGIG11bHRpY2FzdA0KPiA+IHByb21pc2N1b3VzIGNvbnRyb2wNCj4gPiA+ID4N
+Cj4gPiA+ID4gPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+ID4gPiA+ID4g
+RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gW21haWx0bzpoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29t
+XQ0KPiA+ID4gPiA+ID4gPiBTZW50OiBXZWRuZXNkYXksIE1heSAwNiwgMjAxNSAxMDo1NSBQTQ0K
+PiA+ID4gPiA+ID4gPiBUbzogU2tpZG1vcmUsIERvbmFsZCBDOyBPciBHZXJsaXR6OyBLaXJzaGVy
+LCBKZWZmcmV5IFQNCj4gPiA+ID4gPiA+ID4gQ2M6IERhdmlkIE1pbGxlcjsgTGludXggTmV0ZGV2
+IExpc3Q7IG5ob3JtYW5AcmVkaGF0LmNvbTsNCj4gPiA+ID4gPiA+ID4gc2Fzc21hbm5AcmVkaGF0
+LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsgQ2hvaSwgU3kgSm9uZzsNCj4gPiBFZHdhcmQNCj4g
+PiA+ID4gPiA+ID4gQ3JlZTsgUm9ueSBFZnJhaW0NCj4gPiA+ID4gPiA+ID4gU3ViamVjdDogUkU6
+IFtuZXQtbmV4dCAwNy8xMV0gaWZfbGluazogQWRkIFZGIG11bHRpY2FzdA0KPiA+ID4gPiA+ID4g
+PiBwcm9taXNjdW91cyBjb250cm9sDQo+ID4gPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiA+ID4gPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gPiA+ID4gPiA+ID4gRnJvbTogT3IgR2Vy
+bGl0eiBbbWFpbHRvOmdlcmxpdHoub3JAZ21haWwuY29tXQ0KPiA+ID4gPiA+ID4gPiA+ID4gU2Vu
+dDogU3VuZGF5LCBNYXkgMDMsIDIwMTUgNzoxNiBBTQ0KPiA+ID4gPiA+ID4gPiA+ID4gVG86IEtp
+cnNoZXIsIEplZmZyZXkgVA0KPiA+ID4gPiA+ID4gPiA+ID4gQ2M6IERhdmlkIE1pbGxlcjsgSGly
+b3NoaSBTaGltYW1vdG87IExpbnV4IE5ldGRldiBMaXN0Ow0KPiA+ID4gPiA+ID4gPiA+ID4gbmhv
+cm1hbkByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOw0KPiA+ID4gPiBqb2dyZWVuZUBy
+ZWRoYXQuY29tOw0KPiA+ID4gPiA+ID4gPiBDaG9pLA0KPiA+ID4gPiA+ID4gPiA+ID4gU3kgSm9u
+ZzsgRWR3YXJkIENyZWU7IFNraWRtb3JlLCBEb25hbGQgQzsgUm9ueSBFZnJhaW0NCj4gPiA+ID4g
+PiA+ID4gPiA+IFN1YmplY3Q6IFJlOiBbbmV0LW5leHQgMDcvMTFdIGlmX2xpbms6IEFkZCBWRiBt
+dWx0aWNhc3QNCj4gPiA+ID4gPiA+ID4gPiA+IHByb21pc2N1b3VzIGNvbnRyb2wNCj4gPiA+ID4g
+PiA+ID4gPiA+DQo+ID4gPiA+ID4gPiA+ID4gPiBPbiBTYXQsIE1heSAyLCAyMDE1IGF0IDE6NDIg
+UE0sIEplZmYgS2lyc2hlcg0KPiA+ID4gPiA+ID4gPiA+ID4gPGplZmZyZXkudC5raXJzaGVyQGlu
+dGVsLmNvbT4NCj4gPiA+ID4gPiA+ID4gPiA+IHdyb3RlOg0KPiA+ID4gPiA+ID4gPiA+ID4gPiBG
+cm9tOiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gPiA+
+ID4gPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+ID4gPiA+ID4gQWRkIG5ldGxpbmsgZGlyZWN0aXZl
+cyBhbmQgbmRvIGVudHJ5IHRvIGFsbG93IFZGDQo+ID4gbXVsdGljYXN0DQo+ID4gPiA+ID4gPiA+
+ID4gPiA+IHByb21pc2N1b3VzDQo+ID4gPiA+ID4gPiA+ID4gPiBtb2RlLg0KPiA+ID4gPiA+ID4g
+PiA+ID4gPg0KPiA+ID4gPiA+ID4gPiA+ID4gPiBUaGlzIGNvbnRyb2xzIHRoZSBwZXJtaXNzaW9u
+IHRvIGVudGVyIFZGIG11bHRpY2FzdA0KPiA+IHByb21pc2N1b3VzDQo+ID4gPiA+IG1vZGUuDQo+
+ID4gPiA+ID4gPiA+ID4gPiA+IFRoZSBhZG1pbmlzdHJhdG9yIHdpbGwgZGVkaWNhdGVkbHkgYWxs
+b3cgbXVsdGljYXN0DQo+ID4gcHJvbWlzY3VvdXMgcGVyDQo+ID4gPiA+IFZGLg0KPiA+ID4gPiA+
+ID4gPiA+ID4gPg0KPiA+ID4gPiA+ID4gPiA+ID4gPiBXaGVuIHRoZSBWRiBpcyB1bmRlciBtdWx0
+aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSwgYWxsDQo+ID4gPiA+ID4gPiA+ID4gPiA+IG11bHRpY2Fz
+dCBwYWNrZXRzIGFyZSBzZW50IHRvIHRoZSBWRi4NCj4gPiA+ID4gPiA+ID4gPiA+ID4NCj4gPiA+
+ID4gPiA+ID4gPiA+ID4gRG9uJ3QgYWxsb3cgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIGlmIHRo
+ZSBWTSBpc24ndA0KPiA+IGZ1bGx5IHRydXN0ZWQuDQo+ID4gPiA+ID4gPiA+ID4gPg0KPiA+ID4g
+PiA+ID4gPiA+ID4gR3V5cywNCj4gPiA+ID4gPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiA+ID4gPiBJ
+IGRvbid0IHRoaW5rIHRoZSBkaXNjdXNzaW9uIHdlIGhlbGQgaW4gdGhlIHBhc3QgWzFdIG9uDQo+
+ID4gdGhlDQo+ID4gPiA+ID4gPiA+ID4gPiBtYXR0ZXIgYWN0dWFsbHkgY29udmVyZ2VkLiBGZXcg
+b3BlbiBwb2ludHMgdGhhdCBjYW1lIHVwDQo+ID4gd2hpbGUNCj4gPiA+ID4gPiA+ID4gPiA+IGRl
+YmF0aW5nIGl0IGludGVybmFsbHkgd2l0aA0KPiA+ID4gPiA+ID4gPiA+ID4gUm9ueToNCj4gPiA+
+ID4gPiA+ID4gPiA+DQo+ID4gPiA+ID4gPiA+ID4gPiAxLiBtYXliZSB3aGF0IHdlIHdlIGFjdHVh
+bGx5IHdhbnQgaGVyZSBhbiBBUEkgdGhhdA0KPiA+IHN0YXRlcyBhIFZGDQo+ID4gPiA+ID4gPiA+
+ID4gPiB0byBiZSBwcml2aWxlZ2VkL3RydXN0ZWQgYW5kIHRoZW4gd2UgY2FuIG92ZXIgbG9hZCB0
+aGUNCj4gPiBmZWF0dXJlDQo+ID4gPiA+ID4gPiA+ID4gPiBzZXQgb2YgYmVpbmcNCj4gPiA+ID4g
+PiA+ID4gc3VjaD8NCj4gPiA+ID4gPiA+ID4gPg0KPiA+ID4gPiA+ID4gPiA+IEkgc3VnZ2VzdGVk
+IHRoaXMgb3JpZ2luYWxseSwgYnV0IHRoZXJlIHdhcyBwdXNoIGJhY2sgYXMgaXQNCj4gPiB3YXMN
+Cj4gPiA+ID4gPiA+ID4gPiB0aG91Z2h0IHRvbw0KPiA+ID4gPiA+ID4gPiBnZW5lcmljIGFzIHRo
+ZSBkZWZpbml0aW9uIG9mIHdoYXQgYmVpbmcgYSAidHJ1c3RlZCINCj4gPiA+ID4gPiA+ID4gPiB2
+ZW5kb3Igd291bGQgZGlmZmVyIGZyb20gZHJpdmVyIHRvIGRyaXZlci4gIFBlcnNvbmFsbHkgSQ0K
+PiA+IHN0aWxsDQo+ID4gPiA+ID4gPiA+ID4gbGlrZSB0aGUgaWRlYSBvZg0KPiA+ID4gPiA+ID4g
+PiBoYXZpbmcgb25lIG1vZGUgc2F5aW5nIHRoYXQgd2UgInRydXN0Ig0KPiA+ID4gPiA+ID4gPiA+
+IGEgZ2l2ZW4gVkYuICBUaGVuIHRoYXQgVkYgY2FuIHJlcXVlc3Qgd2hhdGV2ZXIgaXQgc3VwcG9y
+dA0KPiA+IGl0DQo+ID4gPiA+ID4gPiA+ID4gd2FudHMgZnJvbSB0aGUgUEYgcmVnYXJkbGVzcyBv
+ZiBwb3NzaWJsZSBuZWdhdGl2ZSBpbXBhY3QNCj4gPiBvbiBvdGhlcg0KPiA+ID4gPiBWRidzLg0K
+PiA+ID4gPiA+ID4gPiA+IFdoYXQgaXMgcG9zc2libGUgdG8gc3VwcG9ydCB3b3VsZCB0aGVuIGJl
+IGxlZnQgdG8gdGhlDQo+ID4gaW50ZXJmYWNlDQo+ID4gPiA+ID4gPiA+ID4gYmV0d2VlbiB0aGUg
+VkYgYW5kIFBGLiAgVGhpcyBvZiBjb3Vyc2Ugd291bGQgYmUgZGVwZW5kZW50DQo+ID4gb24NCj4g
+PiA+ID4gPiA+ID4gPiB3aGF0IHRoZQ0KPiA+ID4gPiA+ID4gPiBnaXZlbiBIVyBjb3VsZCBzdXBw
+b3J0IGFuZCB3b3VsZCBtZWFuIHRoaXMgbW9kZSB3b3VsZCBtZWFuDQo+ID4gPiA+ID4gPiA+IGRp
+ZmZlcmVudCB0aGluZ3MgZm9yIGRpZmZlcmVudCBhZGFwdGVycyBhbmQgSSBkbyBzZWUgd2h5DQo+
+ID4gc29tZQ0KPiA+ID4gPiA+ID4gPiBtaWdodCBzZWUgdGhpcyBhcyBhIGNvbmNlcm4uDQo+ID4g
+PiA+ID4gPiA+DQo+ID4gPiA+ID4gPiA+IFRoZSBwb2ludCBpcyBncmFudWxhcml0eSwgcmlnaHQ/
+DQo+ID4gPiA+ID4gPiA+IEFsbG93IGV2ZXJ5dGhpbmcgb3IgYWxsb3cgc3Vic2V0IG9mIGZlYXR1
+cmVzLg0KPiA+ID4gPiA+ID4NCj4gPiA+ID4gPiA+IE5pY2Ugd2F5IHRvIHN1bSBpdCB1cC4gIFRo
+ZSB0cmljayBiZWluZyB3aXRoIHRoZSBzdWJzZXQgb2YNCj4gPiBmZWF0dXJlcyBwYXRoIGlzDQo+
+ID4gPiA+IG5vdCBhbGwgaGFyZHdhcmUgY2FuL3dpbGwgc3VwcG9ydCBldmVyeXRoaW5nLg0KPiA+
+ID4gPiA+ID4gQWxzbyBJIHdvcnJ5IGFib3V0IHdvcnJ5IGFib3V0IHRoZSBmZWF0dXJlIGxpc3Qg
+Z3Jvd2luZw0KPiA+IHJlcXVpcmluZw0KPiA+ID4gPiA+ID4gbW9yZSBhbmQgbW9yZSBub2JzIG9u
+IHRoZSBQRiB0byBhbGxvdy9kaXNhbGxvdyBncmFudWxhcg0KPiA+IGJlaGF2aW9yDQo+ID4gPiA+
+ID4gPiB0aGF0IGNvdWxkIGJyYWtlIFZGIGlzb2xhdGlvbi4gIFdpdGggYSBzaW1wbGUgaGludCB0
+byB0aGUgUEYNCj4gPiB0aGF0IGEgZ2l2ZW4gVkYNCj4gPiA+ID4gaXMgInRydXN0ZWQiIHdvdWxk
+IGFsbG93IGFsbCB0aGF0IGNvbXBsZXhpdHkgdG8gYmUgY29udGFpbmVkIGluDQo+ID4gdGhlIG1h
+aWxib3gNCj4gPiA+ID4gcHJvdG9jb2wgYmV0d2VlbiB0aGUgUEYvVkYuDQo+ID4gPiA+ID4gPg0K
+PiA+ID4gPiA+ID4gQWxsIHRoYXQgc2FpZCBJIHJlYWxpemUgb3RoZXJzIGFyZSBjb25jZXJuZWQg
+d2l0aCB0aGUNCj4gPiBhbWJpZ3VvdXNuZXNzDQo+ID4gPiA+ID4gPiBvZiBzdWNoIGEgZmllbGQg
+YW5kIGNhbiBjZXJ0YWlubHkgbGl2ZSB3aXRoIHlvdXINCj4gPiBpbXBsZW1lbnRhdGlvbi4NCj4g
+PiA+ID4gPg0KPiA+ID4gPiA+IEkgc2VlLCBpdCBzZWVtcyBiZXR0ZXIgdG8gaGF2ZSBhIHNpbmds
+ZSBrbm9iIHdoaWNoIGluZGljYXRlcw0KPiA+ICJ0cnVzdA0KPiA+ID4gPiA+IHRoaXMgVkYiIGFu
+ZCBQRiB3aWxsIGFsbG93IHJlcXVlc3RzIHdoaWNoIG1pZ2h0IGh1cnQgcGVyZm9ybWFuY2UNCj4g
+PiBvcg0KPiA+ID4gPiA+IHNlY3VyaXR5IGZyb20gdHJ1c3RlZCBWRiwgaW5zdGVhZCBvZiBjcmVh
+dGluZyBhIGtub2IgZm9yDQo+ID4gbXVsdGljYXN0DQo+ID4gPiA+IHByb21pc2N1b3VzLCBhIGtu
+b2IgZm9yIGZlYXR1cmUgWCBhbmQgc28gb24uDQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBJIHdpbGwg
+bWFrZSBhIHBhdGNoIHRvIGltcGxlbWVudCB0aGF0ICJ0cnVzdGVkIGtub2IiIGluc3RlYWQgb2YN
+Cj4gPiBhbGxvd2luZw0KPiA+ID4gPiBNQyBwcm9taXNjdW91cy4NCj4gPiA+ID4gPiBJcyB0aGVy
+ZSBhbnkgY29tbWVudD8NCj4gPiA+ID4NCj4gPiA+ID4gQW55IGNvbW1lbnRzPw0KPiA+ID4gPiBJ
+cyB0aGF0IHRoZSB3YXkgdG8gZ28gYWhlYWQgdGhpcyBzZXJpZXM/DQo+ID4gPiA+DQo+ID4gPiA+
+IHRoYW5rcywNCj4gPiA+ID4gSGlyb3NoaQ0KPiA+ID4NCj4gPiA+IENsZWFybHkgSSBhbSBvayB3
+aXRoIHRoZSBpZGVhLiAgOikNCj4gPiA+DQo+ID4gPiBJZiB0aGUgY2hhbmdlIGlzbid0IHRvbyBk
+aWZmaWN1bHQgdG8gaW1wbGVtZW50LCBtYXliZSBqdXN0IHN1Ym1pdA0KPiA+IHRoZSBwYXRoLiAg
+VGhhdCB3aWxsIG1vc3QgbGlrZWx5IGdldCBtb3JlIGF0dGVudGlvbi4NCj4gPg0KPiA+IG9rYXks
+IEknbGwgc3VibWl0IGEgbmV3IHBhdGNoZXMuDQo+ID4gQlRXLCB3aGljaCB0cmVlIHNob3VsZCBJ
+IG1ha2UgcGF0Y2hlcyBhZ2FpbnN0IGZvcj8NCj4gPiBCZWNhdXNlIEplZmYncyB0cmVlIHN0aWxs
+IGhhdmUgcHJldmlvdXMgcGF0Y2hlcy4NCj4gDQo+IFNvIHNvcnJ5IGZvciB0aGUgZGVsYXksIGJl
+ZW4gZGVhbGluZyB3aXRoIHNvbWUgaGVhbHRoIGlzc3Vlcy4NCj4gSSBoYXZlIHJlbW92ZWQgeW91
+ciBwcmV2aW91cyBzZXJpZXMgb2YgcGF0Y2hlcyBmcm9tIG15IG5leHQtcXVldWUgdHJlZSwNCj4g
+c28geW91IGNhbiByZS1zcGluIHlvdXIgcGF0Y2hlcyBiYXNlZCBvbiB0aGUgZGV2LXF1ZXVlIGJy
+YW5jaC4NCg0KdGhhbmtzLCBJIHdpbGwgc3VibWl0IHBhdGNoZXMgYWdhaW5zdCB0aGF0IGJyYW5j
+aC4NCg0K
