@@ -1,558 +1,263 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 2/2] net: Add incoming CPU mask to sockets
-Date: Tue, 19 May 2015 12:01:49 -0700
-Message-ID: <1432062109-1472984-3-git-send-email-tom@herbertland.com>
-References: <1432062109-1472984-1-git-send-email-tom@herbertland.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next v2] tcp: add rfc3168, section 6.1.1.1. fallback
+Date: Tue, 19 May 2015 21:04:22 +0200
+Message-ID: <cc0be24818d7009208dd0d8f73cc35939957f134.1432059419.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Florian Westphal <fw@strlen.de>,
+	=?UTF-8?q?Mirja=20K=C3=BChlewind?=
+	<mirja.kuehlewind@tik.ee.ethz.ch>,
+	Brian Trammell <trammell@tik.ee.ethz.ch>,
+	Eric Dumazet <edumazet@google.com>,
+	Dave That <dave.taht@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:18962 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750914AbbESTCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 15:02:17 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4JIxUVv022550
-	for <netdev@vger.kernel.org>; Tue, 19 May 2015 12:02:16 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1uga7w07ek-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 19 May 2015 12:02:16 -0700
-Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- 8f6f4bccfe5911e4a91d0002c9521c9e-f2dde3a0 for <netdev@vger.kernel.org>;	Tue,
- 19 May 2015 12:02:14 -0700
-In-Reply-To: <1432062109-1472984-1-git-send-email-tom@herbertland.com>
+Received: from www62.your-server.de ([213.133.104.62]:37088 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbbESTE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 15:04:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added matching of CPU to a socket CPU mask. This is useful for TCP
-listeners and unconnected UDP. This works with SO_REUSEPORT to steer
-packets to listener sockets based on CPU affinity.
+This work as a follow-up of commit f7b3bec6f516 ("net: allow setting ec=
+n
+via routing table") and adds RFC3168 section 6.1.1.1. fallback for outg=
+oing
+ECN connections. In other words, this work adds a retry with a non-ECN
+setup SYN packet, as suggested from the RFC on the first timeout:
 
-In this patch:
- - Add SO_INCOMING_CPU_MASK
- - Add a CPU mask pointer to struct sock
- - Get/setsockopt to get/set a the mask on a socket
- - Compat functions for the sockopts
- - Add sk_match_incoming_cpu_mask to check is running CPU is in a mask
-   for a socket
- - Call sk_match_incoming_cpu_mask from inet compute_score and UDP
-   functions for IPv4 and IPv6
+  [...] A host that receives no reply to an ECN-setup SYN within the
+  normal SYN retransmission timeout interval MAY resend the SYN and
+  any subsequent SYN retransmissions with CWR and ECE cleared. [...]
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
+Schematic client-side view when assuming the server is in tcp_ecn=3D2 m=
+ode,
+that is, Linux default since 2009 via commit 255cac91c3c9 ("tcp: extend
+ECN sysctl to allow server-side only ECN"):
+
+ 1) Normal ECN-capable path:
+
+    SYN ECE CWR ----->
+                <----- SYN ACK ECE
+            ACK ----->
+
+ 2) Path with broken middlebox, when client has fallback:
+
+    SYN ECE CWR ----X crappy middlebox drops packet
+                      (timeout, rtx)
+            SYN ----->
+                <----- SYN ACK
+            ACK ----->
+
+In case we would not have the fallback implemented, the middlebox drop
+point would basically end up as:
+
+    SYN ECE CWR ----X crappy middlebox drops packet
+                      (timeout, rtx)
+    SYN ECE CWR ----X crappy middlebox drops packet
+                      (timeout, rtx)
+    SYN ECE CWR ----X crappy middlebox drops packet
+                      (timeout, rtx)
+
+In any case, it's rather a smaller percentage of sites where there woul=
+d
+occur such additional setup latency: it was found in end of 2014 that ~=
+56%
+of IPv4 and 65% of IPv6 servers of Alexa 1 million list would negotiate
+ECN (aka tcp_ecn=3D2 default), 0.42% of these webservers will fail to c=
+onnect
+when trying to negotiate with ECN (tcp_ecn=3D1) due to timeouts, which =
+the
+fallback would mitigate with a slight latency trade-off. Recent related
+paper on this topic:
+
+  Brian Trammell, Mirja K=C3=BChlewind, Damiano Boppart, Iain Learmonth=
+,
+  Gorry Fairhurst, and Richard Scheffenegger:
+    "Enabling Internet-Wide Deployment of Explicit Congestion Notificat=
+ion."
+    Proc. PAM 2015, New York.
+  http://ecn.ethz.ch/ecn-pam15.pdf
+
+Thus, when net.ipv4.tcp_ecn=3D1 is being set, the patch will perform RF=
+C3168,
+section 6.1.1.1. fallback on timeout. For users explicitly not wanting =
+this
+which can be in DC use case, we add a net.ipv4.tcp_ecn_fallback knob th=
+at
+allows for disabling the fallback.
+
+tp->ecn_flags are not being cleared in tcp_ecn_clear_syn() on output, b=
+ut
+rather we let tcp_ecn_rcv_synack() take that over on input path in case=
+ a
+SYN ACK ECE was delayed. Thus a spurious SYN retransmission will not pr=
+event
+ECN being negotiated eventually in that case.
+
+Reference: https://www.ietf.org/proceedings/92/slides/slides-92-iccrg-1=
+=2Epdf
+Reference: https://www.ietf.org/proceedings/89/slides/slides-89-tsvarea=
+-1.pdf
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Mirja K=C3=BChlewind <mirja.kuehlewind@tik.ee.ethz.ch>
+Signed-off-by: Brian Trammell <trammell@tik.ee.ethz.ch>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Dave That <dave.taht@gmail.com>
 ---
- arch/alpha/include/uapi/asm/socket.h   |  2 +
- arch/avr32/include/uapi/asm/socket.h   |  2 +
- arch/cris/include/uapi/asm/socket.h    |  2 +
- arch/frv/include/uapi/asm/socket.h     |  2 +
- arch/ia64/include/uapi/asm/socket.h    |  2 +
- arch/m32r/include/uapi/asm/socket.h    |  2 +
- arch/mips/include/uapi/asm/socket.h    |  2 +
- arch/mn10300/include/uapi/asm/socket.h |  2 +
- arch/parisc/include/uapi/asm/socket.h  |  2 +
- arch/powerpc/include/uapi/asm/socket.h |  2 +
- arch/s390/include/uapi/asm/socket.h    |  2 +
- arch/sparc/include/uapi/asm/socket.h   |  2 +
- arch/xtensa/include/uapi/asm/socket.h  |  2 +
- include/net/sock.h                     | 27 ++++++++++++
- include/uapi/asm-generic/socket.h      |  2 +
- net/compat.c                           | 56 ++++++++++++++++++++++++
- net/core/sock.c                        | 80 ++++++++++++++++++++++++++++++++++
- net/ipv4/inet_hashtables.c             |  3 ++
- net/ipv4/udp.c                         |  6 +++
- net/ipv6/inet6_hashtables.c            |  3 ++
- net/ipv6/udp.c                         |  3 ++
- 21 files changed, 206 insertions(+)
+ v1 -> v2:
+  - Added suggestion from Eric to let ecn_flags be cleared eventually
+    in tcp_ecn_rcv_synack(), thanks!
+  - Rest as is.
 
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index 9a20821..eae65a2 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -92,4 +92,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
+ Documentation/networking/dctcp.txt     |  1 +
+ Documentation/networking/ip-sysctl.txt |  9 +++++++++
+ include/net/netns/ipv4.h               |  2 ++
+ include/net/tcp.h                      |  2 ++
+ net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
+ net/ipv4/tcp_ipv4.c                    |  5 ++++-
+ net/ipv4/tcp_output.c                  | 13 +++++++++++++
+ 7 files changed, 38 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/networking/dctcp.txt b/Documentation/network=
+ing/dctcp.txt
+index 0d5dfbc..cd9d3eb 100644
+--- a/Documentation/networking/dctcp.txt
++++ b/Documentation/networking/dctcp.txt
+@@ -8,6 +8,7 @@ the data center network to provide multi-bit feedback t=
+o the end hosts.
+ To enable it on end hosts:
+=20
+   sysctl -w net.ipv4.tcp_congestion_control=3Ddctcp
++  sysctl -w net.ipv4.tcp_ecn_fallback=3D0 (optional)
+=20
+ All switches in the data center network running DCTCP must support ECN
+ marking and be configured for marking when reaching defined switch buf=
+fer
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
+working/ip-sysctl.txt
+index 5095c63..cb083e0 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -267,6 +267,15 @@ tcp_ecn - INTEGER
+ 		  but do not request ECN on outgoing connections.
+ 	Default: 2
+=20
++tcp_ecn_fallback - BOOLEAN
++	If the kernel detects that ECN connection misbehaves, enable fall
++	back to non-ECN. Currently, this knob implements the fallback
++	from RFC3168, section 6.1.1.1., but we reserve that in future,
++	additional detection mechanisms could be implemented under this
++	knob. The value	is not used, if tcp_ecn or per route (or congestion
++	control) ECN settings are disabled.
++	Default: 1 (fallback enabled)
 +
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index 2b65ed6..89515e3 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
+ tcp_fack - BOOLEAN
+ 	Enable FACK congestion avoidance and fast retransmission.
+ 	The value is not used, if tcp_sack is not enabled.
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 614a49b..6848b8b 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -77,6 +77,8 @@ struct netns_ipv4 {
+ 	struct local_ports ip_local_ports;
+=20
+ 	int sysctl_tcp_ecn;
++	int sysctl_tcp_ecn_fallback;
 +
- #endif /* _UAPI__ASM_AVR32_SOCKET_H */
-diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
-index e2503d9f..65fcf0e 100644
---- a/arch/cris/include/uapi/asm/socket.h
-+++ b/arch/cris/include/uapi/asm/socket.h
-@@ -87,6 +87,8 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
+ 	int sysctl_ip_no_pmtu_disc;
+ 	int sysctl_ip_fwd_use_pmtu;
+ 	int sysctl_ip_nonlocal_bind;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 7ace6ac..3275f93 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -702,6 +702,8 @@ static inline u32 tcp_skb_timestamp(const struct sk=
+_buff *skb)
+ #define TCPHDR_ECE 0x40
+ #define TCPHDR_CWR 0x80
+=20
++#define TCPHDR_SYN_ECN	(TCPHDR_SYN | TCPHDR_ECE | TCPHDR_CWR)
 +
- #endif /* _ASM_SOCKET_H */
- 
- 
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index 4823ad1..1af3b78 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -85,5 +85,7 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
+ /* This is what the send packet queuing engine uses to pass
+  * TCP per-packet control information to the transmission code.
+  * We also store the host-order sequence numbers in here too.
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index c3852a7..841de32 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -821,6 +821,13 @@ static struct ctl_table ipv4_net_table[] =3D {
+ 		.proc_handler	=3D proc_dointvec
+ 	},
+ 	{
++		.procname	=3D "tcp_ecn_fallback",
++		.data		=3D &init_net.ipv4.sysctl_tcp_ecn_fallback,
++		.maxlen		=3D sizeof(int),
++		.mode		=3D 0644,
++		.proc_handler	=3D proc_dointvec
++	},
++	{
+ 		.procname	=3D "ip_local_port_range",
+ 		.maxlen		=3D sizeof(init_net.ipv4.ip_local_ports.range),
+ 		.data		=3D &init_net.ipv4.ip_local_ports.range,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 91cb476..0cc4b5a 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2411,12 +2411,15 @@ static int __net_init tcp_sk_init(struct net *n=
+et)
+ 			goto fail;
+ 		*per_cpu_ptr(net->ipv4.tcp_sk, cpu) =3D sk;
+ 	}
 +
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index 59be3d8..7ef59d3 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -94,4 +94,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
+ 	net->ipv4.sysctl_tcp_ecn =3D 2;
++	net->ipv4.sysctl_tcp_ecn_fallback =3D 1;
 +
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 7bc4cb2..53a697c 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index dec3c85..063d59d 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -103,4 +103,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index cab7d6d..3c9f8e9 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index a5cd40c..557a09b 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -84,4 +84,6 @@
- #define SO_ATTACH_BPF		0x402B
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	0x402C
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index c046666..a72fac6 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -92,4 +92,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index 296942d..b901044 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -91,4 +91,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index e6a16c4..95835a1 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -81,6 +81,8 @@
- #define SO_ATTACH_BPF		0x0034
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	0x0035
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index 4120af0..0167812 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -96,4 +96,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 4581a60..0d418d2 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -123,6 +123,11 @@ typedef struct {
- #endif
- } socket_lock_t;
- 
-+struct rcu_cpumask {
-+	struct rcu_head rcu;
-+	unsigned long cpumask[0];
-+};
-+
- struct sock;
- struct proto;
- struct net;
-@@ -420,6 +425,7 @@ struct sock {
- 	struct timer_list	sk_timer;
- 	ktime_t			sk_stamp;
- 	u16			sk_tsflags;
-+	struct rcu_cpumask __rcu *sk_incoming_cpu_mask;
- 	u32			sk_tskey;
- 	struct socket		*sk_socket;
- 	void			*sk_user_data;
-@@ -2213,6 +2219,27 @@ static inline bool sk_fullsock(const struct sock *sk)
- 	return (1 << sk->sk_state) & ~(TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV);
- }
- 
-+static inline bool sk_match_incoming_cpu_mask(const struct sock *sk)
-+{
-+	struct rcu_cpumask *mask;
-+	bool ret = false;
-+
-+	if (!sk->sk_incoming_cpu_mask)
-+		return ret;
-+
-+	rcu_read_lock();
-+
-+	mask = rcu_dereference(sk->sk_incoming_cpu_mask);
-+	if (likely(mask) &&
-+	    cpumask_test_cpu(raw_smp_processor_id(),
-+			     to_cpumask(mask->cpumask)))
-+		ret = true;
-+
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
- void sock_enable_timestamp(struct sock *sk, int flag);
- int sock_get_timestamp(struct sock *, struct timeval __user *);
- int sock_get_timestampns(struct sock *, struct timespec __user *);
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 5c15c2a..d41c8b9 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -87,4 +87,6 @@
- #define SO_ATTACH_BPF		50
- #define SO_DETACH_BPF		SO_DETACH_FILTER
- 
-+#define SO_INCOMING_CPU_MASK	51
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/compat.c b/net/compat.c
-index 5cfd26a..f9fc5ce 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -351,6 +351,23 @@ static int do_set_sock_timeout(struct socket *sock, int level,
- 	return err;
- }
- 
-+static int do_set_incoming_cpu_mask(struct socket *sock, int level,
-+		int optname, char __user *optval, unsigned int optlen)
-+{
-+	compat_ulong_t __user *user_mask_ptr =
-+	    (compat_ulong_t __user *)optval;
-+	struct cpumask __user *mask = compat_alloc_user_space(cpumask_size());
-+	int err;
-+
-+	err = compat_get_user_cpu_mask(user_mask_ptr, optlen, mask);
-+	if (err)
-+		return err;
-+
-+	return sock_setsockopt(sock, level, optname,
-+			       (char __user *)cpumask_bits(mask),
-+			       cpumask_size());
-+}
-+
- static int compat_sock_setsockopt(struct socket *sock, int level, int optname,
- 				char __user *optval, unsigned int optlen)
- {
-@@ -360,6 +377,10 @@ static int compat_sock_setsockopt(struct socket *sock, int level, int optname,
- 	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
- 		return do_set_sock_timeout(sock, level, optname, optval, optlen);
- 
-+	if (optname == SO_INCOMING_CPU_MASK)
-+		return do_set_incoming_cpu_mask(sock, level, optname,
-+						optval, optlen);
-+
- 	return sock_setsockopt(sock, level, optname, optval, optlen);
- }
- 
-@@ -419,11 +440,46 @@ static int do_get_sock_timeout(struct socket *sock, int level, int optname,
- 	return err;
- }
- 
-+static int do_get_incoming_cpu_mask(struct socket *sock, int level,
-+		int optname, char __user *optval, unsigned int __user *optlen)
-+{
-+	compat_ulong_t __user *user_mask_ptr =
-+	    (compat_ulong_t __user *)optval;
-+	struct cpumask __user *mask = compat_alloc_user_space(cpumask_size());
-+	int len, err;
-+
-+	if (get_user(len, optlen))
-+		return -EFAULT;
-+
-+	if ((len * BITS_PER_BYTE) < nr_cpu_ids)
-+		return -EINVAL;
-+	if (len & (sizeof(compat_ulong_t) - 1))
-+		return -EINVAL;
-+
-+	if (put_user(cpumask_size(), optlen))
-+		return -EFAULT;
-+
-+	err = sock_getsockopt(sock, level, optname,
-+			      (char __user *)cpumask_bits(mask), optlen);
-+	if (err == 0)
-+		if (get_user(len, optlen) ||
-+		    compat_put_bitmap(user_mask_ptr,
-+				      cpumask_bits(mask), len * 8))
-+			err = -EFAULT;
-+
-+	return err;
-+}
-+
- static int compat_sock_getsockopt(struct socket *sock, int level, int optname,
- 				char __user *optval, int __user *optlen)
- {
- 	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
- 		return do_get_sock_timeout(sock, level, optname, optval, optlen);
-+
-+	if (optname == SO_INCOMING_CPU_MASK)
-+		return do_get_incoming_cpu_mask(sock, level, optname,
-+						optval, optlen);
-+
- 	return sock_getsockopt(sock, level, optname, optval, optlen);
- }
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 29124fc..25fc8a7 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -672,6 +672,71 @@ bool sk_mc_loop(struct sock *sk)
- }
- EXPORT_SYMBOL(sk_mc_loop);
- 
-+static int do_set_incoming_cpu_mask(struct sock *sk, char __user *optval,
-+				    unsigned int optlen)
-+{
-+	struct rcu_cpumask *new_mask, *old_mask;
-+	unsigned long *k;
-+
-+	old_mask = rcu_dereference_protected(sk->sk_incoming_cpu_mask,
-+					     sock_owned_by_user(sk));
-+
-+	if (optlen == 0) {
-+		RCU_INIT_POINTER(sk->sk_incoming_cpu_mask, NULL);
-+		if (old_mask) {
-+			kfree_rcu(old_mask, rcu);
-+			return 0;
-+		}
-+	}
-+
-+	if (optlen & (sizeof(unsigned long) - 1))
-+		return -EINVAL;
-+
-+	new_mask = kzalloc(sizeof(*new_mask) + cpumask_size(), GFP_KERNEL);
-+	if (!new_mask)
-+		return -ENOMEM;
-+
-+	k = cpumask_bits(to_cpumask(new_mask->cpumask));
-+	if (copy_from_user(k, optval, min_t(int, optlen, cpumask_size())))
-+		return -EFAULT;
-+
-+	rcu_assign_pointer(sk->sk_incoming_cpu_mask, new_mask);
-+
-+	if (old_mask)
-+		kfree_rcu(old_mask, rcu);
-+
+ 	net->ipv4.sysctl_tcp_base_mss =3D TCP_BASE_MSS;
+ 	net->ipv4.sysctl_tcp_probe_threshold =3D TCP_PROBE_THRESHOLD;
+ 	net->ipv4.sysctl_tcp_probe_interval =3D TCP_PROBE_INTERVAL;
+-	return 0;
+=20
 +	return 0;
-+}
-+
-+static int do_get_incoming_cpu_mask(struct sock *sk, char __user *optval,
-+				    unsigned int __user *optlen,
-+				    unsigned int len)
+ fail:
+ 	tcp_sk_exit(net);
+=20
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 7386d32..a057054 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -350,6 +350,15 @@ static void tcp_ecn_send_syn(struct sock *sk, stru=
+ct sk_buff *skb)
+ 	}
+ }
+=20
++static void tcp_ecn_clear_syn(struct sock *sk, struct sk_buff *skb)
 +{
-+	struct rcu_cpumask *mask;
-+	unsigned long *k;
-+	int err = 0;
-+
-+	if (len < cpumask_size())
-+		return -EINVAL;
-+
-+	if (len & (sizeof(unsigned long) - 1))
-+		return -EINVAL;
-+
-+	rcu_read_lock();
-+
-+	mask = rcu_dereference(sk->sk_incoming_cpu_mask);
-+
-+	k = cpumask_bits(to_cpumask(mask->cpumask));
-+	if (copy_to_user(optval, k, cpumask_size()))
-+		err = -EFAULT;
-+	else
-+		put_user(cpumask_size(), optlen);
-+
-+	rcu_read_unlock();
-+
-+	return err;
++	if (sock_net(sk)->ipv4.sysctl_tcp_ecn_fallback)
++		/* tp->ecn_flags are cleared at a later point in time when
++		 * SYN ACK is ultimatively being received.
++		 */
++		TCP_SKB_CB(skb)->tcp_flags &=3D ~(TCPHDR_ECE | TCPHDR_CWR);
 +}
 +
- /*
-  *	This is meant for all protocols to use and covers goings on
-  *	at the socket level. Everything here is generic.
-@@ -990,6 +1055,10 @@ set_rcvbuf:
- 					 sk->sk_max_pacing_rate);
- 		break;
- 
-+	case SO_INCOMING_CPU_MASK:
-+		ret = do_set_incoming_cpu_mask(sk, optval, optlen);
-+		break;
-+
- 	default:
- 		ret = -ENOPROTOOPT;
- 		break;
-@@ -1250,6 +1319,9 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		v.val = sk->sk_incoming_cpu;
- 		break;
- 
-+	case SO_INCOMING_CPU_MASK:
-+		return do_get_incoming_cpu_mask(sk, optval, optlen, len);
-+
- 	default:
- 		/* We implement the SO_SNDLOWAT etc to not be settable
- 		 * (1003.1g 7).
-@@ -1429,6 +1501,7 @@ EXPORT_SYMBOL(sk_alloc);
- static void __sk_free(struct sock *sk)
- {
- 	struct sk_filter *filter;
-+	struct rcu_cpumask *incoming_cpu_mask;
- 
- 	if (sk->sk_destruct)
- 		sk->sk_destruct(sk);
-@@ -1440,6 +1513,12 @@ static void __sk_free(struct sock *sk)
- 		RCU_INIT_POINTER(sk->sk_filter, NULL);
- 	}
- 
-+	incoming_cpu_mask = rcu_dereference(sk->sk_incoming_cpu_mask);
-+	if (incoming_cpu_mask) {
-+		kfree_rcu(incoming_cpu_mask, rcu);
-+		RCU_INIT_POINTER(sk->sk_incoming_cpu_mask, NULL);
-+	}
-+
- 	sock_disable_timestamp(sk, SK_FLAGS_TIMESTAMP);
- 
- 	if (atomic_read(&sk->sk_omem_alloc))
-@@ -1543,6 +1622,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 		newsk->sk_err	   = 0;
- 		newsk->sk_priority = 0;
- 		newsk->sk_incoming_cpu = raw_smp_processor_id();
-+		RCU_INIT_POINTER(newsk->sk_incoming_cpu_mask, NULL);
- 		atomic64_set(&newsk->sk_cookie, 0);
- 		/*
- 		 * Before updating sk_refcnt, we must commit prior changes to memory
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index c6fb80b..b71a376 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -190,6 +190,9 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 				return -1;
- 			score += 4;
+ static void
+ tcp_ecn_make_synack(const struct request_sock *req, struct tcphdr *th,
+ 		    struct sock *sk)
+@@ -2615,6 +2624,10 @@ int __tcp_retransmit_skb(struct sock *sk, struct=
+ sk_buff *skb)
  		}
-+
-+		if (sk_match_incoming_cpu_mask(sk))
-+			score += 4;
  	}
- 	return score;
- }
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d10b7e0..dc6a3da 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -375,6 +375,9 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 		score += 4;
- 	}
- 
-+	if (sk_match_incoming_cpu_mask(sk))
-+		score += 4;
+=20
++	/* RFC3168, section 6.1.1.1. ECN fallback */
++	if ((TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN_ECN) =3D=3D TCPHDR_SYN_E=
+CN)
++		tcp_ecn_clear_syn(sk, skb);
 +
- 	return score;
- }
- 
-@@ -418,6 +421,9 @@ static inline int compute_score2(struct sock *sk, struct net *net,
- 		score += 4;
- 	}
- 
-+	if (sk_match_incoming_cpu_mask(sk))
-+		score += 4;
-+
- 	return score;
- }
- 
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 871641b..8cc4ba9 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -114,6 +114,9 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 				return -1;
- 			score++;
- 		}
-+
-+		if (sk_match_incoming_cpu_mask(sk))
-+			score += 4;
- 	}
- 	return score;
- }
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 3477c91..027bf82 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -182,6 +182,9 @@ static inline int compute_score(struct sock *sk, struct net *net,
- 		score++;
- 	}
- 
-+	if (sk_match_incoming_cpu_mask(sk))
-+		score++;
-+
- 	return score;
- }
- 
--- 
-1.8.1
+ 	tcp_retrans_try_collapse(sk, skb, cur_mss);
+=20
+ 	/* Make a copy, if the first transmission SKB clone we made
+--=20
+1.9.3
