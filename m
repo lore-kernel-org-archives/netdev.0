@@ -1,10 +1,8 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH 07/13] xen-netback: add persistent tree counters to
- debugfs
-Date: Tue, 19 May 2015 16:36:04 +0100
-Message-ID: <20150519153604.GF26335@zion.uk.xensource.com>
+Subject: Re: [RFC PATCH 00/13] Persistent grant maps for xen net drivers
+Date: Tue, 19 May 2015 16:39:01 +0100
+Message-ID: <20150519153901.GH26335@zion.uk.xensource.com>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <1431451117-70051-8-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
@@ -13,48 +11,60 @@ Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
 	<konrad.wilk@oracle.com>
 To: Joao Martins <joao.martins@neclab.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:38221 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:37521 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbbESPgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 11:36:14 -0400
+	with ESMTP id S1750981AbbESPjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 11:39:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1431451117-70051-8-git-send-email-joao.martins@neclab.eu>
+In-Reply-To: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 07:18:31PM +0200, Joao Martins wrote:
-> Prints the total/max number of persistent grants and how many of
-> them are in use.
-> 
-> Signed-off-by: Joao Martins <joao.martins@neclab.eu>
+On Tue, May 12, 2015 at 07:18:24PM +0200, Joao Martins wrote:
 
-Reviewed-by: Wei Liu <wei.liu2@citrix.com>
-
-> ---
->  drivers/net/xen-netback/xenbus.c | 11 +++++++++++
->  1 file changed, 11 insertions(+)
+> There have been recently[3] some discussions and issues raised on
+> persistent grants for the block layer, though the numbers above
+> show some significant improvements specially on more network intensive
+> workloads and provide a margin for comparison against future map/unmap
+> improvements.
 > 
-> diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-> index 766f7e5..1e6f27a 100644
-> --- a/drivers/net/xen-netback/xenbus.c
-> +++ b/drivers/net/xen-netback/xenbus.c
-> @@ -121,6 +121,17 @@ static int xenvif_read_io_ring(struct seq_file *m, void *v)
->  		   skb_queue_len(&queue->rx_queue),
->  		   netif_tx_queue_stopped(dev_queue) ? "stopped" : "running");
->  
-> +	if (queue->vif->persistent_grants) {
-> +		seq_printf(m, "\nRx persistent_gnts: in_use %d max %d gnts %d\n",
-> +			   atomic_read(&queue->rx_gnts_tree.gnt_in_use),
-> +			   queue->rx_gnts_tree.gnt_max,
-> +			   queue->rx_gnts_tree.gnt_c);
-> +		seq_printf(m, "\nTx persistent_gnts: in_use %d max %d gnts %d\n",
-> +			   atomic_read(&queue->tx_gnts_tree.gnt_in_use),
-> +			   queue->tx_gnts_tree.gnt_max,
-> +			   queue->tx_gnts_tree.gnt_c);
-> +	}
-> +
->  	return 0;
->  }
->  
+> Any comments or suggestions are welcome,
+> Thanks!
+
+Thanks, the numbers certainly look interesting.
+
+I'm just a bit concerned about the complexity of netback. I've
+commented on individual patches, we can discuss the issues there.
+
+Wei.
+
+> Joao
+> 
+> [1] http://article.gmane.org/gmane.linux.network/249383
+> [2] http://bit.ly/1IhJfXD
+> [3] http://lists.xen.org/archives/html/xen-devel/2015-02/msg02292.html
+> 
+> Joao Martins (13):
+>   xen-netback: add persistent grant tree ops
+>   xen-netback: xenbus feature persistent support
+>   xen-netback: implement TX persistent grants
+>   xen-netback: implement RX persistent grants
+>   xen-netback: refactor xenvif_rx_action
+>   xen-netback: copy buffer on xenvif_start_xmit()
+>   xen-netback: add persistent tree counters to debugfs
+>   xen-netback: clone skb if skb->xmit_more is set
+>   xen-netfront: move grant_{ref,page} to struct grant
+>   xen-netfront: refactor claim/release grant
+>   xen-netfront: feature-persistent xenbus support
+>   xen-netfront: implement TX persistent grants
+>   xen-netfront: implement RX persistent grants
+> 
+>  drivers/net/xen-netback/common.h    |  79 ++++
+>  drivers/net/xen-netback/interface.c |  78 +++-
+>  drivers/net/xen-netback/netback.c   | 873 ++++++++++++++++++++++++++++++------
+>  drivers/net/xen-netback/xenbus.c    |  24 +
+>  drivers/net/xen-netfront.c          | 362 ++++++++++++---
+>  5 files changed, 1216 insertions(+), 200 deletions(-)
+> 
 > -- 
 > 2.1.3
