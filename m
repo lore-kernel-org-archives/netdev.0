@@ -1,65 +1,46 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Kernel crash while using tc script
-Date: Tue, 19 May 2015 13:11:59 -0700
-Message-ID: <CAGK4HS_cCQPJwXVoCuZAa2zHtPnXO+ar5Wpg_azyxc5Efv4Mwg@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+Subject: Re: [PATCH resend] README: clarify redistribution requirements
+ covering patents
+Date: Tue, 19 May 2015 13:18:14 -0700
+Message-ID: <CAB=NE6WxMid+eNOoHZ__kbvP3BktHuYip+fQwVDydJQbQ1No_g@mail.gmail.com>
+References: <1431626160-10885-1-git-send-email-mcgrof@do-not-panic.com> <5554E99A.5030302@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>, tgraf <tgraf@suug.ch>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f176.google.com ([209.85.160.176]:34695 "EHLO
-	mail-yk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbbESUSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 16:18:00 -0400
-Received: by ykft189 with SMTP id t189so9161817ykf.1
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 13:17:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kyle McMartin <kyle-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-firmware-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	One Thousand Gnomes <gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5554E99A.5030302-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, May 14, 2015 at 11:29 AM, Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+> On 05/14/15 19:56, Luis R. Rodriguez wrote:
+>> diff --git a/README b/README
+>> index f2ed92e..d2a56ec 100644
+>> --- a/README
+>> +++ b/README
+>> @@ -18,7 +18,10 @@ and also cc: to related mailing lists.
+>>
+>>   Your commit should include an update to the WHENCE file clearly
+>>   identifying the licence under which the firmware is available, and
+>> -that it is redistributable. If the licence is long and involved, it's
+>> +that it is redistributable. Being redistributable includes ensuring
+>> +the firmware license provided includes an implicit or explicit
+>> +patent grant to end users to ensure full functionality of device
+>> +operation with the firmware. If the licence is long and involved, it's
+>
+>
+> Just nitpicking here, but there is 'license' and 'licence' being used here.
+> Better stick to one and preferably 'license'.
 
-It seems latest net-next kernel crashes while unloading modules.
-Please see simple script below to reproduce the crash.
+Fixed, will submit a v2.
 
-===============================
-
-#!/bin/bash
-
-while true; do
-
-# modules will be loaded automatically
-
-tc qdisc add dev eth1 root handle 1: prio
-
-tc filter add dev eth1 parent 1: u32 match u32 0 0  flowid 1
-
-
-tc qdisc del dev eth1 root
-
-rmmod cls_u32
-
-rmmod sch_prio
-
-
-done
-
-=========================
-
-It seems there is some refcounting or locking issue issue. I am unable
-to easily post the dump but sometimes it points to crashes in various
-functions in prio_class_ops  (sch_prio.c), such as prio_walk(),
-prio_dump_class etc. Probably, sch_prio call back functions are
-invoked when they should not be.
-
-
-I bisected this down to following commit:
-
-commit 78fd1d0ab072d4d9b5f0b7c14a1516665170b565
-Author: Thomas Graf <tgraf@suug.ch>
-Date:   Tue Oct 21 22:05:38 2014 +0200
-netlink: Re-add locking to netlink_lookup() and seq walker
-
-If there are suggestions for me to try or you need more info, let me know.
-
-Thanks,
-Vijay
+ Luis
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
