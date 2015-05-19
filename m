@@ -1,9 +1,9 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [RFC PATCH 04/13] xen-netback: implement RX persistent grants
-Date: Tue, 19 May 2015 16:32:05 +0100
-Message-ID: <20150519153205.GC26335@zion.uk.xensource.com>
+Subject: Re: [RFC PATCH 06/13] xen-netback: copy buffer on xenvif_start_xmit()
+Date: Tue, 19 May 2015 16:35:58 +0100
+Message-ID: <20150519153558.GE26335@zion.uk.xensource.com>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <1431451117-70051-5-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-7-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
@@ -12,155 +12,219 @@ Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
 	<konrad.wilk@oracle.com>
 To: Joao Martins <joao.martins@neclab.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:29818 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:38221 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754122AbbESPc2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 11:32:28 -0400
+	with ESMTP id S1751367AbbESPgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 11:36:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1431451117-70051-5-git-send-email-joao.martins@neclab.eu>
+In-Reply-To: <1431451117-70051-7-git-send-email-joao.martins@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 07:18:28PM +0200, Joao Martins wrote:
-> It starts by doing a lookup in the tree for a gref. If no persistent
-> grant is found on the tree, it will do grant copy and prepare
-> the grant maps. Finally valides the grant map and adds it to the tree.
-
-validates?
-
-> After mapped these grants can be pulled from the tree in the subsequent
-> requests. If it's out of pages in the tree pool, it will fallback to
-> grant copy.
+On Tue, May 12, 2015 at 07:18:30PM +0200, Joao Martins wrote:
+> By introducing persistent grants we speed up the RX thread with the
+> decreased copy cost, that leads to a throughput decrease of 20%.
+> It is observed that the rx_queue stays mostly at 10% of its capacity,
+> as opposed to full capacity when using grant copy. And a finer measure
+> with lock_stat (below with pkt_size 64, burst 1) shows much higher wait
+> queue contention on queue->wq, which hints that the RX kthread is
+> waits/wake_up more often, that is actually doing work.
 > 
-
-Again, this looks complicated. Why use combined scheme? I will do
-detailed reviews after we're sure we need such scheme.
-
-> It adds four new fields in the netrx_pending_operations: copy_done
-> to track how many copies were made; map_prod and map_cons to track
-> how many maps are outstanding validation and finally copy_page for
-> the correspondent page (in tree) for copy_gref.
+> Without persistent grants:
 > 
-> Results are 1.04 Mpps measured with pktgen (pkt_size 64, burst 1)
-> with persistent grants versus 1.23 Mpps with grant copy (20%
-> regression). With persistent grants it adds up contention on
-> queue->wq as the kthread_guest_rx goes to sleep more often. If we
-> speed up the sender (burst 2,4 and 8) it goes up to 1.7 Mpps with
-> persistent grants. This issue is addressed in later a commit, by
-> copying the skb on xenvif_start_xmit() instead of going through
-> the RX kthread.
+> class name    con-bounces    contentions   waittime-min   waittime-max
+> waittime-total   waittime-avg    acq-bounces   acquisitions   holdtime-min
+> holdtime-max holdtime-total   holdtime-avg
+> --------------------------------------------------------------------------
+> &queue->wq:   792            792           0.36          24.36
+> 1140.30           1.44           4208        1002671           0.00
+> 46.75      538164.02           0.54
+> ----------
+> &queue->wq    326          [<ffffffff8115949f>] __wake_up+0x2f/0x80
+> &queue->wq    410          [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+> &queue->wq     56          [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+> ----------
+> &queue->wq    202          [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+> &queue->wq    467          [<ffffffff8115949f>] __wake_up+0x2f/0x80
+> &queue->wq    123          [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+> 
+> With persistent grants:
+> 
+> &queue->wq:   61834          61836           0.32          30.12
+> 99710.27           1.61         241400        1125308           0.00
+> 75.61     1106578.82           0.98
+> ----------
+> &queue->wq     5079        [<ffffffff8115949f>] __wake_up+0x2f/0x80
+> &queue->wq    56280        [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+> &queue->wq      479        [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+> ----------
+> &queue->wq     1005        [<ffffffff811592bf>] finish_wait+0x4f/0xa0
+> &queue->wq    56761        [<ffffffff8115949f>] __wake_up+0x2f/0x80
+> &queue->wq     4072        [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
+> 
+> Also, with persistent grants, we don't require batching grant copy ops
+> (besides the initial copy+map) which makes me believe that deferring
+> the skb to the RX kthread just adds up unnecessary overhead (for this
+> particular case). This patch proposes copying the buffer on
+> xenvif_start_xmit(), which lets us both remove the contention on
+> queue->wq and lock on rx_queue. Here, an alternative to
+> xenvif_rx_action routine is added namely xenvif_rx_map() that maps
+> and copies the buffer to the guest. This is only used when persistent
+> grants are used, since it would otherwise mean an hypercall per
+> packet.
+> 
+> Improvements are up to a factor of 2.14 with a single queue getting us
+> from 1.04 Mpps to 1.7 Mpps (burst 1, pkt_size 64) and 1.5 to 2.6 Mpps
+> (burst 2, pkt_size 64) compared to using the kthread. Maximum with grant
+> copy is 1.2 Mpps, irrespective of the burst. All of this, measured on
+> an Intel(R) Xeon(R) CPU E5-1650 v2 @ 3.50GHz.
 > 
 > Signed-off-by: Joao Martins <joao.martins@neclab.eu>
 > ---
->  drivers/net/xen-netback/common.h    |   7 ++
->  drivers/net/xen-netback/interface.c |  14 ++-
->  drivers/net/xen-netback/netback.c   | 190 ++++++++++++++++++++++++++++++------
->  3 files changed, 178 insertions(+), 33 deletions(-)
+>  drivers/net/xen-netback/common.h    |  2 ++
+>  drivers/net/xen-netback/interface.c | 11 +++++---
+>  drivers/net/xen-netback/netback.c   | 52 +++++++++++++++++++++++++++++--------
+>  3 files changed, 51 insertions(+), 14 deletions(-)
 > 
 > diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> index e5ee220..23deb6a 100644
+> index 23deb6a..f3ece12 100644
 > --- a/drivers/net/xen-netback/common.h
 > +++ b/drivers/net/xen-netback/common.h
-> @@ -235,6 +235,13 @@ struct xenvif_queue { /* Per-queue data for xenvif */
+> @@ -363,6 +363,8 @@ void xenvif_kick_thread(struct xenvif_queue *queue);
 >  
->  	struct gnttab_copy grant_copy_op[MAX_GRANT_COPY_OPS];
+>  int xenvif_dealloc_kthread(void *data);
 >  
-> +	/* To map the grefs to be added to the tree */
-> +	struct gnttab_map_grant_ref rx_map_ops[XEN_NETIF_RX_RING_SIZE];
-> +	struct page *rx_pages_to_map[XEN_NETIF_RX_RING_SIZE];
-> +	/* Only used if feature-persistent = 1 */
-
-This comment applies to rx_map_ops and rx_pages_to_map as well. Could
-you move it up?
-
-> +	struct persistent_gnt_tree rx_gnts_tree;
-> +	struct page *rx_gnts_pages[XEN_NETIF_RX_RING_SIZE];
+> +int xenvif_rx_map(struct xenvif_queue *queue, struct sk_buff *skb);
 > +
->  	/* We create one meta structure per ring request we consume, so
->  	 * the maximum number is the same as the ring size.
->  	 */
+>  void xenvif_rx_queue_tail(struct xenvif_queue *queue, struct sk_buff *skb);
+>  
+>  /* Determine whether the needed number of slots (req) are available,
 > diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index 1103568..dfe2b7b 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -109,7 +109,8 @@ static irqreturn_t xenvif_rx_interrupt(int irq, void *dev_id)
+>  {
+>  	struct xenvif_queue *queue = dev_id;
+>  
+> -	xenvif_kick_thread(queue);
+> +	if (!queue->vif->persistent_grants)
+> +		xenvif_kick_thread(queue);
+>  
+>  	return IRQ_HANDLED;
+>  }
+> @@ -168,8 +169,12 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	cb = XENVIF_RX_CB(skb);
+>  	cb->expires = jiffies + vif->drain_timeout;
+>  
+> -	xenvif_rx_queue_tail(queue, skb);
+> -	xenvif_kick_thread(queue);
+> +	if (!queue->vif->persistent_grants) {
+> +		xenvif_rx_queue_tail(queue, skb);
+> +		xenvif_kick_thread(queue);
+> +	} else if (xenvif_rx_map(queue, skb)) {
+> +		return NETDEV_TX_BUSY;
+> +	}
+>  
 
-[...]
+We now have two different functions for guest RX, one is xenvif_rx_map,
+the other is xenvif_rx_action. They look very similar. Can we only have
+one?
 
+>  	return NETDEV_TX_OK;
 >  
 > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 529d7c3..738b6ee 100644
+> index c4f57d7..228df92 100644
 > --- a/drivers/net/xen-netback/netback.c
 > +++ b/drivers/net/xen-netback/netback.c
-> @@ -413,14 +413,62 @@ static void xenvif_rx_queue_drop_expired(struct xenvif_queue *queue)
+> @@ -883,9 +883,48 @@ static bool xenvif_rx_submit(struct xenvif_queue *queue,
+>  	return !!ret;
 >  }
 >  
->  struct netrx_pending_operations {
-> +	unsigned map_prod, map_cons;
->  	unsigned copy_prod, copy_cons;
->  	unsigned meta_prod, meta_cons;
->  	struct gnttab_copy *copy;
->  	struct xenvif_rx_meta *meta;
->  	int copy_off;
->  	grant_ref_t copy_gref;
-> +	struct page *copy_page;
-> +	unsigned copy_done;
->  };
->  
-> +static void xenvif_create_rx_map_op(struct xenvif_queue *queue,
-> +				    struct gnttab_map_grant_ref *mop,
-> +				    grant_ref_t ref,
-> +				    struct page *page)
-
-Rename it to xenvif_rx_create_map_op to be consistent with
-xenvif_tx_create_map_op?
-
+> +int xenvif_rx_map(struct xenvif_queue *queue, struct sk_buff *skb)
 > +{
-> +	queue->rx_pages_to_map[mop - queue->rx_map_ops] = page;
-> +	gnttab_set_map_op(mop,
-> +			  (unsigned long)page_to_kaddr(page),
-> +			  GNTMAP_host_map,
-> +			  ref, queue->vif->domid);
-> +}
+> +	int ret = -EBUSY;
+> +	struct netrx_pending_operations npo = {
+> +		.copy  = queue->grant_copy_op,
+> +		.meta  = queue->meta
+> +	};
 > +
+> +	if (!xenvif_rx_ring_slots_available(queue, XEN_NETBK_LEGACY_SLOTS_MAX))
 
-[...]
+I think you meant XEN_NETBK_RX_SLOTS_MAX?
 
+> +		goto done;
 > +
-> +		persistent_gnt = xenvif_pgrant_new(tree, gop_map);
-> +		if (unlikely(!persistent_gnt)) {
-> +			netdev_err(queue->vif->dev,
-> +				   "Couldn't add gref to the tree! ref: %d",
-> +				   gop_map->ref);
-> +			xenvif_page_unmap(queue, gop_map->handle, &page);
-> +			put_free_pages(tree, &page, 1);
-> +			kfree(persistent_gnt);
-> +			persistent_gnt = NULL;
-
-persistent_gnt is already NULL.
-
-So the kfree and = NULL is pointless.
-
-> +			continue;
-> +		}
+> +	xenvif_rx_build_gops(queue, &npo, skb);
 > +
-> +		put_persistent_gnt(tree, persistent_gnt);
+> +	BUG_ON(npo.meta_prod > ARRAY_SIZE(queue->meta));
+> +	if (!npo.copy_done && !npo.copy_prod)
+> +		goto done;
+> +
+> +	BUG_ON(npo.map_prod > MAX_GRANT_COPY_OPS);
+> +	if (npo.map_prod) {
+> +		ret = gnttab_map_refs(queue->rx_map_ops,
+> +				      NULL,
+> +				      queue->rx_pages_to_map,
+> +				      npo.map_prod);
+> +		BUG_ON(ret);
 > +	}
+> +
+> +	BUG_ON(npo.copy_prod > MAX_GRANT_COPY_OPS);
+> +	if (npo.copy_prod)
+> +		gnttab_batch_copy(npo.copy, npo.copy_prod);
+> +
+> +	if (xenvif_rx_submit(queue, &npo, skb))
+> +		notify_remote_via_irq(queue->rx_irq);
+> +
+> +	ret = 0; /* clear error */
+
+No need to have that comment.
+
+> +done:
+> +	if (xenvif_queue_stopped(queue))
+> +		xenvif_wake_queue(queue);
+> +	return ret;
 > +}
 > +
-> +/*
->   * This is a twin to xenvif_gop_skb.  Assume that xenvif_gop_skb was
->   * used to set up the operations on the top of
->   * netrx_pending_operations, which have since been done.  Check that
->   * they didn't give any errors and advance over them.
->   */
-> -static int xenvif_check_gop(struct xenvif *vif, int nr_meta_slots,
-> +static int xenvif_check_gop(struct xenvif_queue *queue, int nr_meta_slots,
->  			    struct netrx_pending_operations *npo)
+>  static void xenvif_rx_action(struct xenvif_queue *queue)
 >  {
->  	struct gnttab_copy     *copy_op;
->  	int status = XEN_NETIF_RSP_OKAY;
->  	int i;
+> -	int ret;
+>  	struct sk_buff *skb;
+>  	struct sk_buff_head rxq;
+>  	bool need_to_notify = false;
+> @@ -905,22 +944,13 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
+>  	}
 >  
-> +	nr_meta_slots -= npo->copy_done;
-> +	if (npo->map_prod)
+>  	BUG_ON(npo.meta_prod > XEN_NETIF_RX_RING_SIZE);
+> -	if (!npo.copy_done && !npo.copy_prod)
+> +	if (!npo.copy_prod)
 
-Should be "if (npo->map_prod != npo->map_cons)"?
+You modified this line back and forth. You could just avoid modifying it
+in you previous patch to implement RX persistent grants.
+
+>  		return;
+>  
+>  	BUG_ON(npo.copy_prod > MAX_GRANT_COPY_OPS);
+>  	if (npo.copy_prod)
+>  		gnttab_batch_copy(npo.copy, npo.copy_prod);
+>  
+> -	BUG_ON(npo.map_prod > MAX_GRANT_COPY_OPS);
+> -	if (npo.map_prod) {
+> -		ret = gnttab_map_refs(queue->rx_map_ops,
+> -				      NULL,
+> -				      queue->rx_pages_to_map,
+> -				      npo.map_prod);
+> -		BUG_ON(ret);
+> -	}
+> -
+
+And this? You delete the hunk you added in previous patch.
 
 Wei.
+
+>  	while ((skb = __skb_dequeue(&rxq)) != NULL)
+>  		need_to_notify |= xenvif_rx_submit(queue, &npo, skb);
+>  
+> -- 
+> 2.1.3
