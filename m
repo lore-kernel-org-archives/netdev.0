@@ -1,46 +1,55 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH v2 net-next 0/2] rocker: unused parameter and const
- cleanups
-Date: Tue, 19 May 2015 09:17:51 +0900
-Message-ID: <20150519001749.GA27631@vergenet.net>
-References: <1431574976-18214-1-git-send-email-simon.horman@netronome.com>
- <20150518.154722.1576136891396287892.davem@davemloft.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net v2] switchdev: don't abort hardware ipv4 fib offload
+ on failure to program fib entry in hardware
+Date: Mon, 18 May 2015 17:21:29 -0700
+Message-ID: <555A8209.5000306@intel.com>
+References: <1431906125-13808-1-git-send-email-roopa@cumulusnetworks.com> <20150518.161916.2132217836491222672.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, sfeldma@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: sfeldma@gmail.com, john.fastabend@gmail.com, jiri@resnulli.us,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34441 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911AbbESASC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 May 2015 20:18:02 -0400
-Received: by pabru16 with SMTP id ru16so172847755pab.1
-        for <netdev@vger.kernel.org>; Mon, 18 May 2015 17:18:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150518.154722.1576136891396287892.davem@davemloft.net>
+Received: from mga01.intel.com ([192.55.52.88]:56255 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750801AbbESAVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 May 2015 20:21:31 -0400
+In-Reply-To: <20150518.161916.2132217836491222672.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 18, 2015 at 03:47:22PM -0400, David Miller wrote:
-> From: Simon Horman <simon.horman@netronome.com>
-> Date: Thu, 14 May 2015 12:42:54 +0900
+On 05/18/2015 01:19 PM, David Miller wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Date: Sun, 17 May 2015 16:42:05 -0700
 > 
-> > This series provides some minor though verbose cleanup of rocker.
-> > 
-> > The second patch depends on the first though it could be rebased.
-> > 
-> > * Changes v1 -> v2
-> >   - Found quite a few more variables and parameters to make const
+>> On most systems where you can offload routes to hardware,
+>> doing routing in software is not an option (the cpu limitations
+>> make routing impossible in software).
 > 
-> As stated, you wanted me to hold off on this series for now.
+> You absolutely do not get to determine this policy, none of us
+> do.
 > 
-> Please resubmit when the problems you've run into have been
-> resolved, thanks!
+> What matters is that by default the damn switch device being there
+> is %100 transparent to the user.
+> 
+> And the way to achieve that default is to do software routes as
+> a fallback.
+> 
 
-Thanks Dave,
+Although this is not really usable for a class of switches this way,
+as noted above.
 
-will do.
+> I am not going to entertain changes of this nature which fail
+> route loading by default just because we've exceeded a device's
+> HW capacity to offload.
+> 
+> I thought I was _really_ clear about this at netdev 0.1
 
-I am working through those problems. I believe they are unrelated
-to this patch set. But I also believe its best to fix them before
-proceeding with this patch set.
+So how about having an error strategy sysctl field that we can set
+at provisioning time. I think this would align to Roopa's option (b).
+This way we can default to "transparent" mode and the users where
+this wont work can set the error mode. This way user land software
+stacks that work today should continue to work in both modes.
+
+.John
