@@ -1,64 +1,41 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: ingress policying for realtime protocol
-Date: Tue, 19 May 2015 23:11:45 +0200
-Message-ID: <20150519211145.GA23134@pengutronix.de>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] pci: Limit VPD reads for all Intel
+ Ethernet devices
+Date: Tue, 19 May 2015 14:17:04 -0700
+Message-ID: <555BA850.1090901@gmail.com>
+References: <20150519000042.56109.69779.stgit@mdrustad-wks.jf.intel.com> <555B5CBF.1090902@redhat.com> <4AD84211-965C-4F0B-A7F4-3E6CCE6567E3@intel.com> <555B77E5.5060006@redhat.com> <99014381-25AB-416D-8E09-C431B5CD5A6C@intel.com> <555B9F74.3040004@redhat.com> <DA06AAB6-CE9B-4A27-B60D-8F55BB52A063@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:51547 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751939AbbESVLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 17:11:47 -0400
-Received: from dude.hi.pengutronix.de ([2001:67c:670:100:1d::7])
-	by metis.ext.pengutronix.de with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <ukl@pengutronix.de>)
-	id 1Yuonh-0004OU-QR
-	for netdev@vger.kernel.org; Tue, 19 May 2015 23:11:45 +0200
-Received: from ukl by dude.hi.pengutronix.de with local (Exim 4.84)
-	(envelope-from <ukl@pengutronix.de>)
-	id 1Yuonh-0001uH-Jj
-	for netdev@vger.kernel.org; Tue, 19 May 2015 23:11:45 +0200
-Content-Disposition: inline
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:35962 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbbESVRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 17:17:06 -0400
+In-Reply-To: <DA06AAB6-CE9B-4A27-B60D-8F55BB52A063@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 05/19/2015 02:04 PM, Rustad, Mark D wrote:
+>> On May 19, 2015, at 1:39 PM, Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
+>>
+>> So how does this improve boot time anyway?  The original patch description said this improved boot time and reduced memory usage but I have yet to find where any of those gains would actually occur.  If you can point me in that direction I might have a better idea of the motivations behind this.
+> I have to admit that you won't find them in the kernel, but systems that read VPD in the course of starting up will benefit by not reading lots of useless stuff so slowly. At least those reads will be slow on any device that reads VPD from slow hardware. Since the kernel would never perform any of those reads itself, in isolation the kernel has no benefit. However the system gets a benefit.
+>
+> I can delete the reference to a memory benefit, since it would be a fleeting benefit at most and not a kernel memory footprint issue.
+>
+> This is not a big deal for me. If you don't see the value, drop it. Some people are interested in speeding up boot. Apparently VPD is now being accessed in parallel by user space as a result of such work, exposing the problem addressed in the other patch. I saw this opportunity while trying to resolve that issue. If it isn't worth it, drop it.
 
-I hope this is the/a right list to ask this question. If not, I'd be
-happy to learn the right alternative.
+Any chance you could point me toward the software in question?  Just 
+wondering because it seems like what you are fixing with this is an 
+implementation issue in the application since you really shouldn't be 
+accessing areas outside the scope of the VPD data structure, and doing 
+so is undefined in terms of what happens if you do.
 
-=46or a system that implements the Media Redundancy Protocol (MRP,
-http://en.wikipedia.org/wiki/Media_Redundancy_Protocol) I'm faced with
-the task to assert that the corresponding ethernet packets are handled
-"in time". Currently this fails already if I do
-
-	scp somebigfile mymrpsystem:
-
-The first idea was to use ingress policying to limit all packets that
-are not related to MRP to a certain rate.
-
-The problem in practise however is that the rate that has to be used
-above is very low (100kbit) so we're looking for alternatives. I wonder
-what's missing to get ingress policying more versatile to allow for
-example a prio qdisc or if there is some conceptual problem that I don'=
-t
-see. I'm not sure this would solve our problem, but it's definitely
-something I want to play with before trying/resorting to hackish
-solutions (like hacking the eth-driver to pipe MRP packets directly to
-the network userspace application instead of through the network stack)=
-=2E
-
-Do you have any ideas or hints?
-
-Thanks in advance
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+- Alex
