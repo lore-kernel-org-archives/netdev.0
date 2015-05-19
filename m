@@ -1,57 +1,79 @@
-From: Ido Shamay <idos@dev.mellanox.co.il>
-Subject: Re: Default XPS settings in mlx4 driver
-Date: Wed, 20 May 2015 01:20:48 +0300
-Message-ID: <555BB740.20708@dev.mellanox.co.il>
-References: <CALx6S36qXcqhfFQVLWu2CgoJYQL6E-myvgBvDFxATA+NjX+qBA@mail.gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 3/4] rocker: do not make neighbour entry changes
+ when preparing transactions
+Date: Wed, 20 May 2015 07:33:27 +0900
+Message-ID: <20150519223325.GA18883@penelope.isobedori.kobe.vergenet.net>
+References: <1432016657-24231-1-git-send-email-simon.horman@netronome.com>
+ <1432016657-24231-4-git-send-email-simon.horman@netronome.com>
+ <CAE4R7bBZTPeD4PM8xfxvEn0FSwCnWNwPt4FLAf38=7KdQn=s+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Benjamin Poirier <bpoirier@suse.de>
-To: Tom Herbert <tom@herbertland.com>, Ido Shamay <idos@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:36076 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026AbbESWUw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 18:20:52 -0400
-Received: by wgbgq6 with SMTP id gq6so33455416wgb.3
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 15:20:50 -0700 (PDT)
-In-Reply-To: <CALx6S36qXcqhfFQVLWu2CgoJYQL6E-myvgBvDFxATA+NjX+qBA@mail.gmail.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:35374 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155AbbESWdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 18:33:37 -0400
+Received: by pdea3 with SMTP id a3so43160163pde.2
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 15:33:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bBZTPeD4PM8xfxvEn0FSwCnWNwPt4FLAf38=7KdQn=s+Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/19/2015 11:38 PM, Tom Herbert wrote:
-> Hi Ido,
->
-> I'm looking at your patch "net/mlx4_en: Configure the XPS queue
-> mapping on driver load". We're testing a 40 CPU system and it looks
-> like XPS is being configured by default with forty queues 0-39 where
-> each xps_cpus is (1 << i). The problem is that this does not easily
-> align with RX queues and the TX completion interrupt for TX queue z
-> happens in interrupt for (z % num_rx_queues). So it looks like, the
-> default XPS doesn't respect the RX interrupt affinities, so we have TX
-> queues that are bound to a CPU on one numa node but have their TX
-> completions happen on another which is suboptimal. It would be nice if
-> the default XPS could take where the completion interrupt happens into
-> account somehow.
-Hi Tom,
+On Tue, May 19, 2015 at 09:11:29AM -0700, Scott Feldman wrote:
+> On Mon, May 18, 2015 at 11:24 PM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > rocker_port_ipv4_nh() and in turn rocker_port_ipv4_neigh() may be
+> > be called with trans == SWITCHDEV_TRANS_PREPARE and then
+> > trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_obj_set() via
+> > fib_table_insert().
+> >
+> > Although I have been unable to find a scenario where a bug manifests
+> > I do see some incorrect behaviour when adding a fib entry with a gateway.
+> >
+> > The first time that rocker_port_ipv4_nh() is called, with
+> > trans == SWITCHDEV_TRANS_PREPARE, _rocker_neigh_add()
+> > adds a new entry to the neigh table.
+> >
+> > And the second time  rocker_port_ipv4_nh() is called, with
+> > trans == SWITCHDEV_TRANS_COMMIT, that entry is found and
+> > _rocker_neigh_update() is called.
+> >
+> > Assuming the transaction runs to completion this appears to be harmless.
+> > I suspect it would be not correct if the transaction was aborted.
+> >
+> > This problem does not appear to affect deletion as my analysis is
+> > that deletion is always performed with trans == SWITCHDEV_TRANS_NONE.
+> >
+> > For completeness _rocker_neigh_{add,del,prepare} are updated not
+> > to manipulate fib table entries if trans == SWITCHDEV_TRANS_PREPARE.
+> >
+> > Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
+> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> > ---
+> >  drivers/net/ethernet/rocker/rocker.c | 16 ++++++++++++----
+> >  1 file changed, 12 insertions(+), 4 deletions(-)
+> >
+> 
+> [cut]
+> 
+> > @@ -2928,8 +2933,11 @@ static void _rocker_neigh_del(struct rocker_port *rocker_port,
+> >  }
+> >
+> >  static void _rocker_neigh_update(struct rocker_neigh_tbl_entry *entry,
+> > +                                enum switchdev_trans trans,
+> >                                  u8 *eth_dst, bool ttl_check)
+> >  {
+> > +       if (trans == SWITCHDEV_TRANS_PREPARE)
+> > +               return;
+> 
+> On this one, let move the trans==PREPARE test to the else branch, in
+> case someone down the line is dependent on eth_dst and ttl_check being
+> copied over.
+> 
+> Everything else in the patch looks good.
 
-Actually this was changed lately in "42eab005 mlx4: (Fix tx ring 
-affinity_mask creation)"
-by Benjamin Poirier, to match the default affinity hints we give for the 
-RX interrupts.
-
-Back then I tested all kinds of schemes and found certain tradeoffs.
-Having 1:1 mapping of tx rings selection (xmit) and CPUs (decoupled from 
-the completion affinity)
-correlates good sender application cores selection and was found to have 
-benefits in certain scenarios.
-In general the affinity of IRQs might be changed from the hints, so XPS 
-should be configured to desired
-scheme (sysfs).
-Certainly more research is required to find the optimal setting for the 
-common case.
-
-Regards,
-Ido
+Thanks Scott, I'll adjust things as you suggest.
