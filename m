@@ -1,48 +1,40 @@
-From: Haggai Eran <haggaie@mellanox.com>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the
- RDMA-CM
-Date: Tue, 19 May 2015 17:54:54 +0300
-Message-ID: <555B4EBE.7010900@mellanox.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
- <1432045826.5304.6.camel@opteya.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [RFC PATCH 02/13] xen-netback: xenbus feature persistent support
+Date: Tue, 19 May 2015 16:19:29 +0100
+Message-ID: <20150519151929.GA26335@zion.uk.xensource.com>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-3-git-send-email-joao.martins@neclab.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Doug Ledford <dledford@redhat.com>, <linux-rdma@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Yann Droneaud <ydroneaud@opteya.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+	<wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
+	<david.vrabel@citrix.com>, <boris.ostrovsky@oracle.com>,
+	<konrad.wilk@oracle.com>
+To: Joao Martins <joao.martins@neclab.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0072.outbound.protection.outlook.com ([157.56.112.72]:56288
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932612AbbESOzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2015 10:55:08 -0400
-In-Reply-To: <1432045826.5304.6.camel@opteya.com>
+Received: from smtp.citrix.com ([66.165.176.89]:16830 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757042AbbESPUk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 May 2015 11:20:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1431451117-70051-3-git-send-email-joao.martins@neclab.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/05/2015 17:30, Yann Droneaud wrote:
->Le dimanche 17 mai 2015 =C3=A0 08:50 +0300, Haggai Eran a =C3=A9crit :
->> Full support for RoCE will be introduced in a later stage.
->>
-> How does this play with iWarp: as iWarp HCA are aware of IP addresses=
- /
-> UDP/TCP ports, AFAIK, are those tied to namespace with this patchset =
-or
-> will it be possible to use the iWarp HCA to access to address/port
-> resources tied to a different namespace ?
+On Tue, May 12, 2015 at 07:18:26PM +0200, Joao Martins wrote:
+> Checks for "feature-persistent" that indicates persistent grants
+> support. Adds max_persistent_grants module param that specifies the max
+> number of persistent grants, which if set to zero disables persistent
+> grants.
+> 
+> Signed-off-by: Joao Martins <joao.martins@neclab.eu>
 
-At the moment the patchset doesn't add iWarp namespace support, as I
-wrote in the discussion about v3 [1]. I suspect that the current iWarp
-code lets users listen in one namespace and receive requests belonging
-to the init namespace, or break the namespaces in similar ways. The
-patchset doesn't attempt to fix this for iWarp or RoCE, only for Infini=
-Band.
+This patch needs to be moved later. The feature needs to be implemented
+first.
 
-Regards,
-Haggai
+Also you need to patch netif.h to document this new feature. To do this,
+you need to patch the master netif.h in Xen tree then sync the change to
+Linux. Of course I don't mind if we discuss wording in the Linux
+copy then you devise a patch for Xen.
 
-[1] http://www.spinics.net/lists/linux-rdma/msg25156.html
+Wei.
