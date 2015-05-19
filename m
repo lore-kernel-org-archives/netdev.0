@@ -1,130 +1,66 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 09/10] pktgen: add sample script
-	pktgen_sample03_burst_single_flow.sh
-Date: Tue, 19 May 2015 23:36:39 +0200
-Message-ID: <20150519213639.9070.50273.stgit@ivy>
-References: <20150519213326.9070.18264.stgit@ivy>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: Kernel crash while using tc script
+Date: Tue, 19 May 2015 23:43:14 +0200
+Message-ID: <555BAE72.40609@iogearbox.net>
+References: <CAGK4HS_cCQPJwXVoCuZAa2zHtPnXO+ar5Wpg_azyxc5Efv4Mwg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Robert Olsson <robert@herjulf.se>,
-	Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, tgraf <tgraf@suug.ch>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39010 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751789AbbESVhH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 May 2015 17:37:07 -0400
-In-Reply-To: <20150519213326.9070.18264.stgit@ivy>
+Received: from www62.your-server.de ([213.133.104.62]:50817 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257AbbESVnQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 17:43:16 -0400
+In-Reply-To: <CAGK4HS_cCQPJwXVoCuZAa2zHtPnXO+ar5Wpg_azyxc5Efv4Mwg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the pktgen samples script pktgen_sample03_burst_single_flow.sh
-that demonstrates how to acheive maximum performance.
+On 05/19/2015 10:11 PM, Vijay Subramanian wrote:
+> Hi,
+>
+> It seems latest net-next kernel crashes while unloading modules.
+> Please see simple script below to reproduce the crash.
+>
+> ===============================
+>
+> #!/bin/bash
+>
+> while true; do
+>
+> # modules will be loaded automatically
+>
+> tc qdisc add dev eth1 root handle 1: prio
+>
+> tc filter add dev eth1 parent 1: u32 match u32 0 0  flowid 1
+>
+>
+> tc qdisc del dev eth1 root
+>
+> rmmod cls_u32
+>
+> rmmod sch_prio
+>
+>
+> done
+>
+> =========================
+>
+> It seems there is some refcounting or locking issue issue. I am unable
+> to easily post the dump but sometimes it points to crashes in various
+> functions in prio_class_ops  (sch_prio.c), such as prio_walk(),
+> prio_dump_class etc. Probably, sch_prio call back functions are
+> invoked when they should not be.
+>
+> I bisected this down to following commit:
+>
+> commit 78fd1d0ab072d4d9b5f0b7c14a1516665170b565
+> Author: Thomas Graf <tgraf@suug.ch>
+> Date:   Tue Oct 21 22:05:38 2014 +0200
+> netlink: Re-add locking to netlink_lookup() and seq walker
+>
+> If there are suggestions for me to try or you need more info, let me know.
 
-If correctly tuned[1] single CPU 10Gbit/s wirespeed small pkts is
-possible[2] which is 14.88Mpps.  The trick is to take advantage of the
-"burst" feature introduced in commit 38b2cf2982dc73 ("net: pktgen:
-packet bursting via skb->xmit_more").
-
-[1] http://netoptimizer.blogspot.dk/2014/06/pktgen-for-network-overload-testing.html
-[2] http://netoptimizer.blogspot.dk/2014/10/unlocked-10gbps-tx-wirespeed-smallest.html
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
-
- .../pktgen/pktgen_sample03_burst_single_flow.sh    |   82 ++++++++++++++++++++
- 1 files changed, 82 insertions(+), 0 deletions(-)
- create mode 100755 samples/pktgen/pktgen_sample03_burst_single_flow.sh
-
-diff --git a/samples/pktgen/pktgen_sample03_burst_single_flow.sh b/samples/pktgen/pktgen_sample03_burst_single_flow.sh
-new file mode 100755
-index 0000000..f60d579
---- /dev/null
-+++ b/samples/pktgen/pktgen_sample03_burst_single_flow.sh
-@@ -0,0 +1,82 @@
-+#!/bin/bash
-+#
-+# Script for max single flow performance
-+#  - If correctly tuned[1], single CPU 10G wirespeed small pkts is possible[2]
-+#
-+# Using pktgen "burst" option (use -b $N)
-+#  - To boost max performance
-+#  - Avail since: kernel v3.18
-+#   * commit 38b2cf2982dc73 ("net: pktgen: packet bursting via skb->xmit_more")
-+#  - This avoids writing the HW tailptr on every driver xmit
-+#  - The performance boost is impressive, see commit and blog [2]
-+#
-+# Notice: On purpose generates a single (UDP) flow towards target,
-+#   reason behind this is to only overload/activate a single CPU on
-+#   target host.  And no randomness for pktgen also makes it faster.
-+#
-+# Tuning see:
-+#  [1] http://netoptimizer.blogspot.dk/2014/06/pktgen-for-network-overload-testing.html
-+#  [2] http://netoptimizer.blogspot.dk/2014/10/unlocked-10gbps-tx-wirespeed-smallest.html
-+#
-+basedir=`dirname $0`
-+source ${basedir}/functions.sh
-+root_check_run_with_sudo "$@"
-+
-+# Parameter parsing via include
-+source ${basedir}/parameters.sh
-+# Set some default params, if they didn't get set
-+[ -z "$DEST_IP" ]   && DEST_IP="198.18.0.42"
-+[ -z "$DST_MAC" ]   && DST_MAC="90:e2:ba:ff:ff:ff"
-+[ -z "$BURST" ]     && BURST=32
-+[ -z "$CLONE_SKB" ] && CLONE_SKB="100000"
-+
-+# Base Config
-+DELAY="0"  # Zero means max speed
-+COUNT="0"  # Zero means indefinitely
-+
-+# General cleanup everything since last run
-+pg_ctrl "reset"
-+
-+# Threads are specified with parameter -t value in $THREADS
-+for ((thread = 0; thread < $THREADS; thread++)); do
-+    dev=${DEV}@${thread}
-+
-+    # Add remove all other devices and add_device $dev to thread
-+    pg_thread $thread "rem_device_all"
-+    pg_thread $thread "add_device" $dev
-+
-+    # Base config
-+    pg_set $dev "flag QUEUE_MAP_CPU"
-+    pg_set $dev "count $COUNT"
-+    pg_set $dev "clone_skb $CLONE_SKB"
-+    pg_set $dev "pkt_size $PKT_SIZE"
-+    pg_set $dev "delay $DELAY"
-+    pg_set $dev "flag NO_TIMESTAMP"
-+
-+    # Destination
-+    pg_set $dev "dst_mac $DST_MAC"
-+    pg_set $dev "dst $DEST_IP"
-+
-+    # Setup burst, for easy testing -b 0 disable bursting
-+    # (internally in pktgen default and minimum burst=1)
-+    if [[ ${BURST} != 0 ]]; then
-+	pg_set $dev "burst $BURST"
-+    else
-+	info "$dev: Not using burst"
-+    fi
-+done
-+
-+# Run if user hits control-c
-+function control_c() {
-+    # Print results
-+    for ((thread = 0; thread < $THREADS; thread++)); do
-+	dev=${DEV}@${thread}
-+	echo "Device: $dev"
-+	cat /proc/net/pktgen/$dev | grep -A2 "Result:"
-+    done
-+}
-+# trap keyboard interrupt (Ctrl-C)
-+trap control_c SIGINT
-+
-+echo "Running... ctrl^C to stop" >&2
-+pg_ctrl "start"
+Hmm, seems rather like the synchronize_net() removal in netlink_release()
+must have uncovered a bug elsewhere.
