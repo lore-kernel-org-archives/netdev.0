@@ -1,75 +1,49 @@
-From: Parav Pandit <parav.pandit-1wcpHE2jlwO1Z/+hSey0Gg@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 00/12] Add network namespace support in the RDMA-CM
-Date: Tue, 19 May 2015 22:09:14 +0530
-Message-ID: <CAGgvQNRjSVcOfQB3bhXTdPoa04Hs7jc1+hXvL99EqDjbaaOw=A@mail.gmail.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
-	<1432045826.5304.6.camel@opteya.com>
-	<555B4EBE.7010900@mellanox.com>
+From: Parav Pandit <parav.pandit@avagotech.com>
+Subject: Re: [PATCH] net-next: ethtool: Added port speed macros.
+Date: Tue, 19 May 2015 22:11:05 +0530
+Message-ID: <CAGgvQNR-rbqfGVobbo50c_PbSYgNW5f5FXKBg1_GCv=qjDejXQ@mail.gmail.com>
+References: <1431946907-7808-1-git-send-email-parav.pandit@avagotech.com>
+	<20150518.114630.1938175226193925552.davem@davemloft.net>
+	<CAGgvQNT9M-2u_HWn_mYz1sgX4hceTCnbhr1DctQrAPKPNLKq0g@mail.gmail.com>
+	<20150519.123221.435329742945502707.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <555B4EBE.7010900-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bwh@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:32774 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754529AbbESQlG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 12:41:06 -0400
+Received: by iebgx4 with SMTP id gx4so18361752ieb.0
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 09:41:05 -0700 (PDT)
+In-Reply-To: <20150519.123221.435329742945502707.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 8:24 PM, Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wro=
-te:
-> On 19/05/2015 17:30, Yann Droneaud wrote:
->>Le dimanche 17 mai 2015 =C3=A0 08:50 +0300, Haggai Eran a =C3=A9crit =
-:
->>> Full support for RoCE will be introduced in a later stage.
+On Tue, May 19, 2015 at 10:02 PM, David Miller <davem@davemloft.net> wrote:
+> From: Parav Pandit <parav.pandit@avagotech.com>
+> Date: Tue, 19 May 2015 10:15:49 +0530
+>
+>> On Mon, May 18, 2015 at 9:16 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Parav Pandit <parav.pandit@avagotech.com>
+>>> Date: Mon, 18 May 2015 16:31:47 +0530
 >>>
->> How does this play with iWarp: as iWarp HCA are aware of IP addresse=
-s /
->> UDP/TCP ports, AFAIK, are those tied to namespace with this patchset=
- or
->> will it be possible to use the iWarp HCA to access to address/port
->> resources tied to a different namespace ?
+>>>> Signed-off-by: Parav Pandit <parav.pandit@avagotech.com>
+>>>
+>>> I thought we had decided that we weren't going to keep adding
+>>> convenience macros for new speeds, and were simply going to use
+>>> the appropriate constants in the future.
+>>>
+>>
+>> I added them to accommodate any speed/PHY interface specific
+>> configuration to make use of it.
+>> If convenience macros are not needed, I will provide the code cleanup
+>> patch to remove existing convenience macros. With that we will have
+>> unified code for old and new constants.
+>> I will anyway let Ben comment on it.
 >
-> At the moment the patchset doesn't add iWarp namespace support, as I
-> wrote in the discussion about v3 [1]. I suspect that the current iWar=
-p
-> code lets users listen in one namespace and receive requests belongin=
-g
-> to the init namespace, or break the namespaces in similar ways. The
-> patchset doesn't attempt to fix this for iWarp or RoCE, only for Infi=
-niBand.
->
+> You cannot remove the existing macros, because they are exported to
+> userspace and you'll break application compilation if you do that.
 
-This has come up during our first round of patch set for RoCEv2.
-However due to last set of changes in this patch set, we decided to
-move in for later submission.
-
-Current high design approach to support this is:
-
-A callback function registered to IP stack for IP address
-assignment/removal. (it could be done possibly done for GID entry
-update, instead of IP)
-=46or each such namespace, for device supporting RoCEv2, one UDP socket
-with RoCEv2 UDP port would be created and destroyed.
-
-
-
-> Regards,
-> Haggai
->
-> [1] http://www.spinics.net/lists/linux-rdma/msg25156.html
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma"=
- in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yes, didn't think about it before.
