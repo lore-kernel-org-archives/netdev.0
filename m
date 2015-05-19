@@ -1,36 +1,46 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] tcp: ensure epoll edge trigger wakeup when out of
  memory
-Date: Tue, 19 May 2015 00:09:45 -0400 (EDT)
-Message-ID: <20150519.000945.697478668443801629.davem@davemloft.net>
+Date: Tue, 19 May 2015 00:10:45 -0400 (EDT)
+Message-ID: <20150519.001045.1156234709900758412.davem@davemloft.net>
 References: <20150515211707.D9FC480066@prod-mail-relay07.akamai.com>
+	<20150519.000945.697478668443801629.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
 	ycheng@google.com
 To: jbaron@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34973 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34994 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbbESEJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 00:09:47 -0400
-In-Reply-To: <20150515211707.D9FC480066@prod-mail-relay07.akamai.com>
+	with ESMTP id S1751526AbbESEKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 00:10:46 -0400
+In-Reply-To: <20150519.000945.697478668443801629.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Baron <jbaron@akamai.com>
-Date: Fri, 15 May 2015 21:17:07 +0000 (GMT)
-
-> From: Jason Baron <jbaron@akamai.com>
-> 
-> If we really can't get an skb allocated, make sure that we let
-> userspace know. This at least gives us a chance to re-try or abort.
-> 
-> Signed-off-by: Jason Baron <jbaron@akamai.com>
-
-Applied to net-next, thanks Jason.
-
-Eric asked if we should perhaps return -ENOMEM here, and I'm not so
-sure that's a good idea.  It is in a way a temporary failure that
-should be retried.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAxOSBN
+YXkgMjAxNSAwMDowOTo0NSAtMDQwMCAoRURUKQ0KDQo+IEZyb206IEphc29uIEJhcm9uIDxqYmFy
+b25AYWthbWFpLmNvbT4NCj4gRGF0ZTogRnJpLCAxNSBNYXkgMjAxNSAyMToxNzowNyArMDAwMCAo
+R01UKQ0KPiANCj4+IEZyb206IEphc29uIEJhcm9uIDxqYmFyb25AYWthbWFpLmNvbT4NCj4+IA0K
+Pj4gSWYgd2UgcmVhbGx5IGNhbid0IGdldCBhbiBza2IgYWxsb2NhdGVkLCBtYWtlIHN1cmUgdGhh
+dCB3ZSBsZXQNCj4+IHVzZXJzcGFjZSBrbm93LiBUaGlzIGF0IGxlYXN0IGdpdmVzIHVzIGEgY2hh
+bmNlIHRvIHJlLXRyeSBvciBhYm9ydC4NCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gQmFy
+b24gPGpiYXJvbkBha2FtYWkuY29tPg0KPiANCj4gQXBwbGllZCB0byBuZXQtbmV4dCwgdGhhbmtz
+IEphc29uLg0KDQpOZXZlcm1pbmQsIHJldmVydGVkLCB5b3UgZGlkbid0IGNvbXBpbGUgbGV0IGFs
+b25lIHRlc3QgdGhpczoNCg0KbmV0L2lwdjQvdGNwLmM6IEluIGZ1bmN0aW9uIKFkb190Y3Bfc2Vu
+ZHBhZ2VzojoNCm5ldC9pcHY0L3RjcC5jOjEwMDE6MzQ6IGVycm9yOiBpbnZhbGlkIG9wZXJhbmRz
+IHRvIGJpbmFyeSA9PSAoaGF2ZSChc3RydWN0IHNrX2J1ZmZfaGVhZKIgYW5kIKFpbnSiKQ0KICBp
+ZiAodW5saWtlbHkoc2stPnNrX3dyaXRlX3F1ZXVlID09IDAgJiYgZXJyID09IC1FQUdBSU4pKQ0K
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCmluY2x1ZGUvbGludXgvY29tcGls
+ZXIuaDoxNjQ6NDI6IG5vdGU6IGluIGRlZmluaXRpb24gb2YgbWFjcm8goXVubGlrZWx5og0KICMg
+ZGVmaW5lIHVubGlrZWx5KHgpIF9fYnVpbHRpbl9leHBlY3QoISEoeCksIDApDQogICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQpuZXQvaXB2NC90Y3AuYzogSW4gZnVu
+Y3Rpb24goXRjcF9zZW5kbXNnojoNCm5ldC9pcHY0L3RjcC5jOjEyOTI6MzQ6IGVycm9yOiBpbnZh
+bGlkIG9wZXJhbmRzIHRvIGJpbmFyeSA9PSAoaGF2ZSChc3RydWN0IHNrX2J1ZmZfaGVhZKIgYW5k
+IKFpbnSiKQ0KICBpZiAodW5saWtlbHkoc2stPnNrX3dyaXRlX3F1ZXVlID09IDAgJiYgZXJyID09
+IC1FQUdBSU4pKQ0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCmluY2x1ZGUv
+bGludXgvY29tcGlsZXIuaDoxNjQ6NDI6IG5vdGU6IGluIGRlZmluaXRpb24gb2YgbWFjcm8goXVu
+bGlrZWx5og0KICMgZGVmaW5lIHVubGlrZWx5KHgpIF9fYnVpbHRpbl9leHBlY3QoISEoeCksIDAp
+DQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQo=
