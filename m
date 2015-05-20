@@ -1,43 +1,50 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 4/4] net: af_unix: implement splice for stream
- af_unix sockets
-Date: Wed, 20 May 2015 13:59:05 -0700
-Message-ID: <CAHA+R7MO1H8kCqwGd4dcEMJOB0D=qUdYkKq1K1Mmc5jJAQVikw@mail.gmail.com>
-References: <cover.1432135413.git.hannes@stressinduktion.org>
-	<3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: We've released a generic netlink python library -- gnlpy
+Date: Wed, 20 May 2015 14:10:19 -0700
+Message-ID: <555CF83B.7040706@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:37777 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753033AbbETU7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 16:59:06 -0400
-Received: by wibt6 with SMTP id t6so73664652wib.0
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 13:59:05 -0700 (PDT)
-In-Reply-To: <3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <kernel-team@fb.com>
+To: <lvs-devel@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 8:35 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->
-> -static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg,
-> -                              size_t size, int flags)
-> +struct unix_stream_read_state {
-> +       int (*recv_actor)(struct sk_buff *, int, int,
-> +                         struct unix_stream_read_state *);
-> +       struct socket *socket;
-> +       struct msghdr *msg;
-> +       struct pipe_inode_info *pipe;
-> +       size_t size;
-> +       int flags;
-> +       unsigned int splice_flags;
-> +};
-> +
-> +static __always_inline
-> +int unix_stream_read_generic(struct unix_stream_read_state *state)
+Hey everyone,
 
+tl;dr; pure python generic netlink library with simple clients for ipvs 
+and taskstats here: https://github.com/facebook/gnlpy
 
-Why __always_inline here?
+At Facebook we rely upon ipvs for most of our layer-4 load balancing 
+needs.  It's mostly worked pretty great for us.  The standard way to 
+interact with ipvs is ipvsadm, which will use netlink sockets to make 
+rpc calls to the kernel (things like adding/remove services and real 
+servers).  Because we run many, many instances of ipvs, we ended up 
+scripting this away with a separate program that shells out to ipvsadm.
+
+The down side to this approach was that we had to format the arguments 
+and parse the result of the tool, which was kind of a pain. 
+Additionally, we'd sometimes get into a bad state where the exec would 
+fail or the binary wouldn't be there and the whole thing would kind of 
+break.  To my knowledge this never caused any kind of large scale 
+incident, but it was an annoying thing to deal with.
+
+At some point, we made some changes to ipvs (heterogenous pools) and we 
+were in the position of needing to roll a new ipvsadm binary to take 
+advantage of the functionality.  That was fundamentally unappealing to 
+yours truly, so I hacked together gnlpy (Generic NetLink PYthon library) 
+instead.  It's been in production for several months.
+
+At some point thereafter, someone on the lvs-devel list mentioned 
+wanting to interact with ipvs through python and I made a vague 
+assurance that we'd open source this thing.  Well here we are.
+
+If you take a look at the code, you'll quickly notice that we haven't 
+gone through the trouble of implementing every RPC call for the families 
+we support and we certainly haven't gone through the trouble of 
+implementing every generic netlink family.  We welcome your pull requests :)
+
+-- 
+Alex Gartrell <agartrell@fb.com>
