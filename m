@@ -1,138 +1,96 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH v3 net-next 3/4] rocker: do not make neighbour entry
- changes when preparing transactions
-Date: Wed, 20 May 2015 10:37:52 -0700
-Message-ID: <CAE4R7bDY4vNOUjRQQ=CzPRbVKEq4qZh2BVutajrRt3_JsdWdvw@mail.gmail.com>
-References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com>
-	<1432100902-10187-4-git-send-email-simon.horman@netronome.com>
-	<555C267B.9070807@lab.ntt.co.jp>
-	<20150520074810.GA21934@vergenet.net>
-	<555C4776.70508@lab.ntt.co.jp>
-	<20150520084623.GA14454@vergenet.net>
-	<20150520111736.GE2228@nanopsycho.orion>
-	<20150520125744.GA2083@penelope.isobedori.kobe.vergenet.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] net: sched: fix call_rcu() race on classifier module unloads
+Date: Wed, 20 May 2015 10:38:42 -0700
+Message-ID: <CAHA+R7PMC7Zi0gqAUFzfWfJ_CLTmNYqjSgAQH2kKVONEy_3gZQ@mail.gmail.com>
+References: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+Cc: David Miller <davem@davemloft.net>, subramanian.vijay@gmail.com,
+	netdev <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:34052 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753431AbbETRhx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 13:37:53 -0400
-Received: by qgez61 with SMTP id z61so23276097qge.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 10:37:52 -0700 (PDT)
-In-Reply-To: <20150520125744.GA2083@penelope.isobedori.kobe.vergenet.net>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:34430 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753431AbbETRio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 13:38:44 -0400
+Received: by wghq2 with SMTP id q2so60541007wgh.1
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 10:38:42 -0700 (PDT)
+In-Reply-To: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2015 at 5:57 AM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> On Wed, May 20, 2015 at 01:17:36PM +0200, Jiri Pirko wrote:
->> Wed, May 20, 2015 at 10:46:26AM CEST, simon.horman@netronome.com wrote:
->> >On Wed, May 20, 2015 at 05:36:06PM +0900, Toshiaki Makita wrote:
->> >> On 2015/05/20 16:48, Simon Horman wrote:
->> >> > On Wed, May 20, 2015 at 03:15:23PM +0900, Toshiaki Makita wrote:
->> >> >> On 2015/05/20 14:48, Simon Horman wrote:
->> >> ...
->> >> >>>  static void _rocker_neigh_add(struct rocker *rocker,
->> >> >>> +                            enum switchdev_trans trans,
->> >> >>>                              struct rocker_neigh_tbl_entry *entry)
->> >> >>>  {
->> >> >>> +      if (trans == SWITCHDEV_TRANS_PREPARE)
->> >> >>> +              return;
->> >> >>>        entry->index = rocker->neigh_tbl_next_index++;
->> >> >>
->> >> >> Isn't index needed here? It looks to be used in later function call and
->> >> >> logging.
->> >> >
->> >> > Thanks, that does not follow the usual model of setting values
->> >> > during the PREPARE (and all other) transaction phase(s).
->> >> >
->> >> >> How about setting index like this?
->> >> >>
->> >> >>         entry->index = rocker->neigh_tbl_next_index;
->> >> >>         if (trans == PREPARE)
->> >> >>                 return;
->> >> >>         rocker->neigh_tbl_next_index++;
->> >> >>         ...
->> >> >
->> >> > I am concerned that _rocker_neigh_add() may be called by some other
->> >> > caller while a transaction is in process and thus entry->index will
->> >> > be inconsistent across callers.
->> >> >
->> >> > Perhaps we can convince ourselves that all the bases are covered.
->> >> > So far my testing has drawn a blank. But the logic seems difficult to
->> >> > reason about.
->> >> >
->> >> > As we are basically allocating an index I suppose what is really needed for
->> >> > a correct implementation is a transaction aware index allocator, like we
->> >> > have for memory (rocker_port_kzalloc etc...).  But that does seem like
->> >> > overkill.
->> >> >
->> >> > I think that we can make entry->index consistent across
->> >> > calls in the same transaction at the expense of breaking the
->> >> > rule that per-transaction data should be set during all transaction phases.
->> >> >
->> >> > Something like this:
->> >> >
->> >> >
->> >> >  if (trans != SWITCHDEV_TRANS_COMMIT)
->> >> >          /* Avoid index being set to different values across calls
->> >> >           * to this function by the same caller within the same
->> >> >           * transaction.
->> >> >           */
->> >> >          entry->index = rocker->neigh_tbl_next_index++;
->> >> >  if (trans == SWITCHDEV_TRANS_PREPARE)
->> >> >          return;
->> >> >
->> >> >
->> >>
->> >> As long as it is guraded by rtnl lock, no worries about this race?  It
->> >> seems to be assumed that prepare-commit is guarded by rtnl lock,
->> >> according to commit c4f20321 ("rocker: support prepare-commit
->> >> transaction model").
->> >>
->> >> But as you are concerned, it seems to be able to be called by another
->> >> caller, specifically, neigh_timer_handler() in interrupt context without
->> >> rtnl lock. IMHO, it should be fixed rather than avoiding the race here.
->> >
->> >Yes, I believe that is the case I was seeing.
->> >
->> >Scott, Jiri, how would you like to resolve this?
->>
->>
->> I believe that you can depend on rtnl being held - in switchdev_port_obj_add
->> there is ASSERT_RTNL assection at the very beginning of the function.
+On Wed, May 20, 2015 at 8:13 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> Vijay reported that a loop as simple as ...
 >
-> In the prepare-commit scenario, yes, I agree that is the case.
-> But it does not seem to always be the case when the transaction phase is none.
+>   while true; do
+>     tc qdisc add dev foo root handle 1: prio
+>     tc filter add dev foo parent 1: u32 match u32 0 0  flowid 1
+>     tc qdisc del dev foo root
+>     rmmod cls_u32
+>   done
 >
-> What I am seeing is:
->
-> 1. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
->    with trans = SWITCHDEV_TRANS_PREPARE
->
-> 2. rocker_port_ipv4_neigh() is called by rocker_neigh_update()
->    with trans = SWITCHDEV_TRANS_NONE.
->
->    The call chain goes up to arp_process() via neigh_update().
->
-> 3. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
->    with trans = SWITCHDEV_TRANS_COMMIT
->
-> I believe #2 is not guarded by rtnl.
+> ... will panic the kernel. Moreover, he bisected the change
+> apparently introducing it to 78fd1d0ab072 ("netlink: Re-add
+> locking to netlink_lookup() and seq walker").
 
-Looks like rocker->neigh_tbl_next_index was a problem even before the
-transaction model was introduced, due to no protection for concurrent
-processes in diff contexts.
 
-We'll need to turn the NETEVENT_NEIGH_UPDATE into process context and
-hold rtnl_lock, similar to what we do in
-rocker_event_mac_vlan_seen_work().  That, plus Toshiaki's suggested
-change for _rocker_neigh_add() should do it.
+Please include the stack trace whenever possible, it helps
+a lots even just for reviewing the patch.
 
--scott
+>
+> The removal of synchronize_net() from the netlink socket
+> triggering the qdisc to be removed, seems to have uncovered
+> an RCU resp. module reference count race from the tc API.
+> Given that RCU conversion was done after e341694e3eb5 ("netlink:
+> Convert netlink_lookup() to use RCU protected hash table")
+> which added the synchronize_net() originally, occasion of
+> hitting the bug was less likely (not impossible though):
+>
+> When qdiscs that i) support attaching classifiers and,
+> ii) have at least one of them attached, get deleted, they
+> invoke tcf_destroy_chain(), and thus call into ->destroy()
+> handler from a classifier module.
+>
+> After RCU conversion, all classifier that have an internal
+> prio list, unlink them and initiate freeing via call_rcu()
+> deferral.
+>
+> Meanhile, tcf_destroy() releases already reference to the
+> tp->ops->owner module before the queued RCU callback handler
+> has been invoked.
+>
+> Subsequent rmmod on the classifier module is then not prevented
+> since all module references are already dropped.
+>
+> By the time, the kernel invokes the RCU callback handler from
+> the module, that function address is then invalid.
+>
+> One way to fix it would be to add an rcu_barrier() to
+> unregister_tcf_proto_ops() to wait for all pending call_rcu()s
+> to complete.
+>
+> synchronize_rcu() is not appropriate as under heavy RCU
+> callback load, registered call_rcu()s could be deferred
+> longer than a grace period. In case we don't have any pending
+> call_rcu()s, the barrier is allowed to return immediately.
+
+
+Why synchronize_rcu() even matters here? It waits for
+readers, not for RCU callbacks.
+
+>
+> Since we came here via unregister_tcf_proto_ops(), there
+> are no users of a given classifier anymore. Further nested
+> call_rcu()s pointing into the module space are not being
+> done anywhere.
+
+
+This doesn't look like the best way to fix it, since calling
+call_rcu() is tc filter specific, so why not just move the
+rcu_barrier() to each of the ->destroy() implementation?
+Let each filter handle its own implementation bug.
