@@ -1,8 +1,9 @@
 From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH 3/7] fjes: Implement platform_driver functionality
-Date: Wed, 20 May 2015 10:13:51 -0700
-Message-ID: <555CC0CF.8040502@redhat.com>
-References: <E86EADE93E2D054CBCD4E708C38D364A5422D850@G01JPEXMBYT01>
+Subject: Re: [PATCH 4/7] fjes: Define hardware registers and related data
+ structures
+Date: Wed, 20 May 2015 10:37:19 -0700
+Message-ID: <555CC64F.3020701@redhat.com>
+References: <E86EADE93E2D054CBCD4E708C38D364A5422D862@G01JPEXMBYT01>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
@@ -13,150 +14,257 @@ Cc: "Hart, Darren" <darren.hart@intel.com>,
 To: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>,
 	"platform-driver-x86@vger.kernel.org"
 	<platform-driver-x86@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50497 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754787AbbETRNw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2015 13:13:52 -0400
-In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A5422D850@G01JPEXMBYT01>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A5422D862@G01JPEXMBYT01>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/20/2015 01:18 AM, Izumi, Taku wrote:
+On 05/20/2015 01:19 AM, Izumi, Taku wrote:
 > 
-> This patch adds implementation of platform_device driver
-> to FUJITSU Extended Socket Network Device driver.
-> 
-> When "PNP0C02" is found and ACPI resource can be retrieved
-> successfuly, this driver creates platform_device.
-> platform_driver.probe and .remove routine are mock code.
+> This patch adds registers and related data structures
+> definition.
 > 
 > Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 
-This can probably be rolled into the 2nd patch as well.  It seems like
-this is mostly just putting in infrastructure and that kind of stuff is
-usually best done as just one patch if you are going to do it.
+So this patch and the next 2 should probably be rearranged so that you
+are adding functionality a piece at a time instead of just placing large
+chunks in at once.
+
+So normally you don't want to just add defines like this.  Instead it
+would be better to add the defines as you need them.  So this patch
+should really be broken up into several pieces and joined in as you add
+functionality for various pieces.
 
 > ---
->   drivers/platform/x86/fjes/fjes_main.c | 47 +++++++++++++++++++++++++++++++++++
->   1 file changed, 47 insertions(+)
+>   drivers/platform/x86/fjes/fjes.h      |   2 +
+>   drivers/platform/x86/fjes/fjes_hw.h   |  31 ++++++++
+>   drivers/platform/x86/fjes/fjes_regs.h | 139 ++++++++++++++++++++++++++++++++++
+>   3 files changed, 172 insertions(+)
+>   create mode 100644 drivers/platform/x86/fjes/fjes_hw.h
+>   create mode 100644 drivers/platform/x86/fjes/fjes_regs.h
 > 
-> diff --git a/drivers/platform/x86/fjes/fjes_main.c b/drivers/platform/x86/fjes/fjes_main.c
-> index 3454098..87057b8 100644
-> --- a/drivers/platform/x86/fjes/fjes_main.c
-> +++ b/drivers/platform/x86/fjes/fjes_main.c
-> @@ -22,6 +22,7 @@
->   #include <linux/module.h>
->   #include <linux/types.h>
->   #include <linux/nls.h>
-> +#include <linux/platform_device.h>
+> diff --git a/drivers/platform/x86/fjes/fjes.h b/drivers/platform/x86/fjes/fjes.h
+> index 5586305..efe7cc4 100644
+> --- a/drivers/platform/x86/fjes/fjes.h
+> +++ b/drivers/platform/x86/fjes/fjes.h
+> @@ -25,6 +25,8 @@
 >   
->   #include "fjes.h"
+>   #include <linux/acpi.h>
 >   
-> @@ -47,6 +48,9 @@ static int fjes_acpi_add(struct acpi_device *);
->   static int fjes_acpi_remove(struct acpi_device *);
->   static acpi_status fjes_get_acpi_resource(struct acpi_resource *, void*);
->   
-> +static int fjes_probe(struct platform_device *);
-> +static int fjes_remove(struct platform_device *);
+> +#include "fjes_hw.h"
 > +
+>   #define FJES_ACPI_SYMBOL	"Extended Socket"
 >   
->   static const struct acpi_device_id fjes_acpi_ids[] = {
->   	{"PNP0C02", 0},
-> @@ -65,6 +69,15 @@ static struct acpi_driver fjes_acpi_driver = {
->   	},
->   };
->   
-> +static struct platform_driver fjes_driver = {
-> +	.driver = {
-> +		.name = DRV_NAME,
-> +		.owner = THIS_MODULE,
-> +	},
-> +	.probe = fjes_probe,
-> +	.remove = fjes_remove,
+>   extern char fjes_driver_name[];
+> diff --git a/drivers/platform/x86/fjes/fjes_hw.h b/drivers/platform/x86/fjes/fjes_hw.h
+> new file mode 100644
+> index 0000000..c5cc4c5
+> --- /dev/null
+> +++ b/drivers/platform/x86/fjes/fjes_hw.h
+> @@ -0,0 +1,31 @@
+> +/*
+> + *  FUJITSU Extended Socket Network Device driver
+> + *  Copyright (c) 2015 FUJITSU LIMITED
+> + *
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope it will be useful, but WITHOUT
+> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+> + * more details.
+> + *
+> + * You should have received a copy of the GNU General Public License along with
+> + * this program; if not, see <http://www.gnu.org/licenses/>.
+> + *
+> + * The full GNU General Public License is included in this distribution in
+> + * the file called "COPYING".
+> + *
+> + */
+> +
+> +#ifndef FJES_HW_H_
+> +#define FJES_HW_H_
+> +
+> +#include <linux/netdevice.h>
+> +#include <linux/if_vlan.h>
+> +
+> +#include "fjes_regs.h"
+> +
+> +
+> +#endif /* FJES_HW_H_ */
+> diff --git a/drivers/platform/x86/fjes/fjes_regs.h b/drivers/platform/x86/fjes/fjes_regs.h
+> new file mode 100644
+> index 0000000..8546cb5
+> --- /dev/null
+> +++ b/drivers/platform/x86/fjes/fjes_regs.h
+> @@ -0,0 +1,139 @@
+> +/*
+> + *  FUJITSU Extended Socket Network Device driver
+> + *  Copyright (c) 2015 FUJITSU LIMITED
+> + *
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope it will be useful, but WITHOUT
+> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+> + * more details.
+> + *
+> + * You should have received a copy of the GNU General Public License along with
+> + * this program; if not, see <http://www.gnu.org/licenses/>.
+> + *
+> + * The full GNU General Public License is included in this distribution in
+> + * the file called "COPYING".
+> + *
+> + */
+> +
+> +#ifndef FJES_REGS_H_
+> +#define FJES_REGS_H_
+> +
+> +#include <linux/bitops.h>
+> +
+> +#define XSCT_DEVICE_REGISTER_SIZE 0x1000
+> +
+> +/*
+> + *  register offset
+> + */
+> +
+> +/* Information registers */
+> +#define XSCT_OWNER_EPID     0x0000  /* Owner EPID */
+> +#define XSCT_MAX_EP         0x0004  /* Maximum EP */
+> +
+> +/* Device Control registers */
+> +#define XSCT_DCTL           0x0010  /* Device Control */
+> +
+> +/* Command Control registers */
+> +#define XSCT_CR             0x0020  /* Command request */
+> +#define XSCT_CS             0x0024  /* Command status */
+> +#define XSCT_SHSTSAL        0x0028  /* Share status address Low */
+> +#define XSCT_SHSTSAH        0x002C  /* Share status address High */
+> +
+> +#define XSCT_REQBL          0x0034  /* Request Buffer length */
+> +#define XSCT_REQBAL         0x0038  /* Request Buffer Address Low */
+> +#define XSCT_REQBAH         0x003C  /* Request Buffer Address High */
+> +
+> +#define XSCT_RESPBL         0x0044  /* Response Buffer Length */
+> +#define XSCT_RESPBAL        0x0048  /* Response Buffer Address Low */
+> +#define XSCT_RESPBAH        0x004C  /* Response Buffer Address High */
+> +
+> +/* Interrupt Control registers */
+> +#define XSCT_IS             0x0080  /* Interrupt status */
+> +#define XSCT_IMS            0x0084  /* Interrupt mas set */
+> +#define XSCT_IMC            0x0088  /* Interrupt mask clear */
+> +#define XSCT_IG             0x008C  /* Interrupt generator */
+> +#define XSCT_ICTL           0x0090  /* Interrupt control */
+> +
+> +
+> +/*
+> + * register structure
+> + */
+> +
+> +/* Information registers */
+> +union REG_OWNER_EPID {
+> +	struct {
+> +		__le32 epid:16;
+> +		__le32:16;
+> +	} Bits;
+> +	__le32 Reg;
 > +};
 > +
->   static struct resource fjes_resource[] = {
->   	{
->   		.flags = IORESOURCE_MEM,
-> @@ -93,6 +106,10 @@ static int __init fjes_init_module(void)
->   			fjes_driver_string, fjes_driver_version);
->   	pr_info("%s\n", fjes_copyright);
->   
-> +	result = platform_driver_register(&fjes_driver);
-> +	if (result < 0)
-> +		return result;
+> +union REG_MAX_EP {
+> +	struct {
+> +		__le32 maxep:16;
+> +		__le32:16;
+> +	} Bits;
+> +	__le32 Reg;
+> +};
 > +
->   	result = acpi_bus_register_driver(&fjes_acpi_driver);
->   	if (result < 0)
->   		goto fail_acpi_driver;
-> @@ -100,6 +117,7 @@ static int __init fjes_init_module(void)
->   	return 0;
->   
->   fail_acpi_driver:
-> +	platform_driver_unregister(&fjes_driver);
->   	return result;
->   }
->   
-> @@ -114,6 +132,7 @@ module_init(fjes_init_module);
->   static void __exit fjes_exit_module(void)
->   {
->   	acpi_bus_unregister_driver(&fjes_acpi_driver);
-> +	platform_driver_unregister(&fjes_driver);
->   }
->   
->   module_exit(fjes_exit_module);
-> @@ -126,6 +145,7 @@ static int fjes_acpi_add(struct acpi_device *device)
->   	union acpi_object *str;
->   	char str_buf[sizeof(FJES_ACPI_SYMBOL) + 1];
->   	int result;
-> +	struct platform_device *plat_dev;
->   
->   	status = acpi_evaluate_object(device->handle, "_STR", NULL, &buffer);
->   	if (ACPI_FAILURE(status))
-> @@ -148,11 +168,21 @@ static int fjes_acpi_add(struct acpi_device *device)
->   	if (ACPI_FAILURE(status))
->   		return -ENODEV;
->   
-> +	/* create platform_device */
-> +	plat_dev = platform_device_register_simple(DRV_NAME, 0,
-> +				fjes_resource, ARRAY_SIZE(fjes_resource));
-> +	device->driver_data = plat_dev;
+> +/* Device Control registers */
+> +union REG_DCTL {
+> +	struct {
+> +		__le32 reset:1;
+> +		__le32 rsv0:15;
+> +		__le32 rsv1:16;
+> +	} Bits;
+> +	__le32 Reg;
+> +};
 > +
->   	return 0;
->   }
->   
->   static int fjes_acpi_remove(struct acpi_device *device)
->   {
-> +	struct platform_device *plat_dev;
 > +
-> +	plat_dev = (struct platform_device *)acpi_driver_data(device);
-> +	platform_device_unregister(plat_dev);
+> +/* Command Control registers */
+> +union REG_CR {
+> +	struct {
+> +		__le32 req_code:16;
+> +		__le32 err_info:14;
+> +		__le32 error:1;
+> +		__le32 req_start:1;
+> +	} Bits;
+> +	__le32 Reg;
+> +};
 > +
->   	return 0;
->   }
->   
-> @@ -186,5 +216,22 @@ static acpi_status fjes_get_acpi_resource(struct acpi_resource *acpi_res,
->   	return AE_OK;
->   }
->   
-> +/*
-> + *  fjes_probe - Device Initialization Routine
-> + *
-> + *  Returns 0 on success, negative on failure
-> + */
-> +static int fjes_probe(struct platform_device *plat_dev)
-> +{
-> +	return 0;
-> +}
+> +union REG_CS {
+> +	struct {
+> +		__le32 req_code:16;
+> +		__le32 rsv0:14;
+> +		__le32 busy:1;
+> +		__le32 complete:1;
+> +	} Bits;
+> +	__le32 Reg;
+> +};
 > +
-> +/*
-> + *  fjes_remove - Device Removal Routine
-> + */
-> +static int fjes_remove(struct platform_device *plat_dev)
-> +{
-> +	return 0;
-> +}
->   
->   
+
+It might be better to just define some masks and shifts instead of
+creating all these bitfield unions.  It would probably make things a lot
+less complicated since you wouldn't have to define a special union for
+each register.
+
+It is usually easier to define a write that way rather than having to
+create a union and populate the bits before you can write it.  I've
+found that there are a number of GCC versions that don't exactly do the
+smartest things when it comes to bitfields.
+
+> +/* Interrupt Control registers */
+> +union REG_ICTL {
+> +	struct {
+> +		__le32 automak:1;
+> +		__le32 rsv0:31;
+> +	} Bits;
+> +	__le32 Reg;
+> +};
+> +
+
+Should automak be automask?  Just wondering if that is a typo.  Also if
+this is a mostly reserved 0 register you could probably save yourself
+some trouble and just use the reg as-is without the need for the union.
+
+So for example you would just define a value such as:
+#define FJES_ICTL_AUTOMASK	0x00000001
+
+Then all you do is write that value when you want to enable it, or write
+0 to disable it.
+
+> +enum REG_ICTL_MASK {
+> +	REG_ICTL_MASK_INFO_UPDATE     = 1 << 20,
+> +	REG_ICTL_MASK_DEV_STOP_REQ    = 1 << 19,
+> +	REG_ICTL_MASK_TXRX_STOP_REQ   = 1 << 18,
+> +	REG_ICTL_MASK_TXRX_STOP_DONE  = 1 << 17,
+> +	REG_ICTL_MASK_RX_DATA         = 1 << 16,
+> +	REG_ICTL_MASK_ALL             = GENMASK(20, 16),
+> +};
+> +
+
+You could probably reverse the order of this for readability.  It is
+better to go from 16 to 20 rather than 20 to 16.
+
+> +enum REG_IS_MASK {
+> +	REG_IS_MASK_IS_ASSERT	= 1 << 31,
+> +	REG_IS_MASK_EPID		= GENMASK(15, 0),
+> +};
+> +
+> +
+> +#endif /* FJES_REGS_H_ */
 > 
+
+I would update the 2 lines so that indentation for the = matched.  It
+looks like the GENMASK is tabbed over one additional tab.
