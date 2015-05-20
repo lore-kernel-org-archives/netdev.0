@@ -1,8 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v3 13/16] sfc: add ndo_set_vf_vlan() function for
- EF10
-Date: Wed, 20 May 2015 11:11:54 +0100
-Message-ID: <555C5DEA.1010700@solarflare.com>
+Subject: [PATCH net-next v3 14/16] sfc: add ndo_set_vf_link_state() function
+ for EF10
+Date: Wed, 20 May 2015 11:12:13 +0100
+Message-ID: <555C5DFD.2010800@solarflare.com>
 References: <555C5C91.4000004@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -10,286 +10,228 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:57338 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752531AbbETKMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:12:10 -0400
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:36130 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751714AbbETKM2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:12:28 -0400
 In-Reply-To: <555C5C91.4000004@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The max vlan tags that can be offloaded is 2, including any upstream VLAN
-aggregator. Currently there is no way for the net driver to know whether
-the upstream vswitch (if any) is using vlan tags, so there is no way to
-know how many tags we can request.
-Along with the implementation for the ndo_set_vf_vlan callback, this patch
-also adds 2 VLAN tags for the driver created VEB switch if possible, that
-way it is possible to offload as many tags as are allowed.
+From: Edward Cree <ecree@solarflare.com>
+
+Exercised with
+"ip link set <PF intf> vf <vf_i> state {auto|enable|disable}"
+Sets the reporting policy for VF link state to either
+ - mirror physical link state
+ - always up
+ - always down
+
+get VF link state mode in efx_ef10_sriov_get_vf_config
+
+Exercised by
+"ip link show <PF intf>";
+output will include a line like
+vf 0 MAC 12:34:56:78:9a:bc, link-state auto
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10_sriov.c | 159 ++++++++++++++++++++++++++++++++--
- drivers/net/ethernet/sfc/ef10_sriov.h |  10 +--
- 2 files changed, 157 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c       |  1 +
+ drivers/net/ethernet/sfc/ef10_sriov.c | 40 +++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/ef10_sriov.h |  3 +++
+ drivers/net/ethernet/sfc/efx.c        |  1 +
+ drivers/net/ethernet/sfc/mcdi_pcol.h  | 32 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/net_driver.h |  2 ++
+ drivers/net/ethernet/sfc/sriov.c      | 12 +++++++++++
+ drivers/net/ethernet/sfc/sriov.h      |  2 ++
+ 8 files changed, 93 insertions(+)
 
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 525808f..e624ddd 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -4135,6 +4135,7 @@ const struct efx_nic_type efx_hunt_a0_nic_type = {
+ 	.sriov_set_vf_vlan = efx_ef10_sriov_set_vf_vlan,
+ 	.sriov_set_vf_spoofchk = efx_ef10_sriov_set_vf_spoofchk,
+ 	.sriov_get_vf_config = efx_ef10_sriov_get_vf_config,
++	.sriov_set_vf_link_state = efx_ef10_sriov_set_vf_link_state,
+ 	.vswitching_probe = efx_ef10_vswitching_probe_pf,
+ 	.vswitching_restore = efx_ef10_vswitching_restore_pf,
+ 	.vswitching_remove = efx_ef10_vswitching_remove_pf,
 diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
-index d9c2ea4..49238fc 100644
+index 49238fc..edc34f3 100644
 --- a/drivers/net/ethernet/sfc/ef10_sriov.c
 +++ b/drivers/net/ethernet/sfc/ef10_sriov.c
-@@ -57,15 +57,29 @@ static int efx_ef10_vswitch_alloc(struct efx_nic *efx, unsigned int port_id,
- 				  unsigned int vswitch_type)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_VSWITCH_ALLOC_IN_LEN);
-+	int rc;
- 
- 	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_UPSTREAM_PORT_ID, port_id);
- 	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_TYPE, vswitch_type);
--	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_NUM_VLAN_TAGS, 0);
-+	MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_NUM_VLAN_TAGS, 2);
- 	MCDI_POPULATE_DWORD_1(inbuf, VSWITCH_ALLOC_IN_FLAGS,
- 			      VSWITCH_ALLOC_IN_FLAG_AUTO_PORT, 0);
- 
--	return efx_mcdi_rpc(efx, MC_CMD_VSWITCH_ALLOC, inbuf, sizeof(inbuf),
--			    NULL, 0, NULL);
-+	/* Quietly try to allocate 2 VLAN tags */
-+	rc = efx_mcdi_rpc_quiet(efx, MC_CMD_VSWITCH_ALLOC, inbuf, sizeof(inbuf),
-+				NULL, 0, NULL);
-+
-+	/* If 2 VLAN tags is too many, revert to trying with 1 VLAN tags */
-+	if (rc == -EPROTO) {
-+		MCDI_SET_DWORD(inbuf, VSWITCH_ALLOC_IN_NUM_VLAN_TAGS, 1);
-+		rc = efx_mcdi_rpc(efx, MC_CMD_VSWITCH_ALLOC, inbuf,
-+				  sizeof(inbuf), NULL, 0, NULL);
-+	} else if (rc) {
-+		efx_mcdi_display_error(efx, MC_CMD_VSWITCH_ALLOC,
-+				       MC_CMD_VSWITCH_ALLOC_IN_LEN,
-+				       NULL, 0, rc);
-+	}
-+	return rc;
+@@ -667,11 +667,37 @@ reset_nic:
+ 	return rc ? rc : rc2;
  }
  
- static int efx_ef10_vswitch_free(struct efx_nic *efx, unsigned int port_id)
-@@ -81,6 +95,7 @@ static int efx_ef10_vswitch_free(struct efx_nic *efx, unsigned int port_id)
- static int efx_ef10_vport_alloc(struct efx_nic *efx,
- 				unsigned int port_id_in,
- 				unsigned int vport_type,
-+				u16 vlan,
- 				unsigned int *port_id_out)
- {
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_VPORT_ALLOC_IN_LEN);
-@@ -92,9 +107,13 @@ static int efx_ef10_vport_alloc(struct efx_nic *efx,
- 
- 	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_UPSTREAM_PORT_ID, port_id_in);
- 	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_TYPE, vport_type);
--	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_NUM_VLAN_TAGS, 0);
-+	MCDI_SET_DWORD(inbuf, VPORT_ALLOC_IN_NUM_VLAN_TAGS,
-+		       (vlan != EFX_EF10_NO_VLAN));
- 	MCDI_POPULATE_DWORD_1(inbuf, VPORT_ALLOC_IN_FLAGS,
- 			      VPORT_ALLOC_IN_FLAG_AUTO_PORT, 0);
-+	if (vlan != EFX_EF10_NO_VLAN)
-+		MCDI_POPULATE_DWORD_1(inbuf, VPORT_ALLOC_IN_VLAN_TAGS,
-+				      VPORT_ALLOC_IN_VLAN_TAG_0, vlan);
- 
- 	rc = efx_mcdi_rpc(efx, MC_CMD_VPORT_ALLOC, inbuf, sizeof(inbuf),
- 			  outbuf, sizeof(outbuf), &outlen);
-@@ -186,7 +205,7 @@ static int efx_ef10_sriov_assign_vf_vport(struct efx_nic *efx,
- 
- 	rc = efx_ef10_vport_alloc(efx, EVB_PORT_ID_ASSIGNED,
- 				  MC_CMD_VPORT_ALLOC_IN_VPORT_TYPE_NORMAL,
--				  &vf->vport_id);
-+				  vf->vlan, &vf->vport_id);
- 	if (rc)
- 		return rc;
- 
-@@ -218,6 +237,7 @@ static int efx_ef10_sriov_alloc_vf_vswitching(struct efx_nic *efx)
- 	for (i = 0; i < efx->vf_count; i++) {
- 		random_ether_addr(nic_data->vf[i].mac);
- 		nic_data->vf[i].efx = NULL;
-+		nic_data->vf[i].vlan = EFX_EF10_NO_VLAN;
- 
- 		rc = efx_ef10_sriov_assign_vf_vport(efx, i);
- 		if (rc)
-@@ -271,7 +291,7 @@ int efx_ef10_vswitching_probe_pf(struct efx_nic *efx)
- 
- 	rc = efx_ef10_vport_alloc(efx, EVB_PORT_ID_ASSIGNED,
- 				  MC_CMD_VPORT_ALLOC_IN_VPORT_TYPE_NORMAL,
--				  &nic_data->vport_id);
-+				  EFX_EF10_NO_VLAN, &nic_data->vport_id);
- 	if (rc)
- 		goto fail2;
- 
-@@ -522,6 +542,131 @@ fail:
- 	return rc;
- }
- 
-+int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i, u16 vlan,
-+			       u8 qos)
++int efx_ef10_sriov_set_vf_link_state(struct efx_nic *efx, int vf_i,
++				     int link_state)
 +{
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_LINK_STATE_MODE_IN_LEN);
 +	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	struct ef10_vf *vf;
-+	u16 old_vlan, new_vlan;
-+	int rc = 0, rc2 = 0;
 +
-+	if (vf_i >= efx->vf_count)
-+		return -EINVAL;
-+	if (qos != 0)
-+		return -EINVAL;
-+
-+	vf = nic_data->vf + vf_i;
-+
-+	new_vlan = (vlan == 0) ? EFX_EF10_NO_VLAN : vlan;
-+	if (new_vlan == vf->vlan)
-+		return 0;
-+
-+	if (vf->efx) {
-+		efx_device_detach_sync(vf->efx);
-+		efx_net_stop(vf->efx->net_dev);
-+
-+		down_write(&vf->efx->filter_sem);
-+		vf->efx->type->filter_table_remove(vf->efx);
-+
-+		rc = efx_ef10_vadaptor_free(vf->efx, EVB_PORT_ID_ASSIGNED);
-+		if (rc)
-+			goto restore_filters;
-+	}
-+
-+	if (vf->vport_assigned) {
-+		rc = efx_ef10_evb_port_assign(efx, EVB_PORT_ID_NULL, vf_i);
-+		if (rc) {
-+			netif_warn(efx, drv, efx->net_dev,
-+				   "Failed to change vlan on VF %d.\n", vf_i);
-+			netif_warn(efx, drv, efx->net_dev,
-+				   "This is likely because the VF is bound to a driver in a VM.\n");
-+			netif_warn(efx, drv, efx->net_dev,
-+				   "Please unload the driver in the VM.\n");
-+			goto restore_vadaptor;
-+		}
-+		vf->vport_assigned = 0;
-+	}
-+
-+	if (!is_zero_ether_addr(vf->mac)) {
-+		rc = efx_ef10_vport_del_mac(efx, vf->vport_id, vf->mac);
-+		if (rc)
-+			goto restore_evb_port;
-+	}
-+
-+	if (vf->vport_id) {
-+		rc = efx_ef10_vport_free(efx, vf->vport_id);
-+		if (rc)
-+			goto restore_mac;
-+		vf->vport_id = 0;
-+	}
-+
-+	/* Do the actual vlan change */
-+	old_vlan = vf->vlan;
-+	vf->vlan = new_vlan;
-+
-+	/* Restore everything in reverse order */
-+	rc = efx_ef10_vport_alloc(efx, EVB_PORT_ID_ASSIGNED,
-+				  MC_CMD_VPORT_ALLOC_IN_VPORT_TYPE_NORMAL,
-+				  vf->vlan, &vf->vport_id);
-+	if (rc)
-+		goto reset_nic;
-+
-+restore_mac:
-+	if (!is_zero_ether_addr(vf->mac)) {
-+		rc2 = efx_ef10_vport_add_mac(efx, vf->vport_id, vf->mac);
-+		if (rc2) {
-+			eth_zero_addr(vf->mac);
-+			goto reset_nic;
-+		}
-+	}
-+
-+restore_evb_port:
-+	rc2 = efx_ef10_evb_port_assign(efx, vf->vport_id, vf_i);
-+	if (rc2)
-+		goto reset_nic;
-+	else
-+		vf->vport_assigned = 1;
-+
-+restore_vadaptor:
-+	if (vf->efx) {
-+		rc2 = efx_ef10_vadaptor_alloc(vf->efx, EVB_PORT_ID_ASSIGNED);
-+		if (rc2)
-+			goto reset_nic;
-+	}
-+
-+restore_filters:
-+	if (vf->efx) {
-+		rc2 = vf->efx->type->filter_table_probe(vf->efx);
-+		if (rc2)
-+			goto reset_nic;
-+
-+		up_write(&vf->efx->filter_sem);
-+
-+		rc2 = efx_net_open(vf->efx->net_dev);
-+		if (rc2)
-+			goto reset_nic;
-+
-+		netif_device_attach(vf->efx->net_dev);
-+	}
-+	return rc;
-+
-+reset_nic:
-+	if (vf->efx) {
-+		up_write(&vf->efx->filter_sem);
-+		netif_err(efx, drv, efx->net_dev,
-+			  "Failed to restore VF - scheduling reset.\n");
-+		efx_schedule_reset(vf->efx, RESET_TYPE_DATAPATH);
-+	} else {
-+		netif_err(efx, drv, efx->net_dev,
-+			  "Failed to restore the VF and cannot reset the VF "
-+			  "- VF is not functional.\n");
-+		netif_err(efx, drv, efx->net_dev,
-+			  "Please reload the driver attached to the VF.\n");
-+	}
-+
-+	return rc ? rc : rc2;
++	BUILD_BUG_ON(IFLA_VF_LINK_STATE_AUTO !=
++		     MC_CMD_LINK_STATE_MODE_IN_LINK_STATE_AUTO);
++	BUILD_BUG_ON(IFLA_VF_LINK_STATE_ENABLE !=
++		     MC_CMD_LINK_STATE_MODE_IN_LINK_STATE_UP);
++	BUILD_BUG_ON(IFLA_VF_LINK_STATE_DISABLE !=
++		     MC_CMD_LINK_STATE_MODE_IN_LINK_STATE_DOWN);
++	MCDI_POPULATE_DWORD_2(inbuf, LINK_STATE_MODE_IN_FUNCTION,
++			      LINK_STATE_MODE_IN_FUNCTION_PF,
++			      nic_data->pf_index,
++			      LINK_STATE_MODE_IN_FUNCTION_VF, vf_i);
++	MCDI_SET_DWORD(inbuf, LINK_STATE_MODE_IN_NEW_MODE, link_state);
++	return efx_mcdi_rpc(efx, MC_CMD_LINK_STATE_MODE, inbuf, sizeof(inbuf),
++			    NULL, 0, NULL); /* don't care what old mode was */
 +}
 +
  int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf_i,
  				 struct ifla_vf_info *ivf)
  {
-@@ -540,7 +685,7 @@ int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf_i,
- 	ivf->min_tx_rate = 0;
- 	ivf->max_tx_rate = 0;
- 	ether_addr_copy(ivf->mac, vf->mac);
--	ivf->vlan = 0;
-+	ivf->vlan = (vf->vlan == EFX_EF10_NO_VLAN) ? 0 : vf->vlan;
++	MCDI_DECLARE_BUF(inbuf, MC_CMD_LINK_STATE_MODE_IN_LEN);
++	MCDI_DECLARE_BUF(outbuf, MC_CMD_LINK_STATE_MODE_OUT_LEN);
++
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+ 	struct ef10_vf *vf;
++	size_t outlen;
++	int rc;
+ 
+ 	if (vf_i >= efx->vf_count)
+ 		return -EINVAL;
+@@ -688,5 +714,19 @@ int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf_i,
+ 	ivf->vlan = (vf->vlan == EFX_EF10_NO_VLAN) ? 0 : vf->vlan;
  	ivf->qos = 0;
  
++	MCDI_POPULATE_DWORD_2(inbuf, LINK_STATE_MODE_IN_FUNCTION,
++			      LINK_STATE_MODE_IN_FUNCTION_PF,
++			      nic_data->pf_index,
++			      LINK_STATE_MODE_IN_FUNCTION_VF, vf_i);
++	MCDI_SET_DWORD(inbuf, LINK_STATE_MODE_IN_NEW_MODE,
++		       MC_CMD_LINK_STATE_MODE_IN_DO_NOT_CHANGE);
++	rc = efx_mcdi_rpc(efx, MC_CMD_LINK_STATE_MODE, inbuf, sizeof(inbuf),
++			  outbuf, sizeof(outbuf), &outlen);
++	if (rc)
++		return rc;
++	if (outlen < MC_CMD_LINK_STATE_MODE_OUT_LEN)
++		return -EIO;
++	ivf->linkstate = MCDI_DWORD(outbuf, LINK_STATE_MODE_OUT_OLD_MODE);
++
  	return 0;
+ }
 diff --git a/drivers/net/ethernet/sfc/ef10_sriov.h b/drivers/net/ethernet/sfc/ef10_sriov.h
-index 8c92a8d..0428265 100644
+index 0428265..91393a6 100644
 --- a/drivers/net/ethernet/sfc/ef10_sriov.h
 +++ b/drivers/net/ethernet/sfc/ef10_sriov.h
-@@ -18,12 +18,15 @@
-  * @vport_id: vport ID for the VF
-  * @vport_assigned: record whether the vport is currently assigned to the VF
-  * @mac: MAC address for the VF, zero when address is removed from the vport
-+ * @vlan: Default VLAN for the VF or #EFX_EF10_NO_VLAN
+@@ -58,6 +58,9 @@ static inline int efx_ef10_sriov_set_vf_spoofchk(struct efx_nic *efx, int vf,
+ int efx_ef10_sriov_get_vf_config(struct efx_nic *efx, int vf_i,
+ 				 struct ifla_vf_info *ivf);
+ 
++int efx_ef10_sriov_set_vf_link_state(struct efx_nic *efx, int vf_i,
++				     int link_state);
++
+ int efx_ef10_vswitching_probe_pf(struct efx_nic *efx);
+ int efx_ef10_vswitching_probe_vf(struct efx_nic *efx);
+ int efx_ef10_vswitching_restore_pf(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 0ca6e77..8cacb96 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2281,6 +2281,7 @@ static const struct net_device_ops efx_netdev_ops = {
+ 	.ndo_set_vf_vlan	= efx_sriov_set_vf_vlan,
+ 	.ndo_set_vf_spoofchk	= efx_sriov_set_vf_spoofchk,
+ 	.ndo_get_vf_config	= efx_sriov_get_vf_config,
++	.ndo_set_vf_link_state  = efx_sriov_set_vf_link_state,
+ #endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller = efx_netpoll,
+diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
+index fc50be7..30f5801 100644
+--- a/drivers/net/ethernet/sfc/mcdi_pcol.h
++++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
+@@ -4227,6 +4227,38 @@
+ 
+ 
+ /***********************************/
++/* MC_CMD_LINK_STATE_MODE
++ * Read/set link state mode of a VF
++ */
++#define MC_CMD_LINK_STATE_MODE 0x5c
++
++#define MC_CMD_0x5c_PRIVILEGE_CTG SRIOV_CTG_GENERAL
++
++/* MC_CMD_LINK_STATE_MODE_IN msgrequest */
++#define    MC_CMD_LINK_STATE_MODE_IN_LEN 8
++/* The target function to have its link state mode read or set, must be a VF
++ * e.g. VF 1,3 = 0x00030001
++ */
++#define       MC_CMD_LINK_STATE_MODE_IN_FUNCTION_OFST 0
++#define        MC_CMD_LINK_STATE_MODE_IN_FUNCTION_PF_LBN 0
++#define        MC_CMD_LINK_STATE_MODE_IN_FUNCTION_PF_WIDTH 16
++#define        MC_CMD_LINK_STATE_MODE_IN_FUNCTION_VF_LBN 16
++#define        MC_CMD_LINK_STATE_MODE_IN_FUNCTION_VF_WIDTH 16
++/* New link state mode to be set */
++#define       MC_CMD_LINK_STATE_MODE_IN_NEW_MODE_OFST 4
++#define          MC_CMD_LINK_STATE_MODE_IN_LINK_STATE_AUTO       0x0 /* enum */
++#define          MC_CMD_LINK_STATE_MODE_IN_LINK_STATE_UP         0x1 /* enum */
++#define          MC_CMD_LINK_STATE_MODE_IN_LINK_STATE_DOWN       0x2 /* enum */
++/* enum: Use this value to just read the existing setting without modifying it.
++ */
++#define          MC_CMD_LINK_STATE_MODE_IN_DO_NOT_CHANGE         0xffffffff
++
++/* MC_CMD_LINK_STATE_MODE_OUT msgresponse */
++#define    MC_CMD_LINK_STATE_MODE_OUT_LEN 4
++#define       MC_CMD_LINK_STATE_MODE_OUT_OLD_MODE_OFST 0
++
++
++/***********************************/
+ /* MC_CMD_READ_REGS
+  * Get a dump of the MCPU registers
   */
- struct ef10_vf {
- 	struct efx_nic *efx;
- 	unsigned int vport_id;
- 	unsigned int vport_assigned;
- 	u8 mac[ETH_ALEN];
-+	u16 vlan;
-+#define EFX_EF10_NO_VLAN       0
- };
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 364217b..c2eabd9 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -1348,6 +1348,8 @@ struct efx_nic_type {
+ 				     bool spoofchk);
+ 	int (*sriov_get_vf_config)(struct efx_nic *efx, int vf_i,
+ 				   struct ifla_vf_info *ivi);
++	int (*sriov_set_vf_link_state)(struct efx_nic *efx, int vf_i,
++				       int link_state);
+ 	int (*vswitching_probe)(struct efx_nic *efx);
+ 	int (*vswitching_restore)(struct efx_nic *efx);
+ 	void (*vswitching_remove)(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/sriov.c b/drivers/net/ethernet/sfc/sriov.c
+index d4b7445..6c5edbd 100644
+--- a/drivers/net/ethernet/sfc/sriov.c
++++ b/drivers/net/ethernet/sfc/sriov.c
+@@ -58,3 +58,15 @@ int efx_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
+ 	else
+ 		return -EOPNOTSUPP;
+ }
++
++int efx_sriov_set_vf_link_state(struct net_device *net_dev, int vf_i,
++				int link_state)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++
++	if (efx->type->sriov_set_vf_link_state)
++		return efx->type->sriov_set_vf_link_state(efx, vf_i,
++							  link_state);
++	else
++		return -EOPNOTSUPP;
++}
+diff --git a/drivers/net/ethernet/sfc/sriov.h b/drivers/net/ethernet/sfc/sriov.h
+index 0b9f0f6..3be15a5 100644
+--- a/drivers/net/ethernet/sfc/sriov.h
++++ b/drivers/net/ethernet/sfc/sriov.h
+@@ -21,6 +21,8 @@ int efx_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf_i,
+ 			      bool spoofchk);
+ int efx_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
+ 			    struct ifla_vf_info *ivi);
++int efx_sriov_set_vf_link_state(struct net_device *net_dev, int vf_i,
++				int link_state);
  
- static inline bool efx_ef10_sriov_wanted(struct efx_nic *efx)
-@@ -43,11 +46,8 @@ static inline void efx_ef10_sriov_flr(struct efx_nic *efx, unsigned vf_i) {}
+ #endif /* CONFIG_SFC_SRIOV */
  
- int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf, u8 *mac);
- 
--static inline int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf,
--					     u16 vlan, u8 qos)
--{
--	return -EOPNOTSUPP;
--}
-+int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i,
-+			       u16 vlan, u8 qos);
- 
- static inline int efx_ef10_sriov_set_vf_spoofchk(struct efx_nic *efx, int vf,
- 						 bool spoofchk)
