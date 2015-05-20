@@ -1,116 +1,52 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH] Experimental new bonding driver mode=batman
-Date: Wed, 20 May 2015 16:04:22 -0400
-Message-ID: <20150520200420.GN9559@gospo.home.greyhouse.net>
-References: <555AD3A7.7050202@netscape.net>
- <20150519074941.GB17391@unicorn.suse.cz>
- <555AF479.7000603@netscape.net>
- <20150520073221.GA19868@unicorn.suse.cz>
- <10002.1432143933@nyx>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [V4 PATCH 3/6] pci: Generic function for setting up PCI device
+ DMA coherency
+Date: Wed, 20 May 2015 21:46:45 +0100
+Message-ID: <20150520204645.GX2067@n2100.arm.linux.org.uk>
+References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+ <3954735.qeaTp8qOcM@vostro.rjw.lan>
+ <20150520092415.GA25313@e104818-lin.cambridge.arm.com>
+ <2072233.lIH4idDurI@wuerfel>
+ <20150520093401.GC25313@e104818-lin.cambridge.arm.com>
+ <555C7759.3040304@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michal Kubecek <mkubecek@suse.cz>,
-	Patrick Simmons <linuxrocks123@netscape.net>,
-	netdev@vger.kernel.org, Veaceslav Falico <vfalico@gmail.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:32911 "EHLO
-	mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753505AbbETUEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 16:04:25 -0400
-Received: by qkgv12 with SMTP id v12so39575934qkg.0
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 13:04:25 -0700 (PDT)
+Cc: Catalin Marinas <catalin.marinas@arm.com>,
+	Arnd Bergmann <arnd@arndb.de>, thomas.lendacky@amd.com,
+	herbert@gondor.apana.org.au, al.stone@linaro.org,
+	linaro-acpi@lists.linaro.org, netdev@vger.kernel.org,
+	will.deacon@arm.com, linux-kernel@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>, davem@davemloft.net,
+	linux-acpi@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>, hanjun.guo@linaro.org,
+	msalter@redhat.com, grant.likely@linaro.org, leo.duran@amd.com,
+	lenb@kernel.org, bhelgaas@google.com,
+	David Woodhouse <dwmw2@infradead.org>,
+	linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org
+To: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <10002.1432143933@nyx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <555C7759.3040304@amd.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 10:45:33AM -0700, Jay Vosburgh wrote:
-> Michal Kubecek <mkubecek@suse.cz> wrote:
+On Wed, May 20, 2015 at 07:00:25AM -0500, Suravee Suthikulanit wrote:
+> On 5/20/2015 4:34 AM, Catalin Marinas wrote:
+> >We have a dummy of_dma_configure() already when !CONFIG_OF, otherwise
+> >we would need #ifndef here. I already replied, I think for other
+> >architectures we need this check to avoid a useless host->of_node test.
 > 
-> >On Tue, May 19, 2015 at 04:29:45AM -0400, Patrick Simmons wrote:
-> >> On 05/19/2015 03:49 AM, Michal Kubecek wrote:
-> >> >On Tue, May 19, 2015 at 02:09:43AM -0400, Patrick Simmons wrote:
-> >> >>
-> >> >>I've written a new mode for the kernel bonding driver.  It's similar to
-> >> >>the round-robin mode, but it keeps statistics on TCP resends so as to
-> >> >>favor slave devices with more bandwidth when choosing where to send
-> >> >>packets.  I've tested it on two laptops using WiFi/Ethernet and it seems
-> >> >>to work okay, but it should be considered experimental.
-> >> >
-> >> >A description of how is the mode supposed to work would be definitely
-> >> >helpful.
-> >> >
-> >> 
-> >> Rationale: It's helpful for cases where the slave devices have
-> >> significantly different or varying bandwidth.  The reason I wrote it
-> >> is to bond powerline networking and wireless networking adapters
-> >> into a single interface for use with connecting to a MythTV server.
-> >> Neither of these systems is particularly reliable with bandwidth,
-> >> but mode=batman can adaptively figure out which network has more
-> >> available bandwidth at any given moment.  This is better than
-> >> mode=round-robin which always balances everything 50/50.
-> >
-> >Thank you. But I rather meant some basic description of the algorithm
-> >used to achieve this goal. Both should be IMHO part of the commit
-> >message.
+> It seems that there are several places that have similar check. Would it be
+> good to convert this into a macro? Something like:
 > 
-> 	Agreed; the concept sounds interesting, but without a detailed
-> description of how it works it is difficult to evaluate its value.
-> 
-> >> Regarding your analysis, I appreciate your comments, and I know it's
-> >> rough, but I'm sorry to say I'm not really interested in doing much
-> >> to improve its polish past where it is.  If it fails some way when I
-> >> try to deploy it, then I'll fix that, and maybe I'll play around
-> >> with the balancing heuristics, but the code quality is what it is
-> >> unless someone else wants to improve it.  I would fix the
-> >> indentation if that would make it acceptable for you to merge it,
-> >> but not much more.  My argument for merging it is basically "it
-> >> doesn't do anything unless you pass mode=batman, so what's the
-> >> harm?".
-> >> 
-> >> So, if you guys decide you don't want to merge it because of the
-> >> global spinlock etc., that's cool and I understand, but I thought I
-> >> should at least post to this list so you and any other potentially
-> >> interested people know it exists.  Oh, and, if you're not going to
-> >> merge it, please let me know so I can know post the patch to GitHub
-> >> or somewhere.  And, if you could include a note in the comments at
-> >> the top of bond_main.c or somewhere pointing people to the patch,
-> >> I'd very much appreciate that. I don't want anyone else to have to
-> >> endure hours of kernel rebuilds with KASAN enabled if they want this
-> >> functionality :)
-> >
-> >Well, it's not my call, I'm not a bonding maintainer. But I believe at
-> >least some of the objections would be shared by them. Of course, it's up
-> >to you if you want to dedicate your time to improving the code to be
-> >acceptable for mainline or rather maintain it out of tree (which may end
-> >up taking even more time in the long term).
-> 
-> 	Well, I am a bonding maintainer, and I can say that the patch in
-> its current state is not suitable for inclusion.
-> 
-> 	At a minimum, there are many coding style issues, commented out
-> debug statements, etc, along with design issues (e.g., the batman mode
-> handling in bond_handle_frame is unconditional and takes place for all
-> modes, not just the new batman mode).
-> 
-> 	If you (Patrick) or someone else wishes to contribute this to
-> mainline, I'd suggest that the first step is to read and follow the
-> instructions in Documentation/SubmittingPatches in the kernel source
-> code.
-> 
-> 	It is also not feasible to add pointers in the kernel source
-> code to out-of-tree patches; sorry.
+> #define OF_NODE_ENABLED(dev)	(IS_ENABLED(CONFIG_OF) && dev->of_node)
 
-Well I can now delete most of my initial response.  :)
+This /could/ be a useful compile-time optimisation: when CONFIG_OF is
+disabled, dev->of_node exists but will always be NULL - but the
+compiler doesn't know this.  Your suggestion above would tell the
+compiler that when CONFIG_OF is disabled, OF_NODE_ENABLED() will
+evaluate to a constant false, which means it can eliminate code.
 
-Overall I would say this is really cool functionality.  Even if you do
-not want it merged, I think it is great that you shared it with the
-community this way.  I got a chance to look at is a bit this morning and
-I agree additional explanation of the algorithm you are using would
-probably be nice for those checking this out for the first time.
-
-I also think if you would be able to leverage the exiting bonding infra
-for using skb->queue_mapping you could probably add the same
-functionality (though it might be higher in the stack), but I totally
-understand if you want to just keep using what you are using as-is.
+-- 
+FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
+according to speedtest.net.
