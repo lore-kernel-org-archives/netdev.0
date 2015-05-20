@@ -1,77 +1,89 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [RFC 21/23] net/xen-netback: Make it running on 64KB
- page granularity
-Date: Wed, 20 May 2015 09:26:50 +0100
-Message-ID: <20150520082650.GU26335@zion.uk.xensource.com>
-References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
- <1431622863-28575-22-git-send-email-julien.grall@citrix.com>
- <20150515023534.GE19352@zion.uk.xensource.com> <5555E81E.8070803@citrix.com>
- <20150515153143.GA8521@zion.uk.xensource.com> <5559D6EE.3030400@citrix.com>
- <20150518125406.GA9503@zion.uk.xensource.com> <555BBFA7.8030502@citrix.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH v3 net-next 3/4] rocker: do not make neighbour entry changes
+ when preparing transactions
+Date: Wed, 20 May 2015 17:36:06 +0900
+Message-ID: <555C4776.70508@lab.ntt.co.jp>
+References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com> <1432100902-10187-4-git-send-email-simon.horman@netronome.com> <555C267B.9070807@lab.ntt.co.jp> <20150520074810.GA21934@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>,
-	<stefano.stabellini@eu.citrix.com>, <netdev@vger.kernel.org>,
-	<tim@xen.org>, <linux-kernel@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Julien Grall <julien.grall@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <555BBFA7.8030502@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:52223 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502AbbETIgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 04:36:38 -0400
+In-Reply-To: <20150520074810.GA21934@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 11:56:39PM +0100, Julien Grall wrote:
+On 2015/05/20 16:48, Simon Horman wrote:
+> On Wed, May 20, 2015 at 03:15:23PM +0900, Toshiaki Makita wrote:
+>> On 2015/05/20 14:48, Simon Horman wrote:
+...
+>>>  static void _rocker_neigh_add(struct rocker *rocker,
+>>> +			      enum switchdev_trans trans,
+>>>  			      struct rocker_neigh_tbl_entry *entry)
+>>>  {
+>>> +	if (trans == SWITCHDEV_TRANS_PREPARE)
+>>> +		return;
+>>>  	entry->index = rocker->neigh_tbl_next_index++;
+>>
+>> Isn't index needed here? It looks to be used in later function call and
+>> logging.
+> 
+> Thanks, that does not follow the usual model of setting values
+> during the PREPARE (and all other) transaction phase(s).
+> 
+>> How about setting index like this?
+>>
+>> 	entry->index = rocker->neigh_tbl_next_index;
+>> 	if (trans == PREPARE)
+>> 		return;
+>> 	rocker->neigh_tbl_next_index++;
+>> 	...
+> 
+> I am concerned that _rocker_neigh_add() may be called by some other
+> caller while a transaction is in process and thus entry->index will
+> be inconsistent across callers.
+> 
+> Perhaps we can convince ourselves that all the bases are covered.
+> So far my testing has drawn a blank. But the logic seems difficult to
+> reason about.
+> 
+> As we are basically allocating an index I suppose what is really needed for
+> a correct implementation is a transaction aware index allocator, like we
+> have for memory (rocker_port_kzalloc etc...).  But that does seem like
+> overkill.
+> 
+> I think that we can make entry->index consistent across
+> calls in the same transaction at the expense of breaking the
+> rule that per-transaction data should be set during all transaction phases.
+> 
+> Something like this:
+> 
+> 
+> 	if (trans != SWITCHDEV_TRANS_COMMIT)
+> 		/* Avoid index being set to different values across calls
+> 		 * to this function by the same caller within the same
+> 		 * transaction.
+> 		 */
+> 		entry->index = rocker->neigh_tbl_next_index++;
+> 	if (trans == SWITCHDEV_TRANS_PREPARE)
+> 		return;
+> 
+> 
 
-> 
-> >>diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> >>index 0eda6e9..c2a5402 100644
-> >>--- a/drivers/net/xen-netback/common.h
-> >>+++ b/drivers/net/xen-netback/common.h
-> >>@@ -204,7 +204,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
-> >>  /* Maximum number of Rx slots a to-guest packet may use, including the
-> >>   * slot needed for GSO meta-data.
-> >>   */
-> >>-#define XEN_NETBK_RX_SLOTS_MAX (MAX_SKB_FRAGS + 1)
-> >>+#define XEN_NETBK_RX_SLOTS_MAX ((MAX_SKB_FRAGS + 1) * XEN_PFN_PER_PAGE)
-> >>
-> >>  enum state_bit_shift {
-> >>         /* This bit marks that the vif is connected */
-> >>
-> >>The function xenvif_wait_for_rx_work never returns. I guess it's because there
-> >>is not enough slot available.
-> >>
-> >>For 64KB page granularity we ask for 16 times more slots than 4KB page
-> >>granularity. Although, it's very unlikely that all the slot will be used.
-> >>
-> >>FWIW I pointed out the same problem on blkfront.
-> >>
-> >
-> >This is not going to work. The ring in netfront / netback has only 256
-> >slots. Now you ask for netback to reserve more than 256 slots -- (17 +
-> >1) * (64 / 4) = 288, which can never be fulfilled. See the call to
-> >xenvif_rx_ring_slots_available.
-> >
-> >I think XEN_NETBK_RX_SLOTS_MAX derived from the fact the each packet to
-> >the guest cannot be larger than 64K. So you might be able to
-> >
-> >#define XEN_NETBK_RX_SLOTS_MAX ((65536 / XEN_PAGE_SIZE) + 1)
-> 
-> I didn't know that packet cannot be larger than 64KB. That's simply a lot
-> the problem.
-> 
+As long as it is guraded by rtnl lock, no worries about this race?  It
+seems to be assumed that prepare-commit is guarded by rtnl lock,
+according to commit c4f20321 ("rocker: support prepare-commit
+transaction model").
 
-I think about this more, you will need one more slot for GSO
-information, so make it ((65536 / XEN_PAGE_SIZE) + 1 + 1).
+But as you are concerned, it seems to be able to be called by another
+caller, specifically, neigh_timer_handler() in interrupt context without
+rtnl lock. IMHO, it should be fixed rather than avoiding the race here.
 
-> >
-> >Blk driver may have a different story. But the default ring size (1
-> >page) yields even less slots than net (given that sizeof(union(req/rsp))
-> >is larger IIRC).
-> 
-> I will see with Roger for Blkback.
-> 
-> 
-> -- 
-> Julien Grall
+Thanks,
+Toshiaki Makita
