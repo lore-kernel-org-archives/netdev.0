@@ -1,88 +1,46 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH v2] net: fix a double free issue for neighbour entry
-Date: Wed, 20 May 2015 09:25:13 +0800
-Message-ID: <1432085113-25063-1-git-send-email-ying.xue@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<alexei@purestorage.com>, <joern@purestorage.com>, <ja@ssi.bg>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40281 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751532AbbETBZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 21:25:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 00/12] treewide: Use DECLARE_BITMAP
+Date: Tue, 19 May 2015 18:37:48 -0700
+Message-ID: <cover.1432085659.git.joe@perches.com>
+Cc: dmaengine@vger.kernel.org, linux-raid@vger.kernel.org,
+	linux-s390@vger.kernel.org, linux-nfs@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org,
+	linux-bcache@vger.kernel.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, logfs@logfs.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Calling __ipv4_neigh_lookup_noref() inside rcu_read_lock_bh() can
-guarantee that its searched neighbour entry is not freed before RCU
-grace period, but it cannot ensure that its obtained neighbour will
-be freed shortly. Exactly saying, it cannot prevent neigh_destroy()
-from being executed on another context at the same time. For example,
-if ip_finish_output2() continues to deliver a SKB with a neighbour
-entry whose refcount is zero, neigh_add_timer() may be called in
-neigh_resolve_output() subsequently. As a result, neigh_add_timer()
-takes refcount on the neighbour that already had a refcount of zero.
-When the neighbour refcount is put before the timer's handler is
-exited, neigh_destroy() will be called again, meaning crash happens
-at the moment.
+Use the standard method to declare a bitmap array.
 
-To prevent the issue from occurring, we must check whether the refcount
-of a neighbour searched by __ipv4_neigh_lookup_noref() is decremented
-to zero or not. If it's zero, we should create a new one.
+Joe Perches (12):
+  ARM: mach-imx: iomux-imx31: Use DECLARE_BITMAP
+  dmaengine: rcar-dmac: Use DECLARE_BITMAP
+  drm/amdkfd: Use DECLARE_BITMAP
+  drm/radeon: Use DECLARE_BITMAP
+  IB/ehca: Use DECLARE_BITMAP
+  bcache: Use DECLARE_BITMAP
+  spider_net: Use DECLARE_BITMAP
+  s390/sclp: Use DECLARE_BITMAP
+  [SCSI] qla4xxx: Use DECLARE_BITMAP
+  scsi: Use DECLARE_BITMAP
+  logfs: Use DECLARE_BITMAP
+  sunrpc: Use DECLARE_BITMAP
 
-However, as reading neigh's refcount is unsafe through atomic_read()
-like it doesn't imply any memory barrier and the cost is too expensive
-if we enforce a proper implicit or explicit memory barrier on it,
-another checking of identifying whether neigh's dead flag is set or not
-is involved into __neigh_event_send() to further prevent neigh_add_timer()
-from holding a neigh's refcount that already hit zero, thereby avoiding
-what the issue cannot absolutely happen.
+ arch/arm/mach-imx/iomux-imx31.c           | 2 +-
+ drivers/dma/sh/rcar-dmac.c                | 2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_priv.h     | 5 ++---
+ drivers/gpu/drm/radeon/radeon.h           | 2 +-
+ drivers/infiniband/hw/ehca/ipz_pt_fn.h    | 2 +-
+ drivers/md/bcache/journal.c               | 2 +-
+ drivers/net/ethernet/toshiba/spider_net.c | 3 +--
+ drivers/s390/char/sclp_cmd.c              | 2 +-
+ drivers/scsi/qla4xxx/ql4_def.h            | 2 +-
+ drivers/scsi/sr.c                         | 2 +-
+ fs/logfs/logfs.h                          | 2 +-
+ net/sunrpc/auth_gss/svcauth_gss.c         | 2 +-
+ 12 files changed, 13 insertions(+), 15 deletions(-)
 
-Reported-by: Joern Engel <joern@logfs.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- v2:
-  - As Eric pointed that identifying whether neigh's refcnt is zero
-    through atomic_read() is unsafe, another condition checking of
-    verifying neigh's dead flag is set is involved into
-    __neigh_event_send() to further prevent neigh_add_timer() from
-    holding a neigh's refcnt that already hit zero.
-  - Now the patch is created based on "net" tree considering it's
-    a very fatal issue.
-
- net/core/neighbour.c |    3 +++
- net/ipv4/ip_output.c |    2 +-
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 3de6542..c7a675c 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -958,6 +958,9 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
- 	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
- 		goto out_unlock_bh;
- 
-+	if (neigh->dead)
-+		goto out_unlock_bh;
-+
- 	if (!(neigh->nud_state & (NUD_STALE | NUD_INCOMPLETE))) {
- 		if (NEIGH_VAR(neigh->parms, MCAST_PROBES) +
- 		    NEIGH_VAR(neigh->parms, APP_PROBES)) {
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index c65b93a..5889774 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -200,7 +200,7 @@ static inline int ip_finish_output2(struct sock *sk, struct sk_buff *skb)
- 	rcu_read_lock_bh();
- 	nexthop = (__force u32) rt_nexthop(rt, ip_hdr(skb)->daddr);
- 	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
--	if (unlikely(!neigh))
-+	if (unlikely(!neigh || !atomic_read(&neigh->refcnt)))
- 		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
- 	if (!IS_ERR(neigh)) {
- 		int res = dst_neigh_output(dst, neigh, skb);
 -- 
-1.7.9.5
+2.1.2
