@@ -1,78 +1,157 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net-next v3] tcp: add rfc3168, section 6.1.1.1. fallback
-Date: Wed, 20 May 2015 11:13:08 -0700
-Message-ID: <CAGK4HS_U5Me2ubi-QPaceLiw-ZU7P9Q=ZOSpgg6SRqn-fA2Gaw@mail.gmail.com>
-References: <cc0be24818d7009208dd0d8f73cc35939957f134.1432059419.git.daniel@iogearbox.net>
-	<20150519.165400.818177627516799715.davem@davemloft.net>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
+Date: Wed, 20 May 2015 18:14:15 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
+References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	netdev <netdev@vger.kernel.org>, fw@strlen.de,
-	mirja.kuehlewind@tik.ee.ethz.ch, trammell@tik.ee.ethz.ch,
-	Eric Dumazet <edumazet@google.com>,
-	Dave Taht <dave.taht@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>,
+	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
+	Edward Cree <ecree@solarflare.com>,
+	Rony Efraim <ronye@mellanox.com>
+To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f47.google.com ([209.85.213.47]:36696 "EHLO
-	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754209AbbETSNJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 14:13:09 -0400
-Received: by yhrr66 with SMTP id r66so15107874yhr.3
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 11:13:08 -0700 (PDT)
-In-Reply-To: <20150519.165400.818177627516799715.davem@davemloft.net>
+Received: from mga14.intel.com ([192.55.52.115]:36577 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754519AbbETSOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2015 14:14:17 -0400
+In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
-
-With this commit, ifconfig does not show any of the interfaces and I
-don't have any connectivity as a result.
-Can you double check this?
-
-Thanks!
-Vijay
-
-On 19 May 2015 at 13:54, David Miller <davem@davemloft.net> wrote:
-> From: Daniel Borkmann <daniel@iogearbox.net>
-> Date: Tue, 19 May 2015 21:33:42 +0200
->
->> This work as a follow-up of commit f7b3bec6f516 ("net: allow setting=
- ecn
->> via routing table") and adds RFC3168 section 6.1.1.1. fallback for o=
-utgoing
->> ECN connections. In other words, this work adds a retry with a non-E=
-CN
->> setup SYN packet, as suggested from the RFC on the first timeout:
->>
->>   [...] A host that receives no reply to an ECN-setup SYN within the
->>   normal SYN retransmission timeout interval MAY resend the SYN and
->>   any subsequent SYN retransmissions with CWR and ECE cleared. [...]
->  ...
->> Reference: https://www.ietf.org/proceedings/92/slides/slides-92-iccr=
-g-1.pdf
->> Reference: https://www.ietf.org/proceedings/89/slides/slides-89-tsva=
-rea-1.pdf
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> Signed-off-by: Florian Westphal <fw@strlen.de>
->> Signed-off-by: Mirja K=C3=BChlewind <mirja.kuehlewind@tik.ee.ethz.ch=
->
->> Signed-off-by: Brian Trammell <trammell@tik.ee.ethz.ch>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: Dave T=C3=A4ht <dave.taht@gmail.com>
->> ---
->>  v2 -> v3:
->>   - Very sorry. Typo happened in Dave's name since v1, getting it ri=
-ght
->>     this time, no bad intentions. ;)
->>  v1 -> v2:
->>   - Added suggestion from Eric to let ecn_flags be cleared eventuall=
-y in
->>     tcp_ecn_rcv_synack(), thanks!
->>   - Rest as is.
->
-> Applied, thanks everyone.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBIaXJvc2hpIFNoaW1hbW90byBb
+bWFpbHRvOmgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE1heSAx
+OSwgMjAxNSA1OjA2IFBNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQ7IGludGVsLXdpcmVkLWxh
+bkBsaXN0cy5vc3Vvc2wub3JnDQo+IENjOiBTa2lkbW9yZSwgRG9uYWxkIEM7IE9yIEdlcmxpdHo7
+IERhdmlkIE1pbGxlcjsgTGludXggTmV0ZGV2IExpc3Q7DQo+IG5ob3JtYW5AcmVkaGF0LmNvbTsg
+c2Fzc21hbm5AcmVkaGF0LmNvbTsgam9ncmVlbmVAcmVkaGF0LmNvbTsNCj4gQ2hvaSwgU3kgSm9u
+ZzsgRWR3YXJkIENyZWU7IFJvbnkgRWZyYWltDQo+IFN1YmplY3Q6IFtQQVRDSCB2NSAzLzNdIGl4
+Z2JlOiBBZGQgbmV3IG5kbyB0byB0cnVzdCBWRg0KPiANCj4gRnJvbTogSGlyb3NoaSBTaGltYW1v
+dG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQo+IA0KPiBJbXBsZW1lbnQgdGhlIG5ldyBu
+ZXRkZXYgb3AgdG8gdHJ1c3QgVkYgaW4gaXhnYmUgYW5kIG1ha2UgVkYgbXVsdGljYXN0DQo+IHBy
+b21pc2N1b3VzIG1vZGUgZW5hYmxlZCBvbmx5IGluIHRydXN0ZWQgVkYuDQo+IA0KPiBUaGUgYWRt
+aW5pc3RyYXRvciBjYW4gbWFrZSBWRiB0cnVzdGVkIGJ5IGlwIGNvbW1hbmQgd2hpY2ggc3VwcG9y
+dHMgdHJ1c3QNCj4gbWVzc2FnZS4NCj4gICMgaXAgbGluayBzZXQgZGV2IGV0aDAgdmYgMSB0cnVz
+dCBvbg0KPiANCj4gQWZ0ZXIgbWFraW5nIFZGIHVudHJ1c3RlZCwgaXhnYmUgZGlzYWJsZXMgVkYg
+bXVsdGljYXN0IHByb21pc2N1b3VzIGZlYXR1cmUNCj4gcmVxdWVzdGVkIGZyb20gVkYuDQo+ICAj
+IGlwIGxpbmsgc2V0IGRldiBldGgwIHZmIDEgdHJ1c3Qgb2ZmDQo+IA0KPiBPbmx5IHRydXN0ZWQg
+VkYgY2FuIGVuYWJsZSBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgbW9kZSBhbmQgaGFuZGxlIG92
+ZXINCj4gMzAgSVB2NiBhZGRyZXNzZXMgb24gVk0sIGJlY2F1c2UgVkYgbXVsdGljYXN0IHByb21p
+c2N1b3VzIG1vZGUgbWF5IGh1cnQNCj4gcGVyZm9ybWFuY2UuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5
+OiBIaXJvc2hpIFNoaW1hbW90byA8aC1zaGltYW1vdG9AY3QuanAubmVjLmNvbT4NCj4gUmV2aWV3
+ZWQtYnk6IEhheWF0byBNb21tYSA8aC1tb21tYUBjZS5qcC5uZWMuY29tPg0KPiBDQzogQ2hvaSwg
+U3kgSm9uZyA8c3kuam9uZy5jaG9pQGludGVsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oICAgICAgIHwgIDEgKw0KPiAgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jICB8ICA1ICsrKysNCj4gZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyB8IDM4DQo+ICsrKysrKysrKysr
+KysrKysrKysrKysrLS0tDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2Jl
+X3NyaW92LmggfCAgMiArKw0KPiAgNCBmaWxlcyBjaGFuZ2VkLCA0MiBpbnNlcnRpb25zKCspLCA0
+IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2l4Z2JlL2l4Z2JlLmgNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9p
+eGdiZS5oDQo+IGluZGV4IDA4ZTY1YjYuLjUxODFhNGQgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlLmgNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaA0KPiBAQCAtMTUzLDYgKzE1Myw3IEBAIHN0cnVjdCB2
+Zl9kYXRhX3N0b3JhZ2Ugew0KPiAgCXUxNiB2bGFuX2NvdW50Ow0KPiAgCXU4IHNwb29mY2hrX2Vu
+YWJsZWQ7DQo+ICAJYm9vbCByc3NfcXVlcnlfZW5hYmxlZDsNCj4gKwl1OCB0cnVzdGVkOw0KPiAg
+CXVuc2lnbmVkIGludCB2Zl9hcGk7DQo+ICB9Ow0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMv
+bmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KPiBiL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KPiBpbmRleCBiMWVhNzA3Li4yNjNjYjQw
+IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9t
+YWluLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFp
+bi5jDQo+IEBAIC0zNjc5LDYgKzM2NzksMTAgQEAgc3RhdGljIHZvaWQgaXhnYmVfY29uZmlndXJl
+X3ZpcnR1YWxpemF0aW9uKHN0cnVjdA0KPiBpeGdiZV9hZGFwdGVyICphZGFwdGVyKQ0KPiAgCQkv
+KiBFbmFibGUvRGlzYWJsZSBSU1MgcXVlcnkgZmVhdHVyZSAgKi8NCj4gIAkJaXhnYmVfbmRvX3Nl
+dF92Zl9yc3NfcXVlcnlfZW4oYWRhcHRlci0+bmV0ZGV2LCBpLA0KPiAgCQkJCQkgIGFkYXB0ZXIt
+DQo+ID52ZmluZm9baV0ucnNzX3F1ZXJ5X2VuYWJsZWQpOw0KPiArDQo+ICsJCS8qIFJlY29uZmln
+dXJlIGZlYXR1cmVzIGluIHRydXN0ZWQgKi8NCj4gKwkJaXhnYmVfbmRvX3NldF92Zl90cnVzdChh
+ZGFwdGVyLT5uZXRkZXYsIGksDQo+ICsJCQkJICAgICAgIGFkYXB0ZXItPnZmaW5mb1tpXS50cnVz
+dGVkKTsNCj4gIAl9DQo+ICB9DQo+IA0KPiBAQCAtODE4Miw2ICs4MTg2LDcgQEAgc3RhdGljIGNv
+bnN0IHN0cnVjdCBuZXRfZGV2aWNlX29wcw0KPiBpeGdiZV9uZXRkZXZfb3BzID0gew0KPiAgCS5u
+ZG9fc2V0X3ZmX3JhdGUJPSBpeGdiZV9uZG9fc2V0X3ZmX2J3LA0KPiAgCS5uZG9fc2V0X3ZmX3Nw
+b29mY2hrCT0gaXhnYmVfbmRvX3NldF92Zl9zcG9vZmNoaywNCj4gIAkubmRvX3NldF92Zl9yc3Nf
+cXVlcnlfZW4gPSBpeGdiZV9uZG9fc2V0X3ZmX3Jzc19xdWVyeV9lbiwNCj4gKwkubmRvX3NldF92
+Zl90cnVzdAk9IGl4Z2JlX25kb19zZXRfdmZfdHJ1c3QsDQo+ICAJLm5kb19nZXRfdmZfY29uZmln
+CT0gaXhnYmVfbmRvX2dldF92Zl9jb25maWcsDQo+ICAJLm5kb19nZXRfc3RhdHM2NAk9IGl4Z2Jl
+X2dldF9zdGF0czY0LA0KPiAgI2lmZGVmIENPTkZJR19JWEdCRV9EQ0INCj4gZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCj4gYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jDQo+IGluZGV4IDYxNWY2
+NTEuLjZjNjAyYmMgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4
+Z2JlL2l4Z2JlX3NyaW92LmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
+YmUvaXhnYmVfc3Jpb3YuYw0KPiBAQCAtMTE3LDggKzExNywxMSBAQCBzdGF0aWMgaW50IF9faXhn
+YmVfZW5hYmxlX3NyaW92KHN0cnVjdCBpeGdiZV9hZGFwdGVyDQo+ICphZGFwdGVyKQ0KPiAgCQkJ
+ICovDQo+ICAJCQlhZGFwdGVyLT52ZmluZm9baV0ucnNzX3F1ZXJ5X2VuYWJsZWQgPSAwOw0KPiAN
+Cj4gLQkJCS8qIFR1cm4gbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUgb2ZmIGZvciBhbGwgVkZz
+ICovDQo+ICsJCQkvKiBEaXNhbGxvdyBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMgY2FwYWJpbGl0
+eQ0KPiArCQkJICogYW5kIHR1cm4gaXQgb2ZmIGZvciBhbGwgVkZzDQo+ICsJCQkgKi8NCj4gIAkJ
+CWFkYXB0ZXItPnZmaW5mb1tpXS5tY19wcm9taXNjID0gZmFsc2U7DQo+ICsJCQlhZGFwdGVyLT52
+ZmluZm9baV0udHJ1c3RlZCA9IGZhbHNlOw0KPiAgCQl9DQo+IA0KPiAgCQlyZXR1cm4gMDsNCj4g
+QEAgLTMyOSw5ICszMzIsMTQgQEAgc3RhdGljIGludCBpeGdiZV9lbmFibGVfdmZfbWNfcHJvbWlz
+YyhzdHJ1Y3QNCj4gaXhnYmVfYWRhcHRlciAqYWRhcHRlciwgdTMyIHZmKQ0KPiAgCWh3ID0gJmFk
+YXB0ZXItPmh3Ow0KPiAgCXZtb2xyID0gSVhHQkVfUkVBRF9SRUcoaHcsIElYR0JFX1ZNT0xSKHZm
+KSk7DQo+IA0KPiAtCWVfaW5mbyhkcnYsICJWRiAldTogZW5hYmxpbmcgbXVsdGljYXN0IHByb21p
+c2N1b3VzXG4iLCB2Zik7DQo+IC0NCj4gLQl2bW9sciB8PSBJWEdCRV9WTU9MUl9NUEU7DQo+ICsJ
+aWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0udHJ1c3RlZCkgew0KPiArCQllX2luZm8oZHJ2LCAiVkYg
+JXU6IGVuYWJsaW5nIG11bHRpY2FzdCBwcm9taXNjdW91c1xuIiwgdmYpOw0KPiArCQl2bW9sciB8
+PSBJWEdCRV9WTU9MUl9NUEU7DQo+ICsJfSBlbHNlIHsNCj4gKwkJZV9pbmZvKGRydiwgIlZGICV1
+OiBkaXNhYmxpbmcgbXVsdGljYXN0IHByb21pc2N1b3VzICINCj4gKwkJICAgICAgICJvbiB1bnRy
+dXN0ZWQgVkYuXG4iLCB2Zik7DQo+ICsJCXZtb2xyICY9IH5JWEdCRV9WTU9MUl9NUEU7DQo+ICsJ
+fQ0KPiANCj4gIAlJWEdCRV9XUklURV9SRUcoaHcsIElYR0JFX1ZNT0xSKHZmKSwgdm1vbHIpOw0K
+PiANCj4gQEAgLTE0OTIsNiArMTUwMCwyNyBAQCBpbnQgaXhnYmVfbmRvX3NldF92Zl9yc3NfcXVl
+cnlfZW4oc3RydWN0DQo+IG5ldF9kZXZpY2UgKm5ldGRldiwgaW50IHZmLA0KPiAgCXJldHVybiAw
+Ow0KPiAgfQ0KPiANCj4gK2ludCBpeGdiZV9uZG9fc2V0X3ZmX3RydXN0KHN0cnVjdCBuZXRfZGV2
+aWNlICpuZXRkZXYsIGludCB2ZiwgYm9vbA0KPiArc2V0dGluZykgew0KPiArCXN0cnVjdCBpeGdi
+ZV9hZGFwdGVyICphZGFwdGVyID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gKw0KPiArCWlmICh2
+ZiA+PSBhZGFwdGVyLT5udW1fdmZzKQ0KPiArCQlyZXR1cm4gLUVJTlZBTDsNCj4gKw0KPiArCS8q
+IG5vdGhpbmcgdG8gZG8gKi8NCj4gKwlpZiAoYWRhcHRlci0+dmZpbmZvW3ZmXS50cnVzdGVkID09
+IHNldHRpbmcpDQo+ICsJCXJldHVybiAwOw0KPiArDQo+ICsJYWRhcHRlci0+dmZpbmZvW3ZmXS50
+cnVzdGVkID0gc2V0dGluZzsNCj4gKw0KPiArCS8qIFJlY29uZmlndXJlIGZlYXR1cmVzIHdoaWNo
+IGFyZSBvbmx5IGFsbG93ZWQgZm9yIHRydXN0ZWQgVkYgKi8NCj4gKwkvKiBWRiBtdWx0aWNhc3Qg
+cHJvbWlzY3VvdXMgbW9kZSAqLw0KPiArCWlmIChhZGFwdGVyLT52ZmluZm9bdmZdLm1jX3Byb21p
+c2MpDQo+ICsJCWl4Z2JlX2VuYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIsIHZmKTsNCj4gKw0K
+PiArCXJldHVybiAwOw0KPiArfQ0KPiArDQo+ICBpbnQgaXhnYmVfbmRvX2dldF92Zl9jb25maWco
+c3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwNCj4gIAkJCSAgICBpbnQgdmYsIHN0cnVjdCBpZmxh
+X3ZmX2luZm8gKml2aSkgIHsgQEAgLTE1MDYsNSArMTUzNSw2DQo+IEBAIGludCBpeGdiZV9uZG9f
+Z2V0X3ZmX2NvbmZpZyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LA0KPiAgCWl2aS0+cW9zID0g
+YWRhcHRlci0+dmZpbmZvW3ZmXS5wZl9xb3M7DQo+ICAJaXZpLT5zcG9vZmNoayA9IGFkYXB0ZXIt
+PnZmaW5mb1t2Zl0uc3Bvb2ZjaGtfZW5hYmxlZDsNCj4gIAlpdmktPnJzc19xdWVyeV9lbiA9IGFk
+YXB0ZXItPnZmaW5mb1t2Zl0ucnNzX3F1ZXJ5X2VuYWJsZWQ7DQo+ICsJaXZpLT50cnVzdGVkID0g
+YWRhcHRlci0+dmZpbmZvW3ZmXS50cnVzdGVkOw0KPiAgCXJldHVybiAwOw0KPiAgfQ0KPiBkaWZm
+IC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuaA0K
+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmgNCj4gaW5k
+ZXggMmMxOTdlNi4uZDg1ZTZmYyAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuaA0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9peGdiZS9peGdiZV9zcmlvdi5oDQo+IEBAIC00OSw2ICs0OSw4IEBAIGludCBpeGdiZV9u
+ZG9fc2V0X3ZmX2J3KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsDQo+IGludCB2ZiwgaW50IG1p
+bl90eF9yYXRlLCAgaW50IGl4Z2JlX25kb19zZXRfdmZfc3Bvb2ZjaGsoc3RydWN0IG5ldF9kZXZp
+Y2UNCj4gKm5ldGRldiwgaW50IHZmLCBib29sIHNldHRpbmcpOyAgaW50IGl4Z2JlX25kb19zZXRf
+dmZfcnNzX3F1ZXJ5X2VuKHN0cnVjdA0KPiBuZXRfZGV2aWNlICpuZXRkZXYsIGludCB2ZiwNCj4g
+IAkJCQkgIGJvb2wgc2V0dGluZyk7DQo+ICtpbnQgaXhnYmVfbmRvX3NldF92Zl90cnVzdChzdHJ1
+Y3QgbmV0X2RldmljZSAqbmV0ZGV2LA0KPiArCQkJICAgIGludCB2ZiwgYm9vbCBzZXR0aW5nKTsN
+Cj4gIGludCBpeGdiZV9uZG9fZ2V0X3ZmX2NvbmZpZyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2
+LA0KPiAgCQkJICAgIGludCB2Ziwgc3RydWN0IGlmbGFfdmZfaW5mbyAqaXZpKTsgIHZvaWQNCj4g
+aXhnYmVfY2hlY2tfdmZfcmF0ZV9saW1pdChzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcik7
+DQo+IC0tDQo+IDEuOC4zLjENCg0KSGV5IEhpcm9zaGksDQoNCkluIGdlbmVyYWwgSSBsaWtlIHlv
+dXIgcGF0Y2ggc2V0LiAgIFRoZXJlIGlzIGEgbGl0dGxlIGNvbXBsZXhpdHkgSeKAmW0gbm90IHN1
+cmUgSSB1bmRlcnN0YW5kLiAgSSdtIGFzc3VtaW5nIHRoYXQ6DQoNCiBhZGFwdGVyLT52ZmluZm9b
+dmZdLnRydXN0ZWQgLSBDbGVhcmx5IHN0b3JlcyBpZiB0aGUgUEYgdHJ1c3RzIGEgZ2l2ZW4gVkYg
+KGkuZS4gYWxsb3dzIGl0IHRvIGdvIGludG8gInJpc2t5IiBjb25maWd1cmF0aW9ucykNCg0KV2hh
+dCBJJ20gYSBiaXQgdW5jbGVhciBhYm91dCBpczoNCg0KYWRhcHRlci0+dmZpbmZvW3ZmXS5tY19w
+cm9taXNjIC0gVGhpcyBzZWVtcyB0byByZWNvcmQgdGhhdCB0aGUgVkYgYXQgb25lIHRpbWUgYXMg
+cmVxdWVzdGVkIG92ZXIgMzAgTUMuDQoNCkkgZG9uJ3QgdW5kZXJzdGFuZCB0aGUgcmVhc29uIGZv
+ciB0aGlzIGJpdC4gIFdvdWxkbid0IGl0IGJlIHNpbXBsZXIgYW5kIG1vcmUgc3RyYWlnaHRmb3J3
+YXJkIHRvIHNpbXBseSB1c2UgdGhlIHRydXN0ZWQgYml0PyAgIEkgZ3Vlc3Mgc3BlY2lmaWNhbGx5
+IEkgZG9uJ3QgdW5kZXJzdGFuZCB3aHkgd2Ugd291bGQgY2FsbCBpeGdiZV9lbmFibGVfdmZfbWNf
+cHJvbWlzYygpIGluIGl4Z2JlX25kb19zZXRfdmZfdHJ1c3QoKSBpZiBtY19wcm9taXNjIGlzIHNl
+dC4gIFdvdWxkbid0IGp1c3Qgc2V0dGluZyB0aGUgdHJ1c3RlZCBiaXQgYWxsb3cgdGhlIG5leHQg
+SVhHQkVfVkZfU0VUX01DX1BST01JU0MgbWFpbGJveCBtZXNzYWdlIHRvIChwb3NzaWJseSkgdHVy
+biBvbiBNQyBQcm9taXNjIG1vZGU/DQoNClRoYW5rcywNCi1Eb24gU2tpZG1vcmUgPGRvbmFsZC5j
+LnNraWRtb3JlQGludGVsLmNvbT4NCg0KDQo=
