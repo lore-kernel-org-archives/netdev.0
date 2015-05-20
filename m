@@ -1,89 +1,83 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH v3 net-next 3/4] rocker: do not make neighbour entry changes
- when preparing transactions
-Date: Wed, 20 May 2015 17:36:06 +0900
-Message-ID: <555C4776.70508@lab.ntt.co.jp>
-References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com> <1432100902-10187-4-git-send-email-simon.horman@netronome.com> <555C267B.9070807@lab.ntt.co.jp> <20150520074810.GA21934@vergenet.net>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH v2] net: fix a double free issue for neighbour entry
+Date: Wed, 20 May 2015 16:39:38 +0800
+Message-ID: <555C484A.7080807@windriver.com>
+References: <1432085113-25063-1-git-send-email-ying.xue@windriver.com> <1432099637.4060.12.camel@edumazet-glaptop2.roam.corp.google.com> <555C313E.1020003@windriver.com> <alpine.LFD.2.11.1505201050590.1557@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <alexei@purestorage.com>,
+	<joern@purestorage.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:52223 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751502AbbETIgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 04:36:38 -0400
-In-Reply-To: <20150520074810.GA21934@vergenet.net>
+Received: from mail.windriver.com ([147.11.1.11]:65454 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753229AbbETIkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 04:40:03 -0400
+In-Reply-To: <alpine.LFD.2.11.1505201050590.1557@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2015/05/20 16:48, Simon Horman wrote:
-> On Wed, May 20, 2015 at 03:15:23PM +0900, Toshiaki Makita wrote:
->> On 2015/05/20 14:48, Simon Horman wrote:
-...
->>>  static void _rocker_neigh_add(struct rocker *rocker,
->>> +			      enum switchdev_trans trans,
->>>  			      struct rocker_neigh_tbl_entry *entry)
->>>  {
->>> +	if (trans == SWITCHDEV_TRANS_PREPARE)
->>> +		return;
->>>  	entry->index = rocker->neigh_tbl_next_index++;
+On 05/20/2015 04:07 PM, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Wed, 20 May 2015, Ying Xue wrote:
+> 
+>> On 05/20/2015 01:27 PM, Eric Dumazet wrote:
+>>> Sorry, this atomic_read() makes no sense to me.
+>>>
+>>> When rcu is used, this is perfectly fine to use an object which refcount
+>>> is 0. If you believe the opposite, then point me to relevant
+>>> Documentation/RCU/ file.
+>>>
 >>
->> Isn't index needed here? It looks to be used in later function call and
->> logging.
+>> However, the reality for us is that rcu_read_lock() can guarantee that a neigh
+>> object is not freed within the area covered by rcu read lock, but it cannot
+>> prevent neigh_destroy() from being executed in another context at the same time.
 > 
-> Thanks, that does not follow the usual model of setting values
-> during the PREPARE (and all other) transaction phase(s).
+> 	The situation is that one writer decided that
+> entry is to be removed. Reader comes and tries to become
+> second writer. It should check refcnt==0 or dead==1 as
+> in your last patch, always under write_lock.
+
+Yes, this way is absolutely safe for us! But, for example, if we check refcnt==0
+in write_lock protection, the checking is a bit late. Instead, if the checking
+is advanced to ip_finish_output2(), we can _early_ find the fact that we cannot
+use the neigh entry looked up by __ipv4_neigh_lookup_noref(). Of course, doing
+the check with atomic_read() is unsafe _really_, but once atomic_read() returned
+value tells us neigh refcnt is zero, the result is absolutely true. This is
+because refcnt is always decremented from a certain value which is bigger than 0
+to 0. Therefore, if atomic_read() tells us a neigh's refcnt is 0, we should
+definitely create a new one; on the contrary, if it tells us a neigh's refcnt is
+not zero, it doesn't mean the refcnt is really equal to 0 because atomic_read()
+might read a stale refcnt value. In this situation, the condition of
+!atomic_read(&neigh->refcnt)) is really useless for us. This is why I try to
+involve another condition check of dead==1 to prevent it from happening in
+version 2. Meanwhile, as the checking of dead==1 is conducted under write lock,
+this is absolutely safe for us.
+
+ Second and next
+> writers should not try to change state, timers, etc.
+> Such writers are possible only if they were readers because
+> only they can find entry that is unlinked by another writer.
 > 
->> How about setting index like this?
->>
->> 	entry->index = rocker->neigh_tbl_next_index;
->> 	if (trans == PREPARE)
->> 		return;
->> 	rocker->neigh_tbl_next_index++;
->> 	...
-> 
-> I am concerned that _rocker_neigh_add() may be called by some other
-> caller while a transaction is in process and thus entry->index will
-> be inconsistent across callers.
-> 
-> Perhaps we can convince ourselves that all the bases are covered.
-> So far my testing has drawn a blank. But the logic seems difficult to
-> reason about.
-> 
-> As we are basically allocating an index I suppose what is really needed for
-> a correct implementation is a transaction aware index allocator, like we
-> have for memory (rocker_port_kzalloc etc...).  But that does seem like
-> overkill.
-> 
-> I think that we can make entry->index consistent across
-> calls in the same transaction at the expense of breaking the
-> rule that per-transaction data should be set during all transaction phases.
-> 
-> Something like this:
-> 
-> 
-> 	if (trans != SWITCHDEV_TRANS_COMMIT)
-> 		/* Avoid index being set to different values across calls
-> 		 * to this function by the same caller within the same
-> 		 * transaction.
-> 		 */
-> 		entry->index = rocker->neigh_tbl_next_index++;
-> 	if (trans == SWITCHDEV_TRANS_PREPARE)
-> 		return;
-> 
+> 	And we want to keep the readers free of any memory
+> barriers as they can cost hundreds of clocks. We are lucky
+> that the neigh states allow RCU readers to run without any 
+> atomic_inc_not_zero calls because memory barriers are not
+> cheap.
 > 
 
-As long as it is guraded by rtnl lock, no worries about this race?  It
-seems to be assumed that prepare-commit is guarded by rtnl lock,
-according to commit c4f20321 ("rocker: support prepare-commit
-transaction model").
+Yes, I agreed with you.
 
-But as you are concerned, it seems to be able to be called by another
-caller, specifically, neigh_timer_handler() in interrupt context without
-rtnl lock. IMHO, it should be fixed rather than avoiding the race here.
+Regards,
+Ying
 
-Thanks,
-Toshiaki Makita
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
+> 
