@@ -1,87 +1,148 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2] net: fix a double free issue for neighbour entry
-Date: Wed, 20 May 2015 22:19:49 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1505202103390.1755@ja.home.ssi.bg>
-References: <1432085113-25063-1-git-send-email-ying.xue@windriver.com> <1432099637.4060.12.camel@edumazet-glaptop2.roam.corp.google.com> <555C313E.1020003@windriver.com> <alpine.LFD.2.11.1505201050590.1557@ja.home.ssi.bg> <555C484A.7080807@windriver.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, alexei@purestorage.com, joern@purestorage.com
-To: Ying Xue <ying.xue@windriver.com>
+From: Neil McKee <neil.mckee@inmon.com>
+Subject: [PATCH net-next] openvswitch: include datapath actions with sampled-packet upcall to userspace
+Date: Wed, 20 May 2015 12:32:38 -0700
+Message-ID: <1432150358-13108-1-git-send-email-neil.mckee@inmon.com>
+Cc: Neil McKee <neil.mckee@inmon.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47903 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751663AbbETTUH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 May 2015 15:20:07 -0400
-In-Reply-To: <555C484A.7080807@windriver.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:35154 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753684AbbETTcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 15:32:50 -0400
+Received: by pdea3 with SMTP id a3so79736957pde.2
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 12:32:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Directly associate a sampled packet with the path it takes through the virtual switch.
+Path information currently includes mangling, encapsulation and decapsulation actions
+for tunneling protocols GRE, VXLAN, Geneve, MPLS and QinQ, but this extension requires
+no further changes to accommodate datapath actions that may be added in the future.
 
-	Hello,
+Adding path information enhances visibility into complex virtual networks.
 
-On Wed, 20 May 2015, Ying Xue wrote:
+Signed-off-by: Neil McKee <neil.mckee@inmon.com>
+---
+ net/openvswitch/actions.c  | 14 +++++++++-----
+ net/openvswitch/datapath.c | 18 ++++++++++++++++++
+ net/openvswitch/datapath.h |  2 ++
+ 3 files changed, 29 insertions(+), 5 deletions(-)
 
-> Yes, this way is absolutely safe for us! But, for example, if we check refcnt==0
-> in write_lock protection, the checking is a bit late. Instead, if the checking
-> is advanced to ip_finish_output2(), we can _early_ find the fact that we cannot
-> use the neigh entry looked up by __ipv4_neigh_lookup_noref(). Of course, doing
-> the check with atomic_read() is unsafe _really_, but once atomic_read() returned
-> value tells us neigh refcnt is zero, the result is absolutely true. This is
-
-	The problem is that this atomic_read is just an
-extra code that works in rare cases. Modern CPUs have
-128-byte cache lines and 'dead', 'refcnt' and 'next'
-can be in same cache line. If you take into account the
-write-back write policy used by CPU caches and the cache
-locking effects, in most of the cases when such reader
-finds entry in list, the refcnt will be > 0 and dead
-will be 0. The reason: write-back policy makes the whole
-cache line public to other CPUs at once. So, without
-explicit barriers other CPUs can see data after delay and the
-order of stores in same cache line is not observed.
-As result, pure reader can not see 0 in refcnt, even if you
-put more atomic_read calls at this place. atomic_read contains
-only hints to compiler.
-
-	So, we must ensure that if a writer decides to
-remove entry other writers should not change things.
-More observations for the writers:
-
-- neigh_lookup is initially a reader bur it can increase refcnt
-at any time, even while another CPU is under write_lock.
-This makes all refcnt checks in neigh_forced_gc,
-neigh_flush_dev and neigh_periodic_work racy because
-neigh_cleanup_and_release is called after write_unlock.
-If a writer decides to remove the entry, other write
-operations may try to modify the entry because they
-rely on their own reference. What can happen is that
-refcnt is 1 when it is decided to remove the entry but
-the refcnt can be increased by concurrent writers
-such as neigh_lookup callers.
-
-	As result, neigh_lookup followed by neigh_update may
-work with dead=1 entry. May be the fix is to add
-check for dead flag in neigh_update to avoid modifications
-for removed entry, after the both write_lock_bh calls.
-This again happens later, i.e. __neigh_lookup calls
-neigh_lookup (which does not notice the dead flag early),
-we miss to call neigh_create and then neigh_update will fail
-on dead==1.
-
-- neigh_timer_handler looks safe, may be it does not
-need check for dead flag because if neigh_flush_dev calls
-neigh_del_timer and del_timer in neigh_del_timer fails
-with 0 (due to other CPU stuck at write_lock in
-neigh_timer_handler) the 'if (!(state & NUD_IN_TIMER))'
-check in neigh_timer_handler should succeed because
-neigh_flush_dev will change nud_state on success of the
-'if (atomic_read(&n->refcnt) != 1)' check.
-
-- __neigh_event_send: needs check for dead flag, as
-already discussed
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index b491c1c..ee5760d 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+ }
+ 
+ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+-			    struct sw_flow_key *key, const struct nlattr *attr)
++			    struct sw_flow_key *key, const struct nlattr *attr,
++			    const struct nlattr *actions, int actions_len)
+ {
+ 	struct ovs_tunnel_info info;
+ 	struct dp_upcall_info upcall;
+@@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 	upcall.userdata = NULL;
+ 	upcall.portid = 0;
+ 	upcall.egress_tun_info = NULL;
++	upcall.actions = actions;
++	upcall.actions_len = actions_len;
+ 
+ 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+ 		 a = nla_next(a, &rem)) {
+@@ -654,7 +657,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ }
+ 
+ static int sample(struct datapath *dp, struct sk_buff *skb,
+-		  struct sw_flow_key *key, const struct nlattr *attr)
++		  struct sw_flow_key *key, const struct nlattr *attr,
++		  const struct nlattr *actions, int actions_len)
+ {
+ 	const struct nlattr *acts_list = NULL;
+ 	const struct nlattr *a;
+@@ -688,7 +692,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 	 */
+ 	if (likely(nla_type(a) == OVS_ACTION_ATTR_USERSPACE &&
+ 		   nla_is_last(a, rem)))
+-		return output_userspace(dp, skb, key, a);
++		return output_userspace(dp, skb, key, a, actions, actions_len);
+ 
+ 	skb = skb_clone(skb, GFP_ATOMIC);
+ 	if (!skb)
+@@ -872,7 +876,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_USERSPACE:
+-			output_userspace(dp, skb, key, a);
++			output_userspace(dp, skb, key, a, attr, len);
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_HASH:
+@@ -916,7 +920,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_SAMPLE:
+-			err = sample(dp, skb, key, a);
++			err = sample(dp, skb, key, a, attr, len);
+ 			break;
+ 		}
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 5bae724..e735c8f 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -277,6 +277,8 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
+ 		upcall.userdata = NULL;
+ 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
+ 		upcall.egress_tun_info = NULL;
++		upcall.actions = NULL;
++		upcall.actions_len = 0;
+ 		error = ovs_dp_upcall(dp, skb, key, &upcall);
+ 		if (unlikely(error))
+ 			kfree_skb(skb);
+@@ -398,6 +400,10 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+ 	if (upcall_info->egress_tun_info)
+ 		size += nla_total_size(ovs_tun_key_attr_size());
+ 
++	/* OVS_PACKET_ATTR_ACTIONS */
++	if (upcall_info->actions_len)
++		size += nla_total_size(upcall_info->actions_len);
++
+ 	return size;
+ }
+ 
+@@ -479,6 +485,18 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 		nla_nest_end(user_skb, nla);
+ 	}
+ 
++	if (upcall_info->actions_len) {
++		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_ACTIONS);
++		err = ovs_nla_put_actions(upcall_info->actions,
++					  upcall_info->actions_len,
++					  user_skb);
++		if (!err) {
++			nla_nest_end(user_skb, nla);
++		} else {
++			nla_nest_cancel(user_skb, nla);
++		}
++	}
++
+ 	/* Only reserve room for attribute header, packet data is added
+ 	 * in skb_zerocopy() */
+ 	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 3ece945..b98b1b4 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -118,6 +118,8 @@ struct ovs_skb_cb {
+ struct dp_upcall_info {
+ 	const struct ovs_tunnel_info *egress_tun_info;
+ 	const struct nlattr *userdata;
++	const struct nlattr *actions;
++	int actions_len;
+ 	u32 portid;
+ 	u8 cmd;
+ };
+-- 
+1.9.3
