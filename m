@@ -1,44 +1,61 @@
-From: Arun Parameswaran <aparames@broadcom.com>
-Subject: [PATCH 0/1] Fix an issue with 'ethtool' configuring PHYs
-Date: Wed, 20 May 2015 14:35:29 -0700
-Message-ID: <1432157730-26865-1-git-send-email-aparames@broadcom.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 4/4] net: af_unix: implement splice for stream
+ af_unix sockets
+Date: Wed, 20 May 2015 23:47:58 +0200
+Message-ID: <1432158478.717952.274218561.54417CB3@webmail.messagingengine.com>
+References: <cover.1432135413.git.hannes@stressinduktion.org>
+ <3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
+ <CAHA+R7MO1H8kCqwGd4dcEMJOB0D=qUdYkKq1K1Mmc5jJAQVikw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<bcm-kernel-feedback-list@broadcom.com>, <rjui@broadcom.com>,
-	<aparames@broadcom.com>, <sbranden@broadcom.com>,
-	<jdzheng@broadcom.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:55002 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932234AbbETVgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 17:36:00 -0400
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:57491 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753158AbbETVr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 17:47:58 -0400
+Received: from compute1.internal (compute1.nyi.internal [10.202.2.41])
+	by mailout.nyi.internal (Postfix) with ESMTP id 3F07F20988
+	for <netdev@vger.kernel.org>; Wed, 20 May 2015 17:47:58 -0400 (EDT)
+In-Reply-To: <CAHA+R7MO1H8kCqwGd4dcEMJOB0D=qUdYkKq1K1Mmc5jJAQVikw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Cong,
 
-This patch fixes an issue while using the 'ethtool' to query/set PHY's
-configurations. The 'ethtool' interface in the Kernel seem to always
-query settings for PHY0, irrespective of the PHY specified, while
-issuing the 'ethtool' command.
+On Wed, May 20, 2015, at 22:59, Cong Wang wrote:
+> On Wed, May 20, 2015 at 8:35 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> >
+> > -static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg,
+> > -                              size_t size, int flags)
+> > +struct unix_stream_read_state {
+> > +       int (*recv_actor)(struct sk_buff *, int, int,
+> > +                         struct unix_stream_read_state *);
+> > +       struct socket *socket;
+> > +       struct msghdr *msg;
+> > +       struct pipe_inode_info *pipe;
+> > +       size_t size;
+> > +       int flags;
+> > +       unsigned int splice_flags;
+> > +};
+> > +
+> > +static __always_inline
+> > +int unix_stream_read_generic(struct unix_stream_read_state *state)
+> 
+> 
+> Why __always_inline here?
 
-For example when issueing 'ethtool -s eth0 phyad 1 speed 100' command
-to set the speed of PHY1's speed, the current software would first
-retrieve PHY0 settings, then apply the request settings (in this case
-'speed') on top. It then uses this (PHY0's config with new speed)
-settings to update the PHY1, which now ends up with partial
-configurations of PHY0 and the new speed.
+During benchmarking I discovered that the simple ordinary recvmsg case
+lost a bit in performance because of the indirection. With
+__always_inline -ing unix_stream_read_generic I got it to almost the
+same numbers again as without the change. Thus I decided to leave it
+there.
 
-This patch series is based on Linux v4.1-rc4 and is available in:
-https://github.com/Broadcom/cygnus-linux/tree/net-core-ethtool-fix-v1
+Also, thank you for your other feedback. I will address it soon after
+letting the patches receiving a bit more feedback.
 
-Arun Parameswaran (1):
-  SWMAPYVR-4339 net: core: 'ethtool' issue with querying phy settings
-
- net/core/ethtool.c |   10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
--- 
-1.7.9.5
+Thanks,
+Hannes
