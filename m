@@ -1,205 +1,63 @@
-From: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Subject: [V5 PATCH 2/5] arm64 : Introduce support for ACPI _CCA object
-Date: Wed, 20 May 2015 17:09:15 -0500
-Message-ID: <1432159758-4486-3-git-send-email-Suravee.Suthikulpanit@amd.com>
-References: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <msalter@redhat.com>, <hanjun.guo@linaro.org>,
-	<al.stone@linaro.org>, <grant.likely@linaro.org>,
-	<leo.duran@amd.com>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-acpi@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linaro-acpi@lists.linaro.org>, <netdev@vger.kernel.org>,
-	<linux-crypto@vger.kernel.org>,
-	"Suravee Suthikulpanit" <Suravee.Suthikulpanit@amd.com>
-To: <rjw@rjwysocki.net>, <lenb@kernel.org>, <catalin.marinas@arm.com>,
-	<will.deacon@arm.com>, <thomas.lendacky@amd.com>,
-	<herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-	<arnd@arndb.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1432159758-4486-1-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next] ipv6: reject locally assigned nexthop addresses
+Date: Thu, 21 May 2015 00:25:41 +0200
+Message-ID: <1432160741-3588-1-git-send-email-fw@strlen.de>
+Cc: hannes@stressinduktion.org, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:32975 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751882AbbETW0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:26:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->From http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf,
-section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
-object to be specified for DMA-cabpable devices. Therefore, this patch
-specifies ACPI_CCA_REQUIRED in arm64 Kconfig.
+ip -6 addr add dead::1/128 dev eth0
+sleep 5
+ip -6 route add default via dead::1/128
+-> fails
+ip -6 addr add dead::1/128 dev eth0
+ip -6 route add default via dead::1/128
+-> succeeds
 
-In addition, to handle the case when _CCA is missing, arm64 would assign
-dummy_dma_ops to disable DMA capability of the device.
+reason is that if (nonsensensical) route above is added,
+dead::1 is still subject to DAD, so the route lookup will
+pick eth0 as outdev due to the prefix route that is added before
+DAD work is started.
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
-Signed-off-by: Mark Salter <msalter@redhat.com>
-Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+Add explicit test that checks if nexthop gateway is a local address.
+
+Link: https://bugzilla.redhat.com/show_bug.cgi?id=1167969
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- arch/arm64/Kconfig                   |  1 +
- arch/arm64/include/asm/dma-mapping.h | 18 ++++++-
- arch/arm64/mm/dma-mapping.c          | 92 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 109 insertions(+), 2 deletions(-)
-
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index 4269dba..95307b4 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -1,5 +1,6 @@
- config ARM64
- 	def_bool y
-+	select ACPI_CCA_REQUIRED if ACPI
- 	select ACPI_GENERIC_GSI if ACPI
- 	select ACPI_REDUCED_HARDWARE_ONLY if ACPI
- 	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
-diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/include/asm/dma-mapping.h
-index 9437e3d..f0d6d0b 100644
---- a/arch/arm64/include/asm/dma-mapping.h
-+++ b/arch/arm64/include/asm/dma-mapping.h
-@@ -18,6 +18,7 @@
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 6f4a350..98fce6f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1624,6 +1624,16 @@ int ip6_route_add(struct fib6_config *cfg)
+ 		int gwa_type;
  
- #ifdef __KERNEL__
+ 		gw_addr = &cfg->fc_gateway;
++
++		/* if gw_addr is local we will fail to detect this in case
++		 * address is still TENTATIVE (DAD in progress). rt6_lookup()
++		 * will return already-added prefix route via interface that
++		 * prefix route was assigned to, which might be non-loopback.
++		 */
++		err = -EINVAL;
++		if (ipv6_chk_addr_and_flags(net, gw_addr, NULL, 0, 0))
++			goto out;
++
+ 		rt->rt6i_gateway = *gw_addr;
+ 		gwa_type = ipv6_addr_type(gw_addr);
  
-+#include <linux/acpi.h>
- #include <linux/types.h>
- #include <linux/vmalloc.h>
+@@ -1637,7 +1647,6 @@ int ip6_route_add(struct fib6_config *cfg)
+ 			   (SIT, PtP, NBMA NOARP links) it is handy to allow
+ 			   some exceptions. --ANK
+ 			 */
+-			err = -EINVAL;
+ 			if (!(gwa_type & IPV6_ADDR_UNICAST))
+ 				goto out;
  
-@@ -28,13 +29,23 @@
- 
- #define DMA_ERROR_CODE	(~(dma_addr_t)0)
- extern struct dma_map_ops *dma_ops;
-+extern struct dma_map_ops dummy_dma_ops;
- 
- static inline struct dma_map_ops *__generic_dma_ops(struct device *dev)
- {
--	if (unlikely(!dev) || !dev->archdata.dma_ops)
-+	if (unlikely(!dev))
- 		return dma_ops;
--	else
-+	else if (dev->archdata.dma_ops)
- 		return dev->archdata.dma_ops;
-+	else if (acpi_disabled)
-+		return dma_ops;
-+
-+	/*
-+	 * When ACPI is enabled, if arch_set_dma_ops is not called,
-+	 * we will disable device DMA capability by setting it
-+	 * to dummy_dma_ops.
-+	 */
-+	return &dummy_dma_ops;
- }
- 
- static inline struct dma_map_ops *get_dma_ops(struct device *dev)
-@@ -48,6 +59,9 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
- static inline void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
- 				      struct iommu_ops *iommu, bool coherent)
- {
-+	if (!acpi_disabled && !dev->archdata.dma_ops)
-+		dev->archdata.dma_ops = dma_ops;
-+
- 	dev->archdata.dma_coherent = coherent;
- }
- #define arch_setup_dma_ops	arch_setup_dma_ops
-diff --git a/arch/arm64/mm/dma-mapping.c b/arch/arm64/mm/dma-mapping.c
-index ef7d112..6e6d6ad 100644
---- a/arch/arm64/mm/dma-mapping.c
-+++ b/arch/arm64/mm/dma-mapping.c
-@@ -415,6 +415,98 @@ out:
- 	return -ENOMEM;
- }
- 
-+/********************************************
-+ * The following APIs are for dummy DMA ops *
-+ ********************************************/
-+
-+static void *__dummy_alloc(struct device *dev, size_t size,
-+			   dma_addr_t *dma_handle, gfp_t flags,
-+			   struct dma_attrs *attrs)
-+{
-+	return NULL;
-+}
-+
-+static void __dummy_free(struct device *dev, size_t size,
-+			 void *vaddr, dma_addr_t dma_handle,
-+			 struct dma_attrs *attrs)
-+{
-+}
-+
-+static int __dummy_mmap(struct device *dev,
-+			struct vm_area_struct *vma,
-+			void *cpu_addr, dma_addr_t dma_addr, size_t size,
-+			struct dma_attrs *attrs)
-+{
-+	return -ENXIO;
-+}
-+
-+static dma_addr_t __dummy_map_page(struct device *dev, struct page *page,
-+				   unsigned long offset, size_t size,
-+				   enum dma_data_direction dir,
-+				   struct dma_attrs *attrs)
-+{
-+	return DMA_ERROR_CODE;
-+}
-+
-+static void __dummy_unmap_page(struct device *dev, dma_addr_t dev_addr,
-+			       size_t size, enum dma_data_direction dir,
-+			       struct dma_attrs *attrs)
-+{
-+}
-+
-+static int __dummy_map_sg(struct device *dev, struct scatterlist *sgl,
-+			  int nelems, enum dma_data_direction dir,
-+			  struct dma_attrs *attrs)
-+{
-+	return 0;
-+}
-+
-+static void __dummy_unmap_sg(struct device *dev,
-+			     struct scatterlist *sgl, int nelems,
-+			     enum dma_data_direction dir,
-+			     struct dma_attrs *attrs)
-+{
-+}
-+
-+static void __dummy_sync_single(struct device *dev,
-+				dma_addr_t dev_addr, size_t size,
-+				enum dma_data_direction dir)
-+{
-+}
-+
-+static void __dummy_sync_sg(struct device *dev,
-+			    struct scatterlist *sgl, int nelems,
-+			    enum dma_data_direction dir)
-+{
-+}
-+
-+static int __dummy_mapping_error(struct device *hwdev, dma_addr_t dma_addr)
-+{
-+	return 1;
-+}
-+
-+static int __dummy_dma_supported(struct device *hwdev, u64 mask)
-+{
-+	return 0;
-+}
-+
-+struct dma_map_ops dummy_dma_ops = {
-+	.alloc                  = __dummy_alloc,
-+	.free                   = __dummy_free,
-+	.mmap                   = __dummy_mmap,
-+	.map_page               = __dummy_map_page,
-+	.unmap_page             = __dummy_unmap_page,
-+	.map_sg                 = __dummy_map_sg,
-+	.unmap_sg               = __dummy_unmap_sg,
-+	.sync_single_for_cpu    = __dummy_sync_single,
-+	.sync_single_for_device = __dummy_sync_single,
-+	.sync_sg_for_cpu        = __dummy_sync_sg,
-+	.sync_sg_for_device     = __dummy_sync_sg,
-+	.mapping_error          = __dummy_mapping_error,
-+	.dma_supported          = __dummy_dma_supported,
-+};
-+EXPORT_SYMBOL(dummy_dma_ops);
-+
- static int __init arm64_dma_init(void)
- {
- 	int ret;
 -- 
-2.1.0
-
+2.0.5
