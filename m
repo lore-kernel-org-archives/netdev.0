@@ -1,48 +1,78 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net: sched: fix call_rcu() race on classifier module
- unloads
-Date: Wed, 20 May 2015 20:12:25 +0200
-Message-ID: <555CCE89.10503@iogearbox.net>
-References: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net> <CAHA+R7PMC7Zi0gqAUFzfWfJ_CLTmNYqjSgAQH2kKVONEy_3gZQ@mail.gmail.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net-next v3] tcp: add rfc3168, section 6.1.1.1. fallback
+Date: Wed, 20 May 2015 11:13:08 -0700
+Message-ID: <CAGK4HS_U5Me2ubi-QPaceLiw-ZU7P9Q=ZOSpgg6SRqn-fA2Gaw@mail.gmail.com>
+References: <cc0be24818d7009208dd0d8f73cc35939957f134.1432059419.git.daniel@iogearbox.net>
+	<20150519.165400.818177627516799715.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, subramanian.vijay@gmail.com,
-	netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	netdev <netdev@vger.kernel.org>, fw@strlen.de,
+	mirja.kuehlewind@tik.ee.ethz.ch, trammell@tik.ee.ethz.ch,
 	Eric Dumazet <edumazet@google.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Cong Wang <cwang@twopensource.com>
+	Dave Taht <dave.taht@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54352 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754168AbbETSMa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 14:12:30 -0400
-In-Reply-To: <CAHA+R7PMC7Zi0gqAUFzfWfJ_CLTmNYqjSgAQH2kKVONEy_3gZQ@mail.gmail.com>
+Received: from mail-yh0-f47.google.com ([209.85.213.47]:36696 "EHLO
+	mail-yh0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754209AbbETSNJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 14:13:09 -0400
+Received: by yhrr66 with SMTP id r66so15107874yhr.3
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 11:13:08 -0700 (PDT)
+In-Reply-To: <20150519.165400.818177627516799715.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/20/2015 07:38 PM, Cong Wang wrote:
-...
-> Why synchronize_rcu() even matters here? It waits for
-> readers, not for RCU callbacks.
+Hi Daniel,
 
-Hm, I am mentioning it here as it was related to 78fd1d0ab072
-as explained in the commit message.
+With this commit, ifconfig does not show any of the interfaces and I
+don't have any connectivity as a result.
+Can you double check this?
 
->> Since we came here via unregister_tcf_proto_ops(), there
->> are no users of a given classifier anymore. Further nested
->> call_rcu()s pointing into the module space are not being
->> done anywhere.
+Thanks!
+Vijay
+
+On 19 May 2015 at 13:54, David Miller <davem@davemloft.net> wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Tue, 19 May 2015 21:33:42 +0200
 >
-> This doesn't look like the best way to fix it, since calling
-> call_rcu() is tc filter specific, so why not just move the
-> rcu_barrier() to each of the ->destroy() implementation?
-> Let each filter handle its own implementation bug.
-
-Effectively, every in-tree classifier (rsvp is the only exception)
-is making use of call_rcu(). Moreover, moving this into every
-->destroy() handler would also be unnecessary overhead, imho, as
-this is only relevant when we actually _unload_ a module.
+>> This work as a follow-up of commit f7b3bec6f516 ("net: allow setting=
+ ecn
+>> via routing table") and adds RFC3168 section 6.1.1.1. fallback for o=
+utgoing
+>> ECN connections. In other words, this work adds a retry with a non-E=
+CN
+>> setup SYN packet, as suggested from the RFC on the first timeout:
+>>
+>>   [...] A host that receives no reply to an ECN-setup SYN within the
+>>   normal SYN retransmission timeout interval MAY resend the SYN and
+>>   any subsequent SYN retransmissions with CWR and ECE cleared. [...]
+>  ...
+>> Reference: https://www.ietf.org/proceedings/92/slides/slides-92-iccr=
+g-1.pdf
+>> Reference: https://www.ietf.org/proceedings/89/slides/slides-89-tsva=
+rea-1.pdf
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>> Signed-off-by: Florian Westphal <fw@strlen.de>
+>> Signed-off-by: Mirja K=C3=BChlewind <mirja.kuehlewind@tik.ee.ethz.ch=
+>
+>> Signed-off-by: Brian Trammell <trammell@tik.ee.ethz.ch>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Dave T=C3=A4ht <dave.taht@gmail.com>
+>> ---
+>>  v2 -> v3:
+>>   - Very sorry. Typo happened in Dave's name since v1, getting it ri=
+ght
+>>     this time, no bad intentions. ;)
+>>  v1 -> v2:
+>>   - Added suggestion from Eric to let ecn_flags be cleared eventuall=
+y in
+>>     tcp_ecn_rcv_synack(), thanks!
+>>   - Rest as is.
+>
+> Applied, thanks everyone.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
