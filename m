@@ -1,79 +1,40 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [V4 PATCH 4/6] device property: Introduces
- device_dma_is_coherent()
-Date: Wed, 20 May 2015 11:28:29 +0100
-Message-ID: <20150520102829.GB11498@arm.com>
-References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <1431724994-21601-5-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: fix a double free issue for neighbour entry
+Date: Wed, 20 May 2015 03:45:37 -0700
+Message-ID: <1432118737.4060.21.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1432085113-25063-1-git-send-email-ying.xue@windriver.com>
+	 <1432099637.4060.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <555C313E.1020003@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "rjw@rjwysocki.net" <rjw@rjwysocki.net>,
-	"lenb@kernel.org" <lenb@kernel.org>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"thomas.lendacky@amd.com" <thomas.lendacky@amd.com>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"msalter@redhat.com" <msalter@redhat.com>,
-	"hanjun.guo@linaro.org" <hanjun.guo@linaro.org>,
-	"al.stone@linaro.org" <al.stone@linaro.org>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"leo.duran@amd.com" <leo.duran@amd.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linaro-acpi@lists.linaro.org" <linaro-acpi@lists.linaro.org>,
-	"netdev@vger.kernel.org"
-To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1431724994-21601-5-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	alexei@purestorage.com, joern@purestorage.com, ja@ssi.bg
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:34746 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903AbbETKpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:45:40 -0400
+Received: by igbhj9 with SMTP id hj9so57573812igb.1
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 03:45:39 -0700 (PDT)
+In-Reply-To: <555C313E.1020003@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 15, 2015 at 10:23:12PM +0100, Suravee Suthikulpanit wrote:
-> Currently, device drivers, which support both OF and ACPI,
-> need to call two separate APIs, of_dma_is_coherent() and
-> acpi_dma_is_coherent()) to determine device coherency attribute.
-> 
-> This patch simplifies this process by introducing a new device
-> property API, device_dma_is_coherent(), which calls the appropriate
-> interface based on the booting architecture.
-> 
-> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-> CC: Rafael J. Wysocki <rjw@rjwysocki.net>
-> ---
->  drivers/base/property.c  | 12 ++++++++++++
->  include/linux/property.h |  2 ++
->  2 files changed, 14 insertions(+)
-> 
-> diff --git a/drivers/base/property.c b/drivers/base/property.c
-> index 1d0b116..8123c6e 100644
-> --- a/drivers/base/property.c
-> +++ b/drivers/base/property.c
-> @@ -14,6 +14,7 @@
->  #include <linux/export.h>
->  #include <linux/kernel.h>
->  #include <linux/of.h>
-> +#include <linux/of_address.h>
->  #include <linux/property.h>
->  
->  /**
-> @@ -519,3 +520,14 @@ unsigned int device_get_child_node_count(struct device *dev)
->  	return count;
->  }
->  EXPORT_SYMBOL_GPL(device_get_child_node_count);
-> +
-> +bool device_dma_is_coherent(struct device *dev)
-> +{
-> +	if (IS_ENABLED(CONFIG_OF) && dev->of_node)
-> +		return of_dma_is_coherent(dev->of_node);
-> +	else if (has_acpi_companion(dev))
-> +		return acpi_dma_is_coherent(acpi_node(dev->fwnode));
+On Wed, 2015-05-20 at 15:01 +0800, Ying Xue wrote:
 
-I don't think you need the has_acpi_companion check, as acpi_node handles
-this and acpi_dma_is_coherent(NULL) returns false.
+> Time 4:
+> CPU 0:
+> Release the neigh whose refcnt was increased from 0 to zero.
+> neigh_release() is called by someone. As the neigh is already freed, panic
+> happens!!!
 
-Will
+There is a bug for sure, although I never saw it ever happening.
+
+I am only saying your 'fix' is not appropriate.
+
+You focus on refcnt which is the wrong thing to test in this context.
+
+Even if we decided to remove RCU locking and go back to rwlock, refcnt
+would not be the thing to test.
