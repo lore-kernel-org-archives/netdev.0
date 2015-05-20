@@ -1,59 +1,39 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
-Date: Wed, 20 May 2015 18:02:35 +0800
-Message-ID: <CACVXFVOwYSEwRinYNKx5tUopCc6p9mKT_NszZs8=coo6W6k89w@mail.gmail.com>
-References: <s5hwq04zypv.wl-tiwai@suse.de>
-	<Pine.LNX.4.44L0.1505191017460.1453-100000@iolanthe.rowland.org>
-	<s5hpp5wtrrp.wl-tiwai@suse.de>
-	<1432057375.3970.4.camel@suse.com>
-	<s5h7fs3u5gy.wl-tiwai@suse.de>
-	<1432111237.8287.3.camel@suse.com>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [V4 PATCH 2/6] arm64 : Introduce support for ACPI _CCA object
+Date: Wed, 20 May 2015 11:03:04 +0100
+Message-ID: <20150520100304.GE25313@e104818-lin.cambridge.arm.com>
+References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+ <1431724994-21601-3-git-send-email-Suravee.Suthikulpanit@amd.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Takashi Iwai <tiwai@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Laura Abbott <labbott@fedoraproject.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Laura Abbott <labbott@redhat.com>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
-	<linux-bluetooth@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432111237.8287.3.camel@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rjw@rjwysocki.net, lenb@kernel.org, will.deacon@arm.com,
+	bhelgaas@google.com, thomas.lendacky@amd.com,
+	herbert@gondor.apana.org.au, davem@davemloft.net, arnd@arndb.de,
+	al.stone@linaro.org, linaro-acpi@lists.linaro.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-acpi@vger.kernel.org, leo.duran@amd.com,
+	hanjun.guo@linaro.org, msalter@redhat.com, grant.likely@linaro.org,
+	linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org
+To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1431724994-21601-3-git-send-email-Suravee.Suthikulpanit@amd.com>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 4:40 PM, Oliver Neukum <oneukum@suse.com> wrote:
-> On Wed, 2015-05-20 at 08:29 +0200, Takashi Iwai wrote:
->> The data is cached in RAM.  More specifically, the former loaded
->> firmware files are reloaded and saved at suspend for each device
->> object.  See fw_pm_notify() in firmware_class.c.
->
-> OK, this may be a stupid idea, but do we know the firmware
-> was successfully loaded in the first place?
+On Fri, May 15, 2015 at 04:23:10PM -0500, Suravee Suthikulpanit wrote:
+> From http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf,
+> section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
+> object to be specified for DMA-cabpable devices. This patch introduces
+> ACPI_MUST_HAVE_CCA in arm64 Kconfig to specify such requirement.
+> 
+> In case _CCA is missing, arm64 would assign dummy_dma_ops
+> to disable DMA capability of the device.
+> 
+> Signed-off-by: Mark Salter <msalter@redhat.com>
+> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
+> CC: Catalin Marinas <catalin.marinas@arm.com>
+> CC: Will Deacon <will.deacon@arm.com>
+> CC: Arnd Bergmann <arnd@arndb.de>
 
-Yes, the firmware loader records that as device resource.
-In reality, there won't be lots of devices requiring firmware
-in one running system, so the idea of caching for every
-successful loading is workable.
-
-> Also btusb is in the habit of falling back to a generic
-> firmware in some places. It seems to me that caching
-> firmware is conceptually not enough, but we'd also need
-> to record the absence of firmware images.
-
-The caching can't cover the case which starts to load fw
-during resume in the 1st time.
-
->
->         Regards
->                 Oliver
->
->
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
