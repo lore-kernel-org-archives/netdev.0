@@ -1,96 +1,98 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net] net: sched: fix call_rcu() race on classifier module unloads
-Date: Wed, 20 May 2015 10:38:42 -0700
-Message-ID: <CAHA+R7PMC7Zi0gqAUFzfWfJ_CLTmNYqjSgAQH2kKVONEy_3gZQ@mail.gmail.com>
-References: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, subramanian.vijay@gmail.com,
-	netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH] Experimental new bonding driver mode=batman
+Date: Wed, 20 May 2015 10:45:33 -0700
+Message-ID: <10002.1432143933@nyx>
+References: <555AD3A7.7050202@netscape.net> <20150519074941.GB17391@unicorn.suse.cz> <555AF479.7000603@netscape.net> <20150520073221.GA19868@unicorn.suse.cz>
+Cc: Patrick Simmons <linuxrocks123@netscape.net>,
+	netdev@vger.kernel.org, Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:34430 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753431AbbETRio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 13:38:44 -0400
-Received: by wghq2 with SMTP id q2so60541007wgh.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 10:38:42 -0700 (PDT)
-In-Reply-To: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net>
+Received: from youngberry.canonical.com ([91.189.89.112]:51735 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752896AbbETRpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 13:45:39 -0400
+In-reply-to: <20150520073221.GA19868@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2015 at 8:13 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> Vijay reported that a loop as simple as ...
->
->   while true; do
->     tc qdisc add dev foo root handle 1: prio
->     tc filter add dev foo parent 1: u32 match u32 0 0  flowid 1
->     tc qdisc del dev foo root
->     rmmod cls_u32
->   done
->
-> ... will panic the kernel. Moreover, he bisected the change
-> apparently introducing it to 78fd1d0ab072 ("netlink: Re-add
-> locking to netlink_lookup() and seq walker").
+Michal Kubecek <mkubecek@suse.cz> wrote:
 
+>On Tue, May 19, 2015 at 04:29:45AM -0400, Patrick Simmons wrote:
+>> On 05/19/2015 03:49 AM, Michal Kubecek wrote:
+>> >On Tue, May 19, 2015 at 02:09:43AM -0400, Patrick Simmons wrote:
+>> >>
+>> >>I've written a new mode for the kernel bonding driver.  It's similar to
+>> >>the round-robin mode, but it keeps statistics on TCP resends so as to
+>> >>favor slave devices with more bandwidth when choosing where to send
+>> >>packets.  I've tested it on two laptops using WiFi/Ethernet and it seems
+>> >>to work okay, but it should be considered experimental.
+>> >
+>> >A description of how is the mode supposed to work would be definitely
+>> >helpful.
+>> >
+>> 
+>> Rationale: It's helpful for cases where the slave devices have
+>> significantly different or varying bandwidth.  The reason I wrote it
+>> is to bond powerline networking and wireless networking adapters
+>> into a single interface for use with connecting to a MythTV server.
+>> Neither of these systems is particularly reliable with bandwidth,
+>> but mode=batman can adaptively figure out which network has more
+>> available bandwidth at any given moment.  This is better than
+>> mode=round-robin which always balances everything 50/50.
+>
+>Thank you. But I rather meant some basic description of the algorithm
+>used to achieve this goal. Both should be IMHO part of the commit
+>message.
 
-Please include the stack trace whenever possible, it helps
-a lots even just for reviewing the patch.
+	Agreed; the concept sounds interesting, but without a detailed
+description of how it works it is difficult to evaluate its value.
 
+>> Regarding your analysis, I appreciate your comments, and I know it's
+>> rough, but I'm sorry to say I'm not really interested in doing much
+>> to improve its polish past where it is.  If it fails some way when I
+>> try to deploy it, then I'll fix that, and maybe I'll play around
+>> with the balancing heuristics, but the code quality is what it is
+>> unless someone else wants to improve it.  I would fix the
+>> indentation if that would make it acceptable for you to merge it,
+>> but not much more.  My argument for merging it is basically "it
+>> doesn't do anything unless you pass mode=batman, so what's the
+>> harm?".
+>> 
+>> So, if you guys decide you don't want to merge it because of the
+>> global spinlock etc., that's cool and I understand, but I thought I
+>> should at least post to this list so you and any other potentially
+>> interested people know it exists.  Oh, and, if you're not going to
+>> merge it, please let me know so I can know post the patch to GitHub
+>> or somewhere.  And, if you could include a note in the comments at
+>> the top of bond_main.c or somewhere pointing people to the patch,
+>> I'd very much appreciate that. I don't want anyone else to have to
+>> endure hours of kernel rebuilds with KASAN enabled if they want this
+>> functionality :)
 >
-> The removal of synchronize_net() from the netlink socket
-> triggering the qdisc to be removed, seems to have uncovered
-> an RCU resp. module reference count race from the tc API.
-> Given that RCU conversion was done after e341694e3eb5 ("netlink:
-> Convert netlink_lookup() to use RCU protected hash table")
-> which added the synchronize_net() originally, occasion of
-> hitting the bug was less likely (not impossible though):
->
-> When qdiscs that i) support attaching classifiers and,
-> ii) have at least one of them attached, get deleted, they
-> invoke tcf_destroy_chain(), and thus call into ->destroy()
-> handler from a classifier module.
->
-> After RCU conversion, all classifier that have an internal
-> prio list, unlink them and initiate freeing via call_rcu()
-> deferral.
->
-> Meanhile, tcf_destroy() releases already reference to the
-> tp->ops->owner module before the queued RCU callback handler
-> has been invoked.
->
-> Subsequent rmmod on the classifier module is then not prevented
-> since all module references are already dropped.
->
-> By the time, the kernel invokes the RCU callback handler from
-> the module, that function address is then invalid.
->
-> One way to fix it would be to add an rcu_barrier() to
-> unregister_tcf_proto_ops() to wait for all pending call_rcu()s
-> to complete.
->
-> synchronize_rcu() is not appropriate as under heavy RCU
-> callback load, registered call_rcu()s could be deferred
-> longer than a grace period. In case we don't have any pending
-> call_rcu()s, the barrier is allowed to return immediately.
+>Well, it's not my call, I'm not a bonding maintainer. But I believe at
+>least some of the objections would be shared by them. Of course, it's up
+>to you if you want to dedicate your time to improving the code to be
+>acceptable for mainline or rather maintain it out of tree (which may end
+>up taking even more time in the long term).
 
+	Well, I am a bonding maintainer, and I can say that the patch in
+its current state is not suitable for inclusion.
 
-Why synchronize_rcu() even matters here? It waits for
-readers, not for RCU callbacks.
+	At a minimum, there are many coding style issues, commented out
+debug statements, etc, along with design issues (e.g., the batman mode
+handling in bond_handle_frame is unconditional and takes place for all
+modes, not just the new batman mode).
 
->
-> Since we came here via unregister_tcf_proto_ops(), there
-> are no users of a given classifier anymore. Further nested
-> call_rcu()s pointing into the module space are not being
-> done anywhere.
+	If you (Patrick) or someone else wishes to contribute this to
+mainline, I'd suggest that the first step is to read and follow the
+instructions in Documentation/SubmittingPatches in the kernel source
+code.
 
+	It is also not feasible to add pointers in the kernel source
+code to out-of-tree patches; sorry.
 
-This doesn't look like the best way to fix it, since calling
-call_rcu() is tc filter specific, so why not just move the
-rcu_barrier() to each of the ->destroy() implementation?
-Let each filter handle its own implementation bug.
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
