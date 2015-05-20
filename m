@@ -1,8 +1,7 @@
 From: Arun Parameswaran <aparames@broadcom.com>
-Subject: [PATCH 1/1] net: core: 'ethtool' issue with querying phy settings
-Date: Wed, 20 May 2015 14:35:30 -0700
-Message-ID: <1432157730-26865-2-git-send-email-aparames@broadcom.com>
-References: <1432157730-26865-1-git-send-email-aparames@broadcom.com>
+Subject: [PATCH 0/1] Fix an issue with 'ethtool' configuring PHYs
+Date: Wed, 20 May 2015 14:35:29 -0700
+Message-ID: <1432157730-26865-1-git-send-email-aparames@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
@@ -10,59 +9,36 @@ Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<aparames@broadcom.com>, <sbranden@broadcom.com>,
 	<jdzheng@broadcom.com>
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432157730-26865-1-git-send-email-aparames@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:55002 "EHLO
+	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932234AbbETVgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 17:36:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When trying to configure the settings for PHY1, using commands
-like 'ethtool -s eth0 phyad 1 speed 100', the 'ethtool' seems to
-modify other settings apart from the speed of the PHY1, in the
-above case.
+Hi,
 
-The ethtool seems to query the settings for PHY0, and use this
-as the base to apply the new settings to the PHY1. This is
-causing the other settings of the PHY 1 to be wrongly
-configured.
+This patch fixes an issue while using the 'ethtool' to query/set PHY's
+configurations. The 'ethtool' interface in the Kernel seem to always
+query settings for PHY0, irrespective of the PHY specified, while
+issuing the 'ethtool' command.
 
-The issue is caused by the '_ethtool_get_settings()' API, which
-gets called because of the 'ETHTOOL_GSET' command, is clearing
-the 'cmd' pointer (of type 'struct ethtool_cmd') by calling
-memset. This clears all the parameters (if any) passed for the
-'ETHTOOL_GSET' cmd. So the driver's callback is always invoked
-with 'cmd->phy_address' as '0'.
+For example when issueing 'ethtool -s eth0 phyad 1 speed 100' command
+to set the speed of PHY1's speed, the current software would first
+retrieve PHY0 settings, then apply the request settings (in this case
+'speed') on top. It then uses this (PHY0's config with new speed)
+settings to update the PHY1, which now ends up with partial
+configurations of PHY0 and the new speed.
 
-The '_ethtool_get_settings()' is called from other files in the
-'net/core'. So the fix is applied to the 'ethtool_get_settings()'
-which is only called in the context of the 'ethtool'.
+This patch series is based on Linux v4.1-rc4 and is available in:
+https://github.com/Broadcom/cygnus-linux/tree/net-core-ethtool-fix-v1
 
-Signed-off-by: Arun Parameswaran <aparames@broadcom.com>
-Reviewed-by: Ray Jui <rjui@broadcom.com>
-Reviewed-by: Scott Branden <sbranden@broadcom.com>
----
+Arun Parameswaran (1):
+  SWMAPYVR-4339 net: core: 'ethtool' issue with querying phy settings
+
  net/core/ethtool.c |   10 +++++++++-
  1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 1d00b89..1347e11 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -359,7 +359,15 @@ static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
- 	int err;
- 	struct ethtool_cmd cmd;
- 
--	err = __ethtool_get_settings(dev, &cmd);
-+	if (!dev->ethtool_ops->get_settings)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
-+		return -EFAULT;
-+
-+	cmd.cmd = ETHTOOL_GSET;
-+
-+	err = dev->ethtool_ops->get_settings(dev, &cmd);
- 	if (err < 0)
- 		return err;
- 
 -- 
 1.7.9.5
