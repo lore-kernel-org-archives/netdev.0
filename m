@@ -1,64 +1,52 @@
-From: Deniz Eren <denizlist@denizeren.net>
-Subject: Packet capturing performance
-Date: Wed, 20 May 2015 16:13:54 +0300
-Message-ID: <CAHQdsZ-KmL-ksQzHni6ZbfREaZ7sumFkjh5qLwEwd+pdYWFsLw@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2] isdn: Use ktime_t instead of 'struct timeval'
+Date: Wed, 20 May 2015 15:56:28 +0200
+Message-ID: <6378639.MgDWU7ZGDD@wuerfel>
+References: <20150519073306.GA28427@tinar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: Tina Ruchandani <ruchandani.tina@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:36701 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751272AbbETNNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 09:13:54 -0400
-Received: by oihb9 with SMTP id b9so35381136oih.3
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 06:13:54 -0700 (PDT)
+Received: from mout.kundenserver.de ([212.227.126.187]:58617 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752560AbbETN4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 09:56:31 -0400
+In-Reply-To: <20150519073306.GA28427@tinar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tuesday 19 May 2015 13:03:06 Tina Ruchandani wrote:
+> 'struct timeval' uses 32-bit representation for seconds which will
+> overflow in year 2038 and beyond. mISDN/clock.c needs to compute and
+> store elapsed time in intervals of 125 microseconds. This patch replaces
+> the usage of 'struct timeval' with 64-bit ktime_t which is y2038 safe.
+> The patch also replaces do_gettimeofday() (wall-clock time) with 
+> ktime_get() (monotonic time) since we only care about elapsed time here.
+> 
+> Signed-off-by: Tina Ruchandani <ruchandani.tina@gmail.com>
+> Suggested-by: Arnd Bergmnann <arnd@arndb.de>
 
-I'm having problem with packet capturing performance on my linux server.
+Looks mostly ok now, just one detail left:
 
-I am using Intel ixgbe 10g NIC with v3.19.1 version driver over Linux
-3.15.9  based system. Naturally I can route 3.8Mpps packet from spoof
-(random source) addressed traffic.
+> +		delta = ktime_us_delta(tv_now, iclock_tv) / 125;
 
-Whenever I open netsniff-ng to listen interface to capture packets at
-silent mode, the capturing performance slows down at the same time to
-~1.2Mpps levels. I have doing pps measurements by watching the changes
-at "/sys/class/net/<interface_name>/statistics/rx_packets" so the
-performance can not be affected the measurements (instead of tcpstat
-etc).
+This line is something I suggested, but I have now realized that it's
+still wrong, because you introduce a 64-by-32-bit division here
+that will fail to link on most 32-bit architectures.
 
-My first theory was bpf is cause of this slowdown. When I try to
-analyze the reason of this bottleneck I see that the bpf affects the
-slow down ratio. When I narrow the filter to match 1/16 packet of
-traffic (for example: "src net 16.0.0.0/4" ), the capturing paket
-performance stay ~3.7Mpps. And I start 16 netsniff-ng process (each
-one process 1/16 part of entire traffic) with different filters the
-performance stays ~3.0Mpps and the union of the 16 filter equal to
-0.0.0.0/0 (0.0.0.0/4 + 16.0.0.0/4 + 32.0.0.0/4 + ...  + 248.0.0.0/4 =
-0.0.0.0/0) . In other words
-I think performance of network stack slow downs dramatically after a
-number of matching traffic packets with given bpf.
+Using a cast to 32-bit value would solve that, like
 
-But after some investigation and some advice from more expert people
-the problem seems to be pf_packet sockets overhead. But I don't know
-exactly where is the bottleneck. Do you have any idea exactly where
-could be the bottleneck?
+      delta = ((u32)ktime_us_delta(tv_now, iclock_tv)) / 125;
 
-Since I am using netfilter a lot, kernel bypass is not an option for me.
+as that would replace the 64-bit division with a 32-bit division.
+This is fine as long as the delta is never more than 71 minutes,
+otherwise you have to use
 
-To solve this problem I have two options for now:
+	delta = ktime_divns(ktime_sub(tv_now, iclock_tv), (NS_PER_SEC / 8000));
 
-- First one is experimenting socket fanout and adapting my tools to
-use socket fanout.
-- Second one is somehow similar, open more than one (ex: 16) socket
-MMAP'ed socket whose have different filters from each other to match
-with different part of the traffic at single netsniff_ng process. But
-this one is too hacky and requires user-space modifications.
+which is also potentially more efficient.
 
-But I want to ask is there a better solution to this problem? Am I
-missing a network tuning on linux or my ethernet device?
 
-Thanks in advance,
+	Arnd
