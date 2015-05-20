@@ -1,14 +1,12 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 12/12] sunrpc: Use DECLARE_BITMAP
-Date: Tue, 19 May 2015 18:38:00 -0700
-Message-ID: <ddf7dec5616d4e0fda0f9f2a31202dc80027f30a.1432085659.git.joe@perches.com>
+Subject: [PATCH 07/12] spider_net: Use DECLARE_BITMAP
+Date: Tue, 19 May 2015 18:37:55 -0700
+Message-ID: <07f70eba606c0bd11cba37f50dfb62e7a9e0c898.1432085659.git.joe@perches.com>
 References: <cover.1432085659.git.joe@perches.com>
-Cc: "J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org,
+	Ishizaki Kou <kou.ishizaki@toshiba.co.jp>,
+	Jens Osterkamp <jens@de.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1432085659.git.joe@perches.com>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -18,21 +16,22 @@ Use the generic mechanism to declare a bitmap instead of unsigned long.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- net/sunrpc/auth_gss/svcauth_gss.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/toshiba/spider_net.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-index 1095be9..e417476 100644
---- a/net/sunrpc/auth_gss/svcauth_gss.c
-+++ b/net/sunrpc/auth_gss/svcauth_gss.c
-@@ -320,7 +320,7 @@ struct gss_svc_seq_data {
- 	int			sd_max;
- 	/* for i such that sd_max-GSS_SEQ_WIN < i <= sd_max, the i-th bit of
- 	 * sd_win is nonzero iff sequence number i has been seen already: */
--	unsigned long		sd_win[GSS_SEQ_WIN/BITS_PER_LONG];
-+	DECLARE_BITMAP(sd_win, GSS_SEQ_WIN);
- 	spinlock_t		sd_lock;
- };
+diff --git a/drivers/net/ethernet/toshiba/spider_net.c b/drivers/net/ethernet/toshiba/spider_net.c
+index 8e9371a..3c54a2c 100644
+--- a/drivers/net/ethernet/toshiba/spider_net.c
++++ b/drivers/net/ethernet/toshiba/spider_net.c
+@@ -604,8 +604,7 @@ spider_net_set_multi(struct net_device *netdev)
+ 	int i;
+ 	u32 reg;
+ 	struct spider_net_card *card = netdev_priv(netdev);
+-	unsigned long bitmask[SPIDER_NET_MULTICAST_HASHES / BITS_PER_LONG] =
+-		{0, };
++	DECLARE_BITMAP(bitmask, SPIDER_NET_MULTICAST_HASHES) = {};
+ 
+ 	spider_net_set_promisc(card);
  
 -- 
 2.1.2
