@@ -1,9 +1,9 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 2/4] x86: bpf_jit: implement bpf_tail_call()
- helper
-Date: Tue, 19 May 2015 17:14:33 -0700
-Message-ID: <555BD1E9.5000000@plumgrid.com>
-References: <1432079946-9878-1-git-send-email-ast@plumgrid.com> <1432079946-9878-3-git-send-email-ast@plumgrid.com> <CALCETrVZyB+m8Oaad1JGwrLx1rTUoL0F6Afrvg_hQWiYyTTang@mail.gmail.com>
+Subject: Re: [PATCH net-next 1/4] bpf: allow bpf programs to tail-call other
+ bpf programs
+Date: Tue, 19 May 2015 17:18:44 -0700
+Message-ID: <555BD2E4.5050608@plumgrid.com>
+References: <1432079946-9878-1-git-send-email-ast@plumgrid.com> <1432079946-9878-2-git-send-email-ast@plumgrid.com> <CALCETrVP=7sCM12cCZVZCCMozGcHyqTsOFvjv7cEpc7Frxj4Xg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -17,51 +17,21 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrVZyB+m8Oaad1JGwrLx1rTUoL0F6Afrvg_hQWiYyTTang@mail.gmail.com>
+In-Reply-To: <CALCETrVP=7sCM12cCZVZCCMozGcHyqTsOFvjv7cEpc7Frxj4Xg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/19/15 5:11 PM, Andy Lutomirski wrote:
-> On Tue, May 19, 2015 at 4:59 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> bpf_tail_call() arguments:
->> ctx - context pointer
->> jmp_table - one of BPF_MAP_TYPE_PROG_ARRAY maps used as the jump table
->> index - index in the jump table
->>
->> In this implementation x64 JIT bypasses stack unwind and jumps into the
->> callee program after prologue, so the callee program reuses the same stack.
->>
->> The logic can be roughly expressed in C like:
->>
->> u32 tail_call_cnt;
->>
->> void *jumptable[2] = { &&label1, &&label2 };
->>
->> int bpf_prog1(void *ctx)
->> {
->> label1:
->>      ...
->> }
->>
->> int bpf_prog2(void *ctx)
->> {
->> label2:
->>      ...
->> }
->>
->> int bpf_prog1(void *ctx)
->> {
->>      ...
->>      if (tail_call_cnt++ < MAX_TAIL_CALL_CNT)
->>          goto *jumptable[index]; ... and pass my 'ctx' to callee ...
->>
->>      ... fall through if no entry in jumptable ...
->> }
->>
+On 5/19/15 5:13 PM, Andy Lutomirski wrote:
 >
-> What causes the stack pointer to be right?  Is there some reason that
-> the stack pointer is the same no matter where you are in the generated
-> code?
+> IMO this is starting to get a bit ugly.  Would it be possible to have
+> the program dereference the subprogram reference itself from the jump
+> table?  There would have to be a verifier type that represents a
+> reference to a program tail-call entry point, but that seems better
+> than having this weird indirection.
 
-that's why I said 'it's _roughly_ expressed in C' this way.
-Stack pointer doesn't change. It uses the same stack frame.
+Which part? I don't think you've looked at examples yet.
+network parser has to call itself. Otherwise we cannot parse 10 mpls
+labels or TLVs.
+Indirection via jump_table also has to be there.
+We need to dynamically add and remove programs form this jump table.
+It cannot be all static.
