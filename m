@@ -1,7 +1,8 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 2/4] sfc: add sysfs entry to control MCDI tracing
-Date: Wed, 20 May 2015 16:50:16 +0100
-Message-ID: <555CAD38.30603@solarflare.com>
+Subject: [PATCH net-next 3/4] sfc: add module parameter to enable MCDI logging
+ on new functions
+Date: Wed, 20 May 2015 16:50:31 +0100
+Message-ID: <555CAD47.1090805@solarflare.com>
 References: <555CACF5.9060803@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -9,152 +10,56 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:10439 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753505AbbETPup (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 11:50:45 -0400
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:62478 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753681AbbETPu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 11:50:56 -0400
 In-Reply-To: <555CACF5.9060803@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MCDI tracing is enabled per-function with a sysfs file
-    /sys/class/net/<NET_DEV>/device/mcdi_logging
+As many issues are encountered at probe time, where MCDI logging can't be
+ enabled through the sysfs node, this change adds a module parameter
+ 'mcdi_logging_default', which defaults to false.  When set to true, newly-
+ probed functions will have MCDI logging enabled.  The setting can
+ subsequently be changed as normal through the sysfs node.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/Kconfig |  3 ++-
- drivers/net/ethernet/sfc/efx.c   | 49 ++++++++++++++++++++++++++++++++++------
- drivers/net/ethernet/sfc/mcdi.c  |  4 ++--
- drivers/net/ethernet/sfc/mcdi.h  |  2 ++
- 4 files changed, 48 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/sfc/mcdi.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/drivers/net/ethernet/sfc/Kconfig b/drivers/net/ethernet/sfc/Kconfig
-index c4ba42b..4dd92b7 100644
---- a/drivers/net/ethernet/sfc/Kconfig
-+++ b/drivers/net/ethernet/sfc/Kconfig
-@@ -43,4 +43,5 @@ config SFC_MCDI_LOGGING
- 	---help---
- 	  This enables support for tracing of MCDI (Management-Controller-to-
- 	  Driver-Interface) commands and responses, allowing debugging of
--	  driver/firmware interaction.
-+	  driver/firmware interaction.  The tracing is actually enabled by
-+	  a sysfs file 'mcdi_logging' under the PCI device.
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 0f127a0..86a2da5 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2298,6 +2298,28 @@ show_phy_type(struct device *dev, struct device_attribute *attr, char *buf)
- }
- static DEVICE_ATTR(phy_type, 0444, show_phy_type, NULL);
- 
-+#ifdef CONFIG_SFC_MCDI_LOGGING
-+static ssize_t show_mcdi_log(struct device *dev, struct device_attribute *attr,
-+			     char *buf)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
-+	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
-+
-+	return scnprintf(buf, PAGE_SIZE, "%d\n", mcdi->logging_enabled);
-+}
-+static ssize_t set_mcdi_log(struct device *dev, struct device_attribute *attr,
-+			    const char *buf, size_t count)
-+{
-+	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
-+	struct efx_mcdi_iface *mcdi = efx_mcdi(efx);
-+	bool enable = count > 0 && *buf != '0';
-+
-+	mcdi->logging_enabled = enable;
-+	return count;
-+}
-+static DEVICE_ATTR(mcdi_logging, 0644, show_mcdi_log, set_mcdi_log);
-+#endif
-+
- static int efx_register_netdev(struct efx_nic *efx)
- {
- 	struct net_device *net_dev = efx->net_dev;
-@@ -2355,9 +2377,21 @@ static int efx_register_netdev(struct efx_nic *efx)
- 			  "failed to init net dev attributes\n");
- 		goto fail_registered;
- 	}
-+#ifdef CONFIG_SFC_MCDI_LOGGING
-+	rc = device_create_file(&efx->pci_dev->dev, &dev_attr_mcdi_logging);
-+	if (rc) {
-+		netif_err(efx, drv, efx->net_dev,
-+			  "failed to init net dev attributes\n");
-+		goto fail_attr_mcdi_logging;
-+	}
-+#endif
- 
- 	return 0;
- 
-+#ifdef CONFIG_SFC_MCDI_LOGGING
-+fail_attr_mcdi_logging:
-+	device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
-+#endif
- fail_registered:
- 	rtnl_lock();
- 	efx_dissociate(efx);
-@@ -2376,13 +2410,14 @@ static void efx_unregister_netdev(struct efx_nic *efx)
- 
- 	BUG_ON(netdev_priv(efx->net_dev) != efx);
- 
--	strlcpy(efx->name, pci_name(efx->pci_dev), sizeof(efx->name));
--	device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
--
--	rtnl_lock();
--	unregister_netdevice(efx->net_dev);
--	efx->state = STATE_UNINIT;
--	rtnl_unlock();
-+	if (efx_dev_registered(efx)) {
-+		strlcpy(efx->name, pci_name(efx->pci_dev), sizeof(efx->name));
-+#ifdef CONFIG_SFC_MCDI_LOGGING
-+		device_remove_file(&efx->pci_dev->dev, &dev_attr_mcdi_logging);
-+#endif
-+		device_remove_file(&efx->pci_dev->dev, &dev_attr_phy_type);
-+		unregister_netdev(efx->net_dev);
-+	}
- }
- 
- /**************************************************************************
 diff --git a/drivers/net/ethernet/sfc/mcdi.c b/drivers/net/ethernet/sfc/mcdi.c
-index 1400ed4..3e4137c 100644
+index 3e4137c..1f7153d 100644
 --- a/drivers/net/ethernet/sfc/mcdi.c
 +++ b/drivers/net/ethernet/sfc/mcdi.c
-@@ -188,7 +188,7 @@ static void efx_mcdi_send_request(struct efx_nic *efx, unsigned cmd,
- 	}
- 
- #ifdef CONFIG_SFC_MCDI_LOGGING
--	if (!WARN_ON_ONCE(!buf)) {
-+	if (mcdi->logging_enabled && !WARN_ON_ONCE(!buf)) {
- 		int bytes = 0;
- 		int i;
- 		/* Lengths should always be a whole number of dwords, so scream
-@@ -274,7 +274,7 @@ static void efx_mcdi_read_response_header(struct efx_nic *efx)
- 	}
- 
- #ifdef CONFIG_SFC_MCDI_LOGGING
--	if (!WARN_ON_ONCE(!buf)) {
-+	if (mcdi->logging_enabled && !WARN_ON_ONCE(!buf)) {
- 		size_t hdr_len, data_len;
- 		int bytes = 0;
- 		int i;
-diff --git a/drivers/net/ethernet/sfc/mcdi.h b/drivers/net/ethernet/sfc/mcdi.h
-index 2f6f032..47035a0 100644
---- a/drivers/net/ethernet/sfc/mcdi.h
-+++ b/drivers/net/ethernet/sfc/mcdi.h
-@@ -59,6 +59,7 @@ enum efx_mcdi_mode {
-  * @async_list: Queue of asynchronous requests
-  * @async_timer: Timer for asynchronous request timeout
-  * @logging_buffer: buffer that may be used to build MCDI tracing messages
-+ * @logging_enabled: whether to trace MCDI
+@@ -8,6 +8,7 @@
   */
- struct efx_mcdi_iface {
- 	struct efx_nic *efx;
-@@ -77,6 +78,7 @@ struct efx_mcdi_iface {
- 	struct timer_list async_timer;
- #ifdef CONFIG_SFC_MCDI_LOGGING
- 	char *logging_buffer;
-+	bool logging_enabled;
- #endif
- };
  
+ #include <linux/delay.h>
++#include <linux/moduleparam.h>
+ #include <asm/cmpxchg.h>
+ #include "net_driver.h"
+ #include "nic.h"
+@@ -54,6 +55,13 @@ static int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+ static bool efx_mcdi_poll_once(struct efx_nic *efx);
+ static void efx_mcdi_abandon(struct efx_nic *efx);
+ 
++#ifdef CONFIG_SFC_MCDI_LOGGING
++static bool mcdi_logging_default;
++module_param(mcdi_logging_default, bool, 0644);
++MODULE_PARM_DESC(mcdi_logging_default,
++		 "Enable MCDI logging on newly-probed functions");
++#endif
++
+ int efx_mcdi_init(struct efx_nic *efx)
+ {
+ 	struct efx_mcdi_iface *mcdi;
+@@ -71,6 +79,7 @@ int efx_mcdi_init(struct efx_nic *efx)
+ 	mcdi->logging_buffer = (char *)__get_free_page(GFP_KERNEL);
+ 	if (!mcdi->logging_buffer)
+ 		goto fail1;
++	mcdi->logging_enabled = mcdi_logging_default;
+ #endif
+ 	init_waitqueue_head(&mcdi->wq);
+ 	spin_lock_init(&mcdi->iface_lock);
