@@ -1,141 +1,114 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH v3 net-next 4/4] rocker: make rocker_port_internal_vlan_id_{get,put}() non-transactional
-Date: Wed, 20 May 2015 14:48:22 +0900
-Message-ID: <1432100902-10187-5-git-send-email-simon.horman@netronome.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v3 net-next 1/4] rocker: do not delete fdb entries in
+ rocker_port_fdb_flush() when preparing transactions
+Date: Wed, 20 May 2015 08:01:10 +0200
+Message-ID: <20150520060110.GA2228@nanopsycho.orion>
 References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	David Miller <davem@davemloft.net>
+ <1432100902-10187-2-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <sfeldma@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:35758 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752004AbbETFsp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 01:48:45 -0400
-Received: by pdea3 with SMTP id a3so55680342pde.2
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 22:48:44 -0700 (PDT)
-In-Reply-To: <1432100902-10187-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:36525 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751716AbbETGBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 02:01:19 -0400
+Received: by wgbgq6 with SMTP id gq6so40873372wgb.3
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 23:01:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1432100902-10187-2-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The motivation for this is that rocker_port_internal_vlan_id_{get,put} appear
-to only partially implement the transaction model: memory allocation
-and freeing is transactional, but hash and bitmap manipulation is not.
+Wed, May 20, 2015 at 07:48:19AM CEST, simon.horman@netronome.com wrote:
+>rocker_port_fdb_flush() is called by rocker_port_stp_update() which in
+>turn may be called with trans == SWITCHDEV_TRANS_PREPARE and then
+>trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_attr_set() via
+>br_set_state().
+>
+>When rocker_port_fdb_flush() is called with trans == SWITCHDEV_TRANS_PREPARE
+>it calls rocker_port_fdb_learn() for each entry in the FDB table which in
+>turn calls rocker_flow_tbl_bridge() which will allocate memory using
+>rocker_port_kzalloc(). rocker_port_fdb_learn() will then remove the entry
+>from the FDB table.
+>
+>Then when rocker_port_fdb_learn() is called with
+>trans == SWITCHDEV_TRANS_PREPARE no calls are made to rocker_port_fdb_learn()
+>because there are no longer any entries present in the FDB table. Thus the
+>memory previously allocated by rocker_port_fdb_learn() is leaked resulting
+>in the kernel BUG() below.
+>
+>Furthermore, it looks like the driver ends up with an incorrect view of the
+>fdb table as the FDB entries are purged from the driver's table but not the
+>hardware's table.
+>
+>ip link add br0 type bridge
+>ip link set up dev eth0
+>sleep 1
+>ip link set dev eth0 master br0
+>[    3.704360] ------------[ cut here ]------------
+>[    3.704611] kernel BUG at drivers/net/ethernet/rocker/rocker.c:4289!
+>[    3.704962] invalid opcode: 0000 [#1] SMP
+>[    3.705537] Modules linked in:
+>[    3.705919] CPU: 0 PID: 63 Comm: ip Not tainted 4.1.0-rc3-01046-gb9fbe709de4d #1044
+>[    3.706191] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.0-0-g4c59f5d-20150219_092859-nilsson.home.kraxel.org 04/01/2014
+>[    3.706820] task: ffff880019f70150 ti: ffff88001f92c000 task.ti: ffff88001f92c000
+>[    3.707138] RIP: 0010:[<ffffffff811f0080>]  [<ffffffff811f0080>] rocker_port_attr_set+0xe0/0xf0
+>[    3.707990] RSP: 0018:ffff88001f92f808  EFLAGS: 00000212
+>[    3.708200] RAX: ffff880019d4fa68 RBX: ffff880019d4f000 RCX: 0000000000000000
+>[    3.708471] RDX: 000000000000000c RSI: ffff88001f92f890 RDI: ffff880019d4f680
+>[    3.708740] RBP: 0000000000000001 R08: 0000000000000000 R09: 0000000000000004
+>[    3.708999] R10: ffff880000034024 R11: 0000000000000000 R12: ffff88001f92f890
+>[    3.709276] R13: ffff88001f8f1c00 R14: 000000000000000b R15: 0000000000000000
+>[    3.709303] FS:  00007f8ab66bd700(0000) GS:ffff88001b000000(0000) knlGS:0000000000000000
+>[    3.709303] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>[    3.709303] CR2: 0000000000654988 CR3: 000000001f8f3000 CR4: 00000000000006b0
+>[    3.709303] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+>[    3.709303] DR3: 0000000000000000 DR6: 0000000000000000 DR7: 0000000000000000
+>[    3.709303] Stack:
+>[    3.709303]  ffff88001f8f1c00 000000000000000b ffff88001f92f890 ffff880019d4f000
+>[    3.709303]  ffff88001f92f890 ffffffff813332f5 ffff88001f92f880 0000000000000000
+>[    3.709303]  ffff88001f92f890 0000000000000001 ffff880019d4f000 ffffffff81333627
+>[    3.709303] Call Trace:
+>[    3.709303]  [<ffffffff813332f5>] ? __switchdev_port_attr_set+0x25/0x90
+>[    3.709303]  [<ffffffff81333627>] ? switchdev_port_attr_set+0x27/0x120
+>[    3.709303]  [<ffffffff81318e86>] ? br_set_state+0x36/0x50
+>[    3.709303]  [<ffffffff8131795c>] ? br_add_if+0x37c/0x400
+>[    3.709303]  [<ffffffff81238ce1>] ? do_setlink+0x7e1/0x800
+>[    3.709303]  [<ffffffff8111f980>] ? radix_tree_lookup_slot+0x10/0x30
+>[    3.709303]  [<ffffffff81136fba>] ? nla_parse+0xaa/0x110
+>[    3.709303]  [<ffffffff81239c98>] ? rtnl_newlink+0x548/0x870
+>[    3.709303]  [<ffffffff8111f900>] ? __radix_tree_lookup+0x40/0xb0
+>[    3.709303]  [<ffffffff81136f3e>] ? nla_parse+0x2e/0x110
+>[    3.709303]  [<ffffffff81237d7e>] ? rtnetlink_rcv_msg+0x7e/0x250
+>[    3.709303]  [<ffffffff8121d1be>] ? __skb_recv_datagram+0xfe/0x4b0
+>[    3.709303]  [<ffffffff81237d00>] ? rtnetlink_rcv+0x30/0x30
+>[    3.709303]  [<ffffffff81247948>] ? netlink_rcv_skb+0xa8/0xd0
+>[    3.709303]  [<ffffffff81237cef>] ? rtnetlink_rcv+0x1f/0x30
+>[    3.709303]  [<ffffffff81247210>] ? netlink_unicast+0x150/0x200
+>[    3.709303]  [<ffffffff81247704>] ? netlink_sendmsg+0x374/0x3e0
+>[    3.709303]  [<ffffffff8120f8cf>] ? sock_sendmsg+0xf/0x30
+>[    3.709303]  [<ffffffff8120ffc3>] ? ___sys_sendmsg+0x1f3/0x200
+>[    3.709303]  [<ffffffff812100d5>] ? ___sys_recvmsg+0x105/0x140
+>[    3.709303]  [<ffffffff812228d9>] ? dev_get_by_name_rcu+0x69/0x90
+>[    3.709303]  [<ffffffff812228d9>] ? dev_get_by_name_rcu+0x69/0x90
+>[    3.709303]  [<ffffffff81217b7d>] ? skb_dequeue+0x4d/0x60
+>[    3.709303]  [<ffffffff81217bb0>] ? skb_queue_purge+0x20/0x30
+>[    3.709303]  [<ffffffff810ebdcf>] ? __inode_wait_for_writeback+0x5f/0xb0
+>[    3.709303]  [<ffffffff810648b0>] ? autoremove_wake_function+0x30/0x30
+>[    3.709303]  [<ffffffff81210ee9>] ? __sys_sendmsg+0x39/0x70
+>[    3.709303]  [<ffffffff8133e097>] ? system_call_fastpath+0x12/0x6a
+>[    3.709303] Code: bb 90 06 00 00 48 c7 04 24 00 00 00 00 45 31 c9 45 31 c0 48 c7 c1 c0 b7 1e 81 89 ea e8 da da ff ff eb 95 0f 1f 84 00 00 00 00 00 <0f> 0b 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 48 83 fe 15 75
+>[    3.709303] RIP  [<ffffffff811f0080>] rocker_port_attr_set+0xe0/0xf0
+>[    3.709303]  RSP <ffff88001f92f808>
+>[    3.721409] ---[ end trace b7481fcb7cb032aa ]---
+>Segmentation fault
+>
+>Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
+>Acked-by: Scott Feldman <sfeldma@gmail.com>
+>Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-The latter could be fixed, however, as it is not currently exercised
-due to trans always being SWITCHDEV_TRANS_NONE it seems cleaner
-to make rocker_port_internal_vlan_id_get non-transactional.
 
-Found by inspection.
-I do not believe that this change should have any run-time effect.
-
-Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
-Acked-by: Scott Feldman <sfeldma@gmail.com>
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
-
----
-v3
-* No change
-
-v2
-* Added Scott Feldman's ack
----
- drivers/net/ethernet/rocker/rocker.c | 21 +++++++--------------
- 1 file changed, 7 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index fde3186074bb..573179f9f63e 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3852,7 +3852,6 @@ rocker_internal_vlan_tbl_find(struct rocker *rocker, int ifindex)
- }
- 
- static __be16 rocker_port_internal_vlan_id_get(struct rocker_port *rocker_port,
--					       enum switchdev_trans trans,
- 					       int ifindex)
- {
- 	struct rocker *rocker = rocker_port->rocker;
-@@ -3861,7 +3860,7 @@ static __be16 rocker_port_internal_vlan_id_get(struct rocker_port *rocker_port,
- 	unsigned long lock_flags;
- 	int i;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, sizeof(*entry));
-+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry)
- 		return 0;
- 
-@@ -3871,7 +3870,7 @@ static __be16 rocker_port_internal_vlan_id_get(struct rocker_port *rocker_port,
- 
- 	found = rocker_internal_vlan_tbl_find(rocker, ifindex);
- 	if (found) {
--		rocker_port_kfree(rocker_port, trans, entry);
-+		kfree(entry);
- 		goto found;
- 	}
- 
-@@ -3895,7 +3894,6 @@ found:
- }
- 
- static void rocker_port_internal_vlan_id_put(struct rocker_port *rocker_port,
--					     enum switchdev_trans trans,
- 					     int ifindex)
- {
- 	struct rocker *rocker = rocker_port->rocker;
-@@ -3917,7 +3915,7 @@ static void rocker_port_internal_vlan_id_put(struct rocker_port *rocker_port,
- 		bit = ntohs(found->vlan_id) - ROCKER_INTERNAL_VLAN_ID_BASE;
- 		clear_bit(bit, rocker->internal_vlan_bitmap);
- 		hash_del(&found->entry);
--		rocker_port_kfree(rocker_port, trans, found);
-+		kfree(found);
- 	}
- 
- not_found:
-@@ -4903,9 +4901,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 	rocker_port_set_learning(rocker_port, SWITCHDEV_TRANS_NONE);
- 
- 	rocker_port->internal_vlan_id =
--		rocker_port_internal_vlan_id_get(rocker_port,
--						 SWITCHDEV_TRANS_NONE,
--						 dev->ifindex);
-+		rocker_port_internal_vlan_id_get(rocker_port, dev->ifindex);
- 	err = rocker_port_ig_tbl(rocker_port, SWITCHDEV_TRANS_NONE, 0);
- 	if (err) {
- 		dev_err(&pdev->dev, "install ig port table failed\n");
-@@ -5153,7 +5149,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
- {
- 	int err;
- 
--	rocker_port_internal_vlan_id_put(rocker_port, SWITCHDEV_TRANS_NONE,
-+	rocker_port_internal_vlan_id_put(rocker_port,
- 					 rocker_port->dev->ifindex);
- 
- 	rocker_port->bridge_dev = bridge;
-@@ -5164,9 +5160,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
- 	if (err)
- 		return err;
- 	rocker_port->internal_vlan_id =
--		rocker_port_internal_vlan_id_get(rocker_port,
--						 SWITCHDEV_TRANS_NONE,
--						 bridge->ifindex);
-+		rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
- 	return rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE, 0, 0);
- }
- 
-@@ -5174,7 +5168,7 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
- {
- 	int err;
- 
--	rocker_port_internal_vlan_id_put(rocker_port, SWITCHDEV_TRANS_NONE,
-+	rocker_port_internal_vlan_id_put(rocker_port,
- 					 rocker_port->bridge_dev->ifindex);
- 
- 	rocker_port->bridge_dev = NULL;
-@@ -5186,7 +5180,6 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
- 		return err;
- 	rocker_port->internal_vlan_id =
- 		rocker_port_internal_vlan_id_get(rocker_port,
--						 SWITCHDEV_TRANS_NONE,
- 						 rocker_port->dev->ifindex);
- 	err = rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE, 0, 0);
- 	if (err)
--- 
-2.1.4
+Acked-by: Jiri Pirko <jiri@resnulli.us>
