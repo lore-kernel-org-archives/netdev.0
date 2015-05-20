@@ -1,40 +1,43 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 2/4] net: af_unix: implement stream sendpage support
-Date: Wed, 20 May 2015 11:40:01 -0700
-Message-ID: <CAHA+R7N+bnm5TpiR=UhsYHy9EvPTOj55wBJ2sg9ybLBL8WJX_w@mail.gmail.com>
-References: <cover.1432135413.git.hannes@stressinduktion.org>
-	<06647895d82d7a5188b522c00cf28398b3410628.1432135413.git.hannes@stressinduktion.org>
+From: Andy Grover <agrover-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH 0/4] Make iSCSI network namespace aware
+Date: Wed, 20 May 2015 11:45:43 -0700
+Message-ID: <555CD657.6080004@redhat.com>
+References: <1431555167-23995-1-git-send-email-cleech@redhat.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:34496 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753123AbbETSkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 14:40:03 -0400
-Received: by wghq2 with SMTP id q2so62167473wgh.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 11:40:01 -0700 (PDT)
-In-Reply-To: <06647895d82d7a5188b522c00cf28398b3410628.1432135413.git.hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <open-iscsi+bncBD7KBJUK5QPBBWNM6OVAKGQESSIJQWY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1431555167-23995-1-git-send-email-cleech-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Post: <http://groups.google.com/group/open-iscsi/post>, <mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/open-iscsi
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe>, <mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+856124926423+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <http://groups.google.com/group/open-iscsi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 8:35 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
+On 05/13/2015 03:12 PM, Chris Leech wrote:
+> This is only about the structures and functionality involved in maintaining the
+> iSCSI session, the SCSI host along with it's discovered targets and devices has
+> no association with network namespaces.
 >
-> +static ssize_t unix_stream_sendpage(struct socket *socket, struct page *page,
-> +                                   int offset, size_t size, int flags)
-> +{
-> +       int err;
-> +       bool send_sigpipe;
-> +       struct sock *sk, *other;
-> +       struct sk_buff *skb, *newskb, *tail;
-> +
-> +       err = 0;
-> +       tail = NULL;
-> +       newskb = NULL;
-> +       sk = socket->sk;
-> +       send_sigpipe = true;
+> These patches are functional, but not complete.  There's no isolation enforced
+> in the kernel just yet, so it relies on well behaved userspace.  I plan on
+> fixing that, but wanted some feedback on the idea and approach so far.
 
+Seems like a good direction, to me.
 
-Please fold them.
+What would be the extent of the userspace (open-iscsi) changes needed to 
+go along with this?
+
+Regards -- Andy
+
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To unsubscribe from this group and stop receiving emails from it, send an email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+Visit this group at http://groups.google.com/group/open-iscsi.
+For more options, visit https://groups.google.com/d/optout.
