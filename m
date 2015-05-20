@@ -1,39 +1,50 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] irda: irda-usb: use msecs_to_jiffies for conversions
-Date: Tue, 19 May 2015 20:57:17 -0700
-Message-ID: <1432094237.2870.262.camel@perches.com>
-References: <1432032711-7020-1-git-send-email-hofrat@osadl.org>
-	 <1432045935.2870.152.camel@perches.com>
-	 <20150519.164555.1631069770118420652.davem@davemloft.net>
-	 <1432069747.2870.215.camel@perches.com>
-	 <20150520014408.GA19321@roeck-us.net>
+Subject: [PATCH] qlge: Move jiffies_to_usecs immediately before loop
+Date: Tue, 19 May 2015 21:44:52 -0700
+Message-ID: <1432097092.2870.266.camel@perches.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, hofrat@osadl.org,
-	samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
+Cc: Dept-GELinuxNICDev@qlogic.com, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Harish Patil <harish.patil@qlogic.com>,
+	Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150520014408.GA19321@roeck-us.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2015-05-19 at 18:44 -0700, Guenter Roeck wrote:
-> On Tue, May 19, 2015 at 02:09:07PM -0700, Joe Perches wrote:
-> > The other thing that could be done is to use
-> > 	max(1ul, msecs_to_jiffies())
-> > so that there's always some delay even if HZ <= 50
-> > 
-> I may be mistaken, but I am quite sure that msecs_to_jiffies() always returns
-> at least 1 in such situations. Otherwise there would be lots of conversions
-> to 0 in the kernel.
+30 usecs (or really, 1 jiffy) can go by pretty fast.
 
-Thanks Guenter
+Move the set of the timeout immediately before the loop.
 
-Nope, you're not mistaken.
+Remove the unnecessary max(1ul, usecs_to_jiffies(30)) as
+usecs_to_jiffies with a non-zero constant is guaranteed
+to be non-zero.
 
-Non 0 constants always return a value > 0
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-The existing uses like max(1ul, msecs_to_jiffies(<variable>))
-just guard against <variable> being 0.
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index 25800a1..02b7115 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -3871,9 +3871,6 @@ static int ql_adapter_reset(struct ql_adapter *qdev)
+ 		return status;
+ 	}
+ 
+-	end_jiffies = jiffies +
+-		max((unsigned long)1, usecs_to_jiffies(30));
+-
+ 	/* Check if bit is set then skip the mailbox command and
+ 	 * clear the bit, else we are in normal reset process.
+ 	 */
+@@ -3888,6 +3885,7 @@ static int ql_adapter_reset(struct ql_adapter *qdev)
+ 
+ 	ql_write32(qdev, RST_FO, (RST_FO_FR << 16) | RST_FO_FR);
+ 
++	end_jiffies = jiffies + usecs_to_jiffies(30);
+ 	do {
+ 		value = ql_read32(qdev, RST_FO);
+ 		if ((value & RST_FO_FR) == 0)
