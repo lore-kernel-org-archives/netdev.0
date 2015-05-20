@@ -1,61 +1,50 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: ingress policying for realtime protocol
-Date: Wed, 20 May 2015 16:46:54 -0700
-Message-ID: <CAHA+R7N8wFKPzOR0EshWzcaTUd+ChMW0zb0=1go4oV_gxoAyiA@mail.gmail.com>
-References: <20150519211145.GA23134@pengutronix.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/4] net: af_unix: implement stream sendpage support
+Date: Thu, 21 May 2015 01:47:49 +0200
+Message-ID: <1432165669.742118.274281209.1779FF2D@webmail.messagingengine.com>
+References: <cover.1432135413.git.hannes@stressinduktion.org>
+ <06647895d82d7a5188b522c00cf28398b3410628.1432135413.git.hannes@stressinduktion.org>
+ <1432164094.4060.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:35431 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150AbbETXq4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:46:56 -0400
-Received: by wicmx19 with SMTP id mx19so171797923wic.0
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 16:46:55 -0700 (PDT)
-In-Reply-To: <20150519211145.GA23134@pengutronix.de>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:49304 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754564AbbETXru (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:47:50 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id C1F1020926
+	for <netdev@vger.kernel.org>; Wed, 20 May 2015 19:47:49 -0400 (EDT)
+In-Reply-To: <1432164094.4060.51.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(Cc'ing Jamal)
+On Thu, May 21, 2015, at 01:21, Eric Dumazet wrote:
+> On Wed, 2015-05-20 at 17:35 +0200, Hannes Frederic Sowa wrote:
+> > This patch implements sendpage support for AF_UNIX SOCK_STREAM
+> > +
+> > +	if (newskb)
+> > +		skb_queue_tail(&other->sk_receive_queue, newskb);
+> 
+> Are you sure we need the skb_queue_tail() here (taking spinlock) ?
+> 
+> This would tell us there might be a possible race.
+> 
+> A comment would be nice eventually.
 
-On Tue, May 19, 2015 at 2:11 PM, Uwe Kleine-K=C3=B6nig
-<u.kleine-koenig@pengutronix.de> wrote:
-> Hello,
->
-> I hope this is the/a right list to ask this question. If not, I'd be
-> happy to learn the right alternative.
->
-> For a system that implements the Media Redundancy Protocol (MRP,
-> http://en.wikipedia.org/wiki/Media_Redundancy_Protocol) I'm faced wit=
-h
-> the task to assert that the corresponding ethernet packets are handle=
-d
-> "in time". Currently this fails already if I do
->
->         scp somebigfile mymrpsystem:
->
-> The first idea was to use ingress policying to limit all packets that
-> are not related to MRP to a certain rate.
->
-> The problem in practise however is that the rate that has to be used
-> above is very low (100kbit) so we're looking for alternatives. I wond=
-er
-> what's missing to get ingress policying more versatile to allow for
-> example a prio qdisc or if there is some conceptual problem that I do=
-n't
-> see. I'm not sure this would solve our problem, but it's definitely
-> something I want to play with before trying/resorting to hackish
-> solutions (like hacking the eth-driver to pipe MRP packets directly t=
-o
-> the network userspace application instead of through the network stac=
-k).
->
+Hmm, at first sight, I think we can change this to __skb_queue_tail.
+sendpage does take state_lock and readlock mutex and thus blocks out
+both, recvmsg and sendmsg. unix_stream_connect is also serialized by
+state_lock.
 
-There is very little to do on ingress side since there is no queue at a=
-ll,
-not to mention priority, you could try ifb to see if it fits your need.
+I guess I used it because of unix_stream_sendmsg, where it is actually
+necessary, as recvmsg does unlink skb without state_lock and sendmsg
+doesn't hold reader mutex.
+
+Thanks for the hint!
+
+Bye,
+Hannes
