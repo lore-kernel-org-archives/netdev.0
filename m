@@ -1,42 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net: af_unix: implement splice for stream
- af_unix sockets
-Date: Wed, 20 May 2015 16:50:58 -0700
-Message-ID: <1432165858.4060.60.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <cover.1432135413.git.hannes@stressinduktion.org>
-	 <3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: netlink: Disable insertions/removals during rehash
+Date: Thu, 21 May 2015 01:53:46 +0200
+Message-ID: <20150520235346.GA22074@pox.localdomain>
+References: <20150514025333.GA3853@gondor.apana.org.au>
+ <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514033448.GA5080@gondor.apana.org.au>
+ <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150514041628.GA5428@gondor.apana.org.au>
+ <20150514042151.GA5482@gondor.apana.org.au>
+ <20150514055824.GB6058@gondor.apana.org.au>
+ <1431614276.27831.57.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150515000647.GA13821@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:34330 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753867AbbETXvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:51:00 -0400
-Received: by ieczm2 with SMTP id zm2so51630175iec.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 16:50:59 -0700 (PDT)
-In-Reply-To: <3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:34094 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753452AbbETXxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:53:49 -0400
+Received: by wicmc15 with SMTP id mc15so2726382wic.1
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 16:53:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20150515000647.GA13821@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-20 at 17:35 +0200, Hannes Frederic Sowa wrote:
+On 05/15/15 at 08:06am, Herbert Xu wrote:
+> On Thu, May 14, 2015 at 07:37:56AM -0700, Eric Dumazet wrote:
+> >
+> > This solves the corruption thanks Herbert.
+> 
+> Great.
+> 
+> > But wasn't rhashtable meant to be faster ? ;)
+> 
+> Is it, that's news to me :)
 
-> +
-> +static int unix_stream_splice_actor(struct sk_buff *skb,
-> +				    int skip, int chunk,
-> +				    struct unix_stream_read_state *state)
-> +{
-> +	return skb_splice_bits(skb, state->socket->sk,
-> +			       UNIXCB(skb).consumed + skip,
-> +			       state->pipe, chunk, state->splice_flags,
-> +			       skb_unix_socket_splice);
-> +}
-
-I am not sure you added EXPORT_SYMBOL(skb_splice_bits) in one of the
-patches ?
-
-Make sure CONFIG_UNIX=m still works.
-
-Thanks.
+Eric, can you share the scripts you used to test this?
