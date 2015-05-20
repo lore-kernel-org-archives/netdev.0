@@ -1,44 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: netlink: Disable insertions/removals during rehash
-Date: Thu, 21 May 2015 01:53:46 +0200
-Message-ID: <20150520235346.GA22074@pox.localdomain>
-References: <20150514025333.GA3853@gondor.apana.org.au>
- <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150514033448.GA5080@gondor.apana.org.au>
- <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
- <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150514041628.GA5428@gondor.apana.org.au>
- <20150514042151.GA5482@gondor.apana.org.au>
- <20150514055824.GB6058@gondor.apana.org.au>
- <1431614276.27831.57.camel@edumazet-glaptop2.roam.corp.google.com>
- <20150515000647.GA13821@gondor.apana.org.au>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH -next] ipv6: reject locally assigned nexthop addresses
+Date: Thu, 21 May 2015 01:55:29 +0200
+Message-ID: <1432166129.744347.274292401.7D68B8C1@webmail.messagingengine.com>
+References: <1432160741-3588-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:34094 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753452AbbETXxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:53:49 -0400
-Received: by wicmc15 with SMTP id mc15so2726382wic.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 16:53:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20150515000647.GA13821@gondor.apana.org.au>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:40755 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753554AbbETXza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:55:30 -0400
+Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
+	by mailout.nyi.internal (Postfix) with ESMTP id 727C5208D2
+	for <netdev@vger.kernel.org>; Wed, 20 May 2015 19:55:29 -0400 (EDT)
+In-Reply-To: <1432160741-3588-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/15/15 at 08:06am, Herbert Xu wrote:
-> On Thu, May 14, 2015 at 07:37:56AM -0700, Eric Dumazet wrote:
-> >
-> > This solves the corruption thanks Herbert.
+On Thu, May 21, 2015, at 00:25, Florian Westphal wrote:
+> ip -6 addr add dead::1/128 dev eth0
+> sleep 5
+> ip -6 route add default via dead::1/128
+> -> fails
+> ip -6 addr add dead::1/128 dev eth0
+> ip -6 route add default via dead::1/128
+> -> succeeds
 > 
-> Great.
+> reason is that if (nonsensensical) route above is added,
+> dead::1 is still subject to DAD, so the route lookup will
+> pick eth0 as outdev due to the prefix route that is added before
+> DAD work is started.
 > 
-> > But wasn't rhashtable meant to be faster ? ;)
+> Add explicit test that checks if nexthop gateway is a local address.
 > 
-> Is it, that's news to me :)
+> Link: https://bugzilla.redhat.com/show_bug.cgi?id=1167969
 
-Eric, can you share the scripts you used to test this?
+Should hopefully be public soon. :/
+
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks!
