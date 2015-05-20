@@ -1,55 +1,97 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net v3 2/2] ipv6: fix ECMP route replacement
-Date: Wed, 20 May 2015 10:56:31 +0200
-Message-ID: <555C4C3F.8030003@6wind.com>
-References: <cover.1431974706.git.mkubecek@suse.cz> <239760fdec3e503029fae3e5bb9d4eb3c4c33c20.1431974706.git.mkubecek@suse.cz>
-Reply-To: nicolas.dichtel@6wind.com
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH v3] brcmfmac: prohibit ACPI power management for brcmfmac
+ driver
+Date: Wed, 20 May 2015 11:02:33 +0200
+Message-ID: <555C4DA9.8020600@broadcom.com>
+References: <555016DC.804@linux.intel.com> <55598622.8060307@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	roopa <roopa@cumulusnetworks.com>
-To: Michal Kubecek <mkubecek@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <239760fdec3e503029fae3e5bb9d4eb3c4c33c20.1431974706.git.mkubecek@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "brudley@broadcom.com" <brudley@broadcom.com>,
+	Franky Lin <frankyl@broadcom.com>,
+	"meuleman@broadcom.com" <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"pieterpg@broadcom.com" <pieterpg@broadcom.com>,
+	"hdegoede@redhat.com" <hdegoede@redhat.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:4016 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751927AbbETJCh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 05:02:37 -0400
+In-Reply-To: <55598622.8060307@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 18/05/2015 20:54, Michal Kubecek a =C3=A9crit :
-> When replacing an IPv6 multipath route with "ip route replace", i.e.
-> NLM_F_CREATE | NLM_F_REPLACE, fib6_add_rt2node() replaces only first
-> matching route without fixing its siblings, resulting in corrupted
-> siblings linked list; removing one of the siblings can then end in an
-> infinite loop.
+On 05/18/15 08:26, Fu, Zhonghui wrote:
 >
-> IPv6 ECMP implementation is a bit different from IPv4 so that route
-> replacement cannot work in exactly the same way. This should be a
-> reasonable approximation:
+> Hi guys,
 >
-> 1. If the new route is ECMP-able and there is a matching ECMP-able on=
-e
-> already, replace it and all its siblings (if any).
+> Any comments about this patch?
+
+My acked is already there. I have not been able to test it, but I assume 
+you did.
+
+Regards,
+Arend
+
+> Thanks,
+> Zhonghui
 >
-> 2. If the new route is ECMP-able and no matching ECMP-able route exis=
-ts,
-> replace first matching non-ECMP-able (if any) or just add the new one=
-=2E
+> On 2015/5/11 10:41, Fu, Zhonghui wrote:
+>> ACPI will manage WiFi chip's power state during suspend/resume
+>> process on some tablet platforms(such as ASUS T100TA). This is
+>> not supported by brcmfmac driver now, and the context of WiFi
+>> chip will be damaged after resume. This patch informs ACPI not
+>> to manage WiFi chip's power state.
+>>
+>> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
+>> Acked-by: Arend van Spriel<arend@broadcom.com>
+>> ---
+>> Changes in v3:
+>> - Have the assignment separate for the if statement.
+>>
+>>   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    9 +++++++++
+>>   1 files changed, 9 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+>> index 9b508bd..c960a12 100644
+>> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+>> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
+>> @@ -33,6 +33,7 @@
+>>   #include<linux/suspend.h>
+>>   #include<linux/errno.h>
+>>   #include<linux/module.h>
+>> +#include<linux/acpi.h>
+>>   #include<net/cfg80211.h>
+>>
+>>   #include<defs.h>
+>> @@ -1114,6 +1115,8 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
+>>   	int err;
+>>   	struct brcmf_sdio_dev *sdiodev;
+>>   	struct brcmf_bus *bus_if;
+>> +	struct device *dev;
+>> +	struct acpi_device *adev;
+>>
+>>   	brcmf_dbg(SDIO, "Enter\n");
+>>   	brcmf_dbg(SDIO, "Class=%x\n", func->class);
+>> @@ -1121,6 +1124,12 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
+>>   	brcmf_dbg(SDIO, "sdio device ID: 0x%04x\n", func->device);
+>>   	brcmf_dbg(SDIO, "Function#: %d\n", func->num);
+>>
+>> +	/* prohibit ACPI power management for this device */
+>> +	dev =&func->dev;
+>> +	adev = ACPI_COMPANION(dev);
+>> +	if (adev)
+>> +		adev->flags.power_manageable = 0;
+>> +
+>>   	/* Consume func num 1 but dont do anything with it. */
+>>   	if (func->num == 1)
+>>   		return 0;
+>> -- 1.7.1
+>>
 >
-> 3. If the new route is not ECMP-able, replace first matching
-> non-ECMP-able route (if any) or add the new route.
->
-> We also need to remove the NLM_F_REPLACE flag after replacing old
-> route(s) by first nexthop of an ECMP route so that each subsequent
-> nexthop does not replace previous one.
->
-> Fixes: 51ebd3181572 ("ipv6: add support of equal cost multipath (ECMP=
-)")
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-LGTM.
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
