@@ -1,22 +1,34 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v2 00/16] sfc: Get/Set MAC address and ndo_[set/get]_vf_*
+Subject: [PATCH net-next v3 00/16] sfc: Get/Set MAC address and ndo_[set/get]_vf_*
  entrypoint functions
-Date: Wed, 20 May 2015 11:04:15 +0100
-Message-ID: <555C5C1F.7030802@solarflare.com>
+Date: Wed, 20 May 2015 11:06:09 +0100
+Message-ID: <555C5C91.4000004@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:24611 "EHLO
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:31126 "EHLO
 	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753661AbbETKE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:04:27 -0400
+	by vger.kernel.org with ESMTP id S1753832AbbETKG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:06:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-*** BLURB HERE ***
+This is the second instalment of patches towards supporting EF10 SRIOV.
+
+This patch series implements the ndo_get_vf_config, ndo_set_vf_mac,
+ndo_set_vf_vlan and ndo_set_vf_spoofcheck function callbacks for
+EF10.
+
+This patch series also introduces privileges for the MCDI commands
+based on which functions are allowed to call them, i.e. Link control
+or primary function.
+
+The patch series has been tested with and without CONFIG_SFC_SRIOV.
+
+The ndo function callbacks are tested using ip link.
 
 Daniel Pieczko (1):
   sfc: Enable a VF to get its own MAC address
