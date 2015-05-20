@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next v4 10/10] ipv6: Create percpu rt6_info
-Date: Wed, 20 May 2015 15:52:29 -0700
-Message-ID: <1432162349-788789-11-git-send-email-kafai@fb.com>
+Subject: [PATCH net-next v4 08/10] ipv6: Keep track of DST_NOCACHE routes in case of iface down/unregister
+Date: Wed, 20 May 2015 15:52:27 -0700
+Message-ID: <1432162349-788789-9-git-send-email-kafai@fb.com>
 References: <1432162349-788789-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,329 +12,185 @@ Cc: David Miller <davem@davemloft.net>,
 	Kernel Team <Kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50555 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37451 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753335AbbETWxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:53:19 -0400
-Received: from pps.filterd (m0004348 [127.0.0.1])
-	by m0004348.ppops.net (8.14.5/8.14.5) with SMTP id t4KMn45S011978
+	by vger.kernel.org with ESMTP id S1753060AbbETWxS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:53:18 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4KMoIWc027261
 	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:18 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004348.ppops.net with ESMTP id 1uh17vr7rr-1
+	by mx0a-00082601.pphosted.com with ESMTP id 1uh1jv86b3-3
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:18 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.236.87) with ESMTP	id
- 00a235feff4311e489600002c9521c9e-f45e13a0 for <netdev@vger.kernel.org>;	Wed,
+ mx-out.facebook.com (10.212.236.89) with ESMTP	id
+ 00768684ff4311e48e2f0002c95209d8-fb4d93a0 for <netdev@vger.kernel.org>;	Wed,
  20 May 2015 15:53:16 -0700
 In-Reply-To: <1432162349-788789-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the patch
-'ipv6: Only create RTF_CACHE routes after encountering pmtu exception',
-we need to compensate the performance hit (bouncing dst->__refcnt).
+This patch keeps track of the DST_NOCACHE routes in a list and replaces its
+dev with loopback during the iface down/unregister event.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
 Cc: Julian Anastasov <ja@ssi.bg>
 ---
- include/net/ip6_fib.h           |   3 +-
- include/uapi/linux/ipv6_route.h |   1 +
- net/ipv6/ip6_fib.c              |  24 ++++++-
- net/ipv6/route.c                | 134 +++++++++++++++++++++++++++++++++++-----
- 4 files changed, 144 insertions(+), 18 deletions(-)
+ include/net/ip6_fib.h |  3 ++
+ net/ipv6/route.c      | 78 +++++++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 79 insertions(+), 2 deletions(-)
 
 diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index cc8f03c..3b76849 100644
+index 5556111..cc8f03c 100644
 --- a/include/net/ip6_fib.h
 +++ b/include/net/ip6_fib.h
-@@ -124,6 +124,7 @@ struct rt6_info {
- 	struct uncached_list		*rt6i_uncached_list;
+@@ -120,6 +120,9 @@ struct rt6_info {
+ 	struct rt6key			rt6i_src;
+ 	struct rt6key			rt6i_prefsrc;
  
++	struct list_head		rt6i_uncached;
++	struct uncached_list		*rt6i_uncached_list;
++
  	struct inet6_dev		*rt6i_idev;
-+	struct rt6_info * __percpu	*rt6i_pcpu;
  
  	u32				rt6i_metric;
- 	u32				rt6i_pmtu;
-@@ -164,7 +165,7 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 9dbee3d..121ed73 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -105,6 +105,67 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
+ 					   const struct in6_addr *gwaddr, int ifindex);
+ #endif
  
- static inline u32 rt6_get_cookie(const struct rt6_info *rt)
- {
--	if (unlikely(rt->dst.flags & DST_NOCACHE))
-+	if (rt->rt6i_flags & RTF_PCPU || unlikely(rt->dst.flags & DST_NOCACHE))
- 		rt = (struct rt6_info *)(rt->dst.from);
- 
- 	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
-diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
-index 2be7bd1..f6598d1 100644
---- a/include/uapi/linux/ipv6_route.h
-+++ b/include/uapi/linux/ipv6_route.h
-@@ -34,6 +34,7 @@
- #define RTF_PREF(pref)	((pref) << 27)
- #define RTF_PREF_MASK	0x18000000
- 
-+#define RTF_PCPU	0x40000000
- #define RTF_LOCAL	0x80000000
- 
- 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 7d66490..bab2490 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -154,10 +154,32 @@ static void node_free(struct fib6_node *fn)
- 	kmem_cache_free(fib6_node_kmem, fn);
- }
- 
-+static void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
++struct uncached_list {
++	spinlock_t		lock;
++	struct list_head	head;
++};
++
++static DEFINE_PER_CPU_ALIGNED(struct uncached_list, rt6_uncached_list);
++
++static void rt6_uncached_list_add(struct rt6_info *rt)
 +{
-+	int cpu;
++	struct uncached_list *ul = raw_cpu_ptr(&rt6_uncached_list);
 +
-+	if (!non_pcpu_rt->rt6i_pcpu)
-+		return;
++	rt->dst.flags |= DST_NOCACHE;
++	rt->rt6i_uncached_list = ul;
 +
-+	for_each_possible_cpu(cpu) {
-+		struct rt6_info **ppcpu_rt;
-+		struct rt6_info *pcpu_rt;
++	spin_lock_bh(&ul->lock);
++	list_add_tail(&rt->rt6i_uncached, &ul->head);
++	spin_unlock_bh(&ul->lock);
++}
 +
-+		ppcpu_rt = per_cpu_ptr(non_pcpu_rt->rt6i_pcpu, cpu);
-+		pcpu_rt = *ppcpu_rt;
-+		if (pcpu_rt) {
-+			dst_free(&pcpu_rt->dst);
-+			*ppcpu_rt = NULL;
-+		}
++static void rt6_uncached_list_del(struct rt6_info *rt)
++{
++	if (!list_empty(&rt->rt6i_uncached)) {
++		struct uncached_list *ul = rt->rt6i_uncached_list;
++
++		spin_lock_bh(&ul->lock);
++		list_del(&rt->rt6i_uncached);
++		spin_unlock_bh(&ul->lock);
 +	}
 +}
 +
- static void rt6_release(struct rt6_info *rt)
- {
--	if (atomic_dec_and_test(&rt->rt6i_ref))
-+	if (atomic_dec_and_test(&rt->rt6i_ref)) {
-+		rt6_free_pcpu(rt);
- 		dst_free(&rt->dst);
-+	}
- }
- 
- static void fib6_link_table(struct net *net, struct fib6_table *tb)
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index e8655d0..3d741b2 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -165,11 +165,18 @@ static void rt6_uncached_list_flush_dev(struct net *net, struct net_device *dev)
- 	}
- }
- 
-+static u32 *rt6_pcpu_cow_metrics(struct rt6_info *rt)
++static void rt6_uncached_list_flush_dev(struct net *net, struct net_device *dev)
 +{
-+	return dst_metrics_write_ptr(rt->dst.from);
++	struct net_device *loopback_dev = net->loopback_dev;
++	struct rt6_info *rt;
++	int cpu;
++
++	for_each_possible_cpu(cpu) {
++		struct uncached_list *ul = per_cpu_ptr(&rt6_uncached_list, cpu);
++
++		spin_lock_bh(&ul->lock);
++		list_for_each_entry(rt, &ul->head, rt6i_uncached) {
++			struct inet6_dev *rt_idev = rt->rt6i_idev;
++			struct net_device *rt_dev = rt->dst.dev;
++
++			if (rt_idev && (rt_idev->dev == dev || !dev) &&
++			    rt_idev->dev != loopback_dev) {
++				rt->rt6i_idev = in6_dev_get(loopback_dev);
++				in6_dev_put(rt_idev);
++			}
++
++			if (rt_dev && (rt_dev == dev || !dev) &&
++			    rt_dev != loopback_dev) {
++				rt->dst.dev = loopback_dev;
++				dev_hold(rt->dst.dev);
++				dev_put(rt_dev);
++			}
++		}
++		spin_unlock_bh(&ul->lock);
++	}
 +}
 +
  static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
  {
  	struct rt6_info *rt = (struct rt6_info *)dst;
+@@ -262,6 +323,7 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
  
--	if (rt->rt6i_flags & RTF_CACHE)
-+	if (rt->rt6i_flags & RTF_PCPU)
-+		return rt6_pcpu_cow_metrics(rt);
-+	else if (rt->rt6i_flags & RTF_CACHE)
- 		return NULL;
- 	else
- 		return dst_cow_metrics_generic(dst, old);
-@@ -309,10 +316,10 @@ static const struct rt6_info ip6_blk_hole_entry_template = {
- #endif
- 
- /* allocate dst with ip6_dst_ops */
--static inline struct rt6_info *ip6_dst_alloc(struct net *net,
--					     struct net_device *dev,
--					     int flags,
--					     struct fib6_table *table)
-+static struct rt6_info *__ip6_dst_alloc(struct net *net,
-+					struct net_device *dev,
-+					int flags,
-+					struct fib6_table *table)
- {
- 	struct rt6_info *rt = dst_alloc(&net->ipv6.ip6_dst_ops, dev,
- 					0, DST_OBSOLETE_FORCE_CHK, flags);
-@@ -327,6 +334,34 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
+ 		memset(dst + 1, 0, sizeof(*rt) - sizeof(*dst));
+ 		INIT_LIST_HEAD(&rt->rt6i_siblings);
++		INIT_LIST_HEAD(&rt->rt6i_uncached);
+ 	}
  	return rt;
  }
- 
-+static struct rt6_info *ip6_dst_alloc(struct net *net,
-+				      struct net_device *dev,
-+				      int flags,
-+				      struct fib6_table *table)
-+{
-+	struct rt6_info *rt = __ip6_dst_alloc(net, dev, flags, table);
-+
-+	if (rt) {
-+		rt->rt6i_pcpu = alloc_percpu_gfp(struct rt6_info *, GFP_ATOMIC);
-+		if (rt->rt6i_pcpu) {
-+			int cpu;
-+
-+			for_each_possible_cpu(cpu) {
-+				struct rt6_info **p;
-+
-+				p = per_cpu_ptr(rt->rt6i_pcpu, cpu);
-+				/* no one shares rt */
-+				*p =  NULL;
-+			}
-+		} else {
-+			dst_destroy((struct dst_entry *)rt);
-+			return NULL;
-+		}
-+	}
-+
-+	return rt;
-+}
-+
+@@ -269,11 +331,14 @@ static inline struct rt6_info *ip6_dst_alloc(struct net *net,
  static void ip6_dst_destroy(struct dst_entry *dst)
  {
  	struct rt6_info *rt = (struct rt6_info *)dst;
-@@ -335,6 +370,9 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+-	struct inet6_dev *idev = rt->rt6i_idev;
+ 	struct dst_entry *from = dst->from;
++	struct inet6_dev *idev;
  
  	dst_destroy_metrics_generic(dst);
  
-+	if (rt->rt6i_pcpu)
-+		free_percpu(rt->rt6i_pcpu);
++	rt6_uncached_list_del(rt);
 +
- 	rt6_uncached_list_del(rt);
- 
- 	idev = rt->rt6i_idev;
-@@ -912,11 +950,11 @@ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
- 	 *	Clone the route.
- 	 */
- 
--	if (ort->rt6i_flags & RTF_CACHE)
-+	if (ort->rt6i_flags & (RTF_CACHE | RTF_PCPU))
- 		ort = (struct rt6_info *)ort->dst.from;
- 
--	rt = ip6_dst_alloc(dev_net(ort->dst.dev), ort->dst.dev,
--			   0, ort->rt6i_table);
-+	rt = __ip6_dst_alloc(dev_net(ort->dst.dev), ort->dst.dev,
-+			     0, ort->rt6i_table);
- 
- 	if (!rt)
- 		return NULL;
-@@ -943,6 +981,56 @@ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
- 	return rt;
- }
- 
-+static struct rt6_info *ip6_rt_pcpu_alloc(struct rt6_info *rt)
-+{
-+	struct rt6_info *pcpu_rt;
-+
-+	pcpu_rt = __ip6_dst_alloc(dev_net(rt->dst.dev),
-+				  rt->dst.dev, rt->dst.flags,
-+				  rt->rt6i_table);
-+
-+	if (!pcpu_rt)
-+		return NULL;
-+	ip6_rt_copy_init(pcpu_rt, rt);
-+	pcpu_rt->rt6i_protocol = rt->rt6i_protocol;
-+	pcpu_rt->rt6i_flags |= RTF_PCPU;
-+	return pcpu_rt;
-+}
-+
-+static struct rt6_info *rt6_get_pcpu_route(struct rt6_info *rt)
-+{
-+	struct rt6_info *pcpu_rt, *orig, *prev, **p;
-+	struct net *net = dev_net(rt->dst.dev);
-+
-+	/* It is under read_lock_bh */
-+	p = this_cpu_ptr(rt->rt6i_pcpu);
-+	orig = *p;
-+
-+	if (orig) {
-+		dst_hold(&orig->dst);
-+		rt6_dst_from_metrics_check(orig);
-+		return orig;
-+	}
-+
-+	pcpu_rt = ip6_rt_pcpu_alloc(rt);
-+	if (!pcpu_rt) {
-+		rt = net->ipv6.ip6_null_entry;
-+		dst_hold(&rt->dst);
-+		return rt;
-+	}
-+	dst_hold(&pcpu_rt->dst);
-+
-+	prev = cmpxchg(p, orig, pcpu_rt);
-+	if (prev)
-+		/* orig must be NULL, so no need to consider freeing prev.
-+		 * If someone did it before us, put pcpu_rt in uncached_list
-+		 * before returning it.
-+		 */
-+		rt6_uncached_list_add(pcpu_rt);
-+
-+	return pcpu_rt;
-+}
-+
- static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
- 				      struct flowi6 *fl6, int flags)
- {
-@@ -975,11 +1063,13 @@ redo_rt6_select:
- 		}
- 	}
- 
--	dst_use(&rt->dst, jiffies);
--	read_unlock_bh(&table->tb6_lock);
- 
- 	if (rt == net->ipv6.ip6_null_entry || (rt->rt6i_flags & RTF_CACHE)) {
--		goto done;
-+		dst_use(&rt->dst, jiffies);
-+		read_unlock_bh(&table->tb6_lock);
-+
-+		rt6_dst_from_metrics_check(rt);
-+		return rt;
- 	} else if (unlikely((fl6->flowi6_flags & FLOWI_FLAG_KNOWN_NH) &&
- 			    !(rt->rt6i_flags & RTF_GATEWAY))) {
- 		/* Create a RTF_CACHE clone which will not be
-@@ -990,6 +1080,9 @@ redo_rt6_select:
- 
- 		struct rt6_info *uncached_rt;
- 
-+		dst_use(&rt->dst, jiffies);
-+		read_unlock_bh(&table->tb6_lock);
-+
- 		uncached_rt = ip6_rt_cache_alloc(rt, &fl6->daddr, NULL);
++	idev = rt->rt6i_idev;
+ 	if (idev) {
+ 		rt->rt6i_idev = NULL;
+ 		in6_dev_put(idev);
+@@ -920,7 +985,7 @@ redo_rt6_select:
  		dst_release(&rt->dst);
  
-@@ -997,13 +1090,22 @@ redo_rt6_select:
- 			rt6_uncached_list_add(uncached_rt);
+ 		if (uncached_rt)
+-			uncached_rt->dst.flags |= DST_NOCACHE;
++			rt6_uncached_list_add(uncached_rt);
  		else
  			uncached_rt = net->ipv6.ip6_null_entry;
-+
  		dst_hold(&uncached_rt->dst);
- 		return uncached_rt;
--	}
+@@ -2358,6 +2423,7 @@ void rt6_ifdown(struct net *net, struct net_device *dev)
  
--done:
--	rt6_dst_from_metrics_check(rt);
--	return rt;
-+	} else {
-+		/* Get a percpu copy */
-+
-+		struct rt6_info *pcpu_rt;
-+
-+		rt->dst.lastuse = jiffies;
-+		rt->dst.__use++;
-+		pcpu_rt = rt6_get_pcpu_route(rt);
-+		read_unlock_bh(&table->tb6_lock);
-+
-+		return pcpu_rt;
-+	}
+ 	fib6_clean_all(net, fib6_ifdown, &adn);
+ 	icmp6_clean_all(fib6_ifdown, &adn);
++	rt6_uncached_list_flush_dev(net, dev);
  }
  
- static struct rt6_info *ip6_pol_route_input(struct net *net, struct fib6_table *table,
-@@ -1147,7 +1249,7 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+ struct rt6_mtu_change_arg {
+@@ -3250,6 +3316,7 @@ static struct notifier_block ip6_route_dev_notifier = {
+ int __init ip6_route_init(void)
+ {
+ 	int ret;
++	int cpu;
  
- 	rt6_dst_from_metrics_check(rt);
+ 	ret = -ENOMEM;
+ 	ip6_dst_ops_template.kmem_cachep =
+@@ -3309,6 +3376,13 @@ int __init ip6_route_init(void)
+ 	if (ret)
+ 		goto out_register_late_subsys;
  
--	if (unlikely(dst->flags & DST_NOCACHE))
-+	if ((rt->rt6i_flags & RTF_PCPU) || unlikely(dst->flags & DST_NOCACHE))
- 		return rt6_dst_from_check(rt, cookie);
- 	else
- 		return rt6_check(rt, cookie);
++	for_each_possible_cpu(cpu) {
++		struct uncached_list *ul = per_cpu_ptr(&rt6_uncached_list, cpu);
++
++		INIT_LIST_HEAD(&ul->head);
++		spin_lock_init(&ul->lock);
++	}
++
+ out:
+ 	return ret;
+ 
 -- 
 1.8.1
