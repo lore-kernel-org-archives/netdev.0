@@ -1,39 +1,64 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [V4 PATCH 2/6] arm64 : Introduce support for ACPI _CCA object
-Date: Wed, 20 May 2015 11:03:04 +0100
-Message-ID: <20150520100304.GE25313@e104818-lin.cambridge.arm.com>
-References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <1431724994-21601-3-git-send-email-Suravee.Suthikulpanit@amd.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next v2 00/16] sfc: Get/Set MAC address and ndo_[set/get]_vf_*
+ entrypoint functions
+Date: Wed, 20 May 2015 11:04:15 +0100
+Message-ID: <555C5C1F.7030802@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rjw@rjwysocki.net, lenb@kernel.org, will.deacon@arm.com,
-	bhelgaas@google.com, thomas.lendacky@amd.com,
-	herbert@gondor.apana.org.au, davem@davemloft.net, arnd@arndb.de,
-	al.stone@linaro.org, linaro-acpi@lists.linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-acpi@vger.kernel.org, leo.duran@amd.com,
-	hanjun.guo@linaro.org, msalter@redhat.com, grant.likely@linaro.org,
-	linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org
-To: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1431724994-21601-3-git-send-email-Suravee.Suthikulpanit@amd.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:24611 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753661AbbETKE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:04:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 15, 2015 at 04:23:10PM -0500, Suravee Suthikulpanit wrote:
-> From http://www.uefi.org/sites/default/files/resources/ACPI_6.0.pdf,
-> section 6.2.17 _CCA states that ARM platforms require ACPI _CCA
-> object to be specified for DMA-cabpable devices. This patch introduces
-> ACPI_MUST_HAVE_CCA in arm64 Kconfig to specify such requirement.
-> 
-> In case _CCA is missing, arm64 would assign dummy_dma_ops
-> to disable DMA capability of the device.
-> 
-> Signed-off-by: Mark Salter <msalter@redhat.com>
-> Signed-off-by: Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-> CC: Catalin Marinas <catalin.marinas@arm.com>
-> CC: Will Deacon <will.deacon@arm.com>
-> CC: Arnd Bergmann <arnd@arndb.de>
+*** BLURB HERE ***
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Daniel Pieczko (1):
+  sfc: Enable a VF to get its own MAC address
+
+Edward Cree (2):
+  sfc: protect filter table against use-after-free
+  sfc: add ndo_set_vf_link_state() function for EF10
+
+Jon Cooper (2):
+  sfc: Initialise MCDI buffers to 0 on declaration.
+  sfc: Change entity reset on MC reboot to a new datapath-only reset.
+
+Shradha Shah (11):
+  sfc: Add permissions to MCDI commands
+  sfc: change definition of MC_CMD_VADAPTOR_ALLOC
+  sfc: MC_CMD_SET_MAC can only be called by the link control Function
+  sfc: Store vf_index in nic_data for Ef10.
+  sfc: save old MAC address in case sriov_mac_address_changed fails
+  sfc: Store the efx_nic struct of the current VF in the VF data struct
+  sfc: add ndo_set_vf_mac() function for EF10
+  sfc: Add ndo_get_vf_config() function for EF10
+  sfc: add ndo_set_vf_vlan() function for EF10
+  sfc: Implement dummy disable of VF spoof check for EF10
+  sfc: set the MAC address using MC_CMD_VADAPTOR_SET_MAC
+
+ drivers/net/ethernet/sfc/ef10.c        | 279 ++++++++++++++++++++----
+ drivers/net/ethernet/sfc/ef10_sriov.c  | 320 ++++++++++++++++++++++++++-
+ drivers/net/ethernet/sfc/ef10_sriov.h  |  36 ++--
+ drivers/net/ethernet/sfc/efx.c         |  65 ++++--
+ drivers/net/ethernet/sfc/efx.h         |   5 +
+ drivers/net/ethernet/sfc/enum.h        |   2 +
+ drivers/net/ethernet/sfc/ethtool.c     |   2 +-
+ drivers/net/ethernet/sfc/mcdi.c        |  12 +-
+ drivers/net/ethernet/sfc/mcdi.h        |   8 +-
+ drivers/net/ethernet/sfc/mcdi_pcol.h   | 381 ++++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/sfc/mcdi_port.c   |   1 +
+ drivers/net/ethernet/sfc/net_driver.h  |  11 +-
+ drivers/net/ethernet/sfc/nic.h         |   1 +
+ drivers/net/ethernet/sfc/ptp.c         |   6 +-
+ drivers/net/ethernet/sfc/siena.c       |   2 +-
+ drivers/net/ethernet/sfc/siena_sriov.c |   6 +-
+ drivers/net/ethernet/sfc/siena_sriov.h |   2 +-
+ drivers/net/ethernet/sfc/sriov.c       |  12 ++
+ drivers/net/ethernet/sfc/sriov.h       |   2 +
+ 19 files changed, 1055 insertions(+), 98 deletions(-)
