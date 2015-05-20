@@ -1,7 +1,8 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v3 02/16] sfc: change definition of MC_CMD_VADAPTOR_ALLOC
-Date: Wed, 20 May 2015 11:08:40 +0100
-Message-ID: <555C5D28.7010504@solarflare.com>
+Subject: [PATCH net-next v3 03/16] sfc: MC_CMD_SET_MAC can only be called
+ by the link control Function
+Date: Wed, 20 May 2015 11:08:56 +0100
+Message-ID: <555C5D38.5030907@solarflare.com>
 References: <555C5C91.4000004@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
@@ -9,49 +10,49 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:31917 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753291AbbETKIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:08:47 -0400
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:16590 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752950AbbETKJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 06:09:03 -0400
 In-Reply-To: <555C5C91.4000004@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+MC_CMD_SET_MAC is privileged and can only by called by the link
+control function.
+
+This patch adds efx_ef10_mac_reconfigure_vf which avoids the call
+to MC_CMD_SET_MAC by the Virtual function
+
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/mcdi_pcol.h | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/sfc/ef10.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index 797b9df..fc50be7 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -5877,7 +5877,7 @@
- #define MC_CMD_0x98_PRIVILEGE_CTG SRIOV_CTG_GENERAL
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index 882117a..70cbad3 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -3480,6 +3480,13 @@ static int efx_ef10_mac_reconfigure(struct efx_nic *efx)
+ 	return efx_mcdi_set_mac(efx);
+ }
  
- /* MC_CMD_VADAPTOR_ALLOC_IN msgrequest */
--#define    MC_CMD_VADAPTOR_ALLOC_IN_LEN 16
-+#define    MC_CMD_VADAPTOR_ALLOC_IN_LEN 30
- /* The port to connect to the v-adaptor's port. */
- #define       MC_CMD_VADAPTOR_ALLOC_IN_UPSTREAM_PORT_ID_OFST 0
- /* Flags controlling v-adaptor creation */
-@@ -5886,6 +5886,19 @@
- #define        MC_CMD_VADAPTOR_ALLOC_IN_FLAG_AUTO_VADAPTOR_WIDTH 1
- /* The number of VLAN tags to strip on receive */
- #define       MC_CMD_VADAPTOR_ALLOC_IN_NUM_VLANS_OFST 12
-+/* The number of VLAN tags to transparently insert/remove. */
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_NUM_VLAN_TAGS_OFST 16
-+/* The actual VLAN tags to insert/remove */
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAGS_OFST 20
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_0_LBN 0
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_0_WIDTH 16
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_1_LBN 16
-+#define        MC_CMD_VADAPTOR_ALLOC_IN_VLAN_TAG_1_WIDTH 16
-+/* The MAC address to assign to this v-adaptor */
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_MACADDR_OFST 24
-+#define       MC_CMD_VADAPTOR_ALLOC_IN_MACADDR_LEN 6
-+/* enum: Derive the MAC address from the upstream port */
-+#define          MC_CMD_VADAPTOR_ALLOC_IN_AUTO_MAC  0x0
- 
- /* MC_CMD_VADAPTOR_ALLOC_OUT msgresponse */
- #define    MC_CMD_VADAPTOR_ALLOC_OUT_LEN 0
++static int efx_ef10_mac_reconfigure_vf(struct efx_nic *efx)
++{
++	efx_ef10_filter_sync_rx_mode(efx);
++
++	return 0;
++}
++
+ static int efx_ef10_start_bist(struct efx_nic *efx, u32 bist_type)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_START_BIST_IN_LEN);
+@@ -3833,7 +3840,7 @@ const struct efx_nic_type efx_hunt_a0_vf_nic_type = {
+ 	.stop_stats = efx_port_dummy_op_void,
+ 	.set_id_led = efx_mcdi_set_id_led,
+ 	.push_irq_moderation = efx_ef10_push_irq_moderation,
+-	.reconfigure_mac = efx_ef10_mac_reconfigure,
++	.reconfigure_mac = efx_ef10_mac_reconfigure_vf,
+ 	.check_mac_fault = efx_mcdi_mac_check_fault,
+ 	.reconfigure_port = efx_mcdi_port_reconfigure,
+ 	.get_wol = efx_ef10_get_wol_vf,
