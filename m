@@ -1,118 +1,69 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH v5 2/3] if_link: Add control trust VF
-Date: Wed, 20 May 2015 00:04:16 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28C7@BPXM14GP.gisp.nec.co.jp>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH net-next 2/4] x86: bpf_jit: implement bpf_tail_call() helper
+Date: Tue, 19 May 2015 17:11:59 -0700
+Message-ID: <CALCETrVZyB+m8Oaad1JGwrLx1rTUoL0F6Afrvg_hQWiYyTTang@mail.gmail.com>
+References: <1432079946-9878-1-git-send-email-ast@plumgrid.com> <1432079946-9878-3-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Michael Holzheu <holzheu@linux.vnet.ibm.com>,
+	Zi Shen Lim <zlim.lnx@gmail.com>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:40019 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbbETALr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 20:11:47 -0400
-Content-Language: ja-JP
+Received: from mail-la0-f48.google.com ([209.85.215.48]:35056 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018AbbETAMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 20:12:21 -0400
+Received: by labbd9 with SMTP id bd9so49923460lab.2
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 17:12:20 -0700 (PDT)
+In-Reply-To: <1432079946-9878-3-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCkFk
-ZCBuZXRsaW5rIGRpcmVjdGl2ZXMgYW5kIG5kbyBlbnRyeSB0byB0cnVzdCBWRiB1c2VyLg0KDQpU
-aGlzIGNvbnRyb2xzIHRoZSBzcGVjaWFsIHBlcm1pc3Npb24gb2YgVkYgdXNlci4NClRoZSBhZG1p
-bmlzdHJhdG9yIHdpbGwgZGVkaWNhdGVkbHkgdHJ1c3QgVkYgdXNlciB0byB1c2Ugc29tZSBmZWF0
-dXJlcw0Kd2hpY2ggaW1wYWN0cyBzZWN1cml0eSBhbmQvb3IgcGVyZm9ybWFuY2UuDQoNClRoZSBh
-ZG1pbmlzdHJhdG9yIG5ldmVyIHR1cm4gaXQgb24gdW5sZXNzIFZGIHVzZXIgaXMgZnVsbHkgdHJ1
-c3RlZC4NCg0KU2lnbmVkLW9mZi1ieTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0
-LmpwLm5lYy5jb20+DQpSZXZpZXdlZC1ieTogSGF5YXRvIE1vbW1hIDxoLW1vbW1hQGNlLmpwLm5l
-Yy5jb20+DQpDQzogQ2hvaSwgU3kgSm9uZyA8c3kuam9uZy5jaG9pQGludGVsLmNvbT4NCi0tLQ0K
-IGluY2x1ZGUvbGludXgvaWZfbGluay5oICAgICAgfCAgMSArDQogaW5jbHVkZS9saW51eC9uZXRk
-ZXZpY2UuaCAgICB8ICAzICsrKw0KIGluY2x1ZGUvdWFwaS9saW51eC9pZl9saW5rLmggfCAgNiAr
-KysrKysNCiBuZXQvY29yZS9ydG5ldGxpbmsuYyAgICAgICAgIHwgMTkgKysrKysrKysrKysrKysr
-KystLQ0KIDQgZmlsZXMgY2hhbmdlZCwgMjcgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkN
-Cg0KZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaWZfbGluay5oIGIvaW5jbHVkZS9saW51eC9p
-Zl9saW5rLmgNCmluZGV4IGRhNDkyOTkuLmYzZDJkMmYgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL2xp
-bnV4L2lmX2xpbmsuaA0KKysrIGIvaW5jbHVkZS9saW51eC9pZl9saW5rLmgNCkBAIC0xNSw1ICsx
-NSw2IEBAIHN0cnVjdCBpZmxhX3ZmX2luZm8gew0KIAlfX3UzMiBtaW5fdHhfcmF0ZTsNCiAJX191
-MzIgbWF4X3R4X3JhdGU7DQogCV9fdTMyIHJzc19xdWVyeV9lbjsNCisJX191MzIgdHJ1c3RlZDsN
-CiB9Ow0KICNlbmRpZiAvKiBfTElOVVhfSUZfTElOS19IICovDQpkaWZmIC0tZ2l0IGEvaW5jbHVk
-ZS9saW51eC9uZXRkZXZpY2UuaCBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCmluZGV4IDUx
-ZjhkMmYuLjA4NzUxNDkgMTAwNjQ0DQotLS0gYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oDQor
-KysgYi9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oDQpAQCAtODczLDYgKzg3Myw3IEBAIHR5cGVk
-ZWYgdTE2ICgqc2VsZWN0X3F1ZXVlX2ZhbGxiYWNrX3QpKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYs
-DQogICogaW50ICgqbmRvX3NldF92Zl9yYXRlKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQg
-dmYsIGludCBtaW5fdHhfcmF0ZSwNCiAgKgkJCSAgaW50IG1heF90eF9yYXRlKTsNCiAgKiBpbnQg
-KCpuZG9fc2V0X3ZmX3Nwb29mY2hrKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBpbnQgdmYsIGJv
-b2wgc2V0dGluZyk7DQorICogaW50ICgqbmRvX3NldF92Zl90cnVzdCkoc3RydWN0IG5ldF9kZXZp
-Y2UgKmRldiwgaW50IHZmLCBib29sIHNldHRpbmcpOw0KICAqIGludCAoKm5kb19nZXRfdmZfY29u
-ZmlnKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KICAqCQkJICAgIGludCB2Ziwgc3RydWN0IGlm
-bGFfdmZfaW5mbyAqaXZmKTsNCiAgKiBpbnQgKCpuZG9fc2V0X3ZmX2xpbmtfc3RhdGUpKHN0cnVj
-dCBuZXRfZGV2aWNlICpkZXYsIGludCB2ZiwgaW50IGxpbmtfc3RhdGUpOw0KQEAgLTEwOTUsNiAr
-MTA5Niw4IEBAIHN0cnVjdCBuZXRfZGV2aWNlX29wcyB7DQogCQkJCQkJICAgaW50IG1heF90eF9y
-YXRlKTsNCiAJaW50CQkJKCpuZG9fc2V0X3ZmX3Nwb29mY2hrKShzdHJ1Y3QgbmV0X2RldmljZSAq
-ZGV2LA0KIAkJCQkJCSAgICAgICBpbnQgdmYsIGJvb2wgc2V0dGluZyk7DQorCWludAkJCSgqbmRv
-X3NldF92Zl90cnVzdCkoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwNCisJCQkJCQkgICAgaW50IHZm
-LCBib29sIHNldHRpbmcpOw0KIAlpbnQJCQkoKm5kb19nZXRfdmZfY29uZmlnKShzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2LA0KIAkJCQkJCSAgICAgaW50IHZmLA0KIAkJCQkJCSAgICAgc3RydWN0IGlm
-bGFfdmZfaW5mbyAqaXZmKTsNCmRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvaWZfbGlu
-ay5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L2lmX2xpbmsuaA0KaW5kZXggYWZjY2M5My4uZjA1NTQ5
-YyAxMDA2NDQNCi0tLSBhL2luY2x1ZGUvdWFwaS9saW51eC9pZl9saW5rLmgNCisrKyBiL2luY2x1
-ZGUvdWFwaS9saW51eC9pZl9saW5rLmgNCkBAIC00ODAsNiArNDgwLDcgQEAgZW51bSB7DQogCUlG
-TEFfVkZfUlNTX1FVRVJZX0VOLAkvKiBSU1MgUmVkaXJlY3Rpb24gVGFibGUgYW5kIEhhc2ggS2V5
-IHF1ZXJ5DQogCQkJCSAqIG9uL29mZiBzd2l0Y2gNCiAJCQkJICovDQorCUlGTEFfVkZfVFJVU1Qs
-CQkvKiBUcnVzdCBWRiAqLw0KIAlfX0lGTEFfVkZfTUFYLA0KIH07DQogDQpAQCAtNTI5LDYgKzUz
-MCwxMSBAQCBzdHJ1Y3QgaWZsYV92Zl9yc3NfcXVlcnlfZW4gew0KIAlfX3UzMiBzZXR0aW5nOw0K
-IH07DQogDQorc3RydWN0IGlmbGFfdmZfdHJ1c3Qgew0KKwlfX3UzMiB2ZjsNCisJX191MzIgc2V0
-dGluZzsNCit9Ow0KKw0KIC8qIFZGIHBvcnRzIG1hbmFnZW1lbnQgc2VjdGlvbg0KICAqDQogICoJ
-TmVzdGVkIGxheW91dCBvZiBzZXQvZ2V0IG1zZyBpczoNCmRpZmYgLS1naXQgYS9uZXQvY29yZS9y
-dG5ldGxpbmsuYyBiL25ldC9jb3JlL3J0bmV0bGluay5jDQppbmRleCAxNDFjY2MzLi4xZDkyMDVh
-IDEwMDY0NA0KLS0tIGEvbmV0L2NvcmUvcnRuZXRsaW5rLmMNCisrKyBiL25ldC9jb3JlL3J0bmV0
-bGluay5jDQpAQCAtODE5LDcgKzgxOSw4IEBAIHN0YXRpYyBpbmxpbmUgaW50IHJ0bmxfdmZpbmZv
-X3NpemUoY29uc3Qgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwNCiAJCQkgbmxhX3RvdGFsX3NpemUo
-c2l6ZW9mKHN0cnVjdCBpZmxhX3ZmX3Nwb29mY2hrKSkgKw0KIAkJCSBubGFfdG90YWxfc2l6ZShz
-aXplb2Yoc3RydWN0IGlmbGFfdmZfcmF0ZSkpICsNCiAJCQkgbmxhX3RvdGFsX3NpemUoc2l6ZW9m
-KHN0cnVjdCBpZmxhX3ZmX2xpbmtfc3RhdGUpKSArDQotCQkJIG5sYV90b3RhbF9zaXplKHNpemVv
-ZihzdHJ1Y3QgaWZsYV92Zl9yc3NfcXVlcnlfZW4pKSk7DQorCQkJIG5sYV90b3RhbF9zaXplKHNp
-emVvZihzdHJ1Y3QgaWZsYV92Zl9yc3NfcXVlcnlfZW4pKSArDQorCQkJIG5sYV90b3RhbF9zaXpl
-KHNpemVvZihzdHJ1Y3QgaWZsYV92Zl90cnVzdCkpKTsNCiAJCXJldHVybiBzaXplOw0KIAl9IGVs
-c2UNCiAJCXJldHVybiAwOw0KQEAgLTExMzgsNiArMTEzOSw3IEBAIHN0YXRpYyBpbnQgcnRubF9m
-aWxsX2lmaW5mbyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0K
-IAkJCXN0cnVjdCBpZmxhX3ZmX3Nwb29mY2hrIHZmX3Nwb29mY2hrOw0KIAkJCXN0cnVjdCBpZmxh
-X3ZmX2xpbmtfc3RhdGUgdmZfbGlua3N0YXRlOw0KIAkJCXN0cnVjdCBpZmxhX3ZmX3Jzc19xdWVy
-eV9lbiB2Zl9yc3NfcXVlcnlfZW47DQorCQkJc3RydWN0IGlmbGFfdmZfdHJ1c3QgdmZfdHJ1c3Q7
-DQogDQogCQkJLyoNCiAJCQkgKiBOb3QgYWxsIFNSLUlPViBjYXBhYmxlIGRyaXZlcnMgc3VwcG9y
-dCB0aGUNCkBAIC0xMTQ3LDYgKzExNDksNyBAQCBzdGF0aWMgaW50IHJ0bmxfZmlsbF9pZmluZm8o
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldiwNCiAJCQkgKi8NCiAJ
-CQlpdmkuc3Bvb2ZjaGsgPSAtMTsNCiAJCQlpdmkucnNzX3F1ZXJ5X2VuID0gLTE7DQorCQkJaXZp
-LnRydXN0ZWQgPSAtMTsNCiAJCQltZW1zZXQoaXZpLm1hYywgMCwgc2l6ZW9mKGl2aS5tYWMpKTsN
-CiAJCQkvKiBUaGUgZGVmYXVsdCB2YWx1ZSBmb3IgVkYgbGluayBzdGF0ZSBpcyAiYXV0byINCiAJ
-CQkgKiBJRkxBX1ZGX0xJTktfU1RBVEVfQVVUTyB3aGljaCBlcXVhbHMgemVybw0KQEAgLTExNjAs
-NyArMTE2Myw4IEBAIHN0YXRpYyBpbnQgcnRubF9maWxsX2lmaW5mbyhzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KIAkJCQl2Zl90eF9yYXRlLnZmID0NCiAJCQkJ
-dmZfc3Bvb2ZjaGsudmYgPQ0KIAkJCQl2Zl9saW5rc3RhdGUudmYgPQ0KLQkJCQl2Zl9yc3NfcXVl
-cnlfZW4udmYgPSBpdmkudmY7DQorCQkJCXZmX3Jzc19xdWVyeV9lbi52ZiA9DQorCQkJCXZmX3Ry
-dXN0LnZmID0gaXZpLnZmOw0KIA0KIAkJCW1lbWNweSh2Zl9tYWMubWFjLCBpdmkubWFjLCBzaXpl
-b2YoaXZpLm1hYykpOw0KIAkJCXZmX3ZsYW4udmxhbiA9IGl2aS52bGFuOw0KQEAgLTExNzEsNiAr
-MTE3NSw3IEBAIHN0YXRpYyBpbnQgcnRubF9maWxsX2lmaW5mbyhzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-LCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KIAkJCXZmX3Nwb29mY2hrLnNldHRpbmcgPSBpdmku
-c3Bvb2ZjaGs7DQogCQkJdmZfbGlua3N0YXRlLmxpbmtfc3RhdGUgPSBpdmkubGlua3N0YXRlOw0K
-IAkJCXZmX3Jzc19xdWVyeV9lbi5zZXR0aW5nID0gaXZpLnJzc19xdWVyeV9lbjsNCisJCQl2Zl90
-cnVzdC5zZXR0aW5nID0gaXZpLnRydXN0ZWQ7DQogCQkJdmYgPSBubGFfbmVzdF9zdGFydChza2Is
-IElGTEFfVkZfSU5GTyk7DQogCQkJaWYgKCF2Zikgew0KIAkJCQlubGFfbmVzdF9jYW5jZWwoc2ti
-LCB2ZmluZm8pOw0KQEAgLTE1MjQsNiArMTUyOSwxNiBAQCBzdGF0aWMgaW50IGRvX3NldHZmaW5m
-byhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgbmxhdHRyICphdHRyKQ0KIAkJCQkJCQkg
-ICAgaXZyc3NxX2VuLT5zZXR0aW5nKTsNCiAJCQlicmVhazsNCiAJCX0NCisJCWNhc2UgSUZMQV9W
-Rl9UUlVTVDogew0KKwkJCXN0cnVjdCBpZmxhX3ZmX3RydXN0ICppdnQ7DQorDQorCQkJaXZ0ID0g
-bmxhX2RhdGEodmYpOw0KKwkJCWVyciA9IC1FT1BOT1RTVVBQOw0KKwkJCWlmIChvcHMtPm5kb19z
-ZXRfdmZfdHJ1c3QpDQorCQkJCWVyciA9IG9wcy0+bmRvX3NldF92Zl90cnVzdChkZXYsIGl2dC0+
-dmYsDQorCQkJCQkJCSAgICBpdnQtPnNldHRpbmcpOw0KKwkJCWJyZWFrOw0KKwkJfQ0KIAkJZGVm
-YXVsdDoNCiAJCQllcnIgPSAtRUlOVkFMOw0KIAkJCWJyZWFrOw0KLS0gDQoxLjguMy4xDQoNCg==
+On Tue, May 19, 2015 at 4:59 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> bpf_tail_call() arguments:
+> ctx - context pointer
+> jmp_table - one of BPF_MAP_TYPE_PROG_ARRAY maps used as the jump table
+> index - index in the jump table
+>
+> In this implementation x64 JIT bypasses stack unwind and jumps into the
+> callee program after prologue, so the callee program reuses the same stack.
+>
+> The logic can be roughly expressed in C like:
+>
+> u32 tail_call_cnt;
+>
+> void *jumptable[2] = { &&label1, &&label2 };
+>
+> int bpf_prog1(void *ctx)
+> {
+> label1:
+>     ...
+> }
+>
+> int bpf_prog2(void *ctx)
+> {
+> label2:
+>     ...
+> }
+>
+> int bpf_prog1(void *ctx)
+> {
+>     ...
+>     if (tail_call_cnt++ < MAX_TAIL_CALL_CNT)
+>         goto *jumptable[index]; ... and pass my 'ctx' to callee ...
+>
+>     ... fall through if no entry in jumptable ...
+> }
+>
+
+What causes the stack pointer to be right?  Is there some reason that
+the stack pointer is the same no matter where you are in the generated
+code?
+
+--Andy
