@@ -1,57 +1,65 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH] irda: irda-usb: use msecs_to_jiffies for conversions
-Date: Tue, 19 May 2015 18:44:08 -0700
-Message-ID: <20150520014408.GA19321@roeck-us.net>
-References: <1432032711-7020-1-git-send-email-hofrat@osadl.org>
- <1432045935.2870.152.camel@perches.com>
- <20150519.164555.1631069770118420652.davem@davemloft.net>
- <1432069747.2870.215.camel@perches.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 3/4] rocker: do not make neighbour entry changes
+ when preparing transactions
+Date: Wed, 20 May 2015 10:53:11 +0900
+Message-ID: <20150520015307.GA27743@vergenet.net>
+References: <1432016657-24231-1-git-send-email-simon.horman@netronome.com>
+ <1432016657-24231-4-git-send-email-simon.horman@netronome.com>
+ <555AF50F.1090402@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, hofrat@osadl.org,
-	samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Jiri Pirko <jiri@resnulli.us>, Scott Feldman <sfeldma@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:33322 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751714AbbETBxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 21:53:22 -0400
+Received: by pdbqa5 with SMTP id qa5so48859486pdb.0
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 18:53:21 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1432069747.2870.215.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <555AF50F.1090402@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 02:09:07PM -0700, Joe Perches wrote:
-> On Tue, 2015-05-19 at 16:45 -0400, David Miller wrote:
-> > From: Joe Perches <joe@perches.com>
-> > Date: Tue, 19 May 2015 07:32:15 -0700
+Hi Makita-san,
+
+On Tue, May 19, 2015 at 05:32:15PM +0900, Toshiaki Makita wrote:
+> On 2015/05/19 15:24, Simon Horman wrote:
+> > rocker_port_ipv4_nh() and in turn rocker_port_ipv4_neigh() may be
+> > be called with trans == SWITCHDEV_TRANS_PREPARE and then
+> > trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_obj_set() via
+> > fib_table_insert().
 > > 
-> > > On Tue, 2015-05-19 at 12:51 +0200, Nicholas Mc Guire wrote:
-> > >> Converting milliseconds to jiffies by "val * HZ / 1000" is technically
-> > >> is not a clean solution as it does not handle all corner cases correctly.
-> > >> By changing the conversion to use msecs_to_jiffies(val) conversion is
-> > >> correct in all cases.
-> > >> 
-> > >> in the current code: 
-> > >>   mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
-> > >> for HZ < 100 (e.g. CONFIG_HZ == 64|32 in alpha) this effectively results 
-> > >> in no delay at all.
-> > > []
-> > >> diff --git a/drivers/net/irda/irda-usb.c b/drivers/net/irda/irda-usb.c
-> > > []
-> > >> @@ -848,7 +848,9 @@ static void irda_usb_receive(struct urb *urb)
-> > >>  		 * Jean II */
-> > >>  		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
-> > >>  		self->rx_defer_timer.data = (unsigned long) urb;
-> > >> -		mod_timer(&self->rx_defer_timer, jiffies + (10 * HZ / 1000));
-> > >> +		mod_timer(&self->rx_defer_timer,
-> > >> +			  jiffies + (msecs_to_jiffies(10)));
-> > > 
-> > > The unnecessary () around msecs_to_jiffies could be removed.
+> > Although I have been unable to find a scenario where a bug manifests
+> > I do see some incorrect behaviour when adding a fib entry with a gateway.
+> > 
+> > The first time that rocker_port_ipv4_nh() is called, with
+> > trans == SWITCHDEV_TRANS_PREPARE, _rocker_neigh_add()
+> > adds a new entry to the neigh table.
+> > 
+> > And the second time  rocker_port_ipv4_nh() is called, with
+> > trans == SWITCHDEV_TRANS_COMMIT, that entry is found and
+> > _rocker_neigh_update() is called.
+> > 
+> > Assuming the transaction runs to completion this appears to be harmless.
+> > I suspect it would be not correct if the transaction was aborted.
 > 
-> The other thing that could be done is to use
-> 	max(1ul, msecs_to_jiffies())
-> so that there's always some delay even if HZ <= 50
+> Hi Simon,
 > 
-I may be mistaken, but I am quite sure that msecs_to_jiffies() always returns
-at least 1 in such situations. Otherwise there would be lots of converstions
-to 0 in the kernel.
+> I encountered oops by this bug without abort.
+> Adding a route by ip command and pinging to the gateway triggers oops.
+> 
+> The scenario I guess is below:
+> In the PREPARE phase, a new entry is allocated and added to the hash
+> table. In the COMMIT phase, the allocated entry is the same object as
+> that in the hash table. As "adding" is not true in the COMMIT phase, the
+> entry is freed in rocker_port_ipv4_nh() while it is still in the hash
+> table. This causes use-after-free and maybe corrupts pointers in the entry.
+> 
+> This seems to fix that problem.
 
-Guenter
+Thanks for pointing that out, I see that problem too.
+I agree that this patch should fix the problem
+and I have updated the changelog with your observations.
