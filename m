@@ -1,50 +1,72 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: We've released a generic netlink python library -- gnlpy
-Date: Wed, 20 May 2015 14:10:19 -0700
-Message-ID: <555CF83B.7040706@fb.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [net-next PATCH 06/10] pktgen: new pktgen helper functions for
+ samples scripts
+Date: Wed, 20 May 2015 14:23:17 -0700
+Message-ID: <CAHA+R7NzKMLLZ954F+moZ7wFEFWPTBzo0Js9rGnU02kkPTPB0A@mail.gmail.com>
+References: <20150519213326.9070.18264.stgit@ivy>
+	<20150519213608.9070.31995.stgit@ivy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <kernel-team@fb.com>
-To: <lvs-devel@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Robert Olsson <robert@herjulf.se>,
+	Ben Greear <greearb@candelatech.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:34078 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755725AbbETVXS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 17:23:18 -0400
+Received: by wicmc15 with SMTP id mc15so379153wic.1
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 14:23:17 -0700 (PDT)
+In-Reply-To: <20150519213608.9070.31995.stgit@ivy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey everyone,
+On Tue, May 19, 2015 at 2:36 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> +
+> +# More generic replacement for pgset(), that does not depend on global
+> +# variable for proc file.
+> +function proc_cmd() {
+> +    local result
+> +    local proc_file=$1
+> +    # after shift, the remaining args are contained in $@
+> +    shift
+> +    local proc_ctrl=${PROC_DIR}/$proc_file
+> +    if [[ ! -e "$proc_ctrl" ]]; then
+> +       err 3 "proc file:$proc_ctrl does not exists (dev added to thread?)"
+> +    else
+> +       if [[ ! -w "$proc_ctrl" ]]; then
+> +           err 4 "proc file:$proc_ctrl not writable, not root?!"
+> +       fi
+> +    fi
+> +
+> +    if [[ "$DEBUG" == "yes" ]]; then
+> +       echo "cmd: $@ > $proc_ctrl"
+> +    fi
+> +    # Quoting of "$@" is important for space expansion
+> +    echo "$@" > "$proc_ctrl"
+> +    local status=$?
+> +
+> +    result=`cat $proc_ctrl | fgrep "Result: OK:"`
 
-tl;dr; pure python generic netlink library with simple clients for ipvs 
-and taskstats here: https://github.com/facebook/gnlpy
+Nit: useless usage of cat, grep/fgrep accepts a file name.
 
-At Facebook we rely upon ipvs for most of our layer-4 load balancing 
-needs.  It's mostly worked pretty great for us.  The standard way to 
-interact with ipvs is ipvsadm, which will use netlink sockets to make 
-rpc calls to the kernel (things like adding/remove services and real 
-servers).  Because we run many, many instances of ipvs, we ended up 
-scripting this away with a separate program that shells out to ipvsadm.
 
-The down side to this approach was that we had to format the arguments 
-and parse the result of the tool, which was kind of a pain. 
-Additionally, we'd sometimes get into a bad state where the exec would 
-fail or the binary wouldn't be there and the whole thing would kind of 
-break.  To my knowledge this never caused any kind of large scale 
-incident, but it was an annoying thing to deal with.
+> +    if [[ "$result" == "" ]]; then
 
-At some point, we made some changes to ipvs (heterogenous pools) and we 
-were in the position of needing to roll a new ipvsadm binary to take 
-advantage of the functionality.  That was fundamentally unappealing to 
-yours truly, so I hacked together gnlpy (Generic NetLink PYthon library) 
-instead.  It's been in production for several months.
+You can test $?
 
-At some point thereafter, someone on the lvs-devel list mentioned 
-wanting to interact with ipvs through python and I made a vague 
-assurance that we'd open source this thing.  Well here we are.
+> +       cat $proc_ctrl | fgrep Result: >&2
+> +    fi
+> +    if (( $status != 0 )); then
+> +       err 5 "Write error($status) occured cmd: \"$@ > $proc_ctrl\""
 
-If you take a look at the code, you'll quickly notice that we haven't 
-gone through the trouble of implementing every RPC call for the families 
-we support and we certainly haven't gone through the trouble of 
-implementing every generic netlink family.  We welcome your pull requests :)
+Typo: occurred
 
--- 
-Alex Gartrell <agartrell@fb.com>
+
+> +    fi
+> +}
+> +
