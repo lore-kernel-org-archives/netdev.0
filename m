@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next v4 07/10] ipv6: Create RTF_CACHE clone when FLOWI_FLAG_KNOWN_NH is set
-Date: Wed, 20 May 2015 15:52:26 -0700
-Message-ID: <1432162349-788789-8-git-send-email-kafai@fb.com>
+Subject: [PATCH net-next v4 09/10] ipv6: Break up ip6_rt_copy()
+Date: Wed, 20 May 2015 15:52:28 -0700
+Message-ID: <1432162349-788789-10-git-send-email-kafai@fb.com>
 References: <1432162349-788789-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,142 +12,166 @@ Cc: David Miller <davem@davemloft.net>,
 	Kernel Team <Kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:30819 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753717AbbETWxX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:53:23 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4KMnIxf027003
-	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:19 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36226 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754541AbbETWxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:53:21 -0400
+Received: from pps.filterd (m0004077 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4KMquV0021149
+	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:20 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1uh1010g7w-6
+	by mx0b-00082601.pphosted.com with ESMTP id 1uh2kyr5j1-8
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:19 -0700
+	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:20 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 0050b3aaff4311e4a3af0002c95209d8-f6cd03a0 for <netdev@vger.kernel.org>;	Wed,
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 0093488cff4311e4b0310002c992ebde-962d03a0 for <netdev@vger.kernel.org>;	Wed,
  20 May 2015 15:53:16 -0700
 In-Reply-To: <1432162349-788789-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch always creates RTF_CACHE clone with DST_NOCACHE
-when FLOWI_FLAG_KNOWN_NH is set so that the rt6i_dst is set to
-the fl6->daddr.
+This patch breaks up ip6_rt_copy() into ip6_rt_copy_init() and
+ip6_rt_cache_alloc().
+
+In the later patch, we need to create a percpu rt6_info copy. Hence,
+refactor the common rt6_info init codes to ip6_rt_copy_init().
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Tested-by: Julian Anastasov <ja@ssi.bg>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Julian Anastasov <ja@ssi.bg>
 ---
- include/net/ip6_fib.h |  3 +++
- net/ipv6/route.c      | 59 ++++++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 52 insertions(+), 10 deletions(-)
+ net/ipv6/route.c | 90 ++++++++++++++++++++++++++------------------------------
+ 1 file changed, 41 insertions(+), 49 deletions(-)
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index a4bece6..5556111 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -161,6 +161,9 @@ static inline void rt6_update_expires(struct rt6_info *rt0, int timeout)
- 
- static inline u32 rt6_get_cookie(const struct rt6_info *rt)
- {
-+	if (unlikely(rt->dst.flags & DST_NOCACHE))
-+		rt = (struct rt6_info *)(rt->dst.from);
-+
- 	return rt->rt6i_node ? rt->rt6i_node->fn_sernum : 0;
- }
- 
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 52deb9d..9dbee3d 100644
+index 121ed73..e8655d0 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -901,13 +901,34 @@ redo_rt6_select:
+@@ -72,8 +72,7 @@ enum rt6_nud_state {
+ 	RT6_NUD_SUCCEED = 1
+ };
+ 
+-static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+-				    const struct in6_addr *dest);
++static void ip6_rt_copy_init(struct rt6_info *rt, struct rt6_info *ort);
+ static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
+ static unsigned int	 ip6_default_advmss(const struct dst_entry *dst);
+ static unsigned int	 ip6_mtu(const struct dst_entry *dst);
+@@ -913,22 +912,32 @@ static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
+ 	 *	Clone the route.
+ 	 */
+ 
+-	rt = ip6_rt_copy(ort, daddr);
++	if (ort->rt6i_flags & RTF_CACHE)
++		ort = (struct rt6_info *)ort->dst.from;
+ 
+-	if (rt) {
+-		rt->rt6i_flags |= RTF_CACHE;
++	rt = ip6_dst_alloc(dev_net(ort->dst.dev), ort->dst.dev,
++			   0, ort->rt6i_table);
++
++	if (!rt)
++		return NULL;
++
++	ip6_rt_copy_init(rt, ort);
++	rt->rt6i_flags |= RTF_CACHE;
++	rt->rt6i_metric = 0;
++	rt->dst.flags |= DST_HOST;
++	rt->rt6i_dst.addr = *daddr;
++	rt->rt6i_dst.plen = 128;
+ 
+-		if (!rt6_is_gw_or_nonexthop(ort)) {
+-			if (ort->rt6i_dst.plen != 128 &&
+-			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
+-				rt->rt6i_flags |= RTF_ANYCAST;
++	if (!rt6_is_gw_or_nonexthop(ort)) {
++		if (ort->rt6i_dst.plen != 128 &&
++		    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
++			rt->rt6i_flags |= RTF_ANYCAST;
+ #ifdef CONFIG_IPV6_SUBTREES
+-			if (rt->rt6i_src.plen && saddr) {
+-				rt->rt6i_src.addr = *saddr;
+-				rt->rt6i_src.plen = 128;
+-			}
+-#endif
++		if (rt->rt6i_src.plen && saddr) {
++			rt->rt6i_src.addr = *saddr;
++			rt->rt6i_src.plen = 128;
  		}
++#endif
  	}
  
--	dst_hold(&rt->dst);
-+	dst_use(&rt->dst, jiffies);
- 	read_unlock_bh(&table->tb6_lock);
- 
--	rt6_dst_from_metrics_check(rt);
--	rt->dst.lastuse = jiffies;
--	rt->dst.__use++;
-+	if (rt == net->ipv6.ip6_null_entry || (rt->rt6i_flags & RTF_CACHE)) {
-+		goto done;
-+	} else if (unlikely((fl6->flowi6_flags & FLOWI_FLAG_KNOWN_NH) &&
-+			    !(rt->rt6i_flags & RTF_GATEWAY))) {
-+		/* Create a RTF_CACHE clone which will not be
-+		 * owned by the fib6 tree.  It is for the special case where
-+		 * the daddr in the skb during the neighbor look-up is different
-+		 * from the fl6->daddr used to look-up route here.
-+		 */
-+
-+		struct rt6_info *uncached_rt;
-+
-+		uncached_rt = ip6_rt_cache_alloc(rt, &fl6->daddr, NULL);
-+		dst_release(&rt->dst);
-+
-+		if (uncached_rt)
-+			uncached_rt->dst.flags |= DST_NOCACHE;
-+		else
-+			uncached_rt = net->ipv6.ip6_null_entry;
-+		dst_hold(&uncached_rt->dst);
-+		return uncached_rt;
-+	}
- 
-+done:
-+	rt6_dst_from_metrics_check(rt);
  	return rt;
+@@ -1971,7 +1980,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 				     NEIGH_UPDATE_F_ISROUTER))
+ 		     );
+ 
+-	nrt = ip6_rt_copy(rt, &msg->dest);
++	nrt = ip6_rt_cache_alloc(rt, &msg->dest, NULL);
+ 	if (!nrt)
+ 		goto out;
+ 
+@@ -2013,42 +2022,25 @@ static void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
+ 	dst_init_metrics(&rt->dst, dst_metrics_ptr(&from->dst), true);
  }
  
-@@ -1019,6 +1040,26 @@ static void rt6_dst_from_metrics_check(struct rt6_info *rt)
- 		dst_init_metrics(&rt->dst, dst_metrics_ptr(rt->dst.from), true);
- }
- 
-+static struct dst_entry *rt6_check(struct rt6_info *rt, u32 cookie)
-+{
-+	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
-+		return NULL;
-+
-+	if (rt6_check_expired(rt))
-+		return NULL;
-+
-+	return &rt->dst;
-+}
-+
-+static struct dst_entry *rt6_dst_from_check(struct rt6_info *rt, u32 cookie)
-+{
-+	if (rt->dst.obsolete == DST_OBSOLETE_FORCE_CHK &&
-+	    rt6_check((struct rt6_info *)(rt->dst.from), cookie))
-+		return &rt->dst;
-+	else
-+		return NULL;
-+}
-+
- static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- {
- 	struct rt6_info *rt;
-@@ -1029,15 +1070,13 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- 	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
- 	 * into this function always.
- 	 */
--	if (!rt->rt6i_node || (rt->rt6i_node->fn_sernum != cookie))
--		return NULL;
+-static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
+-				    const struct in6_addr *dest)
+-{
+-	struct net *net = dev_net(ort->dst.dev);
+-	struct rt6_info *rt;
 -
--	if (rt6_check_expired(rt))
--		return NULL;
- 
- 	rt6_dst_from_metrics_check(rt);
- 
--	return dst;
-+	if (unlikely(dst->flags & DST_NOCACHE))
-+		return rt6_dst_from_check(rt, cookie);
-+	else
-+		return rt6_check(rt, cookie);
+-	if (ort->rt6i_flags & RTF_CACHE)
+-		ort = (struct rt6_info *)ort->dst.from;
+-
+-	rt = ip6_dst_alloc(net, ort->dst.dev, 0,
+-			   ort->rt6i_table);
+-
+-	if (rt) {
+-		rt->dst.input = ort->dst.input;
+-		rt->dst.output = ort->dst.output;
+-		rt->dst.flags |= DST_HOST;
+-
+-		rt->rt6i_dst.addr = *dest;
+-		rt->rt6i_dst.plen = 128;
+-		rt->dst.error = ort->dst.error;
+-		rt->rt6i_idev = ort->rt6i_idev;
+-		if (rt->rt6i_idev)
+-			in6_dev_hold(rt->rt6i_idev);
+-		rt->dst.lastuse = jiffies;
+-		rt->rt6i_gateway = ort->rt6i_gateway;
+-		rt->rt6i_flags = ort->rt6i_flags;
+-		rt6_set_from(rt, ort);
+-		rt->rt6i_metric = 0;
+-
++static void ip6_rt_copy_init(struct rt6_info *rt, struct rt6_info *ort)
++{
++	rt->dst.input = ort->dst.input;
++	rt->dst.output = ort->dst.output;
++	rt->rt6i_dst = ort->rt6i_dst;
++	rt->dst.error = ort->dst.error;
++	rt->rt6i_idev = ort->rt6i_idev;
++	if (rt->rt6i_idev)
++		in6_dev_hold(rt->rt6i_idev);
++	rt->dst.lastuse = jiffies;
++	rt->rt6i_gateway = ort->rt6i_gateway;
++	rt->rt6i_flags = ort->rt6i_flags;
++	rt6_set_from(rt, ort);
++	rt->rt6i_metric = ort->rt6i_metric;
+ #ifdef CONFIG_IPV6_SUBTREES
+-		memcpy(&rt->rt6i_src, &ort->rt6i_src, sizeof(struct rt6key));
++	rt->rt6i_src = ort->rt6i_src;
+ #endif
+-		memcpy(&rt->rt6i_prefsrc, &ort->rt6i_prefsrc, sizeof(struct rt6key));
+-		rt->rt6i_table = ort->rt6i_table;
+-	}
+-	return rt;
++	rt->rt6i_prefsrc = ort->rt6i_prefsrc;
++	rt->rt6i_table = ort->rt6i_table;
  }
  
- static struct dst_entry *ip6_negative_advice(struct dst_entry *dst)
+ #ifdef CONFIG_IPV6_ROUTE_INFO
 -- 
 1.8.1
