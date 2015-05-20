@@ -1,108 +1,54 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH v3 net-next 3/4] rocker: do not make neighbour entry
- changes when preparing transactions
-Date: Wed, 20 May 2015 16:48:13 +0900
-Message-ID: <20150520074810.GA21934@vergenet.net>
-References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com>
- <1432100902-10187-4-git-send-email-simon.horman@netronome.com>
- <555C267B.9070807@lab.ntt.co.jp>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2] net: fix a double free issue for neighbour entry
+Date: Wed, 20 May 2015 11:07:27 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1505201050590.1557@ja.home.ssi.bg>
+References: <1432085113-25063-1-git-send-email-ying.xue@windriver.com> <1432099637.4060.12.camel@edumazet-glaptop2.roam.corp.google.com> <555C313E.1020003@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, alexei@purestorage.com, joern@purestorage.com
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34090 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751967AbbETHsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 03:48:24 -0400
-Received: by pabru16 with SMTP id ru16so57774325pab.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 00:48:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <555C267B.9070807@lab.ntt.co.jp>
+Received: from ja.ssi.bg ([178.16.129.10]:57223 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751341AbbETIHq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2015 04:07:46 -0400
+In-Reply-To: <555C313E.1020003@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2015 at 03:15:23PM +0900, Toshiaki Makita wrote:
-> On 2015/05/20 14:48, Simon Horman wrote:
-> > rocker_port_ipv4_nh() and in turn rocker_port_ipv4_neigh() may be
-> > be called with trans == SWITCHDEV_TRANS_PREPARE and then
-> > trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_obj_set() via
-> > fib_table_insert().
+
+	Hello,
+
+On Wed, 20 May 2015, Ying Xue wrote:
+
+> On 05/20/2015 01:27 PM, Eric Dumazet wrote:
+> > Sorry, this atomic_read() makes no sense to me.
 > > 
-> > The first time that rocker_port_ipv4_nh() is called, with
-> > trans == SWITCHDEV_TRANS_PREPARE, _rocker_neigh_add() adds a new entry to
-> > the neigh table.
+> > When rcu is used, this is perfectly fine to use an object which refcount
+> > is 0. If you believe the opposite, then point me to relevant
+> > Documentation/RCU/ file.
 > > 
-> > And the second time  rocker_port_ipv4_nh() is called, with
-> > trans == SWITCHDEV_TRANS_COMMIT, that entry is found. This causes
-> > rocker_port_ipv4_nh() to believe it is not adding an entry and thus it
-> > frees "entry", which is still present in rocker driver's neigh table.
-> > 
-> > This problem does not appear to affect deletion as my analysis is that
-> > deletion is always performed with trans == SWITCHDEV_TRANS_NONE.
-> > 
-> > For completeness _rocker_neigh_{add,del,prepare} are updated not to
-> > manipulate fib table entries if trans == SWITCHDEV_TRANS_PREPARE.
-> > 
-> > Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
-> > Reported-by: oshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 > 
-> 'T' is missing from my first name
+> However, the reality for us is that rcu_read_lock() can guarantee that a neigh
+> object is not freed within the area covered by rcu read lock, but it cannot
+> prevent neigh_destroy() from being executed in another context at the same time.
 
-Sorry about that.
+	The situation is that one writer decided that
+entry is to be removed. Reader comes and tries to become
+second writer. It should check refcnt==0 or dead==1 as
+in your last patch, always under write_lock. Second and next
+writers should not try to change state, timers, etc.
+Such writers are possible only if they were readers because
+only they can find entry that is unlinked by another writer.
 
-> > Acked-by: Scott Feldman <sfeldma@gmail.com>
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> > 
-> ...
-> >  static void _rocker_neigh_add(struct rocker *rocker,
-> > +			      enum switchdev_trans trans,
-> >  			      struct rocker_neigh_tbl_entry *entry)
-> >  {
-> > +	if (trans == SWITCHDEV_TRANS_PREPARE)
-> > +		return;
-> >  	entry->index = rocker->neigh_tbl_next_index++;
-> 
-> Isn't index needed here? It looks to be used in later function call and
-> logging.
+	And we want to keep the readers free of any memory
+barriers as they can cost hundreds of clocks. We are lucky
+that the neigh states allow RCU readers to run without any 
+atomic_inc_not_zero calls because memory barriers are not
+cheap.
 
-Thanks, that does not follow the usual model of setting values
-during the PREPARE (and all other) transaction phase(s).
+Regards
 
-> How about setting index like this?
-> 
-> 	entry->index = rocker->neigh_tbl_next_index;
-> 	if (trans == PREPARE)
-> 		return;
-> 	rocker->neigh_tbl_next_index++;
-> 	...
-
-I am concerned that _rocker_neigh_add() may be called by some other
-caller while a transaction is in process and thus entry->index will
-be inconsistent across callers.
-
-Perhaps we can convince ourselves that all the bases are covered.
-So far my testing has drawn a blank. But the logic seems difficult to
-reason about.
-
-As we are basically allocating an index I suppose what is really needed for
-a correct implementation is a transaction aware index allocator, like we
-have for memory (rocker_port_kzalloc etc...).  But that does seem like
-overkill.
-
-I think that we can make entry->index consistent across
-calls in the same transaction at the expense of breaking the
-rule that per-transaction data should be set during all transaction phases.
-
-Something like this:
-
-
-	if (trans != SWITCHDEV_TRANS_COMMIT)
-		/* Avoid index being set to different values across calls
-		 * to this function by the same caller within the same
-		 * transaction.
-		 */
-		entry->index = rocker->neigh_tbl_next_index++;
-	if (trans == SWITCHDEV_TRANS_PREPARE)
-		return;
+--
+Julian Anastasov <ja@ssi.bg>
