@@ -1,127 +1,73 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Wed, 20 May 2015 00:06:03 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH net-next 1/4] bpf: allow bpf programs to tail-call other
+ bpf programs
+Date: Tue, 19 May 2015 17:13:22 -0700
+Message-ID: <CALCETrVP=7sCM12cCZVZCCMozGcHyqTsOFvjv7cEpc7Frxj4Xg@mail.gmail.com>
+References: <1432079946-9878-1-git-send-email-ast@plumgrid.com> <1432079946-9878-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Rony Efraim <ronye@mellanox.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO202.gate.nec.co.jp ([210.143.35.52]:40226 "EHLO
-	tyo202.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080AbbETAM3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 20:12:29 -0400
-Content-Language: ja-JP
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Michael Holzheu <holzheu-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	Zi Shen Lim <zlim.lnx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1432079946-9878-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGlyb3NoaSBTaGltYW1vdG8gPGgtc2hpbWFtb3RvQGN0LmpwLm5lYy5jb20+DQoNCklt
-cGxlbWVudCB0aGUgbmV3IG5ldGRldiBvcCB0byB0cnVzdCBWRiBpbiBpeGdiZSBhbmQgbWFrZSBW
-RiBtdWx0aWNhc3QNCnByb21pc2N1b3VzIG1vZGUgZW5hYmxlZCBvbmx5IGluIHRydXN0ZWQgVkYu
-DQoNClRoZSBhZG1pbmlzdHJhdG9yIGNhbiBtYWtlIFZGIHRydXN0ZWQgYnkgaXAgY29tbWFuZCB3
-aGljaCBzdXBwb3J0cw0KdHJ1c3QgbWVzc2FnZS4NCiAjIGlwIGxpbmsgc2V0IGRldiBldGgwIHZm
-IDEgdHJ1c3Qgb24NCg0KQWZ0ZXIgbWFraW5nIFZGIHVudHJ1c3RlZCwgaXhnYmUgZGlzYWJsZXMg
-VkYgbXVsdGljYXN0IHByb21pc2N1b3VzDQpmZWF0dXJlIHJlcXVlc3RlZCBmcm9tIFZGLg0KICMg
-aXAgbGluayBzZXQgZGV2IGV0aDAgdmYgMSB0cnVzdCBvZmYNCg0KT25seSB0cnVzdGVkIFZGIGNh
-biBlbmFibGUgVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUgYW5kIGhhbmRsZQ0Kb3ZlciAz
-MCBJUHY2IGFkZHJlc3NlcyBvbiBWTSwgYmVjYXVzZSBWRiBtdWx0aWNhc3QgcHJvbWlzY3VvdXMg
-bW9kZSBtYXkNCmh1cnQgcGVyZm9ybWFuY2UuDQoNClNpZ25lZC1vZmYtYnk6IEhpcm9zaGkgU2hp
-bWFtb3RvIDxoLXNoaW1hbW90b0BjdC5qcC5uZWMuY29tPg0KUmV2aWV3ZWQtYnk6IEhheWF0byBN
-b21tYSA8aC1tb21tYUBjZS5qcC5uZWMuY29tPg0KQ0M6IENob2ksIFN5IEpvbmcgPHN5Lmpvbmcu
-Y2hvaUBpbnRlbC5jb20+DQotLS0NCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9p
-eGdiZS5oICAgICAgIHwgIDEgKw0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4
-Z2JlX21haW4uYyAgfCAgNSArKysrDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUv
-aXhnYmVfc3Jpb3YuYyB8IDM4ICsrKysrKysrKysrKysrKysrKysrKysrLS0tDQogZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuaCB8ICAyICsrDQogNCBmaWxlcyBj
-aGFuZ2VkLCA0MiBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaCBiL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlLmgNCmluZGV4IDA4ZTY1YjYuLjUxODFhNGQgMTAwNjQ0
-DQotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oDQorKysgYi9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oDQpAQCAtMTUzLDYgKzE1Myw3
-IEBAIHN0cnVjdCB2Zl9kYXRhX3N0b3JhZ2Ugew0KIAl1MTYgdmxhbl9jb3VudDsNCiAJdTggc3Bv
-b2ZjaGtfZW5hYmxlZDsNCiAJYm9vbCByc3NfcXVlcnlfZW5hYmxlZDsNCisJdTggdHJ1c3RlZDsN
-CiAJdW5zaWduZWQgaW50IHZmX2FwaTsNCiB9Ow0KIA0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KaW5kZXggYjFlYTcwNy4uMjYzY2I0MCAxMDA2NDQN
-Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KKysr
-IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQpAQCAtMzY3
-OSw2ICszNjc5LDEwIEBAIHN0YXRpYyB2b2lkIGl4Z2JlX2NvbmZpZ3VyZV92aXJ0dWFsaXphdGlv
-bihzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcikNCiAJCS8qIEVuYWJsZS9EaXNhYmxlIFJT
-UyBxdWVyeSBmZWF0dXJlICAqLw0KIAkJaXhnYmVfbmRvX3NldF92Zl9yc3NfcXVlcnlfZW4oYWRh
-cHRlci0+bmV0ZGV2LCBpLA0KIAkJCQkJICBhZGFwdGVyLT52ZmluZm9baV0ucnNzX3F1ZXJ5X2Vu
-YWJsZWQpOw0KKw0KKwkJLyogUmVjb25maWd1cmUgZmVhdHVyZXMgaW4gdHJ1c3RlZCAqLw0KKwkJ
-aXhnYmVfbmRvX3NldF92Zl90cnVzdChhZGFwdGVyLT5uZXRkZXYsIGksDQorCQkJCSAgICAgICBh
-ZGFwdGVyLT52ZmluZm9baV0udHJ1c3RlZCk7DQogCX0NCiB9DQogDQpAQCAtODE4Miw2ICs4MTg2
-LDcgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBuZXRfZGV2aWNlX29wcyBpeGdiZV9uZXRkZXZfb3Bz
-ID0gew0KIAkubmRvX3NldF92Zl9yYXRlCT0gaXhnYmVfbmRvX3NldF92Zl9idywNCiAJLm5kb19z
-ZXRfdmZfc3Bvb2ZjaGsJPSBpeGdiZV9uZG9fc2V0X3ZmX3Nwb29mY2hrLA0KIAkubmRvX3NldF92
-Zl9yc3NfcXVlcnlfZW4gPSBpeGdiZV9uZG9fc2V0X3ZmX3Jzc19xdWVyeV9lbiwNCisJLm5kb19z
-ZXRfdmZfdHJ1c3QJPSBpeGdiZV9uZG9fc2V0X3ZmX3RydXN0LA0KIAkubmRvX2dldF92Zl9jb25m
-aWcJPSBpeGdiZV9uZG9fZ2V0X3ZmX2NvbmZpZywNCiAJLm5kb19nZXRfc3RhdHM2NAk9IGl4Z2Jl
-X2dldF9zdGF0czY0LA0KICNpZmRlZiBDT05GSUdfSVhHQkVfRENCDQpkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuYyBiL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCmluZGV4IDYxNWY2NTEuLjZjNjAy
-YmMgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9z
-cmlvdi5jDQorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlv
-di5jDQpAQCAtMTE3LDggKzExNywxMSBAQCBzdGF0aWMgaW50IF9faXhnYmVfZW5hYmxlX3NyaW92
-KHN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyKQ0KIAkJCSAqLw0KIAkJCWFkYXB0ZXItPnZm
-aW5mb1tpXS5yc3NfcXVlcnlfZW5hYmxlZCA9IDA7DQogDQotCQkJLyogVHVybiBtdWx0aWNhc3Qg
-cHJvbWlzY3VvdXMgbW9kZSBvZmYgZm9yIGFsbCBWRnMgKi8NCisJCQkvKiBEaXNhbGxvdyBWRiBt
-dWx0aWNhc3QgcHJvbWlzY3VvdXMgY2FwYWJpbGl0eQ0KKwkJCSAqIGFuZCB0dXJuIGl0IG9mZiBm
-b3IgYWxsIFZGcw0KKwkJCSAqLw0KIAkJCWFkYXB0ZXItPnZmaW5mb1tpXS5tY19wcm9taXNjID0g
-ZmFsc2U7DQorCQkJYWRhcHRlci0+dmZpbmZvW2ldLnRydXN0ZWQgPSBmYWxzZTsNCiAJCX0NCiAN
-CiAJCXJldHVybiAwOw0KQEAgLTMyOSw5ICszMzIsMTQgQEAgc3RhdGljIGludCBpeGdiZV9lbmFi
-bGVfdmZfbWNfcHJvbWlzYyhzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciwgdTMyIHZmKQ0K
-IAlodyA9ICZhZGFwdGVyLT5odzsNCiAJdm1vbHIgPSBJWEdCRV9SRUFEX1JFRyhodywgSVhHQkVf
-Vk1PTFIodmYpKTsNCiANCi0JZV9pbmZvKGRydiwgIlZGICV1OiBlbmFibGluZyBtdWx0aWNhc3Qg
-cHJvbWlzY3VvdXNcbiIsIHZmKTsNCi0NCi0Jdm1vbHIgfD0gSVhHQkVfVk1PTFJfTVBFOw0KKwlp
-ZiAoYWRhcHRlci0+dmZpbmZvW3ZmXS50cnVzdGVkKSB7DQorCQllX2luZm8oZHJ2LCAiVkYgJXU6
-IGVuYWJsaW5nIG11bHRpY2FzdCBwcm9taXNjdW91c1xuIiwgdmYpOw0KKwkJdm1vbHIgfD0gSVhH
-QkVfVk1PTFJfTVBFOw0KKwl9IGVsc2Ugew0KKwkJZV9pbmZvKGRydiwgIlZGICV1OiBkaXNhYmxp
-bmcgbXVsdGljYXN0IHByb21pc2N1b3VzICINCisJCSAgICAgICAib24gdW50cnVzdGVkIFZGLlxu
-IiwgdmYpOw0KKwkJdm1vbHIgJj0gfklYR0JFX1ZNT0xSX01QRTsNCisJfQ0KIA0KIAlJWEdCRV9X
-UklURV9SRUcoaHcsIElYR0JFX1ZNT0xSKHZmKSwgdm1vbHIpOw0KIA0KQEAgLTE0OTIsNiArMTUw
-MCwyNyBAQCBpbnQgaXhnYmVfbmRvX3NldF92Zl9yc3NfcXVlcnlfZW4oc3RydWN0IG5ldF9kZXZp
-Y2UgKm5ldGRldiwgaW50IHZmLA0KIAlyZXR1cm4gMDsNCiB9DQogDQoraW50IGl4Z2JlX25kb19z
-ZXRfdmZfdHJ1c3Qoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgaW50IHZmLCBib29sIHNldHRp
-bmcpDQorew0KKwlzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5l
-dGRldik7DQorDQorCWlmICh2ZiA+PSBhZGFwdGVyLT5udW1fdmZzKQ0KKwkJcmV0dXJuIC1FSU5W
-QUw7DQorDQorCS8qIG5vdGhpbmcgdG8gZG8gKi8NCisJaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0u
-dHJ1c3RlZCA9PSBzZXR0aW5nKQ0KKwkJcmV0dXJuIDA7DQorDQorCWFkYXB0ZXItPnZmaW5mb1t2
-Zl0udHJ1c3RlZCA9IHNldHRpbmc7DQorDQorCS8qIFJlY29uZmlndXJlIGZlYXR1cmVzIHdoaWNo
-IGFyZSBvbmx5IGFsbG93ZWQgZm9yIHRydXN0ZWQgVkYgKi8NCisJLyogVkYgbXVsdGljYXN0IHBy
-b21pc2N1b3VzIG1vZGUgKi8NCisJaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzYykN
-CisJCWl4Z2JlX2VuYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIsIHZmKTsNCisNCisJcmV0dXJu
-IDA7DQorfQ0KKw0KIGludCBpeGdiZV9uZG9fZ2V0X3ZmX2NvbmZpZyhzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqbmV0ZGV2LA0KIAkJCSAgICBpbnQgdmYsIHN0cnVjdCBpZmxhX3ZmX2luZm8gKml2aSkNCiB7
-DQpAQCAtMTUwNiw1ICsxNTM1LDYgQEAgaW50IGl4Z2JlX25kb19nZXRfdmZfY29uZmlnKHN0cnVj
-dCBuZXRfZGV2aWNlICpuZXRkZXYsDQogCWl2aS0+cW9zID0gYWRhcHRlci0+dmZpbmZvW3ZmXS5w
-Zl9xb3M7DQogCWl2aS0+c3Bvb2ZjaGsgPSBhZGFwdGVyLT52ZmluZm9bdmZdLnNwb29mY2hrX2Vu
-YWJsZWQ7DQogCWl2aS0+cnNzX3F1ZXJ5X2VuID0gYWRhcHRlci0+dmZpbmZvW3ZmXS5yc3NfcXVl
-cnlfZW5hYmxlZDsNCisJaXZpLT50cnVzdGVkID0gYWRhcHRlci0+dmZpbmZvW3ZmXS50cnVzdGVk
-Ow0KIAlyZXR1cm4gMDsNCiB9DQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvaXhnYmUvaXhnYmVfc3Jpb3YuaCBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2Jl
-L2l4Z2JlX3NyaW92LmgNCmluZGV4IDJjMTk3ZTYuLmQ4NWU2ZmMgMTAwNjQ0DQotLS0gYS9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5oDQorKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5oDQpAQCAtNDksNiArNDksOCBA
-QCBpbnQgaXhnYmVfbmRvX3NldF92Zl9idyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBpbnQg
-dmYsIGludCBtaW5fdHhfcmF0ZSwNCiBpbnQgaXhnYmVfbmRvX3NldF92Zl9zcG9vZmNoayhzdHJ1
-Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBpbnQgdmYsIGJvb2wgc2V0dGluZyk7DQogaW50IGl4Z2Jl
-X25kb19zZXRfdmZfcnNzX3F1ZXJ5X2VuKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsIGludCB2
-ZiwNCiAJCQkJICBib29sIHNldHRpbmcpOw0KK2ludCBpeGdiZV9uZG9fc2V0X3ZmX3RydXN0KHN0
-cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYsDQorCQkJICAgIGludCB2ZiwgYm9vbCBzZXR0aW5nKTsN
-CiBpbnQgaXhnYmVfbmRvX2dldF92Zl9jb25maWcoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwN
-CiAJCQkgICAgaW50IHZmLCBzdHJ1Y3QgaWZsYV92Zl9pbmZvICppdmkpOw0KIHZvaWQgaXhnYmVf
-Y2hlY2tfdmZfcmF0ZV9saW1pdChzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcik7DQotLSAN
-CjEuOC4zLjENCg0K
+On Tue, May 19, 2015 at 4:59 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> introduce bpf_tail_call(ctx, &jmp_table, index) helper function
+> which can be used from BPF programs like:
+> int bpf_prog(struct pt_regs *ctx)
+> {
+>   ...
+>   bpf_tail_call(ctx, &jmp_table, index);
+>   ...
+> }
+> that is roughly equivalent to:
+> int bpf_prog(struct pt_regs *ctx)
+> {
+>   ...
+>   if (jmp_table[index])
+>     return (*jmp_table[index])(ctx);
+>   ...
+> }
+> The important detail that it's not a normal call, but a tail call.
+> The kernel stack is precious, so this helper reuses the current
+> stack frame and jumps into another BPF program without adding
+> extra call frame.
+> It's trivially done in interpreter and a bit trickier in JITs.
+> In case of x64 JIT the bigger part of generated assembler prologue
+> is common for all programs, so it is simply skipped while jumping.
+> Other JITs can do similar prologue-skipping optimization or
+> do stack unwind before jumping into the next program.
+>
+> bpf_tail_call() arguments:
+> ctx - context pointer
+> jmp_table - one of BPF_MAP_TYPE_PROG_ARRAY maps used as the jump table
+> index - index in the jump table
+>
+> Since all BPF programs are idenitified by file descriptor, user space
+> need to populate the jmp_table with FDs of other BPF programs.
+> If jmp_table[index] is empty the bpf_tail_call() doesn't jump anywhere
+> and program execution continues as normal.
+>
+> New BPF_MAP_TYPE_PROG_ARRAY map type is introduced so that user space can
+> populate this jmp_table array with FDs of other bpf programs.
+> Programs can share the same jmp_table array or use multiple jmp_tables.
+>
+> The chain of tail calls can form unpredictable dynamic loops therefore
+> tail_call_cnt is used to limit the number of calls and currently is set to 32.
+
+IMO this is starting to get a bit ugly.  Would it be possible to have
+the program dereference the subprogram reference itself from the jump
+table?  There would have to be a verifier type that represents a
+reference to a program tail-call entry point, but that seems better
+than having this weird indirection.
+
+--Andy
