@@ -1,35 +1,44 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH 1/7] Introduce FUJITSU Extended Socket Network Device
- driver
-Date: Wed, 20 May 2015 09:58:18 -0700
-Message-ID: <555CBD2A.9030001@redhat.com>
-References: <E86EADE93E2D054CBCD4E708C38D364A5422D82D@G01JPEXMBYT01>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] tcp: ensure epoll edge trigger wakeup when
+ write queue is empty
+Date: Wed, 20 May 2015 10:09:56 -0700
+Message-ID: <1432141796.4060.28.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150520155253.86202203D@prod-mail-relay06.akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Hart, Darren" <darren.hart@intel.com>,
-	"rkhan@redhat.com" <rkhan@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
-To: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>,
-	"platform-driver-x86@vger.kernel.org"
-	<platform-driver-x86@vger.kernel.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A5422D82D@G01JPEXMBYT01>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:37244 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753607AbbETRJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 13:09:59 -0400
+Received: by igbsb11 with SMTP id sb11so45051138igb.0
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 10:09:58 -0700 (PDT)
+In-Reply-To: <20150520155253.86202203D@prod-mail-relay06.akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/20/2015 01:17 AM, Izumi, Taku wrote:
+On Wed, 2015-05-20 at 15:52 +0000, Jason Baron wrote:
+> From: Jason Baron <jbaron@akamai.com>
 > 
-> This patch adds the skelton code of FUJITSU Extended Socket
-> Network Device driver.
-> At this stage, this driver just outputs its driver name at
-> loading time.
+> We currently rely on the setting of SOCK_NOSPACE in the write()
+> path to ensure that we wake up any epoll edge trigger waiters when
+> acks return to free space in the write queue. However, if we fail
+> to allocate even a single skb in the write queue, we could end up
+> waiting indefinitely.
 > 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+> Fix this by explicitly issuing a wakeup when we detect the condition
+> of an empty write queue and a return value of -EAGAIN. This allows
+> userspace to re-try as we expect this to be a temporary failure.
+> 
+> I've tested this approach by artificially making
+> sk_stream_alloc_skb() return NULL periodically. In that case,
+> epoll edge trigger waiters will hang indefinitely in epoll_wait()
+> without this patch.
+> 
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
+> ---
 
-This patch and the second one can probably be combined.  There isn't
-much point in splitting the two up since this one doesn't really do
-anything without at least the second one.
-
-- Alex
+Acked-by: Eric Dumazet <edumazet@google.com>
