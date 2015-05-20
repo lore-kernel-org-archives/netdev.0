@@ -1,53 +1,74 @@
 From: Julien Grall <julien.grall@citrix.com>
 Subject: Re: [Xen-devel] [RFC 21/23] net/xen-netback: Make it running on 64KB
  page granularity
-Date: Wed, 20 May 2015 15:29:19 +0100
-Message-ID: <555C9A3F.7000207@citrix.com>
+Date: Wed, 20 May 2015 15:26:46 +0100
+Message-ID: <555C99A6.60404@citrix.com>
 References: <1431622863-28575-1-git-send-email-julien.grall@citrix.com>
 	<1431622863-28575-22-git-send-email-julien.grall@citrix.com>
 	<20150515023534.GE19352@zion.uk.xensource.com>	<5555E81E.8070803@citrix.com>
 	<20150515153143.GA8521@zion.uk.xensource.com>	<5559D6EE.3030400@citrix.com>
-	<20150518125406.GA9503@zion.uk.xensource.com> <555BBFA7.8030502@citrix.com>
+	<20150518125406.GA9503@zion.uk.xensource.com>	<555BBFA7.8030502@citrix.com>
+ <20150520082650.GU26335@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <stefano.stabellini@eu.citrix.com>, <netdev@vger.kernel.org>,
-	<tim@xen.org>, <linux-kernel@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>
-To: Julien Grall <julien.grall@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>, <ian.campbell@citrix.com>
+Cc: <ian.campbell@citrix.com>, <stefano.stabellini@eu.citrix.com>,
+	<netdev@vger.kernel.org>, <tim@xen.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Wei Liu <wei.liu2@citrix.com>,
+	Julien Grall <julien.grall@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <555BBFA7.8030502@citrix.com>
+In-Reply-To: <20150520082650.GU26335@zion.uk.xensource.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 20/05/15 09:26, Wei Liu wrote:
+> On Tue, May 19, 2015 at 11:56:39PM +0100, Julien Grall wrote:
+> 
+>>
+>>>> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+>>>> index 0eda6e9..c2a5402 100644
+>>>> --- a/drivers/net/xen-netback/common.h
+>>>> +++ b/drivers/net/xen-netback/common.h
+>>>> @@ -204,7 +204,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
+>>>>  /* Maximum number of Rx slots a to-guest packet may use, including the
+>>>>   * slot needed for GSO meta-data.
+>>>>   */
+>>>> -#define XEN_NETBK_RX_SLOTS_MAX (MAX_SKB_FRAGS + 1)
+>>>> +#define XEN_NETBK_RX_SLOTS_MAX ((MAX_SKB_FRAGS + 1) * XEN_PFN_PER_PAGE)
+>>>>
+>>>>  enum state_bit_shift {
+>>>>         /* This bit marks that the vif is connected */
+>>>>
+>>>> The function xenvif_wait_for_rx_work never returns. I guess it's because there
+>>>> is not enough slot available.
+>>>>
+>>>> For 64KB page granularity we ask for 16 times more slots than 4KB page
+>>>> granularity. Although, it's very unlikely that all the slot will be used.
+>>>>
+>>>> FWIW I pointed out the same problem on blkfront.
+>>>>
+>>>
+>>> This is not going to work. The ring in netfront / netback has only 256
+>>> slots. Now you ask for netback to reserve more than 256 slots -- (17 +
+>>> 1) * (64 / 4) = 288, which can never be fulfilled. See the call to
+>>> xenvif_rx_ring_slots_available.
+>>>
+>>> I think XEN_NETBK_RX_SLOTS_MAX derived from the fact the each packet to
+>>> the guest cannot be larger than 64K. So you might be able to
+>>>
+>>> #define XEN_NETBK_RX_SLOTS_MAX ((65536 / XEN_PAGE_SIZE) + 1)
+>>
+>> I didn't know that packet cannot be larger than 64KB. That's simply a lot
+>> the problem.
+>>
+> 
+> I think about this more, you will need one more slot for GSO
+> information, so make it ((65536 / XEN_PAGE_SIZE) + 1 + 1).
 
-On 19/05/15 23:56, Julien Grall wrote:
->> If you're wgetting from another host, I would suggest wgetting from Dom0
->> to limit the problem between Dom0 and DomU.
-> 
-> Thanks to Wei, I was able to narrow the problem. It looks like the
-> problem is not coming from netback but somewhere else down in the
-> network stack: wget/ssh between Dom0 64KB and DomU is working fine.
-> 
-> Although, wget/ssh between a guest and an external host doesn't work
-> when Dom0 is using 64KB page granularity unless if I start a tcpdump on
-> the vif in DOM0. Anyone an idea?
-> 
-> I have no issue to wget/ssh in DOM0 to an external host and the same
-> kernel with 4KB page granularity (i.e same source code but rebuilt with
-> 4KB) doesn't show any issue with wget/ssh in the guest.
-> 
-> This has been tested on AMD Seattle, the guest kernel is the same on
-> every test (4KB page granularity).
-> 
-> I'm planning to give a try tomorrow on X-gene (ARM64 board and I think
-> 64KB page granularity is supported) to see if I can reproduce the bug.
-
-It's working on X-gene with the same kernel and configuration. I guess
-we can deduce that it's a bug in the AMD network driver.
+I have introduced a XEN_MAX_SKB_FRAGS (65536 / XEN_PAGE_SIZE + 1)
+because it's required in another place.
 
 Regards,
 
