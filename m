@@ -1,161 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: add tcpi_segs_in and tcpi_segs_out to tcp_info
-Date: Wed, 20 May 2015 16:35:41 -0700
-Message-ID: <1432164941.4060.57.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430260098-14127-1-git-send-email-edumazet@google.com>
-	 <20150512130855.GA29412@localhost.localdomain>
-	 <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Laura Abbott <labbott@redhat.com>
+Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
+Date: Wed, 20 May 2015 16:42:44 -0700
+Message-ID: <555D1BF4.8020600@redhat.com>
+References: <s5hwq04zypv.wl-tiwai@suse.de>	<Pine.LNX.4.44L0.1505191017460.1453-100000@iolanthe.rowland.org>	<s5hpp5wtrrp.wl-tiwai@suse.de>	<1432057375.3970.4.camel@suse.com>	<s5h7fs3u5gy.wl-tiwai@suse.de>	<1432111237.8287.3.camel@suse.com>	<9BCD6CFF-0356-4A0F-97D4-776C0A2E436A@holtmann.org> <s5hbnhfifka.wl-tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
+Cc: Oliver Neukum <oneukum@suse.com>,
+	Ming Lei <ming.lei@canonical.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
-	Chris Rapier <rapier@psc.edu>
-To: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:35622 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbbETXfo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:35:44 -0400
-Received: by igbyr2 with SMTP id yr2so115851819igb.0
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 16:35:43 -0700 (PDT)
-In-Reply-To: <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Laura Abbott <labbott@fedoraproject.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
+	<linux-bluetooth@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	USB list <linux-usb@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Takashi Iwai <tiwai@suse.de>, Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <s5hbnhfifka.wl-tiwai@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+On 05/20/2015 05:44 AM, Takashi Iwai wrote:
+> At Wed, 20 May 2015 11:46:31 +0200,
+> Marcel Holtmann wrote:
+>>
+>> Hi Oliver,
+>>
+>>>> The data is cached in RAM.  More specifically, the former loaded
+>>>> firmware files are reloaded and saved at suspend for each device
+>>>> object.  See fw_pm_notify() in firmware_class.c.
+>>>
+>>> OK, this may be a stupid idea, but do we know the firmware
+>>> was successfully loaded in the first place?
+>>> Also btusb is in the habit of falling back to a generic
+>>> firmware in some places. It seems to me that caching
+>>> firmware is conceptually not enough, but we'd also need
+>>> to record the absence of firmware images.
+>>
+>> in a lot of cases the firmware is optional. The device will operate fine without the firmware. There are a few devices where the firmware is required, but for many it just contains patches.
+>>
+>> It would be nice if we could tell request_firmware() if it is optional or mandatory firmware. Or if it should just cache the status of a missing firmware as well.
+>
+> OK, below is a quick hack to record the failed f/w files, too.
+> Not sure whether this helps, though.  Proper tests are appreciated.
+>
+>
 
-This patch tracks the total number of inbound and outbound segments on a
-TCP socket. One may use this number to have an idea on connection
-quality when compared against the retransmissions.
+This doesn't quite work. We end up with the name on fw_names but
+the firmware isn't actually on the firmware cache list.
 
-RFC4898 named these : tcpEStatsPerfSegsIn and tcpEStatsPerfSegsOut
+If request_firmware fails to get the firmware from the filesystem,
+release firmware will be called which is going to free the
+firmware_buf which has been marked as failed anyway. The only
+way to make this work would be to always piggy back and increase
+the ref so it always stays around. But this also marks the firmware
+as a permanent failure. There would need to be a hook somewhere
+to force a cache drop, else there would be no way to add new
+firmware to a running system without a reboot.
 
-These are a 32bit field each and can be fetched both from TCP_INFO
-getsockopt() if one has a handle on a TCP socket, or from inet_diag
-netlink facility (iproute2/ss patch will follow)
+Perhaps we split the difference: keep a list of firmware images
+that failed to load in the past and if one is requested during
+a time when usermodehelper isn't available, silently return an
+error? This way, if correct firmware is loaded at a regular time
+the item can be removed from the list.
 
-Note that tp->segs_out was placed near tp->snd_nxt for good data
-locality and minimal performance impact, while tp->segs_in was placed
-near tp->bytes_received for the same reason.
-
-Join work with Eric Dumazet.
-
-Note that received SYN are accounted on the listener, but sent SYNACK 
-are not accounted.
-
-Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/tcp.h      |    7 ++++++-
- include/uapi/linux/tcp.h |    4 +++-
- net/ipv4/tcp.c           |    2 ++
- net/ipv4/tcp_ipv4.c      |    1 +
- net/ipv4/tcp_minisocks.c |    1 +
- net/ipv4/tcp_output.c    |    1 +
- net/ipv6/tcp_ipv6.c      |    1 +
- 7 files changed, 15 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index e6fb5df22db1fb3a2a902581d958e6d4881b399b..f0212026c77fc1d74db96c0312fe9892f56c2a64 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -149,11 +149,16 @@ struct tcp_sock {
- 				 * sum(delta(rcv_nxt)), or how many bytes
- 				 * were acked.
- 				 */
-+	u32	segs_in;	/* RFC4898 tcpEStatsPerfSegsIn
-+				 * total number of segments in.
-+				 */
-  	u32	rcv_nxt;	/* What we want to receive next 	*/
- 	u32	copied_seq;	/* Head of yet unread data		*/
- 	u32	rcv_wup;	/* rcv_nxt on last window update sent	*/
-  	u32	snd_nxt;	/* Next sequence we send		*/
--
-+	u32	segs_out;	/* RFC4898 tcpEStatsPerfSegsOut
-+				 * The total number of segments sent.
-+				 */
- 	u64	bytes_acked;	/* RFC4898 tcpEStatsAppHCThruOctetsAcked
- 				 * sum(delta(snd_una)), or how many bytes
- 				 * were acked.
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 51ebedba577f36e75b9aefd1cdf9e191f47f734f..65a77b071e22bec39225799e808b44b35bb1910c 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -192,8 +192,10 @@ struct tcp_info {
- 
- 	__u64	tcpi_pacing_rate;
- 	__u64	tcpi_max_pacing_rate;
--	__u64	tcpi_bytes_acked; /* RFC4898 tcpEStatsAppHCThruOctetsAcked */
-+	__u64	tcpi_bytes_acked;    /* RFC4898 tcpEStatsAppHCThruOctetsAcked */
- 	__u64	tcpi_bytes_received; /* RFC4898 tcpEStatsAppHCThruOctetsReceived */
-+	__u32	tcpi_segs_out;	     /* RFC4898 tcpEStatsPerfSegsOut */
-+	__u32	tcpi_segs_in;	     /* RFC4898 tcpEStatsPerfSegsIn */
- };
- 
- /* for TCP_MD5SIG socket option */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index bb9bb844204f9f0cf9197fe323f287dce5e5bbd9..f283aba62cf313651f54f0e63448e89e4bafa689 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2686,6 +2686,8 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 	spin_lock_bh(&sk->sk_lock.slock);
- 	info->tcpi_bytes_acked = tp->bytes_acked;
- 	info->tcpi_bytes_received = tp->bytes_received;
-+	info->tcpi_segs_out = tp->segs_out;
-+	info->tcpi_segs_in = tp->segs_in;
- 	spin_unlock_bh(&sk->sk_lock.slock);
- }
- EXPORT_SYMBOL_GPL(tcp_get_info);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 0cc4b5a630cd49c60ea0767debf4ee171f41ad3e..feb875769b8d57dcdb85e12b782f3f5e0fb6193a 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1626,6 +1626,7 @@ process:
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-+	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
- 		if (!tcp_prequeue(sk, skb))
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index ebe2ab2596ed3c2fbd27ecb3bf6f6b66c9e06e08..b62d15c8694679ed8688ab628f7edeb0b065dfe8 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -448,6 +448,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 
- 		newtp->rcv_wup = newtp->copied_seq =
- 		newtp->rcv_nxt = treq->rcv_isn + 1;
-+		newtp->segs_in = 0;
- 
- 		newtp->snd_sml = newtp->snd_una =
- 		newtp->snd_nxt = newtp->snd_up = treq->snt_isn + 1;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e29d43b5a0bb46305b0ab4af29bd05a61abd522d..e19594ac540a5c6091c43afc30c7510287260968 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -1027,6 +1027,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
- 			      tcp_skb_pcount(skb));
- 
-+	tp->segs_out += tcp_skb_pcount(skb);
- 	/* OK, its time to fill skb_shinfo(skb)->gso_segs */
- 	skb_shinfo(skb)->gso_segs = tcp_skb_pcount(skb);
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index b6575d6655681e8e84993a5db929c7309d47d4d3..beac6bf840b9a9d1e2f281d2b1c71b5a3414b824 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1421,6 +1421,7 @@ process:
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-+	tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
- 		if (!tcp_prequeue(sk, skb))
+Thanks,
+Laura
