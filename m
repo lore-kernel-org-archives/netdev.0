@@ -1,37 +1,25 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next 1/4] bpf: allow bpf programs to tail-call other
- bpf programs
-Date: Tue, 19 May 2015 17:18:44 -0700
-Message-ID: <555BD2E4.5050608@plumgrid.com>
-References: <1432079946-9878-1-git-send-email-ast@plumgrid.com> <1432079946-9878-2-git-send-email-ast@plumgrid.com> <CALCETrVP=7sCM12cCZVZCCMozGcHyqTsOFvjv7cEpc7Frxj4Xg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: iptables: ensure number of counters is >0 in do_replace()
+Date: Tue, 19 May 2015 20:20:43 -0400 (EDT)
+Message-ID: <20150519.202043.366626459892331717.davem@davemloft.net>
+References: <20150519231120.GA1761@codemonkey.org.uk>
+	<20150519231950.GA30845@breakpoint.cc>
+	<20150519234252.GA17307@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Michael Holzheu <holzheu@linux.vnet.ibm.com>,
-	Zi Shen Lim <zlim.lnx@gmail.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrVP=7sCM12cCZVZCCMozGcHyqTsOFvjv7cEpc7Frxj4Xg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: fw@strlen.de, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: davej@codemonkey.org.uk
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20150519234252.GA17307@codemonkey.org.uk>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/19/15 5:13 PM, Andy Lutomirski wrote:
->
-> IMO this is starting to get a bit ugly.  Would it be possible to have
-> the program dereference the subprogram reference itself from the jump
-> table?  There would have to be a verifier type that represents a
-> reference to a program tail-call entry point, but that seems better
-> than having this weird indirection.
+From: Dave Jones <davej@codemonkey.org.uk>
+Date: Tue, 19 May 2015 19:42:52 -0400
 
-Which part? I don't think you've looked at examples yet.
-network parser has to call itself. Otherwise we cannot parse 10 mpls
-labels or TLVs.
-Indirection via jump_table also has to be there.
-We need to dynamically add and remove programs form this jump table.
-It cannot be all static.
+> What's the preferred format, 8 separate patches, or 1 all-in-one
+> diff for all instances of this bug ?
+
+Personally, I think you could do this in one patch.
