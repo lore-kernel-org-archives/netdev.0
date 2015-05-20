@@ -1,35 +1,42 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH net] net: sched: fix call_rcu() race on classifier module unloads
-Date: Wed, 20 May 2015 11:01:14 -0700
-Message-ID: <CAGK4HS8CnaHbLTi_B0jybA2=rojB+R=MAYKTEx_=wu5fqu-jvQ@mail.gmail.com>
-References: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [PATCH net-next 0/4] stmmac: probe code refactoring and clean up part 1
+Date: Wed, 20 May 2015 20:03:05 +0200
+Message-ID: <1432144989-28283-1-git-send-email-manabian@gmail.com>
+Cc: Joachim Eastwood <manabian@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, arnd@arndb.de,
+	linux-arm-kernel@lists.infradead.org
+To: peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f171.google.com ([209.85.160.171]:34849 "EHLO
-	mail-yk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068AbbETSBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 14:01:14 -0400
-Received: by ykec202 with SMTP id c202so18490156yke.2
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 11:01:14 -0700 (PDT)
-In-Reply-To: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:36541 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752851AbbETSD3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 14:03:29 -0400
+Received: by lagv1 with SMTP id v1so85677092lag.3
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 11:03:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  Vijay, can you give this a run on your side? This fixes the panic
->  on my side, thanks!
+This patch set refactor the code in stmmac_pci_probe and stmmac_pltfr_probe
+and moves the common bits into stmmac_dvr_probe. Along the way some clean-
+ups are applied to stmmac_pltfr_probe.
 
-Thanks for the explanation and patch Daniel !
-Yes. This also fixes the crash for me. So,
+The code has been tested on the LPC18xx platform.
 
-Tested-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+I am still working on more refactoring of the platform probe code, hence
+part 1, but I need some more time on this.
 
-Vijay
+
+Joachim Eastwood (4):
+  stmmac: move driver data setting into stmmac_dvr_probe
+  stmmac: let stmmac_dvr_probe take a struct of resources
+  stmmac: change the stmmac_dvr_probe return type to int
+  stmmac: drop unnecessary dt checks in stmmac_probe_config_dt
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       | 14 +++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 30 +++++++----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c   | 19 +++----
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 62 +++++++---------------
+ 4 files changed, 54 insertions(+), 71 deletions(-)
+
+-- 
+1.8.0
