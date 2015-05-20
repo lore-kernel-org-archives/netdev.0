@@ -1,50 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 2/4] net: af_unix: implement stream sendpage support
-Date: Thu, 21 May 2015 01:47:49 +0200
-Message-ID: <1432165669.742118.274281209.1779FF2D@webmail.messagingengine.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 4/4] net: af_unix: implement splice for stream
+ af_unix sockets
+Date: Wed, 20 May 2015 16:50:58 -0700
+Message-ID: <1432165858.4060.60.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <cover.1432135413.git.hannes@stressinduktion.org>
- <06647895d82d7a5188b522c00cf28398b3410628.1432135413.git.hannes@stressinduktion.org>
- <1432164094.4060.51.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:49304 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754564AbbETXru (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:47:50 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by mailout.nyi.internal (Postfix) with ESMTP id C1F1020926
-	for <netdev@vger.kernel.org>; Wed, 20 May 2015 19:47:49 -0400 (EDT)
-In-Reply-To: <1432164094.4060.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:34330 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753867AbbETXvA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:51:00 -0400
+Received: by ieczm2 with SMTP id zm2so51630175iec.1
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 16:50:59 -0700 (PDT)
+In-Reply-To: <3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 21, 2015, at 01:21, Eric Dumazet wrote:
-> On Wed, 2015-05-20 at 17:35 +0200, Hannes Frederic Sowa wrote:
-> > This patch implements sendpage support for AF_UNIX SOCK_STREAM
-> > +
-> > +	if (newskb)
-> > +		skb_queue_tail(&other->sk_receive_queue, newskb);
-> 
-> Are you sure we need the skb_queue_tail() here (taking spinlock) ?
-> 
-> This would tell us there might be a possible race.
-> 
-> A comment would be nice eventually.
+On Wed, 2015-05-20 at 17:35 +0200, Hannes Frederic Sowa wrote:
 
-Hmm, at first sight, I think we can change this to __skb_queue_tail.
-sendpage does take state_lock and readlock mutex and thus blocks out
-both, recvmsg and sendmsg. unix_stream_connect is also serialized by
-state_lock.
+> +
+> +static int unix_stream_splice_actor(struct sk_buff *skb,
+> +				    int skip, int chunk,
+> +				    struct unix_stream_read_state *state)
+> +{
+> +	return skb_splice_bits(skb, state->socket->sk,
+> +			       UNIXCB(skb).consumed + skip,
+> +			       state->pipe, chunk, state->splice_flags,
+> +			       skb_unix_socket_splice);
+> +}
 
-I guess I used it because of unix_stream_sendmsg, where it is actually
-necessary, as recvmsg does unlink skb without state_lock and sendmsg
-doesn't hold reader mutex.
+I am not sure you added EXPORT_SYMBOL(skb_splice_bits) in one of the
+patches ?
 
-Thanks for the hint!
+Make sure CONFIG_UNIX=m still works.
 
-Bye,
-Hannes
+Thanks.
