@@ -1,97 +1,97 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH v3] brcmfmac: prohibit ACPI power management for brcmfmac
- driver
-Date: Wed, 20 May 2015 11:02:33 +0200
-Message-ID: <555C4DA9.8020600@broadcom.com>
-References: <555016DC.804@linux.intel.com> <55598622.8060307@linux.intel.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH v2] net: fix a double free issue for neighbour entry
+Date: Wed, 20 May 2015 17:22:39 +0800
+Message-ID: <555C525F.1040006@windriver.com>
+References: <1432085113-25063-1-git-send-email-ying.xue@windriver.com> <alpine.LFD.2.11.1505201003150.1557@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: "brudley@broadcom.com" <brudley@broadcom.com>,
-	Franky Lin <frankyl@broadcom.com>,
-	"meuleman@broadcom.com" <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"pieterpg@broadcom.com" <pieterpg@broadcom.com>,
-	"hdegoede@redhat.com" <hdegoede@redhat.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"brcm80211-dev-list@broadcom.com" <brcm80211-dev-list@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<eric.dumazet@gmail.com>, <alexei@purestorage.com>,
+	<joern@purestorage.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:4016 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927AbbETJCh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 05:02:37 -0400
-In-Reply-To: <55598622.8060307@linux.intel.com>
+Received: from mail.windriver.com ([147.11.1.11]:39336 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751716AbbETJYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 05:24:16 -0400
+In-Reply-To: <alpine.LFD.2.11.1505201003150.1557@ja.home.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/15 08:26, Fu, Zhonghui wrote:
->
-> Hi guys,
->
-> Any comments about this patch?
+On 05/20/2015 03:35 PM, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Wed, 20 May 2015, Ying Xue wrote:
+> 
+>> --- a/net/core/neighbour.c
+>> +++ b/net/core/neighbour.c
+>> @@ -958,6 +958,9 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
+>>  	if (neigh->nud_state & (NUD_CONNECTED | NUD_DELAY | NUD_PROBE))
+>>  		goto out_unlock_bh;
+>>  
+>> +	if (neigh->dead)
+>> +		goto out_unlock_bh;
+>> +
+> 
+> 	Returning 0 in all cases is wrong.
 
-My acked is already there. I have not been able to test it, but I assume 
-you did.
+Good catch!
+Yes, you are right. We should return 1 especially when neigh->dead == 1.
+
+ May be you can goto
+> to another new label where nud_state check can allow valid
+> address to be used. See my idea:
+> 
+> http://marc.info/?l=linux-netdev&m=142816363503402&w=2
+> 
+> 	I.e. return 0 for NUD_STALE, drop skb and return 1
+> otherwise.
+> 
+>>  	if (!(neigh->nud_state & (NUD_STALE | NUD_INCOMPLETE))) {
+>>  		if (NEIGH_VAR(neigh->parms, MCAST_PROBES) +
+>>  		    NEIGH_VAR(neigh->parms, APP_PROBES)) {
+>> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+>> index c65b93a..5889774 100644
+>> --- a/net/ipv4/ip_output.c
+>> +++ b/net/ipv4/ip_output.c
+>> @@ -200,7 +200,7 @@ static inline int ip_finish_output2(struct sock *sk, struct sk_buff *skb)
+>>  	rcu_read_lock_bh();
+>>  	nexthop = (__force u32) rt_nexthop(rt, ip_hdr(skb)->daddr);
+>>  	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
+>> -	if (unlikely(!neigh))
+>> +	if (unlikely(!neigh || !atomic_read(&neigh->refcnt)))
+> 
+> 	You should forget about refcnt. kfree_rcu in neigh_destroy
+> will not free neigh while RCU readers are present. Still,
+> neigh_destroy runs in parallel with readers and I hope they can
+> use the stored address safely.
+
+I know touching neigh entry in ip_finish_output2() without identifying if
+atomic_read(&neigh->refcnt)==0 under RCU lock is absolutely safe for us. But in
+some extent we can say the issue is not much a closely relationship to RCU lock.
+The key problem for us is how efficiently we can prevent neigh refcnt from being
+increased from 0 to 1 on the path of dst_neigh_output().
 
 Regards,
-Arend
+Ying
 
-> Thanks,
-> Zhonghui
->
-> On 2015/5/11 10:41, Fu, Zhonghui wrote:
->> ACPI will manage WiFi chip's power state during suspend/resume
->> process on some tablet platforms(such as ASUS T100TA). This is
->> not supported by brcmfmac driver now, and the context of WiFi
->> chip will be damaged after resume. This patch informs ACPI not
->> to manage WiFi chip's power state.
->>
->> Signed-off-by: Zhonghui Fu<zhonghui.fu@linux.intel.com>
->> Acked-by: Arend van Spriel<arend@broadcom.com>
->> ---
->> Changes in v3:
->> - Have the assignment separate for the if statement.
->>
->>   drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c |    9 +++++++++
->>   1 files changed, 9 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->> index 9b508bd..c960a12 100644
->> --- a/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->> +++ b/drivers/net/wireless/brcm80211/brcmfmac/bcmsdh.c
->> @@ -33,6 +33,7 @@
->>   #include<linux/suspend.h>
->>   #include<linux/errno.h>
->>   #include<linux/module.h>
->> +#include<linux/acpi.h>
->>   #include<net/cfg80211.h>
->>
->>   #include<defs.h>
->> @@ -1114,6 +1115,8 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
->>   	int err;
->>   	struct brcmf_sdio_dev *sdiodev;
->>   	struct brcmf_bus *bus_if;
->> +	struct device *dev;
->> +	struct acpi_device *adev;
->>
->>   	brcmf_dbg(SDIO, "Enter\n");
->>   	brcmf_dbg(SDIO, "Class=%x\n", func->class);
->> @@ -1121,6 +1124,12 @@ static int brcmf_ops_sdio_probe(struct sdio_func *func,
->>   	brcmf_dbg(SDIO, "sdio device ID: 0x%04x\n", func->device);
->>   	brcmf_dbg(SDIO, "Function#: %d\n", func->num);
->>
->> +	/* prohibit ACPI power management for this device */
->> +	dev =&func->dev;
->> +	adev = ACPI_COMPANION(dev);
->> +	if (adev)
->> +		adev->flags.power_manageable = 0;
->> +
->>   	/* Consume func num 1 but dont do anything with it. */
->>   	if (func->num == 1)
->>   		return 0;
->> -- 1.7.1
->>
->
+ I mean, neigh_event_send allowing
+> neigh_resolve_output to use address in NUD_STALE state on dead=1
+> by returning 0 and reaching the dev_queue_xmit call.
+> 
+> 	Still, another inefficiency remains: how can
+> __neigh_event_send indicate to ip_finish_output2 that
+> dead=1 entry is [to be] removed and new entry needs to
+> be created. It seems the ->output method returns code
+> but skb is freed in all cases. The result is that we
+> drop single skb in such condition. But such optimization
+> should not be part of this bugfix.
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
+> 
