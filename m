@@ -1,104 +1,89 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/4] rocker: do not make neighbour entry
- changes when preparing transactions
-Date: Tue, 19 May 2015 20:16:04 -0700
-Message-ID: <CAE4R7bAxCvO7bfO8TEnj6r8XUhMLERs2ZNXvjkKjKuQS4s9ZhQ@mail.gmail.com>
-References: <1432087212-29612-1-git-send-email-simon.horman@netronome.com>
-	<1432087212-29612-4-git-send-email-simon.horman@netronome.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next] Better handling of transition to NUD_PROBE state
+Date: Wed, 20 May 2015 12:42:26 +0900
+Message-ID: <CAKD1Yr1F2_Mb=ioW4Y89ZKJTGGDm3sQU9vc=4RWELWCHGgKAGA@mail.gmail.com>
+References: <1431945881-14707-1-git-send-email-ek@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Erik Kline <ek@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f175.google.com ([209.85.216.175]:35466 "EHLO
-	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbbETDQF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 23:16:05 -0400
-Received: by qceb3 with SMTP id b3so16196476qce.2
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 20:16:04 -0700 (PDT)
-In-Reply-To: <1432087212-29612-4-git-send-email-simon.horman@netronome.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:34654 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751537AbbETDmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 23:42:47 -0400
+Received: by oiko83 with SMTP id o83so26713160oik.1
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 20:42:47 -0700 (PDT)
+In-Reply-To: <1431945881-14707-1-git-send-email-ek@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 7:00 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
+On Mon, May 18, 2015 at 7:44 PM, Erik Kline <ek@google.com> wrote:
+> [1] When entering NUD_PROBE state via neigh_update(), perhaps received
+>     from userspace, correctly (re)initialize the probes count to zero.
 >
-> rocker_port_ipv4_nh() and in turn rocker_port_ipv4_neigh() may be
-> be called with trans == SWITCHDEV_TRANS_PREPARE and then
-> trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_obj_set() via
-> fib_table_insert().
+>     This is useful for forcing revalidation of a neighbor (for example
+>     if the host is attempting to do DNA [IPv4 4436, IPv6 6059]).
 >
-> The first time that rocker_port_ipv4_nh() is called, with
-> trans == SWITCHDEV_TRANS_PREPARE, _rocker_neigh_add() adds a new entry to
-> the neigh table.
+> [2] Notify listeners when a neighbor goes into NUD_PROBE state.
 >
-> And the second time  rocker_port_ipv4_nh() is called, with
-> trans == SWITCHDEV_TRANS_COMMIT, that entry is found. This causes
-> rocker_port_ipv4_nh() to believe it is not adding an entry and thus it
-> frees "entry", which is still present in rocker driver's neigh table.
+>     By sending notifications on entry to NUD_PROBE state listeners get
+>     more timely warnings of imminent connectivity issues.
 >
-> This problem does not appear to affect deletion as my analysis is that
-> deletion is always performed with trans == SWITCHDEV_TRANS_NONE.
+>     The current notifications on entry to NUD_STALE have somewhat
+>     limited usefulness: NUD_STALE is a perfectly normal state, as is
+>     NUD_DELAY, whereas notifications on entry to NUD_FAILURE come after
+>     a neighbor reachability problem has been confirmed (typically after
+>     three probes).
 >
-> For completeness _rocker_neigh_{add,del,prepare} are updated not to
-> manipulate fib table entries if trans == SWITCHDEV_TRANS_PREPARE.
->
-> Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
-> Reported-by: oshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
->
+> Signed-off-by: Erik Kline <ek@google.com>
 > ---
-> v2
-> * As suggested by Scott Feldman, only guard ref_count adjustment
->   with (trans == SWITCHDEV_TRANS_PREPARE) in _rocker_neigh_update.
-> * Updated changelog to note that an entry is freed but left
->   in the neigh table. Thanks to Toshiaki Makita.
-> ---
->  drivers/net/ethernet/rocker/rocker.c | 16 +++++++++++-----
->  1 file changed, 11 insertions(+), 5 deletions(-)
+>  net/core/neighbour.c | 3 +++
+>  1 file changed, 3 insertions(+)
 >
-> diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-> index 89d22bdcbdc4..b836dd315e8a 100644
-> --- a/drivers/net/ethernet/rocker/rocker.c
-> +++ b/drivers/net/ethernet/rocker/rocker.c
-> @@ -2909,8 +2909,11 @@ static struct rocker_neigh_tbl_entry *
->  }
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 3de6542..3a74df7 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -913,6 +913,7 @@ static void neigh_timer_handler(unsigned long arg)
+>                         neigh->nud_state = NUD_PROBE;
+>                         neigh->updated = jiffies;
+>                         atomic_set(&neigh->probes, 0);
+> +                       notify = 1;
+
++1. Currently, the code notifies when going from REACHABLE into STALE,
+which is not necessarily something userspace might want to know about
+(all it means is "we haven't sent any packets to this neighbour
+recently"), but it doesn't notify when going into PROBE, which is a
+more important event (it means "we've been sending this neighbour
+packets for (by default) 5 seconds and we still haven't found out if
+it's stilll there, so we're probing it").
+
+>                         next = now + NEIGH_VAR(neigh->parms, RETRANS_TIME);
+>                 }
+>         } else {
+> @@ -1144,6 +1145,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
 >
->  static void _rocker_neigh_add(struct rocker *rocker,
-> +                             enum switchdev_trans trans,
->                               struct rocker_neigh_tbl_entry *entry)
->  {
-> +       if (trans == SWITCHDEV_TRANS_PREPARE)
-> +               return;
->         entry->index = rocker->neigh_tbl_next_index++;
->         entry->ref_count++;
->         hash_add(rocker->neigh_tbl, &entry->entry,
-> @@ -2921,6 +2924,8 @@ static void _rocker_neigh_del(struct rocker_port *rocker_port,
->                               enum switchdev_trans trans,
->                               struct rocker_neigh_tbl_entry *entry)
->  {
-> +       if (trans == SWITCHDEV_TRANS_PREPARE)
-> +               return;
->         if (--entry->ref_count == 0) {
->                 hash_del(&entry->entry);
->                 rocker_port_kfree(rocker_port, trans, entry);
-> @@ -2928,12 +2933,13 @@ static void _rocker_neigh_del(struct rocker_port *rocker_port,
->  }
+>         if (new != old) {
+>                 neigh_del_timer(neigh);
+> +               if (new & NUD_PROBE)
+> +                       atomic_set(&neigh->probes, 0);
+
++1. The normal code path (from STALE to DELAY to PROBE) obviously
+already sets the probes to 0. Userspace can put a neighbour into
+NUD_PROBE to cause the kernel to probe it, but this only works (by
+default) three times because the probe counter is never reset to 0. So
+the first three times, the neighbour goes from (say) STALE to PROBE
+and then back to REACHABLE (good), but then the fourth time, the
+neighbour goes from STALE to PROBE and then immediately to FAILED.
+
+>                 if (new & NUD_IN_TIMER)
+>                         neigh_add_timer(neigh, (jiffies +
+>                                                 ((new & NUD_REACHABLE) ?
+> --
+> 2.2.0.rc0.207.ga3a616c
 >
->  static void _rocker_neigh_update(struct rocker_neigh_tbl_entry *entry,
-> +                                enum switchdev_trans trans,
->                                  u8 *eth_dst, bool ttl_check)
->  {
->         if (eth_dst) {
->                 ether_addr_copy(entry->eth_dst, eth_dst);
->                 entry->ttl_check = ttl_check;
-> -       } else {
-> +       } else if (trans == SWITCHDEV_TRANS_PREPARE) {
->                 entry->ref_count++;
->         }
 
-
-hmmm...should that be else if (trans != SWITCHDEV_TRANS_PREPARE)?
-
-If so, please send v3 and add my Acked-by.
+Acked-By: Lorenzo Colitti <lorenzo@google.com>
