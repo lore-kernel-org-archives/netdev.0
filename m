@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next v4 03/10] ipv6: Combine rt6_alloc_cow and rt6_alloc_clone
-Date: Wed, 20 May 2015 15:52:22 -0700
-Message-ID: <1432162349-788789-4-git-send-email-kafai@fb.com>
+Subject: [PATCH net-next v4 06/10] ipv6: Set FLOWI_FLAG_KNOWN_NH at flowi6_flags
+Date: Wed, 20 May 2015 15:52:25 -0700
+Message-ID: <1432162349-788789-7-git-send-email-kafai@fb.com>
 References: <1432162349-788789-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,122 +12,132 @@ Cc: David Miller <davem@davemloft.net>,
 	Kernel Team <Kernel-team@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:7142 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36615 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753335AbbETWxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:53:16 -0400
-Received: from pps.filterd (m0004347 [127.0.0.1])
-	by m0004347.ppops.net (8.14.5/8.14.5) with SMTP id t4KMq0eF000834
-	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:16 -0700
+	by vger.kernel.org with ESMTP id S1753686AbbETWxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:53:17 -0400
+Received: from pps.filterd (m0044012 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4KMqbOD031590
+	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:17 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0004347.ppops.net with ESMTP id 1uh2bg83nq-2
+	by mx0a-00082601.pphosted.com with ESMTP id 1ugu7b8yh3-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:16 -0700
+	for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:53:17 -0700
 Received: from facebook.com (2401:db00:20:7029:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- ffa0bedcff4211e480c40002c991e86a-75fda3a0 for <netdev@vger.kernel.org>;	Wed,
- 20 May 2015 15:53:15 -0700
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 001bf278ff4311e4b0310002c992ebde-962d03a0 for <netdev@vger.kernel.org>;	Wed,
+ 20 May 2015 15:53:16 -0700
 In-Reply-To: <1432162349-788789-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A prep work for creating RTF_CACHE on exception only.  After this
-patch, the same condition (rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY))
-is checked twice. This redundancy will be removed in the later patch.
+The neighbor look-up used to depend on the rt6i_gateway (if
+there is a gateway) or the rt6i_dst (if it is a RTF_CACHE clone)
+as the nexthop address.  Note that rt6i_dst is set to fl6->daddr
+for the RTF_CACHE clone where fl6->daddr is the one used to do
+the route look-up.
+
+Now, we only create RTF_CACHE clone after encountering exception.
+When doing the neighbor look-up with a route that is neither a gateway
+nor a RTF_CACHE clone, the daddr in skb will be used as the nexthop.
+
+In some cases, the daddr in skb is not the one used to do
+the route look-up.  One example is in ip_vs_dr_xmit_v6() where the
+real nexthop server address is different from the one in the skb.
+
+This patch is going to follow the IPv4 approach and ask the
+ip6_pol_route() callers to set the FLOWI_FLAG_KNOWN_NH properly.
+
+In the next patch, ip6_pol_route() will honor the FLOWI_FLAG_KNOWN_NH
+and create a RTF_CACHE clone.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Tested-by: Julian Anastasov <ja@ssi.bg>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Julian Anastasov <ja@ssi.bg>
 ---
- net/ipv6/route.c | 45 ++++++++++++++++++++-------------------------
- 1 file changed, 20 insertions(+), 25 deletions(-)
+ net/ipv6/raw.c                  |  3 +++
+ net/netfilter/ipvs/ip_vs_xmit.c | 13 +++++++++----
+ net/netfilter/xt_TEE.c          |  1 +
+ 3 files changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 978e94e..c820308 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -655,6 +655,11 @@ static struct rt6_info *rt6_select(struct fib6_node *fn, int oif, int strict)
- 	return match ? match : net->ipv6.ip6_null_entry;
- }
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index 8072bd4..484a5c1 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -865,6 +865,9 @@ static int rawv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 		fl6.flowi6_oif = np->ucast_oif;
+ 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
  
-+static bool rt6_is_gw_or_nonexthop(const struct rt6_info *rt)
-+{
-+	return (rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY));
-+}
++	if (inet->hdrincl)
++		fl6.flowi6_flags |= FLOWI_FLAG_KNOWN_NH;
 +
- #ifdef CONFIG_IPV6_ROUTE_INFO
- int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
- 		  const struct in6_addr *gwaddr)
-@@ -833,9 +838,9 @@ int ip6_ins_rt(struct rt6_info *rt)
- 	return __ip6_ins_rt(rt, &info, &mxc);
- }
- 
--static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
--				      const struct in6_addr *daddr,
--				      const struct in6_addr *saddr)
-+static struct rt6_info *ip6_rt_cache_alloc(struct rt6_info *ort,
-+					   const struct in6_addr *daddr,
-+					   const struct in6_addr *saddr)
+ 	dst = ip6_dst_lookup_flow(sk, &fl6, final_p);
+ 	if (IS_ERR(dst)) {
+ 		err = PTR_ERR(dst);
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+index 5eff9f6..bf66a86 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -364,13 +364,16 @@ err_unreach:
+ #ifdef CONFIG_IP_VS_IPV6
+ static struct dst_entry *
+ __ip_vs_route_output_v6(struct net *net, struct in6_addr *daddr,
+-			struct in6_addr *ret_saddr, int do_xfrm)
++			struct in6_addr *ret_saddr, int do_xfrm, int rt_mode)
  {
- 	struct rt6_info *rt;
+ 	struct dst_entry *dst;
+ 	struct flowi6 fl6 = {
+ 		.daddr = *daddr,
+ 	};
  
-@@ -846,33 +851,24 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
- 	rt = ip6_rt_copy(ort, daddr);
- 
- 	if (rt) {
--		if (ort->rt6i_dst.plen != 128 &&
--		    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
--			rt->rt6i_flags |= RTF_ANYCAST;
--
- 		rt->rt6i_flags |= RTF_CACHE;
- 
-+		if (!rt6_is_gw_or_nonexthop(ort)) {
-+			if (ort->rt6i_dst.plen != 128 &&
-+			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
-+				rt->rt6i_flags |= RTF_ANYCAST;
- #ifdef CONFIG_IPV6_SUBTREES
--		if (rt->rt6i_src.plen && saddr) {
--			rt->rt6i_src.addr = *saddr;
--			rt->rt6i_src.plen = 128;
--		}
-+			if (rt->rt6i_src.plen && saddr) {
-+				rt->rt6i_src.addr = *saddr;
-+				rt->rt6i_src.plen = 128;
-+			}
- #endif
-+		}
- 	}
- 
- 	return rt;
- }
- 
--static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
--					const struct in6_addr *daddr)
--{
--	struct rt6_info *rt = ip6_rt_copy(ort, daddr);
--
--	if (rt)
--		rt->rt6i_flags |= RTF_CACHE;
--	return rt;
--}
--
- static struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table, int oif,
- 				      struct flowi6 *fl6, int flags)
- {
-@@ -918,10 +914,9 @@ redo_rt6_select:
- 	if (rt->rt6i_flags & RTF_CACHE)
- 		goto out2;
- 
--	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
--		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
--	else if (!(rt->dst.flags & DST_HOST) || !(rt->rt6i_flags & RTF_LOCAL))
--		nrt = rt6_alloc_clone(rt, &fl6->daddr);
-+	if (!rt6_is_gw_or_nonexthop(rt) ||
-+	    !(rt->dst.flags & DST_HOST) || !(rt->rt6i_flags & RTF_LOCAL))
-+		nrt = ip6_rt_cache_alloc(rt, &fl6->daddr, &fl6->saddr);
- 	else
- 		goto out2;
- 
++	if (rt_mode & IP_VS_RT_MODE_KNOWN_NH)
++		fl6.flowi6_flags = FLOWI_FLAG_KNOWN_NH;
++
+ 	dst = ip6_route_output(net, NULL, &fl6);
+ 	if (dst->error)
+ 		goto out_err;
+@@ -427,7 +430,7 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+ 			}
+ 			dst = __ip_vs_route_output_v6(net, &dest->addr.in6,
+ 						      &dest_dst->dst_saddr.in6,
+-						      do_xfrm);
++						      do_xfrm, rt_mode);
+ 			if (!dst) {
+ 				__ip_vs_dst_set(dest, NULL, NULL, 0);
+ 				spin_unlock_bh(&dest->dst_lock);
+@@ -446,7 +449,8 @@ __ip_vs_get_out_rt_v6(int skb_af, struct sk_buff *skb, struct ip_vs_dest *dest,
+ 			*ret_saddr = dest_dst->dst_saddr.in6;
+ 	} else {
+ 		noref = 0;
+-		dst = __ip_vs_route_output_v6(net, daddr, ret_saddr, do_xfrm);
++		dst = __ip_vs_route_output_v6(net, daddr, ret_saddr, do_xfrm,
++					      rt_mode);
+ 		if (!dst)
+ 			goto err_unreach;
+ 		rt = (struct rt6_info *) dst;
+@@ -1164,7 +1168,8 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 	local = __ip_vs_get_out_rt_v6(cp->af, skb, cp->dest, &cp->daddr.in6,
+ 				      NULL, ipvsh, 0,
+ 				      IP_VS_RT_MODE_LOCAL |
+-				      IP_VS_RT_MODE_NON_LOCAL);
++				      IP_VS_RT_MODE_NON_LOCAL |
++				      IP_VS_RT_MODE_KNOWN_NH);
+ 	if (local < 0)
+ 		goto tx_error;
+ 	if (local) {
+diff --git a/net/netfilter/xt_TEE.c b/net/netfilter/xt_TEE.c
+index 292934d..a747eb4 100644
+--- a/net/netfilter/xt_TEE.c
++++ b/net/netfilter/xt_TEE.c
+@@ -152,6 +152,7 @@ tee_tg_route6(struct sk_buff *skb, const struct xt_tee_tginfo *info)
+ 	fl6.daddr = info->gw.in6;
+ 	fl6.flowlabel = ((iph->flow_lbl[0] & 0xF) << 16) |
+ 			   (iph->flow_lbl[1] << 8) | iph->flow_lbl[2];
++	fl6.flowi6_flags = FLOWI_FLAG_KNOWN_NH;
+ 	dst = ip6_route_output(net, NULL, &fl6);
+ 	if (dst->error) {
+ 		dst_release(dst);
 -- 
 1.8.1
