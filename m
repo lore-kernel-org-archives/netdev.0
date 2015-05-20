@@ -1,52 +1,43 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [V4 PATCH 3/6] pci: Generic function for setting up PCI device
- DMA coherency
-Date: Wed, 20 May 2015 21:46:45 +0100
-Message-ID: <20150520204645.GX2067@n2100.arm.linux.org.uk>
-References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <3954735.qeaTp8qOcM@vostro.rjw.lan>
- <20150520092415.GA25313@e104818-lin.cambridge.arm.com>
- <2072233.lIH4idDurI@wuerfel>
- <20150520093401.GC25313@e104818-lin.cambridge.arm.com>
- <555C7759.3040304@amd.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net-next 4/4] net: af_unix: implement splice for stream
+ af_unix sockets
+Date: Wed, 20 May 2015 13:59:05 -0700
+Message-ID: <CAHA+R7MO1H8kCqwGd4dcEMJOB0D=qUdYkKq1K1Mmc5jJAQVikw@mail.gmail.com>
+References: <cover.1432135413.git.hannes@stressinduktion.org>
+	<3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	Arnd Bergmann <arnd@arndb.de>, thomas.lendacky@amd.com,
-	herbert@gondor.apana.org.au, al.stone@linaro.org,
-	linaro-acpi@lists.linaro.org, netdev@vger.kernel.org,
-	will.deacon@arm.com, linux-kernel@vger.kernel.org,
-	Rob Herring <robh+dt@kernel.org>, davem@davemloft.net,
-	linux-acpi@vger.kernel.org, Murali Karicheri <m-karicheri2@ti.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>, hanjun.guo@linaro.org,
-	msalter@redhat.com, grant.likely@linaro.org, leo.duran@amd.com,
-	lenb@kernel.org, bhelgaas@google.com,
-	David Woodhouse <dwmw2@infradead.org>,
-	linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org
-To: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <555C7759.3040304@amd.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:37777 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753033AbbETU7G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 16:59:06 -0400
+Received: by wibt6 with SMTP id t6so73664652wib.0
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 13:59:05 -0700 (PDT)
+In-Reply-To: <3552a4927029e9504f4d4b4e5de4908ab053a5dc.1432135413.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2015 at 07:00:25AM -0500, Suravee Suthikulanit wrote:
-> On 5/20/2015 4:34 AM, Catalin Marinas wrote:
-> >We have a dummy of_dma_configure() already when !CONFIG_OF, otherwise
-> >we would need #ifndef here. I already replied, I think for other
-> >architectures we need this check to avoid a useless host->of_node test.
-> 
-> It seems that there are several places that have similar check. Would it be
-> good to convert this into a macro? Something like:
-> 
-> #define OF_NODE_ENABLED(dev)	(IS_ENABLED(CONFIG_OF) && dev->of_node)
+On Wed, May 20, 2015 at 8:35 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>
+> -static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg,
+> -                              size_t size, int flags)
+> +struct unix_stream_read_state {
+> +       int (*recv_actor)(struct sk_buff *, int, int,
+> +                         struct unix_stream_read_state *);
+> +       struct socket *socket;
+> +       struct msghdr *msg;
+> +       struct pipe_inode_info *pipe;
+> +       size_t size;
+> +       int flags;
+> +       unsigned int splice_flags;
+> +};
+> +
+> +static __always_inline
+> +int unix_stream_read_generic(struct unix_stream_read_state *state)
 
-This /could/ be a useful compile-time optimisation: when CONFIG_OF is
-disabled, dev->of_node exists but will always be NULL - but the
-compiler doesn't know this.  Your suggestion above would tell the
-compiler that when CONFIG_OF is disabled, OF_NODE_ENABLED() will
-evaluate to a constant false, which means it can eliminate code.
 
--- 
-FTTC broadband for 0.8mile line: currently at 10.5Mbps down 400kbps up
-according to speedtest.net.
+Why __always_inline here?
