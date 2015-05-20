@@ -1,114 +1,66 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] net: sched: fix call_rcu() race on classifier module unloads
-Date: Wed, 20 May 2015 17:13:33 +0200
-Message-ID: <9f44c4c5d2ad81e7d7ef828b9e60bd308fc7caf9.1432134471.git.daniel@iogearbox.net>
-Cc: subramanian.vijay@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41014 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752344AbbETPNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 11:13:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 04/12] IB/ipoib: Return IPoIB devices matching
+ connection parameters
+Date: Wed, 20 May 2015 18:17:53 +0300
+Message-ID: <555CA5A1.9040603@mellanox.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+ <1431841868-28063-5-git-send-email-haggaie@mellanox.com>
+ <20150519182810.GG18675@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150519182810.GG18675-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Vijay reported that a loop as simple as ...
+On 19/05/2015 21:28, Jason Gunthorpe wrote:
+> On Sun, May 17, 2015 at 08:51:00AM +0300, Haggai Eran wrote:
+> 
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +	struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)addr;
+>> +#endif
+>> +	__be32 ret_addr;
+>> +
+>> +	switch (addr->sa_family) {
+>> +	case AF_INET:
+>> +		in_dev = in_dev_get(dev);
+>> +		if (!in_dev)
+>> +			return false;
+>> +
+>> +		ret_addr = inet_confirm_addr(net, in_dev, 0,
+>> +					     addr_in->sin_addr.s_addr,
+>> +					     RT_SCOPE_HOST);
+>> +		in_dev_put(in_dev);
+>> +		if (ret_addr)
+>> +			return true;
+>> +
+>> +		break;
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +	case AF_INET6:
+>> +		if (ipv6_chk_addr(net, &addr_in6->sin6_addr, dev, 1))
+>> +			return true;
+>> +
+>> +		break;
+>> +#endif
+> 
+> Can you use
+> 
+>   if (IS_ENABLED(CONFIG_IPV6))
+> 
+> At the call site instead of the #if guards?
 
-  while true; do
-    tc qdisc add dev foo root handle 1: prio
-    tc filter add dev foo parent 1: u32 match u32 0 0  flowid 1
-    tc qdisc del dev foo root
-    rmmod cls_u32
-  done
+Sure, I'll do that in the next revision of the patch-set.
 
-... will panic the kernel. Moreover, he bisected the change
-apparently introducing it to 78fd1d0ab072 ("netlink: Re-add
-locking to netlink_lookup() and seq walker").
+Haggai
 
-The removal of synchronize_net() from the netlink socket
-triggering the qdisc to be removed, seems to have uncovered
-an RCU resp. module reference count race from the tc API.
-Given that RCU conversion was done after e341694e3eb5 ("netlink:
-Convert netlink_lookup() to use RCU protected hash table")
-which added the synchronize_net() originally, occasion of
-hitting the bug was less likely (not impossible though):
-
-When qdiscs that i) support attaching classifiers and,
-ii) have at least one of them attached, get deleted, they
-invoke tcf_destroy_chain(), and thus call into ->destroy()
-handler from a classifier module.
-
-After RCU conversion, all classifier that have an internal
-prio list, unlink them and initiate freeing via call_rcu()
-deferral.
-
-Meanhile, tcf_destroy() releases already reference to the
-tp->ops->owner module before the queued RCU callback handler
-has been invoked.
-
-Subsequent rmmod on the classifier module is then not prevented
-since all module references are already dropped.
-
-By the time, the kernel invokes the RCU callback handler from
-the module, that function address is then invalid.
-
-One way to fix it would be to add an rcu_barrier() to
-unregister_tcf_proto_ops() to wait for all pending call_rcu()s
-to complete.
-
-synchronize_rcu() is not appropriate as under heavy RCU
-callback load, registered call_rcu()s could be deferred
-longer than a grace period. In case we don't have any pending
-call_rcu()s, the barrier is allowed to return immediately.
-
-Since we came here via unregister_tcf_proto_ops(), there
-are no users of a given classifier anymore. Further nested
-call_rcu()s pointing into the module space are not being
-done anywhere.
-
-Only cls_bpf_delete_prog() may schedule a work item, to
-unlock pages eventually, but that is not in the range/context
-of cls_bpf anymore.
-
-Fixes: 25d8c0d55f24 ("net: rcu-ify tcf_proto")
-Fixes: 9888faefe132 ("net: sched: cls_basic use RCU")
-Reported-by: Vijay Subramanian <subramanian.vijay@gmail.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: John Fastabend <john.r.fastabend@intel.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Thomas Graf <tgraf@suug.ch>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
----
- (For Fixes tags, I've added the first ones that should be affected.)
-
- Vijay, can you give this a run on your side? This fixes the panic
- on my side, thanks!
-
- net/sched/cls_api.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index b6ef9a0..a75864d 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -81,6 +81,11 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops)
- 	struct tcf_proto_ops *t;
- 	int rc = -ENOENT;
- 
-+	/* Wait for outstanding call_rcu()s, if any, from a
-+	 * tcf_proto_ops's destroy() handler.
-+	 */
-+	rcu_barrier();
-+
- 	write_lock(&cls_mod_lock);
- 	list_for_each_entry(t, &tcf_proto_base, head) {
- 		if (t == ops) {
--- 
-1.9.3
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
