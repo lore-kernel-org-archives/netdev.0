@@ -1,72 +1,103 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [V4 PATCH 3/6] pci: Generic function for setting up PCI device
- DMA coherency
-Date: Wed, 20 May 2015 10:34:01 +0100
-Message-ID: <20150520093401.GC25313@e104818-lin.cambridge.arm.com>
-References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
- <3954735.qeaTp8qOcM@vostro.rjw.lan>
- <20150520092415.GA25313@e104818-lin.cambridge.arm.com>
- <2072233.lIH4idDurI@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org,
-	will.deacon@arm.com, herbert@gondor.apana.org.au,
-	al.stone@linaro.org, linux-acpi@vger.kernel.org,
-	Murali Karicheri <m-karicheri2@ti.com>, msalter@redhat.com,
-	grant.likely@linaro.org, hanjun.guo@linaro.org,
-	thomas.lendacky@amd.com, Rob Herring <robh+dt@kernel.org>,
-	bhelgaas@google.com, netdev@vger.kernel.org,
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Subject: [Patch v2 09/14] net/mlx4: Cache irq_desc->affinity instead of irq_desc
+Date: Wed, 20 May 2015 17:40:40 +0800
+Message-ID: <1432114845-24304-10-git-send-email-jiang.liu@linux.intel.com>
+References: <1432114845-24304-1-git-send-email-jiang.liu@linux.intel.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Tony Luck <tony.luck@intel.com>, x86@kernel.org,
+	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+	linux-acpi@vger.kernel.org, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
 	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	linux-kernel@vger.kernel.org, leo.duran@amd.com,
-	linux-crypto@vger.kernel.org,
-	Suravee Suthikulpanit <Suravee.Suthikulpanit@amd.com>,
-	lenb@kernel.org, David Woodhouse <dwmw2@infradead.org>,
-	davem@davemloft.net
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2072233.lIH4idDurI@wuerfel>
-Sender: linux-acpi-owner@vger.kernel.org
+	Randy Dunlap <rdunlap@infradead.org>,
+	Yinghai Lu <yinghai@kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Amir Vadai <amirv@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Matan Barak <matanb@mellanox.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1432114845-24304-1-git-send-email-jiang.liu@linux.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 11:27:54AM +0200, Arnd Bergmann wrote:
-> On Wednesday 20 May 2015 10:24:15 Catalin Marinas wrote:
-> > On Sat, May 16, 2015 at 01:59:00AM +0200, Rafael J. Wysocki wrote:
-> > > On Friday, May 15, 2015 04:23:11 PM Suravee Suthikulpanit wrote:
-> > > > +/**
-> > > > + * pci_dma_configure - Setup DMA configuration
-> > > > + * @pci_dev: ptr to pci_dev struct of the PCI device
-> > > > + *
-> > > > + * Function to update PCI devices's DMA configuration using the same
-> > > > + * info from the OF node or ACPI node of host bridge's parent (if any).
-> > > > + */
-> > > > +static void pci_dma_configure(struct pci_dev *pci_dev)
-> > > > +{
-> > > > +   struct device *dev = &pci_dev->dev;
-> > > > +   struct device *bridge = pci_get_host_bridge_device(pci_dev);
-> > > > +   struct device *host = bridge->parent;
-> > > > +   struct acpi_device *adev;
-> > > > +
-> > > > +   if (!host)
-> > > > +           return;
-> > > > +
-> > > > +   if (acpi_disabled) {
-> > > > +           of_dma_configure(dev, host->of_node);
-> > > 
-> > > I'd rather do
-> > > 
-> > >       if (IS_ENABLED(CONFIG_OF) && host->of_node) {
-> > >               of_dma_configure(dev, host->of_node);
-> > 
-> > Nitpick: do we need the CONFIG_OF check? If disabled, I don't think
-> > anyone would set host->of_node.
-> 
-> If of_dma_configure() is defined in a file that is built conditionally
-> based on CONFIG_OF, you need it.
+The field 'affinity' in irq_desc won't change once the irq_desc data
+structure is created. So cache irq_desc->affinity instead of irq_desc.
+This also helps to hide struct irq_desc from device drivers.
 
-We have a dummy of_dma_configure() already when !CONFIG_OF, otherwise
-we would need #ifndef here. I already replied, I think for other
-architectures we need this check to avoid a useless host->of_node test.
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c   |    6 +++---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    5 +----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    2 +-
+ 3 files changed, 5 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 22da4d0d0f05..a03a01625398 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -31,6 +31,7 @@
+  *
+  */
+ 
++#include <linux/irq.h>
+ #include <linux/mlx4/cq.h>
+ #include <linux/mlx4/qp.h>
+ #include <linux/mlx4/cmd.h>
+@@ -135,9 +136,8 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
+ 				mdev->dev->caps.num_comp_vectors;
+ 		}
+ 
+-		cq->irq_desc =
+-			irq_to_desc(mlx4_eq_get_irq(mdev->dev,
+-						    cq->vector));
++		cq->irq_affinity = irq_get_affinity_mask(
++					mlx4_eq_get_irq(mdev->dev, cq->vector));
+ 	} else {
+ 		/* For TX we use the same irq per
+ 		ring we assigned for the RX    */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 2a77a6b19121..5675febf478e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -1044,14 +1044,11 @@ int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget)
+ 	/* If we used up all the quota - we're probably not done yet... */
+ 	if (done == budget) {
+ 		int cpu_curr;
+-		const struct cpumask *aff;
+ 
+ 		INC_PERF_COUNTER(priv->pstats.napi_quota);
+ 
+ 		cpu_curr = smp_processor_id();
+-		aff = irq_desc_get_irq_data(cq->irq_desc)->affinity;
+-
+-		if (likely(cpumask_test_cpu(cpu_curr, aff)))
++		if (likely(cpumask_test_cpu(cpu_curr, cq->irq_affinity)))
+ 			return budget;
+ 
+ 		/* Current cpu is not according to smp_irq_affinity -
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index d021f079f181..33d544a1fe84 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -357,7 +357,7 @@ struct mlx4_en_cq {
+ #define CQ_USER_PEND (MLX4_EN_CQ_STATE_POLL | MLX4_EN_CQ_STATE_POLL_YIELD)
+ 	spinlock_t poll_lock; /* protects from LLS/napi conflicts */
+ #endif  /* CONFIG_NET_RX_BUSY_POLL */
+-	struct irq_desc *irq_desc;
++	struct cpumask	*irq_affinity;
+ };
+ 
+ struct mlx4_en_port_profile {
 -- 
-Catalin
+1.7.10.4
