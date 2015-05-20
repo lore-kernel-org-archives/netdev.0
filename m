@@ -1,270 +1,138 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH 4/7] fjes: Define hardware registers and related data
- structures
-Date: Wed, 20 May 2015 10:37:19 -0700
-Message-ID: <555CC64F.3020701@redhat.com>
-References: <E86EADE93E2D054CBCD4E708C38D364A5422D862@G01JPEXMBYT01>
+From: Scott Feldman <sfeldma@gmail.com>
+Subject: Re: [PATCH v3 net-next 3/4] rocker: do not make neighbour entry
+ changes when preparing transactions
+Date: Wed, 20 May 2015 10:37:52 -0700
+Message-ID: <CAE4R7bDY4vNOUjRQQ=CzPRbVKEq4qZh2BVutajrRt3_JsdWdvw@mail.gmail.com>
+References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com>
+	<1432100902-10187-4-git-send-email-simon.horman@netronome.com>
+	<555C267B.9070807@lab.ntt.co.jp>
+	<20150520074810.GA21934@vergenet.net>
+	<555C4776.70508@lab.ntt.co.jp>
+	<20150520084623.GA14454@vergenet.net>
+	<20150520111736.GE2228@nanopsycho.orion>
+	<20150520125744.GA2083@penelope.isobedori.kobe.vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: "Hart, Darren" <darren.hart@intel.com>,
-	"rkhan@redhat.com" <rkhan@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
-To: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>,
-	"platform-driver-x86@vger.kernel.org"
-	<platform-driver-x86@vger.kernel.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A5422D862@G01JPEXMBYT01>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:34052 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753431AbbETRhx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 13:37:53 -0400
+Received: by qgez61 with SMTP id z61so23276097qge.1
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 10:37:52 -0700 (PDT)
+In-Reply-To: <20150520125744.GA2083@penelope.isobedori.kobe.vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/20/2015 01:19 AM, Izumi, Taku wrote:
-> 
-> This patch adds registers and related data structures
-> definition.
-> 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+On Wed, May 20, 2015 at 5:57 AM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> On Wed, May 20, 2015 at 01:17:36PM +0200, Jiri Pirko wrote:
+>> Wed, May 20, 2015 at 10:46:26AM CEST, simon.horman@netronome.com wrote:
+>> >On Wed, May 20, 2015 at 05:36:06PM +0900, Toshiaki Makita wrote:
+>> >> On 2015/05/20 16:48, Simon Horman wrote:
+>> >> > On Wed, May 20, 2015 at 03:15:23PM +0900, Toshiaki Makita wrote:
+>> >> >> On 2015/05/20 14:48, Simon Horman wrote:
+>> >> ...
+>> >> >>>  static void _rocker_neigh_add(struct rocker *rocker,
+>> >> >>> +                            enum switchdev_trans trans,
+>> >> >>>                              struct rocker_neigh_tbl_entry *entry)
+>> >> >>>  {
+>> >> >>> +      if (trans == SWITCHDEV_TRANS_PREPARE)
+>> >> >>> +              return;
+>> >> >>>        entry->index = rocker->neigh_tbl_next_index++;
+>> >> >>
+>> >> >> Isn't index needed here? It looks to be used in later function call and
+>> >> >> logging.
+>> >> >
+>> >> > Thanks, that does not follow the usual model of setting values
+>> >> > during the PREPARE (and all other) transaction phase(s).
+>> >> >
+>> >> >> How about setting index like this?
+>> >> >>
+>> >> >>         entry->index = rocker->neigh_tbl_next_index;
+>> >> >>         if (trans == PREPARE)
+>> >> >>                 return;
+>> >> >>         rocker->neigh_tbl_next_index++;
+>> >> >>         ...
+>> >> >
+>> >> > I am concerned that _rocker_neigh_add() may be called by some other
+>> >> > caller while a transaction is in process and thus entry->index will
+>> >> > be inconsistent across callers.
+>> >> >
+>> >> > Perhaps we can convince ourselves that all the bases are covered.
+>> >> > So far my testing has drawn a blank. But the logic seems difficult to
+>> >> > reason about.
+>> >> >
+>> >> > As we are basically allocating an index I suppose what is really needed for
+>> >> > a correct implementation is a transaction aware index allocator, like we
+>> >> > have for memory (rocker_port_kzalloc etc...).  But that does seem like
+>> >> > overkill.
+>> >> >
+>> >> > I think that we can make entry->index consistent across
+>> >> > calls in the same transaction at the expense of breaking the
+>> >> > rule that per-transaction data should be set during all transaction phases.
+>> >> >
+>> >> > Something like this:
+>> >> >
+>> >> >
+>> >> >  if (trans != SWITCHDEV_TRANS_COMMIT)
+>> >> >          /* Avoid index being set to different values across calls
+>> >> >           * to this function by the same caller within the same
+>> >> >           * transaction.
+>> >> >           */
+>> >> >          entry->index = rocker->neigh_tbl_next_index++;
+>> >> >  if (trans == SWITCHDEV_TRANS_PREPARE)
+>> >> >          return;
+>> >> >
+>> >> >
+>> >>
+>> >> As long as it is guraded by rtnl lock, no worries about this race?  It
+>> >> seems to be assumed that prepare-commit is guarded by rtnl lock,
+>> >> according to commit c4f20321 ("rocker: support prepare-commit
+>> >> transaction model").
+>> >>
+>> >> But as you are concerned, it seems to be able to be called by another
+>> >> caller, specifically, neigh_timer_handler() in interrupt context without
+>> >> rtnl lock. IMHO, it should be fixed rather than avoiding the race here.
+>> >
+>> >Yes, I believe that is the case I was seeing.
+>> >
+>> >Scott, Jiri, how would you like to resolve this?
+>>
+>>
+>> I believe that you can depend on rtnl being held - in switchdev_port_obj_add
+>> there is ASSERT_RTNL assection at the very beginning of the function.
+>
+> In the prepare-commit scenario, yes, I agree that is the case.
+> But it does not seem to always be the case when the transaction phase is none.
+>
+> What I am seeing is:
+>
+> 1. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
+>    with trans = SWITCHDEV_TRANS_PREPARE
+>
+> 2. rocker_port_ipv4_neigh() is called by rocker_neigh_update()
+>    with trans = SWITCHDEV_TRANS_NONE.
+>
+>    The call chain goes up to arp_process() via neigh_update().
+>
+> 3. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
+>    with trans = SWITCHDEV_TRANS_COMMIT
+>
+> I believe #2 is not guarded by rtnl.
 
-So this patch and the next 2 should probably be rearranged so that you
-are adding functionality a piece at a time instead of just placing large
-chunks in at once.
+Looks like rocker->neigh_tbl_next_index was a problem even before the
+transaction model was introduced, due to no protection for concurrent
+processes in diff contexts.
 
-So normally you don't want to just add defines like this.  Instead it
-would be better to add the defines as you need them.  So this patch
-should really be broken up into several pieces and joined in as you add
-functionality for various pieces.
+We'll need to turn the NETEVENT_NEIGH_UPDATE into process context and
+hold rtnl_lock, similar to what we do in
+rocker_event_mac_vlan_seen_work().  That, plus Toshiaki's suggested
+change for _rocker_neigh_add() should do it.
 
-> ---
->   drivers/platform/x86/fjes/fjes.h      |   2 +
->   drivers/platform/x86/fjes/fjes_hw.h   |  31 ++++++++
->   drivers/platform/x86/fjes/fjes_regs.h | 139 ++++++++++++++++++++++++++++++++++
->   3 files changed, 172 insertions(+)
->   create mode 100644 drivers/platform/x86/fjes/fjes_hw.h
->   create mode 100644 drivers/platform/x86/fjes/fjes_regs.h
-> 
-> diff --git a/drivers/platform/x86/fjes/fjes.h b/drivers/platform/x86/fjes/fjes.h
-> index 5586305..efe7cc4 100644
-> --- a/drivers/platform/x86/fjes/fjes.h
-> +++ b/drivers/platform/x86/fjes/fjes.h
-> @@ -25,6 +25,8 @@
->   
->   #include <linux/acpi.h>
->   
-> +#include "fjes_hw.h"
-> +
->   #define FJES_ACPI_SYMBOL	"Extended Socket"
->   
->   extern char fjes_driver_name[];
-> diff --git a/drivers/platform/x86/fjes/fjes_hw.h b/drivers/platform/x86/fjes/fjes_hw.h
-> new file mode 100644
-> index 0000000..c5cc4c5
-> --- /dev/null
-> +++ b/drivers/platform/x86/fjes/fjes_hw.h
-> @@ -0,0 +1,31 @@
-> +/*
-> + *  FUJITSU Extended Socket Network Device driver
-> + *  Copyright (c) 2015 FUJITSU LIMITED
-> + *
-> + * This program is free software; you can redistribute it and/or modify it
-> + * under the terms and conditions of the GNU General Public License,
-> + * version 2, as published by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope it will be useful, but WITHOUT
-> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-> + * more details.
-> + *
-> + * You should have received a copy of the GNU General Public License along with
-> + * this program; if not, see <http://www.gnu.org/licenses/>.
-> + *
-> + * The full GNU General Public License is included in this distribution in
-> + * the file called "COPYING".
-> + *
-> + */
-> +
-> +#ifndef FJES_HW_H_
-> +#define FJES_HW_H_
-> +
-> +#include <linux/netdevice.h>
-> +#include <linux/if_vlan.h>
-> +
-> +#include "fjes_regs.h"
-> +
-> +
-> +#endif /* FJES_HW_H_ */
-> diff --git a/drivers/platform/x86/fjes/fjes_regs.h b/drivers/platform/x86/fjes/fjes_regs.h
-> new file mode 100644
-> index 0000000..8546cb5
-> --- /dev/null
-> +++ b/drivers/platform/x86/fjes/fjes_regs.h
-> @@ -0,0 +1,139 @@
-> +/*
-> + *  FUJITSU Extended Socket Network Device driver
-> + *  Copyright (c) 2015 FUJITSU LIMITED
-> + *
-> + * This program is free software; you can redistribute it and/or modify it
-> + * under the terms and conditions of the GNU General Public License,
-> + * version 2, as published by the Free Software Foundation.
-> + *
-> + * This program is distributed in the hope it will be useful, but WITHOUT
-> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-> + * more details.
-> + *
-> + * You should have received a copy of the GNU General Public License along with
-> + * this program; if not, see <http://www.gnu.org/licenses/>.
-> + *
-> + * The full GNU General Public License is included in this distribution in
-> + * the file called "COPYING".
-> + *
-> + */
-> +
-> +#ifndef FJES_REGS_H_
-> +#define FJES_REGS_H_
-> +
-> +#include <linux/bitops.h>
-> +
-> +#define XSCT_DEVICE_REGISTER_SIZE 0x1000
-> +
-> +/*
-> + *  register offset
-> + */
-> +
-> +/* Information registers */
-> +#define XSCT_OWNER_EPID     0x0000  /* Owner EPID */
-> +#define XSCT_MAX_EP         0x0004  /* Maximum EP */
-> +
-> +/* Device Control registers */
-> +#define XSCT_DCTL           0x0010  /* Device Control */
-> +
-> +/* Command Control registers */
-> +#define XSCT_CR             0x0020  /* Command request */
-> +#define XSCT_CS             0x0024  /* Command status */
-> +#define XSCT_SHSTSAL        0x0028  /* Share status address Low */
-> +#define XSCT_SHSTSAH        0x002C  /* Share status address High */
-> +
-> +#define XSCT_REQBL          0x0034  /* Request Buffer length */
-> +#define XSCT_REQBAL         0x0038  /* Request Buffer Address Low */
-> +#define XSCT_REQBAH         0x003C  /* Request Buffer Address High */
-> +
-> +#define XSCT_RESPBL         0x0044  /* Response Buffer Length */
-> +#define XSCT_RESPBAL        0x0048  /* Response Buffer Address Low */
-> +#define XSCT_RESPBAH        0x004C  /* Response Buffer Address High */
-> +
-> +/* Interrupt Control registers */
-> +#define XSCT_IS             0x0080  /* Interrupt status */
-> +#define XSCT_IMS            0x0084  /* Interrupt mas set */
-> +#define XSCT_IMC            0x0088  /* Interrupt mask clear */
-> +#define XSCT_IG             0x008C  /* Interrupt generator */
-> +#define XSCT_ICTL           0x0090  /* Interrupt control */
-> +
-> +
-> +/*
-> + * register structure
-> + */
-> +
-> +/* Information registers */
-> +union REG_OWNER_EPID {
-> +	struct {
-> +		__le32 epid:16;
-> +		__le32:16;
-> +	} Bits;
-> +	__le32 Reg;
-> +};
-> +
-> +union REG_MAX_EP {
-> +	struct {
-> +		__le32 maxep:16;
-> +		__le32:16;
-> +	} Bits;
-> +	__le32 Reg;
-> +};
-> +
-> +/* Device Control registers */
-> +union REG_DCTL {
-> +	struct {
-> +		__le32 reset:1;
-> +		__le32 rsv0:15;
-> +		__le32 rsv1:16;
-> +	} Bits;
-> +	__le32 Reg;
-> +};
-> +
-> +
-> +/* Command Control registers */
-> +union REG_CR {
-> +	struct {
-> +		__le32 req_code:16;
-> +		__le32 err_info:14;
-> +		__le32 error:1;
-> +		__le32 req_start:1;
-> +	} Bits;
-> +	__le32 Reg;
-> +};
-> +
-> +union REG_CS {
-> +	struct {
-> +		__le32 req_code:16;
-> +		__le32 rsv0:14;
-> +		__le32 busy:1;
-> +		__le32 complete:1;
-> +	} Bits;
-> +	__le32 Reg;
-> +};
-> +
-
-It might be better to just define some masks and shifts instead of
-creating all these bitfield unions.  It would probably make things a lot
-less complicated since you wouldn't have to define a special union for
-each register.
-
-It is usually easier to define a write that way rather than having to
-create a union and populate the bits before you can write it.  I've
-found that there are a number of GCC versions that don't exactly do the
-smartest things when it comes to bitfields.
-
-> +/* Interrupt Control registers */
-> +union REG_ICTL {
-> +	struct {
-> +		__le32 automak:1;
-> +		__le32 rsv0:31;
-> +	} Bits;
-> +	__le32 Reg;
-> +};
-> +
-
-Should automak be automask?  Just wondering if that is a typo.  Also if
-this is a mostly reserved 0 register you could probably save yourself
-some trouble and just use the reg as-is without the need for the union.
-
-So for example you would just define a value such as:
-#define FJES_ICTL_AUTOMASK	0x00000001
-
-Then all you do is write that value when you want to enable it, or write
-0 to disable it.
-
-> +enum REG_ICTL_MASK {
-> +	REG_ICTL_MASK_INFO_UPDATE     = 1 << 20,
-> +	REG_ICTL_MASK_DEV_STOP_REQ    = 1 << 19,
-> +	REG_ICTL_MASK_TXRX_STOP_REQ   = 1 << 18,
-> +	REG_ICTL_MASK_TXRX_STOP_DONE  = 1 << 17,
-> +	REG_ICTL_MASK_RX_DATA         = 1 << 16,
-> +	REG_ICTL_MASK_ALL             = GENMASK(20, 16),
-> +};
-> +
-
-You could probably reverse the order of this for readability.  It is
-better to go from 16 to 20 rather than 20 to 16.
-
-> +enum REG_IS_MASK {
-> +	REG_IS_MASK_IS_ASSERT	= 1 << 31,
-> +	REG_IS_MASK_EPID		= GENMASK(15, 0),
-> +};
-> +
-> +
-> +#endif /* FJES_REGS_H_ */
-> 
-
-I would update the 2 lines so that indentation for the = matched.  It
-looks like the GENMASK is tabbed over one additional tab.
+-scott
