@@ -1,52 +1,48 @@
-From: Darren Hart <dvhart@infradead.org>
-Subject: Re: [PATCH 0/7][RFC] FUJITSU Extended Socket network device driver
-Date: Wed, 20 May 2015 16:47:11 +0200
-Message-ID: <20150520144711.GE22037@vmdeb7>
-References: <E86EADE93E2D054CBCD4E708C38D364A5422D803@G01JPEXMBYT01>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 03/12] IB/core: Find the network namespace
+ matching connection parameters
+Date: Wed, 20 May 2015 17:48:36 +0300
+Message-ID: <555C9EC4.3010802@mellanox.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+ <1431841868-28063-4-git-send-email-haggaie@mellanox.com>
+ <20150519182616.GF18675@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "platform-driver-x86@vger.kernel.org"
-	<platform-driver-x86@vger.kernel.org>,
-	"Hart, Darren" <darren.hart@intel.com>,
-	"rkhan@redhat.com" <rkhan@redhat.com>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
-To: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A5422D803@G01JPEXMBYT01>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150519182616.GF18675-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 08:04:07AM +0000, Izumi, Taku wrote:
-> Hi All,
+On 19/05/2015 21:26, Jason Gunthorpe wrote:
+>> +	list_for_each_entry_rcu(client, &client_list, list)
+>> +		if (client->get_net_device_by_port_pkey_ip) {
+>> +			ret = client->get_net_device_by_port_pkey_ip(dev, port,
+>> +								     pkey,
+>> +
+>> addr);
 > 
-> This patchsets add support for FUJITSU Extended Socket network
-> device. Extended Socket network device is a shared memory
-> based high-speed network interface between Extended Partitions of
-> PRIMEQUEST 2000 E2 series.
+> Considering the patch that introduced the rwsem, this doesn't look
+> right.
+> 
+> We can't call a client call back on a device that is unregistered, we
+> can't call a client call back on a client that is unregistering.
+> 
+> So the ordering of the list_del/add vs call back calls in device.c is
+> not right, please audit everything with an eye toward maintaing sane
+> invarients.
 
-Hi Taku,
+Thanks for pointing that out. I'll do that.
 
-A few things to keep in mind.
+Haggai
 
-1) Always Cc the maintainer using the email address in the MAINTAINERS file,
-   in this case, dvhart at infradead.org.
-
-2) See Documentation/email-clients.txt regarding charset (you sent ISO-2022,JP):
-
-   Email clients should not modify the character set encoding of the text.
-   Emailed patches should be in ASCII or UTF-8 encoding only.
-   If you configure your email client to send emails with UTF-8 encoding,
-   you avoid some possible charset problems.
-
-3) A new driver should be functional at each patch point, so committing a
-   skeleton that does nothing is not what we're looking for by "small functional
-   changes".
-
-Thanks,
-
--- 
-Darren Hart
-Intel Open Source Technology Center
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
