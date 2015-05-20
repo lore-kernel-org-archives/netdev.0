@@ -1,89 +1,39 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next] Better handling of transition to NUD_PROBE state
-Date: Wed, 20 May 2015 12:42:26 +0900
-Message-ID: <CAKD1Yr1F2_Mb=ioW4Y89ZKJTGGDm3sQU9vc=4RWELWCHGgKAGA@mail.gmail.com>
-References: <1431945881-14707-1-git-send-email-ek@google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] irda: irda-usb: use msecs_to_jiffies for conversions
+Date: Tue, 19 May 2015 20:57:17 -0700
+Message-ID: <1432094237.2870.262.camel@perches.com>
+References: <1432032711-7020-1-git-send-email-hofrat@osadl.org>
+	 <1432045935.2870.152.camel@perches.com>
+	 <20150519.164555.1631069770118420652.davem@davemloft.net>
+	 <1432069747.2870.215.camel@perches.com>
+	 <20150520014408.GA19321@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Erik Kline <ek@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:34654 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbbETDmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 23:42:47 -0400
-Received: by oiko83 with SMTP id o83so26713160oik.1
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 20:42:47 -0700 (PDT)
-In-Reply-To: <1431945881-14707-1-git-send-email-ek@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, hofrat@osadl.org,
+	samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150520014408.GA19321@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 18, 2015 at 7:44 PM, Erik Kline <ek@google.com> wrote:
-> [1] When entering NUD_PROBE state via neigh_update(), perhaps received
->     from userspace, correctly (re)initialize the probes count to zero.
->
->     This is useful for forcing revalidation of a neighbor (for example
->     if the host is attempting to do DNA [IPv4 4436, IPv6 6059]).
->
-> [2] Notify listeners when a neighbor goes into NUD_PROBE state.
->
->     By sending notifications on entry to NUD_PROBE state listeners get
->     more timely warnings of imminent connectivity issues.
->
->     The current notifications on entry to NUD_STALE have somewhat
->     limited usefulness: NUD_STALE is a perfectly normal state, as is
->     NUD_DELAY, whereas notifications on entry to NUD_FAILURE come after
->     a neighbor reachability problem has been confirmed (typically after
->     three probes).
->
-> Signed-off-by: Erik Kline <ek@google.com>
-> ---
->  net/core/neighbour.c | 3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 3de6542..3a74df7 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -913,6 +913,7 @@ static void neigh_timer_handler(unsigned long arg)
->                         neigh->nud_state = NUD_PROBE;
->                         neigh->updated = jiffies;
->                         atomic_set(&neigh->probes, 0);
-> +                       notify = 1;
+On Tue, 2015-05-19 at 18:44 -0700, Guenter Roeck wrote:
+> On Tue, May 19, 2015 at 02:09:07PM -0700, Joe Perches wrote:
+> > The other thing that could be done is to use
+> > 	max(1ul, msecs_to_jiffies())
+> > so that there's always some delay even if HZ <= 50
+> > 
+> I may be mistaken, but I am quite sure that msecs_to_jiffies() always returns
+> at least 1 in such situations. Otherwise there would be lots of conversions
+> to 0 in the kernel.
 
-+1. Currently, the code notifies when going from REACHABLE into STALE,
-which is not necessarily something userspace might want to know about
-(all it means is "we haven't sent any packets to this neighbour
-recently"), but it doesn't notify when going into PROBE, which is a
-more important event (it means "we've been sending this neighbour
-packets for (by default) 5 seconds and we still haven't found out if
-it's stilll there, so we're probing it").
+Thanks Guenter
 
->                         next = now + NEIGH_VAR(neigh->parms, RETRANS_TIME);
->                 }
->         } else {
-> @@ -1144,6 +1145,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
->
->         if (new != old) {
->                 neigh_del_timer(neigh);
-> +               if (new & NUD_PROBE)
-> +                       atomic_set(&neigh->probes, 0);
+Nope, you're not mistaken.
 
-+1. The normal code path (from STALE to DELAY to PROBE) obviously
-already sets the probes to 0. Userspace can put a neighbour into
-NUD_PROBE to cause the kernel to probe it, but this only works (by
-default) three times because the probe counter is never reset to 0. So
-the first three times, the neighbour goes from (say) STALE to PROBE
-and then back to REACHABLE (good), but then the fourth time, the
-neighbour goes from STALE to PROBE and then immediately to FAILED.
+Non 0 constants always return a value > 0
 
->                 if (new & NUD_IN_TIMER)
->                         neigh_add_timer(neigh, (jiffies +
->                                                 ((new & NUD_REACHABLE) ?
-> --
-> 2.2.0.rc0.207.ga3a616c
->
-
-Acked-By: Lorenzo Colitti <lorenzo@google.com>
+The existing uses like max(1ul, msecs_to_jiffies(<variable>))
+just guard against <variable> being 0.
