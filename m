@@ -1,72 +1,41 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [net-next PATCH 06/10] pktgen: new pktgen helper functions for
- samples scripts
-Date: Wed, 20 May 2015 14:23:17 -0700
-Message-ID: <CAHA+R7NzKMLLZ954F+moZ7wFEFWPTBzo0Js9rGnU02kkPTPB0A@mail.gmail.com>
-References: <20150519213326.9070.18264.stgit@ivy>
-	<20150519213608.9070.31995.stgit@ivy>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH] pci: Use a bus-global mutex to protect
+ VPD operations
+Date: Wed, 20 May 2015 14:26:27 -0700
+Message-ID: <555CFC03.5080604@gmail.com>
+References: <20150519000037.56109.68356.stgit@mdrustad-wks.jf.intel.com> <555B78F7.60908@redhat.com> <20150519160158.00002cd6@unknown> <555BD029.7050803@redhat.com> <F47DC49C-CCC5-4693-8905-20ABCE6F5993@intel.com> <555BDD14.2080807@redhat.com> <C73FDF83-62F7-47F4-905A-CD7D482F0709@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Robert Olsson <robert@herjulf.se>,
-	Ben Greear <greearb@candelatech.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34078 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755725AbbETVXS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 17:23:18 -0400
-Received: by wicmc15 with SMTP id mc15so379153wic.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 14:23:17 -0700 (PDT)
-In-Reply-To: <20150519213608.9070.31995.stgit@ivy>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>,
+	Alexander Duyck <alexander.h.duyck@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <C73FDF83-62F7-47F4-905A-CD7D482F0709@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 19, 2015 at 2:36 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> +
-> +# More generic replacement for pgset(), that does not depend on global
-> +# variable for proc file.
-> +function proc_cmd() {
-> +    local result
-> +    local proc_file=$1
-> +    # after shift, the remaining args are contained in $@
-> +    shift
-> +    local proc_ctrl=${PROC_DIR}/$proc_file
-> +    if [[ ! -e "$proc_ctrl" ]]; then
-> +       err 3 "proc file:$proc_ctrl does not exists (dev added to thread?)"
-> +    else
-> +       if [[ ! -w "$proc_ctrl" ]]; then
-> +           err 4 "proc file:$proc_ctrl not writable, not root?!"
-> +       fi
-> +    fi
-> +
-> +    if [[ "$DEBUG" == "yes" ]]; then
-> +       echo "cmd: $@ > $proc_ctrl"
-> +    fi
-> +    # Quoting of "$@" is important for space expansion
-> +    echo "$@" > "$proc_ctrl"
-> +    local status=$?
-> +
-> +    result=`cat $proc_ctrl | fgrep "Result: OK:"`
+On 05/20/2015 09:00 AM, Rustad, Mark D wrote:
+>> On May 19, 2015, at 6:02 PM, Alexander Duyck <alexander.h.duyck@redhat.com> wrote:
+>>
+>> My suspicion is that we have a number of bugs floating around out there like the Broadcom issue.  Specifically, one of the ones I found was that the r8169 seems to have a similar issue as called out in the email thread at http://permalink.gmane.org/gmane.linux.network/232260.  I'm wondering if we shouldn't add an initializer for the read/write functions that will go through and pull out the 3 or 4 headers from the VPD data needed to get the actual length.  Then it would lock down the VPD and save some serious time on reads since most devices don't have 32K of VPD to read.
+> That is interesting. I noticed that there are functions already present to find VPD tags. If the VPD were invalid, would this block its being read at all, or would it default to allow reading/writing anything? I don't know if there might be people using Linux to completely write the VPD area. Presumably your idea would prevent rewriting the VPD area to something larger.
 
-Nit: useless usage of cat, grep/fgrep accepts a file name.
+What we probably would need to do is split the vpd read/write functions 
+up a bit further as it turns out some vendors are using it as a means of 
+reading/writing the EEPROM for the device.  So we could have something 
+like maybe a _raw version of the read/write and one that is intended for 
+actually reading VPD.  The VPD one could call something to initialize a 
+set of offsets for the read-only descriptor, the read-write descriptor, 
+and the end descriptor.  If any read/write goes past the end descriptor 
+you could then just return 0 for the read value or skip it for the write.
 
+By my math that means only having to read at most 6 locations in order 
+to fill in all the descriptor info and then you could save significant 
+time on VPD read for all drivers because would would cut the 32K read 
+down to something like 256 bytes which is the more common VPD size.
 
-> +    if [[ "$result" == "" ]]; then
-
-You can test $?
-
-> +       cat $proc_ctrl | fgrep Result: >&2
-> +    fi
-> +    if (( $status != 0 )); then
-> +       err 5 "Write error($status) occured cmd: \"$@ > $proc_ctrl\""
-
-Typo: occurred
-
-
-> +    fi
-> +}
-> +
+- Alex
