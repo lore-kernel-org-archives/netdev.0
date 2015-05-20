@@ -1,104 +1,86 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: Kernel crash while using tc script
-Date: Wed, 20 May 2015 13:53:26 +0200
-Message-ID: <555C75B6.7040407@iogearbox.net>
-References: <CAGK4HS_cCQPJwXVoCuZAa2zHtPnXO+ar5Wpg_azyxc5Efv4Mwg@mail.gmail.com> <555BAE72.40609@iogearbox.net>
+From: Suravee Suthikulanit <suravee.suthikulpanit@amd.com>
+Subject: Re: [V4 PATCH 3/6] pci: Generic function for setting up PCI device
+ DMA coherency
+Date: Wed, 20 May 2015 07:00:25 -0500
+Message-ID: <555C7759.3040304@amd.com>
+References: <1431724994-21601-1-git-send-email-Suravee.Suthikulpanit@amd.com>
+ <3954735.qeaTp8qOcM@vostro.rjw.lan>
+ <20150520092415.GA25313@e104818-lin.cambridge.arm.com>
+ <2072233.lIH4idDurI@wuerfel>
+ <20150520093401.GC25313@e104818-lin.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, tgraf <tgraf@suug.ch>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linaro-acpi@lists.linaro.org>, <will.deacon@arm.com>,
+	<herbert@gondor.apana.org.au>, <al.stone@linaro.org>,
+	<linux-acpi@vger.kernel.org>,
+	Murali Karicheri <m-karicheri2@ti.com>, <msalter@redhat.com>,
+	<grant.likely@linaro.org>, <hanjun.guo@linaro.org>,
+	<thomas.lendacky@amd.com>, Rob Herring <robh+dt@kernel.org>,
+	<bhelgaas@google.com>, <netdev@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	<linux-kernel@vger.kernel.org>, <leo.duran@amd.com>,
+	<linux-crypto@vger.kernel.org>, <lenb@kernel.org>,
+	David Woodhouse <dwmw2@infradead.org>, <davem@davemloft.net>
+To: Catalin Marinas <catalin.marinas@arm.com>,
+	Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:51764 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751182AbbETLx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 07:53:28 -0400
-In-Reply-To: <555BAE72.40609@iogearbox.net>
+Received: from mail-by2on0117.outbound.protection.outlook.com ([207.46.100.117]:25186
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751184AbbETMAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 May 2015 08:00:48 -0400
+In-Reply-To: <20150520093401.GC25313@e104818-lin.cambridge.arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/19/2015 11:43 PM, Daniel Borkmann wrote:
-> On 05/19/2015 10:11 PM, Vijay Subramanian wrote:
->> Hi,
+On 5/20/2015 4:34 AM, Catalin Marinas wrote:
+> On Wed, May 20, 2015 at 11:27:54AM +0200, Arnd Bergmann wrote:
+>> On Wednesday 20 May 2015 10:24:15 Catalin Marinas wrote:
+>>> On Sat, May 16, 2015 at 01:59:00AM +0200, Rafael J. Wysocki wrote:
+>>>> On Friday, May 15, 2015 04:23:11 PM Suravee Suthikulpanit wrote:
+>>>>> +/**
+>>>>> + * pci_dma_configure - Setup DMA configuration
+>>>>> + * @pci_dev: ptr to pci_dev struct of the PCI device
+>>>>> + *
+>>>>> + * Function to update PCI devices's DMA configuration using the same
+>>>>> + * info from the OF node or ACPI node of host bridge's parent (if any).
+>>>>> + */
+>>>>> +static void pci_dma_configure(struct pci_dev *pci_dev)
+>>>>> +{
+>>>>> +   struct device *dev = &pci_dev->dev;
+>>>>> +   struct device *bridge = pci_get_host_bridge_device(pci_dev);
+>>>>> +   struct device *host = bridge->parent;
+>>>>> +   struct acpi_device *adev;
+>>>>> +
+>>>>> +   if (!host)
+>>>>> +           return;
+>>>>> +
+>>>>> +   if (acpi_disabled) {
+>>>>> +           of_dma_configure(dev, host->of_node);
+>>>>
+>>>> I'd rather do
+>>>>
+>>>>        if (IS_ENABLED(CONFIG_OF) && host->of_node) {
+>>>>                of_dma_configure(dev, host->of_node);
+>>>
+>>> Nitpick: do we need the CONFIG_OF check? If disabled, I don't think
+>>> anyone would set host->of_node.
 >>
->> It seems latest net-next kernel crashes while unloading modules.
->> Please see simple script below to reproduce the crash.
->>
->> ===============================
->>
->> #!/bin/bash
->>
->> while true; do
->>
->> # modules will be loaded automatically
->>
->> tc qdisc add dev eth1 root handle 1: prio
->>
->> tc filter add dev eth1 parent 1: u32 match u32 0 0  flowid 1
->>
->>
->> tc qdisc del dev eth1 root
->>
->> rmmod cls_u32
->>
->> rmmod sch_prio
->>
->>
->> done
->>
->> =========================
->>
->> It seems there is some refcounting or locking issue issue. I am unable
->> to easily post the dump but sometimes it points to crashes in various
->> functions in prio_class_ops  (sch_prio.c), such as prio_walk(),
->> prio_dump_class etc. Probably, sch_prio call back functions are
->> invoked when they should not be.
->>
->> I bisected this down to following commit:
->>
->> commit 78fd1d0ab072d4d9b5f0b7c14a1516665170b565
->> Author: Thomas Graf <tgraf@suug.ch>
->> Date:   Tue Oct 21 22:05:38 2014 +0200
->> netlink: Re-add locking to netlink_lookup() and seq walker
->>
->> If there are suggestions for me to try or you need more info, let me know.
+>> If of_dma_configure() is defined in a file that is built conditionally
+>> based on CONFIG_OF, you need it.
 >
-> Hmm, seems rather like the synchronize_net() removal in netlink_release()
-> must have uncovered a bug elsewhere.
+> We have a dummy of_dma_configure() already when !CONFIG_OF, otherwise
+> we would need #ifndef here. I already replied, I think for other
+> architectures we need this check to avoid a useless host->of_node test.
+>
 
-What seems to be happening is a race here between RCU and
-classifier module refcounting, i.e. between the two commands
-(under the requirement at least one u32 classifier is attached
-to the qdisc):
+It seems that there are several places that have similar check. Would it 
+be good to convert this into a macro? Something like:
 
-   tc qdisc del dev foo root
-   rmmod cls_u32
+#define OF_NODE_ENABLED(dev)	(IS_ENABLED(CONFIG_OF) && dev->of_node)
 
-On qdisc deletion, prio_destroy() is called which invokes
-tcf_destroy_chain() that walks all classifiers and calls
-tcf_destroy() on them.
+Thanks all for the review feedback.
 
-You can take any of them, it's not u32 specific, for example,
-cls_bpf_destroy(): They register an RCU callback, e.g.
-call_rcu(&prog->rcu, __cls_bpf_delete_prog) for later
-invocation.
-
-The problem however is that this callback very likely is
-executed *after* the module_put() from tcf_destroy()!
-
-That means, kernel thinks that no-one is holding reference
-on that module anymore and thus rmmod cls_u32 can succeed.
-
-Problem is that when RCU callback is invoked by the kernel,
-that address of the function is not valid anymore, as the
-module already disappeared from under us.
-
-The synchronize_net() that was called when the netlink
-socket (for removing the qdisc) got destroyed, was hiding
-that from us. ;)
-
-Out of curiosity, I did a test by only moving __cls_bpf_delete_prog()
-callback into a built-in section that won't disappear on module
-unload and the panic is not triggered anymore.
-
-Will be cooking a patch.
+Suravee
