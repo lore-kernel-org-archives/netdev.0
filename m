@@ -1,125 +1,126 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH v2 net-next 2/4] rocker: do not modify fdb table in rocker_port_fdb() when preparing transactions
-Date: Wed, 20 May 2015 11:00:10 +0900
-Message-ID: <1432087212-29612-3-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH v2 net-next 3/4] rocker: do not make neighbour entry changes when preparing transactions
+Date: Wed, 20 May 2015 11:00:11 +0900
+Message-ID: <1432087212-29612-4-git-send-email-simon.horman@netronome.com>
 References: <1432087212-29612-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
 To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33569 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846AbbETCA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 22:00:29 -0400
-Received: by pdbqa5 with SMTP id qa5so49075356pdb.0
-        for <netdev@vger.kernel.org>; Tue, 19 May 2015 19:00:28 -0700 (PDT)
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:34206 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751967AbbETCAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 May 2015 22:00:32 -0400
+Received: by pdbnk13 with SMTP id nk13so49105607pdb.1
+        for <netdev@vger.kernel.org>; Tue, 19 May 2015 19:00:31 -0700 (PDT)
 In-Reply-To: <1432087212-29612-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rocker_port_fdb_flush() may be called be called with
-trans == SWITCHDEV_TRANS_PREPARE and then trans == SWITCHDEV_TRANS_COMMIT from
-switchdev_port_attr_set() via switchdev_port_obj_add().
+rocker_port_ipv4_nh() and in turn rocker_port_ipv4_neigh() may be
+be called with trans == SWITCHDEV_TRANS_PREPARE and then
+trans == SWITCHDEV_TRANS_COMMIT from switchdev_port_obj_set() via
+fib_table_insert().
 
-Adding the new entry to the FDB table when trans == SWITCHDEV_TRANS_PREPARE
-may result in a memory leak because when trans == SWITCHDEV_TRANS_PREPARE
-rocker_flow_tbl_bridge() will allocate memory when called via
-rocker_port_fdb_learn(). However, when trans == SWITCHDEV_TRANS_COMMIT
-the presence of the FDB entry in the FDB table causes
-rocker_port_fdb() to set the ROCKER_OP_FLAG_REFRESH flag which results
-in rocker_port_fdb_learn() skipping the call to rocker_flow_tbl_bridge()
-which would free the memory allocated by it when
-trans == SWITCHDEV_TRANS_PREPARE.
+The first time that rocker_port_ipv4_nh() is called, with
+trans == SWITCHDEV_TRANS_PREPARE, _rocker_neigh_add() adds a new entry to
+the neigh table.
 
-ip link add br0 type bridge
-ip link set up dev eth0
-ip link set dev eth0 master br0
-bridge fdb add 52:54:00:12:35:08 dev eth0
-bridge fdb add 52:54:00:12:35:09 dev eth0
-[    2.600730] ------------[ cut here ]------------
-[    2.601002] kernel BUG at drivers/net/ethernet/rocker/rocker.c:4369!
-[    2.601373] invalid opcode: 0000 [#1] SMP
-[    2.601963] Modules linked in:
-[    2.602355] CPU: 0 PID: 64 Comm: bridge Not tainted 4.1.0-rc3-01048-g6d0f50c50211-dirty #1075
-[    2.602721] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.0-0-g4c59f5d-20150219_092859-nilsson.home.kraxel.org 04/01/2014
-[    2.602721] task: ffff880019facef0 ti: ffff88001f96c000 task.ti: ffff88001f96c000
-[    2.602721] RIP: 0010:[<ffffffff811f1470>]  [<ffffffff811f1470>] rocker_port_obj_add+0x150/0x160
-[    2.602721] RSP: 0018:ffff88001f96fa98  EFLAGS: 00000212
-[    2.602721] RAX: ffff880019d4fa68 RBX: ffff88001f96fb18 RCX: 0000000000000000
-[    2.602721] RDX: ffff880019d4f000 RSI: ffff88001f96fb18 RDI: ffff880019d4f000
-[    2.602721] RBP: 0000000000000001 R08: 0000000000000000 R09: ffff88001f904620
-[    2.602721] R10: ffff88001f96fb60 R11: ffff880019e9d100 R12: ffff88001f96fb18
-[    2.602721] R13: ffff880019d4f680 R14: ffff88001f904610 R15: ffff8800198f7b80
-[    2.602721] FS:  00007f3eee917700(0000) GS:ffff88001b000000(0000) knlGS:0000000000000000
-[    2.602721] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[    2.602721] CR2: 00007f3eee4a15cb CR3: 000000001f933000 CR4: 00000000000006b0
-[    2.602721] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[    2.602721] DR3: 0000000000000000 DR6: 0000000000000000 DR7: 0000000000000000
-[    2.602721] Stack:
-[    2.602721]  0000000000000000 ffff88001f96fb18 ffff880019d4f000 ffff88001f96fb18
-[    2.602721]  ffff880019d4f000 ffffffff81332105 ffff88001f96fb50 ffffffff814464c0
-[    2.602721]  ffff88001f96fb18 ffff88001f904600 ffff880019d4f000 ffffffff813326e5
-[    2.602721] Call Trace:
-[    2.602721]  [<ffffffff81332105>] ? __switchdev_port_obj_add+0x25/0x90
-[    2.602721]  [<ffffffff813326e5>] ? switchdev_port_obj_add+0x25/0xc0
-[    2.602721]  [<ffffffff813327b1>] ? switchdev_port_fdb_add+0x31/0x40
-[    2.602721]  [<ffffffff8123911f>] ? rtnl_fdb_add+0xff/0x1e0
-[    2.602721]  [<ffffffff81237d8e>] ? rtnetlink_rcv_msg+0x7e/0x250
-[    2.602721]  [<ffffffff8121d1ce>] ? __skb_recv_datagram+0xfe/0x4b0
-[    2.602721]  [<ffffffff81237d10>] ? rtnetlink_rcv+0x30/0x30
-[    2.602721]  [<ffffffff81247958>] ? netlink_rcv_skb+0xa8/0xd0
-[    2.602721]  [<ffffffff81237cff>] ? rtnetlink_rcv+0x1f/0x30
-[    2.602721]  [<ffffffff81247220>] ? netlink_unicast+0x150/0x200
-[    2.602721]  [<ffffffff81247714>] ? netlink_sendmsg+0x374/0x3e0
-[    2.602721]  [<ffffffff8120f8df>] ? sock_sendmsg+0xf/0x30
-[    2.602721]  [<ffffffff8120ffd3>] ? ___sys_sendmsg+0x1f3/0x200
-[    2.602721]  [<ffffffff812100e5>] ? ___sys_recvmsg+0x105/0x140
-[    2.602721]  [<ffffffff810a36f0>] ? SyS_readahead+0x90/0x90
-[    2.602721]  [<ffffffff81098dfd>] ? filemap_map_pages+0x1ed/0x210
-[    2.602721]  [<ffffffff810b77fc>] ? handle_mm_fault+0x5fc/0xe50
-[    2.602721]  [<ffffffff81210ef9>] ? __sys_sendmsg+0x39/0x70
-[    2.602721]  [<ffffffff8133ce17>] ? system_call_fastpath+0x12/0x6a
-[    2.602721] Code: b7 8f a0 06 00 00 48 83 bf 88 06 00 00 00 74 1d 48 83 c4 08 89 ee 4c 89 ef 5b 5d 41 5c 41 5d 0f b7 c9 45 31 c0 e9 51 db ff ff 90 <0f> 0b b8 ea ff ff ff e9 cf fe ff ff 0f 1f 40 00 41 57 41 56 b9
-[    2.602721] RIP  [<ffffffff811f1470>] rocker_port_obj_add+0x150/0x160
-[    2.602721]  RSP <ffff88001f96fa98>
-[    2.615848] ---[ end trace 4f7b4f1c98077108 ]---
+And the second time  rocker_port_ipv4_nh() is called, with
+trans == SWITCHDEV_TRANS_COMMIT, that entry is found. This causes
+rocker_port_ipv4_nh() to believe it is not adding an entry and thus it
+frees "entry", which is still present in rocker driver's neigh table.
 
-The above is resolved by not adding the new FDB entry to the FDB table
-if trans == SWITCHDEV_TRANS_PREPARE.
+This problem does not appear to affect deletion as my analysis is that
+deletion is always performed with trans == SWITCHDEV_TRANS_NONE.
 
-For symmetry this patch also skips deleting FDB entries from the FDB
-table trans == SWITCHDEV_TRANS_PREPARE. However, my analysis is that
-this never occurs as trans is always SWITCHDEV_TRANS_NONE when removing
-FDB entries.
+For completeness _rocker_neigh_{add,del,prepare} are updated not to
+manipulate fib table entries if trans == SWITCHDEV_TRANS_PREPARE.
 
 Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
-Acked-by: Scott Feldman <sfeldma@gmail.com>
+Reported-by: oshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
 ---
 v2
-* Added Scott Feldman's ack
+* As suggested by Scott Feldman, only guard ref_count adjustment
+  with (trans == SWITCHDEV_TRANS_PREPARE) in _rocker_neigh_update.
+* Updated changelog to note that an entry is freed but left
+  in the neigh table. Thanks to Toshiaki Makita.
 ---
- drivers/net/ethernet/rocker/rocker.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/rocker/rocker.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index ce1bfab077a7..89d22bdcbdc4 100644
+index 89d22bdcbdc4..b836dd315e8a 100644
 --- a/drivers/net/ethernet/rocker/rocker.c
 +++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3612,9 +3612,11 @@ static int rocker_port_fdb(struct rocker_port *rocker_port,
+@@ -2909,8 +2909,11 @@ static struct rocker_neigh_tbl_entry *
+ }
  
- 	if (removing && found) {
- 		rocker_port_kfree(rocker_port, trans, fdb);
--		hash_del(&found->entry);
-+		if (trans != SWITCHDEV_TRANS_PREPARE)
-+			hash_del(&found->entry);
- 	} else if (!removing && !found) {
--		hash_add(rocker->fdb_tbl, &fdb->entry, fdb->key_crc32);
-+		if (trans != SWITCHDEV_TRANS_PREPARE)
-+			hash_add(rocker->fdb_tbl, &fdb->entry, fdb->key_crc32);
+ static void _rocker_neigh_add(struct rocker *rocker,
++			      enum switchdev_trans trans,
+ 			      struct rocker_neigh_tbl_entry *entry)
+ {
++	if (trans == SWITCHDEV_TRANS_PREPARE)
++		return;
+ 	entry->index = rocker->neigh_tbl_next_index++;
+ 	entry->ref_count++;
+ 	hash_add(rocker->neigh_tbl, &entry->entry,
+@@ -2921,6 +2924,8 @@ static void _rocker_neigh_del(struct rocker_port *rocker_port,
+ 			      enum switchdev_trans trans,
+ 			      struct rocker_neigh_tbl_entry *entry)
+ {
++	if (trans == SWITCHDEV_TRANS_PREPARE)
++		return;
+ 	if (--entry->ref_count == 0) {
+ 		hash_del(&entry->entry);
+ 		rocker_port_kfree(rocker_port, trans, entry);
+@@ -2928,12 +2933,13 @@ static void _rocker_neigh_del(struct rocker_port *rocker_port,
+ }
+ 
+ static void _rocker_neigh_update(struct rocker_neigh_tbl_entry *entry,
++				 enum switchdev_trans trans,
+ 				 u8 *eth_dst, bool ttl_check)
+ {
+ 	if (eth_dst) {
+ 		ether_addr_copy(entry->eth_dst, eth_dst);
+ 		entry->ttl_check = ttl_check;
+-	} else {
++	} else if (trans == SWITCHDEV_TRANS_PREPARE) {
+ 		entry->ref_count++;
  	}
- 
- 	spin_unlock_irqrestore(&rocker->fdb_tbl_lock, lock_flags);
+ }
+@@ -2973,12 +2979,12 @@ static int rocker_port_ipv4_neigh(struct rocker_port *rocker_port,
+ 		entry->dev = rocker_port->dev;
+ 		ether_addr_copy(entry->eth_dst, eth_dst);
+ 		entry->ttl_check = true;
+-		_rocker_neigh_add(rocker, entry);
++		_rocker_neigh_add(rocker, trans, entry);
+ 	} else if (removing) {
+ 		memcpy(entry, found, sizeof(*entry));
+ 		_rocker_neigh_del(rocker_port, trans, found);
+ 	} else if (updating) {
+-		_rocker_neigh_update(found, eth_dst, true);
++		_rocker_neigh_update(found, trans, eth_dst, true);
+ 		memcpy(entry, found, sizeof(*entry));
+ 	} else {
+ 		err = -ENOENT;
+@@ -3089,13 +3095,13 @@ static int rocker_port_ipv4_nh(struct rocker_port *rocker_port,
+ 	if (adding) {
+ 		entry->ip_addr = ip_addr;
+ 		entry->dev = rocker_port->dev;
+-		_rocker_neigh_add(rocker, entry);
++		_rocker_neigh_add(rocker, trans, entry);
+ 		*index = entry->index;
+ 		resolved = false;
+ 	} else if (removing) {
+ 		_rocker_neigh_del(rocker_port, trans, found);
+ 	} else if (updating) {
+-		_rocker_neigh_update(found, NULL, false);
++		_rocker_neigh_update(found, trans, NULL, false);
+ 		resolved = !is_zero_ether_addr(found->eth_dst);
+ 	} else {
+ 		err = -ENOENT;
 -- 
 2.1.4
