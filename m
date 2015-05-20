@@ -1,63 +1,145 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] ipv6: reject locally assigned nexthop addresses
-Date: Thu, 21 May 2015 00:25:41 +0200
-Message-ID: <1432160741-3588-1-git-send-email-fw@strlen.de>
-Cc: hannes@stressinduktion.org, Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH v3 net-next 3/4] rocker: do not make neighbour entry
+ changes when preparing transactions
+Date: Thu, 21 May 2015 07:32:20 +0900
+Message-ID: <20150520223218.GA11831@penelope.isobedori.kobe.vergenet.net>
+References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com>
+ <1432100902-10187-4-git-send-email-simon.horman@netronome.com>
+ <555C267B.9070807@lab.ntt.co.jp>
+ <20150520074810.GA21934@vergenet.net>
+ <555C4776.70508@lab.ntt.co.jp>
+ <20150520084623.GA14454@vergenet.net>
+ <20150520111736.GE2228@nanopsycho.orion>
+ <20150520125744.GA2083@penelope.isobedori.kobe.vergenet.net>
+ <CAE4R7bDY4vNOUjRQQ=CzPRbVKEq4qZh2BVutajrRt3_JsdWdvw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
+To: Scott Feldman <sfeldma@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:32975 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751882AbbETW0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:26:00 -0400
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:35249 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752819AbbETWca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 18:32:30 -0400
+Received: by pdea3 with SMTP id a3so84441147pde.2
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 15:32:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE4R7bDY4vNOUjRQQ=CzPRbVKEq4qZh2BVutajrRt3_JsdWdvw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip -6 addr add dead::1/128 dev eth0
-sleep 5
-ip -6 route add default via dead::1/128
--> fails
-ip -6 addr add dead::1/128 dev eth0
-ip -6 route add default via dead::1/128
--> succeeds
+On Wed, May 20, 2015 at 10:37:52AM -0700, Scott Feldman wrote:
+> On Wed, May 20, 2015 at 5:57 AM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > On Wed, May 20, 2015 at 01:17:36PM +0200, Jiri Pirko wrote:
+> >> Wed, May 20, 2015 at 10:46:26AM CEST, simon.horman@netronome.com wrote:
+> >> >On Wed, May 20, 2015 at 05:36:06PM +0900, Toshiaki Makita wrote:
+> >> >> On 2015/05/20 16:48, Simon Horman wrote:
+> >> >> > On Wed, May 20, 2015 at 03:15:23PM +0900, Toshiaki Makita wrote:
+> >> >> >> On 2015/05/20 14:48, Simon Horman wrote:
+> >> >> ...
+> >> >> >>>  static void _rocker_neigh_add(struct rocker *rocker,
+> >> >> >>> +                            enum switchdev_trans trans,
+> >> >> >>>                              struct rocker_neigh_tbl_entry *entry)
+> >> >> >>>  {
+> >> >> >>> +      if (trans == SWITCHDEV_TRANS_PREPARE)
+> >> >> >>> +              return;
+> >> >> >>>        entry->index = rocker->neigh_tbl_next_index++;
+> >> >> >>
+> >> >> >> Isn't index needed here? It looks to be used in later function call and
+> >> >> >> logging.
+> >> >> >
+> >> >> > Thanks, that does not follow the usual model of setting values
+> >> >> > during the PREPARE (and all other) transaction phase(s).
+> >> >> >
+> >> >> >> How about setting index like this?
+> >> >> >>
+> >> >> >>         entry->index = rocker->neigh_tbl_next_index;
+> >> >> >>         if (trans == PREPARE)
+> >> >> >>                 return;
+> >> >> >>         rocker->neigh_tbl_next_index++;
+> >> >> >>         ...
+> >> >> >
+> >> >> > I am concerned that _rocker_neigh_add() may be called by some other
+> >> >> > caller while a transaction is in process and thus entry->index will
+> >> >> > be inconsistent across callers.
+> >> >> >
+> >> >> > Perhaps we can convince ourselves that all the bases are covered.
+> >> >> > So far my testing has drawn a blank. But the logic seems difficult to
+> >> >> > reason about.
+> >> >> >
+> >> >> > As we are basically allocating an index I suppose what is really needed for
+> >> >> > a correct implementation is a transaction aware index allocator, like we
+> >> >> > have for memory (rocker_port_kzalloc etc...).  But that does seem like
+> >> >> > overkill.
+> >> >> >
+> >> >> > I think that we can make entry->index consistent across
+> >> >> > calls in the same transaction at the expense of breaking the
+> >> >> > rule that per-transaction data should be set during all transaction phases.
+> >> >> >
+> >> >> > Something like this:
+> >> >> >
+> >> >> >
+> >> >> >  if (trans != SWITCHDEV_TRANS_COMMIT)
+> >> >> >          /* Avoid index being set to different values across calls
+> >> >> >           * to this function by the same caller within the same
+> >> >> >           * transaction.
+> >> >> >           */
+> >> >> >          entry->index = rocker->neigh_tbl_next_index++;
+> >> >> >  if (trans == SWITCHDEV_TRANS_PREPARE)
+> >> >> >          return;
+> >> >> >
+> >> >> >
+> >> >>
+> >> >> As long as it is guraded by rtnl lock, no worries about this race?  It
+> >> >> seems to be assumed that prepare-commit is guarded by rtnl lock,
+> >> >> according to commit c4f20321 ("rocker: support prepare-commit
+> >> >> transaction model").
+> >> >>
+> >> >> But as you are concerned, it seems to be able to be called by another
+> >> >> caller, specifically, neigh_timer_handler() in interrupt context without
+> >> >> rtnl lock. IMHO, it should be fixed rather than avoiding the race here.
+> >> >
+> >> >Yes, I believe that is the case I was seeing.
+> >> >
+> >> >Scott, Jiri, how would you like to resolve this?
+> >>
+> >>
+> >> I believe that you can depend on rtnl being held - in switchdev_port_obj_add
+> >> there is ASSERT_RTNL assection at the very beginning of the function.
+> >
+> > In the prepare-commit scenario, yes, I agree that is the case.
+> > But it does not seem to always be the case when the transaction phase is none.
+> >
+> > What I am seeing is:
+> >
+> > 1. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
+> >    with trans = SWITCHDEV_TRANS_PREPARE
+> >
+> > 2. rocker_port_ipv4_neigh() is called by rocker_neigh_update()
+> >    with trans = SWITCHDEV_TRANS_NONE.
+> >
+> >    The call chain goes up to arp_process() via neigh_update().
+> >
+> > 3. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
+> >    with trans = SWITCHDEV_TRANS_COMMIT
+> >
+> > I believe #2 is not guarded by rtnl.
+> 
+> Looks like rocker->neigh_tbl_next_index was a problem even before the
+> transaction model was introduced, due to no protection for concurrent
+> processes in diff contexts.
+> 
+> We'll need to turn the NETEVENT_NEIGH_UPDATE into process context and
+> hold rtnl_lock, similar to what we do in
+> rocker_event_mac_vlan_seen_work().  That, plus Toshiaki's suggested
+> change for _rocker_neigh_add() should do it.
 
-reason is that if (nonsensensical) route above is added,
-dead::1 is still subject to DAD, so the route lookup will
-pick eth0 as outdev due to the prefix route that is added before
-DAD work is started.
+Thanks,
 
-Add explicit test that checks if nexthop gateway is a local address.
-
-Link: https://bugzilla.redhat.com/show_bug.cgi?id=1167969
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 6f4a350..98fce6f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1624,6 +1624,16 @@ int ip6_route_add(struct fib6_config *cfg)
- 		int gwa_type;
- 
- 		gw_addr = &cfg->fc_gateway;
-+
-+		/* if gw_addr is local we will fail to detect this in case
-+		 * address is still TENTATIVE (DAD in progress). rt6_lookup()
-+		 * will return already-added prefix route via interface that
-+		 * prefix route was assigned to, which might be non-loopback.
-+		 */
-+		err = -EINVAL;
-+		if (ipv6_chk_addr_and_flags(net, gw_addr, NULL, 0, 0))
-+			goto out;
-+
- 		rt->rt6i_gateway = *gw_addr;
- 		gwa_type = ipv6_addr_type(gw_addr);
- 
-@@ -1637,7 +1647,6 @@ int ip6_route_add(struct fib6_config *cfg)
- 			   (SIT, PtP, NBMA NOARP links) it is handy to allow
- 			   some exceptions. --ANK
- 			 */
--			err = -EINVAL;
- 			if (!(gwa_type & IPV6_ADDR_UNICAST))
- 				goto out;
- 
--- 
-2.0.5
+what I suggest is that we modify this patch as per Makita-san's suggestion
+and proceed with it and the rest of the series. And then come back to the
+neigh_tbl_next_index problem.
