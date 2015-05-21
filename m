@@ -1,82 +1,50 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
-Date: Thu, 21 May 2015 22:46:34 +0200
-Message-ID: <555E442A.808@broadcom.com>
-References: <33C25745-6839-4858-9A3E-19EC6408ECED@holtmann.org>	<Pine.LNX.4.44L0.1505211112310.1397-100000@iolanthe.rowland.org>	<s5hsiaq3pv4.wl-tiwai@suse.de>	<555E158D.4090607@broadcom.com> <s5hmw0x4z12.wl-tiwai@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: Make sure phy_start() always re-enables the
+ phy interrupts
+Date: Thu, 21 May 2015 16:50:12 -0400 (EDT)
+Message-ID: <20150521.165012.2187615495132464149.davem@davemloft.net>
+References: <1431482104-1030-1-git-send-email-tim.beale@alliedtelesis.co.nz>
+	<1431920318-7157-1-git-send-email-tim.beale@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Laura Abbott <labbott@redhat.com>,
-	Oliver Neukum <oneukum@suse.com>,
-	Ming Lei <ming.lei@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Laura Abbott <labbott@fedoraproject.org>,
-	"Johan Hedberg" <johan.hedberg@gmail.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
-	<linux-bluetooth@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	USB list <linux-usb@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Takashi Iwai <tiwai@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <s5hmw0x4z12.wl-tiwai@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: tim.beale@alliedtelesis.co.nz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39662 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756137AbbEUUuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 16:50:16 -0400
+In-Reply-To: <1431920318-7157-1-git-send-email-tim.beale@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/21/15 19:32, Takashi Iwai wrote:
-> At Thu, 21 May 2015 19:27:41 +0200,
-> Arend van Spriel wrote:
->>
->> On 05/21/15 17:35, Takashi Iwai wrote:
->>> At Thu, 21 May 2015 11:26:17 -0400 (EDT),
->>> Alan Stern wrote:
->>>>
->>>> On Thu, 21 May 2015, Takashi Iwai wrote:
->>>>
->>>>> At Thu, 21 May 2015 10:18:08 -0400 (EDT),
->>>>> Alan Stern wrote:
->>>>>>
->>>>>> On Thu, 21 May 2015, Takashi Iwai wrote:
->>>>>>
->>>>>>> Then avoiding the failed firmware is no solution, indeed.
->>>>>>> If it's a new probe, it should be never executed during resume.
->>>>>>
->>>>>> Can you expand this comment?  What's wrong with probing during resume?
->>>>>
->>>>> Well, if the probe requires the access to a user-space file, it can't
->>>>> be done during resume.  That's the very problem we're seeing now.
->>>>> The firmware loader can't help much alone if it's a new device
->>>>> object.
+From: Tim Beale <tim.beale@alliedtelesis.co.nz>
+Date: Mon, 18 May 2015 15:38:38 +1200
 
-So you are saying each device driver should come up with some retry 
-mechanism. Would make more sense to come up with something like that 
-behind the scenes in the firmware loader so all device drivers can rely 
-on one and the same solution.
+> This is an alternative way of fixing:
+>  commit db9683fb412d ("net: phy: Make sure PHY_RESUMING state change
+>                       is always processed")
+> 
+> When the PHY state transitions from PHY_HALTED to PHY_RESUMING, there are
+> two things we need to do:
+> 1). Re-enable interrupts (and power up the physical link, if powered down)
+> 2). Update the PHY state and net-device based on the link status.
+> 
+> There's no strict reason why #1 has to be done from within the main
+> phy_state_machine() function. There is a risk that other changes to the
+> PHY (e.g. setting speed/duplex, which calls phy_start_aneg()) could cause
+> a subsequent state transition before phy_state_machine() has processed
+> the PHY_RESUMING state change. This would leave the PHY with interrupts
+> disabled and/or still in the BMCR_PDOWN/low-power mode.
+> 
+> Moving enabling the interrupts and phy_resume() into phy_start() will
+> guarantee this work always gets done. As the PHY is already in the HALTED
+> state and interrupts are disabled, it shouldn't conflict with any work
+> being done in phy_state_machine(). The downside of this change is that if
+> the PHY_RESUMING state is ever entered from anywhere else, it'll also have
+> to repeat this work.
+> 
+> Signed-off-by: Tim Beale <tim.beale@alliedtelesis.co.nz>
 
-Regards,
-Arend
-
->>>> But the same thing happens during early boot, if the driver is built
->>>> into the kernel.  When the probe occurs, userspace isn't up and running
->>>> yet, so the firmware loader can't do anything.
->>>>
->>>> Why should probe during resume be any worse than probe during early
->>>> boot?
->>>
->>> The early boot has initrd, so the files can be there.  But the resume
->>> has no way to fetch the file except for cached data.
->>
->> but initrd is optional so without initrd it is pretty much the same.
->
-> User can build the firmware into the kernel.
->
->
-> Takashi
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
