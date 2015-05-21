@@ -1,49 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Better handling of transition to NUD_PROBE
- state
-Date: Thu, 21 May 2015 16:53:32 -0400 (EDT)
-Message-ID: <20150521.165332.1552040068826483613.davem@davemloft.net>
-References: <1431945881-14707-1-git-send-email-ek@google.com>
+Subject: Re: [PATCH net-next] tcp: add a force_schedule argument to
+ sk_stream_alloc_skb()
+Date: Thu, 21 May 2015 16:58:13 -0400 (EDT)
+Message-ID: <20150521.165813.1925516530964458536.davem@davemloft.net>
+References: <1432067215.621.70.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, lorenzo@google.com,
-	netdev@vger.kernel.org
-To: ek@google.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39694 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39733 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756217AbbEUUxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 16:53:34 -0400
-In-Reply-To: <1431945881-14707-1-git-send-email-ek@google.com>
+	with ESMTP id S1751702AbbEUU6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 16:58:14 -0400
+In-Reply-To: <1432067215.621.70.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Kline <ek@google.com>
-Date: Mon, 18 May 2015 19:44:41 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 19 May 2015 13:26:55 -0700
 
-> [1] When entering NUD_PROBE state via neigh_update(), perhaps received
->     from userspace, correctly (re)initialize the probes count to zero.
+> From: Eric Dumazet <edumazet@google.com>
 > 
->     This is useful for forcing revalidation of a neighbor (for example
->     if the host is attempting to do DNA [IPv4 4436, IPv6 6059]).
+> In commit 8e4d980ac215 ("tcp: fix behavior for epoll edge trigger")
+> we fixed a possible hang of TCP sockets under memory pressure,
+> by allowing sk_stream_alloc_skb() to use sk_forced_mem_schedule()
+> if no packet is in socket write queue.
 > 
-> [2] Notify listeners when a neighbor goes into NUD_PROBE state.
+> It turns out there are other cases where we want to force memory
+> schedule :
 > 
->     By sending notifications on entry to NUD_PROBE state listeners get
->     more timely warnings of imminent connectivity issues.
+> tcp_fragment() & tso_fragment() need to split a big TSO packet into
+> two smaller ones. If we block here because of TCP memory pressure,
+> we can effectively block TCP socket from sending new data.
+> If no further ACK is coming, this hang would be definitive, and socket
+> has no chance to effectively reduce its memory usage.
 > 
->     The current notifications on entry to NUD_STALE have somewhat
->     limited usefulness: NUD_STALE is a perfectly normal state, as is
->     NUD_DELAY, whereas notifications on entry to NUD_FAILURE come after
->     a neighbor reachability problem has been confirmed (typically after
->     three probes).
-> 
-> Signed-off-by: Erik Kline <ek@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Please, in the future, put a proper subsystem prefix in the Subject
-line of your patch submissions.  In this particular case "neigh: "
-would have been appropriate and is what I added when applying your
-patch.
-
-Applied, thanks.
+Looks good, applied, thanks Eric.
