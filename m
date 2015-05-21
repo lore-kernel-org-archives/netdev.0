@@ -1,28 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dev: reduce both ingress hook ifdefs
-Date: Thu, 21 May 2015 16:59:11 -0400 (EDT)
-Message-ID: <20150521.165911.1242133829504621938.davem@davemloft.net>
-References: <3898d6056534c7fc4d43a9e6d27488bffb72b657.1432067241.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/3] net: Flush all skbs related to an
+ unregistered device
+Date: Thu, 21 May 2015 17:02:19 -0400 (EDT)
+Message-ID: <20150521.170219.1689248066169954260.davem@davemloft.net>
+References: <1432077893-4431-1-git-send-email-baptiste@arista.com>
+	<1432077893-4431-2-git-send-email-baptiste@arista.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, ast@plumgrid.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, fruggeri@arista.com, mowat@arista.com,
+	adrien+dev@schischi.me
+To: baptiste@arista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39741 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39766 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756507AbbEUU7O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 16:59:14 -0400
-In-Reply-To: <3898d6056534c7fc4d43a9e6d27488bffb72b657.1432067241.git.daniel@iogearbox.net>
+	with ESMTP id S1755792AbbEUVCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 17:02:22 -0400
+In-Reply-To: <1432077893-4431-2-git-send-email-baptiste@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Tue, 19 May 2015 22:33:25 +0200
+From: Baptiste Covolato <baptiste@arista.com>
+Date: Tue, 19 May 2015 16:24:51 -0700
 
-> Reduce ifdef pollution slightly, no functional change. We can simply
-> remove the extra alternative definition of handle_ing() and nf_ingress().
+> Update flush_backlog to flush all packets in the backlog queue belonging
+> to a device being unregistered. Accordingly on_each_cpu no longer needs
+> to pass a device to flush_backlog since it handles any device in the
+> NETREG_UNREGISTERED state.
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Baptiste Covolato <baptiste@arista.com>
+> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
 
-Applied, thanks Daniel.
+This is quite bogus if you ask me.
+
+This is the one spot causing a device to make the transition
+to unregistered state, so passing that specific device to
+flush_backlog() is the completely logical way to handle this.
+
+If this is some hack that is made necessary by your parallel
+notification scheme, I do not find it acceptable.
+
+I'm not applying this series, sorry.
