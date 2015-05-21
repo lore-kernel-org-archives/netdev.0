@@ -1,58 +1,43 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v4 for-next 05/12] IB/cm: Share listening CM IDs
-Date: Thu, 21 May 2015 11:54:13 -0600
-Message-ID: <20150521175413.GB6771@obsidianresearch.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
- <1431841868-28063-6-git-send-email-haggaie@mellanox.com>
- <20150519183545.GH18675@obsidianresearch.com>
- <20150519223502.GA26324@obsidianresearch.com>
- <555D927F.7060801@mellanox.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH net-next v3] tcp: add rfc3168, section 6.1.1.1. fallback
+Date: Thu, 21 May 2015 11:10:37 -0700
+Message-ID: <CAGK4HS8s=CHRY_Zv=THv22PemkHx-acVFVTDSj1PFUfr8sj4Vw@mail.gmail.com>
+References: <cc0be24818d7009208dd0d8f73cc35939957f134.1432059419.git.daniel@iogearbox.net>
+	<20150519.165400.818177627516799715.davem@davemloft.net>
+	<CAGK4HS_U5Me2ubi-QPaceLiw-ZU7P9Q=ZOSpgg6SRqn-fA2Gaw@mail.gmail.com>
+	<1432147056.4060.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org, Liran Liss <liranl@mellanox.com>,
-	Guy Shapiro <guysh@mellanox.com>,
-	Shachar Raindel <raindel@mellanox.com>,
-	Yotam Kenneth <yotamke@mellanox.com>
-To: Haggai Eran <haggaie@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	netdev <netdev@vger.kernel.org>, fw@strlen.de,
+	mirja.kuehlewind@tik.ee.ethz.ch, trammell@tik.ee.ethz.ch,
+	Eric Dumazet <edumazet@google.com>,
+	Dave Taht <dave.taht@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:44526 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754702AbbEURyQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 13:54:16 -0400
-Content-Disposition: inline
-In-Reply-To: <555D927F.7060801@mellanox.com>
+Received: from mail-yk0-f180.google.com ([209.85.160.180]:35728 "EHLO
+	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751088AbbEUSKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 14:10:38 -0400
+Received: by ykec202 with SMTP id c202so28682314yke.2
+        for <netdev@vger.kernel.org>; Thu, 21 May 2015 11:10:37 -0700 (PDT)
+In-Reply-To: <1432147056.4060.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 21, 2015 at 11:08:31AM +0300, Haggai Eran wrote:
-> > The more I look at this, the more I think it is sketchy. Don't try and
-> > merge sharecount and refcount together,
+>
+> Please do not top post.
 
-> I'm not sure what you mean here. The way I was thinking about it was
-> that sharecount = num of rdma_cm_ids sharing this listener, while
-> refcount = num of active internal uses of this ID (work items, timers,
-> etc.) Do you want refcount to also include the sharecount?
+My fault. Will be more careful in future.
 
-If you hold on to the pointer, then you increment the refcount. The
-refcount is the 'number of holders of the pointer'. Basic invariant.
+>
+> No problem here. I do not see obvious reasons for breaking your setup.
+>
 
-When the pointer left the lock region for the lockup, the ref must be
-incremented.
+It was a problem with my network driver not getting installed due to
+some symbol mismatch after a compile. It got sorted out after I
+cleaned up everything. This was a false alarm. Apologies for the
+noise.
 
-What you had was functionally correct because the sharecount was
-implying a refcount, but it doesn't follow the standard kernel
-refcounting pattern.
-
-> > after cm_find_listen is called
-> > you have to increment the refcount before dropping cm.lock.
-> > 
-> > Decrement the refcount when destroying a shared listen.
-> You mean to decrement event if listen_sharecount > 0, and the id isn't
-> destroyed, right? The code already calls cm_deref_id when
-> listen_sharecount = 0 of course.
-
-Yes, because cm_destroy_id is the ref'd pair to cm_listen, after it
-returns the caller must give up their pointer.
-
-Jason
+Vijay
