@@ -1,152 +1,44 @@
-From: Scott Feldman <sfeldma@gmail.com>
-Subject: Re: [PATCH v3 net-next 3/4] rocker: do not make neighbour entry
- changes when preparing transactions
-Date: Wed, 20 May 2015 16:59:24 -0700
-Message-ID: <CAE4R7bD7AdizH=0ExMPv1JxkBXX80uX=78dt8uQ+v8mck=NqDw@mail.gmail.com>
-References: <1432100902-10187-1-git-send-email-simon.horman@netronome.com>
-	<1432100902-10187-4-git-send-email-simon.horman@netronome.com>
-	<555C267B.9070807@lab.ntt.co.jp>
-	<20150520074810.GA21934@vergenet.net>
-	<555C4776.70508@lab.ntt.co.jp>
-	<20150520084623.GA14454@vergenet.net>
-	<20150520111736.GE2228@nanopsycho.orion>
-	<20150520125744.GA2083@penelope.isobedori.kobe.vergenet.net>
-	<CAE4R7bDY4vNOUjRQQ=CzPRbVKEq4qZh2BVutajrRt3_JsdWdvw@mail.gmail.com>
-	<20150520223218.GA11831@penelope.isobedori.kobe.vergenet.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: add tcpi_segs_in and tcpi_segs_out to tcp_info
+Date: Wed, 20 May 2015 17:06:37 -0700
+Message-ID: <555D218D.50509@hp.com>
+References: <1430260098-14127-1-git-send-email-edumazet@google.com> <20150512130855.GA29412@localhost.localdomain> <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com> <1432164941.4060.57.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
+	Chris Rapier <rapier@psc.edu>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:34928 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753274AbbETX7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 19:59:25 -0400
-Received: by qceb3 with SMTP id b3so30323392qce.2
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 16:59:24 -0700 (PDT)
-In-Reply-To: <20150520223218.GA11831@penelope.isobedori.kobe.vergenet.net>
+Received: from g9t5008.houston.hp.com ([15.240.92.66]:49221 "EHLO
+	g9t5008.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751962AbbEUAGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 20:06:48 -0400
+In-Reply-To: <1432164941.4060.57.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2015 at 3:32 PM, Simon Horman
-<simon.horman@netronome.com> wrote:
+On 05/20/2015 04:35 PM, Eric Dumazet wrote:
+> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
 >
-> On Wed, May 20, 2015 at 10:37:52AM -0700, Scott Feldman wrote:
-> > On Wed, May 20, 2015 at 5:57 AM, Simon Horman
-> > <simon.horman@netronome.com> wrote:
-> > > On Wed, May 20, 2015 at 01:17:36PM +0200, Jiri Pirko wrote:
-> > >> Wed, May 20, 2015 at 10:46:26AM CEST, simon.horman@netronome.com wrote:
-> > >> >On Wed, May 20, 2015 at 05:36:06PM +0900, Toshiaki Makita wrote:
-> > >> >> On 2015/05/20 16:48, Simon Horman wrote:
-> > >> >> > On Wed, May 20, 2015 at 03:15:23PM +0900, Toshiaki Makita wrote:
-> > >> >> >> On 2015/05/20 14:48, Simon Horman wrote:
-> > >> >> ...
-> > >> >> >>>  static void _rocker_neigh_add(struct rocker *rocker,
-> > >> >> >>> +                            enum switchdev_trans trans,
-> > >> >> >>>                              struct rocker_neigh_tbl_entry *entry)
-> > >> >> >>>  {
-> > >> >> >>> +      if (trans == SWITCHDEV_TRANS_PREPARE)
-> > >> >> >>> +              return;
-> > >> >> >>>        entry->index = rocker->neigh_tbl_next_index++;
-> > >> >> >>
-> > >> >> >> Isn't index needed here? It looks to be used in later function call and
-> > >> >> >> logging.
-> > >> >> >
-> > >> >> > Thanks, that does not follow the usual model of setting values
-> > >> >> > during the PREPARE (and all other) transaction phase(s).
-> > >> >> >
-> > >> >> >> How about setting index like this?
-> > >> >> >>
-> > >> >> >>         entry->index = rocker->neigh_tbl_next_index;
-> > >> >> >>         if (trans == PREPARE)
-> > >> >> >>                 return;
-> > >> >> >>         rocker->neigh_tbl_next_index++;
-> > >> >> >>         ...
-> > >> >> >
-> > >> >> > I am concerned that _rocker_neigh_add() may be called by some other
-> > >> >> > caller while a transaction is in process and thus entry->index will
-> > >> >> > be inconsistent across callers.
-> > >> >> >
-> > >> >> > Perhaps we can convince ourselves that all the bases are covered.
-> > >> >> > So far my testing has drawn a blank. But the logic seems difficult to
-> > >> >> > reason about.
-> > >> >> >
-> > >> >> > As we are basically allocating an index I suppose what is really needed for
-> > >> >> > a correct implementation is a transaction aware index allocator, like we
-> > >> >> > have for memory (rocker_port_kzalloc etc...).  But that does seem like
-> > >> >> > overkill.
-> > >> >> >
-> > >> >> > I think that we can make entry->index consistent across
-> > >> >> > calls in the same transaction at the expense of breaking the
-> > >> >> > rule that per-transaction data should be set during all transaction phases.
-> > >> >> >
-> > >> >> > Something like this:
-> > >> >> >
-> > >> >> >
-> > >> >> >  if (trans != SWITCHDEV_TRANS_COMMIT)
-> > >> >> >          /* Avoid index being set to different values across calls
-> > >> >> >           * to this function by the same caller within the same
-> > >> >> >           * transaction.
-> > >> >> >           */
-> > >> >> >          entry->index = rocker->neigh_tbl_next_index++;
-> > >> >> >  if (trans == SWITCHDEV_TRANS_PREPARE)
-> > >> >> >          return;
-> > >> >> >
-> > >> >> >
-> > >> >>
-> > >> >> As long as it is guraded by rtnl lock, no worries about this race?  It
-> > >> >> seems to be assumed that prepare-commit is guarded by rtnl lock,
-> > >> >> according to commit c4f20321 ("rocker: support prepare-commit
-> > >> >> transaction model").
-> > >> >>
-> > >> >> But as you are concerned, it seems to be able to be called by another
-> > >> >> caller, specifically, neigh_timer_handler() in interrupt context without
-> > >> >> rtnl lock. IMHO, it should be fixed rather than avoiding the race here.
-> > >> >
-> > >> >Yes, I believe that is the case I was seeing.
-> > >> >
-> > >> >Scott, Jiri, how would you like to resolve this?
-> > >>
-> > >>
-> > >> I believe that you can depend on rtnl being held - in switchdev_port_obj_add
-> > >> there is ASSERT_RTNL assection at the very beginning of the function.
-> > >
-> > > In the prepare-commit scenario, yes, I agree that is the case.
-> > > But it does not seem to always be the case when the transaction phase is none.
-> > >
-> > > What I am seeing is:
-> > >
-> > > 1. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
-> > >    with trans = SWITCHDEV_TRANS_PREPARE
-> > >
-> > > 2. rocker_port_ipv4_neigh() is called by rocker_neigh_update()
-> > >    with trans = SWITCHDEV_TRANS_NONE.
-> > >
-> > >    The call chain goes up to arp_process() via neigh_update().
-> > >
-> > > 3. rocker_port_ipv4_nh() is called via switchdev_port_obj_add()
-> > >    with trans = SWITCHDEV_TRANS_COMMIT
-> > >
-> > > I believe #2 is not guarded by rtnl.
-> >
-> > Looks like rocker->neigh_tbl_next_index was a problem even before the
-> > transaction model was introduced, due to no protection for concurrent
-> > processes in diff contexts.
-> >
-> > We'll need to turn the NETEVENT_NEIGH_UPDATE into process context and
-> > hold rtnl_lock, similar to what we do in
-> > rocker_event_mac_vlan_seen_work().  That, plus Toshiaki's suggested
-> > change for _rocker_neigh_add() should do it.
+> This patch tracks the total number of inbound and outbound segments on a
+> TCP socket. One may use this number to have an idea on connection
+> quality when compared against the retransmissions.
 >
-> Thanks,
+> RFC4898 named these : tcpEStatsPerfSegsIn and tcpEStatsPerfSegsOut
 >
-> what I suggest is that we modify this patch as per Makita-san's suggestion
-> and proceed with it and the rest of the series. And then come back to the
-> neigh_tbl_next_index problem.
+> These are a 32bit field each and can be fetched both from TCP_INFO
+> getsockopt() if one has a handle on a TCP socket, or from inet_diag
+> netlink facility (iproute2/ss patch will follow)
 
+I suppose it is far-fetched, but is it a concern that at 100 Gbit/s and 
+1500 byte MTU the 32 bit segment counter would wrap in something like 
+500 seconds and change?
 
-Agreed.  I'll address the neigh_tbl_next_index problem once your
-series goes in.  Thanks Simon and Makita-san.
+rick jones
