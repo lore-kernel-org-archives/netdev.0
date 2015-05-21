@@ -1,36 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Suspicious RCU usage in bridge with Linux
- v4.0-9362-g1fc149933fd4
-Date: Thu, 21 May 2015 13:06:50 -0700
-Message-ID: <1432238810.4060.105.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
-	 <20150504133943.GA17043@x131e>
-	 <CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-	 <20150504132714.55dca5b0@urahara>
-	 <CAHA+R7PVpNdqrOHQgHXYRM8io9GZpeucZ_Gk8YNHqQC=f9+egw@mail.gmail.com>
-	 <20150511131516.GC10375@x131e>
-	 <1431355986.566.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150512182741.GD9693@x131e>
-	 <CA+5PVA70p=y_62fkEG6OU=+-QpLX-SFi_mZ3UNgA4nu7GmvwcQ@mail.gmail.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next 1/2] inet_hashinfo: remove bsocket counter
+Date: Thu, 21 May 2015 17:10:27 -0300
+Message-ID: <20150521201027.GH2379@x240.home>
+References: <1432144742-17786-1-git-send-email-edumazet@google.com>
+ <1432144742-17786-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Dominick Grift <dac.override@gmail.com>
-To: Josh Boyer <jwboyer@fedoraproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37732 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754712AbbEUUGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 16:06:52 -0400
-Received: by igbsb11 with SMTP id sb11so17538098igb.0
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 13:06:51 -0700 (PDT)
-In-Reply-To: <CA+5PVA70p=y_62fkEG6OU=+-QpLX-SFi_mZ3UNgA4nu7GmvwcQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47678 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754067AbbEUUKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 16:10:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1432144742-17786-2-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-21 at 15:22 -0400, Josh Boyer wrote:
+On Wed, May 20, 2015 at 10:59:01AM -0700, Eric Dumazet wrote:
+> We no longer need bsocket atomic counter, as inet_csk_get_port()
+> calls bind_conflict() regardless of its value, after commit
+> 2b05ad33e1e624e ("tcp: bind() fix autoselection to share ports")
+> 
+> This patch removes overhead of maintaining this counter and
+> double inet_csk_get_port() calls under pressure.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Cc: Flavio Leitner <fbl@redhat.com>
+> ---
 
-> I'm still seeing this with Linus' tree as of yesterday.  Is this
-> queued anywhere for 4.1?
-I'll send the patch, thanks for the heads up.
+The patch looks good to me.
+Acked-by: Flavio Leitner <fbl@redhat.com>
