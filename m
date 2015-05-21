@@ -1,41 +1,30 @@
-From: "Ratnakumar Sagana (KING'S COLLEGE HOSPITAL NHS FOUNDATION TRUST)"
-	<sratnakumar@nhs.net>
-Subject: RE:
-Date: Thu, 21 May 2015 11:43:49 +0100
-Message-ID: <20150521104834.510A5449814@nhs-pd1e-esg105.ad1.nhs.net>
-References: <90BA5B564A2E4B4782C6F4398C32EE104E54369A@NHS-PCLI-MBC003.AD1.NHS.NET>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 7/7] mac80211: Switch to new AEAD interface
+Date: Thu, 21 May 2015 13:20:49 +0200
+Message-ID: <1432207249.2343.9.camel@sipsolutions.net>
+References: <20150521103938.GA23035@gondor.apana.org.au>
+	 <E1YvNxS-00063i-AZ@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Ratnakumar Sagana (KING'S COLLEGE HOSPITAL NHS FOUNDATION TRUST)"
-	<sratnakumar@nhs.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.nhs.uk ([62.208.144.128]:48645 "EHLO relay.nhs.uk"
+Received: from s3.sipsolutions.net ([5.9.151.49]:43961 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753213AbbEUKsh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 06:48:37 -0400
-In-Reply-To: <90BA5B564A2E4B4782C6F4398C32EE104E54369A@NHS-PCLI-MBC003.AD1.NHS.NET>
-Content-Language: en-GB
+	id S1754017AbbEULU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 07:20:58 -0400
+In-Reply-To: <E1YvNxS-00063i-AZ@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2015-05-21 at 18:44 +0800, Herbert Xu wrote:
+> This patch makes use of the new AEAD interface which uses a single
+> SG list instead of separate lists for the AD and plain text.
 
+Looks fine - want me to run any tests on it?
 
-You have won contact Allen On allemwilliam10001@gmail.com for info.
-Allen Williams
-+27612909541
-
-********************************************************************************************************************
-
-This message may contain confidential information. If you are not the intended recipient please inform the
-sender that you have received the message in error before deleting it.
-Please do not disclose, copy or distribute information in this e-mail or take any action in reliance on its contents:
-to do so is strictly prohibited and may be unlawful.
-
-Thank you for your co-operation.
-
-NHSmail is the secure email and directory service available for all NHS staff in England and Scotland
-NHSmail is approved for exchanging patient data and other sensitive information with NHSmail and GSi recipients
-NHSmail provides an email address for your career in the NHS and can be accessed anywhere
-
-********************************************************************************************************************
+johannes
