@@ -1,67 +1,50 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
-Subject: Re: Suspicious RCU usage in bridge with Linux v4.0-9362-g1fc149933fd4
-Date: Thu, 21 May 2015 15:22:16 -0400
-Message-ID: <CA+5PVA70p=y_62fkEG6OU=+-QpLX-SFi_mZ3UNgA4nu7GmvwcQ@mail.gmail.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
-	<20150504133943.GA17043@x131e>
-	<CAHA+R7PAzzz+CZfnOoweBdeLY8tRkr2bSDEpQgdtEKUeaZbWpQ@mail.gmail.com>
-	<20150504132714.55dca5b0@urahara>
-	<CAHA+R7PVpNdqrOHQgHXYRM8io9GZpeucZ_Gk8YNHqQC=f9+egw@mail.gmail.com>
-	<20150511131516.GC10375@x131e>
-	<1431355986.566.18.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20150512182741.GD9693@x131e>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/3] cxgb4: Add support for loopback between
+ VI of same port
+Date: Thu, 21 May 2015 15:30:29 -0400 (EDT)
+Message-ID: <20150521.153029.774385014187583893.davem@davemloft.net>
+References: <1431859523-7423-2-git-send-email-hariprasad@chelsio.com>
+	<20150517.234613.463972132331185537.davem@davemloft.net>
+	<4985EFDD773FCB459EF7915D2A3621ADBD9FE5@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	Dominick Grift <dac.override@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
+	nirranjan@chelsio.com
+To: leedom@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:33724 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754076AbbEUTWR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 15:22:17 -0400
-Received: by qkgv12 with SMTP id v12so63941435qkg.0
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 12:22:16 -0700 (PDT)
-In-Reply-To: <20150512182741.GD9693@x131e>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39043 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755797AbbEUTab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 15:30:31 -0400
+In-Reply-To: <4985EFDD773FCB459EF7915D2A3621ADBD9FE5@nice.asicdesigners.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 12, 2015 at 2:27 PM, Dominick Grift <dac.override@gmail.com> wrote:
-> On Mon, May 11, 2015 at 07:53:06AM -0700, Eric Dumazet wrote:
->>
->> Hi Dominick
->>
->> Have you tried this patch I sent last monday ?
->>
->> I will submit formally when I get a test result.
->>
->> Thanks
->
-> Eric,
->
-> I have tested the below patch and everything is in order!
->
-> Thank you!
->
->>
->> diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
->> index 4fcaa67750fda845ad0a180332c4cd96a9524086..7caf7fae2d5b8aa369b924e1c87a47c343fb8954 100644
->> --- a/net/bridge/br_stp_timer.c
->> +++ b/net/bridge/br_stp_timer.c
->> @@ -97,7 +97,9 @@ static void br_forward_delay_timer_expired(unsigned long arg)
->>               netif_carrier_on(br->dev);
->>       }
->>       br_log_state(p);
->> +     rcu_read_lock();
->>       br_ifinfo_notify(RTM_NEWLINK, p);
->> +     rcu_read_unlock();
->>       spin_unlock(&br->lock);
->>  }
->>
->>
->>
+From: Casey Leedom <leedom@chelsio.com>
+Date: Thu, 21 May 2015 16:36:00 +0000
 
-I'm still seeing this with Linus' tree as of yesterday.  Is this
-queued anywhere for 4.1?
+> I definitely understand the issue of wanting to avoid randomly
+> different module parameters in various drivers which do similar
+> things.  What we're looking for is a list of the acceptable ways for
+> doing things ― especially when they don't fit current
+> ethtool/ioctl() mechanisms.
 
-josh
+The prevailing assumption is that it's OK to have configuration
+settings that can't be undone.
+
+And that's bogus from the beginning.
+
+Drivers that have such situations are extremely painful for large
+scale organizations, and I think you probably have no idea how
+much of a huge hassle is created by features that can't be undone
+or disabled at run time.
+
+It is not feasible to reboot every machine in one's datacenter to turn
+off a feature that's causing problems.  Yet that's what some large
+scale organizations end up having to do, and it's COMPLETELY NOT
+ACCEPTABLT that they have to do this.
+
+So instead of trying to figure out ways to use things other than
+ethtool, work instead to eliminate all situations where a feature
+cannot be disabled/undone after probe time.
