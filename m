@@ -1,69 +1,60 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 04/12] IB/ipoib: Return IPoIB devices matching
- connection parameters
-Date: Thu, 21 May 2015 09:33:46 +0300
-Message-ID: <555D7C4A.2060708@mellanox.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
-	<1431841868-28063-5-git-send-email-haggaie@mellanox.com>
-	<20150519235502.GB26634@obsidianresearch.com>	<555D6E41.10606@mellanox.com>
- <CAJ3xEMjN+o=vC4abAeG5EuOo3Y1gSyh1qPDseA_aaYmoLWAunw@mail.gmail.com>
+From: Haggai Eran <haggaie@mellanox.com>
+Subject: Re: [PATCH v3 for-next 05/13] IB/cm: Reference count ib_cm_ids
+Date: Thu, 21 May 2015 09:51:23 +0300
+Message-ID: <555D806B.1090002@mellanox.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-6-git-send-email-haggaie@mellanox.com>
+ <20150511183459.GB25405@obsidianresearch.com> <5551A2CB.1010407@mellanox.com>
+ <20150512185447.GA3503@obsidianresearch.com> <55532566.9040105@mellanox.com>
+ <20150513165823.GA20343@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDC0C3@ORSMSX109.amr.corp.intel.com>
+ <20150519192353.GA23612@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDD412@ORSMSX109.amr.corp.intel.com>
+ <20150519234654.GA26634@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDD565@ORSMSX109.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"Shachar Raindel" <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAJ3xEMjN+o=vC4abAeG5EuOo3Y1gSyh1qPDseA_aaYmoLWAunw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Doug Ledford <dledford@redhat.com>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Liran Liss <liranl@mellanox.com>,
+	Guy Shapiro <guysh@mellanox.com>,
+	Shachar Raindel <raindel@mellanox.com>,
+	Yotam Kenneth <yotamke@mellanox.com>
+To: "Hefty, Sean" <sean.hefty@intel.com>,
+	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0064.outbound.protection.outlook.com ([157.55.234.64]:22195
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750927AbbEUGv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 02:51:29 -0400
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A82373A8FDD565@ORSMSX109.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/05/2015 08:48, Or Gerlitz wrote:
-> On Thu, May 21, 2015 at 8:33 AM, Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
->> On 20/05/2015 02:55, Jason Gunthorpe wrote:
->>> On Sun, May 17, 2015 at 08:51:00AM +0300, Haggai Eran wrote:
->>>>> From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>>>>
->>>>> Implement the get_net_device_by_port_pkey_ip callback that returns network
->>>>> device to ib_core according to connection parameters. Check the ipoib
->>>>> device and iterate over all child devices to look for a match.
->>> Can you give a run down on how to actually set this up? Like what
->>> shell command do you execute?
+On 20/05/2015 03:49, Hefty, Sean wrote:
+>>> I wonder if the existing ib_cm interface is even what we want.
+>>> Currently, the rdma_cm pushes the private data (i.e. IP address)
+>>> comparison into the ib_cm.  This is only used by the rdma_cm.
+>>> Should that instead be moved out of the ib_cm and handled in the
+>>> rdma_cm?  And then update the ib_cm to support multiple listens on
+>>> the same service id.
 >>
->> Sure.
->>
->> There are two methods to create new child interface for IPoIB.
->> For a specific P_Key, write the desired P_Key to the create_child sysfs
->> file:
->> # echo 0x8000 > /sys/class/net/ib0/create_child
->> This creates a new interface ib0.8000 operating with P_Key 0x8000.
+>> Well, that really is the problem here, the private data compare
+>> doesn't really do enough because rdma cm wildcard's the IP address and
+>> does it's own check anyhow. So I see all of this as different
+>> proposals on how to fix that. rdma_cm basically already does most of
+>> the private data compare itself.
 > 
-> 0x8000 is practically zero (bits 15-0), right? not sure this is a valid pkey.
-Right, bad example :)
+> Maybe the first thing to fix is this.  Since the private data compare is no longer sufficient, remove it and update the rdma_cm to handle the change.  Regardless of how the code ends up structured, the namespace support should then easily fit into that solution.
+Patch 8 in this series (IB/cma: Add compare_data checks to the RDMA CM
+module) basically does that (change rdma_cm so that it doesn't rely on
+private_data checks in ib_cm). Indeed, it is positioned in the series
+before adding the rdma_cm namespace support.
 
-> 
-> 
->> To create a new child interface on the default P_Key, its possible to
->> use iproute:
->> # ip link add link ib0 name ib0.1 type ipoib
-> 
-> you can use non default pkeys as well here.
-> 
-> $ ip link add link ib0 name ib0.1 type ipoib pkey 0x8001
-> 
-
-Right. I think when we started development of the namespaces patches
-these child interfaces (rtnetlink with pkey) didn't work for us, but I
-checked now on an updated kernel and they do.
+It remains to clean up ib_cm's ib_cm_listen interface now that
+compare_data isn't used, but I'm not sure this belongs in this series.
 
 Haggai
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
