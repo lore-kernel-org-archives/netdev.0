@@ -1,67 +1,74 @@
-From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
-Subject: RE: [PATCH 7/7] fjes: Add ethtool support
-Date: Thu, 21 May 2015 03:30:18 +0000
-Message-ID: <E86EADE93E2D054CBCD4E708C38D364A5422DCDB@G01JPEXMBYT01>
-References: <E86EADE93E2D054CBCD4E708C38D364A5422D89B@G01JPEXMBYT01>
- <20150520144347.72bdd228@lxorguk.ukuu.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Cc: "platform-driver-x86@vger.kernel.org"
-	<platform-driver-x86@vger.kernel.org>,
-	"rkhan@redhat.com" <rkhan@redhat.com>,
-	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
-To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Return-path: <platform-driver-x86-owner@vger.kernel.org>
-In-Reply-To: <20150520144347.72bdd228@lxorguk.ukuu.org.uk>
-Content-Language: ja-JP
-Sender: platform-driver-x86-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH v4 net-next 0/4] rocker: transaction fixes
+Date: Thu, 21 May 2015 12:40:13 +0900
+Message-ID: <1432179617-26642-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
+To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:35939 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751928AbbEUDke (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 23:40:34 -0400
+Received: by pabts4 with SMTP id ts4so90145327pab.3
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 20:40:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alen,
+Hi,
 
-  Thank you for your comment.
+this series addresses what appear to be errors in the handling of
+prepare and then commit transactions in the rocker driver.
 
-> 1. This driver probably belongs somewhere in drivers/net rather
-> than platform-x86
+In all cases the problem is that data structures visible outside of
+the transaction are modified during the prepare phase.
 
-  I was devided between drivers/net and platform-x86...
+In the case of the first two patches this results in the kernel reporting a
+BUG. I have noted test-cases in the change logs.
 
-> 2. It would be helpful to undertand what the use case is. You describe it
-> as
+The third patch is also a bug fix, as noted by  Toshiaki Makita,
+however I have not been able to reliably reproduce the problem and
+thus have not provided a test case.
 
-    I know. Unfortunately currently there's no good HP to illustrate 
-    Extended Socket.
+The last patch is a correctness fix that does not fix a bug
+that manifests as far as I can tell.
 
-> 
-> "This patchsets add support for FUJITSU Extended Socket network
->  device. Extended Socket network device is a shared memory
->  based high-speed network interface between Extended Partitions of
->  PRIMEQUEST 2000 E2 series."
-> 
-> So would this interface be used to interconnect multiple instances of
-> Linxu (or other operating systems) physically partitioned running on the
-> PrimeQuest server ?
 
-   This interface is used to interconnect multiple instances of Linux 
-   (currently only Linux) LOGICALLY (called Extended Partiton) partitioned
-   running PRIMEQUEST.
+Changes: v3->v4
+* All patches
+  - Add Jiri Pirko's ack
+* "rocker: do not make neighbour entry changes when preparing transactions"
+  - Setting of entry values in all transaction phases
+    as suggested by Toshiaki Makita
+* "rocker: make rocker_port_internal_vlan_id_{get,put}() non-transactional"
+  - Remove Fixes tag as I believe this is a correctness rather than a bug fix
 
-> Am I looking at the right information about the system here
-> 
-> http://www.researchgate.net/publication/228905336_Partitioning_Technologies_and_Dynamic_Reconfiguration_of_Mission-C
-> ritical_IA_Server_PRIMEQUEST/links/000477b10cf2ed98fb432c1b.pdf
+Changes: v2->v3
+* "rocker: do not make neighbour entry changes when preparing transactions"
+  - Correct inverted logic
+  - Added ack from Scott Feldman
 
-   That document is for PRIMEQUEST 400/500 series, so it's a bit old though basic conception is not so far.
+Changes: v1->v2
+* "rocker: do not make neighbour entry changes when preparing transactions"
+  - Revised changelog to reflect information from Toshiaki Makita
+    that there is a bug that can manifest
+  - Update address and ttl regardless of the value of the transaction state
+* All other patches
+  - Added acks from Scott Feldman
 
-   The following manual is useful to understand Extend Partiton and
-   Extended Socket. 
 
-     http://globalsp.ts.fujitsu.com/dmsp/Publications/public/CA92344-0537.pdf
-      3.2.1 Extended Partitioning
-      3.2.2 Extended Socket
+Simon Horman (4):
+  rocker: do not delete fdb entries in rocker_port_fdb_flush() when
+    preparing transactions
+  rocker: do not modify fdb table in rocker_port_fdb() when preparing
+    transactions
+  rocker: do not make neighbour entry changes when preparing
+    transactions
+  rocker: make rocker_port_internal_vlan_id_{get,put}()
+    non-transactional
 
-  Sincerely,
-  Taku Izumi
-     
+ drivers/net/ethernet/rocker/rocker.c | 46 +++++++++++++++++++-----------------
+ 1 file changed, 24 insertions(+), 22 deletions(-)
+
+-- 
+2.1.4
