@@ -1,37 +1,162 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2 net-next 0/4] net: af_unix: zerocopy stream bits
-Date: Thu, 21 May 2015 11:39:12 +0200
-Message-ID: <cover.1432200343.git.hannes@stressinduktion.org>
+Subject: [PATCH v2 net-next 3/4] net: make skb_splice_bits more configureable
+Date: Thu, 21 May 2015 11:39:15 +0200
+Message-ID: <ed5a63e1e2f578b28343b060444890ce66a83772.1432200344.git.hannes@stressinduktion.org>
+References: <cover.1432200343.git.hannes@stressinduktion.org>
 Cc: edumazet@google.com, cwang@twopensource.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:44977 "EHLO
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:49219 "EHLO
 	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753869AbbEUJjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 05:39:23 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by mailout.nyi.internal (Postfix) with ESMTP id 5943920BD0
-	for <netdev@vger.kernel.org>; Thu, 21 May 2015 05:39:21 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1753915AbbEUJjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 05:39:24 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id 02FE920C15
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 05:39:23 -0400 (EDT)
+In-Reply-To: <cover.1432200343.git.hannes@stressinduktion.org>
+In-Reply-To: <cover.1432200343.git.hannes@stressinduktion.org>
+References: <cover.1432200343.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series implements zerocopy support for AF_UNIX SOCK_STREAM sockets.
+Prepare skb_splice_bits to be able to deal with AF_UNIX sockets.
 
-Changelog in the specific patches. Thanks to all the reviewers!
+AF_UNIX sockets don't use lock_sock/release_sock and thus we have to
+use a callback to make the locking and unlocking configureable.
 
-Hannes Frederic Sowa (4):
-  net: skbuff: add skb_append_pagefrags and use it
-  net: af_unix: implement stream sendpage support
-  net: make skb_splice_bits more configureable
-  net: af_unix: implement splice for stream af_unix sockets
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+v2:
+* no changes
 
- fs/splice.c            |   1 +
- include/linux/skbuff.h |  14 ++-
- net/core/skbuff.c      |  64 +++++++++----
- net/ipv4/ip_output.c   |  15 +---
- net/ipv4/tcp.c         |   5 +-
- net/unix/af_unix.c     | 240 ++++++++++++++++++++++++++++++++++++++++++++-----
- 6 files changed, 285 insertions(+), 54 deletions(-)
+ include/linux/skbuff.h | 11 +++++++++--
+ net/core/skbuff.c      | 45 ++++++++++++++++++++++++++++-----------------
+ net/ipv4/tcp.c         |  5 +++--
+ 3 files changed, 40 insertions(+), 21 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index b9d267b..895435c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -35,6 +35,7 @@
+ #include <linux/netdev_features.h>
+ #include <linux/sched.h>
+ #include <net/flow_dissector.h>
++#include <linux/splice.h>
+ 
+ /* A. Checksumming of received packets by device.
+  *
+@@ -2698,9 +2699,15 @@ int skb_copy_bits(const struct sk_buff *skb, int offset, void *to, int len);
+ int skb_store_bits(struct sk_buff *skb, int offset, const void *from, int len);
+ __wsum skb_copy_and_csum_bits(const struct sk_buff *skb, int offset, u8 *to,
+ 			      int len, __wsum csum);
+-int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
++ssize_t skb_socket_splice(struct sock *sk,
++			  struct pipe_inode_info *pipe,
++			  struct splice_pipe_desc *spd);
++int skb_splice_bits(struct sk_buff *skb, struct sock *sk, unsigned int offset,
+ 		    struct pipe_inode_info *pipe, unsigned int len,
+-		    unsigned int flags);
++		    unsigned int flags,
++		    ssize_t (*splice_cb)(struct sock *,
++					 struct pipe_inode_info *,
++					 struct splice_pipe_desc *));
+ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
+ unsigned int skb_zerocopy_headlen(const struct sk_buff *from);
+ int skb_zerocopy(struct sk_buff *to, struct sk_buff *from,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 4f2babe..02769fa 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1870,15 +1870,39 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
+ 	return false;
+ }
+ 
++ssize_t skb_socket_splice(struct sock *sk,
++			  struct pipe_inode_info *pipe,
++			  struct splice_pipe_desc *spd)
++{
++	int ret;
++
++	/* Drop the socket lock, otherwise we have reverse
++	 * locking dependencies between sk_lock and i_mutex
++	 * here as compared to sendfile(). We enter here
++	 * with the socket lock held, and splice_to_pipe() will
++	 * grab the pipe inode lock. For sendfile() emulation,
++	 * we call into ->sendpage() with the i_mutex lock held
++	 * and networking will grab the socket lock.
++	 */
++	release_sock(sk);
++	ret = splice_to_pipe(pipe, spd);
++	lock_sock(sk);
++
++	return ret;
++}
++
+ /*
+  * Map data from the skb to a pipe. Should handle both the linear part,
+  * the fragments, and the frag list. It does NOT handle frag lists within
+  * the frag list, if such a thing exists. We'd probably need to recurse to
+  * handle that cleanly.
+  */
+-int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
++int skb_splice_bits(struct sk_buff *skb, struct sock *sk, unsigned int offset,
+ 		    struct pipe_inode_info *pipe, unsigned int tlen,
+-		    unsigned int flags)
++		    unsigned int flags,
++		    ssize_t (*splice_cb)(struct sock *,
++					 struct pipe_inode_info *,
++					 struct splice_pipe_desc *))
+ {
+ 	struct partial_page partial[MAX_SKB_FRAGS];
+ 	struct page *pages[MAX_SKB_FRAGS];
+@@ -1891,7 +1915,6 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 		.spd_release = sock_spd_release,
+ 	};
+ 	struct sk_buff *frag_iter;
+-	struct sock *sk = skb->sk;
+ 	int ret = 0;
+ 
+ 	/*
+@@ -1914,20 +1937,8 @@ int skb_splice_bits(struct sk_buff *skb, unsigned int offset,
+ 	}
+ 
+ done:
+-	if (spd.nr_pages) {
+-		/*
+-		 * Drop the socket lock, otherwise we have reverse
+-		 * locking dependencies between sk_lock and i_mutex
+-		 * here as compared to sendfile(). We enter here
+-		 * with the socket lock held, and splice_to_pipe() will
+-		 * grab the pipe inode lock. For sendfile() emulation,
+-		 * we call into ->sendpage() with the i_mutex lock held
+-		 * and networking will grab the socket lock.
+-		 */
+-		release_sock(sk);
+-		ret = splice_to_pipe(pipe, &spd);
+-		lock_sock(sk);
+-	}
++	if (spd.nr_pages)
++		ret = splice_cb(sk, pipe, &spd);
+ 
+ 	return ret;
+ }
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index bb9bb84..67f0a80 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -694,8 +694,9 @@ static int tcp_splice_data_recv(read_descriptor_t *rd_desc, struct sk_buff *skb,
+ 	struct tcp_splice_state *tss = rd_desc->arg.data;
+ 	int ret;
+ 
+-	ret = skb_splice_bits(skb, offset, tss->pipe, min(rd_desc->count, len),
+-			      tss->flags);
++	ret = skb_splice_bits(skb, skb->sk, offset, tss->pipe,
++			      min(rd_desc->count, len), tss->flags,
++			      skb_socket_splice);
+ 	if (ret > 0)
+ 		rd_desc->count -= ret;
+ 	return ret;
 -- 
 2.1.0
