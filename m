@@ -1,7 +1,7 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 1/6] net/mlx4_core: Enhance the MAD_IFC wrapper to convert VF port to physical
-Date: Thu, 21 May 2015 15:14:05 +0300
-Message-ID: <1432210450-23408-2-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net-next 2/6] IB/mlx4: Convert slave port before building address-handle
+Date: Thu, 21 May 2015 15:14:06 +0300
+Message-ID: <1432210450-23408-3-git-send-email-ogerlitz@mellanox.com>
 References: <1432210450-23408-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Doug Ledford <dledford@redhat.com>,
@@ -10,71 +10,58 @@ Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:56547 "EHLO mellanox.co.il"
+Received: from ns1327.ztomy.com ([193.47.165.129]:56565 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753794AbbEUMOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 08:14:36 -0400
+	id S1754489AbbEUMOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 08:14:40 -0400
 In-Reply-To: <1432210450-23408-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Single port VFs always provide port = 1 (even if the actual physical
-port used is port 2). As such, we need to convert the port provided
-by the VF to the physical port before calling into the firmware.
+When multiplexling a MAD sent from VF, we should convert the port used
+by the guest to send the packet to the actual physical port which will be
+used to transmit the packet, before building the relevant address-handle (AH).
 
-It turns out that the Linux mlx4 VF RoCE driver maintains a copy of
-the GID table and hence this change became critical only for single
-ported IB VFs, but it could be needed for other RoCE VF drivers too.
+This is needed under VPI for single ported VFs, since the code that builds
+the AH (mlx4_ib_query_ah()) makes decisions based on the input port. If we
+use the port number provided by the guest, it might have different protocol
+vs. the one this packat has to go from, and hence the result could be wrong.
+
+So far, the conversion was done after the AH was built and it worked for
+single ported Eth VFs which were not enabled under VPI. When adding support
+for single ported IB VFs and VPI, we hit that.
 
 Fixes: 449fc48866f7 ('net/mlx4: Adapt code for N-Port VF')
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/infiniband/hw/mlx4/mad.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 4f7dc04..153fb15 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -877,7 +877,7 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
- {
- 	struct ib_smp *smp = inbox->buf;
- 	u32 index;
--	u8 port;
-+	u8 port, slave_port;
- 	u8 opcode_modifier;
- 	u16 *table;
- 	int err;
-@@ -889,7 +889,8 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
- 	__be32 slave_cap_mask;
- 	__be64 slave_node_guid;
+diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
+index 9cd2b00..ad6a881 100644
+--- a/drivers/infiniband/hw/mlx4/mad.c
++++ b/drivers/infiniband/hw/mlx4/mad.c
+@@ -1365,14 +1365,17 @@ static void mlx4_ib_multiplex_mad(struct mlx4_ib_demux_pv_ctx *ctx, struct ib_wc
+ 	 * stadard address handle by decoding the tunnelled mlx4_ah fields */
+ 	memcpy(&ah.av, &tunnel->hdr.av, sizeof (struct mlx4_av));
+ 	ah.ibah.device = ctx->ib_dev;
++
++	port = be32_to_cpu(ah.av.ib.port_pd) >> 24;
++	port = mlx4_slave_convert_port(dev->dev, slave, port);
++	if (port < 0)
++		return;
++	ah.av.ib.port_pd = cpu_to_be32(port << 24 | (be32_to_cpu(ah.av.ib.port_pd) & 0xffffff));
++
+ 	mlx4_ib_query_ah(&ah.ibah, &ah_attr);
+ 	if (ah_attr.ah_flags & IB_AH_GRH)
+ 		fill_in_real_sgid_index(dev, slave, ctx->port, &ah_attr);
  
--	port = vhcr->in_modifier;
-+	slave_port = vhcr->in_modifier;
-+	port = mlx4_slave_convert_port(dev, slave, slave_port);
- 
- 	/* network-view bit is for driver use only, and should not be passed to FW */
- 	opcode_modifier = vhcr->op_modifier & ~0x8; /* clear netw view bit */
-@@ -925,8 +926,9 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
- 			if (smp->attr_id == IB_SMP_ATTR_PORT_INFO) {
- 				/*get the slave specific caps:*/
- 				/*do the command */
-+				smp->attr_mod = cpu_to_be32(port);
- 				err = mlx4_cmd_box(dev, inbox->dma, outbox->dma,
--					    vhcr->in_modifier, opcode_modifier,
-+					    port, opcode_modifier,
- 					    vhcr->op, MLX4_CMD_TIME_CLASS_C, MLX4_CMD_NATIVE);
- 				/* modify the response for slaves */
- 				if (!err && slave != mlx4_master_func_num(dev)) {
-@@ -970,7 +972,7 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
- 			}
- 			if (smp->attr_id == IB_SMP_ATTR_NODE_INFO) {
- 				err = mlx4_cmd_box(dev, inbox->dma, outbox->dma,
--					     vhcr->in_modifier, opcode_modifier,
-+					     port, opcode_modifier,
- 					     vhcr->op, MLX4_CMD_TIME_CLASS_C, MLX4_CMD_NATIVE);
- 				if (!err) {
- 					slave_node_guid =  mlx4_get_slave_node_guid(dev, slave);
+-	port = mlx4_slave_convert_port(dev->dev, slave, ah_attr.port_num);
+-	if (port < 0)
+-		return;
+-	ah_attr.port_num = port;
+ 	memcpy(ah_attr.dmac, tunnel->hdr.mac, 6);
+ 	ah_attr.vlan_id = be16_to_cpu(tunnel->hdr.vlan);
+ 	/* if slave have default vlan use it */
 -- 
 1.7.1
