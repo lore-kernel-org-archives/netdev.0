@@ -1,113 +1,61 @@
-From: sfeldma@gmail.com
-Subject: [PATCH net-next] rocker: move netevent neigh update to processes context
-Date: Wed, 20 May 2015 22:05:07 -0700
-Message-ID: <1432184707-27252-1-git-send-email-sfeldma@gmail.com>
-Cc: jiri@resnulli.us, simon.horman@netronome.com,
-	makita.toshiaki@lab.ntt.co.jp
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:36628 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751186AbbEUFDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 01:03:50 -0400
-Received: by pdfh10 with SMTP id h10so94693146pdf.3
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 22:03:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 04/12] IB/ipoib: Return IPoIB devices matching
+ connection parameters
+Date: Thu, 21 May 2015 08:33:53 +0300
+Message-ID: <555D6E41.10606@mellanox.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+ <1431841868-28063-5-git-send-email-haggaie@mellanox.com>
+ <20150519235502.GB26634@obsidianresearch.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150519235502.GB26634-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Scott Feldman <sfeldma@gmail.com>
+On 20/05/2015 02:55, Jason Gunthorpe wrote:
+> On Sun, May 17, 2015 at 08:51:00AM +0300, Haggai Eran wrote:
+>> > From: Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>> > 
+>> > Implement the get_net_device_by_port_pkey_ip callback that returns network
+>> > device to ib_core according to connection parameters. Check the ipoib
+>> > device and iterate over all child devices to look for a match.
+> Can you give a run down on how to actually set this up? Like what
+> shell command do you execute?
 
-In review of Simon's patchset "rocker: transaction fixes". it was noted
-that rocker->neigh_tbl_next_index was unprotected in the call path below
-and could race with other contexts calling rocker_port_ipv4_neigh():
+Sure.
 
-	arp_process()
-	neigh_update()
-	rocker_neigh_update()
-	rocker_port_ipv4_neigh()
+There are two methods to create new child interface for IPoIB.
+For a specific P_Key, write the desired P_Key to the create_child sysfs
+file:
+# echo 0x8000 > /sys/class/net/ib0/create_child
+This creates a new interface ib0.8000 operating with P_Key 0x8000.
 
-To fix, move the neigh_update() event processing to process contexts and
-hold rtnl_lock to call rocker_port_ipv4_neigh().  This will protect
-rocker->neigh_tbl_next_index accesses and is more consistent with the rest
-of the driver code where non-I/O processing is done under process context
-with rtnl_lock held.
+To create a new child interface on the default P_Key, its possible to
+use iproute:
+# ip link add link ib0 name ib0.1 type ipoib
 
-Signed-off-by: Scott Feldman <sfeldma@gmail.com>
----
- drivers/net/ethernet/rocker/rocker.c |   52 +++++++++++++++++++++++++++++-----
- 1 file changed, 45 insertions(+), 7 deletions(-)
+In order to create a new network namespace:
+# ip netns add ns1
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 0f5e962..4cff2f6 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -5240,14 +5240,52 @@ static struct notifier_block rocker_netdevice_nb __read_mostly = {
-  * Net event notifier event handler
-  ************************************/
- 
--static int rocker_neigh_update(struct net_device *dev, struct neighbour *n)
-+struct rocker_neigh_update_work {
-+	struct work_struct work;
-+	struct rocker_port *rocker_port;
-+	int flags;
-+	__be32 ip_addr;
-+	unsigned char ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
-+};
-+
-+static void rocker_event_neigh_update_work(struct work_struct *work)
- {
--	struct rocker_port *rocker_port = netdev_priv(dev);
--	int flags = (n->nud_state & NUD_VALID) ? 0 : ROCKER_OP_FLAG_REMOVE;
--	__be32 ip_addr = *(__be32 *)n->primary_key;
-+	struct rocker_neigh_update_work *nw =
-+		container_of(work, struct rocker_neigh_update_work, work);
-+	int err;
-+
-+	rtnl_lock();
-+	err = rocker_port_ipv4_neigh(nw->rocker_port, SWITCHDEV_TRANS_NONE,
-+				     nw->flags, nw->ip_addr, nw->ha);
-+	rtnl_unlock();
-+
-+	if (err)
-+		netdev_warn(nw->rocker_port->dev,
-+			    "failed to handle neigh %pI4 update (err %d)\n",
-+			    &nw->ip_addr, err);
- 
--	return rocker_port_ipv4_neigh(rocker_port, SWITCHDEV_TRANS_NONE,
--				      flags, ip_addr, n->ha);
-+	kfree(work);
-+}
-+
-+static int rocker_event_neigh_update(struct net_device *dev,
-+				     struct neighbour *n)
-+{
-+	struct rocker_neigh_update_work *nw;
-+
-+	nw = kmalloc(sizeof(*nw), GFP_ATOMIC);
-+	if (!nw)
-+		return -ENOMEM;
-+
-+	INIT_WORK(&nw->work, rocker_event_neigh_update_work);
-+
-+	nw->rocker_port = netdev_priv(dev);
-+	nw->flags = (n->nud_state & NUD_VALID) ? 0 : ROCKER_OP_FLAG_REMOVE;
-+	nw->ip_addr = *(__be32 *)n->primary_key;
-+	memcpy(nw->ha, n->ha, sizeof(nw->ha));
-+
-+	schedule_work(&nw->work);
-+
-+	return 0;
- }
- 
- static int rocker_netevent_event(struct notifier_block *unused,
-@@ -5264,7 +5302,7 @@ static int rocker_netevent_event(struct notifier_block *unused,
- 		dev = n->dev;
- 		if (!rocker_port_dev_check(dev))
- 			return NOTIFY_DONE;
--		err = rocker_neigh_update(dev, n);
-+		err = rocker_event_neigh_update(dev, n);
- 		if (err)
- 			netdev_warn(dev,
- 				    "failed to handle neigh update (err %d)\n",
--- 
-1.7.10.4
+Then, you can assign the new netdev to the namespace:
+# ip link set ib0.1 netns ns1
+
+You can then set an IP address in the network namespace, and try some
+RDMA CM applications:
+# ip netns exec ns1 ip addr add dev ib0.1 192.168.0.1/24
+# ip netns exec ns1 rdma_server
+
+Regards,
+Haggai
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
