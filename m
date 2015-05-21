@@ -1,34 +1,41 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 01/10] tc: red, gred: Rename overloaded
- variable wlog
-Date: Thu, 21 May 2015 14:29:52 -0700
-Message-ID: <20150521142952.62aa0400@urahara>
-References: <1431963314-56420-1-git-send-email-david.ward@ll.mit.edu>
-	<1431963314-56420-2-git-send-email-david.ward@ll.mit.edu>
+Subject: Re: [PATCH iproute2] tipc: introduce TIPC configuration tool
+Date: Thu, 21 May 2015 14:43:40 -0700
+Message-ID: <20150521144340.1b112c0a@urahara>
+References: <1431004056-6282-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ward <david.ward@ll.mit.edu>
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: <richard.alpe@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33729 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756311AbbEUV3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 17:29:50 -0400
-Received: by padbw4 with SMTP id bw4so318638pad.0
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 14:29:49 -0700 (PDT)
-In-Reply-To: <1431963314-56420-2-git-send-email-david.ward@ll.mit.edu>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:33305 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755974AbbEUVnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 17:43:37 -0400
+Received: by pdbqa5 with SMTP id qa5so657052pdb.0
+        for <netdev@vger.kernel.org>; Thu, 21 May 2015 14:43:36 -0700 (PDT)
+In-Reply-To: <1431004056-6282-1-git-send-email-richard.alpe@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 May 2015 11:35:05 -0400
-David Ward <david.ward@ll.mit.edu> wrote:
+On Thu, 7 May 2015 15:07:35 +0200
+<richard.alpe@ericsson.com> wrote:
 
-> It is used when parsing three different parameters, only one of
-> which is Wlog. Change the name to make the code less confusing.
+> From: Richard Alpe <richard.alpe@ericsson.com>
 > 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> This is the new tipc tool that utilizes the relativly new TIPC netlink API in
+> the kernel. Introducing this tool into iproute2 has been discussed previously.
+> 
+> For more information about the design decisions of this tool, see the README
+> file.
+> 
+> There isn't yet a manpage for the this tool. I will start to write one once I
+> submitted this for review.
+> 
+> Richard Alpe (1):
+>   tipc: add new TIPC configuration tool
 
-
-All applied, and I went ahead and fixed a couple of old style issues in RED/GRED
-code as well.
+I went ahead and merged this.
+It does add dependency on libmnl which the distribution maintainers will have
+to add to their stuff.
