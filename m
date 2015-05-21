@@ -1,8 +1,9 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH v2 00/10] pktgen: cleanups and introducing new
-	samples/pktgen scripts
-Date: Thu, 21 May 2015 12:11:27 +0200
-Message-ID: <20150521101003.15044.82190.stgit@ivy>
+Subject: [net-next PATCH v2 01/10] pktgen: remove obsolete
+	"max_before_softirq" from pktgen doc
+Date: Thu, 21 May 2015 12:11:42 +0200
+Message-ID: <20150521101138.15044.96023.stgit@ivy>
+References: <20150521101003.15044.82190.stgit@ivy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -14,87 +15,81 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
 	Cong Wang <cwang@twopensource.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43521 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53006 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754812AbbEUKLf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 06:11:35 -0400
+	id S1751760AbbEUKLu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 06:11:50 -0400
+In-Reply-To: <20150521101003.15044.82190.stgit@ivy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2: address nitpicks from Cong Wang
- - Remove useless cat's, but keep them for old pgset()
- - Comment on: Due to pgctrl, cannot use exit code $? from grep
- - Use arithmetic compare in pktgen_sample03_burst_single_flow.sh
+And cleanup some whitespaces in pktgen.txt.
 
-This patchset is focused on making pktgen easier to use and better
-documented. It contains a number of documentation updates and minor
-changes to pktgen.  The major contribution is introduction of common
-helper function for sample scripts.
-
-Instead of the old pgset() function, three new shell functions for
-configuring the different components of pktgen are introduced:
- pg_ctrl(), pg_thread() and pg_set().
-
-The new functions correspond to pktgens different components.
- * pg_ctrl()   control "pgctrl" (/proc/net/pktgen/pgctrl)
- * pg_thread() control the kernel threads and binding to devices
- * pg_set()    control setup of individual devices
-
-Helpers also provide consistent parameter parsing across the sample
-scripts.
-
-Usage example:
- ./pktgen_sample01_simple.sh -i eth41 -m 00:12:C0:02:AC:5A -d 192.168.41.2
-
-Usage: ./pktgen_sample01_simple.sh [-vx] -i ethX
-  -i : ($DEV)       output interface/device (required)
-  -s : ($PKT_SIZE)  packet size
-  -d : ($DEST_IP)   destination IP
-  -m : ($DST_MAC)   destination MAC-addr
-  -t : ($THREADS)   threads to start
-  -c : ($SKB_CLONE) SKB clones send before alloc new SKB
-  -b : ($BURST)     HW level bursting of SKBs
-  -v : ($VERBOSE)   verbose
-  -x : ($DEBUG)     debug
-
-These scripts are borrowed from:
- https://github.com/netoptimizer/network-testing/tree/master/pktgen
-
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
-Jesper Dangaard Brouer (10):
-      pktgen: add benchmark script pktgen_bench_xmit_mode_netif_receive.sh
-      pktgen: add sample script pktgen_sample03_burst_single_flow.sh
-      pktgen: add sample script pktgen_sample02_multiqueue.sh
-      pktgen: add sample script pktgen_sample01_simple.sh
-      pktgen: new pktgen helper functions for samples scripts
-      pktgen: make /proc/net/pktgen/pgctrl report fail on invalid input
-      pktgen: document ability to add same device to several threads
-      pktgen: doc were missing several config options
-      pktgen: adjust spacing in proc file interface output
-      pktgen: remove obsolete "max_before_softirq" from pktgen doc
+ 0 files changed, 0 insertions(+), 0 deletions(-)
 
-
- samples/pktgen/README.rst                          |   43 +++++++
- samples/pktgen/functions.sh                        |  121 ++++++++++++++++++++
- samples/pktgen/parameters.sh                       |   97 ++++++++++++++++
- samples/pktgen/pktgen.conf-1-1                     |   59 ----------
- samples/pktgen/pktgen.conf-2-1                     |   66 -----------
- samples/pktgen/pktgen.conf-2-2                     |   73 ------------
- .../pktgen/pktgen_bench_xmit_mode_netif_receive.sh |   86 ++++++++++++++
- samples/pktgen/pktgen_sample01_simple.sh           |   71 ++++++++++++
- samples/pktgen/pktgen_sample02_multiqueue.sh       |   75 ++++++++++++
- .../pktgen/pktgen_sample03_burst_single_flow.sh    |   82 ++++++++++++++
- 10 files changed, 575 insertions(+), 198 deletions(-)
- create mode 100644 samples/pktgen/README.rst
- create mode 100644 samples/pktgen/functions.sh
- create mode 100644 samples/pktgen/parameters.sh
- delete mode 100755 samples/pktgen/pktgen.conf-1-1
- delete mode 100755 samples/pktgen/pktgen.conf-2-1
- delete mode 100755 samples/pktgen/pktgen.conf-2-2
- create mode 100755 samples/pktgen/pktgen_bench_xmit_mode_netif_receive.sh
- create mode 100755 samples/pktgen/pktgen_sample01_simple.sh
- create mode 100755 samples/pktgen/pktgen_sample02_multiqueue.sh
- create mode 100755 samples/pktgen/pktgen_sample03_burst_single_flow.sh
-
--- 
+diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
+index 747facc..62f5ebb 100644
+--- a/Documentation/networking/pktgen.txt
++++ b/Documentation/networking/pktgen.txt
+@@ -1,6 +1,6 @@
+ 
+ 
+-                  HOWTO for the linux packet generator 
++                  HOWTO for the linux packet generator
+                   ------------------------------------
+ 
+ Enable CONFIG_NET_PKTGEN to compile and build pktgen either in-kernel
+@@ -52,11 +52,10 @@ For ixgbe use e.g. "30" resulting in approx 33K interrupts/sec (1/30*10^6):
+ 
+ Viewing threads
+ ===============
+-/proc/net/pktgen/kpktgend_0 
+-Name: kpktgend_0  max_before_softirq: 10000
+-Running: 
+-Stopped: eth1 
+-Result: OK: max_before_softirq=10000
++/proc/net/pktgen/kpktgend_0
++Running:
++Stopped: eth1
++Result: OK: add_device=eth1
+ 
+ Most important are the devices assigned to the thread.  Note that a
+ device can only belong to one thread.
+@@ -69,7 +68,7 @@ The Params section holds configured information.  The Current section
+ holds running statistics.  The Result is printed after a run or after
+ interruption.  Example:
+ 
+-/proc/net/pktgen/eth1       
++/proc/net/pktgen/eth1
+ 
+ Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
+      frags: 0  delay: 0  clone_skb: 1000000  ifname: eth1
+@@ -126,7 +125,7 @@ Examples:
+                          To select queue 1 of a given device,
+                          use queue_map_min=1 and queue_map_max=1
+ 
+- pgset "src_mac_count 1" Sets the number of MACs we'll range through.  
++ pgset "src_mac_count 1" Sets the number of MACs we'll range through.
+                          The 'minimum' MAC is what you set with srcmac.
+ 
+  pgset "dst_mac_count 1" Sets the number of MACs we'll range through.
+@@ -247,7 +246,6 @@ stop
+ 
+ add_device
+ rem_device_all
+-max_before_softirq
+ 
+ 
+ ** Device commands:
+@@ -262,7 +260,7 @@ delay
+ src_mac_count
+ dst_mac_count
+ 
+-pkt_size 
++pkt_size
+ min_pkt_size
+ max_pkt_size
+ 
