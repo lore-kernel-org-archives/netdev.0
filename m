@@ -1,56 +1,189 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
-Date: Thu, 21 May 2015 03:42:57 -0700
-Message-ID: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: wkok@cumulusnetworks.com, davem@davemloft.net,
-	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 1/7] crypto: testmgr - Switch to new AEAD interface
+Date: Thu, 21 May 2015 18:43:51 +0800
+Message-ID: <E1YvNx9-00062W-Uy@gondolin.me.apana.org.au>
+References: <20150521103938.GA23035@gondor.apana.org.au>
+To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36143 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753309AbbEUKns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 06:43:48 -0400
-Received: by pabts4 with SMTP id ts4so101232270pab.3
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 03:43:48 -0700 (PDT)
+Received: from helcar.hengli.com.au ([209.40.204.226]:54090 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753796AbbEUKn6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 06:43:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wilson Kok <wkok@cumulusnetworks.com>
+This patch makes use of the new AEAD interface which uses a single
+SG list instead of separate lists for the AD and plain text.
 
-Check in fdb_add_entry() if the source port should learn, similar
-check is used in br_fdb_update.
-Note that new fdb entries which are added manually or
-as local ones are still permitted.
-This patch has been tested by running traffic via a bridge port and
-switching the port's state, also by manually adding/removing entries
-from the bridge's fdb.
-
-Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
-Nik: Maybe it'd be better if we returned an error even though it
-     doesn't look necessary. I'm open to suggestions.
 
- net/bridge/br_fdb.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ crypto/testmgr.c |   84 +++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 48 insertions(+), 36 deletions(-)
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index e0670d7054f9..27de0b7bd76b 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -736,6 +736,12 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 	struct net_bridge_fdb_entry *fdb;
- 	bool modified = false;
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index 1817252..e6472b2 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -427,7 +427,6 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 	char *key;
+ 	struct aead_request *req;
+ 	struct scatterlist *sg;
+-	struct scatterlist *asg;
+ 	struct scatterlist *sgout;
+ 	const char *e, *d;
+ 	struct tcrypt_result result;
+@@ -454,11 +453,10 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		goto out_nooutbuf;
  
-+	/* If the port cannot learn allow only local and static entries */
-+	if (!(state & NUD_PERMANENT) && !(state & NUD_NOARP) &&
-+	    !(source->state == BR_STATE_LEARNING ||
-+	      source->state == BR_STATE_FORWARDING))
-+		return 0;
+ 	/* avoid "the frame size is larger than 1024 bytes" compiler warning */
+-	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 3 : 2), GFP_KERNEL);
++	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 4 : 2), GFP_KERNEL);
+ 	if (!sg)
+ 		goto out_nosg;
+-	asg = &sg[8];
+-	sgout = &asg[8];
++	sgout = &sg[16];
+ 
+ 	if (diff_dst)
+ 		d = "-ddst";
+@@ -537,23 +535,28 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 			goto out;
+ 		}
+ 
++		k = !!template[i].alen;
++		sg_init_table(sg, k + 1);
++		sg_set_buf(&sg[0], assoc, template[i].alen);
 +
- 	fdb = fdb_find(head, addr, vid);
- 	if (fdb == NULL) {
- 		if (!(flags & NLM_F_CREATE))
--- 
-1.9.3
+ 		if (diff_dst) {
++			sg_init_table(sgout, k + 1);
++			sg_set_buf(&sgout[0], assoc, template[i].alen);
++
+ 			output = xoutbuf[0];
+ 			output += align_offset;
+-			sg_init_one(&sg[0], input, template[i].ilen);
+-			sg_init_one(&sgout[0], output, template[i].rlen);
++			sg_set_buf(&sg[k], input, template[i].ilen);
++			sg_set_buf(&sgout[k], output, template[i].rlen);
+ 		} else {
+-			sg_init_one(&sg[0], input,
+-				    template[i].ilen + (enc ? authsize : 0));
++			sg_set_buf(&sg[k], input,
++				   template[i].ilen + (enc ? authsize : 0));
+ 			output = input;
+ 		}
+ 
+-		sg_init_one(&asg[0], assoc, template[i].alen);
+-
+ 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
+ 				       template[i].ilen, iv);
+ 
+-		aead_request_set_assoc(req, asg, template[i].alen);
++		aead_request_set_ad(req, template[i].alen, 0);
+ 
+ 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+ 
+@@ -633,9 +636,29 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		authsize = abs(template[i].rlen - template[i].ilen);
+ 
+ 		ret = -EINVAL;
+-		sg_init_table(sg, template[i].np);
++		sg_init_table(sg, template[i].anp + template[i].np);
+ 		if (diff_dst)
+-			sg_init_table(sgout, template[i].np);
++			sg_init_table(sgout, template[i].anp + template[i].np);
++
++		ret = -EINVAL;
++		for (k = 0, temp = 0; k < template[i].anp; k++) {
++			if (WARN_ON(offset_in_page(IDX[k]) +
++				    template[i].atap[k] > PAGE_SIZE))
++				goto out;
++			sg_set_buf(&sg[k],
++				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
++					  offset_in_page(IDX[k]),
++					  template[i].assoc + temp,
++					  template[i].atap[k]),
++				   template[i].atap[k]);
++			if (diff_dst)
++				sg_set_buf(&sgout[k],
++					   axbuf[IDX[k] >> PAGE_SHIFT] +
++					   offset_in_page(IDX[k]),
++					   template[i].atap[k]);
++			temp += template[i].atap[k];
++		}
++
+ 		for (k = 0, temp = 0; k < template[i].np; k++) {
+ 			if (WARN_ON(offset_in_page(IDX[k]) +
+ 				    template[i].tap[k] > PAGE_SIZE))
+@@ -643,7 +666,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 
+ 			q = xbuf[IDX[k] >> PAGE_SHIFT] + offset_in_page(IDX[k]);
+ 			memcpy(q, template[i].input + temp, template[i].tap[k]);
+-			sg_set_buf(&sg[k], q, template[i].tap[k]);
++			sg_set_buf(&sg[template[i].anp + k],
++				   q, template[i].tap[k]);
+ 
+ 			if (diff_dst) {
+ 				q = xoutbuf[IDX[k] >> PAGE_SHIFT] +
+@@ -651,7 +675,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 
+ 				memset(q, 0, template[i].tap[k]);
+ 
+-				sg_set_buf(&sgout[k], q, template[i].tap[k]);
++				sg_set_buf(&sgout[template[i].anp + k],
++					   q, template[i].tap[k]);
+ 			}
+ 
+ 			n = template[i].tap[k];
+@@ -671,39 +696,26 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		}
+ 
+ 		if (enc) {
+-			if (WARN_ON(sg[k - 1].offset +
+-				    sg[k - 1].length + authsize >
+-				    PAGE_SIZE)) {
++			if (WARN_ON(sg[template[i].anp + k - 1].offset +
++				    sg[template[i].anp + k - 1].length +
++				    authsize > PAGE_SIZE)) {
+ 				ret = -EINVAL;
+ 				goto out;
+ 			}
+ 
+ 			if (diff_dst)
+-				sgout[k - 1].length += authsize;
++				sgout[template[i].anp + k - 1].length +=
++					authsize;
+ 			else
+-				sg[k - 1].length += authsize;
+-		}
+-
+-		sg_init_table(asg, template[i].anp);
+-		ret = -EINVAL;
+-		for (k = 0, temp = 0; k < template[i].anp; k++) {
+-			if (WARN_ON(offset_in_page(IDX[k]) +
+-				    template[i].atap[k] > PAGE_SIZE))
+-				goto out;
+-			sg_set_buf(&asg[k],
+-				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
+-					  offset_in_page(IDX[k]),
+-					  template[i].assoc + temp,
+-					  template[i].atap[k]),
+-				   template[i].atap[k]);
+-			temp += template[i].atap[k];
++				sg[template[i].anp + k - 1].length +=
++					authsize;
+ 		}
+ 
+ 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
+ 				       template[i].ilen,
+ 				       iv);
+ 
+-		aead_request_set_assoc(req, asg, template[i].alen);
++		aead_request_set_ad(req, template[i].alen, 0);
+ 
+ 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+ 
