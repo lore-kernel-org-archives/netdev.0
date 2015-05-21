@@ -1,38 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v3 net-next] iplink_bond: add support for
- ad_actor and port_key options
-Date: Thu, 21 May 2015 15:27:23 -0700
-Message-ID: <20150521152723.51284a72@urahara>
-References: <cover.1431150701.git.jtoppins@cumulusnetworks.com>
-	<e389fe24551b2c94286545fd91e7018cb29f4467.1431153512.git.jtoppins@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
+Date: Thu, 21 May 2015 18:40:10 -0400 (EDT)
+Message-ID: <20150521.184010.1674602649748676614.davem@davemloft.net>
+References: <1431577061-12517-1-git-send-email-roopa@cumulusnetworks.com>
+	<20150514.224554.1382655632305683978.davem@davemloft.net>
+	<20150521151618.5fb0d6a7@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	shm@cumulusnetworks.com, razor@blackwall.org
-To: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com, jiri@resnulli.us,
+	gospo@cumulusnetworks.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:34949 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756098AbbEUW1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 18:27:20 -0400
-Received: by pdea3 with SMTP id a3so1655697pde.2
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 15:27:19 -0700 (PDT)
-In-Reply-To: <e389fe24551b2c94286545fd91e7018cb29f4467.1431153512.git.jtoppins@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40644 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754067AbbEUWkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 18:40:14 -0400
+In-Reply-To: <20150521151618.5fb0d6a7@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat,  9 May 2015 00:01:59 -0700
-Jonathan Toppins <jtoppins@cumulusnetworks.com> wrote:
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 21 May 2015 15:16:18 -0700
 
-> This adds support for setting and displaying the following bonding
-> options:
-> * ad_user_port_key
-> * ad_actor_sys_prio
-> * ad_actor_system
+> On Thu, 14 May 2015 22:45:54 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> Signed-off-by: Jonathan Toppins <jtoppins@cumulusnetworks.com>
+>> From: roopa@cumulusnetworks.com
+>> Date: Wed, 13 May 2015 21:17:41 -0700
+>> 
+>> > From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> > 
+>> > RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
+>> > 
+>> > This patch renames the flag to be consistent with what the user sees.
+>> > 
+>> > Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> 
+>> Applied, thanks.
+> 
+> I don't see this merge in current net-next tree?
+> Did it not really happen or was it not pushed?
 
-Applied to net-next branch
+It went to the 'net' tree and I haven't done a merge in a while.
