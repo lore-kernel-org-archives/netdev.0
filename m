@@ -1,75 +1,69 @@
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Subject: [PATCH] net: macb: Disable half duplex gigabit on Zynq
-Date: Thu, 21 May 2015 16:47:25 -0500
-Message-ID: <1432244845-29315-1-git-send-email-nathan.sullivan@ni.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nathan Sullivan <nathan.sullivan@ni.com>
-To: nicolas.ferre@atmel.com
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH net-next] tcp: add tcpi_segs_in and tcpi_segs_out to
+ tcp_info
+Date: Thu, 21 May 2015 18:53:14 -0300
+Message-ID: <20150521215314.GB2566@localhost.localdomain>
+References: <1430260098-14127-1-git-send-email-edumazet@google.com>
+ <20150512130855.GA29412@localhost.localdomain>
+ <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
+ <1432164941.4060.57.camel@edumazet-glaptop2.roam.corp.google.com>
+ <CAK6E8=ebJDpUZeM=JHmqxgjcFEr1WLee2UeaKUjPg5vQwVL0tA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Matt Mathis <mattmathis@google.com>,
+	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
+	Chris Rapier <rapier@psc.edu>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod2.natinst.com ([130.164.80.23]:44321 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755180AbbEUVri (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 17:47:38 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:39905 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161104AbbEUVx0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 17:53:26 -0400
+Content-Disposition: inline
+In-Reply-To: <CAK6E8=ebJDpUZeM=JHmqxgjcFEr1WLee2UeaKUjPg5vQwVL0tA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to the Zynq TRM, gigabit half duplex is not supported.  Add a
-new cap and compatible string so Zynq can avoid advertising that mode.
+On Thu, May 21, 2015 at 12:41:21PM -0700, Yuchung Cheng wrote:
+> On Wed, May 20, 2015 at 4:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+...
+> > diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> > index b6575d6655681e8e84993a5db929c7309d47d4d3..beac6bf840b9a9d1e2f281d2b1c71b5a3414b824 100644
+> > --- a/net/ipv6/tcp_ipv6.c
+> > +++ b/net/ipv6/tcp_ipv6.c
+> > @@ -1421,6 +1421,7 @@ process:
+> >         skb->dev = NULL;
+> >
+> >         bh_lock_sock_nested(sk);
+> > +       tcp_sk(sk)->segs_in += max_t(u16, 1, skb_shinfo(skb)->gso_segs);
+> some helper like e.g. tcp_event_pkt_recv() for v4/v6?
+> i am curious why use max instead of the ternary op?
 
-Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
----
- drivers/net/ethernet/cadence/macb.c |   12 ++++++++++++
- drivers/net/ethernet/cadence/macb.h |    1 +
- 2 files changed, 13 insertions(+)
+Just because it was based this line, nothing else:
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 61aa570..e7c0ef6 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -350,6 +350,9 @@ static int macb_mii_probe(struct net_device *dev)
- 	else
- 		phydev->supported &= PHY_BASIC_FEATURES;
- 
-+	if (bp->caps & MACB_CAPS_NO_GIGABIT_HALF)
-+		phydev->supported &= ~SUPPORTED_1000baseT_Half;
-+
- 	phydev->advertising = phydev->supported;
- 
- 	bp->link = 0;
-@@ -2693,6 +2696,14 @@ static const struct macb_config emac_config = {
- 	.init = at91ether_init,
- };
- 
-+static const struct macb_config zynq_config = {
-+	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE |
-+		MACB_CAPS_NO_GIGABIT_HALF,
-+	.dma_burst_length = 16,
-+	.clk_init = macb_clk_init,
-+	.init = macb_init,
-+};
-+
- static const struct of_device_id macb_dt_ids[] = {
- 	{ .compatible = "cdns,at32ap7000-macb" },
- 	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
-@@ -2703,6 +2714,7 @@ static const struct of_device_id macb_dt_ids[] = {
- 	{ .compatible = "atmel,sama5d4-gem", .data = &sama5d4_config },
- 	{ .compatible = "cdns,at91rm9200-emac", .data = &emac_config },
- 	{ .compatible = "cdns,emac", .data = &emac_config },
-+	{ .compatible = "cdns,zynq-gem", .data = &zynq_config },
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, macb_dt_ids);
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index eb7d76f..24b1d9b 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -393,6 +393,7 @@
- #define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
- #define MACB_CAPS_USRIO_HAS_CLKEN		0x00000002
- #define MACB_CAPS_USRIO_DEFAULT_IS_MII		0x00000004
-+#define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
- #define MACB_CAPS_FIFO_MODE			0x10000000
- #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
- #define MACB_CAPS_SG_DISABLED			0x40000000
--- 
-1.7.10.4
+ip_rcv()
+   ...
+        IP_ADD_STATS_BH(dev_net(dev),                                     
+                        IPSTATS_MIB_NOECTPKTS + (iph->tos & INET_ECN_MASK),
+                        max_t(unsigned short, 1, skb_shinfo(skb)->gso_segs));
+
+Including these new lines, this calculation is being done 5 times now,
+being just these 2 on tcp, then ip_input.c, ip_output and
+ip_tunnel_core.c. I'd rather wait some more to add a helper as coming to
+a reasonable name is hard at this point. For iptunnel, it's used at
+iptunnel_xmit() for example. Or perhaps you have another suggestion of
+a name?
+
+Thanks,
+Marcelo
+
+> >         ret = 0;
+> >         if (!sock_owned_by_user(sk)) {
+> >                 if (!tcp_prequeue(sk, skb))
+> >
+> >
+> 
