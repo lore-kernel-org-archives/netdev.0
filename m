@@ -1,155 +1,131 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: Re: [PATCH 3/3] ipvlan: set dev_id for l2 ports to generate unique
- IPv6 addresses
-Date: Thu, 21 May 2015 14:38:20 +0300
-Message-ID: <555DC3AC.5020604@yandex-team.ru>
-References: <20150514134657.14062.87579.stgit@buzz> <20150514135620.14062.1034.stgit@buzz> <CAF2d9jg0abaZY+w54yWTgYgOxJbJTQsf5nhgXJYhA8hOC=C2CQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 2/3] ipvlan: grab rcu_read_lock on xmit path
+Date: Thu, 21 May 2015 13:47:53 +0200
+Message-ID: <1432208873.2495287.274666097.526EE2F1@webmail.messagingengine.com>
+References: <20150514134657.14062.87579.stgit@buzz>
+ <20150514135619.14062.97774.stgit@buzz>
+ <CAF2d9jgKfEmAhO8_FMARirQ8DRqdhTtZ0xxOXUorry3oqNK_hA@mail.gmail.com>
+ <555DAAB9.5090700@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>,
+Cc: "linux-netdev" <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Jiri Benc <jbenc@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Mahesh Bandewar <maheshb@google.com>
+	Jiri Benc <jbenc@redhat.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+	Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:37260 "EHLO
-	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751765AbbEULi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 07:38:26 -0400
-In-Reply-To: <CAF2d9jg0abaZY+w54yWTgYgOxJbJTQsf5nhgXJYhA8hOC=C2CQ@mail.gmail.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:34323 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753081AbbEULry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 07:47:54 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by mailout.nyi.internal (Postfix) with ESMTP id EEA8920BCE
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 07:47:53 -0400 (EDT)
+In-Reply-To: <555DAAB9.5090700@yandex-team.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.05.2015 02:59, Mahesh Bandewar wrote:
-> On Thu, May 14, 2015 at 6:56 AM, Konstantin Khlebnikov
-> <khlebnikov@yandex-team.ru> wrote:
->> All ipvlan ports use one MAC address, this way ipv6 RA tries to assign
->> one ipv6 address to all of them. This patch assigns unique dev_id to each
->> ipvlan port. This field is used instead of common FF-FE in Modified EUI-64.
->>
->> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
->> ---
->>   Documentation/networking/ipvlan.txt |   12 +++++++++++-
->>   drivers/net/ipvlan/ipvlan.h         |    1 +
->>   drivers/net/ipvlan/ipvlan_main.c    |   20 ++++++++++++++++++++
->>   3 files changed, 32 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/networking/ipvlan.txt b/Documentation/networking/ipvlan.txt
->> index cf996394e466..cb0b777bce58 100644
->> --- a/Documentation/networking/ipvlan.txt
->> +++ b/Documentation/networking/ipvlan.txt
->> @@ -24,7 +24,7 @@ using IProute2/ip utility.
->>
->>          ip link add link <master-dev> <slave-dev> type ipvlan mode { l2 | L3 }
->>
->> -       e.g. ip link add link ipvl0 eth0 type ipvlan mode l2
->> +       e.g. ip link add link eth0 ipvl0 type ipvlan mode l2
->>
->>
->>   4. Operating modes:
->> @@ -41,6 +41,15 @@ slave device and packets are switched and queued to the master device to send
->>   out. In this mode the slaves will RX/TX multicast and broadcast (if applicable)
->>   as well.
->>
->> +       In L2 mode slave devices receive Router Advertisements from the network
->> +and perform autoconfiguration as well as master device. Each port has unique
->> +16-bit device id which is used for filling octets 4-5 of Modified EUI-64.
->> +That gives 65533 addresses (FF-FE used by master, FF-FF/00-00 reserved/not used).
->> +
-> This is nice, thanks for fixing this! However how is "unique" id
-> guaranteed? Especially when multiple virtual drivers are stacked? Not
-> necessarily all of them may use the dev_id, but to avoid any possible
-> collision, shouldn't the device hierarchy (especially lower_dev) be
-> traversed before settling on the initial value?
+On Thu, May 21, 2015, at 11:51, Konstantin Khlebnikov wrote:
+> On 20.05.2015 02:33, Mahesh Bandewar wrote:
+> > On Thu, May 14, 2015 at 6:56 AM, Konstantin Khlebnikov
+> > <khlebnikov@yandex-team.ru> wrote:
+> >>
+> >> ipvlan_start_xmit() is called with rcu_read_lock_bh() while its internal
+> >> structures requre normal rcu_read_lock().
+> >>
+> >> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> >>
+> >> ---
+> >>
+> >> [  802.945151] ===============================
+> >> [  802.945160] [ INFO: suspicious RCU usage. ]
+> >> [  802.945164] 4.1.0-rc3+ #71 Not tainted
+> >> [  802.945165] -------------------------------
+> >> [  802.945167] drivers/net/ipvlan/ipvlan.h:103 suspicious rcu_dereference_check() usage!
+> >> [  802.945168]
+> >> [  802.945168] other info that might help us debug this:
+> >> [  802.945168]
+> >> [  802.945170]
+> >> [  802.945170] rcu_scheduler_active = 1, debug_locks = 1
+> >> [  802.945173] 3 locks held by ping6/3813:
+> >> [  802.945174]  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff81880f72>] rawv6_sendmsg+0x512/0xbb0
+> >> [  802.945197]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff8185e577>] ip6_finish_output2+0x57/0x790
+> >> [  802.945205]  #2:  (rcu_read_lock_bh){......}, at: [<ffffffff8177a68b>] __dev_queue_xmit+0x4b/0x930
+> >> [  802.945218]
+> >> [  802.945218] stack backtrace:
+> >> [  802.945221] CPU: 2 PID: 3813 Comm: ping6 Not tainted 4.1.0-rc3+ #71
+> >> [  802.945222] Hardware name: OpenStack Foundation OpenStack Nova, BIOS Bochs 01/01/2011
+> >> [  802.945224]  0000000000000001 ffff8800db7b7888 ffffffff819de6f8 0000000000000007
+> >> [  802.945226]  ffff8800db738000 ffff8800db7b78b8 ffffffff810a7f92 ffff880214fc8c00
+> >> [  802.945229]  ffff88021595b000 ffff88021595a000 ffff880214adf800 ffff8800db7b7968
+> >> [  802.945232] Call Trace:
+> >> [  802.945248]  [<ffffffff819de6f8>] dump_stack+0x4c/0x65
+> >> [  802.945253]  [<ffffffff810a7f92>] lockdep_rcu_suspicious+0xe2/0x130
+> >> [  802.945265]  [<ffffffff815e24ac>] ipvlan_queue_xmit+0x17c/0x5a0
+> >> [  802.945268]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
+> >> [  802.945271]  [<ffffffff815e300c>] ipvlan_start_xmit+0x1c/0x50
+> >> [  802.945272]  [<ffffffff8177a117>] dev_hard_start_xmit+0x2f7/0x820
+> >> [  802.945274]  [<ffffffff817797b6>] ? netif_skb_features+0xf6/0x1d0
+> >> [  802.945276]  [<ffffffff81779b84>] ? validate_xmit_skb.isra.99.part.100+0x24/0x2c0
+> >> [  802.945278]  [<ffffffff8177ad04>] __dev_queue_xmit+0x6c4/0x930
+> >> [  802.945280]  [<ffffffff8177a68b>] ? __dev_queue_xmit+0x4b/0x930
+> >> [  802.945281]  [<ffffffff810a963a>] ? mark_held_locks+0x6a/0x90
+> >> [  802.945283]  [<ffffffff8177af8e>] dev_queue_xmit_sk+0xe/0x10
+> >> [  802.945285]  [<ffffffff8185e824>] ip6_finish_output2+0x304/0x790
+> >> [  802.945287]  [<ffffffff81860dde>] ? ip6_finish_output+0x9e/0x1e0
+> >> [  802.945288]  [<ffffffff81860dde>] ip6_finish_output+0x9e/0x1e0
+> >> [  802.945290]  [<ffffffff81860fdb>] ip6_output+0xbb/0x180
+> >> [  802.945302]  [<ffffffff818a7d0a>] ? ip6_find_1stfragopt+0x9a/0xa0
+> >> [  802.945304]  [<ffffffff81860d40>] ? ip6_fragment+0xe80/0xe80
+> >> [  802.945306]  [<ffffffff818a805c>] ip6_local_out_sk+0x2c/0x70
+> >> [  802.945308]  [<ffffffff818a80b0>] ip6_local_out+0x10/0x20
+> >> [  802.945309]  [<ffffffff81861571>] ip6_send_skb+0x31/0xd0
+> >> [  802.945311]  [<ffffffff81861644>] ip6_push_pending_frames+0x34/0x40
+> >> [  802.945313]  [<ffffffff81881368>] rawv6_sendmsg+0x908/0xbb0
+> >> [  802.945328]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
+> >> [  802.945340]  [<ffffffff81817e9e>] inet_sendmsg+0x10e/0x1f0
+> >> [  802.945343]  [<ffffffff81817d90>] ? inet_recvmsg+0x200/0x200
+> >> [  802.945351]  [<ffffffff81758275>] sock_sendmsg+0x45/0x50
+> >> [  802.945354]  [<ffffffff8175a719>] SYSC_sendto+0xd9/0x110
+> >> [  802.945357]  [<ffffffff8175ac99>] SyS_sendto+0x9/0x10
+> >> [  802.945362]  [<ffffffff819ebfae>] system_call_fastpath+0x12/0x76
+> >> ---
+> >>   drivers/net/ipvlan/ipvlan_main.c |    4 ++++
+> >>   1 file changed, 4 insertions(+)
+> >>
+> >> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+> >> index 77b92a0fe557..0cafd3e6f02d 100644
+> >> --- a/drivers/net/ipvlan/ipvlan_main.c
+> >> +++ b/drivers/net/ipvlan/ipvlan_main.c
+> >> @@ -173,6 +173,7 @@ static int ipvlan_stop(struct net_device *dev)
+> >>          return 0;
+> >>   }
+> >>
+> >> +/* called with rcu_read_lock_bh. */
+> >>   static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+> >>                                       struct net_device *dev)
+> >>   {
+> >> @@ -180,6 +181,7 @@ static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+> >>          int skblen = skb->len;
+> >>          int ret;
+> >>
+> >> +       rcu_read_lock();
+> >
+> > I don't believe this is correct. The correct way would be the way  it
+> > is fixed in the following patch -
+> > https://patchwork.ozlabs.org/patch/471481/
+> 
+> I'm not sure, that might just plug the warning without fixing problem.
+> The rest code uses call_rcu()/synchronize_rcu(). Probably relation
+> between quiescent states of rcu and rcu_bh isn't that easy.
+> 
 
-Well, uniqueness isn't guaranteed but that should work in most cases.
-ipv6 anyway checks for duplicate addresses after configuration.
+In theory both, rcu_read_lock and rcu_read_lock_bh must be held,
+otherwise call_rcu would be allowed to execute callback if no
+rcu_read_lock but only rcu_read_lock_bh is taken. *AFAIK* in normal
+kernels, grace period for call_rcu is just longer, call_rcu_bh does
+check transition from and to softirqs.
 
-As I see creation of ipvlan on ipvlan just creates slave at original
-master device, so this will work as expected. And ipvlan cannot share 
-physical device with bonding/bridge/macvlan, so I don't see how to
-stack more than one layer of ipvlans accidentally.
-
->
->> +       Also lower half of IPv6 address could be set as interface token:
->> +
->> +       ip token set ::aaaa:bbbb:cccc:dddd dev ipvl0
->> +
->>   4.2 L3 mode:
->>          In this mode TX processing upto L3 happens on the stack instance attached
->>   to the slave device and packets are switched to the stack instance of the
->> @@ -105,3 +114,4 @@ namespace where L2 on the slave could be changed / misused.
->>                          (4) ip -4 addr add 127.0.0.1 dev lo
->>                          (5) ip -4 addr add $IPADDR dev ipvl1
->>                          (6) ip -4 route add default via $ROUTER dev ipvl1
->> +
->> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
->> index 54549a6223dd..1ebab84e7a0e 100644
->> --- a/drivers/net/ipvlan/ipvlan.h
->> +++ b/drivers/net/ipvlan/ipvlan.h
->> @@ -95,6 +95,7 @@ struct ipvl_port {
->>          struct rcu_head         rcu;
->>          int                     count;
->>          u16                     mode;
->> +       struct ida              ida;
->>   };
->>
->>   static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
->> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
->> index 0cafd3e6f02d..dee0e8441150 100644
->> --- a/drivers/net/ipvlan/ipvlan_main.c
->> +++ b/drivers/net/ipvlan/ipvlan_main.c
->> @@ -53,6 +53,7 @@ static int ipvlan_port_create(struct net_device *dev)
->>          INIT_LIST_HEAD(&port->ipvlans);
->>          for (idx = 0; idx < IPVLAN_HASH_SIZE; idx++)
->>                  INIT_HLIST_HEAD(&port->hlhead[idx]);
->> +       ida_init(&port->ida);
->>
->>          err = netdev_rx_handler_register(dev, ipvlan_handle_frame, port);
->>          if (err)
->> @@ -72,6 +73,7 @@ static void ipvlan_port_destroy(struct net_device *dev)
->>
->>          dev->priv_flags &= ~IFF_IPVLAN_MASTER;
->>          netdev_rx_handler_unregister(dev);
->> +       ida_destroy(&port->ida);
->>          kfree_rcu(port, rcu);
->>   }
->>
->> @@ -484,6 +486,18 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
->>           */
->>          memcpy(dev->dev_addr, phy_dev->dev_addr, ETH_ALEN);
->>
->> +       if (port->mode == IPVLAN_MODE_L2) {
->> +               /*
->> +                * IPv6 addrconf uses it to produce unique addresses,
->> +                * see function addrconf_ifid_eui48.
->> +                */
->> +               err = ida_simple_get(&port->ida, 1, 0xFFFE, GFP_KERNEL);
->> +               if (err > 0)
->> +                       dev->dev_id = err;
->> +               else if (err != -ENOSPC)
->> +                       goto ipvlan_destroy_port;
->> +       }
->> +
->>          dev->priv_flags |= IFF_IPVLAN_SLAVE;
->>
->>          port->count += 1;
->> @@ -518,6 +532,12 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
->>                          list_del(&addr->anode);
->>                  }
->>          }
->> +
->> +       if (dev->dev_id) {
->> +               ida_simple_remove(&ipvlan->port->ida, dev->dev_id);
->> +               dev->dev_id = 0;
->> +       }
->> +
->>          list_del_rcu(&ipvlan->pnode);
->>          unregister_netdevice_queue(dev, head);
->>          netdev_upper_dev_unlink(ipvlan->phy_dev, dev);
->>
-
-
--- 
-Konstantin
+Bye,
+Hannes
