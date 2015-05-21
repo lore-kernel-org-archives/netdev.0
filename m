@@ -1,103 +1,54 @@
-From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v4 for-next 05/12] IB/cm: Share listening CM IDs
-Date: Thu, 21 May 2015 11:08:31 +0300
-Message-ID: <555D927F.7060801@mellanox.com>
-References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
- <1431841868-28063-6-git-send-email-haggaie@mellanox.com>
- <20150519183545.GH18675@obsidianresearch.com>
- <20150519223502.GA26324@obsidianresearch.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next] rocker: move netevent neigh update to processes
+ context
+Date: Thu, 21 May 2015 17:53:17 +0900
+Message-ID: <555D9CFD.6010001@lab.ntt.co.jp>
+References: <1432184707-27252-1-git-send-email-sfeldma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20150519223502.GA26324-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: jiri@resnulli.us, simon.horman@netronome.com
+To: sfeldma@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:58877 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751750AbbEUIxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 04:53:39 -0400
+In-Reply-To: <1432184707-27252-1-git-send-email-sfeldma@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/05/2015 01:35, Jason Gunthorpe wrote:
-> On Tue, May 19, 2015 at 12:35:45PM -0600, Jason Gunthorpe wrote:
->> On Sun, May 17, 2015 at 08:51:01AM +0300, Haggai Eran wrote:
->>> @@ -212,6 +212,8 @@ struct cm_id_private {
->>>  	spinlock_t lock;	/* Do not acquire inside cm.lock */
->>>  	struct completion comp;
->>>  	atomic_t refcount;
->>> +	/* Number of clients sharing this ib_cm_id. Only valid for listeners. */
->>> +	atomic_t sharecount;
->>
->> No need for this atomic, hold the lock
->>
->> The use of the atomic looks racy:
->>
->>> +	if (!atomic_dec_and_test(&cm_id_priv->sharecount)) {
->>> +		/* The id is still shared. */
->>> +		return;
->>> +	}
->>
->> Might race with this:
->>
->>> +		if (atomic_inc_return(&cm_id_priv->sharecount) == 1) {
->>> +			/* This ID is already being destroyed */
->>> +			atomic_dec(&cm_id_priv->sharecount);
->>> +			goto new_id;
->>> +		}
->>> +
->>
->> Resulting in use-after-free of cm_id_priv->sharecount
+On 2015/05/21 14:05, sfeldma@gmail.com wrote:
+> From: Scott Feldman <sfeldma@gmail.com>
 > 
-> Actually, there is something else odd here.. I mentioned the above
-> because there wasn't obvious ref'ing on the cm_id_priv. Looking closer
-> the cm.lock should prevent use-after-free, but there is still no ref.
+> In review of Simon's patchset "rocker: transaction fixes". it was noted
+> that rocker->neigh_tbl_next_index was unprotected in the call path below
+> and could race with other contexts calling rocker_port_ipv4_neigh():
 > 
-> The more I look at this, the more I think it is sketchy. Don't try and
-> merge sharecount and refcount together, 
-I'm not sure what you mean here. The way I was thinking about it was
-that sharecount = num of rdma_cm_ids sharing this listener, while
-refcount = num of active internal uses of this ID (work items, timers,
-etc.) Do you want refcount to also include the sharecount?
+> 	arp_process()
+> 	neigh_update()
+> 	rocker_neigh_update()
+> 	rocker_port_ipv4_neigh()
+> 
+> To fix, move the neigh_update() event processing to process contexts and
+> hold rtnl_lock to call rocker_port_ipv4_neigh().  This will protect
+> rocker->neigh_tbl_next_index accesses and is more consistent with the rest
+> of the driver code where non-I/O processing is done under process context
+> with rtnl_lock held.
 
-> after cm_find_listen is called
-> you have to increment the refcount before dropping cm.lock.
-> 
-> Decrement the refcount when destroying a shared listen.
-You mean to decrement event if listen_sharecount > 0, and the id isn't
-destroyed, right? The code already calls cm_deref_id when
-listen_sharecount = 0 of course.
+Hi Scott,
 
-> I also don't see how the 'goto new_id' can work, if cm_find_listen
-> succeeds then __ib_cm_listen is guarenteed to fail.
-> 
-> Fix the locking to make that impossible, associate sharecount with the
-> cm.lock and, rework how cm_destroy_id grabs the cm_id_priv->lock spinlock:
-> 
-> 	case IB_CM_LISTEN:
-> 		spin_lock_irq(&cm.lock);
-> 		if (cm_id_priv->sharecount != 0) {
-> 		     cm_id_prv->sharecount--;
-> 		     // paired with in in ib_cm_id_create_and_listen
-> 		     atomic_dec(&cm_id_priv->refcount);
-> 		     spin_unlock_irq(&cm.lock);
-> 		     return;
-> 		}
-> 		rb_erase(&cm_id_priv->service_node, &cm.listen_service_table);
-> 		spin_unlock_irq(&cm.lock);
-> 	
-> 		spin_lock_irq(&cm_id_priv->lock);
-> 		cm_id->state = IB_CM_IDLE;
-> 		spin_unlock_irq(&cm_id_priv->lock);
-> 		break;
-> 
-> Now that condition is eliminated, the unneeded atomic is gone, and
-> refcount still acts like a proper kref should.
-Thanks, that looks like a better solution.
+Thank you for fixing this.
+Note that this also fixes incorrect use of GFP_KERNEL in
+__rocker_port_mem_alloc() and rocker_wait_event_timeout() in interrupt
+context, as well as the neigh_tbl_next_index problem stated above.
 
-Haggai
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+There seem to be another transactions performed in interrupt context or
+process context with bh disabled, where we cannot call
+rocker_wait_event_timeout() which could sleep.
+Problematic cases I have found so far are those through br_set_state():
+- br_stp_rcv() ... -> br_set_state() ... -> rocker_port_attr_set()
+- del_nbp() -> br_stp_disable_port() -> br_set_state() ...
+
+Thanks,
+Toshiaki Makita
