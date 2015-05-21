@@ -1,40 +1,81 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ingress policying for realtime protocol
-Date: Wed, 20 May 2015 17:30:40 -0700
-Message-ID: <1432168240.4060.63.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150519211145.GA23134@pengutronix.de>
-	 <CAHA+R7N8wFKPzOR0EshWzcaTUd+ChMW0zb0=1go4oV_gxoAyiA@mail.gmail.com>
+Subject: Re: netlink: Disable insertions/removals during rehash
+Date: Wed, 20 May 2015 17:31:06 -0700
+Message-ID: <1432168266.4060.64.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20150514025333.GA3853@gondor.apana.org.au>
+	 <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150514033448.GA5080@gondor.apana.org.au>
+	 <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150514041628.GA5428@gondor.apana.org.au>
+	 <20150514042151.GA5482@gondor.apana.org.au>
+	 <20150514055824.GB6058@gondor.apana.org.au>
+	 <1431614276.27831.57.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20150515000647.GA13821@gondor.apana.org.au>
+	 <20150520235346.GA22074@pox.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <cwang@twopensource.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:34896 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754061AbbEUAam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 20:30:42 -0400
-Received: by iesa3 with SMTP id a3so52134563ies.2
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 17:30:42 -0700 (PDT)
-In-Reply-To: <CAHA+R7N8wFKPzOR0EshWzcaTUd+ChMW0zb0=1go4oV_gxoAyiA@mail.gmail.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:37500 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754382AbbEUAbI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 20:31:08 -0400
+Received: by igbsb11 with SMTP id sb11so53198361igb.0
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 17:31:08 -0700 (PDT)
+In-Reply-To: <20150520235346.GA22074@pox.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-20 at 16:46 -0700, Cong Wang wrote:
+On Thu, 2015-05-21 at 01:53 +0200, Thomas Graf wrote:
+> On 05/15/15 at 08:06am, Herbert Xu wrote:
+> > On Thu, May 14, 2015 at 07:37:56AM -0700, Eric Dumazet wrote:
+> > >
+> > > This solves the corruption thanks Herbert.
+> > 
+> > Great.
+> > 
+> > > But wasn't rhashtable meant to be faster ? ;)
+> > 
+> > Is it, that's news to me :)
+> 
+> Eric, can you share the scripts you used to test this?
 
-> There is very little to do on ingress side since there is no queue at all,
-> not to mention priority, you could try ifb to see if it fits your need.
+I believe I posted the getaddrinfo C prog already.
 
-Note that if the need is to police traffic, ifb is not really needed :
+Here is the shell script :
 
-TC="tc"
-DEV="dev eth0"
-IP=10.246.11.51/32
-$TC qdisc del $DEV ingress 2>/dev/null
-$TC qdisc add $DEV ingress
-$TC filter add $DEV parent ffff: protocol ip u32 match ip src $IP \
-	police rate 1Mbit burst 10Mbit mtu 66000 action drop/continue
+# cat getaddrinfo_many.sh 
+#!/bin/bash
 
-$TC -s filter ls $DEV parent ffff: protocol ip
+TRANSACTIONS_PER_JOB=500
+JOBS=200
+
+run_netperf() {
+  for ((i=0; i<$JOBS; i++)); do
+    ./getaddrinfo $TRANSACTIONS_PER_JOB &> $i.out && rm $i.out &
+  done
+  wait
+  return 0
+}
+
+run_once() {
+  seconds=$(TIMEFORMAT="%R";(time run_netperf) 2>&1)
+  total_transactions=$(($TRANSACTIONS_PER_JOB * $JOBS))
+  transactions_per_second=$(echo "print $total_transactions / $seconds" | python)
+  echo $transactions_per_second
+  return 0
+}
+
+start_time=$(date +%s)
+while true; do
+  result=$(run_once)
+  current_time=$(date +%s)
+  elapsed=$(($current_time - $start_time))
+  echo -n "TPS: $result  Seconds Elapsed: $elapsed  Current time: "
+  date
+done
