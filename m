@@ -1,91 +1,113 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
-Date: Thu, 21 May 2015 11:17:21 -0700
-Message-ID: <555E2131.60306@redhat.com>
-References: <s5hsiaq3pv4.wl-tiwai@suse.de>	<Pine.LNX.4.44L0.1505211332520.1397-100000@iolanthe.rowland.org> <s5hk2w14x8b.wl-tiwai@suse.de>
+From: Todd Bezenek <bezenek@gmail.com>
+Subject: Re: Cause of Large Latency Difference Between 1179-byte and 1180-byte
+ UDP Frames?
+Date: Thu, 21 May 2015 11:33:49 -0700
+Message-ID: <CAE1W6Vr_t7fEn=yOqP_XgMEt+Yarpg+o08OM9t-6pGMjNVGkJg@mail.gmail.com>
+References: <CAE1W6VpPJwKtFGmeLuStt-A8JjGj2xU8RitonBHBs3dH9pXYRA@mail.gmail.com>
+	<555DF1DC.8020803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	Oliver Neukum <oneukum@suse.com>,
-	Ming Lei <ming.lei@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Laura Abbott <labbott@fedoraproject.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
-	<linux-bluetooth@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	USB list <linux-usb@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Takashi Iwai <tiwai@suse.de>,
-	Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <s5hk2w14x8b.wl-tiwai@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:34626 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754448AbbEUSdt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 14:33:49 -0400
+Received: by igbhj9 with SMTP id hj9so17791888igb.1
+        for <netdev@vger.kernel.org>; Thu, 21 May 2015 11:33:49 -0700 (PDT)
+In-Reply-To: <555DF1DC.8020803@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/21/2015 11:11 AM, Takashi Iwai wrote:
-> At Thu, 21 May 2015 13:37:56 -0400 (EDT),
-> Alan Stern wrote:
+(solution below)
+
+The time to send that extra byte over the wire is 8 nsec.  It seems
+unlikely that would produce such a clean-cut difference, but I've been
+surprised before.  :)
+
+The "idle=poll" parameter sounds like a good idea for any application
+which tries to maintain real-time behavior.  I'm putting that into
+place.
+
+Result:  About the same.
+
+I believe I have C-states disabled, as the directories
+/sys/devices/system/cpu/cpuX/cpufreq/ are not in the filesystem.  Just
+to be sure, I removed "idle=poll" and added "processor.max_cstate=1".
+
+Result:  About the same as "idle=poll".
+
+I set the interrupt moderation parameter to 10 on both interfaces
+involved in the bridge with "ethtool -C <dev> rx-usecs 10"".
+
+Result:  HUGE difference.
+
+This looks much better.  I'm going to explore the adjustments
+available and I think this will solve the problem.
+
+Thank you, Alex,
+
+-Todd
+
+
+
+
+On Thu, May 21, 2015 at 7:55 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On 05/20/2015 09:50 PM, Todd Bezenek wrote:
 >>
->> On Thu, 21 May 2015, Takashi Iwai wrote:
+>> I'm pushing 10,000 frames per second of UDP traffic through a Linux
+>> system with a bridge configured between two 1GbE ports.
 >>
->>> At Thu, 21 May 2015 11:26:17 -0400 (EDT),
->>> Alan Stern wrote:
->>>>
->>>> On Thu, 21 May 2015, Takashi Iwai wrote:
->>>>
->>>>> At Thu, 21 May 2015 10:18:08 -0400 (EDT),
->>>>> Alan Stern wrote:
->>>>>>
->>>>>> On Thu, 21 May 2015, Takashi Iwai wrote:
->>>>>>
->>>>>>> Then avoiding the failed firmware is no solution, indeed.
->>>>>>> If it's a new probe, it should be never executed during resume.
->>>>>>
->>>>>> Can you expand this comment?  What's wrong with probing during resume?
->>>>>
->>>>> Well, if the probe requires the access to a user-space file, it can't
->>>>> be done during resume.  That's the very problem we're seeing now.
->>>>> The firmware loader can't help much alone if it's a new device
->>>>> object.
->>>>
->>>> But the same thing happens during early boot, if the driver is built
->>>> into the kernel.  When the probe occurs, userspace isn't up and running
->>>> yet, so the firmware loader can't do anything.
->>>>
->>>> Why should probe during resume be any worse than probe during early
->>>> boot?
->>>
->>> The early boot has initrd, so the files can be there.  But the resume
->>> has no way to fetch the file except for cached data.
+>> Iptables is installed and running, but the default rule is ACCEPT with
+>> no other rules.
 >>
->> I suppose USB could delay re-probing until userspace is running again,
->> if we knew when that was.  But it would be awkward and prone to races.
->> It also would leave a user-visible window of time during which the
->> device does not exist, which we want to avoid.  (This may not matter
->> for bluetooth, but it does matter for other kinds of devices.)
+>> When I make the packets 1179 bytes in size (total size includes
+>> Ethernet header, etc.), I see the latency of most packets between 60
+>> and 200 usec.  When I change the size to 1180 bytes, I start seeing
+>> about 1% of the packets with latencies larger than 300 usec, and some
+>> as high as 500+ usec.
+>>
+>> Any ideas what buffer size, cache line count, TLB reach, etc. might be
+>> causing this dramatic change?
+>>
+>> Cut-and-paste to my terminal is not working, so limited info here:
+>>
+>> Kernel:  3.12.20 x86-64
+>> Processor:  Intel E3845 (Atom, 4 cores)
+>> Network interface driver:  Intel igb
+>>
+>> Thank you for any helpful pointers.
+>>
+>> -Todd
 >
-> Right.
 >
->> I would prefer to solve this problem in a different way, if possible.
+> The igb driver defaults to an adaptive interrupt moderation scheme. It is
+> possible that what you are seeing could be due to that, or it could possibly
+> be that the time between packets is becoming large enough that your CPU is
+> starting to go into deeper sleep states.
 >
-> Well, we're back in square again :)
+> My first suggestion would be to try disabling sleeps states beyond C1.  To
+> do that you could boot your kernel with the parameter
+> "processor.max_cstate=1" or "idle=poll".  Either one should prevent the CPU
+> from going into a sleep state but it will consume more power.
 >
-> But, before going further the discussion in loop again, I'd like to
-> know which firmware file actually hits.  Is it a non-existing
-> firmware?  Or is it a firmware that should have been cached?  In the
-> latter case, why it isn't used?
+> You also might try modifying the interrupt moderation to a fixed value of 10
+> or more via "ethtool -C <dev> rx-usecs <x>" to see if the behavior goes away
+> after that.  If the device is the cause it might point to a possible glitch
+> in the interrupt moderation scheme or possibly lost interrupts for the
+> device or driver.
+>
+> - Alex
+>
 >
 
-Non-existent firmware. The firmware was never present in the system and
-was never loaded at all.
 
->
-> Takashi
->
 
-Thanks,
-Laura
+-- 
+Todd Bezenek
+bezenek@gmail.com
+
+A people hire A people, B people hire C people.
+  --Jim Gray
