@@ -1,92 +1,103 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] rocker: move netevent neigh update to processes
- context
-Date: Thu, 21 May 2015 10:00:38 +0200
-Message-ID: <20150521080038.GA2212@nanopsycho.orion>
-References: <1432184707-27252-1-git-send-email-sfeldma@gmail.com>
+From: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v4 for-next 05/12] IB/cm: Share listening CM IDs
+Date: Thu, 21 May 2015 11:08:31 +0300
+Message-ID: <555D927F.7060801@mellanox.com>
+References: <1431841868-28063-1-git-send-email-haggaie@mellanox.com>
+ <1431841868-28063-6-git-send-email-haggaie@mellanox.com>
+ <20150519183545.GH18675@obsidianresearch.com>
+ <20150519223502.GA26324@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, simon.horman@netronome.com,
-	makita.toshiaki@lab.ntt.co.jp
-To: sfeldma@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:33151 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751569AbbEUIAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 04:00:42 -0400
-Received: by wgjc11 with SMTP id c11so76997819wgj.0
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 01:00:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1432184707-27252-1-git-send-email-sfeldma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20150519223502.GA26324-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Thu, May 21, 2015 at 07:05:07AM CEST, sfeldma@gmail.com wrote:
->From: Scott Feldman <sfeldma@gmail.com>
->
->In review of Simon's patchset "rocker: transaction fixes". it was noted
->that rocker->neigh_tbl_next_index was unprotected in the call path below
->and could race with other contexts calling rocker_port_ipv4_neigh():
->
->	arp_process()
->	neigh_update()
->	rocker_neigh_update()
->	rocker_port_ipv4_neigh()
->
->To fix, move the neigh_update() event processing to process contexts and
->hold rtnl_lock to call rocker_port_ipv4_neigh().  This will protect
->rocker->neigh_tbl_next_index accesses and is more consistent with the rest
->of the driver code where non-I/O processing is done under process context
->with rtnl_lock held.
->
->Signed-off-by: Scott Feldman <sfeldma@gmail.com>
->---
-> drivers/net/ethernet/rocker/rocker.c |   52 +++++++++++++++++++++++++++++-----
-> 1 file changed, 45 insertions(+), 7 deletions(-)
->
->diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
->index 0f5e962..4cff2f6 100644
->--- a/drivers/net/ethernet/rocker/rocker.c
->+++ b/drivers/net/ethernet/rocker/rocker.c
->@@ -5240,14 +5240,52 @@ static struct notifier_block rocker_netdevice_nb __read_mostly = {
->  * Net event notifier event handler
->  ************************************/
+On 20/05/2015 01:35, Jason Gunthorpe wrote:
+> On Tue, May 19, 2015 at 12:35:45PM -0600, Jason Gunthorpe wrote:
+>> On Sun, May 17, 2015 at 08:51:01AM +0300, Haggai Eran wrote:
+>>> @@ -212,6 +212,8 @@ struct cm_id_private {
+>>>  	spinlock_t lock;	/* Do not acquire inside cm.lock */
+>>>  	struct completion comp;
+>>>  	atomic_t refcount;
+>>> +	/* Number of clients sharing this ib_cm_id. Only valid for listeners. */
+>>> +	atomic_t sharecount;
+>>
+>> No need for this atomic, hold the lock
+>>
+>> The use of the atomic looks racy:
+>>
+>>> +	if (!atomic_dec_and_test(&cm_id_priv->sharecount)) {
+>>> +		/* The id is still shared. */
+>>> +		return;
+>>> +	}
+>>
+>> Might race with this:
+>>
+>>> +		if (atomic_inc_return(&cm_id_priv->sharecount) == 1) {
+>>> +			/* This ID is already being destroyed */
+>>> +			atomic_dec(&cm_id_priv->sharecount);
+>>> +			goto new_id;
+>>> +		}
+>>> +
+>>
+>> Resulting in use-after-free of cm_id_priv->sharecount
 > 
->-static int rocker_neigh_update(struct net_device *dev, struct neighbour *n)
->+struct rocker_neigh_update_work {
->+	struct work_struct work;
->+	struct rocker_port *rocker_port;
->+	int flags;
->+	__be32 ip_addr;
->+	unsigned char ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
->+};
->+
->+static void rocker_event_neigh_update_work(struct work_struct *work)
-> {
->-	struct rocker_port *rocker_port = netdev_priv(dev);
->-	int flags = (n->nud_state & NUD_VALID) ? 0 : ROCKER_OP_FLAG_REMOVE;
->-	__be32 ip_addr = *(__be32 *)n->primary_key;
->+	struct rocker_neigh_update_work *nw =
->+		container_of(work, struct rocker_neigh_update_work, work);
->+	int err;
->+
->+	rtnl_lock();
->+	err = rocker_port_ipv4_neigh(nw->rocker_port, SWITCHDEV_TRANS_NONE,
->+				     nw->flags, nw->ip_addr, nw->ha);
->+	rtnl_unlock();
->+
->+	if (err)
->+		netdev_warn(nw->rocker_port->dev,
->+			    "failed to handle neigh %pI4 update (err %d)\n",
->+			    &nw->ip_addr, err);
+> Actually, there is something else odd here.. I mentioned the above
+> because there wasn't obvious ref'ing on the cm_id_priv. Looking closer
+> the cm.lock should prevent use-after-free, but there is still no ref.
 > 
->-	return rocker_port_ipv4_neigh(rocker_port, SWITCHDEV_TRANS_NONE,
->-				      flags, ip_addr, n->ha);
->+	kfree(work);
+> The more I look at this, the more I think it is sketchy. Don't try and
+> merge sharecount and refcount together, 
+I'm not sure what you mean here. The way I was thinking about it was
+that sharecount = num of rdma_cm_ids sharing this listener, while
+refcount = num of active internal uses of this ID (work items, timers,
+etc.) Do you want refcount to also include the sharecount?
 
-It should be kfree(nw)
-I know it is the same, but looks more correct.
+> after cm_find_listen is called
+> you have to increment the refcount before dropping cm.lock.
+> 
+> Decrement the refcount when destroying a shared listen.
+You mean to decrement event if listen_sharecount > 0, and the id isn't
+destroyed, right? The code already calls cm_deref_id when
+listen_sharecount = 0 of course.
 
-Other than this, this looks good to me
+> I also don't see how the 'goto new_id' can work, if cm_find_listen
+> succeeds then __ib_cm_listen is guarenteed to fail.
+> 
+> Fix the locking to make that impossible, associate sharecount with the
+> cm.lock and, rework how cm_destroy_id grabs the cm_id_priv->lock spinlock:
+> 
+> 	case IB_CM_LISTEN:
+> 		spin_lock_irq(&cm.lock);
+> 		if (cm_id_priv->sharecount != 0) {
+> 		     cm_id_prv->sharecount--;
+> 		     // paired with in in ib_cm_id_create_and_listen
+> 		     atomic_dec(&cm_id_priv->refcount);
+> 		     spin_unlock_irq(&cm.lock);
+> 		     return;
+> 		}
+> 		rb_erase(&cm_id_priv->service_node, &cm.listen_service_table);
+> 		spin_unlock_irq(&cm.lock);
+> 	
+> 		spin_lock_irq(&cm_id_priv->lock);
+> 		cm_id->state = IB_CM_IDLE;
+> 		spin_unlock_irq(&cm_id_priv->lock);
+> 		break;
+> 
+> Now that condition is eliminated, the unneeded atomic is gone, and
+> refcount still acts like a proper kref should.
+Thanks, that looks like a better solution.
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+Haggai
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
