@@ -1,48 +1,113 @@
-From: Todd Bezenek <bezenek@gmail.com>
-Subject: Cause of Large Latency Difference Between 1179-byte and 1180-byte UDP Frames?
-Date: Wed, 20 May 2015 21:50:04 -0700
-Message-ID: <CAE1W6VpPJwKtFGmeLuStt-A8JjGj2xU8RitonBHBs3dH9pXYRA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: sfeldma@gmail.com
+Subject: [PATCH net-next] rocker: move netevent neigh update to processes context
+Date: Wed, 20 May 2015 22:05:07 -0700
+Message-ID: <1432184707-27252-1-git-send-email-sfeldma@gmail.com>
+Cc: jiri@resnulli.us, simon.horman@netronome.com,
+	makita.toshiaki@lab.ntt.co.jp
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:34086 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750815AbbEUEuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 00:50:05 -0400
-Received: by igbhj9 with SMTP id hj9so1113984igb.1
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 21:50:04 -0700 (PDT)
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:36628 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751186AbbEUFDu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 01:03:50 -0400
+Received: by pdfh10 with SMTP id h10so94693146pdf.3
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 22:03:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm pushing 10,000 frames per second of UDP traffic through a Linux
-system with a bridge configured between two 1GbE ports.
+From: Scott Feldman <sfeldma@gmail.com>
 
-Iptables is installed and running, but the default rule is ACCEPT with
-no other rules.
+In review of Simon's patchset "rocker: transaction fixes". it was noted
+that rocker->neigh_tbl_next_index was unprotected in the call path below
+and could race with other contexts calling rocker_port_ipv4_neigh():
 
-When I make the packets 1179 bytes in size (total size includes
-Ethernet header, etc.), I see the latency of most packets between 60
-and 200 usec.  When I change the size to 1180 bytes, I start seeing
-about 1% of the packets with latencies larger than 300 usec, and some
-as high as 500+ usec.
+	arp_process()
+	neigh_update()
+	rocker_neigh_update()
+	rocker_port_ipv4_neigh()
 
-Any ideas what buffer size, cache line count, TLB reach, etc. might be
-causing this dramatic change?
+To fix, move the neigh_update() event processing to process contexts and
+hold rtnl_lock to call rocker_port_ipv4_neigh().  This will protect
+rocker->neigh_tbl_next_index accesses and is more consistent with the rest
+of the driver code where non-I/O processing is done under process context
+with rtnl_lock held.
 
-Cut-and-paste to my terminal is not working, so limited info here:
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+---
+ drivers/net/ethernet/rocker/rocker.c |   52 +++++++++++++++++++++++++++++-----
+ 1 file changed, 45 insertions(+), 7 deletions(-)
 
-Kernel:  3.12.20 x86-64
-Processor:  Intel E3845 (Atom, 4 cores)
-Network interface driver:  Intel igb
-
-Thank you for any helpful pointers.
-
--Todd
-
+diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
+index 0f5e962..4cff2f6 100644
+--- a/drivers/net/ethernet/rocker/rocker.c
++++ b/drivers/net/ethernet/rocker/rocker.c
+@@ -5240,14 +5240,52 @@ static struct notifier_block rocker_netdevice_nb __read_mostly = {
+  * Net event notifier event handler
+  ************************************/
+ 
+-static int rocker_neigh_update(struct net_device *dev, struct neighbour *n)
++struct rocker_neigh_update_work {
++	struct work_struct work;
++	struct rocker_port *rocker_port;
++	int flags;
++	__be32 ip_addr;
++	unsigned char ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
++};
++
++static void rocker_event_neigh_update_work(struct work_struct *work)
+ {
+-	struct rocker_port *rocker_port = netdev_priv(dev);
+-	int flags = (n->nud_state & NUD_VALID) ? 0 : ROCKER_OP_FLAG_REMOVE;
+-	__be32 ip_addr = *(__be32 *)n->primary_key;
++	struct rocker_neigh_update_work *nw =
++		container_of(work, struct rocker_neigh_update_work, work);
++	int err;
++
++	rtnl_lock();
++	err = rocker_port_ipv4_neigh(nw->rocker_port, SWITCHDEV_TRANS_NONE,
++				     nw->flags, nw->ip_addr, nw->ha);
++	rtnl_unlock();
++
++	if (err)
++		netdev_warn(nw->rocker_port->dev,
++			    "failed to handle neigh %pI4 update (err %d)\n",
++			    &nw->ip_addr, err);
+ 
+-	return rocker_port_ipv4_neigh(rocker_port, SWITCHDEV_TRANS_NONE,
+-				      flags, ip_addr, n->ha);
++	kfree(work);
++}
++
++static int rocker_event_neigh_update(struct net_device *dev,
++				     struct neighbour *n)
++{
++	struct rocker_neigh_update_work *nw;
++
++	nw = kmalloc(sizeof(*nw), GFP_ATOMIC);
++	if (!nw)
++		return -ENOMEM;
++
++	INIT_WORK(&nw->work, rocker_event_neigh_update_work);
++
++	nw->rocker_port = netdev_priv(dev);
++	nw->flags = (n->nud_state & NUD_VALID) ? 0 : ROCKER_OP_FLAG_REMOVE;
++	nw->ip_addr = *(__be32 *)n->primary_key;
++	memcpy(nw->ha, n->ha, sizeof(nw->ha));
++
++	schedule_work(&nw->work);
++
++	return 0;
+ }
+ 
+ static int rocker_netevent_event(struct notifier_block *unused,
+@@ -5264,7 +5302,7 @@ static int rocker_netevent_event(struct notifier_block *unused,
+ 		dev = n->dev;
+ 		if (!rocker_port_dev_check(dev))
+ 			return NOTIFY_DONE;
+-		err = rocker_neigh_update(dev, n);
++		err = rocker_event_neigh_update(dev, n);
+ 		if (err)
+ 			netdev_warn(dev,
+ 				    "failed to handle neigh update (err %d)\n",
 -- 
-Todd Bezenek
-bezenek@gmail.com
-
-A people hire A people, B people hire C people.
-  --Jim Gray
+1.7.10.4
