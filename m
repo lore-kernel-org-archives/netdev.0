@@ -1,41 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] ixgbe: Add module parameter to disable VLAN filter
-Date: Thu, 21 May 2015 12:07:13 -0400 (EDT)
-Message-ID: <20150521.120713.1811144256149554543.davem@davemloft.net>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB460C@BPXM14GP.gisp.nec.co.jp>
+From: Ivan Mikhaylov <ivan@ru.ibm.com>
+Subject: [PATCH] net/ibm/emac: fix size of emac dump memory areas
+Date: Thu, 21 May 2015 19:11:02 +0400
+Message-ID: <20150521191102.45bd4a18@fr-ThinkPad-W520>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	sy.jong.choi@intel.com, ben@decadent.org.uk,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: h-shimamoto@ct.jp.nec.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB460C@BPXM14GP.gisp.nec.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Date: Thu, 21 May 2015 13:10:49 +0000
+Fix in send of emac regs dump to ethtool which
+causing in wrong data interpretation on ethtool
+layer for MII and EMAC.
 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 263cb40..b45570f 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -158,6 +158,10 @@ module_param(allow_unsupported_sfp, uint, 0);
->  MODULE_PARM_DESC(allow_unsupported_sfp,
->  		 "Allow unsupported and untested SFP+ modules on 82599-based adapters");
->  
-> +static unsigned int disable_hw_vlan_filter;
-> +module_param(disable_hw_vlan_filter, uint, 0);
-> +MODULE_PARM_DESC(disable_hw_vlan_filter, "Disable HW VLAN filter");
+Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
+---
+ drivers/net/ethernet/ibm/emac/core.c |   16 ++++++----------
+ drivers/net/ethernet/ibm/emac/core.h |    7 ++-----
+ 2 files changed, 8 insertions(+), 15 deletions(-)
 
-Sorry, module parameters like this are not allowed.
-
-You must use a generic, portable interface, to configure networking
-device settings.
-
-Otherwise every other driver that wants to do something similar will
-have yet another module option with a different name, and every user
-will suffer because they will need to learn a different mechanism
-to perform this configuration for every driver.
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+index de79193..b9df0cb 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -2084,12 +2084,8 @@ static void emac_ethtool_get_pauseparam(struct net_device *ndev,
+ 
+ static int emac_get_regs_len(struct emac_instance *dev)
+ {
+-	if (emac_has_feature(dev, EMAC_FTR_EMAC4))
+-		return sizeof(struct emac_ethtool_regs_subhdr) +
+-			EMAC4_ETHTOOL_REGS_SIZE(dev);
+-	else
+ 		return sizeof(struct emac_ethtool_regs_subhdr) +
+-			EMAC_ETHTOOL_REGS_SIZE(dev);
++			sizeof(struct emac_regs);
+ }
+ 
+ static int emac_ethtool_get_regs_len(struct net_device *ndev)
+@@ -2114,15 +2110,15 @@ static void *emac_dump_regs(struct emac_instance *dev, void *buf)
+ 	struct emac_ethtool_regs_subhdr *hdr = buf;
+ 
+ 	hdr->index = dev->cell_index;
+-	if (emac_has_feature(dev, EMAC_FTR_EMAC4)) {
++	if (emac_has_feature(dev, EMAC_FTR_EMAC4SYNC)) {
++		hdr->version = EMAC4SYNC_ETHTOOL_REGS_VER;
++	} else if (emac_has_feature(dev, EMAC_FTR_EMAC4)) {
+ 		hdr->version = EMAC4_ETHTOOL_REGS_VER;
+-		memcpy_fromio(hdr + 1, dev->emacp, EMAC4_ETHTOOL_REGS_SIZE(dev));
+-		return (void *)(hdr + 1) + EMAC4_ETHTOOL_REGS_SIZE(dev);
+ 	} else {
+ 		hdr->version = EMAC_ETHTOOL_REGS_VER;
+-		memcpy_fromio(hdr + 1, dev->emacp, EMAC_ETHTOOL_REGS_SIZE(dev));
+-		return (void *)(hdr + 1) + EMAC_ETHTOOL_REGS_SIZE(dev);
+ 	}
++	memcpy_fromio(hdr + 1, dev->emacp, sizeof(struct emac_regs));
++	return (void *)(hdr + 1) + sizeof(struct emac_regs);
+ }
+ 
+ static void emac_ethtool_get_regs(struct net_device *ndev,
+diff --git a/drivers/net/ethernet/ibm/emac/core.h b/drivers/net/ethernet/ibm/emac/core.h
+index 67f342a..28df374 100644
+--- a/drivers/net/ethernet/ibm/emac/core.h
++++ b/drivers/net/ethernet/ibm/emac/core.h
+@@ -461,10 +461,7 @@ struct emac_ethtool_regs_subhdr {
+ };
+ 
+ #define EMAC_ETHTOOL_REGS_VER		0
+-#define EMAC_ETHTOOL_REGS_SIZE(dev) 	((dev)->rsrc_regs.end - \
+-					 (dev)->rsrc_regs.start + 1)
+-#define EMAC4_ETHTOOL_REGS_VER      	1
+-#define EMAC4_ETHTOOL_REGS_SIZE(dev)	((dev)->rsrc_regs.end -	\
+-					 (dev)->rsrc_regs.start + 1)
++#define EMAC4_ETHTOOL_REGS_VER		1
++#define EMAC4SYNC_ETHTOOL_REGS_VER	2
+ 
+ #endif /* __IBM_NEWEMAC_CORE_H */
+-- 
+1.7.9.5
