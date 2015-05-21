@@ -1,81 +1,63 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netlink: Disable insertions/removals during rehash
-Date: Wed, 20 May 2015 17:31:06 -0700
-Message-ID: <1432168266.4060.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20150514025333.GA3853@gondor.apana.org.au>
-	 <1431573463.27831.32.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150514033448.GA5080@gondor.apana.org.au>
-	 <1431575890.27831.34.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1431576818.27831.36.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150514041628.GA5428@gondor.apana.org.au>
-	 <20150514042151.GA5482@gondor.apana.org.au>
-	 <20150514055824.GB6058@gondor.apana.org.au>
-	 <1431614276.27831.57.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20150515000647.GA13821@gondor.apana.org.au>
-	 <20150520235346.GA22074@pox.localdomain>
+Subject: Re: [PATCH net-next] tcp: add tcpi_segs_in and tcpi_segs_out to
+ tcp_info
+Date: Wed, 20 May 2015 17:37:11 -0700
+Message-ID: <1432168631.4060.69.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1430260098-14127-1-git-send-email-edumazet@google.com>
+	 <20150512130855.GA29412@localhost.localdomain>
+	 <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1432164941.4060.57.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <555D218D.50509@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>,
+	Matt Mathis <mattmathis@google.com>,
+	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
+	Chris Rapier <rapier@psc.edu>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:37500 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754382AbbEUAbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 20:31:08 -0400
-Received: by igbsb11 with SMTP id sb11so53198361igb.0
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 17:31:08 -0700 (PDT)
-In-Reply-To: <20150520235346.GA22074@pox.localdomain>
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:36175 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754100AbbEUAhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 20:37:13 -0400
+Received: by igbpi8 with SMTP id pi8so116469345igb.1
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 17:37:13 -0700 (PDT)
+In-Reply-To: <555D218D.50509@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2015-05-21 at 01:53 +0200, Thomas Graf wrote:
-> On 05/15/15 at 08:06am, Herbert Xu wrote:
-> > On Thu, May 14, 2015 at 07:37:56AM -0700, Eric Dumazet wrote:
-> > >
-> > > This solves the corruption thanks Herbert.
-> > 
-> > Great.
-> > 
-> > > But wasn't rhashtable meant to be faster ? ;)
-> > 
-> > Is it, that's news to me :)
+On Wed, 2015-05-20 at 17:06 -0700, Rick Jones wrote:
+> On 05/20/2015 04:35 PM, Eric Dumazet wrote:
+> > From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> >
+> > This patch tracks the total number of inbound and outbound segments on a
+> > TCP socket. One may use this number to have an idea on connection
+> > quality when compared against the retransmissions.
+> >
+> > RFC4898 named these : tcpEStatsPerfSegsIn and tcpEStatsPerfSegsOut
+> >
+> > These are a 32bit field each and can be fetched both from TCP_INFO
+> > getsockopt() if one has a handle on a TCP socket, or from inet_diag
+> > netlink facility (iproute2/ss patch will follow)
 > 
-> Eric, can you share the scripts you used to test this?
+> I suppose it is far-fetched, but is it a concern that at 100 Gbit/s and 
+> 1500 byte MTU the 32 bit segment counter would wrap in something like 
+> 500 seconds and change?
 
-I believe I posted the getaddrinfo C prog already.
 
-Here is the shell script :
+Like SNMP counters, applications are responsible to adapt snapshot
+intervals and deals with wraps around.
 
-# cat getaddrinfo_many.sh 
-#!/bin/bash
+For these counters, applications are probably not interested in absolute
+numbers, but deltas every couple of seconds to study the behavior of a
+flow during time.
 
-TRANSACTIONS_PER_JOB=500
-JOBS=200
+The byte counters are 64bits and shall not overflow.
 
-run_netperf() {
-  for ((i=0; i<$JOBS; i++)); do
-    ./getaddrinfo $TRANSACTIONS_PER_JOB &> $i.out && rm $i.out &
-  done
-  wait
-  return 0
-}
-
-run_once() {
-  seconds=$(TIMEFORMAT="%R";(time run_netperf) 2>&1)
-  total_transactions=$(($TRANSACTIONS_PER_JOB * $JOBS))
-  transactions_per_second=$(echo "print $total_transactions / $seconds" | python)
-  echo $transactions_per_second
-  return 0
-}
-
-start_time=$(date +%s)
-while true; do
-  result=$(run_once)
-  current_time=$(date +%s)
-  elapsed=$(($current_time - $start_time))
-  echo -n "TPS: $result  Seconds Elapsed: $elapsed  Current time: "
-  date
-done
+Anyway, if we can send tcp data at 100Gbits on one flow, I guess we are
+doing a terrific job and do not need to tweak TCP stack anymore ;)
