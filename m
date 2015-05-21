@@ -1,105 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] bridge: fix lockdep splat
-Date: Thu, 21 May 2015 13:28:29 -0700
-Message-ID: <1432240109.4060.116.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next 2/2] tcp: improve REUSEADDR/NOREUSEADDR
+ cohabitation
+Date: Thu, 21 May 2015 17:37:36 -0300
+Message-ID: <20150521203736.GI2379@x240.home>
+References: <1432144742-17786-1-git-send-email-edumazet@google.com>
+ <1432144742-17786-3-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Dominick Grift <dac.override@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: Josh Boyer <jwboyer@fedoraproject.org>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:37196 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964913AbbEUU2b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 16:28:31 -0400
-Received: by igbsb11 with SMTP id sb11so17971596igb.0
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 13:28:30 -0700 (PDT)
-In-Reply-To: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38133 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755429AbbEUUhl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 16:37:41 -0400
+Content-Disposition: inline
+In-Reply-To: <1432144742-17786-3-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, May 20, 2015 at 10:59:02AM -0700, Eric Dumazet wrote:
+> inet_csk_get_port() randomization effort tends to spread
+> sockets on all the available range (ip_local_port_range)
+> 
+> This is unfortunate because SO_REUSEADDR sockets have
+> less requirements than non SO_REUSEADDR ones.
+> 
+> If an application uses SO_REUSEADDR hint, it is to try to
+> allow source ports being shared.
+> 
+> So instead of picking a random port number in ip_local_port_range,
+> lets try first in first half of the range.
+> 
+> This gives more chances to use upper half of the range for the
+> sockets with strong requirements (not using SO_REUSEADDR)
+> 
+> Note this patch does not add a new sysctl, and only changes
+> the way we try to pick port number.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Cc: Flavio Leitner <fbl@redhat.com>
+> ---
 
-Following lockdep splat was reported :
+The only downside I can see is that after the patch the applications
+using the SO_REUSEADDR will reuse ports more often and that could
+potentially trigger some bug.
 
-[   29.382286] ===============================
-[   29.382315] [ INFO: suspicious RCU usage. ]
-[   29.382344] 4.1.0-0.rc0.git11.1.fc23.x86_64 #1 Not tainted
-[   29.382380] -------------------------------
-[   29.382409] net/bridge/br_private.h:626 suspicious
-rcu_dereference_check() usage!
-[   29.382455]
-               other info that might help us debug this:
+Looks like a good change to me.
 
-[   29.382507]
-               rcu_scheduler_active = 1, debug_locks = 0
-[   29.382549] 2 locks held by swapper/0/0:
-[   29.382576]  #0:  (((&p->forward_delay_timer))){+.-...}, at:
-[<ffffffff81139f75>] call_timer_fn+0x5/0x4f0
-[   29.382660]  #1:  (&(&br->lock)->rlock){+.-...}, at:
-[<ffffffffa0450dc1>] br_forward_delay_timer_expired+0x31/0x140
-[bridge]
-[   29.382754]
-               stack backtrace:
-[   29.382787] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
-4.1.0-0.rc0.git11.1.fc23.x86_64 #1
-[   29.382838] Hardware name: LENOVO 422916G/LENOVO, BIOS A1KT53AUS 04/07/2015
-[   29.382882]  0000000000000000 3ebfc20364115825 ffff880666603c48
-ffffffff81892d4b
-[   29.382943]  0000000000000000 ffffffff81e124e0 ffff880666603c78
-ffffffff8110bcd7
-[   29.383004]  ffff8800785c9d00 ffff88065485ac58 ffff880c62002800
-ffff880c5fc88ac0
-[   29.383065] Call Trace:
-[   29.383084]  <IRQ>  [<ffffffff81892d4b>] dump_stack+0x4c/0x65
-[   29.383130]  [<ffffffff8110bcd7>] lockdep_rcu_suspicious+0xe7/0x120
-[   29.383178]  [<ffffffffa04520f9>] br_fill_ifinfo+0x4a9/0x6a0 [bridge]
-[   29.383225]  [<ffffffffa045266b>] br_ifinfo_notify+0x11b/0x4b0 [bridge]
-[   29.383271]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
-[   29.383320]  [<ffffffffa0450de8>]
-br_forward_delay_timer_expired+0x58/0x140 [bridge]
-[   29.383371]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
-[   29.383416]  [<ffffffff8113a033>] call_timer_fn+0xc3/0x4f0
-[   29.383454]  [<ffffffff81139f75>] ? call_timer_fn+0x5/0x4f0
-[   29.383493]  [<ffffffff8110a90f>] ? lock_release_holdtime.part.29+0xf/0x200
-[   29.383541]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
-[   29.383587]  [<ffffffff8113a6a4>] run_timer_softirq+0x244/0x490
-[   29.383629]  [<ffffffff810b68cc>] __do_softirq+0xec/0x670
-[   29.383666]  [<ffffffff810b70d5>] irq_exit+0x145/0x150
-[   29.383703]  [<ffffffff8189f506>] smp_apic_timer_interrupt+0x46/0x60
-[   29.383744]  [<ffffffff8189d523>] apic_timer_interrupt+0x73/0x80
-[   29.383782]  <EOI>  [<ffffffff816f131f>] ? cpuidle_enter_state+0x5f/0x2f0
-[   29.383832]  [<ffffffff816f131b>] ? cpuidle_enter_state+0x5b/0x2f0
-
-Problem here is that br_forward_delay_timer_expired() is a timer
-handler, calling br_ifinfo_notify() which assumes either rcu_read_lock()
-or RTNL are held.
-
-Simplest fix seems to add rcu read lock section.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Josh Boyer <jwboyer@fedoraproject.org>
-Reported-by: Dominick Grift <dac.override@gmail.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
----
- net/bridge/br_stp_timer.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
-index 4fcaa67750fda845ad0a180332c4cd96a9524086..7caf7fae2d5b8aa369b924e1c87a47c343fb8954 100644
---- a/net/bridge/br_stp_timer.c
-+++ b/net/bridge/br_stp_timer.c
-@@ -97,7 +97,9 @@ static void br_forward_delay_timer_expired(unsigned long arg)
- 		netif_carrier_on(br->dev);
- 	}
- 	br_log_state(p);
-+	rcu_read_lock();
- 	br_ifinfo_notify(RTM_NEWLINK, p);
-+	rcu_read_unlock();
- 	spin_unlock(&br->lock);
- }
- 
+Acked-by: Flavio Leitner <fbl@redhat.com>
