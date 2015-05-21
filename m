@@ -1,50 +1,39 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next 4/6] net/mlx4_core: Adjust the schedule queue port for single ported IB VFs
-Date: Thu, 21 May 2015 15:14:08 +0300
-Message-ID: <1432210450-23408-5-git-send-email-ogerlitz@mellanox.com>
-References: <1432210450-23408-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Matan Barak <matanb@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Amir Vadai <amirv@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1327.ztomy.com ([193.47.165.129]:56582 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755429AbbEUMOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 08:14:50 -0400
-In-Reply-To: <1432210450-23408-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 7/7] mac80211: Switch to new AEAD interface
+Date: Thu, 21 May 2015 14:17:44 +0200
+Message-ID: <1432210664.2343.10.camel@sipsolutions.net>
+References: <20150521103938.GA23035@gondor.apana.org.au>
+	 <E1YvNxS-00063i-AZ@gondolin.me.apana.org.au>
+	 <1432207249.2343.9.camel@sipsolutions.net>
+	 <20150521115013.GA23833@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20150521115013.GA23833@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some VF drivers flow set the schedule queue in the QP context but
-without setting none of OPTPAR_SCHED_QUEUE or OPTPAR_PRIMARY_ADDR_PATH.
+On Thu, 2015-05-21 at 19:50 +0800, Herbert Xu wrote:
+> On Thu, May 21, 2015 at 01:20:49PM +0200, Johannes Berg wrote:
+> > On Thu, 2015-05-21 at 18:44 +0800, Herbert Xu wrote:
+> > > This patch makes use of the new AEAD interface which uses a single
+> > > SG list instead of separate lists for the AD and plain text.
+> > 
+> > Looks fine - want me to run any tests on it?
+> 
+> That would be great!
+> 
+> However, they depend on a series which has not been merged into
+> cryptodev yet so you'll need to apply the following pathces first:
+> 
+> https://www.mail-archive.com/linux-crypto@vger.kernel.org/msg14270.html
 
-To allow for such non-modified drivers to function as single ported
-IB VFs, we must adjust the schedule queue port whenever being set,
-e.g as currently done for single ported Eth VFs.
+Do you have a branch somewhere with all of that?
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 92fce1b..5e2ea03 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -3526,8 +3526,8 @@ static int adjust_qp_sched_queue(struct mlx4_dev *dev, int slave,
- 	pri_sched_queue = (qpc->pri_path.sched_queue & ~(1 << 6)) |
- 			  ((port & 1) << 6);
- 
--	if (optpar & MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH ||
--	    mlx4_is_eth(dev, port + 1)) {
-+	if (optpar & (MLX4_QP_OPTPAR_PRIMARY_ADDR_PATH | MLX4_QP_OPTPAR_SCHED_QUEUE) ||
-+	    qpc->pri_path.sched_queue || mlx4_is_eth(dev, port + 1)) {
- 		qpc->pri_path.sched_queue = pri_sched_queue;
- 	}
- 
--- 
-1.7.1
+johannes
