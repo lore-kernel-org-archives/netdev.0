@@ -1,51 +1,117 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 net-next 4/4] net: af_unix: implement splice for stream
- af_unix sockets
-Date: Thu, 21 May 2015 16:59:15 +0200
-Message-ID: <1432220355.2547584.274841905.2944054B@webmail.messagingengine.com>
-References: <cover.1432200343.git.hannes@stressinduktion.org>
- <1cd0796801936fb583e66a719597035ea779f534.1432200344.git.hannes@stressinduktion.org>
- <1432218198.4060.98.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, cwang@twopensource.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v3 net-next 1/4] net: skbuff: add skb_append_pagefrags and use it
+Date: Thu, 21 May 2015 16:59:58 +0200
+Message-ID: <cb8fe767b5785002cb7c64775fc96467b8600b74.1432220158.git.hannes@stressinduktion.org>
+References: <cover.1432220158.git.hannes@stressinduktion.org>
+Cc: edumazet@google.com, cwang@twopensource.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:49622 "EHLO
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:42598 "EHLO
 	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755288AbbEUO7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 10:59:16 -0400
-Received: from compute2.internal (compute2.nyi.internal [10.202.2.42])
-	by mailout.nyi.internal (Postfix) with ESMTP id 0A13720E53
-	for <netdev@vger.kernel.org>; Thu, 21 May 2015 10:59:16 -0400 (EDT)
-In-Reply-To: <1432218198.4060.98.camel@edumazet-glaptop2.roam.corp.google.com>
+	by vger.kernel.org with ESMTP id S1755641AbbEUPAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 11:00:08 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by mailout.nyi.internal (Postfix) with ESMTP id 2AE82206F6
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 11:00:08 -0400 (EDT)
+In-Reply-To: <cover.1432220158.git.hannes@stressinduktion.org>
+In-Reply-To: <cover.1432220158.git.hannes@stressinduktion.org>
+References: <cover.1432220158.git.hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 21, 2015, at 16:23, Eric Dumazet wrote:
-> On Thu, 2015-05-21 at 11:39 +0200, Hannes Frederic Sowa wrote:
-> > unix_stream_recvmsg is refactored to unix_stream_read_generic in this
-> > patch and enhanced to deal with pipe splicing. The refactoring is
-> > inneglible, we mostly have to deal with a non-existing struct msghdr
-> > argument.
-> > 
-> 
-> > +static __always_inline
-> > +int unix_stream_read_generic(struct unix_stream_read_state *state)
-> >  {
-> 
-> 
-> I do not believe it is reasonable to inline this monster, even if some
-> macro benchmark looks better.
-> 
-> General trend in the community is to remove all these inlines.
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+v2:
+* remove now unused variable i in ip_append_page (thanks, Cong!)
+* switched to EXPORT_SYMBOL_GPL for skb_append_pagefrags
 
-Okay, I tend to agree and will remove it. Send v3 soon.
+v3:
+* unchanged
 
-> ip_finish_output2() for example should lose its 'inline' keyword.
+ include/linux/skbuff.h |  3 +++
+ net/core/skbuff.c      | 18 ++++++++++++++++++
+ net/ipv4/ip_output.c   | 15 ++++-----------
+ 3 files changed, 25 insertions(+), 11 deletions(-)
 
-Ack.
-
-Thanks,
-Hannes
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 40960fe..b9d267b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -860,6 +860,9 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
+ 					int len, int odd, struct sk_buff *skb),
+ 			    void *from, int length);
+ 
++int skb_append_pagefrags(struct sk_buff *skb, struct page *page,
++			 int offset, size_t size);
++
+ struct skb_seq_state {
+ 	__u32		lower_offset;
+ 	__u32		upper_offset;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f3fe9bd..4f2babe 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2915,6 +2915,24 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL(skb_append_datato_frags);
+ 
++int skb_append_pagefrags(struct sk_buff *skb, struct page *page,
++			 int offset, size_t size)
++{
++	int i = skb_shinfo(skb)->nr_frags;
++
++	if (skb_can_coalesce(skb, i, page, offset)) {
++		skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], size);
++	} else if (i < MAX_SKB_FRAGS) {
++		get_page(page);
++		skb_fill_page_desc(skb, i, page, offset, size);
++	} else {
++		return -EMSGSIZE;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(skb_append_pagefrags);
++
+ /**
+  *	skb_pull_rcsum - pull skb and update receive checksum
+  *	@skb: buffer to update
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 8d91b92..451b009 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1233,11 +1233,9 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
+ 	}
+ 
+ 	while (size > 0) {
+-		int i;
+-
+-		if (skb_is_gso(skb))
++		if (skb_is_gso(skb)) {
+ 			len = size;
+-		else {
++		} else {
+ 
+ 			/* Check if the remaining data fits into current packet. */
+ 			len = mtu - skb->len;
+@@ -1289,15 +1287,10 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
+ 			continue;
+ 		}
+ 
+-		i = skb_shinfo(skb)->nr_frags;
+ 		if (len > size)
+ 			len = size;
+-		if (skb_can_coalesce(skb, i, page, offset)) {
+-			skb_frag_size_add(&skb_shinfo(skb)->frags[i-1], len);
+-		} else if (i < MAX_SKB_FRAGS) {
+-			get_page(page);
+-			skb_fill_page_desc(skb, i, page, offset, len);
+-		} else {
++
++		if (skb_append_pagefrags(skb, page, offset, len)) {
+ 			err = -EMSGSIZE;
+ 			goto error;
+ 		}
+-- 
+2.1.0
