@@ -1,41 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] sfc: add MCDI tracing
-Date: Thu, 21 May 2015 18:52:10 -0400 (EDT)
-Message-ID: <20150521.185210.860864581493237974.davem@davemloft.net>
-References: <555CACF5.9060803@solarflare.com>
+Subject: Re: [PATCH net-next v2] tcp: ensure epoll edge trigger wakeup when
+ write queue is empty
+Date: Thu, 21 May 2015 18:53:01 -0400 (EDT)
+Message-ID: <20150521.185301.1643144249667063842.davem@davemloft.net>
+References: <20150520155253.86202203D@prod-mail-relay06.akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: ecree@solarflare.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: jbaron@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40722 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40738 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754764AbbEUWwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 18:52:12 -0400
-In-Reply-To: <555CACF5.9060803@solarflare.com>
+	with ESMTP id S1753988AbbEUWxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 18:53:03 -0400
+In-Reply-To: <20150520155253.86202203D@prod-mail-relay06.akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Wed, 20 May 2015 16:49:09 +0100
+From: Jason Baron <jbaron@akamai.com>
+Date: Wed, 20 May 2015 15:52:53 +0000 (GMT)
 
-> This patchset adds support for logging MCDI (Management-Controller-to-
->  Driver Interface) interactions between the sfc driver and a bound device,
->  to aid in debugging.
-> Solarflare has a tool to decode the resulting traces and will look to
->  open-source this if there is any external interest, but the protocol is
->  already detailed in drivers/net/ethernet/sfc/mcdi_pcol.h.
+> From: Jason Baron <jbaron@akamai.com>
 > 
-> v2: avoid long lines in cover letter; fix multiline comment style
+> We currently rely on the setting of SOCK_NOSPACE in the write()
+> path to ensure that we wake up any epoll edge trigger waiters when
+> acks return to free space in the write queue. However, if we fail
+> to allocate even a single skb in the write queue, we could end up
+> waiting indefinitely.
+> 
+> Fix this by explicitly issuing a wakeup when we detect the condition
+> of an empty write queue and a return value of -EAGAIN. This allows
+> userspace to re-try as we expect this to be a temporary failure.
+> 
+> I've tested this approach by artificially making
+> sk_stream_alloc_skb() return NULL periodically. In that case,
+> epoll edge trigger waiters will hang indefinitely in epoll_wait()
+> without this patch.
+> 
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
+> ---
+> v2:
+> - ensure it compiles :)
 
-All of this work to allocate the buffer, add messages to it, and dump it
-to some user obtainable location duplicates existing infrastructure in
-the kernel.
-
-Please do not do this, and instead use the kernel's existing tracing
-infrastructure to implement this.
-
-I do not care how much time and effort you've already invested in your
-existing tool, you should have thought about that when designing this
-in the first place.
+Applied, thanks Jason :)
