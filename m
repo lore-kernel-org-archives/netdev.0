@@ -1,113 +1,86 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2 net-next 1/4] net: skbuff: add skb_append_pagefrags and use it
-Date: Thu, 21 May 2015 11:39:13 +0200
-Message-ID: <255dfe7cbcbeb3f6fad7d4cf567625ae201d8eb3.1432200344.git.hannes@stressinduktion.org>
-References: <cover.1432200343.git.hannes@stressinduktion.org>
-Cc: edumazet@google.com, cwang@twopensource.com
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 09/10] pktgen: add sample script
+ pktgen_sample03_burst_single_flow.sh
+Date: Thu, 21 May 2015 11:47:35 +0200
+Message-ID: <20150521114735.4e2ea1a1@redhat.com>
+References: <20150519213326.9070.18264.stgit@ivy>
+	<20150519213639.9070.50273.stgit@ivy>
+	<CAHA+R7NVB8EaiSMQeEw9atPy_7hz0YrBSazMK9zwDEJC5CpB2w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <borkmann@iogearbox.net>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Robert Olsson <robert@herjulf.se>,
+	Ben Greear <greearb@candelatech.com>, brouer@redhat.com
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:40118 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753891AbbEUJjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 05:39:23 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by mailout.nyi.internal (Postfix) with ESMTP id A483020BEA
-	for <netdev@vger.kernel.org>; Thu, 21 May 2015 05:39:22 -0400 (EDT)
-In-Reply-To: <cover.1432200343.git.hannes@stressinduktion.org>
-In-Reply-To: <cover.1432200343.git.hannes@stressinduktion.org>
-References: <cover.1432200343.git.hannes@stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48824 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751760AbbEUJrm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 05:47:42 -0400
+In-Reply-To: <CAHA+R7NVB8EaiSMQeEw9atPy_7hz0YrBSazMK9zwDEJC5CpB2w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
-v2:
-* remove now unused variable i in ip_append_page (thanks, Cong!)
-* switched to EXPORT_SYMBOL_GPL for skb_append_pagefrags
+On Wed, 20 May 2015 14:33:42 -0700
+Cong Wang <cwang@twopensource.com> wrote:
 
- include/linux/skbuff.h |  3 +++
- net/core/skbuff.c      | 18 ++++++++++++++++++
- net/ipv4/ip_output.c   | 15 ++++-----------
- 3 files changed, 25 insertions(+), 11 deletions(-)
+> On Tue, May 19, 2015 at 2:36 PM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> > +# Threads are specified with parameter -t value in $THREADS
+> > +for ((thread = 0; thread < $THREADS; thread++)); do
+> > +    dev=${DEV}@${thread}
+> > +
+> > +    # Add remove all other devices and add_device $dev to thread
+> > +    pg_thread $thread "rem_device_all"
+> > +    pg_thread $thread "add_device" $dev
+> > +
+> > +    # Base config
+> > +    pg_set $dev "flag QUEUE_MAP_CPU"
+> > +    pg_set $dev "count $COUNT"
+> > +    pg_set $dev "clone_skb $CLONE_SKB"
+> > +    pg_set $dev "pkt_size $PKT_SIZE"
+> > +    pg_set $dev "delay $DELAY"
+> > +    pg_set $dev "flag NO_TIMESTAMP"
+> > +
+> > +    # Destination
+> > +    pg_set $dev "dst_mac $DST_MAC"
+> > +    pg_set $dev "dst $DEST_IP"
+> > +
+> > +    # Setup burst, for easy testing -b 0 disable bursting
+> > +    # (internally in pktgen default and minimum burst=1)
+> > +    if [[ ${BURST} != 0 ]]; then
+> 
+> 
+> Nit: probably you mean: [[ ${BURST} -ne 0 ]]
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 40960fe..b9d267b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -860,6 +860,9 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
- 					int len, int odd, struct sk_buff *skb),
- 			    void *from, int length);
- 
-+int skb_append_pagefrags(struct sk_buff *skb, struct page *page,
-+			 int offset, size_t size);
-+
- struct skb_seq_state {
- 	__u32		lower_offset;
- 	__u32		upper_offset;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f3fe9bd..4f2babe 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2915,6 +2915,24 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
- }
- EXPORT_SYMBOL(skb_append_datato_frags);
- 
-+int skb_append_pagefrags(struct sk_buff *skb, struct page *page,
-+			 int offset, size_t size)
-+{
-+	int i = skb_shinfo(skb)->nr_frags;
-+
-+	if (skb_can_coalesce(skb, i, page, offset)) {
-+		skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], size);
-+	} else if (i < MAX_SKB_FRAGS) {
-+		get_page(page);
-+		skb_fill_page_desc(skb, i, page, offset, size);
-+	} else {
-+		return -EMSGSIZE;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(skb_append_pagefrags);
-+
- /**
-  *	skb_pull_rcsum - pull skb and update receive checksum
-  *	@skb: buffer to update
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 8d91b92..451b009 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1233,11 +1233,9 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
- 	}
- 
- 	while (size > 0) {
--		int i;
--
--		if (skb_is_gso(skb))
-+		if (skb_is_gso(skb)) {
- 			len = size;
--		else {
-+		} else {
- 
- 			/* Check if the remaining data fits into current packet. */
- 			len = mtu - skb->len;
-@@ -1289,15 +1287,10 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
- 			continue;
- 		}
- 
--		i = skb_shinfo(skb)->nr_frags;
- 		if (len > size)
- 			len = size;
--		if (skb_can_coalesce(skb, i, page, offset)) {
--			skb_frag_size_add(&skb_shinfo(skb)->frags[i-1], len);
--		} else if (i < MAX_SKB_FRAGS) {
--			get_page(page);
--			skb_fill_page_desc(skb, i, page, offset, len);
--		} else {
-+
-+		if (skb_append_pagefrags(skb, page, offset, len)) {
- 			err = -EMSGSIZE;
- 			goto error;
- 		}
+With bash this still works (comparing it as a string), but I guess it
+is more correct as you propose to compare it as a number.
+
+You do realize that this cause $BURST to be evaluated as an arithmetic
+expression, thus input like "10-10" will also disable bursting.
+
+In bash it's also possible to write as: (( $BURST != 0 )) to be more
+explicit that this is an arithmetic expression, and then we don't use
+the -eq, -ne etc.
+
+I'm fine with taking your proposal, as it also works with single "["
+(although it does not fall for the arithmetic expansion).
+
+
+> > +       pg_set $dev "burst $BURST"
+> > +    else
+> > +       info "$dev: Not using burst"
+> > +    fi
+> > +done
+
+
+
 -- 
-2.1.0
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
