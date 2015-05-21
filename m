@@ -1,67 +1,105 @@
-From: Chris Leech <cleech@redhat.com>
-Subject: Re: [RFC PATCH 0/4] Make iSCSI network namespace aware
-Date: Thu, 21 May 2015 13:26:05 -0700
-Message-ID: <20150521202605.GE17115@straylight.hirudinean.org>
-References: <1431555167-23995-1-git-send-email-cleech@redhat.com>
- <555CD657.6080004@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] bridge: fix lockdep splat
+Date: Thu, 21 May 2015 13:28:29 -0700
+Message-ID: <1432240109.4060.116.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-scsi@vger.kernel.org, netdev@vger.kernel.org
-To: open-iscsi@googlegroups.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <555CD657.6080004@redhat.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Dominick Grift <dac.override@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: Josh Boyer <jwboyer@fedoraproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:37196 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964913AbbEUU2b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 16:28:31 -0400
+Received: by igbsb11 with SMTP id sb11so17971596igb.0
+        for <netdev@vger.kernel.org>; Thu, 21 May 2015 13:28:30 -0700 (PDT)
+In-Reply-To: <CA+5PVA5gE_pG5iPKBgugsEjLsOYvq9bWKfB+2OeEujjdOb+URg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 20, 2015 at 11:45:43AM -0700, Andy Grover wrote:
-> On 05/13/2015 03:12 PM, Chris Leech wrote:
-> >This is only about the structures and functionality involved in maintaining the
-> >iSCSI session, the SCSI host along with it's discovered targets and devices has
-> >no association with network namespaces.
-> >
-> >These patches are functional, but not complete.  There's no isolation enforced
-> >in the kernel just yet, so it relies on well behaved userspace.  I plan on
-> >fixing that, but wanted some feedback on the idea and approach so far.
-> 
-> Seems like a good direction, to me.
-> 
-> What would be the extent of the userspace (open-iscsi) changes needed to go
-> along with this?
+From: Eric Dumazet <edumazet@google.com>
 
-There's no core changes needed in the open-iscsi tools, it's more a
-matter of how iscsid is packaged and executed.
+Following lockdep splat was reported :
 
-The control socket between iscsid and iscsiadm binds to an abstract unix
-domain path, so that works fine as long as you run iscsiadm from within
-the same net ns as the iscsid instance you want to talk to.
+[   29.382286] ===============================
+[   29.382315] [ INFO: suspicious RCU usage. ]
+[   29.382344] 4.1.0-0.rc0.git11.1.fc23.x86_64 #1 Not tainted
+[   29.382380] -------------------------------
+[   29.382409] net/bridge/br_private.h:626 suspicious
+rcu_dereference_check() usage!
+[   29.382455]
+               other info that might help us debug this:
 
-The pid file checks clash if /var/run is common between instances.
-Putting iscsid in a container could provide separate config files and
-configuration databases, but there may be something that could improve
-handling there.
+[   29.382507]
+               rcu_scheduler_active = 1, debug_locks = 0
+[   29.382549] 2 locks held by swapper/0/0:
+[   29.382576]  #0:  (((&p->forward_delay_timer))){+.-...}, at:
+[<ffffffff81139f75>] call_timer_fn+0x5/0x4f0
+[   29.382660]  #1:  (&(&br->lock)->rlock){+.-...}, at:
+[<ffffffffa0450dc1>] br_forward_delay_timer_expired+0x31/0x140
+[bridge]
+[   29.382754]
+               stack backtrace:
+[   29.382787] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
+4.1.0-0.rc0.git11.1.fc23.x86_64 #1
+[   29.382838] Hardware name: LENOVO 422916G/LENOVO, BIOS A1KT53AUS 04/07/2015
+[   29.382882]  0000000000000000 3ebfc20364115825 ffff880666603c48
+ffffffff81892d4b
+[   29.382943]  0000000000000000 ffffffff81e124e0 ffff880666603c78
+ffffffff8110bcd7
+[   29.383004]  ffff8800785c9d00 ffff88065485ac58 ffff880c62002800
+ffff880c5fc88ac0
+[   29.383065] Call Trace:
+[   29.383084]  <IRQ>  [<ffffffff81892d4b>] dump_stack+0x4c/0x65
+[   29.383130]  [<ffffffff8110bcd7>] lockdep_rcu_suspicious+0xe7/0x120
+[   29.383178]  [<ffffffffa04520f9>] br_fill_ifinfo+0x4a9/0x6a0 [bridge]
+[   29.383225]  [<ffffffffa045266b>] br_ifinfo_notify+0x11b/0x4b0 [bridge]
+[   29.383271]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
+[   29.383320]  [<ffffffffa0450de8>]
+br_forward_delay_timer_expired+0x58/0x140 [bridge]
+[   29.383371]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
+[   29.383416]  [<ffffffff8113a033>] call_timer_fn+0xc3/0x4f0
+[   29.383454]  [<ffffffff81139f75>] ? call_timer_fn+0x5/0x4f0
+[   29.383493]  [<ffffffff8110a90f>] ? lock_release_holdtime.part.29+0xf/0x200
+[   29.383541]  [<ffffffffa0450d90>] ? br_hold_timer_expired+0x70/0x70 [bridge]
+[   29.383587]  [<ffffffff8113a6a4>] run_timer_softirq+0x244/0x490
+[   29.383629]  [<ffffffff810b68cc>] __do_softirq+0xec/0x670
+[   29.383666]  [<ffffffff810b70d5>] irq_exit+0x145/0x150
+[   29.383703]  [<ffffffff8189f506>] smp_apic_timer_interrupt+0x46/0x60
+[   29.383744]  [<ffffffff8189d523>] apic_timer_interrupt+0x73/0x80
+[   29.383782]  <EOI>  [<ffffffff816f131f>] ? cpuidle_enter_state+0x5f/0x2f0
+[   29.383832]  [<ffffffff816f131b>] ? cpuidle_enter_state+0x5b/0x2f0
 
-I've been testing using 'ip netns exec' to run iscsid in a new network
-namespace (it actually crates a new mount namespace as well, to remount
-/sys with the new namespace filtered view).
+Problem here is that br_forward_delay_timer_expired() is a timer
+handler, calling br_ifinfo_notify() which assumes either rcu_read_lock()
+or RTNL are held.
 
-My test setup so far has been the following:
+Simplest fix seems to add rcu read lock section.
 
-  A VM with two virtio network interfaces on different virtual networks.
-  I have an iSCSI target configured with two portals, one on each
-  virtual network.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Josh Boyer <jwboyer@fedoraproject.org>
+Reported-by: Dominick Grift <dac.override@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+---
+ net/bridge/br_stp_timer.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-  I create two new network namespaces with 'ip netns add' and then move
-  the nics into them with 'ip link <dev> netns <ns>' and bring them
-  online.
-
-  Using 'ip netns exec' I start up an iscsid instance in each namespace,
-  using the --foreground option to avoid the PID file clash.
-
-  Form within each namespace I can run iscsiadm to manage sessions
-  through one of the iscsid instances.  With this setup they share the
-  persistent configuration database, so I specifically select which
-  records to start/stop.
-
-- Chris
-
+diff --git a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
+index 4fcaa67750fda845ad0a180332c4cd96a9524086..7caf7fae2d5b8aa369b924e1c87a47c343fb8954 100644
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -97,7 +97,9 @@ static void br_forward_delay_timer_expired(unsigned long arg)
+ 		netif_carrier_on(br->dev);
+ 	}
+ 	br_log_state(p);
++	rcu_read_lock();
+ 	br_ifinfo_notify(RTM_NEWLINK, p);
++	rcu_read_unlock();
+ 	spin_unlock(&br->lock);
+ }
+ 
