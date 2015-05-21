@@ -1,56 +1,155 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: netfilter: ensure number of counters is >0 in do_replace()
-Date: Thu, 21 May 2015 13:42:03 +0200
-Message-ID: <20150521114203.GA5353@salvia>
-References: <20150519231120.GA1761@codemonkey.org.uk>
- <20150519231950.GA30845@breakpoint.cc>
- <20150519234252.GA17307@codemonkey.org.uk>
- <20150519.202043.366626459892331717.davem@davemloft.net>
- <20150520005517.GA7998@codemonkey.org.uk>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: [PATCH 3/3] ipvlan: set dev_id for l2 ports to generate unique
+ IPv6 addresses
+Date: Thu, 21 May 2015 14:38:20 +0300
+Message-ID: <555DC3AC.5020604@yandex-team.ru>
+References: <20150514134657.14062.87579.stgit@buzz> <20150514135620.14062.1034.stgit@buzz> <CAF2d9jg0abaZY+w54yWTgYgOxJbJTQsf5nhgXJYhA8hOC=C2CQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	fw@strlen.de, David Miller <davem@davemloft.net>
-To: Dave Jones <davej@codemonkey.org.uk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150520005517.GA7998@codemonkey.org.uk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Benc <jbenc@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:37260 "EHLO
+	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751765AbbEULi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 07:38:26 -0400
+In-Reply-To: <CAF2d9jg0abaZY+w54yWTgYgOxJbJTQsf5nhgXJYhA8hOC=C2CQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 19, 2015 at 08:55:17PM -0400, Dave Jones wrote:
-> After improving setsockopt() coverage in trinity, I started triggering
-> vmalloc failures pretty reliably from this code path:
-> 
-> warn_alloc_failed+0xe9/0x140
-> __vmalloc_node_range+0x1be/0x270
-> vzalloc+0x4b/0x50
-> __do_replace+0x52/0x260 [ip_tables]
-> do_ipt_set_ctl+0x15d/0x1d0 [ip_tables]
-> nf_setsockopt+0x65/0x90
-> ip_setsockopt+0x61/0xa0
-> raw_setsockopt+0x16/0x60
-> sock_common_setsockopt+0x14/0x20
-> SyS_setsockopt+0x71/0xd0
-> 
-> It turns out we don't validate that the num_counters field in the
-> struct we pass in from userspace is initialized.
-> 
-> The same problem also exists in ebtables, arptables, ipv6, and the
-> compat variants.
+On 20.05.2015 02:59, Mahesh Bandewar wrote:
+> On Thu, May 14, 2015 at 6:56 AM, Konstantin Khlebnikov
+> <khlebnikov@yandex-team.ru> wrote:
+>> All ipvlan ports use one MAC address, this way ipv6 RA tries to assign
+>> one ipv6 address to all of them. This patch assigns unique dev_id to each
+>> ipvlan port. This field is used instead of common FF-FE in Modified EUI-64.
+>>
+>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>> ---
+>>   Documentation/networking/ipvlan.txt |   12 +++++++++++-
+>>   drivers/net/ipvlan/ipvlan.h         |    1 +
+>>   drivers/net/ipvlan/ipvlan_main.c    |   20 ++++++++++++++++++++
+>>   3 files changed, 32 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/Documentation/networking/ipvlan.txt b/Documentation/networking/ipvlan.txt
+>> index cf996394e466..cb0b777bce58 100644
+>> --- a/Documentation/networking/ipvlan.txt
+>> +++ b/Documentation/networking/ipvlan.txt
+>> @@ -24,7 +24,7 @@ using IProute2/ip utility.
+>>
+>>          ip link add link <master-dev> <slave-dev> type ipvlan mode { l2 | L3 }
+>>
+>> -       e.g. ip link add link ipvl0 eth0 type ipvlan mode l2
+>> +       e.g. ip link add link eth0 ipvl0 type ipvlan mode l2
+>>
+>>
+>>   4. Operating modes:
+>> @@ -41,6 +41,15 @@ slave device and packets are switched and queued to the master device to send
+>>   out. In this mode the slaves will RX/TX multicast and broadcast (if applicable)
+>>   as well.
+>>
+>> +       In L2 mode slave devices receive Router Advertisements from the network
+>> +and perform autoconfiguration as well as master device. Each port has unique
+>> +16-bit device id which is used for filling octets 4-5 of Modified EUI-64.
+>> +That gives 65533 addresses (FF-FE used by master, FF-FF/00-00 reserved/not used).
+>> +
+> This is nice, thanks for fixing this! However how is "unique" id
+> guaranteed? Especially when multiple virtual drivers are stacked? Not
+> necessarily all of them may use the dev_id, but to avoid any possible
+> collision, shouldn't the device hierarchy (especially lower_dev) be
+> traversed before settling on the initial value?
 
-Applied.
+Well, uniqueness isn't guaranteed but that should work in most cases.
+ipv6 anyway checks for duplicate addresses after configuration.
 
-This also applies to -stable kernels:
+As I see creation of ipvlan on ipvlan just creates slave at original
+master device, so this will work as expected. And ipvlan cannot share 
+physical device with bonding/bridge/macvlan, so I don't see how to
+stack more than one layer of ipvlans accidentally.
 
-3.2.x
-3.4.x
-3.10.x
-3.12.x
-3.14.x
-3.18.x
-4.0.x
+>
+>> +       Also lower half of IPv6 address could be set as interface token:
+>> +
+>> +       ip token set ::aaaa:bbbb:cccc:dddd dev ipvl0
+>> +
+>>   4.2 L3 mode:
+>>          In this mode TX processing upto L3 happens on the stack instance attached
+>>   to the slave device and packets are switched to the stack instance of the
+>> @@ -105,3 +114,4 @@ namespace where L2 on the slave could be changed / misused.
+>>                          (4) ip -4 addr add 127.0.0.1 dev lo
+>>                          (5) ip -4 addr add $IPADDR dev ipvl1
+>>                          (6) ip -4 route add default via $ROUTER dev ipvl1
+>> +
+>> diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+>> index 54549a6223dd..1ebab84e7a0e 100644
+>> --- a/drivers/net/ipvlan/ipvlan.h
+>> +++ b/drivers/net/ipvlan/ipvlan.h
+>> @@ -95,6 +95,7 @@ struct ipvl_port {
+>>          struct rcu_head         rcu;
+>>          int                     count;
+>>          u16                     mode;
+>> +       struct ida              ida;
+>>   };
+>>
+>>   static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
+>> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+>> index 0cafd3e6f02d..dee0e8441150 100644
+>> --- a/drivers/net/ipvlan/ipvlan_main.c
+>> +++ b/drivers/net/ipvlan/ipvlan_main.c
+>> @@ -53,6 +53,7 @@ static int ipvlan_port_create(struct net_device *dev)
+>>          INIT_LIST_HEAD(&port->ipvlans);
+>>          for (idx = 0; idx < IPVLAN_HASH_SIZE; idx++)
+>>                  INIT_HLIST_HEAD(&port->hlhead[idx]);
+>> +       ida_init(&port->ida);
+>>
+>>          err = netdev_rx_handler_register(dev, ipvlan_handle_frame, port);
+>>          if (err)
+>> @@ -72,6 +73,7 @@ static void ipvlan_port_destroy(struct net_device *dev)
+>>
+>>          dev->priv_flags &= ~IFF_IPVLAN_MASTER;
+>>          netdev_rx_handler_unregister(dev);
+>> +       ida_destroy(&port->ida);
+>>          kfree_rcu(port, rcu);
+>>   }
+>>
+>> @@ -484,6 +486,18 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+>>           */
+>>          memcpy(dev->dev_addr, phy_dev->dev_addr, ETH_ALEN);
+>>
+>> +       if (port->mode == IPVLAN_MODE_L2) {
+>> +               /*
+>> +                * IPv6 addrconf uses it to produce unique addresses,
+>> +                * see function addrconf_ifid_eui48.
+>> +                */
+>> +               err = ida_simple_get(&port->ida, 1, 0xFFFE, GFP_KERNEL);
+>> +               if (err > 0)
+>> +                       dev->dev_id = err;
+>> +               else if (err != -ENOSPC)
+>> +                       goto ipvlan_destroy_port;
+>> +       }
+>> +
+>>          dev->priv_flags |= IFF_IPVLAN_SLAVE;
+>>
+>>          port->count += 1;
+>> @@ -518,6 +532,12 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+>>                          list_del(&addr->anode);
+>>                  }
+>>          }
+>> +
+>> +       if (dev->dev_id) {
+>> +               ida_simple_remove(&ipvlan->port->ida, dev->dev_id);
+>> +               dev->dev_id = 0;
+>> +       }
+>> +
+>>          list_del_rcu(&ipvlan->pnode);
+>>          unregister_netdevice_queue(dev, head);
+>>          netdev_upper_dev_unlink(ipvlan->phy_dev, dev);
+>>
 
-so after some testing and a little while, I'll pass this on.
 
-Thanks.
+-- 
+Konstantin
