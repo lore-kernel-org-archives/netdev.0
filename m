@@ -1,55 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 0/7] crypto: Convert all AEAD users to new interface
-Date: Thu, 21 May 2015 18:39:39 +0800
-Message-ID: <20150521103938.GA23035@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next] bridge: skip fdb add if the port shouldn't learn
+Date: Thu, 21 May 2015 03:42:57 -0700
+Message-ID: <1432204977-4293-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: wkok@cumulusnetworks.com, davem@davemloft.net,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36143 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753309AbbEUKns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 06:43:48 -0400
+Received: by pabts4 with SMTP id ts4so101232270pab.3
+        for <netdev@vger.kernel.org>; Thu, 21 May 2015 03:43:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi:
+From: Wilson Kok <wkok@cumulusnetworks.com>
 
-This series of patches convert all in-tree AEAD users that I
-could find to the new single SG list interface.  For IPsec it
-also adopts the new explicit IV generator scheme.
+Check in fdb_add_entry() if the source port should learn, similar
+check is used in br_fdb_update.
+Note that new fdb entries which are added manually or
+as local ones are still permitted.
+This patch has been tested by running traffic via a bridge port and
+switching the port's state, also by manually adding/removing entries
+from the bridge's fdb.
 
-To recap, the old AEAD interface takes an associated data (AD)
-SG list in addition to the plain/cipher text SG list(s).  That
-forces the underlying AEAD algorithm implementors to try to stitch
-those two lists together where possible in order to maximise the
-contiguous chunk of memory passed to the ICV/hash function.  Things
-get even more hairy for IPsec as it has a third piece of memory,
-the generated IV (giv) that needs to be hashed.  One look at the
-nasty things authenc does for example is enough to make anyone
-puke :)
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+Nik: Maybe it'd be better if we returned an error even though it
+     doesn't look necessary. I'm open to suggestions.
 
-In fact the interface is just getting in our way because for the
-main user IPsec the data is naturally contiguous as the protocol
-was designed with this in mind.
+ net/bridge/br_fdb.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-So the new AEAD interface gets rid of the separate AD SG list
-and instead simply requires the AD to be at the head of the src
-and dst SG lists.  There is further provision for optional space
-between the AD and the plain/cipher text for ease of implementation.
-
-The conversion of in-tree users is fairly straightforward.  The
-only non-trivial bit is IPsec as I'm taking this opportunity to
-move the IV generation knowledge into IPsec as that's where it
-belongs since we may in future wish to support different generation
-schemes for a single algorithm.
-
-As this depends on patches that have not hit mainline yet please
-do not apply them.
-
-Cheers,
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index e0670d7054f9..27de0b7bd76b 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -736,6 +736,12 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
+ 	struct net_bridge_fdb_entry *fdb;
+ 	bool modified = false;
+ 
++	/* If the port cannot learn allow only local and static entries */
++	if (!(state & NUD_PERMANENT) && !(state & NUD_NOARP) &&
++	    !(source->state == BR_STATE_LEARNING ||
++	      source->state == BR_STATE_FORWARDING))
++		return 0;
++
+ 	fdb = fdb_find(head, addr, vid);
+ 	if (fdb == NULL) {
+ 		if (!(flags & NLM_F_CREATE))
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.9.3
