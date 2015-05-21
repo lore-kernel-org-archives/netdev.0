@@ -1,51 +1,40 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH net-next 1/4] bpf: allow bpf programs to tail-call other
- bpf programs
-Date: Thu, 21 May 2015 09:20:46 -0700
-Message-ID: <CALCETrVNwOVRJ4KH6mEo4hPq_QjTCb8mcwRf1sy5kd1nmnSZ+A@mail.gmail.com>
-References: <1432079946-9878-1-git-send-email-ast@plumgrid.com>
- <1432079946-9878-2-git-send-email-ast@plumgrid.com> <CALCETrVP=7sCM12cCZVZCCMozGcHyqTsOFvjv7cEpc7Frxj4Xg@mail.gmail.com>
- <555BD2E4.5050608@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Michael Holzheu <holzheu-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	Zi Shen Lim <zlim.lnx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <555BD2E4.5050608-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Mark Salyzyn <salyzyn@android.com>
+Subject: net/unix: sk_socket can disappear when state is unlocked
+Date: Thu, 21 May 2015 09:25:32 -0700
+Message-ID: <1432225541-28498-1-git-send-email-salyzyn@android.com>
+Cc: Mark Salyzyn <salyzyn@android.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 19, 2015 at 5:18 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> On 5/19/15 5:13 PM, Andy Lutomirski wrote:
->>
->>
->> IMO this is starting to get a bit ugly.  Would it be possible to have
->> the program dereference the subprogram reference itself from the jump
->> table?  There would have to be a verifier type that represents a
->> reference to a program tail-call entry point, but that seems better
->> than having this weird indirection.
->
->
-> Which part? I don't think you've looked at examples yet.
-> network parser has to call itself. Otherwise we cannot parse 10 mpls
-> labels or TLVs.
-> Indirection via jump_table also has to be there.
-> We need to dynamically add and remove programs form this jump table.
-> It cannot be all static.
->
+got a rare NULL pointer dereference in clear_bit
 
-What I mean is: why do we need the interface to be "look up this index
-in an array and just to what it references" as a single atomic
-instruction?  Can't we break it down into first "look up this index in
-an array" and then "do this tail call"?
+Signed-off-by: Mark Salyzyn <salyzyn@android.com>
+---
+ net/unix/af_unix.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-I don't see why everything needs to be a map.
-
---Andy
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 5266ea7..37a8925 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1880,6 +1880,11 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
+ 		unix_state_unlock(sk);
+ 		timeo = freezable_schedule_timeout(timeo);
+ 		unix_state_lock(sk);
++
++		/* sk_socket may have been killed while unlocked */
++		if (!sk->sk_socket)
++			break;
++
+ 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+ 	}
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
