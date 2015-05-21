@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH v3 04/10] pktgen: document ability to add same device
-	to several threads
-Date: Thu, 21 May 2015 12:16:40 +0200
-Message-ID: <20150521101636.15148.31595.stgit@ivy>
+Subject: [net-next PATCH v3 06/10] pktgen: new pktgen helper functions for
+	samples scripts
+Date: Thu, 21 May 2015 12:17:19 +0200
+Message-ID: <20150521101706.15148.88090.stgit@ivy>
 References: <20150521101501.15148.10609.stgit@ivy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,134 +15,330 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
 	Cong Wang <cwang@twopensource.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53164 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40358 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751856AbbEUKRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 06:17:16 -0400
+	id S1754095AbbEUKR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 06:17:27 -0400
 In-Reply-To: <20150521101501.15148.10609.stgit@ivy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The pktgen.txt documentation still claimed that adding same device to
-multiple threads were not supported, but it have been since 2008 via
-commit e6fce5b916cd7 ("pktgen: multiqueue etc.").
+Preparing for removing existing samples/pktgen/ scripts, and
+replacing these with easier to use samples.
 
-Document this and describe the naming scheme dev@X, as the procfile name
-still need to be unique.
+This commit provides two helper shell files, that can
+be "included" by shell source'ing. Namely "functions.sh"
+and "parameters.sh".
 
-Fixes: e6fce5b916cd7 ("pktgen: multiqueue etc.")
+The parameters.sh file support easy and consistant parameter
+parsing across the sample scripts.  Usage example is printed on
+errors.
+
+The functions.sh file provides, three new shell functions for
+configuring the different components of pktgen: pg_ctrl(),
+pg_thread() and pg_set().  A slightly improved version of the old
+pgset() function is also provided for backwards compat.
+
+The new functions correspond to pktgens different components.
+ * pg_ctrl()   control "pgctrl" (/proc/net/pktgen/pgctrl)
+ * pg_thread() control the kernel threads and binding to devices
+ * pg_set()    control setup of individual devices
+
+These changes are borrowed from:
+ https://github.com/netoptimizer/network-testing/tree/master/pktgen
+
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+
 ---
+v2:
+ - remove useless cat's, but keep them in old pgset()
+ - add comment due to pgctrl, cannot use exit code $? from grep
 
- Documentation/networking/pktgen.txt |   77 +++++++++++++++++++++++------------
- 1 files changed, 50 insertions(+), 27 deletions(-)
 
-diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
-index d255434..e7ae8b2 100644
---- a/Documentation/networking/pktgen.txt
-+++ b/Documentation/networking/pktgen.txt
-@@ -50,16 +50,33 @@ For ixgbe use e.g. "30" resulting in approx 33K interrupts/sec (1/30*10^6):
-  # ethtool -C ethX rx-usecs 30
- 
- 
--Viewing threads
--===============
--/proc/net/pktgen/kpktgend_0
--Running:
--Stopped: eth1
--Result: OK: add_device=eth1
-+Kernel threads
-+==============
-+Pktgen creates a thread for each CPU with affinity to that CPU.
-+Which is controlled through procfile /proc/net/pktgen/kpktgend_X.
+ samples/pktgen/README.rst    |   43 +++++++++++++++
+ samples/pktgen/functions.sh  |  121 ++++++++++++++++++++++++++++++++++++++++++
+ samples/pktgen/parameters.sh |   97 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 261 insertions(+), 0 deletions(-)
+ create mode 100644 samples/pktgen/README.rst
+ create mode 100644 samples/pktgen/functions.sh
+ create mode 100644 samples/pktgen/parameters.sh
+
+diff --git a/samples/pktgen/README.rst b/samples/pktgen/README.rst
+new file mode 100644
+index 0000000..8365c4e
+--- /dev/null
++++ b/samples/pktgen/README.rst
+@@ -0,0 +1,43 @@
++Sample and benchmark scripts for pktgen (packet generator)
++==========================================================
++This directory contains some pktgen sample and benchmark scripts, that
++can easily be copied and adjusted for your own use-case.
 +
-+Example: /proc/net/pktgen/kpktgend_0
++General doc is located in kernel: Documentation/networking/pktgen.txt
 +
-+ Running:
-+ Stopped: eth4@0
-+ Result: OK: add_device=eth4@0
++Helper include files
++====================
++This directory contains two helper shell files, that can be "included"
++by shell source'ing.  Namely "functions.sh" and "parameters.sh".
 +
-+Most important are the devices assigned to the thread.
- 
--Most important are the devices assigned to the thread.  Note that a
--device can only belong to one thread.
-+The two basic thread commands are:
-+ * add_device DEVICE@NAME -- adds a single device
-+ * rem_device_all         -- remove all associated devices
- 
-+When adding a device to a thread, a corrosponding procfile is created
-+which is used for configuring this device. Thus, device names need to
-+be unique.
++Common parameters
++-----------------
++The parameters.sh file support easy and consistant parameter parsing
++across the sample scripts.  Usage example is printed on errors::
 +
-+To support adding the same device to multiple threads, which is useful
-+with multi queue NICs, a the device naming scheme is extended with "@":
-+ device@something
++ Usage: ./pktgen_sample01_simple.sh [-vx] -i ethX
++  -i : ($DEV)       output interface/device (required)
++  -s : ($PKT_SIZE)  packet size
++  -d : ($DEST_IP)   destination IP
++  -m : ($DST_MAC)   destination MAC-addr
++  -t : ($THREADS)   threads to start
++  -c : ($SKB_CLONE) SKB clones send before alloc new SKB
++  -b : ($BURST)     HW level bursting of SKBs
++  -v : ($VERBOSE)   verbose
++  -x : ($DEBUG)     debug
 +
-+The part after "@" can be anything, but it is custom to use the thread
-+number.
- 
- Viewing devices
- ===============
-@@ -68,29 +85,32 @@ The Params section holds configured information.  The Current section
- holds running statistics.  The Result is printed after a run or after
- interruption.  Example:
- 
--/proc/net/pktgen/eth1
-+/proc/net/pktgen/eth4@0
- 
--Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
--     frags: 0  delay: 0  clone_skb: 1000000  ifname: eth1
-+ Params: count 100000  min_pkt_size: 60  max_pkt_size: 60
-+     frags: 0  delay: 0  clone_skb: 64  ifname: eth4@0
-      flows: 0 flowlen: 0
--     dst_min: 10.10.11.2  dst_max: 
--     src_min:   src_max: 
--     src_mac: 00:00:00:00:00:00  dst_mac: 00:04:23:AC:FD:82
--     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
--     src_mac_count: 0  dst_mac_count: 0 
--     Flags: 
--Current:
--     pkts-sofar: 10000000  errors: 39664
--     started: 1103053986245187us  stopped: 1103053999346329us idle: 880401us
--     seq_num: 10000011  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
--     cur_saddr: 0x10a0a0a  cur_daddr: 0x20b0a0a
--     cur_udp_dst: 9  cur_udp_src: 9
-+     queue_map_min: 0  queue_map_max: 0
-+     dst_min: 192.168.81.2  dst_max:
-+     src_min:   src_max:
-+     src_mac: 90:e2:ba:0a:56:b4 dst_mac: 00:1b:21:3c:9d:f8
-+     udp_src_min: 9  udp_src_max: 109  udp_dst_min: 9  udp_dst_max: 9
-+     src_mac_count: 0  dst_mac_count: 0
-+     Flags: UDPSRC_RND  NO_TIMESTAMP  QUEUE_MAP_CPU
-+ Current:
-+     pkts-sofar: 100000  errors: 0
-+     started: 623913381008us  stopped: 623913396439us idle: 25us
-+     seq_num: 100001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
-+     cur_saddr: 192.168.8.3  cur_daddr: 192.168.81.2
-+     cur_udp_dst: 9  cur_udp_src: 42
-+     cur_queue_map: 0
-      flows: 0
--Result: OK: 13101142(c12220741+d880401) usec, 10000000 (60byte,0frags)
--  763292pps 390Mb/sec (390805504bps) errors: 39664
-+ Result: OK: 15430(c15405+d25) usec, 100000 (60byte,0frags)
-+  6480562pps 3110Mb/sec (3110669760bps) errors: 0
++The global variable being set is also listed.  E.g. the required
++interface/device parameter "-i" sets variable $DEV.
 +
- 
--Configuring threads and devices
--================================
-+Configuring devices
-+===================
- This is done via the /proc interface, and most easily done via pgset
- as defined in the sample scripts.
- 
-@@ -221,6 +241,9 @@ Note that when adding devices to a specific CPU it is a good idea to
- also assign /proc/irq/XX/smp_affinity so that the TX interrupts are bound
- to the same CPU.  This reduces cache bouncing when freeing skbs.
- 
-+Plus using the device flag QUEUE_MAP_CPU, which maps the SKBs TX queue
-+to the running threads CPU (directly from smp_processor_id()).
++Common functions
++----------------
++The functions.sh file provides; Three different shell functions for
++configuring the different components of pktgen: pg_ctrl(), pg_thread()
++and pg_set().
 +
- Enable IPsec
- ============
- Default IPsec transformation with ESP encapsulation plus transport mode
++These functions correspond to pktgens different components.
++ * pg_ctrl()   control "pgctrl" (/proc/net/pktgen/pgctrl)
++ * pg_thread() control the kernel threads and binding to devices
++ * pg_set()    control setup of individual devices
++
++See sample scripts for usage examples.
+diff --git a/samples/pktgen/functions.sh b/samples/pktgen/functions.sh
+new file mode 100644
+index 0000000..205e4cd
+--- /dev/null
++++ b/samples/pktgen/functions.sh
+@@ -0,0 +1,121 @@
++#
++# Common functions used by pktgen scripts
++#  - Depending on bash 3 (or higher) syntax
++#
++# Author: Jesper Dangaaard Brouer
++# License: GPL
++
++## -- General shell logging cmds --
++function err() {
++    local exitcode=$1
++    shift
++    echo "ERROR: $@" >&2
++    exit $exitcode
++}
++
++function warn() {
++    echo "WARN : $@" >&2
++}
++
++function info() {
++    if [[ -n "$VERBOSE" ]]; then
++	echo "INFO : $@" >&2
++    fi
++}
++
++## -- Pktgen proc config commands -- ##
++export PROC_DIR=/proc/net/pktgen
++#
++# Three different shell functions for configuring the different
++# components of pktgen:
++#   pg_ctrl(), pg_thread() and pg_set().
++#
++# These functions correspond to pktgens different components.
++# * pg_ctrl()   control "pgctrl" (/proc/net/pktgen/pgctrl)
++# * pg_thread() control the kernel threads and binding to devices
++# * pg_set()    control setup of individual devices
++function pg_ctrl() {
++    local proc_file="pgctrl"
++    proc_cmd ${proc_file} "$@"
++}
++
++function pg_thread() {
++    local thread=$1
++    local proc_file="kpktgend_${thread}"
++    shift
++    proc_cmd ${proc_file} "$@"
++}
++
++function pg_set() {
++    local dev=$1
++    local proc_file="$dev"
++    shift
++    proc_cmd ${proc_file} "$@"
++}
++
++# More generic replacement for pgset(), that does not depend on global
++# variable for proc file.
++function proc_cmd() {
++    local result
++    local proc_file=$1
++    # after shift, the remaining args are contained in $@
++    shift
++    local proc_ctrl=${PROC_DIR}/$proc_file
++    if [[ ! -e "$proc_ctrl" ]]; then
++	err 3 "proc file:$proc_ctrl does not exists (dev added to thread?)"
++    else
++	if [[ ! -w "$proc_ctrl" ]]; then
++	    err 4 "proc file:$proc_ctrl not writable, not root?!"
++	fi
++    fi
++
++    if [[ "$DEBUG" == "yes" ]]; then
++	echo "cmd: $@ > $proc_ctrl"
++    fi
++    # Quoting of "$@" is important for space expansion
++    echo "$@" > "$proc_ctrl"
++    local status=$?
++
++    result=$(grep "Result: OK:" $proc_ctrl)
++    # Due to pgctrl, cannot use exit code $? from grep
++    if [[ "$result" == "" ]]; then
++	grep "Result:" $proc_ctrl >&2
++    fi
++    if (( $status != 0 )); then
++	err 5 "Write error($status) occurred cmd: \"$@ > $proc_ctrl\""
++    fi
++}
++
++# Old obsolete "pgset" function, with slightly improved err handling
++function pgset() {
++    local result
++
++    if [[ "$DEBUG" == "yes" ]]; then
++	echo "cmd: $1 > $PGDEV"
++    fi
++    echo $1 > $PGDEV
++    local status=$?
++
++    result=`cat $PGDEV | fgrep "Result: OK:"`
++    if [[ "$result" == "" ]]; then
++         cat $PGDEV | fgrep Result:
++    fi
++    if (( $status != 0 )); then
++	err 5 "Write error($status) occurred cmd: \"$1 > $PGDEV\""
++    fi
++}
++
++## -- General shell tricks --
++
++function root_check_run_with_sudo() {
++    # Trick so, program can be run as normal user, will just use "sudo"
++    #  call as root_check_run_as_sudo "$@"
++    if [ "$EUID" -ne 0 ]; then
++	if [ -x $0 ]; then # Directly executable use sudo
++	    info "Not root, running with sudo"
++            sudo "$0" "$@"
++            exit $?
++	fi
++	err 4 "cannot perform sudo run of $0"
++    fi
++}
+diff --git a/samples/pktgen/parameters.sh b/samples/pktgen/parameters.sh
+new file mode 100644
+index 0000000..33b70fd
+--- /dev/null
++++ b/samples/pktgen/parameters.sh
+@@ -0,0 +1,97 @@
++#
++# Common parameter parsing for pktgen scripts
++#
++
++function usage() {
++    echo ""
++    echo "Usage: $0 [-vx] -i ethX"
++    echo "  -i : (\$DEV)       output interface/device (required)"
++    echo "  -s : (\$PKT_SIZE)  packet size"
++    echo "  -d : (\$DEST_IP)   destination IP"
++    echo "  -m : (\$DST_MAC)   destination MAC-addr"
++    echo "  -t : (\$THREADS)   threads to start"
++    echo "  -c : (\$SKB_CLONE) SKB clones send before alloc new SKB"
++    echo "  -b : (\$BURST)     HW level bursting of SKBs"
++    echo "  -v : (\$VERBOSE)   verbose"
++    echo "  -x : (\$DEBUG)     debug"
++    echo ""
++}
++
++##  --- Parse command line arguments / parameters ---
++## echo "Commandline options:"
++while getopts "s:i:d:m:t:c:b:vxh" option; do
++    case $option in
++        i) # interface
++          export DEV=$OPTARG
++	  info "Output device set to: DEV=$DEV"
++          ;;
++        s)
++          export PKT_SIZE=$OPTARG
++	  info "Packet size set to: PKT_SIZE=$PKT_SIZE bytes"
++          ;;
++        d) # destination IP
++          export DEST_IP=$OPTARG
++	  info "Destination IP set to: DEST_IP=$DEST_IP"
++          ;;
++        m) # MAC
++          export DST_MAC=$OPTARG
++	  info "Destination MAC set to: DST_MAC=$DST_MAC"
++          ;;
++        t)
++	  export THREADS=$OPTARG
++          export CPU_THREADS=$OPTARG
++	  let "CPU_THREADS -= 1"
++	  info "Number of threads to start: $THREADS (0 to $CPU_THREADS)"
++          ;;
++        c)
++	  export CLONE_SKB=$OPTARG
++	  info "CLONE_SKB=$CLONE_SKB"
++          ;;
++        b)
++	  export BURST=$OPTARG
++	  info "SKB bursting: BURST=$BURST"
++          ;;
++        v)
++          export VERBOSE=yes
++          info "Verbose mode: VERBOSE=$VERBOSE"
++          ;;
++        x)
++          export DEBUG=yes
++          info "Debug mode: DEBUG=$DEBUG"
++          ;;
++        h|?|*)
++          usage;
++          err 2 "[ERROR] Unknown parameters!!!"
++    esac
++done
++shift $(( $OPTIND - 1 ))
++
++if [ -z "$PKT_SIZE" ]; then
++    # NIC adds 4 bytes CRC
++    export PKT_SIZE=60
++    info "Default packet size set to: set to: $PKT_SIZE bytes"
++fi
++
++if [ -z "$THREADS" ]; then
++    # Zero CPU threads means one thread, because CPU numbers are zero indexed
++    export CPU_THREADS=0
++    export THREADS=1
++fi
++
++if [ -z "$DEV" ]; then
++    usage
++    err 2 "Please specify output device"
++fi
++
++if [ -z "$DST_MAC" ]; then
++    warn "Missing destination MAC address"
++fi
++
++if [ -z "$DEST_IP" ]; then
++    warn "Missing destination IP address"
++fi
++
++if [ ! -d /proc/net/pktgen ]; then
++    info "Loading kernel module: pktgen"
++    modprobe pktgen
++fi
