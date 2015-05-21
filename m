@@ -1,40 +1,43 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH -next] net: sched: pkt_cls: remove unused macros from
- uapi
-Date: Thu, 21 May 2015 09:42:36 -0400
-Message-ID: <555DE0CC.3030803@mojatatu.com>
-References: <1432167984-3612-1-git-send-email-fw@strlen.de>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] ath9k_htc: wmi: match wait_for_completion_timeout return type
+Date: Thu, 21 May 2015 16:59:09 +0300
+Message-ID: <87fv6q6ngy.fsf@kamboji.qca.qualcomm.com>
+References: <1431621821-8173-1-git-send-email-hofrat@osadl.org>
+	<87fv6zccny.fsf@kamboji.qca.qualcomm.com>
+	<20150514174025.GA22524@opentech.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com
-To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:34004 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756168AbbEUNmi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 09:42:38 -0400
-Received: by ieczm2 with SMTP id zm2so8374762iec.1
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 06:42:38 -0700 (PDT)
-In-Reply-To: <1432167984-3612-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicholas Mc Guire <hofrat@osadl.org>,
+	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+	linux-wireless@vger.kernel.org, ath9k-devel@venema.h4ckr.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nicholas Mc Guire <der.herr@hofr.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150514174025.GA22524@opentech.at> (Nicholas Mc Guire's message
+	of "Thu, 14 May 2015 19:40:25 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/20/15 20:26, Florian Westphal wrote:
-> Jamal points out that this header also contains kernel internal magic that
-> cannot be used from userspace for anything meaningful.
+Nicholas Mc Guire <der.herr@hofr.at> writes:
+
+> On Thu, 14 May 2015, Kalle Valo wrote:
 >
-> Lets remove what the kernel doesn't use anymore and wrap remainder with
-> __KERNEL__.
+>> Nicholas Mc Guire <hofrat@osadl.org> writes:
+>> 
+>> > Patch is against 4.1-rc3 (localversion-next is -next-20150514)
+>> 
+>> BTW, this info should be under "---" line so that it doesn't get stored
+>> to the actual commit log.
+>>
+> that is where I had been putting it until ask by Josh Triplett and 
+> Steven Rostedt to put it above the "---" line explicitly
+> see: http://lkml.org/lkml/2015/5/11/552 
 >
-> Suggested-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Suggested-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
+> So now I'm a bit lost where to actually put this buildtest info ?
 
-Thanks Florian. This one deserves:
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Different maintainers have different opinions, there is no one answer,
+but if Steven is okay to have this in the commit log so am I. So no need
+to change anything.
 
-
-cheers,
-jamal
+-- 
+Kalle Valo
