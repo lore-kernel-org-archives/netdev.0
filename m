@@ -1,86 +1,133 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 09/10] pktgen: add sample script
- pktgen_sample03_burst_single_flow.sh
-Date: Thu, 21 May 2015 11:47:35 +0200
-Message-ID: <20150521114735.4e2ea1a1@redhat.com>
-References: <20150519213326.9070.18264.stgit@ivy>
-	<20150519213639.9070.50273.stgit@ivy>
-	<CAHA+R7NVB8EaiSMQeEw9atPy_7hz0YrBSazMK9zwDEJC5CpB2w@mail.gmail.com>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: [PATCH 2/3] ipvlan: grab rcu_read_lock on xmit path
+Date: Thu, 21 May 2015 12:51:53 +0300
+Message-ID: <555DAAB9.5090700@yandex-team.ru>
+References: <20150514134657.14062.87579.stgit@buzz> <20150514135619.14062.97774.stgit@buzz> <CAF2d9jgKfEmAhO8_FMARirQ8DRqdhTtZ0xxOXUorry3oqNK_hA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <borkmann@iogearbox.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Robert Olsson <robert@herjulf.se>,
-	Ben Greear <greearb@candelatech.com>, brouer@redhat.com
-To: Cong Wang <cwang@twopensource.com>
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Benc <jbenc@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Mahesh Bandewar <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48824 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751760AbbEUJrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 05:47:42 -0400
-In-Reply-To: <CAHA+R7NVB8EaiSMQeEw9atPy_7hz0YrBSazMK9zwDEJC5CpB2w@mail.gmail.com>
+Received: from forward-corp1m.cmail.yandex.net ([5.255.216.100]:53951 "EHLO
+	forward-corp1m.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752331AbbEUJwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 05:52:01 -0400
+In-Reply-To: <CAF2d9jgKfEmAhO8_FMARirQ8DRqdhTtZ0xxOXUorry3oqNK_hA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 May 2015 14:33:42 -0700
-Cong Wang <cwang@twopensource.com> wrote:
+On 20.05.2015 02:33, Mahesh Bandewar wrote:
+> On Thu, May 14, 2015 at 6:56 AM, Konstantin Khlebnikov
+> <khlebnikov@yandex-team.ru> wrote:
+>>
+>> ipvlan_start_xmit() is called with rcu_read_lock_bh() while its internal
+>> structures requre normal rcu_read_lock().
+>>
+>> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+>>
+>> ---
+>>
+>> [  802.945151] ===============================
+>> [  802.945160] [ INFO: suspicious RCU usage. ]
+>> [  802.945164] 4.1.0-rc3+ #71 Not tainted
+>> [  802.945165] -------------------------------
+>> [  802.945167] drivers/net/ipvlan/ipvlan.h:103 suspicious rcu_dereference_check() usage!
+>> [  802.945168]
+>> [  802.945168] other info that might help us debug this:
+>> [  802.945168]
+>> [  802.945170]
+>> [  802.945170] rcu_scheduler_active = 1, debug_locks = 1
+>> [  802.945173] 3 locks held by ping6/3813:
+>> [  802.945174]  #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffff81880f72>] rawv6_sendmsg+0x512/0xbb0
+>> [  802.945197]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff8185e577>] ip6_finish_output2+0x57/0x790
+>> [  802.945205]  #2:  (rcu_read_lock_bh){......}, at: [<ffffffff8177a68b>] __dev_queue_xmit+0x4b/0x930
+>> [  802.945218]
+>> [  802.945218] stack backtrace:
+>> [  802.945221] CPU: 2 PID: 3813 Comm: ping6 Not tainted 4.1.0-rc3+ #71
+>> [  802.945222] Hardware name: OpenStack Foundation OpenStack Nova, BIOS Bochs 01/01/2011
+>> [  802.945224]  0000000000000001 ffff8800db7b7888 ffffffff819de6f8 0000000000000007
+>> [  802.945226]  ffff8800db738000 ffff8800db7b78b8 ffffffff810a7f92 ffff880214fc8c00
+>> [  802.945229]  ffff88021595b000 ffff88021595a000 ffff880214adf800 ffff8800db7b7968
+>> [  802.945232] Call Trace:
+>> [  802.945248]  [<ffffffff819de6f8>] dump_stack+0x4c/0x65
+>> [  802.945253]  [<ffffffff810a7f92>] lockdep_rcu_suspicious+0xe2/0x130
+>> [  802.945265]  [<ffffffff815e24ac>] ipvlan_queue_xmit+0x17c/0x5a0
+>> [  802.945268]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
+>> [  802.945271]  [<ffffffff815e300c>] ipvlan_start_xmit+0x1c/0x50
+>> [  802.945272]  [<ffffffff8177a117>] dev_hard_start_xmit+0x2f7/0x820
+>> [  802.945274]  [<ffffffff817797b6>] ? netif_skb_features+0xf6/0x1d0
+>> [  802.945276]  [<ffffffff81779b84>] ? validate_xmit_skb.isra.99.part.100+0x24/0x2c0
+>> [  802.945278]  [<ffffffff8177ad04>] __dev_queue_xmit+0x6c4/0x930
+>> [  802.945280]  [<ffffffff8177a68b>] ? __dev_queue_xmit+0x4b/0x930
+>> [  802.945281]  [<ffffffff810a963a>] ? mark_held_locks+0x6a/0x90
+>> [  802.945283]  [<ffffffff8177af8e>] dev_queue_xmit_sk+0xe/0x10
+>> [  802.945285]  [<ffffffff8185e824>] ip6_finish_output2+0x304/0x790
+>> [  802.945287]  [<ffffffff81860dde>] ? ip6_finish_output+0x9e/0x1e0
+>> [  802.945288]  [<ffffffff81860dde>] ip6_finish_output+0x9e/0x1e0
+>> [  802.945290]  [<ffffffff81860fdb>] ip6_output+0xbb/0x180
+>> [  802.945302]  [<ffffffff818a7d0a>] ? ip6_find_1stfragopt+0x9a/0xa0
+>> [  802.945304]  [<ffffffff81860d40>] ? ip6_fragment+0xe80/0xe80
+>> [  802.945306]  [<ffffffff818a805c>] ip6_local_out_sk+0x2c/0x70
+>> [  802.945308]  [<ffffffff818a80b0>] ip6_local_out+0x10/0x20
+>> [  802.945309]  [<ffffffff81861571>] ip6_send_skb+0x31/0xd0
+>> [  802.945311]  [<ffffffff81861644>] ip6_push_pending_frames+0x34/0x40
+>> [  802.945313]  [<ffffffff81881368>] rawv6_sendmsg+0x908/0xbb0
+>> [  802.945328]  [<ffffffff810aa5a4>] ? __lock_is_held+0x54/0x70
+>> [  802.945340]  [<ffffffff81817e9e>] inet_sendmsg+0x10e/0x1f0
+>> [  802.945343]  [<ffffffff81817d90>] ? inet_recvmsg+0x200/0x200
+>> [  802.945351]  [<ffffffff81758275>] sock_sendmsg+0x45/0x50
+>> [  802.945354]  [<ffffffff8175a719>] SYSC_sendto+0xd9/0x110
+>> [  802.945357]  [<ffffffff8175ac99>] SyS_sendto+0x9/0x10
+>> [  802.945362]  [<ffffffff819ebfae>] system_call_fastpath+0x12/0x76
+>> ---
+>>   drivers/net/ipvlan/ipvlan_main.c |    4 ++++
+>>   1 file changed, 4 insertions(+)
+>>
+>> diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+>> index 77b92a0fe557..0cafd3e6f02d 100644
+>> --- a/drivers/net/ipvlan/ipvlan_main.c
+>> +++ b/drivers/net/ipvlan/ipvlan_main.c
+>> @@ -173,6 +173,7 @@ static int ipvlan_stop(struct net_device *dev)
+>>          return 0;
+>>   }
+>>
+>> +/* called with rcu_read_lock_bh. */
+>>   static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+>>                                       struct net_device *dev)
+>>   {
+>> @@ -180,6 +181,7 @@ static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+>>          int skblen = skb->len;
+>>          int ret;
+>>
+>> +       rcu_read_lock();
+>
+> I don't believe this is correct. The correct way would be the way  it
+> is fixed in the following patch -
+> https://patchwork.ozlabs.org/patch/471481/
 
-> On Tue, May 19, 2015 at 2:36 PM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > +# Threads are specified with parameter -t value in $THREADS
-> > +for ((thread = 0; thread < $THREADS; thread++)); do
-> > +    dev=${DEV}@${thread}
-> > +
-> > +    # Add remove all other devices and add_device $dev to thread
-> > +    pg_thread $thread "rem_device_all"
-> > +    pg_thread $thread "add_device" $dev
-> > +
-> > +    # Base config
-> > +    pg_set $dev "flag QUEUE_MAP_CPU"
-> > +    pg_set $dev "count $COUNT"
-> > +    pg_set $dev "clone_skb $CLONE_SKB"
-> > +    pg_set $dev "pkt_size $PKT_SIZE"
-> > +    pg_set $dev "delay $DELAY"
-> > +    pg_set $dev "flag NO_TIMESTAMP"
-> > +
-> > +    # Destination
-> > +    pg_set $dev "dst_mac $DST_MAC"
-> > +    pg_set $dev "dst $DEST_IP"
-> > +
-> > +    # Setup burst, for easy testing -b 0 disable bursting
-> > +    # (internally in pktgen default and minimum burst=1)
-> > +    if [[ ${BURST} != 0 ]]; then
-> 
-> 
-> Nit: probably you mean: [[ ${BURST} -ne 0 ]]
+I'm not sure, that might just plug the warning without fixing problem.
+The rest code uses call_rcu()/synchronize_rcu(). Probably relation
+between quiescent states of rcu and rcu_bh isn't that easy.
 
-With bash this still works (comparing it as a string), but I guess it
-is more correct as you propose to compare it as a number.
-
-You do realize that this cause $BURST to be evaluated as an arithmetic
-expression, thus input like "10-10" will also disable bursting.
-
-In bash it's also possible to write as: (( $BURST != 0 )) to be more
-explicit that this is an arithmetic expression, and then we don't use
-the -eq, -ne etc.
-
-I'm fine with taking your proposal, as it also works with single "["
-(although it does not fall for the arithmetic expansion).
-
-
-> > +       pg_set $dev "burst $BURST"
-> > +    else
-> > +       info "$dev: Not using burst"
-> > +    fi
-> > +done
-
+>
+>>          ret = ipvlan_queue_xmit(skb, dev);
+>>          if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
+>>                  struct ipvl_pcpu_stats *pcptr;
+>> @@ -193,6 +195,8 @@ static netdev_tx_t ipvlan_start_xmit(struct sk_buff *skb,
+>>          } else {
+>>                  this_cpu_inc(ipvlan->pcpu_stats->tx_drps);
+>>          }
+>> +       rcu_read_unlock();
+>> +
+>>          return ret;
+>>   }
+>>
+>>
 
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Konstantin
