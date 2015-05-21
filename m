@@ -1,47 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: add tcpi_segs_in and tcpi_segs_out to
- tcp_info
-Date: Wed, 20 May 2015 17:52:34 -0700
-Message-ID: <1432169554.4060.71.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1430260098-14127-1-git-send-email-edumazet@google.com>
-	 <20150512130855.GA29412@localhost.localdomain>
-	 <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1432164941.4060.57.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <555D218D.50509@hp.com>
-	 <1432168631.4060.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <555D2B49.30702@hp.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: ingress policying for realtime protocol
+Date: Wed, 20 May 2015 18:47:16 -0700
+Message-ID: <CAHA+R7OJ8WUtPg7zah17DgkNFtcJznjnT0ys-qYN2c_Trm6S3A@mail.gmail.com>
+References: <20150519211145.GA23134@pengutronix.de>
+	<CAHA+R7N8wFKPzOR0EshWzcaTUd+ChMW0zb0=1go4oV_gxoAyiA@mail.gmail.com>
+	<1432168240.4060.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
-	Chris Rapier <rapier@psc.edu>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>, netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:37071 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150AbbEUAwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 20:52:36 -0400
-Received: by igbsb11 with SMTP id sb11so53476552igb.0
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 17:52:35 -0700 (PDT)
-In-Reply-To: <555D2B49.30702@hp.com>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:32808 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754286AbbEUBrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 21:47:17 -0400
+Received: by wgjc11 with SMTP id c11so70400690wgj.0
+        for <netdev@vger.kernel.org>; Wed, 20 May 2015 18:47:16 -0700 (PDT)
+In-Reply-To: <1432168240.4060.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2015-05-20 at 17:48 -0700, Rick Jones wrote:
-> On 05/20/2015 05:37 PM, Eric Dumazet wrote:
-> 
-> > Anyway, if we can send tcp data at 100Gbits on one flow, I guess we are
-> > doing a terrific job and do not need to tweak TCP stack anymore ;)
-> 
-> :)
-> 
+On Wed, May 20, 2015 at 5:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2015-05-20 at 16:46 -0700, Cong Wang wrote:
+>
+>> There is very little to do on ingress side since there is no queue at all,
+>> not to mention priority, you could try ifb to see if it fits your need.
+>
+> Note that if the need is to police traffic, ifb is not really needed :
+>
 
-Note that I have no particular strong feelings with these counters being
-32 or 64bits. Its adding 8 extra bytes and a bit more overhead, nothing
-more.
+You really need to read Uwe's email before reply,
+he mentioned prio qdisc:
+
+"I wonder
+what's missing to get ingress policying more versatile to allow for
+example a prio qdisc or if there is some conceptual problem that I don't
+see."
