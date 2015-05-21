@@ -1,152 +1,79 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH v4 net-next 4/4] rocker: make rocker_port_internal_vlan_id_{get,put}() non-transactional
-Date: Thu, 21 May 2015 12:40:17 +0900
-Message-ID: <1432179617-26642-5-git-send-email-simon.horman@netronome.com>
-References: <1432179617-26642-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Scott Feldman <sfeldma@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH net-next] bridge: allow setting hash_max +
+ multicast_router if interface is down
+Date: Thu, 21 May 2015 11:49:21 +0800
+Message-ID: <20150521034921.GA20427@gondor.apana.org.au>
+References: <1432177162-9573-1-git-send-email-linus.luessing@c0d3.blue>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:36228 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752692AbbEUDkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 23:40:46 -0400
-Received: by pabts4 with SMTP id ts4so90150371pab.3
-        for <netdev@vger.kernel.org>; Wed, 20 May 2015 20:40:45 -0700 (PDT)
-In-Reply-To: <1432179617-26642-1-git-send-email-simon.horman@netronome.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:37463 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753351AbbEUDtd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 23:49:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1432177162-9573-1-git-send-email-linus.luessing@c0d3.blue>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The motivation for this is that rocker_port_internal_vlan_id_{get,put} appear
-to only partially implement the transaction model: memory allocation
-and freeing is transactional, but hash and bitmap manipulation is not.
+On Thu, May 21, 2015 at 04:59:22AM +0200, Linus L=FCssing wrote:
+>=20
+> * For i=3Dbr_multicast_init(), e=3Dbr_multicast_enable() and
+>   s=3Dbr_multicast_stop() is the order i->e->s->e->s->e->... always
+>   ensured by the netdev API? Will this work even if I have
 
-The latter could be fixed, however, as it is not currently exercised
-due to trans always being SWITCHDEV_TRANS_NONE it seems cleaner
-to make rocker_port_internal_vlan_id_get non-transactional.
+br_multicast_init always happens first obviously.  But there is
+no ordering requirement between e and s.
 
-This problem was introduced by c4f20321d968 ("rocker: support
-prepare-commit transaction model").
+>   many fast and wild calls to "ip link set up dev br0" and
+>   "ip link set down dev br0" and some changes to hash_max and
+>   multicast_router in between?
 
-Found by inspection.
-I do not believe that this change should have any run-time effect.
+The timer operations are all supposed to be idempotent.  So enabling
+a port twice or stopping it twice should be OK.
 
-Acked-by: Scott Feldman <sfeldma@gmail.com>
-Acked-by: Jiri Pirko <jiri@resnulli.us>
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> * Might calls to br_multicast_add_router() via br_multicast_enable_po=
+rt()
+>   cause unintended side-effects?
 
----
-v4
-* Added Jiri Pirko's ack
-* Dropped Fixes tag as this should not have any run-time affect and
-  thus in my opinion is not a bug fix. I would not object to the fixes
-  tag being reinstated. If so it would be:
+What do you mean? How does add_router get called from enable_port?
 
-  Fixes: c4f20321d968 ("rocker: support prepare-commit transaction model")
+> * (maybe independent of this patch: )
+>   Can fast changes to the multicast_router attribute of a bridge (por=
+t)
+>   cause race conditions because a del_timer() instead of a
+>   del_timer_sync() is used in br_multicast_set_{port,}router()?
+>   (or: why does br_multicast_stop() use del_timer_sync() while
+>    br_multicast_disable_port() doesn't?)
 
-v3
-* No change
+I don't think so.  Firstly everything should happen under the
+multicast lock except for stop/del_port.  The latter rely on
+those adding timers to check netif_running and port !=3D disabled
+to avoid races.
 
-v2
-* Added Scott Feldman's ack
----
- drivers/net/ethernet/rocker/rocker.c | 21 +++++++--------------
- 1 file changed, 7 insertions(+), 14 deletions(-)
+Apart from that you can always mod_timer twice or del_timer
+twice so that's not really an issue.
 
-diff --git a/drivers/net/ethernet/rocker/rocker.c b/drivers/net/ethernet/rocker/rocker.c
-index 51744764acd7..701ffc200917 100644
---- a/drivers/net/ethernet/rocker/rocker.c
-+++ b/drivers/net/ethernet/rocker/rocker.c
-@@ -3853,7 +3853,6 @@ rocker_internal_vlan_tbl_find(struct rocker *rocker, int ifindex)
- }
- 
- static __be16 rocker_port_internal_vlan_id_get(struct rocker_port *rocker_port,
--					       enum switchdev_trans trans,
- 					       int ifindex)
- {
- 	struct rocker *rocker = rocker_port->rocker;
-@@ -3862,7 +3861,7 @@ static __be16 rocker_port_internal_vlan_id_get(struct rocker_port *rocker_port,
- 	unsigned long lock_flags;
- 	int i;
- 
--	entry = rocker_port_kzalloc(rocker_port, trans, sizeof(*entry));
-+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry)
- 		return 0;
- 
-@@ -3872,7 +3871,7 @@ static __be16 rocker_port_internal_vlan_id_get(struct rocker_port *rocker_port,
- 
- 	found = rocker_internal_vlan_tbl_find(rocker, ifindex);
- 	if (found) {
--		rocker_port_kfree(rocker_port, trans, entry);
-+		kfree(entry);
- 		goto found;
- 	}
- 
-@@ -3896,7 +3895,6 @@ found:
- }
- 
- static void rocker_port_internal_vlan_id_put(struct rocker_port *rocker_port,
--					     enum switchdev_trans trans,
- 					     int ifindex)
- {
- 	struct rocker *rocker = rocker_port->rocker;
-@@ -3918,7 +3916,7 @@ static void rocker_port_internal_vlan_id_put(struct rocker_port *rocker_port,
- 		bit = ntohs(found->vlan_id) - ROCKER_INTERNAL_VLAN_ID_BASE;
- 		clear_bit(bit, rocker->internal_vlan_bitmap);
- 		hash_del(&found->entry);
--		rocker_port_kfree(rocker_port, trans, found);
-+		kfree(found);
- 	}
- 
- not_found:
-@@ -4904,9 +4902,7 @@ static int rocker_probe_port(struct rocker *rocker, unsigned int port_number)
- 	rocker_port_set_learning(rocker_port, SWITCHDEV_TRANS_NONE);
- 
- 	rocker_port->internal_vlan_id =
--		rocker_port_internal_vlan_id_get(rocker_port,
--						 SWITCHDEV_TRANS_NONE,
--						 dev->ifindex);
-+		rocker_port_internal_vlan_id_get(rocker_port, dev->ifindex);
- 	err = rocker_port_ig_tbl(rocker_port, SWITCHDEV_TRANS_NONE, 0);
- 	if (err) {
- 		dev_err(&pdev->dev, "install ig port table failed\n");
-@@ -5154,7 +5150,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
- {
- 	int err;
- 
--	rocker_port_internal_vlan_id_put(rocker_port, SWITCHDEV_TRANS_NONE,
-+	rocker_port_internal_vlan_id_put(rocker_port,
- 					 rocker_port->dev->ifindex);
- 
- 	rocker_port->bridge_dev = bridge;
-@@ -5165,9 +5161,7 @@ static int rocker_port_bridge_join(struct rocker_port *rocker_port,
- 	if (err)
- 		return err;
- 	rocker_port->internal_vlan_id =
--		rocker_port_internal_vlan_id_get(rocker_port,
--						 SWITCHDEV_TRANS_NONE,
--						 bridge->ifindex);
-+		rocker_port_internal_vlan_id_get(rocker_port, bridge->ifindex);
- 	return rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE, 0, 0);
- }
- 
-@@ -5175,7 +5169,7 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
- {
- 	int err;
- 
--	rocker_port_internal_vlan_id_put(rocker_port, SWITCHDEV_TRANS_NONE,
-+	rocker_port_internal_vlan_id_put(rocker_port,
- 					 rocker_port->bridge_dev->ifindex);
- 
- 	rocker_port->bridge_dev = NULL;
-@@ -5187,7 +5181,6 @@ static int rocker_port_bridge_leave(struct rocker_port *rocker_port)
- 		return err;
- 	rocker_port->internal_vlan_id =
- 		rocker_port_internal_vlan_id_get(rocker_port,
--						 SWITCHDEV_TRANS_NONE,
- 						 rocker_port->dev->ifindex);
- 	err = rocker_port_vlan(rocker_port, SWITCHDEV_TRANS_NONE, 0, 0);
- 	if (err)
--- 
-2.1.4
+> * @Herbert: Do you remember whether there was a reason for
+>   checking netif_running() or the bridge port state which
+>   I might have overlooked?
+
+See above.  It's there so that you don't readd a timer when we're
+calling del_timer_sync.  del_timer_sync has to be called without
+the multicast lock so that's why we need another mechanism to
+prevent the timers from being readded.
+
+AFAICS the spots you patched aren't adding timers so they *should*
+be OK.
+
+Cheers,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
