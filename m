@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH v3 03/10] pktgen: doc were missing several config
-	options
-Date: Thu, 21 May 2015 12:16:26 +0200
-Message-ID: <20150521101622.15148.17024.stgit@ivy>
+Subject: [net-next PATCH v3 02/10] pktgen: adjust spacing in proc file
+	interface output
+Date: Thu, 21 May 2015 12:16:11 +0200
+Message-ID: <20150521101606.15148.29214.stgit@ivy>
 References: <20150521101501.15148.10609.stgit@ivy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,120 +15,34 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
 	Cong Wang <cwang@twopensource.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40247 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53072 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751928AbbEUKQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 06:16:33 -0400
+	id S1751856AbbEUKQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 May 2015 06:16:46 -0400
 In-Reply-To: <20150521101501.15148.10609.stgit@ivy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The pktgen.txt documentation over available config options were not complete.
-Making the list complete by adding the following.
+Too many spaces were introduced in commit 63adc6fb8ac0 ("pktgen: cleanup
+checkpatch warnings"), thus misaligning "src_min:" to other columns.
 
-Pgcontrol commands:
- reset
-
-Device commands:
- burst
- queue_map_min
- queue_map_max
- skb_priority
- tos
- traffic_class
- node
- spi
- dst6_max
- dst6_min
- vlan_cfi
- vlan_id
- vlan_p
- svlan_cfi
- svlan_id
- svlan_p
-
+Fixes: 63adc6fb8ac0 ("pktgen: cleanup checkpatch warnings")
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
- Documentation/networking/pktgen.txt |   25 ++++++++++++++++++++++++-
- 1 files changed, 24 insertions(+), 1 deletions(-)
+ net/core/pktgen.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
-index 62f5ebb..d255434 100644
---- a/Documentation/networking/pktgen.txt
-+++ b/Documentation/networking/pktgen.txt
-@@ -241,6 +241,7 @@ Current commands and configuration options
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 62f9799..167e592 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -572,7 +572,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 			   "     dst_min: %s  dst_max: %s\n",
+ 			   pkt_dev->dst_min, pkt_dev->dst_max);
+ 		seq_printf(seq,
+-			   "        src_min: %s  src_max: %s\n",
++			   "     src_min: %s  src_max: %s\n",
+ 			   pkt_dev->src_min, pkt_dev->src_max);
+ 	}
  
- start
- stop
-+reset
- 
- ** Thread commands:
- 
-@@ -252,6 +253,7 @@ rem_device_all
- 
- count
- clone_skb
-+burst
- debug
- 
- frags
-@@ -264,6 +266,13 @@ pkt_size
- min_pkt_size
- max_pkt_size
- 
-+queue_map_min
-+queue_map_max
-+skb_priority
-+
-+tos           (ipv4)
-+traffic_class (ipv6)
-+
- mpls
- 
- udp_src_min
-@@ -272,6 +281,8 @@ udp_src_max
- udp_dst_min
- udp_dst_max
- 
-+node
-+
- flag
-   IPSRC_RND
-   IPDST_RND
-@@ -292,6 +303,8 @@ flag
-   NODE_ALLOC
-   NO_TIMESTAMP
- 
-+spi (ipsec)
-+
- dst_min
- dst_max
- 
-@@ -303,8 +316,10 @@ src_mac
- 
- clear_counters
- 
--dst6
- src6
-+dst6
-+dst6_max
-+dst6_min
- 
- flows
- flowlen
-@@ -314,6 +329,14 @@ ratep
- 
- xmit_mode <start_xmit|netif_receive>
- 
-+vlan_cfi
-+vlan_id
-+vlan_p
-+
-+svlan_cfi
-+svlan_id
-+svlan_p
-+
- 
- References:
- ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/
