@@ -1,60 +1,67 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 20 May 2015 20:29:01 -0700
-Message-ID: <CAGVrzcY=Zf3BmSs2oEzc8Tmb=EHWcd_D+DB0fz1r=kiu9QyQKg@mail.gmail.com>
-References: <20150521125924.7518d904@canb.auug.org.au>
+From: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
+Subject: RE: [PATCH 7/7] fjes: Add ethtool support
+Date: Thu, 21 May 2015 03:30:18 +0000
+Message-ID: <E86EADE93E2D054CBCD4E708C38D364A5422DCDB@G01JPEXMBYT01>
+References: <E86EADE93E2D054CBCD4E708C38D364A5422D89B@G01JPEXMBYT01>
+ <20150520144347.72bdd228@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tim Beale <tim.beale@alliedtelesis.co.nz>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:35500 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753181AbbEUD3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 May 2015 23:29:43 -0400
-In-Reply-To: <20150521125924.7518d904@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-2022-jp"
+Cc: "platform-driver-x86@vger.kernel.org"
+	<platform-driver-x86@vger.kernel.org>,
+	"rkhan@redhat.com" <rkhan@redhat.com>,
+	"alexander.h.duyck@redhat.com" <alexander.h.duyck@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>
+To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Return-path: <platform-driver-x86-owner@vger.kernel.org>
+In-Reply-To: <20150520144347.72bdd228@lxorguk.ukuu.org.uk>
+Content-Language: ja-JP
+Sender: platform-driver-x86-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2015-05-20 19:59 GMT-07:00 Stephen Rothwell <sfr@canb.auug.org.au>:
-> Hi all,
->
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/phy/phy.c between commit c15e10e71ce3 ("net: phy: Make sure
-> phy_start() always re-enables the phy interrupts") from the net tree
-> and commit 3e2186e02112 ("net: phy: Add state machine state transitions
-> debug prints") from the net-next tree.
->
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+Hi Alen,
 
-Looks correct to me, thanks Stephen!
+  Thank you for your comment.
 
->
-> --
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
->
-> diff --cc drivers/net/phy/phy.c
-> index 47cd578052fc,1457ecf75dcc..000000000000
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@@ -783,7 -794,8 +808,8 @@@ void phy_state_machine(struct work_stru
->         struct delayed_work *dwork = to_delayed_work(work);
->         struct phy_device *phydev =
->                         container_of(dwork, struct phy_device, state_queue);
->  -      bool needs_aneg = false, do_suspend = false, do_resume = false;
->  +      bool needs_aneg = false, do_suspend = false;
-> +       enum phy_state old_state;
->         int err = 0;
->
->         mutex_lock(&phydev->lock);
+> 1. This driver probably belongs somewhere in drivers/net rather
+> than platform-x86
 
+  I was devided between drivers/net and platform-x86...
 
+> 2. It would be helpful to undertand what the use case is. You describe it
+> as
 
--- 
-Florian
+    I know. Unfortunately currently there's no good HP to illustrate 
+    Extended Socket.
+
+> 
+> "This patchsets add support for FUJITSU Extended Socket network
+>  device. Extended Socket network device is a shared memory
+>  based high-speed network interface between Extended Partitions of
+>  PRIMEQUEST 2000 E2 series."
+> 
+> So would this interface be used to interconnect multiple instances of
+> Linxu (or other operating systems) physically partitioned running on the
+> PrimeQuest server ?
+
+   This interface is used to interconnect multiple instances of Linux 
+   (currently only Linux) LOGICALLY (called Extended Partiton) partitioned
+   running PRIMEQUEST.
+
+> Am I looking at the right information about the system here
+> 
+> http://www.researchgate.net/publication/228905336_Partitioning_Technologies_and_Dynamic_Reconfiguration_of_Mission-C
+> ritical_IA_Server_PRIMEQUEST/links/000477b10cf2ed98fb432c1b.pdf
+
+   That document is for PRIMEQUEST 400/500 series, so it's a bit old though basic conception is not so far.
+
+   The following manual is useful to understand Extend Partiton and
+   Extended Socket. 
+
+     http://globalsp.ts.fujitsu.com/dmsp/Publications/public/CA92344-0537.pdf
+      3.2.1 Extended Partitioning
+      3.2.2 Extended Socket
+
+  Sincerely,
+  Taku Izumi
+     
