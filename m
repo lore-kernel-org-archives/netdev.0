@@ -1,43 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] net: Flush all skbs related to an
- unregistered device
-Date: Thu, 21 May 2015 17:02:19 -0400 (EDT)
-Message-ID: <20150521.170219.1689248066169954260.davem@davemloft.net>
-References: <1432077893-4431-1-git-send-email-baptiste@arista.com>
-	<1432077893-4431-2-git-send-email-baptiste@arista.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 0/4] bpf: introduce bpf_tail_call() helper
+Date: Thu, 21 May 2015 17:08:35 -0400 (EDT)
+Message-ID: <20150521.170835.219778845602214804.davem@davemloft.net>
+References: <1432079946-9878-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fruggeri@arista.com, mowat@arista.com,
-	adrien+dev@schischi.me
-To: baptiste@arista.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39766 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755792AbbEUVCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 17:02:22 -0400
-In-Reply-To: <1432077893-4431-2-git-send-email-baptiste@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org, holzheu-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	zlim.lnx-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1432079946-9878-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Baptiste Covolato <baptiste@arista.com>
-Date: Tue, 19 May 2015 16:24:51 -0700
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Date: Tue, 19 May 2015 16:59:02 -0700
 
-> Update flush_backlog to flush all packets in the backlog queue belonging
-> to a device being unregistered. Accordingly on_each_cpu no longer needs
-> to pass a device to flush_backlog since it handles any device in the
-> NETREG_UNREGISTERED state.
-> 
-> Signed-off-by: Baptiste Covolato <baptiste@arista.com>
-> Signed-off-by: Francesco Ruggeri <fruggeri@arista.com>
+> introduce bpf_tail_call(ctx, &jmp_table, index) helper function
 
-This is quite bogus if you ask me.
+Since we dispatch often by IDs like syscall numbers and protocol
+IDs, this seems very useful.
 
-This is the one spot causing a device to make the transition
-to unregistered state, so passing that specific device to
-flush_backlog() is the completely logical way to handle this.
-
-If this is some hack that is made necessary by your parallel
-notification scheme, I do not find it acceptable.
-
-I'm not applying this series, sorry.
+Series applied, thanks Alexei.
