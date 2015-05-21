@@ -1,113 +1,117 @@
-From: Todd Bezenek <bezenek@gmail.com>
-Subject: Re: Cause of Large Latency Difference Between 1179-byte and 1180-byte
- UDP Frames?
-Date: Thu, 21 May 2015 11:33:49 -0700
-Message-ID: <CAE1W6Vr_t7fEn=yOqP_XgMEt+Yarpg+o08OM9t-6pGMjNVGkJg@mail.gmail.com>
-References: <CAE1W6VpPJwKtFGmeLuStt-A8JjGj2xU8RitonBHBs3dH9pXYRA@mail.gmail.com>
-	<555DF1DC.8020803@gmail.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: ingress policying for realtime protocol
+Date: Thu, 21 May 2015 20:58:32 +0200
+Message-ID: <20150521185831.GC24769@pengutronix.de>
+References: <20150519211145.GA23134@pengutronix.de>
+ <CAHA+R7N8wFKPzOR0EshWzcaTUd+ChMW0zb0=1go4oV_gxoAyiA@mail.gmail.com>
+ <1432168240.4060.63.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20150521070712.GY24769@pengutronix.de>
+ <555DDF5C.8080503@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <cwang@twopensource.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:34626 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754448AbbEUSdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 14:33:49 -0400
-Received: by igbhj9 with SMTP id hj9so17791888igb.1
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 11:33:49 -0700 (PDT)
-In-Reply-To: <555DF1DC.8020803@gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57652 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754286AbbEUS6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 14:58:36 -0400
+Content-Disposition: inline
+In-Reply-To: <555DDF5C.8080503@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(solution below)
+Hello,
 
-The time to send that extra byte over the wire is 8 nsec.  It seems
-unlikely that would produce such a clean-cut difference, but I've been
-surprised before.  :)
+On Thu, May 21, 2015 at 09:36:28AM -0400, Jamal Hadi Salim wrote:
+> On 05/21/15 03:07, Uwe Kleine-K=F6nig wrote:
+> >On Wed, May 20, 2015 at 05:30:40PM -0700, Eric Dumazet wrote:
+> >>On Wed, 2015-05-20 at 16:46 -0700, Cong Wang wrote:
+> >>
+> >>>There is very little to do on ingress side since there is no queue=
+ at all,
+> >>>not to mention priority, you could try ifb to see if it fits your =
+need.
+> >>
+> >>Note that if the need is to police traffic, ifb is not really neede=
+d :
+> >>
+> >>TC=3D"tc"
+> >>DEV=3D"dev eth0"
+> >>IP=3D10.246.11.51/32
+> >>$TC qdisc del $DEV ingress 2>/dev/null
+> >>$TC qdisc add $DEV ingress
+> >>$TC filter add $DEV parent ffff: protocol ip u32 match ip src $IP \
+> >>	police rate 1Mbit burst 10Mbit mtu 66000 action drop/continue
+> >>
+> >>$TC -s filter ls $DEV parent ffff: protocol ip
+> >I have something like that (matching on dst mac addresses instead of=
+ src ip):
+> >
+> >	tc qdisc add dev eth0 handle ffff: ingress
+> >	tc filter add dev eth0 parent ffff: protocol all prio 10 u32 match =
+ether dst 01:15:4E:00:00:01 police pass
+> >	tc filter add dev eth0 parent ffff: protocol all prio 50 u32 match =
+u32 0 0 at 0 police rate 100kbit burst 10k drop
+> >
+> >So Cong interpreted my question right and probably I just used the
+> >wrong keywords to make you understand the same.
+>=20
+> I think both Cong and Eric are right.
+> You wanted to priotize something thats _realtime_ by using queues, so
+> Cong answered your question with ifb which will provide you a queue o=
+n
+> ingress.
+> OTOH, You should really avoid queues of any sort if latency is
+My picture of the network stack might be wrong, but if the ethernet
+driver queues say 5 packets to the network stack and the fourth is a MR=
+P
+packet than a priorization that makes the fourth packet processed first
+would be nice.
+If there is no queue and the first packet is processed before the
+ethernet driver has a chance to hand over the second obviously there is
+no benefit from using a prio queue because it would always only contain
+a single packet.
 
-The "idle=poll" parameter sounds like a good idea for any application
-which tries to maintain real-time behavior.  I'm putting that into
-place.
+> important to you - hence what Eric said is correct. Jitter will occur
+> when it matters the most for you i.e when congestion kicks in; otherw=
+ise
+> it will work (when there is no congestion;->)
+>=20
+> So your requirements are conflicting and the result is two talented
+> people are intepretting things differently;->
+:-)
 
-Result:  About the same.
+> So some questions to you:
+> Why is there a 100Kbps limit for everything else? If it has to be at
+> 100Kbps, what is wrong with the policy you have?
+The 100kbit limit was found by starting with a higher limit and
+decrement while scp still made the MRP hiccup. Now what's wrong: It's
+annoying that other traffic is cut down that much.
 
-I believe I have C-states disabled, as the directories
-/sys/devices/system/cpu/cpuX/cpufreq/ are not in the filesystem.  Just
-to be sure, I removed "idle=poll" and added "processor.max_cstate=1".
+> From my quick reading is it seems this thing has a state machine infa=
+ct
+> where sometimes you have to drop all other packets and when the state
+> machine transitions to a stable state then you just want to accept al=
+l
+> packets but prioritize its protocol packets. Also the state machine
+> seems to involve more than one port (for path redundancy reasons).
+> So where is this rate control coming from?
+There is only a single port involved but that one is connected to a
+Marvell switch. So the packets all come in on eth0 but the userspace
+application that handles the MRP stuff still knows on which port of the
+switch the packet came in. Also the blocking of a port is done with
+configuration of the switch. Does this answer your question?
 
-Result:  About the same as "idle=poll".
+Best regards
+Uwe
 
-I set the interrupt moderation parameter to 10 on both interfaces
-involved in the bridge with "ethtool -C <dev> rx-usecs 10"".
-
-Result:  HUGE difference.
-
-This looks much better.  I'm going to explore the adjustments
-available and I think this will solve the problem.
-
-Thank you, Alex,
-
--Todd
-
-
-
-
-On Thu, May 21, 2015 at 7:55 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On 05/20/2015 09:50 PM, Todd Bezenek wrote:
->>
->> I'm pushing 10,000 frames per second of UDP traffic through a Linux
->> system with a bridge configured between two 1GbE ports.
->>
->> Iptables is installed and running, but the default rule is ACCEPT with
->> no other rules.
->>
->> When I make the packets 1179 bytes in size (total size includes
->> Ethernet header, etc.), I see the latency of most packets between 60
->> and 200 usec.  When I change the size to 1180 bytes, I start seeing
->> about 1% of the packets with latencies larger than 300 usec, and some
->> as high as 500+ usec.
->>
->> Any ideas what buffer size, cache line count, TLB reach, etc. might be
->> causing this dramatic change?
->>
->> Cut-and-paste to my terminal is not working, so limited info here:
->>
->> Kernel:  3.12.20 x86-64
->> Processor:  Intel E3845 (Atom, 4 cores)
->> Network interface driver:  Intel igb
->>
->> Thank you for any helpful pointers.
->>
->> -Todd
->
->
-> The igb driver defaults to an adaptive interrupt moderation scheme. It is
-> possible that what you are seeing could be due to that, or it could possibly
-> be that the time between packets is becoming large enough that your CPU is
-> starting to go into deeper sleep states.
->
-> My first suggestion would be to try disabling sleeps states beyond C1.  To
-> do that you could boot your kernel with the parameter
-> "processor.max_cstate=1" or "idle=poll".  Either one should prevent the CPU
-> from going into a sleep state but it will consume more power.
->
-> You also might try modifying the interrupt moderation to a fixed value of 10
-> or more via "ethtool -C <dev> rx-usecs <x>" to see if the behavior goes away
-> after that.  If the device is the cause it might point to a possible glitch
-> in the interrupt moderation scheme or possibly lost interrupts for the
-> device or driver.
->
-> - Alex
->
->
-
-
-
--- 
-Todd Bezenek
-bezenek@gmail.com
-
-A people hire A people, B people hire C people.
-  --Jim Gray
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
