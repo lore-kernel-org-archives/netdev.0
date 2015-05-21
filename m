@@ -1,45 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
-Date: Thu, 21 May 2015 18:40:10 -0400 (EDT)
-Message-ID: <20150521.184010.1674602649748676614.davem@davemloft.net>
-References: <1431577061-12517-1-git-send-email-roopa@cumulusnetworks.com>
-	<20150514.224554.1382655632305683978.davem@davemloft.net>
-	<20150521151618.5fb0d6a7@urahara>
+Subject: Re: [PATCH] stmmac: replace open coded
+ __netdev_alloc_skb_ip_align() with actual call
+Date: Thu, 21 May 2015 18:41:11 -0400 (EDT)
+Message-ID: <20150521.184111.1963777803618869451.davem@davemloft.net>
+References: <1432103680-5612-1-git-send-email-vgupta@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com, jiri@resnulli.us,
-	gospo@cumulusnetworks.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40644 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754067AbbEUWkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 18:40:14 -0400
-In-Reply-To: <20150521151618.5fb0d6a7@urahara>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vineet.Gupta1@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1432103680-5612-1-git-send-email-vgupta@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 21 May 2015 15:16:18 -0700
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Wed, 20 May 2015 12:04:40 +0530
 
-> On Thu, 14 May 2015 22:45:54 -0400 (EDT)
-> David Miller <davem@davemloft.net> wrote:
+> This also matches with the sibling call netdev_alloc_skb_ip_align() made in
+> rx fast path.
 > 
->> From: roopa@cumulusnetworks.com
->> Date: Wed, 13 May 2015 21:17:41 -0700
->> 
->> > From: Roopa Prabhu <roopa@cumulusnetworks.com>
->> > 
->> > RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
->> > 
->> > This patch renames the flag to be consistent with what the user sees.
->> > 
->> > Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> 
->> Applied, thanks.
-> 
-> I don't see this merge in current net-next tree?
-> Did it not really happen or was it not pushed?
+> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
 
-It went to the 'net' tree and I haven't done a merge in a while.
+Applied to net-next, thanks.
