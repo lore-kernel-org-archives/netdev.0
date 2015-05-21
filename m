@@ -1,152 +1,280 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH v5] ixgbe: Add module parameter to disable VLAN filter
-Date: Thu, 21 May 2015 13:10:49 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB460C@BPXM14GP.gisp.nec.co.jp>
+From: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
+Subject: Re: [PATCH v4] bnx2x: Alloc 4k fragment for each rx ring buffer element
+Date: Thu, 21 May 2015 10:20:33 -0300
+Message-ID: <87wq02t6ce.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
+References: <553AD097.4020209@gmx.de>
+	<87383jhxj9.fsf@dhcp-9-18-235-171.br.ibm.com>
+	<B5657A6538887040AD3A81F1008BEC63D383CB@avmb3.qlogic.org>
+	<20150430.160537.232956261880122754.davem@davemloft.net>
+	<874mnsxhnm.fsf_-_@dhcp-9-18-235-171.br.ibm.com>
+	<B5657A6538887040AD3A81F1008BEC63D6F990@AVMB1.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: "sy.jong.choi@intel.com" <sy.jong.choi@intel.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: ja-JP
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	"LinoSanfilippo\@gmx.de" <LinoSanfilippo@gmx.de>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	"cascardo\@cascardo.eti.br" <cascardo@cascardo.eti.br>,
+	"brking\@linux.vnet.ibm.com" <brking@linux.vnet.ibm.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp05.br.ibm.com ([32.104.18.26]:38825 "EHLO
+	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753844AbbEUNUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 09:20:41 -0400
+Received: from /spool/local
+	by e24smtp05.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <krisman@linux.vnet.ibm.com>;
+	Thu, 21 May 2015 10:20:39 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id C510B3520054
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 09:19:31 -0400 (EDT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id t4LDKsuG4640974
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 10:20:54 -0300
+Received: from d24av04.br.ibm.com (localhost [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id t4LDKXUR006044
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 10:20:34 -0300
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63D6F990@AVMB1.qlogic.org> (Yuval
+	Mintz's message of "Mon, 4 May 2015 19:58:06 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Yuval Mintz <Yuval.Mintz@qlogic.com> writes:
 
-Introduce module parameter "disable_hw_vlan_filter" to disable HW VLAN
-filter on ixgbe module load.
+> Regardless, I'll give it a more thorough review tomorrow.
+> [If those are all the "problems" we'll find with it, I don't think we'll
+> need to re-spin this once more; that is, unless Dave insists]
 
->From the hardware limitation, there are only 64 VLAN entries for HW VLAN
-filter, and it leads to limit the number of VLANs up to 64 among PF and
-VFs. For SDN/NFV case, we need to handle unlimited VLAN packets on VF.
-In such case, every VLAN packet can be transmitted to each VF.
+As a follow up, here is a new version that fixes the style issues that Yuval
+pointed out.  Are there any other concerns regarding this one?
 
-When we try to make VLAN devices on VF, the 65th VLAN registration fails
-and never be able to receive a packet with that VLAN tag.
-If we do the below command on VM, ethX.65 to ethX.100 cannot be created.
-  # for i in `seq 1 100`; do \
-    ip link add link ethX name ethX.$i type vlan id $i; done
+-- >8 --
+Subject: [PATCH v4] bnx2x: Alloc 4k fragment for each rx ring buffer element
 
-There is a capability to disable HW VLAN filter and that makes all VLAN
-tagged packets can be transmitted to every VFs. After VLAN filter stage,
-unicast packets are transmitted to VF which has the MAC address same as
-the transmitting packet.
+The driver allocates one page for each buffer on the rx ring, which is
+too much on architectures like ppc64 and can cause unexpected allocation
+failures when the system is under stress.  Now, we keep a memory pool
+per queue, and if the architecture's PAGE_SIZE is greater than 4k, we
+fragment pages and assign each 4k segment to a ring element, which
+reduces the overall memory consumption on such architectures.  This
+helps avoiding errors like the example below:
 
-With this patch and "disable_hw_vlan_filter=1", we can use unlimited
-number of VLANs on VF.
+[bnx2x_alloc_rx_sge:435(eth1)]Can't alloc sge
+[c00000037ffeb900] [d000000075eddeb4] .bnx2x_alloc_rx_sge+0x44/0x200 [bnx2x]
+[c00000037ffeb9b0] [d000000075ee0b34] .bnx2x_fill_frag_skb+0x1ac/0x460 [bnx2x]
+[c00000037ffebac0] [d000000075ee11f0] .bnx2x_tpa_stop+0x160/0x2e8 [bnx2x]
+[c00000037ffebb90] [d000000075ee1560] .bnx2x_rx_int+0x1e8/0xc30 [bnx2x]
+[c00000037ffebcd0] [d000000075ee2084] .bnx2x_poll+0xdc/0x3d8 [bnx2x] (unreliable)
 
-Disabling HW VLAN filter breaks some NIC features such as DCB and FCoE.
-DCB and FCoE are disabled when HW VLAN filter is disabled by this module
-parameter.
-Because of that reason, the administrator has to know that before turning
-off HW VLAN filter.
-
-Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Signed-off-by: Gabriel Krisman Bertazi <krisman@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 29 +++++++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  4 ++++
- 3 files changed, 33 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     | 17 +++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 59 +++++++++++++++++--------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h | 31 +++++++++++--
+ 3 files changed, 83 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 5181a4d..492615d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -632,6 +632,7 @@ struct ixgbe_adapter {
- #define IXGBE_FLAG_FCOE_ENABLED                 (u32)(1 << 21)
- #define IXGBE_FLAG_SRIOV_CAPABLE                (u32)(1 << 22)
- #define IXGBE_FLAG_SRIOV_ENABLED                (u32)(1 << 23)
-+#define IXGBE_FLAG_VLAN_FILTER_ENABLED          (u32)(1 << 24)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 4085c4b..5984d28 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -357,6 +357,7 @@ struct sw_tx_bd {
+ struct sw_rx_page {
+ 	struct page	*page;
+ 	DEFINE_DMA_UNMAP_ADDR(mapping);
++	u8		offset;
+ };
  
- 	u32 flags2;
- #define IXGBE_FLAG2_RSC_CAPABLE                 (u32)(1 << 0)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 263cb40..b45570f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -158,6 +158,10 @@ module_param(allow_unsupported_sfp, uint, 0);
- MODULE_PARM_DESC(allow_unsupported_sfp,
- 		 "Allow unsupported and untested SFP+ modules on 82599-based adapters");
+ union db_prod {
+@@ -381,9 +382,10 @@ union db_prod {
  
-+static unsigned int disable_hw_vlan_filter;
-+module_param(disable_hw_vlan_filter, uint, 0);
-+MODULE_PARM_DESC(disable_hw_vlan_filter, "Disable HW VLAN filter");
+ #define PAGES_PER_SGE_SHIFT	0
+ #define PAGES_PER_SGE		(1 << PAGES_PER_SGE_SHIFT)
+-#define SGE_PAGE_SIZE		PAGE_SIZE
+-#define SGE_PAGE_SHIFT		PAGE_SHIFT
+-#define SGE_PAGE_ALIGN(addr)	PAGE_ALIGN((typeof(PAGE_SIZE))(addr))
++#define SGE_PAGE_SHIFT		12
++#define SGE_PAGE_SIZE		(1 << SGE_PAGE_SHIFT)
++#define SGE_PAGE_MASK		(~(SGE_PAGE_SIZE - 1))
++#define SGE_PAGE_ALIGN(addr)	(((addr) + SGE_PAGE_SIZE - 1) & SGE_PAGE_MASK)
+ #define SGE_PAGES		(SGE_PAGE_SIZE * PAGES_PER_SGE)
+ #define TPA_AGG_SIZE		min_t(u32, (min_t(u32, 8, MAX_SKB_FRAGS) * \
+ 					    SGE_PAGES), 0xffff)
+@@ -525,6 +527,13 @@ enum bnx2x_tpa_mode_t {
+ 	TPA_MODE_GRO
+ };
+ 
++struct bnx2x_alloc_pool {
++	struct page	*page;
++	dma_addr_t	dma;
++	u8		offset;
++	u8		frag_count;
++};
 +
- #define DEFAULT_MSG_ENABLE (NETIF_MSG_DRV|NETIF_MSG_PROBE|NETIF_MSG_LINK)
- static int debug = -1;
- module_param(debug, int, 0);
-@@ -4159,6 +4163,9 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		hw->addr_ctrl.user_set_promisc = false;
+ struct bnx2x_fastpath {
+ 	struct bnx2x		*bp; /* parent */
+ 
+@@ -611,6 +620,8 @@ struct bnx2x_fastpath {
+ 	     4 (for the digits and to make it DWORD aligned) */
+ #define FP_NAME_SIZE		(sizeof(((struct net_device *)0)->name) + 8)
+ 	char			name[FP_NAME_SIZE];
++
++	struct bnx2x_alloc_pool	page_pool;
+ };
+ 
+ #define bnx2x_fp(bp, nr, var)	((bp)->fp[(nr)].var)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 0a9faa1..ffdeaa8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -544,30 +544,51 @@ static void bnx2x_set_gro_params(struct sk_buff *skb, u16 parsing_flags,
+ static int bnx2x_alloc_rx_sge(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 			      u16 index, gfp_t gfp_mask)
+ {
+-	struct page *page = alloc_pages(gfp_mask, PAGES_PER_SGE_SHIFT);
+ 	struct sw_rx_page *sw_buf = &fp->rx_page_ring[index];
+ 	struct eth_rx_sge *sge = &fp->rx_sge_ring[index];
++	struct bnx2x_alloc_pool *pool = &fp->page_pool;
+ 	dma_addr_t mapping;
+ 
+-	if (unlikely(page == NULL)) {
+-		BNX2X_ERR("Can't alloc sge\n");
+-		return -ENOMEM;
+-	}
++	if (!pool->page || !pool->frag_count) {
+ 
+-	mapping = dma_map_page(&bp->pdev->dev, page, 0,
+-			       SGE_PAGES, DMA_FROM_DEVICE);
+-	if (unlikely(dma_mapping_error(&bp->pdev->dev, mapping))) {
+-		__free_pages(page, PAGES_PER_SGE_SHIFT);
+-		BNX2X_ERR("Can't map sge\n");
+-		return -ENOMEM;
++		/* put page reference used by the memory pool, since we
++		 * won't be using this page as the mempool anymore.
++		 */
++		if (pool->page)
++			put_page(pool->page);
++
++		pool->page = alloc_pages(gfp_mask, PAGES_PER_SGE_SHIFT);
++		if (unlikely(!pool->page)) {
++			BNX2X_ERR("Can't alloc sge\n");
++			return -ENOMEM;
++		}
++
++		pool->dma = dma_map_page(&bp->pdev->dev, pool->page, 0,
++					 PAGE_SIZE, DMA_FROM_DEVICE);
++		if (unlikely(dma_mapping_error(&bp->pdev->dev,
++					       pool->dma))) {
++			__free_pages(pool->page, PAGES_PER_SGE_SHIFT);
++			pool->page = NULL;
++			BNX2X_ERR("Can't map sge\n");
++			return -ENOMEM;
++		}
++		pool->offset = 0;
++		pool->frag_count = (PAGE_SIZE / SGE_PAGE_SIZE);
  	}
  
-+	if (!(adapter->flags & IXGBE_FLAG_VLAN_FILTER_ENABLED))
-+		vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
+-	sw_buf->page = page;
++	get_page(pool->page);
++	sw_buf->page = pool->page;
++	sw_buf->offset = pool->offset;
 +
- 	/*
- 	 * Write addresses to available RAR registers, if there is not
- 	 * sufficient space to store all the addresses then enable
-@@ -5251,6 +5258,22 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- #endif /* CONFIG_IXGBE_DCB */
- #endif /* IXGBE_FCOE */
++	mapping = pool->dma + sw_buf->offset;
+ 	dma_unmap_addr_set(sw_buf, mapping, mapping);
  
-+	if (likely(!disable_hw_vlan_filter)) {
-+		/* HW VLAN filter is enabled by default */
-+		adapter->flags |= IXGBE_FLAG_VLAN_FILTER_ENABLED;
-+	} else {
-+		e_dev_warn("Disabling HW VLAN filter. "
-+			   "DCB and FCoE are also disabled.\n");
-+#ifdef IXGBE_FCOE
-+		/* Disabling FCoE */
-+		adapter->flags &= ~IXGBE_FLAG_FCOE_CAPABLE;
-+		adapter->flags &= ~IXGBE_FLAG_FCOE_ENABLED;
-+#ifdef CONFIG_IXGBE_DCB
-+		adapter->fcoe.up = 0;
-+#endif /* CONFIG_IXGBE_DCB */
-+#endif /* IXGBE_FCOE */
+ 	sge->addr_hi = cpu_to_le32(U64_HI(mapping));
+ 	sge->addr_lo = cpu_to_le32(U64_LO(mapping));
+ 
++	pool->offset += SGE_PAGE_SIZE;
++	pool->frag_count--;
++
+ 	return 0;
+ }
+ 
+@@ -629,20 +650,22 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 			return err;
+ 		}
+ 
+-		/* Unmap the page as we're going to pass it to the stack */
+-		dma_unmap_page(&bp->pdev->dev,
+-			       dma_unmap_addr(&old_rx_pg, mapping),
+-			       SGE_PAGES, DMA_FROM_DEVICE);
++		dma_unmap_single(&bp->pdev->dev,
++				 dma_unmap_addr(&old_rx_pg, mapping),
++				 SGE_PAGE_SIZE, DMA_FROM_DEVICE);
+ 		/* Add one frag and update the appropriate fields in the skb */
+ 		if (fp->mode == TPA_MODE_LRO)
+-			skb_fill_page_desc(skb, j, old_rx_pg.page, 0, frag_len);
++			skb_fill_page_desc(skb, j, old_rx_pg.page,
++					   old_rx_pg.offset, frag_len);
+ 		else { /* GRO */
+ 			int rem;
+ 			int offset = 0;
+ 			for (rem = frag_len; rem > 0; rem -= gro_size) {
+ 				int len = rem > gro_size ? gro_size : rem;
+ 				skb_fill_page_desc(skb, frag_id++,
+-						   old_rx_pg.page, offset, len);
++						   old_rx_pg.page,
++						   old_rx_pg.offset + offset,
++						   len);
+ 				if (offset)
+ 					get_page(old_rx_pg.page);
+ 				offset += len;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index adcacda..beedb96 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -804,9 +804,13 @@ static inline void bnx2x_free_rx_sge(struct bnx2x *bp,
+ 	if (!page)
+ 		return;
+ 
+-	dma_unmap_page(&bp->pdev->dev, dma_unmap_addr(sw_buf, mapping),
+-		       SGE_PAGES, DMA_FROM_DEVICE);
+-	__free_pages(page, PAGES_PER_SGE_SHIFT);
++	/* Since many fragments can share the same page, make sure to
++	 * only unmap and free the page once.
++	 */
++	dma_unmap_single(&bp->pdev->dev, dma_unmap_addr(sw_buf, mapping),
++			 SGE_PAGE_SIZE, DMA_FROM_DEVICE);
++
++	put_page(page);
+ 
+ 	sw_buf->page = NULL;
+ 	sge->addr_hi = 0;
+@@ -964,6 +968,25 @@ static inline void bnx2x_set_fw_mac_addr(__le16 *fw_hi, __le16 *fw_mid,
+ 	((u8 *)fw_lo)[1]  = mac[4];
+ }
+ 
++static inline void bnx2x_free_rx_mem_pool(struct bnx2x *bp,
++					  struct bnx2x_alloc_pool *pool)
++{
++	if (!pool->page)
++		return;
++
++	/* Page was not fully fragmented.  Unmap unused space */
++	if (pool->frag_count) {
++		dma_addr_t dma = pool->dma + pool->offset;
++		int size = pool->frag_count * SGE_PAGE_SIZE;
++
++		dma_unmap_single(&bp->pdev->dev, dma, size, DMA_FROM_DEVICE);
 +	}
 +
- 	adapter->mac_table = kzalloc(sizeof(struct ixgbe_mac_addr) *
- 				     hw->mac.num_rar_entries,
- 				     GFP_ATOMIC);
-@@ -7733,6 +7756,9 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
- #ifdef CONFIG_IXGBE_DCB
-+	/* Unable to use DCB if HW VLAN filter is disabled */
-+	if (!(adapter->flags & IXGBE_FLAG_VLAN_FILTER_ENABLED))
-+		tc = 0;
- 	if (tc) {
- 		netdev_set_num_tc(dev, tc);
- 		ixgbe_set_prio_tc_map(adapter);
-@@ -8562,7 +8588,8 @@ skip_sriov:
- 	}
- 
- 	netdev->hw_features |= NETIF_F_RXALL;
--	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
-+	if (adapter->flags & IXGBE_FLAG_VLAN_FILTER_ENABLED)
-+		netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 6c602bc..50bbc0d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -862,6 +862,10 @@ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
- 		return -1;
- 	}
- 
-+	/* If we disabled HW VLAN filter, nothing to do */
-+	if (!(adapter->flags & IXGBE_FLAG_VLAN_FILTER_ENABLED))
-+		return 0;
++	put_page(pool->page);
 +
- 	if (add)
- 		adapter->vfinfo[vf].vlan_count++;
- 	else if (adapter->vfinfo[vf].vlan_count)
++	pool->page = NULL;
++}
++
+ static inline void bnx2x_free_rx_sge_range(struct bnx2x *bp,
+ 					   struct bnx2x_fastpath *fp, int last)
+ {
+@@ -974,6 +997,8 @@ static inline void bnx2x_free_rx_sge_range(struct bnx2x *bp,
+ 
+ 	for (i = 0; i < last; i++)
+ 		bnx2x_free_rx_sge(bp, fp, i);
++
++	bnx2x_free_rx_mem_pool(bp, &fp->page_pool);
+ }
+ 
+ static inline void bnx2x_set_next_page_rx_bd(struct bnx2x_fastpath *fp)
 -- 
-1.8.3.1
+2.1.0
