@@ -1,53 +1,44 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: [PATCH net-next] tcp: add tcpi_segs_in and tcpi_segs_out to
- tcp_info
-Date: Thu, 21 May 2015 09:38:45 -0300
-Message-ID: <20150521123845.GQ2298@localhost.localdomain>
-References: <1430260098-14127-1-git-send-email-edumazet@google.com>
- <20150512130855.GA29412@localhost.localdomain>
- <1431462713.566.95.camel@edumazet-glaptop2.roam.corp.google.com>
- <1432164941.4060.57.camel@edumazet-glaptop2.roam.corp.google.com>
- <555D218D.50509@hp.com>
- <1432168631.4060.69.camel@edumazet-glaptop2.roam.corp.google.com>
- <555D2B49.30702@hp.com>
- <1432169554.4060.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v3 for-next 05/13] IB/cm: Reference count ib_cm_ids
+Date: Thu, 21 May 2015 12:56:43 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373A8FDE09C@ORSMSX109.amr.corp.intel.com>
+References: <1431253604-9214-1-git-send-email-haggaie@mellanox.com>
+ <1431253604-9214-6-git-send-email-haggaie@mellanox.com>
+ <20150511183459.GB25405@obsidianresearch.com>
+ <5551A2CB.1010407@mellanox.com> <20150512185447.GA3503@obsidianresearch.com>
+ <55532566.9040105@mellanox.com>
+ <20150513165823.GA20343@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDC0C3@ORSMSX109.amr.corp.intel.com>
+ <20150519192353.GA23612@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDD412@ORSMSX109.amr.corp.intel.com>
+ <20150519234654.GA26634@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A82373A8FDD565@ORSMSX109.amr.corp.intel.com>
+ <555D806B.1090002@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Matt Mathis <mattmathis@google.com>,
-	Craig Gallek <cgallek@google.com>, Martin Lau <kafai@fb.com>,
-	Chris Rapier <rapier@psc.edu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46779 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752832AbbEUMis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 08:38:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1432169554.4060.71.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Guy Shapiro <guysh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Shachar Raindel <raindel-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Yotam Kenneth <yotamke-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <555D806B.1090002-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 05:52:34PM -0700, Eric Dumazet wrote:
-> On Wed, 2015-05-20 at 17:48 -0700, Rick Jones wrote:
-> > On 05/20/2015 05:37 PM, Eric Dumazet wrote:
-> > 
-> > > Anyway, if we can send tcp data at 100Gbits on one flow, I guess we are
-> > > doing a terrific job and do not need to tweak TCP stack anymore ;)
-> > 
-> > :)
-> > 
-> 
-> Note that I have no particular strong feelings with these counters being
-> 32 or 64bits. Its adding 8 extra bytes and a bit more overhead, nothing
-> more.
+> It remains to clean up ib_cm's ib_cm_listen interface now that
+> compare_data isn't used, but I'm not sure this belongs in this series.
 
-And if they really need an absolute number, 500s is still pretty much
-enough for polling these and adding the delta to some local u64 var.
+This patch series is changing the behavior that the compare data solves.  Currently, the ib_cm handles all of the multiplexing for the rdma_cm -- that's the reason for the compare data.  This series changes that such that the ib_cm would handle half the multiplexing, with the other half handled by the rdma_cm.  We should not insert that sort of split.  So, I disagree that this isn't part of this series.
 
-  Marcelo
-  
+Either do all of the multiplexing in the ib_cm -- without exposing it to inet (add port/pkey filtering if that works) -- or move all of it out.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
