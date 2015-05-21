@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: replace open coded
- __netdev_alloc_skb_ip_align() with actual call
-Date: Thu, 21 May 2015 18:41:11 -0400 (EDT)
-Message-ID: <20150521.184111.1963777803618869451.davem@davemloft.net>
-References: <1432103680-5612-1-git-send-email-vgupta@synopsys.com>
+Subject: Re: [PATCH net-next v3 00/16] sfc: Get/Set MAC address and
+ ndo_[set/get]_vf_* entrypoint functions
+Date: Thu, 21 May 2015 18:44:42 -0400 (EDT)
+Message-ID: <20150521.184442.1670747141278491550.davem@davemloft.net>
+References: <555C5C91.4000004@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vineet.Gupta1@synopsys.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432103680-5612-1-git-send-email-vgupta@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: sshah@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40688 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964AbbEUWoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 18:44:44 -0400
+In-Reply-To: <555C5C91.4000004@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Date: Wed, 20 May 2015 12:04:40 +0530
+From: Shradha Shah <sshah@solarflare.com>
+Date: Wed, 20 May 2015 11:06:09 +0100
 
-> This also matches with the sibling call netdev_alloc_skb_ip_align() made in
-> rx fast path.
-> 
-> Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+> This is the second instalment of patches towards supporting EF10 SRIOV.
 
-Applied to net-next, thanks.
+Series applied, thanks.
