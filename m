@@ -1,55 +1,82 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH net-next 2/2] tcp: improve REUSEADDR/NOREUSEADDR
- cohabitation
-Date: Thu, 21 May 2015 17:37:36 -0300
-Message-ID: <20150521203736.GI2379@x240.home>
-References: <1432144742-17786-1-git-send-email-edumazet@google.com>
- <1432144742-17786-3-git-send-email-edumazet@google.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
+Date: Thu, 21 May 2015 22:46:34 +0200
+Message-ID: <555E442A.808@broadcom.com>
+References: <33C25745-6839-4858-9A3E-19EC6408ECED@holtmann.org>	<Pine.LNX.4.44L0.1505211112310.1397-100000@iolanthe.rowland.org>	<s5hsiaq3pv4.wl-tiwai@suse.de>	<555E158D.4090607@broadcom.com> <s5hmw0x4z12.wl-tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38133 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755429AbbEUUhl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 May 2015 16:37:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1432144742-17786-3-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Laura Abbott <labbott@redhat.com>,
+	Oliver Neukum <oneukum@suse.com>,
+	Ming Lei <ming.lei@canonical.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Laura Abbott <labbott@fedoraproject.org>,
+	"Johan Hedberg" <johan.hedberg@gmail.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	"bluez mailin list (linux-bluetooth@vger.kernel.org)"
+	<linux-bluetooth@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	USB list <linux-usb@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <s5hmw0x4z12.wl-tiwai@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 20, 2015 at 10:59:02AM -0700, Eric Dumazet wrote:
-> inet_csk_get_port() randomization effort tends to spread
-> sockets on all the available range (ip_local_port_range)
-> 
-> This is unfortunate because SO_REUSEADDR sockets have
-> less requirements than non SO_REUSEADDR ones.
-> 
-> If an application uses SO_REUSEADDR hint, it is to try to
-> allow source ports being shared.
-> 
-> So instead of picking a random port number in ip_local_port_range,
-> lets try first in first half of the range.
-> 
-> This gives more chances to use upper half of the range for the
-> sockets with strong requirements (not using SO_REUSEADDR)
-> 
-> Note this patch does not add a new sysctl, and only changes
-> the way we try to pick port number.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> Cc: Flavio Leitner <fbl@redhat.com>
-> ---
+On 05/21/15 19:32, Takashi Iwai wrote:
+> At Thu, 21 May 2015 19:27:41 +0200,
+> Arend van Spriel wrote:
+>>
+>> On 05/21/15 17:35, Takashi Iwai wrote:
+>>> At Thu, 21 May 2015 11:26:17 -0400 (EDT),
+>>> Alan Stern wrote:
+>>>>
+>>>> On Thu, 21 May 2015, Takashi Iwai wrote:
+>>>>
+>>>>> At Thu, 21 May 2015 10:18:08 -0400 (EDT),
+>>>>> Alan Stern wrote:
+>>>>>>
+>>>>>> On Thu, 21 May 2015, Takashi Iwai wrote:
+>>>>>>
+>>>>>>> Then avoiding the failed firmware is no solution, indeed.
+>>>>>>> If it's a new probe, it should be never executed during resume.
+>>>>>>
+>>>>>> Can you expand this comment?  What's wrong with probing during resume?
+>>>>>
+>>>>> Well, if the probe requires the access to a user-space file, it can't
+>>>>> be done during resume.  That's the very problem we're seeing now.
+>>>>> The firmware loader can't help much alone if it's a new device
+>>>>> object.
 
-The only downside I can see is that after the patch the applications
-using the SO_REUSEADDR will reuse ports more often and that could
-potentially trigger some bug.
+So you are saying each device driver should come up with some retry 
+mechanism. Would make more sense to come up with something like that 
+behind the scenes in the firmware loader so all device drivers can rely 
+on one and the same solution.
 
-Looks like a good change to me.
+Regards,
+Arend
 
-Acked-by: Flavio Leitner <fbl@redhat.com>
+>>>> But the same thing happens during early boot, if the driver is built
+>>>> into the kernel.  When the probe occurs, userspace isn't up and running
+>>>> yet, so the firmware loader can't do anything.
+>>>>
+>>>> Why should probe during resume be any worse than probe during early
+>>>> boot?
+>>>
+>>> The early boot has initrd, so the files can be there.  But the resume
+>>> has no way to fetch the file except for cached data.
+>>
+>> but initrd is optional so without initrd it is pretty much the same.
+>
+> User can build the firmware into the kernel.
+>
+>
+> Takashi
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-bluetooth" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
