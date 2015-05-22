@@ -1,47 +1,40 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] xen-netfront crash when detaching network while some
- network activity
-Date: Fri, 22 May 2015 17:25:44 +0100
-Message-ID: <555F5888.4020303@citrix.com>
-References: <20150522114932.GC8664@mail-itl>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCHv2 net-next] bridge: allow setting hash_max +
+ multicast_router if interface is down
+Date: Fri, 22 May 2015 09:26:40 -0700
+Message-ID: <CAHA+R7MGcfUVPzjt582FkZ1zBx35U71kRRfTFkjHbPiXi=TGTA@mail.gmail.com>
+References: <1432301557-6928-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, xen-devel <xen-devel@lists.xen.org>
-To: =?windows-1252?Q?Marek_Marczykowski-G=F3recki?=
-	<marmarek@invisiblethingslab.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	"David Vrabel" <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:54149 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161018AbbEVQZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 12:25:47 -0400
-In-Reply-To: <20150522114932.GC8664@mail-itl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev <netdev@vger.kernel.org>,
+	roopa <roopa@cumulusnetworks.com>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Wilson Kok <wkok@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1432301557-6928-1-git-send-email-linus.luessing@c0d3.blue>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 22/05/15 12:49, Marek Marczykowski-G=F3recki wrote:
-> Hi all,
->=20
-> I'm experiencing xen-netfront crash when doing xl network-detach whil=
-e
-> some network activity is going on at the same time. It happens only w=
-hen
-> domU has more than one vcpu. Not sure if this matters, but the backen=
-d
-> is in another domU (not dom0). I'm using Xen 4.2.2. It happens on ker=
-nel
-> 3.9.4 and 4.1-rc1 as well.
->=20
-> Steps to reproduce:
-> 1. Start the domU with some network interface
-> 2. Call there 'ping -f some-IP'
-> 3. Call 'xl network-detach NAME 0'
+On Fri, May 22, 2015 at 6:32 AM, Linus L=C3=BCssing <linus.luessing@c0d3.bl=
+ue> wrote:
+> Changelog v2:
+> * remove another now unnecessary -ENOENT initialization
+> * consistently initialize to -EINVAL, allowing to shorten two switch-case=
+s
+>
 
-I tried this about 10 times without a crash.  How reproducible is it?
+Looks perfect now. :)
 
-I used a 4.1-rc4 frontend and a 4.0 backend.
-
-David
+Thanks for update.
