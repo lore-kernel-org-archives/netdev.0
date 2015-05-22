@@ -1,50 +1,62 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: RE: [PATCH net-next 1/3] cxgb4: Add support for loopback between VI
- of same port
-Date: Fri, 22 May 2015 16:49:03 +0000
-Message-ID: <4985EFDD773FCB459EF7915D2A3621ADBDA809@nice.asicdesigners.com>
-References: <1431859523-7423-2-git-send-email-hariprasad@chelsio.com>
-	<20150517.234613.463972132331185537.davem@davemloft.net>
-	<4985EFDD773FCB459EF7915D2A3621ADBD9FE5@nice.asicdesigners.com>,<20150521.153029.774385014187583893.davem@davemloft.net>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] xen-netfront crash when detaching network while some
+ network activity
+Date: Fri, 22 May 2015 17:58:41 +0100
+Message-ID: <555F6041.7000203@citrix.com>
+References: <20150522114932.GC8664@mail-itl> <555F5888.4020303@citrix.com>
+ <20150522164246.GE957@mail-itl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Hariprasad S <hariprasad@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	<netdev@vger.kernel.org>, xen-devel <xen-devel@lists.xen.org>
+To: =?UTF-8?B?TWFyZWsgTWFyY3p5a293c2tpLUfDs3JlY2tp?=
+	<marmarek@invisiblethingslab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:4807 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757719AbbEVQtI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 12:49:08 -0400
-In-Reply-To: <20150521.153029.774385014187583893.davem@davemloft.net>
-Content-Language: en-US
+Received: from smtp.citrix.com ([66.165.176.89]:46457 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757077AbbEVQ6o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 May 2015 12:58:44 -0400
+In-Reply-To: <20150522164246.GE957@mail-itl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| From: David Miller [davem@davemloft.net]
-| Sent: Thursday, May 21, 2015 12:30 PM
-| 
-| The prevailing assumption is that it's OK to have configuration
-| settings that can't be undone.
-| 
-| And that's bogus from the beginning.
+On 22/05/15 17:42, Marek Marczykowski-G=C3=B3recki wrote:
+> On Fri, May 22, 2015 at 05:25:44PM +0100, David Vrabel wrote:
+>> On 22/05/15 12:49, Marek Marczykowski-G=C3=B3recki wrote:
+>>> Hi all,
+>>>
+>>> I'm experiencing xen-netfront crash when doing xl network-detach wh=
+ile
+>>> some network activity is going on at the same time. It happens only=
+ when
+>>> domU has more than one vcpu. Not sure if this matters, but the back=
+end
+>>> is in another domU (not dom0). I'm using Xen 4.2.2. It happens on k=
+ernel
+>>> 3.9.4 and 4.1-rc1 as well.
+>>>
+>>> Steps to reproduce:
+>>> 1. Start the domU with some network interface
+>>> 2. Call there 'ping -f some-IP'
+>>> 3. Call 'xl network-detach NAME 0'
+>>
+>> I tried this about 10 times without a crash.  How reproducible is it=
+?
+>>
+>> I used a 4.1-rc4 frontend and a 4.0 backend.
+>=20
+> It happens every time for me... Do you have at least two vcpus in tha=
+t
+> domU? With one vcpu it doesn't crash. The IP for ping I've used one i=
+n
+> backend domU, but it shouldn't matter.
+>=20
+> Backend is 3.19.6 here. I don't see any changes there between rc1 and
+> rc4, so stayed with rc1. With 4.1-rc1 backend it also crashes for me.
 
-  Oh I definitely understand that and agree.  Unfortunately I've
-inherited a driver architecture that makes that ... "difficult"
-for many operations ...  And I have an internal bug filed
-against me to fix those particular issues.
+Doesn't repro for me with 4 VCPU PV or PVHVM guests.  Is your guest
+kernel vanilla or does it have some qubes specific patches on top?
 
-  However, that doesn't answer at least one of my questions
-which was how do I pass information into the driver _before_
-it does the device probe?  In this case, telling it to _not_
-attempt to attached to the chip firmware in order to debug,
-load firmware, etc.?
-
-  And, I still need to know what mechanism we need to use
-to tell the driver to use one kind of transmit functionality
-or another.  [[And in this case, we _can_ switch back and
-forth at will.]]
-
-Casey
+David
