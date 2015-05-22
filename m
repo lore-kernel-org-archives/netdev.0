@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 2/13] crypto: seqiv - Use aead_register_instance
-Date: Fri, 22 May 2015 16:30:50 +0800
-Message-ID: <E1YviLy-0000x5-2I@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 7/13] ipsec: Add IV generator information to xfrm_state
+Date: Fri, 22 May 2015 16:30:55 +0800
+Message-ID: <E1YviM3-0000yS-Uj@gondolin.me.apana.org.au>
 References: <20150522082708.GA3507@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -9,271 +9,131 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Marcel Holtmann <marcel@holtmann.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:53068 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751228AbbEVIa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:30:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-New style AEAD instances must use aead_register_instance.  This
-worked by chance because aead_geniv_alloc is still setting things
-the old way.
-
-This patch converts the template over to the create model where
-we are responsible for instance registration so that we can call
-the correct function.
+This patch adds IV generator information to xfrm_state.  This
+is currently obtained from our own list of algorithm descriptions.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- crypto/seqiv.c |  135 +++++++++++++++++++++++++++++++++------------------------
- 1 file changed, 79 insertions(+), 56 deletions(-)
+ include/net/xfrm.h   |    1 +
+ net/key/af_key.c     |    1 +
+ net/xfrm/xfrm_user.c |   40 +++++++++++++++++++++++++++++++---------
+ 3 files changed, 33 insertions(+), 9 deletions(-)
 
-diff --git a/crypto/seqiv.c b/crypto/seqiv.c
-index a9bfbda..2680e94 100644
---- a/crypto/seqiv.c
-+++ b/crypto/seqiv.c
-@@ -38,6 +38,8 @@ struct seqiv_aead_ctx {
- 	u8 salt[] __attribute__ ((aligned(__alignof__(u32))));
- };
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 30bca86..f0ee97e 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -168,6 +168,7 @@ struct xfrm_state {
+ 	struct xfrm_algo	*ealg;
+ 	struct xfrm_algo	*calg;
+ 	struct xfrm_algo_aead	*aead;
++	const char		*geniv;
  
-+static void seqiv_free(struct crypto_instance *inst);
-+
- static int seqiv_aead_setkey(struct crypto_aead *tfm,
- 			     const u8 *key, unsigned int keylen)
- {
-@@ -583,23 +585,20 @@ static void seqiv_aead_exit(struct crypto_tfm *tfm)
- 	crypto_put_default_null_skcipher();
- }
- 
--static struct crypto_template seqiv_tmpl;
--static struct crypto_template seqniv_tmpl;
--
--static struct crypto_instance *seqiv_ablkcipher_alloc(struct rtattr **tb)
-+static int seqiv_ablkcipher_create(struct crypto_template *tmpl,
-+				   struct rtattr **tb)
- {
- 	struct crypto_instance *inst;
-+	int err;
- 
--	inst = skcipher_geniv_alloc(&seqiv_tmpl, tb, 0, 0);
-+	inst = skcipher_geniv_alloc(tmpl, tb, 0, 0);
- 
- 	if (IS_ERR(inst))
--		goto out;
-+		return PTR_ERR(inst);
- 
--	if (inst->alg.cra_ablkcipher.ivsize < sizeof(u64)) {
--		skcipher_geniv_free(inst);
--		inst = ERR_PTR(-EINVAL);
--		goto out;
--	}
-+	err = -EINVAL;
-+	if (inst->alg.cra_ablkcipher.ivsize < sizeof(u64))
-+		goto free_inst;
- 
- 	inst->alg.cra_ablkcipher.givencrypt = seqiv_givencrypt_first;
- 
-@@ -609,18 +608,28 @@ static struct crypto_instance *seqiv_ablkcipher_alloc(struct rtattr **tb)
- 	inst->alg.cra_ctxsize += inst->alg.cra_ablkcipher.ivsize;
- 	inst->alg.cra_ctxsize += sizeof(struct seqiv_ctx);
- 
-+	inst->alg.cra_alignmask |= __alignof__(u32) - 1;
-+
-+	err = crypto_register_instance(tmpl, inst);
-+	if (err)
-+		goto free_inst;
-+
- out:
--	return inst;
-+	return err;
-+
-+free_inst:
-+	skcipher_geniv_free(inst);
-+	goto out;
- }
- 
--static struct crypto_instance *seqiv_old_aead_alloc(struct aead_instance *aead)
-+static int seqiv_old_aead_create(struct crypto_template *tmpl,
-+				 struct aead_instance *aead)
- {
- 	struct crypto_instance *inst = aead_crypto_instance(aead);
-+	int err = -EINVAL;
- 
--	if (inst->alg.cra_aead.ivsize < sizeof(u64)) {
--		aead_geniv_free(aead);
--		return ERR_PTR(-EINVAL);
--	}
-+	if (inst->alg.cra_aead.ivsize < sizeof(u64))
-+		goto free_inst;
- 
- 	inst->alg.cra_aead.givencrypt = seqiv_aead_givencrypt_first;
- 
-@@ -630,28 +639,38 @@ static struct crypto_instance *seqiv_old_aead_alloc(struct aead_instance *aead)
- 	inst->alg.cra_ctxsize = inst->alg.cra_aead.ivsize;
- 	inst->alg.cra_ctxsize += sizeof(struct seqiv_ctx);
- 
--	return inst;
-+	err = crypto_register_instance(tmpl, inst);
-+	if (err)
-+		goto free_inst;
-+
-+out:
-+	return err;
-+
-+free_inst:
-+	aead_geniv_free(aead);
-+	goto out;
- }
- 
--static struct crypto_instance *seqiv_aead_alloc(struct rtattr **tb)
-+static int seqiv_aead_create(struct crypto_template *tmpl, struct rtattr **tb)
- {
- 	struct aead_instance *inst;
- 	struct crypto_aead_spawn *spawn;
- 	struct aead_alg *alg;
-+	int err;
- 
--	inst = aead_geniv_alloc(&seqiv_tmpl, tb, 0, 0);
-+	inst = aead_geniv_alloc(tmpl, tb, 0, 0);
- 
- 	if (IS_ERR(inst))
--		goto out;
-+		return PTR_ERR(inst);
-+
-+	inst->alg.base.cra_alignmask |= __alignof__(u32) - 1;
- 
- 	if (inst->alg.base.cra_aead.encrypt)
--		return seqiv_old_aead_alloc(inst);
-+		return seqiv_old_aead_create(tmpl, inst);
- 
--	if (inst->alg.ivsize < sizeof(u64)) {
--		aead_geniv_free(inst);
--		inst = ERR_PTR(-EINVAL);
--		goto out;
--	}
-+	err = -EINVAL;
-+	if (inst->alg.ivsize < sizeof(u64))
-+		goto free_inst;
- 
- 	spawn = aead_instance_ctx(inst);
- 	alg = crypto_spawn_aead_alg(spawn);
-@@ -675,43 +694,43 @@ static struct crypto_instance *seqiv_aead_alloc(struct rtattr **tb)
- 		inst->alg.base.cra_exit = seqiv_aead_compat_exit;
+ 	/* Data for encapsulator */
+ 	struct xfrm_encap_tmpl	*encap;
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index f0d52d7..3c5b8ce 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1190,6 +1190,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
+ 				memcpy(x->ealg->alg_key, key+1, keysize);
+ 			}
+ 			x->props.ealgo = sa->sadb_sa_encrypt;
++			x->geniv = a->uinfo.encr.geniv;
+ 		}
  	}
- 
-+	err = aead_register_instance(tmpl, inst);
-+	if (err)
-+		goto free_inst;
-+
- out:
--	return aead_crypto_instance(inst);
-+	return err;
-+
-+free_inst:
-+	aead_geniv_free(inst);
-+	goto out;
+ 	/* x->algo.flags = sa->sadb_sa_flags; */
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 2091664..bd16c6c 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -289,6 +289,31 @@ static int attach_one_algo(struct xfrm_algo **algpp, u8 *props,
+ 	return 0;
  }
  
--static struct crypto_instance *seqiv_alloc(struct rtattr **tb)
-+static int seqiv_create(struct crypto_template *tmpl, struct rtattr **tb)
++static int attach_crypt(struct xfrm_state *x, struct nlattr *rta)
++{
++	struct xfrm_algo *p, *ualg;
++	struct xfrm_algo_desc *algo;
++
++	if (!rta)
++		return 0;
++
++	ualg = nla_data(rta);
++
++	algo = xfrm_ealg_get_byname(ualg->alg_name, 1);
++	if (!algo)
++		return -ENOSYS;
++	x->props.ealgo = algo->desc.sadb_alg_id;
++
++	p = kmemdup(ualg, xfrm_alg_len(ualg), GFP_KERNEL);
++	if (!p)
++		return -ENOMEM;
++
++	strcpy(p->alg_name, algo->name);
++	x->ealg = p;
++	x->geniv = algo->uinfo.encr.geniv;
++	return 0;
++}
++
+ static int attach_auth(struct xfrm_algo_auth **algpp, u8 *props,
+ 		       struct nlattr *rta)
  {
- 	struct crypto_attr_type *algt;
--	struct crypto_instance *inst;
- 	int err;
- 
- 	algt = crypto_get_attr_type(tb);
- 	if (IS_ERR(algt))
--		return ERR_CAST(algt);
-+		return PTR_ERR(algt);
- 
- 	err = crypto_get_default_rng();
- 	if (err)
--		return ERR_PTR(err);
-+		return err;
- 
- 	if ((algt->type ^ CRYPTO_ALG_TYPE_AEAD) & CRYPTO_ALG_TYPE_MASK)
--		inst = seqiv_ablkcipher_alloc(tb);
-+		err = seqiv_ablkcipher_create(tmpl, tb);
- 	else
--		inst = seqiv_aead_alloc(tb);
--
--	if (IS_ERR(inst))
--		goto put_rng;
--
--	inst->alg.cra_alignmask |= __alignof__(u32) - 1;
-+		err = seqiv_aead_create(tmpl, tb);
- 
--out:
--	return inst;
-+	if (err)
-+		crypto_put_default_rng();
- 
--put_rng:
--	crypto_put_default_rng();
--	goto out;
-+	return err;
+@@ -349,8 +374,7 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
+ 	return 0;
  }
  
--static struct crypto_instance *seqniv_alloc(struct rtattr **tb)
-+static int seqniv_create(struct crypto_template *tmpl, struct rtattr **tb)
+-static int attach_aead(struct xfrm_algo_aead **algpp, u8 *props,
+-		       struct nlattr *rta)
++static int attach_aead(struct xfrm_state *x, struct nlattr *rta)
  {
- 	struct aead_instance *inst;
- 	struct crypto_aead_spawn *spawn;
-@@ -720,18 +739,16 @@ static struct crypto_instance *seqniv_alloc(struct rtattr **tb)
+ 	struct xfrm_algo_aead *p, *ualg;
+ 	struct xfrm_algo_desc *algo;
+@@ -363,14 +387,15 @@ static int attach_aead(struct xfrm_algo_aead **algpp, u8 *props,
+ 	algo = xfrm_aead_get_byname(ualg->alg_name, ualg->alg_icv_len, 1);
+ 	if (!algo)
+ 		return -ENOSYS;
+-	*props = algo->desc.sadb_alg_id;
++	x->props.ealgo = algo->desc.sadb_alg_id;
  
- 	err = crypto_get_default_rng();
- 	if (err)
--		return ERR_PTR(err);
--
--	inst = aead_geniv_alloc(&seqniv_tmpl, tb, 0, 0);
-+		return err;
+ 	p = kmemdup(ualg, aead_len(ualg), GFP_KERNEL);
+ 	if (!p)
+ 		return -ENOMEM;
  
-+	inst = aead_geniv_alloc(tmpl, tb, 0, 0);
-+	err = PTR_ERR(inst);
- 	if (IS_ERR(inst))
- 		goto put_rng;
+ 	strcpy(p->alg_name, algo->name);
+-	*algpp = p;
++	x->aead = p;
++	x->geniv = algo->uinfo.aead.geniv;
+ 	return 0;
+ }
  
--	if (inst->alg.ivsize < sizeof(u64)) {
--		aead_geniv_free(inst);
--		inst = ERR_PTR(-EINVAL);
--		goto put_rng;
--	}
-+	err = -EINVAL;
-+	if (inst->alg.ivsize < sizeof(u64))
-+		goto free_inst;
+@@ -515,8 +540,7 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 	if (attrs[XFRMA_SA_EXTRA_FLAGS])
+ 		x->props.extra_flags = nla_get_u32(attrs[XFRMA_SA_EXTRA_FLAGS]);
  
- 	spawn = aead_instance_ctx(inst);
- 	alg = crypto_spawn_aead_alg(spawn);
-@@ -748,9 +765,15 @@ static struct crypto_instance *seqniv_alloc(struct rtattr **tb)
- 	inst->alg.base.cra_ctxsize = sizeof(struct seqiv_aead_ctx);
- 	inst->alg.base.cra_ctxsize += inst->alg.base.cra_aead.ivsize;
- 
-+	err = aead_register_instance(tmpl, inst);
-+	if (err)
-+		goto free_inst;
-+
- out:
--	return aead_crypto_instance(inst);
-+	return err;
- 
-+free_inst:
-+	aead_geniv_free(inst);
- put_rng:
- 	crypto_put_default_rng();
- 	goto out;
-@@ -767,14 +790,14 @@ static void seqiv_free(struct crypto_instance *inst)
- 
- static struct crypto_template seqiv_tmpl = {
- 	.name = "seqiv",
--	.alloc = seqiv_alloc,
-+	.create = seqiv_create,
- 	.free = seqiv_free,
- 	.module = THIS_MODULE,
- };
- 
- static struct crypto_template seqniv_tmpl = {
- 	.name = "seqniv",
--	.alloc = seqniv_alloc,
-+	.create = seqniv_create,
- 	.free = seqiv_free,
- 	.module = THIS_MODULE,
- };
+-	if ((err = attach_aead(&x->aead, &x->props.ealgo,
+-			       attrs[XFRMA_ALG_AEAD])))
++	if ((err = attach_aead(x, attrs[XFRMA_ALG_AEAD])))
+ 		goto error;
+ 	if ((err = attach_auth_trunc(&x->aalg, &x->props.aalgo,
+ 				     attrs[XFRMA_ALG_AUTH_TRUNC])))
+@@ -526,9 +550,7 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
+ 				       attrs[XFRMA_ALG_AUTH])))
+ 			goto error;
+ 	}
+-	if ((err = attach_one_algo(&x->ealg, &x->props.ealgo,
+-				   xfrm_ealg_get_byname,
+-				   attrs[XFRMA_ALG_CRYPT])))
++	if ((err = attach_crypt(x, attrs[XFRMA_ALG_CRYPT])))
+ 		goto error;
+ 	if ((err = attach_one_algo(&x->calg, &x->props.calgo,
+ 				   xfrm_calg_get_byname,
