@@ -1,10 +1,8 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 0/13] crypto: Convert all AEAD users to new interface
-Date: Fri, 22 May 2015 16:27:08 +0800
-Message-ID: <20150522082708.GA3507@gondor.apana.org.au>
-References: <20150521103938.GA23035@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [v2 PATCH 1/13] crypto: aead - Add crypto_aead_alg_ivsize/maxauthsize
+Date: Fri, 22 May 2015 16:30:48 +0800
+Message-ID: <E1YviLw-0000wm-U7@gondolin.me.apana.org.au>
+References: <20150522082708.GA3507@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Johannes Berg <johannes@sipsolutions.net>,
@@ -12,52 +10,154 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
 Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20150521103938.GA23035@gondor.apana.org.au>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+AEAD algorithm implementors need to figure out a given algorithm's
+IV size and maximum authentication size.  During the transition
+this is difficult to do as an algorithm could be new style or old
+style.
 
-This is the second version of the series.  The first four patches
-make the new IV generators use aead_register_instance instead of
-the obsolete crypto_register_instance.
+This patch creates two helpers to make this easier.
 
-I've also added two more conversions for tcrypt and algif_aead.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-Original description:
+ crypto/aead.c                  |   15 +++------------
+ include/crypto/aead.h          |   21 ++++++++++++++++++---
+ include/crypto/internal/aead.h |   19 +++++++------------
+ 3 files changed, 28 insertions(+), 27 deletions(-)
 
-This series of patches convert all in-tree AEAD users that I
-could find to the new single SG list interface.  For IPsec it
-also adopts the new explicit IV generator scheme.
-
-To recap, the old AEAD interface takes an associated data (AD)
-SG list in addition to the plain/cipher text SG list(s).  That
-forces the underlying AEAD algorithm implementors to try to stitch
-those two lists together where possible in order to maximise the
-contiguous chunk of memory passed to the ICV/hash function.  Things
-get even more hairy for IPsec as it has a third piece of memory,
-the generated IV (giv) that needs to be hashed.  One look at the
-nasty things authenc does for example is enough to make anyone
-puke :)
-
-In fact the interface is just getting in our way because for the
-main user IPsec the data is naturally contiguous as the protocol
-was designed with this in mind.
-
-So the new AEAD interface gets rid of the separate AD SG list
-and instead simply requires the AD to be at the head of the src
-and dst SG lists.  There is further provision for optional space
-between the AD and the plain/cipher text for ease of implementation.
-
-The conversion of in-tree users is fairly straightforward.  The
-only non-trivial bit is IPsec as I'm taking this opportunity to
-move the IV generation knowledge into IPsec as that's where it
-belongs since we may in future wish to support different generation
-schemes for a single algorithm.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/crypto/aead.c b/crypto/aead.c
+index 5fa992a..c1f73a9 100644
+--- a/crypto/aead.c
++++ b/crypto/aead.c
+@@ -69,7 +69,7 @@ int crypto_aead_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
+ {
+ 	int err;
+ 
+-	if (authsize > tfm->maxauthsize)
++	if (authsize > crypto_aead_maxauthsize(tfm))
+ 		return -EINVAL;
+ 
+ 	if (tfm->setauthsize) {
+@@ -162,8 +162,6 @@ static int crypto_old_aead_init_tfm(struct crypto_tfm *tfm)
+ 		crt->givdecrypt = aead_null_givdecrypt;
+ 	}
+ 	crt->child = __crypto_aead_cast(tfm);
+-	crt->ivsize = alg->ivsize;
+-	crt->maxauthsize = alg->maxauthsize;
+ 	crt->authsize = alg->maxauthsize;
+ 
+ 	return 0;
+@@ -182,8 +180,6 @@ static int crypto_aead_init_tfm(struct crypto_tfm *tfm)
+ 	aead->encrypt = alg->encrypt;
+ 	aead->decrypt = alg->decrypt;
+ 	aead->child = __crypto_aead_cast(tfm);
+-	aead->ivsize = alg->ivsize;
+-	aead->maxauthsize = alg->maxauthsize;
+ 	aead->authsize = alg->maxauthsize;
+ 
+ 	return 0;
+@@ -418,13 +414,8 @@ struct aead_instance *aead_geniv_alloc(struct crypto_template *tmpl,
+ 
+ 	alg = crypto_spawn_aead_alg(spawn);
+ 
+-	if (alg->base.cra_aead.encrypt) {
+-		ivsize = alg->base.cra_aead.ivsize;
+-		maxauthsize = alg->base.cra_aead.maxauthsize;
+-	} else {
+-		ivsize = alg->ivsize;
+-		maxauthsize = alg->maxauthsize;
+-	}
++	ivsize = crypto_aead_alg_ivsize(alg);
++	maxauthsize = crypto_aead_alg_maxauthsize(alg);
+ 
+ 	err = -EINVAL;
+ 	if (!ivsize)
+diff --git a/include/crypto/aead.h b/include/crypto/aead.h
+index 177e6f4..ba28c61 100644
+--- a/include/crypto/aead.h
++++ b/include/crypto/aead.h
+@@ -139,9 +139,7 @@ struct crypto_aead {
+ 
+ 	struct crypto_aead *child;
+ 
+-	unsigned int ivsize;
+ 	unsigned int authsize;
+-	unsigned int maxauthsize;
+ 	unsigned int reqsize;
+ 
+ 	struct crypto_tfm base;
+@@ -187,6 +185,23 @@ static inline struct crypto_aead *crypto_aead_crt(struct crypto_aead *tfm)
+ 	return tfm;
+ }
+ 
++static inline struct old_aead_alg *crypto_old_aead_alg(struct crypto_aead *tfm)
++{
++	return &crypto_aead_tfm(tfm)->__crt_alg->cra_aead;
++}
++
++static inline struct aead_alg *crypto_aead_alg(struct crypto_aead *tfm)
++{
++	return container_of(crypto_aead_tfm(tfm)->__crt_alg,
++			    struct aead_alg, base);
++}
++
++static inline unsigned int crypto_aead_alg_ivsize(struct aead_alg *alg)
++{
++	return alg->base.cra_aead.encrypt ? alg->base.cra_aead.ivsize :
++					    alg->ivsize;
++}
++
+ /**
+  * crypto_aead_ivsize() - obtain IV size
+  * @tfm: cipher handle
+@@ -198,7 +213,7 @@ static inline struct crypto_aead *crypto_aead_crt(struct crypto_aead *tfm)
+  */
+ static inline unsigned int crypto_aead_ivsize(struct crypto_aead *tfm)
+ {
+-	return tfm->ivsize;
++	return crypto_aead_alg_ivsize(crypto_aead_alg(tfm));
+ }
+ 
+ /**
+diff --git a/include/crypto/internal/aead.h b/include/crypto/internal/aead.h
+index 08f2ca6..4137330 100644
+--- a/include/crypto/internal/aead.h
++++ b/include/crypto/internal/aead.h
+@@ -30,17 +30,6 @@ struct crypto_aead_spawn {
+ extern const struct crypto_type crypto_aead_type;
+ extern const struct crypto_type crypto_nivaead_type;
+ 
+-static inline struct old_aead_alg *crypto_old_aead_alg(struct crypto_aead *tfm)
+-{
+-	return &crypto_aead_tfm(tfm)->__crt_alg->cra_aead;
+-}
+-
+-static inline struct aead_alg *crypto_aead_alg(struct crypto_aead *tfm)
+-{
+-	return container_of(crypto_aead_tfm(tfm)->__crt_alg,
+-			    struct aead_alg, base);
+-}
+-
+ static inline void *crypto_aead_ctx(struct crypto_aead *tfm)
+ {
+ 	return crypto_tfm_ctx(&tfm->base);
+@@ -145,9 +134,15 @@ static inline void crypto_aead_set_reqsize(struct crypto_aead *aead,
+ 	crypto_aead_crt(aead)->reqsize = reqsize;
+ }
+ 
++static inline unsigned int crypto_aead_alg_maxauthsize(struct aead_alg *alg)
++{
++	return alg->base.cra_aead.encrypt ? alg->base.cra_aead.maxauthsize :
++					    alg->maxauthsize;
++}
++
+ static inline unsigned int crypto_aead_maxauthsize(struct crypto_aead *aead)
+ {
+-	return aead->maxauthsize;
++	return crypto_aead_alg_maxauthsize(crypto_aead_alg(aead));
+ }
+ 
+ int crypto_register_aead(struct aead_alg *alg);
