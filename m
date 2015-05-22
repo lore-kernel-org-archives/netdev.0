@@ -1,35 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: fix a potential deadlock in
- tcp_get_info()
-Date: Fri, 22 May 2015 14:21:31 -0400 (EDT)
-Message-ID: <20150522.142131.2304669580804588128.davem@davemloft.net>
-References: <1432317396.4060.130.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1432317814.4060.132.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1432318119.4060.133.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net] ipv4: Avoid crashing in ip_error
+Date: Fri, 22 May 2015 14:24:47 -0400 (EDT)
+Message-ID: <20150522.142447.1048811620866120127.davem@davemloft.net>
+References: <ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
+	<20150522040453.GC8530@1wt.eu>
+	<87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mleitner@redhat.com, edumazet@google.com, netdev@vger.kernel.org,
-	ycheng@google.com, mattmathis@google.com, cgallek@google.com,
-	kafai@fb.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, linuxbugs@vittgam.net, security@kernel.org,
+	greg@kroah.com, luto@amacapital.net, w@1wt.eu
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49421 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49453 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757816AbbEVSVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 14:21:35 -0400
-In-Reply-To: <1432318119.4060.133.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1756692AbbEVSYu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 14:24:50 -0400
+In-Reply-To: <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 22 May 2015 11:08:39 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 22 May 2015 04:58:12 -0500
 
-> On Fri, 2015-05-22 at 11:03 -0700, Eric Dumazet wrote:
+> ip_error does not check if in_dev is NULL before dereferencing it.
 > 
->> Also I am wondering if not explicitly include <linux/u64_stats_sync.h>
->> could break one arch...
+> IThe following sequence of calls is possible:
+> CPU A                          CPU B
+> ip_rcv_finish
+>     ip_route_input_noref()
+>         ip_route_input_slow()
+>                                inetdev_destroy()
+>     dst_input()
 > 
-> Sorry for the false alarm, we should be good because of snmp.h
+> With the result that a network device can be destroyed while processing
+> an input packet.
+> 
+> A crash was triggered with only unicast packets in flight, and
+> forwarding enabled on the only network device.   The error condition
+> was created by the removal of the network device.
+> 
+> As such it is likely the that error code was -EHOSTUNREACH, and the
+> action taken by ip_error (if in_dev had been accessible) would have
+> been to not increment any counters and to have tried and likely failed
+> to send an icmp error as the network device is going away.
+> 
+> Therefore handle this weird case by just dropping the packet if
+> !in_dev.  It will result in dropping the packet sooner, and will not
+> result in an actual change of behavior.
+> 
+> Fixes: 251da4130115b ("ipv4: Cache ip_error() routes even when not forwarding.")
+> Reported-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
+> Tested-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Right.
+Looks good, applied and queued up for -stable, thanks!
