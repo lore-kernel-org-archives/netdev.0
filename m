@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/3] net: macb: Disable half duplex gigabit on Zynq
-Date: Fri, 22 May 2015 14:58:41 -0400 (EDT)
-Message-ID: <20150522.145841.1742054345536765203.davem@davemloft.net>
-References: <1432304531-23682-1-git-send-email-nathan.sullivan@ni.com>
-	<1432304531-23682-2-git-send-email-nathan.sullivan@ni.com>
+Subject: Re: [PATCH -next, V3 0/2] net: force refragmentation for DF
+ reassembed skbs
+Date: Fri, 22 May 2015 15:03:10 -0400 (EDT)
+Message-ID: <20150522.150310.2248217318352290500.davem@davemloft.net>
+References: <1432305171-21932-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nathan.sullivan@ni.com
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49749 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49783 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757225AbbEVS6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 14:58:43 -0400
-In-Reply-To: <1432304531-23682-2-git-send-email-nathan.sullivan@ni.com>
+	with ESMTP id S1756720AbbEVTDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 15:03:13 -0400
+In-Reply-To: <1432305171-21932-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Date: Fri, 22 May 2015 09:22:10 -0500
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 22 May 2015 16:32:49 +0200
 
-> According to the Zynq TRM, gigabit half duplex is not supported.  Add a
-> new cap and compatible string so Zynq can avoid advertising that mode.
-> 
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+> IP (ttl 64, id 12345, offset 0, flags [+, DF], proto UDP (17), length 1204)
+>     192.168.7.1.42 > 10.23.42.2.42: UDP, length 1400
+> IP (ttl 64, id 12345, offset 1184, flags [DF], proto UDP (17), length 244)
+>     192.168.7.1 > 10.23.42.2: ip-proto-17
 
-Applied.
+I almost consider a fragment with DF set an oxymoron.
+
+How does this happen?
+
+DF is a mechanism for PMTU discovery.  Therefore it is the end nodes
+which set DF on packets before fragmentation can even take place.
+Since DF is set initially, the logical consequence is that the packet
+cannot be legally fragmented along the way.
+
+Are tunnels doing something to create this situation?
