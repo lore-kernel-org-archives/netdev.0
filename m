@@ -1,64 +1,150 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 7/7] mac80211: Switch to new AEAD interface
-Date: Fri, 22 May 2015 09:32:28 +0200
-Message-ID: <1432279948.3493.2.camel@sipsolutions.net>
-References: <20150521103938.GA23035@gondor.apana.org.au>
-	 <E1YvNxS-00063i-AZ@gondolin.me.apana.org.au>
+From: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [RESEND][PATCH] Bluetooth: Make request workqueue freezable
+Date: Fri, 22 May 2015 09:37:13 +0200
+Message-ID: <555EDCA9.4030007@broadcom.com>
+References: <Pine.LNX.4.44L0.1505211112310.1397-100000@iolanthe.rowland.org> <555E767B.2040808@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <E1YvNxS-00063i-AZ@gondolin.me.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
+Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>,
+	Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Laura Abbott <labbott-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
+	"Johan Hedberg" <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Rafael J. Wysocki" <rafael.j.wysocki-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	"bluez mailin list (linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org)"
+	<linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Laura Abbott <labbott-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <555E767B.2040808-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2015-05-21 at 18:44 +0800, Herbert Xu wrote:
-> This patch makes use of the new AEAD interface which uses a single
-> SG list instead of separate lists for the AD and plain text.
+On 05/22/15 02:21, Laura Abbott wrote:
+> On 05/21/2015 08:26 AM, Alan Stern wrote:
+>> On Thu, 21 May 2015, Marcel Holtmann wrote:
+>>
+>>> Hi Alan,
+>>>
+>>>>> Then avoiding the failed firmware is no solution, indeed.
+>>>>> If it's a new probe, it should be never executed during resume.
+>>>>
+>>>> Can you expand this comment? What's wrong with probing during resume?
+>>>>
+>>>> The USB stack does carry out probes during resume under certain
+>>>> circumstances. A driver lacking a reset_resume callback is one of
+>>>> those circumstances.
+>>>
+>>> in case the platform kills the power to the USB lines, we can never
+>>> do anything about this. I do not want to hack around this in the
+>>> driver.
+>>>
+>>> What are the cases where we should implement reset_resume and would
+>>> it really help here. Since the btusb.ko driver implements
+>>> suspend/resume support, would reset_resume ever be called?
+>>
+>> One of those cases is exactly what you have been talking about: when
+>> the platform kills power to the USB lines during suspend. The driver's
+>> reset_resume routine will be called during resume, as opposed to the
+>> probe routine being called. Therefore the driver will be able to tell
+>> that this is not a new device instance.
+>>
+>> The other cases are less likely to occur: a device is unable to resume
+>> normally and requires a reset before it will start working again, or
+>> something else goes wrong along those lines.
+>>
+>>> However I get the feeling someone needs to go back and see if the
+>>> device is the same one and just gets probed again or if it is a new
+>>> one from the USB host stack perspective.
+>>
+>> That can be done easily enough by enabling usbcore debugging before
+>> carrying out the system suspend:
+>>
+>> echo 'module usbcore =p' >/debug/dynamic_debug/control
+>>
+>> The debugging information in the kernel log will tell just what
+>> happened.
+>>
+>>
+>
+> Playing around in my test setup as a baseline
+>
+> [ 41.991035] usb usb1-port11: not reset yet, waiting 50ms
+> [ 42.092902] usb 1-11: reset full-speed USB device number 4 using xhci_hcd
+> [ 42.143575] usb usb1-port11: not reset yet, waiting 50ms
+> [ 42.257822] btusb 1-11:1.0: no reset_resume for driver btusb?
+> [ 42.257823] btusb 1-11:1.1: no reset_resume for driver btusb?
+> [ 42.257825] btusb 1-11:1.0: forced unbind
+> [ 42.258305] kworker/dying (826) used greatest stack depth: 10680 bytes
+> left
+> [ 42.331342] usb 1-9.2: reset full-speed USB device number 7 using xhci_hcd
+> [ 42.416631] usb 1-9.2: ep0 maxpacket = 8
+> [ 42.681288] usb 1-9.1: reset low-speed USB device number 5 using xhci_hcd
+> [ 42.968138] usb 1-9.1: ep 0x81 - rounding interval to 64 microframes,
+> ep desc says 80 microframes
+> [ 42.968157] usb 1-9.1: ep 0x82 - rounding interval to 64 microframes,
+> ep desc says 80 microframes
+> [ 43.036290] usb 1-9.4: reset high-speed USB device number 8 using xhci_hcd
+> [ 43.123126] hub 1-9.4:1.0: hub_reset_resume
+> [ 43.123581] hub 1-9.4:1.0: enabling power on all ports
+> [ 43.224853] PM: resume of devices complete after 2456.587 msecs
+> [ 43.225038] btusb 1-11:1.0: usb_probe_interface
+> [ 43.225040] btusb 1-11:1.0: usb_probe_interface - got id
+> [ 43.225802] ------------[ cut here ]------------
+> [ 43.225807] WARNING: CPU: 7 PID: 2844 at
+> drivers/base/firmware_class.c:1118 _request_firmware+0x5ee/0x890()
+>
+>
+> so it is trying to call the reset resume. If I try a 'dummy reset resume'
+>
+> diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+> index a7bdac0..cda8137 100644
+> --- a/drivers/bluetooth/btusb.c
+> +++ b/drivers/bluetooth/btusb.c
+> @@ -3401,6 +3401,7 @@ static struct usb_driver btusb_driver = {
+> #ifdef CONFIG_PM
+> .suspend = btusb_suspend,
+> .resume = btusb_resume,
+> + .reset_resume = btusb_resume,
+> #endif
+> .id_table = btusb_table,
+> .supports_autosuspend = 1,
+>
+>
+> I no longer see the warning which means that probe is no longer being
+> called.
+>
+> Marcel, does implementing a proper reset_resume callback seem like the
+> right
+> approach or do you need more information?
 
-The CCM and GCM part seems to work, but GMAC causes a kernel crash:
+Hi, Laura
 
-[   26.143579] BUG: unable to handle kernel NULL pointer dereference at           (null)
-[   26.144406] IP: [<ffffffff811d9e7d>] scatterwalk_map_and_copy+0x3d/0xd0
-[   26.145071] PGD da3a067 PUD d9ee067 PMD 0 
-[   26.145514] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC 
-[   26.146146] CPU: 1 PID: 661 Comm: hostapd Not tainted 4.0.0+ #860
-[   26.146746] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[   26.148333] task: ffff88000d9a4a20 ti: ffff880000070000 task.ti: ffff880000070000
-[   26.149625] RIP: 0010:[<ffffffff811d9e7d>]  [<ffffffff811d9e7d>] scatterwalk_map_and_copy+0x3d/0xd0
-[   26.151223] RSP: 0018:ffff8800000733b8  EFLAGS: 00010246
-[   26.152156] RAX: 0000000000000000 RBX: 0000000000000010 RCX: 000077ff80000000
-[   26.153396] RDX: 0000000080000000 RSI: 0000000000000000 RDI: ffff8800000733c8
-[   26.153481] RBP: ffff880000073428 R08: 0000000000000001 R09: 0000000000000010
-[   26.153481] R10: 0000000000000010 R11: 0000000000000012 R12: 0000000000000001
-[   26.153481] R13: ffff8800000735f8 R14: 0000000000000000 R15: 0000000000000030
-[   26.153481] FS:  00007f20eee60700(0000) GS:ffff88000f600000(0000) knlGS:0000000000000000
-[   26.153481] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   26.153481] CR2: 0000000000000000 CR3: 000000000da2a000 CR4: 00000000000007a0
-[   26.153481] Stack:
-[   26.153481]  0000000000000000 0000000000000030 ffff8800000733d8 ffffffff811e05c6
-[   26.153481]  ffff8800000733f8 ffffffff811df815 ffff8800000735f8 ffff880000073598
-[   26.153481]  ffff880000073408 ffffffff811dfc86 ffff880000073438 ffff8800000735f8
-[   26.153481] Call Trace:
-[   26.153481]  [<ffffffff811e05c6>] ? shash_async_final+0x16/0x20
-[   26.153481]  [<ffffffff811df815>] ? crypto_ahash_op+0x25/0x60
-[   26.153481]  [<ffffffff811dfc86>] ? crypto_ahash_final+0x16/0x20
-[   26.153481]  [<ffffffff811e3608>] gcm_enc_copy_hash+0x28/0x30
-[   26.153481]  [<ffffffff811e36fc>] crypto_gcm_encrypt+0xec/0x100
-[   26.153481]  [<ffffffff811e3610>] ? gcm_enc_copy_hash+0x30/0x30
-[   26.153481]  [<ffffffff811da875>] old_crypt+0xc5/0xe0
-[   26.153481]  [<ffffffff811da8cd>] old_encrypt+0x1d/0x20
-[   26.153481]  [<ffffffff814b688b>] ieee80211_aes_gmac+0x21b/0x230
-[   26.153481]  [<ffffffff811e3710>] ? crypto_gcm_encrypt+0x100/0x100
-[   26.153481]  [<ffffffff811e2f10>] ? __gcm_hash_final_done+0x60/0x60
-[   26.153481]  [<ffffffff814b66a4>] ? ieee80211_aes_gmac+0x34/0x230
-[   26.153481]  [<ffffffff81498621>] ieee80211_crypto_aes_gmac_encrypt+0x191/0x1a0
-[   26.153481]  [<ffffffff8153b794>] ieee80211_tx_h_encrypt+0x67/0x77
-[   26.153481]  [<ffffffff814cd496>] invoke_tx_handlers+0xe6/0x1b0
+I believe that some devices supported by btusb would need to do a 
+request_firmware() in the reset_resume() callback and thus end up with 
+the same issue. btusb could store the firmware obtained during the probe 
+in it driver private structure and use that in reset_resume() callback, 
+but it means the memory for the firmware blobs will not be released 
+until the driver is unloaded.
 
-johannes
+Regards,
+Arend
+
+> Thanks,
+> Laura
+> --
+> To unsubscribe from this list: send the line "unsubscribe
+> linux-bluetooth" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at http://vger.kernel.org/majordomo-info.html
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
