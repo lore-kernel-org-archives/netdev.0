@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 8/13] esp4: Switch to new AEAD interface
-Date: Fri, 22 May 2015 16:30:57 +0800
-Message-ID: <E1YviM5-0000yj-1l@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 9/13] esp6: Switch to new AEAD interface
+Date: Fri, 22 May 2015 16:30:58 +0800
+Message-ID: <E1YviM6-0000z5-7S@gondolin.me.apana.org.au>
 References: <20150522082708.GA3507@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -9,9 +9,13 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Marcel Holtmann <marcel@holtmann.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:42053 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756283AbbEVIbD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:31:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This patch makes use of the new AEAD interface which uses a single
 SG list instead of separate lists for the AD and plain text.  The
@@ -20,14 +24,14 @@ IV generation is also now carried out through normal AEAD methods.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/esp4.c |  197 ++++++++++++++++++++++++++++++++++----------------------
+ net/ipv6/esp6.c |  197 ++++++++++++++++++++++++++++++++++----------------------
  1 file changed, 122 insertions(+), 75 deletions(-)
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 421a80b..855b1cb 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -49,7 +49,7 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 31f1b5d..ff21a5d 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -76,7 +76,7 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqihlen)
  		len = ALIGN(len, crypto_tfm_ctx_alignment());
  	}
  
@@ -36,7 +40,7 @@ index 421a80b..855b1cb 100644
  	len = ALIGN(len, __alignof__(struct scatterlist));
  
  	len += sizeof(struct scatterlist) * nfrags;
-@@ -68,17 +68,6 @@ static inline u8 *esp_tmp_iv(struct crypto_aead *aead, void *tmp, int seqhilen)
+@@ -96,17 +96,6 @@ static inline u8 *esp_tmp_iv(struct crypto_aead *aead, void *tmp, int seqhilen)
  			 crypto_aead_alignmask(aead) + 1) : tmp + seqhilen;
  }
  
@@ -54,7 +58,7 @@ index 421a80b..855b1cb 100644
  static inline struct aead_request *esp_tmp_req(struct crypto_aead *aead, u8 *iv)
  {
  	struct aead_request *req;
-@@ -97,14 +86,6 @@ static inline struct scatterlist *esp_req_sg(struct crypto_aead *aead,
+@@ -125,14 +114,6 @@ static inline struct scatterlist *esp_req_sg(struct crypto_aead *aead,
  			     __alignof__(struct scatterlist));
  }
  
@@ -69,7 +73,7 @@ index 421a80b..855b1cb 100644
  static void esp_output_done(struct crypto_async_request *base, int err)
  {
  	struct sk_buff *skb = base->data;
-@@ -113,14 +94,37 @@ static void esp_output_done(struct crypto_async_request *base, int err)
+@@ -141,32 +122,57 @@ static void esp_output_done(struct crypto_async_request *base, int err)
  	xfrm_output_resume(skb, err);
  }
  
@@ -97,7 +101,7 @@ index 421a80b..855b1cb 100644
 +	esp_output_done(base, err);
 +}
 +
- static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  {
  	int err;
  	struct ip_esp_hdr *esph;
@@ -108,8 +112,7 @@ index 421a80b..855b1cb 100644
 -	struct scatterlist *asg;
  	struct sk_buff *trailer;
  	void *tmp;
- 	u8 *iv;
-@@ -129,17 +133,19 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	int blksize;
  	int clen;
  	int alen;
  	int plen;
@@ -119,18 +122,19 @@ index 421a80b..855b1cb 100644
  	int assoclen;
 -	int sglists;
  	int seqhilen;
+ 	u8 *iv;
+ 	u8 *tail;
  	__be32 *seqhi;
 +	__be64 seqno;
  
  	/* skb is pure payload to encrypt */
- 
  	aead = x->data;
  	alen = crypto_aead_authsize(aead);
 +	ivlen = crypto_aead_ivsize(aead);
  
  	tfclen = 0;
  	if (x->tfcpad) {
-@@ -160,16 +166,14 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -187,16 +193,14 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  	nfrags = err;
  
  	assoclen = sizeof(*esph);
@@ -148,7 +152,7 @@ index 421a80b..855b1cb 100644
  	if (!tmp) {
  		err = -ENOMEM;
  		goto error;
-@@ -177,9 +181,8 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -204,9 +208,8 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  
  	seqhi = esp_tmp_seqhi(tmp);
  	iv = esp_tmp_iv(aead, tmp, seqhilen);
@@ -160,9 +164,9 @@ index 421a80b..855b1cb 100644
  
  	/* Fill padding... */
  	tail = skb_tail_pointer(trailer);
-@@ -235,36 +238,53 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 		*skb_mac_header(skb) = IPPROTO_UDP;
- 	}
+@@ -227,36 +230,53 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	esph = ip_esp_hdr(skb);
+ 	*skb_mac_header(skb) = IPPROTO_ESP;
  
 -	esph->spi = x->id.spi;
  	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
@@ -234,7 +238,7 @@ index 421a80b..855b1cb 100644
  
  	kfree(tmp);
  
-@@ -363,6 +383,20 @@ static void esp_input_done(struct crypto_async_request *base, int err)
+@@ -317,25 +337,38 @@ static void esp_input_done(struct crypto_async_request *base, int err)
  	xfrm_input_resume(skb, esp_input_done2(skb, err));
  }
  
@@ -252,10 +256,9 @@ index 421a80b..855b1cb 100644
 +	esp_input_done(base, err);
 +}
 +
- /*
-  * Note: detecting truncated vs. non-truncated authentication data is very
-  * expensive, so we only support truncated data, which is the recommended
-@@ -374,19 +408,18 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct ip_esp_hdr *esph;
  	struct crypto_aead *aead = x->data;
  	struct aead_request *req;
  	struct sk_buff *trailer;
@@ -266,20 +269,20 @@ index 421a80b..855b1cb 100644
  	int assoclen;
 -	int sglists;
  	int seqhilen;
- 	__be32 *seqhi;
+ 	int ret = 0;
  	void *tmp;
+ 	__be32 *seqhi;
  	u8 *iv;
  	struct scatterlist *sg;
 -	struct scatterlist *asg;
- 	int err = -EINVAL;
  
--	if (!pskb_may_pull(skb, sizeof(*esph) + crypto_aead_ivsize(aead)))
-+	if (!pskb_may_pull(skb, sizeof(*esph) + ivlen))
+-	if (!pskb_may_pull(skb, sizeof(*esph) + crypto_aead_ivsize(aead))) {
++	if (!pskb_may_pull(skb, sizeof(*esph) + ivlen)) {
+ 		ret = -EINVAL;
  		goto out;
- 
- 	if (elen <= 0)
-@@ -399,17 +432,15 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
- 	nfrags = err;
+ 	}
+@@ -354,16 +387,14 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	ret = -ENOMEM;
  
  	assoclen = sizeof(*esph);
 -	sglists = 1;
@@ -291,13 +294,12 @@ index 421a80b..855b1cb 100644
  		assoclen += seqhilen;
  	}
  
- 	err = -ENOMEM;
 -	tmp = esp_alloc_tmp(aead, nfrags + sglists, seqhilen);
 +	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
  	if (!tmp)
  		goto out;
  
-@@ -417,8 +448,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+@@ -371,8 +402,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  	seqhi = esp_tmp_seqhi(tmp);
  	iv = esp_tmp_iv(aead, tmp, seqhilen);
  	req = esp_tmp_req(aead, iv);
@@ -307,7 +309,7 @@ index 421a80b..855b1cb 100644
  
  	skb->ip_summed = CHECKSUM_NONE;
  
-@@ -427,26 +457,33 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+@@ -381,26 +411,33 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  	/* Get ivec. This can be wrong, check against another impls. */
  	iv = esph->enc_data;
  
@@ -343,17 +345,17 @@ index 421a80b..855b1cb 100644
 +	aead_request_set_crypt(req, sg, sg, elen + ivlen, iv);
 +	aead_request_set_ad(req, assoclen, 0);
  
- 	err = crypto_aead_decrypt(req);
- 	if (err == -EINPROGRESS)
+ 	ret = crypto_aead_decrypt(req);
+ 	if (ret == -EINPROGRESS)
  		goto out;
  
 +	if ((x->props.flags & XFRM_STATE_ESN))
 +		esp_input_restore_header(skb);
 +
- 	err = esp_input_done2(skb, err);
+ 	ret = esp_input_done2(skb, ret);
  
  out:
-@@ -518,10 +555,16 @@ static void esp_destroy(struct xfrm_state *x)
+@@ -460,10 +497,16 @@ static void esp6_destroy(struct xfrm_state *x)
  
  static int esp_init_aead(struct xfrm_state *x)
  {
@@ -371,7 +373,7 @@ index 421a80b..855b1cb 100644
  	err = PTR_ERR(aead);
  	if (IS_ERR(aead))
  		goto error;
-@@ -560,15 +603,19 @@ static int esp_init_authenc(struct xfrm_state *x)
+@@ -502,15 +545,19 @@ static int esp_init_authenc(struct xfrm_state *x)
  
  	if ((x->props.flags & XFRM_STATE_ESN)) {
  		if (snprintf(authenc_name, CRYPTO_MAX_ALG_NAME,
