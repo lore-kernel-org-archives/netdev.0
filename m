@@ -1,199 +1,44 @@
-From: Neil McKee <neil.mckee@inmon.com>
-Subject: [PATCH v2 net-next] openvswitch: include datapath actions with sampled-packet upcall to userspace
-Date: Fri, 22 May 2015 16:21:24 -0700
-Message-ID: <1432336884-21720-1-git-send-email-neil.mckee@inmon.com>
-Cc: Neil McKee <neil.mckee@inmon.com>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] test_bpf: add more eBPF jump torture cases
+Date: Fri, 22 May 2015 16:28:57 -0700
+Message-ID: <555FBBB9.2070509@plumgrid.com>
+References: <b23d3a10edbe46ac70bcc57a05ece597e1b6c09c.1432335952.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:33275 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757793AbbEVXVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 19:21:34 -0400
-Received: by pdbqa5 with SMTP id qa5so30028369pdb.0
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 16:21:34 -0700 (PDT)
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:36254 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757335AbbEVX27 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 19:28:59 -0400
+Received: by igbpi8 with SMTP id pi8so1836716igb.1
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 16:28:59 -0700 (PDT)
+In-Reply-To: <b23d3a10edbe46ac70bcc57a05ece597e1b6c09c.1432335952.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If new optional attribute OVS_USERSPACE_ATTR_ACTIONS is added to an
-OVS_ACTION_ATTR_USERSPACE action, then include the datapath actions
-in the upcall.
+On 5/22/15 4:10 PM, Daniel Borkmann wrote:
+> Add two more eBPF test cases for JITs, i.e. the second one revealed a
+> bug in the x86_64 JIT compiler, where only an int3 filled image from
+> the allocator was emitted and later wrongly set by the compiler as the
+> bpf_func program code since optimization pass boundary was surpassed
+> w/o actually emitting opcodes.
+>
+> Interpreter:
+>
+>    [   45.782892] test_bpf: #242 BPF_MAXINSNS: Very long jump backwards jited:0 11 PASS
+>    [   45.783062] test_bpf: #243 BPF_MAXINSNS: Edge hopping nuthouse jited:0 14705 PASS
+>
+> After x86_64 JIT (fixed):
+>
+>    [   80.495638] test_bpf: #242 BPF_MAXINSNS: Very long jump backwards jited:1 6 PASS
+>    [   80.495957] test_bpf: #243 BPF_MAXINSNS: Edge hopping nuthouse jited:1 17157 PASS
+>
+> Reference: http://thread.gmane.org/gmane.linux.network/364729
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-This Directly associates the sampled packet with the path it takes
-through the virtual switch. Path information currently includes mangling,
-encapsulation and decapsulation actions for tunneling protocols GRE,
-VXLAN, Geneve, MPLS and QinQ, but this extension requires no further
-changes to accommodate datapath actions that may be added in the
-future.
+Thanks a lot for great tests!
 
-Adding path information enhances visibility into complex virtual
-networks.
-
-Signed-off-by: Neil McKee <neil.mckee@inmon.com>
----
- include/uapi/linux/openvswitch.h |  4 ++++
- net/openvswitch/actions.c        | 21 ++++++++++++++++-----
- net/openvswitch/datapath.c       | 18 ++++++++++++++++++
- net/openvswitch/datapath.h       |  2 ++
- 4 files changed, 40 insertions(+), 5 deletions(-)
-
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index bbd49a0..1dab776 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -153,6 +153,8 @@ enum ovs_packet_cmd {
-  * flow key against the kernel's.
-  * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
-  * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
-+ * Also used in upcall when %OVS_ACTION_ATTR_USERSPACE has optional
-+ * %OVS_USERSPACE_ATTR_ACTIONS attribute.
-  * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
-  * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
-  * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
-@@ -528,6 +530,7 @@ enum ovs_sample_attr {
-  * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
-  * @OVS_USERSPACE_ATTR_EGRESS_TUN_PORT: If present, u32 output port to get
-  * tunnel info.
-+ * @OVS_USERSPACE_ATTR_ACTIONS: If present, send actions with upcall.
-  */
- enum ovs_userspace_attr {
- 	OVS_USERSPACE_ATTR_UNSPEC,
-@@ -535,6 +538,7 @@ enum ovs_userspace_attr {
- 	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
- 	OVS_USERSPACE_ATTR_EGRESS_TUN_PORT,  /* Optional, u32 output port
- 					      * to get tunnel info. */
-+	OVS_USERSPACE_ATTR_ACTIONS,   /* Optional flag to get actions. */
- 	__OVS_USERSPACE_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index b491c1c..b3f9b89 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
- }
- 
- static int output_userspace(struct datapath *dp, struct sk_buff *skb,
--			    struct sw_flow_key *key, const struct nlattr *attr)
-+			    struct sw_flow_key *key, const struct nlattr *attr,
-+			    const struct nlattr *actions, int actions_len)
- {
- 	struct ovs_tunnel_info info;
- 	struct dp_upcall_info upcall;
-@@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- 	upcall.userdata = NULL;
- 	upcall.portid = 0;
- 	upcall.egress_tun_info = NULL;
-+	upcall.actions = NULL;
-+	upcall.actions_len = 0;
- 
- 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
- 		 a = nla_next(a, &rem)) {
-@@ -647,6 +650,13 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 		}
- 
-+		case OVS_USERSPACE_ATTR_ACTIONS: {
-+			/* Include actions. */
-+			upcall.actions = actions;
-+			upcall.actions_len = actions_len;
-+			break;
-+		}
-+
- 		} /* End of switch. */
- 	}
- 
-@@ -654,7 +664,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- }
- 
- static int sample(struct datapath *dp, struct sk_buff *skb,
--		  struct sw_flow_key *key, const struct nlattr *attr)
-+		  struct sw_flow_key *key, const struct nlattr *attr,
-+		  const struct nlattr *actions, int actions_len)
- {
- 	const struct nlattr *acts_list = NULL;
- 	const struct nlattr *a;
-@@ -688,7 +699,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 	 */
- 	if (likely(nla_type(a) == OVS_ACTION_ATTR_USERSPACE &&
- 		   nla_is_last(a, rem)))
--		return output_userspace(dp, skb, key, a);
-+		return output_userspace(dp, skb, key, a, actions, actions_len);
- 
- 	skb = skb_clone(skb, GFP_ATOMIC);
- 	if (!skb)
-@@ -872,7 +883,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 
- 		case OVS_ACTION_ATTR_USERSPACE:
--			output_userspace(dp, skb, key, a);
-+			output_userspace(dp, skb, key, a, attr, len);
- 			break;
- 
- 		case OVS_ACTION_ATTR_HASH:
-@@ -916,7 +927,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 
- 		case OVS_ACTION_ATTR_SAMPLE:
--			err = sample(dp, skb, key, a);
-+			err = sample(dp, skb, key, a, attr, len);
- 			break;
- 		}
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 5bae724..e735c8f 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -277,6 +277,8 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
- 		upcall.userdata = NULL;
- 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
- 		upcall.egress_tun_info = NULL;
-+		upcall.actions = NULL;
-+		upcall.actions_len = 0;
- 		error = ovs_dp_upcall(dp, skb, key, &upcall);
- 		if (unlikely(error))
- 			kfree_skb(skb);
-@@ -398,6 +400,10 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
- 	if (upcall_info->egress_tun_info)
- 		size += nla_total_size(ovs_tun_key_attr_size());
- 
-+	/* OVS_PACKET_ATTR_ACTIONS */
-+	if (upcall_info->actions_len)
-+		size += nla_total_size(upcall_info->actions_len);
-+
- 	return size;
- }
- 
-@@ -479,6 +485,18 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		nla_nest_end(user_skb, nla);
- 	}
- 
-+	if (upcall_info->actions_len) {
-+		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_ACTIONS);
-+		err = ovs_nla_put_actions(upcall_info->actions,
-+					  upcall_info->actions_len,
-+					  user_skb);
-+		if (!err) {
-+			nla_nest_end(user_skb, nla);
-+		} else {
-+			nla_nest_cancel(user_skb, nla);
-+		}
-+	}
-+
- 	/* Only reserve room for attribute header, packet data is added
- 	 * in skb_zerocopy() */
- 	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 3ece945..b98b1b4 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -118,6 +118,8 @@ struct ovs_skb_cb {
- struct dp_upcall_info {
- 	const struct ovs_tunnel_info *egress_tun_info;
- 	const struct nlattr *userdata;
-+	const struct nlattr *actions;
-+	int actions_len;
- 	u32 portid;
- 	u8 cmd;
- };
--- 
-1.9.3
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
