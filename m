@@ -1,49 +1,52 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of netns
-Date: Fri, 22 May 2015 14:29:37 -0700
-Message-ID: <CAHA+R7O7sVkA7Ku13gKbwa9HZ0gJZm5kw09Oeiy4u1ZMiv=ijA@mail.gmail.com>
-References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>
-	<874mnn9t12.fsf@x220.int.ebiederm.org>
-	<555F969B.3090706@ahsoftware.de>
-	<CAHA+R7NCjKn86R+OLX+4bkB0kv3WcXGB5NPui+v_X=CKqQtPLA@mail.gmail.com>
-	<555F9BC8.1040509@ahsoftware.de>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of
+ netns
+Date: Fri, 22 May 2015 23:30:52 +0200
+Message-ID: <555FA00C.1080207@ahsoftware.de>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>	<874mnn9t12.fsf@x220.int.ebiederm.org>	<555F969B.3090706@ahsoftware.de> <874mn448fn.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>
-To: Alexander Holler <holler@ahsoftware.de>
+	netdev@vger.kernel.org, tgraf@suug.ch, davem@davemloft.net
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:37469 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161013AbbEVV3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 17:29:38 -0400
-Received: by wibt6 with SMTP id t6so428833wib.0
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 14:29:37 -0700 (PDT)
-In-Reply-To: <555F9BC8.1040509@ahsoftware.de>
+Received: from h1446028.stratoserver.net ([85.214.92.142]:58347 "EHLO
+	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946504AbbEVVa7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 17:30:59 -0400
+Received: from wandq.ahsoftware (p4FC3696B.dip0.t-ipconnect.de [79.195.105.107])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.ahsoftware.de (Postfix) with ESMTPSA id 8F0172C9C1DC
+	for <netdev@vger.kernel.org>; Fri, 22 May 2015 23:30:56 +0200 (CEST)
+In-Reply-To: <874mn448fn.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 22, 2015 at 2:12 PM, Alexander Holler <holler@ahsoftware.de> wrote:
+Am 22.05.2015 um 23:19 schrieb Eric W. Biederman:
+> Alexander Holler <holler@ahsoftware.de> writes:
+>
+>> Am 08.05.2015 um 14:02 schrieb Eric W. Biederman:
+>>>
+>>> So I am dense.  I have read through the patches and I don't see where
+>>> you tag packets from other network namespaces with a network namespace
+>>> id.
 >>
->> Bridge doesn't have an underlying link, so no LINK_NETNSID. LINK_NETNSID
->> is only added when its underlying link is in a different netns.
+>> Me too,
 >
+> You need to use recvmsg, and then parse out the NETLINK_LISTEN_ALL_NSID
+> control message.
 >
-> I'm using "link" similiar as interface. Maybe I've no idea what the
-> attribute LINK:NETSID really means, but I've understood it as the one
-> attribute which indicates the namespace an interface (or link), br0 in my
-> example, lives in.
->
+> It isn't a netlink attribute that is being returned.
 
-It is for an underlying link for example: a veth pair is a link for each other,
-a tunnel device has a link to transmit packets.
+Hmm. :(
 
-Bridge and bonding are master devices where "slaves" (or ports for bridge)
-can join.
+Maybe I should have read the kernel sources or something else where this 
+is mentioned. Looks like I've understood it totally wrong.
 
-netns doesn't have a name or id by nature, we assign it a name by binding
-mount some /proc file, these LINK_NETNSID's are not absolutely unique either,
-just relatively.
+Thanks for the explanation.
+
+Regards,
+
+Alexander Holler
