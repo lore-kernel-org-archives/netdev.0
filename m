@@ -1,63 +1,84 @@
-From: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-Subject: Re: [PATCH net] ipv4: Avoid crashing in =?UTF-8?Q?ip=5Ferror?=
-Date: Fri, 22 May 2015 17:12:09 +0200
-Message-ID: <4e2509a329a821ca67e9a7fc55b54aa5@vittgam.net>
-References: <2b6d6ab2d8c35af3be55c82e507f5376@vittgam.net>
- <20150520025428.GA23304@kroah.com>
- <b5abf7328b22373e4ec18bd6da479431@vittgam.net>
- <06f5f10e9ee831f5a839c6ea24b94f64@vittgam.net>
- <d146b8b8a69462ced89a384e6be85b28@vittgam.net>
- <4cb068397127c2b2baee1f021b014b11@vittgam.net>
- <da006bc9072931406270f0fdda06045d@vittgam.net>
- <6056363be65a2c129551518da94bff20@vittgam.net>
- <87a8wx97er.fsf@x220.int.ebiederm.org>
- <ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
- <20150522040453.GC8530@1wt.eu> <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
- <1432296520.4060.129.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: net/unix: sk_socket can disappear when state is unlocked
+Date: Fri, 22 May 2015 17:35:15 +0200
+Message-ID: <1432308915.28081.10.camel@redhat.com>
+References: <1432225541-28498-1-git-send-email-salyzyn@android.com>
+	 <1432288230.3364.23.camel@redhat.com> <555F4267.30704@android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<security@kernel.org>, Greg KH <greg@kroah.com>,
-	<luto@amacapital.net>, Willy Tarreau <w@1wt.eu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server1.vittgam.net ([213.239.197.142]:50393 "EHLO
-	mail.vittgam.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757820AbbEVPY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 11:24:57 -0400
-In-Reply-To: <1432296520.4060.129.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
+To: Mark Salyzyn <salyzyn@android.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <555F4267.30704@android.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Il 22.05.2015 14:08 Eric Dumazet ha scritto:
-> On Fri, 2015-05-22 at 04:58 -0500, Eric W. Biederman wrote:
->> ip_error does not check if in_dev is NULL before dereferencing it.
->
->>
->> Therefore handle this weird case by just dropping the packet if
->> !in_dev.  It will result in dropping the packet sooner, and will not
->> result in an actual change of behavior.
->>
->> Fixes: 251da4130115b ("ipv4: Cache ip_error() routes even when not forwarding.")
->> Reported-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
->> Tested-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
->> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
->> ---
->
-> Acked-by: Eric Dumazet <edumazet@google.com>
->
-> Thanks !
+On Fr, 2015-05-22 at 07:51 -0700, Mark Salyzyn wrote:
+> On 05/22/2015 02:50 AM, Hannes Frederic Sowa wrote:
+> > On Do, 2015-05-21 at 09:25 -0700, Mark Salyzyn wrote:
+> >> got a rare NULL pointer dereference in clear_bit
+> >>
+> >> Signed-off-by: Mark Salyzyn <salyzyn@android.com>
+> >> ---
+> >>   net/unix/af_unix.c | 5 +++++
+> >>   1 file changed, 5 insertions(+)
+> >>
+> >> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+> >> index 5266ea7..37a8925 100644
+> >> --- a/net/unix/af_unix.c
+> >> +++ b/net/unix/af_unix.c
+> >> @@ -1880,6 +1880,11 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
+> >>   		unix_state_unlock(sk);
+> >>   		timeo = freezable_schedule_timeout(timeo);
+> >>   		unix_state_lock(sk);
+> >> +
+> >> +		/* sk_socket may have been killed while unlocked */
+> >> +		if (!sk->sk_socket)
+> >> +			break;
+> >> +
+> >>   		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+> >>   	}
+> >>   
+> > Canonical way is to test for sock_flag(sk, SOCK_DEAD). Also it does not
+> > seem like we are returning an error to user space but are still looping
+> > to try to dequeue skbs from sk_receive_queue, which is concurrently
+> > emptied by unix_release (maybe, without holding unix_state_lock).
+> >
+> > Bye,
+> > Hannes
+> >
+> I will send an updated patch shortly.
+> 
+> It may be acceptable given the expectation that sk_set_socket(sk, NULL) 
+> occurs after SOCK_DEAD flag is set since we would not be here during the 
+> socket initialization/connection phases. As such, for all phases (and I 
+> re-iterate, we can only be here if in connected state), it is not a 
+> generic guarantee of sk_socket != NULL. But I only saw one apparent 
+> example (in net/decnet/dn_nsp_in.c) of using sock_flag(sk, SOCK_DEAD) as 
+> protection against a possible deference NULL access with sk_socket, and 
+> many KISS examples of checking sk_socket for NULL to protect against thus.
+> 
+> Thanks for making me look though, it appears that I missed the same 
+> problem in net/caif/caif_socket.c and will add it!
 
-I've no problem using my real name here, so:
+Thank you for v2 of the patch.
 
-Reported-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
-Tested-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
-Signed-off-by: Vittorio Gambaletta <linuxbugs@vittgam.net>
+I still wonder if we need to actually recheck the condition and not
+simply break out of unix_stream_data_wait:
 
-Signed-off too, since this is actually v2 of my patch with the warning removed.
+We return to the unix_stream_recvmsg loop and recheck the
+sk_receive_queue. At this point sk_receive_queue is not really protected
+with unix_state_lock against concurrent modification with unix_release,
+as such we could end up concurrently dequeueing packets if socket is
+DEAD.
 
-Thanks!
-Vittorio
+Does that make sense?
+
+Thanks,
+Hannes
