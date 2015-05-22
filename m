@@ -1,11 +1,9 @@
 From: Joao Martins <Joao.Martins@neclab.eu>
-Subject: Re: [RFC PATCH 06/13] xen-netback: copy buffer on
- xenvif_start_xmit()
-Date: Fri, 22 May 2015 10:26:48 +0000
-Message-ID: <915BCC85-25D1-4960-A1BA-0C6459ABC953@neclab.eu>
+Subject: Re: [RFC PATCH 00/13] Persistent grant maps for xen net drivers
+Date: Fri, 22 May 2015 10:27:06 +0000
+Message-ID: <191EF54A-D8DE-4BAA-B15D-41B2BA35353F@neclab.eu>
 References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
- <1431451117-70051-7-git-send-email-joao.martins@neclab.eu>
- <20150519153558.GE26335@zion.uk.xensource.com>
+ <20150519153901.GH26335@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -17,229 +15,67 @@ Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
 	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
 To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.neclab.eu ([195.37.70.40]:60491 "EHLO mailer1.neclab.eu"
+Received: from mailer1.neclab.eu ([195.37.70.40]:60499 "EHLO mailer1.neclab.eu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756473AbbEVK1E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 06:27:04 -0400
-In-Reply-To: <20150519153558.GE26335@zion.uk.xensource.com>
+	id S1756032AbbEVK1X convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 06:27:23 -0400
+In-Reply-To: <20150519153901.GH26335@zion.uk.xensource.com>
 Content-Language: en-US
-Content-ID: <FDD3B6442843A043A7782A7F1AAC0640@office.hd>
+Content-ID: <F464C0902DC744478A15EEC95DD28FDF@office.hd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On 19 May 2015, at 17:35, Wei Liu <wei.liu2@citrix.com> wrote:
+On 19 May 2015, at 17:39, Wei Liu <wei.liu2@citrix.com> wrote:
 
-> On Tue, May 12, 2015 at 07:18:30PM +0200, Joao Martins wrote:
->> By introducing persistent grants we speed up the RX thread with the
->> decreased copy cost, that leads to a throughput decrease of 20%.
->> It is observed that the rx_queue stays mostly at 10% of its capacity,
->> as opposed to full capacity when using grant copy. And a finer measure
->> with lock_stat (below with pkt_size 64, burst 1) shows much higher wait
->> queue contention on queue->wq, which hints that the RX kthread is
->> waits/wake_up more often, that is actually doing work.
->> 
->> Without persistent grants:
->> 
->> class name    con-bounces    contentions   waittime-min   waittime-max
->> waittime-total   waittime-avg    acq-bounces   acquisitions   holdtime-min
->> holdtime-max holdtime-total   holdtime-avg
->> --------------------------------------------------------------------------
->> &queue->wq:   792            792           0.36          24.36
->> 1140.30           1.44           4208        1002671           0.00
->> 46.75      538164.02           0.54
->> ----------
->> &queue->wq    326          [<ffffffff8115949f>] __wake_up+0x2f/0x80
->> &queue->wq    410          [<ffffffff811592bf>] finish_wait+0x4f/0xa0
->> &queue->wq     56          [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
->> ----------
->> &queue->wq    202          [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
->> &queue->wq    467          [<ffffffff8115949f>] __wake_up+0x2f/0x80
->> &queue->wq    123          [<ffffffff811592bf>] finish_wait+0x4f/0xa0
->> 
->> With persistent grants:
->> 
->> &queue->wq:   61834          61836           0.32          30.12
->> 99710.27           1.61         241400        1125308           0.00
->> 75.61     1106578.82           0.98
->> ----------
->> &queue->wq     5079        [<ffffffff8115949f>] __wake_up+0x2f/0x80
->> &queue->wq    56280        [<ffffffff811592bf>] finish_wait+0x4f/0xa0
->> &queue->wq      479        [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
->> ----------
->> &queue->wq     1005        [<ffffffff811592bf>] finish_wait+0x4f/0xa0
->> &queue->wq    56761        [<ffffffff8115949f>] __wake_up+0x2f/0x80
->> &queue->wq     4072        [<ffffffff811593eb>] prepare_to_wait+0x2b/0xb0
->> 
->> Also, with persistent grants, we don't require batching grant copy ops
->> (besides the initial copy+map) which makes me believe that deferring
->> the skb to the RX kthread just adds up unnecessary overhead (for this
->> particular case). This patch proposes copying the buffer on
->> xenvif_start_xmit(), which lets us both remove the contention on
->> queue->wq and lock on rx_queue. Here, an alternative to
->> xenvif_rx_action routine is added namely xenvif_rx_map() that maps
->> and copies the buffer to the guest. This is only used when persistent
->> grants are used, since it would otherwise mean an hypercall per
->> packet.
->> 
->> Improvements are up to a factor of 2.14 with a single queue getting us
->> from 1.04 Mpps to 1.7 Mpps (burst 1, pkt_size 64) and 1.5 to 2.6 Mpps
->> (burst 2, pkt_size 64) compared to using the kthread. Maximum with grant
->> copy is 1.2 Mpps, irrespective of the burst. All of this, measured on
->> an Intel(R) Xeon(R) CPU E5-1650 v2 @ 3.50GHz.
->> 
->> Signed-off-by: Joao Martins <joao.martins@neclab.eu>
->> ---
->> drivers/net/xen-netback/common.h    |  2 ++
->> drivers/net/xen-netback/interface.c | 11 +++++---
->> drivers/net/xen-netback/netback.c   | 52 +++++++++++++++++++++++++++++--------
->> 3 files changed, 51 insertions(+), 14 deletions(-)
->> 
->> diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
->> index 23deb6a..f3ece12 100644
->> --- a/drivers/net/xen-netback/common.h
->> +++ b/drivers/net/xen-netback/common.h
->> @@ -363,6 +363,8 @@ void xenvif_kick_thread(struct xenvif_queue *queue);
->> 
->> int xenvif_dealloc_kthread(void *data);
->> 
->> +int xenvif_rx_map(struct xenvif_queue *queue, struct sk_buff *skb);
->> +
->> void xenvif_rx_queue_tail(struct xenvif_queue *queue, struct sk_buff *skb);
->> 
->> /* Determine whether the needed number of slots (req) are available,
->> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
->> index 1103568..dfe2b7b 100644
->> --- a/drivers/net/xen-netback/interface.c
->> +++ b/drivers/net/xen-netback/interface.c
->> @@ -109,7 +109,8 @@ static irqreturn_t xenvif_rx_interrupt(int irq, void *dev_id)
->> {
->> 	struct xenvif_queue *queue = dev_id;
->> 
->> -	xenvif_kick_thread(queue);
->> +	if (!queue->vif->persistent_grants)
->> +		xenvif_kick_thread(queue);
->> 
->> 	return IRQ_HANDLED;
->> }
->> @@ -168,8 +169,12 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
->> 	cb = XENVIF_RX_CB(skb);
->> 	cb->expires = jiffies + vif->drain_timeout;
->> 
->> -	xenvif_rx_queue_tail(queue, skb);
->> -	xenvif_kick_thread(queue);
->> +	if (!queue->vif->persistent_grants) {
->> +		xenvif_rx_queue_tail(queue, skb);
->> +		xenvif_kick_thread(queue);
->> +	} else if (xenvif_rx_map(queue, skb)) {
->> +		return NETDEV_TX_BUSY;
->> +	}
->> 
+> On Tue, May 12, 2015 at 07:18:24PM +0200, Joao Martins wrote:
 > 
-> We now have two different functions for guest RX, one is xenvif_rx_map,
-> the other is xenvif_rx_action. They look very similar. Can we only have
-> one?
-I think I can merge this into xenvif_rx_action, and I notice that the stall
-detection its missing. I will also add that.
-Perhaps I could also disable the RX kthread, since this doesn't get used with
-persistent grants?
+>> There have been recently[3] some discussions and issues raised on
+>> persistent grants for the block layer, though the numbers above
+>> show some significant improvements specially on more network intensive
+>> workloads and provide a margin for comparison against future map/unmap
+>> improvements.
+>> 
+>> Any comments or suggestions are welcome,
+>> Thanks!
+> 
+> Thanks, the numbers certainly look interesting.
+> 
+> I'm just a bit concerned about the complexity of netback. I've
+> commented on individual patches, we can discuss the issues there.
 
->> 	return NETDEV_TX_OK;
->> 
->> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
->> index c4f57d7..228df92 100644
->> --- a/drivers/net/xen-netback/netback.c
->> +++ b/drivers/net/xen-netback/netback.c
->> @@ -883,9 +883,48 @@ static bool xenvif_rx_submit(struct xenvif_queue *queue,
->> 	return !!ret;
->> }
->> 
->> +int xenvif_rx_map(struct xenvif_queue *queue, struct sk_buff *skb)
->> +{
->> +	int ret = -EBUSY;
->> +	struct netrx_pending_operations npo = {
->> +		.copy  = queue->grant_copy_op,
->> +		.meta  = queue->meta
->> +	};
->> +
->> +	if (!xenvif_rx_ring_slots_available(queue, XEN_NETBK_LEGACY_SLOTS_MAX))
-> 
-> I think you meant XEN_NETBK_RX_SLOTS_MAX?
-Yes.
+Thanks a lot for the review! It does add more complexity, mainly for
+the TX path, but I also would like to mention that a portion of this
+changeset is also the persistent grants ops that could potentially live
+outside.
 
->> +		goto done;
->> +
->> +	xenvif_rx_build_gops(queue, &npo, skb);
->> +
->> +	BUG_ON(npo.meta_prod > ARRAY_SIZE(queue->meta));
->> +	if (!npo.copy_done && !npo.copy_prod)
->> +		goto done;
->> +
->> +	BUG_ON(npo.map_prod > MAX_GRANT_COPY_OPS);
->> +	if (npo.map_prod) {
->> +		ret = gnttab_map_refs(queue->rx_map_ops,
->> +				      NULL,
->> +				      queue->rx_pages_to_map,
->> +				      npo.map_prod);
->> +		BUG_ON(ret);
->> +	}
->> +
->> +	BUG_ON(npo.copy_prod > MAX_GRANT_COPY_OPS);
->> +	if (npo.copy_prod)
->> +		gnttab_batch_copy(npo.copy, npo.copy_prod);
->> +
->> +	if (xenvif_rx_submit(queue, &npo, skb))
->> +		notify_remote_via_irq(queue->rx_irq);
->> +
->> +	ret = 0; /* clear error */
-> 
-> No need to have that comment.
-> 
->> +done:
->> +	if (xenvif_queue_stopped(queue))
->> +		xenvif_wake_queue(queue);
->> +	return ret;
->> +}
->> +
->> static void xenvif_rx_action(struct xenvif_queue *queue)
->> {
->> -	int ret;
->> 	struct sk_buff *skb;
->> 	struct sk_buff_head rxq;
->> 	bool need_to_notify = false;
->> @@ -905,22 +944,13 @@ static void xenvif_rx_action(struct xenvif_queue *queue)
->> 	}
->> 
->> 	BUG_ON(npo.meta_prod > XEN_NETIF_RX_RING_SIZE);
->> -	if (!npo.copy_done && !npo.copy_prod)
->> +	if (!npo.copy_prod)
-> 
-> You modified this line back and forth. You could just avoid modifying it
-> in you previous patch to implement RX persistent grants.
-> 
->> 		return;
->> 
->> 	BUG_ON(npo.copy_prod > MAX_GRANT_COPY_OPS);
->> 	if (npo.copy_prod)
->> 		gnttab_batch_copy(npo.copy, npo.copy_prod);
->> 
->> -	BUG_ON(npo.map_prod > MAX_GRANT_COPY_OPS);
->> -	if (npo.map_prod) {
->> -		ret = gnttab_map_refs(queue->rx_map_ops,
->> -				      NULL,
->> -				      queue->rx_pages_to_map,
->> -				      npo.map_prod);
->> -		BUG_ON(ret);
->> -	}
->> -
-> 
-> And this? You delete the hunk you added in previous patch.
-Having only one routine instead of adding xenvif_rx_map like you previously
-suggested, solves moving this hunks around.
+Joao
 
-> 
->> 	while ((skb = __skb_dequeue(&rxq)) != NULL)
->> 		need_to_notify |= xenvif_rx_submit(queue, &npo, skb);
+>> [1] http://article.gmane.org/gmane.linux.network/249383
+>> [2] http://bit.ly/1IhJfXD
+>> [3] http://lists.xen.org/archives/html/xen-devel/2015-02/msg02292.html
+>> 
+>> Joao Martins (13):
+>>  xen-netback: add persistent grant tree ops
+>>  xen-netback: xenbus feature persistent support
+>>  xen-netback: implement TX persistent grants
+>>  xen-netback: implement RX persistent grants
+>>  xen-netback: refactor xenvif_rx_action
+>>  xen-netback: copy buffer on xenvif_start_xmit()
+>>  xen-netback: add persistent tree counters to debugfs
+>>  xen-netback: clone skb if skb->xmit_more is set
+>>  xen-netfront: move grant_{ref,page} to struct grant
+>>  xen-netfront: refactor claim/release grant
+>>  xen-netfront: feature-persistent xenbus support
+>>  xen-netfront: implement TX persistent grants
+>>  xen-netfront: implement RX persistent grants
+>> 
+>> drivers/net/xen-netback/common.h    |  79 ++++
+>> drivers/net/xen-netback/interface.c |  78 +++-
+>> drivers/net/xen-netback/netback.c   | 873 ++++++++++++++++++++++++++++++------
+>> drivers/net/xen-netback/xenbus.c    |  24 +
+>> drivers/net/xen-netfront.c          | 362 ++++++++++++---
+>> 5 files changed, 1216 insertions(+), 200 deletions(-)
 >> 
 >> -- 
 >> 2.1.3
