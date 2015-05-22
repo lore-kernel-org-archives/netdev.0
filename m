@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 7/13] ipsec: Add IV generator information to xfrm_state
-Date: Fri, 22 May 2015 16:30:55 +0800
-Message-ID: <E1YviM3-0000yS-Uj@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 5/13] crypto: testmgr - Switch to new AEAD interface
+Date: Fri, 22 May 2015 16:30:53 +0800
+Message-ID: <E1YviM1-0000xu-GV@gondolin.me.apana.org.au>
 References: <20150522082708.GA3507@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -10,130 +10,181 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:53068 "EHLO
+Received: from helcar.hengli.com.au ([209.40.204.226]:35419 "EHLO
 	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbbEVIa7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:30:59 -0400
+	with ESMTP id S1755728AbbEVIa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:30:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds IV generator information to xfrm_state.  This
-is currently obtained from our own list of algorithm descriptions.
+This patch makes use of the new AEAD interface which uses a single
+SG list instead of separate lists for the AD and plain text.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h   |    1 +
- net/key/af_key.c     |    1 +
- net/xfrm/xfrm_user.c |   40 +++++++++++++++++++++++++++++++---------
- 3 files changed, 33 insertions(+), 9 deletions(-)
+ crypto/testmgr.c |   84 +++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 48 insertions(+), 36 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 30bca86..f0ee97e 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -168,6 +168,7 @@ struct xfrm_state {
- 	struct xfrm_algo	*ealg;
- 	struct xfrm_algo	*calg;
- 	struct xfrm_algo_aead	*aead;
-+	const char		*geniv;
+diff --git a/crypto/testmgr.c b/crypto/testmgr.c
+index 1817252..e6472b2 100644
+--- a/crypto/testmgr.c
++++ b/crypto/testmgr.c
+@@ -427,7 +427,6 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 	char *key;
+ 	struct aead_request *req;
+ 	struct scatterlist *sg;
+-	struct scatterlist *asg;
+ 	struct scatterlist *sgout;
+ 	const char *e, *d;
+ 	struct tcrypt_result result;
+@@ -454,11 +453,10 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		goto out_nooutbuf;
  
- 	/* Data for encapsulator */
- 	struct xfrm_encap_tmpl	*encap;
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index f0d52d7..3c5b8ce 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -1190,6 +1190,7 @@ static struct xfrm_state * pfkey_msg2xfrm_state(struct net *net,
- 				memcpy(x->ealg->alg_key, key+1, keysize);
- 			}
- 			x->props.ealgo = sa->sadb_sa_encrypt;
-+			x->geniv = a->uinfo.encr.geniv;
+ 	/* avoid "the frame size is larger than 1024 bytes" compiler warning */
+-	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 3 : 2), GFP_KERNEL);
++	sg = kmalloc(sizeof(*sg) * 8 * (diff_dst ? 4 : 2), GFP_KERNEL);
+ 	if (!sg)
+ 		goto out_nosg;
+-	asg = &sg[8];
+-	sgout = &asg[8];
++	sgout = &sg[16];
+ 
+ 	if (diff_dst)
+ 		d = "-ddst";
+@@ -537,23 +535,28 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 			goto out;
  		}
- 	}
- 	/* x->algo.flags = sa->sadb_sa_flags; */
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 2091664..bd16c6c 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -289,6 +289,31 @@ static int attach_one_algo(struct xfrm_algo **algpp, u8 *props,
- 	return 0;
- }
  
-+static int attach_crypt(struct xfrm_state *x, struct nlattr *rta)
-+{
-+	struct xfrm_algo *p, *ualg;
-+	struct xfrm_algo_desc *algo;
++		k = !!template[i].alen;
++		sg_init_table(sg, k + 1);
++		sg_set_buf(&sg[0], assoc, template[i].alen);
 +
-+	if (!rta)
-+		return 0;
+ 		if (diff_dst) {
++			sg_init_table(sgout, k + 1);
++			sg_set_buf(&sgout[0], assoc, template[i].alen);
 +
-+	ualg = nla_data(rta);
-+
-+	algo = xfrm_ealg_get_byname(ualg->alg_name, 1);
-+	if (!algo)
-+		return -ENOSYS;
-+	x->props.ealgo = algo->desc.sadb_alg_id;
-+
-+	p = kmemdup(ualg, xfrm_alg_len(ualg), GFP_KERNEL);
-+	if (!p)
-+		return -ENOMEM;
-+
-+	strcpy(p->alg_name, algo->name);
-+	x->ealg = p;
-+	x->geniv = algo->uinfo.encr.geniv;
-+	return 0;
-+}
-+
- static int attach_auth(struct xfrm_algo_auth **algpp, u8 *props,
- 		       struct nlattr *rta)
- {
-@@ -349,8 +374,7 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
- 	return 0;
- }
+ 			output = xoutbuf[0];
+ 			output += align_offset;
+-			sg_init_one(&sg[0], input, template[i].ilen);
+-			sg_init_one(&sgout[0], output, template[i].rlen);
++			sg_set_buf(&sg[k], input, template[i].ilen);
++			sg_set_buf(&sgout[k], output, template[i].rlen);
+ 		} else {
+-			sg_init_one(&sg[0], input,
+-				    template[i].ilen + (enc ? authsize : 0));
++			sg_set_buf(&sg[k], input,
++				   template[i].ilen + (enc ? authsize : 0));
+ 			output = input;
+ 		}
  
--static int attach_aead(struct xfrm_algo_aead **algpp, u8 *props,
--		       struct nlattr *rta)
-+static int attach_aead(struct xfrm_state *x, struct nlattr *rta)
- {
- 	struct xfrm_algo_aead *p, *ualg;
- 	struct xfrm_algo_desc *algo;
-@@ -363,14 +387,15 @@ static int attach_aead(struct xfrm_algo_aead **algpp, u8 *props,
- 	algo = xfrm_aead_get_byname(ualg->alg_name, ualg->alg_icv_len, 1);
- 	if (!algo)
- 		return -ENOSYS;
--	*props = algo->desc.sadb_alg_id;
-+	x->props.ealgo = algo->desc.sadb_alg_id;
+-		sg_init_one(&asg[0], assoc, template[i].alen);
+-
+ 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
+ 				       template[i].ilen, iv);
  
- 	p = kmemdup(ualg, aead_len(ualg), GFP_KERNEL);
- 	if (!p)
- 		return -ENOMEM;
+-		aead_request_set_assoc(req, asg, template[i].alen);
++		aead_request_set_ad(req, template[i].alen, 0);
  
- 	strcpy(p->alg_name, algo->name);
--	*algpp = p;
-+	x->aead = p;
-+	x->geniv = algo->uinfo.aead.geniv;
- 	return 0;
- }
+ 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
  
-@@ -515,8 +540,7 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 	if (attrs[XFRMA_SA_EXTRA_FLAGS])
- 		x->props.extra_flags = nla_get_u32(attrs[XFRMA_SA_EXTRA_FLAGS]);
+@@ -633,9 +636,29 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		authsize = abs(template[i].rlen - template[i].ilen);
  
--	if ((err = attach_aead(&x->aead, &x->props.ealgo,
--			       attrs[XFRMA_ALG_AEAD])))
-+	if ((err = attach_aead(x, attrs[XFRMA_ALG_AEAD])))
- 		goto error;
- 	if ((err = attach_auth_trunc(&x->aalg, &x->props.aalgo,
- 				     attrs[XFRMA_ALG_AUTH_TRUNC])))
-@@ -526,9 +550,7 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 				       attrs[XFRMA_ALG_AUTH])))
- 			goto error;
- 	}
--	if ((err = attach_one_algo(&x->ealg, &x->props.ealgo,
--				   xfrm_ealg_get_byname,
--				   attrs[XFRMA_ALG_CRYPT])))
-+	if ((err = attach_crypt(x, attrs[XFRMA_ALG_CRYPT])))
- 		goto error;
- 	if ((err = attach_one_algo(&x->calg, &x->props.calgo,
- 				   xfrm_calg_get_byname,
+ 		ret = -EINVAL;
+-		sg_init_table(sg, template[i].np);
++		sg_init_table(sg, template[i].anp + template[i].np);
+ 		if (diff_dst)
+-			sg_init_table(sgout, template[i].np);
++			sg_init_table(sgout, template[i].anp + template[i].np);
++
++		ret = -EINVAL;
++		for (k = 0, temp = 0; k < template[i].anp; k++) {
++			if (WARN_ON(offset_in_page(IDX[k]) +
++				    template[i].atap[k] > PAGE_SIZE))
++				goto out;
++			sg_set_buf(&sg[k],
++				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
++					  offset_in_page(IDX[k]),
++					  template[i].assoc + temp,
++					  template[i].atap[k]),
++				   template[i].atap[k]);
++			if (diff_dst)
++				sg_set_buf(&sgout[k],
++					   axbuf[IDX[k] >> PAGE_SHIFT] +
++					   offset_in_page(IDX[k]),
++					   template[i].atap[k]);
++			temp += template[i].atap[k];
++		}
++
+ 		for (k = 0, temp = 0; k < template[i].np; k++) {
+ 			if (WARN_ON(offset_in_page(IDX[k]) +
+ 				    template[i].tap[k] > PAGE_SIZE))
+@@ -643,7 +666,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 
+ 			q = xbuf[IDX[k] >> PAGE_SHIFT] + offset_in_page(IDX[k]);
+ 			memcpy(q, template[i].input + temp, template[i].tap[k]);
+-			sg_set_buf(&sg[k], q, template[i].tap[k]);
++			sg_set_buf(&sg[template[i].anp + k],
++				   q, template[i].tap[k]);
+ 
+ 			if (diff_dst) {
+ 				q = xoutbuf[IDX[k] >> PAGE_SHIFT] +
+@@ -651,7 +675,8 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 
+ 				memset(q, 0, template[i].tap[k]);
+ 
+-				sg_set_buf(&sgout[k], q, template[i].tap[k]);
++				sg_set_buf(&sgout[template[i].anp + k],
++					   q, template[i].tap[k]);
+ 			}
+ 
+ 			n = template[i].tap[k];
+@@ -671,39 +696,26 @@ static int __test_aead(struct crypto_aead *tfm, int enc,
+ 		}
+ 
+ 		if (enc) {
+-			if (WARN_ON(sg[k - 1].offset +
+-				    sg[k - 1].length + authsize >
+-				    PAGE_SIZE)) {
++			if (WARN_ON(sg[template[i].anp + k - 1].offset +
++				    sg[template[i].anp + k - 1].length +
++				    authsize > PAGE_SIZE)) {
+ 				ret = -EINVAL;
+ 				goto out;
+ 			}
+ 
+ 			if (diff_dst)
+-				sgout[k - 1].length += authsize;
++				sgout[template[i].anp + k - 1].length +=
++					authsize;
+ 			else
+-				sg[k - 1].length += authsize;
+-		}
+-
+-		sg_init_table(asg, template[i].anp);
+-		ret = -EINVAL;
+-		for (k = 0, temp = 0; k < template[i].anp; k++) {
+-			if (WARN_ON(offset_in_page(IDX[k]) +
+-				    template[i].atap[k] > PAGE_SIZE))
+-				goto out;
+-			sg_set_buf(&asg[k],
+-				   memcpy(axbuf[IDX[k] >> PAGE_SHIFT] +
+-					  offset_in_page(IDX[k]),
+-					  template[i].assoc + temp,
+-					  template[i].atap[k]),
+-				   template[i].atap[k]);
+-			temp += template[i].atap[k];
++				sg[template[i].anp + k - 1].length +=
++					authsize;
+ 		}
+ 
+ 		aead_request_set_crypt(req, sg, (diff_dst) ? sgout : sg,
+ 				       template[i].ilen,
+ 				       iv);
+ 
+-		aead_request_set_assoc(req, asg, template[i].alen);
++		aead_request_set_ad(req, template[i].alen, 0);
+ 
+ 		ret = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+ 
