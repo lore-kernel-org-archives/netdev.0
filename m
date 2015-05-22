@@ -1,44 +1,59 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v2 1/3] net: macb: Document zynq gem dt binding
-Date: Fri, 22 May 2015 16:56:42 +0200
-Message-ID: <555F43AA.4080502@atmel.com>
-References: <1432304531-23682-1-git-send-email-nathan.sullivan@ni.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Nathan Sullivan <nathan.sullivan@ni.com>
+From: Mark Salyzyn <salyzyn@android.com>
+Subject: [PATCH v2] net/unix: sk_socket can disappear when state is unlocked
+Date: Fri, 22 May 2015 08:00:42 -0700
+Message-ID: <1432306867-27009-1-git-send-email-salyzyn@android.com>
+Cc: Hannes Frederic Sowa <hannes@redhat.com>,
+	Mark Salyzyn <salyzyn@android.com>,
+	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
+	"David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	David Howells <dhowells@redhat.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Christoph Hellwig <hch@lst.de>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1432304531-23682-1-git-send-email-nathan.sullivan@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 22/05/2015 16:22, Nathan Sullivan a =E9crit :
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+got a rare NULL pointer dereference in clear_bit
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Signed-off-by: Mark Salyzyn <salyzyn@android.com>
+----
+v2: switch to sock_flag(sk, SOCK_DEAD) and added net/caif/caif_socket.c
 
-> ---
->  Documentation/devicetree/bindings/net/cdns-emac.txt |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->=20
-> diff --git a/Documentation/devicetree/bindings/net/cdns-emac.txt b/Do=
-cumentation/devicetree/bindings/net/cdns-emac.txt
-> index abd67c1..4451ee9 100644
-> --- a/Documentation/devicetree/bindings/net/cdns-emac.txt
-> +++ b/Documentation/devicetree/bindings/net/cdns-emac.txt
-> @@ -3,7 +3,8 @@
->  Required properties:
->  - compatible: Should be "cdns,[<chip>-]{emac}"
->    Use "cdns,at91rm9200-emac" Atmel at91rm9200 SoC.
-> -  or the generic form: "cdns,emac".
-> +  Use "cdns,zynq-gem" Xilinx Zynq-7xxx SoC.
-> +  Or the generic form: "cdns,emac".
->  - reg: Address and length of the register set for the device
->  - interrupts: Should contain macb interrupt
->  - phy-mode: see ethernet.txt file in the same directory.
->=20
+ net/caif/caif_socket.c | 4 ++++
+ net/unix/af_unix.c     | 4 ++++
+ 2 files changed, 8 insertions(+)
 
-
---=20
-Nicolas Ferre
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index 4ec0c80..8f44c38 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -330,6 +330,10 @@ static long caif_stream_data_wait(struct sock *sk, long timeo)
+ 		release_sock(sk);
+ 		timeo = schedule_timeout(timeo);
+ 		lock_sock(sk);
++
++		if (sock_flag(sk, SOCK_DEAD))
++			break;
++
+ 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+ 	}
+ 
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 5266ea7..7b68dc8 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1880,6 +1880,10 @@ static long unix_stream_data_wait(struct sock *sk, long timeo,
+ 		unix_state_unlock(sk);
+ 		timeo = freezable_schedule_timeout(timeo);
+ 		unix_state_lock(sk);
++
++		if (sock_flag(sk, SOCK_DEAD))
++			break;
++
+ 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+ 	}
+ 
+-- 
+2.2.0.rc0.207.ga3a616c
