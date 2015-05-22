@@ -1,118 +1,65 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [PATCH v5 3/3] ixgbe: Add new ndo to trust VF
-Date: Fri, 22 May 2015 17:51:51 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF22286646912FC2E3@ORSMSX110.amr.corp.intel.com>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB28F4@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FB5E4@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB3B4A@BPXM14GP.gisp.nec.co.jp>
- <F6FB0E698C9B3143BDF729DF22286646912FBBEC@ORSMSX110.amr.corp.intel.com>
- <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4EE6@BPXM14GP.gisp.nec.co.jp>
- <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] openvswitch: include datapath actions with
+ sampled-packet upcall to userspace
+Date: Fri, 22 May 2015 10:53:39 -0700
+Message-ID: <CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
+References: <1432150358-13108-1-git-send-email-neil.mckee@inmon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Choi, Sy Jong" <sy.jong.choi@intel.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	"David Miller" <davem@davemloft.net>,
-	Edward Cree <ecree@solarflare.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Neil McKee <neil.mckee@inmon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27731 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756894AbbEVRvx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2015 13:51:53 -0400
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A07892F9481@ORSMSX108.amr.corp.intel.com>
-Content-Language: en-US
+Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:44889 "HELO
+	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756510AbbEVRxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 13:53:40 -0400
+Received: by mail-ie0-f181.google.com with SMTP id a3so36668189ies.2
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 10:53:40 -0700 (PDT)
+In-Reply-To: <1432150358-13108-1-git-send-email-neil.mckee@inmon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUm9zZSwgR3JlZ29yeSBW
-DQo+IFNlbnQ6IEZyaWRheSwgTWF5IDIyLCAyMDE1IDg6MDggQU0NCj4gVG86IEhpcm9zaGkgU2hp
-bWFtb3RvOyBTa2lkbW9yZSwgRG9uYWxkIEM7IEtpcnNoZXIsIEplZmZyZXkgVDsgaW50ZWwtd2ly
-ZWQtDQo+IGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+IENjOiBuaG9ybWFuQHJlZGhhdC5jb207IGpv
-Z3JlZW5lQHJlZGhhdC5jb207IExpbnV4IE5ldGRldiBMaXN0OyBDaG9pLA0KPiBTeSBKb25nOyBS
-b255IEVmcmFpbTsgRGF2aWQgTWlsbGVyOyBFZHdhcmQgQ3JlZTsgT3IgR2VybGl0ejsNCj4gc2Fz
-c21hbm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSRTogW1BBVENIIHY1IDMvM10gaXhnYmU6IEFk
-ZCBuZXcgbmRvIHRvIHRydXN0IFZGDQo+IA0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2Ut
-LS0tLQ0KPiA+IEZyb206IEludGVsLXdpcmVkLWxhbg0KPiA+IFttYWlsdG86aW50ZWwtd2lyZWQt
-bGFuLWJvdW5jZXNAbGlzdHMub3N1b3NsLm9yZ10gT24gQmVoYWxmIE9mIEhpcm9zaGkNCj4gPiBT
-aGltYW1vdG8NCj4gPiBTZW50OiBUaHVyc2RheSwgTWF5IDIxLCAyMDE1IDc6MzEgUE0NCj4gPiBU
-bzogU2tpZG1vcmUsIERvbmFsZCBDOyBLaXJzaGVyLCBKZWZmcmV5IFQ7IGludGVsLXdpcmVkLQ0K
-PiA+IGxhbkBsaXN0cy5vc3Vvc2wub3JnDQo+ID4gQ2M6IG5ob3JtYW5AcmVkaGF0LmNvbTsgam9n
-cmVlbmVAcmVkaGF0LmNvbTsgTGludXggTmV0ZGV2IExpc3Q7IENob2ksDQo+ID4gU3kgSm9uZzsg
-Um9ueSBFZnJhaW07IERhdmlkIE1pbGxlcjsgRWR3YXJkIENyZWU7IE9yIEdlcmxpdHo7DQo+ID4g
-c2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiA+IFN1YmplY3Q6IFJlOiBbSW50ZWwtd2lyZWQtbGFuXSBb
-UEFUQ0ggdjUgMy8zXSBpeGdiZTogQWRkIG5ldyBuZG8gdG8NCj4gPiB0cnVzdCBWRg0KPiA+DQo+
-IA0KPiBbYmlnIHNuaXBdDQo+IA0KPiA+IEkgdGhpbmsgeW91ciBjb25jZXJucyBhcmUgcmVsYXRl
-ZCB0byBzb21lIG9wZXJhdGlvbmFsIGFzc3VtcHRpb25zLg0KPiA+IE15IGJhc2ljIGNvbmNlcHQg
-aXMsIG5vdCB0byBjaGFuZ2UgdGhlIGJlaGF2aW9yIG9mIFZNLCBleGlzdGluZyB1c2VyDQo+ID4g
-b3BlcmF0aW9uLg0KPiA+IEkgbWVhbiB0aGF0IEkgZGlkbid0IHRoaW5rIGl0J3MgYmV0dGVyIHRo
-YXQgdGhlIHVzZXIgc2hvdWxkIGNoZWNrIHRoZQ0KPiA+IGJvdGggb2YgdGhlIGl4Z2JldmYgZHJp
-dmVyIGNhbiBkZWFsIHdpdGggbmV3IEFQSSBhbmQgdGhlIFZGIGlzIHRydXN0ZWQuDQo+ID4NCj4g
-PiBOb3csIEkgdGhpbmsgdGhlIHBvaW50IGlzIHdobyB0YWtlcyBjYXJlIHdoZXRoZXIgdGhlIFZG
-IGlzIHRydXN0ZWQuIFJpZ2h0Pw0KPiA+IEl0IHNlZW1zIHRoYXQgeW91IHRoaW5rIHRoZSBWRiB1
-c2VyIHNob3VsZCBoYW5kbGUgdGhhdCB1c2VyIGlzIHRydXN0ZWQNCj4gPiBhbmQgZG8gc29tZXRo
-aW5nIHdpdGggYSBub3RpY2UgdGhhdCAieW91J3JlIHRydXN0ZWQgb3IgdW50cnVzdGVkIiBmcm9t
-DQo+ID4gdGhlIGhvc3QuDQo+ID4gSXMgdGhhdCBjb3JyZWN0Pw0KPiA+IEkgbWFkZSBpdCBpbiBQ
-RiBzaWRlLCBiZWNhdXNlIGl0IGxvb2tzIGVhc3kgdG8gaGFuZGxlIGl0LiBJZiBzb21ldGhpbmcN
-Cj4gPiB0byBkbyBpbiBWRiBzaWRlLCBJIHRoaW5rIGl4Z2JldmYgZHJpdmVyIHNob3VsZCBoYW5k
-bGUgaXQuDQo+IA0KPiBTZXR0aW5nIHRoZSBWRiB0cnVzdGVkIG1vZGUgZmVhdHVyZSBzaG91bGQg
-b25seSBiZSBhbGxvd2VkIHRocm91Z2ggdGhlIFBGDQo+IGFzIGl0IGlzIHRoZSBvbmx5IHRydXN0
-ZWQgZW50aXR5IGZyb20gdGhlIHN0YXJ0LiAgV2UgZG8gbm90IHdhbnQgdGhlIFZGIGJlaW5nDQo+
-IGFibGUgdG8gZGVjaWRlIGZvciBpdHNlbGYgdG8gYmUgdHJ1c3RlZC4NCj4gDQo+IC0gR3JlZw0K
-PiANCg0KSSBjb21wbGV0ZWx5IGFncmVlIHdpdGggR3JlZyBhbmQgbmV2ZXIgbWVhbnQgdG8gaW1w
-bHkgYW55dGhpbmcgZWxzZS4NCg0KVGhlIFBGIHNob3VsZCBiZSB3aGVyZSBhIGdpdmVuIFZGIGlz
-IG1hZGUgInRydXN0ZWQiLiAgTGlrZXdpc2UgYSBWRiBjYW4gZ2V0IHByb21vdGVkIHRvIE1DIFBy
-b21pc2N1b3VzIGJ1eSByZXF1ZXN0aW5nIG92ZXIgMzAgTUMgZ3JvdXBzLiAgSSBsaWtlIHRoaXMg
-YW5kIHlvdXIgcGF0Y2ggY3VycmVudGx5IGRvZXMgdGhpcy4gIFNvIGZvciBleGFtcGxlIGJlbG93
-Og0KDQpQRgkJCQkJVkYNCi0tLS0tLS0tLS0JCQkJLS0tLS0tLS0tLS0NClNldCBnaXZlbiBWRiBh
-cyB0cnVzdGVkDQoJCQkJCVJlcXVlc3QgMzArIE1DIGdyb3VwcyB2aWEgTWFpbCBCb3gNClB1dCBQ
-RiBpbiBNQyBQcm9taXNjdW91cyBtb2RlDQoNCg0KV2hhdCBJIGFtIGNvbmNlcm5lZCBhYm91dCBp
-cyB0aGUgZm9sbG93aW5nIGZsb3cgd2hlcmUgd2Ugc2VlbSB0byBzdG9yZSB0aGUgZmFjdCB0aGUg
-VkYgcmVxdWVzdHMgbW9yZSB0aGFuIDMwKyBNQyBncm91cHMgc28gdGhhdCB3ZSBjYW4gYXV0b21h
-dGljYWxseSBlbnRlciBNQyBQcm9taXNjIE1vZGUgaWYgdGhhdCBWRiBpcyBldmVyIG1hZGUgdHJ1
-c3RlZC4gDQoNClBGCQkJCQlWRg0KLS0tLS0tLS0tLS0JCQkJLS0tLS0tLS0tLQ0KQ3VycmVudGx5
-IFZGIGlzIE5PVCB0cnVzdGVkDQoJCQkJCVJlcXVlc3QgMzArIE1DIGdyb3VwcyB2aWEgTWFpbCBC
-b3gNCkRvIE5PVCBwdXQgUEYgaW4gTUMgUHJvbWlzYw0KKGh3LT5tYWMubWNfcHJvbWlzYyA9IHRy
-dWUpDQoNCjwgU29tZSB0aW1lIGxhdGVyID4NCg0KU2V0IGdpdmVuIFZGIGFzIHRydXN0ZWQNCihi
-ZWNhdXNlIG1jX3Byb21pc2Mgc2V0KSBQdXQgUEYgaW4gTUMgUHJvbWlzYw0KDQoNCkkgZG9uJ3Qg
-bGlrZSB0aGUgZmFjdCB0aGF0IHRoZSBQRiByZW1lbWJlcnMgdGhhdCB0aGUgVkYgd2FzIGRlbmll
-ZCBNQyBQcm9taXNjdW91cyBtb2RlIGluIHRoZSBwYXN0LiAgQW5kIGJlY2F1c2Ugb2YgdGhhdCBh
-dXRvbWF0aWNhbGx5IHB1dCB0aGUgVkYgaW4gTUMgUHJvbWlzY3VvdXMgbW9kZSB3aGVuIGl0IGJl
-Y29tZXMgdHJ1c3RlZC4gIE1heWJlIHNob3dpbmcgaW4gY29kZSB3aGF0IEkgd291bGQgbGlrZSBy
-ZW1vdmVkL2FkZGVkIHdvdWxkIGJlIG1vcmUgaGVscGZ1bCwgcHJvYmFibHkgc2hvdWxkIGhhdmUg
-c3RhcnRlZCBkb2luZyB0aGF0LiA6KQ0KDQpJIHdvdWxkIHJlbW92ZSB0aGlzIGJpdCBvZiBjb2Rl
-IGZyb20gaXhnYmVfbmRvX3NldF92Zl90cnVzdCgpOg0KDQppbnQgaXhnYmVfbmRvX3NldF92Zl90
-cnVzdChzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCBpbnQgdmYsIGJvb2wgDQpzZXR0aW5nKSB7
-DQoJc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIgPSBuZXRkZXZfcHJpdihuZXRkZXYpOw0K
-DQoJaWYgKHZmID49IGFkYXB0ZXItPm51bV92ZnMpDQoJCXJldHVybiAtRUlOVkFMOw0KDQoJLyog
-bm90aGluZyB0byBkbyAqLw0KCWlmIChhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQgPT0gc2V0
-dGluZykNCgkJcmV0dXJuIDA7DQoNCglhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQgPSBzZXR0
-aW5nOw0KDQotCS8qIFJlY29uZmlndXJlIGZlYXR1cmVzIHdoaWNoIGFyZSBvbmx5IGFsbG93ZWQg
-Zm9yIHRydXN0ZWQgVkYgKi8NCi0JLyogVkYgbXVsdGljYXN0IHByb21pc2N1b3VzIG1vZGUgKi8N
-Ci0JaWYgKGFkYXB0ZXItPnZmaW5mb1t2Zl0ubWNfcHJvbWlzYykNCi0JCWl4Z2JlX2VuYWJsZV92
-Zl9tY19wcm9taXNjKGFkYXB0ZXIsIHZmKTsNCg0KCXJldHVybiAwOw0KfQ0KDQpUaGlzIG9mIGNv
-dXJzZSB3b3VsZCBiZSB3ZSBzaG91bGQgbm90IHNldCBtY19wcm9taXNjIGV2ZXIgaWYgd2UgYXJl
-IE5PVCB0cnVzdGVkIChhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQpIHNvIGluIGl4Z2JlX3Nl
-dF92Zl9tY19wcm9taXNjKCkgSSB3b3VsZCBhZGQgb3Igc29tZXRoaW5nIGxpa2UgaXQ6DQoNCnN0
-YXRpYyBpbnQgaXhnYmVfc2V0X3ZmX21jX3Byb21pc2Moc3RydWN0IGl4Z2JlX2FkYXB0ZXIgKmFk
-YXB0ZXIsDQoJCQkJICAgdTMyICptc2didWYsIHUzMiB2ZikNCnsNCglib29sIGVuYWJsZSA9ICEh
-bXNnYnVmWzFdOwkvKiBtc2didWYgY29udGFpbnMgdGhlIGZsYWcgdG8gZW5hYmxlICovDQoNCglz
-d2l0Y2ggKGFkYXB0ZXItPnZmaW5mb1t2Zl0udmZfYXBpKSB7DQoJY2FzZSBpeGdiZV9tYm94X2Fw
-aV8xMjoNCgkJYnJlYWs7DQoJZGVmYXVsdDoNCgkJcmV0dXJuIC0xOw0KCX0NCg0KKwkvKiBoYXZl
-IHRvIGJlIHRydXN0ZWQgKi8NCisJSWYgKCFhZGFwdGVyLT52ZmluZm9bdmZdLnRydXN0ZWQpDQor
-CQlSZXR1cm4gMDsNCisNCgkvKiBub3RoaW5nIHRvIGRvICovDQoJaWYgKGFkYXB0ZXItPnZmaW5m
-b1t2Zl0ubWNfcHJvbWlzYyA9PSBlbmFibGUpDQoJCXJldHVybiAwOw0KDQoJYWRhcHRlci0+dmZp
-bmZvW3ZmXS5tY19wcm9taXNjID0gZW5hYmxlOw0KDQoJaWYgKGVuYWJsZSkNCgkJcmV0dXJuIGl4
-Z2JlX2VuYWJsZV92Zl9tY19wcm9taXNjKGFkYXB0ZXIsIHZmKTsNCgllbHNlDQoJCXJldHVybiBp
-eGdiZV9kaXNhYmxlX3ZmX21jX3Byb21pc2MoYWRhcHRlciwgdmYpOyB9DQoNCg0KRG9lcyB0aGlz
-IGJldHRlciBleHBsYWluIHdoYXQgbXkgY29uY2VybiBpcz8NCg0KVGhhbmtzLA0KLURvbiBTa2lk
-bW9yZSA8ZG9uYWxkLmMuc2tpZG1vcmVAaW50ZWwuY29tPg0K
+On Wed, May 20, 2015 at 12:32 PM, Neil McKee <neil.mckee@inmon.com> wrote:
+> Directly associate a sampled packet with the path it takes through the virtual switch.
+> Path information currently includes mangling, encapsulation and decapsulation actions
+> for tunneling protocols GRE, VXLAN, Geneve, MPLS and QinQ, but this extension requires
+> no further changes to accommodate datapath actions that may be added in the future.
+>
+> Adding path information enhances visibility into complex virtual networks.
+>
+> Signed-off-by: Neil McKee <neil.mckee@inmon.com>
+> ---
+>  net/openvswitch/actions.c  | 14 +++++++++-----
+>  net/openvswitch/datapath.c | 18 ++++++++++++++++++
+>  net/openvswitch/datapath.h |  2 ++
+>  3 files changed, 29 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+> index b491c1c..ee5760d 100644
+> --- a/net/openvswitch/actions.c
+> +++ b/net/openvswitch/actions.c
+> @@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+>  }
+>
+>  static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+> -                           struct sw_flow_key *key, const struct nlattr *attr)
+> +                           struct sw_flow_key *key, const struct nlattr *attr,
+> +                           const struct nlattr *actions, int actions_len)
+>  {
+>         struct ovs_tunnel_info info;
+>         struct dp_upcall_info upcall;
+> @@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+>         upcall.userdata = NULL;
+>         upcall.portid = 0;
+>         upcall.egress_tun_info = NULL;
+> +       upcall.actions = actions;
+> +       upcall.actions_len = actions_len;
+>
+Rather than unconditionally passing actions to the upcall, there
+should be attribute in ovs_userspace_attr to request the actions list.
+
+>         for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+>                  a = nla_next(a, &rem)) {
+> @@ -654,7 +657,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+>  }
+>
