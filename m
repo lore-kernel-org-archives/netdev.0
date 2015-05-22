@@ -1,39 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] bridge: allow setting hash_max +
- multicast_router if interface is down
-Date: Fri, 22 May 2015 11:17:35 +0800
-Message-ID: <20150522031735.GB30043@gondor.apana.org.au>
-References: <1432256161-4425-1-git-send-email-linus.luessing@c0d3.blue>
- <CAHA+R7M+F88KsAJy-fGkSjUXxgBNifdML0E3r8jrQqXafZMUpA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] rename RTNH_F_EXTERNAL to RTNH_F_OFFLOAD
+Date: Thu, 21 May 2015 23:19:35 -0400 (EDT)
+Message-ID: <20150521.231935.790321925069995084.davem@davemloft.net>
+References: <20150521151618.5fb0d6a7@urahara>
+	<20150521.184010.1674602649748676614.davem@davemloft.net>
+	<20150521164630.23fbba18@urahara>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
-	netdev <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: roopa@cumulusnetworks.com, sfeldma@gmail.com, jiri@resnulli.us,
+	gospo@cumulusnetworks.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:37511 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754840AbbEVDRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 23:17:47 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7M+F88KsAJy-fGkSjUXxgBNifdML0E3r8jrQqXafZMUpA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42270 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753854AbbEVDTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 23:19:39 -0400
+In-Reply-To: <20150521164630.23fbba18@urahara>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 21, 2015 at 08:11:32PM -0700, Cong Wang wrote:
->
-> For me it looks like we do use p->rlist in BH context, but I could easily
-> miss something here.
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 21 May 2015 16:46:30 -0700
 
-Because the caller disables BH for us.
+> On Thu, 21 May 2015 18:40:10 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> From: Stephen Hemminger <stephen@networkplumber.org>
+>> Date: Thu, 21 May 2015 15:16:18 -0700
+>> 
+>> > On Thu, 14 May 2015 22:45:54 -0400 (EDT)
+>> > David Miller <davem@davemloft.net> wrote:
+>> > 
+>> >> From: roopa@cumulusnetworks.com
+>> >> Date: Wed, 13 May 2015 21:17:41 -0700
+>> >> 
+>> >> > From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> >> > 
+>> >> > RTNH_F_EXTERNAL today is printed as "offload" in iproute2 output.
+>> >> > 
+>> >> > This patch renames the flag to be consistent with what the user sees.
+>> >> > 
+>> >> > Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> >> 
+>> >> Applied, thanks.
+>> > 
+>> > I don't see this merge in current net-next tree?
+>> > Did it not really happen or was it not pushed?
+>> 
+>> It went to the 'net' tree and I haven't done a merge in a while.
+> 
+> Ok, that will go to Linus, right.
+> Trying to coordinate the iproute2 changes related to this.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes, probably I will send him a pull request tomorrow.
