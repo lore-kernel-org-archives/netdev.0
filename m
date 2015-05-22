@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next, V3 0/2] net: force refragmentation for DF
- reassembed skbs
-Date: Fri, 22 May 2015 15:03:10 -0400 (EDT)
-Message-ID: <20150522.150310.2248217318352290500.davem@davemloft.net>
-References: <1432305171-21932-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH net-next v2 0/4] sfc: add MCDI tracing
+Date: Fri, 22 May 2015 15:03:49 -0400 (EDT)
+Message-ID: <20150522.150349.396711490885065669.davem@davemloft.net>
+References: <555CACF5.9060803@solarflare.com>
+	<20150521.185210.860864581493237974.davem@davemloft.net>
+	<555F420A.2040104@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49783 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49791 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756720AbbEVTDN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 15:03:13 -0400
-In-Reply-To: <1432305171-21932-1-git-send-email-fw@strlen.de>
+	with ESMTP id S1757213AbbEVTDv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 15:03:51 -0400
+In-Reply-To: <555F420A.2040104@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 22 May 2015 16:32:49 +0200
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 22 May 2015 15:49:46 +0100
 
-> IP (ttl 64, id 12345, offset 0, flags [+, DF], proto UDP (17), length 1204)
->     192.168.7.1.42 > 10.23.42.2.42: UDP, length 1400
-> IP (ttl 64, id 12345, offset 1184, flags [DF], proto UDP (17), length 244)
->     192.168.7.1 > 10.23.42.2: ip-proto-17
+> On 21/05/15 23:52, David Miller wrote:
+>> All of this work to allocate the buffer, add messages to it, and dump it
+>> to some user obtainable location duplicates existing infrastructure in
+>> the kernel.
+>> Please do not do this, and instead use the kernel's existing tracing
+>> infrastructure to implement this.
+> 
+> The logging_buffer we allocate isn't there to store _messages_ for later
+> dumping, it's a work area for constructing a _single_ message, which is
+> then merely written to the system log with netif_info.  Thus, I don't see
+> how it would make much difference if we used (say) ftrace instead of
+> netif_info to ship the events to userspace.
+> The reason the buffer is long-lived is simply to avoid the overhead of
+> allocating and freeing it every MCDI call, since MCDIs are already known
+> to be serialised for other reasons.
+> Can you please further explain your objection and what you'd prefer us to
+> do?
 
-I almost consider a fragment with DF set an oxymoron.
-
-How does this happen?
-
-DF is a mechanism for PMTU discovery.  Therefore it is the end nodes
-which set DF on packets before fragmentation can even take place.
-Since DF is set initially, the logical consequence is that the packet
-cannot be legally fragmented along the way.
-
-Are tunnels doing something to create this situation?
+Ok fair enough, please repost your series, thanks.
