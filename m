@@ -1,36 +1,73 @@
-From: Nathan Sullivan <nathan.sullivan@ni.com>
-Subject: [PATCH v2 1/3] net: macb: Document zynq gem dt binding
-Date: Fri, 22 May 2015 09:22:09 -0500
-Message-ID: <1432304531-23682-1-git-send-email-nathan.sullivan@ni.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nathan Sullivan <nathan.sullivan@ni.com>
-To: nicolas.ferre@atmel.com
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next, V3 0/2] net: force refragmentation for DF reassembed skbs
+Date: Fri, 22 May 2015 16:32:49 +0200
+Message-ID: <1432305171-21932-1-git-send-email-fw@strlen.de>
+Cc: hannes@stressinduktion.org
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod3.natinst.com ([130.164.80.24]:56994 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757164AbbEVOWT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2015 10:22:19 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38006 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756048AbbEVOdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 10:33:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
----
- Documentation/devicetree/bindings/net/cdns-emac.txt |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+output path tests:
 
-diff --git a/Documentation/devicetree/bindings/net/cdns-emac.txt b/Documentation/devicetree/bindings/net/cdns-emac.txt
-index abd67c1..4451ee9 100644
---- a/Documentation/devicetree/bindings/net/cdns-emac.txt
-+++ b/Documentation/devicetree/bindings/net/cdns-emac.txt
-@@ -3,7 +3,8 @@
- Required properties:
- - compatible: Should be "cdns,[<chip>-]{emac}"
-   Use "cdns,at91rm9200-emac" Atmel at91rm9200 SoC.
--  or the generic form: "cdns,emac".
-+  Use "cdns,zynq-gem" Xilinx Zynq-7xxx SoC.
-+  Or the generic form: "cdns,emac".
- - reg: Address and length of the register set for the device
- - interrupts: Should contain macb interrupt
- - phy-mode: see ethernet.txt file in the same directory.
--- 
-1.7.10.4
+    if (skb->len > mtu) ip_fragment()
+
+This breaks connectivity in one corner case:
+ If the skb was reassembled, but has the DF bit set and ..
+ .. its reassembled size is <= outdev mtu ..
+ .. we will forward a DF packet larger than what the sender
+    transmitted on wire.
+
+If a router later in the path can't forward this packet, it will send an
+icmp error in response to an mtu that the original sender never exceeded.
+
+This changes ipv4 defrag/output path to
+
+a) force refragmentation for DF reassembled skbs and
+b) set DF bit on all fragments when refragmenting if it was set on original
+frags.
+
+tested via:
+#!/usr/bin/python
+from scapy.all import *
+dip="10.23.42.2"
+payload="A"*1400
+packet=IP(dst=dip,id=12345,flags='DF')/UDP(sport=42,dport=42)/payload
+frags=fragment(packet,fragsize=1200)
+for fragment in frags:
+    send(fragment)
+
+Without this patch, we generate fragments without df bit set based
+on the outgoing device mtu when fragmenting after forwarding, ie.
+
+IP (ttl 64, id 12345, offset 0, flags [+, DF], proto UDP (17), length 1204)
+    192.168.7.1.42 > 10.23.42.2.42: UDP, length 1400
+IP (ttl 64, id 12345, offset 1184, flags [DF], proto UDP (17), length 244)
+    192.168.7.1 > 10.23.42.2: ip-proto-17
+
+on ingress will either turn into
+
+IP (ttl 63, id 12345, offset 0, flags [+], proto UDP (17), length 1396)
+    192.168.7.1.42 > 10.23.42.2.42: UDP, length 1400
+IP (ttl 63, id 12345, offset 1376, flags [none], proto UDP (17), length 52)
+
+(mtu 1400: We strip df and send larger fragment), or
+
+IP (ttl 63, id 12345, offset 0, flags [DF], proto UDP (17), length 1428)
+    192.168.7.1.42 > 10.23.42.2.42: [udp sum ok] UDP, length 1400
+
+if mtu is 1500.  And in this case things break; router with a smaller mtu
+will send icmp error, but original sender only sent packets <= 1204 byte.
+
+With patch, we keep intent of such fragments and will emit DF-fragments
+that won't exceed 1204 byte in size.
+
+Joint work with Hannes Frederic Sowa.
+
+Changes since v2:
+ - split unrelated patches from series
+ - rework changelog of patch #2 to better illustrate breakage
