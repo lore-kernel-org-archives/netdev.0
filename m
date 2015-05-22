@@ -1,233 +1,68 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1 3/3] amd-xgbe: Add more netif_dbg output to the
- driver
-Date: Fri, 22 May 2015 16:32:21 -0500
-Message-ID: <20150522213220.23869.77600.stgit@tlendack-t1.amdoffice.net>
-References: <20150522213202.23869.67673.stgit@tlendack-t1.amdoffice.net>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Re: [PATCH net-next v2 0/7] netns: ease netlink use with a lot of
+ netns
+Date: Fri, 22 May 2015 23:46:47 +0200
+Message-ID: <555FA3C7.7060301@ahsoftware.de>
+References: <1430906288-5108-1-git-send-email-nicolas.dichtel@6wind.com>	<1430989373-4515-1-git-send-email-nicolas.dichtel@6wind.com>	<874mnn9t12.fsf@x220.int.ebiederm.org>	<555F969B.3090706@ahsoftware.de>	<CAHA+R7NCjKn86R+OLX+4bkB0kv3WcXGB5NPui+v_X=CKqQtPLA@mail.gmail.com>	<555F9BC8.1040509@ahsoftware.de> <CAHA+R7O7sVkA7Ku13gKbwa9HZ0gJZm5kw09Oeiy4u1ZMiv=ijA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0101.outbound.protection.outlook.com ([157.56.111.101]:10912
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756959AbbEVVcb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 May 2015 17:32:31 -0400
-In-Reply-To: <20150522213202.23869.67673.stgit@tlendack-t1.amdoffice.net>
+Received: from h1446028.stratoserver.net ([85.214.92.142]:59530 "EHLO
+	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161098AbbEVVq4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 17:46:56 -0400
+Received: from wandq.ahsoftware (p4FC3696B.dip0.t-ipconnect.de [79.195.105.107])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.ahsoftware.de (Postfix) with ESMTPSA id E762D2C9C1D5
+	for <netdev@vger.kernel.org>; Fri, 22 May 2015 23:46:53 +0200 (CEST)
+In-Reply-To: <CAHA+R7O7sVkA7Ku13gKbwa9HZ0gJZm5kw09Oeiy4u1ZMiv=ijA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change more netdev_dbg statements over to netif_dbg and add some new
-netif_dbg statements to the driver.
+Am 22.05.2015 um 23:29 schrieb Cong Wang:
+> On Fri, May 22, 2015 at 2:12 PM, Alexander Holler <holler@ahsoftware.de> wrote:
+>>>
+>>> Bridge doesn't have an underlying link, so no LINK_NETNSID. LINK_NETNSID
+>>> is only added when its underlying link is in a different netns.
+>>
+>>
+>> I'm using "link" similiar as interface. Maybe I've no idea what the
+>> attribute LINK:NETSID really means, but I've understood it as the one
+>> attribute which indicates the namespace an interface (or link), br0 in my
+>> example, lives in.
+>>
+>
+> It is for an underlying link for example: a veth pair is a link for each other,
+> a tunnel device has a link to transmit packets.
+>
+> Bridge and bonding are master devices where "slaves" (or ports for bridge)
+> can join.
+>
+> netns doesn't have a name or id by nature, we assign it a name by binding
+> mount some /proc file, these LINK_NETNSID's are not absolutely unique either,
+> just relatively.
+>
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c |   68 ++++++++++++++++++++++++++---
- 1 file changed, 62 insertions(+), 6 deletions(-)
+Hmm. so making an inventory of all existing interfaces in all namespaces 
+is either not really possible or ugly. If these IDs are not unique, what 
+will I get when dumping the NETSID's? Sounds like I better forget that 
+approach of using these IDs which means I would have to travel through 
+the mounts and have to use GETLINK (with dump) from inside these 
+namespaces, while having to identify the namespaces by their mount. That 
+leads me to the problem how to find these mounts and ...
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 8b86d94..9088c3a 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -185,8 +185,8 @@ static void xgbe_serdes_complete_ratechange(struct xgbe_prv_data *pdata)
- 			goto rx_reset;
- 	}
- 
--	netdev_dbg(pdata->netdev, "SerDes rx/tx not ready (%#hx)\n",
--		   status);
-+	netif_dbg(pdata, link, pdata->netdev, "SerDes rx/tx not ready (%#hx)\n",
-+		  status);
- 
- rx_reset:
- 	/* Perform Rx reset for the DFE changes */
-@@ -238,6 +238,8 @@ static void xgbe_xgmii_mode(struct xgbe_prv_data *pdata)
- 		      pdata->serdes_dfe_tap_ena[XGBE_SPEED_10000]);
- 
- 	xgbe_serdes_complete_ratechange(pdata);
-+
-+	netif_dbg(pdata, link, pdata->netdev, "10GbE KR mode set\n");
- }
- 
- static void xgbe_gmii_2500_mode(struct xgbe_prv_data *pdata)
-@@ -284,6 +286,8 @@ static void xgbe_gmii_2500_mode(struct xgbe_prv_data *pdata)
- 		      pdata->serdes_dfe_tap_ena[XGBE_SPEED_2500]);
- 
- 	xgbe_serdes_complete_ratechange(pdata);
-+
-+	netif_dbg(pdata, link, pdata->netdev, "2.5GbE KX mode set\n");
- }
- 
- static void xgbe_gmii_mode(struct xgbe_prv_data *pdata)
-@@ -330,6 +334,8 @@ static void xgbe_gmii_mode(struct xgbe_prv_data *pdata)
- 		      pdata->serdes_dfe_tap_ena[XGBE_SPEED_1000]);
- 
- 	xgbe_serdes_complete_ratechange(pdata);
-+
-+	netif_dbg(pdata, link, pdata->netdev, "1GbE KX mode set\n");
- }
- 
- static void xgbe_cur_mode(struct xgbe_prv_data *pdata,
-@@ -434,11 +440,15 @@ static void xgbe_set_an(struct xgbe_prv_data *pdata, bool enable, bool restart)
- static void xgbe_restart_an(struct xgbe_prv_data *pdata)
- {
- 	xgbe_set_an(pdata, true, true);
-+
-+	netif_dbg(pdata, link, pdata->netdev, "AN enabled/restarted\n");
- }
- 
- static void xgbe_disable_an(struct xgbe_prv_data *pdata)
- {
- 	xgbe_set_an(pdata, false, false);
-+
-+	netif_dbg(pdata, link, pdata->netdev, "AN disabled\n");
- }
- 
- static enum xgbe_an xgbe_an_tx_training(struct xgbe_prv_data *pdata,
-@@ -473,6 +483,9 @@ static enum xgbe_an xgbe_an_tx_training(struct xgbe_prv_data *pdata,
- 			    reg);
- 
- 		XSIR0_IOWRITE_BITS(pdata, SIR0_KR_RT_1, RESET, 0);
-+
-+		netif_dbg(pdata, link, pdata->netdev,
-+			  "KR training initiated\n");
- 	}
- 
- 	return XGBE_AN_PAGE_RECEIVED;
-@@ -551,6 +564,9 @@ static enum xgbe_an xgbe_an_page_received(struct xgbe_prv_data *pdata)
- 			pdata->kx_state = XGBE_RX_BPA;
- 
- 			pdata->an_start = jiffies;
-+
-+			netif_dbg(pdata, link, pdata->netdev,
-+				  "AN timed out, resetting state\n");
- 		}
- 	}
- 
-@@ -608,6 +624,8 @@ static irqreturn_t xgbe_an_isr(int irq, void *data)
- {
- 	struct xgbe_prv_data *pdata = (struct xgbe_prv_data *)data;
- 
-+	netif_dbg(pdata, intr, pdata->netdev, "AN interrupt received\n");
-+
- 	/* Interrupt reason must be read and cleared outside of IRQ context */
- 	disable_irq_nosync(pdata->an_irq);
- 
-@@ -629,6 +647,26 @@ static void xgbe_an_irq_work(struct work_struct *work)
- 	queue_work(pdata->an_workqueue, &pdata->an_work);
- }
- 
-+static const char *xgbe_state_as_string(enum xgbe_an state)
-+{
-+	switch (state) {
-+	case XGBE_AN_READY:
-+		return "Ready";
-+	case XGBE_AN_PAGE_RECEIVED:
-+		return "Page-Received";
-+	case XGBE_AN_INCOMPAT_LINK:
-+		return "Incompatible-Link";
-+	case XGBE_AN_COMPLETE:
-+		return "Complete";
-+	case XGBE_AN_NO_LINK:
-+		return "No-Link";
-+	case XGBE_AN_ERROR:
-+		return "Error";
-+	default:
-+		return "Undefined";
-+	}
-+}
-+
- static void xgbe_an_state_machine(struct work_struct *work)
- {
- 	struct xgbe_prv_data *pdata = container_of(work,
-@@ -666,6 +704,9 @@ next_int:
- 	pdata->an_result = pdata->an_state;
- 
- again:
-+	netif_dbg(pdata, link, pdata->netdev, "AN %s\n",
-+		  xgbe_state_as_string(pdata->an_state));
-+
- 	cur_state = pdata->an_state;
- 
- 	switch (pdata->an_state) {
-@@ -686,9 +727,9 @@ again:
- 
- 	case XGBE_AN_COMPLETE:
- 		pdata->parallel_detect = pdata->an_supported ? 0 : 1;
--		netdev_dbg(pdata->netdev, "%s successful\n",
--			   pdata->an_supported ? "Auto negotiation"
--					       : "Parallel detection");
-+		netif_dbg(pdata, link, pdata->netdev, "%s successful\n",
-+			  pdata->an_supported ? "Auto negotiation"
-+					      : "Parallel detection");
- 		break;
- 
- 	case XGBE_AN_NO_LINK:
-@@ -716,6 +757,9 @@ again:
- 		pdata->kr_state = XGBE_RX_BPA;
- 		pdata->kx_state = XGBE_RX_BPA;
- 		pdata->an_start = 0;
-+
-+		netif_dbg(pdata, link, pdata->netdev, "AN result: %s\n",
-+			  xgbe_state_as_string(pdata->an_result));
- 	}
- 
- 	if (cur_state != pdata->an_state)
-@@ -774,6 +818,8 @@ static void xgbe_an_init(struct xgbe_prv_data *pdata)
- 	reg &= ~XGBE_XNP_NP_EXCHANGE;
- 
- 	XMDIO_WRITE(pdata, MDIO_MMD_AN, MDIO_AN_ADVERTISE, reg);
-+
-+	netif_dbg(pdata, link, pdata->netdev, "AN initialized\n");
- }
- 
- static const char *xgbe_phy_fc_string(struct xgbe_prv_data *pdata)
-@@ -858,6 +904,8 @@ static void xgbe_phy_adjust_link(struct xgbe_prv_data *pdata)
- 
- static int xgbe_phy_config_fixed(struct xgbe_prv_data *pdata)
- {
-+	netif_dbg(pdata, link, pdata->netdev, "fixed PHY configuration\n");
-+
- 	/* Disable auto-negotiation */
- 	xgbe_disable_an(pdata);
- 
-@@ -891,6 +939,8 @@ static int __xgbe_phy_config_aneg(struct xgbe_prv_data *pdata)
- 	if (pdata->phy.autoneg != AUTONEG_ENABLE)
- 		return xgbe_phy_config_fixed(pdata);
- 
-+	netif_dbg(pdata, link, pdata->netdev, "AN PHY configuration\n");
-+
- 	/* Disable auto-negotiation interrupt */
- 	disable_irq(pdata->an_irq);
- 
-@@ -955,8 +1005,10 @@ static void xgbe_check_link_timeout(struct xgbe_prv_data *pdata)
- 	unsigned long link_timeout;
- 
- 	link_timeout = pdata->link_check + (XGBE_LINK_TIMEOUT * HZ);
--	if (time_after(jiffies, link_timeout))
-+	if (time_after(jiffies, link_timeout)) {
-+		netif_dbg(pdata, link, pdata->netdev, "AN link timeout\n");
- 		xgbe_phy_config_aneg(pdata);
-+	}
- }
- 
- static void xgbe_phy_status_force(struct xgbe_prv_data *pdata)
-@@ -1116,6 +1168,8 @@ adjust_link:
- 
- static void xgbe_phy_stop(struct xgbe_prv_data *pdata)
- {
-+	netif_dbg(pdata, link, pdata->netdev, "stopping PHY\n");
-+
- 	/* Disable auto-negotiation */
- 	xgbe_disable_an(pdata);
- 
-@@ -1136,6 +1190,8 @@ static int xgbe_phy_start(struct xgbe_prv_data *pdata)
- 	struct net_device *netdev = pdata->netdev;
- 	int ret;
- 
-+	netif_dbg(pdata, link, pdata->netdev, "starting PHY\n");
-+
- 	ret = devm_request_irq(pdata->dev, pdata->an_irq,
- 			       xgbe_an_isr, 0, pdata->an_name,
- 			       pdata);
+Not sure if I want to do that. It looked so easy to support namespaces 
+but know it looks rather complicated.
+
+Anyway, thanks a lot for the quick and fast responses and explanations.
+
+Regards,
+
+Alexander Holler
