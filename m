@@ -1,58 +1,115 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: RE: [PATCH v5] ixgbe: Add module parameter to disable VLAN filter
-Date: Fri, 22 May 2015 00:54:31 +0000
-Message-ID: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB4CA5@BPXM14GP.gisp.nec.co.jp>
-References: <7F861DC0615E0C47A872E6F3C5FCDDBD05EB460C@BPXM14GP.gisp.nec.co.jp>
- <20150521.120713.1811144256149554543.davem@davemloft.net>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: [PATCH net-next] bridge: allow setting hash_max + multicast_router if
+ interface is down
+Date: Fri, 22 May 2015 02:56:01 +0200
+Message-ID: <1432256161-4425-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 8BIT
-Cc: "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"sy.jong.choi@intel.com" <sy.jong.choi@intel.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>
+To: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150521.120713.1811144256149554543.davem@davemloft.net>
-Content-Language: ja-JP
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Subject: Re: [PATCH v5] ixgbe: Add module parameter to disable VLAN filter
-> 
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-> Date: Thu, 21 May 2015 13:10:49 +0000
-> 
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > index 263cb40..b45570f 100644
-> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> > @@ -158,6 +158,10 @@ module_param(allow_unsupported_sfp, uint, 0);
-> >  MODULE_PARM_DESC(allow_unsupported_sfp,
-> >  		 "Allow unsupported and untested SFP+ modules on 82599-based adapters");
-> >
-> > +static unsigned int disable_hw_vlan_filter;
-> > +module_param(disable_hw_vlan_filter, uint, 0);
-> > +MODULE_PARM_DESC(disable_hw_vlan_filter, "Disable HW VLAN filter");
-> 
-> Sorry, module parameters like this are not allowed.
-> 
-> You must use a generic, portable interface, to configure networking
-> device settings.
+Network managers like netifd (used in OpenWRT for instance) try to
+configure interface options after creation but before setting the
+interface up.
 
-Could you please tell me which interface is good for this?
+Unfortunately the sysfs / bridge currently only allows to configure the
+hash_max and multicast_router options when the bridge interface is up.
+But since br_multicast_init() doesn't start any timers and only sets
+default values and initializes timers it should be save to reconfigure
+the default values after that, before things actually get active after
+the bridge is set up.
 
-> 
-> Otherwise every other driver that wants to do something similar will
-> have yet another module option with a different name, and every user
-> will suffer because they will need to learn a different mechanism
-> to perform this configuration for every driver.
+With this patch hash_max and multicast_router attributes can be
+changed even if the according bridge (port) is down, just like other
+other bridge (port) attributes allow too.
 
-Right, I agree.
-But I thought that this requirement seems really special and closed in
-ixgbe driver, that the reason I tried it with module parameter.
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
+---
+Changelog:
+* [RFC PATCH net-next] -> [PATCH net-next]
 
-thanks,
-Hiroshi
+
+ net/bridge/br_multicast.c |   15 ++-------------
+ 1 file changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2d69d5c..066199e 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1775,8 +1775,6 @@ int br_multicast_set_router(struct net_bridge *br=
+, unsigned long val)
+ 	int err =3D -ENOENT;
+=20
+ 	spin_lock_bh(&br->multicast_lock);
+-	if (!netif_running(br->dev))
+-		goto unlock;
+=20
+ 	switch (val) {
+ 	case 0:
+@@ -1793,7 +1791,6 @@ int br_multicast_set_router(struct net_bridge *br=
+, unsigned long val)
+ 		break;
+ 	}
+=20
+-unlock:
+ 	spin_unlock_bh(&br->multicast_lock);
+=20
+ 	return err;
+@@ -1802,18 +1799,15 @@ unlock:
+ int br_multicast_set_port_router(struct net_bridge_port *p, unsigned l=
+ong val)
+ {
+ 	struct net_bridge *br =3D p->br;
+-	int err =3D -ENOENT;
++	int err =3D 0;
+=20
+ 	spin_lock(&br->multicast_lock);
+-	if (!netif_running(br->dev) || p->state =3D=3D BR_STATE_DISABLED)
+-		goto unlock;
+=20
+ 	switch (val) {
+ 	case 0:
+ 	case 1:
+ 	case 2:
+ 		p->multicast_router =3D val;
+-		err =3D 0;
+=20
+ 		if (val < 2 && !hlist_unhashed(&p->rlist))
+ 			hlist_del_init_rcu(&p->rlist);
+@@ -1834,7 +1828,6 @@ int br_multicast_set_port_router(struct net_bridg=
+e_port *p, unsigned long val)
+ 		break;
+ 	}
+=20
+-unlock:
+ 	spin_unlock(&br->multicast_lock);
+=20
+ 	return err;
+@@ -1939,15 +1932,11 @@ unlock:
+=20
+ int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val=
+)
+ {
+-	int err =3D -ENOENT;
++	int err =3D -EINVAL;
+ 	u32 old;
+ 	struct net_bridge_mdb_htable *mdb;
+=20
+ 	spin_lock_bh(&br->multicast_lock);
+-	if (!netif_running(br->dev))
+-		goto unlock;
+-
+-	err =3D -EINVAL;
+ 	if (!is_power_of_2(val))
+ 		goto unlock;
+=20
+--=20
+1.7.10.4
