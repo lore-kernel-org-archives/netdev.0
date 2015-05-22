@@ -1,88 +1,201 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [v2 PATCH 13/13] crypto: algif_aead - Switch to new AEAD
- interface
-Date: Sat, 23 May 2015 05:58:18 +0800
-Message-ID: <20150522215818.GB11512@gondor.apana.org.au>
-References: <20150522082708.GA3507@gondor.apana.org.au>
- <E1YviMC-00010E-Uk@gondolin.me.apana.org.au>
- <1711949.C5mmxUsD4a@myon.chronox.de>
- <13023896.hEcYqcIc2j@myon.chronox.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <13023896.hEcYqcIc2j@myon.chronox.de>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil McKee <neil.mckee@inmon.com>
+Subject: [PATCH net-next] openvswitch: include datapath actions with sampled-packet upcall to userspace
+Date: Fri, 22 May 2015 15:08:41 -0700
+Message-ID: <1432332521-19895-1-git-send-email-neil.mckee@inmon.com>
+References: <CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
+Cc: Neil McKee <neil.mckee@inmon.com>
+To: netdev@vger.kernel.org, pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:32771 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757335AbbEVWJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:09:20 -0400
+Received: by padbw4 with SMTP id bw4so29537725pad.0
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 15:09:19 -0700 (PDT)
+In-Reply-To: <CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 22, 2015 at 11:04:39PM +0200, Stephan Mueller wrote:
->
-> Note, gcm(aes) looks good. Only rfc4106(gcm(aes)) causes the crash.
+If new optional attribute OVS_USERSPACE_ATTR_ACTIONS is added to an
+OVS_ACTION_ATTR_USERSPACE action, then include the datapath actions
+in the upcall.
 
-Actually it looks like the culprit hasn't been merged yet so I'll
-just respin the series.
+This Directly associates the sampled packet with the path it takes
+through the virtual switch. Path information currently includes mangling,
+encapsulation and decapsulation actions for tunneling protocols GRE,
+VXLAN, Geneve, MPLS and QinQ, but this extension requires no further
+changes to accommodate datapath actions that may be added in the
+future.
 
-Anyway, this patch should fix your crash:
+Adding path information enhances visibility into complex virtual
+networks.
 
-diff --git a/crypto/ablkcipher.c b/crypto/ablkcipher.c
-index b3dded4..b15d797 100644
---- a/crypto/ablkcipher.c
-+++ b/crypto/ablkcipher.c
-@@ -586,6 +586,13 @@ static int crypto_givcipher_default(struct crypto_alg *alg, u32 type, u32 mask)
- 	if (!tmpl)
- 		goto kill_larval;
+Signed-off-by: Neil McKee <neil.mckee@inmon.com>
+---
+ include/uapi/linux/openvswitch.h |  4 ++++
+ net/openvswitch/actions.c        | 21 ++++++++++++++++-----
+ net/openvswitch/datapath.c       | 18 ++++++++++++++++++
+ net/openvswitch/datapath.h       |  2 ++
+ 4 files changed, 40 insertions(+), 5 deletions(-)
+
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index bbd49a0..1dab776 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -153,6 +153,8 @@ enum ovs_packet_cmd {
+  * flow key against the kernel's.
+  * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
+  * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
++ * Also used in upcall when %OVS_ACTION_ATTR_USERSPACE has optional
++ * %OVS_USERSPACE_ATTR_ACTIONS attribute.
+  * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
+  * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
+  * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
+@@ -528,6 +530,7 @@ enum ovs_sample_attr {
+  * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
+  * @OVS_USERSPACE_ATTR_EGRESS_TUN_PORT: If present, u32 output port to get
+  * tunnel info.
++ * @OVS_USERSPACE_ATTR_ACTIONS: If present, send actions with upcall.
+  */
+ enum ovs_userspace_attr {
+ 	OVS_USERSPACE_ATTR_UNSPEC,
+@@ -535,6 +538,7 @@ enum ovs_userspace_attr {
+ 	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
+ 	OVS_USERSPACE_ATTR_EGRESS_TUN_PORT,  /* Optional, u32 output port
+ 					      * to get tunnel info. */
++	OVS_USERSPACE_ATTR_ACTIONS,   /* Optional flag to get actions. */
+ 	__OVS_USERSPACE_ATTR_MAX
+ };
  
-+	if (tmpl->create) {
-+		err = tmpl->create(tmpl, tb);
-+		if (err)
-+			goto put_tmpl;
-+		goto ok;
-+	}
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index b491c1c..b3f9b89 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+ }
+ 
+ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+-			    struct sw_flow_key *key, const struct nlattr *attr)
++			    struct sw_flow_key *key, const struct nlattr *attr,
++			    const struct nlattr *actions, int actions_len)
+ {
+ 	struct ovs_tunnel_info info;
+ 	struct dp_upcall_info upcall;
+@@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 	upcall.userdata = NULL;
+ 	upcall.portid = 0;
+ 	upcall.egress_tun_info = NULL;
++	upcall.actions = NULL;
++	upcall.actions_len = 0;
+ 
+ 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+ 		 a = nla_next(a, &rem)) {
+@@ -647,6 +650,13 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 		}
+ 
++		case OVS_USERSPACE_ATTR_ACTIONS: {
++			/* Include actions. */
++			upcall.actions = actions;
++			upcall.actions_len = actions_len;
++			break;
++		}
 +
- 	inst = tmpl->alloc(tb);
- 	err = PTR_ERR(inst);
- 	if (IS_ERR(inst))
-@@ -597,6 +604,7 @@ static int crypto_givcipher_default(struct crypto_alg *alg, u32 type, u32 mask)
- 		goto put_tmpl;
+ 		} /* End of switch. */
  	}
  
-+ok:
- 	/* Redo the lookup to use the instance we just registered. */
- 	err = -EAGAIN;
+@@ -654,7 +664,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ }
  
-diff --git a/crypto/aead.c b/crypto/aead.c
-index 8b26613..070e4b9 100644
---- a/crypto/aead.c
-+++ b/crypto/aead.c
-@@ -570,6 +570,13 @@ static int crypto_nivaead_default(struct crypto_alg *alg, u32 type, u32 mask)
- 	if (!tmpl)
- 		goto kill_larval;
+ static int sample(struct datapath *dp, struct sk_buff *skb,
+-		  struct sw_flow_key *key, const struct nlattr *attr)
++		  struct sw_flow_key *key, const struct nlattr *attr,
++		  const struct nlattr *actions, int actions_len)
+ {
+ 	const struct nlattr *acts_list = NULL;
+ 	const struct nlattr *a;
+@@ -688,7 +699,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 	 */
+ 	if (likely(nla_type(a) == OVS_ACTION_ATTR_USERSPACE &&
+ 		   nla_is_last(a, rem)))
+-		return output_userspace(dp, skb, key, a);
++		return output_userspace(dp, skb, key, a, actions, actions_len);
  
-+	if (tmpl->create) {
-+		err = tmpl->create(tmpl, tb);
-+		if (err)
-+			goto put_tmpl;
-+		goto ok;
-+	}
+ 	skb = skb_clone(skb, GFP_ATOMIC);
+ 	if (!skb)
+@@ -872,7 +883,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_USERSPACE:
+-			output_userspace(dp, skb, key, a);
++			output_userspace(dp, skb, key, a, attr, len);
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_HASH:
+@@ -916,7 +927,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_SAMPLE:
+-			err = sample(dp, skb, key, a);
++			err = sample(dp, skb, key, a, attr, len);
+ 			break;
+ 		}
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 5bae724..e735c8f 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -277,6 +277,8 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
+ 		upcall.userdata = NULL;
+ 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
+ 		upcall.egress_tun_info = NULL;
++		upcall.actions = NULL;
++		upcall.actions_len = 0;
+ 		error = ovs_dp_upcall(dp, skb, key, &upcall);
+ 		if (unlikely(error))
+ 			kfree_skb(skb);
+@@ -398,6 +400,10 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+ 	if (upcall_info->egress_tun_info)
+ 		size += nla_total_size(ovs_tun_key_attr_size());
+ 
++	/* OVS_PACKET_ATTR_ACTIONS */
++	if (upcall_info->actions_len)
++		size += nla_total_size(upcall_info->actions_len);
 +
- 	inst = tmpl->alloc(tb);
- 	err = PTR_ERR(inst);
- 	if (IS_ERR(inst))
-@@ -581,6 +588,7 @@ static int crypto_nivaead_default(struct crypto_alg *alg, u32 type, u32 mask)
- 		goto put_tmpl;
+ 	return size;
+ }
+ 
+@@ -479,6 +485,18 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 		nla_nest_end(user_skb, nla);
  	}
  
-+ok:
- 	/* Redo the lookup to use the instance we just registered. */
- 	err = -EAGAIN;
- 
++	if (upcall_info->actions_len) {
++		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_ACTIONS);
++		err = ovs_nla_put_actions(upcall_info->actions,
++					  upcall_info->actions_len,
++					  user_skb);
++		if (!err) {
++			nla_nest_end(user_skb, nla);
++		} else {
++			nla_nest_cancel(user_skb, nla);
++		}
++	}
++
+ 	/* Only reserve room for attribute header, packet data is added
+ 	 * in skb_zerocopy() */
+ 	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 3ece945..b98b1b4 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -118,6 +118,8 @@ struct ovs_skb_cb {
+ struct dp_upcall_info {
+ 	const struct ovs_tunnel_info *egress_tun_info;
+ 	const struct nlattr *userdata;
++	const struct nlattr *actions;
++	int actions_len;
+ 	u32 portid;
+ 	u8 cmd;
+ };
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.9.3
