@@ -1,7 +1,8 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 0/2] crypto: Use tmpl->create when registering geniv
-Date: Sat, 23 May 2015 05:54:31 +0800
-Message-ID: <20150522215430.GA11512@gondor.apana.org.au>
+Subject: Re: [v2 PATCH 13/13] crypto: algif_aead - Switch to new AEAD
+ interface
+Date: Sat, 23 May 2015 05:58:18 +0800
+Message-ID: <20150522215818.GB11512@gondor.apana.org.au>
 References: <20150522082708.GA3507@gondor.apana.org.au>
  <E1YviMC-00010E-Uk@gondolin.me.apana.org.au>
  <1711949.C5mmxUsD4a@myon.chronox.de>
@@ -21,36 +22,66 @@ Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Fri, May 22, 2015 at 11:04:39PM +0200, Stephan Mueller wrote:
-> Am Freitag, 22. Mai 2015, 22:59:34 schrieb Stephan Mueller:
-> 
-> Hi Stephan,
-> 
-> > Am Freitag, 22. Mai 2015, 16:31:04 schrieb Herbert Xu:
-> > 
-> > Hi Herbert,
-> > 
-> > > This patch makes use of the new AEAD interface which uses a single
-> > > SG list instead of separate lists for the AD and plain text.
-> > 
-> > Using an up-to date tree with the full set of patches of this patch set, I
-> > get the following oops.
-> > 
-> > It can easily be reproduced by using [1]: go to libkcapi/test/ and compile
-> > with make. Then execute ./test.sh
-> > 
-> > [1] http://www.chronox.de/libkcapi.html
-> 
+>
 > Note, gcm(aes) looks good. Only rfc4106(gcm(aes)) causes the crash.
 
-Thanks for the report!
+Actually it looks like the culprit hasn't been merged yet so I'll
+just respin the series.
 
-The crash is because ablkcipher/aead are still using tmpl->alloc
-and I forgot about them.
+Anyway, this patch should fix your crash:
 
-The following two patches will fix the crash by making them call
-tmpl->create if it is set.
-
-Cheers,
+diff --git a/crypto/ablkcipher.c b/crypto/ablkcipher.c
+index b3dded4..b15d797 100644
+--- a/crypto/ablkcipher.c
++++ b/crypto/ablkcipher.c
+@@ -586,6 +586,13 @@ static int crypto_givcipher_default(struct crypto_alg *alg, u32 type, u32 mask)
+ 	if (!tmpl)
+ 		goto kill_larval;
+ 
++	if (tmpl->create) {
++		err = tmpl->create(tmpl, tb);
++		if (err)
++			goto put_tmpl;
++		goto ok;
++	}
++
+ 	inst = tmpl->alloc(tb);
+ 	err = PTR_ERR(inst);
+ 	if (IS_ERR(inst))
+@@ -597,6 +604,7 @@ static int crypto_givcipher_default(struct crypto_alg *alg, u32 type, u32 mask)
+ 		goto put_tmpl;
+ 	}
+ 
++ok:
+ 	/* Redo the lookup to use the instance we just registered. */
+ 	err = -EAGAIN;
+ 
+diff --git a/crypto/aead.c b/crypto/aead.c
+index 8b26613..070e4b9 100644
+--- a/crypto/aead.c
++++ b/crypto/aead.c
+@@ -570,6 +570,13 @@ static int crypto_nivaead_default(struct crypto_alg *alg, u32 type, u32 mask)
+ 	if (!tmpl)
+ 		goto kill_larval;
+ 
++	if (tmpl->create) {
++		err = tmpl->create(tmpl, tb);
++		if (err)
++			goto put_tmpl;
++		goto ok;
++	}
++
+ 	inst = tmpl->alloc(tb);
+ 	err = PTR_ERR(inst);
+ 	if (IS_ERR(inst))
+@@ -581,6 +588,7 @@ static int crypto_nivaead_default(struct crypto_alg *alg, u32 type, u32 mask)
+ 		goto put_tmpl;
+ 	}
+ 
++ok:
+ 	/* Redo the lookup to use the instance we just registered. */
+ 	err = -EAGAIN;
+ 
 -- 
 Email: Herbert Xu <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
