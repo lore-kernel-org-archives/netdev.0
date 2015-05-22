@@ -1,49 +1,33 @@
-From: Alexander Duyck <alexander.h.duyck@redhat.com>
-Subject: Re: [PATCH net] ipv4: fill in table id when replacing a route
-Date: Fri, 22 May 2015 08:39:20 -0700
-Message-ID: <555F4DA8.5070100@redhat.com>
-References: <20150522114009.043A6A0CCC@unicorn.suse.cz>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] test_bpf: Add backward jump test case
+Date: Fri, 22 May 2015 18:06:52 +0200
+Message-ID: <555F541C.9010507@iogearbox.net>
+References: <1432309000-11545-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Michal Kubecek <mkubecek@suse.cz>,
+Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>,
 	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20150522114009.043A6A0CCC@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:41268 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946012AbbEVQG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 12:06:59 -0400
+In-Reply-To: <1432309000-11545-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2015 04:40 AM, Michal Kubecek wrote:
-> When replacing an IPv4 route, tb_id member of the new fib_alias
-> structure is not set in the replace code path so that the new route is
-> ignored.
+On 05/22/2015 05:36 PM, Alexei Starovoitov wrote:
+> From: Michael Holzheu <holzheu@linux.vnet.ibm.com>
 >
-> Fixes: 0ddcf43d5d4a ("ipv4: FIB Local/MAIN table collapse")
+> Currently the testsuite does not have a test case with a backward jump.
+> The s390x JIT (kernel 4.0) had a bug in that area.
+> So add one new test case for this now.
 >
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-> ---
->   net/ipv4/fib_trie.c | 1 +
->   1 file changed, 1 insertion(+)
->
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index 64c2076ced54..09b62e17dd8c 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -1164,6 +1164,7 @@ int fib_table_insert(struct fib_table *tb, struct fib_config *cfg)
->   			state = fa->fa_state;
->   			new_fa->fa_state = state & ~FA_S_ACCESSED;
->   			new_fa->fa_slen = fa->fa_slen;
-> +			new_fa->tb_id = tb->tb_id;
->
->   			err = netdev_switch_fib_ipv4_add(key, plen, fi,
->   							 new_fa->fa_tos,
->
+> Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-The patch looks good.  Thanks.
-
-Acked-by: Alexander Duyck <alexander.h.duyck@redhat.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
