@@ -1,148 +1,72 @@
-From: Marek =?utf-8?Q?Marczykowski-G=C3=B3recki?=
-	<marmarek@invisiblethingslab.com>
-Subject: Re: [Xen-devel] xen-netfront crash when detaching network while some
- network activity
-Date: Fri, 22 May 2015 19:13:35 +0200
-Message-ID: <20150522171335.GG957@mail-itl>
-References: <20150522114932.GC8664@mail-itl>
- <555F5888.4020303@citrix.com>
- <20150522164246.GE957@mail-itl>
- <555F6041.7000203@citrix.com>
+From: Joao Martins <Joao.Martins@neclab.eu>
+Subject: Re: [RFC PATCH 08/13] xen-netback: clone skb if skb->xmit_more is
+ set
+Date: Fri, 22 May 2015 17:14:24 +0000
+Message-ID: <2115674C-AC21-4EF2-AA96-28F670102C81@neclab.eu>
+References: <1431451117-70051-1-git-send-email-joao.martins@neclab.eu>
+ <1431451117-70051-9-git-send-email-joao.martins@neclab.eu>
+ <20150519153613.GG26335@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xSu31lw3TgkWXnjh"
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	netdev@vger.kernel.org, xen-devel <xen-devel@lists.xen.org>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=Windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ian.campbell@citrix.com" <ian.campbell@citrix.com>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:35156 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964813AbbEVRNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 13:13:42 -0400
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailout.nyi.internal (Postfix) with ESMTP id D8B7120833
-	for <netdev@vger.kernel.org>; Fri, 22 May 2015 13:13:41 -0400 (EDT)
-Content-Disposition: inline
-In-Reply-To: <555F6041.7000203@citrix.com>
+Received: from mailer1.neclab.eu ([195.37.70.40]:38487 "EHLO mailer1.neclab.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946041AbbEVROl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 13:14:41 -0400
+In-Reply-To: <20150519153613.GG26335@zion.uk.xensource.com>
+Content-Language: en-US
+Content-ID: <32AB5E9973A5F444BFD5A03E9DBCDC6B@office.hd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---xSu31lw3TgkWXnjh
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 19 May 2015, at 17:36, Wei Liu <wei.liu2@citrix.com> wrote:
 
-On Fri, May 22, 2015 at 05:58:41PM +0100, David Vrabel wrote:
-> On 22/05/15 17:42, Marek Marczykowski-G=C3=B3recki wrote:
-> > On Fri, May 22, 2015 at 05:25:44PM +0100, David Vrabel wrote:
-> >> On 22/05/15 12:49, Marek Marczykowski-G=C3=B3recki wrote:
-> >>> Hi all,
-> >>>
-> >>> I'm experiencing xen-netfront crash when doing xl network-detach while
-> >>> some network activity is going on at the same time. It happens only w=
-hen
-> >>> domU has more than one vcpu. Not sure if this matters, but the backend
-> >>> is in another domU (not dom0). I'm using Xen 4.2.2. It happens on ker=
-nel
-> >>> 3.9.4 and 4.1-rc1 as well.
-> >>>
-> >>> Steps to reproduce:
-> >>> 1. Start the domU with some network interface
-> >>> 2. Call there 'ping -f some-IP'
-> >>> 3. Call 'xl network-detach NAME 0'
-> >>
-> >> I tried this about 10 times without a crash.  How reproducible is it?
-> >>
-> >> I used a 4.1-rc4 frontend and a 4.0 backend.
-> >=20
-> > It happens every time for me... Do you have at least two vcpus in that
-> > domU? With one vcpu it doesn't crash. The IP for ping I've used one in
-> > backend domU, but it shouldn't matter.
-> >=20
-> > Backend is 3.19.6 here. I don't see any changes there between rc1 and
-> > rc4, so stayed with rc1. With 4.1-rc1 backend it also crashes for me.
+> On Tue, May 12, 2015 at 07:18:32PM +0200, Joao Martins wrote:
+>> On xenvif_start_xmit() we have an additional queue to the netback RX
+>> kthread that will sends the packet. When using burst>1 pktgen sets
+>> skb->xmit_more to tell the driver that there more skbs in the queue.
+>> However, pktgen transmits the same skb <burst> times, which leads to
+>> the BUG below. Long story short adding the same skb in the rx_queue
+>> queue leads to crash. Specifically, having pktgen running with burst=
+=3D2
+>> what happens is: when we queue the second skb (that is the same as
+>> the first queued skb), the list will have the tail element with skb-=
+>prev
+>> which is the skb itself. On skb_unlink (i.e. when dequeueing the skb=
+)
+>> skb->prev will become NULL, but still having list->next pointing to =
+the
+>> unlinked skb. Because of this skb_peek will still return an skb, whi=
+ch
+>> will redo the skb_unlink trying to set (skb->prev)->next where skb->=
+prev
+>> is now NULL, thus leading to the crash (trace below).
+>>=20
 >=20
-> Doesn't repro for me with 4 VCPU PV or PVHVM guests.
+> From your description this doesn't sound Xen specific. Sounds like
+> pktgen breaks in any driver that has an internal queue, which is plen=
+ty.
+Yes, it=92s only on drivers with an internal queue.
 
-I've tried with exactly 2 vcpus in frontend domU (PV), but I guess it
-shouldn't matter. Backend is also PV.
+>> I'm not sure what the best way to fix this but since it's only happe=
+ning
+>> when we use pktgen with burst>1: I chose doing an skb_clone when we =
+don't
+>> use persistent grants and skb->xmit_more flag is set, and when
+>> CONFIG_NET_PKTGEN is compiled builtin.
+>>=20
+>=20
+> I don't think we should do this.
+Ok, I will remove this one out then.=20
+Part of the reason I submitted it was to make you aware of the crash.
 
-> Is your guest
-> kernel vanilla or does it have some qubes specific patches on top?
-
-This one was from vanilla - both frontend and backend (just qubes
-config).
-Maybe something about device configuration? Here is xenstore dump:
-frontend:
-0 =3D ""
- backend =3D "/local/domain/66/backend/vif/69/0"
- backend-id =3D "66"
- state =3D "4"
- handle =3D "0"
- mac =3D "00:16:3e:5e:6c:07"
- multi-queue-num-queues =3D "2"
- queue-0 =3D ""
-  tx-ring-ref =3D "1280"
-  rx-ring-ref =3D "1281"
-  event-channel-tx =3D "19"
-  event-channel-rx =3D "20"
- queue-1 =3D ""
-  tx-ring-ref =3D "1282"
-  rx-ring-ref =3D "1283"
-  event-channel-tx =3D "21"
-  event-channel-rx =3D "22"
- request-rx-copy =3D "1"
- feature-rx-notify =3D "1"
- feature-sg =3D "1"
- feature-gso-tcpv4 =3D "1"
- feature-gso-tcpv6 =3D "1"
- feature-ipv6-csum-offload =3D "1"
-
-backend:
-69 =3D ""
- 0 =3D ""
-  frontend =3D "/local/domain/69/device/vif/0"
-  frontend-id =3D "69"
-  online =3D "1"
-  state =3D "4"
-  script =3D "/etc/xen/scripts/vif-route-qubes"
-  mac =3D "00:16:3e:5e:6c:07"
-  ip =3D "10.137.3.9"
-  handle =3D "0"
-  type =3D "vif"
-  feature-sg =3D "1"
-  feature-gso-tcpv4 =3D "1"
-  feature-gso-tcpv6 =3D "1"
-  feature-ipv6-csum-offload =3D "1"
-  feature-rx-copy =3D "1"
-  feature-rx-flip =3D "0"
-  feature-split-event-channels =3D "1"
-  multi-queue-max-queues =3D "2"
-  hotplug-status =3D "connected"
-
-
---=20
-Best Regards,
-Marek Marczykowski-G=C3=B3recki
-Invisible Things Lab
-A: Because it messes up the order in which people normally read text.
-Q: Why is top-posting such a bad thing?
-
---xSu31lw3TgkWXnjh
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQEcBAEBAgAGBQJVX2O/AAoJENuP0xzK19csMcsH/3QRDAZvxlRTysCLBADkIfNv
-iz+nk5Kj4IaNPd9aAT7DeLJrPiO3701NFae84wJ2fYpBwfCgwguca1zw0WT178ow
-LX/1474PyLMvoDbcx9vqqu0cWgz7/kvsdtQQDq747Bis0gmxg3/IRQ2zX12BkUZ6
-tQ/M3jOzhNk4KRPfeR0InWSuV8Qtijmf9khBJY8bYNScsQJp3XvArYZtdeMFMfdg
-gRSxISQpY2gIzr5QYAylnea9Dw+GW6fRuih9fN/oJTEJ6RjB01JvqunT1gF8j0ro
-4Fy0J9j4PcSccMZfkm4G9l6AHxOvw9XTrryU3Nml8HAC+sPm5U6R1pQtIOuRV0k=
-=3Y2e
------END PGP SIGNATURE-----
-
---xSu31lw3TgkWXnjh--
+Joao
