@@ -1,95 +1,96 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH v4 net-next 01/11] net: Simplify GRE case in flow_dissector
-Date: Thu, 21 May 2015 17:11:36 -0700
-Message-ID: <1432253506-3646977-2-git-send-email-tom@herbertland.com>
-References: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
+Subject: [PATCH v4 net-next 00/11] net: Increase inputs to flow_keys hashing
+Date: Thu, 21 May 2015 17:11:35 -0700
+Message-ID: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <jiri@resnulli.us>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:16227 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51405 "EHLO
 	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755787AbbEVAMB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 20:12:01 -0400
-Received: from pps.filterd (m0004077 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4M0848N010413
-	for <netdev@vger.kernel.org>; Thu, 21 May 2015 17:12:00 -0700
+	by vger.kernel.org with ESMTP id S1755841AbbEVAMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 May 2015 20:12:03 -0400
+Received: from pps.filterd (m0004060 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id t4M0BRGj007394
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 17:12:02 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 1uhrt705bx-1
+	by mx0b-00082601.pphosted.com with ESMTP id 1uhru605bv-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 21 May 2015 17:12:00 -0700
+	for <netdev@vger.kernel.org>; Thu, 21 May 2015 17:12:02 -0700
 Received: from facebook.com (2401:db00:20:702e:face:0:23:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- 296ddb4e001711e58a870002c95209d8-d12dc3a0 for <netdev@vger.kernel.org>;	Thu,
- 21 May 2015 17:11:58 -0700
-In-Reply-To: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 2868c790001711e5ac510002c9521c9e-17c9f6e0 for <netdev@vger.kernel.org>;	Thu,
+ 21 May 2015 17:11:56 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do break when we see routing flag or a non-zero version number in GRE
-header.
+This patch set adds new fields to the flow_keys structure and hashes
+over these fields to get a better flow hash. In particular, these
+patches now include hashing over the full IPv6 addresses in order
+to defend against address spoofing that always results in the
+same hash. The new input also includes the Ethertype, L4 protocol,
+VLAN, flow label, GRE keyid, and MPLS entropy label.
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/core/flow_dissector.c | 44 ++++++++++++++++++++++----------------------
- 1 file changed, 22 insertions(+), 22 deletions(-)
+In order to increase hash inputs, we switch to using jhash2
+which operates an an array of u32's. jhash2 operates on multiples of
+three words. The data in the hash is constructed for that, and there
+are are two variants for IPv4 and Ipv6 addressing. For IPv4 addresses,
+jhash is performed over six u32's and for IPv6 it is done over twelve.
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 703d059..4a2cb93 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -308,30 +308,30 @@ flow_label:
- 		 * Only look inside GRE if version zero and no
- 		 * routing
- 		 */
--		if (!(hdr->flags & (GRE_VERSION|GRE_ROUTING))) {
--			proto = hdr->proto;
-+		if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
-+			break;
-+
-+		proto = hdr->proto;
-+		nhoff += 4;
-+		if (hdr->flags & GRE_CSUM)
-+			nhoff += 4;
-+		if (hdr->flags & GRE_KEY)
- 			nhoff += 4;
--			if (hdr->flags & GRE_CSUM)
--				nhoff += 4;
--			if (hdr->flags & GRE_KEY)
--				nhoff += 4;
--			if (hdr->flags & GRE_SEQ)
--				nhoff += 4;
--			if (proto == htons(ETH_P_TEB)) {
--				const struct ethhdr *eth;
--				struct ethhdr _eth;
--
--				eth = __skb_header_pointer(skb, nhoff,
--							   sizeof(_eth),
--							   data, hlen, &_eth);
--				if (!eth)
--					return false;
--				proto = eth->h_proto;
--				nhoff += sizeof(*eth);
--			}
--			goto again;
-+		if (hdr->flags & GRE_SEQ)
-+			nhoff += 4;
-+		if (proto == htons(ETH_P_TEB)) {
-+			const struct ethhdr *eth;
-+			struct ethhdr _eth;
-+
-+			eth = __skb_header_pointer(skb, nhoff,
-+						   sizeof(_eth),
-+						   data, hlen, &_eth);
-+			if (!eth)
-+				return false;
-+			proto = eth->h_proto;
-+			nhoff += sizeof(*eth);
- 		}
--		break;
-+		goto again;
- 	}
- 	case IPPROTO_IPIP:
- 		proto = htons(ETH_P_IP);
+flow_keys can store either IPv4 or IPv6 addresses (addr_proto field
+is a selector). ipv6_addr_hash is no longer used to convert addresses
+for setting in flow table. For legacy uses of flow keys outside of
+flow_dissector the flow_get_u32_src and flow_get_u32_dst functions
+have been added to get u32 representation representations of addresses
+in flow_keys.
+
+For flow labels we also eliminate the short circuit in flow_dissector
+for non-zero flow label. The flow label is now considered additional
+input to ports.
+
+Testing: Ran netperf TCP_RR for 200 flows using IPv4 and IPv6 comparing
+before the patches and with the patches. Did not detect any performance
+degradation.
+
+v2:
+  - Took out MPLS entropy label. Will add this later.
+v3:
+  - Ensure hash start offset is a four byte boundary. Add BUG_BUILD_ON
+    to check for this.
+  - Fixes sparse error in GRE to get entropy from keyid.
+v4:
+  - Rebase to Jiri changes to generalize flow dissection
+  - Support TIPC as its own address
+  - Bring back MPLS entropy label dissection
+  - Remove FLOW_DISSECTOR_KEY_IPV6_HASH_ADDRS
+
+
+Tom Herbert (11):
+  net: Simplify GRE case in flow_dissector
+  mpls: Add definition for IPPROTO_MPLS
+  net: Remove superfluous setting of key_basic
+  net: Get skb hash over flow_keys structure
+  net: Add full IPv6 addresses to flow_keys
+  net: Add keys for TIPC address
+  net: Get rid of IPv6 hash addresses flow keys
+  net: Add VLAN ID to flow_keys
+  net: Add IPv6 flow label to flow_keys
+  net: Add GRE keyid in flow_keys
+  mpls: Add MPLS entropy label in flow_keys
+
+ drivers/net/bonding/bond_main.c                |   9 +-
+ drivers/net/ethernet/cisco/enic/enic_clsf.c    |   8 +-
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |   4 +-
+ include/linux/skbuff.h                         |   2 +-
+ include/net/flow_dissector.h                   |  97 +++++--
+ include/net/ip.h                               |  21 +-
+ include/net/ipv6.h                             |  23 +-
+ include/uapi/linux/in.h                        |   2 +
+ net/core/flow_dissector.c                      | 336 ++++++++++++++++++-------
+ net/ethernet/eth.c                             |   2 +-
+ net/sched/cls_flow.c                           |  14 +-
+ net/sched/cls_flower.c                         |  13 +-
+ 12 files changed, 392 insertions(+), 139 deletions(-)
+
 -- 
 1.8.1
