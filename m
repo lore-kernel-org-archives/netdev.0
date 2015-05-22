@@ -1,32 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v4 net-next 03/11] net: Remove superfluous setting of
- key_basic
-Date: Fri, 22 May 2015 08:37:52 +0200
-Message-ID: <20150522063752.GC2138@nanopsycho.orion>
-References: <1432253506-3646977-1-git-send-email-tom@herbertland.com>
- <1432253506-3646977-4-git-send-email-tom@herbertland.com>
+From: Stephan Mueller <smueller@chronox.de>
+Subject: Re: [PATCH 5/7] esp6: Switch to new AEAD interface
+Date: Fri, 22 May 2015 08:40:25 +0200
+Message-ID: <2287044.Rx7bts6Hbt@tauon>
+References: <20150521103938.GA23035@gondor.apana.org.au> <E1YvNxL-00063M-DH@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:34311 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751355AbbEVGhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 02:37:55 -0400
-Received: by wicmc15 with SMTP id mc15so31697145wic.1
-        for <netdev@vger.kernel.org>; Thu, 21 May 2015 23:37:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1432253506-3646977-4-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <E1YvNxL-00063M-DH@gondolin.me.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, May 22, 2015 at 02:11:38AM CEST, tom@herbertland.com wrote:
->key_basic is set twice in __skb_flow_dissect which seems unnecessary.
->Remove second one.
->
->Signed-off-by: Tom Herbert <tom@herbertland.com>
+Am Donnerstag, 21. Mai 2015, 18:44:03 schrieb Herbert Xu:
 
-I have the same patch in my queue :)
+Hi Herbert,
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+>-	aead_givcrypt_set_callback(req, 0, esp_output_done, skb);
+>-	aead_givcrypt_set_crypt(req, sg, sg, clen, iv);
+>-	aead_givcrypt_set_assoc(req, asg, assoclen);
+>-	aead_givcrypt_set_giv(req, esph->enc_data,
+>-			      XFRM_SKB_CB(skb)->seq.output.low);
+>+	aead_request_set_crypt(req, sg, sg, ivlen + clen, iv);
+>+	aead_request_set_ad(req, assoclen, 0);
+
+If I may ask, where in your initial patch set is now decided that the IV 
+generator is used (i.e. so that the givcrypt API is not needed any more)?
+
+Do I understand it correctly that you want to retire the givcrypt API 
+entirely?
+
+Thanks
+Stephan
