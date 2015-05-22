@@ -1,51 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv4: Avoid crashing in ip_error
-Date: Fri, 22 May 2015 05:08:40 -0700
-Message-ID: <1432296520.4060.129.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <2b6d6ab2d8c35af3be55c82e507f5376@vittgam.net>
-	 <20150520025428.GA23304@kroah.com>
-	 <b5abf7328b22373e4ec18bd6da479431@vittgam.net>
-	 <06f5f10e9ee831f5a839c6ea24b94f64@vittgam.net>
-	 <d146b8b8a69462ced89a384e6be85b28@vittgam.net>
-	 <4cb068397127c2b2baee1f021b014b11@vittgam.net>
-	 <da006bc9072931406270f0fdda06045d@vittgam.net>
-	 <6056363be65a2c129551518da94bff20@vittgam.net>
-	 <87a8wx97er.fsf@x220.int.ebiederm.org>
-	 <ff82713d6862786de9784bd3c9c06bfa@vittgam.net>
-	 <20150522040453.GC8530@1wt.eu> <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: pull-request: wireless-drivers-next 2015-05-21
+Date: Fri, 22 May 2015 15:27:36 +0300
+Message-ID: <87r3q84x1j.fsf@kamboji.qca.qualcomm.com>
+References: <87k2w26oef.fsf@kamboji.qca.qualcomm.com>
+	<CA+BoTQmukTiNFrsLA5rdiQe=Ga45JNuFzSmqQ4h-VJMW97f=_w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Vittorio G (VittGam)" <linuxbugs@vittgam.net>,
-	security@kernel.org, Greg KH <greg@kroah.com>, luto@amacapital.net,
-	Willy Tarreau <w@1wt.eu>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:35122 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752120AbbEVMIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 08:08:44 -0400
-Received: by igbyr2 with SMTP id yr2so33770843igb.0
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 05:08:43 -0700 (PDT)
-In-Reply-To: <87zj4x6iiz.fsf_-_@x220.int.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+BoTQmukTiNFrsLA5rdiQe=Ga45JNuFzSmqQ4h-VJMW97f=_w@mail.gmail.com>
+	(Michal Kazior's message of "Fri, 22 May 2015 12:16:17 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2015-05-22 at 04:58 -0500, Eric W. Biederman wrote:
-> ip_error does not check if in_dev is NULL before dereferencing it.
+Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org> writes:
 
-> 
-> Therefore handle this weird case by just dropping the packet if
-> !in_dev.  It will result in dropping the packet sooner, and will not
-> result in an actual change of behavior.
-> 
-> Fixes: 251da4130115b ("ipv4: Cache ip_error() routes even when not forwarding.")
-> Reported-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-> Tested-by: "Vittorio G (VittGam)" <linuxbugs@vittgam.net>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
+> On 21 May 2015 at 15:39, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+>
+>> Secondly there's a non-trivial conflict in
+>> drivers/net/wireless/ath/ath10k/mac.c which is due to removal of
+>> FIF_PROMISC_IN_BSS in commit df1404650c. You need to remove more code
+>> than just the obvious conflicts shown by git. In the end of this mail I
+>> added a git diff output after I fixed the conflict, hopefully that helps
+>> you to fix it. The main points are that you remove
+>> ath10k_mac_should_disable_promisc() and the last ath10k_monitor_recalc()
+>> call from ath10k_vdev_start_restart() along with the obvious conflict
+>> fixes git points out.
+>>
+>> There's also a patch from Michal which will also help to fix the
+>> resolution. Michal, please double check the resolution proposal below so
+>> that I didn't miss anything.
+>>
+>> https://patchwork.kernel.org/patch/6387631/
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+[...]
 
-Thanks !
+> Looks good to me.
+
+Thanks for checking.
+
+> There's still some code left which is unnecessary (see 2 last hunks on
+> patchwork) because due to FIF_PROMISC_IN_BSS removal entire commit
+> 548462133d98 becomes obsolete. Since these 2 hunk leftovers don't
+> break anything functionally I guess this can be cleaned up in a follow
+> up patch after the merge. Just my 2cc.
+
+Just to avoid any confusion, these are the hunks you mean (copypaste
+from patchwork, whitespace damage likely):
+
+@@ -1267,7 +1250,7 @@  static int ath10k_vdev_start_restart(struct ath10k_vif *arvif,
+ {
+ 	struct ath10k *ar = arvif->ar;
+ 	struct wmi_vdev_start_request_arg arg = {};
+-	int ret = 0, ret2;
++	int ret = 0;
+ 
+ 	lockdep_assert_held(&ar->conf_mutex);
+ 
+@@ -1326,16 +1309,6 @@  static int ath10k_vdev_start_restart(struct ath10k_vif *arvif,
+ 	ar->num_started_vdevs++;
+ 	ath10k_recalc_radar_detection(ar);
+ 
+-	ret = ath10k_monitor_recalc(ar);
+-	if (ret) {
+-		ath10k_warn(ar, "mac failed to recalc monitor for vdev %i restart %d: %d\n",
+-			    arg.vdev_id, restart, ret);
+-		ret2 = ath10k_vdev_stop(arvif);
+-		if (ret2)
+-			ath10k_warn(ar, "mac failed to stop vdev %i restart %d: %d\n",
+-				    arg.vdev_id, restart, ret2);
+-	}
+-
+ 	return ret;
+ }
+
+Yeah, these needs to be removed. For some reason 'git diff' doesn't show
+these hunks after the conflicts are fixed.
+
+>> + static int ath10k_vdev_start_restart(struct ath10k_vif *arvif,
+>> +                                    const struct cfg80211_chan_def *chandef,
+>> +                                    bool restart)
+>>   {
+>>         struct ath10k *ar = arvif->ar;
+>> -       struct cfg80211_chan_def *chandef = &ar->chandef;
+>>         struct wmi_vdev_start_request_arg arg = {};
+>>  -      int ret = 0, ret2;
+>>  +      int ret = 0;
+>>
+>>         lockdep_assert_held(&ar->conf_mutex);
+>>
+>
+> Kalle, I'm not seeing this when I merge your pull tag on top of
+> net-next/master. Am I missing something?
+
+You lost me, you are not seeing what? I think we have a misunderstanding
+here, let me explain how I created that diff:
+
+git clone --reference ~/linux-2.6/ git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+cd net-next/
+git pull git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git tags/wireless-drivers-next-for-davem-2015-05-21
+emacs drivers/net/wireless/ath/ath10k/mac.c
+git diff > resolution.txt
+
+> Anyway FYI ath10k_vdev_stop() was moved up in the code to avoid
+> forward declaration in 822b7e0b633b.
+
+Didn't understand this either.
+
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
