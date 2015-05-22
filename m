@@ -1,92 +1,49 @@
-From: Cong Wang <cwang@twopensource.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH net-next] bridge: allow setting hash_max +
  multicast_router if interface is down
-Date: Thu, 21 May 2015 20:11:32 -0700
-Message-ID: <CAHA+R7M+F88KsAJy-fGkSjUXxgBNifdML0E3r8jrQqXafZMUpA@mail.gmail.com>
+Date: Fri, 22 May 2015 11:12:00 +0800
+Message-ID: <20150522031200.GA30043@gondor.apana.org.au>
 References: <1432256161-4425-1-git-send-email-linus.luessing@c0d3.blue>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
 In-Reply-To: <1432256161-4425-1-git-send-email-linus.luessing@c0d3.blue>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 21, 2015 at 5:56 PM, Linus L=C3=BCssing <linus.luessing@c0d=
-3.blue> wrote:
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 2d69d5c..066199e 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1775,8 +1775,6 @@ int br_multicast_set_router(struct net_bridge *=
-br, unsigned long val)
->         int err =3D -ENOENT;
->
+On Fri, May 22, 2015 at 02:56:01AM +0200, Linus L=FCssing wrote:
+> Network managers like netifd (used in OpenWRT for instance) try to
+> configure interface options after creation but before setting the
+> interface up.
+>=20
+> Unfortunately the sysfs / bridge currently only allows to configure the
+> hash_max and multicast_router options when the bridge interface is up.
+> But since br_multicast_init() doesn't start any timers and only sets
+> default values and initializes timers it should be save to reconfigure
+> the default values after that, before things actually get active after
+> the bridge is set up.
+>=20
+> With this patch hash_max and multicast_router attributes can be
+> changed even if the according bridge (port) is down, just like other
+> other bridge (port) attributes allow too.
+>=20
+> Signed-off-by: Linus L=FCssing <linus.luessing@c0d3.blue>
 
-Nit: err can be initialized to -EINVAL now.
-
->         spin_lock_bh(&br->multicast_lock);
-> -       if (!netif_running(br->dev))
-> -               goto unlock;
->
->         switch (val) {
->         case 0:
-> @@ -1793,7 +1791,6 @@ int br_multicast_set_router(struct net_bridge *=
-br, unsigned long val)
->                 break;
->         }
->
-> -unlock:
->         spin_unlock_bh(&br->multicast_lock);
->
->         return err;
-> @@ -1802,18 +1799,15 @@ unlock:
->  int br_multicast_set_port_router(struct net_bridge_port *p, unsigned=
- long val)
->  {
->         struct net_bridge *br =3D p->br;
-> -       int err =3D -ENOENT;
-> +       int err =3D 0;
->
->         spin_lock(&br->multicast_lock);
-
-
-Not related with your patch, but why we don't need to disable bh here?
-
-=46or me it looks like we do use p->rlist in BH context, but I could ea=
-sily
-miss something here.
-
-> -       if (!netif_running(br->dev) || p->state =3D=3D BR_STATE_DISAB=
-LED)
-> -               goto unlock;
->
->         switch (val) {
->         case 0:
->         case 1:
->         case 2:
->                 p->multicast_router =3D val;
-> -               err =3D 0;
->
->                 if (val < 2 && !hlist_unhashed(&p->rlist))
->                         hlist_del_init_rcu(&p->rlist);
-> @@ -1834,7 +1828,6 @@ int br_multicast_set_port_router(struct net_bri=
-dge_port *p, unsigned long val)
->                 break;
->         }
->
-> -unlock:
->         spin_unlock(&br->multicast_lock);
->
->         return err;
-
-
-Thanks!
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
