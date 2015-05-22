@@ -1,64 +1,58 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] x86: bpf_jit: fix compilation of large bpf programs
-Date: Fri, 22 May 2015 15:42:55 -0700
-Message-ID: <1432334575-16959-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Arun Parameswaran <aparames@broadcom.com>
+Subject: [PATCH 2/2] ethtool: Fix an issue with handling 'phyad' while updating settings
+Date: Fri, 22 May 2015 15:43:29 -0700
+Message-ID: <1432334609-3971-3-git-send-email-aparames@broadcom.com>
+References: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <jdzheng@broadcom.com>,
+	<aparames@broadcom.com>
+To: Ben Hutchings <bwh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36031 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422679AbbEVWnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:43:03 -0400
-Received: by paza2 with SMTP id a2so20691747paz.3
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 15:43:02 -0700 (PDT)
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:58230 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756929AbbEVWng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:43:36 -0400
+In-Reply-To: <1432334609-3971-1-git-send-email-aparames@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-x86 has variable length encoding. x86 JIT compiler is trying
-to pick the shortest encoding for given bpf instruction.
-While doing so the jump targets are changing, so JIT is doing
-multiple passes over the program. Typical program needs 3 passes.
-Some very short programs converge with 2 passes. Large programs
-may need 4 or 5. But specially crafted bpf programs may hit the
-pass limit and if the program converges on the last iteration
-the JIT compiler will be producing an image full of 'int 3' insns.
-Fix this corner case by doing final iteration over bpf program.
+When using the 'ethtool' to set PHY1's settings, the 'ethtool'
+seems to do the 'get' settings with incorrect PHY ID and then
+apply the new settings on it.
 
-Fixes: 0a14842f5a3c ("net: filter: Just In Time compiler for x86-64")
-Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+For example when using the command, to change PHY1's speed,
+'ethtool -s eth0 phyad 1 speed 100', the 'ethtool' will end up
+querying PHY0's settings and then apply the new settings specified
+in the command on top of the PHY0's settings. So the PHY1 will
+end up with worng settings (partial settings of PHY0 for example).
+
+This patch fixes the issue by specifying the 'phyad' or 'port'
+requested in the command to query for the settings, before applying
+the new ones.
+
+Signed-off-by: Arun Parameswaran <aparames@broadcom.com>
+Reviewed-by: JD (Jiandong) Zheng <jdzheng@broadcom.com>
 ---
-Daniel wrote the 'Edge hopping nuthouse' test case with 4k jump
-instructions that managed to trigger this bug.
-The test case is nuts and the bug is real.
-It's an old bug, but I think worth backporting all the way.
-Though this fix will apply cleanly only till commit:
-f3c2af7ba17a ("net: filter: x86: split bpf_jit_compile()")
-The older kernels should be similar. They have
-'for (pass = 0; pass < 10; pass++) {' at the line 153 or so.
-and all have similar problem as far as I can see.
+ ethtool.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
- arch/x86/net/bpf_jit_comp.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 99f76103c6b7..ddeff4844a10 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -966,7 +966,12 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
- 	}
- 	ctx.cleanup_addr = proglen;
+diff --git a/ethtool.c b/ethtool.c
+index 668c189..6c57297 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2523,6 +2523,12 @@ static int do_sset(struct cmd_context *ctx)
  
--	for (pass = 0; pass < 10; pass++) {
-+	/* JITed image shrinks with every pass and the loop iterates
-+	 * until the image stops shrinking. Very large bpf programs
-+	 * may converge on the last pass. In such case do one more
-+	 * pass to emit the final image
-+	 */
-+	for (pass = 0; pass < 10 || image; pass++) {
- 		proglen = do_jit(prog, addrs, image, oldproglen, &ctx);
- 		if (proglen <= 0) {
- 			image = NULL;
+ 		memset(&ecmd, 0, sizeof(struct ethtool_cmd));
+ 
++		if (phyad_wanted != -1)
++			ecmd.phy_address = phyad_wanted;
++
++		if (port_wanted != -1)
++			ecmd.port = port_wanted;
++
+ 		ecmd.cmd = ETHTOOL_GSET;
+ 		err = send_ioctl(ctx, &ecmd);
+ 		if (err < 0) {
 -- 
 1.7.9.5
