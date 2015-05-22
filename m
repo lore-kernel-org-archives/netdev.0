@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 6/13] xfrm: Add IV generator information to xfrm_algo_desc
-Date: Fri, 22 May 2015 16:30:54 +0800
-Message-ID: <E1YviM2-0000yB-Pe@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 3/13] crypto: echainiv - Use aead_register_instance
+Date: Fri, 22 May 2015 16:30:51 +0800
+Message-ID: <E1YviLz-0000xM-9A@gondolin.me.apana.org.au>
 References: <20150522082708.GA3507@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -9,170 +9,114 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Marcel Holtmann <marcel@holtmann.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:47718 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752567AbbEVIay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:30:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds IV generator information for each AEAD and block
-cipher to xfrm_algo_desc.  This will be used to access the new
-AEAD interface.
+New style AEAD instances must use aead_register_instance.  This
+worked by chance because aead_geniv_alloc is still setting things
+the old way.
+
+This patch converts the template over to the create model where
+we are responsible for instance registration so that we can call
+the correct function.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h   |    2 ++
- net/xfrm/xfrm_algo.c |   16 ++++++++++++++++
- 2 files changed, 18 insertions(+)
+ crypto/echainiv.c |   42 +++++++++++++++++++++++-------------------
+ 1 file changed, 23 insertions(+), 19 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 36ac102..30bca86 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1314,6 +1314,7 @@ static inline int xfrm_id_proto_match(u8 proto, u8 userproto)
-  * xfrm algorithm information
-  */
- struct xfrm_algo_aead_info {
-+	char *geniv;
- 	u16 icv_truncbits;
+diff --git a/crypto/echainiv.c b/crypto/echainiv.c
+index e5a9878..86e92fa 100644
+--- a/crypto/echainiv.c
++++ b/crypto/echainiv.c
+@@ -430,26 +430,24 @@ static void echainiv_exit(struct crypto_tfm *tfm)
+ 	crypto_put_default_null_skcipher();
+ }
+ 
+-static struct crypto_template echainiv_tmpl;
+-
+-static struct crypto_instance *echainiv_aead_alloc(struct rtattr **tb)
++static int echainiv_aead_create(struct crypto_template *tmpl,
++				struct rtattr **tb)
+ {
+ 	struct aead_instance *inst;
+ 	struct crypto_aead_spawn *spawn;
+ 	struct aead_alg *alg;
++	int err;
+ 
+-	inst = aead_geniv_alloc(&echainiv_tmpl, tb, 0, 0);
++	inst = aead_geniv_alloc(tmpl, tb, 0, 0);
+ 
+ 	if (IS_ERR(inst))
+-		goto out;
++		return PTR_ERR(inst);
+ 
++	err = -EINVAL;
+ 	if (inst->alg.ivsize < sizeof(u64) ||
+ 	    inst->alg.ivsize & (sizeof(u32) - 1) ||
+-	    inst->alg.ivsize > MAX_IV_SIZE) {
+-		aead_geniv_free(inst);
+-		inst = ERR_PTR(-EINVAL);
+-		goto out;
+-	}
++	    inst->alg.ivsize > MAX_IV_SIZE)
++		goto free_inst;
+ 
+ 	spawn = aead_instance_ctx(inst);
+ 	alg = crypto_spawn_aead_alg(spawn);
+@@ -474,26 +472,32 @@ static struct crypto_instance *echainiv_aead_alloc(struct rtattr **tb)
+ 		inst->alg.base.cra_exit = echainiv_compat_exit;
+ 	}
+ 
++	err = aead_register_instance(tmpl, inst);
++	if (err)
++		goto free_inst;
++
+ out:
+-	return aead_crypto_instance(inst);
++	return err;
++
++free_inst:
++	aead_geniv_free(inst);
++	goto out;
+ }
+ 
+-static struct crypto_instance *echainiv_alloc(struct rtattr **tb)
++static int echainiv_create(struct crypto_template *tmpl, struct rtattr **tb)
+ {
+-	struct crypto_instance *inst;
+ 	int err;
+ 
+ 	err = crypto_get_default_rng();
+ 	if (err)
+-		return ERR_PTR(err);
+-
+-	inst = echainiv_aead_alloc(tb);
++		goto out;
+ 
+-	if (IS_ERR(inst))
++	err = echainiv_aead_create(tmpl, tb);
++	if (err)
+ 		goto put_rng;
+ 
+ out:
+-	return inst;
++	return err;
+ 
+ put_rng:
+ 	crypto_put_default_rng();
+@@ -508,7 +512,7 @@ static void echainiv_free(struct crypto_instance *inst)
+ 
+ static struct crypto_template echainiv_tmpl = {
+ 	.name = "echainiv",
+-	.alloc = echainiv_alloc,
++	.create = echainiv_create,
+ 	.free = echainiv_free,
+ 	.module = THIS_MODULE,
  };
- 
-@@ -1323,6 +1324,7 @@ struct xfrm_algo_auth_info {
- };
- 
- struct xfrm_algo_encr_info {
-+	char *geniv;
- 	u16 blockbits;
- 	u16 defkeybits;
- };
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index 12e82a5..67266b7 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -31,6 +31,7 @@ static struct xfrm_algo_desc aead_list[] = {
- 
- 	.uinfo = {
- 		.aead = {
-+			.geniv = "seqniv",
- 			.icv_truncbits = 64,
- 		}
- 	},
-@@ -49,6 +50,7 @@ static struct xfrm_algo_desc aead_list[] = {
- 
- 	.uinfo = {
- 		.aead = {
-+			.geniv = "seqniv",
- 			.icv_truncbits = 96,
- 		}
- 	},
-@@ -67,6 +69,7 @@ static struct xfrm_algo_desc aead_list[] = {
- 
- 	.uinfo = {
- 		.aead = {
-+			.geniv = "seqniv",
- 			.icv_truncbits = 128,
- 		}
- 	},
-@@ -85,6 +88,7 @@ static struct xfrm_algo_desc aead_list[] = {
- 
- 	.uinfo = {
- 		.aead = {
-+			.geniv = "seqniv",
- 			.icv_truncbits = 64,
- 		}
- 	},
-@@ -103,6 +107,7 @@ static struct xfrm_algo_desc aead_list[] = {
- 
- 	.uinfo = {
- 		.aead = {
-+			.geniv = "seqniv",
- 			.icv_truncbits = 96,
- 		}
- 	},
-@@ -121,6 +126,7 @@ static struct xfrm_algo_desc aead_list[] = {
- 
- 	.uinfo = {
- 		.aead = {
-+			.geniv = "seqniv",
- 			.icv_truncbits = 128,
- 		}
- 	},
-@@ -139,6 +145,7 @@ static struct xfrm_algo_desc aead_list[] = {
- 
- 	.uinfo = {
- 		.aead = {
-+			.geniv = "seqiv",
- 			.icv_truncbits = 128,
- 		}
- 	},
-@@ -353,6 +360,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 64,
- 			.defkeybits = 64,
- 		}
-@@ -373,6 +381,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 64,
- 			.defkeybits = 192,
- 		}
-@@ -393,6 +402,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 64,
- 			.defkeybits = 128,
- 		}
-@@ -413,6 +423,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 64,
- 			.defkeybits = 128,
- 		}
-@@ -433,6 +444,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 128,
- 			.defkeybits = 128,
- 		}
-@@ -453,6 +465,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 128,
- 			.defkeybits = 128,
- 		}
-@@ -473,6 +486,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 128,
- 			.defkeybits = 128,
- 		}
-@@ -493,6 +507,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "echainiv",
- 			.blockbits = 128,
- 			.defkeybits = 128,
- 		}
-@@ -512,6 +527,7 @@ static struct xfrm_algo_desc ealg_list[] = {
- 
- 	.uinfo = {
- 		.encr = {
-+			.geniv = "seqiv",
- 			.blockbits = 128,
- 			.defkeybits = 160, /* 128-bit key + 32-bit nonce */
- 		}
