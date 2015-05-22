@@ -1,201 +1,66 @@
-From: Neil McKee <neil.mckee@inmon.com>
-Subject: [PATCH net-next] openvswitch: include datapath actions with sampled-packet upcall to userspace
-Date: Fri, 22 May 2015 15:08:41 -0700
-Message-ID: <1432332521-19895-1-git-send-email-neil.mckee@inmon.com>
-References: <CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
-Cc: Neil McKee <neil.mckee@inmon.com>
-To: netdev@vger.kernel.org, pshelar@nicira.com
+From: Petri Gynther <pgynther@google.com>
+Subject: Re: [PATCH net] net: phy: bcm7xxx: Fix 7425 PHY ID and flags
+Date: Fri, 22 May 2015 15:16:03 -0700
+Message-ID: <CAGXr9JGpvdV=k1kO7zJNSTX3DtNGjbG2xaUe0-ZXH7wGWvbYuw@mail.gmail.com>
+References: <1432328850-29065-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:32771 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757335AbbEVWJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:09:20 -0400
-Received: by padbw4 with SMTP id bw4so29537725pad.0
-        for <netdev@vger.kernel.org>; Fri, 22 May 2015 15:09:19 -0700 (PDT)
-In-Reply-To: <CALnjE+rxMdfZFe5nTGzJSpeH4a1+0Z3ka8Gur1jGmVNBPAcF+w@mail.gmail.com>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:36026 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757104AbbEVWQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 18:16:04 -0400
+Received: by qget53 with SMTP id t53so16954691qge.3
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 15:16:03 -0700 (PDT)
+In-Reply-To: <1432328850-29065-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If new optional attribute OVS_USERSPACE_ATTR_ACTIONS is added to an
-OVS_ACTION_ATTR_USERSPACE action, then include the datapath actions
-in the upcall.
+On Fri, May 22, 2015 at 2:07 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> While adding support for 7425 PHY in the 7xxx PHY driver, the ID that
+> was used was actually coming from an external PHY: a BCM5461x. Fix this
+> by using the proper ID for the internal 7425 PHY and set the
+> PHY_IS_INTERNAL flag, otherwise consumers of this PHY driver would not
+> be able to properly identify it as such.
+>
+> Fixes: d068b02cfdfc2 ("net: phy: add BCM7425 and BCM7429 PHYs")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-This Directly associates the sampled packet with the path it takes
-through the virtual switch. Path information currently includes mangling,
-encapsulation and decapsulation actions for tunneling protocols GRE,
-VXLAN, Geneve, MPLS and QinQ, but this extension requires no further
-changes to accommodate datapath actions that may be added in the
-future.
+Reviewed-by: Petri Gynther <pgynther@google.com>
 
-Adding path information enhances visibility into complex virtual
-networks.
-
-Signed-off-by: Neil McKee <neil.mckee@inmon.com>
----
- include/uapi/linux/openvswitch.h |  4 ++++
- net/openvswitch/actions.c        | 21 ++++++++++++++++-----
- net/openvswitch/datapath.c       | 18 ++++++++++++++++++
- net/openvswitch/datapath.h       |  2 ++
- 4 files changed, 40 insertions(+), 5 deletions(-)
-
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index bbd49a0..1dab776 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -153,6 +153,8 @@ enum ovs_packet_cmd {
-  * flow key against the kernel's.
-  * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
-  * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
-+ * Also used in upcall when %OVS_ACTION_ATTR_USERSPACE has optional
-+ * %OVS_USERSPACE_ATTR_ACTIONS attribute.
-  * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
-  * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
-  * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
-@@ -528,6 +530,7 @@ enum ovs_sample_attr {
-  * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
-  * @OVS_USERSPACE_ATTR_EGRESS_TUN_PORT: If present, u32 output port to get
-  * tunnel info.
-+ * @OVS_USERSPACE_ATTR_ACTIONS: If present, send actions with upcall.
-  */
- enum ovs_userspace_attr {
- 	OVS_USERSPACE_ATTR_UNSPEC,
-@@ -535,6 +538,7 @@ enum ovs_userspace_attr {
- 	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
- 	OVS_USERSPACE_ATTR_EGRESS_TUN_PORT,  /* Optional, u32 output port
- 					      * to get tunnel info. */
-+	OVS_USERSPACE_ATTR_ACTIONS,   /* Optional flag to get actions. */
- 	__OVS_USERSPACE_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index b491c1c..b3f9b89 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
- }
- 
- static int output_userspace(struct datapath *dp, struct sk_buff *skb,
--			    struct sw_flow_key *key, const struct nlattr *attr)
-+			    struct sw_flow_key *key, const struct nlattr *attr,
-+			    const struct nlattr *actions, int actions_len)
- {
- 	struct ovs_tunnel_info info;
- 	struct dp_upcall_info upcall;
-@@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- 	upcall.userdata = NULL;
- 	upcall.portid = 0;
- 	upcall.egress_tun_info = NULL;
-+	upcall.actions = NULL;
-+	upcall.actions_len = 0;
- 
- 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
- 		 a = nla_next(a, &rem)) {
-@@ -647,6 +650,13 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 		}
- 
-+		case OVS_USERSPACE_ATTR_ACTIONS: {
-+			/* Include actions. */
-+			upcall.actions = actions;
-+			upcall.actions_len = actions_len;
-+			break;
-+		}
-+
- 		} /* End of switch. */
- 	}
- 
-@@ -654,7 +664,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
- }
- 
- static int sample(struct datapath *dp, struct sk_buff *skb,
--		  struct sw_flow_key *key, const struct nlattr *attr)
-+		  struct sw_flow_key *key, const struct nlattr *attr,
-+		  const struct nlattr *actions, int actions_len)
- {
- 	const struct nlattr *acts_list = NULL;
- 	const struct nlattr *a;
-@@ -688,7 +699,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 	 */
- 	if (likely(nla_type(a) == OVS_ACTION_ATTR_USERSPACE &&
- 		   nla_is_last(a, rem)))
--		return output_userspace(dp, skb, key, a);
-+		return output_userspace(dp, skb, key, a, actions, actions_len);
- 
- 	skb = skb_clone(skb, GFP_ATOMIC);
- 	if (!skb)
-@@ -872,7 +883,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 
- 		case OVS_ACTION_ATTR_USERSPACE:
--			output_userspace(dp, skb, key, a);
-+			output_userspace(dp, skb, key, a, attr, len);
- 			break;
- 
- 		case OVS_ACTION_ATTR_HASH:
-@@ -916,7 +927,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			break;
- 
- 		case OVS_ACTION_ATTR_SAMPLE:
--			err = sample(dp, skb, key, a);
-+			err = sample(dp, skb, key, a, attr, len);
- 			break;
- 		}
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 5bae724..e735c8f 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -277,6 +277,8 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
- 		upcall.userdata = NULL;
- 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
- 		upcall.egress_tun_info = NULL;
-+		upcall.actions = NULL;
-+		upcall.actions_len = 0;
- 		error = ovs_dp_upcall(dp, skb, key, &upcall);
- 		if (unlikely(error))
- 			kfree_skb(skb);
-@@ -398,6 +400,10 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
- 	if (upcall_info->egress_tun_info)
- 		size += nla_total_size(ovs_tun_key_attr_size());
- 
-+	/* OVS_PACKET_ATTR_ACTIONS */
-+	if (upcall_info->actions_len)
-+		size += nla_total_size(upcall_info->actions_len);
-+
- 	return size;
- }
- 
-@@ -479,6 +485,18 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		nla_nest_end(user_skb, nla);
- 	}
- 
-+	if (upcall_info->actions_len) {
-+		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_ACTIONS);
-+		err = ovs_nla_put_actions(upcall_info->actions,
-+					  upcall_info->actions_len,
-+					  user_skb);
-+		if (!err) {
-+			nla_nest_end(user_skb, nla);
-+		} else {
-+			nla_nest_cancel(user_skb, nla);
-+		}
-+	}
-+
- 	/* Only reserve room for attribute header, packet data is added
- 	 * in skb_zerocopy() */
- 	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 3ece945..b98b1b4 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -118,6 +118,8 @@ struct ovs_skb_cb {
- struct dp_upcall_info {
- 	const struct ovs_tunnel_info *egress_tun_info;
- 	const struct nlattr *userdata;
-+	const struct nlattr *actions;
-+	int actions_len;
- 	u32 portid;
- 	u8 cmd;
- };
--- 
-1.9.3
+> ---
+>  drivers/net/phy/bcm7xxx.c | 2 +-
+>  include/linux/brcmphy.h   | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
+> index 64c74c6a4828..b5dc59de094e 100644
+> --- a/drivers/net/phy/bcm7xxx.c
+> +++ b/drivers/net/phy/bcm7xxx.c
+> @@ -404,7 +404,7 @@ static struct phy_driver bcm7xxx_driver[] = {
+>         .name           = "Broadcom BCM7425",
+>         .features       = PHY_GBIT_FEATURES |
+>                           SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> -       .flags          = 0,
+> +       .flags          = PHY_IS_INTERNAL,
+>         .config_init    = bcm7xxx_config_init,
+>         .config_aneg    = genphy_config_aneg,
+>         .read_status    = genphy_read_status,
+> diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+> index ae2982c0f7a6..656da2a12ffe 100644
+> --- a/include/linux/brcmphy.h
+> +++ b/include/linux/brcmphy.h
+> @@ -17,7 +17,7 @@
+>  #define PHY_ID_BCM7250                 0xae025280
+>  #define PHY_ID_BCM7364                 0xae025260
+>  #define PHY_ID_BCM7366                 0x600d8490
+> -#define PHY_ID_BCM7425                 0x03625e60
+> +#define PHY_ID_BCM7425                 0x600d86b0
+>  #define PHY_ID_BCM7429                 0x600d8730
+>  #define PHY_ID_BCM7439                 0x600d8480
+>  #define PHY_ID_BCM7439_2               0xae025080
+> --
+> 2.1.0
+>
