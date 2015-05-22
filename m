@@ -1,47 +1,199 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH] mlx4_core: Fix fallback from MSI-X to INTx
-Date: Fri, 22 May 2015 16:12:26 -0700
-Message-ID: <1432336346-20290-1-git-send-email-bpoirier@suse.de>
-Cc: Yishai Hadas <yishaih@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Amir Vadai <amirv@mellanox.com>, Ido Shamay <idos@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil McKee <neil.mckee@inmon.com>
+Subject: [PATCH v2 net-next] openvswitch: include datapath actions with sampled-packet upcall to userspace
+Date: Fri, 22 May 2015 16:21:24 -0700
+Message-ID: <1432336884-21720-1-git-send-email-neil.mckee@inmon.com>
+Cc: Neil McKee <neil.mckee@inmon.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:33275 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757793AbbEVXVe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 19:21:34 -0400
+Received: by pdbqa5 with SMTP id qa5so30028369pdb.0
+        for <netdev@vger.kernel.org>; Fri, 22 May 2015 16:21:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The test in mlx4_load_one() to remove MLX4_FLAG_MSI_X expects mlx4_NOP() to
-fail with -EBUSY. It is also necessary to avoid the reset since the device
-is not fully reinitialized before calling mlx4_start_hca() a second time.
+If new optional attribute OVS_USERSPACE_ATTR_ACTIONS is added to an
+OVS_ACTION_ATTR_USERSPACE action, then include the datapath actions
+in the upcall.
 
-Note that this will also affect mlx4_test_interrupts(), the only other user
-of MLX4_CMD_NOP.
+This Directly associates the sampled packet with the path it takes
+through the virtual switch. Path information currently includes mangling,
+encapsulation and decapsulation actions for tunneling protocols GRE,
+VXLAN, Geneve, MPLS and QinQ, but this extension requires no further
+changes to accommodate datapath actions that may be added in the
+future.
 
-Fixes: f5aef5a ("net/mlx4_core: Activate reset flow upon fatal command cases")
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+Adding path information enhances visibility into complex virtual
+networks.
+
+Signed-off-by: Neil McKee <neil.mckee@inmon.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ include/uapi/linux/openvswitch.h |  4 ++++
+ net/openvswitch/actions.c        | 21 ++++++++++++++++-----
+ net/openvswitch/datapath.c       | 18 ++++++++++++++++++
+ net/openvswitch/datapath.h       |  2 ++
+ 4 files changed, 40 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 4f7dc04..529ef05 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -714,8 +714,13 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 					 msecs_to_jiffies(timeout))) {
- 		mlx4_warn(dev, "command 0x%x timed out (go bit not cleared)\n",
- 			  op);
--		err = -EIO;
--		goto out_reset;
-+		if (op == MLX4_CMD_NOP) {
-+			err = -EBUSY;
-+			goto out;
-+		} else {
-+			err = -EIO;
-+			goto out_reset;
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index bbd49a0..1dab776 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -153,6 +153,8 @@ enum ovs_packet_cmd {
+  * flow key against the kernel's.
+  * @OVS_PACKET_ATTR_ACTIONS: Contains actions for the packet.  Used
+  * for %OVS_PACKET_CMD_EXECUTE.  It has nested %OVS_ACTION_ATTR_* attributes.
++ * Also used in upcall when %OVS_ACTION_ATTR_USERSPACE has optional
++ * %OVS_USERSPACE_ATTR_ACTIONS attribute.
+  * @OVS_PACKET_ATTR_USERDATA: Present for an %OVS_PACKET_CMD_ACTION
+  * notification if the %OVS_ACTION_ATTR_USERSPACE action specified an
+  * %OVS_USERSPACE_ATTR_USERDATA attribute, with the same length and content
+@@ -528,6 +530,7 @@ enum ovs_sample_attr {
+  * copied to the %OVS_PACKET_CMD_ACTION message as %OVS_PACKET_ATTR_USERDATA.
+  * @OVS_USERSPACE_ATTR_EGRESS_TUN_PORT: If present, u32 output port to get
+  * tunnel info.
++ * @OVS_USERSPACE_ATTR_ACTIONS: If present, send actions with upcall.
+  */
+ enum ovs_userspace_attr {
+ 	OVS_USERSPACE_ATTR_UNSPEC,
+@@ -535,6 +538,7 @@ enum ovs_userspace_attr {
+ 	OVS_USERSPACE_ATTR_USERDATA,  /* Optional user-specified cookie. */
+ 	OVS_USERSPACE_ATTR_EGRESS_TUN_PORT,  /* Optional, u32 output port
+ 					      * to get tunnel info. */
++	OVS_USERSPACE_ATTR_ACTIONS,   /* Optional flag to get actions. */
+ 	__OVS_USERSPACE_ATTR_MAX
+ };
+ 
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index b491c1c..b3f9b89 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -608,7 +608,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port)
+ }
+ 
+ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+-			    struct sw_flow_key *key, const struct nlattr *attr)
++			    struct sw_flow_key *key, const struct nlattr *attr,
++			    const struct nlattr *actions, int actions_len)
+ {
+ 	struct ovs_tunnel_info info;
+ 	struct dp_upcall_info upcall;
+@@ -619,6 +620,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 	upcall.userdata = NULL;
+ 	upcall.portid = 0;
+ 	upcall.egress_tun_info = NULL;
++	upcall.actions = NULL;
++	upcall.actions_len = 0;
+ 
+ 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+ 		 a = nla_next(a, &rem)) {
+@@ -647,6 +650,13 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 		}
+ 
++		case OVS_USERSPACE_ATTR_ACTIONS: {
++			/* Include actions. */
++			upcall.actions = actions;
++			upcall.actions_len = actions_len;
++			break;
 +		}
++
+ 		} /* End of switch. */
  	}
  
- 	err = context->result;
+@@ -654,7 +664,8 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ }
+ 
+ static int sample(struct datapath *dp, struct sk_buff *skb,
+-		  struct sw_flow_key *key, const struct nlattr *attr)
++		  struct sw_flow_key *key, const struct nlattr *attr,
++		  const struct nlattr *actions, int actions_len)
+ {
+ 	const struct nlattr *acts_list = NULL;
+ 	const struct nlattr *a;
+@@ -688,7 +699,7 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 	 */
+ 	if (likely(nla_type(a) == OVS_ACTION_ATTR_USERSPACE &&
+ 		   nla_is_last(a, rem)))
+-		return output_userspace(dp, skb, key, a);
++		return output_userspace(dp, skb, key, a, actions, actions_len);
+ 
+ 	skb = skb_clone(skb, GFP_ATOMIC);
+ 	if (!skb)
+@@ -872,7 +883,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_USERSPACE:
+-			output_userspace(dp, skb, key, a);
++			output_userspace(dp, skb, key, a, attr, len);
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_HASH:
+@@ -916,7 +927,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			break;
+ 
+ 		case OVS_ACTION_ATTR_SAMPLE:
+-			err = sample(dp, skb, key, a);
++			err = sample(dp, skb, key, a, attr, len);
+ 			break;
+ 		}
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 5bae724..e735c8f 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -277,6 +277,8 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
+ 		upcall.userdata = NULL;
+ 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
+ 		upcall.egress_tun_info = NULL;
++		upcall.actions = NULL;
++		upcall.actions_len = 0;
+ 		error = ovs_dp_upcall(dp, skb, key, &upcall);
+ 		if (unlikely(error))
+ 			kfree_skb(skb);
+@@ -398,6 +400,10 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+ 	if (upcall_info->egress_tun_info)
+ 		size += nla_total_size(ovs_tun_key_attr_size());
+ 
++	/* OVS_PACKET_ATTR_ACTIONS */
++	if (upcall_info->actions_len)
++		size += nla_total_size(upcall_info->actions_len);
++
+ 	return size;
+ }
+ 
+@@ -479,6 +485,18 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 		nla_nest_end(user_skb, nla);
+ 	}
+ 
++	if (upcall_info->actions_len) {
++		nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_ACTIONS);
++		err = ovs_nla_put_actions(upcall_info->actions,
++					  upcall_info->actions_len,
++					  user_skb);
++		if (!err) {
++			nla_nest_end(user_skb, nla);
++		} else {
++			nla_nest_cancel(user_skb, nla);
++		}
++	}
++
+ 	/* Only reserve room for attribute header, packet data is added
+ 	 * in skb_zerocopy() */
+ 	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 3ece945..b98b1b4 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -118,6 +118,8 @@ struct ovs_skb_cb {
+ struct dp_upcall_info {
+ 	const struct ovs_tunnel_info *egress_tun_info;
+ 	const struct nlattr *userdata;
++	const struct nlattr *actions;
++	int actions_len;
+ 	u32 portid;
+ 	u8 cmd;
+ };
 -- 
-2.3.5
+1.9.3
