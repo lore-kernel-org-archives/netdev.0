@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 10/13] mac802154: Switch to new AEAD interface
-Date: Fri, 22 May 2015 16:30:59 +0800
-Message-ID: <E1YviM7-0000zN-Kk@gondolin.me.apana.org.au>
+Subject: [v2 PATCH 12/13] crypto: tcrypt - Switch to new AEAD interface
+Date: Fri, 22 May 2015 16:31:02 +0800
+Message-ID: <E1YviMA-0000zt-KW@gondolin.me.apana.org.au>
 References: <20150522082708.GA3507@gondor.apana.org.au>
 To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
@@ -9,13 +9,9 @@ To: Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
 	Marcel Holtmann <marcel@holtmann.org>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	Stephan Mueller <smueller@chronox.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:43653 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756473AbbEVIbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 May 2015 04:31:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This patch makes use of the new AEAD interface which uses a single
 SG list instead of separate lists for the AD and plain text.
@@ -23,99 +19,60 @@ SG list instead of separate lists for the AD and plain text.
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/mac802154/llsec.c |   41 ++++++++++++++---------------------------
- 1 file changed, 14 insertions(+), 27 deletions(-)
+ crypto/tcrypt.c |   15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/net/mac802154/llsec.c b/net/mac802154/llsec.c
-index 3ccf1e9..e6332cd 100644
---- a/net/mac802154/llsec.c
-+++ b/net/mac802154/llsec.c
-@@ -650,7 +650,7 @@ llsec_do_encrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
- 	u8 iv[16];
- 	unsigned char *data;
- 	int authlen, assoclen, datalen, rc;
--	struct scatterlist src, assoc[2], dst[2];
-+	struct scatterlist sg;
+diff --git a/crypto/tcrypt.c b/crypto/tcrypt.c
+index 2bff613..336bd94 100644
+--- a/crypto/tcrypt.c
++++ b/crypto/tcrypt.c
+@@ -277,7 +277,6 @@ static void test_aead_speed(const char *algo, int enc, unsigned int secs,
+ 	const char *key;
  	struct aead_request *req;
+ 	struct scatterlist *sg;
+-	struct scatterlist *asg;
+ 	struct scatterlist *sgout;
+ 	const char *e;
+ 	void *assoc;
+@@ -309,11 +308,10 @@ static void test_aead_speed(const char *algo, int enc, unsigned int secs,
+ 	if (testmgr_alloc_buf(xoutbuf))
+ 		goto out_nooutbuf;
  
- 	authlen = ieee802154_sechdr_authtag_len(&hdr->sec);
-@@ -660,30 +660,23 @@ llsec_do_encrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
- 	if (!req)
- 		return -ENOMEM;
+-	sg = kmalloc(sizeof(*sg) * 8 * 3, GFP_KERNEL);
++	sg = kmalloc(sizeof(*sg) * 9 * 2, GFP_KERNEL);
+ 	if (!sg)
+ 		goto out_nosg;
+-	asg = &sg[8];
+-	sgout = &asg[8];
++	sgout = &sg[9];
  
--	sg_init_table(assoc, 2);
--	sg_set_buf(&assoc[0], skb_mac_header(skb), skb->mac_len);
- 	assoclen = skb->mac_len;
+ 	tfm = crypto_alloc_aead(algo, 0, 0);
  
- 	data = skb_mac_header(skb) + skb->mac_len;
- 	datalen = skb_tail_pointer(skb) - data;
+@@ -339,7 +337,8 @@ static void test_aead_speed(const char *algo, int enc, unsigned int secs,
+ 		do {
+ 			assoc = axbuf[0];
+ 			memset(assoc, 0xff, aad_size);
+-			sg_init_one(&asg[0], assoc, aad_size);
++			sg_set_buf(&sg[0], assoc, aad_size);
++			sg_set_buf(&sgout[0], assoc, aad_size);
  
--	if (hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC) {
--		sg_set_buf(&assoc[1], data, 0);
--	} else {
--		sg_set_buf(&assoc[1], data, datalen);
-+	skb_put(skb, authlen);
-+
-+	sg_init_one(&sg, skb_mac_header(skb), assoclen + datalen + authlen);
-+
-+	if (!(hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC)) {
- 		assoclen += datalen;
- 		datalen = 0;
- 	}
+ 			if ((*keysize + *b_size) > TVMEMSIZE * PAGE_SIZE) {
+ 				pr_err("template (%u) too big for tvmem (%lu)\n",
+@@ -375,14 +374,14 @@ static void test_aead_speed(const char *algo, int enc, unsigned int secs,
+ 				goto out;
+ 			}
  
--	sg_init_one(&src, data, datalen);
--
--	sg_init_table(dst, 2);
--	sg_set_buf(&dst[0], data, datalen);
--	sg_set_buf(&dst[1], skb_put(skb, authlen), authlen);
--
- 	aead_request_set_callback(req, 0, NULL, NULL);
--	aead_request_set_assoc(req, assoc, assoclen);
--	aead_request_set_crypt(req, &src, dst, datalen, iv);
-+	aead_request_set_crypt(req, &sg, &sg, datalen, iv);
-+	aead_request_set_ad(req, assoclen, 0);
+-			sg_init_aead(&sg[0], xbuf,
++			sg_init_aead(&sg[1], xbuf,
+ 				    *b_size + (enc ? authsize : 0));
  
- 	rc = crypto_aead_encrypt(req);
+-			sg_init_aead(&sgout[0], xoutbuf,
++			sg_init_aead(&sgout[1], xoutbuf,
+ 				    *b_size + (enc ? authsize : 0));
  
-@@ -859,7 +852,7 @@ llsec_do_decrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
- 	u8 iv[16];
- 	unsigned char *data;
- 	int authlen, datalen, assoclen, rc;
--	struct scatterlist src, assoc[2];
-+	struct scatterlist sg;
- 	struct aead_request *req;
+ 			aead_request_set_crypt(req, sg, sgout, *b_size, iv);
+-			aead_request_set_assoc(req, asg, aad_size);
++			aead_request_set_ad(req, aad_size, 0);
  
- 	authlen = ieee802154_sechdr_authtag_len(&hdr->sec);
-@@ -869,27 +862,21 @@ llsec_do_decrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
- 	if (!req)
- 		return -ENOMEM;
- 
--	sg_init_table(assoc, 2);
--	sg_set_buf(&assoc[0], skb_mac_header(skb), skb->mac_len);
- 	assoclen = skb->mac_len;
- 
- 	data = skb_mac_header(skb) + skb->mac_len;
- 	datalen = skb_tail_pointer(skb) - data;
- 
--	if (hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC) {
--		sg_set_buf(&assoc[1], data, 0);
--	} else {
--		sg_set_buf(&assoc[1], data, datalen - authlen);
-+	sg_init_one(&sg, skb_mac_header(skb), assoclen + datalen);
-+
-+	if (!(hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC)) {
- 		assoclen += datalen - authlen;
--		data += datalen - authlen;
- 		datalen = authlen;
- 	}
- 
--	sg_init_one(&src, data, datalen);
--
- 	aead_request_set_callback(req, 0, NULL, NULL);
--	aead_request_set_assoc(req, assoc, assoclen);
--	aead_request_set_crypt(req, &src, &src, datalen, iv);
-+	aead_request_set_crypt(req, &sg, &sg, datalen, iv);
-+	aead_request_set_ad(req, assoclen, 0);
- 
- 	rc = crypto_aead_decrypt(req);
- 
+ 			if (secs)
+ 				ret = test_aead_jiffies(req, enc, *b_size,
